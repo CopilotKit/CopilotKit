@@ -199,6 +199,18 @@ body {
   --ring: oklch(70% 0.17 280);
 }
 
+/* ── Spacing between stacked chat action cards ──────────────────────────────
+   HITL / tool-render cards (openPolicyException, approveTransaction, the
+   teach-loop cards, …) render as bordered blocks inside assistant messages.
+   CopilotKit lays the message list out as a flex column with no row-gap and
+   gives messages no margin, so a recall chain (open → finalize → approve)
+   renders several cards sharing an edge — both across consecutive assistant
+   messages and stacked within one. A uniform top gap on every card separates
+   them in both cases (the first card's gap is harmless against the chat top). */
+.copilotKitMessages .rounded-2xl.border-hairline {
+  margin-top: 0.75rem;
+}
+
 /* ── Legacy dark-mode overrides, retargeted to the new tokens ───────────── */
 .dark body {
   background-color: hsl(var(--canvas));

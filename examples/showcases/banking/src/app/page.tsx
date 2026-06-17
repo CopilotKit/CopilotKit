@@ -535,21 +535,32 @@ export default function Page() {
           currentUser={currentUser}
         />
       </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {/* Cards never squish: a horizontal-scroll row keeps each card at its
+          natural width (min 300px) and lets them grow to fill on wide screens.
+          When the chat panel docks open and narrows this area the row scrolls
+          horizontally instead of compressing the cards — which would otherwise
+          wrap the holder / valid-thru text. Mirrors the dashboard "My Cards".
+          `overflow-x-auto` also forces overflow-y to `auto`, so the matching
+          negative-margin / padding pairs (-mt-6/pt-6, -mx-2/px-2) keep the cards
+          in place while giving their soft drop shadows room inside the scroll
+          viewport instead of clipping them at the top/sides; pb-8 clears the
+          (downward) shadow at the bottom. */}
+      <div className="-mx-2 -mt-6 flex gap-6 overflow-x-auto px-2 pb-8 pt-6">
         {cards.length ? (
           cards.map((card) => (
-            <CreditCardDetails
-              key={card.id}
-              card={card}
-              holder={currentUser.name}
-              policy={policies.find((p) => p.id === card.expensePolicyId)}
-              onChangePinModalOpen={() =>
-                dispatch({ dialogOpen: true, cardId: card.id })
-              }
-            />
+            <div key={card.id} className="min-w-[300px] max-w-[420px] flex-1">
+              <CreditCardDetails
+                card={card}
+                holder={currentUser.name}
+                policy={policies.find((p) => p.id === card.expensePolicyId)}
+                onChangePinModalOpen={() =>
+                  dispatch({ dialogOpen: true, cardId: card.id })
+                }
+              />
+            </div>
           ))
         ) : (
-          <div className="col-span-full rounded-2xl border border-dashed border-hairline bg-surface/60 p-10 text-center text-ink-muted">
+          <div className="w-full rounded-2xl border border-dashed border-hairline bg-surface/60 p-10 text-center text-ink-muted">
             No cards found for {currentUser.team} team
           </div>
         )}
