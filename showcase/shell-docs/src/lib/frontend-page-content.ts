@@ -1,4 +1,5 @@
 import type { FrontendId } from "./frontend-options";
+import type { NavNode } from "./docs-render";
 
 export type FrontendPageId = Exclude<FrontendId, "react">;
 
@@ -276,4 +277,11 @@ export function getFrontendPageContent(
 ): FrontendPageContent | null {
   if (id === "react") return null;
   return FRONTEND_PAGE_CONTENT[id];
+}
+
+export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
+  return [
+    { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
+    { type: "page", title: "Quickstart", slug: `frontends/${id}` },
+  ];
 }

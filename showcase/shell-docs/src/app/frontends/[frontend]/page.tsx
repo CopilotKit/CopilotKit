@@ -6,28 +6,15 @@ import { DocsPage } from "fumadocs-ui/page";
 import { FrontendLogo } from "@/components/frontend-logo";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
-import type { NavNode } from "@/lib/docs-render";
 import {
   FRONTEND_PAGE_IDS,
   getFrontendPageContent,
+  getFrontendQuickstartNavTree,
 } from "@/lib/frontend-page-content";
 import type { FrontendPageContent } from "@/lib/frontend-page-content";
 import { getFrontendOption, isFrontendId } from "@/lib/frontend-options";
 import { navTreeToPageTree } from "@/lib/page-tree-bridge";
 import { buildDocMetadata } from "@/lib/seo-metadata";
-
-const FRONTEND_NAV_TREE: NavNode[] = [
-  { type: "section", title: "Frontends", icon: "lucide/Monitor" },
-  { type: "page", title: "React", slug: "" },
-  ...FRONTEND_PAGE_IDS.map((id) => ({
-    type: "page" as const,
-    title: getFrontendOption(id).name,
-    slug: `frontends/${id}`,
-  })),
-  { type: "section", title: "Reference", icon: "lucide/BookOpen" },
-  { type: "page", title: "API reference", slug: "reference" },
-  { type: "page", title: "AG-UI", slug: "ag-ui" },
-];
 
 export function generateStaticParams() {
   return FRONTEND_PAGE_IDS.map((frontend) => ({ frontend }));
@@ -65,7 +52,10 @@ export default async function FrontendQuickstartPage({
   const content = getFrontendPageContent(frontend);
   if (!content) notFound();
 
-  const pageTree = navTreeToPageTree(FRONTEND_NAV_TREE, "");
+  const pageTree = navTreeToPageTree(
+    getFrontendQuickstartNavTree(content.id),
+    "",
+  );
   const option = getFrontendOption(frontend);
 
   return (

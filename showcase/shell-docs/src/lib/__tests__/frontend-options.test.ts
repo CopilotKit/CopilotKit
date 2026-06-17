@@ -11,6 +11,7 @@ import {
   FRONTEND_PAGE_CONTENT,
   FRONTEND_PAGE_IDS,
   getFrontendPageContent,
+  getFrontendQuickstartNavTree,
 } from "../frontend-page-content";
 
 describe("frontend options", () => {
@@ -36,5 +37,12 @@ describe("frontend options", () => {
       expect(FRONTEND_PAGE_CONTENT[id].steps.length).toBeGreaterThanOrEqual(3);
       expect(FRONTEND_PAGE_CONTENT[id].references.length).toBeGreaterThan(0);
     }
+  });
+
+  it("keeps non-React frontend sidebars focused on the current quickstart", () => {
+    expect(getFrontendQuickstartNavTree("slack")).toEqual([
+      { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
+      { type: "page", title: "Quickstart", slug: "frontends/slack" },
+    ]);
   });
 });
