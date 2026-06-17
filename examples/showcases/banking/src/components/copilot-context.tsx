@@ -1,5 +1,9 @@
 "use client";
-import { useAgentContext, useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import {
+  useAgentContext,
+  useComponent,
+  useHumanInTheLoop,
+} from "@copilotkit/react-core/v2";
 import { usePathname } from "next/navigation";
 import { z } from "zod";
 import useCreditCards from "@/app/actions";
@@ -7,6 +11,14 @@ import { useAuthContext } from "@/components/auth-context";
 import { useRecording } from "@/components/recording-context";
 import { ApprovalButtons } from "@/components/approval-buttons";
 import { RecordingSteps } from "@/components/recording-feed";
+import { TransactionsList } from "@/components/transactions-list";
+import {
+  SpendingTrendChart,
+  BudgetUsageChart,
+  SpendBreakdownChart,
+  IncomeExpenseChart,
+} from "@/components/analytics-charts";
+import { ApprovalFlowDiagram } from "@/components/approval-flow-diagram";
 import { PERMISSIONS } from "@/app/api/v1/permissions";
 import { Button } from "./ui/button";
 
@@ -193,6 +205,155 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       );
     },
   });
+
+  // Generative-UI: the pending-approval queue, rendered IN the chat. Mirrors the
+  // dashboard's "Pending approval" tab (TransactionsList in approval mode) so the
+  // officer can triage and clear over-limit charges without leaving the
+  // conversation — over-limit rows keep Approve gated and offer "File policy
+  // exception", exactly like the dashboard. Display-only `useComponent` (not
+  // useFrontendTool) so the table persists in the transcript after the call;
+  // re-registers when the data changes, or the closure captures empty arrays.
+  useComponent(
+    {
+      name: "showPendingApprovals",
+      description:
+        "Show the queue of transactions awaiting approval (including over-limit " +
+        "charges) as an interactive table in the chat. Call this whenever the " +
+        "user asks what is pending, what needs approval, or to review pending or " +
+        "over-limit charges — do NOT answer those in plain text.",
+      parameters: z.object({}),
+      render: () => {
+        const pending = transactions.filter((t) => t.status === "pending");
+        if (!pending.length) {
+          return (
+            <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+              No transactions are pending approval.
+            </div>
+          );
+        }
+        return (
+          <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+            <h3 className="text-lg font-semibold text-ink">
+              Pending approvals
+            </h3>
+            <TransactionsList
+              transactions={pending}
+              policies={policies}
+              openPolicyException={openPolicyException}
+              finalizePolicyException={finalizePolicyException}
+              showApprovalInterface
+              approvalInterfaceProps={{
+                onApprove: async (id) =>
+                  (await changeTransactionStatus({ id, status: "approved" }))
+                    .ok,
+                onDeny: async (id) =>
+                  (await changeTransactionStatus({ id, status: "denied" })).ok,
+              }}
+            />
+          </div>
+        );
+      },
+    },
+    [transactions, policies],
+  );
+
+  // ── Generative-UI charts & diagrams ─────────────────────────────────────────
+  // Visualizations the agent can summon directly in the chat (display-only
+  // `useComponent`, so they persist in the transcript like showTransactions).
+  // All hand-rolled SVG/CSS in the brand style — no charting dependency. Each
+  // re-registers when the data it reads changes.
+  useComponent(
+    {
+      name: "showSpendingTrend",
+      description:
+        "Render a chart of spending over time in the chat. Call this for any " +
+        "question about spend trends, history, or how spending has changed.",
+      parameters: z.object({}),
+      render: () => (
+        <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">Spending trend</h3>
+          <SpendingTrendChart transactions={transactions} />
+        </div>
+      ),
+    },
+    [transactions],
+  );
+
+  useComponent(
+    {
+      name: "showBudgetUsage",
+      description:
+        "Render a chart of budget usage per expense policy (spent vs limit) in " +
+        "the chat. Call this for questions about budgets, limits, utilization, " +
+        "or which teams are close to or over their limit.",
+      parameters: z.object({}),
+      render: () => (
+        <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">
+            Budget usage by policy
+          </h3>
+          <BudgetUsageChart policies={policies} />
+        </div>
+      ),
+    },
+    [policies],
+  );
+
+  useComponent(
+    {
+      name: "showSpendBreakdown",
+      description:
+        "Render a donut chart breaking spend down by team/policy in the chat. " +
+        "Call this for 'where is the money going', spend distribution, or " +
+        "breakdown-by-team questions.",
+      parameters: z.object({}),
+      render: () => (
+        <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">Spend breakdown</h3>
+          <SpendBreakdownChart policies={policies} />
+        </div>
+      ),
+    },
+    [policies],
+  );
+
+  useComponent(
+    {
+      name: "showIncomeVsExpenses",
+      description:
+        "Render a chart comparing total income vs expenses (and the net) in " +
+        "the chat. Call this for cash-flow, income-vs-spend, or net-position " +
+        "questions.",
+      parameters: z.object({}),
+      render: () => (
+        <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">Income vs expenses</h3>
+          <IncomeExpenseChart transactions={transactions} />
+        </div>
+      ),
+    },
+    [transactions],
+  );
+
+  useComponent(
+    {
+      name: "showApprovalFlow",
+      description:
+        "Render a diagram of how an over-limit charge gets cleared (file " +
+        "exception → finalize → approve). Call this when the user asks how " +
+        "approvals or over-limit charges work, or to explain the process.",
+      parameters: z.object({}),
+      render: () => (
+        <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          <h3 className="text-lg font-semibold text-ink">
+            Clearing an over-limit charge
+          </h3>
+          <ApprovalFlowDiagram />
+        </div>
+      ),
+    },
+    [],
+  );
 
   // ── Recall tools (open → finalize → approve) ───────────────────────────────
   // Neutral descriptions: they must not say what each step accomplishes, name a
