@@ -105,7 +105,7 @@ describe("frontend options", () => {
           type: "page",
           slug: "frontends/slack/using-these-docs",
           title: expect.stringContaining(
-            "same CopilotKit functionality as React",
+            "same CopilotKit functionality as the React SDK",
           ),
           variant: "shadow-note",
         }),
