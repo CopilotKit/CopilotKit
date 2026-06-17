@@ -97,9 +97,33 @@ export interface DefaultCatchallProbe {
 export async function probeDefaultCatchall(
   page: Page,
 ): Promise<DefaultCatchallProbe> {
-  const leakPhrase = CUSTOM_CATCHALL_LEAK_PHRASE;
-  return await page.evaluate((expectedLeakPhrase?: string) => {
-    const needle = expectedLeakPhrase ?? "";
+  // ROOT CAUSE (PR #5495 A11, then A25a): the prior implementation passed the
+  // leak phrase into the browser-side closure via the `page.evaluate(fn, arg)`
+  // second-arg form:
+  //
+  //     const leakPhrase = CUSTOM_CATCHALL_LEAK_PHRASE;
+  //     return await page.evaluate((expectedLeakPhrase?: string) => {
+  //       const needle = expectedLeakPhrase ?? "";
+  //       if (needle) { /* … cascade scan … */ }
+  //       ...
+  //     }, leakPhrase);
+  //
+  // Empirically (verified during the A11 RED-GREEN proof on the SIBLING
+  // `tool-rendering-custom-catchall` probe), `expectedLeakPhrase` arrives as
+  // `undefined` inside the browser-side closure — the arg is NOT propagated
+  // through the harness's compiled `page.evaluate` call path. With
+  // `needle === ""`, the `if (needle)` guard skipped the entire leak-detection
+  // cascade and `customLeakPhrasePresent` stayed `false` forever, even when
+  // the canonical phrase WAS in the DOM — making `validateDefaultCatchall`'s
+  // leak branch (the check at the end of `validateDefaultCatchall`) dead
+  // code. The defensive fix mirrors the sibling probe by inlining the needle
+  // as a JS string literal inside the closure — no `page.evaluate(fn, arg)`
+  // second-arg dependency at all.
+  //
+  // The needle is the canonical leak phrase exported above as
+  // `CUSTOM_CATCHALL_LEAK_PHRASE`. Keep these two in lock-step.
+  return await page.evaluate(() => {
+    const needle = "rendered through the custom wildcard catchall";
     const win = globalThis as unknown as {
       document: {
         querySelectorAll(sel: string): ArrayLike<{
@@ -164,22 +188,20 @@ export async function probeDefaultCatchall(
     // scrolled chat still register; otherwise a leaked bubble below the
     // fold could escape the leak check entirely.
     let customLeakPhrasePresent = false;
-    if (needle) {
-      const bubbles = win.document.querySelectorAll(
-        '[data-testid="copilot-assistant-message"]',
-      );
-      for (let i = 0; i < bubbles.length; i++) {
-        const t = bubbles[i]!.textContent ?? "";
-        if (t.includes(needle)) {
-          customLeakPhrasePresent = true;
-          break;
-        }
+    const bubbles = win.document.querySelectorAll(
+      '[data-testid="copilot-assistant-message"]',
+    );
+    for (let i = 0; i < bubbles.length; i++) {
+      const t = bubbles[i]!.textContent ?? "";
+      if (t.includes(needle)) {
+        customLeakPhrasePresent = true;
+        break;
       }
-      if (!customLeakPhrasePresent) {
-        const body = win.document.body;
-        const bodyText = (body.textContent ?? "") as string;
-        customLeakPhrasePresent = bodyText.includes(needle);
-      }
+    }
+    if (!customLeakPhrasePresent) {
+      const body = win.document.body;
+      const bodyText = (body.textContent ?? "") as string;
+      customLeakPhrasePresent = bodyText.includes(needle);
     }
 
     return {
@@ -188,7 +210,7 @@ export async function probeDefaultCatchall(
       observedToolNames,
       customLeakPhrasePresent,
     };
-  }, leakPhrase);
+  });
 }
 
 /** Validate a snapshot against the built-in catchall contract. */

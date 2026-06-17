@@ -142,3 +142,89 @@ describe("D5 tool-rendering-default-catchall — exported constants", () => {
     expect(mod.STATUS_PILL_TESTID).toBe("copilot-tool-render-status");
   });
 });
+
+// Regression test for PR #5495 A25a fix (CR Finding 1). The default
+// catchall probe historically used the broken
+// `page.evaluate((arg?: string) => { ... }, leakPhrase)` arg-passing
+// pattern. Empirically, `arg` arrives as `undefined` inside the
+// browser-side closure, so `if (needle)` guarded the entire leak-detection
+// cascade as dead code and `customLeakPhrasePresent` stayed `false`
+// forever — making `validateDefaultCatchall`'s leak branch dead code
+// too. The A25a fix mirrors the A11 sibling probe's pattern by
+// inlining the needle as a JS literal in the closure body. This test
+// asserts the invariant directly via the function source so a
+// revert would re-fail.
+describe("D5 tool-rendering-default-catchall — inline-needle invariant (regression)", () => {
+  function findEvaluateCallSource(fnSource: string): string {
+    const idx = fnSource.indexOf("page.evaluate(");
+    expect(idx).toBeGreaterThanOrEqual(0);
+    return fnSource.slice(idx);
+  }
+
+  it("probeDefaultCatchall inlines the leak phrase as a string literal", async () => {
+    const mod = await import("./d5-tool-rendering-default-catchall.js");
+    const src = mod.probeDefaultCatchall.toString();
+    const evalCall = findEvaluateCallSource(src);
+    expect(evalCall).toContain(mod.CUSTOM_CATCHALL_LEAK_PHRASE);
+  });
+
+  it("probeDefaultCatchall does NOT pass the needle via a page.evaluate second-arg", async () => {
+    const mod = await import("./d5-tool-rendering-default-catchall.js");
+    const src = mod.probeDefaultCatchall.toString();
+    // The historical broken form had a parameter on the closure:
+    //   page.evaluate((expectedLeakPhrase?: string) => { ... }, leakPhrase)
+    // The fixed form takes no parameters.
+    expect(src).not.toMatch(/page\.evaluate\(\s*\(\s*expectedLeakPhrase/);
+    expect(src).not.toMatch(/page\.evaluate\(\s*\(\s*expectedPhrase/);
+    // The call must not have a second arg — the closure should close
+    // with `})` not `}, x)`.
+    const tail = src.slice(-200);
+    expect(tail).toMatch(/\}\s*\)\s*;?\s*\}?\s*$/);
+    expect(tail).not.toMatch(/\},\s*[A-Za-z_$"]/);
+  });
+});
+
+// Coverage for the leak-detection branch of validateDefaultCatchall.
+// The branch was added to detect cross-fixture leaks from the
+// custom-catchall fixture into a default-catchall request. Without
+// this coverage, reverting the leak check would not be caught by
+// any other test.
+describe("D5 tool-rendering-default-catchall — customLeakPhrasePresent branch (regression)", () => {
+  it("fails when leak phrase is present in the snapshot", async () => {
+    const mod = await import("./d5-tool-rendering-default-catchall.js");
+    const err = mod.validateDefaultCatchall({
+      containerWithToolName: true,
+      statusPillPresent: true,
+      observedToolNames: ["get_weather"],
+      customLeakPhrasePresent: true,
+    });
+    expect(err).not.toBeNull();
+    expect(err).toMatch(/custom-catchall/);
+    expect(err).toMatch(/leaked/);
+    expect(err).toContain(mod.CUSTOM_CATCHALL_LEAK_PHRASE);
+  });
+
+  it("passes when leak phrase is absent (false)", async () => {
+    const mod = await import("./d5-tool-rendering-default-catchall.js");
+    expect(
+      mod.validateDefaultCatchall({
+        containerWithToolName: true,
+        statusPillPresent: true,
+        observedToolNames: ["get_weather"],
+        customLeakPhrasePresent: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("passes when leak phrase is undefined (absence == false)", async () => {
+    const mod = await import("./d5-tool-rendering-default-catchall.js");
+    expect(
+      mod.validateDefaultCatchall({
+        containerWithToolName: true,
+        statusPillPresent: true,
+        observedToolNames: ["get_weather"],
+        // customLeakPhrasePresent omitted — treated as false.
+      }),
+    ).toBeNull();
+  });
+});
