@@ -24,12 +24,36 @@ export function createRequestHandler(args: {
   };
 }
 
-export function startServer(args: { port: number; handler: ChatRequestHandler }): { close(): Promise<void> } {
+// Google Chat event payloads are small; 1 MiB is a generous upper bound. Capping
+// the body size prevents an unauthenticated caller from exhausting memory by
+// streaming an arbitrarily large request before any auth/JSON parsing happens.
+const DEFAULT_MAX_BODY_BYTES = 1_048_576;
+
+export function startServer(args: {
+  port: number;
+  handler: ChatRequestHandler;
+  maxBodyBytes?: number;
+}): { close(): Promise<void> } {
+  const maxBodyBytes = args.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
   const server: Server = createServer((req, res) => {
     if (req.method !== "POST") { res.writeHead(405).end(); return; }
     const chunks: Buffer[] = [];
-    req.on("data", (c) => chunks.push(c as Buffer));
+    let received = 0;
+    let aborted = false;
+    req.on("data", (c) => {
+      if (aborted) return;
+      const chunk = c as Buffer;
+      received += chunk.length;
+      if (received > maxBodyBytes) {
+        aborted = true;
+        res.writeHead(413).end();
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on("end", async () => {
+      if (aborted) return;
       let body: unknown = {};
       try { body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); }
       catch { res.writeHead(400).end(); return; }
