@@ -80,15 +80,22 @@ export class MessageStream implements TextStream {
   private async flushNow(): Promise<void> {
     if (this.buffer === this.posted) return;
     const text = this.buffer;
-    this.posted = text;
     try {
-      await this.update(text);
+      // `posted` is advanced ONLY after a write succeeds. If the write throws,
+      // `posted` stays unchanged so a later flush re-attempts the same (or
+      // newer) text — critical for the FINAL flush, which has no subsequent
+      // append to trigger a retry. There is NO automatic 429/Retry-After retry
+      // in the Google Chat client (`ChatClient.request` throws on the first
+      // non-2xx), so transient blips (rate-limit/network) land here. We retry
+      // the write ONCE; if the retry also throws, we log and swallow (a hard
+      // failure still must not sink the stream) and leave `posted` unchanged.
+      try {
+        await this.update(text);
+      } catch {
+        await this.update(text);
+      }
+      this.posted = text;
     } catch (err) {
-      // A failed edit is logged and swallowed: a single failed edit shouldn't
-      // sink the stream, and future appends re-flush the latest buffer. Note
-      // there is NO automatic 429/Retry-After retry in the Google Chat client
-      // (`ChatClient.request` throws on the first non-2xx), so any failure —
-      // rate-limit or otherwise — lands here on its first occurrence.
       console.error("[message-stream] update failed:", err);
     } finally {
       // Set lastFlushedAt *after* the update returns so the throttle
