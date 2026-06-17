@@ -13,10 +13,10 @@ export function getFrontendContentSlug(id: FrontendPageId): string {
   return `frontends/${id}`;
 }
 
-export const FRONTEND_IN_PROGRESS_CONTENT_SLUG = "frontends/how-to-use";
+export const FRONTEND_GUIDANCE_CONTENT_SLUG = "frontends/using-these-docs";
 
-export function getFrontendDocsInProgressSlug(id: FrontendPageId): string {
-  return `frontends/${id}/docs-in-progress`;
+export function getFrontendUsingTheseDocsSlug(id: FrontendPageId): string {
+  return `frontends/${id}/using-these-docs`;
 }
 
 function asShadowNode(node: NavNode): NavNode {
@@ -41,8 +41,8 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
     { type: "page", title: "Quickstart", slug: getFrontendContentSlug(id) },
     {
       type: "page",
-      title: "Docs in progress",
-      slug: getFrontendDocsInProgressSlug(id),
+      title: "Using these docs",
+      slug: getFrontendUsingTheseDocsSlug(id),
       icon: "lucide/Wrench",
     },
     { type: "section", title: "More to explore", icon: "lucide/BookOpen" },
@@ -61,6 +61,13 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       title: "React parallels",
       icon: "lucide/RefreshCw",
       variant: "shadow-divider",
+    },
+    {
+      type: "page",
+      title:
+        "More dedicated guides are on the way for this frontend. Use the React docs below as parallels for the same CopilotKit patterns.",
+      slug: getFrontendUsingTheseDocsSlug(id),
+      variant: "shadow-note",
     },
     ...getReactParallelsNavTree(),
   ];

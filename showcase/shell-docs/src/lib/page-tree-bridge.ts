@@ -42,7 +42,9 @@ function renderNavName(
       ? "shell-docs-shadow-nav-divider"
       : variant === "shadow"
         ? "shell-docs-shadow-nav-item"
-        : undefined;
+        : variant === "shadow-note"
+          ? "shell-docs-shadow-nav-note"
+          : undefined;
 
   if (!className && !icon) return title;
 

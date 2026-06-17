@@ -28,7 +28,7 @@ export {
 // Nav tree types
 // ---------------------------------------------------------------------------
 
-export type NavNodeVariant = "shadow" | "shadow-divider";
+export type NavNodeVariant = "shadow" | "shadow-divider" | "shadow-note";
 
 export type NavNode =
   | {

@@ -556,25 +556,37 @@
   display: inline-flex;
   min-width: 0;
   align-items: center;
-  gap: 0.5rem;
   color: color-mix(in srgb, var(--accent) 64%, var(--text-muted));
 }
 
 .shell-docs-shadow-nav-divider::after {
-  content: "adapt";
-  border: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
-  border-radius: 999px;
-  padding: 0.0625rem 0.375rem;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1.2;
-  color: color-mix(in srgb, var(--accent) 70%, var(--text-muted));
-  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  content: none;
 }
 
 .shell-docs-sidebar p:has(.shell-docs-shadow-nav-divider) {
   border-top: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
   padding-top: 1.25rem !important;
+}
+
+.shell-docs-sidebar a:has(.shell-docs-shadow-nav-note) {
+  margin: 0.125rem 0 0.625rem;
+  padding: 0.625rem 0.75rem !important;
+  border-left: 2px solid color-mix(in srgb, var(--accent) 32%, var(--border));
+  border-radius: 0.5rem;
+  background-color: color-mix(in srgb, var(--accent) 4%, transparent);
+  opacity: 1;
+}
+
+.shell-docs-sidebar a:has(.shell-docs-shadow-nav-note):hover {
+  background-color: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.shell-docs-shadow-nav-note {
+  display: block;
+  color: color-mix(in srgb, var(--text-muted) 82%, var(--accent));
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
 }
 
 .shell-docs-shadow-nav-item {

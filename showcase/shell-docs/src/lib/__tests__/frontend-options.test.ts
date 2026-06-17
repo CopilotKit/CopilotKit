@@ -8,10 +8,10 @@ import {
   isFrontendId,
 } from "../frontend-options";
 import {
-  FRONTEND_IN_PROGRESS_CONTENT_SLUG,
+  FRONTEND_GUIDANCE_CONTENT_SLUG,
   FRONTEND_PAGE_IDS,
   getFrontendContentSlug,
-  getFrontendDocsInProgressSlug,
+  getFrontendUsingTheseDocsSlug,
   getFrontendQuickstartNavTree,
 } from "../frontend-page-content";
 import { loadDoc } from "../docs-render";
@@ -43,13 +43,13 @@ describe("frontend options", () => {
       expect(isFrontendId(id)).toBe(true);
       expect(getFrontendOption(id).name).toBeTruthy();
       expect(getFrontendContentSlug(id)).toBe(`frontends/${id}`);
-      expect(getFrontendDocsInProgressSlug(id)).toBe(
-        `frontends/${id}/docs-in-progress`,
+      expect(getFrontendUsingTheseDocsSlug(id)).toBe(
+        `frontends/${id}/using-these-docs`,
       );
       expect(loadDoc(getFrontendContentSlug(id))?.fm.title).toBeTruthy();
     }
-    expect(loadDoc(FRONTEND_IN_PROGRESS_CONTENT_SLUG)?.fm.title).toBe(
-      "Docs in progress",
+    expect(loadDoc(FRONTEND_GUIDANCE_CONTENT_SLUG)?.fm.title).toBe(
+      "Using these docs",
     );
   });
 
@@ -61,8 +61,8 @@ describe("frontend options", () => {
       { type: "page", title: "Quickstart", slug: "frontends/slack" },
       {
         type: "page",
-        title: "Docs in progress",
-        slug: "frontends/slack/docs-in-progress",
+        title: "Using these docs",
+        slug: "frontends/slack/using-these-docs",
         icon: "lucide/Wrench",
       },
       { type: "section", title: "More to explore", icon: "lucide/BookOpen" },
@@ -87,6 +87,11 @@ describe("frontend options", () => {
 
     expect(flattenNavTree(navTree)).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          type: "page",
+          slug: "frontends/slack/using-these-docs",
+          variant: "shadow-note",
+        }),
         expect.objectContaining({
           type: "page",
           title: "Prebuilt Components",

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { DocsPageView } from "@/components/docs-page-view";
 import {
-  FRONTEND_IN_PROGRESS_CONTENT_SLUG,
+  FRONTEND_GUIDANCE_CONTENT_SLUG,
   FRONTEND_PAGE_IDS,
-  getFrontendDocsInProgressSlug,
+  getFrontendUsingTheseDocsSlug,
   getFrontendQuickstartNavTree,
 } from "@/lib/frontend-page-content";
 import { getFrontendOption, isFrontendId } from "@/lib/frontend-options";
@@ -23,22 +23,22 @@ export async function generateMetadata({
   const { frontend } = await params;
   if (!isFrontendId(frontend) || frontend === "react") {
     return buildDocMetadata({
-      title: "Frontend docs in progress",
+      title: "Using these frontend docs",
       canonicalPath: "/frontends",
     });
   }
 
-  const doc = loadDoc(FRONTEND_IN_PROGRESS_CONTENT_SLUG);
+  const doc = loadDoc(FRONTEND_GUIDANCE_CONTENT_SLUG);
   const option = getFrontendOption(frontend);
 
   return buildDocMetadata({
-    title: `${option.name}: ${doc?.fm.title ?? "docs in progress"}`,
+    title: `${option.name}: ${doc?.fm.title ?? "using these docs"}`,
     description: doc?.fm.description,
-    canonicalPath: `/frontends/${frontend}/docs-in-progress`,
+    canonicalPath: `/frontends/${frontend}/using-these-docs`,
   });
 }
 
-export default async function FrontendDocsInProgressPage({
+export default async function FrontendGuidancePage({
   params,
 }: {
   params: Promise<{ frontend: string }>;
@@ -47,12 +47,12 @@ export default async function FrontendDocsInProgressPage({
   if (!isFrontendId(frontend)) notFound();
   if (frontend === "react") redirect("/");
 
-  if (!loadDoc(FRONTEND_IN_PROGRESS_CONTENT_SLUG)) notFound();
+  if (!loadDoc(FRONTEND_GUIDANCE_CONTENT_SLUG)) notFound();
 
   return (
     <DocsPageView
-      slugPath={getFrontendDocsInProgressSlug(frontend)}
-      contentSlugPath={FRONTEND_IN_PROGRESS_CONTENT_SLUG}
+      slugPath={getFrontendUsingTheseDocsSlug(frontend)}
+      contentSlugPath={FRONTEND_GUIDANCE_CONTENT_SLUG}
       slugHrefPrefix=""
       navTree={getFrontendQuickstartNavTree(frontend)}
     />
