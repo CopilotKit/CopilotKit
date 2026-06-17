@@ -15,7 +15,7 @@ describe("ChatClient.createMessage", () => {
     const c = makeClient(fetchImpl);
     const res = await c.createMessage("spaces/A", { text: "hi" });
     expect(res.name).toBe("spaces/A/messages/M1");
-    const [url, init] = fetchImpl.mock.calls[0];
+    const [url, init] = (fetchImpl.mock.calls[0] as any[])!;
     expect(String(url)).toContain("/spaces/A/messages");
     expect((init.headers as any).Authorization).toBe("Bearer tok");
     expect(init.method).toBe("POST");
@@ -26,7 +26,7 @@ describe("ChatClient.createMessage", () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ name: "n" }), { status: 200 }));
     const c = makeClient(fetchImpl);
     await c.createMessage("spaces/A", { text: "hi" }, { threadName: "spaces/A/threads/T", replyToThread: true });
-    const [url, init] = fetchImpl.mock.calls[0];
+    const [url, init] = (fetchImpl.mock.calls[0] as any[])!;
     expect(String(url)).toContain("messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD");
     expect(JSON.parse(init.body).thread).toEqual({ name: "spaces/A/threads/T" });
   });
@@ -37,7 +37,7 @@ describe("ChatClient.patchMessage", () => {
     const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
     const c = makeClient(fetchImpl);
     await c.patchMessage("spaces/A/messages/M1", { text: "x" }, "text,cardsV2");
-    const [url, init] = fetchImpl.mock.calls[0];
+    const [url, init] = (fetchImpl.mock.calls[0] as any[])!;
     expect(init.method).toBe("PATCH");
     expect(String(url)).toContain("updateMask=text%2CcardsV2");
   });

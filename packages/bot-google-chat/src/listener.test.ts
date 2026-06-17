@@ -26,7 +26,7 @@ describe("routeChatEvent", () => {
       { botUserId: "users/BOT", handlers: h },
     );
     expect(h.onTurn).toHaveBeenCalledTimes(1);
-    const turn = h.onTurn.mock.calls[0][0];
+    const turn = (h.onTurn.mock.calls[0] as any[])[0];
     expect(turn.userText).toBe("hi");
     expect(turn.conversation).toEqual({
       spaceId: "spaces/A",
@@ -55,7 +55,7 @@ describe("routeChatEvent", () => {
       { botUserId: "users/BOT", handlers: h },
     );
     expect(h.onCommand).toHaveBeenCalledTimes(1);
-    expect(h.onCommand.mock.calls[0][0]).toMatchObject({
+    expect((h.onCommand.mock.calls[0] as any[])[0]).toMatchObject({
       command: "/reset",
       text: "now",
     });
@@ -85,7 +85,7 @@ describe("routeChatEvent", () => {
       { botUserId: "users/BOT", handlers: h },
     );
     expect(h.onThreadStarted).toHaveBeenCalledTimes(1);
-    expect(h.onThreadStarted.mock.calls[0][0].conversation).toEqual({
+    expect((h.onThreadStarted.mock.calls[0] as any[])[0].conversation).toEqual({
       spaceId: "spaces/D",
       scope: "dm",
     });

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const verifyIdToken = vi.fn();
 vi.mock("google-auth-library", () => ({
@@ -9,6 +9,8 @@ vi.mock("google-auth-library", () => ({
 import { createInboundVerifier, UnauthorizedError } from "./auth.js";
 
 describe("createInboundVerifier", () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
   it("rejects a missing Authorization header", async () => {
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
     await expect(v.verify(undefined)).rejects.toBeInstanceOf(UnauthorizedError);
