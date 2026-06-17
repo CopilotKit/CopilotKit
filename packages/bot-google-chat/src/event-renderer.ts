@@ -132,6 +132,9 @@ export function createRunRenderer(args: {
     // ── 2. Tool-call surfacing + capture ──────────────────────────────
     async onToolCallStartEvent({ event }) {
       if (aborted) return;
+      // Capture the tool name early so an interrupt can label a dangling
+      // status row even if no ARGS/END event ever arrives.
+      captureToolCall(event.toolCallId, event.toolCallName, {});
       if (!showToolStatus) return;
       // Dedup by toolCallId so a tool that re-emits START on resume can't
       // post a second status row.
@@ -223,16 +226,38 @@ export function createRunRenderer(args: {
       const tasks: Promise<void>[] = [];
       for (const [id, stream] of Array.from(streams.entries())) {
         const buf = buffers.get(id) ?? "";
-        // Finish EVERY active stream unconditionally. A stream that posted a
-        // `_thinking…_` placeholder but currently has an empty/whitespace
-        // buffer must still be resolved, otherwise it leaves a permanent
-        // placeholder row. For a stream that never posted a placeholder
-        // (lazy-post skipped on an always-empty buffer), `finish()` is a
-        // harmless no-op (its dispatch early-returns on an empty buffer).
-        stream.append(buf + INTERRUPTED_SUFFIX);
+        // Only append the interrupted suffix for streams that have actually
+        // posted content. A non-empty buffer means `ChunkedMessageStream`
+        // already posted a `_thinking…_` placeholder, so we resolve it by
+        // appending the suffix and finishing. An empty/whitespace buffer
+        // never posted a placeholder (dispatch early-returns on an empty
+        // buffer), so appending the suffix would make the buffer non-empty
+        // and trigger a *spurious* placeholder post — instead we just
+        // finish() (a true no-op for an empty stream) without appending.
+        if (buf.trim().length > 0) {
+          stream.append(buf + INTERRUPTED_SUFFIX);
+        }
         tasks.push(stream.finish());
         streams.delete(id);
         finalised.add(id);
+      }
+      // Flip any outstanding tool-status rows (START posted, END never
+      // arrived) to a terminal marker so they don't dangle as `🔧 …` rows.
+      // Mirrors the `onToolCallEndEvent` patch (same `patchMessage` mask).
+      for (const [toolCallId, name] of Array.from(toolStatusName.entries())) {
+        const label =
+          capturedToolCalls.find((c) => c.toolCallId === toolCallId)
+            ?.toolCallName ?? toolCallId;
+        tasks.push(
+          (async () => {
+            try {
+              await client.patchMessage(name, { text: `⏹ \`${label}\`` }, "text");
+            } catch (err) {
+              console.error("[gchat-renderer] tool-interrupt patch failed:", err);
+            }
+          })(),
+        );
+        toolStatusName.delete(toolCallId);
       }
       buffers.clear();
       await Promise.all(tasks);

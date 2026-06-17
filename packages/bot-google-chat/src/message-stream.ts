@@ -84,10 +84,11 @@ export class MessageStream implements TextStream {
     try {
       await this.update(text);
     } catch (err) {
-      // Rate-limit (429) edits are already retried by the Google Chat client
-      // (honoring Retry-After). If we still land here the edit genuinely
-      // failed — swallow it: a single failed edit shouldn't sink the
-      // stream, and future appends retry with the latest buffer.
+      // A failed edit is logged and swallowed: a single failed edit shouldn't
+      // sink the stream, and future appends re-flush the latest buffer. Note
+      // there is NO automatic 429/Retry-After retry in the Google Chat client
+      // (`ChatClient.request` throws on the first non-2xx), so any failure —
+      // rate-limit or otherwise — lands here on its first occurrence.
       console.error("[message-stream] update failed:", err);
     } finally {
       // Set lastFlushedAt *after* the update returns so the throttle
