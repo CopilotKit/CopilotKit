@@ -91,6 +91,23 @@ describe("seoRedirects", () => {
     );
   });
 
+  it("redirects bare tool rendering section URLs to the custom rendering page", () => {
+    expect(seoRedirects).toEqual(
+      expect.arrayContaining([
+        {
+          id: "TR-section-root",
+          source: "/generative-ui/tool-rendering",
+          destination: "/generative-ui/tool-rendering/custom",
+        },
+        {
+          id: "TR-section×mastra",
+          source: "/mastra/generative-ui/tool-rendering",
+          destination: "/mastra/generative-ui/tool-rendering/custom",
+        },
+      ]),
+    );
+  });
+
   it("serves the Built-in Agent docs at the root: no redirect may capture a bare BIA page URL", () => {
     // These bare URLs render BIA-authored pages directly now. A
     // middleware entry whose source matches one of them would either
@@ -166,12 +183,12 @@ describe("seoRedirects", () => {
     expect(
       matchesSeoRedirectSource("/troubleshooting/observability-connectors"),
     ).toBe(true);
+    expect(matchesSeoRedirectSource("/generative-ui/tool-rendering")).toBe(
+      true,
+    );
   });
 
   it("does not match live non-redirect docs paths with similar roots", () => {
-    expect(matchesSeoRedirectSource("/generative-ui/tool-rendering")).toBe(
-      false,
-    );
     expect(matchesSeoRedirectSource("/vue")).toBe(false);
     expect(matchesSeoRedirectSource("/slack")).toBe(false);
     expect(matchesSeoRedirectSource("/react-native")).toBe(false);

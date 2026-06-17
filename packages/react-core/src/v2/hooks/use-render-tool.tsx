@@ -38,9 +38,45 @@ export type RenderToolProps<S extends StandardSchemaV1> =
 type RenderToolConfig<S extends StandardSchemaV1> = {
   name: string;
   parameters?: S;
-  render: (props: RenderToolProps<S>) => React.ReactElement;
+  render: (props: RenderToolProps<S>) => React.ReactNode;
   agentId?: string;
 };
+
+type InternalRenderToolProps<S extends StandardSchemaV1> =
+  | {
+      name: string;
+      toolCallId: string;
+      args: Partial<InferSchemaOutput<S>>;
+      status: ToolCallStatus.InProgress;
+      result: undefined;
+    }
+  | {
+      name: string;
+      toolCallId: string;
+      args: InferSchemaOutput<S>;
+      status: ToolCallStatus.Executing;
+      result: undefined;
+    }
+  | {
+      name: string;
+      toolCallId: string;
+      args: InferSchemaOutput<S>;
+      status: ToolCallStatus.Complete;
+      result: string;
+    };
+
+function toRenderToolProps<S extends StandardSchemaV1>(
+  props: InternalRenderToolProps<S>,
+): RenderToolProps<S> {
+  switch (props.status) {
+    case ToolCallStatus.InProgress:
+      return { ...props, parameters: props.args };
+    case ToolCallStatus.Executing:
+      return { ...props, parameters: props.args };
+    case ToolCallStatus.Complete:
+      return { ...props, parameters: props.args };
+  }
+}
 
 /**
  * Registers a wildcard (`"*"`) renderer for tool calls.
@@ -69,7 +105,7 @@ type RenderToolConfig<S extends StandardSchemaV1> = {
 export function useRenderTool(
   config: {
     name: "*";
-    render: (props: any) => React.ReactElement;
+    render: (props: any) => React.ReactNode;
     agentId?: string;
   },
   deps?: ReadonlyArray<unknown>,
@@ -106,7 +142,7 @@ export function useRenderTool<S extends StandardSchemaV1>(
   config: {
     name: string;
     parameters: S;
-    render: (props: RenderToolProps<S>) => React.ReactElement;
+    render: (props: RenderToolProps<S>) => React.ReactNode;
     agentId?: string;
   },
   deps?: ReadonlyArray<unknown>,
@@ -166,8 +202,7 @@ export function useRenderTool<S extends StandardSchemaV1>(
       config.name === "*" && !config.parameters
         ? defineToolCallRenderer({
             name: "*",
-            render: (props) =>
-              config.render({ ...props, parameters: props.args }),
+            render: (props) => config.render(toRenderToolProps<S>(props)),
             ...(config.agentId ? { agentId: config.agentId } : {}),
           })
         : defineToolCallRenderer({

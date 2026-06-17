@@ -1,18 +1,30 @@
 ---
-title: Tool Rendering
+title: Custom Tool Rendering
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
-import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { IframeSwitcher } from "@/components/content"
+import { Tabs, Tab } from "fumadocs-ui/components/tabs"
+import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
+
+<IframeSwitcher
+  id="backend-tools-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+<Callout>
+  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
+</Callout>
 
 ## What is this?
 
 Tools are a way for the LLM to call predefined, typically, deterministic functions. CopilotKit allows you to render these tools in the UI
 as a custom component, which we call **Generative UI**.
-
-<Callout type="info">
-  CopilotKit consumes AG-UI protocol events streamed by AG2 over <code>/chat</code>. See the <a href="https://docs.ag2.ai/latest/docs/user-guide/ag-ui/" target="_blank">AG2 AG-UI integration docs</a>.
-</Callout>
 
 ## When should I use this?
 
@@ -24,49 +36,31 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Steps>
 <Step>
 ### Run and connect your agent
-Start your AG2 backend with a `/chat` endpoint and connect CopilotKit to that endpoint.
+<RunAndConnect />
 </Step>
 <Step>
 ### Give your agent a tool to call
 
-<Tabs groupId="language_ag2_agent_backend_tools" items={['Python']} default="Python" persist>
+<Tabs groupId="language_pydantic-ai_agent" items={['Python']} default="Python" persist>
     <Tab value="Python">
         ```python title="agent.py"
-        from typing import Annotated
+        from pydantic_ai import Agent
 
-        from fastapi import FastAPI, Header
-        from fastapi.responses import StreamingResponse
-        from autogen import ConversableAgent, LLMConfig
-        from autogen.ag_ui import AGUIStream, RunAgentInput
+        agent = Agent("openai:gpt-5.4-mini")
 
-        agent = ConversableAgent(
-            name="assistant",
-            system_message="You are a helpful assistant.",
-            llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
-            human_input_mode="NEVER",
-        )
 
-        @agent.register_for_llm(
-            description="Get the weather for a given location. Ensure location is fully spelled out."
-        )
-        def get_weather(location: Annotated[str, "Fully spelled out location"]) -> str:
+        @agent.tool_plain
+        async def get_weather(location: str = "Everywhere ever") -> str:
+            """Get the weather for a given location. Ensure location is fully spelled out."""
             return f"The weather in {location} is sunny."
 
-        # Register the same function for execution on this backend process.
-        agent.register_for_execution(name="get_weather")(get_weather)
 
-        stream = AGUIStream(agent)
-        app = FastAPI()
+        app = agent.to_ag_ui()
 
-        @app.post("/chat")
-        async def run_agent(
-            message: RunAgentInput,
-            accept: str | None = Header(None),
-        ):
-            return StreamingResponse(
-                stream.dispatch(message, accept=accept),
-                media_type=accept or "text/event-stream",
-            )
+        if __name__ == "__main__":
+            import uvicorn
+
+            uvicorn.run(app, host="0.0.0.0", port=8000)
         ```
     </Tab>
 
@@ -123,6 +117,3 @@ render the tool call and display the arguments that were passed to the tool.
 </Step>
 </Steps>
 
-## Default Tool Rendering
-
-<DefaultToolRendering components={props.components} />

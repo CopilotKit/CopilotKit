@@ -1,9 +1,11 @@
-import { renderHook } from "@testing-library/react";
+import { render as renderComponent, renderHook } from "@testing-library/react";
+import { ToolCallStatus } from "@copilotkit/core";
 import type React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { ReactFrontendTool } from "../../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../../types/human-in-the-loop";
+import { defineToolCallRenderer } from "../../types/defineToolCallRenderer";
 import { CopilotKitProvider, useCopilotKit } from "../CopilotKitProvider";
 
 describe("CopilotKitProvider - Wildcard Tool", () => {
@@ -90,6 +92,43 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
       );
       expect(wildcardRender).toBeDefined();
       expect(wildcardRender?.render).toBe(WildcardRender);
+    });
+
+    it("should support frontend tool null renderer that destructures status", () => {
+      const suppressSingleTool: ReactFrontendTool = {
+        name: "searchDatabase",
+        parameters: z.object({ query: z.string() }),
+        handler: async ({ query }) => ({ query }),
+        render: ({ status }) => {
+          expect(status).toBe(ToolCallStatus.Executing);
+          return null;
+        },
+      };
+
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider frontendTools={[suppressSingleTool]}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      const registeredRender = result.current.copilotkit.renderToolCalls.find(
+        (rc) => rc.name === "searchDatabase",
+      );
+      expect(registeredRender).toBeDefined();
+
+      const Render = registeredRender!.render;
+      const { container } = renderComponent(
+        <Render
+          name="searchDatabase"
+          toolCallId="call_search"
+          args={{ query: "copilot" }}
+          status={ToolCallStatus.Executing}
+          result={undefined}
+        />,
+      );
+      expect(container.childElementCount).toBe(0);
     });
 
     it("should support wildcard with agentId", () => {
@@ -238,6 +277,41 @@ describe("CopilotKitProvider - Wildcard Tool", () => {
         (rc) => rc.name === "*",
       );
       expect(wildcardRender?.agentId).toBe("agent1");
+    });
+
+    it("should support wildcard null renderer that destructures status", () => {
+      const suppressUnhandledToolCalls = defineToolCallRenderer({
+        name: "*",
+        render: ({ status }) => {
+          expect(status).toBe(ToolCallStatus.InProgress);
+          return null;
+        },
+      });
+
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider renderToolCalls={[suppressUnhandledToolCalls]}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      const wildcardRender = result.current.copilotkit.renderToolCalls.find(
+        (rc) => rc.name === "*",
+      );
+      expect(wildcardRender).toBeDefined();
+
+      const Render = wildcardRender!.render;
+      const { container } = renderComponent(
+        <Render
+          name="unknownTool"
+          toolCallId="call_1"
+          args={{}}
+          status={ToolCallStatus.InProgress}
+          result={undefined}
+        />,
+      );
+      expect(container.childElementCount).toBe(0);
     });
   });
 

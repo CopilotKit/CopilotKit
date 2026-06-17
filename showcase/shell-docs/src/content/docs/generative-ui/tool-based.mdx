@@ -15,7 +15,7 @@ agent as a tool. When the agent calls the tool, CopilotKit renders your
 component inline in the chat, passing the tool's arguments straight through
 as typed props.
 
-Unlike [tool rendering](/generative-ui/tool-rendering), which wraps a
+Unlike [tool rendering](/generative-ui/tool-rendering/custom), which wraps a
 real backend tool in a custom UI, tool-based GenUI is the component. There
 is no handler, no user interaction, no server-side execution. The agent
 decides when to show it, populates the data, and CopilotKit paints it.
@@ -31,7 +31,7 @@ Use `useComponent` when you want to:
 
 For components that need user interaction, see
 [Human-in-the-loop](/human-in-the-loop). For operational transparency
-around a real backend tool, see [Tool rendering](/generative-ui/tool-rendering).
+around a real backend tool, see [Tool rendering](/generative-ui/tool-rendering/custom).
 
 ## How it works in code
 

@@ -1,5 +1,5 @@
 ---
-title: Tool Call Rendering
+title: Custom Tool Rendering
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 snippet_cell: tool-rendering
@@ -28,29 +28,6 @@ Render tool calls when you want to:
 - Display live progress indicators while a tool executes
 - Render rich, polished results once a tool completes
 - Give tool-heavy agents a transparent, on-brand chat experience
-
-## Default tool rendering (zero-config)
-
-<FrameworkSetup concept="agent-setup" />
-
-The simplest entry point: call `useDefaultRenderTool()` with no arguments.
-CopilotKit registers its built-in `DefaultToolCallRenderer` as the `*`
-wildcard: every tool call renders as a tidy status card (tool name, live
-**Running → Done** pill, collapsible arguments/result) without you writing
-any UI.
-
-Without this hook the runtime has no `*` renderer and tool calls are
-invisible; the user only sees the assistant's final text summary.
-
-<Snippet
-  cell="tool-rendering-default-catchall"
-  region="default-catchall-zero-config"
-  title="frontend/src/app/page.tsx — useDefaultRenderTool()"
-/>
-
-Here's what the built-in status card looks like for each tool call:
-
-<InlineDemo demo="tool-rendering-default-catchall" />
 
 ## Custom catch-all
 
@@ -103,4 +80,4 @@ no CopilotKit-specific plumbing required:
 
 <Snippet region="weather-tool-backend" title="backend/agent.py — weather tool" />
 
-<IntegrationGrid path="generative-ui/tool-rendering" />
+<IntegrationGrid path="generative-ui/tool-rendering/custom" />

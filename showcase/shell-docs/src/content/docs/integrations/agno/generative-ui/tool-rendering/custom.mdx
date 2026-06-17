@@ -1,18 +1,13 @@
 ---
-title: "Tool Rendering"
+title: Custom Tool Rendering
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 ---
-import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
-import { IframeSwitcher } from "@/components/content"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs"
-import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
-import RunAndConnect from "@/snippets/integrations/pydantic-ai/run-and-connect.mdx"
 
 <IframeSwitcher
   id="backend-tools-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl="https://feature-viewer.copilotkit.ai/agno/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/agno/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -35,33 +30,37 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 ## Implementation
 
 <Steps>
-<Step>
-### Run and connect your agent
-<RunAndConnect />
-</Step>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect />
+  </Step>
 <Step>
 ### Give your agent a tool to call
 
-<Tabs groupId="language_pydantic-ai_agent" items={['Python']} default="Python" persist>
+<Tabs groupId="language_agno_agent" items={['Python']} default="Python" persist>
     <Tab value="Python">
         ```python title="agent.py"
-        from pydantic_ai import Agent
+        from agno.agent import Agent
+        from agno.models.openai import OpenAIChat
+        from agno.tools import tool
+        # ...
 
-        agent = Agent("openai:gpt-5.4-mini")
+        # [!code highlight:6]
+        @tool
+        def get_weather(location: str):
+            """
+            Get the weather for a given location.
+            """
+            return f"The weather for {location} is 70 degrees."
 
+        # ...
 
-        @agent.tool_plain
-        async def get_weather(location: str = "Everywhere ever") -> str:
-            """Get the weather for a given location. Ensure location is fully spelled out."""
-            return f"The weather in {location} is sunny."
-
-
-        app = agent.to_ag_ui()
-
-        if __name__ == "__main__":
-            import uvicorn
-
-            uvicorn.run(app, host="0.0.0.0", port=8000)
+        agent = Agent(
+            model=OpenAIChat(id="gpt-5.4"),
+            tools=[get_weather], # [!code highlight]
+            description="A helpful assistant that can answer questions and provide information.",
+            instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
+        )
         ```
     </Tab>
 
@@ -83,7 +82,7 @@ import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
 
 const YourMainContent = () => {
   // ...
-  // [!code highlight:12]
+  {/* [!code highlight:12] */}
   useRenderTool({
     name: "get_weather",
     render: ({status, args}) => {
@@ -106,18 +105,6 @@ const YourMainContent = () => {
 Try asking the agent to get the weather for a location. You should see the custom UI component that we added
 render the tool call and display the arguments that were passed to the tool.
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/tool-based-gen-ui.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
 </Step>
 </Steps>
 
-## Default Tool Rendering
-
-<DefaultToolRendering />

@@ -90,6 +90,9 @@ function CustomChatMessage({ message }) {
 Tool call renderers are typically registered through `useFrontendTool` or directly via the `renderToolCalls` prop on the provider. The `useRenderToolCall` hook resolves these registrations at render time.
 
 ```tsx
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
 function App() {
   // Register a tool with a render component
   useFrontendTool(
@@ -194,18 +197,21 @@ function App() {
 Opt out of all unhandled tools with a wildcard renderer. This disables the default renderer globally while still letting any tool with its own named renderer paint:
 
 ```tsx
+import {
+  CopilotKit,
+  defineToolCallRenderer,
+} from "@copilotkit/react-core/v2";
+
+const suppressUnhandledToolCalls = defineToolCallRenderer({
+  name: "*",
+  render: ({ status }) => null,
+});
+
 function App() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit"
-      renderToolCalls={[
-        {
-          // Suppresses the built-in DefaultToolCallRenderer for any
-          // tool call without an exact-name renderer.
-          name: "*",
-          render: ({ status }) => null,
-        },
-      ]}
+      renderToolCalls={[suppressUnhandledToolCalls]}
     >
       <YourApp />
     </CopilotKit>

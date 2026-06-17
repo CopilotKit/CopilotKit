@@ -127,7 +127,7 @@ export function adaptRendererProps(
  */
 export function useDefaultRenderTool(
   config?: {
-    render?: (props: DefaultRenderProps) => React.ReactElement;
+    render?: (props: DefaultRenderProps) => React.ReactNode;
   },
   deps?: ReadonlyArray<unknown>,
 ): void {
@@ -137,7 +137,7 @@ export function useDefaultRenderTool(
   // documented {@link DefaultRenderProps} (parameters, string-union status)
   // even though `useRenderToolCall` invokes the registered render with the
   // framework-internal `{ args, status: ToolCallStatus, ... }` shape.
-  const registered: (props: RawRendererProps) => React.ReactElement = userRender
+  const registered: (props: RawRendererProps) => React.ReactNode = userRender
     ? (raw) => userRender(adaptRendererProps(raw))
     : (raw) => <DefaultToolCallRenderer {...adaptRendererProps(raw)} />;
 
@@ -147,7 +147,7 @@ export function useDefaultRenderTool(
       // `useRenderTool` types the render with the raw framework signature;
       // the wrapper above adapts to the documented shape. We cast through
       // `unknown` to bridge the public type without `as any`.
-      render: registered as unknown as (props: unknown) => React.ReactElement,
+      render: registered as unknown as (props: unknown) => React.ReactNode,
     },
     deps,
   );
