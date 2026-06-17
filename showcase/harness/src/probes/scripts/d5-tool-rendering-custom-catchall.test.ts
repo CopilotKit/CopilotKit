@@ -302,11 +302,10 @@ describe("D5 tool-rendering-custom-catchall — requireContentPhrase branch (reg
         }) as R,
     };
     await expect(
-      mod.assertCustomCatchall(
-        page,
-        ["get_weather", "get_stock_price"],
-        { requireContentPhrase: true, timeoutMs: 30 },
-      ),
+      mod.assertCustomCatchall(page, ["get_weather", "get_stock_price"], {
+        requireContentPhrase: true,
+        timeoutMs: 30,
+      }),
     ).rejects.toThrow(/custom-catchall content phrase/);
   });
 });

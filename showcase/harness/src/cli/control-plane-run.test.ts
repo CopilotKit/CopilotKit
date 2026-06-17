@@ -60,9 +60,10 @@ const {
   createFleetQueueClientMock: vi.fn(() => ({}) as unknown),
   createE2eDeepEnumMock: vi.fn(() => async () => []),
   createServiceEnumMock: vi.fn(() => async () => []),
-  demosForSlugMock: vi.fn(
-    (slug: string): string[] => [`${slug}-demo-a`, `${slug}-demo-b`],
-  ),
+  demosForSlugMock: vi.fn((slug: string): string[] => [
+    `${slug}-demo-a`,
+    `${slug}-demo-b`,
+  ]),
 }));
 
 vi.mock("../fleet/control-plane/job-producer.js", () => ({
