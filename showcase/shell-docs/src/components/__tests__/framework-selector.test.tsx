@@ -1,9 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+const navigation = vi.hoisted(() => ({
+  pathname: "/",
+  replace: vi.fn(),
+}));
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/",
-  useRouter: () => ({ replace: vi.fn() }),
+  usePathname: () => navigation.pathname,
+  useRouter: () => ({ replace: navigation.replace }),
 }));
 
 vi.mock("posthog-js/react", () => ({
@@ -60,6 +65,7 @@ const options = [
 
 describe("FrameworkSelector", () => {
   it("renders separate sidebar selectors for frontend and backend", () => {
+    navigation.pathname = "/";
     const markup = renderToStaticMarkup(
       <FrameworkSelector
         options={options}
@@ -88,5 +94,21 @@ describe("FrameworkSelector", () => {
     expect(markup).not.toContain("Choose your agent backend");
     expect(markup).not.toContain("Any agent backend");
     expect(markup).not.toContain("Agentic backend");
+  });
+
+  it("reflects the frontend selected by the URL", () => {
+    navigation.pathname = "/frontends/vue";
+
+    const markup = renderToStaticMarkup(
+      <FrameworkSelector
+        options={options}
+        categoryOrder={[]}
+        variant="sidebar"
+      />,
+    );
+
+    expect(markup).toContain("Frontend");
+    expect(markup).toContain("Vue");
+    expect(markup).not.toContain("React Native");
   });
 });

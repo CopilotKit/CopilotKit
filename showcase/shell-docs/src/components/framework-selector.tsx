@@ -7,8 +7,15 @@ import React, { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
 import { useFramework } from "./framework-provider";
+import { FrontendLogo } from "./frontend-logo";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
+import {
+  FRONTEND_OPTIONS,
+  frontendFromPathname,
+  frontendPathFor,
+} from "@/lib/frontend-options";
+import type { FrontendId } from "@/lib/frontend-options";
 
 export interface FrameworkOption {
   slug: string;
@@ -16,77 +23,6 @@ export interface FrameworkOption {
   category: string;
   logo?: string | null;
   deployed: boolean;
-}
-
-interface FrontendOption {
-  id: string;
-  name: string;
-  icon: "react" | "vue" | "react-native" | "slack" | "teams";
-}
-
-const FRONTEND_STORAGE_KEY = "copilotkit.docs.frontend";
-
-const FRONTEND_OPTIONS: FrontendOption[] = [
-  { id: "react", name: "React", icon: "react" },
-  { id: "vue", name: "Vue", icon: "vue" },
-  { id: "react-native", name: "React Native", icon: "react-native" },
-  { id: "slack", name: "Slack", icon: "slack" },
-  { id: "teams", name: "Teams", icon: "teams" },
-];
-
-function FrontendLogo({
-  icon,
-  size = 18,
-}: {
-  icon: FrontendOption["icon"];
-  size?: number;
-}) {
-  if (icon === "vue") {
-    return (
-      <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-        <path fill="#41B883" d="M2 4h8l6 10 6-10h8L16 28 2 4Z" />
-        <path fill="#34495E" d="M10 4h5.2L16 5.4 16.8 4H22l-6 10-6-10Z" />
-      </svg>
-    );
-  }
-
-  if (icon === "slack") {
-    return (
-      <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-        <rect x="13" y="2" width="6" height="13" rx="3" fill="#36C5F0" />
-        <rect x="13" y="17" width="6" height="13" rx="3" fill="#2EB67D" />
-        <rect x="17" y="13" width="13" height="6" rx="3" fill="#ECB22E" />
-        <rect x="2" y="13" width="13" height="6" rx="3" fill="#E01E5A" />
-        <rect x="20" y="2" width="6" height="6" rx="3" fill="#ECB22E" />
-        <rect x="20" y="24" width="6" height="6" rx="3" fill="#2EB67D" />
-        <rect x="2" y="20" width="6" height="6" rx="3" fill="#E01E5A" />
-        <rect x="2" y="6" width="6" height="6" rx="3" fill="#36C5F0" />
-      </svg>
-    );
-  }
-
-  if (icon === "teams") {
-    return (
-      <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-        <rect x="10" y="8" width="17" height="18" rx="3" fill="#5059C9" />
-        <circle cx="22.5" cy="6.5" r="4.5" fill="#7B83EB" />
-        <circle cx="27" cy="11" r="3" fill="#7B83EB" opacity="0.9" />
-        <rect x="2" y="10" width="16" height="14" rx="2" fill="#6264A7" />
-        <path fill="#fff" d="M6 13.4h8v2H11v6H9v-6H6v-2Z" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg width={size} height={size} viewBox="-16 -16 32 32" aria-hidden="true">
-      <g fill="none" stroke="#61DAFB" strokeWidth="1.55">
-        <ellipse rx="13" ry="5" />
-        <ellipse rx="13" ry="5" transform="rotate(60)" />
-        <ellipse rx="13" ry="5" transform="rotate(120)" />
-      </g>
-      <circle r={icon === "react-native" ? 2.6 : 2.2} fill="#61DAFB" />
-    </svg>
-  );
 }
 
 export interface FrameworkSelectorProps {
@@ -116,23 +52,9 @@ export function FrameworkSelector({
   const pathname = usePathname() ?? "";
   const posthog = usePostHog();
   const { effectiveFramework, setStoredFramework } = useFramework();
+  const urlFrontend = frontendFromPathname(pathname);
   const [openMenu, setOpenMenu] = useState<"frontend" | "backend" | null>(null);
-  const [selectedFrontendId, setSelectedFrontendId] = useState("react");
   const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    try {
-      const storedFrontend = window.localStorage.getItem(FRONTEND_STORAGE_KEY);
-      if (
-        storedFrontend &&
-        FRONTEND_OPTIONS.some((option) => option.id === storedFrontend)
-      ) {
-        setSelectedFrontendId(storedFrontend);
-      }
-    } catch {
-      // Local storage can be unavailable in private or embedded contexts.
-    }
-  }, []);
 
   // Close on outside-click / Escape.
   useEffect(() => {
@@ -162,16 +84,14 @@ export function FrameworkSelector({
   const displayNameFor = (opt: FrameworkOption) =>
     isSidebar && opt.slug === "built-in-agent" ? "CopilotKit" : opt.name;
   const label = current ? displayNameFor(current) : "Pick an agentic backend";
+  const effectiveFrontendId = urlFrontend ?? "react";
   const selectedFrontend =
-    FRONTEND_OPTIONS.find((option) => option.id === selectedFrontendId) ??
+    FRONTEND_OPTIONS.find((option) => option.id === effectiveFrontendId) ??
     FRONTEND_OPTIONS[0];
 
-  function selectFrontend(id: string) {
-    setSelectedFrontendId(id);
-    try {
-      window.localStorage.setItem(FRONTEND_STORAGE_KEY, id);
-    } catch {
-      // Keep the interaction working even when persistence is unavailable.
+  function selectFrontend(id: FrontendId) {
+    if (id !== effectiveFrontendId || pathname.startsWith("/frontends/")) {
+      router.replace(frontendPathFor(id));
     }
     setOpenMenu(null);
   }
@@ -188,6 +108,10 @@ export function FrameworkSelector({
       });
     } catch {
       // Swallow - analytics is fire-and-forget.
+    }
+    if (pathname.startsWith("/frontends/")) {
+      setOpenMenu(null);
+      return;
     }
     // Backend changes intentionally drop the current feature slug. The
     // selector is a backend pivot, so landing on the framework root gives
