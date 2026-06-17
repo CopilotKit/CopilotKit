@@ -1,0 +1,158 @@
+---
+title: "Build a portable agent with Oracle Agent Spec, memory, and CopilotKit"
+description: "Define an agent once in Oracle Agent Spec, run it on LangGraph over AG-UI, give it long-term memory on Oracle AI Database, and render it in CopilotKit with human-in-the-loop."
+icon: "lucide/Workflow"
+doc_type: how-to
+---
+
+[Oracle Agent Spec](https://github.com/oracle/agent-spec) is an open, framework-agnostic way to describe an agent as portable JSON — define it once, run it on any supported runtime. This recipe wires three things together: an Agent Spec agent running on **LangGraph**, served over the open [AG-UI](https://docs.ag-ui.com/) protocol, rendered in a [CopilotKit](https://www.copilotkit.ai/) chat, with **long-term memory** on Oracle AI Database so it remembers you across sessions.
+
+The example is a personal **travel concierge**: it remembers your preferences across sessions, searches trips, and is defined with **human-in-the-loop** confirmation before it books.
+
+## How it works
+
+- The agent is defined declaratively with `pyagentspec` and serialized to Agent Spec JSON.
+- The [`ag_ui_agentspec`](https://github.com/ag-ui-protocol/ag-ui) adapter loads that JSON and serves it as a FastAPI AG-UI endpoint on the LangGraph runtime.
+- CopilotKit consumes the AG-UI endpoint with an `HttpAgent` — the same protocol as any AG-UI agent.
+- Memory is the glue: a `recall_memory` tool reads durable preferences from Oracle Agent Memory, and each turn is persisted after the response streams.
+
+```text
+CopilotKit (Next.js, V2) ──/api/copilotkit──▶ CopilotRuntime (HttpAgent)
+                                                    │  AG-UI (SSE)
+                                                    ▼
+                                  Agent Spec JSON → ag_ui_agentspec (LangGraph)
+                                     recall_memory · search_trips · book_trip (HITL)
+                                                    │  recall + persist
+                                                    ▼
+                                        oracleagentmemory → Oracle AI Database
+```
+
+## Try it live
+
+The concierge was told a loyalty number in one session; here it's asked in a
+**brand-new** session and recalls it — the answer can only come from memory
+persisted in Oracle AI Database.
+
+{/* Placeholder URL — upload the recording to the CopilotKit CDN and update src.
+    Source asset: docs/cookbook/assets/oracle-agentspec-recall.mp4 in the example repo. */}
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/cookbook/oracle-agentspec-recall.mp4"
+  controls
+  className="w-full rounded-xl border border-[var(--border)]"
+/>
+
+## Prerequisites
+
+- **Python 3.12** (required — `oracleagentmemory` ships a cp312 wheel), [`uv`](https://docs.astral.sh/uv/), Node.js 18+
+- Docker (for the local Oracle AI Database) or your own Oracle AI Database
+- `OPENAI_API_KEY` (defaults use OpenAI via litellm)
+
+<Callout type="warning" title="Pre-release dependencies">
+This frontend uses CopilotKit **V2** pre-release builds so Agent Spec's human-in-the-loop renders, and the `ag_ui_agentspec` adapter is installed from the `ag-ui` repo (not PyPI). Both are pinned in the manifests.
+</Callout>
+
+## Start the database and run the agent
+
+```bash
+git clone https://github.com/CopilotKit/oracle-cookbook.git
+cd oracle-cookbook
+
+docker compose up -d                 # wait for "DATABASE IS READY TO USE"
+./db/setup-db.sh                     # create the cookbook DB user (idempotent)
+
+cd agent
+cp .env.example .env                 # add your OPENAI_API_KEY
+uv sync
+uv run uvicorn concierge.server:app --reload --port 8000
+```
+
+## Run the frontend
+
+```bash
+cd frontend
+cp .env.local.example .env.local     # optional; defaults to localhost:8000/run
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000`.
+
+## Try it
+
+1. Tell it: *"I'm vegetarian, I fly from SFO, and I prefer an aisle seat."*
+2. Reload, then ask: *"Plan me a trip to Amsterdam."*
+3. It recalls your preferences and proposes a vegetarian-friendly, canal-side
+   option — personalized by what it remembered from Oracle, not what you said this
+   session.
+
+<Callout type="info" title="Recall is eventually consistent">
+Memory is written and indexed asynchronously, so a fact you just taught becomes recallable after a brief delay (typically seconds). In a normal "come back later" session that delay is invisible; only a teach-then-ask within the same few seconds can outrun indexing.
+</Callout>
+
+<Callout type="info" title="Booking (human-in-the-loop) is pending an upstream fix">
+`book_trip` is declared with `requires_confirmation=True` in the portable spec, so the design includes a confirm-before-book step. In practice that confirmation is a *second* turn after a server-tool call, which currently trips an upstream Agent Spec × AG-UI adapter bug (`tool_call_id` correlation) — so the booking step can't complete end-to-end yet. Details + repro: [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/oracle-cookbook/blob/main/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
+</Callout>
+
+## The key pieces, in code
+
+Memory recall is exposed as an Agent Spec `ServerTool`, so the portable spec itself declares the capability; booking requires confirmation, which is what drives the AG-UI human-in-the-loop interrupt:
+
+```python title="agent/concierge/tools.py"
+book_trip_tool = ServerTool(
+    name="book_trip",
+    description="Book a trip option by its id. Requires the traveler's confirmation.",
+    inputs=[_str_prop("trip_id", "The id of the trip option to book, e.g. 'AMS-001'.")],
+    outputs=[_str_prop("confirmation", "Booking confirmation message.")],
+    requires_confirmation=True,
+)
+```
+
+The agent is defined once and serialized to portable JSON:
+
+```python title="agent/concierge/agent.py"
+return Agent(
+    name="travel_concierge",
+    llm_config=llm,
+    system_prompt=SYSTEM_PROMPT,
+    tools=TOOLS,
+    human_in_the_loop=True,
+)
+```
+
+The adapter has no post-run hook, so the server persists each turn to Oracle Agent Memory after the AG-UI stream drains (see `agent/concierge/server.py`).
+
+## Going further
+
+- **Per-user memory** — the cookbook defaults to a single `demo-user`. The stock adapter does not forward `forwarded_props`, so scope `user_id` via a FastAPI dependency / ContextVar (see `agent/concierge/tools.py`).
+- **Swap the runtime** — Agent Spec's adapter also supports Oracle's WayFlow runtime; the same spec runs on either.
+
+## Get started with a coding agent
+
+Want to build this yourself? Paste this into your coding agent (Claude Code, Cursor, …):
+
+```text
+Build a CopilotKit chat backed by a portable Oracle Agent Spec agent with
+long-term memory on Oracle AI Database. Requirements:
+
+- A Python FastAPI agent that defines an Oracle Agent Spec `Agent` (via
+  `pyagentspec`) with three `ServerTool`s: `recall_memory` (reads durable
+  preferences from Oracle Agent Memory via `oracleagentmemory`), `search_trips`
+  (a mock search), and `book_trip` (`requires_confirmation=True`, for
+  human-in-the-loop).
+- Serialize the agent to Agent Spec JSON and serve it over AG-UI on the LangGraph
+  runtime with the `ag_ui_agentspec` adapter (`add_agentspec_fastapi_endpoint`).
+  The adapter has no post-run hook, so persist each turn to Oracle Agent Memory
+  after the AG-UI stream drains.
+- A Next.js CopilotKit frontend that proxies to the agent over AG-UI with
+  `HttpAgent`, so the agent owns the LLM call (use CopilotKit's empty runtime
+  adapter).
+- Use Oracle AI Database (Docker image `container-registry.oracle.com/database/free`)
+  as the memory store; connect with `oracledb` and litellm embeddings.
+
+Walk me through it step by step, starting with the agent.
+```
+
+## Get the code
+
+Full source: [`CopilotKit/oracle-cookbook`](https://github.com/CopilotKit/oracle-cookbook) — `agent/` (the Agent Spec agent) and `frontend/` (the CopilotKit V2 chat).
