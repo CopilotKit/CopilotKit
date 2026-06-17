@@ -1,37 +1,33 @@
+## What is the Enterprise Intelligence Platform?
 
+The Enterprise Intelligence Platform is CopilotKit's production layer for durable threads, persistence, observability, hosted Copilot Cloud, and self-hosted deployments. It is designed for teams building production-grade, agent-powered applications with CopilotKit while keeping the same frontend SDK and runtime APIs.
 
-## What is CopilotKit Premium?
-CopilotKit Premium plans deliver:
-- A commercial license for premium extensions to the open source CopilotKit framework (self-hosted or using Copilot Cloud)
-- Access to the Copilot Cloud hosted service. 
+The Developer tier is free to start with, and self-service plans are available through Copilot Cloud.
 
-CopilotKit Premium is designed for teams building production-grade, agent-powered applications with CopilotKit.
-Premium extension features — such as Fully Headless UI and debugging tools — can be used in both self-hosted and cloud-hosted deployments.
+## Plans
 
-The Developer tier of CopilotKit Premium is always free.
+- Developer - free forever, includes early-stage access and limited cloud usage
+- Pro - for growing teams building in production
+- Organization controls - for teams with advanced scalability, security, and support needs
 
-## Premium Plans
-- Developer – Free forever, includes early-stage access and limited cloud usage
-- Pro – For growing teams building in production
-- Enterprise – For organizations with advanced scalability, security, and support needs
-## Early Access
-Certain features—like the Headless UI—will initially be available only to Premium subscribers before becoming part of the open-source core as the framework matures.
-All CopilotKit Premium subscribers get early access to new features, tooling, and integrations as they are released.
+## Current capabilities
 
-## Current Premium Features
 - [Fully Headless Chat UI](headless-ui) - Early Access
 - [Observability Hooks](observability)
 - [Copilot Cloud](https://dashboard.operations.copilotkit.ai)
+- [Self-Hosting Enterprise Intelligence](self-hosting)
 
 ## FAQs
 
-### How do I get access to premium features?
+### How do I get access?
 
-#### Option 1:  Use Copilot Cloud! 
-All CopilotKit Premium features are included in Copilot Cloud. 
+#### Option 1: Use Copilot Cloud
 
-#### Option 2:  Self-host with a license key.
-Access to premium features requires a public license key. To get yours, follow the steps below.
+Create a project in Copilot Cloud and use the public API key with your runtime.
+
+#### Option 2: Self-host with a license key
+
+Use a public license key when you run the Enterprise Intelligence Platform yourself. To get yours, follow the steps below.
 
 <Steps>
   <Step>
@@ -62,11 +58,8 @@ Access to premium features requires a public license key. To get yours, follow t
 
 ### Can I still self-host with a public license key?
 
-Yes, you can still self-host with a public license key. It is only required if you want to use premium features, 
-for access to Copilot Cloud a public API key is utilized.
-
+Yes. Self-hosted Enterprise Intelligence uses a public license key. Copilot Cloud uses a separate public API key.
 
 ### What is the difference between a public license key and a public API key?
 
-A public API key is a key that you use to connect your app to Copilot Cloud. Public license keys are used to access premium features
-and do not require a connection to Copilot Cloud.
+A public API key connects your app to Copilot Cloud. A public license key unlocks self-hosted Enterprise Intelligence Platform capabilities and does not require a connection to Copilot Cloud.

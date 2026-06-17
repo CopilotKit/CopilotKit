@@ -17,7 +17,6 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
-    "threads",
     "agent-app-context",
     "---Built-in Agent---",
     "server-tools",
@@ -26,8 +25,7 @@
     "advanced-configuration",
     "telemetry",
     "---Runtime---",
-    "---Premium Features---",
-    "...premium",
+    "---Intelligence Platform---",
     "---Deploy---",
     "---Platforms---",
     "---Other---"
