@@ -6,10 +6,10 @@
   },
   "fixtures": [
     {
-      "_comment": "tool-rendering-custom-catchall \u2014 follow-up narration after get_weather tool result. Scoped via toolCallId (per-leg) so it only matches the weather tool-result turn; ordered BEFORE the tool-emit sibling so first-match-wins picks narration when the tool result is present.",
+      "_comment": "tool-rendering-custom-catchall \u2014 follow-up narration after get_weather tool result. Scoped via turnIndex:1 (assistant-count = 1 means 'one tool-call leg has been emitted; we're now narrating the result'). BIA's TanStack runtime auto-generates tool_call_id at request time, so the older toolCallId pin against a fixture-defined literal never matched on /v1/responses; turnIndex+userMessage is the id-agnostic alternative. Ordered BEFORE the tool-emit sibling so first-match-wins picks narration when the assistant-count gate fires.",
       "match": {
         "userMessage": "Forecast Tokyo through the wildcard renderer",
-        "toolCallId": "call_d6_cc_weather_001",
+        "turnIndex": 1,
         "context": "built-in-agent"
       },
       "response": {
@@ -34,10 +34,10 @@
       }
     },
     {
-      "_comment": "tool-rendering-custom-catchall \u2014 follow-up narration after get_stock_price tool result. Scoped via toolCallId (per-leg) so it only matches the stock tool-result turn; ordered BEFORE the tool-emit sibling so first-match-wins picks narration when the tool result is present.",
+      "_comment": "tool-rendering-custom-catchall \u2014 follow-up narration after get_stock_price tool result. Scoped via turnIndex:3 (assistant-count = 3 means weather-emit + weather-narrate + stock-emit have happened; we're now narrating the AAPL tool result). BIA's TanStack runtime auto-generates tool_call_id at request time, so the older toolCallId pin against a fixture-defined literal never matched on /v1/responses; turnIndex+userMessage is the id-agnostic alternative. Ordered BEFORE the AAPL tool-emit sibling so first-match-wins picks narration once the AAPL assistant-count gate fires.",
       "match": {
         "userMessage": "Quote AAPL through the wildcard renderer",
-        "toolCallId": "call_d6_cc_stock_001",
+        "turnIndex": 3,
         "context": "built-in-agent"
       },
       "response": {
@@ -45,9 +45,10 @@
       }
     },
     {
-      "_comment": "tool-rendering-custom-catchall \u2014 second prompt 'What's the current price of AAPL?'. Emits get_stock_price tool call to exercise a DIFFERENT tool through the same wildcard renderer. No hasToolResult gate (the Tokyo tool result from the previous prompt makes hasToolResult permanently true here); the toolCallId narration fixture above wins after the stock tool result arrives.",
+      "_comment": "tool-rendering-custom-catchall \u2014 second prompt 'What's the current price of AAPL?'. Emits get_stock_price tool call to exercise a DIFFERENT tool through the same wildcard renderer. turnIndex:2 means exactly two prior assistant turns (Tokyo emit + Tokyo narrate) have happened, the AAPL prompt has just arrived, and no AAPL tool-call has been emitted yet. The narration sibling above (turnIndex:3) fires after this emit produces its assistant tool-call message.",
       "match": {
         "userMessage": "Quote AAPL through the wildcard renderer",
+        "turnIndex": 2,
         "context": "built-in-agent"
       },
       "response": {
