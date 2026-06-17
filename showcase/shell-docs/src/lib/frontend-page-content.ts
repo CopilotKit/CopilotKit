@@ -41,7 +41,7 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
     { type: "page", title: "Quickstart", slug: getFrontendContentSlug(id) },
     {
       type: "page",
-      title: "Using these docs",
+      title: "Using these docs 🏗️",
       slug: getFrontendUsingTheseDocsSlug(id),
       icon: "lucide/Wrench",
     },

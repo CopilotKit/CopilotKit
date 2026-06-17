@@ -61,7 +61,7 @@ describe("frontend options", () => {
       { type: "page", title: "Quickstart", slug: "frontends/slack" },
       {
         type: "page",
-        title: "Using these docs",
+        title: "Using these docs 🏗️",
         slug: "frontends/slack/using-these-docs",
         icon: "lucide/Wrench",
       },
