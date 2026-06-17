@@ -115,6 +115,46 @@ describe("ChunkedMessageStream", () => {
     expect(chunkTexts.join("")).toBe(input);
   });
 
+  it("balances fences when a single code block is longer than the limit", async () => {
+    const limit = 40;
+    const { stream, postPlaceholder, updateAt } = makeStream({ limit });
+
+    // One fenced block whose body alone is ~100 chars — far larger than the
+    // soft limit, so the chunker is forced to split inside the fence.
+    const body = "x".repeat(100);
+    const input = "```ts\n" + body + "\n```";
+    stream.append(input);
+    await stream.finish();
+
+    expect(postPlaceholder.mock.calls.length).toBeGreaterThan(1);
+    expect(stream.chunkCount).toBeGreaterThan(1);
+
+    const FENCE = "```";
+    let reconstructedBody = "";
+    for (let i = 0; i < stream.chunkCount; i++) {
+      const txt = finalTextFor(updateAt, `msg-${i}`);
+      expect(txt).toBeDefined();
+      // Every chunk must be independently fence-balanced: an even number of
+      // fences means it opens and closes its own block (no dangling fence).
+      const fenceCount = txt!.split(FENCE).length - 1;
+      expect(fenceCount % 2).toBe(0);
+      expect(fenceCount).toBeGreaterThan(0);
+      // No chunk ends with a dangling, unclosed fence (it must end on a closer).
+      expect(txt!.trimEnd().endsWith(FENCE)).toBe(true);
+
+      // Strip the injected balancing fences (leading opener + trailing closer)
+      // and the original `ts` language hint, then collect the code body so we
+      // can prove the original content survived the split intact.
+      const inner = txt!
+        .replace(/^```(?:ts)?\n?/, "")
+        .replace(/\n?```\s*$/, "");
+      reconstructedBody += inner;
+    }
+
+    // Concatenating the per-chunk code bodies reconstructs the original body.
+    expect(reconstructedBody).toBe(body);
+  });
+
   it("keeps already-frozen chunk boundaries stable across incremental appends", async () => {
     const limit = 20;
     const { stream, updateAt } = makeStream({ limit });

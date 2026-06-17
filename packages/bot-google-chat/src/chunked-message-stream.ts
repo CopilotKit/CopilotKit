@@ -1,15 +1,53 @@
 import { MessageStream } from "./message-stream.js";
 
+const FENCE = "```";
+
 /**
  * Position (0-based) of the unpaired opening ``` in `buffer.slice(0, end)`,
  * or null if all triple-backticks before `end` are paired.
  */
 function findUnpairedFenceStart(buffer: string, end: number): number | null {
   const before = buffer.slice(0, end);
-  const parts = before.split("```");
+  const parts = before.split(FENCE);
   // length is odd → balanced; even → one unpaired opener exists
   if (parts.length % 2 !== 0) return null;
-  return before.lastIndexOf("```");
+  return before.lastIndexOf(FENCE);
+}
+
+/** Number of triple-backtick fences in `text`. */
+function countFences(text: string): number {
+  return text.split(FENCE).length - 1;
+}
+
+/**
+ * Make a single dispatched chunk independently fence-balanced.
+ *
+ * `openBefore` says whether this chunk begins INSIDE a fenced block that was
+ * opened in an earlier chunk (the running fence count before the slice is
+ * odd). When so, prepend a bare reopener so the continuation renders as code;
+ * the per-chunk markdown transform leaves fenced regions untouched, so we
+ * balance the raw slice text here, before transform.
+ *
+ * Returns the (possibly) wrapped text plus whether the block is still open at
+ * the END of this chunk (so the next chunk knows to reopen).
+ */
+function balanceFences(
+  slice: string,
+  openBefore: boolean,
+): { text: string; openAfter: boolean } {
+  let text = slice;
+  // Continuation of a block opened in a previous chunk: reopen the fence so
+  // this slice renders as code on its own. (Language hint is lost — fine for v1.)
+  if (openBefore) text = FENCE + "\n" + text;
+
+  // Total fences now visible in this self-contained chunk. Odd → the chunk
+  // ends with an unclosed fence; append a closer on its own line.
+  const fenceCount = (openBefore ? 1 : 0) + countFences(slice);
+  const endsOpen = fenceCount % 2 !== 0;
+  if (endsOpen) {
+    text = text.endsWith("\n") ? text + FENCE : text + "\n" + FENCE;
+  }
+  return { text, openAfter: endsOpen };
 }
 
 /**
@@ -150,13 +188,19 @@ export class ChunkedMessageStream {
         }),
       );
     }
-    // Dispatch slices.
+    // Dispatch slices. Each chunk is made independently fence-balanced so a
+    // fenced code block that straddles a boundary doesn't render as an
+    // unterminated fence in one message and code-styled text in the next.
+    // `openBefore` carries whether the previous chunk ended mid-fence.
+    let openBefore = false;
     for (let i = 0; i < chunkCount; i++) {
       const start = i === 0 ? 0 : this.boundaries[i - 1]!;
       const end =
         i < this.boundaries.length ? this.boundaries[i]! : this.buffer.length;
       const slice = this.buffer.slice(start, end);
-      this.streams[i]!.append(slice);
+      const { text, openAfter } = balanceFences(slice, openBefore);
+      openBefore = openAfter;
+      this.streams[i]!.append(text);
     }
   }
 }
