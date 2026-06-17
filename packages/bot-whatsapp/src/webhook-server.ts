@@ -46,8 +46,10 @@ export class WebhookServer {
   private handle(req: IncomingMessage, res: ServerResponse): void {
     const url = new URL(req.url ?? "/", "http://localhost");
     // Health check — gives the Railway public domain a 200 to hit. The webhook
-    // itself lives at `this.args.path`; everything else 404s as before.
-    if (req.method === "GET" && url.pathname === "/") {
+    // itself lives at `this.args.path`; everything else 404s as before. Guard
+    // with `path !== "/"` so that if an operator configures the webhook AT the
+    // root, the Meta verify handshake (GET /?hub...) is not shadowed by health.
+    if (req.method === "GET" && url.pathname === "/" && this.args.path !== "/") {
       res.statusCode = 200;
       res.setHeader("content-type", "text/plain");
       res.end("ok");

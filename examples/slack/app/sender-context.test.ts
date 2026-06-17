@@ -19,4 +19,11 @@ describe("senderContext", () => {
       { description: "Requesting whatsapp user", value: "Bob (whatsapp id 15551230000)" },
     ]);
   });
+
+  it("falls back to the id when the user has no name (e.g. a WhatsApp sender)", () => {
+    const out = senderContext({ id: "15551230000" }, "whatsapp");
+    expect(out).toEqual([
+      { description: "Requesting whatsapp user", value: "15551230000 (whatsapp id 15551230000)" },
+    ]);
+  });
 });

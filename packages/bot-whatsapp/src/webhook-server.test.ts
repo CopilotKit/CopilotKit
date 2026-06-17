@@ -141,4 +141,15 @@ describe("WebhookServer", () => {
       await server.stop();
     }
   });
+
+  it("still 404s an unknown path (health route doesn't broaden 200)", async () => {
+    const server = new WebhookServer({ path: "/webhook", verifyToken: "V", appSecret: "S", onEvent: async () => {} });
+    await server.start(0);
+    try {
+      const res = await get(server, "/nope");
+      expect(res.status).toBe(404);
+    } finally {
+      await server.stop();
+    }
+  });
 });

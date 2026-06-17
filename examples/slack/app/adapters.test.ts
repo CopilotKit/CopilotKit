@@ -29,4 +29,15 @@ describe("buildAdapters", () => {
       buildAdapters({ ...slackEnv, WHATSAPP_ACCESS_TOKEN: "TOK" } as NodeJS.ProcessEnv),
     ).toThrow(/WHATSAPP_PHONE_NUMBER_ID/);
   });
+
+  it("throws on a malformed PORT instead of binding NaN", () => {
+    expect(() =>
+      buildAdapters({ ...slackEnv, ...waEnv, PORT: "not-a-port" } as NodeJS.ProcessEnv),
+    ).toThrow(/Invalid PORT/);
+  });
+
+  it("accepts a numeric PORT override", () => {
+    const adapters = buildAdapters({ ...slackEnv, ...waEnv, PORT: "8080" } as NodeJS.ProcessEnv);
+    expect(adapters.map((a) => a.platform)).toEqual(["slack", "whatsapp"]);
+  });
 });

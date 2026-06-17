@@ -21,13 +21,19 @@ export function buildAdapters(env: NodeJS.ProcessEnv): PlatformAdapter[] {
   ];
 
   if (env.WHATSAPP_ACCESS_TOKEN) {
+    // Fail loud on a malformed PORT rather than letting `Number("abc")` → NaN
+    // reach `server.listen()` (Railway always injects a clean numeric $PORT).
+    const port = env.PORT ? Number(env.PORT) : 3000;
+    if (!Number.isInteger(port) || port < 0) {
+      throw new Error(`Invalid PORT: "${env.PORT}" is not a valid port number`);
+    }
     adapters.push(
       whatsapp({
         accessToken: need("WHATSAPP_ACCESS_TOKEN"),
         phoneNumberId: need("WHATSAPP_PHONE_NUMBER_ID"),
         appSecret: need("WHATSAPP_APP_SECRET"),
         verifyToken: need("WHATSAPP_VERIFY_TOKEN"),
-        port: env.PORT ? Number(env.PORT) : 3000,
+        port,
         path: env.WHATSAPP_PATH ?? "/webhook",
       }),
     );

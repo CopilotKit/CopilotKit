@@ -79,9 +79,10 @@ const bot = createBot({
 });
 
 // One handler covers @-mentions, replies in threads the bot owns, and DMs.
-// senderContext names the requesting Slack user so the agent acts "as" them.
+// senderContext names the requesting user (per thread.platform) so the agent
+// acts "as" them.
 bot.onMention(async ({ thread, message }) => {
-  await thread.runAgent({ context: senderContext(message.user) });
+  await thread.runAgent({ context: senderContext(message.user, thread.platform) });
 });
 
 await bot.start();
@@ -178,7 +179,7 @@ defineBotCommand({
   description: "Ask the triage agent anything (no @mention needed).",
   async handler({ thread, text, user }) {
     if (!text) return void thread.post("Usage: `/agent <your question>`");
-    await thread.runAgent({ prompt: text, context: senderContext(user) });
+    await thread.runAgent({ prompt: text, context: senderContext(user, thread.platform) });
   },
 });
 ```
@@ -272,9 +273,10 @@ Invite the bot to a channel and @mention it:
 
 ## Per-user identity
 
-The `onMention` handler forwards the **requesting Slack user** (resolved to
-name + email) to the agent each turn via `senderContext(message.user)`, so
-the bot acts on behalf of whoever's asking: "my issues" is scoped to you,
+The `onMention` handler forwards the **requesting user** (resolved to
+name + email on Slack; name + wa_id on WhatsApp) to the agent each turn via
+`senderContext(message.user, thread.platform)`, so the bot acts on behalf of
+whoever's asking: "my issues" is scoped to you,
 and issues it files are assigned to you. This needs the `users:read.email`
 scope (already in the manifest — reinstall the app once after adding it).
 
