@@ -47,6 +47,23 @@ describe("GoogleChatAdapter", () => {
     expect(chatClient.patchMessage).toHaveBeenCalledWith("spaces/A/messages/M1", expect.objectContaining({ text: "edit" }), "text,cardsV2");
   });
 
+  it("stream() patches the placeholder text-only (mask 'text', not 'text,cardsV2')", async () => {
+    const { adapter, chatClient } = makeAdapter();
+    async function* chunks() {
+      yield "hello world";
+    }
+    await adapter.stream(
+      { space: "spaces/A", thread: "spaces/A/threads/T" } as unknown,
+      chunks(),
+    );
+    // The streaming updateAt closure must use the "text" mask so it never
+    // clears an existing cardsV2 payload on the edited message.
+    expect(chatClient.patchMessage).toHaveBeenCalled();
+    for (const call of chatClient.patchMessage.mock.calls as any[]) {
+      expect(call[2]).toBe("text");
+    }
+  });
+
   it("delete() removes the message", async () => {
     const { adapter, chatClient } = makeAdapter();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

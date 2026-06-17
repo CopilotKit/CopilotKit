@@ -75,7 +75,7 @@ export function createRunRenderer(args: {
         return msg.name;
       },
       updateAt: async (name, text) => {
-        await client.patchMessage(name, { text }, "text,cardsV2");
+        await client.patchMessage(name, { text }, "text");
       },
       transform: markdownToChat,
     });

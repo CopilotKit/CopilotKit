@@ -184,7 +184,7 @@ export class GoogleChatAdapter implements PlatformAdapter {
         return res.name;
       },
       updateAt: async (name, text) => {
-        await this.chatClient.patchMessage(name, { text }, "text,cardsV2");
+        await this.chatClient.patchMessage(name, { text }, "text");
       },
       transform: markdownToChat,
     });
