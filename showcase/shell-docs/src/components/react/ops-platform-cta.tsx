@@ -62,7 +62,7 @@ export interface OpsPlatformCTAProps {
    * analytics can attribute the click. Shell-docs does not yet ship a
    * client-side PostHog capture; UTM is the source of truth here. */
   surface: string;
-  /** Optional override for the link label. Defaults to "Get Intelligence free" */
+  /** Optional override for the link label. Defaults to "Get Enterprise Intelligence free" */
   ctaLabel?: string;
   /** Optional className override for the outermost element */
   className?: string;
@@ -87,7 +87,7 @@ export function OpsPlatformCTA({
   title,
   body,
   surface,
-  ctaLabel = "Get Intelligence free",
+  ctaLabel = "Get Enterprise Intelligence free",
   className,
 }: OpsPlatformCTAProps) {
   const href = buildHref(surface);
