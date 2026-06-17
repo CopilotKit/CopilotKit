@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { renderGoogleChatMessage } from "./cards-v2.js";
+import { GCHAT_LIMITS } from "./budget.js";
 import type { BotNode } from "@copilotkit/bot-ui";
 
 const text = (value: string): BotNode => ({ type: "text", props: { value } });
@@ -247,6 +248,112 @@ describe("renderGoogleChatMessage", () => {
     expect(params.find((p: any) => p.key === "value")).toBeUndefined();
     // The ck: function id round-trip is unaffected.
     expect(buttons[0].onClick.action.function).toBe("ck:novalue");
+  });
+
+  it("drops a javascript: link in card text and keeps only the escaped visible text", () => {
+    const out = renderGoogleChatMessage([
+      section("[click me](javascript:alert(1))"),
+    ]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    const html = tp.textParagraph.text;
+
+    // No anchor, no dangerous scheme — just the visible text.
+    expect(html).not.toContain("<a href");
+    expect(html).not.toContain("javascript:");
+    expect(html).toContain("click me");
+  });
+
+  it("keeps a normal https link in card text (regression)", () => {
+    const out = renderGoogleChatMessage([
+      section("[CK](https://copilotkit.ai)"),
+    ]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    expect(tp.textParagraph.text).toContain(
+      '<a href="https://copilotkit.ai">CK</a>',
+    );
+  });
+
+  it("strips sentinel control bytes from card text without corrupting it", () => {
+    // A literal \x10 sentinel pasted into content must be removed before the
+    // code-placeholder machinery runs, and the surrounding text preserved.
+    const out = renderGoogleChatMessage([section("before\x10CODE0\x10after")]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    const html = tp.textParagraph.text;
+    expect(html).not.toContain("\x10");
+    expect(html).toContain("beforeCODE0after");
+  });
+
+  it("budgets the FINAL card HTML, never cutting mid-tag or mid-entity", () => {
+    // Build markdown whose converted HTML is far larger than the limit:
+    // many `&` (→ &amp;, 5 chars each) plus bold spans that expand to tags.
+    const big = ("**x** & ".repeat(2000)).trim();
+    const out = renderGoogleChatMessage([section(big)]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    const html = tp.textParagraph.text;
+
+    // Within the Chat limit after expansion.
+    expect(html.length).toBeLessThanOrEqual(GCHAT_LIMITS.textParagraph);
+
+    // Not cut in the middle of a tag: no trailing unterminated `<…`.
+    const lastLt = html.lastIndexOf("<");
+    const lastGt = html.lastIndexOf(">");
+    expect(lastLt).toBeLessThanOrEqual(lastGt);
+
+    // Not cut in the middle of an entity: no trailing unterminated `&…`.
+    const lastAmp = html.lastIndexOf("&");
+    const lastSemi = html.lastIndexOf(";");
+    if (lastAmp !== -1) expect(lastAmp).toBeLessThanOrEqual(lastSemi);
+
+    // Every emitted tag is balanced (no dangling open <b>/<i>/<s>).
+    const opens = (html.match(/<(b|i|s)>/g) ?? []).length;
+    const closes = (html.match(/<\/(b|i|s)>/g) ?? []).length;
+    expect(opens).toBe(closes);
+  });
+
+  it("gives handler-less buttons bounded, sanitized, distinct fallback ids", () => {
+    // Buttons with large, brace/quote-laden values: the FUNCTION id must not
+    // carry the value (bounded + opaque), yet remain distinct per button.
+    const button = (label: string, value: unknown): BotNode => ({
+      type: "button",
+      props: { value, children: [text(label)] },
+    });
+    const bigValue = { note: '"'.repeat(500) + "{}[]" };
+    const actionsNode: BotNode = {
+      type: "actions",
+      props: { children: [button("One", bigValue), button("Two", bigValue)] },
+    };
+
+    const out = renderGoogleChatMessage([actionsNode]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const buttons = widgets.find((w) => w.buttonList !== undefined).buttonList
+      .buttons;
+
+    const fnA = buttons[0].onClick.action.function;
+    const fnB = buttons[1].onClick.action.function;
+
+    // Bounded + opaque: short, no quotes/braces from the value.
+    expect(fnA).toBe("ck-fallback-0");
+    expect(fnB).toBe("ck-fallback-1");
+    expect(fnA).not.toContain('"');
+    expect(fnA).not.toContain("{");
+    expect(fnA.length).toBeLessThanOrEqual(32);
+    // Distinct per button.
+    expect(fnA).not.toBe(fnB);
+
+    // The value is still carried in the parameters, unchanged.
+    const valueParam = buttons[0].onClick.action.parameters.find(
+      (p: any) => p.key === "value",
+    );
+    expect(JSON.parse(valueParam.value)).toEqual(bigValue);
   });
 
   it("returns a plain text body (no empty-widgets section) when non-plain-text IR produces zero widgets", () => {

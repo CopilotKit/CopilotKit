@@ -1,4 +1,29 @@
 /**
+ * Allow only safe link schemes. Permits http:, https:, and mailto:
+ * (case-insensitive), scheme-relative `//host` URLs, and relative URLs that
+ * carry no scheme at all (no `:` before the first `/`, `?`, or `#`). Any
+ * other scheme (javascript:, data:, vbscript:, file:, …) is rejected so it
+ * can't be emitted as a link target.
+ */
+function isSafeUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (trimmed.startsWith("//")) return true; // scheme-relative
+  const colon = trimmed.indexOf(":");
+  if (colon === -1) return true; // no scheme → relative
+  const slash = trimmed.indexOf("/");
+  const question = trimmed.indexOf("?");
+  const hash = trimmed.indexOf("#");
+  // A ':' that appears only after a path/query/fragment separator is not a
+  // scheme delimiter (e.g. "/a:b", "?x:y") — treat those as relative.
+  const beforeDelimiter = (d: number) => d === -1 || colon < d;
+  if (beforeDelimiter(slash) && beforeDelimiter(question) && beforeDelimiter(hash)) {
+    const scheme = trimmed.slice(0, colon).toLowerCase();
+    return scheme === "http" || scheme === "https" || scheme === "mailto";
+  }
+  return true;
+}
+
+/**
  * Translate the agent's standard Markdown into Google Chat's text format.
  *
  *   Markdown         →  Google Chat
@@ -20,17 +45,26 @@
 export function markdownToChat(input: string): string {
   if (!input) return input;
 
+  // ── 0. Strip the sentinel control bytes from the input. ──
+  // The placeholder/BOLD sentinels below are single non-printing control
+  // bytes (\x10 here; \x11/\x12 below). They are collision-proof ONLY
+  // BECAUSE we remove any pre-existing occurrences from the input first —
+  // input CAN contain them (rare, but possible in pasted/LLM content), and
+  // leaving them in would corrupt the placeholder/restore passes. Stripping
+  // them up front makes the "can never appear in real input" invariant real.
+  const sanitized = input.replace(/[\x10\x11\x12]/g, "");
+
   // ── 1. Pull code regions and tables out so we don't touch them. ──
   // NOTE: the placeholder (and the BOLD sentinels below) are wrapped in
   // intentional, load-bearing non-printing control-character bytes (\x10
   // here; \x11/\x12 below). They are invisible in most editors but are NOT
-  // decorative — they are collision-proof sentinels chosen so they can never
-  // appear in real input. Do NOT "clean them up" or replace them with visible
-  // text; doing so would let user content collide with our placeholders.
+  // decorative — they are collision-proof sentinels (the input is stripped
+  // of them first, see step 0, so they can never collide with real content).
+  // Do NOT "clean them up" or replace them with visible text.
   const codeRegions: string[] = [];
   const codePlaceholder = (i: number) => `CODE${i}`;
 
-  let body = input.replace(/```[\s\S]*?```/g, (match) => {
+  let body = sanitized.replace(/```[\s\S]*?```/g, (match) => {
     codeRegions.push(match);
     return codePlaceholder(codeRegions.length - 1);
   });
@@ -79,8 +113,13 @@ export function markdownToChat(input: string): string {
   body = body.replace(/(^|[^*\w])\*(\S(?:[^*\n]*\S)?)\*(?!\w)/g, "$1_$2_");
   // Italic _text_ stays _text_ (no-op transform, but ensures the form is canonical).
 
-  // Markdown links [text](url) → <url|text>
-  body = body.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, "<$2|$1>");
+  // Markdown links [text](url) → <url|text>. Drop links whose URL uses a
+  // disallowed scheme (javascript:, data:, …) and keep only the visible
+  // text, so a crafted link can't smuggle an executable href through Chat.
+  body = body.replace(
+    /\[([^\]\n]+)\]\(([^)\s]+)\)/g,
+    (_m, t: string, u: string) => (isSafeUrl(u) ? `<${u}|${t}>` : t),
+  );
 
   // Bullet list markers: `- ` / `* ` / `+ ` at the start of a line → "•  "
   body = body.replace(/^(\s*)[-*+]\s+/gm, "$1•  ");

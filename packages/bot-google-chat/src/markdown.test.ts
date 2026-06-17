@@ -44,4 +44,49 @@ describe("markdownToChat", () => {
   it("converts a bullet marker to •  ", () => {
     expect(markdownToChat("- x")).toBe("•  x");
   });
+
+  // ── Fix 1: link scheme allowlist ──────────────────────────────────────────
+  it("drops a javascript: link and keeps only the visible text", () => {
+    const out = markdownToChat("[click](javascript:alert1)");
+    expect(out).not.toContain("javascript:");
+    expect(out).not.toContain("<");
+    expect(out).toBe("click");
+  });
+  it("drops a data: link and keeps only the visible text", () => {
+    const out = markdownToChat("[x](data:text/html,<script>)");
+    expect(out).not.toContain("data:");
+    expect(out).toBe("x");
+  });
+  it("keeps an http:/https: link (regression)", () => {
+    expect(markdownToChat("[CK](http://copilotkit.ai)")).toBe(
+      "<http://copilotkit.ai|CK>",
+    );
+    expect(markdownToChat("[CK](https://copilotkit.ai)")).toBe(
+      "<https://copilotkit.ai|CK>",
+    );
+  });
+  it("keeps a mailto: link", () => {
+    expect(markdownToChat("[mail](mailto:a@b.com)")).toBe(
+      "<mailto:a@b.com|mail>",
+    );
+  });
+  it("keeps a relative link (no scheme)", () => {
+    expect(markdownToChat("[rel](/path/to/page)")).toBe("</path/to/page|rel>");
+  });
+
+  // ── Fix 2: sentinel control bytes are stripped from input ─────────────────
+  it("strips sentinel control bytes from the input without corrupting prose", () => {
+    // A literal \x10 sentinel embedded in user/LLM content must be removed,
+    // and the surrounding text preserved, so the code-region machinery isn't
+    // confused by a colliding byte.
+    const out = markdownToChat("before\x10CODE0\x10after");
+    expect(out).not.toContain("\x10");
+    expect(out).toBe("beforeCODE0after");
+  });
+  it("strips \\x11/\\x12 bold sentinels from the input", () => {
+    const out = markdownToChat("a\x11b\x12c");
+    expect(out).not.toContain("\x11");
+    expect(out).not.toContain("\x12");
+    expect(out).toBe("abc");
+  });
 });

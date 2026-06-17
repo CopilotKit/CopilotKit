@@ -11,6 +11,36 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+/** Reverse {@link escapeHtml} so a URL can be scheme-checked as its raw form. */
+function unescapeHtml(s: string): string {
+  return s
+    .replace(/&gt;/g, ">")
+    .replace(/&lt;/g, "<")
+    .replace(/&amp;/g, "&");
+}
+
+/**
+ * Allow only safe link schemes. Permits http:, https:, and mailto:
+ * (case-insensitive), scheme-relative `//host` URLs, and relative URLs with
+ * no scheme at all (no `:` before the first `/`, `?`, or `#`). Any other
+ * scheme (javascript:, data:, vbscript:, file:, …) is rejected.
+ */
+function isSafeUrl(url: string): boolean {
+  const trimmed = url.trim();
+  if (trimmed.startsWith("//")) return true; // scheme-relative
+  const colon = trimmed.indexOf(":");
+  if (colon === -1) return true; // no scheme → relative
+  const slash = trimmed.indexOf("/");
+  const question = trimmed.indexOf("?");
+  const hash = trimmed.indexOf("#");
+  const beforeDelimiter = (d: number) => d === -1 || colon < d;
+  if (beforeDelimiter(slash) && beforeDelimiter(question) && beforeDelimiter(hash)) {
+    const scheme = trimmed.slice(0, colon).toLowerCase();
+    return scheme === "http" || scheme === "https" || scheme === "mailto";
+  }
+  return true;
+}
+
 /**
  * Convert the agent's standard Markdown into the limited HTML subset that
  * Google Chat card `textParagraph`/`decoratedText` widgets render.
@@ -36,18 +66,26 @@ function escapeHtml(s: string): string {
 export function markdownToCardHtml(input: string): string {
   if (!input) return input;
 
+  // ── 0. Strip the sentinel control bytes from the input. ──
+  // The placeholders/sentinels below use the non-printing control bytes \x10
+  // (code), \x11 (bold open), \x12 (bold close). They are collision-proof
+  // ONLY BECAUSE we remove any pre-existing occurrences from the input here
+  // first — input CAN contain them (rare, but possible in pasted/LLM content)
+  // and leaving them in would corrupt the placeholder/restore passes.
+  const sanitized = input.replace(/[\x10\x11\x12]/g, "");
+
   // ── 1. Pull code regions out so their contents aren't reinterpreted. ──
   // The code placeholder is wrapped in the non-printing control byte \x10, and
   // the bold sentinels below are the control bytes \x11 (open) / \x12 (close).
   // All three are real, load-bearing, collision-proof bytes — invisible in most
-  // editors but deliberately chosen so they can never appear in real user input.
-  // Do NOT replace them with visible text. Any markdown-style transform in this
-  // package MUST use these control-byte sentinels (see markdown.ts) to avoid
-  // colliding with user text.
+  // editors but deliberately chosen so they can never appear in real user input
+  // (the input is stripped of them first, see step 0). Do NOT replace them with
+  // visible text. Any markdown-style transform in this package MUST use these
+  // control-byte sentinels (see markdown.ts) to avoid colliding with user text.
   const codeRegions: string[] = [];
   const codePlaceholder = (i: number) => `\x10CODE${i}\x10`;
 
-  let body = input.replace(/```[\s\S]*?```/g, (match) => {
+  let body = sanitized.replace(/```[\s\S]*?```/g, (match) => {
     codeRegions.push(match);
     return codePlaceholder(codeRegions.length - 1);
   });
@@ -85,11 +123,16 @@ export function markdownToCardHtml(input: string): string {
   // Italic _text_ → <i>text</i>
   body = body.replace(/(^|[^_\w])_(\S(?:[^_\n]*\S)?)_(?!\w)/g, "$1<i>$2</i>");
 
-  // Markdown links [text](url) → <a href="url">text</a>. The url was escaped
-  // above; re-escape the quote just in case and keep it inside the attribute.
+  // Markdown links [text](url) → <a href="url">text</a>. The text/url were
+  // HTML-escaped above. Drop links whose URL uses a disallowed scheme
+  // (javascript:, data:, …) and emit only the (still-escaped) visible text,
+  // so a crafted link can't smuggle an executable href into the card.
   body = body.replace(
     /\[([^\]\n]+)\]\(([^)\s]+)\)/g,
-    (_m, t: string, u: string) => `<a href="${u.replace(/"/g, "&quot;")}">${t}</a>`,
+    (_m, t: string, u: string) =>
+      isSafeUrl(unescapeHtml(u))
+        ? `<a href="${u.replace(/"/g, "&quot;")}">${t}</a>`
+        : t,
   );
 
   // ── 4. Restore bold sentinels and code regions, then newlines → <br>. ──
@@ -102,6 +145,69 @@ export function markdownToCardHtml(input: string): string {
   body = body.replace(/\r?\n/g, "<br>");
 
   return body;
+}
+
+/**
+ * Convert markdown to the card HTML subset, THEN apply the length budget to
+ * the FINAL HTML. Escaping/`<br>`/tag expansion can grow the string past the
+ * limit, so budgeting the raw markdown (as we used to) could still emit HTML
+ * that Chat rejects. Truncation here is HTML-safe (see {@link safeTruncateHtml}).
+ */
+function convertAndBudget(markdown: string, max: number): string {
+  return safeTruncateHtml(markdownToCardHtml(markdown), max);
+}
+
+/**
+ * Truncate an HTML string to at most `max` characters without producing
+ * broken markup: never cut inside a `<…>` tag or an `&…;` entity, and close
+ * (or drop) any tags left open by the cut. The common case is plain text well
+ * under the limit, where this is a no-op; the repair only matters at the edge.
+ */
+function safeTruncateHtml(html: string, max: number): string {
+  if (html.length <= max) return html;
+  if (max <= 1) return html.slice(0, max);
+
+  // Reserve one char for the ellipsis marker, matching truncateText.
+  let cut = max - 1;
+
+  // Back out of a partial tag: if the slice ends inside an unclosed `<…`,
+  // cut before that `<`.
+  const lastLt = html.lastIndexOf("<", cut - 1);
+  const lastGt = html.lastIndexOf(">", cut - 1);
+  if (lastLt > lastGt) cut = lastLt;
+
+  // Back out of a partial entity: if the slice ends inside an unclosed `&…`,
+  // cut before that `&`.
+  const lastAmp = html.lastIndexOf("&", cut - 1);
+  const lastSemi = html.lastIndexOf(";", cut - 1);
+  if (lastAmp > lastSemi && lastAmp > lastLt) cut = lastAmp;
+
+  let truncated = html.slice(0, cut);
+
+  // Close any tags left open by the cut. We only ever emit <b>/<i>/<s>, so
+  // track those; append closers (innermost first) for the still-open ones.
+  const open: string[] = [];
+  const tagRe = /<(\/?)(b|i|s)>/g;
+  let m: RegExpExecArray | null;
+  while ((m = tagRe.exec(truncated)) !== null) {
+    const isClose = m[1] === "/";
+    const tag = m[2] ?? "";
+    if (isClose) {
+      const idx = open.lastIndexOf(tag);
+      if (idx !== -1) open.splice(idx, 1);
+    } else {
+      open.push(tag);
+    }
+  }
+  let closers = "";
+  for (let i = open.length - 1; i >= 0; i--) closers += `</${open[i]}>`;
+
+  // Ensure the closers + ellipsis still fit under `max`; if appending them
+  // would overflow, trim more plain text from the end first.
+  while (truncated.length + closers.length + 1 > max && truncated.length > 0) {
+    truncated = truncated.slice(0, -1);
+  }
+  return truncated + closers + "…";
 }
 
 /** The expanded children of an IR node as a BotNode[] (empty if none). */
@@ -146,9 +252,12 @@ function idFromHandler(handler: unknown): string | undefined {
 function buttonFunctionId(props: Record<string, unknown>, index: number): string {
   const fromHandler = idFromHandler(props.onClick);
   if (fromHandler) return fromHandler;
-  return props.value !== undefined
-    ? `${JSON.stringify(props.value)}:${index}`
-    : `ck-fallback-${index}`;
+  // No registry id: use a bounded, opaque, per-button id. We deliberately do
+  // NOT fold the (possibly large, quote/brace-laden) value into the function
+  // id — an unbounded id with special chars risks a rejected card or a
+  // mismatched id on click. The value is still carried in `parameters`, and
+  // `${index}` keeps distinct buttons distinct.
+  return `ck-fallback-${index}`;
 }
 
 /** Render an `actions` node into a `buttonList` widget, or return null if no buttons. */
@@ -212,8 +321,8 @@ function renderNodeWidgets(node: BotNode): Widget[] {
     }
     case "section":
     case "markdown": {
-      const txt = truncateText(collectText(node), GCHAT_LIMITS.textParagraph);
-      if (txt) widgets.push({ textParagraph: { text: markdownToCardHtml(txt) } });
+      const html = convertAndBudget(collectText(node), GCHAT_LIMITS.textParagraph);
+      if (html) widgets.push({ textParagraph: { text: html } });
       // Render any nested actions/button children as a buttonList widget.
       for (const child of childrenOf(node)) {
         if (typeof child.type === "string" && child.type === "actions") {
@@ -244,9 +353,13 @@ function renderNodeWidgets(node: BotNode): Widget[] {
       break;
     }
     case "context": {
-      const txt = truncateText(collectText(node), GCHAT_LIMITS.textParagraph);
-      // Context is rendered de-emphasized (italic).
-      if (txt) widgets.push({ textParagraph: { text: `<i>${markdownToCardHtml(txt)}</i>` } });
+      // Context is rendered de-emphasized (italic). Budget the inner HTML to
+      // the limit less the wrapping `<i></i>` so the final text still fits.
+      const inner = convertAndBudget(
+        collectText(node),
+        GCHAT_LIMITS.textParagraph - "<i></i>".length,
+      );
+      if (inner) widgets.push({ textParagraph: { text: `<i>${inner}</i>` } });
       break;
     }
     case "fields": {
@@ -254,27 +367,22 @@ function renderNodeWidgets(node: BotNode): Widget[] {
       for (const f of fieldChildren) {
         // `decoratedText` REQUIRES `text`; `topLabel` is only an optional
         // adornment above it. The field's content goes in `text`.
-        const txt = truncateText(collectText(f), GCHAT_LIMITS.decoratedTextTop);
-        if (txt) widgets.push({ decoratedText: { text: markdownToCardHtml(txt) } });
+        const html = convertAndBudget(collectText(f), GCHAT_LIMITS.decoratedTextTop);
+        if (html) widgets.push({ decoratedText: { text: html } });
       }
       break;
     }
     case "field": {
       // `decoratedText` REQUIRES `text`; put the field's content there.
-      const txt = truncateText(collectText(node), GCHAT_LIMITS.decoratedTextTop);
-      if (txt) widgets.push({ decoratedText: { text: markdownToCardHtml(txt) } });
+      const html = convertAndBudget(collectText(node), GCHAT_LIMITS.decoratedTextTop);
+      if (html) widgets.push({ decoratedText: { text: html } });
       break;
     }
     case "text": {
       const value = String((node.props ?? {}).value ?? "");
       if (value) {
-        widgets.push({
-          textParagraph: {
-            text: markdownToCardHtml(
-              truncateText(value, GCHAT_LIMITS.textParagraph),
-            ),
-          },
-        });
+        const html = convertAndBudget(value, GCHAT_LIMITS.textParagraph);
+        if (html) widgets.push({ textParagraph: { text: html } });
       }
       break;
     }
