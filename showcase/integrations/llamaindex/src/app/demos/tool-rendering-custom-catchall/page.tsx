@@ -9,20 +9,18 @@
 // call — no per-tool renderers yet.
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { CustomCatchallRenderer } from "./custom-catchall-renderer";
 import type { CatchallToolStatus } from "./custom-catchall-renderer";
 import { useSuggestions } from "./suggestions";
 
 // @region[suppress-catchall-rendering]
-import { CopilotChat, useDefaultRenderTool } from "@copilotkit/react-core/v2";
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
 
 function YourMainContent() {
   useDefaultRenderTool({
     render: ({ status }) => null,
   });
-
-  return <CopilotChat />;
 }
 // @endregion[suppress-catchall-rendering]
 
