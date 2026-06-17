@@ -29,6 +29,21 @@ export class UnauthorizedError extends Error {
   }
 }
 
+/**
+ * Thrown when fetching/parsing the Chat x509 certs fails (network error or
+ * non-2xx from CHAT_CERT_URL). This is an infrastructure failure on OUR side,
+ * NOT a bad inbound token, so it must NOT be reported as Unauthorized: the
+ * request handler maps UnauthorizedError to 401 and everything else to 500, and
+ * a transient cert-endpoint outage should surface as 500 so Google Chat retries
+ * rather than treating the app's auth as permanently broken.
+ */
+export class CertFetchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CertFetchError";
+  }
+}
+
 export interface TokenProvider {
   getToken(): Promise<string>;
 }
@@ -99,29 +114,68 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
   // Starts at -Infinity so the first verification failure is always allowed to
   // refetch (the certs are, by definition, "stale enough" before any refetch).
   let lastRefetchAt = Number.NEGATIVE_INFINITY;
+  // In-flight self-heal refetch, if any. The debounce window below bounds
+  // SEQUENTIAL refetches, but the time-check and the lastRefetchAt assignment
+  // are separated by awaits, so N concurrent failing verifications could all
+  // observe the old timestamp, pass the window check, and each fire their own
+  // outbound fetch. This guard collapses concurrent refetches onto a single
+  // in-flight promise so "at most one refetch per window" holds under
+  // concurrency too. Cleared when the refetch settles.
+  let inFlightRefetch: Promise<Certificates> | undefined;
+  async function fetchCerts(): Promise<Certificates> {
+    let res: Response;
+    try {
+      res = await fetch(CHAT_CERT_URL);
+    } catch (e) {
+      // Network error reaching the cert endpoint — our infrastructure, not the
+      // caller's token. Surface as a CertFetchError so verify() rethrows it
+      // (→ 500), never as UnauthorizedError (→ 401).
+      throw new CertFetchError(`failed to fetch Chat x509 certs: ${(e as Error).message}`);
+    }
+    if (!res.ok) {
+      throw new CertFetchError(`failed to fetch Chat x509 certs: ${res.status}`);
+    }
+    try {
+      cachedCerts = (await res.json()) as Certificates;
+    } catch (e) {
+      throw new CertFetchError(`failed to parse Chat x509 certs: ${(e as Error).message}`);
+    }
+    return cachedCerts;
+  }
   async function getCerts(forceRefresh = false): Promise<Certificates> {
     if (cachedCerts && !forceRefresh) return cachedCerts;
-    const res = await fetch(CHAT_CERT_URL);
-    if (!res.ok) {
-      throw new Error(`failed to fetch Chat x509 certs: ${res.status}`);
-    }
-    cachedCerts = (await res.json()) as Certificates;
-    return cachedCerts;
+    return fetchCerts();
+  }
+  /**
+   * Self-heal refetch with an in-flight guard: concurrent callers share one
+   * outbound fetch. The caller is responsible for the time-window debounce.
+   */
+  function refetchCerts(): Promise<Certificates> {
+    if (inFlightRefetch) return inFlightRefetch;
+    cachedCerts = undefined;
+    const p = fetchCerts().finally(() => {
+      if (inFlightRefetch === p) inFlightRefetch = undefined;
+    });
+    inFlightRefetch = p;
+    return p;
   }
 
   return {
     async verify(header) {
       const token = header?.startsWith("Bearer ") ? header.slice(7) : undefined;
       if (!token) throw new UnauthorizedError("missing bearer token");
+      // Obtain the certs first. A failure here is a cert-endpoint outage on our
+      // side (CertFetchError), not a bad token — let it propagate so the
+      // request handler maps it to 500 (Google retries) rather than 401.
+      const certs = await getCerts();
       // Validates signature against the Chat system certs AND enforces the
       // required audience and issuer in one call.
       try {
-        const certs = await getCerts();
         await client.verifySignedJwtWithCertsAsync(token, certs, audience, [CHAT_ISSUER]);
       } catch (initialErr) {
-        // Verification failed: the cached certs may be stale after a Google key
-        // rotation. Clear the cache, refetch once, and retry a single time
-        // before deciding the token is genuinely bad.
+        // Genuine verification failure: the cached certs may be stale after a
+        // Google key rotation. Refetch once and retry a single time before
+        // deciding the token is genuinely bad.
         //
         // But a forged/garbage token from an unauthenticated caller fails here
         // too, so refetching on EVERY failure would let a flood of bad tokens
@@ -130,7 +184,8 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
         // CERT_REFETCH_MIN_INTERVAL_MS. This still self-heals a genuine rotation
         // promptly (the first failure in a window always refetches) while
         // capping refetches to at most one per window regardless of bad-token
-        // volume.
+        // volume. The in-flight guard inside refetchCerts() extends that cap to
+        // concurrent failures too.
         if (Date.now() - lastRefetchAt < CERT_REFETCH_MIN_INTERVAL_MS) {
           throw new UnauthorizedError(
             `token verification failed: ${(initialErr as Error).message}`,
@@ -140,9 +195,11 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
         console.warn(
           "bot-google-chat: JWT verification failed; refetching Chat x509 certs (possible key rotation) and retrying once",
         );
-        cachedCerts = undefined;
+        // A cert-fetch failure during the self-heal is again an outage on our
+        // side, so let CertFetchError propagate (→ 500). Only a second
+        // verifySignedJwtWithCertsAsync rejection means the token is bad (→ 401).
+        const freshCerts = await refetchCerts();
         try {
-          const freshCerts = await getCerts(true);
           await client.verifySignedJwtWithCertsAsync(token, freshCerts, audience, [CHAT_ISSUER]);
         } catch (e) {
           throw new UnauthorizedError(`token verification failed: ${(e as Error).message}`);

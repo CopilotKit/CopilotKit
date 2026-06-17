@@ -111,6 +111,58 @@ describe("createInboundVerifier", () => {
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 
+  it("surfaces a cert-fetch failure as a non-UnauthorizedError (→ 500, not 401)", async () => {
+    // Cold cache + the cert endpoint is down: obtaining the certs throws before
+    // the token is ever verified. This is OUR infrastructure failing, not a bad
+    // token, so verify() must reject with something OTHER than UnauthorizedError
+    // (the request handler maps that to 500, letting Google Chat retry).
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 503 }) as unknown as Response),
+    );
+    const v = createInboundVerifier({ googleChatProjectNumber: "123" });
+    await expect(v.verify("Bearer some.jwt.token")).rejects.toThrow();
+    await expect(v.verify("Bearer some.jwt.token")).rejects.not.toBeInstanceOf(UnauthorizedError);
+    // The token is never even verified when the certs can't be fetched.
+    expect(verifySignedJwtWithCertsAsync).not.toHaveBeenCalled();
+  });
+
+  it("bounds concurrent self-heal refetches to a single outbound cert fetch", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => CERTS }) as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+    const v = createInboundVerifier({ googleChatProjectNumber: "123" });
+
+    // Warm the cert cache with one successful verify so the concurrent failures
+    // below skip the initial getCerts() fetch — this isolates the SELF-HEAL
+    // refetch count, which is what the in-flight guard bounds.
+    verifySignedJwtWithCertsAsync.mockResolvedValueOnce({
+      getPayload: () => ({ aud: "123", iss: "chat@system.gserviceaccount.com" }),
+    });
+    await expect(v.verify("Bearer good.jwt")).resolves.toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1); // the warm-up fetch
+    fetchMock.mockClear();
+
+    // Now every verification fails, so each concurrent request enters the
+    // self-heal refetch path within the same debounce window.
+    verifySignedJwtWithCertsAsync.mockRejectedValue(new Error("invalid signature"));
+
+    // Fire 3 concurrent verifications. Without the in-flight guard each would
+    // fire its own refetch (3 fetches); the guard collapses them onto ONE.
+    const results = await Promise.allSettled([
+      v.verify("Bearer bad.1"),
+      v.verify("Bearer bad.2"),
+      v.verify("Bearer bad.3"),
+    ]);
+    for (const r of results) {
+      expect(r.status).toBe("rejected");
+      expect((r as PromiseRejectedResult).reason).toBeInstanceOf(UnauthorizedError);
+    }
+    // Exactly one self-heal refetch across all three concurrent failures.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("bypasses verification when disableSignatureVerification is set", async () => {
     const v = createInboundVerifier({ disableSignatureVerification: true });
     await expect(v.verify(undefined)).resolves.toBeUndefined();
