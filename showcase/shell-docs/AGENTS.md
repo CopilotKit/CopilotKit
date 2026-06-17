@@ -43,7 +43,9 @@ every framework URL uses the same MDX source.
    `<Snippet>` tags without an explicit `cell`; explicit `cell="..."` points
    directly at a showcase demo cell. For these pages, inspect the corresponding
    showcase demo/integration source and generated shell-docs data before
-   changing code examples.
+   changing code examples. Do not create docs-only showcase files or unused
+   showcase components just to feed `<Snippet>`; if an example is conceptual
+   and has no live demo behind it, author a normal MDX code fence instead.
    Some pages also render shared snippet components such as `<ToolRendering />`
    or imports from `@/snippets/...`; preserve those links when splitting or
    moving pages. Be careful with the docs inliner: snippet imports are often
