@@ -63,14 +63,9 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       slug: getFrontendReferenceSlug(id),
     },
     {
-      type: "page",
-      title: "React docs for deeper examples",
-      slug: "",
-    },
-    {
       type: "section",
       title: "React docs",
-      icon: "lucide/RefreshCw",
+      icon: "custom/react",
       variant: "shadow-divider",
     },
     {

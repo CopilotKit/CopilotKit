@@ -66,7 +66,7 @@ describe("frontend options", () => {
   it("keeps non-React frontend sidebars focused before shadowing React docs", () => {
     const navTree = getFrontendQuickstartNavTree("slack");
 
-    expect(navTree.slice(0, 6)).toEqual([
+    expect(navTree.slice(0, 5)).toEqual([
       { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
       { type: "page", title: "Quickstart", slug: "frontends/slack" },
       {
@@ -81,17 +81,21 @@ describe("frontend options", () => {
         title: "Reference docs",
         slug: "reference/bot",
       },
-      {
-        type: "page",
-        title: "React docs for deeper examples",
-        slug: "",
-      },
     ]);
+
+    expect(flattenNavTree(navTree)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "page",
+          title: "React docs for deeper examples",
+        }),
+      ]),
+    );
 
     expect(navTree).toContainEqual({
       type: "section",
       title: "React docs",
-      icon: "lucide/RefreshCw",
+      icon: "custom/react",
       variant: "shadow-divider",
     });
 

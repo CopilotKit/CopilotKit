@@ -11,6 +11,7 @@
 import React from "react";
 import { LanggraphIcon } from "@/components/icons/framework-icons";
 import { CopilotKitMark } from "@/components/copilotkit-mark";
+import { FrontendLogo } from "@/components/frontend-logo";
 import {
   // Pages / sections
   Bolt,
@@ -139,6 +140,7 @@ const ICONS: Record<string, React.ReactNode> = {
   // its visual treatment matches the framework picker.
   "custom/langgraph": <LanggraphIcon />,
   "custom/copilotkit-kite": <CopilotKitMark />,
+  "custom/react": <FrontendLogo icon="react" size={16} />,
 };
 
 export function resolveSidebarIcon(spec: string | undefined): React.ReactNode {
