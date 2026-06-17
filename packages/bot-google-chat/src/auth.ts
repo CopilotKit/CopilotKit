@@ -66,10 +66,12 @@ function resolveCredentials(opts: GoogleChatAdapterOptions): object | undefined 
 export function createTokenProvider(opts: GoogleChatAdapterOptions): TokenProvider {
   const scopes = opts.impersonateUser ? [CHAT_BOT_SCOPE, ...DWD_SCOPES] : [CHAT_BOT_SCOPE];
   const credentials = resolveCredentials(opts);
+  // Same precedence (opts over env) and same source as resolveCredentials, so a
+  // key-file PATH supplied via GOOGLE_CHAT_CREDENTIALS is honored as keyFile
+  // rather than silently dropped (which would let GoogleAuth fall back to ADC).
+  const credSource = opts.credentials ?? process.env.GOOGLE_CHAT_CREDENTIALS;
   const keyFile =
-    typeof opts.credentials === "string" && !opts.credentials.trim().startsWith("{")
-      ? opts.credentials
-      : undefined;
+    typeof credSource === "string" && !credSource.trim().startsWith("{") ? credSource : undefined;
   const auth = new GoogleAuth({
     scopes,
     ...(credentials ? { credentials } : {}),
@@ -153,9 +155,19 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
   function refetchCerts(): Promise<Certificates> {
     if (inFlightRefetch) return inFlightRefetch;
     cachedCerts = undefined;
-    const p = fetchCerts().finally(() => {
-      if (inFlightRefetch === p) inFlightRefetch = undefined;
-    });
+    const p = fetchCerts()
+      .then((certs) => {
+        // Advance the debounce window only on a SUCCESSFUL refetch. A failed
+        // refetch (cert-endpoint outage → CertFetchError) must NOT consume the
+        // window: otherwise a genuine post-rotation token arriving during the
+        // outage would be rejected 401 without a refetch attempt for the next
+        // CERT_REFETCH_MIN_INTERVAL_MS.
+        lastRefetchAt = Date.now();
+        return certs;
+      })
+      .finally(() => {
+        if (inFlightRefetch === p) inFlightRefetch = undefined;
+      });
     inFlightRefetch = p;
     return p;
   }
@@ -191,7 +203,8 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
             `token verification failed: ${(initialErr as Error).message}`,
           );
         }
-        lastRefetchAt = Date.now();
+        // lastRefetchAt is advanced inside refetchCerts() only on success, so a
+        // failed refetch below does NOT burn the debounce window.
         console.warn(
           "bot-google-chat: JWT verification failed; refetching Chat x509 certs (possible key rotation) and retrying once",
         );

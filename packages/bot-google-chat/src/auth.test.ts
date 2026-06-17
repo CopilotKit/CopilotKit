@@ -1,12 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const verifySignedJwtWithCertsAsync = vi.fn();
+// Captures the options object the GoogleAuth constructor was last called with,
+// so the credential-resolution tests can assert how credentials/keyFile/subject
+// were derived from opts and env.
+let lastGoogleAuthOptions: Record<string, unknown> | undefined;
 vi.mock("google-auth-library", () => ({
   OAuth2Client: class { verifySignedJwtWithCertsAsync = verifySignedJwtWithCertsAsync; },
-  GoogleAuth: class {},
+  GoogleAuth: class {
+    constructor(options: Record<string, unknown>) {
+      lastGoogleAuthOptions = options;
+    }
+  },
 }));
 
-import { createInboundVerifier, UnauthorizedError } from "./auth.js";
+import { createInboundVerifier, createTokenProvider, UnauthorizedError } from "./auth.js";
 
 const CERTS = { kid1: "-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----" };
 
@@ -111,6 +119,53 @@ describe("createInboundVerifier", () => {
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 
+  it("does not burn the debounce window when the self-heal refetch itself fails", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+
+    // Cold cache. First fetch (the initial getCerts) succeeds; the self-heal
+    // refetch then FAILS (cert endpoint outage). Because the refetch failed,
+    // lastRefetchAt must NOT advance — so a follow-up failure within the window
+    // is still allowed to refetch.
+    const fetchMock = vi
+      .fn()
+      // initial getCerts (cold cache) for the first verify
+      .mockResolvedValueOnce({ ok: true, json: async () => CERTS } as unknown as Response)
+      // self-heal refetch for the first verify → outage (clears the cache)
+      .mockResolvedValueOnce({ ok: false, status: 503 } as unknown as Response)
+      // getCerts for the second verify (cache was cleared by the failed refetch)
+      .mockResolvedValueOnce({ ok: true, json: async () => CERTS } as unknown as Response)
+      // self-heal refetch for the second verify → recovered
+      .mockResolvedValueOnce({ ok: true, json: async () => CERTS } as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const v = createInboundVerifier({ googleChatProjectNumber: "123" });
+
+    // First verify: initial verify fails, self-heal refetch is attempted (window
+    // is open) but the cert endpoint is down → CertFetchError propagates (→ 500,
+    // NOT Unauthorized). Crucially, the failed refetch did not advance the window.
+    verifySignedJwtWithCertsAsync.mockRejectedValueOnce(new Error("stale signing key"));
+    await expect(v.verify("Bearer rotated.jwt.1")).rejects.not.toBeInstanceOf(UnauthorizedError);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // initial getCerts + failed refetch
+
+    // Second verify a few seconds later (well within the 5-minute window) with a
+    // now-valid token and a working refetch. Since the prior refetch FAILED and
+    // did not burn the window, the self-heal refetch IS attempted again here.
+    vi.setSystemTime(5_000);
+    verifySignedJwtWithCertsAsync
+      .mockRejectedValueOnce(new Error("stale signing key"))
+      .mockResolvedValueOnce({
+        getPayload: () => ({ aud: "123", iss: "chat@system.gserviceaccount.com" }),
+      });
+    await expect(v.verify("Bearer rotated.jwt.2")).resolves.toBeUndefined();
+    // The 4th fetch is the recovered self-heal refetch — proof the window was
+    // NOT burned by the earlier failed refetch. (The failed refetch cleared the
+    // cache, so the second verify also re-runs the cold-cache getCerts: fetch #3
+    // is that getCerts, fetch #4 is the self-heal refetch that was allowed
+    // because the prior refetch failed without advancing lastRefetchAt.)
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
   it("surfaces a cert-fetch failure as a non-UnauthorizedError (→ 500, not 401)", async () => {
     // Cold cache + the cert endpoint is down: obtaining the certs throws before
     // the token is ever verified. This is OUR infrastructure failing, not a bad
@@ -167,5 +222,62 @@ describe("createInboundVerifier", () => {
     const v = createInboundVerifier({ disableSignatureVerification: true });
     await expect(v.verify(undefined)).resolves.toBeUndefined();
     expect(verifySignedJwtWithCertsAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe("createTokenProvider credential resolution", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    lastGoogleAuthOptions = undefined;
+  });
+
+  it("parses opts.credentials given as an inline-JSON string into a credentials object", () => {
+    const json = '{"client_email":"svc@proj.iam.gserviceaccount.com","private_key":"k"}';
+    createTokenProvider({ credentials: json });
+    expect(lastGoogleAuthOptions?.credentials).toEqual({
+      client_email: "svc@proj.iam.gserviceaccount.com",
+      private_key: "k",
+    });
+    expect(lastGoogleAuthOptions).not.toHaveProperty("keyFile");
+  });
+
+  it("treats a non-JSON opts.credentials string as a key-file path", () => {
+    createTokenProvider({ credentials: "/secrets/key.json" });
+    expect(lastGoogleAuthOptions?.keyFile).toBe("/secrets/key.json");
+    expect(lastGoogleAuthOptions).not.toHaveProperty("credentials");
+  });
+
+  it("passes an opts.credentials object straight through as credentials", () => {
+    const obj = { client_email: "svc@proj.iam.gserviceaccount.com", private_key: "k" };
+    createTokenProvider({ credentials: obj });
+    expect(lastGoogleAuthOptions?.credentials).toEqual(obj);
+    expect(lastGoogleAuthOptions).not.toHaveProperty("keyFile");
+  });
+
+  it("honors GOOGLE_CHAT_CREDENTIALS as a key-file path when opts.credentials is unset", () => {
+    const prev = process.env.GOOGLE_CHAT_CREDENTIALS;
+    process.env.GOOGLE_CHAT_CREDENTIALS = "/env/secrets/key.json";
+    try {
+      createTokenProvider({});
+      expect(lastGoogleAuthOptions?.keyFile).toBe("/env/secrets/key.json");
+      expect(lastGoogleAuthOptions).not.toHaveProperty("credentials");
+    } finally {
+      if (prev === undefined) delete process.env.GOOGLE_CHAT_CREDENTIALS;
+      else process.env.GOOGLE_CHAT_CREDENTIALS = prev;
+    }
+  });
+
+  it("sets the DWD subject and scopes when impersonateUser is provided", () => {
+    createTokenProvider({
+      credentials: { client_email: "svc@proj.iam.gserviceaccount.com", private_key: "k" },
+      impersonateUser: "user@example.com",
+    });
+    expect(
+      (lastGoogleAuthOptions?.clientOptions as { subject?: string } | undefined)?.subject,
+    ).toBe("user@example.com");
+    const scopes = lastGoogleAuthOptions?.scopes as string[];
+    expect(scopes).toContain("https://www.googleapis.com/auth/chat.bot");
+    expect(scopes).toContain("https://www.googleapis.com/auth/chat.spaces");
+    expect(scopes).toContain("https://www.googleapis.com/auth/chat.messages");
   });
 });
