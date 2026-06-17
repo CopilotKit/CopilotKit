@@ -11,6 +11,7 @@ and final `result`:
 <Snippet
   cell="tool-rendering-custom-catchall"
   region="use-default-render-tool-wildcard"
+  fallbackFramework="langgraph-python"
   title="page.tsx"
 />
 
@@ -22,46 +23,15 @@ otherwise-unhandled tool calls to run without painting UI in the chat.
 Include `status` in the signature when the renderer may later become
 conditional:
 
-```tsx title="app/page.tsx"
-import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
-
-function YourMainContent() {
-  useDefaultRenderTool({
-    render: ({ status }) => null,
-  });
-
-  return <ChatInterface />;
-}
-```
+<Snippet
+  cell="tool-rendering-custom-catchall"
+  region="suppress-catchall-rendering"
+  fallbackFramework="langgraph-python"
+  title="page.tsx"
+/>
 
 You can make the opt-out conditional too. For example, return `null` while
 `status` is in progress, then render a result card when the call completes.
-
-If you are configuring renderers at the provider boundary, register the same
-wildcard explicitly:
-
-```tsx title="app/page.tsx"
-import {
-  CopilotKit,
-  defineToolCallRenderer,
-} from "@copilotkit/react-core/v2";
-
-const suppressUnhandledToolCalls = defineToolCallRenderer({
-  name: "*",
-  render: ({ status }) => null,
-});
-
-function App() {
-  return (
-    <CopilotKit
-      runtimeUrl="/api/copilotkit"
-      renderToolCalls={[suppressUnhandledToolCalls]}
-    >
-      <YourApp />
-    </CopilotKit>
-  );
-}
-```
 
 ## Suppress one named frontend tool
 
