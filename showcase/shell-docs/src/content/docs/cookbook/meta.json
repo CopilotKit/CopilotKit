@@ -2,6 +2,7 @@
   "title": "Cookbook",
   "root": true,
   "pages": [
-    "daytona"
+    "daytona",
+    "arcade"
   ]
 }
