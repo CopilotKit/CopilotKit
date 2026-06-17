@@ -101,7 +101,7 @@ describe("rebuild() — targeted slugs", () => {
   });
 });
 
-describe("up() — scoped --build (A21)", () => {
+describe("up() — two-call infra-start + scoped --build (A21b)", () => {
   // Stub healthCheck transitively by making fetch unreachable but compose succeed.
   // up() throws on unhealthy services, so we mock the health-check path via
   // network fetch failing — but the IMPORTANT assertion is the compose argv
@@ -118,13 +118,20 @@ describe("up() — scoped --build (A21)", () => {
   });
 
   /**
-   * The compose argv shape we want:
-   *   [--profile infra --profile <slug>... up -d --build <slug>...]
+   * The two-call shape we want when slugs are provided:
+   *   Call 1: [--profile infra --profile <slug>... up -d]
+   *     (no --build, no positional services — brings up ALL services in
+   *     active profiles using cached images)
+   *   Call 2: [--profile infra --profile <slug>... up -d --build <slug>...]
+   *     (rebuilds ONLY the named services; others are no-ops)
    *
-   * Without slug positionals AFTER `--build`, compose rebuilds EVERY service
-   * in every active profile (infra + slug profiles). With slug positionals,
-   * compose rebuilds ONLY the named services and uses cached images for
-   * everything else — that is the A21 fix.
+   * Background: docker compose positional service names after `up` restrict
+   * WHICH services start (not just which get rebuilt). A21's single-call
+   * `up -d --build <slug>` therefore prevented infra services without an
+   * explicit `depends_on` from the slug from starting at all — health checks
+   * crossed onto sibling stack containers and cells silently misrouted (0.0s
+   * red). A21b splits into two calls to keep target-only rebuild while
+   * restoring the full infra startup.
    *
    * `--profile <name>` arguments do NOT scope the build target on their own;
    * docker compose only treats positional args after `up` as the service
@@ -151,39 +158,66 @@ describe("up() — scoped --build (A21)", () => {
     return out;
   }
 
-  it("scopes --build to the targeted slug (does NOT rebuild infra services)", async () => {
+  /** Pull the `--profile <name>` set from a compose argv. */
+  function profilesIn(argv: string[]): string[] {
+    const out: string[] = [];
+    for (let i = 0; i < argv.length - 1; i++) {
+      if (argv[i] === "--profile") out.push(argv[i + 1]);
+    }
+    return out.sort();
+  }
+
+  it("emits TWO compose calls when slugs provided: infra-up then target-build", async () => {
     await up(["langgraph-python"]);
 
-    const upCall = composeCalls().find(
-      (argv) => argv.includes("up") && argv.includes("--build"),
-    );
-    expect(upCall).toBeDefined();
-    // The slug must appear as a positional AFTER `up` so compose treats it as
-    // the build target filter — not merely as a `--profile <slug>` argument
-    // (profiles don't scope --build).
-    expect(positionalsAfterUp(upCall!)).toEqual(["langgraph-python"]);
+    const upCalls = composeCalls().filter((argv) => argv.includes("up"));
+    expect(upCalls.length).toBe(2);
+
+    // Call 1: no --build, no positional services.
+    const [call1, call2] = upCalls;
+    expect(call1).not.toContain("--build");
+    expect(positionalsAfterUp(call1)).toEqual([]);
+
+    // Call 2: --build present, slug as positional after `up`.
+    expect(call2).toContain("--build");
+    expect(positionalsAfterUp(call2)).toEqual(["langgraph-python"]);
   });
 
-  it("with no slugs (infra-only), --build remains blanket (first-time bootstrap)", async () => {
+  it("with no slugs (infra-only), emits a SINGLE blanket --build call", async () => {
     await up([]);
 
-    const upCall = composeCalls().find(
-      (argv) => argv.includes("up") && argv.includes("--build"),
-    );
-    expect(upCall).toBeDefined();
+    const upCalls = composeCalls().filter((argv) => argv.includes("up"));
+    expect(upCalls.length).toBe(1);
+    const [call] = upCalls;
+    expect(call).toContain("--build");
     // No slug positional after `up`: compose builds whatever is missing in the
     // infra profile (cached images skipped, fresh ones built). This preserves
     // first-time bootstrap behaviour when no infra images exist yet.
-    expect(positionalsAfterUp(upCall!)).toEqual([]);
+    expect(positionalsAfterUp(call)).toEqual([]);
   });
 
-  it("multi-slug: scopes --build to ALL targeted slugs", async () => {
+  it("multi-slug: scopes --build to ALL targeted slugs (call 2)", async () => {
     await up(["a", "b"]);
 
-    const upCall = composeCalls().find(
-      (argv) => argv.includes("up") && argv.includes("--build"),
-    );
-    expect(upCall).toBeDefined();
-    expect(positionalsAfterUp(upCall!).sort()).toEqual(["a", "b"]);
+    const upCalls = composeCalls().filter((argv) => argv.includes("up"));
+    expect(upCalls.length).toBe(2);
+    const [, call2] = upCalls;
+    expect(call2).toContain("--build");
+    expect(positionalsAfterUp(call2).sort()).toEqual(["a", "b"]);
+  });
+
+  it("both calls use IDENTICAL profile flags (no profile drift)", async () => {
+    await up(["langgraph-python"]);
+
+    const upCalls = composeCalls().filter((argv) => argv.includes("up"));
+    expect(upCalls.length).toBe(2);
+    const [call1, call2] = upCalls;
+    // Same --profile set in both calls so services across calls agree on
+    // which profiles are "active" — drift here would mean call 1 brings up a
+    // service that call 2 doesn't know about (or vice versa).
+    expect(profilesIn(call1)).toEqual(profilesIn(call2));
+    // And the slug's profile is actually present.
+    expect(profilesIn(call1)).toContain("infra");
+    expect(profilesIn(call1)).toContain("langgraph-python");
   });
 });

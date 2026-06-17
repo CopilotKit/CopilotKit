@@ -265,30 +265,47 @@ export async function up(
     }
 
     const verboseFlag = opts?.verbose ? ["--progress", "plain"] : [];
-    // Scope `--build` to the targeted slug(s) when provided. Without a
-    // positional service filter, `up -d --build` rebuilds EVERY service in
-    // every active profile (infra + slug profiles), which serializes BuildKit
-    // and stalls concurrent `--isolate` runs — slot N's full-stack rebuild
-    // contends with slot M's rebuild on the same daemon (issue #5495, A21).
+    // Two-call strategy to preserve A21's BuildKit-contention fix (target-only
+    // rebuild) WITHOUT regressing the infra startup that A21 inadvertently
+    // dropped (A21b, issue #5495).
     //
-    // With positional slugs after `up`, compose only rebuilds the named
-    // services; everything else uses cached images and falls through to plain
-    // start. First-time bootstrap (no infra images) still works because
-    // compose builds missing images automatically — `--build` only FORCES a
-    // rebuild of services that already have an image. For a forced full
-    // rebuild, callers should use `rebuild()` (the `--rebuild` flag path).
-    const buildTargets = slugs.length > 0 ? slugs : [];
-    const args = [
-      ...profileArgs,
-      "up",
-      "-d",
-      "--build",
-      ...verboseFlag,
-      ...buildTargets,
-    ];
-
+    // docker compose semantics: positional service names after `up` restrict
+    // WHICH services start to the named ones + their `depends_on` chain — not
+    // just which ones get `--build`-rebuilt. A21 passed the target slug as a
+    // positional after `up -d --build`, which (correctly) scoped the rebuild
+    // to the slug but (incorrectly) prevented infra services without an
+    // explicit `depends_on` from the target (pocketbase, dashboard, harness,
+    // harness-pool-worker) from coming up. Under `--isolate` with a sibling
+    // stack holding the same host ports, health checks then crossed onto the
+    // foreign containers and the cell silently misrouted → 0.0s red.
+    //
+    // Fix: split into two calls when slugs is non-empty.
+    //   1. compose <profiles> up -d              — start ALL services in the
+    //      active profiles using cached images. No `--build`, no positional
+    //      services. Brings up the full infra profile + the slug's profile.
+    //   2. compose <profiles> up -d --build <slug...>
+    //      Force-rebuild ONLY the named services and ensure they're up. Other
+    //      services already running from call (1) are no-ops.
+    //
+    // When slugs is empty (infra-only bring-up), keep the single blanket call
+    // so first-time bootstrap still builds whatever infra images are missing.
     log.info("starting services", { slugs: slugs.length ? slugs : ["infra"] });
-    compose(...args);
+    if (slugs.length > 0) {
+      // Call 1: bring up all services (no build, cached images).
+      compose(...profileArgs, "up", "-d", ...verboseFlag);
+      // Call 2: rebuild target slug(s) and ensure they're up.
+      compose(
+        ...profileArgs,
+        "up",
+        "-d",
+        "--build",
+        ...verboseFlag,
+        ...slugs,
+      );
+    } else {
+      // Infra-only: single call with blanket --build for first-time bootstrap.
+      compose(...profileArgs, "up", "-d", "--build", ...verboseFlag);
+    }
 
     // Determine which services to health-check
     const servicesToCheck =
