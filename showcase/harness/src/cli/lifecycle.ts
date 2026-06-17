@@ -290,13 +290,23 @@ export async function up(
     // When slugs is empty (infra-only bring-up), keep the single blanket call
     // so first-time bootstrap still builds whatever infra images are missing.
     log.info("starting services", { slugs: slugs.length ? slugs : ["infra"] });
+    // Track which compose call most recently ran so a downstream health
+    // failure can name the call that touched the unhealthy service. Without
+    // this, an operator seeing "Health check failed for: <slug>" cannot tell
+    // whether infra-up (call 1) crossed onto a foreign container or whether
+    // the target's rebuild (call 2) produced a broken image.
+    let lastComposeCall: string;
     if (slugs.length > 0) {
       // Call 1: bring up all services (no build, cached images).
+      lastComposeCall = "call 1 (infra-up: profiles up -d, no build)";
       compose(...profileArgs, "up", "-d", ...verboseFlag);
       // Call 2: rebuild target slug(s) and ensure they're up.
+      lastComposeCall =
+        "call 2 (target rebuild: profiles up -d --build <slug>...)";
       compose(...profileArgs, "up", "-d", "--build", ...verboseFlag, ...slugs);
     } else {
       // Infra-only: single call with blanket --build for first-time bootstrap.
+      lastComposeCall = "infra-only (profiles up -d --build, no slugs)";
       compose(...profileArgs, "up", "-d", "--build", ...verboseFlag);
     }
 
@@ -313,7 +323,7 @@ export async function up(
 
     if (unhealthy.length > 0) {
       throw new Error(
-        `Health check failed for: ${unhealthy.join(", ")}. Check logs with: showcase logs <slug>`,
+        `Health check failed for: ${unhealthy.join(", ")} after ${lastComposeCall}. Check logs with: showcase logs <slug>`,
       );
     }
 

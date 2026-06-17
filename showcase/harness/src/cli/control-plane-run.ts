@@ -118,10 +118,37 @@ function resolvePbCreds(config: LocalConfig): {
  * `<slug>:<demo>` (explicit per-demo scoping); when absent, the level's
  * default semantics apply (d5 = representative `agentic-chat`; d6 = full
  * demo set).
+ *
+ * Exported for unit-test coverage (`control-plane-run.test.ts`) — internal
+ * callers should keep using {@link runViaControlPlane}.
  */
-interface SlugScope {
+export interface SlugScope {
   slug: string;
   demo?: string;
+}
+
+/**
+ * Deduplicate `(slug, demo)` pairs from the operator-supplied targets. An
+ * explicit `slug:demo` is kept distinct from a bare slug for the same slug,
+ * so `built-in-agent built-in-agent:tool-rendering` enqueues both the
+ * default representative AND the scoped per-demo job. Mirrors the pre-A18
+ * `[...new Set(slugs)]` shape for the bare-slug case.
+ *
+ * Exported for unit-test coverage.
+ */
+export function dedupeScopes(targets: TestTarget[]): SlugScope[] {
+  const scopes: SlugScope[] = [];
+  const seen = new Set<string>();
+  for (const t of targets) {
+    // Use NUL escape as separator so a slug containing the separator
+    // could never collide; identifiers are ASCII so this is unreachable
+    // in practice but cheap insurance against future slug shapes.
+    const key = `${t.slug}\x00${t.demo ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    scopes.push({ slug: t.slug, demo: t.demo });
+  }
+  return scopes;
 }
 
 /**
@@ -141,7 +168,7 @@ interface SlugScope {
  *     like-staging overlay; d6 needs the slug's full demo set so the
  *     all-pills driver exercises every cell.
  */
-function buildLocalServicesJson(
+export function buildLocalServicesJson(
   scopes: SlugScope[],
   level: ControlPlaneLevel,
   config: LocalConfig,
@@ -228,7 +255,7 @@ function buildEnumerator(
  *     feature outside the closed D5 set), throw — the run would otherwise
  *     enqueue but never produce a matching side row, hanging until timeout.
  */
-function expectedKeys(
+export function expectedKeys(
   level: ControlPlaneLevel,
   slug: string,
   demo?: string,
@@ -385,19 +412,18 @@ export async function runViaControlPlane(
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_POLL_INTERVAL_MS;
 
-  // Deduplicate (slug, demo) pairs. The default (demo === undefined) path
-  // collapses repeated bare slugs to one record (matching the pre-A18
-  // `[...new Set(slugs)]`); an explicit `slug:demo` keeps the demo distinct,
-  // so a run like `built-in-agent built-in-agent:tool-rendering` enqueues
-  // both the default representative and the scoped per-demo job.
-  const scopes: SlugScope[] = [];
-  const seen = new Set<string>();
-  for (const t of targets) {
-    const key = `${t.slug} ${t.demo ?? ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    scopes.push({ slug: t.slug, demo: t.demo });
-  }
+  // Deduplicate (slug, demo) pairs via the standalone helper (see
+  // `dedupeScopes`): default-scoped repeats collapse to one record; an
+  // explicit `slug:demo` is kept distinct from the bare slug for the same
+  // slug, so `built-in-agent built-in-agent:tool-rendering` enqueues both
+  // the default representative and the scoped per-demo job.
+  const scopes = dedupeScopes(targets);
+  // The slug-only set is intentionally re-deduped here even though
+  // `dedupeScopes` already collapses bare-slug repeats: a caller passing
+  // multiple per-demo scopes for the same slug (e.g. `slug:a slug:b`) is
+  // preserved by `dedupeScopes` but should reduce to a single discovery
+  // filter entry - `buildEnumerator`'s narrow wants the slug SET, not
+  // the (slug, demo) set.
   const slugs = [...new Set(scopes.map((s) => s.slug))];
 
   const creds = resolvePbCreds(config);
@@ -457,9 +483,11 @@ export async function runViaControlPlane(
   // -- Fire one operator-triggered tick → enqueue onto probe_jobs -----------
   producer.start();
   let enqueued = 0;
+  let enqueueFailures = 0;
   try {
     const tick = await producer.tick({ triggered: true });
     enqueued = tick.enqueued;
+    enqueueFailures = tick.enqueueFailures ?? 0;
     console.log(
       `  \x1b[2mEnqueued ${tick.enqueued} job(s) (runId ${tick.runId})\x1b[0m`,
     );
@@ -472,9 +500,26 @@ export async function runViaControlPlane(
     await producer.stop();
   }
 
+  // Use the demo-aware label so a per-demo zero-enqueue surfaces the qualifier
+  // (`<slug>:<demo>`) instead of just the slug; guard the empty-targets edge
+  // case so the error doesn't render with a double-space gap.
+  const failureLabel = scopeLabel.length > 0 ? scopeLabel : "(no targets)";
   if (enqueued === 0) {
     throw new Error(
-      `control-plane enqueued 0 jobs for ${slugs.join(", ")} — check LOCAL_SERVICES_JSON / discovery filter`,
+      `control-plane enqueued 0 jobs for ${failureLabel} — check LOCAL_SERVICES_JSON / discovery filter`,
+    );
+  }
+
+  // Finding 3: partial enqueue failures used to be logged-only, so the run
+  // would proceed and silently report green if the surviving jobs happened to
+  // pass. Treat any enqueue failure as fatal — the operator asked for N jobs
+  // and only M < N reached the queue; the remainder will never report a cell
+  // and the poll loop would hang to timeout (or, worse on partial coverage,
+  // mask a real failure).
+  if (enqueueFailures > 0) {
+    throw new Error(
+      `control-plane enqueue had ${enqueueFailures} failure(s) for ${failureLabel} — ` +
+        `partial enqueue would mask missing cells; aborting before poll`,
     );
   }
 
