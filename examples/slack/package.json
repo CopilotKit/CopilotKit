@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@copilotkit/bot": "~0.0.2",
+    "@copilotkit/bot-discord": "workspace:*",
     "@copilotkit/bot-slack": "~0.0.2",
     "@copilotkit/bot-ui": "~0.0.2",
     "@copilotkit/runtime": "^1.59.5",
