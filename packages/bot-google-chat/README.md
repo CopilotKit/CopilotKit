@@ -126,11 +126,20 @@ const adapter = googleChat({
 const app = express();
 app.use(express.json());
 app.post("/webhooks/google-chat", async (req, res) => {
-  const out = await adapter.requestHandler({
-    headers: req.headers as Record<string, string>,
-    body: req.body,
-  });
-  res.status(out.status).json(out.body ?? {});
+  try {
+    const out = await adapter.requestHandler({
+      headers: req.headers as Record<string, string>,
+      body: req.body,
+    });
+    // The 401 (failed JWT verification) path is already returned in out.status.
+    res.status(out.status).json(out.body ?? {});
+  } catch (e) {
+    // requestHandler rethrows anything that isn't an UnauthorizedError — e.g. a
+    // CertFetchError (cert-endpoint outage) or an onEvent failure. Respond 500
+    // so Google Chat retries, mirroring the built-in startServer behavior.
+    console.error("[bot-google-chat] request handler failed:", e);
+    res.status(500).json({});
+  }
 });
 
 // Then wire up the bot:
@@ -140,7 +149,7 @@ await bot.start(); // does NOT start an HTTP server (no port set)
 app.listen(3000);
 ```
 
-`adapter.requestHandler` is a public `ChatRequestHandler` — it verifies the JWT, routes the event, and returns `{ status, body }`. Failed JWT verification returns `{ status: 401 }`.
+`adapter.requestHandler` is a public `ChatRequestHandler` — it verifies the JWT, routes the event, and returns `{ status, body }`. Failed JWT verification returns `{ status: 401 }`; everything else (e.g. a `CertFetchError` from a cert-endpoint outage, or an `onEvent` error) is **thrown**, so wrap the call in `try/catch` and respond `500` (as above) — that lets Google Chat retry rather than treating the app as permanently broken.
 
 ## Pub/Sub (future)
 
@@ -161,4 +170,4 @@ A Pub/Sub transport (where Chat publishes events to a Cloud Pub/Sub topic and th
 
 ## Exports
 
-`googleChat`, `GoogleChatAdapter`, `GoogleChatAdapterOptions`; `createRequestHandler`, `startServer`, `ChatRequestHandler`; `createTokenProvider`, `createInboundVerifier`, `UnauthorizedError`, `TokenProvider`, `InboundVerifier`; `routeChatEvent`; `decodeInteraction`; `createRunRenderer`; `renderCardsV2`, `renderGoogleChatMessage`, `GCHAT_LIMITS`; `markdownToChat`; `MessageStream`, `MessageStreamConfig`, `TextStream`; `ChunkedMessageStream`, `ChunkedMessageStreamConfig`; `GoogleChatConversationStore`, `AgentSession`, `ChatClient`, `ChatMessage`; `conversationKeyOf`, `DM_SCOPE`; `ConversationKey`, `IncomingTurn`, `ReplyTarget`; `defaultGoogleChatTools`, `lookupGoogleChatUserTool`, `defaultGoogleChatContext`, `googleChatTaggingContext`, `googleChatFormattingContext`, `googleChatConversationModelContext`.
+`googleChat`, `GoogleChatAdapter`, `GoogleChatAdapterOptions`; `createRequestHandler`, `startServer`, `ChatRequestHandler`; `createTokenProvider`, `createInboundVerifier`, `UnauthorizedError`, `CertFetchError`, `TokenProvider`, `InboundVerifier`; `routeChatEvent`; `decodeInteraction`; `createRunRenderer`; `renderCardsV2`, `renderGoogleChatMessage`, `GCHAT_LIMITS`; `markdownToChat`; `MessageStream`, `MessageStreamConfig`, `TextStream`; `ChunkedMessageStream`, `ChunkedMessageStreamConfig`; `GoogleChatConversationStore`, `AgentSession`, `ChatClient`, `ChatMessage`; `conversationKeyOf`, `DM_SCOPE`; `ConversationKey`, `IncomingTurn`, `ReplyTarget`; `defaultGoogleChatTools`, `lookupGoogleChatUserTool`, `defaultGoogleChatContext`, `googleChatTaggingContext`, `googleChatFormattingContext`, `googleChatConversationModelContext`.

@@ -18,7 +18,7 @@ export type { MessageStreamConfig, TextStream } from "./message-stream.js";
 export { ChunkedMessageStream } from "./chunked-message-stream.js";
 export type { ChunkedMessageStreamConfig } from "./chunked-message-stream.js";
 
-export { createTokenProvider, createInboundVerifier, UnauthorizedError } from "./auth.js";
+export { createTokenProvider, createInboundVerifier, UnauthorizedError, CertFetchError } from "./auth.js";
 export type { TokenProvider, InboundVerifier } from "./auth.js";
 
 export { createRequestHandler, startServer } from "./server.js";
