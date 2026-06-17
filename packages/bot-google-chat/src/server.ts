@@ -61,7 +61,8 @@ export function startServer(args: {
         const out = await args.handler({ headers: req.headers, body });
         res.writeHead(out.status, { "Content-Type": "application/json" });
         res.end(JSON.stringify(out.body ?? {}));
-      } catch {
+      } catch (e) {
+        console.error("[bot-google-chat] request handler failed:", e);
         res.writeHead(500).end();
       }
     });

@@ -63,8 +63,17 @@ function balanceFences(
  *
  * Boundaries are chosen greedily: once an active chunk exceeds the soft
  * limit, freeze the boundary at the last newline (or last space) within
- * the limit; remaining text becomes the next chunk. Boundaries don't
- * move once frozen, so an already-posted chunk's text never shrinks.
+ * the limit; remaining text becomes the next chunk. Frozen boundary
+ * POSITIONS never move — so the start of each already-posted chunk is
+ * stable and chunks never reflow into a previous message.
+ *
+ * The one nuance: the ACTIVE (last, not-yet-frozen) chunk's text MAY be
+ * edited down (shortened) when the block-keeps-whole logic pulls a forming
+ * boundary back to the position right before a fence opener, so a fenced
+ * code block stays whole in the next message. The trailing content then
+ * migrates to the next chunk, and the edit-in-place update reflects the
+ * shortened text. Once a boundary is frozen at its final position, the
+ * chunk ending there does not shrink again.
  */
 export interface ChunkedMessageStreamConfig {
   /** Soft per-message char limit. Defaults to 3900 (under Google Chat's ~4096). */
@@ -135,15 +144,17 @@ export class ChunkedMessageStream {
 
   /**
    * Walk forward from the last frozen boundary, freezing new ones whenever
-   * the active chunk's length exceeds the soft limit. Once frozen, a
-   * boundary doesn't move.
+   * the active chunk's length exceeds the soft limit. Once a boundary's
+   * final POSITION is frozen here it doesn't move again.
    *
-   * Special case (block-keeps-whole): if the chosen boundary lands INSIDE
-   * an open fenced code block, we try to move the boundary BACK to the
-   * position right before the fence opener, so the *whole* block lives in
-   * the next Google Chat message rather than being split. The previous chunk
-   * gets shortened (the update will edit it down). Fallback when the
-   * block is too large to fit in one chunk: keep the inside-fence boundary.
+   * Special case (block-keeps-whole): while choosing the active chunk's
+   * boundary, if the candidate lands INSIDE an open fenced code block, we
+   * move it BACK to the position right before the fence opener, so the
+   * *whole* block lives in the next Google Chat message rather than being
+   * split. This shortens the active (last, not-yet-final) chunk — its
+   * trailing text migrates to the next message and the edit-in-place update
+   * reflects the shortened text. Fallback when the block is too large to fit
+   * in one chunk: keep the inside-fence boundary.
    */
   private refreezeBoundaries(): void {
     let lastFrozen = this.boundaries.at(-1) ?? 0;

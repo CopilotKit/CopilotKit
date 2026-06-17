@@ -107,6 +107,23 @@ describe("GoogleChatAdapter", () => {
     ]);
   });
 
+  it("getMessages() skips empty/whitespace-only messages (mirroring translate)", async () => {
+    const { adapter, chatClient } = makeAdapter();
+    chatClient.listMessages.mockResolvedValueOnce([
+      { name: "m1", text: "hello bot", sender: { type: "HUMAN", name: "users/u1" } },
+      // empty / whitespace-only non-status messages → skipped
+      { name: "m2", text: "", sender: { type: "HUMAN", name: "users/u2" } },
+      { name: "m3", text: "   ", sender: { type: "HUMAN", name: "users/u3" } },
+      { name: "m4", text: undefined, sender: { type: "BOT", name: "users/bot" } },
+      { name: "m5", text: "Here is the answer.", sender: { type: "BOT", name: "users/bot" } },
+    ] as any[]);
+    const msgs = await adapter.getMessages({ space: "spaces/A" } as unknown);
+    expect(msgs).toEqual([
+      { text: "hello bot", isBot: false, user: { id: "users/u1" } },
+      { text: "Here is the answer.", isBot: true, user: { id: "users/bot" } },
+    ]);
+  });
+
   it("getMessages() keeps a human message even if its text matches a status marker", async () => {
     const { adapter, chatClient } = makeAdapter();
     // The status/placeholder filter only applies to BOT-authored rows.

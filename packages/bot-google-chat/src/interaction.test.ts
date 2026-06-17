@@ -32,6 +32,17 @@ describe("decodeInteraction", () => {
     expect(evt!.value).toBeUndefined();
   });
 
+  it("surfaces a present-but-empty `value` parameter as undefined (not \"\")", () => {
+    const evt = decodeInteraction({
+      type: "CARD_CLICKED",
+      space: { name: "spaces/A", type: "ROOM" },
+      message: { name: "spaces/A/messages/M1", thread: { name: "spaces/A/threads/T1" } },
+      common: { invokedFunction: "ck:empty", parameters: [{ key: "value", value: "" }] },
+    });
+    expect(evt!.id).toBe("ck:empty");
+    expect(evt!.value).toBeUndefined();
+  });
+
   it("uses the DM scope when the space is a DM", () => {
     const evt = decodeInteraction({
       type: "CARD_CLICKED",

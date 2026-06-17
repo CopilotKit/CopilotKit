@@ -271,10 +271,15 @@ export class GoogleChatAdapter implements PlatformAdapter {
       );
       return messages
         .filter((m) => {
-          // Mirror conversation-store.translate exactly: bot-ness is decided by
-          // the shared `isBotSender` predicate (type === "BOT" OR a non-empty
-          // botUserId name match), then the bot's own status rows / stream
-          // placeholders are dropped so both read paths agree on history.
+          // Shared with conversation-store.translate: bot-ness is decided by
+          // the `isBotSender` predicate (type === "BOT" OR a non-empty
+          // botUserId name match); the bot's own status rows / stream
+          // placeholders are dropped via `isBotStatusOrPlaceholder`; and
+          // empty/whitespace-only messages are skipped. What intentionally
+          // DIFFERS: translate additionally merges consecutive same-role turns
+          // for agent context — a list-messages API legitimately returns the
+          // individual messages, so we do not merge here.
+          if (!(m.text ?? "").trim()) return false;
           const isBot = isBotSender(m.sender, this.botUserId);
           return !(isBot && isBotStatusOrPlaceholder((m.text ?? "").trim()));
         })

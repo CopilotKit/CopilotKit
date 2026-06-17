@@ -25,11 +25,21 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   const replyTarget: ReplyTarget = { space: spaceId, thread: isDm ? undefined : threadName };
 
   const params = body.common?.parameters ?? body.action?.parameters ?? [];
-  // A missing `value` parameter means the button carried no value — keep it
-  // `undefined` (a value-less button must not surface as `value === ""`).
+  // A missing — OR present-but-empty/whitespace-only — `value` parameter means
+  // the button carried no value: surface it as `undefined`, never as `""`
+  // (a value-less button must not surface as `value === ""`).
+  //
+  // Coercion invariant: this package's own renderer JSON.stringifies button
+  // values, so a string round-trips back to the same string here. We attempt
+  // `JSON.parse` to recover structured values (objects/arrays/numbers/bools).
+  // A consequence is that externally-authored payloads whose raw `value` looks
+  // like a number/boolean (e.g. "42", "true") will be coerced to that type;
+  // this is intentional and acceptable.
   const rawValue = params.find((p) => p.key === "value")?.value;
-  let value: unknown = rawValue;
-  if (typeof rawValue === "string") {
+  let value: unknown;
+  if (rawValue === undefined || rawValue.trim() === "") {
+    value = undefined;
+  } else {
     try { value = JSON.parse(rawValue); } catch { value = rawValue; }
   }
 

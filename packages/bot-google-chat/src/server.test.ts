@@ -82,6 +82,23 @@ describe("startServer body-size limit", () => {
       await server.close();
     }
   });
+
+  it("responds 500 and logs when the handler throws", async () => {
+    const boom = new Error("handler boom");
+    const handler = vi.fn<ChatRequestHandlerForTest>(async () => { throw boom; });
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const port = await getFreePort();
+    const server = startServer({ port, handler, maxBodyBytes: 1024 });
+    try {
+      const res = await post(port, Buffer.from(JSON.stringify({ type: "MESSAGE" })));
+      expect(res.status).toBe(500);
+      expect(handler).toHaveBeenCalledOnce();
+      expect(errSpy).toHaveBeenCalledWith("[bot-google-chat] request handler failed:", boom);
+    } finally {
+      errSpy.mockRestore();
+      await server.close();
+    }
+  });
 });
 
 type ChatRequestHandlerForTest = (req: {
