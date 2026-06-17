@@ -32,11 +32,13 @@ pnpm add @copilotkit/bot-google-chat @copilotkit/bot
 
    Without `impersonateUser`, only the `chat.bot` scope is used and message history is unavailable.
 
-## Required env vars
+## Environment variables
+
+Neither variable below is strictly required when [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials) are configured. Credential resolution is `opts.credentials ?? GOOGLE_CHAT_CREDENTIALS`; if neither is set the adapter falls back to `GoogleAuth` ADC discovery (which itself consults `GOOGLE_APPLICATION_CREDENTIALS`, then other ADC sources). You do still need a valid `googleChatProjectNumber` to verify inbound webhook JWTs.
 
 | Var                              | Purpose                                                                                          |
 | -------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `GOOGLE_CHAT_CREDENTIALS`        | Service account JSON key — object literal, path to key file, or raw JSON string. The adapter resolves it automatically. Falls back to `GOOGLE_APPLICATION_CREDENTIALS` (ADC). |
+| `GOOGLE_CHAT_CREDENTIALS`        | Service account JSON key — object literal, path to key file, or raw JSON string. Used when `opts.credentials` is not passed. If unset, the adapter falls back to `GoogleAuth` ADC discovery (which consults `GOOGLE_APPLICATION_CREDENTIALS`). |
 | `GOOGLE_CHAT_PROJECT_NUMBER`     | GCP project number — expected `aud` of inbound webhook JWTs. Pass as `googleChatProjectNumber`. |
 
 ## Quickstart
@@ -65,10 +67,12 @@ The adapter pre-filters ingress so that only MESSAGE events (from non-bot sender
 
 ### Built-in tools and context
 
-- **`defaultGoogleChatTools`** — ships `lookup_google_chat_user` so the agent can resolve a name/handle/email to a `<users/ID>` mention. Spread into `tools`.
-- **`defaultGoogleChatContext`** — tagging procedure, Chat Markdown/formatting guidance, and the space/thread conversation model. Spread into `context`.
+- **`defaultGoogleChatTools`** — empty in v1 (see [Limitations](#capabilities-and-limitations) on user tagging). Spread into `tools`.
+- **`defaultGoogleChatContext`** — Chat Markdown/formatting guidance and the space/thread conversation model. Spread into `context`.
 
-Both are opt-in: spread them into your `createBot` config or cherry-pick the individual exports (`lookupGoogleChatUserTool`, `googleChatTaggingContext`, `googleChatFormattingContext`, `googleChatConversationModelContext`).
+Both are opt-in: spread them into your `createBot` config or cherry-pick the individual exports (`googleChatFormattingContext`, `googleChatConversationModelContext`).
+
+The user-tagging exports (`lookupGoogleChatUserTool` and `googleChatTaggingContext`) are **not** included in the defaults — they only work once you implement a real `lookupUser` (see [Limitations](#capabilities-and-limitations)). Add them yourself when you do.
 
 ## Capabilities and limitations
 
@@ -85,6 +89,7 @@ Both are opt-in: spread them into your `createBot` config or cherry-pick the ind
 | Cards V2 / buttons    | Full support via `renderCardsV2` / `renderGoogleChatMessage`.                     |
 | HITL interactions     | `CARD_CLICKED` events decoded by `decodeInteraction` and dispatched to the engine. |
 | File upload           | Best-effort via `thread.postFile` (Chat media upload).                            |
+| User @-mentions / tagging | **Not supported in v1.** Google Chat exposes no bot-accessible user-directory lookup, so the default `lookupUser` always returns `undefined`. To enable tagging, implement `lookupUser` (e.g. via the Admin SDK / People API with domain-wide delegation) and add `lookupGoogleChatUserTool` + `googleChatTaggingContext` to your bot's `tools` / `context`. |
 
 ## Slash commands
 
@@ -150,6 +155,7 @@ A Pub/Sub transport (where Chat publishes events to a Cloud Pub/Sub topic and th
 - Reactions
 - Native streaming (edit-in-place used instead)
 - Suggested prompts / assistant pane (Google Chat has no equivalent)
+- User @-mentions / tagging by default (no bot-accessible directory lookup; opt-in once `lookupUser` is implemented)
 
 ## Exports
 

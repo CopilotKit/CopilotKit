@@ -8,7 +8,18 @@ describe("lookupGoogleChatUserTool", () => {
     const res = await (lookupGoogleChatUserTool as any).handler({ query: "Ada" }, { thread });
     expect(res).toMatchObject({ found: true, mention: "<users/42>" });
   });
-  it("is included in defaultGoogleChatTools", () => {
-    expect(defaultGoogleChatTools).toContain(lookupGoogleChatUserTool);
+  it("returns { found: false } when lookupUser yields no user", async () => {
+    const thread = { lookupUser: async () => undefined } as any;
+    const res = await (lookupGoogleChatUserTool as any).handler({ query: "Nobody" }, { thread });
+    expect(res).toMatchObject({ found: false, query: "Nobody" });
+  });
+});
+
+describe("defaultGoogleChatTools", () => {
+  it("is empty in v1 (no platform-universal tools shipped by default)", () => {
+    expect(defaultGoogleChatTools).toHaveLength(0);
+  });
+  it("does NOT include lookupGoogleChatUserTool (opt-in only)", () => {
+    expect(defaultGoogleChatTools).not.toContain(lookupGoogleChatUserTool);
   });
 });

@@ -7,8 +7,8 @@ import {
 } from "./built-in-context.js";
 
 describe("defaultGoogleChatContext", () => {
-  it("has exactly 3 entries", () => {
-    expect(defaultGoogleChatContext).toHaveLength(3);
+  it("has exactly 2 entries", () => {
+    expect(defaultGoogleChatContext).toHaveLength(2);
   });
 
   it("every entry has a non-empty description string", () => {
@@ -25,9 +25,12 @@ describe("defaultGoogleChatContext", () => {
     }
   });
 
-  it("contains the tagging, formatting, and conversation model entries", () => {
-    expect(defaultGoogleChatContext[0]).toBe(googleChatTaggingContext);
-    expect(defaultGoogleChatContext[1]).toBe(googleChatFormattingContext);
-    expect(defaultGoogleChatContext[2]).toBe(googleChatConversationModelContext);
+  it("contains the formatting and conversation model entries", () => {
+    expect(defaultGoogleChatContext[0]).toBe(googleChatFormattingContext);
+    expect(defaultGoogleChatContext[1]).toBe(googleChatConversationModelContext);
+  });
+
+  it("does NOT include the tagging context (opt-in only in v1)", () => {
+    expect(defaultGoogleChatContext).not.toContain(googleChatTaggingContext);
   });
 });

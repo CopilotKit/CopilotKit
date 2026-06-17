@@ -11,6 +11,14 @@ import type { ContextEntry } from "@copilotkit/bot";
 /** Google Chat context entry — alias of `@copilotkit/bot`'s {@link ContextEntry}. */
 export type GoogleChatContextEntry = ContextEntry;
 
+/**
+ * Tagging procedure context. NOT included in `defaultGoogleChatContext` in
+ * v1: it instructs the LLM to call `lookup_google_chat_user`, which only
+ * works if a real `lookupUser` is implemented (Google Chat has no
+ * bot-accessible user-directory lookup by default). Only add this context —
+ * together with `lookupGoogleChatUserTool` — when you have implemented
+ * `lookupUser`.
+ */
 export const googleChatTaggingContext: GoogleChatContextEntry = {
   description: "How to @-mention people on Google Chat — REQUIRED PROCEDURE",
   value: [
@@ -83,7 +91,6 @@ export const googleChatConversationModelContext: GoogleChatContextEntry = {
  *     context: [...defaultGoogleChatContext, ...myAppContext],
  */
 export const defaultGoogleChatContext: ReadonlyArray<GoogleChatContextEntry> = [
-  googleChatTaggingContext,
   googleChatFormattingContext,
   googleChatConversationModelContext,
 ];
