@@ -1,6 +1,7 @@
 import type { PlatformAdapter, ReplyTarget } from "./platform-adapter.js";
 import type { ActionRegistry } from "./action-registry.js";
 import type {
+  AgentContentPart,
   Renderable,
   MessageRef,
   PlatformUser,
@@ -145,9 +146,11 @@ export class Thread implements ThreadInterface {
     /**
      * A user message to inject before running. Needed when the input isn't
      * already in the conversation history the adapter reconstructs — e.g. a
-     * slash command, whose args are never posted to the channel.
+     * slash command, whose args are never posted to the channel. A
+     * `AgentContentPart[]` carries multimodal content (e.g. inbound image/file
+     * attachments) the model can read.
      */
-    prompt?: string;
+    prompt?: string | AgentContentPart[];
   }): Promise<MessageRef | undefined> {
     return this.run(undefined, input);
   }
@@ -158,7 +161,11 @@ export class Thread implements ThreadInterface {
 
   private async run(
     initialResume?: { resume: unknown },
-    extra?: { context?: ContextEntry[]; tools?: BotTool[]; prompt?: string },
+    extra?: {
+      context?: ContextEntry[];
+      tools?: BotTool[];
+      prompt?: string | AgentContentPart[];
+    },
   ): Promise<MessageRef | undefined> {
     const session = await this.deps.adapter.conversationStore.getOrCreate(
       this.deps.conversationKey,
@@ -166,12 +173,19 @@ export class Thread implements ThreadInterface {
       this.deps.agentFactory,
     );
     // Inject an explicit user message when the input isn't in the adapter's
-    // reconstructed history (e.g. a slash command's args).
+    // reconstructed history (e.g. a slash command's args, or inbound image/file
+    // attachments built into multimodal content parts). A non-empty array is
+    // truthy, so this guard also admits multimodal prompts.
     if (extra?.prompt) {
       session.agent.addMessage({
         id: globalThis.crypto.randomUUID(),
         role: "user",
-        content: extra.prompt,
+        // AG-UI types `content` as `string`, but multimodal works at runtime by
+        // setting it to an `AgentContentPart[]` — the runtime's LLM adapter
+        // converts the parts to the provider's multimodal format. We cast to
+        // satisfy the string-typed field (bot-slack parity — it does the same
+        // when assigning multimodal `content` to its reconstructed messages).
+        content: extra.prompt as unknown as string,
       });
     }
     const renderer = this.deps.adapter.createRunRenderer(this.deps.replyTarget);
