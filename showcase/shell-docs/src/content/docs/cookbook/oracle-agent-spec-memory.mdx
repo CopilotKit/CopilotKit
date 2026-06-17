@@ -7,7 +7,7 @@ doc_type: how-to
 
 [Oracle Agent Spec](https://github.com/oracle/agent-spec) is an open, framework-agnostic way to describe an agent as portable JSON — define it once, run it on any supported runtime. This recipe wires three things together: an Agent Spec agent running on **LangGraph**, served over the open [AG-UI](https://docs.ag-ui.com/) protocol, rendered in a [CopilotKit](https://www.copilotkit.ai/) chat, with **long-term memory** on Oracle AI Database so it remembers you across sessions.
 
-The example is a personal **travel concierge**: it remembers your preferences across sessions, searches trips, and is defined with **human-in-the-loop** confirmation before it books.
+The example is a personal **travel concierge**: it remembers your preferences across sessions, searches flights, and books them with a **human-in-the-loop** confirmation card rendered by CopilotKit's generative UI.
 
 ## How it works
 
@@ -21,7 +21,7 @@ CopilotKit (Next.js, V2) ──/api/copilotkit──▶ CopilotRuntime (HttpAgen
                                                     │  AG-UI (SSE)
                                                     ▼
                                   Agent Spec JSON → ag_ui_agentspec (LangGraph)
-                                     recall_memory · search_trips · book_trip (HITL)
+                                     recall_memory · search_flights · book_flight (HITL ClientTool)
                                                     │  recall + persist
                                                     ▼
                                         oracleagentmemory → Oracle AI Database
@@ -80,31 +80,32 @@ Open `http://localhost:3000`.
 
 ## Try it
 
+**Frontend at a glance:** the left panel lists your conversation threads with a **"+ New thread"** button. `search_flights` renders interactive flight-option cards, `recall_memory` shows a subtle "🧠 Remembered your preferences" chip, and booking surfaces a **"Confirm your booking"** confirmation card (Confirm / Cancel) that stamps into a **boarding-pass ticket** once confirmed.
+
 1. Tell it: *"I'm vegetarian, I fly from SFO, and I prefer an aisle seat."*
-2. Reload, then ask: *"Plan me a trip to Amsterdam."*
-3. It recalls your preferences and proposes a vegetarian-friendly, canal-side
-   option — personalized by what it remembered from Oracle, not what you said this
-   session.
+2. Click **"+ New thread"** in the sidebar (instead of reloading), then ask: *"Find me a flight to Amsterdam."*
+3. It recalls your preferences from Oracle — home airport SFO, aisle seat, vegetarian meal — and surfaces flights like **AMS-001 (KLM KL606, nonstop, $740)** personalized to what it remembered, not what you said in this thread.
+
+**Booking in one shot:** ask *"Book me flight AMS-001 to Amsterdam"* in a single message, then click **Confirm &amp; book** on the confirmation card to receive the boarding pass. `book_flight` is implemented as a CopilotKit **ClientTool** (`useHumanInTheLoop`) executed on the frontend, so confirm→book happens within a single agent run.
 
 <Callout type="info" title="Recall is eventually consistent">
 Memory is written and indexed asynchronously, so a fact you just taught becomes recallable after a brief delay (typically seconds). In a normal "come back later" session that delay is invisible; only a teach-then-ask within the same few seconds can outrun indexing.
 </Callout>
 
-<Callout type="info" title="Booking (human-in-the-loop) is pending an upstream fix">
-`book_trip` is declared with `requires_confirmation=True` in the portable spec, so the design includes a confirm-before-book step. In practice that confirmation is a *second* turn after a server-tool call, which currently trips an upstream Agent Spec × AG-UI adapter bug (`tool_call_id` correlation) — so the booking step can't complete end-to-end yet. Details + repro: [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/oracle-cookbook/blob/main/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
+<Callout type="info" title="Booking works — but phrase it as a single request">
+`book_flight` is a CopilotKit **ClientTool** (`useHumanInTheLoop`) so the entire confirm→book flow completes inside one agent run. Sending a *follow-up* message in the same thread after any server-tool call still fails due to an upstream Agent Spec × AG-UI adapter bug (`tool_call_id` correlation) — that's why booking is phrased as one shot and why cross-session recall is tested via **"+ New thread"** rather than a follow-up. Details + repro: [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/oracle-cookbook/blob/main/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
 </Callout>
 
 ## The key pieces, in code
 
-Memory recall is exposed as an Agent Spec `ServerTool`, so the portable spec itself declares the capability; booking requires confirmation, which is what drives the AG-UI human-in-the-loop interrupt:
+Memory recall is exposed as an Agent Spec `ServerTool`, so the portable spec itself declares the capability; `book_flight` is a CopilotKit **ClientTool** so the confirmation card is rendered on the frontend via `useHumanInTheLoop` and the entire flow completes in a single agent run:
 
 ```python title="agent/concierge/tools.py"
-book_trip_tool = ServerTool(
-    name="book_trip",
-    description="Book a trip option by its id. Requires the traveler's confirmation.",
-    inputs=[_str_prop("trip_id", "The id of the trip option to book, e.g. 'AMS-001'.")],
-    outputs=[_str_prop("confirmation", "Booking confirmation message.")],
-    requires_confirmation=True,
+book_flight_tool = ClientTool(
+    name="book_flight",
+    description="Book the chosen flight by its id. The traveler confirms in the UI before it is finalized.",
+    inputs=[_str_prop("flight_id", "The id of the flight to book, e.g. 'AMS-001'.")],
+    outputs=[_str_prop("confirmation", "Human-readable booking confirmation.")],
 )
 ```
 
@@ -136,17 +137,21 @@ Build a CopilotKit chat backed by a portable Oracle Agent Spec agent with
 long-term memory on Oracle AI Database. Requirements:
 
 - A Python FastAPI agent that defines an Oracle Agent Spec `Agent` (via
-  `pyagentspec`) with three `ServerTool`s: `recall_memory` (reads durable
-  preferences from Oracle Agent Memory via `oracleagentmemory`), `search_trips`
-  (a mock search), and `book_trip` (`requires_confirmation=True`, for
-  human-in-the-loop).
+  `pyagentspec`) with three tools: `recall_memory` (reads durable preferences from
+  Oracle Agent Memory via `oracleagentmemory`), `search_flights` (a mock flight
+  search returning cards like AMS-001 KLM KL606 $740 nonstop), and `book_flight`
+  (a CopilotKit `ClientTool` — Agent Spec `ClientTool` — gated in the UI via
+  `useHumanInTheLoop` for human-in-the-loop in a single agent run).
 - Serialize the agent to Agent Spec JSON and serve it over AG-UI on the LangGraph
   runtime with the `ag_ui_agentspec` adapter (`add_agentspec_fastapi_endpoint`).
   The adapter has no post-run hook, so persist each turn to Oracle Agent Memory
   after the AG-UI stream drains.
 - A Next.js CopilotKit frontend that proxies to the agent over AG-UI with
   `HttpAgent`, so the agent owns the LLM call (use CopilotKit's empty runtime
-  adapter).
+  adapter). The frontend renders generative UI: `search_flights` → flight-option
+  cards, `recall_memory` → a "🧠 Remembered your preferences" chip, and
+  `book_flight` → a confirmation card that stamps into a boarding-pass ticket. A
+  collapsible left sidebar lists conversation threads with a "+ New thread" button.
 - Use Oracle AI Database (Docker image `container-registry.oracle.com/database/free`)
   as the memory store; connect with `oracledb` and litellm embeddings.
 
