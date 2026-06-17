@@ -2,9 +2,7 @@ import { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
 
-/**
- * પર્યાવરણ ચલ (Environment Variables) દ્વારા ટેલિમેટ્રી અક્ષમ છે કે નહીં તે તપાસે છે.
- */
+
 export function isTelemetryDisabled(): boolean {
   const env = process.env as Record<string, string | undefined>;
 
@@ -16,23 +14,19 @@ export function isTelemetryDisabled(): boolean {
   );
 }
 
-// ------------------------------
-// Lazy-loaded dependencies (બ્રાઉઝર એરર રોકવા માટે)
-// ------------------------------
+-----------------------------
 
 let AnalyticsClass: any = null;
 let scarfClient: any = null;
 
-/**
- * સેગમેન્ટ એનાલિટિક્સને ફક્ત Node એન્વાયરમેન્ટમાં લોડ કરે છે.
- */
+
 async function loadAnalytics() {
-  // જો બ્રાઉઝર હોય તો લોડ ન કરો
+ 
   if (typeof window !== "undefined") return null;
 
   if (!AnalyticsClass) {
     try {
-      // ડાયનેમિક ઇમ્પોર્ટ જે બિલ્ડ ટાઈમ વોર્નિંગ રોકશે
+ 
       const mod = await import("@segment/analytics-node");
       AnalyticsClass = mod.Analytics;
     } catch (err) {
@@ -44,9 +38,7 @@ async function loadAnalytics() {
   return AnalyticsClass;
 }
 
-/**
- * Scarf ક્લાયન્ટને ફક્ત Node એન્વાયરમેન્ટમાં લોડ કરે છે.
- */
+
 async function loadScarfClient() {
   if (typeof window !== "undefined") return null;
 
@@ -96,7 +88,7 @@ export class TelemetryClient {
 
     this.setSampleRate(sampleRate);
 
-    // એનાલિટિક્સ શરૂ કરો (Async છે પણ કન્સ્ટ્રક્ટરને બ્લોક નહીં કરે)
+   
     this.initAnalytics().catch(console.error);
 
     this.setGlobalProperties({
@@ -105,9 +97,7 @@ export class TelemetryClient {
     });
   }
 
-  /**
-   * સુરક્ષિત રીતે એનાલિટિક્સ ઇનિશિયલાઇઝ કરે છે.
-   */
+ 
   private async initAnalytics() {
     const Analytics = await loadAnalytics();
     if (!Analytics) return;
@@ -127,16 +117,13 @@ export class TelemetryClient {
     return Math.random() < this.sampleRate;
   }
 
-  /**
-   * ઇવેન્ટ કેપ્ચર કરે છે.
-   */
   async capture<K extends keyof AnalyticsEvents>(
     event: K,
     properties: AnalyticsEvents[K],
   ) {
     if (this.telemetryDisabled || !this.shouldSendEvent()) return;
 
-    // જો સેગમેન્ટ હજુ લોડ થઈ રહ્યું હોય, તો થોડી રાહ જુઓ અથવા સ્કીપ કરો
+    
     if (!this.segment) {
         await this.initAnalytics();
     }
@@ -164,13 +151,13 @@ export class TelemetryClient {
         properties: ordered,
       });
 
-      // Scarf લોગિંગ
+    
       const client = await loadScarfClient();
       if (client && typeof client.logEvent === 'function') {
         client.logEvent({ event });
       }
     } catch (e) {
-        // ટેલિમેટ્રી એરરથી મેઈન એપ ક્રેશ ન થવી જોઈએ
+       
     }
   }
 
