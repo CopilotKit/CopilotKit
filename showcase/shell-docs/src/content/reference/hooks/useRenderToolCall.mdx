@@ -185,7 +185,7 @@ function App() {
       handler: async ({ query }) => {
         /* ... */
       },
-      render: ({ status }) => null,
+      render: ({ name, parameters, status, result }) => null,
     },
     [],
   );
@@ -204,7 +204,7 @@ import {
 
 const suppressUnhandledToolCalls = defineToolCallRenderer({
   name: "*",
-  render: ({ status }) => null,
+  render: ({ name, parameters, status, result }) => null,
 });
 
 function App() {
