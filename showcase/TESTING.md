@@ -1,17 +1,21 @@
 # Showcase Testing
 
-Two concerns live here:
+Tagline: `bin/showcase test` reference, cell red→green SOP, per-demo coverage
+matrix, and CI gating matrix.
+
+Three concerns live here:
 
 1. **Cell red→green SOP** and `bin/showcase test` CLI reference — how to run the
-   harness locally and how to drive a cell from red to green. Start here for
-   day-to-day debugging.
-2. **CI gating matrix** — which CI workflows fire on which triggers and whether
-   they gate merges. Skip to [Test-Gating Matrix](#test-gating-matrix) for that.
+   harness locally and how to drive a cell from red to green.
+2. **Per-Demo Coverage Matrix** — what test surface exists for each demo across
+   manual QA, unit, E2E, and aimock.
+3. **CI gating matrix** — which CI workflows fire on which triggers and whether
+   they gate merges.
 
 Operational gotchas (aimock fixture caching, `--isolate` slot collisions, etc.)
-live in [`GOTCHAS.md`](./GOTCHAS.md). Per-framework debugging strategies live in
-[`DEBUGGING.md`](./DEBUGGING.md). Production-side ops (probe triggering, Railway
-log access, isolated stack cleanup) live in [`RUNBOOK.md`](./RUNBOOK.md).
+live in [`GOTCHAS.md`](./GOTCHAS.md). Per-failure-mode debugging strategies and
+production-side ops (probe triggering, Railway log access, isolated stack
+cleanup) live in [`DEBUGGING.md`](./DEBUGGING.md).
 
 ## `bin/showcase test` invocation semantics
 
@@ -119,9 +123,62 @@ instead of 10+ min full-stack rebuild.
     the verbatim assertion phrase. Fixture content is authored truth; tune the
     `match` keys to fire on the right turn.
 
+## Per-Demo Coverage Matrix
+
+Tagline: what test surface exists per demo. PASS=covered, WARN=partial, FAIL=none, STUB=needs aimock fixture.
+
+### Demo Coverage
+
+| Demo                         | Manual QA               | Vitest Unit | Playwright E2E (smoke)  | Playwright E2E (interaction) | Per-Package E2E                                  | Aimock Fixtures                                              | CI Auto                                             |
+| ---------------------------- | ----------------------- | ----------- | ----------------------- | ---------------------------- | ------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------------- |
+| **Agentic Chat**             | PASS 17 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS weather card, background change, multi-turn | WARN `background`, `weather` matches                         | WARN validate only (no Playwright in CI by default) |
+| **Human in the Loop**        | PASS 17 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS step selector, approve/reject               | WARN `plan`/`steps`/`mars` matches (text only, no interrupt) | WARN validate only                                  |
+| **Tool Rendering**           | PASS 17 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS WeatherCard with stats grid                 | WARN `weather` match (tool call)                             | WARN validate only                                  |
+| **Gen UI (Tool-Based)**      | PASS 17 packages        | FAIL        | FAIL                    | FAIL                         | PASS sidebar, haiku card, pie/bar chart          | FAIL no haiku-specific fixture                               | WARN validate only                                  |
+| **Gen UI (Agent)**           | PASS 17 packages        | FAIL        | FAIL                    | FAIL                         | PASS task progress tracker, progress bar         | FAIL no gen-ui-agent fixture                                 | WARN validate only                                  |
+| **Shared State (Read)**      | PASS 17 packages        | FAIL        | FAIL                    | FAIL                         | PASS recipe card, sidebar, pipeline              | FAIL no shared-state fixture                                 | WARN validate only                                  |
+| **Shared State (Write)**     | PASS 17 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS pipeline, deal CRUD, agent state writes     | FAIL no shared-state fixture                                 | WARN validate only                                  |
+| **Shared State (Streaming)** | PASS 17 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS document editor, confirm/reject changes     | FAIL no streaming fixture                                    | WARN validate only                                  |
+| **Sub-Agents**               | PASS 17 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS travel planner, agent indicators, sections  | FAIL no subagent fixture                                     | WARN validate only                                  |
+
+### Starter Hero Coverage
+
+| Feature                         | Manual QA | Vitest Unit                                       | Playwright E2E (smoke)                  | Playwright E2E (interaction)                    | Aimock Fixtures                    | CI Auto                                     |
+| ------------------------------- | --------- | ------------------------------------------------- | --------------------------------------- | ----------------------------------------------- | ---------------------------------- | ------------------------------------------- |
+| **Sales Dashboard (page load)** | FAIL      | PASS extract-starter tests (on-demand extraction) | PASS header, 4 renderer pills           | PASS pill switching, content verification       | WARN `sales`/`todo`/`deal` matches | WARN validate + aimock-e2e (manual trigger) |
+| **Renderer Selector**           | FAIL      | FAIL                                              | PASS 4 pills visible, default selection | PASS mutual exclusion, content changes per mode | FAIL                               | WARN validate only                          |
+| **Tool-Based mode**             | FAIL      | FAIL                                              | PASS pipeline heading, KPI cards        | PASS Add a deal, multiple deals, empty state    | WARN `sales`/`todo` matches        | WARN validate only                          |
+| **A2UI Catalog mode**           | FAIL      | FAIL                                              | PASS same pipeline content              | FAIL                                            | FAIL                               | WARN validate only                          |
+| **json-render mode**            | FAIL      | FAIL                                              | PASS fallback note + pipeline           | FAIL                                            | FAIL                               | WARN validate only                          |
+| **HashBrown mode**              | FAIL      | FAIL                                              | PASS pipeline content                   | FAIL                                            | FAIL                               | WARN validate only                          |
+
+### Probe Depth Coverage
+
+| Depth | Probe Name       | Cadence    | What "Green" Means                                |
+| ----- | ---------------- | ---------- | ------------------------------------------------- |
+| D5    | e2e-demos        | hourly :10 | All per-integration smoke probes pass             |
+| D6    | d6-all-pills-e2e | hourly :40 | All demo cells pass across every integration pill |
+
+### Test Infrastructure Locations
+
+- **Manual QA**: `showcase/integrations/*/qa/*.md` (153 files, 17 packages × 9 demos).
+- **Vitest unit**: `showcase/scripts/__tests__/*.test.ts` — registry/constraint/bundle/integration generators.
+- **Shared E2E**: `showcase/scripts/__tests__/e2e/` — `starter-e2e.spec.ts`, `demo-e2e.spec.ts`, `screenshots.spec.ts`.
+- **Per-package E2E**: `showcase/integrations/*/tests/e2e/` — 9 demo specs per package; `langgraph-python` adds `renderer-selector.spec.ts`.
+- **Aimock fixtures**: `showcase/aimock/` — `feature-parity.json`, `smoke.json`, `d4/<slug>/`, `d6/<slug>/`.
+- **CI**: `.github/workflows/showcase_*.yml` (see Test-Gating Matrix below).
+
+### Known coverage gaps
+
+1. No aimock fixtures for haiku, recipe/deals/document state, travel planning, HITL interrupt.
+2. No shared E2E for gen-ui-tool-based, gen-ui-agent, shared-state-\*, subagents.
+3. No automatic Playwright E2E in CI on every PR; aimock E2E requires `/test-aimock` comment.
+4. No Sales Dashboard starter manual QA checklists.
+5. Renderer-selector per-package E2E exists only for `langgraph-python`.
+
 ## Test-Gating Matrix
 
-This matrix documents which CI workflows fire on which triggers, what they test, and whether they gate merges. Companion to [`QA-COVERAGE.md`](./QA-COVERAGE.md) -- that document tracks per-demo coverage; this one tracks per-workflow gating.
+This matrix documents which CI workflows fire on which triggers, what they test, and whether they gate merges.
 
 Scope: all testing-related workflows (unit, integration, e2e, smoke) across the monorepo. Data read directly from `.github/workflows/*.yml` on the current branch.
 

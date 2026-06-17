@@ -1,5 +1,9 @@
 # Showcase GOTCHAS — Framework & Integration Edge Cases
 
+Tagline: framework-specific traps, aimock matcher / fixture-authoring edge
+cases, and `--isolate` operational gotchas. Load when a fixture, framework, or
+`--isolate` slot is misbehaving in ways the CLI output alone won't explain.
+
 What we learned from getting all 18 integrations to D5 green. Many of these are things that were "green" but still wrong — passing probes while the underlying wiring was fragile, framework-specific, or relying on coincidence. This document exists so we don't re-learn these when rebuilding.
 
 ---
