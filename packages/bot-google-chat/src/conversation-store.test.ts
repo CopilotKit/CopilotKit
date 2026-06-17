@@ -72,6 +72,25 @@ describe("GoogleChatConversationStore.getOrCreate", () => {
     expect(args[1]).toBeUndefined();
   });
 
+  it("treats a non-BOT-typed sender matching botUserId as an assistant turn (secondary guard)", async () => {
+    // botUserId is "users/BOT" (see makeStore). A sender whose type isn't "BOT"
+    // but whose name matches botUserId must still be recognized as the bot via
+    // the shared isBotSender predicate — provably matching adapter.getMessages.
+    const store = makeStore([
+      { name: "m1", text: "hello", sender: { name: "users/1", type: "HUMAN" } },
+      { name: "m2", text: "hi there", sender: { name: "users/BOT", type: "HUMAN" } },
+    ]);
+    const captured = { messages: [] as any[] };
+    await store.getOrCreate(
+      { spaceId: "spaces/A", scope: "spaces/A/threads/T" },
+      { space: "spaces/A", thread: "spaces/A/threads/T" },
+      () => captured as any,
+    );
+    expect(captured.messages).toHaveLength(2);
+    expect(captured.messages[0]).toMatchObject({ role: "user", content: "hello" });
+    expect(captured.messages[1]).toMatchObject({ role: "assistant", content: "hi there" });
+  });
+
   it("excludes bot status rows (🔧 / ✅ / ⏹ / _thinking…_ / _…(continued)_) from translated history", async () => {
     const store = makeStore([
       { name: "m1", text: "what can you do?", sender: { name: "users/1", type: "HUMAN" } },

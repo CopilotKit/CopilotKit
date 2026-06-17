@@ -40,3 +40,20 @@ export function isBotStatusOrPlaceholder(text: string): boolean {
     STREAM_PLACEHOLDERS.some((placeholder) => text === placeholder)
   );
 }
+
+/**
+ * True when a Google Chat message `sender` is the bot. A sender is the bot when
+ * its `type` is `"BOT"`, or — as a secondary guard — when its `name` matches a
+ * non-empty `botUserId`.
+ *
+ * This is the single source of truth shared by `conversation-store.translate`
+ * and `adapter.getMessages` so the two history read-paths can never diverge on
+ * bot detection. The `!!botUserId` guard ensures an empty `botUserId` never
+ * matches a sender whose `name` is also empty/undefined.
+ */
+export function isBotSender(
+  sender: { type?: string; name?: string } | undefined,
+  botUserId: string,
+): boolean {
+  return sender?.type === "BOT" || (!!botUserId && sender?.name === botUserId);
+}

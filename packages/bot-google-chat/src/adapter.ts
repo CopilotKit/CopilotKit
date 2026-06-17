@@ -15,6 +15,7 @@ import type { AbstractAgent } from "@ag-ui/client";
 import type { BotNode, ThreadMessage } from "@copilotkit/bot-ui";
 import {
   GoogleChatConversationStore,
+  isBotSender,
   isBotStatusOrPlaceholder,
 } from "./conversation-store.js";
 import { routeChatEvent } from "./listener.js";
@@ -270,14 +271,16 @@ export class GoogleChatAdapter implements PlatformAdapter {
       );
       return messages
         .filter((m) => {
-          // Mirror conversation-store.translate: drop the bot's own status rows
-          // and stream placeholders so both read paths agree on history.
-          const isBot = m.sender?.type === "BOT";
+          // Mirror conversation-store.translate exactly: bot-ness is decided by
+          // the shared `isBotSender` predicate (type === "BOT" OR a non-empty
+          // botUserId name match), then the bot's own status rows / stream
+          // placeholders are dropped so both read paths agree on history.
+          const isBot = isBotSender(m.sender, this.botUserId);
           return !(isBot && isBotStatusOrPlaceholder((m.text ?? "").trim()));
         })
         .map((m) => ({
           text: m.text ?? "",
-          isBot: m.sender?.type === "BOT",
+          isBot: isBotSender(m.sender, this.botUserId),
           user: m.sender?.name ? { id: m.sender.name } : undefined,
         }));
     } catch (err) {

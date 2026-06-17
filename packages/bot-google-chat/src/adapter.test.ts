@@ -119,6 +119,26 @@ describe("GoogleChatAdapter", () => {
     ]);
   });
 
+  it("getMessages() honors botUserId so a non-BOT-typed sender matching botUserId is treated as bot", async () => {
+    const { adapter, chatClient } = makeAdapter();
+    // Populate the secondary guard so a sender whose type isn't "BOT" but whose
+    // name matches botUserId is still recognized as the bot — provably matching
+    // conversation-store.translate via the shared isBotSender predicate.
+    (adapter as unknown as { botUserId: string }).botUserId = "users/bot";
+    chatClient.listMessages.mockResolvedValueOnce([
+      { name: "m1", text: "hello bot", sender: { type: "HUMAN", name: "users/u1" } },
+      // type is NOT "BOT" but name matches botUserId → must be treated as bot
+      { name: "m2", text: "Here is the answer.", sender: { type: "HUMAN", name: "users/bot" } },
+      // bot status row authored by the name-matched bot → must be excluded
+      { name: "m3", text: "🔧 `search`…", sender: { type: "HUMAN", name: "users/bot" } },
+    ] as any[]);
+    const msgs = await adapter.getMessages({ space: "spaces/A" } as unknown);
+    expect(msgs).toEqual([
+      { text: "hello bot", isBot: false, user: { id: "users/u1" } },
+      { text: "Here is the answer.", isBot: true, user: { id: "users/bot" } },
+    ]);
+  });
+
   it("postFile() threads the upload when target.thread is set", async () => {
     const { adapter, chatClient } = makeAdapter();
     const bytes = new Uint8Array([1, 2, 3]);

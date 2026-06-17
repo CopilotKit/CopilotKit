@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { HttpAgent } from "@ag-ui/client";
 import type { ChatClient, ChatMessage } from "./chat-client.js";
-import { isBotStatusOrPlaceholder } from "./status-markers.js";
+import { isBotSender, isBotStatusOrPlaceholder } from "./status-markers.js";
 import { DM_SCOPE } from "./types.js";
 import type { ConversationKey, ReplyTarget } from "./types.js";
 
@@ -13,7 +13,7 @@ export interface AgentSession {
 
 // Re-exported from the single source of truth in `status-markers.ts` so that
 // existing importers (e.g. `adapter.ts`) keep working unchanged.
-export { isBotStatusOrPlaceholder } from "./status-markers.js";
+export { isBotSender, isBotStatusOrPlaceholder } from "./status-markers.js";
 
 interface AgentMessage {
   id: string;
@@ -62,7 +62,7 @@ export class GoogleChatConversationStore {
   private translate(messages: ChatMessage[]): AgentMessage[] {
     const out: AgentMessage[] = [];
     for (const m of messages) {
-      const isBot = m.sender?.type === "BOT" || m.sender?.name === this.botUserId;
+      const isBot = isBotSender(m.sender, this.botUserId);
       const text = (m.text ?? "").trim();
       if (!text) continue;
       // Skip the run-renderer's own status rows / stream placeholders so they
