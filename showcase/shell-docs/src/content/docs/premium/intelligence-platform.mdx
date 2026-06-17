@@ -1,19 +1,19 @@
 ---
-title: "How the Intelligence Platform Works"
-description: "Architecture of the Intelligence Platform — the app-api, app-frontend, and realtime-gateway services, the control-plane/data-plane split, the multi-tenancy model, and the operational model for self-hosted Helm deployments (secret rotation, health checks, scaling, and the hosted-vs-self-hosted decision)."
+title: "How the Enterprise Intelligence Platform Works"
+description: "Architecture of the Enterprise Intelligence Platform — the app-api, app-frontend, and realtime-gateway services, the control-plane/data-plane split, the multi-tenancy model, and the operational model for self-hosted Helm deployments (secret rotation, health checks, scaling, and the hosted-vs-self-hosted decision)."
 icon: "lucide/Server"
 doc_type: explanation
 premium: true
 ---
-## What is the Intelligence Platform?
+## What is the Enterprise Intelligence Platform?
 
-The Intelligence Platform is the backend that powers threads, shared state, the inspector, observability, and other production capabilities. The same platform architecture runs whether you consume it as a hosted service at [Copilot Cloud](https://dashboard.operations.copilotkit.ai) or install it into your own Kubernetes cluster via the `copilot-intelligence` Helm chart — your application code (and the CopilotKit runtime it talks to) does not change based on which one you point at.
+The Enterprise Intelligence Platform is the backend that powers threads, shared state, the inspector, observability, and other production capabilities. The same platform architecture runs whether you consume it as a hosted service at [Copilot Cloud](https://dashboard.operations.copilotkit.ai) or install it into your own Kubernetes cluster via the `copilot-intelligence` Helm chart — your application code (and the CopilotKit runtime it talks to) does not change based on which one you point at.
 
 This page covers the logical architecture that applies to both deployment modes, plus the operational concerns specific to running the platform in your own cluster. Self-hosting gives you data residency and compliance control at the cost of running a production Kubernetes workload.
 
 <OpsPlatformCTA
   variant="inline"
-  title="Try the Intelligence Platform"
+  title="Try the Enterprise Intelligence Platform"
   body="Spin up a hosted project on Copilot Cloud — no credit card, free Developer tier."
   surface="docs_learn_intelligence_platform"
 />
@@ -34,7 +34,7 @@ The Helm chart deploys three Deployments:
 
 ### Multi-tenancy model
 
-The Intelligence Platform is multi-tenant. Three hierarchical concepts scope every request: an **organization** (the billing or contract boundary), a **project** (an application or environment within an organization), and a **user** (an authenticated identity from your OIDC provider). API keys are issued per project — threads, events, and platform state are visible only within the project that owns them, so a single deployment can host production and staging projects side by side without one reading the other's data.
+The Enterprise Intelligence Platform is multi-tenant. Three hierarchical concepts scope every request: an **organization** (the billing or contract boundary), a **project** (an application or environment within an organization), and a **user** (an authenticated identity from your OIDC provider). API keys are issued per project — threads, events, and platform state are visible only within the project that owns them, so a single deployment can host production and staging projects side by side without one reading the other's data.
 
 Self-hosted deployments choose a tenancy posture via `auth.deploymentMode`:
 
@@ -43,9 +43,9 @@ Self-hosted deployments choose a tenancy posture via `auth.deploymentMode`:
 
 ### Platform layer vs application layer
 
-Self-hosted Intelligence assumes a **platform layer** is already present in your cluster: an ingress controller (nginx or AWS ALB), `cert-manager` (or a cloud certificate service), and — for production — External Secrets Operator. These components are installed once per cluster, outside the Intelligence release.
+Self-hosted Enterprise Intelligence assumes a **platform layer** is already present in your cluster: an ingress controller (nginx or AWS ALB), `cert-manager` (or a cloud certificate service), and — for production — External Secrets Operator. These components are installed once per cluster, outside the Enterprise Intelligence release.
 
-The **application layer** is the `copilot-intelligence` chart itself. It owns only the Intelligence workloads and references the platform layer by class name (for example, `ingress.className: nginx`) and by secret store reference. Mixing the layers into a single install makes upgrades fragile; keeping them separate lets you upgrade the platform and the application on independent cadences.
+The **application layer** is the `copilot-intelligence` chart itself. It owns only the Enterprise Intelligence workloads and references the platform layer by class name (for example, `ingress.className: nginx`) and by secret store reference. Mixing the layers into a single install makes upgrades fragile; keeping them separate lets you upgrade the platform and the application on independent cadences.
 
 ### Optional bundled subcharts
 
@@ -101,18 +101,18 @@ HorizontalPodAutoscaler is enabled for `app-api` by default (minimum 2, maximum 
 
 ## Design decisions
 
-**Why Helm.** Helm is the lingua franca of Kubernetes application delivery — every large platform team already operates a Helm workflow. Shipping Intelligence as a Helm chart lets customers integrate it into their existing GitOps, CI/CD, and environment-promotion pipelines without adopting a new deployment primitive.
+**Why Helm.** Helm is the lingua franca of Kubernetes application delivery — every large platform team already operates a Helm workflow. Shipping Enterprise Intelligence as a Helm chart lets customers integrate it into their existing GitOps, CI/CD, and environment-promotion pipelines without adopting a new deployment primitive.
 
 **Why optional bundled subcharts.** For evaluation, requiring a customer to stand up Postgres and Redis before they see a login screen is an unnecessary barrier. The bundled Bitnami subcharts exist so the first `helm install` works end-to-end on a fresh cluster. They are disabled by default for the production path because running stateful services inside an application release couples lifecycle decisions that should be independent.
 
 **Why External Secrets Operator over raw Kubernetes Secrets.** Managed secret stores (AWS Secrets Manager, Vault) are the canonical source of truth in most organizations, and rotating a secret in the backend should not require a Helm release. ESO decouples secret content from chart revisions — you rotate in your backend, ESO syncs, Reloader restarts the pods. Direct Secrets are supported for air-gapped or small-scale deployments where the operational overhead of ESO is not justified.
 
-**Why not hosted-only.** Some workloads cannot use Copilot Cloud — regulated industries, air-gapped environments, or customers with strict data-residency requirements. Self-hosted Intelligence exists because the hosted service is not appropriate for those deployments. It is strictly more operational work than using Cloud; treat it as the specialized choice.
+**Why not hosted-only.** Some workloads cannot use Copilot Cloud — regulated industries, air-gapped environments, or customers with strict data-residency requirements. Self-hosted Enterprise Intelligence exists because the hosted service is not appropriate for those deployments. It is strictly more operational work than using Cloud; treat it as the specialized choice.
 
 **When self-hosted is the wrong tool.** If you are trying to move faster, avoid running a Kubernetes workload, or do not have a license, use Copilot Cloud. The self-hosted path is the right answer when you have a concrete constraint (compliance, residency, network isolation) that the hosted service cannot meet.
 
 ## Next steps
 
-- **Step-by-step guide:** [Self-Hosting Intelligence](/premium/self-hosting) — install the `copilot-intelligence` Helm chart, configure external dependencies, and verify the deployment
-- **Intelligence Platform overview:** [Intelligence Platform](/premium/overview) — hosted and self-hosted capabilities
+- **Step-by-step guide:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — install the `copilot-intelligence` Helm chart, configure external dependencies, and verify the deployment
+- **Enterprise Intelligence Platform overview:** [Enterprise Intelligence Platform](/premium/overview) — hosted and self-hosted capabilities
 - **Use threads in your app:** [How Threads & Persistence Work](/premium/threads-explained) — the event-replay architecture that the Intelligence runtime serves

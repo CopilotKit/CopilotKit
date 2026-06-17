@@ -259,10 +259,10 @@ describe("framework nav", () => {
     );
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
     expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
-      "How the Intelligence Platform Works",
+      "How the Enterprise Intelligence Platform Works",
       "How Threads & Persistence Work",
       "Observability",
-      "Self-Hosting Intelligence",
+      "Self-Hosting Enterprise Intelligence",
       "Threads",
     ]);
   });

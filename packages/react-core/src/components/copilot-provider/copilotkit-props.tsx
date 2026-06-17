@@ -20,7 +20,7 @@ export interface CopilotKitProps extends Omit<
   /** Your CopilotKit public license key. */
   publicApiKey?: string;
 
-  /** Your public license key for accessing Intelligence Platform features. */
+  /** Your public license key for accessing Enterprise Intelligence Platform features. */
   publicLicenseKey?: string;
 
   /**

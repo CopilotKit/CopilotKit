@@ -98,10 +98,10 @@ export interface CopilotKitProviderProps {
   credentials?: RequestCredentials;
   /** Your CopilotKit public license key. */
   publicApiKey?: string;
-  /** Your public license key for accessing Intelligence Platform features. */
+  /** Your public license key for accessing Enterprise Intelligence Platform features. */
   publicLicenseKey?: string;
   /**
-   * Signed license token for offline verification of Intelligence Platform features.
+   * Signed license token for offline verification of Enterprise Intelligence Platform features.
    * Obtain from https://dashboard.operations.copilotkit.ai.
    */
   licenseToken?: string;
