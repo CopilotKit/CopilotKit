@@ -141,6 +141,90 @@ describe("renderGoogleChatMessage", () => {
     expect(decorated.decoratedText.text).toBe("Status: Online");
   });
 
+  it("skips an image widget when the node has no url (would otherwise fail the cardsV2 API)", () => {
+    const imageNode: BotNode = {
+      type: "image",
+      props: { alt: "missing" },
+    };
+    // Pair it with a section so the card still has at least one widget.
+    const out = renderGoogleChatMessage([section("Body"), imageNode]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+
+    // No image widget — and certainly none with an empty imageUrl.
+    expect(widgets.find((w) => w.image !== undefined)).toBeUndefined();
+    expect(JSON.stringify(widgets)).not.toContain('"imageUrl":""');
+    // The section text still rendered.
+    expect(widgets.some((w) => w.textParagraph !== undefined)).toBe(true);
+  });
+
+  it("still renders an image widget when the node has a url", () => {
+    const imageNode: BotNode = {
+      type: "image",
+      props: { url: "https://example.com/a.png", alt: "A" },
+    };
+    const out = renderGoogleChatMessage([imageNode]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const img = widgets.find((w) => w.image !== undefined);
+    expect(img.image.imageUrl).toBe("https://example.com/a.png");
+    expect(img.image.altText).toBe("A");
+  });
+
+  it("converts Markdown in section text to the Chat HTML subset (<b>, <i>, <s>, <a href>)", () => {
+    const node: BotNode = {
+      type: "section",
+      props: {
+        children: [
+          text("**bold** _it_ ~~no~~ [link](https://x.com) # Title"),
+        ],
+      },
+    };
+    const out = renderGoogleChatMessage([node]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    const html = tp.textParagraph.text;
+
+    expect(html).toContain("<b>bold</b>");
+    expect(html).toContain("<i>it</i>");
+    expect(html).toContain("<s>no</s>");
+    expect(html).toContain('<a href="https://x.com">link</a>');
+    // No literal Markdown punctuation should leak through.
+    expect(html).not.toContain("**");
+    expect(html).not.toContain("~~");
+  });
+
+  it("escapes raw HTML in card text so it can't inject markup", () => {
+    const node = section("a < b & c > d");
+    const out = renderGoogleChatMessage([node]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    expect(tp.textParagraph.text).toBe("a &lt; b &amp; c &gt; d");
+  });
+
+  it("omits the `value` parameter for a button with no value", () => {
+    const button: BotNode = {
+      type: "button",
+      props: { onClick: { id: "ck:novalue" }, children: [text("Go")] },
+    };
+    const actionsNode: BotNode = {
+      type: "actions",
+      props: { children: [button] },
+    };
+    const out = renderGoogleChatMessage([actionsNode]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const buttons = widgets.find((w) => w.buttonList !== undefined).buttonList
+      .buttons;
+
+    const params: any[] = buttons[0].onClick.action.parameters;
+    expect(params.find((p: any) => p.key === "value")).toBeUndefined();
+    // The ck: function id round-trip is unaffected.
+    expect(buttons[0].onClick.action.function).toBe("ck:novalue");
+  });
+
   it("returns a plain text body (no empty-widgets section) when non-plain-text IR produces zero widgets", () => {
     // `divider`/unknown wrapping that yields no widgets — here an unknown node
     // type means renderNodeWidgets emits nothing, but the IR is not plain text

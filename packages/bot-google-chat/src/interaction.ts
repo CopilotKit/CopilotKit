@@ -25,6 +25,8 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   const replyTarget: ReplyTarget = { space: spaceId, thread: isDm ? undefined : threadName };
 
   const params = body.common?.parameters ?? body.action?.parameters ?? [];
+  // A missing `value` parameter means the button carried no value — keep it
+  // `undefined` (a value-less button must not surface as `value === ""`).
   const rawValue = params.find((p) => p.key === "value")?.value;
   let value: unknown = rawValue;
   if (typeof rawValue === "string") {

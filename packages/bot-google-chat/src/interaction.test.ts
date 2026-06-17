@@ -21,6 +21,17 @@ describe("decodeInteraction", () => {
     expect(decodeInteraction({ type: "MESSAGE" })).toBeUndefined();
   });
 
+  it("leaves value undefined when there is no `value` parameter", () => {
+    const evt = decodeInteraction({
+      type: "CARD_CLICKED",
+      space: { name: "spaces/A", type: "ROOM" },
+      message: { name: "spaces/A/messages/M1", thread: { name: "spaces/A/threads/T1" } },
+      common: { invokedFunction: "ck:novalue", parameters: [] },
+    });
+    expect(evt!.id).toBe("ck:novalue");
+    expect(evt!.value).toBeUndefined();
+  });
+
   it("uses the DM scope when the space is a DM", () => {
     const evt = decodeInteraction({
       type: "CARD_CLICKED",

@@ -3,6 +3,103 @@ import { GCHAT_LIMITS, truncateText, clampArray } from "./budget.js";
 
 type Widget = Record<string, unknown>;
 
+/** Escape the HTML-significant characters so user text can't inject markup. */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
+ * Convert the agent's standard Markdown into the limited HTML subset that
+ * Google Chat card `textParagraph`/`decoratedText` widgets render.
+ *
+ *   Markdown      →  Card HTML
+ *   **bold**      →  <b>bold</b>
+ *   __bold__      →  <b>bold</b>
+ *   *italic*      →  <i>italic</i>
+ *   _italic_      →  <i>italic</i>
+ *   ~~strike~~    →  <s>strike</s>
+ *   # heading     →  <b>heading</b>
+ *   [text](url)   →  <a href="url">text</a>
+ *   newline       →  <br>
+ *
+ * Inline `` `code` `` and fenced code keep their backticks literal — card text
+ * has no code style, but the renderer must never crash on them. Code regions
+ * are pulled out first so their contents aren't reinterpreted as Markdown.
+ *
+ * Bold is converted into non-printing control-character sentinels (\x11/\x12)
+ * before italic runs, mirroring `markdown.ts`, so the single-asterisk italic
+ * pass can't eat the inner text of a `**bold**` span.
+ */
+export function markdownToCardHtml(input: string): string {
+  if (!input) return input;
+
+  // ── 1. Pull code regions out so their contents aren't reinterpreted. ──
+  // The placeholder and the sentinels below use non-printing control bytes
+  // (\x10 / \x11 / \x12) so user content can never collide with them. Do NOT
+  // replace them with visible text.
+  const codeRegions: string[] = [];
+  const codePlaceholder = (i: number) => `CODE${i}`;
+
+  let body = input.replace(/```[\s\S]*?```/g, (match) => {
+    codeRegions.push(match);
+    return codePlaceholder(codeRegions.length - 1);
+  });
+  body = body.replace(/`[^`\n]*`/g, (match) => {
+    codeRegions.push(match);
+    return codePlaceholder(codeRegions.length - 1);
+  });
+
+  // ── 2. Escape HTML so the only markup is the tags we emit below. ──
+  body = escapeHtml(body);
+
+  // ── 3. Bold first, into sentinels; italic then can't eat its output. ──
+  const BOLD_OPEN = "\x11";
+  const BOLD_CLOSE = "\x12";
+  body = body.replace(/\*\*([^\n*]+?)\*\*/g, `${BOLD_OPEN}$1${BOLD_CLOSE}`);
+  body = body.replace(/__([^\n_]+?)__/g, `${BOLD_OPEN}$1${BOLD_CLOSE}`);
+
+  // Headings (#…) → bold. Strip any inner bold sentinels first so the line
+  // doesn't carry nested pairs.
+  const boldSentinel = new RegExp(`[${BOLD_OPEN}${BOLD_CLOSE}]`, "g");
+  body = body.replace(
+    /^\s{0,3}#{1,6}\s+(.*)$/gm,
+    (_m, text: string) =>
+      `${BOLD_OPEN}${text.replace(boldSentinel, "").trim()}${BOLD_CLOSE}`,
+  );
+
+  // Strikethrough ~~text~~ → <s>text</s>
+  body = body.replace(/~~([^\n~]+?)~~/g, "<s>$1</s>");
+
+  // Italic *text* → <i>text</i> (skip already-converted bold sentinels).
+  body = body.replace(
+    /(^|[^*\w])\*(\S(?:[^*\n]*\S)?)\*(?!\w)/g,
+    "$1<i>$2</i>",
+  );
+  // Italic _text_ → <i>text</i>
+  body = body.replace(/(^|[^_\w])_(\S(?:[^_\n]*\S)?)_(?!\w)/g, "$1<i>$2</i>");
+
+  // Markdown links [text](url) → <a href="url">text</a>. The url was escaped
+  // above; re-escape the quote just in case and keep it inside the attribute.
+  body = body.replace(
+    /\[([^\]\n]+)\]\(([^)\s]+)\)/g,
+    (_m, t: string, u: string) => `<a href="${u.replace(/"/g, "&quot;")}">${t}</a>`,
+  );
+
+  // ── 4. Restore bold sentinels and code regions, then newlines → <br>. ──
+  body = body.replace(new RegExp(BOLD_OPEN, "g"), "<b>");
+  body = body.replace(new RegExp(BOLD_CLOSE, "g"), "</b>");
+  body = body.replace(
+    /CODE(\d+)/g,
+    (_m, idx) => escapeHtml(codeRegions[Number(idx)] ?? ""),
+  );
+  body = body.replace(/\r?\n/g, "<br>");
+
+  return body;
+}
+
 /** The expanded children of an IR node as a BotNode[] (empty if none). */
 function childrenOf(node: BotNode): BotNode[] {
   const c = node.props?.children;
@@ -69,20 +166,20 @@ function renderActionsWidget(node: BotNode): Widget | null {
   const buttons = items.map((btn, index) => {
     const props = btn.props ?? {};
     const functionId = buttonFunctionId(props, index);
+    // Omit the `value` parameter entirely when there's no value — emitting
+    // `{ key: "value", value: "" }` makes decodeInteraction read `""` (and
+    // JSON.parse("") throws → value becomes ""), so a value-less click would
+    // surface `value === ""` instead of `undefined`.
+    const parameters =
+      props.value !== undefined
+        ? [{ key: "value", value: JSON.stringify(props.value) }]
+        : [];
     const buttonObj: Record<string, unknown> = {
       text: truncateText(collectText(btn), GCHAT_LIMITS.buttonText),
       onClick: {
         action: {
           function: functionId,
-          parameters: [
-            {
-              key: "value",
-              value:
-                props.value !== undefined
-                  ? JSON.stringify(props.value)
-                  : "",
-            },
-          ],
+          parameters,
         },
       },
     };
@@ -112,7 +209,7 @@ function renderNodeWidgets(node: BotNode): Widget[] {
     case "section":
     case "markdown": {
       const txt = truncateText(collectText(node), GCHAT_LIMITS.textParagraph);
-      if (txt) widgets.push({ textParagraph: { text: txt } });
+      if (txt) widgets.push({ textParagraph: { text: markdownToCardHtml(txt) } });
       // Render any nested actions/button children as a buttonList widget.
       for (const child of childrenOf(node)) {
         if (typeof child.type === "string" && child.type === "actions") {
@@ -135,12 +232,17 @@ function renderNodeWidgets(node: BotNode): Widget[] {
       const props = node.props ?? {};
       const url = (props.url ?? props.image_url) as string | undefined;
       const alt = (props.alt ?? props.altText ?? "") as string;
-      widgets.push({ image: { imageUrl: url ?? "", altText: alt } });
+      // The Chat cardsV2 API rejects an image widget with an empty/invalid
+      // imageUrl, which would fail the entire create/patch. The renderer is
+      // total — skip a url-less image like we skip empty-text widgets.
+      if (!url) break;
+      widgets.push({ image: { imageUrl: url, altText: alt } });
       break;
     }
     case "context": {
       const txt = truncateText(collectText(node), GCHAT_LIMITS.textParagraph);
-      if (txt) widgets.push({ textParagraph: { text: `_${txt}_` } });
+      // Context is rendered de-emphasized (italic).
+      if (txt) widgets.push({ textParagraph: { text: `<i>${markdownToCardHtml(txt)}</i>` } });
       break;
     }
     case "fields": {
@@ -149,14 +251,14 @@ function renderNodeWidgets(node: BotNode): Widget[] {
         // `decoratedText` REQUIRES `text`; `topLabel` is only an optional
         // adornment above it. The field's content goes in `text`.
         const txt = truncateText(collectText(f), GCHAT_LIMITS.decoratedTextTop);
-        if (txt) widgets.push({ decoratedText: { text: txt } });
+        if (txt) widgets.push({ decoratedText: { text: markdownToCardHtml(txt) } });
       }
       break;
     }
     case "field": {
       // `decoratedText` REQUIRES `text`; put the field's content there.
       const txt = truncateText(collectText(node), GCHAT_LIMITS.decoratedTextTop);
-      if (txt) widgets.push({ decoratedText: { text: txt } });
+      if (txt) widgets.push({ decoratedText: { text: markdownToCardHtml(txt) } });
       break;
     }
     case "text": {
@@ -164,7 +266,9 @@ function renderNodeWidgets(node: BotNode): Widget[] {
       if (value) {
         widgets.push({
           textParagraph: {
-            text: truncateText(value, GCHAT_LIMITS.textParagraph),
+            text: markdownToCardHtml(
+              truncateText(value, GCHAT_LIMITS.textParagraph),
+            ),
           },
         });
       }
