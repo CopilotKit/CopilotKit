@@ -283,5 +283,10 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
   return [
     { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
     { type: "page", title: "Quickstart", slug: `frontends/${id}` },
+    {
+      type: "page",
+      title: "More docs coming: see React parallels",
+      slug: "",
+    },
   ];
 }

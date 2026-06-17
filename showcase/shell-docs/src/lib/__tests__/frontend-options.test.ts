@@ -43,6 +43,11 @@ describe("frontend options", () => {
     expect(getFrontendQuickstartNavTree("slack")).toEqual([
       { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
       { type: "page", title: "Quickstart", slug: "frontends/slack" },
+      {
+        type: "page",
+        title: "More docs coming: see React parallels",
+        slug: "",
+      },
     ]);
   });
 });
