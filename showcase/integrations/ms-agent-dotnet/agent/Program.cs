@@ -22,16 +22,29 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
 });
 builder.Services.AddAGUI();
+// STOPGAP: IHttpContextAccessor lets AimockHeaderPolicy read the current
+// request's forwarded x-* headers (stashed on HttpContext.Items by
+// AimockHeaderMiddleware) at outbound-LLM-call time. HttpContext flows across
+// the AG-UI SSE-pump ExecutionContext boundary, unlike a middleware-set
+// AsyncLocal. TODO(copilotkit-sdk-dotnet): migrate to SDK-level header propagation.
+builder.Services.AddHttpContextAccessor();
 
 WebApplication app = builder.Build();
 
-// STOPGAP: Extract x-* prefixed headers from incoming AG-UI requests into AsyncLocal
+// STOPGAP: seed the static accessor the outbound header-forwarding policy reads
+// (the policy is created without DI, mirroring CvDiag.Logger).
+AimockHeaderPolicy.HttpContextAccessor = app.Services.GetRequiredService<IHttpContextAccessor>();
+
+// STOPGAP: Extract x-* prefixed headers from incoming AG-UI requests onto HttpContext.Items
 // so AimockHeaderPolicy can forward them to outgoing OpenAI calls.
 // TODO(copilotkit-sdk-dotnet): migrate to SDK-level header propagation
 app.UseMiddleware<AimockHeaderMiddleware>();
 
 // Create the agent factory and map the AG-UI agent endpoint
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
+// CVDIAG: seed the static logger used by AimockHeaderPolicy (created without DI)
+// to emit the outbound-LLM header-forwarding breadcrumb.
+CvDiag.Logger = loggerFactory.CreateLogger("CvDiag");
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
@@ -633,17 +646,36 @@ public class SalesAgentFactory
         }
         catch (HttpRequestException ex)
         {
+            // The secondary caller uses a raw HttpClient, so a non-success
+            // upstream status surfaces as HttpRequestException carrying a
+            // StatusCode (.NET 5+). Distinguish a definite upstream HTTP error
+            // (4xx/5xx) — which is NOT a transport problem and may not be worth
+            // a blind retry — from a transport/connection failure where
+            // StatusCode is null (DNS, TLS, connection refused, socket reset).
+            // The previous code routed every HttpRequestException to
+            // "upstream_unavailable" ("retry"), which mislabeled a 401/400/429
+            // as a transient reachability issue.
+            if (ex.StatusCode is { } status)
+            {
+                // 4xx (e.g. 400 bad request, 401 auth, 429 rate limit) are
+                // non-retryable from the model's perspective: retrying the same
+                // request unchanged will fail the same way. We log the status
+                // server-side but do not surface it verbatim to the model.
+                _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): upstream returned error status {Status}", errorId, (int)status);
+                return StructuredError("upstream_error", "The upstream AI service returned an error.", "Try rephrasing the request — retrying the same request unchanged is unlikely to help.", errorId);
+            }
+
             _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): upstream transport failure", errorId);
             return StructuredError("upstream_unavailable", "The upstream AI service is currently unreachable. Please retry.", "Retry the request in a few seconds.", errorId);
         }
-        catch (ClientResultException ex)
+        catch (A2uiUpstreamResponseException ex)
         {
-            // Thrown by OpenAI / Microsoft.Extensions.AI when the upstream
-            // responds with a non-success status (rate limit, bad request,
-            // auth failure, etc.). We know the status but do not surface it
-            // verbatim to the model — avoids leaking provider internals.
-            _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): upstream returned error status {Status}", errorId, ex.Status);
-            return StructuredError("upstream_error", "The upstream AI service returned an error.", "Try rephrasing the request or retrying later.", errorId);
+            // 2xx status but a malformed/unexpected body shape. The upstream
+            // body is captured on the exception so we log the provider detail
+            // with the correlation id, but we return a categorical error
+            // without leaking the body to the model.
+            _logger.LogError(ex, "GenerateA2ui (errorId={ErrorId}): upstream returned malformed response body: {Body}", errorId, ex.Body);
+            return StructuredError("upstream_error", "The upstream AI service returned an unexpected response.", "Try rephrasing the request or retrying later.", errorId);
         }
         catch (OperationCanceledException)
         {

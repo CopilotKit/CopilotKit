@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { getD5Script, type D5BuildContext } from "../helpers/d5-registry.js";
+import { getD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 import {
   buildTurns,
@@ -135,6 +136,7 @@ describe("d5-multimodal script", () => {
     await expect(
       turns[0]!.assertions!(
         makePage("the image attachment shows a small abstract test pattern"),
+        { bubbleIndex: 0, text: "" },
       ),
     ).resolves.toBeUndefined();
   });
@@ -150,7 +152,10 @@ describe("d5-multimodal script", () => {
     // the assertion has time to exhaust its budget and throw the
     // missing-keyword error.
     await expect(
-      turns[0]!.assertions!(makePage("nothing here")),
+      turns[0]!.assertions!(makePage("nothing here"), {
+        bubbleIndex: 0,
+        text: "",
+      }),
     ).rejects.toThrow(/missing keyword "image"/);
   }, 8_000);
 });

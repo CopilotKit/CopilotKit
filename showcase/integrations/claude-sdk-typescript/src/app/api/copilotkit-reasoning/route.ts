@@ -9,13 +9,15 @@
  * via `CLAUDE_REASONING_MODEL`.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -26,7 +28,14 @@ function createReasoningAgent() {
 const agents: Record<string, AbstractAgent> = {
   "reasoning-default": createReasoningAgent(),
   "reasoning-custom": createReasoningAgent(),
-  "tool-rendering-reasoning-chain": createReasoningAgent(),
+  // Reasoning-chain owns its tools backend-side (get_stock_price,
+  // roll_dice, search_flights, get_weather) — the page registers
+  // render-only hooks, so the plain /reasoning pass-through stalled the
+  // chain after the first call (no tool result ever came back). The
+  // dedicated endpoint runs the agentic loop with extended thinking.
+  "tool-rendering-reasoning-chain": new HttpAgent({
+    url: `${AGENT_URL}/tool-rendering-reasoning-chain`,
+  }),
   default: createReasoningAgent(),
 };
 

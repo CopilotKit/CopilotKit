@@ -21,9 +21,20 @@ import type { ServiceEntry } from "../railway-envs";
 
 describe("ServiceEntry gateIgnore field", () => {
   it("is optional on the type and defaults to falsy when unset", () => {
-    // Every real SSOT entry has gateIgnore unset (undefined / falsy).
+    // Every real SSOT entry has gateIgnore unset (undefined / falsy),
+    // EXCEPT two deliberately gateIgnore:true entries: the staging-only
+    // `harness-workers` pool-fleet worker (no public domain, does not
+    // fit the symmetric dual-env shape the gate validates) and the interim
+    // `harness-legacy` fleet-migration bridge (runs a pinned out-of-band
+    // digest, not the canonical :latest/@sha256 shape). See their SSOT
+    // entries in railway-envs.ts for the rationale.
+    const GATE_IGNORED = new Set(["harness-workers", "harness-legacy"]);
     for (const [name, entry] of Object.entries(SERVICES)) {
       const gi = (entry as ServiceEntry).gateIgnore;
+      if (GATE_IGNORED.has(name)) {
+        expect(gi, `${name} gateIgnore`).toBe(true);
+        continue;
+      }
       expect(gi === undefined || gi === false, `${name} gateIgnore`).toBe(true);
     }
   });
@@ -87,16 +98,22 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
     const sentinel = "transient-third-party-relay";
     (SERVICES as Record<string, ServiceEntry>)[sentinel] = {
       serviceId: "00000000-0000-0000-0000-000000000000",
-      prodInstanceId: "11111111-1111-1111-1111-111111111111",
-      stagingInstanceId: "22222222-2222-2222-2222-222222222222",
       ciBuilt: false,
       gateValidated: false,
       gateIgnore: true,
-      domains: {
-        staging: "transient-third-party-relay-staging.up.railway.app",
-        prod: "transient-third-party-relay-production.up.railway.app",
+      probeDriver: "agent",
+      environments: {
+        prod: {
+          instanceId: "11111111-1111-1111-1111-111111111111",
+          domain: "transient-third-party-relay-production.up.railway.app",
+          probe: false,
+        },
+        staging: {
+          instanceId: "22222222-2222-2222-2222-222222222222",
+          domain: "transient-third-party-relay-staging.up.railway.app",
+          probe: false,
+        },
       },
-      probe: { staging: false, prod: false, driver: "agent" },
     };
     try {
       const railway = new Set<string>([sentinel, "showcase-mastra"]);
@@ -214,7 +231,7 @@ describe("summarizeFailures", () => {
   });
 });
 
-describe("WS-C: all 27 services gateValidated, with correct overrides", () => {
+describe("WS-C: all gate-managed services gateValidated, with correct overrides", () => {
   const FIVE_NEW = [
     ["dashboard", "showcase-shell-dashboard"],
     ["docs", "showcase-shell-docs"],
@@ -223,13 +240,21 @@ describe("WS-C: all 27 services gateValidated, with correct overrides", () => {
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 27 services in the SSOT", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(27);
+  it("has 29 services in the SSOT", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(29);
   });
 
-  it("marks every service gateValidated (no Phase-2 holdouts)", () => {
+  it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
+    // Two intentional gateValidated:false entries: the staging-only
+    // `harness-workers` (gateIgnore:true — no public domain) and the
+    // interim `harness-legacy` fleet-migration bridge (gateIgnore:true — runs
+    // a pinned out-of-band digest). Every OTHER service must be
+    // gateValidated:true.
+    const GATE_IGNORED = new Set(["harness-workers", "harness-legacy"]);
     const unvalidated = Object.entries(SERVICES)
-      .filter(([, entry]) => !entry.gateValidated)
+      .filter(
+        ([name, entry]) => !entry.gateValidated && !GATE_IGNORED.has(name),
+      )
       .map(([name]) => name);
     expect(unvalidated).toEqual([]);
   });
@@ -240,10 +265,10 @@ describe("WS-C: all 27 services gateValidated, with correct overrides", () => {
       expect(repoNameFor(serviceKey, "staging")).toBe(expectedRepo);
     });
 
-    it(`carries the repoNameOverride directly on the SERVICES entry for ${serviceKey}`, () => {
+    it(`carries the per-env repoName directly on the SERVICES entry for ${serviceKey}`, () => {
       const entry = SERVICES[serviceKey];
-      expect(entry.repoNameOverride?.prod).toBe(expectedRepo);
-      expect(entry.repoNameOverride?.staging).toBe(expectedRepo);
+      expect(entry.environments.prod.repoName).toBe(expectedRepo);
+      expect(entry.environments.staging.repoName).toBe(expectedRepo);
     });
   }
 

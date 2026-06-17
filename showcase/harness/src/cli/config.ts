@@ -38,12 +38,16 @@ export function loadConfig(): LocalConfig {
     localPorts,
     pocketbase: {
       url: process.env.POCKETBASE_URL_LOCAL || "http://localhost:8090",
-      // PB 0.22+ rejects `admin@localhost` (single-label TLD) as an invalid
-      // email. Use a valid format that the PB validator accepts. The
-      // matching admin account is created in the entrypoint / migrations
-      // path; the docker-compose env vars and `bin/showcase` superuser
-      // bootstrap must agree on this value.
-      email: "admin@localhost.dev",
+      // The host CLI loads no env file (showcase/.env is passed to containers
+      // via compose `env_file`, never into the host process), so an isolated
+      // `bin/showcase` run falls through to this default. It MUST equal the
+      // superuser the PB `entrypoint.sh` actually seeds — i.e. the value of
+      // POCKETBASE_SUPERUSER_EMAIL in docker-compose.local.yml:130. A fresh
+      // isolated PB volume ONLY has that account; any mismatch 400s on
+      // pb-auth and the d6 control plane enqueues 0 jobs. (PB 0.22+ also
+      // rejects single-label hosts like `admin@localhost`, so the value must
+      // carry a TLD regardless.)
+      email: "admin@example.com",
       password: "showcase-local-dev",
     },
     // When --isolate offsets the aimock host port, honor env overrides so the

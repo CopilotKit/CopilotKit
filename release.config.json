@@ -26,6 +26,16 @@
       "packages": ["@copilotkitnext/angular"],
       "versionSource": "@copilotkitnext/angular",
       "sharedVersion": false
+    },
+    "bot": {
+      "packages": ["@copilotkit/bot", "@copilotkit/bot-ui"],
+      "versionSource": "@copilotkit/bot",
+      "sharedVersion": true
+    },
+    "bot-slack": {
+      "packages": ["@copilotkit/bot-slack"],
+      "versionSource": "@copilotkit/bot-slack",
+      "sharedVersion": false
     }
   }
 }

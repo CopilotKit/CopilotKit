@@ -8,11 +8,11 @@ import {
   isFrontendId,
 } from "../frontend-options";
 import {
-  FRONTEND_PAGE_CONTENT,
   FRONTEND_PAGE_IDS,
-  getFrontendPageContent,
+  getFrontendContentSlug,
   getFrontendQuickstartNavTree,
 } from "../frontend-page-content";
+import { loadDoc } from "../docs-render";
 
 describe("frontend options", () => {
   it("keeps React as the full docs surface and routes other frontends to quickstarts", () => {
@@ -24,7 +24,7 @@ describe("frontend options", () => {
     expect(frontendFromPathname("/langgraph-python/quickstart")).toBeNull();
   });
 
-  it("has a single quickstart page for every non-React frontend", () => {
+  it("maps every non-React frontend to an MDX quickstart page", () => {
     const nonReactIds = FRONTEND_OPTIONS.filter(
       (option) => option.id !== "react",
     ).map((option) => option.id);
@@ -33,9 +33,8 @@ describe("frontend options", () => {
     for (const id of FRONTEND_PAGE_IDS) {
       expect(isFrontendId(id)).toBe(true);
       expect(getFrontendOption(id).name).toBeTruthy();
-      expect(getFrontendPageContent(id)).toBe(FRONTEND_PAGE_CONTENT[id]);
-      expect(FRONTEND_PAGE_CONTENT[id].steps.length).toBeGreaterThanOrEqual(3);
-      expect(FRONTEND_PAGE_CONTENT[id].references.length).toBeGreaterThan(0);
+      expect(getFrontendContentSlug(id)).toBe(`frontends/${id}`);
+      expect(loadDoc(getFrontendContentSlug(id))?.fm.title).toBeTruthy();
     }
   });
 

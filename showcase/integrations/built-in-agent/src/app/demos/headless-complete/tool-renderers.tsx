@@ -10,24 +10,31 @@ import { z } from "zod";
 import { WeatherCard } from "./weather-card";
 import { HaikuCard } from "./haiku-card";
 import { HighlightNote, highlightNotePropsSchema } from "./highlight-note";
+import { StockCard } from "./stock-card";
+import { ChartCard } from "./chart-card";
+import type { ChartPoint } from "./chart-card";
 
 /**
  * Central registration hook for tool-call rendering surfaces in the
  * headless-complete cell.
  *
- *   - `useRenderTool({ name: "weather", ... })` — backend weather tool
- *     (built-in-agent's `weather` server tool) -> blue card.
+ *   - `useRenderTool({ name: "get_weather", ... })` — backend weather tool
+ *     (built-in-agent's `get_weather` server tool) -> blue card.
  *   - `useRenderTool({ name: "haiku", ... })` — backend haiku tool ->
  *     branded card.
+ *   - `useRenderTool({ name: "get_stock_price", ... })` — backend stock
+ *     price tool -> branded StockCard.
+ *   - `useRenderTool({ name: "get_revenue_chart", ... })` — backend
+ *     revenue chart tool -> branded ChartCard (recharts).
  *   - `useComponent({ name: "highlight_note", ... })` — frontend-only
  *     tool the agent can invoke via the same useRenderToolCall path.
  *   - `useDefaultRenderTool()` — wildcard catch-all for any other tool.
  */
 export function useHeadlessCompleteToolRenderers() {
-  // Per-tool renderer #1: backend `weather` -> branded WeatherCard.
+  // Per-tool renderer #1: backend `get_weather` -> branded WeatherCard.
   useRenderTool(
     {
-      name: "weather",
+      name: "get_weather",
       parameters: z.object({
         city: z.string(),
       }),
@@ -69,6 +76,58 @@ export function useHeadlessCompleteToolRenderers() {
             loading={loading}
             topic={parameters?.topic ?? parsed.topic ?? ""}
             lines={parsed.lines}
+          />
+        );
+      },
+    },
+    [],
+  );
+
+  // Per-tool renderer #3: backend `get_stock_price` -> branded StockCard.
+  useRenderTool(
+    {
+      name: "get_stock_price",
+      parameters: z.object({
+        ticker: z.string(),
+      }),
+      render: ({ parameters, result, status }) => {
+        const loading = status !== "complete";
+        const parsed = parseJsonResult<{
+          ticker?: string;
+          price_usd?: number;
+          change_pct?: number;
+        }>(result);
+        return (
+          <StockCard
+            loading={loading}
+            ticker={parameters?.ticker ?? parsed.ticker ?? ""}
+            price={parsed.price_usd}
+            changePct={parsed.change_pct}
+          />
+        );
+      },
+    },
+    [],
+  );
+
+  // Per-tool renderer #4: backend `get_revenue_chart` -> branded ChartCard.
+  useRenderTool(
+    {
+      name: "get_revenue_chart",
+      parameters: z.object({}),
+      render: ({ result, status }) => {
+        const loading = status !== "complete";
+        const parsed = parseJsonResult<{
+          title?: string;
+          subtitle?: string;
+          data?: ChartPoint[];
+        }>(result);
+        return (
+          <ChartCard
+            loading={loading}
+            title={parsed.title}
+            subtitle={parsed.subtitle}
+            data={parsed.data}
           />
         );
       },

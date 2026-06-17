@@ -166,6 +166,37 @@ async function* convertStream(
           delta: (parsedContent as { delta: unknown[] }).delta,
         };
       }
+      // `set_steps` is the gen-ui-agent demo's custom plan tool (see
+      // state-tools.ts). The tool's server handler returns `{ steps }`;
+      // translate that into a STATE_DELTA that adds `/steps` on the
+      // agent state, so the frontend `useAgent` subscriber sees the
+      // plan update and `StepsPanel` mounts `agent-state-card`.
+      //
+      // Use RFC-6902 `add` (not `replace`): the agent's initial state is
+      // `{}` (no STATE_SNAPSHOT precedes the first STATE_DELTA), and
+      // `fast-json-patch` in strict mode rejects `replace` on an
+      // unresolvable path with OPERATION_PATH_UNRESOLVABLE.
+      // `@ag-ui/client@0.0.57` swallows that throw with `console.warn`
+      // and never updates state, so `replace` results in the panel
+      // staying in its placeholder. `add` creates `/steps` on first
+      // emission and idempotently overwrites on subsequent calls.
+      if (
+        toolName === "set_steps" &&
+        parsedContent &&
+        typeof parsedContent === "object" &&
+        "steps" in parsedContent
+      ) {
+        yield {
+          type: EventType.STATE_DELTA,
+          delta: [
+            {
+              op: "add",
+              path: "/steps",
+              value: (parsedContent as { steps: unknown }).steps,
+            },
+          ],
+        };
+      }
 
       let serializedContent: string;
       if (typeof rawPayload === "string") {

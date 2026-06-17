@@ -4,10 +4,10 @@ description: "The useRenderToolCall hook enables rendering of backend tool calls
 ---
 
 <Callout type="warning">
-  `useRenderToolCall` is still supported, but we recommend migrating to [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall) from the v2 API.
+  This v1 `useRenderToolCall` takes a `{ name, parameters, render }` config object to **register** a renderer for a tool. In the v2 API, the same name has a **different shape**: v2 [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall) is a no-argument hook that *returns* a renderer function for consuming tool calls. To register renderers in v2, use [`useFrontendTool`](/reference/v2/hooks/useFrontendTool) or [`useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop) instead.
 </Callout>
 
-`useRenderToolCall` is purely a rendering hook — it displays custom UI for tool calls without executing
+`useRenderToolCall` is purely a rendering hook. It displays custom UI for tool calls without executing
 any logic. This is typically used to visualize backend tool executions in your chat interface, showing
 users what the AI is doing behind the scenes.
 
@@ -127,5 +127,5 @@ A React component that renders the tool call UI. The component receives props wi
 </PropertyReference>
 
 <PropertyReference name="available" type="'disabled' | 'enabled'"  >
-Whether the renderer is available. Set to "disabled" to prevent rendering.
+Currently non-functional in this v1 hook. The value is accepted for API compatibility but ignored, so setting `"disabled"` does not prevent the renderer from being registered.
 </PropertyReference>

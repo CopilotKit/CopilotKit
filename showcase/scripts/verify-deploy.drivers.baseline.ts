@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 import type { ProbeTarget } from "./verify-deploy";
 import type { ProbeOutcome } from "./verify-deploy.drivers";
-import { PRODUCTION_ENV_ID, SERVICES, STAGING_ENV_ID } from "./railway-envs";
+import { ENV_ID_BY_NAME, SERVICES } from "./railway-envs";
 import type { EnvName } from "./railway-envs";
 import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
 import { resolveRailwayTokenFromConfig } from "./lib/railway-token";
@@ -256,13 +256,24 @@ export function defaultGetRailwayToken(): string | undefined {
 export function envForTarget(target: ProbeTarget): EnvName | undefined {
   const entry = SERVICES[target.name];
   if (!entry) return undefined;
-  if (target.host === entry.domains.staging) return "staging";
-  if (target.host === entry.domains.prod) return "prod";
+  // Reverse-map: find the env whose declared domain matches the target
+  // host. Iterates the service's `environments` (not a hardcoded
+  // prod/staging pair) so it generalizes to any SSOT env. Domainless envs
+  // (no `domain`) never match a real host, so they are naturally skipped.
+  for (const [env, cfg] of Object.entries(entry.environments)) {
+    if (cfg.domain !== undefined && target.host === cfg.domain) return env;
+  }
   return undefined;
 }
 
 function envIdFor(env: EnvName): string {
-  return env === "prod" ? PRODUCTION_ENV_ID : STAGING_ENV_ID;
+  const envId = ENV_ID_BY_NAME[env];
+  if (!envId) {
+    throw new Error(
+      `envIdFor: unknown env "${env}" — no Railway env-id registered in ENV_ID_BY_NAME.`,
+    );
+  }
+  return envId;
 }
 
 async function fetchWithTimeout(

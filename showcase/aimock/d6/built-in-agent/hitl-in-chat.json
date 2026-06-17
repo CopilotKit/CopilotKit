@@ -43,6 +43,17 @@
       }
     },
     {
+      "_comment": "Sales intro call — follow-up content fallback for the built-in-agent /v1/responses endpoint, which REWRITES the assistant tool_call id to a runtime-generated `fc-…` value, so the call_d5_schedule_sales_001 toolCallId chain above never matches the follow-up turn after schedule_meeting runs → strict 503. Anchored on hasToolResult:true so it fires only after the tool result; carries no toolCalls so it is loop-safe. MUST precede the hasToolResult:false tool-emit fixture below.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Booked: Sales intro call confirmed for the slot you picked."
+      }
+    },
+    {
       "match": {
         "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",

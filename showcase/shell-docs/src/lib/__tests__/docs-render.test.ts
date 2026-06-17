@@ -149,9 +149,6 @@ describe("migration docs", () => {
     );
 
     expect(snippet).toContain(
-      "The `<CopilotKit>` provider name — keep using it, but import it from `@copilotkit/react-core/v2`",
-    );
-    expect(snippet).toContain(
       "Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.",
     );
     expect(snippet).toContain(
@@ -214,19 +211,31 @@ describe("migration docs", () => {
 });
 
 describe("framework nav", () => {
-  it("includes the shared React Native platform guide in generated framework nav", () => {
+  it("loads early-access frontmatter for gated platform guides", () => {
+    const slack = loadDoc("frontends/slack")?.fm;
+    const teams = loadDoc("frontends/teams")?.fm;
+
+    expect(slack?.earlyAccess).toBe("slack");
+    expect(slack?.hideTOC).toBe(true);
+    expect(teams?.earlyAccess).toBe("teams");
+    expect(teams?.hideTOC).toBe(true);
+  });
+
+  it("keeps frontend platform guides out of generated framework nav", () => {
     const navTree = buildFrameworkNav(
       "langgraph",
       "LangGraph (Python)",
       "langgraph-python",
     );
 
-    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Vue")).toBe(false);
   });
 
-  it("includes the shared React Native platform guide in authored framework nav", () => {
+  it("keeps frontend platform guides out of authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("built-in-agent");
 
-    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
   });
 });

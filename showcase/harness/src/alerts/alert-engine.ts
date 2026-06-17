@@ -11,24 +11,23 @@ import { parseDuration, evalSuppress } from "./dsl.js";
 import {
   AggregationBucketStore,
   buildCompositeDedupeKey,
-  type Bucket,
-  type FlushReason,
 } from "./aggregation.js";
+import type { Bucket, FlushReason } from "./aggregation.js";
 // Re-export so existing callers (rule-loader, tests) that import from
 // alert-engine.js continue to work without touching every import site.
 // Fresh modules should import from ./dsl.js directly.
 export { parseDuration, evalSuppress } from "./dsl.js";
-import {
-  emptyTriggerFlags,
-  type Logger,
-  type ProbeResult,
-  type Severity,
-  type State,
-  type Target,
-  type TemplateContext,
-  type Transition,
-  type TriggerFlags,
-  type WriteOutcome,
+import { emptyTriggerFlags } from "../types/index.js";
+import type {
+  Logger,
+  ProbeResult,
+  Severity,
+  State,
+  Target,
+  TemplateContext,
+  Transition,
+  TriggerFlags,
+  WriteOutcome,
 } from "../types/index.js";
 
 /**
@@ -614,6 +613,11 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       transition: probeState === "error" ? "error" : "first",
       firstFailureAt: signalFirstFailureAt,
       failCount: signalFailCount,
+      // A2: this outcome is synthesized for cron-driven rule evaluation —
+      // no status-writer runs on this path and nothing reaches durable
+      // storage (see the newState note above: status-writer does NOT
+      // consume this outcome). Truthfully stamp non-persisted.
+      persisted: false,
     };
     if (fakeResult.state === "error" && rule.onError) {
       // A1: apply the same `passesGuards` filter as the status.changed

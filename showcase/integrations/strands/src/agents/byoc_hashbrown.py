@@ -77,35 +77,32 @@ Rules:
 
 
 def build_byoc_hashbrown_agent():
-    """Build a Strands Agent configured with the byoc-hashbrown system prompt.
+    """Build a StrandsAgent configured with the byoc-hashbrown system prompt.
 
-    Left as a factory so agent_server.py can lazily instantiate it on a
-    sub-path without re-running the shared-agent construction. The agent
-    takes no tools; it is a pure structured-output generator.
-
-    Currently not wired into agent_server.py (see PARITY_NOTES). When wired,
-    mount at `/byoc_hashbrown/` and point the frontend route at that URL.
+    Returns an ``ag_ui_strands.StrandsAgent`` wrapper (mirrors
+    ``build_voice_agent``) so it can be mounted by ``create_strands_app`` and
+    exposed as a dedicated AG-UI endpoint. agent_server.py mounts it at
+    ``/byoc-hashbrown`` and the declarative-hashbrown route proxies there.
+    The agent takes no tools; it is a pure structured-output generator.
     """
-    # Deferred import so this module remains importable even when the
+    # Deferred imports so this module remains importable even when the
     # agent_server import-order patches (see agent_server.py) haven't been
-    # applied yet.
+    # applied yet. Mirrors build_voice_agent: ``from strands import Agent``
+    # plus the ag_ui_strands wrapper. The OpenAI model is built via the
+    # shared agents.agent._build_model factory so we don't re-resolve the
+    # ``strands.models.openai`` submodule independently.
     from strands import Agent
-    from strands.models.openai import OpenAIModel
+    from ag_ui_strands import StrandsAgent
 
-    import os
+    from agents.agent import _build_model
 
-    api_key = os.getenv("OPENAI_API_KEY", "")
-    if not api_key:
-        raise RuntimeError(
-            "OPENAI_API_KEY must be set for the byoc-hashbrown Strands agent"
-        )
-
-    model = OpenAIModel(
-        client_args={"api_key": api_key},
-        model_id="gpt-4o-mini",
-    )
-    return Agent(
-        model=model,
+    strands_agent = Agent(
+        model=_build_model(),
         system_prompt=BYOC_HASHBROWN_SYSTEM_PROMPT,
         tools=[],
+    )
+    return StrandsAgent(
+        agent=strands_agent,
+        name="byoc_hashbrown",
+        description="Hashbrown UI-kit envelope generator for the declarative-hashbrown demo.",
     )

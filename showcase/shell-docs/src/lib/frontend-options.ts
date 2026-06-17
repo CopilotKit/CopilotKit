@@ -32,13 +32,13 @@ export const FRONTEND_OPTIONS: readonly FrontendOption[] = [
     id: "slack",
     name: "Slack",
     icon: "slack",
-    summary: "A channel quickstart surface while full docs catch up.",
+    summary: "Slack bot quickstart with streaming agent replies.",
   },
   {
     id: "teams",
     name: "Teams",
     icon: "teams",
-    summary: "A channel quickstart surface while full docs catch up.",
+    summary: "Microsoft Teams bot quickstart and local DevTools setup.",
   },
 ] as const;
 

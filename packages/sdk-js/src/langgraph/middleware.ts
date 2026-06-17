@@ -6,6 +6,7 @@ import type {
 } from "@standard-schema/spec";
 import * as z from "zod";
 import { getA2UITools } from "@ag-ui/langgraph";
+import type { A2UIToolParams } from "@ag-ui/langgraph";
 import { getForwardedHeaders } from "../header-propagation";
 
 // ---------------------------------------------------------------------------
@@ -394,11 +395,14 @@ const buildMiddlewareInput = (exposeState: ExposeStateOption) => ({
     const decision = a2uiInjectDecision(request.state);
     if (typeof getA2UITools === "function" && decision) {
       const catalog = resolveA2uiCatalog(request.state);
-      const opts: { defaultCatalogId?: string; compositionGuide?: string } = {};
-      if (catalog?.catalogId) opts.defaultCatalogId = catalog.catalogId;
+      // Shared A2UIToolParams: a single params object owned by the toolkit.
+      // `model` lives inside it; `compositionGuide` is folded into the
+      // `guidelines` bag alongside generation/design overrides.
+      const params: A2UIToolParams = { model: request.model };
+      if (catalog?.catalogId) params.defaultCatalogId = catalog.catalogId;
       if (catalog?.compositionGuide)
-        opts.compositionGuide = catalog.compositionGuide;
-      const candidate = getA2UITools(request.model, opts);
+        params.guidelines = { compositionGuide: catalog.compositionGuide };
+      const candidate = getA2UITools(params);
       const existingNames = new Set(
         (request.tools || []).map((t: any) => t?.name),
       );

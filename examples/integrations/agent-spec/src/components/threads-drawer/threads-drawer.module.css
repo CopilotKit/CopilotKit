@@ -554,7 +554,7 @@
 /* Locked state — same panel chrome (white surface, hairline right border,
    header rhythm) as the unlocked drawer, with a single clean card that speaks
    the V2 card vocabulary: rounded-lg, hairline border, muted icon chip, the
-   add-intelligence command in a muted code well, and a near-black primary CTA
+   license command in a muted code well, and a near-black primary CTA
    pill matching the sidebar's send button. */
 .lockedPanel {
   display: flex;

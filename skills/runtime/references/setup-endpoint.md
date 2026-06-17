@@ -436,7 +436,7 @@ fetch("/api/copilotkit", {
     body: input,
   }),
 });
-// On the client, pair with <CopilotKitProvider useSingleEndpoint />.
+// On the client, pair with <CopilotKit useSingleEndpoint /> from "@copilotkit/react-core/v2".
 ```
 
 Single-route expects a POST envelope with `{ method, params, body }`; URL-pattern calls 404.

@@ -24,7 +24,12 @@ function mkWriter(): {
         transition: "first",
         firstFailureAt: null,
         failCount: 0,
+        persisted: true,
       };
+    },
+    // H1 overlay path — unused by the invoker; present to satisfy StatusWriter.
+    async writeOverlay() {
+      return { applied: false, state: null };
     },
   };
   return { writer, writes };
@@ -1456,7 +1461,11 @@ describe("buildProbeInvoker", () => {
           transition: "first",
           firstFailureAt: null,
           failCount: 0,
+          persisted: true,
         };
+      },
+      async writeOverlay() {
+        return { applied: false, state: null };
       },
     };
     await buildProbeInvoker(cfg, {
@@ -2460,6 +2469,9 @@ describe("buildProbeInvoker", () => {
         starts.push(opts);
         return { id: `run-${nextId++}` };
       },
+      async findByJobId() {
+        return null;
+      },
       async update(opts) {
         updates.push({
           id: opts.id,
@@ -2859,13 +2871,20 @@ describe("buildProbeInvoker", () => {
           transition: "first",
           firstFailureAt: null,
           failCount: 0,
+          persisted: true,
         };
+      },
+      async writeOverlay() {
+        return { applied: false, state: null };
       },
     };
     const updates: Array<{ id: string }> = [];
     const runWriter: ProbeRunWriter = {
       async start() {
         return { id: "run-1" };
+      },
+      async findByJobId() {
+        return null;
       },
       async update(opts) {
         order.push("update");
@@ -2929,6 +2948,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingWriter: ProbeRunWriter = {
       start: vi.fn().mockRejectedValue(new Error("network blip")),
+      findByJobId: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockResolvedValue(undefined),
       recent: vi.fn().mockResolvedValue([]),
@@ -2990,6 +3010,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingWriter: ProbeRunWriter = {
       start: vi.fn().mockRejectedValue(new Error("PB down")),
+      findByJobId: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockResolvedValue(undefined),
       recent: vi.fn().mockResolvedValue([]),
@@ -3034,6 +3055,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingFinish: ProbeRunWriter = {
       start: vi.fn().mockResolvedValue({ id: "run-x" }),
+      findByJobId: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockRejectedValue(new Error("PB down")),
       recent: vi.fn().mockResolvedValue([]),

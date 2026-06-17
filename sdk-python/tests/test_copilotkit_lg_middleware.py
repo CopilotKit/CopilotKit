@@ -1092,7 +1092,10 @@ from copilotkit.copilotkit_lg_middleware import (  # noqa: E402
 
 _a2ui_unavailable = pytest.mark.skipif(
     get_a2ui_tools is None,
-    reason="ag-ui-langgraph without get_a2ui_tools (needs >=0.0.37)",
+    reason=(
+        "ag-ui-langgraph without get_a2ui_tools; the single-arg "
+        "A2UIToolParams API needs the OSS-248 release (>=0.0.41)"
+    ),
 )
 
 

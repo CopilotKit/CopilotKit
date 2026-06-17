@@ -288,4 +288,4 @@ Ready to build your own AI-powered dashboard? Check out these resources:
 
 [CopilotKit Documentation](https://docs.copilotkit.ai) - Comprehensive guides and API references to help you build your own copilots.
 
-[CopilotKit Cloud](https://cloud.copilotkit.ai/) - Deploy your copilots with our managed cloud solution for production-ready AI assistants.
+[CopilotKit Cloud](https://dashboard.operations.copilotkit.ai/) - Deploy your copilots with our managed cloud solution for production-ready AI assistants.

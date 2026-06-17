@@ -131,7 +131,7 @@ interface SnippetProps {
 function WarningBox({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="my-4 rounded-md border-l-4 border-yellow-500/40 bg-yellow-500/5 p-4 text-sm text-[var(--text-secondary)]"
+      className="shell-docs-radius-surface shell-docs-warning-surface my-4 border border-l-4 p-4 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-control)]"
       role="alert"
     >
       <div className="font-semibold mb-1 text-[var(--text)]">
@@ -159,7 +159,7 @@ export function UnsupportedBox({
 }) {
   return (
     <div
-      className="my-4 rounded-md border-l-4 border-blue-500/40 bg-blue-500/5 p-4 text-sm text-[var(--text-secondary)]"
+      className="shell-docs-radius-surface my-4 border border-l-4 border-[var(--accent)] bg-[var(--accent-dim)] p-4 text-sm text-[var(--text-secondary)] shadow-[var(--shadow-control)]"
       role="note"
     >
       <div className="font-semibold mb-1 text-[var(--text)]">
@@ -318,7 +318,7 @@ export function Snippet({
 
   if (!resolvedFramework) {
     return (
-      <div className="my-4 rounded-md border border-[var(--border)] px-4 py-3 text-sm text-[var(--text-muted)] bg-[var(--bg-elevated)]">
+      <div className="shell-docs-radius-surface my-4 border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm text-[var(--text-muted)] shadow-[var(--shadow-control)]">
         Select an AI backend above to see this code example.
       </div>
     );

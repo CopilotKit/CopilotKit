@@ -4,7 +4,7 @@
 //
 // The simplest entry point in the tool-rendering progression. The
 // backend exposes a handful of mock tools (get_weather, search_flights,
-// get_stock_price, roll_dice) and the frontend opts into CopilotKit's
+// get_stock_price, roll_d20) and the frontend opts into CopilotKit's
 // built-in default tool-call card by calling `useDefaultRenderTool()`
 // with no config — every tool call falls through to the package-shipped
 // `DefaultToolCallRenderer`.

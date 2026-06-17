@@ -1,12 +1,14 @@
 // Dedicated runtime for the byoc-hashbrown demo (Agno).
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -34,7 +36,7 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit-byoc-hashbrown",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
-        // @ts-ignore -- see main route.ts
+        // @ts-expect-error -- see main route.ts
         agents,
       }),
     });

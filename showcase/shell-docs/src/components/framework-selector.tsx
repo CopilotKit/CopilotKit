@@ -4,9 +4,10 @@
 // exposes frontend and agent backend as separate, simple dropdowns.
 
 import React, { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { useFramework } from "./framework-provider";
+import { DEFAULT_FRAMEWORK, useFramework } from "./framework-provider";
 import { FrontendLogo } from "./frontend-logo";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
@@ -37,9 +38,24 @@ export interface FrameworkSelectorProps {
   /**
    * Presentation flavor.
    * - `topbar` (default, legacy): compact pill sized for a horizontal bar.
-   * - `sidebar`: full-width selector rows styled to match the docs sidebar.
+   * - `sidebar`: two full-width selector rows for frontend and backend.
    */
   variant?: "topbar" | "sidebar";
+}
+
+function SelectorAffordance({ active }: { active: boolean }) {
+  return (
+    <span className="ml-1 flex shrink-0 items-center" aria-hidden="true">
+      <ChevronDown
+        className={`h-3.5 w-3.5 transition-colors ${
+          active
+            ? "text-[var(--accent)]"
+            : "text-[var(--text-muted)] group-hover:text-[var(--accent)]"
+        }`}
+        strokeWidth={2}
+      />
+    </span>
+  );
 }
 
 export function FrameworkSelector({
@@ -77,7 +93,7 @@ export function FrameworkSelector({
   }, [openMenu]);
 
   // Display whatever the page is currently rendering as: URL framework
-  // when present, then stored choice, then the soft default.
+  // when present, then stored choice, then the soft-default.
   const current = options.find((o) => o.slug === effectiveFramework);
 
   const isSidebar = variant === "sidebar";
@@ -109,14 +125,9 @@ export function FrameworkSelector({
     } catch {
       // Swallow - analytics is fire-and-forget.
     }
-    if (pathname.startsWith("/frontends/")) {
-      setOpenMenu(null);
-      return;
+    if (!pathname.startsWith("/frontends/")) {
+      router.replace(slug === DEFAULT_FRAMEWORK ? "/" : `/${slug}`);
     }
-    // Backend changes intentionally drop the current feature slug. The
-    // selector is a backend pivot, so landing on the framework root gives
-    // readers the overview before framework-specific docs.
-    router.replace(`/${slug}`);
     setOpenMenu(null);
   }
 
@@ -130,7 +141,7 @@ export function FrameworkSelector({
     : null;
 
   const topbarBtnClasses =
-    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-[var(--border)] bg-[var(--bg-surface)] text-[12px] font-medium text-[var(--text)] hover:border-[var(--accent)] transition-colors cursor-pointer max-w-[220px]";
+    "shell-docs-radius-control flex items-center gap-1.5 px-2.5 py-1.5 border border-[var(--border)] bg-[var(--bg-surface)] text-[12px] font-medium text-[var(--text)] hover:border-[var(--accent)] transition-colors cursor-pointer max-w-[220px]";
 
   const backendOptions = (
     includePinnedBIA: boolean,
@@ -144,17 +155,17 @@ export function FrameworkSelector({
           role="option"
           aria-selected={pinnedBIA.slug === effectiveFramework}
           onClick={() => selectFramework(pinnedBIA.slug)}
-          className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-[14px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+          className={`shell-docs-radius-control flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
             pinnedBIA.slug === effectiveFramework
-              ? "bg-[var(--accent-light)] text-[var(--accent)]"
+              ? "bg-[var(--accent-dim)] text-[var(--accent)]"
               : `text-[var(--text-secondary)] ${optionHoverClass}`
           }`}
         >
           <FrameworkLogo
             slug={pinnedBIA.slug}
             fallbackSrc={pinnedBIA.logo}
-            size={18}
-            className="shrink-0"
+            size={16}
+            className="shrink-0 text-[var(--accent)]"
           />
           <span className="flex-1 truncate text-left">
             {displayNameFor(pinnedBIA)}
@@ -171,17 +182,17 @@ export function FrameworkSelector({
             role="option"
             aria-selected={isActive}
             onClick={() => selectFramework(opt.slug)}
-            className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-[14px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+            className={`shell-docs-radius-control flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
               isActive
-                ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                ? "bg-[var(--accent-dim)] text-[var(--accent)]"
                 : `text-[var(--text-secondary)] ${optionHoverClass}`
             }`}
           >
             <FrameworkLogo
               slug={opt.slug}
               fallbackSrc={opt.logo}
-              size={18}
-              className="shrink-0"
+              size={16}
+              className="shrink-0 text-[var(--accent)]"
             />
             <span className="flex-1 truncate text-left">
               {displayNameFor(opt)}
@@ -199,7 +210,7 @@ export function FrameworkSelector({
     >
       {isSidebar ? (
         <>
-          <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]/45">
+          <div className="shell-docs-picker-group space-y-0.5">
             <button
               type="button"
               onClick={() =>
@@ -208,42 +219,28 @@ export function FrameworkSelector({
               aria-haspopup="listbox"
               aria-expanded={openMenu === "frontend"}
               aria-label="Choose frontend"
-              className={`flex min-h-14 w-full cursor-pointer items-center gap-2.5 rounded-md p-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+              className={`shell-docs-picker-row group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
                 openMenu === "frontend"
-                  ? "bg-[var(--accent-light)]"
-                  : "hover:bg-[var(--bg-elevated)]"
+                  ? "bg-[var(--bg-surface)] shadow-[var(--shadow-control)]"
+                  : "hover:bg-[var(--bg-surface)]"
               }`}
             >
               <span
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--bg-elevated)]"
+                className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
                 aria-hidden="true"
               >
-                <FrontendLogo icon={selectedFrontend.icon} size={22} />
+                <FrontendLogo icon={selectedFrontend.icon} size={19} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[12px] font-medium leading-tight text-[var(--text-muted)]">
+                <span className="block text-[11px] font-medium leading-tight text-[var(--text-muted)]">
                   Frontend
                 </span>
-                <span className="mt-0.5 block truncate text-[14px] font-semibold leading-tight text-[var(--text)]">
+                <span className="mt-0.5 block truncate text-[13px] font-semibold leading-tight text-[var(--text)]">
                   {selectedFrontend.name}
                 </span>
               </span>
-              <svg
-                className="h-4 w-4 shrink-0 text-[var(--text-muted)]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
+              <SelectorAffordance active={openMenu === "frontend"} />
             </button>
-
-            <div className="mx-2 h-px bg-[var(--border)]" />
 
             <button
               type="button"
@@ -253,54 +250,42 @@ export function FrameworkSelector({
               aria-haspopup="listbox"
               aria-expanded={openMenu === "backend"}
               aria-label="Choose agent backend"
-              className={`flex min-h-14 w-full cursor-pointer items-center gap-2.5 rounded-md p-2 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+              className={`shell-docs-picker-row group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
                 openMenu === "backend"
-                  ? "bg-[var(--accent-light)]"
-                  : "hover:bg-[var(--bg-elevated)]"
+                  ? "bg-[var(--bg-surface)] shadow-[var(--shadow-control)]"
+                  : "hover:bg-[var(--bg-surface)]"
               }`}
             >
               <span
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[var(--bg-elevated)]"
+                className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
                 aria-hidden="true"
               >
                 {current ? (
                   <FrameworkLogo
                     slug={current.slug}
                     fallbackSrc={current.logo}
-                    size={20}
-                    className="text-[var(--text)]"
+                    size={17}
+                    className="text-[var(--accent)]"
                   />
                 ) : (
                   <span className="h-2.5 w-2.5 rounded-full bg-[var(--accent)] opacity-70" />
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[12px] font-medium leading-tight text-[var(--text-muted)]">
+                <span className="block text-[11px] font-medium leading-tight text-[var(--text-muted)]">
                   Agent backend
                 </span>
                 {current ? (
-                  <span className="mt-0.5 block truncate text-[14px] font-semibold leading-tight text-[var(--text)]">
+                  <span className="mt-0.5 block truncate text-[13px] font-semibold leading-tight text-[var(--text)]">
                     {label}
                   </span>
                 ) : (
-                  <span className="mt-0.5 block truncate text-[14px] font-medium leading-tight text-[var(--text-muted)]">
+                  <span className="mt-0.5 block truncate text-[13px] font-medium leading-tight text-[var(--text-muted)]">
                     No backend selected
                   </span>
                 )}
               </span>
-              <svg
-                className="h-4 w-4 shrink-0 text-[var(--text-muted)]"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
+              <SelectorAffordance active={openMenu === "backend"} />
             </button>
           </div>
 
@@ -308,7 +293,7 @@ export function FrameworkSelector({
             <div
               role="listbox"
               aria-label="Choose frontend"
-              className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-1 shadow-lg"
+              className="shell-docs-radius-surface absolute left-0 right-0 top-full z-50 mt-1 border border-[var(--border)] bg-[var(--bg-surface)] p-2 shadow-[var(--shadow-panel)]"
             >
               {FRONTEND_OPTIONS.map((option) => {
                 const isActive = option.id === selectedFrontend.id;
@@ -319,21 +304,17 @@ export function FrameworkSelector({
                     role="option"
                     aria-selected={isActive}
                     onClick={() => selectFrontend(option.id)}
-                    className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-[14px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                    className={`shell-docs-radius-control flex w-full cursor-pointer items-center gap-2 px-2 py-1.5 text-[13px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
                       isActive
-                        ? "bg-[var(--accent-light)] text-[var(--accent)]"
+                        ? "bg-[var(--accent-dim)] text-[var(--accent)]"
                         : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
                     }`}
                   >
                     <span
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded border ${
-                        isActive
-                          ? "border-[var(--accent)] bg-[var(--bg-surface)]"
-                          : "border-[var(--border)] bg-[var(--bg-elevated)]"
-                      }`}
+                      className="shell-docs-picker-icon-chip flex h-7 w-7 shrink-0 items-center justify-center"
                       aria-hidden="true"
                     >
-                      <FrontendLogo icon={option.icon} size={18} />
+                      <FrontendLogo icon={option.icon} size={17} />
                     </span>
                     <span className="flex-1 truncate text-left font-medium">
                       {option.name}
@@ -348,7 +329,7 @@ export function FrameworkSelector({
             <div
               role="listbox"
               aria-label="Choose agent backend"
-              className="absolute left-0 top-full z-50 mt-1 w-[320px] max-w-[calc(100vw-2rem)] max-h-[60vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-1 shadow-lg"
+              className="shell-docs-radius-surface absolute left-0 top-full z-50 mt-1 max-h-[60vh] w-[320px] max-w-[calc(100vw-2rem)] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] p-2 shadow-[var(--shadow-panel)]"
             >
               {backendOptions(
                 true,
@@ -368,11 +349,11 @@ export function FrameworkSelector({
             aria-expanded={openMenu === "backend"}
             className={topbarBtnClasses}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shrink-0" />
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
             <span className="truncate">
               {current ? (
                 <>
-                  <span className="text-[var(--text-faint)] font-mono text-[10px] uppercase tracking-wider mr-1">
+                  <span className="mr-1 font-mono text-[10px] uppercase tracking-wider text-[var(--text-faint)]">
                     Backend
                   </span>
                   {label}
@@ -382,7 +363,7 @@ export function FrameworkSelector({
               )}
             </span>
             <svg
-              className="w-3 h-3 shrink-0 text-[var(--text-muted)]"
+              className="h-3 w-3 shrink-0 text-[var(--text-muted)]"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -399,7 +380,7 @@ export function FrameworkSelector({
           {openMenu === "backend" && (
             <div
               role="listbox"
-              className="absolute top-full left-0 mt-1 w-[340px] max-h-[70vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg z-50 p-2"
+              className="shell-docs-radius-surface absolute left-0 top-full z-50 mt-1 max-h-[70vh] w-[340px] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] p-2 shadow-[var(--shadow-panel)]"
             >
               {backendOptions(
                 false,

@@ -2,7 +2,7 @@
  * Prepare a release: bump versions, generate raw release notes.
  * Runs inside the "create release PR" workflow.
  *
- * Usage: tsx scripts/release/prepare-release.ts --bump <patch|minor|major> --scope <monorepo|angular> [--dry-run]
+ * Usage: tsx scripts/release/prepare-release.ts --bump <patch|minor|major> --scope <scope from release.config.json> [--dry-run]
  */
 
 import fs from "fs";
@@ -12,14 +12,12 @@ import {
   computeNextStableVersion,
   bumpPackages,
   getPackagesForScope,
-  type BumpLevel,
 } from "./lib/versions.js";
-import {
-  getChangesSummary,
-  type ChangesSummary,
-  type Commit,
-} from "./lib/changes.js";
-import { ROOT, type ReleaseScope } from "./lib/config.js";
+import type { BumpLevel } from "./lib/versions.js";
+import { getChangesSummary } from "./lib/changes.js";
+import type { ChangesSummary, Commit } from "./lib/changes.js";
+import { ROOT, loadConfig } from "./lib/config.js";
+import type { ReleaseScope } from "./lib/config.js";
 
 function generateRawReleaseNotes(
   version: string,
@@ -67,7 +65,8 @@ function generateRawReleaseNotes(
   return lines.join("\n");
 }
 
-const VALID_SCOPES = ["monorepo", "angular"];
+// Valid scopes come from release.config.json — the single source of truth.
+const VALID_SCOPES = Object.keys(loadConfig().scopes);
 
 function main() {
   const argv = process.argv.slice(2);
@@ -83,7 +82,7 @@ function main() {
 
   if (!bumpLevel || !["patch", "minor", "major"].includes(bumpLevel)) {
     console.error(
-      "Usage: prepare-release.ts --bump <patch|minor|major> --scope <monorepo|angular>",
+      "Usage: prepare-release.ts --bump <patch|minor|major> --scope <scope from release.config.json>",
     );
     process.exit(1);
   }

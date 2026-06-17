@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -86,6 +88,8 @@ const reasoningAgentNames = [
   "agentic-chat-reasoning",
   "reasoning-default-render",
   "tool-rendering-reasoning-chain",
+  "reasoning-default",
+  "reasoning-custom",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
@@ -126,7 +130,7 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
-        // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
+        // @ts-expect-error -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
       }),
     });

@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/sdk-js",
-  "version": "1.59.4",
+  "version": "1.60.1",
   "private": false,
   "keywords": [
     "ai",
@@ -59,7 +59,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/langgraph": "0.0.37",
+    "@ag-ui/langgraph": "0.0.41",
     "@copilotkit/shared": "workspace:*"
   },
   "devDependencies": {

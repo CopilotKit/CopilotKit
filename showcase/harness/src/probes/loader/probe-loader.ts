@@ -1,10 +1,12 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import yaml from "js-yaml";
-import chokidar, { type FSWatcher } from "chokidar";
+import chokidar from "chokidar";
+import type { FSWatcher } from "chokidar";
 import type { Logger } from "../../types/index.js";
 import type { ProbeRegistry, DiscoveryRegistry } from "../types.js";
-import { ProbeConfigSchema, type ProbeConfig } from "./schema.js";
+import { ProbeConfigSchema } from "./schema.js";
+import type { ProbeConfig } from "./schema.js";
 
 /**
  * Minimal emitter shape used by probe-loader to surface reload errors.
@@ -24,6 +26,20 @@ export interface ProbeLoaderDeps {
   discoveryRegistry: DiscoveryRegistry;
   bus?: ProbeLoadErrorEmitter;
   logger: Logger;
+  /**
+   * Optional kind predicate. When supplied, a probe config whose `kind` the
+   * predicate REJECTS is silently SKIPPED (not error-listed) before the
+   * driver-resolution check. This lets a caller scope the loader to a SUBSET
+   * of kinds — e.g. the fleet control-plane runs only the HTTP-only families
+   * in-process and excludes the browser (`e2e_*`) kinds, which route through
+   * the worker producer path. Skipping (rather than rejecting) keeps an
+   * HTTP-only `probeRegistry` clean: the loader never tries to resolve a
+   * browser kind against a registry that deliberately omits its driver, so a
+   * browser YAML present on disk does not surface as a spurious
+   * `probes.reload.failed`. When undefined, every kind is included (legacy
+   * boot behaviour).
+   */
+  includeKind?: (kind: ProbeConfig["kind"]) => boolean;
   /**
    * Test-only escape hatch for chokidar's options. Production callers leave
    * this undefined; the loader picks FSEvents on macOS / inotify on Linux.
@@ -72,6 +88,7 @@ export function createProbeLoader(
     discoveryRegistry,
     bus,
     logger,
+    includeKind,
     watcherOptionsOverride,
   } = deps;
   let watcher: FSWatcher | null = null;
@@ -97,6 +114,22 @@ export function createProbeLoader(
       try {
         const doc = await readYaml(filePath);
         const cfg = ProbeConfigSchema.parse(doc);
+        // Kind scoping: a caller may run only a SUBSET of kinds (the fleet
+        // control-plane loads only the HTTP-only families in-process and
+        // excludes browser `e2e_*` kinds). Skip — do NOT error — a config the
+        // predicate rejects, BEFORE the driver-resolution check below, so a
+        // browser YAML never tries to resolve against an HTTP-only registry
+        // (which would surface a spurious `no driver registered` failure).
+        if (includeKind && !includeKind(cfg.kind)) {
+          // logger.info (not debug) so a skipped config is visible at normal
+          // verbosity — operators can confirm WHICH on-disk YAMLs the
+          // HTTP-only control-plane is deliberately not scheduling.
+          logger.info("probe-loader.kind-skipped", {
+            file: f,
+            kind: cfg.kind,
+          });
+          continue;
+        }
         // Resolve driver — unknown kind means no scheduler wiring is
         // possible, so fail the file at load time rather than at first
         // tick. Mirrors rule-loader's enum check on dimension.
@@ -158,7 +191,7 @@ export function createProbeLoader(
         if (!base.includes(".")) return false;
         return true;
       },
-      ...(watcherOptionsOverride ?? {}),
+      ...watcherOptionsOverride,
     });
     let timer: NodeJS.Timeout | null = null;
     // Monotonic reload sequence — a slow parse followed by a fast re-edit

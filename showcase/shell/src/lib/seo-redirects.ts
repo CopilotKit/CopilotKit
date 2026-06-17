@@ -16,6 +16,33 @@
  * to the new canonical homes.
  *
  * Spec & Inventory: https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb
+ *
+ * DOCS-HOST SHADOWING (middleware.ts): the docs-host redirect (step 1
+ * in middleware — /docs, /ag-ui, /reference, /<registry-framework-slug>)
+ * runs BEFORE this table, so several entry classes can never match on
+ * the SHELL host and are effectively docs-host-only / dead here:
+ *
+ *   - every `/docs/*` source (R2, DI-*, DOCS-root, DOCS-wild): it 308s
+ *     `/docs/:path*` to the docs host with the prefix stripped;
+ *   - every `/reference*` source (FI-reference, P9, P10): it 308s
+ *     `/reference/:path*` to the docs host with the prefix kept;
+ *   - sources whose first segment is a CURRENT registry slug —
+ *     today's registry-overlap slugs are `mastra`, `agno`, `ag2`,
+ *     `llamaindex`, `pydantic-ai` and `crewai-crews` (e.g. F3-F6,
+ *     S1×mastra, P1×agno, and L13/L14 — both /crewai-crews entries are
+ *     dead here): the docs-host step forwards `/<slug>/...` verbatim to
+ *     the docs host. NOTE (SU4-A6): this list must enumerate EVERY
+ *     table source whose FIRST segment is a registry slug — recheck it
+ *     against registry.json whenever a slug is added or a source class
+ *     is introduced.
+ *
+ * Verified double-hop behavior: such a request 308s to the docs host
+ * with the path unchanged, and the DOCS host's own redirect layer then
+ * applies the rename there (e.g. shell /mastra/quickstart/mastra →
+ * docs-host /mastra/quickstart/mastra → docs-host /mastra/quickstart).
+ * The entries stay in this table because validate-redirects.ts and the
+ * decommission report still consume them, and because non-overlapping
+ * legacy slugs (e.g. `langgraph`, `adk`, `aws-strands`) DO match here.
  */
 
 export interface RedirectEntry {
@@ -23,7 +50,14 @@ export interface RedirectEntry {
   id: string;
   /** Source path pattern. Use :path* for wildcard suffix matching. */
   source: string;
-  /** Destination path on the showcase. Use :path* to carry over the wildcard. */
+  /**
+   * Destination path on the DOCS routing surface (shell-docs serves at
+   * the docs host root) — NOT on the showcase shell. Use :path* to
+   * carry over the wildcard. middleware resolves these against the
+   * runtime docsHost; resolving them against the shell origin is the
+   * exact misconception behind the historic self-redirect loop (e.g.
+   * M3 /faq -> shell /faq -> ERR_TOO_MANY_REDIRECTS).
+   */
   destination: string;
 }
 
@@ -34,6 +68,13 @@ export interface RedirectEntry {
 // Historical framework slugs that appear in legacy upstream URLs.
 // These are the slugs the SEO surface SAW pre-cutover — destinations are
 // remapped via SLUG_RENAMES below to the canonical shell-docs slugs.
+//
+// DATA-CONTRACT NOTE (SU5-A7): `a2a` and `agent-spec` have no
+// SLUG_RENAMES entry AND are not registry framework slugs, so their
+// generated destinations (e.g. /a2a/prebuilt-components) may 404 on the
+// docs host — the redirects fire correctly but land on nothing. Flagged
+// for the docs-host inventory check; until then they are kept for
+// Notion-spec parity like the other generated classes.
 const FRAMEWORKS = [
   "langgraph",
   "adk",
@@ -345,8 +386,13 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   },
   {
     id: "F13",
+    // Keeps the framework segment (aws-strands → canonical `strands`),
+    // matching F11/F12, the S× renames and the P1×aws-strands
+    // catch-all. An earlier revision dropped the segment
+    // (→ /human-in-the-loop) with no spec justification, landing on the
+    // framework-agnostic page instead of the strands one.
     source: "/aws-strands/human-in-the-loop",
-    destination: "/human-in-the-loop",
+    destination: "/strands/human-in-the-loop",
   },
   {
     id: "F14",
@@ -420,13 +466,19 @@ const ROOT_RENAMES: RedirectEntry[] = [
     source: "/copilot-suggestions",
     destination: "/prebuilt-components",
   },
-  // /direct-to-llm and /integrations/built-in-agent → built-in-agent (BIA canonical)
+  // /direct-to-llm → built-in-agent (BIA canonical)
+  //
+  // R15 (/integrations/built-in-agent → /built-in-agent) is deliberately
+  // ABSENT from this (shell) copy: it targets legacy DOCS-host URLs
+  // (47 /integrations/built-in-agent/* URLs in the upstream sitemap —
+  // see e2bef7a0b) and lives in the shell-docs copy where it belongs.
+  // On the SHELL host, /integrations/built-in-agent is a LIVE registry
+  // product page (linked from search-modal.tsx and
+  // integration-explorer.tsx) that the entry would hijack — middleware's
+  // namespace guard (its FIRST step, ahead of even the docs-host
+  // redirect — SU4-A1) keeps EVERY redirect step out of /integrations/*,
+  // structurally. Same applies to its wildcard twin R17 below.
   { id: "R14", source: "/direct-to-llm", destination: "/built-in-agent" },
-  {
-    id: "R15",
-    source: "/integrations/built-in-agent",
-    destination: "/built-in-agent",
-  },
   { id: "R18", source: "/mcp", destination: "/coding-agents" },
   { id: "R19", source: "/vibe-coding-mcp", destination: "/coding-agents" },
   {
@@ -499,7 +551,10 @@ const ROOT_RENAMES: RedirectEntry[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Category 2: Legacy Redirect Chains (coagents -> langgraph-python, crewai-crews -> crewai-crews)
+// Category 2: Legacy Redirect Chains (coagents -> langgraph-python; the
+// /crewai-crews entries L13/L14 are SELF-redirects — crewai-crews is the
+// canonical slug, and they are kept for inventory parity with the Notion
+// spec, not because anything renames)
 // Specific entries BEFORE the catch-all wildcards
 // ---------------------------------------------------------------------------
 
@@ -698,7 +753,12 @@ const SLUG_RENAME_REDIRECTS: RedirectEntry[] = Object.entries(
 
 // ---------------------------------------------------------------------------
 // Wildcard redirects (legacy chains + pattern rules)
-// These MUST come LAST — they are catch-alls
+// Order matters only RELATIVE TO OTHER WILDCARDS: middleware splits the
+// table into an exact-match map and an ordered wildcard list, so exact
+// entries always win regardless of where a wildcard sits. Among
+// wildcards, earlier = higher priority (first matching prefix wins),
+// which is why the more specific wildcard groups precede the
+// per-framework P1× catch-alls below.
 // ---------------------------------------------------------------------------
 
 const WILDCARD_REDIRECTS: RedirectEntry[] = [
@@ -713,15 +773,12 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
     source: "/crewai-crews/:path*",
     destination: "/crewai-crews/:path*",
   },
-  // Category 4 wildcards — direct-to-llm and /integrations/built-in-agent retire to BIA
+  // Category 4 wildcards — direct-to-llm retires to BIA. R17
+  // (/integrations/built-in-agent/:path*) is docs-host-only and lives in
+  // the shell-docs copy — see the R15 note in ROOT_RENAMES above.
   {
     id: "R16",
     source: "/direct-to-llm/:path*",
-    destination: "/built-in-agent/:path*",
-  },
-  {
-    id: "R17",
-    source: "/integrations/built-in-agent/:path*",
     destination: "/built-in-agent/:path*",
   },
   { id: "R26", source: "/shared/:path*", destination: "/:path*" },
@@ -754,6 +811,12 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
     destination: "/built-in-agent/guides/:path*",
   },
   { id: "P12", source: "/backend/:path*", destination: "/backend/:path*" },
+  // NOTE (SU5-A7): the BARE /learn (zero-segment :path*) lands on
+  // docs-host /concepts, a folder with no index page — reaching content
+  // depends on the DOCS host's own /concepts -> /concepts/architecture
+  // redirect (the docs-host twin of FI-concepts above): a deliberate
+  // double hop. If that docs-host redirect ever disappears, bare /learn
+  // 404s even though this entry still fires.
   { id: "P3", source: "/learn/:path*", destination: "/concepts/:path*" },
   {
     id: "P4",
@@ -795,7 +858,17 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
 
 // ---------------------------------------------------------------------------
 // Combined export — ordered most-specific to least-specific
-// Middleware evaluates top-to-bottom, first match wins
+//
+// How middleware ACTUALLY evaluates this table (buildRedirectLookup in
+// middleware.ts): entries are split into an exact-match map and an
+// ordered wildcard list, and EVERY exact source is tried before ANY
+// wildcard — an exact entry beats a wildcard even if the wildcard
+// appears earlier in this array. "Top-to-bottom, first match wins"
+// holds in two narrower senses: (a) among WILDCARDS, earlier entries
+// have higher priority (the linear scan short-circuits), and (b) for
+// DUPLICATE exact sources or duplicate wildcard prefixes, the first
+// table entry claims the id (later duplicates are dropped with a
+// module-load warn).
 // ---------------------------------------------------------------------------
 
 export const seoRedirects: RedirectEntry[] = [
@@ -809,7 +882,8 @@ export const seoRedirects: RedirectEntry[] = [
   ...DOCS_PREFIX,
   ...MIGRATION_GUIDES,
   ...FOLDER_INDEX,
-  // 2. Generated per-framework subpath renames (exact paths)
+  // 2. Generated per-framework subpath renames (mostly exact paths,
+  // plus the S13w×<fw> concepts/:path* wildcards)
   ...generateFrameworkRenames(),
   // 3. Wildcard catch-alls last — order matters: most-specific wildcard first
   ...DOCS_INTEGRATIONS_RENAMES.filter((e) => e.source.includes(":path*")),

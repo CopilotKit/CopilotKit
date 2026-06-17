@@ -24,12 +24,14 @@ services:
     environment:
       POSTGRES_USER: intelligence
       POSTGRES_PASSWORD: intelligence
-      POSTGRES_DB: postgres
+      # Created on first init of an empty data volume. Volumes initialized
+      # before this default existed are healed by the provision-db one-shot
+      # below, so do not rely on this alone.
+      POSTGRES_DB: intelligence_app
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./docker/init-db:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U intelligence -d postgres"]
+      test: ["CMD-SHELL", "pg_isready -U intelligence -d intelligence_app"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -53,12 +55,39 @@ services:
       - intelligence
 
   # ---------------------------------------------------------------------------
+  # Database provisioning (one-shot)
+  # ---------------------------------------------------------------------------
+  # Ensures the intelligence_app database exists before the composite runs its
+  # migrations. POSTGRES_DB only takes effect on first init of an EMPTY data
+  # volume, and the postgres-data volume is shared across every project that
+  # uses this compose file (fixed project name above) — so a volume created by
+  # an earlier compose revision may not have the database. CREATE DATABASE has
+  # no IF NOT EXISTS, hence the pg_database existence check. Idempotent.
+  provision-db:
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: intelligence
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        psql -h postgres -U intelligence -d postgres -v ON_ERROR_STOP=1 -tAc \
+          "SELECT 1 FROM pg_database WHERE datname = 'intelligence_app'" | grep -q 1 \
+        || psql -h postgres -U intelligence -d postgres -v ON_ERROR_STOP=1 \
+          -c "CREATE DATABASE intelligence_app"
+    restart: "no"
+    networks:
+      - intelligence
+
+  # ---------------------------------------------------------------------------
   # Intelligence composite (app-api + realtime-gateway + thread-culler +
   # db-migrations, all in one container under s6-overlay)
   # ---------------------------------------------------------------------------
 
   intelligence:
-    image: ghcr.io/copilotkit/intelligence/composite:0.2.0
+    image: ghcr.io/copilotkit/intelligence/composite:0.5.0
     ports:
       - "${APP_API_HOST_PORT:-4201}:4201"
       - "${REALTIME_GATEWAY_HOST_PORT:-4401}:4401"
@@ -77,39 +106,11 @@ services:
       THREAD_STALE_HOURS: "${THREAD_STALE_HOURS:-3}"
       THREAD_CULL_BATCH_SIZE: "${THREAD_CULL_BATCH_SIZE:-1000}"
     depends_on:
-      postgres:
-        condition: service_healthy
+      provision-db:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     restart: unless-stopped
-    networks:
-      - intelligence
-
-  # ---------------------------------------------------------------------------
-  # Demo user provisioning (one-shot)
-  # ---------------------------------------------------------------------------
-  # Ensures the runtime's identifyUser id (COPILOTKIT_DEMO_USER_ID, default
-  # "demo-user") exists in cpki.users so created threads can attach to it.
-  # Idempotent; mirrors the two-row pattern the composite's startup seed uses:
-  # a bare id (membership checks) plus a per-project scoped alias
-  # "<projectId>_<userId>" (the threads_user_id_fkey target). Runs once after the
-  # composite is healthy (schema + org/projects seeded), then exits.
-  provision-user:
-    image: postgres:16-alpine
-    depends_on:
-      intelligence:
-        condition: service_healthy
-    environment:
-      PGPASSWORD: intelligence
-      DEMO_USER_ID: "${COPILOTKIT_DEMO_USER_ID:-demo-user}"
-      ORG_ID: "${COPILOTKIT_ORGANIZATION_ID:-casa-de-erlang}"
-    entrypoint: ["sh", "-c"]
-    command:
-      - |
-        psql -h postgres -U intelligence -d intelligence_app -v ON_ERROR_STOP=1 \
-          -c "INSERT INTO cpki.users (id, organization_id) VALUES ('$$DEMO_USER_ID', '$$ORG_ID') ON CONFLICT (id) DO NOTHING;" \
-          -c "INSERT INTO cpki.users (id, organization_id) SELECT p.id || '_' || '$$DEMO_USER_ID', '$$ORG_ID' FROM cpki.projects p WHERE p.organization_id = '$$ORG_ID' AND p.deleted_at IS NULL ON CONFLICT (id) DO NOTHING;"
-    restart: "no"
     networks:
       - intelligence
 

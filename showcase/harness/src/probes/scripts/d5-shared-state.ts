@@ -24,18 +24,14 @@
  * `set_notes` agent lives).
  */
 
-import {
-  registerD5Script,
-  type D5BuildContext,
-  type D5FeatureType,
-} from "../helpers/d5-registry.js";
+import { registerD5Script } from "../helpers/d5-registry.js";
+import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
 import {
   ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
   ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
   ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
-  type ConversationTurn,
-  type Page,
 } from "../helpers/conversation-runner.js";
+import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 /**
  * Turn 1 user message — verbatim copy of the fixture's `userMessage`
@@ -239,7 +235,7 @@ function truncate(text: string, max: number): string {
   return `${text.slice(0, max)}…`;
 }
 
-// Side-effect registration. The dynamic loader in `e2e-deep.ts` imports
+// Side-effect registration. The dynamic loader in `d6-all-pills.ts` imports
 // this file at boot; importing it triggers this call which writes the
 // script under both feature types in `D5_REGISTRY`.
 registerD5Script({

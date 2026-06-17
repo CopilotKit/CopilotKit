@@ -5,7 +5,11 @@ description: "React hook that returns a renderer function for tool calls in the 
 
 ## Overview
 
-`useRenderToolCall` returns a renderer function that maps tool calls to React elements. The returned function looks up the first matching render configuration by tool name (falling back to a wildcard `"*"` renderer if no exact match is found), parses the JSON arguments, determines the current `ToolCallStatus`, and returns the appropriate React element -- or `null` if no renderer is registered for the tool.
+<Callout type="warn" title="Same name, different API than v1">
+  The v2 `useRenderToolCall` (this page, from `@copilotkit/react-core/v2`) is a **no-argument hook** that *returns* a renderer function for consuming tool calls. It is **not** the v1 [`useRenderToolCall`](/reference/v1/hooks/useRenderToolCall), which takes a `{ name, parameters, render }` config object to *register* a renderer. To register renderers in v2, use [`useFrontendTool`](/reference/hooks/useFrontendTool) or [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop).
+</Callout>
+
+`useRenderToolCall` returns a renderer function that maps tool calls to React elements. The returned function looks up the first matching render configuration by tool name (falling back to a wildcard `"*"` renderer if no exact match is found), parses the JSON arguments, determines the current `ToolCallStatus`, and returns the appropriate React element. When neither a per-tool nor a wildcard renderer is registered, it falls back to the framework's built-in `DefaultToolCallRenderer`, so the returned element is effectively always non-null (the signature keeps `ReactElement | null` for type compatibility).
 
 This hook is primarily used by chat UI components to display visual feedback for tool calls. In most applications you will not call it directly; instead, you register render components via `useFrontendTool` or `useHumanInTheLoop`, and the chat components use `useRenderToolCall` internally to resolve them.
 
@@ -50,7 +54,7 @@ The renderer determines the `ToolCallStatus` based on the inputs:
 
 ## ToolCallStatus
 
-The `ToolCallStatus` enum is exported from `@copilotkit/react-core`:
+The `ToolCallStatus` enum is exported from `@copilotkit/react-core/v2`:
 
 | Value                       | Description                                          |
 | --------------------------- | ---------------------------------------------------- |
@@ -67,18 +71,14 @@ function CustomChatMessage({ message }) {
   const renderToolCall = useRenderToolCall();
 
   if (message.type === "tool_call") {
+    // Always returns an element: your registered renderer, the wildcard
+    // ("*") renderer, or the framework's built-in DefaultToolCallRenderer.
     const element = renderToolCall({
       toolCall: message.toolCall,
       toolMessage: message.toolMessage,
     });
 
-    if (element) {
-      return <div className="tool-call-container">{element}</div>;
-    }
-
-    return (
-      <div className="text-gray-400">Tool call: {message.toolCall.name}</div>
-    );
+    return <div className="tool-call-container">{element}</div>;
   }
 
   return <div>{message.content}</div>;
@@ -168,10 +168,10 @@ function App() {
 
 ## Behavior
 
-- **Name-based lookup**: The renderer searches registered render configurations for an exact tool name match first, then falls back to a wildcard (`"*"`) renderer.
+- **Name-based lookup**: The renderer searches registered render configurations for an exact tool name match first, then falls back to a wildcard (`"*"`) renderer, and finally to the framework's built-in `DefaultToolCallRenderer`.
 - **JSON parsing**: The tool call's `args` string is parsed from JSON before being passed to the render component. If parsing fails, args default to an empty object.
 - **Status inference**: Status is determined from the presence and state of the `toolMessage` prop. The render component always receives a consistent shape with `name`, `args`, `status`, and `result`.
-- **Returns null for unmatched tools**: If no renderer is registered for the tool name and no wildcard renderer exists, the function returns `null`.
+- **Default renderer for unmatched tools**: If no renderer is registered for the tool name and no wildcard renderer exists, the function falls back to the built-in `DefaultToolCallRenderer` rather than returning `null`, so unhandled tool calls still paint out-of-the-box.
 - **Used internally by chat components**: The built-in `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` components use this hook to render tool calls. You only need to call it directly when building custom chat UIs.
 
 ## Related

@@ -7,13 +7,29 @@
  * regression flag.
  */
 
-import type { LiveStatusMap, StatusRow, State } from "./live-status";
-import { keyFor, CATALOG_TO_D5_KEY } from "./live-status";
-import { E2E_STALE_AFTER_MS, D4_STALE_AFTER_MS, isStale } from "./staleness";
+import type {
+  LiveStatusMap,
+  StatusRow,
+  State,
+  PoolCommError,
+  FleetSurfaceState,
+} from "./live-status";
+import {
+  keyFor,
+  CATALOG_TO_D5_KEY,
+  commErrorFromStatusSignal,
+  FLEET_COMM_AGGREGATE_DIMENSIONS,
+} from "./live-status";
+import {
+  E2E_STALE_AFTER_MS,
+  D4_STALE_AFTER_MS,
+  LIVENESS_STALE_AFTER_MS,
+  isStale,
+} from "./staleness";
 
 // Re-export the staleness windows so existing consumers that import them from
-// this module (e.g. `cell-model.test.ts`) keep resolving — the canonical
-// definitions now live in `./staleness`.
+// this module (e.g. `__tests__/cell-model.test.ts`) keep resolving — the
+// canonical definitions now live in `./staleness`.
 export {
   E2E_STALE_AFTER_MS,
   D4_STALE_AFTER_MS,
@@ -47,26 +63,64 @@ export interface CellModel {
    * D5 is red/amber/no-data), the raw D6 result is meaningless as a top-of-ladder
    * claim, so this collapses to `null` (blocked/not-achieved — rendered gray/—,
    * NOT a false green and NOT a false red; the actual lower-rung failure is
-   * already shown by the CV/API/RT badges). When the ladder IS intact through D5,
+   * already shown by the 1P/API/BE badges). When the ladder IS intact through D5,
    * the raw D6 status passes through (a genuine D6 red still surfaces as red).
    *
    * D5-UNMAPPED EXCEPTION (`!d5.exists`): when D5 is not mapped for this feature
    * there is no D5 rung to gate against, so the raw `d6.status` passes through
-   * unchanged (a present failing D6 still surfaces — this mirrors the chip's
-   * `!d5.exists` branch, which goes red on a non-green D6). Only a PRESENT but
-   * non-green / no-data D5 collapses D6 to `null`.
+   * unchanged. Because D5 and D6 share the same `CATALOG_TO_D5_KEY` mapping,
+   * `!d5.exists` implies `!d6.exists` and the raw status is always `null`
+   * today — the passthrough only becomes observable if the two dimensions
+   * ever split onto separate maps. Only a PRESENT but non-green / no-data D5
+   * collapses D6 to `null`.
    *
    * Derived from the SAME contiguous-ladder algorithm as `chipColor` so the
-   * badge, the stat, and the chip never disagree. Mirrors the chip table:
-   *   chip green  ⇔ d6Effective green   (full ladder, achievedDepth === 6)
-   *   chip amber  ⇔ d6Effective amber/null (D5 green, D6 not green)
-   *   chip red (D5-broken) / gray (unverified) ⇒ d6Effective null (blocked)
+   * badge, the stat, and the chip never disagree. When the ladder is intact
+   * through D5 (`d5.status === "green"`, gate passing), `d6Effective` passes the
+   * RAW `d6.status` straight through, so it tracks the actual D6 result while
+   * the chip collapses every non-green D6 to amber:
+   *   D5 green + D6 green          → chip green, d6Effective green
+   *   D5 green + D6 red            → chip amber, d6Effective RED
+   *   D5 green + D6 amber          → chip amber, d6Effective amber
+   *   D5 green + D6 missing/null   → chip amber, d6Effective null
+   *   gate fails / D5 broken/null  → chip red or gray, d6Effective null (blocked)
+   * The chip is the coarser of the two: amber covers ANY non-green D6 once the
+   * ladder is intact, whereas d6Effective preserves the underlying D6 colour
+   * (a genuine D6 red surfaces as red on the badge/stat).
    */
   d6Effective: TestStatus;
   achievedDepth: 0 | 3 | 4 | 5 | 6;
   ceilingDepth: 0 | 3 | 4 | 5 | 6;
   chipColor: ChipColor;
   isRegression: boolean;
+  /**
+   * Pool COMMUNICATION error (REQ-B), decoded from a status row's signal under
+   * `FLEET_COMM_ERROR_SIGNAL_KEY`, when the latest attempt failed to reach /
+   * trust the worker pool rather than producing a real test result. This is a
+   * SEPARATE overlay from the probe colour — `chipColor` keeps carrying the
+   * last-known result so the cell still shows its prior state, dimmed, while
+   * `surfaceState` flips to `"unreachable"` so the renderer can paint the
+   * distinct "couldn't reach the pool" treatment. `undefined` when the pool was
+   * reachable (the normal case — a real red is NOT a comm error).
+   */
+  commError?: PoolCommError;
+  /**
+   * The dashboard's presentation state. Lets the renderer branch on ONE value
+   * instead of re-deriving the comm-error precedence. A presentation field
+   * only — never persisted. The derivation produces THREE outcomes:
+   *   - `"unreachable"` — a `commError` of a directly-observed crash kind
+   *     (`worker-crashed-mid-job`, `worker-unreachable`, …) is present: paint
+   *     the red comm-error overlay.
+   *   - `"pending"` — a `worker-reclaimed-pending` commError is present on a
+   *     healthy/no-data (green/gray, non-regressed) cell: a lease lapsed and
+   *     the job was re-queued (routine teardown, not a known crash), so render
+   *     the neutral gray "pending" surface.
+   *   - the cell's underlying probe colour (mapped from `chipColor`) — no
+   *     commError, OR a `worker-reclaimed-pending` commError that must NOT mask
+   *     a red/amber/regressed probe result (any genuine failure passes
+   *     through; only green/gray becomes "pending").
+   */
+  surfaceState: FleetSurfaceState;
 }
 
 export interface CellModelInput {
@@ -105,10 +159,67 @@ const STATE_RANK: Readonly<Record<State, number>> = {
 };
 
 /**
+ * Worst-state rank for an arbitrary row state (Fix A2). `StatusRow.state` is
+ * typed `State` (green|red|degraded), but the harness CAN persist an
+ * out-of-vocabulary value at runtime — notably `"error"` (the no-data
+ * representation; see harness result-aggregator.ts). A bare `STATE_RANK[state]`
+ * for such a value is `undefined`, and the fold comparison `undefined > n` is
+ * `false`, so the row is SILENTLY DROPPED from the worst-state fold instead of
+ * surfacing. Treat an unknown state as the MOST SEVERE (a rank above every known
+ * state) so it surfaces as the worst rather than vanishing — an unrecognized
+ * signal must never be silently swallowed.
+ */
+const UNKNOWN_STATE_RANK = Number.POSITIVE_INFINITY;
+function rankOfState(state: string): number {
+  return STATE_RANK[state as State] ?? UNKNOWN_STATE_RANK;
+}
+
+/**
+ * Map State → TestStatus for the D5/D6 rank-fold resolvers. Differs from
+ * `stateToTestStatus` ONLY for an out-of-vocabulary runtime state (e.g.
+ * "error" — see `rankOfState`): the A2 rank fold deliberately surfaces such a
+ * state as the WORST in the family, so mapping it to `null` here would swallow
+ * the fold winner one step later — the D5/D6 chip/badge would render benign
+ * gray no-data while live-status's badge path renders the loud "error" tone
+ * for the same row. Map it to "red" (the failing status) so an unrecognized
+ * state can never present as no-data on D5/D6.
+ *
+ * D4 ALSO uses this mapping: its missing-chat collapse resolves to `status:
+ * null` (no-data — see `resolveD4`), so the chip's D1-D4 gate treats a null
+ * D4 as UNVERIFIED (gray), not failed. An out-of-vocabulary D4 state must
+ * therefore map to "red" HERE — it can no longer ride the gate's
+ * `!== "green"` catch-all without also painting the no-data collapse red.
+ *
+ * D3 keeps the base `stateToTestStatus` mapping: a present D3 row never
+ * resolves to `null` except for an out-of-vocabulary state, which the chip's
+ * D1-D4 gate check (`exists && status !== "green"` → gate fails → red) still
+ * rescues — see the decision table in `buildCellModel`.
+ */
+function foldStateToTestStatus(state: State): TestStatus {
+  return stateToTestStatus(state) ?? "red";
+}
+
+/**
  * Resolve the D4 (real-time) test level for `slug`.
  *
  * D4 checks both `chat:<slug>` and `tools:<slug>`. When both exist the
  * worst-state wins — a green chat + red tools yields red D4, not green.
+ *
+ * EXPECTATION MAPPING (which rows MUST exist — driven by the producer,
+ * `d4-chat-roundtrip.ts`):
+ *   - `chat:<slug>` is UNCONDITIONAL: the driver writes the L3 chat
+ *     round-trip row for every probed integration. A green tools row with
+ *     the chat row MISSING is therefore an unverified family — it collapses
+ *     a green/degraded fold to `status: null` (no-data), mirroring the
+ *     D5/D6 missing-mapped-sub-row strictness. A present RED tools row
+ *     still surfaces (red dominates no-data).
+ *   - `tools:<slug>` is CONDITIONAL: the driver side-emits it only when the
+ *     integration's demos include `tool-rendering`, so its absence is
+ *     legitimate for tool-less integrations. The dashboard has no
+ *     per-integration demo mapping to distinguish "not expected" from "not
+ *     yet emitted", so a missing tools row stays LENIENT (chat alone can
+ *     credit D4) — the safe default given the producer mapping lives
+ *     harness-side.
  *
  * Staleness applies the same downgrade as `resolveD3`, but PER ROW and
  * BEFORE the worst-state fold (mirroring `resolveD5`): a green chat/tools
@@ -141,7 +252,7 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
         : candidate.state;
     if (
       worstState === null ||
-      STATE_RANK[effectiveState] > STATE_RANK[worstState]
+      rankOfState(effectiveState) > rankOfState(worstState)
     ) {
       winner =
         effectiveState === candidate.state
@@ -157,9 +268,24 @@ function resolveD4(live: LiveStatusMap, slug: string, now: number): TestLevel {
     return { exists: true, status: null, row: null };
   }
 
+  // STRICT on the UNCONDITIONAL row: a missing `chat:<slug>` (the row the
+  // producer always writes) makes the family unverified — collapse a present
+  // green/degraded fold to no-data, exactly like the D5/D6 anyMissing
+  // collapse. RANK-based, not red-literal equality, so an out-of-vocabulary
+  // state (ranked above red by the A2 machinery) still surfaces. The
+  // conditional `tools:` row is deliberately NOT held to this (see the
+  // expectation mapping in the doc above).
+  if (!chatRow && rankOfState(worstState) < STATE_RANK.red) {
+    return { exists: true, status: null, row: null };
+  }
+
   return {
     exists: true,
-    status: stateToTestStatus(worstState),
+    // foldStateToTestStatus (not the base stateToTestStatus): D4's `null` now
+    // means NO-DATA to the chip's gate (the missing-chat collapse above), so
+    // an out-of-vocabulary fold winner must map to "red" here instead of
+    // relying on the gate's `!== "green"` catch-all — mirrors resolveD5/D6.
+    status: foldStateToTestStatus(worstState),
     row: winner,
   };
 }
@@ -224,7 +350,7 @@ function resolveD5(
         : row.state;
     if (
       worstState === null ||
-      STATE_RANK[effectiveState] > STATE_RANK[worstState]
+      rankOfState(effectiveState) > rankOfState(worstState)
     ) {
       // Store the EFFECTIVE (downgraded) row so `.row.state` agrees with
       // `.status` — mirrors `buildBadge` in live-status.ts.
@@ -244,14 +370,19 @@ function resolveD5(
   // family is unverified. A present RED sub-row still signals a real failure
   // (red dominates no-data), but a present green/degraded fold must NOT be
   // credited — collapse it to no-data (status: null) so achievedDepth caps
-  // below 5 and the chip renders gray, not a false-green/amber.
-  if (anyMissing && worstState !== "red") {
+  // below 5 and the chip renders gray, not a false-green/amber. RANK-based,
+  // not `!== "red"` literal equality: `worstState` is typed `State` but can
+  // hold an out-of-vocabulary runtime value (e.g. "error"), which the A2 rank
+  // machinery deliberately ranks ABOVE red — literal equality would silently
+  // swallow exactly the state the rank fold exists to surface. Mirrors
+  // resolveD5Row/resolveD6Row in live-status.ts.
+  if (anyMissing && rankOfState(worstState) < STATE_RANK.red) {
     return { exists: true, status: null, row: null };
   }
 
   return {
     exists: true,
-    status: stateToTestStatus(worstState),
+    status: foldStateToTestStatus(worstState),
     row: worstRow,
   };
 }
@@ -281,7 +412,14 @@ function resolveD3(
     return { exists: false, status: null, row: null };
   }
   if (row.state === "green" && isStale(row, now, E2E_STALE_AFTER_MS)) {
-    return { exists: true, status: "amber", row };
+    // Return the EFFECTIVE (downgraded) row so `.row.state` agrees with
+    // `.status` — the same invariant resolveD4/D5/D6 maintain (mirrors
+    // `buildBadge` in live-status.ts).
+    return {
+      exists: true,
+      status: "amber",
+      row: { ...row, state: "degraded" },
+    };
   }
   return {
     exists: true,
@@ -352,7 +490,7 @@ function resolveD6(
         : row.state;
     if (
       worstState === null ||
-      STATE_RANK[effectiveState] > STATE_RANK[worstState]
+      rankOfState(effectiveState) > rankOfState(worstState)
     ) {
       // Store the EFFECTIVE (downgraded) row so `.row.state` agrees with
       // `.status` — mirrors `buildBadge` in live-status.ts.
@@ -372,25 +510,257 @@ function resolveD6(
   // family is unverified. A present RED sub-row still signals a real failure
   // (red dominates no-data), but a present green/degraded fold must NOT be
   // credited — collapse it to no-data (status: null) so the chip renders
-  // gray/amber per the ladder, not a false-green.
-  if (anyMissing && worstState !== "red") {
+  // gray/amber per the ladder, not a false-green. RANK-based, not `!== "red"`
+  // literal equality: `worstState` is typed `State` but can hold an
+  // out-of-vocabulary runtime value (e.g. "error"), which the A2 rank
+  // machinery deliberately ranks ABOVE red — literal equality would silently
+  // swallow exactly the state the rank fold exists to surface. Mirrors
+  // resolveD5Row/resolveD6Row in live-status.ts.
+  if (anyMissing && rankOfState(worstState) < STATE_RANK.red) {
     return { exists: true, status: null, row: null };
   }
 
   return {
     exists: true,
-    status: stateToTestStatus(worstState),
+    status: foldStateToTestStatus(worstState),
     row: worstRow,
   };
+}
+
+/**
+ * Map a derived `ChipColor` onto the presentation surface state.
+ * `FleetSurfaceState` is `ChipColor | "unreachable" | "pending"`, so every
+ * chip colour passes straight through; the `"unreachable"` and `"pending"`
+ * overlay members are applied separately by the caller when a comm error is
+ * present (see the `surfaceState` derivation in `buildCellModel`). Pure; no
+ * widening cast needed.
+ */
+function chipColorToSurface(color: ChipColor): FleetSurfaceState {
+  return color;
+}
+
+/**
+ * Decode a pool comm-error (REQ-B) for this cell by scanning the status rows
+ * the cell's overlay depends on: the per-cell D6 (parity) row family, D5
+ * (conversation), the D3/e2e row, the D4 (chat/tools) rows, health, the
+ * integration-level d6 AGGREGATE row (`d6:<slug>`), AND the non-d6
+ * fleet-family sweep aggregates (`d4:<slug>`, `e2e-demos:<slug>`,
+ * `d5-single-pill-e2e:<slug>` — where the global lease sweep lands comm
+ * errors for the smoke/demos/deep families). The control-plane mirrors a
+ * `PoolCommError` into the row signal under `FLEET_COMM_ERROR_SIGNAL_KEY` (see
+ * `commErrorFromStatusSignal`).
+ *
+ * KIND SEVERITY — not key order, and NOT recency — decides the winner; recency
+ * is only a within-tier tie-break (flap-band #70/FF5). Multiple rows can each
+ * carry a comm error simultaneously (e.g. a STALE per-cell comm error left over
+ * from an earlier attempt, plus an error that landed solely on the aggregate
+ * row). A directly-observed crash kind (`worker-crashed-mid-job`,
+ * `worker-unreachable`, every non-reclaim kind) is a HARD failure the
+ * worker/control-plane saw first-hand and OUT-RANKS the sweep-inferred
+ * `worker-reclaimed-pending` (a lease lapsed / job re-queued — which cannot tell
+ * a real crash from a routine teardown). A NEWER reclaim must therefore NOT mask
+ * an OLDER real crash. So we decode EVERY candidate row and return the
+ * highest-SEVERITY comm error, using the most recent `observedAt` only to break
+ * ties WITHIN a severity tier and falling back to scan order when timestamps are
+ * equal (stable tie-break; an UNPARSEABLE `observedAt` never reaches the
+ * tie-break — the staleness gate below skips it first). Returns `undefined`
+ * when no candidate row carries a comm error (pool reachable).
+ *
+ * STALENESS WINDOW: a comm error is only surfaced while it is RECENT. The
+ * control-plane mirrors a `PoolCommError` onto the `d6:<slug>` aggregate row but
+ * NOTHING clears that blob on recovery — recovery just writes fresh green
+ * per-cell rows. Without an age cap a single comm error would pin every cell of
+ * the service to "unreachable" forever, even after the pool recovers. The
+ * window is scoped PER ROW FAMILY, mirroring the window each family's own
+ * resolver applies to stale-green rows: e2e-cadence rows (`d6`/`d5`/`e2e` and
+ * the fleet-family aggregates) use `E2E_STALE_AFTER_MS`, the D4 real-time rows
+ * (`chat`/`tools`) use `D4_STALE_AFTER_MS`, and the liveness row (`health`)
+ * uses `LIVENESS_STALE_AFTER_MS` — a liveness-cadence row must not carry a
+ * comm error for 6h when its own colour would have gone stale after 45m. A
+ * comm error older than its row's window is treated as recovered and skipped,
+ * exactly mirroring the resolveDx stale-green downgrade. `now` is threaded in
+ * the same way buildCellModel passes it to the resolveDx resolvers.
+ *
+ * SCOPE NOTE: this intentionally scans the integration-scoped aggregate
+ * (`d6:<slug>`) and the chat/tools/health rows in addition to the cell's own
+ * per-cell rows. A worker-death comm error rides on the aggregate row, not the
+ * per-cell rows, so to surface the "unreachable" overlay at all the cell MUST
+ * consult the aggregate — which means every cell of the affected service lights
+ * up from that one aggregate signal. That is the intended behavior (a pool that
+ * can't be reached cannot have produced any per-cell result), not a leak from "a
+ * row the cell doesn't show".
+ */
+/**
+ * Maximum tolerated FUTURE skew on a comm error's `observedAt` (CF7-F3 #4).
+ * The staleness gate in `decodeCellCommError` compares `now - parsed >
+ * staleAfterMs`, which is NEVER true for a future-dated timestamp — so clock
+ * skew (or a corrupt producer timestamp) would pin the unreachable/pending
+ * overlay indefinitely, exactly the permanent-phantom failure mode the
+ * unparseable-`observedAt` skip (FF7) exists to prevent. A timestamp more
+ * than this far ahead of `now` is as untrustworthy as an unparseable one and
+ * is treated the same way (stale → skipped); skew WITHIN the tolerance is
+ * ordinary clock drift and still surfaces.
+ */
+const COMM_ERROR_FUTURE_SKEW_TOLERANCE_MS = 5 * 60 * 1000;
+
+function decodeCellCommError(
+  live: LiveStatusMap,
+  slug: string,
+  featureId: string,
+  now: number,
+): PoolCommError | undefined {
+  // Per-cell D6/D5 rows fan out over the mapped featureType family. Each
+  // candidate carries the staleness window of ITS row family (see the
+  // STALENESS WINDOW doc above) so a liveness-cadence row's comm error ages
+  // out on the liveness window, not the 6h e2e window.
+  const familyKeys = CATALOG_TO_D5_KEY[featureId];
+  const candidates: Array<{ key: string; staleAfterMs: number }> = [];
+  if (familyKeys) {
+    for (const ft of familyKeys) {
+      candidates.push({
+        key: keyFor("d6", slug, ft),
+        staleAfterMs: E2E_STALE_AFTER_MS,
+      });
+      candidates.push({
+        key: keyFor("d5", slug, ft),
+        staleAfterMs: E2E_STALE_AFTER_MS,
+      });
+    }
+  }
+  // The d6 AGGREGATE row (`d6:<slug>`, no featureId) is where BOTH harness
+  // legs mirror a per-service `PoolCommError` (REQ-B): the result-aggregator
+  // overlays it onto the aggregate primary row (`result.aggregateKey` =
+  // `d6:<slug>`), and the control-plane fleet-health leg writes it to the job's
+  // `probe_key` (also `d6:<slug>`). Without scanning the aggregate key here the
+  // dashboard never surfaces the "unreachable" overlay even though the signal
+  // is persisted. Checked alongside the per-cell rows so a worker-death comm
+  // error lights up every cell of the affected service. NOTE: the full set of
+  // comm-error aggregate dimensions lives in FLEET_COMM_AGGREGATE_DIMENSIONS
+  // (live-status.ts) — the same list useLiveStatus's supplemental initial
+  // fetch uses to re-fetch these rows WITH `signal` (CF7-F3 #1); `d6` is
+  // pushed here (before the per-cell e2e/chat/tools/health candidates — scan
+  // order is the documented equal-timestamp tie-break and is pinned by tests)
+  // and the non-d6 trio below (G3f).
+  candidates.push({
+    key: keyFor("d6", slug),
+    staleAfterMs: E2E_STALE_AFTER_MS,
+  });
+  candidates.push({
+    key: keyFor("e2e", slug, featureId),
+    staleAfterMs: E2E_STALE_AFTER_MS,
+  });
+  candidates.push({
+    key: keyFor("chat", slug),
+    staleAfterMs: D4_STALE_AFTER_MS,
+  });
+  candidates.push({
+    key: keyFor("tools", slug),
+    staleAfterMs: D4_STALE_AFTER_MS,
+  });
+  candidates.push({
+    key: keyFor("health", slug),
+    staleAfterMs: LIVENESS_STALE_AFTER_MS,
+  });
+  // NON-d6 FLEET-FAMILY AGGREGATES (G3f): the global lease sweep reclaims
+  // jobs of ALL four fleet families and mirrors each comm error onto the
+  // status row keyed by the reclaimed job's `probe_key` (harness
+  // resolveSweepAggregateKey → aggregateCommError — the same path that lands
+  // on `d6:<slug>` for the d6 family). For the non-d6 families those keys are
+  // `d4:<slug>` (smoke), `e2e-demos:<slug>` (demos), and
+  // `d5-single-pill-e2e:<slug>` (deep) — see the catalog-enumerator probeKey
+  // prefixes. The dashboard reads those rows NOWHERE else, so without
+  // scanning them here a reclaim/crash overlay on those families is
+  // invisible. They ride the job-queue (e2e) cadence → e2e window. Derived
+  // from FLEET_COMM_AGGREGATE_DIMENSIONS (minus `d6`, pushed earlier — see
+  // the aggregate-row note above) so this scan and useLiveStatus's
+  // supplemental signal fetch can never drift apart.
+  for (const dim of FLEET_COMM_AGGREGATE_DIMENSIONS) {
+    if (dim === "d6") continue; // pushed above, in its pinned scan position
+    candidates.push({
+      key: keyFor(dim, slug),
+      staleAfterMs: E2E_STALE_AFTER_MS,
+    });
+  }
+
+  // Decode every candidate and keep the WORST comm error, ranking by KIND
+  // SEVERITY first and using recency only as a same-severity tie-break. A
+  // directly-observed crash (`worker-crashed-mid-job`, `worker-unreachable`,
+  // every non-reclaim kind) is a HARD failure the worker/control-plane saw
+  // first-hand; `worker-reclaimed-pending` is only the sweep boundary's
+  // inference (a lease lapsed, job re-queued) and cannot tell a real crash from
+  // a routine teardown. So a NEWER reclaim must NOT out-rank an OLDER real
+  // crash — severity is the primary winner key, recency only the tie-break
+  // WITHIN a tier. Within the same tier a later candidate wins only when its
+  // `observedAt` is strictly newer, so for equal timestamps the
+  // first-in-scan-order error is retained (stable tie-break). An unparseable
+  // `observedAt` never reaches the tie-break: the staleness gate skips it.
+  let winner: PoolCommError | undefined;
+  let winnerSeverity = Number.NEGATIVE_INFINITY;
+  let winnerTs = Number.NEGATIVE_INFINITY;
+  for (const { key, staleAfterMs } of candidates) {
+    const row = live.get(key);
+    if (!row) continue;
+    const commError = commErrorFromStatusSignal(row.signal);
+    if (!commError) continue;
+    // `observedAt` is an ISO string; `Date.parse` yields NaN for a malformed
+    // value.
+    const parsed = Date.parse(commError.observedAt);
+    // STALENESS GATE: a comm error older than its row family's staleness
+    // window is treated as recovered and skipped — nothing clears the
+    // mirrored blob on recovery, so without this the cell would render
+    // "unreachable" forever. Mirrors the resolveDx stale-green downgrade. An
+    // UNPARSEABLE `observedAt` (NaN) is treated as stale too: it can never be
+    // cleared on recovery (its age is undefined), so surfacing it would
+    // strand a permanent phantom overlay. A FUTURE-dated `observedAt` beyond
+    // the skew tolerance gets the same treatment (CF7-F3 #4): `now - parsed`
+    // is negative so the age check can never expire it — clock skew would pin
+    // the overlay indefinitely, the same permanent-phantom failure mode.
+    //
+    // KNOWN FAIL-SAFE DIVERGENCE vs `isStale` (staleness.ts, CF7-F3 #3): the
+    // shared row-level predicate treats an unparseable `observed_at` as NOT
+    // stale ("staleness must be a positive signal"), because there a false
+    // `stale` would DOWNGRADE a live green row. Here the polarity inverts: a
+    // false NOT-stale would PIN an uncleared overlay forever, so an
+    // unparseable timestamp must read as stale/skip. The two sites fail safe
+    // in OPPOSITE directions by design of their respective blast radii;
+    // `isStale` itself predates this branch and is deliberately left as-is.
+    if (
+      Number.isNaN(parsed) ||
+      parsed - now > COMM_ERROR_FUTURE_SKEW_TOLERANCE_MS ||
+      now - parsed > staleAfterMs
+    ) {
+      continue;
+    }
+    // Severity tier: directly-observed crash kinds (everything except the
+    // sweep-inferred reclaim) outrank `worker-reclaimed-pending`.
+    const severity = commError.kind === "worker-reclaimed-pending" ? 0 : 1;
+    if (
+      winner === undefined ||
+      severity > winnerSeverity ||
+      (severity === winnerSeverity && parsed > winnerTs)
+    ) {
+      winner = commError;
+      winnerSeverity = severity;
+      winnerTs = parsed;
+    }
+  }
+  return winner;
 }
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
-const NOT_WIRED_LEVEL: TestLevel = { exists: false, status: null, row: null };
+// Module-level singletons returned BY REFERENCE to every caller — frozen so
+// one consumer mutating its "own" cell model cannot corrupt every other
+// unsupported/not-wired cell sharing the reference.
+const NOT_WIRED_LEVEL: TestLevel = Object.freeze({
+  exists: false,
+  status: null,
+  row: null,
+});
 
-const UNSUPPORTED: CellModel = {
+const UNSUPPORTED: CellModel = Object.freeze({
   supported: false,
   d3: null,
   d4: null,
@@ -401,7 +771,8 @@ const UNSUPPORTED: CellModel = {
   ceilingDepth: 0,
   chipColor: "gray",
   isRegression: false,
-};
+  surfaceState: "gray",
+});
 
 /**
  * Build the complete cell model for a single (integration, feature) pair.
@@ -435,6 +806,7 @@ export function buildCellModel(
       ceilingDepth: 0,
       chipColor: "gray",
       isRegression: false,
+      surfaceState: "gray",
     };
   }
 
@@ -482,29 +854,72 @@ export function buildCellModel(
   // NOTE: D1/D2 (liveness) failure causes D3 (e2e-demos) to also fail, so
   // checking d3.status implicitly covers the D1/D2 gate.
   //
-  // Decision table over (d1d4GateFails, d5.exists, d5.status, d6.status):
+  // Decision table over (d1d4GateFails, d4 no-data, D3/D4 absent, d5.exists,
+  // d5.status, d6.status):
   //   gate fails                                  → red  (gate dominates)
-  //   D5 unmapped (!d5.exists), no D6             → gray (ceiling is D4)
+  //   D4 null (unverified family) + D5/D6 red     → red  (red dominates
+  //                                                 no-data)
+  //   D4 null (unverified family) otherwise       → gray (no-data — the
+  //                                                 missing-chat collapse,
+  //                                                 mirroring D5/D6's
+  //                                                 anyMissing gray)
+  //   D3+D4 BOTH absent + D5/D6 red               → red  (red dominates
+  //                                                 no-data)
+  //   D3+D4 BOTH absent otherwise                 → gray (unverified — green
+  //                                                 is the strict reward for
+  //                                                 an INTACT ladder, and an
+  //                                                 ABSENT lower ladder can
+  //                                                 never be weaker evidence
+  //                                                 than a present-but-null
+  //                                                 one; see CF7-F3 #2)
+  //   D5 unmapped (!d5.exists)                    → gray (ceiling is D4; D6
+  //                                                 shares CATALOG_TO_D5_KEY,
+  //                                                 so it is unmapped too)
   //   D5 green + D6 green                         → green
   //   D5 green + D6 red/amber/missing             → amber
   //   D5 red/amber + (any D6)                     → red  (broken ladder)
   //   D5 null  + D6 red                           → red
   //   D5 null  + D6 green/amber/missing           → gray (unverified ladder)
+  //
+  // The D4 leg of the gate excludes `null`: a present-but-null D4 is the
+  // missing-chat NO-DATA collapse (resolveD4), which is unverified, not
+  // failed. An out-of-vocabulary D4 fold winner cannot hide behind that
+  // exclusion — resolveD4 maps it to "red" via foldStateToTestStatus. D3 has
+  // no no-data collapse, so its leg keeps the `!== "green"` catch-all (which
+  // also rescues an out-of-vocabulary D3 state mapped to null).
   const d1d4GateFails =
     (d3.exists && d3.status !== "green") ||
-    (d4.exists && d4.status !== "green");
+    (d4.exists && d4.status !== "green" && d4.status !== null);
+  // Present-but-null D4: the unconditional chat row is missing, so the
+  // real-time family is UNVERIFIED — the documented no-data outcome.
+  const d4NoData = d4.exists && d4.status === null;
+  // ABSENT D1-D4 family (CF7-F3 #2): neither the D3 (e2e) row nor ANY D4
+  // (chat/tools) row exists, so the ladder below D5 is wholly unverified. The
+  // gate above can't catch this — it fires only on `exists` — so without this
+  // predicate a cell with ONLY green D5/D6 rows rendered a green chip (and a
+  // green d6Effective) at achievedDepth=0, a false top-of-ladder claim. Same
+  // strictness family as `d4NoData`: absence is no-data, never credit.
+  const d1d4Absent = !d3.exists && !d4.exists;
 
   let chipColor: ChipColor;
   if (d1d4GateFails) {
     // A failing/stale D1-D4 gate dominates everything below it.
     chipColor = "red";
+  } else if (d4NoData || d1d4Absent) {
+    // Unverified D4 family (missing-chat collapse) OR a wholly ABSENT D3/D4
+    // family → no-data gray, exactly like the D5/D6 anyMissing collapse. A
+    // present red ABOVE it (D5/D6) still surfaces — red dominates no-data,
+    // mirroring the `D5 null + D6 red → red` row below.
+    chipColor = d5.status === "red" || d6.status === "red" ? "red" : "gray";
   } else if (!d5.exists) {
-    // D5 is not mapped for this feature → ceiling is D4 and D6 is not its
-    // gate. Green requires a contiguous D5, so an unmapped D5 never paints
-    // green. With the gate passing this resolves to gray (cell sits at its
-    // D4 ceiling with no further verification), unless a present D6 row is
-    // explicitly failing — which still surfaces as red.
-    chipColor = d6.exists && d6.status !== "green" ? "red" : "gray";
+    // D5 is not mapped for this feature → ceiling is D4. resolveD5 and
+    // resolveD6 derive `exists` from the SAME `CATALOG_TO_D5_KEY` entry, so
+    // `!d5.exists` IMPLIES `!d6.exists` — there is no "unmapped D5 but
+    // present D6" combination to consider. Green requires a contiguous D5,
+    // so the cell sits at its D4 ceiling with no further verification: gray.
+    // (Should the two dimensions ever split onto separate maps, a present
+    // failing D6 here would need to surface — re-introduce a D6 check then.)
+    chipColor = "gray";
   } else if (d5.status === "green") {
     // Mapped D5 is green → ladder intact up to D5. D6 decides green vs amber.
     chipColor = d6.status === "green" ? "green" : "amber";
@@ -524,19 +939,25 @@ export function buildCellModel(
   // meaningful when the ladder through D5 is intact. This reuses the SAME
   // ladder predicates the chip uses above (`d1d4GateFails`, `d5.status`) so the
   // badge/stat never contradict the chip:
-  //   gate fails              → null (blocked; API/RT badge shows the failure)
-  //   D5 not mapped (!exists) → raw d6.status (D6 is not D5's gate here; a
-  //                             present failing D6 still surfaces — matches the
-  //                             chip's `!d5.exists` branch which goes red on a
-  //                             non-green D6)
+  //   gate fails              → null (blocked; API/BE badge shows the failure)
+  //   D4 no-data (status null)→ null (ladder UNVERIFIED at D4 — the
+  //                             missing-chat collapse; same blocked outcome
+  //                             as a failing gate, but the chip shows gray)
+  //   D3+D4 BOTH absent       → null (ladder UNVERIFIED below D5 by ABSENCE —
+  //                             the CF7-F3 #2 collapse; same blocked outcome
+  //                             as the D4 no-data collapse)
+  //   D5 not mapped (!exists) → raw d6.status (no D5 rung to gate against;
+  //                             D6 shares CATALOG_TO_D5_KEY so it is unmapped
+  //                             too and the raw status is null today — the
+  //                             passthrough matters only if the maps split)
   //   D5 green                → raw d6.status (ladder intact through D5; a
   //                             genuine D6 red/amber/green passes through)
   //   D5 red/amber/null       → null (ladder BROKEN/unverified below D6 → the
   //                             D6 claim is not-achieved/blocked; never a false
-  //                             green and never a false red — the CV badge
+  //                             green and never a false red — the 1P badge
   //                             already shows the real lower-rung failure)
   let d6Effective: TestStatus;
-  if (d1d4GateFails) {
+  if (d1d4GateFails || d4NoData || d1d4Absent) {
     d6Effective = null;
   } else if (!d5.exists) {
     d6Effective = d6.status;
@@ -582,6 +1003,49 @@ export function buildCellModel(
     nextRung.exists &&
     nextRung.status !== null;
 
+  // ── Pool comm-error overlay (REQ-B + flap-band #70) ───────────────
+  // Decode "couldn't reach the pool" off the rows this cell reads. When
+  // present it does NOT overwrite chipColor — the cell keeps showing its
+  // last-known probe result; surfaceState flips to an overlay so the renderer
+  // paints the distinct comm-error treatment on top.
+  //
+  // The overlay surface depends on the comm-error KIND:
+  //   - `worker-reclaimed-pending`: a lease lapsed and the sweeper re-queued the
+  //     job (back in flight). The sweep boundary cannot tell a real crash from an
+  //     expected platform teardown, so this is NEUTRAL — render "pending" (gray),
+  //     never red. This is the flap-band #70 fix: a routine Railway teardown no
+  //     longer flaps the whole service red.
+  //   - every other kind (worker-crashed-mid-job, worker-unreachable, …): a
+  //     KNOWN comm failure the worker/control-plane observed directly — render
+  //     the red "unreachable" overlay as before.
+  const commError = decodeCellCommError(live, slug, featureId, now);
+  const surfaceState: FleetSurfaceState = commError
+    ? commError.kind === "worker-reclaimed-pending"
+      ? // A reclaimed-pending overlay is NEUTRAL (gray "pending") ONLY when the
+        // cell's real probe result is healthy (green) or no-data (gray) and not
+        // a regression. ANY failure colour — red OR amber (partial failure /
+        // degraded ladder) — or a regression below the ceiling is a GENUINE
+        // failure that the neutral pending overlay must NOT mask — otherwise
+        // DepthChip's "pending" early-return would hide a real failure. The
+        // failure colour wins; routine teardown (green/gray) still shows gray.
+        //
+        // DELIBERATE ASYMMETRY vs the harness `fleetSurfaceState` gate: the
+        // harness derives over `ProbeState`, which has NO no-data colour, so
+        // its gate is green-only ("green becomes pending, everything else
+        // passes through"). The dashboard derives over `ChipColor`, whose
+        // `gray` is the dashboard-only no-data colour the harness cannot
+        // represent — and a no-data cell awaiting a re-queued job IS pending,
+        // so gray ALSO becomes "pending" here. Both sides agree on the
+        // never-mask rule: red / amber (degraded) / error-derived states /
+        // regression always pass through; ONLY the healthy-or-no-data cases
+        // become "pending". Pinned by the surface-state drift suite in
+        // commError-contract-drift.test.ts.
+        chipColor === "red" || chipColor === "amber" || isRegression
+        ? chipColorToSurface(chipColor)
+        : "pending"
+      : "unreachable"
+    : chipColorToSurface(chipColor);
+
   return {
     supported: true,
     d3,
@@ -593,5 +1057,7 @@ export function buildCellModel(
     ceilingDepth,
     chipColor,
     isRegression,
+    ...(commError ? { commError } : {}),
+    surfaceState,
   };
 }

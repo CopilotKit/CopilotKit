@@ -8,7 +8,8 @@
 // The page at src/app/demos/multimodal/page.tsx points its `runtimeUrl` at
 // this endpoint and sets `agent="multimodal-demo"` (resolved below).
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -33,7 +34,7 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit-multimodal",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
-        // @ts-ignore -- see main route.ts
+        // @ts-expect-error -- see main route.ts
         agents,
       }),
     });

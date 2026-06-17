@@ -14,14 +14,15 @@
 
 // @region[frontend-useinterrupt-render]
 import React, { useRef } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
+  CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { TimePickerCard, TimeSlot } from "./time-picker-card";
+import type { TimeSlot } from "./time-picker-card";
+import { TimePickerCard } from "./time-picker-card";
 
 const DEFAULT_SLOTS: TimeSlot[] = [
   { label: "Tomorrow 10:00 AM", iso: "2026-04-25T10:00:00-07:00" },

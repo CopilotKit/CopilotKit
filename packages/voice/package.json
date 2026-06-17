@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/voice",
-  "version": "1.59.4",
+  "version": "1.60.1",
   "description": "Voice services for CopilotKit (transcription, text-to-speech, etc.)",
   "repository": {
     "type": "git",

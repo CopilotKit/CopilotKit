@@ -27,6 +27,31 @@
  * structural typing makes it transparent.
  */
 
+import type { Page as PlaywrightPage } from "playwright";
+import {
+  ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+  ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
+  ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+  countAssistantMessages,
+  readCascadeStateLast,
+} from "./assistant-message-count.js";
+import { formatCvdiag } from "./cv-diag.js";
+
+/**
+ * Re-exports of the cascade tier constants. Cascade lives in
+ * `assistant-message-count.ts` (single source of truth) — these
+ * re-exports preserve the historical import path
+ * `from "./conversation-runner.js"` used by the d5/d6 sibling scripts
+ * (`_hitl-shared`, `_gen-ui-shared`, `d5-agentic-chat`,
+ * `d5-shared-state`). New code should import from
+ * `./assistant-message-count.js` directly.
+ */
+export {
+  ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+  ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
+  ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+};
+
 /** Chat-input selector cascade — matches `e2e-demos.ts` READY_SELECTORS.
  *
  * Ordering (load-bearing — Playwright `fill()` only works on
@@ -67,38 +92,6 @@ const CHAT_INPUT_SELECTORS = [
 ] as const;
 
 /**
- * Canonical assistant-message selector. Used by `readMessageCount`
- * and re-exported so sibling helpers / scripts (`_hitl-shared`,
- * `_gen-ui-shared`, `d5-agentic-chat`, `d5-shared-state`) all read
- * the same DOM nodes the runner uses to detect "response settled".
- *
- * Drift between this and any sibling reader meant the runner could
- * settle on N messages while a sibling read N+M (counting user
- * bubbles toward the assistant total). Pinning the selector here is
- * the single-source-of-truth fix.
- *
- * The cascade has three preferences:
- *   1. `[data-testid="copilot-assistant-message"]` — canonical CopilotKit testid.
- *   2. `[role="article"]:not([data-message-role="user"])` — generic
- *      ARIA + explicit user-bubble exclusion. This clause is
- *      load-bearing: some composers tag their bubbles
- *      `[role="article"][data-message-role="user"]` and a bare
- *      `[role="article"]` would over-count.
- *   3. `[data-message-role="assistant"]` — last-resort fallback for
- *      headless / custom-composer demos that don't wrap bubbles in
- *      `[role="article"]` at all. The headless-simple template tags
- *      its assistant `<div>` with `data-message-role="assistant"` so
- *      the runner can still detect "response settled" without the
- *      canonical CopilotKit testids being present.
- */
-export const ASSISTANT_MESSAGE_PRIMARY_SELECTOR =
-  '[data-testid="copilot-assistant-message"]';
-export const ASSISTANT_MESSAGE_FALLBACK_SELECTOR =
-  '[role="article"]:not([data-message-role="user"])';
-export const ASSISTANT_MESSAGE_HEADLESS_SELECTOR =
-  '[data-message-role="assistant"]';
-
-/**
  * Stable testid rendered by `@copilotkit/react-core` and
  * `@copilotkit/react-ui` whenever a chat turn ERRORS (the `ErrorMessage`
  * chat bubble, the `UsageBanner`, and the toast `BannerErrorDisplay` all
@@ -115,24 +108,23 @@ export const ERROR_BANNER_SELECTOR = '[data-testid="copilot-error-banner"]';
  * and we don't want to dump the whole thing into the runner's failure log.
  *
  * Critically, this truncation is applied ONLY when shaping the thrown
- * message — NOT to the value `waitForAssistantSettled` compares across polls
- * to re-arm fast-fail. Comparing truncated text would make two DIFFERENT
- * errors that share a 300-char prefix (e.g. identical human copy + differing
- * request-id/suffix) look equal, suppressing the fast-fail and forcing the
- * full settle timeout. The comparison therefore uses the FULL banner text;
- * see `readErrorBanner` (returns untruncated text) and the `textChanged`
- * check in `waitForAssistantSettled`.
+ * message — NOT to the FULL banner text the runner uses when classifying
+ * a chat-errored turn. `readErrorBanner` always returns untruncated text;
+ * the cap only fires when constructing the thrown `AssistantErroredError`
+ * message string.
  */
 const BANNER_MESSAGE_MAX_LENGTH = 300;
 
 /**
- * Distinguished error thrown by `waitForAssistantSettled` when the chat
- * error banner becomes visible during the settle wait. Carrying its own
- * type lets callers tell a fast errored turn apart from a slow settle
- * timeout. The conversation runner maps any thrown turn error to the
- * driver's `conversation-error` classification, so an errored turn is
- * reported as a (fast) `conversation-error` rather than waiting out the
- * timeout and racing the wall-clock `feature-timeout`.
+ * Distinguished error thrown when the chat error banner is observed
+ * visible without an accompanying assistant response (the runner now
+ * checks the banner on a `TurnNotCompleteError` from `waitForTurnComplete`
+ * and re-throws this distinguished class so the caller can tell a fast
+ * errored turn apart from a slow settle timeout). The conversation
+ * runner maps any thrown turn error to the driver's `conversation-error`
+ * classification, so an errored turn is reported as a (fast)
+ * `conversation-error` rather than waiting out the timeout and racing
+ * the wall-clock `feature-timeout`.
  */
 export class AssistantErroredError extends Error {
   constructor(bannerText?: string) {
@@ -143,6 +135,32 @@ export class AssistantErroredError extends Error {
         : "chat errored: copilot-error-banner visible",
     );
     this.name = "AssistantErroredError";
+  }
+}
+
+/**
+ * Distinguished error thrown by `waitForTurnComplete` when the chat error
+ * banner has been visible for 2 consecutive polls during the in-poll
+ * banner-check (a "sustained" banner). The runner's outer catch translates
+ * this into `AssistantErroredError` so the historical fast-fail surface
+ * (and the bounded turn-1 cold-start retry gating) is preserved.
+ *
+ * Distinct from the post-`TurnNotCompleteError` banner check: this error
+ * fires DURING the settle poll loop (not after the full-timeout throw),
+ * so a sustained banner short-circuits the wait instead of burning the
+ * full `timeoutMs`. The 2-consecutive-poll debounce keeps a single-poll
+ * flicker (a transient toast that auto-dismisses, a render glitch) from
+ * spuriously fast-failing a succeeding turn.
+ */
+export class BannerVisibleError extends Error {
+  constructor(readonly bannerText: string) {
+    super(
+      `waitForTurnComplete: copilot-error-banner visible across 2 consecutive polls — ${bannerText.slice(
+        0,
+        BANNER_MESSAGE_MAX_LENGTH,
+      )}`,
+    );
+    this.name = "BannerVisibleError";
   }
 }
 
@@ -157,6 +175,52 @@ const DEFAULT_RESPONSE_TIMEOUT_MS = 30_000;
 const DEFAULT_SETTLE_MS = 1500;
 const SELECTOR_PROBE_TIMEOUT_MS = 5_000;
 const POLL_INTERVAL_MS = 100;
+
+/**
+ * Bounded cold-start retry budget. A showcase can paint a TRANSIENT error
+ * banner on the FIRST turn while its agent backend / runtime is still warming
+ * up; that banner then clears on its own a beat later. PR #5142's fast-fail
+ * (`AssistantErroredError`) correctly bails on a SUSTAINED banner, but on
+ * turn 1 a single bounded retry — reload the page, re-send the same message —
+ * recovers the would-be flap WITHOUT masking a real failure: a banner that
+ * SURVIVES the reload+re-send fast-fails again on the 2nd attempt and is
+ * re-thrown.
+ *
+ * Strictly bounded so #5142 stays intact: the retry fires AT MOST ONCE
+ * (`coldStartRetries` counter), ONLY on turn 1 (the cold-start window — reload
+ * is safe there because no conversation state exists yet), and ONLY for an
+ * `AssistantErroredError` (NOT a settle `timeout`, which is a different
+ * failure mode). A sustained real banner still fast-fails on the 2nd attempt.
+ */
+const COLD_START_RETRY_MAX = 1;
+
+/**
+ * Compute the floor for the cold-start retry's settle budget (#71/FF20 + R8F1).
+ * The retry SHARES the turn's single deadline EXCEPT for this floor — if the
+ * first attempt consumed nearly the full budget, the retry still gets at least
+ * one full settle window plus one poll tick.
+ *
+ * Why `settleMs + POLL_INTERVAL_MS` and NOT a small constant like
+ * `3 * POLL_INTERVAL_MS` (the old value): `waitForTurnComplete` requires
+ * `text` to hold stable for `settleMs` before declaring the turn complete. If
+ * `timeoutMs < settleMs` the settle gate is MATHEMATICALLY IMPOSSIBLE to
+ * satisfy — the loop times out before any settle window can complete and
+ * misclassifies the failure as `reason=text-unstable` (hiding the real cause:
+ * budget exhausted). The floor must therefore be ≥ `settleMs` so the gate has
+ * a real chance to converge; we add one `POLL_INTERVAL_MS` so the loop runs
+ * at least one full settle window plus one poll tick.
+ *
+ * A zero-or-near-zero retry window would convert a SUSTAINED real banner —
+ * which #5142 requires to fast-fail again on the 2nd attempt — into a generic
+ * settle timeout, silently weakening that guarantee. Total elapsed wall-clock
+ * for a retried turn can therefore push slightly past `turnTimeoutMs` (worst
+ * case: `turnTimeoutMs + settleMs + POLL_INTERVAL_MS`), but stays far below
+ * the old ~2× regime (#71/FF20 pre-fix) while preserving the fast-fail
+ * debounce so a real banner still re-throws `AssistantErroredError`.
+ */
+function coldStartRetryMinSettleMs(settleMs: number): number {
+  return settleMs + POLL_INTERVAL_MS;
+}
 
 /**
  * Minimal Page surface the runner depends on. Real `playwright.Page`
@@ -185,8 +249,17 @@ export interface Page {
    * (NOT `page.textContent(...)`) for the assistant-message count poll
    * because Playwright's selector-based reads auto-wait up to 30 s,
    * which would defeat the polling cadence.
+   *
+   * The `arg` parameter is structurally optional so the runner can call
+   * `page.evaluate(() => …)` (no arg) AND `page.evaluate((idx) => …,
+   * bubbleIndex)` (one arg) through the SAME signature —
+   * `findAssistantBubbleAt` needs the second form to pass the strict
+   * bubble index into the browser-side closure without a closure-capture
+   * race. The real Playwright `Page.evaluate` is variadic and satisfies
+   * both call shapes natively; test fakes that need the arg path read
+   * the second runtime arg from `arguments`.
    */
-  evaluate<R>(fn: () => R): Promise<R>;
+  evaluate<R, A = unknown>(fn: (arg?: A) => R, arg?: A): Promise<R>;
   /**
    * Read the current value of an input/textarea element. Used by the
    * `skipFill` path to poll for non-empty content before pressing Enter
@@ -197,6 +270,16 @@ export interface Page {
    * implementation.
    */
   inputValue?(selector: string): Promise<string>;
+  /**
+   * Reload the page. Used ONLY by the bounded turn-1 cold-start retry: a
+   * showcase that paints a transient error banner while its backend is
+   * still warming up can be recovered by reloading and re-sending the
+   * first message (safe on turn 1 — there is no conversation state to
+   * lose). Optional — when absent, the cold-start retry re-sends without a
+   * reload. The real Playwright Page provides it natively; test fakes
+   * supply a scripted implementation.
+   */
+  reload?(): Promise<unknown>;
 }
 
 export interface ConversationTurn {
@@ -255,8 +338,27 @@ export interface ConversationTurn {
    * Optional assertion callback executed AFTER the assistant response
    * settles. Any throw from this function is captured as the turn's
    * failure and stops the conversation.
+   *
+   * Receives a `ctx` object carrying the turn-scoped resolution of the
+   * assistant bubble for THIS turn:
+   *   - `bubbleIndex`: 0-based DOM index of the assistant bubble
+   *     produced by this turn (cascade-resolved by the same helper the
+   *     runner used to settle the turn).
+   *   - `text`: the untruncated `textContent` of that bubble.
+   *
+   * `ctx` is REQUIRED — the runner sources it from `waitForTurnComplete`'s
+   * return value, which always yields a turn-scoped `{ bubbleIndex, text }`
+   * pair on success (a failure throws `TurnNotCompleteError` before the
+   * assertions callback is invoked). Probes MUST consume `ctx.text`
+   * instead of calling `readLastAssistantText` — the latter reads
+   * `list[list.length - 1]` and can leak a later turn's bubble into THIS
+   * turn's assertions (defect 2). Unit tests driving `turn.assertions`
+   * directly must supply a synthetic ctx (`{ bubbleIndex, text }`).
    */
-  assertions?: (page: Page) => Promise<void>;
+  assertions?: (
+    page: Page,
+    ctx: { bubbleIndex: number; text: string },
+  ) => Promise<void>;
   /**
    * Per-turn override for the assistant-response timeout. Defaults to
    * 30 s (`DEFAULT_RESPONSE_TIMEOUT_MS`). A turn whose response fails
@@ -341,15 +443,15 @@ export async function runConversation(
   // selector so we don't re-probe per turn.
   let chatInputSelector: string | null = null;
   // Try to resolve the chat input AT BOOT first — when it works
-  // (every demo except idiomatic-shape auth), capture the baseline
-  // assistant-message count BEFORE turn 1's preFill runs. Demos like
-  // /demos/headless-complete fire the user message inside preFill (a
-  // chip click), so reading the baseline AFTER preFill would observe
-  // the assistant's response already appended and the settle would
-  // wait forever for further growth that never comes. The deferred
-  // path is only used when boot-time resolution fails — that's
-  // specifically the auth shape, where the chat tree mounts later.
-  let baselineCount = 0;
+  // (every demo except idiomatic-shape auth), we can fall straight into
+  // the turn loop without an extra cascade probe per turn. Under the
+  // new `waitForTurnComplete` settle path each turn is keyed on its
+  // 1-based ordinal (NOT a pre-turn baseline count), so there is no
+  // boot-time baseline-count read here anymore: a pre-paint placeholder
+  // or stale bubble in the DOM at boot can no longer poison the turn-1
+  // settle (defect 4). The deferred path is only used when boot-time
+  // resolution fails — that's specifically the auth shape, where the
+  // chat tree mounts later.
   try {
     chatInputSelector = await resolveChatInputSelector(
       page,
@@ -359,14 +461,22 @@ export async function runConversation(
       "[conversation-runner] resolved chat input selector at boot",
       { selector: chatInputSelector },
     );
-    baselineCount = await readMessageCount(page);
-    console.debug(
-      "[conversation-runner] initial baseline assistant message count (boot)",
-      { baselineCount },
-    );
-  } catch {
+  } catch (bootErr) {
     console.debug(
       "[conversation-runner] chat input cascade did not resolve at boot — deferring to post-preFill (auth shape)",
+    );
+    // CVDIAG: surface the previously-silent boot-time cascade miss. Control
+    // flow is unchanged (the deferred post-preFill path still runs); this is
+    // just visibility so a never-mounting chat surface (which can correlate
+    // with an app that never booted / never forwarded the context header)
+    // is greppable. No slug/runId in scope here — this helper is generic.
+    console.warn(
+      formatCvdiag({
+        component: "conversation-runner",
+        boundary: "inbound",
+        status: "error",
+        error: `chat-input cascade miss at boot: ${errorMessage(bootErr).slice(0, 120)}`,
+      }),
     );
   }
 
@@ -375,13 +485,30 @@ export async function runConversation(
     const turnNum = idx + 1;
     const turnTimeoutMs = turn.responseTimeoutMs ?? DEFAULT_RESPONSE_TIMEOUT_MS;
     const startedAt = Date.now();
+    // A SINGLE deadline shared across the first settle wait AND the cold-start
+    // retry's settle wait (#71/FF20). Without this the retry would get a fresh
+    // full `turnTimeoutMs`, letting a cold-start turn run ~2× its budget. The
+    // first wait uses the full `turnTimeoutMs`; the retry wait uses only the
+    // time remaining against this deadline, EXCEPT for the floor returned by
+    // `coldStartRetryMinSettleMs(settleMs)` (see that function's docstring):
+    // if the first attempt nearly exhausted the budget, the retry still gets
+    // at least one full settle window plus one poll tick. Total elapsed
+    // wall-clock for a retried turn can therefore push slightly past
+    // `turnTimeoutMs` (worst case: `turnTimeoutMs + settleMs +
+    // POLL_INTERVAL_MS`) — far below the old ~2× regime, while preserving
+    // #5142's fast-fail debounce.
+    const turnDeadline = startedAt + turnTimeoutMs;
+    // Bounded once-per-turn cold-start retry counter. Only ever consulted on
+    // turn 1 (the cold-start window); declaring it per-iteration scopes it to
+    // the turn it protects. The fast-fail retry fires while this is below
+    // `COLD_START_RETRY_MAX` (1), so at most one reload+re-send per turn.
+    let coldStartRetries = 0;
 
     console.debug(
       `[conversation-runner] turn ${turnNum}/${total} — sending message`,
       {
         input: turn.input,
         timeoutMs: turnTimeoutMs,
-        baselineCount,
       },
     );
 
@@ -406,11 +533,6 @@ export async function runConversation(
             selector: chatInputSelector,
             turnNum,
           });
-          baselineCount = await readMessageCount(page);
-          console.debug(
-            "[conversation-runner] initial baseline assistant message count",
-            { baselineCount },
-          );
         } catch (err) {
           console.debug(
             "[conversation-runner] chat input selector cascade FAILED",
@@ -426,60 +548,308 @@ export async function runConversation(
         }
       }
 
-      if (turn.skipSend) {
-        console.debug(
-          `[conversation-runner] turn ${turnNum}/${total} — skipSend=true, preFill handled submission; not touching textarea`,
-        );
-      } else if (turn.skipFill) {
-        console.debug(
-          `[conversation-runner] turn ${turnNum}/${total} — skipFill=true, waiting for textarea content then pressing Enter`,
-        );
-        await waitForContentAndSend(page, chatInputSelector, turnTimeoutMs);
-      } else {
-        await fillAndVerifySend(page, chatInputSelector, turn.input);
-      }
+      // Send (or, for skipSend/skipFill turns, confirm) the user message.
+      // Extracted into a closure so the bounded turn-1 cold-start retry can
+      // re-send the same message after a `page.reload()` without duplicating
+      // the skipSend/skipFill/normal branch logic. `chatInputSelector` is
+      // non-null here (resolved above or it returned), so the cast-free
+      // local capture is safe.
+      const selector = chatInputSelector;
+      const sendTurnMessage = async (): Promise<void> => {
+        if (turn.skipSend) {
+          console.debug(
+            `[conversation-runner] turn ${turnNum}/${total} — skipSend=true, preFill handled submission; not touching textarea`,
+          );
+        } else if (turn.skipFill) {
+          console.debug(
+            `[conversation-runner] turn ${turnNum}/${total} — skipFill=true, waiting for textarea content then pressing Enter`,
+          );
+          await waitForContentAndSend(page, selector, turnTimeoutMs);
+        } else {
+          await fillAndVerifySend(page, selector, turn.input);
+        }
+      };
+
+      // Defect-2 sentinel for the multi-bubble hotfix: snapshot the count
+      // of assistant bubbles already in the DOM BEFORE this turn submits.
+      // Multi-step agents emit >1 bubble per turn — `waitForTurnComplete`
+      // gates on `count > baselineCount` to detect "a new bubble appeared
+      // for THIS turn" without assuming 1 bubble = 1 turn. Captured BEFORE
+      // sendTurnMessage so the assistant can't have started streaming yet
+      // (the user message hasn't been submitted), guaranteeing the
+      // snapshot reflects only prior-turn bubbles.
+      const baselineCount = await countAssistantMessages(
+        page as unknown as PlaywrightPage,
+      );
+
+      await sendTurnMessage();
 
       console.debug(
         `[conversation-runner] turn ${turnNum}/${total} — waiting for assistant settle`,
         {
           selector: chatInputSelector,
-          baselineCount,
+          turnIndex: turnNum,
           settleMs,
           timeoutMs: turnTimeoutMs,
         },
       );
 
-      // Wait for the assistant-message count to grow past the baseline
-      // and then stay stable for `settleMs`. If the deadline passes
-      // before we see growth, fail the turn with a timeout error.
-      const newCount = await waitForAssistantSettled({
-        page,
-        baselineCount,
-        settleMs,
-        timeoutMs: turnTimeoutMs,
-      });
+      // Wait for the per-turn 3-conjunct gate: SSE run-finished counter
+      // has caught up to the turn ordinal, the strict-index bubble for
+      // THIS turn exists in the DOM, and that bubble's text has held
+      // stable for `settleMs`. On success the primitive returns the
+      // turn-scoped `{ bubbleIndex, text }` — the assertions callback
+      // receives that ctx directly without re-reading the DOM.
+      //
+      // Bounded turn-1 cold-start retry: if the FIRST turn fast-fails with an
+      // `AssistantErroredError` (a banner appeared with no response produced —
+      // see #5142), the showcase backend may simply have been cold. Retry
+      // ONCE: reload the page (safe on turn 1 — no conversation state to lose)
+      // and re-send the same message, then re-enter the settle wait. A banner
+      // that SURVIVES the retry re-throws (a real failure). Strictly bounded —
+      // only turn 1, only once (`coldStartRetries` < `COLD_START_RETRY_MAX`),
+      // only a PLAIN-FILL turn (the retry must re-issue the submission; a
+      // skipSend/skipFill turn's submission came from `preFill` and a reload
+      // would wipe it, so those fast-fail without retry), and only
+      // `AssistantErroredError` (NOT a settle timeout). This does NOT widen the
+      // catch to generic timeouts and does NOT defeat #5142: a sustained real
+      // banner still fast-fails on the 2nd attempt.
+      //
+      // The cold-start retry's `AssistantErroredError` source: the runner
+      // checks for a visible error banner BEFORE calling `waitForTurnComplete`
+      // (when no response has yet been produced for this turn) and after the
+      // primitive throws `TurnNotCompleteError`. A banner observed at either
+      // checkpoint is re-thrown as `AssistantErroredError` so #5142's fast-fail
+      // semantics persist across the runner rewrite.
+      // Snapshot the baseline banner text BEFORE entering the settle
+      // wait. CopilotKit error banners persist across turns, so a banner
+      // already visible at this checkpoint is a stale leftover from a
+      // prior errored turn — NOT a fresh fast-fail signal for THIS turn.
+      // The settle loop's debounce keys on "differs from baseline" rather
+      // than mere visibility (see `baselineBannerText` in
+      // `WaitForTurnCompleteOpts`), so a stale same-text banner stays
+      // ignored and only a NEW or text-CHANGED banner re-arms the
+      // fast-fail. An `unreadable` baseline read collapses to `null`
+      // (treat-as-absent) — we don't know the baseline so any visible
+      // banner during settle is a candidate, preserving the historical
+      // "fresh banner ⇒ fast-fail" behaviour on a transient probe hiccup.
+      const baselineBanner = await readErrorBanner(page);
+      const baselineBannerText =
+        baselineBanner.state === "visible" ? baselineBanner.text : null;
+      let settleResult: WaitForTurnCompleteResult;
+      try {
+        settleResult = await waitForTurnComplete({
+          page,
+          turnIndex: turnNum,
+          settleMs,
+          timeoutMs: turnTimeoutMs,
+          baselineBannerText,
+          baselineCount,
+        });
+      } catch (settleErr) {
+        // Translate a turn-incomplete failure observed alongside a
+        // copilot-error-banner into the historical `AssistantErroredError`
+        // surface so #5142's fast-fail contract — and the cold-start retry
+        // gating below — survive the runner rewrite. A banner that's NOT
+        // accompanied by a response counts as a chat-errored turn; without
+        // a banner the failure propagates as a settle timeout (the
+        // `TurnNotCompleteError`'s message preserves the classified reason).
+        //
+        // `waitForTurnComplete` also throws `BannerVisibleError` directly
+        // from its in-poll banner check (a sustained banner observed
+        // DURING the settle loop, before the full-timeout throw). We
+        // translate that to `AssistantErroredError` here so the historical
+        // surface — and the cold-start retry gating below — fire for
+        // in-poll fast-fails too.
+        let translatedErr: unknown = settleErr;
+        if (settleErr instanceof BannerVisibleError) {
+          translatedErr = new AssistantErroredError(settleErr.bannerText);
+        } else if (settleErr instanceof TurnNotCompleteError) {
+          const banner = await readErrorBanner(page);
+          if (
+            banner.state === "visible" &&
+            (baselineBannerText === null || banner.text !== baselineBannerText)
+          ) {
+            // A visible banner whose text DIFFERS from the pre-turn
+            // baseline is a fresh error this turn — translate to the
+            // historical AssistantErroredError surface. A banner whose
+            // text MATCHES the baseline is a stale leftover (CopilotKit
+            // banners persist across turns) and must not convert a
+            // settle timeout into a chat-errored failure — surface the
+            // original TurnNotCompleteError instead so the operator
+            // sees the real reason (sse-missing / dom-missing / etc.).
+            translatedErr = new AssistantErroredError(banner.text);
+          } else if (banner.state === "unreadable") {
+            // Surface the unreadable-banner detail in CVDIAG and propagate
+            // the original `TurnNotCompleteError` unchanged — we don't have
+            // a banner text to attach, so we cannot honestly classify the
+            // turn as a chat-errored turn.
+            console.warn(
+              formatCvdiag({
+                component: "conversation-runner",
+                boundary: "fixture-match",
+                status: "error",
+                error: `post-settle banner read unreadable: ${banner.detail.slice(0, 120)}`,
+              }),
+            );
+          }
+        }
+
+        const isPlainFillTurn = !turn.skipSend && !turn.skipFill;
+        const isColdStartWindow =
+          turnNum === 1 &&
+          coldStartRetries < COLD_START_RETRY_MAX &&
+          isPlainFillTurn;
+        if (
+          translatedErr instanceof AssistantErroredError &&
+          isColdStartWindow
+        ) {
+          coldStartRetries++;
+          console.warn(
+            `[conversation-runner] turn ${turnNum}/${total} — cold-start banner fast-fail; reloading + re-sending ONCE before fast-fail`,
+            { error: errorMessage(translatedErr) },
+          );
+          // Reload to clear the transient cold-start banner. Safe on turn 1 —
+          // no conversation state exists yet — and the plain-fill re-send below
+          // re-issues the message the reload cleared. Optional on the structural
+          // Page surface — skip cleanly if a caller's page can't reload.
+          if (page.reload) {
+            await page.reload();
+            // Re-resolve the chat input after reload — the DOM was torn down, so
+            // the previously-cached selector may no longer be attached.
+            chatInputSelector = await resolveChatInputSelector(
+              page,
+              opts.chatInputSelector,
+            );
+          }
+          // Explicit narrowing guard. `chatInputSelector` is `string | null`;
+          // TypeScript cannot narrow it to non-null across the optional
+          // `if (page.reload)` reassignment above, and the no-reload branch
+          // retains whatever value flowed in (today: always non-null, since
+          // the per-turn resolve at the top of the try block has already
+          // executed). Fail LOUD with the DISTINGUISHED `translatedErr`
+          // rather than silently calling `fillAndVerifySend` with `null` if a
+          // future refactor ever nullifies the selector on this path. This
+          // branch is entered specifically because `translatedErr instanceof
+          // AssistantErroredError`, so throwing `translatedErr` preserves the
+          // distinguished error class that downstream consumers and tests pin
+          // (throwing `settleErr` would lose that — the original could be a
+          // plain `TurnNotCompleteError` or `BannerVisibleError`).
+          if (chatInputSelector === null) {
+            throw translatedErr;
+          }
+          // Re-snapshot the post-reload baseline assistant-bubble count
+          // BEFORE the cold-start re-send. The page DOM was torn down by
+          // page.reload() so the count is typically 0, but a demo with a
+          // prerendered seed conversation could expose pre-existing
+          // bubbles — capture the real count so the multi-bubble gate
+          // (`count > baselineCount`) cannot misread those as the retry's
+          // response.
+          const retryBaselineCount = await countAssistantMessages(
+            page as unknown as PlaywrightPage,
+          );
+          await fillAndVerifySend(page, chatInputSelector, turn.input);
+          // Re-snapshot the post-reload baseline banner. The page DOM was
+          // torn down + repainted, so any banner now visible is the
+          // SECOND attempt's baseline (the cold-start banner may have
+          // re-painted, or a fresh banner may have appeared). The retry's
+          // fast-fail debounce keys on "differs from THIS retry's
+          // baseline" — a re-painted same-text banner is the steady state
+          // for the retry attempt and must not auto-fast-fail.
+          const retryBaselineBanner = await readErrorBanner(page);
+          const retryBaselineBannerText =
+            retryBaselineBanner.state === "visible"
+              ? retryBaselineBanner.text
+              : null;
+          // Re-enter the settle wait, sharing the turn deadline (#71/FF20) so
+          // the retry only ever consumes the time remaining in the turn budget
+          // rather than a fresh full `turnTimeoutMs`. A banner that survives
+          // this attempt throws again (AssistantErroredError) and the outer
+          // catch records the turn failure — #5142 stays intact.
+          try {
+            settleResult = await waitForTurnComplete({
+              page,
+              turnIndex: turnNum,
+              settleMs,
+              timeoutMs: Math.max(
+                coldStartRetryMinSettleMs(settleMs),
+                turnDeadline - Date.now(),
+              ),
+              baselineBannerText: retryBaselineBannerText,
+              baselineCount: retryBaselineCount,
+            });
+          } catch (retryErr) {
+            if (retryErr instanceof BannerVisibleError) {
+              throw new AssistantErroredError(retryErr.bannerText);
+            }
+            if (retryErr instanceof TurnNotCompleteError) {
+              const banner = await readErrorBanner(page);
+              if (
+                banner.state === "visible" &&
+                (retryBaselineBannerText === null ||
+                  banner.text !== retryBaselineBannerText)
+              ) {
+                throw new AssistantErroredError(banner.text);
+              }
+              if (banner.state === "unreadable") {
+                console.warn(
+                  formatCvdiag({
+                    component: "conversation-runner",
+                    boundary: "fixture-match",
+                    status: "error",
+                    error: `retry post-settle banner read unreadable: ${banner.detail.slice(0, 120)}`,
+                  }),
+                );
+              }
+            }
+            throw retryErr;
+          }
+        } else {
+          // Not the cold-start case (later turn, already retried, a
+          // skipSend/skipFill turn, or a settle timeout) — propagate the
+          // translated error to the per-turn catch unchanged.
+          throw translatedErr;
+        }
+      }
 
       console.debug(
         `[conversation-runner] turn ${turnNum}/${total} — assistant settled`,
         {
-          newCount,
-          previousBaseline: baselineCount,
+          bubbleIndex: settleResult.bubbleIndex,
+          textLength: settleResult.text.length,
           hasAssertions: !!turn.assertions,
         },
+      );
+      // Preserve the runner's diagnostic log contract — Phase 0 Task 0.3
+      // / Phase 5 Task 5.1 Step 6 / OPEN ISSUE #4: the bubble-race repro
+      // driver parses `[conversation-runner] turn N/total — settled text
+      // { turnNum, text: '…' }` out of verbose stdout. The settled-text
+      // value is now sourced from `waitForTurnComplete`'s return value
+      // (turn-scoped, cascade-consistent, defect-2 safe) instead of a
+      // separate post-settle `page.evaluate` read.
+      console.debug(
+        `[conversation-runner] turn ${turnNum}/${total} — settled text`,
+        { turnNum, text: settleResult.text.slice(0, 200) },
       );
 
       if (turn.assertions) {
         console.debug(
           `[conversation-runner] turn ${turnNum}/${total} — running assertions`,
+          {
+            bubbleIndex: settleResult.bubbleIndex,
+            textLength: settleResult.text.length,
+          },
         );
-        await turn.assertions(page);
+        await turn.assertions(page, {
+          bubbleIndex: settleResult.bubbleIndex,
+          text: settleResult.text,
+        });
         console.debug(
           `[conversation-runner] turn ${turnNum}/${total} — assertions passed`,
         );
       }
 
       durations.push(Date.now() - startedAt);
-      baselineCount = newCount;
     } catch (err) {
       // Spec: `turn_durations_ms.length === turns_completed`. The failed
       // turn's partial duration is intentionally NOT recorded so callers
@@ -487,7 +857,6 @@ export async function runConversation(
       // failure outliers skewing the result. The wall-clock cost of the
       // failed turn is still recoverable from `observedAt` deltas if
       // operators need it.
-      void startedAt;
       let failureDiagnostics: Record<string, unknown> = {};
       try {
         failureDiagnostics = await page.evaluate(() => {
@@ -505,8 +874,20 @@ export async function runConversation(
             bodyText.includes("Internal Server Error");
           return { bodyText, hasTextarea, hasErrorBoundary };
         });
-      } catch {
+      } catch (diagErr) {
         /* diagnostics are best-effort */
+        // CVDIAG: surface the previously-silent diagnostics-capture failure
+        // on the turn-failure path. The turn failure itself is reported by
+        // the caller; this only makes the swallowed capture error greppable
+        // (a closed/crashed page can correlate with a dropped-header 503).
+        console.warn(
+          formatCvdiag({
+            component: "conversation-runner",
+            boundary: "fixture-match",
+            status: "error",
+            error: `failure-diagnostics capture failed: ${errorMessage(diagErr).slice(0, 120)}`,
+          }),
+        );
       }
       console.warn(`[conversation-runner] turn ${turnNum}/${total} — FAILED`, {
         error: errorMessage(err),
@@ -538,13 +919,13 @@ export async function runConversation(
 
 /**
  * Read the current count of user-message DOM nodes via `page.evaluate`.
- * Mirrors `readMessageCount` but targets user bubbles instead of
+ * Mirrors `countAssistantMessages` but targets user bubbles instead of
  * assistant bubbles. Used by `fillAndVerifySend` to detect whether a
  * user message actually appeared after pressing Enter — if the count
  * hasn't grown, the React hydration race likely swallowed the keypress.
  *
  * Returns 0 on any read error (same resilience strategy as
- * `readMessageCount`).
+ * `countAssistantMessages`).
  */
 export async function readUserMessageCount(page: Page): Promise<number> {
   try {
@@ -568,7 +949,20 @@ export async function readUserMessageCount(page: Page): Promise<number> {
       );
       return fallback.length;
     });
-  } catch {
+  } catch (readErr) {
+    // CVDIAG: surface the previously-silent user-message read error. This
+    // helper is polled in a tight loop (fillAndVerifySend), so the line is
+    // routed through console.debug (still `grep CVDIAG`-greppable) to avoid
+    // flooding warn-level logs on a transient per-poll DOM-read hiccup.
+    // Control flow is unchanged — the caller still retries on the returned 0.
+    console.debug(
+      formatCvdiag({
+        component: "conversation-runner",
+        boundary: "inbound",
+        status: "error",
+        error: `user-message read failed: ${errorMessage(readErr).slice(0, 120)}`,
+      }),
+    );
     return 0;
   }
 }
@@ -580,7 +974,7 @@ export async function readUserMessageCount(page: Page): Promise<number> {
  * `SEND_VERIFY_MAX_ATTEMPTS` times.
  *
  * After all retries are exhausted without a user message appearing, the
- * function returns silently — the downstream `waitForAssistantSettled`
+ * function returns silently — the downstream `waitForTurnComplete`
  * timeout will catch the failure with better diagnostics than we can
  * provide here.
  */
@@ -744,84 +1138,87 @@ async function resolveChatInputSelector(
 }
 
 /**
- * Read the current count of assistant-message DOM nodes via
- * `page.evaluate`. Returns 0 on any read error — the caller's polling
- * loop will retry, so a transient DOM-read hiccup doesn't fail the
- * whole turn.
- *
- * The DOM types are reached via a type-erased indirection because the
- * package's tsconfig intentionally excludes the `dom` lib (server-side
- * Node code). Same pattern used in `e2e-smoke.ts`.
+ * Discriminated union returned by `readErrorBanner`. Three states:
+ *   - `absent`     — banner element missing / not visible.
+ *   - `visible`    — banner is present and visibly painted; `text` is
+ *                    the UNTRUNCATED `textContent` for downstream
+ *                    comparison / classification.
+ *   - `unreadable` — the `page.evaluate` itself threw (a transient DOM
+ *                    hiccup, the page is mid-navigation, …). `detail`
+ *                    carries the captured error message. Callers MUST
+ *                    NOT collapse this into `absent` — an unreadable
+ *                    state disables fast-fail for that poll (we don't
+ *                    know what the banner is), but it must NOT translate
+ *                    a `TurnNotCompleteError` into `AssistantErroredError`
+ *                    either (we have no banner text to attach).
  */
-async function readMessageCount(page: Page): Promise<number> {
-  try {
-    return await page.evaluate(() => {
-      const win = globalThis as unknown as {
-        document: {
-          querySelectorAll(sel: string): { length: number };
-        };
-      };
-      // Match either the canonical CopilotKit testid or a narrowed
-      // `[role="article"]` that excludes user-side articles.
-      // The canonical testid wins; if absent, fall back to articles
-      // that are explicitly tagged as assistant (or are not tagged
-      // user) so we never count user-input bubbles toward "assistant
-      // response settled".
-      const canonical = win.document.querySelectorAll(
-        '[data-testid="copilot-assistant-message"]',
-      );
-      if (canonical.length > 0) return canonical.length;
-      // Prefer an explicit assistant-tagged article when present.
-      const tagged = win.document.querySelectorAll(
-        '[role="article"][data-message-role="assistant"]',
-      );
-      if (tagged.length > 0) return tagged.length;
-      // Next: any [role="article"] that is NOT explicitly tagged as a
-      // user message. This still matches untagged articles (the
-      // historical behaviour) but excludes user bubbles that some
-      // composers tag with `data-message-role="user"`.
-      const fallback = win.document.querySelectorAll(
-        '[role="article"]:not([data-message-role="user"])',
-      );
-      if (fallback.length > 0) return fallback.length;
-      // Last resort: headless / custom-composer demos that don't use
-      // [role="article"] at all but tag their assistant bubble with
-      // `data-message-role="assistant"`. Without this tier the runner
-      // would never detect "response settled" on the headless-simple
-      // template since none of the prior selectors match its DOM.
-      const headless = win.document.querySelectorAll(
-        '[data-message-role="assistant"]',
-      );
-      return headless.length;
-    });
-  } catch {
-    return 0;
-  }
-}
+export type ErrorBannerReadResult =
+  | { state: "absent" }
+  | { state: "visible"; text: string }
+  | { state: "unreadable"; detail: string };
 
 /**
  * Read whether a chat error banner (`[data-testid="copilot-error-banner"]`)
  * is currently VISIBLE in the page, and return its FULL text when present.
  * Visibility (not mere presence) matters: a banner kept in the DOM but
  * hidden (`display:none` / zero-size / `visibility:hidden`) is not an
- * active error. Returns `{ visible: false }` on any read error so a
- * transient DOM hiccup never spuriously fast-fails a turn.
+ * active error.
  *
- * Returns the UNTRUNCATED `textContent` on purpose: `waitForAssistantSettled`
- * compares this text across polls to re-arm fast-fail, and truncating here
- * would make two distinct errors sharing a long common prefix compare equal
- * (suppressing the fast-fail). The length cap for log hygiene is applied
- * downstream, only when building the thrown `AssistantErroredError` message
+ * Returns a 3-state discriminated union — see `ErrorBannerReadResult`.
+ * In particular, a transient `page.evaluate` throw is surfaced as
+ * `{ state: "unreadable" }` (NOT collapsed to `absent`); collapsing every
+ * read error to "no banner" would silently disarm the fast-fail path
+ * whenever the page hiccuped, which is the exact failure mode this
+ * 3-state union exists to prevent. By the same rule, a browser-side
+ * return whose shape does NOT match any known variant
+ * (`{state:"absent"}`, `{state:"visible",text}`, `{state:"unreadable",detail}`,
+ * or the legacy `{visible,text?}`) is also surfaced as `unreadable` with
+ * a short shape summary, NOT collapsed to `absent` — a stale browser
+ * script returning a foreign shape must remain observable rather than
+ * silently masquerade as "no banner."
+ *
+ * The visible-state `text` is the UNTRUNCATED `textContent` on purpose:
+ * callers may compare this text across polls (e.g. to re-arm fast-fail
+ * logic) and truncating here would make two distinct errors sharing a
+ * long common prefix compare equal. The length cap for log hygiene is
+ * applied downstream, only when building the thrown
+ * `AssistantErroredError` / `BannerVisibleError` message
  * (`BANNER_MESSAGE_MAX_LENGTH`).
  *
- * Reached via the same type-erased `globalThis` indirection as
- * `readMessageCount` because the package tsconfig excludes the `dom` lib.
+ * Reached via the same type-erased `globalThis` indirection used in
+ * `countAssistantMessages` because the package tsconfig excludes the
+ * `dom` lib.
  */
-async function readErrorBanner(
-  page: Page,
-): Promise<{ visible: boolean; text?: string }> {
+/**
+ * Best-effort shape summary for an unknown browser-side return value.
+ * Stringifies only TOP-LEVEL KEYS (not values) when `raw` is an object, so
+ * the resulting detail message never leaks large payloads. Falls back to
+ * `typeof` (and the literal stringified primitive, for non-objects) so the
+ * detail is always non-empty. Result is capped at 200 chars including the
+ * containing message constructed by the caller.
+ */
+function safeStringifyShape(raw: unknown): string {
+  if (raw === null) return "null";
+  const t = typeof raw;
+  if (t !== "object") {
+    // Primitives: stringify directly but cap length to avoid runaway strings.
+    const s = String(raw);
+    return `${t}(${s.slice(0, 80)})`;
+  }
   try {
-    return await page.evaluate(() => {
+    const keys = Object.keys(raw as Record<string, unknown>);
+    return `object{keys:${JSON.stringify(keys).slice(0, 120)}}`;
+  } catch {
+    return "object(unintrospectable)";
+  }
+}
+
+export async function readErrorBanner(
+  page: Page,
+): Promise<ErrorBannerReadResult> {
+  let raw: unknown;
+  try {
+    raw = await page.evaluate(() => {
       const win = globalThis as unknown as {
         document: {
           querySelector(sel: string): {
@@ -837,220 +1234,72 @@ async function readErrorBanner(
       const el = win.document.querySelector(
         '[data-testid="copilot-error-banner"]',
       );
-      if (!el) return { visible: false };
+      if (!el) return { state: "absent" } as const;
       const style = win.getComputedStyle(el);
       if (style.display === "none" || style.visibility === "hidden") {
-        return { visible: false };
+        return { state: "absent" } as const;
       }
       const rect = el.getBoundingClientRect();
       if (rect.width === 0 && rect.height === 0) {
-        return { visible: false };
+        return { state: "absent" } as const;
       }
       return {
-        visible: true,
+        state: "visible" as const,
         // FULL text — see docstring. Truncation happens only when shaping
-        // the thrown AssistantErroredError message, never on the value
-        // compared across polls to re-arm fast-fail.
+        // the thrown error messages, never on the value compared across
+        // polls to re-arm fast-fail.
         text: el.textContent ?? "",
       };
     });
-  } catch {
-    return { visible: false };
+  } catch (err) {
+    const detail = errorMessage(err).slice(0, 120);
+    // CVDIAG: surface the unreadable banner read so it's greppable. We do
+    // NOT collapse to `absent` — see docstring.
+    console.warn(
+      formatCvdiag({
+        component: "conversation-runner",
+        boundary: "inbound",
+        status: "error",
+        error: `error-banner read failed: ${detail}`,
+      }),
+    );
+    return { state: "unreadable", detail };
   }
-}
-
-/**
- * Block until the assistant-message count has grown past `baselineCount`
- * AND remained stable for `settleMs`, OR until `timeoutMs` elapses.
- * Returns the final stable count on success. Throws a `timeout` Error
- * on deadline.
- *
- * Algorithm: poll at `POLL_INTERVAL_MS`. Track `lastChangeAt` — the
- * timestamp of the most recent count change. If the current poll's
- * count is positive, has surpassed baseline, and `now - lastChangeAt
- * >= settleMs`, the response has settled.
- *
- * Fast-fail (ONE unified rule). Each poll also checks the chat error banner
- * (`[data-testid="copilot-error-banner"]`). We snapshot the banner's
- * visibility AND text ONCE at the turn's baseline (`bannerVisibleAtBaseline`,
- * `bannerTextAtBaseline`), then each poll compute a single boolean:
- *
- *   errorStateNow = banner.visible &&
- *                   (!bannerVisibleAtBaseline ||
- *                    banner.text !== bannerTextAtBaseline)
- *
- * i.e. "an error banner is present in a state that DIFFERS from baseline".
- * This single condition covers BOTH a brand-new banner (none at baseline)
- * AND a persisted banner whose text changed — and it stays true even if the
- * banner text keeps mutating each poll (a retry countdown, a live timestamp,
- * a rotating request-id), because it only requires "differs from baseline",
- * not a stable exact value across polls.
- *
- * We fast-fail (throw `AssistantErroredError`) only when ALL of:
- *   (a) `errorStateNow` is true on 2 CONSECUTIVE polls. A single consecutive
- *       counter debounces BOTH the new-banner and changed-banner cases; any
- *       poll where `errorStateNow` is false resets it to 0. A single isolated
- *       differs-from-baseline poll (a transient toast flicker, a one-poll
- *       text glitch on a succeeding turn) therefore does NOT fire.
- *   (b) the assistant has NOT produced a response this turn — the message
- *       count has NOT grown past `baselineCount`. Success-in-flight wins: if
- *       `current > baselineCount`, we never fast-fail (a non-fatal warning
- *       banner alongside a real answer must not force-fail the turn); the
- *       settle path governs instead.
- *
- * CopilotKit error banners persist across turns, so a stale same-text banner
- * left over from a prior turn keeps `errorStateNow` false (text == baseline,
- * banner was visible at baseline) and is intentionally NOT treated as this
- * turn's error. The full (untruncated) banner text is compared — truncation
- * applies only to the thrown message (`BANNER_MESSAGE_MAX_LENGTH`) — so two
- * errors diverging only after the first 300 chars still differ from baseline.
- *
- * Inherent (now much smaller) limitation: a differs-from-baseline state that
- * flickers true for only single ISOLATED polls (never 2 in a row) won't fire,
- * and a brand-new error whose banner text is byte-identical to a persisted
- * stale banner cannot be distinguished from it (both keep `errorStateNow`
- * false). Both fall back to the settle/timeout path. This is intended.
- */
-async function waitForAssistantSettled(opts: {
-  page: Page;
-  baselineCount: number;
-  settleMs: number;
-  timeoutMs: number;
-}): Promise<number> {
-  const { page, baselineCount, settleMs, timeoutMs } = opts;
-  const deadline = Date.now() + timeoutMs;
-  let lastCount = await readMessageCount(page);
-  let lastChangeAt = Date.now();
-  let pollCount = 0;
-  let lastLoggedCount = lastCount;
-  // Snapshot the error banner's visibility AND text ONCE BEFORE this turn's
-  // response arrives. A pre-existing (stale) banner must not be mistaken for
-  // this turn's error — but because CopilotKit banners persist across turns,
-  // a boolean "was it visible" snapshot alone would disable fast-fail for the
-  // whole turn whenever any banner lingered. Capturing the text lets the
-  // unified `errorStateNow` condition re-arm on a NEW or text-CHANGED banner
-  // even while a stale same-text banner is still on screen.
-  const baselineBanner = await readErrorBanner(page);
-  const bannerVisibleAtBaseline = baselineBanner.visible;
-  const bannerTextAtBaseline = baselineBanner.text;
-  // Single debounce counter shared by BOTH the new-banner and changed-banner
-  // cases: the number of CONSECUTIVE polls on which `errorStateNow` has been
-  // true. Any poll where `errorStateNow` is false resets it to 0. Fast-fail
-  // fires once it reaches 2 — see the unified rule in the docstring above.
-  let consecutiveErrorPolls = 0;
-
-  console.debug("[conversation-runner] waitForAssistantSettled — start", {
-    baselineCount,
-    initialCount: lastCount,
-    settleMs,
-    timeoutMs,
-    bannerVisibleAtBaseline,
-    bannerTextAtBaseline,
-  });
-
-  while (Date.now() < deadline) {
-    await sleep(POLL_INTERVAL_MS);
-
-    const current = await readMessageCount(page);
-    pollCount++;
-
-    // Unified fast-fail rule. Compute a single boolean: an error banner is
-    // present in a state that DIFFERS from baseline (a brand-new banner, OR a
-    // persisted banner whose text changed). This stays true even if the text
-    // keeps mutating each poll, since it only requires "differs from
-    // baseline", not a stable exact value.
-    const banner = await readErrorBanner(page);
-    const errorStateNow =
-      banner.visible &&
-      (!bannerVisibleAtBaseline || banner.text !== bannerTextAtBaseline);
-
-    // Condition (b): success-in-flight wins. If the assistant produced a
-    // response this turn (count grew past baseline), NEVER fast-fail — a
-    // non-fatal warning banner alongside a real answer must not force-fail
-    // the turn; the settle path governs. A produced response also disarms
-    // the consecutive-error counter so a banner that appears only after the
-    // response can't retroactively fire.
-    if (current > baselineCount) {
-      consecutiveErrorPolls = 0;
-    } else if (errorStateNow) {
-      // Condition (a): require 2 CONSECUTIVE differs-from-baseline polls
-      // before fast-failing, so a single isolated flicker (a transient toast,
-      // a one-poll text glitch on a succeeding turn) does not raise a spurious
-      // error.
-      consecutiveErrorPolls++;
-      if (consecutiveErrorPolls >= 2) {
-        console.debug(
-          "[conversation-runner] waitForAssistantSettled — error banner differs from baseline across 2 consecutive polls (no response produced), fast-failing",
-          {
-            baselineCount,
-            lastCount,
-            current,
-            pollCount,
-            elapsedMs: Date.now() - (deadline - timeoutMs),
-            bannerText: banner.text,
-            baselineBannerText: bannerTextAtBaseline,
-            bannerVisibleAtBaseline,
-          },
-        );
-        throw new AssistantErroredError(banner.text);
-      }
-    } else {
-      // No differing error state this poll → disarm the debounce.
-      consecutiveErrorPolls = 0;
+  // Validate the shape — tests (and a future older browser-side script)
+  // may return arbitrary values. Anything that isn't the new union shape
+  // is treated as "absent" so we never trip on a stale fake.
+  if (raw && typeof raw === "object" && "state" in raw) {
+    const r = raw as { state: unknown; text?: unknown; detail?: unknown };
+    if (r.state === "absent") return { state: "absent" };
+    if (r.state === "visible") {
+      const text = typeof r.text === "string" ? r.text : "";
+      return { state: "visible", text };
     }
-
-    if (current !== lastCount) {
-      console.debug(
-        "[conversation-runner] waitForAssistantSettled — message count changed",
-        {
-          previous: lastCount,
-          current,
-          baselineCount,
-          pollCount,
-          elapsedMs: Date.now() - (deadline - timeoutMs),
-        },
-      );
-      lastCount = current;
-      lastLoggedCount = current;
-      lastChangeAt = Date.now();
-      continue;
-    }
-    // Stable. Settled iff (a) we've grown past baseline AND (b) the
-    // quiet window has elapsed. "Stable at baseline" means no response
-    // arrived yet — keep polling.
-    if (current > baselineCount && Date.now() - lastChangeAt >= settleMs) {
-      console.debug("[conversation-runner] waitForAssistantSettled — settled", {
-        count: current,
-        baselineCount,
-        quietWindowMs: Date.now() - lastChangeAt,
-        totalPollCount: pollCount,
-        totalElapsedMs: Date.now() - (deadline - timeoutMs),
-      });
-      return current;
-    }
-    // Log a periodic status when still waiting at baseline (every ~5s)
-    if (current === lastLoggedCount && pollCount % 50 === 0) {
-      console.debug(
-        "[conversation-runner] waitForAssistantSettled — still polling",
-        {
-          current,
-          baselineCount,
-          pollCount,
-          elapsedMs: Date.now() - (deadline - timeoutMs),
-          remainingMs: deadline - Date.now(),
-        },
-      );
+    if (r.state === "unreadable") {
+      const detail = typeof r.detail === "string" ? r.detail : "";
+      return { state: "unreadable", detail };
     }
   }
-  console.debug("[conversation-runner] waitForAssistantSettled — TIMEOUT", {
-    baselineCount,
-    lastCount,
-    timeoutMs,
-    totalPollCount: pollCount,
-  });
-  throw new Error(
-    `timeout: assistant did not respond within ${timeoutMs}ms (baseline=${baselineCount}, current=${lastCount})`,
-  );
+  // Back-compat: a fake (or legacy browser script) that still returns
+  // the old `{ visible, text? }` shape gets translated into the new
+  // union so the SUT sees a consistent contract.
+  if (raw && typeof raw === "object" && "visible" in raw) {
+    const r = raw as { visible: unknown; text?: unknown };
+    if (r.visible === true) {
+      const text = typeof r.text === "string" ? r.text : "";
+      return { state: "visible", text };
+    }
+    return { state: "absent" };
+  }
+  // Unknown shape — a stale browser-side script returned something we
+  // don't recognize. Per the `ErrorBannerReadResult` docstring, callers
+  // MUST NOT collapse an unknown read into `absent` (that would silently
+  // disarm fast-fail); surface as `unreadable` with a short shape summary
+  // so the failure is observable.
+  const detail = (
+    "unknown shape from browser-side reader: " + safeStringifyShape(raw)
+  ).slice(0, 200);
+  return { state: "unreadable", detail };
 }
 
 function sleep(ms: number): Promise<void> {
@@ -1060,4 +1309,288 @@ function sleep(ms: number): Promise<void> {
 function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
   return String(err);
+}
+
+// ============================================================
+// waitForTurnComplete — 3-conjunct turn-complete primitive (s8)
+// ============================================================
+//
+// Composes three INDEPENDENT readiness signals into one settle gate
+// for a single turn (1-based ordinal):
+//
+//   1. SSE   — `window.__hk_runsFinished >= turnIndex`. The s7 SSE
+//              interceptor increments this counter on each RUN_FINISHED
+//              event; reaching the turn ordinal proves the server has
+//              flushed its terminal event for THIS turn.
+//   2. DOM   — the bubble at strict index `turnIndex - 1` exists under
+//              the shared assistant-message cascade. Strict-index — not
+//              "last bubble" — because the runner has already seen
+//              earlier bubbles and we need turn-local resolution to
+//              avoid the "previous turn's text leaks into this turn's
+//              assertions" race that motivated this overhaul.
+//   3. TEXT  — that bubble's `textContent` is non-empty AND has been
+//              stable for `settleMs` ms across consecutive polls. The
+//              non-empty guard preserves the defect-1 invariant: an
+//              empty pre-paint placeholder must NOT be treated as
+//              settled regardless of how long it stays empty.
+//
+// All three conjuncts must hold simultaneously on the same poll for
+// the primitive to return — partial-truth states (DOM without SSE,
+// SSE without text, etc.) keep polling until either everything aligns
+// or `timeoutMs` elapses.
+//
+// On timeout we throw `TurnNotCompleteError` with a classified reason
+// (sse-missing > dom-missing > text-unstable, in order of precedence
+// — the precedence reflects "blame the earliest signal that hadn't
+// arrived" so the error message points the operator at the right
+// upstream layer). Callers MUST treat the throw as a real failure;
+// silently swallowing here defeats the purpose of the gate (see
+// fail-loud-discipline upstream).
+//
+// This is the SOLE settle primitive for the conversation runner —
+// `runConversation` calls it directly each turn and consumes its
+// `{ bubbleIndex, text }` result as the assertions ctx. The prior
+// count-baseline `waitForAssistantSettled` gate was deleted alongside
+// this cutover (Phase 5 of the bubble-race-fix plan).
+
+/** Options accepted by `waitForTurnComplete`. */
+export interface WaitForTurnCompleteOpts {
+  page: Page;
+  /** 1-based turn ordinal — the Nth user->assistant exchange in the conversation. */
+  turnIndex: number;
+  /** Quiescence window the bubble's textContent must hold steady before returning. */
+  settleMs: number;
+  /** Hard ceiling. Beyond this we throw `TurnNotCompleteError`. */
+  timeoutMs: number;
+  /** Optional poll cadence. Default 100ms — fast enough for fast-replay aimock. */
+  pollIntervalMs?: number;
+  /**
+   * Pre-turn baseline error-banner text snapshot. CopilotKit error banners
+   * persist across turns — a banner already visible at THIS turn's baseline
+   * is a stale leftover from a prior turn, NOT a fresh fast-fail signal. The
+   * fast-fail debounce keys on "current banner text differs from baseline"
+   * rather than mere visibility, so a stale same-text banner is ignored and
+   * a NEW or text-CHANGED banner re-arms the fast-fail. `null` means no
+   * banner was visible at baseline → any fresh banner is a candidate; a
+   * string means a banner WAS visible at baseline and only a different text
+   * (or a fresh visible-after-absent) counts as a candidate.
+   */
+  baselineBannerText?: string | null;
+  /**
+   * Pre-turn baseline assistant-bubble count snapshot. Captured by the
+   * runner BEFORE the user message is submitted so the gate can detect
+   * "a new bubble appeared for THIS turn" without assuming "1 turn = 1
+   * bubble" (multi-step agents — LangGraph, Mastra, CrewAI — emit
+   * 2-3+ bubbles per turn: tool-call + tool-render + final-text).
+   *
+   * Defect-2 protection: the gate requires `count > baselineCount` so a
+   * leftover bubble from a prior turn cannot be misread as this turn's
+   * response. The settled bubble is then the LAST in the matched cascade
+   * tier (read via `readCascadeStateLast`) — for a multi-step turn that's
+   * the agent's final-text bubble whose scoped text settles cleanly; for
+   * a single-bubble turn that's the only new bubble.
+   *
+   * When omitted, defaults to `turnIndex - 1` to preserve the
+   * pre-multi-step-fix semantics (1 bubble per turn) — used by unit-test
+   * fakes that script count progressions keyed to turn ordinals.
+   */
+  baselineCount?: number;
+}
+
+/** Result of a successful `waitForTurnComplete`. */
+export interface WaitForTurnCompleteResult {
+  /** 0-based DOM index of the resolved bubble (= turnIndex - 1). */
+  bubbleIndex: number;
+  /** Untruncated textContent of the resolved bubble at the moment of return. */
+  text: string;
+}
+
+/**
+ * Thrown by `waitForTurnComplete` when `timeoutMs` elapses without all
+ * three conjuncts holding. The `reason` field classifies which signal
+ * was missing at the FINAL post-loop read (precedence: sse-missing >
+ * dom-missing > text-unstable). Carries `turnIndex` + `observedAtMs`
+ * (elapsed time inside the loop) so callers + log scrapers can build
+ * structured diagnostics without re-parsing the message.
+ */
+export class TurnNotCompleteError extends Error {
+  constructor(
+    readonly reason: "sse-missing" | "dom-missing" | "text-unstable",
+    readonly turnIndex: number,
+    readonly observedAtMs: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "TurnNotCompleteError";
+  }
+}
+
+/**
+ * Read the page-side SSE-run counter set by `attachSseInterceptor`.
+ * Returns 0 if the counter hasn't been seeded yet (pre-navigation) or
+ * if the `evaluate` itself fails — both are equivalent to "no run has
+ * finished" from the primitive's vantage.
+ */
+async function readRunsFinished(page: Page): Promise<number> {
+  try {
+    return await page.evaluate(
+      () =>
+        (globalThis as unknown as { __hk_runsFinished?: number })
+          .__hk_runsFinished ?? 0,
+    );
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Block until ALL THREE of the following are true for turn `turnIndex`:
+ *   1. SSE:  window.__hk_runsFinished >= turnIndex
+ *   2. DOM:  the bubble at bubbleIndex = turnIndex - 1 exists under the
+ *            shared cascade (countAssistantMessages > turnIndex - 1)
+ *   3. TEXT: that bubble's textContent is non-empty AND has been stable
+ *            for settleMs across consecutive polls
+ *
+ * AND, as a pre-conjunct fast-fail guard: if the `copilot-error-banner`
+ * is observed VISIBLE for 2 consecutive polls (debounced — a single-poll
+ * flicker is ignored) AND no response has yet been produced for this turn
+ * (the DOM bubble for this turnIndex isn't there yet, so the assistant
+ * hasn't streamed), the primitive short-circuits with `BannerVisibleError`
+ * instead of burning the full `timeoutMs`. The runner translates that to
+ * `AssistantErroredError` so #5142's fast-fail surface persists.
+ *
+ * Throws `TurnNotCompleteError` when any conjunct fails to converge
+ * inside `timeoutMs`. The reason field is classified by the post-loop
+ * read with precedence sse-missing > dom-missing > text-unstable, so
+ * the operator sees the earliest-failing signal in the message.
+ */
+export async function waitForTurnComplete(
+  opts: WaitForTurnCompleteOpts,
+): Promise<WaitForTurnCompleteResult> {
+  const { page, turnIndex, settleMs, timeoutMs } = opts;
+  const baselineBannerText = opts.baselineBannerText ?? null;
+  const pollIntervalMs = opts.pollIntervalMs ?? POLL_INTERVAL_MS;
+  // Defect-2 sentinel: per-turn baseline count of assistant bubbles already
+  // in the DOM BEFORE this turn submitted. The gate requires
+  // `count > baselineCount` so a leftover bubble from a prior turn cannot
+  // be misread as this turn's response. Defaults to `turnIndex - 1` for
+  // backward compat with unit-test fakes that script count progressions
+  // keyed to turn ordinals; production callers (the runner) snapshot the
+  // real pre-submit count and pass it explicitly. See the multi-bubble
+  // hotfix: multi-step agents (LangGraph, Mastra, CrewAI) emit 2-3+
+  // bubbles per turn, so "turn N = N bubbles" no longer holds.
+  const baselineCount = opts.baselineCount ?? turnIndex - 1;
+  const startedAt = Date.now();
+  // Track the last observed text per-poll so we can measure how long
+  // the bubble has been stable. `null` is a distinct "no bubble yet"
+  // state — different from the empty-string placeholder, so flipping
+  // null -> "" resets the stability window (and "" -> "" stays stable
+  // but the non-empty guard below keeps the gate closed).
+  let lastText: string | null = null;
+  let lastChangeAt = startedAt;
+  // Banner fast-fail debounce: how many consecutive polls have seen
+  // the banner in a DIFFERS-FROM-BASELINE state (visible AND its text
+  // differs from `baselineBannerText`, or visible when baseline was
+  // absent). We require 2 consecutive differs polls before short-circuiting
+  // so a single-poll flicker (transient toast, render glitch, countdown
+  // tick on a persisted banner) cannot spuriously fast-fail a turn that's
+  // actually settling. A poll where the banner matches baseline (same
+  // stale text) resets the counter — the banner is not a fresh error.
+  let consecutiveBannerDiffersFromBaseline = 0;
+  let lastBannerText = "";
+  const pwPage = page as unknown as PlaywrightPage;
+  while (Date.now() - startedAt < timeoutMs) {
+    const runsFinished = await readRunsFinished(page);
+    // Atomic single-evaluate read: `readCascadeStateLast` returns BOTH the
+    // count and the text of the LAST bubble in the matched cascade tier in
+    // ONE browser-side round-trip. The "last bubble" semantics is the
+    // multi-bubble hotfix: multi-step agents (LangGraph, Mastra, CrewAI)
+    // emit a tool-call bubble + tool-render bubble + final-text bubble
+    // per turn; only the LAST bubble's scoped text (`.cpk\:prose` etc.)
+    // is non-empty. The strict-index `turnIndex - 1` semantics this
+    // replaces landed on intermediate tool-call bubbles whose scoped
+    // selectors were empty forever → text-stable timeout across most
+    // multi-step demos.
+    const { count, text } = await readCascadeStateLast(pwPage);
+    const now = Date.now();
+    if (text !== lastText) {
+      lastText = text;
+      lastChangeAt = now;
+    }
+    const sseOk = runsFinished >= turnIndex;
+    // Defect-2 protection: a new bubble has appeared for THIS turn — not
+    // just "any bubble exists". `count > baselineCount` rejects a leftover
+    // bubble from a prior turn while accepting multi-step turns where >1
+    // bubble appears (we still want the LAST of the new arrivals).
+    const domOk = count > baselineCount;
+    const textOk =
+      text !== null && text.trim().length > 0 && now - lastChangeAt >= settleMs;
+    if (sseOk && domOk && textOk) {
+      // bubbleIndex returned = last bubble in the matched tier at the
+      // moment of return, so callers consuming the assertions ctx see the
+      // same bubble whose text settled the gate.
+      return { bubbleIndex: count - 1, text: text! };
+    }
+    // Pre-conjunct banner fast-fail guard. We ONLY fire fast-fail when the
+    // assistant hasn't yet produced a response for THIS turn (domOk =
+    // false) — a banner alongside a real response is success-in-flight and
+    // must not trip fast-fail. The 2-consecutive-differs-from-baseline
+    // debounce gates a single-poll flicker AND a stale same-text persisted
+    // banner. A banner matching baseline (same stale text) resets the
+    // counter so it cannot accumulate a spurious fast-fail. `unreadable`
+    // also resets (we don't know the banner state, so we can't honestly
+    // count this poll as differing).
+    if (!domOk) {
+      const banner = await readErrorBanner(page);
+      if (banner.state === "visible") {
+        // "Differs from baseline" = (a) baseline was absent and we now see
+        // a banner, OR (b) baseline was visible but with a different text.
+        const differsFromBaseline =
+          baselineBannerText === null || banner.text !== baselineBannerText;
+        if (differsFromBaseline) {
+          consecutiveBannerDiffersFromBaseline += 1;
+          lastBannerText = banner.text;
+          if (consecutiveBannerDiffersFromBaseline >= 2) {
+            throw new BannerVisibleError(lastBannerText);
+          }
+        } else {
+          // Banner visible but identical to baseline — a stale persisted
+          // banner from a prior turn. NOT a fresh error signal; reset the
+          // debounce so a later flicker on top of the stale text still
+          // needs 2 consecutive differs polls to fire.
+          consecutiveBannerDiffersFromBaseline = 0;
+        }
+      } else {
+        // Either `absent` or `unreadable` — reset the debounce. We don't
+        // treat `unreadable` as "still differs" because that would let a
+        // single transient page.evaluate throw arm fast-fail with a stale
+        // last-seen banner text we can't trust.
+        consecutiveBannerDiffersFromBaseline = 0;
+      }
+    } else {
+      // Success-in-flight (assistant has produced a response this turn):
+      // the banner is now ignored — disarm the debounce so a late banner
+      // does not race the settle path.
+      consecutiveBannerDiffersFromBaseline = 0;
+    }
+    await new Promise((r) => setTimeout(r, pollIntervalMs));
+  }
+  // Re-read the final state to classify the failure. We do NOT reuse
+  // the loop's last-seen snapshot — a race where the world settled
+  // exactly between the last poll and the deadline should classify as
+  // "we didn't see it in time", which the final read reproduces faithfully.
+  const runsFinishedFinal = await readRunsFinished(page);
+  const countFinal = await countAssistantMessages(pwPage);
+  const reason: TurnNotCompleteError["reason"] =
+    runsFinishedFinal < turnIndex
+      ? "sse-missing"
+      : countFinal <= baselineCount
+        ? "dom-missing"
+        : "text-unstable";
+  throw new TurnNotCompleteError(
+    reason,
+    turnIndex,
+    Date.now() - startedAt,
+    `waitForTurnComplete: turn ${turnIndex} did not complete within ${timeoutMs}ms (reason=${reason}, runsFinished=${runsFinishedFinal}, count=${countFinal})`,
+  );
 }

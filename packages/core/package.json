@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.59.4",
+  "version": "1.60.1",
   "description": "Core web utilities for CopilotKit2",
   "repository": {
     "type": "git",
@@ -35,7 +35,7 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.53",
+    "@ag-ui/client": "0.0.57",
     "@copilotkit/shared": "workspace:*",
     "@tanstack/pacer": "^0.20.1",
     "phoenix": "^1.8.4",

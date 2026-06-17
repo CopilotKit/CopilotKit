@@ -25,10 +25,19 @@ from typing import Any, AsyncIterator, List, Optional, Set, Union
 # import time, so the patch must be in place before those imports run.
 from agents._header_forwarding import (
     HeaderForwardingHTTPMiddleware,
+    install_executor_contextvar_propagation,
     install_global_httpx_hook,
 )
 
 install_global_httpx_hook()
+# Agno dispatches SYNC tools (e.g. the declarative gen-ui `generate_a2ui`
+# tool, which makes a secondary OpenAI call) onto the default
+# ThreadPoolExecutor via loop.run_in_executor(...), which does NOT
+# propagate ContextVars to the worker thread. Without this, the
+# forwarded-header ContextVar set on the inbound request task is empty by
+# the time the secondary call's outbound httpx hook fires, and aimock
+# can't match the right fixture for the request.
+install_executor_contextvar_propagation()
 
 import dotenv
 from ag_ui.core import (
@@ -112,38 +121,67 @@ def _convert_agui_messages(messages: List[AGUIMessage]) -> List[Message]:
     """Convert AG-UI messages to Agno messages (full conversation).
 
     Mirrors the old `convert_agui_messages_to_agno_messages` from
-    agno < 2.5.17. Keeps assistant tool_calls only when a matching
-    tool-result message exists, so the LLM always sees complete pairs.
+    agno < 2.5.17. The LLM (and OpenAI's API) requires assistant
+    ``tool_calls`` and their ``tool`` results to stay paired: an
+    orphan ``tool`` message with no matching assistant ``tool_calls``
+    is rejected with a 400, and an assistant ``tool_calls`` whose
+    result never arrived confuses the model. So we drop orphans on
+    BOTH sides together, keeping only complete pairs.
+
+    A ``tool`` message with a falsy ``tool_call_id`` (empty string, or
+    ``None`` if the message bypassed pydantic validation) can never be
+    paired, so it is skipped consistently across both passes — never
+    added to the result and never allowed to poison dedup.
     """
-    # First pass: collect tool_call_ids that have results
-    tool_ids_with_results: Set[str] = set()
+    # First pass: collect the tool_call ids that BOTH sides agree on —
+    # an id that appears on an assistant ``tool_calls`` AND on a ``tool``
+    # result message. Only these ids yield a complete, emittable pair.
+    assistant_tool_call_ids: Set[str] = set()
+    tool_result_ids: Set[str] = set()
     for msg in messages:
         if msg.role == "tool" and msg.tool_call_id:
-            tool_ids_with_results.add(msg.tool_call_id)
+            tool_result_ids.add(msg.tool_call_id)
+        elif msg.role == "assistant" and msg.tool_calls:
+            for tc in msg.tool_calls:
+                if tc.id:
+                    assistant_tool_call_ids.add(tc.id)
+
+    paired_ids: Set[str] = assistant_tool_call_ids & tool_result_ids
 
     result: List[Message] = []
     seen_tool_ids: Set[str] = set()
 
     for msg in messages:
         if msg.role == "tool":
-            if msg.tool_call_id in seen_tool_ids:
+            tool_call_id = msg.tool_call_id
+            # Drop orphans: falsy ids can never pair, and an id with no
+            # matching assistant tool_call would be a 400 from OpenAI.
+            if not tool_call_id or tool_call_id not in paired_ids:
                 continue
-            seen_tool_ids.add(msg.tool_call_id)
+            # Dedup retained ids only — falsy ids were already skipped,
+            # so they can no longer poison this set.
+            if tool_call_id in seen_tool_ids:
+                continue
+            seen_tool_ids.add(tool_call_id)
             result.append(
                 Message(
                     role="tool",
-                    tool_call_id=msg.tool_call_id,
+                    tool_call_id=tool_call_id,
                     content=msg.content,
                 )
             )
         elif msg.role == "assistant":
             tool_calls = None
             if msg.tool_calls:
-                filtered = [
-                    tc for tc in msg.tool_calls if tc.id in tool_ids_with_results
-                ]
+                # Keep only tool_calls whose result is present (paired).
+                filtered = [tc for tc in msg.tool_calls if tc.id in paired_ids]
                 if filtered:
                     tool_calls = [tc.model_dump(exclude_none=True) for tc in filtered]
+            if not msg.content and tool_calls is None:
+                # Drop an empty assistant turn (no content + all tool_calls
+                # orphaned): OpenAI rejects {role:"assistant"} with neither
+                # content nor tool_calls, and it pollutes HITL history.
+                continue
             result.append(
                 Message(
                     role="assistant",
@@ -474,21 +512,60 @@ def _attach_agent_config_route(app: FastAPI, prefix: str) -> None:
 #
 # This custom handler:
 #   1. Runs the agent with reasoning=False (single LLM call)
-#   2. Collects the streamed text content
-#   3. Parses <reasoning>...</reasoning> tags from the text
-#   4. Emits REASONING_MESSAGE_* events for the reasoning block
+#   2. Captures the model's NATIVE reasoning channel — OpenAI-compatible
+#      chat-completions stream a `delta.reasoning_content` field which Agno's
+#      OpenAIChat model surfaces on each `RunContentEvent.reasoning_content`.
+#      That is the channel aimock fixtures populate (via their `reasoning`
+#      field), and it is what reasoning models emit in production. Agno's
+#      AGUI stream mapper (`async_stream_agno_response_as_agui_events`) DROPS
+#      that channel entirely, so we tee the raw stream to accumulate it.
+#   3. Collects the streamed text content (the answer)
+#   4. Emits REASONING_MESSAGE_* events for the reasoning block — preferring
+#      the native channel, then falling back to <reasoning>...</reasoning>
+#      tag parsing of the text for no-native-reasoning fixtures
 #   5. Emits TEXT_MESSAGE_* events for the answer
 #
-# If no <reasoning> tags are found, the entire response is emitted as a
-# text message (graceful fallback for aimock fixtures that return plain
-# text containing reasoning keywords).
+# Mirrors the claude-sdk-python /reasoning handler, which forwards Anthropic
+# `thinking`/`thinking_delta` blocks as REASONING_MESSAGE_* directly. The
+# emitted channel is REASONING_MESSAGE_* (role "reasoning") — NOT THINKING_*,
+# which @ag-ui/client silently drops.
 
 import re
+
+from agno.run.agent import RunEvent
 
 _REASONING_PATTERN = re.compile(
     r"<reasoning>(.*?)</reasoning>",
     re.DOTALL | re.IGNORECASE,
 )
+
+
+async def _tee_native_reasoning(
+    # Carries Agno run events (RunContentEvent etc.) plus the terminal
+    # RunOutput — NOT AG-UI's BaseEvent. Annotated ``Any`` because Agno's
+    # concrete union (``RunOutputEvent | RunOutput``) does not line up with
+    # the ``RunOutputEvent | TeamRunOutputEvent`` the downstream AGUI mapper
+    # consumes, and a precise annotation here only moves the mismatch.
+    response_stream: AsyncIterator[Any],
+    reasoning_sink: dict,
+) -> AsyncIterator[Any]:
+    """Pass an Agno run stream through verbatim, accumulating the model's
+    native ``reasoning_content`` channel into ``reasoning_sink["text"]``.
+
+    OpenAI-compatible providers (and aimock fixtures' ``reasoning`` field)
+    stream reasoning as ``delta.reasoning_content`` deltas, which Agno's
+    ``OpenAIChat`` model surfaces on each ``RunContentEvent.reasoning_content``.
+    Agno's AGUI stream mapper ignores that field, so we capture it here while
+    forwarding every chunk untouched to the downstream mapper. No chunk is
+    consumed or altered — the mapper still produces TEXT/TOOL events exactly
+    as before; we only read the reasoning side-channel.
+    """
+    async for chunk in response_stream:
+        if getattr(chunk, "event", None) == RunEvent.run_content:
+            delta = getattr(chunk, "reasoning_content", None)
+            if delta:
+                reasoning_sink["text"] = reasoning_sink.get("text", "") + delta
+        yield chunk
 
 
 async def _run_reasoning_agent(
@@ -522,52 +599,87 @@ async def _run_reasoning_agent(
         )
 
         # Collect the full text from the agent stream — we need to see the
-        # complete response to split reasoning from answer. We still forward
-        # tool-call events in real-time (important for the reasoning-chain
-        # demo that interleaves reasoning with tool rendering).
+        # complete response before we can split reasoning from answer, so
+        # text and tool-call events are BUFFERED here and flushed after the
+        # reasoning/answer split below (tool events are NOT interleaved with
+        # the text in real time; they are emitted after the answer bubble).
         full_text = ""
         tool_events: list[BaseEvent] = []
 
+        # Tee the raw Agno stream to capture the model's native reasoning
+        # channel (`RunContentEvent.reasoning_content`) — the channel aimock
+        # fixtures populate and that the AGUI mapper drops. Accumulated here,
+        # preferred over <reasoning>-tag parsing below.
+        native_reasoning: dict = {}
+
         async for event in async_stream_agno_response_as_agui_events(
-            response_stream=response_stream,  # type: ignore[arg-type]
+            response_stream=_tee_native_reasoning(
+                response_stream,
+                native_reasoning,
+            ),
             thread_id=thread_id,
             run_id=run_id,
         ):
             if event.type in (EventType.RUN_STARTED, EventType.RUN_FINISHED):
                 continue
+            # Propagate an inner-stream error instead of silently dropping
+            # it — otherwise the run would report success with an empty or
+            # partial message. Forward the RUN_ERROR and stop the run.
+            if event.type == EventType.RUN_ERROR:
+                yield event
+                return
             # Accumulate text content
             if event.type == EventType.TEXT_MESSAGE_CONTENT:
                 full_text += event.delta  # type: ignore[attr-defined]
-            # Forward tool-call events immediately
+            # Buffer tool-call events; they're flushed after the answer.
+            # TOOL_CALL_RESULT must be buffered too — the reasoning agent has
+            # tools, and dropping the result loses the tool-result render in
+            # the reasoning-chain demo. Results follow their START/ARGS/END so
+            # the post-answer flush order below preserves correct sequencing.
             elif event.type in (
                 EventType.TOOL_CALL_START,
                 EventType.TOOL_CALL_ARGS,
                 EventType.TOOL_CALL_END,
+                EventType.TOOL_CALL_RESULT,
             ):
                 tool_events.append(event)
             # Skip text start/end — we'll re-emit with reasoning split
 
-        # Parse <reasoning>...</reasoning> tags
-        match = _REASONING_PATTERN.search(full_text)
+        native_reasoning_text = (native_reasoning.get("text") or "").strip()
 
-        if match:
-            reasoning_text = match.group(1).strip()
-            answer_text = (
-                full_text[: match.start()] + full_text[match.end() :]
-            ).strip()
+        if native_reasoning_text:
+            # Native reasoning channel present (reasoning model / aimock
+            # `reasoning` fixture field). This is the production path and the
+            # gold-standard parity channel — use it directly. The answer is
+            # the streamed text minus any stray <reasoning> tags (defensive:
+            # a native-reasoning fixture shouldn't also embed tags, but strip
+            # them so they never leak into the visible answer bubble).
+            reasoning_text = native_reasoning_text
+            answer_text = _REASONING_PATTERN.sub("", full_text).strip()
         else:
-            # Fallback: check for "Reasoning:" prefix pattern (aimock fixtures)
-            lower = full_text.lower()
-            if lower.startswith("reasoning:") or lower.startswith("reasoning step"):
-                # Treat the whole text as containing reasoning — emit as
-                # reasoning message so the ReasoningBlock renders, then
-                # re-emit as a text message so CopilotKit's conversation
-                # view has an assistant bubble the D5 probe can read.
-                reasoning_text = full_text.strip()
-                answer_text = full_text.strip()
+            # Fallback: parse <reasoning>...</reasoning> tags from the text
+            # (no-native-reasoning fixtures / non-reasoning models).
+            match = _REASONING_PATTERN.search(full_text)
+
+            if match:
+                reasoning_text = match.group(1).strip()
+                answer_text = (
+                    full_text[: match.start()] + full_text[match.end() :]
+                ).strip()
             else:
-                reasoning_text = ""
-                answer_text = full_text.strip()
+                # Fallback: check for "Reasoning:" prefix pattern (aimock
+                # fixtures)
+                lower = full_text.lower()
+                if lower.startswith("reasoning:") or lower.startswith("reasoning step"):
+                    # Treat the whole text as containing reasoning — emit as
+                    # reasoning message so the ReasoningBlock renders, then
+                    # re-emit as a text message so CopilotKit's conversation
+                    # view has an assistant bubble the D5 probe can read.
+                    reasoning_text = full_text.strip()
+                    answer_text = full_text.strip()
+                else:
+                    reasoning_text = ""
+                    answer_text = full_text.strip()
 
         # Emit reasoning message if we have reasoning content
         if reasoning_text:
@@ -672,7 +784,9 @@ agent_os = AgentOS(
     interfaces=[
         # main_agent is mounted separately below via _attach_hitl_aware_route
         # so it can forward tool results for HITL round-trips.
-        AGUI(agent=reasoning_agent, prefix="/reasoning"),
+        # reasoning_agent is mounted separately below via
+        # _attach_reasoning_route so /reasoning/agui emits REASONING_MESSAGE_*
+        # events instead of the stock AGUI STEP_STARTED/STEP_FINISHED.
         # No-tools agent for the MCP Apps cell. The CopilotKit runtime's
         # `mcpApps.servers` middleware injects MCP server tools at request
         # time, so the LLM only sees the MCP-provided toolset.
@@ -713,6 +827,13 @@ _attach_hitl_aware_route(app, main_agent, "")
 # `schedule_meeting` via `useFrontendTool` with an async Promise handler.
 _attach_hitl_aware_route(app, interrupt_agent, "/interrupt-adapted")
 
+# Reasoning-aware route. Replaces the stock AGUI interface
+# (``AGUI(agent=reasoning_agent, prefix="/reasoning")``) so /reasoning/agui
+# emits REASONING_MESSAGE_* events (what CopilotKit's
+# CopilotChatReasoningMessage / custom reasoning slots render) instead of the
+# stock STEP_STARTED/STEP_FINISHED events.
+_attach_reasoning_route(app, reasoning_agent, "/reasoning")
+
 # State-aware routes (bidirectional shared state via StateSnapshotEvent).
 # Mounted directly on the AgentOS FastAPI app so they share routing and
 # CORS with the stock AGUI interfaces above.
@@ -749,9 +870,32 @@ app.add_middleware(HeaderForwardingHTTPMiddleware)
 
 
 def main():
-    """Run the uvicorn server."""
+    """Run the uvicorn server.
+
+    ``loop="asyncio"`` pins uvicorn's event-loop factory to the stdlib
+    ``asyncio`` loop instead of letting its default ``loop="auto"`` select
+    uvloop (installed transitively via ``uvicorn[standard]``). This is
+    load-bearing for header forwarding on the SECONDARY OpenAI call inside
+    the sync ``generate_a2ui`` tool: agno dispatches that sync tool onto a
+    worker thread via ``loop.run_in_executor(...)``, and
+    ``install_executor_contextvar_propagation()`` (called at import time)
+    only propagates the forwarded-header ContextVar into that worker thread
+    when the loop is a stdlib ``BaseEventLoop`` subclass. Under uvloop the
+    shim is inert (uvloop's loop is not a ``BaseEventLoop``), so the
+    ContextVar is empty in the executor thread and the secondary call drops
+    ``x-aimock-context`` → aimock 503. ``AgentOS.serve(**kwargs)`` forwards
+    ``loop`` straight through to ``uvicorn.run``. The prod entrypoint, which
+    launches uvicorn via its CLI rather than this ``serve`` path, pins the
+    same loop via ``--loop asyncio`` in ``entrypoint.sh``.
+    """
     port = int(os.getenv("PORT", "8000"))
-    agent_os.serve(app="agent_server:app", host="0.0.0.0", port=port, reload=True)
+    agent_os.serve(
+        app="agent_server:app",
+        host="0.0.0.0",
+        port=port,
+        reload=True,
+        loop="asyncio",
+    )
 
 
 if __name__ == "__main__":

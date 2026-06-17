@@ -674,11 +674,29 @@ module Railway
             end
 
             # 3. For each service, fetch its serviceInstance for this env.
-            #    Some services may not exist in this env (returns nil); skip them.
+            #    Some services may not exist in this env. Railway signals that
+            #    two different ways for the SAME underlying condition:
+            #      (a) the field resolves to null (`serviceInstance` => nil), or
+            #      (b) the query THROWS `GraphQL: ServiceInstance not found`
+            #          (a half-deleted service that still appears in the project
+            #          service list but has no instance in this env).
+            #    Both mean "this service has no instance here" — skip it and keep
+            #    going. We deliberately scope the rescue to ONLY that message so
+            #    every other GraphQL failure (auth, rate-limit, schema drift,
+            #    transient 5xx surfaced as a GraphQL error) still propagates
+            #    fail-loud. Otherwise a single odd service aborts the whole
+            #    snapshot — and with it the whole promote — before any preflight
+            #    runs (see run 27144525566).
             services = []
             service_nodes.each do |node|
-                instance_data = gql.query(SERVICE_INSTANCE_QUERY,
-                    serviceId: node["id"], envId: env_id)
+                begin
+                    instance_data = gql.query(SERVICE_INSTANCE_QUERY,
+                        serviceId: node["id"], envId: env_id)
+                rescue GraphQL::Error => e
+                    raise unless e.message.include?("ServiceInstance not found")
+                    warn "skipping service #{node['name'].inspect} (#{node['id']}): no serviceInstance in this env (#{e.message})"
+                    next
+                end
                 inst = instance_data["serviceInstance"]
                 next if inst.nil?
 
@@ -1118,13 +1136,16 @@ module Railway
                         digest resolved from staging's :latest tag. Only valid with a
                         positional SERVICE; errors otherwise.
 
-                      MOVES: image digests (resolved to @sha256: at promote time);
-                             autoUpdate=disabled flag.
-                      VERIFY-REFUSE: service-set parity, critical env-key parity,
-                             startCommand parity, PB superuser auth,
-                             PB collection parity, cross-env URL leak scan.
-                      WARN: missing/extra custom domains, sealed-var heuristics.
-                      IGNORE: env-scoped URLs, volumes.
+                      MOVES: pins prod image to the staging digest (resolved to
+                             @sha256: at promote time) and redeploys.
+                      VERIFY-REFUSE: P1 staging digest exists in GHCR, P2 latest
+                             staging deployment succeeded (+ in-flight race),
+                             P3 staging live-green probe, P6 startCommand/
+                             healthcheckPath/image-shape parity, service-set
+                             parity, critical env-key parity.
+                      WARN: P6 region/replicas/restartPolicy/env-key-set
+                             divergence, missing expected prod custom domains.
+                      IGNORE: env var VALUES, env-scoped URLs, volumes.
 
                       Exit 0 on clean promotion, 1 on refuse/findings, 2 on error.
                 BANNER
@@ -1183,9 +1204,10 @@ module Railway
             #   (1) check_expected_prod_domains diffs the fleet-wide
             #       EXPECTED_DOMAINS against the union of custom_domains
             #       in `prod["services"]`. Narrowed prod carries at most
-            #       one service's domains → the other ~4 fleet hosts look
-            #       "missing" → spurious WARN → run_with_preflight_only
-            #       refuses (workflow doesn't pass --confirm-divergence).
+            #       one service's domains → the remaining fleet hosts (the
+            #       other 4 of the 5 public prod hosts) look "missing" →
+            #       spurious WARN → run_with_preflight_only refuses
+            #       (workflow doesn't pass --confirm-divergence).
             #   (2) check_service_set_parity is a fleet-shape invariant
             #       (no env has services the other lacks); evaluating it
             #       on the narrowed pair makes it tautological when both
@@ -1295,7 +1317,7 @@ module Railway
             # produce the same verdict regardless of whether this run is
             # full-fleet or restricted to a single service. See `run` for
             # the fleet_* rationale.
-            findings.concat(check_service_set_parity(fleet_staging, fleet_prod))
+            findings.concat(check_service_set_parity(fleet_staging, fleet_prod, target: options[:service]))
             findings.concat(check_critical_env_key_parity(target_staging, target_prod))
             findings.concat(check_expected_prod_domains(fleet_prod))
 
@@ -1607,16 +1629,33 @@ module Railway
         def image_shape(ref)
             return :missing if ref.nil? || ref.empty?
             return :digest  if ref.include?("@sha256:")
-            return :tag     if ref.include?(":") && ref.split(":", 2).last !~ /\A\s*\z/
+            return :tag     if ref.include?(":") && ref.rsplit_colon.last.to_s !~ /\A\s*\z/
             :other
         end
 
-        def check_service_set_parity(staging, prod)
+        def check_service_set_parity(staging, prod, target: nil)
             findings = []
             s_names = (staging["services"] || []).map { |s| s["name"] }.sort
             p_names = (prod["services"] || []).map { |s| s["name"] }.sort
-            findings << "REFUSE: services in staging not in prod: #{(s_names - p_names).join(', ')}" unless (s_names - p_names).empty?
-            findings << "REFUSE: services in prod not in staging: #{(p_names - s_names).join(', ')}" unless (p_names - s_names).empty?
+            staging_only = s_names - p_names
+            prod_only    = p_names - s_names
+            # For a single-service promote, the ONLY parity violation that must
+            # REFUSE is one involving the TARGET itself — in BOTH directions:
+            #   - target in staging but not prod (the silent-rc=0 footgun:
+            #     narrowed prod would skip the absent target with no mutation);
+            #   - target in prod but not staging (the mirror case).
+            # Unrelated services that exist in only one env (harness-workers,
+            # starter-* demos staging-only; a deprecated prod-only service) are
+            # legitimately single-env and are not this promote's concern, so we
+            # scope BOTH arms to the target. Full-fleet promotes (target nil)
+            # retain full-strictness parity on both arms — there, any env-shape
+            # asymmetry across the whole fleet is a genuine REFUSE.
+            if target
+                staging_only = staging_only & [target]
+                prod_only    = prod_only & [target]
+            end
+            findings << "REFUSE: services in staging not in prod: #{staging_only.join(', ')}" unless staging_only.empty?
+            findings << "REFUSE: services in prod not in staging: #{prod_only.join(', ')}" unless prod_only.empty?
             findings
         end
 
@@ -1733,7 +1772,7 @@ module Railway
             unless image.include?("@sha256:")
                 digest = ghcr.resolve_digest(image)
                 Railway.die!("Could not resolve digest for #{image}.") unless digest
-                base = image.split(":", 2).first
+                base = image.rsplit_colon.first
                 image = "#{base}@#{digest}"
             end
 

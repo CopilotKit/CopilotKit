@@ -89,6 +89,16 @@
           }
         ]
       }
+    },
+    {
+      "_comment": "interrupt-headless — 'Book an intro call' content fallback for the no-tools turn. The toolName:schedule_meeting fixtures above only match when schedule_meeting is in the tool list; the headless flow also issues a turn with tools:[], so the model cannot emit a tool call and those fixtures are skipped → strict 503. This ungated content-only fallback covers that turn and is loop-safe (no toolCalls).",
+      "match": {
+        "userMessage": "Book an intro call with the sales team to discuss pricing",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "content": "I've started booking an intro call with the sales team to discuss pricing — pick one of the proposed times to confirm."
+      }
     }
   ]
 }

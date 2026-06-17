@@ -67,6 +67,14 @@ export type CellRenderer = (ctx: CellContext) => React.ReactNode;
  * When the SSE stream is down (`connection === "error"`) we return all-zero —
  * the column header falls back to an "unknown" rendering so stale counts
  * don't read as authoritative while the dashboard is offline.
+ *
+ * Likewise during the INITIAL load — `connection === "connecting"` with an
+ * empty `liveStatus` map (the first PocketBase fetch hasn't resolved yet) — we
+ * return `loading: true` (also `unknown: true`). Without this guard the header
+ * renders authoritative `✓0 ~0 ✗0` while data is merely in flight, which reads
+ * as "every cell is at depth 0" — a lie. `loading` lets the header show a
+ * loading affordance instead of fake zeros. Once any rows arrive (even mid
+ * reconnect) the tally is authoritative again.
  */
 export function computeColumnTally(
   integration: Integration,
@@ -74,9 +82,21 @@ export function computeColumnTally(
   liveStatus: LiveStatusMap,
   connection: ConnectionStatus = "live",
   now: number = Date.now(),
-): { green: number; amber: number; red: number; unknown: boolean } {
+): {
+  green: number;
+  amber: number;
+  red: number;
+  unknown: boolean;
+  loading: boolean;
+} {
   if (connection === "error") {
-    return { green: 0, amber: 0, red: 0, unknown: true };
+    return { green: 0, amber: 0, red: 0, unknown: true, loading: false };
+  }
+
+  // Initial-load window: connecting AND no rows yet. Surface a loading state
+  // (which the header treats as unknown) instead of authoritative zeros.
+  if (connection === "connecting" && liveStatus.size === 0) {
+    return { green: 0, amber: 0, red: 0, unknown: true, loading: true };
   }
 
   let green = 0;
@@ -106,7 +126,7 @@ export function computeColumnTally(
     // gray → skip (no data / unsupported / unwired)
   }
 
-  return { green, amber, red, unknown: false };
+  return { green, amber, red, unknown: false, loading: false };
 }
 
 /**
@@ -120,12 +140,38 @@ export function computeColumnTallyDetail(
   integration: Integration,
   features: Feature[],
   liveStatus: LiveStatusMap,
-  connection: ConnectionStatus,
+  connection: ConnectionStatus = "live",
   now: number = Date.now(),
 ): TallyDetail {
   if (connection === "error") {
-    return { green: [], amber: [], red: [], unknown: true };
+    return {
+      green: [],
+      amber: [],
+      red: [],
+      unknown: true,
+      loading: false,
+      stale: false,
+    };
   }
+
+  // Initial-load window: connecting AND no rows yet — mirror computeColumnTally.
+  if (connection === "connecting" && liveStatus.size === 0) {
+    return {
+      green: [],
+      amber: [],
+      red: [],
+      unknown: true,
+      loading: true,
+      stale: false,
+    };
+  }
+
+  // Reconnect-with-rows window: connecting AND rows already exist. The counts
+  // below are AUTHORITATIVE (real signal already arrived), but the feed is
+  // mid-reconnect so they may be behind the live state — mark `stale` so the
+  // header renders the counts in a muted treatment (distinct from the no-rows
+  // `loading` affordance). Mutually exclusive with `loading` above.
+  const stale = connection === "connecting" && liveStatus.size > 0;
 
   const green: TallyItem[] = [];
   const amber: TallyItem[] = [];
@@ -157,13 +203,19 @@ export function computeColumnTallyDetail(
     // this dimension agrees with the rendered gated D6 badge: when the ladder is
     // broken below D6, d6Effective collapses to null (no D6-specific failure to
     // attribute — the real lower-rung failure surfaces through D5/D4 below).
+    //
+    // D5 clause: a present D5 failure (red/stale-amber) is a "health" failure,
+    // AND an AMBER chip with a green D5 is also "health" — amber means the
+    // ladder is intact through a green D5 but D6 is not yet green (awaiting the
+    // live parity/conversation confirmation), which is a live-signal surface,
+    // not a page-load one. So the chip-is-amber/D5-green case classifies health.
     const dimension: TallyItem["dimension"] =
       (model.d6?.exists &&
         model.d6Effective !== null &&
         model.d6Effective !== "green") ||
       (model.d5?.exists &&
         model.d5.status !== null &&
-        model.d5.status !== "green") ||
+        (model.d5.status !== "green" || model.chipColor === "amber")) ||
       (model.d4?.exists &&
         model.d4.status !== null &&
         model.d4.status !== "green")
@@ -181,7 +233,7 @@ export function computeColumnTallyDetail(
     else if (model.chipColor === "red") red.push(item);
   }
 
-  return { green, amber, red, unknown: false };
+  return { green, amber, red, unknown: false, loading: false, stale };
 }
 
 /**
@@ -570,6 +622,13 @@ export interface FeatureGridProps {
   /** Aggregated SSE connection status (lifted to page). */
   connection: ConnectionStatus;
   /**
+   * True when the live feed is flapping / partially degraded (from
+   * `useLiveStatus().degraded`). Surfaced in the header `LiveIndicator` as a
+   * distinct degraded treatment. Defaults to `false` so callers that don't
+   * wire it keep the original three-state indicator.
+   */
+  degraded?: boolean;
+  /**
    * Single frozen reference time shared with the page's cells/stats (computed
    * once per render in dashboard-page.tsx, re-sampled on live-status change or
    * the 60s tick). Threaded so the column tallies derive staleness from the
@@ -591,6 +650,7 @@ export function FeatureGrid({
   minColWidth = 220,
   liveStatus,
   connection,
+  degraded = false,
   now = Date.now(),
   overlays,
   catalog,
@@ -715,7 +775,7 @@ export function FeatureGrid({
       <header className="mb-3">
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-          <LiveIndicator status={connection} />
+          <LiveIndicator status={connection} degraded={degraded} />
           {deprecatedCount > 0 && (
             <label
               data-testid="show-deprecated-toggle"
@@ -763,11 +823,16 @@ export function FeatureGrid({
               </th>
               {showRefDepth && <RefDepthHeader />}
               {integrations.map((integration) => {
+                // Fail-safe default: a missing tally must render the
+                // loading/offline affordance, NEVER authoritative ✓0 ~0 ✗0
+                // (the "fake-zero lie" §5.3 guards against). Default toward
+                // "we don't know" (unknown+loading), not "everything is zero".
                 const tally = tallies.get(integration.slug) ?? {
                   green: 0,
                   amber: 0,
                   red: 0,
-                  unknown: false,
+                  unknown: true,
+                  loading: true,
                 };
 
                 // Overlay-aware header when overlays prop is provided
@@ -787,11 +852,13 @@ export function FeatureGrid({
 
                 // Legacy header rendering (backwards compat when overlays not provided)
                 const total = tally.green + tally.amber + tally.red;
-                const tallyTitle = tally.unknown
-                  ? "dashboard offline — live signal unavailable (§5.3)"
-                  : total
-                    ? `${tally.green} green · ${tally.amber} amber · ${tally.red} red of ${total} countable signals (D4 per feature; Health counted once per integration)`
-                    : "no countable signals for this column";
+                const tallyTitle = tally.loading
+                  ? "loading — waiting for the first live signal"
+                  : tally.unknown
+                    ? "dashboard offline — live signal unavailable (§5.3)"
+                    : total
+                      ? `${tally.green} green · ${tally.amber} amber · ${tally.red} red of ${total} countable signals (D4 per feature; Health counted once per integration)`
+                      : "no countable signals for this column";
                 return (
                   <th
                     key={integration.slug}
@@ -814,7 +881,11 @@ export function FeatureGrid({
                       className="mt-1 text-[10px] tabular-nums text-[var(--text-muted)]"
                       title={tallyTitle}
                     >
-                      {tally.unknown ? (
+                      {tally.loading ? (
+                        <span className="text-[var(--text-muted)] animate-pulse">
+                          … loading
+                        </span>
+                      ) : tally.unknown ? (
                         <span className="text-[var(--text-muted)]">
                           ? offline
                         </span>
@@ -888,30 +959,65 @@ export function FeatureGrid({
  *   live       → green solid
  *   error      → red solid (paired with offline banner)
  *
+ * DEGRADED OVERRIDE: when the feed is flapping / partially degraded
+ * (`degraded` from `useLiveStatus`), the indicator shows a DISTINCT
+ * "degraded" treatment that takes visual precedence over the steady
+ * connection state — an amber ping-pulse dot labeled "degraded". The stream
+ * is technically up (so it is NOT the red "offline" state) but unreliable, so
+ * it must read differently from a clean green "live" or a steady amber
+ * "connecting". `degraded` defaults to `false` so existing callers that pass
+ * only `status` keep the original three-state behavior.
+ *
  * Exported for unit-testable color-map coverage.
  */
-export function LiveIndicator({ status }: { status: ConnectionStatus }) {
-  const dotClass =
-    status === "live"
+export function LiveIndicator({
+  status,
+  degraded = false,
+}: {
+  status: ConnectionStatus;
+  degraded?: boolean;
+}) {
+  // Degraded takes precedence over the steady connection state — the feed is
+  // up but flapping, which must read distinctly from live/connecting/offline.
+  // EXCEPTION: a terminal `error` (hard offline, paired with the red
+  // OfflineBanner) is strictly worse than flapping and must outrank `degraded`.
+  // Gating the override on `status !== "error"` prevents a self-contradicting
+  // amber "degraded — feed is up" indicator stacked on the red "offline"
+  // banner; when the feed has terminally failed the indicator reads "offline".
+  const showDegraded = degraded && status !== "error";
+  const dotClass = showDegraded
+    ? "bg-[var(--amber)] animate-ping"
+    : status === "live"
       ? "bg-[var(--ok)]"
       : status === "connecting"
         ? "bg-[var(--amber)] animate-pulse"
         : "bg-[var(--danger)]";
-  const label =
-    status === "live"
+  const label = showDegraded
+    ? "degraded"
+    : status === "live"
       ? "live"
       : status === "connecting"
         ? "connecting"
         : "offline";
+  const tone = showDegraded
+    ? "amber"
+    : status === "live"
+      ? "green"
+      : status === "connecting"
+        ? "amber"
+        : "red";
   return (
     <span
       data-testid="live-indicator"
       data-status={status}
-      data-tone={
-        status === "live" ? "green" : status === "connecting" ? "amber" : "red"
-      }
+      data-degraded={showDegraded}
+      data-tone={tone}
       className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]"
-      title={`Live data: ${label}`}
+      title={
+        showDegraded
+          ? `Live data: ${label} — feed is flapping / partially degraded`
+          : `Live data: ${label}`
+      }
     >
       <span className={`inline-block w-2 h-2 rounded-full ${dotClass}`} />
       <span>{label}</span>
