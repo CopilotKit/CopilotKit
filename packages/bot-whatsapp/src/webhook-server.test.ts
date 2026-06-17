@@ -129,4 +129,16 @@ describe("WebhookServer", () => {
       await server.stop();
     }
   });
+
+  it("responds 200 ok to GET / for health checks", async () => {
+    const server = new WebhookServer({ path: "/webhook", verifyToken: "V", appSecret: "S", onEvent: async () => {} });
+    await server.start(0);
+    try {
+      const res = await get(server, "/");
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("ok");
+    } finally {
+      await server.stop();
+    }
+  });
 });

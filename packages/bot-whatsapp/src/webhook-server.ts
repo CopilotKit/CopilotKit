@@ -45,6 +45,14 @@ export class WebhookServer {
 
   private handle(req: IncomingMessage, res: ServerResponse): void {
     const url = new URL(req.url ?? "/", "http://localhost");
+    // Health check — gives the Railway public domain a 200 to hit. The webhook
+    // itself lives at `this.args.path`; everything else 404s as before.
+    if (req.method === "GET" && url.pathname === "/") {
+      res.statusCode = 200;
+      res.setHeader("content-type", "text/plain");
+      res.end("ok");
+      return;
+    }
     if (url.pathname !== this.args.path) {
       res.statusCode = 404;
       res.end();
