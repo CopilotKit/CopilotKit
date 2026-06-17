@@ -1,14 +1,22 @@
-# slack-example — on-call triage assistant
+# bot-example — on-call triage assistant (Slack &/or Discord)
 
-A runnable demo for [`@copilotkit/bot-slack`](../../packages/bot-slack): a
-Slack bot that turns incident chatter into tracked work. It's built with
-[`@copilotkit/bot`](../../packages/bot) (the platform-agnostic bot core),
-the Slack adapter, and [`@copilotkit/bot-ui`](../../packages/bot-ui) (a
-cross-platform JSX vocabulary for rich messages). It connects to **Linear**
-and **Notion** over MCP and can:
+A runnable demo for [`@copilotkit/bot-slack`](../../packages/bot-slack) **and**
+[`@copilotkit/bot-discord`](../../packages/bot-discord): an on-call triage bot
+that turns incident chatter into tracked work. It's built with
+[`@copilotkit/bot`](../../packages/bot) (the platform-agnostic bot core), one or
+both platform adapters, and [`@copilotkit/bot-ui`](../../packages/bot-ui) (a
+cross-platform JSX vocabulary for rich messages).
+
+**One app, either platform — or both at once.** `createBot` takes an array of
+adapters; `app/index.ts` includes the Slack adapter when `SLACK_*` secrets are
+present and the Discord adapter when `DISCORD_*` are present. Everything else in
+`app/` (tools, components, the `confirm_write` HITL gate, chart/diagram/table
+rendering) is platform-agnostic and shared verbatim — set the secrets for
+whichever platform(s) you want and run the same process. It connects to
+**Linear** and **Notion** over MCP and can:
 
 - **Query Linear** — _"what's open in CPK this cycle?"_ → renders issues
-  as a rich Block Kit card.
+  as a rich card (Block Kit on Slack, Components V2 on Discord).
 - **File a Linear issue** — _"file this thread as a bug"_ → drafts the
   issue, asks you to **confirm**, then creates it.
 - **Find Notion pages** — _"find the runbook for the auth outage"_ →
@@ -202,24 +210,41 @@ model is `openai/gpt-5.5` (override with `AGENT_MODEL`).
 
 ## Local run
 
-Four pieces: the **Slack app** (created once), the optional **Notion MCP
-sidecar**, the **agent** (`runtime.ts`), and the **bot** (`app/`).
+Pieces: the **chat-platform app(s)** (Slack and/or Discord, created once), the
+optional **Notion MCP sidecar**, the **agent** (`runtime.ts`), and the **bot**
+(`app/`). Set up whichever platform(s) you want — the bot starts an adapter for
+each one whose secrets are present (so you can run Slack-only, Discord-only, or
+both from one process).
 
-### 1. Slack app
+### 1a. Slack app (set `SLACK_*` to enable Slack)
 
 - <https://api.slack.com/apps?new_app=1> → **From a manifest** → paste
   `slack-app-manifest.yaml`.
 - _OAuth & Permissions_ → **Install to Workspace** → copy the `xoxb-`
-  bot token.
+  bot token (`SLACK_BOT_TOKEN`).
 - _Basic Information → App-Level Tokens_ → generate one with
-  `connections:write` → copy the `xapp-` app token.
+  `connections:write` → copy the `xapp-` app token (`SLACK_APP_TOKEN`).
+
+### 1b. Discord app (set `DISCORD_*` to enable Discord)
+
+- <https://discord.com/developers/applications> → **New Application**.
+- **Bot** → copy the token (`DISCORD_BOT_TOKEN`); under **Privileged Gateway
+  Intents** enable **both** **Message Content** and **Server Members** — both
+  are required or the Gateway login is rejected.
+- **General Information** → copy the **Application ID** (`DISCORD_APP_ID`).
+- **OAuth2 → URL Generator** → scopes `bot` + `applications.commands`,
+  permissions Send Messages / Read Message History / Use Slash Commands /
+  Embed Links → open the URL to add it to your server. Optionally set
+  `DISCORD_GUILD_ID` (your server id) so slash commands register instantly
+  during dev.
 
 ### 2. Credentials
 
 ```bash
 cp .env.example .env
-# Fill in:
-#   SLACK_BOT_TOKEN / SLACK_APP_TOKEN
+# Fill in (set SLACK_* and/or DISCORD_* — whichever platform(s) you want):
+#   SLACK_BOT_TOKEN / SLACK_APP_TOKEN          (to run on Slack)
+#   DISCORD_BOT_TOKEN / DISCORD_APP_ID         (to run on Discord; DISCORD_GUILD_ID optional)
 #   OPENAI_API_KEY  (or ANTHROPIC_API_KEY / GOOGLE_API_KEY + AGENT_MODEL)
 #   LINEAR_API_KEY          (linear.app → Settings → API → Personal API keys)
 #   NOTION_TOKEN            (notion.so → Settings → Connections → integrations)
@@ -312,6 +337,11 @@ processes, and every connection is env-driven. Deploy the runtime and bot,
 set the same env vars, and (for Notion) run the
 `@notionhq/notion-mcp-server` sidecar alongside the runtime with
 `NOTION_MCP_URL` pointed at it.
+
+A complete, copy-pasteable recipe for **Railway** — two services (runtime +
+bot), private networking, env-var split, and auto-deploy on push — lives in
+[`RAILWAY.md`](./RAILWAY.md). The Dockerfiles (`Dockerfile.runtime`,
+`Dockerfile.bot`) and `railway.*.toml` it references are in this directory.
 
 > **Deploying from this monorepo (e.g. Railway):** this example depends on the
 > published `@copilotkit/bot*` packages (`package.json`), so a standalone build
