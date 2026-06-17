@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { GoogleChatConversationStore } from "./conversation-store.js";
+import {
+  GoogleChatConversationStore,
+  isBotStatusOrPlaceholder,
+} from "./conversation-store.js";
 
 function makeStore(messages: any[]) {
   const client = { listMessages: vi.fn(async () => messages) } as any;
@@ -91,5 +94,20 @@ describe("GoogleChatConversationStore.getOrCreate", () => {
     expect(captured.messages).toHaveLength(2);
     expect(captured.messages[0]).toMatchObject({ role: "user", content: "what can you do?" });
     expect(captured.messages[1]).toMatchObject({ role: "assistant", content: "I can help with many things." });
+  });
+});
+
+describe("isBotStatusOrPlaceholder", () => {
+  it("matches tool-status rows and stream placeholders", () => {
+    expect(isBotStatusOrPlaceholder("🔧 `search`…")).toBe(true);
+    expect(isBotStatusOrPlaceholder("✅ `search`")).toBe(true);
+    expect(isBotStatusOrPlaceholder("_thinking…_")).toBe(true);
+    expect(isBotStatusOrPlaceholder("_…(continued)_")).toBe(true);
+  });
+
+  it("does not match real reply text", () => {
+    expect(isBotStatusOrPlaceholder("Here is the answer.")).toBe(false);
+    expect(isBotStatusOrPlaceholder("thinking about it")).toBe(false);
+    expect(isBotStatusOrPlaceholder("")).toBe(false);
   });
 });

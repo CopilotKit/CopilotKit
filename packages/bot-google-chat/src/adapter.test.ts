@@ -7,7 +7,7 @@ function makeAdapter() {
     createMessage: vi.fn(async () => ({ name: "spaces/A/messages/M1" })),
     patchMessage: vi.fn(async () => {}),
     deleteMessage: vi.fn(async () => {}),
-    listMessages: vi.fn(async () => []),
+    listMessages: vi.fn(async () => [] as any[]),
     uploadAttachment: vi.fn(async () => ({ ok: true, fileId: "f1" })),
   };
   const adapter = new GoogleChatAdapter({ googleChatProjectNumber: "123" });
@@ -87,6 +87,35 @@ describe("GoogleChatAdapter", () => {
     const args = chatClient.listMessages.mock.calls[0] as any[];
     expect(args[0]).toBe("spaces/A");
     expect(args[1]).toBeUndefined();
+  });
+
+  it("getMessages() excludes bot status/placeholder rows but keeps real turns", async () => {
+    const { adapter, chatClient } = makeAdapter();
+    chatClient.listMessages.mockResolvedValueOnce([
+      { name: "m1", text: "hello bot", sender: { type: "HUMAN", name: "users/u1" } },
+      { name: "m2", text: "Here is the answer.", sender: { type: "BOT", name: "users/bot" } },
+      { name: "m3", text: "🔧 `search`…", sender: { type: "BOT", name: "users/bot" } },
+      { name: "m4", text: "✅ `search`", sender: { type: "BOT", name: "users/bot" } },
+      { name: "m5", text: "_thinking…_", sender: { type: "BOT", name: "users/bot" } },
+      { name: "m6", text: "_…(continued)_", sender: { type: "BOT", name: "users/bot" } },
+    ] as any[]);
+    const msgs = await adapter.getMessages({ space: "spaces/A" } as unknown);
+    expect(msgs).toEqual([
+      { text: "hello bot", isBot: false, user: { id: "users/u1" } },
+      { text: "Here is the answer.", isBot: true, user: { id: "users/bot" } },
+    ]);
+  });
+
+  it("getMessages() keeps a human message even if its text matches a status marker", async () => {
+    const { adapter, chatClient } = makeAdapter();
+    // The status/placeholder filter only applies to BOT-authored rows.
+    chatClient.listMessages.mockResolvedValueOnce([
+      { name: "m1", text: "🔧 `search`…", sender: { type: "HUMAN", name: "users/u1" } },
+    ] as any[]);
+    const msgs = await adapter.getMessages({ space: "spaces/A" } as unknown);
+    expect(msgs).toEqual([
+      { text: "🔧 `search`…", isBot: false, user: { id: "users/u1" } },
+    ]);
   });
 
   it("postFile() threads the upload when target.thread is set", async () => {

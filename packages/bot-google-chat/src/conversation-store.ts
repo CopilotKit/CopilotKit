@@ -10,6 +10,27 @@ export interface AgentSession {
   replyTarget: ReplyTarget;
 }
 
+/**
+ * True when `text` is a run-renderer status row or stream placeholder that the
+ * bot posts to the surface but must NOT round-trip back into agent history.
+ *
+ * Markers emitted by event-renderer.ts / chunked-message-stream.ts:
+ *   🔧 `<tool>`…   — tool-call start row (onToolCallStartEvent)
+ *   ✅ `<tool>`    — tool-call end row (onToolCallEndEvent)
+ *   _thinking…_    — ChunkedMessageStream first-chunk placeholder
+ *   _…(continued)_ — ChunkedMessageStream continuation placeholder
+ *
+ * Caller must verify the message is from the bot before applying this filter.
+ */
+export function isBotStatusOrPlaceholder(text: string): boolean {
+  return (
+    text.startsWith("🔧 ") ||
+    text.startsWith("✅ ") ||
+    text === "_thinking…_" ||
+    text === "_…(continued)_"
+  );
+}
+
 interface AgentMessage {
   id: string;
   role: "user" | "assistant";
@@ -55,28 +76,14 @@ export class GoogleChatConversationStore {
   }
 
   private translate(messages: ChatMessage[]): AgentMessage[] {
-    /**
-     * Skip bot messages that are run-renderer status rows or stream
-     * placeholders — they must not round-trip back into agent history.
-     *
-     * Markers emitted by event-renderer.ts / chunked-message-stream.ts:
-     *   🔧 `<tool>`…   — tool-call start row (onToolCallStartEvent)
-     *   ✅ `<tool>`    — tool-call end row (onToolCallEndEvent)
-     *   _thinking…_    — ChunkedMessageStream first-chunk placeholder
-     *   _…(continued)_ — ChunkedMessageStream continuation placeholder
-     */
-    const isStatusOrPlaceholder = (text: string): boolean =>
-      text.startsWith("🔧 ") ||
-      text.startsWith("✅ ") ||
-      text === "_thinking…_" ||
-      text === "_…(continued)_";
-
     const out: AgentMessage[] = [];
     for (const m of messages) {
       const isBot = m.sender?.type === "BOT" || m.sender?.name === this.botUserId;
       const text = (m.text ?? "").trim();
       if (!text) continue;
-      if (isBot && isStatusOrPlaceholder(text)) continue;
+      // Skip the run-renderer's own status rows / stream placeholders so they
+      // don't round-trip back into agent history (see isBotStatusOrPlaceholder).
+      if (isBot && isBotStatusOrPlaceholder(text)) continue;
       const role: "user" | "assistant" = isBot ? "assistant" : "user";
       const tail = out[out.length - 1];
       if (tail && tail.role === role) {

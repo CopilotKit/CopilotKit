@@ -13,7 +13,10 @@ import type {
 } from "@copilotkit/bot";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { BotNode, ThreadMessage } from "@copilotkit/bot-ui";
-import { GoogleChatConversationStore } from "./conversation-store.js";
+import {
+  GoogleChatConversationStore,
+  isBotStatusOrPlaceholder,
+} from "./conversation-store.js";
 import { routeChatEvent } from "./listener.js";
 import { createRunRenderer } from "./event-renderer.js";
 import { decodeInteraction } from "./interaction.js";
@@ -265,11 +268,18 @@ export class GoogleChatAdapter implements PlatformAdapter {
         t.space,
         t.thread ? { threadName: t.thread } : undefined,
       );
-      return messages.map((m) => ({
-        text: m.text ?? "",
-        isBot: m.sender?.type === "BOT",
-        user: m.sender?.name ? { id: m.sender.name } : undefined,
-      }));
+      return messages
+        .filter((m) => {
+          // Mirror conversation-store.translate: drop the bot's own status rows
+          // and stream placeholders so both read paths agree on history.
+          const isBot = m.sender?.type === "BOT";
+          return !(isBot && isBotStatusOrPlaceholder((m.text ?? "").trim()));
+        })
+        .map((m) => ({
+          text: m.text ?? "",
+          isBot: m.sender?.type === "BOT",
+          user: m.sender?.name ? { id: m.sender.name } : undefined,
+        }));
     } catch (err) {
       console.warn("[bot-google-chat] getMessages failed for", t.space, err);
       return [];
