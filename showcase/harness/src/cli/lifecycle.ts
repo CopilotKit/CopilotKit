@@ -294,14 +294,7 @@ export async function up(
       // Call 1: bring up all services (no build, cached images).
       compose(...profileArgs, "up", "-d", ...verboseFlag);
       // Call 2: rebuild target slug(s) and ensure they're up.
-      compose(
-        ...profileArgs,
-        "up",
-        "-d",
-        "--build",
-        ...verboseFlag,
-        ...slugs,
-      );
+      compose(...profileArgs, "up", "-d", "--build", ...verboseFlag, ...slugs);
     } else {
       // Infra-only: single call with blanket --build for first-time bootstrap.
       compose(...profileArgs, "up", "-d", "--build", ...verboseFlag);
