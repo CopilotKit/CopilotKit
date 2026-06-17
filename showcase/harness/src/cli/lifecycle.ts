@@ -265,7 +265,27 @@ export async function up(
     }
 
     const verboseFlag = opts?.verbose ? ["--progress", "plain"] : [];
-    const args = [...profileArgs, "up", "-d", "--build", ...verboseFlag];
+    // Scope `--build` to the targeted slug(s) when provided. Without a
+    // positional service filter, `up -d --build` rebuilds EVERY service in
+    // every active profile (infra + slug profiles), which serializes BuildKit
+    // and stalls concurrent `--isolate` runs — slot N's full-stack rebuild
+    // contends with slot M's rebuild on the same daemon (issue #5495, A21).
+    //
+    // With positional slugs after `up`, compose only rebuilds the named
+    // services; everything else uses cached images and falls through to plain
+    // start. First-time bootstrap (no infra images) still works because
+    // compose builds missing images automatically — `--build` only FORCES a
+    // rebuild of services that already have an image. For a forced full
+    // rebuild, callers should use `rebuild()` (the `--rebuild` flag path).
+    const buildTargets = slugs.length > 0 ? slugs : [];
+    const args = [
+      ...profileArgs,
+      "up",
+      "-d",
+      "--build",
+      ...verboseFlag,
+      ...buildTargets,
+    ];
 
     log.info("starting services", { slugs: slugs.length ? slugs : ["infra"] });
     compose(...args);

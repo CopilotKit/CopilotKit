@@ -67,12 +67,14 @@ cmd_up() {
   local pool_count="${HARNESS_POOL_COUNT:-1}"
   export HARNESS_POOL_COUNT="$pool_count"
 
-  # Split args: bare slugs → `--profile <slug>`; flags (-*) → pass through.
-  # `--dev` is intercepted (not passed to compose): it layers the dev overlay
-  # (docker-compose.dev.yml) which bind-mounts integration source + overrides
-  # the run command to a hot-reload entrypoint — fast iteration without an
-  # image rebuild. The built-image mode (no --dev) stays the faithful default.
+  # Split args: bare slugs → `--profile <slug>` + build target; flags (-*) →
+  # pass through. `--dev` is intercepted (not passed to compose): it layers
+  # the dev overlay (docker-compose.dev.yml) which bind-mounts integration
+  # source + overrides the run command to a hot-reload entrypoint — fast
+  # iteration without an image rebuild. The built-image mode (no --dev) stays
+  # the faithful default.
   local profile_args=()
+  local build_targets=()
   local passthrough_args=()
   local dev_mode=false
   local arg
@@ -83,6 +85,7 @@ cmd_up() {
       passthrough_args+=("$arg")
     else
       profile_args+=(--profile "$arg")
+      build_targets+=("$arg")
     fi
   done
 
@@ -93,10 +96,18 @@ cmd_up() {
   fi
 
   info "Launching fleet topology: control-plane + ${pool_count} worker(s) + PocketBase + demos + aimock (HARNESS_POOL_COUNT=${pool_count})"
+  # Scope `--build` to the targeted slug(s) when provided. Without a positional
+  # service filter, `up -d --build` rebuilds EVERY service in every active
+  # profile (infra + slug profiles), which serializes BuildKit and stalls
+  # concurrent `--isolate` runs (issue #5495, A21). When no slugs are given
+  # (infra-only bring-up), the blanket `--build` is preserved so first-time
+  # bootstrap still builds whatever infra services are missing.
+  #
   # bash 3.2 (macOS default) errors on `${arr[@]}` for an EMPTY array under
   # `set -u`; the `${arr[@]+...}` guard expands to nothing when unset/empty.
   $compose_cmd --profile infra ${profile_args[@]+"${profile_args[@]}"} up -d --build \
-    --scale harness-pool-worker="$pool_count" ${passthrough_args[@]+"${passthrough_args[@]}"}
+    --scale harness-pool-worker="$pool_count" ${passthrough_args[@]+"${passthrough_args[@]}"} \
+    ${build_targets[@]+"${build_targets[@]}"}
 }
 
 cmd_down() {
