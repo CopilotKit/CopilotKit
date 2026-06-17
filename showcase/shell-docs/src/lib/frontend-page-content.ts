@@ -19,6 +19,17 @@ export function getFrontendUsingTheseDocsSlug(id: FrontendPageId): string {
   return `frontends/${id}/using-these-docs`;
 }
 
+const FRONTEND_REFERENCE_SLUGS = {
+  vue: "reference",
+  "react-native": "reference/react-native",
+  slack: "reference/bot",
+  teams: "reference",
+} satisfies Record<FrontendPageId, string>;
+
+export function getFrontendReferenceSlug(id: FrontendPageId): string {
+  return FRONTEND_REFERENCE_SLUGS[id];
+}
+
 function asShadowNode(node: NavNode): NavNode {
   if (node.type === "group") {
     return {
@@ -49,7 +60,7 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
     {
       type: "page",
       title: "Reference docs",
-      slug: "reference",
+      slug: getFrontendReferenceSlug(id),
     },
     {
       type: "page",

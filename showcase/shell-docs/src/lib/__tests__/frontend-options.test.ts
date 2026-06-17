@@ -11,6 +11,7 @@ import {
   FRONTEND_GUIDANCE_CONTENT_SLUG,
   FRONTEND_PAGE_IDS,
   getFrontendContentSlug,
+  getFrontendReferenceSlug,
   getFrontendUsingTheseDocsSlug,
   getFrontendQuickstartNavTree,
 } from "../frontend-page-content";
@@ -24,7 +25,7 @@ function flattenNavTree(tree: NavNode[]): NavNode[] {
 }
 
 describe("frontend options", () => {
-  it("keeps React as the full docs surface and routes other frontends to quickstarts", () => {
+  it("keeps React as the full docs surface and routes other frontends to their guides", () => {
     expect(frontendPathFor("react")).toBe("/");
     expect(frontendPathFor("vue")).toBe("/frontends/vue");
     expect(frontendPathFor("react-native")).toBe("/frontends/react-native");
@@ -33,7 +34,7 @@ describe("frontend options", () => {
     expect(frontendFromPathname("/langgraph-python/quickstart")).toBeNull();
   });
 
-  it("maps every non-React frontend to an MDX quickstart page", () => {
+  it("maps every non-React frontend to an MDX guide page", () => {
     const nonReactIds = FRONTEND_OPTIONS.filter(
       (option) => option.id !== "react",
     ).map((option) => option.id);
@@ -53,6 +54,15 @@ describe("frontend options", () => {
     );
   });
 
+  it("routes frontend sidebars to the most specific reference docs available", () => {
+    expect(getFrontendReferenceSlug("react-native")).toBe(
+      "reference/react-native",
+    );
+    expect(getFrontendReferenceSlug("slack")).toBe("reference/bot");
+    expect(getFrontendReferenceSlug("vue")).toBe("reference");
+    expect(getFrontendReferenceSlug("teams")).toBe("reference");
+  });
+
   it("keeps non-React frontend sidebars focused before shadowing React docs", () => {
     const navTree = getFrontendQuickstartNavTree("slack");
 
@@ -69,7 +79,7 @@ describe("frontend options", () => {
       {
         type: "page",
         title: "Reference docs",
-        slug: "reference",
+        slug: "reference/bot",
       },
       {
         type: "page",
