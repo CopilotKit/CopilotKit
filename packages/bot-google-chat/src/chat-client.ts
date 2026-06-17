@@ -68,16 +68,52 @@ export class ChatClient {
     await this.request(`/${name}`, { method: "DELETE" });
   }
 
-  async listMessages(space: string, pageSize = 100): Promise<ChatMessage[]> {
-    const res = await this.request(`/${space}/messages`, { method: "GET", query: { pageSize: String(pageSize) } });
+  /**
+   * List messages in a space, returning the MOST RECENT `pageSize` messages in
+   * chronological order (oldest→newest).
+   *
+   * Google Chat's `spaces.messages.list` defaults to `createTime ASC`, so a
+   * single page would return the OLDEST messages and never the recent turns —
+   * the opposite of useful context. We request `orderBy=createTime desc` to
+   * fetch the most-recent N, then reverse the page so the returned array is
+   * chronological (oldest→newest) while still containing the latest turns.
+   *
+   * A single page of the most-recent N is acceptable for v1 (no pagination).
+   *
+   * @param space The space resource name (e.g. `spaces/A`).
+   * @param opts.pageSize Max messages to fetch (default 100).
+   * @param opts.threadName When provided, scopes the listing to a single thread
+   *   via the Chat API `filter` param (`thread.name = "<threadName>"`). When
+   *   absent (DM scope), no filter is applied (whole space).
+   */
+  async listMessages(space: string, opts?: { pageSize?: number; threadName?: string }): Promise<ChatMessage[]> {
+    const pageSize = opts?.pageSize ?? 100;
+    const query: Record<string, string> = {
+      pageSize: String(pageSize),
+      orderBy: "createTime desc",
+    };
+    if (opts?.threadName) {
+      query.filter = `thread.name = "${opts.threadName}"`;
+    }
+    const res = await this.request(`/${space}/messages`, { method: "GET", query });
     const json = (await res.json()) as { messages?: ChatMessage[] };
-    return json.messages ?? [];
+    const messages = json.messages ?? [];
+    // Reverse so the most-recent N are returned chronologically (oldest→newest).
+    return messages.reverse();
   }
 
+  /**
+   * Upload a file as an attachment and post it as a message.
+   *
+   * @param opts.threadName When provided, the created attachment message is
+   *   posted into that thread (reusing the same threading mechanism as
+   *   `createMessage`), rather than as a top-level space message.
+   */
   async uploadAttachment(
     space: string,
     bytes: Uint8Array,
     filename: string,
+    opts?: { threadName?: string },
   ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
     try {
       const token = await this.tokenProvider.getToken();
@@ -111,13 +147,15 @@ export class ChatClient {
       }
 
       // Step 2: create a message referencing the uploaded attachment via the
-      // normal REST base.
-      const createRes = await this.request(`/${space}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ attachment: [{ attachmentDataRef }] }),
-      });
-      // Drain the body so the response is fully consumed (and surface failures).
-      await createRes.json().catch(() => undefined);
+      // normal REST base. Reuse `createMessage` so threading (thread + the
+      // messageReplyOption query param) stays consistent with text messages
+      // when a `threadName` is supplied — otherwise the file would post as a
+      // top-level space message instead of in the conversation thread.
+      await this.createMessage(
+        space,
+        { attachment: [{ attachmentDataRef }] },
+        opts?.threadName ? { threadName: opts.threadName, replyToThread: true } : undefined,
+      );
 
       const fileId = attachmentDataRef.resourceName ?? attachmentDataRef.attachmentUploadToken;
       return { ok: true, fileId };

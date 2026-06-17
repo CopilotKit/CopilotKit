@@ -38,6 +38,65 @@ describe("ChatClient.createMessage", () => {
   });
 });
 
+describe("ChatClient.listMessages", () => {
+  it("requests the most-recent messages (orderBy desc) and returns them chronologically, no filter without threadName", async () => {
+    // API returns newest→oldest (because orderBy=createTime desc); we expect
+    // the returned array to be reversed to oldest→newest.
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            messages: [
+              { name: "spaces/A/messages/M3", text: "third", createTime: "2026-01-03T00:00:00Z" },
+              { name: "spaces/A/messages/M2", text: "second", createTime: "2026-01-02T00:00:00Z" },
+              { name: "spaces/A/messages/M1", text: "first", createTime: "2026-01-01T00:00:00Z" },
+            ],
+          }),
+          { status: 200 },
+        ),
+    );
+    const c = makeClient(fetchImpl);
+    const res = await c.listMessages("spaces/A");
+
+    expect(res.map((m) => m.text)).toEqual(["first", "second", "third"]);
+
+    const [url, init] = (fetchImpl.mock.calls[0] as any[])!;
+    expect(init.method).toBe("GET");
+    // orderBy=createTime desc ("createTime desc" URL-encodes the space as +).
+    expect(String(url)).toContain("orderBy=createTime+desc");
+    // No filter param when threadName is absent (whole-space / DM scope).
+    expect(String(url)).not.toContain("filter=");
+    expect(String(url)).toContain("pageSize=100");
+  });
+
+  it("scopes to a thread via the filter param when threadName is provided", async () => {
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            messages: [
+              { name: "spaces/A/messages/M2", text: "newer", createTime: "2026-01-02T00:00:00Z" },
+              { name: "spaces/A/messages/M1", text: "older", createTime: "2026-01-01T00:00:00Z" },
+            ],
+          }),
+          { status: 200 },
+        ),
+    );
+    const c = makeClient(fetchImpl);
+    const res = await c.listMessages("spaces/A", { threadName: "spaces/A/threads/T", pageSize: 50 });
+
+    // Returned chronologically (oldest→newest) after reversing the desc page.
+    expect(res.map((m) => m.text)).toEqual(["older", "newer"]);
+
+    const [url] = (fetchImpl.mock.calls[0] as any[])!;
+    const parsed = new URL(String(url));
+    // filter scopes to the thread (value is URL-decoded by URL parsing).
+    expect(parsed.searchParams.get("filter")).toBe('thread.name = "spaces/A/threads/T"');
+    expect(parsed.searchParams.get("orderBy")).toBe("createTime desc");
+    expect(parsed.searchParams.get("pageSize")).toBe("50");
+  });
+});
+
 describe("ChatClient.patchMessage", () => {
   it("PATCHes with an updateMask query param", async () => {
     const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
@@ -79,6 +138,34 @@ describe("ChatClient.uploadAttachment", () => {
     expect(String(createUrl)).toContain("/v1/spaces/A/messages");
     expect(String(createUrl)).not.toContain("/upload/v1");
     const body = JSON.parse(createInit.body);
+    expect(body.attachment[0].attachmentDataRef).toEqual({ resourceName: "RES_NAME", attachmentUploadToken: "TOK" });
+  });
+
+  it("posts the attachment message into the thread when threadName is provided", async () => {
+    const fetchImpl = vi.fn(async (input: any) => {
+      const url = String(input);
+      if (url.includes("attachments:upload")) {
+        return new Response(
+          JSON.stringify({ attachmentDataRef: { resourceName: "RES_NAME", attachmentUploadToken: "TOK" } }),
+          { status: 200 },
+        );
+      }
+      return new Response(JSON.stringify({ name: "spaces/A/messages/M2" }), { status: 200 });
+    });
+    const c = makeClient(fetchImpl);
+    const res = await c.uploadAttachment("spaces/A", new Uint8Array([1, 2, 3]), "file.txt", {
+      threadName: "spaces/A/threads/T",
+    });
+
+    expect(res).toEqual({ ok: true, fileId: "RES_NAME" });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    // Step 2: create-message step threads the attachment and uses the
+    // fallback-to-new-thread reply option.
+    const [createUrl, createInit] = (fetchImpl.mock.calls[1] as any[])!;
+    expect(String(createUrl)).toContain("messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD");
+    const body = JSON.parse(createInit.body);
+    expect(body.thread).toEqual({ name: "spaces/A/threads/T" });
     expect(body.attachment[0].attachmentDataRef).toEqual({ resourceName: "RES_NAME", attachmentUploadToken: "TOK" });
   });
 
