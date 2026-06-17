@@ -104,12 +104,12 @@ const registry = registryData as Registry;
 
 const DOCS_ONLY_INTEGRATIONS: Integration[] = [
   {
-    name: "Deep Agents",
+    name: "Langchain DeepAgents",
     slug: "deepagents",
     category: "popular",
     language: "python",
     description:
-      "LangChain Deep Agents connected to CopilotKit chat, state, tools, and generative UI.",
+      "Langchain Deep Agents connected to CopilotKit chat, state, tools, and generative UI.",
     partner_docs: null,
     repo: "",
     copilotkit_version: "",

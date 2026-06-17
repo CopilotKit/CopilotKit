@@ -140,6 +140,8 @@ export const LanggraphIcon = wrap(
   </>,
 );
 
+export const LangchainIcon = LanggraphIcon;
+
 export const MastraIcon = wrap(
   "0 0 24 23",
   <>
@@ -327,7 +329,7 @@ export const SpringIcon = wrap(
 
 const FRAMEWORK_ICONS: Record<string, React.ComponentType<IconProps>> = {
   "built-in-agent": CopilotKitKiteIcon,
-  deepagents: DeepAgentsIcon,
+  deepagents: LangchainIcon,
   "langgraph-python": LanggraphIcon,
   "langgraph-typescript": LanggraphIcon,
   "langgraph-fastapi": LanggraphIcon,
