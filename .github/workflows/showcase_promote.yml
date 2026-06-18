@@ -152,7 +152,32 @@ jobs:
               echo "::error::Ambiguous service '$INPUT' matches multiple SSOT entries: $LIST"
               exit 1
             fi
-            CSV="$MATCHES"
+            # Dep-aware expansion: integration promotes must also bounce the
+            # shared infra they run against (aimock + harness + dashboard at
+            # minimum) or prod drifts off staging. SSOT carries the dep set
+            # on each integration (railway-envs.ts → ServiceEntry.promoteDeps);
+            # the generated JSON exposes it under `.promoteDeps`. Here we read
+            # the dep list from the resolved entry, re-validate each dep is
+            # prod-probe-eligible (defense-in-depth against a runtime-edited
+            # generated JSON — the SSOT validator already enforces this at
+            # module load), append the parent, and dedupe while PRESERVING
+            # order (deps-before-parent so promote-fleet.sh bounces infra
+            # before the integration that consumes it; `unique` would re-sort
+            # alphabetically and drop that ordering).
+            CSV=$(jq -r --arg s "$MATCHES" '
+              ( .services[] | select(.name == $s) ) as $svc
+              | ($svc.promoteDeps // []) as $deps
+              | [ $deps[] as $d
+                  | (.services[] | select(.name == $d) | select(.probe.prod == true) | .name)
+                ] as $okDeps
+              | ($okDeps + [$s])
+              | reduce .[] as $x ([]; if index($x) then . else . + [$x] end)
+              | join(",")
+            ' "$GENERATED")
+            if [ -z "$CSV" ]; then
+              echo "::error::resolve-targets emitted empty CSV for '$INPUT' (post-expansion). This is a contract violation."
+              exit 1
+            fi
           fi
           echo "services_csv=$CSV" >> "$GITHUB_OUTPUT"
 

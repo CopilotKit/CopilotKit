@@ -12,6 +12,7 @@ import {
   assertDispatchNamesUnique,
   assertEnvRegistryConsistent,
   assertImageConsumersValid,
+  assertPromoteDepsValid,
   assertServiceAndInstanceIdsUnique,
   domainFor,
   envsFor,
@@ -938,5 +939,137 @@ describe("railway-envs SSOT — domains + probe", () => {
       repoName: "showcase-example",
     };
     expect(sample.probe).toBe(false);
+  });
+});
+
+describe("promoteDeps invariant + integration coverage", () => {
+  // Lockstep guard: showcase_promote.yml expands an integration target by
+  // unioning its promoteDeps into the CSV. If the SSOT drops aimock (or any
+  // shared-infra dep) from an integration's list, a single-slug promote will
+  // silently leave that infra stale in prod — exactly the drift this field
+  // exists to prevent. Encode the minimum-set contract as data so a future
+  // human editing a single integration entry trips this immediately.
+  const REQUIRED_INFRA_DEPS = ["aimock", "harness", "dashboard"] as const;
+
+  it("the production SSOT's promoteDeps are all valid", () => {
+    // The real SERVICES map must pass — module-load assertion already runs
+    // it, but include the explicit positive-case test alongside the negative
+    // cases below to mirror the imageOf invariant suite's shape.
+    expect(() => assertPromoteDepsValid()).not.toThrow();
+  });
+
+  it("every agent integration declares aimock+harness+dashboard in promoteDeps", () => {
+    // Integration = probeDriver "agent" AND has prod env. Each one MUST
+    // carry the full shared-infra dep set or its single-slug promote leaves
+    // prod drifted. Failure mode this catches: someone adds a new
+    // integration entry and forgets the promoteDeps line.
+    const integrations = Object.entries(SERVICES).filter(
+      ([, entry]) =>
+        entry.probeDriver === "agent" && entry.environments?.prod !== undefined,
+    );
+    expect(integrations.length).toBeGreaterThan(0);
+    for (const [name, entry] of integrations) {
+      const deps = entry.promoteDeps ?? [];
+      for (const required of REQUIRED_INFRA_DEPS) {
+        expect(
+          deps,
+          `integration "${name}" must list "${required}" in promoteDeps`,
+        ).toContain(required);
+      }
+    }
+  });
+
+  it("leaf infra entries (aimock/harness/dashboard) carry NO promoteDeps", () => {
+    // Inverting the graph (e.g. aimock listing every integration) would mean
+    // a routine aimock bump re-promotes the world. The contract is one-way:
+    // integrations → infra. Verify the three named leaves explicitly.
+    for (const leaf of REQUIRED_INFRA_DEPS) {
+      const entry = SERVICES[leaf];
+      expect(entry, `expected SSOT entry "${leaf}"`).toBeDefined();
+      const deps = entry.promoteDeps ?? [];
+      expect(
+        deps,
+        `leaf infra "${leaf}" must not declare promoteDeps (one-way graph)`,
+      ).toEqual([]);
+    }
+  });
+
+  it("throws on a promoteDeps entry that is not an SSOT key (dangling)", () => {
+    const synthetic = {
+      "showcase-foo": {
+        promoteDeps: ["no-such-service"],
+        environments: { prod: { probe: true } },
+      },
+      aimock: { environments: { prod: { probe: true } } },
+    };
+    expect(() => assertPromoteDepsValid(synthetic)).toThrow(
+      /showcase-foo.*"no-such-service".*not an SSOT key/i,
+    );
+  });
+
+  it("throws on a one-level cycle (dep points back at parent)", () => {
+    const synthetic = {
+      "showcase-foo": {
+        promoteDeps: ["aimock"],
+        environments: { prod: { probe: true } },
+      },
+      aimock: {
+        promoteDeps: ["showcase-foo"],
+        environments: { prod: { probe: true } },
+      },
+    };
+    expect(() => assertPromoteDepsValid(synthetic)).toThrow(/cycle/i);
+  });
+
+  it("throws on a self-referencing promoteDeps entry", () => {
+    const synthetic = {
+      "showcase-foo": {
+        promoteDeps: ["showcase-foo"],
+        environments: { prod: { probe: true } },
+      },
+    };
+    expect(() => assertPromoteDepsValid(synthetic)).toThrow(
+      /showcase-foo.*lists itself/i,
+    );
+  });
+
+  it("throws on a dep that is not prod-probe-eligible", () => {
+    // probe.prod === false ⇒ promote will never run against this dep;
+    // including it would either fail promote-fleet or be silently filtered.
+    // Fail loud at SSOT load instead.
+    const synthetic = {
+      "showcase-foo": {
+        promoteDeps: ["aimock"],
+        environments: { prod: { probe: true } },
+      },
+      aimock: { environments: { prod: { probe: false } } },
+    };
+    expect(() => assertPromoteDepsValid(synthetic)).toThrow(
+      /aimock.*probe === false/i,
+    );
+  });
+
+  it("throws on a dep that has no prod env at all", () => {
+    const synthetic = {
+      "showcase-foo": {
+        promoteDeps: ["staging-only"],
+        environments: { prod: { probe: true } },
+      },
+      "staging-only": { environments: { staging: { probe: true } } },
+    };
+    expect(() => assertPromoteDepsValid(synthetic)).toThrow(
+      /staging-only.*no prod env/i,
+    );
+  });
+
+  it("ignores entries without promoteDeps (leaves are valid)", () => {
+    const synthetic = {
+      "leaf-a": { environments: { prod: { probe: true } } },
+      "leaf-b": {
+        promoteDeps: [],
+        environments: { prod: { probe: true } },
+      },
+    };
+    expect(() => assertPromoteDepsValid(synthetic)).not.toThrow();
   });
 });

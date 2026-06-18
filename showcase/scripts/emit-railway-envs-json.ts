@@ -49,6 +49,14 @@ interface Emitted {
     repoNameOverride?: { prod?: string; staging?: string };
     domains: { staging: string; prod: string };
     probe: { staging: boolean; prod: boolean; driver: string };
+    /**
+     * SSOT keys of OTHER services to promote alongside this one when
+     * showcase_promote.yml resolves it as a single-service target. Emitted
+     * ONLY when set (matches the legacy output's "omit-when-unset" idiom for
+     * repoNameOverride). resolve-targets reads this field to expand the CSV;
+     * see ServiceEntry.promoteDeps in railway-envs.ts.
+     */
+    promoteDeps?: string[];
   }>;
 }
 
@@ -116,6 +124,13 @@ function projectServiceToLegacyJson(
       prod: prodEnv ? (prodEnv.probe ?? true) : false,
       driver: entry.probeDriver,
     },
+    // promoteDeps is OPTIONAL on the SSOT (infra leaves have none); emit
+    // only when set so the JSON shape for non-integration services stays
+    // identical to the pre-feature output (jq's `.promoteDeps[]?` accepts
+    // either form so consumers are unaffected by the omission).
+    ...(entry.promoteDeps !== undefined && entry.promoteDeps.length > 0
+      ? { promoteDeps: [...entry.promoteDeps] }
+      : {}),
   };
 }
 

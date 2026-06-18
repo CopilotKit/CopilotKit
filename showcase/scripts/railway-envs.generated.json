@@ -217,7 +217,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-agno",
@@ -235,7 +236,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-built-in-agent",
@@ -253,7 +255,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-claude-sdk-python",
@@ -271,7 +274,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-claude-sdk-typescript",
@@ -289,7 +293,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-crewai-crews",
@@ -307,7 +312,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-google-adk",
@@ -325,7 +331,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-langgraph-fastapi",
@@ -343,7 +350,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-langgraph-python",
@@ -361,7 +369,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-langgraph-typescript",
@@ -379,7 +388,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-langroid",
@@ -397,7 +407,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-llamaindex",
@@ -415,7 +426,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-mastra",
@@ -433,7 +445,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-ms-agent-dotnet",
@@ -451,7 +464,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-ms-agent-harness-dotnet",
@@ -469,7 +483,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-ms-agent-python",
@@ -487,7 +502,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-pydantic-ai",
@@ -505,7 +521,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-spring-ai",
@@ -523,7 +540,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "showcase-strands",
@@ -541,7 +559,8 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteDeps": ["aimock", "harness", "dashboard"]
     },
     {
       "name": "webhooks",
