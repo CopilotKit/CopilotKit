@@ -1,6 +1,9 @@
 import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
-import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
+import type {
+  ReactHumanInTheLoop,
+  RespondOptions,
+} from "../types/human-in-the-loop";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 import { useCallback, useEffect, useRef } from "react";
 import React from "react";
@@ -12,12 +15,31 @@ export function useHumanInTheLoop<
   const { copilotkit } = useCopilotKit();
   const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);
 
-  const respond = useCallback(async (result: unknown) => {
-    if (resolvePromiseRef.current) {
+  const respond = useCallback(
+    async (result: unknown, options?: RespondOptions) => {
+      if (!resolvePromiseRef.current) return;
+
+      // Stamp the registered tool's `followUp` to the desired value for this
+      // response — either the runtime override or the design-time default.
+      // Core reads this field synchronously when the awaited handler promise
+      // resolves (see run-handler's followUp gate), so we must set it before
+      // resolving. Restoring later is unsafe due to async chains in core;
+      // instead, every respond() call writes the correct value, so the next
+      // call without options correctly falls back to design-time.
+      const registered = copilotkit.getTool({
+        toolName: tool.name,
+        agentId: tool.agentId,
+      });
+      if (registered) {
+        registered.followUp =
+          options?.followUp !== undefined ? options.followUp : tool.followUp;
+      }
+
       resolvePromiseRef.current(result);
       resolvePromiseRef.current = null;
-    }
-  }, []);
+    },
+    [copilotkit, tool.name, tool.agentId, tool.followUp],
+  );
 
   const handler = useCallback(async () => {
     return new Promise((resolve) => {
