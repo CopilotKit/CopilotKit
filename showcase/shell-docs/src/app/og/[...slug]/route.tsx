@@ -5,6 +5,7 @@ import type { NextRequest } from "next/server";
 import { notFound } from "next/navigation";
 import { ImageResponse } from "next/og";
 import { loadDoc } from "@/lib/docs-render";
+import { frontendQuickstartContentSlugPath } from "@/lib/frontend-quickstarts";
 import { getDocsFolder, getIntegration, ROOT_FRAMEWORK } from "@/lib/registry";
 
 // Per-page Open Graph image route — emits a 1200x630-ish PNG used by
@@ -89,15 +90,18 @@ export async function GET(
     //      that name in the docs root (built-in-agent.mdx) — the
     //      existing behavior preserved here so prior callers keep
     //      working.
+    const contentSlugPath = frontendQuickstartContentSlugPath(slugPath);
     let doc = slugPath
-      ? (loadDoc(`integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${slugPath}`) ??
-        loadDoc(slugPath))
+      ? (loadDoc(
+          `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${contentSlugPath}`,
+        ) ?? loadDoc(contentSlugPath))
       : null;
     if (!doc && slugParts.length >= 2) {
       const [framework, ...rest] = slugParts;
       if (getIntegration(framework)) {
         const docsFolder = getDocsFolder(framework);
-        doc = loadDoc(`integrations/${docsFolder}/${rest.join("/")}`);
+        const contentRest = frontendQuickstartContentSlugPath(rest.join("/"));
+        doc = loadDoc(`integrations/${docsFolder}/${contentRest}`);
       }
     }
     if (!doc) notFound();

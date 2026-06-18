@@ -56,4 +56,45 @@ describe("next.config redirects", () => {
       ]),
     );
   });
+
+  it("redirects the root quickstart shim to the React quickstart slug", async () => {
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
+    vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");
+
+    const nextConfig = (await import("../../../next.config")).default;
+    const redirects = await nextConfig.redirects?.();
+
+    expect(redirects).toEqual(
+      expect.arrayContaining([
+        {
+          source: "/quickstart",
+          destination: "/react",
+          permanent: true,
+        },
+        {
+          source: "/unselected/quickstart",
+          destination: "/react",
+          permanent: true,
+        },
+      ]),
+    );
+  });
+
+  it("redirects framework quickstart shims to the scoped React quickstart slug", async () => {
+    vi.stubEnv("NEXT_PUBLIC_BASE_URL", "http://localhost:3003");
+    vi.stubEnv("NEXT_PUBLIC_SHELL_URL", "http://localhost:3000");
+
+    const nextConfig = (await import("../../../next.config")).default;
+    const redirects = await nextConfig.redirects?.();
+
+    expect(redirects).toEqual(
+      expect.arrayContaining([
+        {
+          source: "/:framework/quickstart",
+          destination: "/:framework/quickstart/react",
+          permanent: true,
+        },
+      ]),
+    );
+  });
 });

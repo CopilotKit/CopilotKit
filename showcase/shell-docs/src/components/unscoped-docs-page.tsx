@@ -22,6 +22,7 @@ import React from "react";
 import { notFound } from "next/navigation";
 import { DocsPageView } from "@/components/docs-page-view";
 import { buildRootSurfaceNav, loadDoc } from "@/lib/docs-render";
+import { frontendQuickstartContentSlugPath } from "@/lib/frontend-quickstarts";
 import { getDocsFolder, getDocsMode, ROOT_FRAMEWORK } from "@/lib/registry";
 
 export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
@@ -35,10 +36,11 @@ export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
   // sections), so navigating between BIA and agnostic pages never swaps it.
   const docsFolder = getDocsFolder(ROOT_FRAMEWORK);
   const navTree = buildRootSurfaceNav(docsFolder);
+  const contentSlugPath = frontendQuickstartContentSlugPath(slugPath);
 
   // BIA-authored page for this slug → render it BIA-scoped at the root
   // URL: BIA snippet resolution, root-relative hrefs.
-  const overridePath = `integrations/${docsFolder}/${slugPath}`;
+  const overridePath = `integrations/${docsFolder}/${contentSlugPath}`;
   if (getDocsMode(ROOT_FRAMEWORK) === "authored" && loadDoc(overridePath)) {
     return (
       <DocsPageView
@@ -51,7 +53,7 @@ export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
     );
   }
 
-  const doc = loadDoc(slugPath);
+  const doc = loadDoc(contentSlugPath);
   if (!doc) notFound();
 
   // Agnostic page. Feature pages (those declaring a snippet cell) used to
@@ -63,6 +65,7 @@ export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
   return (
     <DocsPageView
       slugPath={slugPath}
+      contentSlugPath={contentSlugPath}
       slugHrefPrefix=""
       frameworkOverride={doc.fm.defaultCell ? ROOT_FRAMEWORK : undefined}
       navTree={navTree}

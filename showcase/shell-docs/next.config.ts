@@ -84,6 +84,11 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       {
+        source: "/quickstart",
+        destination: "/react",
+        permanent: true,
+      },
+      {
         source: "/frontend-actions",
         destination: "/frontend-tools",
         permanent: true,
@@ -123,7 +128,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/unselected/quickstart",
-        destination: "/quickstart",
+        destination: "/react",
         permanent: true,
       },
       {
@@ -214,6 +219,11 @@ const nextConfig: NextConfig = {
       {
         source: "/built-in-agent/:path*",
         destination: "/:path*",
+        permanent: true,
+      },
+      {
+        source: "/:framework/quickstart",
+        destination: "/:framework/quickstart/react",
         permanent: true,
       },
       // troubleshooting/migrate-to-* in unselected → existing

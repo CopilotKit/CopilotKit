@@ -46,6 +46,7 @@ import {
   findFrameworksWithPage,
   loadDoc,
 } from "@/lib/docs-render";
+import { frontendQuickstartContentSlugPath } from "@/lib/frontend-quickstarts";
 import type { NavNode } from "@/lib/docs-render";
 import {
   getDocsFolder,
@@ -97,6 +98,7 @@ export async function generateMetadata({
   let title: string | undefined;
   let description: string | undefined;
   const slugPath = slug?.join("/") ?? "";
+  const contentSlugPath = frontendQuickstartContentSlugPath(slugPath);
   const integration = getIntegration(framework);
   const isDocsOnlyFramework =
     !integration && hasDocsOnlyFrameworkContent(framework);
@@ -105,18 +107,19 @@ export async function generateMetadata({
     // mirror UnscopedDocsPage's resolution so the metadata matches the
     // content the route serves.
     const unscopedPath = [framework, ...(slug ?? [])].join("/");
+    const unscopedContentPath = frontendQuickstartContentSlugPath(unscopedPath);
     const doc =
       loadDoc(
-        `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${unscopedPath}`,
-      ) ?? loadDoc(unscopedPath);
+        `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${unscopedContentPath}`,
+      ) ?? loadDoc(unscopedContentPath);
     title = doc?.fm.title ?? humanizeSlug(unscopedPath);
     description = doc?.fm.description;
   } else if (slugPath) {
     const docsFolder = getDocsFolder(framework);
     const frameworkScopedDoc = loadDoc(
-      `integrations/${docsFolder}/${slugPath}`,
+      `integrations/${docsFolder}/${contentSlugPath}`,
     );
-    const doc = frameworkScopedDoc ?? loadDoc(slugPath);
+    const doc = frameworkScopedDoc ?? loadDoc(contentSlugPath);
     if (doc) {
       title = doc.fm.title;
       description = doc.fm.description;
@@ -237,6 +240,14 @@ export default async function FrameworkScopedDocsPage({
     return <FrameworkRootPage framework={framework} />;
   }
 
+  if (slugPath === "quickstart") {
+    redirect(
+      framework === ROOT_FRAMEWORK
+        ? "/react"
+        : `/${framework}/quickstart/react`,
+    );
+  }
+
   // `/<framework>/unselected/<path>` is incoherent — a framework IS
   // selected, so the URL should never assert the "unselected" state
   // alongside. Collapse to the framework-scoped path (which serves the
@@ -271,8 +282,9 @@ export default async function FrameworkScopedDocsPage({
     integration?.name ??
     frameworkOverviews[framework]?.frameworkName ??
     framework;
+  const requestedContentSlugPath = frontendQuickstartContentSlugPath(slugPath);
 
-  let contentSlugPath: string = slugPath;
+  let contentSlugPath: string = requestedContentSlugPath;
   let doc: ReturnType<typeof loadDoc> = null;
 
   // Content resolution order depends on docs_mode:
@@ -287,24 +299,24 @@ export default async function FrameworkScopedDocsPage({
   //   generated — root MDX wins (Model 1, current behavior); the
   //               per-framework tree is a sparse override layer.
   if (docsMode === "authored") {
-    const frameworkPath = `integrations/${docsFolder}/${slugPath}`;
+    const frameworkPath = `integrations/${docsFolder}/${requestedContentSlugPath}`;
     doc = loadDoc(frameworkPath);
     if (doc) contentSlugPath = frameworkPath;
-    if (!doc) doc = loadDoc(slugPath);
+    if (!doc) doc = loadDoc(requestedContentSlugPath);
   } else {
     // `/quickstart` at the root is a routing shim — it exists only so
     // the sidebar's Quickstart entry has a backing page. Real quickstart
     // content lives per-framework at `integrations/<framework>/quickstart.mdx`,
     // so for framework-scoped URLs the override always wins over the shim.
-    if (slugPath === "quickstart") {
-      const overridePath = `integrations/${docsFolder}/${slugPath}`;
+    if (requestedContentSlugPath === "quickstart") {
+      const overridePath = `integrations/${docsFolder}/${requestedContentSlugPath}`;
       doc = loadDoc(overridePath);
       if (doc) contentSlugPath = overridePath;
     }
     if (!doc) {
-      doc = loadDoc(slugPath);
+      doc = loadDoc(requestedContentSlugPath);
       if (!doc) {
-        const fallbackPath = `integrations/${docsFolder}/${slugPath}`;
+        const fallbackPath = `integrations/${docsFolder}/${requestedContentSlugPath}`;
         doc = loadDoc(fallbackPath);
         if (doc) contentSlugPath = fallbackPath;
       }

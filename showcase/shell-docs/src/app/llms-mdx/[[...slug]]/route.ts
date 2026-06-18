@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import path from "path";
 import { AG_UI_CONTENT_DIR } from "@/lib/sitemap-helpers";
 import { loadDoc } from "@/lib/docs-render";
+import { frontendQuickstartContentSlugPath } from "@/lib/frontend-quickstarts";
 import {
   getDocsFolder,
   getDocsMode,
@@ -121,15 +122,16 @@ function resolvePage(slug: string[]): ResolvedPage | null {
     const docsFolder = getDocsFolder(first);
     const docsMode = getDocsMode(first);
     const tail = rest || "index";
-    const rootSlugPath = tail;
-    const frameworkSlugPath = `integrations/${docsFolder}/${tail}`;
+    const contentTail = frontendQuickstartContentSlugPath(tail);
+    const rootSlugPath = contentTail;
+    const frameworkSlugPath = `integrations/${docsFolder}/${contentTail}`;
 
     // `authored` frameworks own their entire IA — try the per-framework
     // tree first. `generated` is the inverse — root wins, framework
     // tree is the override, except quickstart where the root file is
     // only a routing shim and the page route prefers framework content.
     const candidateOrder =
-      docsMode === "authored" || tail === "quickstart"
+      docsMode === "authored" || contentTail === "quickstart"
         ? [frameworkSlugPath, rootSlugPath]
         : [rootSlugPath, frameworkSlugPath];
 
@@ -154,9 +156,12 @@ function resolvePage(slug: string[]): ResolvedPage | null {
   // Bare unscoped doc. The root surface serves ROOT_FRAMEWORK's
   // authored page when one exists (mirrors UnscopedDocsPage), so the
   // `.md` variant must resolve the same MDX the page renders.
-  const rootOverride = `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${url}`;
+  const contentUrl = frontendQuickstartContentSlugPath(url);
+  const rootOverride = `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${contentUrl}`;
   const candidates =
-    getDocsMode(ROOT_FRAMEWORK) === "authored" ? [rootOverride, url] : [url];
+    getDocsMode(ROOT_FRAMEWORK) === "authored"
+      ? [rootOverride, contentUrl]
+      : [contentUrl];
   for (const candidate of candidates) {
     const doc = loadDoc(candidate);
     if (!doc) continue;
