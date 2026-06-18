@@ -3,6 +3,7 @@ import {
   CopilotRuntime,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
+import type { ToolDefinition } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -20,14 +21,22 @@ export function determineModel(): string {
   return "openai/gpt-5.2";
 }
 
-export async function startRuntimeServer(): Promise<{
+export interface RunningRuntime {
   url: string;
   close: () => Promise<void>;
-}> {
+}
+
+export async function startRuntimeServer(opts?: {
+  tools?: ToolDefinition[];
+}): Promise<RunningRuntime> {
   const agent = new BuiltInAgent({
     model: determineModel(),
     prompt:
-      "You are a helpful AI assistant running inside a local Electron desktop app.",
+      "You are a helpful AI assistant running inside a local Electron desktop app. " +
+      "You can read the workspace using the fs_list, fs_read, and fs_search tools. " +
+      "You can propose fs_write and shell_run actions, but these require explicit human approval before they run.",
+    maxSteps: 10,
+    tools: opts?.tools ?? [],
   });
 
   const runtime = new CopilotRuntime({

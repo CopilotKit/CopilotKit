@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { determineModel, startRuntimeServer } from "./server";
+import { defineTool } from "@copilotkit/runtime/v2";
+import { z } from "zod";
 
 const PROVIDER_KEYS = [
   "OPENAI_API_KEY",
@@ -45,6 +47,26 @@ describe("startRuntimeServer", () => {
       expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/api\/copilotkit$/);
       const response = await fetch(url);
       expect(typeof response.status).toBe("number");
+      expect(response.status).toBeGreaterThan(0);
+    } finally {
+      await close();
+    }
+  });
+});
+
+describe("startRuntimeServer with tools", () => {
+  it("accepts a tools array, resolves a url, and closes cleanly", async () => {
+    const probe = defineTool({
+      name: "probe",
+      description: "test probe",
+      parameters: z.object({ x: z.string() }),
+      execute: async () => ({ ok: true }),
+    });
+
+    const { url, close } = await startRuntimeServer({ tools: [probe] });
+    try {
+      expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/api\/copilotkit$/);
+      const response = await fetch(url);
       expect(response.status).toBeGreaterThan(0);
     } finally {
       await close();
