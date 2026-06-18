@@ -64,6 +64,11 @@ describe("CopilotKitProvider", () => {
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining(ENTERPRISE_WARNING),
       );
+      // selfManagedAgents satisfies hasLocalAgents, so the separate
+      // missing-runtime config warning must NOT fire here.
+      expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining("Missing required prop"),
+      );
     });
 
     it("does not warn when selfManagedAgents is paired with a license key", () => {
