@@ -688,6 +688,29 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
   },
 ];
 
+const FRONTEND_PLATFORM_REDIRECTS: RedirectEntry[] = [
+  {
+    id: "FE-vue",
+    source: "/vue",
+    destination: "/frontends/vue",
+  },
+  {
+    id: "FE-slack",
+    source: "/slack",
+    destination: "/frontends/slack",
+  },
+  {
+    id: "FE-teams",
+    source: "/microsoft-teams",
+    destination: "/frontends/teams",
+  },
+  {
+    id: "FE-react-native",
+    source: "/react-native",
+    destination: "/frontends/react-native",
+  },
+];
+
 // ---------------------------------------------------------------------------
 // Legacy `/integrations/<fw>/*` URL surface — the upstream Fumadocs
 // site rewrote /<fw>/<path> → /integrations/<fw>/<path> internally,
@@ -1032,6 +1055,7 @@ export const seoRedirects: RedirectEntry[] = [
   ...CODING_AGENTS_RENAMES,
   ...ROOT_RENAMES,
   ...MOVED_ROOT_REDIRECTS,
+  ...FRONTEND_PLATFORM_REDIRECTS,
   ...LEGACY_CHAINS_EXACT,
   ...DOCS_INTEGRATIONS_INDEX.filter((e) => !e.source.includes(":path*")),
   ...DOCS_INTEGRATIONS_RENAMES.filter((e) => !e.source.includes(":path*")),

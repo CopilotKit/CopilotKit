@@ -7,7 +7,7 @@ description: "The Slack platform adapter factory — Socket Mode ingress via Bol
 
 `slack(opts)` returns a `SlackAdapter` — the Slack implementation of the engine's `PlatformAdapter` boundary. It handles ingress via Bolt (Socket Mode by default), renders the JSX vocabulary to Block Kit within Slack's per-element budgets, streams agent replies via throttled `chat.update`, and decodes interactions to opaque action ids. `@copilotkit/bot-slack` is the only package in the stack that talks to Slack.
 
-For app creation, tokens, and first run, see the [Slack quickstart](/slack).
+For app creation, tokens, and first run, see the [Slack quickstart](/frontends/slack).
 
 ## Signature
 
@@ -122,4 +122,4 @@ The underlying Bolt `App` is constructed with `deferInitialization` — construc
 - [markdownToMrkdwn](/reference/bot/slack/markdownToMrkdwn) — the Markdown → mrkdwn translation
 - [defaultSlackTools](/reference/bot/slack/defaultSlackTools) / [defaultSlackContext](/reference/bot/slack/defaultSlackContext) — the shipped built-ins
 - [SanitizingHttpAgent](/reference/bot/slack/SanitizingHttpAgent) — connecting to a remote AG-UI backend
-- [Slack quickstart](/slack) — app manifest, tokens, first run
+- [Slack quickstart](/frontends/slack) — app manifest, tokens, first run

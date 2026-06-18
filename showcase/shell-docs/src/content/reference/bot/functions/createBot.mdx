@@ -7,7 +7,7 @@ description: "Create a bot: wire platform adapters to an AG-UI agent, register t
 
 `createBot` is the entry point of `@copilotkit/bot`. It wires one or more platform adapters to an AG-UI agent and returns a `Bot` — the surface for registering turn handlers, interaction handlers, interrupt handlers, slash commands, and tools, plus `start()` / `stop()` lifecycle control.
 
-For a complete walkthrough, see the [Slack quickstart](/slack).
+For a complete walkthrough, see the [Slack quickstart](/frontends/slack).
 
 ## Signature
 
@@ -123,4 +123,4 @@ await bot.start();
 - [defineBotTool](/reference/bot/functions/defineBotTool) — tools the agent can call
 - [defineBotCommand](/reference/bot/functions/defineBotCommand) — slash commands
 - [ActionStore](/reference/bot/types/ActionStore) — action binding and durability
-- [Slack quickstart](/slack) — zero to a working bot
+- [Slack quickstart](/frontends/slack) — zero to a working bot
