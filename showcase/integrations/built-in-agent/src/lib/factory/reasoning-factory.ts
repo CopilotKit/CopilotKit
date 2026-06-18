@@ -127,7 +127,7 @@ export function createReasoningDefaultRenderAgent() {
 /**
  * Built-in agent for `tool-rendering-reasoning-chain` — combines visible
  * reasoning with sequential tool calls (get_weather, search_flights,
- * roll_dice, get_stock_price) so the demo can show an interleaved
+ * roll_d20, get_stock_price) so the demo can show an interleaved
  * reasoning + tool-call chain.
  */
 export function createToolRenderingReasoningChainAgent() {

@@ -39,6 +39,8 @@ on:
         options:
           - monorepo
           - angular
+          - bot
+          - bot-slack
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
         required: false

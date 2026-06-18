@@ -7,8 +7,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
 # AG-UI community artifacts aren't on Maven Central yet — build from source
 WORKDIR /build
 COPY pom.xml ./
+# Single source of truth for the AG-UI commit (shared with the
+# `.github/workflows/test_unit-spring-ai.yml` workflow). Bump by editing
+# the file; both CI and this image rebuild against the new SHA.
+COPY .ag-ui-sha /tmp/.ag-ui-sha
 ENV GIT_LFS_SKIP_SMUDGE=1
-RUN git clone --depth 1 https://github.com/ag-ui-protocol/ag-ui.git /ag-ui && \
+RUN AG_UI_SHA="$(tr -d '[:space:]' < /tmp/.ag-ui-sha)" && \
+    if [ -z "${AG_UI_SHA}" ]; then echo "ERROR: .ag-ui-sha is empty" >&2; exit 1; fi && \
+    git clone --no-checkout https://github.com/ag-ui-protocol/ag-ui.git /ag-ui && \
+    # `git clone` only fetches the default branch by default — if AG_UI_SHA
+    # points at a commit on a PR branch or older history not reachable from
+    # HEAD, the subsequent `checkout` fails with a cryptic "reference is not
+    # a tree". Explicitly fetch the SHA first so checkout is always against
+    # a known-local commit (R7-A2). `--depth 1` keeps the image lean.
+    git -C /ag-ui fetch --depth 1 origin "${AG_UI_SHA}" && \
+    git -C /ag-ui checkout "${AG_UI_SHA}" && \
     cd /ag-ui/sdks/community/java && \
     mvn install \
         -pl servers/spring,integrations/spring-ai -am \

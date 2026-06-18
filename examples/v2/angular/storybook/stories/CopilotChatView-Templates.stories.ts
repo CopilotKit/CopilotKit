@@ -10,8 +10,8 @@ import {
   ChatState,
   provideCopilotChatLabels,
   provideCopilotKit,
-} from "@copilotkit/angular";
-import { Message } from "@ag-ui/client";
+} from "@copilotkitnext/angular";
+import type { Message } from "@ag-ui/client";
 
 @Injectable()
 class StoryChatState extends ChatState {

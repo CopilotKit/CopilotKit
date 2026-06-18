@@ -25,6 +25,10 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
   a2ui: {
     injectA2UITool: false,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
 

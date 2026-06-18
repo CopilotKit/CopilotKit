@@ -170,6 +170,7 @@ const badgePalette: Record<
 export const myRenderers: CatalogRenderers<MyDefinitions> = {
   Card: ({ props, children }) => (
     <div
+      data-testid="declarative-card"
       style={{
         border: "1px solid #DBDBE5",
         borderRadius: 16,
@@ -201,6 +202,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     const { bg, fg, border } = badgePalette[variant];
     return (
       <span
+        data-testid="declarative-status-badge"
         style={{
           display: "inline-block",
           padding: "2px 10px",
@@ -225,7 +227,10 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
     const color =
       trend === "up" ? "#189370" : trend === "down" ? "#FA5F67" : "#010507";
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div
+        data-testid="declarative-metric"
+        style={{ display: "flex", flexDirection: "column", gap: 4 }}
+      >
         <div
           style={{
             fontSize: "0.7rem",
@@ -308,6 +313,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
 
     return (
       <div
+        data-testid="declarative-pie-chart"
         style={{
           border: "1px solid #DBDBE5",
           borderRadius: 16,
@@ -425,6 +431,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
 
     return (
       <div
+        data-testid="declarative-bar-chart"
         style={{
           border: "1px solid #DBDBE5",
           borderRadius: 16,

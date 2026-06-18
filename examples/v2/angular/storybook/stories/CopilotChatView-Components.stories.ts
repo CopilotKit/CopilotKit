@@ -10,8 +10,8 @@ import {
   ChatState,
   provideCopilotChatLabels,
   provideCopilotKit,
-} from "@copilotkit/angular";
-import { Message } from "@ag-ui/client";
+} from "@copilotkitnext/angular";
+import type { Message } from "@ag-ui/client";
 import { CustomDisclaimerComponent } from "../components/custom-disclaimer.component";
 import { CustomInputComponent } from "../components/custom-input.component";
 import { CustomScrollButtonComponent } from "../components/custom-scroll-button.component";
@@ -75,7 +75,7 @@ import {
   CopilotChatInput,
   provideCopilotKit,
   provideCopilotChatLabels
-} from '@copilotkit/angular';
+} from '@copilotkitnext/angular';
 import { Message } from '@ag-ui/client';
 
 // Custom disclaimer component
@@ -209,7 +209,7 @@ import {
   ChatState,
   provideCopilotKit,
   provideCopilotChatLabels
-} from '@copilotkit/angular';
+} from '@copilotkitnext/angular';
 import { Message } from '@ag-ui/client';
 
 // Custom input component
@@ -364,7 +364,7 @@ import {
   CopilotChatInput,
   provideCopilotKit,
   provideCopilotChatLabels
-} from '@copilotkit/angular';
+} from '@copilotkitnext/angular';
 import { Message } from '@ag-ui/client';
 
 // Custom scroll button component
@@ -511,7 +511,7 @@ import {
   CopilotChatInput,
   provideCopilotKit,
   provideCopilotChatLabels
-} from '@copilotkit/angular';
+} from '@copilotkitnext/angular';
 import { Message } from '@ag-ui/client';
 
 &#64;Component({
@@ -616,7 +616,7 @@ import {
   ChatState,
   provideCopilotKit,
   provideCopilotChatLabels
-} from '@copilotkit/angular';
+} from '@copilotkitnext/angular';
 import { Message } from '@ag-ui/client';
 
 // Minimal custom input component with service injection

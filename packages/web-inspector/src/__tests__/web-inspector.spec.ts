@@ -1,9 +1,7 @@
 import { WebInspectorElement, ɵCpkThreadDetails } from "../index";
-import {
-  CopilotKitCore,
-  CopilotKitCoreRuntimeConnectionStatus,
-  type CopilotKitCoreSubscriber,
-} from "@copilotkit/core";
+import type { CopilotKitCore } from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -460,5 +458,120 @@ describe("ɵCpkThreadDetails caching", () => {
 
     expect(internals.renderState()).not.toBe(stateA);
     expect(internals.renderEvents()).not.toBe(eventsA);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Announcement preview (popout) dismissal MUST persist
+// ─────────────────────────────────────────────────────────────────────────
+//
+// The preview bubble that pops out of the floating button carries an X. Clicking
+// it MUST persist the announcement timestamp to localStorage. Otherwise
+// fetchAnnouncement() recomputes `showAnnouncementPreview` from the (still
+// empty) stored timestamp on the next mount and the bubble pops straight back
+// out — the regression these tests guard against. Persistence lives only in
+// markAnnouncementSeen(); the body-click / open paths clear the flag in memory
+// only and are intentionally NOT persistent.
+
+const ANNOUNCEMENT_STORAGE_KEY = "cpk:inspector:announcements";
+
+type AnnouncementInternals = {
+  hasUnseenAnnouncement: boolean;
+  showAnnouncementPreview: boolean;
+  announcementPreviewText: string | null;
+  announcementTimestamp: string | null;
+  isOpen: boolean;
+};
+
+describe("WebInspectorElement announcement preview dismissal", () => {
+  let store: Record<string, string>;
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    store = {};
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+      clear: () => {
+        for (const key of Object.keys(store)) delete store[key];
+      },
+      get length() {
+        return Object.keys(store).length;
+      },
+      key: (index: number) => Object.keys(store)[index] ?? null,
+    });
+  });
+
+  /** Mount a closed inspector with an unseen announcement so the popout renders. */
+  async function mountWithUnseenAnnouncement(timestamp: string) {
+    const { core } = createMockCore();
+    const inspector = createInspectorWithCore(core);
+    const a = inspector as unknown as AnnouncementInternals;
+    a.announcementTimestamp = timestamp;
+    a.announcementPreviewText = "Slack early access is here!";
+    a.hasUnseenAnnouncement = true;
+    a.showAnnouncementPreview = true;
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+    return { inspector, a };
+  }
+
+  it("persists the announcement timestamp when the popout X is clicked", async () => {
+    const timestamp = "2026-06-11T13:00:00.000Z";
+    const { inspector, a } = await mountWithUnseenAnnouncement(timestamp);
+
+    const dismiss = inspector.shadowRoot?.querySelector<HTMLElement>(
+      ".announcement-preview__dismiss",
+    );
+    expect(dismiss, "popout dismiss control should render").not.toBeNull();
+
+    dismiss?.click();
+    await inspector.updateComplete;
+
+    // The dismissal is persisted, so a remount would stay closed.
+    expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBe(JSON.stringify({ timestamp }));
+    // In-memory flags cleared and the bubble is gone.
+    expect(a.hasUnseenAnnouncement).toBe(false);
+    expect(a.showAnnouncementPreview).toBe(false);
+    expect(
+      inspector.shadowRoot?.querySelector(".announcement-preview"),
+    ).toBeNull();
+  });
+
+  it("dismissing the popout X does not open the inspector", async () => {
+    const { inspector, a } = await mountWithUnseenAnnouncement(
+      "2026-06-11T13:00:00.000Z",
+    );
+    expect(a.isOpen).toBe(false);
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview__dismiss")
+      ?.click();
+    await inspector.updateComplete;
+
+    // X dismisses without opening (only a body click opens the inspector).
+    expect(a.isOpen).toBe(false);
+  });
+
+  it("clicking the popout body opens the inspector without persisting", async () => {
+    const { inspector, a } = await mountWithUnseenAnnouncement(
+      "2026-06-11T13:00:00.000Z",
+    );
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.click();
+    await inspector.updateComplete;
+
+    // Body click is engagement, not dismissal: it opens but must NOT persist,
+    // so the in-window banner still shows the announcement.
+    expect(a.isOpen).toBe(true);
+    expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBeUndefined();
+    expect(a.hasUnseenAnnouncement).toBe(true);
   });
 });

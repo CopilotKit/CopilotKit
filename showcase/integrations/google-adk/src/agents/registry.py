@@ -45,13 +45,13 @@ from agents.subagents_agent import subagents_root_agent
 from agents.hitl_in_chat_book_call_agent import hitl_in_chat_book_call_agent
 
 # `hitl_in_chat_agent` (the langgraph-python-mirrored "task steps" flavor)
-# is intentionally imported but NOT wired to the "hitl-in-chat" slot below
-# — the live demo at /demos/hitl-in-chat uses the book-call flow. The
-# steps-flow agent stays here so the file isn't an orphan import and so
-# the eventual hitl-steps demo (planned, not yet shipped) can pick it up
-# without re-implementing.
-from agents.hitl_in_chat_agent import hitl_in_chat_agent  # noqa: F401
+# backs the `human_in_the_loop` slot below — the canonical HITL demo at
+# /demos/hitl that mirrors langgraph-python's gold-standard `hitl` cell
+# (generate_task_steps). The separate `hitl-in-chat` slot uses the
+# book-call flow (`hitl_in_chat_book_call_agent`).
+from agents.hitl_in_chat_agent import hitl_in_chat_agent
 from agents.hitl_in_app_agent import hitl_in_app_agent
+from agents.interrupt_agent import interrupt_agent
 from agents.mcp_apps_agent import mcp_apps_agent
 from agents.multimodal_agent import multimodal_agent
 from agents.declarative_gen_ui_agent import declarative_gen_ui_agent
@@ -132,6 +132,16 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     # ----- Frontend-only demos that share the simple chat agent -----
     # (manifest declares them as separate features; agent path is shared)
     "frontend_tools": AgentSpec(_simple_chat),
+    # Frontend tool round-trip with thread-id continuity (ENT-658). Page at
+    # /demos/threadid-frontend-tool-roundtrip binds agentId=
+    # "threadid-frontend-tool-roundtrip" explicitly. Parity with
+    # langgraph-python's
+    # `agents["threadid-frontend-tool-roundtrip"] = createAgent("frontend_tools")`
+    # means reusing the same simple-chat agent instance as `frontend_tools`,
+    # not sharing a backend path — this ADK registry routes each name to its
+    # own backend path. No backend tools; the frontend registers
+    # testFrontendToolCalling via useFrontendTool.
+    "threadid-frontend-tool-roundtrip": AgentSpec(_simple_chat),
     "frontend-tools-async": AgentSpec(_simple_chat),
     "prebuilt-sidebar": AgentSpec(_simple_chat),
     "prebuilt-popup": AgentSpec(_simple_chat),
@@ -150,6 +160,16 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     # ----- HITL variants -----
     "hitl-in-chat": AgentSpec(hitl_in_chat_book_call_agent),
     "hitl-in-app": AgentSpec(hitl_in_app_agent),
+    # Canonical HITL demo at /demos/hitl (langgraph-python parity) — the
+    # generate_task_steps "task steps" flow rendered by useHumanInTheLoop
+    # + useInterrupt on the frontend.
+    "human_in_the_loop": AgentSpec(hitl_in_chat_agent),
+    # gen-ui-interrupt: Strategy-B scheduling flow. ADK has no LangGraph
+    # `interrupt()`; the page binds agentId="gen-ui-interrupt" and registers
+    # `schedule_meeting` via useHumanInTheLoop. The backend agent has no
+    # tools of its own — AGUIToolset() injects the frontend tool. Mirrors
+    # agno's interrupt_agent + langgraph-python's gen-ui-interrupt cell.
+    "gen-ui-interrupt": AgentSpec(interrupt_agent),
     # ----- MCP Apps -----
     "mcp-apps": AgentSpec(mcp_apps_agent),
     # ----- Multimodal & state-context -----
@@ -169,4 +189,10 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     "beautiful_chat": AgentSpec(beautiful_chat_agent),
     # ----- Auth (uses simple chat — auth gate is in route.ts) -----
     "auth": AgentSpec(_simple_chat),
+    # ----- Neutral default -----
+    # Backs the `default` agent name. The hitl demo's `useInterrupt` hook
+    # binds to the default agent (no agentId); without a registered slot
+    # the frontend throws `useAgent: Agent 'default' not found`. Mirrors
+    # langgraph-python's `agents["default"] = createAgent()`.
+    "default": AgentSpec(_simple_chat),
 }

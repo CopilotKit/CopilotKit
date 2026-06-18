@@ -1,15 +1,21 @@
 /**
  * railway-envs.ts — Single source of truth for Railway IDs used by all
- * TypeScript showcase tooling. Mirrors (but does not import) the IDs in
- * `showcase/bin/railway` (Ruby). When these drift, prefer this file as
- * the TS-side canonical source and reconcile bin/railway by hand.
+ * TypeScript showcase tooling. Only the PROJECT_ID and the two env IDs
+ * (PRODUCTION_ENV_ID / STAGING_ENV_ID) are also hardcoded in
+ * `showcase/bin/railway` (Ruby) — if those three drift, prefer this file
+ * and reconcile bin/railway by hand. Per-service data is NOT mirrored by
+ * hand: the Ruby side consumes it via `railway-envs.generated.json`
+ * (see ServiceEntry.legacyJsonCompat).
  *
  * - PROJECT_ID is the CopilotKit Showcase Railway project.
  * - ENV_IDS maps human env names (and common synonyms) to Railway env IDs.
+ *   (bin/railway's Ruby ENV_IDS additionally accepts the "stage" spelling —
+ *   a Ruby-side-only synonym not mirrored here; add it to BOTH registries'
+ *   tooling deliberately if the divergence ever needs reconciling.)
  * - SERVICES is the per-service map of serviceId + a per-env `environments`
  *   record. Each environment carries its own serviceInstance ID, public
- *   domain (optional — domainless workers omit it), probe flag, and GHCR
- *   repo-name override (optional).
+ *   domain (optional — domainless workers omit it), probe flag (optional,
+ *   defaults true), and GHCR repo-name override (optional).
  *
  * Service-instance IDs are env-scoped, so prod and staging IDs differ for
  * the same service. Use instanceIdFor(serviceName, env) to get the right one.
@@ -46,8 +52,9 @@ export const ENV_IDS: Record<string, string> = {
 
 /**
  * Canonical env-name → Railway env-id registry. Keyed by the env names used
- * as `environments` keys (NOT the synonyms). Accessors that need the Railway
- * env-id for an arbitrary env name resolve it here. Extend this (and add the
+ * as `environments` keys (NOT the synonyms). This is the contract for
+ * turning an arbitrary registered env name into its Railway env id — the
+ * redeploy path resolves env ids through it. Extend this (and add the
  * env to a service's `environments`) to introduce a new env name.
  */
 export const ENV_ID_BY_NAME: Record<string, string> = {
@@ -55,17 +62,42 @@ export const ENV_ID_BY_NAME: Record<string, string> = {
   staging: STAGING_ENV_ID,
 };
 
+/**
+ * Resolve a human-supplied env spelling (case-insensitive, whitespace
+ * tolerated) to the canonical `{ env, envId }` pair.
+ *
+ * Derived ENTIRELY from the two registries above so there is ONE authority
+ * for env names: ENV_IDS supplies the accepted spellings (synonyms), and
+ * the canonical name is whichever ENV_ID_BY_NAME key carries the same
+ * env-id. Registering a new env (a canonical entry in ENV_ID_BY_NAME plus
+ * at least its own spelling in ENV_IDS) makes it resolvable here with no
+ * code change — the open-env contract.
+ *
+ * THROWS on an unknown spelling, and THROWS on a mis-wired registry (an
+ * ENV_IDS spelling whose env-id has no canonical ENV_ID_BY_NAME name).
+ */
 export function resolveEnv(name: string): { env: EnvName; envId: string } {
   const lower = name.trim().toLowerCase();
-  if (lower === "prod" || lower === "production") {
-    return { env: "prod", envId: PRODUCTION_ENV_ID };
+  // Own-key lookup: a bare `ENV_IDS[lower]` truthiness check would resolve
+  // inherited Object.prototype keys (e.g. "constructor") to truthy non-IDs.
+  if (!Object.hasOwn(ENV_IDS, lower)) {
+    throw new Error(
+      `Unknown env "${name}". Use one of: ${Object.keys(ENV_IDS).join(", ")}.`,
+    );
   }
-  if (lower === "staging") {
-    return { env: "staging", envId: STAGING_ENV_ID };
-  }
-  throw new Error(
-    `Unknown env "${name}". Use one of: prod, production, staging.`,
+  const envId = ENV_IDS[lower];
+  // Canonical name = the ENV_ID_BY_NAME key carrying this env-id. Computed
+  // per call (the registry is tiny) so a runtime-registered env resolves
+  // without a rebuild step.
+  const env = Object.keys(ENV_ID_BY_NAME).find(
+    (n) => ENV_ID_BY_NAME[n] === envId,
   );
+  if (env === undefined) {
+    throw new Error(
+      `Env spelling "${lower}" (ENV_IDS) maps to env-id "${envId}", which has no canonical name in ENV_ID_BY_NAME — register the canonical env name there.`,
+    );
+  }
+  return { env, envId };
 }
 
 /**
@@ -138,15 +170,17 @@ export interface ServiceEntry {
   probeDriver: ProbeDriver;
   /**
    * True iff this service is built and pushed by `showcase_build.yml`.
-   * pocketbase and webhooks are first-party GHCR images but are built
-   * by their own repos' release workflows — they MUST NOT be touched
-   * by the showcase build's staging redeploy step.
+   * webhooks is a first-party GHCR image but is built by its own repo's
+   * release workflow — it MUST NOT be touched by the showcase build's
+   * default staging redeploy scope. (pocketbase IS showcase-CI-built:
+   * its matrix slot is gated to `showcase/pocketbase/**` changes.)
    */
   ciBuilt: boolean;
   /**
    * True iff `verify-railway-image-refs.ts` validates this service's
    * image refs. As of WS-C completion this is `true` for every service
-   * in `SERVICES` — the historic Phase-2 deferral on dashboard, docs,
+   * in `SERVICES` except the two `gateIgnore` entries (`harness-workers`,
+   * `harness-legacy`) — the historic Phase-2 deferral on dashboard, docs,
    * dojo, shell, and harness has been retired. New services added to
    * the SSOT MUST land with `gateValidated: true` (and a per-env
    * `repoName` if the Railway service name does not match the GHCR repo
@@ -154,6 +188,37 @@ export interface ServiceEntry {
    * deliberately-untracked third-party / domainless / single-env services.
    */
   gateValidated: boolean;
+  /**
+   * SSOT key of the CI-built service whose GHCR image this service RUNS.
+   *
+   * Models explicit image consumption for services that share another
+   * service's image instead of having their own build slot (e.g.
+   * `harness-workers` runs the same `showcase-harness` image as the
+   * `harness` scheduler). `redeploy-env.ts` expands the redeploy scope
+   * so a rebuilt image redeploys ALL its consumers — without this, a
+   * main-merge rebuild of `showcase-harness:latest` only bounced the
+   * scheduler and the workers silently kept the stale image.
+   *
+   * Constraints (enforced fail-loud at module load by
+   * `assertImageConsumersValid`):
+   *   - must point at an existing SSOT key;
+   *   - the target must be `ciBuilt: true` (consuming a non-CI-built
+   *     image can never put the consumer in the CI redeploy scope);
+   *   - the consumer itself must NOT be `ciBuilt` (a build slot is its
+   *     own image producer — no consumer-of-consumer chains);
+   *   - the consumer's declared `environments` must be a NON-EMPTY subset
+   *     of its `imageOf` producer's environments (a consumer env the
+   *     producer never builds for would run a never-rebuilt image there,
+   *     and a consumer with zero declared envs would never be redeployed
+   *     in any env — both are rejected at module load).
+   *
+   * The expansion is env-aware: a consumer only enters an env's redeploy
+   * scope if it declares that env (the staging-only worker never enters
+   * the prod scope). Omit for any service with its own build slot or a
+   * pinned/out-of-band image (e.g. `harness-legacy`, which deliberately
+   * runs a pinned pre-fleet digest and must NOT follow rebuilds).
+   */
+  imageOf?: string;
   /**
    * Opt-out flag for the image-ref gate. When `true`, the gate ignores
    * this service entirely in BOTH the SSOT→Railway direction (no
@@ -184,10 +249,12 @@ export interface ServiceEntry {
    *     (the legacy non-functional placeholder; never dereferenced because
    *     the service is staging-only with probe disabled).
    *   - a missing per-env `domain` → the value provided here (the legacy
-   *     borrowed control-plane host). The Ruby parity test rejects
-   *     `.up.railway.app` hosts and resolve-verify-matrix filters on
-   *     `probe.staging===true`, so neither consumer is affected by these
-   *     placeholder hosts — they exist only to preserve the JSON shape.
+   *     borrowed control-plane host). bin/railway's EXPECTED_DOMAINS
+   *     derivation FILTERS OUT `*.up.railway.app` hosts (only public
+   *     domains enter its domain checks), and resolve-verify-matrix
+   *     filters on `probe.staging===true`, so neither consumer ever
+   *     dereferences these placeholder hosts — they exist only to
+   *     preserve the JSON shape.
    *
    * Omit this field for any normal (dual-env, domain-bearing) service.
    */
@@ -349,10 +416,14 @@ export const SERVICES: Record<
     // STAGING-ONLY worker (pool-fleet cutover). There is no prod
     // serviceInstance — the pool-fleet runs in staging only for now. Under
     // the env-map schema we simply OMIT the prod key (no placeholder ID is
-    // needed). gateIgnore skips both gate directions, and ciBuilt:false
-    // keeps it out of the default CI_BUILT_SERVICES redeploy scope. If/when
-    // a prod worker is provisioned, add a `prod` env entry and flip
-    // gateIgnore off.
+    // needed). gateIgnore skips both gate directions; ciBuilt:false because
+    // the worker has no build slot of its own — but `imageOf: "harness"`
+    // (below) puts it in the staging redeploy scope whenever the shared
+    // showcase-harness image is rebuilt. If/when a prod worker is
+    // provisioned, add a `prod` env entry, flip gateIgnore off, and set
+    // gateValidated: true (the
+    // imageOf expansion is env-aware and will start covering prod
+    // automatically once the prod env entry exists).
     ciBuilt: false,
     // gateIgnore: deliberately-untracked for the image-ref gate. The
     // worker is staging-only and domainless (it pulls jobs from the
@@ -369,9 +440,13 @@ export const SERVICES: Record<
     // existing `harness` (control-plane) service runs — it is NOT a
     // separately-built image. The single `showcase-harness` build slot in
     // showcase_build.yml produces the image both services consume; there is
-    // no `harness-workers` build slot. Hence ciBuilt:false. The
+    // no `harness-workers` build slot. Hence ciBuilt:false, with the
+    // consumption modeled explicitly via imageOf so the staging redeploy
+    // after a successful `showcase-harness` build bounces the worker too
+    // (it used to be silently skipped, leaving it on the stale image). The
     // repoName override points at `showcase-harness` so the image-ref shape
     // resolves correctly if the gate ever validates it.
+    imageOf: "harness",
     //
     // No public domain (queue worker, not HTTP-exposed) and probe disabled:
     // verify-deploy skips probe:false services, and the schema no longer
@@ -873,7 +948,15 @@ export const SERVICES: Record<
     // GHCR repo name is `showcase-eval-webhook` (NOT `webhooks`), and
     // it is built by a separate release workflow — not showcase_build.yml.
     // The dispatch_name entry exists so humans can redeploy/verify
-    // webhooks from CI on demand; the build slot is no-op.
+    // webhooks from CI on demand; the build slot is no-op (skip_build).
+    // NOTE: that no-op slot still reports build status "success", so
+    // webhooks enters the redeploy CSV whenever its matrix slot is
+    // selected — and MAY be bounced (Railway re-pulls its out-of-band
+    // :latest) by BOTH a manual `service=all` build dispatch AND a push
+    // that touches the build workflow files (the `workflow_config`
+    // paths-filter disjunct selects EVERY slot, webhooks included).
+    // Only an ordinary code push — one matching per-service paths
+    // filters but not workflow_config — leaves webhooks untouched.
     environments: {
       prod: {
         instanceId: "d82ef5b4-3bfd-462e-9436-3d5dbca8681a",
@@ -892,25 +975,79 @@ export const SERVICES: Record<
 };
 
 /**
+ * Own-property SERVICES lookup. Returns undefined for unknown service
+ * names, INCLUDING inherited Object.prototype keys ("constructor",
+ * "toString", "hasOwnProperty", …) which a bare `SERVICES[name]`
+ * truthiness check would resolve to truthy non-entries. Every exported
+ * accessor routes through this (or its throwing wrapper `getEntry`) so
+ * the own-property semantics cannot drift per function.
+ */
+function findEntry(
+  serviceName: string,
+): (ServiceEntry & { dispatchName?: string }) | undefined {
+  return Object.hasOwn(SERVICES, serviceName)
+    ? SERVICES[serviceName]
+    : undefined;
+}
+
+/** Own-property `entry.environments` lookup (same rationale as findEntry). */
+function findEnvCfg(
+  entry: ServiceEntry,
+  env: EnvName,
+): EnvironmentConfig | undefined {
+  return Object.hasOwn(entry.environments, env)
+    ? entry.environments[env]
+    : undefined;
+}
+
+/** findEntry, throwing the curated unknown-service error when absent. */
+function getEntry(
+  serviceName: string,
+): ServiceEntry & { dispatchName?: string } {
+  const entry = findEntry(serviceName);
+  if (entry === undefined) {
+    throw new Error(
+      `Unknown showcase service "${serviceName}". Add it to SERVICES in showcase/scripts/railway-envs.ts.`,
+    );
+  }
+  return entry;
+}
+
+/** findEnvCfg, throwing the curated no-such-environment error when absent. */
+function getEnvCfg(
+  serviceName: string,
+  entry: ServiceEntry,
+  env: EnvName,
+): EnvironmentConfig {
+  const envCfg = findEnvCfg(entry, env);
+  if (envCfg === undefined) {
+    throw new Error(
+      `Service "${serviceName}" has no "${env}" environment in the SSOT (envs: ${Object.keys(
+        entry.environments,
+      )
+        .sort()
+        .join(", ")}).`,
+    );
+  }
+  return envCfg;
+}
+
+/**
  * The env names present in a service's `environments` map. Returns a sorted
  * copy so callers get deterministic order regardless of literal order.
  * Throws on unknown service (fail loud).
  */
 export function envsFor(serviceName: string): EnvName[] {
-  const entry = SERVICES[serviceName];
-  if (!entry) {
-    throw new Error(
-      `Unknown showcase service "${serviceName}". Add it to SERVICES in showcase/scripts/railway-envs.ts.`,
-    );
-  }
-  return Object.keys(entry.environments).sort();
+  return Object.keys(getEntry(serviceName).environments).sort();
 }
 
 /**
  * Every (serviceName, env) pair across the whole SSOT, sorted by service
- * name then env name. The canonical iteration order for any consumer that
- * must visit every env-scoped instance (the image-ref gate, exhaustive
- * snapshots, etc.) without hardcoding ["prod","staging"].
+ * name then env name. Intended as the canonical iteration helper for any
+ * consumer that must visit every env-scoped instance without hardcoding
+ * ["prod","staging"] — NOT YET CONSUMED by any caller (the image-ref gate
+ * iterates each entry's `environments` directly); kept exported so new
+ * exhaustive-iteration consumers reach for it instead of reinventing it.
  */
 export function serviceEnvPairs(): Array<{ name: string; env: EnvName }> {
   const pairs: Array<{ name: string; env: EnvName }> = [];
@@ -923,23 +1060,7 @@ export function serviceEnvPairs(): Array<{ name: string; env: EnvName }> {
 }
 
 export function instanceIdFor(serviceName: string, env: EnvName): string {
-  const entry = SERVICES[serviceName];
-  if (!entry) {
-    throw new Error(
-      `Unknown showcase service "${serviceName}". Add it to SERVICES in showcase/scripts/railway-envs.ts.`,
-    );
-  }
-  const envCfg = entry.environments[env];
-  if (!envCfg) {
-    throw new Error(
-      `Service "${serviceName}" has no "${env}" environment in the SSOT (envs: ${Object.keys(
-        entry.environments,
-      )
-        .sort()
-        .join(", ")}).`,
-    );
-  }
-  return envCfg.instanceId;
+  return getEnvCfg(serviceName, getEntry(serviceName), env).instanceId;
 }
 
 export function listServiceNames(): string[] {
@@ -948,10 +1069,15 @@ export function listServiceNames(): string[] {
 
 /**
  * The subset of SERVICES that `showcase_build.yml` actually builds and
- * pushes. Excludes `webhooks` (released by its own repo's workflow).
- * pocketbase IS CI-built (its matrix slot is gated to
- * `showcase/pocketbase/**` changes). Default target set for
- * `redeploy-env.ts <env>` when no explicit `--services` list is provided.
+ * pushes. Excludes `webhooks` (released by its own repo's workflow) AND
+ * the non-CI-built harness services: `harness-workers` (consumes the
+ * shared showcase-harness image via imageOf; no build slot of its own)
+ * and `harness-legacy` (runs a pinned out-of-band digest). pocketbase
+ * IS CI-built (its matrix slot is gated to `showcase/pocketbase/**`
+ * changes). Default target set for `redeploy-env.ts <env>` when no
+ * explicit `--services` list is provided — though the actual default
+ * redeploy scope is this set PLUS any `imageOf` consumers that declare
+ * the target env (e.g. staging adds harness-workers).
  */
 export const CI_BUILT_SERVICES: ReadonlySet<string> = new Set(
   Object.entries(SERVICES)
@@ -962,14 +1088,33 @@ export const CI_BUILT_SERVICES: ReadonlySet<string> = new Set(
 /**
  * Resolve the expected GHCR repo name for a (serviceName, env) pair.
  * Exported so callers (verify-railway-image-refs.ts) and unit tests can
- * exercise override resolution directly. Returns the service name verbatim
- * when no per-env override is set (or the service / env is unknown).
+ * exercise override resolution directly.
+ *
+ * Resolution: the per-env `repoName` override when the service declares
+ * `env` and sets one; otherwise the service name verbatim (the documented
+ * default for services whose GHCR repo matches their Railway name).
+ *
+ * Fail-loud, consistent with instanceIdFor/domainFor — a silently wrong
+ * GHCR name is exactly the drift class the image-ref gate exists to catch:
+ *   - THROWS on an unknown service;
+ *   - THROWS on an env name not registered in ENV_ID_BY_NAME (unnormalized
+ *     synonyms like "production" must go through resolveEnv first);
+ *   - THROWS on a registered env the service does not declare (e.g. the
+ *     staging-only harness-workers asked for prod — its repo everywhere
+ *     is showcase-harness, so echoing the service name would be wrong).
  */
 export function repoNameFor(serviceName: string, env: EnvName): string {
-  const entry = SERVICES[serviceName];
-  if (!entry) return serviceName;
-  const override = entry.environments[env]?.repoName;
-  return override ?? serviceName;
+  const entry = getEntry(serviceName);
+  // Stricter than the other accessors (unchanged behavior): repoNameFor
+  // also rejects env names that are not registered SSOT env keys, so
+  // unnormalized synonyms ("production") fail loud before the per-service
+  // env lookup.
+  if (!Object.hasOwn(ENV_ID_BY_NAME, env)) {
+    throw new Error(
+      `Unknown env "${String(env)}" — repoNameFor requires a normalized SSOT env key (one of: ${Object.keys(ENV_ID_BY_NAME).join(", ")}). Synonyms like "production" must be normalized via resolveEnv() first.`,
+    );
+  }
+  return getEnvCfg(serviceName, entry, env).repoName ?? serviceName;
 }
 
 /**
@@ -984,22 +1129,7 @@ export function repoNameFor(serviceName: string, env: EnvName): string {
  * and from the JSON artifact emitter that the Ruby side consumes.
  */
 export function domainFor(serviceName: string, env: EnvName): string {
-  const entry = SERVICES[serviceName];
-  if (!entry) {
-    throw new Error(
-      `Unknown showcase service "${serviceName}". Add it to SERVICES in showcase/scripts/railway-envs.ts.`,
-    );
-  }
-  const envCfg = entry.environments[env];
-  if (!envCfg) {
-    throw new Error(
-      `Service "${serviceName}" has no "${env}" environment in the SSOT (envs: ${Object.keys(
-        entry.environments,
-      )
-        .sort()
-        .join(", ")}).`,
-    );
-  }
+  const envCfg = getEnvCfg(serviceName, getEntry(serviceName), env);
   const host = envCfg.domain;
   if (!host || host.includes("://")) {
     // Defense-in-depth: SERVICES population is asserted by the
@@ -1021,13 +1151,16 @@ export function domainFor(serviceName: string, env: EnvName): string {
  * pair. False when the service has no such env, or the env config sets
  * `probe: false`. Defaults to `true` when the env exists and `probe` is
  * omitted (the historic default). Returns false (rather than throwing) on
- * unknown service so callers can treat "not probe-eligible" uniformly.
+ * unknown service AND on an undeclared env so callers can treat "not
+ * probe-eligible" uniformly — including for inherited Object.prototype
+ * keys on either axis (the own-property lookups below return undefined
+ * for those, never a truthy non-entry that would default to `true`).
  */
 export function probeEnabled(serviceName: string, env: EnvName): boolean {
-  const entry = SERVICES[serviceName];
-  if (!entry) return false;
-  const envCfg = entry.environments[env];
-  if (!envCfg) return false;
+  const entry = findEntry(serviceName);
+  if (entry === undefined) return false;
+  const envCfg = findEnvCfg(entry, env);
+  if (envCfg === undefined) return false;
   return envCfg.probe ?? true;
 }
 
@@ -1035,7 +1168,10 @@ export function probeEnabled(serviceName: string, env: EnvName): boolean {
  * Resolve a `showcase_build.yml` `dispatch_name` (e.g. `mastra`,
  * `shell-dashboard`, `showcase-aimock`) to the canonical SSOT key
  * (e.g. `showcase-mastra`, `dashboard`, `aimock`). Returns undefined
- * when the dispatch_name does not correspond to a CI-built service.
+ * when no SSOT entry carries this dispatchName. Note this does NO ciBuilt
+ * filtering: any SSOT entry with a matching dispatchName resolves,
+ * CI-built or not (e.g. the non-CI-built `webhooks` resolves — that is
+ * what lets a human redeploy it on demand via --services).
  */
 export function serviceForDispatchName(
   dispatchName: string,
@@ -1047,10 +1183,16 @@ export function serviceForDispatchName(
 }
 
 /**
- * Throw on SSOT load if any two services share the same `dispatchName`.
+ * Throw on SSOT load if any two services share the same `dispatchName`,
+ * or if a service's `dispatchName` equals a DIFFERENT entry's SSOT key.
  * `serviceForDispatchName` iterates `Object.entries(SERVICES)` and returns
  * the first match — a silent collision would route redeploys to the wrong
- * service. We fail loud at module load instead.
+ * service. The cross-key case is the same trap from the other direction:
+ * resolveTargetServices checks SSOT keys BEFORE dispatch_names, so a
+ * dispatchName shadowed by another entry's key silently misroutes to that
+ * other entry. A dispatchName equal to its OWN key (e.g. shell, webhooks)
+ * is legal — both lookups land on the same entry. We fail loud at module
+ * load instead.
  *
  * Accepts an injected map for testing; defaults to the real SERVICES map.
  */
@@ -1058,36 +1200,293 @@ export function assertDispatchNamesUnique(
   services: Record<string, { dispatchName?: string }> = SERVICES,
 ): void {
   const seen = new Map<string, string>(); // dispatchName -> first ssotKey
-  const collisions: Array<{
-    dispatchName: string;
-    keys: [string, string];
-  }> = [];
+  const problems: string[] = [];
   for (const [key, entry] of Object.entries(services)) {
     const dn = entry.dispatchName;
     if (typeof dn !== "string" || dn.length === 0) continue;
     const prior = seen.get(dn);
     if (prior !== undefined) {
-      collisions.push({ dispatchName: dn, keys: [prior, key] });
+      problems.push(
+        `  - duplicate dispatchName "${dn}" on SSOT keys: ${prior}, ${key}`,
+      );
     } else {
       seen.set(dn, key);
     }
+    // Own-property lookup (same rationale as elsewhere in this file): an
+    // inherited Object.prototype key must not register as a collision.
+    if (dn !== key && Object.hasOwn(services, dn)) {
+      problems.push(
+        `  - dispatchName "${dn}" on SSOT key "${key}" equals a DIFFERENT entry's SSOT key — resolveTargetServices resolves SSOT keys first, so this dispatch_name would silently misroute to "${dn}"`,
+      );
+    }
   }
-  if (collisions.length > 0) {
-    const lines = collisions
-      .map(
-        (c) =>
-          `  - duplicate dispatchName "${c.dispatchName}" on SSOT keys: ${c.keys[0]}, ${c.keys[1]}`,
-      )
-      .join("\n");
+  if (problems.length > 0) {
     throw new Error(
-      `railway-envs SSOT invariant violated:\n${lines}\n` +
-        `Fix: each Railway service must have a unique dispatchName ` +
+      `railway-envs SSOT invariant violated:\n${problems.join("\n")}\n` +
+        `Fix: each Railway service must have a unique dispatchName that ` +
+        `does not collide with another entry's SSOT key ` +
         `(or no dispatchName at all for out-of-band services).`,
     );
   }
 }
 
-// Module-load assertion: fail any importer if the SSOT drifts into a
-// collision. Tests that exercise the invariant with synthetic input
-// call assertDispatchNamesUnique(synthetic) directly.
+/**
+ * Throw on SSOT load if any `imageOf` is mis-wired. A dangling target,
+ * a target without a build slot, an imageOf on a build slot, or a consumer
+ * env the producer never builds for would each silently break the
+ * "rebuilt image redeploys ALL its consumers" contract in
+ * `redeploy-env.ts` — fail loud at module load instead (same style as
+ * `assertDispatchNamesUnique`).
+ *
+ * Accepts an injected map for testing; defaults to the real SERVICES map.
+ */
+export function assertImageConsumersValid(
+  services: Record<
+    string,
+    {
+      ciBuilt: boolean;
+      imageOf?: string;
+      environments?: Record<string, unknown>;
+    }
+  > = SERVICES,
+): void {
+  const problems: string[] = [];
+  for (const [key, entry] of Object.entries(services)) {
+    const target = entry.imageOf;
+    if (target === undefined) continue;
+    if (entry.ciBuilt) {
+      problems.push(
+        `  - "${key}" is ciBuilt but declares imageOf "${target}" — a build slot is its own image producer; drop one of the two`,
+      );
+      continue;
+    }
+    // Own-property lookup: a bare `services[target]` truthiness check
+    // would resolve inherited Object.prototype keys (e.g. imageOf:
+    // "toString") to a truthy non-entry and misreport the dangling target.
+    if (!Object.hasOwn(services, target)) {
+      problems.push(
+        `  - imageOf "${target}" on "${key}" is not an SSOT key in SERVICES`,
+      );
+      continue;
+    }
+    const targetEntry = services[target];
+    if (!targetEntry.ciBuilt) {
+      problems.push(
+        `  - imageOf "${target}" on "${key}" points at a service that is not ciBuilt — only showcase_build.yml build slots can have image consumers`,
+      );
+      continue;
+    }
+    // A consumer with ZERO declared environments passes the env-subset
+    // check below vacuously — but a consumer that exists in no env is a
+    // service the redeploy expansion can never reach (expandImageConsumers
+    // filters on `environments[env]`), i.e. a silently never-redeployed
+    // service. Reject it loudly.
+    const consumerEnvs = Object.keys(entry.environments ?? {});
+    if (consumerEnvs.length === 0) {
+      problems.push(
+        `  - "${key}" declares imageOf "${target}" but ZERO environments — the env-subset check passes vacuously and the consumer would never be redeployed in any env`,
+      );
+      continue;
+    }
+    // Env overlap: every env the consumer declares must also be one the
+    // producer builds for. A consumer-only env would run an image that no
+    // CI build ever refreshes there — a silently never-updating service,
+    // the exact stale-image failure this invariant exists to prevent.
+    const producerEnvs = targetEntry.environments ?? {};
+    for (const env of consumerEnvs) {
+      if (!Object.hasOwn(producerEnvs, env)) {
+        problems.push(
+          `  - "${key}" declares env "${env}" but its imageOf "${target}" has no "${env}" environment — "${key}" would run a never-rebuilt image there`,
+        );
+      }
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      `railway-envs SSOT invariant violated:\n${problems.join("\n")}\n` +
+        `Fix: imageOf must name an existing, ciBuilt SSOT key, may only ` +
+        `appear on a non-ciBuilt consumer, and the consumer's declared ` +
+        `environments must be a non-empty subset of its producer's.`,
+    );
+  }
+}
+
+/**
+ * Throw on SSOT load if the env registries and the per-service
+ * `environments` maps disagree (same style as `assertDispatchNamesUnique`):
+ *
+ *   (i)   every key of every `entry.environments` must be a canonical env
+ *         name registered in ENV_ID_BY_NAME — an unregistered key is an env
+ *         no accessor or redeploy path can ever resolve (a silently
+ *         unreachable env config);
+ *   (ii)  ENV_ID_BY_NAME env-ids must be unique — resolveEnv resolves the
+ *         FIRST canonical name carrying an env-id, so a duplicate silently
+ *         shadows the second name;
+ *   (iii) every ENV_ID_BY_NAME canonical name must have at least one
+ *         ENV_IDS spelling — a canonical name no spelling maps to can never
+ *         be produced by resolveEnv (a registered-but-unnameable env);
+ *   (iv)  a key present in BOTH registries must carry the SAME env-id in
+ *         both — without this, ENV_IDS.prod drifting to the staging id
+ *         passes every other clause while resolveEnv("prod") silently
+ *         returns staging (a cross-wired redeploy target);
+ *   (v)   every ENV_IDS env-id must be carried by some ENV_ID_BY_NAME
+ *         canonical name — an orphan spelling is otherwise rejected only
+ *         lazily inside resolveEnv, at call time, for the one spelling an
+ *         operator happens to type;
+ *   (vi)  every key of both registries must equal its own
+ *         trim().toLowerCase() — resolveEnv lowercases its input before
+ *         the own-key lookup, so a non-normalized spelling is registered
+ *         but unreachable;
+ *   (vii) no key of either registry may be an Object.prototype property
+ *         name ("constructor", "toString", …) — a prototype-named env
+ *         defeats the own-property lookup discipline used throughout this
+ *         file and redeploy-env.ts.
+ *
+ * Accepts injected maps for testing; defaults to the real registries.
+ */
+export function assertEnvRegistryConsistent(
+  services: Record<
+    string,
+    { environments?: Record<string, unknown> }
+  > = SERVICES,
+  envIdByName: Record<string, string> = ENV_ID_BY_NAME,
+  envIds: Record<string, string> = ENV_IDS,
+): void {
+  const problems: string[] = [];
+  for (const [key, entry] of Object.entries(services)) {
+    for (const env of Object.keys(entry.environments ?? {})) {
+      if (!Object.hasOwn(envIdByName, env)) {
+        problems.push(
+          `  - service "${key}" declares env "${env}", which is not a canonical env name in ENV_ID_BY_NAME — no accessor or redeploy path could ever resolve it`,
+        );
+      }
+    }
+  }
+  const byId = new Map<string, string>(); // env-id -> first canonical name
+  for (const [name, id] of Object.entries(envIdByName)) {
+    const prior = byId.get(id);
+    if (prior !== undefined) {
+      problems.push(
+        `  - duplicate env-id "${id}" in ENV_ID_BY_NAME (canonical names: ${prior}, ${name}) — resolveEnv resolves the FIRST name, silently shadowing the second`,
+      );
+    } else {
+      byId.set(id, name);
+    }
+  }
+  const spelledIds = new Set(Object.values(envIds));
+  for (const [name, id] of Object.entries(envIdByName)) {
+    if (!spelledIds.has(id)) {
+      problems.push(
+        `  - canonical env "${name}" (env-id "${id}") has no ENV_IDS spelling — resolveEnv can never produce it; register at least its own name in ENV_IDS`,
+      );
+    }
+  }
+  // (iv) Cross-wire: a key in BOTH registries must carry the SAME env-id.
+  for (const [key, id] of Object.entries(envIds)) {
+    if (Object.hasOwn(envIdByName, key) && envIdByName[key] !== id) {
+      problems.push(
+        `  - cross-wired env "${key}": ENV_IDS maps it to "${id}" but ENV_ID_BY_NAME maps it to "${envIdByName[key]}" — resolveEnv("${key}") would silently resolve to the OTHER env`,
+      );
+    }
+  }
+  // (v) Orphan spelling: every ENV_IDS env-id must have a canonical name.
+  const canonicalIds = new Set(Object.values(envIdByName));
+  for (const [spelling, id] of Object.entries(envIds)) {
+    if (!canonicalIds.has(id)) {
+      problems.push(
+        `  - orphan ENV_IDS spelling "${spelling}": its env-id "${id}" is carried by no ENV_ID_BY_NAME canonical name — resolveEnv would reject it only lazily at call time`,
+      );
+    }
+  }
+  // (vi)+(vii) Key hygiene on both registries: lowercase-normalized and
+  // never an Object.prototype property name.
+  const protoNames = new Set(Object.getOwnPropertyNames(Object.prototype));
+  const registries: Array<[string, Record<string, string>]> = [
+    ["ENV_IDS", envIds],
+    ["ENV_ID_BY_NAME", envIdByName],
+  ];
+  for (const [registryName, registry] of registries) {
+    for (const key of Object.keys(registry)) {
+      if (key !== key.trim().toLowerCase()) {
+        problems.push(
+          `  - ${registryName} key "${key}" is not trim().toLowerCase()-normalized — resolveEnv lowercases its input, so this spelling is registered but unreachable`,
+        );
+      }
+      if (protoNames.has(key)) {
+        problems.push(
+          `  - ${registryName} key "${key}" is an Object.prototype property name — a prototype-named env defeats own-property lookups; pick a different name`,
+        );
+      }
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      `railway-envs SSOT invariant violated:\n${problems.join("\n")}\n` +
+        `Fix: keep ENV_IDS (accepted spellings), ENV_ID_BY_NAME (canonical ` +
+        `names) and each service's environments keys mutually consistent.`,
+    );
+  }
+}
+
+/**
+ * Throw on SSOT load if any Railway ID is duplicated: a `serviceId` shared
+ * by two SSOT entries, or an env-scoped `instanceId` shared by any two env
+ * configs ANYWHERE in the map (instance IDs are globally unique on
+ * Railway). A duplicated ID means a redeploy/verify of one service would
+ * silently hit another — fail loud at module load instead (same style as
+ * `assertDispatchNamesUnique`).
+ *
+ * Accepts an injected map for testing; defaults to the real SERVICES map.
+ */
+export function assertServiceAndInstanceIdsUnique(
+  services: Record<
+    string,
+    {
+      serviceId: string;
+      environments?: Record<string, { instanceId?: string }>;
+    }
+  > = SERVICES,
+): void {
+  const problems: string[] = [];
+  const serviceIdOwners = new Map<string, string>(); // serviceId -> ssotKey
+  const instanceIdOwners = new Map<string, string>(); // instanceId -> "key.env"
+  for (const [key, entry] of Object.entries(services)) {
+    const priorService = serviceIdOwners.get(entry.serviceId);
+    if (priorService !== undefined) {
+      problems.push(
+        `  - duplicate serviceId "${entry.serviceId}" on SSOT keys: ${priorService}, ${key}`,
+      );
+    } else {
+      serviceIdOwners.set(entry.serviceId, key);
+    }
+    for (const [env, cfg] of Object.entries(entry.environments ?? {})) {
+      const instanceId = cfg?.instanceId;
+      if (instanceId === undefined) continue;
+      const where = `${key}.${env}`;
+      const prior = instanceIdOwners.get(instanceId);
+      if (prior !== undefined) {
+        problems.push(
+          `  - duplicate instanceId "${instanceId}" (env configs: ${prior}, ${where}) — a redeploy/verify of one would silently hit the other`,
+        );
+      } else {
+        instanceIdOwners.set(instanceId, where);
+      }
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      `railway-envs SSOT invariant violated:\n${problems.join("\n")}\n` +
+        `Fix: every Railway serviceId must appear on exactly one SSOT entry ` +
+        `and every env-scoped instanceId must be globally unique.`,
+    );
+  }
+}
+
+// Module-load assertions: fail any importer if the SSOT drifts into a
+// collision, a mis-wired image consumer, an inconsistent env registry, or
+// a duplicated Railway ID. Tests that exercise the invariants with
+// synthetic input call the assert functions directly.
 assertDispatchNamesUnique();
+assertImageConsumersValid();
+assertEnvRegistryConsistent();
+assertServiceAndInstanceIdsUnique();

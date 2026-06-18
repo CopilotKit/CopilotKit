@@ -99,15 +99,35 @@ def build_a2ui_operations_from_tool_call(args: dict[str, Any]) -> dict[str, Any]
         )
     data = args.get("data")
 
+    # A2UI v0.9 NESTED operation format (createSurface/updateComponents/
+    # updateDataModel keys) — the runtime A2UI middleware and the frontend
+    # renderer only understand this shape (mirrors copilotkit.a2ui helpers in
+    # sdk-python/copilotkit/a2ui.py). The previous flat
+    # {"type": "create_surface", ...} form parsed as a container but produced
+    # ops the renderer could not apply, so declarative surfaces never mounted.
     ops = [
-        {"type": "create_surface", "surfaceId": surface_id, "catalogId": catalog_id},
         {
-            "type": "update_components",
-            "surfaceId": surface_id,
-            "components": components,
+            "version": "v0.9",
+            "createSurface": {"surfaceId": surface_id, "catalogId": catalog_id},
+        },
+        {
+            "version": "v0.9",
+            "updateComponents": {
+                "surfaceId": surface_id,
+                "components": components,
+            },
         },
     ]
     if data:
-        ops.append({"type": "update_data_model", "surfaceId": surface_id, "data": data})
+        ops.append(
+            {
+                "version": "v0.9",
+                "updateDataModel": {
+                    "surfaceId": surface_id,
+                    "path": "/",
+                    "value": data,
+                },
+            }
+        )
 
     return {"a2ui_operations": ops}

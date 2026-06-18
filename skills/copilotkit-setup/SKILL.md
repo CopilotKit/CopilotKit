@@ -4,7 +4,7 @@ description: >
   Use when adding CopilotKit to an existing project or bootstrapping a new CopilotKit
   project from scratch. Covers framework detection, package installation, runtime wiring,
   provider setup, and first working chat integration.
-version: 1.1.1
+version: 1.1.2
 ---
 
 # CopilotKit Setup
@@ -67,9 +67,12 @@ npm install @copilotkit/runtime hono
 For standalone Express backends, install Express adapter dependencies instead of `hono`:
 
 ```bash
-npm install @copilotkit/runtime express cors
-npm install -D @types/express @types/cors
+npm install @copilotkit/runtime express dotenv zod
+npm install -D @types/express tsx typescript
 ```
+
+(`createCopilotExpressHandler` enables CORS internally, so you do not need to
+install `cors` yourself. `dotenv` and `zod` are used by the example asset.)
 
 ### Step 2: Configure the runtime
 
@@ -77,8 +80,8 @@ The runtime is the server-side component that manages agent execution. See `refe
 
 There are two endpoint styles:
 
-1. **Multi-route (Hono)** -- uses `createCopilotEndpoint`. Requires a catch-all route (`[[...slug]]` in Next.js). Each operation (run, connect, stop, info, transcribe, threads) gets its own HTTP path.
-2. **Single-route (Hono or Express)** -- uses `createCopilotEndpointSingleRoute` or `createCopilotEndpointSingleRouteExpress`. All operations go through a single POST endpoint with method multiplexing.
+1. **Multi-route (Hono)** -- uses `createCopilotHonoHandler`. Requires a catch-all route (`[[...slug]]` in Next.js). Each operation (run, connect, stop, info, transcribe, threads) gets its own HTTP path.
+2. **Single-route (Hono or Express)** -- uses `createCopilotHonoHandler({ ..., mode: "single-route" })` or `createCopilotExpressHandler({ ..., mode: "single-route" })`. All operations go through a single POST endpoint with method multiplexing.
 
 #### Next.js App Router (recommended: multi-route with Hono)
 
@@ -87,7 +90,7 @@ Create `src/app/api/copilotkit/[[...slug]]/route.ts`:
 ```typescript
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotHonoHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
@@ -105,13 +108,17 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
 
 export const GET = handle(app);
 export const POST = handle(app);
+// PATCH/DELETE are used by thread operations (useThreads); export them too
+// so the multi-route handler can serve them when you enable Intelligence/threads.
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
 #### Next.js App Router (alternative: single-route)
@@ -121,7 +128,7 @@ Create `src/app/api/copilotkit/route.ts`:
 ```typescript
 import {
   CopilotRuntime,
-  createCopilotEndpointSingleRoute,
+  createCopilotHonoHandler,
   InMemoryAgentRunner,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
@@ -139,9 +146,10 @@ const runtime = new CopilotRuntime({
   runner: new InMemoryAgentRunner(),
 });
 
-const app = createCopilotEndpointSingleRoute({
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
+  mode: "single-route",
 });
 
 export const POST = handle(app);
@@ -156,7 +164,7 @@ Create `src/index.ts`:
 ```typescript
 import express from "express";
 import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
-import { createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/v2/express";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
 
 const agent = new BuiltInAgent({
   model: "openai/gpt-4o",
@@ -172,9 +180,10 @@ const app = express();
 
 app.use(
   "/api/copilotkit",
-  createCopilotEndpointSingleRouteExpress({
+  createCopilotExpressHandler({
     runtime,
     basePath: "/",
+    mode: "single-route",
   }),
 );
 
@@ -186,14 +195,14 @@ app.listen(port, () => {
 });
 ```
 
-For multi-route Express, use `createCopilotEndpointExpress` instead (imported from `@copilotkit/runtime/v2/express`).
+For multi-route Express, omit the `mode` option (multi-route is the default) -- `createCopilotExpressHandler` is the same factory for both styles (imported from `@copilotkit/runtime/v2/express`).
 
 #### Standalone Hono Server (non-Vercel)
 
 ```typescript
 import {
   CopilotRuntime,
-  createCopilotEndpoint,
+  createCopilotHonoHandler,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
 import { serve } from "@hono/node-server";
@@ -204,7 +213,7 @@ const runtime = new CopilotRuntime({
   },
 });
 
-const app = createCopilotEndpoint({
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
@@ -220,7 +229,9 @@ npm install hono @hono/node-server
 
 ### Step 3: Set up the frontend provider
 
-Wrap your application with `CopilotKitProvider` from `@copilotkit/react-core/v2`.
+Wrap your application with `CopilotKit` from `@copilotkit/react-core/v2`.
+
+> **Which provider component?** Always use `CopilotKit` imported from `@copilotkit/react-core/v2`. It is the compatibility bridge across v1 and v2 and a strict superset of the other provider APIs. Do **not** use `CopilotKit` from the package root (`@copilotkit/react-core`, legacy v1) or `CopilotKitProvider` from `/v2` (a subset of the functionality).
 
 **Important:** Import the stylesheet in your root layout:
 
@@ -235,15 +246,18 @@ In `src/app/page.tsx` (or a client component):
 ```tsx
 "use client";
 
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 
 export default function Home() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+    // useSingleEndpoint={false} matches the multi-route backend above.
+    // The v1-compat CopilotKit bridge defaults useSingleEndpoint to true,
+    // which would 404 against multi-route endpoints.
+    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
       <div style={{ height: "100vh" }}>
         <CopilotChat />
       </div>
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```
@@ -253,29 +267,26 @@ export default function Home() {
 When the runtime runs on a separate server (e.g., Express on port 4000):
 
 ```tsx
-<CopilotKitProvider
-  runtimeUrl="http://localhost:4000/api/copilotkit"
-  useSingleEndpoint
->
+<CopilotKit runtimeUrl="http://localhost:4000/api/copilotkit" useSingleEndpoint>
   {children}
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
-Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCopilotEndpointSingleRoute` or `createCopilotEndpointSingleRouteExpress`).
+Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCopilotHonoHandler` or `createCopilotExpressHandler` with `mode: "single-route"`).
 
-#### CopilotKitProvider key props
+#### CopilotKit key props
 
-| Prop                | Type                      | Description                                                           |
-| ------------------- | ------------------------- | --------------------------------------------------------------------- |
-| `runtimeUrl`        | `string`                  | URL of the CopilotKit runtime endpoint                                |
-| `useSingleEndpoint` | `boolean`                 | Set to `true` when using single-route endpoints                       |
-| `headers`           | `Record<string, string>`  | Custom headers sent with every request                                |
-| `credentials`       | `RequestCredentials`      | Fetch credentials mode (e.g., `"include"` for cookies)                |
-| `publicApiKey`      | `string`                  | Copilot Cloud public API key (if using hosted runtime)                |
-| `showDevConsole`    | `boolean \| "auto"`       | Show the dev inspector (`"auto"` = development only)                  |
-| `renderToolCalls`   | `ReactToolCallRenderer[]` | Custom renderers for tool call UI                                     |
-| `frontendTools`     | `ReactFrontendTool[]`     | Frontend-defined tools (declarative alternative to `useFrontendTool`) |
-| `onError`           | `(event) => void`         | Global error handler                                                  |
+| Prop                | Type                                                       | Description                                                                                                          |
+| ------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `runtimeUrl`        | `string`                                                   | URL of the CopilotKit runtime endpoint                                                                               |
+| `useSingleEndpoint` | `boolean`                                                  | Set to `true` when using single-route endpoints                                                                      |
+| `headers`           | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. The function form is evaluated per-request (useful for dynamic auth tokens). |
+| `credentials`       | `RequestCredentials`                                       | Fetch credentials mode (e.g., `"include"` for cookies)                                                               |
+| `publicLicenseKey`  | `string`                                                   | CopilotKit Intelligence public license key (`publicApiKey` is a deprecated alias)                                    |
+| `showDevConsole`    | `boolean`                                                  | Show the dev console. Omit it to get the default behavior (shown on `localhost` only)                                |
+| `renderToolCalls`   | `ReactToolCallRenderer[]`                                  | Custom renderers for tool call UI                                                                                    |
+| `frontendTools`     | `ReactFrontendTool[]`                                      | Frontend-defined tools (declarative alternative to `useFrontendTool`)                                                |
+| `onError`           | `(event) => void`                                          | Global error handler                                                                                                 |
 
 ### Step 4: Add a chat UI component
 
@@ -290,9 +301,9 @@ CopilotKit provides three pre-built chat layouts (all imported from `@copilotkit
 Example with sidebar:
 
 ```tsx
-import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core/v2";
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" showDevConsole="auto">
+<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
   <YourApp />
   <CopilotSidebar
     defaultOpen
@@ -302,7 +313,7 @@ import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
       chatInputPlaceholder: "Ask me anything...",
     }}
   />
-</CopilotKitProvider>;
+</CopilotKit>;
 ```
 
 ### Step 5: Set environment variables
@@ -323,26 +334,26 @@ The `BuiltInAgent` automatically resolves API keys from these environment variab
 
 If you need to pass `apiKey` explicitly, always source it from the environment (`apiKey: process.env.OPENAI_API_KEY`) -- never inline a literal key.
 
-### Step 6: Connect to the cloud platform (telemetry)
+### Step 6: Connect to CopilotKit Intelligence (telemetry)
 
-CopilotKit uses telemetry to understand adoption, improve the product, and provide better support. Connecting to the CopilotKit cloud platform gives you access to analytics and optional premium features.
+CopilotKit uses telemetry to understand adoption, improve the product, and provide better support. Connecting to CopilotKit Intelligence gives you access to analytics and optional premium features.
 
-1. Ask the user if they'd like to connect to the CopilotKit cloud platform (default: yes).
+1. Ask the user if they'd like to connect to CopilotKit Intelligence (default: yes).
 2. If yes, run the CopilotKit CLI authentication flow (verify the exact command with `npx copilotkit --help` as it may vary by version):
    ```bash
    npx copilotkit auth
    ```
 3. Guide the user through the browser-based authentication that opens.
 4. Once authentication completes, the CLI outputs a license key (a public, client-side project identifier -- not a secret).
-5. Store the license key in an environment variable and reference it from the `CopilotKitProvider` -- this keeps it out of source and easy to rotate per environment:
+5. Store the license key in an environment variable and reference it from the `CopilotKit` provider -- this keeps it out of source and easy to rotate per environment:
    ```
    # .env.local (Next.js)
    NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY=<your-license-key>
    ```
    ```tsx
-   <CopilotKitProvider
+   <CopilotKit
      runtimeUrl="/api/copilotkit"
-     licenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+     publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
    >
    ```
    The `NEXT_PUBLIC_`/`VITE_` prefix is required because the key is read on the client.
@@ -355,7 +366,7 @@ See `references/telemetry-setup.md` for full details on what the license key ena
 2. Open the app in a browser
 3. The chat UI should render and connect to the runtime
 4. Send a test message -- you should receive an AI response
-5. Check the runtime's `/info` endpoint (GET) to confirm it reports available agents
+5. Check the runtime's info endpoint to confirm it reports available agents. For multi-route handlers this is `GET /api/copilotkit/info`; for single-route handlers (`mode: "single-route"`, e.g. the Express example) it is a `POST` to the base path with body `{ "method": "info" }` (a plain `GET` will not return agent info — the Hono single-route handler answers `405`, and the Express single-route router has no `GET` route so it falls through to a `404`)
 
 ## Security notes
 
@@ -363,7 +374,7 @@ Keep these in mind as you wire up a real deployment:
 
 - **Secrets stay server-side and in env vars.** Provider API keys (`OPENAI_API_KEY`, etc.) are read by the runtime/agent on the server. Never expose them to the browser, hardcode them, or commit them -- store them in environment variables or a secret manager (see Step 5). The CopilotKit license key is the one client-side value, and it is a public project identifier, not a secret.
 - **Treat all chat input as untrusted.** Chat messages flow from the frontend through the `CopilotRuntime` endpoint into the agent's LLM context. They are user-controlled and can attempt prompt injection -- including indirect injection via content the agent fetches (web pages, documents, tool results). Do not assume the model will only do what your system prompt intends.
-- **Give server-side tools least privilege.** A `defineTool` handler runs with your server's authority. Validate every argument (the `zod` `parameters` schema is your first gate), scope each tool to the narrowest action it needs, and enforce your own authorization inside the `execute` function for anything sensitive (database writes, payments, file access) rather than trusting that the model called it correctly.
+- **Give server-side tools least privilege.** A `defineTool`'s `execute` function runs with your server's authority. Validate every argument (the `zod` `parameters` schema is your first gate), scope each tool to the narrowest action it needs, and enforce your own authorization inside the `execute` function for anything sensitive (database writes, payments, file access) rather than trusting that the model called it correctly.
 - **Authenticate the runtime endpoint.** The runtime route is a public HTTP endpoint by default. Put your app's auth in front of it so only authorized users can drive the agent and consume provider credits.
 
 ## Quick Reference
@@ -378,12 +389,12 @@ Keep these in mind as you wire up a real deployment:
 
 ### Endpoint factory functions
 
-| Function                                  | Import                           | Protocol               | Framework                           |
-| ----------------------------------------- | -------------------------------- | ---------------------- | ----------------------------------- |
-| `createCopilotEndpoint`                   | `@copilotkit/runtime/v2`         | Multi-route (Hono)     | Next.js App Router, Hono standalone |
-| `createCopilotEndpointSingleRoute`        | `@copilotkit/runtime/v2`         | Single-route (Hono)    | Next.js App Router                  |
-| `createCopilotEndpointExpress`            | `@copilotkit/runtime/v2/express` | Multi-route (Express)  | Express standalone                  |
-| `createCopilotEndpointSingleRouteExpress` | `@copilotkit/runtime/v2/express` | Single-route (Express) | Express standalone                  |
+| Function                      | Import                           | Framework                           | Mode                                                |
+| ----------------------------- | -------------------------------- | ----------------------------------- | --------------------------------------------------- |
+| `createCopilotHonoHandler`    | `@copilotkit/runtime/v2`         | Next.js App Router, Hono standalone | `"multi-route"` (default) or `mode: "single-route"` |
+| `createCopilotExpressHandler` | `@copilotkit/runtime/v2/express` | Express standalone                  | `"multi-route"` (default) or `mode: "single-route"` |
+
+> The `createCopilotEndpoint`, `createCopilotEndpointSingleRoute`, `createCopilotEndpointExpress`, and `createCopilotEndpointSingleRouteExpress` names are deprecated aliases of the two factories above. Prefer the handler factories with the `mode` option.
 
 ### Runtime classes
 

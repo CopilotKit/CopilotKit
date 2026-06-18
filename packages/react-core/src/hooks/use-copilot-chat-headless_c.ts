@@ -1,10 +1,10 @@
 /**
  * `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
  *
- * <Callout title="This is a premium-only feature">
- * Sign up for free on [Copilot Cloud](https://dashboard.operations.copilotkit.ai) to get your public license key or read more about <a href="/premium/overview">premium features</a>.
+ * <Callout title="This is an Enterprise Intelligence Platform feature">
+ * Read more about <a href="/premium/overview">the Enterprise Intelligence Platform</a>.
  *
- * Usage is generous, **free** to get started, and works with **either self-hosted or Copilot Cloud** environments.
+ * Usage is generous and **free** to get started.
  * </Callout>
  *
  * ## Key Features
@@ -27,7 +27,7 @@
  *
  * export function App() {
  *   return (
- *     <CopilotKit publicApiKey="your-free-public-license-key">
+ *     <CopilotKit runtimeUrl="/api/copilotkit">
  *       <YourComponent />
  *     </CopilotKit>
  *   );
@@ -202,13 +202,11 @@ const createNonFunctionalReturn = (): UseCopilotChatReturn_c => ({
   interrupt: null,
 });
 /**
- * Enterprise React hook that provides complete chat functionality for fully custom UI implementations.
+ * Enterprise Intelligence Platform React hook that provides complete chat functionality for fully custom UI implementations.
  * Includes all advanced features like direct message access, suggestions array, interrupt handling, and MCP support.
  *
- * **Requires a publicApiKey** - Sign up for free at https://dashboard.operations.copilotkit.ai/
- *
  * @param options - Configuration options for the chat
- * @returns Complete chat interface with all enterprise features
+ * @returns Complete chat interface with all Enterprise Intelligence Platform features
  *
  * @example
  * ```tsx
@@ -233,7 +231,7 @@ function useCopilotChatHeadless_c(
         new CopilotKitError({
           message:
             // add link to documentation here
-            "You're using useCopilotChatHeadless_c, a premium-only feature, which offers extensive headless chat capabilities. To continue, you'll need to provide a free public license key.",
+            "You're using useCopilotChatHeadless_c, an Enterprise Intelligence Platform feature that offers extensive headless chat capabilities. To continue, you'll need to provide a free public license key.",
           code: CopilotKitErrorCode.MISSING_PUBLIC_API_KEY_ERROR,
           severity: Severity.WARNING,
           visibility: ErrorVisibility.BANNER,

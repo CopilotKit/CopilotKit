@@ -310,6 +310,15 @@
       "shell_docs_path": "/frontend-tools"
     },
     {
+      "id": "threadid-frontend-tool-roundtrip",
+      "name": "ThreadID: Frontend Tool Round-Trip",
+      "category": "interactivity",
+      "description": "Regression demo for ENT-658 — verifies that an explicit threadId survives a useFrontendTool round-trip (agent invokes a frontend tool, awaits the async handler, and the same threadId is preserved across the resume).",
+      "kind": "testing",
+      "shell_docs_path": "/frontend-tools",
+      "og_docs_url": "https://docs.copilotkit.ai/frontend-tools"
+    },
+    {
       "id": "hitl-in-app",
       "name": "Human in the Loop: In-app",
       "category": "interactivity",

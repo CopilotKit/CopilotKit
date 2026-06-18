@@ -150,4 +150,4 @@ export async function send(opts: LambdaSendOptions): Promise<void> {
   }
 }
 
-export default { send };
+export const lambdaClient = { send };

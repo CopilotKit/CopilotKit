@@ -5,7 +5,7 @@ description = ""
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-  "copilotkit==0.1.93",
+  "copilotkit==0.1.94",
   "langchain==1.2.15",
   "langchain-openai==1.1.9",
   "langchain-anthropic==1.4.1",
@@ -15,7 +15,7 @@ dependencies = [
   "fastapi>=0.115.5,<1.0.0",
   "uvicorn>=0.29.0,<1.0.0",
   "python-dotenv>=1.0.0,<2.0.0",
-  "ag-ui-langgraph[fastapi]==0.0.37",
+  "ag-ui-langgraph[fastapi]==0.0.41",
   "ag-ui-protocol==0.1.18",
   "pydantic>=2.0.0,<3.0.0",
 ]

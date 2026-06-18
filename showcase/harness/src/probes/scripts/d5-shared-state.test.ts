@@ -137,9 +137,9 @@ describe("d5-shared-state turn 2 invariant (state retention)", () => {
       evaluateText: "i don't recall any preferences from our conversation.",
     });
 
-    await expect(turn2.assertions!(page)).rejects.toThrow(
-      /shared state did not persist/i,
-    );
+    await expect(
+      turn2.assertions!(page, { bubbleIndex: 0, text: "" }),
+    ).rejects.toThrow(/shared state did not persist/i);
   });
 
   it("PASSES when the response contains 'blue'", async () => {
@@ -151,7 +151,9 @@ describe("d5-shared-state turn 2 invariant (state retention)", () => {
     });
 
     // Assertion must NOT throw on a passing response.
-    await expect(turn2.assertions!(page)).resolves.toBeUndefined();
+    await expect(
+      turn2.assertions!(page, { bubbleIndex: 0, text: "" }),
+    ).resolves.toBeUndefined();
   });
 
   it("FAILS when no assistant message text is found at all", async () => {
@@ -160,9 +162,9 @@ describe("d5-shared-state turn 2 invariant (state retention)", () => {
 
     const page = makePage({ evaluateText: "" });
 
-    await expect(turn2.assertions!(page)).rejects.toThrow(
-      /no assistant message text found/i,
-    );
+    await expect(
+      turn2.assertions!(page, { bubbleIndex: 0, text: "" }),
+    ).rejects.toThrow(/no assistant message text found/i);
   });
 });
 
@@ -175,7 +177,9 @@ describe("d5-shared-state turn 1 relevance check", () => {
       evaluateText: "got it — i have noted that your favorite color is blue.",
     });
 
-    await expect(turn1.assertions!(page)).resolves.toBeUndefined();
+    await expect(
+      turn1.assertions!(page, { bubbleIndex: 0, text: "" }),
+    ).resolves.toBeUndefined();
   });
 
   it("FAILS when response is unrelated (no color/blue mention)", async () => {
@@ -186,9 +190,9 @@ describe("d5-shared-state turn 1 relevance check", () => {
       evaluateText: "ok, what else would you like to discuss?",
     });
 
-    await expect(turn1.assertions!(page)).rejects.toThrow(
-      /did not mention color\/blue/i,
-    );
+    await expect(
+      turn1.assertions!(page, { bubbleIndex: 0, text: "" }),
+    ).rejects.toThrow(/did not mention color\/blue/i);
   });
 
   it("FAILS when no assistant message text is found at all", async () => {
@@ -197,9 +201,9 @@ describe("d5-shared-state turn 1 relevance check", () => {
 
     const page = makePage({ evaluateText: "" });
 
-    await expect(turn1.assertions!(page)).rejects.toThrow(
-      /no assistant message text found/i,
-    );
+    await expect(
+      turn1.assertions!(page, { bubbleIndex: 0, text: "" }),
+    ).rejects.toThrow(/no assistant message text found/i);
   });
 });
 

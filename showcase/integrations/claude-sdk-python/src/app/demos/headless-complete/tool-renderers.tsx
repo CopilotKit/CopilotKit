@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 import { WeatherCard } from "./weather-card";
 import { StockCard } from "./stock-card";
+import { ChartCard, type ChartPoint } from "./chart-card";
 import { HighlightNote, highlightNotePropsSchema } from "./highlight-note";
 
 /**
@@ -19,6 +20,8 @@ import { HighlightNote, highlightNotePropsSchema } from "./highlight-note";
  *     for the backend weather tool (blue card).
  *   - `useRenderTool({ name: "get_stock_price", ... })` — per-tool
  *     renderer for the backend stock tool (gray card, green/red delta).
+ *   - `useRenderTool({ name: "get_revenue_chart", ... })` — per-tool
+ *     renderer for the backend revenue chart tool (bar chart card).
  *   - `useComponent({ name: "highlight_note", ... })` — frontend-only
  *     tool the agent can invoke; renders the `HighlightNote` component
  *     inline through the same `useRenderToolCall` path.
@@ -80,6 +83,31 @@ export function useHeadlessCompleteToolRenderers() {
             ticker={parameters?.ticker ?? parsed.ticker ?? ""}
             price={parsed.price_usd}
             changePct={parsed.change_pct}
+          />
+        );
+      },
+    },
+    [],
+  );
+
+  // Per-tool renderer #3: backend `get_revenue_chart` -> branded ChartCard.
+  useRenderTool(
+    {
+      name: "get_revenue_chart",
+      parameters: z.object({}),
+      render: ({ result, status }) => {
+        const loading = status !== "complete";
+        const parsed = parseJsonResult<{
+          title?: string;
+          subtitle?: string;
+          data?: ChartPoint[];
+        }>(result);
+        return (
+          <ChartCard
+            loading={loading}
+            title={parsed.title}
+            subtitle={parsed.subtitle}
+            data={parsed.data}
           />
         );
       },

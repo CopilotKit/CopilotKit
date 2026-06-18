@@ -48,6 +48,20 @@ function hasSectionPage(navTree: NavNode[], section: string, page: string) {
   return false;
 }
 
+function sectionPages(navTree: NavNode[], section: string): string[] {
+  const pages: string[] = [];
+  let inSection = false;
+  for (const node of navTree) {
+    if (node.type === "section") {
+      inSection = node.title === section;
+      continue;
+    }
+    if (!inSection) continue;
+    if (node.type === "page") pages.push(node.title);
+  }
+  return pages;
+}
+
 function collectMdxFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const filePath = path.join(dir, entry.name);
@@ -211,6 +225,16 @@ describe("migration docs", () => {
 });
 
 describe("framework nav", () => {
+  it("loads early-access frontmatter for gated platform guides", () => {
+    const slack = loadDoc("slack")?.fm;
+    const teams = loadDoc("microsoft-teams")?.fm;
+
+    expect(slack?.earlyAccess).toBe("slack");
+    expect(slack?.hideTOC).toBe(true);
+    expect(teams?.earlyAccess).toBe("teams");
+    expect(teams?.hideTOC).toBe(true);
+  });
+
   it("includes the shared React Native platform guide in generated framework nav", () => {
     const navTree = buildFrameworkNav(
       "langgraph",
@@ -225,5 +249,21 @@ describe("framework nav", () => {
     const navTree = buildFrameworkOnlyNav("built-in-agent");
 
     expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+  });
+
+  it("uses the generated Intelligence Platform section for authored framework nav", () => {
+    const navTree = buildFrameworkOnlyNav("ag2");
+
+    expect(navTree.some((node) => node.title === "Premium Features")).toBe(
+      false,
+    );
+    expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
+    expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
+      "How the Enterprise Intelligence Platform Works",
+      "How Threads & Persistence Work",
+      "Observability",
+      "Self-Hosting Enterprise Intelligence",
+      "Threads",
+    ]);
   });
 });

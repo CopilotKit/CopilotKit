@@ -15,5 +15,5 @@ every tool call — no per-tool renderers yet.
 
 Reuses the default route at `src/app/api/copilotkit/route.ts` (TanStack
 AI + `openaiText("gpt-4o")`). The mock tools (`get_weather`,
-`search_flights`, `get_stock_price`, `roll_dice`) are defined in
+`search_flights`, `get_stock_price`, `roll_d20`) are defined in
 `src/lib/factory/server-tools.ts`.

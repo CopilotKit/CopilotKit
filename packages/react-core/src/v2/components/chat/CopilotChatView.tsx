@@ -668,7 +668,7 @@ export namespace CopilotChatView {
     useEffect(() => {
       if (mode === "pin-to-bottom") return; // Skip for autoscroll mode
 
-      const scrollElement = scrollRef.current;
+      const scrollElement = nonAutoScrollEl;
       if (!scrollElement) return;
 
       const checkScroll = () => {
@@ -691,7 +691,7 @@ export namespace CopilotChatView {
         scrollElement.removeEventListener("scroll", checkScroll);
         resizeObserver.disconnect();
       };
-    }, [scrollRef, mode]);
+    }, [nonAutoScrollEl, mode]);
 
     if (!hasMounted) {
       return (

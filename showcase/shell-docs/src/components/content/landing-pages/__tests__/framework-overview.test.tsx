@@ -18,7 +18,7 @@ const overviewData: FrameworkOverviewData = {
 };
 
 describe("FrameworkOverview", () => {
-  it("renders the quickstart CTA in the shell-docs outline style", () => {
+  it("renders the primary quickstart CTA and optional agent CLI setup action", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
         data={overviewData}
@@ -26,12 +26,12 @@ describe("FrameworkOverview", () => {
       />,
     );
 
-    expect(markup).toContain("Start the quickstart");
+    expect(markup).toContain("Quickstart");
+    expect(markup).toContain("Start using agents");
+    expect(markup).toContain('aria-controls="hero-cli-commands"');
     expect(markup).toContain("border-[var(--accent)]");
-    expect(markup).toContain("bg-[var(--accent-dim)]");
-    expect(markup).toContain("text-[var(--accent)]");
-    expect(markup).not.toContain("bg-[var(--accent)]");
-    expect(markup).not.toContain("text-white");
+    expect(markup).toContain("bg-[var(--accent)]");
+    expect(markup).toContain("text-[var(--primary-foreground)]");
   });
 
   it("renders the framework identity icon in accent purple", () => {

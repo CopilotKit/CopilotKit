@@ -1,3 +1,5 @@
+import type { RunAgentResult } from "@ag-ui/client";
+
 export interface InterruptEvent<TValue = unknown> {
   name: string;
   value: TValue;
@@ -5,11 +7,11 @@ export interface InterruptEvent<TValue = unknown> {
 
 export interface InterruptHandlerProps<TValue = unknown> {
   event: InterruptEvent<TValue>;
-  resolve: (response: unknown) => void;
+  resolve: (response: unknown) => Promise<RunAgentResult>;
 }
 
 export interface InterruptRenderProps<TValue = unknown, TResult = unknown> {
   event: InterruptEvent<TValue>;
   result: TResult;
-  resolve: (response: unknown) => void;
+  resolve: (response: unknown) => Promise<RunAgentResult>;
 }
