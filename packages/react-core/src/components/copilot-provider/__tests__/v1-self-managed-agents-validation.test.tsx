@@ -32,8 +32,10 @@ describe("v1 <CopilotKit> validateProps → self-managed agents", () => {
 
   // A valid configuration must render without throwing AND without surfacing an
   // unexpected error to the console (which would mean the v2 provider rejected
-  // the config another way).
+  // the config another way). Self-contained: clears the spy so callers don't
+  // have to track prior console.error calls.
   function expectRendersCleanly(props: Partial<CopilotKitProps>) {
+    errorSpy.mockClear();
     expect(() => renderKit(props)).not.toThrow();
     expect(errorSpy).not.toHaveBeenCalled();
   }
@@ -64,11 +66,13 @@ describe("v1 <CopilotKit> validateProps → self-managed agents", () => {
     });
   });
 
-  it("does not throw on the pre-existing runtimeUrl and publicApiKey paths", () => {
+  it("does not throw on the pre-existing runtimeUrl path", () => {
     expectRendersCleanly({
       runtimeUrl: "http://localhost:3000/api/copilotkit",
     });
-    errorSpy.mockClear();
+  });
+
+  it("does not throw on the pre-existing publicApiKey path", () => {
     expectRendersCleanly({ publicApiKey: "ck_pub_test" });
   });
 });
