@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { z } from "zod";
 import { truncateUtf8 } from "../../render/filters.js";
@@ -10,6 +11,18 @@ import type { BrowserPool } from "../helpers/browser-pool.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 import { mintRunId } from "../helpers/cv-diag.js";
+import {
+  CvdiagEmitter,
+  filterEdgeHeaders,
+  mintSpanId,
+  scrubSecrets,
+} from "../../cvdiag/index.js";
+import type {
+  CvdiagEnvelope,
+  CvdiagOutcome,
+  ProbeSseEventMeta,
+  TerminationKind,
+} from "../../cvdiag/index.js";
 
 /**
  * e2e-smoke driver — L3 (chat round-trip) and L4 (tool rendering) coverage
@@ -153,6 +166,72 @@ export interface E2ePage {
    */
   evaluate<R>(fn: () => R): Promise<R>;
   close(): Promise<void>;
+
+  // ── CVDIAG event-source seams (optional) ─────────────────────────────────
+  //
+  // The real launchers wire these to Playwright's `page.on("response")`,
+  // `page.on("requestfailed")`, `page.on("console")`, plus the CDP-backed
+  // SSE interceptor (see helpers/sse-interceptor.ts). They are OPTIONAL so a
+  // fake page that doesn't model the network/console/SSE surface still
+  // satisfies the interface; the driver only emits the corresponding CVDIAG
+  // boundary when the seam is present. Tests inject fakes that invoke the
+  // registered handler synthetically to drive a specific boundary.
+
+  /** Register a handler invoked for every HTTP response observed. */
+  onResponse?(handler: (resp: CvdiagResponseEvent) => void): void;
+  /** Register a handler invoked for every failed network request. */
+  onRequestFailed?(handler: (req: CvdiagRequestFailedEvent) => void): void;
+  /** Register a handler invoked for every browser console message. */
+  onConsole?(handler: (msg: CvdiagConsoleEvent) => void): void;
+  /** Register a handler invoked for every observed SSE event. */
+  onSseEvent?(handler: (evt: CvdiagSseEvent) => void): void;
+  /** Register a handler invoked when an SSE stream aborts abnormally. */
+  onSseAborted?(handler: (evt: CvdiagSseAbortedEvent) => void): void;
+}
+
+/**
+ * Normalized HTTP-response shape the driver reads for `probe.network.response`
+ * and `probe.message.send` edge-header capture. The launcher adapts
+ * Playwright's `Response` onto this minimal surface so the driver stays
+ * decoupled from the Playwright type tree (and fakes can hand one in).
+ */
+export interface CvdiagResponseEvent {
+  url: string;
+  status: number;
+  /** Raw header bag (case-insensitive keys); filtered to the 9-key allow-list. */
+  headers: Record<string, string | null | undefined>;
+  contentLength: number | null;
+  durationMs: number;
+  /** True iff this is the agent-message POST (drives `probe.message.send`). */
+  isMessagePost?: boolean;
+}
+
+/** Normalized failed-request shape for `probe.network.error`. */
+export interface CvdiagRequestFailedEvent {
+  url: string;
+  errorClass: string;
+  responseStatus: number | null;
+}
+
+/** Normalized console-message shape for `probe.console.error`. */
+export interface CvdiagConsoleEvent {
+  level: "warning" | "error";
+  /** Raw (un-scrubbed) text; the driver scrubs + caps before emit. */
+  text: string;
+  sourceFile: string | null;
+  lineCol: string | null;
+}
+
+/** Normalized SSE-event shape for `probe.sse.event`. */
+export interface CvdiagSseEvent {
+  eventType: string;
+  payloadSizeBytes: number;
+}
+
+/** Normalized SSE-abort shape for `probe.sse.aborted`. */
+export interface CvdiagSseAbortedEvent {
+  terminationKind: TerminationKind;
+  bytesBeforeAbort: number;
 }
 
 export interface E2eBrowserContext {
@@ -214,10 +293,373 @@ export interface E2eSmokeDriverDeps {
    * cross-run aimock fixture-match-count desync that flapped the dashboard.
    */
   idFactory?: () => string;
+  /**
+   * CVDIAG flap-observability emitter (L1-A, spec §3 Layer 1). When provided,
+   * the driver emits the 12 probe-layer boundaries through it (gated by the
+   * emitter's resolved verbosity tier). Injectable so unit tests can supply an
+   * emitter with a captured PB-writer seam and assert the emitted envelopes
+   * without a live PB. When ABSENT, the driver constructs one from `ctx.env`
+   * on first use (so production wiring needs no extra plumbing). CVDIAG is pure
+   * instrumentation — a missing or failing emitter NEVER changes the probe's
+   * red/green outcome.
+   */
+  cvdiagEmitter?: CvdiagEmitter;
+  /**
+   * Root directory for the per-test replay-fallback ndjson buffer
+   * (`<dir>/<date>/<test-id>.ndjson`, spec §4 / §1.5). Defaults to
+   * `~/.cvdiag/buffer`. Injectable so tests buffer into a tmpdir. Buffering is
+   * best-effort: a write failure is swallowed and never breaks a probe.
+   */
+  cvdiagBufferDir?: string;
 }
+
+/**
+ * SSE-event emit sampling target (spec §7 R5-F11): cap probe-side
+ * `probe.sse.event` emits at ≤30/sec regardless of underlying SSE rate. Above
+ * this rate, every Nth event is emitted; below it, every event.
+ */
+const CVDIAG_SSE_SAMPLE_TARGET_PER_SEC = 30;
+/**
+ * Class-(e) carve-out window (spec §7 R2-F19 rule 2): in the N ms immediately
+ * preceding a `probe.exit` with `terminal_outcome=timeout`, EVERY
+ * `probe.sse.event` is emitted regardless of rate, preserving the cross-layer
+ * `sequence_num` join that detects dropped/reordered frontend events. Because
+ * `probe.exit` is terminal (the future is unknown at emit time), the driver
+ * buffers the last `CVDIAG_PRE_TIMEOUT_WINDOW_MS` of SSE events and flushes the
+ * full unsampled set on a timeout exit.
+ */
+const CVDIAG_PRE_TIMEOUT_WINDOW_MS = 5_000;
+/** `probe.console.error.message_scrubbed` byte cap (spec §5). */
+const CVDIAG_CONSOLE_MSG_CAP_BYTES = 512;
+/** `probe.navigate.complete.url` byte cap (spec §5). */
+const CVDIAG_URL_CAP_BYTES = 256;
 
 const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000;
 const DEFAULT_PAGE_TIMEOUT_MS = 60 * 1000;
+
+/** A single buffered SSE event awaiting sample/carve-out decision. */
+interface PendingSseEvent {
+  eventType: string;
+  payloadSizeBytes: number;
+  /** Wall-clock ms when observed (for the pre-timeout carve-out window). */
+  atMs: number;
+}
+
+/**
+ * `CvdiagProbeSession` — owns the CVDIAG emit state for ONE probe level (one
+ * `test_id`). It threads the shared `test_id` through all 12 probe-layer
+ * boundaries (spec §3 Layer 1), maintains per-`(test_id, boundary-family)`
+ * `sequence_num` counters (spec §5 R3-F16), mints `span_id`/`parent_span_id`
+ * per emit, applies the §7 SSE-rate sampling + the class-(e) pre-timeout
+ * carve-out, and buffers every emitted envelope to a replay-fallback ndjson
+ * file (spec §4 / §1.5).
+ *
+ * Pure instrumentation: every method swallows its own errors — a CVDIAG fault
+ * MUST NEVER throw into the probe it observes (spec §7 R5-F8).
+ */
+class CvdiagProbeSession {
+  private readonly emitter: CvdiagEmitter;
+  private readonly testId: string;
+  private readonly slug: string;
+  private readonly demo: string;
+  private readonly bufferDir: string;
+  private readonly startMonoMs: number;
+  /** Root span minted at `probe.start`; parents the per-boundary spans. */
+  private readonly rootSpanId = mintSpanId();
+  /** Per-boundary-family monotonic sequence counters, reset per test_id. */
+  private readonly sequenceByFamily = new Map<string, number>();
+  /** Rolling window of recently-observed SSE events (carve-out support). */
+  private readonly pendingSse: PendingSseEvent[] = [];
+  /** Sampling cursor: emit every Nth event when over the rate target. */
+  private sseSeenInWindow = 0;
+  private sseWindowStartMs = 0;
+  private firstTokenDeltaMs: number | null = null;
+  private sseEmittedCount = 0;
+
+  constructor(opts: {
+    emitter: CvdiagEmitter;
+    testId: string;
+    slug: string;
+    demo: string;
+    bufferDir: string;
+    nowMs: number;
+  }) {
+    this.emitter = opts.emitter;
+    this.testId = opts.testId;
+    this.slug = opts.slug;
+    this.demo = opts.demo;
+    this.bufferDir = opts.bufferDir;
+    this.startMonoMs = opts.nowMs;
+    this.sseWindowStartMs = opts.nowMs;
+  }
+
+  /**
+   * Next monotonic `sequence_num` for a boundary family (spec §5 R3-F16:
+   * per-`(test_id, layer, boundary-family)`, starting at 0). The session is
+   * already scoped to one `(test_id, layer=probe)`, so we key on the family.
+   */
+  private nextSeq(family: string): number {
+    const cur = this.sequenceByFamily.get(family) ?? 0;
+    this.sequenceByFamily.set(family, cur + 1);
+    return cur;
+  }
+
+  /** Core emit + ndjson-buffer wrapper. Swallows all faults. */
+  private fire(args: {
+    boundary: Parameters<CvdiagEmitter["emit"]>[0]["boundary"];
+    outcome: CvdiagOutcome;
+    metadata?: Record<string, unknown>;
+    edgeHeaders?: ReturnType<typeof filterEdgeHeaders>;
+    durationMs?: number | null;
+  }): void {
+    try {
+      const env = this.emitter.emit({
+        layer: "probe",
+        boundary: args.boundary,
+        slug: this.slug,
+        demo: this.demo,
+        outcome: args.outcome,
+        metadata: args.metadata,
+        edgeHeaders: args.edgeHeaders,
+        durationMs: args.durationMs ?? null,
+        parentSpanId: this.rootSpanId,
+        testId: this.testId,
+      });
+      if (env) void this.buffer(env);
+    } catch {
+      /* pure instrumentation — never throw into the probe */
+    }
+  }
+
+  /** Append one emitted envelope to the replay-fallback ndjson buffer. */
+  private async buffer(env: CvdiagEnvelope): Promise<void> {
+    try {
+      const date = env.ts.slice(0, 10); // YYYY-MM-DD
+      const dir = path.join(this.bufferDir, date);
+      await fs.mkdir(dir, { recursive: true });
+      const file = path.join(dir, `${this.testId}.ndjson`);
+      await fs.appendFile(file, `${JSON.stringify(env)}\n`, "utf8");
+    } catch {
+      /* best-effort — a buffer write must never break a probe */
+    }
+  }
+
+  // ── Boundary emitters ─────────────────────────────────────────────────────
+
+  start(url: string, viewport: { width: number; height: number }): void {
+    this.fire({
+      boundary: "probe.start",
+      outcome: "info",
+      metadata: { url: truncateUtf8(url, CVDIAG_URL_CAP_BYTES), viewport },
+    });
+  }
+
+  navigateComplete(
+    url: string,
+    navMs: number | null,
+    httpStatus: number | null,
+  ): void {
+    this.fire({
+      boundary: "probe.navigate.complete",
+      outcome: httpStatus !== null && httpStatus >= 400 ? "err" : "ok",
+      durationMs: navMs,
+      metadata: {
+        url: truncateUtf8(url, CVDIAG_URL_CAP_BYTES),
+        nav_ms: navMs,
+        http_status: httpStatus,
+      },
+    });
+  }
+
+  messageSend(
+    messageIndex: number,
+    charCount: number,
+    edge?: ReturnType<typeof filterEdgeHeaders>,
+  ): void {
+    this.fire({
+      boundary: "probe.message.send",
+      outcome: "ok",
+      edgeHeaders: edge,
+      metadata: {
+        message_index: messageIndex,
+        char_count: charCount,
+        demo: this.demo,
+      },
+    });
+  }
+
+  containerMount(nowMs: number): void {
+    this.fire({
+      boundary: "probe.dom.container.mount",
+      outcome: "ok",
+      metadata: { delta_ms_from_start: Math.max(0, nowMs - this.startMonoMs) },
+    });
+  }
+
+  firstToken(nowMs: number, textLength: number): void {
+    const delta = Math.max(0, nowMs - this.startMonoMs);
+    this.firstTokenDeltaMs = delta;
+    this.fire({
+      boundary: "probe.dom.firsttoken",
+      outcome: "ok",
+      metadata: { delta_ms_from_start: delta, text_length: textLength },
+    });
+  }
+
+  /** Emitted on a terminal exit whose assistant text stayed empty (class (d)). */
+  alternateContent(childTypeHistogram: Record<string, number>): void {
+    this.fire({
+      boundary: "probe.dom.alternate_content",
+      outcome: "info",
+      metadata: { child_type_histogram: childTypeHistogram },
+    });
+  }
+
+  networkResponse(evt: CvdiagResponseEvent): void {
+    this.fire({
+      boundary: "probe.network.response",
+      outcome: evt.status >= 400 ? "err" : "ok",
+      durationMs: evt.durationMs,
+      edgeHeaders: filterEdgeHeaders(evt.headers),
+      metadata: {
+        url: truncateUtf8(evt.url, CVDIAG_URL_CAP_BYTES),
+        status: evt.status,
+        content_length: evt.contentLength,
+        duration_ms: evt.durationMs,
+      },
+    });
+  }
+
+  networkError(evt: CvdiagRequestFailedEvent): void {
+    this.fire({
+      boundary: "probe.network.error",
+      outcome: "err",
+      metadata: {
+        url: truncateUtf8(evt.url, CVDIAG_URL_CAP_BYTES),
+        error_class: evt.errorClass,
+        response_status: evt.responseStatus,
+      },
+    });
+  }
+
+  consoleError(evt: CvdiagConsoleEvent): void {
+    // Scrub secrets BEFORE the byte cap so a truncation can never split a
+    // partially-scrubbed token and leak the tail.
+    const scrubbed = truncateUtf8(
+      scrubSecrets(evt.text),
+      CVDIAG_CONSOLE_MSG_CAP_BYTES,
+    );
+    this.fire({
+      boundary: "probe.console.error",
+      outcome: evt.level === "error" ? "err" : "info",
+      metadata: {
+        level: evt.level,
+        message_scrubbed: scrubbed,
+        source_file: evt.sourceFile,
+        line_col: evt.lineCol,
+      },
+    });
+  }
+
+  /**
+   * Observe one SSE event. Applies §7 rate sampling (≤30 emit/sec); over the
+   * rate, only every Nth event is emitted. ALL observed events are retained in
+   * a rolling pre-timeout window so a subsequent timeout exit can flush the
+   * full unsampled set (class-(e) carve-out, rule 2).
+   */
+  sseEvent(evt: CvdiagSseEvent, nowMs: number): void {
+    // Roll the 1-second sampling window.
+    if (nowMs - this.sseWindowStartMs >= 1000) {
+      this.sseWindowStartMs = nowMs;
+      this.sseSeenInWindow = 0;
+    }
+    this.sseSeenInWindow += 1;
+    this.pendingSse.push({
+      eventType: evt.eventType,
+      payloadSizeBytes: evt.payloadSizeBytes,
+      atMs: nowMs,
+    });
+    // Trim the rolling window to the carve-out horizon to bound memory.
+    const cutoff = nowMs - CVDIAG_PRE_TIMEOUT_WINDOW_MS;
+    while (this.pendingSse.length > 0 && this.pendingSse[0]!.atMs < cutoff) {
+      this.pendingSse.shift();
+    }
+    // Sampling decision: under target → emit every event; over → every Nth.
+    const overRate = this.sseSeenInWindow > CVDIAG_SSE_SAMPLE_TARGET_PER_SEC;
+    const stride = overRate
+      ? Math.ceil(this.sseSeenInWindow / CVDIAG_SSE_SAMPLE_TARGET_PER_SEC)
+      : 1;
+    if (this.sseSeenInWindow % stride === 0) {
+      this.emitSse(evt.eventType, evt.payloadSizeBytes);
+    }
+  }
+
+  private emitSse(eventType: string, payloadSizeBytes: number): void {
+    const seq = this.nextSeq("sse");
+    const metadata: ProbeSseEventMeta = {
+      event_type: eventType,
+      payload_size_bytes: payloadSizeBytes,
+      sequence_num: seq,
+    };
+    this.fire({
+      boundary: "probe.sse.event",
+      outcome: "info",
+      metadata: metadata as unknown as Record<string, unknown>,
+    });
+    this.sseEmittedCount += 1;
+  }
+
+  sseAborted(evt: CvdiagSseAbortedEvent): void {
+    this.fire({
+      boundary: "probe.sse.aborted",
+      outcome: "err",
+      metadata: {
+        termination_kind: evt.terminationKind,
+        bytes_before_abort: evt.bytesBeforeAbort,
+      },
+    });
+  }
+
+  /**
+   * Terminal `probe.exit`. On a `timeout` outcome, first flush the entire
+   * pre-timeout SSE window UNSAMPLED (class-(e) carve-out rule 2) so the
+   * cross-layer `sequence_num` join is complete, THEN emit `probe.exit`.
+   */
+  exit(terminalOutcome: CvdiagOutcome, totalDurationMs: number): void {
+    if (terminalOutcome === "timeout") {
+      for (const ev of this.pendingSse) {
+        this.emitSse(ev.eventType, ev.payloadSizeBytes);
+      }
+      this.pendingSse.length = 0;
+    }
+    this.fire({
+      boundary: "probe.exit",
+      outcome: terminalOutcome,
+      durationMs: totalDurationMs,
+      metadata: {
+        terminal_outcome: terminalOutcome,
+        total_duration_ms: totalDurationMs,
+        sse_event_count: this.sseEmittedCount,
+        first_token_delta_ms: this.firstTokenDeltaMs,
+      },
+    });
+  }
+}
+
+/** Default replay-fallback ndjson buffer root (spec §4 `~/.cvdiag/buffer`). */
+function defaultCvdiagBufferDir(): string {
+  return path.join(os.homedir(), ".cvdiag", "buffer");
+}
+
+/**
+ * Monotonic wall-clock ms for CVDIAG delta computations
+ * (`delta_ms_from_start`, the SSE sampling window, the pre-timeout carve-out).
+ * `performance.now()` is monotonic and immune to wall-clock skew — the right
+ * source for intra-probe durations.
+ */
+function nowMonoMs(): number {
+  return performance.now();
+}
 
 /**
  * Weather vocabulary the L4 response must include — mirrors the
@@ -236,6 +678,144 @@ const WEATHER_VOCAB = [
   "humidity",
   "wind",
 ];
+
+/**
+ * The slice of Playwright's `Page` the launcher adapter consumes. Declared
+ * structurally (not imported) so the module stays loadable without the
+ * `playwright` type tree at module scope — mirroring the existing `E2ePage`
+ * decoupling rationale. The CVDIAG seams (`page.on(...)`) read response /
+ * requestfailed / console events; the CDP-backed SSE interceptor
+ * (`helpers/sse-interceptor.ts`) is the production source for SSE events and
+ * is wired by a higher layer when present.
+ */
+interface PlaywrightPageLike {
+  goto(url: string, opts?: unknown): Promise<unknown>;
+  type(selector: string, text: string, opts?: unknown): Promise<void>;
+  press(selector: string, key: string, opts?: unknown): Promise<void>;
+  waitForSelector(selector: string, opts?: unknown): Promise<unknown>;
+  textContent(selector: string): Promise<string | null>;
+  evaluate<R>(fn: () => R): Promise<R>;
+  close(): Promise<void>;
+  on(event: string, handler: (arg: unknown) => void): void;
+}
+
+/**
+ * Adapt a concrete Playwright `Page` onto our `E2ePage`, wiring the CVDIAG
+ * event-source seams to Playwright's `page.on("response" | "requestfailed" |
+ * "console")`. Shared by both the default and pooled launchers so the seam
+ * wiring lives in exactly one place. The SSE seams (`onSseEvent` /
+ * `onSseAborted`) are intentionally NOT wired here: production SSE capture
+ * runs through the CDP-backed interceptor (`helpers/sse-interceptor.ts`),
+ * which a higher layer attaches; leaving them unwired here means the driver
+ * simply emits no `probe.sse.event` rows from the network listener (correct —
+ * Playwright's `page.on` has no per-SSE-event signal).
+ */
+function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
+  // Per-request issue-time tracking so `probe.network.response.duration_ms`
+  // reflects the request→response wall-clock, not just the response event.
+  const requestStartByUrl = new Map<string, number>();
+  return {
+    goto: (url, opts) => page.goto(url, opts),
+    type: (sel, text, opts) => page.type(sel, text, opts),
+    press: (sel, key, opts) => page.press(sel, key, opts),
+    waitForSelector: (sel, opts) => page.waitForSelector(sel, opts),
+    textContent: (sel) => page.textContent(sel),
+    evaluate: <R>(fn: () => R) => page.evaluate(fn),
+    close: () => page.close(),
+    onResponse(handler) {
+      page.on("response", (arg) => {
+        const resp = arg as {
+          url(): string;
+          status(): number;
+          headers(): Record<string, string>;
+          request(): { method(): string };
+        };
+        try {
+          const url = resp.url();
+          const headers = resp.headers();
+          const clHeader = headers["content-length"];
+          const contentLength =
+            clHeader !== undefined && clHeader !== ""
+              ? Number.parseInt(clHeader, 10)
+              : null;
+          const startedAt = requestStartByUrl.get(url);
+          const durationMs =
+            startedAt !== undefined ? Math.round(nowMonoMs() - startedAt) : 0;
+          requestStartByUrl.delete(url);
+          handler({
+            url,
+            status: resp.status(),
+            headers,
+            contentLength:
+              contentLength !== null && Number.isNaN(contentLength)
+                ? null
+                : contentLength,
+            durationMs,
+            isMessagePost: resp.request().method() === "POST",
+          });
+        } catch {
+          /* never throw out of an event listener */
+        }
+      });
+      page.on("request", (arg) => {
+        try {
+          const req = arg as { url(): string };
+          requestStartByUrl.set(req.url(), nowMonoMs());
+        } catch {
+          /* ignore */
+        }
+      });
+    },
+    onRequestFailed(handler) {
+      page.on("requestfailed", (arg) => {
+        try {
+          const req = arg as {
+            url(): string;
+            failure(): { errorText: string } | null;
+            response(): { status(): number } | null;
+          };
+          const resp = req.response?.();
+          handler({
+            url: req.url(),
+            errorClass: req.failure()?.errorText ?? "unknown",
+            responseStatus: resp ? resp.status() : null,
+          });
+        } catch {
+          /* ignore */
+        }
+      });
+    },
+    onConsole(handler) {
+      page.on("console", (arg) => {
+        try {
+          const msg = arg as {
+            type(): string;
+            text(): string;
+            location(): {
+              url?: string;
+              lineNumber?: number;
+              columnNumber?: number;
+            };
+          };
+          const t = msg.type();
+          if (t !== "error" && t !== "warning") return;
+          const loc = msg.location();
+          handler({
+            level: t,
+            text: msg.text(),
+            sourceFile: loc?.url ?? null,
+            lineCol:
+              loc?.lineNumber !== undefined
+                ? `${loc.lineNumber}:${loc.columnNumber ?? 0}`
+                : null,
+          });
+        } catch {
+          /* ignore */
+        }
+      });
+    },
+  };
+}
 
 /**
  * Default launcher — dynamic import of `playwright` keeps the driver
@@ -271,15 +851,7 @@ const defaultLauncher: E2eBrowserLauncher = async (): Promise<E2eBrowser> => {
       return {
         async newPage(): Promise<E2ePage> {
           const page = await ctx.newPage();
-          return {
-            goto: (url, opts) => page.goto(url, opts),
-            type: (sel, text, opts) => page.type(sel, text, opts),
-            press: (sel, key, opts) => page.press(sel, key, opts),
-            waitForSelector: (sel, opts) => page.waitForSelector(sel, opts),
-            textContent: (sel) => page.textContent(sel),
-            evaluate: <R>(fn: () => R) => page.evaluate(fn),
-            close: () => page.close(),
-          };
+          return wirePlaywrightPage(page as unknown as PlaywrightPageLike);
         },
         close: () => ctx.close(),
       };
@@ -365,15 +937,7 @@ export function createPooledE2eSmokeLauncher(
         return {
           async newPage(): Promise<E2ePage> {
             const page = await ctx.newPage();
-            return {
-              goto: (url, opts) => page.goto(url, opts),
-              type: (sel, text, opts) => page.type(sel, text, opts),
-              press: (sel, key, opts) => page.press(sel, key, opts),
-              waitForSelector: (sel, opts) => page.waitForSelector(sel, opts),
-              textContent: (sel) => page.textContent(sel),
-              evaluate: <R>(fn: () => R) => page.evaluate(fn),
-              close: () => page.close(),
-            };
+            return wirePlaywrightPage(page as unknown as PlaywrightPageLike);
           },
           close: async () => {
             openContexts.delete(ctxHandle);
@@ -443,6 +1007,7 @@ export function createE2eSmokeDriver(
   const textPollTimeoutMs = deps.textPollTimeoutMs ?? pageTimeoutMs;
   const demosResolver = deps.demosResolver ?? createDefaultDemosResolver();
   const idFactory = deps.idFactory ?? mintRunId;
+  const cvdiagBufferDir = deps.cvdiagBufferDir ?? defaultCvdiagBufferDir();
 
   return {
     kind: "e2e_smoke",
@@ -452,6 +1017,22 @@ export function createE2eSmokeDriver(
       input: E2eSmokeDriverInput,
     ): Promise<ProbeResult<E2eSmokeSignal>> {
       const observedAt = ctx.now().toISOString();
+      // CVDIAG emitter (L1-A). Injected for tests; otherwise constructed from
+      // the probe's env so the resolved verbosity tier (default/verbose/debug)
+      // honors CVDIAG_VERBOSE / CVDIAG_DEBUG. Construction is wrapped so a
+      // fail-closed DEBUG guard throw can never break the probe — CVDIAG is
+      // pure instrumentation.
+      let cvdiagEmitter: CvdiagEmitter | undefined = deps.cvdiagEmitter;
+      if (cvdiagEmitter === undefined) {
+        try {
+          cvdiagEmitter = new CvdiagEmitter({ env: ctx.env, layer: "probe" });
+        } catch (err) {
+          ctx.logger.warn("probe.e2e-smoke.cvdiag-init-failed", {
+            err: err instanceof Error ? err.message : String(err),
+          });
+          cvdiagEmitter = undefined;
+        }
+      }
       // Prefer explicit backendUrl; fall back to discovery-supplied publicUrl.
       // Schema already guaranteed at least one is present.
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
@@ -562,6 +1143,7 @@ export function createE2eSmokeDriver(
           slug,
           backendUrl,
           level: "chat",
+          demo: "agentic-chat",
           demoPath: "/demos/agentic-chat",
           message: "Hello, please respond with a brief greeting.",
           testId: `d4-${slug}-${runId}`,
@@ -569,6 +1151,8 @@ export function createE2eSmokeDriver(
           pageTimeoutMs,
           textPollTimeoutMs,
           now: ctx.now,
+          cvdiagEmitter,
+          cvdiagBufferDir,
           assertResponse: (text) => ({
             ok: text.length > 0,
             summary: text.length === 0 ? "empty assistant response" : "",
@@ -598,6 +1182,7 @@ export function createE2eSmokeDriver(
             slug,
             backendUrl,
             level: "tools",
+            demo: "tool-rendering",
             demoPath: "/demos/tool-rendering",
             message: "What's the weather in San Francisco?",
             testId: `d4-${slug}-${runId}`,
@@ -605,6 +1190,8 @@ export function createE2eSmokeDriver(
             pageTimeoutMs,
             textPollTimeoutMs,
             now: ctx.now,
+            cvdiagEmitter,
+            cvdiagBufferDir,
             assertResponse: (text) => {
               if (text.length === 0) {
                 return { ok: false, summary: "empty assistant response" };
@@ -726,6 +1313,8 @@ async function runLevel(opts: {
   slug: string;
   backendUrl: string;
   level: "chat" | "tools";
+  /** Closed-enum demo id (`agentic-chat` | `tool-rendering`) for CVDIAG. */
+  demo: string;
   demoPath: string;
   message: string;
   /** Per-run aimock X-Test-Id (`d4-<slug>-<runId>`), shared by L3/L4. */
@@ -734,6 +1323,10 @@ async function runLevel(opts: {
   pageTimeoutMs: number;
   textPollTimeoutMs: number;
   now: () => Date;
+  /** CVDIAG emitter (L1-A); absent → no CVDIAG emission (instrumentation off). */
+  cvdiagEmitter?: CvdiagEmitter;
+  /** Replay-fallback ndjson buffer root for this level's CVDIAG session. */
+  cvdiagBufferDir?: string;
   assertResponse: (text: string) => { ok: boolean; summary: string };
 }): Promise<{ result: ProbeResult<E2eSmokeLevelSignal> }> {
   const {
@@ -741,6 +1334,7 @@ async function runLevel(opts: {
     slug,
     backendUrl,
     level,
+    demo,
     demoPath,
     message,
     testId,
@@ -748,8 +1342,26 @@ async function runLevel(opts: {
     pageTimeoutMs,
     textPollTimeoutMs,
     now,
+    cvdiagEmitter,
+    cvdiagBufferDir,
     assertResponse,
   } = opts;
+
+  // CVDIAG session for THIS level (one test_id). The probe-layer test_id is
+  // the per-level X-Test-Id so harness↔backend↔aimock correlate on the same
+  // key. The CvdiagEmitter normalizes/validates; if the X-Test-Id is not a
+  // UUIDv7 the emitter mints one rather than emitting an invalid envelope.
+  const cvdiag =
+    cvdiagEmitter !== undefined
+      ? new CvdiagProbeSession({
+          emitter: cvdiagEmitter,
+          testId,
+          slug,
+          demo,
+          bufferDir: cvdiagBufferDir ?? defaultCvdiagBufferDir(),
+          nowMs: nowMonoMs(),
+        })
+      : undefined;
 
   if (abortSignal.aborted) {
     // Surface as red so the aggregate bookkeeping still reads "ran".
@@ -771,6 +1383,15 @@ async function runLevel(opts: {
 
   let context: E2eBrowserContext | undefined;
   let page: E2ePage | undefined;
+  // CVDIAG terminal-outcome tracking. `timeout` is inferred from an aborted
+  // signal at the point the level errors; `err` from any other throw; `ok`
+  // from a clean completion. The exit boundary is emitted exactly once in the
+  // finally block so it fires on every path (clean, throw, abort).
+  const cvdiagStartMs = nowMonoMs();
+  let cvdiagExited = false;
+  let cvdiagResponseEmpty = true;
+  /** Capture the agent-message POST edge headers for `probe.message.send`. */
+  let messageSendEdge: ReturnType<typeof filterEdgeHeaders> | undefined;
   try {
     context = await browser.newContext({
       extraHTTPHeaders: {
@@ -779,6 +1400,35 @@ async function runLevel(opts: {
       },
     });
     page = await context.newPage();
+
+    // ── CVDIAG event-source wiring (best-effort) ────────────────────────────
+    // Register handlers for the network/console/SSE seams the real launcher
+    // wires to Playwright. A fake page that doesn't model a seam simply never
+    // invokes the handler — no CVDIAG row for that boundary, no probe impact.
+    if (cvdiag && page) {
+      const p = page;
+      p.onResponse?.((resp) => {
+        cvdiag.networkResponse(resp);
+        if (resp.isMessagePost) {
+          messageSendEdge = filterEdgeHeaders(resp.headers);
+        }
+      });
+      p.onRequestFailed?.((req) => cvdiag.networkError(req));
+      p.onConsole?.((c) => cvdiag.consoleError(c));
+      p.onSseEvent?.((e) => {
+        // First non-empty SSE event also marks first-token timing when the DOM
+        // first-token has not yet been observed — but DOM first-token is the
+        // authoritative class-(d/e) discriminator, so SSE only feeds the
+        // `probe.sse.event` stream here. firsttoken is emitted from the DOM
+        // poll below.
+        cvdiag.sseEvent(e, nowMonoMs());
+      });
+      p.onSseAborted?.((e) => cvdiag.sseAborted(e));
+    }
+
+    // probe.start — mint/thread the test_id and record entry (spec §3).
+    cvdiag?.start(`${backendUrl}${demoPath}`, { width: 1280, height: 720 });
+
     const url = `${backendUrl}${demoPath}`;
     // Use `waitUntil: "load"` (NOT "networkidle") to mirror the d5/d6
     // drivers (d6-all-pills.ts). CopilotKit demo pages hold a persistent
@@ -786,7 +1436,20 @@ async function runLevel(opts: {
     // Readiness is asserted explicitly below by waiting for the chat
     // <textarea> selector — that wait, not network quiescence, is what
     // guarantees the page is interactive.
-    await page.goto(url, { waitUntil: "load", timeout: pageTimeoutMs });
+    const navStartMs = nowMonoMs();
+    const navResp = (await page.goto(url, {
+      waitUntil: "load",
+      timeout: pageTimeoutMs,
+    })) as { status?: () => number } | null;
+    // probe.navigate.complete — nav timing + HTTP status (when the launcher
+    // surfaces a Response handle from goto; fakes return undefined → null).
+    const navStatus =
+      navResp && typeof navResp.status === "function" ? navResp.status() : null;
+    cvdiag?.navigateComplete(
+      url,
+      Math.round(nowMonoMs() - navStartMs),
+      navStatus,
+    );
 
     // Wait for the chat textarea, type, and submit. Selector mirrors the
     // reference helper (showcase/tests/e2e/helpers.ts) — CopilotKit
@@ -798,6 +1461,11 @@ async function runLevel(opts: {
     await page.type("textarea", message, { timeout: pageTimeoutMs });
     await page.press("textarea", "Enter", { timeout: pageTimeoutMs });
 
+    // probe.message.send — the agent-message POST has been issued. Edge headers
+    // are captured from the message-POST response observed on the `onResponse`
+    // seam (set above); absent → all-null edge headers.
+    cvdiag?.messageSend(0, message.length, messageSendEdge);
+
     // Wait for an assistant message to appear. The helper's testid
     // convention is `[data-testid="copilot-assistant-message"]`; some
     // showcases don't set the testid, so we fall back to scraping the
@@ -808,6 +1476,8 @@ async function runLevel(opts: {
         state: "visible",
         timeout: pageTimeoutMs,
       });
+      // probe.dom.container.mount — assistant-message container is visible.
+      cvdiag?.containerMount(nowMonoMs());
       // CopilotKit renders the assistant-message container before tokens
       // stream in (starts as ""). Slower integrations (ms-agent-dotnet:
       // extra network hop) need time for the first token to arrive. Poll
@@ -866,6 +1536,11 @@ async function runLevel(opts: {
         await new Promise((r) => setTimeout(r, 500));
       }
       responseText = raw.trim();
+      if (responseText.length > 0) {
+        cvdiagResponseEmpty = false;
+        // probe.dom.firsttoken — first non-empty assistant textContent.
+        cvdiag?.firstToken(nowMonoMs(), responseText.length);
+      }
     } catch {
       // Fallback: pull <body> text and slice off everything up to and
       // including our sent message. Mirrors helpers.ts's fallback.
@@ -884,9 +1559,34 @@ async function runLevel(opts: {
           responseText = tail.split("\n")[0]!.trim();
         }
       }
+      if (responseText.length > 0) {
+        cvdiagResponseEmpty = false;
+        cvdiag?.firstToken(nowMonoMs(), responseText.length);
+      }
+    }
+
+    // probe.dom.alternate_content — on a clean exit whose assistant text is
+    // still empty (the d4 flap surface, class (d)): snapshot the child-element
+    // type histogram of the assistant-message container so a markdown widget /
+    // tool-result chip / code-block-only render is distinguishable from a
+    // genuinely empty stream.
+    if (cvdiag && cvdiagResponseEmpty && page) {
+      const histogram = await readAlternateContentHistogram(page);
+      cvdiag.alternateContent(histogram);
+
+      // CVDIAG L2-C raw-byte capture hook (filled by L2-C): a 200-but-empty
+      // SSE response is the canonical raw-byte-capture trigger. L2-C takes
+      // THIS file's final state as its base and inserts its DEBUG-tier
+      // decode→scrub→html-strip→head+tail≤16KB pipeline here. L1-A does NOT
+      // implement raw-byte capture.
     }
 
     const assertion = assertResponse(responseText);
+    // probe.exit (ok path) — a clean completion regardless of the assertion
+    // verdict (red on a missing-vocab/empty response is still a clean run; the
+    // terminal_outcome reflects probe MECHANICS, not the green/red assertion).
+    cvdiagExit(cvdiag, "ok");
+    cvdiagExited = true;
     return {
       result: {
         key: `${level}:${slug}`,
@@ -903,6 +1603,10 @@ async function runLevel(opts: {
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    // probe.exit (error path) — `timeout` when the level aborted (the driver's
+    // hard-timeout / external abort fired), else `err`.
+    cvdiagExit(cvdiag, abortSignal.aborted ? "timeout" : "err");
+    cvdiagExited = true;
     return {
       result: {
         key: `${level}:${slug}`,
@@ -918,6 +1622,10 @@ async function runLevel(opts: {
       },
     };
   } finally {
+    // Defense in depth: if neither the ok nor the error path emitted exit (an
+    // unexpected control-flow gap), emit it here so `probe.exit` fires exactly
+    // once on every path.
+    if (!cvdiagExited) cvdiagExit(cvdiag, "err");
     if (page) {
       try {
         await page.close();
@@ -932,6 +1640,53 @@ async function runLevel(opts: {
         /* swallow — browser.close() in outer finally catches remnants. */
       }
     }
+  }
+
+  /** Emit `probe.exit` with the total level duration (best-effort). */
+  function cvdiagExit(
+    session: CvdiagProbeSession | undefined,
+    outcome: CvdiagOutcome,
+  ): void {
+    session?.exit(outcome, Math.round(nowMonoMs() - cvdiagStartMs));
+  }
+}
+
+/**
+ * Read the child-element type histogram of the LAST assistant-message
+ * container (spec §5 `probe.dom.alternate_content.child_type_histogram`).
+ * Runs in the browser context via `evaluate`; returns `{}` on any read fault
+ * so a histogram read can never break the probe. Tag names are lowercased;
+ * a tool-result chip / markdown widget / code block surfaces as its element
+ * tag (e.g. `pre`, `code`, `div`).
+ */
+async function readAlternateContentHistogram(
+  page: E2ePage,
+): Promise<Record<string, number>> {
+  try {
+    return (
+      (await page.evaluate(() => {
+        const win = globalThis as unknown as {
+          document: {
+            querySelectorAll(sel: string): ArrayLike<{
+              children: ArrayLike<{ tagName: string }>;
+            }>;
+          };
+        };
+        const msgs = win.document.querySelectorAll(
+          '[data-testid="copilot-assistant-message"]',
+        );
+        const hist: Record<string, number> = {};
+        if (msgs.length === 0) return hist;
+        const last = msgs[msgs.length - 1]!;
+        for (let i = 0; i < last.children.length; i++) {
+          const tag = last.children[i]!.tagName.toLowerCase();
+          hist[tag] = (hist[tag] ?? 0) + 1;
+        }
+        return hist;
+      })) ?? {}
+    );
+  } catch {
+    return {};
   }
 }
 

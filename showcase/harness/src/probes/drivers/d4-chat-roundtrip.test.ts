@@ -728,3 +728,287 @@ describe("e2eChatToolsDriver module export", () => {
     expect(typeof e2eChatToolsDriver.run).toBe("function");
   });
 });
+
+// --- CVDIAG flap-observability instrumentation (L1-A) --------------------
+//
+// These tests exercise the 12 probe-layer CVDIAG boundaries wired into the
+// driver. The CvdiagEmitter is constructed at VERBOSE tier (so the
+// `probe.start` / `probe.navigate.complete` / `probe.sse.event` boundaries
+// that are off at default tier are observable) with a captured PB-writer seam
+// so emitted envelopes are asserted directly. A CVDIAG-instrumented fake page
+// invokes the registered network/console/SSE handlers synthetically to drive
+// specific boundaries.
+
+import { CvdiagEmitter } from "../../cvdiag/index.js";
+import type { CvdiagEnvelope } from "../../cvdiag/index.js";
+import type {
+  CvdiagResponseEvent,
+  CvdiagConsoleEvent,
+  CvdiagSseEvent,
+  E2eBrowser as CvE2eBrowser,
+  E2eBrowserContext as CvE2eBrowserContext,
+  E2ePage as CvE2ePage,
+} from "./d4-chat-roundtrip.js";
+import { tmpdir } from "node:os";
+import { mkdtempSync } from "node:fs";
+import { join } from "node:path";
+
+/** Capturing PB writer: records every flushed envelope for assertion. */
+class CaptureWriter {
+  events: CvdiagEnvelope[] = [];
+  async writeBatch(events: CvdiagEnvelope[]): Promise<void> {
+    this.events.push(...events);
+  }
+}
+
+/** Build a VERBOSE-tier emitter wired to a capturing PB writer. */
+function makeCvdiagEmitter(): {
+  emitter: CvdiagEmitter;
+  writer: CaptureWriter;
+} {
+  const writer = new CaptureWriter();
+  const emitter = new CvdiagEmitter({
+    verbose: true,
+    env: {},
+    layer: "probe",
+    pbWriter: writer,
+  });
+  return { emitter, writer };
+}
+
+/** Per-test scripted hooks a CVDIAG-instrumented fake page should drive. */
+interface CvPageScript {
+  assistantText?: string;
+  /** Child-tag histogram returned by the alternate-content evaluate read. */
+  alternateHistogram?: Record<string, number>;
+  /** Responses delivered synchronously after `goto` to the onResponse seam. */
+  responses?: CvdiagResponseEvent[];
+  /** Console messages delivered to the onConsole seam after goto. */
+  consoleMessages?: CvdiagConsoleEvent[];
+  /** SSE events delivered to the onSseEvent seam after goto. */
+  sseEvents?: CvdiagSseEvent[];
+}
+
+/**
+ * A fake browser whose page exposes the CVDIAG event-source seams and drives
+ * them from the script on `goto`. The assistant-message read returns
+ * `assistantText`; the alternate-content read returns `alternateHistogram`.
+ */
+function makeCvBrowser(script: CvPageScript): CvE2eBrowser {
+  let respHandler: ((r: CvdiagResponseEvent) => void) | undefined;
+  let consoleHandler: ((c: CvdiagConsoleEvent) => void) | undefined;
+  let sseHandler: ((e: CvdiagSseEvent) => void) | undefined;
+  let evaluateCall = 0;
+  const page: CvE2ePage = {
+    async goto() {
+      // Drive the registered seams synchronously so the driver observes them
+      // before reading the assistant response.
+      for (const r of script.responses ?? []) respHandler?.(r);
+      for (const c of script.consoleMessages ?? []) consoleHandler?.(c);
+      for (const e of script.sseEvents ?? []) sseHandler?.(e);
+      return null;
+    },
+    async type() {},
+    async press() {},
+    async waitForSelector() {},
+    async textContent() {
+      return "";
+    },
+    async evaluate<R>(): Promise<R> {
+      evaluateCall += 1;
+      // First evaluate call(s): assistant-message text read. The
+      // alternate-content read happens AFTER the poll loop, on empty exit.
+      if (script.assistantText && script.assistantText.length > 0) {
+        return script.assistantText as unknown as R;
+      }
+      // Empty assistant text → the later evaluate is the histogram read.
+      if (evaluateCall > 1) {
+        return (script.alternateHistogram ?? {}) as unknown as R;
+      }
+      return "" as unknown as R;
+    },
+    async close() {},
+    onResponse(h) {
+      respHandler = h;
+    },
+    onConsole(h) {
+      consoleHandler = h;
+    },
+    onSseEvent(h) {
+      sseHandler = h;
+    },
+  };
+  const ctx: CvE2eBrowserContext = {
+    async newPage() {
+      return page;
+    },
+    async close() {},
+  };
+  return {
+    async newContext() {
+      return ctx;
+    },
+    async close() {},
+  };
+}
+
+/** Collect emitted envelopes for one boundary. */
+function byBoundary(writer: CaptureWriter, boundary: string): CvdiagEnvelope[] {
+  return writer.events.filter((e) => e.boundary === boundary);
+}
+
+describe("d4 CVDIAG probe instrumentation (L1-A)", () => {
+  function bufDir(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-test-"));
+  }
+
+  async function runWith(
+    script: CvPageScript,
+    emitter: CvdiagEmitter,
+  ): Promise<void> {
+    const browser = makeCvBrowser(script);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+    });
+    await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    await emitter.flush();
+  }
+
+  it("captures cf-mitigated in probe.network.response edge_headers", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hi there",
+        responses: [
+          {
+            url: "https://x.example.com/api/copilotkit",
+            status: 200,
+            headers: { "cf-mitigated": "challenge", "content-length": "12" },
+            contentLength: 12,
+            durationMs: 5,
+            isMessagePost: true,
+          },
+        ],
+      },
+      emitter,
+    );
+    const resp = byBoundary(writer, "probe.network.response");
+    expect(resp.length).toBeGreaterThan(0);
+    expect(resp[0]!.edge_headers["cf-mitigated"]).toBe("challenge");
+  });
+
+  it("fires probe.dom.alternate_content on forced empty-textContent exit", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      { assistantText: "", alternateHistogram: { pre: 1, code: 2 } },
+      emitter,
+    );
+    const alt = byBoundary(writer, "probe.dom.alternate_content");
+    expect(alt.length).toBe(1);
+    expect(alt[0]!.metadata.child_type_histogram).toEqual({ pre: 1, code: 2 });
+  });
+
+  it("captures a browser console.error in probe.console.error", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hi",
+        consoleMessages: [
+          {
+            level: "error",
+            text: "Uncaught TypeError: x is not a function",
+            sourceFile: "https://x.example.com/app.js",
+            lineCol: "42:7",
+          },
+        ],
+      },
+      emitter,
+    );
+    const ce = byBoundary(writer, "probe.console.error");
+    expect(ce.length).toBe(1);
+    expect(ce[0]!.metadata.message_scrubbed).toMatch(/Uncaught TypeError/);
+  });
+
+  it("scrubs Bearer/sk- secrets from probe.console.error message", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hi",
+        consoleMessages: [
+          {
+            level: "error",
+            text: "request failed Authorization: Bearer sk-test-abcdefghijklmnop fired",
+            sourceFile: null,
+            lineCol: null,
+          },
+        ],
+      },
+      emitter,
+    );
+    const ce = byBoundary(writer, "probe.console.error");
+    expect(ce.length).toBe(1);
+    const msg = ce[0]!.metadata.message_scrubbed as string;
+    expect(msg).not.toMatch(/Bearer\s+sk-/);
+    expect(msg).not.toMatch(/sk-test-abcdefghijklmnop/);
+    // And no other emitted event retains the secret.
+    const all = JSON.stringify(writer.events);
+    expect(all).not.toContain("sk-test-abcdefghijklmnop");
+  });
+
+  it("denies forbidden cf-ipcountry edge header (never captured)", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hi",
+        responses: [
+          {
+            url: "https://x.example.com/api/copilotkit",
+            status: 200,
+            headers: { "cf-ipcountry": "US", "cf-ray": "abc123" },
+            contentLength: null,
+            durationMs: 3,
+            isMessagePost: true,
+          },
+        ],
+      },
+      emitter,
+    );
+    const resp = byBoundary(writer, "probe.network.response");
+    expect(resp.length).toBeGreaterThan(0);
+    // cf-ray is allow-listed and present; cf-ipcountry is deny-listed and must
+    // appear nowhere in any emitted envelope.
+    expect(resp[0]!.edge_headers["cf-ray"]).toBe("abc123");
+    const all = JSON.stringify(writer.events);
+    expect(all).not.toContain("cf-ipcountry");
+    expect(all).not.toContain('"US"');
+  });
+
+  it("resets probe.sse.event sequence_num per (test_id, boundary-family)", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hi",
+        sseEvents: [
+          { eventType: "RUN_STARTED", payloadSizeBytes: 20 },
+          { eventType: "TEXT_MESSAGE_CHUNK", payloadSizeBytes: 40 },
+          { eventType: "RUN_FINISHED", payloadSizeBytes: 10 },
+        ],
+      },
+      emitter,
+    );
+    const sse = byBoundary(writer, "probe.sse.event");
+    expect(sse.length).toBe(3);
+    // sequence_num starts at 0 for this (test_id, sse) family and increments.
+    expect(sse.map((e) => e.metadata.sequence_num)).toEqual([0, 1, 2]);
+    // All three share the same test_id (one level → one test_id).
+    const ids = new Set(sse.map((e) => e.test_id));
+    expect(ids.size).toBe(1);
+  });
+});
