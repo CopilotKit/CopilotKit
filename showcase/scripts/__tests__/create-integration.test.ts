@@ -238,7 +238,7 @@ describe("Template Generator", () => {
       path.join(TEST_DIR, ".gitignore"),
       "utf-8",
     );
-    expect(gitignore.split(/\r?\n/)).toContain(".copilotkit");
+    expect(gitignore.split(/\r?\n/)).toContain(".copilotkit/");
   });
 
   it("generates a manifest that passes schema validation", () => {

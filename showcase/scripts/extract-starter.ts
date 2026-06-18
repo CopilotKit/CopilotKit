@@ -205,6 +205,6 @@ function stripTestDirs(dir: string) {
 }
 stripTestDirs(outDir);
 
-ensureGitignoreEntry(join(outDir, ".gitignore"), ".copilotkit");
+ensureGitignoreEntry(join(outDir, ".gitignore"), ".copilotkit/");
 
 console.log(`Extracted starter for ${slug}: ${outDir}`);

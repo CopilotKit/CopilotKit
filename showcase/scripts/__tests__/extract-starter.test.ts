@@ -7,7 +7,7 @@ import { execOptsFor } from "./test-cleanup";
 import { SCRIPTS_DIR } from "./paths";
 
 describe("extract-starter", () => {
-  it("adds .copilotkit to generated starter .gitignore", () => {
+  it("adds .copilotkit/ to generated starter .gitignore", () => {
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "starter-"));
 
     try {
@@ -21,7 +21,7 @@ describe("extract-starter", () => {
         path.join(outDir, ".gitignore"),
         "utf-8",
       );
-      expect(gitignore.split(/\r?\n/)).toContain(".copilotkit");
+      expect(gitignore.split(/\r?\n/)).toContain(".copilotkit/");
     } finally {
       fs.rmSync(outDir, { recursive: true, force: true });
     }
