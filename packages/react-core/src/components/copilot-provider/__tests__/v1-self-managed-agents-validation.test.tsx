@@ -14,38 +14,61 @@ import type { CopilotKitProps } from "../copilotkit-props";
  * (its `hasLocalAgents` gate). These tests pin the wrapper to the same gate.
  */
 describe("v1 <CopilotKit> validateProps → self-managed agents", () => {
-  // Rendering paths that legitimately have no runtime emit a dev-only warning
-  // from the v2 provider; silence it so the test output stays clean.
-  let warnSpy: ReturnType<typeof vi.spyOn>;
   let errorSpy: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
-    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // The v2 provider emits a dev-only "missing runtime" warning on some
+    // keyless renders; silence that expected noise. console.error is spied (not
+    // blanket-silenced) so valid configs can be asserted to log nothing.
+    vi.spyOn(console, "warn").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   });
   afterEach(() => {
-    warnSpy.mockRestore();
-    errorSpy.mockRestore();
+    vi.restoreAllMocks();
   });
 
   function renderKit(props: Partial<CopilotKitProps>) {
     return render(<CopilotKit {...props}>child</CopilotKit>);
   }
 
+  // A valid configuration must render without throwing AND without surfacing an
+  // unexpected error to the console (which would mean the v2 provider rejected
+  // the config another way).
+  function expectRendersCleanly(props: Partial<CopilotKitProps>) {
+    expect(() => renderKit(props)).not.toThrow();
+    expect(errorSpy).not.toHaveBeenCalled();
+  }
+
   it("throws when no runtimeUrl, key, or local agents are provided", () => {
     expect(() => renderKit({})).toThrow(ConfigurationError);
   });
 
+  it("throws when selfManagedAgents is an empty map", () => {
+    expect(() => renderKit({ selfManagedAgents: {} })).toThrow(
+      ConfigurationError,
+    );
+  });
+
   it("does not throw when selfManagedAgents is provided without a runtimeUrl", () => {
     const testAgent = new HttpAgent({ url: "http://localhost:8000" });
-    expect(() =>
-      renderKit({ selfManagedAgents: { testAgent }, agent: "testAgent" }),
-    ).not.toThrow();
+    expectRendersCleanly({
+      selfManagedAgents: { testAgent },
+      agent: "testAgent",
+    });
   });
 
   it("does not throw when agents__unsafe_dev_only is provided without a runtimeUrl", () => {
     const testAgent = new HttpAgent({ url: "http://localhost:8000" });
-    expect(() =>
-      renderKit({ agents__unsafe_dev_only: { testAgent }, agent: "testAgent" }),
-    ).not.toThrow();
+    expectRendersCleanly({
+      agents__unsafe_dev_only: { testAgent },
+      agent: "testAgent",
+    });
+  });
+
+  it("does not throw on the pre-existing runtimeUrl and publicApiKey paths", () => {
+    expectRendersCleanly({
+      runtimeUrl: "http://localhost:3000/api/copilotkit",
+    });
+    errorSpy.mockClear();
+    expectRendersCleanly({ publicApiKey: "ck_pub_test" });
   });
 });
