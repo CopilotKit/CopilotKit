@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input } from "@angular/core";
-import { CopilotChatInput, injectChatState } from "@copilotkitnext/angular";
-import type { ToolsMenuItem } from "@copilotkitnext/angular";
+import { CopilotChatInput, injectChatState } from "@copilotkit/angular";
+import type { ToolsMenuItem } from "@copilotkit/angular";
 
 @Component({
   selector: "a2ui-demo-input",

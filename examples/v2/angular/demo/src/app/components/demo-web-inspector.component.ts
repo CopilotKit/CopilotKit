@@ -1,5 +1,5 @@
 import { afterNextRender, Component, DestroyRef, inject } from "@angular/core";
-import { CopilotKit } from "@copilotkitnext/angular";
+import { CopilotKit } from "@copilotkit/angular";
 import { WEB_INSPECTOR_TAG } from "@copilotkit/web-inspector";
 import type { WebInspectorElement } from "@copilotkit/web-inspector";
 

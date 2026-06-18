@@ -14,7 +14,7 @@ import {
   Wrench,
 } from "lucide-angular";
 
-import type { AngularToolCall, ToolRenderer } from "@copilotkitnext/angular";
+import type { AngularToolCall, ToolRenderer } from "@copilotkit/angular";
 
 type WildcardToolArgs = Record<string, unknown>;
 
