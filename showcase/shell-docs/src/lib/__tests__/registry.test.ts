@@ -6,13 +6,13 @@ import { getDocsMode, getIntegration } from "../registry";
 describe("docs mode registry", () => {
   it("treats Deep Agents as authored docs", () => {
     expect(getIntegration("deepagents")).toMatchObject({
-      name: "Langchain DeepAgents",
+      name: "Deep Agents",
       docs_mode: "authored",
     });
     expect(getDocsMode("deepagents")).toBe("authored");
   });
 
-  it("puts Langchain DeepAgents above LangGraph and FastAPI under Python", () => {
+  it("puts Deep Agents above LangGraph and FastAPI under Python", () => {
     expect(
       compareByDisplayOrder("deepagents", "langgraph-python"),
     ).toBeLessThan(0);

@@ -116,12 +116,12 @@ export const ROOT_FRAMEWORK = "built-in-agent";
 
 const DOCS_ONLY_INTEGRATIONS: Integration[] = [
   {
-    name: "Langchain DeepAgents",
+    name: "Deep Agents",
     slug: "deepagents",
     category: "popular",
     language: "python",
     description:
-      "Langchain Deep Agents connected to CopilotKit chat, state, tools, and generative UI.",
+      "LangChain Deep Agents connected to CopilotKit chat, state, tools, and generative UI.",
     partner_docs: null,
     repo: "",
     copilotkit_version: "",
