@@ -103,7 +103,8 @@ jobs:
             SCOPE="$INPUT_SCOPE"
           else
             # Branch format: release/publish/<scope>/v<version>
-            SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+            SCOPE="${PR_HEAD_REF#release/publish/}"
+            SCOPE="${SCOPE%%/v*}"
           fi
           MODE="${INPUT_MODE:-stable}"
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
@@ -206,7 +207,8 @@ jobs:
             SCOPE="$INPUT_SCOPE"
           else
             # Branch format: release/publish/<scope>/v<version>
-            SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+            SCOPE="${PR_HEAD_REF#release/publish/}"
+            SCOPE="${SCOPE%%/v*}"
           fi
           if [ -z "$SCOPE" ]; then
             echo "::error::Failed to resolve scope (input=$INPUT_SCOPE, ref=$PR_HEAD_REF)"
@@ -249,9 +251,11 @@ jobs:
       - name: Dry-run notice
         if: ${{ inputs.dry-run == true }}
         run: |
-          echo "## Dry Run" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Dry Run"
+            echo ""
+            echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish to npm
         id: publish
@@ -315,7 +319,7 @@ jobs:
           fi
           git tag -a "$TAG" -m "Release ${SCOPE} ${VERSION}"
           git push origin "$TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
         id: tag
 
       - name: Create GitHub Release
