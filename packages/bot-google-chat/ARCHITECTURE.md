@@ -99,24 +99,24 @@ Every `CARD_CLICKED` event is routed through `decodeInteraction` (before `routeC
 
 ## Per-file responsibilities
 
-| File                        | Job                                                                                              |
-| --------------------------- | ------------------------------------------------------------------------------------------------ |
-| `adapter.ts`                | `googleChat()` factory + `GoogleChatAdapter` (full `PlatformAdapter` impl); wires all collaborators. |
-| `auth.ts`                   | `createTokenProvider` (service-account bearer tokens via `google-auth-library`) + `createInboundVerifier` (JWT check against Chat x509 certs) + `UnauthorizedError`. |
-| `chat-client.ts`            | `ChatClient`: thin fetch wrapper over Chat REST v1 — `createMessage`, `patchMessage`, `deleteMessage`, `listMessages`, `uploadAttachment`. |
-| `server.ts`                 | `createRequestHandler` (JSON-parse + JWT verify + onEvent dispatch → `{ status, body }`) + `startServer` (plain `node:http` listener). |
-| `listener.ts`               | `routeChatEvent`: raw Chat webhook event → `onTurn` / `onCommand` / `onThreadStarted`; loop-guard filters; thread-scope resolution. |
-| `interaction.ts`            | `decodeInteraction`: `CARD_CLICKED` payload → `InteractionEvent` (extracts opaque id, value param, message ref). |
-| `conversation-store.ts`     | `GoogleChatConversationStore`: `listMessages` → translated `AgentMessage[]` history; `getOrCreate` builds each `AgentSession`. |
-| `event-renderer.ts`         | `createRunRenderer`: AG-UI subscriber → `ChunkedMessageStream` (text), tool-status rows, interrupt capture, abort/mark-interrupted. |
-| `message-stream.ts`         | `MessageStream`: per-message `patchMessage` queue + ≥1s throttle (no update races). |
-| `chunked-message-stream.ts` | `ChunkedMessageStream`: multi-message chunking; freezes boundaries at newlines/spaces; keeps fenced code blocks whole; per-chunk `MessageStream`. |
-| `markdown.ts`               | `markdownToChat`: GFM Markdown → Google Chat text format (`**bold** → *bold*`, `*italic* → _italic_`, links, bullets, table-in-fence). |
+| File                        | Job                                                                                                                                                                                            |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `adapter.ts`                | `googleChat()` factory + `GoogleChatAdapter` (full `PlatformAdapter` impl); wires all collaborators.                                                                                           |
+| `auth.ts`                   | `createTokenProvider` (service-account bearer tokens via `google-auth-library`) + `createInboundVerifier` (JWT check against Chat x509 certs) + `UnauthorizedError`.                           |
+| `chat-client.ts`            | `ChatClient`: thin fetch wrapper over Chat REST v1 — `createMessage`, `patchMessage`, `deleteMessage`, `listMessages`, `uploadAttachment`.                                                     |
+| `server.ts`                 | `createRequestHandler` (JSON-parse + JWT verify + onEvent dispatch → `{ status, body }`) + `startServer` (plain `node:http` listener).                                                         |
+| `listener.ts`               | `routeChatEvent`: raw Chat webhook event → `onTurn` / `onCommand` / `onThreadStarted`; loop-guard filters; thread-scope resolution.                                                            |
+| `interaction.ts`            | `decodeInteraction`: `CARD_CLICKED` payload → `InteractionEvent` (extracts opaque id, value param, message ref).                                                                               |
+| `conversation-store.ts`     | `GoogleChatConversationStore`: `listMessages` → translated `AgentMessage[]` history; `getOrCreate` builds each `AgentSession`.                                                                 |
+| `event-renderer.ts`         | `createRunRenderer`: AG-UI subscriber → `ChunkedMessageStream` (text), tool-status rows, interrupt capture, abort/mark-interrupted.                                                            |
+| `message-stream.ts`         | `MessageStream`: per-message `patchMessage` queue + ≥1s throttle (no update races).                                                                                                            |
+| `chunked-message-stream.ts` | `ChunkedMessageStream`: multi-message chunking; freezes boundaries at newlines/spaces; keeps fenced code blocks whole; per-chunk `MessageStream`.                                              |
+| `markdown.ts`               | `markdownToChat`: GFM Markdown → Google Chat text format (`**bold** → *bold*`, `*italic* → _italic_`, links, bullets, table-in-fence).                                                         |
 | `render/cards-v2.ts`        | `renderGoogleChatMessage` / `renderCardsV2`: IR → `{ cardsV2 }` or `{ text }` (plain-text IR shortcut). Button `onClick.action.function` carries the opaque `ck:` id from the action registry. |
-| `render/budget.ts`          | `GCHAT_LIMITS` (per-element caps) + `truncateText` / `clampArray` degradation helpers. |
-| `built-in-tools.ts`         | `lookupGoogleChatUserTool` (`lookup_google_chat_user`) + `defaultGoogleChatTools`. |
-| `built-in-context.ts`       | `googleChatTaggingContext`, `googleChatFormattingContext`, `googleChatConversationModelContext` + `defaultGoogleChatContext`. |
-| `types.ts`                  | `ReplyTarget`, `ConversationKey`, `IncomingTurn`, `GoogleChatAdapterOptions`, `DM_SCOPE`, `conversationKeyOf`. |
+| `render/budget.ts`          | `GCHAT_LIMITS` (per-element caps) + `truncateText` / `clampArray` degradation helpers.                                                                                                         |
+| `built-in-tools.ts`         | `lookupGoogleChatUserTool` (`lookup_google_chat_user`) + `defaultGoogleChatTools`.                                                                                                             |
+| `built-in-context.ts`       | `googleChatTaggingContext`, `googleChatFormattingContext`, `googleChatConversationModelContext` + `defaultGoogleChatContext`.                                                                  |
+| `types.ts`                  | `ReplyTarget`, `ConversationKey`, `IncomingTurn`, `GoogleChatAdapterOptions`, `DM_SCOPE`, `conversationKeyOf`.                                                                                 |
 
 ## SDK files at a glance
 

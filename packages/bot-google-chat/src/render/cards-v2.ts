@@ -6,10 +6,7 @@ type Widget = Record<string, unknown>;
 
 /** Escape the HTML-significant characters so user text can't inject markup. */
 function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 /**
@@ -27,7 +24,11 @@ function isSafeUrl(url: string): boolean {
   const question = trimmed.indexOf("?");
   const hash = trimmed.indexOf("#");
   const beforeDelimiter = (d: number) => d === -1 || colon < d;
-  if (beforeDelimiter(slash) && beforeDelimiter(question) && beforeDelimiter(hash)) {
+  if (
+    beforeDelimiter(slash) &&
+    beforeDelimiter(question) &&
+    beforeDelimiter(hash)
+  ) {
     const scheme = trimmed.slice(0, colon).toLowerCase();
     return scheme === "http" || scheme === "https" || scheme === "mailto";
   }
@@ -135,10 +136,7 @@ export function markdownToCardHtml(input: string): string {
   body = body.replace(/~~([^\n~]+?)~~/g, "<s>$1</s>");
 
   // Italic *text* → <i>text</i> (skip already-converted bold sentinels).
-  body = body.replace(
-    /(^|[^*\w])\*(\S(?:[^*\n]*\S)?)\*(?!\w)/g,
-    "$1<i>$2</i>",
-  );
+  body = body.replace(/(^|[^*\w])\*(\S(?:[^*\n]*\S)?)\*(?!\w)/g, "$1<i>$2</i>");
   // Italic _text_ → <i>text</i>
   body = body.replace(/(^|[^_\w])_(\S(?:[^_\n]*\S)?)_(?!\w)/g, "$1<i>$2</i>");
 
@@ -156,9 +154,8 @@ export function markdownToCardHtml(input: string): string {
     /\x10LINK(\d+)\x10/g,
     (_m, idx) => linkRegions[Number(idx)] ?? "",
   );
-  body = body.replace(
-    /\x10CODE(\d+)\x10/g,
-    (_m, idx) => escapeHtml(codeRegions[Number(idx)] ?? ""),
+  body = body.replace(/\x10CODE(\d+)\x10/g, (_m, idx) =>
+    escapeHtml(codeRegions[Number(idx)] ?? ""),
   );
   body = body.replace(/\r?\n/g, "<br>");
 
@@ -244,7 +241,8 @@ function safeTruncateHtml(html: string, max: number): string {
 function childrenOf(node: BotNode): BotNode[] {
   const c = node.props?.children;
   if (Array.isArray(c)) return c as BotNode[];
-  if (c && typeof c === "object" && "type" in (c as object)) return [c as BotNode];
+  if (c && typeof c === "object" && "type" in (c as object))
+    return [c as BotNode];
   return [];
 }
 
@@ -303,7 +301,10 @@ function renderActionsWidget(
   const buttonNodes = childrenOf(node).filter(
     (c) => typeof c.type === "string" && c.type === "button",
   );
-  const { items, overflow } = clampArray(buttonNodes, GCHAT_LIMITS.buttonsPerSet);
+  const { items, overflow } = clampArray(
+    buttonNodes,
+    GCHAT_LIMITS.buttonsPerSet,
+  );
   if (items.length === 0) return null;
 
   // A buttonList can't carry a text note, so the dropped buttons can't be
@@ -362,7 +363,10 @@ function renderNodeWidgets(
     }
     case "section":
     case "markdown": {
-      const html = convertAndBudget(collectText(node), GCHAT_LIMITS.textParagraph);
+      const html = convertAndBudget(
+        collectText(node),
+        GCHAT_LIMITS.textParagraph,
+      );
       if (html) widgets.push({ textParagraph: { text: html } });
       // Render any nested actions/button children as a buttonList widget.
       for (const child of childrenOf(node)) {
@@ -414,14 +418,20 @@ function renderNodeWidgets(
       for (const f of fieldChildren) {
         // `decoratedText` REQUIRES `text`; `topLabel` is only an optional
         // adornment above it. The field's content goes in `text`.
-        const html = convertAndBudget(collectText(f), GCHAT_LIMITS.decoratedTextTop);
+        const html = convertAndBudget(
+          collectText(f),
+          GCHAT_LIMITS.decoratedTextTop,
+        );
         if (html) widgets.push({ decoratedText: { text: html } });
       }
       break;
     }
     case "field": {
       // `decoratedText` REQUIRES `text`; put the field's content there.
-      const html = convertAndBudget(collectText(node), GCHAT_LIMITS.decoratedTextTop);
+      const html = convertAndBudget(
+        collectText(node),
+        GCHAT_LIMITS.decoratedTextTop,
+      );
       if (html) widgets.push({ decoratedText: { text: html } });
       break;
     }
@@ -529,8 +539,9 @@ export function renderGoogleChatMessage(ir: BotNode[]): {
 }
 
 /** Alias used by the adapter's render(); returns the same `{ cardsV2 }` or `{ text }` body. */
-export function renderCardsV2(
-  ir: BotNode[],
-): { cardsV2?: unknown[]; text?: string } {
+export function renderCardsV2(ir: BotNode[]): {
+  cardsV2?: unknown[];
+  text?: string;
+} {
   return renderGoogleChatMessage(ir);
 }

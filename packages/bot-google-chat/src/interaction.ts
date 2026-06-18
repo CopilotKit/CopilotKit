@@ -7,8 +7,14 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     space?: { name?: string; type?: string };
     message?: { name?: string; thread?: { name?: string } };
     user?: { name?: string; displayName?: string };
-    common?: { invokedFunction?: string; parameters?: Array<{ key?: string; value?: string }> };
-    action?: { actionMethodName?: string; parameters?: Array<{ key?: string; value?: string }> };
+    common?: {
+      invokedFunction?: string;
+      parameters?: Array<{ key?: string; value?: string }>;
+    };
+    action?: {
+      actionMethodName?: string;
+      parameters?: Array<{ key?: string; value?: string }>;
+    };
   };
   if (body.type !== "CARD_CLICKED") return undefined;
 
@@ -22,7 +28,10 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   const threadName = body.message?.thread?.name;
   const scope = isDm ? DM_SCOPE : (threadName ?? "");
   const conversationKey = conversationKeyOf({ spaceId, scope });
-  const replyTarget: ReplyTarget = { space: spaceId, thread: isDm ? undefined : threadName };
+  const replyTarget: ReplyTarget = {
+    space: spaceId,
+    thread: isDm ? undefined : threadName,
+  };
 
   const params = body.common?.parameters ?? body.action?.parameters ?? [];
   // A missing — OR present-but-empty/whitespace-only — `value` parameter means
@@ -40,7 +49,11 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   if (rawValue === undefined || rawValue.trim() === "") {
     value = undefined;
   } else {
-    try { value = JSON.parse(rawValue); } catch { value = rawValue; }
+    try {
+      value = JSON.parse(rawValue);
+    } catch {
+      value = rawValue;
+    }
   }
 
   const user = body.user?.name
@@ -48,7 +61,9 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     : undefined;
 
   const messageName = body.message?.name;
-  const messageRef = messageName ? { id: messageName, space: spaceId } : undefined;
+  const messageRef = messageName
+    ? { id: messageName, space: spaceId }
+    : undefined;
 
   return { id, conversationKey, replyTarget, value, user, messageRef };
 }

@@ -16,7 +16,11 @@ function isSafeUrl(url: string): boolean {
   // A ':' that appears only after a path/query/fragment separator is not a
   // scheme delimiter (e.g. "/a:b", "?x:y") — treat those as relative.
   const beforeDelimiter = (d: number) => d === -1 || colon < d;
-  if (beforeDelimiter(slash) && beforeDelimiter(question) && beforeDelimiter(hash)) {
+  if (
+    beforeDelimiter(slash) &&
+    beforeDelimiter(question) &&
+    beforeDelimiter(hash)
+  ) {
     const scheme = trimmed.slice(0, colon).toLowerCase();
     return scheme === "http" || scheme === "https" || scheme === "mailto";
   }

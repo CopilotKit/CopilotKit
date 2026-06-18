@@ -36,7 +36,10 @@ export function startServer(args: {
 }): { close(): Promise<void> } {
   const maxBodyBytes = args.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
   const server: Server = createServer((req, res) => {
-    if (req.method !== "POST") { res.writeHead(405).end(); return; }
+    if (req.method !== "POST") {
+      res.writeHead(405).end();
+      return;
+    }
     const chunks: Buffer[] = [];
     let received = 0;
     let aborted = false;
@@ -55,8 +58,12 @@ export function startServer(args: {
     req.on("end", async () => {
       if (aborted) return;
       let body: unknown = {};
-      try { body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); }
-      catch { res.writeHead(400).end(); return; }
+      try {
+        body = JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+      } catch {
+        res.writeHead(400).end();
+        return;
+      }
       try {
         const out = await args.handler({ headers: req.headers, body });
         res.writeHead(out.status, { "Content-Type": "application/json" });
@@ -69,6 +76,9 @@ export function startServer(args: {
   });
   server.listen(args.port);
   return {
-    close: () => new Promise<void>((resolve, reject) => server.close((e) => (e ? reject(e) : resolve()))),
+    close: () =>
+      new Promise<void>((resolve, reject) =>
+        server.close((e) => (e ? reject(e) : resolve())),
+      ),
   };
 }

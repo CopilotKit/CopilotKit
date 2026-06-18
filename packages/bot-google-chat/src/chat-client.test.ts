@@ -11,7 +11,12 @@ function makeClient(fetchImpl: any) {
 
 describe("ChatClient.createMessage", () => {
   it("POSTs to the space messages endpoint with a bearer token and returns the name", async () => {
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ name: "spaces/A/messages/M1" }), { status: 200 }));
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ name: "spaces/A/messages/M1" }), {
+          status: 200,
+        }),
+    );
     const c = makeClient(fetchImpl);
     const res = await c.createMessage("spaces/A", { text: "hi" });
     expect(res.name).toBe("spaces/A/messages/M1");
@@ -23,18 +28,32 @@ describe("ChatClient.createMessage", () => {
   });
 
   it("adds messageReplyOption when replying to a thread", async () => {
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ name: "n" }), { status: 200 }));
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({ name: "n" }), { status: 200 }),
+    );
     const c = makeClient(fetchImpl);
-    await c.createMessage("spaces/A", { text: "hi" }, { threadName: "spaces/A/threads/T", replyToThread: true });
+    await c.createMessage(
+      "spaces/A",
+      { text: "hi" },
+      { threadName: "spaces/A/threads/T", replyToThread: true },
+    );
     const [url, init] = (fetchImpl.mock.calls[0] as any[])!;
-    expect(String(url)).toContain("messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD");
-    expect(JSON.parse(init.body).thread).toEqual({ name: "spaces/A/threads/T" });
+    expect(String(url)).toContain(
+      "messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD",
+    );
+    expect(JSON.parse(init.body).thread).toEqual({
+      name: "spaces/A/threads/T",
+    });
   });
 
   it("throws when a 2xx response is missing the message name", async () => {
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({}), { status: 200 }));
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify({}), { status: 200 }),
+    );
     const c = makeClient(fetchImpl);
-    await expect(c.createMessage("spaces/A", { text: "hi" })).rejects.toThrow(/missing message name/);
+    await expect(c.createMessage("spaces/A", { text: "hi" })).rejects.toThrow(
+      /missing message name/,
+    );
   });
 });
 
@@ -47,9 +66,21 @@ describe("ChatClient.listMessages", () => {
         new Response(
           JSON.stringify({
             messages: [
-              { name: "spaces/A/messages/M3", text: "third", createTime: "2026-01-03T00:00:00Z" },
-              { name: "spaces/A/messages/M2", text: "second", createTime: "2026-01-02T00:00:00Z" },
-              { name: "spaces/A/messages/M1", text: "first", createTime: "2026-01-01T00:00:00Z" },
+              {
+                name: "spaces/A/messages/M3",
+                text: "third",
+                createTime: "2026-01-03T00:00:00Z",
+              },
+              {
+                name: "spaces/A/messages/M2",
+                text: "second",
+                createTime: "2026-01-02T00:00:00Z",
+              },
+              {
+                name: "spaces/A/messages/M1",
+                text: "first",
+                createTime: "2026-01-01T00:00:00Z",
+              },
             ],
           }),
           { status: 200 },
@@ -75,15 +106,26 @@ describe("ChatClient.listMessages", () => {
         new Response(
           JSON.stringify({
             messages: [
-              { name: "spaces/A/messages/M2", text: "newer", createTime: "2026-01-02T00:00:00Z" },
-              { name: "spaces/A/messages/M1", text: "older", createTime: "2026-01-01T00:00:00Z" },
+              {
+                name: "spaces/A/messages/M2",
+                text: "newer",
+                createTime: "2026-01-02T00:00:00Z",
+              },
+              {
+                name: "spaces/A/messages/M1",
+                text: "older",
+                createTime: "2026-01-01T00:00:00Z",
+              },
             ],
           }),
           { status: 200 },
         ),
     );
     const c = makeClient(fetchImpl);
-    const res = await c.listMessages("spaces/A", { threadName: "spaces/A/threads/T", pageSize: 50 });
+    const res = await c.listMessages("spaces/A", {
+      threadName: "spaces/A/threads/T",
+      pageSize: 50,
+    });
 
     // Returned chronologically (oldest→newest) after reversing the desc page.
     expect(res.map((m) => m.text)).toEqual(["older", "newer"]);
@@ -91,7 +133,9 @@ describe("ChatClient.listMessages", () => {
     const [url] = (fetchImpl.mock.calls[0] as any[])!;
     const parsed = new URL(String(url));
     // filter scopes to the thread (value is URL-decoded by URL parsing).
-    expect(parsed.searchParams.get("filter")).toBe('thread.name = "spaces/A/threads/T"');
+    expect(parsed.searchParams.get("filter")).toBe(
+      'thread.name = "spaces/A/threads/T"',
+    );
     expect(parsed.searchParams.get("orderBy")).toBe("createTime desc");
     expect(parsed.searchParams.get("pageSize")).toBe("50");
   });
@@ -143,21 +187,34 @@ describe("ChatClient.uploadAttachment", () => {
       const url = String(input);
       if (url.includes("attachments:upload")) {
         return new Response(
-          JSON.stringify({ attachmentDataRef: { resourceName: "RES_NAME", attachmentUploadToken: "TOK" } }),
+          JSON.stringify({
+            attachmentDataRef: {
+              resourceName: "RES_NAME",
+              attachmentUploadToken: "TOK",
+            },
+          }),
           { status: 200 },
         );
       }
-      return new Response(JSON.stringify({ name: "spaces/A/messages/M2" }), { status: 200 });
+      return new Response(JSON.stringify({ name: "spaces/A/messages/M2" }), {
+        status: 200,
+      });
     });
     const c = makeClient(fetchImpl);
-    const res = await c.uploadAttachment("spaces/A", new Uint8Array([1, 2, 3]), "file.txt");
+    const res = await c.uploadAttachment(
+      "spaces/A",
+      new Uint8Array([1, 2, 3]),
+      "file.txt",
+    );
 
     expect(res).toEqual({ ok: true, fileId: "RES_NAME" });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
 
     // Step 1: media upload endpoint on the /upload/v1 base.
     const [uploadUrl, uploadInit] = (fetchImpl.mock.calls[0] as any[])!;
-    expect(String(uploadUrl)).toContain("/upload/v1/spaces/A/attachments:upload");
+    expect(String(uploadUrl)).toContain(
+      "/upload/v1/spaces/A/attachments:upload",
+    );
     expect(String(uploadUrl)).toContain("uploadType=multipart");
     expect((uploadInit.headers as any).Authorization).toBe("Bearer tok");
     expect(uploadInit.method).toBe("POST");
@@ -167,7 +224,10 @@ describe("ChatClient.uploadAttachment", () => {
     expect(String(createUrl)).toContain("/v1/spaces/A/messages");
     expect(String(createUrl)).not.toContain("/upload/v1");
     const body = JSON.parse(createInit.body);
-    expect(body.attachment[0].attachmentDataRef).toEqual({ resourceName: "RES_NAME", attachmentUploadToken: "TOK" });
+    expect(body.attachment[0].attachmentDataRef).toEqual({
+      resourceName: "RES_NAME",
+      attachmentUploadToken: "TOK",
+    });
   });
 
   it("posts the attachment message into the thread when threadName is provided", async () => {
@@ -175,16 +235,28 @@ describe("ChatClient.uploadAttachment", () => {
       const url = String(input);
       if (url.includes("attachments:upload")) {
         return new Response(
-          JSON.stringify({ attachmentDataRef: { resourceName: "RES_NAME", attachmentUploadToken: "TOK" } }),
+          JSON.stringify({
+            attachmentDataRef: {
+              resourceName: "RES_NAME",
+              attachmentUploadToken: "TOK",
+            },
+          }),
           { status: 200 },
         );
       }
-      return new Response(JSON.stringify({ name: "spaces/A/messages/M2" }), { status: 200 });
+      return new Response(JSON.stringify({ name: "spaces/A/messages/M2" }), {
+        status: 200,
+      });
     });
     const c = makeClient(fetchImpl);
-    const res = await c.uploadAttachment("spaces/A", new Uint8Array([1, 2, 3]), "file.txt", {
-      threadName: "spaces/A/threads/T",
-    });
+    const res = await c.uploadAttachment(
+      "spaces/A",
+      new Uint8Array([1, 2, 3]),
+      "file.txt",
+      {
+        threadName: "spaces/A/threads/T",
+      },
+    );
 
     expect(res).toEqual({ ok: true, fileId: "RES_NAME" });
     expect(fetchImpl).toHaveBeenCalledTimes(2);
@@ -192,16 +264,25 @@ describe("ChatClient.uploadAttachment", () => {
     // Step 2: create-message step threads the attachment and uses the
     // fallback-to-new-thread reply option.
     const [createUrl, createInit] = (fetchImpl.mock.calls[1] as any[])!;
-    expect(String(createUrl)).toContain("messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD");
+    expect(String(createUrl)).toContain(
+      "messageReplyOption=REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD",
+    );
     const body = JSON.parse(createInit.body);
     expect(body.thread).toEqual({ name: "spaces/A/threads/T" });
-    expect(body.attachment[0].attachmentDataRef).toEqual({ resourceName: "RES_NAME", attachmentUploadToken: "TOK" });
+    expect(body.attachment[0].attachmentDataRef).toEqual({
+      resourceName: "RES_NAME",
+      attachmentUploadToken: "TOK",
+    });
   });
 
   it("returns ok:false without creating a message when the upload fails", async () => {
     const fetchImpl = vi.fn(async () => new Response("nope", { status: 500 }));
     const c = makeClient(fetchImpl);
-    const res = await c.uploadAttachment("spaces/A", new Uint8Array([1]), "f.txt");
+    const res = await c.uploadAttachment(
+      "spaces/A",
+      new Uint8Array([1]),
+      "f.txt",
+    );
     expect(res.ok).toBe(false);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
@@ -211,6 +292,8 @@ describe("ChatClient error handling", () => {
   it("throws on a non-2xx response", async () => {
     const fetchImpl = vi.fn(async () => new Response("nope", { status: 403 }));
     const c = makeClient(fetchImpl);
-    await expect(c.createMessage("spaces/A", { text: "hi" })).rejects.toThrow(/403/);
+    await expect(c.createMessage("spaces/A", { text: "hi" })).rejects.toThrow(
+      /403/,
+    );
   });
 });

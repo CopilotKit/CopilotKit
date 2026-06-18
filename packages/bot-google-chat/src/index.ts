@@ -18,7 +18,12 @@ export type { MessageStreamConfig, TextStream } from "./message-stream.js";
 export { ChunkedMessageStream } from "./chunked-message-stream.js";
 export type { ChunkedMessageStreamConfig } from "./chunked-message-stream.js";
 
-export { createTokenProvider, createInboundVerifier, UnauthorizedError, CertFetchError } from "./auth.js";
+export {
+  createTokenProvider,
+  createInboundVerifier,
+  UnauthorizedError,
+  CertFetchError,
+} from "./auth.js";
 export type { TokenProvider, InboundVerifier } from "./auth.js";
 
 export { createRequestHandler, startServer } from "./server.js";
@@ -35,7 +40,10 @@ export { GCHAT_LIMITS } from "./render/budget.js";
 
 export { markdownToChat } from "./markdown.js";
 
-export { lookupGoogleChatUserTool, defaultGoogleChatTools } from "./built-in-tools.js";
+export {
+  lookupGoogleChatUserTool,
+  defaultGoogleChatTools,
+} from "./built-in-tools.js";
 
 export {
   googleChatTaggingContext,

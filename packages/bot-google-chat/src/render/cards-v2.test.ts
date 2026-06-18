@@ -207,9 +207,7 @@ describe("renderGoogleChatMessage", () => {
     const node: BotNode = {
       type: "section",
       props: {
-        children: [
-          text("**bold** _it_ ~~no~~ [link](https://x.com) # Title"),
-        ],
+        children: [text("**bold** _it_ ~~no~~ [link](https://x.com) # Title")],
       },
     };
     const out = renderGoogleChatMessage([node]);
@@ -323,7 +321,7 @@ describe("renderGoogleChatMessage", () => {
   it("budgets the FINAL card HTML, never cutting mid-tag or mid-entity", () => {
     // Build markdown whose converted HTML is far larger than the limit:
     // many `&` (→ &amp;, 5 chars each) plus bold spans that expand to tags.
-    const big = ("**x** & ".repeat(2000)).trim();
+    const big = "**x** & ".repeat(2000).trim();
     const out = renderGoogleChatMessage([section(big)]);
     const card = (out.cardsV2![0] as any).card;
     const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
@@ -420,9 +418,7 @@ describe("renderGoogleChatMessage", () => {
     const tp = widgets.find((w) => w.textParagraph !== undefined);
     const html = tp.textParagraph.text;
 
-    expect(html).toContain(
-      '<a href="https://x.com/path/_foo_/bar">doc</a>',
-    );
+    expect(html).toContain('<a href="https://x.com/path/_foo_/bar">doc</a>');
     // The href must be the EXACT url — no emphasis tags spliced in.
     expect(html).not.toContain("<i>");
   });

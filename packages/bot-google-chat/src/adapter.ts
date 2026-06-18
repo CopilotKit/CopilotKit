@@ -30,7 +30,11 @@ import { createRequestHandler, startServer } from "./server.js";
 import type { ChatRequestHandler } from "./server.js";
 import { ChatClient } from "./chat-client.js";
 import { DM_SCOPE, conversationKeyOf } from "./types.js";
-import type { ConversationKey, ReplyTarget, GoogleChatAdapterOptions } from "./types.js";
+import type {
+  ConversationKey,
+  ReplyTarget,
+  GoogleChatAdapterOptions,
+} from "./types.js";
 import type { CommandSpec } from "@copilotkit/bot";
 
 /** Google Chat `PlatformAdapter`: ingress via webhook, egress via Chat REST API + edit-in-place streaming. */
@@ -57,7 +61,11 @@ export class GoogleChatAdapter implements PlatformAdapter {
 
   constructor(opts: GoogleChatAdapterOptions) {
     // Auth invariant: must have one of googleChatProjectNumber, audience, or disableSignatureVerification
-    if (!opts.googleChatProjectNumber && !opts.audience && !opts.disableSignatureVerification) {
+    if (
+      !opts.googleChatProjectNumber &&
+      !opts.audience &&
+      !opts.disableSignatureVerification
+    ) {
       throw new Error(
         "bot-google-chat: provide googleChatProjectNumber, audience, or disableSignatureVerification:true",
       );
@@ -90,7 +98,6 @@ export class GoogleChatAdapter implements PlatformAdapter {
   }
 
   async start(sink: IngressSink): Promise<void> {
-
     const onEvent = async (event: unknown): Promise<unknown> => {
       // First try CARD_CLICKED interaction decoding
       const interaction = decodeInteraction(event);
@@ -141,7 +148,10 @@ export class GoogleChatAdapter implements PlatformAdapter {
     };
 
     // Build the real request handler with the live onEvent
-    this.requestHandler = createRequestHandler({ verifier: this.verifier, onEvent });
+    this.requestHandler = createRequestHandler({
+      verifier: this.verifier,
+      onEvent,
+    });
 
     // Start HTTP server if port is configured
     if (this.opts.port) {

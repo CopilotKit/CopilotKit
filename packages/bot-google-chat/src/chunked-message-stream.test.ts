@@ -29,7 +29,10 @@ function makeStream(
 }
 
 /** All update calls for a given message resource name, in order. */
-function updatesFor(updateAt: ReturnType<typeof vi.fn>, name: string): string[] {
+function updatesFor(
+  updateAt: ReturnType<typeof vi.fn>,
+  name: string,
+): string[] {
   return (updateAt.mock.calls as any[])
     .filter((c) => (c as any[])[0] === name)
     .map((c) => (c as any[])[1] as string);

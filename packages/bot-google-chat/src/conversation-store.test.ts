@@ -13,7 +13,11 @@ describe("GoogleChatConversationStore.getOrCreate", () => {
   it("builds agent history from listMessages, including bot replies as assistant turns", async () => {
     const store = makeStore([
       { name: "m1", text: "hello", sender: { name: "users/1", type: "HUMAN" } },
-      { name: "m2", text: "hi there", sender: { name: "users/BOT", type: "BOT" } },
+      {
+        name: "m2",
+        text: "hi there",
+        sender: { name: "users/BOT", type: "BOT" },
+      },
     ]);
     let captured: any;
     const makeAgent = (threadId: string) => {
@@ -27,13 +31,26 @@ describe("GoogleChatConversationStore.getOrCreate", () => {
     );
     expect(session.threadId).toContain("spaces/A");
     expect(captured.messages).toHaveLength(2);
-    expect(captured.messages[0]).toMatchObject({ role: "user", content: "hello" });
-    expect(captured.messages[1]).toMatchObject({ role: "assistant", content: "hi there" });
+    expect(captured.messages[0]).toMatchObject({
+      role: "user",
+      content: "hello",
+    });
+    expect(captured.messages[1]).toMatchObject({
+      role: "assistant",
+      content: "hi there",
+    });
   });
 
   it("returns [] history when listMessages throws (no delegation)", async () => {
-    const client = { listMessages: vi.fn(async () => { throw new Error("403"); }) } as any;
-    const store = new GoogleChatConversationStore({ client, botUserId: "users/BOT" });
+    const client = {
+      listMessages: vi.fn(async () => {
+        throw new Error("403");
+      }),
+    } as any;
+    const store = new GoogleChatConversationStore({
+      client,
+      botUserId: "users/BOT",
+    });
     const captured = { messages: [] as any[] };
     await store.getOrCreate(
       { spaceId: "spaces/A", scope: "dm" },
@@ -45,7 +62,10 @@ describe("GoogleChatConversationStore.getOrCreate", () => {
 
   it("scopes the history fetch to the thread when scope is a thread resource name", async () => {
     const client = { listMessages: vi.fn(async () => []) } as any;
-    const store = new GoogleChatConversationStore({ client, botUserId: "users/BOT" });
+    const store = new GoogleChatConversationStore({
+      client,
+      botUserId: "users/BOT",
+    });
     await store.getOrCreate(
       { spaceId: "spaces/A", scope: "spaces/A/threads/T" },
       { space: "spaces/A", thread: "spaces/A/threads/T" },
@@ -59,7 +79,10 @@ describe("GoogleChatConversationStore.getOrCreate", () => {
 
   it("does NOT scope to a thread for DM scope (whole space)", async () => {
     const client = { listMessages: vi.fn(async () => []) } as any;
-    const store = new GoogleChatConversationStore({ client, botUserId: "users/BOT" });
+    const store = new GoogleChatConversationStore({
+      client,
+      botUserId: "users/BOT",
+    });
     await store.getOrCreate(
       { spaceId: "spaces/A", scope: "dm" },
       { space: "spaces/A" },
@@ -78,7 +101,11 @@ describe("GoogleChatConversationStore.getOrCreate", () => {
     // the shared isBotSender predicate — provably matching adapter.getMessages.
     const store = makeStore([
       { name: "m1", text: "hello", sender: { name: "users/1", type: "HUMAN" } },
-      { name: "m2", text: "hi there", sender: { name: "users/BOT", type: "HUMAN" } },
+      {
+        name: "m2",
+        text: "hi there",
+        sender: { name: "users/BOT", type: "HUMAN" },
+      },
     ]);
     const captured = { messages: [] as any[] };
     await store.getOrCreate(
@@ -87,24 +114,58 @@ describe("GoogleChatConversationStore.getOrCreate", () => {
       () => captured as any,
     );
     expect(captured.messages).toHaveLength(2);
-    expect(captured.messages[0]).toMatchObject({ role: "user", content: "hello" });
-    expect(captured.messages[1]).toMatchObject({ role: "assistant", content: "hi there" });
+    expect(captured.messages[0]).toMatchObject({
+      role: "user",
+      content: "hello",
+    });
+    expect(captured.messages[1]).toMatchObject({
+      role: "assistant",
+      content: "hi there",
+    });
   });
 
   it("excludes bot status rows (🔧 / ✅ / ⏹ / _thinking…_ / _…(continued)_) from translated history", async () => {
     const store = makeStore([
-      { name: "m1", text: "what can you do?", sender: { name: "users/1", type: "HUMAN" } },
+      {
+        name: "m1",
+        text: "what can you do?",
+        sender: { name: "users/1", type: "HUMAN" },
+      },
       // tool-call start row — must be excluded
-      { name: "m2", text: "🔧 `search`…", sender: { name: "users/BOT", type: "BOT" } },
+      {
+        name: "m2",
+        text: "🔧 `search`…",
+        sender: { name: "users/BOT", type: "BOT" },
+      },
       // tool-call end row — must be excluded
-      { name: "m3", text: "✅ `search`", sender: { name: "users/BOT", type: "BOT" } },
+      {
+        name: "m3",
+        text: "✅ `search`",
+        sender: { name: "users/BOT", type: "BOT" },
+      },
       // interrupted tool-status row — must be excluded
-      { name: "m3b", text: "⏹ `search`", sender: { name: "users/BOT", type: "BOT" } },
+      {
+        name: "m3b",
+        text: "⏹ `search`",
+        sender: { name: "users/BOT", type: "BOT" },
+      },
       // ChunkedMessageStream placeholders — must be excluded
-      { name: "m4", text: "_thinking…_", sender: { name: "users/BOT", type: "BOT" } },
-      { name: "m5", text: "_…(continued)_", sender: { name: "users/BOT", type: "BOT" } },
+      {
+        name: "m4",
+        text: "_thinking…_",
+        sender: { name: "users/BOT", type: "BOT" },
+      },
+      {
+        name: "m5",
+        text: "_…(continued)_",
+        sender: { name: "users/BOT", type: "BOT" },
+      },
       // real assistant reply — must be included
-      { name: "m6", text: "I can help with many things.", sender: { name: "users/BOT", type: "BOT" } },
+      {
+        name: "m6",
+        text: "I can help with many things.",
+        sender: { name: "users/BOT", type: "BOT" },
+      },
     ]);
     const captured = { messages: [] as any[] };
     await store.getOrCreate(
@@ -113,8 +174,14 @@ describe("GoogleChatConversationStore.getOrCreate", () => {
       () => captured as any,
     );
     expect(captured.messages).toHaveLength(2);
-    expect(captured.messages[0]).toMatchObject({ role: "user", content: "what can you do?" });
-    expect(captured.messages[1]).toMatchObject({ role: "assistant", content: "I can help with many things." });
+    expect(captured.messages[0]).toMatchObject({
+      role: "user",
+      content: "what can you do?",
+    });
+    expect(captured.messages[1]).toMatchObject({
+      role: "assistant",
+      content: "I can help with many things.",
+    });
   });
 });
 

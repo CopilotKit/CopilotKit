@@ -34,11 +34,15 @@ describe("status-markers", () => {
 describe("isBotSender", () => {
   it("treats sender.type === BOT as the bot, regardless of botUserId", () => {
     expect(isBotSender({ type: "BOT" }, "")).toBe(true);
-    expect(isBotSender({ type: "BOT", name: "users/123" }, "users/999")).toBe(true);
+    expect(isBotSender({ type: "BOT", name: "users/123" }, "users/999")).toBe(
+      true,
+    );
   });
 
   it("treats a name match against a non-empty botUserId as the bot", () => {
-    expect(isBotSender({ type: "HUMAN", name: "users/bot" }, "users/bot")).toBe(true);
+    expect(isBotSender({ type: "HUMAN", name: "users/bot" }, "users/bot")).toBe(
+      true,
+    );
     expect(isBotSender({ name: "users/bot" }, "users/bot")).toBe(true);
   });
 
@@ -49,7 +53,9 @@ describe("isBotSender", () => {
   });
 
   it("does not treat a human sender as the bot", () => {
-    expect(isBotSender({ type: "HUMAN", name: "users/alice" }, "users/bot")).toBe(false);
+    expect(
+      isBotSender({ type: "HUMAN", name: "users/alice" }, "users/bot"),
+    ).toBe(false);
     expect(isBotSender({ type: "HUMAN", name: "users/alice" }, "")).toBe(false);
   });
 });

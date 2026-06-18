@@ -6,9 +6,15 @@ describe("decodeInteraction", () => {
     const evt = decodeInteraction({
       type: "CARD_CLICKED",
       space: { name: "spaces/A", type: "ROOM" },
-      message: { name: "spaces/A/messages/M1", thread: { name: "spaces/A/threads/T1" } },
+      message: {
+        name: "spaces/A/messages/M1",
+        thread: { name: "spaces/A/threads/T1" },
+      },
       user: { name: "users/9", displayName: "Ada" },
-      common: { invokedFunction: "ck:z", parameters: [{ key: "value", value: '{"ok":1}' }] },
+      common: {
+        invokedFunction: "ck:z",
+        parameters: [{ key: "value", value: '{"ok":1}' }],
+      },
     });
     expect(evt!.id).toBe("ck:z");
     expect(evt!.conversationKey).toBe("spaces/A::spaces/A/threads/T1");
@@ -25,19 +31,28 @@ describe("decodeInteraction", () => {
     const evt = decodeInteraction({
       type: "CARD_CLICKED",
       space: { name: "spaces/A", type: "ROOM" },
-      message: { name: "spaces/A/messages/M1", thread: { name: "spaces/A/threads/T1" } },
+      message: {
+        name: "spaces/A/messages/M1",
+        thread: { name: "spaces/A/threads/T1" },
+      },
       common: { invokedFunction: "ck:novalue", parameters: [] },
     });
     expect(evt!.id).toBe("ck:novalue");
     expect(evt!.value).toBeUndefined();
   });
 
-  it("surfaces a present-but-empty `value` parameter as undefined (not \"\")", () => {
+  it('surfaces a present-but-empty `value` parameter as undefined (not "")', () => {
     const evt = decodeInteraction({
       type: "CARD_CLICKED",
       space: { name: "spaces/A", type: "ROOM" },
-      message: { name: "spaces/A/messages/M1", thread: { name: "spaces/A/threads/T1" } },
-      common: { invokedFunction: "ck:empty", parameters: [{ key: "value", value: "" }] },
+      message: {
+        name: "spaces/A/messages/M1",
+        thread: { name: "spaces/A/threads/T1" },
+      },
+      common: {
+        invokedFunction: "ck:empty",
+        parameters: [{ key: "value", value: "" }],
+      },
     });
     expect(evt!.id).toBe("ck:empty");
     expect(evt!.value).toBeUndefined();

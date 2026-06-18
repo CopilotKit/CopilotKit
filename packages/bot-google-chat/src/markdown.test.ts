@@ -6,7 +6,9 @@ describe("markdownToChat", () => {
     expect(markdownToChat("**hi**")).toBe("*hi*");
   });
   it("converts markdown links to angle form", () => {
-    expect(markdownToChat("[CK](https://copilotkit.ai)")).toBe("<https://copilotkit.ai|CK>");
+    expect(markdownToChat("[CK](https://copilotkit.ai)")).toBe(
+      "<https://copilotkit.ai|CK>",
+    );
   });
   it("leaves fenced code untouched", () => {
     expect(markdownToChat("```\ncode\n```")).toContain("```");

@@ -27,7 +27,9 @@ describe("defaultGoogleChatContext", () => {
 
   it("contains the formatting and conversation model entries", () => {
     expect(defaultGoogleChatContext[0]).toBe(googleChatFormattingContext);
-    expect(defaultGoogleChatContext[1]).toBe(googleChatConversationModelContext);
+    expect(defaultGoogleChatContext[1]).toBe(
+      googleChatConversationModelContext,
+    );
   });
 
   it("does NOT include the tagging context (opt-in only in v1)", () => {

@@ -48,11 +48,17 @@ export class GoogleChatConversationStore {
       // (scope is the thread resource name); for a DM, list the whole space.
       const messages =
         key.scope !== DM_SCOPE
-          ? await this.client.listMessages(key.spaceId, { threadName: key.scope })
+          ? await this.client.listMessages(key.spaceId, {
+              threadName: key.scope,
+            })
           : await this.client.listMessages(key.spaceId);
       history = this.translate(messages);
     } catch (err) {
-      console.warn("[bot-google-chat] failed to fetch conversation history for", key.spaceId, err);
+      console.warn(
+        "[bot-google-chat] failed to fetch conversation history for",
+        key.spaceId,
+        err,
+      );
       history = [];
     }
     (agent as unknown as { messages: AgentMessage[] }).messages = history;

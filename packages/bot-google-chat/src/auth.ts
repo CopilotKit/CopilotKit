@@ -48,7 +48,9 @@ export interface TokenProvider {
   getToken(): Promise<string>;
 }
 
-function resolveCredentials(opts: GoogleChatAdapterOptions): object | undefined {
+function resolveCredentials(
+  opts: GoogleChatAdapterOptions,
+): object | undefined {
   const c = opts.credentials ?? process.env.GOOGLE_CHAT_CREDENTIALS;
   if (!c) return undefined; // GoogleAuth falls back to ADC / GOOGLE_APPLICATION_CREDENTIALS
   if (typeof c === "string") {
@@ -57,26 +59,36 @@ function resolveCredentials(opts: GoogleChatAdapterOptions): object | undefined 
     try {
       return JSON.parse(trimmed);
     } catch {
-      throw new Error("bot-google-chat: GOOGLE_CHAT_CREDENTIALS is not valid JSON");
+      throw new Error(
+        "bot-google-chat: GOOGLE_CHAT_CREDENTIALS is not valid JSON",
+      );
     }
   }
   return c;
 }
 
-export function createTokenProvider(opts: GoogleChatAdapterOptions): TokenProvider {
-  const scopes = opts.impersonateUser ? [CHAT_BOT_SCOPE, ...DWD_SCOPES] : [CHAT_BOT_SCOPE];
+export function createTokenProvider(
+  opts: GoogleChatAdapterOptions,
+): TokenProvider {
+  const scopes = opts.impersonateUser
+    ? [CHAT_BOT_SCOPE, ...DWD_SCOPES]
+    : [CHAT_BOT_SCOPE];
   const credentials = resolveCredentials(opts);
   // Same precedence (opts over env) and same source as resolveCredentials, so a
   // key-file PATH supplied via GOOGLE_CHAT_CREDENTIALS is honored as keyFile
   // rather than silently dropped (which would let GoogleAuth fall back to ADC).
   const credSource = opts.credentials ?? process.env.GOOGLE_CHAT_CREDENTIALS;
   const keyFile =
-    typeof credSource === "string" && !credSource.trim().startsWith("{") ? credSource : undefined;
+    typeof credSource === "string" && !credSource.trim().startsWith("{")
+      ? credSource
+      : undefined;
   const auth = new GoogleAuth({
     scopes,
     ...(credentials ? { credentials } : {}),
     ...(keyFile ? { keyFile } : {}),
-    ...(opts.impersonateUser ? { clientOptions: { subject: opts.impersonateUser } } : {}),
+    ...(opts.impersonateUser
+      ? { clientOptions: { subject: opts.impersonateUser } }
+      : {}),
   });
   return {
     async getToken(): Promise<string> {
@@ -92,7 +104,9 @@ export interface InboundVerifier {
   verify(authorizationHeader: string | undefined): Promise<void>;
 }
 
-export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVerifier {
+export function createInboundVerifier(
+  opts: GoogleChatAdapterOptions,
+): InboundVerifier {
   if (opts.disableSignatureVerification) {
     return { async verify() {} };
   }
@@ -140,15 +154,21 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
       // Network error reaching the cert endpoint — our infrastructure, not the
       // caller's token. Surface as a CertFetchError so verify() rethrows it
       // (→ 500), never as UnauthorizedError (→ 401).
-      throw new CertFetchError(`failed to fetch Chat x509 certs: ${(e as Error).message}`);
+      throw new CertFetchError(
+        `failed to fetch Chat x509 certs: ${(e as Error).message}`,
+      );
     }
     if (!res.ok) {
-      throw new CertFetchError(`failed to fetch Chat x509 certs: ${res.status}`);
+      throw new CertFetchError(
+        `failed to fetch Chat x509 certs: ${res.status}`,
+      );
     }
     try {
       cachedCerts = (await res.json()) as Certificates;
     } catch (e) {
-      throw new CertFetchError(`failed to parse Chat x509 certs: ${(e as Error).message}`);
+      throw new CertFetchError(
+        `failed to parse Chat x509 certs: ${(e as Error).message}`,
+      );
     }
     return cachedCerts;
   }
@@ -198,7 +218,9 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
       // Validates signature against the Chat system certs AND enforces the
       // required audience and issuer in one call.
       try {
-        await client.verifySignedJwtWithCertsAsync(token, certs, audience, [CHAT_ISSUER]);
+        await client.verifySignedJwtWithCertsAsync(token, certs, audience, [
+          CHAT_ISSUER,
+        ]);
       } catch (initialErr) {
         // Genuine verification failure: the cached certs may be stale after a
         // Google key rotation. Refetch once and retry a single time before
@@ -228,9 +250,16 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
         // verifySignedJwtWithCertsAsync rejection means the token is bad (→ 401).
         const freshCerts = await refetchCerts();
         try {
-          await client.verifySignedJwtWithCertsAsync(token, freshCerts, audience, [CHAT_ISSUER]);
+          await client.verifySignedJwtWithCertsAsync(
+            token,
+            freshCerts,
+            audience,
+            [CHAT_ISSUER],
+          );
         } catch (e) {
-          throw new UnauthorizedError(`token verification failed: ${(e as Error).message}`);
+          throw new UnauthorizedError(
+            `token verification failed: ${(e as Error).message}`,
+          );
         }
       }
     },

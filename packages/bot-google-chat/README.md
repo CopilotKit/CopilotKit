@@ -38,25 +38,35 @@ Of the two below, only `GOOGLE_CHAT_CREDENTIALS` is read from the environment by
 
 Credentials are not strictly required when [Application Default Credentials (ADC)](https://cloud.google.com/docs/authentication/application-default-credentials) are configured. Credential resolution is `opts.credentials ?? GOOGLE_CHAT_CREDENTIALS`; if neither is set the adapter falls back to `GoogleAuth` ADC discovery (which itself consults `GOOGLE_APPLICATION_CREDENTIALS`, then other ADC sources). You do still need a valid `googleChatProjectNumber` to verify inbound webhook JWTs.
 
-| Var                              | Purpose                                                                                          |
-| -------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `GOOGLE_CHAT_CREDENTIALS`        | Service account JSON key — object literal, path to key file, or raw JSON string. **Read directly by the adapter** when `opts.credentials` is not passed. If unset, the adapter falls back to `GoogleAuth` ADC discovery (which consults `GOOGLE_APPLICATION_CREDENTIALS`). |
-| `GOOGLE_CHAT_PROJECT_NUMBER`     | GCP project number — expected `aud` of inbound webhook JWTs. **Not read by the adapter**; the caller reads it and passes it as the `googleChatProjectNumber` option (see Quickstart). |
+| Var                          | Purpose                                                                                                                                                                                                                                                                    |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_CHAT_CREDENTIALS`    | Service account JSON key — object literal, path to key file, or raw JSON string. **Read directly by the adapter** when `opts.credentials` is not passed. If unset, the adapter falls back to `GoogleAuth` ADC discovery (which consults `GOOGLE_APPLICATION_CREDENTIALS`). |
+| `GOOGLE_CHAT_PROJECT_NUMBER` | GCP project number — expected `aud` of inbound webhook JWTs. **Not read by the adapter**; the caller reads it and passes it as the `googleChatProjectNumber` option (see Quickstart).                                                                                      |
 
 ## Quickstart
 
 ```ts
 import { createBot } from "@copilotkit/bot";
-import { googleChat, defaultGoogleChatTools, defaultGoogleChatContext } from "@copilotkit/bot-google-chat";
+import {
+  googleChat,
+  defaultGoogleChatTools,
+  defaultGoogleChatContext,
+} from "@copilotkit/bot-google-chat";
 import { HttpAgent } from "@ag-ui/client";
 
 const bot = createBot({
-  adapters: [googleChat({
-    credentials: process.env.GOOGLE_CHAT_CREDENTIALS,
-    googleChatProjectNumber: process.env.GOOGLE_CHAT_PROJECT_NUMBER,
-    port: 3000,
-  })],
-  agent: (threadId) => { const a = new HttpAgent({ url: process.env.AGENT_URL! }); a.threadId = threadId; return a; },
+  adapters: [
+    googleChat({
+      credentials: process.env.GOOGLE_CHAT_CREDENTIALS,
+      googleChatProjectNumber: process.env.GOOGLE_CHAT_PROJECT_NUMBER,
+      port: 3000,
+    }),
+  ],
+  agent: (threadId) => {
+    const a = new HttpAgent({ url: process.env.AGENT_URL! });
+    a.threadId = threadId;
+    return a;
+  },
   tools: [...defaultGoogleChatTools],
   context: [...defaultGoogleChatContext],
 });
@@ -78,19 +88,19 @@ The user-tagging exports (`lookupGoogleChatUserTool` and `googleChatTaggingConte
 
 ## Capabilities and limitations
 
-| Feature               | Status                                                                            |
-| --------------------- | --------------------------------------------------------------------------------- |
-| Text streaming        | Edit-in-place (post placeholder → `PATCH`). No native streaming API on Chat.     |
-| Typing indicators     | Not supported (`supportsTyping: false`).                                          |
-| Reactions             | Not supported (`supportsReactions: false`).                                       |
-| Suggested prompts     | Not supported (`supportsSuggestedPrompts: false`).                                |
-| Thread titles         | Not supported (`supportsThreadTitle: false`).                                     |
-| Message history       | Requires `impersonateUser` (domain-wide delegation); unavailable without it.      |
-| DM conversation history | Requires `impersonateUser`; without it each DM turn is stateless.              |
-| Slash commands        | Forwarded to `bot.onCommand` handlers; must also be declared in the Chat app console. |
-| Cards V2 / buttons    | Full support via `renderCardsV2` / `renderGoogleChatMessage`.                     |
-| HITL interactions     | `CARD_CLICKED` events decoded by `decodeInteraction` and dispatched to the engine. |
-| File upload           | Best-effort via `thread.postFile` (Chat media upload).                            |
+| Feature                   | Status                                                                                                                                                                                                                                                                                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Text streaming            | Edit-in-place (post placeholder → `PATCH`). No native streaming API on Chat.                                                                                                                                                                                                                                                                                 |
+| Typing indicators         | Not supported (`supportsTyping: false`).                                                                                                                                                                                                                                                                                                                     |
+| Reactions                 | Not supported (`supportsReactions: false`).                                                                                                                                                                                                                                                                                                                  |
+| Suggested prompts         | Not supported (`supportsSuggestedPrompts: false`).                                                                                                                                                                                                                                                                                                           |
+| Thread titles             | Not supported (`supportsThreadTitle: false`).                                                                                                                                                                                                                                                                                                                |
+| Message history           | Requires `impersonateUser` (domain-wide delegation); unavailable without it.                                                                                                                                                                                                                                                                                 |
+| DM conversation history   | Requires `impersonateUser`; without it each DM turn is stateless.                                                                                                                                                                                                                                                                                            |
+| Slash commands            | Forwarded to `bot.onCommand` handlers; must also be declared in the Chat app console.                                                                                                                                                                                                                                                                        |
+| Cards V2 / buttons        | Full support via `renderCardsV2` / `renderGoogleChatMessage`.                                                                                                                                                                                                                                                                                                |
+| HITL interactions         | `CARD_CLICKED` events decoded by `decodeInteraction` and dispatched to the engine.                                                                                                                                                                                                                                                                           |
+| File upload               | Best-effort via `thread.postFile` (Chat media upload).                                                                                                                                                                                                                                                                                                       |
 | User @-mentions / tagging | **Not supported in v1.** Google Chat exposes no bot-accessible user-directory lookup, so the default `lookupUser` always returns `undefined`. To enable tagging, implement `lookupUser` (e.g. via the Admin SDK / People API with domain-wide delegation) and add `lookupGoogleChatUserTool` + `googleChatTaggingContext` to your bot's `tools` / `context`. |
 
 ## Slash commands

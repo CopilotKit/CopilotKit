@@ -6,7 +6,9 @@ const verifySignedJwtWithCertsAsync = vi.fn();
 // were derived from opts and env.
 let lastGoogleAuthOptions: Record<string, unknown> | undefined;
 vi.mock("google-auth-library", () => ({
-  OAuth2Client: class { verifySignedJwtWithCertsAsync = verifySignedJwtWithCertsAsync; },
+  OAuth2Client: class {
+    verifySignedJwtWithCertsAsync = verifySignedJwtWithCertsAsync;
+  },
   GoogleAuth: class {
     constructor(options: Record<string, unknown>) {
       lastGoogleAuthOptions = options;
@@ -14,14 +16,23 @@ vi.mock("google-auth-library", () => ({
   },
 }));
 
-import { createInboundVerifier, createTokenProvider, UnauthorizedError } from "./auth.js";
+import {
+  createInboundVerifier,
+  createTokenProvider,
+  UnauthorizedError,
+} from "./auth.js";
 
-const CERTS = { kid1: "-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----" };
+const CERTS = {
+  kid1: "-----BEGIN CERTIFICATE-----\nfake\n-----END CERTIFICATE-----",
+};
 
 function stubCertFetch() {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => ({ ok: true, json: async () => CERTS }) as unknown as Response),
+    vi.fn(
+      async () =>
+        ({ ok: true, json: async () => CERTS }) as unknown as Response,
+    ),
   );
 }
 
@@ -43,7 +54,10 @@ describe("createInboundVerifier", () => {
 
   it("accepts a token that verifies against the Chat x509 certs", async () => {
     verifySignedJwtWithCertsAsync.mockResolvedValueOnce({
-      getPayload: () => ({ aud: "123", iss: "chat@system.gserviceaccount.com" }),
+      getPayload: () => ({
+        aud: "123",
+        iss: "chat@system.gserviceaccount.com",
+      }),
     });
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
     await expect(v.verify("Bearer good.jwt.token")).resolves.toBeUndefined();
@@ -56,9 +70,13 @@ describe("createInboundVerifier", () => {
   });
 
   it("rejects a token whose signature/audience/issuer fails verification on both attempts", async () => {
-    verifySignedJwtWithCertsAsync.mockRejectedValue(new Error("invalid signature"));
+    verifySignedJwtWithCertsAsync.mockRejectedValue(
+      new Error("invalid signature"),
+    );
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
-    await expect(v.verify("Bearer bad.jwt")).rejects.toBeInstanceOf(UnauthorizedError);
+    await expect(v.verify("Bearer bad.jwt")).rejects.toBeInstanceOf(
+      UnauthorizedError,
+    );
     // Initial verify + one self-heal refetch+retry.
     expect(verifySignedJwtWithCertsAsync).toHaveBeenCalledTimes(2);
     expect(fetch).toHaveBeenCalledTimes(2);
@@ -68,7 +86,10 @@ describe("createInboundVerifier", () => {
     verifySignedJwtWithCertsAsync
       .mockRejectedValueOnce(new Error("stale signing key"))
       .mockResolvedValueOnce({
-        getPayload: () => ({ aud: "123", iss: "chat@system.gserviceaccount.com" }),
+        getPayload: () => ({
+          aud: "123",
+          iss: "chat@system.gserviceaccount.com",
+        }),
       });
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
     await expect(v.verify("Bearer rotated.jwt")).resolves.toBeUndefined();
@@ -81,12 +102,16 @@ describe("createInboundVerifier", () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
     // Every verification attempt fails (e.g. a flood of forged tokens).
-    verifySignedJwtWithCertsAsync.mockRejectedValue(new Error("invalid signature"));
+    verifySignedJwtWithCertsAsync.mockRejectedValue(
+      new Error("invalid signature"),
+    );
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
 
     // First bad token: initial verify fails, the self-heal refetch is allowed
     // (no prior refetch in the window), retried, fails again.
-    await expect(v.verify("Bearer bad.jwt.1")).rejects.toBeInstanceOf(UnauthorizedError);
+    await expect(v.verify("Bearer bad.jwt.1")).rejects.toBeInstanceOf(
+      UnauthorizedError,
+    );
     // Initial fetch (cold cache) + one self-heal refetch.
     expect(fetch).toHaveBeenCalledTimes(2);
     expect(verifySignedJwtWithCertsAsync).toHaveBeenCalledTimes(2);
@@ -95,7 +120,9 @@ describe("createInboundVerifier", () => {
     // the initial verify fails again, but the refetch is debounced — no second
     // refetch happens, so we fail fast with no extra outbound fetch.
     vi.setSystemTime(5_000);
-    await expect(v.verify("Bearer bad.jwt.2")).rejects.toBeInstanceOf(UnauthorizedError);
+    await expect(v.verify("Bearer bad.jwt.2")).rejects.toBeInstanceOf(
+      UnauthorizedError,
+    );
     // Still 2 fetches total — the second failure did NOT refetch.
     expect(fetch).toHaveBeenCalledTimes(2);
     // One more verify attempt (the second token's single initial attempt, no retry).
@@ -105,16 +132,22 @@ describe("createInboundVerifier", () => {
   it("allows a fresh refetch once the debounce window has elapsed", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
-    verifySignedJwtWithCertsAsync.mockRejectedValue(new Error("invalid signature"));
+    verifySignedJwtWithCertsAsync.mockRejectedValue(
+      new Error("invalid signature"),
+    );
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
 
-    await expect(v.verify("Bearer bad.jwt.1")).rejects.toBeInstanceOf(UnauthorizedError);
+    await expect(v.verify("Bearer bad.jwt.1")).rejects.toBeInstanceOf(
+      UnauthorizedError,
+    );
     expect(fetch).toHaveBeenCalledTimes(2);
 
     // Advance past the 5-minute window: a new failure is allowed to refetch
     // again (so genuine key rotation continues to self-heal).
     vi.setSystemTime(5 * 60_000 + 1);
-    await expect(v.verify("Bearer bad.jwt.2")).rejects.toBeInstanceOf(UnauthorizedError);
+    await expect(v.verify("Bearer bad.jwt.2")).rejects.toBeInstanceOf(
+      UnauthorizedError,
+    );
     // Window elapsed → one more self-heal refetch is allowed.
     expect(fetch).toHaveBeenCalledTimes(3);
   });
@@ -130,13 +163,22 @@ describe("createInboundVerifier", () => {
     const fetchMock = vi
       .fn()
       // initial getCerts (cold cache) for the first verify
-      .mockResolvedValueOnce({ ok: true, json: async () => CERTS } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => CERTS,
+      } as unknown as Response)
       // self-heal refetch for the first verify → outage (clears the cache)
       .mockResolvedValueOnce({ ok: false, status: 503 } as unknown as Response)
       // getCerts for the second verify (cache was cleared by the failed refetch)
-      .mockResolvedValueOnce({ ok: true, json: async () => CERTS } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => CERTS,
+      } as unknown as Response)
       // self-heal refetch for the second verify → recovered
-      .mockResolvedValueOnce({ ok: true, json: async () => CERTS } as unknown as Response);
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => CERTS,
+      } as unknown as Response);
     vi.stubGlobal("fetch", fetchMock);
 
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
@@ -144,8 +186,12 @@ describe("createInboundVerifier", () => {
     // First verify: initial verify fails, self-heal refetch is attempted (window
     // is open) but the cert endpoint is down → CertFetchError propagates (→ 500,
     // NOT Unauthorized). Crucially, the failed refetch did not advance the window.
-    verifySignedJwtWithCertsAsync.mockRejectedValueOnce(new Error("stale signing key"));
-    await expect(v.verify("Bearer rotated.jwt.1")).rejects.not.toBeInstanceOf(UnauthorizedError);
+    verifySignedJwtWithCertsAsync.mockRejectedValueOnce(
+      new Error("stale signing key"),
+    );
+    await expect(v.verify("Bearer rotated.jwt.1")).rejects.not.toBeInstanceOf(
+      UnauthorizedError,
+    );
     expect(fetchMock).toHaveBeenCalledTimes(2); // initial getCerts + failed refetch
 
     // Second verify a few seconds later (well within the 5-minute window) with a
@@ -155,7 +201,10 @@ describe("createInboundVerifier", () => {
     verifySignedJwtWithCertsAsync
       .mockRejectedValueOnce(new Error("stale signing key"))
       .mockResolvedValueOnce({
-        getPayload: () => ({ aud: "123", iss: "chat@system.gserviceaccount.com" }),
+        getPayload: () => ({
+          aud: "123",
+          iss: "chat@system.gserviceaccount.com",
+        }),
       });
     await expect(v.verify("Bearer rotated.jwt.2")).resolves.toBeUndefined();
     // The 4th fetch is the recovered self-heal refetch — proof the window was
@@ -177,7 +226,9 @@ describe("createInboundVerifier", () => {
     );
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
     await expect(v.verify("Bearer some.jwt.token")).rejects.toThrow();
-    await expect(v.verify("Bearer some.jwt.token")).rejects.not.toBeInstanceOf(UnauthorizedError);
+    await expect(v.verify("Bearer some.jwt.token")).rejects.not.toBeInstanceOf(
+      UnauthorizedError,
+    );
     // The token is never even verified when the certs can't be fetched.
     expect(verifySignedJwtWithCertsAsync).not.toHaveBeenCalled();
   });
@@ -185,7 +236,10 @@ describe("createInboundVerifier", () => {
   it("bounds concurrent self-heal refetches to a single outbound cert fetch", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
-    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => CERTS }) as unknown as Response);
+    const fetchMock = vi.fn(
+      async () =>
+        ({ ok: true, json: async () => CERTS }) as unknown as Response,
+    );
     vi.stubGlobal("fetch", fetchMock);
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
 
@@ -193,7 +247,10 @@ describe("createInboundVerifier", () => {
     // below skip the initial getCerts() fetch — this isolates the SELF-HEAL
     // refetch count, which is what the in-flight guard bounds.
     verifySignedJwtWithCertsAsync.mockResolvedValueOnce({
-      getPayload: () => ({ aud: "123", iss: "chat@system.gserviceaccount.com" }),
+      getPayload: () => ({
+        aud: "123",
+        iss: "chat@system.gserviceaccount.com",
+      }),
     });
     await expect(v.verify("Bearer good.jwt")).resolves.toBeUndefined();
     expect(fetchMock).toHaveBeenCalledTimes(1); // the warm-up fetch
@@ -201,7 +258,9 @@ describe("createInboundVerifier", () => {
 
     // Now every verification fails, so each concurrent request enters the
     // self-heal refetch path within the same debounce window.
-    verifySignedJwtWithCertsAsync.mockRejectedValue(new Error("invalid signature"));
+    verifySignedJwtWithCertsAsync.mockRejectedValue(
+      new Error("invalid signature"),
+    );
 
     // Fire 3 concurrent verifications. Without the in-flight guard each would
     // fire its own refetch (3 fetches); the guard collapses them onto ONE.
@@ -212,7 +271,9 @@ describe("createInboundVerifier", () => {
     ]);
     for (const r of results) {
       expect(r.status).toBe("rejected");
-      expect((r as PromiseRejectedResult).reason).toBeInstanceOf(UnauthorizedError);
+      expect((r as PromiseRejectedResult).reason).toBeInstanceOf(
+        UnauthorizedError,
+      );
     }
     // Exactly one self-heal refetch across all three concurrent failures.
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -233,7 +294,10 @@ describe("createInboundVerifier", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     verifySignedJwtWithCertsAsync.mockResolvedValue({
-      getPayload: () => ({ aud: "123", iss: "chat@system.gserviceaccount.com" }),
+      getPayload: () => ({
+        aud: "123",
+        iss: "chat@system.gserviceaccount.com",
+      }),
     });
     const v = createInboundVerifier({ googleChatProjectNumber: "123" });
 
@@ -267,7 +331,8 @@ describe("createTokenProvider credential resolution", () => {
   });
 
   it("parses opts.credentials given as an inline-JSON string into a credentials object", () => {
-    const json = '{"client_email":"svc@proj.iam.gserviceaccount.com","private_key":"k"}';
+    const json =
+      '{"client_email":"svc@proj.iam.gserviceaccount.com","private_key":"k"}';
     createTokenProvider({ credentials: json });
     expect(lastGoogleAuthOptions?.credentials).toEqual({
       client_email: "svc@proj.iam.gserviceaccount.com",
@@ -283,7 +348,10 @@ describe("createTokenProvider credential resolution", () => {
   });
 
   it("passes an opts.credentials object straight through as credentials", () => {
-    const obj = { client_email: "svc@proj.iam.gserviceaccount.com", private_key: "k" };
+    const obj = {
+      client_email: "svc@proj.iam.gserviceaccount.com",
+      private_key: "k",
+    };
     createTokenProvider({ credentials: obj });
     expect(lastGoogleAuthOptions?.credentials).toEqual(obj);
     expect(lastGoogleAuthOptions).not.toHaveProperty("keyFile");
@@ -304,11 +372,15 @@ describe("createTokenProvider credential resolution", () => {
 
   it("sets the DWD subject and scopes when impersonateUser is provided", () => {
     createTokenProvider({
-      credentials: { client_email: "svc@proj.iam.gserviceaccount.com", private_key: "k" },
+      credentials: {
+        client_email: "svc@proj.iam.gserviceaccount.com",
+        private_key: "k",
+      },
       impersonateUser: "user@example.com",
     });
     expect(
-      (lastGoogleAuthOptions?.clientOptions as { subject?: string } | undefined)?.subject,
+      (lastGoogleAuthOptions?.clientOptions as { subject?: string } | undefined)
+        ?.subject,
     ).toBe("user@example.com");
     const scopes = lastGoogleAuthOptions?.scopes as string[];
     expect(scopes).toContain("https://www.googleapis.com/auth/chat.bot");

@@ -86,7 +86,9 @@ export function createRunRenderer(args: {
       transform: markdownToChat,
     });
 
-  const ensureStream = (messageId: string): ChunkedMessageStream | undefined => {
+  const ensureStream = (
+    messageId: string,
+  ): ChunkedMessageStream | undefined => {
     if (finalised.has(messageId)) return undefined;
     let s = streams.get(messageId);
     if (!s) {
@@ -165,7 +167,10 @@ export function createRunRenderer(args: {
               "text",
             );
           } catch (err) {
-            console.error("[gchat-renderer] tool-start interrupt patch failed:", err);
+            console.error(
+              "[gchat-renderer] tool-start interrupt patch failed:",
+              err,
+            );
           }
           return;
         }
@@ -281,7 +286,10 @@ export function createRunRenderer(args: {
                 "text",
               );
             } catch (err) {
-              console.error("[gchat-renderer] tool-interrupt patch failed:", err);
+              console.error(
+                "[gchat-renderer] tool-interrupt patch failed:",
+                err,
+              );
             }
           })(),
         );
