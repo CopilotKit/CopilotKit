@@ -2,7 +2,7 @@
 #
 # Single npm OIDC entry point for both stable releases and prerelease canaries.
 # npm trusted publisher records for the 15 @copilotkit/* monorepo packages plus
-# @copilotkitnext/angular are registered against THIS workflow file. Matching
+# @copilotkit/angular are registered against THIS workflow file. Matching
 # happens on the OIDC token's `workflow_ref` claim, which is always
 # publish-release.yml when this workflow is the entry point.
 #
@@ -750,7 +750,7 @@ jobs:
           set -euo pipefail
           case "$SCOPE" in
             angular)
-              NPM_URL="https://www.npmjs.com/package/@copilotkitnext/angular"
+              NPM_URL="https://www.npmjs.com/package/@copilotkit/angular"
               ;;
             *)
               NPM_URL="https://www.npmjs.com/org/copilotkit"
