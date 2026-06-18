@@ -20,11 +20,11 @@ The v2 API is exposed through the same `@copilotkit/*` packages -- no package na
 
 ### Removed packages
 
-| Package                          | Status                                                                           |
-| -------------------------------- | -------------------------------------------------------------------------------- |
+| Package                          | Status                                                                                                    |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `@copilotkit/react-textarea`     | No v2 equivalent. The v1 package stays installable; remove it only after migrating off `CopilotTextarea`. |
-| `@copilotkit/runtime-client-gql` | Replaced by `@ag-ui/client` (re-exported from `@copilotkit/react-core/v2`)       |
-| `@copilotkit/sdk-js`             | Removed. `BuiltInAgent` and agent definitions ship from `@copilotkit/runtime/v2` |
+| `@copilotkit/runtime-client-gql` | Replaced by `@ag-ui/client` (re-exported from `@copilotkit/react-core/v2`)                                |
+| `@copilotkit/sdk-js`             | Removed. `BuiltInAgent` and agent definitions ship from `@copilotkit/runtime/v2`                          |
 
 ---
 
@@ -49,20 +49,20 @@ The provider keeps the name `CopilotKit`; the import path changes from the packa
 
 ### Props changes
 
-| v1 Prop        | v2 Status                       | Notes                                                          |
-| -------------- | ------------------------------- | -------------------------------------------------------------- |
-| `runtimeUrl`   | Kept                            | Same behavior                                                  |
-| `headers`      | Kept                            | Same behavior                                                  |
-| `publicApiKey` | Kept (deprecated)               | `publicLicenseKey` is the canonical name                       |
-| `properties`   | Kept                            | Same behavior                                                  |
-| `agents`       | Removed                         | Use `selfManagedAgents` or `agents__unsafe_dev_only`           |
+| v1 Prop        | v2 Status                       | Notes                                                                                                                                                                                            |
+| -------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `runtimeUrl`   | Kept                            | Same behavior                                                                                                                                                                                    |
+| `headers`      | Kept                            | Same behavior                                                                                                                                                                                    |
+| `publicApiKey` | Kept (deprecated)               | `publicLicenseKey` is the canonical name                                                                                                                                                         |
+| `properties`   | Kept                            | Same behavior                                                                                                                                                                                    |
+| `agents`       | Removed                         | Use `selfManagedAgents` or `agents__unsafe_dev_only`                                                                                                                                             |
 | `guardrails_c` | Kept (CopilotCloud only)        | Marked `@internal`/defunct in source, but still wired into the legacy CopilotCloud `restrictToTopic` config when a cloud key (`publicApiKey`) is set; has no effect on the v2 AG-UI runtime path |
-| `children`     | Kept                            | Same behavior                                                  |
-| --             | Added: `credentials`            | `RequestCredentials` for fetch (e.g., `"include"` for cookies) |
-| --             | Added: `selfManagedAgents`      | `Record<string, AbstractAgent>` for client-side agents         |
-| --             | Added: `renderToolCalls`        | `ReactToolCallRenderer[]` for provider-level tool renderers    |
-| --             | Added: `renderActivityMessages` | `ReactActivityMessageRenderer[]` for activity renderers        |
-| --             | Added: `useSingleEndpoint`      | Boolean to use single-route endpoint mode                      |
+| `children`     | Kept                            | Same behavior                                                                                                                                                                                    |
+| --             | Added: `credentials`            | `RequestCredentials` for fetch (e.g., `"include"` for cookies)                                                                                                                                   |
+| --             | Added: `selfManagedAgents`      | `Record<string, AbstractAgent>` for client-side agents                                                                                                                                           |
+| --             | Added: `renderToolCalls`        | `ReactToolCallRenderer[]` for provider-level tool renderers                                                                                                                                      |
+| --             | Added: `renderActivityMessages` | `ReactActivityMessageRenderer[]` for activity renderers                                                                                                                                          |
+| --             | Added: `useSingleEndpoint`      | Boolean to use single-route endpoint mode                                                                                                                                                        |
 
 ### Context hook rename
 
@@ -201,7 +201,7 @@ All service adapters are removed from the runtime:
 | --------------------------- | ------------------------------------------------------------------- |
 | `OpenAIAdapter`             | Use `BuiltInAgent({ model: "openai/gpt-4o" })`                      |
 | `AnthropicAdapter`          | Use `BuiltInAgent({ model: "anthropic/claude-sonnet-4.5" })`        |
-| `GoogleGenerativeAIAdapter` | Use `BuiltInAgent({ model: "google/gemini-2.5-pro" })`             |
+| `GoogleGenerativeAIAdapter` | Use `BuiltInAgent({ model: "google/gemini-2.5-pro" })`              |
 | `LangChainAdapter`          | Use a custom `AbstractAgent` implementation                         |
 | `GroqAdapter`               | Use a custom `AbstractAgent` (pass a Groq `LanguageModel` instance) |
 | `UnifyAdapter`              | Use a custom `AbstractAgent` implementation                         |

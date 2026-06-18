@@ -37,20 +37,20 @@ Scan the codebase for all v1 imports and API usage:
 
 Key hooks and components to find and replace:
 
-| v1 API                             | v2 Replacement                                       |
-| ---------------------------------- | ---------------------------------------------------- |
-| `useCopilotAction`                 | `useFrontendTool`                                    |
-| `useCopilotReadable`               | `useAgentContext`                                    |
-| `useCopilotChat`                   | `useAgent`                                           |
-| `useCoAgent`                       | `useAgent`                                           |
-| `useCoAgentStateRender`            | `useRenderTool` / `useRenderActivityMessage`         |
+| v1 API                             | v2 Replacement                                             |
+| ---------------------------------- | ---------------------------------------------------------- |
+| `useCopilotAction`                 | `useFrontendTool`                                          |
+| `useCopilotReadable`               | `useAgentContext`                                          |
+| `useCopilotChat`                   | `useAgent`                                                 |
+| `useCoAgent`                       | `useAgent`                                                 |
+| `useCoAgentStateRender`            | `useRenderTool` / `useRenderActivityMessage`               |
 | `useCopilotContext`                | `useCopilotKit` (from `@copilotkit/react-core/v2/context`) |
-| `useLangGraphInterrupt`            | `useInterrupt`                                       |
-| `useCopilotChatSuggestions`        | `useConfigureSuggestions` + `useSuggestions`         |
-| `useCopilotAdditionalInstructions` | `useAgentContext`                                    |
-| `useMakeCopilotDocumentReadable`   | `useAgentContext`                                    |
-| `CopilotKit` (root import)         | `CopilotKit` (from `@copilotkit/react-core/v2`)      |
-| `CopilotTextarea`                  | Removed -- use standard textarea + `useFrontendTool` |
+| `useLangGraphInterrupt`            | `useInterrupt`                                             |
+| `useCopilotChatSuggestions`        | `useConfigureSuggestions` + `useSuggestions`               |
+| `useCopilotAdditionalInstructions` | `useAgentContext`                                          |
+| `useMakeCopilotDocumentReadable`   | `useAgentContext`                                          |
+| `CopilotKit` (root import)         | `CopilotKit` (from `@copilotkit/react-core/v2`)            |
+| `CopilotTextarea`                  | Removed -- use standard textarea + `useFrontendTool`       |
 
 ### 3. Map to v2 Equivalents
 

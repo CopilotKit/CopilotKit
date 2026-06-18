@@ -20,15 +20,15 @@ npm install @copilotkit/react-core@latest @copilotkit/runtime@latest @copilotkit
 
 **Package mapping:**
 
-| v1 Package                       | v2 Package                  | Notes                                                                                     |
-| -------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------- |
-| `@copilotkit/react-core`         | `@copilotkit/react-core/v2` | Same package; v2 hooks, provider, types, and chat components live under the `/v2` subpath |
-| `@copilotkit/react-ui`           | `@copilotkit/react-core/v2` | Chat components moved into `react-core/v2`; `react-ui` contributes only styles in v2      |
+| v1 Package                       | v2 Package                  | Notes                                                                                                                                     |
+| -------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `@copilotkit/react-core`         | `@copilotkit/react-core/v2` | Same package; v2 hooks, provider, types, and chat components live under the `/v2` subpath                                                 |
+| `@copilotkit/react-ui`           | `@copilotkit/react-core/v2` | Chat components moved into `react-core/v2`; `react-ui` contributes only styles in v2                                                      |
 | `@copilotkit/react-textarea`     | --                          | No v2 equivalent; the v1 `@copilotkit/react-textarea@1.x` package stays installable -- drop it only after migrating off `CopilotTextarea` |
-| `@copilotkit/runtime`            | `@copilotkit/runtime/v2`    | Same package; v2 runtime/agents live under the `/v2` subpath                              |
-| `@copilotkit/runtime-client-gql` | `@ag-ui/client`             | Re-exported by `@copilotkit/react-core/v2`                                                |
-| `@copilotkit/shared`             | `@copilotkit/shared`        | Utility types and constants                                                               |
-| `@copilotkit/sdk-js`             | `@copilotkit/runtime/v2`    | `BuiltInAgent` and agent definitions now ship from `runtime/v2`                           |
+| `@copilotkit/runtime`            | `@copilotkit/runtime/v2`    | Same package; v2 runtime/agents live under the `/v2` subpath                                                                              |
+| `@copilotkit/runtime-client-gql` | `@ag-ui/client`             | Re-exported by `@copilotkit/react-core/v2`                                                                                                |
+| `@copilotkit/shared`             | `@copilotkit/shared`        | Utility types and constants                                                                                                               |
+| `@copilotkit/sdk-js`             | `@copilotkit/runtime/v2`    | `BuiltInAgent` and agent definitions now ship from `runtime/v2`                                                                           |
 
 ### Step 2: Update All Imports
 
