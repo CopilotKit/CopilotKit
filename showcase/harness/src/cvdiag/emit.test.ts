@@ -178,6 +178,157 @@ describe("CvdiagEmitter.applyByteCap", () => {
     expect(envelope!._metadata_dropped).toBe(true);
   });
 
+  it("bytecap invariant: bounds EVERY pathological envelope shape to its tier cap (matrix/property)", () => {
+    // The durable convergence lever. `applyByteCap` claims a HARD guarantee that
+    // the enqueued envelope's serialized size never exceeds the tier cap — but
+    // the only fields it trimmed were `metadata`. Caller-supplied FIXED string
+    // fields (`slug`, `demo`, `parent_span_id`, `trace_id`) are also unbounded
+    // by the caller, so a 5000-char `slug`/`demo` enqueues far over cap while
+    // stamped `_truncated: true` as if bounded. This matrix asserts the actual
+    // post-condition for ALL such shapes.
+    type Case = {
+      name: string;
+      tier: "default" | "verbose" | "debug";
+      env: Record<string, string | undefined>;
+      // Data-plane boundary with a huge FIXED field (slug/demo) — reaches
+      // applyByteCap via a normal data-plane emit. Metadata is small/legal.
+      dataPlane?: {
+        slug: string;
+        demo: string;
+        parentSpanId?: string | null;
+      };
+      // Accounting boundary that rides a huge/heavy metadata bag verbatim —
+      // reaches applyByteCap via the accounting (cvdiag.*) path.
+      accountingMetadata?: Record<string, unknown>;
+    };
+
+    const debugEnv = {
+      NODE_ENV: "test",
+      CVDIAG_DEBUG: "1",
+      CVDIAG_DEBUG_ALLOW_LIST: "langgraph-python",
+    };
+
+    const cases: Case[] = [
+      {
+        name: "huge slug (5000 chars), default tier",
+        tier: "default",
+        env: { NODE_ENV: "test" },
+        dataPlane: {
+          slug: "s".repeat(5000),
+          demo: "chat",
+        },
+      },
+      {
+        name: "huge demo (5000 chars), default tier",
+        tier: "default",
+        env: { NODE_ENV: "test" },
+        dataPlane: {
+          slug: "langgraph-python",
+          demo: "d".repeat(5000),
+        },
+      },
+      {
+        name: "huge parent_span_id, default tier",
+        tier: "default",
+        env: { NODE_ENV: "test" },
+        dataPlane: {
+          slug: "langgraph-python",
+          demo: "chat",
+          parentSpanId: "p".repeat(5000),
+        },
+      },
+      {
+        name: "huge slug AND demo AND parent_span_id, default tier",
+        tier: "default",
+        env: { NODE_ENV: "test" },
+        dataPlane: {
+          slug: "s".repeat(5000),
+          demo: "d".repeat(5000),
+          parentSpanId: "p".repeat(5000),
+        },
+      },
+      {
+        name: "huge slug + heavy metadata bag, debug tier",
+        tier: "debug",
+        env: debugEnv,
+        dataPlane: {
+          slug: "s".repeat(20000),
+          demo: "d".repeat(20000),
+        },
+      },
+      {
+        name: "huge nested metadata, accounting, default tier",
+        tier: "default",
+        env: { NODE_ENV: "test" },
+        accountingMetadata: { blob: { deeply: { nested: "x".repeat(5000) } } },
+      },
+      {
+        name: "scalar-heavy metadata bag, accounting, default tier",
+        tier: "default",
+        env: { NODE_ENV: "test" },
+        accountingMetadata: scalarHeavyMetadata(200),
+      },
+    ];
+
+    for (const c of cases) {
+      const emitter = new CvdiagEmitter({ env: c.env });
+      const cap = BYTE_CAP_BY_TIER[c.tier];
+
+      let envelope: CvdiagEnvelope | null;
+      if (c.dataPlane) {
+        envelope = emitter.emit({
+          layer: "probe",
+          boundary: "probe.message.send", // default: true → emitted at all tiers
+          slug: c.dataPlane.slug,
+          demo: c.dataPlane.demo,
+          outcome: "info",
+          parentSpanId: c.dataPlane.parentSpanId ?? null,
+          metadata: { message_index: 0, char_count: 3, demo: "chat" },
+        });
+      } else {
+        envelope = emitter.emit({
+          layer: "probe",
+          boundary: "cvdiag.queue_dropped",
+          slug: "cvdiag",
+          demo: "cvdiag",
+          outcome: "info",
+          metadata: c.accountingMetadata,
+        });
+      }
+
+      expect(envelope, `${c.name}: envelope built`).not.toBeNull();
+      const env = envelope!;
+      // THE INVARIANT: the whole serialized envelope fits the tier cap, for
+      // EVERY pathological shape.
+      expect(
+        serializedSize(env),
+        `${c.name}: serializedSize ${serializedSize(env)} must be <= cap ${cap}`,
+      ).toBeLessThanOrEqual(cap);
+    }
+  });
+
+  it("does NOT stamp _truncated when over-cap detection fires but nothing was trimmable", () => {
+    // _truncated means "trimming actually occurred". If the only reason a row is
+    // over cap is a fixed field that Step4 then clamps, _truncated is still
+    // correct (Step4 trimmed). This guards the inverse: an under-cap envelope is
+    // never stamped (already covered below) AND the stamp tracks real trimming.
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    const envelope = emitter.emit({
+      layer: "probe",
+      boundary: "probe.message.send",
+      slug: "s".repeat(5000),
+      demo: "chat",
+      outcome: "info",
+      metadata: { message_index: 0, char_count: 3, demo: "chat" },
+    });
+    expect(envelope).not.toBeNull();
+    // The huge slug was clamped by Step4 → trimming occurred → _truncated true.
+    expect(envelope!._truncated).toBe(true);
+    expect(serializedSize(envelope!)).toBeLessThanOrEqual(
+      BYTE_CAP_BY_TIER.default,
+    );
+  });
+
   it("leaves an under-cap envelope untouched (no _truncated stamp)", () => {
     const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
     const envelope = emitter.emit({

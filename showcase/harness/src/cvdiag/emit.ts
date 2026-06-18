@@ -190,6 +190,11 @@ export function mintSpanId(): string {
   return crypto.randomBytes(8).toString("hex");
 }
 
+/** Length of `value` if it is a string, else 0 (for clamp-ordering). */
+function stringLen(value: unknown): number {
+  return typeof value === "string" ? value.length : 0;
+}
+
 /**
  * `CvdiagEmitter` — the shared TS emitter. Resolves tier (fail-closed on
  * DEBUG+prod), filters by the §6 tier matrix, caps per-event bytes, buffers in
@@ -397,62 +402,121 @@ export class CvdiagEmitter {
 
   /**
    * Bound the whole serialized envelope to the tier byte cap and stamp
-   * `_truncated: true` whenever any trimming occurs (spec §7 R5-F3). The
-   * `metadata` bag holds the only unbounded-shape values, so it is the trim
-   * target; the envelope's fixed scalar fields (ids/ts/boundary/flags/etc.) are
-   * bounded by construction. Escalation, cheapest-effective first:
-   *   1. Clamp >64-char string values + replace nested objects with a marker.
-   *   2. If STILL over cap (e.g. many short-string / numeric / boolean values
-   *      that step 1 cannot shrink), clamp ALL string values progressively to a
-   *      short length.
-   *   3. If STILL over cap, drop the metadata bag to `{}` entirely — the fixed
-   *      fields fit any realistic cap, so this is the hard guarantee that the
-   *      enqueued row never exceeds the cap.
+   * `_truncated: true` whenever trimming ACTUALLY occurs (a field is modified),
+   * per the §7 R5-F3 flag semantics. Two classes of values can push an envelope
+   * over cap, and BOTH are now bounded so the guarantee is genuine, not just an
+   * observable flag:
+   *   - the `metadata` bag (arbitrary caller payload), and
+   *   - the caller-supplied variable-length STRING fields `slug`, `demo`,
+   *     `trace_id`, `parent_span_id` (none format-constrained; a 5000-char
+   *     `demo` alone overruns the 2KB default cap).
+   * Everything else is bounded by construction: `schema_version` (const int),
+   * `test_id`/`span_id` (minted fixed-width ids), `boundary`/`layer`/`outcome`
+   * (closed enums), `ts` (ISO-8601), `mono_ns`/`duration_ms` (numbers), and the
+   * 9-key `edge_headers` shape. Escalation, cheapest-effective first:
+   *   1. Clamp >64-char metadata strings + replace nested objects with a marker.
+   *   2. If STILL over cap (many short-string / numeric values step 1 cannot
+   *      shrink), clamp ALL metadata string values progressively to a short
+   *      length.
+   *   3. If STILL over cap (numeric/boolean/key-count-heavy bag), drop the
+   *      metadata bag to `{}` entirely.
+   *   4. If STILL over cap, the excess is in the caller-supplied fixed STRING
+   *      fields (`demo`/`slug`/`parent_span_id`/`trace_id`). Clamp each to a
+   *      short prefix with an ellipsis marker, longest first, until under cap.
+   *      Minted ids (`test_id`/`span_id`) and `trace_id`-mirrors-`test_id` are
+   *      left intact where they fit; `trace_id` is clamped only as a last resort
+   *      because it equals `test_id` (a fixed-width UUIDv7) by construction and
+   *      is therefore already bounded — it is included for completeness so the
+   *      post-condition holds even for a hand-built envelope with an oversized
+   *      `trace_id`.
+   * Post-condition: on return, `serializedSize(envelope) <= cap` for ANY
+   * realistic envelope — the only unbounded inputs (metadata + the four
+   * caller-supplied string fields) are all now bounded.
    * Pure instrumentation: this method must NEVER throw.
    */
   private applyByteCap(envelope: CvdiagEnvelope): void {
     const cap = BYTE_CAP_BY_TIER[this.tier];
     if (this.serializedSize(envelope) <= cap) return;
-    // Trimming is happening: stamp truncated so the over-budget row is
-    // observable as a bounded row in PB queries.
-    envelope._truncated = true;
+    // Track whether any field was actually modified, so `_truncated` reflects
+    // real trimming (its documented meaning) rather than mere over-cap
+    // detection. A detection that finds nothing trimmable until Step 4 still
+    // ends with Step 4 trimming → the flag is set then.
+    let trimmed = false;
     const meta = envelope.metadata;
 
     // Step 1: the legacy pass — clamp >64-char strings, replace nested objects.
     for (const key of Object.keys(meta)) {
-      if (this.serializedSize(envelope) <= cap) return;
+      if (this.serializedSize(envelope) <= cap) {
+        if (trimmed) envelope._truncated = true;
+        return;
+      }
       const value = meta[key];
       if (typeof value === "string" && value.length > 64) {
         meta[key] = `${value.slice(0, 61)}...`;
+        trimmed = true;
       } else if (typeof value === "object" && value !== null) {
         meta[key] = "[truncated]";
+        trimmed = true;
       }
     }
 
     // Step 2: still over cap (scalar/short-string-heavy bag) — clamp ALL string
     // values progressively to a short length, shortest meaningful first.
     for (const key of Object.keys(meta)) {
-      if (this.serializedSize(envelope) <= cap) return;
+      if (this.serializedSize(envelope) <= cap) {
+        if (trimmed) envelope._truncated = true;
+        return;
+      }
       const value = meta[key];
       if (typeof value === "string" && value.length > 8) {
         meta[key] = `${value.slice(0, 5)}...`;
+        trimmed = true;
       }
     }
 
     // Step 3: still over cap (numeric/boolean/key-count-heavy bag) — drop the
-    // whole metadata bag. The fixed scalar fields are bounded by construction,
-    // so an empty metadata bag guarantees the enqueued row fits the cap. This
-    // is a SIZE drop: it is already observable via the `_truncated` flag
-    // stamped above. Do NOT set `_metadata_dropped` — that flag is the §6 PII
-    // closed-world signal (set in `buildEnvelope` when `validateMetadata`
+    // whole metadata bag. Do NOT set `_metadata_dropped` — that flag is the §6
+    // PII closed-world signal (set in `buildEnvelope` when `validateMetadata`
     // dropped unknown keys), and overloading it here would pollute PB drift
     // queries that key on `_metadata_dropped`.
-    if (this.serializedSize(envelope) > cap) {
+    if (this.serializedSize(envelope) > cap && Object.keys(meta).length > 0) {
       envelope.metadata = {};
+      trimmed = true;
     }
 
-    // Post-condition: either we are at or under cap, or metadata is already {}
-    // (so we never silently enqueue over-budget with trimmable content left).
+    // Step 4: still over cap — the excess is now in the caller-supplied
+    // variable-length STRING fields. Clamp them (longest first) to a short
+    // prefix with an explicit `…[clamped]` marker until the envelope fits. This
+    // is what makes the cap a HARD guarantee for ALL field shapes (e.g. a
+    // 5000-char `demo`), not just for metadata. We clamp progressively-smaller
+    // so we trim the minimum necessary.
+    const fixedFields: Array<"demo" | "slug" | "parent_span_id" | "trace_id"> =
+      ["demo", "slug", "parent_span_id", "trace_id"];
+    // A series of decreasing clamp budgets: aggressively shrink the largest
+    // offender first, then re-evaluate. The marker bounds the residue.
+    for (const budget of [64, 16, 4, 0]) {
+      if (this.serializedSize(envelope) <= cap) break;
+      // Re-sort each pass so the current-largest field is clamped first.
+      const ordered = [...fixedFields].sort(
+        (a, b) => stringLen(envelope[b]) - stringLen(envelope[a]),
+      );
+      for (const field of ordered) {
+        if (this.serializedSize(envelope) <= cap) break;
+        const value = envelope[field];
+        if (typeof value !== "string") continue;
+        if (value.length <= budget) continue;
+        envelope[field] =
+          budget === 0 ? "[clamped]" : `${value.slice(0, budget)}…[clamped]`;
+        trimmed = true;
+      }
+    }
+
+    if (trimmed) envelope._truncated = true;
+
+    // Post-condition: serializedSize(envelope) <= cap. The only unbounded inputs
+    // (metadata + the four caller string fields) are all bounded above; every
+    // remaining field is fixed-width or enum/number by construction, so the
+    // residue fits any realistic tier cap (smallest is 2KB).
   }
 
   private serializedSize(envelope: CvdiagEnvelope): number {
