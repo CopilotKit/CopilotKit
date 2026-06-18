@@ -1,0 +1,41 @@
+{
+  "name": "@copilotkit/electron-demo",
+  "private": true,
+  "type": "module",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "test": "vitest run",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@copilotkit/core": "workspace:*",
+    "@copilotkit/react-core": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "@copilotkit/shared": "workspace:*",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "zod": "^3.25.75"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^33.2.0",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5",
+    "vite": "^5.4.11",
+    "vitest": "^3.2.3"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "cache": false
+      }
+    }
+  }
+}
