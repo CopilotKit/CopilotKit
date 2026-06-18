@@ -1,5 +1,12 @@
 # Showcase aimock
 
+Tagline: aimock fixture-directory layout, context-routing semantics, schema
+validation, drift-risk surface, and the manual add/update fixture flow. For
+service reconstruction (Railway image / startCommand / fixture URLs) see
+[`./RAILWAY.md`](./RAILWAY.md). For matcher semantics / fixture-authoring
+gotchas (sequenceIndex, hasToolResult, context mirroring) see
+[`../GOTCHAS.md`](../GOTCHAS.md).
+
 Deterministic LLM fixture server for showcase E2E testing. Replaces real LLM API calls (OpenAI, Anthropic, Gemini) with pre-recorded responses so Playwright tests can run PR-gated in CI without API keys and without rate limits or non-determinism.
 
 Railway pulls [`ghcr.io/copilotkit/aimock:latest`](https://github.com/orgs/CopilotKit/packages/container/package/aimock) directly (no wrapper image). The fixtures in this directory are loaded at boot via GitHub raw URLs configured in the Railway service's `startCommand`.

@@ -2,7 +2,18 @@ import { NextResponse } from "next/server";
 import path from "path";
 import { AG_UI_CONTENT_DIR } from "@/lib/sitemap-helpers";
 import { loadDoc } from "@/lib/docs-render";
-import { getDocsFolder, getDocsMode, getIntegrations } from "@/lib/registry";
+import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
+import {
+  FRONTEND_GUIDANCE_CONTENT_SLUG,
+  getFrontendContentSlug,
+} from "@/lib/frontend-page-content";
+import { isFrontendId } from "@/lib/frontend-options";
+import {
+  getDocsFolder,
+  getDocsMode,
+  getIntegrations,
+  ROOT_FRAMEWORK,
+} from "@/lib/registry";
 import type { LlmPage } from "@/lib/llm-text";
 import { renderPageToLlmText } from "@/lib/llm-text";
 import { resolveReferencePage } from "@/lib/reference-items";
@@ -29,6 +40,8 @@ import matter from "gray-matter";
 //     blockquote so the title survives.
 //
 // URL resolution mirrors what `app/[framework]/[[...slug]]/page.tsx` does:
+//   - Frontend-scoped URLs reuse the same `/frontends/<frontend>` content
+//     resolution as the live frontend pages.
 //   - When the first segment is a known integration slug, we try
 //     `integrations/<docsFolder>/<rest>.mdx` first (or root depending on
 //     docs_mode), so framework-scoped URLs resolve the correct MDX.
@@ -73,6 +86,40 @@ function resolvePage(slug: string[]): ResolvedPage | null {
   const first = slug[0]!;
   const rest = slug.slice(1).join("/");
   const url = slug.join("/");
+
+  // /frontends/<frontend>[/<slug>].md → the same MDX rendered by the
+  // frontend-scoped docs pages.
+  if (first === "frontends") {
+    const frontend = slug[1];
+    if (!isFrontendId(frontend) || frontend === "react") return null;
+
+    const frontendRest = slug.slice(2).join("/");
+    const contentSlug =
+      frontendRest === ""
+        ? getFrontendContentSlug(frontend)
+        : frontendRest === "using-these-docs"
+          ? FRONTEND_GUIDANCE_CONTENT_SLUG
+          : (() => {
+              const resolution = resolveFrontendDocPage(frontend, frontendRest);
+              return resolution.status === "found"
+                ? resolution.contentSlugPath
+                : null;
+            })();
+
+    if (!contentSlug) return null;
+    const doc = loadDoc(contentSlug);
+    if (!doc) return null;
+
+    return {
+      page: {
+        url,
+        title: doc.fm.title,
+        description: doc.fm.description,
+        filePath: doc.filePath,
+        loadSlug: contentSlug,
+      },
+    };
+  }
 
   // /reference/<slug>.md → src/content/reference/<slug>.mdx
   if (first === "reference") {
@@ -121,9 +168,10 @@ function resolvePage(slug: string[]): ResolvedPage | null {
 
     // `authored` frameworks own their entire IA — try the per-framework
     // tree first. `generated` is the inverse — root wins, framework
-    // tree is the override.
+    // tree is the override, except quickstart where the root file is
+    // only a routing shim and the page route prefers framework content.
     const candidateOrder =
-      docsMode === "authored"
+      docsMode === "authored" || tail === "quickstart"
         ? [frameworkSlugPath, rootSlugPath]
         : [rootSlugPath, frameworkSlugPath];
 
@@ -145,18 +193,29 @@ function resolvePage(slug: string[]): ResolvedPage | null {
     return null;
   }
 
-  // Bare unscoped doc.
-  const doc = loadDoc(url);
-  if (!doc) return null;
-  return {
-    page: {
-      url,
-      title: doc.fm.title,
-      description: doc.fm.description,
-      filePath: doc.filePath,
-      loadSlug: url,
-    },
-  };
+  // Bare unscoped doc. The root surface serves ROOT_FRAMEWORK's
+  // authored page when one exists (mirrors UnscopedDocsPage), so the
+  // `.md` variant must resolve the same MDX the page renders.
+  const rootOverride = `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${url}`;
+  const candidates =
+    getDocsMode(ROOT_FRAMEWORK) === "authored" ? [rootOverride, url] : [url];
+  for (const candidate of candidates) {
+    const doc = loadDoc(candidate);
+    if (!doc) continue;
+    const isOverride = candidate !== url;
+    return {
+      page: {
+        url,
+        title: doc.fm.title,
+        description: doc.fm.description,
+        filePath: doc.filePath,
+        loadSlug: candidate,
+        framework: isOverride ? ROOT_FRAMEWORK : undefined,
+      },
+      framework: isOverride ? ROOT_FRAMEWORK : undefined,
+    };
+  }
+  return null;
 }
 
 /**

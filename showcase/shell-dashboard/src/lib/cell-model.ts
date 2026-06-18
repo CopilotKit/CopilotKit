@@ -63,7 +63,7 @@ export interface CellModel {
    * D5 is red/amber/no-data), the raw D6 result is meaningless as a top-of-ladder
    * claim, so this collapses to `null` (blocked/not-achieved — rendered gray/—,
    * NOT a false green and NOT a false red; the actual lower-rung failure is
-   * already shown by the CV/API/RT badges). When the ladder IS intact through D5,
+   * already shown by the 1P/API/BE badges). When the ladder IS intact through D5,
    * the raw D6 status passes through (a genuine D6 red still surfaces as red).
    *
    * D5-UNMAPPED EXCEPTION (`!d5.exists`): when D5 is not mapped for this feature
@@ -939,7 +939,7 @@ export function buildCellModel(
   // meaningful when the ladder through D5 is intact. This reuses the SAME
   // ladder predicates the chip uses above (`d1d4GateFails`, `d5.status`) so the
   // badge/stat never contradict the chip:
-  //   gate fails              → null (blocked; API/RT badge shows the failure)
+  //   gate fails              → null (blocked; API/BE badge shows the failure)
   //   D4 no-data (status null)→ null (ladder UNVERIFIED at D4 — the
   //                             missing-chat collapse; same blocked outcome
   //                             as a failing gate, but the chip shows gray)
@@ -954,7 +954,7 @@ export function buildCellModel(
   //                             genuine D6 red/amber/green passes through)
   //   D5 red/amber/null       → null (ladder BROKEN/unverified below D6 → the
   //                             D6 claim is not-achieved/blocked; never a false
-  //                             green and never a false red — the CV badge
+  //                             green and never a false red — the 1P badge
   //                             already shows the real lower-rung failure)
   let d6Effective: TestStatus;
   if (d1d4GateFails || d4NoData || d1d4Absent) {

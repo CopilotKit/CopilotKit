@@ -97,7 +97,7 @@ export function PackagesSection({
                   className="ml-2 text-[10px] font-normal normal-case text-[var(--text-muted)]"
                   data-testid="packages-uwct-legend"
                 >
-                  (U=Up, B=BE (Agent), C=Chats, T=Tools)
+                  (U=Up, A=API (HTTP), C=Chats, T=Tools)
                 </span>
               </th>
               <th className="bg-[var(--bg-muted)] px-4 py-2 text-center border-b border-l border-[var(--border)]">

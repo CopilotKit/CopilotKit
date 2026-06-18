@@ -28,9 +28,9 @@
 // invocations (across suites, or between a suite and the pre-commit hook)
 // race for it. `restoreFromGitHead` below acquires a cross-process file lock
 // around every git invocation so parallel fork-pool execution under
-// `fileParallelism: true` is safe. If two suites were to snapshot the SAME
-// path and mutate it, they'd still race at the filesystem layer — callers
-// must keep their snapshot targets disjoint.
+// `fileParallelism: true` is safe. Suites that snapshot and mutate the SAME
+// generated data files must additionally hold `acquireGeneratedDataLock()`
+// around the mutation window.
 //
 // WINDOWS: callers in sibling test files (create-integration.test.ts,
 // generate-registry.test.ts, bundle-demo-content.test.ts) invoke `npx`
@@ -170,17 +170,24 @@ function isCI(): boolean {
  *
  *  Callers should always release via the returned `release()` in a
  *  finally — a thrown git error must not leave the lock held. */
-const LOCK_DIR = path.join(os.tmpdir(), "copilotkit-showcase-git-restore.lock");
+const GIT_LOCK_DIR = path.join(
+  os.tmpdir(),
+  "copilotkit-showcase-git-restore.lock",
+);
+const GENERATED_DATA_LOCK_DIR = path.join(
+  os.tmpdir(),
+  "copilotkit-showcase-generated-data.lock",
+);
 const STALE_LOCK_MS = 60_000;
 const WAIT_TIMEOUT_MS = 30_000;
 const WAIT_POLL_MS = 25;
 
-function reapStaleLock(): void {
+function reapStaleLock(lockDir: string): void {
   try {
-    const st = fs.statSync(LOCK_DIR);
+    const st = fs.statSync(lockDir);
     if (Date.now() - st.mtimeMs > STALE_LOCK_MS) {
       try {
-        fs.rmdirSync(LOCK_DIR);
+        fs.rmdirSync(lockDir);
       } catch {
         /* another process already reaped / released it */
       }
@@ -190,15 +197,15 @@ function reapStaleLock(): void {
   }
 }
 
-function acquireGitLock(): () => void {
+function acquireLock(lockDir: string, label: string): () => void {
   const start = Date.now();
-  reapStaleLock();
+  reapStaleLock(lockDir);
   for (;;) {
     try {
-      fs.mkdirSync(LOCK_DIR);
+      fs.mkdirSync(lockDir);
       return () => {
         try {
-          fs.rmdirSync(LOCK_DIR);
+          fs.rmdirSync(lockDir);
         } catch {
           /* already released */
         }
@@ -207,8 +214,9 @@ function acquireGitLock(): () => void {
       if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
       if (Date.now() - start > WAIT_TIMEOUT_MS) {
         throw new Error(
-          `acquireGitLock: timed out after ${WAIT_TIMEOUT_MS}ms waiting for ${LOCK_DIR}.` +
+          `${label}: timed out after ${WAIT_TIMEOUT_MS}ms waiting for ${lockDir}.` +
             ` A previous run may have crashed holding the lock; remove the directory and retry.`,
+          { cause: err },
         );
       }
       // Busy-wait at 25ms. Node lacks a sync sleep; a tight loop on a
@@ -218,8 +226,25 @@ function acquireGitLock(): () => void {
       while (Date.now() < deadline) {
         /* spin */
       }
-      reapStaleLock();
+      reapStaleLock(lockDir);
     }
+  }
+}
+
+function acquireGitLock(): () => void {
+  return acquireLock(GIT_LOCK_DIR, "acquireGitLock");
+}
+
+export function acquireGeneratedDataLock(): () => void {
+  return acquireLock(GENERATED_DATA_LOCK_DIR, "acquireGeneratedDataLock");
+}
+
+export function withGeneratedDataLock<T>(fn: () => T): T {
+  const release = acquireGeneratedDataLock();
+  try {
+    return fn();
+  } finally {
+    release();
   }
 }
 

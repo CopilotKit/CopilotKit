@@ -251,19 +251,31 @@
   color: var(--text-muted);
 }
 
+.shell-docs-picker-group {
+  border-radius: var(--shell-docs-radius-surface);
+  background: color-mix(in oklch, var(--accent-dim) 34%, transparent);
+  padding: 4px;
+}
+
+.dark .shell-docs-picker-group {
+  background: color-mix(in oklch, var(--accent) 9%, transparent);
+}
+
+.shell-docs-picker-row {
+  border-radius: var(--shell-docs-radius-control);
+}
+
 .shell-docs-picker-icon-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in oklch, var(--accent) 12%, var(--border));
   border-radius: 9999px;
-  background: #ffffff;
+  background: color-mix(in oklch, var(--bg-surface) 76%, transparent);
   color: var(--accent);
 }
 
 .dark .shell-docs-picker-icon-chip {
-  border-color: color-mix(in oklch, var(--accent) 20%, var(--border));
-  background: color-mix(in oklch, var(--foreground) 94%, var(--accent) 6%);
+  background: color-mix(in oklch, var(--foreground) 92%, var(--accent) 8%);
   color: var(--accent);
 }
 
@@ -538,6 +550,31 @@
   font-weight: 600 !important;
   color: var(--text-muted) !important;
   letter-spacing: 0 !important;
+}
+
+.shell-docs-react-docs-proxy {
+  color: color-mix(in srgb, var(--text-muted) 84%, var(--accent));
+}
+
+.shell-docs-sidebar a:has(.shell-docs-react-docs-proxy),
+.shell-docs-sidebar button:has(.shell-docs-react-docs-proxy) {
+  opacity: 0.72;
+}
+
+.shell-docs-sidebar a:has(.shell-docs-react-docs-proxy):hover,
+.shell-docs-sidebar button:has(.shell-docs-react-docs-proxy):hover {
+  opacity: 1;
+  background-color: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.shell-docs-sidebar p:has(.shell-docs-react-docs-proxy) {
+  color: var(--text-muted) !important;
+  opacity: 0.72;
+}
+
+.shell-docs-sidebar p:has(.shell-docs-react-docs-proxy) svg {
+  color: color-mix(in srgb, var(--accent) 55%, var(--text-muted)) !important;
+  opacity: 0.65;
 }
 
 /* Fumadocs CodeBlock chrome — force a single tokenized surface throughout.
