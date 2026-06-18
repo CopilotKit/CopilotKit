@@ -338,11 +338,6 @@ set the same env vars, and (for Notion) run the
 `@notionhq/notion-mcp-server` sidecar alongside the runtime with
 `NOTION_MCP_URL` pointed at it.
 
-A complete, copy-pasteable recipe for **Railway** — two services (runtime +
-bot), private networking, env-var split, and auto-deploy on push — lives in
-[`RAILWAY.md`](./RAILWAY.md). The Dockerfiles (`Dockerfile.runtime`,
-`Dockerfile.bot`) and `railway.*.toml` it references are in this directory.
-
 > **Deploying from this monorepo (e.g. Railway):** this example depends on the
 > published `@copilotkit/bot*` packages (`package.json`), so a standalone build
 > installs them from npm. The pnpm lockfile lives at the **repo root**, so make

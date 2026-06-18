@@ -43,6 +43,7 @@ export function defineA2UIWebComponentsOnce(): Promise<void> {
       async (mod) => {
         mod.defineA2UIWebComponents();
         await customElements.whenDefined("cpk-a2ui-surface");
+        await Promise.resolve();
       },
     );
   return definePromise;
@@ -95,18 +96,14 @@ export function connectA2UISurface(options: {
     syncA2UISurface(element, operations(), config);
   };
 
-  const whenDefined = customElements.whenDefined("cpk-a2ui-surface");
-  void defineA2UIWebComponentsOnce();
-  void whenDefined.then(() => sync());
+  void defineA2UIWebComponentsOnce().then(() => sync());
 
   afterRenderEffect({
     write: () => {
       operations();
       const surface = surfaceRef();
       if (!surface) return;
-      const element = surface.nativeElement;
-      sync(element);
-      void whenDefined.then(() => sync(element));
+      sync(surface.nativeElement);
     },
   });
 }
