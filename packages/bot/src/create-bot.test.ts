@@ -74,6 +74,25 @@ describe("createBot", () => {
     expect(collectText(ir)).toBe("hi");
   });
 
+  it("calls renderer.finish() once after a turn's run-loop resolves", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const bot = createBot({ adapters: [fake], agent: () => agent });
+
+    bot.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await bot.start();
+    fake.emitTurn({ userText: "yo", conversationKey: "c1" });
+    await tick();
+
+    const renderer = fake.lastRunRenderer as unknown as {
+      finishCalls: number;
+    };
+    expect(renderer.finishCalls).toBe(1);
+  });
+
   it("delivers a turn's contentParts as the runAgent prompt to agent.addMessage", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
