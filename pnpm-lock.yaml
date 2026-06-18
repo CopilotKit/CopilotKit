@@ -1141,6 +1141,9 @@ importers:
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
         version: link:../../../../packages/a2ui-renderer
+      '@copilotkit/angular':
+        specifier: workspace:*
+        version: link:../../../../packages/angular
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../../../../packages/core
@@ -1150,9 +1153,6 @@ importers:
       '@copilotkit/web-inspector':
         specifier: workspace:*
         version: link:../../../../packages/web-inspector
-      '@copilotkitnext/angular':
-        specifier: workspace:*
-        version: link:../../../../packages/angular
       '@jetbrains/websandbox':
         specifier: ^1.1.3
         version: 1.1.3
@@ -1318,12 +1318,12 @@ importers:
       '@angular/compiler-cli':
         specifier: ^21.2.15
         version: 21.2.15(@angular/compiler@21.2.15)(typescript@5.9.3)
+      '@copilotkit/angular':
+        specifier: workspace:*
+        version: link:../../../../packages/angular
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/typescript-config
-      '@copilotkitnext/angular':
-        specifier: workspace:*
-        version: link:../../../../packages/angular
       '@storybook/addon-themes':
         specifier: 10.3.6
         version: 10.3.6(storybook@10.3.6(@testing-library/dom@10.4.0)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))

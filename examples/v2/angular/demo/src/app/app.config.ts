@@ -5,7 +5,7 @@ import { provideRouter } from "@angular/router";
 import {
   provideCopilotKit,
   provideCopilotChatLabels,
-} from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
 import { WildcardToolRenderComponent } from "./components/wildcard-tool-render.component";
 import { a2uiDemoSandboxFunctions } from "./routes/a2ui/a2ui-demo-sandbox-functions";
 import { routes } from "./app.routes";
