@@ -92,7 +92,7 @@ AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`. The
 `src/content/ag-ui/` tree is a downstream mirror rendered on the CopilotKit docs host.
 Change AG-UI docs upstream first, then sync the mirror back into shell-docs.
 
-## Retired Top-Level Docs
+## Removed Top-Level Docs
 
-The repository's top-level `docs/` app and `docs/content/docs/` tree are retired. Do not add
-or update CopilotKit docs there. Use `showcase/shell-docs/src/content/` instead.
+The repository's retired top-level `docs/` app and `docs/content/docs/` tree have been
+removed from `main`. Do not recreate them. Use `showcase/shell-docs/src/content/` instead.
