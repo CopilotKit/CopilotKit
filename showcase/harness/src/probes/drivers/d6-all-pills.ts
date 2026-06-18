@@ -11,11 +11,29 @@ import type {
   D5Script,
 } from "../helpers/d5-registry.js";
 import { demosToFeatureTypes } from "../helpers/d5-feature-mapping.js";
+import { D5_REPRESENTATIVES } from "../helpers/d5-representatives.js";
+import type { Page as PlaywrightPage } from "playwright";
+import { countAssistantMessages } from "../helpers/assistant-message-count.js";
 import { runConversation } from "../helpers/conversation-runner.js";
 import type {
   ConversationResult,
   Page,
 } from "../helpers/conversation-runner.js";
+import {
+  installPrePaintFromEnv,
+  messagesOverrideFromEnv,
+} from "../helpers/init-scripts.js";
+import { attachSseInterceptor } from "../helpers/sse-interceptor.js";
+import {
+  formatCvdiag,
+  appendHop,
+  mintRunId,
+  X_AIMOCK_CONTEXT,
+  X_DIAG_RUN_ID,
+  X_DIAG_HOPS,
+} from "../helpers/cv-diag.js";
+import { writeDiagEvent } from "../../storage/diag-sink.js";
+import type { DiagSinkClient } from "../../storage/diag-sink.js";
 import type { ProbeDriver } from "../types.js";
 import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
@@ -36,8 +54,11 @@ import type playwright from "playwright";
  *      featureType — unlike D5 which skips with green, D6 treats
  *      missing scripts as a hard failure.
  *   3. Opens a fresh Playwright context with `X-AIMock-Context: <slug>`
- *      and `X-Test-Id: d6-<slug>` headers, navigates to the per-feature
- *      route, and runs the conversation through `runConversation`.
+ *      and `X-Test-Id: d6-<slug>-<runId>` headers (see `buildE2eTestId`;
+ *      the runId suffix gives each run fresh aimock fixture-count state —
+ *      the old per-slug constant id caused the staging flap), navigates to
+ *      the per-feature route, and runs the conversation through
+ *      `runConversation`.
  *   4. Emits one `d6:<slug>/<featureType>` diagnostic side row per
  *      feature (not consumed by dashboard rollup — diagnostic only).
  *   5. Emits an aggregate `d6:<slug>` primary result that is green ONLY
@@ -47,8 +68,10 @@ import type playwright from "playwright";
  *   - green  — every feature completed with no assertion failure.
  *   - red    — any feature failed, any script missing, or launcher error.
  *
- * Reuses Semaphore, D5_REGISTRY scripts, runConversation, deploy-churn
- * grace window, and abort plumbing from e2e-deep.ts.
+ * Uses Semaphore, D5_REGISTRY scripts, runConversation, deploy-churn
+ * grace window, and abort plumbing (this driver now owns these directly;
+ * the former separate e2e-deep.ts driver was deleted when D5 became
+ * "D6 take-one").
  */
 
 /**
@@ -76,6 +99,33 @@ const inputSchema = z
     notSupportedFeatures: z.array(z.string()).optional(),
     shape: showcaseShapeSchema.optional(),
     deployedAt: z.string().optional(),
+    /**
+     * D5-take-one scoping. When true, the computed `requestedFeatures`
+     * are filtered to ONLY the featureTypes present in the representatives
+     * map (`D5_REPRESENTATIVES`), so the driver runs one representative per
+     * feature category instead of the full D6 matrix. The D5 probe sets
+     * this so it runs under the D6 driver's EXACT conditions (same route,
+     * headers, conversation, pooled launcher) but on a single pill.
+     */
+    representativeOnly: z.boolean().optional(),
+    /**
+     * Dashboard row-key prefix. Threaded through every emitted PB row —
+     * per-cell side rows (`${rowPrefix}:${slug}/${ft}`) and the aggregate
+     * (`${rowPrefix}:${slug}`). Defaults to `"d6"`. The D5 probe sets
+     * `"d5"` so the dashboard's D5 column reads the same conditions the D6
+     * driver greens.
+     */
+    rowPrefix: z.enum(["d5", "d6"]).optional(),
+    /**
+     * Driver-invocation outer-cap (ms) conveyed by the fleet enumerator so the
+     * worker's pooled d6 driver honors the YAML `timeout_ms`
+     * (`d6-all-pills-e2e.yml` 20 min / `e2e-deep.yml` 10 min). The fleet worker
+     * never runs the legacy in-process `probe-invoker` boot path that applies
+     * `cfg.timeout_ms`, so without this the driver falls back to its hardcoded
+     * `DEFAULT_TIMEOUT_MS` (10 min) and a slow backend false-aborts. See the
+     * timeout-resolution block in `e2eFullDriver.run`.
+     */
+    timeout_ms: z.number().int().positive().optional(),
   })
   .passthrough()
   .refine((v) => !!(v.backendUrl ?? v.publicUrl), {
@@ -139,8 +189,7 @@ export interface E2eFullAggregateSignal {
 }
 
 /**
- * Minimal page surface the driver depends on. Same shape as E2eDeepPage
- * from e2e-deep.ts.
+ * Minimal page surface the driver depends on. Exported as `E2eFullPage`.
  */
 export interface E2eFullPage extends Page {
   goto(
@@ -193,6 +242,47 @@ export interface E2eFullDriverDeps {
   timeoutMs?: number;
   featureTimeoutMs?: number;
   scriptLoader?: E2eFullScriptLoader;
+  /**
+   * The representatives map consulted when an input sets
+   * `representativeOnly: true`. Defaults to `D5_REPRESENTATIVES`. Injectable
+   * so unit tests can narrow the set and exercise the filter
+   * discriminatingly (the live map covers every featureType).
+   */
+  representatives?: Readonly<Partial<Record<D5FeatureType, string>>>;
+  /**
+   * CVDIAG instrumentation sink (best-effort). When provided, the driver
+   * writes a `diag_events` row at the post-run aimock-journal join
+   * (`boundary=cv-verdict`) so the CV-propagation chain is pullable over
+   * HTTP after Railway's stdout log window rolls off. Injected rather than
+   * constructed inside the driver because `ProbeContext` carries no PB
+   * handle; the orchestrator/CLI that already owns a `PbClient` threads it
+   * here. Absent → the journal-join CVDIAG line is still emitted to stdout,
+   * only the durable row is skipped. NEVER load-bearing: a write failure is
+   * swallowed by `writeDiagEvent` and can never break a probe.
+   */
+  diagPb?: DiagSinkClient;
+  /**
+   * Factory for the per-`run()` correlation id (`runId`). Defaults to
+   * `mintRunId` (`crypto.randomUUID()`). Injectable ONLY so unit tests can
+   * supply a deterministic counter and assert the per-run-unique X-Test-Id
+   * (`d6-<slug>-<runId>`) without matching a brittle UUID regex. Production
+   * always uses the default. The id is minted once per `run()` and is stable
+   * across every feature-cell of that run, unique across runs.
+   */
+  idFactory?: () => string;
+}
+
+/**
+ * Build the per-feature aimock X-Test-Id. Folds the per-`run()` correlation
+ * id (`runId`) into the previously per-slug-only id so each run starts from a
+ * fresh aimock per-test-id fixture-match count, eliminating the cross-run
+ * sequence/turn-count desync that flapped the staging dashboard. Stable across
+ * a run's feature-cells (same `runId`), unique across runs. D5 runs THIS driver
+ * (take-one), so it is covered by the same `d6-` value; the D5 dashboard column
+ * is derived from `rowPrefix`, not from this header.
+ */
+export function buildE2eTestId(slug: string, runId: string): string {
+  return `d6-${slug}-${runId}`;
 }
 
 /**
@@ -250,6 +340,86 @@ const isKnownFeatureType: (value: string) => value is D5FeatureType =
   isD5FeatureType;
 
 /**
+ * Minimal shape of a raw Playwright `Browser` the guarded-open helper needs:
+ * an `isConnected()` liveness predicate plus `newContext`. Lets the guard be
+ * unit-tested with a fake whose connectivity toggles, without launching a real
+ * Chromium.
+ */
+export interface GuardableBrowser {
+  isConnected(): boolean;
+  newContext(opts?: {
+    extraHTTPHeaders?: Record<string, string>;
+  }): Promise<unknown>;
+}
+
+/**
+ * Sentinel error class for the "the shared browser is no longer live" case so
+ * the feature loop can classify it distinctly (and so a regression test can
+ * assert the exact failure mode rather than matching Playwright's internal
+ * "Target page, context or browser has been closed" string).
+ */
+export class BrowserDisconnectedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "BrowserDisconnectedError";
+  }
+}
+
+/**
+ * Open a context on a SINGLE shared raw browser, guarding the open against the
+ * browser having disconnected/crashed.
+ *
+ * The single-shared-browser launcher (`defaultLauncher`, and the CLI's headed
+ * launcher) opens one Chromium and then opens a CONTEXT per feature on it,
+ * concurrently (bounded by `FEATURE_CONCURRENCY_D6`). Under the D6 fan-out's
+ * Chromium-spawn / memory burst — heaviest for byoc — the shared browser can
+ * crash or be disconnected mid-run. The unguarded code called
+ * `browser.newContext()` directly, so every feature that acquired AFTER the
+ * disconnect threw the raw Playwright `browser.newContext: Target page, context
+ * or browser has been closed`, which the feature loop classified as an opaque
+ * `driver-error` (or `abort`) on ~every remaining cell.
+ *
+ * The guarded open mirrors the POOLED launcher's lifecycle model ("only open
+ * contexts on a LIVE browser"): it (1) refuses to open on an already-dead
+ * browser, and (2) re-checks liveness after the open settles so a disconnect
+ * DURING the in-flight `newContext()` is reported as a clean, classifiable
+ * `BrowserDisconnectedError` instead of leaking Playwright's internal "has been
+ * closed" string. Either way the feature goes red with a clear reason — it does
+ * NOT throw the opaque raw error.
+ */
+export async function openGuardedContext<C>(
+  browser: GuardableBrowser,
+  opts?: { extraHTTPHeaders?: Record<string, string> },
+): Promise<C> {
+  // (1) The browser already died before we even tried — fail this feature
+  //     cleanly rather than calling newContext() on a dead process (which would
+  //     throw the raw "has been closed").
+  if (!browser.isConnected()) {
+    throw new BrowserDisconnectedError(
+      "shared browser disconnected before context open",
+    );
+  }
+  let ctx: C;
+  try {
+    ctx = (await browser.newContext(opts)) as C;
+  } catch (err) {
+    // (2a) The browser disconnected WHILE the open was in flight: Playwright
+    //      throws the raw "has been closed". Re-throw as the sentinel so the
+    //      feature loop classifies it distinctly instead of surfacing the
+    //      opaque internal string.
+    if (!browser.isConnected()) {
+      throw new BrowserDisconnectedError(
+        "shared browser disconnected during context open",
+      );
+    }
+    // (2b) A genuinely transient open error on a STILL-live browser — surface
+    //      the original error unchanged (this feature fails, siblings continue).
+    throw err;
+  }
+  return ctx;
+}
+
+/**
  * Default Playwright-backed launcher. Sets X-AIMock-Strict header at the
  * browser level. Per-context headers (X-AIMock-Context, X-Test-Id) are
  * set per-feature in newContext calls from the feature loop.
@@ -265,12 +435,20 @@ const defaultLauncher: E2eFullBrowserLauncher =
       async newContext(contextOpts?: {
         extraHTTPHeaders?: Record<string, string>;
       }): Promise<E2eFullBrowserContext> {
-        const ctx = await browser.newContext({
-          extraHTTPHeaders: {
-            "X-AIMock-Strict": "true",
-            ...contextOpts?.extraHTTPHeaders,
+        // GUARD: open the context on the shared browser only while it is LIVE,
+        // and convert a mid-open disconnect into a clean BrowserDisconnectedError
+        // instead of leaking Playwright's raw "has been closed" string (which
+        // the feature loop would surface as an opaque driver-error on every
+        // remaining byoc cell). See openGuardedContext for the full rationale.
+        const ctx = await openGuardedContext<playwright.BrowserContext>(
+          browser,
+          {
+            extraHTTPHeaders: {
+              "X-AIMock-Strict": "true",
+              ...contextOpts?.extraHTTPHeaders,
+            },
           },
-        });
+        );
         return {
           async newPage(): Promise<E2eFullPage> {
             const page = await ctx.newPage();
@@ -299,8 +477,20 @@ const defaultLauncher: E2eFullBrowserLauncher =
               press: (s, k, o) => page.press(s, k, o),
               evaluate: <R>(fn: () => R) => page.evaluate(fn),
               inputValue: (s) => page.inputValue(s),
-              goto: (u, gotoOpts) =>
-                page.goto(u, gotoOpts as Parameters<typeof page.goto>[1]),
+              goto: async (u, gotoOpts) => {
+                // Order is load-bearing per Phase 3 Task 3.2:
+                // installPrePaintFromEnv FIRST (defect-4 pre-paint
+                // injection, no-op in production), attachSseInterceptor
+                // SECOND. Both must complete before page.goto so the
+                // init scripts (pre-paint DOM seed + __hk_runsFinished
+                // window counter) are registered at document_start.
+                await installPrePaintFromEnv(page);
+                await attachSseInterceptor(page);
+                return page.goto(
+                  u,
+                  gotoOpts as Parameters<typeof page.goto>[1],
+                );
+              },
               close: () => page.close(),
               click: (s, o) => page.click(s, o),
               waitForFunction: (fn, wfOpts) =>
@@ -425,8 +615,20 @@ export function createPooledE2eFullLauncher(
               press: (s, k, o) => page.press(s, k, o),
               evaluate: <R>(fn: () => R) => page.evaluate(fn),
               inputValue: (s) => page.inputValue(s),
-              goto: (u, gotoOpts) =>
-                page.goto(u, gotoOpts as Parameters<typeof page.goto>[1]),
+              goto: async (u, gotoOpts) => {
+                // Order is load-bearing per Phase 3 Task 3.2:
+                // installPrePaintFromEnv FIRST (defect-4 pre-paint
+                // injection, no-op in production), attachSseInterceptor
+                // SECOND. Both must complete before page.goto so the
+                // init scripts (pre-paint DOM seed + __hk_runsFinished
+                // window counter) are registered at document_start.
+                await installPrePaintFromEnv(page);
+                await attachSseInterceptor(page);
+                return page.goto(
+                  u,
+                  gotoOpts as Parameters<typeof page.goto>[1],
+                );
+              },
               close: () => page.close(),
               click: (s, o) => page.click(s, o),
               waitForFunction: (fn, wfOpts) =>
@@ -516,10 +718,17 @@ export function createE2eFullDriver(
   deps: E2eFullDriverDeps = {},
 ): ProbeDriver<E2eFullDriverInput, E2eFullAggregateSignal> {
   const launcher = deps.launcher ?? defaultLauncher;
-  const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // Construction-time fallback cap. The EFFECTIVE per-run cap is resolved inside
+  // `run()` so the fleet enumerator's conveyed `input.timeout_ms` (the YAML
+  // budget) wins over this singleton-registration default. See the resolution
+  // block in `run()`.
+  const depTimeoutMs = deps.timeoutMs;
   const pageTimeoutMs = deps.pageTimeoutMs ?? DEFAULT_PAGE_TIMEOUT_MS;
   const featureTimeoutMs = deps.featureTimeoutMs ?? DEFAULT_FEATURE_TIMEOUT_MS;
   const scriptLoader = deps.scriptLoader ?? defaultScriptLoader;
+  const representatives = deps.representatives ?? D5_REPRESENTATIVES;
+  const diagPb = deps.diagPb;
+  const idFactory = deps.idFactory ?? mintRunId;
 
   return {
     kind: "e2e_d6",
@@ -532,6 +741,42 @@ export function createE2eFullDriver(
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
       const slug = deriveSlug(input.key, input.name);
 
+      // Resolve the outer-cap per `run()`. Fleet path: the enumerator conveys
+      // the YAML cap in `input.timeout_ms` (the worker never runs the in-process
+      // `probe-invoker` boot path that applies `cfg.timeout_ms`). Validated by
+      // the schema (positive int), but guard defensively here too so a bad value
+      // falls through to the dep/default rather than silently disabling the cap.
+      // Resolution order: input cap → construction dep → hardcoded default.
+      const inputTimeoutMs =
+        typeof input.timeout_ms === "number" &&
+        Number.isFinite(input.timeout_ms) &&
+        input.timeout_ms > 0
+          ? input.timeout_ms
+          : NaN;
+      const timeoutMs = Number.isFinite(inputTimeoutMs)
+        ? inputTimeoutMs
+        : (depTimeoutMs ?? DEFAULT_TIMEOUT_MS);
+
+      // Dashboard row-key prefix. Defaults to "d6"; the D5 probe passes
+      // "d5" so its dashboard column reads the same run conditions.
+      const rowPrefix = input.rowPrefix ?? "d6";
+
+      // CVDIAG: mint one correlation id per feature-run invocation. Threaded
+      // into the browser context as `x-diag-run-id` (alongside the
+      // `x-aimock-context` slug we already inject) and used to filter the
+      // post-run aimock journal so this run's hops are reconstructable. The
+      // component tag distinguishes the D5 take-one path from a full D6 run
+      // even though they share THIS driver — that distinction is the whole
+      // point of the CV incident (D5/CV red while D6 green).
+      const runId = idFactory();
+      const cvComponent = rowPrefix === "d5" ? "harness-d5" : "harness-d6";
+      // The aimock base URL the framework apps are wired to send X-AIMock-*
+      // against. Read from env (orchestrator sets AIMOCK_URL; the CLI sets
+      // AIMOCK_URL_LOCAL) rather than hardcoded — same source the wiring
+      // probe matches against. Used for the best-effort post-run journal
+      // join; absent → the join is skipped (logged as status=error).
+      const aimockBaseUrl = ctx.env.AIMOCK_URL ?? ctx.env.AIMOCK_URL_LOCAL;
+
       // Resolve the feature list. ALL features, not one-per-type.
       const featuresFromInput = input.features ?? [];
       const featureSource: readonly string[] =
@@ -539,7 +784,19 @@ export function createE2eFullDriver(
           ? featuresFromInput
           : demosToFeatureTypes(input.demos ?? []);
 
-      const requestedFeatures = featureSource.filter(isKnownFeatureType);
+      let requestedFeatures = featureSource.filter(isKnownFeatureType);
+
+      // D5-take-one scoping: when representativeOnly is set, narrow the
+      // matrix to ONLY the featureTypes that have a configured representative
+      // in the representatives map. This is what makes the D5 probe a
+      // single-representative-pill invocation of THIS driver — everything
+      // else (route, headers, conversation, pooled launcher) is byte-
+      // identical to a full D6 run.
+      if (input.representativeOnly) {
+        requestedFeatures = requestedFeatures.filter(
+          (ft) => representatives[ft] !== undefined,
+        );
+      }
 
       // NSF reclassification: features the integration's manifest
       // declares in `not_supported_features` are architecturally
@@ -577,7 +834,7 @@ export function createE2eFullDriver(
           },
           observedAt,
         };
-        await emitAggregate(ctx, slug, aggregateResult);
+        await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
         return aggregateResult;
       }
 
@@ -599,7 +856,7 @@ export function createE2eFullDriver(
 
             for (const ft of requestedFeatures) {
               await sideEmit(ctx, {
-                key: `d6:${slug}/${ft}`,
+                key: `${rowPrefix}:${slug}/${ft}`,
                 state: "green",
                 signal: {
                   slug,
@@ -626,7 +883,7 @@ export function createE2eFullDriver(
               },
               observedAt,
             };
-            await emitAggregate(ctx, slug, aggregateResult);
+            await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
             return aggregateResult;
           }
         }
@@ -731,14 +988,14 @@ export function createE2eFullDriver(
             },
             observedAt,
           };
-          await emitAggregate(ctx, slug, aggregateResult);
+          await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
           return aggregateResult;
         }
 
         // Emit red side rows for missing-script features upfront.
         for (const ft of missingScript) {
           await sideEmit(ctx, {
-            key: `d6:${slug}/${ft}`,
+            key: `${rowPrefix}:${slug}/${ft}`,
             state: "red",
             signal: {
               slug,
@@ -754,7 +1011,7 @@ export function createE2eFullDriver(
         // Emit green side rows for filtered-by-trigger features.
         for (const ft of filteredByTrigger) {
           await sideEmit(ctx, {
-            key: `d6:${slug}/${ft}`,
+            key: `${rowPrefix}:${slug}/${ft}`,
             state: "green",
             signal: {
               slug,
@@ -773,7 +1030,7 @@ export function createE2eFullDriver(
         // as red, but the side-row carries the reason for auditability.
         for (const ft of incapableFeatures) {
           await sideEmit(ctx, {
-            key: `d6:${slug}/${ft}`,
+            key: `${rowPrefix}:${slug}/${ft}`,
             state: "green",
             signal: {
               slug,
@@ -809,7 +1066,7 @@ export function createE2eFullDriver(
             },
             observedAt,
           };
-          await emitAggregate(ctx, slug, aggregateResult);
+          await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
           return aggregateResult;
         }
 
@@ -837,7 +1094,7 @@ export function createE2eFullDriver(
             },
             observedAt,
           };
-          await emitAggregate(ctx, slug, aggregateResult);
+          await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
           return aggregateResult;
         }
 
@@ -846,7 +1103,7 @@ export function createE2eFullDriver(
         const browserRef: E2eFullBrowser = browser!;
 
         const featurePromises = runnable.map(async (ft) => {
-          const sideKey = `d6:${slug}/${ft}`;
+          const sideKey = `${rowPrefix}:${slug}/${ft}`;
           const script = D5_REGISTRY.get(ft)!;
           const route = (script.preNavigateRoute ?? defaultRoute)(ft, {
             demos: input.demos,
@@ -869,29 +1126,48 @@ export function createE2eFullDriver(
           > = [];
           try {
             if (abort.signal.aborted) {
-              await sideEmit(ctx, {
-                key: sideKey,
-                state: "red",
-                signal: {
-                  slug,
-                  featureType: ft,
-                  backendUrl,
-                  url,
-                  fixtureFile: script.fixtureFile,
-                  errorClass: "abort",
-                  errorDesc: timedOut
-                    ? `timeout after ${timeoutMs}ms`
-                    : "aborted",
-                },
-                observedAt: ctx.now().toISOString(),
-              });
+              // GRACEFUL DRAIN (FIX 3): when the abort is a worker drain —
+              // `ctx.drainReason === "shutdown"` AND the EXTERNAL drain signal
+              // actually FIRED — SUPPRESS the red per-cell side-emit for this
+              // not-yet-started pill; a redeploy must not paint a mass-red
+              // block. The pill keeps its prior dashboard colour; the
+              // worker-loop layer separately abandons the partial (skips
+              // `queue.report`) so the lease lapses into the sweeper's
+              // neutral-gray re-queue. The internal `abort` controller ALSO
+              // fires on the driver's own wall-clock `timeoutMs` cap, so the
+              // drain reason alone is not proof of a drain — require
+              // `ctx.abortSignal.aborted` too. A timeout/error abort still
+              // emits red so a genuine failure stays visible.
+              const drainAborted =
+                ctx.drainReason === "shutdown" &&
+                ctx.abortSignal?.aborted === true;
+              if (!drainAborted) {
+                await sideEmit(ctx, {
+                  key: sideKey,
+                  state: "red",
+                  signal: {
+                    slug,
+                    featureType: ft,
+                    backendUrl,
+                    url,
+                    fixtureFile: script.fixtureFile,
+                    errorClass: "abort",
+                    errorDesc: timedOut
+                      ? `timeout after ${timeoutMs}ms`
+                      : "aborted",
+                  },
+                  observedAt: ctx.now().toISOString(),
+                });
+              }
               ctx.logger.info("probe.e2e-full.feature-complete", {
                 slug,
                 featureType: ft,
                 pass: false,
                 errorDesc: timedOut
                   ? `timeout after ${timeoutMs}ms`
-                  : "aborted",
+                  : drainAborted
+                    ? "drain-suppressed"
+                    : "aborted",
                 durationMs: Date.now() - featureStart,
               });
               return {
@@ -953,6 +1229,12 @@ export function createE2eFullDriver(
                 },
                 abortSignal: attemptAbort.signal,
                 logger: ctx.logger,
+                // CVDIAG correlation: thread the per-run id + component tag
+                // so runFeature can inject `x-diag-run-id` / `x-diag-hops`
+                // alongside the `x-aimock-context` slug and emit the
+                // inbound-boundary line at header injection.
+                runId,
+                cvComponent,
               });
               inFlightRunFeatures.push(runFeaturePromise);
               try {
@@ -1043,34 +1325,82 @@ export function createE2eFullDriver(
                 pass: true,
                 durationMs: Date.now() - featureStart,
               });
+              // CVDIAG: post-run aimock-journal join. Best-effort; never
+              // throws into the probe (own try/catch inside).
+              await joinAimockJournal({
+                ctx,
+                diagPb,
+                aimockBaseUrl,
+                runId,
+                slug,
+                featureType: ft,
+                rowPrefix,
+                cvComponent,
+                testId: buildE2eTestId(slug, runId),
+                featureOk: true,
+              });
               return { ft, ok: true as const };
             } else {
-              await sideEmit(ctx, {
-                key: sideKey,
-                state: "red",
-                signal: {
-                  slug,
-                  featureType: ft,
-                  backendUrl,
-                  url,
-                  fixtureFile: script.fixtureFile,
-                  turns_completed: featureResult.conversation?.turns_completed,
-                  total_turns: featureResult.conversation?.total_turns,
-                  failure_turn: featureResult.conversation?.failure_turn,
-                  turn_durations_ms:
-                    featureResult.conversation?.turn_durations_ms,
-                  errorDesc: featureResult.errorDesc,
-                  errorClass: featureResult.errorClass,
-                  diagnostics: featureResult.diagnostics,
-                },
-                observedAt: ctx.now().toISOString(),
-              });
+              // GRACEFUL DRAIN (FIX 3): a feature that STARTED then got aborted
+              // MID-RUN by the worker drain (`errorClass: "abort"` while
+              // `ctx.drainReason === "shutdown"` AND the EXTERNAL drain signal
+              // actually fired) is a not-yet-completed pill — suppress its red
+              // side-emit too so a redeploy doesn't paint it red. The internal
+              // abort ALSO fires on the driver's own wall-clock `timeoutMs`
+              // cap, so require `ctx.abortSignal.aborted` to distinguish a true
+              // drain from a timeout — a timeout abort, and a genuine in-driver
+              // failure (any non-abort errorClass), still paint red even within
+              // the drain window.
+              const drainAborted =
+                ctx.drainReason === "shutdown" &&
+                ctx.abortSignal?.aborted === true &&
+                featureResult.errorClass === "abort";
+              if (!drainAborted) {
+                await sideEmit(ctx, {
+                  key: sideKey,
+                  state: "red",
+                  signal: {
+                    slug,
+                    featureType: ft,
+                    backendUrl,
+                    url,
+                    fixtureFile: script.fixtureFile,
+                    turns_completed:
+                      featureResult.conversation?.turns_completed,
+                    total_turns: featureResult.conversation?.total_turns,
+                    failure_turn: featureResult.conversation?.failure_turn,
+                    turn_durations_ms:
+                      featureResult.conversation?.turn_durations_ms,
+                    errorDesc: featureResult.errorDesc,
+                    errorClass: featureResult.errorClass,
+                    diagnostics: featureResult.diagnostics,
+                  },
+                  observedAt: ctx.now().toISOString(),
+                });
+              }
               ctx.logger.info("probe.e2e-full.feature-complete", {
                 slug,
                 featureType: ft,
                 pass: false,
                 errorDesc: featureResult.errorDesc,
                 durationMs: Date.now() - featureStart,
+              });
+              // CVDIAG: post-run aimock-journal join. On the failure path
+              // this is the load-bearing case — it reveals whether the
+              // x-aimock-context header actually ARRIVED at aimock (vs the
+              // 503 no_fixture_match the incident shows). Best-effort.
+              await joinAimockJournal({
+                ctx,
+                diagPb,
+                aimockBaseUrl,
+                runId,
+                slug,
+                featureType: ft,
+                rowPrefix,
+                cvComponent,
+                testId: buildE2eTestId(slug, runId),
+                featureOk: false,
+                featureError: featureResult.errorDesc,
               });
               return {
                 ft,
@@ -1127,7 +1457,7 @@ export function createE2eFullDriver(
             featureErrors.push(`${ft}: ${errMsg}`);
             try {
               await sideEmit(ctx, {
-                key: `d6:${slug}/${ft}`,
+                key: `${rowPrefix}:${slug}/${ft}`,
                 state: "red",
                 signal: {
                   slug,
@@ -1179,7 +1509,7 @@ export function createE2eFullDriver(
         // or timed out, the dashboard's D6 column needs a `d6:<slug>` row
         // to display red (vs blank). Placed after the loop so per-feature
         // timeouts inside the loop can never skip it.
-        await emitAggregate(ctx, slug, aggregateResult);
+        await emitAggregate(ctx, slug, aggregateResult, rowPrefix);
         return aggregateResult;
       } finally {
         clearTimeout(timeoutHandle);
@@ -1216,6 +1546,10 @@ async function runFeature(opts: {
   buildCtx: D5BuildContext;
   abortSignal: AbortSignal;
   logger: Logger;
+  /** CVDIAG per-run correlation id, injected as `x-diag-run-id`. */
+  runId: string;
+  /** CVDIAG component tag (`harness-d5` | `harness-d6`). */
+  cvComponent: string;
 }): Promise<
   | { ok: true; conversation: ConversationResult }
   | {
@@ -1236,6 +1570,8 @@ async function runFeature(opts: {
     buildCtx,
     abortSignal,
     logger,
+    runId,
+    cvComponent,
   } = opts;
   if (abortSignal.aborted) {
     return {
@@ -1247,14 +1583,41 @@ async function runFeature(opts: {
 
   let context: E2eFullBrowserContext | undefined;
   let page: E2eFullPage | undefined;
+  const testId = buildE2eTestId(slug, runId);
   try {
     // D6 sets per-feature context headers: X-AIMock-Context and X-Test-Id.
+    //
+    // CVDIAG: the x-aimock-context slug is the value whose propagation the
+    // CV incident traces. We additionally seed x-diag-run-id (correlation)
+    // and x-diag-hops=harness (breadcrumb) on the SAME browser context so a
+    // downstream hop can log the path that reached it. NOTE — this is the
+    // SINGLE header-injection point for BOTH D5 and D6: D5 is "D6 take-one"
+    // and runs THIS exact runFeature (there is no separate d5-single-pill.ts
+    // driver; it was deleted precisely because its own launcher systematically
+    // dropped x-aimock-context against the shared fleet pool). So D5 and D6
+    // inject X-AIMock-Context IDENTICALLY here; any D5-vs-D6 divergence the
+    // incident shows must live BELOW the browser context (env wiring / fleet
+    // pool / app forwarding), not in this driver's injection.
     context = await browser.newContext({
       extraHTTPHeaders: {
-        "X-AIMock-Context": slug,
-        "X-Test-Id": `d6-${slug}`,
+        [X_AIMOCK_CONTEXT]: slug,
+        "X-Test-Id": testId,
+        [X_DIAG_RUN_ID]: runId,
+        [X_DIAG_HOPS]: appendHop(undefined, "harness"),
       },
     });
+    // CVDIAG inbound-boundary line at injection. Goes through formatCvdiag so
+    // the slug is redacted to a 12-char prefix and header_present is derived.
+    logger.info(
+      formatCvdiag({
+        component: cvComponent,
+        boundary: "inbound",
+        runId,
+        aimockContext: slug,
+        testId,
+        status: "ok",
+      }),
+    );
     page = await context.newPage();
 
     logger.debug("probe.e2e-full.runFeature.navigating", {
@@ -1312,8 +1675,28 @@ async function runFeature(opts: {
       logger.debug("probe.e2e-full.runFeature.hydration-detected", {
         url,
       });
-    } catch {
+    } catch (hydrationErr) {
       logger.debug("probe.e2e-full.runFeature.hydration-timeout", { url });
+      // CVDIAG: surface the previously-swallowed hydration timeout. Control
+      // flow is unchanged (hydration is non-fatal; the conversation runner
+      // still tries), but a silent catch hides a hop where the page never
+      // came alive — which can correlate with a dropped context header
+      // (no app boot → no outbound LLM call → no fixture match).
+      logger.warn(
+        formatCvdiag({
+          component: cvComponent,
+          boundary: "inbound",
+          runId,
+          aimockContext: slug,
+          testId,
+          status: "error",
+          error: `hydration-timeout: ${
+            hydrationErr instanceof Error
+              ? hydrationErr.message.slice(0, 120)
+              : String(hydrationErr).slice(0, 120)
+          }`,
+        }),
+      );
     }
     logger.info("probe.e2e-full.runFeature.hydration-timing", {
       slug: buildCtx.integrationSlug,
@@ -1322,11 +1705,19 @@ async function runFeature(opts: {
       hydrationMs: Date.now() - hydrationStart,
     });
 
-    const turns = script.buildTurns(buildCtx);
+    const defaultTurns = script.buildTurns(buildCtx);
+    // BUBBLE_RACE_MESSAGES env override (bubble-race-repro integration
+    // tests only — no-op in production). When set, replaces the demo's
+    // default turn sequence with one `{ input: <string> }` per env
+    // message so per-scenario test inputs flow through ONE channel
+    // rather than scattering test logic across each defect commit.
+    const turnsOverride = messagesOverrideFromEnv();
+    const turns = turnsOverride ?? defaultTurns;
     logger.debug("probe.e2e-full.runFeature.turns-built", {
       turnCount: turns.length,
       featureType: buildCtx.featureType,
       slug: buildCtx.integrationSlug,
+      bubbleRaceMessagesOverride: turnsOverride !== undefined,
     });
     const conversation = await runConversation(page, turns);
 
@@ -1346,6 +1737,25 @@ async function runFeature(opts: {
         error: conversation.error?.slice(0, 200),
         diagnostics,
       });
+      // CVDIAG: the conversation-error path is where an aimock strict 503
+      // (no_fixture_match because x-aimock-context never arrived) surfaces
+      // as a generic "conversation failed" turn timeout. Emit a fixture-match
+      // boundary line carrying the SLUG + the real turn error so the
+      // collapse no longer hides which pill failed and why. The definitive
+      // header_present verdict comes from the post-run journal join.
+      logger.warn(
+        formatCvdiag({
+          component: cvComponent,
+          boundary: "fixture-match",
+          runId,
+          aimockContext: slug,
+          testId,
+          status: "miss",
+          error: (
+            conversation.error ?? "conversation failed without error message"
+          ).slice(0, 200),
+        }),
+      );
       return {
         ok: false,
         errorClass: "conversation-error",
@@ -1411,6 +1821,18 @@ async function captureDiagnostics(
     }
     return { pageClosed: true };
   }
+  // Read the assistant-message count Node-side via the shared cascade
+  // BEFORE entering page.evaluate, then merge it into the diagnostics
+  // object. Routing through `countAssistantMessages` here is what
+  // closes defect 3 by construction — the conversation runner reads
+  // its settled count via the same helper, so diagnostics and runner
+  // can no longer report mismatched counts for the same frame.
+  // `page.evaluate` cannot await a Node-side helper from inside the
+  // browser context, so the call is hoisted out (per plan §2.2/N6).
+  const assistantMsgCount = await countAssistantMessages(
+    page as unknown as PlaywrightPage,
+  );
+
   try {
     diagnostics = await page.evaluate(() => {
       type EvalElement = {
@@ -1438,9 +1860,6 @@ async function captureDiagnostics(
         location: { href: string };
       };
 
-      const assistantMsgs = win.document.querySelectorAll(
-        '[data-testid="copilot-assistant-message"]',
-      );
       const userMsgs = win.document.querySelectorAll(
         '[data-testid="copilot-user-message"]',
       );
@@ -1468,7 +1887,6 @@ async function captureDiagnostics(
       );
 
       return {
-        assistantMsgCount: assistantMsgs.length,
         userMsgCount: userMsgs.length,
         apiRequestCount: apiEntries.length,
         apiRequests: apiEntries.slice(0, 5),
@@ -1485,6 +1903,15 @@ async function captureDiagnostics(
     // Page may be closed or crashed — can't gather DOM diagnostics.
   }
 
+  // Merge the shared-cascade count Node-side. Done only when the
+  // browser-side evaluate succeeded so a crashed/closed page still
+  // produces the same `undefined` diagnostics as before this refactor
+  // — preserving the prior failure shape exactly. The browser-diag
+  // merge below independently hydrates a fresh object when needed.
+  if (diagnostics) {
+    diagnostics.assistantMsgCount = assistantMsgCount;
+  }
+
   const browserDiag = page.getDiagnostics?.();
   if (browserDiag) {
     if (!diagnostics) diagnostics = {};
@@ -1493,6 +1920,247 @@ async function captureDiagnostics(
   }
 
   return diagnostics;
+}
+
+/**
+ * Minimal shape of a single aimock journal entry. The aimock
+ * `GET /__aimock/journal` endpoint records each inbound request with its
+ * received headers and the resolved match outcome. We read only the fields
+ * the CV-verdict join needs and tolerate everything else (the endpoint may
+ * carry far more). Header keys are matched case-insensitively below.
+ */
+interface AimockJournalEntry {
+  headers?: Record<string, string>;
+  status?: number;
+  statusCode?: number;
+  matched?: boolean;
+  reason?: string;
+  error?: string;
+}
+
+/** Case-insensitive header read off a journal entry's headers bag. */
+function readHeaderCI(
+  headers: Record<string, string> | undefined,
+  name: string,
+): string | undefined {
+  if (!headers) return undefined;
+  const want = name.toLowerCase();
+  for (const [k, v] of Object.entries(headers)) {
+    if (k.toLowerCase() === want) return v;
+  }
+  return undefined;
+}
+
+/**
+ * CVDIAG post-run aimock-journal join. After a feature run completes, fetch
+ * the aimock journal and find the entry for THIS run (matched by
+ * `x-aimock-context === slug` AND `x-diag-run-id === runId`). Determine
+ * whether the context header actually ARRIVED at aimock (`header_present`)
+ * and the resulting status (200 vs 503 no_fixture_match). This is the
+ * definitive verdict for the CV-propagation incident: a feature can fail
+ * with a generic conversation-error while the journal shows the header was
+ * absent at aimock — localizing the drop to a hop between this driver's
+ * browser-context injection and aimock.
+ *
+ * Strictly best-effort: the whole body is wrapped so a journal-fetch failure
+ * (endpoint missing, network error, parse error) emits a CVDIAG status=error
+ * line and a swallowed `writeDiagEvent`, but NEVER throws into the probe.
+ */
+async function joinAimockJournal(opts: {
+  ctx: ProbeContext;
+  diagPb?: DiagSinkClient;
+  aimockBaseUrl?: string;
+  runId: string;
+  slug: string;
+  featureType: string;
+  rowPrefix: "d5" | "d6";
+  cvComponent: string;
+  testId: string;
+  featureOk: boolean;
+  featureError?: string;
+}): Promise<void> {
+  const {
+    ctx,
+    diagPb,
+    aimockBaseUrl,
+    runId,
+    slug,
+    featureType,
+    rowPrefix,
+    cvComponent,
+    testId,
+    featureOk,
+    featureError,
+  } = opts;
+
+  try {
+    if (!aimockBaseUrl) {
+      // No aimock base URL in env → can't join. Surface as status=error so
+      // the gap is greppable; the feature verdict is unaffected.
+      ctx.logger.warn(
+        formatCvdiag({
+          component: cvComponent,
+          boundary: "cv-verdict",
+          runId,
+          aimockContext: slug,
+          testId,
+          status: "error",
+          error: "aimock base url unset (AIMOCK_URL / AIMOCK_URL_LOCAL)",
+        }),
+      );
+      return;
+    }
+
+    const fetchImpl = ctx.fetchImpl ?? globalThis.fetch;
+    const journalUrl = `${aimockBaseUrl.replace(/\/+$/, "")}/__aimock/journal`;
+    // Bound the journal fetch: a reachable-but-hung aimock journal endpoint
+    // must not stall the probe run. On timeout the fetch rejects with a
+    // TimeoutError, which the surrounding catch turns into a status=error
+    // CVDIAG line (pure instrumentation — never breaks the probe).
+    const res = await fetchImpl(journalUrl, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) {
+      ctx.logger.warn(
+        formatCvdiag({
+          component: cvComponent,
+          boundary: "cv-verdict",
+          runId,
+          aimockContext: slug,
+          testId,
+          status: "error",
+          error: `journal fetch ${res.status}`,
+        }),
+      );
+      return;
+    }
+
+    const body = (await res.json()) as unknown;
+    // The endpoint may return either a bare array or an `{ entries: [...] }`
+    // envelope; tolerate both.
+    const entries: AimockJournalEntry[] = Array.isArray(body)
+      ? (body as AimockJournalEntry[])
+      : Array.isArray((body as { entries?: unknown })?.entries)
+        ? (body as { entries: AimockJournalEntry[] }).entries
+        : [];
+
+    // Filter to THIS run: the breadcrumb run-id must match, and the
+    // aimock-context header must equal our slug. We look for the run-id match
+    // first (the unambiguous correlation) and fall back to slug-only when no
+    // run-id is recorded (older aimock that doesn't echo x-diag-run-id).
+    const matchesRun = (e: AimockJournalEntry): boolean =>
+      readHeaderCI(e.headers, X_DIAG_RUN_ID) === runId;
+    const matchesSlug = (e: AimockJournalEntry): boolean =>
+      readHeaderCI(e.headers, X_AIMOCK_CONTEXT) === slug;
+
+    const runEntries = entries.filter(matchesRun);
+    const slugEntries = entries.filter(matchesSlug);
+    const entry =
+      runEntries[runEntries.length - 1] ?? slugEntries[slugEntries.length - 1];
+
+    if (!entry) {
+      // No journal entry for this run at all — the request may never have
+      // reached aimock (app didn't forward), or the journal rolled. This is
+      // itself a strong CV signal: header_present=false at the verdict.
+      const verdictLine = formatCvdiag({
+        component: cvComponent,
+        boundary: "cv-verdict",
+        runId,
+        // No entry → we could not confirm the header arrived. Pass undefined
+        // so formatCvdiag derives header_present=false (the load-bearing
+        // miss signal).
+        aimockContext: undefined,
+        testId,
+        status: "miss",
+        error: "no aimock journal entry for run",
+      });
+      ctx.logger.warn(verdictLine);
+      if (diagPb) {
+        await writeDiagEvent(diagPb, {
+          run_id: runId,
+          slug,
+          framework: slug,
+          component: cvComponent,
+          boundary: "cv-verdict",
+          header_present: false,
+          status: "miss",
+          test_id: testId,
+          error: "no aimock journal entry for run",
+        });
+      }
+      return;
+    }
+
+    const headerValue = readHeaderCI(entry.headers, X_AIMOCK_CONTEXT);
+    const headerPresent = typeof headerValue === "string";
+    const hops = readHeaderCI(entry.headers, X_DIAG_HOPS);
+    const httpStatus = entry.status ?? entry.statusCode;
+    const matched =
+      entry.matched ??
+      (httpStatus !== undefined ? httpStatus < 400 : undefined);
+    const verdictStatus: "ok" | "miss" = matched === false ? "miss" : "ok";
+    const missReason =
+      verdictStatus === "miss"
+        ? (entry.reason ??
+          entry.error ??
+          (httpStatus === 503
+            ? "no_fixture_match (503)"
+            : httpStatus !== undefined
+              ? `status ${httpStatus}`
+              : featureError))
+        : undefined;
+
+    // CVDIAG cv-verdict line: pass the RAW header value seen at aimock so the
+    // formatter derives header_present from what ACTUALLY arrived (not from
+    // what we injected). header_present=false here is the smoking gun.
+    ctx.logger.info(
+      formatCvdiag({
+        component: cvComponent,
+        boundary: "cv-verdict",
+        runId,
+        aimockContext: headerValue,
+        testId,
+        status: verdictStatus,
+        error: missReason,
+      }),
+    );
+
+    if (diagPb) {
+      await writeDiagEvent(diagPb, {
+        run_id: runId,
+        slug,
+        framework: slug,
+        component: cvComponent,
+        boundary: "cv-verdict",
+        header_present: headerPresent,
+        status: verdictStatus,
+        hops,
+        test_id: testId,
+        error: missReason,
+      });
+    }
+
+    void rowPrefix;
+    void featureOk;
+  } catch (err) {
+    // Pure instrumentation — never let the journal join break a probe.
+    ctx.logger.warn(
+      formatCvdiag({
+        component: cvComponent,
+        boundary: "cv-verdict",
+        runId,
+        aimockContext: slug,
+        testId,
+        status: "error",
+        error: `journal-join failed: ${
+          err instanceof Error
+            ? err.message.slice(0, 160)
+            : String(err).slice(0, 160)
+        }`,
+      }),
+    );
+  }
 }
 
 async function sideEmit(
@@ -1530,23 +2198,25 @@ async function emitAggregate(
   ctx: ProbeContext,
   slug: string,
   result: ProbeResult<E2eFullAggregateSignal>,
+  rowPrefix: "d5" | "d6",
 ): Promise<void> {
+  const aggKey = `${rowPrefix}:${slug}`;
   if (!ctx.writer) {
     ctx.logger.warn("probe.e2e-full.aggregate-writer-missing", {
-      key: `d6:${slug}`,
+      key: aggKey,
     });
     return;
   }
   try {
     await ctx.writer.write({
-      key: `d6:${slug}`,
+      key: aggKey,
       state: result.state,
       signal: result.signal,
       observedAt: result.observedAt,
     });
   } catch (err) {
     ctx.logger.error("probe.e2e-full.aggregate-emit-failed", {
-      key: `d6:${slug}`,
+      key: aggKey,
       err: err instanceof Error ? err.message : String(err),
     });
   }

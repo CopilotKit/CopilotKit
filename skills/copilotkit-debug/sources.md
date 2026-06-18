@@ -17,7 +17,7 @@ Generated: 2026-03-28
 - packages/v2/runtime/src/endpoints/ (CORS configuration, Hono middleware, Express middleware)
 - packages/v2/runtime/src/intelligence-platform/ (CopilotKitIntelligence, IntelligenceAgentRunner, WebSocket URLs)
 - packages/v2/runtime/src/runner/ (InMemoryAgentRunner, AgentRunner abstract class)
-- packages/v2/react/src/ (CopilotKitProvider props: runtimeUrl, credentials, headers)
+- packages/v2/react/src/ (`CopilotKit` provider props: runtimeUrl, credentials, headers)
 - GitHub issues: #3170, #3425
 
 ## agent-debugging.md
@@ -34,6 +34,6 @@ Generated: 2026-03-28
 - packages/v2/runtime/src/ (endpoint route structure, /info endpoint, CORS defaults, SSE event flow)
 - packages/v2/agent/src/ (BuiltInAgent model string format, environment variable conventions)
 - packages/v2/core/src/ (error codes referenced in diagnostic steps)
-- packages/v2/react/src/ (CopilotKitProvider props, useFrontendTool registration, CopilotChat)
+- packages/v2/react/src/ (`CopilotKit` provider props, useFrontendTool registration, CopilotChat)
 - packages/v2/shared/src/ (TranscriptionErrorCode, transcription service configuration)
 - packages/v2/web-inspector/src/ (CopilotKitWebInspector for escalation)

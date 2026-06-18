@@ -16,6 +16,7 @@ import type {
   CopilotKitCoreRegisterProxiedAgentResult,
 } from "./agent-registry";
 import { AgentRegistry } from "./agent-registry";
+import type { ScopedContext } from "./context-store";
 import { ContextStore } from "./context-store";
 import { SuggestionEngine } from "./suggestion-engine";
 import type {
@@ -306,6 +307,7 @@ export interface CopilotKitCoreFriendsAccess {
 
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
+  getContextForAgent(agentId?: string): Context[];
   getAgent(id: string): AbstractAgent | undefined;
 
   // References to delegate subsystems
@@ -514,7 +516,7 @@ export class CopilotKitCore {
   /**
    * Snapshot accessors
    */
-  get context(): Readonly<Record<string, Context>> {
+  get context(): Readonly<Record<string, ScopedContext>> {
     return this.contextStore.context;
   }
 
@@ -620,6 +622,14 @@ export class CopilotKitCore {
     return this.agentRegistry.a2uiEnabled;
   }
 
+  /**
+   * Agent ids the runtime applies A2UI to. `undefined` means A2UI applies to
+   * every agent (or is disabled — check `a2uiEnabled`).
+   */
+  get a2uiAgents(): string[] | undefined {
+    return this.agentRegistry.a2uiAgents;
+  }
+
   get openGenerativeUIEnabled(): boolean {
     return this.agentRegistry.openGenerativeUIEnabled;
   }
@@ -714,14 +724,24 @@ export class CopilotKitCore {
   }
 
   /**
-   * Context management (delegated to ContextStore)
+   * Context management (delegated to ContextStore).
+   * Pass `agentIds` to restrict the entry to runs of specific agents;
+   * omit it for context every agent should receive.
    */
-  addContext(context: Context): string {
+  addContext(context: ScopedContext): string {
     return this.contextStore.addContext(context);
   }
 
   removeContext(id: string): void {
     this.contextStore.removeContext(id);
+  }
+
+  /**
+   * Build the context array for a run of the given agent, dropping entries
+   * scoped to other agents and stripping the scoping metadata.
+   */
+  getContextForAgent(agentId?: string): Context[] {
+    return this.contextStore.getContextForAgent(agentId);
   }
 
   /**

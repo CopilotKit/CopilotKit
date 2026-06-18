@@ -27,6 +27,18 @@ import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 const DynString = z.union([z.string(), z.object({ path: z.string() })]);
 
 export const flightDefinitions = {
+  /**
+   * Card override: gives the outer flight-card container a stable
+   * `data-testid` for D6 e2e selectors. The basic catalog's Card ships
+   * its own renderer; declaring `Card` here lets us swap in a thin React
+   * component without otherwise altering layout.
+   */
+  Card: {
+    description: "A container card with a single child.",
+    props: z.object({
+      child: z.string(),
+    }),
+  },
   Title: {
     description: "A prominent heading for the flight card.",
     props: z.object({

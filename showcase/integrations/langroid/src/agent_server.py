@@ -28,6 +28,7 @@ from agents._header_forwarding import (
 install_global_httpx_hook()
 
 from agents.agui_adapter import handle_run
+from agents.reasoning_agent import reasoning_app
 from agents.a2ui_fixed_agent import handle_run as handle_a2ui_fixed_schema
 from agents.byoc_hashbrown_agent import handle_run as handle_byoc_hashbrown
 from agents.byoc_json_render_agent import handle_run as handle_byoc_json_render
@@ -74,6 +75,18 @@ app.add_middleware(
 async def run_agent(request: Request):
     """AG-UI /run endpoint — streams SSE events."""
     return await handle_run(request)
+
+
+# Reasoning-aware sub-app. Langroid's stock unified adapter calls OpenAI
+# non-streaming and reads only message.content / message.tool_calls — it
+# drops the model's reasoning_content channel, so the reasoning-default /
+# reasoning-custom cells can never light up CopilotKit's reasoning slot via
+# the unified agent. This custom sub-app streams the chat-completions call
+# directly, captures delta.reasoning_content, and emits REASONING_MESSAGE_*
+# events. The HttpAgent posts to /reasoning/; the outer Mount strips
+# /reasoning and the inner Mount at "/" resolves ReasoningEndpoint. Mirrors
+# ag2's /reasoning mount.
+app.mount("/reasoning", reasoning_app)
 
 
 # Per-demo endpoints for cells that need state-aware behavior the unified

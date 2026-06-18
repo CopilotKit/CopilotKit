@@ -1,0 +1,111 @@
+---
+title: "CopilotKitProvider"
+description: "The React Native provider that configures the CopilotKit runtime connection and shares it with all hooks and components."
+---
+
+## Overview
+
+`CopilotKitProvider` is the React Native provider for CopilotKit. Wrap your app (or the sub-tree that needs a copilot) with it to configure the runtime connection. Every hook and component below it reads the configured client from context.
+
+Importing the package auto-installs the [polyfills](/reference/react-native#polyfills) CopilotKit needs on Hermes, so you do not have to import them manually before using the provider.
+
+<Callout type="info">
+  Cloud features (`publicLicenseKey` / license-gated functionality) are not yet
+  supported on React Native. Point `runtimeUrl` at a self-hosted runtime.
+</Callout>
+
+## Import
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-native";
+```
+
+## Props
+
+<PropertyReference name="children" type="ReactNode" required>
+  The components rendered within the provider.
+</PropertyReference>
+
+<PropertyReference name="runtimeUrl" type="string" required>
+  URL of the CopilotKit runtime endpoint, e.g.
+  `https://your-server/api/copilotkit`. Use your machine's LAN IP (not
+  `localhost`) when testing on a physical device.
+</PropertyReference>
+
+<PropertyReference name="headers" type="Record<string, string> | (() => Record<string, string>)" default="{}">
+  Custom headers sent with every runtime request. Pass a function to compute
+  headers lazily (e.g. to attach a fresh auth token).
+</PropertyReference>
+
+<PropertyReference name="credentials" type="RequestCredentials">
+  Credentials mode for fetch requests (e.g. `"include"` for HTTP-only cookies
+  in cross-origin requests).
+</PropertyReference>
+
+<PropertyReference name="useSingleEndpoint" type="boolean">
+  Whether the runtime uses a single-route endpoint. Leave unset to auto-detect.
+</PropertyReference>
+
+<PropertyReference name="properties" type="Record<string, unknown>" default="{}">
+  Custom properties forwarded to agents on every run (e.g. user metadata or
+  LangGraph Platform `authorization`).
+</PropertyReference>
+
+<PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
+  Error handler called when CopilotKit encounters an error. Fires for all error
+  types: runtime connection failures, agent errors, and tool errors. If not
+  provided, errors are logged to `console.error`.
+
+```tsx
+<CopilotKitProvider
+  runtimeUrl="https://your-server/api/copilotkit"
+  onError={(event) => {
+    console.error(`[${event.code}]`, event.error.message, event.context);
+  }}
+>
+  <App />
+</CopilotKitProvider>
+```
+
+</PropertyReference>
+
+<PropertyReference name="debug" type="DebugConfig">
+  Enable debug logging for the client-side event pipeline. When `true`, the
+  core instance emits verbose logs.
+</PropertyReference>
+
+<PropertyReference name="defaultThrottleMs" type="number">
+  Default throttle interval (ms) for `onMessagesChanged` / `onStateChanged`
+  subscriptions. Individual hooks and components can override this with their
+  own `throttleMs`.
+</PropertyReference>
+
+## Usage
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ChatScreen } from "./ChatScreen";
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <CopilotKitProvider runtimeUrl="https://your-server/api/copilotkit">
+        <ChatScreen />
+      </CopilotKitProvider>
+    </SafeAreaProvider>
+  );
+}
+```
+
+## Behavior
+
+- **Auto-polyfills**: importing the package installs the Web API polyfills CopilotKit relies on (`ReadableStream`, `TextEncoder`, `crypto.getRandomValues`, `DOMException`, `location`) before any CopilotKit code runs.
+- **Render-tool registry**: the provider wraps children in a [`RenderToolProvider`](/reference/react-native/hooks/useRenderTool), so [`useRenderTool`](/reference/react-native/hooks/useRenderTool) works anywhere below it.
+- **Stable references**: header functions and `properties` are memoized internally to avoid effect churn on re-render.
+
+## Related
+
+- [`useCopilotKit`](/reference/react-native/hooks/useCopilotKit): access the configured client from any descendant
+- [`useAgent`](/reference/react-native/hooks/useAgent): connect to an agent and read its state
+- [Polyfills](/reference/react-native#polyfills): what gets installed and how to bring your own

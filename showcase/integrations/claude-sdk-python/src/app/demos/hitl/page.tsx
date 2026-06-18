@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { CopilotKit, useLangGraphInterrupt } from "@copilotkit/react-core";
 import {
+  CopilotKit,
   CopilotChat,
   useHumanInTheLoop,
+  useInterrupt,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
@@ -37,7 +38,7 @@ function DemoContent() {
     available: "always",
   });
 
-  useLangGraphInterrupt({
+  useInterrupt({
     render: ({ event, resolve }) => (
       <StepSelector
         steps={event.value?.steps || []}

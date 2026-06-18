@@ -29,6 +29,7 @@ const agentNames = [
   "subagents",
   // frontend-only demos (share simple chat agent on the backend)
   "frontend_tools",
+  "threadid-frontend-tool-roundtrip",
   "frontend-tools-async",
   "prebuilt-sidebar",
   "prebuilt-popup",
@@ -47,6 +48,10 @@ const agentNames = [
   // hitl variants
   "hitl-in-chat",
   "hitl-in-app",
+  "human_in_the_loop",
+  // gen-ui-interrupt: Strategy-B scheduling flow (schedule_meeting frontend
+  // tool via useHumanInTheLoop). Page binds agentId="gen-ui-interrupt".
+  "gen-ui-interrupt",
   // multimodal & state-context
   "multimodal",
   "readonly-state-agent-context",
@@ -66,6 +71,11 @@ const agentNames = [
   "auth",
   // mcp apps (also wired via separate runtime route copilotkit-mcp-apps)
   "mcp-apps",
+  // Neutral default agent. The hitl demo's `useInterrupt` hook binds to
+  // the default agent (no agentId), so a `default` slot must exist or the
+  // page throws `useAgent: Agent 'default' not found`. Mirrors
+  // langgraph-python's `agents["default"]`.
+  "default",
 ];
 
 // Build agents per-request so we can inject inbound x-* headers (e.g.
@@ -107,9 +117,23 @@ export const POST = async (req: NextRequest) => {
 
     return await handleRequest(req);
   } catch (error: unknown) {
-    console.error("[copilotkit]", error);
+    // Log full details server-side (operators grep `errorId` to correlate),
+    // but never echo `err.message` / `err.stack` back to the HTTP client —
+    // that leaks internal paths, dependency versions, and stack traces.
+    const err = error instanceof Error ? error : new Error(String(error));
+    const errorId = crypto.randomUUID();
+    console.error(
+      JSON.stringify({
+        at: new Date().toISOString(),
+        level: "error",
+        scope: "copilotkit",
+        errorId,
+        message: err.message,
+        stack: err.stack,
+      }),
+    );
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "internal runtime error", errorId },
       { status: 500 },
     );
   }

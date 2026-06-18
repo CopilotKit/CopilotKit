@@ -9,6 +9,7 @@ import { ScrollElementContext } from "./scroll-element-context";
 import type { WithSlots, SlotValue } from "../../lib/slots";
 import { renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
+import type { IntelligenceIndicatorView } from "../intelligence-indicator";
 import type {
   CopilotChatInputProps,
   CopilotChatInputMode,
@@ -108,6 +109,12 @@ export type CopilotChatViewProps = WithSlots<
      * ```
      */
     disclaimer?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
+    /**
+     * Slot for the "Using CopilotKit Intelligence" indicator. Pass-through
+     * to `CopilotChatMessageView`'s `intelligenceIndicator` slot — accepts a
+     * className string, a props object, or a replacement component.
+     */
+    intelligenceIndicator?: SlotValue<typeof IntelligenceIndicatorView>;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -163,6 +170,8 @@ export function CopilotChatView({
   hasExplicitThreadId = false,
   // Deprecated — forwarded to input slot
   disclaimer,
+  // Pass-through to CopilotChatMessageView's intelligenceIndicator slot
+  intelligenceIndicator,
   children,
   className,
   ...props
@@ -239,6 +248,7 @@ export function CopilotChatView({
   const BoundMessageView = renderSlot(messageView, CopilotChatMessageView, {
     messages,
     isRunning,
+    intelligenceIndicator,
   });
 
   const BoundInput = renderSlot(input, CopilotChatInput, {
@@ -658,7 +668,7 @@ export namespace CopilotChatView {
     useEffect(() => {
       if (mode === "pin-to-bottom") return; // Skip for autoscroll mode
 
-      const scrollElement = scrollRef.current;
+      const scrollElement = nonAutoScrollEl;
       if (!scrollElement) return;
 
       const checkScroll = () => {
@@ -681,7 +691,7 @@ export namespace CopilotChatView {
         scrollElement.removeEventListener("scroll", checkScroll);
         resizeObserver.disconnect();
       };
-    }, [scrollRef, mode]);
+    }, [nonAutoScrollEl, mode]);
 
     if (!hasMounted) {
       return (

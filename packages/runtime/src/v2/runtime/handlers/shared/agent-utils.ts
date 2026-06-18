@@ -2,10 +2,17 @@ import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { RunAgentInputSchema } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import type { CopilotRuntimeLike } from "../../core/runtime";
-import { resolveAgents } from "../../core/runtime";
+import {
+  isA2UIEnabled,
+  isIntelligenceRuntime,
+  resolveAgents,
+} from "../../core/runtime";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
+import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client";
 import { extractForwardableHeaders } from "../header-utils";
+import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { logger } from "@copilotkit/shared";
 
 type MiddlewareCapableAgent = AbstractAgent & {
@@ -55,8 +62,14 @@ export function configureAgentForRequest(params: {
   const { runtime, request, agentId } = params;
   const agent = params.agent as MiddlewareCapableAgent;
 
-  if (runtime.a2ui) {
-    const { agents: targetAgents, ...a2uiOptions } = runtime.a2ui;
+  if (isA2UIEnabled(runtime.a2ui)) {
+    // `enabled` is a CopilotKit-level switch, not an A2UIMiddleware option —
+    // drop it (alongside the agent filter) before forwarding to the middleware.
+    const {
+      agents: targetAgents,
+      enabled: _enabled,
+      ...a2uiOptions
+    } = runtime.a2ui;
     const shouldApply = !targetAgents || targetAgents.includes(agentId);
     if (shouldApply && typeof agent.use === "function") {
       agent.use(new A2UIMiddleware(a2uiOptions));
@@ -90,6 +103,71 @@ export function configureAgentForRequest(params: {
     ...agent.headers,
     ...extractForwardableHeaders(request),
   };
+}
+
+/**
+ * Attach the Intelligence platform's MCP tools to the agent run when
+ * `CopilotKitIntelligence` was constructed with
+ * `enableEnterpriseLearning: true`. Uses `@ag-ui/mcp-middleware`, so the
+ * tools are available uniformly across agent frameworks (not just
+ * `BuiltInAgent`).
+ *
+ * The middleware sits on a per-request agent clone, so the per-request
+ * auth (Bearer apiKey + resolved user-id) is baked into the transport
+ * headers at attach time. If user resolution fails, attachment is
+ * skipped silently — the intelligence run handler will reject the
+ * request with the same error. Note this means `identifyUser` is
+ * resolved twice per learning-enabled run (here and in the run handler);
+ * the callback is expected to be idempotent and side-effect-free.
+ *
+ * Intentionally split out from `configureAgentForRequest`: this is only
+ * relevant to actual agent runs, not auxiliary flows like thread-name
+ * generation (which has no need for MCP tools and shouldn't pay the
+ * `listTools` round-trip).
+ */
+export async function attachIntelligenceEnterpriseLearning(params: {
+  runtime: CopilotRuntimeLike;
+  request: Request;
+  agent: AbstractAgent;
+}): Promise<void> {
+  const { runtime, request } = params;
+  const agent = params.agent as MiddlewareCapableAgent;
+
+  if (
+    !isIntelligenceRuntime(runtime) ||
+    !runtime.intelligence?.ɵisEnterpriseLearningEnabled?.()
+  ) {
+    return;
+  }
+
+  // Enterprise learning is enabled, but this agent's framework can't take
+  // middleware — surface it rather than silently shipping a run with none
+  // of the tools the operator opted into.
+  if (typeof agent.use !== "function") {
+    logger.warn(
+      "CopilotKitIntelligence.enableEnterpriseLearning is enabled, but the agent " +
+        "does not support middleware (no `.use()` method); Intelligence tools were " +
+        "not attached for this run.",
+    );
+    return;
+  }
+
+  const userResult = await resolveIntelligenceUser({ runtime, request });
+  if (userResult instanceof Response) return;
+
+  agent.use(
+    new MCPMiddleware([
+      {
+        type: "http",
+        url: `${runtime.intelligence.ɵgetApiUrl()}/mcp`,
+        serverId: "intelligence",
+        headers: {
+          Authorization: `Bearer ${runtime.intelligence.ɵgetApiKey()}`,
+          [INTELLIGENCE_USER_ID_HEADER]: userResult.id,
+        },
+      },
+    ]),
+  );
 }
 
 export async function parseRunRequest(

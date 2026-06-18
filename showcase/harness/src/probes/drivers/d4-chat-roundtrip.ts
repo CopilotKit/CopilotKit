@@ -9,6 +9,7 @@ import {
 import type { BrowserPool } from "../helpers/browser-pool.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
+import { mintRunId } from "../helpers/cv-diag.js";
 
 /**
  * e2e-smoke driver — L3 (chat round-trip) and L4 (tool rendering) coverage
@@ -124,7 +125,10 @@ export interface E2eSmokeLevelSignal {
 export interface E2ePage {
   goto(
     url: string,
-    opts?: { waitUntil?: "networkidle"; timeout?: number },
+    opts?: {
+      waitUntil?: "networkidle" | "domcontentloaded" | "load";
+      timeout?: number;
+    },
   ): Promise<unknown>;
   type(
     selector: string,
@@ -199,6 +203,17 @@ export interface E2eSmokeDriverDeps {
    * first token to arrive. Defaults to `pageTimeoutMs`.
    */
   textPollTimeoutMs?: number;
+  /**
+   * Factory for the per-`run()` correlation id (`runId`) folded into the
+   * aimock X-Test-Id (`d4-<slug>-<runId>`). Defaults to `mintRunId`
+   * (`crypto.randomUUID()`). Injectable ONLY so unit tests can supply a
+   * deterministic counter and assert the per-run-unique X-Test-Id without
+   * matching a brittle UUID regex. Production always uses the default. The id
+   * is minted once per `run()`, so both L3/L4 levels of one run share it
+   * (stable within a run) and it is unique across runs — eliminating the
+   * cross-run aimock fixture-match-count desync that flapped the dashboard.
+   */
+  idFactory?: () => string;
 }
 
 const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000;
@@ -427,6 +442,7 @@ export function createE2eSmokeDriver(
   const pageTimeoutMs = deps.pageTimeoutMs ?? DEFAULT_PAGE_TIMEOUT_MS;
   const textPollTimeoutMs = deps.textPollTimeoutMs ?? pageTimeoutMs;
   const demosResolver = deps.demosResolver ?? createDefaultDemosResolver();
+  const idFactory = deps.idFactory ?? mintRunId;
 
   return {
     kind: "e2e_smoke",
@@ -440,6 +456,12 @@ export function createE2eSmokeDriver(
       // Schema already guaranteed at least one is present.
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
       const slug = deriveSlug(input.key, input.name);
+      // Per-run correlation id folded into the aimock X-Test-Id
+      // (`d4-<slug>-<runId>`). Minted once per `run()` so both L3/L4 levels
+      // share it (stable within a run) yet it is unique across runs, giving
+      // each run a fresh aimock per-test-id fixture-match count and removing
+      // the cross-run sequence/turn-count desync that flapped the dashboard.
+      const runId = idFactory();
       const shape = resolveShape(
         { name: input.name, shape: input.shape },
         { logger: ctx.logger },
@@ -542,6 +564,7 @@ export function createE2eSmokeDriver(
           level: "chat",
           demoPath: "/demos/agentic-chat",
           message: "Hello, please respond with a brief greeting.",
+          testId: `d4-${slug}-${runId}`,
           abortSignal: abort.signal,
           pageTimeoutMs,
           textPollTimeoutMs,
@@ -577,6 +600,7 @@ export function createE2eSmokeDriver(
             level: "tools",
             demoPath: "/demos/tool-rendering",
             message: "What's the weather in San Francisco?",
+            testId: `d4-${slug}-${runId}`,
             abortSignal: abort.signal,
             pageTimeoutMs,
             textPollTimeoutMs,
@@ -704,6 +728,8 @@ async function runLevel(opts: {
   level: "chat" | "tools";
   demoPath: string;
   message: string;
+  /** Per-run aimock X-Test-Id (`d4-<slug>-<runId>`), shared by L3/L4. */
+  testId: string;
   abortSignal: AbortSignal;
   pageTimeoutMs: number;
   textPollTimeoutMs: number;
@@ -717,6 +743,7 @@ async function runLevel(opts: {
     level,
     demoPath,
     message,
+    testId,
     abortSignal,
     pageTimeoutMs,
     textPollTimeoutMs,
@@ -748,12 +775,18 @@ async function runLevel(opts: {
     context = await browser.newContext({
       extraHTTPHeaders: {
         "X-AIMock-Context": slug,
-        "X-Test-Id": `d4-${slug}`,
+        "X-Test-Id": testId,
       },
     });
     page = await context.newPage();
     const url = `${backendUrl}${demoPath}`;
-    await page.goto(url, { waitUntil: "networkidle", timeout: pageTimeoutMs });
+    // Use `waitUntil: "load"` (NOT "networkidle") to mirror the d5/d6
+    // drivers (d6-all-pills.ts). CopilotKit demo pages hold a persistent
+    // agent SSE stream, so "networkidle" never settles and D4 times out.
+    // Readiness is asserted explicitly below by waiting for the chat
+    // <textarea> selector — that wait, not network quiescence, is what
+    // guarantees the page is interactive.
+    await page.goto(url, { waitUntil: "load", timeout: pageTimeoutMs });
 
     // Wait for the chat textarea, type, and submit. Selector mirrors the
     // reference helper (showcase/tests/e2e/helpers.ts) — CopilotKit

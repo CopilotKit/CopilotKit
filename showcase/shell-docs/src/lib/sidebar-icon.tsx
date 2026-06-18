@@ -11,6 +11,7 @@
 import React from "react";
 import { LanggraphIcon } from "@/components/icons/framework-icons";
 import { CopilotKitMark } from "@/components/copilotkit-mark";
+import { FrontendLogo } from "@/components/frontend-logo";
 import {
   // Pages / sections
   Bolt,
@@ -22,6 +23,7 @@ import {
   BrainCircuit,
   Brush,
   Bug,
+  CircleAlert,
   CirclePause,
   Cloud,
   Code,
@@ -36,6 +38,7 @@ import {
   LayoutDashboard,
   LifeBuoy,
   ListChecks,
+  Map,
   MessageSquare,
   MessageSquareMore,
   Mic,
@@ -44,9 +47,11 @@ import {
   MousePointer,
   Network,
   Paintbrush,
+  PanelTop,
   Paperclip,
   Play,
   Plug,
+  PlugZap,
   Repeat,
   Rocket,
   SearchCheck,
@@ -81,6 +86,7 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/BrainCircuit": <BrainCircuit />,
   "lucide/Brush": <Brush />,
   "lucide/Bug": <Bug />,
+  "lucide/CircleAlert": <CircleAlert />,
   "lucide/CirclePause": <CirclePause />,
   "lucide/Cloud": <Cloud />,
   "lucide/Code": <Code />,
@@ -95,6 +101,7 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/LayoutDashboard": <LayoutDashboard />,
   "lucide/LifeBuoy": <LifeBuoy />,
   "lucide/ListChecks": <ListChecks />,
+  "lucide/Map": <Map />,
   "lucide/MessageSquare": <MessageSquare />,
   "lucide/MessageSquareMore": <MessageSquareMore />,
   "lucide/Mic": <Mic />,
@@ -103,9 +110,11 @@ const ICONS: Record<string, React.ReactNode> = {
   "lucide/MousePointer": <MousePointer />,
   "lucide/Network": <Network />,
   "lucide/Paintbrush": <Paintbrush />,
+  "lucide/PanelTop": <PanelTop />,
   "lucide/Paperclip": <Paperclip />,
   "lucide/Play": <Play />,
   "lucide/Plug": <Plug />,
+  "lucide/PlugZap": <PlugZap />,
   "lucide/RefreshCw": <RefreshCw />,
   "lucide/Repeat": <Repeat />,
   "lucide/Rocket": <Rocket />,
@@ -131,6 +140,7 @@ const ICONS: Record<string, React.ReactNode> = {
   // its visual treatment matches the framework picker.
   "custom/langgraph": <LanggraphIcon />,
   "custom/copilotkit-kite": <CopilotKitMark />,
+  "custom/react": <FrontendLogo icon="react" size={16} />,
 };
 
 export function resolveSidebarIcon(spec: string | undefined): React.ReactNode {

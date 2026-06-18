@@ -23,15 +23,17 @@ not_supported_features:
   - gen-ui-interrupt
   - interrupt-headless
   - hitl-in-chat-booking
+  - reasoning-default-render
+  - agentic-chat-reasoning
+  - tool-rendering-reasoning-chain
 features:
   - beautiful-chat
   - cli-start
   - agentic-chat
-  - agentic-chat-reasoning
+  - reasoning-custom
   - gen-ui-tool-based
   - mcp-apps
-  - reasoning-default-render
-  - tool-rendering-reasoning-chain
+  - reasoning-default
   - frontend-tools
   - frontend-tools-async
   - hitl-in-chat
@@ -60,6 +62,7 @@ features:
   - headless-simple
   - headless-complete
   - readonly-state-agent-context
+  - shared-state-read
 a2ui_pattern: schema-loading
 interrupt_pattern: promise-based
 agent_config_pattern: shared-state
@@ -363,6 +366,29 @@ demos:
     animated_preview_url:
     highlight:
       - src/app/demos/readonly-state-agent-context/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-custom
+    name: Agentic Chat (Reasoning)
+    description: Visible reasoning / thinking chain rendered via a custom messageView slot
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-default
+    name: Reasoning (Default Render)
+    description: Reasoning rendered via CopilotKit's built-in collapsible card with zero custom config
+    tags:
+      - chat-ui
+    route: /demos/reasoning-default
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/reasoning-default/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering + Reasoning Chain (testing)

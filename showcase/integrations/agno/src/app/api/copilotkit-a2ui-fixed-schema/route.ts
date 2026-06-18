@@ -23,7 +23,7 @@ const a2uiFixedSchemaAgent = new HttpAgent({
 });
 
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts
+  // @ts-expect-error -- see main route.ts
   agents: { "a2ui-fixed-schema": a2uiFixedSchemaAgent },
   a2ui: {
     // The backend agent emits its own `a2ui_operations` container inside

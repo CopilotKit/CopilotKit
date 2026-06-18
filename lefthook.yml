@@ -14,6 +14,18 @@ pre-commit:
     check-binaries:
       tags: binaries
       run: bash scripts/hooks/check-binaries.sh
+    sync-promote-dropdown:
+      tags: promote-dropdown
+      # Regenerate the showcase_promote.yml `service` dropdown from the
+      # railway-envs.ts SSOT and re-stage it so the option list can never
+      # drift from the set of promotable services. Plain regenerate + git add
+      # (no stash) — keep this hook worktree-safe; lefthook's shared
+      # refs/stash is not safe across concurrent worktree commits.
+      glob: "{showcase/scripts/railway-envs.ts,showcase/scripts/sync-promote-service-options.ts,.github/workflows/showcase_promote.yml}"
+      run: |
+        set -euo pipefail
+        pnpm exec tsx showcase/scripts/sync-promote-service-options.ts \
+          && git add .github/workflows/showcase_promote.yml
     sync-lockfile:
       tags: lockfile
       glob: "{packages,examples,showcase/scripts}/**/package.json"
@@ -54,30 +66,40 @@ pre-commit:
       # with `sh: 1: [: <path>: unexpected operator` because lefthook
       # interpolates the file list as space-separated words, not a single
       # quoted string, so [ saw 3+ args and tried to parse a binary op.
+      # IMPORTANT: keep this script DOUBLE-QUOTE-FREE. lefthook invokes a
+      # multi-line `run` as `sh -c "<script>"` and (in some versions / on
+      # Windows git-sh) does not escape embedded double quotes, so any `"$@"`
+      # / `[ "$#" ]` / `x=""` prematurely closes the `-c "…"` string and the
+      # shell aborts with `unexpected EOF`. Use unquoted `$@`/`$#` — staged
+      # paths in this monorepo never contain spaces. JSON is excluded from the
+      # glob above, so oxfmt never receives package.json (the old explicit
+      # package.json filter is unnecessary). ruff is scoped to .py via `case`.
       run: |
         set -- {staged_files}
-        if [ "$#" -gt 0 ]; then
-          pnpm exec oxlint --fix "$@"
-          # Defense-in-depth: filter package.json from explicit oxfmt args even though
-          # .oxfmtrc.json ignorePatterns covers it. Explicit-path invocations bypass the
-          # pattern in some tool versions; the shell filter makes the exclusion unconditional.
-          fmt_files=""; for f in "$@"; do case "$f" in */package.json|package.json) ;; *) fmt_files="$fmt_files $f" ;; esac; done
-          [ -n "$fmt_files" ] && pnpm exec oxfmt --write $fmt_files
-          # ruff v0.9+ formats JSON with trailing commas (JSONC), which breaks
-          # pnpm's JSON parser in the sync-lockfile hook. Scope it to .py only.
-          py_files=""; for f in "$@"; do case "$f" in *.py) py_files="$py_files $f";; esac; done
-          [ -n "$py_files" ] && ruff format $py_files 2>/dev/null || true
+        if [ $# -gt 0 ]; then
+          pnpm exec oxlint --fix $@
+          pnpm exec oxfmt --write $@
+          for f in $@; do
+            case $f in *.py) ruff format $f 2>/dev/null || true ;; esac
+          done
         fi
       stage_fixed: true
     test-and-check-packages:
       tags: test-packages
       env:
         NX_TUI: "false"
-      run: pnpm run test && pnpm run check:packages
+      run: |
+        set -- {staged_files}
+        if [ "$#" -gt 0 ]; then
+          projects=$(printf '%s\n' "$@" | pnpm nx show projects --affected --projects 'packages/*' --stdin --sep=,)
+          if [ -n "$projects" ]; then
+            pnpm nx run-many -t test,publint,attw --projects="$projects" --outputStyle=static
+          fi
+        fi
 
     check-plugin-skills:
       tags: plugin-skills
-      glob: "{packages/*/skills/**,skills/runtime/**,skills/react-core/**,skills/a2ui-renderer/**,scripts/sync-plugin-skills.ts,.claude-plugin/**}"
+      glob: "{packages/*/skills/**,skills/runtime/**,skills/react-core/**,skills/a2ui-renderer/**,scripts/sync-plugin-skills.ts,.claude-plugin/**,packages/runtime/package.json}"
       run: pnpm check:plugin-skills
       fail_text: |
         Plugin skill mirror is out of sync with the Intent source.

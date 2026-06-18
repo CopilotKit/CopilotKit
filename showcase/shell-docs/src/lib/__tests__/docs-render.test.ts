@@ -9,6 +9,7 @@ vi.mock("../registry", () => ({
 import {
   buildFrameworkNav,
   buildFrameworkOnlyNav,
+  CONTENT_DIR,
   inlineSnippets,
   loadDoc,
   SNIPPET_MAP,
@@ -45,6 +46,28 @@ function hasSectionPage(navTree: NavNode[], section: string, page: string) {
     if (inSection && node.type === "page" && node.title === page) return true;
   }
   return false;
+}
+
+function sectionPages(navTree: NavNode[], section: string): string[] {
+  const pages: string[] = [];
+  let inSection = false;
+  for (const node of navTree) {
+    if (node.type === "section") {
+      inSection = node.title === section;
+      continue;
+    }
+    if (!inSection) continue;
+    if (node.type === "page") pages.push(node.title);
+  }
+  return pages;
+}
+
+function collectMdxFiles(dir: string): string[] {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const filePath = path.join(dir, entry.name);
+    if (entry.isDirectory()) return collectMdxFiles(filePath);
+    return entry.isFile() && entry.name.endsWith(".mdx") ? [filePath] : [];
+  });
 }
 
 describe("inlineSnippets", () => {
@@ -132,20 +155,117 @@ describe("loadDoc", () => {
   });
 });
 
+describe("migration docs", () => {
+  it("recommends CopilotKit from the v2 entrypoint instead of CopilotKitProvider", () => {
+    const snippet = fs.readFileSync(
+      path.join(SNIPPETS_DIR, "shared/troubleshooting/migrate-to-v2.mdx"),
+      "utf8",
+    );
+
+    expect(snippet).toContain(
+      "Keep the `<CopilotKit>` provider name, but import it from `@copilotkit/react-core/v2`.",
+    );
+    expect(snippet).toContain(
+      'import { CopilotKit, useAgent } from "@copilotkit/react-core/v2";',
+    );
+    expect(snippet).toContain(
+      'import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";',
+    );
+    expect(snippet).not.toContain("CopilotKitProvider");
+  });
+
+  it("keeps v2 reference pages aligned with the CopilotKit v2 entrypoint", () => {
+    const referenceIndex = fs.readFileSync(
+      path.join(CONTENT_DIR, "..", "reference/index.mdx"),
+      "utf8",
+    );
+    const componentReference = fs.readFileSync(
+      path.join(CONTENT_DIR, "..", "reference/components/CopilotKit.mdx"),
+      "utf8",
+    );
+
+    expect(referenceIndex).toContain(
+      'import { CopilotKit } from "@copilotkit/react-core/v2";',
+    );
+    expect(referenceIndex).not.toContain(
+      "CopilotKit is imported from the root package",
+    );
+    expect(referenceIndex).not.toContain(
+      "import `CopilotKit` from `@copilotkit/react-core`",
+    );
+    expect(componentReference).toContain("`@copilotkit/react-core/v2`");
+    expect(componentReference).not.toContain("not from the v2 subpackage");
+  });
+
+  it("does not recommend stale v2 package paths in authored docs", () => {
+    const authoredDocFiles = collectMdxFiles(CONTENT_DIR);
+    const allowedRootProviderImports = new Set([
+      path.join(CONTENT_DIR, "migrate/v2.mdx"),
+    ]);
+
+    const rootProviderImports = authoredDocFiles.filter((filePath) => {
+      if (allowedRootProviderImports.has(filePath)) return false;
+      return fs
+        .readFileSync(filePath, "utf8")
+        .includes('import { CopilotKit } from "@copilotkit/react-core";');
+    });
+
+    const oldV2StyleImports = [
+      ...authoredDocFiles,
+      ...collectMdxFiles(SNIPPETS_DIR),
+    ].filter((filePath) =>
+      fs
+        .readFileSync(filePath, "utf8")
+        .includes("@copilotkit/react-ui/v2/styles.css"),
+    );
+
+    expect(rootProviderImports).toEqual([]);
+    expect(oldV2StyleImports).toEqual([]);
+  });
+});
+
 describe("framework nav", () => {
-  it("includes the shared React Native platform guide in generated framework nav", () => {
+  it("loads early-access frontmatter for gated platform guides", () => {
+    const slack = loadDoc("frontends/slack")?.fm;
+    const teams = loadDoc("frontends/teams")?.fm;
+
+    expect(slack?.earlyAccess).toBe("slack");
+    expect(slack?.hideTOC).toBe(true);
+    expect(teams?.earlyAccess).toBe("teams");
+    expect(teams?.hideTOC).toBe(true);
+  });
+
+  it("keeps frontend platform guides out of generated framework nav", () => {
     const navTree = buildFrameworkNav(
       "langgraph",
       "LangGraph (Python)",
       "langgraph-python",
     );
 
-    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Vue")).toBe(false);
   });
 
-  it("includes the shared React Native platform guide in authored framework nav", () => {
+  it("keeps frontend platform guides out of authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("built-in-agent");
 
-    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
+  });
+
+  it("uses the generated Intelligence Platform section for authored framework nav", () => {
+    const navTree = buildFrameworkOnlyNav("ag2");
+
+    expect(navTree.some((node) => node.title === "Premium Features")).toBe(
+      false,
+    );
+    expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
+    expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
+      "How the Enterprise Intelligence Platform Works",
+      "How Threads & Persistence Work",
+      "Observability",
+      "Self-Hosting Enterprise Intelligence",
+      "Threads",
+    ]);
   });
 });

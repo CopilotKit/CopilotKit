@@ -59,16 +59,12 @@ function BackendGrid() {
         {integrations.map((i) => (
           <Link
             key={i.slug}
-            href={
-              i.slug === "built-in-agent"
-                ? "/built-in-agent/quickstart"
-                : `/${i.slug}`
-            }
-            className="group relative flex min-h-[84px] items-start gap-3 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)]/30 p-3.5 no-underline transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] sm:min-h-[96px]"
+            href={i.slug === "built-in-agent" ? "/quickstart" : `/${i.slug}`}
+            className="shell-docs-radius-surface group relative flex min-h-[84px] items-start gap-3 overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)]/30 p-3.5 no-underline transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] sm:min-h-[96px]"
           >
             <span
               aria-hidden="true"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] transition-colors group-hover:bg-[var(--accent-light)]"
+              className="shell-docs-radius-icon flex h-8 w-8 shrink-0 items-center justify-center bg-[var(--accent-dim)] text-[var(--accent)] transition-colors group-hover:bg-[var(--accent-light)]"
             >
               <FrameworkLogo
                 slug={i.slug}

@@ -3,17 +3,28 @@
 import "@copilotkit/react-core/v2/styles.css";
 import {
   CopilotChat,
+  CopilotChatConfigurationProvider,
   CopilotKitProvider,
+  createA2UIMessageRenderer,
   ToolCallStatus,
   useFrontendTool,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import {
-  createA2UIMessageRenderer,
-  A2UIViewer,
+  A2UIProvider,
+  A2UIRenderer,
+  useA2UIActions,
+  viewerTheme,
 } from "@copilotkit/a2ui-renderer";
 import { z } from "zod";
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+} from "react";
 
 import { withA2UIActivityMessage } from "@/components/a2ui-activity-wrapper";
 import { theme } from "./theme";
@@ -26,6 +37,9 @@ import {
   EmailComposeLoadingState,
 } from "@/components/email-compose-view";
 import type { EmailComposeData } from "@/components/email-compose-view";
+import { ThreadsDrawer } from "@/components/threads-drawer";
+import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
+import styles from "@/components/threads-drawer/threads-drawer.module.css";
 
 // Disable static optimization for this page
 export const dynamic = "force-dynamic";
@@ -52,6 +66,123 @@ type CanvasContent =
 interface CanvasState {
   mode: "chat" | "canvas";
   content: CanvasContent | null;
+}
+
+function A2UIStaticViewer({
+  root,
+  components,
+  data,
+  styles,
+  className,
+}: {
+  root: string;
+  components: any[];
+  data: Record<string, unknown>;
+  styles?: Record<string, string>;
+  className?: string;
+}) {
+  const baseId = useId();
+  const surfaceId = useMemo(() => {
+    const definitionKey = `${root}-${JSON.stringify(components)}`;
+    let hash = 0;
+    for (let i = 0; i < definitionKey.length; i++) {
+      hash = (hash << 5) - hash + definitionKey.charCodeAt(i);
+      hash &= hash;
+    }
+    return `surface${baseId.replace(/:/g, "-")}${hash}`;
+  }, [baseId, root, components]);
+
+  if (!components.length) {
+    return (
+      <div className={className} style={{ padding: 16, color: "#666" }}>
+        No content to display
+      </div>
+    );
+  }
+
+  return (
+    <A2UIProvider theme={viewerTheme}>
+      <A2UIStaticViewerInner
+        surfaceId={surfaceId}
+        root={root}
+        components={components}
+        data={data}
+        styles={styles}
+        className={className}
+      />
+    </A2UIProvider>
+  );
+}
+
+function A2UIStaticViewerInner({
+  surfaceId,
+  root,
+  components,
+  data,
+  styles,
+  className,
+}: {
+  surfaceId: string;
+  root: string;
+  components: any[];
+  data: Record<string, unknown>;
+  styles?: Record<string, string>;
+  className?: string;
+}) {
+  const { processMessages } = useA2UIActions();
+  const lastProcessedRef = useRef<string>("");
+
+  useEffect(() => {
+    const key = `${surfaceId}-${JSON.stringify(components)}-${JSON.stringify(data)}`;
+    if (key === lastProcessedRef.current) return;
+    lastProcessedRef.current = key;
+
+    const messages: any[] = [
+      { beginRendering: { surfaceId, root, styles: styles ?? {} } },
+      { surfaceUpdate: { surfaceId, components } },
+    ];
+
+    const contents = objectToValueMaps(data);
+    if (contents.length) {
+      messages.push({
+        dataModelUpdate: { surfaceId, path: "/", contents },
+      });
+    }
+
+    processMessages(messages);
+  }, [processMessages, surfaceId, root, components, data, styles]);
+
+  return (
+    <div className={className}>
+      <A2UIRenderer surfaceId={surfaceId} />
+    </div>
+  );
+}
+
+function objectToValueMaps(obj: Record<string, unknown>): any[] {
+  return Object.entries(obj).map(([key, value]) => valueToValueMap(key, value));
+}
+
+function valueToValueMap(key: string, value: unknown): any {
+  if (typeof value === "string") return { key, valueString: value };
+  if (typeof value === "number") return { key, valueNumber: value };
+  if (typeof value === "boolean") return { key, valueBoolean: value };
+  if (value === null || value === undefined) return { key };
+  if (Array.isArray(value)) {
+    return {
+      key,
+      valueMap: value.map((item, index) =>
+        valueToValueMap(String(index), item),
+      ),
+    };
+  }
+  if (typeof value === "object") {
+    return {
+      key,
+      valueMap: objectToValueMaps(value as Record<string, unknown>),
+    };
+  }
+  return { key };
 }
 
 const CANVAS_TITLES: Record<CanvasContent["type"], string> = {
@@ -106,7 +237,7 @@ function parseEmailList(raw: string): Email[] {
     id: String(i),
     from: e.from,
     subject: e.subject,
-    preview: e.body?.substring(0, 80) || "",
+    preview: e.body?.slice(0, 80) || "",
     body: e.body || "",
     date: e.date || "Today",
     isRead: e.isRead ?? false,
@@ -286,7 +417,7 @@ function CanvasContentRenderer({ content }: { content: CanvasContent }) {
   switch (content.type) {
     case "dashboard":
       return (
-        <A2UIViewer
+        <A2UIStaticViewer
           root={content.root}
           components={content.components}
           data={content.data}
@@ -711,6 +842,7 @@ export default function Page() {
     mode: "chat",
     content: null,
   });
+  const [threadId, setThreadId] = useState<string | undefined>(undefined);
 
   const handleCanvasUpdate = useCallback((content: CanvasContent) => {
     setCanvas({ mode: "canvas", content });
@@ -732,26 +864,43 @@ export default function Page() {
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
+      useSingleEndpoint={false}
       showDevConsole="auto"
       renderActivityMessages={activityRenderers}
     >
-      <div
-        className={`a2ui-chat-container flex h-full min-h-0 overflow-hidden ${isCanvasMode ? "layout-split" : "layout-chat"}`}
-      >
-        {isCanvasMode && canvas.content && (
-          <Canvas content={canvas.content} onClose={handleShowChat} />
-        )}
-        <div
-          className={`chat-panel flex flex-col min-h-0 overflow-hidden ${isCanvasMode ? "chat-sidebar" : "flex-1"}`}
-          {...(isCanvasMode ? { "data-sidebar-chat": true } : {})}
-        >
-          <Chat
-            isCanvasMode={isCanvasMode}
-            hasCanvasContent={canvas.content !== null}
-            onCanvasUpdate={handleCanvasUpdate}
-            onShowChat={handleShowChat}
-            onShowCanvas={handleShowCanvas}
+      <div className={`${styles.layout} threadsLayout`}>
+        <ThreadsPanelGate>
+          <ThreadsDrawer
+            agentId="my_a2ui_agent"
+            threadId={threadId}
+            onThreadChange={setThreadId}
           />
+        </ThreadsPanelGate>
+        <div className={styles.mainPanel}>
+          <CopilotChatConfigurationProvider
+            agentId="my_a2ui_agent"
+            threadId={threadId}
+          >
+            <div
+              className={`a2ui-chat-container flex h-full min-h-0 overflow-hidden ${isCanvasMode ? "layout-split" : "layout-chat"}`}
+            >
+              {isCanvasMode && canvas.content && (
+                <Canvas content={canvas.content} onClose={handleShowChat} />
+              )}
+              <div
+                className={`chat-panel flex flex-col min-h-0 overflow-hidden ${isCanvasMode ? "chat-sidebar" : "flex-1"}`}
+                {...(isCanvasMode ? { "data-sidebar-chat": true } : {})}
+              >
+                <Chat
+                  isCanvasMode={isCanvasMode}
+                  hasCanvasContent={canvas.content !== null}
+                  onCanvasUpdate={handleCanvasUpdate}
+                  onShowChat={handleShowChat}
+                  onShowCanvas={handleShowCanvas}
+                />
+              </div>
+            </div>
+          </CopilotChatConfigurationProvider>
         </div>
       </div>
     </CopilotKitProvider>

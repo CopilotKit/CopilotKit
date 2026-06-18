@@ -3,7 +3,7 @@ name: a2ui-renderer
 description: >
   Render A2UI (Agent-to-UI declarative surfaces) in CopilotKit v2. Enable the
   runtime via CopilotRuntime({ a2ui: {...} }), then enable the provider via
-  <CopilotKitProvider a2ui={{ theme }}>. Auto-activates via /info — do NOT
+  <CopilotKit a2ui={{ theme }}>. Auto-activates via /info — do NOT
   manually pass renderActivityMessages. createA2UIMessageRenderer ships from
   @copilotkit/react-core/v2; low-level primitives (A2UIProvider, A2UIRenderer,
   createCatalog) ship from @copilotkit/a2ui-renderer. Covers theme
@@ -26,7 +26,7 @@ sources:
   - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/runtime.ts"
 ---
 
-This skill builds on copilotkit/react-core (for CopilotKitProvider fundamentals) and
+This skill builds on copilotkit/react-core (for `CopilotKit` provider fundamentals) and
 copilotkit/runtime (for CopilotRuntime fundamentals). Read those first.
 
 ## Setup
@@ -84,12 +84,12 @@ export async function action({ request }: Route.ActionArgs) {
 ### Client side (`app/root.tsx` or the app shell)
 
 ```tsx
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
 export default function App() {
   return (
-    <CopilotKitProvider
+    <CopilotKit
       runtimeUrl="/api/copilotkit"
       a2ui={{
         theme: {
@@ -100,7 +100,7 @@ export default function App() {
       }}
     >
       <CopilotChat agentId="default" className="h-full" />
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```
@@ -141,9 +141,9 @@ const catalog = createCatalog(
   { includeBasicCatalog: true },
 );
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ theme, catalog }}>
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme, catalog }}>
   <CopilotChat agentId="default" />
-</CopilotKitProvider>;
+</CopilotKit>;
 ```
 
 `extractSchema(definitions)` is available for passing a JSON-serializable
@@ -154,7 +154,7 @@ real runtime schema value (Zod).
 ### Override the loading skeleton
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   a2ui={{
     theme,
@@ -162,7 +162,7 @@ real runtime schema value (Zod).
   }}
 >
   <CopilotChat agentId="default" />
-</CopilotKitProvider>
+</CopilotKit>
 ```
 
 ## Common Mistakes
@@ -175,7 +175,7 @@ Wrong:
 // server
 new CopilotRuntime({ agents: { default: agent } });
 // client
-<CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ theme }} />;
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme }} />;
 ```
 
 Correct:
@@ -184,7 +184,7 @@ Correct:
 // server
 new CopilotRuntime({ agents: { default: agent }, a2ui: {} });
 // client
-<CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ theme }} />;
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme }} />;
 ```
 
 Without `runtime.a2ui`, `/info` never flags A2UI and the provider's a2ui prop
@@ -199,7 +199,7 @@ Wrong:
 ```tsx
 import { createA2UIMessageRenderer } from "@copilotkit/react-core/v2";
 
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   renderActivityMessages={[createA2UIMessageRenderer({ theme })]}
 />;
@@ -208,10 +208,10 @@ import { createA2UIMessageRenderer } from "@copilotkit/react-core/v2";
 Correct:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ theme }} />
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme }} />
 ```
 
-CopilotKitProvider auto-detects runtime A2UI via `/info` and injects the
+The `CopilotKit` provider auto-detects runtime A2UI via `/info` and injects the
 built-in renderer. Passing it through `renderActivityMessages` duplicates the
 renderer and can race with the auto-injected one.
 
@@ -290,7 +290,7 @@ import { createA2UIMessageRenderer } from "@copilotkitnext/a2ui-renderer";
 Correct:
 
 ```ts
-// Low-level primitives (rarely needed — CopilotKitProvider a2ui prop is the default path):
+// Low-level primitives (rarely needed — the CopilotKit provider's a2ui prop is the default path):
 import {
   A2UIProvider,
   A2UIRenderer,

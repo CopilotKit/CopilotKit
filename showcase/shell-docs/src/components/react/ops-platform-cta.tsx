@@ -62,7 +62,7 @@ export interface OpsPlatformCTAProps {
    * analytics can attribute the click. Shell-docs does not yet ship a
    * client-side PostHog capture; UTM is the source of truth here. */
   surface: string;
-  /** Optional override for the link label. Defaults to "Get Intelligence free" */
+  /** Optional override for the link label. Defaults to "Get Enterprise Intelligence free" */
   ctaLabel?: string;
   /** Optional className override for the outermost element */
   className?: string;
@@ -87,7 +87,7 @@ export function OpsPlatformCTA({
   title,
   body,
   surface,
-  ctaLabel = "Get Intelligence free",
+  ctaLabel = "Get Enterprise Intelligence free",
   className,
 }: OpsPlatformCTAProps) {
   const href = buildHref(surface);
@@ -95,7 +95,7 @@ export function OpsPlatformCTA({
   if (variant === "info") {
     return (
       <div
-        className={`not-prose my-6 flex gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] p-4 ${className ?? ""}`}
+        className={`shell-docs-radius-surface not-prose my-6 flex gap-3 border border-[var(--border)] bg-[var(--bg-elevated)] p-4 shadow-[var(--shadow-control)] ${className ?? ""}`}
       >
         <Info className="h-5 w-5 text-[var(--accent)] mt-0.5 flex-shrink-0" />
         <div className="min-w-0 flex-1">
@@ -112,10 +112,7 @@ export function OpsPlatformCTA({
             // HubSpot's analytics tag rewrites the outbound href client-side;
             // see suppressHydrationWarning note on the card variant below.
             suppressHydrationWarning
-            // Inline color wins over .reference-content .not-prose a { color: inherit }
-            // in globals.css (which would otherwise drag this to the prose text color).
-            style={{ color: "var(--accent)" }}
-            className="inline-flex items-center gap-1 mt-2 text-sm font-medium hover:opacity-80 no-underline"
+            className="shell-docs-cta-accent mt-2 inline-flex items-center gap-1 text-sm font-medium no-underline hover:opacity-80"
             data-cta-surface={surface}
             data-cta-variant={variant}
           >
@@ -131,10 +128,7 @@ export function OpsPlatformCTA({
     // Compact sibling of the `card` variant. Same visual language — light
     // bordered surface, an accent left-edge stripe as the brand signature, the
     // CopilotKit kite as the authored stamp, and a real text-link CTA in
-    // `--accent`. Inline color + textDecoration on the anchor defeat the
-    // .reference-content a { text-decoration: underline; color: accent } rule
-    // from globals.css that would otherwise drag the whole card to look like a
-    // prose link.
+    // `--accent`.
     return (
       <a
         href={href}
@@ -144,38 +138,27 @@ export function OpsPlatformCTA({
         suppressHydrationWarning
         data-cta-surface={surface}
         data-cta-variant={variant}
-        style={{ textDecoration: "none", color: "var(--text)" }}
-        className={`not-prose group relative my-6 flex flex-col gap-3 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 pl-5 transition-colors duration-150 hover:border-[var(--accent)] sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${className ?? ""}`}
+        className={`shell-docs-cta-link shell-docs-radius-surface not-prose group relative my-6 flex flex-col gap-3 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] p-4 pl-5 shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[var(--accent)] sm:flex-row sm:items-center sm:justify-between sm:gap-4 ${className ?? ""}`}
       >
         {/* 2px accent stripe — the structural brand signature. */}
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute left-0 top-0 h-full w-[2px]"
-          style={{ background: "var(--accent)" }}
+          className="shell-docs-cta-stripe pointer-events-none absolute left-0 top-0 h-full w-[2px]"
         />
         <div className="flex items-start gap-3 min-w-0">
           <CopilotKitMark className="mt-0.5 h-5 w-[18px] flex-shrink-0" />
           <div className="min-w-0">
-            <div
-              className="text-[15px] font-semibold leading-snug"
-              style={{ color: "var(--text)" }}
-            >
+            <div className="text-[15px] font-semibold leading-snug text-[var(--text)]">
               {title}
             </div>
             {body ? (
-              <div
-                className="text-[13.5px] leading-relaxed mt-1"
-                style={{ color: "var(--text-muted)" }}
-              >
+              <div className="mt-1 text-[13.5px] leading-relaxed text-[var(--text-muted)]">
                 {body}
               </div>
             ) : null}
           </div>
         </div>
-        <span
-          className="inline-flex items-center gap-1 whitespace-nowrap text-sm font-semibold"
-          style={{ color: "var(--accent)" }}
-        >
+        <span className="shell-docs-cta-accent inline-flex items-center gap-1 whitespace-nowrap text-sm font-semibold">
           {ctaLabel}
           <ArrowRight className="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" />
         </span>
@@ -193,12 +176,7 @@ export function OpsPlatformCTA({
         suppressHydrationWarning
         data-cta-surface={surface}
         data-cta-variant={variant}
-        // Inline textDecoration wins over .reference-content a { text-decoration: underline }
-        // in globals.css. The Tailwind `no-underline` class loses on specificity here because
-        // `not-prose` is on the <a> itself, not an ancestor — so the descendant exception
-        // .reference-content .not-prose a doesn't apply.
-        style={{ textDecoration: "none" }}
-        className={`not-prose group flex items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 transition-colors duration-150 hover:border-[var(--accent)] ${className ?? ""}`}
+        className={`shell-docs-cta-link shell-docs-radius-surface not-prose group flex items-start gap-3 border border-[var(--border)] bg-[var(--bg-surface)] p-4 shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[var(--accent)] ${className ?? ""}`}
       >
         <CopilotKitMark className="mt-0.5 h-5 w-[18px] flex-shrink-0" />
         <div>
@@ -233,8 +211,6 @@ export function OpsPlatformCTA({
   //  - The accent stripe is the same structural cue Linear uses on important
   //    inline notices — restrained but unmistakable.
   //
-  // Inline color/textDecoration defeat .reference-content a { ... } rules
-  // from globals.css (same battle as the other variants).
   return (
     <a
       href={href}
@@ -247,40 +223,29 @@ export function OpsPlatformCTA({
       suppressHydrationWarning
       data-cta-surface={surface}
       data-cta-variant={variant}
-      style={{ textDecoration: "none", color: "var(--text)" }}
-      className={`not-prose group relative my-8 flex flex-col items-stretch gap-4 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 pl-6 transition-colors duration-150 hover:border-[var(--accent)] sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6 sm:pl-7 ${className ?? ""}`}
+      className={`shell-docs-cta-link shell-docs-radius-surface not-prose group relative my-8 flex flex-col items-stretch gap-4 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] p-5 pl-6 shadow-[var(--shadow-control)] transition-colors duration-150 hover:border-[var(--accent)] sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:p-6 sm:pl-7 ${className ?? ""}`}
     >
       {/* 2px accent stripe — the structural brand signature. Positioned via the
           parent's relative + overflow-hidden so the stripe sits flush against
           the rounded corners without bleeding past them. */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute left-0 top-0 h-full w-[2px]"
-        style={{ background: "var(--accent)" }}
+        className="shell-docs-cta-stripe pointer-events-none absolute left-0 top-0 h-full w-[2px]"
       />
       <div className="flex items-start gap-4 min-w-0">
         <CopilotKitMark className="mt-0.5 h-6 w-[22px] flex-shrink-0" />
         <div className="min-w-0">
-          <div
-            className="text-lg font-semibold leading-tight tracking-tight"
-            style={{ color: "var(--text)" }}
-          >
+          <div className="text-lg font-semibold leading-tight tracking-tight text-[var(--text)]">
             {title}
           </div>
           {body ? (
-            <div
-              className="text-sm leading-relaxed mt-1.5"
-              style={{ color: "var(--text-muted)" }}
-            >
+            <div className="mt-1.5 text-sm leading-relaxed text-[var(--text-muted)]">
               {body}
             </div>
           ) : null}
         </div>
       </div>
-      <span
-        className="inline-flex items-center gap-1.5 whitespace-nowrap text-sm font-semibold flex-shrink-0"
-        style={{ color: "var(--accent)" }}
-      >
+      <span className="shell-docs-cta-accent inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap text-sm font-semibold">
         {ctaLabel}
         <ArrowRight className="h-4 w-4 transition-transform duration-150 group-hover:translate-x-0.5" />
       </span>

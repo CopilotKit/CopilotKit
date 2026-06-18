@@ -1,0 +1,65 @@
+---
+title: Which Hook for Which Job
+description: Choose the right CopilotKit v2 hook for tools, rendering, human review, and custom chat surfaces.
+icon: "lucide/Map"
+doc_type: explanation
+frontend:
+  kind: frontend-variant
+  fallback: hide
+---
+
+CopilotKit v2 has a focused set of hooks for letting the agent *do things* in
+your app and for *rendering* what it does. They split into two groups: hooks that
+register behavior, and hooks that register how a tool call looks in the chat.
+Use this page as the quick map, then follow each hook to its full reference.
+
+## The 30-second version
+
+| Hook | Use it when you want to |
+| --- | --- |
+| [`useFrontendTool`](/reference/hooks/useFrontendTool) | Give the agent a client-side tool to call (run logic in the browser), with optional inline UI. |
+| [`useRenderTool`](/reference/hooks/useRenderTool) | Render the UI for a specific tool call by name (typed), without defining the tool's handler. |
+| [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool) | Provide one wildcard renderer for any tool call that has no specific renderer. |
+| [`useComponent`](/reference/hooks/useComponent) | Register a React component as a named tool renderer (component-first generative UI). |
+| [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) | Pause the agent on a tool call and wait for the user to approve, edit, or supply input. |
+| [`useInterrupt`](/reference/hooks/useInterrupt) | Handle an agent-initiated interrupt and resume execution once the user responds. |
+| [`useRenderToolCall`](/reference/hooks/useRenderToolCall) | Get a render function for tool calls to drive your own custom chat surface (headless). |
+
+## How to choose
+
+Start with the verb.
+
+- **"The agent should *run* something in my app."** Use [`useFrontendTool`](/reference/hooks/useFrontendTool).
+  You define the tool's schema and handler; the agent calls it. Add a `render`
+  to also show inline UI for the call.
+- **"The agent's tool call should *look* like something."** Use a render hook.
+  Use [`useRenderTool`](/reference/hooks/useRenderTool) to render one named tool,
+  [`useComponent`](/reference/hooks/useComponent) to bind a React component to a
+  tool name, or [`useDefaultRenderTool`](/reference/hooks/useDefaultRenderTool)
+  as the catch-all for anything you didn't render explicitly.
+- **"The agent should *stop and ask me* before continuing."** Use
+  [`useHumanInTheLoop`](/reference/hooks/useHumanInTheLoop) for tool-level
+  approval/edit gates, or [`useInterrupt`](/reference/hooks/useInterrupt) for
+  agent-driven interrupts you resume with user input.
+- **"I'm building my *own* chat UI."** Use
+  [`useRenderToolCall`](/reference/hooks/useRenderToolCall). It returns the
+  renderer function so you can place tool-call output anywhere in a headless
+  layout.
+
+### Tool vs. renderer
+
+Two hooks in this set *register a tool* the agent can call: `useFrontendTool`
+(schema and handler) and `useComponent` (a component-first
+shorthand that wraps `useFrontendTool` internally, registering a tool whose
+"handler" is rendering your component). The render-only hooks, `useRenderTool`,
+`useDefaultRenderTool`, and `useRenderToolCall`, *don't* define a tool; they
+only *render* tool calls, which can come from your frontend (`useFrontendTool` /
+`useComponent`) or from the agent/backend. That's why you can pair a backend
+tool with `useRenderTool` and never write a handler on the client.
+
+## Related
+
+- [Frontend Tools](/frontend-tools): the full guide to `useFrontendTool`.
+- [Generative UI](/generative-ui/tool-rendering): rendering tool calls as rich UI.
+- [Human in the Loop](/human-in-the-loop): approval and interrupt patterns.
+- [Hooks reference](/reference): every v2 hook in detail.

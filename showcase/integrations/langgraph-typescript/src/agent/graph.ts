@@ -18,6 +18,7 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+import { getA2UITools } from "@ag-ui/langgraph";
 import { makeChatOpenAI } from "./openai-headers";
 import {
   convertActionsToDynamicStructuredTools,
@@ -30,8 +31,6 @@ import {
   getSalesTodosImpl,
   scheduleMeetingImpl,
   searchFlightsImpl,
-  generateA2uiImpl,
-  buildA2uiOperationsFromToolCall,
 } from "../../shared-tools";
 
 // ---------------------------------------------------------------------------
@@ -161,59 +160,14 @@ const searchFlights = tool(
   },
 );
 
-const generateA2ui = tool(
-  async ({ messages, contextEntries }, config) => {
-    const prep = generateA2uiImpl({ messages, contextEntries });
-
-    const secondaryModel = makeChatOpenAI(config, {
-      temperature: 0,
-      model: "gpt-4.1",
-    });
-    const renderTool = tool(async () => "rendered", {
-      name: "render_a2ui",
-      description: "Render a dynamic A2UI v0.9 surface.",
-      schema: z.object({
-        surfaceId: z.string().describe("Unique surface identifier."),
-        catalogId: z.string().describe("The catalog ID."),
-        components: z
-          .array(z.record(z.unknown()))
-          .describe("A2UI v0.9 component array."),
-        data: z
-          .record(z.unknown())
-          .optional()
-          .describe("Optional initial data model."),
-      }),
-    });
-
-    const modelWithTool = secondaryModel.bindTools!([renderTool], {
-      tool_choice: { type: "function", function: { name: "render_a2ui" } },
-    });
-
-    const response = await modelWithTool.invoke([
-      new SystemMessage({ content: prep.systemPrompt }),
-      ...prep.messages.map((m) => m as any),
-    ]);
-
-    const aiMsg = response as AIMessage;
-    if (!aiMsg.tool_calls?.length) {
-      return JSON.stringify({ error: "LLM did not call render_a2ui" });
-    }
-
-    const args = aiMsg.tool_calls[0].args as Record<string, unknown>;
-    return JSON.stringify(buildA2uiOperationsFromToolCall(args));
-  },
-  {
-    name: "generate_a2ui",
-    description: "Generate dynamic A2UI surface components",
-    schema: z.object({
-      messages: z.array(z.record(z.unknown())).describe("Chat messages"),
-      contextEntries: z
-        .array(z.record(z.unknown()))
-        .optional()
-        .describe("Context entries"),
-    }),
-  },
-);
+// Dynamic A2UI via the canonical ag-ui factory (same as beautiful_chat /
+// a2ui_dynamic). A secondary LLM designs the surface; the factory forces the
+// host catalog and emits the a2ui_operations envelope. Replaces the prior
+// hand-rolled generate_a2ui tool.
+const generateA2ui = getA2UITools({
+  model: new ChatOpenAI({ model: "gpt-4.1" }),
+  defaultCatalogId: "copilotkit://app-dashboard-catalog",
+});
 
 const tools = [
   getWeather,

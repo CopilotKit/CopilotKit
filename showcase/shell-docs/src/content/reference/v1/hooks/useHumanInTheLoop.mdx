@@ -4,14 +4,14 @@ description: "The useHumanInTheLoop hook enables human approval and interaction 
 ---
 
 <Callout type="warning">
-  `useHumanInTheLoop` is still supported, but we recommend migrating to [`useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop) from the v2 API.
+  This is the v1 `useHumanInTheLoop`, which takes an array of parameter definitions. It is still supported, but we recommend migrating to the [v2 `useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop) (from `@copilotkit/react-core/v2`), which uses Zod schemas for parameters.
 </Callout>
 
 `useHumanInTheLoop` pauses AI execution to request human input or approval. When the AI calls this
 tool, it stops and waits for the user to respond through your custom UI before continuing. This is
 essential for sensitive operations, confirmations, or collecting information that only the user can provide.
 
-Unlike `useFrontendTool`, there's no handler function—instead, your render function receives a `respond`
+Unlike `useFrontendTool`, there's no handler function. Instead, your render function receives a `respond`
 callback that sends the user's input back to the AI. The AI execution remains paused until `respond` is called,
 making this a true blocking interaction.
 
@@ -233,5 +233,5 @@ A React component that renders the interactive UI for human input. The component
 </PropertyReference>
 
 <PropertyReference name="available" type="'disabled' | 'enabled'"  >
-Whether the tool is available. Set to "disabled" to prevent the tool from being called.
+Currently non-functional in this v1 hook. The value is accepted for API compatibility but ignored, so setting `"disabled"` does not prevent the tool from being registered or called.
 </PropertyReference>

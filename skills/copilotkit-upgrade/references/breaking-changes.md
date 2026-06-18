@@ -43,9 +43,9 @@ The most fundamental breaking change is the protocol layer. v1 used a GraphQL-ba
 
 ## Provider Changes
 
-### Component rename
+### Component import path change
 
-`CopilotKit` is renamed to `CopilotKitProvider`.
+The provider keeps the name `CopilotKit`; the import path changes from the package root (`@copilotkit/react-core`, legacy v1) to the `/v2` subpath (`@copilotkit/react-core/v2`). The `/v2` subpath also exports a `CopilotKitProvider` component -- do **not** migrate to it. It is a functionality subset of `CopilotKit`, which is the compatibility bridge across v1 and v2 (its `CopilotKitProps` extends `CopilotKitProviderProps`, so every `CopilotKitProvider` prop works on it).
 
 ### Props changes
 
@@ -53,7 +53,7 @@ The most fundamental breaking change is the protocol layer. v1 used a GraphQL-ba
 | -------------- | ------------------------------- | -------------------------------------------------------------- |
 | `runtimeUrl`   | Kept                            | Same behavior                                                  |
 | `headers`      | Kept                            | Same behavior                                                  |
-| `publicApiKey` | Kept                            | Same behavior (also `publicLicenseKey` alias)                  |
+| `publicApiKey` | Kept (deprecated)               | `publicLicenseKey` is the canonical name                       |
 | `properties`   | Kept                            | Same behavior                                                  |
 | `agents`       | Removed                         | Use `selfManagedAgents` or `agents__unsafe_dev_only`           |
 | `guardrails_c` | Removed                         | --                                                             |

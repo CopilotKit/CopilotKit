@@ -3,7 +3,7 @@ import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 ## What is this?
 
-CopilotKit Intelligence — the platform that powers threads, shared state, the inspector, and observability — can be self-hosted on your own Kubernetes cluster using the `copilot-intelligence` Helm chart. You run the control plane and data plane inside your own network boundary; the chart leaves you in charge of identity, storage, and secrets.
+Enterprise Intelligence — the platform that powers threads, shared state, the inspector, and observability — can be self-hosted on your own Kubernetes cluster using the `copilot-intelligence` Helm chart. You run the control plane and data plane inside your own network boundary; the chart leaves you in charge of identity, storage, and secrets.
 
 **What you bring:**
 
@@ -23,10 +23,10 @@ Plus a `database-migrations` Job, a `thread-culler` CronJob, and the usual suppo
 
 ## When should I use this?
 
-- Your organization requires CopilotKit Intelligence to run inside your own VPC or data center for compliance, data residency, or security reasons
-- You want to connect Intelligence to internal databases, identity providers, or secret stores that are not reachable from Copilot Cloud
+- Your organization requires Enterprise Intelligence to run inside your own VPC or data center for compliance, data residency, or security reasons
+- You want to connect Enterprise Intelligence to internal databases, identity providers, or secret stores that are not reachable from Copilot Cloud
 - You need to operate the platform under your existing Kubernetes tooling, CI/CD, and observability stack
-- You have a Enterprise Intelligence Platform license and the platform-engineering capacity to run a production Kubernetes workload
+- You have an Enterprise Intelligence Platform license and the platform-engineering capacity to run a production Kubernetes workload
 
 <Callout type="info" title="Validate locally before committing to a real cluster">
 The chart installs the same way against a local Docker Desktop or k3d cluster as against a production one, so walk this guide end-to-end on your laptop first. Two local paths are supported:
@@ -80,7 +80,7 @@ Before starting, make sure the following are in place. The [How the Enterprise I
   <Step>
     ### Prepare your Kubernetes cluster
 
-    Ensure `kubectl` points to the cluster that will run Intelligence.
+    Ensure `kubectl` points to the cluster that will run Enterprise Intelligence.
 
     ```bash title="Terminal"
     kubectl config current-context
@@ -555,5 +555,5 @@ Per-service keys `podDisruptionBudget`, `podAntiAffinity`, and `networkPolicy` a
 ## Next steps
 
 - **Understand how it works:** [How the Enterprise Intelligence Platform Works](/learn/intelligence-platform) — architecture, multi-tenancy model, platform layering, and the decision between hosted and self-hosted
-- **Premium features overview:** [CopilotKit Premium](/premium/overview) — all premium capabilities that require an Intelligence license
-- **Use threads in your app:** [Threads](/threads) — the persistent-conversation surface powered by the Intelligence Platform you just deployed
+- **Enterprise Intelligence Platform overview:** [Enterprise Intelligence Platform](/premium/overview) — hosted and self-hosted capabilities
+- **Use threads in your app:** [Threads](/threads) — the persistent-conversation surface powered by the Enterprise Intelligence Platform you just deployed

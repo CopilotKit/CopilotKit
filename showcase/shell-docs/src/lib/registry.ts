@@ -102,6 +102,18 @@ export interface Registry {
 
 const registry = registryData as Registry;
 
+/**
+ * The soft-default framework whose authored docs are served at the ROOT
+ * URL surface (`/quickstart`, `/server-tools`, …) instead of under a
+ * `/<framework>/` prefix. `/built-in-agent/:path*` permanently
+ * redirects to `/:path*` (next.config.ts).
+ *
+ * Client components must not import this (registry.json would leak into
+ * the client bundle) — they use DEFAULT_FRAMEWORK in
+ * `components/framework-provider.tsx`, which mirrors this value.
+ */
+export const ROOT_FRAMEWORK = "built-in-agent";
+
 const DOCS_ONLY_INTEGRATIONS: Integration[] = [
   {
     name: "Deep Agents",
@@ -281,7 +293,7 @@ export function getDemo(
 const CATEGORY_LABELS: Record<string, string> = {
   popular: "Most Popular",
   "agent-framework": "Agent Frameworks",
-  "enterprise-platform": "Enterprise",
+  "enterprise-platform": "Intelligence Platform",
   "provider-sdk": "Provider SDKs",
   protocol: "Protocols & Standards",
   emerging: "Emerging",

@@ -16,7 +16,6 @@ export function usePinToSend({
 }: UsePinToSendOptions): void {
   const { id, sendNonce } = useContext(LastUserMessageContext);
   const lastNonceRef = useRef<number>(-1);
-  const currentSpacerHeightRef = useRef<number>(0);
 
   useEffect(() => {
     if (sendNonce === lastNonceRef.current) return;
@@ -50,7 +49,6 @@ export function usePinToSend({
     const spacerHeight = Math.max(0, viewportHeight - bubbleHeight - topOffset);
 
     spacerEl.style.height = `${spacerHeight}px`;
-    currentSpacerHeightRef.current = spacerHeight;
 
     const raf = requestAnimationFrame(() => {
       // Scroll so the BUBBLE is `topOffset` from the viewport top — the
@@ -60,10 +58,9 @@ export function usePinToSend({
       scrollEl.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
     });
 
-    // Shrink-only ResizeObserver: as the assistant response grows below the
-    // anchored user message, collapse the spacer by the same amount so total
-    // scrollable space below the bubble stays constant (and the bubble stays
-    // pinned). Never grow the spacer after initial sizing.
+    // As content below the anchored user message changes, adjust the spacer by
+    // the same amount so total scrollable space below the bubble stays
+    // constant and the bubble stays pinned.
     const ro = new ResizeObserver(() => {
       if (!contentEl || !spacerEl || !scrollEl) return;
       const contentHeight = contentEl.getBoundingClientRect().height;
@@ -71,10 +68,7 @@ export function usePinToSend({
       const consumedBelow =
         contentHeight - targetOffsetWithinContent - userMessageHeight;
       const remaining = Math.max(0, spacerHeight - consumedBelow);
-      if (remaining < currentSpacerHeightRef.current) {
-        spacerEl.style.height = `${remaining}px`;
-        currentSpacerHeightRef.current = remaining;
-      }
+      spacerEl.style.height = `${remaining}px`;
     });
     ro.observe(contentEl);
 

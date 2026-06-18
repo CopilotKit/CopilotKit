@@ -5,6 +5,14 @@ icon: "lucide/Play"
 hideTOC: true
 ---
 
+<OpsPlatformCTA
+  variant="card"
+  title="Ship Agno to production"
+  body="Add persistent threads, observability, and the inspector with the Enterprise Intelligence Platform."
+  ctaLabel="Create a free account"
+  surface="docs_agno_quickstart"
+/>
+
 ## Prerequisites
 
 Before you begin, you'll need the following:
@@ -220,8 +228,8 @@ Before you begin, you'll need the following:
                 Wrap your application with the CopilotKit provider:
 
                 ```tsx title="app/layout.tsx"
-                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
-                import "@copilotkit/react-ui/v2/styles.css";
+                import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
+                import "@copilotkit/react-core/v2/styles.css";
                 import './globals.css';
 
                 // ...

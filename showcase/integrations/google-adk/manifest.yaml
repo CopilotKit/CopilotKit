@@ -48,7 +48,6 @@ features:
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - tool-rendering
-  - tool-rendering-reasoning-chain
   - shared-state-read
   - shared-state-read-write
   - shared-state-streaming
@@ -63,9 +62,15 @@ features:
   - voice
   - agent-config
   - mcp-apps
-not_supported_features:
   - gen-ui-interrupt
+not_supported_features:
+  # Strategy-B (frontend-tool Promise) can't drive the headless `on_interrupt`
+  # event that this demo needs, and aimock can't replay custom events — so it's
+  # marked unsupported until aimock gains customEvents support (follow-up).
   - interrupt-headless
+  - reasoning-default-render
+  - agentic-chat-reasoning
+  - tool-rendering-reasoning-chain
 a2ui_pattern: schema-loading
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
@@ -182,6 +187,18 @@ demos:
       - src/app/demos/hitl-in-app/page.tsx
       - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
+  - id: gen-ui-interrupt
+    name: "Human in the Loop: Interrupts"
+    description: "Interactive time-picker rendered inline in the chat. ADK has no LangGraph interrupt() primitive, so this uses the Strategy-B adaptation — the agent calls a frontend schedule_meeting tool (useHumanInTheLoop) whose Promise resolves only once the user picks a slot, giving the same inline-card UX as the LangGraph reference."
+    tags:
+      - interactivity
+    route: /demos/gen-ui-interrupt
+    animated_preview_url:
+    highlight:
+      - src/agents/interrupt_agent.py
+      - src/app/demos/gen-ui-interrupt/page.tsx
+      - src/app/demos/gen-ui-interrupt/_components/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts
   - id: tool-rendering
     name: Tool Rendering
     description: Custom per-tool renderers (WeatherCard, FlightListCard) plus a wildcard catch-all for every other tool
@@ -198,7 +215,7 @@ demos:
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation
     tags:
-      - generative-ui
+      - controlled-generative-ui
     route: /demos/gen-ui-tool-based
     animated_preview_url:
     highlight:
@@ -322,7 +339,7 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: reasoning-custom
     name: "Reasoning: Custom"
-    description: Visible reasoning/thinking chain alongside the final answer (Gemini 2.5 thinking mode)
+    description: Visible reasoning/thinking chain alongside the final answer (Gemini 3.1 thinking mode)
     tags:
       - chat-ui
     route: /demos/reasoning-custom

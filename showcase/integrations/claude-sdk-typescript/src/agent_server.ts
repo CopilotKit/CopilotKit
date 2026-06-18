@@ -49,6 +49,20 @@ import {
   getStockPriceImpl,
   getWeatherImpl,
 } from "./agent/headless-complete-prompt";
+import {
+  GEN_UI_AGENT_SYSTEM_PROMPT,
+  SET_STEPS_TOOL_SCHEMA,
+} from "./agent/gen-ui-agent-prompt";
+import {
+  REASONING_CHAIN_SYSTEM_PROMPT,
+  ROLL_D20_TOOL_SCHEMA,
+  ROLL_DICE_TOOL_SCHEMA,
+  SEARCH_FLIGHTS_TOOL_SCHEMA,
+  TOOL_RENDERING_SYSTEM_PROMPT,
+  rollD20Impl,
+  rollDiceImpl,
+  searchFlightsImpl,
+} from "./agent/tool-rendering-prompts";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -104,7 +118,82 @@ function extractForwardedHeaders(req: Request): Record<string, string> {
       out[key] = value;
     }
   }
+  // CVDIAG (als-snapshot): record whether the inbound x-aimock-context
+  // discriminator was present at the moment we capture the inbound
+  // headers off the Express request. Never log the full value — prefix
+  // only. Header lookups are case-insensitive against the captured map.
+  const lookup = (name: string): string | undefined => {
+    for (const [k, v] of Object.entries(out)) {
+      if (k.toLowerCase() === name) return v;
+    }
+    return undefined;
+  };
+  const slug = lookup("x-aimock-context");
+  const runId = lookup("x-diag-run-id");
+  const hops = lookup("x-diag-hops");
+  const hopCount = hops ? hops.split(",").filter(Boolean).length : 0;
+  console.log(
+    `CVDIAG component=route-claude-sdk-ts boundary=als-snapshot ` +
+      `run_id=${runId ?? "none"} slug=${slug ?? "MISSING"} ` +
+      `header_present=${slug != null} ` +
+      `header_value_prefix=${slug ? slug.slice(0, 12) : ""} ` +
+      `hop=${hops ? hopCount : "-"} status=${slug ? "ok" : "miss"} ` +
+      `test_id=${lookup("x-test-id") ?? "none"} error=`,
+  );
   return out;
+}
+
+/**
+ * CVDIAG (outbound-llm) choke-point for the claude-sdk-ts backend. Returns
+ * a NEW headers map (never mutates the caller's) with this layer's hop tag
+ * appended to the x-diag-hops breadcrumb, and logs header presence at the
+ * moment the outbound Anthropic request is built. x-diag-run-id /
+ * x-diag-hops ride the same x-* forwarding path as x-aimock-context (both
+ * captured by `extractForwardedHeaders`); we only append the breadcrumb hop
+ * here. Returns the augmented map so callers spread it into the SDK
+ * `RequestOptions.headers`.
+ */
+function diagOutboundHeaders(
+  forwardedHeaders: Record<string, string>,
+): Record<string, string> {
+  const lookup = (name: string): string | undefined => {
+    for (const [k, v] of Object.entries(forwardedHeaders)) {
+      if (k.toLowerCase() === name) return v;
+    }
+    return undefined;
+  };
+  const slug = lookup("x-aimock-context");
+  const runId = lookup("x-diag-run-id");
+  // GATING RULE: only deviate from the original control flow (append the
+  // x-diag-hops breadcrumb, emit the per-outbound CVDIAG log) when a
+  // diagnostic header is present (x-diag-run-id OR x-aimock-context). On
+  // non-diagnostic traffic return the forwarded headers UNCHANGED so the
+  // outbound Anthropic request is byte-identical to pre-instrumentation, and
+  // skip the noisy per-outbound log.
+  const diagnosticPresent = runId != null || slug != null;
+  if (!diagnosticPresent) {
+    return forwardedHeaders;
+  }
+  const priorHops = lookup("x-diag-hops") ?? "";
+  const nextHops = priorHops
+    ? `${priorHops},backend-claude-sdk-ts`
+    : "backend-claude-sdk-ts";
+  // Build a fresh map so we don't mutate the shared forwardedHeaders that
+  // may be reused across multiple outbound calls in the agentic loop.
+  const augmented: Record<string, string> = {
+    ...forwardedHeaders,
+    "x-diag-hops": nextHops,
+  };
+  const hopCount = nextHops.split(",").filter(Boolean).length;
+  console.log(
+    `CVDIAG component=backend-claude-sdk-ts boundary=outbound-llm ` +
+      `run_id=${runId ?? "none"} slug=${slug ?? "MISSING"} ` +
+      `header_present=${slug != null} ` +
+      `header_value_prefix=${slug ? slug.slice(0, 12) : ""} ` +
+      `hop=${hopCount} status=${slug ? "ok" : "miss"} ` +
+      `test_id=${lookup("x-test-id") ?? "none"} error=`,
+  );
+  return augmented;
 }
 
 /**
@@ -424,15 +513,24 @@ function makeAgentHandler(config: DemoConfig = {}) {
       let toolCallId: string | null = null;
       let toolCallName: string | null = null;
       let toolCallArgs = "";
+      // Per-content-block text lifecycle (R3-A9): a single Claude turn can
+      // emit multiple text blocks interleaved with tool_use / thinking.
+      // Each text block owns its own AG-UI TEXT_MESSAGE_* triplet, opened
+      // at content_block_start (text) and closed at content_block_stop —
+      // never deferred to message_stop / finally, which would interleave
+      // TOOL_CALL_START inside an open text bubble for text→tool_use
+      // sequences. `textMessageStarted` here tracks whether the CURRENT
+      // active block has emitted START yet (text_delta is the first
+      // signal a non-empty block exists); reset per block.
+      let activeTextBlockId: string | null = null;
       let textMessageStarted = false;
-      let textMessageEnded = false;
       let reasoningMsgId: string | null = null;
       let reasoningStarted = false;
       let reasoningEnded = false;
 
       try {
         const stream = await anthropic.messages.stream(claudeRequest, {
-          headers: forwardedHeaders,
+          headers: diagOutboundHeaders(forwardedHeaders),
         });
 
         for await (const event of stream) {
@@ -449,6 +547,15 @@ function makeAgentHandler(config: DemoConfig = {}) {
                 toolCallName,
                 parentMessageId: msgId,
               });
+            } else if ((event.content_block as any).type === "text") {
+              // Open a fresh text block. The first delta opens the
+              // TEXT_MESSAGE_START; content_block_stop closes it. Each
+              // text content_block gets its own messageId so multi-text
+              // turns (e.g. text→tool_use→text) emit distinct AG-UI
+              // lifecycles instead of reusing the outer turn-scoped msgId
+              // (mirrors runAgenticLoop's per-block randomUUID, R5-A1).
+              activeTextBlockId = randomUUID();
+              textMessageStarted = false;
             } else if (
               (event.content_block as any).type === "thinking" &&
               config.enableThinking
@@ -462,14 +569,14 @@ function makeAgentHandler(config: DemoConfig = {}) {
               if (!textMessageStarted) {
                 emit({
                   type: EventType.TEXT_MESSAGE_START,
-                  messageId: msgId,
+                  messageId: activeTextBlockId ?? msgId,
                   role: "assistant",
                 });
                 textMessageStarted = true;
               }
               emit({
                 type: EventType.TEXT_MESSAGE_CONTENT,
-                messageId: msgId,
+                messageId: activeTextBlockId ?? msgId,
                 delta: event.delta.text,
               });
             } else if (event.delta.type === "input_json_delta") {
@@ -489,7 +596,7 @@ function makeAgentHandler(config: DemoConfig = {}) {
                 emit({
                   type: EventType.REASONING_MESSAGE_START,
                   messageId: reasoningMsgId,
-                  role: "assistant",
+                  role: "reasoning",
                 });
                 reasoningStarted = true;
               }
@@ -508,6 +615,19 @@ function makeAgentHandler(config: DemoConfig = {}) {
               toolCallId = null;
               toolCallName = null;
               toolCallArgs = "";
+            } else if (activeTextBlockId && textMessageStarted) {
+              // Close THIS text block now so any following tool_use /
+              // thinking block doesn't interleave inside an open bubble.
+              emit({
+                type: EventType.TEXT_MESSAGE_END,
+                messageId: activeTextBlockId,
+              });
+              activeTextBlockId = null;
+              textMessageStarted = false;
+            } else if (activeTextBlockId) {
+              // Empty text block (no text_delta arrived); nothing to close,
+              // just clear the active marker.
+              activeTextBlockId = null;
             } else if (reasoningMsgId && reasoningStarted && !reasoningEnded) {
               emit({
                 type: EventType.REASONING_MESSAGE_END,
@@ -517,27 +637,21 @@ function makeAgentHandler(config: DemoConfig = {}) {
               reasoningMsgId = null;
               reasoningStarted = false;
             }
-          } else if (event.type === "message_stop") {
-            if (textMessageStarted && !textMessageEnded) {
-              emit({
-                type: EventType.TEXT_MESSAGE_END,
-                messageId: msgId,
-              });
-              textMessageEnded = true;
-            }
           }
         }
       } finally {
-        // Lifecycle guarantee: if we ever emitted TEXT_MESSAGE_START we MUST
-        // emit a matching TEXT_MESSAGE_END, even when the stream throws
-        // mid-token. Without this, AG-UI clients tracking message-id
-        // lifecycle render a permanently in-flight assistant bubble.
-        if (textMessageStarted && !textMessageEnded) {
+        // Lifecycle guarantee: every *_START we emit MUST be paired with a
+        // matching *_END, even when the stream throws mid-token. Without
+        // this, AG-UI clients tracking message-id / tool-call lifecycle
+        // render a permanently in-flight assistant bubble, reasoning
+        // bubble, or tool-call card.
+        if (activeTextBlockId && textMessageStarted) {
           emit({
             type: EventType.TEXT_MESSAGE_END,
-            messageId: msgId,
+            messageId: activeTextBlockId,
           });
-          textMessageEnded = true;
+          activeTextBlockId = null;
+          textMessageStarted = false;
         }
         if (reasoningMsgId && reasoningStarted && !reasoningEnded) {
           emit({
@@ -545,6 +659,15 @@ function makeAgentHandler(config: DemoConfig = {}) {
             messageId: reasoningMsgId,
           });
           reasoningEnded = true;
+        }
+        if (toolCallId) {
+          emit({
+            type: EventType.TOOL_CALL_END,
+            toolCallId,
+          });
+          toolCallId = null;
+          toolCallName = null;
+          toolCallArgs = "";
         }
       }
 
@@ -610,7 +733,7 @@ async function invokeSubAgent(
       system: systemPrompt,
       messages: [{ role: "user", content: task }],
     },
-    { headers: forwardedHeaders },
+    { headers: diagOutboundHeaders(forwardedHeaders) },
   );
   const parts = response.content
     .filter((c): c is Anthropic.TextBlock => c.type === "text")
@@ -677,9 +800,65 @@ async function executeBackendTool(
 
   if (toolName === "get_stock_price") {
     const ticker = typeof toolInput.ticker === "string" ? toolInput.ticker : "";
+    // Echo value-carrying args when the model provides them (the
+    // tool-rendering aimock fixtures pass price_usd/change_pct so the
+    // card and the narration agree); fall back to the canned impl.
+    const base = getStockPriceImpl(ticker);
+    const result = {
+      ...base,
+      ...(typeof toolInput.price_usd === "number"
+        ? { price_usd: toolInput.price_usd }
+        : {}),
+      ...(typeof toolInput.change_pct === "number"
+        ? { change_pct: toolInput.change_pct }
+        : {}),
+    };
     return {
-      resultText: JSON.stringify(getStockPriceImpl(ticker)),
+      resultText: JSON.stringify(result),
       state: null,
+    };
+  }
+
+  if (toolName === "search_flights") {
+    const origin = typeof toolInput.origin === "string" ? toolInput.origin : "";
+    const destination =
+      typeof toolInput.destination === "string" ? toolInput.destination : "";
+    return {
+      resultText: JSON.stringify(searchFlightsImpl(origin, destination)),
+      state: null,
+    };
+  }
+
+  if (toolName === "roll_d20") {
+    const value =
+      typeof toolInput.value === "number" ? toolInput.value : undefined;
+    return {
+      resultText: JSON.stringify(rollD20Impl(value)),
+      state: null,
+    };
+  }
+
+  if (toolName === "roll_dice") {
+    const sides = typeof toolInput.sides === "number" ? toolInput.sides : 6;
+    return {
+      resultText: JSON.stringify(rollDiceImpl(sides)),
+      state: null,
+    };
+  }
+
+  if (toolName === "set_steps") {
+    // Gen UI (Agent-based): each call REPLACES state.steps wholesale
+    // (last-write-wins, mirroring the langgraph-typescript reducer). Keep
+    // the raw step objects — the UI consumes { id, title, status } as-is.
+    const steps = Array.isArray(toolInput.steps)
+      ? (toolInput.steps as unknown[]).filter(
+          (s): s is Record<string, unknown> => !!s && typeof s === "object",
+        )
+      : [];
+    const next = { ...state, steps };
+    return {
+      resultText: JSON.stringify({ status: "ok", count: steps.length }),
+      state: next,
     };
   }
 
@@ -782,6 +961,19 @@ interface AgenticLoopConfig {
   systemPrompt: string;
   toolSchemas: Anthropic.Tool[];
   initialState: Record<string, unknown>;
+  /** Override the model for every call in the loop (defaults to
+   *  CLAUDE_MODEL). Used by tool-rendering-reasoning-chain, which needs
+   *  a thinking-capable model. */
+  model?: string;
+  /**
+   * Enable Anthropic extended thinking and forward `thinking_delta`
+   * events as AG-UI REASONING_MESSAGE_* events (same mapping as
+   * `makeAgentHandler`). Note: the loop replays only text + tool_use
+   * blocks into subsequent turns — sufficient for aimock-backed demo
+   * runs; a real-API multi-leg thinking run would additionally require
+   * replaying the signed thinking blocks.
+   */
+  enableThinking?: boolean;
 }
 
 /**
@@ -789,9 +981,11 @@ interface AgenticLoopConfig {
  * the model emits tool_use blocks, push tool_result back into the
  * conversation, and continue until Claude stops calling tools.
  *
- * Used by the Shared State (Read + Write) and Sub-Agents demos, which
- * own their tools server-side. The default pass-through handler stays
- * unchanged — frontend-registered tools never reach this path.
+ * Used by the demos that own their tools server-side:
+ * /shared-state-read-write, /subagents, /gen-ui-agent, /a2ui-fixed-schema,
+ * /headless-complete, /tool-rendering, and /tool-rendering-reasoning-chain
+ * (seven consumers; see the route wiring below). The default pass-through
+ * handler stays unchanged — frontend-registered tools never reach this path.
  */
 async function runAgenticLoop(
   req: Request,
@@ -840,7 +1034,6 @@ async function runAgenticLoop(
 
     for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
       const msgId = randomUUID();
-      let textMessageStarted = false;
       const pendingToolCalls: Array<{
         id: string;
         name: string;
@@ -849,20 +1042,55 @@ async function runAgenticLoop(
       let activeToolCallId: string | null = null;
       let activeToolCallName: string | null = null;
       let activeToolArgs = "";
-      let assistantText = "";
+      let reasoningMsgId: string | null = null;
+      let reasoningStarted = false;
+      // Per-content-block ordered array (R3-A8): Claude's canonical
+      // pattern for tool-use turns under extended thinking is
+      // "thinking → text → tool_use → text → tool_use" (which
+      // tool-rendering-reasoning-chain explicitly trains for). We
+      // accumulate ONE entry per content block in original stream order
+      // and replay it as `assistantContent` below — both aimock strict
+      // mode and the real Anthropic API reject the continuation
+      // otherwise. Merging text from multiple blocks into a single
+      // accumulator (or buckets keyed by type) reorders the turn on
+      // replay and breaks content-order verification.
+      //
+      // Each thinking block carries its own signature (per-content-block
+      // signed); each text block carries its own optional id so we can
+      // emit per-block TEXT_MESSAGE_* lifecycles (R3-A9). Tool_use
+      // entries are appended at content_block_stop alongside being
+      // pushed to `pendingToolCalls`.
+      type AssistantBlock =
+        | { kind: "text"; messageId: string; text: string; started: boolean }
+        | { kind: "thinking"; thinking: string; signature: string }
+        | { kind: "tool_use"; id: string; name: string; argsJson: string };
+      const assistantBlocks: AssistantBlock[] = [];
+      let activeTextBlock: Extract<AssistantBlock, { kind: "text" }> | null =
+        null;
+      let activeThinkingBlock: Extract<
+        AssistantBlock,
+        { kind: "thinking" }
+      > | null = null;
 
-      let textMessageEnded = false;
       try {
         const stream = await anthropic.messages.stream(
           {
-            model: CLAUDE_MODEL,
-            max_tokens: 4096,
+            model: config.model ?? CLAUDE_MODEL,
+            max_tokens: config.enableThinking ? 8192 : 4096,
             system: config.systemPrompt,
             messages,
             stream: true,
             ...(tools.length > 0 ? { tools } : {}),
+            ...(config.enableThinking
+              ? {
+                  thinking: {
+                    type: "enabled" as const,
+                    budget_tokens: 2048,
+                  },
+                }
+              : {}),
           },
-          { headers: forwardedHeaders },
+          { headers: diagOutboundHeaders(forwardedHeaders) },
         );
 
         for await (const event of stream) {
@@ -877,21 +1105,55 @@ async function runAgenticLoop(
                 toolCallName: activeToolCallName,
                 parentMessageId: msgId,
               });
+            } else if ((event.content_block as any).type === "text") {
+              // Open a fresh text block. Each text content_block gets its
+              // own AG-UI message lifecycle AND its own entry in the
+              // ordered `assistantBlocks` replay array — preserving
+              // text→tool_use→text order across multiple text blocks per
+              // turn (R3-A8).
+              activeTextBlock = {
+                kind: "text",
+                messageId: randomUUID(),
+                text: "",
+                started: false,
+              };
+            } else if (
+              (event.content_block as any).type === "thinking" &&
+              config.enableThinking
+            ) {
+              reasoningMsgId = randomUUID();
+              reasoningStarted = false;
+              activeThinkingBlock = {
+                kind: "thinking",
+                thinking: "",
+                signature: "",
+              };
             }
           } else if (event.type === "content_block_delta") {
             if (event.delta.type === "text_delta") {
-              if (!textMessageStarted) {
+              if (!activeTextBlock) {
+                // Defensive: text_delta arrived without a content_block_start
+                // (legacy event ordering). Open a block on the fly so the
+                // ordering contract still holds.
+                activeTextBlock = {
+                  kind: "text",
+                  messageId: randomUUID(),
+                  text: "",
+                  started: false,
+                };
+              }
+              if (!activeTextBlock.started) {
                 emit({
                   type: EventType.TEXT_MESSAGE_START,
-                  messageId: msgId,
+                  messageId: activeTextBlock.messageId,
                   role: "assistant",
                 });
-                textMessageStarted = true;
+                activeTextBlock.started = true;
               }
-              assistantText += event.delta.text;
+              activeTextBlock.text += event.delta.text;
               emit({
                 type: EventType.TEXT_MESSAGE_CONTENT,
-                messageId: msgId,
+                messageId: activeTextBlock.messageId,
                 delta: event.delta.text,
               });
             } else if (event.delta.type === "input_json_delta") {
@@ -903,6 +1165,35 @@ async function runAgenticLoop(
                   delta: event.delta.partial_json,
                 });
               }
+            } else if (
+              (event.delta as any).type === "thinking_delta" &&
+              config.enableThinking &&
+              reasoningMsgId
+            ) {
+              const delta = (event.delta as any).thinking as string;
+              if (activeThinkingBlock) {
+                activeThinkingBlock.thinking += delta;
+              }
+              if (!reasoningStarted) {
+                emit({
+                  type: EventType.REASONING_MESSAGE_START,
+                  messageId: reasoningMsgId,
+                  role: "reasoning",
+                });
+                reasoningStarted = true;
+              }
+              emit({
+                type: EventType.REASONING_MESSAGE_CONTENT,
+                messageId: reasoningMsgId,
+                delta,
+              });
+            } else if (
+              (event.delta as any).type === "signature_delta" &&
+              config.enableThinking &&
+              activeThinkingBlock
+            ) {
+              activeThinkingBlock.signature += ((event.delta as any)
+                .signature ?? "") as string;
             }
           } else if (event.type === "content_block_stop") {
             if (activeToolCallId && activeToolCallName) {
@@ -915,32 +1206,94 @@ async function runAgenticLoop(
                 name: activeToolCallName,
                 argsJson: activeToolArgs,
               });
+              // Preserve block-order: append tool_use to the ordered
+              // replay array at the moment its content block closes, so
+              // a "text → tool_use → text" stream replays in that exact
+              // order rather than "all-text → all-tool_use".
+              assistantBlocks.push({
+                kind: "tool_use",
+                id: activeToolCallId,
+                name: activeToolCallName,
+                argsJson: activeToolArgs,
+              });
               activeToolCallId = null;
               activeToolCallName = null;
               activeToolArgs = "";
+            } else if (activeTextBlock) {
+              // Close this text block now (R3-A9): emit TEXT_MESSAGE_END
+              // for every text block that STARTED — including genuinely
+              // empty-string blocks the client already saw START/END for
+              // (R3-A10). Append to the ordered replay array unless the
+              // block carries no signal at all (no START emitted AND
+              // empty text), in which case it's a no-op for both UI and
+              // replay.
+              if (activeTextBlock.started) {
+                emit({
+                  type: EventType.TEXT_MESSAGE_END,
+                  messageId: activeTextBlock.messageId,
+                });
+                assistantBlocks.push(activeTextBlock);
+              } else if (activeTextBlock.text) {
+                // Belt-and-suspenders: text accumulated without a START
+                // (shouldn't happen given the delta path opens it), but
+                // we'd still want the replay entry.
+                assistantBlocks.push(activeTextBlock);
+              }
+              activeTextBlock = null;
+            } else if (reasoningMsgId && reasoningStarted) {
+              emit({
+                type: EventType.REASONING_MESSAGE_END,
+                messageId: reasoningMsgId,
+              });
+              reasoningMsgId = null;
+              reasoningStarted = false;
+              if (activeThinkingBlock) {
+                assistantBlocks.push(activeThinkingBlock);
+                activeThinkingBlock = null;
+              }
+            } else if (activeThinkingBlock) {
+              // Thinking block stopped before any thinking_delta arrived
+              // (e.g. zero-token thinking). Preserve it for replay so the
+              // continuation turn keeps the same block sequence Claude
+              // produced.
+              assistantBlocks.push(activeThinkingBlock);
+              activeThinkingBlock = null;
             }
           }
         }
-
-        if (textMessageStarted && !textMessageEnded) {
-          emit({
-            type: EventType.TEXT_MESSAGE_END,
-            messageId: msgId,
-          });
-          textMessageEnded = true;
-        }
       } finally {
-        // Lifecycle guarantee: every TEXT_MESSAGE_START must be paired with
-        // a TEXT_MESSAGE_END, even if anthropic.messages.stream throws
+        // Lifecycle guarantee: every *_START we emit MUST be paired with a
+        // matching *_END, even if anthropic.messages.stream throws
         // mid-token. Without this, the AG-UI client renders a permanently
-        // in-flight assistant bubble. The outer try/catch still emits
-        // RUN_ERROR for the caller to surface the failure.
-        if (textMessageStarted && !textMessageEnded) {
+        // in-flight assistant bubble, reasoning bubble, or tool-call card.
+        // The outer try/catch still emits RUN_ERROR for the caller to
+        // surface the failure.
+        if (activeTextBlock && activeTextBlock.started) {
           emit({
             type: EventType.TEXT_MESSAGE_END,
-            messageId: msgId,
+            messageId: activeTextBlock.messageId,
           });
-          textMessageEnded = true;
+          assistantBlocks.push(activeTextBlock);
+          activeTextBlock = null;
+        } else if (activeTextBlock) {
+          activeTextBlock = null;
+        }
+        if (reasoningMsgId && reasoningStarted) {
+          emit({
+            type: EventType.REASONING_MESSAGE_END,
+            messageId: reasoningMsgId,
+          });
+          reasoningMsgId = null;
+          reasoningStarted = false;
+        }
+        if (activeToolCallId) {
+          emit({
+            type: EventType.TOOL_CALL_END,
+            toolCallId: activeToolCallId,
+          });
+          activeToolCallId = null;
+          activeToolCallName = null;
+          activeToolArgs = "";
         }
       }
 
@@ -949,45 +1302,77 @@ async function runAgenticLoop(
         break;
       }
 
-      // Append the assistant turn (text + tool_use blocks) to the
-      // conversation so the next call sees the supervisor's plan.
+      // Append the assistant turn (thinking + text + tool_use blocks) to
+      // the conversation so the next call sees the supervisor's plan.
+      //
+      // `assistantBlocks` preserves Claude's original stream order across
+      // all three block kinds (thinking / text / tool_use), so a turn
+      // shaped "thinking → text → tool_use → text → tool_use" replays in
+      // that exact order rather than the all-text-then-all-tool_use
+      // shape the prior single-accumulator code produced (R3-A8). Both
+      // aimock strict mode and the real Anthropic API verify content
+      // order on the continuation turn.
       const assistantContent: Anthropic.ContentBlockParam[] = [];
-      if (assistantText) {
-        assistantContent.push({ type: "text", text: assistantText });
-      }
-      for (const tc of pendingToolCalls) {
-        let parsed: Record<string, unknown> = {};
-        try {
-          parsed = tc.argsJson ? JSON.parse(tc.argsJson) : {};
-        } catch (parseErr) {
-          // The streamed input_json_delta concatenated into invalid JSON.
-          // Logging is essential — without it, the next iteration sees
-          // empty args and the model is told its tool call succeeded with
-          // no parameters, which is silently wrong. We still replay the
-          // tool_use (Anthropic requires every tool_use to be followed by
-          // a tool_result of the same id), but with empty input. The
-          // matching execute branch below also skips with a clear error.
-          const message =
-            parseErr instanceof Error ? parseErr.message : String(parseErr);
-          console.warn(
-            `[agent_server] failed to parse streamed tool args for ${tc.name} (id=${tc.id}); replaying with empty input. error=${message}`,
-          );
+      for (const block of assistantBlocks) {
+        if (block.kind === "thinking") {
+          if (!config.enableThinking) continue;
+          // Signature-only blocks (zero-thinking but signed) are real:
+          // Anthropic verifies signatures per content block, so a block
+          // preserved at content_block_stop with empty `thinking` but a
+          // non-empty `signature` must still be replayed to keep the per-
+          // block ordering contract. Only skip blocks that are entirely
+          // empty (no thinking, no signature) — those carry no state.
+          if (!block.thinking && !block.signature) continue;
+          assistantContent.push({
+            type: "thinking",
+            thinking: block.thinking,
+            signature: block.signature,
+          } as Anthropic.ContentBlockParam);
+        } else if (block.kind === "text") {
+          // Replay parity (R3-A10): include genuinely-empty-string text
+          // blocks that emitted START/CONTENT/END to the client, so the
+          // conversation history matches what the UI rendered. Drop only
+          // blocks that never STARTED and carry no text — those produced
+          // nothing on either side.
+          if (!block.started && !block.text) continue;
+          assistantContent.push({ type: "text", text: block.text });
+        } else if (block.kind === "tool_use") {
+          let parsed: Record<string, unknown> = {};
+          try {
+            parsed = block.argsJson ? JSON.parse(block.argsJson) : {};
+          } catch (parseErr) {
+            // The streamed input_json_delta concatenated into invalid JSON.
+            // Logging is essential — without it, the next iteration sees
+            // empty args and the model is told its tool call succeeded with
+            // no parameters, which is silently wrong. We still replay the
+            // tool_use (Anthropic requires every tool_use to be followed by
+            // a tool_result of the same id), but with empty input. The
+            // matching execute branch below also skips with a clear error.
+            const message =
+              parseErr instanceof Error ? parseErr.message : String(parseErr);
+            console.warn(
+              `[agent_server] failed to parse streamed tool args for ${block.name} (id=${block.id}); replaying with empty input. error=${message}`,
+            );
+          }
+          assistantContent.push({
+            type: "tool_use",
+            id: block.id,
+            name: block.name,
+            input: parsed,
+          });
         }
-        assistantContent.push({
-          type: "tool_use",
-          id: tc.id,
-          name: tc.name,
-          input: parsed,
-        });
       }
       messages.push({ role: "assistant", content: assistantContent });
 
       // Execute backend tools and push their tool_result blocks. Frontend
       // tools (anything not in `backendToolNames`) are NOT executed here
-      // — they're meant to be handled by the AG-UI client. In practice
-      // these two demos don't expose any extra frontend tools, but we
-      // keep the merging behaviour defensive so a future demo page can
-      // add `useFrontendTool` without breaking things.
+      // — they're meant to be handled by the AG-UI client. The frontend-tool
+      // branch is LOAD-BEARING for /headless-complete, whose `highlight_note`
+      // flow is registered on the frontend (see the route wiring below) and
+      // depends on this branch breaking the agentic loop so the AG-UI client
+      // can execute and re-invoke. Other consumers (e.g. /tool-rendering)
+      // also benefit from the defensive merging when their pages register
+      // additional `useFrontendTool` calls.
       const toolResults: Anthropic.ContentBlockParam[] = [];
       let sawFrontendTool = false;
       for (const tc of pendingToolCalls) {
@@ -1184,6 +1569,31 @@ app.post("/subagents", async (req: Request, res: Response): Promise<void> => {
   });
 });
 
+// Gen UI (Agent-based) — backend owns the `set_steps` tool. The model
+// plans 3 steps and calls set_steps after every status transition
+// (~7 calls per run, see the fixture chain in
+// showcase/aimock/d6/claude-sdk-typescript/gen-ui-agent.json); each call
+// replaces `state.steps` and is streamed to the UI via STATE_SNAPSHOT so
+// the InlineAgentStateCard animates pending -> in_progress -> completed.
+// Without this dedicated endpoint the demo used the pass-through handler:
+// the model's set_steps call was forwarded to the frontend (which
+// registers no such tool), the tool result never materialized, and the
+// multi-leg loop never completed.
+app.post(
+  "/gen-ui-agent",
+  async (req: Request, res: Response): Promise<void> => {
+    const input = req.body as RunAgentInput;
+    const incomingState =
+      ((input as any).state as Record<string, unknown> | undefined) ?? {};
+    const steps = Array.isArray(incomingState.steps) ? incomingState.steps : [];
+    await runAgenticLoop(req, res, {
+      systemPrompt: GEN_UI_AGENT_SYSTEM_PROMPT,
+      toolSchemas: [SET_STEPS_TOOL_SCHEMA] as Anthropic.Tool[],
+      initialState: { steps },
+    });
+  },
+);
+
 // A2UI Fixed Schema — backend ships flight_schema.json and exposes a
 // single `display_flight` tool that emits an `a2ui_operations` container.
 // The dedicated runtime route at `/api/copilotkit-a2ui-fixed-schema` runs
@@ -1214,6 +1624,51 @@ app.post(
         HEADLESS_GET_STOCK_PRICE_TOOL_SCHEMA,
       ] as Anthropic.Tool[],
       initialState: {},
+    });
+  },
+);
+
+// Tool Rendering (+ default/custom catchall variants) — the pages register
+// RENDER-ONLY hooks (useRenderTool / useDefaultRenderTool) with no handlers,
+// so on the pass-through the model's tool calls were forwarded to the
+// frontend, no result ever materialized, and every card sat in its loading
+// state forever. Backend owns the four tools here (same treatment as
+// /headless-complete and /gen-ui-agent); all three demo agents point at
+// this endpoint from the main runtime route.
+app.post(
+  "/tool-rendering",
+  async (req: Request, res: Response): Promise<void> => {
+    await runAgenticLoop(req, res, {
+      systemPrompt: TOOL_RENDERING_SYSTEM_PROMPT,
+      toolSchemas: [
+        HEADLESS_GET_WEATHER_TOOL_SCHEMA,
+        HEADLESS_GET_STOCK_PRICE_TOOL_SCHEMA,
+        SEARCH_FLIGHTS_TOOL_SCHEMA,
+        ROLL_D20_TOOL_SCHEMA,
+      ] as Anthropic.Tool[],
+      initialState: {},
+    });
+  },
+);
+
+// Tool Rendering — Reasoning Chain. Same backend-owned-tools treatment as
+// /tool-rendering, plus extended thinking on a reasoning-capable model so
+// the demo's reasoning-block renders between chained tool calls
+// (stocks AAPL→MSFT, dice d20→d6, flights→destination weather).
+app.post(
+  "/tool-rendering-reasoning-chain",
+  async (req: Request, res: Response): Promise<void> => {
+    await runAgenticLoop(req, res, {
+      systemPrompt: REASONING_CHAIN_SYSTEM_PROMPT,
+      toolSchemas: [
+        HEADLESS_GET_WEATHER_TOOL_SCHEMA,
+        HEADLESS_GET_STOCK_PRICE_TOOL_SCHEMA,
+        SEARCH_FLIGHTS_TOOL_SCHEMA,
+        ROLL_DICE_TOOL_SCHEMA,
+      ] as Anthropic.Tool[],
+      initialState: {},
+      model: CLAUDE_REASONING_MODEL,
+      enableThinking: true,
     });
   },
 );

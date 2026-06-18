@@ -1,10 +1,11 @@
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
+import type { RunAgentParameters } from "./shared/agent-utils";
 import {
+  attachIntelligenceEnterpriseLearning,
   cloneAgentForRequest,
   configureAgentForRequest,
   parseRunRequest,
-  RunAgentParameters,
 } from "./shared/agent-utils";
 import { handleIntelligenceRun } from "./intelligence/run";
 import { handleSseRun } from "./sse/run";
@@ -40,15 +41,7 @@ export async function handleRunAgent({
     agent.agentId = agentId;
 
     configureAgentForRequest({ runtime, request, agentId, agent });
-
-    if (
-      runtime.licenseChecker &&
-      !runtime.licenseChecker.checkFeature("agents")
-    ) {
-      console.warn(
-        '[CopilotKit Runtime] Warning: "agents" feature is not licensed. Visit copilotkit.ai/pricing',
-      );
-    }
+    await attachIntelligenceEnterpriseLearning({ runtime, request, agent });
 
     const input = await parseRunRequest(request);
     if (input instanceof Response) {

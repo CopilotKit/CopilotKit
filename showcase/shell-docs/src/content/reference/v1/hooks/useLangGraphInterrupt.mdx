@@ -7,7 +7,7 @@ description: "The useLangGraphInterrupt hook allows setting the generative UI to
 <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/interrupt-flow.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
 <Callout type="warning">
-  `useLangGraphInterrupt` is still supported, but we recommend migrating to [`useHumanInTheLoop`](/reference/v2/hooks/useHumanInTheLoop) from the v2 API.
+  `useLangGraphInterrupt` is still supported, but we recommend migrating to [`useInterrupt`](/reference/v2/hooks/useInterrupt) from the v2 API. `useInterrupt` is the shape-equivalent replacement. It uses the same `render: ({ event, resolve }) => ...` pattern to render UI for an interrupt and resume the agent with the user's response.
 </Callout>
 
 `useLangGraphInterrupt` is a React hook that you can use in your application to provide

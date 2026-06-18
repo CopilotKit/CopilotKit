@@ -7,13 +7,15 @@
 // `a2ui_operations` container in the tool result and streams rendered
 // surfaces to the frontend.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -26,6 +28,10 @@ const runtime = new CopilotRuntime({
   agents: { "declarative-gen-ui": declarativeGenUiAgent as AbstractAgent },
   a2ui: {
     injectA2UITool: false,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
 

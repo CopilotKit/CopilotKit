@@ -4,7 +4,7 @@
 //
 // Combines two patterns in a single cell:
 //   1. Reasoning tokens via a custom `reasoningMessage` slot — same
-//      approach as `agentic-chat-reasoning`.
+//      approach as `reasoning-custom`.
 //   2. Sequential tool calls rendered with:
 //        get_weather     → <WeatherCard />
 //        search_flights  → <FlightListCard />

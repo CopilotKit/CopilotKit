@@ -55,6 +55,10 @@ public class AimockHeaderMiddleware
         // value does not leak across concurrent ASP.NET requests; the finally-clear was
         // unnecessary and actively harmful.
         AimockHeaderContext.Set(headers);
+        // CVDIAG inbound breadcrumb: the x-* headers (incl. x-diag-run-id /
+        // x-diag-hops / x-aimock-context) have now been captured into the
+        // AsyncLocal context for this request.
+        CvDiag.LogInbound(_logger, "backend-ms-agent-harness-dotnet", AimockHeaderContext.Get());
         await _next(context);
     }
 }

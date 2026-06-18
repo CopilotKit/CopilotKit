@@ -6,6 +6,23 @@ import {
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
+import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
+import type { RenderActivityMessageConfig } from "./activity-renderer";
+import type { SuggestionsConfig } from "@copilotkit/core";
+import type { OpenGenerativeUIConfig } from "./open-generative-ui";
+import type {
+  Catalog,
+  LitComponentImplementation,
+  LitRenderable,
+  Theme as A2UITheme,
+} from "@copilotkit/a2ui-renderer/web-components";
+
+export interface A2UIConfig {
+  theme?: A2UITheme;
+  catalog?: Catalog<LitComponentImplementation>;
+  loadingComponent?: () => LitRenderable;
+  includeSchema?: boolean;
+}
 
 export interface CopilotKitConfig {
   runtimeUrl?: string;
@@ -16,8 +33,12 @@ export interface CopilotKitConfig {
   selfManagedAgents?: Record<string, AbstractAgent>;
   tools?: ClientTool[];
   renderToolCalls?: RenderToolCallConfig[];
+  renderActivityMessages?: RenderActivityMessageConfig[];
+  suggestionsConfig?: SuggestionsConfig[];
   frontendTools?: FrontendToolConfig[];
   humanInTheLoop?: HumanInTheLoopConfig[];
+  a2ui?: A2UIConfig;
+  openGenerativeUI?: OpenGenerativeUIConfig;
 }
 
 const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";
@@ -85,7 +106,11 @@ export function injectCopilotKitConfig(): CopilotKitConfig {
 export function provideCopilotKit(config: CopilotKitConfig): Provider {
   const resolvedLicense = resolveLicense(config);
   const headers = config.headers ?? {};
-  if (!resolvedLicense.valid && resolvedLicense.warning) {
+  if (
+    LICENSE_WATERMARK_ENABLED &&
+    !resolvedLicense.valid &&
+    resolvedLicense.warning
+  ) {
     logLicenseWatermarkWarning(resolvedLicense.warning);
   }
 

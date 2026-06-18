@@ -298,7 +298,15 @@ jobs:
             echo "::error::aimock binary not found at $AIMOCK_BIN after global install"
             exit 1
           fi
-          "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 --fixtures showcase/aimock/feature-parity.json --validate-on-load &
+          # Fixture layout matches docker-compose.local.yml: feature-parity.json
+          # was split into per-framework shared/d4/d5-recorded/d6 directories
+          # (directory-based loading, one --fixtures per directory).
+          "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 \
+            --fixtures showcase/aimock/shared \
+            --fixtures showcase/aimock/d4 \
+            --fixtures showcase/aimock/d5-recorded \
+            --fixtures showcase/aimock/d6 \
+            --validate-on-load &
           AIMOCK_PID=$!
           echo "AIMOCK_PID=$AIMOCK_PID" >> "$GITHUB_ENV"
           # Wait for aimock to be ready. Capture the PID + `kill -0` inside

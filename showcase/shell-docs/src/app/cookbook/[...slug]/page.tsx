@@ -41,6 +41,11 @@ export default async function CookbookSlugPage({
   const slugPath = `cookbook/${slug.join("/")}`;
   const navTree = buildNavTree(path.join(CONTENT_DIR, "cookbook"), "cookbook");
   return (
-    <DocsPageView slugPath={slugPath} slugHrefPrefix="" navTree={navTree} />
+    <DocsPageView
+      slugPath={slugPath}
+      slugHrefPrefix=""
+      navTree={navTree}
+      sidebarBannerSlot={null}
+    />
   );
 }

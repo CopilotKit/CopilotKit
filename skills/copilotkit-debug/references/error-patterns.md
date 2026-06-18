@@ -9,7 +9,7 @@ Legacy error codes from the v1 runtime layer. These still surface in `@copilotki
 - **HTTP Status**: 503
 - **Severity**: CRITICAL (banner)
 - **Cause**: Server unreachable, DNS failure, connection timeout, SSL/TLS issues
-- **Resolution**: Verify the runtime server is running and accessible. Check `runtimeUrl` in `CopilotKitProvider`. Common sub-causes:
+- **Resolution**: Verify the runtime server is running and accessible. Check `runtimeUrl` on the `CopilotKit` provider (from `@copilotkit/react-core/v2`). Common sub-causes:
   - `ECONNREFUSED` -- Server not running on the expected port
   - `ENOTFOUND` -- DNS cannot resolve the hostname
   - `ETIMEDOUT` -- Server overloaded or network issues
@@ -67,14 +67,14 @@ Legacy error codes from the v1 runtime layer. These still surface in `@copilotki
 - **HTTP Status**: 400
 - **Severity**: WARNING (banner)
 - **Cause**: Invalid runtime or provider configuration.
-- **Resolution**: Review the CopilotRuntime and CopilotKitProvider configuration.
+- **Resolution**: Review the CopilotRuntime and `CopilotKit` provider configuration.
 
 ### MISSING_PUBLIC_API_KEY_ERROR
 
 - **HTTP Status**: 400
 - **Severity**: CRITICAL (banner)
-- **Cause**: The `publicApiKey` prop is missing from `CopilotKitProvider` when using CopilotKit Cloud.
-- **Resolution**: Add `publicApiKey` to the provider, or switch to self-hosted mode with `runtimeUrl`.
+- **Cause**: No public key is set on the `CopilotKit` provider (from `@copilotkit/react-core/v2`) when using CopilotKit Intelligence (the hosted platform). The canonical prop is `publicLicenseKey`; `publicApiKey` is a deprecated alias.
+- **Resolution**: Add `publicLicenseKey` to the provider, or switch to self-hosted mode with `runtimeUrl`.
 
 ### UPGRADE_REQUIRED_ERROR
 
@@ -114,7 +114,7 @@ All defined in `packages/v1/shared/src/utils/errors.ts`:
 | `CopilotKitLowLevelError`                | `CopilotKitError`             | Pre-HTTP errors (DNS, connection refused) |
 | `ResolvedCopilotKitError`                | `CopilotKitError`             | HTTP error responses (status-code based)  |
 | `ConfigurationError`                     | `CopilotKitError`             | Invalid configuration                     |
-| `MissingPublicApiKeyError`               | `ConfigurationError`          | Cloud mode without API key                |
+| `MissingPublicApiKeyError`               | `ConfigurationError`          | Intelligence (hosted) mode without key    |
 | `UpgradeRequiredError`                   | `ConfigurationError`          | Plan limitation                           |
 
 ---

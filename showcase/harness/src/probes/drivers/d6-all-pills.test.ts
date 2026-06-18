@@ -1,12 +1,15 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
+  BrowserDisconnectedError,
   createE2eFullDriver,
   createPooledE2eFullLauncher,
   DEPLOY_CHURN_GRACE_MS,
   e2eFullDriver,
   FEATURE_CONCURRENCY_D6,
+  openGuardedContext,
   Semaphore,
 } from "./d6-all-pills.js";
+import type { GuardableBrowser } from "./d6-all-pills.js";
 import type {
   E2eFullAggregateSignal,
   E2eFullBrowser,
@@ -39,6 +42,12 @@ import type {
 interface PageScript {
   throwOnGoto?: Error;
   stallEvaluate?: boolean;
+  /**
+   * When true, `goto` never resolves — used to exercise the driver's
+   * outer-cap timeout (the abort fires while the page is hung) so a test can
+   * assert WHICH timeout value the driver resolved.
+   */
+  stallGoto?: boolean;
 }
 
 function makePage(script: PageScript = {}): E2eFullPage {
@@ -46,6 +55,10 @@ function makePage(script: PageScript = {}): E2eFullPage {
   return {
     async goto() {
       if (script.throwOnGoto) throw script.throwOnGoto;
+      if (script.stallGoto) {
+        // Hang until the run's outer-cap abort tears the page down.
+        await new Promise<void>(() => {});
+      }
     },
     async waitForSelector() {},
     async fill() {},
@@ -55,7 +68,54 @@ function makePage(script: PageScript = {}): E2eFullPage {
       }
     },
     async evaluate<R>(fn: () => R): Promise<R> {
-      void fn;
+      // The conversation-runner now makes structurally different
+      // page.evaluate calls — `countAssistantMessages` (returns number),
+      // `readCascadeState` (returns `{count, text}`), `readErrorBanner`
+      // (returns `{state, text?}`), `readRunsFinished` (number), and
+      // `captureDiagnostics` (an object). Dispatch on the closure body so
+      // each branch returns the right shape. Mirrors the dispatch table
+      // used by the conversation-runner.test.ts fake (kept in lock-step).
+      const fnBody = typeof fn === "function" ? fn.toString() : "";
+      // SSE counter — readRunsFinished returns a number; surface the
+      // current messageCount so the SSE conjunct in waitForTurnComplete
+      // ticks alongside the DOM count.
+      if (fnBody.includes("__hk_runsFinished")) {
+        return messageCount as unknown as R;
+      }
+      // Error-banner probe — return `{state: "absent"}` (the validated
+      // shape) so readErrorBanner reports absent and fast-fail stays
+      // disarmed in these tests.
+      if (fnBody.includes("copilot-error-banner")) {
+        return { state: "absent" } as unknown as R;
+      }
+      // Atomic cascade-state read — readCascadeState returns
+      // `{count, text}`. The closure body contains BOTH `querySelectorAll`
+      // and `textContent` AND `{ count` in its return literal.
+      if (
+        fnBody.includes("querySelectorAll") &&
+        fnBody.includes("textContent") &&
+        fnBody.includes("{ count")
+      ) {
+        const text =
+          messageCount > 0 ? `assistant-bubble-text-${messageCount}` : null;
+        return { count: messageCount, text } as unknown as R;
+      }
+      // Diagnostics capture (captureDiagnostics) — returns an object
+      // shape consumed by `diagnostics.assistantMsgCount = ...` merge.
+      if (fnBody.includes("userMsgCount") || fnBody.includes("apiRequests")) {
+        return {
+          userMsgCount: 0,
+          apiRequestCount: 0,
+          apiRequests: [],
+          pageErrors: [],
+          chatContainerExists: true,
+          url: "about:blank",
+          title: "",
+          bodyTextSnippet: "",
+        } as unknown as R;
+      }
+      // Default — assistant/user message COUNT (countAssistantMessages
+      // and similar) returns a number.
       return messageCount as unknown as R;
     },
     async click() {},
@@ -89,6 +149,8 @@ function makeBrowser(opts?: {
 function makeCtx(overrides?: {
   writer?: ProbeResultWriter;
   featureTypes?: string[];
+  abortSignal?: AbortSignal;
+  drainReason?: "shutdown";
 }): ProbeContext {
   return {
     now: () => new Date("2025-01-01T00:00:00Z"),
@@ -96,6 +158,8 @@ function makeCtx(overrides?: {
     env: {},
     writer: overrides?.writer,
     featureTypes: overrides?.featureTypes,
+    abortSignal: overrides?.abortSignal,
+    drainReason: overrides?.drainReason,
   };
 }
 
@@ -254,6 +318,150 @@ describe("e2e-full driver", () => {
       expect(sideRow).toBeDefined();
       expect(sideRow!.state).toBe("green");
     });
+  });
+
+  // FIX 3 (graceful drain): when the run is aborted as part of a worker drain
+  // (`ctx.drainReason === "shutdown"`), the driver must SUPPRESS the red
+  // per-cell `errorClass: "abort"` side-emits it would otherwise write for
+  // not-yet-completed features — a redeploy must not paint a mass-red block.
+  // The worker-loop layer separately skips reporting the partial; the driver's
+  // job here is purely to suppress the per-cell red side-emits.
+  describe("graceful-drain abort suppression", () => {
+    it("suppresses red abort side-emits for unstarted features when drainReason=shutdown", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+
+      // Pre-aborted signal = the worker has already started draining when the
+      // feature loop reaches this pill, so the abort branch fires immediately.
+      const ac = new AbortController();
+      ac.abort();
+
+      await driver.run(
+        makeCtx({ writer, abortSignal: ac.signal, drainReason: "shutdown" }),
+        {
+          key: "e2e_d6:showcase-test-slug",
+          backendUrl: "https://test.example.com",
+          features: ["agentic-chat"],
+        },
+      );
+
+      // NO red per-cell abort side-emit for the unstarted pill.
+      const redAbortCells = sideEmits.filter(
+        (r) =>
+          r.state === "red" &&
+          (r.signal as { errorClass?: string })?.errorClass === "abort",
+      );
+      expect(redAbortCells).toEqual([]);
+    });
+
+    it("STILL emits red abort side-emits when aborted WITHOUT a drain reason (timeout/error abort)", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+
+      // Pre-aborted, but NOT a drain (no drainReason) — a timeout/error abort
+      // still paints red so a genuine failure is visible.
+      const ac = new AbortController();
+      ac.abort();
+
+      await driver.run(makeCtx({ writer, abortSignal: ac.signal }), {
+        key: "e2e_d6:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat"],
+      });
+
+      const redAbortCells = sideEmits.filter(
+        (r) =>
+          r.state === "red" &&
+          (r.signal as { errorClass?: string })?.errorClass === "abort",
+      );
+      expect(redAbortCells.length).toBeGreaterThan(0);
+    });
+
+    it("internal timeout abort STILL emits red side-emits even when ctx carries an un-fired drain signal", async () => {
+      // Fleet-shaped ctx: in production the worker threads its drain signal
+      // into EVERY ctx (and stamps drainReason alongside it), but here the
+      // signal never FIRES — the abort is the driver's own wall-clock
+      // `timeoutMs` cap. A timeout is a genuine failure and must paint red;
+      // suppression is only for an abort caused by the external drain signal
+      // actually firing. Saturate the semaphore so the queued feature hits the
+      // pre-start abort branch and the running ones hit the mid-run branch.
+      const featureTypes = [
+        "agentic-chat",
+        "tool-rendering",
+        "shared-state-read",
+        "shared-state-write",
+        "hitl-text-input",
+      ] as const;
+      expect(featureTypes.length).toBeGreaterThan(FEATURE_CONCURRENCY_D6);
+      for (const ft of featureTypes) {
+        registerD5Script(makeScript([ft]));
+      }
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const { launcher } = makeSlowTeardownLauncherFull({
+        gotoDelayMs: 200,
+        closeDelayMs: 5,
+      });
+      const driver = createE2eFullDriver({
+        launcher,
+        scriptLoader: noopScriptLoader(),
+        // Large enough that the OUTER cap (not the per-feature timer) drives
+        // the abort.
+        featureTimeoutMs: 60_000,
+      });
+
+      // The drain signal EXISTS but never fires.
+      const ac = new AbortController();
+
+      const result = await driver.run(
+        makeCtx({ writer, abortSignal: ac.signal, drainReason: "shutdown" }),
+        {
+          key: "e2e_d6:showcase-test-slug",
+          backendUrl: "https://test.example.com",
+          features: [...featureTypes],
+          // Tiny outer cap so the driver's INTERNAL timeout abort fires fast.
+          timeout_ms: 5,
+        },
+      );
+
+      expect(result.state).toBe("red");
+      // The timeout abort must paint red per-cell side-emits — the un-fired
+      // drain signal must NOT suppress them.
+      const redAbortCells = sideEmits.filter(
+        (r) =>
+          r.state === "red" &&
+          (r.signal as { errorClass?: string })?.errorClass === "abort",
+      );
+      expect(redAbortCells.length).toBeGreaterThan(0);
+    }, 20_000);
   });
 
   // Regression guard: the dashboard reads the integration-scoped aggregate
@@ -495,6 +703,165 @@ describe("e2e-full driver", () => {
 
       expect(result.state).toBe("red");
       expect(result.signal.errorDesc).toBe("launcher-error");
+    });
+  });
+
+  // --------------------------------------------------------------------
+  // Shared-browser disconnect guard (byoc "...has been closed" race).
+  //
+  // The single-shared-browser launcher (defaultLauncher / CLI headed
+  // launcher) opens one Chromium and a CONTEXT per feature on it. Under
+  // the D6 fan-out's spawn/memory burst (heaviest for byoc) the shared
+  // browser can disconnect mid-run; the unguarded code then threw the raw
+  // Playwright "Target page, context or browser has been closed" on every
+  // remaining feature's newContext(), surfacing as an opaque driver-error.
+  // openGuardedContext mirrors the pooled launcher's "open only on a LIVE
+  // browser" model so the failure is a clean, classifiable
+  // BrowserDisconnectedError instead of the raw string.
+  // --------------------------------------------------------------------
+  describe("openGuardedContext (shared-browser disconnect guard)", () => {
+    it("opens a context when the browser is connected", async () => {
+      const sentinel = { id: "ctx" };
+      const browser: GuardableBrowser = {
+        isConnected: () => true,
+        newContext: async () => sentinel,
+      };
+      const ctx = await openGuardedContext<typeof sentinel>(browser);
+      expect(ctx).toBe(sentinel);
+    });
+
+    it("throws BrowserDisconnectedError when the browser is already disconnected (never calls newContext)", async () => {
+      let called = false;
+      const browser: GuardableBrowser = {
+        isConnected: () => false,
+        newContext: async () => {
+          called = true;
+          return {};
+        },
+      };
+      await expect(openGuardedContext(browser)).rejects.toBeInstanceOf(
+        BrowserDisconnectedError,
+      );
+      expect(called).toBe(false);
+    });
+
+    it("converts a mid-open disconnect (raw 'has been closed') into BrowserDisconnectedError", async () => {
+      let connected = true;
+      const browser: GuardableBrowser = {
+        isConnected: () => connected,
+        newContext: async () => {
+          // Simulate the browser dying WHILE newContext() is in flight: the
+          // process disconnects and Playwright rejects with the raw string.
+          connected = false;
+          throw new Error(
+            "browser.newContext: Target page, context or browser has been closed",
+          );
+        },
+      };
+      await expect(openGuardedContext(browser)).rejects.toBeInstanceOf(
+        BrowserDisconnectedError,
+      );
+    });
+
+    it("surfaces a transient open error unchanged when the browser is still live", async () => {
+      const browser: GuardableBrowser = {
+        isConnected: () => true,
+        newContext: async () => {
+          throw new Error("transient open hiccup");
+        },
+      };
+      await expect(openGuardedContext(browser)).rejects.toThrow(
+        "transient open hiccup",
+      );
+    });
+  });
+
+  describe("shared-browser disconnect mid-run (integration)", () => {
+    it("fails features cleanly (no raw 'has been closed') when the shared browser disconnects mid-fanout", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+      registerD5Script(makeScript(["tool-rendering"]));
+
+      // Single shared raw browser that disconnects after the FIRST context
+      // open — exactly the byoc burst scenario. The launcher routes every
+      // newContext() through openGuardedContext, so the second feature gets a
+      // clean BrowserDisconnectedError instead of the raw Playwright string.
+      let connected = true;
+      let opened = false;
+      const rawBrowser: GuardableBrowser & { close(): Promise<void> } = {
+        isConnected: () => connected,
+        newContext: async () => {
+          if (!connected) {
+            // Browser already torn down — Playwright's raw throw. The guard's
+            // start-check should normally prevent reaching here, but the
+            // post-open re-check converts a mid-open disconnect too.
+            throw new Error(
+              "browser.newContext: Target page, context or browser has been closed",
+            );
+          }
+          if (opened) {
+            // A second open while still "connected": simulate the crash landing
+            // exactly during this in-flight open (the mid-open window).
+            connected = false;
+            throw new Error(
+              "browser.newContext: Target page, context or browser has been closed",
+            );
+          }
+          // First open succeeds, then the shared Chromium disconnects.
+          opened = true;
+          connected = false;
+          return {
+            newPage: async () => makePage(),
+            close: async () => {},
+          };
+        },
+        close: async () => {},
+      };
+
+      const sideEmits: ProbeResult<E2eFullFeatureSignal>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r as ProbeResult<E2eFullFeatureSignal>);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async (): Promise<E2eFullBrowser> => ({
+          async newContext(contextOpts?: {
+            extraHTTPHeaders?: Record<string, string>;
+          }): Promise<E2eFullBrowserContext> {
+            const ctx = await openGuardedContext<{
+              newPage: () => Promise<E2eFullPage>;
+              close: () => Promise<void>;
+            }>(rawBrowser, contextOpts);
+            return ctx;
+          },
+          close: () => rawBrowser.close(),
+        }),
+        scriptLoader: noopScriptLoader(),
+      });
+
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "e2e_d6:byoc",
+        backendUrl: "https://byoc.example.com",
+        features: ["agentic-chat", "tool-rendering"],
+      });
+
+      expect(result.state).toBe("red");
+      // The failing feature's reason must be the clean sentinel reason, NOT
+      // the raw Playwright "has been closed" string.
+      const failureSummary = result.signal.failureSummary ?? "";
+      expect(failureSummary).toContain("shared browser disconnected");
+      expect(failureSummary).not.toContain(
+        "Target page, context or browser has been closed",
+      );
+
+      // And no per-feature side row leaked the raw string either.
+      for (const emit of sideEmits) {
+        const desc = emit.signal?.errorDesc ?? "";
+        expect(desc).not.toContain(
+          "Target page, context or browser has been closed",
+        );
+      }
     });
   });
 
@@ -841,7 +1208,44 @@ function makeRetryLauncherFull(opts: { attempt1DelayMs: number }): {
             async press() {
               messageCount++;
             },
-            async evaluate<R>() {
+            async evaluate<R>(fn: () => R): Promise<R> {
+              // Dispatch on closure body — see `makePage` for the
+              // full rationale; this launcher needs the same routing
+              // so readCascadeState/readErrorBanner/captureDiagnostics
+              // each get the right return shape.
+              const fnBody = typeof fn === "function" ? fn.toString() : "";
+              if (fnBody.includes("__hk_runsFinished")) {
+                return messageCount as unknown as R;
+              }
+              if (fnBody.includes("copilot-error-banner")) {
+                return { state: "absent" } as unknown as R;
+              }
+              if (
+                fnBody.includes("querySelectorAll") &&
+                fnBody.includes("textContent") &&
+                fnBody.includes("{ count")
+              ) {
+                const text =
+                  messageCount > 0
+                    ? `assistant-bubble-text-${messageCount}`
+                    : null;
+                return { count: messageCount, text } as unknown as R;
+              }
+              if (
+                fnBody.includes("userMsgCount") ||
+                fnBody.includes("apiRequests")
+              ) {
+                return {
+                  userMsgCount: 0,
+                  apiRequestCount: 0,
+                  apiRequests: [],
+                  pageErrors: [],
+                  chatContainerExists: true,
+                  url: "about:blank",
+                  title: "",
+                  bodyTextSnippet: "",
+                } as unknown as R;
+              }
               return messageCount as unknown as R;
             },
             async click() {},
@@ -896,4 +1300,280 @@ describe("e2e-full per-feature retry signal isolation", () => {
     const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
     expect(aggRow?.state).toBe("green");
   }, 15_000);
+
+  // --- D5-take-one knobs ---------------------------------------------------
+  //
+  // The D5 probe is now a single-representative-pill invocation of THIS D6
+  // driver: `representativeOnly: true` filters requestedFeatures to only the
+  // featureTypes present in the representatives map, and `rowPrefix: "d5"`
+  // threads the `d5:` dashboard key prefix through every emitted row so the
+  // dashboard's D5 column lights up under D6's exact run conditions.
+  describe("representativeOnly", () => {
+    it("runs only featureTypes present in the representatives map", async () => {
+      // Inject a narrow representatives set so the filter is discriminating:
+      // only `agentic-chat` is a representative; `tool-rendering` is not.
+      registerD5Script(makeScript(["agentic-chat"]));
+      registerD5Script(makeScript(["tool-rendering"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+        representatives: { "agentic-chat": "agentic-chat.json" },
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d5-single-pill-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat", "tool-rendering"],
+        representativeOnly: true,
+      });
+
+      expect(result.state).toBe("green");
+      const signal = result.signal as E2eFullAggregateSignal;
+      // Only the representative feature ran.
+      expect(signal.total).toBe(1);
+      expect(signal.passed).toBe(1);
+
+      // tool-rendering was filtered out — no row emitted for it at all.
+      const toolRow = sideEmits.find((r) => r.key.endsWith("/tool-rendering"));
+      expect(toolRow).toBeUndefined();
+    });
+
+    it("runs ALL featureTypes when representativeOnly is false/absent", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+      registerD5Script(makeScript(["tool-rendering"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+        representatives: { "agentic-chat": "agentic-chat.json" },
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat", "tool-rendering"],
+      });
+
+      const signal = result.signal as E2eFullAggregateSignal;
+      expect(signal.total).toBe(2);
+    });
+  });
+
+  describe("rowPrefix", () => {
+    it("emits d5:<slug>/<ft> and d5:<slug> keys when rowPrefix is d5", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d5-single-pill-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat"],
+        rowPrefix: "d5",
+      });
+
+      expect(result.state).toBe("green");
+
+      // Per-cell side row uses the d5: prefix.
+      const cellRow = sideEmits.find(
+        (r) => r.key === "d5:test-slug/agentic-chat",
+      );
+      expect(cellRow).toBeDefined();
+      expect(cellRow!.state).toBe("green");
+
+      // Aggregate row uses the d5: prefix.
+      const aggRow = sideEmits.find((r) => r.key === "d5:test-slug");
+      expect(aggRow).toBeDefined();
+      expect(aggRow!.state).toBe("green");
+
+      // No d6: rows leaked.
+      const d6Rows = sideEmits.filter((r) => r.key.startsWith("d6:"));
+      expect(d6Rows).toEqual([]);
+    });
+
+    it("defaults to d6: prefix when rowPrefix is absent", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+      });
+      await driver.run(makeCtx({ writer }), {
+        key: "d6:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat"],
+      });
+
+      const cellRow = sideEmits.find(
+        (r) => r.key === "d6:test-slug/agentic-chat",
+      );
+      expect(cellRow).toBeDefined();
+      const aggRow = sideEmits.find((r) => r.key === "d6:test-slug");
+      expect(aggRow).toBeDefined();
+    });
+  });
+
+  // --- Composed: the REAL D5 invocation shape ------------------------------
+  //
+  // buildDeepInputs stamps BOTH knobs together (`representativeOnly: true` AND
+  // `rowPrefix: "d5"`). The isolated knob tests above don't exercise them in
+  // combination; this asserts the actual D5 contract: only representative
+  // featureTypes run, AND every emitted key (per-cell + aggregate) uses the
+  // `d5:` prefix.
+  describe("representativeOnly + rowPrefix:d5 (real D5 invocation shape)", () => {
+    it("runs only D5_REPRESENTATIVES featureTypes and emits d5:<slug>/<ft> + d5:<slug> keys", async () => {
+      // agentic-chat is a representative; tool-rendering is not.
+      registerD5Script(makeScript(["agentic-chat"]));
+      registerD5Script(makeScript(["tool-rendering"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const driver = createE2eFullDriver({
+        launcher: async () => makeBrowser(),
+        scriptLoader: noopScriptLoader(),
+        representatives: { "agentic-chat": "agentic-chat.json" },
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d5-single-pill-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: ["agentic-chat", "tool-rendering"],
+        representativeOnly: true,
+        rowPrefix: "d5",
+      });
+
+      expect(result.state).toBe("green");
+
+      // (a) Only the representative featureType ran (tool-rendering filtered).
+      const signal = result.signal as E2eFullAggregateSignal;
+      expect(signal.total).toBe(1);
+      expect(signal.passed).toBe(1);
+      const toolRow = sideEmits.find((r) => r.key.endsWith("/tool-rendering"));
+      expect(toolRow).toBeUndefined();
+
+      // (b) Per-cell key uses the d5: prefix: d5:<slug>/<ft>.
+      const cellRow = sideEmits.find(
+        (r) => r.key === "d5:test-slug/agentic-chat",
+      );
+      expect(cellRow).toBeDefined();
+      expect(cellRow!.state).toBe("green");
+
+      // (b) Aggregate key uses the d5: prefix: d5:<slug>.
+      const aggRow = sideEmits.find((r) => r.key === "d5:test-slug");
+      expect(aggRow).toBeDefined();
+      expect(aggRow!.state).toBe("green");
+
+      // No d6: rows leaked under the composed D5 shape.
+      const d6Rows = sideEmits.filter((r) => r.key.startsWith("d6:"));
+      expect(d6Rows).toEqual([]);
+    });
+  });
+
+  // Fix B: the fleet enumerator conveys the YAML outer-cap in
+  // `input.timeout_ms`; the driver must HONOR it over the dep/default. Without
+  // the per-run read the driver falls back to DEFAULT_TIMEOUT_MS (10 min) and a
+  // slow backend false-aborts at 10 min instead of the YAML budget.
+  describe("input.timeout_ms is honored over the construction dep/default", () => {
+    it("aborts at the conveyed input.timeout_ms (queued feature errorDesc names the conveyed value, not the 600000 default)", async () => {
+      // Saturate the semaphore: more features than FEATURE_CONCURRENCY_D6 so at
+      // least one feature is still QUEUED when the outer cap fires. The running
+      // features have a slow goto; the tiny outer `timeout_ms` aborts mid-goto.
+      // When the queued feature then acquires its slot it hits the pre-feature
+      // abort check, which emits `timeout after <resolved-cap>ms` — the exact
+      // value the driver resolved. With the bug (dep/default used) that text
+      // would read 600000ms; with the fix it reads the conveyed 5ms.
+      const featureTypes = [
+        "agentic-chat",
+        "tool-rendering",
+        "shared-state-read",
+        "shared-state-write",
+        "hitl-text-input",
+      ] as const;
+      expect(featureTypes.length).toBeGreaterThan(FEATURE_CONCURRENCY_D6);
+      for (const ft of featureTypes) {
+        registerD5Script(makeScript([ft]));
+      }
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      const { launcher } = makeSlowTeardownLauncherFull({
+        gotoDelayMs: 200,
+        closeDelayMs: 5,
+      });
+      const driver = createE2eFullDriver({
+        launcher,
+        scriptLoader: noopScriptLoader(),
+        // Construction-time dep is the 10-min default; the conveyed input cap
+        // must win.
+        timeoutMs: 600_000,
+        // Large enough that the OUTER cap (not the per-feature timer) drives the
+        // abort.
+        featureTimeoutMs: 60_000,
+      });
+      const result = await driver.run(makeCtx({ writer }), {
+        key: "d6-all-pills-e2e:showcase-test-slug",
+        backendUrl: "https://test.example.com",
+        features: [...featureTypes],
+        // The fleet enumerator's conveyed cap — tiny so the test resolves fast.
+        timeout_ms: 5,
+      });
+
+      expect(result.state).toBe("red");
+      // Some feature side-row reports the OUTER-cap timeout with the conveyed
+      // value (the queued feature that hit the pre-feature abort check).
+      const timeoutRows = sideEmits.filter((r) => {
+        const sig = r.signal as E2eFullFeatureSignal;
+        return (
+          typeof sig?.errorDesc === "string" &&
+          sig.errorDesc.startsWith("timeout after ")
+        );
+      });
+      expect(timeoutRows.length).toBeGreaterThan(0);
+      for (const r of timeoutRows) {
+        const sig = r.signal as E2eFullFeatureSignal;
+        // PROOF the driver read input.timeout_ms (5), NOT the dep/default
+        // (600000).
+        expect(sig.errorDesc).toBe("timeout after 5ms");
+        expect(sig.errorDesc).not.toContain("600000");
+      }
+    }, 20_000);
+  });
 });

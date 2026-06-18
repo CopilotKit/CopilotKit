@@ -11,7 +11,7 @@
  *   D3 = e2e:<slug>/<featureId> green (per-cell)
  *   D4 = chat:<slug> OR tools:<slug> green (integration-scoped)
  *   D5 = d5:<slug>/<d5FeatureType> green (per-cell, mapped via CATALOG_TO_D5_KEY)
- *   D6 = d6:<slug> green (integration-scoped aggregate)
+ *   D6 = d6:<slug>/<d5FeatureType> green (per-cell, mapped via CATALOG_TO_D5_KEY)
  *
  * Achieved depth = highest D where ALL lower depths are also green.
  * Short-circuits: if any level is not green, stop there.
@@ -113,7 +113,7 @@ function isD4Green(live: LiveStatusMap, slug: string, now: number): boolean {
  * Check whether all D5 PB rows for a given (slug, catalogFeatureId) are green
  * AND fresh. Returns false if the feature has no D5 mapping or any mapped row
  * is missing/non-green/stale. The staleness gate mirrors `cell-model.ts` so a
- * frozen-green CV row from a stalled driver no longer credits D5.
+ * frozen-green 1P row from a stalled driver no longer credits D5.
  */
 function isD5Green(
   live: LiveStatusMap,
@@ -122,9 +122,9 @@ function isD5Green(
   now: number,
 ): boolean {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
-  // No D5 mapping = no CV test exists for this feature = cannot be D5.
+  // No D5 mapping = no 1P test exists for this feature = cannot be D5.
   // Previously fell back to a direct key lookup which could resolve true
-  // from stale/shared PB rows, granting D5 to cells without CV tests.
+  // from stale/shared PB rows, granting D5 to cells without 1P tests.
   if (!d5Keys || d5Keys.length === 0) {
     return false;
   }
@@ -134,19 +134,59 @@ function isD5Green(
 }
 
 /**
+ * Check whether all D6 PB rows for a given (slug, catalogFeatureId) are green
+ * AND fresh. D6 is PER-CELL, not an integration aggregate: the `e2e-parity`
+ * driver emits `d6:<slug>/<featureType>` rows over the same featureType
+ * keyspace as D5 (both fan out over `demosToFeatureTypes`), so D6 resolves
+ * through the SAME `CATALOG_TO_D5_KEY` bridge. Returns false if the feature has
+ * no mapping or any mapped row is missing/non-green/stale — `every(...)`
+ * mirrors `isD5Green` and `cell-model.ts` `resolveD6` so all consumers agree.
+ * The integration-level `d6:<slug>` aggregate is NOT read here (it is red
+ * whenever any cell fails and would deny D6 to genuinely-green cells).
+ *
+ * The ladder walk in `deriveDepth` invokes this ONLY after D5 is green (the
+ * walk is contiguous), so D6 can never be credited over a broken D5 — a green
+ * D6 row on a red-D5 cell is short-circuited before reaching this check.
+ */
+function isD6Green(
+  live: LiveStatusMap,
+  slug: string,
+  featureId: string,
+  now: number,
+): boolean {
+  const d6Keys = CATALOG_TO_D5_KEY[featureId];
+  if (!d6Keys || d6Keys.length === 0) {
+    return false;
+  }
+  return d6Keys.every((d6Key) =>
+    isGreenAndFresh(live, keyFor("d6", slug, d6Key), now),
+  );
+}
+
+/**
  * Compute the maximum possible depth for a cell based on probe EXISTENCE.
  * This checks whether the structural prerequisites for each depth level
  * exist (key mappings, feature ID), NOT whether probes are currently green.
  *
- * - D0: always possible for wired/stub cells
+ * - unshipped/unsupported/stub: max possible is 0 (no probes attached — a
+ *   `stub` is "not yet wired", not a regressed cell)
+ * - D0: always possible for wired cells
  * - D1-D4: always possible if the cell has a feature ID
  * - D5: possible only if CATALOG_TO_D5_KEY[featureId] exists and has entries
- * - D6: possible when a D5 mapping exists (D6 uses an integration-scoped
- *   aggregate key, so no additional per-feature mapping is needed)
+ * - D6: possible when a D5 mapping exists — D6 is per-cell and resolves
+ *   through the SAME CATALOG_TO_D5_KEY bridge, so the D5 mapping check
+ *   doubles as the D6 reachability check
  */
 function computeMaxPossible(cell: CatalogCell): AchievedDepth {
-  // Unsupported/unshipped: max possible is 0.
-  if (cell.status === "unsupported" || cell.status === "unshipped") {
+  // Unsupported/unshipped/stub: max possible is 0. A `stub` cell is "not yet
+  // wired" — like `unshipped`, it has no probes attached, so capping its
+  // ceiling at 0 keeps achieved===maxPossible and prevents a false-positive
+  // regression flag for a cell that simply hasn't been built yet.
+  if (
+    cell.status === "unsupported" ||
+    cell.status === "unshipped" ||
+    cell.status === "stub"
+  ) {
     return 0;
   }
 
@@ -285,8 +325,11 @@ export function deriveDepth(
   }
   achieved = 5;
 
-  // D6: d6:<slug> green (integration-scoped aggregate)
-  if (isGreenAndFresh(live, keyFor("d6", cell.integration), now)) {
+  // D6: d6:<slug>/<featureType> green (per-cell, mapped via CATALOG_TO_D5_KEY).
+  // PER-CELL, not the integration aggregate: the e2e-parity driver emits one
+  // row per featureType; the aggregate `d6:<slug>` is red whenever any cell
+  // fails and would deny D6 to a genuinely-green cell. Mirrors isD5Green.
+  if (isD6Green(live, cell.integration, cell.feature, now)) {
     achieved = 6;
   }
 

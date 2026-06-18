@@ -179,7 +179,7 @@
       "id": "declarative-gen-ui",
       "name": "Declarative UI: Dynamic A2UI",
       "category": "declarative-generative-ui",
-      "description": "Canonical A2UI BYOC \u2014 custom catalog wired via a2ui.catalog; runtime injects render_a2ui automatically",
+      "description": "Canonical A2UI BYOC \u2014 custom catalog wired via a2ui.catalog",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/a2ui",
       "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
     },
@@ -308,6 +308,15 @@
       "description": "useFrontendTool with an async handler \u2014 agent awaits a client-side async operation (e.g. DB query) and uses the returned result",
       "og_docs_url": "https://docs.copilotkit.ai/frontend-tools",
       "shell_docs_path": "/frontend-tools"
+    },
+    {
+      "id": "threadid-frontend-tool-roundtrip",
+      "name": "ThreadID: Frontend Tool Round-Trip",
+      "category": "interactivity",
+      "description": "Regression demo for ENT-658 — verifies that an explicit threadId survives a useFrontendTool round-trip (agent invokes a frontend tool, awaits the async handler, and the same threadId is preserved across the resume).",
+      "kind": "testing",
+      "shell_docs_path": "/frontend-tools",
+      "og_docs_url": "https://docs.copilotkit.ai/frontend-tools"
     },
     {
       "id": "hitl-in-app",

@@ -210,7 +210,7 @@ async def shared_state_read_write_endpoint(request: Request) -> StreamingRespons
 async def reasoning_endpoint(request: Request) -> StreamingResponse:
     """Reasoning demo backend — emits AG-UI REASONING_MESSAGE_* events.
 
-    Shared by the agentic-chat-reasoning and reasoning-default-render
+    Shared by the reasoning-custom and reasoning-default
     demos. Both demos hit the same backend; the difference is purely
     on the frontend slot configuration.
     """

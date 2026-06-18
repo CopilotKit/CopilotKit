@@ -1,0 +1,38 @@
+{
+  "name": "slack-example",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Runnable demo for @copilotkit/bot-slack \u2014 an on-call triage Slack bot backed by Linear + Notion MCP (query/file issues, find/write Notion pages), with a confirm-before-write HITL gate and a live-Slack e2e harness.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch app/index.ts",
+    "start": "tsx app/index.ts",
+    "build": "pnpm exec nx run-many -t build -p @copilotkit/bot-slack @copilotkit/bot-discord @copilotkit/runtime",
+    "runtime": "tsx runtime.ts",
+    "notion-mcp": "tsx scripts/start-notion-mcp.ts",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "e2e": "tsx e2e/run.ts",
+    "e2e:restart": "tsx e2e/restart-recovery.ts"
+  },
+  "dependencies": {
+    "@copilotkit/bot": "workspace:*",
+    "@copilotkit/bot-discord": "workspace:*",
+    "@copilotkit/bot-slack": "workspace:*",
+    "@copilotkit/bot-ui": "workspace:*",
+    "@copilotkit/runtime": "workspace:*",
+    "@slack/bolt": "^4.2.0",
+    "@slack/types": "^2.21.1",
+    "playwright": "^1.49.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@notionhq/notion-mcp-server": "^2.2.1",
+    "@types/node": "^22.10.0",
+    "dotenv": "^16.4.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

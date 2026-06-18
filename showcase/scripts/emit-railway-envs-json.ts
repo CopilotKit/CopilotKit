@@ -52,25 +52,77 @@ interface Emitted {
   }>;
 }
 
+/**
+ * Project the env-map `ServiceEntry` back onto the LEGACY per-service JSON
+ * shape that Ruby (`bin/railway`) and workflow jq consume. This is the
+ * Ruby/jq boundary: the emitted JSON shape is FROZEN at the pre-refactor
+ * layout (`prodInstanceId`/`stagingInstanceId`/`domains`/`probe`/
+ * `repoNameOverride`) and must stay byte-identical, so this is the only
+ * place the env-map is flattened back.
+ *
+ * Per-env reconstruction:
+ *   - `<env>InstanceId`: `environments[env].instanceId`, or — for a
+ *     single-env service missing that env — the `serviceId` (legacy
+ *     non-functional placeholder; see ServiceEntry.legacyJsonCompat).
+ *   - `domains[env]`: `environments[env].domain`, or the legacy borrowed
+ *     host from `legacyJsonCompat.domains[env]` for domainless workers.
+ *   - `probe[env]`: `environments[env].probe ?? true` (env present), or
+ *     `false` (env absent — the legacy default for a non-existent env).
+ *   - `repoNameOverride`: rebuilt as `{prod?, staging?}` from the per-env
+ *     `repoName` fields, INCLUDED only when at least one env sets one
+ *     (matches the legacy output, which omitted the key when unset).
+ */
+function projectServiceToLegacyJson(
+  name: string,
+  entry: (typeof SERVICES)[string],
+): Emitted["services"][number] {
+  const prodEnv = entry.environments.prod;
+  const stagingEnv = entry.environments.staging;
+
+  // Real per-env repoName wins; the legacy-compat shim fills an env the
+  // env-map schema omits (a single-env worker's absent env still carried a
+  // placeholder repoName in the legacy JSON). Built in {prod, staging} key
+  // order to match the frozen JSON layout.
+  const compatRepo = entry.legacyJsonCompat?.repoNameOverride;
+  const prodRepo = prodEnv?.repoName ?? compatRepo?.prod;
+  const stagingRepo = stagingEnv?.repoName ?? compatRepo?.staging;
+  const repoNameOverride =
+    prodRepo !== undefined || stagingRepo !== undefined
+      ? {
+          ...(prodRepo !== undefined ? { prod: prodRepo } : {}),
+          ...(stagingRepo !== undefined ? { staging: stagingRepo } : {}),
+        }
+      : undefined;
+
+  const compatDomains = entry.legacyJsonCompat?.domains;
+  const prodDomain = prodEnv?.domain ?? compatDomains?.prod ?? "";
+  const stagingDomain = stagingEnv?.domain ?? compatDomains?.staging ?? "";
+
+  return {
+    name,
+    serviceId: entry.serviceId,
+    // A single-env service (no prod env) keeps the legacy placeholder:
+    // prodInstanceId === serviceId. Never dereferenced (staging-only,
+    // probe disabled) — exists only for JSON-shape stability.
+    prodInstanceId: prodEnv?.instanceId ?? entry.serviceId,
+    stagingInstanceId: stagingEnv?.instanceId ?? entry.serviceId,
+    ciBuilt: entry.ciBuilt,
+    gateValidated: entry.gateValidated,
+    dispatchName: entry.dispatchName,
+    repoNameOverride,
+    domains: { staging: stagingDomain, prod: prodDomain },
+    probe: {
+      staging: stagingEnv ? (stagingEnv.probe ?? true) : false,
+      prod: prodEnv ? (prodEnv.probe ?? true) : false,
+      driver: entry.probeDriver,
+    },
+  };
+}
+
 function buildPayload(): Emitted {
   const services: Emitted["services"] = Object.entries(SERVICES)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([name, entry]) => ({
-      name,
-      serviceId: entry.serviceId,
-      prodInstanceId: entry.prodInstanceId,
-      stagingInstanceId: entry.stagingInstanceId,
-      ciBuilt: entry.ciBuilt,
-      gateValidated: entry.gateValidated,
-      dispatchName: entry.dispatchName,
-      repoNameOverride: entry.repoNameOverride,
-      domains: { staging: entry.domains.staging, prod: entry.domains.prod },
-      probe: {
-        staging: entry.probe.staging,
-        prod: entry.probe.prod,
-        driver: entry.probe.driver,
-      },
-    }));
+    .map(([name, entry]) => projectServiceToLegacyJson(name, entry));
   return {
     projectId: PROJECT_ID,
     envIds: { staging: STAGING_ENV_ID, prod: PRODUCTION_ENV_ID },

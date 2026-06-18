@@ -1,0 +1,61 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for google-adk / hitl (canonical /demos/hitl, generate_task_steps flow — langgraph-python parity). Cribbed from showcase/harness/fixtures/d5/hitl-steps.json with context:\"google-adk\" added. Covers both suggestion pills (trip to mars, pasta dish). Matching is userMessage substring + context; hasToolResult disambiguates the post-tool-result second leg. google-adk's route.ts proxies via HttpAgent and does NOT apply the __approved/__rejected toolCallId decision suffix (unlike ms-agent-dotnet), so the second leg is matched by the bare hasToolResult:true fallback.",
+    "sourceFile": "harness/fixtures/d5/hitl-steps.json",
+    "created": "2026-06-08"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "hasToolResult": false,
+        "context": "google-adk"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_generate_steps_001",
+            "name": "generate_task_steps",
+            "arguments": "{\"steps\":[{\"description\":\"Research Mars mission requirements and timeline\",\"status\":\"enabled\"},{\"description\":\"Design spacecraft and life support systems\",\"status\":\"enabled\"},{\"description\":\"Recruit and train the crew\",\"status\":\"enabled\"},{\"description\":\"Launch and navigate to Mars\",\"status\":\"enabled\"},{\"description\":\"Land and establish base camp\",\"status\":\"enabled\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip to mars",
+        "hasToolResult": true,
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "Great choices! I will proceed with executing the selected steps for your trip to Mars. Let me work through each one."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pasta dish",
+        "hasToolResult": false,
+        "context": "google-adk"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_generate_steps_pasta_001",
+            "name": "generate_task_steps",
+            "arguments": "{\"steps\":[{\"description\":\"Choose the pasta shape and quantity\",\"status\":\"enabled\"},{\"description\":\"Bring a large pot of salted water to a boil\",\"status\":\"enabled\"},{\"description\":\"Prepare the sauce ingredients\",\"status\":\"enabled\"},{\"description\":\"Saute the aromatics in olive oil\",\"status\":\"enabled\"},{\"description\":\"Add tomatoes and simmer the sauce\",\"status\":\"enabled\"},{\"description\":\"Cook the pasta until al dente\",\"status\":\"enabled\"},{\"description\":\"Reserve a cup of pasta water\",\"status\":\"enabled\"},{\"description\":\"Drain the pasta\",\"status\":\"enabled\"},{\"description\":\"Toss the pasta with the sauce\",\"status\":\"enabled\"},{\"description\":\"Plate and garnish with cheese and herbs\",\"status\":\"enabled\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pasta dish",
+        "hasToolResult": true,
+        "context": "google-adk"
+      },
+      "response": {
+        "content": "Great choices! I will proceed with executing the selected steps for your pasta dish. Let me work through each one."
+      }
+    }
+  ]
+}

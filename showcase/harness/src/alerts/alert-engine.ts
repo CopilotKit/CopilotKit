@@ -4,6 +4,7 @@ import Mustache from "mustache";
 import type { TypedEventBus } from "../events/event-bus.js";
 import type { MetricsRegistry } from "../http/metrics.js";
 import type { Renderer } from "../render/renderer.js";
+import { sourceEnvPrefix } from "../render/renderer.js";
 import type { CompiledRule } from "../rules/rule-loader.js";
 import type { AlertStateStore } from "../storage/alert-state-store.js";
 import { parseDuration, evalSuppress } from "./dsl.js";
@@ -52,7 +53,13 @@ export interface AlertEngineDeps {
   targets: Map<string, Target>;
   logger: Logger;
   now: () => Date;
-  env: { dashboardUrl: string; repo: string };
+  /**
+   * `sourceEnv` labels the harness's own deploy environment ("staging" /
+   * "production" / "unknown"), threaded into every rendered alert as a
+   * source-env prefix so operators can tell which environment a red probe
+   * came from. Derived from RAILWAY_ENVIRONMENT_NAME in orchestrator.ts.
+   */
+  env: { dashboardUrl: string; repo: string; sourceEnv?: string };
   /** Milliseconds after boot during which green_to_red is suppressed. */
   bootstrapWindowMs?: number;
   /** HF-A1 — optional; see StatusReader JSDoc. */
@@ -607,6 +614,11 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       transition: probeState === "error" ? "error" : "first",
       firstFailureAt: signalFirstFailureAt,
       failCount: signalFailCount,
+      // A2: this outcome is synthesized for cron-driven rule evaluation —
+      // no status-writer runs on this path and nothing reaches durable
+      // storage (see the newState note above: status-writer does NOT
+      // consume this outcome). Truthfully stamp non-persisted.
+      persisted: false,
     };
     if (fakeResult.state === "error" && rule.onError) {
       // A1: apply the same `passesGuards` filter as the status.changed
@@ -1005,8 +1017,14 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
         lastSignal,
         groupValues: bucket.groupValues,
       });
+      // Aggregation flush bypasses renderer.render (it Mustache-renders the
+      // aggregation template directly), so prepend the same source-env tag
+      // here to keep fleet alerts consistent with per-key/cron/on-error
+      // alerts. Uses the shared sourceEnvPrefix helper so the format never
+      // drifts between the two paths.
+      const prefixedText = sourceEnvPrefix(env.sourceEnv) + text;
       const rendered = {
-        payload: { text } as Record<string, unknown>,
+        payload: { text: prefixedText } as Record<string, unknown>,
         contentType: "application/json" as const,
       };
       const { results, allSucceeded } = await sendToTargets(rule, rendered);

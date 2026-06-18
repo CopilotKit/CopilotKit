@@ -19,9 +19,11 @@ describe("server getRuntimeConfig (shell-dashboard)", () => {
       "POCKETBASE_URL",
       "SHELL_URL",
       "OPS_BASE_URL",
+      "OPS_DIRECT_BASE_URL",
       "NEXT_PUBLIC_POCKETBASE_URL",
       "NEXT_PUBLIC_SHELL_URL",
       "NEXT_PUBLIC_OPS_BASE_URL",
+      "NEXT_PUBLIC_OPS_DIRECT_BASE_URL",
       "NODE_ENV",
     ]) {
       delete (process.env as Record<string, string | undefined>)[k];
@@ -37,19 +39,38 @@ describe("server getRuntimeConfig (shell-dashboard)", () => {
     process.env.POCKETBASE_URL =
       "https://pocketbase-staging-eec0.up.railway.app";
     process.env.SHELL_URL = "https://showcase.staging.copilotkit.ai";
+    // Server proxy target (read only by the Route Handler) — must NOT
+    // become the client-injected opsBaseUrl.
     process.env.OPS_BASE_URL = "https://harness-staging-2ee4.up.railway.app";
+    // Client direct override — explicit opt-in, sourced from the
+    // NEXT_PUBLIC_OPS_DIRECT_BASE_URL var.
+    process.env.NEXT_PUBLIC_OPS_DIRECT_BASE_URL =
+      "https://ops-direct.example.com";
     expect(getRuntimeConfig()).toEqual({
       pocketbaseUrl: "https://pocketbase-staging-eec0.up.railway.app",
       shellUrl: "https://showcase.staging.copilotkit.ai",
-      opsBaseUrl: "https://harness-staging-2ee4.up.railway.app",
+      opsBaseUrl: "https://ops-direct.example.com",
     });
+  });
+
+  it("opsBaseUrl defaults to empty in prod even when OPS_BASE_URL (server proxy target) is set", () => {
+    // Regression for the staging no-data bug: the server proxy target
+    // OPS_BASE_URL must NOT leak into the client config as a fetch base.
+    // With no client-direct override, opsBaseUrl is empty so the client
+    // falls through to the same-origin /api/ops proxy.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.POCKETBASE_URL = "https://pb.example.com";
+    process.env.SHELL_URL = "https://shell.example.com";
+    process.env.OPS_BASE_URL = "https://harness-staging-2ee4.up.railway.app";
+    const cfg = getRuntimeConfig();
+    expect(cfg.opsBaseUrl).toBe("");
   });
 
   it("strips trailing slashes", () => {
     (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.POCKETBASE_URL = "https://pb.example.com/";
     process.env.SHELL_URL = "https://shell.example.com//";
-    process.env.OPS_BASE_URL = "https://ops.example.com///";
+    process.env.NEXT_PUBLIC_OPS_DIRECT_BASE_URL = "https://ops.example.com///";
     const cfg = getRuntimeConfig();
     expect(cfg.pocketbaseUrl).toBe("https://pb.example.com");
     expect(cfg.shellUrl).toBe("https://shell.example.com");
@@ -61,10 +82,12 @@ describe("server getRuntimeConfig (shell-dashboard)", () => {
     const cfg = getRuntimeConfig();
     expect(cfg.pocketbaseUrl).toBe("http://127.0.0.1:8090");
     expect(cfg.shellUrl).toBe("http://localhost:3000");
-    expect(cfg.opsBaseUrl).toBe("http://localhost:9020");
+    // No client-direct override set → empty so dev also uses /api/ops
+    // unless the developer opts in via NEXT_PUBLIC_OPS_DIRECT_BASE_URL.
+    expect(cfg.opsBaseUrl).toBe("");
   });
 
-  it("falls back to sentinels and console.errors in production", () => {
+  it("falls back to sentinels and console.errors in production (opsBaseUrl exempt)", () => {
     (process.env as Record<string, string>).NODE_ENV = "production";
     const errs: string[] = [];
     const spy = vi.spyOn(console, "error").mockImplementation((m: string) => {
@@ -74,10 +97,13 @@ describe("server getRuntimeConfig (shell-dashboard)", () => {
     spy.mockRestore();
     expect(cfg.pocketbaseUrl).toBe("http://pocketbase.invalid");
     expect(cfg.shellUrl).toBe("about:blank#shell-url-missing");
-    expect(cfg.opsBaseUrl).toBe("http://ops.invalid");
+    // opsBaseUrl is an opt-in client override, not a required URL: it
+    // defaults to empty (→ same-origin /api/ops) and does NOT emit a
+    // FATAL-CONFIG sentinel/error.
+    expect(cfg.opsBaseUrl).toBe("");
     expect(errs.some((m) => m.includes("POCKETBASE_URL"))).toBe(true);
     expect(errs.some((m) => m.includes("SHELL_URL"))).toBe(true);
-    expect(errs.some((m) => m.includes("OPS_BASE_URL"))).toBe(true);
+    expect(errs.some((m) => m.includes("OPS_BASE_URL"))).toBe(false);
   });
 
   it("reads live process.env on each call (no module-load freeze)", () => {
@@ -90,34 +116,47 @@ describe("server getRuntimeConfig (shell-dashboard)", () => {
     expect(getRuntimeConfig().pocketbaseUrl).toBe("https://second.example.com");
   });
 
-  it("accepts NEXT_PUBLIC_* fallbacks when bare names are unset", () => {
+  it("sources opsBaseUrl from NEXT_PUBLIC_OPS_DIRECT_BASE_URL, NOT the bare OPS_BASE_URL", () => {
+    // The client-direct override is ONLY the NEXT_PUBLIC_-prefixed name.
+    // The bare OPS_BASE_URL (server proxy target) must never leak into
+    // the client config — that is exactly the bug being fixed.
+    (process.env as Record<string, string>).NODE_ENV = "production";
+    process.env.POCKETBASE_URL = "https://pb.example.com";
+    process.env.SHELL_URL = "https://shell.example.com";
+    process.env.OPS_BASE_URL = "https://server-proxy-target.example.com";
+    const cfg = getRuntimeConfig();
+    expect(cfg.opsBaseUrl).toBe("");
+
+    process.env.NEXT_PUBLIC_OPS_DIRECT_BASE_URL =
+      "https://client-direct.example.com";
+    const cfg2 = getRuntimeConfig();
+    expect(cfg2.opsBaseUrl).toBe("https://client-direct.example.com");
+  });
+
+  it("accepts NEXT_PUBLIC_* fallbacks when bare names are unset (pb/shell)", () => {
     // Deploy-config contract: shell-dashboard reads bare names first,
     // but tolerates NEXT_PUBLIC_-prefixed variants so a Railway
     // service that follows the shell-docs naming convention still
     // wires through. See the readUrl fallback chain in
-    // runtime-config.ts.
+    // runtime-config.ts. (opsBaseUrl is intentionally exempt — it is
+    // sourced from the NEXT_PUBLIC_OPS_DIRECT_BASE_URL client override.)
     (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.NEXT_PUBLIC_POCKETBASE_URL = "https://alt-pb.example.com";
     process.env.NEXT_PUBLIC_SHELL_URL = "https://alt-shell.example.com";
-    process.env.NEXT_PUBLIC_OPS_BASE_URL = "https://alt-ops.example.com";
     const cfg = getRuntimeConfig();
     expect(cfg.pocketbaseUrl).toBe("https://alt-pb.example.com");
     expect(cfg.shellUrl).toBe("https://alt-shell.example.com");
-    expect(cfg.opsBaseUrl).toBe("https://alt-ops.example.com");
   });
 
-  it("bare names take precedence over NEXT_PUBLIC_ variants when both set", () => {
+  it("bare names take precedence over NEXT_PUBLIC_ variants when both set (pb/shell)", () => {
     (process.env as Record<string, string>).NODE_ENV = "production";
     process.env.POCKETBASE_URL = "https://primary-pb.example.com";
     process.env.SHELL_URL = "https://primary-shell.example.com";
-    process.env.OPS_BASE_URL = "https://primary-ops.example.com";
     process.env.NEXT_PUBLIC_POCKETBASE_URL = "https://alt-pb.example.com";
     process.env.NEXT_PUBLIC_SHELL_URL = "https://alt-shell.example.com";
-    process.env.NEXT_PUBLIC_OPS_BASE_URL = "https://alt-ops.example.com";
     const cfg = getRuntimeConfig();
     expect(cfg.pocketbaseUrl).toBe("https://primary-pb.example.com");
     expect(cfg.shellUrl).toBe("https://primary-shell.example.com");
-    expect(cfg.opsBaseUrl).toBe("https://primary-ops.example.com");
   });
 
   it("getRuntimeConfigForMiddleware skips noStore() (Edge runtime path)", async () => {

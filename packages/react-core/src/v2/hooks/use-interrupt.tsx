@@ -212,6 +212,7 @@ export function useInterrupt<
       },
       onRunFailed: () => {
         localInterrupt = null;
+        setPendingEvent(null);
       },
     });
 
@@ -219,20 +220,39 @@ export function useInterrupt<
   }, [agent]);
 
   const resolve = useCallback(
-    (response: unknown) => {
+    async (response: unknown) => {
       // Do NOT synchronously clear pendingEvent here — onRunStartedEvent
       // already clears it when the resume run begins. Clearing synchronously
       // unmounts the card before commit, which previously forced consumers
       // to wrap their resolve() in a 500ms setTimeout to keep the UI alive.
-      copilotkit.runAgent({
-        agent,
-        forwardedProps: {
-          command: {
-            resume: response,
-            interruptEvent: pendingEventRef.current?.value,
+      //
+      // RESUME-PATH: await runAgent and return the result so callers can
+      // sequence post-resume UI (e.g. harness DOM settle-check waiting for
+      // the assistant confirmation bubble). Returning void here is the bug
+      // that quarantined the showcase manifests' interrupt-headless feature.
+      try {
+        return await copilotkit.runAgent({
+          agent,
+          forwardedProps: {
+            command: {
+              resume: response,
+              interruptEvent: pendingEventRef.current?.value,
+            },
           },
-        },
-      });
+        });
+      } catch (err) {
+        // Catastrophic rejection path: runAgent rejected before/around the
+        // run actually starting (network error, auth failure, validation
+        // reject). In that case `onRunFailed` may never fire — so clear
+        // `pendingEvent` here so the popup unmounts. Symmetric with the
+        // `onRunFailed` handler above; both write null, so no race.
+        console.error(
+          "[CopilotKit] useInterrupt resolve: runAgent rejected; clearing pending + rethrowing",
+          err,
+        );
+        setPendingEvent(null);
+        throw err;
+      }
     },
     [agent, copilotkit],
   );

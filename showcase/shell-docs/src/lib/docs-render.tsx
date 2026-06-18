@@ -28,9 +28,23 @@ export {
 // Nav tree types
 // ---------------------------------------------------------------------------
 
+export type NavNodeVariant = "react-docs-proxy";
+
 export type NavNode =
-  | { type: "page"; title: string; slug: string; icon?: string }
-  | { type: "section"; title: string; icon?: string }
+  | {
+      type: "page";
+      title: string;
+      slug: string;
+      href?: string;
+      icon?: string;
+      variant?: NavNodeVariant;
+    }
+  | {
+      type: "section";
+      title: string;
+      icon?: string;
+      variant?: NavNodeVariant;
+    }
   | {
       type: "group";
       title: string;
@@ -38,6 +52,7 @@ export type NavNode =
       children: NavNode[];
       defaultOpen?: boolean;
       icon?: string;
+      variant?: NavNodeVariant;
     };
 
 // Section headers (the all-caps separators) carry the only icons in
@@ -63,7 +78,7 @@ const SECTION_ICONS: Record<string, string> = {
   "add agent powers": "lucide/Wand2",
   runtime: "lucide/Cpu",
   "observe & operate": "lucide/SearchCheck",
-  enterprise: "custom/copilotkit-kite",
+  "intelligence platform": "custom/copilotkit-kite",
   deploy: "lucide/Cloud",
   other: "lucide/MoreHorizontal",
   // Built-in Agent (authored) sections — match the section names in
@@ -75,7 +90,6 @@ const SECTION_ICONS: Record<string, string> = {
   "app control": "lucide/WandSparkles",
   "built-in agent": "lucide/Bot",
   backend: "lucide/Server",
-  "premium features": "custom/copilotkit-kite",
   tutorials: "lucide/ListChecks",
   troubleshooting: "lucide/LifeBuoy",
 };
@@ -131,7 +145,13 @@ const isDev = process.env.NODE_ENV === "development";
 const titleCache = new Map<string, string | null>();
 const metaCache = new Map<
   string,
-  { title?: string; pages?: string[]; root?: boolean } | null
+  {
+    title?: string;
+    pages?: string[];
+    root?: boolean;
+    icon?: string;
+    frontend?: unknown;
+  } | null
 >();
 // Tree-level cache. Even with title/meta cached, `buildNavTree` still
 // allocates ~200 NavNode objects per call and is invoked from every
@@ -223,6 +243,7 @@ export function readMeta(dir: string): {
   pages?: MetaPageEntry[];
   root?: boolean;
   icon?: string;
+  frontend?: unknown;
 } | null {
   const metaPath = path.join(dir, "meta.json");
   const cacheKey = path.resolve(metaPath);
@@ -568,7 +589,10 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
  * the literal `index` → "" rewrite, so links resolve at
  * `/<framework>/<topic>` and the framework root at `/<framework>`.
  */
-export function buildFrameworkOnlyNav(folder: string): NavNode[] {
+export function buildFrameworkOnlyNav(
+  folder: string,
+  sharedSections: string[] = SHARED_ROOT_SECTIONS,
+): NavNode[] {
   const frameworkDir = path.join(CONTENT_DIR, "integrations", folder);
   if (!fs.existsSync(frameworkDir)) return [];
   const nodes = buildNavTree(frameworkDir, `integrations/${folder}`);
@@ -604,10 +628,70 @@ export function buildFrameworkOnlyNav(folder: string): NavNode[] {
     }
     return node;
   };
-  return appendSharedRootSections(nodes.map(rewrite));
+  return dropEmptySections(
+    appendSharedRootSections(nodes.map(rewrite), sharedSections),
+  );
 }
 
-const SHARED_ROOT_SECTIONS = ["Platforms"];
+/**
+ * Build the sidebar for the ROOT surface (the bare-URL docs, served by
+ * the default framework — Built-in Agent). Same as
+ * `buildFrameworkOnlyNav` but folds the agnostic root sections
+ * (`ROOT_SURFACE_SECTIONS`) into the tree so navigating from a BIA page
+ * to an agnostic page (e.g. `/concepts/architecture`, `/backend/ag-ui`)
+ * keeps ONE coherent sidebar instead of swapping IAs.
+ *
+ * Scoped to the root surface only: `buildFrameworkOnlyNav`'s default
+ * keeps the shared-section behavior for deepagents, and generated
+ * frameworks are untouched.
+ */
+export function buildRootSurfaceNav(folder: string): NavNode[] {
+  return buildFrameworkOnlyNav(folder, ROOT_SURFACE_SECTIONS);
+}
+
+const SHARED_ROOT_SECTIONS = ["Intelligence Platform", "Platforms"];
+
+// Sections pulled from the root `meta.json` into the Built-in Agent
+// sidebar when it serves the ROOT surface (see `buildRootSurfaceNav`).
+// BIA is the default framework and its docs render at the bare root
+// URLs, so its sidebar must also navigate the agnostic pages that live
+// outside BIA's authored tree (Concepts, the Runtime/backend pages,
+// Intelligence Platform, Deploy, What's New, Migrate, …). Without this, landing
+// on an agnostic page like `/concepts/architecture` swaps the sidebar
+// to the root `meta.json` IA — the jarring "two docs colliding" flip.
+//
+// Each title slots into a matching empty `---Section---` placeholder in
+// BIA's `meta.json` when present (so position is author-controlled),
+// otherwise the section appends at the end. "Intelligence Platform" and
+// "Platforms" stay in the list so the root surface keeps the generated
+// Intelligence Platform IA and shared platform guides.
+const ROOT_SURFACE_SECTIONS = [
+  "Concepts",
+  "Runtime",
+  "Intelligence Platform",
+  "Deploy",
+  "Platforms",
+  "Other",
+];
+
+/**
+ * Remove section headers that have no entries before the next section
+ * header (or end of tree). `buildRootSurfaceNav` relies on empty
+ * `---Section---` placeholders in BIA's meta.json that get filled by
+ * `appendSharedRootSections`; any placeholder whose section isn't in
+ * the active shared list would otherwise render as a
+ * dangling header. This also guards against authored metas that leave a
+ * trailing empty section.
+ */
+function dropEmptySections(navTree: NavNode[]): NavNode[] {
+  return navTree.filter((node, i) => {
+    if (node.type !== "section") return true;
+    const next = navTree[i + 1];
+    // Keep the section only if a non-section node follows it before the
+    // next section boundary.
+    return next !== undefined && next.type !== "section";
+  });
+}
 
 function sectionRange(
   navTree: NavNode[],
@@ -634,6 +718,19 @@ function hasPageSlug(navTree: NavNode[], slug: string): boolean {
   });
 }
 
+// A nav node whose slug carries a route-group segment like `(other)`.
+// Route groups are organizational-only — the segment is stripped from
+// the real URL — so folding them into a sidebar would emit a bogus
+// `/(other)/…` href (and duplicate pages that also live at their
+// stripped URL). `appendSharedRootSections` drops these when folding
+// root sections into a framework sidebar.
+function isRouteGroupNode(node: NavNode): boolean {
+  if (node.type === "section") return false;
+  return node.slug
+    .split("/")
+    .some((seg) => seg.startsWith("(") && seg.endsWith(")"));
+}
+
 function filterMissingPages(node: NavNode, navTree: NavNode[]): NavNode | null {
   if (node.type === "page") {
     return hasPageSlug(navTree, node.slug) ? null : node;
@@ -653,17 +750,21 @@ function filterMissingPages(node: NavNode, navTree: NavNode[]): NavNode | null {
  * those shared sections in every framework sidebar without duplicating
  * entries across each authored integration's meta.json.
  */
-function appendSharedRootSections(navTree: NavNode[]): NavNode[] {
+function appendSharedRootSections(
+  navTree: NavNode[],
+  sharedSections: string[] = SHARED_ROOT_SECTIONS,
+): NavNode[] {
   let nextNavTree = navTree;
   const rootNavTree = buildNavTree(CONTENT_DIR);
 
-  for (const sectionTitle of SHARED_ROOT_SECTIONS) {
+  for (const sectionTitle of sharedSections) {
     const rootRange = sectionRange(rootNavTree, sectionTitle);
     if (!rootRange) continue;
 
     const section = rootNavTree[rootRange.start];
     const missingNodes = rootNavTree
       .slice(rootRange.start + 1, rootRange.end)
+      .filter((node) => !isRouteGroupNode(node))
       .map((node) => filterMissingPages(node, nextNavTree))
       .filter((node): node is NavNode => node !== null);
     if (missingNodes.length === 0) continue;
@@ -1508,6 +1609,12 @@ export interface DocFrontmatter {
   defaultFramework?: string;
   defaultCell?: string;
   hideTOC?: boolean;
+  frontend?: unknown;
+  /**
+   * Early-access gate id (see `src/lib/early-access.ts`). When set,
+   * the page renders blurred behind the matching password gate.
+   */
+  earlyAccess?: string;
 }
 
 function slugSegments(slugPath: string): string[] | null {
@@ -1651,6 +1758,9 @@ export function loadDoc(
   const defaultCell =
     typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
   const hideTOC = data.hideTOC === true;
+  const frontend = data.frontend;
+  const earlyAccess =
+    typeof data.earlyAccess === "string" ? data.earlyAccess : undefined;
 
   return {
     source,
@@ -1661,6 +1771,8 @@ export function loadDoc(
       defaultFramework,
       defaultCell,
       hideTOC,
+      frontend,
+      earlyAccess,
     },
   };
 }

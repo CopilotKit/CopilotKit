@@ -52,9 +52,10 @@ import {
   getDocsMode,
   getIntegration,
   getIntegrations,
+  ROOT_FRAMEWORK,
 } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
-import { RESERVED_ROUTE_SLUGS } from "@/app/layout";
+import { RESERVED_ROUTE_SLUGS } from "@/lib/reserved-route-slugs";
 import demoContent from "@/data/demo-content.json";
 import fs from "fs";
 import path from "path";
@@ -100,8 +101,14 @@ export async function generateMetadata({
   const isDocsOnlyFramework =
     !integration && hasDocsOnlyFrameworkContent(framework);
   if (!integration && !isDocsOnlyFramework) {
+    // Root-surface URL. The BIA-authored page wins when one exists —
+    // mirror UnscopedDocsPage's resolution so the metadata matches the
+    // content the route serves.
     const unscopedPath = [framework, ...(slug ?? [])].join("/");
-    const doc = loadDoc(unscopedPath);
+    const doc =
+      loadDoc(
+        `integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${unscopedPath}`,
+      ) ?? loadDoc(unscopedPath);
     title = doc?.fm.title ?? humanizeSlug(unscopedPath);
     description = doc?.fm.description;
   } else if (slugPath) {
@@ -355,7 +362,7 @@ export default async function FrameworkScopedDocsPage({
     : [];
 
   const banner = missingCell ? (
-    <div className="mb-6 rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-4">
+    <div className="shell-docs-radius-surface shell-docs-warning-surface mb-6 border p-4 shadow-[var(--shadow-control)]">
       <div className="text-sm font-semibold text-[var(--text)] mb-1">
         Not available for {frameworkName} yet
       </div>
@@ -653,7 +660,7 @@ function NotAvailableForFrameworkPage({
           <p className="text-base text-[var(--text-muted)] mb-6 leading-relaxed">
             This topic isn't available for {frameworkName}.
           </p>
-          <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-5 mb-6">
+          <div className="shell-docs-radius-surface shell-docs-warning-surface mb-6 border p-5 shadow-[var(--shadow-control)]">
             <div className="text-sm font-semibold text-[var(--text)] mb-2">
               Available in other integrations
             </div>

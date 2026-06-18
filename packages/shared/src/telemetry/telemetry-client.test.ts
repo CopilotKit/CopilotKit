@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { MockInstance } from "vitest";
-import lambdaClient from "./lambda-client";
+import { lambdaClient } from "./lambda-client";
 import { TelemetryClient, isTelemetryDisabled } from "./telemetry-client";
 
 // Module mock so constructing TelemetryClient doesn't spin up segment's

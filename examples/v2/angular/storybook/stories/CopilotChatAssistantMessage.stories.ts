@@ -1,13 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/angular";
 import { moduleMetadata } from "@storybook/angular";
-import { fn } from "@storybook/test";
+import { fn } from "storybook/test";
 import { CommonModule } from "@angular/common";
 import { Component, Input } from "@angular/core";
 import {
   CopilotChatAssistantMessage,
   provideCopilotChatLabels,
 } from "@copilotkit/angular";
-import { AssistantMessage } from "@ag-ui/client";
+import type { AssistantMessage } from "@ag-ui/client";
 
 // Simple default message
 const simpleMessage: AssistantMessage = {
@@ -573,13 +573,13 @@ export const WithAdditionalToolbarItems: Story = {
             [additionalToolbarItems]="additionalItems">
             <ng-template #additionalItems>
               <button 
-                class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+                class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
                 (click)="onCustom1()"
                 title="Custom Action 1">
                 📌
               </button>
               <button 
-                class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+                class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
                 (click)="onCustom2()"
                 title="Custom Action 2">
                 ❤️
@@ -605,13 +605,13 @@ import { AssistantMessage } from '@ag-ui/client';
   template: \`
     <ng-template #additionalItems>
       <button 
-        class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+        class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
         (click)="onCustom1()"
         title="Custom Action 1">
         📌
       </button>
       <button 
-        class="h-8 w-8 p-0 rounded-md bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+        class="cpk:h-8 cpk:w-8 cpk:p-0 cpk:rounded-md cpk:bg-gray-100 cpk:hover:bg-gray-200 cpk:flex cpk:items-center cpk:justify-center"
         (click)="onCustom2()"
         title="Custom Action 2">
         ❤️
