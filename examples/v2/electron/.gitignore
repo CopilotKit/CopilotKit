@@ -4,3 +4,8 @@ dist
 .env
 .env.local
 *.log
+
+# Playwright e2e artifacts (videos + stills) — never committed
+e2e/.artifacts/
+playwright-report/
+test-results/

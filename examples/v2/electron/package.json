@@ -9,6 +9,7 @@
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
+    "test:e2e": "electron-vite build && playwright test",
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "zod": "^3.25.75"
   },
   "devDependencies": {
+    "@playwright/test": "1.59.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -36,6 +38,14 @@
     "targets": {
       "build": {
         "cache": false
+      },
+      "e2e": {
+        "cache": false,
+        "dependsOn": ["build"],
+        "command": "playwright test",
+        "options": {
+          "cwd": "examples/v2/electron"
+        }
       }
     }
   }
