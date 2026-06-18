@@ -78,6 +78,11 @@ every framework URL uses the same MDX source.
    exists. Inspect code blocks, not just headings: confirm expected Shiki
    syntax colors, highlighted lines from `[!code highlight]`, filenames,
    copy buttons, demos, and feature-viewer/code links survived the move.
+   For `<Snippet highlightLines="...">`, remember that the numbers are relative
+   to the extracted snippet/region, not necessarily the original source file.
+   Confirm the highlighted DOM/text is the intended line (for example the
+   `render: ... => null` line) and that neighboring lines are not accidentally
+   highlighted before calling visual verification complete.
 6. Run source checks after visual verification. At minimum use
    `npm --prefix showcase/shell-docs run typecheck`; for routing/sidebar
    changes also run the relevant redirect tests and
