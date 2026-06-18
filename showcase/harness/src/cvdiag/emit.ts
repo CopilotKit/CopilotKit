@@ -346,7 +346,11 @@ export class CvdiagEmitter {
     } else {
       // Accounting events ride their payload in the envelope's metadata bag
       // verbatim (no closed-world entry); they are trusted internal records.
-      metadata = args.metadata ?? {};
+      // Shallow-clone so `applyByteCap`'s in-place trims (and a Step-3 drop)
+      // never mutate the caller's object — pure instrumentation must not have
+      // caller-visible side effects. (Data-plane events already get a fresh
+      // `survivor` object from `validateMetadata`.)
+      metadata = { ...args.metadata };
     }
 
     const envelope: CvdiagEnvelope = {
@@ -437,10 +441,14 @@ export class CvdiagEmitter {
 
     // Step 3: still over cap (numeric/boolean/key-count-heavy bag) — drop the
     // whole metadata bag. The fixed scalar fields are bounded by construction,
-    // so an empty metadata bag guarantees the enqueued row fits the cap.
+    // so an empty metadata bag guarantees the enqueued row fits the cap. This
+    // is a SIZE drop: it is already observable via the `_truncated` flag
+    // stamped above. Do NOT set `_metadata_dropped` — that flag is the §6 PII
+    // closed-world signal (set in `buildEnvelope` when `validateMetadata`
+    // dropped unknown keys), and overloading it here would pollute PB drift
+    // queries that key on `_metadata_dropped`.
     if (this.serializedSize(envelope) > cap) {
       envelope.metadata = {};
-      envelope._metadata_dropped = true;
     }
 
     // Post-condition: either we are at or under cap, or metadata is already {}

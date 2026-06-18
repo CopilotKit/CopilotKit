@@ -101,6 +101,83 @@ describe("CvdiagEmitter.applyByteCap", () => {
     expect(env._truncated).toBe(true);
   });
 
+  it("does NOT mutate the caller's metadata object (pure instrumentation)", () => {
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    // A bag with a long (>64-char) string over the 2KB default cap: Step 1
+    // clamps that string IN PLACE on the metadata object. If that object is
+    // ALIASED to the caller's object, the caller's object is corrupted as a
+    // side effect (the long string becomes "...61 chars...").
+    const callerMeta: Record<string, unknown> = { note: "x".repeat(5000) };
+    expect(serializedSize(callerMeta)).toBeGreaterThan(
+      BYTE_CAP_BY_TIER.default,
+    );
+    const snapshot = JSON.parse(JSON.stringify(callerMeta));
+
+    const envelope = emitter.emit({
+      layer: "probe",
+      boundary: "cvdiag.queue_dropped",
+      slug: "cvdiag",
+      demo: "cvdiag",
+      outcome: "info",
+      metadata: callerMeta,
+    });
+
+    expect(envelope).not.toBeNull();
+    // The caller's object must be byte-for-byte unchanged after emit.
+    expect(callerMeta).toEqual(snapshot);
+  });
+
+  it("size-drops (Step 3) the metadata bag without setting the PII _metadata_dropped signal", () => {
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    const cap = BYTE_CAP_BY_TIER.default; // 2KB
+
+    // Scalar/short-string-heavy accounting bag: Step 1 + Step 2 cannot shrink it
+    // enough (numbers + ≤8-char strings dominate), so Step 3 drops the bag.
+    const metadata = scalarHeavyMetadata(200);
+    expect(serializedSize(metadata)).toBeGreaterThan(cap);
+
+    const envelope = emitter.emit({
+      layer: "probe",
+      boundary: "cvdiag.queue_dropped",
+      slug: "cvdiag",
+      demo: "cvdiag",
+      outcome: "info",
+      metadata,
+    });
+
+    expect(envelope).not.toBeNull();
+    const env = envelope!;
+    // Step 3 dropped the bag (it was un-shrinkable below cap by Steps 1-2).
+    expect(env.metadata).toEqual({});
+    expect(serializedSize(env)).toBeLessThanOrEqual(cap);
+    // A SIZE drop is observable via _truncated...
+    expect(env._truncated).toBe(true);
+    // ...but must NOT pollute the §6 PII closed-world signal.
+    expect(env._metadata_dropped).toBeUndefined();
+  });
+
+  it("still sets _metadata_dropped for a genuine PII key-drop (closed-world filter)", () => {
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    // A data-plane event with an unknown metadata key: validateMetadata drops
+    // the unknown key and the emitter stamps the PII signal. This must remain
+    // intact (guard against over-correcting Step 3).
+    const envelope = emitter.emit({
+      layer: "probe",
+      boundary: "probe.message.send",
+      slug: "langgraph-python",
+      demo: "chat",
+      outcome: "info",
+      metadata: {
+        message_index: 0,
+        char_count: 3,
+        demo: "chat",
+        not_a_declared_key: "leak",
+      },
+    });
+    expect(envelope).not.toBeNull();
+    expect(envelope!._metadata_dropped).toBe(true);
+  });
+
   it("leaves an under-cap envelope untouched (no _truncated stamp)", () => {
     const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
     const envelope = emitter.emit({
