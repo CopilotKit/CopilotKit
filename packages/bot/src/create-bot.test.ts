@@ -74,6 +74,50 @@ describe("createBot", () => {
     expect(collectText(ir)).toBe("hi");
   });
 
+  it("delivers a turn's contentParts as the runAgent prompt to agent.addMessage", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    // Capture what the framework injects as the user message.
+    const added: unknown[] = [];
+    const origAddMessage = agent.addMessage.bind(agent);
+    agent.addMessage = (m) => {
+      added.push(m);
+      return origAddMessage(m);
+    };
+    const bot = createBot({ adapters: [fake], agent: () => agent });
+
+    const parts = [
+      { type: "text" as const, text: "look" },
+      {
+        type: "image" as const,
+        source: { type: "data" as const, value: "QUJD", mimeType: "image/png" },
+      },
+    ];
+    bot.onMention(async ({ thread, message }) => {
+      // The example mirrors this: prefer multimodal parts over plain text.
+      await thread.runAgent({
+        prompt:
+          message.contentParts && message.contentParts.length > 0
+            ? message.contentParts
+            : message.text,
+      });
+    });
+
+    await bot.start();
+    fake.emitTurn({
+      userText: "look",
+      conversationKey: "c1",
+      contentParts: parts,
+    });
+    await tick();
+
+    expect(added).toHaveLength(1);
+    const msg = added[0] as { role: string; content: unknown };
+    expect(msg.role).toBe("user");
+    // The multimodal parts array survives the string-typed `content` cast.
+    expect(msg.content).toEqual(parts);
+  });
+
   it("dispatches a bound onClick handler on interaction", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();

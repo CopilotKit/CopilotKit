@@ -78,7 +78,7 @@ const SECTION_ICONS: Record<string, string> = {
   "add agent powers": "lucide/Wand2",
   runtime: "lucide/Cpu",
   "observe & operate": "lucide/SearchCheck",
-  enterprise: "custom/copilotkit-kite",
+  "intelligence platform": "custom/copilotkit-kite",
   deploy: "lucide/Cloud",
   other: "lucide/MoreHorizontal",
   // Built-in Agent (authored) sections — match the section names in
@@ -90,7 +90,6 @@ const SECTION_ICONS: Record<string, string> = {
   "app control": "lucide/WandSparkles",
   "built-in agent": "lucide/Bot",
   backend: "lucide/Server",
-  "premium features": "custom/copilotkit-kite",
   tutorials: "lucide/ListChecks",
   troubleshooting: "lucide/LifeBuoy",
 };
@@ -643,31 +642,33 @@ export function buildFrameworkOnlyNav(
  * keeps ONE coherent sidebar instead of swapping IAs.
  *
  * Scoped to the root surface only: `buildFrameworkOnlyNav`'s default
- * keeps the Platforms-only behavior for deepagents, and generated
+ * keeps the shared-section behavior for deepagents, and generated
  * frameworks are untouched.
  */
 export function buildRootSurfaceNav(folder: string): NavNode[] {
   return buildFrameworkOnlyNav(folder, ROOT_SURFACE_SECTIONS);
 }
 
-const SHARED_ROOT_SECTIONS = ["Platforms"];
+const SHARED_ROOT_SECTIONS = ["Intelligence Platform", "Platforms"];
 
 // Sections pulled from the root `meta.json` into the Built-in Agent
 // sidebar when it serves the ROOT surface (see `buildRootSurfaceNav`).
 // BIA is the default framework and its docs render at the bare root
 // URLs, so its sidebar must also navigate the agnostic pages that live
 // outside BIA's authored tree (Concepts, the Runtime/backend pages,
-// Deploy, What's New, Migrate, …). Without this, landing on an agnostic
-// page like `/concepts/architecture` swaps the sidebar to the root
-// `meta.json` IA — the jarring "two docs colliding" flip.
+// Intelligence Platform, Deploy, What's New, Migrate, …). Without this, landing
+// on an agnostic page like `/concepts/architecture` swaps the sidebar
+// to the root `meta.json` IA — the jarring "two docs colliding" flip.
 //
 // Each title slots into a matching empty `---Section---` placeholder in
 // BIA's `meta.json` when present (so position is author-controlled),
-// otherwise the section appends at the end. "Platforms" stays in the
-// list so the root surface keeps the shared platform guides.
+// otherwise the section appends at the end. "Intelligence Platform" and
+// "Platforms" stay in the list so the root surface keeps the generated
+// Intelligence Platform IA and shared platform guides.
 const ROOT_SURFACE_SECTIONS = [
   "Concepts",
   "Runtime",
+  "Intelligence Platform",
   "Deploy",
   "Platforms",
   "Other",
@@ -678,8 +679,7 @@ const ROOT_SURFACE_SECTIONS = [
  * header (or end of tree). `buildRootSurfaceNav` relies on empty
  * `---Section---` placeholders in BIA's meta.json that get filled by
  * `appendSharedRootSections`; any placeholder whose section isn't in
- * the active shared list (e.g. when `buildFrameworkOnlyNav` is called
- * with the default Platforms-only list) would otherwise render as a
+ * the active shared list would otherwise render as a
  * dangling header. This also guards against authored metas that leave a
  * trailing empty section.
  */
