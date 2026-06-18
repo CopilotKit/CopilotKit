@@ -1,5 +1,6 @@
 import type { BotNode } from "@copilotkit/bot-ui";
 import { GCHAT_LIMITS, truncateText, clampArray } from "./budget.js";
+import { markdownToChat } from "../markdown.js";
 
 type Widget = Record<string, unknown>;
 
@@ -395,10 +396,16 @@ function renderNodeWidgets(
     case "context": {
       // Context is rendered de-emphasized (italic). Budget the inner HTML to
       // the limit less the wrapping `<i></i>` so the final text still fits.
+      // `convertAndBudget` already turns any italic markdown into `<i>…</i>`,
+      // so strip those inner italic tags before wrapping the whole line once —
+      // otherwise context text containing italic yields malformed nested
+      // `<i>…<i>…</i>…</i>`. (This mirrors the heading pass stripping inner bold
+      // sentinels.) Stripping only shrinks the budgeted string, so it still
+      // fits under the limit reserved for the `<i></i>` wrapper.
       const inner = convertAndBudget(
         collectText(node),
         GCHAT_LIMITS.textParagraph - "<i></i>".length,
-      );
+      ).replace(/<\/?i>/g, "");
       if (inner) widgets.push({ textParagraph: { text: `<i>${inner}</i>` } });
       break;
     }
@@ -453,7 +460,12 @@ export function renderGoogleChatMessage(ir: BotNode[]): {
 
   if (isPlainText(nodes)) {
     const plain = nodes.map(collectText).join("\n").trim();
-    return { text: plain || " " };
+    // Convert markdown to Google Chat's text format so the non-streamed
+    // `post()`/render path matches the streaming path (adapter.stream runs the
+    // same `text` field through `markdownToChat`). Without this, an agent reply
+    // emitted via post() shows literal `**bold**`/`[t](url)` while the same
+    // content streamed is converted.
+    return { text: plain ? markdownToChat(plain) : " " };
   }
 
   // Pull the first header node for the card header.

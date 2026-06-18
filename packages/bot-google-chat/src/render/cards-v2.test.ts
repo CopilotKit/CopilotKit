@@ -477,6 +477,40 @@ describe("renderGoogleChatMessage", () => {
     expect(JSON.parse(valueParam.value)).toEqual(bigValue);
   });
 
+  it("wraps a context node's italic text in a single <i> span (no nested <i>)", () => {
+    const contextNode: BotNode = {
+      type: "context",
+      props: { children: [text("hello *world* there")] },
+    };
+    const out = renderGoogleChatMessage([contextNode]);
+    const card = (out.cardsV2![0] as any).card;
+    const widgets: any[] = card.sections.flatMap((s: any) => s.widgets);
+    const tp = widgets.find((w) => w.textParagraph !== undefined);
+    const html: string = tp.textParagraph.text;
+
+    // The whole line is a single italic span — no nested/duplicated <i>.
+    expect(html).toContain("world");
+    expect(html).not.toContain("<i><i>");
+    expect((html.match(/<i>/g) ?? []).length).toBe(1);
+    expect((html.match(/<\/i>/g) ?? []).length).toBe(1);
+    expect(html.startsWith("<i>")).toBe(true);
+    expect(html.endsWith("</i>")).toBe(true);
+  });
+
+  it("converts markdown on the non-streamed plain-text path (matches the streaming path)", () => {
+    const out = renderGoogleChatMessage([text("hello **bold** world")]);
+    expect(out.cardsV2).toBeUndefined();
+    // markdownToChat turns **bold** into *bold* (Chat's bold form), not literal.
+    expect(out.text).toBe("hello *bold* world");
+    expect(out.text).not.toContain("**bold**");
+  });
+
+  it("converts a markdown link on the plain-text path to Chat <url|text> form", () => {
+    const out = renderGoogleChatMessage([text("see [t](https://x.com) now")]);
+    expect(out.cardsV2).toBeUndefined();
+    expect(out.text).toBe("see <https://x.com|t> now");
+  });
+
   it("returns a plain text body (no empty-widgets section) when non-plain-text IR produces zero widgets", () => {
     // `divider`/unknown wrapping that yields no widgets — here an unknown node
     // type means renderNodeWidgets emits nothing, but the IR is not plain text
