@@ -18,7 +18,7 @@ const backendDescriptions: Record<string, string> = {
     "Python LangGraph agents with the broadest feature coverage.",
   "langgraph-typescript": "TypeScript LangGraph agents over the AG-UI adapter.",
   "langgraph-fastapi": "Python LangGraph agents exposed through FastAPI.",
-  deepagents: "LangChain Deep Agents connected to CopilotKit product UI.",
+  deepagents: "Langchain Deep Agents connected to CopilotKit product UI.",
   "google-adk": "Gemini-powered Google ADK agents connected through AG-UI.",
   mastra: "TypeScript-native agents, tools, memory, and workflows.",
   "crewai-crews": "CrewAI crews wired into CopilotKit product interfaces.",
