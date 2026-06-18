@@ -54,6 +54,12 @@ function useHumanInTheLoop<T extends Record<string, unknown>>(
     - `args: T` -- the original arguments
     - `respond: undefined` -- no longer available
     - `result: string` -- the serialized result
+
+    **In every status the component also receives attribution props:**
+    - `name: string` -- the tool name.
+    - `description: string` -- the tool description.
+    - `toolCallId: string` -- the AG-UI tool-call id, unique per interrupt. Use it as the key to correlate this interrupt with runtime (sub)agent attribution -- e.g. the `agentId` reported by `onToolExecutionStart` -- so you can label and route the interrupt to the agent that raised it.
+    - `agentId?: string` -- the agent this tool was **registered** to, or `undefined` for an unscoped tool. This is the static registration scope; it is not necessarily the runtime (sub)agent that raised the interrupt. For runtime attribution, correlate `toolCallId` instead.
   </PropertyReference>
 
   <PropertyReference name="available" type='"enabled" | "disabled" | "remote"' default='"enabled"'>
