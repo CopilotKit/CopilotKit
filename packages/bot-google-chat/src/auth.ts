@@ -124,6 +124,14 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
   // in-flight promise so "at most one refetch per window" holds under
   // concurrency too. Cleared when the refetch settles.
   let inFlightRefetch: Promise<Certificates> | undefined;
+  // In-flight cold-cache initial load, if any. The initial getCerts() path is
+  // hit by every verify() before the cache is warm, so right after process
+  // start N concurrent verify() calls would each fire their own outbound
+  // fetch(CHAT_CERT_URL) — a thundering herd. This guard collapses concurrent
+  // cold callers onto a single in-flight fetch; they all await the same
+  // promise. Cleared when it settles (so a failed initial fetch does not poison
+  // a permanent cache — the next caller retries).
+  let inFlightInitial: Promise<Certificates> | undefined;
   async function fetchCerts(): Promise<Certificates> {
     let res: Response;
     try {
@@ -146,7 +154,14 @@ export function createInboundVerifier(opts: GoogleChatAdapterOptions): InboundVe
   }
   async function getCerts(forceRefresh = false): Promise<Certificates> {
     if (cachedCerts && !forceRefresh) return cachedCerts;
-    return fetchCerts();
+    // Collapse concurrent cold-cache loads onto one in-flight fetch so a burst
+    // of verify() calls at startup doesn't fan out into N outbound fetches.
+    if (inFlightInitial) return inFlightInitial;
+    const p = fetchCerts().finally(() => {
+      if (inFlightInitial === p) inFlightInitial = undefined;
+    });
+    inFlightInitial = p;
+    return p;
   }
   /**
    * Self-heal refetch with an in-flight guard: concurrent callers share one

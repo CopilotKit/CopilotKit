@@ -151,6 +151,24 @@ export function createRunRenderer(args: {
           { text: `${TOOL_START_PREFIX}\`${event.toolCallName}\`…` },
           { threadName: target.thread, replyToThread: !!target.thread },
         );
+        // Race: markInterrupted() may have run (set aborted, swept
+        // toolStatusName) WHILE this createMessage await was in flight. If so,
+        // the sweep already happened and never saw this row, so registering it
+        // would leave it dangling as `🔧 …`. Patch it directly to the terminal
+        // marker instead (same form/mask markInterrupted uses) and don't
+        // register it.
+        if (aborted) {
+          try {
+            await client.patchMessage(
+              msg.name,
+              { text: `${TOOL_INTERRUPT_PREFIX}\`${event.toolCallName}\`` },
+              "text",
+            );
+          } catch (err) {
+            console.error("[gchat-renderer] tool-start interrupt patch failed:", err);
+          }
+          return;
+        }
         toolStatusName.set(event.toolCallId, msg.name);
       } catch (err) {
         console.error("[gchat-renderer] tool-start post failed:", err);
@@ -233,14 +251,14 @@ export function createRunRenderer(args: {
       for (const [id, stream] of Array.from(streams.entries())) {
         const buf = buffers.get(id) ?? "";
         // Only append the interrupted suffix for streams that have actually
-        // posted content. A non-empty buffer means `ChunkedMessageStream`
-        // already posted a `_thinking…_` placeholder, so we resolve it by
-        // appending the suffix and finishing. An empty/whitespace buffer
-        // never posted a placeholder (dispatch early-returns on an empty
-        // buffer), so appending the suffix would make the buffer non-empty
-        // and trigger a *spurious* placeholder post — instead we just
-        // finish() (a true no-op for an empty stream) without appending.
-        if (buf.trim().length > 0) {
+        // posted a placeholder. The dispatch posts a `_thinking…_` placeholder
+        // whenever the buffer length>0 (the dispatch's post condition), not
+        // trim() — so even a whitespace-only buffer (e.g. a lone "\n" delta)
+        // posts a placeholder. We must resolve any such stream by appending the
+        // suffix and finishing, or the placeholder dangles forever. A truly
+        // empty (length 0) buffer never posted a placeholder, so we just
+        // finish() it (a no-op for an empty stream) without appending.
+        if (buf.length > 0) {
           stream.append(buf + INTERRUPTED_SUFFIX);
         }
         tasks.push(stream.finish());

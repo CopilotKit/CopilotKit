@@ -218,6 +218,41 @@ describe("createInboundVerifier", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("bounds concurrent cold-cache initial cert fetches to a single outbound fetch", async () => {
+    // Cold cache (no warm-up). N concurrent verify() calls each hit the initial
+    // getCerts() path before the cache is warm. Without the in-flight initial
+    // guard, each would fire its own outbound fetch (thundering herd at
+    // startup). The guard collapses them onto ONE.
+    let resolveFetch!: (v: unknown) => void;
+    const fetchMock = vi.fn(
+      () =>
+        new Promise((res) => {
+          resolveFetch = res;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    verifySignedJwtWithCertsAsync.mockResolvedValue({
+      getPayload: () => ({ aud: "123", iss: "chat@system.gserviceaccount.com" }),
+    });
+    const v = createInboundVerifier({ googleChatProjectNumber: "123" });
+
+    // Fire 3 concurrent verifications on a cold cache. They all await the
+    // single in-flight initial fetch.
+    const all = Promise.all([
+      v.verify("Bearer good.1"),
+      v.verify("Bearer good.2"),
+      v.verify("Bearer good.3"),
+    ]);
+    // Only one outbound fetch should have been issued for all three.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    resolveFetch({ ok: true, json: async () => CERTS });
+    await expect(all).resolves.toEqual([undefined, undefined, undefined]);
+    // Still exactly one cold-cache fetch across the concurrent callers.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("bypasses verification when disableSignatureVerification is set", async () => {
     const v = createInboundVerifier({ disableSignatureVerification: true });
     await expect(v.verify(undefined)).resolves.toBeUndefined();

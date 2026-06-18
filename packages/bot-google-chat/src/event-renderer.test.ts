@@ -76,6 +76,68 @@ describe("createRunRenderer", () => {
     expect(client.patchMessage).not.toHaveBeenCalled();
   });
 
+  it("markInterrupted resolves a whitespace-only stream's placeholder (no dangle)", async () => {
+    const client = makeClient();
+    const r = createRunRenderer({ client, target: { space: "spaces/A", thread: "spaces/A/threads/T" } });
+    // A stream whose only content is whitespace. The dispatch posts a
+    // `_thinking…_` placeholder for any buffer of length>0 (incl. whitespace),
+    // so this MUST be resolved on interrupt — a trim()-based guard would skip
+    // it and leave the placeholder dangling.
+    await r.subscriber.onTextMessageStartEvent?.({ event: { messageId: "m1" } } as any);
+    await r.subscriber.onTextMessageContentEvent?.({ event: { messageId: "m1", delta: "\n" } } as any);
+    expect(client.createMessage).toHaveBeenCalled();
+
+    await r.markInterrupted();
+
+    // The whitespace-only placeholder must be resolved (a finish/patch happened
+    // with the interrupted suffix), not left as a dangling `_thinking…_`.
+    expect(client.patchMessage).toHaveBeenCalled();
+    const patched = client.patchMessage.mock.calls
+      .map((c: any[]) => c[1]?.text ?? "")
+      .join("\n");
+    expect(patched).toContain("interrupted");
+  });
+
+  it("patches a tool-status row to terminal when interrupted DURING the in-flight tool-start", async () => {
+    const client = makeClient();
+    const r = createRunRenderer({ client, target: { space: "spaces/A", thread: "spaces/A/threads/T" } });
+
+    // Make the tool-start createMessage hang until we resolve it, so we can
+    // interrupt WHILE it is in flight (the sweep in markInterrupted runs before
+    // the .set, the race this fix closes).
+    let resolveCreate!: (v: { name: string }) => void;
+    client.createMessage.mockImplementationOnce(
+      () =>
+        new Promise<{ name: string }>((res) => {
+          resolveCreate = res;
+        }),
+    );
+
+    const startPromise = r.subscriber.onToolCallStartEvent?.({
+      event: { toolCallId: "tc1", toolCallName: "search" },
+    } as any);
+
+    // Interrupt while createMessage is still pending — its sweep of
+    // toolStatusName runs now and cannot see tc1 (not registered yet).
+    await r.markInterrupted();
+
+    // Now the in-flight createMessage resolves; the re-check must patch the
+    // just-created row to the terminal marker rather than registering it.
+    resolveCreate({ name: "spaces/A/messages/TOOL1" });
+    await startPromise;
+
+    const patchedTexts = client.patchMessage.mock.calls.map(
+      (c: any[]) => c[1]?.text ?? "",
+    );
+    expect(patchedTexts.some((t: string) => t.includes("⏹") && t.includes("search"))).toBe(true);
+    // The patch targeted the just-created tool row, not left dangling as `🔧`.
+    expect(
+      client.patchMessage.mock.calls.some(
+        (c: any[]) => c[0] === "spaces/A/messages/TOOL1",
+      ),
+    ).toBe(true);
+  });
+
   it("markInterrupted patches a dangling tool-status row to a terminal marker", async () => {
     const client = makeClient();
     const r = createRunRenderer({ client, target: { space: "spaces/A", thread: "spaces/A/threads/T" } });
