@@ -794,10 +794,11 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           name: "unscopedApprovalTool",
           description: "Unscoped approval",
           parameters: z.object({ action: z.string() }),
-          render: ({ toolCallId, agentId, args }) => (
+          render: ({ toolCallId, agentId, status, args }) => (
             <div data-testid="unscoped-hitl">
               <div data-testid="unscoped-tool-call-id">{toolCallId}</div>
               <div data-testid="unscoped-agent-id">{agentId ?? "none"}</div>
+              <div data-testid="unscoped-status">{status}</div>
               <div data-testid="unscoped-action">{args.action ?? ""}</div>
             </div>
           ),
@@ -841,6 +842,9 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
       );
 
       await waitFor(() => {
+        expect(screen.getByTestId("unscoped-status").textContent).toBe(
+          ToolCallStatus.InProgress,
+        );
         expect(screen.getByTestId("unscoped-tool-call-id").textContent).toBe(
           toolCallId,
         );
@@ -851,6 +855,20 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
 
       agent.emit(runFinishedEvent());
       agent.complete();
+
+      // Attribution must survive the status transition: toolCallId stays the
+      // same and agentId stays undefined once the tool reaches Executing.
+      await waitFor(() => {
+        expect(screen.getByTestId("unscoped-status").textContent).toBe(
+          ToolCallStatus.Executing,
+        );
+        expect(screen.getByTestId("unscoped-tool-call-id").textContent).toBe(
+          toolCallId,
+        );
+        expect(screen.getByTestId("unscoped-agent-id").textContent).toBe(
+          "none",
+        );
+      });
     });
   });
 });
