@@ -25,6 +25,13 @@ import type {
 } from "../../cvdiag/index.js";
 import { captureRawBytes } from "../../cvdiag/raw-byte-capture.js";
 import type { CvdiagPbWriter } from "../../cvdiag/pb-writer.js";
+import {
+  signAbRequest,
+  verifyAbRequest,
+  sanitizeTestId,
+} from "../../cvdiag/ab-hmac.js";
+import type { AbOutcomeRecord } from "../../cvdiag/ab-report.js";
+import { mintSpanId as mintAbPairId, mintTestId } from "../../cvdiag/emit.js";
 
 /**
  * e2e-smoke driver — L3 (chat round-trip) and L4 (tool rendering) coverage
@@ -329,6 +336,20 @@ export interface E2eSmokeDriverDeps {
    * capture, which is the correct behaviour for every non-DEBUG run.
    */
   cvdiagPbWriter?: CvdiagPbWriter;
+  /**
+   * CVDIAG Railway-internal routing A/B (spec Phase 8): collector the A/B arm
+   * outcomes flow into. Present ONLY when the A/B is wired (the future
+   * `cvdiag --ab-report` path consumes the collected records). When absent (the
+   * default), no A/B records are produced even if `CVDIAG_AB_INTERNAL_URL` is
+   * set — the collector is the explicit opt-in seam.
+   */
+  abCollector?: AbOutcomeCollector;
+  /**
+   * IPv4-reachability check for the A/B internal target. Defaults to a
+   * lightweight fetch with a 2s timeout; injectable so unit tests assert the
+   * graceful-skip path without touching the network.
+   */
+  abReachabilityCheck?: AbReachabilityCheck;
 }
 
 /**
@@ -1038,6 +1059,9 @@ export function createE2eSmokeDriver(
   const idFactory = deps.idFactory ?? mintRunId;
   const cvdiagBufferDir = deps.cvdiagBufferDir ?? defaultCvdiagBufferDir();
   const cvdiagPbWriter = deps.cvdiagPbWriter;
+  const abCollector = deps.abCollector;
+  const abReachabilityCheck =
+    deps.abReachabilityCheck ?? defaultReachabilityCheck;
 
   return {
     kind: "e2e_smoke",
@@ -1199,6 +1223,52 @@ export function createE2eSmokeDriver(
             });
           } catch (err) {
             ctx.logger.error("probe.e2e-smoke.chat-writer-failed", {
+              slug,
+              err: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+
+        // CVDIAG Railway-internal routing A/B (spec Phase 8). DEFAULT OFF:
+        // runs ONLY when `CVDIAG_AB_INTERNAL_URL` is set AND an `abCollector`
+        // is wired. Issues a second request to the internal target (bypassing
+        // the edge), correlated to the L3 edge run by a shared `ab_pair_id`,
+        // and collects both arms' outcomes for the A/B report. The internal
+        // arm's IPv4-reachability gate makes this a graceful no-op off-platform
+        // (railway.internal is unresolvable locally). Pure instrumentation: a
+        // throw here can NEVER change the probe's red/green outcome.
+        const abInternalUrl = ctx.env[CVDIAG_AB_INTERNAL_URL_ENV];
+        if (abCollector && abInternalUrl && abInternalUrl.length > 0) {
+          try {
+            const abPairId = mintAbPair();
+            // The probe X-Test-Id (`d4-<slug>-<runId>`) is not a UUIDv7; mint a
+            // fresh sanitizable id for the HMAC-signed A/B pairing.
+            const abTestId = mintTestId();
+            abCollector.collect(
+              buildEdgeAbRecord({
+                abPairId,
+                testId: abTestId,
+                slug,
+                demo: "agentic-chat",
+                edgeState: l3.result.state === "green" ? "green" : "red",
+                edgeHeaders: filterEdgeHeaders({}),
+              }),
+            );
+            const internalRecord = await runInternalAbArm({
+              internalUrl: abInternalUrl,
+              abPairId,
+              testId: abTestId,
+              slug,
+              demo: "agentic-chat",
+              env: ctx.env as Record<string, string | undefined>,
+              fetchImpl: ctx.fetchImpl ?? globalThis.fetch,
+              reachabilityCheck: abReachabilityCheck,
+              now: ctx.now,
+              logger: ctx.logger,
+            });
+            if (internalRecord !== null) abCollector.collect(internalRecord);
+          } catch (err) {
+            ctx.logger.warn("probe.e2e-smoke.ab-fault", {
               slug,
               err: err instanceof Error ? err.message : String(err),
             });
@@ -1786,6 +1856,249 @@ function deriveSlug(key: string, name?: string): string {
   // registry.json's `integrations[].slug` keys (which are bare —
   // "langgraph-python", not "showcase-langgraph-python").
   return raw.startsWith("showcase-") ? raw.slice("showcase-".length) : raw;
+}
+
+// ── CVDIAG Railway-internal routing A/B (flap-observability spec Phase 8) ────
+//
+// OPTIONAL second probe run that targets the backend over Railway's INTERNAL
+// network (bypassing the public edge), correlated to the public-edge run by a
+// shared `ab_pair_id`. Diffing the two arms' outcomes (see `ab-report.ts`)
+// detects edge-layer interference (Cloudflare-WAF-style).
+//
+// DEFAULT OFF: the entire path is gated on the `CVDIAG_AB_INTERNAL_URL` env
+// var. When unset, NONE of this code runs and the probe's behaviour is exactly
+// unchanged. The internal arm NEVER blocks or fails the normal probe run — an
+// unreachable target, an unset HMAC secret, or any request error degrades the
+// A/B to "skipped" (scope falls back to audit) and is swallowed.
+//
+// REPO REALITY: LGP binds `--host 0.0.0.0` (IPv4 wildcard) and Railway internal
+// networking is dual-stack on environments created after 2025-10-16, so the
+// internal target is reached over IPv4 (`<svc>.railway.internal` resolves to an
+// IPv4 address). The A/B DEFAULTS to the IPv4 internal address; it does NOT
+// assume IPv6. railway.internal is NOT resolvable from a local box, so the
+// reachability gate below is the graceful-skip path that keeps local + CI runs
+// from ever attempting (and timing out on) the internal hop.
+
+/** Env var gating the A/B internal run; the internal target URL when set. */
+export const CVDIAG_AB_INTERNAL_URL_ENV = "CVDIAG_AB_INTERNAL_URL";
+/** Reachability-probe timeout (ms) for the IPv4 internal-target pre-check. */
+const AB_REACHABILITY_TIMEOUT_MS = 2_000;
+/** A/B internal-request timeout (ms). */
+const AB_REQUEST_TIMEOUT_MS = 30_000;
+
+/** Sink the A/B arm outcomes flow into; the report engine consumes these. */
+export interface AbOutcomeCollector {
+  collect(record: AbOutcomeRecord): void;
+}
+
+/**
+ * IPv4 reachability check for the internal target. Returns true iff a
+ * lightweight HEAD/GET to the target resolves over IPv4 within the timeout.
+ * Best-effort: ANY error (DNS failure on a local box where railway.internal
+ * does not resolve, connection refused, timeout) returns false so the A/B
+ * SKIPS gracefully without ever blocking or failing the normal probe run.
+ */
+export type AbReachabilityCheck = (
+  url: string,
+  fetchImpl: typeof fetch,
+) => Promise<boolean>;
+
+const defaultReachabilityCheck: AbReachabilityCheck = async (
+  url,
+  fetchImpl,
+) => {
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), AB_REACHABILITY_TIMEOUT_MS);
+  try {
+    const resp = await fetchImpl(url, {
+      method: "GET",
+      signal: controller.signal,
+    });
+    // Any HTTP answer (even 4xx/5xx) proves the IPv4 socket reached a server;
+    // we are gating on reachability, not on a healthy status.
+    return resp.status >= 0;
+  } catch {
+    // DNS-unresolvable (railway.internal off-platform), refused, or timed out.
+    return false;
+  } finally {
+    clearTimeout(t);
+  }
+};
+
+/** Map an internal-arm HTTP result onto a probe terminal outcome. */
+function abOutcomeFromStatus(status: number): CvdiagOutcome {
+  return status >= 200 && status < 400 ? "ok" : "err";
+}
+
+export interface RunInternalAbArmOpts {
+  /** The internal target URL (`CVDIAG_AB_INTERNAL_URL`). */
+  internalUrl: string;
+  /** Shared correlation id linking this internal arm to its edge sibling. */
+  abPairId: string;
+  /** The probe-layer test_id (lowercase UUIDv7). */
+  testId: string;
+  slug: string;
+  demo: string;
+  /** Env bag (carries `CVDIAG_AB_HMAC_SECRET`). */
+  env: Record<string, string | undefined>;
+  fetchImpl: typeof fetch;
+  reachabilityCheck: AbReachabilityCheck;
+  now: () => Date;
+  logger: { warn(event: string, meta?: Record<string, unknown>): void };
+}
+
+/**
+ * Run the internal A/B arm: IPv4-reachability gate → HMAC-sign → issue the
+ * internal request → return an `AbOutcomeRecord`. Returns `null` (skip — the
+ * A/B degrades to audit-only) when:
+ *   - the IPv4 target is unreachable (off-platform / local / CI), OR
+ *   - the test_id fails sanitization, OR
+ *   - the HMAC secret is unset (cannot self-authenticate the internal request).
+ *
+ * The returned record's HMAC is RE-VERIFIED before it is emitted (the
+ * PB-writer A/B path must reject an unverified request); a verify failure
+ * returns null so no row is produced for an unverified A/B request. Pure
+ * instrumentation: every failure is swallowed and NEVER throws into the probe.
+ */
+export async function runInternalAbArm(
+  opts: RunInternalAbArmOpts,
+): Promise<AbOutcomeRecord | null> {
+  const {
+    internalUrl,
+    abPairId,
+    testId: rawTestId,
+    slug,
+    demo,
+    env,
+    fetchImpl,
+    reachabilityCheck,
+    logger,
+  } = opts;
+  try {
+    // Sanitize the test_id BEFORE it is signed or sent (fail-closed).
+    const testId = sanitizeTestId(rawTestId);
+    if (testId === null) {
+      logger.warn("probe.e2e-smoke.ab-skip", {
+        reason: "invalid-test-id",
+        slug,
+      });
+      return null;
+    }
+
+    // IPv4 reachability gate — skip gracefully if the internal target can't be
+    // reached (the normal case off-platform). NEVER blocks the probe.
+    const reachable = await reachabilityCheck(internalUrl, fetchImpl);
+    if (!reachable) {
+      logger.warn("probe.e2e-smoke.ab-skip", {
+        reason: "internal-unreachable",
+        slug,
+      });
+      return null;
+    }
+
+    // HMAC over <test_id>|<ts>|<slug>. A missing secret → null signature →
+    // skip (cannot self-authenticate the edge-bypassing internal request).
+    const ts = Date.now();
+    const signature = signAbRequest({ testId, ts, slug }, env);
+    if (signature === null) {
+      logger.warn("probe.e2e-smoke.ab-skip", {
+        reason: "hmac-secret-unset",
+        slug,
+      });
+      return null;
+    }
+
+    // Issue the internal request carrying the HMAC + correlation headers.
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), AB_REQUEST_TIMEOUT_MS);
+    let outcome: CvdiagOutcome;
+    try {
+      const resp = await fetchImpl(internalUrl, {
+        method: "GET",
+        signal: controller.signal,
+        headers: {
+          "X-Test-Id": testId,
+          "X-AIMock-Context": slug,
+          "X-Cvdiag-Ab-Pair": abPairId,
+          "X-Cvdiag-Ab-Ts": String(ts),
+          "X-Cvdiag-Ab-Hmac": signature,
+        },
+      });
+      outcome = abOutcomeFromStatus(resp.status);
+    } catch (err) {
+      // An aborted request → timeout; any other network error → err.
+      outcome = controller.signal.aborted ? "timeout" : "err";
+      logger.warn("probe.e2e-smoke.ab-internal-error", {
+        slug,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      clearTimeout(t);
+    }
+
+    // RE-VERIFY the HMAC before emitting the record. The PB-writer A/B path
+    // rejects an unverified request, so a tuple/secret drift that breaks
+    // verification yields NO row (do not write rows for unverified requests).
+    if (!verifyAbRequest({ testId, ts, slug }, signature, env)) {
+      logger.warn("probe.e2e-smoke.ab-skip", {
+        reason: "hmac-verify-failed",
+        slug,
+      });
+      return null;
+    }
+
+    return {
+      ab_pair_id: abPairId,
+      arm: "internal",
+      test_id: testId,
+      slug,
+      demo,
+      outcome,
+      edge_interference_signal: false,
+    };
+  } catch (err) {
+    // Pure instrumentation — the A/B must NEVER throw into the probe.
+    logger.warn("probe.e2e-smoke.ab-internal-fault", {
+      slug,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return null;
+  }
+}
+
+/**
+ * Build the edge-arm `AbOutcomeRecord` from a completed edge probe level. The
+ * edge arm always exists (the normal probe ran); its outcome maps green→`ok`,
+ * red→`err`. `edge_interference_signal` is true when the edge level surfaced a
+ * cf-mitigated / retry-after header (best-effort; not load-bearing for the
+ * report's divergence classification, which keys on the outcome diff).
+ */
+export function buildEdgeAbRecord(opts: {
+  abPairId: string;
+  testId: string;
+  slug: string;
+  demo: string;
+  edgeState: "green" | "red";
+  edgeHeaders?: ReturnType<typeof filterEdgeHeaders>;
+}): AbOutcomeRecord {
+  const interference =
+    opts.edgeHeaders !== undefined &&
+    ((opts.edgeHeaders["cf-mitigated"] ?? null) !== null ||
+      (opts.edgeHeaders["retry-after"] ?? null) !== null);
+  return {
+    ab_pair_id: opts.abPairId,
+    arm: "edge",
+    test_id: sanitizeTestId(opts.testId) ?? opts.testId,
+    slug: opts.slug,
+    demo: opts.demo,
+    outcome: opts.edgeState === "green" ? "ok" : "err",
+    edge_interference_signal: interference,
+  };
+}
+
+/** Mint a fresh `ab_pair_id` (16-hex; reuses the span-id minter). */
+export function mintAbPair(): string {
+  return mintAbPairId();
 }
 
 /** Default driver instance with the real Playwright launcher. Registered
