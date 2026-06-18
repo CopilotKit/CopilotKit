@@ -78,13 +78,13 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             <Tab value="TypeScript">
                 ```ts title="agent.ts"
                 import { createMiddleware } from "langchain";
-                import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                import { copilotkitMiddleware, zodState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
                 import { z } from "zod";
 
                 export const observedStepsMiddleware = createMiddleware({
                     name: "AgentState",
                     stateSchema: z.object({
-                        observed_steps: z.array(z.string()).default([]), // Array of completed steps
+                        observed_steps: zodState(z.array(z.string()).default([])), // Array of completed steps
                     }),
                 });
 
@@ -358,13 +358,13 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
           <Tab value="TypeScript">
             ```ts title="agent.ts"
             import { createMiddleware } from "langchain";
-            import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+            import { copilotkitMiddleware, zodState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
             import { z } from "zod";
 
             export const observedStepsMiddleware = createMiddleware({
                 name: "AgentState",
                 stateSchema: z.object({
-                    observed_steps: z.array(z.string()).default([]),
+                    observed_steps: zodState(z.array(z.string()).default([])),
                 }),
             });
             ```
@@ -424,6 +424,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                     observedStepsMiddleware,
                     copilotkitMiddleware,
                     stateStreamingMiddleware(  // [!code highlight]
+                        // Map the tool's `steps` argument into the `observed_steps` state field.
                         stateItem({ stateKey: "observed_steps", tool: "step_progress_tool", toolArgument: "steps" })  // [!code highlight]
                     ),  // [!code highlight]
                 ],
