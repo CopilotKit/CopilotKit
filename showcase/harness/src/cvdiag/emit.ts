@@ -306,59 +306,9 @@ export class CvdiagEmitter {
     try {
       if (!this.shouldEmit(args.boundary)) return null;
 
-      if (this.tier === "debug") this.debugEventCount += 1;
+      const envelope = this.buildEnvelope(args);
+      if (envelope === null) return null;
 
-      const testId = args.testId ?? mintTestId();
-      const isDataPlane = !args.boundary.startsWith(ACCOUNTING_PREFIX);
-      let metadata: Record<string, unknown> = {};
-      let metadataDropped = false;
-      if (isDataPlane) {
-        const v = validateMetadata(
-          args.layer,
-          args.boundary as CvdiagDataPlaneBoundary,
-          args.metadata ?? {},
-        );
-        metadata = v.metadata;
-        metadataDropped = v.metadataDropped;
-      } else {
-        // Accounting events ride their payload in the envelope's metadata bag
-        // verbatim (no closed-world entry); they are trusted internal records.
-        metadata = args.metadata ?? {};
-      }
-
-      const envelope: CvdiagEnvelope = {
-        schema_version: SCHEMA_VERSION,
-        test_id: testId,
-        trace_id: testId,
-        span_id: mintSpanId(),
-        parent_span_id: args.parentSpanId ?? null,
-        layer: args.layer,
-        boundary: args.boundary,
-        slug: args.slug,
-        demo: args.demo,
-        ts: new Date().toISOString(),
-        mono_ns: this.monoNs(),
-        duration_ms: args.durationMs ?? null,
-        outcome: args.outcome,
-        edge_headers: args.edgeHeaders ?? emptyEdgeHeaders(),
-        metadata,
-      };
-      if (metadataDropped) envelope._metadata_dropped = true;
-
-      // Defense in depth: the envelope we build is closed-world by
-      // construction, but assert it before enqueue so a future bug surfaces.
-      const check = validateEnvelope(
-        envelope as unknown as Record<string, unknown>,
-      );
-      if (!check.ok) {
-        console.warn(
-          `CVDIAG emit dropped: unknown envelope keys ${check.unknownKeys.join(",")} ` +
-            `boundary=${args.boundary}`,
-        );
-        return null;
-      }
-
-      this.applyByteCap(envelope);
       this.enqueue(envelope);
       return envelope;
     } catch (err) {
@@ -367,6 +317,72 @@ export class CvdiagEmitter {
       );
       return null;
     }
+  }
+
+  /**
+   * Construct a well-formed, byte-capped envelope from emit args. Shared by
+   * `emit()` (which enqueues the result) and `flush()` (which appends the
+   * `cvdiag.queue_dropped` accounting envelope directly to the outgoing
+   * batch). Returns null when the envelope fails the closed-world key check.
+   * Does NOT enqueue. Callers are responsible for the tier filter
+   * (`shouldEmit`) and for catching; this method may throw on a construction
+   * bug and the caller's try/catch degrades it to a console.warn.
+   */
+  private buildEnvelope(args: CvdiagEmitArgs): CvdiagEnvelope | null {
+    if (this.tier === "debug") this.debugEventCount += 1;
+
+    const testId = args.testId ?? mintTestId();
+    const isDataPlane = !args.boundary.startsWith(ACCOUNTING_PREFIX);
+    let metadata: Record<string, unknown> = {};
+    let metadataDropped = false;
+    if (isDataPlane) {
+      const v = validateMetadata(
+        args.layer,
+        args.boundary as CvdiagDataPlaneBoundary,
+        args.metadata ?? {},
+      );
+      metadata = v.metadata;
+      metadataDropped = v.metadataDropped;
+    } else {
+      // Accounting events ride their payload in the envelope's metadata bag
+      // verbatim (no closed-world entry); they are trusted internal records.
+      metadata = args.metadata ?? {};
+    }
+
+    const envelope: CvdiagEnvelope = {
+      schema_version: SCHEMA_VERSION,
+      test_id: testId,
+      trace_id: testId,
+      span_id: mintSpanId(),
+      parent_span_id: args.parentSpanId ?? null,
+      layer: args.layer,
+      boundary: args.boundary,
+      slug: args.slug,
+      demo: args.demo,
+      ts: new Date().toISOString(),
+      mono_ns: this.monoNs(),
+      duration_ms: args.durationMs ?? null,
+      outcome: args.outcome,
+      edge_headers: args.edgeHeaders ?? emptyEdgeHeaders(),
+      metadata,
+    };
+    if (metadataDropped) envelope._metadata_dropped = true;
+
+    // Defense in depth: the envelope we build is closed-world by
+    // construction, but assert it before use so a future bug surfaces.
+    const check = validateEnvelope(
+      envelope as unknown as Record<string, unknown>,
+    );
+    if (!check.ok) {
+      console.warn(
+        `CVDIAG emit dropped: unknown envelope keys ${check.unknownKeys.join(",")} ` +
+          `boundary=${args.boundary}`,
+      );
+      return null;
+    }
+
+    this.applyByteCap(envelope);
+    return envelope;
   }
 
   /** Monotonic ns within this process (spec §5 `mono_ns`). */
@@ -472,24 +488,41 @@ export class CvdiagEmitter {
 
   /**
    * Drain the queue to the PB writer seam (best-effort). If a drop occurred
-   * since the last flush, prepend a `cvdiag.queue_dropped` accounting event
-   * carrying `_dropped_count`. Resolves; never rejects.
+   * since the last flush, append a `cvdiag.queue_dropped` accounting event
+   * carrying `_dropped_count` directly to the outgoing batch (built through
+   * the same envelope-construction + validate + byte-cap path as `emit()`,
+   * but NOT round-tripped through the queue). Event order within a batch is
+   * not load-bearing — the classifier re-sorts by `mono_ns`/`ts` — so append
+   * is fine. Crucially, `droppedSinceFlush` is reset to 0 ONLY after the
+   * accounting envelope is in the batch, so a construction failure (null
+   * return / throw) retains the count for the next flush rather than losing
+   * it. Resolves; never rejects.
    */
   async flush(): Promise<void> {
     if (this.queue.length === 0 && this.droppedSinceFlush === 0) return;
     const batch = this.queue.splice(0, this.queue.length);
     if (this.droppedSinceFlush > 0) {
-      const dropped = this.droppedSinceFlush;
-      this.droppedSinceFlush = 0;
-      const accounting = this.emit({
-        layer: this.defaultLayer,
-        boundary: "cvdiag.queue_dropped",
-        slug: "cvdiag",
-        demo: "cvdiag",
-        outcome: "info",
-        metadata: { _dropped_count: dropped },
-      });
-      if (accounting) batch.push(...this.queue.splice(0, this.queue.length));
+      try {
+        const accounting = this.buildEnvelope({
+          layer: this.defaultLayer,
+          boundary: "cvdiag.queue_dropped",
+          slug: "cvdiag",
+          demo: "cvdiag",
+          outcome: "info",
+          metadata: { _dropped_count: this.droppedSinceFlush },
+        });
+        if (accounting !== null) {
+          batch.push(accounting);
+          // Clear the count ONLY now that the accounting record has landed in
+          // the batch; otherwise a failed build would silently lose it.
+          this.droppedSinceFlush = 0;
+        }
+      } catch (err) {
+        // Build threw — keep the count for the next flush; never reject.
+        console.warn(
+          `CVDIAG queue_dropped accounting build failed error=${String(err)}`,
+        );
+      }
     }
     if (this.pbWriter === undefined || batch.length === 0) return;
     try {
