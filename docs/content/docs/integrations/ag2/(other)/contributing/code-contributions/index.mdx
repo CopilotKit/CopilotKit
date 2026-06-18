@@ -9,8 +9,7 @@ This guide will help you get started as smoothly as possible.
 ## Step 1: Install Prerequisites
 
 - [Node.js](https://nodejs.org/en/) 20.x or later
-- [pnpm](https://pnpm.io/) v9.x installed globally (`npm i -g pnpm@^9`)
-- [Turborepo v2.x](https://turborepo.org/) installed globally (`npm i -g turbo@2`)
+- [pnpm](https://pnpm.io/) — use the version pinned in the repository root `package.json` (`packageManager` field); [Corepack](https://nodejs.org/api/corepack.html) is recommended (`corepack enable`)
 
 ## Step 2: Repository Setup
 
@@ -28,8 +27,8 @@ This guide will help you get started as smoothly as possible.
   <Step>
   ### Install Dependencies
   <Callout type="info">
-    The CopilotKit repository is a monorepo based on [Turborepo](https://turborepo.org/).
-    We use [pnpm](https://pnpm.io/) as our package manager.
+    The CopilotKit repository is a monorepo using a pnpm workspace. Tasks across packages are orchestrated with [Nx](https://nx.dev/).
+    The `nx` CLI is available after `pnpm install` (for example `pnpm exec nx --help`).
   </Callout>
 
   Install the dependencies using pnpm:
@@ -41,7 +40,7 @@ This guide will help you get started as smoothly as possible.
   ### Build Packages
   To make sure everything works, let's build all packages once:
   ```bash
-  turbo run build
+  pnpm run build
   ```
   </Step>
 </Steps>
@@ -50,11 +49,16 @@ This guide will help you get started as smoothly as possible.
 Now that everything is set up and works as expected, you can get started developing:
 
 ```bash
-# Start all packages in development mode
-turbo run dev
+# Watch and rebuild library packages (see root package.json)
+pnpm run dev
 
-# Start a specific package in development mode
-turbo run dev --filter="@copilotkit/package-name"
+# Watch only classic (@copilotkit/*) or next (@copilotkitnext/*) packages
+pnpm run dev:classic
+pnpm run dev:next
+
+# Start a specific package in development mode (Nx project name = npm package name)
+pnpm exec nx run @copilotkit/<package-name>:dev
+# e.g. v2: pnpm exec nx run @copilotkitnext/react:dev
 ```
 
 Now you can start making changes to the code.
@@ -74,13 +78,13 @@ For this tutorial, we'll use the `next-openai` example, specifically the Present
 In a separate terminal, run the following command to start the example:
 
 ```bash
-cd examples/next-openai
+cd examples/v1/next-openai
 export OPENAI_API_KEY=<your-openai-api-key>
 pnpm run example-dev
 ```
 
 <Callout type="info">
-We use the `pnpm run example-dev` command to run examples, which is different from the `turbo run dev` command we use to work on the individual packages.
+We use the `pnpm run example-dev` command to run examples, which is separate from `pnpm run dev` at the repository root (that watches and rebuilds library packages).
 </Callout>
 
 Now navigate to http://localhost:3000/presentation and you should see the example running. Any changes you make to the CopilotKit packages will immediately be reflected here.
@@ -89,12 +93,12 @@ Now navigate to http://localhost:3000/presentation and you should see the exampl
 
 Before committing your changes, ensure your files are formatted properly by running the following at the root of the monorepo:
 ```bash
-turbo run format
+pnpm run format
 ```
 
 Additionally, ensure you have no linting errors:
 ```bash
-turbo run lint
+pnpm run lint
 ```
 
 ## Step 6: Submit a Pull Request
