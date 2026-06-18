@@ -50,6 +50,16 @@ describe("seoRedirects", () => {
           source: "/integrations",
           destination: "/",
         },
+        {
+          id: "FE-vue",
+          source: "/vue",
+          destination: "/frontends/vue",
+        },
+        {
+          id: "FE-teams",
+          source: "/microsoft-teams",
+          destination: "/frontends/teams",
+        },
       ]),
     );
   });
