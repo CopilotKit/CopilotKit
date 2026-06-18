@@ -1,9 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   e2eChatToolsDriver,
   createE2eSmokeDriver,
   createPooledE2eSmokeLauncher,
+  runInternalAbArm,
+  buildEdgeAbRecord,
 } from "./d4-chat-roundtrip.js";
+import { filterEdgeHeaders } from "../../cvdiag/index.js";
+import { computeAbReport } from "../../cvdiag/ab-report.js";
+import type { AbOutcomeRecord } from "../../cvdiag/ab-report.js";
 import type {
   E2eBrowser,
   E2eBrowserContext,
@@ -1010,5 +1015,168 @@ describe("d4 CVDIAG probe instrumentation (L1-A)", () => {
     // All three share the same test_id (one level → one test_id).
     const ids = new Set(sse.map((e) => e.test_id));
     expect(ids.size).toBe(1);
+  });
+});
+
+// ── CVDIAG Railway-internal routing A/B (spec Phase 8) ──────────────────────
+
+describe("d4 A/B internal routing (Phase 8)", () => {
+  const SLUG = "langgraph-python";
+  const VALID_UUIDV7 = "017f22e2-79b0-7cc3-98c4-dc0c0c07398f";
+  const HMAC_ENV = { CVDIAG_AB_HMAC_SECRET: "test-secret-not-real" };
+
+  it("buildEdgeAbRecord maps green→ok / red→err and flags cf-mitigated", () => {
+    const green = buildEdgeAbRecord({
+      abPairId: "p1",
+      testId: VALID_UUIDV7,
+      slug: SLUG,
+      demo: "agentic-chat",
+      edgeState: "green",
+    });
+    expect(green.arm).toBe("edge");
+    expect(green.outcome).toBe("ok");
+    expect(green.edge_interference_signal).toBe(false);
+
+    const red = buildEdgeAbRecord({
+      abPairId: "p1",
+      testId: VALID_UUIDV7,
+      slug: SLUG,
+      demo: "agentic-chat",
+      edgeState: "red",
+      edgeHeaders: filterEdgeHeaders({ "cf-mitigated": "challenge" }),
+    });
+    expect(red.outcome).toBe("err");
+    expect(red.edge_interference_signal).toBe(true);
+  });
+
+  it("runInternalAbArm SKIPS gracefully when the IPv4 target is unreachable", async () => {
+    const fetchSpy = vi.fn();
+    const rec = await runInternalAbArm({
+      internalUrl: "http://langgraph-python.railway.internal:8123/ok",
+      abPairId: "p1",
+      testId: VALID_UUIDV7,
+      slug: SLUG,
+      demo: "agentic-chat",
+      env: HMAC_ENV,
+      fetchImpl: fetchSpy as unknown as typeof fetch,
+      reachabilityCheck: async () => false, // unreachable
+      now: () => new Date(),
+      logger,
+    });
+    expect(rec).toBeNull();
+    // Unreachable → never issues the actual internal request.
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("runInternalAbArm SKIPS when the HMAC secret is unset (no row)", async () => {
+    const rec = await runInternalAbArm({
+      internalUrl: "http://langgraph-python.railway.internal:8123/ok",
+      abPairId: "p1",
+      testId: VALID_UUIDV7,
+      slug: SLUG,
+      demo: "agentic-chat",
+      env: {}, // secret unset
+      fetchImpl: (async () =>
+        new Response("", { status: 200 })) as unknown as typeof fetch,
+      reachabilityCheck: async () => true,
+      now: () => new Date(),
+      logger,
+    });
+    expect(rec).toBeNull();
+  });
+
+  it("runInternalAbArm SKIPS when the test_id is malformed (fail-closed)", async () => {
+    const rec = await runInternalAbArm({
+      internalUrl: "http://langgraph-python.railway.internal:8123/ok",
+      abPairId: "p1",
+      testId: "not-a-uuid",
+      slug: SLUG,
+      demo: "agentic-chat",
+      env: HMAC_ENV,
+      fetchImpl: (async () =>
+        new Response("", { status: 200 })) as unknown as typeof fetch,
+      reachabilityCheck: async () => true,
+      now: () => new Date(),
+      logger,
+    });
+    expect(rec).toBeNull();
+  });
+
+  it("runInternalAbArm produces an ok internal record when reachable + 200", async () => {
+    let sentHeaders: Record<string, string> | undefined;
+    const fetchImpl = (async (_url: string, init?: RequestInit) => {
+      sentHeaders = init?.headers as Record<string, string>;
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+    const rec = await runInternalAbArm({
+      internalUrl: "http://langgraph-python.railway.internal:8123/ok",
+      abPairId: "pair-x",
+      testId: VALID_UUIDV7,
+      slug: SLUG,
+      demo: "agentic-chat",
+      env: HMAC_ENV,
+      fetchImpl,
+      reachabilityCheck: async () => true,
+      now: () => new Date(),
+      logger,
+    });
+    expect(rec).not.toBeNull();
+    expect(rec!.arm).toBe("internal");
+    expect(rec!.outcome).toBe("ok");
+    expect(rec!.ab_pair_id).toBe("pair-x");
+    // The signed request carries the HMAC + correlation headers.
+    expect(sentHeaders?.["X-Cvdiag-Ab-Hmac"]).toBeTruthy();
+    expect(sentHeaders?.["X-Cvdiag-Ab-Pair"]).toBe("pair-x");
+    expect(sentHeaders?.["X-Test-Id"]).toBe(VALID_UUIDV7);
+  });
+
+  it("driver collects NOTHING when CVDIAG_AB_INTERNAL_URL is unset (default OFF)", async () => {
+    const collected: AbOutcomeRecord[] = [];
+    const { browser } = makeBrowser([{ assistantText: "Hi!" }]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      abCollector: { collect: (r) => collected.push(r) },
+    });
+    await driver.run(baseCtx({ env: HMAC_ENV }), {
+      key: "e2e-smoke:langgraph-python",
+      backendUrl: "https://showcase-lgp.example.com",
+    });
+    expect(collected).toEqual([]);
+  });
+
+  it("driver collects BOTH arms when gated ON + reachable; report diffs them", async () => {
+    const collected: AbOutcomeRecord[] = [];
+    const { browser } = makeBrowser([{ assistantText: "Hi!" }]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      abCollector: { collect: (r) => collected.push(r) },
+      abReachabilityCheck: async () => true,
+    });
+    const ctx = baseCtx({
+      env: {
+        ...HMAC_ENV,
+        CVDIAG_AB_INTERNAL_URL:
+          "http://langgraph-python.railway.internal:8123/ok",
+      },
+      // Internal arm returns 200 → ok.
+      fetchImpl: (async () =>
+        new Response("", { status: 200 })) as unknown as typeof fetch,
+    });
+    const result = await driver.run(ctx, {
+      key: "e2e-smoke:langgraph-python",
+      backendUrl: "https://showcase-lgp.example.com",
+    });
+    // The probe's own outcome is unaffected by the A/B.
+    expect(result.state).toBe("green");
+    // Both arms collected, sharing one ab_pair_id.
+    expect(collected).toHaveLength(2);
+    const pairIds = new Set(collected.map((r) => r.ab_pair_id));
+    expect(pairIds.size).toBe(1);
+    const arms = new Set(collected.map((r) => r.arm));
+    expect(arms).toEqual(new Set(["edge", "internal"]));
+    // Feed the report engine: edge green + internal ok → agree.
+    const report = computeAbReport(collected);
+    expect(report.total_pairs).toBe(1);
+    expect(report.pairs[0]!.divergence).toBe("agree");
   });
 });
