@@ -499,6 +499,12 @@ export class CvdiagEmitter {
    * it. Resolves; never rejects.
    */
   async flush(): Promise<void> {
+    // No PB writer → flush is a no-op that LEAVES THE QUEUE INTACT (and does
+    // NOT touch `droppedSinceFlush`). This honors the documented `pbWriter`
+    // contract ("When absent, events stay queued"); draining + discarding here
+    // would silently lose all queued telemetry every flush window, which under
+    // `{ autoFlush: true }` with no writer is continuous data loss.
+    if (this.pbWriter === undefined) return;
     if (this.queue.length === 0 && this.droppedSinceFlush === 0) return;
     const batch = this.queue.splice(0, this.queue.length);
     if (this.droppedSinceFlush > 0) {
@@ -524,7 +530,9 @@ export class CvdiagEmitter {
         );
       }
     }
-    if (this.pbWriter === undefined || batch.length === 0) return;
+    // A writer is guaranteed present here (the no-writer case returned at the
+    // top); only an empty batch short-circuits now.
+    if (batch.length === 0) return;
     try {
       await this.pbWriter.writeBatch(batch);
     } catch (err) {

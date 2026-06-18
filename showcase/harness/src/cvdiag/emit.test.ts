@@ -197,3 +197,42 @@ describe("CvdiagEmitter.flush — queue_dropped accounting", () => {
     expect(pbWriter.batches.length).toBe(0);
   });
 });
+
+describe("CvdiagEmitter.flush — no PB writer configured", () => {
+  it("leaves the queue intact when there is no PB writer (does NOT discard queued events)", async () => {
+    // No pbWriter option → per the documented contract, events stay queued.
+    const emitter = new CvdiagEmitter({});
+
+    const count = 5;
+    emitN(emitter, count);
+    expect(emitter.queueDepth()).toBe(count);
+
+    // flush() with no writer must be a no-op that preserves the queue.
+    await emitter.flush();
+
+    // BEFORE the fix this is 0 (the queue was spliced into `batch` and the
+    // batch discarded on the early return) — RED. AFTER the fix the queue is
+    // untouched — GREEN.
+    expect(emitter.queueDepth()).toBe(count);
+  });
+
+  it("preserves droppedSinceFlush when there is no PB writer (drop accounting not reset)", async () => {
+    const emitter = new CvdiagEmitter({});
+
+    // Overflow the bounded queue so drop-oldest accrues `overflow` drops.
+    const overflow = 3;
+    emitN(emitter, QUEUE_CAP + overflow);
+    expect(emitter.queueDepth()).toBe(QUEUE_CAP);
+
+    const seam = emitter as unknown as { droppedSinceFlush: number };
+    expect(seam.droppedSinceFlush).toBe(overflow);
+
+    // flush() with no writer must NOT touch the drop counter.
+    await emitter.flush();
+
+    // BEFORE the fix the drop-accounting block ran and zeroed this — RED.
+    // AFTER the fix it is preserved for the eventual writer-present flush.
+    expect(seam.droppedSinceFlush).toBe(overflow);
+    expect(emitter.queueDepth()).toBe(QUEUE_CAP);
+  });
+});
