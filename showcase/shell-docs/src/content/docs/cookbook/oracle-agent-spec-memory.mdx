@@ -62,7 +62,6 @@ This frontend uses CopilotKit **V2** pre-release builds so Agent Spec's human-in
 git clone https://github.com/CopilotKit/CopilotKit.git
 cd CopilotKit/examples/showcases/oracle-agent-memory
 
-cd demo                              # the runnable demo lives here
 docker compose up -d                 # wait for "DATABASE IS READY TO USE"
 ./db/setup-db.sh                     # create the cookbook DB user (idempotent)
 
@@ -75,7 +74,7 @@ uv run uvicorn concierge.server:app --reload --port 8000
 ## Run the frontend
 
 ```bash
-cd demo/frontend
+cd frontend
 cp .env.local.example .env.local     # optional; defaults to localhost:8000/run
 npm install
 npm run dev
@@ -98,14 +97,14 @@ Memory is written and indexed asynchronously, so a fact you just taught becomes 
 </Callout>
 
 <Callout type="info" title="Multi-turn works via a server-side workaround">
-Follow-ups after a server-tool call would otherwise hit an upstream Agent Spec × AG-UI adapter bug (`tool_call_id` correlation) that corrupts the replayed history and 400s on the next turn. The cookbook works around it in `demo/agent/concierge/server.py` by replacing the adapter's incremental message merge with a full-history *replace* each turn, so multi-turn conversations — and the confirm→book human-in-the-loop — work end to end. The **"+ New thread"** step above proves cross-session recall (memory is user-scoped, so a fresh thread still remembers you) — not a workaround for broken follow-ups. Details + the upstream fix we're tracking: [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/CopilotKit/blob/main/examples/showcases/oracle-agent-memory/demo/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
+Follow-ups after a server-tool call would otherwise hit an upstream Agent Spec × AG-UI adapter bug (`tool_call_id` correlation) that corrupts the replayed history and 400s on the next turn. The cookbook works around it in `agent/concierge/server.py` by replacing the adapter's incremental message merge with a full-history *replace* each turn, so multi-turn conversations — and the confirm→book human-in-the-loop — work end to end. The **"+ New thread"** step above proves cross-session recall (memory is user-scoped, so a fresh thread still remembers you) — not a workaround for broken follow-ups. Details + the upstream fix we're tracking: [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/CopilotKit/blob/main/examples/showcases/oracle-agent-memory/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
 </Callout>
 
 ## The key pieces, in code
 
 Memory recall is exposed as an Agent Spec `ServerTool`, so the portable spec itself declares the capability; `book_flight` is a CopilotKit **ClientTool** so the confirmation card is rendered on the frontend via `useHumanInTheLoop` and the entire flow completes in a single agent run:
 
-```python title="demo/agent/concierge/tools.py"
+```python title="agent/concierge/tools.py"
 book_flight_tool = ClientTool(
     name="book_flight",
     description="Book the chosen flight by its id. The traveler confirms in the UI before it is finalized.",
@@ -116,7 +115,7 @@ book_flight_tool = ClientTool(
 
 The agent is defined once and serialized to portable JSON:
 
-```python title="demo/agent/concierge/agent.py"
+```python title="agent/concierge/agent.py"
 return Agent(
     name="travel_concierge",
     llm_config=llm,
@@ -126,13 +125,13 @@ return Agent(
 )
 ```
 
-The adapter has no post-run hook, so the server persists each turn to Oracle Agent Memory after the AG-UI stream drains (see `demo/agent/concierge/server.py`).
+The adapter has no post-run hook, so the server persists each turn to Oracle Agent Memory after the AG-UI stream drains (see `agent/concierge/server.py`).
 
 ## Going further
 
-- **Per-user memory** — the cookbook defaults to a single `demo-user`. The stock adapter does not forward `forwarded_props`, so scope `user_id` via a FastAPI dependency / ContextVar (see `demo/agent/concierge/tools.py`).
+- **Per-user memory** — the cookbook defaults to a single `demo-user`. The stock adapter does not forward `forwarded_props`, so scope `user_id` via a FastAPI dependency / ContextVar (see `agent/concierge/tools.py`).
 - **Swap the runtime** — Agent Spec's adapter also supports Oracle's WayFlow runtime; the same spec runs on either.
-- **Memory reconciliation** — after each turn a small LLM pass (`reconcile_durable_memories` in `demo/agent/concierge/reconcile.py`) prunes outdated or duplicate durable facts so an updated preference supersedes the old one on recall. Swap in your own policy (e.g. keep history, or reconcile on a schedule).
+- **Memory reconciliation** — after each turn a small LLM pass (`reconcile_durable_memories` in `agent/concierge/reconcile.py`) prunes outdated or duplicate durable facts so an updated preference supersedes the old one on recall. Swap in your own policy (e.g. keep history, or reconcile on a schedule).
 
 ## Get started with a coding agent
 
@@ -166,4 +165,4 @@ Walk me through it step by step, starting with the agent.
 
 ## Get the code
 
-Full source: [`examples/showcases/oracle-agent-memory`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/oracle-agent-memory) — `demo/agent/` (the Agent Spec agent) and `demo/frontend/` (the CopilotKit V2 chat).
+Full source: [`examples/showcases/oracle-agent-memory`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/oracle-agent-memory) — `agent/` (the Agent Spec agent) and `frontend/` (the CopilotKit V2 chat).
