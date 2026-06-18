@@ -75,6 +75,7 @@ overrides:
   '@smithy/config-resolver': '>=4.4.0'
   defu: '>=6.1.5'
   ai: '>=5.0.52'
+  '@ai-sdk/mcp': 1.0.21
   storybook@>=8.0.0 <8.6.17: 8.6.17
   path-to-regexp@>=8.0.0 <8.4.0: '>=8.4.0'
 
@@ -2942,7 +2943,7 @@ importers:
         specifier: ^3.0.97
         version: 3.0.120(zod@3.25.76)
       '@ai-sdk/mcp':
-        specifier: ^1.0.21
+        specifier: 1.0.21
         version: 1.0.21(zod@3.25.76)
       '@ai-sdk/openai':
         specifier: ^3.0.36
@@ -24269,7 +24270,7 @@ packages:
   vite-hot-client@2.2.0:
     resolution: {integrity: sha512-76Zs9zrHbH7M7wqeyooGQKdX+yg0pQ0xuQ1PbFp4z5a0Lzn2e5IPFoCswnmqZ4GiwqB4Jo3WcDAMO9jARTJl8w==}
     peerDependencies:
-      vite: '>=6.4.2'
+      vite: 7.3.2
 
   vite-node@3.2.4:
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}
