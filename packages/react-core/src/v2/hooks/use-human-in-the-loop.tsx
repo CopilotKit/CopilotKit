@@ -29,12 +29,16 @@ export function useHumanInTheLoop<
     (props) => {
       const ToolComponent = tool.render;
 
-      // Enhance props based on current status
+      // Enhance props based on current status.
+      // `props` already carries `toolCallId`; we add the tool's registration
+      // `agentId` so the HITL UI can attribute the interrupt to the correct
+      // (sub)agent.
       if (props.status === "inProgress") {
         const enhancedProps = {
           ...props,
           name: tool.name,
           description: tool.description || "",
+          agentId: tool.agentId,
           respond: undefined,
         };
         return React.createElement(ToolComponent, enhancedProps);
@@ -43,6 +47,7 @@ export function useHumanInTheLoop<
           ...props,
           name: tool.name,
           description: tool.description || "",
+          agentId: tool.agentId,
           respond,
         };
         return React.createElement(ToolComponent, enhancedProps);
@@ -51,6 +56,7 @@ export function useHumanInTheLoop<
           ...props,
           name: tool.name,
           description: tool.description || "",
+          agentId: tool.agentId,
           respond: undefined,
         };
         return React.createElement(ToolComponent, enhancedProps);
@@ -60,7 +66,7 @@ export function useHumanInTheLoop<
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return React.createElement(ToolComponent, props as any);
     },
-    [tool.render, tool.name, tool.description, respond],
+    [tool.render, tool.name, tool.description, tool.agentId, respond],
   );
 
   const frontendTool: ReactFrontendTool<T> = {
