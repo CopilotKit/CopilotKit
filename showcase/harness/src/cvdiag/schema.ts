@@ -39,7 +39,7 @@
  *     pipeline owned by a later slot — never by this module.
  */
 
-import { scrubSecrets } from "./scrub.js";
+import { scrubDeep, scrubSecrets } from "./scrub.js";
 
 /** Current schema version. Bumps only on a breaking (rename/type) change. */
 export const SCHEMA_VERSION = 1 as const;
@@ -565,10 +565,28 @@ export function validateMetadata(
     if (allowed.has(key)) {
       // §6 secret scrub: free-text / URL metadata values (e.g.
       // `*.message_scrubbed`, `probe.*.url`) can carry `Bearer …` tokens,
-      // `sk-…` keys, or URL userinfo. Scrub every SURVIVING string value
-      // before it leaves the module; leave non-string values (numbers,
-      // booleans, objects) untouched.
-      survivor[key] = typeof value === "string" ? scrubSecrets(value) : value;
+      // `sk-…` keys, or URL userinfo — at ANY depth, since some allow-listed
+      // values are arrays/objects (e.g. `backend.error.caught.stack_brief`,
+      // `aimock.match.decision.reject_reasons`). Scrub string LEAVES at every
+      // depth; non-string leaves (numbers/booleans/null) are untouched.
+      if (typeof value === "string") {
+        survivor[key] = scrubSecrets(value);
+      } else if (value !== null && typeof value === "object") {
+        // Deep-scrub on a cycle-safe deep clone so the caller's nested objects
+        // are never mutated (pure instrumentation). `structuredClone` preserves
+        // structure + cycles; on the rare unclonable input (e.g. a function
+        // leaf) fall back to scrubbing the original in place — correctness of
+        // the §6 guarantee wins over the no-mutation nicety in that edge case.
+        let target: unknown = value;
+        try {
+          target = structuredClone(value);
+        } catch {
+          target = value;
+        }
+        survivor[key] = scrubDeep(target);
+      } else {
+        survivor[key] = value;
+      }
     } else {
       droppedKeys.push(key);
     }

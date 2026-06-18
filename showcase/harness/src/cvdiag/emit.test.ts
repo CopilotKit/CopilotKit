@@ -196,6 +196,67 @@ describe("CvdiagEmitter.applyByteCap", () => {
   });
 });
 
+describe("CvdiagEmitter — nested metadata secret scrub (§6 deep)", () => {
+  // The §6 PII guarantee must hold at EVERY depth of a surviving metadata
+  // value, not just top-level strings. `backend.error.caught.stack_brief` is a
+  // declared (allow-listed) key whose value is an array of objects — nested
+  // string leaves there bypassed the old top-level-only scrub. A secret buried
+  // in such a leaf must not appear anywhere in the enqueued envelope's JSON.
+  it("redacts a secret buried in a nested array-of-objects metadata value", () => {
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    const secret = "Bearer sk-ant-api03-AbCd_Ef-0123456789xyzAB";
+    const envelope = emitter.emit({
+      layer: "backend",
+      boundary: "backend.error.caught",
+      slug: "langgraph-python",
+      demo: "chat",
+      outcome: "err",
+      metadata: {
+        exception_type: "AuthError",
+        message_scrubbed: "auth failed",
+        // Nested array-of-objects allow-listed value carrying a buried secret.
+        stack_brief: [{ file: secret, line: 42 }],
+      },
+    });
+    expect(envelope).not.toBeNull();
+    const json = JSON.stringify(envelope);
+    // No unredacted secret substring may survive anywhere in the serialization.
+    expect(json).not.toContain("sk-ant-api03-AbCd_Ef-0123456789xyzAB");
+    expect(json).not.toContain("0123456789xyzAB");
+    expect(json).toContain("[REDACTED]");
+    // Structure preserved: the non-string leaf (line) is untouched.
+    const meta = envelope!.metadata as {
+      stack_brief: Array<{ file: string; line: number }>;
+    };
+    expect(meta.stack_brief[0].line).toBe(42);
+  });
+
+  it("does not throw or hang on a self-referential (cyclic) metadata value", () => {
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    // A cyclic object as a nested value: the deep walker must not recurse
+    // infinitely (WeakSet visited-guard) and emit() must not throw.
+    const cyclic: Record<string, unknown> = { file: "ok", line: 1 };
+    cyclic.self = cyclic;
+    expect(() =>
+      emitter.emit({
+        layer: "backend",
+        boundary: "backend.error.caught",
+        slug: "langgraph-python",
+        demo: "chat",
+        outcome: "err",
+        metadata: {
+          exception_type: "AuthError",
+          message_scrubbed: "x",
+          stack_brief: cyclic as unknown as Array<{
+            file: string;
+            line: number;
+          }>,
+        },
+      }),
+    ).not.toThrow();
+  });
+});
+
 describe("CvdiagEmitter.flush — queue_dropped accounting", () => {
   it("emits exactly one cvdiag.queue_dropped envelope carrying the drop count into the flushed batch", async () => {
     const pbWriter = new CapturingPbWriter();

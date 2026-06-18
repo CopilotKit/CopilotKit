@@ -165,6 +165,52 @@ describe("CVDIAG scrub — hyphenated sk- API-key prefixes (§6)", () => {
   });
 });
 
+describe("CVDIAG scrub — coverage corpus (§6 secret-format matrix)", () => {
+  // The DURABLE convergence lever (M1 CR C1): every secret FORMAT the §6 PII
+  // guarantee must redact is pinned here as a positive corpus, and a negative
+  // corpus pins ordinary prose that MUST survive verbatim. Gaps in this matrix
+  // were the repeated CR finding class (base64url keys, multi-@ userinfo).
+  it("redacts every secret in the positive corpus", () => {
+    const positive = [
+      "Bearer abc.def",
+      "sk-0123456789abcdef0123", // legacy sk-<16+ alnum>
+      "sk-proj-AbCdEf0123456789ghij", // OpenAI project key
+      "sk-ant-api03-AbCd_Ef-0123456789xyzAB", // Anthropic base64url key (_ and -)
+      "https://user:pass@host/x", // user:pass@ userinfo
+      "https://a@b@c.com/x", // multi-@ userinfo (full authority)
+    ];
+    for (const sample of positive) {
+      const out = scrubSecrets(sample);
+      expect(out).toContain("[REDACTED]");
+    }
+    // The userinfo secrets must not leak any authority tail.
+    expect(scrubSecrets("https://user:pass@host/x")).toBe(
+      "https://[REDACTED]@host/x",
+    );
+    expect(scrubSecrets("https://a@b@c.com/x")).toBe(
+      "https://[REDACTED]@c.com/x",
+    );
+    // The key bodies must not survive anywhere in the output.
+    expect(scrubSecrets("sk-ant-api03-AbCd_Ef-0123456789xyzAB")).not.toContain(
+      "0123456789xyzAB",
+    );
+    expect(scrubSecrets("sk-proj-AbCdEf0123456789ghij")).not.toContain(
+      "AbCdEf0123456789ghij",
+    );
+  });
+
+  it("leaves the negative corpus (ordinary prose) intact", () => {
+    const negative = [
+      "ask-me-later",
+      "task_list_items",
+      "please review the file",
+    ];
+    for (const sample of negative) {
+      expect(scrubSecrets(sample)).toBe(sample);
+    }
+  });
+});
+
 describe("CVDIAG edge headers — deny-list precedence", () => {
   // (3) forbidden edge header rejected even if present in the allow-list set.
   it("rejects a deny-list header even when it collides with an allow-list key", () => {
