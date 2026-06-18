@@ -66,11 +66,14 @@ export function createRunRenderer(args: {
    */
   interruptEventNames?: ReadonlySet<string>;
   /**
-   * Whether tool calls should surface as `:wrench: Calling x…` →
-   * `:white_check_mark: x` status rows in the thread. Defaults to `true`.
-   * Only consulted on the legacy path (and the native path's degradation
-   * fallback); native streaming surfaces tool calls as in-message
-   * `task_update` chunks, and pane threads use composer status.
+   * Master toggle for surfacing tool-call progress in the UI. Defaults to
+   * `true`. When `false`, NO tool progress is shown on any surface — native
+   * in-message `task_update` chunks, legacy `:wrench:` rows, and the pane's
+   * "is using `tool`…" composer status are all suppressed (tools still run;
+   * only the display is hidden). When `true`, the surface is chosen by target:
+   * native streaming → `task_update` chunks; legacy / native-degraded →
+   * `:wrench:`/`:white_check_mark:` rows; pane → composer status (further
+   * gated by the pane's own `toolStatus`).
    *
    * Status rows dedup by `toolCallId` so a tool that fires
    * `TOOL_CALL_START` twice (e.g. on graph resume after an interrupt)
@@ -475,19 +478,21 @@ export function createRunRenderer(args: {
       // Pane threads surface tool activity as live composer status, not rows.
       // Each setStatus also resets Slack's status timeout.
       if (paneMode) {
-        if (paneToolStatus) {
+        if (showToolStatus && paneToolStatus) {
           await setPaneStatus(`is using \`${event.toolCallName}\`…`);
         }
         return;
       }
       // Native path: surface the call as an in-message `task_update` chunk.
       if (nativeMode && taskChunksOk) {
-        ensureTurnStream().appendChunk({
-          type: "task_update",
-          id: event.toolCallId,
-          title: `Using \`${event.toolCallName}\``,
-          status: "in_progress",
-        });
+        if (showToolStatus) {
+          ensureTurnStream().appendChunk({
+            type: "task_update",
+            id: event.toolCallId,
+            title: `Using \`${event.toolCallName}\``,
+            status: "in_progress",
+          });
+        }
         return;
       }
       // Legacy path (or native degraded): a `:wrench:` status row.
@@ -519,12 +524,14 @@ export function createRunRenderer(args: {
       if (paneMode) return;
       // Native path: complete the in-message `task_update`.
       if (nativeMode && taskChunksOk) {
-        ensureTurnStream().appendChunk({
-          type: "task_update",
-          id: event.toolCallId,
-          title: `Used \`${toolCallName}\``,
-          status: "complete",
-        });
+        if (showToolStatus) {
+          ensureTurnStream().appendChunk({
+            type: "task_update",
+            id: event.toolCallId,
+            title: `Used \`${toolCallName}\``,
+            status: "complete",
+          });
+        }
         return;
       }
       // Legacy path (or native degraded): edit the `:wrench:` row to a check.

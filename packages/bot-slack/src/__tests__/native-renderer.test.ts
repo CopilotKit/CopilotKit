@@ -162,6 +162,37 @@ describe("createRunRenderer — native streaming", () => {
     ]);
   });
 
+  it("showToolStatus:false suppresses tool progress entirely (no chunks, no rows)", async () => {
+    const fake = makeFakeClient();
+    const nt = makeFakeNativeTransport();
+    const { subscriber: sub, finish } = createRunRenderer({
+      client: fake.client,
+      target: { channel: "C1", threadTs: "100.0" },
+      nativeStreaming: { transport: nt.transport },
+      showToolStatus: false,
+    });
+
+    sub.onTextMessageContentEvent!({
+      event: { messageId: "m1", delta: "answer" },
+    } as never);
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "search" },
+    } as never);
+    await sub.onToolCallEndEvent!({
+      event: { toolCallId: "t1" },
+      toolCallName: "search",
+      toolCallArgs: {},
+    } as never);
+    await finish!();
+
+    // No task_update chunks and no :wrench: rows — only the text answer.
+    expect(chunksOf(nt.messages[0]!.events)).toHaveLength(0);
+    expect(fake.posts.filter((p) => p.text.includes(":wrench:"))).toHaveLength(
+      0,
+    );
+    expect(textOf(nt.messages[0]!.events)).toBe("answer");
+  });
+
   it("attaches the feedback row at finish only when text was streamed", async () => {
     const blocks: KnownBlock[] = [
       { type: "context_actions", elements: [] } as unknown as KnownBlock,
