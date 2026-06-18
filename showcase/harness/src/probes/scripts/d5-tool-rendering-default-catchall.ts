@@ -9,23 +9,18 @@
  * doesn't explicitly handle. The probe must therefore assert the
  * built-in renderer's testid contract, NOT the per-tool card.
  *
- * Built-in default-catchall testid contract (Phase-1E production code):
+ * Built-in default-catchall testid contract:
  *   - container: `[data-testid="copilot-tool-render"]`
  *   - per-call:  `[data-tool-name="<tool_name>"]` attribute on the container
- *   - status:    a single status pill descendant element carrying
- *                `[data-testid="copilot-tool-render-status"]`. The
- *                lifecycle state (`inProgress` | `executing` |
- *                `complete`) is exposed on the container's
- *                `data-status` attribute, but the probe only asserts
- *                the pill testid's presence — that is sufficient to
- *                detect a regression where the renderer drops the
- *                pill entirely.
+ *   - status:    the same container exposes `data-status`, and contains a
+ *                single status pill descendant carrying
+ *                `[data-testid="copilot-tool-render-status"]`.
  *
  * The probe drives `/demos/tool-rendering-default-catchall` with a
  * weather prompt (the default-catchall demo uses `get_weather` as its
- * canonical tool — same fixture as `tool-rendering`), then asserts
+ * canonical tool), then asserts
  * the built-in renderer rendered the tool call with the expected
- * `data-tool-name` and a status pill.
+ * `data-tool-name`, `data-status`, and status pill.
  *
  * Side effect: importing this module triggers `registerD5Script`. The
  * default loader in `d6-all-pills.ts` discovers it via the `d5-*` filename
@@ -38,7 +33,7 @@ import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 /**
  * Tool name the demo's built-in catchall fires for. Aligns with
- * `tool-rendering.json` fixture (`get_weather`).
+ * `tool-rendering-default-catchall.json` fixture (`get_weather`).
  */
 export const EXPECTED_TOOL_NAME = "get_weather";
 
@@ -50,13 +45,9 @@ export const CATCHALL_CONTAINER_TESTID = "copilot-tool-render";
 
 /**
  * Status-pill testid exposed by the built-in renderer. There is a
- * single pill element per tool call; its lifecycle state is encoded
- * via the container's `data-status` attribute (see
- * `DefaultToolCallRenderer` in
- * `packages/react-core/src/v2/hooks/use-default-render-tool.tsx`).
- *
- * We assert the pill testid is present — a "no pill at all" outcome
- * means the renderer regressed.
+ * single pill element per tool call inside the default-rendered
+ * container; its lifecycle state is encoded via the container's
+ * `data-status` attribute.
  */
 export const STATUS_PILL_TESTID = "copilot-tool-render-status";
 
@@ -82,8 +73,12 @@ export interface DefaultCatchallProbe {
   containerWithToolName: boolean;
   /** True when at least one status-pill testid (any state) is present. */
   statusPillPresent: boolean;
+  /** True when the matching container exposes a non-empty data-status value. */
+  statusAttributePresent: boolean;
   /** Diagnostic: the data-tool-name values found on rendered containers. */
   observedToolNames: string[];
+  /** Diagnostic: the data-status values found on rendered containers. */
+  observedStatuses: string[];
   /**
    * True when the page body contains the custom-catchall content
    * phrase (`CUSTOM_CATCHALL_LEAK_PHRASE`). On the default-catchall
@@ -129,7 +124,7 @@ export async function probeDefaultCatchall(
         querySelectorAll(sel: string): ArrayLike<{
           getAttribute(name: string): string | null;
           querySelector(sel: string): unknown;
-          textContent: string | null;
+          textContent?: string | null;
         }>;
         querySelector(sel: string): unknown;
         body: { textContent?: string | null };
@@ -137,49 +132,26 @@ export async function probeDefaultCatchall(
     };
 
     const observedToolNames: string[] = [];
+    const observedStatuses: string[] = [];
     let containerWithToolName = false;
     let statusPillPresent = false;
+    let statusAttributePresent = false;
 
-    // Path A — strict testid contract. Lands once
-    // @copilotkit/react-core releases the
-    // `[data-testid="copilot-tool-render"]` wrapper added in commit
-    // ba60df5d3 (currently unreleased — neither 1.57.1 nor any 1.57
-    // canary include it).
     const containers = win.document.querySelectorAll(
       '[data-testid="copilot-tool-render"]',
     );
     for (let i = 0; i < containers.length; i++) {
       const c = containers[i]!;
       const name = c.getAttribute("data-tool-name");
+      const status = c.getAttribute("data-status");
       if (name) observedToolNames.push(name);
-      if (name === "get_weather") containerWithToolName = true;
-    }
-    if (containerWithToolName) {
-      statusPillPresent = !!win.document.querySelector(
-        '[data-testid="copilot-tool-render-status"]',
-      );
-    }
-
-    // Path B — fallback for the published 1.56.5 default renderer
-    // shape, which carries no testids: scan assistant-message bubbles
-    // for the literal tool name plus the "Done" status label that
-    // DefaultToolCallRenderer emits inline. Both have to land in the
-    // SAME bubble so we don't false-positive on (e.g.) the agent's
-    // narration mentioning "get_weather" without an actual tool card.
-    if (!containerWithToolName) {
-      const assistantBubbles = win.document.querySelectorAll(
-        '[data-testid="copilot-assistant-message"]',
-      );
-      for (let i = 0; i < assistantBubbles.length; i++) {
-        const text = (assistantBubbles[i]!.textContent ?? "").toLowerCase();
-        if (text.includes("get_weather")) {
-          observedToolNames.push("get_weather");
-          if (text.includes("done") || text.includes("running")) {
-            containerWithToolName = true;
-            statusPillPresent = true;
-            break;
-          }
-        }
+      if (status) observedStatuses.push(status);
+      if (name === "get_weather") {
+        containerWithToolName = true;
+        statusAttributePresent = typeof status === "string" && status !== "";
+        statusPillPresent = !!c.querySelector(
+          '[data-testid="copilot-tool-render-status"]',
+        );
       }
     }
 
@@ -207,7 +179,9 @@ export async function probeDefaultCatchall(
     return {
       containerWithToolName,
       statusPillPresent,
+      statusAttributePresent,
       observedToolNames,
+      observedStatuses,
       customLeakPhrasePresent,
     };
   });
@@ -230,6 +204,15 @@ export function validateDefaultCatchall(
     return (
       "tool-rendering-default-catchall: container present but no status pill " +
       `([data-testid="${STATUS_PILL_TESTID}"]) — built-in renderer regressed`
+    );
+  }
+  if (!snap.statusAttributePresent) {
+    return (
+      "tool-rendering-default-catchall: container present but no " +
+      "data-status attribute; observed statuses: " +
+      (snap.observedStatuses.length === 0
+        ? "(none)"
+        : snap.observedStatuses.join(", "))
     );
   }
   if (snap.customLeakPhrasePresent) {
