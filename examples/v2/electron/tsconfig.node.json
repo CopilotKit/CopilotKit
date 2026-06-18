@@ -13,6 +13,6 @@
     "noEmit": true,
     "composite": false
   },
-  "include": ["src/main", "src/preload", "electron.vite.config.ts", "vitest.config.ts"],
+  "include": ["src/main", "src/preload", "electron.vite.config.ts", "vitest.config.ts", "e2e"],
   "exclude": ["node_modules", "out", "dist"]
 }
