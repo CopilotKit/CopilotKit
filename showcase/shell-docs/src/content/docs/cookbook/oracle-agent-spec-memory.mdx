@@ -35,17 +35,15 @@ Oracle does the remembering, CopilotKit does the conversing, and your agent code
 
 ## Try it live
 
-The concierge was told a loyalty number in one session; here it's asked in a
-**brand-new** session and recalls it — the answer can only come from memory
-persisted in Oracle AI Database.
+Talk to the concierge below. Tell it a travel preference, then open a
+**new thread** with **"+ New thread"** and ask about your preferences again — it
+recalls what you told it from memory persisted in Oracle AI Database, not from
+the current conversation.
 
-{/* Placeholder URL — upload the recording to the CopilotKit CDN and update src.
-    Source asset: docs/cookbook/assets/oracle-agentspec-recall.mp4 in the example repo. */}
-
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/cookbook/oracle-agentspec-recall.mp4"
-  controls
-  className="w-full rounded-xl border border-[var(--border)]"
+<iframe
+  src="https://showcase-oracle-agent-memory-production.up.railway.app"
+  title="Oracle Agent Spec × Memory live demo"
+  className="w-full h-[480px] sm:h-[600px] block rounded-xl border border-[var(--border)]"
 />
 
 ## Prerequisites
@@ -61,8 +59,8 @@ This frontend uses CopilotKit **V2** pre-release builds so Agent Spec's human-in
 ## Start the database and run the agent
 
 ```bash
-git clone https://github.com/CopilotKit/oracle-cookbook.git
-cd oracle-cookbook
+git clone https://github.com/CopilotKit/CopilotKit.git
+cd CopilotKit/examples/showcases/oracle-agent-memory
 
 cd demo                              # the runnable demo lives here
 docker compose up -d                 # wait for "DATABASE IS READY TO USE"
@@ -100,7 +98,7 @@ Memory is written and indexed asynchronously, so a fact you just taught becomes 
 </Callout>
 
 <Callout type="info" title="Multi-turn works via a server-side workaround">
-Follow-ups after a server-tool call would otherwise hit an upstream Agent Spec × AG-UI adapter bug (`tool_call_id` correlation) that corrupts the replayed history and 400s on the next turn. The cookbook works around it in `demo/agent/concierge/server.py` by replacing the adapter's incremental message merge with a full-history *replace* each turn, so multi-turn conversations — and the confirm→book human-in-the-loop — work end to end. The **"+ New thread"** step above proves cross-session recall (memory is user-scoped, so a fresh thread still remembers you) — not a workaround for broken follow-ups. Details + the upstream fix we're tracking: [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/oracle-cookbook/blob/main/demo/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
+Follow-ups after a server-tool call would otherwise hit an upstream Agent Spec × AG-UI adapter bug (`tool_call_id` correlation) that corrupts the replayed history and 400s on the next turn. The cookbook works around it in `demo/agent/concierge/server.py` by replacing the adapter's incremental message merge with a full-history *replace* each turn, so multi-turn conversations — and the confirm→book human-in-the-loop — work end to end. The **"+ New thread"** step above proves cross-session recall (memory is user-scoped, so a fresh thread still remembers you) — not a workaround for broken follow-ups. Details + the upstream fix we're tracking: [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/CopilotKit/blob/main/examples/showcases/oracle-agent-memory/demo/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
 </Callout>
 
 ## The key pieces, in code
@@ -168,4 +166,4 @@ Walk me through it step by step, starting with the agent.
 
 ## Get the code
 
-Full source: [`CopilotKit/oracle-cookbook`](https://github.com/CopilotKit/oracle-cookbook) — `demo/agent/` (the Agent Spec agent) and `demo/frontend/` (the CopilotKit V2 chat).
+Full source: [`examples/showcases/oracle-agent-memory`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/oracle-agent-memory) — `demo/agent/` (the Agent Spec agent) and `demo/frontend/` (the CopilotKit V2 chat).
