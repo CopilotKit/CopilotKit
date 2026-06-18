@@ -6,8 +6,57 @@ import {
 } from "../helpers/d5-registry.js";
 import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
+import type * as DefaultCatchallScript from "./d5-tool-rendering-default-catchall.js";
 
-let scriptModule: typeof import("./d5-tool-rendering-default-catchall.js");
+let scriptModule: typeof DefaultCatchallScript;
+
+type MockNode = {
+  getAttribute: (name: string) => string | null;
+  querySelector: (selector: string) => unknown;
+  textContent?: string | null;
+};
+
+function makeNode({
+  attributes = {},
+  statusPill = false,
+  textContent = null,
+}: {
+  attributes?: Record<string, string>;
+  statusPill?: boolean;
+  textContent?: string | null;
+}): MockNode {
+  return {
+    getAttribute: (name: string) => attributes[name] ?? null,
+    querySelector: (selector: string) =>
+      selector === '[data-testid="copilot-tool-render-status"]' && statusPill
+        ? {}
+        : null,
+    textContent,
+  };
+}
+
+function makePageWithDocument(documentMock: {
+  querySelectorAll: (selector: string) => MockNode[];
+}): Page {
+  return {
+    waitForSelector: async () => undefined,
+    fill: async () => undefined,
+    press: async () => undefined,
+    evaluate: async <R>(fn: () => R): Promise<R> => {
+      (globalThis as { document?: unknown }).document = documentMock;
+      return fn();
+    },
+  };
+}
+
+function makePageReturning(snap: unknown): Page {
+  return {
+    waitForSelector: async () => undefined,
+    fill: async () => undefined,
+    press: async () => undefined,
+    evaluate: async <R>(_fn: () => R): Promise<R> => snap as R,
+  };
+}
 
 describe("D5 tool-rendering-default-catchall — registration", () => {
   beforeAll(async () => {
@@ -133,45 +182,6 @@ describe("D5 tool-rendering-default-catchall — probeDefaultCatchall", () => {
     }
   });
 
-  type MockNode = {
-    getAttribute: (name: string) => string | null;
-    querySelector: (selector: string) => unknown;
-    textContent?: string | null;
-  };
-
-  function makeNode({
-    attributes = {},
-    statusPill = false,
-    textContent = null,
-  }: {
-    attributes?: Record<string, string>;
-    statusPill?: boolean;
-    textContent?: string | null;
-  }): MockNode {
-    return {
-      getAttribute: (name: string) => attributes[name] ?? null,
-      querySelector: (selector: string) =>
-        selector === '[data-testid="copilot-tool-render-status"]' && statusPill
-          ? {}
-          : null,
-      textContent,
-    };
-  }
-
-  function makePageWithDocument(documentMock: {
-    querySelectorAll: (selector: string) => MockNode[];
-  }): Page {
-    return {
-      waitForSelector: async () => undefined,
-      fill: async () => undefined,
-      press: async () => undefined,
-      evaluate: async <R>(fn: () => R): Promise<R> => {
-        (globalThis as { document?: unknown }).document = documentMock;
-        return fn();
-      },
-    };
-  }
-
   it("reads the strict default renderer wrapper contract", async () => {
     const mod = await import("./d5-tool-rendering-default-catchall.js");
     const page = makePageWithDocument({
@@ -218,15 +228,6 @@ describe("D5 tool-rendering-default-catchall — probeDefaultCatchall", () => {
 });
 
 describe("D5 tool-rendering-default-catchall — assertDefaultCatchall", () => {
-  function makePageReturning(snap: unknown): Page {
-    return {
-      waitForSelector: async () => undefined,
-      fill: async () => undefined,
-      press: async () => undefined,
-      evaluate: async <R>(_fn: () => R): Promise<R> => snap as R,
-    };
-  }
-
   it("passes when the snapshot is complete", async () => {
     const mod = await import("./d5-tool-rendering-default-catchall.js");
     const page = makePageReturning({
