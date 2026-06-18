@@ -30,6 +30,7 @@ export const REFERENCE_VERSIONS = [
   "v2",
   "v1",
   "react-native",
+  "vue",
   "core",
   "bot",
 ] as const;
@@ -64,6 +65,7 @@ const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   v2: ["components", "hooks"],
   v1: ["components", "hooks", "classes", "sdk"],
   "react-native": ["components", "hooks"],
+  vue: ["components", "hooks"],
   core: ["classes", "types", "enums"],
   bot: ["components", "functions", "classes", "types", "slack"],
 };
