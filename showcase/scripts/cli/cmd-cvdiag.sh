@@ -10,6 +10,8 @@
 #   replay    → cli-replay.ts   (reconstruct + validate the request sequence)
 #   purge     → cli-purge.ts    (cascade-delete events + raw-byte samples,
 #                                then emit a cvdiag.purge_audit accounting event)
+#   ab-report → cli-ab-report.ts (diff the edge vs Railway-internal A/B arms,
+#                                grouped by ab_pair_id, from the collector JSON)
 #
 # All reads/writes go through the harness PB superuser client, which bypasses
 # the three-key ACL (the writer/purge/migration role keys are write-only — see
@@ -33,6 +35,10 @@ Subcommands:
                          to cvdiag_raw_byte_samples, then emit a
                          cvdiag.purge_audit accounting event. The selector is a
                          test-id (UUIDv7) or a slug. (alias: --purge)
+  ab-report [file]       Diff the edge vs Railway-internal A/B arms (grouped by
+                         ab_pair_id) and print the report as JSON. Reads the
+                         collected AbOutcomeRecord[] JSON from <file>, or from
+                         stdin when no file is given. (alias: --ab-report)
 
 Environment:
   POCKETBASE_URL                 PB base URL (required outside test/dev).
@@ -46,6 +52,8 @@ Examples:
   showcase cvdiag replay   0190b8a0-0000-7000-8000-000000000001
   showcase cvdiag purge    0190b8a0-0000-7000-8000-000000000001
   showcase cvdiag purge    langgraph-python
+  showcase cvdiag ab-report ab-outcomes.json
+  showcase cvdiag ab-report < ab-outcomes.json
 HELP
 }
 
@@ -105,6 +113,9 @@ cmd_cvdiag() {
       ;;
     purge|--purge)
       _cvdiag_run_entrypoint cli-purge.ts "$@"
+      ;;
+    ab-report|--ab-report)
+      _cvdiag_run_entrypoint cli-ab-report.ts "$@"
       ;;
     *)
       die "Unknown cvdiag subcommand: $subcmd (see showcase cvdiag --help)"
