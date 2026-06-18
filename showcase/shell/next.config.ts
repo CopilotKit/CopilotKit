@@ -32,7 +32,7 @@ const nextConfig: NextConfig = {
     // (a JSON file on disk, not an env var) and only used in local-dev.
     NEXT_PUBLIC_LOCAL_BACKENDS: localBackendsEnv(LOCAL_PORTS_PATH),
   },
-  serverExternalPackages: ["@copilotkit/runtime", "@copilotkitnext/runtime"],
+  serverExternalPackages: ["@copilotkit/runtime"],
 };
 
 export default nextConfig;
