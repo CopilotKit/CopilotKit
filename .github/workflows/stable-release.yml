@@ -12,6 +12,7 @@ on:
           - angular
           - bot
           - bot-slack
+          - bot-whatsapp
       bump:
         description: "Version bump level"
         required: true
