@@ -380,6 +380,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   );
   const hasLocalAgents = mergedAgents && Object.keys(mergedAgents).length > 0;
 
+  // `selfManagedAgents` is part of CopilotKit's Enterprise Intelligence offering.
+  // The signal is advisory and client-side only (not enforced): warn — in both
+  // development and production — when it is used without a license key so
+  // production usage is surfaced. `agents__unsafe_dev_only` is the free local-dev
+  // escape hatch and is intentionally NOT gated here.
+  const hasSelfManagedAgents = Object.keys(selfManagedAgents).length > 0;
+  useEffect(() => {
+    if (hasSelfManagedAgents && !resolvedPublicKey) {
+      console.warn(
+        "[CopilotKit] `selfManagedAgents` is part of CopilotKit's Enterprise " +
+          "Intelligence offering. Provide a `publicLicenseKey` for production " +
+          "use — contact the CopilotKit team about licensing.",
+      );
+    }
+  }, [hasSelfManagedAgents, resolvedPublicKey]);
+
   // Resolve headers from function or static object
   const headers =
     typeof headersProp === "function" ? headersProp() : headersProp;
