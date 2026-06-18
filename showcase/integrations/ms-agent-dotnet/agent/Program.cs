@@ -40,6 +40,14 @@ AimockHeaderPolicy.HttpContextAccessor = app.Services.GetRequiredService<IHttpCo
 // TODO(copilotkit-sdk-dotnet): migrate to SDK-level header propagation
 app.UseMiddleware<AimockHeaderMiddleware>();
 
+// CVDIAG: backend flap-observability emitter (plan unit L1-F; spec §3). OFF by
+// default (CVDIAG_BACKEND_EMITTER=on to arm). Seed the static singleton the
+// outbound LLM policy reads (created without DI), then register the
+// request-pipeline instrumentation AFTER AimockHeaderMiddleware so the forwarded
+// x-* correlation headers are already stashed on HttpContext.Items.
+CvdiagBackend.Instance = new CvdiagBackend();
+app.UseMiddleware<CvdiagInstrumentationMiddleware>();
+
 // Create the agent factory and map the AG-UI agent endpoint
 var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 // CVDIAG: seed the static logger used by AimockHeaderPolicy (created without DI)
