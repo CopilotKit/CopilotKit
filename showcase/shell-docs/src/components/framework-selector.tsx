@@ -9,7 +9,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
-import { useFramework } from "./framework-provider";
+import { DEFAULT_FRAMEWORK, useFramework } from "./framework-provider";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 
@@ -123,13 +123,14 @@ export function FrameworkSelector({
     // Framework changes intentionally drop the current feature slug. The
     // selector is a backend pivot, so landing on the framework root gives
     // readers the right overview before they drill into framework-specific
-    // docs.
-    router.replace(`/${slug}`);
+    // docs. The default framework's docs are served at the root, so its
+    // pivot target is `/`.
+    router.replace(slug === DEFAULT_FRAMEWORK ? "/" : `/${slug}`);
     setOpen(false);
   }
 
   // Single flat list, ordered by the canonical display order. The
-  // category buckets ("Most Popular / Agent Frameworks / Enterprise /
+  // category buckets ("Most Popular / Agent Frameworks / Intelligence Platform /
   // Emerging") used to live here but partners read them as a tier
   // list — we now show every backend in one neutral list.
   const flatOptions = options

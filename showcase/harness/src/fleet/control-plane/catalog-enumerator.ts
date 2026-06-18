@@ -44,6 +44,11 @@
 import type { Logger } from "../../types/index.js";
 import type { DiscoverySource, DiscoveryContext } from "../../probes/types.js";
 import type { RailwayServiceInfo } from "../../probes/discovery/railway-services.js";
+import {
+  DiscoverySourceAuthError,
+  DiscoverySourceBackendError,
+  DiscoverySourceTransportError,
+} from "../../probes/discovery/errors.js";
 import type {
   ServiceEnumerator,
   ServiceJobSpec,
@@ -54,6 +59,205 @@ import {
   E2E_SMOKE_DRIVER_KIND,
   E2E_DEMOS_DRIVER_KIND,
 } from "../worker/payload-mapper.js";
+
+/**
+ * Retry backoff schedule (ms) for `source.enumerate` against Railway-GQL.
+ *
+ * Railway's `/graphql/v2` endpoint sits behind Cloudflare's WAF which can
+ * burst-block the harness producer with HTTP 429 / Cloudflare error 1015
+ * (or 1020/1022) for tens of minutes during a flap. Without retries the
+ * producer's tick hard-fails every cron, zeroing out D4/D5/D6 writes and
+ * turning the staging dashboard red within one tick window. Three retries
+ * at 1s/4s/16s ride out a ~21s WAF burst on a single tick; persistent
+ * outages then fall through to the cached-catalog fallback (see
+ * `withCatalogCache`).
+ *
+ * Exported for tests so the schedule remains the SSOT.
+ */
+export const ENUMERATE_RETRY_BACKOFF_MS: readonly number[] = [
+  1_000, 4_000, 16_000,
+] as const;
+
+/**
+ * Cloudflare error-code markers that indicate WAF rate-limit / abuse
+ * heuristics (1015 = "rate limited", 1020 = "access denied", 1022 = "block
+ * due to access rules"). Retried because the underlying outage is transient
+ * upstream, not a real config error on our side. Matched against the
+ * `DiscoverySourceBackendError` message which carries the Cloudflare HTML
+ * body verbatim.
+ */
+const CLOUDFLARE_RETRY_MARKERS: readonly string[] = [
+  "1015",
+  "1020",
+  "1022",
+] as const;
+
+/**
+ * Decide whether a thrown error from `source.enumerate` is retryable.
+ *
+ * Retry on:
+ *   - `DiscoverySourceTransportError`: socket/DNS-level failure, network
+ *     blip, request aborted — always transient.
+ *   - `DiscoverySourceBackendError` with `status === 429`: explicit rate
+ *     limit, the Cloudflare-WAF case this exists for.
+ *   - `DiscoverySourceBackendError` with `status >= 500`: upstream 5xx,
+ *     transient by definition.
+ *   - `DiscoverySourceBackendError` whose message carries a Cloudflare
+ *     `1015`/`1020`/`1022` marker (defensive: sometimes CF wraps the
+ *     rate-limit response with a non-429 status).
+ *
+ * Do NOT retry on:
+ *   - `DiscoverySourceAuthError`: 401/403 is a real config/credential
+ *     error and must fail loud — burning retries here would just delay
+ *     the operator-actionable failure.
+ *   - Any other `DiscoverySourceBackendError` with 4xx (e.g. 400 bad
+ *     request, 404): client-side error, retrying will not change the
+ *     outcome.
+ *   - `DiscoverySourceSchemaError`: an upstream API change — retrying
+ *     will not fix the wire payload.
+ *   - Any other thrown class: bubble up unchanged.
+ *
+ * Exported so the catalog-aware enumerator test can pin the decision
+ * surface without re-deriving the predicate from the implementation.
+ */
+export function isRetryableEnumerateError(err: unknown): boolean {
+  if (err instanceof DiscoverySourceAuthError) return false;
+  if (err instanceof DiscoverySourceTransportError) return true;
+  if (err instanceof DiscoverySourceBackendError) {
+    if (err.status === 429) return true;
+    if (err.status >= 500) return true;
+    // Defensive: a Cloudflare 1015 served under a non-429 status still
+    // carries the marker in the response body — retry on the marker, not
+    // just the status code.
+    const msg = err.message;
+    for (const marker of CLOUDFLARE_RETRY_MARKERS) {
+      if (msg.includes(marker)) return true;
+    }
+    return false;
+  }
+  return false;
+}
+
+/**
+ * In-memory cache of the last successful `services` list per enumerator
+ * instance. Survives across ticks within one process (the producer is
+ * long-lived). When all retries fail, the enumerator falls back to this
+ * cache and emits jobs at staleness rather than zeroing out the dashboard.
+ *
+ * A fresh-boot process with no cached entry and a persistent enumerate
+ * failure preserves the original hard-fail behavior (the producer's
+ * `enumerate-failed` short-circuit) — without a catalog there is nothing
+ * to enqueue.
+ *
+ * Per-enumerator (not shared globally) so the d6/smoke/demos/deep
+ * enumerators do not cross-pollinate.
+ */
+interface CatalogCache {
+  services: RailwayServiceInfo[];
+  cachedAtMs: number;
+}
+
+/**
+ * Sleep used between retry attempts. Injectable so tests can collapse the
+ * 1s/4s/16s schedule to instant without a fake-timer dance. Default is a
+ * real `setTimeout` Promise — production sees the real backoff.
+ */
+export type SleepFn = (ms: number) => Promise<void>;
+
+const defaultSleep: SleepFn = (ms) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Wrap a one-shot `source.enumerate` invocation with the Railway-GQL
+ * resilience policy:
+ *   1. Retry transient failures (429 / 5xx / Cloudflare 1015|1020|1022 /
+ *      transport) on the `ENUMERATE_RETRY_BACKOFF_MS` schedule.
+ *   2. On persistent failure, fall back to the last successful catalog
+ *      from the in-memory cache (LOUDLY: a `warn` named
+ *      `fleet.producer.enumerate-failed-using-cache` so the cache-use
+ *      shows up in observability).
+ *   3. With NO cache available, re-throw the last error (preserves the
+ *      current hard-fail behavior on a fresh boot — without a catalog
+ *      there is nothing to enqueue).
+ *
+ * The retry+cache wrapper sits OUTSIDE the per-service mapping step
+ * (operator slug-scoping + driver-input projection still re-applies on a
+ * cache use) so the cached path produces the same `ServiceJobSpec[]`
+ * shape the live path does.
+ *
+ * Exposed as a free function (not folded into `createServiceEnumerator`)
+ * so the catalog-enumerator test can pin the retry/cache behavior in
+ * isolation without re-wiring the whole spec projection.
+ */
+async function enumerateWithRetryAndCache(opts: {
+  source: DiscoverySource<RailwayServiceInfo>;
+  discoveryCtx: DiscoveryContext;
+  filter: { namePrefix: string; nameExcludes?: string[] };
+  logger: Logger;
+  driverKind: string;
+  cache: { current: CatalogCache | null };
+  sleep: SleepFn;
+  now: () => number;
+  retrySchedule: readonly number[];
+}): Promise<RailwayServiceInfo[]> {
+  const {
+    source,
+    discoveryCtx,
+    filter,
+    logger,
+    driverKind,
+    cache,
+    sleep,
+    now,
+  } = opts;
+  const retrySchedule = opts.retrySchedule;
+  // attempt 0 is the initial try; attempt 1..N are the retries.
+  const maxAttempt = retrySchedule.length;
+  let lastErr: unknown = null;
+  for (let attempt = 0; attempt <= maxAttempt; attempt++) {
+    if (attempt > 0) {
+      const backoffMs = retrySchedule[attempt - 1] ?? 0;
+      logger.warn("fleet.producer.enumerate-retry", {
+        driverKind,
+        attempt,
+        backoffMs,
+        err: lastErr instanceof Error ? lastErr.message : String(lastErr),
+      });
+      await sleep(backoffMs);
+    }
+    try {
+      const services = await source.enumerate(discoveryCtx, filter);
+      // Persist the latest successful catalog so a later transient failure
+      // can fall back to it.
+      cache.current = { services, cachedAtMs: now() };
+      return services;
+    } catch (err) {
+      lastErr = err;
+      if (!isRetryableEnumerateError(err)) {
+        // Real config error (auth, 4xx other than 429, schema rot): fail
+        // loud — no retry, no cache. Surface the operator-actionable error
+        // class verbatim.
+        throw err;
+      }
+      // continue the retry loop
+    }
+  }
+  // All retries exhausted. Fall back to the cached catalog if present;
+  // otherwise re-throw the last transient error so the producer's
+  // `enumerate-failed` path runs (current hard-fail behavior — without a
+  // catalog there is nothing to enqueue).
+  if (cache.current !== null) {
+    const ageMs = now() - cache.current.cachedAtMs;
+    logger.warn("fleet.producer.enumerate-failed-using-cache", {
+      driverKind,
+      ageMs,
+      services: cache.current.services.length,
+      reason: lastErr instanceof Error ? lastErr.message : String(lastErr),
+    });
+    return cache.current.services;
+  }
+  throw lastErr;
+}
 
 /** The d6 driver kind every enumerated spec runs under. */
 export const D6_DRIVER_KIND = "e2e_d6";
@@ -175,6 +379,23 @@ export interface D6ServiceEnumeratorDeps {
    * `D5_E2E_TIMEOUT_MS` for d5). Exposed so a test can override.
    */
   timeoutMs?: number;
+  /**
+   * Sleep impl used between Railway-GQL retry attempts. Forwarded verbatim
+   * to `createServiceEnumerator`. Defaults to real `setTimeout`. Exposed so
+   * a test can collapse the `ENUMERATE_RETRY_BACKOFF_MS` schedule to
+   * instant without monkey-patching globals.
+   */
+  sleep?: SleepFn;
+  /**
+   * Clock injected for the cached-catalog `cachedAtMs` and `ageMs`
+   * accounting. Forwarded verbatim. Defaults to `Date.now`.
+   */
+  now?: () => number;
+  /**
+   * Retry backoff schedule (ms). Forwarded verbatim. Defaults to
+   * `ENUMERATE_RETRY_BACKOFF_MS` (1s/4s/16s).
+   */
+  retrySchedule?: readonly number[];
 }
 
 /**
@@ -215,6 +436,28 @@ export interface ServiceEnumeratorParams {
    * Omitted by d6/smoke/deep (their specs are unchanged).
    */
   extraDriverInputs?: Readonly<Record<string, unknown>>;
+  /**
+   * Sleep impl used between Railway-GQL retry attempts. Defaults to real
+   * `setTimeout`; tests inject an instant resolve to collapse the
+   * `ENUMERATE_RETRY_BACKOFF_MS` (1s/4s/16s) schedule without a fake-timer
+   * dance. Exposed on the public params so the catalog-enumerator test can
+   * stub the wait without monkey-patching globals.
+   */
+  sleep?: SleepFn;
+  /**
+   * Clock injected to stamp the cached-catalog `cachedAtMs` (and the
+   * `ageMs` carried on the `enumerate-failed-using-cache` warn). Defaults
+   * to `Date.now`; tests inject a frozen clock for deterministic age
+   * assertions.
+   */
+  now?: () => number;
+  /**
+   * Retry backoff schedule (ms). Defaults to `ENUMERATE_RETRY_BACKOFF_MS`
+   * (1s/4s/16s, three retries). A test can pass a shorter schedule (e.g.
+   * `[0, 0, 0]`) to exercise the retry loop without waiting; the
+   * production wiring leaves it at the SSOT default.
+   */
+  retrySchedule?: readonly number[];
 }
 
 /**
@@ -293,6 +536,9 @@ export function createServiceEnumerator(
     filter,
     extraDriverInputs,
   } = params;
+  const sleep = params.sleep ?? defaultSleep;
+  const now = params.now ?? (() => Date.now());
+  const retrySchedule = params.retrySchedule ?? ENUMERATE_RETRY_BACKOFF_MS;
 
   // Fail loud on a filter with no `namePrefix`: the discovery source treats an
   // absent/empty prefix as "match everything", which would enumerate ALL
@@ -307,11 +553,35 @@ export function createServiceEnumerator(
     );
   }
 
+  // Per-enumerator catalog cache (Change 2). Lives in the closure so each
+  // enumerator instance owns its own slice — d6/smoke/demos/deep never
+  // cross-pollinate. The producer (long-lived) re-uses the same enumerator
+  // instance across ticks, so this cache survives tick-to-tick within the
+  // process. A fresh process boots with `current === null` (first
+  // enumerate fail still hard-fails, preserving the current behavior).
+  const cache: { current: CatalogCache | null } = { current: null };
+
+  // Hoist the (now-validated) prefix so TS sees `string`, not `string |
+  // undefined` — the guard above already failed loud on a missing prefix
+  // but the type is structural.
+  const namePrefix: string = filter.namePrefix;
   return async (ctx: EnumerateContext): Promise<ServiceJobSpec[]> => {
     const discoveryCtx: DiscoveryContext = { fetchImpl, env, logger };
-    const services = await source.enumerate(discoveryCtx, {
-      namePrefix: filter.namePrefix,
-      nameExcludes: filter.nameExcludes ? [...filter.nameExcludes] : undefined,
+    const services = await enumerateWithRetryAndCache({
+      source,
+      discoveryCtx,
+      filter: {
+        namePrefix,
+        nameExcludes: filter.nameExcludes
+          ? [...filter.nameExcludes]
+          : undefined,
+      },
+      logger,
+      driverKind,
+      cache,
+      sleep,
+      now,
+      retrySchedule,
     });
 
     // Optional operator slug scoping (triggered runs only). An explicit filter
@@ -394,6 +664,14 @@ export function createD6ServiceEnumerator(
     // Convey the YAML outer-cap so the fleet worker's d6 driver honors the
     // `d6-all-pills-e2e.yml` budget instead of its hardcoded DEFAULT_TIMEOUT_MS.
     extraDriverInputs: { timeout_ms: timeoutMs },
+    // Forward Railway-GQL resilience knobs (test-only stubs in production
+    // wiring; real defaults otherwise — `defaultSleep` / `Date.now` /
+    // `ENUMERATE_RETRY_BACKOFF_MS`).
+    ...(deps.sleep !== undefined ? { sleep: deps.sleep } : {}),
+    ...(deps.now !== undefined ? { now: deps.now } : {}),
+    ...(deps.retrySchedule !== undefined
+      ? { retrySchedule: deps.retrySchedule }
+      : {}),
   });
 }
 
@@ -419,6 +697,11 @@ export function createE2eSmokeServiceEnumerator(
     driverKind: E2E_SMOKE_DRIVER_KIND,
     probeKeyPrefix: "d4",
     filter,
+    ...(deps.sleep !== undefined ? { sleep: deps.sleep } : {}),
+    ...(deps.now !== undefined ? { now: deps.now } : {}),
+    ...(deps.retrySchedule !== undefined
+      ? { retrySchedule: deps.retrySchedule }
+      : {}),
   });
 }
 
@@ -466,6 +749,11 @@ export function createE2eDeepServiceEnumerator(
       rowPrefix: "d5",
       timeout_ms: timeoutMs,
     },
+    ...(deps.sleep !== undefined ? { sleep: deps.sleep } : {}),
+    ...(deps.now !== undefined ? { now: deps.now } : {}),
+    ...(deps.retrySchedule !== undefined
+      ? { retrySchedule: deps.retrySchedule }
+      : {}),
   });
 }
 
@@ -508,5 +796,10 @@ export function createE2eDemosServiceEnumerator(
     probeKeyPrefix: "e2e-demos",
     filter,
     extraDriverInputs: { timeout_ms: timeoutMs },
+    ...(deps.sleep !== undefined ? { sleep: deps.sleep } : {}),
+    ...(deps.now !== undefined ? { now: deps.now } : {}),
+    ...(deps.retrySchedule !== undefined
+      ? { retrySchedule: deps.retrySchedule }
+      : {}),
   });
 }

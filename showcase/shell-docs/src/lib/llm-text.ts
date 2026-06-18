@@ -35,7 +35,7 @@ import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
 import { CONTENT_DIR, inlineSnippets, loadDoc } from "./docs-render";
-import { getDocsFolder, getIntegrations } from "./registry";
+import { getDocsFolder, getIntegrations, ROOT_FRAMEWORK } from "./registry";
 import {
   AG_UI_CONTENT_DIR,
   DOCS_CONTENT_DIR,
@@ -129,19 +129,37 @@ export function getAllLlmPages(): LlmPage[] {
     pages.push(page);
   };
 
+  // ROOT_FRAMEWORK's authored pages win at bare root URLs (the same
+  // resolution the live pages use — see UnscopedDocsPage). Walk its
+  // folder once so the bare loop below can swap in the override.
+  const rootFolder = getDocsFolder(ROOT_FRAMEWORK);
+  const rootOverrides = new Map<string, string>(); // slug → filePath
+  const rootDir = path.join(CONTENT_DIR, "integrations", rootFolder);
+  if (fs.existsSync(rootDir)) {
+    for (const { slug, filePath } of walkMdx(rootDir)) {
+      rootOverrides.set(slug, filePath);
+    }
+  }
+
   // 1. Bare unscoped docs (`src/content/docs/**.mdx`, minus `integrations/`).
   for (const { slug, filePath } of walkMdx(
     DOCS_CONTENT_DIR,
     new Set(["integrations"]),
   )) {
     if (!slug) continue;
-    const meta = readMetaFromFile(filePath);
+    // The root `built-in-agent.mdx` topic page's bare URL permanently
+    // redirects to `/` (the retired framework prefix); it stays
+    // reachable under other frameworks' scopes only.
+    if (slug === ROOT_FRAMEWORK) continue;
+    const overridePath = rootOverrides.get(slug);
+    const meta = readMetaFromFile(overridePath ?? filePath);
     push({
       url: slug,
       title: meta.title ?? slug,
       description: meta.description,
-      filePath,
-      loadSlug: slug,
+      filePath: overridePath ?? filePath,
+      loadSlug: overridePath ? `integrations/${rootFolder}/${slug}` : slug,
+      framework: overridePath ? ROOT_FRAMEWORK : undefined,
     });
   }
 
@@ -162,9 +180,18 @@ export function getAllLlmPages(): LlmPage[] {
     const folder = getDocsFolder(integration.slug);
     const integrationDir = path.join(CONTENT_DIR, "integrations", folder);
     if (!fs.existsSync(integrationDir)) continue;
+    const servedAtRoot = integration.slug === ROOT_FRAMEWORK;
     for (const { slug, filePath } of walkMdx(integrationDir)) {
       const isRoot = !slug;
-      const url = isRoot ? integration.slug : `${integration.slug}/${slug}`;
+      // ROOT_FRAMEWORK pages live at bare root URLs. Slugs shadowing a
+      // bare doc were already pushed (BIA-resolved) in pass 1, and the
+      // folder index's URL would be the home page — skip it.
+      if (servedAtRoot && isRoot) continue;
+      const url = servedAtRoot
+        ? slug
+        : isRoot
+          ? integration.slug
+          : `${integration.slug}/${slug}`;
       const meta = readMetaFromFile(filePath);
       push({
         url,

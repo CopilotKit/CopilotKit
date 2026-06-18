@@ -87,7 +87,7 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  *                     a future browser-based interaction probe can branch)
  *                     but does NOT change the HTTP behaviour here.
  *
- * Side-emit + slug remap (mirrors `e2e-readiness.ts` / `d4-chat-roundtrip.ts`):
+ * Side-emit + slug remap (mirrors `d3-readiness.ts` / `d4-chat-roundtrip.ts`):
  * the starter slug from discovery (`starter-<slug>` Railway service name) is
  * remapped to the dashboard COLUMN slug via `starterToColumnSlug` (S1's
  * single source of truth) BEFORE any emit, so the dashboard only ever sees
@@ -96,7 +96,7 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  * `starter:<column-slug>` primary (the `run()` return value, picked up by
  * the invoker's `writer.write()` like every other driver).
  *
- * Transport-failure classification (mirrors `e2e-readiness.ts`'s keyed
+ * Transport-failure classification (mirrors `d3-readiness.ts`'s keyed
  * `errorClass`): a scale-to-zero starter must WAKE on the probe's first
  * request, and that cold-start can legitimately exceed the per-check
  * timeout. We do NOT let a wake/transport hiccup read as a hard red. A
@@ -373,7 +373,7 @@ export function createStarterSmokeDriver(
         // fresh fetch. Without this, an abort mid-tick still fires a cold-start
         // request for every remaining level — wasting wake requests and
         // emitting up to four spurious `aborted` rows. Mirrors
-        // `e2e-readiness.ts`, which checks `abort.signal.aborted` before each
+        // `d3-readiness.ts`, which checks `abort.signal.aborted` before each
         // iteration and emits a clean `aborted` row WITHOUT a fetch. The first
         // level whose fetch races the abort still classifies `aborted` in
         // `probeLevel`; this guard covers the SUBSEQUENT levels.
@@ -827,7 +827,7 @@ function worsen(
  * so the writer-missing warn fires AT MOST ONCE per invocation instead of
  * per-row. Writer throws stay swallowed at error-level — a side-emit hiccup
  * must not take the aggregate tick down with it. Mirrors
- * `e2e-readiness.ts`'s `makeSideEmit`.
+ * `d3-readiness.ts`'s `makeSideEmit`.
  */
 type SideEmit = (result: ProbeResult<StarterSmokeLevelSignal>) => Promise<void>;
 

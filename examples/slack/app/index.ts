@@ -1,31 +1,35 @@
 /**
- * This file is the bot _application_ — user-land code, not SDK code. The
- * companion `runtime.ts` holds the AG-UI agent backend (a CopilotKit
- * `BuiltInAgent` wired to the Linear + Notion MCP servers); this directory
- * holds everything that runs on the chat-platform side of the bot.
+ * The bot _application_ — user-land code, not SDK code. The companion
+ * `runtime.ts` holds the AG-UI agent backend (a CopilotKit `BuiltInAgent`
+ * wired to the Linear + Notion MCP servers); this directory holds everything
+ * that runs on the chat-platform side of the bot for this deployment.
  *
- * One app, two platforms. The same platform-neutral app layer — components,
- * tools, app context, commands, the per-turn sender context, and the headless
- * browser used for chart/diagram rendering — drives BOTH a Slack bot and a
- * Telegram bot. Each platform gets its own `createBot` instance because the
- * platform-specific guidance (tagging procedure, formatting, conversation
- * model) ships per-platform in `defaultSlackContext` / `defaultTelegramContext`
- * and must not be mixed in one bot's shared `context`. Whichever platform's
- * credentials are present in the environment starts; you can run Slack-only,
- * Telegram-only, or both.
+ * MULTI-PLATFORM: this single app drives Slack, Discord, and/or Telegram from
+ * one process. `@copilotkit/bot`'s `createBot` accepts an array of adapters and
+ * starts them all, so we include each platform's adapter only when its secrets
+ * are present. Drop in `SLACK_*` to run Slack, `DISCORD_*` for Discord,
+ * `TELEGRAM_BOT_TOKEN` for Telegram — or any combination to run them at once.
+ * The rest of `app/` (tools, components, HITL, rendering) is platform-agnostic
+ * and shared verbatim.
  *
  * Defaults are not auto-applied — you spread them explicitly. That's
- * deliberate: there's no hidden behavior, and the canonical pattern (below)
- * is right there in the file you copy from to start a new bot.
+ * deliberate: there's no hidden behavior, and the canonical pattern is right
+ * here in the file you copy from to start a new bot.
  */
 import "dotenv/config";
 import { createBot } from "@copilotkit/bot";
+import type { PlatformAdapter, BotTool, ContextEntry } from "@copilotkit/bot";
 import {
   slack,
   defaultSlackTools,
   defaultSlackContext,
   SanitizingHttpAgent,
 } from "@copilotkit/bot-slack";
+import {
+  discord,
+  defaultDiscordTools,
+  defaultDiscordContext,
+} from "@copilotkit/bot-discord";
 import {
   telegram,
   defaultTelegramTools,
@@ -46,17 +50,9 @@ const required = (name: string): string => {
   return v;
 };
 
-const has = (name: string): boolean => Boolean(process.env[name]);
-
-const GREETING = "Hi! I can triage issues, search docs, and more.";
-
-const suggestedPrompts = [
-  { title: "Triage my open issues", message: "Triage my open issues" },
-  {
-    title: "What shipped this week?",
-    message: "Summarize what shipped this week",
-  },
-];
+/** True only when every named env var is set and non-empty. */
+const have = (...names: string[]): boolean =>
+  names.every((n) => Boolean(process.env[n]));
 
 async function main() {
   const agentUrl = required("AGENT_URL");
@@ -64,224 +60,156 @@ async function main() {
     ? { Authorization: process.env.AGENT_AUTH_HEADER }
     : undefined;
 
-  // Factory that mints a fresh AG-UI agent bound to a conversation's threadId;
-  // the same factory is handed to both platform bots, and createBot caches the
-  // agent per conversation. The backend is a CopilotKit `BuiltInAgent`
-  // (CopilotSseRuntime), which does NOT require a UUID-format threadId, so the
-  // raw conversation thread id is fine.
-  const makeAgent = (threadId: string) => {
-    // Fresh headers object per agent so a per-request mutation can't leak
-    // across conversations or platforms.
-    const a = new SanitizingHttpAgent({
-      url: agentUrl,
-      headers: agentHeaders ? { ...agentHeaders } : undefined,
-    });
-    a.threadId = threadId;
-    return a;
-  };
+  // Build the platform list from whichever secrets are present. Each adapter
+  // contributes its own built-in tools (e.g. `lookup_slack_user` /
+  // `lookup_discord_user` / `lookup_telegram_user`) and context (tagging +
+  // formatting guidance), added only when that platform is active so the model
+  // isn't handed a different platform's conventions.
+  const adapters: PlatformAdapter[] = [];
+  const tools: BotTool[] = [...appTools];
+  const context: ContextEntry[] = [...appContext];
 
-  const bots: Array<{ name: string; bot: ReturnType<typeof createBot> }> = [];
-
-  // ── Slack bot — started when Slack credentials are present ──────────────
-  if (has("SLACK_BOT_TOKEN") && has("SLACK_APP_TOKEN")) {
-    const slackBot = createBot({
-      adapters: [
-        slack({
-          botToken: required("SLACK_BOT_TOKEN"),
-          appToken: required("SLACK_APP_TOKEN"),
-          // Assistant-pane behavior is ON by default; this just customizes it.
-          // The greeting + chips show when a user opens the pane (matching the
-          // app manifest's `assistant_view`); native streaming + status need no
-          // config. Pass `assistant: false` / `streaming: "legacy"` to opt out.
-          assistant: {
-            greeting: GREETING,
-            suggestedPrompts,
-          },
-        }),
-      ],
-      agent: makeAgent,
-      // `defaultSlackTools` ships `lookup_slack_user` (used for @-mentions);
-      // `appTools` adds this bot's platform-neutral tools (see app/tools/index.ts
-      // for the full set). `defaultSlackContext` ships Slack tagging/mrkdwn/
-      // thread-model guidance; `appContext` adds platform-neutral identity +
-      // triage policy.
-      tools: [...defaultSlackTools, ...appTools],
-      context: [...defaultSlackContext, ...appContext],
-      // Slash commands (`/agent`, `/triage`). Each must ALSO be declared in the
-      // Slack app config to fire — see README.
-      commands: appCommands,
-    });
-
-    // The Slack listener pre-filters ingress to the turns this bot should
-    // answer — @-mentions, replies in threads it owns, and DMs. createBot is
-    // mention-preferred: with a mention handler registered it routes ALL such
-    // turns here, so this single handler covers mentions, owned-thread replies,
-    // AND DMs.
-    slackBot.onMention(async ({ thread, message }) => {
-      // Never let a failed turn (agent backend down, auth/network error) escape
-      // the handler — that would either crash the process or leave the user in
-      // silence. Log it and tell the user instead.
-      try {
-        await thread.runAgent({ context: senderContext(message.user) });
-      } catch (err) {
-        console.error("[bot] slack agent run failed", err);
-        await thread
-          .post("Sorry — I hit an error handling that. Please try again.")
-          .catch(() => {});
-      }
-    });
-
-    // When a user opens the assistant pane, personalize the prompt chips. The
-    // adapter applies the static `assistant` defaults first, then this layers
-    // on top.
-    slackBot.onThreadStarted(async ({ thread, user }) => {
-      if (!user?.name) return;
-      // Personalize the first chip's title; reuse the shared defaults for the
-      // rest. ("Triage my open issues" is the canonical triage command.)
-      const res = await thread.setSuggestedPrompts([
-        {
-          title: `Triage ${user.name}'s issues`,
-          message: "Triage my open issues",
+  if (have("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN")) {
+    adapters.push(
+      slack({
+        botToken: required("SLACK_BOT_TOKEN"),
+        appToken: required("SLACK_APP_TOKEN"),
+        // Assistant-pane behavior is ON by default; this just customizes it.
+        // The greeting + chips show when a user opens the pane (matching the
+        // app manifest's `assistant_view`); native streaming + status need no
+        // config. Pass `assistant: false` / `streaming: "legacy"` to opt out.
+        assistant: {
+          greeting: "Hi! I can triage issues, search docs, and more.",
+          suggestedPrompts: [
+            {
+              title: "Triage my open issues",
+              message: "Triage my open issues",
+            },
+            {
+              title: "What shipped this week?",
+              message: "Summarize what shipped this week",
+            },
+          ],
         },
-        ...suggestedPrompts.slice(1),
-      ]);
-      // setSuggestedPrompts resolves { ok, error } rather than throwing — surface
-      // a failure instead of silently keeping the static defaults.
-      if (!res.ok) {
-        console.warn("[bot] could not set personalized prompts:", res.error);
-      }
-    });
-
-    bots.push({ name: "slack", bot: slackBot });
+      }),
+    );
+    tools.push(...defaultSlackTools);
+    context.push(...defaultSlackContext);
   }
 
-  // ── Telegram bot — started when a Telegram token is present ─────────────
-  if (has("TELEGRAM_BOT_TOKEN")) {
-    const telegramBot = createBot({
-      adapters: [
-        // No greeting/suggestedPrompts here: Telegram has no assistant-pane or
-        // suggested-prompt surface, so the welcome is posted from
-        // `onThreadStarted` below instead.
-        telegram({ token: required("TELEGRAM_BOT_TOKEN") }),
-      ],
-      agent: makeAgent,
-      // `defaultTelegramTools` ships the Telegram user-lookup tool; `appTools`
-      // adds the same platform-neutral tools the Slack bot uses.
-      // `defaultTelegramContext` ships Telegram tagging/HTML/thread-model
-      // guidance; `appContext` adds the same identity + triage policy.
-      tools: [...defaultTelegramTools, ...appTools],
-      context: [...defaultTelegramContext, ...appContext],
-      commands: appCommands,
-    });
-
-    // Same routing model as Slack — the Telegram listener pre-filters to
-    // @-mentions, replies in owned threads, and DMs; mention-preferred routing
-    // sends all of them here.
-    telegramBot.onMention(async ({ thread, message }) => {
-      // Same defensive handling as Slack — a failed turn must not crash the
-      // process or vanish silently.
-      try {
-        await thread.runAgent({ context: senderContext(message.user) });
-      } catch (err) {
-        console.error("[bot] telegram agent run failed", err);
-        await thread
-          .post("Sorry — I hit an error handling that. Please try again.")
-          .catch(() => {});
-      }
-    });
-
-    // Telegram has no assistant-pane / suggested-prompt surface, so on `/start`
-    // post a personalized welcome message instead.
-    telegramBot.onThreadStarted(async ({ thread, user }) => {
-      // thread.post rejects on failure (unlike setSuggestedPrompts) — surface a
-      // failed welcome rather than letting the rejection escape the handler.
-      try {
-        await thread.post(
-          `Welcome${user?.name ? ", " + user.name : ""}! Try: *Triage my open issues*`,
-        );
-      } catch (err) {
-        console.warn("[bot] could not post telegram welcome:", err);
-      }
-    });
-
-    bots.push({ name: "telegram", bot: telegramBot });
+  if (have("DISCORD_BOT_TOKEN", "DISCORD_APP_ID")) {
+    adapters.push(
+      discord({
+        botToken: required("DISCORD_BOT_TOKEN"),
+        appId: required("DISCORD_APP_ID"),
+        // Optional: register slash commands to one guild instantly during dev
+        // (global commands can take up to ~1h to propagate). Omit in prod.
+        guildId: process.env.DISCORD_GUILD_ID,
+      }),
+    );
+    tools.push(...defaultDiscordTools);
+    context.push(...defaultDiscordContext);
   }
 
-  if (bots.length === 0) {
+  if (have("TELEGRAM_BOT_TOKEN")) {
+    // Telegram long-polls by default (no public URL / webhook setup needed).
+    // No greeting/suggestedPrompts: Telegram has no assistant-pane surface.
+    adapters.push(telegram({ token: required("TELEGRAM_BOT_TOKEN") }));
+    tools.push(...defaultTelegramTools);
+    context.push(...defaultTelegramContext);
+  }
+
+  if (adapters.length === 0) {
     console.error(
-      "No chat platform configured. Set SLACK_BOT_TOKEN + SLACK_APP_TOKEN " +
-        "and/or TELEGRAM_BOT_TOKEN, then restart.",
+      "No platform secrets found. Set SLACK_BOT_TOKEN + SLACK_APP_TOKEN, " +
+        "DISCORD_BOT_TOKEN + DISCORD_APP_ID, and/or TELEGRAM_BOT_TOKEN " +
+        "(see README).",
     );
     process.exit(1);
   }
 
-  // Single graceful-teardown path for every exit route (signals AND startup
-  // failure). Only the bots that actually started are stopped — `started` is
-  // populated as each start() resolves, so a signal mid-startup or a partial
-  // start never calls stop() on a never-started adapter (which would log a
-  // spurious "error stopping"). `code` seeds the exit status, so a startup
-  // failure exits non-zero even if the teardown itself succeeds.
-  const started: typeof bots = [];
-  let shuttingDown = false;
-  const shutdown = async (reason: string, code = 0) => {
-    if (shuttingDown) return; // a second signal / SIGINT+SIGTERM must not re-enter
-    shuttingDown = true;
-    console.log(`\n[bot] ${reason}, stopping…`);
-    let failed = code !== 0;
-    // Inspect each stop() result — Promise.allSettled never throws, so a bot
-    // that fails to stop must be surfaced here or it exits 0 silently.
-    const stopped = await Promise.allSettled(started.map((b) => b.bot.stop()));
-    stopped.forEach((r, i) => {
-      if (r.status === "rejected") {
-        failed = true;
-        console.error(
-          `[bot] error stopping ${started[i]?.name ?? "bot"}`,
-          r.reason,
-        );
-      }
-    });
-    // Tear down the shared headless browser used for chart/diagram rendering.
-    try {
-      await closeBrowser();
-    } catch (err) {
-      failed = true;
-      console.error("[bot] error closing browser", err);
-    }
-    process.exit(failed ? 1 : 0);
-  };
-  // Register signal handlers BEFORE start() so a Ctrl-C during the (possibly
-  // slow) startup still runs teardown instead of leaking the headless browser.
-  process.on("SIGINT", () => void shutdown("received SIGINT"));
-  process.on("SIGTERM", () => void shutdown("received SIGTERM"));
+  const bot = createBot({
+    adapters,
+    // One AG-UI agent per conversation. The backend is a CopilotKit
+    // `BuiltInAgent` (CopilotSseRuntime), which does NOT require a UUID-format
+    // threadId, so the raw conversation thread id is fine.
+    // `SanitizingHttpAgent` is a lenient superset of `HttpAgent` (tolerates a
+    // null `parentMessageId` from `@ag-ui/langgraph`); it's safe for every
+    // platform, so one factory covers Slack, Discord, and Telegram alike.
+    agent: (threadId) => {
+      const a = new SanitizingHttpAgent({
+        url: agentUrl,
+        headers: agentHeaders,
+      });
+      a.threadId = threadId;
+      return a;
+    },
+    // `appTools` adds this bot's tools (read_thread, render_*, issue/page
+    // cards); the per-platform `default*Tools` add `lookup_*_user`. All are
+    // plain `BotTool`s — the active adapter supplies `thread`/`message`/`user`
+    // per call. `default*Context` ships tagging/formatting/thread-model
+    // guidance; `appContext` adds identity + triage policy.
+    tools,
+    context,
+    // Slash commands (`/agent`, `/triage`). For Slack each must ALSO be
+    // declared in the app config; Discord and Telegram register them up front.
+    // The engine routes by name; adapters that can't take commands ignore them.
+    commands: appCommands,
+  });
 
-  // Start each bot, recording the ones that come up in `started` so shutdown
-  // stops only those. A partial start (one bot up, another rejecting) still
-  // tears down the started bot + browser instead of a bare process.exit.
-  const startResults = await Promise.allSettled(
-    bots.map(async (b) => {
-      await b.bot.start();
-      started.push(b);
-    }),
+  // Register ONLY onMention. Each adapter pre-filters ingress to the turns this
+  // bot should answer — @-mentions, replies in threads it owns, and DMs.
+  // createBot is mention-preferred: a single handler covers all of them across
+  // every active platform. Wrap the turn so a failed run (agent backend down,
+  // network/auth error) is logged and surfaced to the user instead of crashing
+  // the process or vanishing silently.
+  bot.onMention(async ({ thread, message }) => {
+    try {
+      await thread.runAgent({ context: senderContext(message.user) });
+    } catch (err) {
+      console.error("[bot] agent run failed", err);
+      await thread
+        .post("Sorry — I hit an error handling that. Please try again.")
+        .catch(() => {});
+    }
+  });
+
+  // Slack-only nicety: personalize the assistant-pane prompt chips for the
+  // opener. Harmless elsewhere — `onThreadStarted` only fires from adapters
+  // that emit it, and platforms without suggested-prompt support no-op.
+  bot.onThreadStarted(async ({ thread, user }) => {
+    if (!user?.name) return;
+    await thread.setSuggestedPrompts([
+      {
+        title: `Triage ${user.name}'s issues`,
+        message: "Triage my open issues",
+      },
+      {
+        title: "What shipped this week?",
+        message: "Summarize what shipped this week",
+      },
+    ]);
+  });
+
+  await bot.start();
+  console.log(
+    `[bot] started on: ${adapters.map((a) => a.platform).join(", ")}`,
   );
-  if (started.length < bots.length) {
-    startResults.forEach((r, i) => {
-      if (r.status === "rejected") {
-        console.error(
-          `[bot] ${bots[i]?.name ?? "bot"} failed to start`,
-          r.reason,
-        );
-      }
-    });
-    await shutdown("startup failed", 1);
-    return; // unreachable: shutdown calls process.exit
-  }
-  console.log(`[bot] started: ${bots.map((b) => b.name).join(", ")}`);
+
+  const shutdown = async (signal: string) => {
+    console.log(`\n[bot] received ${signal}, stopping…`);
+    await bot.stop();
+    // Tear down the shared headless browser used for chart/diagram rendering.
+    await closeBrowser();
+    process.exit(0);
+  };
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
 
 // Fail loud, not silent: surface any stray async error (e.g. a throw deep in an
-// interaction/callback path) instead of letting it kill the process with no log.
-// We log and keep running — for a chat bot, one bad turn shouldn't take the
-// whole process down.
+// interaction/callback path) instead of letting it kill the process with no
+// log. Log and keep running — one bad turn shouldn't take the bot down.
 process.on("unhandledRejection", (reason) => {
   console.error("[bot] unhandledRejection:", reason);
 });

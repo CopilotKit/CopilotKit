@@ -219,7 +219,7 @@ export function computeDepthDistribution(
  * green D6 row would otherwise overstate as "D6 green" — collapses to `null`
  * (blocked) and is counted as `gray`, NOT green. This makes the headline D6
  * count agree with the matrix's per-cell D6 badge (which renders the same
- * `d6Effective`) and the chip; the standalone CV/API/BE badges still show the
+ * `d6Effective`) and the chip; the standalone 1P/API/BE badges still show the
  * raw per-dimension failure.
  *
  * Buckets stay coherent with the badge tone mapping:

@@ -38,7 +38,7 @@ import { createProbeRunWriter, sweepStaleRuns } from "./probes/run-history.js";
 import type { ProbeRunWriter } from "./probes/run-history.js";
 import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
 import { pinDriftDriver } from "./probes/drivers/pin-drift.js";
-import { livenessDriver } from "./probes/drivers/liveness.js";
+import { livenessDriver } from "./probes/drivers/d2-liveness.js";
 import { imageDriftDriver } from "./probes/drivers/image-drift.js";
 import { versionDriftDriver } from "./probes/drivers/version-drift.js";
 import { redirectDecommissionDriver } from "./probes/drivers/redirect-decommission.js";
@@ -51,7 +51,7 @@ import {
   e2eReadinessDriver,
   createE2eDemosDriver,
   createPooledE2eDemosLauncher,
-} from "./probes/drivers/e2e-readiness.js";
+} from "./probes/drivers/d3-readiness.js";
 import {
   e2eFullDriver,
   createE2eFullDriver,
@@ -459,7 +459,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     opts.configDir ?? path.resolve(process.cwd(), "config/alerts");
   // L1-L4 per-starter dimensions (agent/chat/tools) don't have dedicated probe
   // modules today — their signals flow through the same smoke/e2e-smoke drivers
-  // as side-emissions (see probes/drivers/liveness.ts). The safe-field sets for
+  // as side-emissions (see probes/drivers/d2-liveness.ts). The safe-field sets for
   // them mirror smoke's sanitized-errorDesc allow-list so triple-brace
   // {{{signal.errorDesc}}} in the red-tick YAMLs loads. Keep these in lockstep
   // with LIVENESS_SLACK_SAFE_FIELDS — any new sanitized field added there SHOULD
@@ -824,7 +824,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     // we compute a PER-CFG env overlay via `envForCfg(cfg, baseEnv)` and
     // hand it to `buildProbeInvoker` as the invoker's `env`. Drivers
     // read the timeout via `ctx.env.E2E_DEMOS_TIMEOUT_MS` (see
-    // drivers/e2e-readiness.ts — `TIMEOUT_ENV_VAR`).
+    // drivers/d3-readiness.ts — `TIMEOUT_ENV_VAR`).
     //
     // Pre-fix this loop wrote `process.env.E2E_DEMOS_TIMEOUT_MS = ...`
     // directly. Three problems with that:

@@ -2,7 +2,7 @@
   "name": "slack-example",
   "version": "0.0.1",
   "private": true,
-  "description": "Runnable demo for @copilotkit/bot-slack and @copilotkit/bot-telegram \u2014 an on-call triage bot (Slack and/or Telegram from one shared app) backed by Linear + Notion MCP (query/file issues, find/write Notion pages), with a confirm-before-write HITL gate and e2e harnesses.",
+  "description": "Runnable demo for @copilotkit/bot-slack, @copilotkit/bot-discord, and @copilotkit/bot-telegram — an on-call triage bot (Slack, Discord, and/or Telegram from one shared app) backed by Linear + Notion MCP (query/file issues, find/write Notion pages), with a confirm-before-write HITL gate and e2e harnesses.",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@copilotkit/bot": "workspace:*",
+    "@copilotkit/bot-discord": "workspace:*",
     "@copilotkit/bot-slack": "workspace:*",
     "@copilotkit/bot-telegram": "workspace:*",
     "@copilotkit/bot-ui": "workspace:*",

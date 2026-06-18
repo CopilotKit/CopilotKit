@@ -23,7 +23,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: npm
+    # NOTE: deliberately NOT in the `npm` environment. pkg-pr-new publishes to
+    # pkg.pr.new (not the npm registry) and uses no environment-scoped secrets,
+    # and this job runs on every push/PR touching packages/** — the npm
+    # environment's deployment-branch policy (main, canary/*,
+    # release/publish/*) would block it.
     permissions:
       contents: read
       # pkg-pr-new posts snapshot comments on the PR using the workflow token

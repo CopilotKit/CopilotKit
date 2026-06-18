@@ -40,13 +40,13 @@ headers and a `joinCode`). The runner owns whatever storage backs those threads.
 | Runner | Import | Use it for |
 |---|---|---|
 | `InMemoryAgentRunner` | `@copilotkit/runtime/v2` | The default v2 runner. Stores thread runs in process memory. Use it for local development, single-instance deployments, or as a base class to extend. |
-| `IntelligenceAgentRunner` | `@copilotkit/runtime/v2` | Backs the Intelligence Platform with durable threads, cross-instance persistence, and threads/history features. Used automatically on an Intelligence runtime. |
+| `IntelligenceAgentRunner` | `@copilotkit/runtime/v2` | Backs the Enterprise Intelligence Platform with durable threads, cross-instance persistence, and threads/history features. Used automatically on an Intelligence runtime. |
 | `TelemetryAgentRunner` | `@copilotkit/runtime` | Legacy wrapper behavior. The root runtime composes telemetry around a runner when telemetry is enabled; `@copilotkit/runtime/v2` does not. |
 
 If you don't pass a `runner`, the runtime uses `InMemoryAgentRunner`. Because it
 holds threads in process memory, history is lost on restart and is **not shared
 across instances**. For a horizontally scaled or restart-resilient deployment,
-move to the Intelligence Platform's `IntelligenceAgentRunner` or supply your own
+move to the Enterprise Intelligence Platform's `IntelligenceAgentRunner` or supply your own
 runner backed by your datastore.
 
 ## Choosing a runner
@@ -107,4 +107,4 @@ sends a message. See the [`/connect` 404 troubleshooting entry](/troubleshooting
 - [Runtime HTTP endpoints](/backend/runtime-endpoints): the routes each runner method backs.
 - [Copilot Runtime](/backend/copilot-runtime): configuring the runtime and `runner`.
 - [AWS AgentCore](/deploy/agentcore): a custom runner subclass for an external memory layer.
-- [Self-Hosting Intelligence](/premium/self-hosting): the durable, multi-instance `IntelligenceAgentRunner` backend.
+- [Self-Hosting Enterprise Intelligence](/premium/self-hosting): the durable, multi-instance `IntelligenceAgentRunner` backend.

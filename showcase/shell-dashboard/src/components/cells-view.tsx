@@ -81,8 +81,8 @@ function computeDefaultOpenCategories(
     }
   }
 
-  const totalBeAgent = cells.filter((c) => c.status === "wired").length;
-  if (totalBeAgent === 0) {
+  const totalWired = cells.filter((c) => c.status === "wired").length;
+  if (totalWired === 0) {
     // Open first 2 categories if no wired cells
     return new Set(categories.slice(0, 2).map((c) => c.id));
   }
@@ -94,7 +94,7 @@ function computeDefaultOpenCategories(
 
   const result = new Set<string>();
   let accumulated = 0;
-  const threshold = totalBeAgent * 0.6;
+  const threshold = totalWired * 0.6;
 
   for (const cat of sorted) {
     result.add(cat.id);
