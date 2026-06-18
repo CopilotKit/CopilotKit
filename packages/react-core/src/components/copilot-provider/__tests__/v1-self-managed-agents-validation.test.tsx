@@ -17,8 +17,9 @@ describe("v1 <CopilotKit> validateProps → self-managed agents", () => {
   let errorSpy: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
     // The v2 provider emits a dev-only "missing runtime" warning on some
-    // keyless renders; silence that expected noise. console.error is spied (not
-    // blanket-silenced) so valid configs can be asserted to log nothing.
+    // keyless renders; silence that expected noise. console.error is spied and
+    // silenced too, so valid configs can be asserted to log nothing while
+    // keeping test output clean.
     vi.spyOn(console, "warn").mockImplementation(() => {});
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   });
