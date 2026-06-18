@@ -8,13 +8,17 @@ export type ReactHumanInTheLoop<
    * Render the human-in-the-loop UI for this tool call.
    *
    * Beyond the tool call's `args`/`status`/`result`, the render props carry
-   * attribution so the UI can tell which run raised the interrupt:
-   * - `toolCallId` — the AG-UI tool call id. Correlate it with the agent
-   *   attribution from `onToolExecutionStart` (or with per-run attribution
-   *   stamped on the event stream) to render and resume the interrupt against
-   *   the correct (sub)agent.
-   * - `agentId` — the agent this tool was registered for (the tool's own
-   *   `agentId`), or `undefined` when the tool is not agent-scoped.
+   * attribution:
+   * - `toolCallId` — the AG-UI tool call id, unique per interrupt. It is the
+   *   stable key for correlating this interrupt with runtime (sub)agent
+   *   attribution — e.g. the `agentId` reported by `onToolExecutionStart`, or
+   *   per-run attribution stamped on the event stream — so the UI can label
+   *   the interrupt with the agent that actually raised it.
+   * - `agentId` — the agent this tool was *registered* to (the tool's own
+   *   `agentId`), or `undefined` for an unscoped tool. This is the static
+   *   registration scope; it is NOT necessarily the runtime (sub)agent that
+   *   raised the interrupt. For runtime attribution, correlate `toolCallId`
+   *   with the event-stream/`onToolExecutionStart` agent id.
    */
   render: React.ComponentType<
     | {

@@ -2,6 +2,7 @@ import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
+import { ToolCallStatus } from "@copilotkit/core";
 import { useCallback, useEffect, useRef } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
@@ -29,11 +30,11 @@ export function useHumanInTheLoop<
     (props) => {
       const ToolComponent = tool.render;
 
-      // Enhance props based on current status.
-      // `props` already carries `toolCallId`; we add the tool's registration
-      // `agentId` so the HITL UI can attribute the interrupt to the correct
-      // (sub)agent.
-      if (props.status === "inProgress") {
+      // Enhance props based on current status. `props` already carries
+      // `toolCallId`; we add the tool's registration `agentId` (and the
+      // normalized `name`/`description`) so the HITL UI always receives the
+      // full attribution contract. `respond` is only live while executing.
+      if (props.status === ToolCallStatus.InProgress) {
         const enhancedProps = {
           ...props,
           name: tool.name,
@@ -42,7 +43,7 @@ export function useHumanInTheLoop<
           respond: undefined,
         };
         return React.createElement(ToolComponent, enhancedProps);
-      } else if (props.status === "executing") {
+      } else if (props.status === ToolCallStatus.Executing) {
         const enhancedProps = {
           ...props,
           name: tool.name,
@@ -51,7 +52,7 @@ export function useHumanInTheLoop<
           respond,
         };
         return React.createElement(ToolComponent, enhancedProps);
-      } else if (props.status === "complete") {
+      } else if (props.status === ToolCallStatus.Complete) {
         const enhancedProps = {
           ...props,
           name: tool.name,
@@ -62,9 +63,19 @@ export function useHumanInTheLoop<
         return React.createElement(ToolComponent, enhancedProps);
       }
 
-      // Fallback - just render with original props
+      // Unreachable today: ToolCallStatus has only the three states handled
+      // above, so `props` narrows to `never` here. Kept defensively — if a new
+      // status is ever added, still surface name/description/agentId so
+      // attribution is not silently dropped. `props` is cast to a record
+      // because a `never` cannot be spread directly.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return React.createElement(ToolComponent, props as any);
+      return React.createElement(ToolComponent, {
+        ...(props as Record<string, unknown>),
+        name: tool.name,
+        description: tool.description || "",
+        agentId: tool.agentId,
+        respond: undefined,
+      } as any);
     },
     [tool.render, tool.name, tool.description, tool.agentId, respond],
   );
