@@ -14,7 +14,7 @@ describe("DIMENSIONS", () => {
     expect(DIMENSIONS).toContain("d6");
   });
 
-  it("contains e2e-demos (hyphen) for the e2e-readiness aggregate emit prefix", () => {
+  it("contains e2e-demos (hyphen) for the d3-readiness aggregate emit prefix", () => {
     // The driver emits aggregate rows under `e2e-demos:<slug>` (see
     // config/probes/e2e-demos.yml key_template); deriveDimension() takes
     // the before-colon prefix, so persisted rows carry "e2e-demos".

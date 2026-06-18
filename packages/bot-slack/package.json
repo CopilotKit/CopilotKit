@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/bot-slack",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Slack platform adapter for CopilotKit JSX bots (@copilotkit/bot).",
   "license": "MIT",
   "repository": {

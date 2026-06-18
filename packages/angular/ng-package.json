@@ -7,10 +7,13 @@
   "allowedNonPeerDependencies": [
     "@ag-ui/client",
     "@ag-ui/core",
+    "@copilotkit/a2ui-renderer",
     "@copilotkit/shared",
     "@copilotkit/core",
+    "@jetbrains/websandbox",
     "rxjs",
     "zod",
+    "zod-to-json-schema",
     "lucide-angular",
     "highlight.js",
     "katex",

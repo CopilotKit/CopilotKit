@@ -38,7 +38,7 @@
     "---Observe & Operate---",
     "inspector",
     "vs-code-extension",
-    "---Enterprise---",
+    "---Intelligence Platform---",
     "premium/intelligence-platform",
     "premium/threads-explained",
     "premium/observability",
@@ -51,6 +51,7 @@
     "whatsapp",
     "microsoft-teams",
     "react-native",
+    "vue",
     "---Other---",
     "...(other)",
     {

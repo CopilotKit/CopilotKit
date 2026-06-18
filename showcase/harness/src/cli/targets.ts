@@ -41,7 +41,7 @@ interface Manifest {
 
 /**
  * Liveness (smoke) driver input — mirrors the `discoverySmokeInputSchema`
- * branch in `src/probes/drivers/liveness.ts`. The CLI always uses the
+ * branch in `src/probes/drivers/d2-liveness.ts`. The CLI always uses the
  * discovery shape (key + name + publicUrl) rather than the static shape
  * (key + url) because local port mapping naturally produces a base URL,
  * not a full `/smoke` endpoint path.

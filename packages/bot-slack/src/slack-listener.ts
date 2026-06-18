@@ -39,6 +39,13 @@ export interface ListenerConfig {
   onTurn: TurnHandler;
   /** Where each slash command is dispatched. */
   onCommand: CommandHandler;
+  /**
+   * True if `(channel, threadTs)` is an assistant-pane thread (owned by the
+   * Assistant middleware). When provided, threaded `message.im` events for
+   * those threads are skipped here so each pane message becomes exactly one
+   * turn. Absent (or returning false) → messages flow as shipped.
+   */
+  isAssistantThread?: (channel: string, threadTs: string) => boolean;
 }
 
 const MENTION_RE = /<@[UW][A-Z0-9]+>/g;
@@ -121,6 +128,17 @@ export function attachSlackListener(config: ListenerConfig): void {
     if (!text && !hasFiles) return;
 
     const isDM = message.channel_type === "im";
+
+    // Pane messages are threaded DMs owned by the Assistant middleware — skip
+    // them here so each pane message becomes EXACTLY ONE turn. Gated per-THREAD
+    // (assistant threads tracked at runtime), never per-config: ordinary
+    // threaded DMs in apps without the Agents toggle keep flowing.
+    if (
+      isDM &&
+      message.thread_ts &&
+      config.isAssistantThread?.(message.channel, message.thread_ts)
+    )
+      return;
 
     if (isDM) {
       await onTurn(

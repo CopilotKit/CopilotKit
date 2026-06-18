@@ -227,7 +227,7 @@ describe("deriveDepth", () => {
 
   // ── isRegression now compares against maxPossible, not historical max_depth ──
 
-  it("isRegression is true when achieved < maxPossible (D5 mapping exists, CV red)", () => {
+  it("isRegression is true when achieved < maxPossible (D5 mapping exists, 1P red)", () => {
     // "agentic-chat" has D5 mapping → maxPossible=6, achieved=4 → regression
     const c = cell("lgp", "agentic-chat", "wired", 4);
     const live = mapOf([
@@ -601,7 +601,7 @@ describe("deriveDepth", () => {
       expect(result.isRegression).toBe(false);
     });
 
-    it("(b) D5 mapping exists, CV red → achieved=4, maxPossible=6, chip=AMBER territory", () => {
+    it("(b) D5 mapping exists, 1P red → achieved=4, maxPossible=6, chip=AMBER territory", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),
@@ -616,7 +616,7 @@ describe("deriveDepth", () => {
       expect(result.isRegression).toBe(true);
     });
 
-    it("(c) D5 mapping exists, CV no data → achieved=4, maxPossible=6, chip=AMBER territory", () => {
+    it("(c) D5 mapping exists, 1P no data → achieved=4, maxPossible=6, chip=AMBER territory", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),

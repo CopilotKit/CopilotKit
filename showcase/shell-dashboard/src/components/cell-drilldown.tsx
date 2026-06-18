@@ -3,10 +3,16 @@
  * CellDrilldown — popover panel showing per-badge dimension detail for a
  * single (integration, feature) cell.
  *
- * Renders all badge dimensions (d6/Parity, d5/CV, d4/RT, e2e/E2E, d2/API,
- * health, smoke) with tone, label, and — for red/amber badges — failure
- * metadata presented as readable key-value pairs with the full signal
- * collapsible for debugging.
+ * Renders all relevant badge dimensions (d6/Parity, d5/1P, d4/BE (Agent),
+ * e2e/UI, d2/API (HTTP), health) with tone, label, and — for red/amber badges —
+ * failure metadata presented as readable key-value pairs with the full
+ * signal collapsible for debugging.
+ *
+ * The legacy `smoke` row was dropped: the smoke endpoint was the same
+ * contract as `/health` on the same service (pure redundancy) and is no
+ * longer probed. The `e2e` row is labeled "UI (Frontend)" — the
+ * underlying probe key (`e2e:<slug>/<feature>`) is preserved on
+ * PocketBase for backward compatibility with historical rows.
  */
 import { useEffect, useMemo, useState } from "react";
 import { resolveCell } from "@/lib/live-status";
@@ -34,22 +40,27 @@ export interface CellDrilldownProps {
 
 /**
  * Dimension metadata for display ordering (descending depth). Labels follow
- * the legend's canonical taxonomy (adaptive-legend.tsx): D4 = "RT (Round
- * Trip)" (chat+tools round-trip), D3/e2e = "E2E (Demo)" (the demo page loads
- * and round-trips in a browser). BadgeRow derives its data-testid from the
- * label, so labels must stay unique across rows.
+ * the legend's canonical taxonomy (adaptive-legend.tsx): D4 = "BE (Agent)"
+ * (single chat message round-trip — agent processes a message end-to-end),
+ * D3/e2e = "UI (Frontend)" (the demo page renders in a browser), D2 =
+ * "API (HTTP)" (backend service is up and HTTP-reachable). BadgeRow derives
+ * its data-testid from the label, so labels must stay unique across rows.
+ *
+ * The `smoke` row was dropped — the smoke endpoint was redundant with
+ * /health on the same service and is no longer probed. `CellState.smoke`
+ * is still populated by `resolveCell` for back-compat with consumers that
+ * read it (e.g. tests, but it is intentionally not rendered here).
  */
 const DIMENSIONS: Array<{
-  key: keyof Omit<CellState, "rollup">;
+  key: keyof Omit<CellState, "rollup" | "smoke">;
   label: string;
 }> = [
   { key: "d6", label: "Parity (Reference)" },
-  { key: "d5", label: "CV (Conversation)" },
-  { key: "d4", label: "RT (Round Trip)" },
-  { key: "e2e", label: "E2E (Demo)" },
-  { key: "d2", label: "API (Agent)" },
+  { key: "d5", label: "1P (Single Pill)" },
+  { key: "d4", label: "BE (Agent)" },
+  { key: "e2e", label: "UI (Frontend)" },
+  { key: "d2", label: "API (HTTP)" },
   { key: "health", label: "Health" },
-  { key: "smoke", label: "Smoke" },
 ];
 
 function formatTimestamp(ts: string | null): string {
