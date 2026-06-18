@@ -29,6 +29,7 @@ function buildUrl(prefix: string, slug: string): string {
   // trailing/leading slashes so `/${prefix}/${slug}` never doubles up.
   const left = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
   const right = slug.startsWith("/") ? slug.slice(1) : slug;
+  if (!right) return left || "/";
   return left ? `${left}/${right}` : `/${right}`;
 }
 
@@ -96,7 +97,7 @@ export function navNodeToPageTreeNodes(
       {
         type: "page",
         name: renderNavName(node.title, node.variant),
-        url: buildUrl(slugHrefPrefix, node.slug),
+        url: node.href ?? buildUrl(slugHrefPrefix, node.slug),
       },
     ];
   }

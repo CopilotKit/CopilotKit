@@ -4,7 +4,6 @@ import { DocsPageView } from "@/components/docs-page-view";
 import {
   FRONTEND_GUIDANCE_CONTENT_SLUG,
   FRONTEND_PAGE_IDS,
-  getFrontendUsingTheseDocsSlug,
   getFrontendQuickstartNavTree,
 } from "@/lib/frontend-page-content";
 import { getFrontendOption, isFrontendId } from "@/lib/frontend-options";
@@ -51,9 +50,9 @@ export default async function FrontendGuidancePage({
 
   return (
     <DocsPageView
-      slugPath={getFrontendUsingTheseDocsSlug(frontend)}
+      slugPath="using-these-docs"
       contentSlugPath={FRONTEND_GUIDANCE_CONTENT_SLUG}
-      slugHrefPrefix=""
+      slugHrefPrefix={`/frontends/${frontend}`}
       navTree={getFrontendQuickstartNavTree(frontend)}
     />
   );

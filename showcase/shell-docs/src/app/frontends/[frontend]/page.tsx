@@ -52,8 +52,9 @@ export default async function FrontendQuickstartPage({
 
   return (
     <DocsPageView
-      slugPath={contentSlug}
-      slugHrefPrefix=""
+      slugPath=""
+      contentSlugPath={contentSlug}
+      slugHrefPrefix={`/frontends/${frontend}`}
       navTree={getFrontendQuickstartNavTree(frontend)}
     />
   );

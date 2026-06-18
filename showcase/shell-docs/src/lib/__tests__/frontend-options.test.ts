@@ -12,16 +12,35 @@ import {
   FRONTEND_PAGE_IDS,
   getFrontendContentSlug,
   getFrontendReferenceSlug,
-  getFrontendUsingTheseDocsSlug,
+  getFrontendUsingTheseDocsPath,
   getFrontendQuickstartNavTree,
 } from "../frontend-page-content";
 import { loadDoc } from "../docs-render";
 import type { NavNode } from "../docs-render";
+import { navTreeToPageTree } from "../page-tree-bridge";
+import type * as PageTree from "fumadocs-core/page-tree";
 
 function flattenNavTree(tree: NavNode[]): NavNode[] {
   return tree.flatMap((node) =>
     node.type === "group" ? [node, ...flattenNavTree(node.children)] : [node],
   );
+}
+
+function collectPageUrls(tree: PageTree.Root): string[] {
+  const urls: string[] = [];
+
+  function visit(nodes: PageTree.Node[]) {
+    for (const node of nodes) {
+      if (node.type === "page") urls.push(node.url);
+      if (node.type === "folder") {
+        if (node.index) urls.push(node.index.url);
+        visit(node.children);
+      }
+    }
+  }
+
+  visit(tree.children);
+  return urls;
 }
 
 describe("frontend options", () => {
@@ -44,8 +63,8 @@ describe("frontend options", () => {
       expect(isFrontendId(id)).toBe(true);
       expect(getFrontendOption(id).name).toBeTruthy();
       expect(getFrontendContentSlug(id)).toBe(`frontends/${id}`);
-      expect(getFrontendUsingTheseDocsSlug(id)).toBe(
-        `frontends/${id}/using-these-docs`,
+      expect(getFrontendUsingTheseDocsPath(id)).toBe(
+        `/frontends/${id}/using-these-docs`,
       );
       expect(loadDoc(getFrontendContentSlug(id))?.fm.title).toBeTruthy();
     }
@@ -69,11 +88,11 @@ describe("frontend options", () => {
 
     expect(navTree.slice(0, 3)).toEqual([
       { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
-      { type: "page", title: "Quickstart", slug: "frontends/slack" },
+      { type: "page", title: "Quickstart", slug: "" },
       {
         type: "page",
         title: "Using these docs 🏗️",
-        slug: "frontends/slack/using-these-docs",
+        slug: "using-these-docs",
         icon: "lucide/Wrench",
       },
     ]);
@@ -102,6 +121,11 @@ describe("frontend options", () => {
         (node) => node.type === "page" && node.slug === "concepts/architecture",
       )?.variant,
     ).toBeUndefined();
+    expect(
+      flattenedNavTree.find(
+        (node) => node.type === "page" && node.slug === "concepts/which-hook",
+      ),
+    ).toBeUndefined();
 
     expect(navTree).toEqual(
       expect.arrayContaining([
@@ -110,6 +134,7 @@ describe("frontend options", () => {
           type: "page",
           title: "Reference docs",
           slug: "reference/bot",
+          href: "/reference/bot",
         },
       ]),
     );
@@ -182,6 +207,7 @@ describe("frontend options", () => {
         "Build with agents",
         "Architecture",
         "Generative UI Overview",
+        "Which Hook for Which Job",
       ]),
     );
 
@@ -192,11 +218,33 @@ describe("frontend options", () => {
           type: "page",
           title: "Prebuilt Components",
           variant: "react-docs-proxy",
+          href: "/prebuilt-components",
         }),
         expect.objectContaining({
           type: "group",
           variant: "react-docs-proxy",
         }),
+      ]),
+    );
+
+    const pageUrls = collectPageUrls(
+      navTreeToPageTree(navTree, "/frontends/slack"),
+    );
+    expect(pageUrls).toEqual(
+      expect.arrayContaining([
+        "/frontends/slack",
+        "/frontends/slack/using-these-docs",
+        "/frontends/slack/concepts/architecture",
+        "/frontends/slack/agentic-protocols/ag-ui",
+        "/reference/bot",
+        "/prebuilt-components",
+      ]),
+    );
+    expect(pageUrls).not.toEqual(
+      expect.arrayContaining([
+        "/concepts/architecture",
+        "/frontends/slack/concepts/which-hook",
+        "/frontends/slack/prebuilt-components",
       ]),
     );
   });
