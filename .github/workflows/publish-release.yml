@@ -159,22 +159,25 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
-      # Exclude node_modules and build caches from the artifact. Including
-      # them produces ~6.4M files for this monorepo, which OOMs
-      # upload-artifact's Node process at its 4GB heap limit during
-      # enumeration. The publish job runs `pnpm install` after download to
-      # restore node_modules from pnpm-lock.yaml.
+      # Strip caches and pack the workspace into a single tarball before
+      # upload. upload-artifact's path filters are post-walk: it still
+      # descends into every node_modules and stats every file (~6.4M for
+      # this monorepo with pnpm's .pnpm/ symlink farm) before applying
+      # negations, which is the actual bottleneck. Removing the dirs and
+      # uploading one file collapses that to a single fast step. The
+      # publish job runs `pnpm install` after unpack to restore
+      # node_modules from pnpm-lock.yaml.
+      - name: Pack workspace
+        run: |
+          set -euo pipefail
+          find . -type d \( -name node_modules -o -name .nx -o -name .turbo -o -name .next \) -prune -exec rm -rf {} +
+          tar -czf /tmp/workspace.tgz .
+
       - name: Upload workspace
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: workspace
-          path: |
-            .
-            !**/node_modules/**
-            !**/.next/**
-            !**/.turbo/**
-            !**/.nx/**
-          include-hidden-files: true
+          path: /tmp/workspace.tgz
           retention-days: 1
 
     outputs:
@@ -221,6 +224,12 @@ jobs:
         with:
           name: workspace
 
+      - name: Unpack workspace
+        run: |
+          set -euo pipefail
+          tar -xzf workspace.tgz
+          rm workspace.tgz
+
       - name: Configure git credentials
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -239,8 +248,8 @@ jobs:
           node-version: 22.x
           registry-url: https://registry.npmjs.org
 
-      # Restore node_modules — the build job excludes them from the
-      # uploaded workspace artifact (see "Upload workspace" above). Uses
+      # Restore node_modules — the build job strips them before packing
+      # the workspace tarball (see "Pack workspace" above). Uses
       # pnpm-lock.yaml from the artifact, so this is a deterministic
       # restore of exactly what the build job ran with.
       - name: Install Dependencies
