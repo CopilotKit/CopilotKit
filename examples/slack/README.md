@@ -321,20 +321,20 @@ set the same env vars, and (for Notion) run the
 `@notionhq/notion-mcp-server` sidecar alongside the runtime with
 `NOTION_MCP_URL` pointed at it.
 
-> **Deploying from this monorepo (e.g. Railway):** the Slack-side packages
-> (`@copilotkit/bot`, `@copilotkit/bot-slack`, `@copilotkit/bot-ui`) are
-> published, so a build installs them from npm. The pnpm lockfile lives at the
-> **repo root**, so make sure each service's **watch paths** include
-> `pnpm-lock.yaml` and `package.json` (not just `examples/slack/**`) — otherwise
-> a dependency bump won't trigger a redeploy and a frozen install can fail with
-> an out-of-date lockfile.
+> **Runs from the monorepo (for now).** The Telegram work ships an unpublished
+> package (`@copilotkit/bot-telegram`) and depends on a fix in the core
+> (`@copilotkit/bot`, HITL choice resolution for platforms whose callback
+> payload can't carry the value). So the example references **all** of
+> `@copilotkit/bot`, `@copilotkit/bot-slack`, `@copilotkit/bot-telegram`, and
+> `@copilotkit/bot-ui` as `workspace:*` and runs against local workspace source:
+> `pnpm --filter slack-example start`. Once these versions publish, switch the
+> deps to their published ranges (e.g. `~0.0.x`) to enable a standalone deploy.
 >
-> **Telegram support is new:** `@copilotkit/bot-telegram` is not published yet,
-> so it is referenced as `workspace:*` and the example currently runs **from the
-> monorepo** (`pnpm --filter slack-example start`). Standalone deploys (the
-> example's own `pnpm-lock.yaml`) work for Slack today; once `bot-telegram`
-> publishes alongside its siblings, switch the dep to `~0.0.2` and regenerate the
-> standalone lockfile to enable standalone Telegram deploys.
+> **Deploying (e.g. Railway):** the bot and runtime are plain Node processes;
+> the pnpm lockfile lives at the **repo root**, so make sure each service's
+> **watch paths** include `pnpm-lock.yaml` and `package.json` (not just
+> `examples/slack/**`) — otherwise a dependency bump won't trigger a redeploy and
+> a frozen install can fail with an out-of-date lockfile.
 
 ## Tests
 

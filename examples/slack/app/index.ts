@@ -278,6 +278,17 @@ async function main() {
   console.log(`[bot] started: ${bots.map((b) => b.name).join(", ")}`);
 }
 
+// Fail loud, not silent: surface any stray async error (e.g. a throw deep in an
+// interaction/callback path) instead of letting it kill the process with no log.
+// We log and keep running — for a chat bot, one bad turn shouldn't take the
+// whole process down.
+process.on("unhandledRejection", (reason) => {
+  console.error("[bot] unhandledRejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[bot] uncaughtException:", err);
+});
+
 main().catch((err) => {
   console.error("[bot] fatal", err);
   process.exit(1);
