@@ -227,11 +227,11 @@ export function SidebarReactDocsNotice() {
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <a
             href={notice.href}
-            aria-label={`Open ${notice.label} in React docs`}
+            aria-label="Open selected page in React docs"
             className="shell-docs-radius-control inline-flex min-h-10 max-w-full items-center gap-2 border border-[var(--border)] bg-[var(--accent)] px-4 py-2 text-[13px] font-semibold leading-5 text-white shadow-sm transition-opacity hover:opacity-90"
             onClick={() => setNotice(null)}
           >
-            <span className="truncate">Open {notice.label} in React docs</span>
+            <span className="truncate">Open selected page in React docs</span>
             <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </a>
           <button

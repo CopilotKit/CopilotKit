@@ -67,7 +67,7 @@ describe("frontend options", () => {
     const navTree = getFrontendQuickstartNavTree("slack");
     const flattenedNavTree = flattenNavTree(navTree);
 
-    expect(navTree.slice(0, 5)).toEqual([
+    expect(navTree.slice(0, 3)).toEqual([
       { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
       { type: "page", title: "Quickstart", slug: "frontends/slack" },
       {
@@ -76,19 +76,55 @@ describe("frontend options", () => {
         slug: "frontends/slack/using-these-docs",
         icon: "lucide/Wrench",
       },
-      { type: "section", title: "More to explore", icon: "lucide/BookOpen" },
-      {
-        type: "page",
-        title: "Reference docs",
-        slug: "reference/bot",
-      },
     ]);
 
-    expect(flattenNavTree(navTree)).not.toEqual(
+    expect(flattenedNavTree).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          type: "section",
+          title: "Concepts",
+        }),
+        expect.objectContaining({
           type: "page",
-          title: "React docs for deeper examples",
+          title: "Architecture",
+          slug: "concepts/architecture",
+        }),
+      ]),
+    );
+
+    expect(
+      flattenedNavTree.find(
+        (node) => node.type === "section" && node.title === "Concepts",
+      )?.variant,
+    ).toBeUndefined();
+    expect(
+      flattenedNavTree.find(
+        (node) => node.type === "page" && node.slug === "concepts/architecture",
+      )?.variant,
+    ).toBeUndefined();
+
+    expect(navTree).toEqual(
+      expect.arrayContaining([
+        { type: "section", title: "More to explore", icon: "lucide/BookOpen" },
+        {
+          type: "page",
+          title: "Reference docs",
+          slug: "reference/bot",
+        },
+      ]),
+    );
+
+    expect(flattenedNavTree).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "section",
+          title: "Concepts",
+          variant: "react-docs-proxy",
+        }),
+        expect.objectContaining({
+          type: "page",
+          title: "Architecture",
+          variant: "react-docs-proxy",
         }),
       ]),
     );
@@ -98,6 +134,15 @@ describe("frontend options", () => {
         expect.objectContaining({
           type: "section",
           title: "React docs",
+        }),
+      ]),
+    );
+
+    expect(flattenNavTree(navTree)).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "page",
+          title: "React docs for deeper examples",
         }),
       ]),
     );
@@ -135,11 +180,14 @@ describe("frontend options", () => {
         "Introduction",
         "Quickstart",
         "Build with agents",
+        "Architecture",
+        "Generative UI Overview",
       ]),
     );
 
     expect(flattenedNavTree).toEqual(
       expect.arrayContaining([
+        { type: "section", title: "More to explore", icon: "lucide/BookOpen" },
         expect.objectContaining({
           type: "page",
           title: "Prebuilt Components",

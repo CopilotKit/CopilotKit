@@ -53,24 +53,66 @@ function isGettingStartedSection(node: NavNode): boolean {
   );
 }
 
-function withoutRootGettingStarted(nodes: NavNode[]): NavNode[] {
-  const startIndex = nodes.findIndex(isGettingStartedSection);
-  if (startIndex === -1) return nodes;
+function isConceptsSection(node: NavNode): boolean {
+  return (
+    node.type === "section" && node.title.trim().toLowerCase() === "concepts"
+  );
+}
+
+function sectionSlice(
+  nodes: NavNode[],
+  isSectionStart: (node: NavNode) => boolean,
+): NavNode[] {
+  const startIndex = nodes.findIndex(isSectionStart);
+  if (startIndex === -1) return [];
 
   const nextSectionIndex = nodes.findIndex(
     (node, index) => index > startIndex && node.type === "section",
   );
-  if (nextSectionIndex === -1) {
-    return nodes.slice(0, startIndex);
+
+  return nodes.slice(
+    startIndex,
+    nextSectionIndex === -1 ? nodes.length : nextSectionIndex,
+  );
+}
+
+function withoutRootSections(
+  nodes: NavNode[],
+  isRemovedSection: (node: NavNode) => boolean,
+): NavNode[] {
+  const nextNodes: NavNode[] = [];
+
+  for (let index = 0; index < nodes.length; ) {
+    const node = nodes[index];
+
+    if (node.type === "section" && isRemovedSection(node)) {
+      index += 1;
+      while (index < nodes.length && nodes[index].type !== "section") {
+        index += 1;
+      }
+      continue;
+    }
+
+    nextNodes.push(node);
+    index += 1;
   }
 
-  return [...nodes.slice(0, startIndex), ...nodes.slice(nextSectionIndex)];
+  return nextNodes;
+}
+
+function rootSurfaceNav(): NavNode[] {
+  return buildRootSurfaceNav("built-in-agent");
+}
+
+function getSharedConceptsNavTree(): NavNode[] {
+  return sectionSlice(rootSurfaceNav(), isConceptsSection);
 }
 
 function getReactParallelsNavTree(): NavNode[] {
-  return withoutRootGettingStarted(buildRootSurfaceNav("built-in-agent")).map(
-    asReactDocsProxyNode,
-  );
+  return withoutRootSections(
+    rootSurfaceNav(),
+    (node) => isGettingStartedSection(node) || isConceptsSection(node),
+  ).map(asReactDocsProxyNode);
 }
 
 export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
@@ -83,6 +125,7 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       slug: getFrontendUsingTheseDocsSlug(id),
       icon: "lucide/Wrench",
     },
+    ...getSharedConceptsNavTree(),
     { type: "section", title: "More to explore", icon: "lucide/BookOpen" },
     {
       type: "page",
