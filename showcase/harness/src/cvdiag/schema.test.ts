@@ -28,6 +28,7 @@ import {
 } from "./schema.js";
 import { filterEdgeHeaders } from "./edge-headers.js";
 import { CvdiagEmitter } from "./emit.js";
+import { scrubSecrets } from "./scrub.js";
 
 describe("CVDIAG schema — envelope validation", () => {
   // (1) unknown envelope key rejected.
@@ -132,6 +133,35 @@ describe("CVDIAG schema — metadata value secret scrub (§6)", () => {
     });
     expect(real.metadata.url).toBe("https://example.com/x");
     expect(real.metadata.status).toBe(200);
+  });
+});
+
+describe("CVDIAG scrub — hyphenated sk- API-key prefixes (§6)", () => {
+  // Modern provider keys carry a hyphenated prefix BEFORE the long entropy
+  // tail (OpenAI `sk-proj-…`, Anthropic `sk-ant-api03-…`). The original
+  // `/sk-[A-Za-z0-9]{16,}/` stopped at the first hyphen, so `proj`/`ant`
+  // (3-4 chars) never satisfied the {16,} quota → the secret leaked.
+  it("redacts an OpenAI project key (sk-proj-…)", () => {
+    const out = scrubSecrets("key=sk-proj-abc123DEF456ghi789JKL");
+    expect(out).not.toContain("sk-proj-abc123DEF456ghi789JKL");
+    expect(out).toContain("[REDACTED]");
+  });
+
+  it("redacts an Anthropic key (sk-ant-api03-…)", () => {
+    const out = scrubSecrets("sk-ant-api03-AbCdEf0123456789xyz");
+    expect(out).not.toContain("sk-ant-api03-AbCdEf0123456789xyz");
+    expect(out).toContain("[REDACTED]");
+  });
+
+  it("still redacts the legacy sk-<16+ alnum> form", () => {
+    const out = scrubSecrets("token sk-ABCDEF0123456789XYZ here");
+    expect(out).not.toContain("sk-ABCDEF0123456789XYZ");
+    expect(out).toContain("[REDACTED]");
+  });
+
+  it("does NOT over-redact ordinary hyphenated words", () => {
+    const phrase = "please ask-me-later about the task-list";
+    expect(scrubSecrets(phrase)).toBe(phrase);
   });
 });
 

@@ -13,8 +13,18 @@
 
 /** `Bearer <token>` anywhere in a captured value. */
 export const BEARER_TOKEN_REGEX = /Bearer\s+\S+/g;
-/** OpenAI-style secret keys `sk-…` (≥16 trailing chars). */
-export const SK_KEY_REGEX = /sk-[A-Za-z0-9]{16,}/g;
+/**
+ * `sk-…` secret keys, including modern hyphenated-prefix formats:
+ *   - legacy OpenAI:   `sk-<16+ alnum>`
+ *   - OpenAI project:  `sk-proj-<…>`
+ *   - Anthropic:       `sk-ant-api03-<…>`
+ * The pattern is `sk-` then zero or more hyphen-terminated alnum segments
+ * (the `proj-` / `ant-` / `api03-` prefix words) followed by a ≥16-char alnum
+ * entropy TAIL. Requiring the long alnum tail is what prevents over-matching
+ * ordinary hyphenated prose: words like `ask-me-later` or `task-list` have no
+ * 16+ alphanumeric run after an `sk-`, so they are left untouched.
+ */
+export const SK_KEY_REGEX = /sk-(?:[A-Za-z0-9]+-)*[A-Za-z0-9]{16,}/g;
 /**
  * URL userinfo segment. Matches both the `scheme://user:password@` form AND a
  * bare-token `scheme://token@` form (no colon) so single-token credentials
