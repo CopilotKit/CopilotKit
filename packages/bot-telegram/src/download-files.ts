@@ -63,6 +63,40 @@ function mediaPartType(mime: string): "image" | "audio" | "video" | "document" {
   return "document";
 }
 
+/** Non-`text/*` MIME types that are still UTF-8 text the model should read. */
+const TEXT_APP_TYPES = new Set([
+  "application/json",
+  "application/ld+json",
+  "application/xml",
+  "application/csv",
+  "application/x-ndjson",
+  "application/yaml",
+  "application/x-yaml",
+  "application/javascript",
+  "application/sql",
+  "application/toml",
+]);
+
+/** Filename extensions that indicate text content when the MIME is unhelpful. */
+const TEXT_EXTENSIONS =
+  /\.(csv|tsv|txt|md|markdown|json|ndjson|xml|ya?ml|log|html?|js|ts|css|sql|ini|toml|tex)$/i;
+
+/** Cap decoded text so a large upload can't blow the model's context window. */
+const MAX_TEXT_CHARS = 200_000;
+
+/**
+ * Whether a file is UTF-8 text the model should read inline (CSV/JSON/XML/plain
+ * text/…) rather than a binary attachment. Most models reject these as binary
+ * "file" parts (e.g. "media type text/csv not supported"), and the agent wants
+ * to read/parse the content anyway (e.g. parse a CSV → render_chart).
+ */
+function isTextLike(mime: string, fileName?: string): boolean {
+  if (mime.startsWith("text/")) return true;
+  if (TEXT_APP_TYPES.has(mime)) return true;
+  if (fileName && TEXT_EXTENSIONS.test(fileName)) return true;
+  return false;
+}
+
 /**
  * Download a message's files and turn them into AG-UI content parts. Returns
  * the parts plus human-readable `notes` for anything skipped (appended to the
@@ -147,6 +181,22 @@ export async function buildFileContentParts(
       notes.push(
         `skipped "${label}": ${bytes.byteLength} bytes too large (cap is ${maxBytes} bytes)`,
       );
+      continue;
+    }
+
+    // Text-like files become a decoded TEXT part (the model can't take them as
+    // binary "file" parts, and the agent wants to read/parse the content).
+    if (isTextLike(mime, f.fileName)) {
+      let text = bytes.toString("utf8");
+      let truncated = "";
+      if (text.length > MAX_TEXT_CHARS) {
+        truncated = ` [truncated to ${MAX_TEXT_CHARS} of ${text.length} chars]`;
+        text = text.slice(0, MAX_TEXT_CHARS);
+      }
+      parts.push({
+        type: "text",
+        text: `Attached file "${label}" (${mime})${truncated}:\n\n${text}`,
+      });
       continue;
     }
 

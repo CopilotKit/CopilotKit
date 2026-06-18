@@ -80,6 +80,22 @@ export class TelegramAdapter implements PlatformAdapter {
     this.botUsername = me.username;
     this.botUserId = me.id;
 
+    // Resilience boundary. Without a registered error handler, grammy rethrows
+    // any uncaught error from update processing, which stops the polling runner;
+    // because start() has already returned, the event loop then drains and the
+    // process exits silently (code 0). Catching here logs the error and KEEPS
+    // the bot polling, and lets grammy advance the offset so a failing update is
+    // consumed rather than re-delivered forever (the "poison pill" loop).
+    this.bot.catch((err) => {
+      const updateId = err.ctx?.update?.update_id;
+      console.error(
+        `[bot-telegram] error handling update${
+          updateId !== undefined ? ` ${updateId}` : ""
+        }:`,
+        err.error,
+      );
+    });
+
     attachTelegramListener({
       bot: this.bot,
       store: this.store,

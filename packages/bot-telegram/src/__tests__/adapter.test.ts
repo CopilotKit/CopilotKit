@@ -245,8 +245,15 @@ describe("TelegramAdapter", () => {
         setWebhook: vi.fn(async () => true),
       };
       const start = vi.fn(async () => {});
-      // attachTelegramListener registers handlers via on()/command(); stub them.
-      (a as any).bot = { api, start, on: vi.fn(), command: vi.fn() };
+      // attachTelegramListener registers handlers via on()/command(); start()
+      // also installs an error boundary via bot.catch(). Stub them all.
+      (a as any).bot = {
+        api,
+        start,
+        on: vi.fn(),
+        command: vi.fn(),
+        catch: vi.fn(),
+      };
       await a.start({ submit: vi.fn() } as any);
       expect(start).toHaveBeenCalled();
       expect(api.setWebhook).not.toHaveBeenCalled();

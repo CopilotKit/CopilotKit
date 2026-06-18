@@ -30,6 +30,28 @@ export interface ListenerConfig {
   getFilePath: (fileId: string) => Promise<string>;
 }
 
+/** The media-bearing fields the listener knows how to turn into file refs. */
+interface TgMediaFields {
+  text?: string;
+  caption?: string;
+  photo?: { file_id: string }[];
+  document?: {
+    file_id: string;
+    file_name?: string;
+    mime_type?: string;
+    file_size?: number;
+  };
+  video?: { file_id: string; mime_type?: string; file_size?: number };
+  audio?: { file_id: string; mime_type?: string; file_size?: number };
+  voice?: { file_id: string; mime_type?: string; file_size?: number };
+}
+
+/** The referenced message when the inbound message is a Telegram reply. */
+interface TgReplyMessage extends TgMediaFields {
+  from?: { id: number };
+  message_id: number;
+}
+
 /** A grammY message shape (the subset the listener reads). */
 interface TgMessage {
   message_id: number;
@@ -42,13 +64,90 @@ interface TgMessage {
     last_name?: string;
     username?: string;
   };
-  reply_to_message?: { from?: { id: number }; message_id: number };
+  reply_to_message?: TgReplyMessage;
   chat: { id: number | string; type: string; is_forum?: boolean };
+}
+
+/**
+ * Extract downloadable file refs from any media-bearing message (used for the
+ * message a user *replied to*). Mirrors the per-type extraction in the
+ * `message:*` handlers — photo (largest size), document, video, audio, voice.
+ */
+function fileRefsFromMessage(m: TgMediaFields): TelegramFileRef[] {
+  if (m.photo?.length) {
+    const largest = m.photo[m.photo.length - 1];
+    // Telegram re-encodes most photos to JPEG (see the message:photo handler).
+    if (largest) return [{ fileId: largest.file_id, mimeType: "image/jpeg" }];
+  }
+  if (m.document) {
+    return [
+      {
+        fileId: m.document.file_id,
+        fileName: m.document.file_name,
+        mimeType: m.document.mime_type,
+        size: m.document.file_size,
+      },
+    ];
+  }
+  for (const media of [m.video, m.audio, m.voice]) {
+    if (media) {
+      return [
+        {
+          fileId: media.file_id,
+          mimeType: media.mime_type,
+          size: media.file_size,
+        },
+      ];
+    }
+  }
+  return [];
 }
 
 export function attachTelegramListener(config: ListenerConfig): void {
   const { bot, botUsername, botUserId, sink, store, botToken, getFilePath } =
     config;
+
+  /**
+   * When the inbound message is a Telegram *reply*, fold the referenced
+   * message's content into the turn so the agent knows what the user is
+   * pointing at — e.g. replying to an earlier image with "what's in it". Its
+   * media is downloaded (reusing the inbound-file pipeline) and its text is
+   * quoted. Returns [] when the replied-to message carries nothing usable.
+   */
+  async function buildReplyContextParts(
+    reply: TgReplyMessage,
+  ): Promise<AgentContentPart[]> {
+    const refs = fileRefsFromMessage(reply);
+    const quotedRaw = (reply.text ?? reply.caption ?? "").trim();
+    const quoted =
+      quotedRaw.length > 500 ? `${quotedRaw.slice(0, 500)}…` : quotedRaw;
+    if (refs.length === 0 && !quoted) return [];
+
+    const desc = [
+      quoted ? `text: "${quoted}"` : null,
+      refs.length ? "an attached file" : null,
+    ]
+      .filter(Boolean)
+      .join(" and ");
+    const parts: AgentContentPart[] = [
+      { type: "text", text: `[In reply to an earlier message — ${desc}:]` },
+    ];
+    if (refs.length) {
+      const { parts: fileParts, notes } = await buildFileContentParts(
+        refs,
+        botToken,
+        getFilePath,
+      );
+      parts.push(...fileParts);
+      if (notes.length) {
+        parts.push({
+          type: "text",
+          text: `[attachment notes: ${notes.join("; ")}]`,
+        });
+      }
+    }
+    return parts;
+  }
 
   /**
    * Apply loop-guard + group gating and (when answered) enqueue the user's
@@ -106,10 +205,27 @@ export function attachTelegramListener(config: ListenerConfig): void {
 
     const turnConversationKey = conversationKeyOf(deriveConversationKey(msg));
 
+    // Build the agent content, then fold in any replied-to message so the
+    // agent can resolve a Telegram reply ("what's in this image" pointing at an
+    // earlier photo). Reply context is appended after the user's own content.
+    let content = buildContent(strippedText);
+    if (msg.reply_to_message) {
+      const replyParts = await buildReplyContextParts(msg.reply_to_message);
+      if (replyParts.length) {
+        const baseParts: AgentContentPart[] =
+          typeof content === "string"
+            ? content
+              ? [{ type: "text", text: content }]
+              : []
+            : content;
+        content = [...baseParts, ...replyParts];
+      }
+    }
+
     // Enqueue the user's message so getOrCreate delivers it to the agent. The
     // listener runs before the bot handler that calls runAgent → getOrCreate,
     // so the drain happens at exactly the right time.
-    store.enqueueUserMessage(turnConversationKey, buildContent(strippedText));
+    store.enqueueUserMessage(turnConversationKey, content);
 
     // Bug 3 fix: record the inbound user turn so getMessages() includes it.
     // Record the STRIPPED text (the same clean text handed to the agent, not
@@ -122,17 +238,19 @@ export function attachTelegramListener(config: ListenerConfig): void {
       user: from ? toPlatformUser(from) : undefined,
     });
 
-    // Bug 4 fix: if onTurn throws, the pending message for this key has already
-    // been enqueued. Since TelegramConversationStore does not expose a
-    // clearPending method we cannot surgically remove it here. However, the
-    // queue is drained by getOrCreate on the NEXT successful turn, so a leaked
-    // entry would only prepend to the next turn rather than being lost silently.
-    // We catch, log the error for observability, and re-throw so the caller
-    // (grammY) can handle it — avoiding a completely silent stale-queue leak.
-    // TODO: add clearPending(conversationKey) to TelegramConversationStore if
-    // the prepend-to-next-turn behaviour becomes a problem in practice.
-    try {
-      await sink.onTurn({
+    // CRITICAL: run the turn WITHOUT blocking grammY's poll loop. grammY's
+    // built-in long polling processes updates SEQUENTIALLY — it awaits one
+    // update's handler before fetching the next. If we awaited the full turn
+    // here, a blocking human-in-the-loop step (confirm_write → awaitChoice)
+    // would pause polling indefinitely: the callback_query that resolves the
+    // choice can only arrive via the next getUpdates, which never happens while
+    // this handler is blocked. With no in-flight poll request (and only a
+    // pending promise, which does not ref the event loop) the process would
+    // then drain and exit(0) silently — a deadlock, not a crash. Firing the
+    // turn async lets polling continue and deliver that callback. Errors are
+    // logged here since nothing awaits the promise.
+    void Promise.resolve(
+      sink.onTurn({
         conversationKey: turnConversationKey,
         replyTarget: {
           chatId: ctx.chat.id,
@@ -148,15 +266,13 @@ export function attachTelegramListener(config: ListenerConfig): void {
         userText: strippedText,
         user: from ? toPlatformUser(from) : undefined,
         platform: "telegram",
-      });
-    } catch (e) {
+      }),
+    ).catch((e: unknown) => {
       console.error(
-        `[bot-telegram] onTurn threw for conversationKey=${turnConversationKey}; ` +
-          `pending queue may contain a stale entry for this key.`,
+        `[bot-telegram] turn failed for conversationKey=${turnConversationKey}:`,
         e,
       );
-      throw e;
-    }
+    });
   }
 
   /** Build media content parts from file refs + caption, then route the turn. */
@@ -276,21 +392,27 @@ export function attachTelegramListener(config: ListenerConfig): void {
       );
       // Commands do NOT enqueue: their args are injected by the command handler
       // via runAgent({ prompt }), so enqueuing here would double-deliver.
-      await sink.onCommand({
-        command: cmd.toLowerCase(),
-        text: rest,
-        conversationKey: commandConversationKey,
-        replyTarget: {
-          chatId: ctx.chat.id,
-          // Forum thread id only in forum supergroups (see onTurn above).
-          messageThreadId: ctx.chat.is_forum
-            ? msg.message_thread_id
-            : undefined,
+      // Fire async (not awaited) for the same reason as onTurn above — a command
+      // whose agent hits confirm_write must not block grammY's poll loop.
+      void Promise.resolve(
+        sink.onCommand({
+          command: cmd.toLowerCase(),
+          text: rest,
           conversationKey: commandConversationKey,
-        },
-        user: from ? toPlatformUser(from) : undefined,
-        platform: "telegram",
-      });
+          replyTarget: {
+            chatId: ctx.chat.id,
+            // Forum thread id only in forum supergroups (see onTurn above).
+            messageThreadId: ctx.chat.is_forum
+              ? msg.message_thread_id
+              : undefined,
+            conversationKey: commandConversationKey,
+          },
+          user: from ? toPlatformUser(from) : undefined,
+          platform: "telegram",
+        }),
+      ).catch((e: unknown) =>
+        console.error("[bot-telegram] command failed:", e),
+      );
       return;
     }
 
@@ -395,9 +517,15 @@ export function attachTelegramListener(config: ListenerConfig): void {
     } catch (err) {
       console.error("[bot-telegram] callback ack failed:", err);
     }
-    const evt = decodeInteraction(ctx.update);
-    if (evt) {
-      await sink.onInteraction(evt);
+    // Guard the dispatch: a throw here (decode, action handler, or the resumed
+    // agent turn) must NOT escape into grammy's poll loop and crash the bot.
+    try {
+      const evt = decodeInteraction(ctx.update);
+      if (evt) {
+        await sink.onInteraction(evt);
+      }
+    } catch (err) {
+      console.error("[bot-telegram] onInteraction failed:", err);
     }
   });
 
