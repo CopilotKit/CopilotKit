@@ -30,13 +30,13 @@ const PORTS_FILE =
  *
  * Honor SHOWCASE_INFRA_PORT_OFFSET (set by --isolate) so health checks hit
  * the offset host ports of the isolated stack instead of the default
- * project's :4010/:8090/:3200 (which would silently report "healthy"
+ * project's :4010/:8090/:3210 (which would silently report "healthy"
  * against the WRONG containers). */
 const _INFRA_OFFSET = Number(process.env.SHOWCASE_INFRA_PORT_OFFSET) || 0;
 const INFRA_PORTS: Record<string, number> = {
   aimock: 4010 + _INFRA_OFFSET,
   pocketbase: 8090 + _INFRA_OFFSET,
-  dashboard: 3200 + _INFRA_OFFSET,
+  dashboard: 3210 + _INFRA_OFFSET,
 };
 
 /** Health-check endpoint overrides per service type. */
