@@ -4,6 +4,7 @@ import type * as PageTree from "fumadocs-core/page-tree";
 import { MobileTopNav } from "./mobile-top-nav";
 import { SidebarScrollPreserver } from "./sidebar-scroll-preserver";
 import { SidebarFolderStatePreserver } from "./sidebar-folder-state-preserver";
+import { SidebarReactDocsNotice } from "./sidebar-react-docs-notice";
 import GithubIcon from "./icons/github";
 import DiscordIcon from "./icons/discord";
 import { MobileSidebarFooterTalk } from "./mobile-sidebar-footer-talk";
@@ -106,6 +107,7 @@ export function ShellDocsLayout({
        * default state on every page mount, undoing the user's
        * "I want this section hidden" choice. */}
       <SidebarFolderStatePreserver />
+      <SidebarReactDocsNotice />
       {children}
     </DocsLayout>
   );
