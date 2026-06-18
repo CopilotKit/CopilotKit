@@ -9,7 +9,7 @@ import { ToolCallStatus } from "@copilotkit/core";
  * - Accepts a single object whose keys match ReactToolCallRenderer's fields: { name, args, render, agentId? }.
  * - Derives `args` type from the provided schema (any Standard Schema V1 compatible library).
  * - Ensures the render function param type exactly matches ReactToolCallRenderer<T>["render"]'s param.
- * - When no `args` schema is provided (wildcard `"*"` or a render-only named entry), it defaults to z.any().
+ * - For wildcard tools (name: "*"), args is optional and defaults to z.any()
  */
 type RenderProps<T> =
   | {
@@ -34,10 +34,9 @@ type RenderProps<T> =
       result: string;
     };
 
-// Overload for renderers without an args schema (wildcard `"*"` or a
-// render-only named entry, e.g. opting out of the default rendering).
+// Overload for wildcard tools without args
 export function defineToolCallRenderer(def: {
-  name: string;
+  name: "*";
   render: (props: RenderProps<any>) => React.ReactElement;
   agentId?: string;
 }): ReactToolCallRenderer<any>;
@@ -57,9 +56,8 @@ export function defineToolCallRenderer<S extends StandardSchemaV1>(def: {
   render: (props: any) => React.ReactElement;
   agentId?: string;
 }): ReactToolCallRenderer<any> {
-  // Default to z.any() when no args schema is provided (wildcard or
-  // render-only named entry). Such renderers ignore parameters.
-  const argsSchema = def.args ?? z.any();
+  // For wildcard tools, default to z.any() if no args provided
+  const argsSchema = def.name === "*" && !def.args ? z.any() : def.args;
 
   return {
     name: def.name,

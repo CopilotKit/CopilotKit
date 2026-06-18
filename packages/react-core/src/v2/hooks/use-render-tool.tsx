@@ -112,29 +112,6 @@ export function useRenderTool<S extends StandardSchemaV1>(
 ): void;
 
 /**
- * Registers a render-only renderer for a named tool without a `parameters`
- * schema. Useful for opting a specific tool out of the built-in default
- * rendering — return an empty fragment (`() => <></>`) to render nothing.
- *
- * @param config - Named renderer configuration without a schema.
- * @param deps - Optional dependencies to refresh registration.
- *
- * @example
- * ```tsx
- * // Render nothing for "searchDocs" (suppress the default UI).
- * useRenderTool({ name: "searchDocs", render: () => <></> }, []);
- * ```
- */
-export function useRenderTool(
-  config: {
-    name: string;
-    render: (props: any) => React.ReactElement;
-    agentId?: string;
-  },
-  deps?: ReadonlyArray<unknown>,
-): void;
-
-/**
  * Registers a renderer entry in CopilotKit's `renderToolCalls` registry.
  *
  * Key behavior:
@@ -183,23 +160,22 @@ export function useRenderTool<S extends StandardSchemaV1>(
   const extraDeps = deps ?? EMPTY_DEPS;
 
   useEffect(() => {
-    // Build the ReactToolCallRenderer via defineToolCallRenderer. When no
-    // `parameters` schema is provided (wildcard or render-only named entry),
-    // the helper defaults the args schema to z.any().
-    const renderer = config.parameters
-      ? defineToolCallRenderer({
-          name: config.name,
-          args: config.parameters,
-          render: (props) =>
-            config.render({ ...props, parameters: props.args }),
-          ...(config.agentId ? { agentId: config.agentId } : {}),
-        })
-      : defineToolCallRenderer({
-          name: config.name,
-          render: (props) =>
-            config.render({ ...props, parameters: props.args }),
-          ...(config.agentId ? { agentId: config.agentId } : {}),
-        });
+    // Build the ReactToolCallRenderer via defineToolCallRenderer
+    const renderer =
+      config.name === "*" && !config.parameters
+        ? defineToolCallRenderer({
+            name: "*",
+            render: (props) =>
+              config.render({ ...props, parameters: props.args }),
+            ...(config.agentId ? { agentId: config.agentId } : {}),
+          })
+        : defineToolCallRenderer({
+            name: config.name,
+            args: config.parameters!,
+            render: (props) =>
+              config.render({ ...props, parameters: props.args }),
+            ...(config.agentId ? { agentId: config.agentId } : {}),
+          });
 
     copilotkit.addHookRenderToolCall(renderer);
 

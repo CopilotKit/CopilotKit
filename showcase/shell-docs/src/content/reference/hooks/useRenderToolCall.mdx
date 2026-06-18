@@ -192,11 +192,16 @@ function App() {
 
 #### For specific tools
 
-To disable rendering for a single tool, register a render-only renderer under that tool's name — same call as the wildcard, just a specific name (still no schema needed):
+To disable rendering for a single tool, register a renderer under that tool's name. Named renderers take a `parameters` schema; when you only want to suppress UI, pass a pass-through schema (`z.any()`):
 
 ```tsx
+import { z } from "zod";
+
 function App() {
-  useRenderTool({ name: "specificTool", render: () => <></> }, []);
+  useRenderTool(
+    { name: "specificTool", parameters: z.any(), render: () => <></> },
+    [],
+  );
 
   return <YourApp />;
 }
