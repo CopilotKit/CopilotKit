@@ -17,6 +17,7 @@ import {
 } from "../frontend-page-content";
 import { loadDoc } from "../docs-render";
 import type { NavNode } from "../docs-render";
+import { resolveFrontendDocPage } from "../frontend-doc-policy";
 import { navTreeToPageTree } from "../page-tree-bridge";
 import type * as PageTree from "fumadocs-core/page-tree";
 
@@ -235,6 +236,7 @@ describe("frontend options", () => {
         "/frontends/slack",
         "/frontends/slack/using-these-docs",
         "/frontends/slack/concepts/architecture",
+        "/frontends/slack/agentic-protocols",
         "/frontends/slack/agentic-protocols/ag-ui",
         "/reference/bot",
         "/prebuilt-components",
@@ -246,6 +248,15 @@ describe("frontend options", () => {
         "/frontends/slack/concepts/which-hook",
         "/frontends/slack/prebuilt-components",
       ]),
+    );
+
+    expect(resolveFrontendDocPage("slack", "agentic-protocols")).toEqual(
+      expect.objectContaining({
+        status: "found",
+        slugPath: "agentic-protocols",
+        contentSlugPath: "agentic-protocols",
+        canonicalPath: "/agentic-protocols",
+      }),
     );
   });
 });

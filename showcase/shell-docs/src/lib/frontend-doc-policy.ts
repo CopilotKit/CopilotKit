@@ -63,7 +63,7 @@ function readDirectoryPolicy(slugPath: string): FrontendDocPolicy | null {
   const segments = slugSegments(slugPath);
   if (!segments) return null;
 
-  for (let length = Math.max(segments.length - 1, 0); length >= 0; length--) {
+  for (let length = segments.length; length >= 0; length--) {
     const dir = path.join(CONTENT_DIR, ...segments.slice(0, length));
     const policy = parseFrontendDocPolicy(readMeta(dir)?.frontend);
     if (policy) return policy;
