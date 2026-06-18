@@ -23,6 +23,8 @@ import type {
   ProbeSseEventMeta,
   TerminationKind,
 } from "../../cvdiag/index.js";
+import { captureRawBytes } from "../../cvdiag/raw-byte-capture.js";
+import type { CvdiagPbWriter } from "../../cvdiag/pb-writer.js";
 
 /**
  * e2e-smoke driver — L3 (chat round-trip) and L4 (tool rendering) coverage
@@ -204,6 +206,14 @@ export interface CvdiagResponseEvent {
   durationMs: number;
   /** True iff this is the agent-message POST (drives `probe.message.send`). */
   isMessagePost?: boolean;
+  /**
+   * DEBUG-tier raw-byte capture (L2-C / Phase 2.5) seam: lazily reads the
+   * literal (possibly compressed) response body. Present ONLY when the
+   * launcher wires Playwright's `Response.body()`; absent on fake pages (which
+   * therefore never trigger a raw-byte capture). Best-effort — resolves null
+   * on any read failure so it never throws into the probe.
+   */
+  body?: () => Promise<Buffer | null>;
 }
 
 /** Normalized failed-request shape for `probe.network.error`. */
@@ -311,6 +321,14 @@ export interface E2eSmokeDriverDeps {
    * best-effort: a write failure is swallowed and never breaks a probe.
    */
   cvdiagBufferDir?: string;
+  /**
+   * DEBUG-tier raw-byte sample writer (L2-C / Phase 2.5). When provided AND
+   * the resolved CVDIAG tier is `debug`, a 200-but-empty SSE response triggers
+   * a decode→scrub→html-strip→head+tail capture written through this writer's
+   * CREATE-only `writeRawByteSample()`. Absent (the default) → no raw-byte
+   * capture, which is the correct behaviour for every non-DEBUG run.
+   */
+  cvdiagPbWriter?: CvdiagPbWriter;
 }
 
 /**
@@ -729,6 +747,7 @@ function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
           status(): number;
           headers(): Record<string, string>;
           request(): { method(): string };
+          body?(): Promise<Buffer>;
         };
         try {
           const url = resp.url();
@@ -752,6 +771,16 @@ function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
                 : contentLength,
             durationMs,
             isMessagePost: resp.request().method() === "POST",
+            // L2-C raw-byte seam: defer the (potentially large) body read until
+            // the DEBUG-tier stub actually wants it. Swallow read errors so a
+            // body that's already been consumed never throws into the probe.
+            body: async () => {
+              try {
+                return resp.body !== undefined ? await resp.body() : null;
+              } catch {
+                return null;
+              }
+            },
           });
         } catch {
           /* never throw out of an event listener */
@@ -1008,6 +1037,7 @@ export function createE2eSmokeDriver(
   const demosResolver = deps.demosResolver ?? createDefaultDemosResolver();
   const idFactory = deps.idFactory ?? mintRunId;
   const cvdiagBufferDir = deps.cvdiagBufferDir ?? defaultCvdiagBufferDir();
+  const cvdiagPbWriter = deps.cvdiagPbWriter;
 
   return {
     kind: "e2e_smoke",
@@ -1153,6 +1183,7 @@ export function createE2eSmokeDriver(
           now: ctx.now,
           cvdiagEmitter,
           cvdiagBufferDir,
+          cvdiagPbWriter,
           assertResponse: (text) => ({
             ok: text.length > 0,
             summary: text.length === 0 ? "empty assistant response" : "",
@@ -1192,6 +1223,7 @@ export function createE2eSmokeDriver(
             now: ctx.now,
             cvdiagEmitter,
             cvdiagBufferDir,
+            cvdiagPbWriter,
             assertResponse: (text) => {
               if (text.length === 0) {
                 return { ok: false, summary: "empty assistant response" };
@@ -1327,6 +1359,8 @@ async function runLevel(opts: {
   cvdiagEmitter?: CvdiagEmitter;
   /** Replay-fallback ndjson buffer root for this level's CVDIAG session. */
   cvdiagBufferDir?: string;
+  /** DEBUG-tier raw-byte sample writer (L2-C); absent → no raw-byte capture. */
+  cvdiagPbWriter?: CvdiagPbWriter;
   assertResponse: (text: string) => { ok: boolean; summary: string };
 }): Promise<{ result: ProbeResult<E2eSmokeLevelSignal> }> {
   const {
@@ -1344,6 +1378,7 @@ async function runLevel(opts: {
     now,
     cvdiagEmitter,
     cvdiagBufferDir,
+    cvdiagPbWriter,
     assertResponse,
   } = opts;
 
@@ -1392,6 +1427,12 @@ async function runLevel(opts: {
   let cvdiagResponseEmpty = true;
   /** Capture the agent-message POST edge headers for `probe.message.send`. */
   let messageSendEdge: ReturnType<typeof filterEdgeHeaders> | undefined;
+  /**
+   * The most-recent agent-message POST response (L2-C): retained so the
+   * DEBUG-tier raw-byte stub below can read its (lazily-fetched) body + the
+   * content/transfer-encoding + content-type needed by the capture pipeline.
+   */
+  let lastMessagePostResp: CvdiagResponseEvent | undefined;
   try {
     context = await browser.newContext({
       extraHTTPHeaders: {
@@ -1411,6 +1452,10 @@ async function runLevel(opts: {
         cvdiag.networkResponse(resp);
         if (resp.isMessagePost) {
           messageSendEdge = filterEdgeHeaders(resp.headers);
+          // Retain the latest message-POST response for the DEBUG-tier
+          // raw-byte stub. The body itself is read lazily (and only at DEBUG)
+          // via `resp.body()` so non-DEBUG runs never pay the read.
+          lastMessagePostResp = resp;
         }
       });
       p.onRequestFailed?.((req) => cvdiag.networkError(req));
@@ -1574,11 +1619,40 @@ async function runLevel(opts: {
       const histogram = await readAlternateContentHistogram(page);
       cvdiag.alternateContent(histogram);
 
-      // CVDIAG L2-C raw-byte capture hook (filled by L2-C): a 200-but-empty
-      // SSE response is the canonical raw-byte-capture trigger. L2-C takes
-      // THIS file's final state as its base and inserts its DEBUG-tier
-      // decode→scrub→html-strip→head+tail≤16KB pipeline here. L1-A does NOT
-      // implement raw-byte capture.
+      // CVDIAG L2-C raw-byte capture (Phase 2.5): a 200-but-empty SSE response
+      // is the canonical trigger. DEBUG-tier ONLY — gated below by the
+      // emitter's resolved tier AND a wired pbWriter. `captureRawBytes` is a
+      // hard no-op (returns null) at any non-debug tier, so this whole block
+      // costs nothing on a normal run; we additionally avoid the body read.
+      if (
+        cvdiagEmitter?.tier === "debug" &&
+        cvdiagPbWriter !== undefined &&
+        lastMessagePostResp !== undefined
+      ) {
+        try {
+          const resp = lastMessagePostResp;
+          const body = resp.body !== undefined ? await resp.body() : null;
+          if (body !== null) {
+            const headers = resp.headers;
+            const sample = captureRawBytes({
+              slug,
+              testId,
+              responseBody: body,
+              contentEncoding: String(headers["content-encoding"] ?? ""),
+              transferEncoding: String(headers["transfer-encoding"] ?? ""),
+              contentType: String(headers["content-type"] ?? ""),
+              tier: "debug",
+              debugEnabled: true,
+            });
+            if (sample !== null) {
+              await cvdiagPbWriter.writeRawByteSample(sample);
+            }
+          }
+        } catch {
+          // Pure instrumentation — a raw-byte capture/write fault must NEVER
+          // throw into the probe it observes (spec §7 R5-F8).
+        }
+      }
     }
 
     const assertion = assertResponse(responseText);
