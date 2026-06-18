@@ -72,10 +72,11 @@ file with frontmatter into the right subdirectory; it appears in nav on its own.
 legacy `reference/v1/` tree uses `meta.json`. For the full new-hook checklist see
 [Hook Development](hooks.md).
 
-**The top-level `docs/` folder is retired and removed from `main`. Never recreate it.**
-The old `docs/content/docs/` tree and `docs/` Next app no longer publish anything.
-Historical content remains recoverable from the archive refs:
-`archive/docs-save-do-not-prune` and `archive/docs-retired-2026-06-17`.
+**The top-level `docs/` path is only a symlink to `showcase/shell-docs/`.**
+It exists for `cd docs` muscle memory, not as a separate docs app. The old
+`docs/content/docs/` tree and retired Next app no longer publish anything. Historical
+content remains recoverable from the archive refs: `archive/docs-save-do-not-prune` and
+`archive/docs-retired-2026-06-17`.
 
 ## 2. AG-UI protocol docs → upstream `ag-ui-protocol/ag-ui`
 

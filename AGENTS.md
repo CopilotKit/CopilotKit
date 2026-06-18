@@ -25,7 +25,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
 - **Commit as you go** — every meaningful unit of work gets its own commit, pushed immediately. Don't let untracked files accumulate across a session. Tests belong in the commit that introduces the code being tested. Full rules in [Git & PRs](.claude/docs/git.md#commit-early-and-often-in-logical-chunks).
 - **Draft PR up front** — the moment a new branch has one commit, push it and open a **draft PR**. Don't wait until "ready" — unmerged-and-unpushed work is invisible. Flip the PR from draft to ready (`gh pr ready <pr#>`) only when the developer says so. See [Git & PRs](.claude/docs/git.md#open-a-draft-pr-up-front).
-- **Documentation lives in shell-docs** — author CopilotKit docs in `showcase/shell-docs/src/content/`. The retired top-level `docs/` app has been removed from `main`; never recreate it for live documentation. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not directly in this repo. See [Documentation](.claude/docs/documentation.md).
+- **Documentation lives in shell-docs** — author CopilotKit docs in `showcase/shell-docs/src/content/`. The top-level `docs/` path is only a symlink to `showcase/shell-docs/`; never recreate the old `docs/content/docs/` tree for live documentation. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not directly in this repo. See [Documentation](.claude/docs/documentation.md).
 
 ## Private Agent Instructions
 
@@ -44,7 +44,7 @@ If you need a skill and don't have the plugin installed, clone the repo and read
 
 ## Documentation Editing
 
-Before editing anything that looks like product docs, read [Documentation](.claude/docs/documentation.md) and the local README for the docs area you are touching. The live docs source is **not** the removed top-level `docs/` app.
+Before editing anything that looks like product docs, read [Documentation](.claude/docs/documentation.md) and the local README for the docs area you are touching. The live docs source is **`showcase/shell-docs/`**; top-level `docs/` is only a symlink there.
 
 - **CopilotKit product docs** live under `showcase/shell-docs/src/content/`:
   - Guides, how-tos, and concepts: `showcase/shell-docs/src/content/docs/`
@@ -58,7 +58,7 @@ Before editing anything that looks like product docs, read [Documentation](.clau
 - For authored frameworks (`docs_mode: authored`), edit `showcase/shell-docs/src/content/docs/integrations/<docsFolder>/` and its `meta.json`.
 - For snippets, edit `showcase/shell-docs/src/content/snippets/`; snippets can feed root docs, authored framework pages, and showcase-driven framework pages.
 - **AG-UI protocol docs** are canonical upstream in `ag-ui-protocol/ag-ui`. The `showcase/shell-docs/src/content/ag-ui/` tree is a downstream mirror; change AG-UI upstream first, then sync the mirror back.
-- **Do not recreate top-level `docs/`**. The retired Next app no longer publishes to `docs.copilotkit.ai`. Historical content is available from the archive branch/tag, not from `main`.
+- **Do not recreate `docs/content/docs/`**. Top-level `docs/` is only a symlink to shell-docs. The retired Next app no longer publishes to `docs.copilotkit.ai`. Historical content is available from the archive branch/tag, not from `main`.
 - To run shell-docs locally, follow `showcase/shell-docs/README.md` and use the shell-docs npm commands.
 
 ## Reference (read when relevant to your task)
