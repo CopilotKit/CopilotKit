@@ -553,7 +553,28 @@
 }
 
 .shell-docs-react-docs-proxy {
-  color: inherit;
+  color: color-mix(in srgb, var(--text-muted) 84%, var(--accent));
+}
+
+.shell-docs-sidebar a:has(.shell-docs-react-docs-proxy),
+.shell-docs-sidebar button:has(.shell-docs-react-docs-proxy) {
+  opacity: 0.72;
+}
+
+.shell-docs-sidebar a:has(.shell-docs-react-docs-proxy):hover,
+.shell-docs-sidebar button:has(.shell-docs-react-docs-proxy):hover {
+  opacity: 1;
+  background-color: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.shell-docs-sidebar p:has(.shell-docs-react-docs-proxy) {
+  color: var(--text-muted) !important;
+  opacity: 0.72;
+}
+
+.shell-docs-sidebar p:has(.shell-docs-react-docs-proxy) svg {
+  color: color-mix(in srgb, var(--accent) 55%, var(--text-muted)) !important;
+  opacity: 0.65;
 }
 
 /* Fumadocs CodeBlock chrome — force a single tokenized surface throughout.

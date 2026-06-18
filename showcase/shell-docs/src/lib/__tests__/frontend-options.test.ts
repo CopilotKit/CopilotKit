@@ -116,6 +116,28 @@ describe("frontend options", () => {
       ]),
     );
 
+    expect(
+      flattenedNavTree.find(
+        (node) =>
+          node.variant === "react-docs-proxy" &&
+          node.type === "section" &&
+          /^(get|getting) started$/i.test(node.title),
+      ),
+    ).toBeUndefined();
+
+    const proxiedPageTitles = flattenedNavTree
+      .filter(
+        (node) => node.type === "page" && node.variant === "react-docs-proxy",
+      )
+      .map((node) => node.title);
+    expect(proxiedPageTitles).not.toEqual(
+      expect.arrayContaining([
+        "Introduction",
+        "Quickstart",
+        "Build with agents",
+      ]),
+    );
+
     expect(flattenedNavTree).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

@@ -43,11 +43,34 @@ function asReactDocsProxyNode(node: NavNode): NavNode {
     return { ...node, variant: "react-docs-proxy" };
   }
 
-  return node;
+  return { ...node, variant: "react-docs-proxy" };
+}
+
+function isGettingStartedSection(node: NavNode): boolean {
+  return (
+    node.type === "section" &&
+    /^(get|getting) started$/i.test(node.title.trim())
+  );
+}
+
+function withoutRootGettingStarted(nodes: NavNode[]): NavNode[] {
+  const startIndex = nodes.findIndex(isGettingStartedSection);
+  if (startIndex === -1) return nodes;
+
+  const nextSectionIndex = nodes.findIndex(
+    (node, index) => index > startIndex && node.type === "section",
+  );
+  if (nextSectionIndex === -1) {
+    return nodes.slice(0, startIndex);
+  }
+
+  return [...nodes.slice(0, startIndex), ...nodes.slice(nextSectionIndex)];
 }
 
 function getReactParallelsNavTree(): NavNode[] {
-  return buildRootSurfaceNav("built-in-agent").map(asReactDocsProxyNode);
+  return withoutRootGettingStarted(buildRootSurfaceNav("built-in-agent")).map(
+    asReactDocsProxyNode,
+  );
 }
 
 export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
