@@ -19,6 +19,16 @@
     <Compile Include="AimockHeaderMiddleware.cs" />
     <Compile Include="AimockHeaderPolicy.cs" />
     <Compile Include="CvDiag.cs" />
+    <Compile Include="CvdiagBackend.cs" />
+    <Compile Include="CvdiagInstrumentationMiddleware.cs" />
+    <!-- CVDIAG shared binding (plan unit L1-F). Source-include the single-source
+         _shared/dotnet/ emitter rather than a ProjectReference: _shared/ has no
+         production .csproj (L0-D). The `..\_shared\dotnet\` path resolves both
+         locally (agent/ -> integration-root _shared symlink -> ../_shared) and in
+         Docker (the agent-build stage COPYs _shared/dotnet to /_shared/dotnet,
+         and the csproj at /agent resolves ..\_shared\dotnet there). -->
+    <Compile Include="..\_shared\dotnet\CvdiagSchema.cs" />
+    <Compile Include="..\_shared\dotnet\CvdiagEmitter.cs" />
   </ItemGroup>
 
   <ItemGroup>
