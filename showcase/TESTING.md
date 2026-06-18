@@ -104,7 +104,7 @@ showcase-iso<N>-aimock` + DOM/probe text):
    `--isolate` slots cold-start aimock from the volume mount, so the first
    post-edit run picks up the change automatically; warm-slot reuse will not.
 
-8. **`--isolate` slot pinning and conflict detection.** Pin a specific slot with `SHOWCASE_ISO_SLOT=<N>` (1-45; slot 0 is reserved for the base stack) — the picker uses exactly that slot or fails loudly. The auto-picker now port-probes every candidate via `lsof` before committing, so foreign-Docker (`ag2mm-*`) and host-process (macOS AirPlay on 5000) conflicts are detected pre-`docker compose up`. Run `bin/showcase slots` to inspect all 46 slots across DIR / PID / LIVE / PORTS / OFFSET (and PROJECT) — same code path the picker uses. The `LIVE` column reports `live` / `stale` / `inconclusive` and folds the live-pid and live-containers checks into one axis.
+8. **`--isolate` slot pinning and conflict detection.** Pin a specific slot with `SHOWCASE_ISO_SLOT=<N>` (1-45; slot 0 is reserved for the base stack), or use the equivalent CLI sugar `--isolate=<N>` — the picker uses exactly that slot or fails loudly. The auto-picker now port-probes every candidate via `lsof` before committing, so foreign-Docker (`ag2mm-*`) and host-process (macOS AirPlay on 5000) conflicts are detected pre-`docker compose up`. Run `bin/showcase slots` to inspect all 46 slots across DIR / PID / LIVE / PORTS / OFFSET (and PROJECT) — same code path the picker uses. The `LIVE` column reports `live` / `stale` / `inconclusive` and folds the live-pid and live-containers checks into one axis.
 
 9. **Cell-color flip claims MUST be empirically value-tested via the
    production-equivalent control-plane path** on ≥3 candidate cells before merge.
@@ -118,10 +118,12 @@ showcase-iso<N>-aimock` + DOM/probe text):
    value-test — it bypasses the queue/worker pipeline staging actually runs and
    has misled investigations in the past.
 
-   Pick `<N>` by first running `bin/showcase slots` (or `bin/showcase slots --free --brief` for a machine-readable list) and choosing a row whose `DIR` is `absent`, `LIVE` is not `live`, and `PORTS` is not `held`, then pass `SHOWCASE_ISO_SLOT=<N>` to your test invocation:
+   Pick `<N>` by first running `bin/showcase slots` (or `bin/showcase slots --free --brief` for a machine-readable list) and choosing a row whose `DIR` is `absent`, `LIVE` is not `live`, and `PORTS` is not `held`, then pin the slot via either form (both are equivalent):
 
    ```
    SHOWCASE_ISO_SLOT=<N> bin/showcase test <slug>:<feature> --d6 --isolate
+   # — or, equivalently —
+   bin/showcase test <slug>:<feature> --d6 --isolate=<N>
    ```
 
 10. **No fixture rewrite from real-LLM record/replay.** The canonical-phrase probe
