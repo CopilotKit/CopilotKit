@@ -23,3 +23,4 @@ packages:
   # harness package imports from it and both use pnpm.
 onlyBuiltDependencies:
   - better-sqlite3
+  - electron
