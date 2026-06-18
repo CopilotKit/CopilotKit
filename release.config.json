@@ -36,6 +36,11 @@
       "packages": ["@copilotkit/bot-slack"],
       "versionSource": "@copilotkit/bot-slack",
       "sharedVersion": false
+    },
+    "bot-telegram": {
+      "packages": ["@copilotkit/bot-telegram"],
+      "versionSource": "@copilotkit/bot-telegram",
+      "sharedVersion": false
     }
   }
 }
