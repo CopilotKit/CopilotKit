@@ -4,12 +4,12 @@ import type { Logger } from "../types/index.js";
 import type { TypedEventBus } from "../events/event-bus.js";
 import type { HarnessRole } from "../fleet/role-config.js";
 import { registerDeployWebhook } from "./webhooks/deploy.js";
-import { registerProbesRoutes } from "./probes.js";
-import type { ProbesRouteDeps } from "./probes.js";
-import { registerFleetRunsRoutes } from "./fleet-runs.js";
-import type { FleetRunsRouteDeps } from "./fleet-runs.js";
-import { renderPrometheus } from "./metrics.js";
-import type { MetricsRegistry } from "./metrics.js";
+import { registerProbesRoutes, type ProbesRouteDeps } from "./probes.js";
+import {
+  registerFleetRunsRoutes,
+  type FleetRunsRouteDeps,
+} from "./fleet-runs.js";
+import { renderPrometheus, type MetricsRegistry } from "./metrics.js";
 
 export interface ServerDeps {
   pb: PbClient;

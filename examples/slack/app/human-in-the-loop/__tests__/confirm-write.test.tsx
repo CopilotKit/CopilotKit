@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { renderToIR } from "@copilotkit/bot-ui";
-import type {
-  BotNode,
-  InteractionContext,
-  ClickHandler,
+import {
+  renderToIR,
+  type BotNode,
+  type InteractionContext,
+  type ClickHandler,
 } from "@copilotkit/bot-ui";
 import { renderSlackMessage } from "@copilotkit/bot-slack";
 import { ConfirmWrite } from "../confirm-write.js";

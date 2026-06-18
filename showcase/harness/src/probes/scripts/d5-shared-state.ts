@@ -24,14 +24,18 @@
  * `set_notes` agent lives).
  */
 
-import { registerD5Script } from "../helpers/d5-registry.js";
-import type { D5BuildContext, D5FeatureType } from "../helpers/d5-registry.js";
+import {
+  registerD5Script,
+  type D5BuildContext,
+  type D5FeatureType,
+} from "../helpers/d5-registry.js";
 import {
   ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
   ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
   ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+  type ConversationTurn,
+  type Page,
 } from "../helpers/conversation-runner.js";
-import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 /**
  * Turn 1 user message — verbatim copy of the fixture's `userMessage`

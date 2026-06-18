@@ -18,8 +18,8 @@ import {
   A2UIRetryingState,
   A2UIRecoveryFailure,
   resolveDebugExposure,
+  type A2UIRecoveryRendererOptions,
 } from "./A2UIRecoveryStates";
-import type { A2UIRecoveryRendererOptions } from "./A2UIRecoveryStates";
 
 /**
  * The container key used to wrap A2UI operations for explicit detection.

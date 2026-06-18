@@ -1,6 +1,5 @@
 import type { InteractionEvent } from "@copilotkit/bot";
-import { DM_SCOPE } from "./types.js";
-import type { ConversationKey, ReplyTarget } from "./types.js";
+import { DM_SCOPE, type ConversationKey, type ReplyTarget } from "./types.js";
 
 /**
  * Stable string key shared by ingress (onTurn) and interaction decoding so the

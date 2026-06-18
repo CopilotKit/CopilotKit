@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as http from "node:http";
 import type { AddressInfo } from "node:net";
-import { livenessDriver } from "./d2-liveness.js";
-import type { SmokeDriverSignal } from "./d2-liveness.js";
+import { livenessDriver, type SmokeDriverSignal } from "./d2-liveness.js";
 import { logger } from "../../logger.js";
 import type {
   ProbeContext,
@@ -653,9 +652,7 @@ describe("livenessDriver", () => {
     );
     // No /smoke or /api/smoke call.
     expect(calls.some((c) => /\/api\/smoke\b/.test(c))).toBe(false);
-    expect(calls.some((c) => new URL(c).pathname.endsWith("/smoke"))).toBe(
-      false,
-    );
+    expect(calls.some((c) => /\/smoke$/.test(new URL(c).pathname))).toBe(false);
   });
 
   it("package shape (explicit): hits /api/health (no /api/smoke)", async () => {

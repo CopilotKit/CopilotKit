@@ -11,23 +11,24 @@ import { parseDuration, evalSuppress } from "./dsl.js";
 import {
   AggregationBucketStore,
   buildCompositeDedupeKey,
+  type Bucket,
+  type FlushReason,
 } from "./aggregation.js";
-import type { Bucket, FlushReason } from "./aggregation.js";
 // Re-export so existing callers (rule-loader, tests) that import from
 // alert-engine.js continue to work without touching every import site.
 // Fresh modules should import from ./dsl.js directly.
 export { parseDuration, evalSuppress } from "./dsl.js";
-import { emptyTriggerFlags } from "../types/index.js";
-import type {
-  Logger,
-  ProbeResult,
-  Severity,
-  State,
-  Target,
-  TemplateContext,
-  Transition,
-  TriggerFlags,
-  WriteOutcome,
+import {
+  emptyTriggerFlags,
+  type Logger,
+  type ProbeResult,
+  type Severity,
+  type State,
+  type Target,
+  type TemplateContext,
+  type Transition,
+  type TriggerFlags,
+  type WriteOutcome,
 } from "../types/index.js";
 
 /**

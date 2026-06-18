@@ -19,8 +19,8 @@ import {
   Header,
   Message,
   Section,
+  type BotNode,
 } from "@copilotkit/bot-ui";
-import type { BotNode } from "@copilotkit/bot-ui";
 import {
   accentForIssue,
   priorityShortcode,

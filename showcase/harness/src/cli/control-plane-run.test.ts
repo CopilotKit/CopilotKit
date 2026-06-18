@@ -104,8 +104,8 @@ import {
   expectedKeys,
   dedupeScopes,
   runViaControlPlane,
+  type SlugScope,
 } from "./control-plane-run.js";
-import type { SlugScope } from "./control-plane-run.js";
 
 const SILENT_LOGGER: Logger = {
   debug: () => {},

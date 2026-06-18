@@ -699,7 +699,7 @@ describe("useLiveStatus", () => {
     }));
     // Deterministic shuffle (reverse) so the source array is NOT pre-sorted by
     // id — the sorted page response must do the ordering work.
-    mockState.initial = [...built].toReversed();
+    mockState.initial = [...built].reverse();
     const { result } = renderHook(() => useLiveStatus("smoke"));
     await waitFor(() => expect(result.current.status).toBe("live"));
     // Exactly the 3 data pages were requested — no probe.

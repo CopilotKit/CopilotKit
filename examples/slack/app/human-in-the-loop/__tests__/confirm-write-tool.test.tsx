@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderToIR } from "@copilotkit/bot-ui";
-import type { BotNode } from "@copilotkit/bot-ui";
+import { renderToIR, type BotNode } from "@copilotkit/bot-ui";
 import { renderSlackMessage } from "@copilotkit/bot-slack";
 import { confirmWriteTool } from "../confirm-write-tool.js";
 

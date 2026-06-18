@@ -1,5 +1,4 @@
-import { Fragment } from "./ir.js";
-import type { BotNode, Renderable } from "./ir.js";
+import { Fragment, type BotNode, type Renderable } from "./ir.js";
 
 function isBotNode(v: unknown): v is BotNode {
   return typeof v === "object" && v !== null && "type" in v && "props" in v;

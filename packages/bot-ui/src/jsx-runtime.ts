@@ -1,5 +1,4 @@
-import { Fragment } from "./ir.js";
-import type { BotNode } from "./ir.js";
+import { Fragment, type BotNode } from "./ir.js";
 export { Fragment };
 
 export function jsx(

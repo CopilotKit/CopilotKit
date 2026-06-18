@@ -85,8 +85,9 @@ import {
   probeResultsForServiceJobResult,
   runSummaryForServiceJobResult,
   terminalJobStatus,
+  type PoolCommError,
+  type ServiceJobResult,
 } from "../contracts.js";
-import type { PoolCommError, ServiceJobResult } from "../contracts.js";
 
 /** Outcome of aggregating one `ServiceJobResult`. */
 export interface AggregateOutcome {

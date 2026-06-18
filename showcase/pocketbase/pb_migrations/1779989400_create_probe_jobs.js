@@ -43,7 +43,7 @@ migrate(
     try {
       dao.findCollectionByNameOrId("probe_jobs");
       return;
-    } catch {
+    } catch (e) {
       // Not present — fall through to create.
     }
     const c = new Collection({
@@ -92,7 +92,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("probe_jobs");
-    } catch {
+    } catch (e) {
       return;
     }
     dao.deleteCollection(c);

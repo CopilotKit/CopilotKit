@@ -6,8 +6,7 @@
 // built-in `MCPAppsActivityRenderer` (registered by CopilotKit internally)
 // renders in the chat as a sandboxed iframe.
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,

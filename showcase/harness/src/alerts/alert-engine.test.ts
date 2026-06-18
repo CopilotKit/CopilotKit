@@ -7,8 +7,8 @@ import {
 import {
   AggregationBucketStore,
   buildCompositeDedupeKey,
+  type AggregationConfig,
 } from "./aggregation.js";
-import type { AggregationConfig } from "./aggregation.js";
 import { createEventBus } from "../events/event-bus.js";
 import { createMetricsRegistry } from "../http/metrics.js";
 import { createRenderer } from "../render/renderer.js";

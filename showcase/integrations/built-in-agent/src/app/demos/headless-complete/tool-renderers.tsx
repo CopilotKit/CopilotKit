@@ -11,8 +11,7 @@ import { WeatherCard } from "./weather-card";
 import { HaikuCard } from "./haiku-card";
 import { HighlightNote, highlightNotePropsSchema } from "./highlight-note";
 import { StockCard } from "./stock-card";
-import { ChartCard } from "./chart-card";
-import type { ChartPoint } from "./chart-card";
+import { ChartCard, type ChartPoint } from "./chart-card";
 
 /**
  * Central registration hook for tool-call rendering surfaces in the

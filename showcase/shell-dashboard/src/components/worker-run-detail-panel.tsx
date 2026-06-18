@@ -31,11 +31,9 @@ import {
   fetchWorkerRunDetail,
   fetchWorkerRunHistory,
   ThrottledError,
-} from "../lib/ops-api";
-import type {
-  WorkerRunBatch,
-  WorkerRunJob,
-  WorkerRunsCursor,
+  type WorkerRunBatch,
+  type WorkerRunJob,
+  type WorkerRunsCursor,
 } from "../lib/ops-api";
 
 export interface WorkerRunDetailPanelProps {

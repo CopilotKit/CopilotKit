@@ -75,7 +75,7 @@ export function autoCloseOpenMarkdown(text: string): string {
   const stack: string[] = scanBracketStack(work);
   // Closers in pop order (innermost first) so the rendered structure
   // nests correctly: e.g. `**bold _italic` → close `_` then `**`.
-  const closers = stack.reduceRight((acc, marker) => acc + marker, "");
+  const closers = stack.slice().reverse().join("");
 
   // ── 4. Reassemble ─────────────────────────────────────────────────
   // Insert closers BEFORE any trailing whitespace on the work text so a

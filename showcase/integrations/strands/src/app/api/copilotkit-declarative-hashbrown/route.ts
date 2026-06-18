@@ -10,8 +10,7 @@
 // the canonical `declarative-hashbrown` surface; the page mounts
 // <CopilotKit agent="declarative-hashbrown-demo">.
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,

@@ -1,10 +1,18 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { MockInstance } from "vitest";
-import type {
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type MockInstance,
+} from "vitest";
+import {
+  backendUrlFromPattern,
   normalizeBackendHostPattern,
   parseLocalBackends,
+  resolveBackendUrl,
 } from "./backend-url";
-import { backendUrlFromPattern, resolveBackendUrl } from "./backend-url";
 
 describe("backendUrlFromPattern", () => {
   it("substitutes {slug} into the host pattern and prepends https://", () => {

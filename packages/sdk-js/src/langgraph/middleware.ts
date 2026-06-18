@@ -5,8 +5,7 @@ import type {
   StandardSchemaV1,
 } from "@standard-schema/spec";
 import * as z from "zod";
-import { getA2UITools } from "@ag-ui/langgraph";
-import type { A2UIToolParams } from "@ag-ui/langgraph";
+import { getA2UITools, type A2UIToolParams } from "@ag-ui/langgraph";
 import { getForwardedHeaders } from "../header-propagation";
 
 // ---------------------------------------------------------------------------

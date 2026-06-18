@@ -8,8 +8,7 @@
 // `declarative-json-render`; the agent ID retains its legacy
 // `byoc_json_render` name.
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,

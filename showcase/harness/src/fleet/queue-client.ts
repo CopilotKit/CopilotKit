@@ -1543,7 +1543,6 @@ export function createFleetQueueClient(
                 `queue-client: cannot verify existing result for job ${input.jobId} (worker ${input.workerId}) before retry rewrite — refusing to blind-write (a rewrite could un-latch result_processed and double-count): ${
                   err instanceof Error ? err.message : String(err)
                 }`,
-                { cause: err },
               );
             }
             if (existing === null) {

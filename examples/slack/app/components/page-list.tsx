@@ -9,8 +9,14 @@
  * Authored with the `@copilotkit/bot-ui` JSX vocabulary.
  */
 import { z } from "zod";
-import { Context, Divider, Header, Message, Section } from "@copilotkit/bot-ui";
-import type { BotNode } from "@copilotkit/bot-ui";
+import {
+  Context,
+  Divider,
+  Header,
+  Message,
+  Section,
+  type BotNode,
+} from "@copilotkit/bot-ui";
 import { ACCENT } from "./_status.js";
 
 const pageSchema = z.object({

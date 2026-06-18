@@ -27,10 +27,10 @@
  * fixture values, mirroring the real production read shapes.
  */
 import { describe, it, expect } from "vitest";
-import { runConversation } from "../../src/probes/helpers/conversation-runner.js";
-import type {
-  ConversationTurn,
-  Page,
+import {
+  runConversation,
+  type ConversationTurn,
+  type Page,
 } from "../../src/probes/helpers/conversation-runner.js";
 import { readAssistantTextAt } from "../../src/probes/scripts/_gen-ui-shared.js";
 

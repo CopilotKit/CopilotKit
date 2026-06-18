@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildFileContentParts } from "../download-files.js";
-import type { SlackFileRef } from "../download-files.js";
+import { buildFileContentParts, type SlackFileRef } from "../download-files.js";
 
 function fakeFetch(
   bodyByUrl: Record<string, { ok?: boolean; status?: number; bytes?: Buffer }>,

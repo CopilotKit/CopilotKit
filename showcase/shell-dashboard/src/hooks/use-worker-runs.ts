@@ -23,8 +23,11 @@
  */
 import { useEffect, useRef, useState } from "react";
 
-import { fetchWorkerRuns, OpsApiHttpError } from "../lib/ops-api";
-import type { WorkerRunsResponse } from "../lib/ops-api";
+import {
+  fetchWorkerRuns,
+  OpsApiHttpError,
+  type WorkerRunsResponse,
+} from "../lib/ops-api";
 
 // §6.1: source-level constant, compiled into the same bundle as the fetch
 // code. Deliberately NOT env/build config (no-public-env-shell-read rule —

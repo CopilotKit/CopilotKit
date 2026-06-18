@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { createJobClaimClient, JobClaimEndpointError } from "./job-claim.js";
-import type { JobView } from "./job-claim.js";
+import {
+  createJobClaimClient,
+  JobClaimEndpointError,
+  type JobView,
+} from "./job-claim.js";
 import type { Logger } from "../types/index.js";
 
 /**

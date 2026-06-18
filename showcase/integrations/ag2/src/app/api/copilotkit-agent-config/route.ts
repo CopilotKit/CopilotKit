@@ -24,8 +24,7 @@
 // - src/agents/agent_config_agent.py — the AG2 agent + AGUIStream sub-app
 // - src/app/demos/agent-config/page.tsx — the provider config
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,

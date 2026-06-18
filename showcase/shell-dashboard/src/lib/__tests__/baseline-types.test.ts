@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  type BaselineStatus,
+  type BaselineTag,
+  type BaselineCell,
   STATUSES,
   TAGS,
   INDIVIDUAL_TAGS,
@@ -8,11 +11,6 @@ import {
   FEATURE_CATEGORIES,
   BASELINE_PARTNERS,
   validateCell,
-} from "../baseline-types";
-import type {
-  BaselineStatus,
-  BaselineTag,
-  BaselineCell,
 } from "../baseline-types";
 
 /* ------------------------------------------------------------------ */

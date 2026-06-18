@@ -28,8 +28,12 @@ import {
   parseSemver,
 } from "./lib/versions.js";
 import { readReleaseDraft } from "./lib/notion.js";
-import { ROOT, getScopeConfig, loadConfig } from "./lib/config.js";
-import type { ReleaseScope } from "./lib/config.js";
+import {
+  ROOT,
+  getScopeConfig,
+  loadConfig,
+  type ReleaseScope,
+} from "./lib/config.js";
 import { emitGithubOutputs } from "./lib/github-output.js";
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
