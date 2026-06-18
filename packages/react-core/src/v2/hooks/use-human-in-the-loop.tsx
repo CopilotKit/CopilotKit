@@ -30,10 +30,11 @@ export function useHumanInTheLoop<
     (props) => {
       const ToolComponent = tool.render;
 
-      // Enhance props based on current status. `props` already carries
-      // `toolCallId`; we add the tool's registration `agentId` (and the
-      // normalized `name`/`description`) so the HITL UI always receives the
-      // full attribution contract. `respond` is only live while executing.
+      // Build the HITL render props per status. `props` already carries
+      // `toolCallId`; we overwrite `name`/`description` with the tool's
+      // registration values and add the registration `agentId`, so the HITL
+      // render always receives the full prop contract. `respond` is only live
+      // while the tool is executing.
       if (props.status === ToolCallStatus.InProgress) {
         const enhancedProps = {
           ...props,
@@ -63,19 +64,12 @@ export function useHumanInTheLoop<
         return React.createElement(ToolComponent, enhancedProps);
       }
 
-      // Unreachable today: ToolCallStatus has only the three states handled
-      // above, so `props` narrows to `never` here. Kept defensively — if a new
-      // status is ever added, still surface name/description/agentId so
-      // attribution is not silently dropped. `props` is cast to a record
-      // because a `never` cannot be spread directly.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return React.createElement(ToolComponent, {
-        ...(props as Record<string, unknown>),
-        name: tool.name,
-        description: tool.description || "",
-        agentId: tool.agentId,
-        respond: undefined,
-      } as any);
+      // ToolCallStatus has only the three states handled above, so this point
+      // is unreachable and `props` narrows to `never`. The assignment turns a
+      // newly-added status into a compile error here — forcing it to get its
+      // own branch above — instead of silently rendering without `respond`.
+      const exhaustiveCheck: never = props;
+      return exhaustiveCheck;
     },
     [tool.render, tool.name, tool.description, tool.agentId, respond],
   );
