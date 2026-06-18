@@ -836,8 +836,11 @@ function validateProps(props: CopilotKitProps): never | void {
 
   // Check if we have either a runtimeUrl or one of the API keys
   const hasApiKey = props.publicApiKey || props.publicLicenseKey;
+  const hasLocalAgents =
+    Object.keys(props.agents__unsafe_dev_only ?? {}).length > 0 ||
+    Object.keys(props.selfManagedAgents ?? {}).length > 0;
 
-  if (!props.runtimeUrl && !hasApiKey) {
+  if (!props.runtimeUrl && !hasApiKey && !hasLocalAgents) {
     throw new ConfigurationError(
       "Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'",
     );
