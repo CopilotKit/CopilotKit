@@ -376,20 +376,31 @@ export class CvdiagEmitter {
   }
 
   /**
-   * Truncate over-budget fields and stamp `_truncated: true` (spec §7 R5-F3).
-   * The whole serialized envelope must fit the tier byte cap; when it doesn't,
-   * the `metadata` bag is the first to be trimmed (it holds the only
-   * unbounded-shape values), then string fields are clamped.
+   * Bound the whole serialized envelope to the tier byte cap and stamp
+   * `_truncated: true` whenever any trimming occurs (spec §7 R5-F3). The
+   * `metadata` bag holds the only unbounded-shape values, so it is the trim
+   * target; the envelope's fixed scalar fields (ids/ts/boundary/flags/etc.) are
+   * bounded by construction. Escalation, cheapest-effective first:
+   *   1. Clamp >64-char string values + replace nested objects with a marker.
+   *   2. If STILL over cap (e.g. many short-string / numeric / boolean values
+   *      that step 1 cannot shrink), clamp ALL string values progressively to a
+   *      short length.
+   *   3. If STILL over cap, drop the metadata bag to `{}` entirely — the fixed
+   *      fields fit any realistic cap, so this is the hard guarantee that the
+   *      enqueued row never exceeds the cap.
+   * Pure instrumentation: this method must NEVER throw.
    */
   private applyByteCap(envelope: CvdiagEnvelope): void {
     const cap = BYTE_CAP_BY_TIER[this.tier];
     if (this.serializedSize(envelope) <= cap) return;
-    // Trim metadata string values progressively until we fit (or give up and
-    // stamp truncated so the over-budget row is at least observable).
+    // Trimming is happening: stamp truncated so the over-budget row is
+    // observable as a bounded row in PB queries.
     envelope._truncated = true;
     const meta = envelope.metadata;
+
+    // Step 1: the legacy pass — clamp >64-char strings, replace nested objects.
     for (const key of Object.keys(meta)) {
-      if (this.serializedSize(envelope) <= cap) break;
+      if (this.serializedSize(envelope) <= cap) return;
       const value = meta[key];
       if (typeof value === "string" && value.length > 64) {
         meta[key] = `${value.slice(0, 61)}...`;
@@ -397,6 +408,27 @@ export class CvdiagEmitter {
         meta[key] = "[truncated]";
       }
     }
+
+    // Step 2: still over cap (scalar/short-string-heavy bag) — clamp ALL string
+    // values progressively to a short length, shortest meaningful first.
+    for (const key of Object.keys(meta)) {
+      if (this.serializedSize(envelope) <= cap) return;
+      const value = meta[key];
+      if (typeof value === "string" && value.length > 8) {
+        meta[key] = `${value.slice(0, 5)}...`;
+      }
+    }
+
+    // Step 3: still over cap (numeric/boolean/key-count-heavy bag) — drop the
+    // whole metadata bag. The fixed scalar fields are bounded by construction,
+    // so an empty metadata bag guarantees the enqueued row fits the cap.
+    if (this.serializedSize(envelope) > cap) {
+      envelope.metadata = {};
+      envelope._metadata_dropped = true;
+    }
+
+    // Post-condition: either we are at or under cap, or metadata is already {}
+    // (so we never silently enqueue over-budget with trimmable content left).
   }
 
   private serializedSize(envelope: CvdiagEnvelope): number {
