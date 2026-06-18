@@ -1,5 +1,5 @@
 ---
-title: "Build a portable agent with Oracle Agent Spec, memory, and CopilotKit"
+title: "Build an Agentic Travel App with Oracle Agent Memory, Agent Spec, and CopilotKit"
 description: "Define an agent once in Oracle Agent Spec, run it on LangGraph over AG-UI, give it long-term memory on Oracle AI Database, and render it in CopilotKit with human-in-the-loop."
 icon: "lucide/Workflow"
 doc_type: how-to
@@ -14,7 +14,7 @@ The example is a personal **travel concierge**: it remembers your preferences ac
 - The agent is defined declaratively with `pyagentspec` and serialized to Agent Spec JSON.
 - The [`ag_ui_agentspec`](https://github.com/ag-ui-protocol/ag-ui) adapter loads that JSON and serves it as a FastAPI AG-UI endpoint on the LangGraph runtime.
 - CopilotKit consumes the AG-UI endpoint with an `HttpAgent` — the same protocol as any AG-UI agent.
-- Memory is the glue: a `recall_memory` tool reads durable preferences from Oracle Agent Memory, and each turn is persisted after the response streams.
+- Memory is the glue: a `recall_memory` tool reads durable preferences from Oracle Agent Memory, and each turn is persisted after the response streams — then a small reconcile pass supersedes outdated facts so an updated preference wins next time.
 
 ```text
 CopilotKit (Next.js, V2) ──/api/copilotkit──▶ CopilotRuntime (HttpAgent)
@@ -26,6 +26,12 @@ CopilotKit (Next.js, V2) ──/api/copilotkit──▶ CopilotRuntime (HttpAgen
                                                     ▼
                                         oracleagentmemory → Oracle AI Database
 ```
+
+## Memory: what's CopilotKit, what's Oracle
+
+![Memory ownership across the stack: CopilotKit owns the chat UI and threads, the AG-UI transport, and the generative UI; your agent code is the seam — Agent Spec on LangGraph, the recall_memory tool, and persist + reconcile; Oracle Agent Memory owns the Oracle AI Database, fact extraction, and vector recall.](https://cdn.copilotkit.ai/docs/copilotkit/images/cookbook/memory-ownership.svg)
+
+Oracle does the remembering, CopilotKit does the conversing, and your agent code is the seam between them. CopilotKit never touches the database — to it, `recall_memory` is just a tool that returns text — and Oracle never sees the chat protocol. Swap Oracle for another store and the frontend doesn't change a line.
 
 ## Try it live
 
@@ -81,20 +87,20 @@ Open `http://localhost:3000`.
 
 ## Try it
 
-**Frontend at a glance:** the left panel lists your conversation threads with a **"+ New thread"** button. `search_flights` renders interactive flight-option cards, `recall_memory` shows a subtle "🧠 Remembered your preferences" chip, and booking surfaces a **"Confirm your booking"** confirmation card (Confirm / Cancel) that stamps into a **boarding-pass ticket** once confirmed.
+**Frontend at a glance:** the left panel lists your conversation threads with a **"+ New thread"** button. `search_flights` renders interactive flight-option cards with a **"Select this flight"** button, `recall_memory` shows a **"🧠 Remembered your preferences"** chip you can click to expand and see exactly which preferences it pulled, and booking surfaces a **"Confirm your booking"** card (Confirm / Cancel) that stamps into a **boarding-pass ticket** once confirmed.
 
 1. Tell it: *"I'm vegetarian, I fly from SFO, and I prefer an aisle seat."*
 2. Click **"+ New thread"** in the sidebar (instead of reloading), then ask: *"Find me a flight to Amsterdam."*
 3. It recalls your preferences from Oracle — home airport SFO, aisle seat, vegetarian meal — and surfaces flights like **AMS-001 (KLM KL606, nonstop, $740)** personalized to what it remembered, not what you said in this thread.
 
-**Booking in one shot:** ask *"Book me flight AMS-001 to Amsterdam"* in a single message, then click **Confirm &amp; book** on the confirmation card to receive the boarding pass. `book_flight` is implemented as a CopilotKit **ClientTool** (`useHumanInTheLoop`) executed on the frontend, so confirm→book happens within a single agent run.
+**Book it:** select a flight from the cards (or ask *"Book me flight AMS-001 to Amsterdam"*), then click **Confirm &amp; book** on the confirmation card to receive the boarding pass. `book_flight` is implemented as a CopilotKit **ClientTool** (`useHumanInTheLoop`) executed on the frontend, so the confirm→book step resolves within a single agent run. Follow-up messages in the same thread work too — search, pick, confirm, and keep chatting (see the note below).
 
 <Callout type="info" title="Recall is eventually consistent">
 Memory is written and indexed asynchronously, so a fact you just taught becomes recallable after a brief delay (typically seconds). In a normal "come back later" session that delay is invisible; only a teach-then-ask within the same few seconds can outrun indexing.
 </Callout>
 
-<Callout type="info" title="Booking works — but phrase it as a single request">
-`book_flight` is a CopilotKit **ClientTool** (`useHumanInTheLoop`) so the entire confirm→book flow completes inside one agent run. Sending a *follow-up* message in the same thread after any server-tool call still fails due to an upstream Agent Spec × AG-UI adapter bug (`tool_call_id` correlation) — that's why booking is phrased as one shot and why cross-session recall is tested via **"+ New thread"** rather than a follow-up. Details + repro: [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/oracle-cookbook/blob/main/demo/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
+<Callout type="info" title="Multi-turn works via a server-side workaround">
+Follow-ups after a server-tool call would otherwise hit an upstream Agent Spec × AG-UI adapter bug (`tool_call_id` correlation) that corrupts the replayed history and 400s on the next turn. The cookbook works around it in `demo/agent/concierge/server.py` by replacing the adapter's incremental message merge with a full-history *replace* each turn, so multi-turn conversations — and the confirm→book human-in-the-loop — work end to end. The **"+ New thread"** step above proves cross-session recall (memory is user-scoped, so a fresh thread still remembers you) — not a workaround for broken follow-ups. Details + the upstream fix we're tracking: [`agentspec-multiturn-toolcall-correlation`](https://github.com/CopilotKit/oracle-cookbook/blob/main/demo/docs/known-issues/agentspec-multiturn-toolcall-correlation.md).
 </Callout>
 
 ## The key pieces, in code
@@ -128,6 +134,7 @@ The adapter has no post-run hook, so the server persists each turn to Oracle Age
 
 - **Per-user memory** — the cookbook defaults to a single `demo-user`. The stock adapter does not forward `forwarded_props`, so scope `user_id` via a FastAPI dependency / ContextVar (see `demo/agent/concierge/tools.py`).
 - **Swap the runtime** — Agent Spec's adapter also supports Oracle's WayFlow runtime; the same spec runs on either.
+- **Memory reconciliation** — after each turn a small LLM pass (`reconcile_durable_memories` in `demo/agent/concierge/reconcile.py`) prunes outdated or duplicate durable facts so an updated preference supersedes the old one on recall. Swap in your own policy (e.g. keep history, or reconcile on a schedule).
 
 ## Get started with a coding agent
 
