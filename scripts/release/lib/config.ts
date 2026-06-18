@@ -11,6 +11,7 @@ export type ReleaseScope =
   | "monorepo"
   | "angular"
   | "bot"
+  | "bot-discord"
   | "bot-slack"
   | "bot-telegram";
 
