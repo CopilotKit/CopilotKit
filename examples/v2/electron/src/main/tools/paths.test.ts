@@ -1,5 +1,13 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { resolve, join } from "node:path";
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  symlinkSync,
+  rmSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { resolveInWorkspace } from "./paths";
 
 const ROOT = "/tmp/ws";
@@ -54,6 +62,48 @@ describe("resolveInWorkspace — REJECT (outside the workspace root)", () => {
 
   it('rejects a path that escapes via "sub/../../.."', () => {
     expect(() => resolveInWorkspace(ROOT, "sub/../../..")).toThrow(
+      /outside the workspace root/,
+    );
+  });
+});
+
+describe("resolveInWorkspace — REJECT symlink escapes (real fs)", () => {
+  let parent: string;
+  let wsRoot: string;
+  let secretFile: string;
+
+  beforeAll(() => {
+    parent = mkdtempSync(join(tmpdir(), "paths-symlink-"));
+    wsRoot = join(parent, "workspace");
+    const secretDir = join(parent, "secret");
+    secretFile = join(secretDir, "passwd.txt");
+    mkdirSync(wsRoot);
+    mkdirSync(secretDir);
+    writeFileSync(secretFile, "TOP SECRET");
+
+    symlinkSync(join("..", "secret", "passwd.txt"), join(wsRoot, "leak.txt"));
+    symlinkSync(join("..", "secret"), join(wsRoot, "escape"));
+    symlinkSync(secretFile, join(wsRoot, "abs-leak.txt"));
+  });
+
+  afterAll(() => {
+    rmSync(parent, { recursive: true, force: true });
+  });
+
+  it("rejects an in-root file symlink to an out-of-root file", () => {
+    expect(() => resolveInWorkspace(wsRoot, "leak.txt")).toThrow(
+      /outside the workspace root/,
+    );
+  });
+
+  it("rejects writing through an in-root dir symlink to an out-of-root dir", () => {
+    expect(() => resolveInWorkspace(wsRoot, "escape/x.txt")).toThrow(
+      /outside the workspace root/,
+    );
+  });
+
+  it("rejects an in-root symlink to an absolute out-of-root path", () => {
+    expect(() => resolveInWorkspace(wsRoot, "abs-leak.txt")).toThrow(
       /outside the workspace root/,
     );
   });

@@ -1,10 +1,14 @@
 import {
   readdir,
   readFile as fsReadFile,
+  stat,
   writeFile as fsWriteFile,
 } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { resolveInWorkspace } from "./paths";
+
+/** Default maximum size, in bytes, that {@link readFile} will read (10 MiB). */
+const DEFAULT_MAX_READ_BYTES = 10 * 1024 * 1024;
 
 export interface DirEntry {
   name: string;
@@ -20,8 +24,19 @@ export async function listDir(
   return entries.map((d) => ({ name: d.name, isDirectory: d.isDirectory() }));
 }
 
-export async function readFile(root: string, relPath: string): Promise<string> {
+export async function readFile(
+  root: string,
+  relPath: string,
+  opts?: { maxBytes?: number },
+): Promise<string> {
+  const maxBytes = opts?.maxBytes ?? DEFAULT_MAX_READ_BYTES;
   const abs = resolveInWorkspace(root, relPath);
+  const { size } = await stat(abs);
+  if (size > maxBytes) {
+    throw new Error(
+      `File "${relPath}" (${size} bytes) exceeds the maximum read size of ${maxBytes} bytes`,
+    );
+  }
   return fsReadFile(abs, "utf8");
 }
 
@@ -55,5 +70,10 @@ export async function writeFile(
 ): Promise<string> {
   const abs = resolveInWorkspace(root, relPath);
   await fsWriteFile(abs, content, "utf8");
-  return relative(root, abs);
+  // Compute the returned relative path against the canonical root so it stays
+  // a clean in-workspace path even when `root` itself contains symlinked
+  // ancestors (e.g. macOS's /var -> /private/var) that resolveInWorkspace
+  // canonicalizes in `abs`.
+  const canonicalRoot = resolveInWorkspace(root, ".");
+  return relative(canonicalRoot, abs);
 }
