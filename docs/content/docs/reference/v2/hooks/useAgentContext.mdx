@@ -15,12 +15,13 @@ Update the incoming context object to refresh what the agent sees. This is the v
 import { useAgentContext } from "@copilotkit/react-core/v2";
 
 function useAgentContext(context: AgentContextInput): void;
+function useAgentContext(contexts: AgentContextInput[]): void;
 ```
 
 ## Parameters
 
-<PropertyReference name="context" type="AgentContextInput" required>
-  An object describing the context to expose to the agent.
+<PropertyReference name="context" type="AgentContextInput | AgentContextInput[]" required>
+  An object, or an array of objects, describing the context to expose to the agent.
 
   <PropertyReference name="description" type="string" required>
     A human-readable description of the context. The agent uses this to understand what the value represents and when to reference it.
@@ -119,12 +120,41 @@ function Sidebar() {
 }
 ```
 
+### Multiple Contexts from One Component
+
+Pass an array when one component owns several independent pieces of context.
+
+```tsx
+import { useAgentContext } from "@copilotkit/react-core/v2";
+
+function WorkspaceContext({
+  user,
+  workspace,
+}: {
+  user: { id: string; role: string };
+  workspace: { id: string; plan: string };
+}) {
+  useAgentContext([
+    {
+      description: "The currently logged-in user",
+      value: user,
+    },
+    {
+      description: "The active workspace",
+      value: workspace,
+    },
+  ]);
+
+  return null;
+}
+```
+
 ## Behavior
 
 - **Mount/Unmount lifecycle**: The context is registered when the component mounts and automatically removed when it unmounts. There is no manual cleanup required.
 - **Reactive updates**: When the `context` object changes between renders, the agent immediately sees the updated value.
 - **Serialization**: The `value` must conform to `JsonSerializable` (`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`). Non-serializable values such as functions, class instances, or symbols will cause errors.
-- **Multiple contexts**: Multiple `useAgentContext` calls across your component tree are all visible to the agent concurrently. Each is identified by its description and value.
+- **Multiple contexts**: Multiple `useAgentContext` calls across your component tree, or multiple items passed in one array, are all visible to the agent concurrently. Each is identified by its description and value.
 - **No return value**: The hook returns `void`. Unlike `useCopilotReadable`, it does not return an ID for parent-child hierarchies.
 
 ## Related
