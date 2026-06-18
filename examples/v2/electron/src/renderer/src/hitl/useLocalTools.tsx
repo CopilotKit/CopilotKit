@@ -22,12 +22,16 @@ export function useLocalTools(): void {
                   args.path,
                   args.content,
                 );
-                respond(JSON.stringify({ approved: true, wrote: res.path }));
+                await respond(
+                  JSON.stringify({ approved: true, wrote: res.path }),
+                );
               } catch (e) {
-                respond(JSON.stringify({ approved: true, error: String(e) }));
+                await respond(
+                  JSON.stringify({ approved: true, error: String(e) }),
+                );
               }
             }}
-            onDeny={() => respond(JSON.stringify({ approved: false }))}
+            onDeny={() => void respond(JSON.stringify({ approved: false }))}
           />
         );
       }
@@ -60,7 +64,7 @@ export function useLocalTools(): void {
             detail={detail}
             onApprove={async () => {
               const res = await window.electron.shell.run(args.command, argv);
-              respond(
+              await respond(
                 JSON.stringify({
                   approved: true,
                   command: res.command,
@@ -70,7 +74,7 @@ export function useLocalTools(): void {
                 }),
               );
             }}
-            onDeny={() => respond(JSON.stringify({ approved: false }))}
+            onDeny={() => void respond(JSON.stringify({ approved: false }))}
           />
         );
       }

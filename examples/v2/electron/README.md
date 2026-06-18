@@ -56,7 +56,7 @@ The assistant exposes two tiers of file-system and shell tools, distinguished by
 
 ### Workspace root
 
-All file paths are scoped to a single workspace root directory. Paths that attempt to escape it are rejected outright — `../` traversals, absolute paths outside the root, and sibling-prefix paths all fail with an error returned to the model (no effect, no approval card).
+All file paths are scoped to a single workspace root directory. Paths that attempt to escape it are rejected outright — `../` traversals, absolute paths outside the root, sibling-prefix paths, and **symlinks that resolve outside the root** all fail with an error returned to the model (no effect, no approval card). Scoping is enforced in the main process with `realpath` canonicalization, so a symlink planted inside the workspace cannot be used to escape it.
 
 The workspace root defaults to `~/Documents/copilotkit-electron-workspace` and can be overridden before launch:
 
@@ -69,6 +69,13 @@ Or add it to your `.env` file:
 ```
 COPILOT_WORKSPACE_ROOT=/path/to/your/workspace
 ```
+
+### Security model
+
+- **Process isolation** — `contextIsolation: true`, `nodeIntegration: false`, a narrow typed `window.electron` preload surface, a scoped CSP, and the runtime bound to `127.0.0.1` only.
+- **Path scoping is enforced in the main process** — every fs operation re-resolves the renderer-supplied path against the workspace root using `realpath`, so neither a buggy renderer nor a symlink planted inside the workspace can escape the root. File reads are size-capped (10 MiB) so a huge file can't exhaust main-process memory.
+- **The approval card is the guard for side effects** — `fs_write` and `shell_run` only ever execute from a human **Approve** click. `shell_run` runs the command with **your OS privileges** and has no built-in allowlist, so review the exact command shown on the card before approving. (An optional command allow/deny-list is a follow-up.)
+- **Trusted renderer** — the renderer runs bundled app code, not remote web content, so exposing the IPC to it is intentional under this threat model.
 
 ### Try it
 
