@@ -8,6 +8,16 @@ export default defineConfig({
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
+    // Main is ESM, but Electron's sandboxed renderer requires a CommonJS
+    // preload. Emit it as index.cjs (loaded by src/main/index.ts).
+    build: {
+      rollupOptions: {
+        output: {
+          format: "cjs",
+          entryFileNames: "index.cjs",
+        },
+      },
+    },
   },
   renderer: {
     resolve: {

@@ -1,10 +1,15 @@
 import dotenv from "dotenv";
 import { app, BrowserWindow, ipcMain } from "electron";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { startRuntimeServer } from "./runtime/server";
 
 // Load provider keys (OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY) from .env
 dotenv.config();
+
+// This file is ESM (package.json "type": "module") so it imports the runtime's
+// ESM build, which transitively uses ESM-only deps. Derive __dirname accordingly.
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let runtime: { url: string; close: () => Promise<void> } | null = null;
 
@@ -13,7 +18,9 @@ function createWindow(): void {
     width: 1100,
     height: 760,
     webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
+      // Preload MUST be CommonJS — Electron's sandboxed renderer cannot load an
+      // ESM preload. electron.vite.config.ts forces this entry to emit index.cjs.
+      preload: join(__dirname, "../preload/index.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
     },
