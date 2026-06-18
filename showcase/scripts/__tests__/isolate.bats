@@ -1856,3 +1856,122 @@ FIXTURE
   [[ "$state" == *"|?|"* ]] \
     || fail "_slot_state did not degrade to ports='?' when lsof was unavailable: $state"
 }
+
+# ── --isolate=<N> arg-parser sugar (cmd-test.sh) ─────────────────────────────
+#
+# The `--isolate=<N>` form is sugar over `SHOWCASE_ISO_SLOT=<N> ... --isolate`:
+# the arg parser in cmd-test.sh sets SHOWCASE_ISO_SLOT from the =<N> suffix and
+# exports it, then the existing picker (_claim_isolate_slot) handles ALL
+# validation. The tests here pin the parser→env→picker pipeline end-to-end by
+# replaying cmd-test.sh's --isolate=* branch verbatim and then invoking the
+# picker (the SAME wiring bin/showcase test would do). No new validation logic
+# exists in the arg parser, so we don't re-test validation here — we prove the
+# arg form drives the existing validation paths pinned above.
+#
+# We replay the parser branch rather than invoking `cmd_test` directly because
+# cmd_test runs heavy work (need_slug, trap restore_isolation, apply_isolation
+# which forks docker/python3) after parsing — orthogonal to what this test
+# pins.
+
+@test "--isolate=<N> arg form exports SHOWCASE_ISO_SLOT and pins the slot through the picker" {
+  load_common
+  # Replay cmd-test.sh's `--isolate=*` branch verbatim, then run the picker.
+  set -- --isolate=9 dummy-slug
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --isolate=*)
+        SHOWCASE_ISO_SLOT="${1#--isolate=}"
+        export SHOWCASE_ISO_SLOT
+        shift
+        ;;
+      *) shift ;;
+    esac
+  done
+  [ "$SHOWCASE_ISO_SLOT" = "9" ] \
+    || fail "--isolate=9 did not export SHOWCASE_ISO_SLOT=9; got: $SHOWCASE_ISO_SLOT"
+
+  # The exported pin drives the picker exactly as the SHOWCASE_ISO_SLOT=9
+  # pinned-path test does (pinned by "SHOWCASE_ISO_SLOT=9 claims slot 9 ..."
+  # above): slot 9 claimed verbatim.
+  _claim_isolate_slot
+  [ "$ISOLATE_SLOT" = "9" ] \
+    || fail "picker did not honor --isolate=9-exported SHOWCASE_ISO_SLOT: got $ISOLATE_SLOT"
+}
+
+@test "--isolate=0 arg form drives the picker's reserved-slot rejection" {
+  # Wiring proof: the arg parser does NO validation of N itself — it relies on
+  # the picker. So --isolate=0 must trip the SAME 'slot 0 is reserved' die
+  # pinned by "SHOWCASE_ISO_SLOT validates input (0, foo, 99 all rejected)"
+  # above. Replay the parser branch, then invoke the picker.
+  load_common
+  set -- --isolate=0
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --isolate=*)
+        SHOWCASE_ISO_SLOT="${1#--isolate=}"
+        export SHOWCASE_ISO_SLOT
+        shift
+        ;;
+      *) shift ;;
+    esac
+  done
+  [ "$SHOWCASE_ISO_SLOT" = "0" ] || fail "parser did not export 0: got $SHOWCASE_ISO_SLOT"
+
+  run _claim_isolate_slot
+  [ "$status" -ne 0 ] || fail "--isolate=0 unexpectedly succeeded: $output"
+  [[ "$output" == *"slot 0 is reserved"* ]] \
+    || fail "--isolate=0 did not surface the reserved-slot die: $output"
+}
+
+@test "cmd-test.sh --isolate=<N> actually wires the arg through to SHOWCASE_ISO_SLOT" {
+  # Drift guard: the three tests above replay the parser branch verbatim. This
+  # test sources the REAL cmd-test.sh and runs cmd_test end-to-end with a stub
+  # apply_isolation that snapshots SHOWCASE_ISO_SLOT — so if the parser branch
+  # is ever removed or wired differently, this fails LOUDLY.
+  load_common
+
+  local snapshot="$BATS_TEST_TMPDIR/iso-slot-snapshot"
+  local cmd_test_sh="$BATS_TEST_DIRNAME/../cli/cmd-test.sh"
+  [ -f "$cmd_test_sh" ] || fail "cmd-test.sh not found: $cmd_test_sh"
+
+  # Stub apply_isolation: snapshot SHOWCASE_ISO_SLOT, then exit cleanly via
+  # `die` so the rest of cmd_test (which forks docker/etc) never runs.
+  # Stub need_slug to a no-op so the parser path is what's exercised.
+  # Stub everything else cmd_test invokes after the parser to no-ops.
+  run bash -euo pipefail -c "
+    source '$COMMON'
+    source '$cmd_test_sh'
+    apply_isolation() { printf '%s\n' \"\${SHOWCASE_ISO_SLOT:-<unset>}\" > '$snapshot'; exit 0; }
+    need_slug() { :; }
+    info() { :; }
+    run_harness() { :; }
+    cmd_test --isolate=7 dummy-slug
+  "
+  [ "$status" -eq 0 ] || fail "cmd_test --isolate=7 failed: $output"
+  [ -f "$snapshot" ] || fail "stubbed apply_isolation never fired (parser/use_isolate wiring broken)"
+  run cat "$snapshot"
+  [[ "$output" == "7" ]] \
+    || fail "cmd-test.sh did not export SHOWCASE_ISO_SLOT=7 from --isolate=7: got '$output'"
+}
+
+@test "--isolate=99 arg form drives the picker's out-of-range rejection" {
+  # Same wiring proof for the upper bound: ISOLATE_MAX_SLOT=45, so 99 is over.
+  load_common
+  set -- --isolate=99
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --isolate=*)
+        SHOWCASE_ISO_SLOT="${1#--isolate=}"
+        export SHOWCASE_ISO_SLOT
+        shift
+        ;;
+      *) shift ;;
+    esac
+  done
+  [ "$SHOWCASE_ISO_SLOT" = "99" ] || fail "parser did not export 99: got $SHOWCASE_ISO_SLOT"
+
+  run _claim_isolate_slot
+  [ "$status" -ne 0 ] || fail "--isolate=99 unexpectedly succeeded: $output"
+  [[ "$output" == *"exceeds ISOLATE_MAX_SLOT=45"* ]] \
+    || fail "--isolate=99 did not surface the out-of-range die: $output"
+}
