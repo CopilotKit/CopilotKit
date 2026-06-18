@@ -10,7 +10,8 @@
 // `generate_a2ui` knows which components to emit, and detects the
 // `a2ui_operations` container in the tool result for client-side rendering.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -33,7 +34,13 @@ export const POST = async (req: NextRequest) => {
 
     const runtime = new CopilotRuntime({
       agents: { "declarative-gen-ui": declarativeGenUiAgent },
-      a2ui: { injectA2UITool: false },
+      a2ui: {
+        injectA2UITool: false,
+        // Models follow the tool-usage guide and omit `catalogId`, and the
+        // middleware then falls back to the unregistered spec basic catalog
+        // ("Catalog not found" render error). Pin the catalog the page registers.
+        defaultCatalogId: "declarative-gen-ui-catalog",
+      },
     });
 
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({

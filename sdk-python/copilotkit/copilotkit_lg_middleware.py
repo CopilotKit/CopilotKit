@@ -34,9 +34,10 @@ from .langgraph import CopilotKitProperties
 # Guarded so an older/skewed version without the factory degrades to
 # "no auto-A2UI" instead of breaking the whole middleware import.
 try:  # pragma: no cover - exercised indirectly via the a2ui injection path
-    from ag_ui_langgraph import get_a2ui_tools
+    from ag_ui_langgraph import get_a2ui_tools, A2UIToolParams
 except Exception:  # noqa: BLE001 - any import failure means the feature is off
     get_a2ui_tools = None
+    A2UIToolParams = None
 
 # Track which httpx clients already have the header-propagation hook installed
 # (by object id) so we never double-install on repeated model calls.
@@ -420,15 +421,18 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         resolved = self._resolve_a2ui_catalog(state)
         component_schema, catalog_id = resolved if resolved else (None, None)
 
-        kwargs: dict[str, Any] = {}
+        # Shared A2UIToolParams: a single params object owned by the toolkit.
+        # ``model`` lives inside it; ``composition_guide`` is folded into the
+        # ``guidelines`` bag alongside generation/design overrides.
+        params: "A2UIToolParams" = {"model": request.model}
         if catalog_id:
-            kwargs["default_catalog_id"] = catalog_id
+            params["default_catalog_id"] = catalog_id
         # Feed the registered component schema to the subagent so it composes
         # only catalog components (the toolkit appends this to its prompt).
         if component_schema:
-            kwargs["composition_guide"] = component_schema
+            params["guidelines"] = {"composition_guide": component_schema}
 
-        tool = get_a2ui_tools(request.model, **kwargs)
+        tool = get_a2ui_tools(params)
 
         # (2) Don't double-inject if the agent already defines this tool.
         existing_names = {getattr(t, "name", None) for t in (request.tools or [])}

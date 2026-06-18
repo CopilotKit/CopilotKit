@@ -265,10 +265,50 @@ export async function up(
     }
 
     const verboseFlag = opts?.verbose ? ["--progress", "plain"] : [];
-    const args = [...profileArgs, "up", "-d", "--build", ...verboseFlag];
-
+    // Two-call strategy to preserve A21's BuildKit-contention fix (target-only
+    // rebuild) WITHOUT regressing the infra startup that A21 inadvertently
+    // dropped (A21b, issue #5495).
+    //
+    // docker compose semantics: positional service names after `up` restrict
+    // WHICH services start to the named ones + their `depends_on` chain — not
+    // just which ones get `--build`-rebuilt. A21 passed the target slug as a
+    // positional after `up -d --build`, which (correctly) scoped the rebuild
+    // to the slug but (incorrectly) prevented infra services without an
+    // explicit `depends_on` from the target (pocketbase, dashboard, harness,
+    // harness-pool-worker) from coming up. Under `--isolate` with a sibling
+    // stack holding the same host ports, health checks then crossed onto the
+    // foreign containers and the cell silently misrouted → 0.0s red.
+    //
+    // Fix: split into two calls when slugs is non-empty.
+    //   1. compose <profiles> up -d              — start ALL services in the
+    //      active profiles using cached images. No `--build`, no positional
+    //      services. Brings up the full infra profile + the slug's profile.
+    //   2. compose <profiles> up -d --build <slug...>
+    //      Force-rebuild ONLY the named services and ensure they're up. Other
+    //      services already running from call (1) are no-ops.
+    //
+    // When slugs is empty (infra-only bring-up), keep the single blanket call
+    // so first-time bootstrap still builds whatever infra images are missing.
     log.info("starting services", { slugs: slugs.length ? slugs : ["infra"] });
-    compose(...args);
+    // Track which compose call most recently ran so a downstream health
+    // failure can name the call that touched the unhealthy service. Without
+    // this, an operator seeing "Health check failed for: <slug>" cannot tell
+    // whether infra-up (call 1) crossed onto a foreign container or whether
+    // the target's rebuild (call 2) produced a broken image.
+    let lastComposeCall: string;
+    if (slugs.length > 0) {
+      // Call 1: bring up all services (no build, cached images).
+      lastComposeCall = "call 1 (infra-up: profiles up -d, no build)";
+      compose(...profileArgs, "up", "-d", ...verboseFlag);
+      // Call 2: rebuild target slug(s) and ensure they're up.
+      lastComposeCall =
+        "call 2 (target rebuild: profiles up -d --build <slug>...)";
+      compose(...profileArgs, "up", "-d", "--build", ...verboseFlag, ...slugs);
+    } else {
+      // Infra-only: single call with blanket --build for first-time bootstrap.
+      lastComposeCall = "infra-only (profiles up -d --build, no slugs)";
+      compose(...profileArgs, "up", "-d", "--build", ...verboseFlag);
+    }
 
     // Determine which services to health-check
     const servicesToCheck =
@@ -283,7 +323,7 @@ export async function up(
 
     if (unhealthy.length > 0) {
       throw new Error(
-        `Health check failed for: ${unhealthy.join(", ")}. Check logs with: showcase logs <slug>`,
+        `Health check failed for: ${unhealthy.join(", ")} after ${lastComposeCall}. Check logs with: showcase logs <slug>`,
       );
     }
 

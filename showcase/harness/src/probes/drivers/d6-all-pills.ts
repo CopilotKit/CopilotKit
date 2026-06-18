@@ -12,11 +12,18 @@ import type {
 } from "../helpers/d5-registry.js";
 import { demosToFeatureTypes } from "../helpers/d5-feature-mapping.js";
 import { D5_REPRESENTATIVES } from "../helpers/d5-representatives.js";
+import type { Page as PlaywrightPage } from "playwright";
+import { countAssistantMessages } from "../helpers/assistant-message-count.js";
 import { runConversation } from "../helpers/conversation-runner.js";
 import type {
   ConversationResult,
   Page,
 } from "../helpers/conversation-runner.js";
+import {
+  installPrePaintFromEnv,
+  messagesOverrideFromEnv,
+} from "../helpers/init-scripts.js";
+import { attachSseInterceptor } from "../helpers/sse-interceptor.js";
 import {
   formatCvdiag,
   appendHop,
@@ -25,10 +32,8 @@ import {
   X_DIAG_RUN_ID,
   X_DIAG_HOPS,
 } from "../helpers/cv-diag.js";
-import {
-  writeDiagEvent,
-  type DiagSinkClient,
-} from "../../storage/diag-sink.js";
+import { writeDiagEvent } from "../../storage/diag-sink.js";
+import type { DiagSinkClient } from "../../storage/diag-sink.js";
 import type { ProbeDriver } from "../types.js";
 import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
@@ -49,8 +54,11 @@ import type playwright from "playwright";
  *      featureType — unlike D5 which skips with green, D6 treats
  *      missing scripts as a hard failure.
  *   3. Opens a fresh Playwright context with `X-AIMock-Context: <slug>`
- *      and `X-Test-Id: d6-<slug>` headers, navigates to the per-feature
- *      route, and runs the conversation through `runConversation`.
+ *      and `X-Test-Id: d6-<slug>-<runId>` headers (see `buildE2eTestId`;
+ *      the runId suffix gives each run fresh aimock fixture-count state —
+ *      the old per-slug constant id caused the staging flap), navigates to
+ *      the per-feature route, and runs the conversation through
+ *      `runConversation`.
  *   4. Emits one `d6:<slug>/<featureType>` diagnostic side row per
  *      feature (not consumed by dashboard rollup — diagnostic only).
  *   5. Emits an aggregate `d6:<slug>` primary result that is green ONLY
@@ -253,6 +261,28 @@ export interface E2eFullDriverDeps {
    * swallowed by `writeDiagEvent` and can never break a probe.
    */
   diagPb?: DiagSinkClient;
+  /**
+   * Factory for the per-`run()` correlation id (`runId`). Defaults to
+   * `mintRunId` (`crypto.randomUUID()`). Injectable ONLY so unit tests can
+   * supply a deterministic counter and assert the per-run-unique X-Test-Id
+   * (`d6-<slug>-<runId>`) without matching a brittle UUID regex. Production
+   * always uses the default. The id is minted once per `run()` and is stable
+   * across every feature-cell of that run, unique across runs.
+   */
+  idFactory?: () => string;
+}
+
+/**
+ * Build the per-feature aimock X-Test-Id. Folds the per-`run()` correlation
+ * id (`runId`) into the previously per-slug-only id so each run starts from a
+ * fresh aimock per-test-id fixture-match count, eliminating the cross-run
+ * sequence/turn-count desync that flapped the staging dashboard. Stable across
+ * a run's feature-cells (same `runId`), unique across runs. D5 runs THIS driver
+ * (take-one), so it is covered by the same `d6-` value; the D5 dashboard column
+ * is derived from `rowPrefix`, not from this header.
+ */
+export function buildE2eTestId(slug: string, runId: string): string {
+  return `d6-${slug}-${runId}`;
 }
 
 /**
@@ -447,8 +477,20 @@ const defaultLauncher: E2eFullBrowserLauncher =
               press: (s, k, o) => page.press(s, k, o),
               evaluate: <R>(fn: () => R) => page.evaluate(fn),
               inputValue: (s) => page.inputValue(s),
-              goto: (u, gotoOpts) =>
-                page.goto(u, gotoOpts as Parameters<typeof page.goto>[1]),
+              goto: async (u, gotoOpts) => {
+                // Order is load-bearing per Phase 3 Task 3.2:
+                // installPrePaintFromEnv FIRST (defect-4 pre-paint
+                // injection, no-op in production), attachSseInterceptor
+                // SECOND. Both must complete before page.goto so the
+                // init scripts (pre-paint DOM seed + __hk_runsFinished
+                // window counter) are registered at document_start.
+                await installPrePaintFromEnv(page);
+                await attachSseInterceptor(page);
+                return page.goto(
+                  u,
+                  gotoOpts as Parameters<typeof page.goto>[1],
+                );
+              },
               close: () => page.close(),
               click: (s, o) => page.click(s, o),
               waitForFunction: (fn, wfOpts) =>
@@ -573,8 +615,20 @@ export function createPooledE2eFullLauncher(
               press: (s, k, o) => page.press(s, k, o),
               evaluate: <R>(fn: () => R) => page.evaluate(fn),
               inputValue: (s) => page.inputValue(s),
-              goto: (u, gotoOpts) =>
-                page.goto(u, gotoOpts as Parameters<typeof page.goto>[1]),
+              goto: async (u, gotoOpts) => {
+                // Order is load-bearing per Phase 3 Task 3.2:
+                // installPrePaintFromEnv FIRST (defect-4 pre-paint
+                // injection, no-op in production), attachSseInterceptor
+                // SECOND. Both must complete before page.goto so the
+                // init scripts (pre-paint DOM seed + __hk_runsFinished
+                // window counter) are registered at document_start.
+                await installPrePaintFromEnv(page);
+                await attachSseInterceptor(page);
+                return page.goto(
+                  u,
+                  gotoOpts as Parameters<typeof page.goto>[1],
+                );
+              },
               close: () => page.close(),
               click: (s, o) => page.click(s, o),
               waitForFunction: (fn, wfOpts) =>
@@ -674,6 +728,7 @@ export function createE2eFullDriver(
   const scriptLoader = deps.scriptLoader ?? defaultScriptLoader;
   const representatives = deps.representatives ?? D5_REPRESENTATIVES;
   const diagPb = deps.diagPb;
+  const idFactory = deps.idFactory ?? mintRunId;
 
   return {
     kind: "e2e_d6",
@@ -713,7 +768,7 @@ export function createE2eFullDriver(
       // component tag distinguishes the D5 take-one path from a full D6 run
       // even though they share THIS driver — that distinction is the whole
       // point of the CV incident (D5/CV red while D6 green).
-      const runId = mintRunId();
+      const runId = idFactory();
       const cvComponent = rowPrefix === "d5" ? "harness-d5" : "harness-d6";
       // The aimock base URL the framework apps are wired to send X-AIMock-*
       // against. Read from env (orchestrator sets AIMOCK_URL; the CLI sets
@@ -1071,29 +1126,48 @@ export function createE2eFullDriver(
           > = [];
           try {
             if (abort.signal.aborted) {
-              await sideEmit(ctx, {
-                key: sideKey,
-                state: "red",
-                signal: {
-                  slug,
-                  featureType: ft,
-                  backendUrl,
-                  url,
-                  fixtureFile: script.fixtureFile,
-                  errorClass: "abort",
-                  errorDesc: timedOut
-                    ? `timeout after ${timeoutMs}ms`
-                    : "aborted",
-                },
-                observedAt: ctx.now().toISOString(),
-              });
+              // GRACEFUL DRAIN (FIX 3): when the abort is a worker drain —
+              // `ctx.drainReason === "shutdown"` AND the EXTERNAL drain signal
+              // actually FIRED — SUPPRESS the red per-cell side-emit for this
+              // not-yet-started pill; a redeploy must not paint a mass-red
+              // block. The pill keeps its prior dashboard colour; the
+              // worker-loop layer separately abandons the partial (skips
+              // `queue.report`) so the lease lapses into the sweeper's
+              // neutral-gray re-queue. The internal `abort` controller ALSO
+              // fires on the driver's own wall-clock `timeoutMs` cap, so the
+              // drain reason alone is not proof of a drain — require
+              // `ctx.abortSignal.aborted` too. A timeout/error abort still
+              // emits red so a genuine failure stays visible.
+              const drainAborted =
+                ctx.drainReason === "shutdown" &&
+                ctx.abortSignal?.aborted === true;
+              if (!drainAborted) {
+                await sideEmit(ctx, {
+                  key: sideKey,
+                  state: "red",
+                  signal: {
+                    slug,
+                    featureType: ft,
+                    backendUrl,
+                    url,
+                    fixtureFile: script.fixtureFile,
+                    errorClass: "abort",
+                    errorDesc: timedOut
+                      ? `timeout after ${timeoutMs}ms`
+                      : "aborted",
+                  },
+                  observedAt: ctx.now().toISOString(),
+                });
+              }
               ctx.logger.info("probe.e2e-full.feature-complete", {
                 slug,
                 featureType: ft,
                 pass: false,
                 errorDesc: timedOut
                   ? `timeout after ${timeoutMs}ms`
-                  : "aborted",
+                  : drainAborted
+                    ? "drain-suppressed"
+                    : "aborted",
                 durationMs: Date.now() - featureStart,
               });
               return {
@@ -1262,31 +1336,48 @@ export function createE2eFullDriver(
                 featureType: ft,
                 rowPrefix,
                 cvComponent,
-                testId: `d6-${slug}`,
+                testId: buildE2eTestId(slug, runId),
                 featureOk: true,
               });
               return { ft, ok: true as const };
             } else {
-              await sideEmit(ctx, {
-                key: sideKey,
-                state: "red",
-                signal: {
-                  slug,
-                  featureType: ft,
-                  backendUrl,
-                  url,
-                  fixtureFile: script.fixtureFile,
-                  turns_completed: featureResult.conversation?.turns_completed,
-                  total_turns: featureResult.conversation?.total_turns,
-                  failure_turn: featureResult.conversation?.failure_turn,
-                  turn_durations_ms:
-                    featureResult.conversation?.turn_durations_ms,
-                  errorDesc: featureResult.errorDesc,
-                  errorClass: featureResult.errorClass,
-                  diagnostics: featureResult.diagnostics,
-                },
-                observedAt: ctx.now().toISOString(),
-              });
+              // GRACEFUL DRAIN (FIX 3): a feature that STARTED then got aborted
+              // MID-RUN by the worker drain (`errorClass: "abort"` while
+              // `ctx.drainReason === "shutdown"` AND the EXTERNAL drain signal
+              // actually fired) is a not-yet-completed pill — suppress its red
+              // side-emit too so a redeploy doesn't paint it red. The internal
+              // abort ALSO fires on the driver's own wall-clock `timeoutMs`
+              // cap, so require `ctx.abortSignal.aborted` to distinguish a true
+              // drain from a timeout — a timeout abort, and a genuine in-driver
+              // failure (any non-abort errorClass), still paint red even within
+              // the drain window.
+              const drainAborted =
+                ctx.drainReason === "shutdown" &&
+                ctx.abortSignal?.aborted === true &&
+                featureResult.errorClass === "abort";
+              if (!drainAborted) {
+                await sideEmit(ctx, {
+                  key: sideKey,
+                  state: "red",
+                  signal: {
+                    slug,
+                    featureType: ft,
+                    backendUrl,
+                    url,
+                    fixtureFile: script.fixtureFile,
+                    turns_completed:
+                      featureResult.conversation?.turns_completed,
+                    total_turns: featureResult.conversation?.total_turns,
+                    failure_turn: featureResult.conversation?.failure_turn,
+                    turn_durations_ms:
+                      featureResult.conversation?.turn_durations_ms,
+                    errorDesc: featureResult.errorDesc,
+                    errorClass: featureResult.errorClass,
+                    diagnostics: featureResult.diagnostics,
+                  },
+                  observedAt: ctx.now().toISOString(),
+                });
+              }
               ctx.logger.info("probe.e2e-full.feature-complete", {
                 slug,
                 featureType: ft,
@@ -1307,7 +1398,7 @@ export function createE2eFullDriver(
                 featureType: ft,
                 rowPrefix,
                 cvComponent,
-                testId: `d6-${slug}`,
+                testId: buildE2eTestId(slug, runId),
                 featureOk: false,
                 featureError: featureResult.errorDesc,
               });
@@ -1492,7 +1583,7 @@ async function runFeature(opts: {
 
   let context: E2eFullBrowserContext | undefined;
   let page: E2eFullPage | undefined;
-  const testId = `d6-${slug}`;
+  const testId = buildE2eTestId(slug, runId);
   try {
     // D6 sets per-feature context headers: X-AIMock-Context and X-Test-Id.
     //
@@ -1614,11 +1705,19 @@ async function runFeature(opts: {
       hydrationMs: Date.now() - hydrationStart,
     });
 
-    const turns = script.buildTurns(buildCtx);
+    const defaultTurns = script.buildTurns(buildCtx);
+    // BUBBLE_RACE_MESSAGES env override (bubble-race-repro integration
+    // tests only — no-op in production). When set, replaces the demo's
+    // default turn sequence with one `{ input: <string> }` per env
+    // message so per-scenario test inputs flow through ONE channel
+    // rather than scattering test logic across each defect commit.
+    const turnsOverride = messagesOverrideFromEnv();
+    const turns = turnsOverride ?? defaultTurns;
     logger.debug("probe.e2e-full.runFeature.turns-built", {
       turnCount: turns.length,
       featureType: buildCtx.featureType,
       slug: buildCtx.integrationSlug,
+      bubbleRaceMessagesOverride: turnsOverride !== undefined,
     });
     const conversation = await runConversation(page, turns);
 
@@ -1722,6 +1821,18 @@ async function captureDiagnostics(
     }
     return { pageClosed: true };
   }
+  // Read the assistant-message count Node-side via the shared cascade
+  // BEFORE entering page.evaluate, then merge it into the diagnostics
+  // object. Routing through `countAssistantMessages` here is what
+  // closes defect 3 by construction — the conversation runner reads
+  // its settled count via the same helper, so diagnostics and runner
+  // can no longer report mismatched counts for the same frame.
+  // `page.evaluate` cannot await a Node-side helper from inside the
+  // browser context, so the call is hoisted out (per plan §2.2/N6).
+  const assistantMsgCount = await countAssistantMessages(
+    page as unknown as PlaywrightPage,
+  );
+
   try {
     diagnostics = await page.evaluate(() => {
       type EvalElement = {
@@ -1749,9 +1860,6 @@ async function captureDiagnostics(
         location: { href: string };
       };
 
-      const assistantMsgs = win.document.querySelectorAll(
-        '[data-testid="copilot-assistant-message"]',
-      );
       const userMsgs = win.document.querySelectorAll(
         '[data-testid="copilot-user-message"]',
       );
@@ -1779,7 +1887,6 @@ async function captureDiagnostics(
       );
 
       return {
-        assistantMsgCount: assistantMsgs.length,
         userMsgCount: userMsgs.length,
         apiRequestCount: apiEntries.length,
         apiRequests: apiEntries.slice(0, 5),
@@ -1794,6 +1901,15 @@ async function captureDiagnostics(
     });
   } catch {
     // Page may be closed or crashed — can't gather DOM diagnostics.
+  }
+
+  // Merge the shared-cascade count Node-side. Done only when the
+  // browser-side evaluate succeeded so a crashed/closed page still
+  // produces the same `undefined` diagnostics as before this refactor
+  // — preserving the prior failure shape exactly. The browser-diag
+  // merge below independently hydrates a fresh object when needed.
+  if (diagnostics) {
+    diagnostics.assistantMsgCount = assistantMsgCount;
   }
 
   const browserDiag = page.getDiagnostics?.();

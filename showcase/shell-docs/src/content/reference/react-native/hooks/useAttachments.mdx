@@ -1,0 +1,148 @@
+---
+title: "useAttachments"
+description: "React Native hook for adding multimodal file attachments to a chat using Expo's document picker and file system."
+---
+
+## Overview
+
+`useAttachments` is the React Native counterpart of the web `useAttachments` hook. It manages picking, validating, uploading, and consuming file attachments for a chat, using [`expo-document-picker`](https://docs.expo.dev/versions/latest/sdk/document-picker/) and [`expo-file-system`](https://docs.expo.dev/versions/latest/sdk/filesystem/) in place of the web `FileReader` / `<input type="file">` APIs.
+
+The headless [`CopilotChat`](/reference/react-native/components/CopilotChat) wires this hook up for you when you pass its `attachments` prop. Call `useAttachments` directly only when you manage attachments outside of `CopilotChat`. Requires the `expo-document-picker` and `expo-file-system` peer dependencies.
+
+## Signature
+
+```tsx
+import { useAttachments } from "@copilotkit/react-native";
+
+function useAttachments(props: UseNativeAttachmentsProps): UseNativeAttachmentsReturn;
+```
+
+## Parameters
+
+<PropertyReference name="props" type="UseNativeAttachmentsProps">
+  Configuration object for the hook.
+
+  <PropertyReference name="config" type="NativeAttachmentsConfig">
+    Attachment configuration.
+
+    <PropertyReference name="enabled" type="boolean" required>
+      Enable file attachments. When `false`, the hook is inert.
+    </PropertyReference>
+
+    <PropertyReference name="accept" type="string" default='"*/*"'>
+      MIME type filter for the picker. Supports wildcards (`"image/*"`) and
+      comma-separated lists (`"image/*,application/pdf"`).
+    </PropertyReference>
+
+    <PropertyReference name="maxSize" type="number" default="20971520">
+      Maximum file size in bytes. Defaults to 20&nbsp;MB.
+    </PropertyReference>
+
+    <PropertyReference name="onUpload" type="(file: NativeFileInput) => AttachmentUploadResult | Promise<AttachmentUploadResult>">
+      Custom upload handler. If omitted, the file is read as base64 via
+      `expo-file-system` and embedded directly in the message.
+    </PropertyReference>
+
+    <PropertyReference name="onUploadFailed" type="(error: { reason: AttachmentUploadErrorReason; file: NativeFileInput; message: string }) => void">
+      Called when an attachment fails validation (e.g. wrong type or too large)
+      or upload.
+    </PropertyReference>
+
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+<PropertyReference name="attachments" type="Attachment[]">
+  Currently selected attachments (uploading + ready).
+</PropertyReference>
+
+<PropertyReference name="enabled" type="boolean">
+  Whether attachments are enabled.
+</PropertyReference>
+
+<PropertyReference name="openPicker" type="() => Promise<void>">
+  Open the native document picker (via `expo-document-picker`) and process the
+  selected files.
+</PropertyReference>
+
+<PropertyReference name="processFiles" type="(files: NativeFileInput[]) => Promise<void>">
+  Validate, read, and add an array of files to the attachment queue. Useful
+  when you source files from somewhere other than the document picker.
+</PropertyReference>
+
+<PropertyReference name="removeAttachment" type="(id: string) => void">
+  Remove an attachment from the queue by ID.
+</PropertyReference>
+
+<PropertyReference name="consumeAttachments" type="() => Attachment[]">
+  Return the ready attachments and clear the queue. Call this when submitting a
+  message.
+</PropertyReference>
+
+### `NativeFileInput`
+
+The React Native equivalent of the web `File` object.
+
+<PropertyReference name="uri" type="string">
+  Local file URI, e.g. `file:///path/to/file`.
+</PropertyReference>
+
+<PropertyReference name="name" type="string">
+  Filename with extension.
+</PropertyReference>
+
+<PropertyReference name="size" type="number">
+  File size in bytes.
+</PropertyReference>
+
+<PropertyReference name="mimeType" type="string">
+  MIME type, e.g. `"image/jpeg"`.
+</PropertyReference>
+
+## Usage
+
+```tsx
+import { useAttachments } from "@copilotkit/react-native";
+import { getSourceUrl } from "@copilotkit/shared";
+import { Button, Image, View } from "react-native";
+
+function Composer() {
+  const { attachments, openPicker, removeAttachment } = useAttachments({
+    config: {
+      enabled: true,
+      accept: "image/*,application/pdf",
+      maxSize: 10 * 1024 * 1024,
+    },
+  });
+
+  return (
+    <View>
+      <Button title="Attach file" onPress={openPicker} />
+      {attachments.map((a) => (
+        <Image
+          key={a.id}
+          source={{ uri: getSourceUrl(a.source) }}
+          style={{ width: 48, height: 48 }}
+        />
+      ))}
+    </View>
+  );
+}
+```
+
+Each `Attachment` exposes its content as a `source` (a base64 data source or a
+URL source), not a ready-made URL. `getSourceUrl` from `@copilotkit/shared`
+converts either form to a string you can pass to `Image`.
+
+Most apps enable attachments declaratively through `CopilotChat` instead:
+
+```tsx
+<CopilotChat agentId="default" attachments={{ enabled: true, accept: "image/*" }}>
+  <MyChatUI />
+</CopilotChat>
+```
+
+## Related
+
+- [`CopilotChat`](/reference/react-native/components/CopilotChat): wires up attachments via its `attachments` prop and exposes `openPicker` / `removeAttachment` through `useCopilotChatContext`

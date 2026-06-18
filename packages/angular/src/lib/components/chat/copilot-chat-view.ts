@@ -16,6 +16,7 @@ import {
   AfterViewInit,
   input,
   output,
+  inject,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
 import { CopilotSlot } from "../../slots/copilot-slot";
@@ -24,12 +25,18 @@ import { CopilotChatViewScrollToBottomButton } from "./copilot-chat-view-scroll-
 import { CopilotChatViewFeather } from "./copilot-chat-view-feather";
 import { CopilotChatViewInputContainer } from "./copilot-chat-view-input-container";
 import { CopilotChatViewDisclaimer } from "./copilot-chat-view-disclaimer";
+import { CopilotChatInput } from "./copilot-chat-input";
+import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
+import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 import { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
 import { ResizeObserverService } from "../../resize-observer";
 import { CopilotChatViewHandlers } from "./copilot-chat-view-handlers";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";
+import { ChatState } from "../../chat-state";
+import { LucideAngularModule, Upload } from "lucide-angular";
+import { injectChatLabels } from "../../chat-config";
 
 /**
  * CopilotChatView component - Angular port of the React component.
@@ -45,12 +52,19 @@ import { takeUntil } from "rxjs/operators";
  * ```
  */
 @Component({
-  standalone: true,
   selector: "copilot-chat-view",
-  imports: [CommonModule, CopilotSlot, CopilotChatViewScrollView],
+  imports: [
+    CommonModule,
+    CopilotSlot,
+    CopilotChatViewScrollView,
+    CopilotChatAttachmentQueue,
+    CopilotChatSuggestionView,
+    LucideAngularModule,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   providers: [ResizeObserverService, CopilotChatViewHandlers],
+  host: { class: "cpk:block cpk:h-full cpk:min-h-0" },
   template: `
     <!-- Custom layout template support (render prop pattern) -->
     @if (customLayoutTemplate) {
@@ -58,15 +72,105 @@ import { takeUntil } from "rxjs/operators";
         [ngTemplateOutlet]="customLayoutTemplate"
         [ngTemplateOutletContext]="layoutContext()"
       ></ng-container>
+    } @else if (shouldShowWelcomeScreen()) {
+      <div
+        [class]="computedClass()"
+        (dragover)="chatState?.handleDragOver($event)"
+        (dragleave)="chatState?.handleDragLeave($event)"
+        (drop)="chatState?.handleDrop($event)"
+      >
+        @if (chatState?.dragOver?.()) {
+          <div [class]="dropOverlayClass()">
+            <div
+              class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70"
+            >
+              <lucide-angular [img]="UploadIcon" [size]="32"></lucide-angular>
+              <span class="cpk:text-sm cpk:font-medium">Drop files here</span>
+            </div>
+          </div>
+        }
+
+        <div
+          data-testid="copilot-welcome-screen"
+          class="cpk:flex-1 cpk:flex cpk:flex-col cpk:items-center cpk:justify-center cpk:px-4"
+        >
+          <div
+            class="cpk:w-full cpk:max-w-3xl cpk:flex cpk:flex-col cpk:items-center"
+          >
+            <div class="cpk:mb-6">
+              <h1
+                class="cpk:text-xl cpk:sm:text-2xl cpk:font-medium cpk:text-foreground cpk:text-center"
+              >
+                {{ labels.welcomeMessageText }}
+              </h1>
+            </div>
+
+            <div class="cpk:w-full">
+              @if ((chatState?.attachments?.() ?? []).length > 0) {
+                <copilot-chat-attachment-queue
+                  [attachments]="chatState?.attachments?.() ?? []"
+                  inputClass="cpk:mb-2"
+                  (removeAttachment)="chatState?.removeAttachment($event)"
+                />
+              }
+
+              <copilot-slot
+                [slot]="inputSlot()"
+                [context]="{ inputClass: undefined }"
+                [defaultComponent]="defaultInputComponent"
+              >
+              </copilot-slot>
+
+              <copilot-slot
+                [slot]="disclaimerSlot()"
+                [context]="{
+                  text: disclaimerTextSignal(),
+                  inputClass: disclaimerClassSignal(),
+                }"
+                [defaultComponent]="defaultDisclaimerComponent"
+              >
+              </copilot-slot>
+            </div>
+
+            @if ((chatState?.suggestions?.() ?? []).length > 0) {
+              <div class="cpk:mt-4 cpk:flex cpk:justify-center">
+                <copilot-chat-suggestion-view
+                  [suggestions]="chatState?.suggestions?.() ?? []"
+                  (selectSuggestion)="
+                    chatState?.selectSuggestion($event.suggestion, $event.index)
+                  "
+                />
+              </div>
+            }
+          </div>
+        </div>
+      </div>
     } @else {
       <!-- Default layout - exact React DOM structure -->
-      <div [class]="computedClass()">
+      <div
+        [class]="computedClass()"
+        (dragover)="chatState?.handleDragOver($event)"
+        (dragleave)="chatState?.handleDragLeave($event)"
+        (drop)="chatState?.handleDrop($event)"
+      >
+        @if (chatState?.dragOver?.()) {
+          <div [class]="dropOverlayClass()">
+            <div
+              class="cpk:flex cpk:flex-col cpk:items-center cpk:gap-2 cpk:text-primary/70"
+            >
+              <lucide-angular [img]="UploadIcon" [size]="32"></lucide-angular>
+              <span class="cpk:text-sm cpk:font-medium">Drop files here</span>
+            </div>
+          </div>
+        }
+
         <!-- ScrollView -->
         <copilot-chat-view-scroll-view
           [autoScroll]="autoScrollSignal()"
           [inputContainerHeight]="inputContainerHeight()"
           [isResizing]="isResizing()"
           [messages]="messagesValue()"
+          [agentId]="agentId()"
           [messageView]="messageViewSlot()"
           [messageViewClass]="messageViewClass()"
           [scrollToBottomButton]="scrollToBottomButtonSlot()"
@@ -105,9 +209,13 @@ export class CopilotChatView
   implements OnInit, OnChanges, AfterViewInit, OnDestroy
 {
   // Core inputs matching React props
+  protected readonly chatState = inject(ChatState, { optional: true });
+  protected readonly UploadIcon = Upload;
   messages = input<Message[]>([]);
+  agentId = input<string | undefined>();
   autoScroll = input<boolean>(true);
   showCursor = input<boolean>(false);
+  hasExplicitThreadId = input<boolean>(false);
 
   // MessageView slot inputs
   messageViewComponent = input<Type<any> | undefined>(undefined);
@@ -179,8 +287,10 @@ export class CopilotChatView
     CopilotChatViewScrollToBottomButton;
   protected readonly defaultInputContainerComponent =
     CopilotChatViewInputContainer;
+  protected readonly defaultInputComponent = CopilotChatInput;
   protected readonly defaultFeatherComponent = CopilotChatViewFeather;
   protected readonly defaultDisclaimerComponent = CopilotChatViewDisclaimer;
+  protected readonly labels = injectChatLabels();
 
   // Signals for reactive state
   protected messagesValue = computed(() => this.messages());
@@ -190,12 +300,22 @@ export class CopilotChatView
   protected disclaimerClassSignal = computed(() => this.disclaimerClass());
   protected inputContainerHeight = signal<number>(0);
   protected isResizing = signal<boolean>(false);
-  protected contentPaddingBottom = computed(
-    () => this.inputContainerHeight() + 32,
+  protected shouldShowWelcomeScreen = computed(
+    () => this.messagesValue().length === 0 && !this.hasExplicitThreadId(),
   );
 
   // Computed signals
-  protected computedClass = computed(() => cn("relative h-full"));
+  protected computedClass = computed(() =>
+    cn("copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col"),
+  );
+  protected dropOverlayClass = computed(() =>
+    cn(
+      "cpk:absolute cpk:inset-0 cpk:z-50 cpk:pointer-events-none",
+      "cpk:flex cpk:items-center cpk:justify-center",
+      "cpk:bg-primary/5 cpk:backdrop-blur-[2px]",
+      "cpk:border-2 cpk:border-dashed cpk:border-primary/40 cpk:rounded-lg cpk:m-2",
+    ),
+  );
 
   // Slot resolution computed signals
   protected messageViewSlot = computed(
@@ -236,6 +356,7 @@ export class CopilotChatView
     inputContainerHeight: this.inputContainerHeight(),
     isResizing: this.isResizing(),
     messages: this.messagesValue(),
+    agentId: this.agentId(),
     messageView: this.messageViewSlot(),
     messageViewClass: this.messageViewClass(),
   }));

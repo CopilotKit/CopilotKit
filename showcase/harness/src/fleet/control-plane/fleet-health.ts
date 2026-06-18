@@ -54,9 +54,10 @@ import type { JobClaimClient, JobView } from "../job-claim.js";
 import { PROBE_JOBS_COLLECTION } from "../queue-client.js";
 import {
   WORKERS_COLLECTION,
+  heartbeatParseable,
   isWorkerStale,
+  deriveHealth,
   type PoolCommError,
-  type WorkerHealthState,
 } from "../contracts.js";
 
 /**
@@ -68,6 +69,18 @@ import {
  * wiring slot via WORKER_STALE_AFTER_MS.
  */
 export const DEFAULT_WORKER_STALE_AFTER_MS = 180_000;
+
+/**
+ * Default GC window: a worker whose `last_heartbeat_at` is older than this is a
+ * long-dead row from a prior deploy generation (a crashed/replaced worker that
+ * never deregistered) — fleet-health DELETES it from the roster rather than
+ * counting it unhealthy and pointlessly "reclaiming"/restart-attempting it every
+ * cycle forever. Sized at 24h, vastly larger than `staleAfterMs` (180s) so a
+ * merely-stale (still-recoverable) worker is NEVER GC'd — only generations long
+ * past any plausible recovery. Env-overridable by the wiring slot via
+ * WORKER_GC_AFTER_MS.
+ */
+export const DEFAULT_WORKER_GC_AFTER_MS = 86_400_000;
 
 /** Max worker rows scanned per monitor cycle — bounds the roster read cost. */
 const WORKERS_PAGE = 100;
@@ -132,6 +145,13 @@ export interface FleetHealthResult {
   reclaimedOverlays: ReclaimedCommError[];
   /** Restart-hook invocations attempted this cycle. */
   restartsAttempted: number;
+  /**
+   * Long-dead roster rows GC-deleted this cycle (heartbeat older than
+   * `gcAfterMs`). These are NOT counted in `unhealthy` and are NOT
+   * reclaimed/restart-attempted — they are leftover rows from prior deploy
+   * generations being pruned so the roster stops accumulating ghost rows.
+   */
+  gcDeleted: number;
 }
 
 export interface FleetHealthDeps {
@@ -141,6 +161,15 @@ export interface FleetHealthDeps {
   logger: Logger;
   /** Staleness window (ms). Default `DEFAULT_WORKER_STALE_AFTER_MS`. */
   staleAfterMs?: number;
+  /**
+   * GC window (ms): roster rows whose heartbeat is older than this are deleted
+   * (long-dead prior-generation rows) rather than reclaimed. Default
+   * `DEFAULT_WORKER_GC_AFTER_MS` (24h). MUST be >> `staleAfterMs` so a
+   * recoverable worker is never GC'd — ENFORCED at construction:
+   * `createFleetHealthMonitor` throws if the resolved `gcAfterMs` does not
+   * strictly exceed the resolved `staleAfterMs`.
+   */
+  gcAfterMs?: number;
   /** Injectable clock (tests). Returns ms-since-epoch. Defaults to Date.now. */
   now?: () => number;
   /**
@@ -161,27 +190,32 @@ export interface FleetHealthMonitor {
   checkOnce(): Promise<FleetHealthResult>;
 }
 
-/** Derive a worker's liveness from its heartbeat age. */
-function deriveHealth(
-  lastHeartbeatAt: string,
-  nowMs: number,
-  staleAfterMs: number,
-): WorkerHealthState {
-  // OFFLINE is a stronger stale: heartbeat older than 2x the window. We don't
-  // act differently on stale vs offline (both reclaim), but the distinction is
-  // surfaced in logs so an operator can tell a briefly-missed-beat worker from
-  // a long-dead one.
-  if (isWorkerStale(lastHeartbeatAt, nowMs, staleAfterMs * 2)) return "offline";
-  if (isWorkerStale(lastHeartbeatAt, nowMs, staleAfterMs)) return "stale";
-  return "online";
-}
-
 export function createFleetHealthMonitor(
   deps: FleetHealthDeps,
 ): FleetHealthMonitor {
   const { pb, claim, logger } = deps;
   const staleAfterMs = deps.staleAfterMs ?? DEFAULT_WORKER_STALE_AFTER_MS;
+  const gcAfterMs = deps.gcAfterMs ?? DEFAULT_WORKER_GC_AFTER_MS;
+  // Fail-loud at construction: GC runs FIRST in the cycle, so if the GC window
+  // does not strictly exceed the stale window, a merely-stale (recoverable)
+  // worker is GC-DELETED before its in-flight jobs are reclaimed — the jobs
+  // wedge until lease expiry and the crashed-worker overlay never fires. The
+  // two windows are independently env-overridable (WORKER_GC_AFTER_MS /
+  // WORKER_STALE_AFTER_MS via the wiring slot), so an unsafe combo is a
+  // misconfiguration — die immediately (visible in deploy CI / Railway
+  // health-check) rather than silently mis-GC every cycle. Mirrors the
+  // worker-loop heartbeatMs/leaseSeconds fail-loud idiom.
+  if (gcAfterMs <= staleAfterMs) {
+    throw new Error(
+      `Unsafe fleet-health config: gcAfterMs (${gcAfterMs}, env WORKER_GC_AFTER_MS) must be > staleAfterMs (${staleAfterMs}, env WORKER_STALE_AFTER_MS); otherwise GC deletes a merely-stale (recoverable) worker's roster row before its in-flight jobs are reclaimed, wedging those jobs until lease expiry with no crashed-worker overlay.`,
+    );
+  }
   const now = deps.now ?? Date.now;
+  // Whether a REAL restart hook was injected (staging Railway redeploy) vs the
+  // default no-op. Used to demote the misleading `restartsAttempted` metric: a
+  // no-op hook against a ghost row that reclaimed nothing was counting a
+  // "restart attempt" that never did anything, inflating the metric every cycle.
+  const hasRealRestartHook = typeof deps.restartWorker === "function";
   // Default restart is a no-op (local docker handles recovery). The wiring slot
   // injects the Railway serviceInstanceRedeploy hook in staging.
   const restartWorker: RestartWorkerHook = deps.restartWorker ?? (() => {});
@@ -214,7 +248,16 @@ export function createFleetHealthMonitor(
     let page: { items: JobView[] };
     try {
       page = await pb.list<JobView>(PROBE_JOBS_COLLECTION, {
-        filter: `(status = "claimed" || status = "running") && claimed_by = "${workerId}"`,
+        // `workerId` is read back from the workers roster row (DB-sourced, not
+        // a compile-time constant). The rest of the codebase deliberately
+        // neutralizes this sink class — orchestrator.ts:3240 already uses
+        // `JSON.stringify(workerId)` for the same field, queue-client uses the
+        // shared `escapeFilterLiteral` helper. A `"`-bearing worker_id (corrupt
+        // row, buggy self-registration) would otherwise break out of the
+        // literal and either throw the list (silently skipping this worker's
+        // reclaim every cycle) or widen the filter to claim OTHER workers'
+        // jobs. Match the sibling escape pattern.
+        filter: `(status = "claimed" || status = "running") && claimed_by = ${JSON.stringify(workerId)}`,
         perPage: RECLAIM_PAGE,
         skipTotal: true,
       });
@@ -292,6 +335,7 @@ export function createFleetHealthMonitor(
           commErrors: [],
           reclaimedOverlays: [],
           restartsAttempted: 0,
+          gcDeleted: 0,
         };
       }
 
@@ -299,14 +343,58 @@ export function createFleetHealthMonitor(
       let unhealthy = 0;
       let reclaimed = 0;
       let restartsAttempted = 0;
+      let gcDeleted = 0;
+      // Per-cycle count of roster rows whose heartbeat the contract parser
+      // can't read (see the unparseable-heartbeat warn below) — surfaced on
+      // the cycle log so a persistently corrupt row shows up as a number, not
+      // just warn-stream noise.
+      let unparseableHeartbeats = 0;
       const commErrors: PoolCommError[] = [];
       const reclaimedOverlays: ReclaimedCommError[] = [];
 
       for (const row of page.items) {
+        // GC FIRST — even before the missing-worker-id guard: a row whose
+        // heartbeat is older than `gcAfterMs` is a long-dead prior-generation
+        // row (crashed/replaced worker that never deregistered). DELETE it
+        // best-effort and skip health/reclaim/restart — its jobs, if any, are
+        // long-since lease-expired and handled by the producer's sweepExpired,
+        // so reclaiming/restart-attempting it every cycle was pure noise
+        // (inflating unhealthy/restartsAttempted forever). The delete only
+        // needs `row.id`, so an ancient row with a missing/empty worker_id is
+        // GC'd too — otherwise it would warn every cycle forever, the exact
+        // perpetual noise GC exists to eliminate. A parseable timestamp older
+        // than the GC cutoff is required; an unparseable one falls through to
+        // the existing stale-handling warn.
+        if (
+          typeof row.last_heartbeat_at === "string" &&
+          !Number.isNaN(Date.parse(row.last_heartbeat_at)) &&
+          nowMs - Date.parse(row.last_heartbeat_at) > gcAfterMs
+        ) {
+          try {
+            await pb.delete(WORKERS_COLLECTION, row.id);
+            gcDeleted += 1;
+            logger.info("fleet.health.gc-deleted", {
+              workerId: row.worker_id ?? "<missing>",
+              rowId: row.id,
+              lastHeartbeatAt: row.last_heartbeat_at,
+              gcAfterMs,
+            });
+          } catch (err) {
+            // Best-effort: a failed delete must NOT abort the cycle (same
+            // discipline as reclaim). The row simply survives to the next cycle.
+            logger.warn("fleet.health.gc-failed", {
+              workerId: row.worker_id ?? "<missing>",
+              rowId: row.id,
+              err: err instanceof Error ? err.message : String(err),
+            });
+          }
+          continue;
+        }
         const workerId = row.worker_id;
         if (typeof workerId !== "string" || workerId.length === 0) {
           // A roster row without a usable worker_id can't be joined to claims —
-          // skip it rather than reclaim against an empty owner.
+          // skip it rather than reclaim against an empty owner. (Malformed but
+          // NOT GC-old: the GC branch above already handled ancient rows.)
           logger.warn("fleet.health.row-missing-worker-id", { rowId: row.id });
           continue;
         }
@@ -314,11 +402,16 @@ export function createFleetHealthMonitor(
         // false (treat-unknown-as-not-yet-stale) so a malformed row can't flap
         // the whole fleet to offline — but a PERSISTENTLY bad timestamp means
         // this worker silently never gets reclaimed. Warn so the orphaned row is
-        // visible to an operator (the next valid heartbeat clears it).
+        // visible to an operator (the next valid heartbeat clears it). The
+        // predicate is the contract's `heartbeatParseable` companion — the
+        // EXACT complement of what `isWorkerStale` can see (same PB space-form
+        // normalization) — not a raw engine-lenient `Date.parse`, so the warn
+        // fires precisely when the staleness check is blind.
         if (
           typeof row.last_heartbeat_at !== "string" ||
-          Number.isNaN(Date.parse(row.last_heartbeat_at))
+          !heartbeatParseable(row.last_heartbeat_at)
         ) {
+          unparseableHeartbeats += 1;
           logger.warn("fleet.health.unparseable-heartbeat", {
             workerId,
             lastHeartbeatAt: row.last_heartbeat_at,
@@ -345,23 +438,49 @@ export function createFleetHealthMonitor(
 
         // RESTART (best-effort): recover the wedged worker. Default no-op
         // locally; staging injects the Railway serviceInstanceRedeploy hook.
-        restartsAttempted += 1;
-        try {
-          await restartWorker(workerId);
-        } catch (err) {
-          logger.warn("fleet.health.restart-failed", {
+        //
+        // DEMOTED METRIC: only count a restart ATTEMPT when it means something —
+        // i.e. a REAL restart hook is wired (staging Railway redeploy) OR this
+        // worker actually had in-flight work we reclaimed. Under the default
+        // no-op hook a ghost row that reclaimed zero jobs was previously counted
+        // as a "restart attempt" every cycle, inflating restartsAttempted with a
+        // number that described nothing. GC now prunes the long-dead rows; for
+        // the remaining recently-stale rows, don't pretend a no-op did a restart.
+        const restartIsMeaningful = hasRealRestartHook || out.reclaimed > 0;
+        if (restartIsMeaningful) {
+          restartsAttempted += 1;
+          try {
+            await restartWorker(workerId);
+          } catch (err) {
+            logger.warn("fleet.health.restart-failed", {
+              workerId,
+              err: err instanceof Error ? err.message : String(err),
+            });
+          }
+        } else {
+          // Intentionally unwired: a recently-stale ghost row with nothing to
+          // reclaim under the no-op hook. Log at debug, not info, so the metric
+          // stops claiming a restart that never happened.
+          logger.debug("fleet.health.restart-skipped", {
             workerId,
-            err: err instanceof Error ? err.message : String(err),
+            msg: "no-op restart hook and nothing reclaimed — not counting a restart attempt",
           });
         }
       }
 
-      if (unhealthy > 0 || reclaimed > 0) {
+      if (
+        unhealthy > 0 ||
+        reclaimed > 0 ||
+        gcDeleted > 0 ||
+        unparseableHeartbeats > 0
+      ) {
         logger.info("fleet.health.cycle", {
           online,
           unhealthy,
           reclaimed,
           restartsAttempted,
+          gcDeleted,
+          unparseableHeartbeats,
         });
       }
 
@@ -372,6 +491,7 @@ export function createFleetHealthMonitor(
         commErrors,
         reclaimedOverlays,
         restartsAttempted,
+        gcDeleted,
       };
     },
   };

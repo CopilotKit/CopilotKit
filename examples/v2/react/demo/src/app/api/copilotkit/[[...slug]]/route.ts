@@ -4,12 +4,31 @@ import {
   InMemoryAgentRunner,
   BuiltInAgent,
 } from "@copilotkit/runtime/v2";
+import type { BuiltInAgentClassicConfig } from "@copilotkit/runtime/v2";
+import { createOpenAI } from "@ai-sdk/openai";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import { handle } from "hono/vercel";
 import OpenAI from "openai";
 
-const determineModel = () => {
-  if (process.env.OPENAI_API_KEY?.trim()) {
+const openRouterApiKey = process.env.OPENROUTER_API_KEY?.trim();
+const openAIApiKey = process.env.OPENAI_API_KEY?.trim();
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";
+
+const determineOpenRouterModelId = () => {
+  return process.env.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL;
+};
+
+const determineModel = (): BuiltInAgentClassicConfig["model"] => {
+  if (openRouterApiKey) {
+    const openrouter = createOpenAI({
+      apiKey: openRouterApiKey,
+      baseURL: process.env.OPENROUTER_BASE_URL?.trim() || OPENROUTER_BASE_URL,
+    });
+
+    return openrouter(determineOpenRouterModelId());
+  }
+  if (openAIApiKey) {
     return "openai/gpt-5.2";
   }
   if (process.env.ANTHROPIC_API_KEY?.trim()) {
@@ -27,8 +46,11 @@ const builtInAgent = new BuiltInAgent({
   prompt:
     "You are a helpful AI assistant. Use reasoning to answer the user's question. If you don't know the answer, say you don't know.",
   providerOptions: {
-    openai: { reasoningEffort: "high", reasoningSummary: "detailed" },
-    ...(!process.env.OPENAI_API_KEY?.trim() &&
+    ...(openAIApiKey
+      ? { openai: { reasoningEffort: "high", reasoningSummary: "detailed" } }
+      : {}),
+    ...(!openAIApiKey &&
+      !openRouterApiKey &&
       !!process.env.ANTHROPIC_API_KEY?.trim() && {
         anthropic: { thinking: { type: "enabled", budgetTokens: 5000 } },
       }),
@@ -36,9 +58,9 @@ const builtInAgent = new BuiltInAgent({
 });
 
 // Set up transcription service if OpenAI API key is available
-const transcriptionService = process.env.OPENAI_API_KEY?.trim()
+const transcriptionService = openAIApiKey
   ? new TranscriptionServiceOpenAI({
-      openai: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+      openai: new OpenAI({ apiKey: openAIApiKey }),
     })
   : undefined;
 

@@ -71,9 +71,12 @@ base_model = ChatOpenAI(model="gpt-4o")
 
 TOOLS = [
     get_a2ui_tools(
-        model=base_model,
-        default_catalog_id="https://a2ui.org/demos/dojo/dynamic_catalog.json",
-        composition_guide=COMPOSITION_GUIDE,  # how the subagent should use your components
+        {
+            "model": base_model,
+            "default_catalog_id": "https://a2ui.org/demos/dojo/dynamic_catalog.json",
+            # guidelines: optional generation/design/composition prompt knobs
+            "guidelines": {"composition_guide": COMPOSITION_GUIDE},
+        }
     )
 ]
 
@@ -91,11 +94,11 @@ workflow.add_edge("tool_node", "chat_node")
 graph = workflow.compile()
 ```
 
-`get_a2ui_tools(model, default_catalog_id=..., composition_guide=...)` is the same factory the middleware uses under the hood:
+`get_a2ui_tools(params)` takes a single `A2UIToolParams` object — the same factory the middleware uses under the hood:
 
 - **`model`** — the secondary LLM that designs the surface.
 - **`default_catalog_id`** — binds generated surfaces to your catalog (BYOC). Catalog ownership stays with the host; the model never picks it.
-- **`composition_guide`** — optional rules appended to the subagent's prompt telling it which components exist and how to compose them.
+- **`guidelines`** — optional prompt knobs: `composition_guide` (which components exist and how to compose them), plus `generation_guidelines` / `design_guidelines` to override the built-in generation/design defaults.
 
 ## Progressive streaming
 

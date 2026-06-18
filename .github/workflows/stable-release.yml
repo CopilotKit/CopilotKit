@@ -10,6 +10,8 @@ on:
         options:
           - monorepo
           - angular
+          - bot
+          - bot-slack
       bump:
         description: "Version bump level"
         required: true

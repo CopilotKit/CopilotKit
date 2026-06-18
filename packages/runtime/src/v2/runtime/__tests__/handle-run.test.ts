@@ -287,6 +287,29 @@ describe("handleRunAgent", () => {
     expect(useSpy).not.toHaveBeenCalled();
   });
 
+  it("does not apply A2UIMiddleware when a2ui.enabled is false", async () => {
+    const { agent, useSpy } = createMockAgentWithUse();
+
+    const runtime = {
+      agents: Promise.resolve({ "my-agent": agent }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: createMockRunner(),
+      // Config object present but explicitly disabled — the run path must
+      // honor the opt-out, not just `!!runtime.a2ui`.
+      a2ui: { enabled: false, injectA2UITool: true },
+    } as unknown as CopilotRuntime;
+
+    await handleRunAgent({
+      runtime,
+      request: createRunRequest(),
+      agentId: "my-agent",
+    });
+
+    expect(useSpy).not.toHaveBeenCalled();
+  });
+
   describe("IntelligenceAgentRunner realtime credentials path", () => {
     /** Loose mock type for CopilotKitIntelligence — avoids `as any` while the class has private fields. */
     interface MockIntelligencePlatform {
@@ -408,6 +431,7 @@ describe("handleRunAgent", () => {
       });
       expect(platform.getThreadMessages).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
       });
     });
 

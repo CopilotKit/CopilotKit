@@ -1,23 +1,25 @@
-// /<...slug> — the framework-agnostic docs entry point.
+// /<...slug> — the root docs entry point.
 //
-// When a framework is already selected (URL-scoped or from localStorage
-// via <RouterPivot>'s useEffect), the user is auto-redirected to
-// `/<framework>/<slug>`. Otherwise we render a "pick an agentic
-// backend" pivot UI above the page title and hide the MDX body until
-// the user chooses one — code without a backend context is incomplete.
+// The Built-in Agent (the default framework) is served at the root
+// surface: the bare `/` renders the docs overview with the BIA sidebar,
+// and `/<slug>` URLs resolve BIA-authored pages first (see
+// UnscopedDocsPage). Other frameworks remain at `/<framework>/<slug>`.
 
 import React from "react";
 import type { Metadata } from "next";
 import { DocsLandingNext } from "@/components/docs-landing-next";
-import { HeroCommandCopy } from "@/components/hero-command-copy";
 import { HeroQuickstartDropdown } from "@/components/hero-quickstart-dropdown";
+import {
+  HeroStartActions,
+  LearnMoreAgentsLink,
+} from "@/components/hero-start-commands";
 import { LandingSampleTabs } from "@/components/landing-sample-tabs";
 import { ShellDocsLayout } from "@/components/shell-docs-layout";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import {
   buildFrameworkNav,
-  buildFrameworkOnlyNav,
+  buildRootSurfaceNav,
   loadDoc,
 } from "@/lib/docs-render";
 import { compareByDisplayOrder } from "@/lib/framework-order";
@@ -27,6 +29,7 @@ import {
   getDocsMode,
   getIntegration,
   getIntegrations,
+  ROOT_FRAMEWORK,
 } from "@/lib/registry";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 
@@ -38,11 +41,11 @@ import { buildDocMetadata } from "@/lib/seo-metadata";
 // successful responses at the edge anyway.
 export const dynamic = "force-dynamic";
 
-// Soft-default framework rendered on the bare `/` URL. Hardcoding BIA
-// here keeps the sidebar tree on `/` identical to what the user sees
-// after clicking any Built-in Agent sidebar link.
-const HOME_DEFAULT_FRAMEWORK = "built-in-agent";
-const CREATE_COMMAND = "npx copilotkit@latest create";
+// Soft-default framework rendered on the bare `/` URL — the same
+// framework whose docs are served at the root surface, so the sidebar
+// tree on `/` is identical to what the user sees after clicking any
+// Built-in Agent sidebar link.
+const HOME_DEFAULT_FRAMEWORK = ROOT_FRAMEWORK;
 
 // Per-framework self-canonical: each variant of a doc page declares
 // itself canonical so search engines index every framework's quickstart
@@ -70,7 +73,12 @@ export async function generateMetadata({
       canonicalPath: "/",
     });
   }
-  const doc = loadDoc(slugPath);
+  // Root URLs serve the BIA-authored page when one exists (see
+  // UnscopedDocsPage) — mirror that resolution for metadata.
+  const doc =
+    loadDoc(
+      `integrations/${getDocsFolder(HOME_DEFAULT_FRAMEWORK)}/${slugPath}`,
+    ) ?? loadDoc(slugPath);
   return buildDocMetadata({
     title: doc?.fm.title ?? slugPath,
     description: doc?.fm.description,
@@ -80,48 +88,26 @@ export async function generateMetadata({
 }
 
 function DocsOverview() {
-  // Sidebar matches the soft-default framework so home `/` and
-  // post-click `/built-in-agent/...` views share the same authored IA.
+  // Sidebar matches the soft-default framework so home `/` and the
+  // root-served BIA pages share the same authored IA. The empty href
+  // prefix serves every sidebar link at the root (`/quickstart`, …);
+  // the tree's `index` entry resolves to `/` and gets the active
+  // highlight on landing.
   const docsFolder = getDocsFolder(HOME_DEFAULT_FRAMEWORK);
   const integrationName =
     getIntegration(HOME_DEFAULT_FRAMEWORK)?.name ?? "Built-in Agent";
+  // Same unified root-surface sidebar every other root page uses, so the
+  // sidebar is stable from the home page into any doc.
   const navTree =
     getDocsMode(HOME_DEFAULT_FRAMEWORK) === "authored"
-      ? buildFrameworkOnlyNav(docsFolder)
+      ? buildRootSurfaceNav(docsFolder)
       : buildFrameworkNav(docsFolder, integrationName, HOME_DEFAULT_FRAMEWORK);
-  const pageTree = navTreeToPageTree(navTree, `/${HOME_DEFAULT_FRAMEWORK}`);
+  const pageTree = navTreeToPageTree(navTree, "");
 
-  // Rewrite the Introduction entry's URL from `/built-in-agent` (or
-  // `/built-in-agent/index`) to `/` so it matches the home-page URL and
-  // gets the active highlight on landing. Walk the tree recursively
-  // because Fumadocs's PageTree can nest pages inside folders.
-  const homeUrlCandidates = new Set([
-    `/${HOME_DEFAULT_FRAMEWORK}`,
-    `/${HOME_DEFAULT_FRAMEWORK}/`,
-    `/${HOME_DEFAULT_FRAMEWORK}/index`,
-  ]);
-  type PT = (typeof pageTree.children)[number];
-  const rewriteUrls = (nodes: readonly PT[]): PT[] =>
-    nodes.map((node): PT => {
-      if (node.type === "page" && homeUrlCandidates.has(node.url)) {
-        return { ...node, url: "/" };
-      }
-      if (node.type === "folder") {
-        const next: typeof node = {
-          ...node,
-          children: rewriteUrls(node.children) as typeof node.children,
-        };
-        if (node.index && homeUrlCandidates.has(node.index.url)) {
-          next.index = { ...node.index, url: "/" };
-        }
-        return next;
-      }
-      return node;
-    });
-  const homePageTree = {
-    ...pageTree,
-    children: rewriteUrls(pageTree.children),
-  };
+  // The home hero has no framework context, so its quickstart CTA is the
+  // framework picker dropdown (same accent treatment as the framework pages'
+  // direct quickstart link). The default framework sorts first; its
+  // quickstart lives at the root.
   const quickstartOptions = getIntegrations()
     .filter((i) => getDocsMode(i.slug) !== "hidden")
     .slice()
@@ -134,11 +120,13 @@ function DocsOverview() {
       slug: i.slug,
       name: i.slug === HOME_DEFAULT_FRAMEWORK ? "CopilotKit (Default)" : i.name,
       logo: i.logo ?? null,
-      href: `/${i.slug}/quickstart`,
+      href:
+        i.slug === HOME_DEFAULT_FRAMEWORK
+          ? "/quickstart"
+          : `/${i.slug}/quickstart`,
     }));
-
   return (
-    <ShellDocsLayout tree={homePageTree} banner={<SidebarFrameworkSelector />}>
+    <ShellDocsLayout tree={pageTree} banner={<SidebarFrameworkSelector />}>
       <div className="docs-inner-content max-w-[1040px] mx-auto px-4 md:px-6 pt-0 pb-6">
         <section className="relative border-b border-[var(--border)] pb-6 sm:pb-7">
           <div className="flex max-w-[765px] flex-col">
@@ -154,9 +142,13 @@ function DocsOverview() {
                 human-in-the-loop workflows on any AG-UI compatible backend.
               </p>
             </div>
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <HeroQuickstartDropdown options={quickstartOptions} />
-              <HeroCommandCopy command={CREATE_COMMAND} />
+            <div className="mt-7">
+              <HeroStartActions
+                quickstart={
+                  <HeroQuickstartDropdown options={quickstartOptions} />
+                }
+                trailing={<LearnMoreAgentsLink />}
+              />
             </div>
           </div>
         </section>

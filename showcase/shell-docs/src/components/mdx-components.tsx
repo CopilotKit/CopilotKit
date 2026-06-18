@@ -46,6 +46,7 @@ export function Card({
   const resolvedHref = href?.replace(/^\/reference\/v2\//, "/reference/");
   const mergedClassName = [
     "shell-docs-radius-surface border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text)] shadow-[var(--shadow-control)]",
+    "[&_h3]:!mt-0 [&_h3]:!mb-1.5 [&_h3]:!text-base [&_h3]:!font-semibold [&_h3]:!leading-snug [&_p]:!text-sm [&_p]:!leading-relaxed",
     href
       ? "not-prose hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
       : null,

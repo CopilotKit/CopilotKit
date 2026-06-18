@@ -1,0 +1,119 @@
+import { Injectable, signal } from "@angular/core";
+import { TestBed } from "@angular/core/testing";
+import { beforeEach, describe, expect, it } from "vitest";
+import { CopilotChatView } from "../copilot-chat-view";
+import { ChatState } from "../../../chat-state";
+import { provideCopilotKit } from "../../../config";
+import type { Message } from "@ag-ui/core";
+
+@Injectable()
+class ChatStateStub extends ChatState {
+  readonly inputValue = signal("");
+
+  submitInput(value: string): void {
+    this.inputValue.set(value);
+  }
+
+  changeInput(value: string): void {
+    this.inputValue.set(value);
+  }
+}
+
+describe("CopilotChatView", () => {
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: () => undefined,
+    });
+    TestBed.configureTestingModule({
+      imports: [CopilotChatView],
+      providers: [
+        provideCopilotKit({
+          licenseKey: "ck_pub_00000000000000000000000000000000",
+        }),
+        { provide: ChatState, useClass: ChatStateStub },
+      ],
+    });
+  });
+
+  it("renders the React-parity welcome screen for empty stateless chats", () => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+
+    fixture.componentRef.setInput("messages", []);
+    fixture.componentRef.setInput("hasExplicitThreadId", false);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(
+      element.querySelector('[data-testid="copilot-welcome-screen"]'),
+    ).not.toBeNull();
+    expect(element.textContent).toContain("How can I help you today?");
+  });
+
+  it("suppresses the welcome screen when a thread is explicitly selected", () => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+
+    fixture.componentRef.setInput("messages", []);
+    fixture.componentRef.setInput("hasExplicitThreadId", true);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    expect(
+      element.querySelector('[data-testid="copilot-welcome-screen"]'),
+    ).toBeNull();
+  });
+
+  it("sizes the default scroll view as the flex child that owns vertical scrolling", () => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+    const messages: Message[] = [
+      {
+        id: "user-1",
+        role: "user",
+        content: "Hello",
+      },
+    ];
+
+    fixture.componentRef.setInput("messages", messages);
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const scrollViewHost = element.querySelector(
+      "copilot-chat-view-scroll-view",
+    );
+    const scrollContainer = scrollViewHost?.querySelector("div");
+
+    expect(scrollViewHost?.classList.contains("cpk:flex-1")).toBe(true);
+    expect(scrollViewHost?.classList.contains("cpk:min-h-0")).toBe(true);
+    expect(scrollContainer?.classList.contains("cpk:flex-1")).toBe(true);
+    expect(scrollContainer?.classList.contains("cpk:min-h-0")).toBe(true);
+    expect(scrollContainer?.classList.contains("cpk:overflow-y-auto")).toBe(
+      true,
+    );
+  });
+
+  it("reserves React-parity bottom space in the scroll content", async () => {
+    const fixture = TestBed.createComponent(CopilotChatView);
+    const messages: Message[] = [
+      {
+        id: "user-1",
+        role: "user",
+        content: "Hello",
+      },
+    ];
+
+    fixture.componentRef.setInput("messages", messages);
+    fixture.detectChanges();
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 0);
+    });
+    fixture.detectChanges();
+
+    const element = fixture.nativeElement as HTMLElement;
+    const scrollContent = Array.from(
+      element.querySelectorAll("copilot-chat-view-scroll-view div"),
+    ).find((node) => node.style.paddingBottom !== "");
+
+    expect(scrollContent?.style.paddingBottom).toBe("32px");
+  });
+});

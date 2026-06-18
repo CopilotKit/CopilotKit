@@ -14,9 +14,13 @@ every tool call. Mutating that dict in place from the tool is sufficient
 to push the new ``steps`` to the UI on every transition — no custom
 event emission required. This is the same pattern used by
 ``shared_state_read_write_agent.set_notes``.
-"""
 
-from __future__ import annotations
+NOTE: deliberately NO ``from __future__ import annotations`` here. The
+future import stringifies ``set_steps``'s annotations; pydantic's
+signature-derived tool model then fails to resolve ``Context`` /
+``Annotated`` at schema-build time ("`set_steps` is not fully defined…
+call `set_steps.model_rebuild()`"), erroring every run of this agent.
+"""
 
 import os
 from typing import Annotated, Any

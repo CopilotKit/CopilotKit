@@ -11,9 +11,11 @@ import type { ErrorInfo, ReactNode } from "react";
 import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
 import { useDemoAuth } from "./use-demo-auth";
 import { AuthBanner } from "./auth-banner";
+import { SignInCard } from "./sign-in-card";
 
 interface ChatErrorBoundaryProps {
   authenticated: boolean;
+  onSignIn: () => void;
   children: ReactNode;
 }
 
@@ -49,16 +51,9 @@ class ChatErrorBoundary extends Component<
       return (
         <div
           data-testid="auth-demo-chat-boundary"
-          className="flex h-full items-center justify-center p-6 text-center text-sm text-neutral-600"
+          className="flex h-full items-center justify-center p-6"
         >
-          <div>
-            <p className="font-medium text-neutral-800">
-              Chat unavailable while signed out
-            </p>
-            <p className="mt-1 text-xs text-neutral-500">
-              Click Sign in above to restore the conversation.
-            </p>
-          </div>
+          <SignInCard onSignIn={this.props.onSignIn} />
         </div>
       );
     }
@@ -133,7 +128,10 @@ export default function AuthDemoPage() {
           </p>
         </header>
         <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
-          <ChatErrorBoundary authenticated={auth.authenticated}>
+          <ChatErrorBoundary
+            authenticated={auth.authenticated}
+            onSignIn={authenticate}
+          >
             <CopilotChat className="h-full" />
           </ChatErrorBoundary>
         </div>
@@ -143,7 +141,7 @@ export default function AuthDemoPage() {
             data-testid="auth-demo-error"
             className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs font-medium text-red-900"
           >
-            {lastError}
+            <span data-testid="auth-demo-error-message">{lastError}</span>
           </div>
         )}
       </div>

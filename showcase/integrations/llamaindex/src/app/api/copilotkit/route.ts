@@ -40,6 +40,21 @@ const sharedAgentNames = [
   "headless_complete",
   "readonly_state_agent_context",
   "human_in_the_loop",
+  // Hyphenated aliases matching what the demo pages actually request
+  // (mirrors langgraph-python's naming). The underscore names above are
+  // kept as additive aliases.
+  "frontend-tools-async",
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "headless-complete",
+  "readonly-state-agent-context",
+  // Requested by demos/threadid-frontend-tool-roundtrip via /api/copilotkit;
+  // no dedicated agent_server.py mount exists — the shared default router
+  // serves it.
+  "threadid-frontend-tool-roundtrip",
 ];
 
 // Specialized routers live at dedicated subpaths on the agent_server so the
@@ -55,6 +70,12 @@ const specializedAgents: Record<string, string> = {
   "gen-ui-tool-based": "/gen-ui-tool-based",
   "beautiful-chat": "/beautiful-chat",
   hitl_in_app: "/hitl-in-app",
+  // Hyphenated names the hitl demo pages actually request. Both route to
+  // the DEDICATED routers mounted in src/agent_server.py (lines ~105-106) —
+  // a sharedAgentNames alias would silently route them to the default
+  // backend instead.
+  "hitl-in-app": "/hitl-in-app",
+  "hitl-in-chat": "/hitl-in-chat",
   subagents: "/subagents",
   // Interrupt-adapted scheduling demos — both gen-ui-interrupt and
   // interrupt-headless share the same backend agent; only the frontend
@@ -86,7 +107,9 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
-        // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
+        // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
+        // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
+        // plain Records. Fixed in source, pending release.
         agents,
       }),
     });

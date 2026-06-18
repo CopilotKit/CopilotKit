@@ -1,9 +1,10 @@
-import { AbstractAgent, Message, Tool, Context } from "@ag-ui/client";
+import type { AbstractAgent, Message, Tool } from "@ag-ui/client";
+import { Context } from "@ag-ui/client";
 import { randomUUID, partialJSONParse } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
 import type { CopilotKitCoreGetSuggestionsResult } from "./core";
-import { CopilotKitCoreFriendsAccess } from "./core";
-import {
+import type { CopilotKitCoreFriendsAccess } from "./core";
+import type {
   DynamicSuggestionsConfig,
   StaticSuggestionsConfig,
   Suggestion,
@@ -186,9 +187,9 @@ export class SuggestionEngine {
 
       await agent.runAgent(
         {
-          context: Object.values(
-            (this.core as unknown as CopilotKitCoreFriendsAccess).context,
-          ),
+          context: (
+            this.core as unknown as CopilotKitCoreFriendsAccess
+          ).getContextForAgent(consumerAgentId),
           forwardedProps: {
             ...(this.core as unknown as CopilotKitCoreFriendsAccess).properties,
             toolChoice: {

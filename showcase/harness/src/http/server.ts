@@ -5,6 +5,10 @@ import type { TypedEventBus } from "../events/event-bus.js";
 import type { HarnessRole } from "../fleet/role-config.js";
 import { registerDeployWebhook } from "./webhooks/deploy.js";
 import { registerProbesRoutes, type ProbesRouteDeps } from "./probes.js";
+import {
+  registerFleetRunsRoutes,
+  type FleetRunsRouteDeps,
+} from "./fleet-runs.js";
 import { renderPrometheus, type MetricsRegistry } from "./metrics.js";
 
 export interface ServerDeps {
@@ -78,6 +82,21 @@ export interface ServerDeps {
    * always supplies this in production.
    */
   probes?: ProbesRouteDeps;
+  /**
+   * Optional `/api/runs*` wiring (§5.2). Optional at the TYPE level only
+   * because worker-role/boot callers omit it — the CP role ALWAYS supplies
+   * it, and unlike `probes` there is deliberately NO token coupling: the
+   * fleet-runs router has no mutating route, so the §5.2 unconditional-mount
+   * guarantee is enforced at the orchestrator's CP call site.
+   */
+  fleetRuns?: FleetRunsRouteDeps;
+  /**
+   * §9 compensating control: when supplied, /health gains
+   * `fleetRuns.lastEvaluatedAt` — the family-silence monitor's evaluation
+   * stamp (ISO, or null before the first evaluation) — so an external poll
+   * of the already-exposed health surface can detect a wedged monitor.
+   */
+  fleetRunsLastEvaluatedAt?: () => number | null;
 }
 
 export function buildServer(deps: ServerDeps): Hono {
@@ -108,6 +127,10 @@ export function buildServer(deps: ServerDeps): Hono {
 
   if (deps.probes) {
     registerProbesRoutes(app, deps.probes);
+  }
+
+  if (deps.fleetRuns) {
+    registerFleetRunsRoutes(app, deps.fleetRuns);
   }
 
   if (deps.metrics) {
@@ -164,6 +187,17 @@ export function buildServer(deps: ServerDeps): Hono {
     // report degraded forever and Railway would restart-loop it.
     const rulesOk = deps.role === "control-plane" ? true : ruleCount > 0;
     const ok = pbOk && loopOk && rulesOk;
+    // §9 compensating control: surface the family-silence monitor's
+    // evaluation stamp so "CP alive but monitor wedged" is externally
+    // detectable. Informational only — never folds into the status gate.
+    let fleetRuns: { lastEvaluatedAt: string | null } | undefined;
+    if (deps.fleetRunsLastEvaluatedAt) {
+      const evaluatedAtMs = deps.fleetRunsLastEvaluatedAt();
+      fleetRuns = {
+        lastEvaluatedAt:
+          evaluatedAtMs === null ? null : new Date(evaluatedAtMs).toISOString(),
+      };
+    }
     return c.json(
       {
         status: ok ? "ok" : "degraded",
@@ -171,6 +205,7 @@ export function buildServer(deps: ServerDeps): Hono {
         loop: loopLabel,
         rules: ruleCount,
         schedulerJobs: jobCount,
+        ...(fleetRuns ? { fleetRuns } : {}),
       },
       ok ? 200 : 503,
     );

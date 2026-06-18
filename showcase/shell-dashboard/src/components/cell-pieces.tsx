@@ -10,6 +10,11 @@ import type { BadgeRender } from "@/lib/live-status";
 import type { Feature, Integration } from "@/lib/registry";
 import { useLastTransition, deriveFromTo } from "@/hooks/useLastTransition";
 import { formatTs } from "@/lib/format-ts";
+import {
+  useWorkerRuns,
+  isFamilySilent,
+  familyForProbeKey,
+} from "@/lib/worker-runs-context";
 
 export function urlsFor(ctx: CellContext): {
   demoUrl: string;
@@ -225,6 +230,36 @@ function LiveBadge({
   // for rows with state === "degraded" (F5.5 verification). Do NOT remove
   // the amber branch thinking it's dead — the degraded-row path depends on it.
   const eligible = badge.tone === "red" || badge.tone === "amber";
+  // §7.3 clock glyph: a STALE-degraded badge whose worker family has no
+  // successful run within 2× the server-computed `periodMs` gains a `·⏱`
+  // suffix, distinguishing scheduler/worker silence from a fresh red.
+  // Safe by construction without a provider: `useWorkerRuns()` never throws
+  // and returns the no-data default (`null`) — see the T10 no-provider
+  // contract in worker-runs-context.tsx — so provider-less renders simply
+  // show no glyph.
+  const workerRuns = useWorkerRuns();
+  // Stale-degraded signature: amber with `fail_count === 0` — the
+  // stale-green downgrade `buildBadge` applies under the cell's EXISTING
+  // window. A producer-degraded row (`fail_count > 0`) is a real failure,
+  // not staleness, and a red badge keeps its red rendering — the glyph
+  // only ever DECORATES an already stale-degraded badge (§7.3).
+  const isStaleDegraded =
+    badge.tone === "amber" && badge.row !== null && badge.row.fail_count === 0;
+  const families =
+    workerRuns !== null && workerRuns.status === "ok"
+      ? workerRuns.data.families
+      : null;
+  // Family mapping is payload-driven via the `probeKeyPrefix` each family
+  // entry echoes (§5.2.1) — never a dashboard-side prefix table.
+  const silentFamily =
+    isStaleDegraded && families !== null && badge.row !== null
+      ? familyForProbeKey(badge.row.key, families)
+      : undefined;
+  const clockGlyph =
+    silentFamily !== undefined && isFamilySilent(silentFamily, Date.now());
+  // Minimal per §7.3: a label SUFFIX only — tone, tooltip machinery, and the
+  // amber branch above stay intact.
+  const label = clockGlyph ? `${badge.label} ·⏱` : badge.label;
   // B.4: the INITIAL status projection (`STATUS_LIST_FIELDS` in live-status.ts)
   // drops the heavy `signal` blob, so a row materialised from the bulk fetch
   // arrives with `signal === undefined` until a live SSE delta re-attaches it.
@@ -265,7 +300,7 @@ function LiveBadge({
       >
         <Badge
           name={name}
-          state={{ tone: badge.tone, label: badge.label }}
+          state={{ tone: badge.tone, label }}
           href={href}
           title={title}
           onTooltipOpen={() => setTooltipOpen(true)}
@@ -305,7 +340,7 @@ function formatTransitionLine(row: {
 }
 
 /**
- * Shared status row: API / RT / CV badges (D2 API / D4 Round Trip / D5 Conversation).
+ * Shared status row: API / UI / 1P badges (D2 API / D3 UI / D5 Single Pill).
  * QA and HealthDot removed in Phase 3 (3.3 + 3.4). L1 health now in strip.
  * Smoke per-cell badge removed — integration-scoped smoke lives in the strip.
  * Docs rendering removed — handled exclusively by DocsLayer in ComposedCell,
@@ -344,28 +379,28 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
         dimensionKey={keyFor("agent", ctx.integration.slug)}
       />
       <LiveBadge
-        name="RT"
+        name="UI"
         badge={cell.e2e}
         dimensionKey={keyFor("e2e", ctx.integration.slug, ctx.feature.id)}
       />
       {/*
-        CP8: CV producers (`e2e-deep`) only emit rows for primary features
-        per spec; testing-kind features never get a CV row, so the badge
+        CP8: 1P producers (`e2e-deep`) only emit rows for primary features
+        per spec; testing-kind features never get a 1P row, so the badge
         would render a perpetual gray "?" that adds noise without
         information. Hide for `isTesting` so operators only see badges
         backed by real data.
 
-        CP9: CV badges intentionally have no `href` — there is no
+        CP9: 1P badges intentionally have no `href` — there is no
         per-feature drilldown URL convention in shell-dashboard today.
         When a drilldown route exists (e.g. a per-(slug, feature) D5 run
         history page), wire the URL through `keyFor` here.
-        TODO(showcase-dashboard): CV drilldown URL — see
+        TODO(showcase-dashboard): 1P drilldown URL — see
         docs/spec §5.6 follow-up.
       */}
       {!isTesting && (
         <>
           <LiveBadge
-            name="CV"
+            name="1P"
             badge={cell.d5}
             dimensionKey={keyFor("d5", ctx.integration.slug, ctx.feature.id)}
           />
