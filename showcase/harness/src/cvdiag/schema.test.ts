@@ -90,6 +90,51 @@ describe("CVDIAG schema — per-boundary metadata closed-world", () => {
   });
 });
 
+describe("CVDIAG schema — metadata value secret scrub (§6)", () => {
+  // (§6) Surviving metadata STRING values are secret-scrubbed before they
+  // leave validateMetadata — the boundary field is literally `message_scrubbed`.
+  it("redacts Bearer / sk- secrets in a surviving metadata string value", () => {
+    const real = validateMetadata("backend", "backend.error.caught", {
+      message_scrubbed: "Authorization: Bearer sk-ABCDEF0123456789XYZ",
+      exception_type: "AuthError",
+    });
+    const msg = real.metadata.message_scrubbed as string;
+    expect(msg).not.toContain("Bearer sk-ABCDEF0123456789XYZ");
+    expect(msg).not.toContain("sk-ABCDEF0123456789XYZ");
+    expect(msg).toContain("[REDACTED]");
+    // Non-secret allowed keys survive verbatim.
+    expect(real.metadata.exception_type).toBe("AuthError");
+  });
+
+  it("redacts a bare-token URL userinfo (scheme://token@) in a metadata value", () => {
+    const real = validateMetadata("probe", "probe.start", {
+      url: "https://ghp_abc123def456ghi789@github.com/x",
+    });
+    const url = real.metadata.url as string;
+    expect(url).not.toContain("ghp_abc123def456ghi789");
+    expect(url).toBe("https://[REDACTED]@github.com/x");
+  });
+
+  it("still redacts the user:password@ URL userinfo form", () => {
+    const real = validateMetadata("probe", "probe.start", {
+      url: "https://alice:s3cr3t@github.com/x",
+    });
+    const url = real.metadata.url as string;
+    expect(url).not.toContain("s3cr3t");
+    expect(url).not.toContain("alice");
+    expect(url).toBe("https://[REDACTED]@github.com/x");
+  });
+
+  it("leaves non-string metadata values untouched", () => {
+    const real = validateMetadata("probe", "probe.network.response", {
+      url: "https://example.com/x",
+      status: 200,
+    });
+    expect(real.metadata.url).toBe("https://example.com/x");
+    expect(real.metadata.status).toBe(200);
+  });
+});
+
 describe("CVDIAG edge headers — deny-list precedence", () => {
   // (3) forbidden edge header rejected even if present in the allow-list set.
   it("rejects a deny-list header even when it collides with an allow-list key", () => {

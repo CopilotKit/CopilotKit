@@ -31,12 +31,15 @@
  *     `cf-ip*` wildcard inclusion — the `cf-ip*` family is blocked by exact
  *     deny-list entries, never matched by a prefix wildcard.
  *   - SECRET SCRUB: `Bearer\s+\S+`, `sk-[A-Za-z0-9]{16,}`, and URL-userinfo
- *     (`scheme://user:pass@`) are scrubbed from any captured metadata value.
- *     See `edge-headers.ts` for the regex constants.
+ *     (`scheme://user:pass@` AND bare-token `scheme://token@`) are scrubbed
+ *     from EVERY surviving string metadata value by `validateMetadata` (below)
+ *     before it leaves this module — see `scrub.ts` for the regex constants.
  *   - NO request/response bodies in default or verbose tier. DEBUG-tier
  *     raw-byte capture (spec §11.4) is a separate, time-bounded, redacted
  *     pipeline owned by a later slot — never by this module.
  */
+
+import { scrubSecrets } from "./scrub.js";
 
 /** Current schema version. Bumps only on a breaking (rename/type) change. */
 export const SCHEMA_VERSION = 1 as const;
@@ -560,7 +563,12 @@ export function validateMetadata(
   const droppedKeys: string[] = [];
   for (const [key, value] of Object.entries(metadata)) {
     if (allowed.has(key)) {
-      survivor[key] = value;
+      // §6 secret scrub: free-text / URL metadata values (e.g.
+      // `*.message_scrubbed`, `probe.*.url`) can carry `Bearer …` tokens,
+      // `sk-…` keys, or URL userinfo. Scrub every SURVIVING string value
+      // before it leaves the module; leave non-string values (numbers,
+      // booleans, objects) untouched.
+      survivor[key] = typeof value === "string" ? scrubSecrets(value) : value;
     } else {
       droppedKeys.push(key);
     }

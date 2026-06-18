@@ -17,6 +17,20 @@
 import type { EdgeHeaders, EdgeHeaderKey } from "./schema.js";
 import { EDGE_HEADER_KEYS } from "./schema.js";
 
+// Secret/PII scrub primitives live in the leaf `scrub.ts` module so that
+// `schema.ts` can scrub metadata values without forming a `schema → edge-headers
+// → schema` import cycle. Re-exported here to preserve the historical public
+// surface (`scrubSecrets`, the regex constants, `SCRUB_REPLACEMENT`) — callers
+// that import these from `edge-headers.js` (and the `index.ts` `export *`)
+// continue to resolve unchanged.
+export {
+  BEARER_TOKEN_REGEX,
+  SK_KEY_REGEX,
+  URL_USERINFO_REGEX,
+  SCRUB_REPLACEMENT,
+  scrubSecrets,
+} from "./scrub.js";
+
 /** The 9 allow-listed edge-header keys (spec §5). */
 export const EDGE_HEADER_ALLOWLIST: readonly string[] = EDGE_HEADER_KEYS;
 
@@ -43,31 +57,6 @@ export const EDGE_HEADER_DENYLIST: readonly string[] = [
 
 const ALLOWLIST_SET: ReadonlySet<string> = new Set(EDGE_HEADER_ALLOWLIST);
 const DENYLIST_SET: ReadonlySet<string> = new Set(EDGE_HEADER_DENYLIST);
-
-// ── PII / secret scrub regex constants (spec §6) ────────────────────────────
-
-/** `Bearer <token>` anywhere in a captured value. */
-export const BEARER_TOKEN_REGEX = /Bearer\s+\S+/g;
-/** OpenAI-style secret keys `sk-…` (≥16 trailing chars). */
-export const SK_KEY_REGEX = /sk-[A-Za-z0-9]{16,}/g;
-/** URL userinfo segment `scheme://user:password@`. */
-export const URL_USERINFO_REGEX =
-  /([a-z][a-z0-9+.-]*:\/\/)[^/@\s:]+:[^/@\s]+@/gi;
-
-/** Replacement token written in place of a scrubbed secret. */
-export const SCRUB_REPLACEMENT = "[REDACTED]";
-
-/**
- * Scrub known secret patterns from an arbitrary captured string value (spec
- * §6). Applied to metadata values that may carry user/provider strings (e.g.
- * `backend.error.caught.message_scrubbed`). Returns the scrubbed string.
- */
-export function scrubSecrets(value: string): string {
-  return value
-    .replace(BEARER_TOKEN_REGEX, SCRUB_REPLACEMENT)
-    .replace(SK_KEY_REGEX, SCRUB_REPLACEMENT)
-    .replace(URL_USERINFO_REGEX, `$1${SCRUB_REPLACEMENT}@`);
-}
 
 /**
  * Filter a raw header bag down to the closed `EdgeHeaders` shape.
