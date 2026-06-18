@@ -225,25 +225,43 @@
     },
     {
       "id": "tool-rendering-default-catchall",
-      "name": "Generative UI: Tool Rendering (Default)",
+      "name": "Generative UI: Tool Rendering (Built-in catch-all)",
       "category": "operational-generative-ui",
-      "description": "Out-of-the-box rendering: backend tools surfaced via CopilotKit's built-in default catch-all renderer; no frontend customization",
+      "description": "Out-of-the-box rendering: otherwise-unhandled tool calls surface through CopilotKit's built-in catch-all card",
       "kind": "primary",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
       "shell_docs_path": "/generative-ui/tool-rendering"
     },
     {
       "id": "tool-rendering-custom-catchall",
-      "name": "Generative UI: Tool Rendering (Custom default)",
+      "name": "Generative UI: Tool Rendering (Custom catch-all)",
       "category": "operational-generative-ui",
-      "description": "Single branded wildcard renderer that paints every tool call \u2014 one card handles them all",
+      "description": "Replace the catch-all with a single branded wildcard renderer that paints otherwise-unhandled tool calls",
+      "kind": "primary",
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    {
+      "id": "tool-rendering-suppress-catchall",
+      "name": "Generative UI: Tool Rendering (Suppress catch-all)",
+      "category": "operational-generative-ui",
+      "description": "Return null from the catch-all renderer so otherwise-unhandled tool calls run without painting chat UI",
+      "kind": "primary",
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    {
+      "id": "tool-rendering-named-override",
+      "name": "Generative UI: Tool Rendering (Named override)",
+      "category": "operational-generative-ui",
+      "description": "Register a named renderer that takes priority over the catch-all for one specific tool",
       "kind": "primary",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
       "shell_docs_path": "/generative-ui/tool-rendering"
     },
     {
       "id": "tool-rendering",
-      "name": "Generative UI: Tool Rendering (Specific)",
+      "name": "Generative UI: Tool Rendering (Per-tool UI)",
       "category": "operational-generative-ui",
       "description": "Custom per-tool renderers for the tools you care about, plus a wildcard catch-all for the rest",
       "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",

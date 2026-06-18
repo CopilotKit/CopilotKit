@@ -1,0 +1,76 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for claude-sdk-python / tool-rendering-named-override",
+    "sourceFile": "d5-tool-rendering-named-override.ts",
+    "created": "2026-06-18"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-named-override — weather follow-up. A named get_weather renderer returns null, so final text appears without a weather tool card.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d6_named_weather_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "tool-rendering-named-override — first weather turn emits get_weather, which is suppressed by the exact-name renderer.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolName": "get_weather",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_named_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-named-override — fallback when no get_weather tool is registered.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "turnIndex": 0,
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "tool-rendering-named-override — stock follow-up. get_stock_price is not named-overridden, so the built-in catch-all should render it.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "toolCallId": "call_d6_named_stock_001",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day."
+      }
+    },
+    {
+      "_comment": "tool-rendering-named-override — second turn emits get_stock_price, proving the catch-all still handles other tools.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "toolName": "get_stock_price",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_named_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

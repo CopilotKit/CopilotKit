@@ -5,7 +5,7 @@
 // The simplest entry point in the tool-rendering progression. The
 // backend exposes a handful of mock tools (get_weather, search_flights,
 // get_stock_price, roll_d20) and the frontend opts into CopilotKit's
-// built-in default tool-call card by calling `useDefaultRenderTool()`
+// built-in catch-all tool-call card by calling `useDefaultRenderTool()`
 // with no config — every tool call falls through to the package-shipped
 // `DefaultToolCallRenderer`.
 
@@ -26,7 +26,7 @@ export default function ToolRenderingDefaultCatchallDemo() {
 
 function Demo() {
   // @region[default-catchall-zero-config]
-  // Opt in to CopilotKit's built-in default tool-call card. Called with
+  // Opt in to CopilotKit's built-in catch-all tool-call card. Called with
   // no config so the package-provided `DefaultToolCallRenderer` is used
   // as the wildcard renderer — this is the "out-of-the-box" UI the cell
   // is meant to showcase.
@@ -54,7 +54,7 @@ function Demo() {
   return (
     <main className="p-8">
       <h1 className="text-2xl font-semibold mb-4">
-        Tool Rendering — Default Catch-all
+        Tool Rendering — Built-in Catch-all
       </h1>
       <p className="text-sm opacity-70 mb-6">
         Try one of the suggestions. Every tool call renders with

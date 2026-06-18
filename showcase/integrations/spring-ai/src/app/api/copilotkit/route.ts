@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The Spring AI agent backend runs as a separate Java process.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -29,6 +31,8 @@ const agentNames = [
   "tool-rendering",
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
+  "tool-rendering-suppress-catchall",
+  "tool-rendering-named-override",
   "gen-ui-tool-based",
   "gen-ui-agent",
   "shared-state-read",

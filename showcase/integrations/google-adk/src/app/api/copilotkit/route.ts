@@ -44,6 +44,8 @@ const agentNames = [
   // tool-rendering variants
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
+  "tool-rendering-suppress-catchall",
+  "tool-rendering-named-override",
   "tool-rendering-reasoning-chain",
   // hitl variants
   "hitl-in-chat",

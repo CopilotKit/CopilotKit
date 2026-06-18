@@ -25,42 +25,27 @@ Create a small hook, then call it from any component rendered under
 `CopilotKit`. Keep the full renderer signature in place when the renderer may
 later become conditional:
 
-```tsx title="app/use-suppress-catch-all-tool-rendering.ts"
-import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
-
-export function useSuppressCatchAllToolRendering() {
-  // [!code highlight:3]
-  useDefaultRenderTool({
-    render: ({ name, parameters, status, result }) => null,
-  });
-}
-```
+<Snippet
+  cell="tool-rendering-suppress-catchall"
+  region="suppress-catchall-renderer"
+  fallbackFramework="langgraph-python"
+  highlightLines="1,5-7"
+  title="use-suppress-catch-all-tool-rendering.ts"
+/>
 
 You can make the opt-out conditional too. For example, return `null` while
 `status` is in progress, then render a result card when the call completes.
 
-## Suppress one named frontend tool
+## Suppress one named tool
 
-For a single frontend tool, return `null` from that tool's renderer. A named
-renderer takes priority over the catch-all, even when that named renderer
-returns nothing.
+For one specific tool, return `null` from a named renderer. A named renderer
+takes priority over the catch-all, even when that named renderer returns
+nothing.
 
-```tsx title="app/use-suppress-search-database-tool-rendering.ts"
-import { useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
-import { z } from "zod";
-
-export function useSuppressSearchDatabaseToolRendering() {
-  // [!code highlight:11]
-  useFrontendTool(
-    {
-      name: "searchDatabase",
-      parameters: z.object({ query: z.string() }),
-      handler: async ({ query }) => {
-        /* ... */
-      },
-      render: ({ name, parameters, status, result }) => null,
-    },
-    [],
-  );
-}
-```
+<Snippet
+  cell="tool-rendering-named-override"
+  region="suppress-named-tool-renderer"
+  fallbackFramework="langgraph-python"
+  highlightLines="1,8"
+  title="use-suppress-weather-tool-rendering.ts"
+/>

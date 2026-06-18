@@ -31,8 +31,7 @@ function Demo() {
   // that handles every tool call not claimed by a named renderer.
   useDefaultRenderTool(
     {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      render: ({ name, parameters, status, result }: any) => (
+      render: ({ name, parameters, status, result }) => (
         <CustomCatchallRenderer
           name={name}
           parameters={parameters}
