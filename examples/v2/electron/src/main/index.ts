@@ -1,9 +1,10 @@
+import dotenv from "dotenv";
 import { app, BrowserWindow, ipcMain } from "electron";
+import { join } from "node:path";
 import { startRuntimeServer } from "./runtime/server";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// Load provider keys (OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY) from .env
+dotenv.config();
 
 let runtime: { url: string; close: () => Promise<void> } | null = null;
 

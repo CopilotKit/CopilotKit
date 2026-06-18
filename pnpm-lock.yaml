@@ -1311,6 +1311,9 @@ importers:
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../../../packages/shared
+      dotenv:
+        specifier: ^16.4.7
+        version: 16.6.1
       react:
         specifier: 19.2.3
         version: 19.2.3

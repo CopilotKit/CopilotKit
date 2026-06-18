@@ -1,7 +1,6 @@
 {
   "name": "@copilotkit/electron-demo",
   "private": true,
-  "type": "module",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -16,6 +15,7 @@
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@copilotkit/shared": "workspace:*",
+    "dotenv": "^16.4.7",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "zod": "^3.25.75"
