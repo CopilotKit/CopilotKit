@@ -74,12 +74,16 @@ export const REGISTRY_TO_D5: Readonly<
   // tool-rendering — split per renderer contract. Each variant exercises
   // a different testid surface so they need their own probe scripts:
   //   - `tool-rendering`                   : per-tool renderer (WeatherCard).
-  //   - `tool-rendering-default-catchall`  : built-in default catchall renderer.
+  //   - `tool-rendering-default-catchall`  : built-in catchall renderer.
   //   - `tool-rendering-custom-catchall`   : custom wildcard (`*`) renderer.
+  //   - `tool-rendering-suppress-catchall` : wildcard renderer returning null.
+  //   - `tool-rendering-named-override`    : named renderer beats catchall.
   //   - `tool-rendering-reasoning-chain`   : per-tool renderer + reasoning-block slot.
   "tool-rendering": ["tool-rendering"],
   "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
   "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
+  "tool-rendering-suppress-catchall": ["tool-rendering-suppress-catchall"],
+  "tool-rendering-named-override": ["tool-rendering-named-override"],
   "tool-rendering-reasoning-chain": ["tool-rendering-reasoning-chain"],
 
   // headless tier — `headless-simple` and `headless-complete` each have

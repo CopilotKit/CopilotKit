@@ -12,6 +12,8 @@ generative_ui:
       - chat-customization-css
       - tool-rendering-default-catchall
       - tool-rendering-custom-catchall
+      - tool-rendering-suppress-catchall
+      - tool-rendering-named-override
       - frontend-tools
       - frontend-tools-async
       - gen-ui-tool-based
@@ -39,6 +41,8 @@ generative_ui:
       - chat-customization-css
       - tool-rendering-default-catchall
       - tool-rendering-custom-catchall
+      - tool-rendering-suppress-catchall
+      - tool-rendering-named-override
       - tool-rendering-reasoning-chain
       - agentic-chat-reasoning
       - reasoning-default-render

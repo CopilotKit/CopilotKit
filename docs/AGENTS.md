@@ -56,6 +56,12 @@ every framework URL uses the same MDX source.
    matched by exact JSX shapes such as `<SharedContent components={props.components} />`.
    Adding extra props can prevent the snippet from inlining and make the page
    silently lose content.
+   If the page has an `<IntegrationGrid>` or the snippet points at a showcase
+   cell, keep the showcase catalog complete as well: update the shared feature
+   registry, every integration manifest that supports the feature, the D5
+   mapping/script/fixture, and the D6 aimock fixtures. The D5/D6 checks should
+   exercise the user-visible behavior described by the docs, not only prove that
+   a route loads.
 3. Preserve existing content where possible. Compare against git history with
    `git show <base>:<path>` and keep prior wording, snippet components,
    code-highlighting directives, and demo embeds unless the requested change

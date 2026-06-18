@@ -17,7 +17,9 @@ edits from landing in this retired tree when the live source is in
   showcase snippets/demos through `<Snippet>` and `<InlineDemo>`. If the text
   or code appears to come from a runnable demo, inspect the matching
   `showcase/` integration/demo source and generated shell-docs data as well as
-  the MDX page.
+  the MDX page. For docs pages with an integration grid, keep the showcase
+  feature registry, manifests, and D5/D6 probes/fixtures aligned with the
+  reader-visible examples.
 - **AG-UI protocol docs** → author upstream in
   [`ag-ui-protocol/ag-ui`](https://github.com/ag-ui-protocol/ag-ui) (publishes to docs.ag-ui.com),
   then sync back into the mirror at `showcase/shell-docs/src/content/ag-ui/`.

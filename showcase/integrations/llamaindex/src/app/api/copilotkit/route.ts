@@ -27,6 +27,8 @@ const sharedAgentNames = [
   "tool-rendering",
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
+  "tool-rendering-suppress-catchall",
+  "tool-rendering-named-override",
   "shared-state-read",
   "shared-state-write",
   "shared-state-streaming",

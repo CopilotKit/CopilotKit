@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for mastra / tool-rendering-suppress-catchall",
+    "sourceFile": "d5-tool-rendering-suppress-catchall.ts",
+    "created": "2026-06-18"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-suppress-catchall — weather follow-up. The tool call completes, but the wildcard renderer returns null so no tool UI should appear.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d6_suppress_weather_001",
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "tool-rendering-suppress-catchall — first turn emits get_weather, which the null catch-all suppresses in the chat UI.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolName": "get_weather",
+        "context": "mastra"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_suppress_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-suppress-catchall — fallback when no get_weather tool is registered.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "turnIndex": 0,
+        "context": "mastra"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    }
+  ]
+}

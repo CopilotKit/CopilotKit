@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The Claude agent backend runs as a separate TypeScript process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -86,7 +88,9 @@ const agentNames = [
   // See override block below; entries here only seed Object.keys(agents)
   // for probe enumeration.
   "tool-rendering-default-catchall", // overridden -> /tool-rendering
-  "tool-rendering-custom-catchall", // overridden -> /tool-rendering
+  "tool-rendering-custom-catchall",
+  "tool-rendering-suppress-catchall",
+  "tool-rendering-named-override", // overridden -> /tool-rendering
   "tool-rendering-reasoning-chain", // overridden -> /tool-rendering-reasoning-chain
   // Reasoning variants — both share the same pass-through agent; differ
   // only in whether the frontend overrides the `messageView.reasoningMessage`
@@ -123,6 +127,12 @@ agents["tool-rendering-default-catchall"] = new HttpAgent({
   url: `${AGENT_URL}/tool-rendering`,
 });
 agents["tool-rendering-custom-catchall"] = new HttpAgent({
+  url: `${AGENT_URL}/tool-rendering`,
+});
+agents["tool-rendering-suppress-catchall"] = new HttpAgent({
+  url: `${AGENT_URL}/tool-rendering`,
+});
+agents["tool-rendering-named-override"] = new HttpAgent({
   url: `${AGENT_URL}/tool-rendering`,
 });
 agents["tool-rendering-reasoning-chain"] = new HttpAgent({

@@ -340,6 +340,9 @@ export function Snippet({
   }
 
   if (!resolvedFramework) {
+    const fallback = fallbackSnippet();
+    if (fallback) return fallback;
+
     return (
       <div className="shell-docs-radius-surface my-4 border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm text-[var(--text-muted)] shadow-[var(--shadow-control)]">
         Select an AI backend above to see this code example.

@@ -60,6 +60,8 @@ for (const name of neutralAssistantCells) {
 agents["tool-rendering"] = createAgent("tool_rendering");
 agents["tool-rendering-default-catchall"] = createAgent("tool_rendering");
 agents["tool-rendering-custom-catchall"] = createAgent("tool_rendering");
+agents["tool-rendering-suppress-catchall"] = createAgent("tool_rendering");
+agents["tool-rendering-named-override"] = createAgent("tool_rendering");
 agents["tool-rendering-reasoning-chain"] = createAgent(
   "tool_rendering_reasoning_chain",
 );
