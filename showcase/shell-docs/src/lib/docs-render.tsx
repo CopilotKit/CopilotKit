@@ -28,7 +28,7 @@ export {
 // Nav tree types
 // ---------------------------------------------------------------------------
 
-export type NavNodeVariant = "shadow" | "shadow-divider" | "shadow-note";
+export type NavNodeVariant = "react-docs-proxy";
 
 export type NavNode =
   | {

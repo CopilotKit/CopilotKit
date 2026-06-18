@@ -63,8 +63,9 @@ describe("frontend options", () => {
     expect(getFrontendReferenceSlug("teams")).toBe("reference");
   });
 
-  it("keeps non-React frontend sidebars focused before shadowing React docs", () => {
+  it("keeps non-React frontend sidebars focused before proxying React docs", () => {
     const navTree = getFrontendQuickstartNavTree("slack");
+    const flattenedNavTree = flattenNavTree(navTree);
 
     expect(navTree.slice(0, 5)).toEqual([
       { type: "section", title: "Getting Started", icon: "lucide/Rocket" },
@@ -92,27 +93,39 @@ describe("frontend options", () => {
       ]),
     );
 
-    expect(navTree).toContainEqual({
-      type: "section",
-      title: "React docs",
-      icon: "custom/react",
-      variant: "shadow-divider",
-    });
-
-    expect(flattenNavTree(navTree)).toEqual(
+    expect(navTree).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          type: "page",
-          slug: "frontends/slack/using-these-docs",
-          title: expect.stringContaining(
-            "same CopilotKit functionality as the React SDK",
-          ),
+          type: "section",
+          title: "React docs",
+        }),
+      ]),
+    );
+
+    expect(flattenedNavTree).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
           variant: "shadow-note",
         }),
         expect.objectContaining({
+          variant: "shadow",
+        }),
+        expect.objectContaining({
+          variant: "shadow-divider",
+        }),
+      ]),
+    );
+
+    expect(flattenedNavTree).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
           type: "page",
           title: "Prebuilt Components",
-          variant: "shadow",
+          variant: "react-docs-proxy",
+        }),
+        expect.objectContaining({
+          type: "group",
+          variant: "react-docs-proxy",
         }),
       ]),
     );

@@ -552,82 +552,8 @@
   letter-spacing: 0 !important;
 }
 
-.shell-docs-shadow-nav-divider {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  color: color-mix(in srgb, var(--accent) 64%, var(--text-muted));
-}
-
-.shell-docs-shadow-nav-divider::after {
-  content: none;
-}
-
-.shell-docs-sidebar p:has(.shell-docs-shadow-nav-divider) {
-  border-top: 1px solid color-mix(in srgb, var(--accent) 16%, var(--border));
-  padding-top: 1.25rem !important;
-}
-
-.shell-docs-sidebar a:has(.shell-docs-shadow-nav-note) {
-  margin: 0.125rem 0 0.625rem;
-  padding: 0.625rem 0.75rem !important;
-  border-left: 2px solid color-mix(in srgb, var(--accent) 32%, var(--border));
-  border-radius: 0.5rem;
-  background-color: color-mix(in srgb, var(--accent) 4%, transparent);
-  opacity: 1;
-}
-
-.shell-docs-sidebar a:has(.shell-docs-shadow-nav-note):hover {
-  background-color: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
-.shell-docs-shadow-nav-note {
-  display: block;
-  color: color-mix(in srgb, var(--text-muted) 82%, var(--accent));
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.45;
-}
-
-.shell-docs-shadow-nav-note-action {
-  color: var(--accent);
-  font-weight: 650;
-  text-decoration-line: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.16em;
-  white-space: nowrap;
-}
-
-.shell-docs-sidebar
-  a:has(.shell-docs-shadow-nav-note):hover
-  .shell-docs-shadow-nav-note-action {
-  text-decoration-thickness: 2px;
-}
-
-.shell-docs-shadow-nav-item {
-  color: color-mix(in srgb, var(--text-muted) 78%, var(--accent));
-}
-
-.shell-docs-sidebar a:has(.shell-docs-shadow-nav-item),
-.shell-docs-sidebar button:has(.shell-docs-shadow-nav-item) {
-  opacity: 0.74;
-}
-
-.shell-docs-sidebar a:has(.shell-docs-shadow-nav-item):hover,
-.shell-docs-sidebar button:has(.shell-docs-shadow-nav-item):hover {
-  opacity: 1;
-  background-color: color-mix(in srgb, var(--accent) 6%, transparent);
-}
-
-.shell-docs-sidebar p:has(.shell-docs-shadow-nav-item) {
-  color: var(--text-muted) !important;
-  opacity: 0.72;
-}
-
-.shell-docs-sidebar p:has(.shell-docs-shadow-nav-divider) svg,
-.shell-docs-sidebar p:has(.shell-docs-shadow-nav-item) svg {
-  color: color-mix(in srgb, var(--accent) 55%, var(--text-muted)) !important;
-  opacity: 0.7;
+.shell-docs-react-docs-proxy {
+  color: inherit;
 }
 
 /* Fumadocs CodeBlock chrome — force a single tokenized surface throughout.

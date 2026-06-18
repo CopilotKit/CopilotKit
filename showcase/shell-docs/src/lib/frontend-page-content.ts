@@ -30,20 +30,24 @@ export function getFrontendReferenceSlug(id: FrontendPageId): string {
   return FRONTEND_REFERENCE_SLUGS[id];
 }
 
-function asShadowNode(node: NavNode): NavNode {
+function asReactDocsProxyNode(node: NavNode): NavNode {
   if (node.type === "group") {
     return {
       ...node,
-      variant: "shadow",
-      children: node.children.map(asShadowNode),
+      variant: "react-docs-proxy",
+      children: node.children.map(asReactDocsProxyNode),
     };
   }
 
-  return { ...node, variant: "shadow" };
+  if (node.type === "page") {
+    return { ...node, variant: "react-docs-proxy" };
+  }
+
+  return node;
 }
 
 function getReactParallelsNavTree(): NavNode[] {
-  return buildRootSurfaceNav("built-in-agent").map(asShadowNode);
+  return buildRootSurfaceNav("built-in-agent").map(asReactDocsProxyNode);
 }
 
 export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
@@ -61,19 +65,6 @@ export function getFrontendQuickstartNavTree(id: FrontendPageId): NavNode[] {
       type: "page",
       title: "Reference docs",
       slug: getFrontendReferenceSlug(id),
-    },
-    {
-      type: "section",
-      title: "React docs",
-      icon: "custom/react",
-      variant: "shadow-divider",
-    },
-    {
-      type: "page",
-      title:
-        "Docs for this frontend are still filling in. This frontend SDK supports the same CopilotKit functionality as the React SDK, so use the React docs as a feature map and have your coding agent build those features here.",
-      slug: getFrontendUsingTheseDocsSlug(id),
-      variant: "shadow-note",
     },
     ...getReactParallelsNavTree(),
   ];

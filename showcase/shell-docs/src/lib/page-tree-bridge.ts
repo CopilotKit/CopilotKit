@@ -37,36 +37,23 @@ function renderNavName(
   variant: NavNode["variant"],
   icon?: React.ReactNode,
 ): React.ReactNode {
-  const className =
-    variant === "shadow-divider"
-      ? "shell-docs-shadow-nav-divider"
-      : variant === "shadow"
-        ? "shell-docs-shadow-nav-item"
-        : variant === "shadow-note"
-          ? "shell-docs-shadow-nav-note"
-          : undefined;
+  const isReactDocsProxy = variant === "react-docs-proxy";
+  const className = isReactDocsProxy
+    ? "shell-docs-react-docs-proxy"
+    : undefined;
 
   if (!className && !icon) return title;
 
-  const labelContent =
-    variant === "shadow-note"
-      ? React.createElement(
-          React.Fragment,
-          null,
-          title,
-          " ",
-          React.createElement(
-            "span",
-            { className: "shell-docs-shadow-nav-note-action" },
-            "Read more",
-          ),
-        )
-      : title;
-
   const label = React.createElement(
     "span",
-    { className, key: "label" },
-    labelContent,
+    {
+      className,
+      key: "label",
+      ...(isReactDocsProxy
+        ? { "data-shell-docs-react-docs-proxy": "true" }
+        : {}),
+    },
+    title,
   );
 
   return icon ? React.createElement(React.Fragment, null, icon, label) : label;
