@@ -47,6 +47,7 @@ function baseOpts(overrides: {
   tier?: "default" | "verbose" | "debug";
   debugEnabled?: boolean;
   allowedSlugs?: ReadonlySet<string>;
+  nowMs?: number;
 }) {
   const slug = overrides.slug ?? "langgraph-python";
   return {
@@ -551,5 +552,83 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
     // A DIFFERENT slug still has budget — the noisy slug did NOT drain it.
     const other = captureRawBytes(opts("other"));
     expect(other).not.toBeNull();
+  });
+
+  it("(M3R3-1) gunzip THROWS on a malformed-chunked+gzipped body → no UNSCRUBBED compressed body is stored", () => {
+    // A gzipped body carrying a secret, then framed as `Transfer-Encoding:
+    // chunked`. The chunk framing is DELIBERATELY malformed (a non-hex size
+    // line) so `dechunk` fails closed and returns null → decodeBody falls back
+    // to the raw chunk-framed bytes, then `gunzipSync` THROWS on those framed
+    // bytes (they are not a valid gzip stream).
+    //
+    // RED (swallow-the-throw, keep raw bytes): decodeBody returns the still
+    //   chunk-framed + COMPRESSED bytes; the secret is hidden inside the gzip
+    //   stream so `scrubSecrets` cannot see it → the unscrubbed compressed
+    //   payload is persisted (redaction bypass).
+    // GREEN: when gunzip throws we DROP the body (store empty + mark dropped),
+    //   so no unscrubbed compressed bytes are ever persisted.
+    const secret = "sk-test12345abcdefghij67890";
+    const plain = `data: {"key":"${secret}"}\n\n`;
+    const gz = gzipSync(Buffer.from(plain, "utf8"));
+    // The compressed bytes do NOT literally contain the secret (so a scrub
+    // over the compressed bytes is a no-op — the bypass).
+    expect(gz.toString("latin1")).not.toContain(secret);
+
+    // Wrap the gzip bytes in MALFORMED chunked framing: a non-hex size line so
+    // dechunk fails closed (returns null) and decodeBody keeps the raw framed
+    // bytes for the gunzip attempt, which then throws.
+    const framed = Buffer.concat([
+      Buffer.from("zz\r\n", "latin1"), // "zz" is not a valid hex chunk size
+      gz,
+      Buffer.from("\r\n0\r\n\r\n", "latin1"),
+    ]);
+
+    const sample = captureRawBytes(
+      baseOpts({
+        responseBody: framed,
+        contentEncoding: "gzip",
+        transferEncoding: "chunked",
+      }),
+    );
+
+    expect(sample).not.toBeNull();
+    const stored = `${sample!.head_bytes}${sample!.tail_bytes}`;
+    // The raw gzip bytes (a binary marker present in the compressed stream)
+    // must NOT have leaked into the stored sample.
+    expect(stored).not.toContain(gz.toString("latin1"));
+    // No fragment of the still-compressed payload may be persisted.
+    expect(Buffer.byteLength(stored, "utf8")).toBe(0);
+    // The decode failure must be surfaced as dropped content.
+    expect(sample!.metadata_dropped).toBe(true);
+  });
+
+  it("(M3R3-2) injected nowMs===0 does NOT reset the global ≤500/24h window every call (clock-0 sentinel collision)", () => {
+    // The global window used `globalWindowStartMs === 0` as BOTH the
+    // uninitialized sentinel AND a legitimate clock value. With an injected
+    // clock pinned at t=0, every call saw the sentinel and reset the window,
+    // so the global cap never tripped.
+    //
+    // RED (=== 0 sentinel): at nowMs=0 the window resets each call → the
+    //   global count is wiped before the cap check → the 501st capture at t=0
+    //   is admitted (cap never trips).
+    // GREEN: an undefined/boolean sentinel means a legitimate nowMs=0 does NOT
+    //   reset the window → the global cap trips at exactly the 500th capture.
+    const allowed = new Set(["a", "b", "c", "d", "e", "f"]);
+    const body = Buffer.from("data: {}\n\n", "utf8");
+    // Spread across enough DISTINCT slugs that no single slug hits the smaller
+    // per-slug cap (100) before the global 500 cap can trip. 6 slugs × ≤100 =
+    // 600 per-slug headroom > 500 global, all at the same injected clock=0.
+    const slugs = [...allowed];
+
+    let admitted = 0;
+    for (let i = 0; i < RAW_BYTE_MAX_CAPTURES_PER_24H + 50; i += 1) {
+      const slug = slugs[i % slugs.length]!;
+      const sample = captureRawBytes(
+        baseOpts({ slug, responseBody: body, allowedSlugs: allowed, nowMs: 0 }),
+      );
+      if (sample !== null) admitted += 1;
+    }
+    // The global cap must trip at exactly 500 even with the clock pinned to 0.
+    expect(admitted).toBe(RAW_BYTE_MAX_CAPTURES_PER_24H);
   });
 });

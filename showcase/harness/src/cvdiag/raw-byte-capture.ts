@@ -179,8 +179,14 @@ interface SlugCaptureState {
 }
 
 const slugStateByName = new Map<string, SlugCaptureState>();
-/** Global rolling count across all slugs (the ≤500/24h ring-buffer). */
-let globalWindowStartMs = 0;
+/**
+ * Global rolling window start across all slugs (the ≤500/24h ring-buffer).
+ * `undefined` is the UNINITIALIZED sentinel — distinct from a legitimate clock
+ * value of `0`. Using `0` as both the sentinel AND a real clock reading let an
+ * injected `nowMs === 0` reset the window on every call, so the global cap
+ * never tripped at clock-0. Mirrors the per-slug `state === undefined` sentinel.
+ */
+let globalWindowStartMs: number | undefined = undefined;
 let globalCount = 0;
 
 /**
@@ -189,7 +195,7 @@ let globalCount = 0;
  */
 export function resetRawByteCaptureStateForTest(): void {
   slugStateByName.clear();
-  globalWindowStartMs = 0;
+  globalWindowStartMs = undefined;
   globalCount = 0;
 }
 
@@ -199,9 +205,11 @@ export function resetRawByteCaptureStateForTest(): void {
  * within budget (and accounts for it); false when the ring-buffer rejects it.
  */
 function admitCapture(slug: string, nowMs: number): boolean {
-  // Global ≤500/24h ring-buffer.
+  // Global ≤500/24h ring-buffer. `undefined` is the uninitialized sentinel
+  // (NOT `0`, which is a legitimate injected clock value) so a real nowMs===0
+  // never spuriously resets the window mid-run.
   if (
-    globalWindowStartMs === 0 ||
+    globalWindowStartMs === undefined ||
     nowMs - globalWindowStartMs >= TWENTY_FOUR_HOURS_MS
   ) {
     globalWindowStartMs = nowMs;
@@ -238,7 +246,7 @@ function decodeBody(
   body: Buffer,
   contentEncoding: string,
   transferEncoding: string,
-): { decoded: Buffer; applied: boolean } {
+): { decoded: Buffer; applied: boolean; decodeFailed: boolean } {
   let buf = body;
   let applied = false;
 
@@ -259,12 +267,17 @@ function decodeBody(
       buf = gunzipSync(buf);
       applied = true;
     } catch {
-      // Not actually a valid gzip stream (or truncated mid-stream) — fall back
-      // to the raw bytes; scrubbing them is better than dropping the sample.
+      // gunzip threw: the (possibly chunk-framing-fallback) bytes are not a
+      // valid gzip stream. We must NOT store them — a secret hidden inside the
+      // still-COMPRESSED payload is invisible to `scrubSecrets`, so persisting
+      // the raw compressed bytes is a redaction BYPASS. Fail closed: report the
+      // decode failure so the caller drops the body (stores empty + marks
+      // dropped) rather than persisting an unscrubbable compressed payload.
+      return { decoded: Buffer.alloc(0), applied: true, decodeFailed: true };
     }
   }
 
-  return { decoded: buf, applied };
+  return { decoded: buf, applied, decodeFailed: false };
 }
 
 /**
@@ -458,12 +471,35 @@ export function captureRawBytes(
     let metadataDropped = false;
 
     // 1. DECODE (transfer + content encoding) — BEFORE scrub.
-    const { decoded, applied: decodeApplied } = decodeBody(
+    const {
+      decoded,
+      applied: decodeApplied,
+      decodeFailed,
+    } = decodeBody(
       opts.responseBody,
       opts.contentEncoding,
       opts.transferEncoding,
     );
     if (decodeApplied) applied.push("decode");
+
+    // DECODE FAILED (e.g. gunzip threw on bytes that are not a valid gzip
+    // stream): the body is still COMPRESSED, so `scrubSecrets` cannot see a
+    // secret hidden inside it. Persisting the raw compressed bytes would be a
+    // redaction BYPASS. Drop the body — store an empty sample marked dropped —
+    // rather than persisting an unscrubbable compressed payload.
+    if (decodeFailed) {
+      return {
+        test_id: opts.testId,
+        slug: opts.slug,
+        ts: new Date(nowMs).toISOString(),
+        pipeline_applied: applied,
+        head_bytes: "",
+        tail_bytes: "",
+        elided_count: 0,
+        metadata_dropped: true,
+      };
+    }
+
     let text = decoded.toString("utf8");
 
     // 2. HTML-STRIP if this is an HTML (challenge) page. Done on the decoded
