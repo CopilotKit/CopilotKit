@@ -15,7 +15,10 @@ name: "Showcase: Promote (staging → prod)"
 #                                     spec §7 hardening (P1..P6).
 #   3. verify-prod                  → verify-deploy.ts --env prod for the
 #                                     target service(s). Feature-level probes,
-#                                     not naked 200.
+#                                     not naked 200. Then the prod equivalence
+#                                     re-sweep gate (§6.2) and the pinned-ness
+#                                     gate (lint-prod, §8.2 — every prod service
+#                                     must be on an immutable @sha256: digest).
 #   4. notify                       → Slack #oss-alerts on any red. Never #engr.
 #                                     success → #team-showcase.
 
@@ -82,7 +85,16 @@ jobs:
     permissions:
       contents: read
     outputs:
+      # Leaf-set CSV — the BACKWARD-COMPAT promote target the promote job still
+      # drives off (Phase 1 behavior is unchanged).
       services_csv: ${{ steps.resolve.outputs.services_csv }}
+      # Tier-ordered promote closure (requested ∪ transitive runtimeDeps ∪
+      # Tier-1 verification, §4.2). Phase 1 SURFACES it (operators see the
+      # closure in the step summary) but the actual promote still uses
+      # services_csv; U4 enforces tier ordering / dependent-gating off these.
+      closure_csv: ${{ steps.resolve.outputs.closure_csv }}
+      # Machine-readable `tier:name` form of the closure for U4 to consume.
+      closure_plan: ${{ steps.resolve.outputs.closure_plan }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -97,64 +109,20 @@ jobs:
           npx tsx emit-railway-envs-json.ts
       - name: Resolve target service set
         id: resolve
+        # Resolution + the tiered-closure derivation live in the bats-tested
+        # showcase/scripts/resolve-promote-targets.sh so they can't drift from
+        # their test (see __tests__/resolve-promote-targets.bats), mirroring how
+        # promote-fleet.sh / verify-prod-display.sh were extracted from this same
+        # workflow. The script preserves the existing guards (--digest+all
+        # reject, empty-`all` fail-loud, unknown/ambiguous/not-prod-eligible) and
+        # emits services_csv (leaf, backward-compat) + closure_csv/closure_plan
+        # (tiered closure) into $GITHUB_OUTPUT, plus the closure plan + skips into
+        # $GITHUB_STEP_SUMMARY.
         env:
           INPUT: ${{ inputs.service }}
           DIGEST: ${{ inputs.digest }}
-        run: |
-          set -euo pipefail
-          GENERATED="showcase/scripts/railway-envs.generated.json"
-          if [ "$INPUT" = "__select_a_service__" ]; then
-            echo "::error::No service selected. Re-run and pick a service (or 'all') from the dropdown."
-            exit 1
-          fi
-          if [ "$INPUT" = "all" ]; then
-            # A single digest identifies at most one service's image, so a
-            # fleet-wide promote pinned to one digest is always wrong. The
-            # per-service promote loop would slip past bin/railway's own
-            # --digest guard (each call passes a positional service), so reject
-            # the combination loud and early here.
-            if [ -n "${DIGEST:-}" ]; then
-              echo "::error::--digest cannot be combined with 'all' (a single digest is meaningless across multiple services); pick one service."
-              exit 1
-            fi
-            CSV=$(jq -r '.services[] | select(.probe.prod == true) | .name' "$GENERATED" | sort -u | tr '\n' ',' | sed 's/,$//')
-            # Fail loud if 'all' resolved to nothing (e.g. an SSOT regression
-            # dropped every probe.prod entry). An empty CSV would otherwise
-            # propagate downstream with exit 0; mirror the single-service
-            # branch's fail-loud style.
-            if [ -z "$CSV" ]; then
-              echo "::error::'all' resolved to zero prod-eligible services"
-              exit 1
-            fi
-          else
-            # Capture the FULL match set (no `head` — that would silently mask
-            # an ambiguous match, and piping jq into head under pipefail can
-            # SIGPIPE jq and abort with no ::error:: annotation). Then count
-            # and branch fail-loud.
-            # Independently enforce prod-eligibility here: the dropdown
-            # advertises a prod-eligible set, but a stale/edited dropdown could
-            # offer a probe.prod:false service. Filtering on probe.prod == true
-            # ensures the single-service path never promotes a non-eligible
-            # service to prod, matching the `all` branch's gate.
-            MATCHES=$(jq -r --arg s "$INPUT" '
-              .services[]
-              | select(.name == $s or .dispatchName == $s)
-              | select(.probe.prod == true)
-              | .name
-            ' "$GENERATED")
-            # `grep -c` on empty input exits 1 under set -e; guard with || true.
-            COUNT=$(printf '%s' "$MATCHES" | grep -c . || true)
-            if [ "$COUNT" -eq 0 ]; then
-              echo "::error::Unknown or not prod-eligible service '$INPUT' (not an SSOT key/dispatch_name, or probe.prod is not true)"
-              exit 1
-            elif [ "$COUNT" -gt 1 ]; then
-              LIST=$(printf '%s' "$MATCHES" | tr '\n' ',' | sed 's/,$//')
-              echo "::error::Ambiguous service '$INPUT' matches multiple SSOT entries: $LIST"
-              exit 1
-            fi
-            CSV="$MATCHES"
-          fi
-          echo "services_csv=$CSV" >> "$GITHUB_OUTPUT"
+          GENERATED: showcase/scripts/railway-envs.generated.json
+        run: showcase/scripts/resolve-promote-targets.sh
 
   verify-staging-precondition:
     needs: [resolve-targets]
@@ -348,6 +316,99 @@ jobs:
           npx tsx verify-deploy.ts --env prod --services "$SERVICES_CSV"
           # Prod was actually probed and passed.
           echo "status=success" >> "$GITHUB_OUTPUT"
+      # ── Prod equivalence gate (UNIT U10, spec §6.2) ──────────────────────
+      # After the closure pins (promote job) AND the per-service prod probe
+      # (above), re-sweep the promoted integration closure on the PROD control
+      # plane (prod harness scheduler + prod harness-workers, or scheduler
+      # INLINE fallback when workers are unprovisioned — §4.4) and run U9's
+      # equivalence gate over the FRESH prod rows vs current staging. Promote
+      # success flips to the equivalence definition (fail only on
+      # staging-green / prod-not-green, gray/stale excluded, one-directional).
+      #
+      # GATED ON CONFIGURATION: the equivalence gate needs prod + staging
+      # PocketBase creds and the prod Railway environment id. Those are an
+      # out-of-PR operational prerequisite (§8.1) — until the secrets are wired
+      # the step ANNOTATES "not configured" and is a no-op, so this job's
+      # existing per-service prod verification (above) remains the gate. Once
+      # configured, a gate FAILURE fails the step (and the run).
+      # Install the pnpm workspace ONLY when the equivalence gate is configured
+      # (the gate step's enqueue dynamically imports the harness producer graph,
+      # which lives in the pnpm workspace — `npm ci` in showcase/scripts alone
+      # does not resolve it). `--ignore-scripts` skips postinstall/Playwright
+      # browser downloads: the host only ENQUEUES + POLLS prod PocketBase; the
+      # prod harness-workers own the browser. Gated on the same config check as
+      # the gate step so the no-op (unconfigured) path stays cheap.
+      - name: Set up pnpm (equivalence gate only)
+        if: ${{ steps.verify.outputs.status == 'success' && vars.SHOWCASE_PROD_POCKETBASE_URL != '' && vars.SHOWCASE_STAGING_POCKETBASE_URL != '' && vars.SHOWCASE_RAILWAY_ENV_ID_PROD != '' }}
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+      - name: pnpm install (equivalence gate only)
+        if: ${{ steps.verify.outputs.status == 'success' && vars.SHOWCASE_PROD_POCKETBASE_URL != '' && vars.SHOWCASE_STAGING_POCKETBASE_URL != '' && vars.SHOWCASE_RAILWAY_ENV_ID_PROD != '' }}
+        run: pnpm install --ignore-scripts
+      - name: Prod equivalence re-sweep gate
+        if: ${{ steps.verify.outputs.status == 'success' }}
+        working-directory: showcase/scripts
+        env:
+          # The promoted closure subset that ACTUALLY pinned (best-effort) —
+          # the set to re-sweep + compare. Same scope as the prod probe above.
+          PROMOTED_CLOSURE_CSV: ${{ needs.promote.outputs.succeeded_csv }}
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PROJECT_ID: ${{ vars.SHOWCASE_RAILWAY_PROJECT_ID }}
+          RAILWAY_ENVIRONMENT_ID_PROD: ${{ vars.SHOWCASE_RAILWAY_ENV_ID_PROD }}
+          PROD_POCKETBASE_URL: ${{ vars.SHOWCASE_PROD_POCKETBASE_URL }}
+          PROD_POCKETBASE_SUPERUSER_EMAIL: ${{ secrets.SHOWCASE_PROD_POCKETBASE_SUPERUSER_EMAIL }}
+          PROD_POCKETBASE_SUPERUSER_PASSWORD: ${{ secrets.SHOWCASE_PROD_POCKETBASE_SUPERUSER_PASSWORD }}
+          STAGING_POCKETBASE_URL: ${{ vars.SHOWCASE_STAGING_POCKETBASE_URL }}
+          STAGING_POCKETBASE_SUPERUSER_EMAIL: ${{ secrets.SHOWCASE_STAGING_POCKETBASE_SUPERUSER_EMAIL }}
+          STAGING_POCKETBASE_SUPERUSER_PASSWORD: ${{ secrets.SHOWCASE_STAGING_POCKETBASE_SUPERUSER_PASSWORD }}
+          # §4.4 annotation: flip to "false" once prod harness-workers are
+          # provisioned-but-degraded is the default-true full-throughput path.
+          PROD_HARNESS_WORKERS_PROVISIONED: ${{ vars.SHOWCASE_PROD_HARNESS_WORKERS_PROVISIONED }}
+        run: |
+          set -euo pipefail
+          # OUT-OF-PR PREREQ GATE: the equivalence gate is inert until the prod
+          # + staging PocketBase + prod Railway env-id config is wired (§8.1).
+          # Absence is NOT a failure — the per-service prod probe above already
+          # gated the run; this step just annotates that the equivalence gate
+          # was skipped for lack of configuration.
+          if [ -z "${PROD_POCKETBASE_URL:-}" ] || [ -z "${STAGING_POCKETBASE_URL:-}" ] || [ -z "${RAILWAY_ENVIRONMENT_ID_PROD:-}" ]; then
+            echo "::notice::Prod equivalence gate not configured (prod/staging PocketBase + prod Railway env-id absent) — skipping the re-sweep gate. This is the §8.1 out-of-PR prerequisite; the per-service prod probe remains the gate."
+            exit 0
+          fi
+          if [ -z "${PROMOTED_CLOSURE_CSV:-}" ]; then
+            echo "::notice::no promoted closure to re-sweep — equivalence gate vacuously passes."
+            exit 0
+          fi
+          # A gate FAILURE (a genuine staging-green / prod-not-green regression)
+          # or a re-sweep timeout (REFUSE) exits non-zero → fails this step and
+          # the run, exactly like the per-service probe above. `pnpm exec` (not
+          # `npx`) so the dynamically-imported harness producer graph resolves
+          # through the workspace node_modules the install step above created.
+          pnpm exec tsx verify-prod-resweep.ts
+      # ── Prod pinned-ness gate (UNIT U12, spec §8.2) ──────────────────────
+      # COMPLEMENTS the equivalence gate above — it asserts PINNED-NESS, not
+      # equivalence. After the promote pins the closure and prod is verified
+      # healthy + equivalent, assert that EVERY prod service is on an immutable
+      # `@sha256:` digest, not a mutable `:latest` tag. A born-on-:latest prod
+      # service (deploy-to-railway.ts provisions an unpinned source.image, spec
+      # R-E) can be healthy AND equivalent while still floating on a mutable tag
+      # — a latent rollback/repro hazard the other gates do not catch. The gate
+      # logic lives in the bats-tested showcase/scripts/lint-prod-gate.sh (a thin
+      # `bin/railway lint-prod` wrapper) so it can't drift from its test (see
+      # __tests__/lint-prod-gate.bats). Runs whenever prod was actually probed
+      # (same `status == 'success'` guard as the equivalence gate); a non-zero
+      # exit (an unpinned prod service, or a hard lint-prod error) fails the step
+      # and the run. No `--exit-zero`: an unpinned prod service must red the run.
+      - name: Prod pinned-ness gate (lint-prod)
+        if: ${{ steps.verify.outputs.status == 'success' }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+          showcase/scripts/lint-prod-gate.sh
 
   notify:
     # Slack #oss-alerts only. Never #engr (engr is sacred — release alerts only).
