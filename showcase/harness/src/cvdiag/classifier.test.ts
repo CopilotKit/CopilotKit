@@ -1198,3 +1198,215 @@ describe("CVDIAG classifier — M4 accuracy regressions", () => {
     expect(classify(TEST_ID, events).flapClass).not.toBe("slow-first-token");
   });
 });
+
+// ── M4 CR R2 synthetic regression cases ──────────────────────────────────────
+//
+// The R1 null-token normalization let rule (h) fire (before rule (a)) for any
+// response carrying token_count null/0 + zero backend.sse.event — even a SLOW
+// response (over the (a) timeout bar) or an ERR backend completion. (h) means
+// "provider returned a structurally-empty 200", so it must be guarded to a
+// GENUINE empty-200 (success outcome AND not in the (a) slow shape). The reason
+// strings for (f)/(g)/(h) also went stale after the R1 rule broadening and must
+// reflect the actual firing values.
+
+describe("CVDIAG classifier — M4 CR R2 rule-h guard + truthful reasons", () => {
+  // (1a) A SLOW response: late call.response (latency > timeout + tolerance)
+  // that ALSO carries response_token_count: null and zero backend.sse.event.
+  // RED (pre-fix): rule (h) steals it before (a) → provider-empty. GREEN: (h)
+  // is guarded out of the (a) slow shape so it falls through to (a)
+  // slow-first-token (raise the timeout, not a provider-empty).
+  it("(1a) SLOW null-token response classifies (a) not (h)", () => {
+    const events = [
+      ...probeLeadIn(),
+      backendIngress(),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.start",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          prompt_token_count_estimate: 10,
+        },
+      }),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.response",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          // null token + LATE latency (over the (a) bar).
+          response_token_count: null,
+          latency_ms: PROBE_TIMEOUT_MS + 5000,
+          error_class: null,
+        },
+      }),
+      // success completion, but zero backend.sse.event (the (h) bait).
+      backendComplete(0, "ok"),
+      probeExitTimeout(),
+    ];
+    expect(classify(TEST_ID, events).flapClass).toBe("slow-first-token");
+  });
+
+  // (1b) An ERR backend completion carrying null token + zero backend.sse.event.
+  // RED (pre-fix): rule (h) fires (it ignores outcome) → provider-empty, which
+  // is wrong — an error is not a "structurally-empty 200". GREEN: (h) requires
+  // a SUCCESS outcome so this falls through to the appropriate non-(h) class.
+  it("(1b) ERR null-token completion is NOT provider-empty", () => {
+    const events = [
+      ...probeLeadIn(),
+      backendIngress(),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.start",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          prompt_token_count_estimate: 10,
+        },
+      }),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.response",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          response_token_count: null,
+          // on-time latency (NOT the (a) shape) so only the outcome guard
+          // keeps (h) from firing.
+          latency_ms: 1200,
+          error_class: "upstream_500",
+        },
+      }),
+      // ERROR completion.
+      backendComplete(0, "err"),
+      probeExitTimeout(),
+    ];
+    expect(classify(TEST_ID, events).flapClass).not.toBe("provider-empty");
+  });
+
+  // (1c) Guard against over-correction: a GENUINE empty-200 (success outcome,
+  // on-time latency, null/0 token, zero backend.sse.event) STILL classifies
+  // (h). Confirms the new outcome + (a)-shape guards do not suppress real (h).
+  it("(1c) genuine empty-200 STILL classifies (h)", () => {
+    const events = [
+      ...probeLeadIn(),
+      backendIngress(),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.start",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          prompt_token_count_estimate: 10,
+        },
+      }),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.response",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          response_token_count: null,
+          latency_ms: 1200, // on-time, NOT the (a) shape.
+          error_class: null,
+        },
+      }),
+      backendComplete(0, "ok"), // SUCCESS empty completion.
+      probeExitTimeout(),
+    ];
+    expect(classify(TEST_ID, events).flapClass).toBe("provider-empty");
+  });
+
+  // (2f) Reason truthfulness: a runner crash that fires (f) from a
+  // probe.network.error ALONE (no probe.exit) must name the network error_class
+  // in the reason, not the stale "probe.exit outcome=err".
+  it("(2f) network-error-only (f) reason names the network error_class", () => {
+    const events = [
+      ...probeLeadIn(),
+      ev({
+        layer: "probe",
+        boundary: "probe.network.error",
+        outcome: "err",
+        metadata: {
+          url: "http://x",
+          error_class: "TargetClosed",
+          response_status: null,
+        },
+      }),
+    ];
+    const r = classify(TEST_ID, events);
+    expect(r.flapClass).toBe("probe-runner-crash");
+    expect(r.reason).toContain("TargetClosed");
+    // must NOT hardcode the probe.exit phrasing when no probe.exit fired.
+    expect(r.reason).not.toContain("probe.exit outcome=err");
+  });
+
+  // (2h) Reason truthfulness: when (h) matches response_token_count === null the
+  // reason must say null/absent, not the stale "token_count=0".
+  it("(2h) null-token (h) reason states null, not =0", () => {
+    const events = [
+      ...probeLeadIn(),
+      backendIngress(),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.start",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          prompt_token_count_estimate: 10,
+        },
+      }),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.response",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          response_token_count: null,
+          latency_ms: 1200,
+          error_class: null,
+        },
+      }),
+      backendComplete(0, "ok"),
+      probeExitTimeout(),
+    ];
+    const r = classify(TEST_ID, events);
+    expect(r.flapClass).toBe("provider-empty");
+    expect(r.reason).toMatch(/null|absent/i);
+    expect(r.reason).not.toContain("token_count=0");
+  });
+
+  // (2g) Reason truthfulness: when (g) matches an OMITTED fixture_id key the
+  // reason must distinguish absent-key from present-null, not hardcode
+  // "fixture_id=null".
+  it("(2g) absent-key (g) reason distinguishes absent from present-null", () => {
+    const events = [
+      ...probeLeadIn(),
+      backendIngress(),
+      ev({
+        layer: "aimock",
+        boundary: "aimock.match.decision",
+        // fixture_id key OMITTED → reads as undefined (absent key).
+        metadata: {
+          match_score: 0.1,
+          reject_reasons: [{ key: "userMessage", expected: "x", actual: "y" }],
+        },
+      }),
+      ev({
+        layer: "aimock",
+        boundary: "aimock.response.complete",
+        metadata: {
+          http_status: 200,
+          total_bytes: 4,
+          total_duration_ms: 5,
+          chunk_count: 0,
+        },
+      }),
+      probeExitTimeout(),
+    ];
+    const r = classify(TEST_ID, events);
+    expect(r.flapClass).toBe("aimock-fixture-mismatch");
+    expect(r.reason).toMatch(/absent|omitted|missing/i);
+    expect(r.reason).not.toContain("fixture_id=null");
+  });
+});

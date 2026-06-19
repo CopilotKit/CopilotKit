@@ -591,7 +591,7 @@ function ruleC(f: DerivedFacts): boolean {
 }
 
 /**
- * (h) provider-side empty completion. A structurally-empty 200 reports NO
+ * (h) provider-side empty completion. A structurally-empty *200* reports NO
  * tokens, which the wire represents as either `response_token_count: 0` OR
  * `response_token_count: null` (schema type `number | null`). Both mean "the
  * provider produced no content" for this empty-response rule, so treat `null`
@@ -599,9 +599,27 @@ function ruleC(f: DerivedFacts): boolean {
  * present (a missing response also yields a null token count via the fact
  * accessor, but that is the (b) stalled-backend shape, not (h) — gate on the
  * response being SEEN so an absent response cannot false-fire (h)).
+ *
+ * Two further guards keep the null-token normalization from OVER-broadening (h)
+ * (which precedes (a)) so it cannot steal slow/err cases that belong to (a) or
+ * fall through to the appropriate non-empty class:
+ *   - SUCCESS-only: the docstring says "structurally-empty *200*". A backend
+ *     completion whose outcome is NOT `ok` (an error/timeout response) is not a
+ *     200 and must not classify (h). Gate on `backendResponseOutcome === "ok"`.
+ *   - NOT the (a) slow shape: a response that is LATE past the probe timeout
+ *     (late first_byte / fresh heartbeat / late call.response — the (a) bar)
+ *     proves the backend was alive past the timeout; that is (a) slow-first-
+ *     token, NOT a structurally-empty 200. Defer to (a) when its predicate
+ *     holds so the slow response falls through to (a) rather than (h).
  */
 function ruleH(f: DerivedFacts): boolean {
   if (!f.backendLlmCallResponseSeen) return false;
+  // A structurally-empty 200 requires a SUCCESS completion: an error/timeout
+  // outcome is not a 200 and must fall through (e.g. to unclassified).
+  if (f.backendResponseOutcome !== "ok") return false;
+  // A LATE response (over the (a) timeout bar) is (a) slow-first-token, not (h):
+  // defer to (a) so the slow case is not stolen by the empty-200 rule.
+  if (ruleA(f)) return false;
   const noTokens =
     f.backendLlmCallResponseTokenCount === 0 ||
     f.backendLlmCallResponseTokenCount === null;
@@ -737,9 +755,17 @@ export function classify(
 
   // Precedence order (see header).
   if (ruleF(idx)) {
+    // (f) fires from EITHER signal — a probe.network.error carrying a runner
+    // error_class, OR a probe.exit (any outcome) carrying one. Name the signal
+    // that actually fired + the actual error_class rather than hardcoding the
+    // probe.exit-outcome=err phrasing (which is wrong for a network-error-only
+    // crash, or a non-err probe.exit).
+    const fSignal = has(idx, "probe.network.error")
+      ? "probe.network.error"
+      : "probe.exit";
     return decide(
       "probe-runner-crash",
-      `probe.exit outcome=err with probe-runner error class (${f.probeExitErrorClass ?? "see probe.network.error"})`,
+      `${fSignal} carries probe-runner error class (${f.probeExitErrorClass ?? "unknown"})`,
     );
   }
   if (ruleC(f)) {
@@ -751,15 +777,30 @@ export function classify(
     );
   }
   if (ruleH(f)) {
+    // Interpolate the ACTUAL matched token value: the null normalization means
+    // (h) fires on `0` OR `null`, so the reason must say which (not hardcode
+    // "=0"). Render null as "null (absent)" to match its wire/semantic meaning.
+    const tokenDesc =
+      f.backendLlmCallResponseTokenCount === null
+        ? "null (absent)"
+        : `${f.backendLlmCallResponseTokenCount}`;
     return decide(
       "provider-empty",
-      "backend.llm.call.response token_count=0 AND zero backend.sse.event (provider returned structurally-empty 200)",
+      `backend.llm.call.response token_count=${tokenDesc} AND zero backend.sse.event (provider returned structurally-empty 200)`,
     );
   }
   if (ruleG(f)) {
+    // Distinguish the two "no fixture matched" states the fact extraction
+    // deliberately preserves: a present `fixture_id` key with value `null`
+    // (present-null) vs an OMITTED key (undefined → absent-key). Report which
+    // one matched rather than hardcoding "fixture_id=null".
+    const fixtureDesc =
+      f.aimockFixtureId === undefined
+        ? "fixture_id key absent (omitted)"
+        : "fixture_id=null (present-null)";
     return decide(
       "aimock-fixture-mismatch",
-      `aimock.match.decision fixture_id=null AND aimock.response.complete total_bytes=${f.aimockResponseTotalBytes} (<16)`,
+      `aimock.match.decision ${fixtureDesc} AND aimock.response.complete total_bytes=${f.aimockResponseTotalBytes} (<16)`,
     );
   }
   // (a) is checked BEFORE (b): both key on first-token absence, but (a) fires
