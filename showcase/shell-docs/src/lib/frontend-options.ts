@@ -1,4 +1,10 @@
-export type FrontendId = "react" | "vue" | "react-native" | "slack" | "teams";
+export type FrontendId =
+  | "react"
+  | "vue"
+  | "react-native"
+  | "angular"
+  | "slack"
+  | "teams";
 
 export type FrontendIcon = FrontendId;
 
@@ -27,6 +33,12 @@ export const FRONTEND_OPTIONS: readonly FrontendOption[] = [
     name: "React Native",
     icon: "react-native",
     summary: "Mobile bindings for React Native and Expo apps.",
+  },
+  {
+    id: "angular",
+    name: "Angular",
+    icon: "angular",
+    summary: "Angular components, directives, and services.",
   },
   {
     id: "slack",
