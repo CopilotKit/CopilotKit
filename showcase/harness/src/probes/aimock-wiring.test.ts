@@ -144,8 +144,11 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.wiredCount).toBe(0);
   });
 
-  it("excludes bare-named ms-agent-harness-dotnet (non-LLM infra)", async () => {
-    const r = await aimockWiringProbe.run(
+  it("checks ms-agent-harness-dotnet for aimock wiring (no longer excluded)", async () => {
+    // The column is now fully probe-wired (d6/d4 aimock fixtures shipped via
+    // PR #5569), so it is an LLM caller and must route through aimock like any
+    // other partner. Unwired → red; wired (base URL present) → green.
+    const unwired = await aimockWiringProbe.run(
       {
         aimockUrl: AIMOCK_URL,
         listServices: async () => [{ name: "ms-agent-harness-dotnet" }],
@@ -153,8 +156,20 @@ describe("aimock-wiring probe", () => {
       },
       ctx,
     );
-    expect(r.state).toBe("green");
-    expect(r.signal.unwired).toEqual([]);
+    expect(unwired.state).toBe("red");
+    expect(unwired.signal.unwired).toEqual(["ms-agent-harness-dotnet"]);
+
+    const wired = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "ms-agent-harness-dotnet" }],
+        getServiceEnv: async () => ({ ANTHROPIC_BASE_URL: AIMOCK_URL }),
+      },
+      ctx,
+    );
+    expect(wired.state).toBe("green");
+    expect(wired.signal.unwired).toEqual([]);
+    expect(wired.signal.wiredCount).toBe(1);
   });
 
   it("does NOT false-exclude services that merely share a prefix with infra names", async () => {
