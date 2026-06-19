@@ -107,6 +107,101 @@ Artifacts land in `e2e/.artifacts/` (gitignored):
 - **Live incremental shell-output streaming** — `shell_run` currently waits for the process to exit and returns the complete output in one shot; streaming stdout/stderr line-by-line to the model while the process runs is a follow-up.
 - **Runtime workspace folder-picker** — the workspace root is fixed at launch via the env var or the default path; a UI control to switch it without restarting the app is a follow-up.
 
+## MCP servers
+
+The assistant can use tools from any MCP server alongside the built-in fs/shell tools. Two transport types are supported:
+
+- **stdio** — the server is spawned as a child process of the Electron main process (e.g. `npx -y @modelcontextprotocol/server-filesystem ~/Documents`).
+- **HTTP/SSE** — a remote server reachable by URL (e.g. a self-hosted or cloud MCP endpoint).
+
+All tools advertised by every enabled server are merged into the agent's tool set and become available to the assistant in the same conversation.
+
+### Config file
+
+Server configuration follows the Claude Desktop `mcp_servers` style, stored in a file named `mcp.config.json`:
+
+```json
+{
+  "servers": {
+    "everything": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"],
+      "env": {}
+    },
+    "my-remote-server": {
+      "url": "https://mcp.example.com/sse"
+    }
+  }
+}
+```
+
+- **stdio server** — provide `command`, `args`, and an optional `env` map.
+- **HTTP/SSE server** — provide only `url`.
+
+**Where it is read from:**
+
+1. `<Electron userData>/mcp.config.json` — your personal config; edit this to add or swap servers.
+2. Bundled `mcp.config.example.json` (fallback) — used when no user config exists, so the app works out of the box.
+
+The bundled example runs `@modelcontextprotocol/server-everything` via `npx`, which exposes demo tools such as `echo` and `add`. To use the filesystem server instead, copy the example to your `userData` directory and swap in `@modelcontextprotocol/server-filesystem`:
+
+```bash
+# macOS example — adjust path for Windows/Linux
+cp /path/to/app/resources/mcp.config.example.json \
+   ~/Library/Application\ Support/copilotkit-electron/mcp.config.json
+```
+
+Then edit the new file to replace `@modelcontextprotocol/server-everything` with `@modelcontextprotocol/server-filesystem` (plus the directory argument you want to expose).
+
+### Settings → MCP panel
+
+Open **Settings** in the app and navigate to the **MCP** tab. The panel lists every server defined in your config with a live status badge:
+
+| Badge        | Meaning                                                  |
+| ------------ | -------------------------------------------------------- |
+| `connecting` | The main process is starting or contacting the server.   |
+| `ready`      | The server handshake succeeded; its tools are active.    |
+| `error`      | Connection failed; hover the badge for the error detail. |
+
+Each row has an **enable / disable toggle**. Disabling a server disconnects it immediately and removes its tools from the agent's tool set for subsequent turns — no restart required. Re-enabling reconnects it.
+
+### How tools are registered
+
+The Electron main process hosts an **MCP Manager** that:
+
+1. Reads `mcp.config.json` on boot and connects to each enabled server via `@ai-sdk/mcp`.
+2. Passes the live `mcpClients` providers to the v2 `BuiltInAgent` as stable references so they are included in every agent run without re-initialising the connections.
+3. Owns the full server lifecycle — connecting on app boot, tearing down cleanly on quit, and re-connecting when a server is toggled back on.
+
+The enable toggle operates on the Manager: a disabled server contributes zero tools to the agent, but its config is preserved so it can be re-enabled later.
+
+### Demo video
+
+The MCP integration is covered by the e2e suite alongside the existing tests:
+
+```bash
+pnpm nx run @copilotkit/electron-demo:e2e
+# or
+pnpm --filter @copilotkit/electron-demo test:e2e
+```
+
+Two specs run:
+
+- **Server-ready spec** — deterministic; verifies that `server-everything` reaches `ready` status. Requires network access on a cold `npx` cache so it can download the server package.
+- **Tool-call spec** — key-gated (auto-skips without a provider key); drives a real `echo` tool call through the assistant and asserts the result appears in chat.
+
+Artifacts land in `e2e/.artifacts/` (gitignored):
+
+- `mcp-panel.png` — screenshot of the MCP settings panel showing the server status.
+- `mcp-tool-call.png` — screenshot of the tool-call result rendered in chat.
+- `.webm` screen-recording of the full run.
+
+### Not yet wired (follow-ups)
+
+- **Add / edit / remove server UI** — servers can only be added by editing `mcp.config.json` directly; an in-app editor is a follow-up.
+- **Reconnect on re-enable** — toggling a server back on currently requires an app restart to reconnect; live reconnect is a follow-up.
+- **Health polling / streamed server logs** — the status badge reflects the initial connection state; periodic health checks and a live log view for each server process are follow-ups.
+
 ## Later
 
-This foundation is the base for further capabilities — MCP servers, a browser-extension bridge — documented as they land.
+This foundation is the base for further capabilities — a browser-extension bridge — documented as they land.
