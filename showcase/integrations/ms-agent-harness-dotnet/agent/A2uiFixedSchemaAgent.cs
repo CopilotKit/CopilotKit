@@ -1,0 +1,169 @@
+// @region[backend-render-operations]
+// @region[backend-schema-json-load]
+using System.ClientModel;
+using System.ComponentModel;
+using System.Text.Json;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
+using OpenAI;
+
+/// <summary>
+/// Factory for the A2UI — Fixed Schema agent.
+///
+/// Mirrors the LangGraph `src/agents/a2ui_fixed.py` reference: the frontend
+/// owns a pre-authored component tree (see
+/// `src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts` + flight_schema.json)
+/// and the agent only streams *data* into the data model via a dedicated
+/// `display_flight` tool that emits an <c>a2ui_operations</c> container.
+/// The A2UI middleware detects that container in the tool result and
+/// forwards rendered surfaces to the frontend.
+/// </summary>
+public class A2uiFixedSchemaAgent
+{
+    private const int HarnessMaxContextWindowTokens = 128_000;
+    private const int HarnessMaxOutputTokens = 8_192;
+    private const string CatalogId = "copilotkit://flight-fixed-catalog";
+    private const string SurfaceId = "flight-fixed-schema";
+
+    private const string Instructions = @"You help users find flights. When asked about a flight, call
+`display_flight` with origin, destination, airline, and price.
+Use short airport codes (e.g. ""SFO"", ""JFK"") for origin/destination and a price
+string like ""$289"". Keep any chat reply to one short sentence.";
+
+    private readonly OpenAIClient _openAiClient;
+    private readonly ILogger _logger;
+    private readonly JsonSerializerOptions _jsonSerializerOptions;
+
+    public A2uiFixedSchemaAgent(
+        IConfiguration configuration,
+        OpenAIClient openAiClient,
+        ILoggerFactory loggerFactory,
+        JsonSerializerOptions jsonSerializerOptions)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(openAiClient);
+        ArgumentNullException.ThrowIfNull(loggerFactory);
+        ArgumentNullException.ThrowIfNull(jsonSerializerOptions);
+
+        _openAiClient = openAiClient;
+        _logger = loggerFactory.CreateLogger<A2uiFixedSchemaAgent>();
+        _jsonSerializerOptions = jsonSerializerOptions;
+    }
+
+    public AIAgent Create()
+    {
+        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+
+        return chatClient.AsHarnessAgent(
+            HarnessMaxContextWindowTokens,
+            HarnessMaxOutputTokens,
+            new HarnessAgentOptions
+            {
+                Name = "A2uiFixedSchemaAgent",
+                Description = "A2UI fixed-schema flight demo powered by Microsoft Agent Harness over Microsoft Agent Framework.",
+                ChatOptions = new ChatOptions
+                {
+                    Instructions = Instructions,
+                    MaxOutputTokens = HarnessMaxOutputTokens,
+                    Tools =
+                    [
+                        AIFunctionFactory.Create(DisplayFlight, options: new() { Name = "display_flight", SerializerOptions = _jsonSerializerOptions }),
+                    ],
+                },
+            });
+    }
+
+    // The fixed-schema flight component tree. .NET doesn't ship a
+    // JSON-loading helper analogous to LangGraph Python's
+    // `a2ui.load_schema(...)`, so the schema is declared inline as a
+    // C# array — equivalent to deserialising a `flight_schema.json`
+    // file at startup. Matches the LangGraph reference at
+    // `src/agents/a2ui_schemas/flight_schema.json`. Frontend renders
+    // this via the registered catalog (`copilotkit://flight-fixed-catalog`).
+    private static readonly object[] FlightSchema = new object[]
+    {
+        new { id = "root", component = "Card", child = "content" },
+        new { id = "content", component = "Column", children = new[] { "title", "route", "meta", "bookButton" } },
+        new { id = "title", component = "Title", text = "Flight Details" },
+        new
+        {
+            id = "route",
+            component = "Row",
+            justify = "spaceBetween",
+            align = "center",
+            children = new[] { "from", "arrow", "to" },
+        },
+        new { id = "from", component = "Airport", code = new { path = "/origin" } },
+        new { id = "arrow", component = "Arrow" },
+        new { id = "to", component = "Airport", code = new { path = "/destination" } },
+        new
+        {
+            id = "meta",
+            component = "Row",
+            justify = "spaceBetween",
+            align = "center",
+            children = new[] { "airline", "price" },
+        },
+        new { id = "airline", component = "AirlineBadge", name = new { path = "/airline" } },
+        new { id = "price", component = "PriceTag", amount = new { path = "/price" } },
+        new
+        {
+            id = "bookButton",
+            component = "Button",
+            variant = "primary",
+            child = "bookButtonLabel",
+            action = new
+            {
+                @event = new
+                {
+                    name = "book_flight",
+                    context = new
+                    {
+                        origin = new { path = "/origin" },
+                        destination = new { path = "/destination" },
+                        airline = new { path = "/airline" },
+                        price = new { path = "/price" },
+                    },
+                },
+            },
+        },
+        new { id = "bookButtonLabel", component = "Text", text = "Book flight" },
+    };
+    // @endregion[backend-schema-json-load]
+
+    [Description("Show a flight card for the given trip. Use short airport codes (e.g. SFO, JFK) for origin/destination and a price string like $289.")]
+    private object DisplayFlight(
+        [Description("Origin airport code (e.g. SFO)")] string origin,
+        [Description("Destination airport code (e.g. JFK)")] string destination,
+        [Description("Airline name")] string airline,
+        [Description("Price string (e.g. $289)")] string price)
+    {
+        _logger.LogInformation("FixedSchema DisplayFlight: {Origin} -> {Destination} on {Airline} at {Price}", origin, destination, airline, price);
+
+        var operations = new object[]
+        {
+            new { version = "v0.9", createSurface = new { surfaceId = SurfaceId, catalogId = CatalogId } },
+            new { version = "v0.9", updateComponents = new { surfaceId = SurfaceId, components = FlightSchema } },
+            new
+            {
+                version = "v0.9",
+                updateDataModel = new
+                {
+                    surfaceId = SurfaceId,
+                    path = "/",
+                    value = new
+                    {
+                        origin,
+                        destination,
+                        airline,
+                        price,
+                    },
+                },
+            },
+        };
+
+        return new { a2ui_operations = operations };
+    }
+    // @endregion[backend-render-operations]
+}
