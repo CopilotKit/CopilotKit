@@ -19,6 +19,18 @@
  *                      rather than masquerade a real error as drift.
  *   --out=<path>       Override the output path (used by tests for hermetic
  *                      writes). Defaults to the canonical tracked artifact.
+ *
+ * Env:
+ *   EMIT_SKIP_OXFMT=1  Skip the oxfmt-canonical pass and emit raw
+ *                      `JSON.stringify(_, null, 2)` instead. Set ONLY on the
+ *                      EPHEMERAL consumers (the promote workflow's
+ *                      resolve-targets / promote jobs) where the emitted JSON
+ *                      is parsed in-memory by jq / bin/railway and NEVER
+ *                      committed, so canonical formatting is irrelevant and the
+ *                      repo-root oxfmt binary is not installed. On the DEFAULT
+ *                      (committed-artifact) path this is unset and oxfmt is
+ *                      REQUIRED — a missing binary fails loud (it must, or CI's
+ *                      `oxfmt --check` auto-format bot would fire on drift).
  */
 
 import { execFileSync } from "node:child_process";
@@ -218,6 +230,17 @@ function oxfmtCanonical(json: string, nearDir: string): string {
 
 function serialize(payload: Emitted, nearDir: string): string {
   const raw = JSON.stringify(payload, null, 2) + "\n";
+  // EMIT_SKIP_OXFMT is an EXPLICIT opt-out for the ephemeral consumers (the
+  // promote workflow's resolve-targets / promote jobs) where the JSON is parsed
+  // in-memory and never committed, so canonical formatting is irrelevant and
+  // the repo-root oxfmt binary is not installed by that job's `npm ci`. This is
+  // opt-IN-to-skip on purpose: the DEFAULT path keeps oxfmt REQUIRED and fails
+  // loud if the binary is absent (oxfmtCanonical throws ENOENT), because the
+  // committed artifact MUST stay oxfmt-canonical or CI's `oxfmt --check`
+  // auto-format bot fires on the drift. We never silently skip on absence.
+  if (process.env.EMIT_SKIP_OXFMT === "1") {
+    return raw;
+  }
   return oxfmtCanonical(raw, nearDir);
 }
 
