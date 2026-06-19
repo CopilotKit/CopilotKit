@@ -100,14 +100,32 @@ of re-rendering the provider with a new `headers` prop.
 import { useCopilotKit } from "@copilotkit/react-core/v2";
 import { useEffect } from "react";
 
-export function AuthTokenSync({ token }: { token: string }) {
+export function AuthTokenSync({ token }: { token: string | null }) {
   const { copilotkit } = useCopilotKit();
   useEffect(() => {
-    copilotkit.setHeaders({ Authorization: `Bearer ${token}` });
+    // setHeaders is an overwrite, not a merge — spread the current headers so
+    // entries set elsewhere (e.g. the public license key) survive. A `null`
+    // value clears that header, so logging out removes `Authorization` instead
+    // of sending an empty one.
+    copilotkit.setHeaders({
+      ...copilotkit.headers,
+      Authorization: token ? `Bearer ${token}` : null,
+    });
   }, [copilotkit, token]);
   return null;
 }
 ```
+
+`setHeaders` accepts `null`/`undefined` values and drops those keys, so passing
+`Authorization: null` is the supported way to clear a header. Setting it to an
+empty string would keep the header present with a blank value.
+
+Do not set the same header through both the `headers` prop and imperative
+`setHeaders`. Whenever any provider prop changes, the provider calls
+`setHeaders` with its prop-derived headers — a full overwrite that drops every
+imperatively-set header, not just keys the prop also defines. Keep rotating
+values like the auth token out of the `headers` prop and manage them only
+through `setHeaders` (as above).
 
 ### Global error handler
 
