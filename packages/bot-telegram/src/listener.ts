@@ -7,11 +7,8 @@ import {
   toPlatformUser,
   decodeInteraction,
 } from "./interaction.js";
-import {
-  buildFileContentParts,
-  type AgentContentPart,
-  type TelegramFileRef,
-} from "./download-files.js";
+import { buildFileContentParts } from "./download-files.js";
+import type { AgentContentPart, TelegramFileRef } from "./download-files.js";
 
 /** Escape special regex characters in a string so it can be used in a RegExp. */
 function escapeRegExp(s: string): string {

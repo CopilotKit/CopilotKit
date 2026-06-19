@@ -1,16 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import {
-  AbstractAgent,
-  HttpAgent,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { map, type Observable } from "rxjs";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
+import { map } from "rxjs";
+import type { Observable } from "rxjs";
 
 // Dedicated runtime for the Open Generative UI demos, mirroring the
 // LangGraph-Python `copilotkit-ogui` route.

@@ -17,7 +17,8 @@
 import React from "react";
 import { z } from "zod";
 import { useDefaultRenderTool, useRenderTool } from "@copilotkit/react-core/v2";
-import { ChartCard, type ChartPoint } from "../tools/chart-card";
+import { ChartCard } from "../tools/chart-card";
+import type { ChartPoint } from "../tools/chart-card";
 import { GenericToolCard } from "../tools/generic-tool-card";
 import { StockCard } from "../tools/stock-card";
 import { WeatherCard } from "../tools/weather-card";

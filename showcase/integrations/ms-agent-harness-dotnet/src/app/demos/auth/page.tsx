@@ -15,11 +15,8 @@
 // surface (the whole point of the demo).
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  type CopilotKitCoreErrorCode,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import type { CopilotKitCoreErrorCode } from "@copilotkit/react-core/v2";
 import { AuthBanner } from "./auth-banner";
 import { SignInCard } from "./sign-in-card";
 import { useDemoAuth } from "./use-demo-auth";

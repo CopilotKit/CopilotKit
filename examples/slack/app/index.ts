@@ -74,6 +74,10 @@ async function main() {
       slack({
         botToken: required("SLACK_BOT_TOKEN"),
         appToken: required("SLACK_APP_TOKEN"),
+        // Don't surface tool-call progress in the UI (no task_update timeline,
+        // `:wrench:` rows, or pane "is using `tool`…" status). Tools still run;
+        // only the display is hidden.
+        showToolStatus: false,
         // Assistant-pane behavior is ON by default; this just customizes it.
         // The greeting + chips show when a user opens the pane (matching the
         // app manifest's `assistant_view`); native streaming + status need no

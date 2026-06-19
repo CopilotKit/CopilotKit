@@ -123,7 +123,7 @@ export const CASES: E2ECase[] = [
       perReplyChecks: (replies) => {
         const joined = replies.join("\n");
         // Expect at least one line starting with "-" or "•"
-        const hasBullets = /^[\-•]/m.test(joined);
+        const hasBullets = /^[-•]/m.test(joined);
         if (!hasBullets) {
           return ["no bullet-point line found in bot reply"];
         }

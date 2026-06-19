@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "tsx watch app/index.ts",
     "start": "tsx app/index.ts",
-    "build": "pnpm exec nx run-many -t build -p @copilotkit/bot-slack @copilotkit/bot-discord @copilotkit/runtime",
+    "build": "pnpm exec nx run-many -t build -p @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-slack @copilotkit/bot-discord @copilotkit/bot-telegram @copilotkit/runtime",
     "runtime": "tsx runtime.ts",
     "notion-mcp": "tsx scripts/start-notion-mcp.ts",
     "check-types": "tsc --noEmit -p tsconfig.json",
