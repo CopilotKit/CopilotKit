@@ -71,7 +71,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-release
+  # Scope the lock to the package being released so a `monorepo` publish and an
+  # `angular` publish run in independent lanes instead of queuing behind each
+  # other. On the manual path `inputs.scope` carries the target; on the merged
+  # release-PR path inputs are empty, but the PR branch is
+  # `release/publish/<scope>/v<version>`, so `github.head_ref` already encodes
+  # the scope. Same-scope runs still serialize (cancel-in-progress: false),
+  # which is what protects the tag push / npm publish.
+  group: publish-release-${{ inputs.scope || github.head_ref || github.ref }}
   cancel-in-progress: false
 
 env:
