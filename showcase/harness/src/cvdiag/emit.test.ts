@@ -56,6 +56,27 @@ function scalarHeavyMetadata(keyCount: number): Record<string, unknown> {
 }
 
 /**
+ * Build an `EdgeHeaders` with ALL 9 keys set to the same `filler` string. Used
+ * to drive the byte-cap ladder's edge-header clamp: each value at the
+ * EDGE_HEADER_MAX_LEN char bound, summed across 9 keys, exceeds the default
+ * tier byte cap (especially with multi-byte chars). Module-scope to satisfy
+ * `consistent-function-scoping` (mirrors `scalarHeavyMetadata`).
+ */
+function allEdgeHeaders(filler: string): EdgeHeaders {
+  return {
+    "cf-ray": filler,
+    "cf-mitigated": filler,
+    "cf-cache-status": filler,
+    "x-railway-edge": filler,
+    "x-railway-request-id": filler,
+    "x-hikari-trace": filler,
+    "retry-after": filler,
+    via: filler,
+    server: filler,
+  };
+}
+
+/**
  * A `CvdiagPbWriter` test double that captures every batch handed to
  * `writeBatch`. Resolves (never rejects), matching the best-effort seam
  * contract.
@@ -405,6 +426,75 @@ describe("CvdiagEmitter.applyByteCap — invariant matrix: size AND schema-valid
     // Edge value is entry-bounded to ≤256 (Task 5), NOT clamped by the ladder.
     expect(env!.edge_headers.via!.length).toBeLessThanOrEqual(256);
     expect(serializedSize(env!)).toBeLessThanOrEqual(BYTE_CAP_BY_TIER.default);
+  });
+
+  it("bounds an envelope with ALL 9 edge_headers at the entry-bound (ASCII + multi-byte) to the default tier cap", () => {
+    // The entry-bound (EDGE_HEADER_MAX_LEN = 256) is a CHAR cap, not a BYTE
+    // cap, and applies PER-VALUE. With all 9 keys populated near the char
+    // bound, their summed byte length can exceed the 2048-byte default tier cap:
+    //   - ASCII:      9 × 256 chars × 1 byte  ≈ 2304 envelope-payload bytes
+    //   - multi-byte: 9 × 256 chars × 3 bytes ≈ 6912 envelope-payload bytes
+    // Before the ladder clamps edge_headers, `applyByteCap` stamps `_truncated`
+    // and returns over-cap — violating the post-condition. The ladder must
+    // byte-clamp the edge-header VALUES (free strings, schema-valid) so
+    // serializedSize <= cap for ANY header encoding, while the 9-key shape and
+    // every format-constrained field stay schema-valid. (slugPattern/spanPattern
+    // are reused from the enclosing describe scope.)
+    const cap = BYTE_CAP_BY_TIER.default;
+
+    const cases: Array<{ name: string; headers: EdgeHeaders }> = [
+      // 256 ASCII chars per value → ~2304 bytes across 9 values (> 2048 cap).
+      { name: "all-9 ASCII @256", headers: allEdgeHeaders("a".repeat(256)) },
+      // 256 three-byte chars per value → ~6912 bytes across 9 values (>> cap).
+      {
+        name: "all-9 multi-byte @256",
+        headers: allEdgeHeaders("★".repeat(256)),
+      },
+    ];
+
+    for (const { name, headers } of cases) {
+      const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+      const env = emitter.emit({
+        layer: "probe",
+        boundary: "probe.message.send",
+        slug: "langgraph-python",
+        demo: "chat",
+        outcome: "info",
+        edgeHeaders: headers,
+        metadata: { message_index: 0, char_count: 3, demo: "chat" },
+      });
+      expect(env, `${name}: built`).not.toBeNull();
+      // (a) The whole serialized envelope fits the tier byte cap.
+      expect(serializedSize(env!), `${name}: size <= cap`).toBeLessThanOrEqual(
+        cap,
+      );
+      // (b) Every format-constrained field stays schema-valid — the ladder
+      // clamps only the free-string edge-header VALUES, never the shape/ids.
+      expect(env!.slug, `${name}: slug pattern`).toMatch(slugPattern);
+      expect(env!.span_id, `${name}: span_id pattern`).toMatch(spanPattern);
+      expect(env!.trace_id, `${name}: trace_id === test_id`).toBe(env!.test_id);
+      expect(isValidTestId(env!.test_id), `${name}: test_id UUIDv7`).toBe(true);
+      // (c) The closed 9-key edge_headers shape is preserved (values may be
+      // byte-clamped to a short prefix or "" — never dropped to a missing key).
+      expect(
+        Object.keys(env!.edge_headers).sort(),
+        `${name}: 9-key shape`,
+      ).toEqual(
+        [
+          "cf-cache-status",
+          "cf-mitigated",
+          "cf-ray",
+          "retry-after",
+          "server",
+          "via",
+          "x-hikari-trace",
+          "x-railway-edge",
+          "x-railway-request-id",
+        ].sort(),
+      );
+      // Trimming occurred → _truncated stamped.
+      expect(env!._truncated, `${name}: _truncated`).toBe(true);
+    }
   });
 });
 

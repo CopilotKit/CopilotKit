@@ -510,12 +510,13 @@ export class CvdiagEmitter {
    * per the §7 R5-F3 flag semantics.
    *
    * REDESIGNED (spec §3.3 / P4 — kills R5-A3 structurally): this ladder clamps
-   * ONLY the two genuinely-unbounded inputs — the `metadata` bag and the
-   * free-text `demo` string — and NEVER touches a format-constrained field. It
-   * cannot produce a non-16-hex `span_id`/`parent_span_id`, break the documented
-   * `trace_id === test_id` join, or write a `slug` that violates the PB/codegen
-   * contract `^[a-z][a-z0-9-]{0,63}$`, because those fields are NOT in the clamp
-   * set at all. They are bounded by construction:
+   * ONLY the three genuinely-unbounded inputs — the `metadata` bag, the
+   * free-text `demo` string, and the free-string `edge_headers` VALUES — and
+   * NEVER touches a format-constrained field. It cannot produce a non-16-hex
+   * `span_id`/`parent_span_id`, break the documented `trace_id === test_id`
+   * join, or write a `slug` that violates the PB/codegen contract
+   * `^[a-z][a-z0-9-]{0,63}$`, because those fields are NOT in the clamp set at
+   * all. They are bounded by construction:
    *   - `slug`     — entry-bounded to ≤64 pattern-valid chars (`boundEntryFields`)
    *   - `demo`     — entry-bounded to ≤`DEMO_MAX_LEN` (then the only clampable field)
    *   - `parent_span_id` — entry-bounded to 16-hex or `null`
@@ -523,12 +524,18 @@ export class CvdiagEmitter {
    *   - `span_id`  — minted 16-hex
    *   - `schema_version` (const int), `layer`/`boundary`/`outcome` (enums),
    *     `ts` (ISO-8601), `mono_ns`/`duration_ms` (numbers)
-   *   - `edge_headers` — 9-key shape, each value `null` or ≤`EDGE_HEADER_MAX_LEN`
-   *     (entry-bounded by `filterEdgeHeaders` at capture AND `boundEdgeHeaders`
-   *     for a caller-supplied object)
-   * The skeleton (everything except `metadata` + `demo`) is therefore a bounded
-   * constant — its worst case (9×256 edge-header bytes ≈ 2.3 KB) is a known
-   * finite ceiling, and in practice the realized skeleton is a few hundred bytes.
+   *   - `edge_headers` — 9-key shape ALWAYS preserved; each value is `null`, a
+   *     ≤`EDGE_HEADER_MAX_LEN`-char entry-bound (`filterEdgeHeaders` at capture /
+   *     `boundEdgeHeaders` for a caller-supplied object), OR (when the ladder's
+   *     Step 5 fires) a byte-clamped short prefix / `""`. The VALUES are free
+   *     strings (`string | null`, no schema pattern), so clamping them is
+   *     schema-valid — only the closed 9-KEY SHAPE is format-constrained, and
+   *     that is never altered.
+   * The skeleton MINUS the edge-header values is a bounded constant (slug/ids/
+   * enums/numbers/ts) of a few hundred bytes. The entry-bound on edge-header
+   * values is a CHAR cap applied PER-VALUE, so 9 populated keys can sum past a
+   * tier cap (worst case 9×256 multi-byte chars ≈ 7 KB) — Step 5 is the
+   * guarantee that the BYTE post-condition holds for any header encoding.
    *
    * Escalation, cheapest-effective first; re-check size after each, early-return
    * when `<= cap`:
@@ -540,6 +547,9 @@ export class CvdiagEmitter {
    *      metadata bag to `{}` entirely.
    *   4. If STILL over cap, clamp ONLY `demo` (it has no schema pattern, so a
    *      truncated `demo` is still valid) progressively to a floor.
+   *   5. If STILL over cap (9 near-bound or multi-byte edge-header values),
+   *      byte-clamp the `edge_headers` VALUES (free strings) longest-first to a
+   *      shrinking byte budget, flooring to `""` (the 9-key shape is kept).
    *
    * `bigint` (or other non-JSON-serializable) metadata leaf: `serializedSize`
    * returns `Number.MAX_SAFE_INTEGER` (treated as over-cap), which DRIVES the
@@ -617,13 +627,69 @@ export class CvdiagEmitter {
       trimmed = true;
     }
 
+    // Step 5: still over cap — byte-clamp the `edge_headers` VALUES. The
+    // entry-bound (`EDGE_HEADER_MAX_LEN` in `boundEdgeHeaders`/
+    // `filterEdgeHeaders`) is a CHAR cap applied PER-VALUE, so 9 populated keys
+    // can sum past a tier cap (worst case 9 × 256 multi-byte chars ≈ 7 KB), and
+    // multi-byte content can push even an all-ASCII-bounded set over the 2 KB
+    // default. The values are free strings (`string | null`, NO schema pattern),
+    // so byte-clamping them is schema-valid — this does NOT structurally
+    // invalidate a format-constrained field (those — slug/ids/enums — are never
+    // in the clamp set). Clamp by BYTE length, longest-first, to a shrinking
+    // budget; the final floor (budget 0) drops each value to `""` (the closed
+    // 9-key shape is kept — values become `""`, never a missing key / `null`).
+    // This makes the post-condition hold for ANY edge_headers content/encoding
+    // regardless of `EDGE_HEADER_MAX_LEN`.
+    const edge = envelope.edge_headers;
+    for (const budget of [128, 32, 8, 0]) {
+      if (this.serializedSize(envelope) <= cap) break;
+      // Longest-first (by byte length) so the biggest contributors shrink first.
+      const keys = EDGE_HEADER_KEYS.filter(
+        (key) => typeof edge[key] === "string",
+      ).sort(
+        (a, b) =>
+          Buffer.byteLength(edge[b] as string, "utf8") -
+          Buffer.byteLength(edge[a] as string, "utf8"),
+      );
+      for (const key of keys) {
+        if (this.serializedSize(envelope) <= cap) break;
+        const value = edge[key] as string;
+        if (Buffer.byteLength(value, "utf8") <= budget) continue;
+        edge[key] = budget === 0 ? "" : this.byteClamp(value, budget);
+        trimmed = true;
+      }
+    }
+
     if (trimmed) envelope._truncated = true;
 
     // Post-condition: serializedSize(envelope) <= cap AND every field is
-    // schema-valid. The only unbounded inputs (metadata + demo) are both clamped
-    // above; every other field is entry-bounded (slug/demo/parent_span_id/
-    // edge_headers), minted (ids), or an enum/number — a bounded constant — so
-    // the residue fits any realistic tier cap (smallest is 2KB).
+    // schema-valid. The only unbounded inputs (metadata + demo + edge_headers
+    // values) are all clamped above; every other field is entry-bounded
+    // (slug/parent_span_id), minted (ids), or an enum/number — a bounded
+    // constant. Dropping metadata to `{}`, demo to its floor, AND edge-header
+    // values to `""` leaves only the constrained skeleton, which fits any
+    // realistic tier cap (smallest is 2 KB).
+  }
+
+  /**
+   * Truncate `value` to at most `maxBytes` UTF-8 bytes without splitting a
+   * multi-byte code unit. Iterates code points (so surrogate pairs / multi-byte
+   * chars are kept whole) and stops before the budget would be exceeded. Pure;
+   * never throws. Used by `applyByteCap` Step 5 to clamp free-string
+   * edge-header values by BYTE length (the post-condition is byte-based).
+   */
+  private byteClamp(value: string, maxBytes: number): string {
+    if (maxBytes <= 0) return "";
+    if (Buffer.byteLength(value, "utf8") <= maxBytes) return value;
+    let out = "";
+    let used = 0;
+    for (const ch of value) {
+      const next = Buffer.byteLength(ch, "utf8");
+      if (used + next > maxBytes) break;
+      out += ch;
+      used += next;
+    }
+    return out;
   }
 
   private serializedSize(envelope: CvdiagEnvelope): number {
