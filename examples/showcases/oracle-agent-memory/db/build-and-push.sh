@@ -10,9 +10,10 @@
 # Keep the target repo PRIVATE — re-publishing Oracle's image violates the license.
 set -euo pipefail
 
-IMAGE="${IMAGE:-ghcr.io/jerelvelarde/oracle-cookbook-db:latest}"
+# Set IMAGE, or replace OWNER with your own PRIVATE GHCR namespace before running.
+IMAGE="${IMAGE:-ghcr.io/OWNER/oracle-agent-memory-db:latest}"
 
-cd "$(dirname "$0")"   # demo/db — build context includes init/
+cd "$(dirname "$0")"   # db/ — build context includes init/
 
 echo "Building $IMAGE ..."
 docker build -t "$IMAGE" .
