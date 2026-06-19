@@ -53,9 +53,11 @@ test.describe("MCP manager", () => {
     );
     await input.press("Enter");
 
-    await expect(page.getByText("copilotkit-mcp-ok").last()).toBeVisible({
-      timeout: 45_000,
-    });
+    await expect
+      .poll(async () => page.getByText("copilotkit-mcp-ok").count(), {
+        timeout: 45_000,
+      })
+      .toBeGreaterThanOrEqual(2);
 
     await page.screenshot({ path: join(ARTIFACTS_DIR, "mcp-tool-call.png") });
   });

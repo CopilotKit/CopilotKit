@@ -21,6 +21,11 @@ export function McpPanel() {
 
   useEffect(() => {
     void window.electron.mcp.listServers().then(setServers);
+    const id = setInterval(
+      () => void window.electron.mcp.listServers().then(setServers),
+      1000,
+    );
+    return () => clearInterval(id);
   }, []);
 
   if (servers.length === 0) {

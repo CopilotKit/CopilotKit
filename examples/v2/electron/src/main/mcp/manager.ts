@@ -52,7 +52,7 @@ export class McpManager {
     this.states = configs.map((config) => {
       // A config may opt to start disabled via an `enabled: false` field;
       // otherwise servers default to enabled.
-      const enabled = (config as { enabled?: boolean }).enabled !== false;
+      const enabled = config.enabled !== false;
 
       const state: ServerState = {
         config,
@@ -72,7 +72,18 @@ export class McpManager {
             if (!state.enabled || !state.client) {
               return {} as ToolSet;
             }
-            return (await state.client.tools()) as ToolSet;
+            // `BuiltInAgent` awaits this on EVERY run. A server can drop after
+            // initial connect (session expired / child died), so a rejection
+            // here must NOT abort the whole chat turn — degrade to "no tools
+            // from this server" instead.
+            try {
+              return (await state.client.tools()) as ToolSet;
+            } catch (err: unknown) {
+              state.status = "error";
+              const message = err instanceof Error ? err.message : String(err);
+              this.pushLog(state, `tools() failed: ${message}`);
+              return {} as ToolSet;
+            }
           },
         },
       };

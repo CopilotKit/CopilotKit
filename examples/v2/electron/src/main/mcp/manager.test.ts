@@ -62,10 +62,10 @@ describe("McpManager — connectAll", () => {
 
   it("a server that starts disabled is never connected (stays 'disabled', connect not called)", async () => {
     const { connect } = makeFake();
-    const disabledCfg = {
+    const disabledCfg: McpServerConfig = {
       ...stdioCfg("alpha"),
       enabled: false,
-    } as unknown as McpServerConfig;
+    };
     const mgr = new McpManager([disabledCfg], connect);
 
     await mgr.connectAll();
@@ -90,6 +90,33 @@ describe("McpManager — connectAll", () => {
     const [status] = mgr.getStatuses();
     expect(status.status).toBe("error");
     expect(status.logs.some((l) => l.includes("boom"))).toBe(true);
+  });
+
+  it("a post-connect tools() rejection → provider.tools() resolves to {} (no throw) and status becomes 'error'", async () => {
+    // Resolve the first tools() call (during connectAll) so the server reaches
+    // "ready", then reject on the later provider call (server dropped).
+    const tools = vi
+      .fn()
+      .mockResolvedValueOnce({ echo: { description: "echo tool" } })
+      .mockRejectedValue(new Error("session expired"));
+    const fakeClient = { tools, close: vi.fn().mockResolvedValue(undefined) };
+    const connect = vi
+      .fn()
+      .mockResolvedValue(fakeClient) as unknown as ConstructorParameters<
+      typeof McpManager
+    >[1];
+    const mgr = new McpManager([stdioCfg("alpha")], connect);
+
+    await mgr.connectAll();
+    expect(mgr.getStatuses()[0].status).toBe("ready");
+
+    const [provider] = mgr.getProviders();
+    // The runtime tools() call now rejects — must degrade, not throw.
+    await expect(provider.tools()).resolves.toEqual({});
+
+    const [status] = mgr.getStatuses();
+    expect(status.status).toBe("error");
+    expect(status.logs.some((l) => l.includes("session expired"))).toBe(true);
   });
 
   it("closeAll() calls each client's close()", async () => {

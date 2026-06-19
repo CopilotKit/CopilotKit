@@ -59,8 +59,17 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
-  mcpManager = new McpManager(loadConfiguredServers());
-  await mcpManager.connectAll();
+  let servers: ReturnType<typeof loadConfiguredServers>;
+  try {
+    servers = loadConfiguredServers();
+  } catch (err) {
+    console.error(
+      "[mcp] failed to load config; starting with no servers:",
+      err,
+    );
+    servers = [];
+  }
+  mcpManager = new McpManager(servers);
   runtime = await startRuntimeServer({
     tools: createReadOnlyFsTools(WORKSPACE_ROOT),
     mcpClients: mcpManager.getProviders(),
@@ -89,6 +98,7 @@ app.whenReady().then(async () => {
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+  void mcpManager.connectAll(); // background; window already open, panel polls for status
 });
 
 app.on("window-all-closed", () => {

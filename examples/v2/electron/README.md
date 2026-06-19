@@ -116,6 +116,10 @@ The assistant can use tools from any MCP server alongside the built-in fs/shell 
 
 All tools advertised by every enabled server are merged into the agent's tool set and become available to the assistant in the same conversation.
 
+### Security
+
+MCP stdio servers are spawned as **child processes with your OS user privileges** by the Electron main process, using the `command` and `args` from your `mcp.config.json`. This is the same trust model as Claude Desktop — review every entry in your config before adding it, since a malicious server definition could execute arbitrary code on your machine.
+
 ### Config file
 
 Server configuration follows the Claude Desktop `mcp_servers` style, stored in a file named `mcp.config.json`:
@@ -141,13 +145,14 @@ Server configuration follows the Claude Desktop `mcp_servers` style, stored in a
 **Where it is read from:**
 
 1. `<Electron userData>/mcp.config.json` — your personal config; edit this to add or swap servers.
-2. Bundled `mcp.config.example.json` (fallback) — used when no user config exists, so the app works out of the box.
+2. Bundled `mcp.config.example.json` (fallback) — used when no user config exists. This fallback is resolved from the source tree during development (`pnpm dev`), so the app works out of the box **in dev**. A packaged build does not copy it into the app bundle, so a packaged install needs a `mcp.config.json` in the Electron `userData` directory until packaging support is wired (a follow-up).
 
-The bundled example runs `@modelcontextprotocol/server-everything` via `npx`, which exposes demo tools such as `echo` and `add`. To use the filesystem server instead, copy the example to your `userData` directory and swap in `@modelcontextprotocol/server-filesystem`:
+The bundled example runs `@modelcontextprotocol/server-everything` via `npx`, which exposes demo tools such as `echo` and `add`. To use the filesystem server instead, create a `mcp.config.json` in your `userData` directory:
 
 ```bash
 # macOS example — adjust path for Windows/Linux
-cp /path/to/app/resources/mcp.config.example.json \
+mkdir -p ~/Library/Application\ Support/copilotkit-electron
+cp examples/v2/electron/mcp.config.example.json \
    ~/Library/Application\ Support/copilotkit-electron/mcp.config.json
 ```
 
@@ -163,7 +168,7 @@ Open **Settings** in the app and navigate to the **MCP** tab. The panel lists ev
 | `ready`      | The server handshake succeeded; its tools are active.    |
 | `error`      | Connection failed; hover the badge for the error detail. |
 
-Each row has an **enable / disable toggle**. Disabling a server disconnects it immediately and removes its tools from the agent's tool set for subsequent turns — no restart required. Re-enabling reconnects it.
+Each row has an **enable / disable toggle**. Disabling a server disconnects it immediately and removes its tools from the agent's tool set for subsequent turns — no restart required. Re-enabling a server that previously connected successfully restores its tools immediately. A server that never connected or is in an error state will not automatically retry on toggle until live-reconnect is implemented (a follow-up).
 
 ### How tools are registered
 
@@ -199,7 +204,7 @@ Artifacts land in `e2e/.artifacts/` (gitignored):
 ### Not yet wired (follow-ups)
 
 - **Add / edit / remove server UI** — servers can only be added by editing `mcp.config.json` directly; an in-app editor is a follow-up.
-- **Reconnect on re-enable** — toggling a server back on currently requires an app restart to reconnect; live reconnect is a follow-up.
+- **Live reconnect on re-enable** — re-enabling a server that never connected or previously errored does not automatically retry; a live-reconnect mechanism is a follow-up.
 - **Health polling / streamed server logs** — the status badge reflects the initial connection state; periodic health checks and a live log view for each server process are follow-ups.
 
 ## Later

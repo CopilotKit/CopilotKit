@@ -8,11 +8,13 @@ const StdioEntrySchema = z.object({
   command: z.string(),
   args: z.array(z.string()).optional(),
   env: z.record(z.string()).optional(),
+  enabled: z.boolean().optional(),
 });
 
 const RemoteEntrySchema = z.object({
   url: z.string().url(),
   headers: z.record(z.string()).optional(),
+  enabled: z.boolean().optional(),
 });
 
 // An entry must have EITHER command (stdio) OR url (remote), not an
@@ -34,6 +36,7 @@ export interface StdioServerConfig {
   command: string;
   args?: string[];
   env?: Record<string, string>;
+  enabled?: boolean;
 }
 
 export interface RemoteServerConfig {
@@ -41,6 +44,7 @@ export interface RemoteServerConfig {
   kind: "remote";
   url: string;
   headers?: Record<string, string>;
+  enabled?: boolean;
 }
 
 export type McpServerConfig = StdioServerConfig | RemoteServerConfig;
@@ -77,6 +81,7 @@ export function parseMcpConfig(raw: unknown): McpServerConfig[] {
       };
       if (stdio.args !== undefined) config.args = stdio.args;
       if (stdio.env !== undefined) config.env = stdio.env;
+      if (stdio.enabled !== undefined) config.enabled = stdio.enabled;
       configs.push(config);
     } else if ("url" in entry && typeof entry.url === "string") {
       const remote = entry as z.infer<typeof RemoteEntrySchema>;
@@ -86,6 +91,7 @@ export function parseMcpConfig(raw: unknown): McpServerConfig[] {
         url: remote.url,
       };
       if (remote.headers !== undefined) config.headers = remote.headers;
+      if (remote.enabled !== undefined) config.enabled = remote.enabled;
       configs.push(config);
     } else {
       throw new Error(
