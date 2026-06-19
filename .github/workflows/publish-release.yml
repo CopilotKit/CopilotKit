@@ -40,7 +40,9 @@ on:
           - monorepo
           - angular
           - bot
+          - bot-discord
           - bot-slack
+          - bot-telegram
           - bot-whatsapp
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"

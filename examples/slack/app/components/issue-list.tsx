@@ -23,7 +23,7 @@ import {
   Section,
   type BotNode,
 } from "@copilotkit/bot-ui";
-import { accentForIssues, stateShortcode } from "./_status.js";
+import { accentForIssues, stateGlyph } from "./_status.js";
 
 const issueSchema = z.object({
   identifier: z.string().describe("Linear issue identifier, e.g. 'CPK-1234'."),
@@ -73,7 +73,8 @@ export function IssueList({ heading, issues }: IssueListProps): BotNode {
       issue.title.length > TITLE_MAX
         ? `${issue.title.slice(0, TITLE_MAX)}…`
         : issue.title;
-    return `${stateShortcode(issue.state)} ${idLink} ${title} — ${issue.assignee ?? "unassigned"} · ${issue.updated ?? ""}`;
+    const meta = `${issue.assignee ?? "unassigned"}${issue.updated ? ` · ${issue.updated}` : ""}`;
+    return `${stateGlyph(issue.state)} ${idLink} ${title} — ${meta}`;
   });
 
   const footer =

@@ -4,12 +4,13 @@
  * wired to the Linear + Notion MCP servers); this directory holds everything
  * that runs on the chat-platform side of the bot for this deployment.
  *
- * MULTI-PLATFORM: this single app drives Slack, Discord, and/or WhatsApp from
- * one process. `@copilotkit/bot`'s `createBot` accepts an array of adapters and
- * starts them all, so we include each platform's adapter only when its secrets
- * are present. Drop in `SLACK_*` to run Slack, `DISCORD_*` for Discord,
- * `WHATSAPP_*` for WhatsApp, or any combination — the rest of `app/` (tools,
- * components, HITL, rendering) is platform-agnostic and shared verbatim.
+ * MULTI-PLATFORM: this single app drives Slack, Discord, Telegram, and/or
+ * WhatsApp from one process. `@copilotkit/bot`'s `createBot` accepts an array
+ * of adapters and starts them all, so we include each platform's adapter only
+ * when its secrets are present. Drop in `SLACK_*` to run Slack, `DISCORD_*` for
+ * Discord, `TELEGRAM_BOT_TOKEN` for Telegram, `WHATSAPP_*` for WhatsApp — or any
+ * combination to run them at once. The rest of `app/` (tools, components, HITL,
+ * rendering) is platform-agnostic and shared verbatim.
  *
  * Defaults are not auto-applied — you spread them explicitly. That's
  * deliberate: there's no hidden behavior, and the canonical pattern is right
@@ -29,6 +30,11 @@ import {
   defaultDiscordTools,
   defaultDiscordContext,
 } from "@copilotkit/bot-discord";
+import {
+  telegram,
+  defaultTelegramTools,
+  defaultTelegramContext,
+} from "@copilotkit/bot-telegram";
 import {
   whatsapp,
   defaultWhatsAppTools,
@@ -61,9 +67,9 @@ async function main() {
 
   // Build the platform list from whichever secrets are present. Each adapter
   // contributes its own built-in tools (e.g. `lookup_slack_user` /
-  // `lookup_discord_user`) and context (tagging + formatting guidance), added
-  // only when that platform is active so the model gets the conventions of the
-  // surfaces it's actually serving.
+  // `lookup_discord_user` / `lookup_telegram_user`) and context (tagging +
+  // formatting guidance), added only when that platform is active so the model
+  // isn't handed a different platform's conventions.
   const adapters: PlatformAdapter[] = [];
   const tools: BotTool[] = [...appTools];
   const context: ContextEntry[] = [...appContext];
@@ -110,6 +116,14 @@ async function main() {
     context.push(...defaultDiscordContext);
   }
 
+  if (have("TELEGRAM_BOT_TOKEN")) {
+    // Telegram long-polls by default (no public URL / webhook setup needed).
+    // No greeting/suggestedPrompts: Telegram has no assistant-pane surface.
+    adapters.push(telegram({ token: required("TELEGRAM_BOT_TOKEN") }));
+    tools.push(...defaultTelegramTools);
+    context.push(...defaultTelegramContext);
+  }
+
   if (
     have(
       "WHATSAPP_ACCESS_TOKEN",
@@ -146,7 +160,8 @@ async function main() {
   if (adapters.length === 0) {
     console.error(
       "No platform secrets found. Set SLACK_BOT_TOKEN + SLACK_APP_TOKEN, " +
-        "DISCORD_BOT_TOKEN + DISCORD_APP_ID, and/or the WHATSAPP_* vars (see README).",
+        "DISCORD_BOT_TOKEN + DISCORD_APP_ID, TELEGRAM_BOT_TOKEN, " +
+        "and/or the WHATSAPP_* vars (see README).",
     );
     process.exit(1);
   }
@@ -158,7 +173,7 @@ async function main() {
     // threadId, so the raw conversation thread id is fine.
     // `SanitizingHttpAgent` is a lenient superset of `HttpAgent` (tolerates a
     // null `parentMessageId` from `@ag-ui/langgraph`); it's safe for every
-    // platform, so one factory covers Slack, Discord, and WhatsApp alike.
+    // platform, so one factory covers Slack, Discord, Telegram, and WhatsApp alike.
     agent: (threadId) => {
       const a = new SanitizingHttpAgent({
         url: agentUrl,
@@ -175,28 +190,36 @@ async function main() {
     tools,
     context,
     // Slash commands (`/agent`, `/triage`). For Slack each must ALSO be
-    // declared in the app config; for Discord the adapter registers them up
-    // front. The engine routes by name; adapters that can't take commands
-    // ignore them.
+    // declared in the app config; Discord and Telegram register them up front.
+    // The engine routes by name; adapters that can't take commands ignore them.
     commands: appCommands,
   });
 
-  // Register ONLY onMention. Each adapter pre-filters ingress to the turns
-  // this bot should answer — @-mentions, replies in threads it owns, and DMs
-  // (and every WhatsApp message). createBot is mention-preferred: a single
-  // handler covers all of them across every active platform. `senderContext`
-  // names the requesting user per `thread.platform`, so the label is correct
-  // on whichever surface the turn arrived from.
+  // Register ONLY onMention. Each adapter pre-filters ingress to the turns this
+  // bot should answer — @-mentions, replies in threads it owns, and DMs (and
+  // every WhatsApp message). createBot is mention-preferred: a single handler
+  // covers all of them across every active platform. `senderContext` names the
+  // requesting user per `thread.platform`, so the label is correct on whichever
+  // surface the turn arrived from. Wrap the turn so a failed run (agent backend
+  // down, network/auth error) is logged and surfaced to the user instead of
+  // crashing the process or vanishing silently.
   bot.onMention(async ({ thread, message }) => {
-    await thread.runAgent({
-      context: senderContext(message.user, thread.platform),
-    });
+    try {
+      await thread.runAgent({
+        context: senderContext(message.user, thread.platform),
+      });
+    } catch (err) {
+      console.error("[bot] agent run failed", err);
+      await thread
+        .post("Sorry — I hit an error handling that. Please try again.")
+        .catch(() => {});
+    }
   });
 
   // Slack-only nicety: personalize the assistant-pane prompt chips for the
   // opener. Harmless elsewhere — `onThreadStarted` only fires from adapters
-  // that emit it (Discord/WhatsApp have no assistant pane), so it's a no-op
-  // there.
+  // that emit it (Discord/Telegram/WhatsApp have no assistant pane), and
+  // platforms without suggested-prompt support no-op.
   bot.onThreadStarted(async ({ thread, user }) => {
     if (!user?.name) return;
     await thread.setSuggestedPrompts([
@@ -226,6 +249,16 @@ async function main() {
   process.on("SIGINT", () => void shutdown("SIGINT"));
   process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
+
+// Fail loud, not silent: surface any stray async error (e.g. a throw deep in an
+// interaction/callback path) instead of letting it kill the process with no
+// log. Log and keep running — one bad turn shouldn't take the bot down.
+process.on("unhandledRejection", (reason) => {
+  console.error("[bot] unhandledRejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[bot] uncaughtException:", err);
+});
 
 main().catch((err) => {
   console.error("[bot] fatal", err);

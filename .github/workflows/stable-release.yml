@@ -11,7 +11,9 @@ on:
           - monorepo
           - angular
           - bot
+          - bot-discord
           - bot-slack
+          - bot-telegram
           - bot-whatsapp
       bump:
         description: "Version bump level"

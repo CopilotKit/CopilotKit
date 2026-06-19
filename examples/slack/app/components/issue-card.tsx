@@ -21,12 +21,7 @@ import {
   Section,
   type BotNode,
 } from "@copilotkit/bot-ui";
-import {
-  accentForIssue,
-  priorityShortcode,
-  stateShortcode,
-  stateUnicode,
-} from "./_status.js";
+import { accentForIssue, priorityGlyph, stateGlyph } from "./_status.js";
 
 export const issueCardSchema = z.object({
   identifier: z.string().describe("Issue identifier, e.g. 'CPK-1234'."),
@@ -61,7 +56,7 @@ export function IssueCard(issue: IssueCardProps): BotNode {
     ? `[**${issue.title}**](${issue.url})`
     : `**${issue.title}**`;
 
-  const prio = priorityShortcode(issue.priority);
+  const prio = priorityGlyph(issue.priority);
 
   const description = issue.description
     ? issue.description.length > 600
@@ -70,21 +65,19 @@ export function IssueCard(issue: IssueCardProps): BotNode {
     : undefined;
 
   const footer: string[] = [];
-  if (issue.labels?.length) footer.push(`:label: ${issue.labels.join("  ")}`);
+  if (issue.labels?.length) footer.push(`🏷️ ${issue.labels.join("  ")}`);
   if (issue.url) footer.push(`[Open in Linear →](${issue.url})`);
   const footerText = footer.length ? footer.join("   ·   ") : undefined;
 
   return (
     <Message accent={accentForIssue(issue)}>
       <Header>
-        {`${issue.justCreated ? "✅ " : `${stateUnicode(issue.state)} `}${issue.identifier}`}
+        {`${issue.justCreated ? "✅ " : `${stateGlyph(issue.state)} `}${issue.identifier}`}
       </Header>
       <Section>{titleText}</Section>
-      {issue.justCreated ? (
-        <Context>{":sparkles: Filed in Linear"}</Context>
-      ) : null}
+      {issue.justCreated ? <Context>{"✨ Filed in Linear"}</Context> : null}
       <Fields>
-        <Field>{`**Status**\n${stateShortcode(issue.state)} ${issue.state ?? "—"}`}</Field>
+        <Field>{`**Status**\n${stateGlyph(issue.state)} ${issue.state ?? "—"}`}</Field>
         <Field>{`**Assignee**\n${issue.assignee ?? "_unassigned_"}`}</Field>
         {issue.priority ? (
           <Field>{`**Priority**\n${prio ? `${prio} ` : ""}${issue.priority}`}</Field>

@@ -37,7 +37,9 @@ on:
           - monorepo
           - angular
           - bot
+          - bot-discord
           - bot-slack
+          - bot-telegram
           - bot-whatsapp
       suffix:
         description: "Prerelease suffix (e.g. 'fix-user-issue'); blank = unix timestamp. Allowed: [a-zA-Z0-9._-]+. Reuse a suffix only if the base version moved, else the publish collides."
