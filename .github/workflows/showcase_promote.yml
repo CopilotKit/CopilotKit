@@ -116,6 +116,16 @@ jobs:
           node-version: 22.x
       - name: Generate SSOT artifact
         working-directory: showcase/scripts
+        # The emitted JSON is EPHEMERAL here: resolve-promote-targets.sh reads it
+        # with jq to resolve which service(s) to promote and it is NEVER
+        # committed, so oxfmt-canonical formatting is irrelevant. This job's
+        # `npm ci` runs in showcase/scripts only and does NOT install the
+        # repo-root oxfmt binary the committed-artifact path shells out to, so
+        # leave it canonical-free via EMIT_SKIP_OXFMT (else spawnSync ENOENT
+        # fails the step and blocks EVERY promote). The committed-artifact path
+        # (static_quality.yml) keeps oxfmt REQUIRED + fail-loud.
+        env:
+          EMIT_SKIP_OXFMT: "1"
         run: |
           npm ci
           npx tsx emit-railway-envs-json.ts
@@ -212,6 +222,12 @@ jobs:
         with:
           node-version: 22.x
       - working-directory: showcase/scripts
+        # Same EPHEMERAL regeneration as resolve-targets: bin/railway reads this
+        # JSON to derive EXPECTED_DOMAINS and it is never committed, so skip the
+        # oxfmt-canonical pass (repo-root oxfmt is not installed by this job's
+        # showcase/scripts-scoped `npm ci`; an ENOENT here would abort promote).
+        env:
+          EMIT_SKIP_OXFMT: "1"
         run: |
           npm ci
           npx tsx emit-railway-envs-json.ts

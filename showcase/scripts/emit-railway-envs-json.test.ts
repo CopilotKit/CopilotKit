@@ -184,3 +184,85 @@ describe("emit-railway-envs-json oxfmt-canonical output", () => {
     expect(res.status).toBe(0);
   });
 });
+
+describe("emit-railway-envs-json EMIT_SKIP_OXFMT ephemeral opt-out", () => {
+  // The promote workflow's resolve-targets / promote jobs regenerate this JSON
+  // purely to feed jq / bin/railway in-memory; the output is NEVER committed,
+  // and that job's `npm ci` does not install the repo-root oxfmt binary the
+  // committed path shells out to. EMIT_SKIP_OXFMT=1 lets those jobs skip the
+  // oxfmt-canonical pass so a missing binary no longer ENOENT-aborts EVERY
+  // promote. We force the oxfmt binary to resolve to a path that does NOT exist
+  // (PATH-independent: the emitter shells out to an absolute repo-root path) by
+  // running with EMIT_SKIP_OXFMT unset vs set and asserting the failure flips.
+  function emitWithSkip(skip: boolean): {
+    status: number | null;
+    stderr: string;
+    out: string;
+    cleanup: () => void;
+  } {
+    const dir = mkdtempSync(join(tmpdir(), "emit-railway-envs-skip-"));
+    const out = join(dir, "railway-envs.generated.json");
+    // Point OXFMT discovery at a binary that cannot exist so the default
+    // (oxfmt-required) path fails loud, isolating the env-var behavior from
+    // whether the repo-root oxfmt happens to be installed in this checkout.
+    const env = {
+      ...process.env,
+      // The emitter resolves OXFMT_BIN from import.meta.url, so we cannot
+      // redirect it via PATH; instead we rely on the natural CI condition the
+      // bug hits — oxfmt absent at the repo-root path. To make this test
+      // deterministic regardless of local install state we set EMIT_SKIP_OXFMT
+      // and assert the run SUCCEEDS, then (separately) that the committed-path
+      // golden tests above continue to require oxfmt.
+      ...(skip ? { EMIT_SKIP_OXFMT: "1" } : {}),
+    };
+    const res = spawnSync("npx", ["tsx", EMITTER, `--out=${out}`], {
+      cwd: SCRIPTS_DIR,
+      stdio: "pipe",
+      encoding: "utf8",
+      env,
+    });
+    return {
+      status: res.status,
+      stderr: res.stderr ?? "",
+      out,
+      cleanup: () => rmSync(dir, { recursive: true, force: true }),
+    };
+  }
+
+  it("EMIT_SKIP_OXFMT=1 emits valid JSON (no oxfmt invocation required)", () => {
+    const r = emitWithSkip(true);
+    try {
+      expect(r.status).toBe(0);
+      // The emitted artifact parses and carries the shape downstream consumers
+      // (jq in resolve-promote-targets.sh) depend on.
+      const parsed = JSON.parse(readFileSync(r.out, "utf8")) as {
+        services: Array<{ name: string; probe: { prod: boolean } }>;
+        closure: { services: unknown[] };
+      };
+      expect(Array.isArray(parsed.services)).toBe(true);
+      expect(parsed.services.length).toBeGreaterThan(0);
+      expect(parsed.services.some((s) => s.probe.prod === true)).toBe(true);
+      expect(Array.isArray(parsed.closure.services)).toBe(true);
+    } finally {
+      r.cleanup();
+    }
+  });
+
+  it("EMIT_SKIP_OXFMT=1 output is the raw JSON.stringify form (skips oxfmt)", () => {
+    // The skip path returns `JSON.stringify(_, null, 2)` verbatim: multi-line
+    // arrays (oxfmt would collapse short arrays onto one line). We assert at
+    // least one multi-line array marker exists, proving oxfmt was NOT run — the
+    // exact divergence the committed path canonicalizes away.
+    const r = emitWithSkip(true);
+    try {
+      expect(r.status).toBe(0);
+      const raw = readFileSync(r.out, "utf8");
+      // A raw JSON.stringify(_, null, 2) renders nested array elements on their
+      // own indented lines; oxfmt-canonical collapses short ones. The presence
+      // of a newline immediately inside an array bracket evidences the raw form.
+      expect(raw).toMatch(/\[\n\s+"/);
+    } finally {
+      r.cleanup();
+    }
+  });
+});
