@@ -955,3 +955,67 @@ describe("CVDIAG §6.1 nested-sweep — no secret survives at any depth across b
     assertNoSentinel(env, "deep-scrub GREEN");
   });
 });
+
+describe("CvdiagEmitter — DEBUG prod fail-closed (safe-env allow-list, §6)", () => {
+  // A valid opt-in allow-list is always present so the ONLY thing under test is
+  // the env-label gate. DEBUG must be REFUSED (constructor throws) for any
+  // production-like, aliased, padded, or unrecognized env label — and PERMITTED
+  // only for an explicit known-non-prod label. This is the fail-open regression
+  // guard: a whitespace-padded ("production\n") or aliased ("prod"/"live") prod
+  // label, or any unknown label, must NOT be allowed to arm DEBUG.
+  const ALLOW = "langgraph-python";
+  const mk =
+    (env: Record<string, string | undefined>): (() => CvdiagEmitter) =>
+    () =>
+      new CvdiagEmitter({
+        debug: true,
+        env: { CVDIAG_DEBUG_ALLOW_LIST: ALLOW, ...env },
+      });
+
+  // Each REFUSED case sets the label via SHOWCASE_ENV (the highest-precedence
+  // source) so the test exercises the resolved label exactly. The unset/"" case
+  // omits all three sources entirely (label resolves to null → unknown → prod).
+  const refused: Array<[string, Record<string, string | undefined>]> = [
+    ["production", { SHOWCASE_ENV: "production" }],
+    ["production\\n (newline-padded)", { SHOWCASE_ENV: "production\n" }],
+    ["' production ' (space-padded)", { SHOWCASE_ENV: " production " }],
+    ["prod (alias)", { SHOWCASE_ENV: "prod" }],
+    ["production-us (prod-prefixed)", { SHOWCASE_ENV: "production-us" }],
+    ["live (alias)", { SHOWCASE_ENV: "live" }],
+    ["someunknownlabel (unrecognized)", { SHOWCASE_ENV: "someunknownlabel" }],
+    ["unset (no env source resolves)", {}],
+    ['"" (empty SHOWCASE_ENV)', { SHOWCASE_ENV: "" }],
+  ];
+
+  for (const [name, env] of refused) {
+    it(`REFUSES DEBUG (fail-closed) for env=${name}`, () => {
+      expect(mk(env)).toThrow(/CVDIAG_DEBUG refused/);
+    });
+  }
+
+  // Known-non-prod labels in the safe-env allow-list: DEBUG is PERMITTED. The
+  // safe set covers the showcase's real non-prod envs ("staging" on Railway,
+  // "development"/"test" locally/CI).
+  const allowed: Array<[string, Record<string, string | undefined>]> = [
+    ["staging", { SHOWCASE_ENV: "staging" }],
+    ["development", { SHOWCASE_ENV: "development" }],
+    ["test", { SHOWCASE_ENV: "test" }],
+    ["local", { SHOWCASE_ENV: "local" }],
+    ["STAGING (case-insensitive)", { SHOWCASE_ENV: "STAGING" }],
+    ["' staging ' (padded safe label)", { SHOWCASE_ENV: " staging " }],
+  ];
+
+  for (const [name, env] of allowed) {
+    it(`PERMITS DEBUG for known-non-prod env=${name}`, () => {
+      const emitter = mk(env)();
+      expect(emitter.tier).toBe("debug");
+    });
+  }
+
+  it("still REQUIRES the opt-in allow-list even on a safe env", () => {
+    expect(
+      () =>
+        new CvdiagEmitter({ debug: true, env: { SHOWCASE_ENV: "staging" } }),
+    ).toThrow(/CVDIAG_DEBUG_ALLOW_LIST is required/);
+  });
+});

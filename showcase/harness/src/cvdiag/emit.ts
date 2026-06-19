@@ -148,13 +148,39 @@ export interface CvdiagEmitArgs {
 /**
  * Resolve the deployment-environment label (spec §6 production detection):
  *   SHOWCASE_ENV → RAILWAY_ENVIRONMENT_NAME → NODE_ENV.
- * Returns the lowercase label or `null` if none resolves.
+ * The raw value is TRIMMED then lowercased before comparison, so a
+ * whitespace-padded source (`"production\n"`, `" production "` — common from
+ * env files / CI exports) resolves to its canonical label rather than slipping
+ * past an exact-match gate. Returns the trimmed lowercase label, or `null` when
+ * no source resolves OR the resolved value is whitespace-only (treated as
+ * unresolved → the §6 fail-closed gate maps unresolved to production).
  */
 export function resolveEnvLabel(env: CvdiagEnv): string | null {
   const raw = env.SHOWCASE_ENV ?? env.RAILWAY_ENVIRONMENT_NAME ?? env.NODE_ENV;
-  if (raw === undefined || raw === null || raw === "") return null;
-  return String(raw).toLowerCase();
+  if (raw === undefined || raw === null) return null;
+  const label = String(raw).trim().toLowerCase();
+  return label === "" ? null : label;
 }
+
+/**
+ * Explicit allow-list of known NON-production env labels on which DEBUG tier may
+ * legitimately run (spec §6 "fail-closed treats UNKNOWN env as production"). The
+ * gate is a SAFE-ENV allow-list — not a production deny-list — so any label NOT
+ * in this set (a prod alias like `prod`/`live`, a prod-prefixed env like
+ * `production-us`, a typo, or `null`/unresolved) fails closed and refuses DEBUG.
+ * This covers the showcase's real non-prod environments: `staging` (Railway
+ * staging) and `development`/`test` (local + CI, via NODE_ENV). DEBUG arms
+ * raw-byte response-body capture, so an unrecognized label MUST be refused.
+ */
+const DEBUG_SAFE_ENV_LABELS: ReadonlySet<string> = new Set([
+  "development",
+  "dev",
+  "test",
+  "staging",
+  "local",
+  "ci",
+  "preview",
+]);
 
 /** All-null edge headers (the default when none are captured). */
 function emptyEdgeHeaders(): EdgeHeaders {
@@ -334,10 +360,17 @@ export class CvdiagEmitter {
   }
 
   /**
-   * DEBUG startup assertions (spec §6 hard bounds). Throws (fail-closed) when:
-   *   - the resolved env label is `production`, OR
+   * DEBUG startup assertions (spec §6 hard bounds). Fail-closed via a SAFE-ENV
+   * ALLOW-LIST: DEBUG is permitted ONLY when the (trimmed, lowercased) resolved
+   * env label is in `DEBUG_SAFE_ENV_LABELS`. Throws (fail-closed) when:
    *   - no env label resolves at all (treat unknown as production), OR
+   *   - the resolved label is NOT a known-non-prod label — this catches
+   *     `production`, whitespace-padded prod (`"production\n"` → trimmed), prod
+   *     aliases (`prod`, `live`), prod-prefixed envs (`production-us`), and any
+   *     unrecognized label — all fail closed, OR
    *   - no `CVDIAG_DEBUG_ALLOW_LIST` slug list is provided.
+   * The allow-list (not a prod deny-list) implements the spec's "unknown env →
+   * production" intent and avoids the incompleteness of enumerating prod aliases.
    * This is the ONE place the emitter is permitted to throw — it is a startup
    * guard, not a hot-path side effect.
    */
@@ -350,9 +383,11 @@ export class CvdiagEmitter {
           "fail-closed treats unknown env as production.",
       );
     }
-    if (label === "production") {
+    if (!DEBUG_SAFE_ENV_LABELS.has(label)) {
       throw new Error(
-        "CVDIAG_DEBUG refused: deployment environment is production.",
+        `CVDIAG_DEBUG refused: deployment environment "${label}" is not a ` +
+          "known-non-prod env (fail-closed treats any unrecognized or " +
+          "production-like label as production).",
       );
     }
     const allowList = this.env.CVDIAG_DEBUG_ALLOW_LIST;
@@ -362,11 +397,11 @@ export class CvdiagEmitter {
           "(comma-separated slug list) before DEBUG may start.",
       );
     }
-    if (this.env.CVDIAG_DEBUG_FIELDS === "1" && label === "production") {
-      throw new Error(
-        "CVDIAG_DEBUG_FIELDS=1 is incompatible with a production-promote.",
-      );
-    }
+    // NOTE: the former `CVDIAG_DEBUG_FIELDS === "1" && label === "production"`
+    // guard is removed — it relied on the exact-"production" match that the
+    // safe-env allow-list above now supersedes (a `production` label, or any
+    // prod-like/unrecognized label, already failed closed before reaching here),
+    // so it was dead and is NOT the sole protection for the prod path.
   }
 
   /** True iff the boundary is included at the current tier. */
