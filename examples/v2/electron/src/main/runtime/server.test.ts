@@ -3,6 +3,7 @@ import { determineModel, startRuntimeServer } from "./server";
 import { defineTool } from "@copilotkit/runtime/v2";
 import type { MCPClientProvider } from "@copilotkit/runtime/v2";
 import { z } from "zod";
+import { createBrowserReadTools } from "../bridge/browser-tools";
 
 const PROVIDER_KEYS = [
   "OPENAI_API_KEY",
@@ -84,6 +85,24 @@ describe("startRuntimeServer with mcpClients", () => {
     const { url, close } = await startRuntimeServer({
       mcpClients: [mcpClient],
     });
+    try {
+      expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/api\/copilotkit$/);
+      const response = await fetch(url);
+      expect(response.status).toBeGreaterThan(0);
+    } finally {
+      await close();
+    }
+  });
+});
+
+describe("startRuntimeServer with browser tools", () => {
+  it("accepts browser tools, resolves a url, and closes cleanly", async () => {
+    const tools = createBrowserReadTools({
+      request: async () => ({}),
+      isConnected: () => false,
+    });
+
+    const { url, close } = await startRuntimeServer({ tools });
     try {
       expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/api\/copilotkit$/);
       const response = await fetch(url);

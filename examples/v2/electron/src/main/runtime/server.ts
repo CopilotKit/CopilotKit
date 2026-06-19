@@ -36,7 +36,9 @@ export async function startRuntimeServer(opts?: {
       "You are a helpful AI assistant running inside a local Electron desktop app. " +
       "You can read the workspace using the fs_list, fs_read, and fs_search tools. " +
       "You can propose fs_write and shell_run actions, but these require explicit human approval before they run. " +
-      "You may also have tools provided by connected MCP servers — use them when relevant.",
+      "You may also have tools provided by connected MCP servers — use them when relevant. " +
+      "If a companion browser extension is paired, you can read the user's active tab with browser_read_active_tab. " +
+      "The browser_click, browser_fill, and browser_navigate tools act on the page but require explicit human approval.",
     maxSteps: 10,
     tools: opts?.tools ?? [],
     mcpClients: opts?.mcpClients ?? [],

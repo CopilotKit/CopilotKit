@@ -48,5 +48,16 @@ interface Window {
         }>
       >;
     };
+    bridge: {
+      getInfo: () => Promise<{
+        port: number;
+        token: string;
+        connected: boolean;
+      }>;
+      action: (
+        method: "click" | "fill" | "navigate",
+        params: Record<string, unknown>,
+      ) => Promise<{ ok: true; data: unknown } | { ok: false; error: string }>;
+    };
   };
 }
