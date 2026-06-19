@@ -1,12 +1,14 @@
 import dotenv from "dotenv";
 import { app, BrowserWindow, ipcMain } from "electron";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startRuntimeServer } from "./runtime/server";
 import { createReadOnlyFsTools } from "./tools/server-tools";
 import { writeFile as wsWriteFile } from "./tools/fs-tools";
 import { formatShellCommand, runShell } from "./tools/shell";
+import { loadMcpConfig } from "./mcp/config";
+import { McpManager } from "./mcp/manager";
 
 // Load provider keys (OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY) from .env
 dotenv.config();
@@ -20,6 +22,20 @@ const WORKSPACE_ROOT =
   join(app.getPath("documents"), "copilotkit-electron-workspace");
 mkdirSync(WORKSPACE_ROOT, { recursive: true });
 
+const USER_MCP_CONFIG = join(app.getPath("userData"), "mcp.config.json");
+const BUNDLED_MCP_CONFIG = existsSync(
+  join(app.getAppPath(), "mcp.config.example.json"),
+)
+  ? join(app.getAppPath(), "mcp.config.example.json")
+  : join(__dirname, "../../mcp.config.example.json");
+
+function loadConfiguredServers() {
+  const read = (p: string) => readFileSync(p, "utf8");
+  const user = loadMcpConfig(read, USER_MCP_CONFIG);
+  return user.length > 0 ? user : loadMcpConfig(read, BUNDLED_MCP_CONFIG);
+}
+
+let mcpManager: McpManager | null = null;
 let runtime: { url: string; close: () => Promise<void> } | null = null;
 
 function createWindow(): void {
@@ -43,10 +59,18 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  mcpManager = new McpManager(loadConfiguredServers());
+  await mcpManager.connectAll();
   runtime = await startRuntimeServer({
     tools: createReadOnlyFsTools(WORKSPACE_ROOT),
+    mcpClients: mcpManager.getProviders(),
   });
   ipcMain.handle("runtime:url", () => runtime?.url ?? null);
+  ipcMain.handle("mcp:listServers", () => mcpManager?.getStatuses() ?? []);
+  ipcMain.handle("mcp:setEnabled", (_e, name: string, enabled: boolean) => {
+    mcpManager?.setEnabled(name, enabled);
+    return mcpManager?.getStatuses() ?? [];
+  });
   ipcMain.handle("workspace:getRoot", () => WORKSPACE_ROOT);
   ipcMain.handle("fs:write", async (_e, relPath: string, content: string) => ({
     ok: true as const,
@@ -73,4 +97,5 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   void runtime?.close();
+  void mcpManager?.closeAll();
 });

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
 import { useLocalTools } from "./hitl/useLocalTools";
+import { McpPanel } from "./mcp/McpPanel";
 
 function WorkspaceTools(): null {
   useLocalTools();
@@ -31,6 +32,9 @@ export default function App() {
             the assistant anything using the sidebar on the right.
           </p>
           <p data-testid="workspace-root">Workspace: {workspaceRoot || "…"}</p>
+          <div style={{ marginTop: 24 }}>
+            <McpPanel />
+          </div>
         </section>
         <CopilotSidebar />
       </main>
