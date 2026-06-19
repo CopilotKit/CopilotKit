@@ -20,8 +20,16 @@
 
 import { describe, expect, it } from "vitest";
 
-import { BYTE_CAP_BY_TIER, CvdiagEmitter, QUEUE_CAP } from "./emit.js";
+import {
+  BYTE_CAP_BY_TIER,
+  CvdiagEmitter,
+  DEMO_MAX_LEN,
+  QUEUE_CAP,
+  SLUG_FALLBACK,
+  boundEntryFields,
+} from "./emit.js";
 import type { CvdiagPbWriter } from "./emit.js";
+import { isValidTestId } from "./schema.js";
 import type { CvdiagEnvelope } from "./schema.js";
 
 /** Buffer byte length of the JSON serialization (mirrors emit's serializedSize). */
@@ -307,11 +315,15 @@ describe("CvdiagEmitter.applyByteCap", () => {
     }
   });
 
-  it("does NOT stamp _truncated when over-cap detection fires but nothing was trimmable", () => {
-    // _truncated means "trimming actually occurred". If the only reason a row is
-    // over cap is a fixed field that Step4 then clamps, _truncated is still
-    // correct (Step4 trimmed). This guards the inverse: an under-cap envelope is
-    // never stamped (already covered below) AND the stamp tracks real trimming.
+  it("a 5000-char slug is entry-bounded to a pattern-valid slug, under cap, NOT byte-cap-clamped", () => {
+    // OBSOLETED by entry-bounding (Task 5b): this test previously fed a
+    // 5000-char `slug` and asserted `applyByteCap` Step 4 clamped it to a
+    // `…[clamped]` marker with `_truncated: true`. With `boundEntryFields` the
+    // slug is sanitized to the PB/codegen contract `^[a-z][a-z0-9-]{0,63}$` AT
+    // EMIT ENTRY, so the envelope is already under the default cap and the
+    // byte-cap never has to touch a format-constrained field. Rewritten to
+    // expect the entry-bounded valid slug (NOT weakened — the assertion is
+    // stronger: a pattern-valid slug, not just a size-bounded marker).
     const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
     const envelope = emitter.emit({
       layer: "probe",
@@ -322,11 +334,14 @@ describe("CvdiagEmitter.applyByteCap", () => {
       metadata: { message_index: 0, char_count: 3, demo: "chat" },
     });
     expect(envelope).not.toBeNull();
-    // The huge slug was clamped by Step4 → trimming occurred → _truncated true.
-    expect(envelope!._truncated).toBe(true);
+    // Slug is the entry-bounded valid slug, not a byte-cap `[clamped]` marker.
+    expect(envelope!.slug).toMatch(/^[a-z][a-z0-9-]{0,63}$/);
+    expect(envelope!.slug).not.toContain("[clamped]");
+    // Already under cap from entry-bounding → no byte-cap trim → no flag.
     expect(serializedSize(envelope!)).toBeLessThanOrEqual(
       BYTE_CAP_BY_TIER.default,
     );
+    expect(envelope!._truncated).toBeUndefined();
   });
 
   it("leaves an under-cap envelope untouched (no _truncated stamp)", () => {
@@ -523,5 +538,126 @@ describe("CvdiagEmitter.flush — no PB writer configured", () => {
     // AFTER the fix it is preserved for the eventual writer-present flush.
     expect(seam.droppedSinceFlush).toBe(overflow);
     expect(emitter.queueDepth()).toBe(QUEUE_CAP);
+  });
+});
+
+describe("cvdiag boundEntryFields — emit-entry field bounding (spec §3.1 / §6.5)", () => {
+  const slugPattern = /^[a-z][a-z0-9-]{0,63}$/;
+
+  it("sanitizes slug to the PB/codegen pattern ^[a-z][a-z0-9-]{0,63}$", () => {
+    expect(
+      boundEntryFields({ slug: "LangGraph-Python" } as never).slug,
+    ).toMatch(slugPattern);
+    expect(boundEntryFields({ slug: "9-leading-digit" } as never).slug).toMatch(
+      slugPattern,
+    );
+    // A leading digit gets the `x` prefix, not stripped.
+    expect(boundEntryFields({ slug: "9-leading-digit" } as never).slug).toBe(
+      "x9-leading-digit",
+    );
+    expect(
+      boundEntryFields({ slug: "has spaces & sym$bols" } as never).slug,
+    ).toMatch(slugPattern);
+    expect(
+      boundEntryFields({ slug: "s".repeat(200) } as never).slug.length,
+    ).toBeLessThanOrEqual(64);
+    expect(boundEntryFields({ slug: "s".repeat(200) } as never).slug).toMatch(
+      slugPattern,
+    );
+    expect(boundEntryFields({ slug: "" } as never).slug).toBe(SLUG_FALLBACK);
+    expect(boundEntryFields({ slug: "###" } as never).slug).toBe(SLUG_FALLBACK);
+    // Mixed-case + illegal chars normalize to a valid lowercase slug.
+    expect(boundEntryFields({ slug: "Chat_Demo!!" } as never).slug).toBe(
+      "chatdemo",
+    );
+  });
+
+  it("hard-caps demo at DEMO_MAX_LEN with a trailing marker", () => {
+    const out = boundEntryFields({
+      slug: "ok",
+      demo: "d".repeat(5000),
+    } as never);
+    expect(DEMO_MAX_LEN).toBe(256);
+    expect(out.demo.length).toBeLessThanOrEqual(DEMO_MAX_LEN);
+    expect(out.demo.endsWith("…")).toBe(true);
+    expect(boundEntryFields({ slug: "ok", demo: "short" } as never).demo).toBe(
+      "short",
+    );
+  });
+
+  it("nulls an invalid parent_span_id, keeps a valid 16-hex one", () => {
+    expect(
+      boundEntryFields({ slug: "ok", parentSpanId: "zzzz" } as never)
+        .parentSpanId,
+    ).toBeNull();
+    // A 5000-char value is nulled, NOT truncated to a non-16-hex prefix.
+    expect(
+      boundEntryFields({ slug: "ok", parentSpanId: "x".repeat(5000) } as never)
+        .parentSpanId,
+    ).toBeNull();
+    expect(
+      boundEntryFields({
+        slug: "ok",
+        parentSpanId: "0123456789abcdef",
+      } as never).parentSpanId,
+    ).toBe("0123456789abcdef");
+    // Uppercase hex is NOT the lowercase contract → nulled.
+    expect(
+      boundEntryFields({
+        slug: "ok",
+        parentSpanId: "0123456789ABCDEF",
+      } as never).parentSpanId,
+    ).toBeNull();
+    expect(boundEntryFields({ slug: "ok" } as never).parentSpanId).toBeNull();
+  });
+
+  it("ignores an invalid testId override and signals a re-mint", () => {
+    // An invalid override must NOT be passed through; the emitter mints fresh.
+    const out = boundEntryFields({
+      slug: "ok",
+      testId: "not-a-uuidv7",
+    } as never);
+    expect(out.testId === undefined || !isValidTestId(out.testId)).toBe(true);
+    // A valid UUIDv7 override is preserved verbatim.
+    const valid = "017f22e2-79b0-7cc3-98c4-dc0c0c07398f";
+    expect(
+      boundEntryFields({ slug: "ok", testId: valid } as never).testId,
+    ).toBe(valid);
+  });
+});
+
+describe("cvdiag emit — entry bound applied end-to-end (slug never violates contract)", () => {
+  it("a 5000-char slug enqueues as a pattern-valid slug, NOT a clamped marker", () => {
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    const env = emitter.emit({
+      layer: "probe",
+      boundary: "probe.message.send",
+      slug: "s".repeat(5000),
+      demo: "chat",
+      outcome: "info",
+      metadata: { message_index: 0, char_count: 3, demo: "chat" },
+    });
+    expect(env).not.toBeNull();
+    expect(env!.slug).toMatch(/^[a-z][a-z0-9-]{0,63}$/);
+    expect(env!.slug).not.toContain("[clamped]");
+    // trace_id mirrors test_id and both are valid UUIDv7.
+    expect(env!.trace_id).toBe(env!.test_id);
+    expect(isValidTestId(env!.test_id)).toBe(true);
+  });
+
+  it("an invalid testId override is re-minted and trace_id mirrors it", () => {
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    const env = emitter.emit({
+      layer: "probe",
+      boundary: "probe.message.send",
+      slug: "langgraph-python",
+      demo: "chat",
+      outcome: "info",
+      testId: "not-a-uuidv7",
+      metadata: { message_index: 0, char_count: 3, demo: "chat" },
+    });
+    expect(env).not.toBeNull();
+    expect(isValidTestId(env!.test_id)).toBe(true);
+    expect(env!.trace_id).toBe(env!.test_id);
   });
 });

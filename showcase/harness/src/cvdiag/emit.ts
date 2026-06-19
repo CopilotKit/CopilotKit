@@ -16,6 +16,7 @@ import crypto from "node:crypto";
 
 import {
   SCHEMA_VERSION,
+  isValidTestId,
   validateEnvelope,
   validateMetadata,
 } from "./schema.js";
@@ -80,6 +81,15 @@ export const BYTE_CAP_BY_TIER: Record<CvdiagTier, number> = {
   verbose: 4 * 1024,
   debug: 16 * 1024,
 };
+
+/** Hard entry cap for the free-text `demo` field (spec §3.1). */
+export const DEMO_MAX_LEN = 256;
+/** Substituted slug when sanitization yields an empty string (spec §3.1). */
+export const SLUG_FALLBACK = "unknown";
+/** Slug must match the PB/codegen contract `^[a-z][a-z0-9-]{0,63}$`. */
+const SLUG_MAX_LEN = 64;
+/** 16-hex lowercase span-id shape (spec §5 `span_id` / `parent_span_id`). */
+const SPAN_ID_REGEX = /^[0-9a-f]{16}$/;
 
 /** In-memory queue cap (spec §7 R5-F5). */
 export const QUEUE_CAP = 5000;
@@ -188,6 +198,69 @@ export function mintTestId(nowMs: number = Date.now()): string {
 /** Mint a 16-hex span id (8 random bytes). */
 export function mintSpanId(): string {
   return crypto.randomBytes(8).toString("hex");
+}
+
+export interface BoundEntryFields {
+  slug: string;
+  demo: string;
+  parentSpanId: string | null;
+  /** A valid UUIDv7 override to honor, or undefined to mint fresh. */
+  testId: string | undefined;
+  /** True iff any field was sanitized/bounded (diagnostic; does NOT set _truncated). */
+  boundedAny: boolean;
+}
+
+/**
+ * Validate/bound caller-supplied fields at the EMIT ENTRY (spec §3.1, P1). Pure
+ * instrumentation: NEVER throws and NEVER rejects the event — a degraded row is
+ * more useful than no row. After this, every format-constrained envelope field
+ * is already valid and length-bounded, so `applyByteCap` (§3.3) never needs to
+ * touch a constrained field.
+ *
+ * The slug/parent_span_id/test_id patterns are PB/codegen contracts that TS and
+ * `validateEnvelope` do NOT runtime-validate — this function ESTABLISHES them at
+ * the TS boundary. The slug result ALWAYS matches `^[a-z][a-z0-9-]{0,63}$`.
+ *
+ * `boundedAny` is a diagnostic only: it is intentionally NOT wired to the
+ * envelope's `_truncated` flag (entry-bounding is input sanitization, not a
+ * size-trim; `_truncated` remains the byte-cap's flag per spec §3.1).
+ */
+export function boundEntryFields(args: CvdiagEmitArgs): BoundEntryFields {
+  let boundedAny = false;
+
+  // slug → lowercase, strip illegal chars, ensure leading [a-z], ≤64, fallback.
+  const rawSlug =
+    typeof args.slug === "string" ? args.slug : String(args.slug ?? "");
+  let slug = rawSlug.toLowerCase().replace(/[^a-z0-9-]/g, "");
+  if (slug.length > 0 && !/^[a-z]/.test(slug)) slug = `x${slug}`;
+  if (slug.length > SLUG_MAX_LEN) slug = slug.slice(0, SLUG_MAX_LEN);
+  if (slug.length === 0) slug = SLUG_FALLBACK;
+  if (slug !== rawSlug) boundedAny = true;
+
+  // demo → coerce to string, hard-cap at DEMO_MAX_LEN with a trailing marker.
+  const rawDemo =
+    typeof args.demo === "string" ? args.demo : String(args.demo ?? "");
+  let demo = rawDemo;
+  if (demo.length > DEMO_MAX_LEN) {
+    demo = `${demo.slice(0, DEMO_MAX_LEN - 1)}…`;
+    boundedAny = true;
+  }
+
+  // parent_span_id → 16-hex lowercase or null (a malformed ref falsifies joins).
+  let parentSpanId: string | null = args.parentSpanId ?? null;
+  if (parentSpanId !== null && !SPAN_ID_REGEX.test(parentSpanId)) {
+    parentSpanId = null;
+    boundedAny = true;
+  }
+
+  // testId override → honor only if a valid UUIDv7; else undefined (mint fresh).
+  let testId: string | undefined = args.testId;
+  if (testId !== undefined && !isValidTestId(testId)) {
+    testId = undefined;
+    boundedAny = true;
+  }
+
+  return { slug, demo, parentSpanId, testId, boundedAny };
 }
 
 /** Length of `value` if it is a string, else 0 (for clamp-ordering). */
@@ -336,7 +409,12 @@ export class CvdiagEmitter {
   private buildEnvelope(args: CvdiagEmitArgs): CvdiagEnvelope | null {
     if (this.tier === "debug") this.debugEventCount += 1;
 
-    const testId = args.testId ?? mintTestId();
+    // P1 (spec §3.1): bound caller-supplied fields at emit entry BEFORE the
+    // envelope literal so every format-constrained field is already valid and
+    // length-bounded. An invalid testId override is dropped here so the minted
+    // fallback keeps `trace_id` (its mirror) valid.
+    const bound = boundEntryFields(args);
+    const testId = bound.testId ?? mintTestId();
     const isDataPlane = !args.boundary.startsWith(ACCOUNTING_PREFIX);
     let metadata: Record<string, unknown> = {};
     let metadataDropped = false;
@@ -363,11 +441,11 @@ export class CvdiagEmitter {
       test_id: testId,
       trace_id: testId,
       span_id: mintSpanId(),
-      parent_span_id: args.parentSpanId ?? null,
+      parent_span_id: bound.parentSpanId,
       layer: args.layer,
       boundary: args.boundary,
-      slug: args.slug,
-      demo: args.demo,
+      slug: bound.slug,
+      demo: bound.demo,
       ts: new Date().toISOString(),
       mono_ns: this.monoNs(),
       duration_ms: args.durationMs ?? null,
