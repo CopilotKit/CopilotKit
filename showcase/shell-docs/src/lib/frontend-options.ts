@@ -59,10 +59,7 @@ export function isFrontendEarlyAccess(id: FrontendId): boolean {
 }
 
 function normalizeSlugPath(slugPath: string): string {
-  return slugPath
-    .split("/")
-    .filter(Boolean)
-    .join("/");
+  return slugPath.split("/").filter(Boolean).join("/");
 }
 
 export function frontendPathFor(id: FrontendId, slugPath = ""): string {

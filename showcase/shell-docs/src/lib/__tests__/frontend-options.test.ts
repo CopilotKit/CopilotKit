@@ -124,12 +124,13 @@ describe("frontend options", () => {
       backend: "langgraph-python",
       slugPath: "concepts/architecture",
     });
-    expect(parseFrontendRoutePath("/vue/using-these-docs", backendSlugs))
-      .toEqual({
-        frontend: "vue",
-        backend: null,
-        slugPath: "using-these-docs",
-      });
+    expect(
+      parseFrontendRoutePath("/vue/using-these-docs", backendSlugs),
+    ).toEqual({
+      frontend: "vue",
+      backend: null,
+      slugPath: "using-these-docs",
+    });
     expect(backendFromPathname("/vue/langgraph-python", backendSlugs)).toBe(
       "langgraph-python",
     );
@@ -172,9 +173,7 @@ describe("frontend options", () => {
       expect(isFrontendId(id)).toBe(true);
       expect(getFrontendOption(id).name).toBeTruthy();
       expect(getFrontendContentSlug(id)).toBe(`frontends/${id}`);
-      expect(getFrontendUsingTheseDocsPath(id)).toBe(
-        `/${id}/using-these-docs`,
-      );
+      expect(getFrontendUsingTheseDocsPath(id)).toBe(`/${id}/using-these-docs`);
       expect(loadDoc(getFrontendContentSlug(id))?.fm.title).toBeTruthy();
     }
     expect(isFrontendEarlyAccess("vue")).toBe(false);
@@ -232,9 +231,7 @@ describe("frontend options", () => {
       ]),
     );
 
-    const pageUrls = collectPageUrls(
-      navTreeToPageTree(navTree, "/slack"),
-    );
+    const pageUrls = collectPageUrls(navTreeToPageTree(navTree, "/slack"));
     expect(pageUrls).toEqual([
       "/slack",
       "/slack/using-these-docs",

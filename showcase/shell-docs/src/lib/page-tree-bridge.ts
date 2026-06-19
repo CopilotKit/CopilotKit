@@ -132,9 +132,7 @@ function renderNavName(
   }
 
   const className =
-    variant === "react-docs-proxy"
-      ? "shell-docs-react-docs-proxy"
-      : undefined;
+    variant === "react-docs-proxy" ? "shell-docs-react-docs-proxy" : undefined;
 
   if (!className && !icon) return title;
 

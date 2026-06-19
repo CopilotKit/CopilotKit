@@ -157,13 +157,10 @@ function resolvePage(slug: string[]): ResolvedPage | null {
       );
     }
 
-    const contentSlug =
-      (() => {
-        const resolution = resolveFrontendDocPage(frontend, frontendRest);
-        return resolution.status === "found"
-          ? resolution.contentSlugPath
-          : null;
-      })();
+    const contentSlug = (() => {
+      const resolution = resolveFrontendDocPage(frontend, frontendRest);
+      return resolution.status === "found" ? resolution.contentSlugPath : null;
+    })();
 
     if (!contentSlug) return null;
     const doc = loadDoc(contentSlug);

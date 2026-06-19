@@ -86,8 +86,7 @@ describe("FrameworkSelector", () => {
     expect(
       markup.match(
         /shell-docs-picker-group shell-docs-picker-group-selected shell-docs-picker-group-bordered/g,
-      )
-        ?.length,
+      )?.length,
     ).toBe(1);
     expect(markup).not.toContain("shell-docs-picker-row-selected");
     expect(markup).not.toContain("shell-docs-nav-link-active");

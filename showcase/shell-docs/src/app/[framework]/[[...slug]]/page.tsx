@@ -179,7 +179,7 @@ function frontendMetadata(
             activeBackendFramework,
           )
         : frontendRoutePath(frontend, slugPath, activeBackendFramework),
-    });
+  });
 }
 
 function frameworkMetadata(
@@ -926,10 +926,7 @@ async function FrameworkRootPage({
       }
     }
     return (
-      <FrameworkRootShell
-        navTree={navTree}
-        slugHrefPrefix={slugHrefPrefix}
-      >
+      <FrameworkRootShell navTree={navTree} slugHrefPrefix={slugHrefPrefix}>
         <FrameworkOverview
           data={overview}
           currentFramework={framework}

@@ -199,7 +199,9 @@ describe("llms-mdx route", () => {
     await expect(response.text()).resolves.toBe("rendered markdown");
     expect(loadDocMock).toHaveBeenCalledWith("frontends/vue");
     expect(loadDocMock).not.toHaveBeenCalledWith("index");
-    expect(loadDocMock).not.toHaveBeenCalledWith("integrations/langgraph/index");
+    expect(loadDocMock).not.toHaveBeenCalledWith(
+      "integrations/langgraph/index",
+    );
     expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
         url: "vue/langgraph-python",

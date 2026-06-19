@@ -65,7 +65,9 @@ type TabChildProps = {
   title?: unknown;
 };
 
-function deriveItemsFromChildren(children: React.ReactNode): string[] | undefined {
+function deriveItemsFromChildren(
+  children: React.ReactNode,
+): string[] | undefined {
   const items = React.Children.toArray(children)
     .map((child) => {
       if (!React.isValidElement<TabChildProps>(child)) {
@@ -73,9 +75,7 @@ function deriveItemsFromChildren(children: React.ReactNode): string[] | undefine
       }
 
       const value = child.props.value ?? child.props.title;
-      return typeof value === "string" && value.length > 0
-        ? value
-        : undefined;
+      return typeof value === "string" && value.length > 0 ? value : undefined;
     })
     .filter((value): value is string => Boolean(value));
 

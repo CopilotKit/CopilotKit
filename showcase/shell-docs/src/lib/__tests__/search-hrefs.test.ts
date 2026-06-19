@@ -22,9 +22,9 @@ describe("search href helpers", () => {
     expect(frameworkDocsHref("built-in-agent", "quickstart", "vue")).toBe(
       "/vue",
     );
-    expect(
-      frameworkDocsHref("langgraph-python", "quickstart", "vue"),
-    ).toBe("/vue/langgraph-python");
+    expect(frameworkDocsHref("langgraph-python", "quickstart", "vue")).toBe(
+      "/vue/langgraph-python",
+    );
     expect(
       frameworkDocsHref("mastra", "concepts/architecture", "react-native"),
     ).toBe("/react-native/mastra/concepts/architecture");
@@ -59,10 +59,7 @@ describe("search href helpers", () => {
       ),
     ).toBe("/react-native/using-these-docs");
     expect(
-      normalizeHref(
-        "/docs/frontends/using-these-docs",
-        "https://shell.test",
-      ),
+      normalizeHref("/docs/frontends/using-these-docs", "https://shell.test"),
     ).toBe("/vue/using-these-docs");
     expect(
       normalizeHref("/docs/frontends/docs-status", "https://shell.test"),

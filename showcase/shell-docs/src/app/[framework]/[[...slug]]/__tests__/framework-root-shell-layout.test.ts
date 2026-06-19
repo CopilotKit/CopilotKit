@@ -21,9 +21,7 @@ describe("FrameworkRootShell layout", () => {
   it("parses frontend routes before resolving frontend content slugs", () => {
     expect(pageSource).toContain("parseFrontendRoutePath");
     expect(pageSource).toContain("activeBackendFramework");
-    expect(pageSource).toContain(
-      "frameworkOverride={activeBackendFramework}",
-    );
+    expect(pageSource).toContain("frameworkOverride={activeBackendFramework}");
   });
 
   it("redirects retired frontend URL shapes instead of rendering them", () => {
@@ -39,7 +37,7 @@ describe("FrameworkRootShell layout", () => {
     expect(pageSource).toContain("scopedSlugHrefPrefix = frontendRoutePath(");
     expect(pageSource).toContain("frameworkOverride={scopedFramework}");
     expect(pageSource).toContain(
-      'slugHrefPrefix={scopedSlugHrefPrefix ?? `/${scopedFramework}`}',
+      "slugHrefPrefix={scopedSlugHrefPrefix ?? `/${scopedFramework}`}",
     );
     expect(pageSource).toContain(
       "preferIndexMdx={Boolean(scopedSlugHrefPrefix)}",
