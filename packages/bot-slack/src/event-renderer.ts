@@ -312,6 +312,19 @@ export function createRunRenderer(args: {
       }
     },
     async onRunFinishedEvent() {
+      // Defensive: finalize any text stream still open at the end of THIS run
+      // so a run's streamed text is fully posted before the run-loop executes
+      // tool handlers (which post out-of-band content like images/cards). In
+      // the common path TEXT_MESSAGE_END already finalized and removed the
+      // stream, so this is usually a no-op.
+      const drains: Promise<void>[] = [];
+      for (const [id, stream] of Array.from(streams.entries())) {
+        drains.push(stream.finish());
+        streams.delete(id);
+        finalised.add(id);
+        buffers.delete(id);
+      }
+      if (drains.length > 0) await Promise.all(drains);
       // If the run produced a streamed reply it already claimed the
       // placeholder; otherwise (tool/component/HITL output, or nothing)
       // this removes the leftover "thinking…" bubble.
