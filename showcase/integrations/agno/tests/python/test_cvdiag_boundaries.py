@@ -309,3 +309,140 @@ def test_disabled_by_default_emits_nothing(monkeypatch, capsys):
     envelopes = _parse_cvdiag_lines(capsys.readouterr().out)
     backend = [e for e in envelopes if e["layer"] == "backend"]
     assert backend == [], f"emitter fired while disabled: {backend}"
+
+
+# ── FIX-1: scrub parity with harness/src/cvdiag/scrub.ts ─────────────────────
+
+
+def test_scrub_redacts_colonless_url_userinfo():
+    """RED: ``scheme://token@host`` (no colon) currently LEAKS the bare token.
+
+    The TS reference (URL_USERINFO_REGEX = ``([scheme]://)[^/\\s?#]*@``) redacts
+    colon-less userinfo; the python regex required a mandatory ``:`` so a
+    bare-token authority such as ``https://ghp_secrettoken@host`` slipped past.
+    """
+    out = scrub("clone https://ghp_secrettoken@example.com/x.git")
+    assert "ghp_secrettoken" not in out, f"colon-less userinfo token leaked: {out!r}"
+    assert "[REDACTED]@" in out
+    # The host/path after the userinfo must survive (no over-match past ``?``/``#``).
+    assert "example.com" in out
+
+
+def test_scrub_redacts_full_bearer_tail():
+    """RED: ``Bearer <jwt>`` whose token contains ``/`` ``+`` ``=`` leaks the tail.
+
+    The TS reference grabs the whole token (``Bearer \\S+``); the python class
+    ``[A-Za-z0-9._\\-]+`` stopped at ``/``/``+``/``=`` leaving an un-redacted JWT
+    tail in the output.
+    """
+    token = "eyJhbGciOi.J9.sig/tail+more=end"
+    out = scrub(f"Authorization: Bearer {token}")
+    assert "tail+more=end" not in out, f"bearer token tail leaked: {out!r}"
+    assert "/tail" not in out
+
+
+def test_scrub_size_guard_bounds_scan_with_marker():
+    """RED: a string longer than the scan cap must be TRUNCATED before scanning
+    (mirrors TS ``SCRUB_MAX_SCAN_LEN`` + ``…[unscanned:<N>]`` marker) so the
+    regex can never run on an unbounded adversarial input. The pre-fix scrub
+    scanned the whole string (no guard), so no ``unscanned`` marker appears."""
+    huge = "a" * 50_000
+    out = scrub(huge)
+    assert "[unscanned:" in out, f"no scan-size guard applied: {out[:60]!r}…"
+
+
+# ── FIX-2: live tier (env read after import must arm tier-gated paths) ────────
+
+
+def test_tier_read_live_after_import(monkeypatch, capsys):
+    """RED: setting ``CVDIAG_VERBOSE`` AFTER import must let a verbose boundary
+    fire. The tier was frozen at bootstrap ``setup()`` so a post-import env flip
+    armed the emitter (read live) but left tier-gated paths no-op'ing."""
+    import _shared.cvdiag_bootstrap as bootstrap
+
+    # Resolve tier at DEFAULT (no verbose/debug) — the frozen-tier trap.
+    monkeypatch.setenv("SHOWCASE_ENV", "test")
+    bootstrap.setup({"SHOWCASE_ENV": "test"})
+    # NOW flip verbose on, post-setup — emitter_enabled reads this live.
+    monkeypatch.setenv("CVDIAG_BACKEND_EMITTER", "1")
+    monkeypatch.setenv("CVDIAG_VERBOSE", "1")
+
+    async def run():
+        ctx = _RequestCtx(test_id=VALID_TEST_ID, slug="agno", demo="default")
+        # backend.llm.call.start is a VERBOSE boundary.
+        async with LlmCallScope(ctx, provider="openai", model="m", interval_s=10.0):
+            pass
+
+    asyncio.run(run())
+
+    envelopes = _parse_cvdiag_lines(capsys.readouterr().out)
+    starts = [e for e in envelopes if e["boundary"] == "backend.llm.call.start"]
+    assert starts, "verbose boundary suppressed: tier was frozen at import"
+
+
+# ── FIX-3: stop_heartbeat / __aexit__ cooperative cancellation ───────────────
+
+
+@pytest.mark.skipif(
+    not hasattr(asyncio.Task, "cancelling"),
+    reason="cooperative-cancel detection uses Task.cancelling() (Python 3.11+); "
+    "production runs 3.12",
+)
+def test_aexit_propagates_caller_cancellation(monkeypatch):
+    """RED: ``__aexit__``'s heartbeat-await ``except (CancelledError, Exception)``
+    swallows the CALLER's CancelledError, breaking cooperative cancellation.
+
+    Deterministic repro (no scheduling race): a heartbeat whose cancellation is
+    SLOW (shielded cleanup) keeps ``await hb_task`` suspended; the surrounding
+    task is cancelled a SECOND time while suspended exactly there, so the
+    caller's CancelledError lands inside ``__aexit__``. With the swallow it runs
+    to completion (``AFTER_AEXIT`` reached); with cooperative cancellation the
+    CancelledError propagates and ``AFTER_AEXIT`` is NEVER reached.
+    """
+    monkeypatch.setenv("CVDIAG_BACKEND_EMITTER", "1")
+    reached: List = []
+
+    async def run():
+        ctx = _RequestCtx(test_id=VALID_TEST_ID, slug="agno", demo="default")
+        scope = LlmCallScope(ctx, provider="openai", model="m", interval_s=10.0)
+        await scope.__aenter__()
+        # Replace the heartbeat with one that is SLOW to cancel so the
+        # __aexit__ ``await hb_task`` reliably suspends.
+        scope._hb_task.cancel()  # cancel the real one
+
+        async def slow_hb():
+            try:
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                await asyncio.shield(asyncio.sleep(0.2))
+                return
+
+        scope._hb_task = asyncio.ensure_future(slow_hb())
+        await asyncio.sleep(0.02)
+
+        at_await = asyncio.Event()
+
+        async def body():
+            try:
+                await asyncio.sleep(3600)
+            finally:
+                at_await.set()
+                await scope.__aexit__(None, None, None)
+                reached.append("AFTER_AEXIT")
+
+        task = asyncio.ensure_future(body())
+        await asyncio.sleep(0.02)
+        task.cancel()  # enter finally → reach the __aexit__ await
+        await at_await.wait()
+        await asyncio.sleep(0)  # yield so we're inside ``await hb_task``
+        task.cancel()  # caller cancel lands inside __aexit__'s await
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    asyncio.run(run())
+    assert not reached, (
+        "caller CancelledError was swallowed by __aexit__: it ran to completion "
+        "instead of propagating cooperative cancellation"
+    )

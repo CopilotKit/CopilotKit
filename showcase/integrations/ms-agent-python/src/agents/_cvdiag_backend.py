@@ -63,7 +63,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-from _shared.cvdiag_bootstrap import current_tier, emit_cvdiag
+from _shared.cvdiag_bootstrap import _resolve_tier, current_tier, emit_cvdiag
 
 logger = logging.getLogger(__name__)
 
@@ -107,10 +107,29 @@ _BOUNDARY_TIER: Dict[str, str] = {
 }
 
 
+def _active_tier() -> str:
+    """Resolve the verbosity tier from a LIVE env read.
+
+    ``cvdiag_backend_enabled()`` reads ``CVDIAG_BACKEND_EMITTER`` live, so the
+    tier MUST be read from the same live source — otherwise flipping
+    ``CVDIAG_VERBOSE`` / ``CVDIAG_DEBUG`` AFTER import arms the emitter but the
+    tier stays frozen at the import-time ``setup()`` value, silently no-op'ing
+    every verbose/debug-gated boundary. We reuse the bootstrap's
+    ``_resolve_tier`` so the §6 fail-closed DEBUG guard still applies (a
+    production / unresolved DEBUG request raises → degrade to the frozen tier).
+    """
+    try:
+        return _resolve_tier(dict(os.environ))
+    except RuntimeError:
+        # Fail-closed DEBUG refusal: fall back to the import-time resolved tier
+        # (never silently escalate to debug in production).
+        return current_tier()
+
+
 def _tier_permits(boundary: str) -> bool:
     """True iff the active tier is at-or-above the boundary's minimum tier."""
     need = _TIER_RANK.get(_BOUNDARY_TIER.get(boundary, "default"), 0)
-    have = _TIER_RANK.get(current_tier(), 0)
+    have = _TIER_RANK.get(_active_tier(), 0)
     return have >= need
 
 
@@ -181,15 +200,43 @@ def extract_edge_headers(headers: Any) -> Dict[str, Optional[str]]:
 # key bodies allow hyphens/underscores so test-style keys such as the spec
 # regression fixture ``sk-test-12345`` are redacted alongside real production
 # keys (``sk-<48+ base62>``).
+#
+# Parity with the canonical TS scrubber (``harness/src/cvdiag/scrub.ts``):
+#   * Bearer — grabs the WHOLE token (``\S+``) to match TS ``Bearer\s+\S+``;
+#     the legacy ``[A-Za-z0-9._\-]+`` stopped at ``/``/``+``/``=`` and left an
+#     un-redacted JWT tail (e.g. ``Bearer a.b.c/sig+more=`` → ``…/sig+more=``).
+#   * URL userinfo — redacts BOTH ``scheme://user:pw@host`` AND colon-less
+#     ``scheme://token@host`` (TS ``([scheme]://)[^/\s?#]*@``); the legacy
+#     ``[^/\s:@]+:[^/\s@]+@`` required a mandatory ``:`` so a bare-token
+#     authority such as ``https://ghp_xxx@host`` LEAKED. The userinfo class
+#     excludes ``?``/``#`` so the match never crosses into the query/fragment.
 _SCRUB_PATTERNS = (
-    re.compile(r"Bearer\s+[A-Za-z0-9._\-]+", re.IGNORECASE),
+    re.compile(r"Bearer\s+\S+", re.IGNORECASE),
     re.compile(r"\bsk-[A-Za-z0-9][A-Za-z0-9_-]{3,}"),
     re.compile(r"\bpk-[A-Za-z0-9][A-Za-z0-9_-]{3,}"),
-    re.compile(r"(?P<scheme>[a-z][a-z0-9+.\-]*://)[^/\s:@]+:[^/\s@]+@"),
+    re.compile(r"(?P<scheme>[a-z][a-z0-9+.\-]*://)[^/\s?#]*@", re.IGNORECASE),
 )
 
 # Per-event field byte caps (spec §5). message_scrubbed ≤512B.
 _MESSAGE_CAP = 512
+
+# Hard input-size guard (mirrors TS ``SCRUB_MAX_SCAN_LEN``): no regex ever runs
+# on a string longer than this. A longer value has only its bounded prefix
+# scanned and a self-describing ``…[unscanned:<N>]`` marker records the dropped
+# tail length, so an adversarial multi-KB string can never make the regex
+# engine scan unbounded input. 2 KB covers any legitimate metadata value with
+# headroom. Set below the byte cap so the marker survives the §5 byte clamp.
+_SCRUB_MAX_SCAN_LEN = 400
+
+
+def _run_scrub_regexes(s: str) -> str:
+    """Apply the secret regexes in sequence (TS ``runScrubRegexes`` parity)."""
+    for pat in _SCRUB_PATTERNS:
+        if pat.groupindex.get("scheme"):
+            s = pat.sub(r"\g<scheme>[REDACTED]@", s)
+        else:
+            s = pat.sub("[REDACTED]", s)
+    return s
 
 
 def scrub(text: Any) -> str:
@@ -197,16 +244,17 @@ def scrub(text: Any) -> str:
 
     Returns ``"[REDACTED]"`` substitutions for any matched secret pattern so a
     synthetic ``sk-test-12345`` in an exception message can never reach the
-    emitted envelope.
+    emitted envelope. A value longer than ``_SCRUB_MAX_SCAN_LEN`` has only its
+    bounded prefix scanned, with an ``…[unscanned:<N>]`` marker (TS parity).
     """
     if text is None:
         return ""
     s = str(text)
-    for pat in _SCRUB_PATTERNS:
-        if pat.groupindex.get("scheme"):
-            s = pat.sub(r"\g<scheme>[REDACTED]@", s)
-        else:
-            s = pat.sub("[REDACTED]", s)
+    if len(s) > _SCRUB_MAX_SCAN_LEN:
+        dropped_tail = len(s) - _SCRUB_MAX_SCAN_LEN
+        s = f"{_run_scrub_regexes(s[:_SCRUB_MAX_SCAN_LEN])}…[unscanned:{dropped_tail}]"
+    else:
+        s = _run_scrub_regexes(s)
     encoded = s.encode("utf-8")
     if len(encoded) > _MESSAGE_CAP:
         s = encoded[:_MESSAGE_CAP].decode("utf-8", errors="ignore")
@@ -619,9 +667,8 @@ def _elapsed_ms(start_mono_ns: int) -> int:
 
 # The LLM-call boundaries (start / heartbeat / response) and the agent
 # enter/exit boundaries are emitted via the explicit helpers below. They are
-# called from the agent factory's hook points (MS Agent Framework
-# ``ChatAgent`` run / middleware hooks) and from the outbound httpx event hook,
-# all keyed on the request ``ctx``.
+# called from the agent factory's hook points (strands ``HookProvider``) and
+# from the outbound httpx event hook, all keyed on the request ``ctx``.
 
 
 def emit_agent_enter(ctx: "_RequestCtx", *, agent_name: str, model_id: str) -> None:
@@ -722,10 +769,26 @@ class LlmCallScope:
 
     async def __aexit__(self, exc_type, exc, tb) -> bool:
         if self._hb_task is not None:
-            self._hb_task.cancel()
+            hb_task = self._hb_task
+            self._hb_task = None
+            hb_task.cancel()
             try:
-                await self._hb_task
-            except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                await hb_task
+            except asyncio.CancelledError:
+                # Cooperative cancellation (was ``except (CancelledError,
+                # Exception)``, which swallowed the CALLER's cancel and broke
+                # cooperative cancellation). Suppress ONLY the heartbeat task's
+                # OWN cancellation — the one we just requested. If THIS task is
+                # being cancelled by the caller (a pending cancellation request,
+                # ``current_task().cancelling() > 0``), the CancelledError is the
+                # caller's and MUST propagate. ``Task.cancelling()`` is 3.11+
+                # (production runs 3.12); on older runtimes the attribute is
+                # absent and we degrade to suppressing (the legacy behavior).
+                current = asyncio.current_task()
+                cancelling = getattr(current, "cancelling", None)
+                if current is not None and cancelling is not None and cancelling() > 0:
+                    raise
+            except Exception:  # noqa: BLE001 - heartbeat body must never throw out
                 pass
         emit_backend_boundary(
             "backend.llm.call.response",

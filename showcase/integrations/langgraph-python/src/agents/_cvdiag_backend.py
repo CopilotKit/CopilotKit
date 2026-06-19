@@ -34,7 +34,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from _shared.cvdiag_bootstrap import current_tier, emit_cvdiag
+from _shared.cvdiag_bootstrap import _resolve_tier, current_tier, emit_cvdiag
 
 # ── Tier gating ───────────────────────────────────────────────────────────────
 # The shared bootstrap already resolved the tier (default | verbose | debug) and
@@ -54,6 +54,25 @@ def emitter_enabled() -> bool:
     Default OFF: a missing/any-other value disables every emit in this module.
     """
     return os.environ.get("CVDIAG_BACKEND_EMITTER") == "1"
+
+
+def _active_tier() -> str:
+    """Resolve the verbosity tier from a LIVE env read.
+
+    ``emitter_enabled()`` reads ``CVDIAG_BACKEND_EMITTER`` live, so the tier MUST
+    be read from the same live source — otherwise flipping ``CVDIAG_VERBOSE`` /
+    ``CVDIAG_DEBUG`` AFTER import arms the emitter but the tier stays frozen at
+    the import-time ``setup()`` value, silently no-op'ing every verbose/debug-
+    gated boundary (heartbeat, sse.event). We reuse the bootstrap's
+    ``_resolve_tier`` so the §6 fail-closed DEBUG guard still applies (a
+    production / unresolved DEBUG request raises → degrade to the frozen tier).
+    """
+    try:
+        return _resolve_tier(dict(os.environ))
+    except RuntimeError:
+        # Fail-closed DEBUG refusal: fall back to the import-time resolved tier
+        # (never silently escalate to debug in production).
+        return current_tier()
 
 
 def _now_iso() -> str:
@@ -143,7 +162,7 @@ def _emit(
     """
     if not emitter_enabled():
         return
-    if tier_gate is not None and current_tier() not in tier_gate:
+    if tier_gate is not None and _active_tier() not in tier_gate:
         return
     envelope = {
         "schema_version": 1,
@@ -341,7 +360,7 @@ class CvdiagBackendRun:
 
     def start_heartbeat(self) -> None:
         """Arm the heartbeat task (no-op when disabled or below VERBOSE tier)."""
-        if not emitter_enabled() or current_tier() not in _VERBOSE_TIERS:
+        if not emitter_enabled() or _active_tier() not in _VERBOSE_TIERS:
             return
         if self._heartbeat_task is not None:
             return
@@ -352,7 +371,18 @@ class CvdiagBackendRun:
         self._heartbeat_task = loop.create_task(self._heartbeat_loop())
 
     async def stop_heartbeat(self) -> None:
-        """Cancel + await the heartbeat task. Safe to call when never started."""
+        """Cancel + await the heartbeat task. Safe to call when never started.
+
+        Cooperative cancellation: the legacy ``except (CancelledError,
+        Exception)`` swallowed the CALLER's CancelledError, breaking cooperative
+        cancellation (a client-disconnect / request-cancel that arrives while we
+        await the heartbeat task would be lost). We suppress ONLY the heartbeat
+        task's OWN cancellation — the one we just requested — and re-raise when
+        THIS task is being cancelled by the caller (a pending cancellation
+        request, ``current_task().cancelling() > 0``). ``Task.cancelling()`` is
+        3.11+ (production runs 3.12); on older runtimes the attribute is absent
+        and we degrade to suppressing (the legacy behavior).
+        """
         task = self._heartbeat_task
         if task is None:
             return
@@ -360,7 +390,12 @@ class CvdiagBackendRun:
         task.cancel()
         try:
             await task
-        except (asyncio.CancelledError, Exception):  # noqa: BLE001 - never throw
+        except asyncio.CancelledError:
+            current = asyncio.current_task()
+            cancelling = getattr(current, "cancelling", None)
+            if current is not None and cancelling is not None and cancelling() > 0:
+                raise
+        except Exception:  # noqa: BLE001 - heartbeat body must never throw out
             return
 
     def emit_heartbeat_once(self) -> None:

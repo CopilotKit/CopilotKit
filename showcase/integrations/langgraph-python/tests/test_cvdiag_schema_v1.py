@@ -20,6 +20,7 @@ Run from the repo root::
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from typing import Any, Dict, List
@@ -175,4 +176,101 @@ def test_propagation_reliability_gate(monkeypatch, capsys):
     assert pct >= 90.0, (
         f"BLOCKER: test_id propagation {pct:.1f}% < 90% "
         f"({propagated}/{total}) — Phase-4 abandonment gate failed"
+    )
+
+
+# ── FIX-2: live tier (env flip after import must arm tier-gated paths) ───────
+
+
+def test_tier_read_live_after_import(monkeypatch, capsys):
+    """RED: setting ``CVDIAG_VERBOSE`` AFTER bootstrap ``setup()`` must let a
+    VERBOSE-tier boundary fire. The tier was frozen at import, so a post-setup
+    env flip armed the emitter (read live) but tier-gated heartbeat/llm paths
+    kept no-op'ing."""
+    import _shared.cvdiag_bootstrap as boot
+
+    # Resolve tier at DEFAULT (no verbose/debug) — the frozen-tier trap.
+    monkeypatch.setenv("SHOWCASE_ENV", "test")
+    boot.setup({"SHOWCASE_ENV": "test"})
+    # NOW flip verbose on, post-setup.
+    monkeypatch.setenv("CVDIAG_BACKEND_EMITTER", "1")
+    monkeypatch.setenv("CVDIAG_VERBOSE", "1")
+
+    run = cvb.CvdiagBackendRun(_headers(_new_test_id()))
+    run.emit_heartbeat_once()  # VERBOSE-tier boundary
+
+    rows = _parse_cvdiag_lines(capsys.readouterr().out)
+    hb = [r for r in rows if r["boundary"] == "backend.llm.call.heartbeat"]
+    assert hb, "verbose boundary suppressed: tier was frozen at import"
+
+
+# ── FIX-3: stop_heartbeat cooperative cancellation ──────────────────────────
+
+
+@pytest.mark.skipif(
+    not hasattr(asyncio.Task, "cancelling"),
+    reason="cooperative-cancel detection uses Task.cancelling() (Python 3.11+); "
+    "production runs 3.12",
+)
+def test_stop_heartbeat_propagates_caller_cancellation(monkeypatch):
+    """RED: ``stop_heartbeat``'s ``except (CancelledError, Exception)`` swallows
+    the CALLER's CancelledError, breaking cooperative cancellation.
+
+    Deterministic repro (no scheduling race): a heartbeat whose cancellation is
+    SLOW (shielded cleanup) keeps ``await task`` suspended; the surrounding task
+    is cancelled a SECOND time while suspended exactly there, so the caller's
+    CancelledError lands inside ``stop_heartbeat``. With the swallow it runs to
+    completion (``AFTER_STOP`` reached); with cooperative cancellation the
+    CancelledError propagates and ``AFTER_STOP`` is NEVER reached.
+    """
+    monkeypatch.setenv("SHOWCASE_ENV", "test")
+    monkeypatch.setenv("CVDIAG_BACKEND_EMITTER", "1")
+    monkeypatch.setenv("CVDIAG_VERBOSE", "1")
+    import _shared.cvdiag_bootstrap as boot
+
+    boot.setup({"SHOWCASE_ENV": "test", "CVDIAG_VERBOSE": "1"})
+    reached: List = []
+
+    async def run_test():
+        run = cvb.CvdiagBackendRun(_headers(_new_test_id()))
+        run.start_heartbeat()
+        assert run._heartbeat_task is not None, "heartbeat task did not arm"
+        # Swap in a heartbeat that is SLOW to cancel so ``await task`` suspends.
+        run._heartbeat_task.cancel()
+
+        async def slow_hb():
+            try:
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                await asyncio.shield(asyncio.sleep(0.2))
+                return
+
+        run._heartbeat_task = asyncio.ensure_future(slow_hb())
+        await asyncio.sleep(0.02)
+
+        at_await = asyncio.Event()
+
+        async def body():
+            try:
+                await asyncio.sleep(3600)
+            finally:
+                at_await.set()
+                await run.stop_heartbeat()
+                reached.append("AFTER_STOP")
+
+        task = asyncio.ensure_future(body())
+        await asyncio.sleep(0.02)
+        task.cancel()  # enter finally → reach the stop_heartbeat await
+        await at_await.wait()
+        await asyncio.sleep(0)  # yield so we're inside ``await task``
+        task.cancel()  # caller cancel lands inside stop_heartbeat's await
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    asyncio.run(run_test())
+    assert not reached, (
+        "caller CancelledError was swallowed by stop_heartbeat: it ran to "
+        "completion instead of propagating cooperative cancellation"
     )
