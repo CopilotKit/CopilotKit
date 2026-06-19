@@ -2,7 +2,7 @@
 #
 # Single npm OIDC entry point for both stable releases and prerelease canaries.
 # npm trusted publisher records for the 15 @copilotkit/* monorepo packages plus
-# @copilotkitnext/angular are registered against THIS workflow file. Matching
+# @copilotkit/angular are registered against THIS workflow file. Matching
 # happens on the OIDC token's `workflow_ref` claim, which is always
 # publish-release.yml when this workflow is the entry point.
 #
@@ -40,7 +40,9 @@ on:
           - monorepo
           - angular
           - bot
+          - bot-discord
           - bot-slack
+          - bot-telegram
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
         required: false
@@ -103,7 +105,8 @@ jobs:
             SCOPE="$INPUT_SCOPE"
           else
             # Branch format: release/publish/<scope>/v<version>
-            SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+            SCOPE="${PR_HEAD_REF#release/publish/}"
+            SCOPE="${SCOPE%%/v*}"
           fi
           MODE="${INPUT_MODE:-stable}"
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
@@ -206,7 +209,8 @@ jobs:
             SCOPE="$INPUT_SCOPE"
           else
             # Branch format: release/publish/<scope>/v<version>
-            SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+            SCOPE="${PR_HEAD_REF#release/publish/}"
+            SCOPE="${SCOPE%%/v*}"
           fi
           if [ -z "$SCOPE" ]; then
             echo "::error::Failed to resolve scope (input=$INPUT_SCOPE, ref=$PR_HEAD_REF)"
@@ -249,9 +253,11 @@ jobs:
       - name: Dry-run notice
         if: ${{ inputs.dry-run == true }}
         run: |
-          echo "## Dry Run" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Dry Run"
+            echo ""
+            echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish to npm
         id: publish
@@ -315,7 +321,7 @@ jobs:
           fi
           git tag -a "$TAG" -m "Release ${SCOPE} ${VERSION}"
           git push origin "$TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
         id: tag
 
       - name: Create GitHub Release
@@ -750,7 +756,7 @@ jobs:
           set -euo pipefail
           case "$SCOPE" in
             angular)
-              NPM_URL="https://www.npmjs.com/package/@copilotkitnext/angular"
+              NPM_URL="https://www.npmjs.com/package/@copilotkit/angular"
               ;;
             *)
               NPM_URL="https://www.npmjs.com/org/copilotkit"

@@ -59,7 +59,7 @@ describe("render_chart tool", () => {
     // The caption card was posted after the upload.
     expect(posts).toHaveLength(1);
     const { blocks } = renderSlackMessage(renderToIR(posts[0] as never));
-    expect(JSON.stringify(blocks)).toContain(":bar_chart:");
+    expect(JSON.stringify(blocks)).toContain("📊");
     expect(JSON.stringify(blocks)).toContain("Revenue Q2");
   });
 
@@ -97,7 +97,7 @@ describe("render_diagram tool", () => {
     expect(out).toBe("Rendered and posted the diagram image to the thread.");
     expect(posts).toHaveLength(1);
     const { blocks } = renderSlackMessage(renderToIR(posts[0] as never));
-    expect(JSON.stringify(blocks)).toContain(":triangular_ruler:");
+    expect(JSON.stringify(blocks)).toContain("📐");
     expect(JSON.stringify(blocks)).toContain("Flow");
   });
 

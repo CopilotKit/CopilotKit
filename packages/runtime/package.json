@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime",
-  "version": "1.60.2",
+  "version": "1.61.0",
   "private": false,
   "keywords": [
     "ai",
@@ -89,7 +89,7 @@
     "@ai-sdk/google-vertex": "^3.0.97",
     "@ai-sdk/mcp": "^1.0.21",
     "@ai-sdk/openai": "^3.0.36",
-    "@copilotkit/license-verifier": "~0.4.2",
+    "@copilotkit/license-verifier": "~0.5.0",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@hono/node-server": "^1.13.5",

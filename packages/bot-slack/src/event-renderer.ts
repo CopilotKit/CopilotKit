@@ -417,9 +417,23 @@ export function createRunRenderer(args: {
       }
     },
     async onRunFinishedEvent() {
-      // The turn isn't necessarily over (the run-loop may re-invoke for tool
-      // results), so the native turn stream stays OPEN here — it's finalized in
-      // `finish()`. Just tidy the per-iteration "thinking…" bubble.
+      // The NATIVE turn stream is NOT finalized here: the run-loop may
+      // re-invoke for tool results, so it stays open and is finalized in
+      // `finish()`. For the LEGACY per-message path, defensively finalize any
+      // stream still open at the end of THIS run so its text is fully posted
+      // before the run-loop executes tool handlers that post out-of-band
+      // content (images/cards). In native mode `streams` is empty, so this
+      // loop is a no-op.
+      const drains: Promise<void>[] = [];
+      for (const [id, stream] of Array.from(streams.entries())) {
+        drains.push(stream.finish());
+        streams.delete(id);
+        finalised.add(id);
+        buffers.delete(id);
+      }
+      if (drains.length > 0) await Promise.all(drains);
+      // Tidy the per-iteration "thinking…" bubble (a streamed reply already
+      // claimed it; tool/component/HITL output or nothing leaves it standing).
       await clearThinking();
       // In a pane thread, a posted reply auto-clears Slack's status; clear it
       // explicitly when the run produced no visible reply yet.

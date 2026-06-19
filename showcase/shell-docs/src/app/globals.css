@@ -56,6 +56,9 @@
   --warning-dim: color-mix(in oklch, var(--warning) 10%, transparent);
   --warning-border: color-mix(in oklch, var(--warning) 46%, var(--border));
   --warning-text: color-mix(in oklch, var(--warning) 70%, var(--text));
+  /* Brand mint, backs --color-fd-success. mint/800 for contrast on the
+   * white callout card; the dark theme lifts this to mint/400. */
+  --success: #189370;
   --window-control-close: #ff5f57;
   --window-control-minimize: #ffbd2e;
   --window-control-zoom: #28c840;
@@ -251,19 +254,31 @@
   color: var(--text-muted);
 }
 
+.shell-docs-picker-group {
+  border-radius: var(--shell-docs-radius-surface);
+  background: color-mix(in oklch, var(--accent-dim) 34%, transparent);
+  padding: 4px;
+}
+
+.dark .shell-docs-picker-group {
+  background: color-mix(in oklch, var(--accent) 9%, transparent);
+}
+
+.shell-docs-picker-row {
+  border-radius: var(--shell-docs-radius-control);
+}
+
 .shell-docs-picker-icon-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid color-mix(in oklch, var(--accent) 12%, var(--border));
   border-radius: 9999px;
-  background: #ffffff;
+  background: color-mix(in oklch, var(--bg-surface) 76%, transparent);
   color: var(--accent);
 }
 
 .dark .shell-docs-picker-icon-chip {
-  border-color: color-mix(in oklch, var(--accent) 20%, var(--border));
-  background: color-mix(in oklch, var(--foreground) 94%, var(--accent) 6%);
+  background: color-mix(in oklch, var(--foreground) 92%, var(--accent) 8%);
   color: var(--accent);
 }
 
@@ -540,6 +555,31 @@
   letter-spacing: 0 !important;
 }
 
+.shell-docs-react-docs-proxy {
+  color: color-mix(in srgb, var(--text-muted) 84%, var(--accent));
+}
+
+.shell-docs-sidebar a:has(.shell-docs-react-docs-proxy),
+.shell-docs-sidebar button:has(.shell-docs-react-docs-proxy) {
+  opacity: 0.72;
+}
+
+.shell-docs-sidebar a:has(.shell-docs-react-docs-proxy):hover,
+.shell-docs-sidebar button:has(.shell-docs-react-docs-proxy):hover {
+  opacity: 1;
+  background-color: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.shell-docs-sidebar p:has(.shell-docs-react-docs-proxy) {
+  color: var(--text-muted) !important;
+  opacity: 0.72;
+}
+
+.shell-docs-sidebar p:has(.shell-docs-react-docs-proxy) svg {
+  color: color-mix(in srgb, var(--accent) 55%, var(--text-muted)) !important;
+  opacity: 0.65;
+}
+
 /* Fumadocs CodeBlock chrome — force a single tokenized surface throughout.
  *
  * Out-of-the-box, Fumadocs paints the `<CodeBlock>` figure with
@@ -806,6 +846,23 @@ figure.shiki > div:first-child[class*="border-b"] {
   --color-fd-ring: var(--accent);
 }
 
+/* Callout / admonition accents (consumed by the fumadocs `<Callout>` via
+ * `var(--color-fd-info|warning|success)`). Fumadocs' preset ships generic
+ * blue/amber/green for these, which read as off-brand against the
+ * purple-anchored docs theme. Remap them to existing brand tokens: info ->
+ * brand accent (purple), warning -> the docs `--warning` orange already used
+ * by `.shell-docs-warning-surface`, success -> brand mint. These MUST be plain
+ * `:root` custom properties, not `@theme` tokens — Tailwind v4 tree-shakes
+ * theme variables that no utility class references, and the Callout reads
+ * these only through inline `var()`. The source tokens are theme-aware, so a
+ * single `:root` definition covers light and dark. `error` is intentionally
+ * left to `--destructive` (set by fumadocs' shadcn.css). */
+:root {
+  --color-fd-info: var(--accent);
+  --color-fd-warning: var(--warning);
+  --color-fd-success: var(--success);
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -928,6 +985,9 @@ figure.shiki > div:first-child[class*="border-b"] {
   --warning-dim: color-mix(in oklch, var(--warning) 14%, transparent);
   --warning-border: color-mix(in oklch, var(--warning) 48%, var(--border));
   --warning-text: color-mix(in oklch, var(--warning) 72%, var(--text));
+  /* Brand mint/400 — brighter than the light-mode mint/800 so the success
+   * accent reads on the dark callout card. */
+  --success: #85ecce;
   --blue: #6ba6e8;
   --violet: var(--accent);
   --violet-light: var(--accent-light);
