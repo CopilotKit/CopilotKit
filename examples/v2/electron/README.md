@@ -207,6 +207,61 @@ Artifacts land in `e2e/.artifacts/` (gitignored):
 - **Live reconnect on re-enable** — re-enabling a server that never connected or previously errored does not automatically retry; a live-reconnect mechanism is a follow-up.
 - **Health polling / streamed server logs** — the status badge reflects the initial connection state; periodic health checks and a live log view for each server process are follow-ups.
 
-## Later
+## Browser bridge + companion extension
 
-This foundation is the base for further capabilities — a browser-extension bridge — documented as they land.
+### How it works
+
+The Electron main process runs a token-paired WebSocket server bound to `127.0.0.1` on an ephemeral port chosen at startup. The port and a one-time pairing token are both displayed in the app's **Browser-bridge** panel (under Settings). A companion MV3 browser extension (source in `extension/`) connects to that WebSocket using the port and token you paste into its popup; any socket that presents the wrong token is rejected immediately and closed.
+
+Once paired, the extension exposes two tiers of browser tools to the assistant — the same tiered approval model used by the local fs/shell tools:
+
+- **`browser_read_active_tab`** — read-only; runs with no approval prompt. The model can call it freely while reasoning.
+- **`browser_navigate`, `browser_click`, `browser_fill`** — side-effecting action tools; each one pops the same **human approval card** used by `fs_write` and `shell_run`. Click **Approve** to let the action proceed; click **Deny** to cancel with no effect.
+
+### Pair the extension
+
+1. Open `chrome://extensions` in Chrome (or any Chromium-based browser).
+2. Enable **Developer mode** (toggle in the top-right corner), then click **Load unpacked** and select the `examples/v2/electron/extension/` directory.
+3. Click the extension's toolbar icon to open its popup, then enter the **port** and **token** shown in the app's **Browser-bridge** panel and click **Connect**.
+
+The extension's service worker sends a 20-second keep-alive ping and automatically reconnects on wake. Chrome 116+ keeps the underlying WebSocket alive across service-worker restarts, so the connection survives normal browser suspend/resume cycles without manual re-pairing.
+
+### Try it
+
+Once the app is running and the extension is paired, paste a prompt like the following into the chat:
+
+> "Read my active tab."
+
+The assistant calls `browser_read_active_tab` (no approval needed) and summarises the page content in chat. To test an action tool, try:
+
+> "Navigate my browser to https://example.com."
+
+An approval card appears — click **Approve** and the extension navigates the active tab.
+
+### Demo video
+
+The e2e suite covers the browser-bridge flow in two specs:
+
+```bash
+pnpm nx run @copilotkit/electron-demo:e2e
+# or
+pnpm --filter @copilotkit/electron-demo test:e2e
+```
+
+- **Panel-disconnected spec** — deterministic; verifies that the Browser-bridge panel renders correctly and shows a `disconnected` badge when no extension is connected. Requires no provider key.
+- **Fake-extension read spec** — key-gated (auto-skips without a provider key); pairs a **fake extension** implemented as a plain `ws` client (no real browser required) and drives the `browser_read_active_tab` tool end-to-end, asserting the result appears in chat.
+
+Artifacts land in `e2e/.artifacts/` (gitignored):
+
+- `bridge-panel.png` — screenshot of the Browser-bridge panel showing the port, token, and connection status.
+- `bridge-read.png` — screenshot of the read-tool result rendered in chat.
+
+**Note on real-extension verification:** Playwright cannot record video while loading an MV3 extension into a persistent Chromium context, so the real MV3 extension is verified manually with a hand-recorded `.webm`. The automated suite uses the fake-extension approach above for reliable CI coverage.
+
+### Not yet wired (follow-ups)
+
+- **Automated real-extension e2e** — the current suite uses a `ws` stub; full automation with a real MV3 extension loaded into a persistent Chromium context is a follow-up.
+- **Full-page `readPage` scrape** — `browser_read_active_tab` returns the page title and URL; a deeper `readPage` tool that scrapes and returns the full visible text is a follow-up.
+- **More robust action selectors** — `browser_click` and `browser_fill` rely on basic CSS selectors; smarter selector strategies (accessible role, text content, visual heuristics) are a follow-up.
+- **Persistent pairing (survive restart)** — the port and token are regenerated on every app launch; persisting or rotating the pairing credential so the extension reconnects automatically after an app restart is a follow-up.
+- **Packaging** — the `extension/` directory is not bundled into the distributable app build; wiring it into the Electron packager output is a follow-up.
