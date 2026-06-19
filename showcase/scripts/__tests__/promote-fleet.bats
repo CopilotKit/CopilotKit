@@ -233,3 +233,78 @@ STUB
   [[ "$output" == *"SUCCEEDED (2): svc-a svc-c"* ]] || fail "whitespace-only token not skipped: $output"
   [[ "$output" == *"Attempted 2 service(s)"* ]] || fail "wrong Attempted count: $output"
 }
+
+@test "aggregates STAGING_DRIFT_MARKER lines into staging_drift output + summary" {
+  # Stub that emits a drift marker for svc-b (staging not serving :latest) while
+  # still SUCCEEDING — drift is a warning surface, not a gate. The script must
+  # scan each promote's stdout, aggregate the markers, write them to
+  # $GITHUB_OUTPUT (staging_drift=...) and surface them in the summary.
+  cat > "$STUB_DIR/railway-drift" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
+svc="$2"
+echo "STUB called for: $svc"
+if [ "$svc" = "svc-b" ]; then
+  echo "STAGING_DRIFT_MARKER: svc-b(running=f9454e79fbf5,latest=261ccdef3f9a)"
+fi
+exit 0
+STUB
+  chmod +x "$STUB_DIR/railway-drift"
+  export RAILWAY_BIN="$STUB_DIR/railway-drift"
+  run env SERVICES_CSV="svc-a,svc-b,svc-c" bash "$SCRIPT"
+
+  # Drift does not fail the run (every service succeeded).
+  [ "$status" -eq 0 ] || fail "drift must not fail the run, got $status: $output"
+  # Summary surfaces the drift loudly and names the running/latest digests.
+  [[ "$output" == *"STAGING DRIFT (1)"* ]] || fail "missing drift summary block: $output"
+  [[ "$output" == *"running=f9454e79fbf5"* ]] || fail "summary missing RUNNING digest: $output"
+  [[ "$output" == *"latest=261ccdef3f9a"* ]] || fail "summary missing :latest digest: $output"
+
+  # The aggregated payload is exported for the notify job's Slack message.
+  run cat "$GITHUB_OUTPUT"
+  [[ "$output" == *"staging_drift=svc-b(running=f9454e79fbf5,latest=261ccdef3f9a)"* ]] \
+    || fail "missing/wrong staging_drift in GITHUB_OUTPUT: $output"
+}
+
+@test "joins multiple STAGING_DRIFT_MARKER entries with '; ' separator" {
+  # Two services drift. The aggregated staging_drift payload must join the
+  # entries with "; " (semicolon + space), NOT ";" — `${drift[*]}` under
+  # IFS='; ' would only honor the first IFS char and drop the space.
+  cat > "$STUB_DIR/railway-drift2" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
+svc="$2"
+echo "STUB called for: $svc"
+if [ "$svc" = "svc-a" ]; then
+  echo "STAGING_DRIFT_MARKER: svc-a(running=aaaaaaaaaaaa,latest=bbbbbbbbbbbb)"
+fi
+if [ "$svc" = "svc-c" ]; then
+  echo "STAGING_DRIFT_MARKER: svc-c(running=cccccccccccc,latest=dddddddddddd)"
+fi
+exit 0
+STUB
+  chmod +x "$STUB_DIR/railway-drift2"
+  export RAILWAY_BIN="$STUB_DIR/railway-drift2"
+  run env SERVICES_CSV="svc-a,svc-b,svc-c" bash "$SCRIPT"
+
+  [ "$status" -eq 0 ] || fail "drift must not fail the run, got $status: $output"
+  [[ "$output" == *"STAGING DRIFT (2)"* ]] || fail "missing drift summary block: $output"
+
+  run cat "$GITHUB_OUTPUT"
+  # Both entries present, joined with "; " (NOT ";" — the dropped-space bug).
+  [[ "$output" == *"staging_drift=svc-a(running=aaaaaaaaaaaa,latest=bbbbbbbbbbbb); svc-c(running=cccccccccccc,latest=dddddddddddd)"* ]] \
+    || fail "multi-entry drift not joined with '; ' separator: $output"
+}
+
+@test "no drift markers -> empty staging_drift output, no drift summary" {
+  export RAILWAY_BIN="$STUB_DIR/railway-green"
+  run env SERVICES_CSV="svc-a,svc-b,svc-c" bash "$SCRIPT"
+
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+  [[ "$output" != *"STAGING DRIFT"* ]] || fail "no drift expected but summary shows one: $output"
+
+  run cat "$GITHUB_OUTPUT"
+  # Key present but empty (the non-drift contract): staging_drift=
+  [[ "$output" == *"staging_drift="* ]] || fail "staging_drift key absent: $output"
+  [[ "$output" != *"staging_drift=svc"* ]] || fail "unexpected drift payload: $output"
+}

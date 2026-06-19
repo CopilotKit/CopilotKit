@@ -60,6 +60,7 @@ fi
 
 succeeded=()
 failed=()        # "svc=exitcode" entries
+drift=()         # aggregated STAGING_DRIFT_MARKER payloads across the fleet
 
 for svc in "${SVCS[@]}"; do
   # Trim leading/trailing whitespace: `IFS=',' read` does NOT trim, so a CSV
@@ -79,8 +80,20 @@ for svc in "${SVCS[@]}"; do
   fi
 
   echo "==> $RAILWAY_BIN ${args[*]}"
-  "$RAILWAY_BIN" "${args[@]}"
-  rc=$?
+  # Tee the promote output so we (a) still stream it live to the operator/CI
+  # log AND (b) can scan it for the STAGING_DRIFT_MARKER line that bin/railway
+  # emits when staging is NOT serving the current :latest. PIPESTATUS[0] is the
+  # railway exit code (tee always exits 0), so the per-service success/fail
+  # accounting is unaffected by the pipe.
+  out="$("$RAILWAY_BIN" "${args[@]}" 2>&1 | tee /dev/stderr)"
+  rc="${PIPESTATUS[0]}"
+
+  # Collect any drift marker(s) emitted for this service. The marker payload is
+  # everything after "STAGING_DRIFT_MARKER: ". Promote still SUCCEEDS on drift
+  # (it pins staging's running digest) — this is a warning surface, not a gate.
+  while IFS= read -r line; do
+    [ -n "$line" ] && drift+=("$line")
+  done < <(printf '%s\n' "$out" | sed -n 's/^STAGING_DRIFT_MARKER: //p')
 
   if [ "$rc" -eq 0 ]; then
     echo "    OK: $svc"
@@ -121,6 +134,20 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
     echo "::error::promote-fleet: failed to write succeeded_csv to \$GITHUB_OUTPUT ('$GITHUB_OUTPUT')." >&2
     exit 1
   fi
+  # Aggregated staging-drift payload (one line, services semicolon-joined) so
+  # the notify job can fold "staging was NOT serving :latest" into the Slack
+  # message. Empty when no service drifted (the common case).
+  staging_drift=""
+  if [ "${#drift[@]}" -gt 0 ]; then
+    # Join with "; " between entries. `${drift[*]}` with IFS='; ' would only use
+    # the FIRST IFS char (';'), dropping the space; build the separator explicitly.
+    printf -v staging_drift '%s; ' "${drift[@]}"
+    staging_drift="${staging_drift%; }"
+  fi
+  if ! echo "staging_drift=$staging_drift" >> "$GITHUB_OUTPUT"; then
+    echo "::error::promote-fleet: failed to write staging_drift to \$GITHUB_OUTPUT ('$GITHUB_OUTPUT')." >&2
+    exit 1
+  fi
 fi
 
 # ── Summary ──────────────────────────────────────────────────────────────
@@ -142,6 +169,12 @@ if [ "${#succeeded[@]}" -gt 0 ]; then
   emit "SUCCEEDED (${#succeeded[@]}): ${succeeded[*]}"
 else
   emit "SUCCEEDED (0): (none)"
+fi
+
+if [ "${#drift[@]}" -gt 0 ]; then
+  emit ""
+  emit "⚠️ STAGING DRIFT (${#drift[@]}): staging was NOT serving current :latest for — ${drift[*]}"
+  emit "Promote pinned prod to staging's RUNNING digest (what was seen in staging); investigate the drift."
 fi
 
 if [ "${#failed[@]}" -gt 0 ]; then

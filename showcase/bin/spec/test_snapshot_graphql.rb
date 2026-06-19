@@ -164,16 +164,25 @@ class SnapshotGraphqlTest < Minitest::Test
         end
     end
 
-    def test_redeploy_mutation_uses_serviceInstanceRedeploy_not_serviceInstanceDeployV2_with_image
-        # serviceInstanceDeployV2 has signature (commitSha, environmentId, serviceId).
-        # It does NOT accept an `image` argument. Pinning must go through
-        # serviceInstanceUpdate (source.image) + serviceInstanceRedeploy.
+    def test_deploy_mutation_uses_serviceInstanceDeployV2_not_redeploy
+        # Bug #2: serviceInstanceRedeploy replays the EXISTING deployment's
+        # snapshot (its OLD image), so a freshly pinned source.image never
+        # reaches the running container. Pinning must go through
+        # serviceInstanceUpdate (source.image) + serviceInstanceDeployV2, which
+        # spawns a NEW deployment that PULLS the updated source.image.
+        #
+        # serviceInstanceDeployV2 has signature (serviceId, environmentId,
+        # commitSha?) and does NOT accept an `image` arg — the image is carried
+        # by the preceding serviceInstanceUpdate.
         refute_match(/serviceInstanceDeployV2\s*\([^)]*\bimage\b/m,
-            Railway::RestoreCommand::UPDATE_IMAGE_MUTATION,
-            "Restore must not call serviceInstanceDeployV2 with image arg.")
+            Railway::RestoreCommand::DEPLOY_V2_MUTATION,
+            "DeployV2 must not be called with an image arg.")
         assert_match(/serviceInstanceUpdate\s*\(/, Railway::RestoreCommand::UPDATE_IMAGE_MUTATION)
         assert_match(/source:\s*\{\s*image:/, Railway::RestoreCommand::UPDATE_IMAGE_MUTATION)
-        assert_match(/serviceInstanceRedeploy\s*\(/, Railway::RestoreCommand::REDEPLOY_MUTATION)
+        assert_match(/serviceInstanceDeployV2\s*\(/, Railway::RestoreCommand::DEPLOY_V2_MUTATION)
+        # The bug-#2 trap: serviceInstanceRedeploy must NOT be the deploy path.
+        refute Railway::RestoreCommand.const_defined?(:REDEPLOY_MUTATION),
+            "serviceInstanceRedeploy must be removed — it replays the old image (bug #2)."
     end
 
     def test_snapshot_v2_captures_healthcheck_region_replicas_restart_policy

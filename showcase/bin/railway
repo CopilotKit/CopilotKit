@@ -513,10 +513,15 @@ module Railway
     #   * Service has NO `serviceInstances` field. To get an instance's
     #     image/startCommand/etc. for a given env, use
     #     `serviceInstance(serviceId, environmentId)` directly.
-    #   * `serviceInstanceDeployV2` takes (serviceId, environmentId, commitSha)
-    #     ONLY — no `image` arg. To pin a service to a specific image, use
+    #   * `serviceInstanceDeployV2(serviceId, environmentId, commitSha?)` returns
+    #     the NEW deployment id (String!). `commitSha` is optional. To pin a
+    #     service to a specific image, use
     #     `serviceInstanceUpdate(serviceId, environmentId, input: { source: { image } })`
-    #     followed by `serviceInstanceRedeploy`.
+    #     followed by `serviceInstanceDeployV2` — which spawns a NEW deployment
+    #     that PULLS the just-updated `source.image`. Do NOT use
+    #     `serviceInstanceRedeploy(serviceId, environmentId)` for this: it replays
+    #     the EXISTING deployment's snapshot (its OLD image), so the freshly
+    #     pinned `source.image` never reaches the running container (bug #2).
     #   * `Environment.variables` returns an `EnvironmentVariablesConnection`
     #     whose edges include `node.serviceId` — we filter by service id to get
     #     per-service env-key sets.
@@ -739,13 +744,16 @@ module Railway
     end
 
     # restore — given a snapshot YAML, force-redeploy each service to its
-    # captured digest via serviceInstanceUpdate(source.image) + redeploy.
+    # captured digest via serviceInstanceUpdate(source.image) + deploy.
     #
-    # Railway's `serviceInstanceDeployV2` mutation does NOT accept an `image`
-    # arg — its signature is (serviceId, environmentId, commitSha). To pin a
-    # service to a specific image digest we must:
+    # To pin a service to a specific image digest we must:
     #   1. update the service instance's source.image to the desired ref
-    #   2. trigger a redeploy
+    #   2. spawn a NEW deployment via serviceInstanceDeployV2 that PULLS the
+    #      just-updated source.image.
+    #
+    # NOTE: serviceInstanceRedeploy is deliberately NOT used here — it replays
+    # the existing deployment's snapshot (its OLD image), so the freshly pinned
+    # source.image never reaches the running container (bug #2).
     class RestoreCommand < BaseCommand
         UPDATE_IMAGE_MUTATION = <<~GQL
             mutation UpdateImage($serviceId: String!, $envId: String!, $image: String!) {
@@ -757,20 +765,24 @@ module Railway
             }
         GQL
 
-        REDEPLOY_MUTATION = <<~GQL
-            mutation Redeploy($serviceId: String!, $envId: String!) {
-                serviceInstanceRedeploy(
+        # serviceInstanceDeployV2 spawns a NEW deployment that pulls the current
+        # source.image (just advanced by UPDATE_IMAGE_MUTATION) and returns the
+        # new deployment id (String!). This is what actually activates the pin.
+        DEPLOY_V2_MUTATION = <<~GQL
+            mutation DeployV2($serviceId: String!, $envId: String!) {
+                serviceInstanceDeployV2(
                     serviceId: $serviceId
                     environmentId: $envId
                 )
             }
         GQL
 
-        # Helper used by RestoreCommand, PinCommand, PromoteCommand: pin then redeploy.
+        # Helper used by RestoreCommand, PinCommand: pin then deploy a NEW
+        # deployment that pulls the updated source.image.
         def self.pin_and_redeploy(gql, service_id:, env_id:, image:)
             gql.query(UPDATE_IMAGE_MUTATION,
                 serviceId: service_id, envId: env_id, image: image)
-            gql.query(REDEPLOY_MUTATION,
+            gql.query(DEPLOY_V2_MUTATION,
                 serviceId: service_id, envId: env_id)
         end
 
@@ -1031,6 +1043,7 @@ module Railway
                     id
                     source { image }
                     updatedAt
+                    latestDeployment { id status meta }
                 }
             }
         GQL
@@ -1038,10 +1051,37 @@ module Railway
         RETRY_COUNT     = 3
         RETRY_DELAY_SEC = 10
 
+        # Serving-digest verification (bug #2): after the NEW deployment is
+        # spawned via serviceInstanceDeployV2, poll latestDeployment until it
+        # reaches SUCCESS and confirm its meta.imageDigest == the pinned digest.
+        # The new deployment must pull + boot the image, which takes longer than
+        # the config-level recheck, so this poll is wider than RETRY_COUNT.
+        SERVING_RETRY_COUNT     = 30
+        SERVING_RETRY_DELAY_SEC = 10
+        DEPLOY_FAILURE_STATUSES = %w[FAILED CRASHED REMOVED].freeze
+
+        # Normalize a Railway deployment `meta` (sometimes a JSON string) and
+        # extract its imageDigest (a `sha256:<hex>` value), or nil.
+        def self.serving_digest_from_deployment(deployment)
+            return nil unless deployment.is_a?(Hash)
+            meta = deployment["meta"]
+            meta = (JSON.parse(meta) rescue meta) if meta.is_a?(String)
+            return nil unless meta.is_a?(Hash)
+            digest = meta["imageDigest"]
+            if (digest.nil? || digest.to_s.empty?) && meta["image"].to_s.include?("@sha256:")
+                digest = meta["image"].to_s.split("@", 2).last
+            end
+            digest = nil if digest.is_a?(String) && digest.empty?
+            digest
+        end
+
         # Pin + verify: confirms the boolean mutation result AND re-queries
         # serviceInstance to confirm BOTH source.image advanced to the new
         # digest AND updatedAt strictly advanced past the pre-mutation value.
-        # 3 retries 10s apart absorb Railway's eventual consistency.
+        # 3 retries 10s apart absorb Railway's eventual consistency. THEN
+        # verifies the NEW deployment spawned by serviceInstanceDeployV2 reaches
+        # SUCCESS and SERVES the pinned digest (bug #2 — config advancing is not
+        # enough; the running container must actually pull the pinned image).
         # `sleeper:` is injected for tests.
         def self.pin_and_verify(gql, service_id:, env_id:, image:, sleeper: ->(n) { sleep(n) })
             # Upfront guard: this method's contract is to pin a DIGEST-form
@@ -1071,19 +1111,25 @@ module Railway
                     "P5: serviceInstanceUpdate returned #{updated.inspect} (expected true) for #{service_id} -> #{image}"
             end
 
-            # Symmetric assertion: serviceInstanceUpdate has already advanced
-            # source.image+updatedAt, so a failed redeploy could otherwise
-            # sneak through verification. Require truthy redeploy result.
-            redeployed = gql.query(RestoreCommand::REDEPLOY_MUTATION,
+            # Spawn a NEW deployment that PULLS the just-updated source.image.
+            # serviceInstanceDeployV2 returns the new deployment id (String!).
+            # serviceInstanceRedeploy is deliberately NOT used: it replays the
+            # existing deployment's snapshot (its OLD image), so the freshly
+            # pinned source.image would never reach the running container
+            # (bug #2 — config advanced but prod kept serving the stale digest).
+            deployed = gql.query(RestoreCommand::DEPLOY_V2_MUTATION,
                 serviceId: service_id, envId: env_id)
-            unless redeployed && redeployed["serviceInstanceRedeploy"]
+            new_deployment_id = deployed && deployed["serviceInstanceDeployV2"]
+            unless new_deployment_id.is_a?(String) && !new_deployment_id.empty?
                 raise MutationError,
-                    "P5: serviceInstanceRedeploy returned #{redeployed.inspect} (expected truthy) for #{service_id} -> #{image}"
+                    "P5: serviceInstanceDeployV2 returned #{deployed.inspect} " \
+                    "(expected a new deployment id String) for #{service_id} -> #{image}"
             end
 
             expected_digest = image.include?("@") ? image.split("@", 2).last : nil
             last_seen_image = nil
             last_seen_ts    = nil
+            config_inst     = nil
 
             RETRY_COUNT.times do |i|
                 data = gql.query(SERVICE_INSTANCE_RECHECK_QUERY,
@@ -1102,15 +1148,100 @@ module Railway
                 # fell back to digest-equality alone — the exact weakness this
                 # gate was added to prevent.
                 ts_ok    = actual_ts && (pre_update_ts.nil? || actual_ts > pre_update_ts)
-                return inst if image_ok && ts_ok
+                if image_ok && ts_ok
+                    config_inst = inst
+                    break
+                end
 
                 sleeper.call(RETRY_DELAY_SEC) if i < RETRY_COUNT - 1
             end
 
+            unless config_inst
+                raise MutationError,
+                    "P5: re-query did not observe image advance to #{image} AND updatedAt > #{pre_update_ts.inspect} " \
+                    "after #{RETRY_COUNT} retries (last seen image=#{last_seen_image.inspect}, " \
+                    "updatedAt=#{last_seen_ts.inspect}). Refusing to declare promote successful."
+            end
+
+            # Bug #2 SERVING-digest gate: config (source.image) advancing is NOT
+            # proof the running container actually pulled the pinned image. Poll
+            # latestDeployment until the NEW deployment (#{new_deployment_id})
+            # reaches SUCCESS, then assert its meta.imageDigest == the pinned
+            # digest. Fail loud if it crashes, never converges, or serves a
+            # different digest — promote must NOT report success while prod
+            # serves a stale image.
+            verify_serving_digest!(gql,
+                service_id: service_id, env_id: env_id, image: image,
+                expected_digest: expected_digest, new_deployment_id: new_deployment_id,
+                sleeper: sleeper)
+
+            config_inst
+        end
+
+        # Poll the production serviceInstance.latestDeployment until it reaches
+        # SUCCESS and SERVES the pinned digest. Raises MutationError on a failed
+        # deploy status, on a SUCCESS deployment serving the wrong digest, or if
+        # the new deployment never converges within the retry budget.
+        def self.verify_serving_digest!(gql, service_id:, env_id:, image:,
+                                        expected_digest:, new_deployment_id:,
+                                        sleeper: ->(n) { sleep(n) })
+            last_status = nil
+            last_serving = nil
+
+            SERVING_RETRY_COUNT.times do |i|
+                data = gql.query(SERVICE_INSTANCE_RECHECK_QUERY,
+                    serviceId: service_id, envId: env_id)
+                inst   = data && data["serviceInstance"]
+                deploy = inst && inst["latestDeployment"]
+                status = deploy && deploy["status"]
+                last_status = status
+
+                # A failed/crashed/removed latest deployment can never serve the
+                # pin — fail loud immediately rather than burn the full budget.
+                # But only hard-fail when the terminal deployment is the NEW one
+                # we triggered. Right after DeployV2 spawns new_deployment_id,
+                # latestDeployment may still briefly point to the OLD deployment,
+                # whose status flips to REMOVED/terminal as it's superseded
+                # (Railway eventual consistency). An ungated raise here would
+                # FALSELY abort a valid promote, misreporting the old
+                # deployment's teardown as the new deployment failing. If it's a
+                # stale old deployment, keep polling — the loop will see the new
+                # deployment become latest and converge.
+                if DEPLOY_FAILURE_STATUSES.include?(status) &&
+                        deploy && deploy["id"] == new_deployment_id
+                    raise MutationError,
+                        "P5: new deployment #{new_deployment_id} for #{service_id} -> #{image} reached " \
+                        "terminal status #{status.inspect}. Refusing to declare promote successful — " \
+                        "prod is NOT serving the pinned digest."
+                end
+
+                if status == "SUCCESS"
+                    serving = serving_digest_from_deployment(deploy)
+                    last_serving = serving
+                    if serving == expected_digest
+                        return inst
+                    end
+                    # SUCCESS but serving a different digest: only acceptable if
+                    # this is still the OLD deployment (Railway eventual
+                    # consistency — the new deployment id hasn't become
+                    # latestDeployment yet). Keep polling. If the NEW deployment
+                    # itself succeeded with the wrong digest, that's a hard fail.
+                    if deploy && deploy["id"] == new_deployment_id
+                        raise MutationError,
+                            "P5: new deployment #{new_deployment_id} for #{service_id} succeeded but SERVES " \
+                            "#{serving.inspect}, expected #{expected_digest.inspect}. Refusing to declare " \
+                            "promote successful — prod is serving a stale image."
+                    end
+                end
+
+                sleeper.call(SERVING_RETRY_DELAY_SEC) if i < SERVING_RETRY_COUNT - 1
+            end
+
             raise MutationError,
-                "P5: re-query did not observe image advance to #{image} AND updatedAt > #{pre_update_ts.inspect} " \
-                "after #{RETRY_COUNT} retries (last seen image=#{last_seen_image.inspect}, " \
-                "updatedAt=#{last_seen_ts.inspect}). Refusing to declare promote successful."
+                "P5: prod did not converge to SERVING the pinned digest #{expected_digest.inspect} for " \
+                "#{service_id} -> #{image} after #{SERVING_RETRY_COUNT} retries " \
+                "(last deploy status=#{last_status.inspect}, last serving digest=#{last_serving.inspect}). " \
+                "Refusing to declare promote successful — prod may be serving a stale image."
         end
 
         def default_options
@@ -1345,6 +1476,12 @@ module Railway
                 puts "[--confirm-divergence set] proceeding past #{warns.size} WARN finding(s)."
             end
 
+            # Surface staging drift LOUDLY (stdout block + Slack payload) right
+            # before the promote proceeds. Drift is NOT a refuse — promote pins
+            # staging's RUNNING digest regardless — but someone must know that
+            # what shipped to prod is not the current :latest.
+            emit_staging_drift_warnings
+
             Railway.confirm_destructive!(
                 env_label: "production",
                 action: "promote",
@@ -1361,9 +1498,20 @@ module Railway
         # a tag would defeat the entire pipeline invariant — and verify-railway-
         # image-refs PROD_SHAPE would later REFUSE.
         #
+        # CONTRACT (the whole point of promote): pin prod to WHAT STAGING IS
+        # ACTUALLY SERVING RIGHT NOW — staging's RUNNING resolved digest — NOT
+        # whatever `:latest` currently points to in GHCR. The staging tag is
+        # mutable, so a build that pushed a new `:latest` AFTER staging last
+        # deployed makes `resolve_digest(:latest)` return a digest staging
+        # never validated. We instead read the digest the staging deployment
+        # is running from Railway's `latestDeployment.meta.imageDigest` (the
+        # same field image-drift.ts uses as the deployed/running digest), and
+        # pin THAT. If that digest != current `:latest`, the caller emits a
+        # LOUD drift warning but still promotes the running digest.
+        #
         # Returns the canonical `<ghcr.io/org/name>@sha256:<digest>` ref.
-        # Returns nil if the staging tag cannot be resolved (e.g. GHCR 404 /
-        # auth failed); the caller MUST refuse rather than pin a tag.
+        # Returns nil if staging's running digest cannot be resolved; the
+        # caller MUST refuse rather than pin a tag.
         def resolved_prod_image(svc)
             # --digest override: when the operator supplied an explicit ref AND
             # we are restricted to a single service, use that ref verbatim. The
@@ -1378,14 +1526,59 @@ module Railway
             return nil if image.nil? || image.empty?
             return image if image.include?("@sha256:")  # already pinned
 
-            digest = ghcr.resolve_digest(image)
-            return nil if digest.nil?
+            # Pin to staging's RUNNING digest (what I see in staging), not
+            # resolve_digest(:latest). Falls back to nil so check_p1 REFUSEs
+            # rather than pinning a mutable tag.
+            running = staging_running_digest(svc)
+            return nil if running.nil?
 
-            # Strip the tag (`:latest`) and append the digest. parse_image_ref
-            # returns the structured parts; rebuild the canonical pinned ref.
+            # Strip the tag (`:latest`) and append the running digest.
+            # parse_image_ref returns the structured parts; rebuild the
+            # canonical pinned ref.
             parts = ghcr.parse_image_ref(image)
             registry = parts[:registry] || "ghcr.io"
-            "#{registry}/#{parts[:org]}/#{parts[:name]}@#{digest}"
+            "#{registry}/#{parts[:org]}/#{parts[:name]}@#{running}"
+        end
+
+        # The digest the staging deployment is ACTUALLY RUNNING right now.
+        #
+        # Mechanism mirrored from showcase/harness/src/probes/drivers/
+        # image-drift.ts: Railway stores tag-only refs in
+        # `serviceInstance.source.image` (e.g. `…:latest`), so the running
+        # digest is NOT recoverable from the snapshot's `image`/`digest`
+        # fields. The real running digest lives on the latest SUCCESS
+        # deployment's `meta.imageDigest` (a `sha256:…` value). We read the
+        # newest SUCCESS staging deployment and return that digest.
+        #
+        # Returns the `sha256:<hex>` digest string, or nil if no SUCCESS
+        # deployment / no imageDigest is available (caller REFUSEs).
+        #
+        # Memoized per service-id so P1 (resolve) and the drift check don't
+        # double-query Railway for the same service.
+        def staging_running_digest(svc)
+            sid = svc["service_id"]
+            return nil if sid.nil?
+            @staging_running_digests ||= {}
+            return @staging_running_digests[sid] if @staging_running_digests.key?(sid)
+
+            deployments = fetch_latest_staging_deployments(sid)
+            latest = (deployments || []).find { |d| d["status"] == "SUCCESS" }
+            digest = nil
+            if latest
+                meta = latest["meta"]
+                meta = (JSON.parse(meta) rescue meta) if meta.is_a?(String)
+                if meta.is_a?(Hash)
+                    # Prefer meta.imageDigest (the resolved running digest).
+                    # Fall back to a digest embedded in meta.image only if it
+                    # happens to be digest-pinned (rare for staging).
+                    digest = meta["imageDigest"]
+                    if (digest.nil? || digest.empty?) && meta["image"].to_s.include?("@sha256:")
+                        digest = meta["image"].to_s.split("@", 2).last
+                    end
+                    digest = nil if digest.is_a?(String) && digest.empty?
+                end
+            end
+            @staging_running_digests[sid] = digest
         end
 
         # P1 — every staging digest about to be promoted must exist in GHCR.
@@ -1403,6 +1596,11 @@ module Railway
             # second preflight against a different snapshot must not carry
             # stale A-era refs into a B-era promote.
             @promote_refs = {}
+            # Drift records accumulated this preflight: each is a Hash
+            # { name:, running:, latest: } where the staging RUNNING digest
+            # differs from the current GHCR :latest digest. Surfaced loudly on
+            # stdout and pushed to the Slack notify payload (GITHUB_OUTPUT).
+            @staging_drift = []
             (staging["services"] || []).each do |svc|
                 image = svc["image"] || svc["image_tag"]
                 if image.nil? || image.empty?
@@ -1433,6 +1631,15 @@ module Railway
                         # Record the verified ref for use by execute_promotion
                         # — guarantees pin parity with what P1 verified.
                         @promote_refs[svc["name"]] = resolved
+                        # DRIFT CHECK: `resolved` pins staging's RUNNING digest
+                        # (the contract). Compare it to what `:latest` points
+                        # to RIGHT NOW in GHCR. If they differ, staging is NOT
+                        # serving `:latest` — promote STILL proceeds with the
+                        # running digest, but we record the drift so it can be
+                        # surfaced loudly (stdout block + Slack payload). A
+                        # nil/identical current :latest (or a non-tag staging
+                        # image) means no drift signal.
+                        detect_staging_drift(svc, resolved)
                     when :missing
                         findings << "REFUSE: P1 (#{svc['name']}): #{resolved} not found in GHCR " \
                                     "(digest may have been garbage-collected; staging build may not have pushed)."
@@ -1445,6 +1652,99 @@ module Railway
                 end
             end
             findings
+        end
+
+        # Compare the digest we are about to pin (`resolved`, = staging's
+        # RUNNING digest) against what the staging `:latest` tag points to in
+        # GHCR RIGHT NOW. When they differ, staging is NOT serving the current
+        # `:latest` — record it so emit_staging_drift_warnings can surface it
+        # loudly. Does NOT add a finding (promote PROCEEDS with the running
+        # digest — that is the contract); a drift is a visible warning, not a
+        # refuse. Best-effort: a GHCR error resolving `:latest` is swallowed so
+        # it never blocks a promote whose running digest already verified.
+        def detect_staging_drift(svc, resolved)
+            # --digest override: when the operator deliberately pinned an
+            # explicit digest for this single service (see resolved_prod_image
+            # ~L1511, mirrored by P2's race-skip ~L1775), `resolved` is the
+            # operator's CHOSEN override digest — NOT staging's running digest.
+            # "Drift from :latest" is meaningless there (the operator made the
+            # choice on purpose), and reporting the override as the running
+            # digest is a spurious/misleading signal. Skip drift detection,
+            # reusing P2's exact override-detection mechanism.
+            return if options[:digest] && options[:service] && svc["name"] == options[:service]
+
+            tag_image = svc["image"] || svc["image_tag"]
+            # Only meaningful when staging tracks a mutable tag (the normal
+            # case). A digest-pinned staging image has no "current :latest" to
+            # drift from.
+            return if tag_image.nil? || tag_image.include?("@sha256:")
+
+            running_digest = resolved.include?("@") ? resolved.split("@", 2).last : nil
+            return if running_digest.nil?
+
+            begin
+                current_latest = ghcr.resolve_digest(tag_image)
+            rescue StandardError => e
+                # Fail loud: the drift check is diagnostic (the pin already uses
+                # staging's verified RUNNING digest, so the promote PROCEEDS),
+                # but the operator must not mistake a check failure for "no
+                # drift". Surface the failure instead of silently swallowing it.
+                warn "WARN: staging drift check failed for #{svc['name']}: #{e.message} — " \
+                     "could not compare against current :latest"
+                return
+            end
+            return if current_latest.nil?
+            return if current_latest == running_digest
+
+            (@staging_drift ||= []) << {
+                name:    svc["name"],
+                running: running_digest,
+                latest:  current_latest,
+            }
+        end
+
+        # Short 12-char digest for human-readable warnings (`sha256:` stripped).
+        def short_digest(d)
+            return "(none)" if d.nil? || d.empty?
+            d.sub(/^sha256:/, "")[0, 12]
+        end
+
+        # Emit the LOUD staging-drift warning to stdout (a bordered block) AND
+        # push a drift flag/line to the Slack notify payload via GITHUB_OUTPUT.
+        # Called from run_with_preflight_only after preflight, before the
+        # destructive-confirm — so it is the last thing an operator sees before
+        # the promote proceeds with the (drifted) running digest.
+        #
+        # No-op when @staging_drift is empty (staging == :latest, the common
+        # case) — preserves existing behavior for the non-drift path.
+        def emit_staging_drift_warnings
+            drift = @staging_drift || []
+            return if drift.empty?
+
+            border = "=" * 72
+            puts border
+            puts "⚠️  STAGING DRIFT — staging is NOT serving the current :latest image"
+            puts border
+            drift.each do |d|
+                puts "  #{d[:name]}: staging RUNNING #{short_digest(d[:running])} " \
+                     "!= current :latest #{short_digest(d[:latest])}"
+            end
+            puts
+            puts "  Promote PROCEEDS pinning prod to staging's RUNNING digest (what you"
+            puts "  see in staging). Someone should investigate WHY staging is behind"
+            puts "  :latest (a newer build pushed :latest after staging last deployed,"
+            puts "  a failed/in-flight staging deploy, or a manual pin)."
+            puts border
+
+            # Machine-readable marker for the CI wrapper. promote-fleet.sh greps
+            # stdout for `STAGING_DRIFT_MARKER:` lines, aggregates them across the
+            # fleet loop, and writes ONE `staging_drift=` to $GITHUB_OUTPUT (a
+            # per-child append would collide — GitHub keeps only the last value).
+            # The workflow notify job then folds it into the Slack payload.
+            line = drift.map { |d|
+                "#{d[:name]}(running=#{short_digest(d[:running])},latest=#{short_digest(d[:latest])})"
+            }.join(", ")
+            puts "STAGING_DRIFT_MARKER: #{line}"
         end
 
         # P2 — for each staging service we are promoting, the most recent
@@ -1472,8 +1772,28 @@ module Railway
                 meta = latest["meta"]
                 meta = (JSON.parse(meta) rescue meta) if meta.is_a?(String)
                 if meta.is_a?(Hash)
-                    deployed_image = meta["image"].to_s
-                    deployed_digest = deployed_image.include?("@") ? deployed_image.split("@", 2).last : nil
+                    # The running digest lives in meta.imageDigest (a `sha256:…`
+                    # value) — staging refs are tag-form (`…:latest`), so
+                    # meta.image has no `@sha256:` and reading it would make
+                    # deployed_digest perpetually nil (dead guard). Mirror
+                    # staging_running_digest: prefer meta.imageDigest, fall back
+                    # to meta.image's `@sha256:` split only if pinned, normalize
+                    # empty→nil. Keep apples-to-apples with promote_digest, which
+                    # is the bare `sha256:…` form (split on `@`).
+                    deployed_digest = meta["imageDigest"]
+                    if (deployed_digest.nil? || deployed_digest.empty?) && meta["image"].to_s.include?("@sha256:")
+                        deployed_digest = meta["image"].to_s.split("@", 2).last
+                    end
+                    deployed_digest = nil if deployed_digest.is_a?(String) && deployed_digest.empty?
+                    # --digest override: when the operator deliberately pinned an
+                    # explicit digest for this single service (see
+                    # resolved_prod_image ~L1511), @promote_refs holds the
+                    # operator's chosen digest, which legitimately differs from
+                    # staging's running digest. Skip the race comparison — the
+                    # operator made the choice on purpose; comparing would emit a
+                    # spurious REFUSE for the exact case --digest exists to support.
+                    digest_override =
+                        options[:digest] && options[:service] && svc["name"] == options[:service]
                     # Compare against the digest P1 resolved+verified (recorded
                     # in @promote_refs), NOT svc["digest"] — staging images are
                     # tag-form, so svc["digest"] is nil and the race-check would
@@ -1482,7 +1802,7 @@ module Railway
                     # REFUSEd this service and we skip the race comparison.
                     promote_ref = (@promote_refs || {})[svc["name"]]
                     promote_digest = promote_ref && promote_ref.include?("@sha256:") ? promote_ref.split("@", 2).last : nil
-                    if promote_digest && deployed_digest && deployed_digest != promote_digest
+                    if !digest_override && promote_digest && deployed_digest && deployed_digest != promote_digest
                         findings << "REFUSE: P2 (#{svc['name']}): in-flight race — latest staging deployment is " \
                                     "#{deployed_digest} but P1 resolved #{promote_digest}. Re-snapshot and retry."
                     end
@@ -1729,7 +2049,7 @@ module Railway
                     warn "PARTIAL PROMOTION: already pinned #{already_pinned.inspect}; " \
                          "FAILED on #{svc['name']}: #{e.class}: #{e.message}. " \
                          "Production is in a mixed state — note that serviceInstanceUpdate " \
-                         "runs BEFORE serviceInstanceRedeploy, so #{svc['name']}'s prod " \
+                         "runs BEFORE serviceInstanceDeployV2, so #{svc['name']}'s prod " \
                          "source.image may already be partially advanced on Railway's side. " \
                          "Run 'bin/railway rollback-commit' against the prior snapshot to revert, " \
                          "or re-run promote to retry."
