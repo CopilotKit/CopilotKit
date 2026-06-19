@@ -59,6 +59,18 @@ on:
           - showcase-harness
           - showcase-pocketbase
           - spring-ai
+          - starter-adk
+          - starter-agno
+          - starter-crewai-crews
+          - starter-langgraph-fastapi
+          - starter-langgraph-js
+          - starter-langgraph-python
+          - starter-llamaindex
+          - starter-mastra
+          - starter-ms-agent-framework-dotnet
+          - starter-ms-agent-framework-python
+          - starter-pydantic-ai
+          - starter-strands-python
           - strands
           - webhooks
         # <<< END GENERATED service options
