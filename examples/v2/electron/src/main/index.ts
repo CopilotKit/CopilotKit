@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import dotenv from "dotenv";
 import { app, BrowserWindow, ipcMain } from "electron";
 import { mkdirSync, readFileSync, existsSync } from "node:fs";
@@ -9,6 +10,8 @@ import { writeFile as wsWriteFile } from "./tools/fs-tools";
 import { formatShellCommand, runShell } from "./tools/shell";
 import { loadMcpConfig } from "./mcp/config";
 import { McpManager } from "./mcp/manager";
+import { BridgeServer } from "./bridge/server";
+import { createBrowserReadTools } from "./bridge/browser-tools";
 
 // Load provider keys (OPENAI_API_KEY / ANTHROPIC_API_KEY / GOOGLE_API_KEY) from .env
 dotenv.config();
@@ -34,6 +37,10 @@ function loadConfiguredServers() {
   const user = loadMcpConfig(read, USER_MCP_CONFIG);
   return user.length > 0 ? user : loadMcpConfig(read, BUNDLED_MCP_CONFIG);
 }
+
+const BRIDGE_TOKEN = randomUUID();
+let bridge: BridgeServer | null = null;
+let bridgePort = 0;
 
 let mcpManager: McpManager | null = null;
 let runtime: { url: string; close: () => Promise<void> } | null = null;
@@ -70,8 +77,14 @@ app.whenReady().then(async () => {
     servers = [];
   }
   mcpManager = new McpManager(servers);
+  bridge = new BridgeServer({ token: BRIDGE_TOKEN });
+  const { port: bp } = await bridge.start();
+  bridgePort = bp;
   runtime = await startRuntimeServer({
-    tools: createReadOnlyFsTools(WORKSPACE_ROOT),
+    tools: [
+      ...createReadOnlyFsTools(WORKSPACE_ROOT),
+      ...createBrowserReadTools(bridge),
+    ],
     mcpClients: mcpManager.getProviders(),
   });
   ipcMain.handle("runtime:url", () => runtime?.url ?? null);
@@ -94,6 +107,30 @@ app.whenReady().then(async () => {
       ...result,
     };
   });
+  ipcMain.handle("bridge:getInfo", () => ({
+    port: bridgePort,
+    token: BRIDGE_TOKEN,
+    connected: bridge?.isConnected() ?? false,
+  }));
+  ipcMain.handle(
+    "bridge:action",
+    async (
+      _e,
+      method: "click" | "fill" | "navigate",
+      params: Record<string, unknown>,
+    ) => {
+      if (!bridge) return { ok: false as const, error: "bridge not started" };
+      try {
+        const data = await bridge.request(method, params);
+        return { ok: true as const, data };
+      } catch (e) {
+        return {
+          ok: false as const,
+          error: e instanceof Error ? e.message : String(e),
+        };
+      }
+    },
+  );
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -106,6 +143,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  void bridge?.close();
   void runtime?.close();
   void mcpManager?.closeAll();
 });
