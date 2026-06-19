@@ -1397,16 +1397,13 @@ export function createE2eSmokeDriver(
             // The probe X-Test-Id (`d4-<slug>-<runId>`) is not a UUIDv7; mint a
             // fresh sanitizable id for the HMAC-signed A/B pairing.
             const abTestId = mintTestId();
-            abCollector.collect(
-              buildEdgeAbRecord({
-                abPairId,
-                testId: abTestId,
-                slug,
-                demo: "agentic-chat",
-                edgeState: l3.result.state === "green" ? "green" : "red",
-                edgeHeaders: filterEdgeHeaders({}),
-              }),
-            );
+            // Run the internal arm FIRST. The A/B feature only has meaning as a
+            // PAIR (edge vs internal) — a lone edge record has no internal
+            // sibling to diff against, so the report can only ever emit an
+            // un-diffable orphan half-pair. When the internal arm is absent
+            // (the documented common case: off-platform / CI / unreachable /
+            // invalid-test-id / unset-secret / verify-fail → null), emit
+            // NOTHING so downstream never sees a half-pair it cannot diff.
             const internalRecord = await runInternalAbArm({
               internalUrl: abInternalUrl,
               abPairId,
@@ -1419,7 +1416,26 @@ export function createE2eSmokeDriver(
               now: ctx.now,
               logger: ctx.logger,
             });
-            if (internalRecord !== null) abCollector.collect(internalRecord);
+            if (internalRecord !== null) {
+              // Internal sibling exists → emit BOTH arms as a complete pair.
+              // The edge record carries the REAL L3-captured edge response
+              // headers (`l3.edgeHeaders`, already filtered) so
+              // `edge_interference_signal` is computed from actual headers
+              // (a cf-mitigated / retry-after edge response now surfaces as
+              // true). Passing an empty bag here would structurally pin the
+              // signal to `false` and defeat the whole edge-interference check.
+              abCollector.collect(
+                buildEdgeAbRecord({
+                  abPairId,
+                  testId: abTestId,
+                  slug,
+                  demo: "agentic-chat",
+                  edgeState: l3.result.state === "green" ? "green" : "red",
+                  edgeHeaders: l3.edgeHeaders,
+                }),
+              );
+              abCollector.collect(internalRecord);
+            }
           } catch (err) {
             ctx.logger.warn("probe.e2e-smoke.ab-fault", {
               slug,
@@ -1603,7 +1619,17 @@ async function runLevel(opts: {
    */
   cvdiagDebugAllowList: ReadonlySet<string>;
   assertResponse: (text: string) => { ok: boolean; summary: string };
-}): Promise<{ result: ProbeResult<E2eSmokeLevelSignal> }> {
+}): Promise<{
+  result: ProbeResult<E2eSmokeLevelSignal>;
+  /**
+   * The REAL edge headers captured from this level's agent-message POST
+   * response (already passed through `filterEdgeHeaders`), or `undefined` when
+   * no message-POST response was ever observed. Surfaced so the CVDIAG A/B arm
+   * can compute `edge_interference_signal` from actual edge headers rather than
+   * an empty bag (which would pin the signal to `false`).
+   */
+  edgeHeaders?: ReturnType<typeof filterEdgeHeaders>;
+}> {
   const {
     browser,
     slug,
@@ -1990,6 +2016,9 @@ async function runLevel(opts: {
         },
         observedAt: now().toISOString(),
       },
+      // Real captured edge headers (or undefined if no message-POST response
+      // was observed) so the A/B arm can compute edge_interference_signal.
+      edgeHeaders: messageSendEdge,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -2010,6 +2039,9 @@ async function runLevel(opts: {
         },
         observedAt: now().toISOString(),
       },
+      // Edge headers captured before the error (or undefined) — let the A/B
+      // arm still compute edge_interference_signal on a failed edge run.
+      edgeHeaders: messageSendEdge,
     };
   } finally {
     // Defense in depth: if neither the ok nor the error path emitted exit (an

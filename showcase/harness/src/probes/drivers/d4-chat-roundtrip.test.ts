@@ -1620,4 +1620,87 @@ describe("d4 A/B internal routing (Phase 8)", () => {
     expect(report.total_pairs).toBe(1);
     expect(report.pairs[0]!.divergence).toBe("agree");
   });
+
+  // FIX 1 (M7c): the edge A/B record must compute edge_interference_signal from
+  // the REAL L3-captured edge response headers, NOT an empty bag. Pre-fix the
+  // driver passed `filterEdgeHeaders({})`, structurally pinning the signal to
+  // `false` so edge interference could NEVER be detected. This drives an
+  // interference-carrying (cf-mitigated) message-POST edge response through the
+  // real probe with the A/B arm gated ON and asserts the collected edge
+  // record's signal is computed from those headers (true).
+  it("edge A/B record computes edge_interference_signal from REAL captured edge headers (FIX 1)", async () => {
+    const collected: AbOutcomeRecord[] = [];
+    const browser = makeCvBrowser({
+      assistantText: "Hi!",
+      // PRODUCTION ordering: the message-POST response (carrying the
+      // cf-mitigated edge header) arrives AFTER press("Enter") returns.
+      responsesAfterSubmit: [
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "cf-mitigated": "challenge", "content-length": "3" },
+          contentLength: 3,
+          durationMs: 5,
+          isMessagePost: true,
+        },
+      ],
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      abCollector: { collect: (r) => collected.push(r) },
+      abReachabilityCheck: async () => true,
+    });
+    const ctx = baseCtx({
+      env: {
+        ...HMAC_ENV,
+        CVDIAG_AB_INTERNAL_URL:
+          "http://langgraph-python.railway.internal:8123/ok",
+      },
+      fetchImpl: (async () =>
+        new Response("", { status: 200 })) as unknown as typeof fetch,
+    });
+    await driver.run(ctx, {
+      key: "e2e-smoke:langgraph-python",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    const edge = collected.find((r) => r.arm === "edge");
+    expect(edge).toBeDefined();
+    // RED (pre-fix, empty-headers bag): false. GREEN (real cf-mitigated
+    // header surfaced from L3): true.
+    expect(edge!.edge_interference_signal).toBe(true);
+  });
+
+  // FIX 2 (M7c): when the internal arm returns null (the documented common
+  // case off-platform / CI / unreachable / unset-secret / verify-fail), the
+  // driver must NOT emit a lone edge A/B record — an orphan half-pair the
+  // report cannot diff against any internal sibling. Pre-fix the edge record
+  // was collected BEFORE the internal arm ran, so a null internal arm left an
+  // orphan edge half-pair behind.
+  it("driver emits NO orphan edge half-pair when the internal arm is absent (FIX 2)", async () => {
+    const collected: AbOutcomeRecord[] = [];
+    const { browser } = makeBrowser([{ assistantText: "Hi!" }]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      abCollector: { collect: (r) => collected.push(r) },
+      // Internal arm is UNREACHABLE → runInternalAbArm returns null.
+      abReachabilityCheck: async () => false,
+    });
+    const ctx = baseCtx({
+      env: {
+        ...HMAC_ENV,
+        CVDIAG_AB_INTERNAL_URL:
+          "http://langgraph-python.railway.internal:8123/ok",
+      },
+    });
+    const result = await driver.run(ctx, {
+      key: "e2e-smoke:langgraph-python",
+      backendUrl: "https://showcase-lgp.example.com",
+    });
+    // The probe's own outcome is unaffected by the A/B.
+    expect(result.state).toBe("green");
+    // RED (pre-fix): one lone edge orphan was collected. GREEN: nothing —
+    // no internal sibling means no half-pair is emitted.
+    expect(collected).toEqual([]);
+  });
 });
