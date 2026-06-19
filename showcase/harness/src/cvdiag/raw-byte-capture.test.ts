@@ -180,6 +180,98 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
     expect(sample!.elided_count).toBeGreaterThan(10 * 1024);
   });
 
+  it("(6) INVARIANT: across ALL body-size classes the ENTIRE retained head+tail is scrubbed (no …[unscanned] inside the sample, every retained secret REDACTED)", () => {
+    // The scrub budget must equal the RETAINED segment length, whatever it is —
+    // NOT a fixed 16KB. `headTailCap` returns the WHOLE body as `head` (tail
+    // empty) for any body ≤ HEAD_CAP+TAIL_CAP (32KB), so `head` can be up to
+    // 32KB. A fixed 16KB scrub budget truncates that head to a `…[unscanned:N]`
+    // prefix, dropping the 16-32KB window from the sample AND never scanning it
+    // for secrets (leak). This invariant pins every segment-size window so a
+    // future budget regression is a RED test.
+    //
+    //   (a) <16KB           → whole body is head, well under the cap.
+    //   (b) 16-32KB (24KB)  → whole body is head, EXCEEDS a fixed 16KB budget
+    //                          (the regression window the A2 reorder introduced).
+    //   (c) >32KB (50KB)    → real head + real tail, middle elided.
+    const cases: Array<{
+      label: string;
+      bodyLen: number;
+      expectTail: boolean;
+    }> = [
+      { label: "(a) <16KB", bodyLen: 8 * 1024, expectTail: false },
+      { label: "(b) 16-32KB", bodyLen: 24 * 1024, expectTail: false },
+      { label: "(c) >32KB", bodyLen: 50 * 1024, expectTail: true },
+    ];
+
+    for (const { label, bodyLen, expectTail } of cases) {
+      resetRawByteCaptureStateForTest();
+
+      // Plant a secret at the END of the retained HEAD region. For (a)/(b) the
+      // whole body is the head, so "end of head" is the end of the body. For
+      // (c) the retained head is the first HEAD_CAP bytes, so plant the secret
+      // just before that boundary.
+      const headSecret = "Bearer sk-ant-api03-HEADaaaaaaaaaaaaSECRET";
+      const headSentinel = "HEAD_END_SENTINEL";
+      const tailSecret = "Bearer sk-ant-api03-TAILaaaaaaaaaaaaSECRET";
+      const tailSentinel = "TAIL_END_SENTINEL";
+
+      let bodyStr: string;
+      if (expectTail) {
+        // >32KB: secret near the END of the retained head (just inside
+        // HEAD_CAP) AND a secret in the REAL tail.
+        const headTrailer = ` ${headSentinel} ${headSecret}`;
+        const headFillLen = RAW_BYTE_HEAD_CAP - headTrailer.length - 64;
+        const tailLead = `${tailSentinel} ${tailSecret} `;
+        const middleLen =
+          bodyLen - headFillLen - headTrailer.length - tailLead.length;
+        bodyStr =
+          "h".repeat(headFillLen) +
+          headTrailer +
+          "x".repeat(middleLen) +
+          "\n" +
+          tailLead;
+      } else {
+        // ≤32KB: the whole body is the retained head. Plant the secret at the
+        // very END so a 16KB-budget truncation (in the 16-32KB case) drops it.
+        const trailer = ` ${headSentinel} ${headSecret}`;
+        bodyStr = "h".repeat(bodyLen - trailer.length) + trailer;
+      }
+
+      const body = Buffer.from(bodyStr, "utf8");
+      const sample = captureRawBytes(baseOpts({ responseBody: body }));
+      expect(sample, label).not.toBeNull();
+
+      // (i) NO …[unscanned] marker anywhere inside the returned sample — the
+      //     entire retained head/tail was scanned.
+      expect(sample!.head_bytes, label).not.toContain("[unscanned");
+      expect(sample!.tail_bytes, label).not.toContain("[unscanned");
+
+      // (ii) Every planted secret in the RETAINED region is REDACTED, not
+      //      present in cleartext.
+      expect(sample!.head_bytes, label).toContain(headSentinel);
+      expect(sample!.head_bytes, label).toContain("[REDACTED]");
+      expect(sample!.head_bytes, label).not.toContain(headSecret);
+      expect(sample!.head_bytes, label).not.toMatch(/sk-ant-api03-HEAD/);
+      if (expectTail) {
+        expect(sample!.tail_bytes, label).toContain(tailSentinel);
+        expect(sample!.tail_bytes, label).toContain("[REDACTED]");
+        expect(sample!.tail_bytes, label).not.toContain(tailSecret);
+        expect(sample!.tail_bytes, label).not.toMatch(/sk-ant-api03-TAIL/);
+      }
+
+      // (iii) elided_count reflects ONLY headTailCap elision: 0 for ≤32KB,
+      //       (body - HEAD_CAP - TAIL_CAP) for >32KB.
+      if (expectTail) {
+        const expectedElided =
+          body.length - RAW_BYTE_HEAD_CAP - RAW_BYTE_TAIL_CAP;
+        expect(sample!.elided_count, label).toBe(expectedElided);
+        expect(sample!.elided_count, label).toBeGreaterThan(10 * 1024);
+      } else {
+        expect(sample!.elided_count, label).toBe(0);
+      }
+    }
+  });
+
   it("(5) non-DEBUG tier → captureRawBytes returns null immediately", () => {
     const body = Buffer.from("data: {}\n\n", "utf8");
     const defaultTier = captureRawBytes(

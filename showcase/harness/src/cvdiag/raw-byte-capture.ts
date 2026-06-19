@@ -29,15 +29,20 @@
  *
  * WHY scrub LAST, per-segment (not over the full body before the cap): the
  * elided middle is dropped from the sample anyway, so scrubbing the retained
- * ≤16KB head and ≤16KB tail covers every byte that can possibly be stored. This
- * (a) keeps each scrub input bounded ≤16KB (linear regex × bounded length =
- * O(constant), ReDoS-impossible — no scan-budget truncation needed), and (b)
- * captures the REAL head and REAL tail of the body. The earlier scrub-before-cap
- * order forced `scrubSecrets` onto the FULL body: for a body >32KB it hit the
- * bounded-prefix path, truncating to a `…[unscanned:N]` prefix BEFORE the cap —
- * which lost the real tail, never scanned it for secrets, and zeroed out the
- * true `elided_count`. Scrubbing the two retained segments after the cap fixes
- * all three.
+ * head and tail covers every byte that can possibly be stored. Each retained
+ * segment is scrubbed with a scan budget equal to ITS OWN length, so the WHOLE
+ * segment is always scanned (no `…[unscanned]` truncation inside the stored
+ * sample) for any body size. The segments are bounded by `headTailCap`: when
+ * the body fits the cap the whole body is the head (≤ HEAD_CAP+TAIL_CAP = 32KB,
+ * tail empty); otherwise head ≤ HEAD_CAP and tail ≤ TAIL_CAP. Bounded (≤32KB) ×
+ * linear regex = O(constant), so this stays ReDoS-impossible. The earlier
+ * scrub-before-cap order forced `scrubSecrets` onto the FULL body: for a body
+ * >32KB it hit the bounded-prefix path, truncating to a `…[unscanned:N]` prefix
+ * BEFORE the cap — which lost the real tail, never scanned it for secrets, and
+ * zeroed out the true `elided_count`. A later FIXED 16KB per-segment budget
+ * still truncated the 16-32KB whole-body head (which `headTailCap` returns
+ * untouched, up to 32KB). Sizing each scrub budget to the segment's own length
+ * eliminates the truncation for every body-size window.
  *
  * GUARD (R4-F12): DEBUG tier ONLY. `captureRawBytes()` returns `null`
  * immediately when the resolved tier is not `debug`. Beyond the tier gate the
@@ -343,14 +348,20 @@ export function captureRawBytes(
     applied.push("headtail");
     if (elided > 0) metadataDropped = true;
 
-    // 4. SCRUB the RETAINED head and tail SEPARATELY. Each segment is ≤16KB, so
-    //    the per-segment scan budget is the segment cap — the WHOLE segment is
-    //    scanned (no `…[unscanned]` truncation) while staying ReDoS-impossible
-    //    (bounded length × linear regex = O(constant)). The elided middle is
-    //    gone from the sample, so scrubbing the two kept segments covers every
-    //    stored byte — and both the real head AND the real tail are scrubbed.
-    const head = scrubSecrets(rawHead, RAW_BYTE_HEAD_CAP);
-    const tail = rawTail === "" ? "" : scrubSecrets(rawTail, RAW_BYTE_TAIL_CAP);
+    // 4. SCRUB the RETAINED head and tail SEPARATELY, each with a scan budget
+    //    equal to ITS OWN length, so the WHOLE retained segment is always
+    //    scanned (no `…[unscanned]` truncation inside the stored sample) for
+    //    ANY body size. The retained segments are already bounded by
+    //    `headTailCap`: when the body fits the cap the whole body is the head
+    //    (up to HEAD_CAP+TAIL_CAP = 32KB, tail empty); otherwise head ≤ HEAD_CAP
+    //    and tail ≤ TAIL_CAP. A FIXED 16KB budget would wrongly truncate the
+    //    16-32KB whole-body head to a `…[unscanned:N]` prefix — dropping that
+    //    window from the sample AND never scanning it for secrets (leak). The
+    //    elided middle is gone from the sample, so scrubbing the two kept
+    //    segments covers every stored byte. Bounded by construction (≤32KB) ×
+    //    linear regex = O(constant), so this stays ReDoS-impossible.
+    const head = scrubSecrets(rawHead, rawHead.length);
+    const tail = rawTail === "" ? "" : scrubSecrets(rawTail, rawTail.length);
     applied.push("scrub");
 
     return {
