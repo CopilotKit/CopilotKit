@@ -129,4 +129,29 @@ describe("issue #5533: non-default agentId after runtime sync", () => {
     // agentId (TravelBookingAgent), not silently fall back to 'default'.
     expect(getByTestId("resolved-id").textContent).toBe("TravelBookingAgent");
   });
+
+  it("an explicit agentId prop still wins over the surrounding chat configuration", async () => {
+    function ExplicitConsumer() {
+      // Explicitly request the agent that IS registered, overriding the
+      // provider's configured id — the explicit prop must take precedence.
+      const { agent } = useAgent({ agentId: "TravelBookingAgent" });
+      return <div data-testid="resolved-id">{agent.agentId}</div>;
+    }
+
+    const { getByTestId } = render(
+      <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+        {/* Provider configured for a DIFFERENT id; the explicit prop wins. */}
+        <CopilotChatConfigurationProvider agentId="SomeOtherAgent">
+          <ExplicitConsumer />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(getByTestId("resolved-id").textContent).toBe("TravelBookingAgent");
+    });
+  });
 });
