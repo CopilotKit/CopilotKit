@@ -72,11 +72,11 @@ file with frontmatter into the right subdirectory; it appears in nav on its own.
 legacy `reference/v1/` tree uses `meta.json`. For the full new-hook checklist see
 [Hook Development](hooks.md).
 
-**The top-level `docs/` folder is retired. Never author there.**
-`docs/content/docs/` and the `docs/` Next app no longer publish anything. The
-`showcase/scripts/sync-docs-from-main.ts` script is legacy — it only ever copied
-`docs/` → shell-docs in one direction, and editing `docs/` today does nothing for the
-live site. Treat the whole top-level `docs/` tree as read-only history.
+**The top-level `docs/` path is only a symlink to `showcase/shell-docs/`.**
+It exists for `cd docs` muscle memory, not as a separate docs app. The old
+`docs/content/docs/` tree and retired Next app no longer publish anything. Historical
+content remains recoverable from the archive refs: `archive/docs-save-do-not-prune` and
+`archive/docs-retired-2026-06-17`.
 
 ## 2. AG-UI protocol docs → upstream `ag-ui-protocol/ag-ui`
 
@@ -100,4 +100,4 @@ change that process as part of unrelated work.
 
 - Changing a CopilotKit guide, reference, snippet, or framework page? → `showcase/shell-docs/src/content/`
 - Changing AG-UI protocol docs? → upstream `ag-ui-protocol/ag-ui`, then sync
-- Tempted to edit `docs/content/docs/`? → stop, it's retired; use `showcase/shell-docs/`
+- Tempted to recreate `docs/content/docs/`? → stop, it's retired; use `showcase/shell-docs/`
