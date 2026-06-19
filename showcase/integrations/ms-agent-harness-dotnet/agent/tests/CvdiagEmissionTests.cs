@@ -163,4 +163,22 @@ public class CvdiagEmissionTests
         var big = new string('x', 2000);
         Assert.True(System.Text.Encoding.UTF8.GetByteCount(CvdiagBackend.Scrub(big)) <= 512);
     }
+
+    // (3c) URL userinfo: a `scheme://user:pass@host` authority and the colon-less
+    // `scheme://token@host` form both leak credentials in connection-error text.
+    // Mirrors scrubSecrets' URL_USERINFO_REGEX (harness/src/cvdiag/scrub.ts).
+    [Fact]
+    public void Scrub_RedactsUrlUserinfo_AndBareToken()
+    {
+        var withPass = CvdiagBackend.Scrub("connect failed: https://user:pass@example.com/x");
+        Assert.DoesNotContain("user:pass", withPass);
+        Assert.DoesNotContain("pass@", withPass);
+        Assert.Contains("[REDACTED]@", withPass);
+        Assert.Contains("example.com", withPass); // host preserved
+
+        var bareToken = CvdiagBackend.Scrub("connect failed: https://ghp_token@example.com/x");
+        Assert.DoesNotContain("ghp_token", bareToken);
+        Assert.Contains("[REDACTED]@", bareToken);
+        Assert.Contains("example.com", bareToken); // host preserved
+    }
 }

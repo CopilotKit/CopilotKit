@@ -366,6 +366,17 @@ public sealed class CvdiagBackend
         new(@"(?i)authorization\s*[:=]\s*\S+", System.Text.RegularExpressions.RegexOptions.Compiled),
     };
 
+    // URL userinfo authority segment — redact the credentials between
+    // `scheme://` and the LAST authority `@`, keeping the scheme and host.
+    // Mirrors scrubSecrets' URL_USERINFO_REGEX (harness/src/cvdiag/scrub.ts):
+    // covers `scheme://user:pass@host`, the colon-less `scheme://token@host`
+    // (e.g. `https://ghp_xxx@host`), and multi-`@` authorities. The userinfo
+    // class `[^/\s?#]*` excludes `?`/`#`/`/`/whitespace so the match can never
+    // cross into the path/query/fragment (R5-A2). Replacement: `$1[REDACTED]@`.
+    private static readonly System.Text.RegularExpressions.Regex UrlUserinfoPattern =
+        new(@"([a-z][a-z0-9+.\-]*://)[^/\s?#]*@",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
     /// <summary>Redact secret-shaped tokens and cap to 512 bytes (spec backend.error.caught).</summary>
     public static string Scrub(string? raw)
     {
@@ -375,6 +386,7 @@ public sealed class CvdiagBackend
         {
             scrubbed = pat.Replace(scrubbed, "[REDACTED]");
         }
+        scrubbed = UrlUserinfoPattern.Replace(scrubbed, "$1[REDACTED]@");
         if (System.Text.Encoding.UTF8.GetByteCount(scrubbed) > 512)
         {
             scrubbed = scrubbed.Length > 509 ? scrubbed[..509] + "..." : scrubbed;
