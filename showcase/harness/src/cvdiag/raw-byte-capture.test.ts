@@ -602,6 +602,127 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
     expect(sample!.metadata_dropped).toBe(true);
   });
 
+  it("(M3R4-1) mislabeled gzip (Content-Encoding: gzip but PLAINTEXT body, no 1f8b magic) → kept + scrubbed, NOT dropped", () => {
+    // The PRIMARY capture target is a Cloudflare challenge HTML page, often
+    // served with `Content-Encoding: gzip` while the body is actually PLAINTEXT
+    // (mislabeled). `gunzipSync` throws on it. The genuine-gzip-fail drop fix
+    // wrongly destroys this diagnostic payload (empty + metadata_dropped).
+    //
+    // RED (unconditional drop on gunzip throw): the plaintext body is dropped
+    //   → stored is empty + metadata_dropped true; the diagnostic text is lost.
+    // GREEN (gzip-magic gate): no 1f8b magic → treat as PLAINTEXT (do not
+    //   gunzip, do not drop), scrub + keep it.
+    const secret = "Bearer sk-live-mislabeledgzipSECRET12345";
+    const plain = `Just a moment... challenge page authorization=${secret}\n\n`;
+    const body = Buffer.from(plain, "utf8");
+    // Pre-condition: the body does NOT start with the gzip magic bytes.
+    expect(body[0]).not.toBe(0x1f);
+
+    const sample = captureRawBytes(
+      baseOpts({ responseBody: body, contentEncoding: "gzip" }),
+    );
+    expect(sample).not.toBeNull();
+    const stored = `${sample!.head_bytes}${sample!.tail_bytes}`;
+    // The plaintext diagnostic text is KEPT (not dropped).
+    expect(stored).toContain("Just a moment");
+    expect(Buffer.byteLength(stored, "utf8")).toBeGreaterThan(0);
+    // And the straddle-free secret is scrubbed.
+    expect(stored).not.toContain(secret);
+    expect(stored).toContain("[REDACTED]");
+    expect(sample!.pipeline_applied).toContain("scrub");
+  });
+
+  it("(M3R4-1b) GENUINE gzip body that fails to decompress STILL drops (no unscrubbed compressed bytes) — FIX 1 must not regress the scrub-bypass fix", () => {
+    // A body that DOES start with the gzip magic bytes (1f 8b) but is otherwise
+    // a corrupt/truncated gzip stream → gunzipSync throws. Because the magic
+    // bytes ARE present, this is a genuine (broken) gzip stream and the
+    // still-compressed unscrubbable bytes must NOT be stored.
+    const secret = "sk-test12345abcdefghij67890";
+    const plain = `data: {"key":"${secret}"}\n\n`;
+    const gz = gzipSync(Buffer.from(plain, "utf8"));
+    // Truncate the gzip stream so it has the magic header but fails to inflate.
+    const corrupt = gz.subarray(0, gz.length - 5);
+    expect(corrupt[0]).toBe(0x1f);
+    expect(corrupt[1]).toBe(0x8b);
+    expect(corrupt.toString("latin1")).not.toContain(secret);
+
+    const sample = captureRawBytes(
+      baseOpts({ responseBody: corrupt, contentEncoding: "gzip" }),
+    );
+    expect(sample).not.toBeNull();
+    const stored = `${sample!.head_bytes}${sample!.tail_bytes}`;
+    // No fragment of the still-compressed payload may be persisted.
+    expect(Buffer.byteLength(stored, "utf8")).toBe(0);
+    expect(sample!.metadata_dropped).toBe(true);
+  });
+
+  it("(M3R4-2) a secret straddling the head/tail seam (16-32KB body) is REDACTED (no reconstruct-from-segments bypass)", () => {
+    // For HEAD_CAP < body ≤ 32KB, head ([0,16K]) and tail ([16K,end]) are
+    // ADJACENT and together reconstruct the WHOLE body. Scrubbing each segment
+    // INDEPENDENTLY lets a secret straddling byte 16384 match neither regex, so
+    // it is stored unredacted and recoverable by concatenating head+tail.
+    //
+    // RED (per-segment scrub): the seam-straddling secret is split across the
+    //   head/tail boundary, matches neither regex, and survives in
+    //   head_bytes+tail_bytes.
+    // GREEN (scrub full retained body before split when adjacent): the secret
+    //   is redacted before head/tail are sliced.
+    // An `sk-` key (SK_KEY_REGEX: `sk-` + chars + 12 mandatory alnum). Split so
+    // the `sk-` prefix sits at the END of the head and the mandatory 12-alnum
+    // tail sits at the START of the tail: the head ends in `…sk-XXXX` (no 12
+    // trailing alnum → no head match) and the tail begins mid-token (no `sk-`
+    // prefix → no tail match). Per-segment scrub therefore leaks it; the
+    // reconstructed body still contains a complete `sk-…` key.
+    const secret = "sk-SEAMSTRADDLINGabcdefghij1234567890SECRET";
+    // Put the `sk-` prefix 4 bytes before the 16384 seam so the token spans it.
+    const lead = "a".repeat(RAW_BYTE_HEAD_CAP - 4);
+    const trail = "b".repeat(8 * 1024);
+    const bodyStr = lead + secret + trail;
+    const body = Buffer.from(bodyStr, "utf8");
+    // Sanity: 16-32KB window (adjacent head/tail, no elided middle).
+    expect(body.length).toBeGreaterThan(RAW_BYTE_HEAD_CAP);
+    expect(body.length).toBeLessThanOrEqual(
+      RAW_BYTE_HEAD_CAP + RAW_BYTE_TAIL_CAP,
+    );
+
+    const sample = captureRawBytes(baseOpts({ responseBody: body }));
+    expect(sample).not.toBeNull();
+    // No elided middle in this window → head+tail reconstruct the whole body.
+    expect(sample!.elided_count).toBe(0);
+    const reconstructed = `${sample!.head_bytes}${sample!.tail_bytes}`;
+    // The seam-straddling secret must be REDACTED, not recoverable. The key
+    // assertion: no COMPLETE `sk-` key survives in the reconstructed body.
+    expect(reconstructed).not.toContain(secret);
+    expect(reconstructed).not.toMatch(/sk-[A-Za-z0-9_-]{0,200}[A-Za-z0-9]{12}/);
+    expect(reconstructed).toContain("[REDACTED]");
+  });
+
+  it("(M3R4-2b) >32KB body: head/tail NON-adjacent (elided middle) → per-segment scrub still redacts each segment's secret", () => {
+    // Regression guard for FIX 2: for >32KB bodies the head and tail are
+    // NON-adjacent (elided middle), not reconstructable, so per-segment scrub
+    // is the correct/only option. Confirm each segment's own secret is redacted
+    // and the elided middle is preserved.
+    const headSecret = "Bearer sk-ant-api03-HEADaaaaaaaaaaaaSECRET";
+    const tailSecret = "Bearer sk-ant-api03-TAILaaaaaaaaaaaaSECRET";
+    const headSentinel = "HEAD_SENTINEL";
+    const tailSentinel = "TAIL_SENTINEL";
+    const filler = "x".repeat(50 * 1024);
+    const bodyStr = `${headSentinel} ${headSecret}\n${filler}\n${tailSentinel} ${tailSecret}`;
+    const body = Buffer.from(bodyStr, "utf8");
+    expect(body.length).toBeGreaterThan(RAW_BYTE_HEAD_CAP + RAW_BYTE_TAIL_CAP);
+
+    const sample = captureRawBytes(baseOpts({ responseBody: body }));
+    expect(sample).not.toBeNull();
+    // Elided middle present → head/tail NON-adjacent.
+    expect(sample!.elided_count).toBeGreaterThan(10 * 1024);
+    expect(sample!.head_bytes).toContain(headSentinel);
+    expect(sample!.head_bytes).toContain("[REDACTED]");
+    expect(sample!.head_bytes).not.toContain(headSecret);
+    expect(sample!.tail_bytes).toContain(tailSentinel);
+    expect(sample!.tail_bytes).toContain("[REDACTED]");
+    expect(sample!.tail_bytes).not.toContain(tailSecret);
+  });
+
   it("(M3R3-2) injected nowMs===0 does NOT reset the global ≤500/24h window every call (clock-0 sentinel collision)", () => {
     // The global window used `globalWindowStartMs === 0` as BOTH the
     // uninitialized sentinel AND a legitimate clock value. With an injected

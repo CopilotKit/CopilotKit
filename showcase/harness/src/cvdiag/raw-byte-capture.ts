@@ -261,24 +261,51 @@ function decodeBody(
     }
   }
 
-  // Then gunzip if the content was gzip-compressed.
-  if (/\bgzip\b/i.test(contentEncoding)) {
+  // Then gunzip if the content was gzip-compressed — gated on whether the body
+  // actually carries the gzip MAGIC bytes (0x1f 0x8b) ANYWHERE. The PRIMARY
+  // capture target — a Cloudflare challenge HTML page — is frequently served
+  // with a `Content-Encoding: gzip` header while the body is actually PLAINTEXT
+  // (mislabeled). Without a magic-byte gate `gunzipSync` throws on that
+  // plaintext and the whole diagnostic payload is destroyed. So:
+  //   - NO gzip magic anywhere → the header lies; the body is genuine PLAINTEXT
+  //     (do NOT gunzip, do NOT drop — fall through to scrub + keep it).
+  //   - gzip magic PRESENT (at offset 0, or embedded after a chunk-framing
+  //     fallback) → a GENUINE gzip stream whose compressed bytes hide any secret
+  //     from `scrubSecrets`. Attempt the decode; if it throws (framed / corrupt
+  //     / truncated stream) the still-compressed bytes must NOT be persisted —
+  //     that is a redaction BYPASS. Fail closed: report the decode failure so
+  //     the caller drops the body (stores empty + marks dropped). This is the
+  //     genuine-gzip-failure scrub-bypass guard and must NOT regress.
+  if (/\bgzip\b/i.test(contentEncoding) && hasGzipMagic(buf)) {
     try {
       buf = gunzipSync(buf);
       applied = true;
     } catch {
-      // gunzip threw: the (possibly chunk-framing-fallback) bytes are not a
-      // valid gzip stream. We must NOT store them — a secret hidden inside the
-      // still-COMPRESSED payload is invisible to `scrubSecrets`, so persisting
-      // the raw compressed bytes is a redaction BYPASS. Fail closed: report the
-      // decode failure so the caller drops the body (stores empty + marks
-      // dropped) rather than persisting an unscrubbable compressed payload.
       return { decoded: Buffer.alloc(0), applied: true, decodeFailed: true };
     }
   }
 
   return { decoded: buf, applied, decodeFailed: false };
 }
+
+/**
+ * True iff `buf` contains the gzip magic bytes (`0x1f 0x8b`, RFC 1952 §2.3.1
+ * ID1/ID2) ANYWHERE — at offset 0 for a bare gzip stream, or embedded after a
+ * chunk-framing prefix when a malformed `Transfer-Encoding: chunked` body falls
+ * back to its raw bytes. Used to distinguish a GENUINE (possibly framed) gzip
+ * stream from a body that merely carries a (mislabeled) `Content-Encoding: gzip`
+ * header over PLAINTEXT — the common Cloudflare-challenge case. A buffer with
+ * the magic present is treated as a genuine gzip stream (decompressed, or — if
+ * the stream is framed/corrupt and `gunzipSync` throws — DROPPED to avoid
+ * persisting unscrubbable compressed bytes, a redaction bypass); a buffer with
+ * NO magic anywhere is kept as plaintext so the diagnostic payload survives.
+ */
+function hasGzipMagic(buf: Buffer): boolean {
+  return buf.indexOf(GZIP_MAGIC) !== -1;
+}
+
+/** RFC 1952 gzip stream identifier (ID1 = 0x1f, ID2 = 0x8b). */
+const GZIP_MAGIC = Buffer.from([0x1f, 0x8b]);
 
 /**
  * Decode an HTTP `Transfer-Encoding: chunked` body to its payload bytes.
@@ -519,20 +546,47 @@ export function captureRawBytes(
     applied.push("headtail");
     if (elided > 0) metadataDropped = true;
 
-    // 4. SCRUB the RETAINED head and tail SEPARATELY, each with a scan budget
-    //    equal to ITS OWN length, so the WHOLE retained segment is always
-    //    scanned (no `…[unscanned]` truncation inside the stored sample) for
-    //    ANY body size. The retained segments are already bounded by
-    //    `headTailCap`: head ≤ HEAD_CAP (16KB) and tail ≤ TAIL_CAP (16KB) for
-    //    ALL body sizes. Sizing each budget to the segment's own length means
-    //    the WHOLE retained segment is always scanned — no `…[unscanned:N]`
-    //    truncation that would drop a window from the sample AND never scan it
-    //    for secrets (leak). The elided middle is gone from the sample, so
-    //    scrubbing the two kept segments covers every stored byte. Bounded by
-    //    construction (≤16KB each) × linear regex = O(constant), so this stays
+    // 4. SCRUB the retained bytes. Each retained segment is bounded by
+    //    `headTailCap` (head ≤ HEAD_CAP 16KB, tail ≤ TAIL_CAP 16KB) and the
+    //    scan budget is sized to the content's own length, so the WHOLE
+    //    retained content is always scanned (no `…[unscanned:N]` truncation) for
+    //    ANY body size. Bounded (≤32KB total) × linear regex = O(constant),
     //    ReDoS-impossible.
-    const head = scrubSecrets(rawHead, rawHead.length);
-    const tail = rawTail === "" ? "" : scrubSecrets(rawTail, rawTail.length);
+    //
+    //    SEAM REDACTION (the head/tail split is a PII pitfall): when `elided ===
+    //    0` the head ([0,16K]) and tail ([16K,end]) are ADJACENT and together
+    //    reconstruct the WHOLE retained body, so a Bearer/sk-/URL-userinfo
+    //    secret STRADDLING byte 16384 would match neither regex if each segment
+    //    were scrubbed in isolation — and be recoverable by concatenating
+    //    head_bytes + tail_bytes (PII bypass). So for the adjacent case we scrub
+    //    the FULL retained content as ONE pass FIRST, then re-split at the
+    //    original head byte-boundary. When `elided > 0` (>32KB body) the head and
+    //    tail are NON-adjacent — an elided middle separates them, they cannot be
+    //    reconstructed into a contiguous body, so a per-segment scrub is correct
+    //    (and there is no contiguous seam to straddle).
+    let head: string;
+    let tail: string;
+    if (rawTail === "") {
+      // Single retained segment (body ≤ HEAD_CAP): scrub it directly.
+      head = scrubSecrets(rawHead, rawHead.length);
+      tail = "";
+    } else if (elided === 0) {
+      // Adjacent head+tail (HEAD_CAP < body ≤ 32KB): scrub the contiguous
+      // retained body as one pass so a seam-straddling secret is redacted, then
+      // re-split at the ORIGINAL head byte-length (the scrub replaces matches
+      // with the SAME `[REDACTED]` token but can change byte offsets, so split
+      // on the scrubbed buffer's own head-prefix length rather than the raw
+      // head length to keep the head ≤ HEAD_CAP and never split a code point).
+      const scrubbed = scrubSecrets(rawHead + rawTail, rawHead.length + rawTail.length);
+      const scrubbedBuf = Buffer.from(scrubbed, "utf8");
+      const headBuf = utf8PrefixWithinBytes(scrubbedBuf, RAW_BYTE_HEAD_CAP);
+      head = headBuf.toString("utf8");
+      tail = scrubbedBuf.subarray(headBuf.length).toString("utf8");
+    } else {
+      // Non-adjacent head+tail (>32KB, elided middle): per-segment scrub.
+      head = scrubSecrets(rawHead, rawHead.length);
+      tail = scrubSecrets(rawTail, rawTail.length);
+    }
     applied.push("scrub");
 
     return {
