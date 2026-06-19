@@ -22,6 +22,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 
 import {
   captureRawBytes,
+  parseDebugAllowList,
   resetRawByteCaptureStateForTest,
   RAW_BYTE_HEAD_CAP,
   RAW_BYTE_TAIL_CAP,
@@ -37,18 +38,24 @@ const DEBUG_OPTS = { tier: "debug" as const, debugEnabled: true };
 
 function baseOpts(overrides: {
   responseBody: Buffer;
+  slug?: string;
   contentEncoding?: string;
   transferEncoding?: string;
   contentType?: string;
   tier?: "default" | "verbose" | "debug";
   debugEnabled?: boolean;
+  allowedSlugs?: ReadonlySet<string>;
 }) {
+  const slug = overrides.slug ?? "langgraph-python";
   return {
-    slug: "langgraph-python",
+    slug,
     testId: "0190a0c0-0000-7000-8000-000000000001",
     contentEncoding: "",
     transferEncoding: "",
     contentType: "text/event-stream",
+    // Default to an allow-list that admits the chosen slug so the existing
+    // pipeline cases stay green; per-slug-scoping cases override this.
+    allowedSlugs: new Set([slug]),
     ...DEBUG_OPTS,
     ...overrides,
   };
@@ -291,5 +298,44 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
       }),
     );
     expect(verboseTier).toBeNull();
+  });
+
+  it("(6) allow-list scopes capture per slug: a non-listed slug gets NO capture even at DEBUG", () => {
+    const body = Buffer.from("data: {}\n\n", "utf8");
+    // Allow-list scopes DEBUG raw-byte capture to ONLY `allowed-slug`.
+    const allowedSlugs = parseDebugAllowList("allowed-slug");
+
+    // An allow-listed slug at DEBUG → capture proceeds.
+    const allowed = captureRawBytes(
+      baseOpts({
+        slug: "allowed-slug",
+        responseBody: body,
+        allowedSlugs,
+      }),
+    );
+    expect(allowed).not.toBeNull();
+
+    // A slug NOT in the allow-list → NO capture, even though DEBUG is armed.
+    // RED on the unfixed code: the slug list is never matched, so `other-slug`
+    // is wrongly armed for raw-byte (PII-sensitive) capture.
+    const other = captureRawBytes(
+      baseOpts({
+        slug: "other-slug",
+        responseBody: body,
+        allowedSlugs,
+      }),
+    );
+    expect(other).toBeNull();
+  });
+
+  it("(7) parseDebugAllowList trims entries, drops empties, and is exact-match (no wildcard)", () => {
+    const set = parseDebugAllowList("  a-slug , b-slug ,, ");
+    expect(set.has("a-slug")).toBe(true);
+    expect(set.has("b-slug")).toBe(true);
+    expect(set.has("")).toBe(false);
+    // No `*` wildcard semantics — the spec defines exact slug match only.
+    const star = parseDebugAllowList("*");
+    expect(star.has("anything")).toBe(false);
+    expect(star.has("*")).toBe(true);
   });
 });

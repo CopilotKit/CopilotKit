@@ -23,7 +23,10 @@ import type {
   ProbeSseEventMeta,
   TerminationKind,
 } from "../../cvdiag/index.js";
-import { captureRawBytes } from "../../cvdiag/raw-byte-capture.js";
+import {
+  captureRawBytes,
+  parseDebugAllowList,
+} from "../../cvdiag/raw-byte-capture.js";
 import type { CvdiagPbWriter } from "../../cvdiag/pb-writer.js";
 import {
   signAbRequest,
@@ -1087,6 +1090,12 @@ export function createE2eSmokeDriver(
           cvdiagEmitter = undefined;
         }
       }
+      // Parse the DEBUG raw-byte allow-list ONCE from the probe env. DEBUG arms
+      // raw-byte (PII-sensitive) capture only for the slugs explicitly listed in
+      // `CVDIAG_DEBUG_ALLOW_LIST` — `captureRawBytes` enforces the per-slug scope.
+      const cvdiagDebugAllowList = parseDebugAllowList(
+        ctx.env.CVDIAG_DEBUG_ALLOW_LIST,
+      );
       // Prefer explicit backendUrl; fall back to discovery-supplied publicUrl.
       // Schema already guaranteed at least one is present.
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
@@ -1208,6 +1217,7 @@ export function createE2eSmokeDriver(
           cvdiagEmitter,
           cvdiagBufferDir,
           cvdiagPbWriter,
+          cvdiagDebugAllowList,
           assertResponse: (text) => ({
             ok: text.length > 0,
             summary: text.length === 0 ? "empty assistant response" : "",
@@ -1294,6 +1304,7 @@ export function createE2eSmokeDriver(
             cvdiagEmitter,
             cvdiagBufferDir,
             cvdiagPbWriter,
+            cvdiagDebugAllowList,
             assertResponse: (text) => {
               if (text.length === 0) {
                 return { ok: false, summary: "empty assistant response" };
@@ -1431,6 +1442,11 @@ async function runLevel(opts: {
   cvdiagBufferDir?: string;
   /** DEBUG-tier raw-byte sample writer (L2-C); absent → no raw-byte capture. */
   cvdiagPbWriter?: CvdiagPbWriter;
+  /**
+   * Parsed `CVDIAG_DEBUG_ALLOW_LIST` slug set. DEBUG raw-byte capture is scoped
+   * to these slugs (per-slug match in `captureRawBytes`); empty → no capture.
+   */
+  cvdiagDebugAllowList: ReadonlySet<string>;
   assertResponse: (text: string) => { ok: boolean; summary: string };
 }): Promise<{ result: ProbeResult<E2eSmokeLevelSignal> }> {
   const {
@@ -1449,6 +1465,7 @@ async function runLevel(opts: {
     cvdiagEmitter,
     cvdiagBufferDir,
     cvdiagPbWriter,
+    cvdiagDebugAllowList,
     assertResponse,
   } = opts;
 
@@ -1713,6 +1730,7 @@ async function runLevel(opts: {
               contentType: String(headers["content-type"] ?? ""),
               tier: "debug",
               debugEnabled: true,
+              allowedSlugs: cvdiagDebugAllowList,
             });
             if (sample !== null) {
               await cvdiagPbWriter.writeRawByteSample(sample);

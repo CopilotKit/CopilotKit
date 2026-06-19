@@ -52,6 +52,16 @@
  *
  * Pure instrumentation: a capture fault must NEVER throw into the probe it
  * observes — every failure path returns `null` rather than raising.
+ *
+ * STATUS — EXPERIMENTAL, DEBUG-tier, NON-PROD, OPT-IN: raw-byte body capture is
+ * default-OFF and reachable ONLY when DEBUG is armed (fail-closed safe-env guard
+ * in emit.ts) AND the emitting slug is in `CVDIAG_DEBUG_ALLOW_LIST`
+ * (`allowedSlugs` per-slug gate below). It is NOT hardened against adversarial
+ * input: the `stripHtml` regex passes (O(n²) ReDoS) and the `gunzipSync` decode
+ * (unbounded gzip-bomb expansion) are KNOWN unhardened risks, tracked as a
+ * DEFERRED follow-up — do NOT treat this path as production-safe until that
+ * hardening lands. (The ≤32KB head/tail cap + linear scrub keep the SCRUB stage
+ * bounded, but decode/strip run before the cap on the full decoded body.)
  */
 
 import { gunzipSync } from "node:zlib";
@@ -96,10 +106,40 @@ export interface RawByteSample {
   metadata_dropped: boolean;
 }
 
+/**
+ * Parse the `CVDIAG_DEBUG_ALLOW_LIST` env value (a comma-separated slug list)
+ * into a `Set` of slugs ONCE, trimming each entry and dropping empties. DEBUG
+ * raw-byte capture is scoped to EXACTLY these slugs (spec §6 / threat-model
+ * §1.6) — an exact slug match, NO `*` wildcard (the spec defines no wildcard;
+ * a literal `"*"` entry matches only the slug `"*"`). An `undefined`/empty
+ * value yields an empty set → no slug is ever capture-eligible (the
+ * constructor's presence check still requires a non-empty value to ARM DEBUG;
+ * this is the per-event SCOPE on top of that opt-in).
+ */
+export function parseDebugAllowList(
+  value: string | undefined,
+): ReadonlySet<string> {
+  if (value === undefined) return new Set();
+  const slugs = new Set<string>();
+  for (const entry of value.split(",")) {
+    const trimmed = entry.trim();
+    if (trimmed !== "") slugs.add(trimmed);
+  }
+  return slugs;
+}
+
 /** Inputs to one raw-byte capture attempt. */
 export interface CaptureRawBytesOptions {
   /** Service slug (per-slug 24h auto-disable + ring-buffer keying). */
   slug: string;
+  /**
+   * The parsed `CVDIAG_DEBUG_ALLOW_LIST` slug set (see `parseDebugAllowList`).
+   * DEBUG raw-byte capture is admitted ONLY when `slug` is in this set — the
+   * per-event SCOPE that the construction-time presence check (which only
+   * verifies the list is non-empty to opt INTO DEBUG) does not enforce. An
+   * empty set admits NO slug.
+   */
+  allowedSlugs: ReadonlySet<string>;
   /** Per-level CVDIAG test_id (UUIDv7); threaded onto the sample. */
   testId: string;
   /** Literal response bytes as observed on the wire (possibly compressed). */
@@ -310,6 +350,15 @@ export function captureRawBytes(
   // Hard tier gate (R4-F12): DEBUG only. Return null IMMEDIATELY for any
   // non-debug tier or a disarmed DEBUG flag — no decode, no allocation.
   if (opts.tier !== "debug" || opts.debugEnabled !== true) {
+    return null;
+  }
+
+  // Per-slug allow-list scope (spec §6 / §1.6): DEBUG arms raw-byte capture
+  // (PII-sensitive) ONLY for slugs explicitly listed in `CVDIAG_DEBUG_ALLOW_LIST`.
+  // The construction-time presence check only verifies the list is non-empty
+  // (opt-IN to DEBUG); the per-slug SCOPE is enforced HERE — exact match, no
+  // wildcard. A slug not in the set gets NO capture even with DEBUG armed.
+  if (!opts.allowedSlugs.has(opts.slug)) {
     return null;
   }
 
