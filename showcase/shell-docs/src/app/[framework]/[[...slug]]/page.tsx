@@ -104,7 +104,7 @@ function isFrontendRootSlug(slugPath: string): boolean {
 }
 
 function reactRootPath(slugPath: string): string {
-  return slugPath ? `/${slugPath}` : "/";
+  return frontendPathForBackend("react", slugPath);
 }
 
 function scopedRoutePath(slugHrefPrefix: string, slugPath: string): string {

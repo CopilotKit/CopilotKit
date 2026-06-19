@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { isFrontendId } from "@/lib/frontend-options";
+import { frontendPathForBackend, isFrontendId } from "@/lib/frontend-options";
 import { loadDoc } from "@/lib/docs-render";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import { buildDocMetadata } from "@/lib/seo-metadata";
@@ -53,7 +53,9 @@ export default async function FrontendDocPage({
   const { frontend } = resolvedParams;
   if (!isFrontendId(frontend)) notFound();
   const slugPath = slugPathFromParams(resolvedParams);
-  if (frontend === "react") redirect(slugPath ? `/${slugPath}` : "/");
+  if (frontend === "react") {
+    redirect(frontendPathForBackend("react", slugPath));
+  }
 
   if (slugPath === "quickstart") redirect(`/${frontend}`);
   if (slugPath === "using-these-docs") {

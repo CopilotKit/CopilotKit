@@ -32,6 +32,12 @@ describe("FrameworkRootShell layout", () => {
     );
   });
 
+  it("canonicalizes React guidance routes to the React root", () => {
+    expect(pageSource).toContain(
+      'return frontendPathForBackend("react", slugPath);',
+    );
+  });
+
   it("renders backend docs when a frontend route includes a backend slug", () => {
     expect(pageSource).toContain("scopedFramework = activeBackendFramework");
     expect(pageSource).toContain("scopedSlugHrefPrefix = frontendRoutePath(");
