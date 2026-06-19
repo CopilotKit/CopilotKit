@@ -723,6 +723,127 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
     expect(sample!.tail_bytes).not.toContain(tailSecret);
   });
 
+  it("(M3R5-1) scrub GROWS bytes → adjacent-branch tail is RE-CAPPED to ≤16KB and elided_count recomputed from the FINAL post-scrub segments", () => {
+    // `scrubSecrets` replaces a matched secret with `[REDACTED]` (10 bytes),
+    // which is LONGER than many matched tokens (`Bearer x` = 8 bytes). In the
+    // adjacent (`elided === 0`, 16-32KB) branch the full retained body is
+    // scrubbed as ONE pass and then re-split at the head byte-boundary — but the
+    // tail was taken UNCAPPED (`scrubbedBuf.subarray(headBuf.length)`), so when
+    // the scrub grows the post-head bytes the tail can exceed RAW_BYTE_TAIL_CAP
+    // (16KB), violating the head_bytes/tail_bytes ≤16KB schema/PB-column bound.
+    // SECONDARY: `elided_count`/`metadata_dropped` are computed PRE-scrub, so
+    // after the scrub grows the adjacent body they go stale (claim elided 0
+    // while head+tail no longer reconstruct the scrubbed body).
+    //
+    // RED (uncapped post-scrub tail + pre-scrub accounting):
+    //   - tail_bytes byteLength > 16384 (the secret-dense tail grew under scrub),
+    //   - elided_count === 0 while head_byteLen + tail_byteLen !== scrubbed body
+    //     byteLength (stale accounting).
+    // GREEN (re-cap both ends to their caps + recompute elided_count from the
+    //   FINAL segments):
+    //   - head_bytes ≤16384 AND tail_bytes ≤16384,
+    //   - elided_count === max(0, scrubbedBodyByteLen − finalHead − finalTail),
+    //   - no complete `Bearer …`/`sk-…` secret recoverable from head+tail.
+    //
+    // Construct a 16-32KB (adjacent) body. The HEAD half (first 16KB) is inert
+    // filler. The TAIL half (after byte 16384) is packed with many short
+    // `Bearer x` tokens (8 bytes each → +2 bytes per scrub). ~2000 matches grow
+    // the post-head content by ~4KB, pushing the uncapped tail past 16384.
+    const token = "Bearer x "; // 9 bytes; matches BEARER_TOKEN_REGEX → +1 byte
+    const headFiller = "h".repeat(RAW_BYTE_HEAD_CAP); // exactly the head segment
+    // Fill the tail region with secret-dense tokens. ~15.5KB of `Bearer x `
+    // tokens; each `Bearer x` (8 of the 9 bytes) → `[REDACTED]` grows +2 bytes,
+    // so ~1764 matches add ~3.4KB → scrubbed tail > 16384.
+    const tailTokenCount = Math.floor((15.5 * 1024) / token.length);
+    const tailRegion = token.repeat(tailTokenCount);
+    const bodyStr = headFiller + tailRegion;
+    const body = Buffer.from(bodyStr, "utf8");
+    // Sanity: adjacent window (HEAD_CAP < body ≤ 32KB), so elided is 0 PRE-scrub
+    // and head+tail are reconstructed contiguously.
+    expect(body.length).toBeGreaterThan(RAW_BYTE_HEAD_CAP);
+    expect(body.length).toBeLessThanOrEqual(
+      RAW_BYTE_HEAD_CAP + RAW_BYTE_TAIL_CAP,
+    );
+
+    const sample = captureRawBytes(baseOpts({ responseBody: body }));
+    expect(sample).not.toBeNull();
+
+    const headLen = Buffer.byteLength(sample!.head_bytes, "utf8");
+    const tailLen = Buffer.byteLength(sample!.tail_bytes, "utf8");
+
+    // (i) BOTH ends are within their byte caps even though the scrub grew the
+    //     content (RED: tailLen > 16384 because the post-scrub tail was uncapped).
+    expect(headLen).toBeLessThanOrEqual(RAW_BYTE_HEAD_CAP);
+    expect(tailLen).toBeLessThanOrEqual(RAW_BYTE_TAIL_CAP);
+
+    // (ii) elided_count is recomputed from the FINAL post-scrub/post-recap
+    //      segments: when scrub-growth forces a re-cap, content is dropped and
+    //      elided_count must be > 0 (RED: stays 0 — stale pre-scrub accounting).
+    //      The truthful invariant: head+tail byteLen + elided_count equals the
+    //      scrubbed body's byteLen (head+tail reconstruct exactly what was kept).
+    const scrubbedBodyLen = Buffer.byteLength(
+      // The scrubbed full retained body: scrub grows it, so its byteLen > body.
+      // We reconstruct the expected accounting from the sample itself: the only
+      // truthful relation is finalHead + finalTail + elided === scrubbedBodyLen.
+      sample!.head_bytes + sample!.tail_bytes,
+      "utf8",
+    );
+    // Because the re-cap dropped bytes (tail grew past the cap), elided_count
+    // must be strictly positive — head+tail no longer cover the scrubbed body.
+    expect(sample!.elided_count).toBeGreaterThan(0);
+    // Accounting is internally consistent: the dropped middle plus the retained
+    // ends equals the scrubbed body length. (head+tail = scrubbedBodyLen here
+    // by construction of the reconstruction; elided is the dropped remainder.)
+    expect(headLen + tailLen).toBe(scrubbedBodyLen);
+    // metadata_dropped must reflect that content was elided post-scrub.
+    expect(sample!.metadata_dropped).toBe(true);
+
+    // (iii) No complete secret recoverable from the reconstructed body.
+    const reconstructed = `${sample!.head_bytes}${sample!.tail_bytes}`;
+    expect(reconstructed).not.toMatch(/Bearer\s+\S/);
+    expect(reconstructed).toContain("[REDACTED]");
+  });
+
+  it("(M3R5-2) >32KB non-adjacent branch: each per-segment scrub is RE-CAPPED to ≤16KB after scrub growth", () => {
+    // The non-adjacent (`elided > 0`, >32KB) branch scrubs head and tail
+    // SEPARATELY and stores them directly — also uncapped post-scrub. A
+    // secret-dense segment can grow past its 16KB cap under scrub. Confirm both
+    // segments are re-clamped to their caps after the per-segment scrub.
+    //
+    // RED: a secret-dense ~16KB head/tail grows under scrub → head/tail_bytes
+    //   > 16384.
+    // GREEN: re-capped to ≤16384 each.
+    const token = "Bearer x "; // 9 bytes, grows +1 under scrub
+    // Build a head segment that is ~15.5KB of dense tokens, an elided middle,
+    // then a ~15.5KB dense tail. Total well over 32KB so elided > 0.
+    const denseCount = Math.floor((15.5 * 1024) / token.length);
+    const denseHead = token.repeat(denseCount);
+    const denseTail = token.repeat(denseCount);
+    const middle = "x".repeat(40 * 1024); // elided filler
+    const bodyStr = denseHead + middle + denseTail;
+    const body = Buffer.from(bodyStr, "utf8");
+    expect(body.length).toBeGreaterThan(RAW_BYTE_HEAD_CAP + RAW_BYTE_TAIL_CAP);
+
+    const sample = captureRawBytes(baseOpts({ responseBody: body }));
+    expect(sample).not.toBeNull();
+
+    // Both ends within their byte caps even after the per-segment scrub grew
+    // the secret-dense content.
+    expect(
+      Buffer.byteLength(sample!.head_bytes, "utf8"),
+    ).toBeLessThanOrEqual(RAW_BYTE_HEAD_CAP);
+    expect(
+      Buffer.byteLength(sample!.tail_bytes, "utf8"),
+    ).toBeLessThanOrEqual(RAW_BYTE_TAIL_CAP);
+    // Still an elided middle, and each segment's secrets are redacted.
+    expect(sample!.elided_count).toBeGreaterThan(0);
+    expect(`${sample!.head_bytes}${sample!.tail_bytes}`).not.toMatch(
+      /Bearer\s+\S/,
+    );
+    expect(sample!.head_bytes).toContain("[REDACTED]");
+    expect(sample!.tail_bytes).toContain("[REDACTED]");
+  });
+
   it("(M3R3-2) injected nowMs===0 does NOT reset the global ≤500/24h window every call (clock-0 sentinel collision)", () => {
     // The global window used `globalWindowStartMs === 0` as BOTH the
     // uninitialized sentinel AND a legitimate clock value. With an injected

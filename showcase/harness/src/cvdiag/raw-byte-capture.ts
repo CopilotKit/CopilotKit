@@ -564,30 +564,98 @@ export function captureRawBytes(
     //    tail are NON-adjacent — an elided middle separates them, they cannot be
     //    reconstructed into a contiguous body, so a per-segment scrub is correct
     //    (and there is no contiguous seam to straddle).
+    //
+    //    RE-CAP AFTER SCRUB (M3 CR R5): `scrubSecrets` GROWS the byte count —
+    //    `[REDACTED]` (10 bytes) is longer than many matched tokens (`Bearer x`
+    //    = 8 bytes, short `sk-…` keys), so a secret-dense segment can exceed its
+    //    16KB cap AFTER scrub even though it was ≤16KB before. Storing an
+    //    uncapped post-scrub segment violates the head_bytes/tail_bytes ≤16KB
+    //    schema/PB-column bound (PB truncation/reject). So after the full-body
+    //    (adjacent) or per-segment (non-adjacent) scrub, RE-CLAMP both ends to
+    //    their byte caps on whole-code-point edges. This is terminal/safe: the
+    //    content is FULLY scrubbed before the re-cap, so re-clamping cannot
+    //    expose a new unredacted seam-straddling secret. The accounting
+    //    (`elided_count` / `metadata_dropped`) is then RECOMPUTED from the
+    //    FINAL post-scrub/post-recap segments so it never goes stale (the
+    //    pre-scrub `elided` could claim 0 while scrub-growth + re-cap actually
+    //    dropped bytes from the retained ends).
     let head: string;
     let tail: string;
+    // `scrubbedBodyBytes` is the total byte length of the SCRUBBED retained
+    // content (head + any elided middle + tail) — used below to RECOMPUTE
+    // `elided_count` from the FINAL segments so the accounting never goes stale
+    // when scrub-growth + the re-cap drop bytes from a retained end.
+    let scrubbedBodyBytes: number;
     if (rawTail === "") {
-      // Single retained segment (body ≤ HEAD_CAP): scrub it directly.
-      head = scrubSecrets(rawHead, rawHead.length);
+      // Single retained segment (body ≤ HEAD_CAP): scrub then re-cap to ≤16KB.
+      const scrubbedBuf = Buffer.from(
+        scrubSecrets(rawHead, rawHead.length),
+        "utf8",
+      );
+      head = utf8PrefixWithinBytes(scrubbedBuf, RAW_BYTE_HEAD_CAP).toString(
+        "utf8",
+      );
       tail = "";
+      scrubbedBodyBytes = scrubbedBuf.length;
     } else if (elided === 0) {
       // Adjacent head+tail (HEAD_CAP < body ≤ 32KB): scrub the contiguous
       // retained body as one pass so a seam-straddling secret is redacted, then
-      // re-split at the ORIGINAL head byte-length (the scrub replaces matches
-      // with the SAME `[REDACTED]` token but can change byte offsets, so split
-      // on the scrubbed buffer's own head-prefix length rather than the raw
-      // head length to keep the head ≤ HEAD_CAP and never split a code point).
-      const scrubbed = scrubSecrets(rawHead + rawTail, rawHead.length + rawTail.length);
-      const scrubbedBuf = Buffer.from(scrubbed, "utf8");
+      // re-split. The scrub GROWS bytes (`[REDACTED]` is longer than many
+      // tokens), so take the head as the first ≤HEAD_CAP prefix AND re-clamp the
+      // remainder to ≤TAIL_CAP — the post-head bytes can otherwise exceed
+      // TAIL_CAP. Both ends are code-point-aligned by the utf8*WithinBytes
+      // helpers, so no multibyte char is split.
+      const scrubbedBuf = Buffer.from(
+        scrubSecrets(rawHead + rawTail, rawHead.length + rawTail.length),
+        "utf8",
+      );
       const headBuf = utf8PrefixWithinBytes(scrubbedBuf, RAW_BYTE_HEAD_CAP);
+      const tailBuf = utf8SuffixWithinBytes(
+        scrubbedBuf.subarray(headBuf.length),
+        RAW_BYTE_TAIL_CAP,
+      );
       head = headBuf.toString("utf8");
-      tail = scrubbedBuf.subarray(headBuf.length).toString("utf8");
+      tail = tailBuf.toString("utf8");
+      scrubbedBodyBytes = scrubbedBuf.length;
     } else {
-      // Non-adjacent head+tail (>32KB, elided middle): per-segment scrub.
-      head = scrubSecrets(rawHead, rawHead.length);
-      tail = scrubSecrets(rawTail, rawTail.length);
+      // Non-adjacent head+tail (>32KB, elided middle): per-segment scrub, then
+      // re-cap each segment to its byte cap (scrub-growth can push a dense
+      // segment past 16KB).
+      const scrubbedHeadBuf = Buffer.from(
+        scrubSecrets(rawHead, rawHead.length),
+        "utf8",
+      );
+      const scrubbedTailBuf = Buffer.from(
+        scrubSecrets(rawTail, rawTail.length),
+        "utf8",
+      );
+      head = utf8PrefixWithinBytes(scrubbedHeadBuf, RAW_BYTE_HEAD_CAP).toString(
+        "utf8",
+      );
+      tail = utf8SuffixWithinBytes(scrubbedTailBuf, RAW_BYTE_TAIL_CAP).toString(
+        "utf8",
+      );
+      // The scrubbed retained content is the two scrubbed segments PLUS the
+      // pre-scrub `elided` middle (which is never retained and never scrubbed,
+      // so its raw byte count is the truthful contribution to the dropped span).
+      scrubbedBodyBytes = scrubbedHeadBuf.length + elided + scrubbedTailBuf.length;
     }
     applied.push("scrub");
+
+    // RECOMPUTE accounting from the FINAL post-scrub/post-recap segments. The
+    // pre-scrub `elided` was computed against the raw (un-grown) body; scrub
+    // growth + the re-cap above can drop ADDITIONAL bytes from the retained
+    // ends, so the truthful elided count is the scrubbed-body byte length minus
+    // the two FINAL retained segments. `metadata_dropped` stays true if a
+    // decode/strip step set it earlier, OR is raised here when bytes were
+    // elided from the (post-scrub) middle.
+    const finalElided = Math.max(
+      0,
+      scrubbedBodyBytes -
+        Buffer.byteLength(head, "utf8") -
+        Buffer.byteLength(tail, "utf8"),
+    );
+    if (finalElided > 0) metadataDropped = true;
 
     return {
       test_id: opts.testId,
@@ -596,7 +664,7 @@ export function captureRawBytes(
       pipeline_applied: applied,
       head_bytes: head,
       tail_bytes: tail,
-      elided_count: elided,
+      elided_count: finalElided,
       metadata_dropped: metadataDropped,
     };
   } catch {
