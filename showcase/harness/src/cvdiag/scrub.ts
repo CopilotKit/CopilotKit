@@ -90,19 +90,31 @@ export const SCRUB_MAX_NODES = 10_000;
  * §6). Applied to metadata values that may carry user/provider strings (e.g.
  * `backend.error.caught.message_scrubbed`). Returns the scrubbed string.
  *
- * P2 (spec §3.2.4): a value longer than `SCRUB_MAX_SCAN_LEN` NEVER reaches a
- * regex — only the bounded prefix is scanned, and a self-describing
- * `…[unscanned:<N>]` marker records the dropped tail length (`N` is a char
- * count). With a bounded input and the three LINEAR regexes above, ReDoS is
- * impossible by construction (bounded length × linear regex = O(constant)
- * worst case). The marker is appended AFTER scrubbing so it can never be
- * mistaken for scrubbed content; callers that re-clamp by byte size (the §7
- * byte-cap) handle the slightly-longer string transparently.
+ * P2 (spec §3.2.4): a value longer than `maxScanLen` NEVER reaches a regex —
+ * only the bounded prefix is scanned, and a self-describing `…[unscanned:<N>]`
+ * marker records the dropped tail length (`N` is a char count). With a bounded
+ * input and the three LINEAR regexes above, ReDoS is impossible by construction
+ * (bounded length × linear regex = O(constant) worst case). The marker is
+ * appended AFTER scrubbing so it can never be mistaken for scrubbed content;
+ * callers that re-clamp by byte size (the §7 byte-cap) handle the
+ * slightly-longer string transparently.
+ *
+ * `maxScanLen` defaults to `SCRUB_MAX_SCAN_LEN` (2 KB) — the correct bound for
+ * the DEFAULT-tier metadata hot path (legit values ≤512 B). The DEBUG-tier
+ * raw-byte pipeline (`raw-byte-capture.ts`) legitimately scrubs a much larger
+ * decoded wire body and passes its OWN head+tail-derived bound, so the 2 KB
+ * metadata guard does not destructively truncate the body before its head+tail
+ * cap runs. The linearity of the three regexes makes the larger raw-byte bound
+ * just as ReDoS-safe — the metadata default is a hot-path latency budget, not a
+ * correctness requirement.
  */
-export function scrubSecrets(value: string): string {
-  if (value.length > SCRUB_MAX_SCAN_LEN) {
-    const droppedTail = value.length - SCRUB_MAX_SCAN_LEN;
-    const scanned = value.slice(0, SCRUB_MAX_SCAN_LEN);
+export function scrubSecrets(
+  value: string,
+  maxScanLen: number = SCRUB_MAX_SCAN_LEN,
+): string {
+  if (value.length > maxScanLen) {
+    const droppedTail = value.length - maxScanLen;
+    const scanned = value.slice(0, maxScanLen);
     return `${runScrubRegexes(scanned)}…[unscanned:${droppedTail}]`;
   }
   return runScrubRegexes(value);

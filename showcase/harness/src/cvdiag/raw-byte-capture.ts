@@ -44,6 +44,17 @@ import { scrubSecrets } from "./edge-headers.js";
 export const RAW_BYTE_HEAD_CAP = 16 * 1024;
 export const RAW_BYTE_TAIL_CAP = 16 * 1024;
 
+/**
+ * Scrub scan budget for the DEBUG-tier raw-byte body. The 2 KB metadata default
+ * (`SCRUB_MAX_SCAN_LEN`) is a hot-path latency budget for tiny metadata values;
+ * it would destructively truncate this pipeline's legitimately-large decoded
+ * wire body to ~2 KB BEFORE `headTailCap` runs, zeroing `elided_count`. The
+ * raw-byte pipeline has its OWN size bound — the head+tail cap (≤32 KB) — so it
+ * passes that bound as the scrub scan budget: the whole retained sample is
+ * scanned (no secret in the kept head/tail escapes), and ReDoS stays impossible
+ * because the three scrub regexes are linear at any bounded length. */
+export const RAW_BYTE_SCAN_MAX = RAW_BYTE_HEAD_CAP + RAW_BYTE_TAIL_CAP;
+
 /** Storage budget: ≤500 captures total per 24h, ring-buffer beyond (R2-NF3). */
 export const RAW_BYTE_MAX_CAPTURES_PER_24H = 500;
 
@@ -313,8 +324,11 @@ export function captureRawBytes(
     if (decodeApplied) applied.push("decode");
     let text = decoded.toString("utf8");
 
-    // 2. SCRUB known secret patterns on the DECODED text.
-    text = scrubSecrets(text);
+    // 2. SCRUB known secret patterns on the DECODED text. Pass the raw-byte
+    //    pipeline's OWN scan budget (head+tail cap), not the 2KB metadata
+    //    default — otherwise the metadata guard would truncate the body before
+    //    headTailCap and zero out `elided_count` for a >32KB body.
+    text = scrubSecrets(text, RAW_BYTE_SCAN_MAX);
     applied.push("scrub");
 
     // 3. HTML-STRIP if this is an HTML (challenge) page.

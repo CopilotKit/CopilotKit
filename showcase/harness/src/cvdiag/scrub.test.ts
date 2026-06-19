@@ -161,6 +161,18 @@ describe("cvdiag scrub — ReDoS / size guard (spec §6.2)", () => {
     expect(out).toContain(SCRUB_REPLACEMENT);
     expect(out).toContain("…[unscanned:");
   });
+
+  it("default param still enforces the 2KB metadata guard; an explicit larger cap does NOT truncate", () => {
+    const big = "x".repeat(5000);
+    // DEFAULT param (metadata hot path): the 2KB guard still fires.
+    const metaOut = scrubSecrets(big);
+    expect(metaOut).toContain(`…[unscanned:${5000 - SCRUB_MAX_SCAN_LEN}]`);
+    expect(metaOut.length).toBeLessThan(big.length);
+    // EXPLICIT larger cap (the raw-byte pipeline's own budget): no truncation.
+    const rawOut = scrubSecrets(big, 32768);
+    expect(rawOut).not.toContain("…[unscanned:");
+    expect(rawOut).toBe(big); // no secret present → returned verbatim, full length
+  });
 });
 
 describe("cvdiag scrubDeep — fresh copy, never mutates caller (spec §6.4 / P3)", () => {
