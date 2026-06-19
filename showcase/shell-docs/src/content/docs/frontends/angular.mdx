@@ -1,0 +1,143 @@
+---
+title: Angular
+description: Connect an Angular app to an AG-UI agent with CopilotKit.
+icon: "lucide/Triangle"
+hideTOC: true
+---
+
+`@copilotkit/angular` provides Angular components, directives, and services for CopilotKit. This guide gets you to a working Angular app with a chat UI talking to an [AG-UI](/backend/ag-ui) agent.
+
+It connects to the agent directly with `HttpAgent`, so there's no CopilotKit runtime to stand up and nothing framework-specific to configure. The same setup works with any AG-UI-compatible agent, whether it's built on LangGraph, CrewAI, Mastra, Pydantic AI, or your own server.
+
+## Prerequisites
+
+- A running AG-UI-compatible agent endpoint. If you don't have one yet, pick a framework under [Integrations](/integrations/langgraph) and follow its agent setup.
+- Angular 19, 20, or 21 (Angular 22 is not supported yet)
+- Node.js 20+
+
+## Getting started
+
+<Steps>
+    <Step>
+        ### Create your Angular app
+
+        If you don't have one already. The package supports Angular up to 21, so pin the CLI to a supported major rather than `@latest`:
+
+        ```bash
+        npx @angular/cli@21 new my-copilot-app
+        cd my-copilot-app
+        ```
+    </Step>
+    <Step>
+        ### Install CopilotKit
+
+        Install the Angular package alongside its `@angular/cdk` and `@ag-ui/client` peers:
+
+        <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
+            <Tab value="npm">
+                ```bash
+                npm install @copilotkit/angular @angular/cdk @ag-ui/client
+                ```
+            </Tab>
+            <Tab value="pnpm">
+                ```bash
+                pnpm add @copilotkit/angular @angular/cdk @ag-ui/client
+                ```
+            </Tab>
+            <Tab value="yarn">
+                ```bash
+                yarn add @copilotkit/angular @angular/cdk @ag-ui/client
+                ```
+            </Tab>
+        </Tabs>
+
+        <Callout type="info" title="Match @angular/cdk to your Angular version">
+          `@angular/cdk` must share your Angular major version. Most package managers resolve this for you, but if you hit a peer-dependency error, pin it explicitly (for example `@angular/cdk@^21`).
+        </Callout>
+    </Step>
+    <Step>
+        ### Import the styles
+
+        Add the package stylesheet to your global styles. It's self-contained, so the chat renders without any other CSS.
+
+        ```css title="src/styles.css"
+        @import "@copilotkit/angular/styles.css"; /* [!code highlight] */
+        ```
+    </Step>
+    <Step>
+        ### Connect to your agent
+
+        Register an `HttpAgent` pointing at your agent endpoint under the id `default`, so the chat picks it up automatically.
+
+        ```ts title="src/app/app.config.ts"
+        import { ApplicationConfig } from "@angular/core";
+        import { provideCopilotKit } from "@copilotkit/angular"; // [!code highlight]
+        import { HttpAgent } from "@ag-ui/client"; // [!code highlight]
+
+        export const appConfig: ApplicationConfig = {
+          providers: [
+            // [!code highlight:6]
+            provideCopilotKit({
+              selfManagedAgents: {
+                // Point this at your AG-UI-compatible agent endpoint
+                default: new HttpAgent({ url: "http://localhost:8000/" }),
+              },
+            }),
+          ],
+        };
+        ```
+    </Step>
+    <Step>
+        ### Add the chat UI
+
+        Import the `CopilotChat` component into your root component and drop it into the template.
+
+        ```ts title="src/app/app.ts"
+        import { Component } from "@angular/core";
+        import { CopilotChat } from "@copilotkit/angular"; // [!code highlight]
+
+        @Component({
+          selector: "app-root",
+          imports: [CopilotChat], // [!code highlight]
+          template: `
+            <!-- [!code highlight:3] -->
+            <div style="height: 100vh">
+              <copilot-chat />
+            </div>
+          `,
+        })
+        export class App {}
+        ```
+
+        <Callout type="info" title="Older Angular projects">
+          Angular 19 names the root component `app.component.ts` with class `AppComponent`. Add the same imports and template there.
+        </Callout>
+    </Step>
+    <Step>
+        ### Run the app
+
+        ```bash
+        npm start
+        ```
+
+        Open the dev server URL (the Angular CLI prints it, usually `http://localhost:4200`), send a message, and you'll see it stream back from your agent.
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - **Chat renders unstyled**: Make sure you imported `@copilotkit/angular/styles.css` in `src/styles.css`.
+                - **No response from the agent**: Confirm the `url` points at a reachable AG-UI endpoint and that the agent is running. Check the browser network tab for the request.
+                - **CORS errors**: A browser-direct connection needs the agent endpoint to allow your app's origin. Enable CORS on the agent, or put it behind the [CopilotKit runtime](/backend/copilot-runtime).
+                - **Peer-dependency error on install**: `@angular/cdk` must match your Angular major version. Install the matching major, for example `@angular/cdk@^21` on Angular 21.
+                - **Production build exceeds the bundle budget**: CopilotKit pulls in markdown and syntax-highlighting dependencies, so a fresh app can exceed Angular's default 1 MB budget. Raise `budgets` in `angular.json` if your production build fails on size.
+            </Accordion>
+        </Accordions>
+    </Step>
+</Steps>
+
+## Where to go next
+
+- [Self-managed agents](/backend/self-managed-agents): securing the connection, the dev-only registration variant, and combining with a runtime.
+- [Connect AG-UI agents](/backend/ag-ui): the `HttpAgent` interface and the AG-UI protocol.
+- [Integrations](/integrations/langgraph): set up the agent itself on LangGraph, CrewAI, Mastra, and other frameworks.
+
+For headless setups, custom UIs with `injectAgentStore`, and the full component list, see the [`@copilotkit/angular` README](https://github.com/CopilotKit/CopilotKit/tree/main/packages/angular).

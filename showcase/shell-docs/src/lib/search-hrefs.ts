@@ -2,7 +2,13 @@ import { frontendPathForBackend } from "@/lib/frontend-options";
 import type { FrontendId } from "@/lib/frontend-options";
 
 const ROOT_FRAMEWORK = "built-in-agent";
-const FRONTEND_IDS = new Set(["vue", "react-native", "slack", "teams"]);
+const FRONTEND_IDS = new Set([
+  "vue",
+  "react-native",
+  "angular",
+  "slack",
+  "teams",
+]);
 type FrontendPageId = Exclude<FrontendId, "react">;
 
 export function parseIntegrationDocsHref(
