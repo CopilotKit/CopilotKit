@@ -1,0 +1,125 @@
+---
+title: "provideCopilotChatLabels"
+description: "Angular provider that overrides the default text labels used by the CopilotKit chat components"
+---
+
+## Overview
+
+`provideCopilotChatLabels` returns an Angular [`Provider`](https://angular.dev/guide/di/dependency-injection-providers) that customizes the text labels used throughout the prebuilt chat components, such as the input placeholder, toolbar button labels, the disclaimer text, and the welcome message. You pass a partial set of labels and they are merged over the defaults, so you only override the strings you want to change.
+
+Add it to an application or component `providers` array. Components read the merged labels through [`injectChatLabels`](/reference/angular/functions/injectChatLabels). This mirrors React's chat label configuration via `useCopilotChatConfiguration`.
+
+The full set of defaults lives in `COPILOT_CHAT_DEFAULT_LABELS`. Any field you omit falls back to its default value.
+
+## Signature
+
+```ts
+import { provideCopilotChatLabels } from "@copilotkit/angular";
+import type { Provider } from "@angular/core";
+
+function provideCopilotChatLabels(
+  config: Partial<CopilotChatLabels>,
+): Provider;
+```
+
+## Parameters
+
+<PropertyReference name="config" type="Partial<CopilotChatLabels>" required>
+  A partial set of label overrides. Provided fields are merged over
+  `COPILOT_CHAT_DEFAULT_LABELS`; omitted fields keep their defaults.
+
+  <PropertyReference name="chatInputPlaceholder" type="string" default="Type a message...">
+    Placeholder text for the chat input.
+  </PropertyReference>
+  <PropertyReference name="chatInputToolbarStartTranscribeButtonLabel" type="string" default="Transcribe">
+    Label for the start-transcription button.
+  </PropertyReference>
+  <PropertyReference name="chatInputToolbarCancelTranscribeButtonLabel" type="string" default="Cancel">
+    Label for the cancel-transcription button.
+  </PropertyReference>
+  <PropertyReference name="chatInputToolbarFinishTranscribeButtonLabel" type="string" default="Finish">
+    Label for the finish-transcription button.
+  </PropertyReference>
+  <PropertyReference name="chatInputToolbarAddButtonLabel" type="string" default="Add photos or files">
+    Label for the add-attachment button.
+  </PropertyReference>
+  <PropertyReference name="chatInputToolbarToolsButtonLabel" type="string" default="Tools">
+    Label for the tools button.
+  </PropertyReference>
+  <PropertyReference name="assistantMessageToolbarCopyCodeLabel" type="string" default="Copy">
+    Label for the copy-code action on an assistant message.
+  </PropertyReference>
+  <PropertyReference name="assistantMessageToolbarCopyCodeCopiedLabel" type="string" default="Copied">
+    Label shown after code is copied from an assistant message.
+  </PropertyReference>
+  <PropertyReference name="assistantMessageToolbarCopyMessageLabel" type="string" default="Copy">
+    Label for the copy-message action on an assistant message.
+  </PropertyReference>
+  <PropertyReference name="assistantMessageToolbarThumbsUpLabel" type="string" default="Good response">
+    Label for the thumbs-up action.
+  </PropertyReference>
+  <PropertyReference name="assistantMessageToolbarThumbsDownLabel" type="string" default="Bad response">
+    Label for the thumbs-down action.
+  </PropertyReference>
+  <PropertyReference name="assistantMessageToolbarReadAloudLabel" type="string" default="Read aloud">
+    Label for the read-aloud action.
+  </PropertyReference>
+  <PropertyReference name="assistantMessageToolbarRegenerateLabel" type="string" default="Regenerate">
+    Label for the regenerate action.
+  </PropertyReference>
+  <PropertyReference name="userMessageToolbarCopyMessageLabel" type="string" default="Copy">
+    Label for the copy-message action on a user message.
+  </PropertyReference>
+  <PropertyReference name="userMessageToolbarEditMessageLabel" type="string" default="Edit">
+    Label for the edit-message action on a user message.
+  </PropertyReference>
+  <PropertyReference name="chatDisclaimerText" type="string" default="AI can make mistakes. Please verify important information.">
+    Disclaimer text shown beneath the chat.
+  </PropertyReference>
+  <PropertyReference name="welcomeMessageText" type="string" default="How can I help you today?">
+    The welcome message shown before the conversation starts.
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+Returns an Angular `Provider` that binds the merged labels to the `COPILOT_CHAT_LABELS` injection token.
+
+## Usage
+
+Override a few labels in your application config. Everything you do not list keeps its default.
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import {
+  provideCopilotKit,
+  provideCopilotChatLabels,
+} from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({ runtimeUrl: "/api/copilotkit" }),
+    provideCopilotChatLabels({
+      chatInputPlaceholder: "Ask me anything...",
+      welcomeMessageText: "Welcome! What can I help you build?",
+    }),
+  ],
+};
+```
+
+You can also scope labels to part of your app by adding the provider to a feature component's `providers` array instead of the application config.
+
+## Related
+
+<Cards>
+  <Card
+    title="injectChatLabels"
+    description="Read the merged chat labels from within an injection context."
+    href="/reference/angular/functions/injectChatLabels"
+  />
+  <Card
+    title="CopilotChat"
+    description="The prebuilt chat component whose text these labels customize."
+    href="/reference/angular/components/CopilotChat"
+  />
+</Cards>

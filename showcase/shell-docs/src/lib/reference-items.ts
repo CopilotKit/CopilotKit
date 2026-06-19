@@ -31,6 +31,7 @@ export const REFERENCE_VERSIONS = [
   "v1",
   "react-native",
   "vue",
+  "angular",
   "core",
   "bot",
 ] as const;
@@ -43,6 +44,8 @@ export const REFERENCE_CATEGORIES = [
   "Components",
   "Hooks",
   "Functions",
+  "Services",
+  "Directives",
   "Classes",
   "Types",
   "Enums",
@@ -56,6 +59,8 @@ type ReferenceSubdir =
   | "components"
   | "hooks"
   | "functions"
+  | "services"
+  | "directives"
   | "classes"
   | "types"
   | "enums"
@@ -68,6 +73,7 @@ const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
   v1: ["components", "hooks", "classes", "sdk"],
   "react-native": ["components", "hooks"],
   vue: ["components", "hooks"],
+  angular: ["components", "functions", "services", "directives"],
   core: ["classes", "types", "enums"],
   bot: ["components", "functions", "classes", "types", "slack", "discord"],
 };
@@ -76,6 +82,8 @@ const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
   components: "Components",
   hooks: "Hooks",
   functions: "Functions",
+  services: "Services",
+  directives: "Directives",
   classes: "Classes",
   types: "Types",
   enums: "Enums",
