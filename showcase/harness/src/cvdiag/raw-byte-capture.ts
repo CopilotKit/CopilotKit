@@ -638,7 +638,8 @@ export function captureRawBytes(
       // The scrubbed retained content is the two scrubbed segments PLUS the
       // pre-scrub `elided` middle (which is never retained and never scrubbed,
       // so its raw byte count is the truthful contribution to the dropped span).
-      scrubbedBodyBytes = scrubbedHeadBuf.length + elided + scrubbedTailBuf.length;
+      scrubbedBodyBytes =
+        scrubbedHeadBuf.length + elided + scrubbedTailBuf.length;
     }
     applied.push("scrub");
 

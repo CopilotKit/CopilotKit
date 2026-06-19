@@ -610,7 +610,11 @@ class CvdiagBackendMiddleware(BaseHTTPMiddleware):
                 terminated_kind = (
                     "rst"
                     if isinstance(exc, (GeneratorExit,))
-                    else ("timeout" if isinstance(exc, asyncio.CancelledError) else "chunk_error")
+                    else (
+                        "timeout"
+                        if isinstance(exc, asyncio.CancelledError)
+                        else "chunk_error"
+                    )
                 )
                 raise
             finally:

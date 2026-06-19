@@ -70,12 +70,16 @@ describe("parseAbRecords — collector-JSON glue", () => {
     // RED (old requireString accepts ""): empty ab_pair_id groups unrelated
     // rows into one bogus pair → fabricated edge-only-failure verdict.
     const bad = JSON.stringify([{ ...EDGE, ab_pair_id: "" }]);
-    expect(() => parseAbRecords(bad)).toThrow(/ab_pair_id" must be a non-empty/);
+    expect(() => parseAbRecords(bad)).toThrow(
+      /ab_pair_id" must be a non-empty/,
+    );
   });
 
   it("rejects a whitespace-only ab_pair_id", () => {
     const bad = JSON.stringify([{ ...EDGE, ab_pair_id: "   " }]);
-    expect(() => parseAbRecords(bad)).toThrow(/ab_pair_id" must be a non-empty/);
+    expect(() => parseAbRecords(bad)).toThrow(
+      /ab_pair_id" must be a non-empty/,
+    );
   });
 
   it("rejects an empty test_id", () => {

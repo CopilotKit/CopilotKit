@@ -155,7 +155,9 @@ describe("CvdiagEmitter emit cost", () => {
           );
         }
         if (breaches.length > 0) {
-          throw new Error(`[cvdiag-perf] emit cost regressed: ${breaches.join("; ")}`);
+          throw new Error(
+            `[cvdiag-perf] emit cost regressed: ${breaches.join("; ")}`,
+          );
         }
       },
     },

@@ -38,7 +38,9 @@ function makeCapturingEmitter(): {
 }
 
 /** A handler that returns a small SSE-ish streamed body. */
-function streamingHandler(chunks: string[]): (req: Request) => Promise<Response> {
+function streamingHandler(
+  chunks: string[],
+): (req: Request) => Promise<Response> {
   return async () => {
     const encoder = new TextEncoder();
     const body = new ReadableStream<Uint8Array>({
@@ -143,10 +145,10 @@ describe("L1-E withCvdiagBackend: 11 backend boundaries", () => {
 
   it("emits monotonic sequence_num on backend.sse.event", async () => {
     const { emitter, captured } = makeCapturingEmitter();
-    const wrapped = withCvdiagBackend(
-      streamingHandler(["x", "y", "z"]),
-      { ...OPTS, emitter },
-    );
+    const wrapped = withCvdiagBackend(streamingHandler(["x", "y", "z"]), {
+      ...OPTS,
+      emitter,
+    });
     await drain(await wrapped(makeRequest()));
     await emitter.flush();
 
@@ -158,10 +160,10 @@ describe("L1-E withCvdiagBackend: 11 backend boundaries", () => {
 
   it("emits backend.sse.first_byte exactly once", async () => {
     const { emitter, captured } = makeCapturingEmitter();
-    const wrapped = withCvdiagBackend(
-      streamingHandler(["a", "b", "c"]),
-      { ...OPTS, emitter },
-    );
+    const wrapped = withCvdiagBackend(streamingHandler(["a", "b", "c"]), {
+      ...OPTS,
+      emitter,
+    });
     await drain(await wrapped(makeRequest()));
     await emitter.flush();
 

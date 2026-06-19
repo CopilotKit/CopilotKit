@@ -98,7 +98,9 @@ def _coerce_test_id(raw: Optional[str]) -> str:
     deterministic-shape UUIDv7 so the envelope still validates — but the
     propagation gate measures the *inbound* presence, not this fallback.
     """
-    from _shared.cvdiag_schema import TEST_ID_PATTERN  # local import: cheap, avoids cycle
+    from _shared.cvdiag_schema import (
+        TEST_ID_PATTERN,
+    )  # local import: cheap, avoids cycle
     import re
 
     if isinstance(raw, str) and re.match(TEST_ID_PATTERN, raw):
@@ -200,9 +202,7 @@ class CvdiagBackendRun:
         # inbound x-diag-run-id breadcrumb so probe/backend rows join; fall back
         # to a synthesized id.
         self._trace_id = (
-            headers.get("x-diag-run-id")
-            or headers.get("x-test-id")
-            or uuid.uuid4().hex
+            headers.get("x-diag-run-id") or headers.get("x-test-id") or uuid.uuid4().hex
         )
         self._ingress_mono = _mono_ns()
         self._first_byte_emitted = False
@@ -219,7 +219,9 @@ class CvdiagBackendRun:
             tier_gate=_VERBOSE_TIERS,
         )
 
-    def agent_enter(self, agent_name: Optional[str] = None, model_id: Optional[str] = None) -> None:
+    def agent_enter(
+        self, agent_name: Optional[str] = None, model_id: Optional[str] = None
+    ) -> None:
         _emit(
             "backend.agent.enter",
             headers=self._headers,
@@ -227,7 +229,9 @@ class CvdiagBackendRun:
             metadata={"agent_name": agent_name, "model_id": model_id},
         )
 
-    def llm_call_start(self, provider: Optional[str] = None, model: Optional[str] = None) -> None:
+    def llm_call_start(
+        self, provider: Optional[str] = None, model: Optional[str] = None
+    ) -> None:
         _emit(
             "backend.llm.call.start",
             headers=self._headers,
@@ -276,7 +280,9 @@ class CvdiagBackendRun:
             tier_gate=_VERBOSE_TIERS,
         )
 
-    def sse_event(self, event_type: Optional[str] = None, payload_size_bytes: Optional[int] = None) -> None:
+    def sse_event(
+        self, event_type: Optional[str] = None, payload_size_bytes: Optional[int] = None
+    ) -> None:
         """Emit ``backend.sse.event`` (DEBUG tier — suppressed below debug)."""
         self._sse_seq += 1
         _emit(
@@ -291,7 +297,11 @@ class CvdiagBackendRun:
             tier_gate=_DEBUG_TIERS,
         )
 
-    def sse_aborted(self, termination_kind: Optional[str] = None, bytes_before_abort: Optional[int] = None) -> None:
+    def sse_aborted(
+        self,
+        termination_kind: Optional[str] = None,
+        bytes_before_abort: Optional[int] = None,
+    ) -> None:
         _emit(
             "backend.sse.aborted",
             headers=self._headers,
@@ -310,7 +320,10 @@ class CvdiagBackendRun:
             headers=self._headers,
             trace_id=self._trace_id,
             outcome="err" if terminal_outcome == "err" else "ok",
-            metadata={"terminal_outcome": terminal_outcome, "total_duration_ms": total_ms},
+            metadata={
+                "terminal_outcome": terminal_outcome,
+                "total_duration_ms": total_ms,
+            },
         )
 
     def response_complete(
@@ -327,7 +340,9 @@ class CvdiagBackendRun:
                 "http_status": http_status,
                 "content_length": None,
                 "total_duration_ms": total_ms,
-                "sse_event_count": sse_event_count if sse_event_count is not None else self._sse_seq,
+                "sse_event_count": sse_event_count
+                if sse_event_count is not None
+                else self._sse_seq,
             },
         )
 

@@ -223,7 +223,9 @@ class HeaderForwardingMiddleware(AgentMiddleware[AgentState, Any]):
             run.agent_exit(terminal_outcome="err")
             raise
         latency_ms = int((time.monotonic_ns() - start_ns) / 1_000_000)
-        run.llm_call_response(provider="langchain", model=model_name, latency_ms=latency_ms)
+        run.llm_call_response(
+            provider="langchain", model=model_name, latency_ms=latency_ms
+        )
         run.sse_first_byte()
         run.sse_event(event_type="response", payload_size_bytes=None)
         run.agent_exit(terminal_outcome="ok")
@@ -257,7 +259,9 @@ class HeaderForwardingMiddleware(AgentMiddleware[AgentState, Any]):
             raise
         await run.stop_heartbeat()
         latency_ms = int((time.monotonic_ns() - start_ns) / 1_000_000)
-        run.llm_call_response(provider="langchain", model=model_name, latency_ms=latency_ms)
+        run.llm_call_response(
+            provider="langchain", model=model_name, latency_ms=latency_ms
+        )
         run.sse_first_byte()
         run.sse_event(event_type="response", payload_size_bytes=None)
         run.agent_exit(terminal_outcome="ok")

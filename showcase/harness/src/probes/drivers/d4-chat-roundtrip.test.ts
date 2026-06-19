@@ -1137,7 +1137,7 @@ describe("d4 CVDIAG data-correctness (M3 CR R1)", () => {
       press: async () => {},
       waitForSelector: async () => {},
       textContent: async () => null,
-      evaluate: async <R,>() => "" as unknown as R,
+      evaluate: async <R>() => "" as unknown as R,
       close: async () => {},
       on(event: string, handler: (arg: unknown) => void) {
         handlers.set(event, handler);
@@ -1298,7 +1298,7 @@ describe("d4 CVDIAG observability fixes (M3 CR R3)", () => {
       press: async () => {},
       waitForSelector: async () => {},
       textContent: async () => null,
-      evaluate: async <R,>() => "" as unknown as R,
+      evaluate: async <R>() => "" as unknown as R,
       close: async () => {},
       on(event: string, handler: (arg: unknown) => void) {
         const list = handlers.get(event) ?? [];
@@ -1376,7 +1376,7 @@ describe("d4 CVDIAG observability fixes (M3 CR R3)", () => {
       press: async () => {},
       waitForSelector: async () => {},
       textContent: async () => null,
-      evaluate: async <R,>() => "" as unknown as R,
+      evaluate: async <R>() => "" as unknown as R,
       close: async () => {},
       on(event: string, handler: (arg: unknown) => void) {
         handlers.set(event, handler);
@@ -1480,9 +1480,7 @@ describe("d4 CVDIAG observability fixes (M3 CR R3)", () => {
       );
     }
     const reconstructed = Array.from({ length: N }, (_, i) => bySeq.get(i));
-    expect(reconstructed).toEqual(
-      Array.from({ length: N }, (_, i) => `E${i}`),
-    );
+    expect(reconstructed).toEqual(Array.from({ length: N }, (_, i) => `E${i}`));
   });
 
   // ── FIX C: probe.exit fires on the abort-before-start early-return path ────

@@ -500,7 +500,10 @@ const BASE_BARE = `http://127.0.0.1:${PORT_BARE}`;
 const BARE_ADMIN_EMAIL = "cvdiag-bare@test.local";
 const BARE_ADMIN_PASS = "cvdiagbarepass123";
 
-async function waitForHealthAt(base: string, timeoutMs = 15_000): Promise<void> {
+async function waitForHealthAt(
+  base: string,
+  timeoutMs = 15_000,
+): Promise<void> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
@@ -679,7 +682,8 @@ describe("cvdiag pb-writer — assertCollectionExists uses typed status (FIX 3)"
     // on statusCode === 404 → false.
     const err = new PbHttpError({
       statusCode: 404,
-      bodyText: '{"code":404,"message":"missing","data":{"hint":"was 401 earlier"}}',
+      bodyText:
+        '{"code":404,"message":"missing","data":{"hint":"was 401 earlier"}}',
       path: "/api/collections/cvdiag_events/records?perPage=1",
     });
     // Sanity: the old regex WOULD have matched this body → the bug it guards.

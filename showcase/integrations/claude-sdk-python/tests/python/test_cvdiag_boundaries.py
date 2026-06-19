@@ -195,7 +195,9 @@ def test_all_eleven_backend_boundaries_emit(monkeypatch, capsys):
     seen = _boundaries(envelopes)
 
     missing = ALL_BACKEND_BOUNDARIES - seen
-    assert not missing, f"missing backend boundaries: {sorted(missing)}; saw {sorted(seen)}"
+    assert not missing, (
+        f"missing backend boundaries: {sorted(missing)}; saw {sorted(seen)}"
+    )
 
     # Correlation: every backend envelope carries the slug. The header-bearing
     # HTTP requests forward x-test-id verbatim; the directly driven abort
@@ -215,8 +217,7 @@ def test_all_eleven_backend_boundaries_emit(monkeypatch, capsys):
     ingress = next(
         e
         for e in backend
-        if e["boundary"] == "backend.request.ingress"
-        and e["test_id"] == VALID_TEST_ID
+        if e["boundary"] == "backend.request.ingress" and e["test_id"] == VALID_TEST_ID
     )
     assert set(ingress["edge_headers"].keys()) == {
         "cf-ray",
@@ -270,7 +271,9 @@ def test_heartbeat_fires_within_window(monkeypatch, capsys):
     monkeypatch.setenv("CVDIAG_BACKEND_EMITTER", "1")
 
     async def run():
-        ctx = _RequestCtx(test_id=VALID_TEST_ID, slug="claude-sdk-python", demo="default")
+        ctx = _RequestCtx(
+            test_id=VALID_TEST_ID, slug="claude-sdk-python", demo="default"
+        )
         async with LlmCallScope(ctx, provider="openai", model="m", interval_s=0.05):
             await asyncio.sleep(0.18)  # ~3 heartbeat intervals
 

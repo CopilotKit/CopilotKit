@@ -101,7 +101,9 @@ describeMaybe("cvdiag emit→persist seam — live PocketBase", () => {
       { encoding: "utf8" },
     );
     if (admin.status !== 0) {
-      throw new Error(`pb admin create failed: ${admin.stderr || admin.stdout}`);
+      throw new Error(
+        `pb admin create failed: ${admin.stderr || admin.stdout}`,
+      );
     }
     pb = spawn(
       PB_BIN as string,

@@ -100,7 +100,9 @@ function contentLength(headers: Headers): number | null {
 }
 
 /** Snapshot the allow-listed edge headers off a header bag. */
-function edgeHeadersFrom(headers: Headers): ReturnType<typeof filterEdgeHeaders> {
+function edgeHeadersFrom(
+  headers: Headers,
+): ReturnType<typeof filterEdgeHeaders> {
   const bag: Record<string, string | null> = {};
   headers.forEach((value, key) => {
     bag[key] = value;
@@ -259,7 +261,10 @@ function briefStack(error: Error): Array<{ file: string; line: number }> {
     if (frames.length >= 8) break;
     const m = lineRe.exec(raw.trim());
     if (m) {
-      frames.push({ file: scrubSecrets(m[1]).slice(0, 256), line: Number(m[2]) });
+      frames.push({
+        file: scrubSecrets(m[1]).slice(0, 256),
+        line: Number(m[2]),
+      });
     }
   }
   return frames;

@@ -145,8 +145,18 @@ describe("ab-report — `info` is a non-failure (success-class) outcome", () => 
 describe("ab-report — slug/demo mis-correlation between arms", () => {
   it("surfaces a mismatch instead of silently picking one arm's identity", () => {
     const report = computeAbReport([
-      rec({ ab_pair_id: "x1", arm: "edge", slug: "langgraph-python", outcome: "ok" }),
-      rec({ ab_pair_id: "x1", arm: "internal", slug: "crewai-python", outcome: "ok" }),
+      rec({
+        ab_pair_id: "x1",
+        arm: "edge",
+        slug: "langgraph-python",
+        outcome: "ok",
+      }),
+      rec({
+        ab_pair_id: "x1",
+        arm: "internal",
+        slug: "crewai-python",
+        outcome: "ok",
+      }),
     ]);
     const pair = report.pairs[0]!;
     // RED (old): silently uses edge ?? internal → slug "langgraph-python",
@@ -164,8 +174,18 @@ describe("ab-report — slug/demo mis-correlation between arms", () => {
 
   it("detects a demo mismatch as well as a slug mismatch", () => {
     const report = computeAbReport([
-      rec({ ab_pair_id: "x2", arm: "edge", demo: "agentic-chat", outcome: "timeout" }),
-      rec({ ab_pair_id: "x2", arm: "internal", demo: "human-in-the-loop", outcome: "ok" }),
+      rec({
+        ab_pair_id: "x2",
+        arm: "edge",
+        demo: "agentic-chat",
+        outcome: "timeout",
+      }),
+      rec({
+        ab_pair_id: "x2",
+        arm: "internal",
+        demo: "human-in-the-loop",
+        outcome: "ok",
+      }),
     ]);
     const pair = report.pairs[0]!;
     // Even though edge=timeout/internal=ok would normally be edge-only-failure,
@@ -218,7 +238,12 @@ describe("ab-report — edge_interference_signal is consumed in the verdict", ()
 
   it("leaves the verdict unchanged when no interference signal is present", () => {
     const report = computeAbReport([
-      rec({ ab_pair_id: "s3", arm: "edge", outcome: "ok", edge_interference_signal: false }),
+      rec({
+        ab_pair_id: "s3",
+        arm: "edge",
+        outcome: "ok",
+        edge_interference_signal: false,
+      }),
       rec({ ab_pair_id: "s3", arm: "internal", outcome: "ok" }),
     ]);
     expect(report.pairs[0]!.divergence).toBe("agree");
@@ -232,8 +257,18 @@ describe("ab-report — edge_interference_signal is consumed in the verdict", ()
   // `edge_interference_signal` field still reflects EITHER arm.
   it("does NOT count interference from an internal-only signal (edge arm clean)", () => {
     const report = computeAbReport([
-      rec({ ab_pair_id: "n1", arm: "edge", outcome: "ok", edge_interference_signal: false }),
-      rec({ ab_pair_id: "n1", arm: "internal", outcome: "ok", edge_interference_signal: true }),
+      rec({
+        ab_pair_id: "n1",
+        arm: "edge",
+        outcome: "ok",
+        edge_interference_signal: false,
+      }),
+      rec({
+        ab_pair_id: "n1",
+        arm: "internal",
+        outcome: "ok",
+        edge_interference_signal: true,
+      }),
     ]);
     const pair = report.pairs[0]!;
     expect(pair.divergence).toBe("agree");
@@ -249,7 +284,12 @@ describe("ab-report — edge_interference_signal is consumed in the verdict", ()
   // counted.
   it("does NOT count an edge signal on a both-failed pair", () => {
     const report = computeAbReport([
-      rec({ ab_pair_id: "n2", arm: "edge", outcome: "err", edge_interference_signal: true }),
+      rec({
+        ab_pair_id: "n2",
+        arm: "edge",
+        outcome: "err",
+        edge_interference_signal: true,
+      }),
       rec({ ab_pair_id: "n2", arm: "internal", outcome: "timeout" }),
     ]);
     expect(report.pairs[0]!.divergence).toBe("both-failed");
@@ -259,7 +299,12 @@ describe("ab-report — edge_interference_signal is consumed in the verdict", ()
 
   it("does NOT count an edge signal on an incomplete pair (internal arm missing)", () => {
     const report = computeAbReport([
-      rec({ ab_pair_id: "n3", arm: "edge", outcome: "ok", edge_interference_signal: true }),
+      rec({
+        ab_pair_id: "n3",
+        arm: "edge",
+        outcome: "ok",
+        edge_interference_signal: true,
+      }),
     ]);
     expect(report.pairs[0]!.divergence).toBe("incomplete");
     // RED (old): edge signal counted on an incomplete pair → 1. GREEN: 0.
@@ -273,8 +318,20 @@ describe("ab-report — mis-correlated pair has no authoritative identity", () =
   // arm's identity"). The conflicting identities live in `correlation_mismatch`.
   it("does NOT stamp the edge arm's slug/demo into the authoritative top-level pair", () => {
     const report = computeAbReport([
-      rec({ ab_pair_id: "m1", arm: "edge", slug: "langgraph-python", demo: "agentic-chat", outcome: "ok" }),
-      rec({ ab_pair_id: "m1", arm: "internal", slug: "crewai-python", demo: "human-in-the-loop", outcome: "ok" }),
+      rec({
+        ab_pair_id: "m1",
+        arm: "edge",
+        slug: "langgraph-python",
+        demo: "agentic-chat",
+        outcome: "ok",
+      }),
+      rec({
+        ab_pair_id: "m1",
+        arm: "internal",
+        slug: "crewai-python",
+        demo: "human-in-the-loop",
+        outcome: "ok",
+      }),
     ]);
     const pair = report.pairs[0]!;
     expect(pair.mis_correlated).toBe(true);

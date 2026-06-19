@@ -829,12 +829,12 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
 
     // Both ends within their byte caps even after the per-segment scrub grew
     // the secret-dense content.
-    expect(
-      Buffer.byteLength(sample!.head_bytes, "utf8"),
-    ).toBeLessThanOrEqual(RAW_BYTE_HEAD_CAP);
-    expect(
-      Buffer.byteLength(sample!.tail_bytes, "utf8"),
-    ).toBeLessThanOrEqual(RAW_BYTE_TAIL_CAP);
+    expect(Buffer.byteLength(sample!.head_bytes, "utf8")).toBeLessThanOrEqual(
+      RAW_BYTE_HEAD_CAP,
+    );
+    expect(Buffer.byteLength(sample!.tail_bytes, "utf8")).toBeLessThanOrEqual(
+      RAW_BYTE_TAIL_CAP,
+    );
     // Still an elided middle, and each segment's secrets are redacted.
     expect(sample!.elided_count).toBeGreaterThan(0);
     expect(`${sample!.head_bytes}${sample!.tail_bytes}`).not.toMatch(

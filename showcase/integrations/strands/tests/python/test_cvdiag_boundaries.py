@@ -195,7 +195,9 @@ def test_all_eleven_backend_boundaries_emit(monkeypatch, capsys):
     seen = _boundaries(envelopes)
 
     missing = ALL_BACKEND_BOUNDARIES - seen
-    assert not missing, f"missing backend boundaries: {sorted(missing)}; saw {sorted(seen)}"
+    assert not missing, (
+        f"missing backend boundaries: {sorted(missing)}; saw {sorted(seen)}"
+    )
 
     # Correlation: every backend envelope carries the slug. The header-bearing
     # HTTP requests forward x-test-id verbatim; the directly driven abort
@@ -215,8 +217,7 @@ def test_all_eleven_backend_boundaries_emit(monkeypatch, capsys):
     ingress = next(
         e
         for e in backend
-        if e["boundary"] == "backend.request.ingress"
-        and e["test_id"] == VALID_TEST_ID
+        if e["boundary"] == "backend.request.ingress" and e["test_id"] == VALID_TEST_ID
     )
     assert set(ingress["edge_headers"].keys()) == {
         "cf-ray",

@@ -71,7 +71,7 @@ def _parse_cvdiag_lines(captured: str) -> List[Dict[str, Any]]:
     for line in captured.splitlines():
         if not line.startswith("CVDIAG "):
             continue
-        payload = line[len("CVDIAG "):].strip()
+        payload = line[len("CVDIAG ") :].strip()
         if not payload.startswith("{"):
             continue
         rows.append(json.loads(payload))
@@ -102,6 +102,7 @@ def test_all_eleven_boundaries_emit_valid_envelopes(monkeypatch, capsys):
     monkeypatch.setenv("SHOWCASE_ENV", "test")  # non-prod so DEBUG is allowed
     # Re-run bootstrap so the debug tier takes effect for this test's env.
     import _shared.cvdiag_bootstrap as boot
+
     boot.setup()
 
     test_id = _new_test_id()
@@ -130,6 +131,7 @@ def test_firsttoken_first_byte_correlation_non_negative(monkeypatch, capsys):
     monkeypatch.setenv("CVDIAG_VERBOSE", "1")
     monkeypatch.setenv("SHOWCASE_ENV", "test")
     import _shared.cvdiag_bootstrap as boot
+
     boot.setup({"SHOWCASE_ENV": "test", "CVDIAG_VERBOSE": "1"})
 
     run = cvb.CvdiagBackendRun(_headers(_new_test_id()))
@@ -147,6 +149,7 @@ def test_disabled_emitter_is_noop(monkeypatch, capsys):
     """With CVDIAG_BACKEND_EMITTER unset, no schema-v1 envelope is written."""
     monkeypatch.delenv("CVDIAG_BACKEND_EMITTER", raising=False)
     import _shared.cvdiag_bootstrap as boot
+
     boot.setup()
 
     _emit_all_eleven(_headers(_new_test_id()))
@@ -162,6 +165,7 @@ def test_propagation_reliability_gate(monkeypatch, capsys):
     """
     monkeypatch.setenv("CVDIAG_BACKEND_EMITTER", "1")
     import _shared.cvdiag_bootstrap as boot
+
     boot.setup()
 
     total = 100
@@ -271,7 +275,9 @@ def test_verbose_only_boundaries_emit_at_verbose_tier(monkeypatch, capsys):
     rows = _parse_cvdiag_lines(capsys.readouterr().out)
     seen = {r["boundary"] for r in rows} & _VERBOSE_ONLY_BOUNDARIES
     missing = _VERBOSE_ONLY_BOUNDARIES - seen
-    assert not missing, f"VERBOSE-only boundaries suppressed at VERBOSE tier: {sorted(missing)}"
+    assert not missing, (
+        f"VERBOSE-only boundaries suppressed at VERBOSE tier: {sorted(missing)}"
+    )
 
 
 # ── FIX-3: stop_heartbeat cooperative cancellation ──────────────────────────

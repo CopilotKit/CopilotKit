@@ -22,7 +22,8 @@ const SK_ANT = "sk-ant-api03-AAAA_BBBB-CCCC0123456789xyzAB";
 const URL_TOKEN = "https://ghp_secrettoken@example.com/x";
 
 const stagedDirs = {
-  "built-in-agent": "../../../integrations/built-in-agent/src/cvdiag/edge-headers.js",
+  "built-in-agent":
+    "../../../integrations/built-in-agent/src/cvdiag/edge-headers.js",
   "claude-sdk-typescript":
     "../../../integrations/claude-sdk-typescript/src/cvdiag/edge-headers.js",
   "langgraph-typescript":

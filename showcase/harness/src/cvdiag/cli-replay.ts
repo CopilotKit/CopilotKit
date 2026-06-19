@@ -184,7 +184,10 @@ function validateRow(raw: unknown, rowIndex: number): CvdiagEnvelope {
   }
   for (const field of NULLABLE_NUMBER_FIELDS) {
     const value = raw[field];
-    if (value !== null && (typeof value !== "number" || !Number.isFinite(value))) {
+    if (
+      value !== null &&
+      (typeof value !== "number" || !Number.isFinite(value))
+    ) {
       throw new ReplayError(
         rowIndex,
         `field "${field}" must be a finite number or null, got ${

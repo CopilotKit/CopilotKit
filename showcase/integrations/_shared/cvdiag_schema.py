@@ -17,9 +17,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 SCHEMA_VERSION = 1
 
 # UUIDv7 (RFC 9562) pattern for ``test_id`` — version nibble 7, variant 10.
-TEST_ID_PATTERN = r'^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-SPAN_ID_PATTERN = r'^[0-9a-f]{16}$'
-SLUG_PATTERN = r'^[a-z][a-z0-9-]{0,63}$'
+TEST_ID_PATTERN = (
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+)
+SPAN_ID_PATTERN = r"^[0-9a-f]{16}$"
+SLUG_PATTERN = r"^[a-z][a-z0-9-]{0,63}$"
 
 
 class CvdiagLayer(str, Enum):
@@ -90,7 +92,9 @@ class EdgeHeaders(BaseModel):
     cf_mitigated: Optional[str] = Field(default=None, alias="cf-mitigated")
     cf_cache_status: Optional[str] = Field(default=None, alias="cf-cache-status")
     x_railway_edge: Optional[str] = Field(default=None, alias="x-railway-edge")
-    x_railway_request_id: Optional[str] = Field(default=None, alias="x-railway-request-id")
+    x_railway_request_id: Optional[str] = Field(
+        default=None, alias="x-railway-request-id"
+    )
     x_hikari_trace: Optional[str] = Field(default=None, alias="x-hikari-trace")
     retry_after: Optional[str] = Field(default=None, alias="retry-after")
     via: Optional[str] = Field(default=None, alias="via")
@@ -110,6 +114,7 @@ class MetadataProbeStart(BaseModel):
     url: Optional[Any] = None
     viewport: Optional[Any] = None
 
+
 class MetadataProbeNavigateComplete(BaseModel):
     """Metadata for boundary ``probe.navigate.complete`` (closed key set)."""
 
@@ -118,6 +123,7 @@ class MetadataProbeNavigateComplete(BaseModel):
     url: Optional[Any] = None
     nav_ms: Optional[Any] = None
     http_status: Optional[Any] = None
+
 
 class MetadataProbeMessageSend(BaseModel):
     """Metadata for boundary ``probe.message.send`` (closed key set)."""
@@ -128,12 +134,14 @@ class MetadataProbeMessageSend(BaseModel):
     char_count: Optional[Any] = None
     demo: Optional[Any] = None
 
+
 class MetadataProbeDomContainerMount(BaseModel):
     """Metadata for boundary ``probe.dom.container.mount`` (closed key set)."""
 
     model_config = ConfigDict(extra="forbid")
 
     delta_ms_from_start: Optional[Any] = None
+
 
 class MetadataProbeDomFirsttoken(BaseModel):
     """Metadata for boundary ``probe.dom.firsttoken`` (closed key set)."""
@@ -143,12 +151,14 @@ class MetadataProbeDomFirsttoken(BaseModel):
     delta_ms_from_start: Optional[Any] = None
     text_length: Optional[Any] = None
 
+
 class MetadataProbeDomAlternate_content(BaseModel):
     """Metadata for boundary ``probe.dom.alternate_content`` (closed key set)."""
 
     model_config = ConfigDict(extra="forbid")
 
     child_type_histogram: Optional[Any] = None
+
 
 class MetadataProbeSseEvent(BaseModel):
     """Metadata for boundary ``probe.sse.event`` (closed key set)."""
@@ -159,6 +169,7 @@ class MetadataProbeSseEvent(BaseModel):
     payload_size_bytes: Optional[Any] = None
     sequence_num: Optional[Any] = None
 
+
 class MetadataProbeSseAborted(BaseModel):
     """Metadata for boundary ``probe.sse.aborted`` (closed key set)."""
 
@@ -166,6 +177,7 @@ class MetadataProbeSseAborted(BaseModel):
 
     termination_kind: Optional[Any] = None
     bytes_before_abort: Optional[Any] = None
+
 
 class MetadataProbeNetworkError(BaseModel):
     """Metadata for boundary ``probe.network.error`` (closed key set)."""
@@ -175,6 +187,7 @@ class MetadataProbeNetworkError(BaseModel):
     url: Optional[Any] = None
     error_class: Optional[Any] = None
     response_status: Optional[Any] = None
+
 
 class MetadataProbeNetworkResponse(BaseModel):
     """Metadata for boundary ``probe.network.response`` (closed key set)."""
@@ -186,6 +199,7 @@ class MetadataProbeNetworkResponse(BaseModel):
     content_length: Optional[Any] = None
     duration_ms: Optional[Any] = None
 
+
 class MetadataProbeConsoleError(BaseModel):
     """Metadata for boundary ``probe.console.error`` (closed key set)."""
 
@@ -195,6 +209,7 @@ class MetadataProbeConsoleError(BaseModel):
     message_scrubbed: Optional[Any] = None
     source_file: Optional[Any] = None
     line_col: Optional[Any] = None
+
 
 class MetadataProbeExit(BaseModel):
     """Metadata for boundary ``probe.exit`` (closed key set)."""
@@ -206,6 +221,7 @@ class MetadataProbeExit(BaseModel):
     sse_event_count: Optional[Any] = None
     first_token_delta_ms: Optional[Any] = None
 
+
 class MetadataBackendRequestIngress(BaseModel):
     """Metadata for boundary ``backend.request.ingress`` (closed key set)."""
 
@@ -215,6 +231,7 @@ class MetadataBackendRequestIngress(BaseModel):
     path: Optional[Any] = None
     content_length: Optional[Any] = None
 
+
 class MetadataBackendAgentEnter(BaseModel):
     """Metadata for boundary ``backend.agent.enter`` (closed key set)."""
 
@@ -222,6 +239,7 @@ class MetadataBackendAgentEnter(BaseModel):
 
     agent_name: Optional[Any] = None
     model_id: Optional[Any] = None
+
 
 class MetadataBackendLlmCallStart(BaseModel):
     """Metadata for boundary ``backend.llm.call.start`` (closed key set)."""
@@ -232,12 +250,14 @@ class MetadataBackendLlmCallStart(BaseModel):
     model: Optional[Any] = None
     prompt_token_count_estimate: Optional[Any] = None
 
+
 class MetadataBackendLlmCallHeartbeat(BaseModel):
     """Metadata for boundary ``backend.llm.call.heartbeat`` (closed key set)."""
 
     model_config = ConfigDict(extra="forbid")
 
     elapsed_ms_since_start: Optional[Any] = None
+
 
 class MetadataBackendLlmCallResponse(BaseModel):
     """Metadata for boundary ``backend.llm.call.response`` (closed key set)."""
@@ -250,12 +270,14 @@ class MetadataBackendLlmCallResponse(BaseModel):
     latency_ms: Optional[Any] = None
     error_class: Optional[Any] = None
 
+
 class MetadataBackendSseFirst_byte(BaseModel):
     """Metadata for boundary ``backend.sse.first_byte`` (closed key set)."""
 
     model_config = ConfigDict(extra="forbid")
 
     delta_ms_from_ingress: Optional[Any] = None
+
 
 class MetadataBackendSseEvent(BaseModel):
     """Metadata for boundary ``backend.sse.event`` (closed key set)."""
@@ -266,6 +288,7 @@ class MetadataBackendSseEvent(BaseModel):
     payload_size_bytes: Optional[Any] = None
     sequence_num: Optional[Any] = None
 
+
 class MetadataBackendSseAborted(BaseModel):
     """Metadata for boundary ``backend.sse.aborted`` (closed key set)."""
 
@@ -274,6 +297,7 @@ class MetadataBackendSseAborted(BaseModel):
     termination_kind: Optional[Any] = None
     bytes_before_abort: Optional[Any] = None
 
+
 class MetadataBackendAgentExit(BaseModel):
     """Metadata for boundary ``backend.agent.exit`` (closed key set)."""
 
@@ -281,6 +305,7 @@ class MetadataBackendAgentExit(BaseModel):
 
     terminal_outcome: Optional[Any] = None
     total_duration_ms: Optional[Any] = None
+
 
 class MetadataBackendResponseComplete(BaseModel):
     """Metadata for boundary ``backend.response.complete`` (closed key set)."""
@@ -292,6 +317,7 @@ class MetadataBackendResponseComplete(BaseModel):
     total_duration_ms: Optional[Any] = None
     sse_event_count: Optional[Any] = None
 
+
 class MetadataBackendErrorCaught(BaseModel):
     """Metadata for boundary ``backend.error.caught`` (closed key set)."""
 
@@ -302,6 +328,7 @@ class MetadataBackendErrorCaught(BaseModel):
     stack_brief: Optional[Any] = None
     truncated: Optional[Any] = None
 
+
 class MetadataAimockRequestIngress(BaseModel):
     """Metadata for boundary ``aimock.request.ingress`` (closed key set)."""
 
@@ -310,6 +337,7 @@ class MetadataAimockRequestIngress(BaseModel):
     path: Optional[Any] = None
     content_length: Optional[Any] = None
     match_keys: Optional[Any] = None
+
 
 class MetadataAimockMatchDecision(BaseModel):
     """Metadata for boundary ``aimock.match.decision`` (closed key set)."""
@@ -320,12 +348,14 @@ class MetadataAimockMatchDecision(BaseModel):
     match_score: Optional[Any] = None
     reject_reasons: Optional[Any] = None
 
+
 class MetadataAimockResponseStart(BaseModel):
     """Metadata for boundary ``aimock.response.start`` (closed key set)."""
 
     model_config = ConfigDict(extra="forbid")
 
     delta_ms_from_ingress: Optional[Any] = None
+
 
 class MetadataAimockSseChunk(BaseModel):
     """Metadata for boundary ``aimock.sse.chunk`` (closed key set)."""
@@ -335,6 +365,7 @@ class MetadataAimockSseChunk(BaseModel):
     chunk_size_bytes: Optional[Any] = None
     sequence_num: Optional[Any] = None
 
+
 class MetadataAimockResponseAborted(BaseModel):
     """Metadata for boundary ``aimock.response.aborted`` (closed key set)."""
 
@@ -342,6 +373,7 @@ class MetadataAimockResponseAborted(BaseModel):
 
     termination_kind: Optional[Any] = None
     bytes_before_abort: Optional[Any] = None
+
 
 class MetadataAimockResponseComplete(BaseModel):
     """Metadata for boundary ``aimock.response.complete`` (closed key set)."""
@@ -427,9 +459,7 @@ class CvdiagEnvelope(BaseModel):
         if not isinstance(data, dict):
             return data
         known = set(cls.model_fields.keys())
-        aliases = {
-            f.alias for f in cls.model_fields.values() if f.alias is not None
-        }
+        aliases = {f.alias for f in cls.model_fields.values() if f.alias is not None}
         allowed = known | aliases
         dropped = False
         cleaned: dict[str, Any] = {}
@@ -450,4 +480,3 @@ class CvdiagEnvelope(BaseModel):
         if dropped:
             cleaned["_metadata_dropped"] = True
         return cleaned
-

@@ -134,18 +134,26 @@ def test_setup_is_idempotent_no_orphan_daemon():
 
     before = _pb_daemon_count()
 
-    cvdiag_bootstrap.setup({"SHOWCASE_ENV": "staging", "CVDIAG_PB_URL": "http://pb.invalid"})
+    cvdiag_bootstrap.setup(
+        {"SHOWCASE_ENV": "staging", "CVDIAG_PB_URL": "http://pb.invalid"}
+    )
     first_writer = cvdiag_bootstrap._PB_WRITER
     assert first_writer is not None
     first_writer.enqueue({"n": 1})
     time.sleep(0.05)
     after_first = _pb_daemon_count()
-    assert after_first == before + 1, "first setup()+enqueue must spin exactly one daemon"
+    assert after_first == before + 1, (
+        "first setup()+enqueue must spin exactly one daemon"
+    )
 
-    cvdiag_bootstrap.setup({"SHOWCASE_ENV": "staging", "CVDIAG_PB_URL": "http://pb.invalid"})
+    cvdiag_bootstrap.setup(
+        {"SHOWCASE_ENV": "staging", "CVDIAG_PB_URL": "http://pb.invalid"}
+    )
     second_writer = cvdiag_bootstrap._PB_WRITER
 
-    assert second_writer is first_writer, "second setup() must not rebuild the PB writer"
+    assert second_writer is first_writer, (
+        "second setup() must not rebuild the PB writer"
+    )
 
     second_writer.enqueue({"n": 2})
     time.sleep(0.05)
