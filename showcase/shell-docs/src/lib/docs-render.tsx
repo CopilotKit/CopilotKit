@@ -28,7 +28,11 @@ export {
 // Nav tree types
 // ---------------------------------------------------------------------------
 
-export type NavNodeVariant = "react-docs-proxy";
+export type NavNodeVariant =
+  | "react-docs-proxy"
+  | "frontend-docs-upcoming";
+
+export type FrontendDocsStatus = "feature-complete" | "early-access";
 
 export type NavNode =
   | {
@@ -44,6 +48,9 @@ export type NavNode =
       title: string;
       icon?: string;
       variant?: NavNodeVariant;
+      quickstartHref?: string;
+      referenceHref?: string;
+      frontendDocsStatus?: FrontendDocsStatus;
     }
   | {
       type: "group";

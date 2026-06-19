@@ -95,7 +95,7 @@ reference content and still be universal across frontends.
 Use the `frontend` field in page frontmatter or `meta.json` when a root doc should appear in
 non-React frontend docs:
 
-- `universal` — render the same page under `/frontends/<frontend>/...`.
+- `universal` — render the same page under `/<frontend>/...`.
 - `frontend-variant` — render only when a matching page exists under
   `src/content/docs/frontends/<frontend>/...`.
 - `hide` — omit the page from frontend-scoped docs.

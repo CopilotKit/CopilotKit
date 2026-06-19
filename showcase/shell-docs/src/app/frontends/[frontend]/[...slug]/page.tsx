@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { DocsPageView } from "@/components/docs-page-view";
-import { getFrontendQuickstartNavTree } from "@/lib/frontend-page-content";
 import { isFrontendId } from "@/lib/frontend-options";
 import { loadDoc } from "@/lib/docs-render";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
@@ -28,7 +26,7 @@ export async function generateMetadata({
   if (!isFrontendId(frontend) || frontend === "react") {
     return buildDocMetadata({
       title: "Frontend docs",
-      canonicalPath: "/frontends",
+      canonicalPath: "/",
     });
   }
 
@@ -42,7 +40,7 @@ export async function generateMetadata({
     canonicalPath:
       resolution.status === "found"
         ? resolution.canonicalPath
-        : `/frontends/${frontend}/${slugPath}`,
+        : `/${frontend}/${slugPath}`,
   });
 }
 
@@ -54,23 +52,13 @@ export default async function FrontendDocPage({
   const resolvedParams = await params;
   const { frontend } = resolvedParams;
   if (!isFrontendId(frontend)) notFound();
-  if (frontend === "react") redirect("/");
-
   const slugPath = slugPathFromParams(resolvedParams);
-  if (slugPath === "quickstart") redirect(`/frontends/${frontend}`);
+  if (frontend === "react") redirect(slugPath ? `/${slugPath}` : "/");
+
+  if (slugPath === "quickstart") redirect(`/${frontend}`);
   if (slugPath === "using-these-docs") {
-    redirect(`/frontends/${frontend}/using-these-docs`);
+    redirect(`/${frontend}/using-these-docs`);
   }
 
-  const resolution = resolveFrontendDocPage(frontend, slugPath);
-  if (resolution.status === "not-found") notFound();
-
-  return (
-    <DocsPageView
-      slugPath={resolution.slugPath}
-      contentSlugPath={resolution.contentSlugPath}
-      slugHrefPrefix={`/frontends/${frontend}`}
-      navTree={getFrontendQuickstartNavTree(frontend)}
-    />
-  );
+  redirect(`/${frontend}/${slugPath}`);
 }

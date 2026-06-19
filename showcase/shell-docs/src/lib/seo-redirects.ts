@@ -690,24 +690,34 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
 
 const FRONTEND_PLATFORM_REDIRECTS: RedirectEntry[] = [
   {
-    id: "FE-vue",
-    source: "/vue",
-    destination: "/frontends/vue",
+    id: "FE-frontends",
+    source: "/frontends",
+    destination: "/",
   },
   {
-    id: "FE-slack",
-    source: "/slack",
-    destination: "/frontends/slack",
+    id: "FE-frontends-react",
+    source: "/frontends/react",
+    destination: "/",
+  },
+  {
+    id: "FE-frontends-react-wild",
+    source: "/frontends/react/:path*",
+    destination: "/:path*",
+  },
+  {
+    id: "FE-frontends-wild",
+    source: "/frontends/:path*",
+    destination: "/:path*",
   },
   {
     id: "FE-teams",
     source: "/microsoft-teams",
-    destination: "/frontends/teams",
+    destination: "/teams",
   },
   {
-    id: "FE-react-native",
-    source: "/react-native",
-    destination: "/frontends/react-native",
+    id: "FE-teams-wild",
+    source: "/microsoft-teams/:path*",
+    destination: "/teams/:path*",
   },
 ];
 

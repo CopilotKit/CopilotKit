@@ -51,14 +51,14 @@ describe("seoRedirects", () => {
           destination: "/",
         },
         {
-          id: "FE-vue",
-          source: "/vue",
-          destination: "/frontends/vue",
+          id: "FE-frontends-wild",
+          source: "/frontends/:path*",
+          destination: "/:path*",
         },
         {
           id: "FE-teams",
           source: "/microsoft-teams",
-          destination: "/frontends/teams",
+          destination: "/teams",
         },
       ]),
     );
@@ -138,6 +138,9 @@ describe("seoRedirects", () => {
     expect(matchesSeoRedirectSource("/generative-ui/tool-rendering")).toBe(
       false,
     );
+    expect(matchesSeoRedirectSource("/vue")).toBe(false);
+    expect(matchesSeoRedirectSource("/slack")).toBe(false);
+    expect(matchesSeoRedirectSource("/react-native")).toBe(false);
     expect(matchesSeoRedirectSource("/custom-look-and-feel/slots")).toBe(false);
   });
 });
