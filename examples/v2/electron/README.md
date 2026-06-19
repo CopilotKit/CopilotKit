@@ -224,7 +224,9 @@ Once paired, the extension exposes two tiers of browser tools to the assistant â
 2. Enable **Developer mode** (toggle in the top-right corner), then click **Load unpacked** and select the `examples/v2/electron/extension/` directory.
 3. Click the extension's toolbar icon to open its popup, then enter the **port** and **token** shown in the app's **Browser-bridge** panel and click **Connect**.
 
-The extension's service worker sends a 20-second keep-alive ping and automatically reconnects on wake. Chrome 116+ keeps the underlying WebSocket alive across service-worker restarts, so the connection survives normal browser suspend/resume cycles without manual re-pairing.
+The extension's service worker sends a 20-second keep-alive ping and automatically reconnects both on service-worker wake and after a dropped socket (a 3-second retry fires from the `onclose` handler). Chrome 116+ keeps the underlying WebSocket alive across service-worker restarts, so the connection survives normal browser suspend/resume cycles without manual re-pairing.
+
+A web page in your browser can open a socket to the bridge's loopback port, but cannot pair without the one-time pairing token (a random UUID shown only in the app and never sent over the network); unauthenticated sockets are immediately closed.
 
 ### Try it
 

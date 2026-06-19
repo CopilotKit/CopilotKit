@@ -8,6 +8,16 @@ async function getPairing() {
 }
 
 async function connect() {
+  if (keepAlive) {
+    clearInterval(keepAlive);
+    keepAlive = null;
+  }
+  if (ws) {
+    try {
+      ws.close();
+    } catch {}
+    ws = null;
+  }
   const { port, token } = await getPairing();
   if (!port || !token) return setStatus("disconnected");
   try {
@@ -30,6 +40,7 @@ async function connect() {
     if (keepAlive) clearInterval(keepAlive);
     keepAlive = null;
     ws = null;
+    setTimeout(connect, 3000);
   };
   ws.onmessage = (ev) => handleFrame(ev.data);
 }
