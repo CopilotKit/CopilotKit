@@ -8,6 +8,14 @@ export type ShellRunResult = {
   stderr: string;
   exitCode: number;
 };
+export type McpServerStatus = {
+  name: string;
+  kind: "stdio" | "remote";
+  enabled: boolean;
+  status: "disabled" | "connecting" | "ready" | "error";
+  toolNames: string[];
+  logs: string[];
+};
 
 const api = {
   runtime: {
@@ -23,6 +31,12 @@ const api = {
   shell: {
     run: (command: string, args: string[]): Promise<ShellRunResult> =>
       ipcRenderer.invoke("shell:run", command, args),
+  },
+  mcp: {
+    listServers: (): Promise<McpServerStatus[]> =>
+      ipcRenderer.invoke("mcp:listServers"),
+    setEnabled: (name: string, enabled: boolean): Promise<McpServerStatus[]> =>
+      ipcRenderer.invoke("mcp:setEnabled", name, enabled),
   },
 };
 

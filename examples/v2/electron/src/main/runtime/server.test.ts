@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { determineModel, startRuntimeServer } from "./server";
 import { defineTool } from "@copilotkit/runtime/v2";
+import type { MCPClientProvider } from "@copilotkit/runtime/v2";
 import { z } from "zod";
 
 const PROVIDER_KEYS = [
@@ -64,6 +65,25 @@ describe("startRuntimeServer with tools", () => {
     });
 
     const { url, close } = await startRuntimeServer({ tools: [probe] });
+    try {
+      expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/api\/copilotkit$/);
+      const response = await fetch(url);
+      expect(response.status).toBeGreaterThan(0);
+    } finally {
+      await close();
+    }
+  });
+});
+
+describe("startRuntimeServer with mcpClients", () => {
+  it("accepts an mcpClients array, resolves a url, and closes cleanly", async () => {
+    const mcpClient: MCPClientProvider = {
+      tools: async () => ({}),
+    };
+
+    const { url, close } = await startRuntimeServer({
+      mcpClients: [mcpClient],
+    });
     try {
       expect(url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/api\/copilotkit$/);
       const response = await fetch(url);

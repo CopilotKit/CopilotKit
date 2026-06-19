@@ -3,7 +3,7 @@ import {
   CopilotRuntime,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
-import type { ToolDefinition } from "@copilotkit/runtime/v2";
+import type { ToolDefinition, MCPClientProvider } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
@@ -28,15 +28,18 @@ export interface RunningRuntime {
 
 export async function startRuntimeServer(opts?: {
   tools?: ToolDefinition[];
+  mcpClients?: MCPClientProvider[];
 }): Promise<RunningRuntime> {
   const agent = new BuiltInAgent({
     model: determineModel(),
     prompt:
       "You are a helpful AI assistant running inside a local Electron desktop app. " +
       "You can read the workspace using the fs_list, fs_read, and fs_search tools. " +
-      "You can propose fs_write and shell_run actions, but these require explicit human approval before they run.",
+      "You can propose fs_write and shell_run actions, but these require explicit human approval before they run. " +
+      "You may also have tools provided by connected MCP servers — use them when relevant.",
     maxSteps: 10,
     tools: opts?.tools ?? [],
+    mcpClients: opts?.mcpClients ?? [],
   });
 
   const runtime = new CopilotRuntime({

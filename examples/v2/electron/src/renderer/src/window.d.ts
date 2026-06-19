@@ -23,5 +23,30 @@ interface Window {
         exitCode: number;
       }>;
     };
+    mcp: {
+      listServers: () => Promise<
+        Array<{
+          name: string;
+          kind: "stdio" | "remote";
+          enabled: boolean;
+          status: "disabled" | "connecting" | "ready" | "error";
+          toolNames: string[];
+          logs: string[];
+        }>
+      >;
+      setEnabled: (
+        name: string,
+        enabled: boolean,
+      ) => Promise<
+        Array<{
+          name: string;
+          kind: "stdio" | "remote";
+          enabled: boolean;
+          status: "disabled" | "connecting" | "ready" | "error";
+          toolNames: string[];
+          logs: string[];
+        }>
+      >;
+    };
   };
 }
