@@ -1,6 +1,6 @@
 {
-  "name": "@copilotkitnext/angular",
-  "version": "1.54.3",
+  "name": "@copilotkit/angular",
+  "version": "0.1.1",
   "description": "Angular library for CopilotKit",
   "license": "MIT",
   "repository": {
@@ -9,12 +9,15 @@
     "directory": "packages/angular"
   },
   "type": "module",
-  "main": "dist/fesm2022/copilotkitnext-angular.mjs",
-  "module": "dist/fesm2022/copilotkitnext-angular.mjs",
-  "types": "dist/types/copilotkitnext-angular.d.ts",
+  "main": "dist/fesm2022/copilotkit-angular.mjs",
+  "module": "dist/fesm2022/copilotkit-angular.mjs",
+  "types": "dist/types/copilotkit-angular.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/fesm2022/copilotkitnext-angular.mjs"
+      "import": {
+        "types": "./dist/types/copilotkit-angular.d.ts",
+        "default": "./dist/fesm2022/copilotkit-angular.mjs"
+      }
     },
     "./styles.css": "./dist/styles.css"
   },

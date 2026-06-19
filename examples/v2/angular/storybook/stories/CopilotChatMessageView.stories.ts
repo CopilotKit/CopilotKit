@@ -7,14 +7,14 @@ import type {
   RenderToolCallConfig,
   ToolRenderer,
   AngularToolCall,
-} from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
 import {
   CopilotChatMessageView,
   CopilotChatMessageViewCursor,
   CopilotKit,
   provideCopilotKit,
   provideCopilotChatLabels,
-} from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
 import { ToolCallStatus } from "@copilotkit/core";
 import { z } from "zod"; // Schema validation
 
@@ -66,7 +66,7 @@ export const Default: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatMessageView, Message } from '@copilotkitnext/angular';
+import { CopilotChatMessageView, Message } from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat',
@@ -220,7 +220,7 @@ export const ShowCursor: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatMessageView, Message } from '@copilotkitnext/angular';
+import { CopilotChatMessageView, Message } from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat',
@@ -598,7 +598,7 @@ import {
   ToolCall, 
   ToolMessage,
   provideCopilotKit
-} from '@copilotkitnext/angular';
+} from '@copilotkit/angular';
 import { ToolCallStatus } from '@copilotkit/core';
 import { z } from 'zod';
 

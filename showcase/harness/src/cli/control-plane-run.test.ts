@@ -104,8 +104,8 @@ import {
   expectedKeys,
   dedupeScopes,
   runViaControlPlane,
-  type SlugScope,
 } from "./control-plane-run.js";
+import type { SlugScope } from "./control-plane-run.js";
 
 const SILENT_LOGGER: Logger = {
   debug: () => {},
@@ -124,8 +124,8 @@ const STUB_CONFIG: LocalConfig = {
     password: "showcase-local-dev",
   },
   aimockUrl: "http://localhost:4010",
-  dashboardUrl: "http://localhost:3200",
-  dashboardPort: 3200,
+  dashboardUrl: "http://localhost:3210",
+  dashboardPort: 3210,
 };
 
 // Replace process.env.LOCAL_SERVICES_JSON across tests so `buildLocalServicesJson`

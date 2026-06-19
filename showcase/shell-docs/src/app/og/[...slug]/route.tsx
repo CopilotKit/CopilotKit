@@ -63,6 +63,8 @@ const copilotKitLogo = toPngDataUri(
   readPublicAsset("images/og/copilotkit-logo.png"),
 );
 
+export const maxDuration = 60;
+
 // In Next.js 13+ (app directory), route handlers use the following signature:
 export async function GET(
   _: NextRequest,

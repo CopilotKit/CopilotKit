@@ -28,6 +28,8 @@ Options:
   --cycle          On failure, auto-dump aimock logs from the test window
   --isolate [name] Run in an isolated compose project with offset ports
                    (default name: showcase-iso<slot>). Allows parallel test runs.
+  --isolate=<N>    Sugar form: pin the isolation slot to N (equivalent to
+                   prefixing SHOWCASE_ISO_SLOT=<N>). 1≤N≤ISOLATE_MAX_SLOT.
 
 Examples:
   showcase test mastra --d6 --verbose         # D6 probes (full matrix) with verbose output
@@ -37,6 +39,7 @@ Examples:
   showcase test mastra --d5 --headed          # watch the browser
   showcase test agno --d5 --isolate           # isolated run (auto-named)
   showcase test agno --d5 --isolate d5verify  # isolated with explicit name
+  showcase test agno --d5 --isolate=9         # pin to slot 9 (equiv: SHOWCASE_ISO_SLOT=9 ... --isolate)
 HELP
 }
 
@@ -83,6 +86,15 @@ cmd_test() {
             :
           fi
         fi
+        ;;
+      --isolate=*)
+        # Sugar form: --isolate=<N> pins the slot by exporting SHOWCASE_ISO_SLOT.
+        # The picker (_claim_isolate_slot in _common.sh) handles all validation
+        # (positive integer, 1≤N≤ISOLATE_MAX_SLOT, slot 0 reserved, port probe).
+        use_isolate=true
+        SHOWCASE_ISO_SLOT="${1#--isolate=}"
+        export SHOWCASE_ISO_SLOT
+        shift
         ;;
       --repeat)
         shift

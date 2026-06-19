@@ -67,7 +67,7 @@ export function ThreadsPanelGate({ children }: { children: React.ReactNode }) {
         <CardFooter className="flex-col items-start gap-3">
           <div className="w-full rounded-[var(--radius)] border border-[var(--border)] bg-[var(--secondary)] px-3 py-2">
             <code className="text-xs whitespace-nowrap text-[var(--secondary-foreground)]">
-              copilotkit license
+              npx copilotkit@latest license
             </code>
           </div>
           <Button
