@@ -211,11 +211,7 @@ export default function Home() {
       <h2 style={{ marginTop: "2rem" }}>Demos</h2>
       <div style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>
         {demos.map((demo) => (
-          <a
-            key={demo.slug}
-            href={`/demos/${demo.slug}`}
-            className="demo-card"
-          >
+          <a key={demo.slug} href={`/demos/${demo.slug}`} className="demo-card">
             <h3>{demo.title}</h3>
             <p>{demo.description}</p>
           </a>
