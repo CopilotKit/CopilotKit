@@ -21,7 +21,7 @@ function canonicalizeExisting(target: string): string {
     try {
       const real = realpathSync(existing);
       // Re-append the non-existent tail (reversed back to forward order).
-      return tail.length > 0 ? join(real, ...tail.toReversed()) : real;
+      return tail.length > 0 ? join(real, ...[...tail].toReversed()) : real;
     } catch {
       const parent = dirname(existing);
       if (parent === existing) {
