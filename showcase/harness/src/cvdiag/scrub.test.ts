@@ -259,3 +259,35 @@ describe("cvdiag scrubDeep — fresh copy, never mutates caller (spec §6.4 / P3
     );
   });
 });
+
+/**
+ * Spec §7 migration / back-compat: the historical scrub surface is RE-exported
+ * through `edge-headers.ts` (consumers like `raw-byte-capture.ts` import the
+ * scrub from `edge-headers.js`, not `scrub.js`). `SK_KEY_REGEX` and
+ * `URL_USERINFO_REGEX` changed VALUE in the redesign but kept their NAMES, so a
+ * consumer's import specifier must still resolve. `EDGE_HEADER_MAX_LEN` is
+ * DEFINED in `edge-headers.ts` (not re-exported) and is asserted here as part of
+ * the public surface check.
+ */
+describe("cvdiag scrub — back-compat re-exports (spec §7)", () => {
+  it("re-exports the scrub symbols + exposes EDGE_HEADER_MAX_LEN via edge-headers.ts", async () => {
+    const m = await import("./edge-headers.js");
+    expect(typeof m.scrubSecrets).toBe("function");
+    expect(typeof m.scrubDeep).toBe("function");
+    expect(m.SCRUB_REPLACEMENT).toBe("[REDACTED]");
+    expect(m.BEARER_TOKEN_REGEX).toBeInstanceOf(RegExp);
+    expect(m.SK_KEY_REGEX).toBeInstanceOf(RegExp);
+    expect(m.URL_USERINFO_REGEX).toBeInstanceOf(RegExp);
+    expect(m.EDGE_HEADER_MAX_LEN).toBe(256);
+  });
+
+  it("the re-exported scrub symbols are the SAME identities as scrub.ts's exports", async () => {
+    const edge = await import("./edge-headers.js");
+    const scrub = await import("./scrub.js");
+    expect(edge.SK_KEY_REGEX).toBe(scrub.SK_KEY_REGEX);
+    expect(edge.URL_USERINFO_REGEX).toBe(scrub.URL_USERINFO_REGEX);
+    expect(edge.BEARER_TOKEN_REGEX).toBe(scrub.BEARER_TOKEN_REGEX);
+    expect(edge.scrubSecrets).toBe(scrub.scrubSecrets);
+    expect(edge.scrubDeep).toBe(scrub.scrubDeep);
+  });
+});

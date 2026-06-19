@@ -32,6 +32,7 @@ import type { CvdiagPbWriter } from "./emit.js";
 import type { CvdiagEmitArgs } from "./emit.js";
 import { isValidTestId } from "./schema.js";
 import type { CvdiagEnvelope, EdgeHeaders } from "./schema.js";
+import { scrubSecrets } from "./scrub.js";
 
 /** Buffer byte length of the JSON serialization (mirrors emit's serializedSize). */
 function serializedSize(value: unknown): number {
@@ -704,5 +705,163 @@ describe("cvdiag emit — entry bound applied end-to-end (slug never violates co
     expect(env).not.toBeNull();
     expect(isValidTestId(env!.test_id)).toBe(true);
     expect(env!.trace_id).toBe(env!.test_id);
+  });
+});
+
+/**
+ * Spec §6.1 nested-secret SWEEP — the durable cross-cutting guarantee that NO
+ * planted secret survives at ANY depth of ANY data-plane boundary that carries
+ * an array/object-valued metadata key (per `BOUNDARY_METADATA_KEYS`). The two
+ * such boundaries with STRING leaves are:
+ *   - `backend.error.caught`  → `stack_brief: { file: string, line: number }[]`
+ *     (nested array-of-objects string leaves; default tier).
+ *   - `aimock.match.decision` → `reject_reasons:
+ *     { key, expected, actual }[]` (nested array-of-objects string leaves;
+ *     emitted only at verbose+ tier, so the emitter is built verbose here —
+ *     the SCRUB reaching the leaf is what is under test, not the tier filter).
+ * (`probe.dom.alternate_content.child_type_histogram` is `Record<string,
+ * number>` — an object with NUMERIC leaves only, so it has no string position a
+ * secret could occupy; it is intentionally not part of the string-leaf sweep.)
+ *
+ * For each, a sentinel secret is planted in EVERY string position — top-level
+ * `message_scrubbed` AND every nested array/object leaf — and the assertion is
+ * that the sentinel substring (and its high-entropy tail) appears NOWHERE in
+ * `JSON.stringify(enqueuedEnvelope)`, with `[REDACTED]` present.
+ */
+/**
+ * A deliberately-SHALLOW scrub used only by the meaningfulness demonstration:
+ * scrubs top-level string values but copies nested arrays/objects through
+ * UNSCRUBBED (the historical top-level-only failure mode `scrubDeep` replaced).
+ * Module-scope to satisfy `consistent-function-scoping` (mirrors the
+ * `numberLeaf`/`voidLeaf` helpers in scrub.test.ts).
+ */
+function shallowScrub(
+  metadata: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(metadata)) {
+    out[key] = typeof value === "string" ? scrubSecrets(value) : value;
+  }
+  return out;
+}
+
+describe("CVDIAG §6.1 nested-sweep — no secret survives at any depth across boundaries", () => {
+  // A canonical Anthropic-shaped key: base64url body with a contiguous ≥12-char
+  // alnum entropy run, so the bounded SK_KEY_REGEX redacts the WHOLE key.
+  const SENTINEL = "Bearer sk-ant-api03-AbC_dEf-0123456789sentinelXYZ";
+  // The high-entropy fragment that must never survive even partially.
+  const SENTINEL_ENTROPY = "0123456789sentinelXYZ";
+
+  /** Assert the planted sentinel is scrubbed everywhere in the envelope JSON. */
+  function assertNoSentinel(env: CvdiagEnvelope | null, name: string): void {
+    expect(env, `${name}: envelope built`).not.toBeNull();
+    const json = JSON.stringify(env);
+    expect(json, `${name}: full sentinel gone`).not.toContain(SENTINEL);
+    expect(json, `${name}: sk- prefix gone`).not.toContain("sk-ant-api03");
+    expect(json, `${name}: entropy tail gone`).not.toContain(SENTINEL_ENTROPY);
+    expect(json, `${name}: redaction marker present`).toContain("[REDACTED]");
+  }
+
+  it("backend.error.caught: sentinel planted in stack_brief[].file nested leaves never survives (default tier)", () => {
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    const env = emitter.emit({
+      layer: "backend",
+      boundary: "backend.error.caught",
+      slug: "langgraph-python",
+      demo: "chat",
+      outcome: "err",
+      metadata: {
+        exception_type: "AuthError",
+        // Top-level string position.
+        message_scrubbed: `auth failed: ${SENTINEL}`,
+        // Nested array-of-objects string-leaf positions.
+        stack_brief: [
+          { file: SENTINEL, line: 1 },
+          { file: `at handler (${SENTINEL})`, line: 2 },
+          { file: `${SENTINEL}:42`, line: 3 },
+        ] as never,
+      },
+    });
+    assertNoSentinel(env, "backend.error.caught");
+    // Positive: the nested leaf was actually scrubbed (not merely dropped).
+    const survivor = env!.metadata.stack_brief as Array<{ file: string }>;
+    expect(survivor[0].file).toContain("[REDACTED]");
+    expect(survivor[1].file).toContain("[REDACTED]");
+    expect(survivor[2].file).toContain("[REDACTED]");
+  });
+
+  it("aimock.match.decision: sentinel planted in reject_reasons[].{expected,actual} nested leaves never survives (verbose tier)", () => {
+    // aimock.match.decision is default:false → emit at verbose tier so the row
+    // is produced; the SCRUB reaching the nested leaf is what is under test.
+    const emitter = new CvdiagEmitter({
+      env: { NODE_ENV: "test", CVDIAG_VERBOSE: "1" },
+    });
+    const env = emitter.emit({
+      layer: "aimock",
+      boundary: "aimock.match.decision",
+      slug: "langgraph-python",
+      demo: "chat",
+      outcome: "info",
+      metadata: {
+        fixture_id: "fixture-abc-1",
+        match_score: 0.5,
+        // Nested array-of-objects string-leaf positions (every string filled).
+        reject_reasons: [
+          { key: "authorization", expected: SENTINEL, actual: SENTINEL },
+          {
+            key: `hdr ${SENTINEL}`,
+            expected: `want ${SENTINEL}`,
+            actual: `got ${SENTINEL}`,
+          },
+        ] as never,
+      },
+    });
+    assertNoSentinel(env, "aimock.match.decision");
+    // Positive: the nested leaves were actually scrubbed.
+    const reasons = env!.metadata.reject_reasons as Array<{
+      key: string;
+      expected: string;
+      actual: string;
+    }>;
+    expect(reasons[0].expected).toContain("[REDACTED]");
+    expect(reasons[0].actual).toContain("[REDACTED]");
+    expect(reasons[1].key).toContain("[REDACTED]");
+    expect(reasons[1].expected).toContain("[REDACTED]");
+    expect(reasons[1].actual).toContain("[REDACTED]");
+  });
+
+  it("MEANINGFULNESS DEMO: a deliberately-shallow (top-level-only) scrub LEAVES the nested sentinel — the sweep would catch a regression", () => {
+    // The production nested-scrub (scrubDeep) is already integrated, so the
+    // emit-level sweep is GREEN on current code. To prove the sweep is a
+    // meaningful guard (would go RED if scrubDeep ever regressed to a
+    // top-level-only scrub), demonstrate that a SHALLOW scrub — scrubbing only
+    // top-level string values, copying nested containers verbatim — leaves the
+    // nested sentinel intact. This is the RED half: the assertion the emit-level
+    // sweep makes (JSON has no sentinel) WOULD FAIL under a shallow scrub.
+    const metadata = {
+      exception_type: "AuthError",
+      message_scrubbed: `auth failed: ${SENTINEL}`,
+      stack_brief: [{ file: SENTINEL, line: 1 }],
+    };
+    const shallow = shallowScrub(metadata);
+    const shallowJson = JSON.stringify(shallow);
+    // RED demonstration: under a shallow scrub the nested sentinel SURVIVES.
+    expect(shallowJson).toContain(SENTINEL);
+    expect(shallowJson).toContain(SENTINEL_ENTROPY);
+    // ...yet the top-level value WAS scrubbed (proving the secret is real and
+    // scrubbable — only the DEPTH of the walk was the gap).
+    expect(shallow.message_scrubbed as string).toContain("[REDACTED]");
+
+    // GREEN: the real production deep scrub (what emit uses) removes it at depth.
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    const env = emitter.emit({
+      layer: "backend",
+      boundary: "backend.error.caught",
+      slug: "langgraph-python",
+      demo: "chat",
+      outcome: "err",
+      metadata,
+    });
+    assertNoSentinel(env, "deep-scrub GREEN");
   });
 });

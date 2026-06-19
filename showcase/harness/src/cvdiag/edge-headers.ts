@@ -29,6 +29,7 @@ export {
   URL_USERINFO_REGEX,
   SCRUB_REPLACEMENT,
   scrubSecrets,
+  scrubDeep,
 } from "./scrub.js";
 
 /** The 9 allow-listed edge-header keys (spec §5). */
