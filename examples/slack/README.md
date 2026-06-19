@@ -340,12 +340,34 @@ set the same env vars, and (for Notion) run the
 `@notionhq/notion-mcp-server` sidecar alongside the runtime with
 `NOTION_MCP_URL` pointed at it.
 
-> **Deploying from this monorepo (e.g. Railway):** this example depends on the
-> published `@copilotkit/bot*` packages (`package.json`), so a standalone build
-> installs them from npm. The pnpm lockfile lives at the **repo root**, so make
-> sure each service's **watch paths** include `pnpm-lock.yaml` and `package.json`
-> (not just `examples/slack/**`) — otherwise a dependency bump won't trigger a
-> redeploy and a frozen install can fail with an out-of-date lockfile.
+### Deploy as a workspace member (built from source)
+
+This example consumes the `@copilotkit/*` packages via the **`workspace:*`**
+protocol, so it always builds from the in-repo source — **not** the npm
+registry. That decouples the deploy from publishing: a change to
+`packages/**` redeploys with the new code immediately, and `npm publish` is an
+independent, manual step (no "release first, then bump the example" dance).
+
+Because it's a workspace member, the deploy must run from the **repo root** so
+the workspace and `packages/**` are visible. On Railway (or any host), set:
+
+| Setting            | Value                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| **Root Directory** | repo root (`/`)                                                                                                          |
+| **Build Command**  | `pnpm install && pnpm --filter slack-example build`                                                                      |
+| **Start Command**  | `pnpm --filter slack-example start` (bot) — a second service runs the runtime: `pnpm --filter slack-example run runtime` |
+| **Watch Paths**    | `packages/**`, `examples/slack/**`, `pnpm-lock.yaml`, `package.json`                                                     |
+
+`pnpm --filter slack-example build` builds the workspace libs the example
+imports (`@copilotkit/bot-slack` / `-discord` / `runtime`) and everything they
+depend on, via the Nx project graph — so `tsx` runs against fresh `dist`. The
+**Watch Paths** are what makes a `packages/**`-only change trigger a redeploy
+(the example's own files no longer need to change to provoke one).
+
+> **Copying this example out of the monorepo?** Replace the `workspace:*`
+> ranges in `package.json` with the published versions (e.g.
+> `@copilotkit/bot-slack: ^0.0.3`) — `workspace:*` only resolves inside this
+> monorepo.
 
 ### WhatsApp (inbound webhook, needs a public domain)
 

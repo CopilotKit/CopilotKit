@@ -23,8 +23,8 @@
       "sharedVersion": true
     },
     "angular": {
-      "packages": ["@copilotkitnext/angular"],
-      "versionSource": "@copilotkitnext/angular",
+      "packages": ["@copilotkit/angular"],
+      "versionSource": "@copilotkit/angular",
       "sharedVersion": false
     },
     "bot": {

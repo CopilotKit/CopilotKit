@@ -3,9 +3,9 @@
   "version": "0.0.6-next.1",
   "private": true,
   "scripts": {
-    "dev": "pnpm --filter @copilotkitnext/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
+    "dev": "pnpm --filter @copilotkit/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
     "build": "ng run storybook-angular:build-storybook",
-    "storybook:dev": "pnpm --filter @copilotkitnext/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
+    "storybook:dev": "pnpm --filter @copilotkit/angular run build:css && sleep 1 && ng run storybook-angular:storybook",
     "storybook:build": "ng run storybook-angular:build-storybook"
   },
   "dependencies": {
@@ -29,7 +29,7 @@
     "@angular/cli": "^21.2.13",
     "@angular/compiler-cli": "^21.2.15",
     "@copilotkit/typescript-config": "workspace:*",
-    "@copilotkitnext/angular": "workspace:*",
+    "@copilotkit/angular": "workspace:*",
     "@storybook/addon-themes": "10.3.6",
     "@storybook/angular": "10.3.6",
     "@tailwindcss/postcss": "^4.1.12",

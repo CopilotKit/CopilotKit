@@ -86,6 +86,23 @@ Reusable snippets live under `src/content/snippets/`. Snippets may be rendered b
 authored framework pages, and showcase-driven framework pages, so keep them general unless
 the path is intentionally framework-specific.
 
+### Frontend Applicability
+
+Frontend routes use page-level applicability metadata, independent from where the content is
+authored. A page can be authored MDX, showcase-generated content, mirrored protocol docs, or
+reference content and still be universal across frontends.
+
+Use the `frontend` field in page frontmatter or `meta.json` when a root doc should appear in
+non-React frontend docs:
+
+- `universal` — render the same page under `/frontends/<frontend>/...`.
+- `frontend-variant` — render only when a matching page exists under
+  `src/content/docs/frontends/<frontend>/...`.
+- `hide` — omit the page from frontend-scoped docs.
+
+Do not use "showcase-driven" as a proxy for frontend availability. Showcase derivation is an
+authoring/source detail; frontend applicability controls routing and sidebar inclusion.
+
 ### AG-UI Mirrored Docs
 
 AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`. The

@@ -85,7 +85,7 @@ A slash command's text is never posted to the channel, so it isn't in the histor
 
 ## Behavior
 
-- **Declare commands with the platform** — platforms only deliver commands they know about. On Slack, every command must **also** be declared in the app configuration (the manifest's `slash_commands` section, or "Slash Commands" in the app settings); an undeclared command is silently dropped, even over Socket Mode. See the [Slack quickstart](/slack).
+- **Declare commands with the platform** — platforms only deliver commands they know about. On Slack, every command must **also** be declared in the app configuration (the manifest's `slash_commands` section, or "Slash Commands" in the app settings); an undeclared command is silently dropped, even over Socket Mode. See the [Slack quickstart](/frontends/slack).
 - **Matching is case-insensitive** and ignores the leading slash; commands delivered by the platform but not registered on the bot are ignored.
 - **Up-front registration** — on `start()`, declared commands are forwarded to adapters that implement `registerCommands` (e.g. a Discord-style application-command API); adapters without it, including Slack, are skipped.
 

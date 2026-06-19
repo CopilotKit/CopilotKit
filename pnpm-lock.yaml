@@ -18,7 +18,7 @@ overrides:
   serve-static@<=1.16.0: 1.16.0
   prismjs@<=1.30.0: 1.30.0
   pino@<=10.1.1: 10.1.1
-  '@copilotkit/license-verifier': ~0.4.2
+  '@copilotkit/license-verifier': ~0.5.0
   next: ^16.0.10
   defu@<=6.1.4: '>=6.1.5'
   minimatch: '>=9.0.6'
@@ -75,6 +75,7 @@ overrides:
   '@smithy/config-resolver': '>=4.4.0'
   defu: '>=6.1.5'
   ai: '>=5.0.52'
+  '@ai-sdk/mcp': 1.0.21
   storybook@>=8.0.0 <8.6.17: 8.6.17
   path-to-regexp@>=8.0.0 <8.4.0: '>=8.4.0'
 
@@ -384,23 +385,23 @@ importers:
   examples/slack:
     dependencies:
       '@copilotkit/bot':
-        specifier: ~0.0.2
-        version: 0.0.2(encoding@0.1.13)(zod@3.25.76)
+        specifier: workspace:*
+        version: link:../../packages/bot
       '@copilotkit/bot-discord':
-        specifier: ~0.0.1
-        version: 0.0.1(@ag-ui/core@0.0.57)(encoding@0.1.13)
+        specifier: workspace:*
+        version: link:../../packages/bot-discord
       '@copilotkit/bot-slack':
-        specifier: ~0.0.2
-        version: 0.0.2(@types/express@4.17.25)(encoding@0.1.13)
+        specifier: workspace:*
+        version: link:../../packages/bot-slack
       '@copilotkit/bot-ui':
-        specifier: ~0.0.2
-        version: 0.0.2(@ag-ui/core@0.0.57)(encoding@0.1.13)
+        specifier: workspace:*
+        version: link:../../packages/bot-ui
       '@copilotkit/bot-whatsapp':
-        specifier: workspace:~
+        specifier: workspace:*
         version: link:../../packages/bot-whatsapp
       '@copilotkit/runtime':
-        specifier: ^1.59.5
-        version: 1.59.5(56436085ce2a11549bd479ba7297dde1)
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@slack/bolt':
         specifier: ^4.2.0
         version: 4.7.3(@types/express@4.17.25)
@@ -1143,6 +1144,9 @@ importers:
       '@copilotkit/a2ui-renderer':
         specifier: workspace:*
         version: link:../../../../packages/a2ui-renderer
+      '@copilotkit/angular':
+        specifier: workspace:*
+        version: link:../../../../packages/angular
       '@copilotkit/core':
         specifier: workspace:*
         version: link:../../../../packages/core
@@ -1152,9 +1156,6 @@ importers:
       '@copilotkit/web-inspector':
         specifier: workspace:*
         version: link:../../../../packages/web-inspector
-      '@copilotkitnext/angular':
-        specifier: workspace:*
-        version: link:../../../../packages/angular
       '@jetbrains/websandbox':
         specifier: ^1.1.3
         version: 1.1.3
@@ -1320,12 +1321,12 @@ importers:
       '@angular/compiler-cli':
         specifier: ^21.2.15
         version: 21.2.15(@angular/compiler@21.2.15)(typescript@5.9.3)
+      '@copilotkit/angular':
+        specifier: workspace:*
+        version: link:../../../../packages/angular
       '@copilotkit/typescript-config':
         specifier: workspace:*
         version: link:../../../../packages/typescript-config
-      '@copilotkitnext/angular':
-        specifier: workspace:*
-        version: link:../../../../packages/angular
       '@storybook/addon-themes':
         specifier: 10.3.6
         version: 10.3.6(storybook@10.3.6(@testing-library/dom@10.4.0)(prettier@3.7.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))
@@ -2970,7 +2971,7 @@ importers:
         specifier: ^3.0.97
         version: 3.0.120(zod@3.25.76)
       '@ai-sdk/mcp':
-        specifier: ^1.0.21
+        specifier: 1.0.21
         version: 1.0.21(zod@3.25.76)
       '@ai-sdk/openai':
         specifier: ^3.0.36
@@ -2979,8 +2980,8 @@ importers:
         specifier: ^0.57.0
         version: 0.57.0
       '@copilotkit/license-verifier':
-        specifier: ~0.4.2
-        version: 0.4.2
+        specifier: ~0.5.0
+        version: 0.5.0
       '@copilotkit/shared':
         specifier: workspace:*
         version: link:../shared
@@ -3288,8 +3289,8 @@ importers:
         specifier: '>=0.0.48'
         version: 0.0.51
       '@copilotkit/license-verifier':
-        specifier: ~0.4.2
-        version: 0.4.2
+        specifier: ~0.5.0
+        version: 0.5.0
       '@segment/analytics-node':
         specifier: ^2.1.2
         version: 2.3.0(encoding@0.1.13)
@@ -3748,20 +3749,11 @@ packages:
       '@ag-ui/client': '>=0.0.42'
       '@ag-ui/core': '>=0.0.42'
 
-  '@ag-ui/a2ui-middleware@0.0.6':
-    resolution: {integrity: sha512-LAv6Prh399WgGIbjnkd9Qw0/9SuyjVh6Hatkbs5IjO7zVeipY6fMyVunBN52j4AnJANRnk4qbSqpG/HOcGMaGw==}
-    peerDependencies:
-      '@ag-ui/client': '>=0.0.40'
-      rxjs: 7.8.1
-
   '@ag-ui/a2ui-middleware@0.0.8':
     resolution: {integrity: sha512-YXabOMyNekshHWLc63fD166ndy/zOXp+UWbx1alYoGRhO2y2uZJzOlPLvBAkFY4PF3Lng78ByG4mNpxJlSLDvw==}
     peerDependencies:
       '@ag-ui/client': '>=0.0.40'
       rxjs: 7.8.1
-
-  '@ag-ui/a2ui-toolkit@0.0.1-alpha.3':
-    resolution: {integrity: sha512-9U4DtwJ6rHO4vn4ixYVnRJGrO7u07phT/AjgsHymLf4cvPw57PNZACc4y6eTtayG0IcySNqRGW/wE+qjlXzgzw==}
 
   '@ag-ui/a2ui-toolkit@0.0.2':
     resolution: {integrity: sha512-HFphlNxBxGSQfvxlI2LCQValSMDUTh3MAsaFMgYlF8sQXgCrXNiLJ70+Dz3uyOv4y/rfqdFafvlo1GKQtEVIVA==}
@@ -3822,12 +3814,6 @@ packages:
 
   '@ag-ui/langgraph@0.0.11':
     resolution: {integrity: sha512-3xUkaOelnpQ5tbsbuoOTin71tTgWEN0GDZBjGs/7xAwly2Dn4fahbBAoscXullO/pH9kTGGgbuJ0rWDUgo6fKQ==}
-
-  '@ag-ui/langgraph@0.0.37':
-    resolution: {integrity: sha512-N/u2axTbnvd9MLIzHX1T7YE90X6zTEuTEI3yEud4ywIjBov5qdgA3MqhCqfcgjeJnKKp78AvcMCQ5zMk6aiPkA==}
-    peerDependencies:
-      '@ag-ui/client': '>=0.0.42'
-      '@ag-ui/core': '>=0.0.42'
 
   '@ag-ui/langgraph@0.0.41':
     resolution: {integrity: sha512-xo7ja/kuctmdPiH83QOUIpDs/AY3GzxW1fM37x9otK9fqwnKgi2JIcjfcdvAdGYdsCkXBn2WWQ2PVH+rdsLOzg==}
@@ -3922,12 +3908,6 @@ packages:
 
   '@ai-sdk/openai@3.0.63':
     resolution: {integrity: sha512-4yY/m8a57MNNVoJCsXuNblKf6BO4yuAuLKRX4tzSNffBEBSp1FlcWdPE0Z4FkqUeS0AJhYSSqp0GIiA/cIcDNA==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: '>=3.22.3'
-
-  '@ai-sdk/openai@3.0.69':
-    resolution: {integrity: sha512-T/J3ED6ERDsine+crkXHfraisSG20k6BkBdgjvXCvySYnnJ19IaLIOsQPYfvXdOsKrl0LVNghooTV/nKCA7SmQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: '>=3.22.3'
@@ -6017,67 +5997,8 @@ packages:
       vitest:
         optional: true
 
-  '@copilotkit/bot-discord@0.0.1':
-    resolution: {integrity: sha512-JgCAH8r6ufkxPS5M+yBH9QPe+kboroO+yvO85Z1zmmyJRS4EkXtyWtAkOkt690aMJBzWt6/K7+EpwlKT7Y6Ubw==}
-
-  '@copilotkit/bot-slack@0.0.2':
-    resolution: {integrity: sha512-CgkmTFSfJSvZft2tdBsCSeBhA2G1RyIihMpbILcSZdo+rElq4aUkqvQJzQ8ASERWspp6unpVr+Sz9swZMR1OFg==}
-
-  '@copilotkit/bot-ui@0.0.2':
-    resolution: {integrity: sha512-Xzq03QcKE2bnkDNQ3Re8fG8oP9QwMi7+7ueZQyC36omKANbg5UCIHLV3O8cEgGXkr4fEXLin0u7UOB17JlIWpg==}
-
-  '@copilotkit/bot@0.0.2':
-    resolution: {integrity: sha512-qv1o3+Jq1t8Yqr5lEiSjkeo0rTt/dTHni5elU3M09wRPnHTtIiVO7BKXtFE0Lb9Geypl/Z7vkrFEcpy3uef/AQ==}
-
-  '@copilotkit/core@1.60.1':
-    resolution: {integrity: sha512-5IuY5PaCh1v4//pj7BRTiMGGJAEa97NHH1IE756ku5pE+ZEcSnhgWE3j5lXiFQZC1YzNuMo9amiZtV8DQ+wDMQ==}
-    engines: {node: '>=18'}
-
-  '@copilotkit/license-verifier@0.4.2':
-    resolution: {integrity: sha512-0+Rdtg4gOwOBFBpZFxYsjgwBcCLja5z03YC6WA3KEntHYhsnoJ2aqNG6c0we8ZExCNYlEO4M7kHIfG5LXzqMYQ==}
-
-  '@copilotkit/runtime@1.59.5':
-    resolution: {integrity: sha512-gFiO/Q8Y7fFLeUUNC3DKHCY93JzzPcIpDuXQ2nNlYVV6EUfo8ozTqg0vSoC9VP+YdqoK+RWd8k1O0PXeSIWklw==}
-    peerDependencies:
-      '@anthropic-ai/sdk': ^0.57.0
-      '@langchain/aws': '>=0.1.9'
-      '@langchain/community': '>=1.1.14'
-      '@langchain/core': '>=0.3.66'
-      '@langchain/google-gauth': '>=0.1.0'
-      '@langchain/langgraph-sdk': '>=0.1.2'
-      '@langchain/openai': '>=0.4.2'
-      groq-sdk: '>=0.3.0 <1.0.0'
-      langchain: '>=0.3.3'
-      openai: ^4.85.1 || >=5.0.0
-    peerDependenciesMeta:
-      '@anthropic-ai/sdk':
-        optional: true
-      '@langchain/aws':
-        optional: true
-      '@langchain/community':
-        optional: true
-      '@langchain/google-gauth':
-        optional: true
-      '@langchain/langgraph-sdk':
-        optional: true
-      '@langchain/openai':
-        optional: true
-      groq-sdk:
-        optional: true
-      langchain:
-        optional: true
-      openai:
-        optional: true
-
-  '@copilotkit/shared@1.59.5':
-    resolution: {integrity: sha512-QMIaJDuSdrA4LuzkgmBzXodXkFJTZY9HrPXf1FbeWu5V4pGZ97Jk5gbuKLQaGbmkVt6dDX9aGBBu0ujCqpsf3w==}
-    peerDependencies:
-      '@ag-ui/core': '>=0.0.48'
-
-  '@copilotkit/shared@1.60.1':
-    resolution: {integrity: sha512-8KTxK6xnuxmFjGy9pHkHOMDElQl5Smisx0q8hx8je1NEkwrxFKrCK653APqn83QyQLifdPBqExXEUpGkqhoGcw==}
-    peerDependencies:
-      '@ag-ui/core': '>=0.0.48'
+  '@copilotkit/license-verifier@0.5.0':
+    resolution: {integrity: sha512-vrwKtIpYwF0FT9ZoYASH8owa2cGV0dhDvJGaCRaRMStwDxpc6DRdydKkhx8cWZXyBRxEYcq/Vygv4JvevhQQdQ==}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -25313,20 +25234,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@ag-ui/a2ui-middleware@0.0.6(@ag-ui/client@0.0.53)(rxjs@7.8.1)':
-    dependencies:
-      '@ag-ui/client': 0.0.53
-      clarinet: 0.12.6
-      rxjs: 7.8.1
-
   '@ag-ui/a2ui-middleware@0.0.8(@ag-ui/client@0.0.57)(rxjs@7.8.1)':
     dependencies:
       '@ag-ui/a2ui-toolkit': 0.0.2
       '@ag-ui/client': 0.0.57
       clarinet: 0.12.6
       rxjs: 7.8.1
-
-  '@ag-ui/a2ui-toolkit@0.0.1-alpha.3': {}
 
   '@ag-ui/a2ui-toolkit@0.0.2': {}
 
@@ -25467,28 +25380,6 @@ snapshots:
       - react-dom
       - ws
 
-  '@ag-ui/langgraph@0.0.37(@ag-ui/client@0.0.53)(@ag-ui/core@0.0.53)(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))':
-    dependencies:
-      '@ag-ui/a2ui-toolkit': 0.0.1-alpha.3
-      '@ag-ui/client': 0.0.53
-      '@ag-ui/core': 0.0.53
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      '@langchain/langgraph-sdk': 1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))
-      langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
-      partial-json: 0.1.7
-      rxjs: 7.8.1
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-      - '@opentelemetry/exporter-trace-otlp-proto'
-      - '@opentelemetry/sdk-trace-base'
-      - openai
-      - react
-      - react-dom
-      - svelte
-      - vue
-      - ws
-      - zod-to-json-schema
-
   '@ag-ui/langgraph@0.0.41(@ag-ui/client@0.0.57)(@ag-ui/core@0.0.57)(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))':
     dependencies:
       '@ag-ui/a2ui-toolkit': 0.0.3
@@ -25556,16 +25447,6 @@ snapshots:
   '@ag-ui/mcp-apps-middleware@0.0.2(@ag-ui/client@0.0.57)(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)':
     dependencies:
       '@ag-ui/client': 0.0.57
-      '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
-      rxjs: 7.8.1
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - supports-color
-      - zod
-
-  '@ag-ui/mcp-apps-middleware@0.0.3(@ag-ui/client@0.0.53)(@cfworker/json-schema@4.1.1)(zod@3.25.76)':
-    dependencies:
-      '@ag-ui/client': 0.0.53
       '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
       rxjs: 7.8.1
     transitivePeerDependencies:
@@ -25679,12 +25560,6 @@ snapshots:
       zod: 3.25.76
 
   '@ai-sdk/openai@3.0.63(zod@3.25.76)':
-    dependencies:
-      '@ai-sdk/provider': 3.0.10
-      '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
-      zod: 3.25.76
-
-  '@ai-sdk/openai@3.0.69(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 3.0.10
       '@ai-sdk/provider-utils': 4.0.27(zod@3.25.76)
@@ -29990,23 +29865,6 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  '@browserbasehq/stagehand@1.14.0(@playwright/test@1.59.1)(deepmerge@4.3.1)(dotenv@16.6.1)(encoding@0.1.13)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(zod@3.25.76)':
-    dependencies:
-      '@anthropic-ai/sdk': 0.27.3(encoding@0.1.13)
-      '@browserbasehq/sdk': 2.6.0(encoding@0.1.13)
-      '@playwright/test': 1.59.1
-      deepmerge: 4.3.1
-      dotenv: 16.6.1
-      openai: 6.35.0(ws@8.19.0)(zod@3.25.76)
-      ws: 8.19.0
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - bufferutil
-      - encoding
-      - utf-8-validate
-    optional: true
-
   '@browserbasehq/stagehand@1.14.0(@playwright/test@1.59.1)(deepmerge@4.3.1)(dotenv@17.4.2)(encoding@0.1.13)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(zod@3.25.76)':
     dependencies:
       '@anthropic-ai/sdk': 0.27.3(encoding@0.1.13)
@@ -30225,174 +30083,7 @@ snapshots:
       jest: 29.7.0(@types/node@22.19.11)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@swc/core@1.15.8(@swc/helpers@0.5.18))(@types/node@22.19.11)(typescript@5.9.3))
       vitest: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.3))
 
-  '@copilotkit/bot-discord@0.0.1(@ag-ui/core@0.0.57)(encoding@0.1.13)':
-    dependencies:
-      '@ag-ui/client': 0.0.57
-      '@copilotkit/bot': 0.0.2(encoding@0.1.13)(zod@3.25.76)
-      '@copilotkit/bot-ui': 0.0.2(@ag-ui/core@0.0.57)(encoding@0.1.13)
-      discord.js: 14.26.4
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - '@ag-ui/core'
-      - bufferutil
-      - encoding
-      - utf-8-validate
-
-  '@copilotkit/bot-slack@0.0.2(@types/express@4.17.25)(encoding@0.1.13)':
-    dependencies:
-      '@ag-ui/client': 0.0.57
-      '@ag-ui/core': 0.0.57
-      '@copilotkit/bot': 0.0.2(encoding@0.1.13)(zod@3.25.76)
-      '@copilotkit/bot-ui': 0.0.2(@ag-ui/core@0.0.57)(encoding@0.1.13)
-      '@copilotkit/core': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)(zod@3.25.76)
-      '@copilotkit/shared': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)
-      '@slack/bolt': 4.7.3(@types/express@4.17.25)
-      '@slack/types': 2.21.1
-      '@slack/web-api': 7.16.0
-      rxjs: 7.8.1
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - '@types/express'
-      - bufferutil
-      - debug
-      - encoding
-      - supports-color
-      - utf-8-validate
-
-  '@copilotkit/bot-ui@0.0.2(@ag-ui/core@0.0.57)(encoding@0.1.13)':
-    dependencies:
-      '@copilotkit/shared': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)
-    transitivePeerDependencies:
-      - '@ag-ui/core'
-      - encoding
-
-  '@copilotkit/bot@0.0.2(encoding@0.1.13)(zod@3.25.76)':
-    dependencies:
-      '@ag-ui/client': 0.0.57
-      '@ag-ui/core': 0.0.57
-      '@copilotkit/bot-ui': 0.0.2(@ag-ui/core@0.0.57)(encoding@0.1.13)
-      '@copilotkit/core': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)(zod@3.25.76)
-      '@copilotkit/shared': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - encoding
-      - zod
-
-  '@copilotkit/core@1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)(zod@3.25.76)':
-    dependencies:
-      '@ag-ui/client': 0.0.57
-      '@copilotkit/shared': 1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)
-      '@tanstack/pacer': 0.20.1
-      phoenix: 1.8.4
-      rxjs: 7.8.1
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - '@ag-ui/core'
-      - encoding
-      - zod
-
-  '@copilotkit/license-verifier@0.4.2': {}
-
-  '@copilotkit/runtime@1.59.5(56436085ce2a11549bd479ba7297dde1)':
-    dependencies:
-      '@ag-ui/a2ui-middleware': 0.0.6(@ag-ui/client@0.0.53)(rxjs@7.8.1)
-      '@ag-ui/client': 0.0.53
-      '@ag-ui/core': 0.0.53
-      '@ag-ui/encoder': 0.0.53
-      '@ag-ui/langgraph': 0.0.37(@ag-ui/client@0.0.53)(@ag-ui/core@0.0.53)(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
-      '@ag-ui/mcp-apps-middleware': 0.0.3(@ag-ui/client@0.0.53)(@cfworker/json-schema@4.1.1)(zod@3.25.76)
-      '@ag-ui/mcp-middleware': 0.0.1(@cfworker/json-schema@4.1.1)(rxjs@7.8.1)(zod@3.25.76)
-      '@ai-sdk/anthropic': 3.0.49(zod@3.25.76)
-      '@ai-sdk/google': 3.0.33(zod@3.25.76)
-      '@ai-sdk/google-vertex': 3.0.120(zod@3.25.76)
-      '@ai-sdk/mcp': 1.0.21(zod@3.25.76)
-      '@ai-sdk/openai': 3.0.69(zod@3.25.76)
-      '@copilotkit/license-verifier': 0.4.2
-      '@copilotkit/shared': 1.59.5(@ag-ui/core@0.0.53)(encoding@0.1.13)
-      '@graphql-yoga/plugin-defer-stream': 3.18.0(graphql-yoga@5.18.0(graphql@16.12.0))(graphql@16.12.0)
-      '@hono/node-server': 2.0.0(hono@4.12.15)
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      '@modelcontextprotocol/sdk': 1.29.0(@cfworker/json-schema@4.1.1)(zod@3.25.76)
-      '@remix-run/node-fetch-server': 0.13.0
-      '@scarf/scarf': 1.4.0
-      '@segment/analytics-node': 2.3.0(encoding@0.1.13)
-      ai: 6.0.156(zod@3.25.76)
-      clarinet: 0.12.6
-      class-transformer: 0.5.1
-      class-validator: 0.14.3
-      cors: 2.8.5
-      express: 5.2.1
-      graphql: 16.12.0
-      graphql-scalars: 1.25.0(graphql@16.12.0)
-      graphql-yoga: 5.18.0(graphql@16.12.0)
-      hono: 4.12.15
-      partial-json: 0.1.7
-      phoenix: 1.8.4
-      pino: 10.1.1
-      pino-pretty: 11.3.0
-      reflect-metadata: 0.2.2
-      rxjs: 7.8.1
-      type-graphql: 2.0.0-rc.1(class-validator@0.14.3)(graphql-scalars@1.25.0(graphql@16.12.0))(graphql@16.12.0)
-      uuid: 10.0.0
-      ws: 8.19.0
-      zod: 3.25.76
-    optionalDependencies:
-      '@anthropic-ai/sdk': 0.57.0
-      '@langchain/aws': 1.1.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))
-      '@langchain/community': 1.1.27(@aws-crypto/sha256-js@5.2.0)(@aws-sdk/client-s3@3.1014.0)(@aws-sdk/credential-provider-node@3.972.29)(@browserbasehq/sdk@2.6.0(encoding@0.1.13))(@browserbasehq/stagehand@1.14.0(@playwright/test@1.59.1)(deepmerge@4.3.1)(dotenv@16.6.1)(encoding@0.1.13)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.7.6)(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(@smithy/eventstream-codec@4.2.12)(@smithy/protocol-http@5.3.12)(@smithy/signature-v4@5.3.12)(@smithy/util-utf8@4.2.2)(better-sqlite3@12.5.0)(d3-dsv@3.0.1)(discord.js@14.26.4)(fast-xml-parser@5.5.8)(google-auth-library@10.6.2)(ibm-cloud-sdk-core@5.4.5)(ignore@7.0.5)(ioredis@5.10.1)(jsdom@29.1.0(@noble/hashes@1.8.0))(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(playwright@1.59.1)(puppeteer@22.14.0(typescript@5.9.3))(ws@8.19.0)
-      '@langchain/google-gauth': 0.1.8(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(encoding@0.1.13)(zod@3.25.76)
-      '@langchain/langgraph-sdk': 2.0.0(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@langchain/openai': 1.4.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0)
-      groq-sdk: 0.5.0(encoding@0.1.13)
-      langchain: 1.3.5(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(ws@8.19.0)(zod-to-json-schema@3.25.1(zod@3.25.76))
-      openai: 6.35.0(ws@8.19.0)(zod@3.25.76)
-    transitivePeerDependencies:
-      - '@cfworker/json-schema'
-      - '@opentelemetry/api'
-      - '@opentelemetry/exporter-trace-otlp-proto'
-      - '@opentelemetry/sdk-trace-base'
-      - bufferutil
-      - encoding
-      - react
-      - react-dom
-      - supports-color
-      - svelte
-      - utf-8-validate
-      - vue
-      - zod-to-json-schema
-
-  '@copilotkit/shared@1.59.5(@ag-ui/core@0.0.53)(encoding@0.1.13)':
-    dependencies:
-      '@ag-ui/client': 0.0.53
-      '@ag-ui/core': 0.0.53
-      '@copilotkit/license-verifier': 0.4.2
-      '@segment/analytics-node': 2.3.0(encoding@0.1.13)
-      '@standard-schema/spec': 1.1.0
-      chalk: 4.1.2
-      graphql: 16.12.0
-      partial-json: 0.1.7
-      uuid: 11.1.0
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - encoding
-
-  '@copilotkit/shared@1.60.1(@ag-ui/core@0.0.57)(encoding@0.1.13)':
-    dependencies:
-      '@ag-ui/client': 0.0.57
-      '@ag-ui/core': 0.0.57
-      '@copilotkit/license-verifier': 0.4.2
-      '@segment/analytics-node': 2.3.0(encoding@0.1.13)
-      '@standard-schema/spec': 1.1.0
-      chalk: 4.1.2
-      graphql: 16.12.0
-      partial-json: 0.1.7
-      uuid: 11.1.0
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - encoding
+  '@copilotkit/license-verifier@0.5.0': {}
 
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
@@ -32677,17 +32368,6 @@ snapshots:
     transitivePeerDependencies:
       - aws-crt
 
-  '@langchain/aws@1.1.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))':
-    dependencies:
-      '@aws-sdk/client-bedrock-agent-runtime': 3.1023.0
-      '@aws-sdk/client-bedrock-runtime': 3.1023.0
-      '@aws-sdk/client-kendra': 3.1023.0
-      '@aws-sdk/credential-provider-node': 3.972.29
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-    transitivePeerDependencies:
-      - aws-crt
-    optional: true
-
   '@langchain/classic@1.0.27(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)':
     dependencies:
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
@@ -32708,73 +32388,6 @@ snapshots:
       - '@opentelemetry/sdk-trace-base'
       - openai
       - ws
-
-  '@langchain/classic@1.0.27(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)':
-    dependencies:
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      '@langchain/openai': 1.4.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0)
-      '@langchain/textsplitters': 1.0.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))
-      handlebars: 4.7.9
-      js-yaml: 4.1.1
-      jsonpointer: 5.0.1
-      openapi-types: 12.1.3
-      uuid: 10.0.0
-      yaml: 2.8.3
-      zod: 3.25.76
-    optionalDependencies:
-      langsmith: 0.5.25(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-      - '@opentelemetry/exporter-trace-otlp-proto'
-      - '@opentelemetry/sdk-trace-base'
-      - openai
-      - ws
-    optional: true
-
-  '@langchain/community@1.1.27(@aws-crypto/sha256-js@5.2.0)(@aws-sdk/client-s3@3.1014.0)(@aws-sdk/credential-provider-node@3.972.29)(@browserbasehq/sdk@2.6.0(encoding@0.1.13))(@browserbasehq/stagehand@1.14.0(@playwright/test@1.59.1)(deepmerge@4.3.1)(dotenv@16.6.1)(encoding@0.1.13)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.7.6)(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(@smithy/eventstream-codec@4.2.12)(@smithy/protocol-http@5.3.12)(@smithy/signature-v4@5.3.12)(@smithy/util-utf8@4.2.2)(better-sqlite3@12.5.0)(d3-dsv@3.0.1)(discord.js@14.26.4)(fast-xml-parser@5.5.8)(google-auth-library@10.6.2)(ibm-cloud-sdk-core@5.4.5)(ignore@7.0.5)(ioredis@5.10.1)(jsdom@29.1.0(@noble/hashes@1.8.0))(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(playwright@1.59.1)(puppeteer@22.14.0(typescript@5.9.3))(ws@8.19.0)':
-    dependencies:
-      '@browserbasehq/stagehand': 1.14.0(@playwright/test@1.59.1)(deepmerge@4.3.1)(dotenv@16.6.1)(encoding@0.1.13)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(zod@3.25.76)
-      '@ibm-cloud/watsonx-ai': 1.7.6
-      '@langchain/classic': 1.0.27(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      '@langchain/openai': 1.4.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0)
-      binary-extensions: 2.3.0
-      flat: 5.0.2
-      ibm-cloud-sdk-core: 5.4.5
-      js-yaml: 4.1.1
-      langsmith: 0.5.25(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      math-expression-evaluator: 2.0.7
-      openai: 6.35.0(ws@8.19.0)(zod@3.25.76)
-      uuid: 10.0.0
-      zod: 3.25.76
-    optionalDependencies:
-      '@aws-crypto/sha256-js': 5.2.0
-      '@aws-sdk/client-s3': 3.1014.0
-      '@aws-sdk/credential-provider-node': 3.972.29
-      '@browserbasehq/sdk': 2.6.0(encoding@0.1.13)
-      '@smithy/eventstream-codec': 4.2.12
-      '@smithy/protocol-http': 5.3.12
-      '@smithy/signature-v4': 5.3.12
-      '@smithy/util-utf8': 4.2.2
-      better-sqlite3: 12.5.0
-      d3-dsv: 3.0.1
-      discord.js: 14.26.4
-      fast-xml-parser: 5.5.8
-      google-auth-library: 10.6.2
-      ignore: 7.0.5
-      ioredis: 5.10.1
-      jsdom: 29.1.0(@noble/hashes@1.8.0)
-      jsonwebtoken: 9.0.3
-      lodash: 4.18.1
-      playwright: 1.59.1
-      puppeteer: 22.14.0(typescript@5.9.3)
-      ws: 8.19.0
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-      - '@opentelemetry/exporter-trace-otlp-proto'
-      - '@opentelemetry/sdk-trace-base'
-      - peggy
-    optional: true
 
   '@langchain/community@1.1.27(@aws-crypto/sha256-js@5.2.0)(@aws-sdk/client-s3@3.1014.0)(@aws-sdk/credential-provider-node@3.972.29)(@browserbasehq/sdk@2.6.0(encoding@0.1.13))(@browserbasehq/stagehand@1.14.0(@playwright/test@1.59.1)(deepmerge@4.3.1)(dotenv@17.4.2)(encoding@0.1.13)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(zod@3.25.76))(@ibm-cloud/watsonx-ai@1.7.6)(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@opentelemetry/api@1.9.0)(@smithy/eventstream-codec@4.2.12)(@smithy/protocol-http@5.3.12)(@smithy/signature-v4@5.3.12)(@smithy/util-utf8@4.2.2)(better-sqlite3@12.5.0)(d3-dsv@3.0.1)(discord.js@14.26.4)(fast-xml-parser@5.5.8)(google-auth-library@10.6.2)(ibm-cloud-sdk-core@5.4.5)(ignore@7.0.5)(ioredis@5.10.1)(jsdom@29.1.0(@noble/hashes@1.8.0))(jsonwebtoken@9.0.3)(lodash@4.18.1)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(playwright@1.59.1)(puppeteer@22.14.0(typescript@5.9.3))(ws@8.19.0)':
     dependencies:
@@ -32906,15 +32519,6 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
-  '@langchain/google-common@0.1.8(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(zod@3.25.76)':
-    dependencies:
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      uuid: 10.0.0
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - zod
-    optional: true
-
   '@langchain/google-gauth@0.1.8(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(encoding@0.1.13)(zod@3.25.76)':
     dependencies:
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
@@ -32924,17 +32528,6 @@ snapshots:
       - encoding
       - supports-color
       - zod
-
-  '@langchain/google-gauth@0.1.8(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(encoding@0.1.13)(zod@3.25.76)':
-    dependencies:
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      '@langchain/google-common': 0.1.8(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(zod@3.25.76)
-      google-auth-library: 8.9.0(encoding@0.1.13)
-    transitivePeerDependencies:
-      - encoding
-      - supports-color
-      - zod
-    optional: true
 
   '@langchain/langgraph-api@1.1.13(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(@langchain/langgraph-checkpoint@1.0.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)))(@langchain/langgraph-sdk@1.8.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3)))(@langchain/langgraph@1.2.9(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vue@3.5.34(typescript@5.9.3))(zod-to-json-schema@3.25.1(zod@3.25.76))(zod@3.25.76))(@opentelemetry/api@1.9.0)(babel-plugin-macros@3.1.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(typescript@5.9.3)(ws@8.19.0)':
     dependencies:
@@ -33086,18 +32679,6 @@ snapshots:
       react: 19.2.3
       react-dom: 19.2.3(react@19.2.3)
 
-  '@langchain/langgraph-sdk@2.0.0(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
-    dependencies:
-      '@types/json-schema': 7.0.15
-      p-queue: 9.1.0
-      p-retry: 7.1.1
-      uuid: 13.0.0
-    optionalDependencies:
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      react: 19.2.3
-      react-dom: 19.2.3(react@19.2.3)
-    optional: true
-
   '@langchain/langgraph-ui@1.1.13':
     dependencies:
       '@commander-js/extra-typings': 13.1.0(commander@13.1.0)
@@ -33204,16 +32785,6 @@ snapshots:
     transitivePeerDependencies:
       - ws
 
-  '@langchain/openai@1.4.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))(ws@8.19.0)':
-    dependencies:
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      js-tiktoken: 1.0.21
-      openai: 6.35.0(ws@8.19.0)(zod@3.25.76)
-      zod: 3.25.76
-    transitivePeerDependencies:
-      - ws
-    optional: true
-
   '@langchain/textsplitters@0.1.0(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))':
     dependencies:
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
@@ -33223,12 +32794,6 @@ snapshots:
     dependencies:
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
       js-tiktoken: 1.0.21
-
-  '@langchain/textsplitters@1.0.1(@langchain/core@1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0))':
-    dependencies:
-      '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@6.35.0(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
-      js-tiktoken: 1.0.21
-    optional: true
 
   '@leichtgewicht/ip-codec@2.0.5': {}
 

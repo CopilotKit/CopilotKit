@@ -16,7 +16,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={"antialiased"}>
+      {/*
+        suppressHydrationWarning: browser extensions (e.g. Grammarly) inject
+        attributes like data-gr-ext-installed onto <body> before React hydrates,
+        which would otherwise surface as a hydration mismatch on first load.
+        This only relaxes the check for <body>'s own attributes (one level deep);
+        everything rendered inside <body> is still fully hydration-checked.
+      */}
+      <body className={"antialiased"} suppressHydrationWarning>
         {/* Force REST transport so runtime-info + threads both hit the multi-route endpoint (auto-detect races the lazily-compiled API route in next dev). */}
         <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
           {children}

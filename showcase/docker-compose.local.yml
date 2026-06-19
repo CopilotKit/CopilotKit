@@ -182,7 +182,7 @@ services:
       - POCKETBASE_URL=http://localhost:8090
       - SHOWCASE_LOCAL=1
     ports:
-      - "3200:10000"
+      - "3210:10000"
     depends_on:
       pocketbase:
         condition: service_healthy

@@ -10,7 +10,7 @@ import {
   ChatState,
   provideCopilotChatLabels,
   provideCopilotKit,
-} from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
 import type { Message } from "@ag-ui/client";
 
 @Injectable()
