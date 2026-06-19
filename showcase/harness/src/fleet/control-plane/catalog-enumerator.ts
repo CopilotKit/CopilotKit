@@ -319,13 +319,6 @@ export const D6_DISCOVERY_FILTER = {
     "showcase-shell-dashboard",
     "showcase-shell-docs",
     "showcase-shell-dojo",
-    // Harness service for .NET integration testing — deployed: true in its
-    // manifest but NOT probe-wired yet (no aimock fixtures; shares the
-    // ms-agent-dotnet AsyncLocal bug). Excluded from every probe AND not
-    // rendered on the dashboard (see shell-dashboard baseline-types.ts) so an
-    // unprobed service never shows stale red. Re-include only once it is fully
-    // probe-wired.
-    "showcase-ms-agent-harness-dotnet",
     // Decommissioned starters.
     "showcase-starter-ag2",
     "showcase-starter-agno",
