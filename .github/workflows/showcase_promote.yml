@@ -215,6 +215,11 @@ jobs:
       # prod verification to exactly this set so a single failed service can't
       # red the verification of the services that did promote.
       succeeded_csv: ${{ steps.promote.outputs.succeeded_csv }}
+      # Aggregated staging-drift payload: non-empty when any promoted service's
+      # staging RUNNING digest differed from the current GHCR :latest (i.e.
+      # staging was NOT serving :latest). Folded into the Slack notify payload
+      # so operators see "what shipped to prod is not current :latest".
+      staging_drift: ${{ steps.promote.outputs.staging_drift }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -384,6 +389,10 @@ jobs:
           PROD_STATUS: ${{ needs.verify-prod.outputs.status }}
           CSV: ${{ needs.resolve-targets.outputs.services_csv }}
           INPUT: ${{ inputs.service }}
+          # Aggregated staging-drift payload from the promote job (empty when no
+          # service drifted). Surfaced in BOTH Slack payloads below so a drifted
+          # promote is loud even on a successful run.
+          DRIFT: ${{ needs.promote.outputs.staging_drift }}
         run: |
           set -euo pipefail
           # Displayed verify-prod value for the Slack line. The job `result` is
@@ -418,11 +427,23 @@ jobs:
           else
             STATE="failure"; ICON=":x:"
           fi
+          # Human-facing drift suffix for the Slack message. Empty string when
+          # there is no drift (renders as nothing); otherwise a loud prefix line
+          # naming the drifted services + digests. MUST be single-line (no
+          # embedded LF) so it survives the GITHUB_OUTPUT key=value contract: a
+          # newline anywhere in $DRIFT (upstream free-form text) would otherwise
+          # split the value across lines and corrupt/inject the whole output map.
+          # We ENFORCE that here via `tr -d '\n'` rather than trusting upstream.
+          DRIFT_LINE=""
+          if [ -n "${DRIFT:-}" ]; then
+            DRIFT_LINE="$(printf '%s' ":warning: STAGING DRIFT — prod pinned to staging's RUNNING digest, NOT current :latest — $DRIFT" | tr -d '\n')"
+          fi
           {
             echo "state=$STATE"
             echo "icon=$ICON"
             echo "csv=$CSV"
             echo "prod_display=$PROD_DISPLAY"
+            echo "drift_line=$DRIFT_LINE"
           } >> "$GITHUB_OUTPUT"
       - name: Post to #oss-alerts
         if: steps.state.outputs.state == 'failure' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK != ''
@@ -438,7 +459,7 @@ jobs:
           payload: |
             {
               "text": ${{ toJSON(format(
-                '{0} *Showcase Promote Failed*{9}Services: `{1}`{9}resolve-targets={2} pre-staging={3} promote={4} verify-prod={5}{9}<{6}/{7}/actions/runs/{8}|View run>',
+                '{0} *Showcase Promote Failed*{9}Services: `{1}`{9}resolve-targets={2} pre-staging={3} promote={4} verify-prod={5}{10}{9}<{6}/{7}/actions/runs/{8}|View run>',
                 steps.state.outputs.icon,
                 steps.state.outputs.csv,
                 needs.resolve-targets.result,
@@ -448,7 +469,8 @@ jobs:
                 github.server_url,
                 github.repository,
                 github.run_id,
-                fromJSON('"\n"')
+                fromJSON('"\n"'),
+                steps.state.outputs.drift_line != '' && format('{0}{1}', fromJSON('"\n"'), steps.state.outputs.drift_line) || ''
               )) }}
             }
       - name: Post to #team-showcase
@@ -462,25 +484,38 @@ jobs:
           payload: |
             {
               "text": ${{ toJSON(format(
-                '{0} *Showcase Promoted to Prod*{5}Services: `{1}`{5}<{2}/{3}/actions/runs/{4}|View run>',
+                '{0} *Showcase Promoted to Prod*{5}Services: `{1}`{6}{5}<{2}/{3}/actions/runs/{4}|View run>',
                 steps.state.outputs.icon,
                 steps.state.outputs.csv,
                 github.server_url,
                 github.repository,
                 github.run_id,
-                fromJSON('"\n"')
+                fromJSON('"\n"'),
+                steps.state.outputs.drift_line != '' && format('{0}{1}', fromJSON('"\n"'), steps.state.outputs.drift_line) || ''
               )) }}
             }
       - name: Log (no Slack — webhook unset)
         if: steps.state.outputs.state == 'failure' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK == ''
         env:
           CSV: ${{ steps.state.outputs.csv }}
+          DRIFT_LINE: ${{ steps.state.outputs.drift_line }}
         run: |
           echo "::warning::Showcase promote failed for '$CSV' but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+          # Preserve the staging-drift signal on the webhook-unset path (it would
+          # otherwise only survive in the promote job's step summary, not here).
+          if [ -n "$DRIFT_LINE" ]; then
+            echo "::warning::$DRIFT_LINE"
+          fi
       - name: Log (no Slack — team-showcase webhook unset)
         if: steps.state.outputs.state == 'success' && inputs.service != '__select_a_service__' && env.SLACK_WEBHOOK_TS == ''
         env:
           CSV: ${{ steps.state.outputs.csv }}
           ICON: ${{ steps.state.outputs.icon }}
+          DRIFT_LINE: ${{ steps.state.outputs.drift_line }}
         run: |
           echo "::notice::$ICON Showcase promoted to prod for '$CSV' but SLACK_WEBHOOK_TEAM_SHOWCASE is not set; no #team-showcase notification sent."
+          # Preserve the staging-drift signal on the webhook-unset path (it would
+          # otherwise only survive in the promote job's step summary, not here).
+          if [ -n "$DRIFT_LINE" ]; then
+            echo "::warning::$DRIFT_LINE"
+          fi

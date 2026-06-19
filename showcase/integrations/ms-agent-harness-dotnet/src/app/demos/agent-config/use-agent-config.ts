@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  type AgentConfig,
-  DEFAULT_AGENT_CONFIG,
-  type Expertise,
-  type ResponseLength,
-  type Tone,
+import { DEFAULT_AGENT_CONFIG } from "./config-types";
+import type {
+  AgentConfig,
+  Expertise,
+  ResponseLength,
+  Tone,
 } from "./config-types";
 
 export interface UseAgentConfigHandle {

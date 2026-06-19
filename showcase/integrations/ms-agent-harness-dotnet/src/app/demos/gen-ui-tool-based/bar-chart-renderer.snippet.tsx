@@ -10,7 +10,7 @@
 
 // @region[bar-chart-renderer]
 import { useComponent } from "@copilotkit/react-core/v2";
-import { z } from "zod";
+import type { z } from "zod";
 
 // Stand-ins for the locally-authored bar chart component + its prop
 // schema. In a real page, these live in the demo directory (e.g.

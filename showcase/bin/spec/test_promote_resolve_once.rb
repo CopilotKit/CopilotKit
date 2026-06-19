@@ -9,8 +9,9 @@ require_relative "spec_helper"
 #   FIX-2: a Railway::GHCR::Error raised mid-loop in P1 produces a per-
 #          service REFUSE finding and the loop continues for remaining
 #          services — earlier findings are NOT discarded.
-#   FIX-3: pin_and_verify asserts the serviceInstanceRedeploy result is
-#          truthy (symmetric with the serviceInstanceUpdate result check).
+#   FIX-3: pin_and_verify asserts the serviceInstanceDeployV2 result is a
+#          non-empty deployment id (symmetric with the serviceInstanceUpdate
+#          result check).
 #   FIX-4: P2 emits a WARN finding when deployment meta is not a Hash, so
 #          the silent skip of the in-flight race-check is visible.
 #   FIX-5: when pin_and_verify raises mid-loop in execute_promotion, a
@@ -69,8 +70,10 @@ class PromoteResolveOnceTest < Minitest::Test
                 @ts_counter += 1
                 @post[sid] = { image: vars[:image], ts: "2026-05-29T00:00:%02dZ" % @ts_counter }
                 { "serviceInstanceUpdate" => true }
-            elsif q.include?("serviceInstanceRedeploy")
-                { "serviceInstanceRedeploy" => @redeploy_result }
+            elsif q.include?("serviceInstanceDeployV2")
+                # @redeploy_result false → return nil id so the DeployV2 guard
+                # fails loud (mirrors the prior redeploy-false fail path).
+                { "serviceInstanceDeployV2" => (@redeploy_result ? "dep-#{sid}" : nil) }
             elsif q.include?("ServiceInstanceRecheck")
                 if (entry = @post[sid])
                     {
@@ -78,6 +81,12 @@ class PromoteResolveOnceTest < Minitest::Test
                             "id" => "i",
                             "source" => { "image" => entry[:image] },
                             "updatedAt" => entry[:ts],
+                            "latestDeployment" => {
+                                "id" => "dep-#{sid}", "status" => "SUCCESS",
+                                "meta" => {
+                                    "imageDigest" => (entry[:image].include?("@") ? entry[:image].split("@", 2).last : nil),
+                                },
+                            },
                         },
                     }
                 else
@@ -198,6 +207,15 @@ class PromoteResolveOnceTest < Minitest::Test
         # that names the service.
         cmd = Railway::PromoteCommand.new([])
         cmd.instance_variable_set(:@ghcr, RaisingOnSecondGHCR.new)
+        # resolved_prod_image now pins staging's RUNNING digest (meta.imageDigest);
+        # stub the deployment lookup so the flow reaches manifest_exists (which
+        # raises on the 2nd service under test).
+        cmd.define_singleton_method(:fetch_latest_staging_deployments) do |svc_id|
+            name = svc_id.sub("svc-stg-", "")
+            [{ "id" => "d", "status" => "SUCCESS",
+               "meta" => { "image" => "ghcr.io/copilotkit/#{name}:latest",
+                           "imageDigest" => "sha256:running_#{name}" } }]
+        end
         staging = {
             "services" => [
                 make_svc("a", image: "ghcr.io/copilotkit/a:latest"),
@@ -214,7 +232,7 @@ class PromoteResolveOnceTest < Minitest::Test
 
     # =================== FIX-3 ===================
 
-    def test_fix3_pin_and_verify_raises_when_redeploy_returns_false
+    def test_fix3_pin_and_verify_raises_when_deploy_returns_no_id
         gql = RecordingGQL.new(redeploy_result: false)
         err = assert_raises(Railway::PromoteCommand::MutationError) do
             Railway::PromoteCommand.pin_and_verify(gql,
@@ -222,8 +240,8 @@ class PromoteResolveOnceTest < Minitest::Test
                 image: "ghcr.io/copilotkit/x@sha256:abc",
                 sleeper: ->(_) {})
         end
-        assert_match(/serviceInstanceRedeploy/i, err.message,
-            "MutationError must reference the redeploy mutation; got: #{err.message}")
+        assert_match(/serviceInstanceDeployV2/i, err.message,
+            "MutationError must reference the deploy mutation; got: #{err.message}")
     end
 
     # =================== FIX-4 ===================

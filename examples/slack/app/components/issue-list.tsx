@@ -16,13 +16,8 @@
  * Authored with the `@copilotkit/bot-ui` JSX vocabulary.
  */
 import { z } from "zod";
-import {
-  Context,
-  Header,
-  Message,
-  Section,
-  type BotNode,
-} from "@copilotkit/bot-ui";
+import { Context, Header, Message, Section } from "@copilotkit/bot-ui";
+import type { BotNode } from "@copilotkit/bot-ui";
 import { accentForIssues, stateGlyph } from "./_status.js";
 
 const issueSchema = z.object({

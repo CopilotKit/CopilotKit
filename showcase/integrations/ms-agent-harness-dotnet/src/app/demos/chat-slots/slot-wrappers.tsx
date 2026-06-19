@@ -9,10 +9,12 @@ import {
   CopilotChatView,
   CopilotChatInput,
   CopilotChatSuggestionPill,
-  type CopilotChatAssistantMessageProps,
-  type CopilotChatUserMessageProps,
-  type CopilotChatReasoningMessageProps,
-  type CopilotChatSuggestionPillProps,
+} from "@copilotkit/react-core/v2";
+import type {
+  CopilotChatAssistantMessageProps,
+  CopilotChatUserMessageProps,
+  CopilotChatReasoningMessageProps,
+  CopilotChatSuggestionPillProps,
 } from "@copilotkit/react-core/v2";
 import { SlotMarker } from "./slot-marker";
 
