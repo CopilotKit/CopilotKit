@@ -67,6 +67,28 @@ function requireString(
 }
 
 /**
+ * Like `requireString` but ALSO rejects empty / whitespace-only values. Used
+ * for the correlation keys (`ab_pair_id`, `test_id`): an empty `ab_pair_id`
+ * would group unrelated rows into one bogus pair under the "" key, fabricating
+ * a spurious `edge-only-failure` verdict, so it must be rejected at validation
+ * time rather than silently grouped.
+ */
+function requireNonEmptyString(
+  raw: Record<string, unknown>,
+  field: string,
+  index: number,
+): string {
+  const value = requireString(raw, field, index);
+  if (value.trim().length === 0) {
+    throw new AbReportInputError(
+      index,
+      `field "${field}" must be a non-empty string`,
+    );
+  }
+  return value;
+}
+
+/**
  * Validate ONE raw record into a typed `AbOutcomeRecord` or throw an
  * `AbReportInputError` naming `index`. Rejects non-object records, missing /
  * wrong-typed fields, and out-of-enum `arm` / `outcome` values.
@@ -94,9 +116,9 @@ function validateRecord(raw: unknown, index: number): AbOutcomeRecord {
     );
   }
   return {
-    ab_pair_id: requireString(raw, "ab_pair_id", index),
+    ab_pair_id: requireNonEmptyString(raw, "ab_pair_id", index),
     arm: arm as AbArm,
-    test_id: requireString(raw, "test_id", index),
+    test_id: requireNonEmptyString(raw, "test_id", index),
     slug: requireString(raw, "slug", index),
     demo: requireString(raw, "demo", index),
     outcome: outcome as CvdiagOutcome,

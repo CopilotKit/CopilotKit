@@ -65,4 +65,31 @@ describe("parseAbRecords — collector-JSON glue", () => {
   it("rejects a non-object record", () => {
     expect(() => parseAbRecords("[42]")).toThrow(/expected a JSON object/);
   });
+
+  it("rejects an empty ab_pair_id rather than fabricating a bogus pair", () => {
+    // RED (old requireString accepts ""): empty ab_pair_id groups unrelated
+    // rows into one bogus pair → fabricated edge-only-failure verdict.
+    const bad = JSON.stringify([{ ...EDGE, ab_pair_id: "" }]);
+    expect(() => parseAbRecords(bad)).toThrow(/ab_pair_id" must be a non-empty/);
+  });
+
+  it("rejects a whitespace-only ab_pair_id", () => {
+    const bad = JSON.stringify([{ ...EDGE, ab_pair_id: "   " }]);
+    expect(() => parseAbRecords(bad)).toThrow(/ab_pair_id" must be a non-empty/);
+  });
+
+  it("rejects an empty test_id", () => {
+    const bad = JSON.stringify([{ ...EDGE, test_id: "" }]);
+    expect(() => parseAbRecords(bad)).toThrow(/test_id" must be a non-empty/);
+  });
+
+  it("does not let two empty-id rows collapse into a fabricated pair", () => {
+    // Two unrelated rows with empty ids would otherwise group under "" and
+    // produce a spurious edge-only-failure. They must be rejected up front.
+    const bad = JSON.stringify([
+      { ...EDGE, ab_pair_id: "", arm: "edge", outcome: "timeout" },
+      { ...EDGE, ab_pair_id: "", arm: "internal", outcome: "ok" },
+    ]);
+    expect(() => parseAbRecords(bad)).toThrow(AbReportInputError);
+  });
 });

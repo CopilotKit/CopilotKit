@@ -50,10 +50,11 @@ export interface AbOutcomeRecord {
 }
 
 /**
- * Per-pair divergence classification:
+ * Per-pair divergence classification. "Failure" means the CvdiagOutcome closed
+ * enum's failure subset {`err`, `timeout`} — `ok` AND `info` are success-class
+ * (`info` is an informational terminal, see `isSuccess`).
  *   - `agree`                 both arms reached the same success/failure verdict
- *                             (both succeeded, OR both failed but treated as
- *                             agreement only when BOTH are non-`ok`; see below).
+ *                             (both succeeded, OR both failed).
  *   - `edge-only-failure`     edge arm failed, internal arm succeeded — the
  *                             canonical edge-interference signature.
  *   - `internal-only-failure` internal arm failed, edge arm succeeded — points
@@ -62,13 +63,24 @@ export interface AbOutcomeRecord {
  *                             fault is upstream of the edge).
  *   - `incomplete`            a pair is missing one of its two arms (e.g. the
  *                             internal run was skipped on an unreachable target).
+ *   - `mis-correlated`        the two arms disagree on `slug`/`demo` — a
+ *                             cross-layer correlation corruption. The pair is
+ *                             excluded from the interference verdict and its
+ *                             discrepancy is recorded (see `correlation_mismatch`).
  */
 export type AbDivergence =
   | "agree"
   | "edge-only-failure"
   | "internal-only-failure"
   | "both-failed"
-  | "incomplete";
+  | "incomplete"
+  | "mis-correlated";
+
+/** The per-arm identity recorded when a pair is mis-correlated. */
+export interface AbArmIdentity {
+  slug: string;
+  demo: string;
+}
 
 /** One reconciled A/B pair. */
 export interface AbPairResult {
@@ -80,6 +92,27 @@ export interface AbPairResult {
   /** Internal-arm outcome, or `null` when the internal arm is missing. */
   internal_outcome: CvdiagOutcome | null;
   divergence: AbDivergence;
+  /**
+   * True when the edge and internal arms disagree on `slug`/`demo` (a
+   * cross-layer mis-correlation). A mis-correlated pair is NOT counted toward
+   * `edge_interference_suspected` — its outcome diff is untrustworthy.
+   */
+  mis_correlated: boolean;
+  /**
+   * The conflicting per-arm identities, present ONLY when `mis_correlated` is
+   * true (both arms are present and disagree). Lets an operator locate the
+   * correlation corruption. Absent for well-correlated or incomplete pairs.
+   */
+  correlation_mismatch?: {
+    edge: AbArmIdentity;
+    internal: AbArmIdentity;
+  };
+  /**
+   * Whether EITHER arm observed an edge-interference signal (cf-mitigated /
+   * retry-after / cf-ray mismatch). Surfaced so an edge arm that SUCCEEDED yet
+   * observed interference is still reflected in the verdict.
+   */
+  edge_interference_signal: boolean;
 }
 
 /** The aggregate A/B report. */
@@ -88,13 +121,29 @@ export interface AbReport {
   pairs: AbPairResult[];
   /** Total number of distinct `ab_pair_id`s observed. */
   total_pairs: number;
-  /** Count of pairs classified `edge-only-failure` (edge interference). */
+  /**
+   * Count of pairs that signal edge interference: pairs classified
+   * `edge-only-failure`, PLUS pairs whose edge arm observed an
+   * `edge_interference_signal` (even when the outcome diff alone would read
+   * `agree`). Mis-correlated pairs are EXCLUDED — their diff is untrustworthy.
+   * Each qualifying pair is counted at most once.
+   */
   edge_interference_suspected: number;
 }
 
-/** A probe outcome counts as "success" only when it terminated cleanly. */
+/**
+ * Whether a probe outcome is success-class (NOT a failure).
+ *
+ * The `CvdiagOutcome` closed enum is {`ok`, `err`, `timeout`, `info`}. The
+ * FAILURE subset is {`err`, `timeout`} — this mirrors the classifier's failure
+ * detection (`classifier.ts`: `ev.outcome === "err" || ev.outcome === "timeout"`).
+ * `info` is an INFORMATIONAL terminal (e.g. the `info` accounting rows written
+ * by `emit.ts` / `pb-writer.ts`), NOT a failure, so it is success-class here.
+ * Treating `info` as a failure would misclassify an `info`-edge/`ok`-internal
+ * pair as `edge-only-failure` and inflate `edge_interference_suspected`.
+ */
 function isSuccess(outcome: CvdiagOutcome): boolean {
-  return outcome === "ok";
+  return outcome === "ok" || outcome === "info";
 }
 
 /** Classify a fully-populated pair's divergence from its two arm outcomes. */
@@ -144,22 +193,55 @@ export function computeAbReport(records: readonly AbOutcomeRecord[]): AbReport {
     const edgeOutcome = edge?.outcome ?? null;
     const internalOutcome = internal?.outcome ?? null;
 
+    // A pair carries an interference signal if EITHER arm observed one. Edge is
+    // the primary source, but an internal-arm signal is informative too.
+    const edgeInterferenceSignal =
+      (edge?.edge_interference_signal ?? false) ||
+      (internal?.edge_interference_signal ?? false);
+
+    // Cross-layer mis-correlation: both arms present but disagreeing on
+    // slug/demo means the correlation is corrupt and the outcome diff cannot be
+    // trusted. Surface it (record the conflict, exclude from the verdict)
+    // instead of silently picking one arm's identity.
+    const misCorrelated =
+      edge !== undefined &&
+      internal !== undefined &&
+      (edge.slug !== internal.slug || edge.demo !== internal.demo);
+
     let divergence: AbDivergence;
-    if (edgeOutcome === null || internalOutcome === null) {
+    let countsAsInterference = false;
+    if (misCorrelated) {
+      divergence = "mis-correlated";
+    } else if (edgeOutcome === null || internalOutcome === null) {
       divergence = "incomplete";
     } else {
       divergence = classifyDivergence(edgeOutcome, internalOutcome);
-      if (divergence === "edge-only-failure") edgeInterferenceSuspected += 1;
+      if (divergence === "edge-only-failure") countsAsInterference = true;
     }
 
-    pairs.push({
+    // Consume the per-pair interference signal: a SUCCEEDING edge arm that
+    // nevertheless observed interference is a real data point. A mis-correlated
+    // pair is never counted (its arms are not the same logical request).
+    if (!misCorrelated && edgeInterferenceSignal) countsAsInterference = true;
+    if (countsAsInterference) edgeInterferenceSuspected += 1;
+
+    const pair: AbPairResult = {
       ab_pair_id,
       slug: ref.slug,
       demo: ref.demo,
       edge_outcome: edgeOutcome,
       internal_outcome: internalOutcome,
       divergence,
-    });
+      mis_correlated: misCorrelated,
+      edge_interference_signal: edgeInterferenceSignal,
+    };
+    if (misCorrelated) {
+      pair.correlation_mismatch = {
+        edge: { slug: edge.slug, demo: edge.demo },
+        internal: { slug: internal.slug, demo: internal.demo },
+      };
+    }
+    pairs.push(pair);
   }
 
   return {

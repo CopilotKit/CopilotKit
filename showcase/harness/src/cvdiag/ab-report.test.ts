@@ -104,3 +104,124 @@ describe("ab-report — computeAbReport pairing diff", () => {
     expect(report.edge_interference_suspected).toBe(0);
   });
 });
+
+describe("ab-report — `info` is a non-failure (success-class) outcome", () => {
+  // The closed CvdiagOutcome enum is {ok, err, timeout, info}. Only `err` and
+  // `timeout` are failures; `info` is an informational terminal (see
+  // classifier.ts:341-344 + emit.ts/pb-writer.ts `info` accounting rows).
+  it("does NOT flag edge-only-failure when edge=info and internal=ok", () => {
+    const report = computeAbReport([
+      rec({ ab_pair_id: "i1", arm: "edge", outcome: "info" }),
+      rec({ ab_pair_id: "i1", arm: "internal", outcome: "ok" }),
+    ]);
+    const pair = report.pairs[0]!;
+    // RED (old isSuccess === "ok"): edge `info` is treated as a failure →
+    // "edge-only-failure" and edge_interference_suspected === 1.
+    expect(pair.divergence).toBe("agree");
+    expect(report.edge_interference_suspected).toBe(0);
+  });
+
+  it("treats info/info as agreement, NOT both-failed", () => {
+    const report = computeAbReport([
+      rec({ ab_pair_id: "i2", arm: "edge", outcome: "info" }),
+      rec({ ab_pair_id: "i2", arm: "internal", outcome: "info" }),
+    ]);
+    // RED (old): both non-`ok` → "both-failed".
+    expect(report.pairs[0]!.divergence).toBe("agree");
+    expect(report.edge_interference_suspected).toBe(0);
+  });
+
+  it("still flags edge-only-failure for err/timeout edge arms (info change is narrow)", () => {
+    const report = computeAbReport([
+      rec({ ab_pair_id: "i3", arm: "edge", outcome: "err" }),
+      rec({ ab_pair_id: "i3", arm: "internal", outcome: "info" }),
+    ]);
+    // edge err (failure) vs internal info (success-class) → edge-only-failure.
+    expect(report.pairs[0]!.divergence).toBe("edge-only-failure");
+    expect(report.edge_interference_suspected).toBe(1);
+  });
+});
+
+describe("ab-report — slug/demo mis-correlation between arms", () => {
+  it("surfaces a mismatch instead of silently picking one arm's identity", () => {
+    const report = computeAbReport([
+      rec({ ab_pair_id: "x1", arm: "edge", slug: "langgraph-python", outcome: "ok" }),
+      rec({ ab_pair_id: "x1", arm: "internal", slug: "crewai-python", outcome: "ok" }),
+    ]);
+    const pair = report.pairs[0]!;
+    // RED (old): silently uses edge ?? internal → slug "langgraph-python",
+    // divergence "agree", and the corruption is hidden.
+    expect(pair.divergence).toBe("mis-correlated");
+    expect(pair.mis_correlated).toBe(true);
+    // The discrepancy is recorded so an operator can locate the corruption.
+    expect(pair.correlation_mismatch).toEqual({
+      edge: { slug: "langgraph-python", demo: "agentic-chat" },
+      internal: { slug: "crewai-python", demo: "agentic-chat" },
+    });
+    // A mis-correlated pair MUST NOT count toward the interference verdict.
+    expect(report.edge_interference_suspected).toBe(0);
+  });
+
+  it("detects a demo mismatch as well as a slug mismatch", () => {
+    const report = computeAbReport([
+      rec({ ab_pair_id: "x2", arm: "edge", demo: "agentic-chat", outcome: "timeout" }),
+      rec({ ab_pair_id: "x2", arm: "internal", demo: "human-in-the-loop", outcome: "ok" }),
+    ]);
+    const pair = report.pairs[0]!;
+    // Even though edge=timeout/internal=ok would normally be edge-only-failure,
+    // a cross-layer mis-correlation MUST override + be excluded from the verdict.
+    expect(pair.divergence).toBe("mis-correlated");
+    expect(report.edge_interference_suspected).toBe(0);
+  });
+
+  it("does NOT flag mis-correlation when both arms agree on slug/demo", () => {
+    const report = computeAbReport([
+      rec({ ab_pair_id: "x3", arm: "edge", outcome: "ok" }),
+      rec({ ab_pair_id: "x3", arm: "internal", outcome: "ok" }),
+    ]);
+    expect(report.pairs[0]!.divergence).toBe("agree");
+    expect(report.pairs[0]!.mis_correlated).toBe(false);
+  });
+});
+
+describe("ab-report — edge_interference_signal is consumed in the verdict", () => {
+  it("flags interference when the edge arm SUCCEEDED yet observed an interference signal", () => {
+    const report = computeAbReport([
+      rec({
+        ab_pair_id: "s1",
+        arm: "edge",
+        outcome: "ok",
+        edge_interference_signal: true,
+      }),
+      rec({ ab_pair_id: "s1", arm: "internal", outcome: "ok" }),
+    ]);
+    const pair = report.pairs[0]!;
+    // RED (old): outcome diff is "agree" and the captured signal is ignored,
+    // so a real edge-interference data point is hidden.
+    expect(pair.edge_interference_signal).toBe(true);
+    expect(report.edge_interference_suspected).toBe(1);
+  });
+
+  it("does not double-count a pair already classified edge-only-failure", () => {
+    const report = computeAbReport([
+      rec({
+        ab_pair_id: "s2",
+        arm: "edge",
+        outcome: "timeout",
+        edge_interference_signal: true,
+      }),
+      rec({ ab_pair_id: "s2", arm: "internal", outcome: "ok" }),
+    ]);
+    // edge-only-failure already counts once; the signal must not add a second.
+    expect(report.edge_interference_suspected).toBe(1);
+  });
+
+  it("leaves the verdict unchanged when no interference signal is present", () => {
+    const report = computeAbReport([
+      rec({ ab_pair_id: "s3", arm: "edge", outcome: "ok", edge_interference_signal: false }),
+      rec({ ab_pair_id: "s3", arm: "internal", outcome: "ok" }),
+    ]);
+    expect(report.pairs[0]!.divergence).toBe("agree");
+    expect(report.edge_interference_suspected).toBe(0);
+  });
+});
