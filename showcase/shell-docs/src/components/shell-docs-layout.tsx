@@ -19,10 +19,12 @@ import { PrimaryDocsTabs } from "./primary-docs-tabs";
 export function ShellDocsLayout({
   tree,
   banner,
+  sidebarClassName,
   children,
 }: {
   tree: PageTree.Root;
   banner?: React.ReactNode;
+  sidebarClassName?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -52,7 +54,9 @@ export function ShellDocsLayout({
         ),
         // Hide Fumadocs's collapse toggle — shell-docs has its own chrome.
         collapsible: false,
-        className: "shell-docs-sidebar",
+        className: ["shell-docs-sidebar", sidebarClassName]
+          .filter(Boolean)
+          .join(" "),
         // Note: `key` is required here because fumadocs's Sidebar
         // passes the `footer` ReactNode into a `jsxs(children: [a, b,
         // footer])` array, and React's dev-mode warning insists every

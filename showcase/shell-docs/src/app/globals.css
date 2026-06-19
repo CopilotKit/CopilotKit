@@ -441,6 +441,15 @@
 .shell-docs-sidebar > div:first-child {
   padding: 0.75rem 0 1.25rem !important;
 }
+@media (min-width: 768px) {
+  .shell-docs-sidebar-cookbook > div:first-child {
+    display: none !important;
+  }
+}
+.shell-docs-sidebar-cookbook [data-radix-scroll-area-viewport] > div:first-child {
+  padding-top: 0 !important;
+  padding-bottom: 1.5rem !important;
+}
 /* Hide the empty home-link wrapper Fumadocs ships in the desktop
  * SidebarHeader. Scoped via `:has(> a:only-child:empty)` so it ONLY
  * matches the desktop case — the mobile SidebarHeader's first flex

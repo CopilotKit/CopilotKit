@@ -54,3 +54,14 @@ describe("globals.css docs headings", () => {
     );
   });
 });
+
+describe("globals.css cookbook sidebar", () => {
+  it("removes the empty cookbook sidebar banner and aligns the recipe list", () => {
+    expect(globalsCss).toContain(
+      ".shell-docs-sidebar-cookbook > div:first-child {\n    display: none !important;",
+    );
+    expect(globalsCss).toContain(
+      ".shell-docs-sidebar-cookbook [data-radix-scroll-area-viewport] > div:first-child {\n  padding-top: 0 !important;\n  padding-bottom: 1.5rem !important;",
+    );
+  });
+});
