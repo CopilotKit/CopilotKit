@@ -2,6 +2,8 @@
 
 import { CopilotKitMark } from "@/components/copilotkit-mark";
 import { getRuntimeConfig } from "@/lib/runtime-config.client";
+import posthog from "posthog-js";
+import { useCallback } from "react";
 
 // Icons inlined as SVG so this component avoids a lucide-react dep
 // (shell-docs deliberately keeps icon usage minimal — see mdx-registry's
@@ -49,6 +51,9 @@ function Info({ className }: { className?: string }) {
 }
 
 export type OpsPlatformCTAVariant = "tile" | "inline" | "card" | "info";
+export type OpsPlatformCTAAnalyticsEvent =
+  | "try_for_free_clicked"
+  | "talk_to_us_clicked";
 
 export interface OpsPlatformCTAProps {
   /** Visual style: tile = full-width hero, inline = mid-page callout, card = footer */
@@ -58,23 +63,29 @@ export interface OpsPlatformCTAProps {
   /** Body copy under the headline */
   body?: string;
   /** Stable identifier for analytics, e.g. "docs:langgraph/quickstart:whats-next".
-   * Flows through to the destination URL as `utm_content` so dashboard-side
-   * analytics can attribute the click. Shell-docs does not yet ship a
-   * client-side PostHog capture; UTM is the source of truth here. */
+   * Flows through to the destination URL as `utm_content` and the PostHog
+   * `location` property so CTA attribution stays consistent across docs
+   * surfaces. */
   surface: string;
   /** Optional override for the link label. Defaults to "Get Enterprise Intelligence free" */
   ctaLabel?: string;
+  /** Optional override for CTAs that should keep the Enterprise styling but point elsewhere. */
+  href?: string;
+  /** PostHog event captured on click. Defaults to the Enterprise Intelligence signup event. */
+  analyticsEvent?: OpsPlatformCTAAnalyticsEvent;
   /** Optional className override for the outermost element */
   className?: string;
 }
 
-function buildHref(surface: string): string {
+function buildHref(surface: string, hrefOverride?: string): string {
   // Signup URL is read at render time from the runtime config injected
   // by the root layout — see signup-link.tsx and lib/runtime-config.ts
   // for the full plumbing rationale. Keeps a single artifact retargetable
-  // across Railway envs without rebuild.
+  // across Railway envs without rebuild. `hrefOverride` lets docs keep this
+  // CTA treatment for related Enterprise actions, such as talking to an
+  // engineer about self-hosting.
   const signupUrl = getRuntimeConfig().intelligenceSignupUrl;
-  const url = new URL(signupUrl);
+  const url = new URL(hrefOverride ?? signupUrl);
   url.searchParams.set("utm_source", "docs");
   url.searchParams.set("utm_medium", "cta");
   url.searchParams.set("utm_campaign", "intelligence");
@@ -88,9 +99,18 @@ export function OpsPlatformCTA({
   body,
   surface,
   ctaLabel = "Get Enterprise Intelligence free",
+  href: hrefOverride,
+  analyticsEvent = "try_for_free_clicked",
   className,
 }: OpsPlatformCTAProps) {
-  const href = buildHref(surface);
+  const href = buildHref(surface, hrefOverride);
+  const handleClick = useCallback(() => {
+    try {
+      posthog.capture(analyticsEvent, { location: surface });
+    } catch {
+      // PostHog may be blocked by ad blockers; navigation should still work.
+    }
+  }, [analyticsEvent, surface]);
 
   if (variant === "info") {
     return (
@@ -109,6 +129,7 @@ export function OpsPlatformCTA({
             href={href}
             target="_blank"
             rel="noreferrer"
+            onClick={handleClick}
             // HubSpot's analytics tag rewrites the outbound href client-side;
             // see suppressHydrationWarning note on the card variant below.
             suppressHydrationWarning
@@ -134,6 +155,7 @@ export function OpsPlatformCTA({
         href={href}
         target="_blank"
         rel="noreferrer"
+        onClick={handleClick}
         // See suppressHydrationWarning note on the card variant below.
         suppressHydrationWarning
         data-cta-surface={surface}
@@ -172,6 +194,7 @@ export function OpsPlatformCTA({
         href={href}
         target="_blank"
         rel="noreferrer"
+        onClick={handleClick}
         // See suppressHydrationWarning note on the card variant below.
         suppressHydrationWarning
         data-cta-surface={surface}
@@ -216,6 +239,7 @@ export function OpsPlatformCTA({
       href={href}
       target="_blank"
       rel="noreferrer"
+      onClick={handleClick}
       // HubSpot's analytics tag rewrites the outbound href client-side to
       // append `__hstc` / `__hssc` / `__hsfp` cross-domain tracking params,
       // which trips React's hydration diff. Same fix lives on the nav-bar
