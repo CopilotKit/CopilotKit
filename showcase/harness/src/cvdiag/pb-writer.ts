@@ -22,7 +22,7 @@
  */
 
 import type { Logger } from "../types/index.js";
-import type { PbClient } from "../storage/pb-client.js";
+import type { PbClient, ListOpts, ListResult } from "../storage/pb-client.js";
 
 /** Collection names — mirror the PB migrations (1779990200 / 1779990201). */
 export const CVDIAG_EVENTS_COLLECTION = "cvdiag_events";
@@ -36,11 +36,20 @@ export const CVDIAG_RAW_BYTE_SAMPLES_COLLECTION = "cvdiag_raw_byte_samples";
  */
 export interface CvdiagPbWriterClient {
   create<T>(collection: string, record: Record<string, unknown>): Promise<T>;
+  /**
+   * Used ONLY by {@link CvdiagPbWriter.assertCollectionExists} to confirm the
+   * `cvdiag_events` collection is present + the writer key is accepted. The
+   * writer key is CREATE-only (list/view rules are null), so this list is
+   * EXPECTED to be rejected (401/403) when the collection exists — that
+   * rejection still proves the collection is present and the key authenticated.
+   * A 404 means the collection (and its migration) is absent.
+   */
+  list<T>(collection: string, opts?: ListOpts): Promise<ListResult<T>>;
   health(): Promise<boolean>;
 }
 
 /** The real `PbClient` already satisfies `CvdiagPbWriterClient`. */
-export type CvdiagWriterClient = Pick<PbClient, "create" | "health">;
+export type CvdiagWriterClient = Pick<PbClient, "create" | "list" | "health">;
 
 /**
  * The closed 9-key edge-header capture shape.
@@ -160,10 +169,22 @@ export class CvdiagPbWriter {
   }
 
   /**
-   * Startup check: confirm the writer can reach PB and that the
-   * `cvdiag_events` collection exists + accepts the writer key. Best-effort
-   * — returns false (never throws) so a missing migration degrades to
-   * stdout/Railway-logs fallback rather than crashing the harness.
+   * Startup check: confirm the writer can reach PB AND that the
+   * `cvdiag_events` collection actually exists + the writer key is accepted.
+   * Best-effort — returns false (never throws) so a missing migration
+   * degrades to stdout/Railway-logs fallback rather than crashing the harness
+   * (and rather than silently dropping 100% of events because a bare health()
+   * said "PB is up" while the collection was never migrated).
+   *
+   * Verification: a minimal authenticated list against `cvdiag_events`
+   * (perPage=1). The writer key is CREATE-only — list/view rules are null —
+   * so PB REJECTS this read with 401/403 WHEN THE COLLECTION EXISTS. That
+   * rejection is the proof we want: it means the collection is present and
+   * the writer key authenticated. A 404 means the collection (its migration)
+   * is absent → degrade. PB returns these statuses (verified against PB
+   * 0.22.21): existing-but-unreadable → 403, missing → 404. Any transport
+   * error also degrades (never throws). See pb-client.create/list for the
+   * status carried in the thrown Error message.
    */
   async assertCollectionExists(): Promise<boolean> {
     try {
@@ -172,9 +193,26 @@ export class CvdiagPbWriter {
         this.warn("assert-collection", "pb unhealthy", "—");
         return false;
       }
-      return true;
     } catch (err) {
       this.warn("assert-collection", String(err), "—");
+      return false;
+    }
+    // Probe the collection. A successful list (e.g. via a superuser-backed
+    // client) proves existence directly; the writer key's CREATE-only ACL
+    // will instead surface a 401/403 rejection, which ALSO proves the
+    // collection exists. Only a 404 (collection absent) → false.
+    try {
+      await this.pb.list(CVDIAG_EVENTS_COLLECTION, { perPage: 1 });
+      return true;
+    } catch (err) {
+      const msg = String(err);
+      // 401/403 → key authenticated but the CREATE-only ACL forbids read:
+      // the collection EXISTS. This is the expected writer-key path.
+      if (/\b(401|403)\b/.test(msg)) return true;
+      // 404 → the collection (and its migration) is absent → degrade.
+      // Any other error (network/5xx) is also treated as "cannot confirm"
+      // → degrade rather than silently drop every event.
+      this.warn("assert-collection", msg, "—");
       return false;
     }
   }
@@ -244,6 +282,10 @@ export class CvdiagPbWriter {
         colliding_mono_ns: collision.mono_ns,
       },
       collision.test_id,
+      // Record the collision's REAL emitting layer (probe/aimock/backend), not
+      // the writeAccounting default of "backend" — otherwise every collision
+      // row mis-buckets as backend, hiding probe/aimock collisions.
+      collision.layer,
     );
   }
 

@@ -249,7 +249,14 @@ describeMaybe("cvdiag pb-writer — real PocketBase 3-key ACL proof", () => {
     expect(del.status).toBe(204);
   });
 
-  it("migration key can UPDATE schema_version", async () => {
+  it("migration key CANNOT UPDATE via the API (updateRule=null → history immutable)", async () => {
+    // updateRule is null on cvdiag_events, so NO API key — not even the
+    // migration key — can PATCH a row. PB rules are record-level (no
+    // field-level restriction), so a who-only "migration can update" rule
+    // would let the migration key rewrite ANY field, not just
+    // schema_version. The real schema_version backfill runs admin-side
+    // inside the migration JS (Dao/save), which bypasses collection rules,
+    // so forbidding API UPDATEs costs nothing and preserves immutability.
     const writerTok = await keyToken(WRITER_EMAIL, WRITER_PASS);
     const created = await createRow(writerTok, sampleEvent());
     const { id } = (await created.json()) as { id: string };
@@ -262,9 +269,15 @@ describeMaybe("cvdiag pb-writer — real PocketBase 3-key ACL proof", () => {
         body: JSON.stringify({ schema_version: 2 }),
       },
     );
-    expect(upd.ok).toBe(true);
-    const body = (await upd.json()) as { schema_version: number };
-    expect(body.schema_version).toBe(2);
+    expect([401, 403, 404]).toContain(upd.status);
+    // Confirm the row was NOT mutated (read back as admin).
+    const adminTok = await adminToken();
+    const after = await fetch(
+      `${BASE}/api/collections/cvdiag_events/records/${id}`,
+      { headers: { authorization: adminTok } },
+    );
+    const body = (await after.json()) as { schema_version: number };
+    expect(body.schema_version).toBe(1);
   });
 
   it("pre-existing diag_events collection keeps its public listRule (unchanged)", async () => {
@@ -323,7 +336,149 @@ describeMaybe("cvdiag pb-writer — real PocketBase 3-key ACL proof", () => {
     const body = (await list.json()) as { totalItems: number };
     expect(body.totalItems).toBeGreaterThanOrEqual(1);
   });
+
+  it("assertCollectionExists() is TRUE against the real (migrated) collection via the writer key", async () => {
+    // The writer key is CREATE-only (list/view rules null), so the probing
+    // list is REJECTED (403) — but that rejection proves the collection
+    // exists + the key authenticated. assertCollectionExists must read that
+    // as true, not false.
+    const writerClient = createPbClient({
+      url: BASE,
+      email: WRITER_EMAIL,
+      password: WRITER_PASS,
+      logger,
+      fetchImpl: writerKeyFetch(),
+    });
+    const writer = new CvdiagPbWriter({ pb: writerClient, logger });
+    await expect(writer.assertCollectionExists()).resolves.toBe(true);
+  });
+
+  it("writeCollisionDetected persists the collision's REAL layer (e.g. probe), not the backend default", async () => {
+    // Regression for the omitted 5th `layer` arg: every collision row used
+    // to record layer="backend", mis-bucketing probe/aimock collisions.
+    const writerClient = createPbClient({
+      url: BASE,
+      email: WRITER_EMAIL,
+      password: WRITER_PASS,
+      logger,
+      fetchImpl: writerKeyFetch(),
+    });
+    const writer = new CvdiagPbWriter({ pb: writerClient, logger });
+    const collisionTestId = "0190a0c0-0000-7000-8000-0000000000c1";
+    await writer.writeCollisionDetected({
+      test_id: collisionTestId,
+      layer: "probe",
+      boundary: "probe.start",
+      mono_ns: 7,
+    });
+    // Read the persisted accounting row back as admin and assert its layer.
+    const tok = await adminToken();
+    const list = await fetch(
+      `${BASE}/api/collections/cvdiag_events/records?filter=${encodeURIComponent(
+        `boundary="cvdiag.collision_detected" && test_id="${collisionTestId}"`,
+      )}`,
+      { headers: { authorization: tok } },
+    );
+    const body = (await list.json()) as {
+      totalItems: number;
+      items: { layer: string }[];
+    };
+    expect(body.totalItems).toBeGreaterThanOrEqual(1);
+    expect(body.items[0].layer).toBe("probe");
+  });
 });
+
+// A second, MIGRATION-LESS PocketBase used solely to prove
+// assertCollectionExists() returns FALSE when the cvdiag_events collection is
+// absent (the FIX A behavioral guarantee: a missing migration must degrade,
+// not silently drop 100% of events). Boots a bare PB with NO migrationsDir,
+// so cvdiag_events never exists; a list against it returns 404.
+const PORT_BARE = 8097;
+const BASE_BARE = `http://127.0.0.1:${PORT_BARE}`;
+const BARE_ADMIN_EMAIL = "cvdiag-bare@test.local";
+const BARE_ADMIN_PASS = "cvdiagbarepass123";
+
+async function waitForHealthAt(base: string, timeoutMs = 15_000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const r = await fetch(`${base}/api/health`);
+      if (r.ok) return;
+    } catch {
+      /* not up yet */
+    }
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  throw new Error("bare PocketBase did not become healthy in time");
+}
+
+describeMaybe(
+  "cvdiag pb-writer — assertCollectionExists degrades on a MISSING collection",
+  () => {
+    let barePb: ChildProcess | undefined;
+    let bareDataDir: string | undefined;
+
+    beforeAll(async () => {
+      bareDataDir = mkdtempSync(join(tmpdir(), "pb-cvdiag-bare-"));
+      // Apply ONLY PocketBase's bundled system migrations (no
+      // --migrationsDir), which initializes the `_admins` table so
+      // `admin create` works — but DELIBERATELY skips the cvdiag migrations,
+      // so `cvdiag_events` never exists and a list against it returns 404.
+      const mig = spawnSync(
+        PB_BIN as string,
+        ["migrate", "up", `--dir=${bareDataDir}`],
+        { encoding: "utf8" },
+      );
+      if (mig.status !== 0) {
+        throw new Error(
+          `bare pb migrate up failed: ${mig.stderr || mig.stdout}`,
+        );
+      }
+      const admin = spawnSync(
+        PB_BIN as string,
+        [
+          "admin",
+          "create",
+          BARE_ADMIN_EMAIL,
+          BARE_ADMIN_PASS,
+          `--dir=${bareDataDir}`,
+        ],
+        { encoding: "utf8" },
+      );
+      if (admin.status !== 0) {
+        throw new Error(
+          `bare pb admin create failed: ${admin.stderr || admin.stdout}`,
+        );
+      }
+      barePb = spawn(
+        PB_BIN as string,
+        ["serve", `--http=127.0.0.1:${PORT_BARE}`, `--dir=${bareDataDir}`],
+        { stdio: "ignore" },
+      );
+      await waitForHealthAt(BASE_BARE);
+    }, 30_000);
+
+    afterAll(() => {
+      if (barePb) barePb.kill("SIGKILL");
+      if (bareDataDir) rmSync(bareDataDir, { recursive: true, force: true });
+    });
+
+    it("returns FALSE when cvdiag_events does not exist (missing migration)", async () => {
+      // A superuser-backed client: it CAN reach PB (health ok) and CAN list,
+      // so the only reason the probe fails is the collection's absence (404).
+      // The old health()-only implementation returned true here and silently
+      // dropped every event; the fix must return false so the writer degrades.
+      const client = createPbClient({
+        url: BASE_BARE,
+        email: BARE_ADMIN_EMAIL,
+        password: BARE_ADMIN_PASS,
+        logger,
+      });
+      const writer = new CvdiagPbWriter({ pb: client, logger });
+      await expect(writer.assertCollectionExists()).resolves.toBe(false);
+    });
+  },
+);
 
 /**
  * A fetch wrapper that authenticates against the cvdiag_api_keys WRITER

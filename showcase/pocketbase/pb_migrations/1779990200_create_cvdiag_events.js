@@ -18,7 +18,12 @@
 // THREE-KEY ACL (see cvdiag_api_keys auth collection below):
 //   - writer  : CREATE only — used by all CVDIAG emitters.
 //   - purge   : DELETE only — used by `bin/showcase cvdiag --purge*` (ops).
-//   - migration: UPDATE only — schema_version backfill (ops, default unused).
+//   - migration: schema_version backfill ONLY — runs ADMIN-side inside the
+//     migration JS (Dao/save), which bypasses collection rules. API UPDATEs
+//     are FORBIDDEN for everyone (updateRule=null): PB rules are record-level
+//     (no field-level restriction), so a who-only updateRule would let the
+//     migration key PATCH ANY field and rewrite history. The cvdiag code
+//     NEVER updates via the API.
 // The PocketBase SUPERUSER bypasses ALL collection rules, so the role split
 // is only observable when the caller authenticates as a role-keyed
 // cvdiag_api_keys record (NOT as a superuser). list/view require auth —
@@ -177,14 +182,20 @@ migrate(
       // headers warrant the stricter posture.
       listRule: null,
       viewRule: null,
-      // Three-key write split keyed on the authenticated identity's role.
-      // CREATE = writer; DELETE = purge; UPDATE = migration. A stolen
-      // writer key (role="writer") satisfies only createRule, so it cannot
-      // rewrite (UPDATE) or wipe (DELETE) history.
+      // Write split keyed on the authenticated identity's role.
+      // CREATE = writer; DELETE = purge. A stolen writer key
+      // (role="writer") satisfies only createRule, so it cannot rewrite
+      // (UPDATE) or wipe (DELETE) history.
       createRule:
         '@request.auth.collectionName = "cvdiag_api_keys" && @request.auth.role = "writer"',
-      updateRule:
-        '@request.auth.collectionName = "cvdiag_api_keys" && @request.auth.role = "migration"',
+      // updateRule = null → ALL API UPDATEs are forbidden (history is
+      // immutable). PB rules are record-level with no field-level
+      // restriction, so a who-only updateRule would let the migration key
+      // PATCH ANY field and rewrite history — the exact thing this ACL
+      // exists to prevent. The schema_version backfill runs ADMIN-side
+      // inside the migration JS (Dao/save), which bypasses collection
+      // rules, so it is UNAFFECTED by this null rule.
+      updateRule: null,
       deleteRule:
         '@request.auth.collectionName = "cvdiag_api_keys" && @request.auth.role = "purge"',
     });

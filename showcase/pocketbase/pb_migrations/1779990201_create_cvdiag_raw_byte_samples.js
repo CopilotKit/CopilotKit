@@ -8,10 +8,12 @@
 // time-bounded (≤24h retention), and PII-scrubbed BEFORE it lands here —
 // never write secrets, auth tokens, or unscrubbed bodies.
 //
-// ACL: identical three-key split to cvdiag_events (1779990200). Reuses the
-// SAME cvdiag_api_keys auth collection (created there): writer=CREATE,
-// purge=DELETE, migration=UPDATE. list/view require auth; anonymous GET →
-// 401/403. The superuser bypasses all rules (role split only observable as
+// ACL: identical split to cvdiag_events (1779990200). Reuses the SAME
+// cvdiag_api_keys auth collection (created there): writer=CREATE,
+// purge=DELETE. API UPDATEs are FORBIDDEN for everyone (updateRule=null) —
+// the schema_version backfill runs admin-side inside the migration JS, which
+// bypasses rules; a who-only updateRule would let the migration key rewrite
+// any field. list/view require auth; anonymous GET → 401/403. The superuser bypasses all rules (role split only observable as
 // a role-keyed cvdiag_api_keys identity). The on-demand purge (§4) cascades
 // DELETEs here alongside cvdiag_events.
 migrate(
@@ -64,8 +66,10 @@ migrate(
       viewRule: null,
       createRule:
         '@request.auth.collectionName = "cvdiag_api_keys" && @request.auth.role = "writer"',
-      updateRule:
-        '@request.auth.collectionName = "cvdiag_api_keys" && @request.auth.role = "migration"',
+      // updateRule = null → ALL API UPDATEs forbidden (immutable history);
+      // schema_version backfill is admin-side migration JS and bypasses
+      // rules. Mirrors cvdiag_events (1779990200).
+      updateRule: null,
       deleteRule:
         '@request.auth.collectionName = "cvdiag_api_keys" && @request.auth.role = "purge"',
     });
