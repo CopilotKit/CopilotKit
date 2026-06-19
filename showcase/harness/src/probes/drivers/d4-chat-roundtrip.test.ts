@@ -1358,6 +1358,72 @@ describe("d4 CVDIAG observability fixes (M3 CR R3)", () => {
     expect(durations[0]).toBeLessThan(10);
   });
 
+  // ── FIX C: isMessagePost matches the AGENT-MESSAGE POST, not any POST ───────
+  it("FIX C: an unrelated POST AFTER the agent-message POST does not get flagged isMessagePost (no overwrite of the captured agent-message response)", () => {
+    // RED (pre-fix): `isMessagePost` was `method === "POST"` for ANY POST, so a
+    // telemetry/analytics POST issued AFTER the real agent-message POST was ALSO
+    // flagged isMessagePost. The driver's onResponse seam keeps the LAST such
+    // response in `messageSendEdge` / `lastMessagePostResp`, so the unrelated
+    // POST's edge headers / raw bytes silently overwrote the real agent-message
+    // ones — mis-attributing probe.message.send + edge_interference_signal.
+    // GREEN: only the POST under the CopilotKit runtime path (`/api/copilotkit`)
+    // is flagged, so the unrelated trailing POST is ignored and the captured
+    // response stays pinned to the actual agent-message round-trip.
+    const handlers = new Map<string, (arg: unknown) => void>();
+    const fakePage = {
+      goto: async () => null,
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => null,
+      evaluate: async <R,>() => "" as unknown as R,
+      close: async () => {},
+      on(event: string, handler: (arg: unknown) => void) {
+        handlers.set(event, handler);
+      },
+    };
+    const adapted = wirePlaywrightPage(fakePage);
+    // Simulate the driver's capture: keep the edge header of the LAST response
+    // flagged isMessagePost, exactly like `messageSendEdge`/`lastMessagePostResp`.
+    let capturedMitigated: string | null | undefined;
+    let capturedUrl: string | undefined;
+    adapted.onResponse?.((r) => {
+      if (r.isMessagePost) {
+        capturedMitigated = r.headers["cf-mitigated"];
+        capturedUrl = r.url;
+      }
+    });
+
+    const respHandler = handlers.get("response")!;
+    const mkPost = (url: string, headers: Record<string, string>) => ({
+      url: () => url,
+      status: () => 200,
+      headers: () => headers,
+      request: () => ({ method: () => "POST" }),
+    });
+
+    // 1) The REAL agent-message POST (CopilotKit runtime path) — carries the
+    //    edge header we must attribute to probe.message.send.
+    respHandler(
+      mkPost("https://x.example.com/api/copilotkit", {
+        "cf-mitigated": "challenge",
+      }),
+    );
+    // 2) An UNRELATED telemetry POST issued AFTER it — different path. Pre-fix
+    //    this overwrote the captured agent-message response (any POST matched).
+    respHandler(
+      mkPost("https://x.example.com/api/telemetry", {
+        "cf-mitigated": "FROM-UNRELATED-POST",
+      }),
+    );
+
+    // The unrelated POST is NOT flagged → capture stays pinned to the
+    // agent-message response (pre-fix `capturedMitigated` was the telemetry
+    // value because the trailing POST was also flagged isMessagePost).
+    expect(capturedUrl).toBe("https://x.example.com/api/copilotkit");
+    expect(capturedMitigated).toBe("challenge");
+  });
+
   // ── FIX B: SSE backfill preserves ORIGINAL chronological sequence_num ──────
   it("FIX B: timeout carve-out backfills dropped SSE events in original chronological seq order, not after the live events", async () => {
     // RED (pre-fix): a backfilled (sampling-DROPPED) SSE event got a FRESH

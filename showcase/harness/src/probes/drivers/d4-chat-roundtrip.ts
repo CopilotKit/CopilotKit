@@ -390,6 +390,35 @@ const CVDIAG_URL_CAP_BYTES = 256;
  */
 const CVDIAG_MAX_OUTSTANDING_STARTS_PER_URL = 64;
 
+/**
+ * CopilotKit runtime base path. Every showcase demo mounts its runtime under
+ * this catch-all (`CopilotKitProvider runtimeUrl="/api/copilotkit"`,
+ * `basePath:"/api/copilotkit"`), and the agent-message round-trip POSTs there
+ * (bare `/api/copilotkit` or the per-agent run path
+ * `/api/copilotkit/agent/<id>/run`). It is the ONLY route under this segment.
+ */
+const CVDIAG_COPILOTKIT_RUNTIME_SEGMENT = "/api/copilotkit";
+
+/**
+ * True iff a network response is the AGENT-MESSAGE POST that drives the chat
+ * round-trip — i.e. a POST whose URL path is under the CopilotKit runtime
+ * (`/api/copilotkit…`). Gating on the runtime path (not "any POST") is the
+ * whole point: a page commonly issues OTHER POSTs (telemetry/analytics, RUM
+ * beacons, asset uploads) around the agent message, and matching ANY POST let
+ * the LAST such POST overwrite `messageSendEdge` / `lastMessagePostResp` — so
+ * `probe.message.send`'s edge headers, the A/B `edge_interference_signal`, and
+ * DEBUG raw-byte capture could be silently attributed to an UNRELATED response.
+ * The path check pins capture to the actual agent-message POST. (Path is
+ * matched case-insensitively against the URL string; the runtime segment is
+ * distinctive enough that a substring test is unambiguous.)
+ */
+function isAgentMessagePost(method: string, url: string): boolean {
+  return (
+    method.toUpperCase() === "POST" &&
+    url.toLowerCase().includes(CVDIAG_COPILOTKIT_RUNTIME_SEGMENT)
+  );
+}
+
 const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000;
 const DEFAULT_PAGE_TIMEOUT_MS = 60 * 1000;
 
@@ -886,7 +915,11 @@ export function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
                 ? null
                 : contentLength,
             durationMs,
-            isMessagePost: resp.request().method() === "POST",
+            // Gate on the CopilotKit runtime PATH, not "any POST": the page
+            // issues unrelated POSTs (telemetry/analytics/beacons) around the
+            // agent message, and matching any POST let the LAST one overwrite
+            // the captured agent-message response. See `isAgentMessagePost`.
+            isMessagePost: isAgentMessagePost(resp.request().method(), url),
             // L2-C raw-byte seam: defer the (potentially large) body read until
             // the DEBUG-tier stub actually wants it. Swallow read errors so a
             // body that's already been consumed never throws into the probe.
