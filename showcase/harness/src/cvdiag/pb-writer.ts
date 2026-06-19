@@ -23,6 +23,7 @@
 
 import type { Logger } from "../types/index.js";
 import type { PbClient, ListOpts, ListResult } from "../storage/pb-client.js";
+import type { CvdiagEnvelope } from "./schema.js";
 
 /** Collection names — mirror the PB migrations (1779990200 / 1779990201). */
 export const CVDIAG_EVENTS_COLLECTION = "cvdiag_events";
@@ -135,6 +136,44 @@ export interface CvdiagPbWriterOptions {
 
 const DEFAULT_QUEUE_CAP = 5000;
 
+/**
+ * Map a `CvdiagEnvelope` (emit.ts/schema.ts) to a `cvdiag_events` row
+ * (`CvdiagEventRecord`). The two shapes share the same 15 persisted fields —
+ * the envelope's field TYPES are a narrowing of the record's (enum `layer`/
+ * `boundary`/`outcome` vs the record's free-text columns; the closed 9-key
+ * `EdgeHeaders` vs `CvdiagEdgeHeaders`), so each value is assignable directly.
+ *
+ * The envelope's two OPTIONAL diagnostic flags — `_metadata_dropped` (PII
+ * closed-world signal) and `_truncated` (byte-cap trim signal) — are NOT
+ * `cvdiag_events` columns, so PB would silently drop them on create. To keep
+ * them queryable we fold each (when set) into the `metadata` JSON bag under its
+ * own `_metadata_dropped` / `_truncated` key, leaving the rest of the bag
+ * verbatim. A fresh `metadata` object is built so the caller's envelope is
+ * never mutated (pure instrumentation has no caller-visible side effects).
+ */
+function toEventRecord(envelope: CvdiagEnvelope): CvdiagEventRecord {
+  const metadata: Record<string, unknown> = { ...envelope.metadata };
+  if (envelope._metadata_dropped) metadata._metadata_dropped = true;
+  if (envelope._truncated) metadata._truncated = true;
+  return {
+    schema_version: envelope.schema_version,
+    test_id: envelope.test_id,
+    trace_id: envelope.trace_id,
+    span_id: envelope.span_id,
+    parent_span_id: envelope.parent_span_id,
+    layer: envelope.layer,
+    boundary: envelope.boundary,
+    slug: envelope.slug,
+    demo: envelope.demo,
+    ts: envelope.ts,
+    mono_ns: envelope.mono_ns,
+    duration_ms: envelope.duration_ms,
+    outcome: envelope.outcome,
+    edge_headers: { ...envelope.edge_headers },
+    metadata,
+  };
+}
+
 /** Build a fully-null edge-header set for accounting events that carry none. */
 function emptyEdgeHeaders(): CvdiagEdgeHeaders {
   return {
@@ -238,6 +277,35 @@ export class CvdiagPbWriter {
       this.warn(record.boundary, String(err), record.test_id);
     } finally {
       this.inFlight -= 1;
+    }
+  }
+
+  /**
+   * Persist a BATCH of CVDIAG envelopes, CREATE-only, best-effort. This is the
+   * emit→persist seam the `CvdiagEmitter.flush()` background drain calls
+   * (emit.ts `CvdiagPbWriter` interface): the emitter buffers `CvdiagEnvelope`s
+   * in its bounded queue and hands a batch here on each flush window. Each
+   * envelope is mapped to the `cvdiag_events` row shape ({@link toEventRecord})
+   * and CREATEd through the same overflow-guarded {@link writeEvent} path, so
+   * the in-flight/queue-overflow accounting machinery is LIVE for batch writes
+   * too (a per-event failure degrades to a `CVDIAG`-tagged warn; the batch is
+   * never aborted on one bad row).
+   *
+   * Best-effort contract (mirrors {@link writeEvent}): resolves whether every,
+   * some, or no rows persisted; NEVER rejects into the emitter's flush (which
+   * itself swallows + warns). A single envelope's persistence failure is
+   * isolated to that envelope.
+   */
+  async writeBatch(events: CvdiagEnvelope[]): Promise<void> {
+    for (const envelope of events) {
+      // `writeEvent` is itself never-throw (best-effort + finally), but guard
+      // the whole iteration so a malformed envelope at the mapping step can
+      // never abort the rest of the batch.
+      try {
+        await this.writeEvent(toEventRecord(envelope));
+      } catch (err) {
+        this.warn(envelope.boundary, String(err), envelope.test_id);
+      }
     }
   }
 

@@ -1082,7 +1082,17 @@ export function createE2eSmokeDriver(
       let cvdiagEmitter: CvdiagEmitter | undefined = deps.cvdiagEmitter;
       if (cvdiagEmitter === undefined) {
         try {
-          cvdiagEmitter = new CvdiagEmitter({ env: ctx.env, layer: "probe" });
+          // Inject the PB writer seam (when wired) so the emitter's queued
+          // probe-layer events PERSIST to cvdiag_events on flush. Absent
+          // (no persistence configured) → no writer → flush is a no-op, the
+          // pre-wiring behavior. The `CvdiagPbWriter` class satisfies the
+          // emitter's `pbWriter` interface (its `writeBatch` maps each
+          // envelope to a cvdiag_events row through the CREATE-only path).
+          cvdiagEmitter = new CvdiagEmitter({
+            env: ctx.env,
+            layer: "probe",
+            pbWriter: cvdiagPbWriter,
+          });
         } catch (err) {
           ctx.logger.warn("probe.e2e-smoke.cvdiag-init-failed", {
             err: err instanceof Error ? err.message : String(err),
@@ -1406,6 +1416,18 @@ export function createE2eSmokeDriver(
         clearTimeout(timeoutHandle);
         if (externalAbort) {
           externalAbort.removeEventListener("abort", onExternalAbort);
+        }
+        // Drain the CVDIAG emitter's queued probe-layer events to PB before
+        // returning. `flush()` is best-effort (no-op when no `pbWriter` was
+        // injected, and never throws into the probe), so this can run
+        // unconditionally and can NEVER change the probe's red/green outcome.
+        try {
+          await cvdiagEmitter?.flush();
+        } catch (err) {
+          ctx.logger.warn("probe.e2e-smoke.cvdiag-flush-failed", {
+            slug,
+            err: err instanceof Error ? err.message : String(err),
+          });
         }
         await tearDown();
       }

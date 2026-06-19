@@ -4,6 +4,7 @@ import { serve } from "@hono/node-server";
 import { buildServer } from "./http/server.js";
 import { createPbClient } from "./storage/pb-client.js";
 import type { DiagSinkClient } from "./storage/diag-sink.js";
+import { CvdiagPbWriter } from "./cvdiag/pb-writer.js";
 import {
   createAlertStateStore,
   assertSafeKey,
@@ -1365,6 +1366,17 @@ export function buildPooledBrowserDrivers(
    * skipped). Never load-bearing — a write failure can't break a probe.
    */
   diagPb?: DiagSinkClient,
+  /**
+   * CVDIAG event persistence writer (best-effort, optional). When provided, the
+   * D4 smoke driver injects it into its `CvdiagEmitter` so the probe-layer
+   * boundary events PERSIST to the `cvdiag_events` collection on flush (the
+   * emit→persist seam). The fleet worker constructs one from its own superuser
+   * `PbClient` (which bypasses the CREATE-only ACL, mirroring the cvdiag CLI);
+   * the in-process probe-registry path leaves it undefined (events emit to the
+   * queue but the durable write is skipped — the pre-wiring behavior). Never
+   * load-bearing: a write failure can't break a probe.
+   */
+  cvdiagWriter?: CvdiagPbWriter,
 ): {
   smoke: ReturnType<typeof createE2eSmokeDriver>;
   demos: ReturnType<typeof createE2eDemosDriver>;
@@ -1373,6 +1385,7 @@ export function buildPooledBrowserDrivers(
   return {
     smoke: createE2eSmokeDriver({
       launcher: createPooledE2eSmokeLauncher(pool, log),
+      cvdiagPbWriter: cvdiagWriter,
     }),
     demos: createE2eDemosDriver({
       launcher: createPooledE2eDemosLauncher(pool, log),
@@ -3822,7 +3835,17 @@ export async function runWorker(
   // sink. This is the production path that actually runs D5/D6 jobs, so the
   // post-run aimock-journal join can persist a durable cv-verdict row here
   // (best-effort; never breaks a probe).
-  const pooled = buildPooledBrowserDrivers(pool, logger, pb);
+  //
+  // ALSO construct the CVDIAG event-persistence writer from the SAME superuser
+  // `pb` client (the superuser bypasses the cvdiag_events CREATE-only ACL,
+  // mirroring the cvdiag CLI's superuser path — see cli-pb.ts). Threading it
+  // into the D4 smoke driver wires the emit→persist seam: the probe's
+  // CvdiagEmitter now flushes its queued boundary events to cvdiag_events.
+  // PB config presence is the gate — `resolveFleetPbConfig` above already
+  // resolved a real URL on this worker path (it throws off the test/dev
+  // escape hatch), so the writer is always live here.
+  const cvdiagWriter = new CvdiagPbWriter({ pb, logger });
+  const pooled = buildPooledBrowserDrivers(pool, logger, pb, cvdiagWriter);
 
   // Construction-time fail-loud: each factory's self-reported `kind` MUST equal
   // the key constant we register it under, BEFORE the concrete `ProbeDriver` is
