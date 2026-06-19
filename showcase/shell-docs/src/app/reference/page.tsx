@@ -49,6 +49,12 @@ const SDK_CHOICES: { name: string; description: string; href: string }[] = [
     href: referenceVersionHref("react-native"),
   },
   {
+    name: "Vue",
+    description:
+      "Composables and components for building CopilotKit into a Vue app.",
+    href: referenceVersionHref("vue"),
+  },
+  {
     name: "Core (TypeScript)",
     description:
       "The framework-agnostic @copilotkit/core client — runs anywhere JavaScript runs.",

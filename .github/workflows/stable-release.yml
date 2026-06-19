@@ -94,6 +94,10 @@ jobs:
             pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }} --scope ${{ inputs.scope }}
           fi
 
+      - name: Sync plugin skills
+        if: inputs.dry_run != true
+        run: pnpm sync:plugin-skills
+
       - name: Generate AI release notes
         if: inputs.dry_run != true
         id: ai_notes

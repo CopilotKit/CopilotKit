@@ -1,6 +1,6 @@
 ---
 title: "Bots"
-description: "API reference for the CopilotKit bot stack — @copilotkit/bot, @copilotkit/bot-ui, and @copilotkit/bot-slack."
+description: "API reference for the CopilotKit bot stack — @copilotkit/bot, @copilotkit/bot-ui, @copilotkit/bot-slack, and @copilotkit/bot-discord."
 ---
 
 The bot stack turns any [AG-UI](https://docs.ag-ui.com) agent into a chat-platform bot. Three packages, three jobs:
@@ -10,13 +10,16 @@ The bot stack turns any [AG-UI](https://docs.ag-ui.com) agent into a chat-platfo
 | `@copilotkit/bot` | The platform-agnostic engine: [`createBot`](/reference/bot/functions/createBot), handler registration, the agent run/tool/interrupt loop, and action binding. Re-exports the `@copilotkit/bot-ui` vocabulary. |
 | `@copilotkit/bot-ui` | A pure JSX runtime + cross-platform [component vocabulary](/reference/bot/components/Message) for rich messages — no React. |
 | `@copilotkit/bot-slack` | The Slack adapter: Socket Mode ingress, JSX → Block Kit via [`slack()`](/reference/bot/slack), `chat.update` streaming. |
+| `@copilotkit/bot-discord` | Discord PlatformAdapter for `@copilotkit/bot`: Gateway ingress via discord.js, Components V2 egress, streaming replies, and slash-command registration. |
 
 ```sh
 pnpm add @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-slack
+# or, for Discord:
+pnpm add @copilotkit/bot @copilotkit/bot-ui @copilotkit/bot-discord
 ```
 
 <Callout type="info">
-  New to the stack? Start with the [Slack quickstart](/slack) — zero to a working bot, then come back here for the API surface.
+  New to the stack? Start with the [Slack quickstart](/frontends/slack) — zero to a working bot, then come back here for the API surface.
 </Callout>
 
 ## Setup
@@ -69,5 +72,5 @@ A turn flows through three stages. The adapter normalizes a platform event into 
 
 ## Related
 
-- [Slack quickstart](/slack) — create the Slack app, install, and run your first bot
+- [Slack quickstart](/frontends/slack) — create the Slack app, install, and run your first bot
 - [On-call triage example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) — a full bot over Linear + Notion MCP with HITL and slash commands

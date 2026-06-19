@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import path from "path";
 import { AG_UI_CONTENT_DIR } from "@/lib/sitemap-helpers";
 import { loadDoc } from "@/lib/docs-render";
+import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
+import {
+  FRONTEND_GUIDANCE_CONTENT_SLUG,
+  getFrontendContentSlug,
+} from "@/lib/frontend-page-content";
+import { isFrontendId } from "@/lib/frontend-options";
 import {
   getDocsFolder,
   getDocsMode,
@@ -34,6 +40,8 @@ import matter from "gray-matter";
 //     blockquote so the title survives.
 //
 // URL resolution mirrors what `app/[framework]/[[...slug]]/page.tsx` does:
+//   - Frontend-scoped URLs reuse the same `/frontends/<frontend>` content
+//     resolution as the live frontend pages.
 //   - When the first segment is a known integration slug, we try
 //     `integrations/<docsFolder>/<rest>.mdx` first (or root depending on
 //     docs_mode), so framework-scoped URLs resolve the correct MDX.
@@ -78,6 +86,40 @@ function resolvePage(slug: string[]): ResolvedPage | null {
   const first = slug[0]!;
   const rest = slug.slice(1).join("/");
   const url = slug.join("/");
+
+  // /frontends/<frontend>[/<slug>].md → the same MDX rendered by the
+  // frontend-scoped docs pages.
+  if (first === "frontends") {
+    const frontend = slug[1];
+    if (!isFrontendId(frontend) || frontend === "react") return null;
+
+    const frontendRest = slug.slice(2).join("/");
+    const contentSlug =
+      frontendRest === ""
+        ? getFrontendContentSlug(frontend)
+        : frontendRest === "using-these-docs"
+          ? FRONTEND_GUIDANCE_CONTENT_SLUG
+          : (() => {
+              const resolution = resolveFrontendDocPage(frontend, frontendRest);
+              return resolution.status === "found"
+                ? resolution.contentSlugPath
+                : null;
+            })();
+
+    if (!contentSlug) return null;
+    const doc = loadDoc(contentSlug);
+    if (!doc) return null;
+
+    return {
+      page: {
+        url,
+        title: doc.fm.title,
+        description: doc.fm.description,
+        filePath: doc.filePath,
+        loadSlug: contentSlug,
+      },
+    };
+  }
 
   // /reference/<slug>.md → src/content/reference/<slug>.mdx
   if (first === "reference") {

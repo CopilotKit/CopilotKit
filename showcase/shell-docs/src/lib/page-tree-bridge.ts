@@ -29,7 +29,35 @@ function buildUrl(prefix: string, slug: string): string {
   // trailing/leading slashes so `/${prefix}/${slug}` never doubles up.
   const left = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
   const right = slug.startsWith("/") ? slug.slice(1) : slug;
+  if (!right) return left || "/";
   return left ? `${left}/${right}` : `/${right}`;
+}
+
+function renderNavName(
+  title: string,
+  variant: NavNode["variant"],
+  icon?: React.ReactNode,
+): React.ReactNode {
+  const isReactDocsProxy = variant === "react-docs-proxy";
+  const className = isReactDocsProxy
+    ? "shell-docs-react-docs-proxy"
+    : undefined;
+
+  if (!className && !icon) return title;
+
+  const label = React.createElement(
+    "span",
+    {
+      className,
+      key: "label",
+      ...(isReactDocsProxy
+        ? { "data-shell-docs-react-docs-proxy": "true" }
+        : {}),
+    },
+    title,
+  );
+
+  return icon ? React.createElement(React.Fragment, null, icon, label) : label;
 }
 
 // Convert a single shell-docs NavNode into ZERO OR MORE PageTree.Nodes.
@@ -61,22 +89,15 @@ export function navNodeToPageTreeNodes(
     // `inline-flex items-center gap-2` styling still aligns the SVG
     // and label exactly as it would have with the prop split.
     const icon = resolveSidebarIcon(node.icon);
-    const name: React.ReactNode = icon
-      ? React.createElement(
-          React.Fragment,
-          null,
-          icon,
-          React.createElement("span", null, node.title),
-        )
-      : node.title;
+    const name = renderNavName(node.title, node.variant, icon);
     return [{ type: "separator", name }];
   }
   if (node.type === "page") {
     return [
       {
         type: "page",
-        name: node.title,
-        url: buildUrl(slugHrefPrefix, node.slug),
+        name: renderNavName(node.title, node.variant),
+        url: node.href ?? buildUrl(slugHrefPrefix, node.slug),
       },
     ];
   }
@@ -113,7 +134,7 @@ export function navNodeToPageTreeNodes(
   return [
     {
       type: "folder",
-      name: node.title,
+      name: renderNavName(node.title, node.variant),
       // Inline-folder groups (from a meta.json `{ title, pages, defaultOpen }`
       // entry) can opt into starting expanded; everything else stays
       // collapsed by default and Fumadocs still auto-opens the folder
