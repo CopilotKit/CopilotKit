@@ -314,9 +314,7 @@ describe("cookbook nav", () => {
       "page",
     ]);
     expect(
-      pageTree.children.map((node) =>
-        node.type === "page" ? node.url : null,
-      ),
+      pageTree.children.map((node) => (node.type === "page" ? node.url : null)),
     ).toEqual([
       "/cookbook",
       "/cookbook/daytona",

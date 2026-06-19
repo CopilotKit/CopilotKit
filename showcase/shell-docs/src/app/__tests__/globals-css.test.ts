@@ -6,6 +6,10 @@ const globalsCss = readFileSync(
   "utf8",
 );
 
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
 describe("globals.css mobile docs layout", () => {
   it("collapses the Fumadocs grid to one content column on mobile", () => {
     expect(globalsCss).toContain(
@@ -57,11 +61,22 @@ describe("globals.css docs headings", () => {
 
 describe("globals.css cookbook sidebar", () => {
   it("removes the empty cookbook sidebar banner and aligns the recipe list", () => {
-    expect(globalsCss).toContain(
-      ".shell-docs-sidebar-cookbook > div:first-child {\n    display: none !important;",
+    const normalizedGlobalsCss = normalizeWhitespace(globalsCss);
+
+    expect(normalizedGlobalsCss).toContain(
+      normalizeWhitespace(`
+        .shell-docs-sidebar-cookbook > div:first-child {
+          display: none !important;
+        }
+      `),
     );
-    expect(globalsCss).toContain(
-      ".shell-docs-sidebar-cookbook [data-radix-scroll-area-viewport] > div:first-child {\n  padding-top: 0 !important;\n  padding-bottom: 1.5rem !important;",
+    expect(normalizedGlobalsCss).toContain(
+      normalizeWhitespace(`
+        .shell-docs-sidebar-cookbook [data-radix-scroll-area-viewport] > div:first-child {
+          padding-top: 0 !important;
+          padding-bottom: 1.5rem !important;
+        }
+      `),
     );
   });
 });

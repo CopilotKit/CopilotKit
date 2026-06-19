@@ -446,7 +446,9 @@
     display: none !important;
   }
 }
-.shell-docs-sidebar-cookbook [data-radix-scroll-area-viewport] > div:first-child {
+.shell-docs-sidebar-cookbook
+  [data-radix-scroll-area-viewport]
+  > div:first-child {
   padding-top: 0 !important;
   padding-bottom: 1.5rem !important;
 }
