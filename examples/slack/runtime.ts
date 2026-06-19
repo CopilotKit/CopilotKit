@@ -138,8 +138,12 @@ const SYSTEM_PROMPT = [
   "Mermaid source. render_chart and render_diagram post an image; render_table",
   "posts a Slack table. If render_diagram returns an error, fix the Mermaid and",
   "retry. These are read/reply actions — no confirm_write needed.",
-  '- Always NAME the file you acted on in your reply (e.g. "Charting',
-  "  `incidents-2026.csv`…\"), so it's clear which upload a chart came from.",
+  "- render_chart / render_diagram post a TITLED image themselves (a caption",
+  "  header followed by the image). Do NOT narrate the act with a separate",
+  '  "Charting `file.csv`…" line or a "rendered above/below" sentence — that',
+  "  text lands AFTER the image and reads out of order. Let the titled image be",
+  "  the answer; if you must reply, ONE short past-tense clause naming the file",
+  '  is enough (e.g. "Charted `incidents-2026.csv`.").',
   "- If more than one file is in the thread and the request doesn't make clear",
   "  which one to use, ASK which file (list them by name) instead of guessing.",
   "",
@@ -211,7 +215,11 @@ const model = (process.env["AGENT_MODEL"] ?? "openai/gpt-5.5").replace(
 const agent = new BuiltInAgent({
   type: "tanstack",
   factory: async (ctx) => {
-    const { messages, systemPrompts } = convertInputToTanStackAI(ctx.input);
+    const {
+      messages,
+      systemPrompts,
+      tools: clientTools,
+    } = convertInputToTanStackAI(ctx.input);
     const clients = await Promise.all(
       mcpTransports().map((transport) => createMCPClient({ transport })),
     );
@@ -219,7 +227,15 @@ const agent = new BuiltInAgent({
       adapter: openaiText(model),
       messages,
       systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
-      tools: [webSearchTool({ type: "web_search" })],
+      // `web_search` is an OpenAI provider tool (run server-side by OpenAI);
+      // `clientTools` are the bot's frontend tools (issue/page cards, charts,
+      // confirm_write HITL) forwarded on every run — passed as client-side
+      // tools so the model can call them and the bot renders/gates them via
+      // the AG-UI client-tool round-trip. MCP tools come in via `mcp` below.
+      tools: [
+        webSearchTool({ type: "web_search" }),
+        ...(clientTools as never[]),
+      ],
       ...(clients.length > 0 ? { mcp: { clients } } : {}),
       // TanStack AI needs the full AbortController (not just the signal).
       abortController: ctx.abortController,

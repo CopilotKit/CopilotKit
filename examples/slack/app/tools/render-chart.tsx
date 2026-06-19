@@ -88,6 +88,14 @@ export const renderChartTool = defineBotTool({
     }
     try {
       const png = await renderChart(spec);
+      // Post the caption as a HEADER first, then the image. A file upload's
+      // channel message lands a beat after `postFile` resolves, so posting the
+      // caption first keeps a stable caption → image order (posting it after
+      // would let the image's message overtake it). Also doubles as a
+      // render-tool demo of a JSX <Context> card.
+      await ctx.thread.post(
+        <Context>{`📊  *${title ?? "Chart"}* — chart below.`}</Context>,
+      );
       const res = await ctx.thread.postFile({
         bytes: png,
         filename: `${slug(title ?? "chart")}.png`,
@@ -97,10 +105,6 @@ export const renderChartTool = defineBotTool({
       if (!res.ok) {
         return `Chart render failed: ${res.error ?? "upload was rejected"}`;
       }
-      // After the image lands, post a small JSX caption card.
-      await ctx.thread.post(
-        <Context>{`📊  *${title ?? "Chart"}* — rendered as an image above.`}</Context>,
-      );
       return "Rendered and posted the chart image to the thread.";
     } catch (e) {
       return `Chart render failed: ${(e as Error).message}`;
