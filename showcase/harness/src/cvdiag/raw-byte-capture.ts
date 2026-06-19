@@ -17,14 +17,27 @@
  *                 `Transfer-Encoding: chunked`. Scrubbing raw COMPRESSED bytes
  *                 is ineffective: a `sk-…` secret hidden inside a gzip stream
  *                 would survive a scrub applied before decode. Decode FIRST.
- *   2. SCRUB    — reuse edge-headers.ts `scrubSecrets()` (Bearer / sk- /
- *                 URL-userinfo) on the decoded text.
- *   3. HTML-STRIP — if `text/html` (or the body looks like an HTML challenge
+ *   2. HTML-STRIP — if `text/html` (or the body looks like an HTML challenge
  *                 page), drop `<script>` / `<style>` / fingerprint-payload
  *                 blocks and retain only the visible text (CF "Just a
  *                 moment…" challenge interstitials).
- *   4. HEAD+TAIL CAP — keep ≤16KB head + ≤16KB tail (32KB max); the elided
- *                 middle is accounted for by `elided_count` (bytes dropped).
+ *   3. HEAD+TAIL CAP — keep ≤16KB head + ≤16KB tail (32KB max); the elided
+ *                 middle is accounted for by `elided_count` (bytes dropped),
+ *                 computed against the FULL decoded+stripped body.
+ *   4. SCRUB    — reuse edge-headers.ts `scrubSecrets()` (Bearer / sk- /
+ *                 URL-userinfo) on the RETAINED head and tail SEPARATELY.
+ *
+ * WHY scrub LAST, per-segment (not over the full body before the cap): the
+ * elided middle is dropped from the sample anyway, so scrubbing the retained
+ * ≤16KB head and ≤16KB tail covers every byte that can possibly be stored. This
+ * (a) keeps each scrub input bounded ≤16KB (linear regex × bounded length =
+ * O(constant), ReDoS-impossible — no scan-budget truncation needed), and (b)
+ * captures the REAL head and REAL tail of the body. The earlier scrub-before-cap
+ * order forced `scrubSecrets` onto the FULL body: for a body >32KB it hit the
+ * bounded-prefix path, truncating to a `…[unscanned:N]` prefix BEFORE the cap —
+ * which lost the real tail, never scanned it for secrets, and zeroed out the
+ * true `elided_count`. Scrubbing the two retained segments after the cap fixes
+ * all three.
  *
  * GUARD (R4-F12): DEBUG tier ONLY. `captureRawBytes()` returns `null`
  * immediately when the resolved tier is not `debug`. Beyond the tier gate the
@@ -43,17 +56,6 @@ import { scrubSecrets } from "./edge-headers.js";
 /** Per-side head/tail cap (spec §11.4: ≤16KB head + ≤16KB tail, 32KB max). */
 export const RAW_BYTE_HEAD_CAP = 16 * 1024;
 export const RAW_BYTE_TAIL_CAP = 16 * 1024;
-
-/**
- * Scrub scan budget for the DEBUG-tier raw-byte body. The 2 KB metadata default
- * (`SCRUB_MAX_SCAN_LEN`) is a hot-path latency budget for tiny metadata values;
- * it would destructively truncate this pipeline's legitimately-large decoded
- * wire body to ~2 KB BEFORE `headTailCap` runs, zeroing `elided_count`. The
- * raw-byte pipeline has its OWN size bound — the head+tail cap (≤32 KB) — so it
- * passes that bound as the scrub scan budget: the whole retained sample is
- * scanned (no secret in the kept head/tail escapes), and ReDoS stays impossible
- * because the three scrub regexes are linear at any bounded length. */
-export const RAW_BYTE_SCAN_MAX = RAW_BYTE_HEAD_CAP + RAW_BYTE_TAIL_CAP;
 
 /** Storage budget: ≤500 captures total per 24h, ring-buffer beyond (R2-NF3). */
 export const RAW_BYTE_MAX_CAPTURES_PER_24H = 500;
@@ -324,14 +326,9 @@ export function captureRawBytes(
     if (decodeApplied) applied.push("decode");
     let text = decoded.toString("utf8");
 
-    // 2. SCRUB known secret patterns on the DECODED text. Pass the raw-byte
-    //    pipeline's OWN scan budget (head+tail cap), not the 2KB metadata
-    //    default — otherwise the metadata guard would truncate the body before
-    //    headTailCap and zero out `elided_count` for a >32KB body.
-    text = scrubSecrets(text, RAW_BYTE_SCAN_MAX);
-    applied.push("scrub");
-
-    // 3. HTML-STRIP if this is an HTML (challenge) page.
+    // 2. HTML-STRIP if this is an HTML (challenge) page. Done on the decoded
+    //    text BEFORE the cap so a `<script>` fingerprint payload is removed from
+    //    the full body rather than slipping past a mid-body cap boundary.
     if (isHtmlBody(opts.contentType, text)) {
       const { stripped, dropped } = stripHtml(text);
       text = stripped;
@@ -339,10 +336,22 @@ export function captureRawBytes(
       if (dropped) metadataDropped = true;
     }
 
-    // 4. HEAD + TAIL CAP.
-    const { head, tail, elided } = headTailCap(text);
+    // 3. HEAD + TAIL CAP on the FULL decoded+stripped body, so the captured
+    //    head/tail are the REAL ends of the body and `elided_count` reflects the
+    //    real bytes dropped from the middle.
+    const { head: rawHead, tail: rawTail, elided } = headTailCap(text);
     applied.push("headtail");
     if (elided > 0) metadataDropped = true;
+
+    // 4. SCRUB the RETAINED head and tail SEPARATELY. Each segment is ≤16KB, so
+    //    the per-segment scan budget is the segment cap — the WHOLE segment is
+    //    scanned (no `…[unscanned]` truncation) while staying ReDoS-impossible
+    //    (bounded length × linear regex = O(constant)). The elided middle is
+    //    gone from the sample, so scrubbing the two kept segments covers every
+    //    stored byte — and both the real head AND the real tail are scrubbed.
+    const head = scrubSecrets(rawHead, RAW_BYTE_HEAD_CAP);
+    const tail = rawTail === "" ? "" : scrubSecrets(rawTail, RAW_BYTE_TAIL_CAP);
+    applied.push("scrub");
 
     return {
       test_id: opts.testId,

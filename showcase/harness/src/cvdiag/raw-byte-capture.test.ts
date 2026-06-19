@@ -2,7 +2,7 @@
  * raw-byte-capture.test.ts — L2-C: Phase 2.5 DEBUG-tier raw-byte capture
  * pipeline (spec §11.4 T2 / Phase 2.5, R2-NF3 normative pipeline order).
  *
- * The five tests below pin the normative behaviour:
+ * The tests below pin the normative behaviour:
  *   (1) forced empty-200 → a sample is produced and redaction is applied
  *       (no `Bearer …` / `sk-…` survives into the stored head/tail).
  *   (2) GZIPPED body carrying `sk-test-12345…` → decoded BEFORE scrub so the
@@ -10,6 +10,10 @@
  *   (3) Cloudflare challenge HTML → html-strip removes `<script>`/`<style>` so
  *       no script source survives into the stored bytes.
  *   (4) body >32KB → head+tail cap keeps ≤16KB head + ≤16KB tail, `elided > 0`.
+ *   (4b) body >32KB with a secret in the REAL tail → the captured head AND tail
+ *        are the REAL ends of the body, BOTH are scrubbed, and `elided_count`
+ *        reflects the real dropped bytes (regression guard: the scan-guard must
+ *        not truncate the body before the head+tail cap).
  *   (5) non-DEBUG tier → `captureRawBytes` returns null immediately.
  */
 
@@ -19,6 +23,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   captureRawBytes,
   resetRawByteCaptureStateForTest,
+  RAW_BYTE_HEAD_CAP,
+  RAW_BYTE_TAIL_CAP,
 } from "./raw-byte-capture.js";
 
 // Isolate the process-global per-slug 24h window + ≤500/24h ring-buffer so no
@@ -128,6 +134,50 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
     );
     expect(sample!.elided_count).toBeGreaterThan(0);
     expect(sample!.pipeline_applied).toContain("headtail");
+  });
+
+  it("(4b) body >32KB with a secret in the REAL tail → real head+tail captured, BOTH scrubbed, elided_count ≈ real dropped bytes", () => {
+    // A 50KB body whose HEAD and TAIL each carry a DISTINCT secret, with inert
+    // filler in the middle. The defect (scan-guard truncates to 32KB BEFORE the
+    // head+tail cap) would (a) lose the real tail — the captured "tail" would be
+    // the end of the first 32KB (filler), not these last bytes; (b) never scan
+    // the real tail for secrets (leak); (c) report elided_count ≈ marker length
+    // (~20), not the real ~dropped bytes. The reordered pipeline captures the
+    // REAL ends of the body and scrubs each retained ≤16KB segment.
+    const headSecret = "Bearer sk-ant-api03-HEADaaaaaaaaaaaaSECRET";
+    const tailSecret = "Bearer sk-ant-api03-REALTAILaaaaaaaaSECRET";
+    const headSentinel = "HEAD_SENTINEL_REGION";
+    const tailSentinel = "REAL_TAIL_SENTINEL_REGION";
+    // 50KB total: head chunk + filler + tail chunk.
+    const filler = "x".repeat(50 * 1024);
+    const bodyStr = `${headSentinel} ${headSecret}\n${filler}\n${tailSentinel} ${tailSecret}`;
+    const body = Buffer.from(bodyStr, "utf8");
+    expect(body.length).toBeGreaterThan(32 * 1024);
+
+    const sample = captureRawBytes(baseOpts({ responseBody: body }));
+    expect(sample).not.toBeNull();
+
+    // (a) The captured TAIL is the REAL end of the body (the tail-sentinel
+    //     region), NOT mid-body filler and NOT a `…[unscanned]` marker, and its
+    //     secret is REDACTED.
+    expect(sample!.tail_bytes).toContain(tailSentinel);
+    expect(sample!.tail_bytes).not.toContain("[unscanned");
+    expect(sample!.tail_bytes).toContain("[REDACTED]");
+    expect(sample!.tail_bytes).not.toContain(tailSecret);
+    expect(sample!.tail_bytes).not.toMatch(/sk-ant-api03-REALTAIL/);
+
+    // (b) The HEAD secret is also redacted (head sentinel retained).
+    expect(sample!.head_bytes).toContain(headSentinel);
+    expect(sample!.head_bytes).toContain("[REDACTED]");
+    expect(sample!.head_bytes).not.toContain(headSecret);
+    expect(sample!.head_bytes).not.toMatch(/sk-ant-api03-HEAD/);
+
+    // (c) elided_count reflects the REAL dropped bytes (full body minus the two
+    //     retained ≤16KB segments), i.e. tens of KB — NOT the ~20-char marker
+    //     length the truncate-before-cap path produced.
+    const expectedElided = body.length - RAW_BYTE_HEAD_CAP - RAW_BYTE_TAIL_CAP;
+    expect(sample!.elided_count).toBe(expectedElided);
+    expect(sample!.elided_count).toBeGreaterThan(10 * 1024);
   });
 
   it("(5) non-DEBUG tier → captureRawBytes returns null immediately", () => {
