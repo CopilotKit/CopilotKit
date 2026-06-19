@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "CopilotKit Electron Bridge",
+  "version": "0.1.0",
+  "description": "Companion extension that bridges your browser's active tab to the CopilotKit Electron app.",
+  "permissions": ["tabs", "scripting", "activeTab", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "CopilotKit Bridge"
+  }
+}

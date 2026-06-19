@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CopilotKit Bridge</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        font-size: 13px;
+        width: 220px;
+        padding: 12px;
+        margin: 0;
+        background: #fafafa;
+        color: #222;
+      }
+      h1 {
+        font-size: 13px;
+        font-weight: 600;
+        margin: 0 0 10px;
+        color: #111;
+      }
+      label {
+        display: block;
+        margin-bottom: 2px;
+        font-size: 11px;
+        color: #555;
+        font-weight: 500;
+      }
+      input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 5px 7px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 12px;
+        margin-bottom: 8px;
+        background: #fff;
+        color: #111;
+      }
+      input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+      }
+      button {
+        width: 100%;
+        padding: 6px 0;
+        background: #6366f1;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-bottom: 8px;
+      }
+      button:hover {
+        background: #4f46e5;
+      }
+      button:active {
+        background: #4338ca;
+      }
+      #status {
+        font-size: 11px;
+        color: #555;
+        min-height: 14px;
+        word-break: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>CopilotKit Bridge</h1>
+
+    <label for="port">Port</label>
+    <input
+      id="port"
+      type="number"
+      inputmode="numeric"
+      placeholder="3000"
+      min="1"
+      max="65535"
+    />
+
+    <label for="token">Token</label>
+    <input id="token" type="text" placeholder="auth token" />
+
+    <button id="connect">Connect</button>
+
+    <div id="status"></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

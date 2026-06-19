@@ -1323,6 +1323,9 @@ importers:
       react-dom:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
+      ws:
+        specifier: ^8.18.3
+        version: 8.19.0
       zod:
         specifier: '>=3.22.3'
         version: 3.25.76
@@ -1339,6 +1342,9 @@ importers:
       '@types/react-dom':
         specifier: ^19.0.2
         version: 19.2.3(@types/react@19.1.8)
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       '@vitejs/plugin-react':
         specifier: ^4.3.4
         version: 4.7.0(vite@5.4.21(@types/node@20.19.27)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.2)(terser@5.44.1))
