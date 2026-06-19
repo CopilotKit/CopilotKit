@@ -85,8 +85,15 @@ export interface AbArmIdentity {
 /** One reconciled A/B pair. */
 export interface AbPairResult {
   ab_pair_id: string;
-  slug: string;
-  demo: string;
+  /**
+   * The pair's authoritative slug, or `null` when the pair is `mis-correlated`
+   * — a corrupted pair has NO single authoritative identity, so we do not
+   * silently present one arm's slug. The conflicting per-arm values are
+   * recoverable from `correlation_mismatch`.
+   */
+  slug: string | null;
+  /** Authoritative demo; `null` for a `mis-correlated` pair (see `slug`). */
+  demo: string | null;
   /** Edge-arm outcome, or `null` when the edge arm is missing. */
   edge_outcome: CvdiagOutcome | null;
   /** Internal-arm outcome, or `null` when the internal arm is missing. */
@@ -122,11 +129,15 @@ export interface AbReport {
   /** Total number of distinct `ab_pair_id`s observed. */
   total_pairs: number;
   /**
-   * Count of pairs that signal edge interference: pairs classified
-   * `edge-only-failure`, PLUS pairs whose edge arm observed an
-   * `edge_interference_signal` (even when the outcome diff alone would read
-   * `agree`). Mis-correlated pairs are EXCLUDED — their diff is untrustworthy.
-   * Each qualifying pair is counted at most once.
+   * Count of pairs that signal edge interference, attributed to the EDGE arm:
+   *   - pairs classified `edge-only-failure` (edge failed, internal succeeded);
+   *   - PLUS `agree` pairs whose EDGE arm observed an `edge_interference_signal`
+   *     (a succeeding edge arm that nevertheless saw interference).
+   * An INTERNAL-only signal does NOT count (interference is attributed to the
+   * edge), and a both-failed / incomplete pair does NOT count from a signal (a
+   * both-failed pair is documented as NOT edge interference). Mis-correlated
+   * pairs are EXCLUDED — their diff is untrustworthy. Each qualifying pair is
+   * counted at most once.
    */
   edge_interference_suspected: number;
 }
@@ -219,16 +230,28 @@ export function computeAbReport(records: readonly AbOutcomeRecord[]): AbReport {
       if (divergence === "edge-only-failure") countsAsInterference = true;
     }
 
-    // Consume the per-pair interference signal: a SUCCEEDING edge arm that
-    // nevertheless observed interference is a real data point. A mis-correlated
-    // pair is never counted (its arms are not the same logical request).
-    if (!misCorrelated && edgeInterferenceSignal) countsAsInterference = true;
+    // Consume the per-pair interference signal toward the verdict, attributing
+    // interference to the EDGE arm only and only for SUCCEEDING/`agree` pairs:
+    //   - edge-arm-only: `edge_interference_suspected` attributes interference
+    //     to the edge, so an INTERNAL-only signal (edge arm clean) must NOT
+    //     inflate it (the OR'd `edgeInterferenceSignal` field above stays
+    //     informational; the COUNT keys on the edge arm's own signal).
+    //   - succeeding/`agree`-only: a both-failed pair is documented as NOT edge
+    //     interference (the fault is upstream of the edge), and an incomplete
+    //     pair has no diff to trust — so the signal increment applies only when
+    //     the pair AGREES (both arms success-class). An `edge-only-failure`
+    //     pair already counts via `countsAsInterference`, so the signal does
+    //     not double-count it.
+    const edgeArmSignal = edge?.edge_interference_signal ?? false;
+    if (edgeArmSignal && divergence === "agree") countsAsInterference = true;
     if (countsAsInterference) edgeInterferenceSuspected += 1;
 
     const pair: AbPairResult = {
       ab_pair_id,
-      slug: ref.slug,
-      demo: ref.demo,
+      // A mis-correlated pair has no single authoritative identity — do not
+      // silently pick one arm's slug/demo (both live in correlation_mismatch).
+      slug: misCorrelated ? null : ref.slug,
+      demo: misCorrelated ? null : ref.demo,
       edge_outcome: edgeOutcome,
       internal_outcome: internalOutcome,
       divergence,
