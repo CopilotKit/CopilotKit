@@ -62,8 +62,8 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
             if q.include?("serviceInstanceUpdate")
                 @pinned_by_service[sid] = vars[:image]
                 { "serviceInstanceUpdate" => true }
-            elsif q.include?("serviceInstanceRedeploy")
-                { "serviceInstanceRedeploy" => true }
+            elsif q.include?("serviceInstanceDeployV2")
+                { "serviceInstanceDeployV2" => "dep-#{sid}" }
             elsif q.include?("ServiceInstanceRecheck")
                 pinned = @pinned_by_service[sid]
                 if pinned.nil?
@@ -76,11 +76,16 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
                     }
                 else
                     @ts_counter += 1
+                    pinned_digest = pinned.include?("@") ? pinned.split("@", 2).last : nil
                     {
                         "serviceInstance" => {
                             "id" => "i",
                             "source" => { "image" => pinned },
                             "updatedAt" => "2026-05-29T00:00:#{format('%02d', @ts_counter)}Z",
+                            "latestDeployment" => {
+                                "id" => "dep-#{sid}", "status" => "SUCCESS",
+                                "meta" => { "imageDigest" => pinned_digest },
+                            },
                         },
                     }
                 end

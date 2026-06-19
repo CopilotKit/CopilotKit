@@ -11,12 +11,12 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@ag-ui/client": "0.0.55",
-    "@copilotkit/a2ui-renderer": "1.59.4",
-    "@copilotkit/react-core": "1.59.4",
-    "@copilotkit/runtime": "1.59.4",
-    "@copilotkit/shared": "1.59.4",
-    "@copilotkit/voice": "1.59.4",
+    "@ag-ui/client": "0.0.57",
+    "@copilotkit/a2ui-renderer": "1.60.2",
+    "@copilotkit/react-core": "1.60.2",
+    "@copilotkit/runtime": "1.60.2",
+    "@copilotkit/shared": "1.60.2",
+    "@copilotkit/voice": "1.60.2",
     "@hashbrownai/core": "0.5.0-beta.4",
     "@hashbrownai/react": "0.5.0-beta.4",
     "@json-render/core": "0.18.0",
@@ -51,7 +51,7 @@
   },
   "overrides": {
     "@copilotkit/web-inspector": {
-      "@copilotkit/core": "1.59.4"
+      "@copilotkit/core": "1.60.2"
     }
   },
   "pnpm": {

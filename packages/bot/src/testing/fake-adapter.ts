@@ -40,6 +40,7 @@ export function makeFakeRunRenderer(): RunRenderer {
       if (e.name) pending = { eventName: e.name, value: e.value };
     },
   };
+  let finishCalls = 0;
   return {
     subscriber,
     async markInterrupted() {},
@@ -48,7 +49,13 @@ export function makeFakeRunRenderer(): RunRenderer {
     clearPendingInterrupt: () => {
       pending = undefined;
     },
-  };
+    async finish() {
+      finishCalls++;
+    },
+    get finishCalls() {
+      return finishCalls;
+    },
+  } as RunRenderer & { readonly finishCalls: number };
 }
 
 export class FakeAdapter implements PlatformAdapter {

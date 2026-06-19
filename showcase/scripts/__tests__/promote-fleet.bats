@@ -233,3 +233,254 @@ STUB
   [[ "$output" == *"SUCCEEDED (2): svc-a svc-c"* ]] || fail "whitespace-only token not skipped: $output"
   [[ "$output" == *"Attempted 2 service(s)"* ]] || fail "wrong Attempted count: $output"
 }
+
+@test "aggregates STAGING_DRIFT_MARKER lines into staging_drift output + summary" {
+  # Stub that emits a drift marker for svc-b (staging not serving :latest) while
+  # still SUCCEEDING — drift is a warning surface, not a gate. The script must
+  # scan each promote's stdout, aggregate the markers, write them to
+  # $GITHUB_OUTPUT (staging_drift=...) and surface them in the summary.
+  cat > "$STUB_DIR/railway-drift" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
+svc="$2"
+echo "STUB called for: $svc"
+if [ "$svc" = "svc-b" ]; then
+  echo "STAGING_DRIFT_MARKER: svc-b(running=f9454e79fbf5,latest=261ccdef3f9a)"
+fi
+exit 0
+STUB
+  chmod +x "$STUB_DIR/railway-drift"
+  export RAILWAY_BIN="$STUB_DIR/railway-drift"
+  run env SERVICES_CSV="svc-a,svc-b,svc-c" bash "$SCRIPT"
+
+  # Drift does not fail the run (every service succeeded).
+  [ "$status" -eq 0 ] || fail "drift must not fail the run, got $status: $output"
+  # Summary surfaces the drift loudly and names the running/latest digests.
+  [[ "$output" == *"STAGING DRIFT (1)"* ]] || fail "missing drift summary block: $output"
+  [[ "$output" == *"running=f9454e79fbf5"* ]] || fail "summary missing RUNNING digest: $output"
+  [[ "$output" == *"latest=261ccdef3f9a"* ]] || fail "summary missing :latest digest: $output"
+
+  # The aggregated payload is exported for the notify job's Slack message.
+  run cat "$GITHUB_OUTPUT"
+  [[ "$output" == *"staging_drift=svc-b(running=f9454e79fbf5,latest=261ccdef3f9a)"* ]] \
+    || fail "missing/wrong staging_drift in GITHUB_OUTPUT: $output"
+}
+
+@test "joins multiple STAGING_DRIFT_MARKER entries with '; ' separator" {
+  # Two services drift. The aggregated staging_drift payload must join the
+  # entries with "; " (semicolon + space), NOT ";" — `${drift[*]}` under
+  # IFS='; ' would only honor the first IFS char and drop the space.
+  cat > "$STUB_DIR/railway-drift2" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
+svc="$2"
+echo "STUB called for: $svc"
+if [ "$svc" = "svc-a" ]; then
+  echo "STAGING_DRIFT_MARKER: svc-a(running=aaaaaaaaaaaa,latest=bbbbbbbbbbbb)"
+fi
+if [ "$svc" = "svc-c" ]; then
+  echo "STAGING_DRIFT_MARKER: svc-c(running=cccccccccccc,latest=dddddddddddd)"
+fi
+exit 0
+STUB
+  chmod +x "$STUB_DIR/railway-drift2"
+  export RAILWAY_BIN="$STUB_DIR/railway-drift2"
+  run env SERVICES_CSV="svc-a,svc-b,svc-c" bash "$SCRIPT"
+
+  [ "$status" -eq 0 ] || fail "drift must not fail the run, got $status: $output"
+  [[ "$output" == *"STAGING DRIFT (2)"* ]] || fail "missing drift summary block: $output"
+
+  run cat "$GITHUB_OUTPUT"
+  # Both entries present, joined with "; " (NOT ";" — the dropped-space bug).
+  [[ "$output" == *"staging_drift=svc-a(running=aaaaaaaaaaaa,latest=bbbbbbbbbbbb); svc-c(running=cccccccccccc,latest=dddddddddddd)"* ]] \
+    || fail "multi-entry drift not joined with '; ' separator: $output"
+}
+
+@test "no drift markers -> empty staging_drift output, no drift summary" {
+  export RAILWAY_BIN="$STUB_DIR/railway-green"
+  run env SERVICES_CSV="svc-a,svc-b,svc-c" bash "$SCRIPT"
+
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+  [[ "$output" != *"STAGING DRIFT"* ]] || fail "no drift expected but summary shows one: $output"
+
+  run cat "$GITHUB_OUTPUT"
+  # Key present but empty (the non-drift contract): staging_drift=
+  [[ "$output" == *"staging_drift="* ]] || fail "staging_drift key absent: $output"
+  [[ "$output" != *"staging_drift=svc"* ]] || fail "unexpected drift payload: $output"
+}
+
+# ── U4: tier-ordered closure promote with dependent-tier gating ─────────────
+#
+# When CLOSURE_PLAN (tier-annotated `tier:name,tier:name,...` from U3's
+# resolve-promote-targets.sh) is supplied, promote-fleet iterates the closure
+# BY TIER (0->1->2). The existing per-service best-effort loop is preserved
+# WITHIN a tier, but a tier GATES its dependents: if ANY tier-0 service fails
+# pin+verify, tiers 1 and 2 do NOT promote (a stale aimock/harness under fresh
+# integrations = non-equivalent prod); a tier-1 failure blocks tier-2. Blocked
+# tiers are reported NOT-ATTEMPTED (distinct from FAILED) so the operator can
+# re-run (spec R-B). succeeded_csv = the actually-pinned closure subset.
+
+# A per-tier stub: tier-0 = aimock(svc-a)/pocketbase(svc-b); tier-1 =
+# harness(svc-h); tier-2 = integrations(svc-i1,svc-i2). svc-fail always fails.
+setup_tier_stub() {
+  cat > "$STUB_DIR/railway-tier" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
+svc="$2"
+echo "STUB called for: $svc"
+case "$svc" in
+  svc-fail) exit 7 ;;
+  *)        exit 0 ;;
+esac
+STUB
+  chmod +x "$STUB_DIR/railway-tier"
+  export RAILWAY_BIN="$STUB_DIR/railway-tier"
+}
+
+@test "U4: tier-0 failure HALTS tiers 1 and 2 (reported NOT-ATTEMPTED, not failed)" {
+  setup_tier_stub
+  # tier-0: svc-fail (fails) + svc-a (ok); tier-1: svc-h; tier-2: svc-i1,svc-i2.
+  run env CLOSURE_PLAN="0:svc-fail,0:svc-a,1:svc-h,2:svc-i1,2:svc-i2" bash "$SCRIPT"
+
+  # tier-0 members ARE attempted (best-effort within the failing tier).
+  [[ "$output" == *"STUB called for: svc-fail"* ]] || fail "tier-0 svc-fail not attempted: $output"
+  [[ "$output" == *"STUB called for: svc-a"* ]] || fail "tier-0 svc-a not attempted: $output"
+
+  # tiers 1 and 2 are NOT attempted — the tier-0 failure gated them.
+  [[ "$output" != *"STUB called for: svc-h"* ]] || fail "tier-1 svc-h should NOT have been attempted after tier-0 failure: $output"
+  [[ "$output" != *"STUB called for: svc-i1"* ]] || fail "tier-2 svc-i1 should NOT have been attempted after tier-0 failure: $output"
+  [[ "$output" != *"STUB called for: svc-i2"* ]] || fail "tier-2 svc-i2 should NOT have been attempted after tier-0 failure: $output"
+
+  # Non-zero aggregate exit (a tier-0 service failed).
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on tier-0 failure, got $status: $output"
+
+  # Blocked tiers reported as NOT-ATTEMPTED — distinct from FAILED so the
+  # operator knows they can re-run them once tier-0 is healthy.
+  [[ "$output" == *"NOT-ATTEMPTED"* ]] || fail "expected a NOT-ATTEMPTED report for gated tiers: $output"
+  [[ "$output" == *"svc-h"* ]] || fail "gated svc-h should be named in NOT-ATTEMPTED: $output"
+  [[ "$output" == *"svc-i1"* ]] || fail "gated svc-i1 should be named in NOT-ATTEMPTED: $output"
+  [[ "$output" == *"svc-i2"* ]] || fail "gated svc-i2 should be named in NOT-ATTEMPTED: $output"
+
+  # succeeded_csv = actually-pinned subset (only svc-a; NOT the gated tiers,
+  # NOT the failed svc-fail).
+  run cat "$GITHUB_OUTPUT"
+  [[ "$output" == *"succeeded_csv=svc-a"* ]] || fail "succeeded_csv should be exactly the pinned subset (svc-a): $output"
+  [[ "$output" != *"svc-h"* ]] || fail "gated svc-h must not leak into succeeded_csv: $output"
+  [[ "$output" != *"svc-fail"* ]] || fail "failed svc-fail must not leak into succeeded_csv: $output"
+}
+
+@test "U4: tier-1 failure blocks tier-2 (tier-0 still promoted)" {
+  setup_tier_stub
+  # tier-0: svc-a (ok); tier-1: svc-fail (fails); tier-2: svc-i1.
+  run env CLOSURE_PLAN="0:svc-a,1:svc-fail,2:svc-i1" bash "$SCRIPT"
+
+  # tier-0 + tier-1 attempted.
+  [[ "$output" == *"STUB called for: svc-a"* ]] || fail "tier-0 svc-a not attempted: $output"
+  [[ "$output" == *"STUB called for: svc-fail"* ]] || fail "tier-1 svc-fail not attempted: $output"
+  # tier-2 NOT attempted (gated by the tier-1 failure).
+  [[ "$output" != *"STUB called for: svc-i1"* ]] || fail "tier-2 svc-i1 should NOT have been attempted after tier-1 failure: $output"
+
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on tier-1 failure, got $status: $output"
+  [[ "$output" == *"NOT-ATTEMPTED"* ]] || fail "expected NOT-ATTEMPTED report for gated tier-2: $output"
+  [[ "$output" == *"svc-i1"* ]] || fail "gated svc-i1 should be named in NOT-ATTEMPTED: $output"
+
+  # tier-0 svc-a DID pin even though tier-1 later failed.
+  run cat "$GITHUB_OUTPUT"
+  [[ "$output" == *"succeeded_csv=svc-a"* ]] || fail "tier-0 svc-a should be in succeeded_csv: $output"
+}
+
+@test "U4: all-green closure promotes every tier in order (0 before 1 before 2)" {
+  setup_tier_stub
+  run env CLOSURE_PLAN="0:svc-a,0:svc-b,1:svc-h,2:svc-i1,2:svc-i2" bash "$SCRIPT"
+
+  [ "$status" -eq 0 ] || fail "expected zero exit on all-green closure, got $status: $output"
+
+  # Every service attempted.
+  for s in svc-a svc-b svc-h svc-i1 svc-i2; do
+    [[ "$output" == *"STUB called for: $s"* ]] || fail "$s not attempted: $output"
+  done
+
+  # Tier ordering: tier-0 services appear BEFORE tier-1, which appears BEFORE
+  # tier-2. Use the byte offset of each STUB line in $output to assert order.
+  a_pos="${output%%STUB called for: svc-a*}"
+  h_pos="${output%%STUB called for: svc-h*}"
+  i1_pos="${output%%STUB called for: svc-i1*}"
+  [ "${#a_pos}" -lt "${#h_pos}" ] || fail "tier-0 svc-a must promote BEFORE tier-1 svc-h: $output"
+  [ "${#h_pos}" -lt "${#i1_pos}" ] || fail "tier-1 svc-h must promote BEFORE tier-2 svc-i1: $output"
+
+  # All five exported as the succeeded set, in tier order.
+  run cat "$GITHUB_OUTPUT"
+  [[ "$output" == *"succeeded_csv=svc-a,svc-b,svc-h,svc-i1,svc-i2"* ]] || fail "wrong succeeded_csv: $output"
+}
+
+@test "U4: a tier-2 (leaf) failure does NOT gate anything; best-effort within the leaf tier" {
+  setup_tier_stub
+  # tier-0 ok, tier-1 ok, tier-2: svc-fail (fails) + svc-i1 (ok). The leaf tier
+  # has no dependents, so svc-i1 must STILL be attempted after svc-fail fails
+  # (the existing best-effort-within-a-tier behavior).
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h,2:svc-fail,2:svc-i1" bash "$SCRIPT"
+
+  [[ "$output" == *"STUB called for: svc-fail"* ]] || fail "tier-2 svc-fail not attempted: $output"
+  [[ "$output" == *"STUB called for: svc-i1"* ]] || fail "tier-2 svc-i1 not attempted after a sibling failed (best-effort): $output"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit (a service failed), got $status: $output"
+
+  run cat "$GITHUB_OUTPUT"
+  # svc-i1 pinned despite its sibling failing; svc-fail not in succeeded_csv.
+  [[ "$output" == *"succeeded_csv=svc-a,svc-h,svc-i1"* ]] || fail "wrong succeeded_csv (leaf best-effort): $output"
+}
+
+@test "U4: --digest override still works on the single-service closure path" {
+  # R-B: the single-service --digest escape path must survive the tier path.
+  cat > "$STUB_DIR/railway-tier-digest" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
+echo "ARGS: $*"
+[[ "$*" == *"--digest sha256:deadbeef"* ]] || { echo "missing digest" >&2; exit 9; }
+exit 0
+STUB
+  chmod +x "$STUB_DIR/railway-tier-digest"
+  export RAILWAY_BIN="$STUB_DIR/railway-tier-digest"
+
+  run env CLOSURE_PLAN="2:svc-a" DIGEST="sha256:deadbeef" bash "$SCRIPT"
+
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+  [[ "$output" == *"ARGS: "*"--digest sha256:deadbeef"* ]] || fail "digest not forwarded on closure path: $output"
+}
+
+@test "U4: STAGING_DRIFT_MARKER aggregation works on the tier path too" {
+  cat > "$STUB_DIR/railway-tier-drift" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = "promote" ] || { echo "expected first arg 'promote', got '$1'" >&2; exit 99; }
+svc="$2"
+echo "STUB called for: $svc"
+if [ "$svc" = "svc-h" ]; then
+  echo "STAGING_DRIFT_MARKER: svc-h(running=f9454e79fbf5,latest=261ccdef3f9a)"
+fi
+exit 0
+STUB
+  chmod +x "$STUB_DIR/railway-tier-drift"
+  export RAILWAY_BIN="$STUB_DIR/railway-tier-drift"
+
+  run env CLOSURE_PLAN="0:svc-a,1:svc-h,2:svc-i1" bash "$SCRIPT"
+
+  [ "$status" -eq 0 ] || fail "drift must not fail the run, got $status: $output"
+  [[ "$output" == *"STAGING DRIFT (1)"* ]] || fail "missing drift summary block on tier path: $output"
+
+  run cat "$GITHUB_OUTPUT"
+  [[ "$output" == *"staging_drift=svc-h(running=f9454e79fbf5,latest=261ccdef3f9a)"* ]] \
+    || fail "missing/wrong staging_drift on tier path: $output"
+}
+
+@test "U4: closure plan with empty/whitespace tokens within a tier skips them" {
+  setup_tier_stub
+  # A stray comma / whitespace token inside the tier-annotated plan must be
+  # skipped exactly like the flat-CSV path (preserve trim + empty-token skip).
+  run env CLOSURE_PLAN="0:svc-a,0: ,1:svc-h" bash "$SCRIPT"
+
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+  [[ "$output" == *"STUB called for: svc-a"* ]] || fail "svc-a not attempted: $output"
+  [[ "$output" == *"STUB called for: svc-h"* ]] || fail "svc-h not attempted: $output"
+
+  run cat "$GITHUB_OUTPUT"
+  [[ "$output" == *"succeeded_csv=svc-a,svc-h"* ]] || fail "wrong succeeded_csv (whitespace token skipped): $output"
+}

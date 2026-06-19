@@ -6,6 +6,8 @@ export type {
   IncomingTurn,
   ReplyTarget,
   SlackAssistantOptions,
+  SlackFeedback,
+  SlackFeedbackOptions,
 } from "./types.js";
 export { DM_SCOPE } from "./types.js";
 
@@ -62,5 +64,10 @@ export { createRunRenderer } from "./event-renderer.js";
 
 export { decodeInteraction, conversationKeyOf } from "./interaction.js";
 
-export { renderBlockKit, renderSlackMessage } from "./render/block-kit.js";
+export {
+  renderBlockKit,
+  renderSlackMessage,
+  buildFeedbackBlocks,
+  FEEDBACK_ACTION_ID,
+} from "./render/block-kit.js";
 export { SLACK_LIMITS } from "./render/budget.js";

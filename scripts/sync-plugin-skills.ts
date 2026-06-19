@@ -222,12 +222,31 @@ async function handleVersionSync(opts: SyncOptions): Promise<string> {
   if (existsSync(marketPath)) {
     const market = JSON.parse(await readFile(marketPath, "utf8"));
     const marketVersion = market.plugins?.[0]?.version;
+    const metadataVersion = market.metadata?.version;
+    // Both version fields in marketplace.json track the runtime package. They
+    // are checked together so neither rots independently — metadata.version was
+    // historically unmanaged and drifted behind plugins[0].version.
     if (marketVersion !== srcVersion) {
       if (opts.mode === "check") {
         return `marketplace.json plugins[0].version is "${marketVersion}", expected "${srcVersion}" (from ${VERSION_SOURCE_PACKAGE_JSON})`;
       }
-      if (market.plugins?.[0]) {
+    }
+    if (metadataVersion !== undefined && metadataVersion !== srcVersion) {
+      if (opts.mode === "check") {
+        return `marketplace.json metadata.version is "${metadataVersion}", expected "${srcVersion}" (from ${VERSION_SOURCE_PACKAGE_JSON})`;
+      }
+    }
+    if (opts.mode === "write") {
+      let mutated = false;
+      if (market.plugins?.[0] && marketVersion !== srcVersion) {
         market.plugins[0].version = srcVersion;
+        mutated = true;
+      }
+      if (market.metadata && metadataVersion !== srcVersion) {
+        market.metadata.version = srcVersion;
+        mutated = true;
+      }
+      if (mutated) {
         await writeFile(marketPath, JSON.stringify(market, null, 2) + "\n");
       }
     }

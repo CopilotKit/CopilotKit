@@ -48,6 +48,28 @@ function hasSectionPage(navTree: NavNode[], section: string, page: string) {
   return false;
 }
 
+function hasPageTitle(navTree: NavNode[], page: string): boolean {
+  return navTree.some((node) => {
+    if (node.type === "page") return node.title === page;
+    if (node.type === "group") return hasPageTitle(node.children, page);
+    return false;
+  });
+}
+
+function sectionPages(navTree: NavNode[], section: string): string[] {
+  const pages: string[] = [];
+  let inSection = false;
+  for (const node of navTree) {
+    if (node.type === "section") {
+      inSection = node.title === section;
+      continue;
+    }
+    if (!inSection) continue;
+    if (node.type === "page") pages.push(node.title);
+  }
+  return pages;
+}
+
 function collectMdxFiles(dir: string): string[] {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const filePath = path.join(dir, entry.name);
@@ -212,8 +234,8 @@ describe("migration docs", () => {
 
 describe("framework nav", () => {
   it("loads early-access frontmatter for gated platform guides", () => {
-    const slack = loadDoc("slack")?.fm;
-    const teams = loadDoc("microsoft-teams")?.fm;
+    const slack = loadDoc("frontends/slack")?.fm;
+    const teams = loadDoc("frontends/teams")?.fm;
 
     expect(slack?.earlyAccess).toBe("slack");
     expect(slack?.hideTOC).toBe(true);
@@ -221,19 +243,52 @@ describe("framework nav", () => {
     expect(teams?.hideTOC).toBe(true);
   });
 
-  it("includes the shared React Native platform guide in generated framework nav", () => {
+  it("keeps frontend platform guides out of generated framework nav", () => {
     const navTree = buildFrameworkNav(
       "langgraph",
       "LangGraph (Python)",
       "langgraph-python",
     );
 
-    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Vue")).toBe(false);
   });
 
-  it("includes the shared React Native platform guide in authored framework nav", () => {
+  it("keeps frontend platform guides out of authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("built-in-agent");
 
-    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
+  });
+
+  it("shows the CLI page in generated and authored framework nav", () => {
+    const generatedNav = buildFrameworkNav(
+      "langgraph",
+      "LangGraph (Python)",
+      "langgraph-python",
+    );
+    const authoredNav = buildFrameworkOnlyNav("mastra");
+    const sharedFolderAuthoredNav = buildFrameworkOnlyNav("langgraph");
+
+    expect(hasPageTitle(generatedNav, "CopilotKit CLI")).toBe(true);
+    expect(hasPageTitle(authoredNav, "CopilotKit CLI")).toBe(true);
+    expect(hasPageTitle(sharedFolderAuthoredNav, "CopilotKit CLI")).toBe(true);
+  });
+
+  it("uses the generated Intelligence Platform section for authored framework nav", () => {
+    const navTree = buildFrameworkOnlyNav("ag2");
+
+    expect(navTree.some((node) => node.title === "Premium Features")).toBe(
+      false,
+    );
+    expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
+    expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
+      "Enterprise Intelligence Platform",
+      "Cloud-Hosted Enterprise Intelligence",
+      "Self-Hosting Enterprise Intelligence",
+      "Enterprise Intelligence Architecture",
+      "Threads & Persistence Architecture",
+      "Threads",
+    ]);
   });
 });

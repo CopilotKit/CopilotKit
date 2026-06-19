@@ -2552,6 +2552,7 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
         "e2e_smoke",
         "image_drift",
         "pin_drift",
+        "pin_drift_cross_env",
         "qa",
         "redirect_decommission",
         "smoke",
@@ -4399,8 +4400,8 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
 /**
  * In-process HTTP-only probe families on the fleet control-plane.
  *
- * The control-plane runs the 8 HTTP-only probe families (smoke, starter_smoke,
- * image_drift, qa, aimock_wiring, version_drift, pin_drift,
+ * The control-plane runs the 9 HTTP-only probe families (smoke, starter_smoke,
+ * image_drift, pin_drift_cross_env, qa, aimock_wiring, version_drift, pin_drift,
  * redirect_decommission) IN-PROCESS, alongside the d6 producer. These tests
  * pin that behavior:
  *
@@ -5224,7 +5225,7 @@ describe("orchestrator runControlPlane in-process HTTP probes", () => {
 // BROWSER_KINDS — or an HTTP driver whose kind overlaps a browser kind — would
 // silently drop a family from the in-process schedule.
 describe("orchestrator.registerHttpProbeDrivers / BROWSER_KINDS partition (drift-lock)", () => {
-  it("registers exactly the 8 HTTP-only kinds (no browser kinds)", async () => {
+  it("registers exactly the 9 HTTP-only kinds (no browser kinds)", async () => {
     const orchMod = await import("./orchestrator.js");
     const registry = createProbeRegistry();
     orchMod.registerHttpProbeDrivers(registry);
@@ -5234,6 +5235,9 @@ describe("orchestrator.registerHttpProbeDrivers / BROWSER_KINDS partition (drift
         "aimock_wiring",
         "image_drift",
         "pin_drift",
+        // U11: cross-env pin-drift is HTTP-only (Railway GraphQL + GHCR
+        // manifest GET; no browser), so it joins the control-plane HTTP set.
+        "pin_drift_cross_env",
         "qa",
         "redirect_decommission",
         "smoke",
@@ -5520,7 +5524,7 @@ describe("FLEET_FAMILY_PERIODS_MS ↔ enumerator family drift-lock", () => {
  */
 describe("PRODUCER_FAMILY_WIRING (§4.2 family drift-lock)", () => {
   it("wired producer family ids are set-equal to FLEET_FAMILIES[*].family", () => {
-    const wired = [...Object.values(PRODUCER_FAMILY_WIRING)].sort();
+    const wired = Object.values(PRODUCER_FAMILY_WIRING).sort();
     const registry = FLEET_FAMILIES.map((f) => f.family).sort();
     expect(wired).toEqual(registry);
   });

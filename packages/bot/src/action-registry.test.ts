@@ -1,7 +1,12 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { ActionRegistry, ActionExpiredError } from "./action-registry.js";
 import { InMemoryActionStore } from "./action-store.js";
 import type { BotNode, InteractionContext } from "@copilotkit/bot-ui";
+
+// Records each click so a test can assert the handler ran — dispatch() now
+// returns the clicked element's `value` (needed to resolve HITL waiters on
+// platforms whose callback payload can't carry it), not the handler's return.
+const clicks: string[] = [];
 
 function Confirm(props: { action: string }): BotNode {
   return {
@@ -11,8 +16,10 @@ function Confirm(props: { action: string }): BotNode {
         {
           type: "button",
           props: {
-            onClick: ({ action }: InteractionContext) =>
-              `ok:${props.action}:${action.id}`,
+            value: { ok: props.action },
+            onClick: ({ action }: InteractionContext) => {
+              clicks.push(`ok:${props.action}:${action.id}`);
+            },
             children: "Yes",
           },
         },
@@ -24,18 +31,23 @@ function Confirm(props: { action: string }): BotNode {
 const ctx = {} as InteractionContext;
 
 describe("ActionRegistry", () => {
-  it("binds onClick handlers and dispatches via hot cache", async () => {
+  beforeEach(() => {
+    clicks.length = 0;
+  });
+
+  it("dispatches via hot cache, runs the handler, and returns the element value", async () => {
     const reg = new ActionRegistry({ store: new InMemoryActionStore() });
     reg.registerComponent("Confirm", Confirm as never);
     const ir = await reg.bindTree("Confirm", { action: "write" }, "conv1");
     const button = (ir[0]!.props.children as BotNode[])[0]!;
     const id = (button.props.onClick as { id: string }).id;
     expect(typeof id).toBe("string");
-    const out = await reg.dispatch(id, ctx);
-    expect(out).toContain("ok:write:");
+    const value = await reg.dispatch(id, ctx);
+    expect(value).toEqual({ ok: "write" });
+    expect(clicks[0]).toContain("ok:write:");
   });
 
-  it("cold path re-renders from snapshot when hot cache is cleared", async () => {
+  it("cold path re-renders from snapshot when hot cache is cleared, still returning the value", async () => {
     const reg = new ActionRegistry({ store: new InMemoryActionStore() });
     reg.registerComponent("Confirm", Confirm as never);
     const ir = await reg.bindTree("Confirm", { action: "write" }, "conv1");
@@ -43,8 +55,9 @@ describe("ActionRegistry", () => {
       (ir[0]!.props.children as BotNode[])[0]!.props.onClick as { id: string }
     ).id;
     reg.clearHotCache();
-    const out = await reg.dispatch(id, ctx);
-    expect(out).toContain("ok:write:");
+    const value = await reg.dispatch(id, ctx);
+    expect(value).toEqual({ ok: "write" });
+    expect(clicks[0]).toContain("ok:write:");
   });
 
   it("throws ActionExpiredError on full miss", async () => {

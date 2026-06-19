@@ -1,4 +1,3 @@
-docs/next.config.mjs
 examples/canvas/gemini/next.config.mjs
 examples/canvas/langgraph-python/next.config.ts
 examples/canvas/llamaindex-composio/next.config.ts
