@@ -2,46 +2,42 @@
 
 import { useEffect } from "react";
 import { useAgent } from "@copilotkit/react-core/v2";
-import { DEFAULT_THREAD_TITLE } from "@/lib/threads";
+import { DEFAULT_THREAD_TITLE, titleFromText } from "@/lib/threads";
 
 const AGENT_ID = "oracle_concierge";
-const MAX_LEN = 60;
 
 type MinimalMessage = { role?: string; content?: unknown };
 
-/** Derive a thread title from the first user message in a transcript. */
-function deriveTitle(messages: MinimalMessage[]): string | null {
+/** Text of the first user message in a transcript (handles string or parts). */
+function firstUserText(messages: MinimalMessage[]): string {
   const firstUser = messages.find((m) => m?.role === "user");
-  if (!firstUser) return null;
-
-  const raw = firstUser.content;
-  const text =
-    typeof raw === "string"
-      ? raw
-      : Array.isArray(raw)
-        ? raw
-            .map((p) =>
-              typeof p === "string"
-                ? p
-                : ((p as { text?: string })?.text ?? ""),
-            )
-            .join(" ")
-        : "";
-
-  const clean = text.replace(/\s+/g, " ").trim();
-  if (!clean) return null;
-  return clean.length > MAX_LEN
-    ? `${clean.slice(0, MAX_LEN).trimEnd()}…`
-    : clean;
+  const raw = firstUser?.content;
+  if (typeof raw === "string") return raw;
+  if (Array.isArray(raw)) {
+    return raw
+      .map((p) =>
+        typeof p === "string" ? p : ((p as { text?: string })?.text ?? ""),
+      )
+      .join(" ");
+  }
+  return "";
 }
 
 /**
  * Names a thread after its first user message. Mounted (render-null) inside the
  * CopilotKit provider so it can read the active thread's transcript via useAgent.
- * Only sets a title while the thread still has the default name, so it never
- * clobbers an already-named thread; it also backfills a title when an older,
- * still-default thread with messages is reopened. Titles live in localStorage
- * (the thread store), so they persist even though server-side messages don't.
+ *
+ * It titles ONLY when the shared agent is actually on the active thread
+ * (`agent.threadId === activeThreadId`) and that thread still carries the default
+ * title. This is the fix for "a new thread reuses the prior thread's name": the
+ * previous implementation ran a useEffect keyed on `activeThreadId`, so on a thread
+ * switch it read the shared, agentId-scoped `agent.messages` *before* CopilotChat's
+ * connect cleared them — naming the fresh thread after the prior conversation.
+ *
+ * Instead we drive titling off the agent's own message/run events. Those fire on
+ * `addMessage` (the user's submit, by which point `agent.threadId` is the active
+ * thread) and on the switch-time `setMessages([])` (empty transcript → no title) —
+ * never with another thread's transcript while `threadId` already points here.
  */
 export function ThreadTitler({
   activeThreadId,
@@ -53,13 +49,25 @@ export function ThreadTitler({
   onTitle: (id: string, title: string) => void;
 }) {
   const { agent } = useAgent({ agentId: AGENT_ID });
-  const messages = agent?.messages as MinimalMessage[] | undefined;
 
   useEffect(() => {
-    if (!activeThreadId || activeTitle !== DEFAULT_THREAD_TITLE) return;
-    const title = deriveTitle(messages ?? []);
-    if (title) onTitle(activeThreadId, title);
-  }, [messages, activeThreadId, activeTitle, onTitle]);
+    if (!agent) return;
+    const tryTitle = () => {
+      if (!activeThreadId || activeTitle !== DEFAULT_THREAD_TITLE) return;
+      // Only title the thread the agent has actually switched to — guards against
+      // reading the previous thread's still-loaded transcript during a switch.
+      if (agent.threadId !== activeThreadId) return;
+      const title = titleFromText(
+        firstUserText((agent.messages ?? []) as MinimalMessage[]),
+      );
+      if (title) onTitle(activeThreadId, title);
+    };
+    const sub = agent.subscribe({
+      onMessagesChanged: tryTitle,
+      onRunStartedEvent: tryTitle,
+    });
+    return () => sub.unsubscribe();
+  }, [agent, activeThreadId, activeTitle, onTitle]);
 
   return null;
 }

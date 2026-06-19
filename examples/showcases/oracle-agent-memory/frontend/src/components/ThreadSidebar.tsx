@@ -83,6 +83,8 @@ export function ThreadSidebar({
               return (
                 <button
                   key={t.id}
+                  data-testid="thread-item"
+                  data-active={isActive}
                   onClick={() => onSelectThread(t.id)}
                   className={`w-full text-left rounded-lg px-3 py-2 mb-1 transition-colors ${
                     isActive

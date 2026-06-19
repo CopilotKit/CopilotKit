@@ -4,8 +4,23 @@ import { useCallback, useEffect, useState } from "react";
 export type Thread = { id: string; title: string; createdAt: number };
 const STORAGE_KEY = "oracle-concierge-threads";
 
-/** Title a thread carries until its first message names it (see ThreadTitler). */
+/** Title a thread carries until its first user message names it (see ThreadTitler.tsx). */
 export const DEFAULT_THREAD_TITLE = "New conversation";
+
+const MAX_TITLE_LEN = 60;
+
+/**
+ * Derive a thread title from a user's submitted message text. Collapses
+ * whitespace, trims, and truncates to MAX_TITLE_LEN with an ellipsis. Returns
+ * null for empty/whitespace-only input (caller leaves the default title).
+ */
+export function titleFromText(text: string): string | null {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return null;
+  return clean.length > MAX_TITLE_LEN
+    ? `${clean.slice(0, MAX_TITLE_LEN).trimEnd()}…`
+    : clean;
+}
 
 function makeThread(title = DEFAULT_THREAD_TITLE): Thread {
   const id =
