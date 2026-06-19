@@ -67,11 +67,15 @@ export const URL_USERINFO_REGEX = /([a-z][a-z0-9+.-]*:\/\/)[^/\s?#]*@/gi;
 export const SCRUB_REPLACEMENT = "[REDACTED]";
 
 /**
- * Hard input-size guard (spec §3.2.4 P2): no regex ever runs on a string
- * longer than this. 8 KB covers any legitimate metadata value (schema
- * `message_scrubbed` ≤512 B) with wide headroom.
+ * Hard input-size guard (spec §3.2.4 P2; open-question 1 flags this as tunable):
+ * no regex ever runs on a string longer than this. 2 KB covers any legitimate
+ * metadata value (schema `message_scrubbed` ≤512 B, other free-text metadata
+ * values are small) with ample headroom, while keeping the absolute worst-case
+ * scan cost small (the `{0,200}` windows make the at-ceiling scan ~4× cheaper
+ * than at 8 KB) so the scrub can never perceptibly affect the diagnostic
+ * boundary. The bounded-prefix `…[unscanned:N]` path handles anything larger.
  */
-export const SCRUB_MAX_SCAN_LEN = 8 * 1024;
+export const SCRUB_MAX_SCAN_LEN = 2 * 1024;
 
 /**
  * Max containers the deep walker visits (spec §3.2.5 P3) before it stops

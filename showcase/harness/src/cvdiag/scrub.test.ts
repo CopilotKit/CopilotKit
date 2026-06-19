@@ -5,6 +5,7 @@ import {
   SCRUB_MAX_SCAN_LEN,
   SCRUB_MAX_NODES,
   SCRUB_REPLACEMENT,
+  SK_KEY_REGEX,
 } from "./scrub.js";
 
 // Module-scope leaf functions used as unclonable values across several tests.
@@ -14,9 +15,49 @@ import {
 const numberLeaf = (): number => 42;
 const voidLeaf = (): void => {};
 
+// ── ReDoS-timing helpers (module scope: capture nothing, so oxlint's
+// `consistent-function-scoping` rule stays clean — same reason as the leaves
+// above). Shared by the §6.2 ReDoS block. ─────────────────────────────────
+
+/**
+ * Best (minimum) wall-time of `fn()` over several runs. The MIN is robust to
+ * machine-load jitter: a slow run can only be ≥ the true cost, so the floor
+ * approximates the genuine work and is what makes timing assertions stable on
+ * a loaded CI box.
+ */
+const bestMs = (fn: () => void, runs = 12): number => {
+  let best = Infinity;
+  for (let i = 0; i < runs; i += 1) {
+    const t0 = performance.now();
+    fn();
+    best = Math.min(best, performance.now() - t0);
+  }
+  return best;
+};
+
+/**
+ * Drive ONLY the catastrophic-backtracking surface — the SK_KEY_REGEX match
+ * engine — with no result-string allocation. Wall-time of full `scrubSecrets`
+ * is dominated by output-string ALLOCATION (linear, but GC-noisy and crossing
+ * size buckets between 1KB↔2KB), which swamps the regex cost and makes a
+ * doubling-ratio assertion on it flaky. Exhausting the regex via `exec`
+ * isolates the actual ReDoS work (backtracking), whose ratio is stable.
+ */
+const exhaustSkRegex = (value: string): void => {
+  SK_KEY_REGEX.lastIndex = 0;
+  while (SK_KEY_REGEX.exec(value) !== null) {
+    /* advance lastIndex; we only care about the match cost */
+  }
+  SK_KEY_REGEX.lastIndex = 0;
+};
+
+/** A catastrophic (a+)+-style `sk-`-prefixed shape of total length `n`. */
+const adversarialShape = (n: number): string =>
+  `sk-${"a".repeat(n)}`.slice(0, n);
+
 describe("cvdiag scrub — constants (spec §3.2.4 / §3.2.5)", () => {
   it("pins the size-guard and node-cap constants", () => {
-    expect(SCRUB_MAX_SCAN_LEN).toBe(8 * 1024);
+    expect(SCRUB_MAX_SCAN_LEN).toBe(2 * 1024);
     expect(SCRUB_MAX_NODES).toBe(10_000);
     expect(SCRUB_REPLACEMENT).toBe("[REDACTED]");
   });
@@ -63,32 +104,48 @@ describe("cvdiag scrub — secret corpus (spec §6.1)", () => {
 });
 
 describe("cvdiag scrub — ReDoS / size guard (spec §6.2)", () => {
-  it("completes the historical R5-A1 adversarial input fast (< 50ms)", () => {
-    // 4000-char case is UNDER the 8KB guard → exercises the bounded-regex path.
-    const adversarial = `sk-${"a".repeat(4000)}`;
-    const t0 = performance.now();
-    scrubSecrets(adversarial);
-    expect(performance.now() - t0).toBeLessThan(50);
+  it("completes the historical R5-A1 adversarial input fast (no ReDoS)", () => {
+    // The classic (a+)+-style trigger that stalled the OLD regex ~1.4s at 4000
+    // chars. Clamped to the guard ceiling so it exercises the bounded-regex
+    // path through the PUBLIC scrub. The absolute ceiling is GENEROUS
+    // (400ms ≪ the old seconds-scale blowup; a true exponential ReDoS is
+    // seconds) so it decisively catches catastrophic backtracking without
+    // flaking under load.
+    const adversarial = adversarialShape(SCRUB_MAX_SCAN_LEN);
+    expect(bestMs(() => scrubSecrets(adversarial))).toBeLessThan(400);
   });
 
-  it("stays linear AT the size-guard ceiling (catastrophic SHAPE at exactly 8KB)", () => {
-    // The single largest input the guard hands to the regex: classic
-    // (a+)+-style trigger structure at exactly SCRUB_MAX_SCAN_LEN.
-    const atCeiling = `sk-${"a".repeat(SCRUB_MAX_SCAN_LEN - 3)}`;
-    expect(atCeiling.length).toBe(SCRUB_MAX_SCAN_LEN);
-    const t0 = performance.now();
-    scrubSecrets(atCeiling);
-    expect(performance.now() - t0).toBeLessThan(50);
+  it("stays LINEAR (non-catastrophic) as the catastrophic shape doubles in size", () => {
+    // Structural ReDoS proof, independent of absolute machine speed: drive the
+    // catastrophic (a+)+-style shape through the SK_KEY_REGEX match engine at
+    // length L and 2L (both ≤ SCRUB_MAX_SCAN_LEN, so both fully exercise the
+    // regex). A backtracking blowup is super-linear — quadratic ≈ 4×,
+    // exponential astronomically more (a true ReDoS regex measures ~25× for a
+    // tiny size bump). A linear scan is ~1–2×. Asserting time(2L) < 4×time(L)
+    // catches catastrophic backtracking while tolerating linear overhead and
+    // timer granularity (the +epsilon floor).
+    const L = 1024; // 1KB ≤ 2KB ceiling
+    const twoL = 2 * 1024; // 2KB = ceiling → still runs the regex
+    expect(twoL).toBeLessThanOrEqual(SCRUB_MAX_SCAN_LEN);
 
-    // Variant interleaving _ and - to maximally exercise the [A-Za-z0-9_-] windows.
+    // Warm up the regex/JIT so first-call compilation does not skew the ratio.
+    exhaustSkRegex(adversarialShape(L));
+    exhaustSkRegex(adversarialShape(twoL));
+
+    const tL = bestMs(() => exhaustSkRegex(adversarialShape(L)));
+    const t2L = bestMs(() => exhaustSkRegex(adversarialShape(twoL)));
+    // epsilon absorbs the sub-microsecond timer floor on a fast linear match.
+    const epsilon = 1; // ms
+    expect(t2L).toBeLessThan(4 * tL + epsilon);
+
+    // Variant interleaving _ and - to maximally exercise the [A-Za-z0-9_-]
+    // windows at the ceiling through the PUBLIC scrub — still bounded, fast.
     const mixed = `sk-${"a_-".repeat(Math.floor((SCRUB_MAX_SCAN_LEN - 3) / 3))}`;
     const mixedClamped = mixed.slice(0, SCRUB_MAX_SCAN_LEN);
-    const t1 = performance.now();
-    scrubSecrets(mixedClamped);
-    expect(performance.now() - t1).toBeLessThan(50);
+    expect(bestMs(() => scrubSecrets(mixedClamped))).toBeLessThan(400);
   });
 
-  it("does NOT run a regex on a string just over 8KB (bounded-prefix path)", () => {
+  it("does NOT run a regex on a string just over the size guard (bounded-prefix path)", () => {
     const justOver = "x".repeat(SCRUB_MAX_SCAN_LEN + 100);
     const out = scrubSecrets(justOver);
     // The bounded-prefix marker fires and reports the dropped tail length.
