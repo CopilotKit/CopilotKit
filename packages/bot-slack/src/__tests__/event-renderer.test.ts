@@ -488,6 +488,21 @@ describe("createRunRenderer — assistant pane status mode", () => {
     expect(f.statuses.at(-1)?.status).toBe("is using `search`…");
   });
 
+  it("showToolStatus:false suppresses the pane's `is using` status", async () => {
+    const f = makePaneClient();
+    const { subscriber: sub } = createRunRenderer({
+      client: f.client,
+      target: { channel: "D1", threadTs: "100.0" },
+      assistantStatus: {},
+      showToolStatus: false,
+    });
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "search" },
+    } as never);
+    expect(f.posts).toHaveLength(0);
+    expect(f.statuses.some((s) => s.status.includes("is using"))).toBe(false);
+  });
+
   it("clears the status once a reply is posted", async () => {
     const f = makePaneClient();
     const { subscriber: sub } = createRunRenderer({

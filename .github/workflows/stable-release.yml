@@ -30,7 +30,11 @@ on:
         type: boolean
 
 concurrency:
-  group: release-pr
+  # Scope the lock to the package being released so that, e.g., a `monorepo`
+  # create-pr run and an `angular` create-pr run proceed in independent lanes
+  # instead of queuing behind each other. Same-scope runs still serialize
+  # (cancel-in-progress: false), which is what protects the version bump.
+  group: release-pr-${{ inputs.scope }}
   cancel-in-progress: false
 
 permissions:

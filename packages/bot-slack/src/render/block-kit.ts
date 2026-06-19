@@ -1,7 +1,56 @@
 import type { BotNode } from "@copilotkit/bot-ui";
-import type { KnownBlock } from "@slack/types";
+import type { ContextActionsBlock, KnownBlock } from "@slack/types";
 import { markdownToMrkdwn } from "../markdown-to-mrkdwn.js";
 import { SLACK_LIMITS, clampArray, truncateText } from "./budget.js";
+
+/**
+ * Stable `action_id` of the native AI feedback row's `feedback_buttons`
+ * element. The adapter intercepts clicks on this id (routing them to the
+ * app's feedback callback) before they reach the engine's interaction
+ * dispatch — see `adapter.ts`.
+ */
+export const FEEDBACK_ACTION_ID = "ck-fb";
+
+/**
+ * Build the native AI-feedback row (`context_actions` + `feedback_buttons`)
+ * attached to a finalized streamed reply via `chat.stopStream`'s `blocks`.
+ * The clicked button's `value` ("positive" / "negative") carries the sentiment.
+ */
+export function buildFeedbackBlocks(opts?: {
+  positiveLabel?: string;
+  negativeLabel?: string;
+}): KnownBlock[] {
+  const block: ContextActionsBlock = {
+    type: "context_actions",
+    elements: [
+      {
+        type: "feedback_buttons",
+        action_id: FEEDBACK_ACTION_ID,
+        positive_button: {
+          text: {
+            type: "plain_text",
+            text: truncateText(
+              opts?.positiveLabel ?? "Good response",
+              SLACK_LIMITS.buttonText,
+            ),
+          },
+          value: "positive",
+        },
+        negative_button: {
+          text: {
+            type: "plain_text",
+            text: truncateText(
+              opts?.negativeLabel ?? "Bad response",
+              SLACK_LIMITS.buttonText,
+            ),
+          },
+          value: "negative",
+        },
+      },
+    ],
+  };
+  return [block];
+}
 
 /**
  * Render a cross-platform component IR tree (already expanded by `renderToIR`

@@ -390,9 +390,12 @@ export class TelegramAdapter implements PlatformAdapter {
         // degrades to plain text instead of failing the edit.
         await withTelegramFormatFallback(
           (o) =>
-            this.bot.api.editMessageText(t.chatId, messageId, o.text, {
-              ...(o.parseMode ? { parse_mode: o.parseMode } : {}),
-            }),
+            this.bot.api.editMessageText(
+              t.chatId,
+              messageId,
+              o.text,
+              o.parseMode ? { parse_mode: o.parseMode } : {},
+            ),
           text,
         );
       },
@@ -447,18 +450,23 @@ export class TelegramAdapter implements PlatformAdapter {
         // degrades to plain text instead of failing the edit (mirrors stream()).
         await withTelegramFormatFallback(
           (o) =>
-            this.bot.api.editMessageText(t.chatId, messageId, o.text, {
-              ...(o.parseMode ? { parse_mode: o.parseMode } : {}),
-            }),
+            this.bot.api.editMessageText(
+              t.chatId,
+              messageId,
+              o.text,
+              o.parseMode ? { parse_mode: o.parseMode } : {},
+            ),
           text,
         );
       },
       setTyping: async () => {
-        await this.bot.api.sendChatAction(t.chatId, "typing", {
-          ...(t.messageThreadId !== undefined
+        await this.bot.api.sendChatAction(
+          t.chatId,
+          "typing",
+          t.messageThreadId !== undefined
             ? { message_thread_id: t.messageThreadId }
-            : {}),
-        });
+            : {},
+        );
       },
       ...(this.opts.interruptEventNames
         ? { interruptEventNames: this.opts.interruptEventNames }

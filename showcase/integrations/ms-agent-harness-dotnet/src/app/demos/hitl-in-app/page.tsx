@@ -9,7 +9,8 @@ import {
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { ApprovalDialog, PendingApproval } from "./approval-dialog";
+import type { PendingApproval } from "./approval-dialog";
+import { ApprovalDialog } from "./approval-dialog";
 import { TicketsPanel } from "./tickets-panel";
 import { useHitlInAppSuggestions } from "./suggestions";
 

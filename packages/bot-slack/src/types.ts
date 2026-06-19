@@ -1,3 +1,5 @@
+import type { PlatformUser } from "@copilotkit/bot";
+
 /**
  * Where to post a reply in Slack. Used by the renderer; constructed by the
  * listener once per turn.
@@ -36,6 +38,38 @@ export interface SlackAssistantOptions {
     /** Surface "is using `tool`…" per tool call. Default true. */
     toolStatus?: boolean;
   };
+}
+
+/**
+ * A 👍/👎 click on a streamed AI reply's native feedback row (Slack's
+ * `feedback_buttons` element, attached at `chat.stopStream`). Delivered to
+ * {@link SlackFeedbackOptions.onFeedback}.
+ */
+export interface SlackFeedback {
+  sentiment: "positive" | "negative";
+  /** The user who clicked, if Slack supplied their identity. */
+  user?: PlatformUser;
+  /** Channel (or DM) the reply lives in. */
+  channel: string;
+  /** Thread the reply belongs to, if any. */
+  threadTs?: string;
+  /** ts of the streamed reply message the feedback is about. */
+  messageTs: string;
+}
+
+/**
+ * Opt-in native AI feedback buttons. When provided, streamed replies on the
+ * native path finalize with a `context_actions` + `feedback_buttons` row, and
+ * clicks are routed to {@link onFeedback} (they never reach the engine's
+ * interaction dispatch). Omit to show no feedback row.
+ */
+export interface SlackFeedbackOptions {
+  /** Invoked when a user clicks 👍/👎 on a streamed reply. */
+  onFeedback: (feedback: SlackFeedback) => void | Promise<void>;
+  /** Positive button label. Default "Good response". */
+  positiveLabel?: string;
+  /** Negative button label. Default "Bad response". */
+  negativeLabel?: string;
 }
 
 /**

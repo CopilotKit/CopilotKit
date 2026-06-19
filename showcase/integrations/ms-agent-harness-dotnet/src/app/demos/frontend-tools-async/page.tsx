@@ -8,7 +8,8 @@ import {
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { NotesCard, type Note } from "./notes-card";
+import { NotesCard } from "./notes-card";
+import type { Note } from "./notes-card";
 import { NOTES_DB, sleep } from "./fake-notes-db";
 import { parseJsonResult } from "../_shared/parse-json-result";
 

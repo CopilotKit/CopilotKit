@@ -1,10 +1,10 @@
 import type { InteractionEvent } from "@copilotkit/bot";
 import type { PlatformUser } from "@copilotkit/bot-ui";
-import {
-  DM_SCOPE,
-  type ConversationKey,
-  type ReplyTarget,
-  type TelegramMessageRef,
+import { DM_SCOPE } from "./types.js";
+import type {
+  ConversationKey,
+  ReplyTarget,
+  TelegramMessageRef,
 } from "./types.js";
 
 /**

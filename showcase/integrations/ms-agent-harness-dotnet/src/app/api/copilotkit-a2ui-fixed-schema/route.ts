@@ -6,7 +6,8 @@
 // The .NET backend exposes this agent at `AGENT_URL/a2ui-fixed-schema`
 // (see agent/Program.cs).
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
