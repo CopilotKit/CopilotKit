@@ -1012,9 +1012,6 @@ export const SNIPPET_MAP: Record<string, string> = {
   MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
   MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
   MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
-  Observability: "shared/premium/observability.mdx",
-  ObservabilityConnectors:
-    "shared/troubleshooting/observability-connectors.mdx",
   Overview: "shared/premium/overview.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
   ProgrammaticControl: "shared/basics/programmatic-control.mdx",
@@ -1066,14 +1063,12 @@ export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "prebuilt-components": "PrebuiltComponents",
   "programmatic-control": "ProgrammaticControl",
   "premium/headless-ui": "HeadlessUI",
-  "premium/observability": "Observability",
   "premium/overview": "Overview",
   "troubleshooting/common-issues": "CommonIssues",
   "troubleshooting/error-debugging": "ErrorDebugging",
   "troubleshooting/migrate-to-1.10.X": "MigrateTo1100",
   "troubleshooting/migrate-to-1.8.2": "MigrateTo182",
   "troubleshooting/migrate-to-v2": "MigrateToV2",
-  "troubleshooting/observability-connectors": "ObservabilityConnectors",
 };
 
 /**
