@@ -260,12 +260,44 @@
   padding: 4px;
 }
 
+.shell-docs-picker-group-selected {
+  background: color-mix(in oklch, var(--accent-dim) 34%, transparent);
+}
+
+.shell-docs-picker-group-bordered {
+  border: 1px solid var(--nav-control-border);
+}
+
 .dark .shell-docs-picker-group {
+  background: color-mix(in oklch, var(--accent) 9%, transparent);
+}
+
+.dark .shell-docs-picker-group-selected {
   background: color-mix(in oklch, var(--accent) 9%, transparent);
 }
 
 .shell-docs-picker-row {
   border-radius: var(--shell-docs-radius-control);
+}
+
+.shell-docs-picker-row-divided {
+  position: relative;
+}
+
+.shell-docs-picker-row-divided::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: 8px;
+  left: 8px;
+  height: 1px;
+  background: var(--nav-control-border);
+  pointer-events: none;
+}
+
+.shell-docs-picker-menu {
+  box-shadow: 0 18px 42px -18px rgba(1, 5, 7, 0.18);
+  clip-path: inset(0 -48px -48px -48px);
 }
 
 .shell-docs-picker-icon-chip {
@@ -578,6 +610,154 @@
 .shell-docs-sidebar p:has(.shell-docs-react-docs-proxy) svg {
   color: color-mix(in srgb, var(--accent) 55%, var(--text-muted)) !important;
   opacity: 0.65;
+}
+
+.shell-docs-sidebar p:has(.shell-docs-frontend-docs-upcoming) {
+  display: block !important;
+  padding: 0 0.5rem !important;
+  margin: 1.75rem 0 0.25rem !important;
+}
+
+.shell-docs-frontend-docs-upcoming {
+  position: relative;
+  display: flex;
+  min-height: max(36rem, calc(100dvh - 27rem));
+  flex-direction: column;
+  padding: 0;
+  cursor: default;
+  user-select: none;
+}
+
+.shell-docs-frontend-docs-upcoming-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+}
+
+.shell-docs-frontend-docs-upcoming-header svg {
+  width: 16px !important;
+  height: 16px !important;
+  flex: 0 0 auto;
+  color: var(--accent) !important;
+}
+
+.shell-docs-frontend-docs-upcoming-title {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-docs-frontend-docs-upcoming-copy {
+  display: block;
+  margin-top: 0.5rem;
+  max-width: 16.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: color-mix(in oklch, var(--text-muted) 78%, transparent);
+  text-transform: none;
+  user-select: text;
+}
+
+.shell-docs-frontend-docs-upcoming-link {
+  color: color-mix(in oklch, var(--accent) 86%, var(--text));
+  font-weight: 650;
+  text-decoration: none;
+  pointer-events: auto;
+}
+
+.shell-docs-frontend-docs-upcoming-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+
+.shell-docs-frontend-docs-upcoming-stack {
+  display: grid;
+  flex: 1 1 auto;
+  min-height: 0;
+  grid-template-rows: repeat(8, minmax(2.875rem, 1fr));
+  gap: 0.375rem;
+  margin-top: 0.875rem;
+  padding-bottom: 0.75rem;
+  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent);
+  mask-image: linear-gradient(to bottom, #000 82%, transparent);
+  pointer-events: none;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.375rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklch, var(--border) 52%, transparent);
+  border-radius: var(--shell-docs-radius-control);
+  background: color-mix(in oklch, var(--accent-dim) 15%, transparent);
+  padding: 0.625rem 0.875rem;
+  box-shadow: none;
+  opacity: 0.76;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet::before,
+.shell-docs-frontend-docs-upcoming-sheet::after {
+  content: "";
+  position: absolute;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet::before {
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--bg-surface) 28%, transparent),
+    transparent
+  );
+  opacity: 0.34;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet::after {
+  display: none;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet:nth-child(2n) {
+  opacity: 0.66;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet:nth-child(3n) {
+  opacity: 0.56;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet-line {
+  position: relative;
+  display: block;
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--text-faint) 19%, transparent);
+}
+
+.shell-docs-frontend-docs-upcoming-sheet-line-long {
+  width: 78%;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet-line-medium {
+  width: 60%;
+}
+
+.shell-docs-frontend-docs-upcoming-sheet-line-short {
+  width: 42%;
+}
+
+.dark .shell-docs-frontend-docs-upcoming-sheet {
+  background: color-mix(in oklch, var(--accent) 8%, transparent);
 }
 
 /* Fumadocs CodeBlock chrome — force a single tokenized surface throughout.

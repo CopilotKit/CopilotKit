@@ -17,6 +17,19 @@ describe("search href helpers", () => {
     );
   });
 
+  it("preserves the active frontend when building framework search results", () => {
+    expect(frameworkDocsHref("built-in-agent", "", "vue")).toBe("/vue");
+    expect(frameworkDocsHref("built-in-agent", "quickstart", "vue")).toBe(
+      "/vue",
+    );
+    expect(frameworkDocsHref("langgraph-python", "quickstart", "vue")).toBe(
+      "/vue/langgraph-python",
+    );
+    expect(
+      frameworkDocsHref("mastra", "concepts/architecture", "react-native"),
+    ).toBe("/react-native/mastra/concepts/architecture");
+  });
+
   it("normalizes built-in-agent docs index hrefs to root URLs", () => {
     expect(normalizeHref("/docs/built-in-agent", "https://shell.test")).toBe(
       "/",
@@ -36,6 +49,21 @@ describe("search href helpers", () => {
     expect(normalizeHref("/docs/quickstart", "https://shell.test")).toBe(
       "/quickstart",
     );
+    expect(normalizeHref("/docs/frontends/vue", "https://shell.test")).toBe(
+      "/vue",
+    );
+    expect(
+      normalizeHref(
+        "/docs/frontends/react-native/using-these-docs",
+        "https://shell.test",
+      ),
+    ).toBe("/react-native/using-these-docs");
+    expect(
+      normalizeHref("/docs/frontends/using-these-docs", "https://shell.test"),
+    ).toBe("/vue/using-these-docs");
+    expect(
+      normalizeHref("/docs/frontends/docs-status", "https://shell.test"),
+    ).toBe("/vue/using-these-docs");
     expect(normalizeHref("/integrations", "https://shell.test")).toBe(
       "https://shell.test/integrations",
     );
@@ -44,6 +72,7 @@ describe("search href helpers", () => {
   it("parses docs href categories", () => {
     expect(parseDocsHref("/docs/quickstart")).toBe("quickstart");
     expect(parseDocsHref("/docs/integrations/mastra/quickstart")).toBeNull();
+    expect(parseDocsHref("/docs/frontends/vue")).toBeNull();
     expect(
       parseIntegrationDocsHref("/docs/integrations/mastra/quickstart"),
     ).toEqual({ folder: "mastra", topic: "quickstart" });

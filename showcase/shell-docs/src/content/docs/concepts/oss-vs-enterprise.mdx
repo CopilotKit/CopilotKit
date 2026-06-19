@@ -1,18 +1,18 @@
 ---
 title: OSS vs Enterprise Intelligence Platform
-description: What ships in CopilotKit's open-source core versus what's part of the Enterprise Intelligence Platform layer — Threads, Persistence, Observability, Self-Hosting.
+description: What ships in CopilotKit's open-source core versus what's part of the Enterprise Intelligence Platform layer — Threads, Persistence, hosted inspection, Self-Hosting.
 icon: "lucide/Cloud"
 doc_type: explanation
 ---
 
-CopilotKit ships in two layers: an **open-source frontend stack** (npm packages, no external service required) and an **Enterprise Intelligence Platform** that adds durable conversations, realtime sync, observability, and an admin console. Intelligence extends OSS — same SDK, same runtime — so the boundary is about *which capabilities you unlock*, not which code you write.
+CopilotKit ships in two layers: an **open-source frontend stack** (npm packages, no external service required) and an **Enterprise Intelligence Platform** that adds durable conversations, realtime sync, hosted inspection, and an admin console. Intelligence extends OSS — same SDK, same runtime — so the boundary is about *which capabilities you unlock*, not which code you write.
 
 ## The 30-second version
 
 - **OSS is enough for** building a working agentic React app with hooks, prebuilt chat, frontend tools, gen-UI, and any AG-UI integration. Apache 2.0, runs anywhere.
-- **Enterprise Intelligence Platform adds** durable threads, persistence across reloads and devices, realtime WebSocket sync, observability connectors, and a hosted admin console.
-- **Enterprise Intelligence Platform runs two ways** — fully hosted as [Copilot Cloud](https://dashboard.operations.copilotkit.ai), or self-hosted via the `copilot-intelligence` Helm chart on your own Kubernetes.
-- **Your app code doesn't change** between OSS-only, Cloud, and Self-Hosted. The boundary is a runtime config switch.
+- **Enterprise Intelligence Platform adds** durable threads, persistence across reloads and devices, realtime WebSocket sync, hosted inspection, and an admin console.
+- **Enterprise Intelligence Platform runs two ways** — as [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform), or self-hosted via the `copilot-intelligence` Helm chart on your own Kubernetes.
+- **Your app code doesn't change** between OSS-only, cloud-hosted, and self-hosted. The boundary is a runtime config switch.
 
 | | OSS only | Needs Enterprise Intelligence Platform |
 |---|---|---|
@@ -21,7 +21,7 @@ CopilotKit ships in two layers: an **open-source frontend stack** (npm packages,
 | Conversation history that survives reloads / devices | | Yes |
 | `useThreads` + realtime sync across tabs / devices | | Yes |
 | Hosted inspector, admin console, multi-tenancy | | Yes |
-| Enterprise Intelligence Platform observability connectors | | Yes |
+| Hosted thread inspection and admin console | | Yes |
 
 ## What's in the open-source core
 
@@ -41,18 +41,18 @@ Apache 2.0 licensed. Run it on any host, in any cloud, with any LLM provider.
 A separate **backend service** that sits beside your runtime and unlocks the capabilities that need durable, multi-tenant infrastructure to be honest about:
 
 - **Threads & Persistence** — durable, resumable conversations that survive page reloads, span devices, and sync in realtime via WebSocket. Backed by Postgres + Redis with single-writer locks on active runs.
-- **Observability** — structured logging, traces of every AG-UI event, agent run metrics, and connectors for Datadog / OpenTelemetry / your existing observability stack.
+- **Inspection & history** — project-scoped thread history, event timelines, admin views, and API key management in the hosted web app.
 - **Inspector & Admin Console** — a hosted web UI for browsing thread history, inspecting agent traces, rotating API keys, and managing projects and organizations.
 - **Multi-tenancy** — three-level isolation (organizations, projects, users) so a single deployment can host production and staging side by side without one reading the other's data.
 
-### Hosted vs Self-Hosted
+### Cloud-Hosted vs Self-Hosted
 
 Same Enterprise Intelligence Platform — you pick where it runs:
 
-- **[Copilot Cloud](https://dashboard.operations.copilotkit.ai)** is the hosted service. Sign up, get an API key, point your runtime at it. Pick this when you want zero ops on the platform side.
+- **[Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform)** is the hosted service. Sign up, get an API key, point your runtime at it. Pick this when you want zero ops on the platform side.
 - **Self-Hosted** installs the `copilot-intelligence` Helm chart into your own Kubernetes cluster. Pick this for data residency, on-prem requirements, or compliance control. You operate the workload (Postgres, Redis, ingress, OIDC, secret rotation); the chart and the same Enterprise Intelligence Platform image power the install.
 
-Application code doesn't change between Cloud and Self-Hosted — same SDK, same runtime, same hooks. Just a different `INTELLIGENCE_URL` environment variable.
+Application code doesn't change between cloud-hosted and self-hosted — same SDK, same runtime, same hooks. Just a different platform endpoint and credential set.
 
 ## Where the boundary lives
 
@@ -64,6 +64,6 @@ If your app keeps state in your own backend (Postgres, your own auth) and you're
 
 - **Open-source quickstart** — [Quickstart](/quickstart) gets a working agentic app running in ~10 minutes against the Built-in Agent. No platform credentials needed.
 - **Enterprise Intelligence Platform overview** — [Enterprise Intelligence Platform](/premium/overview) lists every platform capability and the per-feature setup.
-- **Hosted setup** — [Copilot Cloud](https://dashboard.operations.copilotkit.ai) for the hosted Enterprise Intelligence Platform.
+- **Cloud-hosted setup** — [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) for the hosted Enterprise Intelligence Platform.
 - **Self-hosted deployment** — [Self-Hosting Enterprise Intelligence](/premium/self-hosting) for the Helm-chart install on your own Kubernetes cluster.
-- **Architecture deep-dive** — [Enterprise Intelligence Platform internals](/premium/intelligence-platform) covers the control-plane / data-plane split, the three workloads, and the operational model.
+- **Architecture deep-dive** — [Enterprise Intelligence Architecture](/premium/intelligence-platform) covers runtime/platform roles, project boundaries, threads, and realtime sync.

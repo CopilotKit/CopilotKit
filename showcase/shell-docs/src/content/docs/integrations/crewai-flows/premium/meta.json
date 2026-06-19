@@ -1,5 +1,5 @@
 {
   "title": "Intelligence Platform",
   "icon": "lucide/Star",
-  "pages": ["overview", "observability", "self-hosting"]
+  "pages": ["overview", "self-hosting"]
 }

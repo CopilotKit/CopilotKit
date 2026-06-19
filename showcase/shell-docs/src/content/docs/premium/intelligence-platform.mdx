@@ -1,118 +1,88 @@
 ---
-title: "How the Enterprise Intelligence Platform Works"
-description: "Architecture of the Enterprise Intelligence Platform — the app-api, app-frontend, and realtime-gateway services, the control-plane/data-plane split, the multi-tenancy model, and the operational model for self-hosted Helm deployments (secret rotation, health checks, scaling, and the hosted-vs-self-hosted decision)."
+title: "Enterprise Intelligence Architecture"
+description: "Architecture of the Enterprise Intelligence Platform — how CopilotKit runtimes connect to platform projects, durable threads, realtime sync, operational history, and cloud-hosted or self-hosted deployments."
 icon: "lucide/Server"
 doc_type: explanation
 premium: true
 ---
-## What is the Enterprise Intelligence Platform?
 
-The Enterprise Intelligence Platform is the backend that powers threads, shared state, the inspector, observability, and other production capabilities. The same platform architecture runs whether you consume it as a hosted service at [Copilot Cloud](https://dashboard.operations.copilotkit.ai) or install it into your own Kubernetes cluster via the `copilot-intelligence` Helm chart — your application code (and the CopilotKit runtime it talks to) does not change based on which one you point at.
+The Enterprise Intelligence Platform is the platform backend behind production CopilotKit capabilities such as durable threads, realtime sync, project-scoped history, the hosted web app, and operational visibility. This page explains the mental model that applies to both [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) and [Self-Hosting Enterprise Intelligence](/premium/self-hosting).
 
-This page covers the logical architecture that applies to both deployment modes, plus the operational concerns specific to running the platform in your own cluster. Self-hosting gives you data residency and compliance control at the cost of running a production Kubernetes workload.
+For a product-level map of features and hosting options, start with the [Enterprise Intelligence Platform overview](/premium/overview). For Kubernetes installation, go straight to [Self-Hosting Enterprise Intelligence](/premium/self-hosting).
 
 <OpsPlatformCTA
   variant="inline"
-  title="Try the Enterprise Intelligence Platform"
-  body="Spin up a hosted project on Copilot Cloud — no credit card, free Developer tier."
-  surface="docs_learn_intelligence_platform"
+  title="Start with Cloud-Hosted Enterprise Intelligence"
+  body="Create a hosted project, get a project API key, and inspect persistent threads before deciding whether self-hosting is required."
+  ctaLabel="Create a free account"
+  surface="docs_premium_intelligence_architecture_intro"
 />
 
-## Key concepts
+## Runtime and platform roles
 
-### Two planes
+A CopilotKit app has three layers:
 
-Intelligence separates a **control plane** (project configuration, licenses, API keys) from a **data plane** (runtime traffic — threads, events, agent state). Both planes are served by the `app-api` Deployment and backed by Postgres and Redis, so there is nothing separate to operate today — but the distinction matters when you reason about load, isolation, and which traffic patterns each plane handles.
+- **Frontend** — your React UI calls CopilotKit hooks and renders chat, generative UI, tools, and thread controls.
+- **Runtime** — your application server hosts the CopilotKit runtime and connects to your agent framework through AG-UI.
+- **Enterprise Intelligence Platform** — a platform service that stores durable thread data, indexes operational history, serves project-scoped APIs, and powers dashboard surfaces.
 
-### Three workloads
+The runtime is the bridge. It receives requests from your app, streams AG-UI events to and from your agent, and uses the Enterprise Intelligence Platform when a capability needs durable platform state.
 
-The Helm chart deploys three Deployments:
+## Project boundaries
 
-- **`app-api`** — the backend service. Serves both control-plane CRUD (projects, keys) and data-plane operations (thread list, message history, mutations). Health check at `/api/health` actively probes the database; a failing probe triggers a pod restart.
-- **`app-frontend`** — the web UI. The browser-facing console for administrators and the developer inspector surface.
-- **`realtime-gateway`** — an optional WebSocket service. Streams AG-UI events to connected clients in realtime, relays thread metadata updates, and enforces single-writer locks on active runs. Off by default; enable when your deployment needs realtime sync (for example, when your app uses `useThreads` with live updates across tabs).
+The platform scopes data through three concepts:
 
-### Multi-tenancy model
+- **Organization** — the billing, workspace, or contract boundary.
+- **Project** — an application or environment inside an organization, such as production, staging, or a demo app.
+- **User** — the authenticated end user from your application context.
 
-The Enterprise Intelligence Platform is multi-tenant. Three hierarchical concepts scope every request: an **organization** (the billing or contract boundary), a **project** (an application or environment within an organization), and a **user** (an authenticated identity from your OIDC provider). API keys are issued per project — threads, events, and platform state are visible only within the project that owns them, so a single deployment can host production and staging projects side by side without one reading the other's data.
+Project API keys are issued per project. Threads, events, and dashboard history are visible only inside the project that owns them, so production and staging can share the same platform deployment without sharing conversation data.
 
-Self-hosted deployments choose a tenancy posture via `auth.deploymentMode`:
+## Threads and event history
 
-- **`self-hosted`** (default) — treats the install as a single-organization environment using `auth.defaultOrganizationId`. Right for deployments that serve one team or one tenant.
-- **`hosted`** — runs the full multi-organization model that Copilot Cloud uses. Pick this when one install will serve multiple distinct organizations.
+Threads are stored as durable platform records. When your UI uses `useThreads`, the runtime asks the platform to list, create, rename, archive, delete, and resume conversations for the selected project and user.
 
-### Platform layer vs application layer
+The platform stores event history so a conversation can be replayed after reloads and resumed across devices. That is what separates platform-backed threads from an in-memory chat transcript.
 
-Self-hosted Enterprise Intelligence assumes a **platform layer** is already present in your cluster: an ingress controller (nginx or AWS ALB), `cert-manager` (or a cloud certificate service), and — for production — External Secrets Operator. These components are installed once per cluster, outside the Enterprise Intelligence release.
+For the thread lifecycle itself, see [Threads & Persistence Architecture](/premium/threads-explained).
 
-The **application layer** is the `copilot-intelligence` chart itself. It owns only the Enterprise Intelligence workloads and references the platform layer by class name (for example, `ingress.className: nginx`) and by secret store reference. Mixing the layers into a single install makes upgrades fragile; keeping them separate lets you upgrade the platform and the application on independent cadences.
+## Realtime sync
 
-### Optional bundled subcharts
+Realtime sync keeps thread metadata and active conversation state aligned across clients. When enabled, clients subscribe to platform-backed updates so changes such as renames, archives, and active-run status can appear without a page reload.
 
-For evaluation and small self-hosted installs, the chart can deploy Postgres, Redis, and Keycloak as Bitnami subcharts inside the release. This makes first-install frictionless but is not intended for production — you should point production deployments at managed services (RDS/Aurora, ElastiCache/Valkey, your enterprise IdP) and disable the bundled subcharts.
+The important application-level contract is simple: your app uses the same hooks, while the runtime points at the platform endpoint for the selected deployment.
 
-### Secrets as a first-class input
+## Inspection and operational history
 
-Every meaningful configuration value that is sensitive — database URL, Redis URL, OIDC client credentials, the BEAM clustering cookie, the realtime gateway's runner auth secret — is delivered to pods through Kubernetes Secrets. The chart supports three delivery modes:
+The platform also gives teams operational visibility into agent behavior. The cloud-hosted web app exposes project history, thread detail pages, event timelines, API key management, and plan management.
 
-- **External Secrets Operator** — syncs values from AWS Secrets Manager, HashiCorp Vault, GCP Secret Manager, or any ESO-supported backend into Kubernetes Secrets. This is the recommended mode for any deployment that outlives a week.
-- **Self-hosted secrets** — the chart generates Secrets from values you pass in at install time, with optional auto-generation for values you leave empty. Suitable for air-gapped deployments without an ESO-supported backend.
-- **Local development secrets** — throwaway Secrets created purely for `k3d` or local cluster testing. Not for use anywhere else.
+For the cloud-hosted dashboard flow, see [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform).
 
-## How it works
+## Hosting model
 
-### Install
+Cloud-hosted and self-hosted Enterprise Intelligence share the same application contract:
 
-A `helm install` creates one namespace (by default `copilot-intelligence`), the Deployments above, their Services and ServiceAccounts, PodDisruptionBudgets, HorizontalPodAutoscalers, an Ingress resource, and any `ExternalSecret` resources you enabled. If you set `migrations.enabled: true`, a pre-install `Job` runs schema migrations against your Postgres database; the chart blocks the rollout until migrations complete. The Job is opt-in (`migrations.enabled` defaults to `false`) — leave it disabled if you manage migrations out-of-band.
+| Deployment | What changes | What stays the same |
+|---|---|---|
+| Cloud-hosted | CopilotKit runs the platform, database, web app, project API keys, and plan management. | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
+| Self-hosted | You run the platform in your own Kubernetes cluster and own its infrastructure dependencies. | Your frontend hooks, runtime APIs, AG-UI agent connection, and thread APIs. |
 
-### Runtime lifecycle
+Self-hosting changes operational ownership. It does not require a different React integration. Moving from cloud-hosted projects to self-hosting is available on the Team self-hosted plan or a custom Enterprise plan.
 
-Once installed, `app-api` pods read secrets at startup and connect to Postgres, Redis, and (if enabled) OpenSearch and object storage. The health check loop probes the database on every interval — if Postgres becomes unreachable, the pod is marked unhealthy and restarted. This is an intentional design choice: it makes credential rotation self-healing (the new pod reads rotated secrets) at the cost of being sensitive to brief database outages.
+## Error handling model
 
-The `realtime-gateway` boots with a clustering cookie (called the BEAM cookie in its values keys, after the Erlang VM it runs on) that it reads from a Secret; replicas discover each other through that cookie so a message published to one replica is delivered to clients connected to any other replica. When a client connects and subscribes to a thread, the gateway holds a lock while a run is active; other clients attempting to start a run on the same thread receive a 409 until the lock releases. The lock TTL, heartbeat interval, and key prefix are configurable via runtime values (see the [Threads](/threads) how-to).
+Platform-backed features are networked features. If the platform endpoint is unavailable or credentials are invalid, thread operations surface as runtime errors rather than silently falling back to local-only state.
 
-The `app-frontend` pods are stateless — they serve a static bundle that talks to `app-api` over the ingress `/api/*` path and, when enabled, opens a WebSocket to `realtime-gateway`.
+Common debugging checks:
 
-### Secret rotation
-
-When an `ExternalSecret` picks up a rotated value from your backend, the underlying Kubernetes Secret is updated but the pods keep the old value in memory until they restart. Pair ESO with [Stakater Reloader](https://github.com/stakater/Reloader) so that Deployments automatically restart when their referenced Secrets change. Without Reloader, rotated credentials only take effect on the next manual rollout.
-
-### Scaling
-
-HorizontalPodAutoscaler is enabled for `app-api` by default (minimum 2, maximum 10 replicas, 70% CPU target). `app-frontend` and `realtime-gateway` autoscaling are opt-in through their respective `autoscaling.enabled` keys. For the realtime gateway in particular, clustering across replicas requires that every replica share the same BEAM cookie — a new pod that does not see the cookie cannot join the existing replicas, so scale up/down is safe only when the cookie is stable across replicas (which is the default configuration).
-
-### Upgrade
-
-`helm upgrade` applies chart template changes and, if `migrations.enabled`, runs a pre-upgrade Job against the database. Chart upgrades are designed to be rolling: Deployments roll one pod at a time, and the existing PodDisruptionBudgets keep at least one replica serving traffic. If a new chart version introduces backwards-incompatible database migrations, the upgrade path is called out in the CopilotKit release notes — read those before upgrading in production.
-
-## Error handling
-
-**Database unreachable.** The `app-api` health check actively queries Postgres. When the database is down, all pods fail readiness, traffic drops to zero, and the ingress returns 503. This surfaces the actual root cause (database) rather than letting requests time out inside the application.
-
-**OIDC issuer unreachable.** Login attempts return an authentication error surfaced in the UI; API tokens issued before the outage continue to work until they expire. Make the OIDC issuer hostname part of your monitoring checks.
-
-**Realtime gateway secret missing.** If `realtimeGateway.enabled: true` and neither `existingSecret`, `externalSecrets.secrets.realtimeGateway.enabled`, nor `selfHostedSecrets.enabled` is set, the chart fails validation at `helm install` time with a clear error. The gateway cannot boot without a `RUNNER_AUTH_SECRET` and `SECRET_KEY_BASE`.
-
-**BEAM clustering failure.** If `realtime-gateway` replicas cannot see each other (wrong cookie, network policy blocking clustering traffic, DNS resolution broken), they operate as independent nodes. Clients still connect, but messages published to one replica are not delivered to clients connected to another replica. Check that the BEAM cookie Secret is mounted on every replica and that your NetworkPolicy (if any) allows pod-to-pod traffic inside the release.
-
-**Ingress or TLS misconfiguration.** If `cert-manager` has not issued a certificate for the hostnames in `ingress.tls`, browsers reject the connection. Check `kubectl describe certificate` in the `copilot-intelligence` namespace for the issuance state.
-
-**Migration job failure.** The pre-install/pre-upgrade `Job` retries up to `migrations.backoffLimit` times and fails the Helm release if every retry fails. Logs are available via `kubectl logs job/<release>-migrations`. A failed migration typically means the database user lacks schema privileges or a prior migration left the database in an unexpected state.
-
-## Design decisions
-
-**Why Helm.** Helm is the lingua franca of Kubernetes application delivery — every large platform team already operates a Helm workflow. Shipping Enterprise Intelligence as a Helm chart lets customers integrate it into their existing GitOps, CI/CD, and environment-promotion pipelines without adopting a new deployment primitive.
-
-**Why optional bundled subcharts.** For evaluation, requiring a customer to stand up Postgres and Redis before they see a login screen is an unnecessary barrier. The bundled Bitnami subcharts exist so the first `helm install` works end-to-end on a fresh cluster. They are disabled by default for the production path because running stateful services inside an application release couples lifecycle decisions that should be independent.
-
-**Why External Secrets Operator over raw Kubernetes Secrets.** Managed secret stores (AWS Secrets Manager, Vault) are the canonical source of truth in most organizations, and rotating a secret in the backend should not require a Helm release. ESO decouples secret content from chart revisions — you rotate in your backend, ESO syncs, Reloader restarts the pods. Direct Secrets are supported for air-gapped or small-scale deployments where the operational overhead of ESO is not justified.
-
-**Why not hosted-only.** Some workloads cannot use Copilot Cloud — regulated industries, air-gapped environments, or customers with strict data-residency requirements. Self-hosted Enterprise Intelligence exists because the hosted service is not appropriate for those deployments. It is strictly more operational work than using Cloud; treat it as the specialized choice.
-
-**When self-hosted is the wrong tool.** If you are trying to move faster, avoid running a Kubernetes workload, or do not have a license, use Copilot Cloud. The self-hosted path is the right answer when you have a concrete constraint (compliance, residency, network isolation) that the hosted service cannot meet.
+- Confirm the runtime is using the right platform URL for the selected deployment.
+- Confirm the runtime API key or license is valid for the project or self-hosted environment.
+- Confirm the user and project context you pass from the app match the thread history you expect to see.
+- Confirm realtime sync is configured when you expect cross-tab or cross-device updates.
 
 ## Next steps
 
-- **Step-by-step guide:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — install the `copilot-intelligence` Helm chart, configure external dependencies, and verify the deployment
-- **Enterprise Intelligence Platform overview:** [Enterprise Intelligence Platform](/premium/overview) — hosted and self-hosted capabilities
-- **Use threads in your app:** [How Threads & Persistence Work](/premium/threads-explained) — the event-replay architecture that the Intelligence runtime serves
+- **Platform overview:** [Enterprise Intelligence Platform](/premium/overview) — features, hosting options, and where to go next
+- **Cloud-hosted guide:** [Cloud-Hosted Enterprise Intelligence](/premium/managed-intelligence-platform) — login, projects, API keys, threads, and plan management
+- **Self-hosted guide:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting) — install and operate the platform in Kubernetes
+- **Thread architecture:** [Threads & Persistence Architecture](/premium/threads-explained) — event replay, realtime sync, and thread lifecycle semantics

@@ -13,8 +13,10 @@ import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import {
   FRONTEND_OPTIONS,
+  backendPathForCurrentPath,
   frontendFromPathname,
-  frontendPathFor,
+  frontendPathForCurrentPath,
+  isFrontendEarlyAccess,
 } from "@/lib/frontend-options";
 import type { FrontendId } from "@/lib/frontend-options";
 
@@ -54,6 +56,14 @@ function SelectorAffordance({ active }: { active: boolean }) {
         }`}
         strokeWidth={2}
       />
+    </span>
+  );
+}
+
+function FrontendEarlyAccessBadge() {
+  return (
+    <span className="shell-docs-radius-control inline-flex shrink-0 self-center border border-[var(--border)] bg-[var(--bg-elevated)] px-1 py-0 text-[8px] font-semibold leading-[10px] text-[var(--text-muted)]">
+      Early access
     </span>
   );
 }
@@ -106,8 +116,14 @@ export function FrameworkSelector({
     FRONTEND_OPTIONS[0];
 
   function selectFrontend(id: FrontendId) {
-    if (id !== effectiveFrontendId || pathname.startsWith("/frontends/")) {
-      router.replace(frontendPathFor(id));
+    if (id !== effectiveFrontendId) {
+      router.replace(
+        frontendPathForCurrentPath(
+          id,
+          pathname,
+          options.map((option) => option.slug),
+        ),
+      );
     }
     setOpenMenu(null);
   }
@@ -125,9 +141,14 @@ export function FrameworkSelector({
     } catch {
       // Swallow - analytics is fire-and-forget.
     }
-    if (!pathname.startsWith("/frontends/")) {
-      router.replace(slug === DEFAULT_FRAMEWORK ? "/" : `/${slug}`);
-    }
+    router.replace(
+      backendPathForCurrentPath(
+        slug,
+        pathname,
+        options.map((option) => option.slug),
+        DEFAULT_FRAMEWORK,
+      ),
+    );
     setOpenMenu(null);
   }
 
@@ -214,7 +235,7 @@ export function FrameworkSelector({
     >
       {isSidebar ? (
         <>
-          <div className="shell-docs-picker-group space-y-0.5">
+          <div className="shell-docs-picker-group shell-docs-picker-group-selected shell-docs-picker-group-bordered space-y-0.5">
             <button
               type="button"
               onClick={() =>
@@ -223,11 +244,7 @@ export function FrameworkSelector({
               aria-haspopup="listbox"
               aria-expanded={openMenu === "frontend"}
               aria-label="Choose frontend"
-              className={`shell-docs-picker-row group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-                openMenu === "frontend"
-                  ? "bg-[var(--bg-surface)] shadow-[var(--shadow-control)]"
-                  : "hover:bg-[var(--bg-surface)]"
-              }`}
+              className="shell-docs-picker-row group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               <span
                 className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
@@ -239,8 +256,11 @@ export function FrameworkSelector({
                 <span className="block text-[11px] font-medium leading-tight text-[var(--text-muted)]">
                   Frontend
                 </span>
-                <span className="mt-0.5 block truncate text-[13px] font-semibold leading-tight text-[var(--text)]">
-                  {selectedFrontend.name}
+                <span className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] font-semibold leading-tight text-[var(--text)]">
+                  <span className="truncate">{selectedFrontend.name}</span>
+                  {isFrontendEarlyAccess(selectedFrontend.id) && (
+                    <FrontendEarlyAccessBadge />
+                  )}
                 </span>
               </span>
               <SelectorAffordance active={openMenu === "frontend"} />
@@ -254,11 +274,7 @@ export function FrameworkSelector({
               aria-haspopup="listbox"
               aria-expanded={openMenu === "backend"}
               aria-label="Choose agent backend"
-              className={`shell-docs-picker-row group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
-                openMenu === "backend"
-                  ? "bg-[var(--bg-surface)] shadow-[var(--shadow-control)]"
-                  : "hover:bg-[var(--bg-surface)]"
-              }`}
+              className="shell-docs-picker-row shell-docs-picker-row-divided group flex min-h-[52px] w-full cursor-pointer items-center gap-2.5 px-2 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
             >
               <span
                 className="shell-docs-picker-icon-chip flex h-8 w-8 shrink-0 items-center justify-center"
@@ -297,7 +313,7 @@ export function FrameworkSelector({
             <div
               role="listbox"
               aria-label="Choose frontend"
-              className="shell-docs-radius-surface absolute left-0 right-0 top-full z-50 mt-1 border border-[var(--border)] bg-[var(--bg-surface)] p-2 shadow-[var(--shadow-panel)]"
+              className="shell-docs-radius-surface shell-docs-picker-menu absolute left-0 right-0 top-full z-50 mt-1 border border-[var(--border)] bg-[var(--bg-surface)] p-2"
             >
               {FRONTEND_OPTIONS.map((option) => {
                 const isActive = option.id === selectedFrontend.id;
@@ -320,8 +336,11 @@ export function FrameworkSelector({
                     >
                       <FrontendLogo icon={option.icon} size={17} />
                     </span>
-                    <span className="flex-1 truncate text-left font-medium">
-                      {option.name}
+                    <span className="flex min-w-0 flex-1 items-center gap-2 text-left font-medium">
+                      <span className="truncate">{option.name}</span>
+                      {isFrontendEarlyAccess(option.id) && (
+                        <FrontendEarlyAccessBadge />
+                      )}
                     </span>
                   </button>
                 );
@@ -333,7 +352,7 @@ export function FrameworkSelector({
             <div
               role="listbox"
               aria-label="Choose agent backend"
-              className="shell-docs-radius-surface absolute left-0 top-full z-50 mt-1 max-h-[60vh] w-[320px] max-w-[calc(100vw-2rem)] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] p-2 shadow-[var(--shadow-panel)]"
+              className="shell-docs-radius-surface shell-docs-picker-menu absolute left-0 top-full z-50 mt-1 max-h-[60vh] w-[320px] max-w-[calc(100vw-2rem)] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] p-2"
             >
               {backendOptions(
                 true,
@@ -376,7 +395,7 @@ export function FrameworkSelector({
           {openMenu === "backend" && (
             <div
               role="listbox"
-              className="shell-docs-radius-surface absolute left-0 top-full z-50 mt-1 max-h-[70vh] w-[340px] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] p-2 shadow-[var(--shadow-panel)]"
+              className="shell-docs-radius-surface shell-docs-picker-menu absolute left-0 top-full z-50 mt-1 max-h-[70vh] w-[340px] overflow-y-auto border border-[var(--border)] bg-[var(--bg-surface)] p-2"
             >
               {backendOptions(
                 false,

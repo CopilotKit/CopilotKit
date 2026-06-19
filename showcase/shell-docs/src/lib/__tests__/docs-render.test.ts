@@ -48,6 +48,14 @@ function hasSectionPage(navTree: NavNode[], section: string, page: string) {
   return false;
 }
 
+function hasPageTitle(navTree: NavNode[], page: string): boolean {
+  return navTree.some((node) => {
+    if (node.type === "page") return node.title === page;
+    if (node.type === "group") return hasPageTitle(node.children, page);
+    return false;
+  });
+}
+
 function sectionPages(navTree: NavNode[], section: string): string[] {
   const pages: string[] = [];
   let inSection = false;
@@ -253,6 +261,20 @@ describe("framework nav", () => {
     expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
   });
 
+  it("shows the CLI page in generated and authored framework nav", () => {
+    const generatedNav = buildFrameworkNav(
+      "langgraph",
+      "LangGraph (Python)",
+      "langgraph-python",
+    );
+    const authoredNav = buildFrameworkOnlyNav("mastra");
+    const sharedFolderAuthoredNav = buildFrameworkOnlyNav("langgraph");
+
+    expect(hasPageTitle(generatedNav, "CopilotKit CLI")).toBe(true);
+    expect(hasPageTitle(authoredNav, "CopilotKit CLI")).toBe(true);
+    expect(hasPageTitle(sharedFolderAuthoredNav, "CopilotKit CLI")).toBe(true);
+  });
+
   it("uses the generated Intelligence Platform section for authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("ag2");
 
@@ -261,10 +283,11 @@ describe("framework nav", () => {
     );
     expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
     expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
-      "How the Enterprise Intelligence Platform Works",
-      "How Threads & Persistence Work",
-      "Observability",
+      "Enterprise Intelligence Platform",
+      "Cloud-Hosted Enterprise Intelligence",
       "Self-Hosting Enterprise Intelligence",
+      "Enterprise Intelligence Architecture",
+      "Threads & Persistence Architecture",
       "Threads",
     ]);
   });
