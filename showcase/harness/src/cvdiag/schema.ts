@@ -572,18 +572,15 @@ export function validateMetadata(
       if (typeof value === "string") {
         survivor[key] = scrubSecrets(value);
       } else if (value !== null && typeof value === "object") {
-        // Deep-scrub on a cycle-safe deep clone so the caller's nested objects
-        // are never mutated (pure instrumentation). `structuredClone` preserves
-        // structure + cycles; on the rare unclonable input (e.g. a function
-        // leaf) fall back to scrubbing the original in place — correctness of
-        // the §6 guarantee wins over the no-mutation nicety in that edge case.
-        let target: unknown = value;
-        try {
-          target = structuredClone(value);
-        } catch {
-          target = value;
-        }
-        survivor[key] = scrubDeep(target);
+        // §6 deep secret-scrub. `scrubDeep` BUILDS a fresh scrubbed copy of the
+        // nested value — it NEVER mutates the caller's object, for ANY input
+        // shape including unclonable leaves like functions / class instances
+        // (spec §3.2.5 P3). There is therefore NO `structuredClone` defensive
+        // copy and NO try/catch fallback: the clone was itself the source of the
+        // R5-A4 unclonable-leaf mutation trap (clone throws → fall back to
+        // scrubbing the ORIGINAL in place). Calling `scrubDeep` directly is both
+        // simpler and strictly non-mutating by construction.
+        survivor[key] = scrubDeep(value);
       } else {
         survivor[key] = value;
       }

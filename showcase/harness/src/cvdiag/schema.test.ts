@@ -347,3 +347,102 @@ describe("CVDIAG schema — test_id UUIDv7 validation", () => {
     expect(isValidTestId("")).toBe(false);
   });
 });
+
+// Deep-freeze a graph so any in-place mutation attempt THROWS (used to prove
+// validateMetadata never mutates the caller's object).
+function deepFreeze<T>(obj: T): T {
+  if (obj !== null && typeof obj === "object") {
+    for (const v of Object.values(obj as Record<string, unknown>)) {
+      deepFreeze(v);
+    }
+    Object.freeze(obj);
+  }
+  return obj;
+}
+
+// An UNCLONABLE leaf: `structuredClone` throws on a function, which is what the
+// old validateMetadata defensive-copy path tripped over (R5-A4).
+const unclonableLeaf = (): number => 42;
+
+describe("CVDIAG validateMetadata — direct scrubDeep, no clone trap (§3.2.5)", () => {
+  // validateMetadata calls scrubDeep DIRECTLY on object/array metadata values
+  // (no structuredClone defensive copy). scrubDeep BUILDS a fresh scrubbed copy,
+  // so the caller's object is never mutated for ANY input shape — including the
+  // R5-A4 case where an allow-listed nested value carries an UNCLONABLE leaf
+  // (function / class instance). The old structuredClone path THREW on that leaf
+  // and fell back to scrubbing the ORIGINAL in place (mutation = RED).
+
+  it("scrubs nested string values inside a surviving object/array metadata value", () => {
+    const real = validateMetadata("backend", "backend.error.caught", {
+      exception_type: "AuthError",
+      message_scrubbed: "top-level",
+      stack_brief: [
+        { file: "Bearer sk-aaaaaaaaaaaaaaaa", line: 1 },
+        { file: "https://alice:s3cr3t@host.com/x", line: 2 },
+      ],
+    });
+    const survivor = real.metadata.stack_brief as Array<{
+      file: string;
+      line: number;
+    }>;
+    // Deep string leaves inside the surviving array-of-objects are scrubbed.
+    expect(survivor[0].file).not.toContain("sk-aaaaaaaaaaaaaaaa");
+    expect(survivor[0].file).toContain("[REDACTED]");
+    expect(survivor[1].file).not.toContain("s3cr3t");
+    expect(survivor[1].file).toContain("[REDACTED]");
+    // Non-string leaves untouched.
+    expect(survivor[0].line).toBe(1);
+  });
+
+  it("does NOT mutate the caller's metadata object (deep-frozen snapshot unchanged)", () => {
+    // A fully deep-frozen caller object: any in-place mutation attempt would
+    // THROW in a frozen graph, so survival of the call AND byte-identity of the
+    // graph together prove no caller mutation.
+    const caller = deepFreeze({
+      exception_type: "E",
+      message_scrubbed: "ok",
+      stack_brief: [{ file: "Bearer sk-aaaaaaaaaaaaaaaa", line: 1 }],
+    });
+    const snapshot = JSON.parse(JSON.stringify(caller));
+    const real = validateMetadata("backend", "backend.error.caught", caller);
+    // Caller graph byte-identical (no in-place scrub of the frozen original).
+    expect(caller).toEqual(snapshot);
+    // Survivor copy is scrubbed (fresh container, not the caller's array).
+    const survivor = real.metadata.stack_brief as Array<{ file: string }>;
+    expect(survivor[0].file).toContain("[REDACTED]");
+    expect(survivor).not.toBe(caller.stack_brief);
+  });
+
+  it("does NOT mutate the caller when a nested value carries an UNCLONABLE leaf (R5-A4)", () => {
+    // The OLD structuredClone path throws on the function leaf and falls back to
+    // scrubbing the ORIGINAL in place → caller's nested string becomes
+    // [REDACTED] (RED). The direct scrubDeep path copies the function by
+    // reference and leaves the original string untouched (GREEN).
+    const stackBrief: Array<{ file: string; line: number; handler: unknown }> =
+      [
+        {
+          file: "Bearer sk-aaaaaaaaaaaaaaaa",
+          line: 1,
+          handler: unclonableLeaf,
+        },
+      ];
+    const snapshotFile = stackBrief[0].file;
+    const real = validateMetadata("backend", "backend.error.caught", {
+      exception_type: "E",
+      message_scrubbed: "ok",
+      stack_brief: stackBrief as never,
+    });
+    // Caller's original nested string is NOT scrubbed in place.
+    expect(stackBrief[0].file).toBe(snapshotFile);
+    expect(stackBrief[0].file).toContain("sk-aaaaaaaaaaaaaaaa");
+    expect(stackBrief[0].handler).toBe(unclonableLeaf);
+    // ...but the survivor copy IS scrubbed, with the function copied by ref.
+    const survivor = real.metadata.stack_brief as Array<{
+      file: string;
+      handler: unknown;
+    }>;
+    expect(survivor[0].file).toContain("[REDACTED]");
+    expect(survivor[0].handler).toBe(unclonableLeaf);
+    expect(survivor).not.toBe(stackBrief);
+  });
+});
