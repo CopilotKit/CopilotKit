@@ -5524,7 +5524,7 @@ describe("FLEET_FAMILY_PERIODS_MS ↔ enumerator family drift-lock", () => {
  */
 describe("PRODUCER_FAMILY_WIRING (§4.2 family drift-lock)", () => {
   it("wired producer family ids are set-equal to FLEET_FAMILIES[*].family", () => {
-    const wired = [...Object.values(PRODUCER_FAMILY_WIRING)].sort();
+    const wired = Object.values(PRODUCER_FAMILY_WIRING).sort();
     const registry = FLEET_FAMILIES.map((f) => f.family).sort();
     expect(wired).toEqual(registry);
   });

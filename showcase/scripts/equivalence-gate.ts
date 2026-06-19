@@ -48,17 +48,17 @@
  * re-sweep freshness — only prod was just re-swept.)
  */
 
-import {
-  buildCellModel,
-  type ChipColor,
-  type CellModelInput,
+import { buildCellModel } from "../shell-dashboard/src/lib/cell-model";
+import type {
+  ChipColor,
+  CellModelInput,
 } from "../shell-dashboard/src/lib/cell-model";
 import {
   keyFor,
   CATALOG_TO_D5_KEY,
   STARTER_LEVELS,
-  type LiveStatusMap,
 } from "../shell-dashboard/src/lib/live-status";
+import type { LiveStatusMap } from "../shell-dashboard/src/lib/live-status";
 
 /** A single (integration, feature) cell to compare across envs. */
 export type GateCell = CellModelInput;

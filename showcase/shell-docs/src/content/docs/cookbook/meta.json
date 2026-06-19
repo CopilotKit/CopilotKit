@@ -3,6 +3,7 @@
   "root": true,
   "pages": [
     "daytona",
-    "oracle-agent-spec-memory"
+    "oracle-agent-spec-memory",
+    "arcade"
   ]
 }
