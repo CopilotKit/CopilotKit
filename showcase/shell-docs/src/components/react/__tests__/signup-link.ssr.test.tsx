@@ -11,6 +11,12 @@ import { OpsPlatformCTA } from "../ops-platform-cta";
 // whole server-rendered HTML response 500s. The placeholder MUST be a
 // parseable URL.
 
+function hrefFromStaticMarkup(html: string): string {
+  const match = html.match(/href="([^"]+)"/);
+  expect(match).not.toBeNull();
+  return match![1].replaceAll("&amp;", "&");
+}
+
 describe("client component SSR safety (shell-docs)", () => {
   beforeEach(() => {
     // Force SSR path — getRuntimeConfig() in runtime-config.client.ts
@@ -32,9 +38,7 @@ describe("client component SSR safety (shell-docs)", () => {
     const html = renderToStaticMarkup(
       <SignupLink surface="test">Sign up</SignupLink>,
     );
-    const match = html.match(/href="([^"]+)"/);
-    expect(match).not.toBeNull();
-    expect(() => new URL(match![1])).not.toThrow();
+    expect(() => new URL(hrefFromStaticMarkup(html))).not.toThrow();
   });
 
   it("OpsPlatformCTA SSR-renders without throwing", () => {
@@ -55,8 +59,22 @@ describe("client component SSR safety (shell-docs)", () => {
         surface: "test-surface",
       }),
     );
-    const match = html.match(/href="([^"]+)"/);
-    expect(match).not.toBeNull();
-    expect(() => new URL(match![1])).not.toThrow();
+    expect(() => new URL(hrefFromStaticMarkup(html))).not.toThrow();
+  });
+
+  it("OpsPlatformCTA supports a custom href", () => {
+    const html = renderToStaticMarkup(
+      React.createElement(OpsPlatformCTA, {
+        title: "Test",
+        surface: "test-surface",
+        href: "https://copilotkit.ai/talk-to-an-engineer",
+        analyticsEvent: "talk_to_us_clicked",
+      }),
+    );
+    const url = new URL(hrefFromStaticMarkup(html));
+    expect(`${url.origin}${url.pathname}`).toBe(
+      "https://copilotkit.ai/talk-to-an-engineer",
+    );
+    expect(url.searchParams.get("utm_content")).toBe("test-surface");
   });
 });
