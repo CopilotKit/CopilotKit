@@ -94,10 +94,43 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Required envelope fields that MUST carry a non-empty string value. `test_id`
+ * keys the timeline scope and `ts` is the cross-layer sort clock — a
+ * present-but-wrong-typed value (the documented manual-PB-edit case) here
+ * silently corrupts ordering, so we reject it at validation time.
+ */
+const STRING_FIELDS = [
+  "test_id",
+  "trace_id",
+  "span_id",
+  "layer",
+  "boundary",
+  "slug",
+  "demo",
+  "ts",
+  "outcome",
+] as const;
+
+/** Required envelope fields that MUST be a finite number. */
+const NUMBER_FIELDS = ["schema_version", "mono_ns"] as const;
+
+/**
+ * Required envelope fields that are nullable-but-typed: `parent_span_id` is a
+ * `string | null` and `duration_ms` is a `number | null`. A non-null value of
+ * the wrong type is rejected; an explicit `null` is accepted.
+ */
+const NULLABLE_STRING_FIELDS = ["parent_span_id"] as const;
+const NULLABLE_NUMBER_FIELDS = ["duration_ms"] as const;
+
+/**
  * Validate ONE raw row into a typed envelope or throw a `ReplayError` naming
  * `rowIndex`. Rejects: non-object rows (a bad-JSON row surfaces as a string or
- * primitive), rows missing any required envelope field, and rows whose
- * `edge_headers` / `metadata` are not objects.
+ * primitive), rows missing any required envelope field, rows whose required
+ * fields are present but of the WRONG TYPE (a manual-PB-edit row with a
+ * non-string `ts`/`test_id` or a non-number `mono_ns` would otherwise pass a
+ * presence-only check, then poison `sortByTimeline`'s `mono_ns` subtraction
+ * into `NaN` and silently mis-order the authoritative timeline at exit 0), and
+ * rows whose `edge_headers` / `metadata` are not objects.
  */
 function validateRow(raw: unknown, rowIndex: number): CvdiagEnvelope {
   if (!isPlainObject(raw)) {
@@ -111,16 +144,66 @@ function validateRow(raw: unknown, rowIndex: number): CvdiagEnvelope {
       throw new ReplayError(rowIndex, `missing required field "${field}"`);
     }
   }
+  // Type-check every required field per the envelope schema. Presence is not
+  // enough: the `ts`/`mono_ns` sort clock and the `test_id` scope key must be
+  // the right type or the reconstruction is silently corrupt.
+  for (const field of STRING_FIELDS) {
+    const value = raw[field];
+    if (typeof value !== "string") {
+      throw new ReplayError(
+        rowIndex,
+        `field "${field}" must be a string, got ${typeof value}`,
+      );
+    }
+    if (value.length === 0) {
+      throw new ReplayError(
+        rowIndex,
+        `field "${field}" must be a non-empty string`,
+      );
+    }
+  }
+  for (const field of NUMBER_FIELDS) {
+    const value = raw[field];
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+      throw new ReplayError(
+        rowIndex,
+        `field "${field}" must be a finite number, got ${
+          typeof value === "number" ? String(value) : typeof value
+        }`,
+      );
+    }
+  }
+  for (const field of NULLABLE_STRING_FIELDS) {
+    const value = raw[field];
+    if (value !== null && typeof value !== "string") {
+      throw new ReplayError(
+        rowIndex,
+        `field "${field}" must be a string or null, got ${typeof value}`,
+      );
+    }
+  }
+  for (const field of NULLABLE_NUMBER_FIELDS) {
+    const value = raw[field];
+    if (value !== null && (typeof value !== "number" || !Number.isFinite(value))) {
+      throw new ReplayError(
+        rowIndex,
+        `field "${field}" must be a finite number or null, got ${
+          typeof value === "number" ? String(value) : typeof value
+        }`,
+      );
+    }
+  }
   if (!isPlainObject(raw["edge_headers"])) {
     throw new ReplayError(rowIndex, `"edge_headers" is not an object`);
   }
   if (!isPlainObject(raw["metadata"])) {
     throw new ReplayError(rowIndex, `"metadata" is not an object`);
   }
-  // All required fields present and the JSON columns are objects: the row is a
-  // structurally-valid envelope. We do not re-derive the closed enums here —
-  // the classifier tolerates unknown boundaries and replay is a faithful
-  // reconstruction of what was stored, not a re-validation of enum membership.
+  // All required fields present and correctly typed and the JSON columns are
+  // objects: the row is a structurally-valid envelope. We do not re-derive the
+  // closed enums here — the classifier tolerates unknown boundaries and replay
+  // is a faithful reconstruction of what was stored, not a re-validation of
+  // enum membership.
   return raw as unknown as CvdiagEnvelope;
 }
 

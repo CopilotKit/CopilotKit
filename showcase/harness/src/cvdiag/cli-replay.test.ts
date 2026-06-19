@@ -72,6 +72,57 @@ describe("reconstructRequestSequence — malformed-row rejection", () => {
     const rows: unknown[] = [goodRow(), { boundary: "x" }];
     expect(() => reconstructRequestSequence(rows)).toThrow(/row 1/i);
   });
+
+  // RED/GREEN (M7 CR R2): a present-but-wrong-typed `mono_ns` (the documented
+  // manual-PB-edit case) used to PASS the presence-only validation, then
+  // `sortByTimeline`'s `a.mono_ns - b.mono_ns` subtraction yielded `NaN` and
+  // silently mis-ordered the "authoritative" timeline at exit 0 — violating the
+  // module's "reject malformed, never silently admit" contract. The type-check
+  // must reject these rows via the hard-error path instead.
+  it("rejects a row whose mono_ns is present but not a finite number (NaN-sort trap)", () => {
+    const broken = goodRow({ mono_ns: "1000" as unknown as number });
+    expect(() => reconstructRequestSequence([broken])).toThrow(ReplayError);
+    expect(() => reconstructRequestSequence([broken])).toThrow(/mono_ns/i);
+  });
+
+  it("rejects a row whose mono_ns is NaN (non-finite number)", () => {
+    const broken = goodRow({ mono_ns: Number.NaN });
+    expect(() => reconstructRequestSequence([broken])).toThrow(ReplayError);
+    expect(() => reconstructRequestSequence([broken])).toThrow(/mono_ns/i);
+  });
+
+  it("rejects a row whose ts is present but not a string", () => {
+    const broken = goodRow({ ts: 12345 as unknown as string });
+    expect(() => reconstructRequestSequence([broken])).toThrow(ReplayError);
+    expect(() => reconstructRequestSequence([broken])).toThrow(/ts/i);
+  });
+
+  it("rejects a row whose test_id is present but an empty string", () => {
+    const broken = goodRow({ test_id: "" });
+    expect(() => reconstructRequestSequence([broken])).toThrow(ReplayError);
+    expect(() => reconstructRequestSequence([broken])).toThrow(/test_id/i);
+  });
+
+  it("rejects a row whose test_id is present but not a string", () => {
+    const broken = goodRow({ test_id: 42 as unknown as string });
+    expect(() => reconstructRequestSequence([broken])).toThrow(ReplayError);
+    expect(() => reconstructRequestSequence([broken])).toThrow(/test_id/i);
+  });
+
+  it("does NOT silently admit a wrong-typed mono_ns into a NaN-sorted timeline", () => {
+    // Pre-fix: two rows, one with a non-number mono_ns, were admitted and the
+    // `a.mono_ns - b.mono_ns` tie-break produced NaN — the comparator returned
+    // an order that did NOT reflect emit order, yet exit was 0. Post-fix the
+    // malformed row is rejected outright.
+    const rows = [
+      goodRow({ ts: "2026-06-18T00:00:00.000Z", mono_ns: 20 }),
+      goodRow({
+        ts: "2026-06-18T00:00:00.000Z",
+        mono_ns: undefined as unknown as number,
+      }),
+    ];
+    expect(() => reconstructRequestSequence(rows)).toThrow(ReplayError);
+  });
 });
 
 describe("reconstructRequestSequence — queried-test-id scope assertion", () => {
