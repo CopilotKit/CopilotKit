@@ -267,11 +267,31 @@ function buildIndex(events: CvdiagEnvelope[]): EventIndex {
   return { testId, byBoundary, eventCountByLayer, boundaryHistogram };
 }
 
+/**
+ * Return the EARLIEST event for `boundary` by `mono_ns` (within-layer
+ * authoritative ordering per the header + spec §5). The grouped lists preserve
+ * array-INSERTION order, which can diverge from emit order when rows arrive
+ * out-of-order or are duplicated; selecting the mono_ns-minimum keeps timing
+ * facts (first_byte delta, call.response latency, etc.) deterministic so a
+ * reordered/duplicate row cannot flip (a)↔(b). Falls back to the insertion
+ * order only when no row carries a finite `mono_ns`.
+ */
 function first(
   idx: EventIndex,
   boundary: CvdiagBoundary,
 ): CvdiagEnvelope | undefined {
-  return idx.byBoundary.get(boundary)?.[0];
+  const list = idx.byBoundary.get(boundary);
+  if (!list || list.length === 0) return undefined;
+  let earliest: CvdiagEnvelope | undefined;
+  for (const ev of list) {
+    if (typeof ev.mono_ns !== "number" || !Number.isFinite(ev.mono_ns)) {
+      continue;
+    }
+    if (earliest === undefined || ev.mono_ns < earliest.mono_ns) {
+      earliest = ev;
+    }
+  }
+  return earliest ?? list[0];
 }
 
 function all(idx: EventIndex, boundary: CvdiagBoundary): CvdiagEnvelope[] {
@@ -413,12 +433,21 @@ function extractFacts(idx: EventIndex): DerivedFacts {
       probeExit.outcome ??
       null)
     : null;
-  // `error_class` lives on probe.network.error; probe.exit carries the
-  // terminal_outcome. We surface the network-error class for rule (f).
+  // Runner error class for rule (f). A probe-runner crash can surface in EITHER
+  // signal: a `probe.network.error` carries a typed `error_class`, while a
+  // `probe.exit{outcome:err}` may carry one too (best-effort — the canonical
+  // schema declares only `terminal_outcome` on probe.exit, but a crashing
+  // runner can stamp an additional `error_class` we accept opportunistically).
+  // Prefer the network-error class when both are present (it is the
+  // schema-declared home of the field); fall back to the probe.exit class.
   const probeNetErr = first(idx, "probe.network.error");
-  const probeExitErrorClass = probeNetErr
+  const probeNetErrorClass = probeNetErr
     ? readString(metaOf(probeNetErr), "error_class")
     : null;
+  const probeExitOwnErrorClass = probeExit
+    ? readString(probeExitMeta, "error_class")
+    : null;
+  const probeExitErrorClass = probeNetErrorClass ?? probeExitOwnErrorClass;
   const probeSseEventCount = count(idx, "probe.sse.event");
 
   let probeAlternateContentNonEmpty = false;
@@ -522,20 +551,38 @@ function extractFacts(idx: EventIndex): DerivedFacts {
 
 // ── Rule predicates ──────────────────────────────────────────────────────────
 
-/** (f) probe-runner crash. */
-function ruleF(idx: EventIndex, f: DerivedFacts): boolean {
-  if (f.probeExitOutcome !== "err") return false;
-  // Look for a probe-runner error class on probe.network.error OR probe.exit.
+/**
+ * (f) probe-runner crash. Highest precedence: a terminal runner failure
+ * dominates everything else. Fires when a probe-runner error class is observed
+ * on EITHER signal — a `probe.exit{outcome:"err"}` OR a `probe.network.error`
+ * carrying a runner `error_class`. We do NOT hard-gate on
+ * `probeExitOutcome === "err"`: a crash that emits only a `probe.network.error`
+ * (no `probe.exit`, or a `probe.exit` with a null/timeout outcome) still
+ * represents a runner that never observed a fair trial. Conversely a
+ * `probe.exit{err}` whose own metadata carries a runner error class fires even
+ * when no `probe.network.error` row exists (the schema declares no error_class
+ * on probe.exit, so this is the only signal in that case).
+ */
+function ruleF(idx: EventIndex): boolean {
+  // Collect every candidate error-class string from both signals.
   const candidates: string[] = [];
-  if (f.probeExitErrorClass) candidates.push(f.probeExitErrorClass);
   for (const ev of all(idx, "probe.network.error")) {
     const ec = readString(metaOf(ev), "error_class");
     if (ec) candidates.push(ec);
   }
-  return candidates.some((ec) => {
+  for (const ev of all(idx, "probe.exit")) {
+    const ec = readString(metaOf(ev), "error_class");
+    if (ec) candidates.push(ec);
+  }
+  const runnerCrash = candidates.some((ec) => {
     const norm = ec.toLowerCase();
     return PROBE_RUNNER_ERROR_CLASSES.some((cls) => norm.includes(cls));
   });
+  if (runnerCrash) return true;
+  // A probe.exit{outcome:err} WITHOUT an error_class but with a matching
+  // network-error class is already covered above. No further gate: absent any
+  // runner error-class evidence, (f) does not fire (control falls through).
+  return false;
 }
 
 /** (c) edge interference (single-row OR multi-row). */
@@ -543,11 +590,22 @@ function ruleC(f: DerivedFacts): boolean {
   return f.edgeSingleRowMatches.length > 0 || f.edgeMultiRowMatches.length > 0;
 }
 
-/** (h) provider-side empty completion. */
+/**
+ * (h) provider-side empty completion. A structurally-empty 200 reports NO
+ * tokens, which the wire represents as either `response_token_count: 0` OR
+ * `response_token_count: null` (schema type `number | null`). Both mean "the
+ * provider produced no content" for this empty-response rule, so treat `null`
+ * identically to `0`. Requires a `backend.llm.call.response` to actually be
+ * present (a missing response also yields a null token count via the fact
+ * accessor, but that is the (b) stalled-backend shape, not (h) — gate on the
+ * response being SEEN so an absent response cannot false-fire (h)).
+ */
 function ruleH(f: DerivedFacts): boolean {
-  return (
-    f.backendLlmCallResponseTokenCount === 0 && f.backendSseEventCount === 0
-  );
+  if (!f.backendLlmCallResponseSeen) return false;
+  const noTokens =
+    f.backendLlmCallResponseTokenCount === 0 ||
+    f.backendLlmCallResponseTokenCount === null;
+  return noTokens && f.backendSseEventCount === 0;
 }
 
 /**
@@ -557,8 +615,14 @@ function ruleH(f: DerivedFacts): boolean {
  */
 function ruleG(f: DerivedFacts): boolean {
   if (!f.aimockBoundariesPresent) return false;
+  // "No fixture matched" is signalled by `fixture_id: null` OR a `fixture_id`
+  // key OMITTED from the decision metadata (which `extractFacts` reads as
+  // `undefined`). Both mean "absent fixture id" per (g)'s intent; treat them
+  // identically so a malformed/partial decision row does not silently no-fire.
+  const noFixture =
+    f.aimockFixtureId === null || f.aimockFixtureId === undefined;
   return (
-    f.aimockFixtureId === null &&
+    noFixture &&
     f.aimockResponseTotalBytes !== null &&
     f.aimockResponseTotalBytes < 16
   );
@@ -584,10 +648,13 @@ function ruleB(f: DerivedFacts): boolean {
 function ruleA(f: DerivedFacts): boolean {
   if (f.probeFirstTokenSeen) return false;
 
-  // (a.1) late first byte: delta_ms_from_ingress > 60000 (canonical).
+  // (a.1) late first byte: delta_ms_from_ingress > 60000 (canonical). The
+  // tolerance TIGHTENS the bar (timeout + slack) so a sub-50ms wall-clock skew
+  // cannot flip a first_byte that arrived just BEFORE the timeout into a false
+  // (a). (`+`, not `-`: subtracting would LOOSEN the bar to 59950 and misfire.)
   const lateFirstByte =
     f.backendSseFirstByteDeltaMs !== null &&
-    f.backendSseFirstByteDeltaMs > PROBE_TIMEOUT_MS - CROSS_LAYER_TOLERANCE_MS;
+    f.backendSseFirstByteDeltaMs > PROBE_TIMEOUT_MS + CROSS_LAYER_TOLERANCE_MS;
 
   // (a.2) heartbeat-presence fallback: first_byte absent BUT a heartbeat fired
   // within ≤30s of the probe timeout (backend alive past timeout, just slow).
@@ -597,11 +664,13 @@ function ruleA(f: DerivedFacts): boolean {
     f.lastHeartbeatElapsedMs >= PROBE_TIMEOUT_MS - 30_000;
 
   // (a.3) late call.response: arrived AFTER probe timeout with latency>60000.
+  // Tolerance TIGHTENS the bar (timeout + slack), matching (a.1): a latency
+  // just BELOW the timeout must not flip into a false (a) on sub-50ms skew.
   const lateCallResponse =
     f.backendLlmCallResponseSeen &&
     f.backendLlmCallResponseLatencyMs !== null &&
     f.backendLlmCallResponseLatencyMs >
-      PROBE_TIMEOUT_MS - CROSS_LAYER_TOLERANCE_MS;
+      PROBE_TIMEOUT_MS + CROSS_LAYER_TOLERANCE_MS;
 
   return lateFirstByte || heartbeatNearTimeout || lateCallResponse;
 }
@@ -667,7 +736,7 @@ export function classify(
   });
 
   // Precedence order (see header).
-  if (ruleF(idx, f)) {
+  if (ruleF(idx)) {
     return decide(
       "probe-runner-crash",
       `probe.exit outcome=err with probe-runner error class (${f.probeExitErrorClass ?? "see probe.network.error"})`,

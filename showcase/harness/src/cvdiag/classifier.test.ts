@@ -930,3 +930,271 @@ describe("CVDIAG flap classifier — rule (g) graceful degradation", () => {
 function probeLeadInForExternal(): CvdiagEnvelope[] {
   return probeLeadIn();
 }
+
+// ── M4 CR R1 synthetic regression cases (one per accuracy bug) ───────────────
+//
+// Each case hand-builds the exact event set that exercises a specific
+// misclassification bug. Comments record the RED (pre-fix) behavior and the
+// GREEN (post-fix) expectation so the red-green proof is legible.
+
+describe("CVDIAG classifier — M4 accuracy regressions", () => {
+  // (1) Cross-layer tolerance WRONG SIGN. A first_byte delta of 59,951ms is
+  // 49ms BEFORE the 60s probe timeout — the backend did NOT survive past the
+  // timeout. RED: the loosened bar (>59950) wrongly fires (a). GREEN: with the
+  // tightened bar (>60050) (a) does not fire; with no other liveness signal
+  // control falls through to (b) (call.start present, response absent).
+  it("(1) first_byte 49ms BEFORE timeout is NOT slow-first-token", () => {
+    const events = [
+      ...probeLeadIn(),
+      backendIngress(),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.start",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          prompt_token_count_estimate: 10,
+        },
+      }),
+      ev({
+        layer: "backend",
+        boundary: "backend.sse.first_byte",
+        // 59,951ms < 60,000ms timeout → backend NOT alive past timeout.
+        metadata: { delta_ms_from_ingress: PROBE_TIMEOUT_MS - 49 },
+      }),
+      probeExitTimeout(),
+    ];
+    expect(classify(TEST_ID, events).flapClass).not.toBe("slow-first-token");
+  });
+
+  // (1b) Symmetric: a late call.response 49ms BELOW the timeout must also not
+  // fire (a) via the latency_ms path.
+  it("(1b) call.response latency 49ms BELOW timeout is NOT slow-first-token", () => {
+    const events = [
+      ...probeLeadIn(),
+      backendIngress(),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.start",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          prompt_token_count_estimate: 10,
+        },
+      }),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.response",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          response_token_count: 50,
+          latency_ms: PROBE_TIMEOUT_MS - 49,
+          error_class: null,
+        },
+      }),
+      probeExitTimeout(),
+    ];
+    expect(classify(TEST_ID, events).flapClass).not.toBe("slow-first-token");
+  });
+
+  // (1c) Guard: a genuinely-late first_byte (well past timeout + tolerance)
+  // STILL fires (a). Prevents over-tightening.
+  it("(1c) first_byte well past timeout STILL fires slow-first-token", () => {
+    const events = [
+      ...probeLeadIn(),
+      backendIngress(),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.start",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          prompt_token_count_estimate: 10,
+        },
+      }),
+      ev({
+        layer: "backend",
+        boundary: "backend.sse.first_byte",
+        metadata: { delta_ms_from_ingress: PROBE_TIMEOUT_MS + 5000 },
+      }),
+      probeExitTimeout(),
+    ];
+    expect(classify(TEST_ID, events).flapClass).toBe("slow-first-token");
+  });
+
+  // (2a) Runner crash that emits ONLY probe.exit{outcome:err} (no
+  // probe.network.error). The schema has no error_class on probe.exit, so the
+  // OLD code could not source an error class and never fired (f) → RED
+  // unclassified. GREEN: (f) fires on probe.exit outcome=err carrying a runner
+  // error class (sourced from probe.exit metadata).
+  it("(2a) crash with only probe.exit{err}+runner error_class fires (f)", () => {
+    const events = [
+      ...probeLeadIn(),
+      ev({
+        layer: "probe",
+        boundary: "probe.exit",
+        outcome: "err",
+        metadata: {
+          terminal_outcome: "err",
+          total_duration_ms: 1000,
+          sse_event_count: 0,
+          first_token_delta_ms: null,
+          error_class: "BrowserContextCrash",
+        },
+      }),
+    ];
+    expect(classify(TEST_ID, events).flapClass).toBe("probe-runner-crash");
+  });
+
+  // (2b) Runner crash that emits ONLY probe.network.error (no probe.exit, or
+  // probe.exit absent). OLD code hard-gated on probeExitOutcome==="err" so (f)
+  // never fired → RED not-(f). GREEN: (f) fires from the network error_class.
+  it("(2b) crash with only probe.network.error (no probe.exit) fires (f)", () => {
+    const events = [
+      ...probeLeadIn(),
+      ev({
+        layer: "probe",
+        boundary: "probe.network.error",
+        outcome: "err",
+        metadata: {
+          url: "http://x",
+          error_class: "TargetClosed",
+          response_status: null,
+        },
+      }),
+    ];
+    expect(classify(TEST_ID, events).flapClass).toBe("probe-runner-crash");
+  });
+
+  // (2c) Guard: a non-runner network error (ordinary connection reset) must NOT
+  // be classified (f). Prevents over-firing.
+  it("(2c) non-runner probe.network.error does NOT fire (f)", () => {
+    const events = [
+      ...probeLeadIn(),
+      ev({
+        layer: "probe",
+        boundary: "probe.network.error",
+        outcome: "err",
+        metadata: {
+          url: "http://x",
+          error_class: "ECONNRESET",
+          response_status: null,
+        },
+      }),
+      probeExitTimeout(),
+    ];
+    expect(classify(TEST_ID, events).flapClass).not.toBe("probe-runner-crash");
+  });
+
+  // (3g) aimock.match.decision that OMITS the fixture_id key → undefined. OLD
+  // code required === null so (g) silently no-fired → RED not-(g). GREEN:
+  // undefined treated as missing fixture id, (g) fires.
+  it("(3g) aimock decision missing fixture_id key fires (g)", () => {
+    const events = [
+      ...probeLeadIn(),
+      backendIngress(),
+      ev({
+        layer: "aimock",
+        boundary: "aimock.match.decision",
+        // fixture_id key intentionally OMITTED → reads as undefined.
+        metadata: {
+          match_score: 0.1,
+          reject_reasons: [{ key: "userMessage", expected: "x", actual: "y" }],
+        },
+      }),
+      ev({
+        layer: "aimock",
+        boundary: "aimock.response.complete",
+        metadata: {
+          http_status: 200,
+          total_bytes: 4,
+          total_duration_ms: 5,
+          chunk_count: 0,
+        },
+      }),
+      probeExitTimeout(),
+    ];
+    expect(classify(TEST_ID, events).flapClass).toBe("aimock-fixture-mismatch");
+  });
+
+  // (3h) provider-empty 200 reporting response_token_count: null (not 0). OLD
+  // code required === 0 → RED not-(h). GREEN: null treated as "no tokens" so
+  // (h) fires.
+  it("(3h) provider-empty with response_token_count:null fires (h)", () => {
+    const events = [
+      ...probeLeadIn(),
+      backendIngress(),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.start",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          prompt_token_count_estimate: 10,
+        },
+      }),
+      ev({
+        layer: "backend",
+        boundary: "backend.llm.call.response",
+        metadata: {
+          provider: "anthropic",
+          model: "m",
+          response_token_count: null,
+          latency_ms: 1200,
+          error_class: null,
+        },
+      }),
+      backendComplete(0, "ok"),
+      probeExitTimeout(),
+    ];
+    expect(classify(TEST_ID, events).flapClass).toBe("provider-empty");
+  });
+
+  // (4) Out-of-order / duplicate backend.sse.first_byte rows: an early-inserted
+  // row with a LATE delta (>timeout) followed by a later-mono_ns row with an
+  // EARLY delta (<timeout). mono_ns is authoritative: the TRUE first_byte is
+  // the early-delta row, so the backend was NOT alive past timeout → not (a).
+  // OLD code took array-insertion-order [0] (the late-delta row) → RED (a).
+  // GREEN: mono_ns-min selection picks the early-delta row → not (a).
+  it("(4) out-of-order duplicate first_byte uses mono_ns-earliest", () => {
+    const lead = probeLeadIn();
+    const ingress = backendIngress();
+    const callStart = ev({
+      layer: "backend",
+      boundary: "backend.llm.call.start",
+      metadata: {
+        provider: "anthropic",
+        model: "m",
+        prompt_token_count_estimate: 10,
+      },
+    });
+    // Build two first_byte rows, then SWAP their mono_ns so insertion-order
+    // first (the late-delta row) is NOT the mono_ns-earliest.
+    const lateDelta = ev({
+      layer: "backend",
+      boundary: "backend.sse.first_byte",
+      metadata: { delta_ms_from_ingress: PROBE_TIMEOUT_MS + 5000 },
+    });
+    const earlyDelta = ev({
+      layer: "backend",
+      boundary: "backend.sse.first_byte",
+      metadata: { delta_ms_from_ingress: 50 },
+    });
+    // Make earlyDelta the mono_ns-earliest despite being inserted second.
+    const tmp = lateDelta.mono_ns;
+    lateDelta.mono_ns = earlyDelta.mono_ns;
+    earlyDelta.mono_ns = tmp - 1;
+    const events = [
+      ...lead,
+      ingress,
+      callStart,
+      lateDelta, // inserted first, but LARGER mono_ns
+      earlyDelta, // inserted second, but SMALLEST mono_ns (true first byte)
+      probeExitTimeout(),
+    ];
+    // True first_byte delta = 50ms (well before timeout) → backend NOT alive
+    // past timeout → must NOT be slow-first-token.
+    expect(classify(TEST_ID, events).flapClass).not.toBe("slow-first-token");
+  });
+});
