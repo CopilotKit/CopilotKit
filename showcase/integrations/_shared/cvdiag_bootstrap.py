@@ -188,7 +188,18 @@ def emit_cvdiag(envelope: Union[CvdiagEnvelope, dict[str, Any]]) -> None:
 
     Pure instrumentation — catches every error and degrades to a single
     ``CVDIAG emit-failed`` log line; never raises into the caller.
+
+    The shared emit gate is the single chokepoint every integration's backend
+    emitter routes through. It honors the ``_ENABLED`` flag (``is_enabled()``)
+    so a DEGRADED setup() (the §6 fail-closed DEBUG misconfig) actually
+    SUPPRESSES emission — the degrade must win over a live
+    ``CVDIAG_BACKEND_EMITTER=1`` toggle, otherwise the fail-closed intent is
+    silently defeated and a degraded backend keeps writing envelopes.
     """
+    # Degrade gate: a disabled (degraded) backend emits nothing, regardless of
+    # the per-integration CVDIAG_BACKEND_EMITTER toggle.
+    if not is_enabled():
+        return
     try:
         model = (
             envelope
