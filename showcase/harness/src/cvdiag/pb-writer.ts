@@ -40,11 +40,12 @@ export interface CvdiagPbWriterClient {
   create<T>(collection: string, record: Record<string, unknown>): Promise<T>;
   /**
    * Used ONLY by {@link CvdiagPbWriter.assertCollectionExists} to confirm the
-   * `cvdiag_events` collection is present + the writer key is accepted. The
-   * writer key is CREATE-only (list/view rules are null), so this list is
-   * EXPECTED to be rejected (401/403) when the collection exists — that
-   * rejection still proves the collection is present and the key authenticated.
-   * A 404 means the collection (and its migration) is absent.
+   * CVDIAG collections are present + the writer key is accepted. The writer key
+   * is CREATE-only (list/view rules are null), so this list is EXPECTED to be
+   * rejected with 403 when the collection exists — that authenticated-but-
+   * forbidden rejection still proves the collection is present. A 404 means the
+   * collection (and its migration) is absent; a 401 means authentication FAILED
+   * (bad/missing key) and is NOT proof the collection exists.
    */
   list<T>(collection: string, opts?: ListOpts): Promise<ListResult<T>>;
   health(): Promise<boolean>;
@@ -192,23 +193,37 @@ export class CvdiagPbWriter {
   }
 
   /**
-   * Startup check: confirm the writer can reach PB AND that the
-   * `cvdiag_events` collection actually exists + the writer key is accepted.
-   * Best-effort — returns false (never throws) so a missing migration
-   * degrades to stdout/Railway-logs fallback rather than crashing the harness
-   * (and rather than silently dropping 100% of events because a bare health()
-   * said "PB is up" while the collection was never migrated).
+   * Startup check: confirm the writer can reach PB AND that BOTH CVDIAG
+   * collections (`cvdiag_events` AND the DEBUG-tier `cvdiag_raw_byte_samples`)
+   * actually exist + the writer key authenticated. Best-effort — returns false
+   * (never throws) so a missing/partial migration degrades to stdout/Railway-
+   * logs fallback rather than crashing the harness (and rather than silently
+   * dropping 100% of events because a bare health() said "PB is up" while a
+   * collection was never migrated).
    *
-   * Verification: a minimal authenticated list against `cvdiag_events`
-   * (perPage=1). The writer key is CREATE-only — list/view rules are null —
-   * so PB REJECTS this read with 401/403 WHEN THE COLLECTION EXISTS. That
-   * rejection is the proof we want: it means the collection is present and
-   * the writer key authenticated. A 404 means the collection (its migration)
-   * is absent → degrade. PB returns these statuses (verified against PB
-   * 0.22.21): existing-but-unreadable → 403, missing → 404. Any transport
-   * error also degrades (never throws). pb-client.list throws a typed
-   * `PbHttpError` (carrying `statusCode`) on any non-ok response; this method
-   * branches on that status, not on the rendered message string.
+   * Verification: a minimal authenticated list against EACH collection
+   * (perPage=1). The writer key is CREATE-only — list/view rules are null — so
+   * PB REJECTS this read with 403 WHEN THE COLLECTION EXISTS but the key may
+   * not read it. That 403 rejection is itself proof of presence: the key
+   * authenticated and the collection is there. The status→verdict mapping
+   * (verified against PB 0.22.21):
+   *   - 200/success → true   (collection present + readable)
+   *   - 403         → true   (authed, but CREATE-only ACL forbids read = present)
+   *   - 404         → false  (collection / its migration absent → degrade)
+   *   - 401         → false  (AUTH FAILED — bad/missing writer key. 401 means
+   *                           the request was NOT authenticated, NOT that the
+   *                           collection exists. Treating it as "exists" would
+   *                           inject a writer that then 401-drops EVERY event —
+   *                           the exact 100%-silent-drop failure this gate
+   *                           exists to prevent. So 401 → degrade.)
+   *   - other/5xx/transport → false (cannot confirm → degrade, don't drop)
+   *
+   * BOTH collections must clear the gate: a partial migration (events present,
+   * raw-byte-samples absent) otherwise passes here and then `writeRawByteSample`
+   * 404-spams on every DEBUG-tier sample. Never throws (every branch returns).
+   * pb-client.list throws a typed `PbHttpError` (carrying `statusCode`) on any
+   * non-ok response; this method branches on that status, not on the rendered
+   * message string.
    */
   async assertCollectionExists(): Promise<boolean> {
     try {
@@ -221,12 +236,24 @@ export class CvdiagPbWriter {
       this.warn("assert-collection", String(err), "—");
       return false;
     }
-    // Probe the collection. A successful list (e.g. via a superuser-backed
-    // client) proves existence directly; the writer key's CREATE-only ACL
-    // will instead surface a 401/403 rejection, which ALSO proves the
-    // collection exists. Only a 404 (collection absent) → false.
+    // Gate BOTH collections the writer touches. A partial migration (one
+    // present, one missing) must NOT be read as healthy.
+    return (
+      (await this.probeCollection(CVDIAG_EVENTS_COLLECTION)) &&
+      (await this.probeCollection(CVDIAG_RAW_BYTE_SAMPLES_COLLECTION))
+    );
+  }
+
+  /**
+   * Probe a single collection for presence + writer-key acceptance. Returns
+   * true iff the collection is confirmed present (a successful list, or a 403
+   * that proves an authenticated-but-read-forbidden CREATE-only key). Any
+   * other outcome — 404 (absent), 401 (auth failed; NOT proof of existence),
+   * 5xx, or a transport fault — degrades to false. Never throws.
+   */
+  private async probeCollection(collection: string): Promise<boolean> {
     try {
-      await this.pb.list(CVDIAG_EVENTS_COLLECTION, { perPage: 1 });
+      await this.pb.list(collection, { perPage: 1 });
       return true;
     } catch (err) {
       // Branch on the TYPED HTTP status carried by the rejection
@@ -234,10 +261,13 @@ export class CvdiagPbWriter {
       // message — a body that merely CONTAINS "401" must not be misread as
       // "exists". pb-client.list throws PbHttpError on any non-ok response.
       if (err instanceof PbHttpError) {
-        // 401/403 → key authenticated but the CREATE-only ACL forbids read:
-        // the collection EXISTS. This is the expected writer-key path.
-        if (err.statusCode === 401 || err.statusCode === 403) return true;
-        // 404 → the collection (and its migration) is absent → degrade.
+        // 403 → key authenticated but the CREATE-only ACL forbids read: the
+        // collection EXISTS. This is the expected writer-key path.
+        if (err.statusCode === 403) return true;
+        // 401 → AUTHENTICATION FAILED (bad/missing key). This does NOT prove
+        // the collection exists; reading it as "healthy" would inject a writer
+        // that 401-drops every event. Degrade.
+        // 404 → collection (and its migration) is absent → degrade.
         // Any other HTTP status (5xx etc.) is "cannot confirm" → degrade
         // rather than silently drop every event.
         this.warn("assert-collection", String(err), "—");

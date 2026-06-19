@@ -12,6 +12,8 @@ import {
 import { logger } from "../logger.js";
 import {
   CvdiagPbWriter,
+  CVDIAG_EVENTS_COLLECTION,
+  CVDIAG_RAW_BYTE_SAMPLES_COLLECTION,
   type CvdiagEventRecord,
   type CvdiagWriterClient,
 } from "./pb-writer.js";
@@ -152,6 +154,39 @@ async function createRow(
   });
 }
 
+/**
+ * CREATE a cvdiag_events row AND assert the CREATE actually succeeded (returned
+ * a real id) BEFORE the caller's deny assertion runs. FIX C: the ACL deny tests
+ * (writer DELETE / writer UPDATE / migration UPDATE) accept a 404 in their
+ * matcher, so if the prerequisite CREATE silently fails the `id` is undefined,
+ * the deny request hits `/records/undefined`, PB returns 404, and the test
+ * FALSE-GREENS — "proving" a deny that never had a row to deny. Asserting a
+ * non-empty id here makes the deny proof real instead of hollow.
+ */
+async function createRowOrThrow(
+  tok: string,
+  record: CvdiagEventRecord,
+): Promise<string> {
+  const created = await createRow(tok, record);
+  expect(created.ok).toBe(true);
+  const { id } = (await created.json()) as { id?: string };
+  expect(id).toBeTruthy();
+  return id as string;
+}
+
+/** Read a cvdiag_events row back as admin; returns null on 404. */
+async function readRowAsAdmin(
+  id: string,
+): Promise<{ schema_version: number } | null> {
+  const adminTok = await adminToken();
+  const res = await fetch(
+    `${BASE}/api/collections/cvdiag_events/records/${id}`,
+    { headers: { authorization: adminTok } },
+  );
+  if (res.status === 404) return null;
+  return (await res.json()) as { schema_version: number };
+}
+
 let pb: ChildProcess | undefined;
 let dataDir: string | undefined;
 
@@ -217,21 +252,32 @@ describeMaybe("cvdiag pb-writer — real PocketBase 3-key ACL proof", () => {
 
   it("writer key CANNOT DELETE a cvdiag_events row", async () => {
     // Seed a row with the writer key, then attempt to delete it with the
-    // same key — must be denied.
+    // same key — must be denied. FIX C: assert the CREATE returned a real id
+    // FIRST (else the DELETE hits /records/undefined → a 404 false-green that
+    // "proves" a deny over a row that never existed), and confirm the row
+    // still exists AFTER the denied DELETE so the deny is real, not vacuous.
     const writerTok = await keyToken(WRITER_EMAIL, WRITER_PASS);
-    const created = await createRow(writerTok, sampleEvent());
-    const { id } = (await created.json()) as { id: string };
+    const id = await createRowOrThrow(writerTok, sampleEvent());
     const del = await fetch(
       `${BASE}/api/collections/cvdiag_events/records/${id}`,
       { method: "DELETE", headers: { authorization: writerTok } },
     );
+    // PB returns 404 (not 403) when deleteRule denies access to an existing
+    // row — it hides existence rather than leaking it. The status alone is
+    // therefore ambiguous (a never-created row would ALSO 404), which is
+    // exactly the false-green FIX C closes: the createRowOrThrow above proved
+    // the row exists, and the admin readback below proves the denied DELETE
+    // did NOT remove it — so this is a REAL deny over a REAL row.
     expect([401, 403, 404]).toContain(del.status);
+    expect(await readRowAsAdmin(id)).not.toBeNull();
   });
 
   it("writer key CANNOT UPDATE a cvdiag_events row", async () => {
+    // FIX C: assert the CREATE returned a real id before the deny, and confirm
+    // the row was NOT mutated after the denied UPDATE (the proof would be
+    // hollow if a silent CREATE failure routed the PATCH to /records/undefined).
     const writerTok = await keyToken(WRITER_EMAIL, WRITER_PASS);
-    const created = await createRow(writerTok, sampleEvent());
-    const { id } = (await created.json()) as { id: string };
+    const id = await createRowOrThrow(writerTok, sampleEvent());
     const upd = await fetch(
       `${BASE}/api/collections/cvdiag_events/records/${id}`,
       {
@@ -243,7 +289,11 @@ describeMaybe("cvdiag pb-writer — real PocketBase 3-key ACL proof", () => {
         body: JSON.stringify({ schema_version: 2 }),
       },
     );
-    expect([401, 403, 404]).toContain(upd.status);
+    expect([401, 403]).toContain(upd.status);
+    // The row must exist AND be unmutated (schema_version still 1).
+    const after = await readRowAsAdmin(id);
+    expect(after).not.toBeNull();
+    expect(after?.schema_version).toBe(1);
   });
 
   it("purge key can DELETE a cvdiag_events row", async () => {
@@ -266,9 +316,10 @@ describeMaybe("cvdiag pb-writer — real PocketBase 3-key ACL proof", () => {
     // schema_version. The real schema_version backfill runs admin-side
     // inside the migration JS (Dao/save), which bypasses collection rules,
     // so forbidding API UPDATEs costs nothing and preserves immutability.
+    // FIX C: assert the prerequisite CREATE returned a real id BEFORE the deny
+    // — otherwise the PATCH hits /records/undefined → 404 → false-green.
     const writerTok = await keyToken(WRITER_EMAIL, WRITER_PASS);
-    const created = await createRow(writerTok, sampleEvent());
-    const { id } = (await created.json()) as { id: string };
+    const id = await createRowOrThrow(writerTok, sampleEvent());
     const migTok = await keyToken(MIGRATION_EMAIL, MIGRATION_PASS);
     const upd = await fetch(
       `${BASE}/api/collections/cvdiag_events/records/${id}`,
@@ -278,15 +329,11 @@ describeMaybe("cvdiag pb-writer — real PocketBase 3-key ACL proof", () => {
         body: JSON.stringify({ schema_version: 2 }),
       },
     );
-    expect([401, 403, 404]).toContain(upd.status);
-    // Confirm the row was NOT mutated (read back as admin).
-    const adminTok = await adminToken();
-    const after = await fetch(
-      `${BASE}/api/collections/cvdiag_events/records/${id}`,
-      { headers: { authorization: adminTok } },
-    );
-    const body = (await after.json()) as { schema_version: number };
-    expect(body.schema_version).toBe(1);
+    expect([401, 403]).toContain(upd.status);
+    // Confirm the row still EXISTS and was NOT mutated (read back as admin).
+    const after = await readRowAsAdmin(id);
+    expect(after).not.toBeNull();
+    expect(after?.schema_version).toBe(1);
   });
 
   it("pre-existing diag_events collection keeps its public listRule (unchanged)", async () => {
@@ -596,6 +643,34 @@ function fakeClient(listImpl: () => Promise<never>): CvdiagWriterClient {
   };
 }
 
+/**
+ * A fake whose `list` outcome depends on the collection name, so a PARTIAL
+ * migration (one collection present, the other absent) can be modeled. Each
+ * entry is the per-collection list behavior; a successful list resolves to an
+ * empty page, a failure rejects with the supplied error.
+ */
+function perCollectionClient(
+  byCollection: Record<string, "ok" | PbHttpError>,
+): CvdiagWriterClient {
+  return {
+    create: async <T>() => ({}) as T,
+    list: <T>(collection: string, _o?: ListOpts) => {
+      const outcome = byCollection[collection];
+      if (outcome === "ok") {
+        return Promise.resolve({
+          page: 1,
+          perPage: 1,
+          totalItems: 0,
+          totalPages: 0,
+          items: [],
+        } as unknown as ListResult<T>);
+      }
+      return Promise.reject(outcome) as unknown as Promise<ListResult<T>>;
+    },
+    health: async () => true,
+  };
+}
+
 describe("cvdiag pb-writer — assertCollectionExists uses typed status (FIX 3)", () => {
   it("RED-PROOF: a 404 whose BODY contains '401' must read FALSE (regex would misread it as exists)", async () => {
     // The pre-fix `/\b(401|403)\b/.test(String(err))` matched the substring
@@ -629,7 +704,14 @@ describe("cvdiag pb-writer — assertCollectionExists uses typed status (FIX 3)"
     await expect(writer.assertCollectionExists()).resolves.toBe(true);
   });
 
-  it("GREEN: a typed 401 reads TRUE (key authenticated, read forbidden)", async () => {
+  it("GREEN: a typed 401 reads FALSE (auth FAILED — NOT proof the collection exists → degrade)", async () => {
+    // FIX A: 401 means authentication failed (bad/missing writer key; the
+    // SDK's ensureAuth warns-and-returns without a token), NOT that the
+    // collection is present. The pre-fix code lumped 401 in with 403 and
+    // returned true, so a misconfigured key was misread as "healthy", the
+    // writer was injected, and every subsequent write silently 401-dropped —
+    // the exact 100%-silent-drop failure this gate exists to prevent. The fix
+    // degrades on 401.
     const err = new PbHttpError({
       statusCode: 401,
       bodyText: '{"code":401,"message":"unauthorized"}',
@@ -639,7 +721,7 @@ describe("cvdiag pb-writer — assertCollectionExists uses typed status (FIX 3)"
       pb: fakeClient(() => Promise.reject(err)),
       logger,
     });
-    await expect(writer.assertCollectionExists()).resolves.toBe(true);
+    await expect(writer.assertCollectionExists()).resolves.toBe(false);
   });
 
   it("GREEN: a 5xx degrades to FALSE (cannot confirm → no-op rather than drop)", async () => {
@@ -661,5 +743,53 @@ describe("cvdiag pb-writer — assertCollectionExists uses typed status (FIX 3)"
       logger,
     });
     await expect(writer.assertCollectionExists()).resolves.toBe(false);
+  });
+});
+
+describe("cvdiag pb-writer — assertCollectionExists gates BOTH collections (FIX B)", () => {
+  const missing = (collection: string) =>
+    new PbHttpError({
+      statusCode: 404,
+      bodyText: '{"code":404,"message":"missing collection"}',
+      path: `/api/collections/${collection}/records?perPage=1`,
+    });
+
+  it("RED-PROOF: a PARTIAL migration (events present, raw_byte_samples ABSENT) degrades to FALSE", async () => {
+    // Pre-fix, assertCollectionExists probed ONLY cvdiag_events, so a partial
+    // migration where cvdiag_raw_byte_samples is missing passed the gate — the
+    // writer was injected and then writeRawByteSample 404-spammed on every
+    // DEBUG-tier sample. The fix probes BOTH collections.
+    const writer = new CvdiagPbWriter({
+      pb: perCollectionClient({
+        [CVDIAG_EVENTS_COLLECTION]: "ok",
+        [CVDIAG_RAW_BYTE_SAMPLES_COLLECTION]: missing(
+          CVDIAG_RAW_BYTE_SAMPLES_COLLECTION,
+        ),
+      }),
+      logger,
+    });
+    await expect(writer.assertCollectionExists()).resolves.toBe(false);
+  });
+
+  it("the inverse partial (events absent, raw_byte_samples present) also degrades to FALSE", async () => {
+    const writer = new CvdiagPbWriter({
+      pb: perCollectionClient({
+        [CVDIAG_EVENTS_COLLECTION]: missing(CVDIAG_EVENTS_COLLECTION),
+        [CVDIAG_RAW_BYTE_SAMPLES_COLLECTION]: "ok",
+      }),
+      logger,
+    });
+    await expect(writer.assertCollectionExists()).resolves.toBe(false);
+  });
+
+  it("GREEN: BOTH collections present (or 403 = present) → TRUE", async () => {
+    const writer = new CvdiagPbWriter({
+      pb: perCollectionClient({
+        [CVDIAG_EVENTS_COLLECTION]: "ok",
+        [CVDIAG_RAW_BYTE_SAMPLES_COLLECTION]: "ok",
+      }),
+      logger,
+    });
+    await expect(writer.assertCollectionExists()).resolves.toBe(true);
   });
 });
