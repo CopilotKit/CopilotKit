@@ -26,7 +26,7 @@ import {
   validateMetadata,
   SCHEMA_VERSION,
 } from "./schema.js";
-import { filterEdgeHeaders } from "./edge-headers.js";
+import { filterEdgeHeaders, EDGE_HEADER_MAX_LEN } from "./edge-headers.js";
 import { CvdiagEmitter } from "./emit.js";
 import { scrubSecrets } from "./scrub.js";
 
@@ -236,6 +236,48 @@ describe("CVDIAG edge headers — deny-list precedence", () => {
     // Absent allow-list keys are present-and-null.
     expect(filtered["retry-after"]).toBeNull();
     expect(filtered.server).toBeNull();
+  });
+});
+
+describe("CVDIAG edge headers — value length bound (§3.1, §1.6)", () => {
+  // Edge-header values are semi-untrusted/unbounded upstream input (cf-ray/via/
+  // server can be set by a misbehaving or hostile edge). Bound each captured
+  // value to EDGE_HEADER_MAX_LEN to keep envelopes from ballooning.
+  it("clamps a value longer than EDGE_HEADER_MAX_LEN, appending an ellipsis marker", () => {
+    // A ~100KB `via:` string — far beyond the cap.
+    const huge = "x".repeat(100_000);
+    const filtered = filterEdgeHeaders({
+      via: huge,
+      server: "y".repeat(100_000),
+    });
+
+    const clampedVia = filtered.via;
+    expect(clampedVia).not.toBeNull();
+    expect(clampedVia!.length).toBeLessThanOrEqual(EDGE_HEADER_MAX_LEN);
+    expect(clampedVia!.endsWith("…")).toBe(true);
+
+    const clampedServer = filtered.server;
+    expect(clampedServer).not.toBeNull();
+    expect(clampedServer!.length).toBeLessThanOrEqual(EDGE_HEADER_MAX_LEN);
+    expect(clampedServer!.endsWith("…")).toBe(true);
+  });
+
+  it("leaves a value at or below EDGE_HEADER_MAX_LEN unchanged", () => {
+    const atCap = "z".repeat(EDGE_HEADER_MAX_LEN);
+    const short = "1.1 cloudflare";
+    const filtered = filterEdgeHeaders({
+      via: short,
+      server: atCap,
+    });
+    expect(filtered.via).toBe(short);
+    expect(filtered.server).toBe(atCap);
+  });
+
+  it("leaves null (absent) values null — the clamp never fabricates a string", () => {
+    const filtered = filterEdgeHeaders({ via: "1.1 cloudflare" });
+    expect(filtered.server).toBeNull();
+    expect(filtered["cf-ray"]).toBeNull();
+    expect(filtered["retry-after"]).toBeNull();
   });
 });
 

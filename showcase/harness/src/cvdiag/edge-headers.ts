@@ -35,6 +35,14 @@ export {
 export const EDGE_HEADER_ALLOWLIST: readonly string[] = EDGE_HEADER_KEYS;
 
 /**
+ * Maximum captured length (chars) for any single edge-header value (spec §3.1
+ * `edge_headers` row, §1.6 — edge-header values are semi-untrusted/unbounded
+ * upstream input). A value exceeding this is truncated to this length with a
+ * trailing `…` marker at capture time; `null` values are untouched.
+ */
+export const EDGE_HEADER_MAX_LEN = 256;
+
+/**
  * The 12 forbidden edge-header names (spec §5 "Forbidden edge headers" DENY
  * list, R6-F2). Exact-match, NOT prefix-wildcard — the `cf-ip*` family is
  * blocked by these explicit entries, never by a regex prefix. A deny-list key
@@ -92,9 +100,17 @@ export function filterEdgeHeaders(
   }
 
   // Build a result with ALL 9 allow-list keys present (absent → null). Each
-  // key is read from the normalized map (deny-list keys never made it in).
-  const get = (key: EdgeHeaderKey): string | null =>
-    normalized.has(key) ? (normalized.get(key) ?? null) : null;
+  // key is read from the normalized map (deny-list keys never made it in) and
+  // bounded to EDGE_HEADER_MAX_LEN — a non-null value longer than the cap is
+  // truncated with a trailing `…` marker; `null` stays `null`.
+  const get = (key: EdgeHeaderKey): string | null => {
+    const value = normalized.has(key) ? (normalized.get(key) ?? null) : null;
+    if (value === null || value.length <= EDGE_HEADER_MAX_LEN) {
+      return value;
+    }
+    // Reserve one char for the `…` marker so the result is ≤ EDGE_HEADER_MAX_LEN.
+    return value.slice(0, EDGE_HEADER_MAX_LEN - 1) + "…";
+  };
   return {
     "cf-ray": get("cf-ray"),
     "cf-mitigated": get("cf-mitigated"),
