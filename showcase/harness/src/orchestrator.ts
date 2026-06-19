@@ -40,6 +40,7 @@ import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
 import { pinDriftDriver } from "./probes/drivers/pin-drift.js";
 import { livenessDriver } from "./probes/drivers/d2-liveness.js";
 import { imageDriftDriver } from "./probes/drivers/image-drift.js";
+import { crossEnvPinDriftDriver } from "./probes/drivers/cross-env-pin-drift.js";
 import { versionDriftDriver } from "./probes/drivers/version-drift.js";
 import { redirectDecommissionDriver } from "./probes/drivers/redirect-decommission.js";
 import {
@@ -64,6 +65,7 @@ import { writeDiagEvent } from "./storage/diag-sink.js";
 import { qaDriver } from "./probes/drivers/qa.js";
 import { starterSmokeDriver } from "./probes/drivers/starter-smoke.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
+import { crossEnvPinDriftDiscoverySource } from "./probes/discovery/cross-env-pin-drift-discovery.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { withCache } from "./probes/discovery/caching-source.js";
 import { DiscoveryAuthTracker } from "./probes/discovery/auth-tracker.js";
@@ -757,6 +759,12 @@ export async function boot(opts: BootOptions = {}): Promise<{
       authTracker,
     }),
   );
+  // Cross-env pin-drift discovery (U11): delegates the showcase-* roster to
+  // railway-services then stamps the prod/staging env-ids. Registered
+  // un-cached — its sole consumer is the weekly `pin_drift_cross_env` probe,
+  // so the per-tick re-enumeration cost is negligible and a stale cache
+  // would only hide a freshly-promoted digest.
+  discoveryRegistry.register(crossEnvPinDriftDiscoverySource);
   discoveryRegistry.register(pnpmPackagesDiscoverySource);
   const probeConfigDir =
     opts.configDir !== undefined
@@ -1422,6 +1430,7 @@ export function registerHttpProbeDrivers(
   // `"smoke"`) — there is no separate "smoke" driver export.
   probeRegistry.register(livenessDriver);
   probeRegistry.register(imageDriftDriver);
+  probeRegistry.register(crossEnvPinDriftDriver);
   probeRegistry.register(versionDriftDriver);
   probeRegistry.register(redirectDecommissionDriver);
   probeRegistry.register(qaDriver);
@@ -1597,6 +1606,7 @@ export function registerAllProbeDrivers(
   probeRegistry.register(pinDriftDriver);
   probeRegistry.register(livenessDriver);
   probeRegistry.register(imageDriftDriver);
+  probeRegistry.register(crossEnvPinDriftDriver);
   probeRegistry.register(versionDriftDriver);
   probeRegistry.register(redirectDecommissionDriver);
 
@@ -2905,7 +2915,7 @@ export async function runControlPlane(
 
   // ---- In-process HTTP-only probe families ----
   //
-  // The control-plane runs the 8 HTTP-only probe families IN-PROCESS by
+  // The control-plane runs the 9 HTTP-only probe families IN-PROCESS by
   // lifting the legacy boot() probe-loader machinery: an HTTP-only
   // `probeRegistry` (no browser drivers), a `createProbeLoader` scoped to the
   // HTTP `kind`s via `includeKind` (browser `e2e_*` YAMLs are SKIPPED, not
