@@ -4,12 +4,16 @@ integration backend.
 Importing this module (``import _shared.cvdiag_bootstrap``) at the top of an
 integration entrypoint does three things, once, at import time:
 
-  1. **Configures the root logger** via ``logging.basicConfig(level=INFO, …)``
-     so the ``agents._header_forwarding`` (and sibling ``agents.*``) loggers
-     actually EMIT. This fixes the silent-drop bug: those loggers call
-     ``logger.info(...)`` but, with no handler attached to the root logger, the
-     records were being discarded. ``basicConfig`` installs a stream handler so
-     the CVDIAG lines reach stdout where the harness greps for them.
+  1. **Captures the ``agents.*`` loggers** by attaching a SCOPED stream handler
+     to the ``agents`` logger so the ``agents._header_forwarding`` (and sibling
+     ``agents.*``) loggers actually EMIT. This fixes the silent-drop bug: those
+     loggers call ``logger.info(...)`` but, with no handler attached anywhere up
+     the hierarchy, the records were being discarded. We attach a dedicated
+     handler to the ``agents`` logger (NOT ``basicConfig(force=True)`` on root)
+     so the CVDIAG lines reach stdout where the harness greps for them WITHOUT
+     tearing down the HOST application's own root-logger configuration — the
+     module is fully inert (no global logging mutation) when cvdiag is disabled,
+     matching the canary-safe contract the TS emitter upholds.
 
   2. **Resolves the verbosity tier** (default | verbose | debug) and applies the
      §6 fail-closed guard: ``CVDIAG_DEBUG`` is REFUSED (raises at import time)
@@ -57,6 +61,34 @@ _SETUP_DONE = False
 # disabled rather than crashing at import.
 _ENABLED = False
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
+# The scoped handler we attach to the ``agents`` logger when ENABLED. Tracked so
+# the capture install is idempotent and ``reset_for_test`` can detach it,
+# leaving no residual host-logging mutation between tests.
+_AGENTS_LOG_NAME = "agents"
+_CAPTURE_HANDLER: Optional[logging.Handler] = None
+
+
+def _install_agents_log_capture() -> None:
+    """Attach a scoped stream handler to the ``agents`` logger (idempotent).
+
+    This is the silent-drop fix WITHOUT the global blast radius of
+    ``basicConfig(force=True)``: we never touch the root logger's handlers, so
+    the host application's own logging configuration is preserved. The handler
+    is attached only when cvdiag is ENABLED; a disabled / degraded backend
+    leaves host logging byte-for-byte untouched.
+    """
+    global _CAPTURE_HANDLER
+    if _CAPTURE_HANDLER is not None:
+        return
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(_LOG_FORMAT))
+    agents_logger = logging.getLogger(_AGENTS_LOG_NAME)
+    agents_logger.addHandler(handler)
+    # Ensure ``agents.*`` records at INFO survive the level filter even if the
+    # host left the (effective) level above INFO; scoped to the agents subtree.
+    if agents_logger.level == logging.NOTSET or agents_logger.level > logging.INFO:
+        agents_logger.setLevel(logging.INFO)
+    _CAPTURE_HANDLER = handler
 
 
 def resolve_env_label(env: Optional[dict[str, str]] = None) -> Optional[str]:
@@ -99,13 +131,18 @@ def _resolve_tier(env: dict[str, str]) -> str:
 
 
 def setup(env: Optional[dict[str, str]] = None) -> None:
-    """Idempotent bootstrap: configure logging, resolve tier, build the PB writer.
+    """Idempotent bootstrap: resolve tier, build the PB writer, capture agents logs.
 
-    Runs once at import time. Two safety contracts:
+    Runs once at import time. Three safety contracts:
 
       * **Idempotent** — a second invocation after a completed setup() is a
         no-op (the ``_SETUP_DONE`` guard); repeated calls must never orphan a
         second flush daemon / PB writer queue.
+      * **Inert when disabled** — a disabled / degraded setup() performs NO
+        logging mutation: the scoped ``agents`` capture handler is installed
+        only on the ENABLED path, and the root logger is never touched. Merely
+        importing this module when cvdiag is off leaves the host application's
+        logging configuration byte-for-byte intact (canary-safe).
       * **Degrade-not-crash** — a misconfiguration (e.g. the §6 fail-closed
         DEBUG guard) DISABLES cvdiag instrumentation and logs a warning; it
         must NEVER propagate and abort the host backend's module import. The
@@ -122,12 +159,7 @@ def setup(env: Optional[dict[str, str]] = None) -> None:
 
     src = env if env is not None else dict(os.environ)
 
-    # (1) Make the agents.* loggers actually emit. ``force=True`` ensures we
-    # install a handler even if some earlier import attached a no-op config;
-    # the silent-drop bug is precisely "records produced, no handler".
-    logging.basicConfig(level=logging.INFO, format=_LOG_FORMAT, force=True)
-
-    # (2) Resolve tier. ``_resolve_tier`` raises (fail-closed) on a forbidden
+    # (1) Resolve tier. ``_resolve_tier`` raises (fail-closed) on a forbidden
     # DEBUG request — catch it here so a misconfig DEGRADES (instrumentation
     # OFF) rather than crashing the backend import (FIX-2).
     try:
@@ -144,7 +176,7 @@ def setup(env: Optional[dict[str, str]] = None) -> None:
         )
         return
 
-    # (3) Build the threaded PB writer (no-op when CVDIAG_PB_URL unset).
+    # (2) Build the threaded PB writer (no-op when CVDIAG_PB_URL unset).
     _PB_WRITER = CvdiagPbWriter(
         pb_url=src.get("CVDIAG_PB_URL"),
         writer_key=src.get("CVDIAG_WRITER_KEY"),
@@ -152,6 +184,13 @@ def setup(env: Optional[dict[str, str]] = None) -> None:
 
     _ENABLED = True
     _SETUP_DONE = True
+
+    # (3) Only NOW — once instrumentation is confirmed ENABLED — install the
+    # scoped ``agents`` logger capture. A disabled / degraded setup (the early
+    # returns above) reaches neither this nor any other logging mutation, so
+    # importing the bootstrap is fully inert when cvdiag is disabled — it never
+    # touches the host application's root-logger handlers.
+    _install_agents_log_capture()
     logger.info(
         "CVDIAG bootstrap component=_shared tier=%s pb_enabled=%s",
         _TIER,
@@ -175,12 +214,19 @@ def reset_for_test() -> None:
     Test-only helper: clears the idempotency guard and singletons. The flush
     daemon is a short-lived best-effort daemon thread, so we simply drop the
     reference (the thread exits with the process); we do not join it.
+
+    Also detaches the scoped ``agents`` capture handler so each test starts from
+    an unmutated logging tree (otherwise an enabled setup() would leave a
+    handler attached across tests).
     """
-    global _TIER, _PB_WRITER, _SETUP_DONE, _ENABLED
+    global _TIER, _PB_WRITER, _SETUP_DONE, _ENABLED, _CAPTURE_HANDLER
     _TIER = "default"
     _PB_WRITER = None
     _SETUP_DONE = False
     _ENABLED = False
+    if _CAPTURE_HANDLER is not None:
+        logging.getLogger(_AGENTS_LOG_NAME).removeHandler(_CAPTURE_HANDLER)
+        _CAPTURE_HANDLER = None
 
 
 def emit_cvdiag(envelope: Union[CvdiagEnvelope, dict[str, Any]]) -> None:
