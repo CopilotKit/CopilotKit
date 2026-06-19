@@ -29,8 +29,9 @@ import {
   boundEntryFields,
 } from "./emit.js";
 import type { CvdiagPbWriter } from "./emit.js";
+import type { CvdiagEmitArgs } from "./emit.js";
 import { isValidTestId } from "./schema.js";
-import type { CvdiagEnvelope } from "./schema.js";
+import type { CvdiagEnvelope, EdgeHeaders } from "./schema.js";
 
 /** Buffer byte length of the JSON serialization (mirrors emit's serializedSize). */
 function serializedSize(value: unknown): number {
@@ -186,162 +187,28 @@ describe("CvdiagEmitter.applyByteCap", () => {
     expect(envelope!._metadata_dropped).toBe(true);
   });
 
-  it("bytecap invariant: bounds EVERY pathological envelope shape to its tier cap (matrix/property)", () => {
-    // The durable convergence lever. `applyByteCap` claims a HARD guarantee that
-    // the enqueued envelope's serialized size never exceeds the tier cap — but
-    // the only fields it trimmed were `metadata`. Caller-supplied FIXED string
-    // fields (`slug`, `demo`, `parent_span_id`, `trace_id`) are also unbounded
-    // by the caller, so a 5000-char `slug`/`demo` enqueues far over cap while
-    // stamped `_truncated: true` as if bounded. This matrix asserts the actual
-    // post-condition for ALL such shapes.
-    type Case = {
-      name: string;
-      tier: "default" | "verbose" | "debug";
-      env: Record<string, string | undefined>;
-      // Data-plane boundary with a huge FIXED field (slug/demo) — reaches
-      // applyByteCap via a normal data-plane emit. Metadata is small/legal.
-      dataPlane?: {
-        slug: string;
-        demo: string;
-        parentSpanId?: string | null;
-      };
-      // Accounting boundary that rides a huge/heavy metadata bag verbatim —
-      // reaches applyByteCap via the accounting (cvdiag.*) path.
-      accountingMetadata?: Record<string, unknown>;
-    };
-
-    const debugEnv = {
-      NODE_ENV: "test",
-      CVDIAG_DEBUG: "1",
-      CVDIAG_DEBUG_ALLOW_LIST: "langgraph-python",
-    };
-
-    const cases: Case[] = [
-      {
-        name: "huge slug (5000 chars), default tier",
-        tier: "default",
-        env: { NODE_ENV: "test" },
-        dataPlane: {
-          slug: "s".repeat(5000),
-          demo: "chat",
-        },
-      },
-      {
-        name: "huge demo (5000 chars), default tier",
-        tier: "default",
-        env: { NODE_ENV: "test" },
-        dataPlane: {
-          slug: "langgraph-python",
-          demo: "d".repeat(5000),
-        },
-      },
-      {
-        name: "huge parent_span_id, default tier",
-        tier: "default",
-        env: { NODE_ENV: "test" },
-        dataPlane: {
-          slug: "langgraph-python",
-          demo: "chat",
-          parentSpanId: "p".repeat(5000),
-        },
-      },
-      {
-        name: "huge slug AND demo AND parent_span_id, default tier",
-        tier: "default",
-        env: { NODE_ENV: "test" },
-        dataPlane: {
-          slug: "s".repeat(5000),
-          demo: "d".repeat(5000),
-          parentSpanId: "p".repeat(5000),
-        },
-      },
-      {
-        name: "huge slug + heavy metadata bag, debug tier",
-        tier: "debug",
-        env: debugEnv,
-        dataPlane: {
-          slug: "s".repeat(20000),
-          demo: "d".repeat(20000),
-        },
-      },
-      {
-        name: "huge nested metadata, accounting, default tier",
-        tier: "default",
-        env: { NODE_ENV: "test" },
-        accountingMetadata: { blob: { deeply: { nested: "x".repeat(5000) } } },
-      },
-      {
-        name: "scalar-heavy metadata bag, accounting, default tier",
-        tier: "default",
-        env: { NODE_ENV: "test" },
-        accountingMetadata: scalarHeavyMetadata(200),
-      },
-    ];
-
-    for (const c of cases) {
-      const emitter = new CvdiagEmitter({ env: c.env });
-      const cap = BYTE_CAP_BY_TIER[c.tier];
-
-      let envelope: CvdiagEnvelope | null;
-      if (c.dataPlane) {
-        envelope = emitter.emit({
-          layer: "probe",
-          boundary: "probe.message.send", // default: true → emitted at all tiers
-          slug: c.dataPlane.slug,
-          demo: c.dataPlane.demo,
-          outcome: "info",
-          parentSpanId: c.dataPlane.parentSpanId ?? null,
-          metadata: { message_index: 0, char_count: 3, demo: "chat" },
-        });
-      } else {
-        envelope = emitter.emit({
-          layer: "probe",
-          boundary: "cvdiag.queue_dropped",
-          slug: "cvdiag",
-          demo: "cvdiag",
-          outcome: "info",
-          metadata: c.accountingMetadata,
-        });
-      }
-
-      expect(envelope, `${c.name}: envelope built`).not.toBeNull();
-      const env = envelope!;
-      // THE INVARIANT: the whole serialized envelope fits the tier cap, for
-      // EVERY pathological shape.
-      expect(
-        serializedSize(env),
-        `${c.name}: serializedSize ${serializedSize(env)} must be <= cap ${cap}`,
-      ).toBeLessThanOrEqual(cap);
-    }
-  });
-
-  it("a 5000-char slug is entry-bounded to a pattern-valid slug, under cap, NOT byte-cap-clamped", () => {
-    // OBSOLETED by entry-bounding (Task 5b): this test previously fed a
-    // 5000-char `slug` and asserted `applyByteCap` Step 4 clamped it to a
-    // `…[clamped]` marker with `_truncated: true`. With `boundEntryFields` the
-    // slug is sanitized to the PB/codegen contract `^[a-z][a-z0-9-]{0,63}$` AT
-    // EMIT ENTRY, so the envelope is already under the default cap and the
-    // byte-cap never has to touch a format-constrained field. Rewritten to
-    // expect the entry-bounded valid slug (NOT weakened — the assertion is
-    // stronger: a pattern-valid slug, not just a size-bounded marker).
+  it("stamps _truncated only when metadata/demo was actually clamped", () => {
+    // With entry-bounding (boundEntryFields), slug/parent_span_id/test_id are
+    // already valid+bounded, so the byte-cap's ONLY clampable fields are the
+    // metadata bag and the free-text `demo`. The reachable trigger at the
+    // default tier is an over-cap metadata bag (an entry-bounded ≤256-char
+    // `demo` plus the bounded skeleton stays well under 2 KB on its own, so
+    // demo-clamping is a defense-in-depth floor that does not fire here). The
+    // ladder clamps/drops the metadata bag → `_truncated` is stamped because a
+    // field was actually modified.
     const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
-    const envelope = emitter.emit({
+    const env = emitter.emit({
       layer: "probe",
-      boundary: "probe.message.send",
-      slug: "s".repeat(5000),
-      demo: "chat",
+      boundary: "cvdiag.queue_dropped", // accounting rides metadata verbatim
+      slug: "cvdiag",
+      demo: "cvdiag",
       outcome: "info",
-      metadata: { message_index: 0, char_count: 3, demo: "chat" },
+      metadata: scalarHeavyMetadata(200), // over cap → metadata clamped/dropped
     });
-    expect(envelope).not.toBeNull();
-    // Slug is the entry-bounded valid slug, not a byte-cap `[clamped]` marker.
-    expect(envelope!.slug).toMatch(/^[a-z][a-z0-9-]{0,63}$/);
-    expect(envelope!.slug).not.toContain("[clamped]");
-    // Already under cap from entry-bounding → no byte-cap trim → no flag.
-    expect(serializedSize(envelope!)).toBeLessThanOrEqual(
-      BYTE_CAP_BY_TIER.default,
-    );
-    expect(envelope!._truncated).toBeUndefined();
+    expect(env).not.toBeNull();
+    expect(env!._truncated).toBe(true);
+    expect(env!.demo.length).toBeLessThanOrEqual(DEMO_MAX_LEN);
+    expect(serializedSize(env!)).toBeLessThanOrEqual(BYTE_CAP_BY_TIER.default);
   });
 
   it("leaves an under-cap envelope untouched (no _truncated stamp)", () => {
@@ -359,6 +226,184 @@ describe("CvdiagEmitter.applyByteCap", () => {
       BYTE_CAP_BY_TIER.default,
     );
     expect(envelope!._truncated).toBeUndefined();
+  });
+});
+
+describe("CvdiagEmitter.applyByteCap — invariant matrix: size AND schema-validity (spec §6.3)", () => {
+  // The durable R5-A3 guard. The redesigned byte-cap (§3.3) clamps ONLY the two
+  // genuinely-unbounded inputs — the `metadata` bag and the free-text `demo`
+  // string — and NEVER touches a format-constrained field (slug/ids/enums/
+  // numbers/ts/edge_headers). This matrix asserts, FOR EVERY pathological cell,
+  // BOTH halves of the post-condition simultaneously: (a) serializedSize <= cap,
+  // and (b) every field remains schema-valid. The old size-only matrix could not
+  // assert (b) because the prior ladder clamped slug/ids to fit cap (R5-A3).
+  const slugPattern = /^[a-z][a-z0-9-]{0,63}$/;
+  const spanPattern = /^[0-9a-f]{16}$/;
+
+  function assertValid(env: CvdiagEnvelope, cap: number, name: string): void {
+    expect(serializedSize(env), `${name}: size <= cap`).toBeLessThanOrEqual(
+      cap,
+    );
+    expect(env.slug, `${name}: slug pattern`).toMatch(slugPattern);
+    expect(env.span_id, `${name}: span_id pattern`).toMatch(spanPattern);
+    expect(
+      env.parent_span_id === null || spanPattern.test(env.parent_span_id),
+      `${name}: parent_span_id 16-hex or null`,
+    ).toBe(true);
+    expect(env.trace_id, `${name}: trace_id === test_id`).toBe(env.test_id);
+    expect(isValidTestId(env.test_id), `${name}: test_id valid UUIDv7`).toBe(
+      true,
+    );
+    expect(["probe", "backend", "aimock"]).toContain(env.layer);
+    expect(["ok", "err", "timeout", "info"]).toContain(env.outcome);
+  }
+
+  it("bounds every pathological shape AND keeps every field schema-valid", () => {
+    const debugEnv = {
+      NODE_ENV: "test",
+      CVDIAG_DEBUG: "1",
+      CVDIAG_DEBUG_ALLOW_LIST: "langgraph-python",
+    };
+    type Cell = {
+      name: string;
+      tier: "default" | "verbose" | "debug";
+      env: Record<string, string | undefined>;
+      build: (e: CvdiagEmitter) => CvdiagEnvelope | null;
+    };
+    const dp = (
+      e: CvdiagEmitter,
+      over: Partial<CvdiagEmitArgs>,
+    ): CvdiagEnvelope | null =>
+      e.emit({
+        layer: "probe",
+        boundary: "probe.message.send",
+        slug: "langgraph-python",
+        demo: "chat",
+        outcome: "info",
+        metadata: { message_index: 0, char_count: 3, demo: "chat" },
+        ...over,
+      } as CvdiagEmitArgs);
+
+    const hugeEdge: EdgeHeaders = {
+      "cf-ray": null,
+      "cf-mitigated": null,
+      "cf-cache-status": null,
+      "x-railway-edge": null,
+      "x-railway-request-id": null,
+      "x-hikari-trace": null,
+      "retry-after": null,
+      via: "v".repeat(100 * 1024),
+      server: null,
+    };
+
+    const cells: Cell[] = [];
+    for (const tier of ["default", "verbose", "debug"] as const) {
+      const env = tier === "debug" ? debugEnv : { NODE_ENV: "test" };
+      cells.push(
+        {
+          name: `huge demo @${tier}`,
+          tier,
+          env,
+          build: (e) => dp(e, { demo: "d".repeat(20000) }),
+        },
+        {
+          name: `huge slug @${tier}`,
+          tier,
+          env,
+          build: (e) => dp(e, { slug: "s".repeat(20000) }),
+        },
+        {
+          name: `huge nested metadata @${tier}`,
+          tier,
+          env,
+          build: (e) =>
+            e.emit({
+              layer: "probe",
+              boundary: "cvdiag.queue_dropped",
+              slug: "cvdiag",
+              demo: "cvdiag",
+              outcome: "info",
+              metadata: { blob: { deeply: { nested: "x".repeat(20000) } } },
+            }),
+        },
+        {
+          name: `scalar-heavy bag @${tier}`,
+          tier,
+          env,
+          build: (e) =>
+            e.emit({
+              layer: "probe",
+              boundary: "cvdiag.queue_dropped",
+              slug: "cvdiag",
+              demo: "cvdiag",
+              outcome: "info",
+              metadata: scalarHeavyMetadata(400),
+            }),
+        },
+        {
+          name: `huge parent_span_id @${tier}`,
+          tier,
+          env,
+          build: (e) => dp(e, { parentSpanId: "p".repeat(20000) }),
+        },
+        {
+          name: `bigint metadata leaf @${tier}`,
+          tier,
+          env,
+          build: (e) =>
+            e.emit({
+              layer: "probe",
+              boundary: "cvdiag.queue_dropped",
+              slug: "cvdiag",
+              demo: "cvdiag",
+              outcome: "info",
+              metadata: { big: 9007199254740993n as unknown },
+            }),
+        },
+        {
+          name: `huge upstream edge-header @${tier}`,
+          tier,
+          env,
+          build: (e) => dp(e, { edgeHeaders: hugeEdge }),
+        },
+      );
+    }
+
+    for (const c of cells) {
+      const emitter = new CvdiagEmitter({ env: c.env });
+      const cap = BYTE_CAP_BY_TIER[c.tier];
+      const env = c.build(emitter);
+      expect(env, `${c.name}: built`).not.toBeNull();
+      assertValid(env!, cap, c.name);
+    }
+  });
+
+  it("the huge-edge-header cell fits cap WITHOUT the ladder touching edge_headers", () => {
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    const hugeEdge: EdgeHeaders = {
+      "cf-ray": null,
+      "cf-mitigated": null,
+      "cf-cache-status": null,
+      "x-railway-edge": null,
+      "x-railway-request-id": null,
+      "x-hikari-trace": null,
+      "retry-after": null,
+      via: "v".repeat(100 * 1024),
+      server: null,
+    };
+    const env = emitter.emit({
+      layer: "probe",
+      boundary: "probe.message.send",
+      slug: "langgraph-python",
+      demo: "chat",
+      outcome: "info",
+      edgeHeaders: hugeEdge,
+      metadata: { message_index: 0, char_count: 3, demo: "chat" },
+    });
+    expect(env).not.toBeNull();
+    // Edge value is entry-bounded to ≤256 (Task 5), NOT clamped by the ladder.
+    expect(env!.edge_headers.via!.length).toBeLessThanOrEqual(256);
+    expect(serializedSize(env!)).toBeLessThanOrEqual(BYTE_CAP_BY_TIER.default);
   });
 });
 

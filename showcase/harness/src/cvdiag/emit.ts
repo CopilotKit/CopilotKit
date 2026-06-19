@@ -14,7 +14,9 @@
 
 import crypto from "node:crypto";
 
+import { EDGE_HEADER_MAX_LEN } from "./edge-headers.js";
 import {
+  EDGE_HEADER_KEYS,
   SCHEMA_VERSION,
   isValidTestId,
   validateEnvelope,
@@ -170,6 +172,32 @@ function emptyEdgeHeaders(): EdgeHeaders {
 }
 
 /**
+ * Bound caller-supplied `edge_headers` values at emit entry (spec §3.1 / §1.6).
+ * `filterEdgeHeaders` clamps each value to `EDGE_HEADER_MAX_LEN` at its natural
+ * capture point, but a caller may hand `buildEnvelope` a pre-built `edgeHeaders`
+ * object directly — that path bypasses `filterEdgeHeaders`, so we re-apply the
+ * same per-value clamp here. This keeps the envelope SKELETON a genuine constant
+ * (every value `null` or ≤256 chars), which is the pre-condition the §3.3
+ * byte-cap relies on: without it a large upstream `via:`/`server:` value would
+ * push the skeleton over cap while the ladder (which clamps only `metadata` +
+ * `demo`) never touches `edge_headers`. Returns a FRESH object — never mutates
+ * the caller's. Pure instrumentation: never throws.
+ */
+function boundEdgeHeaders(headers: EdgeHeaders): EdgeHeaders {
+  const bounded = {} as EdgeHeaders;
+  for (const key of EDGE_HEADER_KEYS) {
+    const value = headers[key];
+    if (typeof value !== "string" || value.length <= EDGE_HEADER_MAX_LEN) {
+      bounded[key] = value ?? null;
+    } else {
+      // Reserve one char for the `…` marker so the result is ≤ EDGE_HEADER_MAX_LEN.
+      bounded[key] = `${value.slice(0, EDGE_HEADER_MAX_LEN - 1)}…`;
+    }
+  }
+  return bounded;
+}
+
+/**
  * Mint a UUIDv7 (time-ordered, lowercase hyphenated) per RFC 9562: 48-bit
  * Unix-ms timestamp, version nibble 7, variant bits 10. Node's `randomUUID`
  * only emits v4, so we build v7 from random bytes + the wall clock.
@@ -261,11 +289,6 @@ export function boundEntryFields(args: CvdiagEmitArgs): BoundEntryFields {
   }
 
   return { slug, demo, parentSpanId, testId, boundedAny };
-}
-
-/** Length of `value` if it is a string, else 0 (for clamp-ordering). */
-function stringLen(value: unknown): number {
-  return typeof value === "string" ? value.length : 0;
 }
 
 /**
@@ -450,7 +473,10 @@ export class CvdiagEmitter {
       mono_ns: this.monoNs(),
       duration_ms: args.durationMs ?? null,
       outcome: args.outcome,
-      edge_headers: args.edgeHeaders ?? emptyEdgeHeaders(),
+      edge_headers:
+        args.edgeHeaders !== undefined
+          ? boundEdgeHeaders(args.edgeHeaders)
+          : emptyEdgeHeaders(),
       metadata,
     };
     if (metadataDropped) envelope._metadata_dropped = true;
@@ -481,35 +507,49 @@ export class CvdiagEmitter {
   /**
    * Bound the whole serialized envelope to the tier byte cap and stamp
    * `_truncated: true` whenever trimming ACTUALLY occurs (a field is modified),
-   * per the §7 R5-F3 flag semantics. Two classes of values can push an envelope
-   * over cap, and BOTH are now bounded so the guarantee is genuine, not just an
-   * observable flag:
-   *   - the `metadata` bag (arbitrary caller payload), and
-   *   - the caller-supplied variable-length STRING fields `slug`, `demo`,
-   *     `trace_id`, `parent_span_id` (none format-constrained; a 5000-char
-   *     `demo` alone overruns the 2KB default cap).
-   * Everything else is bounded by construction: `schema_version` (const int),
-   * `test_id`/`span_id` (minted fixed-width ids), `boundary`/`layer`/`outcome`
-   * (closed enums), `ts` (ISO-8601), `mono_ns`/`duration_ms` (numbers), and the
-   * 9-key `edge_headers` shape. Escalation, cheapest-effective first:
+   * per the §7 R5-F3 flag semantics.
+   *
+   * REDESIGNED (spec §3.3 / P4 — kills R5-A3 structurally): this ladder clamps
+   * ONLY the two genuinely-unbounded inputs — the `metadata` bag and the
+   * free-text `demo` string — and NEVER touches a format-constrained field. It
+   * cannot produce a non-16-hex `span_id`/`parent_span_id`, break the documented
+   * `trace_id === test_id` join, or write a `slug` that violates the PB/codegen
+   * contract `^[a-z][a-z0-9-]{0,63}$`, because those fields are NOT in the clamp
+   * set at all. They are bounded by construction:
+   *   - `slug`     — entry-bounded to ≤64 pattern-valid chars (`boundEntryFields`)
+   *   - `demo`     — entry-bounded to ≤`DEMO_MAX_LEN` (then the only clampable field)
+   *   - `parent_span_id` — entry-bounded to 16-hex or `null`
+   *   - `test_id`/`trace_id` — minted UUIDv7 (36 chars), `trace_id === test_id`
+   *   - `span_id`  — minted 16-hex
+   *   - `schema_version` (const int), `layer`/`boundary`/`outcome` (enums),
+   *     `ts` (ISO-8601), `mono_ns`/`duration_ms` (numbers)
+   *   - `edge_headers` — 9-key shape, each value `null` or ≤`EDGE_HEADER_MAX_LEN`
+   *     (entry-bounded by `filterEdgeHeaders` at capture AND `boundEdgeHeaders`
+   *     for a caller-supplied object)
+   * The skeleton (everything except `metadata` + `demo`) is therefore a bounded
+   * constant — its worst case (9×256 edge-header bytes ≈ 2.3 KB) is a known
+   * finite ceiling, and in practice the realized skeleton is a few hundred bytes.
+   *
+   * Escalation, cheapest-effective first; re-check size after each, early-return
+   * when `<= cap`:
    *   1. Clamp >64-char metadata strings + replace nested objects with a marker.
    *   2. If STILL over cap (many short-string / numeric values step 1 cannot
    *      shrink), clamp ALL metadata string values progressively to a short
    *      length.
    *   3. If STILL over cap (numeric/boolean/key-count-heavy bag), drop the
    *      metadata bag to `{}` entirely.
-   *   4. If STILL over cap, the excess is in the caller-supplied fixed STRING
-   *      fields (`demo`/`slug`/`parent_span_id`/`trace_id`). Clamp each to a
-   *      short prefix with an ellipsis marker, longest first, until under cap.
-   *      Minted ids (`test_id`/`span_id`) and `trace_id`-mirrors-`test_id` are
-   *      left intact where they fit; `trace_id` is clamped only as a last resort
-   *      because it equals `test_id` (a fixed-width UUIDv7) by construction and
-   *      is therefore already bounded — it is included for completeness so the
-   *      post-condition holds even for a hand-built envelope with an oversized
-   *      `trace_id`.
-   * Post-condition: on return, `serializedSize(envelope) <= cap` for ANY
-   * realistic envelope — the only unbounded inputs (metadata + the four
-   * caller-supplied string fields) are all now bounded.
+   *   4. If STILL over cap, clamp ONLY `demo` (it has no schema pattern, so a
+   *      truncated `demo` is still valid) progressively to a floor.
+   *
+   * `bigint` (or other non-JSON-serializable) metadata leaf: `serializedSize`
+   * returns `Number.MAX_SAFE_INTEGER` (treated as over-cap), which DRIVES the
+   * ladder forward to Step 3's metadata drop — after which `JSON.stringify`
+   * succeeds and the post-condition holds. No separate code path, no throw.
+   *
+   * Post-condition (by construction): on return, `serializedSize(envelope) <=
+   * cap` AND every field is schema-valid. The skeleton is a bounded constant, so
+   * dropping `metadata` to `{}` + clamping `demo` to its floor always fits any
+   * tier cap (smallest is 2 KB).
    * Pure instrumentation: this method must NEVER throw.
    */
   private applyByteCap(envelope: CvdiagEnvelope): void {
@@ -562,39 +602,28 @@ export class CvdiagEmitter {
       trimmed = true;
     }
 
-    // Step 4: still over cap — the excess is now in the caller-supplied
-    // variable-length STRING fields. Clamp them (longest first) to a short
-    // prefix with an explicit `…[clamped]` marker until the envelope fits. This
-    // is what makes the cap a HARD guarantee for ALL field shapes (e.g. a
-    // 5000-char `demo`), not just for metadata. We clamp progressively-smaller
-    // so we trim the minimum necessary.
-    const fixedFields: Array<"demo" | "slug" | "parent_span_id" | "trace_id"> =
-      ["demo", "slug", "parent_span_id", "trace_id"];
-    // A series of decreasing clamp budgets: aggressively shrink the largest
-    // offender first, then re-evaluate. The marker bounds the residue.
+    // Step 4: still over cap — the only remaining clampable field is the
+    // free-text `demo` (no schema pattern, so a truncated `demo` is still
+    // valid). NEVER touch slug/trace_id/test_id/span_id/parent_span_id — those
+    // are bounded by construction (boundEntryFields + minting), so the ladder
+    // can drive `demo` to its floor and the constrained skeleton always fits.
     for (const budget of [64, 16, 4, 0]) {
       if (this.serializedSize(envelope) <= cap) break;
-      // Re-sort each pass so the current-largest field is clamped first.
-      const ordered = [...fixedFields].sort(
-        (a, b) => stringLen(envelope[b]) - stringLen(envelope[a]),
-      );
-      for (const field of ordered) {
-        if (this.serializedSize(envelope) <= cap) break;
-        const value = envelope[field];
-        if (typeof value !== "string") continue;
-        if (value.length <= budget) continue;
-        envelope[field] =
-          budget === 0 ? "[clamped]" : `${value.slice(0, budget)}…[clamped]`;
-        trimmed = true;
-      }
+      const value = envelope.demo;
+      if (typeof value !== "string") break;
+      if (value.length <= budget) continue;
+      envelope.demo =
+        budget === 0 ? "[clamped]" : `${value.slice(0, budget)}…[clamped]`;
+      trimmed = true;
     }
 
     if (trimmed) envelope._truncated = true;
 
-    // Post-condition: serializedSize(envelope) <= cap. The only unbounded inputs
-    // (metadata + the four caller string fields) are all bounded above; every
-    // remaining field is fixed-width or enum/number by construction, so the
-    // residue fits any realistic tier cap (smallest is 2KB).
+    // Post-condition: serializedSize(envelope) <= cap AND every field is
+    // schema-valid. The only unbounded inputs (metadata + demo) are both clamped
+    // above; every other field is entry-bounded (slug/demo/parent_span_id/
+    // edge_headers), minted (ids), or an enum/number — a bounded constant — so
+    // the residue fits any realistic tier cap (smallest is 2KB).
   }
 
   private serializedSize(envelope: CvdiagEnvelope): number {
