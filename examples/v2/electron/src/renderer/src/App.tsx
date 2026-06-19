@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
 import { useLocalTools } from "./hitl/useLocalTools";
 import { McpPanel } from "./mcp/McpPanel";
+import { BridgePanel } from "./bridge/BridgePanel";
+import { useBrowserActionTools } from "./hitl/useBrowserActionTools";
 
 function WorkspaceTools(): null {
   useLocalTools();
+  useBrowserActionTools();
   return null;
 }
 
@@ -34,6 +37,9 @@ export default function App() {
           <p data-testid="workspace-root">Workspace: {workspaceRoot || "…"}</p>
           <div style={{ marginTop: 24 }}>
             <McpPanel />
+          </div>
+          <div style={{ marginTop: 24 }}>
+            <BridgePanel />
           </div>
         </section>
         <CopilotSidebar />
