@@ -31,12 +31,15 @@
  *     `cf-ip*` wildcard inclusion — the `cf-ip*` family is blocked by exact
  *     deny-list entries, never matched by a prefix wildcard.
  *   - SECRET SCRUB: `Bearer\s+\S+`, `sk-[A-Za-z0-9]{16,}`, and URL-userinfo
- *     (`scheme://user:pass@`) are scrubbed from any captured metadata value.
- *     See `edge-headers.ts` for the regex constants.
+ *     (`scheme://user:pass@` AND bare-token `scheme://token@`) are scrubbed
+ *     from EVERY surviving string metadata value by `validateMetadata` (below)
+ *     before it leaves this module — see `scrub.ts` for the regex constants.
  *   - NO request/response bodies in default or verbose tier. DEBUG-tier
  *     raw-byte capture (spec §11.4) is a separate, time-bounded, redacted
  *     pipeline owned by a later slot — never by this module.
  */
+
+import { scrubDeep, scrubSecrets } from "./scrub.js";
 
 /** Current schema version. Bumps only on a breaking (rename/type) change. */
 export const SCHEMA_VERSION = 1 as const;
@@ -560,7 +563,27 @@ export function validateMetadata(
   const droppedKeys: string[] = [];
   for (const [key, value] of Object.entries(metadata)) {
     if (allowed.has(key)) {
-      survivor[key] = value;
+      // §6 secret scrub: free-text / URL metadata values (e.g.
+      // `*.message_scrubbed`, `probe.*.url`) can carry `Bearer …` tokens,
+      // `sk-…` keys, or URL userinfo — at ANY depth, since some allow-listed
+      // values are arrays/objects (e.g. `backend.error.caught.stack_brief`,
+      // `aimock.match.decision.reject_reasons`). Scrub string LEAVES at every
+      // depth; non-string leaves (numbers/booleans/null) are untouched.
+      if (typeof value === "string") {
+        survivor[key] = scrubSecrets(value);
+      } else if (value !== null && typeof value === "object") {
+        // §6 deep secret-scrub. `scrubDeep` BUILDS a fresh scrubbed copy of the
+        // nested value — it NEVER mutates the caller's object, for ANY input
+        // shape including unclonable leaves like functions / class instances
+        // (spec §3.2.5 P3). There is therefore NO `structuredClone` defensive
+        // copy and NO try/catch fallback: the clone was itself the source of the
+        // R5-A4 unclonable-leaf mutation trap (clone throws → fall back to
+        // scrubbing the ORIGINAL in place). Calling `scrubDeep` directly is both
+        // simpler and strictly non-mutating by construction.
+        survivor[key] = scrubDeep(value);
+      } else {
+        survivor[key] = value;
+      }
     } else {
       droppedKeys.push(key);
     }

@@ -40,10 +40,17 @@ _CVDIAG_TS_INTEGRATIONS=(
   "built-in-agent"
 )
 
-# The three canonical L0-A sources (relative to harness/src/cvdiag/). They are
+# The canonical L0-A sources (relative to harness/src/cvdiag/). They are
 # already self-referential via `./schema.js` etc., so copying them verbatim
-# into a co-located dir keeps the relative imports resolving.
+# into a co-located dir keeps the relative imports resolving. `scrub.ts` is the
+# leaf secret/PII scrub module that BOTH `schema.ts` (metadata-value scrub) and
+# `edge-headers.ts` (which re-exports `scrubSecrets`/`scrubDeep` for back-compat)
+# import via `./scrub.js`; it MUST be staged alongside them or those co-located
+# imports dangle inside the standalone build context (and the stale legacy
+# inline scrub — which leaks base64url `sk-ant-…` keys and colon-less URL
+# userinfo — would ship instead).
 _CVDIAG_L0A_SOURCES=(
+  "scrub.ts"
   "schema.ts"
   "edge-headers.ts"
   "emit.ts"
