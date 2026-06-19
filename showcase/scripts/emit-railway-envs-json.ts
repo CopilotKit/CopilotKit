@@ -21,14 +21,23 @@
  *                      writes). Defaults to the canonical tracked artifact.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import {
   PRODUCTION_ENV_ID,
   PROJECT_ID,
   SERVICES,
   STAGING_ENV_ID,
+  computePromoteClosure,
 } from "./railway-envs";
+import type { ClosurePlan } from "./railway-envs";
 
 const DEFAULT_OUTPUT_PATH = resolve(
   new URL(".", import.meta.url).pathname,
@@ -49,7 +58,26 @@ interface Emitted {
     repoNameOverride?: { prod?: string; staging?: string };
     domains: { staging: string; prod: string };
     probe: { staging: boolean; prod: boolean; driver: string };
+    // --- Promote-closure fields (ADDITIVE, U2). Appended AFTER the frozen
+    // legacy keys above so the Ruby/jq legacy shape stays byte-identical. ---
+    // Effective promote tier (declared `promoteTier`, default 2). ALWAYS
+    // emitted so the Ruby CLI + workflow jq never have to recompute the
+    // default. 0 = shared infra, 1 = verification control plane, 2 = leaf.
+    promoteTier: 0 | 1 | 2;
+    // SSOT keys this service needs present-and-current to be meaningful.
+    // OMITTED when the SSOT entry declares none (matches the leaf default).
+    runtimeDeps?: string[];
+    // Cross-service env-var references the Stage-2 Ruby preflight (U5)
+    // ASSERTS. OMITTED when the SSOT entry declares none.
+    serviceRefs?: { key: string; target: string }[];
   }>;
+  // --- Top-level promote-closure plan (ADDITIVE, U2). The tier-ordered
+  // closure for the FULL fleet (`all`), computed via `computePromoteClosure`.
+  // Consumed by the workflow's resolve-targets jq (U3) + the fleet driver
+  // (U4) so the tiered plan is a single source of truth read from the JSON
+  // rather than recomputed in bash. Per-service `closure` for a NAMED subset
+  // is recomputed by the consumer from the per-service fields above. ---
+  closure: ClosurePlan;
 }
 
 /**
@@ -116,6 +144,18 @@ function projectServiceToLegacyJson(
       prod: prodEnv ? (prodEnv.probe ?? true) : false,
       driver: entry.probeDriver,
     },
+    // --- Promote-closure fields, appended AFTER `probe` so every legacy key
+    // keeps its frozen serialization position (the golden contract). ---
+    // Default to the leaf tier 2 when omitted, matching `computePromoteClosure`.
+    promoteTier: entry.promoteTier ?? 2,
+    // Omit the key entirely when the SSOT declares none, so the leaf default
+    // (no deps / no refs) does not add empty arrays to every leaf service.
+    ...(entry.runtimeDeps !== undefined
+      ? { runtimeDeps: entry.runtimeDeps }
+      : {}),
+    ...(entry.serviceRefs !== undefined
+      ? { serviceRefs: entry.serviceRefs }
+      : {}),
   };
 }
 
@@ -123,15 +163,62 @@ function buildPayload(): Emitted {
   const services: Emitted["services"] = Object.entries(SERVICES)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([name, entry]) => projectServiceToLegacyJson(name, entry));
+  // The full-fleet (`all`) closure: tier-ordered promotable services + the
+  // skipped-with-reason members. `computePromoteClosure` is the SSOT for the
+  // tiering; emitting it here keeps the workflow jq + fleet driver from
+  // re-implementing the closure math in bash.
+  const closure = computePromoteClosure(Object.keys(SERVICES));
   return {
     projectId: PROJECT_ID,
     envIds: { staging: STAGING_ENV_ID, prod: PRODUCTION_ENV_ID },
     services,
+    closure,
   };
 }
 
-function serialize(payload: Emitted): string {
-  return JSON.stringify(payload, null, 2) + "\n";
+/**
+ * The repo-root oxfmt binary. CI's `static_quality.yml` formats this
+ * artifact with oxfmt and auto-commits any drift, so the emitter must
+ * produce oxfmt-CANONICAL output — otherwise `oxfmt --check` (CI) and
+ * `emit --check` (this script's raw string compare) conflict forever:
+ * oxfmt wants compact arrays (`["pocketbase","harness"]`), the raw
+ * `JSON.stringify(_, null, 2)` emits multi-line ones. Routing the write
+ * path AND the `--check` comparison through oxfmt makes on-disk ==
+ * emitter-oxfmt-output == oxfmt-canonical, so both checks pass with no bot.
+ */
+const OXFMT_BIN = resolve(
+  new URL(".", import.meta.url).pathname,
+  "..",
+  "..",
+  "node_modules",
+  ".bin",
+  "oxfmt",
+);
+
+/**
+ * Run the committed oxfmt over a JSON string and return the canonical
+ * formatting. We shell out to the SAME binary CI uses (rather than the
+ * programmatic API, which would not auto-discover the repo `.oxfmtrc.json`)
+ * so the emitter's output is byte-identical to what CI's `oxfmt --check`
+ * accepts. The temp file is created NEXT TO the final artifact's directory
+ * so oxfmt resolves the same `.oxfmtrc.json` (printWidth: 80) it would for
+ * the real file — config discovery walks up from the file path.
+ */
+function oxfmtCanonical(json: string, nearDir: string): string {
+  const tmpDir = mkdtempSync(join(nearDir, ".emit-oxfmt-"));
+  const tmpFile = join(tmpDir, "railway-envs.generated.json");
+  try {
+    writeFileSync(tmpFile, json);
+    execFileSync(OXFMT_BIN, ["--write", tmpFile], { stdio: "pipe" });
+    return readFileSync(tmpFile, "utf8");
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function serialize(payload: Emitted, nearDir: string): string {
+  const raw = JSON.stringify(payload, null, 2) + "\n";
+  return oxfmtCanonical(raw, nearDir);
 }
 
 function parseOutPath(args: string[]): string {
@@ -144,8 +231,14 @@ function main(): void {
   const args = process.argv.slice(2);
   const check = args.includes("--check");
   const outputPath = parseOutPath(args);
+  const outputDir = dirname(outputPath);
   const payload = buildPayload();
-  const next = serialize(payload);
+  // The oxfmt temp file is created inside `outputDir` so config discovery
+  // resolves the same `.oxfmtrc.json` the real artifact would. Ensure the
+  // directory exists before serializing (the write path also recreates it
+  // below; this covers `--check` against a not-yet-created --out dir).
+  mkdirSync(outputDir, { recursive: true });
+  const next = serialize(payload, outputDir);
 
   if (check) {
     let current = "";
@@ -177,7 +270,8 @@ function main(): void {
     return;
   }
 
-  mkdirSync(dirname(outputPath), { recursive: true });
+  // outputDir already created above (so the oxfmt temp file could resolve
+  // the repo `.oxfmtrc.json`); just write the canonical artifact.
   writeFileSync(outputPath, next);
   process.stdout.write(`wrote ${outputPath}\n`);
 }
