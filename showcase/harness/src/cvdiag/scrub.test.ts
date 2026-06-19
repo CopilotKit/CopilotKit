@@ -14,22 +14,6 @@ import {
 const numberLeaf = (): number => 42;
 const voidLeaf = (): void => {};
 
-// ReDoS ceiling: the redesigned regexes are LINEAR, so an 8KB input scrubs in
-// tens of milliseconds. The legacy catastrophic-backtracking shape took ~1.4
-// SECONDS on a far smaller input. A 500ms ceiling therefore proves "no ReDoS"
-// with a wide margin (≈30× over the worst observed linear time, ≈3× under the
-// legacy blowup) while staying immune to JIT-warmup and shared-CI-runner load
-// jitter that made a tight 50ms bound flaky. Each measurement warms the regex
-// engine with a discarded call first so the timed window excludes compilation.
-const REDOS_CEILING_MS = 500;
-
-function timeScrub(input: string): number {
-  scrubSecrets(input); // warm-up: discard JIT-compilation cost
-  const t0 = performance.now();
-  scrubSecrets(input);
-  return performance.now() - t0;
-}
-
 describe("cvdiag scrub — constants (spec §3.2.4 / §3.2.5)", () => {
   it("pins the size-guard and node-cap constants", () => {
     expect(SCRUB_MAX_SCAN_LEN).toBe(8 * 1024);
@@ -79,10 +63,12 @@ describe("cvdiag scrub — secret corpus (spec §6.1)", () => {
 });
 
 describe("cvdiag scrub — ReDoS / size guard (spec §6.2)", () => {
-  it("completes the historical R5-A1 adversarial input fast (no ReDoS)", () => {
+  it("completes the historical R5-A1 adversarial input fast (< 50ms)", () => {
     // 4000-char case is UNDER the 8KB guard → exercises the bounded-regex path.
     const adversarial = `sk-${"a".repeat(4000)}`;
-    expect(timeScrub(adversarial)).toBeLessThan(REDOS_CEILING_MS);
+    const t0 = performance.now();
+    scrubSecrets(adversarial);
+    expect(performance.now() - t0).toBeLessThan(50);
   });
 
   it("stays linear AT the size-guard ceiling (catastrophic SHAPE at exactly 8KB)", () => {
@@ -90,12 +76,16 @@ describe("cvdiag scrub — ReDoS / size guard (spec §6.2)", () => {
     // (a+)+-style trigger structure at exactly SCRUB_MAX_SCAN_LEN.
     const atCeiling = `sk-${"a".repeat(SCRUB_MAX_SCAN_LEN - 3)}`;
     expect(atCeiling.length).toBe(SCRUB_MAX_SCAN_LEN);
-    expect(timeScrub(atCeiling)).toBeLessThan(REDOS_CEILING_MS);
+    const t0 = performance.now();
+    scrubSecrets(atCeiling);
+    expect(performance.now() - t0).toBeLessThan(50);
 
     // Variant interleaving _ and - to maximally exercise the [A-Za-z0-9_-] windows.
     const mixed = `sk-${"a_-".repeat(Math.floor((SCRUB_MAX_SCAN_LEN - 3) / 3))}`;
     const mixedClamped = mixed.slice(0, SCRUB_MAX_SCAN_LEN);
-    expect(timeScrub(mixedClamped)).toBeLessThan(REDOS_CEILING_MS);
+    const t1 = performance.now();
+    scrubSecrets(mixedClamped);
+    expect(performance.now() - t1).toBeLessThan(50);
   });
 
   it("does NOT run a regex on a string just over 8KB (bounded-prefix path)", () => {
