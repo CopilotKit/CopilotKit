@@ -48,7 +48,14 @@ _ENV_PRECEDENCE = ("SHOWCASE_ENV", "RAILWAY_ENVIRONMENT_NAME", "PYTHON_ENV")
 # Module-level singletons, populated by setup().
 _TIER: str = "default"
 _PB_WRITER: Optional[CvdiagPbWriter] = None
+# Idempotency guard: a successful (or degraded) setup() flips this so any
+# repeated invocation is a no-op — repeated calls must NOT orphan a second
+# flush daemon / PB writer queue.
 _SETUP_DONE = False
+# True iff cvdiag instrumentation is active. Flipped OFF (fail-closed) when a
+# misconfiguration is detected so the backend keeps running with instrumentation
+# disabled rather than crashing at import.
+_ENABLED = False
 _LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s %(message)s"
 
 
@@ -94,10 +101,25 @@ def _resolve_tier(env: dict[str, str]) -> str:
 def setup(env: Optional[dict[str, str]] = None) -> None:
     """Idempotent bootstrap: configure logging, resolve tier, build the PB writer.
 
-    Runs once at import time. Raises (fail-closed) only on a forbidden DEBUG
-    request (spec §6); all other paths are non-throwing.
+    Runs once at import time. Two safety contracts:
+
+      * **Idempotent** — a second invocation after a completed setup() is a
+        no-op (the ``_SETUP_DONE`` guard); repeated calls must never orphan a
+        second flush daemon / PB writer queue.
+      * **Degrade-not-crash** — a misconfiguration (e.g. the §6 fail-closed
+        DEBUG guard) DISABLES cvdiag instrumentation and logs a warning; it
+        must NEVER propagate and abort the host backend's module import. The
+        fail-closed *intent* is preserved (instrumentation stays OFF on a
+        forbidden DEBUG request) but the backend keeps running. This mirrors
+        the TS emitter: it throws at construction, but the wrapper catches it
+        so the host app survives.
     """
-    global _TIER, _PB_WRITER, _SETUP_DONE
+    global _TIER, _PB_WRITER, _SETUP_DONE, _ENABLED
+
+    # (0) Idempotency guard — repeated setup() is a no-op (FIX-3).
+    if _SETUP_DONE:
+        return
+
     src = env if env is not None else dict(os.environ)
 
     # (1) Make the agents.* loggers actually emit. ``force=True`` ensures we
@@ -105,8 +127,22 @@ def setup(env: Optional[dict[str, str]] = None) -> None:
     # the silent-drop bug is precisely "records produced, no handler".
     logging.basicConfig(level=logging.INFO, format=_LOG_FORMAT, force=True)
 
-    # (2) Resolve tier (may raise — fail-closed DEBUG guard).
-    _TIER = _resolve_tier(src)
+    # (2) Resolve tier. ``_resolve_tier`` raises (fail-closed) on a forbidden
+    # DEBUG request — catch it here so a misconfig DEGRADES (instrumentation
+    # OFF) rather than crashing the backend import (FIX-2).
+    try:
+        _TIER = _resolve_tier(src)
+    except RuntimeError as err:
+        _TIER = "default"
+        _ENABLED = False
+        _PB_WRITER = None
+        _SETUP_DONE = True
+        logger.warning(
+            "CVDIAG bootstrap degraded component=_shared reason=%s "
+            "(instrumentation disabled; backend continues)",
+            err,
+        )
+        return
 
     # (3) Build the threaded PB writer (no-op when CVDIAG_PB_URL unset).
     _PB_WRITER = CvdiagPbWriter(
@@ -114,6 +150,7 @@ def setup(env: Optional[dict[str, str]] = None) -> None:
         writer_key=src.get("CVDIAG_WRITER_KEY"),
     )
 
+    _ENABLED = True
     _SETUP_DONE = True
     logger.info(
         "CVDIAG bootstrap component=_shared tier=%s pb_enabled=%s",
@@ -125,6 +162,25 @@ def setup(env: Optional[dict[str, str]] = None) -> None:
 def current_tier() -> str:
     """Return the resolved tier (``default`` | ``verbose`` | ``debug``)."""
     return _TIER
+
+
+def is_enabled() -> bool:
+    """True iff cvdiag instrumentation is active (False after a degraded setup)."""
+    return _ENABLED
+
+
+def reset_for_test() -> None:
+    """Reset module state so a test can re-run ``setup()`` from scratch.
+
+    Test-only helper: clears the idempotency guard and singletons. The flush
+    daemon is a short-lived best-effort daemon thread, so we simply drop the
+    reference (the thread exits with the process); we do not join it.
+    """
+    global _TIER, _PB_WRITER, _SETUP_DONE, _ENABLED
+    _TIER = "default"
+    _PB_WRITER = None
+    _SETUP_DONE = False
+    _ENABLED = False
 
 
 def emit_cvdiag(envelope: Union[CvdiagEnvelope, dict[str, Any]]) -> None:

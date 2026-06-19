@@ -118,23 +118,31 @@ def test_uuidv7_test_id_validation():
         schema.CvdiagEnvelope.model_validate(_base_envelope(test_id="not-a-uuid"))
 
 
-def test_debug_in_production_raises_at_setup():
-    """``CVDIAG_DEBUG=1`` + ``SHOWCASE_ENV=production`` fails closed at setup."""
+def test_debug_in_production_degrades_at_setup():
+    """``CVDIAG_DEBUG=1`` + ``SHOWCASE_ENV=production`` fails closed at setup.
+
+    Fail-closed intent: instrumentation is DISABLED (tier stays ``default``,
+    ``is_enabled()`` False). Degrade-not-crash: ``setup()`` must NOT raise —
+    a misconfig may not abort the backend's module import.
+    """
     from _shared import cvdiag_bootstrap
 
-    with pytest.raises(RuntimeError) as exc:
-        cvdiag_bootstrap.setup(
-            {"CVDIAG_DEBUG": "1", "SHOWCASE_ENV": "production"}
-        )
-    assert "production" in str(exc.value).lower()
+    cvdiag_bootstrap.reset_for_test()
+    cvdiag_bootstrap.setup({"CVDIAG_DEBUG": "1", "SHOWCASE_ENV": "production"})
+    assert cvdiag_bootstrap.current_tier() == "default"
+    assert cvdiag_bootstrap.is_enabled() is False
 
-    # Unresolved env is ALSO treated as production (fail-closed).
-    with pytest.raises(RuntimeError):
-        cvdiag_bootstrap.setup({"CVDIAG_DEBUG": "1"})
+    # Unresolved env is ALSO treated as production (fail-closed → degraded).
+    cvdiag_bootstrap.reset_for_test()
+    cvdiag_bootstrap.setup({"CVDIAG_DEBUG": "1"})
+    assert cvdiag_bootstrap.current_tier() == "default"
+    assert cvdiag_bootstrap.is_enabled() is False
 
-    # A non-production env with DEBUG is allowed.
+    # A non-production env with DEBUG is allowed (instrumentation enabled).
+    cvdiag_bootstrap.reset_for_test()
     cvdiag_bootstrap.setup({"CVDIAG_DEBUG": "1", "SHOWCASE_ENV": "staging"})
     assert cvdiag_bootstrap.current_tier() == "debug"
+    assert cvdiag_bootstrap.is_enabled() is True
 
 
 def test_basicconfig_captures_agents_logger_output(capsys):
@@ -146,6 +154,7 @@ def test_basicconfig_captures_agents_logger_output(capsys):
     """
     from _shared import cvdiag_bootstrap
 
+    cvdiag_bootstrap.reset_for_test()
     cvdiag_bootstrap.setup({"SHOWCASE_ENV": "staging"})
     fwd_logger = logging.getLogger("agents._header_forwarding")
     fwd_logger.info("CVDIAG component=test boundary=probe.start status=ok")

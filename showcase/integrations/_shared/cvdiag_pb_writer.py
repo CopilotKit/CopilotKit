@@ -21,7 +21,6 @@ import logging
 import os
 import queue
 import threading
-import urllib.error
 import urllib.request
 from typing import Any, Optional
 
@@ -119,13 +118,23 @@ class CvdiagPbWriter:
                 except queue.Empty:
                     break
             for env in batch:
-                self._post(env)
+                # Never-propagate: isolate each record so no single envelope
+                # can unwind ``_run`` and PERMANENTLY kill the flush daemon.
+                try:
+                    self._post(env)
+                except Exception as err:  # noqa: BLE001 - daemon must survive
+                    self._log_failure(err)
 
     def _post(self, envelope: dict[str, Any]) -> None:
         url = self._pb_url
         if not url:
             return
         endpoint = url.rstrip("/") + "/api/collections/cvdiag_events/records"
+        # Never-propagate: a single bad record (e.g. a non-JSON-serializable
+        # envelope that makes ``json.dumps`` raise ``TypeError``) must be
+        # logged/dropped, NOT allowed to escape and kill the drain daemon.
+        # This mirrors the TS pb-writer ``writeBatch`` contract — one bad row
+        # degrades to a warn; the batch (and the worker) survives.
         try:
             body = json.dumps(envelope).encode("utf-8")
             req = urllib.request.Request(
@@ -137,7 +146,7 @@ class CvdiagPbWriter:
             if self._writer_key:
                 req.add_header("X-Cvdiag-Writer-Key", self._writer_key)
             urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S).close()
-        except (urllib.error.URLError, OSError, ValueError) as err:
+        except Exception as err:  # noqa: BLE001 - instrumentation must never throw
             self._log_failure(err)
 
     def _log_failure(self, err: Exception) -> None:
