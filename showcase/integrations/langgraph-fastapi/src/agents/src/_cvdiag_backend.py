@@ -216,6 +216,7 @@ class CvdiagBackendRun:
             headers=self._headers,
             trace_id=self._trace_id,
             metadata={"method": "POST", "path": "/threads", "content_length": None},
+            tier_gate=_VERBOSE_TIERS,
         )
 
     def agent_enter(self, agent_name: Optional[str] = None, model_id: Optional[str] = None) -> None:
@@ -236,6 +237,7 @@ class CvdiagBackendRun:
                 "model": model,
                 "prompt_token_count_estimate": None,
             },
+            tier_gate=_VERBOSE_TIERS,
         )
 
     def llm_call_response(
@@ -257,6 +259,7 @@ class CvdiagBackendRun:
                 "latency_ms": latency_ms,
                 "error_class": error_class,
             },
+            tier_gate=_VERBOSE_TIERS,
         )
 
     def sse_first_byte(self) -> None:
@@ -270,6 +273,7 @@ class CvdiagBackendRun:
             headers=self._headers,
             trace_id=self._trace_id,
             metadata={"delta_ms_from_ingress": delta_ms},
+            tier_gate=_VERBOSE_TIERS,
         )
 
     def sse_event(self, event_type: Optional[str] = None, payload_size_bytes: Optional[int] = None) -> None:

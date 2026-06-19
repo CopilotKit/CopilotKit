@@ -120,10 +120,16 @@ def test_all_eleven_boundaries_emit_valid_envelopes(monkeypatch, capsys):
 
 
 def test_firsttoken_first_byte_correlation_non_negative(monkeypatch, capsys):
-    """The ingress→first_byte delta is present and non-negative (end-to-end)."""
+    """The ingress→first_byte delta is present and non-negative (end-to-end).
+
+    ``backend.sse.first_byte`` is a VERBOSE-only boundary (§6 tier matrix), so
+    drive at VERBOSE tier — at DEFAULT tier it is correctly suppressed.
+    """
     monkeypatch.setenv("CVDIAG_BACKEND_EMITTER", "1")
+    monkeypatch.setenv("CVDIAG_VERBOSE", "1")
+    monkeypatch.setenv("SHOWCASE_ENV", "test")
     import _shared.cvdiag_bootstrap as boot
-    boot.setup()
+    boot.setup({"SHOWCASE_ENV": "test", "CVDIAG_VERBOSE": "1"})
 
     run = cvb.CvdiagBackendRun(_headers(_new_test_id()))
     run.request_ingress()
@@ -176,3 +182,67 @@ def test_propagation_reliability_gate(monkeypatch, capsys):
         f"BLOCKER: test_id propagation {pct:.1f}% < 90% "
         f"({propagated}/{total}) — Phase-4 abandonment gate failed"
     )
+
+
+# ── C5: VERBOSE-only backend boundaries must be tier-gated ──────────────────
+
+# The four boundaries the §6 tier matrix marks VERBOSE-only (emit.ts ~58-63 and
+# the middleware-canonical agno ``_BOUNDARY_TIER``): at DEFAULT tier they MUST
+# be suppressed; at VERBOSE tier they emit. LGP previously called ``_emit`` with
+# NO ``tier_gate`` for these, so they over-emitted at default tier — 4 extra
+# events/request vs the middleware family, breaking the §7 budget + parity.
+_VERBOSE_ONLY_BOUNDARIES = {
+    "backend.request.ingress",
+    "backend.llm.call.start",
+    "backend.llm.call.response",
+    "backend.sse.first_byte",
+}
+
+
+def _drive_verbose_only(headers: Dict[str, str]) -> None:
+    """Drive exactly the four VERBOSE-only lifecycle boundaries (no debug paths)."""
+    run = cvb.CvdiagBackendRun(headers)
+    run.request_ingress()
+    run.llm_call_start(provider="langchain", model="gpt-5.4")
+    run.llm_call_response(provider="langchain", model="gpt-5.4", latency_ms=42)
+    run.sse_first_byte()
+
+
+def test_verbose_only_boundaries_suppressed_at_default_tier(monkeypatch, capsys):
+    """RED: at DEFAULT tier the four VERBOSE-only boundaries must NOT emit.
+
+    Pre-fix they fired ungated, over-emitting at default tier (breaking the §7
+    tier budget + cross-backend parity); post-fix they are suppressed.
+    """
+    import _shared.cvdiag_bootstrap as boot
+
+    monkeypatch.setenv("SHOWCASE_ENV", "test")
+    monkeypatch.setenv("CVDIAG_BACKEND_EMITTER", "1")
+    monkeypatch.delenv("CVDIAG_VERBOSE", raising=False)
+    monkeypatch.delenv("CVDIAG_DEBUG", raising=False)
+    boot.setup({"SHOWCASE_ENV": "test", "CVDIAG_BACKEND_EMITTER": "1"})
+
+    _drive_verbose_only(_headers(_new_test_id()))
+
+    rows = _parse_cvdiag_lines(capsys.readouterr().out)
+    leaked = {r["boundary"] for r in rows} & _VERBOSE_ONLY_BOUNDARIES
+    assert not leaked, (
+        f"VERBOSE-only boundaries over-emitted at DEFAULT tier: {sorted(leaked)}"
+    )
+
+
+def test_verbose_only_boundaries_emit_at_verbose_tier(monkeypatch, capsys):
+    """GREEN companion: at VERBOSE tier all four boundaries DO emit."""
+    import _shared.cvdiag_bootstrap as boot
+
+    monkeypatch.setenv("SHOWCASE_ENV", "test")
+    monkeypatch.setenv("CVDIAG_BACKEND_EMITTER", "1")
+    monkeypatch.setenv("CVDIAG_VERBOSE", "1")
+    boot.setup({"SHOWCASE_ENV": "test", "CVDIAG_VERBOSE": "1"})
+
+    _drive_verbose_only(_headers(_new_test_id()))
+
+    rows = _parse_cvdiag_lines(capsys.readouterr().out)
+    seen = {r["boundary"] for r in rows} & _VERBOSE_ONLY_BOUNDARIES
+    missing = _VERBOSE_ONLY_BOUNDARIES - seen
+    assert not missing, f"VERBOSE-only boundaries suppressed at VERBOSE tier: {sorted(missing)}"
