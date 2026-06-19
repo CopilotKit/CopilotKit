@@ -376,6 +376,19 @@ const CVDIAG_PRE_TIMEOUT_WINDOW_MS = 5_000;
 const CVDIAG_CONSOLE_MSG_CAP_BYTES = 512;
 /** `probe.navigate.complete.url` byte cap (spec §5). */
 const CVDIAG_URL_CAP_BYTES = 256;
+/**
+ * Hard cap on outstanding (un-responded) request-start timestamps tracked per
+ * URL by `wirePlaywrightPage`'s FIFO timing queue. A pooled page is long-lived
+ * and a CopilotKit demo holds a PERSISTENT agent SSE stream that never returns
+ * a `response` event — so without a bound the per-URL queue grows unbounded
+ * (memory leak) AND a much-later same-URL response shifts an ancient stale
+ * start, inflating `duration_ms`. Evicting on `requestfailed`/abort handles the
+ * known terminal seam; this cap is the backstop for requests that neither
+ * respond nor fail (e.g. a still-open SSE stream): once a URL accumulates more
+ * than this many outstanding starts, the OLDEST is dropped so the queue stays
+ * bounded and a response pairs with a recent (not ancient) start.
+ */
+const CVDIAG_MAX_OUTSTANDING_STARTS_PER_URL = 64;
 
 const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000;
 const DEFAULT_PAGE_TIMEOUT_MS = 60 * 1000;
@@ -386,6 +399,17 @@ interface PendingSseEvent {
   payloadSizeBytes: number;
   /** Wall-clock ms when observed (for the pre-timeout carve-out window). */
   atMs: number;
+  /**
+   * The `sequence_num` minted at OBSERVE time (chronological), NOT at emit
+   * time. Every observed SSE event reserves its seq the moment it arrives, so
+   * the carve-out backfill (which emits dropped events on a timeout exit)
+   * carries each event's ORIGINAL chronological seq. Minting a FRESH seq at
+   * backfill time sorted the backfilled (lower-in-time) events AFTER the live
+   * ones — defeating the reorder/drop detection the carve-out exists for. The
+   * seq is reserved here regardless of whether the event is emitted live so a
+   * later backfill can replay it in the original order.
+   */
+  seq: number;
   /**
    * True iff this event was ALREADY emitted live (passed the §7 sampling
    * stride). The timeout carve-out flushes only events that were NOT emitted
@@ -642,10 +666,16 @@ export class CvdiagProbeSession {
       this.sseSeenInWindow = 0;
     }
     this.sseSeenInWindow += 1;
+    // Reserve the chronological `sequence_num` for THIS event at observe time,
+    // regardless of whether it is emitted live or dropped by the §7 sampling
+    // stride. A later timeout carve-out backfills dropped events with this
+    // ORIGINAL seq so the cross-layer join sorts them in true arrival order —
+    // minting a fresh seq at backfill time put them AFTER the live events.
     const pending: PendingSseEvent = {
       eventType: evt.eventType,
       payloadSizeBytes: evt.payloadSizeBytes,
       atMs: nowMs,
+      seq: this.nextSeq("sse"),
       emittedLive: false,
     };
     this.pendingSse.push(pending);
@@ -660,15 +690,18 @@ export class CvdiagProbeSession {
       ? Math.ceil(this.sseSeenInWindow / CVDIAG_SSE_SAMPLE_TARGET_PER_SEC)
       : 1;
     if (this.sseSeenInWindow % stride === 0) {
-      this.emitSse(evt.eventType, evt.payloadSizeBytes);
+      this.emitSse(evt.eventType, evt.payloadSizeBytes, pending.seq);
       // Mark so the timeout carve-out below does NOT re-emit this event (it
       // was already counted in `sseEmittedCount` and emitted as a row).
       pending.emittedLive = true;
     }
   }
 
-  private emitSse(eventType: string, payloadSizeBytes: number): void {
-    const seq = this.nextSeq("sse");
+  private emitSse(
+    eventType: string,
+    payloadSizeBytes: number,
+    seq: number,
+  ): void {
     const metadata: ProbeSseEventMeta = {
       event_type: eventType,
       payload_size_bytes: payloadSizeBytes,
@@ -707,7 +740,11 @@ export class CvdiagProbeSession {
       // re-emit the ones it let through.
       for (const ev of this.pendingSse) {
         if (!ev.emittedLive) {
-          this.emitSse(ev.eventType, ev.payloadSizeBytes);
+          // Backfill with the event's ORIGINAL observe-time seq so it sorts in
+          // true chronological order alongside the live-emitted events — a
+          // fresh seq minted here would sort the (earlier) dropped events AFTER
+          // the (later) live ones, defeating the reorder/drop detection.
+          this.emitSse(ev.eventType, ev.payloadSizeBytes, ev.seq);
         }
       }
       this.pendingSse.length = 0;
@@ -872,11 +909,46 @@ export function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
           const queue = requestStartsByUrl.get(url);
           if (queue !== undefined) {
             queue.push(nowMonoMs());
+            // Backstop for requests that NEVER terminate (no `response`, no
+            // `requestfailed`) — e.g. a persistent SSE stream on a pooled,
+            // long-lived page. Without this the queue grows unbounded (leak)
+            // and a much-later same-URL response would shift an ancient stale
+            // start → inflated `duration_ms`. Drop the OLDEST start(s) once the
+            // queue exceeds the cap so it stays bounded and a response pairs
+            // with a RECENT start.
+            while (queue.length > CVDIAG_MAX_OUTSTANDING_STARTS_PER_URL) {
+              queue.shift();
+            }
           } else {
             requestStartsByUrl.set(url, [nowMonoMs()]);
           }
         } catch {
           /* ignore */
+        }
+      });
+      // Evict the queued start for a request that ABORTS / FAILS / never
+      // responds (Playwright fires `requestfailed` for abort, net error,
+      // navigation-cancelled, etc.). Without this, an aborted same-URL request
+      // leaks its start in the FIFO queue AND a LATER same-URL response shifts
+      // that STALE start, mis-pairing the duration (inflated `duration_ms`).
+      // Co-located with the `request` population listener (NOT in the
+      // `onRequestFailed` block, which the caller may not wire) so eviction is
+      // always active whenever timing is tracked. Drop the OLDEST outstanding
+      // start for the URL — the failed request is, by FIFO ordering, the oldest
+      // un-responded one for that URL.
+      page.on("requestfailed", (arg) => {
+        try {
+          const req = arg as { url(): string };
+          const url = req.url();
+          const queue = requestStartsByUrl.get(url);
+          if (queue !== undefined && queue.length > 0) {
+            queue.shift();
+            if (queue.length === 0) {
+              requestStartsByUrl.delete(url);
+            }
+          }
+        } catch {
+          /* never throw out of an event listener */
         }
       });
     },
@@ -1569,6 +1641,17 @@ async function runLevel(opts: {
       : undefined;
 
   if (abortSignal.aborted) {
+    // The CVDIAG session opened above (~probe.start) MUST be closed even on
+    // the abort-before-start early return — the documented invariant is that
+    // `probe.exit` fires on EVERY path, so the per-level test_id always has an
+    // open/close pair. The pre-fix early return skipped both `start` and
+    // `exit`, leaving an unbalanced session (a `test_id` with no boundary rows
+    // at all). Emit `probe.start` (open) then `probe.exit` (close, `timeout`
+    // outcome: the level was aborted before it could run) so the session is
+    // balanced and the abort is observable in the timeline. Both fire on the
+    // `cvdiag` session which is undefined when instrumentation is off (no-op).
+    cvdiag?.start(`${backendUrl}${demoPath}`, { width: 1280, height: 720 });
+    cvdiag?.exit("timeout", 0);
     // Surface as red so the aggregate bookkeeping still reads "ran".
     return {
       result: {

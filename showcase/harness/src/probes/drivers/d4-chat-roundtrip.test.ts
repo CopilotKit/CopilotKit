@@ -1269,6 +1269,196 @@ describe("d4 CVDIAG data-correctness (M3 CR R1)", () => {
   });
 });
 
+describe("d4 CVDIAG observability fixes (M3 CR R3)", () => {
+  function bufDir(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-test-"));
+  }
+
+  // ── FIX A: timing queue evicts on requestfailed / abort (no leak/stale) ────
+  it("FIX A: a responseless request that ABORTS does not leak a queue entry that mis-pairs a later same-URL response", () => {
+    // RED (pre-fix): the per-URL FIFO start-time queue only dequeued on a
+    // `response`. A request that ABORTED / FAILED (e.g. a persistent SSE
+    // stream, or a cancelled nav) left its start in the queue forever, so a
+    // LATER same-URL response shifted that STALE start → its `duration_ms`
+    // measured from the WRONG (much-earlier, abandoned) request. GREEN: the
+    // `requestfailed` seam evicts the oldest outstanding start, so the later
+    // response pairs with ITS OWN recent start, not the abandoned one.
+    //
+    // The fake registers MULTIPLE handlers per event (real Playwright fires
+    // every `page.on(event,...)` listener) so the eviction listener that
+    // `onResponse` wires for `requestfailed` co-exists with the emission
+    // listener that `onRequestFailed` wires — both must fire on a fail.
+    const handlers = new Map<string, ((arg: unknown) => void)[]>();
+    const fire = (event: string, arg: unknown): void => {
+      for (const h of handlers.get(event) ?? []) h(arg);
+    };
+    const fakePage = {
+      goto: async () => null,
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => null,
+      evaluate: async <R,>() => "" as unknown as R,
+      close: async () => {},
+      on(event: string, handler: (arg: unknown) => void) {
+        const list = handlers.get(event) ?? [];
+        list.push(handler);
+        handlers.set(event, list);
+      },
+    };
+    const adapted = wirePlaywrightPage(fakePage);
+    const durations: number[] = [];
+    adapted.onResponse?.((r) => durations.push(r.durationMs));
+    // Also wire the emission seam so the production listener topology (two
+    // `requestfailed` listeners) is faithfully reproduced.
+    adapted.onRequestFailed?.(() => {});
+
+    const reqHandler = (a: unknown) => fire("request", a);
+    const failHandler = (a: unknown) => fire("requestfailed", a);
+    const respHandler = (a: unknown) => fire("response", a);
+    const URL = "https://x.example.com/api/copilotkit";
+    const mkReq = () => ({ url: () => URL });
+    // The `requestfailed` event arg also exposes failure()/response() for the
+    // emission seam (onRequestFailed); the eviction listener only reads url().
+    const mkFail = () => ({
+      url: () => URL,
+      failure: () => ({ errorText: "net::ERR_ABORTED" }),
+      response: () => null,
+    });
+    const mkResp = () => ({
+      url: () => URL,
+      status: () => 200,
+      headers: () => ({}),
+      request: () => ({ method: () => "POST" }),
+    });
+
+    // First request issued, then ABORTS (no response ever arrives for it).
+    reqHandler(mkReq());
+    failHandler(mkFail());
+    // Burn a measurable gap so a stale-pairing would yield a LARGE duration,
+    // while a correct pairing (to the SECOND request below) stays tiny.
+    const gapUntil = performance.now() + 15;
+    while (performance.now() < gapUntil) {
+      /* spin */
+    }
+    // A SECOND same-URL request issued, then responds quickly.
+    reqHandler(mkReq());
+    const respUntil = performance.now() + 1;
+    while (performance.now() < respUntil) {
+      /* tiny spin */
+    }
+    respHandler(mkResp());
+
+    // Exactly one response observed.
+    expect(durations.length).toBe(1);
+    // GREEN: duration reflects the SECOND request (a few ms), NOT the aborted
+    // first request (~15 ms+ pre-fix). The aborted start was evicted, so the
+    // response paired with its own recent start. Pre-fix the stale first start
+    // was shifted → duration ≥ the 15 ms gap.
+    expect(durations[0]).toBeLessThan(10);
+  });
+
+  // ── FIX B: SSE backfill preserves ORIGINAL chronological sequence_num ──────
+  it("FIX B: timeout carve-out backfills dropped SSE events in original chronological seq order, not after the live events", async () => {
+    // RED (pre-fix): a backfilled (sampling-DROPPED) SSE event got a FRESH
+    // sequence_num minted at flush time, so it sorted AFTER the lower-seq live
+    // events — defeating the reorder/drop detection the carve-out exists for.
+    // GREEN: each event reserves its seq at OBSERVE time, so the backfilled
+    // events keep their original (lower) seq and sort chronologically.
+    const writer = new CaptureWriter();
+    const emitter = new CvdiagEmitter({
+      verbose: true,
+      env: {},
+      layer: "probe",
+      pbWriter: writer,
+    });
+    const session = new CvdiagProbeSession({
+      emitter,
+      testId: "017f22e2-79b0-7cc3-98c4-dc0c0c07398f",
+      slug: "foo",
+      demo: "agentic-chat",
+      bufferDir: bufDir(),
+      nowMs: 0,
+    });
+
+    // Drive the rate OVER target within one 1s window so the §7 stride DROPS
+    // some events live and the carve-out must backfill them on timeout.
+    // 90 events in window 0 → target 30 → stride 3 → events 3,6,9,... emit live
+    // (seq 2,5,8,...), the rest are dropped (seq 0,1,3,4,...) and backfilled.
+    const N = 90;
+    for (let i = 0; i < N; i++) {
+      session.sseEvent({ eventType: `E${i}`, payloadSizeBytes: 1 }, 0);
+    }
+    // Terminal timeout — the carve-out flushes the dropped events.
+    session.exit("timeout", 999);
+    await emitter.flush();
+
+    const sse = byBoundary(writer, "probe.sse.event");
+    // All N events surface exactly once (live + backfilled, no dupes).
+    expect(sse.length).toBe(N);
+    const seqs = sse.map((e) => e.metadata.sequence_num as number);
+    // Every observed event's seq surfaces exactly once: the full 0..N-1 set.
+    expect([...seqs].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: N }, (_, i) => i),
+    );
+    // GREEN: when re-sorted by seq, the rows reconstruct the ORIGINAL arrival
+    // order (event_type E0..E89). Pre-fix the backfilled events carried fresh
+    // (HIGHER) seqs minted at flush time, so sorting by seq put the dropped
+    // (chronologically-earlier) events AFTER the live ones — a chronological
+    // scramble. Build seq→event_type and confirm it is the identity ordering.
+    const bySeq = new Map<number, string>();
+    for (const e of sse) {
+      bySeq.set(
+        e.metadata.sequence_num as number,
+        e.metadata.event_type as string,
+      );
+    }
+    const reconstructed = Array.from({ length: N }, (_, i) => bySeq.get(i));
+    expect(reconstructed).toEqual(
+      Array.from({ length: N }, (_, i) => `E${i}`),
+    );
+  });
+
+  // ── FIX C: probe.exit fires on the abort-before-start early-return path ────
+  it("FIX C: an abort-before-start level still emits probe.start + probe.exit (balanced session)", async () => {
+    // RED (pre-fix): the abort-before-start early return constructed the
+    // CVDIAG session (opening it) but returned BEFORE emitting probe.start or
+    // probe.exit — violating the documented "probe.exit fires on every path"
+    // invariant and leaving a test_id with NO boundary rows (an unbalanced,
+    // never-closed session). GREEN: the abort path emits probe.start (open)
+    // and probe.exit (close, timeout outcome) so the session is balanced.
+    const { emitter, writer } = makeCvdiagEmitter();
+    const browser = makeCvBrowser({ assistantText: "Hi there" });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+    });
+    // Pre-aborted external signal → the driver aborts before the level runs,
+    // hitting the abort-before-start early return in runLevel.
+    const ac = new AbortController();
+    ac.abort();
+    await driver.run(baseCtx({ abortSignal: ac.signal }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    const starts = byBoundary(writer, "probe.start");
+    const exits = byBoundary(writer, "probe.exit");
+    // GREEN: the abort path emitted exactly one open and one close. Pre-fix
+    // BOTH were zero (the early return skipped them entirely).
+    expect(starts.length).toBe(1);
+    expect(exits.length).toBe(1);
+    // The exit's terminal outcome is `timeout` (aborted before it could run).
+    expect(exits[0]!.metadata.terminal_outcome).toBe("timeout");
+    // Open and close carry the SAME test_id (one balanced session).
+    expect(starts[0]!.test_id).toBe(exits[0]!.test_id);
+  });
+});
+
 // ── CVDIAG Railway-internal routing A/B (spec Phase 8) ──────────────────────
 
 describe("d4 A/B internal routing (Phase 8)", () => {
