@@ -3,9 +3,18 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createPbClient } from "../storage/pb-client.js";
+import {
+  createPbClient,
+  PbHttpError,
+  type ListOpts,
+  type ListResult,
+} from "../storage/pb-client.js";
 import { logger } from "../logger.js";
-import { CvdiagPbWriter, type CvdiagEventRecord } from "./pb-writer.js";
+import {
+  CvdiagPbWriter,
+  type CvdiagEventRecord,
+  type CvdiagWriterClient,
+} from "./pb-writer.js";
 
 // Real-PocketBase ACL proof for the CVDIAG observability collections.
 //
@@ -353,6 +362,52 @@ describeMaybe("cvdiag pb-writer — real PocketBase 3-key ACL proof", () => {
     await expect(writer.assertCollectionExists()).resolves.toBe(true);
   });
 
+  it("raw-byte sample joins back to cvdiag_events on a SHARED test_id (FIX 4 correlation)", async () => {
+    // Documents the cvdiag_raw_byte_samples ↔ cvdiag_events join: a raw-byte
+    // sample written with the SAME test_id as the events resolves the pair.
+    // (The d4 driver fix guarantees both sides carry the one minted UUIDv7;
+    // here we prove the join mechanic on live PB.)
+    const writerClient = createPbClient({
+      url: BASE,
+      email: WRITER_EMAIL,
+      password: WRITER_PASS,
+      logger,
+      fetchImpl: writerKeyFetch(),
+    });
+    const writer = new CvdiagPbWriter({ pb: writerClient, logger });
+    const sharedTestId = "0190a0c0-0000-7000-8000-0000000000d4";
+    await writer.writeEvent(
+      sampleEvent({ test_id: sharedTestId, trace_id: sharedTestId }),
+    );
+    await writer.writeRawByteSample({
+      test_id: sharedTestId,
+      slug: "langgraph-python",
+      ts: "2026-06-18T00:00:00.000Z",
+      pipeline_applied: ["decode", "scrub"],
+      head_bytes: "abc",
+      tail_bytes: "xyz",
+      elided_count: 0,
+      metadata_dropped: false,
+    });
+    const tok = await adminToken();
+    const filter = encodeURIComponent(`test_id="${sharedTestId}"`);
+    const events = (await (
+      await fetch(
+        `${BASE}/api/collections/cvdiag_events/records?filter=${filter}`,
+        { headers: { authorization: tok } },
+      )
+    ).json()) as { totalItems: number };
+    const samples = (await (
+      await fetch(
+        `${BASE}/api/collections/cvdiag_raw_byte_samples/records?filter=${filter}`,
+        { headers: { authorization: tok } },
+      )
+    ).json()) as { totalItems: number };
+    // BOTH sides have a row for the shared test_id → the join returns the pair.
+    expect(events.totalItems).toBeGreaterThanOrEqual(1);
+    expect(samples.totalItems).toBeGreaterThanOrEqual(1);
+  });
+
   it("writeCollisionDetected persists the collision's REAL layer (e.g. probe), not the backend default", async () => {
     // Regression for the omitted 5th `layer` arg: every collision row used
     // to record layer="backend", mis-bucketing probe/aimock collisions.
@@ -486,12 +541,29 @@ describeMaybe(
  * email/password auth; here we intercept its auth call and substitute the
  * writer-key auth-with-password endpoint so CREATE goes through the
  * CREATE-only rule rather than a rule-bypassing superuser.
+ *
+ * CRITICAL (PB ≤0.22 fallback): pb-client tries
+ * `/api/collections/_superusers/auth-with-password` FIRST and, on a 404,
+ * FALLS BACK to `/api/admins/auth-with-password` (the PB 0.22 admin endpoint).
+ * On the pinned PB 0.22.21 binary the `/_superusers` collection does not
+ * exist, so the client ALWAYS takes the `/api/admins` fallback. If only
+ * `/_superusers` were intercepted here, that intercept would 404 just like the
+ * real server, the client would fall through to `/api/admins` UN-intercepted,
+ * and — were the supplied creds an admin — it would authenticate as a
+ * rule-bypassing superuser, making the CREATE-only ACL + immutability proofs
+ * HOLLOW. We therefore intercept BOTH auth endpoints and redirect each to the
+ * writer-key auth collection, so the client genuinely authenticates with the
+ * CREATE-only writer key and the ACL is the real surface under test.
  */
 function writerKeyFetch(): typeof fetch {
+  const isAuthUrl = (url: string): boolean =>
+    url.includes("/api/collections/_superusers/auth-with-password") ||
+    url.includes("/api/admins/auth-with-password");
   return (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
-    if (url.includes("/api/collections/_superusers/auth-with-password")) {
-      // Redirect superuser auth to the writer-key auth collection.
+    if (isAuthUrl(url)) {
+      // Redirect BOTH the v0.23 `/_superusers` attempt AND the v0.22
+      // `/api/admins` fallback to the writer-key auth collection.
       return fetch(
         `${BASE}/api/collections/cvdiag_api_keys/auth-with-password`,
         {
@@ -507,3 +579,87 @@ function writerKeyFetch(): typeof fetch {
     return fetch(input, init);
   }) as unknown as typeof fetch;
 }
+
+/**
+ * FIX 3 (typed status, not regex): `assertCollectionExists` must classify the
+ * collection-probe rejection by the TYPED HTTP status carried on
+ * `PbHttpError.statusCode`, NOT by substring-matching the rendered message.
+ * These are pure-unit tests (a tiny fake `CvdiagWriterClient`), so they run
+ * with no PocketBase binary.
+ */
+function fakeClient(listImpl: () => Promise<never>): CvdiagWriterClient {
+  return {
+    create: async <T>() => ({}) as T,
+    list: <T>(_c: string, _o?: ListOpts) =>
+      listImpl() as unknown as Promise<ListResult<T>>,
+    health: async () => true,
+  };
+}
+
+describe("cvdiag pb-writer — assertCollectionExists uses typed status (FIX 3)", () => {
+  it("RED-PROOF: a 404 whose BODY contains '401' must read FALSE (regex would misread it as exists)", async () => {
+    // The pre-fix `/\b(401|403)\b/.test(String(err))` matched the substring
+    // "401" anywhere in the rendered error — including in a 404 response body
+    // — and wrongly returned true (collection "exists"). The typed check keys
+    // on statusCode === 404 → false.
+    const err = new PbHttpError({
+      statusCode: 404,
+      bodyText: '{"code":404,"message":"missing","data":{"hint":"was 401 earlier"}}',
+      path: "/api/collections/cvdiag_events/records?perPage=1",
+    });
+    // Sanity: the old regex WOULD have matched this body → the bug it guards.
+    expect(/\b(401|403)\b/.test(String(err))).toBe(true);
+    const writer = new CvdiagPbWriter({
+      pb: fakeClient(() => Promise.reject(err)),
+      logger,
+    });
+    await expect(writer.assertCollectionExists()).resolves.toBe(false);
+  });
+
+  it("GREEN: a typed 403 reads TRUE (CREATE-only ACL forbids read, but collection exists)", async () => {
+    const err = new PbHttpError({
+      statusCode: 403,
+      bodyText: '{"code":403,"message":"forbidden"}',
+      path: "/api/collections/cvdiag_events/records?perPage=1",
+    });
+    const writer = new CvdiagPbWriter({
+      pb: fakeClient(() => Promise.reject(err)),
+      logger,
+    });
+    await expect(writer.assertCollectionExists()).resolves.toBe(true);
+  });
+
+  it("GREEN: a typed 401 reads TRUE (key authenticated, read forbidden)", async () => {
+    const err = new PbHttpError({
+      statusCode: 401,
+      bodyText: '{"code":401,"message":"unauthorized"}',
+      path: "/api/collections/cvdiag_events/records?perPage=1",
+    });
+    const writer = new CvdiagPbWriter({
+      pb: fakeClient(() => Promise.reject(err)),
+      logger,
+    });
+    await expect(writer.assertCollectionExists()).resolves.toBe(true);
+  });
+
+  it("GREEN: a 5xx degrades to FALSE (cannot confirm → no-op rather than drop)", async () => {
+    const err = new PbHttpError({
+      statusCode: 503,
+      bodyText: "service unavailable",
+      path: "/api/collections/cvdiag_events/records?perPage=1",
+    });
+    const writer = new CvdiagPbWriter({
+      pb: fakeClient(() => Promise.reject(err)),
+      logger,
+    });
+    await expect(writer.assertCollectionExists()).resolves.toBe(false);
+  });
+
+  it("GREEN: a non-HTTP transport error degrades to FALSE", async () => {
+    const writer = new CvdiagPbWriter({
+      pb: fakeClient(() => Promise.reject(new Error("ECONNREFUSED"))),
+      logger,
+    });
+    await expect(writer.assertCollectionExists()).resolves.toBe(false);
+  });
+});

@@ -11,11 +11,12 @@
 // ACL: identical split to cvdiag_events (1779990200). Reuses the SAME
 // cvdiag_api_keys auth collection (created there): writer=CREATE,
 // purge=DELETE. API UPDATEs are FORBIDDEN for everyone (updateRule=null) —
-// the schema_version backfill runs admin-side inside the migration JS, which
-// bypasses rules; a who-only updateRule would let the migration key rewrite
-// any field. list/view require auth; anonymous GET → 401/403. The superuser bypasses all rules (role split only observable as
-// a role-keyed cvdiag_api_keys identity). The on-demand purge (§4) cascades
-// DELETEs here alongside cvdiag_events.
+// this collection is append-only (CREATE-only writer + DELETE-only purge),
+// so no key needs UPDATE. (Unlike cvdiag_events, cvdiag_raw_byte_samples has
+// NO schema_version column, so there is no schema_version backfill here.)
+// list/view require auth; anonymous GET → 401/403. The superuser bypasses all
+// rules (role split only observable as a role-keyed cvdiag_api_keys identity).
+// The on-demand purge (§4) cascades DELETEs here alongside cvdiag_events.
 migrate(
   (db) => {
     const dao = new Dao(db);
@@ -66,9 +67,9 @@ migrate(
       viewRule: null,
       createRule:
         '@request.auth.collectionName = "cvdiag_api_keys" && @request.auth.role = "writer"',
-      // updateRule = null → ALL API UPDATEs forbidden (immutable history);
-      // schema_version backfill is admin-side migration JS and bypasses
-      // rules. Mirrors cvdiag_events (1779990200).
+      // updateRule = null → ALL API UPDATEs forbidden (immutable, append-only
+      // history). This collection has no schema_version column to backfill, so
+      // (unlike cvdiag_events 1779990200) nothing ever needs UPDATE here.
       updateRule: null,
       deleteRule:
         '@request.auth.collectionName = "cvdiag_api_keys" && @request.auth.role = "purge"',

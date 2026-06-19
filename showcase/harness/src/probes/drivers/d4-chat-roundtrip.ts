@@ -35,6 +35,7 @@ import {
 } from "../../cvdiag/ab-hmac.js";
 import type { AbOutcomeRecord } from "../../cvdiag/ab-report.js";
 import { mintSpanId as mintAbPairId, mintTestId } from "../../cvdiag/emit.js";
+import { isValidTestId } from "../../cvdiag/schema.js";
 
 /**
  * e2e-smoke driver — L3 (chat round-trip) and L4 (tool rendering) coverage
@@ -427,12 +428,30 @@ class CvdiagProbeSession {
     nowMs: number;
   }) {
     this.emitter = opts.emitter;
-    this.testId = opts.testId;
+    // Resolve ONE stable test_id for the whole session. The probe's X-Test-Id
+    // is `d4-<slug>-<runId>`, NOT a UUIDv7 — if we threaded that raw value into
+    // every emit(), the emitter's entry-bounding would drop it and mint a
+    // FRESH random UUIDv7 PER CALL, so each boundary row would carry a
+    // different test_id and the per-run correlation (and the
+    // cvdiag_raw_byte_samples ↔ cvdiag_events join) would break. Mint the
+    // UUIDv7 ONCE here and thread the SAME value through every emit + the
+    // raw-byte sample so all rows for this level share one test_id.
+    this.testId = isValidTestId(opts.testId) ? opts.testId : mintTestId();
     this.slug = opts.slug;
     this.demo = opts.demo;
     this.bufferDir = opts.bufferDir;
     this.startMonoMs = opts.nowMs;
     this.sseWindowStartMs = opts.nowMs;
+  }
+
+  /**
+   * The resolved, stable session test_id (a valid UUIDv7) that every emitted
+   * `cvdiag_events` row for this level carries. Callers (e.g. the DEBUG-tier
+   * raw-byte capture) MUST use this — not the raw `d4-<slug>-<runId>`
+   * X-Test-Id — so `cvdiag_raw_byte_samples.test_id` joins back to the events.
+   */
+  get resolvedTestId(): string {
+    return this.testId;
   }
 
   /**
@@ -1618,7 +1637,13 @@ async function runLevel(opts: {
     // probe.message.send — the agent-message POST has been issued. Edge headers
     // are captured from the message-POST response observed on the `onResponse`
     // seam (set above); absent → all-null edge headers.
-    cvdiag?.messageSend(0, message.length, messageSendEdge);
+    //
+    // `char_count` is a USER-FACING character count, so count Unicode code
+    // points (`[...message].length`) rather than `message.length` (UTF-16
+    // code units, which over-counts any astral-plane char as 2). The field's
+    // intent is "how many characters did the user send", not the JS string's
+    // internal unit count.
+    cvdiag?.messageSend(0, [...message].length, messageSendEdge);
 
     // Wait for an assistant message to appear. The helper's testid
     // convention is `[data-testid="copilot-assistant-message"]`; some
@@ -1745,7 +1770,11 @@ async function runLevel(opts: {
             const headers = resp.headers;
             const sample = captureRawBytes({
               slug,
-              testId,
+              // Use the session's RESOLVED test_id (the minted UUIDv7 every
+              // cvdiag_events row for this level carries), NOT the raw
+              // `d4-<slug>-<runId>` X-Test-Id — otherwise the raw-byte sample's
+              // test_id would never join back to the events timeline.
+              testId: cvdiag.resolvedTestId,
               responseBody: body,
               contentEncoding: String(headers["content-encoding"] ?? ""),
               transferEncoding: String(headers["transfer-encoding"] ?? ""),

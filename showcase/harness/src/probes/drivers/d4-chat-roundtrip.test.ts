@@ -746,6 +746,7 @@ describe("e2eChatToolsDriver module export", () => {
 
 import { CvdiagEmitter } from "../../cvdiag/index.js";
 import type { CvdiagEnvelope } from "../../cvdiag/index.js";
+import type { CvdiagPbWriter } from "../../cvdiag/pb-writer.js";
 import type {
   CvdiagResponseEvent,
   CvdiagConsoleEvent,
@@ -1015,6 +1016,86 @@ describe("d4 CVDIAG probe instrumentation (L1-A)", () => {
     // All three share the same test_id (one level → one test_id).
     const ids = new Set(sse.map((e) => e.test_id));
     expect(ids.size).toBe(1);
+  });
+
+  it("raw-byte sample test_id MATCHES the emitted events' test_id so the cvdiag_raw_byte_samples ↔ cvdiag_events join works (FIX 4)", async () => {
+    // RED (pre-fix): the raw-byte sample was written with the un-normalized
+    // `d4-<slug>-<runId>` X-Test-Id while events carried the emitter's minted
+    // UUIDv7 → the documented correlation join returned nothing. GREEN: both
+    // sides carry the ONE stable session test_id.
+    //
+    // A DEBUG-tier emitter (env allow-list scoped to the slug) + a body-bearing
+    // message-POST response + an EMPTY assistant text (the class-(d) flap
+    // trigger) drives the raw-byte capture path.
+    const captured: CvdiagEnvelope[] = [];
+    const rawByteSamples: Array<{ test_id: string; slug: string }> = [];
+    const combinedWriter = {
+      async writeBatch(events: CvdiagEnvelope[]): Promise<void> {
+        captured.push(...events);
+      },
+      async writeRawByteSample(record: {
+        test_id: string;
+        slug: string;
+      }): Promise<void> {
+        rawByteSamples.push({ test_id: record.test_id, slug: record.slug });
+      },
+    };
+    const emitter = new CvdiagEmitter({
+      debug: true,
+      env: {
+        NODE_ENV: "test",
+        SHOWCASE_ENV: "test",
+        CVDIAG_DEBUG: "1",
+        CVDIAG_DEBUG_ALLOW_LIST: "foo",
+      },
+      layer: "probe",
+      pbWriter: combinedWriter as unknown as CvdiagPbWriter,
+    });
+    const browser = makeCvBrowser({
+      // Empty assistant text → class-(d) empty-response flap → raw-byte capture.
+      assistantText: "",
+      responses: [
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+          contentLength: 0,
+          durationMs: 4,
+          isMessagePost: true,
+          // A non-empty body so captureRawBytes produces a sample.
+          body: async () => Buffer.from("data: {}\n\n", "utf8"),
+        },
+      ],
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: mkdtempSync(join(tmpdir(), "cvdiag-test-")),
+      cvdiagPbWriter: combinedWriter as unknown as CvdiagPbWriter,
+    });
+    await driver.run(
+      // The per-slug DEBUG allow-list is parsed from ctx.env, NOT the emitter
+      // env — scope it to the slug under test so captureRawBytes is armed.
+      baseCtx({ env: { CVDIAG_DEBUG_ALLOW_LIST: "foo" } }),
+      {
+        key: "e2e-smoke:foo",
+        backendUrl: "https://x.example.com",
+        demos: ["agentic-chat"],
+      },
+    );
+    await emitter.flush();
+
+    // A raw-byte sample was captured.
+    expect(rawByteSamples.length).toBeGreaterThan(0);
+    // Every emitted event for this level shares ONE test_id (the minted UUIDv7).
+    const eventIds = new Set(captured.map((e) => e.test_id));
+    expect(eventIds.size).toBe(1);
+    const eventTestId = [...eventIds][0]!;
+    // The raw-byte sample carries the SAME test_id → the join resolves.
+    expect(rawByteSamples[0]!.test_id).toBe(eventTestId);
+    // And it is NOT the raw d4-<slug>-<runId> X-Test-Id (the pre-fix value).
+    expect(rawByteSamples[0]!.test_id).not.toMatch(/^d4-/);
   });
 });
 

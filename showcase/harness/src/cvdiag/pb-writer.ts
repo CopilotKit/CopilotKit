@@ -23,6 +23,7 @@
 
 import type { Logger } from "../types/index.js";
 import type { PbClient, ListOpts, ListResult } from "../storage/pb-client.js";
+import { PbHttpError } from "../storage/pb-client.js";
 import type { CvdiagEnvelope } from "./schema.js";
 
 /** Collection names — mirror the PB migrations (1779990200 / 1779990201). */
@@ -126,15 +127,7 @@ export interface CvdiagCollision {
 export interface CvdiagPbWriterOptions {
   pb: CvdiagWriterClient;
   logger: Logger;
-  /**
-   * Max events buffered before overflow eviction (spec §7 R5-F5: 5000).
-   * On overflow the oldest are dropped and a `cvdiag.queue_dropped`
-   * accounting event is emitted on the next successful write.
-   */
-  queueCap?: number;
 }
-
-const DEFAULT_QUEUE_CAP = 5000;
 
 /**
  * Map a `CvdiagEnvelope` (emit.ts/schema.ts) to a `cvdiag_events` row
@@ -192,19 +185,10 @@ function emptyEdgeHeaders(): CvdiagEdgeHeaders {
 export class CvdiagPbWriter {
   private readonly pb: CvdiagWriterClient;
   private readonly logger: Logger;
-  private readonly queueCap: number;
-  // Running count of events evicted by queue overflow since the last
-  // `cvdiag.queue_dropped` accounting flush. Surfaced on the next write.
-  private droppedSinceFlush = 0;
-  // Approximate in-flight queue depth — incremented on enqueue, decremented
-  // on settle. Used only to detect overflow; the actual transport is the
-  // PbClient's own request pipeline.
-  private inFlight = 0;
 
   constructor(opts: CvdiagPbWriterOptions) {
     this.pb = opts.pb;
     this.logger = opts.logger;
-    this.queueCap = opts.queueCap ?? DEFAULT_QUEUE_CAP;
   }
 
   /**
@@ -222,8 +206,9 @@ export class CvdiagPbWriter {
    * the writer key authenticated. A 404 means the collection (its migration)
    * is absent → degrade. PB returns these statuses (verified against PB
    * 0.22.21): existing-but-unreadable → 403, missing → 404. Any transport
-   * error also degrades (never throws). See pb-client.create/list for the
-   * status carried in the thrown Error message.
+   * error also degrades (never throws). pb-client.list throws a typed
+   * `PbHttpError` (carrying `statusCode`) on any non-ok response; this method
+   * branches on that status, not on the rendered message string.
    */
   async assertCollectionExists(): Promise<boolean> {
     try {
@@ -244,14 +229,22 @@ export class CvdiagPbWriter {
       await this.pb.list(CVDIAG_EVENTS_COLLECTION, { perPage: 1 });
       return true;
     } catch (err) {
-      const msg = String(err);
-      // 401/403 → key authenticated but the CREATE-only ACL forbids read:
-      // the collection EXISTS. This is the expected writer-key path.
-      if (/\b(401|403)\b/.test(msg)) return true;
-      // 404 → the collection (and its migration) is absent → degrade.
-      // Any other error (network/5xx) is also treated as "cannot confirm"
-      // → degrade rather than silently drop every event.
-      this.warn("assert-collection", msg, "—");
+      // Branch on the TYPED HTTP status carried by the rejection
+      // (`PbHttpError.statusCode`) rather than substring-matching the rendered
+      // message — a body that merely CONTAINS "401" must not be misread as
+      // "exists". pb-client.list throws PbHttpError on any non-ok response.
+      if (err instanceof PbHttpError) {
+        // 401/403 → key authenticated but the CREATE-only ACL forbids read:
+        // the collection EXISTS. This is the expected writer-key path.
+        if (err.statusCode === 401 || err.statusCode === 403) return true;
+        // 404 → the collection (and its migration) is absent → degrade.
+        // Any other HTTP status (5xx etc.) is "cannot confirm" → degrade
+        // rather than silently drop every event.
+        this.warn("assert-collection", String(err), "—");
+        return false;
+      }
+      // Non-HTTP failure (transport/DNS/abort) → cannot confirm → degrade.
+      this.warn("assert-collection", String(err), "—");
       return false;
     }
   }
@@ -259,24 +252,18 @@ export class CvdiagPbWriter {
   /**
    * Persist one CVDIAG event row, CREATE-only, best-effort. Resolves whether
    * the write succeeded or was swallowed; NEVER rejects.
+   *
+   * The bounded-queue / drop-oldest / `cvdiag.queue_dropped` accounting lives
+   * in the emitter (emit.ts `CvdiagEmitter`), which owns the real backpressure
+   * queue and hands settled batches here via {@link writeBatch}. This writer is
+   * the leaf transport — one CREATE per event — so it carries no queue of its
+   * own.
    */
   async writeEvent(record: CvdiagEventRecord): Promise<void> {
-    // Overflow guard: if we're already past the queue cap, evict (drop) this
-    // event and account for it. The probe is never blocked.
-    if (this.inFlight >= this.queueCap) {
-      this.droppedSinceFlush += 1;
-      return;
-    }
-    this.inFlight += 1;
     try {
       await this.pb.create(CVDIAG_EVENTS_COLLECTION, { ...record });
-      // A successful write is our chance to flush any pending drop count as
-      // a `cvdiag.queue_dropped` accounting event (spec §5).
-      await this.flushDropAccounting(record);
     } catch (err) {
       this.warn(record.boundary, String(err), record.test_id);
-    } finally {
-      this.inFlight -= 1;
     }
   }
 
@@ -284,12 +271,11 @@ export class CvdiagPbWriter {
    * Persist a BATCH of CVDIAG envelopes, CREATE-only, best-effort. This is the
    * emit→persist seam the `CvdiagEmitter.flush()` background drain calls
    * (emit.ts `CvdiagPbWriter` interface): the emitter buffers `CvdiagEnvelope`s
-   * in its bounded queue and hands a batch here on each flush window. Each
-   * envelope is mapped to the `cvdiag_events` row shape ({@link toEventRecord})
-   * and CREATEd through the same overflow-guarded {@link writeEvent} path, so
-   * the in-flight/queue-overflow accounting machinery is LIVE for batch writes
-   * too (a per-event failure degrades to a `CVDIAG`-tagged warn; the batch is
-   * never aborted on one bad row).
+   * in its bounded queue and hands a settled batch here on each flush window.
+   * Each envelope is mapped to the `cvdiag_events` row shape
+   * ({@link toEventRecord}) and CREATEd through {@link writeEvent} (a per-event
+   * failure degrades to a `CVDIAG`-tagged warn; the batch is never aborted on
+   * one bad row).
    *
    * Best-effort contract (mirrors {@link writeEvent}): resolves whether every,
    * some, or no rows persisted; NEVER rejects into the emitter's flush (which
@@ -298,9 +284,9 @@ export class CvdiagPbWriter {
    */
   async writeBatch(events: CvdiagEnvelope[]): Promise<void> {
     for (const envelope of events) {
-      // `writeEvent` is itself never-throw (best-effort + finally), but guard
-      // the whole iteration so a malformed envelope at the mapping step can
-      // never abort the rest of the batch.
+      // `writeEvent` is itself never-throw, but `toEventRecord` mapping CAN
+      // throw on a malformed envelope — guard the iteration so one bad row
+      // can never abort persistence of the rest of the batch.
       try {
         await this.writeEvent(toEventRecord(envelope));
       } catch (err) {
@@ -354,24 +340,6 @@ export class CvdiagPbWriter {
       // the writeAccounting default of "backend" — otherwise every collision
       // row mis-buckets as backend, hiding probe/aimock collisions.
       collision.layer,
-    );
-  }
-
-  /**
-   * Flush any pending queue-overflow drop count as a `cvdiag.queue_dropped`
-   * accounting event. Called opportunistically after a successful write so
-   * we don't add a second failure-prone write on the hot path.
-   */
-  private async flushDropAccounting(context: CvdiagEventRecord): Promise<void> {
-    if (this.droppedSinceFlush <= 0) return;
-    const dropped = this.droppedSinceFlush;
-    this.droppedSinceFlush = 0;
-    await this.writeAccounting(
-      "cvdiag.queue_dropped",
-      "info",
-      { _dropped_count: dropped },
-      context.test_id,
-      context.layer,
     );
   }
 
