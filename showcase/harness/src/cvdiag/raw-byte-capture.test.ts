@@ -26,6 +26,8 @@ import {
   resetRawByteCaptureStateForTest,
   RAW_BYTE_HEAD_CAP,
   RAW_BYTE_TAIL_CAP,
+  RAW_BYTE_MAX_CAPTURES_PER_24H,
+  RAW_BYTE_MAX_CAPTURES_PER_SLUG_24H,
 } from "./raw-byte-capture.js";
 
 // Isolate the process-global per-slug 24h window + ≤500/24h ring-buffer so no
@@ -189,16 +191,15 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
 
   it("(6) INVARIANT: across ALL body-size classes the ENTIRE retained head+tail is scrubbed (no …[unscanned] inside the sample, every retained secret REDACTED)", () => {
     // The scrub budget must equal the RETAINED segment length, whatever it is —
-    // NOT a fixed 16KB. `headTailCap` returns the WHOLE body as `head` (tail
-    // empty) for any body ≤ HEAD_CAP+TAIL_CAP (32KB), so `head` can be up to
-    // 32KB. A fixed 16KB scrub budget truncates that head to a `…[unscanned:N]`
-    // prefix, dropping the 16-32KB window from the sample AND never scanning it
-    // for secrets (leak). This invariant pins every segment-size window so a
-    // future budget regression is a RED test.
+    // NOT a fixed 16KB. The retained head is now ALWAYS ≤ HEAD_CAP (16KB) and
+    // the tail ≤ TAIL_CAP (16KB) for every body size (the cap never returns a
+    // >16KB whole-body head). The invariant: every retained byte is scanned (no
+    // `…[unscanned:N]` marker) and every secret in a retained segment is
+    // REDACTED, across all body-size windows.
     //
-    //   (a) <16KB           → whole body is head, well under the cap.
-    //   (b) 16-32KB (24KB)  → whole body is head, EXCEEDS a fixed 16KB budget
-    //                          (the regression window the A2 reorder introduced).
+    //   (a) <16KB           → whole body is head, no tail (under HEAD_CAP).
+    //   (b) 16-32KB (24KB)  → head = first ≤16KB, tail = remainder ≤16KB,
+    //                          elided 0 (head+tail still cover the whole body).
     //   (c) >32KB (50KB)    → real head + real tail, middle elided.
     const cases: Array<{
       label: string;
@@ -206,17 +207,17 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
       expectTail: boolean;
     }> = [
       { label: "(a) <16KB", bodyLen: 8 * 1024, expectTail: false },
-      { label: "(b) 16-32KB", bodyLen: 24 * 1024, expectTail: false },
+      { label: "(b) 16-32KB", bodyLen: 24 * 1024, expectTail: true },
       { label: "(c) >32KB", bodyLen: 50 * 1024, expectTail: true },
     ];
 
     for (const { label, bodyLen, expectTail } of cases) {
       resetRawByteCaptureStateForTest();
 
-      // Plant a secret at the END of the retained HEAD region. For (a)/(b) the
-      // whole body is the head, so "end of head" is the end of the body. For
-      // (c) the retained head is the first HEAD_CAP bytes, so plant the secret
-      // just before that boundary.
+      // Plant a head-region secret near the START of the body (lands in the
+      // retained head for every case) and, when the body splits, a tail-region
+      // secret at the very END of the body (lands in the retained tail). Each
+      // retained segment must be fully scanned + scrubbed regardless of size.
       const headSecret = "Bearer sk-ant-api03-HEADaaaaaaaaaaaaSECRET";
       const headSentinel = "HEAD_END_SENTINEL";
       const tailSecret = "Bearer sk-ant-api03-TAILaaaaaaaaaaaaSECRET";
@@ -224,22 +225,16 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
 
       let bodyStr: string;
       if (expectTail) {
-        // >32KB: secret near the END of the retained head (just inside
-        // HEAD_CAP) AND a secret in the REAL tail.
-        const headTrailer = ` ${headSentinel} ${headSecret}`;
-        const headFillLen = RAW_BYTE_HEAD_CAP - headTrailer.length - 64;
-        const tailLead = `${tailSentinel} ${tailSecret} `;
-        const middleLen =
-          bodyLen - headFillLen - headTrailer.length - tailLead.length;
-        bodyStr =
-          "h".repeat(headFillLen) +
-          headTrailer +
-          "x".repeat(middleLen) +
-          "\n" +
-          tailLead;
+        // Body splits: head-region secret right after the start (inside the
+        // first ≤16KB head) AND a tail-region secret at the very end (inside
+        // the retained tail). Filler in the middle.
+        const headLead = `${headSentinel} ${headSecret} `;
+        const tailTrailer = ` ${tailSentinel} ${tailSecret}`;
+        const middleLen = bodyLen - headLead.length - tailTrailer.length;
+        bodyStr = headLead + "x".repeat(middleLen) + tailTrailer;
       } else {
-        // ≤32KB: the whole body is the retained head. Plant the secret at the
-        // very END so a 16KB-budget truncation (in the 16-32KB case) drops it.
+        // ≤16KB: the whole body is the retained head, tail empty. Plant the
+        // secret at the very end (still inside the single retained head).
         const trailer = ` ${headSentinel} ${headSecret}`;
         bodyStr = "h".repeat(bodyLen - trailer.length) + trailer;
       }
@@ -247,6 +242,16 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
       const body = Buffer.from(bodyStr, "utf8");
       const sample = captureRawBytes(baseOpts({ responseBody: body }));
       expect(sample, label).not.toBeNull();
+
+      // Head is ALWAYS ≤ HEAD_CAP and tail ≤ TAIL_CAP (the ≤16KB head cap).
+      expect(
+        Buffer.byteLength(sample!.head_bytes, "utf8"),
+        label,
+      ).toBeLessThanOrEqual(RAW_BYTE_HEAD_CAP);
+      expect(
+        Buffer.byteLength(sample!.tail_bytes, "utf8"),
+        label,
+      ).toBeLessThanOrEqual(RAW_BYTE_TAIL_CAP);
 
       // (i) NO …[unscanned] marker anywhere inside the returned sample — the
       //     entire retained head/tail was scanned.
@@ -266,9 +271,10 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
         expect(sample!.tail_bytes, label).not.toMatch(/sk-ant-api03-TAIL/);
       }
 
-      // (iii) elided_count reflects ONLY headTailCap elision: 0 for ≤32KB,
-      //       (body - HEAD_CAP - TAIL_CAP) for >32KB.
-      if (expectTail) {
+      // (iii) elided_count reflects ONLY headTailCap elision: 0 when head+tail
+      //       cover the whole body (≤32KB), (body - HEAD_CAP - TAIL_CAP) for
+      //       >32KB.
+      if (bodyLen > RAW_BYTE_HEAD_CAP + RAW_BYTE_TAIL_CAP) {
         const expectedElided =
           body.length - RAW_BYTE_HEAD_CAP - RAW_BYTE_TAIL_CAP;
         expect(sample!.elided_count, label).toBe(expectedElided);
@@ -337,5 +343,213 @@ describe("captureRawBytes — Phase 2.5 DEBUG-tier raw-byte capture", () => {
     const star = parseDebugAllowList("*");
     expect(star.has("anything")).toBe(false);
     expect(star.has("*")).toBe(true);
+  });
+
+  it("(M3-1) head+tail cap slices on code-point boundaries → no U+FFFD from a split multibyte char, and head ≤16KB", () => {
+    // A body whose HEAD_CAP boundary lands in the MIDDLE of a multibyte UTF-8
+    // char (emoji = 4 bytes). The raw-byte slice would split that char and emit
+    // a U+FFFD (�) replacement char at the cut; a code-point-aligned cap
+    // backs off to the last whole char so no U+FFFD appears. ALSO asserts the
+    // ≤16KB head cap (the old code returned up to 32KB as head).
+    //
+    // RED (raw-byte slice): head_bytes contains "�" at the cap boundary,
+    //   and for a 24KB body head_bytes byteLength is the full 24KB (>16KB).
+    // GREEN (code-point slice + ≤16KB cap): no "�", head byteLength ≤16KB.
+    const emoji = "😀"; // U+1F600, 4 UTF-8 bytes.
+    // Fill exactly up to 2 bytes before HEAD_CAP, then an emoji straddles the
+    // boundary (2 bytes before the cap, 2 bytes after).
+    const fillLen = RAW_BYTE_HEAD_CAP - 2;
+    const bodyStr = "a".repeat(fillLen) + emoji + "b".repeat(20 * 1024);
+    const body = Buffer.from(bodyStr, "utf8");
+    // Sanity: the cap boundary is mid-emoji.
+    expect(body.length).toBeGreaterThan(RAW_BYTE_HEAD_CAP + RAW_BYTE_TAIL_CAP);
+
+    const sample = captureRawBytes(baseOpts({ responseBody: body }));
+    expect(sample).not.toBeNull();
+    // No replacement char from a split multibyte sequence in either segment.
+    expect(sample!.head_bytes).not.toContain("�");
+    expect(sample!.tail_bytes).not.toContain("�");
+    // Head is ≤16KB (NOT the up-to-32KB whole body the old cap returned).
+    expect(Buffer.byteLength(sample!.head_bytes, "utf8")).toBeLessThanOrEqual(
+      RAW_BYTE_HEAD_CAP,
+    );
+  });
+
+  it("(M3-1b) 16-32KB body splits into ≤16KB head + ≤16KB tail (no >16KB head)", () => {
+    // The old cap returned a body ≤32KB as a single whole-body head (up to
+    // 32KB) — violating the documented head_bytes ≤16KB contract and risking PB
+    // column truncation/reject. RED: a 24KB body → head_bytes byteLength 24KB.
+    // GREEN: head ≤16KB, tail ≤16KB, head+tail cover the whole body (elided 0).
+    const body = Buffer.from("Z".repeat(24 * 1024), "utf8");
+    const sample = captureRawBytes(baseOpts({ responseBody: body }));
+    expect(sample).not.toBeNull();
+    expect(Buffer.byteLength(sample!.head_bytes, "utf8")).toBeLessThanOrEqual(
+      RAW_BYTE_HEAD_CAP,
+    );
+    expect(Buffer.byteLength(sample!.tail_bytes, "utf8")).toBeLessThanOrEqual(
+      RAW_BYTE_TAIL_CAP,
+    );
+    // head+tail cover the whole 24KB body, so nothing is elided.
+    expect(sample!.elided_count).toBe(0);
+    expect(
+      Buffer.byteLength(sample!.head_bytes, "utf8") +
+        Buffer.byteLength(sample!.tail_bytes, "utf8"),
+    ).toBe(body.length);
+  });
+
+  it("(M3-2) dechunk fails closed (null → raw fallback) on malformed chunk framing", () => {
+    // The decode contract: malformed `Transfer-Encoding: chunked` framing must
+    // yield the CONTRACTED fallback (decodeBody returns the RAW bytes, decode
+    // NOT applied), never a corrupted non-null dechunked Buffer. We observe the
+    // contract through captureRawBytes: on a malformed frame the pipeline must
+    // NOT report "decode" applied (dechunk returned null → raw fallback).
+    //
+    // RED (no validation): parseInt accepts garbage/negative hex and the CRLF
+    //   after the chunk data is skipped blindly, so dechunk returns a corrupt
+    //   non-null Buffer → "decode" wrongly appears in pipeline_applied.
+    // GREEN: dechunk returns null → raw fallback → "decode" NOT applied.
+    const allowed = new Set(["langgraph-python"]);
+
+    // (a) Bad hex chunk size ("zz" is not hex).
+    const badHex = Buffer.from("zz\r\nhello\r\n0\r\n\r\n", "latin1");
+    const sa = captureRawBytes(
+      baseOpts({
+        responseBody: badHex,
+        transferEncoding: "chunked",
+        allowedSlugs: allowed,
+      }),
+    );
+    expect(sa).not.toBeNull();
+    expect(sa!.pipeline_applied).not.toContain("decode");
+
+    // (b) Negative chunk size ("-5").
+    resetRawByteCaptureStateForTest();
+    const negSize = Buffer.from("-5\r\nhello\r\n0\r\n\r\n", "latin1");
+    const sb = captureRawBytes(
+      baseOpts({
+        responseBody: negSize,
+        transferEncoding: "chunked",
+        allowedSlugs: allowed,
+      }),
+    );
+    expect(sb).not.toBeNull();
+    expect(sb!.pipeline_applied).not.toContain("decode");
+
+    // (c) Missing/garbled CRLF after the chunk data (5 bytes then NO CRLF, just
+    //     more data) — the old code blindly did `offset += 2`, skipping into the
+    //     payload and corrupting the result.
+    resetRawByteCaptureStateForTest();
+    const badCrlf = Buffer.from("5\r\nhelloXX0\r\n\r\n", "latin1");
+    const sc = captureRawBytes(
+      baseOpts({
+        responseBody: badCrlf,
+        transferEncoding: "chunked",
+        allowedSlugs: allowed,
+      }),
+    );
+    expect(sc).not.toBeNull();
+    expect(sc!.pipeline_applied).not.toContain("decode");
+
+    // POSITIVE control: a WELL-FORMED chunked body still decodes (decode
+    // applied, payload concatenated) — the validation is fail-closed, not
+    // fail-everything.
+    resetRawByteCaptureStateForTest();
+    const wellFormed = Buffer.from("5\r\nhello\r\n0\r\n\r\n", "latin1");
+    const sd = captureRawBytes(
+      baseOpts({
+        responseBody: wellFormed,
+        transferEncoding: "chunked",
+        allowedSlugs: allowed,
+      }),
+    );
+    expect(sd).not.toBeNull();
+    expect(sd!.pipeline_applied).toContain("decode");
+    expect(`${sd!.head_bytes}${sd!.tail_bytes}`).toContain("hello");
+  });
+
+  it("(M3-3) stripHtml does NOT set metadata_dropped on mere whitespace collapse", () => {
+    // An HTML-detected body that carries NO tags and NO sensitive markup — only
+    // visible text with collapsible whitespace (extra newlines/spaces). The
+    // strip stage collapses whitespace but removes NO actual content, so the
+    // `metadata_dropped` flag (which signals sensitive content was removed)
+    // MUST stay false.
+    //
+    // RED (length compare): `stripped.length < before` trips on the whitespace
+    //   collapse → metadata_dropped wrongly true.
+    // GREEN (non-whitespace compare): no non-ws content removed →
+    //   metadata_dropped false.
+    //
+    // The body is forced down the html-strip path by an explicit text/html
+    // content-type even though it contains no tags.
+    const body = Buffer.from(
+      "Just a moment...\n\n\n   please   wait   \n\n",
+      "utf8",
+    );
+    const sample = captureRawBytes(
+      baseOpts({
+        responseBody: body,
+        contentType: "text/html; charset=UTF-8",
+      }),
+    );
+    expect(sample).not.toBeNull();
+    expect(sample!.pipeline_applied).toContain("html_strip");
+    // The visible text survives.
+    expect(`${sample!.head_bytes}${sample!.tail_bytes}`).toContain(
+      "Just a moment",
+    );
+    // No NON-whitespace content was removed → the dropped flag stays false.
+    expect(sample!.metadata_dropped).toBe(false);
+  });
+
+  it("(M3-3b) stripHtml DOES set metadata_dropped when real content is removed (regression control)", () => {
+    // Positive control: a `<script>` body carries real (sensitive) content that
+    // IS removed → metadata_dropped MUST be true. Guards against the fix
+    // over-correcting to never flag.
+    const body = Buffer.from(
+      "<html><body>visible<script>secretpayload123</script>text</body></html>",
+      "utf8",
+    );
+    const sample = captureRawBytes(
+      baseOpts({
+        responseBody: body,
+        contentType: "text/html",
+      }),
+    );
+    expect(sample).not.toBeNull();
+    expect(sample!.metadata_dropped).toBe(true);
+    expect(`${sample!.head_bytes}${sample!.tail_bytes}`).not.toContain(
+      "secretpayload123",
+    );
+  });
+
+  it("(M3-4) per-slug 24h cap is SMALLER than the global cap so one noisy slug cannot drain the whole budget", () => {
+    // The per-slug starvation guard must trip at its OWN (smaller) constant, not
+    // reuse the global 500. With the per-slug cap < global cap, a single slug is
+    // cut off at the per-slug cap while the global budget still has room for
+    // OTHER slugs.
+    //
+    // RED (per-slug reuses global 500): the per-slug guard never trips before
+    //   the global cap, so slug "noisy" keeps capturing past
+    //   RAW_BYTE_MAX_CAPTURES_PER_SLUG_24H and starves the global budget.
+    // GREEN: "noisy" is cut at the per-slug cap; "other" still captures.
+    expect(RAW_BYTE_MAX_CAPTURES_PER_SLUG_24H).toBeLessThan(
+      RAW_BYTE_MAX_CAPTURES_PER_24H,
+    );
+
+    const allowed = new Set(["noisy", "other"]);
+    const body = Buffer.from("data: {}\n\n", "utf8");
+    const opts = (slug: string) =>
+      baseOpts({ slug, responseBody: body, allowedSlugs: allowed });
+
+    // The noisy slug captures up to its per-slug cap, then is cut off.
+    let admitted = 0;
+    for (let i = 0; i < RAW_BYTE_MAX_CAPTURES_PER_SLUG_24H + 5; i += 1) {
+      if (captureRawBytes(opts("noisy")) !== null) admitted += 1;
+    }
+    expect(admitted).toBe(RAW_BYTE_MAX_CAPTURES_PER_SLUG_24H);
+
+    // A DIFFERENT slug still has budget — the noisy slug did NOT drain it.
+    const other = captureRawBytes(opts("other"));
+    expect(other).not.toBeNull();
   });
 });

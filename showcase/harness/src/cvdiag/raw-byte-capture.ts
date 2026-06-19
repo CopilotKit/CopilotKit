@@ -32,17 +32,15 @@
  * head and tail covers every byte that can possibly be stored. Each retained
  * segment is scrubbed with a scan budget equal to ITS OWN length, so the WHOLE
  * segment is always scanned (no `…[unscanned]` truncation inside the stored
- * sample) for any body size. The segments are bounded by `headTailCap`: when
- * the body fits the cap the whole body is the head (≤ HEAD_CAP+TAIL_CAP = 32KB,
- * tail empty); otherwise head ≤ HEAD_CAP and tail ≤ TAIL_CAP. Bounded (≤32KB) ×
- * linear regex = O(constant), so this stays ReDoS-impossible. The earlier
- * scrub-before-cap order forced `scrubSecrets` onto the FULL body: for a body
- * >32KB it hit the bounded-prefix path, truncating to a `…[unscanned:N]` prefix
- * BEFORE the cap — which lost the real tail, never scanned it for secrets, and
- * zeroed out the true `elided_count`. A later FIXED 16KB per-segment budget
- * still truncated the 16-32KB whole-body head (which `headTailCap` returns
- * untouched, up to 32KB). Sizing each scrub budget to the segment's own length
- * eliminates the truncation for every body-size window.
+ * sample) for any body size. The segments are bounded by `headTailCap`: head ≤
+ * HEAD_CAP (16KB) and tail ≤ TAIL_CAP (16KB) for ALL body sizes — the cap never
+ * returns a >16KB head. Bounded (≤16KB each) × linear regex = O(constant), so
+ * this stays ReDoS-impossible. The earlier scrub-before-cap order forced
+ * `scrubSecrets` onto the FULL body: for a body >32KB it hit the bounded-prefix
+ * path, truncating to a `…[unscanned:N]` prefix BEFORE the cap — which lost the
+ * real tail, never scanned it for secrets, and zeroed out the true
+ * `elided_count`. Sizing each scrub budget to the segment's own length (now ≤
+ * HEAD_CAP/TAIL_CAP) eliminates the truncation for every body-size window.
  *
  * GUARD (R4-F12): DEBUG tier ONLY. `captureRawBytes()` returns `null`
  * immediately when the resolved tier is not `debug`. Beyond the tier gate the
@@ -74,6 +72,15 @@ export const RAW_BYTE_TAIL_CAP = 16 * 1024;
 
 /** Storage budget: ≤500 captures total per 24h, ring-buffer beyond (R2-NF3). */
 export const RAW_BYTE_MAX_CAPTURES_PER_24H = 500;
+
+/**
+ * Per-slug 24h sub-budget: ≤100 captures from any single slug per 24h. Smaller
+ * than the global cap so one noisy slug cannot drain the whole ≤500 global
+ * budget and starve the other allow-listed slugs (spec §11.4 per-slug
+ * auto-disable). Reusing the global 500 here would let the per-slug guard never
+ * trip before the global cap — defeating the starvation guard's purpose.
+ */
+export const RAW_BYTE_MAX_CAPTURES_PER_SLUG_24H = 100;
 
 /** Per-slug DEBUG auto-disable window (spec §11.4: 24h). */
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
@@ -217,7 +224,7 @@ function admitCapture(slug: string, nowMs: number): boolean {
     state = { windowStartMs: nowMs, count: 0 };
     slugStateByName.set(slug, state);
   }
-  if (state.count >= RAW_BYTE_MAX_CAPTURES_PER_24H) {
+  if (state.count >= RAW_BYTE_MAX_CAPTURES_PER_SLUG_24H) {
     return false;
   }
 
@@ -275,14 +282,36 @@ function dechunk(body: Buffer): Buffer | null {
       .toString("latin1", offset, crlf)
       .split(";", 1)[0]!
       .trim();
+    // The chunk size MUST be one or more hex digits (RFC 7230 §4.1). Reject any
+    // non-hex / empty / signed (`-`/`+`) / `0x`-prefixed token: `parseInt`
+    // would otherwise coerce a leading-hex-prefix garbage line to a plausible
+    // number and silently corrupt the dechunked output. Fail closed (return
+    // null) on malformed framing so the caller falls back to raw bytes.
+    if (!/^[0-9a-fA-F]+$/.test(sizeLine)) return null;
     const size = Number.parseInt(sizeLine, 16);
-    if (Number.isNaN(size)) return null;
+    // Defense in depth: NaN is already excluded by the regex; this also rejects
+    // a size large enough to overflow a safe integer.
+    if (!Number.isSafeInteger(size) || size < 0) return null;
     offset = crlf + 2;
-    if (size === 0) break; // terminal chunk
+    if (size === 0) {
+      // Terminal chunk: its CRLF was already consumed above. Anything that
+      // follows is the (optional) trailer + final CRLF, which carries no body
+      // payload, so we stop here.
+      break;
+    }
     if (offset + size > body.length) return null;
     out.push(body.subarray(offset, offset + size));
     offset += size;
-    // Skip the trailing CRLF after the chunk data.
+    // A non-terminal chunk's data MUST be followed by a literal CRLF. Verify it
+    // rather than blindly advancing past two bytes — a missing/garbled CRLF is
+    // malformed framing, so fail closed.
+    if (
+      offset + 2 > body.length ||
+      body[offset] !== 0x0d ||
+      body[offset + 1] !== 0x0a
+    ) {
+      return null;
+    }
     offset += 2;
   }
   return Buffer.concat(out);
@@ -302,7 +331,6 @@ function isHtmlBody(contentType: string | undefined, text: string): boolean {
  * inside `<script>window.__cf$=…</script>` never survives into the sample.
  */
 function stripHtml(text: string): { stripped: string; dropped: boolean } {
-  const before = text.length;
   const stripped = text
     // Drop <script>…</script> and <style>…</style> bodies whole.
     .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, " ")
@@ -314,14 +342,61 @@ function stripHtml(text: string): { stripped: string; dropped: boolean } {
     // Collapse the whitespace left behind by tag removal.
     .replace(/\s+/g, " ")
     .trim();
-  return { stripped, dropped: stripped.length < before };
+  // `dropped`/`metadata_dropped` flags that ACTUAL (sensitive) content was
+  // removed — `<script>`/`<style>` bodies, tag attributes, etc. Compare on the
+  // NON-WHITESPACE content of both sides: a mere whitespace collapse (e.g. a
+  // body that already had no tags, just trailing newlines) must NOT raise the
+  // flag, or it over-reports that content was removed when only whitespace was
+  // normalized. A raw `length` comparison wrongly trips on whitespace collapse.
+  const nonWsBefore = text.replace(/\s+/g, "").length;
+  const nonWsAfter = stripped.replace(/\s+/g, "").length;
+  return { stripped, dropped: nonWsAfter < nonWsBefore };
 }
 
 /**
- * Head + tail cap (step 4). Keeps ≤16KB head + ≤16KB tail of the UTF-8 text;
- * the elided middle is counted in `elided_count` (bytes dropped). When the
- * body fits within head+tail, the whole body is the head and the tail is
- * empty.
+ * Take the longest UTF-8 prefix of `buf` that is ≤ `maxBytes` AND does not
+ * split a multibyte code point. Decoding the raw byte slice would emit a
+ * U+FFFD replacement char wherever a multibyte sequence straddles the cap
+ * boundary; instead we back the cap off to the last whole code-point start so
+ * the retained text is byte-exact for every char it keeps.
+ */
+function utf8PrefixWithinBytes(buf: Buffer, maxBytes: number): Buffer {
+  if (buf.length <= maxBytes) return buf;
+  let end = maxBytes;
+  // UTF-8 continuation bytes are 0b10xxxxxx (0x80–0xBF). If the byte at the cap
+  // boundary is a continuation byte, we are mid-sequence — walk back to the
+  // lead byte (the first non-continuation byte) and cut there.
+  while (end > 0 && (buf[end]! & 0xc0) === 0x80) end -= 1;
+  return buf.subarray(0, end);
+}
+
+/**
+ * Take the longest UTF-8 suffix of `buf` that is ≤ `maxBytes` AND does not
+ * split a multibyte code point. Symmetric to `utf8PrefixWithinBytes`: walk the
+ * start boundary forward off any continuation byte to the next lead byte.
+ */
+function utf8SuffixWithinBytes(buf: Buffer, maxBytes: number): Buffer {
+  if (buf.length <= maxBytes) return buf;
+  let start = buf.length - maxBytes;
+  // If the byte at the suffix start is a continuation byte, we are mid-sequence
+  // — walk forward to the next lead byte so we never begin on a partial char.
+  while (start < buf.length && (buf[start]! & 0xc0) === 0x80) start += 1;
+  return buf.subarray(start);
+}
+
+/**
+ * Head + tail cap (step 4). Keeps a ≤16KB head + ≤16KB tail of the UTF-8 text
+ * (spec §11.4 / cvdiag_raw_byte_samples: head_bytes ≤16KB, tail_bytes ≤16KB);
+ * the elided middle is counted in `elided_count` (bytes dropped). Boundaries
+ * are taken on whole-code-point edges so no multibyte char is split into a
+ * U+FFFD replacement char at the cap, and the head is ALWAYS ≤16KB (never the
+ * up-to-32KB whole body the earlier cap returned, which risked PB column
+ * truncation/reject). Windows:
+ *   - body ≤ HEAD_CAP        → whole body is head, tail empty, elided 0.
+ *   - HEAD_CAP < body ≤ 32KB → head = first ≤16KB, tail = remainder ≤16KB,
+ *                              elided 0 (head+tail still cover the whole body).
+ *   - body > 32KB            → head = first ≤16KB, tail = last ≤16KB, middle
+ *                              elided.
  */
 function headTailCap(text: string): {
   head: string;
@@ -329,13 +404,24 @@ function headTailCap(text: string): {
   elided: number;
 } {
   const buf = Buffer.from(text, "utf8");
-  if (buf.length <= RAW_BYTE_HEAD_CAP + RAW_BYTE_TAIL_CAP) {
+  if (buf.length <= RAW_BYTE_HEAD_CAP) {
     return { head: text, tail: "", elided: 0 };
   }
-  const head = buf.subarray(0, RAW_BYTE_HEAD_CAP).toString("utf8");
-  const tail = buf.subarray(buf.length - RAW_BYTE_TAIL_CAP).toString("utf8");
-  const elided = buf.length - RAW_BYTE_HEAD_CAP - RAW_BYTE_TAIL_CAP;
-  return { head, tail, elided };
+  const headBuf = utf8PrefixWithinBytes(buf, RAW_BYTE_HEAD_CAP);
+  const tailBuf = utf8SuffixWithinBytes(
+    buf.subarray(headBuf.length),
+    RAW_BYTE_TAIL_CAP,
+  );
+  // `elided` is the real bytes dropped from the middle: the full body minus the
+  // two retained (code-point-aligned, each ≤cap) segments. Backing the cap off
+  // a partial char shrinks a segment by ≤3 bytes, which correctly accrues to
+  // the elided count.
+  const elided = buf.length - headBuf.length - tailBuf.length;
+  return {
+    head: headBuf.toString("utf8"),
+    tail: tailBuf.toString("utf8"),
+    elided,
+  };
 }
 
 /**
@@ -401,14 +487,14 @@ export function captureRawBytes(
     //    equal to ITS OWN length, so the WHOLE retained segment is always
     //    scanned (no `…[unscanned]` truncation inside the stored sample) for
     //    ANY body size. The retained segments are already bounded by
-    //    `headTailCap`: when the body fits the cap the whole body is the head
-    //    (up to HEAD_CAP+TAIL_CAP = 32KB, tail empty); otherwise head ≤ HEAD_CAP
-    //    and tail ≤ TAIL_CAP. A FIXED 16KB budget would wrongly truncate the
-    //    16-32KB whole-body head to a `…[unscanned:N]` prefix — dropping that
-    //    window from the sample AND never scanning it for secrets (leak). The
-    //    elided middle is gone from the sample, so scrubbing the two kept
-    //    segments covers every stored byte. Bounded by construction (≤32KB) ×
-    //    linear regex = O(constant), so this stays ReDoS-impossible.
+    //    `headTailCap`: head ≤ HEAD_CAP (16KB) and tail ≤ TAIL_CAP (16KB) for
+    //    ALL body sizes. Sizing each budget to the segment's own length means
+    //    the WHOLE retained segment is always scanned — no `…[unscanned:N]`
+    //    truncation that would drop a window from the sample AND never scan it
+    //    for secrets (leak). The elided middle is gone from the sample, so
+    //    scrubbing the two kept segments covers every stored byte. Bounded by
+    //    construction (≤16KB each) × linear regex = O(constant), so this stays
+    //    ReDoS-impossible.
     const head = scrubSecrets(rawHead, rawHead.length);
     const tail = rawTail === "" ? "" : scrubSecrets(rawTail, rawTail.length);
     applied.push("scrub");
