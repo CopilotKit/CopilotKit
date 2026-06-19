@@ -386,6 +386,13 @@ interface PendingSseEvent {
   payloadSizeBytes: number;
   /** Wall-clock ms when observed (for the pre-timeout carve-out window). */
   atMs: number;
+  /**
+   * True iff this event was ALREADY emitted live (passed the §7 sampling
+   * stride). The timeout carve-out flushes only events that were NOT emitted
+   * live, so a sampled-through event is never emitted twice (no duplicate
+   * `probe.sse.event` rows, no inflated `sse_event_count`).
+   */
+  emittedLive: boolean;
 }
 
 /**
@@ -400,7 +407,7 @@ interface PendingSseEvent {
  * Pure instrumentation: every method swallows its own errors — a CVDIAG fault
  * MUST NEVER throw into the probe it observes (spec §7 R5-F8).
  */
-class CvdiagProbeSession {
+export class CvdiagProbeSession {
   private readonly emitter: CvdiagEmitter;
   private readonly testId: string;
   private readonly slug: string;
@@ -635,11 +642,13 @@ class CvdiagProbeSession {
       this.sseSeenInWindow = 0;
     }
     this.sseSeenInWindow += 1;
-    this.pendingSse.push({
+    const pending: PendingSseEvent = {
       eventType: evt.eventType,
       payloadSizeBytes: evt.payloadSizeBytes,
       atMs: nowMs,
-    });
+      emittedLive: false,
+    };
+    this.pendingSse.push(pending);
     // Trim the rolling window to the carve-out horizon to bound memory.
     const cutoff = nowMs - CVDIAG_PRE_TIMEOUT_WINDOW_MS;
     while (this.pendingSse.length > 0 && this.pendingSse[0]!.atMs < cutoff) {
@@ -652,6 +661,9 @@ class CvdiagProbeSession {
       : 1;
     if (this.sseSeenInWindow % stride === 0) {
       this.emitSse(evt.eventType, evt.payloadSizeBytes);
+      // Mark so the timeout carve-out below does NOT re-emit this event (it
+      // was already counted in `sseEmittedCount` and emitted as a row).
+      pending.emittedLive = true;
     }
   }
 
@@ -688,8 +700,15 @@ class CvdiagProbeSession {
    */
   exit(terminalOutcome: CvdiagOutcome, totalDurationMs: number): void {
     if (terminalOutcome === "timeout") {
+      // Flush ONLY events not already emitted live. Re-emitting the full
+      // buffered window (including the already-live-emitted subset) duplicated
+      // `probe.sse.event` rows and inflated `sse_event_count`; the carve-out's
+      // job is to backfill the events the §7 sampling stride DROPPED, not to
+      // re-emit the ones it let through.
       for (const ev of this.pendingSse) {
-        this.emitSse(ev.eventType, ev.payloadSizeBytes);
+        if (!ev.emittedLive) {
+          this.emitSse(ev.eventType, ev.payloadSizeBytes);
+        }
       }
       this.pendingSse.length = 0;
     }
@@ -771,10 +790,21 @@ interface PlaywrightPageLike {
  * simply emits no `probe.sse.event` rows from the network listener (correct —
  * Playwright's `page.on` has no per-SSE-event signal).
  */
-function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
+export function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
   // Per-request issue-time tracking so `probe.network.response.duration_ms`
   // reflects the request→response wall-clock, not just the response event.
-  const requestStartByUrl = new Map<string, number>();
+  //
+  // Keyed by URL → a FIFO QUEUE of issue times (not a single scalar). A bare
+  // `Map<url, number>` overwrote the start time when the same URL was POSTed
+  // again before its first response arrived (repeated/concurrent same-URL
+  // POSTs — the norm for the agent-message endpoint), and the FIRST response
+  // then deleted the entry, leaving every later same-URL response with
+  // `duration_ms = 0`. A per-URL FIFO pairs each response with the OLDEST
+  // outstanding request for that URL, so every request/response pair gets its
+  // own duration. (HTTP/1.1 keep-alive is request-ordered per connection, and
+  // even with multiplexing the FIFO pairing keeps durations bounded and
+  // non-zero rather than colliding to 0.)
+  const requestStartsByUrl = new Map<string, number[]>();
   return {
     goto: (url, opts) => page.goto(url, opts),
     type: (sel, text, opts) => page.type(sel, text, opts),
@@ -800,10 +830,16 @@ function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
             clHeader !== undefined && clHeader !== ""
               ? Number.parseInt(clHeader, 10)
               : null;
-          const startedAt = requestStartByUrl.get(url);
+          // FIFO-pair this response with the OLDEST outstanding request for
+          // the same URL so repeated/concurrent same-URL POSTs each keep their
+          // own duration (see `requestStartsByUrl` rationale above).
+          const queue = requestStartsByUrl.get(url);
+          const startedAt = queue !== undefined ? queue.shift() : undefined;
+          if (queue !== undefined && queue.length === 0) {
+            requestStartsByUrl.delete(url);
+          }
           const durationMs =
             startedAt !== undefined ? Math.round(nowMonoMs() - startedAt) : 0;
-          requestStartByUrl.delete(url);
           handler({
             url,
             status: resp.status(),
@@ -832,7 +868,13 @@ function wirePlaywrightPage(page: PlaywrightPageLike): E2ePage {
       page.on("request", (arg) => {
         try {
           const req = arg as { url(): string };
-          requestStartByUrl.set(req.url(), nowMonoMs());
+          const url = req.url();
+          const queue = requestStartsByUrl.get(url);
+          if (queue !== undefined) {
+            queue.push(nowMonoMs());
+          } else {
+            requestStartsByUrl.set(url, [nowMonoMs()]);
+          }
         } catch {
           /* ignore */
         }
@@ -1556,6 +1598,28 @@ async function runLevel(opts: {
   /** Capture the agent-message POST edge headers for `probe.message.send`. */
   let messageSendEdge: ReturnType<typeof filterEdgeHeaders> | undefined;
   /**
+   * `probe.message.send` char_count (Unicode code points, not UTF-16 units),
+   * captured at send time but EMITTED after the message-POST response is
+   * observed so the boundary carries real `edge_headers`. See `emitMessageSend`.
+   */
+  const messageCharCount = [...message].length;
+  /**
+   * Fire `probe.message.send` EXACTLY ONCE, with whatever edge headers have
+   * been observed by then. The edge headers come from the message-POST
+   * RESPONSE (the `onResponse` seam), which arrives AFTER `press("Enter")` —
+   * so emitting at press time always saw an empty `messageSendEdge`. Emit from
+   * the `onResponse` seam the moment the message-POST response lands (real edge
+   * headers), with a fallback emit after the response wait so a run where no
+   * message-POST response is ever observed still records the boundary (null
+   * edge headers). `emitted` makes the two call sites idempotent.
+   */
+  let messageSendEmitted = false;
+  const emitMessageSend = (): void => {
+    if (messageSendEmitted) return;
+    messageSendEmitted = true;
+    cvdiag?.messageSend(0, messageCharCount, messageSendEdge);
+  };
+  /**
    * The most-recent agent-message POST response (L2-C): retained so the
    * DEBUG-tier raw-byte stub below can read its (lazily-fetched) body + the
    * content/transfer-encoding + content-type needed by the capture pipeline.
@@ -1584,6 +1648,10 @@ async function runLevel(opts: {
           // raw-byte stub. The body itself is read lazily (and only at DEBUG)
           // via `resp.body()` so non-DEBUG runs never pay the read.
           lastMessagePostResp = resp;
+          // Now that the message-POST response (and its edge headers) is in
+          // hand, emit `probe.message.send` with the REAL edge headers. Emitting
+          // at press time (before this response) always saw empty edge headers.
+          emitMessageSend();
         }
       });
       p.onRequestFailed?.((req) => cvdiag.networkError(req));
@@ -1634,16 +1702,15 @@ async function runLevel(opts: {
     await page.type("textarea", message, { timeout: pageTimeoutMs });
     await page.press("textarea", "Enter", { timeout: pageTimeoutMs });
 
-    // probe.message.send — the agent-message POST has been issued. Edge headers
-    // are captured from the message-POST response observed on the `onResponse`
-    // seam (set above); absent → all-null edge headers.
-    //
-    // `char_count` is a USER-FACING character count, so count Unicode code
-    // points (`[...message].length`) rather than `message.length` (UTF-16
-    // code units, which over-counts any astral-plane char as 2). The field's
-    // intent is "how many characters did the user send", not the JS string's
-    // internal unit count.
-    cvdiag?.messageSend(0, [...message].length, messageSendEdge);
+    // probe.message.send is NOT emitted here: at press time the agent-message
+    // POST has only just been ISSUED — its response (and thus its edge headers)
+    // has not arrived yet, so emitting now would always record empty
+    // `edge_headers`. The emit is driven from the `onResponse` seam above the
+    // moment the message-POST response lands (real edge headers), with a
+    // fallback `emitMessageSend()` after the response-wait below so a run where
+    // no message-POST response is ever observed still records the boundary
+    // (null edge headers). `char_count` (a USER-FACING Unicode code-point
+    // count, computed once as `messageCharCount`) is timing-independent.
 
     // Wait for an assistant message to appear. The helper's testid
     // convention is `[data-testid="copilot-assistant-message"]`; some
@@ -1744,6 +1811,14 @@ async function runLevel(opts: {
       }
     }
 
+    // Fallback `probe.message.send`: the `onResponse` seam emits this the
+    // moment the message-POST response lands (real edge headers). If no
+    // message-POST response was ever observed (e.g. the page never issued one,
+    // or it errored before responding), emit here so the boundary is still
+    // recorded — idempotent via `emitMessageSend`, so a normal run that already
+    // emitted from the seam is unaffected.
+    emitMessageSend();
+
     // probe.dom.alternate_content — on a clean exit whose assistant text is
     // still empty (the d4 flap surface, class (d)): snapshot the child-element
     // type histogram of the assistant-message container so a markdown widget /
@@ -1758,8 +1833,24 @@ async function runLevel(opts: {
       // emitter's resolved tier AND a wired pbWriter. `captureRawBytes` is a
       // hard no-op (returns null) at any non-debug tier, so this whole block
       // costs nothing on a normal run; we additionally avoid the body read.
+      //
+      // `cvdiagEmitter.tier` is set ONCE at construction and stays "debug" even
+      // after DEBUG AUTO-DISARMS at runtime (the emitter's 10-minute /
+      // 10k-event bounds): `shouldEmit` then degrades data-plane emits to
+      // default-tier inclusion, but `tier` itself never flips. So
+      // `tier === "debug"` alone does NOT prove DEBUG is still active — and
+      // raw-byte body capture is the MOST PII-sensitive path CVDIAG has, so it
+      // MUST stop the instant DEBUG disarms. Probe the live DEBUG-armed state
+      // via the public `shouldEmit` of a debug-EXCLUSIVE boundary
+      // (`aimock.sse.chunk` is `debug:true / verbose:false / default:false`):
+      // it returns true ONLY while DEBUG is armed AND not expired, picking up
+      // the auto-disarm fall-through. Gate the block on it AND thread it as the
+      // real `debugEnabled` so the fail-closed invariant holds post-disarm
+      // (replacing the previous misleading hardcoded `debugEnabled: true`).
+      const debugActive =
+        cvdiagEmitter?.shouldEmit("aimock.sse.chunk") === true;
       if (
-        cvdiagEmitter?.tier === "debug" &&
+        debugActive &&
         cvdiagPbWriter !== undefined &&
         lastMessagePostResp !== undefined
       ) {
@@ -1780,7 +1871,10 @@ async function runLevel(opts: {
               transferEncoding: String(headers["transfer-encoding"] ?? ""),
               contentType: String(headers["content-type"] ?? ""),
               tier: "debug",
-              debugEnabled: true,
+              // The LIVE DEBUG-armed state (not a hardcoded `true`): once DEBUG
+              // auto-disarms, `debugActive` is false, `captureRawBytes` returns
+              // null, and no body is captured — fail-closed preserved.
+              debugEnabled: debugActive,
               allowedSlugs: cvdiagDebugAllowList,
             });
             if (sample !== null) {

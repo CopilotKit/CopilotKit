@@ -5,6 +5,8 @@ import {
   createPooledE2eSmokeLauncher,
   runInternalAbArm,
   buildEdgeAbRecord,
+  CvdiagProbeSession,
+  wirePlaywrightPage,
 } from "./d4-chat-roundtrip.js";
 import { filterEdgeHeaders } from "../../cvdiag/index.js";
 import { computeAbReport } from "../../cvdiag/ab-report.js";
@@ -789,6 +791,16 @@ interface CvPageScript {
   alternateHistogram?: Record<string, number>;
   /** Responses delivered synchronously after `goto` to the onResponse seam. */
   responses?: CvdiagResponseEvent[];
+  /**
+   * Responses delivered on the FIRST assistant-text read (the `evaluate` poll),
+   * which runs AFTER `press("Enter")` returns — models PRODUCTION ordering,
+   * where the agent-message POST response (and thus its edge headers) arrives
+   * asynchronously AFTER the user submits, strictly later than any synchronous
+   * press-time work. The pre-fix code emitted `probe.message.send` synchronously
+   * right after press, so this response (and its edge headers) was not yet
+   * observed → empty `edge_headers`.
+   */
+  responsesAfterSubmit?: CvdiagResponseEvent[];
   /** Console messages delivered to the onConsole seam after goto. */
   consoleMessages?: CvdiagConsoleEvent[];
   /** SSE events delivered to the onSseEvent seam after goto. */
@@ -822,6 +834,12 @@ function makeCvBrowser(script: CvPageScript): CvE2eBrowser {
     },
     async evaluate<R>(): Promise<R> {
       evaluateCall += 1;
+      // PRODUCTION ordering: the message-POST response arrives ASYNC, after
+      // press("Enter") returns — model it by driving it on the first
+      // assistant-text read (which the driver runs post-submit).
+      if (evaluateCall === 1) {
+        for (const r of script.responsesAfterSubmit ?? []) respHandler?.(r);
+      }
       // First evaluate call(s): assistant-message text read. The
       // alternate-content read happens AFTER the poll loop, on empty exit.
       if (script.assistantText && script.assistantText.length > 0) {
@@ -1096,6 +1114,158 @@ describe("d4 CVDIAG probe instrumentation (L1-A)", () => {
     expect(rawByteSamples[0]!.test_id).toBe(eventTestId);
     // And it is NOT the raw d4-<slug>-<runId> X-Test-Id (the pre-fix value).
     expect(rawByteSamples[0]!.test_id).not.toMatch(/^d4-/);
+  });
+});
+
+// ── M3 CR R1: d4 probe data-correctness fixes ───────────────────────────────
+
+describe("d4 CVDIAG data-correctness (M3 CR R1)", () => {
+  function bufDir(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-test-"));
+  }
+
+  // ── FIX 1: per-request timing key (no same-URL duration collision) ─────────
+  it("FIX 1: repeated same-URL POSTs each get their own non-zero duration_ms", () => {
+    // RED (pre-fix): `requestStartByUrl` keyed by URL ONLY — the 2nd request
+    // overwrote the 1st's start time, and the 1st response DELETED the entry,
+    // so the 2nd same-URL response saw `startedAt === undefined` → duration 0.
+    // GREEN: a per-URL FIFO pairs each response with its own request start.
+    const handlers = new Map<string, (arg: unknown) => void>();
+    const fakePage = {
+      goto: async () => null,
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => null,
+      evaluate: async <R,>() => "" as unknown as R,
+      close: async () => {},
+      on(event: string, handler: (arg: unknown) => void) {
+        handlers.set(event, handler);
+      },
+    };
+    const adapted = wirePlaywrightPage(fakePage);
+    const durations: number[] = [];
+    adapted.onResponse?.((r) => durations.push(r.durationMs));
+
+    const reqHandler = handlers.get("request")!;
+    const respHandler = handlers.get("response")!;
+    const URL = "https://x.example.com/api/copilotkit";
+    const mkReq = () => ({ url: () => URL });
+    const mkResp = () => ({
+      url: () => URL,
+      status: () => 200,
+      headers: () => ({}),
+      request: () => ({ method: () => "POST" }),
+    });
+
+    // Two same-URL requests issued back-to-back BEFORE either response — the
+    // exact concurrent/repeat pattern that collided to 0 pre-fix.
+    reqHandler(mkReq());
+    reqHandler(mkReq());
+    // A short spin so the wall-clock delta is measurably > 0.
+    const spinUntil = performance.now() + 2;
+    while (performance.now() < spinUntil) {
+      /* burn a couple ms so durations are non-zero */
+    }
+    respHandler(mkResp());
+    respHandler(mkResp());
+
+    expect(durations.length).toBe(2);
+    // BOTH responses get a real, non-zero duration (pre-fix the 2nd was 0).
+    expect(durations[0]).toBeGreaterThan(0);
+    expect(durations[1]).toBeGreaterThan(0);
+  });
+
+  // ── FIX 2: SSE timeout carve-out does not double-emit live events ──────────
+  it("FIX 2: timeout carve-out re-emits ONLY events not already emitted live", async () => {
+    // RED (pre-fix): every observed SSE event is buffered AND (under the rate)
+    // emitted live; on a timeout the FULL buffer is flushed again, duplicating
+    // the already-live-emitted rows and DOUBLING `sse_event_count`. GREEN: the
+    // carve-out flushes only events the §7 sampling stride dropped.
+    const writer = new CaptureWriter();
+    const emitter = new CvdiagEmitter({
+      verbose: true, // probe.sse.event is verbose+; default tier suppresses it.
+      env: {},
+      layer: "probe",
+      pbWriter: writer,
+    });
+    const session = new CvdiagProbeSession({
+      emitter,
+      testId: "017f22e2-79b0-7cc3-98c4-dc0c0c07398f",
+      slug: "foo",
+      demo: "agentic-chat",
+      bufferDir: bufDir(),
+      nowMs: 0,
+    });
+
+    // Three SSE events, all under the rate target → all emitted LIVE.
+    session.sseEvent({ eventType: "RUN_STARTED", payloadSizeBytes: 20 }, 0);
+    session.sseEvent({ eventType: "TEXT_CHUNK", payloadSizeBytes: 40 }, 1);
+    session.sseEvent({ eventType: "RUN_FINISHED", payloadSizeBytes: 10 }, 2);
+    // Terminal timeout — the carve-out path.
+    session.exit("timeout", 999);
+    await emitter.flush();
+
+    const sse = byBoundary(writer, "probe.sse.event");
+    // Exactly 3 rows — NOT 6 (pre-fix doubled them on the timeout flush).
+    expect(sse.length).toBe(3);
+    // sequence_num is a clean 0,1,2 — no duplicates/re-emits.
+    expect(sse.map((e) => e.metadata.sequence_num)).toEqual([0, 1, 2]);
+    // probe.exit.sse_event_count matches the real emitted count (3, not 6).
+    const exit = byBoundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.metadata.sse_event_count).toBe(3);
+  });
+
+  // ── FIX 3: probe.message.send edge_headers read AFTER the response ─────────
+  it("FIX 3: message.send carries edge_headers when the POST response lands after submit (prod ordering)", async () => {
+    // RED (pre-fix): `messageSend` was emitted right after press("Enter"),
+    // BEFORE the message-POST response arrived, so `messageSendEdge` was still
+    // undefined → empty `edge_headers` in production. GREEN: the emit is driven
+    // off the onResponse seam (after the response lands), so it carries the
+    // real edge headers even when the response arrives AFTER submit.
+    const writer = new CaptureWriter();
+    const emitter = new CvdiagEmitter({
+      verbose: true,
+      env: {},
+      layer: "probe",
+      pbWriter: writer,
+    });
+    const browser = makeCvBrowser({
+      assistantText: "Hi there",
+      // Deliver the message-POST response AFTER submit (on the assistant-text
+      // poll), not during goto — models production, where the response (and
+      // edge headers) post-dates the user's Enter keypress.
+      responsesAfterSubmit: [
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "cf-mitigated": "challenge", "content-length": "12" },
+          contentLength: 12,
+          durationMs: 5,
+          isMessagePost: true,
+        },
+      ],
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+    });
+    await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    const send = byBoundary(writer, "probe.message.send");
+    // Emitted exactly once.
+    expect(send.length).toBe(1);
+    // It carries the REAL edge headers from the post-submit response (pre-fix
+    // this was empty because the emit happened before the response landed).
+    expect(send[0]!.edge_headers["cf-mitigated"]).toBe("challenge");
   });
 });
 
