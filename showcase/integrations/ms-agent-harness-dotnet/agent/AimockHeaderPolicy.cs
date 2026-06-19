@@ -4,11 +4,23 @@
 // See: https://www.notion.so/copilotkit/3543aa3818528150b6acc5b872ad7fe5
 
 using System.ClientModel.Primitives;
+using Microsoft.AspNetCore.Http;
 using OpenAI;
 
 // TODO(copilotkit-sdk-dotnet): migrate to SDK-level header propagation
 public class AimockHeaderPolicy : PipelinePolicy
 {
+    // Seeded once at startup from Program.cs (where the DI container exists).
+    // The policy is created statically via CreateOpenAIClientOptions at
+    // agent-factory construction time and has no DI access, so it reads the
+    // request's HttpContext through this seeded singleton accessor — mirroring
+    // the CvDiag.Logger static-seed pattern. IHttpContextAccessor is a singleton
+    // that resolves the *current* request's HttpContext via a holder the server
+    // seeds at request entry; that holder flows across the AG-UI SSE-pump
+    // ExecutionContext boundary, so the headers the middleware stashed on
+    // HttpContext.Items are visible here at outbound-call time.
+    public static IHttpContextAccessor? HttpContextAccessor { get; set; }
+
     public override void Process(PipelineMessage message, IReadOnlyList<PipelinePolicy> pipeline, int currentIndex)
     {
         ApplyHeadersAndDiag(message);
@@ -143,12 +155,14 @@ public class AimockHeaderPolicy : PipelinePolicy
     }
 
     // Forwards the captured x-* headers onto the outbound LLM request and emits
-    // the CVDIAG outbound breadcrumb. x-diag-run-id / x-diag-hops rode the
-    // AsyncLocal context the same way as x-aimock-context. This layer appends
-    // its hop tag to x-diag-hops on the outbound call.
+    // the CVDIAG outbound breadcrumb. The headers are read from the current
+    // request's HttpContext.Items via IHttpContextAccessor — HttpContext flows
+    // across the AG-UI SSE-pump ExecutionContext boundary, so the value the
+    // middleware stashed is still visible here at outbound-call time. This layer
+    // appends its hop tag to x-diag-hops on the outbound call.
     private static void ApplyHeadersAndDiag(PipelineMessage message)
     {
-        var headers = AimockHeaderContext.Get();
+        var headers = AimockHeaderContext.Get(HttpContextAccessor?.HttpContext);
         foreach (var header in headers)
         {
             if (string.Equals(header.Key, CvDiag.HeaderDiagHops, StringComparison.OrdinalIgnoreCase))

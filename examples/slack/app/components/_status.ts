@@ -1,24 +1,11 @@
 /**
- * Shared status/priority → emoji mapping for the Linear components.
- * `*Shortcode` variants (`:large_blue_circle:`) render in mrkdwn (section /
- * context); `*Unicode` variants render in `header` blocks, which are
- * plain_text and don't expand mrkdwn shortcodes reliably.
+ * Shared status/priority → glyph mapping for the Linear components. The
+ * functions return unicode glyphs (not Slack `:shortcode:` strings), so the
+ * components render identically on Slack and Telegram.
  */
 
-/** Linear workflow-state name → status dot (mrkdwn shortcode). */
-export function stateShortcode(state?: string): string {
-  const s = (state ?? "").toLowerCase();
-  if (s.includes("done") || s.includes("complete")) return ":white_check_mark:";
-  if (s.includes("progress") || s.includes("started"))
-    return ":large_blue_circle:";
-  if (s.includes("review")) return ":large_purple_circle:";
-  if (s.includes("cancel")) return ":no_entry_sign:";
-  if (s.includes("backlog")) return ":white_circle:";
-  return ":large_orange_circle:"; // Todo / triage / unknown
-}
-
-/** Same mapping, as a unicode glyph for `header` blocks. */
-export function stateUnicode(state?: string): string {
+/** Unicode glyph for a Linear workflow-state name. */
+export function stateGlyph(state?: string): string {
   const s = (state ?? "").toLowerCase();
   if (s.includes("done") || s.includes("complete")) return "✅";
   if (s.includes("progress") || s.includes("started")) return "🔵";
@@ -28,13 +15,13 @@ export function stateUnicode(state?: string): string {
   return "🟠";
 }
 
-/** Linear priority label → emoji (mrkdwn shortcode), or "" for none. */
-export function priorityShortcode(priority?: string): string {
+/** Unicode glyph for a Linear priority label, or "" for none/unknown. */
+export function priorityGlyph(priority?: string): string {
   const p = (priority ?? "").toLowerCase();
-  if (p.includes("urgent")) return ":rotating_light:";
-  if (p.includes("high")) return ":red_circle:";
-  if (p.includes("medium")) return ":large_orange_circle:";
-  if (p.includes("low")) return ":white_circle:";
+  if (p.includes("urgent")) return "🚨";
+  if (p.includes("high")) return "🔴";
+  if (p.includes("medium")) return "🟠";
+  if (p.includes("low")) return "⚪";
   return "";
 }
 

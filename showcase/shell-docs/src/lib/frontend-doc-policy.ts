@@ -125,7 +125,7 @@ export function resolveFrontendDocPage(
         status: "found",
         slugPath,
         contentSlugPath: variantContentSlug,
-        canonicalPath: `/frontends/${frontend}/${slugPath}`,
+        canonicalPath: `/${frontend}/${slugPath}`,
         policy,
       };
     }
@@ -137,7 +137,7 @@ export function resolveFrontendDocPage(
       status: "found",
       slugPath,
       contentSlugPath: slugPath,
-      canonicalPath: `/${slugPath}`,
+      canonicalPath: `/${frontend}/${slugPath}`,
       policy,
     };
   }
@@ -147,7 +147,7 @@ export function resolveFrontendDocPage(
       status: "found",
       slugPath,
       contentSlugPath: variantContentSlug,
-      canonicalPath: `/frontends/${frontend}/${slugPath}`,
+      canonicalPath: `/${frontend}/${slugPath}`,
       policy: { kind: "frontend-variant", fallback: "hide" },
     };
   }

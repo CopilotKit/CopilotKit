@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/bot-discord",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Discord PlatformAdapter for @copilotkit/bot.",
   "license": "MIT",
   "repository": {

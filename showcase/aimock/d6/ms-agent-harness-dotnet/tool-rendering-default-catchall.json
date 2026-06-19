@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for ms-agent-harness-dotnet / tool-rendering-default-catchall",
+    "sourceFile": "d5-tool-rendering-default-catchall.ts",
+    "created": "2026-05-22"
+  },
+  "fixtures": [
+    {
+      "_comment": "tool-rendering-default-catchall — weather in Tokyo follow-up. After get_weather tool result returns, emit narrated content. MUST come before the tool-emitting fixture so iteration 2 hits this branch. The built-in default renderer renders [data-testid='copilot-tool-render'][data-tool-name='get_weather'] with a status pill [data-testid='copilot-tool-render-status'].",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolCallId": "call_d6_dc_weather_001",
+        "context": "ms-agent-harness-dotnet"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy — the default catchall renderer displayed the tool card above."
+      }
+    },
+    {
+      "_comment": "tool-rendering-default-catchall — weather in Tokyo (first turn). Emits get_weather tool call that the built-in default catchall renderer handles.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "toolName": "get_weather",
+        "context": "ms-agent-harness-dotnet"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_dc_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-default-catchall — weather in Tokyo fallback when no get_weather tool registered.",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "turnIndex": 0,
+        "context": "ms-agent-harness-dotnet"
+      },
+      "response": {
+        "content": "The weather in Tokyo is currently 22°C with partly cloudy skies and light easterly winds."
+      }
+    }
+  ]
+}

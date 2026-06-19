@@ -114,6 +114,14 @@ export function resolveEnv(name: string): { env: EnvName; envId: string } {
  * - "webhooks" — synthetic event POST and downstream confirmation.
  * - "agent" — generic agent backend (the showcase-* integration services);
  *   feature-level fixture call into the integration's /api endpoint.
+ * - "starter" — the starter-template container fleet (`starter-<slug>`).
+ *   These are NOT verified by the verify-deploy feature-driver matrix: they
+ *   are probed by the harness `starter_smoke` axis (railway-services source,
+ *   namePrefix "starter-", writing `starter:<column-slug>/<level>` rows).
+ *   verify-deploy.drivers.ts carries a fail-loud placeholder `case "starter"`
+ *   purely to satisfy the exhaustive switch; the equivalence gate (S3) reads
+ *   this driver to route a starter to the starter-smoke axis. Starters set
+ *   staging probe OFF so they never enter the verify-deploy staging matrix.
  */
 export type ProbeDriver =
   | "shell"
@@ -125,7 +133,8 @@ export type ProbeDriver =
   | "dojo"
   | "docs"
   | "dashboard"
-  | "agent";
+  | "agent"
+  | "starter";
 
 /**
  * Per-env configuration for a service. One of these lives under each key of
@@ -232,6 +241,45 @@ export interface ServiceEntry {
    */
   gateIgnore?: boolean;
   /**
+   * Promote ordering tier for the equivalence-gated cluster promote
+   * (`computePromoteClosure`). Lower tiers pin+verify BEFORE higher tiers,
+   * and a tier gates its dependents (a stale aimock/harness under fresh
+   * integrations = a non-equivalent prod):
+   *   - 0 — shared infra the whole cluster runs against (`aimock`,
+   *     `pocketbase`, `webhooks`);
+   *   - 1 — the verification control plane + dashboard
+   *     (`harness`, `harness-workers`, `dashboard`), ALWAYS pulled into an
+   *     equivalence-gated promote so the post-promote re-sweep + dashboard
+   *     read run against the just-promoted harness/PB;
+   *   - 2 — integrations and shells (the leaf set an operator names).
+   * OPTIONAL: defaults to 2 when omitted (the leaf default). This field is
+   * promote-only — it does NOT affect the staging redeploy scope.
+   */
+  promoteTier?: 0 | 1 | 2;
+  /**
+   * SSOT keys this service needs PRESENT-AND-CURRENT in the target env for
+   * its own promote to be meaningful — the transitive runtime dependencies
+   * `computePromoteClosure` pulls into the promote closure. Distinct from
+   * `imageOf` (image-sharing for the redeploy scope): `runtimeDeps` models
+   * "this service talks to that service at runtime", e.g. each `agent`
+   * integration → `["aimock"]` (it routes LLM traffic at the env-local
+   * aimock) and the `dashboard` → `["pocketbase","harness"]` (it reads the
+   * PB rows the harness writes). OPTIONAL; omitted = no runtime deps. Every
+   * entry must be an existing SSOT key (enforced by `assertClosureValid`).
+   */
+  runtimeDeps?: string[];
+  /**
+   * Cross-service env-var references this service carries in the target env
+   * — an env var (`key`) whose VALUE must point at another SSOT service's
+   * (`target`) env-LOCAL host (prod→prod, staging→staging). e.g. an agent's
+   * `OPENAI_BASE_URL` must resolve to the env's own aimock, never the other
+   * env's. The Stage-2 Ruby preflight (U5) ASSERTS these (REFUSE on
+   * mismatch — the `ms-agent-dotnet` cross-env class); it never copies a
+   * value. OPTIONAL; omitted = no service refs. Every `target` must be an
+   * existing SSOT key (enforced by `assertClosureValid`).
+   */
+  serviceRefs?: { key: string; target: string }[];
+  /**
    * Ruby/jq-BOUNDARY COMPATIBILITY SHIM — read ONLY by
    * `emit-railway-envs-json.ts`, never by any TS accessor.
    *
@@ -293,6 +341,9 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "showcase-aimock",
     probeDriver: "aimock",
+    // Tier-0 shared infra: every agent integration routes its LLM traffic at
+    // the env-local aimock, so aimock pins+verifies before any tier-1/2.
+    promoteTier: 0,
     // Aimock runs the `showcase-aimock` wrapper image in BOTH envs.
     // The wrapper (built from `showcase/aimock/Dockerfile`) bakes the
     // showcase fixture tree into base aimock and is the permanent,
@@ -321,6 +372,11 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "shell-dashboard",
     probeDriver: "dashboard",
+    // Tier-1 verification surface: the dashboard reads the PB rows the
+    // harness writes, so an equivalence-gated promote always pulls it in.
+    promoteTier: 1,
+    // Runtime deps: it reads pocketbase rows produced by the harness sweep.
+    runtimeDeps: ["pocketbase", "harness"],
     // Railway service name is `dashboard`; GHCR repo is
     // `showcase-shell-dashboard`. Same override for both envs:
     // staging :latest, prod @sha256 — uniform across all services.
@@ -389,6 +445,9 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "showcase-harness",
     probeDriver: "harness",
+    // Tier-1 verification control plane: the post-promote re-sweep runs on
+    // the just-promoted harness, so it pins+verifies before tier-2.
+    promoteTier: 1,
     // Railway service name is `harness`; GHCR repo is `showcase-harness`.
     // ciBuilt: true, gateValidated: true — uniform with the rest of
     // the CI-built integrations now that WS-C has flipped the five.
@@ -436,6 +495,10 @@ export const SERVICES: Record<
     gateValidated: false,
     gateIgnore: true,
     probeDriver: "harness",
+    // Tier-1 verification fleet. STAGING-ONLY today (no prod env below), so
+    // computePromoteClosure records it as skipped-with-reason rather than
+    // promoting it; the tier survives for when a prod worker is provisioned.
+    promoteTier: 1,
     // The worker runs the SAME `showcase-harness` GHCR image that the
     // existing `harness` (control-plane) service runs — it is NOT a
     // separately-built image. The single `showcase-harness` build slot in
@@ -540,6 +603,9 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "showcase-pocketbase",
     probeDriver: "pocketbase",
+    // Tier-0 shared infra: the verification control plane (harness) writes
+    // its sweep rows here, so PB pins+verifies before tier-1.
+    promoteTier: 0,
     environments: {
       prod: {
         instanceId: "1ee376e2-13f2-4464-801e-d0aa0bf76532",
@@ -583,6 +649,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "ag2",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "de571c97-03fd-486b-8a54-9767a4a53f95",
@@ -602,6 +674,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "agno",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "026d12fb-2844-42af-8f92-b47bc8a06bc8",
@@ -621,6 +699,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "built-in-agent",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "40018ef7-1ed1-4979-b80c-9c2d957b6d88",
@@ -640,6 +724,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "claude-sdk-python",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "bb18caaf-9a3e-4fdd-85ec-562fd82a3a89",
@@ -659,6 +749,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "claude-sdk-typescript",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "bee425e4-9661-4a88-8888-922b8cd4b61d",
@@ -678,6 +774,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "crewai-crews",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "3dab0cc3-cab1-4579-b772-947268088514",
@@ -697,6 +799,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "google-adk",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "7b2da5db-87d2-40ad-a3d9-b2d7a5485a22",
@@ -716,6 +824,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "langgraph-fastapi",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "105b7e01-acd0-48e2-9a09-541e2103e8d2",
@@ -735,6 +849,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "langgraph-python",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "aec504f7-63d7-4ea6-9d50-601b00d2ae80",
@@ -754,6 +874,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "langgraph-typescript",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "f53e9fdc-7c3e-4dfd-9fa8-d7241fd55bb8",
@@ -773,6 +899,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "langroid",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "6b5e20b5-8f8e-4ec3-9288-7a41122e42e5",
@@ -792,6 +924,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "llamaindex",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "b778856e-9f90-4136-9415-fb2b41173f8d",
@@ -811,6 +949,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "mastra",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "eaeddd9c-8b75-426f-b033-0fd935cbf6ef",
@@ -830,6 +974,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "ms-agent-dotnet",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "93ca0edf-7b59-4de4-b1fd-3412bb07bc6a",
@@ -849,6 +999,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "ms-agent-harness-dotnet",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "8f91ebc6-95c0-4433-b1f7-657ff49c2d59",
@@ -868,6 +1024,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "ms-agent-python",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "323ed911-4d28-45ab-8fc0-7d151828b938",
@@ -887,6 +1049,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "pydantic-ai",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "192cd647-6824-4f01-937a-1da675d83805",
@@ -906,6 +1074,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "spring-ai",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "2fbf1db2-5e51-44c9-983c-3f2242d95c61",
@@ -925,6 +1099,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "strands",
     probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
     environments: {
       prod: {
         instanceId: "2123c71b-9385-443c-a1c3-bcf4b1669eeb",
@@ -938,12 +1118,326 @@ export const SERVICES: Record<
       },
     },
   },
+  // ───────────────────────── starter-* container fleet ─────────────────────
+  // The 12 starter-template containers (ghcr.io/copilotkit/starter-<slug>),
+  // live in BOTH staging and prod. Folded into the cluster-promote SSOT (S1)
+  // and brought UNDER THE GATE (S2) so they receive the SAME
+  // dependency-/env-/verification-complete + pinned-prod treatment as the
+  // showcase-* demos — one whole cluster, no carve-out. The SSOT key === the
+  // Railway service name === `starter-<RAW starter slug>`, where the RAW slug
+  // is a BARE key of STARTER_TO_COLUMN (e.g. `adk`, so the SSOT key is
+  // `starter-adk`) in harness/src/probes/helpers/starter-mapping.ts — NOT the
+  // remapped dashboard column slug.
+  //
+  // S2 SCOPE — these entries are now FULLY gate-managed, identical to a
+  // showcase-* agent:
+  //   - ciBuilt:true     → built+pushed by showcase_build.yml's `build-starters`
+  //                        job to `ghcr.io/copilotkit/starter-<slug>:latest`
+  //                        (the starter matrix `.image` === `starter-<slug>` ===
+  //                        this SSOT key). In the CI_BUILT_SERVICES redeploy
+  //                        scope. `dispatchName` === the SSOT key because the
+  //                        starter workflow_dispatch choice value is the bare
+  //                        `starter-<slug>` (assertDispatchNamesUnique permits a
+  //                        dispatchName equal to its OWN key).
+  //   - gateValidated:true / gateIgnore unset → verify-railway-image-refs.ts
+  //                        validates the canonical image shape (prod @sha256,
+  //                        staging :latest) and BOTH drift directions, exactly
+  //                        like showcase-*. No `repoName` override: the Railway
+  //                        service name already equals the GHCR repo name
+  //                        (`starter-<slug>`), so the gate's default
+  //                        `ghcr.io/copilotkit/<serviceName>` is correct.
+  //   - bin/railway lint-prod now COVERS these prod services (asserts they are
+  //                        @sha256-pinned).
+  //
+  // probeDriver "starter": the starters are verified by the harness
+  // `starter_smoke` axis, NOT the verify-deploy feature-driver matrix. The
+  // `starter_smoke` probe auto-discovers `starter-*` services (railway-services
+  // source, namePrefix "starter-") and writes `starter:<column-slug>/<level>`
+  // rows. prod probe ON (they ARE in prod); staging probe OFF so they do NOT
+  // enter the verify-deploy staging matrix (resolve-verify-matrix filters on
+  // probe.staging===true). The "starter" ProbeDriver is the S3 CONTRACT field:
+  // S3 wires the equivalence gate to READ this driver and route these entries
+  // to the starter-smoke axis (verify-deploy.drivers.ts has a placeholder
+  // `case "starter"` that fails loud if dispatched, since verify-deploy is not
+  // the starter verification path).
+  //
+  // runtimeDeps/serviceRefs mirror the showcase-* agents: each starter routes
+  // its LLM traffic at the env-local aimock (tier-0), so a cluster promote
+  // pulls aimock into the closure and the OPENAI_BASE_URL ref is ASSERTED
+  // prod→prod by the Stage-2 Ruby preflight (never copied).
+  "starter-adk": {
+    serviceId: "37691009-c0b2-4af7-8960-9f0b3f0a6be3",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-adk",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "cb23cae4-9555-4ddd-8a62-f1aa1ff72c67",
+        domain: "starter-adk-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "208a160a-0d7d-44b2-a94d-39e13b24e21a",
+        domain: "starter-adk-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
+  "starter-agno": {
+    serviceId: "5ab3c37e-18a5-44e5-8329-26243dd98da8",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-agno",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "2f58513b-5fe4-4b09-a28f-93d4caa277b5",
+        domain: "starter-agno-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "9944eb97-7f58-47f8-a49d-65603e209609",
+        domain: "starter-agno-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
+  "starter-crewai-crews": {
+    serviceId: "2a9a4230-e6cd-4c1d-92a5-36e5c624371a",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-crewai-crews",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "1a3e24cb-0752-45c8-b4a2-0c6096899875",
+        domain: "starter-crewai-crews-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "820895fb-f65c-4834-a07d-d454035d39c4",
+        domain: "starter-crewai-crews-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
+  "starter-langgraph-fastapi": {
+    serviceId: "6ae57213-52ea-4fea-b4a0-7bc304cbc80e",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-langgraph-fastapi",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "0679bc18-e9af-40c6-bc17-0b5eb2cd7bec",
+        domain: "starter-langgraph-fastapi-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "5f10e976-e121-48a5-bc18-2619798f2f10",
+        domain: "starter-langgraph-fastapi-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
+  "starter-langgraph-js": {
+    serviceId: "d044c3e5-bb27-4d5e-a2bf-e3b382981372",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-langgraph-js",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "50a2205b-8768-4765-b7a1-21941c105051",
+        domain: "starter-langgraph-js-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "43db83fe-fafb-445b-a19a-51bb086c71b9",
+        domain: "starter-langgraph-js-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
+  "starter-langgraph-python": {
+    serviceId: "10dca514-7c8f-4a32-9708-9f29a944da36",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-langgraph-python",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "24dad599-576a-4154-a621-c3af40629a8f",
+        domain: "starter-langgraph-python-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "58105e79-4020-4692-8749-c1a63ab63f2c",
+        domain: "starter-langgraph-python-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
+  "starter-llamaindex": {
+    serviceId: "3255b27f-ea84-44b7-b587-b1687b409363",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-llamaindex",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "c119f40b-dc71-4734-9716-c1085754b085",
+        domain: "starter-llamaindex-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "44446803-0505-456a-b0c4-01fe82fb3832",
+        domain: "starter-llamaindex-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
+  "starter-mastra": {
+    serviceId: "6548403e-3fee-4443-9d59-d8b041a3d43a",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-mastra",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "c6fba6d8-8dde-442b-948f-560bf25fa2f1",
+        domain: "starter-mastra-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "b246e52d-52d8-4015-bb06-89bd09d54f8f",
+        domain: "starter-mastra-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
+  "starter-ms-agent-framework-dotnet": {
+    serviceId: "1b4c5296-97f6-463d-90af-6e04d7919957",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-ms-agent-framework-dotnet",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "993237a4-9ee7-47b2-a5be-267e247c1409",
+        domain: "starter-ms-agent-framework-dotnet-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "6684c246-e8fd-45a7-86e4-c529a439976f",
+        domain: "starter-ms-agent-framework-dotnet-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
+  "starter-ms-agent-framework-python": {
+    serviceId: "225d0a06-d1cd-4b82-ae9c-2d1e8ecbaf86",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-ms-agent-framework-python",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "aa934881-340a-4fb7-8b39-9cb0a6f372b2",
+        domain: "starter-ms-agent-framework-python-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "a162348a-f768-4c3f-815c-f617819f64e6",
+        domain: "starter-ms-agent-framework-python-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
+  "starter-pydantic-ai": {
+    serviceId: "c01d0d24-af88-4631-8a9a-23cffef2b36a",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-pydantic-ai",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "74ce36fe-0b8f-446e-8e06-0b6496b6e829",
+        domain: "starter-pydantic-ai-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "25f4eb93-501a-4e5e-b7cf-343eb08ea613",
+        domain: "starter-pydantic-ai-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
+  "starter-strands-python": {
+    serviceId: "321735ab-c14d-4e45-a1c2-e47f2b29d774",
+    ciBuilt: true,
+    gateValidated: true,
+    dispatchName: "starter-strands-python",
+    probeDriver: "starter",
+    promoteTier: 2,
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      prod: {
+        instanceId: "4af440e0-ba05-48a5-b922-5b96a033891a",
+        domain: "starter-strands-python-production.up.railway.app",
+        probe: true,
+      },
+      staging: {
+        instanceId: "adc24096-584a-4ef3-93de-0bc92d49235c",
+        domain: "starter-strands-python-staging.up.railway.app",
+        probe: false,
+      },
+    },
+  },
   webhooks: {
     serviceId: "ba6acc13-7585-41fe-a5ee-585b34a58fcd",
     ciBuilt: false,
     gateValidated: true,
     dispatchName: "webhooks",
     probeDriver: "webhooks",
+    // Tier-0 shared infra (eval webhook relay): grouped with the other
+    // cluster-wide infra so it settles before tier-1/2 promote.
+    promoteTier: 0,
     // webhooks is a first-party ghcr.io/copilotkit/ image, but its
     // GHCR repo name is `showcase-eval-webhook` (NOT `webhooks`), and
     // it is built by a separate release workflow — not showcase_build.yml.
@@ -1180,6 +1674,242 @@ export function serviceForDispatchName(
     if (entry.dispatchName === dispatchName) return name;
   }
   return undefined;
+}
+
+/** One promotable member of a {@link ClosurePlan}, carrying its tier. */
+export interface ClosureMember {
+  /** Canonical SSOT key. */
+  name: string;
+  /** Promote tier (0 infra → 1 verification → 2 leaf). */
+  tier: 0 | 1 | 2;
+}
+
+/** A member excluded from the promotable set, with an explicit reason. */
+export interface ClosureSkip {
+  /** Canonical SSOT key. */
+  name: string;
+  /** Human-readable reason this member is not promoted (never silent). */
+  reason: string;
+}
+
+/**
+ * The tier-ordered promote plan computed by {@link computePromoteClosure}:
+ * the `services` an equivalence-gated promote should pin+verify (tier 0→1→2)
+ * plus the `skipped` members that were pulled into the closure but cannot be
+ * promoted today (e.g. a member with no `prod` env), each with an explicit
+ * reason so the exclusion is visible (§4.3 — never silent).
+ */
+export interface ClosurePlan {
+  /** Tier-ordered (0→1→2) list of promotable services. */
+  services: ClosureMember[];
+  /** Closure members excluded from `services`, each with a reason. */
+  skipped: ClosureSkip[];
+}
+
+/**
+ * The promote tiers, lowest-first. The promote loop (U4) iterates the
+ * closure in this order; a tier gates its dependents.
+ */
+const PROMOTE_TIERS: readonly (0 | 1 | 2)[] = [0, 1, 2];
+
+/** Structural view of a {@link ServiceEntry} the closure math needs. */
+type ClosureEntry = {
+  promoteTier?: 0 | 1 | 2;
+  runtimeDeps?: string[];
+  imageOf?: string;
+  gateIgnore?: boolean;
+  environments?: Record<string, unknown>;
+};
+
+/** The effective tier of an entry: declared `promoteTier`, default 2. */
+function tierOf(entry: ClosureEntry): 0 | 1 | 2 {
+  return entry.promoteTier ?? 2;
+}
+
+/**
+ * Compute the tier-ordered promote closure for `requested` (SSOT keys OR
+ * `showcase_build.yml` dispatch_names — resolved the same way
+ * `resolveTargetServices` does). PURE: reads the SSOT, returns a plan, never
+ * mutates anything.
+ *
+ * The closure is (§4.2):
+ *   requested
+ *     ∪ transitive `runtimeDeps` (each member's runtime deps, recursively)
+ *     ∪ the FULL Tier-1 verification set (ALWAYS — an equivalence-gated
+ *       promote re-sweeps on the just-promoted harness and reads via the
+ *       dashboard, so the control plane must itself be current)
+ *     ∪ explicit `imageOf` consumers of any member.
+ *
+ * NOTE the promote path does NOT inherit the staging-redeploy `imageOf`
+ * EXPANSION wholesale — it pulls a consumer in only because that consumer
+ * runs a closure member's image and would otherwise run a stale image after
+ * the member is pinned (§4.2). `harness-legacy` (`gateIgnore`, pinned
+ * out-of-band) is excluded entirely (§4.3). A member whose `environments`
+ * omits `prod` (e.g. `harness-workers` today, §4.4) cannot be promoted and is
+ * recorded in `skipped` with a reason rather than silently dropped (§4.3).
+ *
+ * Throws (fail loud) on a requested name that resolves to no SSOT entry.
+ *
+ * Accepts an injected map for testing; defaults to the real SERVICES map.
+ */
+export function computePromoteClosure(
+  requested: string[],
+  services: Record<string, ClosureEntry & { dispatchName?: string }> = SERVICES,
+): ClosurePlan {
+  // 1) Resolve requested names → SSOT keys (own-key first, then dispatchName),
+  //    mirroring resolveTargetServices. Fail loud on an unknown name.
+  const closure = new Set<string>();
+  const resolveKey = (raw: string): string => {
+    const name = raw.trim();
+    if (Object.hasOwn(services, name)) return name;
+    for (const [key, entry] of Object.entries(services)) {
+      if (entry.dispatchName === name) return key;
+    }
+    throw new Error(
+      `computePromoteClosure: unknown service "${raw}" — not an SSOT key or dispatch_name in railway-envs.ts.`,
+    );
+  };
+  for (const raw of requested) {
+    if (raw.trim() === "") continue;
+    closure.add(resolveKey(raw));
+  }
+
+  // 2) ALWAYS include the full Tier-1 verification set (the control plane +
+  //    dashboard the post-promote re-sweep / equivalence read run against).
+  for (const [key, entry] of Object.entries(services)) {
+    if (tierOf(entry) === 1) closure.add(key);
+  }
+
+  // 3) Transitive runtimeDeps closure (BFS). Every dep must be a real key —
+  //    a dangling dep is caught by assertClosureValid, but guard here too so
+  //    the pure function never dereferences a non-entry.
+  const queue = [...closure];
+  while (queue.length > 0) {
+    const key = queue.shift() as string;
+    const entry = Object.hasOwn(services, key) ? services[key] : undefined;
+    if (entry === undefined) continue;
+    for (const dep of entry.runtimeDeps ?? []) {
+      if (!closure.has(dep) && Object.hasOwn(services, dep)) {
+        closure.add(dep);
+        queue.push(dep);
+      }
+    }
+  }
+
+  // 4) Explicit imageOf consumers of any closure member (pull, do not inherit
+  //    the staging-redeploy env-aware expansion wholesale — §4.2).
+  for (const [consumer, entry] of Object.entries(services)) {
+    const target = entry.imageOf;
+    if (target !== undefined && closure.has(target)) closure.add(consumer);
+  }
+
+  // 5) Partition into promotable (tier-ordered) vs skipped-with-reason.
+  const promotable: ClosureMember[] = [];
+  const skipped: ClosureSkip[] = [];
+  for (const key of closure) {
+    const entry = services[key];
+    // harness-legacy class: pinned out-of-band, gateIgnore → excluded
+    // entirely (not even reported as skipped — it is deliberately untracked).
+    if (entry.gateIgnore === true && key === "harness-legacy") continue;
+    // No prod env → cannot be promoted (the staging-only worker today).
+    const envs = entry.environments ?? {};
+    if (!Object.hasOwn(envs, "prod")) {
+      skipped.push({
+        name: key,
+        reason: `no "prod" environment in the SSOT — cannot be promoted (it exists in: ${
+          Object.keys(envs).sort().join(", ") || "no environments"
+        }).`,
+      });
+      continue;
+    }
+    promotable.push({ name: key, tier: tierOf(entry) });
+  }
+
+  // Tier-ordered (0→1→2), stable within a tier on insertion order.
+  const services_ordered: ClosureMember[] = [];
+  for (const tier of PROMOTE_TIERS) {
+    for (const m of promotable) {
+      if (m.tier === tier) services_ordered.push(m);
+    }
+  }
+
+  return { services: services_ordered, skipped };
+}
+
+/**
+ * Throw on SSOT load (or in a test with injected input) if the promote
+ * closure is malformed (§4.5), MIRRORING `assertImageConsumersValid`:
+ *   - a member's `runtimeDeps` / `serviceRefs.target` names a non-existent
+ *     SSOT key (a dangling dep would silently never be promoted);
+ *   - the SSOT carries NO Tier-1 verification service (an equivalence-gated
+ *     promote with no control plane to re-sweep on is meaningless);
+ *   - the computed closure is EMPTY (refusing to silently promote nothing).
+ *
+ * `requested` defaults to the full set of declared dispatch_names so the
+ * module-load check exercises the real, fully-populated closure. Accepts an
+ * injected map for testing; defaults to the real SERVICES map.
+ */
+export function assertClosureValid(
+  requested: string[] = Object.keys(SERVICES),
+  services: Record<string, ClosureEntry & { dispatchName?: string }> = SERVICES,
+): void {
+  const problems: string[] = [];
+
+  // Dangling runtimeDeps / serviceRefs targets.
+  for (const [key, entry] of Object.entries(services)) {
+    for (const dep of entry.runtimeDeps ?? []) {
+      if (!Object.hasOwn(services, dep)) {
+        problems.push(
+          `  - runtimeDeps "${dep}" on "${key}" is not an SSOT key in SERVICES`,
+        );
+      }
+    }
+    const refs = (entry as { serviceRefs?: { target: string }[] }).serviceRefs;
+    for (const ref of refs ?? []) {
+      if (!Object.hasOwn(services, ref.target)) {
+        problems.push(
+          `  - serviceRefs target "${ref.target}" on "${key}" is not an SSOT key in SERVICES`,
+        );
+      }
+    }
+  }
+
+  // The SSOT must declare at least one Tier-1 verification service.
+  const hasTier1 = Object.values(services).some((e) => tierOf(e) === 1);
+  if (!hasTier1) {
+    problems.push(
+      `  - no Tier-1 verification service (promoteTier:1) in SERVICES — an equivalence-gated promote has no control plane to re-sweep on`,
+    );
+  }
+
+  // The computed closure must be non-empty. Skip this clause when the
+  // dangling-dep / missing-Tier-1 problems above already fired, since
+  // computePromoteClosure would throw on an unknown requested name before we
+  // could surface the curated message.
+  if (problems.length === 0) {
+    let plan: ClosurePlan | undefined;
+    try {
+      plan = computePromoteClosure(requested, services);
+    } catch (err) {
+      problems.push(`  - computePromoteClosure threw: ${String(err)}`);
+    }
+    if (plan !== undefined && plan.services.length === 0) {
+      problems.push(
+        `  - the computed promote closure is EMPTY — refusing to silently promote nothing`,
+      );
+    }
+  }
+
+  if (problems.length > 0) {
+    throw new Error(
+      `railway-envs promote-closure invariant violated:\n${problems.join(
+        "\n",
+      )}\n` +
+        `Fix: every runtimeDeps / serviceRefs target must be an existing ` +
+        `SSOT key, the SSOT must declare at least one Tier-1 (promoteTier:1) ` +
+        `service, and the computed closure must be non-empty.`,
+    );
+  }
 }
 
 /**
@@ -1490,3 +2220,4 @@ assertDispatchNamesUnique();
 assertImageConsumersValid();
 assertEnvRegistryConsistent();
 assertServiceAndInstanceIdsUnique();
+assertClosureValid();

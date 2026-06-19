@@ -103,4 +103,59 @@ class PromoteP2Test < Minitest::Test
         combined = out + err
         refute_match(/REFUSE: P2/, combined)
     end
+
+    def test_refuses_when_running_digest_from_meta_imageDigest_does_not_match
+        # REAL staging shape: the staging ref is TAG-FORM (`…:latest`), so the
+        # running digest is NOT in meta.image (which is also tag-form). It lives
+        # in meta.imageDigest. P1's resolved_prod_image pins staging's running
+        # digest (svc-1 below resolves to sha256:OLD via staging_running_digest),
+        # while the LATEST deployment is now running sha256:NEW — an in-flight
+        # race. Before the fix, deployed_digest read meta.image (no `@`) → nil →
+        # the guard was DEAD and never REFUSEd. Now it reads meta.imageDigest.
+        staging = { "services" => [{
+            "name" => "x", "service_id" => "svc-1",
+            "image" => "ghcr.io/copilotkit/x:latest", "digest" => nil,
+            "env_keys" => [],
+        }] }
+        deps = { "svc-1" => [
+            { "id" => "d2", "status" => "SUCCESS",
+              "meta" => { "image" => "ghcr.io/copilotkit/x:latest", "imageDigest" => "sha256:NEW" },
+              "createdAt" => "2026-05-28T02:00:00Z" },
+            { "id" => "d1", "status" => "SUCCESS",
+              "meta" => { "image" => "ghcr.io/copilotkit/x:latest", "imageDigest" => "sha256:OLD" },
+              "createdAt" => "2026-05-28T01:00:00Z" },
+        ] }
+        # Pin @promote_refs as if P1 resolved the OLDER running digest, so the
+        # latest deployment (sha256:NEW) is a genuine in-flight race.
+        c = cmd_with(staging: staging, deployments: deps)
+        c.instance_variable_set(:@promote_refs, { "x" => "ghcr.io/copilotkit/x@sha256:OLD" })
+        findings = c.send(:check_p2_staging_deployments, staging)
+        combined = findings.join("\n")
+        assert_match(/REFUSE: P2.*in-flight.*sha256:NEW.*sha256:OLD/i, combined)
+    end
+
+    def test_digest_override_skips_p2_race_check
+        # --digest override: operator deliberately pinned an explicit digest for
+        # this single service. @promote_refs then holds the operator's chosen
+        # digest (sha256:CHOSEN), which legitimately differs from staging's
+        # running digest (sha256:NEW). The P2 race comparison MUST be skipped —
+        # otherwise it would emit a spurious REFUSE for the exact case --digest
+        # exists to support.
+        staging = { "services" => [{
+            "name" => "x", "service_id" => "svc-1",
+            "image" => "ghcr.io/copilotkit/x:latest", "digest" => nil,
+            "env_keys" => [],
+        }] }
+        deps = { "svc-1" => [
+            { "id" => "d1", "status" => "SUCCESS",
+              "meta" => { "image" => "ghcr.io/copilotkit/x:latest", "imageDigest" => "sha256:NEW" },
+              "createdAt" => "2026-05-28T01:00:00Z" },
+        ] }
+        c = cmd_with(staging: staging, deployments: deps)
+        c.instance_variable_set(:@options, c.options.merge(digest: "ghcr.io/copilotkit/x@sha256:CHOSEN", service: "x"))
+        c.instance_variable_set(:@promote_refs, { "x" => "ghcr.io/copilotkit/x@sha256:CHOSEN" })
+        findings = c.send(:check_p2_staging_deployments, staging)
+        combined = findings.join("\n")
+        refute_match(/REFUSE: P2/, combined)
+    end
 end

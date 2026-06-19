@@ -16,8 +16,8 @@
     "useDefineForClassFields": false,
     "baseUrl": ".",
     "paths": {
-      "@copilotkitnext/angular": ["../../../../packages/angular/src/index.ts"],
-      "@copilotkitnext/angular/*": ["../../../../packages/angular/src/*"],
+      "@copilotkit/angular": ["../../../../packages/angular/src/index.ts"],
+      "@copilotkit/angular/*": ["../../../../packages/angular/src/*"],
       "@copilotkit/a2ui-renderer": ["node_modules/@copilotkit/a2ui-renderer"],
       "@copilotkit/a2ui-renderer/web-components": [
         "node_modules/@copilotkit/a2ui-renderer/web-components"

@@ -24,6 +24,17 @@ import type * as PageTree from "fumadocs-core/page-tree";
 import type { NavNode } from "@/lib/docs-render";
 import { resolveSidebarIcon } from "@/lib/sidebar-icon";
 
+const frontendUpcomingSkeletonCards = [
+  ["long", "medium", "short"],
+  ["medium", "long"],
+  ["short", "long", "medium"],
+  ["long", "short"],
+  ["medium", "short"],
+  ["short", "medium", "long"],
+  ["long", "medium"],
+  ["medium", "short"],
+] as const;
+
 function buildUrl(prefix: string, slug: string): string {
   // `prefix` is one of "/docs", "/<framework>", or "" (root). Normalize
   // trailing/leading slashes so `/${prefix}/${slug}` never doubles up.
@@ -37,11 +48,91 @@ function renderNavName(
   title: string,
   variant: NavNode["variant"],
   icon?: React.ReactNode,
+  links?: {
+    quickstartHref?: string;
+    referenceHref?: string;
+    frontendDocsStatus?: "feature-complete" | "early-access";
+  },
 ): React.ReactNode {
   const isReactDocsProxy = variant === "react-docs-proxy";
-  const className = isReactDocsProxy
-    ? "shell-docs-react-docs-proxy"
-    : undefined;
+  if (variant === "frontend-docs-upcoming") {
+    const frontendDocsStatus = links?.frontendDocsStatus ?? "early-access";
+    const ariaLabel =
+      frontendDocsStatus === "feature-complete"
+        ? `${title} guides are coming soon. ${title} is feature complete, but the docs are still catching up. The quickstart and reference guides are ready with more guides on the way.`
+        : `${title} guides are coming soon. ${title} is currently in early access. The quickstart and reference guides are ready; more are on the way after early access.`;
+
+    return React.createElement(
+      "span",
+      {
+        className: "shell-docs-frontend-docs-upcoming",
+        role: "note",
+        "aria-label": ariaLabel,
+      },
+      React.createElement(
+        "span",
+        { className: "shell-docs-frontend-docs-upcoming-header" },
+        icon,
+        React.createElement(
+          "span",
+          { className: "shell-docs-frontend-docs-upcoming-title" },
+          "Guides coming soon...",
+        ),
+      ),
+      React.createElement(
+        "span",
+        { className: "shell-docs-frontend-docs-upcoming-copy" },
+        frontendDocsStatus === "feature-complete"
+          ? `${title} is feature complete, but the docs are still catching up. The `
+          : `${title} is currently in early access. The `,
+        React.createElement(
+          "a",
+          {
+            className: "shell-docs-frontend-docs-upcoming-link",
+            href: links?.quickstartHref ?? "#",
+          },
+          "quickstart",
+        ),
+        " and ",
+        React.createElement(
+          "a",
+          {
+            className: "shell-docs-frontend-docs-upcoming-link",
+            href: links?.referenceHref ?? "#",
+          },
+          "reference",
+        ),
+        frontendDocsStatus === "feature-complete"
+          ? " guides are ready with more guides on the way."
+          : " guides are ready; more are on the way after early access.",
+      ),
+      React.createElement(
+        "span",
+        {
+          className: "shell-docs-frontend-docs-upcoming-stack",
+          "aria-hidden": "true",
+        },
+        frontendUpcomingSkeletonCards.map((lines, cardIndex) =>
+          React.createElement(
+            "span",
+            {
+              key: `card-${cardIndex}`,
+              className: "shell-docs-frontend-docs-upcoming-sheet",
+            },
+            lines.map((line, lineIndex) =>
+              React.createElement("span", {
+                key: `line-${lineIndex}`,
+                className: `shell-docs-frontend-docs-upcoming-sheet-line shell-docs-frontend-docs-upcoming-sheet-line-${line}`,
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  const className =
+    variant === "react-docs-proxy" ? "shell-docs-react-docs-proxy" : undefined;
 
   if (!className && !icon) return title;
 
@@ -89,7 +180,11 @@ export function navNodeToPageTreeNodes(
     // `inline-flex items-center gap-2` styling still aligns the SVG
     // and label exactly as it would have with the prop split.
     const icon = resolveSidebarIcon(node.icon);
-    const name = renderNavName(node.title, node.variant, icon);
+    const name = renderNavName(node.title, node.variant, icon, {
+      quickstartHref: node.quickstartHref,
+      referenceHref: node.referenceHref,
+      frontendDocsStatus: node.frontendDocsStatus,
+    });
     return [{ type: "separator", name }];
   }
   if (node.type === "page") {

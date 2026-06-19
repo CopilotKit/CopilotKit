@@ -96,15 +96,45 @@ posted as `attachments: [{ color, blocks }]`).
 By default, replies stream via Slack's **native streaming API**
 (`chat.startStream` / `appendStream` / `stopStream`) wherever the reply target
 is a thread — a true streaming UI rendering **raw markdown** (so real tables and
-fenced code render natively), with the same throttle budget and fence-aware
-multi-message continuation as the legacy path. Flat DMs (no thread) and any
-workspace where the streaming API is unavailable fall back automatically to the
-shipped `chat.update` transport (throttled edits, multi-message chunking,
-mid-stream bracket auto-close, Markdown → mrkdwn translation). Pass
-`streaming: "legacy"` to force the `chat.update` transport everywhere. The
-fallback is transparent — **opting in can never break a bot**: the first
-`startStream` failure marks the workspace legacy and redoes the stream the old
-way.
+fenced code render natively). A whole turn streams into **one** message: text
+from every step accumulates into a single bubble (Slack documents only a 12k
+char limit _per append_, with no cumulative cap, so there is no multi-message
+splitting), and tool calls surface as native in-message **`task_update`**
+chunks (a "timeline" of `Using …` → `Used …` steps) instead of separate status
+messages. Workspaces where structured chunks aren't available degrade
+automatically to `:wrench:` status rows.
+
+Flat DMs (no thread) and any workspace where the streaming API is unavailable
+fall back automatically to the shipped `chat.update` transport (throttled edits,
+multi-message chunking, mid-stream bracket auto-close, Markdown → mrkdwn
+translation). Pass `streaming: "legacy"` to force the `chat.update` transport
+everywhere. The fallback is transparent — **opting in can never break a bot**:
+the first `startStream` failure marks the workspace legacy and redoes the stream
+the old way.
+
+### Feedback buttons (opt-in)
+
+Pass `feedback` to attach Slack's native AI feedback row (👍/👎,
+`context_actions` + `feedback_buttons`) to each finalized streamed reply. Clicks
+are routed straight to your handler — they never reach the engine's interaction
+dispatch. Without `feedback`, no buttons are shown.
+
+```ts
+slack({
+  botToken,
+  appToken,
+  feedback: {
+    onFeedback: ({ sentiment, user, channel, messageTs }) => {
+      recordFeedback({ sentiment, user, channel, messageTs }); // your telemetry
+    },
+    // positiveLabel / negativeLabel are optional
+  },
+});
+```
+
+The row is attached at `chat.stopStream` (the only streaming call that accepts
+`blocks`), so it appears on the native path only — the legacy `chat.update`
+fallback omits it.
 
 ### Assistant pane (agent-native, default-on)
 

@@ -28,7 +28,7 @@ function toRelativeHref(href: string): string {
 }
 
 function guidanceHref(frontendId: FrontendId): string {
-  return `/frontends/${frontendId}/using-these-docs`;
+  return `/${frontendId}/using-these-docs`;
 }
 
 function normalizeLabel(label: string): string {

@@ -44,21 +44,18 @@ public class AimockHeaderMiddleware
             g => g.First().Key,
             g => g.First().Value.ToString(),
             StringComparer.OrdinalIgnoreCase);
-        // Do NOT reset AimockHeaderContext after _next returns. ASP.NET Core hands control
-        // back to this middleware once the endpoint handler completes, but for streaming
-        // endpoints (AG-UI uses IAsyncEnumerable/SSE) the response delegate continues
-        // writing to the response body — and may invoke downstream OpenAI calls — AFTER
-        // _next returns. Clearing the AsyncLocal here would cause AimockHeaderPolicy to
-        // silently drop aimock headers on those streaming-tail calls.
-        //
-        // AsyncLocal<T> is scoped to the current execution context (per-request), so the
-        // value does not leak across concurrent ASP.NET requests; the finally-clear was
-        // unnecessary and actively harmful.
-        AimockHeaderContext.Set(headers);
+        // Stash on HttpContext.Items (NOT an AsyncLocal): the value must survive
+        // the AG-UI SSE-pump ExecutionContext boundary so the outbound-LLM policy
+        // can read it via IHttpContextAccessor at call time. For streaming
+        // endpoints (AG-UI uses IAsyncEnumerable/SSE) the response delegate
+        // continues writing — and may invoke downstream OpenAI calls — AFTER
+        // _next returns; the captured headers live on this request's HttpContext
+        // and die with it, so there is no finally-wipe to race the SSE tail.
+        AimockHeaderContext.Set(context, headers);
         // CVDIAG inbound breadcrumb: the x-* headers (incl. x-diag-run-id /
-        // x-diag-hops / x-aimock-context) have now been captured into the
-        // AsyncLocal context for this request.
-        CvDiag.LogInbound(_logger, "backend-ms-agent-harness-dotnet", AimockHeaderContext.Get());
+        // x-diag-hops / x-aimock-context) have now been captured onto
+        // HttpContext.Items for this request.
+        CvDiag.LogInbound(_logger, "backend-ms-agent-harness-dotnet", AimockHeaderContext.Get(context));
         await _next(context);
     }
 }

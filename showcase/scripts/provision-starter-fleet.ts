@@ -1,8 +1,7 @@
 #!/usr/bin/env npx tsx
 /**
  * provision-starter-fleet.ts — Committed, reproducible Railway provisioner
- * for the SSOT-decoupled "starter container fleet" in the showcase STAGING
- * environment.
+ * for the "starter container fleet" in the showcase STAGING environment.
  *
  * Creates (or idempotently updates) one sleepable Railway service per
  * starter template, pulling the per-starter image from GHCR:
@@ -26,18 +25,32 @@
  *   domain       : a generated Railway domain per service (serviceDomainCreate)
  *
  * The 12 starter slugs are the keys of STARTER_TO_COLUMN in
- * showcase/harness/src/probes/helpers/starter-mapping.ts — the single source
- * of truth shared with the smoke matrix (showcase/tests/e2e/starter-smoke.spec.ts)
- * and the CI build matrix (.github/workflows/showcase_build.yml). This script
- * derives its target list from that SSOT so the fleet can never drift from the
- * matrix.
+ * showcase/harness/src/probes/helpers/starter-mapping.ts. That list is NOT
+ * literally shared with the smoke matrix (showcase/tests/e2e/starter-smoke.spec.ts)
+ * or the CI build matrix (.github/workflows/showcase_build.yml) — those are
+ * INDEPENDENT lists. The drift test
+ * (showcase/harness/src/probes/helpers/starter-mapping-drift.test.ts) keeps
+ * STARTER_TO_COLUMN in lockstep with the smoke matrix + the on-disk column set
+ * ONLY (it does NOT check showcase_build.yml — the CI build matrix is independent
+ * and not covered by that test). This script derives its target list from
+ * STARTER_TO_COLUMN, so the drift-synced map keeps the fleet aligned with the
+ * smoke/column set.
  *
- * The fleet is intentionally DECOUPLED from the 27-service railway-envs SSOT:
- * starter-* services are auto-discovered at runtime by the starter_smoke probe
- * (railway-services source, namePrefix "starter-") and are NOT added to
- * SERVICES. PR #5254 already made verify-railway-image-refs.ts tolerate
- * starter-* names in BOTH drift directions, so provisioning these services
- * does NOT trip the CI image-ref gate / skip the showcase build.
+ * SSOT relationship (S2): the 12 starter-<slug> services are now FULL
+ * railway-envs SSOT entries (SERVICES in showcase/scripts/railway-envs.ts),
+ * gateValidated + ciBuilt exactly like a showcase-* agent. This script is NOT
+ * a competing source of truth: it is the STAGING PROVISIONER, deriving its 12
+ * targets from STARTER_TO_COLUMN (the canonical starter-slug map; the smoke
+ * matrix and CI build matrix are INDEPENDENT lists, per the note above). The railway-envs SSOT owns the
+ * image-ref gate + the cluster-promote closure (prod @sha256 pinning); this
+ * script owns idempotent staging service creation. They are complementary, not
+ * double-managing — the slug set is the single shared input, so they cannot
+ * drift. The starter_smoke probe still auto-discovers starter-* services at
+ * runtime (railway-services source, namePrefix "starter-") for verification.
+ *
+ * NOTE: prod pinning + image-ref drift for starters is handled by the
+ * railway-envs gate (verify-railway-image-refs.ts) and bin/railway lint-prod,
+ * NOT by this staging-only provisioner.
  *
  * IDEMPOTENT: a starter-* service that already exists in staging is UPDATED
  * (instance settings re-applied; a domain created only if none exists, and an

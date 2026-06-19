@@ -11,7 +11,9 @@ on:
           - monorepo
           - angular
           - bot
+          - bot-discord
           - bot-slack
+          - bot-telegram
       bump:
         description: "Version bump level"
         required: true
@@ -27,7 +29,11 @@ on:
         type: boolean
 
 concurrency:
-  group: release-pr
+  # Scope the lock to the package being released so that, e.g., a `monorepo`
+  # create-pr run and an `angular` create-pr run proceed in independent lanes
+  # instead of queuing behind each other. Same-scope runs still serialize
+  # (cancel-in-progress: false), which is what protects the version bump.
+  group: release-pr-${{ inputs.scope }}
   cancel-in-progress: false
 
 permissions:
@@ -93,6 +99,10 @@ jobs:
           else
             pnpm tsx scripts/release/prepare-release.ts --bump ${{ inputs.bump }} --scope ${{ inputs.scope }}
           fi
+
+      - name: Sync plugin skills
+        if: inputs.dry_run != true
+        run: pnpm sync:plugin-skills
 
       - name: Generate AI release notes
         if: inputs.dry_run != true

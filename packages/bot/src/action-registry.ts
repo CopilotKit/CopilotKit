@@ -31,7 +31,11 @@ function isComponentElement(
 export class ActionRegistry {
   private store: ActionStore;
   private components = new Map<string, ComponentFn>();
-  private hot = new Map<string, ClickHandler>();
+  // Cache the handler AND the element's `value` per minted id. The value is
+  // needed to resolve HITL `awaitChoice` waiters on platforms whose callback
+  // payload can't carry it (e.g. Telegram's 64-byte callback_data only holds
+  // the action id), where `evt.value` arrives undefined.
+  private hot = new Map<string, { handler: ClickHandler; value: unknown }>();
 
   constructor(opts: { store: ActionStore }) {
     this.store = opts.store;
@@ -97,7 +101,10 @@ export class ActionRegistry {
         if (typeof handler === "function") {
           const fullPath: (string | number)[] = [...path, ep];
           const id = mintId(comp, fullPath, props);
-          this.hot.set(id, handler as ClickHandler);
+          this.hot.set(id, {
+            handler: handler as ClickHandler,
+            value: node.props.value,
+          });
           await this.store.put(id, {
             component: comp,
             props,
@@ -121,9 +128,20 @@ export class ActionRegistry {
     }
   }
 
+  /**
+   * Run the click handler for `id` and return the clicked element's `value`
+   * (so callers can resolve a HITL `awaitChoice` waiter even when the platform
+   * couldn't carry the value in its callback payload). Returns `undefined` when
+   * the element has no `value`.
+   */
   async dispatch(id: string, ctx: InteractionContext): Promise<unknown> {
-    let handler = this.hot.get(id);
-    if (!handler) {
+    let handler: ClickHandler | undefined;
+    let value: unknown;
+    const hot = this.hot.get(id);
+    if (hot) {
+      handler = hot.handler;
+      value = hot.value;
+    } else {
       const snap = await this.store.get(id);
       if (!snap || !snap.component) throw new ActionExpiredError(id);
       const fn = this.components.get(snap.component);
@@ -132,10 +150,24 @@ export class ActionRegistry {
         fn(snap.props as Record<string, unknown>) as Renderable,
       );
       handler = pluck(tree, snap.path);
+      value = pluckValue(tree, snap.path);
       if (!handler) throw new ActionExpiredError(id);
     }
-    return handler({ ...ctx, action: { ...ctx.action, id } });
+    await handler({ ...ctx, action: { ...ctx.action, id } });
+    return value;
   }
+}
+
+/** Navigate to the node owning the event-prop at `path` and read its `value`. */
+function pluckValue(tree: BotNode[], path: (string | number)[]): unknown {
+  let cur: unknown = tree;
+  for (const seg of path.slice(0, -1)) {
+    if (Array.isArray(cur)) cur = cur[seg as number];
+    else if (cur && typeof cur === "object")
+      cur = (cur as BotNode).props?.[seg as string];
+    else return undefined;
+  }
+  return (cur as BotNode | undefined)?.props?.value;
 }
 
 function pluck(

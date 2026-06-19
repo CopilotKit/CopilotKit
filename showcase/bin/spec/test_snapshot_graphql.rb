@@ -82,6 +82,57 @@ class SnapshotGraphqlTest < Minitest::Test
         }
     end
 
+    def test_limit_override_warn_is_unimplementable_via_real_snapshot
+        # Regression guard for the DROPPED limitOverride WARN. A
+        # limitOverride (CPU/memory cap) divergence WARN was originally
+        # specified for check_resource_divergence, but it was dead code: it
+        # compared snapshot["limit_override"] values that build_snapshot never
+        # captures, because Railway's GraphQL ServiceInstance type exposes NO
+        # readable limit field (verified by introspection 2026-06 — the only
+        # related surface is the write-only serviceInstanceLimitsUpdate mutation
+        # taking ServiceInstanceLimitsUpdateInput{memoryGB,vCPUs}; the
+        # ServiceInstanceLimit type is an opaque scalar with no readable fields).
+        #
+        # This guard drives a divergence through the REAL capture path
+        # (build_snapshot) — even injecting a hypothetical limit into the fake
+        # serviceInstance response — and asserts: (a) build_snapshot drops it
+        # (no limit_override key survives), and (b) check_resource_divergence
+        # emits NO limitOverride WARN. If Railway ever adds a readable limit
+        # field and someone wires it through SERVICE_INSTANCE_QUERY + the
+        # snapshot hash, this guard flips and signals the WARN can be re-added.
+        build = lambda do |limit|
+            fake = FakeGQL.new(
+                "ProjectServices" => {
+                    "project" => { "id" => Railway::PROJECT_ID, "name" => "showcase",
+                        "services" => { "edges" => [{ "node" => { "id" => "svc-x", "name" => "x" } }] } },
+                },
+                "EnvVariables" => { "environment" => { "id" => "e", "name" => "n",
+                    "variables" => { "edges" => [] } } },
+                "ServiceInstance" => service_instance_response(
+                    image: "ghcr.io/copilotkit/x@sha256:cafef00d",
+                ).tap { |r| r["serviceInstance"]["serviceLimitOverride"] = limit },
+            )
+            cmd = Railway::SnapshotCommand.new(["--env", "production", "--dry-run"])
+            cmd.instance_variable_set(:@gql, fake)
+            cmd.build_snapshot(Railway::PRODUCTION_ENV_ID)
+        end
+        staging = build.call("memoryGB" => 4.0, "vCPUs" => 2.0)
+        prod    = build.call("memoryGB" => 1.0, "vCPUs" => 1.0)
+
+        # (a) the real snapshot path captures no limit field at all.
+        staging["services"].each { |s| assert_nil s["limit_override"] }
+        prod["services"].each    { |s| assert_nil s["limit_override"] }
+
+        # (b) consequently the dropped WARN cannot (and does not) fire.
+        c = Railway::PromoteCommand.new(["--non-interactive", "--yes"])
+        c.parser.parse!(c.argv)
+        findings = c.check_resource_divergence(staging, prod)
+        assert(findings.none? { |f| f =~ /limitOverride/i },
+            "limitOverride WARN was dropped as unimplementable dead code; it must " \
+            "not reappear unless build_snapshot genuinely captures a limit field — " \
+            "got #{findings.inspect}")
+    end
+
     def test_build_snapshot_uses_corrected_field_names_and_produces_pinned_entries
         fake = FakeGQL.new(
             "ProjectServices" => services_list_response,
@@ -164,16 +215,25 @@ class SnapshotGraphqlTest < Minitest::Test
         end
     end
 
-    def test_redeploy_mutation_uses_serviceInstanceRedeploy_not_serviceInstanceDeployV2_with_image
-        # serviceInstanceDeployV2 has signature (commitSha, environmentId, serviceId).
-        # It does NOT accept an `image` argument. Pinning must go through
-        # serviceInstanceUpdate (source.image) + serviceInstanceRedeploy.
+    def test_deploy_mutation_uses_serviceInstanceDeployV2_not_redeploy
+        # Bug #2: serviceInstanceRedeploy replays the EXISTING deployment's
+        # snapshot (its OLD image), so a freshly pinned source.image never
+        # reaches the running container. Pinning must go through
+        # serviceInstanceUpdate (source.image) + serviceInstanceDeployV2, which
+        # spawns a NEW deployment that PULLS the updated source.image.
+        #
+        # serviceInstanceDeployV2 has signature (serviceId, environmentId,
+        # commitSha?) and does NOT accept an `image` arg — the image is carried
+        # by the preceding serviceInstanceUpdate.
         refute_match(/serviceInstanceDeployV2\s*\([^)]*\bimage\b/m,
-            Railway::RestoreCommand::UPDATE_IMAGE_MUTATION,
-            "Restore must not call serviceInstanceDeployV2 with image arg.")
+            Railway::RestoreCommand::DEPLOY_V2_MUTATION,
+            "DeployV2 must not be called with an image arg.")
         assert_match(/serviceInstanceUpdate\s*\(/, Railway::RestoreCommand::UPDATE_IMAGE_MUTATION)
         assert_match(/source:\s*\{\s*image:/, Railway::RestoreCommand::UPDATE_IMAGE_MUTATION)
-        assert_match(/serviceInstanceRedeploy\s*\(/, Railway::RestoreCommand::REDEPLOY_MUTATION)
+        assert_match(/serviceInstanceDeployV2\s*\(/, Railway::RestoreCommand::DEPLOY_V2_MUTATION)
+        # The bug-#2 trap: serviceInstanceRedeploy must NOT be the deploy path.
+        refute Railway::RestoreCommand.const_defined?(:REDEPLOY_MUTATION),
+            "serviceInstanceRedeploy must be removed — it replays the old image (bug #2)."
     end
 
     def test_snapshot_v2_captures_healthcheck_region_replicas_restart_policy

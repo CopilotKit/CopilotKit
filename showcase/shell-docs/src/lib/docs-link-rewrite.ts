@@ -28,6 +28,15 @@ function stripPathPrefix(href: string, prefix: string): string | null {
   return null;
 }
 
+function joinPrefixedPath(prefix: string, suffix: string): string {
+  if (!prefix) return suffix;
+  if (suffix === "/") return prefix;
+  if (suffix.startsWith("/?") || suffix.startsWith("/#")) {
+    return `${prefix}${suffix.slice(1)}`;
+  }
+  return `${prefix}${suffix}`;
+}
+
 /**
  * Keep authored MDX links inside the active docs surface.
  *
@@ -72,13 +81,16 @@ export function resolveDocsHref(
     return sameFrameworkPath ?? href;
   }
 
+  if (sameFrameworkPath !== null) {
+    return joinPrefixedPath(slugHrefPrefix, sameFrameworkPath);
+  }
+
   if (
-    sameFrameworkPath === null &&
     !targetsAnotherFramework &&
     !targetsReservedRoute &&
     !targetsRedirectAlias
   ) {
-    return `/${linkRewriteFramework}${href}`;
+    return joinPrefixedPath(slugHrefPrefix, href);
   }
 
   return href;

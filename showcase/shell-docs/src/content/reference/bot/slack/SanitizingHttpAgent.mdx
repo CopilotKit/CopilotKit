@@ -7,7 +7,7 @@ description: "An HttpAgent that tolerates the AG-UI event streams real agent bac
 
 `SanitizingHttpAgent` is an `HttpAgent` (from `@ag-ui/client`) that tolerates the event streams real agent backends emit. The stock `HttpAgent` re-validates every streamed event against a strict schema, and a single rejected event aborts the entire run — some backends (notably LangGraph) legitimately emit events that fail it, e.g. a `TOOL_CALL_START` with a `null` `parentMessageId`, which is exactly the shape that carries interrupts. This class parses the same SSE stream but coerces the known nullable-string fields instead, so interrupts and human-in-the-loop work over HTTP.
 
-This is the agent class to use when the bot connects to a **remote AG-UI backend** — the bot-process/runtime-process split shown in the [Slack quickstart](/frontends/slack) and used by the [triage example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack).
+This is the agent class to use when the bot connects to a **remote AG-UI backend** — the bot-process/runtime-process split shown in the [Slack quickstart](/slack) and used by the [triage example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack).
 
 ## Signature
 
@@ -46,4 +46,4 @@ const bot = createBot({
 
 - [createBot](/reference/bot/functions/createBot) — the `agent` factory option
 - [slack()](/reference/bot/slack) — the adapter this ships with
-- [Slack quickstart](/frontends/slack) — the split-process setup this enables
+- [Slack quickstart](/slack) — the split-process setup this enables

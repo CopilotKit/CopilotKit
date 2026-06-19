@@ -43,6 +43,16 @@ export interface RunRenderer {
   getCapturedToolCalls(): readonly CapturedToolCall[];
   getPendingInterrupt(): CapturedInterrupt | undefined;
   clearPendingInterrupt(): void;
+  /**
+   * Optional turn-end hook. Called once after the run-loop resolves normally
+   * (no more tool calls, or an interrupt was acked), so a renderer that keeps a
+   * turn-scoped resource open across `runAgent` iterations — e.g. a single
+   * native streaming message that interleaves text and tool-progress — can
+   * finalize it. Symmetric with {@link markInterrupted}; renderers whose
+   * streams self-terminate per message simply omit it. Must be a no-op if the
+   * run was already interrupted.
+   */
+  finish?(): Promise<void>;
 }
 
 export interface IncomingTurn {

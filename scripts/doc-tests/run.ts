@@ -70,9 +70,10 @@ async function waitForPort(
   port: number,
   timeoutMs: number,
   pollMs: number,
+  shouldContinue: () => boolean = () => true,
 ): Promise<boolean> {
   const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
+  while (shouldContinue() && Date.now() - start < timeoutMs) {
     try {
       const resp = await fetch(`http://localhost:${port}/`).catch(() => null);
       if (resp) return true;
@@ -82,6 +83,41 @@ async function waitForPort(
     await new Promise((r) => setTimeout(r, pollMs));
   }
   return false;
+}
+
+function collectProcessOutput(proc: ReturnType<typeof spawn>): {
+  isRunning: () => boolean;
+  output: () => string;
+} {
+  let exited = false;
+  let output = "";
+
+  proc.stdout?.on("data", (chunk) => {
+    output += chunk.toString();
+  });
+  proc.stderr?.on("data", (chunk) => {
+    output += chunk.toString();
+  });
+  proc.on("exit", (code, signal) => {
+    exited = true;
+    output += `\n[process exited with ${signal ? `signal ${signal}` : `code ${code}`}]`;
+  });
+
+  return {
+    isRunning: () => !exited,
+    output: () => output.trim(),
+  };
+}
+
+function serverStartError(
+  port: number,
+  proc: ReturnType<typeof collectProcessOutput>,
+): string {
+  const output = proc.output();
+  if (output) {
+    return `Server did not bind to port ${port}. Process output:\n${output}`;
+  }
+  return `Server did not bind to port ${port} within ${SERVER_TIMEOUT_MS}ms`;
 }
 
 function detectPort(code: string): number {
@@ -129,16 +165,22 @@ async function runPythonServer(
       env: mergeEnv(),
       stdio: "pipe",
     });
+    const serverProcess = collectProcessOutput(proc);
 
     try {
-      const ready = await waitForPort(port, SERVER_TIMEOUT_MS, SERVER_POLL_MS);
+      const ready = await waitForPort(
+        port,
+        SERVER_TIMEOUT_MS,
+        SERVER_POLL_MS,
+        serverProcess.isRunning,
+      );
 
       if (!ready) {
         return {
           id,
           category: "server",
           status: "fail",
-          error: `Server did not bind to port ${port} within ${SERVER_TIMEOUT_MS}ms`,
+          error: serverStartError(port, serverProcess),
         };
       }
 
@@ -193,16 +235,22 @@ async function runTypeScriptServer(
         stdio: "pipe",
       },
     );
+    const serverProcess = collectProcessOutput(proc);
 
     try {
-      const ready = await waitForPort(port, SERVER_TIMEOUT_MS, SERVER_POLL_MS);
+      const ready = await waitForPort(
+        port,
+        SERVER_TIMEOUT_MS,
+        SERVER_POLL_MS,
+        serverProcess.isRunning,
+      );
 
       if (!ready) {
         return {
           id,
           category: "server",
           status: "fail",
-          error: `Server did not bind to port ${port} within ${SERVER_TIMEOUT_MS}ms`,
+          error: serverStartError(port, serverProcess),
         };
       }
 

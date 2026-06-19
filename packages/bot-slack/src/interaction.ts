@@ -1,5 +1,6 @@
 import type { InteractionEvent } from "@copilotkit/bot";
-import { DM_SCOPE, type ConversationKey, type ReplyTarget } from "./types.js";
+import { DM_SCOPE } from "./types.js";
+import type { ConversationKey, ReplyTarget } from "./types.js";
 
 /**
  * Stable string key shared by ingress (onTurn) and interaction decoding so the
@@ -42,19 +43,27 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   const channelId = body.channel?.id ?? body.container?.channel_id;
   if (!channelId) return undefined;
 
+  // An EXPLICIT thread ts means the click happened inside a thread — including
+  // an assistant-pane DM, which is threaded even though its channel id starts
+  // with "D". Only fall back to the message's own ts (a thread root) for the
+  // scope, never conflate the two.
+  const explicitThreadTs = body.message?.thread_ts ?? body.container?.thread_ts;
   const threadTs =
-    body.message?.thread_ts ??
-    body.container?.thread_ts ??
-    body.message?.ts ??
-    body.container?.message_ts;
+    explicitThreadTs ?? body.message?.ts ?? body.container?.message_ts;
   const isDm = channelId.startsWith("D");
-  // Scope MUST match what the listener emits per turn: DM_SCOPE for DMs,
-  // the thread ts for threaded conversations.
-  const scope = isDm ? DM_SCOPE : (threadTs ?? "");
+  // Scope MUST match what the listener emits per turn (see assistant.ts /
+  // adapter.ts), or the HITL `awaitChoice` waiter is stranded and the run
+  // never resumes: the thread ts for ANY threaded conversation (assistant-pane
+  // DMs included), and DM_SCOPE only for a genuinely unthreaded DM.
+  const scope = explicitThreadTs
+    ? explicitThreadTs
+    : isDm
+      ? DM_SCOPE
+      : (threadTs ?? "");
   const conversationKey = conversationKeyOf({ channelId, scope });
   const replyTarget: ReplyTarget = {
     channel: channelId,
-    threadTs: isDm ? undefined : threadTs,
+    threadTs: isDm && !explicitThreadTs ? undefined : threadTs,
   };
 
   // Tiny, non-sensitive value: the clicked button's value (or selected option
