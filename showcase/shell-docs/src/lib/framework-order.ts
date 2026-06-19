@@ -14,6 +14,7 @@ export const FRAMEWORK_DISPLAY_ORDER: readonly string[] = [
   "deepagents",
   "google-adk",
   "strands",
+  "strands-typescript",
   "mastra",
   "claude-sdk-python",
   "claude-sdk-typescript",

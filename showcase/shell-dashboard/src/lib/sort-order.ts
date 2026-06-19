@@ -20,6 +20,7 @@ export const sortOrder: Record<string, number> = {
   // probe-wired and re-added to BASELINE_PARTNERS.
   "ms-agent-harness-dotnet": 6.5,
   strands: 7,
+  "strands-typescript": 7.5,
   mastra: 8,
   "crewai-crews": 9,
   crewai: 9,
