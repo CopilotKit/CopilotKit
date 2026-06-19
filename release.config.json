@@ -32,9 +32,19 @@
       "versionSource": "@copilotkit/bot",
       "sharedVersion": true
     },
+    "bot-discord": {
+      "packages": ["@copilotkit/bot-discord"],
+      "versionSource": "@copilotkit/bot-discord",
+      "sharedVersion": false
+    },
     "bot-slack": {
       "packages": ["@copilotkit/bot-slack"],
       "versionSource": "@copilotkit/bot-slack",
+      "sharedVersion": false
+    },
+    "bot-telegram": {
+      "packages": ["@copilotkit/bot-telegram"],
+      "versionSource": "@copilotkit/bot-telegram",
       "sharedVersion": false
     }
   }

@@ -393,6 +393,9 @@ importers:
       '@copilotkit/bot-slack':
         specifier: workspace:*
         version: link:../../packages/bot-slack
+      '@copilotkit/bot-telegram':
+        specifier: workspace:*
+        version: link:../../packages/bot-telegram
       '@copilotkit/bot-ui':
         specifier: workspace:*
         version: link:../../packages/bot-ui
@@ -2382,6 +2385,37 @@ importers:
       zod-to-json-schema:
         specifier: ^3.25.1
         version: 3.25.1(zod@3.25.76)
+    devDependencies:
+      '@copilotkit/typescript-config':
+        specifier: workspace:^
+        version: link:../typescript-config
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.11
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.3
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
+
+  packages/bot-telegram:
+    dependencies:
+      '@ag-ui/client':
+        specifier: 0.0.57
+        version: 0.0.57
+      '@copilotkit/bot':
+        specifier: workspace:~
+        version: link:../bot
+      '@copilotkit/bot-ui':
+        specifier: workspace:~
+        version: link:../bot-ui
+      grammy:
+        specifier: ^1.30.0
+        version: 1.44.0(encoding@0.1.13)
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
     devDependencies:
       '@copilotkit/typescript-config':
         specifier: workspace:^
@@ -6607,6 +6641,9 @@ packages:
     peerDependencies:
       react: 19.2.3
       react-native: '*'
+
+  '@grammyjs/types@3.28.0':
+    resolution: {integrity: sha512-4JvXCdxRZHCje0M4gHzLwtB4bLno3WD28xd8CNfk4POWIu73BFnSvGeW6OQ5gPem4eYTEwkD9yDaXssixl6tMQ==}
 
   '@graphql-codegen/add@5.0.3':
     resolution: {integrity: sha512-SxXPmramkth8XtBlAHu4H4jYcYXM/o3p01+psU+0NADQowA8jtYkK6MW5rV6T+CxkEaNZItfSmZRPgIuypcqnA==}
@@ -17013,6 +17050,10 @@ packages:
   graceful-fs@4.2.11:
     resolution: {integrity: sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==}
 
+  grammy@1.44.0:
+    resolution: {integrity: sha512-gGVykS5+c5f1tPV97LuU6IDRMawE2NzpwM9pNz58HQ35IZXDnYL3VOLvNzYognPSeBIOSzQXRu5w96V0aY8y8A==}
+    engines: {node: ^12.20.0 || >=14.13.1}
+
   graphemer@1.4.0:
     resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
 
@@ -24460,7 +24501,7 @@ packages:
       '@vitest/ui': 4.1.5
       happy-dom: '*'
       jsdom: '*'
-      vite: 7.3.2
+      vite: '>=6.4.2'
     peerDependenciesMeta:
       '@edge-runtime/vm':
         optional: true
@@ -30890,6 +30931,8 @@ snapshots:
       nanoid: 3.3.12
       react: 19.2.3
       react-native: 0.85.2(@babel/core@7.29.0)(@react-native-community/cli@20.1.0(typescript@5.9.3))(@react-native/jest-preset@0.85.2(@babel/core@7.29.0)(react@19.2.3))(@react-native/metro-config@0.85.2(@babel/core@7.29.0))(@types/react@19.1.8)(react@19.2.3)
+
+  '@grammyjs/types@3.28.0': {}
 
   '@graphql-codegen/add@5.0.3(graphql@16.12.0)':
     dependencies:
@@ -44082,6 +44125,16 @@ snapshots:
 
   graceful-fs@4.2.11: {}
 
+  grammy@1.44.0(encoding@0.1.13):
+    dependencies:
+      '@grammyjs/types': 3.28.0
+      abort-controller: 3.0.0
+      debug: 4.4.3(supports-color@5.5.0)
+      node-fetch: 2.7.0(encoding@0.1.13)
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
+
   graphemer@1.4.0: {}
 
   graphql-config@5.1.5(@types/node@20.19.27)(crossws@0.3.5)(graphql@16.12.0)(typescript@5.9.3):
@@ -44741,7 +44794,7 @@ snapshots:
       isstream: 0.1.2
       jsonwebtoken: 9.0.3
       mime-types: 2.1.35
-      retry-axios: 2.6.0(axios@1.15.2(debug@4.4.3))
+      retry-axios: 2.6.0(axios@1.15.2)
       tough-cookie: 4.1.4
     transitivePeerDependencies:
       - supports-color
@@ -51100,7 +51153,7 @@ snapshots:
       retext-stringify: 4.0.0
       unified: 11.0.5
 
-  retry-axios@2.6.0(axios@1.15.2(debug@4.4.3)):
+  retry-axios@2.6.0(axios@1.15.2):
     dependencies:
       axios: 1.15.2(debug@4.4.3)
 

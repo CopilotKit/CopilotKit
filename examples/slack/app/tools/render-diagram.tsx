@@ -36,9 +36,10 @@ function slug(s: string): string {
 export const renderDiagramTool = defineBotTool({
   name: "render_diagram",
   description:
-    "Render a Mermaid diagram as an image and post it to the Slack thread. " +
-    "Pass Mermaid source (flowchart/sequence/state/etc). Use this to diagram " +
-    "a flow, architecture, or incident timeline. The image renders inline.",
+    "Render a Mermaid diagram as an image and post it to the conversation " +
+    "thread. Pass Mermaid source (flowchart/sequence/state/etc). Use this to " +
+    "diagram a flow, architecture, or incident timeline. The image renders " +
+    "inline in the conversation.",
   parameters: schema,
   async handler({ title, mermaid }, ctx) {
     try {
@@ -54,7 +55,7 @@ export const renderDiagramTool = defineBotTool({
       }
       // After the image lands, post a small JSX caption card.
       await ctx.thread.post(
-        <Context>{`:triangular_ruler:  *${title ?? "Diagram"}* — rendered as an image above.`}</Context>,
+        <Context>{`📐  *${title ?? "Diagram"}* — rendered as an image above.`}</Context>,
       );
       return "Rendered and posted the diagram image to the thread.";
     } catch (e) {

@@ -181,22 +181,29 @@ export function createBot(opts: CreateBotOptions): Bot {
           user,
           platform: adapter.platform,
         };
+        // The clicked element's `value`, recovered by the registry when it
+        // re-renders to find the handler. Used to resolve a HITL waiter on
+        // platforms whose callback payload can't carry the value (Telegram),
+        // where `evt.value` is undefined.
+        let dispatchedValue: unknown;
         try {
           const explicit = interactionHandlers.get(evt.id);
           if (explicit) {
             await explicit(ctx);
           } else {
-            await registry.dispatch(evt.id, ctx);
+            dispatchedValue = await registry.dispatch(evt.id, ctx);
           }
         } catch (err) {
           // v1: swallow expired-action dispatches; surface anything else.
           if (!(err instanceof ActionExpiredError)) throw err;
         }
-        // Resolve any HITL waiter awaiting a choice in this conversation.
+        // Resolve any HITL waiter awaiting a choice in this conversation. Prefer
+        // the value carried in the event (Slack), falling back to the value the
+        // registry recovered from the rendered element (Telegram).
         const w = waiters.get(evt.conversationKey);
         if (w) {
           waiters.delete(evt.conversationKey);
-          w(evt.value);
+          w(evt.value !== undefined ? evt.value : dispatchedValue);
         }
       },
       async onCommand(cmd: IncomingCommand) {
