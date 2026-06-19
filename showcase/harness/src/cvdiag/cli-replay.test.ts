@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { reconstructRequestSequence, ReplayError } from "./cli-replay.js";
+import {
+  reconstructRequestSequence,
+  ReplayError,
+  ReplayScopeError,
+} from "./cli-replay.js";
 import type { StoredCvdiagRow } from "./cli-replay.js";
 
 // A minimal well-formed stored row (mirrors the cvdiag_events PB schema: the
@@ -67,5 +71,46 @@ describe("reconstructRequestSequence — malformed-row rejection", () => {
   it("names the offending row index in the rejection message", () => {
     const rows: unknown[] = [goodRow(), { boundary: "x" }];
     expect(() => reconstructRequestSequence(rows)).toThrow(/row 1/i);
+  });
+});
+
+describe("reconstructRequestSequence — queried-test-id scope assertion", () => {
+  const queried = "0190b8a0-0000-7000-8000-000000000001";
+
+  it("hard-errors on an empty result for a known queried test-id (no falsely-authoritative empty timeline)", () => {
+    // The live main() path always knows the test-id it queried. Zero rows must
+    // be a hard error, not an empty-but-success timeline printed at exit 0.
+    expect(() => reconstructRequestSequence([], queried)).toThrow(
+      ReplayScopeError,
+    );
+    expect(() => reconstructRequestSequence([], queried)).toThrow(
+      /no rows found/i,
+    );
+  });
+
+  it("hard-errors when a returned row's test_id diverges from the queried id (no mixed-test timeline)", () => {
+    const rows = [
+      goodRow({ test_id: queried, mono_ns: 10 }),
+      // A divergent-test row that must NOT be silently admitted.
+      goodRow({
+        test_id: "0190b8a0-0000-7000-8000-0000000000ff",
+        mono_ns: 20,
+      }),
+    ];
+    expect(() => reconstructRequestSequence(rows, queried)).toThrow(
+      ReplayScopeError,
+    );
+    expect(() => reconstructRequestSequence(rows, queried)).toThrow(
+      /does not match the queried test-id/i,
+    );
+  });
+
+  it("returns the queried test-id and rows when every row matches", () => {
+    const rows = [
+      goodRow({ test_id: queried, boundary: "backend.request.ingress" }),
+    ];
+    const result = reconstructRequestSequence(rows, queried);
+    expect(result.testId).toBe(queried);
+    expect(result.events).toHaveLength(1);
   });
 });

@@ -52,6 +52,14 @@ describe("classifyRows — glue over the L2-A classifier", () => {
           error_class: null,
         },
       }),
+      // A genuine empty-200: the backend completed with outcome "ok" and emitted
+      // NO backend.sse.event rows. ruleH gates on backendResponseOutcome === "ok"
+      // so this success completion is required for (h) to fire.
+      ev("backend.response.complete", "backend", {
+        mono_ns: 4,
+        outcome: "ok",
+        metadata: { sse_event_count: 0 },
+      }),
     ];
     const result = classifyRows(rows[0].test_id, rows);
     expect(result.flapClass).toBe("provider-empty");
@@ -75,6 +83,13 @@ describe("classifyRows — glue over the L2-A classifier", () => {
           latency_ms: 100,
           error_class: null,
         },
+      }),
+      // Genuine empty-200 success completion (see (h) test above): required for
+      // ruleH to fire under the corrected success-outcome gate.
+      ev("backend.response.complete", "backend", {
+        mono_ns: 4,
+        outcome: "ok",
+        metadata: { sse_event_count: 0 },
       }),
     ];
     const result = classifyRows(rows[0].test_id, rows);

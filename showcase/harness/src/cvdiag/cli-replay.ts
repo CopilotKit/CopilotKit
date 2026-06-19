@@ -59,6 +59,21 @@ export class ReplayError extends Error {
   }
 }
 
+/**
+ * Thrown when the reconstructed sequence does not authoritatively belong to the
+ * QUERIED test-id: either no rows came back at all (an empty timeline printed at
+ * exit 0 would be a falsely-authoritative "nothing happened" answer) or a row's
+ * `test_id` diverges from the one requested (a mixed-test result must never be
+ * silently admitted into an authoritative timeline). This is a hard error the
+ * operator sees, not a mislabeled or empty-but-success result.
+ */
+export class ReplayScopeError extends Error {
+  constructor(detail: string) {
+    super(`cvdiag replay: ${detail}`);
+    this.name = "ReplayScopeError";
+  }
+}
+
 export interface ReplayResult {
   testId: string;
   events: CvdiagEnvelope[];
@@ -112,13 +127,39 @@ function validateRow(raw: unknown, rowIndex: number): CvdiagEnvelope {
 /**
  * Reconstruct the ordered envelope sequence from stored rows. Pure: no I/O, no
  * mutation of the input. Throws `ReplayError` on the FIRST malformed row.
+ *
+ * When `expectedTestId` is supplied (the live `main()` path always knows the
+ * test-id it queried), the reconstruction is asserted to AUTHORITATIVELY belong
+ * to that id: an empty result and any row whose `test_id` diverges from the
+ * queried one are HARD errors (`ReplayScopeError`) — never a mislabeled or
+ * empty-but-success timeline printed at exit 0. When omitted, the derived
+ * `testId` falls back to the first row's id (or `"<none>"`) for callers that
+ * reconstruct without a known query scope.
  */
-export function reconstructRequestSequence(rows: unknown[]): ReplayResult {
+export function reconstructRequestSequence(
+  rows: unknown[],
+  expectedTestId?: string,
+): ReplayResult {
   const events: CvdiagEnvelope[] = [];
   for (let i = 0; i < rows.length; i += 1) {
     events.push(validateRow(rows[i], i));
   }
   const ordered = sortByTimeline(events);
+  if (expectedTestId !== undefined) {
+    if (ordered.length === 0) {
+      throw new ReplayScopeError(
+        `no rows found for test-id "${expectedTestId}" — cannot reconstruct an authoritative timeline`,
+      );
+    }
+    for (const ev of ordered) {
+      if (ev.test_id !== expectedTestId) {
+        throw new ReplayScopeError(
+          `row test_id "${ev.test_id}" does not match the queried test-id "${expectedTestId}" — refusing a mixed-test timeline`,
+        );
+      }
+    }
+    return { testId: expectedTestId, events: ordered };
+  }
   const testId = ordered[0]?.test_id ?? "<none>";
   return { testId, events: ordered };
 }
@@ -166,11 +207,11 @@ async function main(argv: string[]): Promise<number> {
   });
   const rows = await fetchRows(pb, testId);
   try {
-    const result = reconstructRequestSequence(rows);
+    const result = reconstructRequestSequence(rows, testId);
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     return 0;
   } catch (err) {
-    if (err instanceof ReplayError) {
+    if (err instanceof ReplayError || err instanceof ReplayScopeError) {
       process.stderr.write(`${err.message}\n`);
       return 1;
     }
