@@ -1,7 +1,6 @@
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { beforeEach, describe, expect, it } from "vitest";
 import { CopilotA2UIToolRenderer } from "../a2ui-tool-renderer";
-import { defineA2UIWebComponentsOnce } from "../a2ui-surface-host";
 import {
   AGUI_SEND_STATE_SNAPSHOT_TOOL_NAME,
   type RenderA2UIArgs,
@@ -109,7 +108,7 @@ describe("CopilotA2UIToolRenderer", () => {
       }),
     });
     await fixture.whenStable();
-    await defineA2UIWebComponentsOnce();
+    await customElements.whenDefined("cpk-a2ui-surface");
 
     const surface = fixture.nativeElement.querySelector(
       "cpk-a2ui-surface",
@@ -192,7 +191,7 @@ describe("CopilotA2UIToolRenderer", () => {
       }),
     });
     await fixture.whenStable();
-    await defineA2UIWebComponentsOnce();
+    await customElements.whenDefined("cpk-a2ui-surface");
 
     const surface = fixture.nativeElement.querySelector(
       "cpk-a2ui-surface",
@@ -258,7 +257,7 @@ describe("CopilotA2UIToolRenderer", () => {
       result: JSON.stringify({ a2ui_operations: operations }),
     });
     await fixture.whenStable();
-    await defineA2UIWebComponentsOnce();
+    await customElements.whenDefined("cpk-a2ui-surface");
 
     const surface = fixture.nativeElement.querySelector(
       "cpk-a2ui-surface",

@@ -1,7 +1,6 @@
 import { ComponentFixture, TestBed } from "@angular/core/testing";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { CopilotA2UIActivityRenderer } from "../a2ui-activity-renderer";
-import { defineA2UIWebComponentsOnce } from "../a2ui-surface-host";
 import { COPILOT_KIT_CONFIG } from "../../../config";
 import { CopilotKit } from "../../../copilotkit";
 import type { ActivityMessage } from "@ag-ui/core";
@@ -19,29 +18,7 @@ describe("CopilotA2UIActivityRenderer", () => {
     role: "activity",
     activityType: "a2ui-surface",
     content: {
-      a2ui_operations: [
-        {
-          version: "v0.9",
-          createSurface: {
-            surfaceId: "activity-surface",
-            catalogId: "https://a2ui.org/specification/v0_9/basic_catalog.json",
-            theme: {},
-          },
-        },
-        {
-          version: "v0.9",
-          updateComponents: {
-            surfaceId: "activity-surface",
-            components: [
-              {
-                id: "title",
-                component: "Text",
-                text: "Activity surface",
-              },
-            ],
-          },
-        },
-      ],
+      a2ui_operations: [{ version: "v0.9", updateComponents: {} }],
     },
   };
 
@@ -85,9 +62,7 @@ describe("CopilotA2UIActivityRenderer", () => {
   it("lazy-loads web components and assigns complex values as properties", async () => {
     fixture.detectChanges();
     await fixture.whenStable();
-    await defineA2UIWebComponentsOnce();
-    fixture.detectChanges();
-    await fixture.whenStable();
+    await customElements.whenDefined("cpk-a2ui-surface");
 
     const element = fixture.nativeElement.querySelector("cpk-a2ui-surface");
     const scrollWrapper = fixture.nativeElement.querySelector(
@@ -98,7 +73,9 @@ describe("CopilotA2UIActivityRenderer", () => {
     expect(
       scrollWrapper?.classList.contains("copilot-a2ui-surface-scroll"),
     ).toBe(true);
-    expect(element.operations).toEqual(message.content.a2ui_operations);
+    expect(element.operations).toEqual([
+      { version: "v0.9", updateComponents: {} },
+    ]);
     expect(element.theme).toEqual({ color: "blue" });
     expect(element.catalog).toEqual({ id: "catalog" });
     expect(element.getAttribute("operations")).toBeNull();
