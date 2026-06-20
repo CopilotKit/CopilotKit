@@ -30,10 +30,14 @@ import { useRenderToolCall } from "@copilotkit/react-core/v2";
 function ToolCalls({ toolCall, toolMessage }) {
   const renderToolCall = useRenderToolCall();
 
-  return renderToolCall({
+  const renderedToolElement = renderToolCall({
     toolCall,
     toolMessage,
   });
+
+  return renderedToolElement ? (
+    <div className="tool-call">{renderedToolElement}</div>
+  ) : null;
 }
 ```
 
@@ -45,10 +49,14 @@ import { useToolRenderingResolver } from "@copilotkit/react-core/v2";
 function ToolCalls({ toolCall, toolMessage }) {
   const resolveToolRendering = useToolRenderingResolver();
 
-  return resolveToolRendering({
+  const renderedToolElement = resolveToolRendering({
     toolCall,
     toolMessage,
   });
+
+  return renderedToolElement ? (
+    <div className="tool-call">{renderedToolElement}</div>
+  ) : null;
 }
 ```
 

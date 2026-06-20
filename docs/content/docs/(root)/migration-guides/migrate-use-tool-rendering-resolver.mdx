@@ -59,11 +59,13 @@ export function HeadlessToolCalls({
             candidate.role === "tool" && candidate.toolCallId === toolCall.id,
         ) as ToolMessage | undefined;
 
-        return (
+        const renderedToolElement = renderToolCall({ toolCall, toolMessage });
+
+        return renderedToolElement ? (
           <React.Fragment key={toolCall.id}>
-            {renderToolCall({ toolCall, toolMessage })}
+            {renderedToolElement}
           </React.Fragment>
-        );
+        ) : null;
       })}
     </>
   );
@@ -102,11 +104,16 @@ export function HeadlessToolCalls({
             candidate.role === "tool" && candidate.toolCallId === toolCall.id,
         ) as ToolMessage | undefined;
 
-        return (
+        const renderedToolElement = resolveToolRendering({
+          toolCall,
+          toolMessage,
+        });
+
+        return renderedToolElement ? (
           <React.Fragment key={toolCall.id}>
-            {resolveToolRendering({ toolCall, toolMessage })}
+            {renderedToolElement}
           </React.Fragment>
-        );
+        ) : null;
       })}
     </>
   );
