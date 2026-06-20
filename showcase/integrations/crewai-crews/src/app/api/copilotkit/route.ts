@@ -98,6 +98,15 @@ agents["interrupt-headless"] = createAgent("/interrupt-adapted");
 // per-tool state mutations to the AG-UI bridge — same architectural
 // reason as shared-state-read-write and subagents.
 agents["gen-ui-agent"] = createAgent("/gen-ui-agent");
+// tool-rendering-custom-catchall routes to a dedicated CrewAI Flow
+// backend (`/tool-rendering`, src/agents/tool_rendering.py) that emits
+// AG-UI TOOL_CALL_* events for `get_weather` / `get_stock_price`. The
+// shared `LatestAiDevelopment` ChatWithCrewFlow on "/" runs backend
+// tools internally without emitting tool-call events, so the frontend's
+// custom wildcard renderer (`useDefaultRenderTool`) would never paint
+// the `[data-testid="custom-wildcard-card"]` shell that the
+// `d5-tool-rendering-custom-catchall` probe asserts on.
+agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
 agents["default"] = createAgent();
 
 console.log(

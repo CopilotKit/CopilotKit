@@ -19,11 +19,14 @@ import {
   CATALOG_TO_D5_KEY,
   commErrorFromStatusSignal,
   FLEET_COMM_AGGREGATE_DIMENSIONS,
+  STARTER_LEVELS,
 } from "./live-status";
+import type { StarterLevel } from "./live-status";
 import {
   E2E_STALE_AFTER_MS,
   D4_STALE_AFTER_MS,
   LIVENESS_STALE_AFTER_MS,
+  STARTER_STALE_AFTER_MS,
   isStale,
 } from "./staleness";
 
@@ -42,6 +45,58 @@ export {
 
 export type TestStatus = "green" | "red" | "amber" | null;
 export type ChipColor = "green" | "amber" | "red" | "gray";
+
+/**
+ * INFRA error classes that fold a red cell to gray (U7, spec §7.1).
+ *
+ * The harness writes an `errorClass`/`errorDesc` literal onto a failing row's
+ * `signal` blob. Two of those literals mean the probe NEVER produced a real
+ * functional result — the run was infra-broken, not product-broken:
+ *   - `driver-error` — the Playwright driver threw before/while exercising the
+ *     feature (`d6-all-pills.ts` non-abort catch; `d4-chat-roundtrip.ts` writes
+ *     it into `errorDesc`, NOT `errorClass`).
+ *   - `abort` — the run was aborted by worker drain / shutdown
+ *     (`abortSignal.aborted` branch in the same drivers).
+ * A cell whose red is attributable ONLY to one of these folds to the existing
+ * `gray` ChipColor (no-data) instead of `red`, so an infra blip never
+ * masquerades as a genuine product red on the matrix.
+ *
+ * CONSERVATIVE BY DESIGN (masks-real-red guard, spec R-C / ambiguity #3): the
+ * set is EXACTLY these two. Every other emitted class — `feature-timeout`,
+ * `missing-script`, `selector-timeout`, `conversation-error`, `goto-error`,
+ * `transport-error`, `launcher-error`, `interceptor-attach-error`,
+ * `interceptor-stop-error`, `promise-rejected`, `smoke-failed`, … — is a
+ * probe that RAN and failed, so it STAYS red. Widening this set risks hiding a
+ * genuine failure; never add a class without re-grounding it against the
+ * harness drivers. (`comm-error` / `pool-acquire-timeout` are NOT errorClass
+ * values — they are the REQ-B comm-error overlay and an Error message
+ * respectively — so they will never match here and are deliberately excluded.)
+ */
+export const INFRA_ERROR_CLASSES: ReadonlySet<string> = new Set([
+  "driver-error",
+  "abort",
+]);
+
+/**
+ * Does a status row's `signal` blob carry an INFRA error class in EITHER
+ * `errorClass` or `errorDesc`? Reading both fields is mandatory: D4
+ * (`d4-chat-roundtrip.ts`) writes `driver-error` into `errorDesc` and leaves
+ * `errorClass` unset, so an `errorClass`-only read would leave D4 driver-error
+ * reds RED. `signal` is typed `unknown` (the PB blob), so guard the shape
+ * before reading — a non-object / array / null signal carries no infra class.
+ */
+function signalHasInfraErrorClass(signal: unknown): boolean {
+  if (signal === null || typeof signal !== "object" || Array.isArray(signal)) {
+    return false;
+  }
+  const blob = signal as Record<string, unknown>;
+  const errorClass = blob.errorClass;
+  const errorDesc = blob.errorDesc;
+  return (
+    (typeof errorClass === "string" && INFRA_ERROR_CLASSES.has(errorClass)) ||
+    (typeof errorDesc === "string" && INFRA_ERROR_CLASSES.has(errorDesc))
+  );
+}
 
 export interface TestLevel {
   exists: boolean;
@@ -63,7 +118,7 @@ export interface CellModel {
    * D5 is red/amber/no-data), the raw D6 result is meaningless as a top-of-ladder
    * claim, so this collapses to `null` (blocked/not-achieved — rendered gray/—,
    * NOT a false green and NOT a false red; the actual lower-rung failure is
-   * already shown by the CV/API/RT badges). When the ladder IS intact through D5,
+   * already shown by the 1P/API/BE badges). When the ladder IS intact through D5,
    * the raw D6 status passes through (a genuine D6 red still surfaces as red).
    *
    * D5-UNMAPPED EXCEPTION (`!d5.exists`): when D5 is not mapped for this feature
@@ -121,6 +176,26 @@ export interface CellModel {
    *     through; only green/gray becomes "pending").
    */
   surfaceState: FleetSurfaceState;
+  /**
+   * U8 (§7.2 / §6.4) — is the cell STALE on the matrix? A cell is stale when
+   * EVERY row that contributes to its rendering has an `observed_at` older than
+   * that row's own family staleness window (so a single fresh row means the
+   * cell was recently swept and is NOT stale). Distinct from the per-depth
+   * stale-green→amber downgrade in the resolvers: this is a MATRIX-level recency
+   * flag that folds ANY stale colour — red INCLUDED — to gray ("re-sweep
+   * pending"), because a frozen historical state is no longer a live claim. The
+   * same treatment U9's equivalence gate applies (a stale prod row is excluded).
+   * `false` for an unsupported/not-wired/no-data cell — there is no observation
+   * to be stale.
+   */
+  isStaleCell: boolean;
+  /**
+   * U8 — age in milliseconds of the cell's FRESHEST contributing observation
+   * (`now - max(observed_at)` across the rows the chip derives from). Surfaces
+   * staleness to operators ("last swept N ago"). `null` when the cell has no
+   * contributing rows (no-data) — there is no observation to age.
+   */
+  observedAtAgeMs: number | null;
 }
 
 export interface CellModelInput {
@@ -128,6 +203,20 @@ export interface CellModelInput {
   featureId: string;
   isSupported: boolean;
   isWired: boolean;
+  /**
+   * Which VERIFICATION AXIS this cell is probed on. Defaults to `"agent"` —
+   * the showcase-* integration feature ladder (D3 e2e / D4 chat-tools / D5 / D6,
+   * keyed `<dim>:<slug>/<featureId>`). A `"starter"` cell is a starter-template
+   * container fleet member (`starter-<slug>`): it is NOT probed on the agent
+   * feature ladder at all but on the `starter_smoke` matrix, whose rows are
+   * keyed `starter:<column-slug>/<level>` (level ∈ STARTER_LEVELS). For a
+   * starter cell `slug` is the DASHBOARD COLUMN slug (the value side of
+   * `STARTER_TO_COLUMN`) and `featureId` is a label only (the starter axis is
+   * not feature-scoped). `buildCellModel` routes a starter cell to
+   * `resolveStarterChip` instead of the agent ladder, so a starter is never
+   * resolved from — or emitted as — a phantom `agentic-chat` cell.
+   */
+  probeAxis?: "agent" | "starter";
 }
 
 // ---------------------------------------------------------------------------
@@ -747,6 +836,163 @@ function decodeCellCommError(
   return winner;
 }
 
+/**
+ * Decide whether a cell's RED is attributable ONLY to harness infra signals
+ * (`driver-error`/`abort` in `signal.errorClass` or `signal.errorDesc`) and so
+ * should fold to gray (U7, spec §7.1).
+ *
+ * Scans EVERY row the chip's red can derive from — the D3 (e2e) row, the D4
+ * chat/tools rows, and the D5/D6 per-cell families (mapped through
+ * `CATALOG_TO_D5_KEY`, the same keyspace the resolvers fan out over). A row
+ * "contributes red" when its persisted `state` ranks at or above `red` (rank
+ * fold, NOT literal "red" equality — an out-of-vocabulary runtime state such
+ * as `"error"` ranks ABOVE red and must still count, mirroring `rankOfState`).
+ *
+ * Returns true ONLY when there is at least one contributing red row AND EVERY
+ * contributing red row carries an infra class. If ANY contributing red row is
+ * NOT infra-classed (a genuine ran-and-failed assertion), this returns false
+ * and the cell STAYS red — the masks-real-red guard (spec R-C). The resolvers
+ * fold each family to a single worst row, so a family could hide a genuine red
+ * behind an infra winner (or vice-versa); scanning the raw rows here — not the
+ * resolved winners — is what makes the guard conservative.
+ *
+ * Staleness is NOT applied here: a stale GREEN row never contributes red, and
+ * a red row's infra-ness does not age out (the signal classifies WHY the probe
+ * failed, independent of when). The chip already computed `red`, so the only
+ * question is whether that red is infra-only.
+ */
+function redIsPurelyInfra(
+  live: LiveStatusMap,
+  slug: string,
+  featureId: string,
+): boolean {
+  const familyKeys = CATALOG_TO_D5_KEY[featureId];
+  const keys: string[] = [
+    keyFor("e2e", slug, featureId),
+    keyFor("chat", slug),
+    keyFor("tools", slug),
+  ];
+  if (familyKeys) {
+    for (const ft of familyKeys) {
+      keys.push(keyFor("d5", slug, ft));
+      keys.push(keyFor("d6", slug, ft));
+    }
+  }
+
+  let sawContributingRed = false;
+  for (const key of keys) {
+    const row = live.get(key);
+    if (!row) continue;
+    // A row contributes red when its state ranks at/above red — rank-based so
+    // an out-of-vocabulary "error" state (ranked above red by the A2
+    // machinery) is still treated as a failing contributor, not swallowed.
+    if (rankOfState(row.state) < STATE_RANK.red) continue;
+    if (!signalHasInfraErrorClass(row.signal)) {
+      // A genuine ran-and-failed red — never fold it away.
+      return false;
+    }
+    sawContributingRed = true;
+  }
+  return sawContributingRed;
+}
+
+/**
+ * Result of the U8 matrix-freshness scan.
+ *   - `freshestAgeMs` — age in ms of the cell's FRESHEST contributing
+ *     observation (`now - max(observed_at)`), or `null` when the cell has no
+ *     contributing rows (no-data; nothing to age).
+ *   - `isStale` — true when at least one row contributes AND every contributing
+ *     row is older than its own family staleness window. A single fresh row
+ *     (relative to ITS window) means the cell was recently swept → not stale.
+ */
+interface CellFreshness {
+  freshestAgeMs: number | null;
+  isStale: boolean;
+}
+
+/**
+ * Compute the cell's MATRIX freshness (U8, spec §7.2/§6.4).
+ *
+ * Scans EVERY row the cell renders from — the D3 (e2e) row, the D4 chat/tools
+ * rows, the D5/D6 per-cell families (mapped through `CATALOG_TO_D5_KEY`, the
+ * same keyspace the resolvers fan out over), and the D1/D2 `health` row — and
+ * asks two things per row: how old is it, and is it stale relative to ITS OWN
+ * family window? Windows differ by cadence (e2e/d5/d6 = `E2E_STALE_AFTER_MS`
+ * (6h), chat/tools = `D4_STALE_AFTER_MS` (1h), health = `LIVENESS_STALE_AFTER_MS`
+ * (45m)) — mirroring `decodeCellCommError`'s per-family staleness so a
+ * fast-cadence row (health) does not wrongly mark a cell stale when its slower
+ * e2e row is legitimately a couple hours old, and vice-versa.
+ *
+ * A cell is STALE only when it has at least one contributing row AND every
+ * contributing row is past its window — i.e. the cell has not been swept on
+ * ANY cadence within that cadence's tolerance. One fresh row keeps the cell
+ * fresh (it was recently observed). The freshest age is `now - max(observed_at)`
+ * across all contributing rows, surfaced so operators see "last swept N ago".
+ *
+ * An unparseable `observed_at` is treated as NOT fresh for the freshest-age
+ * pick (it cannot establish recency) but IS treated as stale for the all-stale
+ * verdict — a row with no trustworthy timestamp cannot vouch that the cell was
+ * recently swept. This fails safe toward "re-sweep pending" (gray) rather than
+ * trusting a corrupt timestamp to paint a frozen colour as live.
+ */
+function computeCellFreshness(
+  live: LiveStatusMap,
+  slug: string,
+  featureId: string,
+  now: number,
+): CellFreshness {
+  const familyKeys = CATALOG_TO_D5_KEY[featureId];
+  const candidates: Array<{ key: string; staleAfterMs: number }> = [
+    { key: keyFor("e2e", slug, featureId), staleAfterMs: E2E_STALE_AFTER_MS },
+    { key: keyFor("chat", slug), staleAfterMs: D4_STALE_AFTER_MS },
+    { key: keyFor("tools", slug), staleAfterMs: D4_STALE_AFTER_MS },
+    { key: keyFor("health", slug), staleAfterMs: LIVENESS_STALE_AFTER_MS },
+  ];
+  if (familyKeys) {
+    for (const ft of familyKeys) {
+      candidates.push({
+        key: keyFor("d5", slug, ft),
+        staleAfterMs: E2E_STALE_AFTER_MS,
+      });
+      candidates.push({
+        key: keyFor("d6", slug, ft),
+        staleAfterMs: E2E_STALE_AFTER_MS,
+      });
+    }
+  }
+
+  let freshestAgeMs: number | null = null;
+  let sawContributingRow = false;
+  let allStale = true;
+  for (const { key, staleAfterMs } of candidates) {
+    const row = live.get(key);
+    if (!row) continue;
+    sawContributingRow = true;
+    // Reuse the shared `isStale` primitive with this row's family window. An
+    // unparseable timestamp reads as NOT stale there (staleness is a positive
+    // signal) — but for the all-stale verdict a row with no trustworthy
+    // timestamp must not vouch for recency, so treat unparseable as stale.
+    const observedMs = Date.parse(row.observed_at);
+    const rowStale = Number.isNaN(observedMs)
+      ? true
+      : isStale(row, now, staleAfterMs);
+    if (!rowStale) allStale = false;
+    // Freshest age: smallest non-negative `now - observed_at`. Skip an
+    // unparseable timestamp — it cannot establish recency.
+    if (!Number.isNaN(observedMs)) {
+      const ageMs = now - observedMs;
+      if (freshestAgeMs === null || ageMs < freshestAgeMs) {
+        freshestAgeMs = ageMs;
+      }
+    }
+  }
+
+  return {
+    freshestAgeMs,
+    isStale: sawContributingRow && allStale,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -772,7 +1018,135 @@ const UNSUPPORTED: CellModel = Object.freeze({
   chipColor: "gray",
   isRegression: false,
   surfaceState: "gray",
+  isStaleCell: false,
+  observedAtAgeMs: null,
 });
+
+/**
+ * Resolve a STARTER cell's `ChipColor` + matrix-freshness from the four
+ * `starter:<columnSlug>/<level>` rows the `starter_smoke` driver emits (level ∈
+ * {@link STARTER_LEVELS}). A starter is NOT probed on the agent feature ladder,
+ * so this is its OWN derivation — disjoint from the D3/D4/D5/D6 resolvers.
+ *
+ * The fold mirrors the agent ladder's philosophy so the equivalence gate stays
+ * apples-to-apples on whichever axis a cell lives on:
+ *   - per-row stale-green → degraded BEFORE the worst-state fold (the starter
+ *     uses `STARTER_STALE_AFTER_MS`), so a frozen-green level can't mask a
+ *     fresh sibling;
+ *   - STRICT on missing rows: a level with no row makes the family unverified
+ *     and collapses a green/degraded fold to no-data (`gray`) — a present RED
+ *     still dominates no-data (rank-based, so an out-of-vocab state ranked
+ *     above red still surfaces);
+ *   - `green` only when ALL four levels are present AND green-and-fresh;
+ *   - `amber` for a stale-green / degraded fold (not-green, but not a red);
+ *   - the U8 matrix-staleness fold (every contributing row past its window →
+ *     gray) is applied by the caller via the returned `isStale`.
+ */
+function resolveStarterChip(
+  live: LiveStatusMap,
+  columnSlug: string,
+  now: number,
+): { chipColor: ChipColor; isStale: boolean; freshestAgeMs: number | null } {
+  let worstState: State | null = null;
+  let anyMissing = false;
+  let sawRow = false;
+  let allStale = true;
+  let freshestAgeMs: number | null = null;
+
+  for (const level of STARTER_LEVELS as readonly StarterLevel[]) {
+    const row = live.get(keyFor("starter", columnSlug, level)) ?? null;
+    if (!row) {
+      anyMissing = true;
+      continue;
+    }
+    sawRow = true;
+    // U8 matrix-freshness bookkeeping (mirrors computeCellFreshness): an
+    // unparseable timestamp reads as stale for the all-stale verdict but cannot
+    // establish recency for the freshest-age pick.
+    const observedMs = Date.parse(row.observed_at);
+    const rowStale = Number.isNaN(observedMs)
+      ? true
+      : isStale(row, now, STARTER_STALE_AFTER_MS);
+    if (!rowStale) allStale = false;
+    if (!Number.isNaN(observedMs)) {
+      const ageMs = now - observedMs;
+      if (freshestAgeMs === null || ageMs < freshestAgeMs)
+        freshestAgeMs = ageMs;
+    }
+    // Per-row stale-green → degraded downgrade BEFORE the worst-state fold.
+    const eff: State =
+      row.state === "green" && isStale(row, now, STARTER_STALE_AFTER_MS)
+        ? "degraded"
+        : row.state;
+    if (worstState === null || rankOfState(eff) > rankOfState(worstState)) {
+      worstState = eff;
+    }
+  }
+
+  // No starter rows at all → no-data gray (the resting state before the first
+  // smoke tick), matrix-fresh-neutral.
+  if (!sawRow || worstState === null) {
+    return { chipColor: "gray", isStale: false, freshestAgeMs };
+  }
+
+  const matrixStale = sawRow && allStale;
+
+  // STRICT missing-level collapse: a missing level makes the family unverified.
+  // A present red-or-worse still dominates no-data (rank-based); otherwise a
+  // green/degraded fold collapses to gray.
+  let chipColor: ChipColor;
+  if (anyMissing && rankOfState(worstState) < STATE_RANK.red) {
+    chipColor = "gray";
+  } else {
+    const status = foldStateToTestStatus(worstState);
+    chipColor =
+      status === "green" ? "green" : status === "red" ? "red" : "amber";
+  }
+
+  // U8 matrix-staleness fold: a wholly-stale starter cell is "re-sweep pending"
+  // → gray, exactly as the agent ladder folds a stale cell (and as U9's
+  // equivalence gate excludes a stale prod cell).
+  if (matrixStale && chipColor !== "gray") {
+    chipColor = "gray";
+  }
+
+  return { chipColor, isStale: matrixStale, freshestAgeMs };
+}
+
+/**
+ * Build the cell model for a STARTER-axis cell ({@link CellModelInput.probeAxis}
+ * `=== "starter"`). The starter axis has no D3/D4/D5/D6 ladder, so the depth
+ * levels are all `null`/no-data and the `chipColor` comes from
+ * `resolveStarterChip` over the `starter:<columnSlug>/<level>` rows. No
+ * comm-error overlay is decoded (the starter_smoke driver does not ride the
+ * fleet comm-error path), so `surfaceState` mirrors `chipColor`.
+ */
+function buildStarterCellModel(
+  live: LiveStatusMap,
+  columnSlug: string,
+  now: number,
+): CellModel {
+  const { chipColor, isStale, freshestAgeMs } = resolveStarterChip(
+    live,
+    columnSlug,
+    now,
+  );
+  return {
+    supported: true,
+    d3: NOT_WIRED_LEVEL,
+    d4: NOT_WIRED_LEVEL,
+    d5: NOT_WIRED_LEVEL,
+    d6: NOT_WIRED_LEVEL,
+    d6Effective: null,
+    achievedDepth: 0,
+    ceilingDepth: 0,
+    chipColor,
+    isRegression: false,
+    surfaceState: chipColorToSurface(chipColor),
+    isStaleCell: isStale,
+    observedAtAgeMs: freshestAgeMs,
+  };
+}
 
 /**
  * Build the complete cell model for a single (integration, feature) pair.
@@ -793,6 +1167,13 @@ export function buildCellModel(
     return UNSUPPORTED;
   }
 
+  // ── Starter axis: resolve off the starter_smoke matrix, NOT the agent
+  //    feature ladder. A starter's `slug` is its dashboard COLUMN slug. ──
+  if (input.probeAxis === "starter") {
+    if (!isWired) return UNSUPPORTED;
+    return buildStarterCellModel(live, slug, now);
+  }
+
   // ── Not wired (supported but no test harness configured) ──────────
   if (!isWired) {
     return {
@@ -807,6 +1188,8 @@ export function buildCellModel(
       chipColor: "gray",
       isRegression: false,
       surfaceState: "gray",
+      isStaleCell: false,
+      observedAtAgeMs: null,
     };
   }
 
@@ -933,13 +1316,45 @@ export function buildCellModel(
     chipColor = "red";
   }
 
+  // ── U7: harness driver-error/abort INFRA fold (§7.1) ──────────────
+  // A cell that is RED purely because its failing rows carry a harness infra
+  // signal (`driver-error`/`abort` in `signal.errorClass` or `signal.errorDesc`)
+  // is folded to the existing `gray` ChipColor (no-data) — an infra blip is not
+  // a genuine product red and must not show as one on the matrix. The fold is
+  // CONSERVATIVE: it fires only when EVERY contributing red row is infra-classed
+  // (see `redIsPurelyInfra`), so a real ran-and-failed assertion — alone or
+  // alongside an infra red on a sibling rung — keeps the cell RED. Applied only
+  // to a red chip; green/amber/gray are untouched, and the masks-real-red guard
+  // (spec R-C) lives entirely in `redIsPurelyInfra`.
+  if (chipColor === "red" && redIsPurelyInfra(live, slug, featureId)) {
+    chipColor = "gray";
+  }
+
+  // ── U8: matrix staleness fold (§7.2 / §6.4) ───────────────────────
+  // The per-depth resolvers only downgrade a stale GREEN to amber and let a
+  // stale RED pass through frozen — correct for the depth LADDER. But on the
+  // MATRIX a cell whose freshest observation predates its re-sweep window is
+  // "re-sweep pending": its frozen colour (red INCLUDED) is no longer a live
+  // claim, so fold ANY non-gray chip to gray. The cell is stale only when
+  // EVERY contributing row is past its own family window (one fresh row keeps
+  // it live — see `computeCellFreshness`), so a fresh red stays red and the
+  // existing "fresh e2e + stale D5" depth cases are untouched. This is the SAME
+  // treatment U9's equivalence gate applies (a stale prod row is excluded).
+  // Runs AFTER U7's infra fold: a stale driver-error cell is already gray, so
+  // the two folds compose without either masking the other.
+  const freshness = computeCellFreshness(live, slug, featureId, now);
+  const isStaleCell = freshness.isStale;
+  if (isStaleCell && chipColor !== "gray") {
+    chipColor = "gray";
+  }
+
   // d6Effective — ladder-gated D6 status for the D6 badge + D6 stat.
   //
   // D6 is the TOP of the verification ladder, so a green D6 claim is only
   // meaningful when the ladder through D5 is intact. This reuses the SAME
   // ladder predicates the chip uses above (`d1d4GateFails`, `d5.status`) so the
   // badge/stat never contradict the chip:
-  //   gate fails              → null (blocked; API/RT badge shows the failure)
+  //   gate fails              → null (blocked; API/BE badge shows the failure)
   //   D4 no-data (status null)→ null (ladder UNVERIFIED at D4 — the
   //                             missing-chat collapse; same blocked outcome
   //                             as a failing gate, but the chip shows gray)
@@ -954,7 +1369,7 @@ export function buildCellModel(
   //                             genuine D6 red/amber/green passes through)
   //   D5 red/amber/null       → null (ladder BROKEN/unverified below D6 → the
   //                             D6 claim is not-achieved/blocked; never a false
-  //                             green and never a false red — the CV badge
+  //                             green and never a false red — the 1P badge
   //                             already shows the real lower-rung failure)
   let d6Effective: TestStatus;
   if (d1d4GateFails || d4NoData || d1d4Absent) {
@@ -1059,5 +1474,7 @@ export function buildCellModel(
     isRegression,
     ...(commError ? { commError } : {}),
     surfaceState,
+    isStaleCell,
+    observedAtAgeMs: freshness.freshestAgeMs,
   };
 }

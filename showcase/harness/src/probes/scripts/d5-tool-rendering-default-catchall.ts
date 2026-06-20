@@ -51,6 +51,18 @@ export const CATCHALL_CONTAINER_TESTID = "copilot-tool-render";
  */
 export const STATUS_PILL_TESTID = "copilot-tool-render-status";
 
+/**
+ * The narration phrase the CUSTOM-catchall fixtures emit (see
+ * `d5-tool-rendering-custom-catchall.ts`). The default-catchall page
+ * must NEVER include this phrase — its presence indicates a
+ * cross-fixture leak (e.g. PR #5465's toolName-strip mistake or a
+ * latent `userMessage` collision between the two fixture files). The
+ * negative assertion below catches that regression at the content
+ * layer, which the testid + tool-name asserts structurally cannot.
+ */
+export const CUSTOM_CATCHALL_LEAK_PHRASE =
+  "rendered through the custom wildcard catchall";
+
 /** Total time we'll poll for the renderer to settle, in ms. */
 const POLL_TIMEOUT_MS = 15_000;
 const POLL_INTERVAL_MS = 250;
@@ -62,23 +74,60 @@ export interface DefaultCatchallProbe {
   /** True when at least one status-pill testid (any state) is present. */
   statusPillPresent: boolean;
   /** True when the matching container exposes a non-empty data-status value. */
-  statusAttributePresent: boolean;
+  statusAttributePresent?: boolean;
   /** Diagnostic: the data-tool-name values found on rendered containers. */
   observedToolNames: string[];
   /** Diagnostic: the data-status values found on rendered containers. */
-  observedStatuses: string[];
+  observedStatuses?: string[];
+  /**
+   * True when the page body contains the custom-catchall content
+   * phrase (`CUSTOM_CATCHALL_LEAK_PHRASE`). On the default-catchall
+   * page this MUST be false; true indicates a cross-fixture leak.
+   * Optional so existing test fixtures predating the field still
+   * type-check; absence is treated as `false` by the validator.
+   */
+  customLeakPhrasePresent?: boolean;
 }
 
 export async function probeDefaultCatchall(
   page: Page,
 ): Promise<DefaultCatchallProbe> {
+  // ROOT CAUSE (PR #5495 A11, then A25a): the prior implementation passed the
+  // leak phrase into the browser-side closure via the `page.evaluate(fn, arg)`
+  // second-arg form:
+  //
+  //     const leakPhrase = CUSTOM_CATCHALL_LEAK_PHRASE;
+  //     return await page.evaluate((expectedLeakPhrase?: string) => {
+  //       const needle = expectedLeakPhrase ?? "";
+  //       if (needle) { /* … cascade scan … */ }
+  //       ...
+  //     }, leakPhrase);
+  //
+  // Empirically (verified during the A11 RED-GREEN proof on the SIBLING
+  // `tool-rendering-custom-catchall` probe), `expectedLeakPhrase` arrives as
+  // `undefined` inside the browser-side closure — the arg is NOT propagated
+  // through the harness's compiled `page.evaluate` call path. With
+  // `needle === ""`, the `if (needle)` guard skipped the entire leak-detection
+  // cascade and `customLeakPhrasePresent` stayed `false` forever, even when
+  // the canonical phrase WAS in the DOM — making `validateDefaultCatchall`'s
+  // leak branch (the check at the end of `validateDefaultCatchall`) dead
+  // code. The defensive fix mirrors the sibling probe by inlining the needle
+  // as a JS string literal inside the closure — no `page.evaluate(fn, arg)`
+  // second-arg dependency at all.
+  //
+  // The needle is the canonical leak phrase exported above as
+  // `CUSTOM_CATCHALL_LEAK_PHRASE`. Keep these two in lock-step.
   return await page.evaluate(() => {
+    const needle = "rendered through the custom wildcard catchall";
     const win = globalThis as unknown as {
       document: {
         querySelectorAll(sel: string): ArrayLike<{
           getAttribute(name: string): string | null;
           querySelector(sel: string): unknown;
+          textContent?: string | null;
         }>;
+        querySelector(sel: string): unknown;
+        body?: { textContent?: string | null };
       };
     };
 
@@ -106,12 +155,34 @@ export async function probeDefaultCatchall(
       }
     }
 
+    // Scan assistant-message bubbles for the custom-catchall leak phrase.
+    // We use `textContent` over `innerText` so off-viewport bubbles in a
+    // scrolled chat still register; otherwise a leaked bubble below the
+    // fold could escape the leak check entirely.
+    let customLeakPhrasePresent = false;
+    const bubbles = win.document.querySelectorAll(
+      '[data-testid="copilot-assistant-message"]',
+    );
+    for (let i = 0; i < bubbles.length; i++) {
+      const t = bubbles[i]!.textContent ?? "";
+      if (t.includes(needle)) {
+        customLeakPhrasePresent = true;
+        break;
+      }
+    }
+    if (!customLeakPhrasePresent) {
+      const body = win.document.body;
+      const bodyText = (body?.textContent ?? "") as string;
+      customLeakPhrasePresent = bodyText.includes(needle);
+    }
+
     return {
       containerWithToolName,
       statusPillPresent,
       statusAttributePresent,
       observedToolNames,
       observedStatuses,
+      ...(customLeakPhrasePresent ? { customLeakPhrasePresent } : {}),
     };
   });
 }
@@ -135,13 +206,20 @@ export function validateDefaultCatchall(
       `([data-testid="${STATUS_PILL_TESTID}"]) — built-in renderer regressed`
     );
   }
-  if (!snap.statusAttributePresent) {
+  if (snap.customLeakPhrasePresent) {
+    return (
+      "tool-rendering-default-catchall: page body contains the custom-catchall " +
+      `narration phrase ${JSON.stringify(CUSTOM_CATCHALL_LEAK_PHRASE)} — ` +
+      "a custom-catchall fixture leaked into the default-catchall request " +
+      "(see d5-tool-rendering-custom-catchall.ts for the LGP-gold disjoint-prompts pattern)"
+    );
+  }
+  if (snap.statusAttributePresent === false) {
+    const observedStatuses = snap.observedStatuses ?? [];
     return (
       "tool-rendering-default-catchall: container present but no " +
       "data-status attribute; observed statuses: " +
-      (snap.observedStatuses.length === 0
-        ? "(none)"
-        : snap.observedStatuses.join(", "))
+      (observedStatuses.length === 0 ? "(none)" : observedStatuses.join(", "))
     );
   }
   return null;
@@ -183,11 +261,24 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return [
     {
       input: "forecast for Tokyo",
-      // Wrapped so the assertions callback ignores the Phase-4 `ctx`
-      // argument: `assertDefaultCatchall` takes `(page, timeoutMs?)`, not
-      // `(page, ctx)`, and ctx is irrelevant to the default-catchall probe.
-      assertions: async (page) => {
+      // After the testid + tool-name checks pass, also assert the
+      // assistant narration content (the bubble text resolved by the
+      // conversation runner) does NOT contain the custom-catchall leak
+      // phrase. This catches the cross-fixture leak that the testid
+      // checks structurally cannot — see the
+      // `d5-tool-rendering-custom-catchall.ts` companion probe and PR
+      // #5465's failure mode for context.
+      assertions: async (page, ctx) => {
         await assertDefaultCatchall(page);
+        if (ctx.text.includes(CUSTOM_CATCHALL_LEAK_PHRASE)) {
+          throw new Error(
+            "tool-rendering-default-catchall: narration content contains " +
+              `the custom-catchall leak phrase ${JSON.stringify(CUSTOM_CATCHALL_LEAK_PHRASE)} — ` +
+              "a custom-catchall fixture leaked into the default-catchall " +
+              "request (LGP-gold disjoint-prompts pattern violated). " +
+              `Observed text: ${JSON.stringify(ctx.text.slice(0, 200))}`,
+          );
+        }
       },
     },
   ];

@@ -130,6 +130,84 @@ describe("convertInputToTanStackAI", () => {
   });
 
   // -------------------------------------------------------------------------
+  // Client tools (frontend-provided tools → TanStack client tools)
+  // -------------------------------------------------------------------------
+  describe("client tools", () => {
+    it("converts input.tools to TanStack client tools (no executor)", () => {
+      const params = {
+        type: "object" as const,
+        properties: { issues: { type: "array" as const } },
+        required: ["issues"],
+      };
+      const input = createDefaultInput({
+        tools: [
+          {
+            name: "issue_list",
+            description: "Render a list of issues",
+            parameters: params,
+          },
+        ],
+      });
+
+      const { tools } = convertInputToTanStackAI(input);
+
+      expect(tools).toHaveLength(1);
+      expect(tools[0]).toEqual({
+        __toolSide: "client",
+        name: "issue_list",
+        description: "Render a list of issues",
+        inputSchema: params,
+      });
+      // Client tools must NOT carry an executor — TanStack pauses and hands
+      // the call back to the AG-UI client instead of running it.
+      expect("execute" in tools[0]).toBe(false);
+    });
+
+    it("returns an empty tools array when input has no tools", () => {
+      const { tools } = convertInputToTanStackAI(createDefaultInput());
+      expect(tools).toEqual([]);
+    });
+
+    it("closes open objects (additionalProperties → false) for OpenAI compatibility", () => {
+      const input = createDefaultInput({
+        tools: [
+          {
+            name: "render_chart",
+            description: "Render a chart",
+            parameters: {
+              type: "object",
+              properties: {
+                // z.record(z.string(), z.any()) → additionalProperties: {}
+                options: { type: "object", additionalProperties: {} },
+                data: {
+                  type: "array",
+                  // .passthrough() → additionalProperties: true on items
+                  items: {
+                    type: "object",
+                    properties: { v: { type: "number" } },
+                    additionalProperties: true,
+                  },
+                },
+              },
+              additionalProperties: false,
+            },
+          },
+        ],
+      });
+
+      const { tools } = convertInputToTanStackAI(input);
+      const schema = tools[0].inputSchema as Record<string, any>;
+
+      expect(schema.properties.options.additionalProperties).toBe(false);
+      expect(schema.properties.data.items.additionalProperties).toBe(false);
+      // Nested defined properties are preserved.
+      expect(schema.properties.data.items.properties.v).toEqual({
+        type: "number",
+      });
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // Context injection
   // -------------------------------------------------------------------------
   describe("context injection", () => {

@@ -54,7 +54,7 @@ export function StatsBar({
 }: StatsBarProps) {
   return (
     <div data-testid="stats-bar" className="flex items-center gap-8 px-4 py-3">
-      <Stat value={wired} label="BE (Agent)" colorClass="text-[var(--ok)]" />
+      <Stat value={wired} label="API (HTTP)" colorClass="text-[var(--ok)]" />
       <Stat value={stub} label="Stub" colorClass="text-[var(--amber)]" />
       <Stat
         value={unshipped}

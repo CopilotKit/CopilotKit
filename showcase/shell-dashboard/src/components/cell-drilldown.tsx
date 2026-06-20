@@ -3,8 +3,8 @@
  * CellDrilldown — popover panel showing per-badge dimension detail for a
  * single (integration, feature) cell.
  *
- * Renders all relevant badge dimensions (d6/Parity, d5/CV, d4/RT,
- * e2e/UI, d2/API, health) with tone, label, and — for red/amber badges —
+ * Renders all relevant badge dimensions (d6/Parity, d5/1P, d4/BE (Agent),
+ * e2e/UI, d2/API (HTTP), health) with tone, label, and — for red/amber badges —
  * failure metadata presented as readable key-value pairs with the full
  * signal collapsible for debugging.
  *
@@ -40,10 +40,11 @@ export interface CellDrilldownProps {
 
 /**
  * Dimension metadata for display ordering (descending depth). Labels follow
- * the legend's canonical taxonomy (adaptive-legend.tsx): D4 = "RT (Round
- * Trip)" (chat+tools round-trip), D3/e2e = "UI (Frontend)" (the demo page
- * renders in a browser). BadgeRow derives its data-testid from the label,
- * so labels must stay unique across rows.
+ * the legend's canonical taxonomy (adaptive-legend.tsx): D4 = "BE (Agent)"
+ * (single chat message round-trip — agent processes a message end-to-end),
+ * D3/e2e = "UI (Frontend)" (the demo page renders in a browser), D2 =
+ * "API (HTTP)" (backend service is up and HTTP-reachable). BadgeRow derives
+ * its data-testid from the label, so labels must stay unique across rows.
  *
  * The `smoke` row was dropped — the smoke endpoint was redundant with
  * /health on the same service and is no longer probed. `CellState.smoke`
@@ -55,10 +56,10 @@ const DIMENSIONS: Array<{
   label: string;
 }> = [
   { key: "d6", label: "Parity (Reference)" },
-  { key: "d5", label: "CV (Conversation)" },
-  { key: "d4", label: "RT (Round Trip)" },
+  { key: "d5", label: "1P (Single Pill)" },
+  { key: "d4", label: "BE (Agent)" },
   { key: "e2e", label: "UI (Frontend)" },
-  { key: "d2", label: "API (Agent)" },
+  { key: "d2", label: "API (HTTP)" },
   { key: "health", label: "Health" },
 ];
 

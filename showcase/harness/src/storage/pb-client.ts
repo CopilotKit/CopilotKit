@@ -338,6 +338,7 @@ export function createPbClient(config: PbClientConfig): PbClient {
           }
           throw new Error(
             `pb-client: re-auth failed on ${path} (status 401): ${String(err)}`,
+            { cause: err },
           );
         }
         if (authToken) headers.set("authorization", authToken);
@@ -481,10 +482,15 @@ export function createPbClient(config: PbClientConfig): PbClient {
         perPage: "1",
         skipTotal: "true",
       });
-      const res = await request(
-        `/api/collections/${encodeURIComponent(collection)}/records?${qs.toString()}`,
-      );
-      if (!res.ok) throw new Error(`pb list failed: ${res.status}`);
+      const path = `/api/collections/${encodeURIComponent(collection)}/records?${qs.toString()}`;
+      const res = await request(path);
+      if (!res.ok) {
+        // Carry the typed HTTP status so callers can branch on it (e.g.
+        // assertCollectionExists distinguishes 404-missing from 401/403-auth)
+        // instead of regex-matching the rendered message string.
+        const bodyText = await res.text().catch(() => "");
+        throw new PbHttpError({ statusCode: res.status, bodyText, path });
+      }
       const body = (await res.json()) as { items: T[] };
       return body.items[0] ?? null;
     },
@@ -504,10 +510,16 @@ export function createPbClient(config: PbClientConfig): PbClient {
       if (opts.skipTotal !== undefined) {
         qs.set("skipTotal", opts.skipTotal ? "true" : "false");
       }
-      const res = await request(
-        `/api/collections/${encodeURIComponent(collection)}/records?${qs.toString()}`,
-      );
-      if (!res.ok) throw new Error(`pb list failed: ${res.status}`);
+      const path = `/api/collections/${encodeURIComponent(collection)}/records?${qs.toString()}`;
+      const res = await request(path);
+      if (!res.ok) {
+        // Carry the typed HTTP status (PbHttpError.statusCode) so callers can
+        // branch on it — e.g. CvdiagPbWriter.assertCollectionExists reads 404
+        // as collection-missing and 401/403 as exists-but-auth, rather than
+        // substring-matching the rendered error message.
+        const bodyText = await res.text().catch(() => "");
+        throw new PbHttpError({ statusCode: res.status, bodyText, path });
+      }
       return (await res.json()) as ListResult<T>;
     },
 

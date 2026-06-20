@@ -100,9 +100,9 @@ The [AG-UI protocol](/backend/ag-ui) supports a middleware layer (`agent.use`) f
 
 When you register multiple agents, the runtime handles discovery and routing automatically. Your frontend doesn't need to know where each agent lives or how to reach it.
 
-### Premium features
+### Enterprise Intelligence Platform
 
-[Observability](/premium/observability), the [inspector](/inspector), and other premium capabilities are provided through the runtime. These give you conversation persistence, monitoring, and debugging without extra setup.
+[Threads](/threads), the [inspector](/inspector), and other Enterprise Intelligence Platform capabilities are provided through the runtime. These give you conversation persistence and debugging without extra setup.
 
 ## Built-in middleware
 
@@ -180,7 +180,7 @@ prop instead of `agents__unsafe_dev_only`.
 Key trade-offs:
 
 1. **Authentication is your responsibility.** The runtime's safe defaults do not apply.
-2. **Many ecosystem features won't work.** Runtime-backed middleware, observability, and other capabilities depend on the server-side path.
+2. **Many ecosystem features won't work.** Runtime-backed middleware and other capabilities depend on the server-side path.
 
 ### Comparison
 

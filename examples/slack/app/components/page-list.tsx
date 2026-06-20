@@ -9,14 +9,8 @@
  * Authored with the `@copilotkit/bot-ui` JSX vocabulary.
  */
 import { z } from "zod";
-import {
-  Context,
-  Divider,
-  Header,
-  Message,
-  Section,
-  type BotNode,
-} from "@copilotkit/bot-ui";
+import { Context, Divider, Header, Message, Section } from "@copilotkit/bot-ui";
+import type { BotNode } from "@copilotkit/bot-ui";
 import { ACCENT } from "./_status.js";
 
 const pageSchema = z.object({
@@ -55,13 +49,13 @@ export function PageList({ heading, pages }: PageListProps): BotNode {
     const meta = [
       page.snippet,
       page.edited
-        ? `:clock3: edited ${page.edited}${page.editedBy ? ` by ${page.editedBy}` : ""}`
+        ? `🕒 edited ${page.edited}${page.editedBy ? ` by ${page.editedBy}` : ""}`
         : null,
     ]
       .filter(Boolean)
       .join("\n");
 
-    rows.push(<Section>{`:page_facing_up:  ${titleLink}`}</Section>);
+    rows.push(<Section>{`📄  ${titleLink}`}</Section>);
     if (meta) rows.push(<Context>{meta}</Context>);
     if (i < pages.length - 1) rows.push(<Divider />);
   });

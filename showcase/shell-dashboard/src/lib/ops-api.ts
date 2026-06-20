@@ -41,6 +41,13 @@ export type ProbeKind =
   | "health"
   | "image-drift"
   | "pin-drift"
+  // CROSS-ENV pin-drift (U11 / spec §7.3). The harness `/probes` endpoint
+  // emits `cfg.kind` raw, so this arrives over the wire as the underscore
+  // form `pin_drift_cross_env`. The Ops surface routes PROD drift here and
+  // STAGING to `image-drift` (the `:latest`-drift signal) — see the harness
+  // `probes/ops-drift-routing.ts`. Listed so the kind is documented rather
+  // than only matching the `(string & {})` forward-compat fallback.
+  | "pin_drift_cross_env"
   | "aimock-wiring"
   | "qa"
   | "redirect-decommission"

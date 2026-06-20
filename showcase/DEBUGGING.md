@@ -1,6 +1,15 @@
 # Showcase Local Debugging Playbook
 
-Quick-reference for running, debugging, and iterating on showcase integrations locally.
+Tagline: per-failure-mode debugging strategies, the debugging loop, integration
+patterns, anti-patterns, and production-side ops (harness probe logging,
+triggering probes manually, isolated-stack ops).
+
+For the canonical cell red→green SOP and the `bin/showcase test` invocation
+table (control-plane vs `--direct`), see
+[`TESTING.md`](./TESTING.md#sop-turning-a-cell-red--green). This document
+covers the per-failure-mode investigation strategies that complement the SOP,
+plus production / harness ops (probe triggering, Railway log access, isolated
+stack cleanup).
 
 ## Prerequisites
 
@@ -46,12 +55,24 @@ This is the iterative process for going from a red probe to green. Each section 
 
 ### Phase 1: Establish the Red Baseline
 
-Start the infrastructure and run the failing test to see the exact error:
+Run the failing test in an isolated stack to see the exact error. This is the
+production-equivalent path — control-plane pipeline, per-slug rebuild only,
+no interference with the shared `showcase-*` stack:
 
 ```sh
-showcase up aimock mastra        # or whatever slug is failing
+showcase test mastra:<demo> --d5 --isolate --verbose
+```
+
+For the older shared-stack workflow (e.g. if you already have the stack up and
+want to iterate without a fresh build), the equivalent two-step is:
+
+```sh
+showcase up aimock mastra
 showcase test mastra --d5 --verbose
 ```
+
+But `--isolate` is the canonical SOP. See
+[`TESTING.md`](./TESTING.md#sop-turning-a-cell-red--green).
 
 What to look for in the output -- the specific probe name and error message. Common patterns:
 
@@ -70,9 +91,19 @@ showcase logs aimock --grep "fixture|match|NO match|404"
 
 What the log lines mean:
 
-- **"matched fixture X at turnIndex N"** -- aimock found a fixture for this request and is returning it. If the same turnIndex repeats, the supervisor is stuck in a loop (re-sending the same request and getting the same canned response).
-- **"NO match"** -- the request pattern doesn't match any fixture. This means either the fixture is missing, or the request shape has changed (different model, different system prompt, different tool definitions).
-- **Repeated matches at the same turnIndex** -- the agent's retry/loop logic is firing because it didn't get the response it expected from the previous turn. The fixture chain is broken somewhere upstream.
+- **"matched fixture X"** (with the chosen discriminator — `turnIndex`,
+  `hasToolResult`, `toolCallId`, `sequenceIndex`, or just `userMessage`) --
+  aimock found a fixture for this request and is returning it. If the same
+  discriminator repeats turn-after-turn, the agent is stuck in a loop
+  (re-sending the same request and getting the same canned response).
+- **"NO match"** -- the request pattern doesn't match any fixture. This means
+  either the fixture is missing, or the request shape has changed (different
+  model, different system prompt, different tool definitions), or the chosen
+  discriminator (often `toolCallId` strict-equality) silently misses against a
+  backend that rewrites IDs.
+- **Repeated matches at the same discriminator value** -- the agent's
+  retry/loop logic is firing because it didn't get the response it expected
+  from the previous turn. The fixture chain is broken somewhere upstream.
 
 ### Phase 3: The aimock Edit-Build-Deploy-Test Cycle
 
@@ -138,7 +169,17 @@ showcase recreate aimock
 showcase test <slug> --d5 --verbose
 ```
 
-Fixtures are baked into the aimock Docker image at build time. Simply editing the JSON file on disk does nothing until the container is recreated with the updated files. This is the most common "why isn't my fix working?" mistake.
+Fixtures are baked into the aimock Docker image at build time AND cached in
+memory at container startup. Simply editing the JSON file on disk does nothing
+until the container is recreated (or restarted in the case of a volume-mounted
+isolated stack). This is the most common "why isn't my fix working?" mistake.
+
+In an `--isolate` stack, aimock reads its fixtures from a volume mount, so a
+fresh isolated slot picks up edits at startup automatically. But within a
+warm slot, edits require an explicit
+`docker restart showcase-iso<N>-aimock`. See
+[`GOTCHAS.md`](./GOTCHAS.md#-isolate--aimock-operational-edge-cases) for the
+operational details.
 
 ### Phase 6: Verify Green
 
@@ -439,11 +480,15 @@ Look at the agent's event emission code. Every event that creates a message need
 
 **When**: A feature fails and you're about to blame the framework.
 
-**Do**: Run `showcase test langgraph-python --d5` in the SAME environment first. If langgraph-python also fails, the problem is infrastructure (stale aimock, broken fixtures, Docker state), not the framework. This saves hours of framework-specific debugging that turns out to be a shared issue.
+**Do**: Run `showcase test langgraph-python:<demo> --d5 --isolate` in the SAME
+environment first. If langgraph-python also fails on the same cell, the
+problem is infrastructure (stale aimock, broken fixtures, Docker state, probe
+bug), not the framework. This saves hours of framework-specific debugging that
+turns out to be a shared issue.
 
 ```sh
-showcase test langgraph-python --d5   # gold standard check
-showcase test <slug> --d5             # then your target
+showcase test langgraph-python:<demo> --d5 --isolate   # gold standard check
+showcase test <slug>:<demo> --d5 --isolate             # then your target
 ```
 
 ### Strategy 6: Check custom renderers for missing testids
@@ -552,6 +597,157 @@ for slug in sorted(stats):
 ```
 
 **Key insight**: If ALL integrations flap at similar rates (50-70% green), the problem is systemic (probe infrastructure), not per-integration code bugs. If only one integration is consistently red while others are green, it's a real code bug in that integration.
+
+## Integration Patterns
+
+These are canonical. Do not deviate.
+
+### HITL (hitl-steps, hitl-approve-deny, hitl-text-input)
+
+Backend agent has `tools=[]` (no backend tools). Frontend registers tools via
+`useHumanInTheLoop` or `useFrontendTool`. CopilotKit injects frontend tool
+definitions into the LLM call. Every HITL integration follows this pattern
+without exception.
+
+### gen-ui-custom
+
+`langgraph-python` uses the chart pattern (`useComponent` with
+`render_pie_chart`). All other integrations should also demonstrate meaningful
+custom generative UI. Do not replace charts/data-viz with trivial text-only
+components just to pass tests.
+
+### tool-rendering
+
+Frontend registers `useRenderTool` for `get_weather`. The v2 API uses
+`parameters` (not `args`) in the render callback. Backend has the actual tool.
+
+### shared-state
+
+Backend calls `set_notes` tool, must forward tool result back to LLM for the
+follow-up text response. Frameworks that don't auto-cycle (crewai, langroid)
+need explicit tool-execution loops.
+
+## Docker Compose Environment
+
+All providers must be routed through aimock. Required env vars in
+`x-integration-defaults`:
+
+```
+OPENAI_API_KEY / OPENAI_BASE_URL          -> http://aimock:4010/v1
+ANTHROPIC_API_KEY / ANTHROPIC_BASE_URL    -> http://aimock:4010
+GOOGLE_API_KEY / GOOGLE_GEMINI_BASE_URL   -> http://aimock:4010
+SPRING_AI_OPENAI_BASE_URL                 -> http://aimock:4010
+```
+
+Missing any of these means that provider's integrations bypass aimock and hit
+real APIs (or fail with an empty key).
+
+## Production Debugging
+
+### Harness probe logging
+
+The harness emits structured logs at INFO level for probe lifecycle events:
+
+- `probe.tick-start` / `probe.tick-complete` — probe run lifecycle
+- `probe.target-start` / `probe.target-complete` — per-service results
+- `probe.d6-all-pills.service-start` / `probe.d6-all-pills.service-complete` — D5 per-service
+- `probe.d6-all-pills.feature-complete` — per-feature pass/fail with error details
+- `probe.run-summary` — single line with all service results
+- `probe.d6-all-pills.pool-abort-release` — browser pool starvation events
+
+View with: `RAILWAY_PROJECT_ID=6f8c6bff-a80d-4f8f-b78d-50b32bcf4479 railway logs --service showcase-harness --tail 200`
+
+### Debug-level probe logging
+
+For detailed conversation-runner traces (selector resolution, DOM text
+extraction, settle polling, per-turn lifecycle), set `LOG_LEVEL=debug` on the
+showcase-harness Railway service. This enables `console.debug(...)` output from
+the conversation runner and D5 scripts.
+
+To enable temporarily: set the env var in Railway dashboard → showcase-harness
+→ Variables → `LOG_LEVEL=debug`. The service auto-restarts. Remember to unset
+after debugging — debug output is verbose.
+
+### Triggering probes manually
+
+```
+curl -sf -X POST "https://showcase-harness-production.up.railway.app/api/probes/probe:d6-all-pills-e2e/trigger" \
+  -H "Authorization: Bearer $OPS_TRIGGER_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+Retrieve `OPS_TRIGGER_TOKEN`: `RAILWAY_PROJECT_ID=6f8c6bff-a80d-4f8f-b78d-50b32bcf4479 railway variables --service showcase-harness --json | python3 -c "import json,sys; print(json.load(sys.stdin)['OPS_TRIGGER_TOKEN'])"`
+
+Rate limit: 5 minutes per probe ID.
+
+### Testing package.json changes
+
+When `package.json` changes (new deps, version bumps), volume mounts don't
+cover `node_modules`. You MUST rebuild the Docker image:
+`bin/showcase rebuild <slug>`, then re-test. A passing `bin/showcase test`
+against a volume-mounted container does NOT validate the build.
+
+## Anti-Patterns
+
+Earned by bugs. Do not repeat.
+
+- **NEVER** change a demo's fundamental functionality to pass a test. The demo IS the point.
+- **NEVER** replace chart/data-viz gen-ui with trivial text components.
+- **NEVER** anchor multi-turn disambiguation on `toolCallId` strict equality
+  when the backend rewrites IDs (Anthropic, TanStack). Use `turnIndex` or
+  `hasToolResult` instead.
+- **NEVER** modify `response.content` to match what a real LLM emits. The
+  canonical narration is fixture-author truth; the d5 probe asserts on it.
+  Tune `match` keys, not the response.
+- **NEVER** use raw `docker build`. Symlinks break. Use `bin/showcase rebuild`.
+- **NEVER** assume "agent says done" means "D5 is green." Always run the actual test.
+- **NEVER** add a backend tool for something that should be a frontend HITL tool.
+- **NEVER** use `--direct` for cell-flip value-tests. It bypasses the queue/worker
+  pipeline staging actually runs and has misled investigations in the past.
+
+## Aimock Fixture Deployment
+
+When adding or modifying fixture files in `showcase/aimock/`, the
+`showcase-aimock` image must be rebuilt so production picks up the changes. CI
+handles this automatically — any push to `main` that touches
+`showcase/aimock/**` triggers the Build & Deploy workflow to rebuild and
+redeploy the image.
+
+For manual iteration (e.g. testing a fixture change before merging), build and
+push directly:
+
+```
+docker build --platform linux/amd64 -f showcase/aimock/Dockerfile -t ghcr.io/copilotkit/showcase-aimock:latest showcase/aimock/ --push
+```
+
+After pushing, redeploy the Railway service so it pulls the new image (the CI
+workflow does this automatically via `serviceInstanceRedeploy`).
+
+When adding a **new** fixture file, update both:
+
+1. `showcase/docker-compose.local.yml` — add a volume mount for the new file
+2. `showcase/aimock/Dockerfile` — add a `COPY` line for the new file
+
+## Dev Iteration Speed
+
+Each integration service bind-mounts its host `src/` directory into the
+container via the `volumes` entry in `docker-compose.local.yml`:
+
+```yaml
+volumes:
+  - ./integrations/<slug>/src:/app/src
+```
+
+This means **source edits take effect on container restart** without rebuilding
+the Docker image. The workflow becomes:
+
+1. Edit code under `showcase/integrations/<slug>/src/`
+2. Restart the container: `bin/showcase restart <slug>`
+3. Re-run the test: `bin/showcase test <slug> --d5`
+
+Use `bin/showcase rebuild <slug>` only when you change dependencies
+(requirements.txt, package.json) or non-src files (Dockerfile, entrypoint). For
+pure `src/` changes, restart is sufficient and much faster.
 
 ## Quick Diagnostic Commands
 

@@ -4,6 +4,7 @@
     "---Get Started---",
     "index",
     "quickstart",
+    "cli",
     "build-with-agents",
     "---Concepts---",
     "...concepts",
@@ -38,18 +39,15 @@
     "---Observe & Operate---",
     "inspector",
     "vs-code-extension",
-    "---Enterprise---",
+    "---Intelligence Platform---",
+    "premium/overview",
+    "premium/managed-intelligence-platform",
+    "premium/self-hosting",
     "premium/intelligence-platform",
     "premium/threads-explained",
-    "premium/observability",
-    "premium/self-hosting",
     "threads",
     "---Deploy---",
     "...deploy",
-    "---Platforms---",
-    "slack",
-    "microsoft-teams",
-    "react-native",
     "---Other---",
     "...(other)",
     {
@@ -61,8 +59,7 @@
         "troubleshooting/inspector-dev-console",
         "troubleshooting/debug-mode",
         "troubleshooting/event-inspector",
-        "troubleshooting/hook-explorer",
-        "troubleshooting/observability-connectors"
+        "troubleshooting/hook-explorer"
       ]
     },
     {

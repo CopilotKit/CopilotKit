@@ -70,7 +70,7 @@ export function IncidentCard({ id, title, severity, summary }: IncidentProps) {
           style="danger"
           onClick={async ({ thread }: InteractionContext) => {
             await thread.post(
-              `:rotating_light: Escalating *${title}* — paging the next on-call.`,
+              `🚨 Escalating *${title}* — paging the next on-call.`,
             );
           }}
         >

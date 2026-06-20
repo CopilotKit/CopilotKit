@@ -74,6 +74,69 @@ describe("createBot", () => {
     expect(collectText(ir)).toBe("hi");
   });
 
+  it("calls renderer.finish() once after a turn's run-loop resolves", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const bot = createBot({ adapters: [fake], agent: () => agent });
+
+    bot.onMention(async ({ thread }) => {
+      await thread.runAgent();
+    });
+
+    await bot.start();
+    fake.emitTurn({ userText: "yo", conversationKey: "c1" });
+    await tick();
+
+    const renderer = fake.lastRunRenderer as unknown as {
+      finishCalls: number;
+    };
+    expect(renderer.finishCalls).toBe(1);
+  });
+
+  it("delivers a turn's contentParts as the runAgent prompt to agent.addMessage", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    // Capture what the framework injects as the user message.
+    const added: unknown[] = [];
+    const origAddMessage = agent.addMessage.bind(agent);
+    agent.addMessage = (m) => {
+      added.push(m);
+      return origAddMessage(m);
+    };
+    const bot = createBot({ adapters: [fake], agent: () => agent });
+
+    const parts = [
+      { type: "text" as const, text: "look" },
+      {
+        type: "image" as const,
+        source: { type: "data" as const, value: "QUJD", mimeType: "image/png" },
+      },
+    ];
+    bot.onMention(async ({ thread, message }) => {
+      // The example mirrors this: prefer multimodal parts over plain text.
+      await thread.runAgent({
+        prompt:
+          message.contentParts && message.contentParts.length > 0
+            ? message.contentParts
+            : message.text,
+      });
+    });
+
+    await bot.start();
+    fake.emitTurn({
+      userText: "look",
+      conversationKey: "c1",
+      contentParts: parts,
+    });
+    await tick();
+
+    expect(added).toHaveLength(1);
+    const msg = added[0] as { role: string; content: unknown };
+    expect(msg.role).toBe("user");
+    // The multimodal parts array survives the string-typed `content` cast.
+    expect(msg.content).toEqual(parts);
+  });
+
   it("dispatches a bound onClick handler on interaction", async () => {
     const fake = new FakeAdapter();
     const agent = new FakeAgent();
@@ -108,6 +171,42 @@ describe("createBot", () => {
     await tick();
 
     expect(clicked).toBe(true);
+  });
+
+  it("resolves a HITL awaitChoice with the element value when the event carries none (Telegram)", async () => {
+    const fake = new FakeAdapter();
+    const agent = new FakeAgent();
+    const bot = createBot({ adapters: [fake], agent: () => agent });
+
+    let chosen: unknown;
+    bot.onMention(async ({ thread }) => {
+      chosen = await thread.awaitChoice(
+        Actions({
+          children: [
+            Button({
+              value: { confirmed: true },
+              onClick: () => {},
+              children: "Create",
+            }),
+          ],
+        }),
+      );
+    });
+
+    await bot.start();
+    fake.emitTurn({ userText: "create a thing", conversationKey: "c1" });
+    await tick();
+
+    const button = findNode(fake.posted[0]!, "button")!;
+    const id = (button.props.onClick as { id: string }).id;
+
+    // Telegram can't carry the button value in callback_data, so the event has
+    // no `value`. The waiter must still resolve with the button's value, which
+    // the registry recovers from the rendered element.
+    fake.emitInteraction({ id, conversationKey: "c1" });
+    await tick();
+
+    expect(chosen).toEqual({ confirmed: true });
   });
 
   it("merges per-turn runAgent context with the bot-level context", async () => {

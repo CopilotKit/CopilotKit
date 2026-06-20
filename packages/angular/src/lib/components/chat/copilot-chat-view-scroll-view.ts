@@ -15,13 +15,15 @@ import {
   PLATFORM_ID,
   ChangeDetectorRef,
 } from "@angular/core";
-import { CommonModule, isPlatformBrowser } from "@angular/common";
+import { isPlatformBrowser, NgTemplateOutlet } from "@angular/common";
 import { ScrollingModule } from "@angular/cdk/scrolling";
 import { CopilotSlot } from "../../slots/copilot-slot";
 import { CopilotChatMessageView } from "./copilot-chat-message-view";
 import { CopilotChatViewScrollToBottomButton } from "./copilot-chat-view-scroll-to-bottom-button";
+import { CopilotChatSuggestionView } from "./copilot-chat-suggestion-view";
 import { StickToBottom } from "../../directives/stick-to-bottom";
 import { ScrollPosition } from "../../scroll-position";
+import { ChatState } from "../../chat-state";
 import { Message } from "@ag-ui/client";
 import { cn } from "../../utils";
 import { Subject } from "rxjs";
@@ -32,169 +34,26 @@ import { takeUntil } from "rxjs/operators";
  * Handles auto-scrolling and scroll position management
  */
 @Component({
-  standalone: true,
   selector: "copilot-chat-view-scroll-view",
+  host: { class: "cpk:block cpk:flex-1 cpk:min-h-0" },
   imports: [
-    CommonModule,
     ScrollingModule,
+    NgTemplateOutlet,
     CopilotSlot,
     CopilotChatMessageView,
+    CopilotChatSuggestionView,
     StickToBottom,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   providers: [ScrollPosition],
-  template: `
-    @if (!hasMounted()) {
-      <!-- SSR/Initial render without stick-to-bottom -->
-      <div
-        class="h-full max-h-full flex flex-col min-h-0 overflow-y-scroll overflow-x-hidden"
-      >
-        <div class="px-4 sm:px-0">
-          <ng-content></ng-content>
-        </div>
-      </div>
-    } @else if (!autoScroll()) {
-      <!-- Manual scroll mode -->
-      <div class="h-full max-h-full flex flex-col min-h-0 relative">
-        <div
-          #scrollContainer
-          cdkScrollable
-          [class]="computedClass()"
-          class="overflow-y-scroll overflow-x-hidden"
-        >
-          <div #contentContainer class="px-4 sm:px-0">
-            <!-- Content with padding-bottom matching React -->
-            <div [style.padding-bottom.px]="paddingBottom()">
-              <div class="max-w-3xl mx-auto">
-                @if (messageView()) {
-                  <copilot-slot
-                    [slot]="messageView()"
-                    [context]="messageViewContext()"
-                    [defaultComponent]="defaultMessageViewComponent"
-                  >
-                  </copilot-slot>
-                } @else {
-                  <copilot-chat-message-view
-                    [messages]="messages()"
-                    [inputClass]="messageViewClass()"
-                    [showCursor]="showCursor()"
-                    (assistantMessageThumbsUp)="
-                      assistantMessageThumbsUp.emit($event)
-                    "
-                    (assistantMessageThumbsDown)="
-                      assistantMessageThumbsDown.emit($event)
-                    "
-                    (assistantMessageReadAloud)="
-                      assistantMessageReadAloud.emit($event)
-                    "
-                    (assistantMessageRegenerate)="
-                      assistantMessageRegenerate.emit($event)
-                    "
-                    (userMessageCopy)="userMessageCopy.emit($event)"
-                    (userMessageEdit)="userMessageEdit.emit($event)"
-                  >
-                  </copilot-chat-message-view>
-                }
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Scroll to bottom button for manual mode, OUTSIDE scrollable content -->
-        @if (showScrollButton() && !isResizing()) {
-          <div
-            class="absolute inset-x-0 flex justify-center z-30"
-            [style.bottom.px]="inputContainerHeight() + 16"
-          >
-            <copilot-slot
-              [slot]="scrollToBottomButton()"
-              [context]="scrollToBottomContext()"
-              [defaultComponent]="defaultScrollToBottomButtonComponent"
-              [outputs]="scrollToBottomOutputs"
-            >
-            </copilot-slot>
-          </div>
-        }
-      </div>
-    } @else {
-      <!-- Auto-scroll mode with StickToBottom directive -->
-      <div class="h-full max-h-full flex flex-col min-h-0 relative">
-        <div
-          #scrollContainer
-          cdkScrollable
-          copilotStickToBottom
-          [enabled]="autoScroll()"
-          [threshold]="10"
-          [debounceMs]="0"
-          [initialBehavior]="'smooth'"
-          [resizeBehavior]="'smooth'"
-          (isAtBottomChange)="onIsAtBottomChange($event)"
-          [class]="computedClass()"
-          class="overflow-y-scroll overflow-x-hidden"
-        >
-          <!-- Scrollable content wrapper -->
-          <div class="px-4 sm:px-0">
-            <!-- Content with padding-bottom matching React -->
-            <div [style.padding-bottom.px]="paddingBottom()">
-              <div class="max-w-3xl mx-auto">
-                @if (messageView()) {
-                  <copilot-slot
-                    [slot]="messageView()"
-                    [context]="messageViewContext()"
-                    [defaultComponent]="defaultMessageViewComponent"
-                  >
-                  </copilot-slot>
-                } @else {
-                  <copilot-chat-message-view
-                    [messages]="messages()"
-                    [inputClass]="messageViewClass()"
-                    [showCursor]="showCursor()"
-                    (assistantMessageThumbsUp)="
-                      assistantMessageThumbsUp.emit($event)
-                    "
-                    (assistantMessageThumbsDown)="
-                      assistantMessageThumbsDown.emit($event)
-                    "
-                    (assistantMessageReadAloud)="
-                      assistantMessageReadAloud.emit($event)
-                    "
-                    (assistantMessageRegenerate)="
-                      assistantMessageRegenerate.emit($event)
-                    "
-                    (userMessageCopy)="userMessageCopy.emit($event)"
-                    (userMessageEdit)="userMessageEdit.emit($event)"
-                  >
-                  </copilot-chat-message-view>
-                }
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Scroll to bottom button - hidden during resize, OUTSIDE scrollable content -->
-        @if (!isAtBottom() && !isResizing()) {
-          <div
-            class="absolute inset-x-0 flex justify-center z-30"
-            [style.bottom.px]="inputContainerHeight() + 16"
-          >
-            <copilot-slot
-              [slot]="scrollToBottomButton()"
-              [context]="scrollToBottomFromStickContext()"
-              [defaultComponent]="defaultScrollToBottomButtonComponent"
-              [outputs]="scrollToBottomFromStickOutputs"
-            >
-            </copilot-slot>
-          </div>
-        }
-      </div>
-    }
-  `,
+  templateUrl: "./copilot-chat-view-scroll-view.html",
 })
 export class CopilotChatViewScrollView
   implements OnInit, AfterViewInit, OnDestroy
 {
   private cdr = inject(ChangeDetectorRef);
+  protected readonly chatState = inject(ChatState, { optional: true });
 
   autoScroll = input<boolean>(true);
 
@@ -203,6 +62,7 @@ export class CopilotChatViewScrollView
   isResizing = input<boolean>(false);
   inputClass = input<string | undefined>();
   messages = input<Message[]>([]);
+  agentId = input<string | undefined>();
   messageView = input<any | undefined>();
   messageViewClass = input<string | undefined>();
   showCursor = input<boolean>(false);
@@ -237,7 +97,13 @@ export class CopilotChatViewScrollView
   protected hasMounted = signal(false);
   protected showScrollButton = signal(false);
   protected isAtBottom = signal(true);
-  protected paddingBottom = computed(() => this.inputContainerHeight() + 32);
+  protected hasSuggestions = computed(
+    () =>
+      !this.showCursor() && (this.chatState?.suggestions?.() ?? []).length > 0,
+  );
+  protected paddingBottom = computed(
+    () => this.inputContainerHeight() + (this.hasSuggestions() ? 4 : 32),
+  );
 
   // Computed class
   protected computedClass = computed(() => cn(this.inputClass()));
@@ -322,6 +188,7 @@ export class CopilotChatViewScrollView
   messageViewContext(): any {
     return {
       messages: this.messages(),
+      agentId: this.agentId(),
       inputClass: this.messageViewClass(),
       showCursor: this.showCursor(),
     };

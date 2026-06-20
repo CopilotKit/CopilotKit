@@ -13,6 +13,9 @@ import { mastra } from "@/mastra";
 // fetch can re-attach them on outbound LLM calls. Required because the
 // @ag-ui/mastra adapter does not forward inbound headers to Vercel AI SDK.
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
+// CVDIAG backend instrumentation (L1-E). No-op pass-through unless
+// CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
+import { withCvdiagBackend } from "@/cvdiag-backend";
 
 // We use ExperimentalEmptyAdapter because Mastra agents drive the LLM
 // themselves — the CopilotKit runtime only brokers AG-UI events between
@@ -481,7 +484,7 @@ function wrapStreamingResponse(response: Response): Response {
 //      handleRequest leaks (no consumer ever reads it).
 //   3. Mid-stream errors (thrown after response headers have been flushed)
 //      — caught inside the TransformStream in `wrapStreamingResponse`.
-export const POST = async (req: NextRequest) =>
+const copilotkitPost = async (req: NextRequest): Promise<Response> =>
   // Bind inbound x-* headers into ALS for the duration of this request so
   // the wrapped @ai-sdk/openai provider's fetch can attach them on every
   // outbound LLM call (e.g. x-aimock-context for aimock fixture matching).
@@ -527,3 +530,11 @@ export const POST = async (req: NextRequest) =>
       );
     }
   });
+
+// Wrap with CVDIAG backend instrumentation (L1-E). No-op pass-through unless
+// CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
+export const POST = withCvdiagBackend(copilotkitPost, {
+  slug: "mastra",
+  agentName: "weatherAgent",
+  provider: "openai",
+});

@@ -6,7 +6,7 @@ const RUN_URL = "https://github.com/CopilotKit/CopilotKit/actions/runs/123";
 const RELEASE_URL =
   "https://github.com/CopilotKit/CopilotKit/releases/tag/v1.2.3";
 const NPM_URL = "https://www.npmjs.com/org/copilotkit";
-const ANGULAR_NPM_URL = "https://www.npmjs.com/package/@copilotkitnext/angular";
+const ANGULAR_NPM_URL = "https://www.npmjs.com/package/@copilotkit/angular";
 const PY_URL = "https://pypi.org/project/copilotkit/0.9.0/";
 
 // A neutral baseline where nothing has acted. Each test overrides only the
