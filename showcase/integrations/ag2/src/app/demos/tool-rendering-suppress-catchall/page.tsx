@@ -2,6 +2,7 @@
 
 import React from "react";
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { RuntimeReady } from "../tool-rendering-default-catchall/runtime-ready";
 import { useSuggestions } from "../tool-rendering-default-catchall/suggestions";
 import { useSuppressCatchAllToolRendering } from "./use-suppress-catch-all-tool-rendering";
 
@@ -12,7 +13,9 @@ export default function ToolRenderingSuppressCatchallDemo() {
     <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
-          <Chat />
+          <RuntimeReady>
+            <Chat />
+          </RuntimeReady>
         </div>
       </div>
     </CopilotKit>

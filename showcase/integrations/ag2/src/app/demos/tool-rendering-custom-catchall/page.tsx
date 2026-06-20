@@ -16,6 +16,7 @@ import {
 } from "@copilotkit/react-core/v2";
 import { CustomCatchallRenderer } from "./custom-catchall-renderer";
 import type { CatchallToolStatus } from "./custom-catchall-renderer";
+import { RuntimeReady } from "../tool-rendering-default-catchall/runtime-ready";
 import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingCustomCatchallDemo() {
@@ -26,7 +27,9 @@ export default function ToolRenderingCustomCatchallDemo() {
     >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
-          <Chat />
+          <RuntimeReady>
+            <Chat />
+          </RuntimeReady>
         </div>
       </div>
     </CopilotKit>
