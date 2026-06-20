@@ -1,18 +1,18 @@
 ---
 title: Slack
-description: Build an AI Slack bot with CopilotKit — createBot, the Slack adapter over Socket Mode, agent runs with thread.runAgent, and interactive JSX messages rendered as Block Kit.
+description: Build an AI Slack bot with CopilotKit, Copilot Runtime, createBot, the Slack adapter over Socket Mode, and interactive JSX messages rendered as Block Kit.
 icon: "lucide/Slack"
 hideTOC: true
 earlyAccess: slack
 ---
 
-This guide takes you from zero to a Slack bot you can @-mention in a channel, then adds an interactive button card. You write handlers in TypeScript, the agent's replies stream into the thread, and rich messages are JSX that the adapter renders to Block Kit (Slack's message-UI format). No public URL needed.
+This guide takes you from zero to a Slack bot you can @-mention in a channel, then adds an interactive button card. You write handlers in TypeScript, Copilot Runtime hosts the agent, and rich messages are JSX that the adapter renders to Block Kit (Slack's message-UI format). No public URL needed.
 
 ## Prerequisites
 
 - Node.js 20+
 - A Slack workspace where you can install apps
-- An OpenAI API key (or Anthropic/Google — any model the [built-in agent](/build-with-agents) supports)
+- An OpenAI API key (or Anthropic/Google — any model supported by [Model Selection](/model-selection))
 
 ## Getting started
 
@@ -51,7 +51,7 @@ This guide takes you from zero to a Slack bot you can @-mention in a channel, th
         npm init -y && npm pkg set type=module
         ```
 
-        Install the bot packages, plus `@copilotkit/runtime` for the in-process agent and `tsx` to run TypeScript directly:
+        Install the bot packages, plus `@copilotkit/runtime` for Copilot Runtime and `tsx` to run TypeScript directly:
 
         <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn']}>
             <Tab value="npm">
@@ -98,29 +98,39 @@ This guide takes you from zero to a Slack bot you can @-mention in a channel, th
         </Callout>
     </Step>
     <Step>
-        ### Write the bot
+        ### Set up Copilot Runtime and the bot
 
-        The smallest working bot is `createBot` + the Slack adapter + one `onMention` handler that runs the agent. For the quickstart, the agent — CopilotKit's `BuiltInAgent` — runs inside the same process, served on a local port the bot connects to, so one command starts everything:
+        The smallest working bot is `createBot` + the Slack adapter + one `onMention` handler that runs the agent. For the quickstart, Copilot Runtime runs in the same process as the Slack bot, serves a `BuiltInAgent` on a local port, and the bot connects to that runtime URL:
 
         ```tsx title="bot.tsx"
         import { createServer } from "node:http";
         import { createBot } from "@copilotkit/bot";
         import { slack, SanitizingHttpAgent } from "@copilotkit/bot-slack"; // [!code highlight]
-        import { BuiltInAgent, CopilotSseRuntime } from "@copilotkit/runtime/v2";
+        import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
         import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
-        // The agent — runs in-process for the quickstart.
-        const runtime = new CopilotSseRuntime({
+        const agentId = "assistant";
+        const runtimePort = Number(process.env.RUNTIME_PORT ?? 8200);
+        const runtimeUrl = `http://localhost:${runtimePort}/api/copilotkit`;
+
+        // Copilot Runtime: hosts the assistant agent.
+        const runtime = new CopilotRuntime({
           agents: {
-            assistant: new BuiltInAgent({
-              model: "openai/gpt-5.4", // reads OPENAI_API_KEY
+            [agentId]: new BuiltInAgent({
+              model: process.env.OPENAI_MODEL ?? "openai:gpt-5-mini",
               prompt: "You are a helpful Slack assistant. Keep replies short.",
             }),
           },
         });
         createServer(
-          createCopilotNodeListener({ runtime, basePath: "/api/copilotkit" }),
-        ).listen(8200);
+          createCopilotNodeListener({
+            runtime,
+            basePath: "/api/copilotkit",
+            cors: true,
+          }),
+        ).listen(runtimePort, () => {
+          console.log(`Copilot Runtime listening at ${runtimeUrl}`);
+        });
 
         // The bot: the Slack adapter + one handler.
         const bot = createBot({
@@ -134,7 +144,7 @@ This guide takes you from zero to a Slack bot you can @-mention in a channel, th
           // One agent connection per Slack conversation.
           agent: (threadId) => {
             const agent = new SanitizingHttpAgent({
-              url: "http://localhost:8200/api/copilotkit/agent/assistant/run",
+              url: `${runtimeUrl}/agent/${encodeURIComponent(agentId)}/run`,
             });
             agent.threadId = threadId;
             return agent;
@@ -162,7 +172,7 @@ This guide takes you from zero to a Slack bot you can @-mention in a channel, th
         npx tsx bot.tsx
         ```
 
-        You should see `⚡ Bot connected over Socket Mode` in the terminal. Now **invite the bot** to a channel and mention it — the bot's name comes from the manifest (if autocomplete can't find it, check **App Home** → *Default username*):
+        You should see `Copilot Runtime listening at http://localhost:8200/api/copilotkit` and `⚡ Bot connected over Socket Mode` in the terminal. Now **invite the bot** to a channel and mention it — the bot's name comes from the manifest (if autocomplete can't find it, check **App Home** → *Default username*):
 
         ```
         /invite @YourBot
@@ -174,6 +184,7 @@ This guide takes you from zero to a Slack bot you can @-mention in a channel, th
                 - **Mentioning the bot does nothing** — `app_mention` only fires in channels the bot is a **member** of: `/invite` it first. Also check the process is running and both tokens are set.
                 - **`@`-autocomplete doesn't find the bot** — search by the bot user's *Default username* (visible under **App Home**), not the app's display name. Identity changes only propagate when you **reinstall** the app; in stubborn cases a full uninstall → reinstall is needed, which **rotates the `xoxb-` token** — update your env when it does.
                 - **`bot.start()` fails with an auth error** — the `xoxb-` token is wrong or was rotated by a reinstall; copy the current one from OAuth & Permissions.
+                - **The bot connects but never replies** — confirm `OPENAI_API_KEY` is set and `http://localhost:8200/api/copilotkit/info` returns the `assistant` agent.
                 - **Slash command does nothing** — the command isn't declared in the Slack app config (see the last step), or the process isn't running.
             </Accordion>
         </Accordions>
@@ -244,17 +255,21 @@ This guide takes you from zero to a Slack bot you can @-mention in a channel, th
 
 ## Split the bot and the agent
 
-The bot and its agent talk over [AG-UI](https://docs.ag-ui.com) — an open protocol for agent ↔ frontend communication — so they don't have to share a process. The production shape is two services joined by a URL: move the `CopilotSseRuntime` block into its own process (or use any existing AG-UI endpoint — a deployed CopilotKit runtime, LangGraph, …) and point the bot at it via env, exactly how the full [on-call triage example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) is wired:
+The bot and its agent talk over [AG-UI](https://docs.ag-ui.com) through Copilot Runtime, so they don't have to share a process. The production shape is two services joined by a URL: move the `CopilotRuntime` block into its own process (or use a deployed Copilot Runtime) and point the bot at it via env, exactly how the full [on-call triage example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) is wired:
 
 ```tsx title="bot.tsx"
+const runtimeUrl = process.env.COPILOT_RUNTIME_URL!;
+
 agent: (threadId) => {
-  const agent = new SanitizingHttpAgent({ url: process.env.AGENT_URL! }); // [!code highlight]
+  const agent = new SanitizingHttpAgent({
+    url: `${runtimeUrl}/agent/assistant/run`, // [!code highlight]
+  });
   agent.threadId = threadId;
   return agent;
 },
 ```
 
-[`SanitizingHttpAgent`](/reference/bot/slack/SanitizingHttpAgent) is an `HttpAgent` that tolerates the event streams real agent backends emit — use it over the stock `HttpAgent` when connecting to a remote runtime.
+[`SanitizingHttpAgent`](/reference/bot/slack/SanitizingHttpAgent) is an `HttpAgent` that tolerates the event streams real agent backends emit — use it over the stock `HttpAgent` when connecting a Slack bot to Copilot Runtime.
 
 ## Known limitations (v1)
 
