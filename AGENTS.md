@@ -26,6 +26,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Commit as you go** — every meaningful unit of work gets its own commit, pushed immediately. Don't let untracked files accumulate across a session. Tests belong in the commit that introduces the code being tested. Full rules in [Git & PRs](.claude/docs/git.md#commit-early-and-often-in-logical-chunks).
 - **Draft PR up front** — the moment a new branch has one commit, push it and open a **draft PR**. Don't wait until "ready" — unmerged-and-unpushed work is invisible. Flip the PR from draft to ready (`gh pr ready <pr#>`) only when the developer says so. See [Git & PRs](.claude/docs/git.md#open-a-draft-pr-up-front).
 - **Documentation lives in shell-docs** — author CopilotKit docs in `showcase/shell-docs/src/content/`. The top-level `docs/` path is only a symlink to `showcase/shell-docs/`; never recreate the old `docs/content/docs/` tree for live documentation. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not directly in this repo. See [Documentation](.claude/docs/documentation.md).
+- **Keep formatting-only churn out of feature PRs** — never mix ineffectual formatting changes with real code/docs changes. This includes import reshuffling, line wrapping, parenthesis-only rewrites, or other mechanical formatter output. If code formatting needs to change, do it in a separate PR that contains only formatting changes.
 
 ## Private Agent Instructions
 
