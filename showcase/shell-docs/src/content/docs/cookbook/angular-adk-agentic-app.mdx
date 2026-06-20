@@ -75,31 +75,39 @@ This is the single most common correctness bug on this stack.
   **Fix:** put the user id in the **run body**, which is serialized fresh on every run and never lags.
 </Callout>
 
-In Angular, the run body is populated from CopilotKit `properties`, which the agent receives as `forwardedProps`:
+Carry the user id as **agent context**, not as `properties`. This matters on ADK: the adapter copies the run's `state` and `context` into the ADK session, but it does **not** mirror `forwardedProps` (CopilotKit `properties`) into session state. A user id sent through `properties` never reaches `tool_context.state`, so the scoping silently fails. Use [`connectAgentContext`](/reference/angular/functions/connectAgentContext), which rides the run body and is serialized fresh every run:
 
-```ts title="app.config.ts"
-import { provideCopilotKit } from "@copilotkit/angular";
+```ts title="chat.component.ts"
+import { Component, signal } from "@angular/core";
+import { connectAgentContext } from "@copilotkit/angular";
 
-export const appConfig = {
-  providers: [
-    provideCopilotKit({
-      runtimeUrl: "/api/copilotkit",
-      properties: { userId: currentUserId }, // arrives on the agent as forwardedProps
-    }),
-  ],
-};
+@Component({ /* ... */ })
+export class ChatComponent {
+  readonly userId = signal(currentUserId);
+
+  constructor() {
+    // Re-registers reactively when the signal changes (e.g. an in-session user switch).
+    connectAgentContext(() => ({ description: "userId", value: this.userId() }));
+  }
+}
 ```
 
-On the agent side, the AG-UI adapter copies the run's `state` onto the ADK session, so a tool reads the user id straight off `tool_context.state`:
+On the agent side, the AG-UI adapter stores context under the `_ag_ui_context` key, so a tool reads the user id from there:
 
 ```python title="agent/main.py"
+def _user_id(tool_context) -> str | None:
+    for entry in tool_context.state.get("_ag_ui_context", []):
+        if entry.get("description") == "userId":
+            return entry.get("value")
+    return None
+
 def recall_for_user(tool_context) -> dict:
-    user_id = tool_context.state.get("userId")
+    user_id = _user_id(tool_context)
     # ...scope every read and write to user_id
     return {"ok": True}
 ```
 
-On the BFF, **prefer the run-body value over any header** when scoping, so a stale header can never win.
+Shared agent **state** works too, and lands directly as `tool_context.state["userId"]` (no `_ag_ui_context` scan). Pick one. If your BFF also accepts a user header, **prefer the run-body value over the header** when scoping, so a stale header can never win.
 
 ## Choose a capable model
 
@@ -187,9 +195,12 @@ In my Angular + Google ADK + CopilotKit app, harden it for multi-user production
 
 1. Standardize on one chat surface: a single `injectAgentStore("default")`, and route every
    composer (including any welcome composer) through that one shared store.
-2. Scope the user via the run body, not a header: set CopilotKit `properties: { userId }` on the
-   client (it arrives on the agent as forwardedProps), and read it in ADK tools from
-   `tool_context.state["userId"]`. On the BFF, prefer the run-body value over any header.
+2. Scope the user via the run body, not a header. On ADK, `forwardedProps` (CopilotKit `properties`)
+   is NOT mirrored into session state, so carry the user id as agent context with
+   `connectAgentContext({ description: "userId", value: userId })`, and read it in ADK tools by
+   scanning `tool_context.state["_ag_ui_context"]` for the `userId` entry (or use shared agent state,
+   which lands directly as `tool_context.state["userId"]`). If the BFF also accepts a user header,
+   prefer the run-body value over the header.
 3. Never mutate runtime config (runtimeUrl/headers) during a submit. Do config changes before the
    chat mounts. Carry per-request values in the run body instead.
 4. Enforce governance on the server: strip disallowed tools from the inbound run body and filter the
