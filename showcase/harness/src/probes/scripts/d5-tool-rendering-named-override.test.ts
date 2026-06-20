@@ -45,8 +45,8 @@ describe("D5 tool-rendering-named-override", () => {
     } satisfies D5BuildContext);
 
     expect(turns).toHaveLength(2);
-    expect(turns[0]!.input).toBe("forecast for Tokyo");
-    expect(turns[1]!.input).toBe("What's the current price of AAPL?");
+    expect(turns[0]!.input).toBe("named override weather suppression case");
+    expect(turns[1]!.input).toBe("named override stock fallthrough case");
   });
 
   it("validates the stock tool falling through to the built-in catch-all", () => {

@@ -3,7 +3,7 @@
   "fixtures": [
     {
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "suppress catch-all weather case",
         "toolCallId": "call_d5_suppress_weather_001"
       },
       "response": {
@@ -12,7 +12,7 @@
     },
     {
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "suppress catch-all weather case",
         "toolName": "get_weather"
       },
       "response": {
@@ -27,7 +27,7 @@
     },
     {
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "suppress catch-all weather case",
         "turnIndex": 0
       },
       "response": {

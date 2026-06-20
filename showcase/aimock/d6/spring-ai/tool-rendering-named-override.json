@@ -8,7 +8,7 @@
     {
       "_comment": "tool-rendering-named-override — weather follow-up. A named get_weather renderer returns null, so final text appears without a weather tool card.",
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "named override weather suppression case",
         "toolCallId": "call_d6_named_weather_001",
         "context": "spring-ai"
       },
@@ -19,7 +19,7 @@
     {
       "_comment": "tool-rendering-named-override — first weather turn emits get_weather, which is suppressed by the exact-name renderer.",
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "named override weather suppression case",
         "toolName": "get_weather",
         "context": "spring-ai"
       },
@@ -36,7 +36,7 @@
     {
       "_comment": "tool-rendering-named-override — fallback when no get_weather tool is registered.",
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "named override weather suppression case",
         "turnIndex": 0,
         "context": "spring-ai"
       },
@@ -47,7 +47,7 @@
     {
       "_comment": "tool-rendering-named-override — stock follow-up. get_stock_price is not named-overridden, so the built-in catch-all should render it.",
       "match": {
-        "userMessage": "current price of AAPL",
+        "userMessage": "named override stock fallthrough case",
         "toolCallId": "call_d6_named_stock_001",
         "context": "spring-ai"
       },
@@ -58,7 +58,7 @@
     {
       "_comment": "tool-rendering-named-override — second turn emits get_stock_price, proving the catch-all still handles other tools.",
       "match": {
-        "userMessage": "current price of AAPL",
+        "userMessage": "named override stock fallthrough case",
         "toolName": "get_stock_price",
         "context": "spring-ai"
       },

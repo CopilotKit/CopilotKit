@@ -8,7 +8,7 @@
     {
       "_comment": "tool-rendering-suppress-catchall — weather follow-up. The tool call completes, but the wildcard renderer returns null so no tool UI should appear.",
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "suppress catch-all weather case",
         "toolCallId": "call_d6_suppress_weather_001",
         "context": "llamaindex"
       },
@@ -19,7 +19,7 @@
     {
       "_comment": "tool-rendering-suppress-catchall — first turn emits get_weather, which the null catch-all suppresses in the chat UI.",
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "suppress catch-all weather case",
         "toolName": "get_weather",
         "context": "llamaindex"
       },
@@ -36,7 +36,7 @@
     {
       "_comment": "tool-rendering-suppress-catchall — fallback when no get_weather tool is registered.",
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "suppress catch-all weather case",
         "turnIndex": 0,
         "context": "llamaindex"
       },
