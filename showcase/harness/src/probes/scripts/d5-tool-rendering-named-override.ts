@@ -13,8 +13,9 @@ import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 import { assertSuppressedToolRendering } from "./d5-tool-rendering-suppress-catchall.js";
 
-export const NAMED_OVERRIDE_WEATHER_PROMPT = "forecast for Tokyo";
-export const CATCHALL_STOCK_PROMPT = "What's the current price of AAPL?";
+export const NAMED_OVERRIDE_WEATHER_PROMPT =
+  "named override weather suppression case";
+export const CATCHALL_STOCK_PROMPT = "named override stock fallthrough case";
 
 const POLL_TIMEOUT_MS = 15_000;
 const POLL_INTERVAL_MS = 250;

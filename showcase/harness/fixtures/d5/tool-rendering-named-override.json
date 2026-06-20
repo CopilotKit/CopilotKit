@@ -3,7 +3,7 @@
   "fixtures": [
     {
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "named override weather suppression case",
         "toolCallId": "call_d5_named_weather_001"
       },
       "response": {
@@ -12,7 +12,7 @@
     },
     {
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "named override weather suppression case",
         "toolName": "get_weather"
       },
       "response": {
@@ -27,7 +27,7 @@
     },
     {
       "match": {
-        "userMessage": "forecast for Tokyo",
+        "userMessage": "named override weather suppression case",
         "turnIndex": 0
       },
       "response": {
@@ -36,7 +36,7 @@
     },
     {
       "match": {
-        "userMessage": "current price of AAPL",
+        "userMessage": "named override stock fallthrough case",
         "toolCallId": "call_d5_named_stock_001"
       },
       "response": {
@@ -45,7 +45,7 @@
     },
     {
       "match": {
-        "userMessage": "current price of AAPL",
+        "userMessage": "named override stock fallthrough case",
         "toolName": "get_stock_price"
       },
       "response": {

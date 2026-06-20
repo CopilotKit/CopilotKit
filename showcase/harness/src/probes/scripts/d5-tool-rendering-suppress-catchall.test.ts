@@ -47,7 +47,7 @@ describe("D5 tool-rendering-suppress-catchall", () => {
     } satisfies D5BuildContext);
 
     expect(turns).toHaveLength(1);
-    expect(turns[0]!.input).toBe("forecast for Tokyo");
+    expect(turns[0]!.input).toBe("suppress catch-all weather case");
     expect(typeof turns[0]!.assertions).toBe("function");
   });
 

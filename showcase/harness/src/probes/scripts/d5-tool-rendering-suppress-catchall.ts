@@ -13,7 +13,7 @@ import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 export const SUPPRESSED_TOOL_NAME = "get_weather";
-export const SUPPRESSED_TOOL_PROMPT = "forecast for Tokyo";
+export const SUPPRESSED_TOOL_PROMPT = "suppress catch-all weather case";
 export const EXPECTED_FINAL_TEXT = "Tokyo is 22";
 
 const POLL_TIMEOUT_MS = 15_000;
