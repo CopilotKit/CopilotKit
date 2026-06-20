@@ -157,7 +157,9 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     # ----- Tool-rendering variants -----
     "tool-rendering-default-catchall": AgentSpec(tool_rendering_default_catchall_agent),
     "tool-rendering-custom-catchall": AgentSpec(tool_rendering_custom_catchall_agent),
-    "tool-rendering-suppress-catchall": AgentSpec(tool_rendering_default_catchall_agent),
+    "tool-rendering-suppress-catchall": AgentSpec(
+        tool_rendering_default_catchall_agent
+    ),
     "tool-rendering-named-override": AgentSpec(tool_rendering_default_catchall_agent),
     "tool-rendering-reasoning-chain": AgentSpec(tool_rendering_reasoning_chain_agent),
     # ----- HITL variants -----
