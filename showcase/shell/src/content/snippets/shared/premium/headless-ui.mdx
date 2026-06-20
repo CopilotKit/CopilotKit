@@ -109,7 +109,7 @@ To get there, let's start by building a simple chat interface.
     ```tsx title="src/app/page.tsx"
     "use client";
     import { useState } from "react";
-    import { useCopilotChatHeadless_c } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useCopilotChatHeadless_c } from "@copilotkit/react-core"; // [!code highlight]
 
     export default function Home() {
       const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c(); // [!code highlight]
@@ -243,8 +243,8 @@ export const Chat = () => {
 When you build a fully headless UI, use `useToolRenderingResolver` to render tool calls with the same renderers you register through `useRenderTool`, `useFrontendTool`, or `useHumanInTheLoop`.
 
 ```tsx title="src/app/components/chat.tsx"
+import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
 import {
-  useCopilotChatHeadless_c,
   useRenderTool,
   useToolRenderingResolver,
 } from "@copilotkit/react-core/v2";
@@ -318,7 +318,7 @@ You can generate suggestions by calling the `generateSuggestions` function.
 import {
   useCopilotChatHeadless_c,
   useCopilotChatSuggestions,
-} from "@copilotkit/react-core/v2"; // [!code highlight]
+} from "@copilotkit/react-core"; // [!code highlight]
 
 export const Chat = () => {
   // Specify what suggestions should be generated
@@ -367,7 +367,7 @@ export const Chat = () => {
 If you want more deterministic control over the suggestions, you can set them manually.
 
 ```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c } from "@copilotkit/react-core/v2";
+import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
 
 export const Chat = () => {
   // Grab relevant state from the headless hook
@@ -438,7 +438,8 @@ Tool-based HITL allows for you to pause completion of a tool call and wait for a
 becomes the result of the tool call.
 
 ```tsx title="src/app/components/chat.tsx"
-import { useFrontendTool, useCopilotChatHeadless_c } from "@copilotkit/react-core/v2";
+import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
 
 export const Chat = () => {
   const { messages, sendMessage } = useCopilotChatHeadless_c();

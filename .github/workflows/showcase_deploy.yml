@@ -216,7 +216,8 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: showcase/packages/langgraph-python
+          context: .
+          file: showcase/packages/langgraph-python/Dockerfile
           push: true
           tags: |
             ghcr.io/copilotkit/showcase-langgraph-python:latest

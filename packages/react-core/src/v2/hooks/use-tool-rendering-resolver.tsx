@@ -24,7 +24,7 @@ export type ToolRenderingResolver = (
 
 /**
  * @deprecated Since v1.56.0. Use `UseToolRenderingResolverProps` instead.
- * See https://docs.copilotkit.ai/migration-guides/migrate-use-tool-rendering-resolver.
+ * See https://docs.copilotkit.ai/reference/hooks/useToolRenderingResolver.
  */
 export type UseRenderToolCallProps = UseToolRenderingResolverProps;
 
@@ -209,7 +209,7 @@ export function useToolRenderingResolver(): ToolRenderingResolver {
 /**
  * @deprecated Since v1.56.0. Use `useToolRenderingResolver` from
  * `@copilotkit/react-core/v2` instead.
- * See https://docs.copilotkit.ai/migration-guides/migrate-use-tool-rendering-resolver.
+ * See https://docs.copilotkit.ai/reference/hooks/useToolRenderingResolver.
  */
 export function useRenderToolCall(): ToolRenderingResolver {
   const warnedRef = useRef(false);
@@ -225,8 +225,7 @@ export function useRenderToolCall(): ToolRenderingResolver {
         "Use useToolRenderingResolver instead.\n\n" +
         "Before: const renderToolCall = useRenderToolCall();\n" +
         "After: const resolveToolRendering = useToolRenderingResolver();\n\n" +
-        "Docs: https://docs.copilotkit.ai/reference/v2/hooks/useToolRenderingResolver\n" +
-        "Migration guide: https://docs.copilotkit.ai/migration-guides/migrate-use-tool-rendering-resolver",
+        "Docs: https://docs.copilotkit.ai/reference/hooks/useToolRenderingResolver",
     );
   }, []);
 

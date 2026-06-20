@@ -31,6 +31,7 @@ starter:
   demo_url: https://showcase-starter-langgraph-python-production.up.railway.app
 features:
   - agentic-chat
+  - headless-complete
   - hitl
   - tool-rendering
   - gen-ui-tool-based
@@ -47,6 +48,13 @@ demos:
       - chat-ui
     route: /demos/agentic-chat
     animated_preview_url: /previews/langgraph-python/agentic-chat.gif
+  - id: headless-complete
+    name: Fully Headless UI
+    description: Custom chat shell rendering registered tool UI through the resolver
+    tags:
+      - chat-ui
+      - generative-ui
+    route: /demos/headless-complete
   - id: hitl
     name: Human in the Loop
     description: User approves agent actions before execution

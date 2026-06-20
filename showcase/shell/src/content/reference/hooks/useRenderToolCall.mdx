@@ -25,38 +25,77 @@ const resolveToolRendering = useToolRenderingResolver();
 **Before:**
 
 ```tsx
+import React from "react";
+import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import { useRenderToolCall } from "@copilotkit/react-core/v2";
 
-function ToolCalls({ toolCall, toolMessage }) {
+function ToolCalls({
+  message,
+  messages,
+}: {
+  message: AssistantMessage;
+  messages: Message[];
+}) {
   const renderToolCall = useRenderToolCall();
 
-  const renderedToolElement = renderToolCall({
-    toolCall,
-    toolMessage,
-  });
+  return (
+    <>
+      {message.toolCalls?.map((toolCall) => {
+        const toolMessage = messages.find(
+          (candidate) =>
+            candidate.role === "tool" && candidate.toolCallId === toolCall.id,
+        ) as ToolMessage | undefined;
 
-  return renderedToolElement ? (
-    <div className="tool-call">{renderedToolElement}</div>
-  ) : null;
+        const renderedToolElement = renderToolCall({ toolCall, toolMessage });
+
+        return renderedToolElement ? (
+          <React.Fragment key={toolCall.id}>
+            {renderedToolElement}
+          </React.Fragment>
+        ) : null;
+      })}
+    </>
+  );
 }
 ```
 
 **After:**
 
 ```tsx
+import React from "react";
+import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import { useToolRenderingResolver } from "@copilotkit/react-core/v2";
 
-function ToolCalls({ toolCall, toolMessage }) {
+function ToolCalls({
+  message,
+  messages,
+}: {
+  message: AssistantMessage;
+  messages: Message[];
+}) {
   const resolveToolRendering = useToolRenderingResolver();
 
-  const renderedToolElement = resolveToolRendering({
-    toolCall,
-    toolMessage,
-  });
+  return (
+    <>
+      {message.toolCalls?.map((toolCall) => {
+        const toolMessage = messages.find(
+          (candidate) =>
+            candidate.role === "tool" && candidate.toolCallId === toolCall.id,
+        ) as ToolMessage | undefined;
 
-  return renderedToolElement ? (
-    <div className="tool-call">{renderedToolElement}</div>
-  ) : null;
+        const renderedToolElement = resolveToolRendering({
+          toolCall,
+          toolMessage,
+        });
+
+        return renderedToolElement ? (
+          <React.Fragment key={toolCall.id}>
+            {renderedToolElement}
+          </React.Fragment>
+        ) : null;
+      })}
+    </>
+  );
 }
 ```
 

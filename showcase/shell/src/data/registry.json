@@ -372,6 +372,7 @@
       },
       "features": [
         "agentic-chat",
+        "headless-complete",
         "hitl",
         "tool-rendering",
         "gen-ui-tool-based",
@@ -391,6 +392,16 @@
           ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": "/previews/langgraph-python/agentic-chat.gif"
+        },
+        {
+          "id": "headless-complete",
+          "name": "Fully Headless UI",
+          "description": "Custom chat shell rendering registered tool UI through the resolver",
+          "tags": [
+            "chat-ui",
+            "generative-ui"
+          ],
+          "route": "/demos/headless-complete"
         },
         {
           "id": "hitl",
