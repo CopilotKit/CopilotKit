@@ -109,9 +109,7 @@ async def schedule_meeting(
 
 async def search_flights(
     origin: Annotated[str | None, "Origin airport code, e.g. 'SFO'"] = None,
-    destination: Annotated[
-        str | None, "Destination airport code, e.g. 'JFK'"
-    ] = None,
+    destination: Annotated[str | None, "Destination airport code, e.g. 'JFK'"] = None,
     flights: Annotated[
         list[dict[str, Any]], "List of flight objects to display as rich A2UI cards"
     ]
@@ -175,7 +173,9 @@ async def search_flights(
 async def get_stock_price(
     ticker: Annotated[str, "Stock ticker symbol, e.g. 'AAPL'"],
     price_usd: Annotated[float | None, "Deterministic price for tests"] = None,
-    change_pct: Annotated[float | None, "Deterministic percent change for tests"] = None,
+    change_pct: Annotated[
+        float | None, "Deterministic percent change for tests"
+    ] = None,
 ) -> str:
     """Get a mock current price for a stock ticker."""
     return json.dumps(
