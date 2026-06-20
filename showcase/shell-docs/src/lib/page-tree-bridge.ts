@@ -166,10 +166,10 @@ export function navNodeToPageTreeNodes(
   if (node.type === "section") {
     // Section icons come from the NavNode's `icon` field (set either
     // by parseMetaPages from an explicit meta.json icon, or hardcoded
-    // by `mergeFrameworkNav` for the framework section). Pages and
-    // folders no longer render icons — only the all-caps section
-    // headers do, which keeps the sidebar quieter and reserves icons
-    // for the top-level visual scaffold.
+    // by `mergeFrameworkNav` for the framework section). Section
+    // headers keep the top-level visual scaffold; individual pages can
+    // opt into icons with `showIcon: true` in frontmatter for targeted
+    // cases like partner cookbook entries.
     //
     // We MERGE icon + title into Fumadocs's `name` prop as a Fragment
     // instead of passing the icon via the separate `icon` prop. The
@@ -188,10 +188,11 @@ export function navNodeToPageTreeNodes(
     return [{ type: "separator", name }];
   }
   if (node.type === "page") {
+    const icon = resolveSidebarIcon(node.icon);
     return [
       {
         type: "page",
-        name: renderNavName(node.title, node.variant),
+        name: renderNavName(node.title, node.variant, icon),
         url: node.href ?? buildUrl(slugHrefPrefix, node.slug),
       },
     ];

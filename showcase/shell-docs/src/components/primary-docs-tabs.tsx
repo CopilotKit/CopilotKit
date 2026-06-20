@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChefHat } from "lucide-react";
 import BookIcon from "./icons/book";
-import ConsoleIcon from "./icons/console";
 
 const PRIMARY_DOCS_LINKS = [
   {
@@ -15,7 +14,7 @@ const PRIMARY_DOCS_LINKS = [
   {
     href: "/reference",
     label: "Reference",
-    icon: <ConsoleIcon className="h-4 w-4 text-current" />,
+    icon: <BookIcon className="h-4 w-4 text-current" />,
   },
   {
     href: "/cookbook",

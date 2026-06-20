@@ -83,6 +83,8 @@ export interface DocsPageViewProps {
   bannerSlot?: React.ReactNode;
   /** Banner slot rendered at the top of the sidebar. */
   sidebarBannerSlot?: React.ReactNode;
+  /** Optional class attached to the shared Fumadocs sidebar wrapper. */
+  sidebarClassName?: string;
   /** When set, hide the main MDX body (used by pivot-only pages). */
   hideBody?: boolean;
   /**
@@ -121,6 +123,7 @@ export async function DocsPageView({
   navTree,
   bannerSlot,
   sidebarBannerSlot,
+  sidebarClassName,
   hideBody = false,
   ContentWrapper,
 }: DocsPageViewProps) {
@@ -180,6 +183,7 @@ export async function DocsPageView({
   return (
     <ShellDocsLayout
       tree={pageTree}
+      sidebarClassName={sidebarClassName}
       banner={
         sidebarBannerSlot === undefined ? (
           <SidebarFrameworkSelector />
