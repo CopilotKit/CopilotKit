@@ -23,18 +23,8 @@ export function parseResult<T>(result: unknown): T | undefined {
 }
 
 export type ArcadeResult =
-  | {
-      authorizationRequired: true;
-      provider: string;
-      toolName: string;
-      authUrl: string;
-    }
-  | {
-      authorizationRequired: false;
-      provider: string;
-      toolName: string;
-      output: unknown;
-    }
+  | { authorizationRequired: true; provider: string; toolName: string; authUrl: string }
+  | { authorizationRequired: false; provider: string; toolName: string; output: unknown }
   | { error: string; toolName: string };
 
 export type NewsStory = { source?: string; title?: string; link?: string };
@@ -65,13 +55,7 @@ export function extractEmails(output: unknown): Email[] {
 
 type IconProps = { className?: string };
 
-const Icon = ({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) => (
+const Icon = ({ children, className }: { children: ReactNode; className?: string }) => (
   <svg
     viewBox="0 0 24 24"
     fill="none"
@@ -161,9 +145,7 @@ function ToolCard({
   children?: ReactNode;
 }) {
   return (
-    <div
-      className={`w-full rounded-2xl border p-4 shadow-sm ${accentRing[accent]}`}
-    >
+    <div className={`w-full rounded-2xl border p-4 shadow-sm ${accentRing[accent]}`}>
       <div className="flex items-center gap-3">
         <span
           className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${accentChip[accent]}`}
@@ -171,9 +153,7 @@ function ToolCard({
           <span className="h-5 w-5">{icon}</span>
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-zinc-900">
-            {title}
-          </p>
+          <p className="truncate text-sm font-semibold text-zinc-900">{title}</p>
         </div>
         {badge && (
           <span className="shrink-0 rounded-full bg-white/70 px-2.5 py-0.5 text-xs font-medium text-zinc-600 ring-1 ring-inset ring-zinc-200">
@@ -192,11 +172,7 @@ function ToolCard({
 
 export function LoadingCard({ label }: { label: string }) {
   return (
-    <ToolCard
-      accent="zinc"
-      icon={<SparkIcon className="h-5 w-5 animate-pulse" />}
-      title={label}
-    >
+    <ToolCard accent="zinc" icon={<SparkIcon className="h-5 w-5 animate-pulse" />} title={label}>
       <div className="space-y-2">
         <div className="h-3 w-3/4 animate-pulse rounded bg-zinc-200" />
         <div className="h-3 w-1/2 animate-pulse rounded bg-zinc-200" />
@@ -214,9 +190,7 @@ function safeHttpUrl(url: string | undefined): string | undefined {
   if (!url) return undefined;
   try {
     const parsed = new URL(url);
-    return parsed.protocol === "https:" || parsed.protocol === "http:"
-      ? url
-      : undefined;
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? url : undefined;
   } catch {
     return undefined;
   }
@@ -239,9 +213,8 @@ export function AuthorizationCard({
       badge="Authorization"
     >
       <p className="text-sm text-zinc-600">
-        Arcade needs you to authorize{" "}
-        <span className="font-medium">{provider}</span> once. Your credentials
-        are vaulted by Arcade and never shared with the model.
+        Arcade needs you to authorize <span className="font-medium">{provider}</span>{" "}
+        once. Your credentials are vaulted by Arcade and never shared with the model.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-3">
         {href ? (
@@ -260,8 +233,7 @@ export function AuthorizationCard({
           </span>
         )}
         <span className="text-xs text-zinc-500">
-          Opens in a new tab. Come back when you&rsquo;re done and say
-          &ldquo;continue&rdquo;.
+          Opens in a new tab. Come back when you&rsquo;re done and say &ldquo;continue&rdquo;.
         </span>
       </div>
     </ToolCard>
@@ -284,9 +256,7 @@ export function EmailSentCard({
     >
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
         <dt className="text-zinc-500">To</dt>
-        <dd className="truncate font-medium text-zinc-800">
-          {recipient || "-"}
-        </dd>
+        <dd className="truncate font-medium text-zinc-800">{recipient || "-"}</dd>
         <dt className="text-zinc-500">Subject</dt>
         <dd className="truncate font-medium text-zinc-800">{subject || "-"}</dd>
       </dl>

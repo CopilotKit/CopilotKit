@@ -1,18 +1,22 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { spawn, spawnSync } from "node:child_process";
-import type { ChildProcess } from "node:child_process";
+import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { createPbClient, PbHttpError } from "../storage/pb-client.js";
-import type { ListOpts, ListResult } from "../storage/pb-client.js";
+import {
+  createPbClient,
+  PbHttpError,
+  type ListOpts,
+  type ListResult,
+} from "../storage/pb-client.js";
 import { logger } from "../logger.js";
 import {
   CvdiagPbWriter,
   CVDIAG_EVENTS_COLLECTION,
   CVDIAG_RAW_BYTE_SAMPLES_COLLECTION,
+  type CvdiagEventRecord,
+  type CvdiagWriterClient,
 } from "./pb-writer.js";
-import type { CvdiagEventRecord, CvdiagWriterClient } from "./pb-writer.js";
 
 // Real-PocketBase ACL proof for the CVDIAG observability collections.
 //

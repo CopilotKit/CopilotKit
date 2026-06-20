@@ -129,7 +129,7 @@ export async function runArcadeTool({
         error:
           process.env.NODE_ENV === "production"
             ? "The tool call didn't complete. Please try again."
-            : (response.output?.error?.message ?? "The tool call failed."),
+            : response.output?.error?.message ?? "The tool call failed.",
         toolName,
       };
     }
