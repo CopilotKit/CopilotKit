@@ -23,7 +23,7 @@ function Chat() {
         parameters: z.object({
             location: z.string(),
         }),
-        render: ({ args, result, status }: any) => {
+        render: ({ parameters, result, status }) => {
             if (status !== "complete") {
                 return (
                     <div className="flex items-center gap-3 px-5 py-4 rounded-2xl max-w-sm"
@@ -31,16 +31,18 @@ function Chat() {
                         <div className="animate-pulse text-2xl">🌤️</div>
                         <div>
                             <p className="text-white font-medium text-sm">Checking weather...</p>
-                            <p className="text-white/60 text-xs">{args.location}</p>
+                            <p className="text-white/60 text-xs">{parameters.location ?? "the selected location"}</p>
                         </div>
                     </div>
                 );
             }
 
             const parsed = typeof result === "string" ? JSON.parse(result) : result;
+            const weather = parseWeatherResult(result);
+
             return (
                 <WeatherCard
-                    location={args.location}
+                    location={parameters.location ?? "the selected location"}
                     temperature={parsed?.temperature ?? 22}
                     conditions={parsed?.conditions || "Clear skies"}
                     humidity={parsed?.humidity ?? 55}
@@ -76,6 +78,35 @@ function Chat() {
             </div>
         </div>
     );
+}
+
+type WeatherResult = {
+    city?: string;
+    location?: string;
+    temperature?: number;
+    conditions?: string;
+    humidity?: number;
+    wind_speed?: number;
+    windSpeed?: number;
+    feels_like?: number;
+    feelsLike?: number;
+};
+
+function parseWeatherResult(result: unknown): WeatherResult {
+    if (!result) return {};
+
+    if (typeof result === "string") {
+        try {
+            const parsed = JSON.parse(result);
+            return typeof parsed === "object" && parsed !== null
+                ? (parsed as WeatherResult)
+                : {};
+        } catch {
+            return {};
+        }
+    }
+
+    return typeof result === "object" ? (result as WeatherResult) : {};
 }
 
 function getGradient(conditions: string): string {

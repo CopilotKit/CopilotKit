@@ -18,5 +18,5 @@ What's happening technically:
 
 - **Backend tools** are defined in the agent (e.g., `get_weather`) and called by the LLM when the user's query matches
 - **`useRenderTool`** on the frontend registers a React component that renders whenever the agent calls that tool
-- The render function receives `args` (input parameters), `result` (tool output), and `status` ("executing" or "complete") so the UI can show loading states
+- The render function receives schema-inferred `parameters`, `result` (tool output), and `status` (`"inProgress"`, `"executing"`, or `"complete"`) so the UI can show loading states
 - The tool result is displayed as a rich UI card instead of plain text — demonstrating how agent actions can produce structured, visual output

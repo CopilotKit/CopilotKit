@@ -26,7 +26,7 @@ function DemoContent() {
         parameters: z.object({
             location: z.string(),
         }),
-        render: ({ args, result, status }: any) => {
+        render: ({ parameters, result, status }) => {
             if (status !== "complete") {
                 return (
                     <div
@@ -36,17 +36,20 @@ function DemoContent() {
                         <div className="animate-pulse text-2xl">🌤️</div>
                         <div>
                             <p className="text-white font-medium text-sm">Checking weather...</p>
-                            <p className="text-white/60 text-xs">{args.location}</p>
+                            <p className="text-white/60 text-xs">
+                                {parameters.location ?? "the selected location"}
+                            </p>
                         </div>
                     </div>
                 );
             }
 
-            const temp = result?.temperature ?? 20;
-            const cond = result?.conditions || "Sunny";
-            const hum = result?.humidity ?? 50;
-            const wind = result?.wind_speed ?? 10;
-            const feels = result?.feelsLike ?? result?.feels_like ?? temp;
+            const weather = parseWeatherResult(result);
+            const temp = weather.temperature ?? 20;
+            const cond = weather.conditions || "Sunny";
+            const hum = weather.humidity ?? 50;
+            const wind = weather.wind_speed ?? weather.windSpeed ?? 10;
+            const feels = weather.feelsLike ?? weather.feels_like ?? temp;
             const gradient = getGradient(cond);
             const icon = getIcon(cond);
 
@@ -63,7 +66,7 @@ function DemoContent() {
                                     data-testid="weather-city"
                                     className="text-base font-bold text-white capitalize tracking-tight"
                                 >
-                                    {args.location}
+                                    {parameters.location ?? "the selected location"}
                                 </h3>
                                 <p className="text-white/50 text-[10px] font-medium uppercase tracking-wider">
                                     Current Weather
@@ -139,6 +142,35 @@ function DemoContent() {
             </div>
         </div>
     );
+}
+
+type WeatherResult = {
+    city?: string;
+    location?: string;
+    temperature?: number;
+    conditions?: string;
+    humidity?: number;
+    wind_speed?: number;
+    windSpeed?: number;
+    feels_like?: number;
+    feelsLike?: number;
+};
+
+function parseWeatherResult(result: unknown): WeatherResult {
+    if (!result) return {};
+
+    if (typeof result === "string") {
+        try {
+            const parsed = JSON.parse(result);
+            return typeof parsed === "object" && parsed !== null
+                ? (parsed as WeatherResult)
+                : {};
+        } catch {
+            return {};
+        }
+    }
+
+    return typeof result === "object" ? (result as WeatherResult) : {};
 }
 
 function getGradient(conditions: string): string {

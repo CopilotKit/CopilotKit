@@ -26,27 +26,29 @@ function Chat() {
         parameters: z.object({
             location: z.string(),
         }),
-        render: ({ args, result, status }: any) => {
+        render: ({ parameters, result, status }) => {
             if (status !== "complete") {
                 return (
                     <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "16px 20px", borderRadius: "16px", maxWidth: "320px", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)" }}>
                         <div style={{ fontSize: "24px", animation: "pulse 2s infinite" }}>🌤️</div>
                         <div>
                             <p style={{ color: "white", fontWeight: 500, fontSize: "14px", margin: 0 }}>Checking weather...</p>
-                            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "12px", margin: 0 }}>{args.location}</p>
+                            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "12px", margin: 0 }}>{parameters.location ?? "the selected location"}</p>
                         </div>
                     </div>
                 );
             }
 
+            const weather = parseWeatherResult(result);
+
             return (
                 <WeatherCard
-                    location={args.location}
-                    temperature={result?.temperature ?? 22}
-                    conditions={result?.conditions || "Clear skies"}
-                    humidity={result?.humidity ?? 55}
-                    windSpeed={result?.wind_speed ?? 12}
-                    feelsLike={result?.feels_like ?? result?.temperature ?? 22}
+                    location={parameters.location ?? "the selected location"}
+                    temperature={weather.temperature ?? 22}
+                    conditions={weather.conditions || "Clear skies"}
+                    humidity={weather.humidity ?? 55}
+                    windSpeed={weather.wind_speed ?? 12}
+                    feelsLike={weather.feels_like ?? weather.temperature ?? 22}
                 />
             );
         },
@@ -77,6 +79,35 @@ function Chat() {
             </div>
         </div>
     );
+}
+
+type WeatherResult = {
+    city?: string;
+    location?: string;
+    temperature?: number;
+    conditions?: string;
+    humidity?: number;
+    wind_speed?: number;
+    windSpeed?: number;
+    feels_like?: number;
+    feelsLike?: number;
+};
+
+function parseWeatherResult(result: unknown): WeatherResult {
+    if (!result) return {};
+
+    if (typeof result === "string") {
+        try {
+            const parsed = JSON.parse(result);
+            return typeof parsed === "object" && parsed !== null
+                ? (parsed as WeatherResult)
+                : {};
+        } catch {
+            return {};
+        }
+    }
+
+    return typeof result === "object" ? (result as WeatherResult) : {};
 }
 
 function getGradient(conditions: string): string {
