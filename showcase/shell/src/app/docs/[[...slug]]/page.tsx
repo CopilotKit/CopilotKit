@@ -231,6 +231,7 @@ const SNIPPET_MAP: Record<string, string> = {
     "FrontEndToolsImpl": "shared/app-control/frontend-tools.mdx",
     "GenerativeUISpecsOverview": "shared/generative-ui-specs-overview.mdx",
     "HeadlessUI": "shared/basics/headless-ui.mdx",
+    "PremiumHeadlessUI": "shared/premium/headless-ui.mdx",
     "Inspector": "shared/premium/inspector.mdx",
     "Interactive": "shared/generative-ui/interactive.mdx",
     "MCPApps": "shared/generative-ui/mcp-apps.mdx",
@@ -267,7 +268,7 @@ const SUBPATH_TO_COMPONENT: Record<string, string> = {
     "inspector": "Inspector",
     "prebuilt-components": "PrebuiltComponents",
     "programmatic-control": "ProgrammaticControl",
-    "premium/headless-ui": "HeadlessUI",
+    "premium/headless-ui": "PremiumHeadlessUI",
     "premium/observability": "Observability",
     "premium/overview": "Overview",
     "troubleshooting/common-issues": "CommonIssues",
@@ -362,12 +363,45 @@ function convertTablesInJSX(content: string): string {
     });
 }
 
+function stripTopLevelImports(content: string): string {
+    const lines = content.split("\n");
+    let index = 0;
+
+    while (index < lines.length) {
+        const line = lines[index];
+        if (line.trim() === "") {
+            index++;
+            continue;
+        }
+
+        if (!line.trimStart().startsWith("import ")) {
+            break;
+        }
+
+        index++;
+        while (index < lines.length) {
+            const importLine = lines[index].trim();
+            index++;
+
+            if (
+                importLine.endsWith(";") ||
+                /^from\s+["'][^"']+["'];?$/.test(importLine) ||
+                /^import\s+["'][^"']+["'];?$/.test(importLine)
+            ) {
+                break;
+            }
+        }
+    }
+
+    return lines.slice(index).join("\n");
+}
+
 // Replace component tags (e.g. <CopilotRuntime />) with their snippet content.
 // Handles both single-component pages and tags embedded in mixed content.
 // slugPath is used to resolve <SharedContent /> in integration pages.
 function inlineSnippets(content: string, slugPath: string = ""): string {
     // Strip import statements first
-    let result = content.replace(/^import\s+.+$/gm, "");
+    let result = stripTopLevelImports(content);
 
     // Replace all self-closing component tags that have snippet mappings
     // Matches: <ComponentName /> or <ComponentName components={props.components} />
@@ -396,7 +430,7 @@ function inlineSnippets(content: string, slugPath: string = ""): string {
             }
             let snippetContent = fs.readFileSync(snippetPath, "utf-8");
             snippetContent = snippetContent.replace(/^---[\s\S]*?---\n?/, "");
-            snippetContent = snippetContent.replace(/^import\s+.+$/gm, "");
+            snippetContent = stripTopLevelImports(snippetContent);
             // Recursively inline nested component delegates
             return inlineSnippets(snippetContent, slugPath);
         }
@@ -407,8 +441,16 @@ function inlineSnippets(content: string, slugPath: string = ""): string {
 
 // getNavItems removed — replaced by buildNavTree() above
 
+const IconShim = ({ className }: { className?: string }) => (
+    <span aria-hidden className={className} />
+);
+
 const components = {
     Callout, Cards, Card, Accordions, Accordion, PropertyReference,
+    MessageCircleDashed: IconShim,
+    Blocks: IconShim,
+    LayoutList: IconShim,
+    UserPen: IconShim,
     FeatureIntegrations: ({ feature }: { feature?: string }) => {
         if (!feature) return null;
         const reg = getRegistry();
