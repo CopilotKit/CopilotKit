@@ -7,7 +7,7 @@ description: "Register a wildcard default renderer for unhandled tool calls"
 
 `useDefaultRenderTool` is a convenience wrapper around `useRenderTool` with `name: "*"`.
 
-This is part of the v2 tool rendering hook set with [`useComponent`](/reference/v2/hooks/useComponent), [`useRenderTool`](/reference/v2/hooks/useRenderTool), and [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall).
+This is part of the v2 tool rendering hook set with [`useComponent`](/reference/v2/hooks/useComponent), [`useRenderTool`](/reference/v2/hooks/useRenderTool), and [`useToolRenderingResolver`](/reference/v2/hooks/useToolRenderingResolver).
 
 - With no config, it registers CopilotKit's built-in default tool-call UI.
 - With `render`, it replaces that default UI with your own wildcard renderer.
@@ -77,4 +77,4 @@ function App() {
 ## Related
 
 - [`useRenderTool`](/reference/v2/hooks/useRenderTool)
-- [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall)
+- [`useToolRenderingResolver`](/reference/v2/hooks/useToolRenderingResolver)

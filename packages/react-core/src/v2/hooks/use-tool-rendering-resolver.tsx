@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useSyncExternalStore } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
@@ -7,10 +13,20 @@ import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { partialJSONParse } from "@copilotkit/shared";
 import { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
 
-export interface UseRenderToolCallProps {
+export interface UseToolRenderingResolverProps {
   toolCall: ToolCall;
   toolMessage?: ToolMessage;
 }
+
+export type ToolRenderingResolver = (
+  props: UseToolRenderingResolverProps,
+) => React.ReactElement | null;
+
+/**
+ * @deprecated Since v1.56.0. Use `UseToolRenderingResolverProps` instead.
+ * See https://docs.copilotkit.ai/migration-guides/migrate-use-tool-rendering-resolver.
+ */
+export type UseRenderToolCallProps = UseToolRenderingResolverProps;
 
 /**
  * Props for the memoized ToolCallRenderer component
@@ -100,12 +116,28 @@ const ToolCallRenderer = React.memo(
 );
 
 /**
- * Hook that returns a function to render tool calls based on the render functions
- * defined in CopilotKitProvider.
+ * Returns CopilotKit's low-level tool rendering resolver.
+ *
+ * The resolver is used by headless/custom chat implementations to route each
+ * tool call to the matching renderer registered through `useRenderTool`,
+ * `useDefaultRenderTool`, `useFrontendTool`, or provider-level
+ * `renderToolCalls`.
  *
  * @returns A function that takes a tool call and optional tool message and returns the rendered component
+ *
+ * @example
+ * ```tsx
+ * const resolveToolRendering = useToolRenderingResolver();
+ *
+ * return message.toolCalls?.map((toolCall) =>
+ *   resolveToolRendering({
+ *     toolCall,
+ *     toolMessage: toolMessagesByCallId.get(toolCall.id),
+ *   }),
+ * );
+ * ```
  */
-export function useRenderToolCall() {
+export function useToolRenderingResolver(): ToolRenderingResolver {
   const { copilotkit, executingToolCallIds } = useCopilotKit();
   const config = useCopilotChatConfiguration();
   const agentId = config?.agentId ?? DEFAULT_AGENT_ID;
@@ -132,7 +164,7 @@ export function useRenderToolCall() {
     ({
       toolCall,
       toolMessage,
-    }: UseRenderToolCallProps): React.ReactElement | null => {
+    }: UseToolRenderingResolverProps): React.ReactElement | null => {
       // Find the render config for this tool call by name
       // For rendering, we show all tool calls regardless of agentId
       // The agentId scoping only affects handler execution (in core)
@@ -172,4 +204,31 @@ export function useRenderToolCall() {
   );
 
   return renderToolCall;
+}
+
+/**
+ * @deprecated Since v1.56.0. Use `useToolRenderingResolver` from
+ * `@copilotkit/react-core/v2` instead.
+ * See https://docs.copilotkit.ai/migration-guides/migrate-use-tool-rendering-resolver.
+ */
+export function useRenderToolCall(): ToolRenderingResolver {
+  const warnedRef = useRef(false);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || warnedRef.current) {
+      return;
+    }
+
+    warnedRef.current = true;
+    console.warn(
+      "[CopilotKit] useRenderToolCall is deprecated since v1.56.0. " +
+        "Use useToolRenderingResolver instead.\n\n" +
+        "Before: const renderToolCall = useRenderToolCall();\n" +
+        "After: const resolveToolRendering = useToolRenderingResolver();\n\n" +
+        "Docs: https://docs.copilotkit.ai/reference/v2/hooks/useToolRenderingResolver\n" +
+        "Migration guide: https://docs.copilotkit.ai/migration-guides/migrate-use-tool-rendering-resolver",
+    );
+  }, []);
+
+  return useToolRenderingResolver();
 }

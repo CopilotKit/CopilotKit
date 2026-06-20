@@ -8,7 +8,7 @@ description: "Register typed renderers for tool calls, by tool name or wildcard"
 `useRenderTool` registers a chat renderer for tool calls.
 You can target a specific tool name (with a typed Zod `parameters` schema) or use a wildcard (`"*"`) fallback renderer.
 
-This is part of the v2 tool rendering hook set with [`useComponent`](/reference/v2/hooks/useComponent), [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool), and [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall).
+This is part of the v2 tool rendering hook set with [`useComponent`](/reference/v2/hooks/useComponent), [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool), and [`useToolRenderingResolver`](/reference/v2/hooks/useToolRenderingResolver).
 
 This hook only handles rendering. It does not register a frontend handler.
 
@@ -114,5 +114,5 @@ function App() {
 ## Related
 
 - [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool)
-- [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall)
+- [`useToolRenderingResolver`](/reference/v2/hooks/useToolRenderingResolver)
 - [`useFrontendTool`](/reference/v2/hooks/useFrontendTool)

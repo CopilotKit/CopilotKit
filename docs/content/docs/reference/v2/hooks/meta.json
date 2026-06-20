@@ -5,6 +5,7 @@
     "useComponent",
     "useRenderTool",
     "useDefaultRenderTool",
+    "useToolRenderingResolver",
     "useRenderToolCall",
     "---Agent & Context---",
     "useAgent",

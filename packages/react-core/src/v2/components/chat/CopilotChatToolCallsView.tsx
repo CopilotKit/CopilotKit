@@ -1,4 +1,4 @@
-import { useRenderToolCall } from "../../hooks";
+import { useToolRenderingResolver } from "../../hooks";
 import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import React from "react";
 
@@ -11,7 +11,7 @@ export function CopilotChatToolCallsView({
   message,
   messages = [],
 }: CopilotChatToolCallsViewProps) {
-  const renderToolCall = useRenderToolCall();
+  const resolveToolRendering = useToolRenderingResolver();
 
   if (!message.toolCalls || message.toolCalls.length === 0) {
     return null;
@@ -26,7 +26,7 @@ export function CopilotChatToolCallsView({
 
         return (
           <React.Fragment key={toolCall.id}>
-            {renderToolCall({
+            {resolveToolRendering({
               toolCall,
               toolMessage,
             })}
