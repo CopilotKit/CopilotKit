@@ -14,6 +14,15 @@ implementation and causes recursive ThreadPoolExecutor wrapping.
 import os
 import sys
 
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
+# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
+# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
+# (NOT strands), so it is safe to run before the OTel ThreadingInstrumentor
+# patch below — it does not pull ``strands`` into ``sys.modules``.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+
 # HACK: strands-agents (observed on 1.35.0, requirements.txt floors at 1.15.0)
 # unconditionally calls ``ThreadingInstrumentor().instrument()`` when its
 # Tracer is constructed (strands/telemetry/tracer.py). In combination with
@@ -94,6 +103,7 @@ _assert_instrumentor_patched()
 # imports. Strands' ``OpenAIModel`` constructs its httpx client at
 # ``build_showcase_agent()`` time below (run at module-import scope), so
 # the patch must be in place before the agent imports resolve.
+from agents._cvdiag_backend import CvdiagBackendMiddleware  # noqa: E402
 from agents._header_forwarding import (  # noqa: E402
     HeaderForwardingHTTPMiddleware,
     install_executor_contextvar_propagation,
@@ -180,6 +190,15 @@ app.add_middleware(HealthMiddleware)
 # made inside the request scope copies them onto its outbound request.
 # Paired with ``install_global_httpx_hook`` above.
 app.add_middleware(HeaderForwardingHTTPMiddleware)
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added LAST so
+# it is the OUTERMOST layer: it observes ingress before any inner layer mutates
+# the request and wraps the response stream so SSE boundaries fire as chunks
+# flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
+# middleware fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
 
 
 def main():

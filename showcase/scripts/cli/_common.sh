@@ -43,11 +43,12 @@ require_env() {
 # ── Docker / Compose helpers ─────────────────────────────────────────────────
 
 stage_shared() {
-  # Dereference tools/ and shared-tools/ symlinks into real copies so Docker
-  # COPY can follow them (Docker build contexts can't traverse symlinks that
-  # point outside the context).
+  # Dereference tools/, shared-tools/, and _shared/ symlinks into real copies
+  # so Docker COPY can follow them (Docker build contexts can't traverse
+  # symlinks that point outside the context). `_shared` carries the
+  # single-source CVDIAG bootstrap module into each Python integration context.
   for pkg_dir in "$SHOWCASE_ROOT"/integrations/*/; do
-    for link_name in tools shared-tools; do
+    for link_name in tools shared-tools _shared; do
       local link_path="$pkg_dir/$link_name"
       if [ -L "$link_path" ]; then
         local target
@@ -66,8 +67,10 @@ stage_shared() {
 }
 
 restore_symlinks() {
-  # Restore tools/ and shared-tools/ symlinks replaced by stage_shared.
-  (cd "$SHOWCASE_ROOT" && git checkout -- integrations/*/tools integrations/*/shared-tools 2>/dev/null || true)
+  # Restore tools/, shared-tools/, and _shared/ symlinks replaced by
+  # stage_shared. The integrations/*/_shared glob also matches the canonical
+  # source dir integrations/_shared (a real tracked dir) — harmless no-op there.
+  (cd "$SHOWCASE_ROOT" && git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared 2>/dev/null || true)
 }
 
 slug_to_container() {
