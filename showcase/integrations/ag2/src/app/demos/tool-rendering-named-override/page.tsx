@@ -6,6 +6,7 @@ import {
   CopilotChat,
   useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
+import { RuntimeReady } from "../tool-rendering-default-catchall/runtime-ready";
 import { useSuggestions } from "../tool-rendering/suggestions";
 import { useSuppressWeatherToolRendering } from "./use-suppress-weather-tool-rendering";
 
@@ -16,7 +17,9 @@ export default function ToolRenderingNamedOverrideDemo() {
     <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
-          <Chat />
+          <RuntimeReady>
+            <Chat />
+          </RuntimeReady>
         </div>
       </div>
     </CopilotKit>

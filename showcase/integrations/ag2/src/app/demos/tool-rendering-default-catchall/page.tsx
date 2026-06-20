@@ -4,7 +4,7 @@
 //
 // This cell is the simplest point in the three-way progression. The
 // backend exposes a handful of mock tools (get_weather, search_flights,
-// get_stock_price, roll_dice) and the frontend ONLY opts into
+// get_stock_price, roll_d20) and the frontend ONLY opts into
 // CopilotKit's built-in catch-all tool-call card — no per-tool renderers,
 // no custom wildcard UI.
 //
@@ -22,6 +22,7 @@ import {
   CopilotChat,
   useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
+import { RuntimeReady } from "./runtime-ready";
 import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingDefaultCatchallDemo() {
@@ -32,7 +33,9 @@ export default function ToolRenderingDefaultCatchallDemo() {
     >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
-          <Chat />
+          <RuntimeReady>
+            <Chat />
+          </RuntimeReady>
         </div>
       </div>
     </CopilotKit>
