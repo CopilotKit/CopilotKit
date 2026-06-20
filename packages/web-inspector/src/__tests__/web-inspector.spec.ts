@@ -575,3 +575,146 @@ describe("WebInspectorElement announcement preview dismissal", () => {
     expect(a.hasUnseenAnnouncement).toBe(true);
   });
 });
+
+// --- Owned thread store header forwarding (issue #5581) ---
+//
+// When useThreads() isn't mounted, the inspector creates its own thread store
+// per agent (ensureOwnedThreadStore). That store's /threads requests must carry
+// the headers configured on <CopilotKit> (e.g. X-CSRF / auth), otherwise the
+// requests 403 in environments that enforce CSRF/auth checks.
+
+type HeaderMockCore = {
+  agents: Record<string, AbstractAgent>;
+  context: Record<string, unknown>;
+  properties: Record<string, unknown>;
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  runtimeUrl: string;
+  headers: Record<string, string>;
+  subscribe: (subscriber: CopilotKitCoreSubscriber) => {
+    unsubscribe: () => void;
+  };
+  getThreadStores: () => Record<string, never>;
+  getThreadStore: (agentId: string) => undefined;
+  registerThreadStore: (agentId: string, store: unknown) => void;
+  unregisterThreadStore: (agentId: string) => void;
+};
+
+function createHeaderMockCore(
+  agents: Record<string, AbstractAgent>,
+  headers: Record<string, string>,
+) {
+  const subscribers = new Set<CopilotKitCoreSubscriber>();
+  const core: HeaderMockCore = {
+    agents,
+    context: {},
+    properties: {},
+    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+    runtimeUrl: "http://localhost/api",
+    headers,
+    subscribe(subscriber: CopilotKitCoreSubscriber) {
+      subscribers.add(subscriber);
+      return { unsubscribe: () => subscribers.delete(subscriber) };
+    },
+    getThreadStores() {
+      return {};
+    },
+    getThreadStore() {
+      return undefined;
+    },
+    registerThreadStore() {},
+    unregisterThreadStore() {},
+  };
+
+  const asCore = () => core as unknown as CopilotKitCore;
+  return {
+    core,
+    emitAgentsChanged() {
+      subscribers.forEach((s) =>
+        s.onAgentsChanged?.({ copilotkit: asCore(), agents: core.agents }),
+      );
+    },
+    emitHeadersChanged(nextHeaders: Record<string, string>) {
+      core.headers = nextHeaders;
+      subscribers.forEach((s) =>
+        s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
+      );
+    },
+  };
+}
+
+const headersOf = (call: unknown[]) =>
+  (call[1] as { headers?: Record<string, string> } | undefined)?.headers ?? {};
+
+describe("WebInspectorElement owned thread store headers (#5581)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  const threadListCalls = () =>
+    fetchMock.mock.calls.filter((call) =>
+      String(call[0]).includes("/threads?"),
+    );
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ threads: [] }),
+      }),
+    );
+    // The owned store captures globalThis.fetch when it's created, so stub
+    // before the inspector attaches to the core.
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("forwards core headers on the owned store's /threads request", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore(
+      { alpha: agent },
+      { "X-CSRF": "1", Authorization: "Bearer abc" },
+    );
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(0);
+    });
+
+    expect(headersOf(threadListCalls()[0]!)).toMatchObject({
+      "X-CSRF": "1",
+      Authorization: "Bearer abc",
+    });
+  });
+
+  it("re-applies headers on the owned store when core headers change", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(0);
+    });
+    const callsBefore = threadListCalls().length;
+
+    harness.emitHeadersChanged({ "X-CSRF": "2" });
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(callsBefore);
+    });
+
+    expect(headersOf(threadListCalls().at(-1)!)).toMatchObject({
+      "X-CSRF": "2",
+    });
+  });
+});
