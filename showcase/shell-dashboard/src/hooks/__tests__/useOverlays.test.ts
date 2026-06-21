@@ -276,6 +276,18 @@ describe("useOverlays", () => {
     expect(result.current.activeTab).toBe("matrix");
   });
 
+  it("preserves matrix overlay hash on first mount", async () => {
+    hashValue = "#matrix:links,depth,health,parity";
+    const useOverlays = await importHook();
+    const { result } = renderHook(() => useOverlays());
+
+    expect(result.current.overlays.has("links")).toBe(true);
+    expect(result.current.overlays.has("depth")).toBe(true);
+    expect(result.current.overlays.has("health")).toBe(true);
+    expect(result.current.overlays.has("parity")).toBe(true);
+    expect(hashValue).toBe("#matrix:links,depth,health,parity");
+  });
+
   // 14. Hash #ops sets tab to ops
   it("hash #ops sets tab to ops", async () => {
     hashValue = "#ops";

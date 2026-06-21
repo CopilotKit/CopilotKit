@@ -172,6 +172,37 @@ describe("FeatureGrid: server-threaded shellUrl builds real-host anchors", () =>
       expect(href).not.toContain(SENTINEL);
     }
   });
+
+  it("rowFilter limits visible feature rows for PR tour links", () => {
+    const { container, queryByTestId } = render(
+      <FeatureGrid
+        title="Feature Matrix"
+        renderCell={renderCell}
+        liveStatus={new Map() as LiveStatusMap}
+        connection="live"
+        shellUrl={REAL_HOST}
+        rowFilter={{
+          active: true,
+          ids: [
+            "tool-rendering-default-catchall",
+            "tool-rendering-custom-catchall",
+          ],
+          unknownIds: [],
+        }}
+      />,
+    );
+
+    const text = container.textContent ?? "";
+    expect(text).toContain("2 features ×");
+    expect(text).toContain(
+      "Generative UI: Tool Rendering (Built-in catch-all)",
+    );
+    expect(text).toContain("Generative UI: Tool Rendering (Custom catch-all)");
+    expect(text).not.toContain(
+      "Generative UI: Tool Rendering (Suppress catch-all)",
+    );
+    expect(queryByTestId("starter-row-health")).toBeNull();
+  });
 });
 
 describe("computeColumnTally", () => {

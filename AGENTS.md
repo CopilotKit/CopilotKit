@@ -27,6 +27,13 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Draft PR up front** — the moment a new branch has one commit, push it and open a **draft PR**. Don't wait until "ready" — unmerged-and-unpushed work is invisible. Flip the PR from draft to ready (`gh pr ready <pr#>`) only when the developer says so. See [Git & PRs](.claude/docs/git.md#open-a-draft-pr-up-front).
 - **Documentation lives in shell-docs** — author CopilotKit docs in `showcase/shell-docs/src/content/`. The top-level `docs/` path is only a symlink to `showcase/shell-docs/`; never recreate the old `docs/content/docs/` tree for live documentation. AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`, not directly in this repo. See [Documentation](.claude/docs/documentation.md).
 - **Keep formatting-only churn out of feature PRs** — never mix ineffectual formatting changes with real code/docs changes. This includes import reshuffling, line wrapping, parenthesis-only rewrites, or other mechanical formatter output. If code formatting needs to change, do it in a separate PR that contains only formatting changes.
+- **PR tour artifacts for showcase/docs changes** — when a PR touches showcase demos, showcase probes/fixtures, the dashboard matrix, or docs, include a PR section that makes Loom review easy:
+  - Run `npm --prefix showcase/scripts run pr-tour -- --base origin/main --head HEAD` and use the output as the starting point.
+  - When the full branch contains broad or inherited showcase churn, scope the tour with `--rows <comma-separated feature ids>` so the PR body still gives a focused Loom path for the rows intentionally changed by the PR.
+  - Include the generated row-filtered dashboard link. The dashboard accepts `?rows=<comma-separated feature ids>` and preserves the usual hash overlays, for example `http://localhost:3002/?rows=tool-rendering-default-catchall,tool-rendering-custom-catchall#matrix:links,depth,health,parity`.
+  - List dashboard rows, columns, and individual cells changed using the ordering from the showcase dashboard. Say explicitly when the diff is a whole row or whole column; otherwise list the individual cells.
+  - List local docs URLs changed, plus any shared snippet files that require checking generated/authored docs variants.
+  - If the script reports global or ambiguous showcase files, investigate and either refine the report manually in the PR body or improve the script in the same PR. Prefer deterministic reporting over hand inference.
 
 ## Private Agent Instructions
 

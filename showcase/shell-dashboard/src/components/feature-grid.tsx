@@ -33,6 +33,7 @@ import type { CatalogCell } from "@/components/depth-utils";
 import type { Overlay } from "@/lib/overlay-types";
 import type { ParityTier } from "@/components/parity-badge";
 import type { CatalogData } from "@/data/catalog-types";
+import type { DashboardRowFilter } from "@/lib/dashboard-row-filter";
 import type { TallyDetail, TallyItem } from "@/components/tally-types";
 import {
   useCollapsible,
@@ -641,6 +642,8 @@ export interface FeatureGridProps {
   overlays?: Set<Overlay>;
   /** Catalog data — required when overlays is provided, for ref-depth and parity. */
   catalog?: CatalogData;
+  /** URL-driven tour mode: when active, show only the requested feature rows. */
+  rowFilter?: DashboardRowFilter;
 }
 
 export function FeatureGrid({
@@ -654,6 +657,7 @@ export function FeatureGrid({
   now = Date.now(),
   overlays,
   catalog,
+  rowFilter,
   shellUrl: serverShellUrl,
 }: FeatureGridProps) {
   const shellUrl = resolveShellUrl(serverShellUrl);
@@ -665,6 +669,17 @@ export function FeatureGrid({
   const features = useMemo(() => getFeatures(), []);
   const categories = useMemo(() => getFeatureCategories(), []);
 
+  const rowFilterIds = useMemo(
+    () => new Set(rowFilter?.ids ?? []),
+    [rowFilter?.ids],
+  );
+  const rowFilterActive = rowFilter?.active === true;
+
+  const scopedFeatures = useMemo(() => {
+    if (!rowFilterActive) return features;
+    return features.filter((feature) => rowFilterIds.has(feature.id));
+  }, [features, rowFilterActive, rowFilterIds]);
+
   // O(features × integrations) per render is avoidable — the inputs only
   // change when live rows or connection shift, so memoize across the whole
   // integration list in one pass.
@@ -673,11 +688,17 @@ export function FeatureGrid({
     for (const integration of integrations) {
       out.set(
         integration.slug,
-        computeColumnTally(integration, features, liveStatus, connection, now),
+        computeColumnTally(
+          integration,
+          scopedFeatures,
+          liveStatus,
+          connection,
+          now,
+        ),
       );
     }
     return out;
-  }, [integrations, features, liveStatus, connection, now]);
+  }, [integrations, scopedFeatures, liveStatus, connection, now]);
 
   // Per-bucket feature lists — mirrors tallies but with TallyItem arrays.
   const tallyDetails = useMemo(() => {
@@ -687,7 +708,7 @@ export function FeatureGrid({
         integration.slug,
         computeColumnTallyDetail(
           integration,
-          features,
+          scopedFeatures,
           liveStatus,
           connection,
           now,
@@ -695,7 +716,7 @@ export function FeatureGrid({
       );
     }
     return out;
-  }, [integrations, features, liveStatus, connection, now]);
+  }, [integrations, scopedFeatures, liveStatus, connection, now]);
 
   // Whether to show the parity ref-depth column
   const showRefDepth = overlays ? overlays.has("parity") : false;
@@ -748,8 +769,10 @@ export function FeatureGrid({
 
   const visibleFeatures = useMemo(
     () =>
-      showDeprecated ? features : features.filter((f) => f.deprecated !== true),
-    [features, showDeprecated],
+      rowFilterActive || showDeprecated
+        ? scopedFeatures
+        : scopedFeatures.filter((f) => f.deprecated !== true),
+    [rowFilterActive, scopedFeatures, showDeprecated],
   );
   const deprecatedCount = useMemo(
     () => features.filter((f) => f.deprecated === true).length,
@@ -776,7 +799,7 @@ export function FeatureGrid({
         <div className="flex items-center gap-3">
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           <LiveIndicator status={connection} degraded={degraded} />
-          {deprecatedCount > 0 && (
+          {deprecatedCount > 0 && !rowFilterActive && (
             <label
               data-testid="show-deprecated-toggle"
               className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
@@ -800,10 +823,20 @@ export function FeatureGrid({
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           {subtitle ? <>{subtitle} · </> : null}
           {visibleFeatures.length} features × {integrations.length} integrations
-          {!showDeprecated && deprecatedCount > 0
+          {!rowFilterActive && !showDeprecated && deprecatedCount > 0
             ? ` (${deprecatedCount} deprecated hidden)`
             : ""}
           .
+          {rowFilterActive ? (
+            <>
+              {" "}
+              Tour row filter active: {visibleFeatures.length} selected
+              {rowFilter?.unknownIds.length
+                ? `; unknown rows ignored: ${rowFilter.unknownIds.join(", ")}`
+                : ""}
+              .
+            </>
+          ) : null}
         </p>
       </header>
 
@@ -938,14 +971,16 @@ export function FeatureGrid({
              * Shown across all overlay modes since it is a health surface, not a
              * feature-coverage row.
              */}
-            <StarterSection
-              integrations={integrations}
-              liveStatus={liveStatus}
-              connection={connection}
-              now={now}
-              categoryColSpan={categoryColSpan}
-              showRefDepth={showRefDepth}
-            />
+            {!rowFilterActive && (
+              <StarterSection
+                integrations={integrations}
+                liveStatus={liveStatus}
+                connection={connection}
+                now={now}
+                categoryColSpan={categoryColSpan}
+                showRefDepth={showRefDepth}
+              />
+            )}
           </tbody>
         </table>
       </div>
