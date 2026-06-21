@@ -181,7 +181,7 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
   "custom/google-adk": (
     <Image
-      src="/logos/google-adk.svg"
+      src="/logos/google-adk.png"
       alt=""
       aria-hidden="true"
       width={16}
