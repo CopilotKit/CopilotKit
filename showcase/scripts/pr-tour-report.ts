@@ -10,7 +10,7 @@ const REPO_ROOT = path.resolve(SHOWCASE_ROOT, "..");
 const LOCAL_DASHBOARD_URL = "http://localhost:3002";
 const LOCAL_DOCS_URL = "http://localhost:3003";
 
-interface FeatureInfo {
+export interface FeatureInfo {
   id: string;
   name: string;
 }
@@ -21,7 +21,7 @@ interface DemoInfo {
   highlight: string[];
 }
 
-interface IntegrationInfo {
+export interface IntegrationInfo {
   slug: string;
   name: string;
   sortOrder: number;
