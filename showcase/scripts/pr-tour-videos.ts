@@ -219,15 +219,20 @@ async function showTitle(
   await page.waitForTimeout(1_200);
 }
 
-async function findDemoFrame(page: Page): Promise<Frame> {
-  await page.waitForSelector("iframe", { timeout: 20_000 });
-  await page.waitForFunction(
-    () =>
-      Array.from(document.querySelectorAll("iframe")).some((iframe) =>
-        iframe.src.includes("/demos/"),
-      ),
-    { timeout: 20_000 },
-  );
+async function findDemoFrame(page: Page): Promise<Frame | null> {
+  const hasDemoIframe = await page
+    .waitForFunction(
+      () =>
+        Array.from(document.querySelectorAll("iframe")).some((iframe) =>
+          iframe.src.includes("/demos/"),
+        ),
+      { timeout: 8_000 },
+    )
+    .then(() => true)
+    .catch(() => false);
+
+  if (!hasDemoIframe) return null;
+
   for (let i = 0; i < 40; i++) {
     const frame = page
       .frames()
@@ -235,24 +240,30 @@ async function findDemoFrame(page: Page): Promise<Frame> {
     if (frame) return frame;
     await page.waitForTimeout(250);
   }
-  throw new Error(`Could not find demo iframe on ${page.url()}`);
+  return null;
 }
 
-async function submitPrompt(frame: Frame, prompt: TourPrompt): Promise<void> {
+async function submitPrompt(
+  frame: Frame,
+  prompt: TourPrompt,
+): Promise<boolean> {
   if (prompt.source === "pill") {
     const pill = frame.getByText(prompt.title, { exact: true }).first();
     if (await pill.isVisible({ timeout: 1_500 }).catch(() => false)) {
       await pill.click();
-      return;
+      return true;
     }
   }
 
   const textbox = frame
     .locator('textarea, [contenteditable="true"], input[type="text"]')
     .last();
-  await textbox.waitFor({ state: "visible", timeout: 10_000 });
+  if (!(await textbox.isVisible({ timeout: 3_000 }).catch(() => false))) {
+    return false;
+  }
   await textbox.fill(prompt.message);
   await textbox.press("Enter");
+  return true;
 }
 
 async function recordTopic(
@@ -285,15 +296,20 @@ async function recordTopic(
         cell.row.name,
         `${cell.column.name}: application interaction`,
       );
+      process.stderr.write(`Recording ${cell.row.id} / ${cell.column.slug}\n`);
       await page.goto(cell.previewUrl, { waitUntil: "domcontentloaded" });
       const frame = await findDemoFrame(page);
-      const prompts =
-        args.promptLimit === null
-          ? cell.prompts
-          : cell.prompts.slice(0, args.promptLimit);
-      for (const prompt of prompts) {
-        await submitPrompt(frame, prompt);
-        await page.waitForTimeout(args.perPromptWaitMs);
+      if (frame) {
+        const prompts =
+          args.promptLimit === null
+            ? cell.prompts
+            : cell.prompts.slice(0, args.promptLimit);
+        for (const prompt of prompts) {
+          const submitted = await submitPrompt(frame, prompt);
+          await page.waitForTimeout(submitted ? args.perPromptWaitMs : 1_000);
+        }
+      } else {
+        await page.waitForTimeout(2_000);
       }
 
       await showTitle(page, cell.row.name, `${cell.column.name}: code view`);
