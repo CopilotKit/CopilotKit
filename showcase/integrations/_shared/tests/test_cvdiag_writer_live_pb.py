@@ -125,11 +125,15 @@ def _count_events(base: str, test_id: str) -> int:
 @pytest.fixture(scope="module")
 def live_pb():
     """Boot a real PB with the production migrations; yield its base URL."""
+    # skipif(_PB_BIN is None) guarantees a binary at runtime; narrow to a
+    # concrete str so subprocess calls don't take a `str | None` arg.
+    pb_bin = _PB_BIN
+    assert pb_bin is not None
     data_dir = tempfile.mkdtemp(prefix="pb-cvdiag-py-")
     try:
         mig = subprocess.run(
             [
-                _PB_BIN,
+                pb_bin,
                 "migrate",
                 "up",
                 f"--dir={data_dir}",
@@ -141,7 +145,7 @@ def live_pb():
         if mig.returncode != 0:
             raise RuntimeError(f"pb migrate up failed: {mig.stderr or mig.stdout}")
         admin = subprocess.run(
-            [_PB_BIN, "admin", "create", ADMIN_EMAIL, ADMIN_PASS, f"--dir={data_dir}"],
+            [pb_bin, "admin", "create", ADMIN_EMAIL, ADMIN_PASS, f"--dir={data_dir}"],
             capture_output=True,
             text=True,
         )
@@ -153,7 +157,7 @@ def live_pb():
         base = f"http://127.0.0.1:{port}"
         proc = subprocess.Popen(
             [
-                _PB_BIN,
+                pb_bin,
                 "serve",
                 f"--http=127.0.0.1:{port}",
                 f"--dir={data_dir}",
