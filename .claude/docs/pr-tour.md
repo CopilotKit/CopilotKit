@@ -82,9 +82,11 @@ Every showcase/docs PR body should have a `PR Tour` section in the PR descriptio
 
 - the row-filtered dashboard link;
 - changed showcase rows, columns, and cells;
-- attached/generated video links and the exact commit SHA they were recorded from;
+- embedded video attachments and the exact commit SHA they were recorded from;
 - changed docs URLs for the Loom path;
 - the exact `pr-tour` / `pr-tour-videos` commands run.
+
+Prefer embedded GitHub video players in the PR description. GitHub embeds videos when they are uploaded through the PR description editor and appear as `https://github.com/user-attachments/assets/...` URLs in the body. Raw release-asset `.webm` links and `<video>` HTML do not render inline in GitHub-flavored Markdown; use release assets only as a fallback when the browser attachment flow is unavailable, and say so in the PR description.
 
 When a sufficiently major change lands after the video was recorded, regenerate or replace the videos and update the PR description with the new commit SHA. Do not hide fresh walkthroughs in PR comments; reviewers should find the current tour from the description.
 
