@@ -78,12 +78,14 @@ npm --prefix showcase/scripts run pr-tour-videos -- --mode docs --docs-urls http
 
 ## PR Body Requirements
 
-Every showcase/docs PR body should have a `PR Tour` section with:
+Every showcase/docs PR body should have a `PR Tour` section in the PR description itself, not as a follow-up PR comment, with:
 
 - the row-filtered dashboard link;
 - changed showcase rows, columns, and cells;
-- generated video paths, or a clear note explaining why video generation could not run locally;
+- attached/generated video links and the exact commit SHA they were recorded from;
 - changed docs URLs for the Loom path;
 - the exact `pr-tour` / `pr-tour-videos` commands run.
+
+When a sufficiently major change lands after the video was recorded, regenerate or replace the videos and update the PR description with the new commit SHA. Do not hide fresh walkthroughs in PR comments; reviewers should find the current tour from the description.
 
 Prefer improving these scripts over hand-writing tour details. The goal is repeatability: the next agent should be able to regenerate the same tour from the PR diff and explicit row scope.
