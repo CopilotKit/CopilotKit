@@ -131,7 +131,10 @@ async function countRowsBySlug(slug: string): Promise<number> {
 
 /** Drive one wrapped request to completion, fully draining the body so the
  * stream-close terminals + background flush fire. */
-async function driveRequest(slug: string, env: NodeJS.ProcessEnv): Promise<void> {
+async function driveRequest(
+  slug: string,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
   const saved = { ...process.env };
   Object.assign(process.env, env);
   try {

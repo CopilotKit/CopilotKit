@@ -134,7 +134,8 @@ export class CvdiagFetchPbWriter {
     this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
     this.writerKey = opts.writerKey;
     this.writerIdentity = opts.writerIdentity ?? DEFAULT_WRITER_IDENTITY;
-    this.fetchImpl = opts.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
+    this.fetchImpl =
+      opts.fetchImpl ?? (globalThis.fetch as unknown as FetchLike);
     this.timeoutMs = opts.timeoutMs ?? 5000;
   }
 
@@ -239,7 +240,11 @@ export class CvdiagFetchPbWriter {
     }
     if (!res.ok) {
       const body = await safeText(res);
-      this.warn("auth", `auth failed status=${res.status} ${body}`, this.writerIdentity);
+      this.warn(
+        "auth",
+        `auth failed status=${res.status} ${body}`,
+        this.writerIdentity,
+      );
       return false;
     }
     // Read the FULL body — the auth token is ~600 chars, so the warn-path
@@ -259,7 +264,11 @@ export class CvdiagFetchPbWriter {
       return false;
     }
     if (typeof token !== "string" || token.length === 0) {
-      this.warn("auth", "auth returned empty/non-string token", this.writerIdentity);
+      this.warn(
+        "auth",
+        "auth returned empty/non-string token",
+        this.writerIdentity,
+      );
       return false;
     }
     this.token = token;
@@ -280,8 +289,7 @@ export class CvdiagFetchPbWriter {
       "content-type": "application/json",
     };
     if (bearer !== undefined) headers["authorization"] = `Bearer ${bearer}`;
-    const controller =
-      this.timeoutMs > 0 ? new AbortController() : undefined;
+    const controller = this.timeoutMs > 0 ? new AbortController() : undefined;
     const timer =
       controller !== undefined
         ? setTimeout(() => controller.abort(), this.timeoutMs)

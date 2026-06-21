@@ -134,7 +134,12 @@ describeMaybe("CvdiagFetchPbWriter — live PocketBase, WRITER-role auth", () =>
     dataDir = mkdtempSync(join(tmpdir(), "pb-cvdiag-fetch-"));
     const mig = spawnSync(
       PB_BIN as string,
-      ["migrate", "up", `--dir=${dataDir}`, `--migrationsDir=${MIGRATIONS_DIR}`],
+      [
+        "migrate",
+        "up",
+        `--dir=${dataDir}`,
+        `--migrationsDir=${MIGRATIONS_DIR}`,
+      ],
       { encoding: "utf8" },
     );
     if (mig.status !== 0) {
@@ -146,7 +151,9 @@ describeMaybe("CvdiagFetchPbWriter — live PocketBase, WRITER-role auth", () =>
       { encoding: "utf8" },
     );
     if (admin.status !== 0) {
-      throw new Error(`pb admin create failed: ${admin.stderr || admin.stdout}`);
+      throw new Error(
+        `pb admin create failed: ${admin.stderr || admin.stdout}`,
+      );
     }
     pb = spawn(
       PB_BIN as string,
