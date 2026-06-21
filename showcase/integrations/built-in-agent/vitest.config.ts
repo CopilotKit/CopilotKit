@@ -10,7 +10,13 @@ export default defineConfig({
     // broader suite is Playwright e2e (`test:e2e`); this config scopes vitest
     // to the co-located cvdiag unit tests so they run without the Next.js
     // build toolchain.
-    include: ["src/cvdiag-backend.test.ts"],
+    include: [
+      "src/cvdiag-backend.test.ts",
+      "src/cvdiag-backend-persist.e2e.test.ts",
+    ],
+    // The live-PB e2e seam needs room to boot PocketBase + drain flush windows.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     environment: "node",
   },
   resolve: {

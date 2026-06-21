@@ -8,3 +8,4 @@
 export * from "./schema.js";
 export * from "./edge-headers.js";
 export * from "./emit.js";
+export * from "./pb-writer-fetch.js";

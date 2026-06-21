@@ -37,12 +37,17 @@
  */
 
 import {
+  createCvdiagFetchPbWriterFromEnv,
   CvdiagEmitter,
   filterEdgeHeaders,
   mintTestId,
   scrubSecrets,
 } from "@/cvdiag/cvdiag-emitter";
-import type { CvdiagEnvelope, CvdiagOutcome } from "@/cvdiag/cvdiag-emitter";
+import type {
+  CvdiagEnvelope,
+  CvdiagOutcome,
+  CvdiagPbWriter,
+} from "@/cvdiag/cvdiag-emitter";
 
 /**
  * Web-standard route handler shape. Generic over the request type so a Next.js
@@ -129,9 +134,19 @@ export function withCvdiagBackend<Req extends Request>(
   const modelId = opts.modelId ?? "unknown";
   const heartbeatMs = opts.heartbeatMs ?? 10_000;
 
+  // Construct the concrete writer-role PB writer ONCE (env is read once at
+  // wrapper setup). Returns undefined when CVDIAG_PB_URL is unset — in which
+  // case the emitter is left writer-less (current stdout-only behavior). This
+  // is the fix for the type-only-seam defect: without an injected pbWriter the
+  // emitter's flush was a permanent no-op and ZERO backend events persisted.
+  // A test-injected emitter (opts.emitter) brings its own writer seam.
+  const pbWriter: CvdiagPbWriter | undefined =
+    opts.emitter !== undefined ? undefined : createCvdiagFetchPbWriterFromEnv();
+
   return async (req: Req): Promise<Response> => {
     const emitter =
-      opts.emitter ?? new CvdiagEmitter({ layer: "backend", autoFlush: true });
+      opts.emitter ??
+      new CvdiagEmitter({ layer: "backend", autoFlush: true, pbWriter });
     const testId = mintTestId();
     const startedAt = Date.now();
     const path = requestPath(req);
