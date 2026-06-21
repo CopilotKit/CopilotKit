@@ -7,9 +7,10 @@
  * This is the FLATTENED form of `showcase/integrations/_shared/ts/cvdiag-emitter.ts`:
  * the shared barrel re-exports from `../../../harness/src/cvdiag/*`, which has
  * no resolution inside a standalone integration's Docker build context. The
- * stage command copies the three L0-A sources (schema.ts, edge-headers.ts,
- * emit.ts) next to this file and rewrites the re-export specifiers to the
- * co-located `./*.js` copies so `next build` bundles a self-contained emitter.
+ * stage command copies the L0-A sources (scrub.ts, schema.ts, edge-headers.ts,
+ * emit.ts, pb-writer-fetch.ts) next to this file and rewrites the re-export
+ * specifiers to the co-located `./*.js` copies so `next build` bundles a
+ * self-contained emitter + concrete writer-role PB writer.
  */
 
 // ── Schema (types, enums, validators, UUIDv7 regex) ─────────────────────────
@@ -79,3 +80,14 @@ export type {
   CvdiagEmitterOptions,
   CvdiagEmitArgs,
 } from "./emit.js";
+
+// ── Concrete writer-role PB writer (plain fetch; auth-with-password→Bearer) ──
+export {
+  CvdiagFetchPbWriter,
+  createCvdiagFetchPbWriterFromEnv,
+} from "./pb-writer-fetch.js";
+
+export type {
+  FetchLike,
+  CvdiagFetchPbWriterOptions,
+} from "./pb-writer-fetch.js";
