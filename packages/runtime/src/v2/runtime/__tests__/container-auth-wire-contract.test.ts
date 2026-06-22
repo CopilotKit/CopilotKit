@@ -156,11 +156,19 @@ function setupRuntime(identifiedUser: typeof IDENTIFIED_USER) {
     });
 
   const receivedRunForwardedProps = () =>
-    (runSpy.mock.calls[0]![0] as {
-      input: { forwardedProps: Record<string, unknown> };
-    }).input.forwardedProps;
+    (
+      runSpy.mock.calls[0]![0] as {
+        input: { forwardedProps: Record<string, unknown> };
+      }
+    ).input.forwardedProps;
 
-  return { runtime, platform, runRequest, annotateRequest, receivedRunForwardedProps };
+  return {
+    runtime,
+    platform,
+    runRequest,
+    annotateRequest,
+    receivedRunForwardedProps,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -183,7 +191,8 @@ afterEach(() => {
 // ===========================================================================
 
 it("RUN: preserves client intended=['team-a'] while overwriting forged permitted=['admin'] with server-resolved ['team-a','project']", async () => {
-  const { runtime, runRequest, receivedRunForwardedProps } = setupRuntime(IDENTIFIED_USER);
+  const { runtime, runRequest, receivedRunForwardedProps } =
+    setupRuntime(IDENTIFIED_USER);
 
   await handleRunAgent({
     runtime,
@@ -213,7 +222,8 @@ it("RUN: preserves client intended=['team-a'] while overwriting forged permitted
 it("RUN: strips intended key is NOT in permitted — they are independent channels", async () => {
   // intended=['org'] but identifyUser only authorizes ['team-a','project']
   // The intended key must be untouched; permitted must reflect the server list.
-  const { runtime, runRequest, receivedRunForwardedProps } = setupRuntime(IDENTIFIED_USER);
+  const { runtime, runRequest, receivedRunForwardedProps } =
+    setupRuntime(IDENTIFIED_USER);
 
   await handleRunAgent({
     runtime,
@@ -225,7 +235,7 @@ it("RUN: strips intended key is NOT in permitted — they are independent channe
   });
 
   const props = receivedRunForwardedProps();
-  expect(props[INTENDED_KEY]).toEqual(["org"]);           // untouched
+  expect(props[INTENDED_KEY]).toEqual(["org"]); // untouched
   expect(props[PERMITTED_KEY]).toEqual(["team-a", "project"]); // server-resolved
 });
 
@@ -236,7 +246,10 @@ it("RUN: strips intended key is NOT in permitted — they are independent channe
 it("ANNOTATE: stamps permitted=['team-a','project'] from identifyUser — client cannot influence it", async () => {
   const { runtime, platform, annotateRequest } = setupRuntime(IDENTIFIED_USER);
 
-  const response = await handleAnnotate({ runtime, request: annotateRequest() });
+  const response = await handleAnnotate({
+    runtime,
+    request: annotateRequest(),
+  });
 
   expect(response.status).toBe(200);
   expect(platform.annotate).toHaveBeenCalledWith(
@@ -278,5 +291,7 @@ it("MCP: forwards x-cpki-readable-containers: 'team-a' when readableContainers=[
   const [servers] = mcpMiddlewareCalls[0] as [
     Array<{ headers: Record<string, string> }>,
   ];
-  expect(servers[0]!.headers[INTELLIGENCE_READABLE_CONTAINERS_HEADER]).toBe("team-a");
+  expect(servers[0]!.headers[INTELLIGENCE_READABLE_CONTAINERS_HEADER]).toBe(
+    "team-a",
+  );
 });

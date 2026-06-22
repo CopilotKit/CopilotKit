@@ -20,9 +20,7 @@ let originalFetch: typeof fetch | null = null;
 const now = (): number =>
   typeof performance !== "undefined" ? performance.now() : Date.now();
 
-const headerContentType = (
-  headers: HeadersInit | undefined,
-): string | null => {
+const headerContentType = (headers: HeadersInit | undefined): string | null => {
   try {
     return new Headers(headers).get("content-type");
   } catch {
@@ -38,7 +36,10 @@ async function readBodyInit(
   if (typeof body === "string") {
     return parseBodyText(body, headerContentType(headers));
   }
-  if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) {
+  if (
+    typeof URLSearchParams !== "undefined" &&
+    body instanceof URLSearchParams
+  ) {
     return formUrlEncodedToObject(body.toString());
   }
   if (typeof FormData !== "undefined" && body instanceof FormData) {

@@ -291,9 +291,7 @@ it("stamps permitted = [] when writableContainers is [] (write nowhere)", async 
 it("leaves permitted undefined when writableContainers is unconfigured (unrestricted)", async () => {
   const annotate = vi.fn().mockResolvedValue({ id: "1", duplicate: false });
   const runtime = createIntelligenceRuntime({
-    identifyUser: vi
-      .fn()
-      .mockResolvedValue({ id: "user-1", name: "User One" }),
+    identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
     intelligence: { annotate },
   });
 

@@ -77,9 +77,11 @@ describe("toAbsoluteUrl", () => {
 
 describe("parseBodyText content-type edge cases", () => {
   it("recognizes JSON with a charset suffix", () => {
-    expect(parseBodyText('{"a":1}', "application/json; charset=utf-8")).toEqual({
-      a: 1,
-    });
+    expect(parseBodyText('{"a":1}', "application/json; charset=utf-8")).toEqual(
+      {
+        a: 1,
+      },
+    );
   });
 
   it("recognizes JSON-ish vendor types via the +json suffix", () => {

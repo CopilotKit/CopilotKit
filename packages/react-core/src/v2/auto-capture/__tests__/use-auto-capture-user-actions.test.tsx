@@ -15,7 +15,9 @@ vi.mock("../../hooks/use-learn-from-user-action", () => ({
 }));
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
-const mockUseChatConfig = useCopilotChatConfiguration as ReturnType<typeof vi.fn>;
+const mockUseChatConfig = useCopilotChatConfiguration as ReturnType<
+  typeof vi.fn
+>;
 const mockUseLearnFromUserAction = useLearnFromUserAction as ReturnType<
   typeof vi.fn
 >;
@@ -128,7 +130,9 @@ describe("useAutoCaptureUserActions", () => {
     await globalThis.fetch(`${ORIGIN}/api/x`, { method: "POST", body: "{}" });
 
     await vi.waitFor(() => expect(recorder).toHaveBeenCalledTimes(1));
-    expect(recorder.mock.calls[0]![0]).toMatchObject({ threadId: "explicit-9" });
+    expect(recorder.mock.calls[0]![0]).toMatchObject({
+      threadId: "explicit-9",
+    });
 
     unmount();
   });
@@ -208,7 +212,10 @@ describe("useAutoCaptureUserActions", () => {
       { initialProps: {} },
     );
 
-    await globalThis.fetch(`${ORIGIN}/api/keep`, { method: "POST", body: "{}" });
+    await globalThis.fetch(`${ORIGIN}/api/keep`, {
+      method: "POST",
+      body: "{}",
+    });
     await vi.waitFor(() => expect(recorder).toHaveBeenCalledTimes(1));
 
     rerender({ deny: [/\/api\//] });

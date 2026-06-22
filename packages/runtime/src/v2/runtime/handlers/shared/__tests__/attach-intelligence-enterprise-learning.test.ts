@@ -164,9 +164,9 @@ describe("attachIntelligenceEnterpriseLearning", () => {
     const [servers] = mcpMiddlewareCalls[0] as [
       Array<{ headers: Record<string, string> }>,
     ];
-    expect(
-      INTELLIGENCE_READABLE_CONTAINERS_HEADER in servers[0]!.headers,
-    ).toBe(false);
+    expect(INTELLIGENCE_READABLE_CONTAINERS_HEADER in servers[0]!.headers).toBe(
+      false,
+    );
   });
 
   it("stamps an empty readable-containers header when readableContainers is [] (read nowhere)", async () => {

@@ -162,11 +162,13 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   // server-side from identifyUser. Absent ⇒ omit the header ⇒ Intelligence
   // treats the user as able to read all containers. The client cannot
   // influence this value.
-  const readableContainers =
-    userResult.learningContainers?.readableContainers;
+  const readableContainers = userResult.learningContainers?.readableContainers;
   const readableHeader: Record<string, string> =
     readableContainers !== undefined
-      ? { [INTELLIGENCE_READABLE_CONTAINERS_HEADER]: readableContainers.join(",") }
+      ? {
+          [INTELLIGENCE_READABLE_CONTAINERS_HEADER]:
+            readableContainers.join(","),
+        }
       : {};
 
   agent.use(

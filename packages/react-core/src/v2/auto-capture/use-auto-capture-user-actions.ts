@@ -87,7 +87,12 @@ export function useAutoCaptureUserActions(
 
   // Hold the latest inputs in a ref so the bridge dispatcher reads current
   // values without re-installing the patch on every render.
-  const latest = useRef({ config, copilotkit, chatConfig, learnFromUserAction });
+  const latest = useRef({
+    config,
+    copilotkit,
+    chatConfig,
+    learnFromUserAction,
+  });
   latest.current = { config, copilotkit, chatConfig, learnFromUserAction };
   const warnedRef = useRef(false);
 

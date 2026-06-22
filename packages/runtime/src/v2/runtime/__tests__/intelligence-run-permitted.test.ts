@@ -107,8 +107,11 @@ function setup(options: {
   });
 
   const forwardedProps = () =>
-    (runSpy.mock.calls[0]![0] as { input: { forwardedProps: Record<string, unknown> } })
-      .input.forwardedProps;
+    (
+      runSpy.mock.calls[0]![0] as {
+        input: { forwardedProps: Record<string, unknown> };
+      }
+    ).input.forwardedProps;
 
   return { runtime, request, runSpy, forwardedProps };
 }

@@ -13,8 +13,10 @@ class FakeXHR {
   responseType: XMLHttpRequestResponseType = "";
   responseText = "";
   private headers: Record<string, string> = {};
-  private listeners: Record<string, Array<(event: { currentTarget: unknown }) => void>> =
-    {};
+  private listeners: Record<
+    string,
+    Array<(event: { currentTarget: unknown }) => void>
+  > = {};
 
   open(_method: string, _url: string): void {}
   send(_body?: unknown): void {}
@@ -30,7 +32,11 @@ class FakeXHR {
     return this.headers[name.toLowerCase()] ?? null;
   }
 
-  setResponse(status: number, body: string, contentType = "application/json"): void {
+  setResponse(
+    status: number,
+    body: string,
+    contentType = "application/json",
+  ): void {
     this.status = status;
     this.responseText = body;
     this.headers["content-type"] = contentType;
@@ -145,7 +151,10 @@ describe("patchXHR", () => {
     patchXHR(bridge);
 
     const xhr = new globalThis.XMLHttpRequest() as unknown as FakeXHR;
-    xhr.open("POST", new URL("https://app.test/api/url-obj") as unknown as string);
+    xhr.open(
+      "POST",
+      new URL("https://app.test/api/url-obj") as unknown as string,
+    );
     xhr.send("{}");
     xhr.setResponse(200, "{}");
     xhr.fireLoadEnd();

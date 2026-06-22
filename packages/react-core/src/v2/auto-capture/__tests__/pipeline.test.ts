@@ -59,15 +59,13 @@ describe("resolveConfig", () => {
 
 describe("isRecorderEndpoint", () => {
   it("matches the platform endpoint regardless of query string", () => {
-    expect(
-      isRecorderEndpoint(`${RUNTIME_URL}/annotate?x=1`, RUNTIME_URL),
-    ).toBe(true);
+    expect(isRecorderEndpoint(`${RUNTIME_URL}/annotate?x=1`, RUNTIME_URL)).toBe(
+      true,
+    );
   });
 
   it("does not match other endpoints", () => {
-    expect(isRecorderEndpoint(`${RUNTIME_URL}/agent`, RUNTIME_URL)).toBe(
-      false,
-    );
+    expect(isRecorderEndpoint(`${RUNTIME_URL}/agent`, RUNTIME_URL)).toBe(false);
   });
 
   it("is false when runtimeUrl is unknown", () => {
@@ -176,9 +174,12 @@ describe("processExchange", () => {
   });
 
   it("warns and skips when no thread is resolvable", () => {
-    const { ctx, records, onMissingThread } = setup({}, {
-      resolveThreadId: () => null,
-    });
+    const { ctx, records, onMissingThread } = setup(
+      {},
+      {
+        resolveThreadId: () => null,
+      },
+    );
 
     processExchange(rawExchange(), ctx);
 
@@ -205,20 +206,20 @@ describe("processExchange", () => {
       },
     });
 
-    processExchange(
-      rawExchange({ requestBody: { token: "abc" } }),
-      ctx,
-    );
+    processExchange(rawExchange({ requestBody: { token: "abc" } }), ctx);
 
     expect(seen).toEqual({ token: "***" });
   });
 
   it("never throws when the recorder throws", () => {
-    const { ctx } = setup({}, {
-      record: () => {
-        throw new Error("recorder boom");
+    const { ctx } = setup(
+      {},
+      {
+        record: () => {
+          throw new Error("recorder boom");
+        },
       },
-    });
+    );
 
     expect(() => processExchange(rawExchange(), ctx)).not.toThrow();
   });
@@ -301,7 +302,9 @@ describe("origin-level scoping (allowOrigins / denyOrigins)", () => {
   const base = { origin: ORIGIN, runtimeUrl: RUNTIME_URL };
 
   it("allowOrigins is additive — same-origin still captured when allowOrigins lists only a third party", () => {
-    const config = resolveConfig({ allowOrigins: ["https://api.partner.test"] });
+    const config = resolveConfig({
+      allowOrigins: ["https://api.partner.test"],
+    });
 
     expect(shouldCapture("POST", `${ORIGIN}/api/x`, { ...base, config })).toBe(
       true,

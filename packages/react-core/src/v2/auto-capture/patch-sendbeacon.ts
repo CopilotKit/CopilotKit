@@ -27,7 +27,10 @@ let originalSendBeacon: SendBeacon | null = null;
 const readBeaconBody = (data: BodyInit | null | undefined): unknown => {
   if (data == null) return undefined;
   if (typeof data === "string") return parseBodyText(data, null);
-  if (typeof URLSearchParams !== "undefined" && data instanceof URLSearchParams) {
+  if (
+    typeof URLSearchParams !== "undefined" &&
+    data instanceof URLSearchParams
+  ) {
     return formUrlEncodedToObject(data.toString());
   }
   if (typeof FormData !== "undefined" && data instanceof FormData) {
@@ -76,9 +79,9 @@ export function createPatchedSendBeacon(
 /** Install the global `navigator.sendBeacon` patch (idempotent, browser-only). */
 export function patchSendBeacon(bridge: AutoCaptureBridge): void {
   if (
-    typeof window === "undefined"
-    || typeof navigator === "undefined"
-    || typeof navigator.sendBeacon !== "function"
+    typeof window === "undefined" ||
+    typeof navigator === "undefined" ||
+    typeof navigator.sendBeacon !== "function"
   ) {
     return;
   }

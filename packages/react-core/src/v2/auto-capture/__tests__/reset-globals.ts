@@ -21,12 +21,19 @@ export function resetAutoCaptureGlobals(): void {
   if (f) delete f[FETCH_PATCHED];
 
   if (typeof XMLHttpRequest !== "undefined") {
-    const proto = XMLHttpRequest.prototype as unknown as Record<symbol, unknown>;
+    const proto = XMLHttpRequest.prototype as unknown as Record<
+      symbol,
+      unknown
+    >;
     if (typeof proto[XHR_ORIGINAL_OPEN] === "function") {
-      XMLHttpRequest.prototype.open = proto[XHR_ORIGINAL_OPEN] as XMLHttpRequest["open"];
+      XMLHttpRequest.prototype.open = proto[
+        XHR_ORIGINAL_OPEN
+      ] as XMLHttpRequest["open"];
     }
     if (typeof proto[XHR_ORIGINAL_SEND] === "function") {
-      XMLHttpRequest.prototype.send = proto[XHR_ORIGINAL_SEND] as XMLHttpRequest["send"];
+      XMLHttpRequest.prototype.send = proto[
+        XHR_ORIGINAL_SEND
+      ] as XMLHttpRequest["send"];
     }
     delete proto[XHR_PATCHED];
     delete proto[XHR_ORIGINAL_OPEN];
@@ -34,8 +41,8 @@ export function resetAutoCaptureGlobals(): void {
   }
 
   if (
-    typeof navigator !== "undefined"
-    && typeof navigator.sendBeacon === "function"
+    typeof navigator !== "undefined" &&
+    typeof navigator.sendBeacon === "function"
   ) {
     const sb = navigator.sendBeacon as unknown as Record<symbol, unknown>;
     if (typeof sb[SB_ORIGINAL] === "function") {

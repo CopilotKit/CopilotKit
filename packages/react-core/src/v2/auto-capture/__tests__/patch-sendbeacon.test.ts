@@ -25,9 +25,11 @@ beforeEach(() => {
   // jsdom doesn't ship `navigator.sendBeacon`. Install a controllable fake so
   // patchSendBeacon has something to wrap; restoring this between tests keeps
   // any prior leak from interfering.
-  originalNavigatorSendBeacon = (navigator as Navigator & {
-    sendBeacon?: SendBeacon;
-  }).sendBeacon;
+  originalNavigatorSendBeacon = (
+    navigator as Navigator & {
+      sendBeacon?: SendBeacon;
+    }
+  ).sendBeacon;
   fakeSendBeacon = vi.fn((): boolean => true);
   Object.defineProperty(navigator, "sendBeacon", {
     value: fakeSendBeacon,

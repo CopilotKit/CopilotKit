@@ -72,7 +72,9 @@ export function redactValue(
   }
   if (value !== null && typeof value === "object") {
     const out: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    for (const [key, item] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
       if (isSensitiveKey(key, redaction)) {
         if (redaction.replaceWith !== null) {
           out[key] = redaction.replaceWith;
