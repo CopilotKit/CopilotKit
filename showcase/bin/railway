@@ -580,6 +580,43 @@ module Railway
         }
     GQL
 
+    # Per-(service,env) variable VALUES. The snapshot path (above) deliberately
+    # captures KEYS ONLY so snapshots stay safe to commit. The U5 promote
+    # preflight, by contrast, must compare a FEW specific VALUES (a serviceRef
+    # host assertion, a prod-specific-key shape assertion, a replicate-class
+    # copy) — so it reads values transiently at runtime, never persisting them.
+    # `variables(serviceId)` scopes to a single service so we do not pull the
+    # whole env's secret surface. Sealed values come back as nil (Railway will
+    # not return a sealed value), which the callers treat as "unreadable" and
+    # never copy.
+    # Railway's top-level `variables(projectId, environmentId, serviceId)`
+    # returns a JSON scalar (a flat `{ "NAME" => "value", ... }` map) — NOT a
+    # connection. (`Environment.variables` IS a connection but its node carries
+    # no `value`, which is why the snapshot path reads keys only.)
+    SERVICE_VARIABLES_QUERY = <<~GQL
+        query EnvServiceVariables($projectId: String!, $serviceId: String!, $envId: String!) {
+            variables(projectId: $projectId, serviceId: $serviceId, environmentId: $envId)
+        }
+    GQL
+
+    # Upsert a single environment variable VALUE for a (service,env). This is
+    # the variable*Upsert family (NOT serviceInstanceUpdate(source.image), which
+    # only sets the image). Used ONLY by U5's opt-in replicate-class env-write;
+    # the default replicate set is empty, so this fires for no key today.
+    VARIABLE_UPSERT_MUTATION = <<~GQL
+        mutation VariableUpsert($serviceId: String!, $envId: String!, $name: String!, $value: String!) {
+            variableUpsert(
+                input: {
+                    projectId: "#{PROJECT_ID}"
+                    serviceId: $serviceId
+                    environmentId: $envId
+                    name: $name
+                    value: $value
+                }
+            )
+        }
+    GQL
+
     # ── Subcommands ────────────────────────────────────────────────────────────
 
     class BaseCommand
@@ -1452,6 +1489,19 @@ module Railway
             findings.concat(check_critical_env_key_parity(target_staging, target_prod))
             findings.concat(check_expected_prod_domains(fleet_prod))
 
+            # U5 (spec §5): env + service-ref + resource preflight (Stage 2).
+            # §5.2 service-ref assertion (REFUSE), §5.3.2 prod-specific-key
+            # assertion (REFUSE; NEVER copies), §5.4 resource/concurrency
+            # divergence (WARN; detect-only). Replicate-class env-write (§5.3.1)
+            # is opt-in per service via the SSOT `replicateKeys` field and is
+            # empty for every service today, so it fires for nothing.
+            findings.concat(check_service_refs(target_staging, target_prod))
+            findings.concat(assert_prod_specific_keys(target_staging, target_prod,
+                prod_specific_keys: ssot_prod_specific_keys(target_staging)))
+            findings.concat(replicate_env_keys(target_staging, target_prod,
+                replicate_keys: ssot_replicate_keys(target_staging)))
+            findings.concat(check_resource_divergence(target_staging, target_prod))
+
             # Mandatory parity-NOTE that env var VALUES are not compared.
             puts "NOTE: env var VALUES are not compared between staging and prod " \
                  "(intentional — staging and prod hold different secrets/URLs). " \
@@ -1964,11 +2014,15 @@ module Railway
             #   - target in staging but not prod (the silent-rc=0 footgun:
             #     narrowed prod would skip the absent target with no mutation);
             #   - target in prod but not staging (the mirror case).
-            # Unrelated services that exist in only one env (harness-workers,
-            # starter-* demos staging-only; a deprecated prod-only service) are
-            # legitimately single-env and are not this promote's concern, so we
-            # scope BOTH arms to the target. Full-fleet promotes (target nil)
-            # retain full-strictness parity on both arms — there, any env-shape
+            # Unrelated services that exist in only one env (e.g. the
+            # staging-only harness-workers pool worker, or a deprecated
+            # prod-only service) are legitimately single-env and are not this
+            # promote's concern, so we scope BOTH arms to the target.
+            # (NOTE: the 12 starter-<slug> demos are NO LONGER staging-only —
+            # S2 brought them under the SSOT in BOTH envs, so they are normal
+            # dual-env services that satisfy parity on their own; they are not
+            # an exemption case here.) Full-fleet promotes (target nil) retain
+            # full-strictness parity on both arms — there, any env-shape
             # asymmetry across the whole fleet is a genuine REFUSE.
             if target
                 staging_only = staging_only & [target]
@@ -1986,6 +2040,203 @@ module Railway
                 next unless pmatch
                 missing = (CRITICAL_ENV_KEYS & (svc["env_keys"] || [])) - (pmatch["env_keys"] || [])
                 findings << "REFUSE: #{svc['name']}: critical env keys missing in prod: #{missing.join(', ')}" unless missing.empty?
+            end
+            findings
+        end
+
+        # ── U5 (spec §5): env + service-ref + resource preflight (Stage 2) ──
+        #
+        # Concurrency env-var keys that are a RESOURCE/scaling knob rather than a
+        # functional contract — divergence is DETECT-and-WARN, never REFUSE
+        # (§5.4). Sourced as a literal set; add knobs here as they appear.
+        CONCURRENCY_ENV_KEYS = %w[BROWSER_POOL_SIZE].freeze
+
+        # Per-service SSOT entry (the generated.json closure record) by name.
+        def ssot_service(name)
+            (Railway::SSOT_DATA["services"] || []).find { |s| s["name"] == name }
+        end
+
+        # Union of per-service `replicateKeys` declared in the SSOT for the
+        # services being promoted (§5.3.1). EMPTY for every service today — the
+        # replicate-class env-write mechanism is opt-in and copies nothing until
+        # a key is explicitly declared.
+        def ssot_replicate_keys(staging)
+            (staging["services"] || []).flat_map do |svc|
+                (ssot_service(svc["name"]) || {})["replicateKeys"] || []
+            end.uniq
+        end
+
+        # Union of per-service `prodSpecificKeys` declared in the SSOT for the
+        # services being promoted (§5.3.2). These are ASSERTED present in prod,
+        # NEVER copied. EMPTY for every service today.
+        def ssot_prod_specific_keys(staging)
+            (staging["services"] || []).flat_map do |svc|
+                (ssot_service(svc["name"]) || {})["prodSpecificKeys"] || []
+            end.uniq
+        end
+
+        # The env-LOCAL host the target service serves in `env` (the `domains`
+        # value from the SSOT). `env` is "prod" or "staging".
+        def ssot_target_host(target_name, env)
+            entry = ssot_service(target_name)
+            entry && entry.dig("domains", env)
+        end
+
+        # Read a single (service,env) variable VALUE transiently (never
+        # persisted). Returns nil for an absent or sealed (unreadable) variable
+        # — callers MUST treat nil as "not present", never as a value to copy.
+        def read_service_var(service_id, env_id, name)
+            data = gql.query(SERVICE_VARIABLES_QUERY,
+                projectId: PROJECT_ID, serviceId: service_id, envId: env_id)
+            vars = data && data["variables"]
+            return nil unless vars.is_a?(Hash)
+            v = vars[name]
+            (v.nil? || v.to_s.empty?) ? nil : v
+        end
+
+        # §5.2 service-ref assertion (REFUSE). For each promote target carrying
+        # `serviceRefs` in the SSOT, assert its PROD env var (e.g.
+        # OPENAI_BASE_URL / ANTHROPIC_BASE_URL) points at the env-LOCAL target
+        # host (prod->prod aimock). A prod ref resolving to the STAGING target
+        # host (or a foreign host) is the `ms-agent-dotnet` cross-env leak class
+        # => REFUSE. This is an ASSERTION; it NEVER writes/copies.
+        def check_service_refs(staging, prod)
+            findings = []
+            (staging["services"] || []).each do |svc|
+                name = svc["name"]
+                pmatch = Railway.find_service(prod, name)
+                next unless pmatch
+                refs = (ssot_service(name) || {})["serviceRefs"] || []
+                refs.each do |ref|
+                    key    = ref["key"]
+                    target = ref["target"]
+                    next if key.nil? || target.nil?
+                    prod_host = ssot_target_host(target, "prod")
+                    if prod_host.nil?
+                        findings << "REFUSE: §5.2 (#{name}): serviceRef #{key} -> #{target} has no prod host in SSOT"
+                        next
+                    end
+                    actual = read_service_var(pmatch["service_id"], PRODUCTION_ENV_ID, key)
+                    if actual.nil?
+                        findings << "REFUSE: §5.2 (#{name}): prod #{key} is unset/unreadable " \
+                                    "(expected to point at #{target}'s prod host #{prod_host})"
+                        next
+                    end
+                    # Compare on HOST only — the env var may be a full URL.
+                    unless actual.to_s.include?(prod_host)
+                        findings << "REFUSE: §5.2 (#{name}): prod #{key}=#{actual.inspect} does NOT point at " \
+                                    "#{target}'s env-LOCAL prod host #{prod_host.inspect} " \
+                                    "(cross-env service-ref leak — the ms-agent-dotnet class)"
+                    end
+                end
+            end
+            findings
+        end
+
+        # §5.3.1 replicate-class env-write (NEW capability). For declared
+        # replicate keys ONLY, copy staging's VALUE -> prod via the
+        # variable*Upsert family (NOT serviceInstanceUpdate(source.image)),
+        # verified by re-read. The default replicate set is EMPTY — the
+        # mechanism is opt-in per key and fires for nothing today (R-A:
+        # replicating a misclassified prod-specific key would clobber prod).
+        def replicate_env_keys(staging, prod, replicate_keys: [])
+            findings = []
+            keys = (replicate_keys || []).uniq
+            return findings if keys.empty?
+            (staging["services"] || []).each do |svc|
+                name = svc["name"]
+                pmatch = Railway.find_service(prod, name)
+                next unless pmatch
+                keys.each do |key|
+                    staging_val = read_service_var(svc["service_id"], STAGING_ENV_ID, key)
+                    if staging_val.nil?
+                        findings << "WARN: §5.3.1 (#{name}): replicate key #{key} is unset/unreadable in staging; skipping"
+                        next
+                    end
+                    prod_val = read_service_var(pmatch["service_id"], PRODUCTION_ENV_ID, key)
+                    if prod_val == staging_val
+                        findings << "replicate §5.3.1 (#{name}): #{key} already in sync"
+                        next
+                    end
+                    if options[:dry_run]
+                        findings << "replicate §5.3.1 (#{name}): [dry-run] would upsert #{key} (staging->prod)"
+                        next
+                    end
+                    gql.query(VARIABLE_UPSERT_MUTATION,
+                        serviceId: pmatch["service_id"], envId: PRODUCTION_ENV_ID,
+                        name: key, value: staging_val)
+                    # Verify-by-re-read: the upsert must be observable on prod.
+                    reread = read_service_var(pmatch["service_id"], PRODUCTION_ENV_ID, key)
+                    if reread == staging_val
+                        findings << "replicate §5.3.1 (#{name}): upserted #{key} (staging->prod), re-read OK"
+                    else
+                        findings << "REFUSE: §5.3.1 (#{name}): re-read after upsert of #{key} " \
+                                    "did not observe staging value (got #{reread.inspect})"
+                    end
+                end
+            end
+            findings
+        end
+
+        # §5.3.2/§5.3.3 assert prod-specific keys present + prod-shaped (NEVER
+        # copy) and assert secret KEY presence (never value). A prod-specific
+        # key (e.g. a domain like NEXT_PUBLIC_POCKETBASE_URL) MUST be ASSERTED,
+        # never written — copying staging's value would point prod at staging's
+        # datastore (R-A, the highest-blast capability in this PR). This method
+        # issues NO mutations by construction.
+        def assert_prod_specific_keys(staging, prod, prod_specific_keys: [])
+            findings = []
+            keys = (prod_specific_keys || []).uniq
+            return findings if keys.empty?
+            (staging["services"] || []).each do |svc|
+                name = svc["name"]
+                pmatch = Railway.find_service(prod, name)
+                next unless pmatch
+                keys.each do |key|
+                    prod_val = read_service_var(pmatch["service_id"], PRODUCTION_ENV_ID, key)
+                    if prod_val.nil?
+                        findings << "REFUSE: §5.3.2 (#{name}): prod-specific key #{key} is missing in prod " \
+                                    "(assert-only; NEVER copied from staging)"
+                    end
+                end
+            end
+            findings
+        end
+
+        # §5.4 concurrency DETECT-and-WARN. Declared concurrency env vars (e.g.
+        # BROWSER_POOL_SIZE) join the existing WARN-class divergence set
+        # (region/replicas/restartPolicy already WARN in check_p6_parity).
+        # DETECT ONLY — never auto-set.
+        #
+        # NOTE: a limitOverride (CPU/memory cap) WARN was specified here but is
+        # NOT implementable: Railway's GraphQL schema exposes NO readable limit
+        # field on ServiceInstance (verified by introspection 2026-06 — the only
+        # related types are the write-only `serviceInstanceLimitsUpdate` mutation
+        # taking ServiceInstanceLimitsUpdateInput{memoryGB,vCPUs}; the
+        # ServiceInstanceLimit type is an opaque scalar with no readable fields).
+        # Because build_snapshot cannot capture the cap, a divergence comparison
+        # would always be nil==nil and the WARN could never fire — it was dead
+        # code masked by a hand-injected test fixture. Dropped rather than
+        # shipped dead. Re-add only if Railway adds a readable limit field to
+        # ServiceInstance (then wire it into SERVICE_INSTANCE_QUERY + the
+        # snapshot hash, and re-add a WARN here).
+        def check_resource_divergence(staging, prod)
+            findings = []
+            (staging["services"] || []).each do |svc|
+                name = svc["name"]
+                pmatch = Railway.find_service(prod, name)
+                next unless pmatch
+
+                # WARN — concurrency env-var key presence (e.g. BROWSER_POOL_SIZE).
+                staging_keys = svc["env_keys"] || []
+                prod_keys    = pmatch["env_keys"] || []
+                CONCURRENCY_ENV_KEYS.each do |ck|
+                    if staging_keys.include?(ck) != prod_keys.include?(ck)
+                        findings << "WARN: §5.4 (#{name}): concurrency env key #{ck} presence diverges " \
+                                    "(staging=#{staging_keys.include?(ck)} prod=#{prod_keys.include?(ck)}) " \
+                                    "[detect-only]"
+                    end
+                end
             end
             findings
         end

@@ -4,10 +4,11 @@ import { AG_UI_CONTENT_DIR } from "@/lib/sitemap-helpers";
 import { loadDoc } from "@/lib/docs-render";
 import { resolveFrontendDocPage } from "@/lib/frontend-doc-policy";
 import {
-  FRONTEND_GUIDANCE_CONTENT_SLUG,
   getFrontendContentSlug,
+  getFrontendGuidanceContentSlug,
 } from "@/lib/frontend-page-content";
-import { isFrontendId } from "@/lib/frontend-options";
+import { isFrontendId, parseFrontendRoutePath } from "@/lib/frontend-options";
+import type { FrontendId } from "@/lib/frontend-options";
 import {
   getDocsFolder,
   getDocsMode,
@@ -40,7 +41,7 @@ import matter from "gray-matter";
 //     blockquote so the title survives.
 //
 // URL resolution mirrors what `app/[framework]/[[...slug]]/page.tsx` does:
-//   - Frontend-scoped URLs reuse the same `/frontends/<frontend>` content
+//   - Frontend-scoped URLs reuse the same `/<frontend>` content
 //     resolution as the live frontend pages.
 //   - When the first segment is a known integration slug, we try
 //     `integrations/<docsFolder>/<rest>.mdx` first (or root depending on
@@ -82,29 +83,84 @@ interface ResolvedPage {
   framework?: string;
 }
 
+type FrontendPageId = Exclude<FrontendId, "react">;
+
+function isFrontendGuidanceSlug(slugPath: string): boolean {
+  return slugPath === "using-these-docs";
+}
+
+function isFrontendRootSlug(slugPath: string): boolean {
+  return !slugPath || slugPath === "quickstart";
+}
+
 function resolvePage(slug: string[]): ResolvedPage | null {
   const first = slug[0]!;
   const rest = slug.slice(1).join("/");
   const url = slug.join("/");
 
-  // /frontends/<frontend>[/<slug>].md → the same MDX rendered by the
+  // /<frontend>[/<slug>].md → the same MDX rendered by the
   // frontend-scoped docs pages.
-  if (first === "frontends") {
-    const frontend = slug[1];
-    if (!isFrontendId(frontend) || frontend === "react") return null;
+  if (isFrontendId(first)) {
+    if (first === "react") return null;
 
-    const frontendRest = slug.slice(2).join("/");
-    const contentSlug =
-      frontendRest === ""
-        ? getFrontendContentSlug(frontend)
-        : frontendRest === "using-these-docs"
-          ? FRONTEND_GUIDANCE_CONTENT_SLUG
-          : (() => {
-              const resolution = resolveFrontendDocPage(frontend, frontendRest);
-              return resolution.status === "found"
-                ? resolution.contentSlugPath
-                : null;
-            })();
+    const frontend = first as FrontendPageId;
+    const frontendRoute = parseFrontendRoutePath(
+      `/${slug.join("/")}`,
+      getIntegrations().map((integration) => integration.slug),
+    );
+    const frontendRest = frontendRoute?.slugPath ?? rest;
+    const activeBackendFramework =
+      frontendRoute?.backend === ROOT_FRAMEWORK
+        ? undefined
+        : (frontendRoute?.backend ?? undefined);
+    if (isFrontendGuidanceSlug(frontendRest)) {
+      const contentSlug = getFrontendGuidanceContentSlug(frontend);
+      const doc = loadDoc(contentSlug);
+      if (!doc) return null;
+
+      return {
+        page: {
+          url,
+          title: doc.fm.title,
+          description: doc.fm.description,
+          filePath: doc.filePath,
+          loadSlug: contentSlug,
+          framework: activeBackendFramework,
+        },
+        framework: activeBackendFramework,
+      };
+    }
+
+    if (isFrontendRootSlug(frontendRest)) {
+      const contentSlug = getFrontendContentSlug(frontend);
+      const doc = loadDoc(contentSlug);
+      if (!doc) return null;
+
+      return {
+        page: {
+          url,
+          title: doc.fm.title,
+          description: doc.fm.description,
+          filePath: doc.filePath,
+          loadSlug: contentSlug,
+          framework: activeBackendFramework,
+        },
+        framework: activeBackendFramework,
+      };
+    }
+
+    if (activeBackendFramework) {
+      return resolveFrameworkScopedPage(
+        activeBackendFramework,
+        frontendRest || "index",
+        url,
+      );
+    }
+
+    const contentSlug = (() => {
+      const resolution = resolveFrontendDocPage(frontend, frontendRest);
+      return resolution.status === "found" ? resolution.contentSlugPath : null;
+    })();
 
     if (!contentSlug) return null;
     const doc = loadDoc(contentSlug);
@@ -117,7 +173,9 @@ function resolvePage(slug: string[]): ResolvedPage | null {
         description: doc.fm.description,
         filePath: doc.filePath,
         loadSlug: contentSlug,
+        framework: activeBackendFramework,
       },
+      framework: activeBackendFramework,
     };
   }
 
@@ -160,37 +218,7 @@ function resolvePage(slug: string[]): ResolvedPage | null {
   // Framework-scoped URL: first segment is an integration slug.
   const frameworkSlugs = new Set(getIntegrations().map((i) => i.slug));
   if (frameworkSlugs.has(first)) {
-    const docsFolder = getDocsFolder(first);
-    const docsMode = getDocsMode(first);
-    const tail = rest || "index";
-    const rootSlugPath = tail;
-    const frameworkSlugPath = `integrations/${docsFolder}/${tail}`;
-
-    // `authored` frameworks own their entire IA — try the per-framework
-    // tree first. `generated` is the inverse — root wins, framework
-    // tree is the override, except quickstart where the root file is
-    // only a routing shim and the page route prefers framework content.
-    const candidateOrder =
-      docsMode === "authored" || tail === "quickstart"
-        ? [frameworkSlugPath, rootSlugPath]
-        : [rootSlugPath, frameworkSlugPath];
-
-    for (const candidate of candidateOrder) {
-      const doc = loadDoc(candidate);
-      if (!doc) continue;
-      return {
-        page: {
-          url,
-          title: doc.fm.title,
-          description: doc.fm.description,
-          filePath: doc.filePath,
-          loadSlug: candidate,
-          framework: first,
-        },
-        framework: first,
-      };
-    }
-    return null;
+    return resolveFrameworkScopedPage(first, rest || "index", url);
   }
 
   // Bare unscoped doc. The root surface serves ROOT_FRAMEWORK's
@@ -213,6 +241,43 @@ function resolvePage(slug: string[]): ResolvedPage | null {
         framework: isOverride ? ROOT_FRAMEWORK : undefined,
       },
       framework: isOverride ? ROOT_FRAMEWORK : undefined,
+    };
+  }
+  return null;
+}
+
+function resolveFrameworkScopedPage(
+  framework: string,
+  tail: string,
+  url: string,
+): ResolvedPage | null {
+  const docsFolder = getDocsFolder(framework);
+  const docsMode = getDocsMode(framework);
+  const rootSlugPath = tail;
+  const frameworkSlugPath = `integrations/${docsFolder}/${tail}`;
+
+  // `authored` frameworks own their entire IA — try the per-framework
+  // tree first. `generated` is the inverse — root wins, framework
+  // tree is the override, except quickstart where the root file is
+  // only a routing shim and the page route prefers framework content.
+  const candidateOrder =
+    docsMode === "authored" || tail === "quickstart"
+      ? [frameworkSlugPath, rootSlugPath]
+      : [rootSlugPath, frameworkSlugPath];
+
+  for (const candidate of candidateOrder) {
+    const doc = loadDoc(candidate);
+    if (!doc) continue;
+    return {
+      page: {
+        url,
+        title: doc.fm.title,
+        description: doc.fm.description,
+        filePath: doc.filePath,
+        loadSlug: candidate,
+        framework,
+      },
+      framework,
     };
   }
   return null;

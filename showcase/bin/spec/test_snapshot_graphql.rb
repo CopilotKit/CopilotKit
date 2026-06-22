@@ -82,6 +82,57 @@ class SnapshotGraphqlTest < Minitest::Test
         }
     end
 
+    def test_limit_override_warn_is_unimplementable_via_real_snapshot
+        # Regression guard for the DROPPED limitOverride WARN. A
+        # limitOverride (CPU/memory cap) divergence WARN was originally
+        # specified for check_resource_divergence, but it was dead code: it
+        # compared snapshot["limit_override"] values that build_snapshot never
+        # captures, because Railway's GraphQL ServiceInstance type exposes NO
+        # readable limit field (verified by introspection 2026-06 — the only
+        # related surface is the write-only serviceInstanceLimitsUpdate mutation
+        # taking ServiceInstanceLimitsUpdateInput{memoryGB,vCPUs}; the
+        # ServiceInstanceLimit type is an opaque scalar with no readable fields).
+        #
+        # This guard drives a divergence through the REAL capture path
+        # (build_snapshot) — even injecting a hypothetical limit into the fake
+        # serviceInstance response — and asserts: (a) build_snapshot drops it
+        # (no limit_override key survives), and (b) check_resource_divergence
+        # emits NO limitOverride WARN. If Railway ever adds a readable limit
+        # field and someone wires it through SERVICE_INSTANCE_QUERY + the
+        # snapshot hash, this guard flips and signals the WARN can be re-added.
+        build = lambda do |limit|
+            fake = FakeGQL.new(
+                "ProjectServices" => {
+                    "project" => { "id" => Railway::PROJECT_ID, "name" => "showcase",
+                        "services" => { "edges" => [{ "node" => { "id" => "svc-x", "name" => "x" } }] } },
+                },
+                "EnvVariables" => { "environment" => { "id" => "e", "name" => "n",
+                    "variables" => { "edges" => [] } } },
+                "ServiceInstance" => service_instance_response(
+                    image: "ghcr.io/copilotkit/x@sha256:cafef00d",
+                ).tap { |r| r["serviceInstance"]["serviceLimitOverride"] = limit },
+            )
+            cmd = Railway::SnapshotCommand.new(["--env", "production", "--dry-run"])
+            cmd.instance_variable_set(:@gql, fake)
+            cmd.build_snapshot(Railway::PRODUCTION_ENV_ID)
+        end
+        staging = build.call("memoryGB" => 4.0, "vCPUs" => 2.0)
+        prod    = build.call("memoryGB" => 1.0, "vCPUs" => 1.0)
+
+        # (a) the real snapshot path captures no limit field at all.
+        staging["services"].each { |s| assert_nil s["limit_override"] }
+        prod["services"].each    { |s| assert_nil s["limit_override"] }
+
+        # (b) consequently the dropped WARN cannot (and does not) fire.
+        c = Railway::PromoteCommand.new(["--non-interactive", "--yes"])
+        c.parser.parse!(c.argv)
+        findings = c.check_resource_divergence(staging, prod)
+        assert(findings.none? { |f| f =~ /limitOverride/i },
+            "limitOverride WARN was dropped as unimplementable dead code; it must " \
+            "not reappear unless build_snapshot genuinely captures a limit field — " \
+            "got #{findings.inspect}")
+    end
+
     def test_build_snapshot_uses_corrected_field_names_and_produces_pinned_entries
         fake = FakeGQL.new(
             "ProjectServices" => services_list_response,
