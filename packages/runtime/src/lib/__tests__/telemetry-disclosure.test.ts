@@ -1,12 +1,5 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-  type MockInstance,
-} from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { MockInstance } from "vitest";
 
 import {
   _resetRuntimeTelemetryDisclosureForTesting,
@@ -39,6 +32,23 @@ describe("logRuntimeTelemetryDisclosure", () => {
     const [message] = consoleInfoSpy.mock.calls[0]!;
     expect(message).toMatch(/anonymous telemetry/i);
     expect(message).toMatch(/COPILOTKIT_TELEMETRY_DISABLED/);
+  });
+
+  it("logs once even when the module is re-evaluated", async () => {
+    // Next.js dev compiles each API route in its own module context, so the
+    // module-level once-guard is reborn per route and the disclosure used to
+    // re-fire on every route compile. The guard must survive module
+    // re-evaluation within a single process.
+    vi.resetModules();
+    const first = await import("../telemetry-disclosure");
+    first.logRuntimeTelemetryDisclosure();
+
+    vi.resetModules();
+    const second = await import("../telemetry-disclosure");
+    second.logRuntimeTelemetryDisclosure();
+
+    expect(second).not.toBe(first);
+    expect(consoleInfoSpy).toHaveBeenCalledTimes(1);
   });
 
   it("does not log when COPILOTKIT_TELEMETRY_DISABLED is set", () => {
