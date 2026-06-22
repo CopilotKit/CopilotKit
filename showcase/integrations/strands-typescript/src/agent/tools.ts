@@ -11,6 +11,7 @@
 import { tool } from "@strands-agents/sdk";
 import OpenAI from "openai";
 import { z } from "zod";
+import { AIMOCK_CONTEXT } from "./model-factory";
 import { SUBAGENT_FAILURE_MARKER } from "./state";
 import {
   getWeatherImpl,
@@ -150,6 +151,8 @@ function openaiClient(): OpenAI {
       ...(process.env.OPENAI_BASE_URL
         ? { baseURL: process.env.OPENAI_BASE_URL }
         : {}),
+      // Match the shared agent so sub-agent calls hit the right aimock fixtures.
+      defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
     });
   }
   return _openaiClient;

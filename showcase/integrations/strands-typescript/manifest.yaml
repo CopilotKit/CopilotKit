@@ -19,6 +19,8 @@ docs_mode: authored
 sort_order: 131
 generative_ui:
   - constrained-explicit
+  - a2ui-fixed-schema
+  - a2ui-dynamic-schema
 interaction_modalities:
   - sidebar
   - embedded
@@ -57,6 +59,8 @@ features:
   - tool-rendering-custom-catchall
   - gen-ui-agent
   - gen-ui-tool-based
+  - declarative-gen-ui
+  - a2ui-fixed-schema
   - shared-state-read-write
   - readonly-state-agent-context
   - subagents
@@ -71,6 +75,7 @@ features:
   - mcp-apps
   - beautiful-chat
   - shared-state-read
+a2ui_pattern: llm-driven
 interrupt_pattern: promise-based
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
@@ -310,6 +315,32 @@ demos:
       - src/agent/agent.ts
       - src/app/demos/gen-ui-tool-based/page.tsx
       - src/app/api/copilotkit/route.ts
+  - id: declarative-gen-ui
+    name: Declarative Generative UI (A2UI)
+    description: Dynamic A2UI BYOC via a custom catalog
+    tags:
+      - generative-ui
+    route: /demos/declarative-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agent/agent.ts
+      - src/app/demos/declarative-gen-ui/page.tsx
+      - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
+      - src/app/api/copilotkit-declarative-gen-ui/route.ts
+  - id: a2ui-fixed-schema
+    name: Declarative Generative UI (A2UI — Fixed Schema)
+    description: A2UI rendering against a known client-side schema
+    tags:
+      - generative-ui
+    route: /demos/a2ui-fixed-schema
+    animated_preview_url:
+    highlight:
+      - src/agent/agent.ts
+      - src/app/demos/a2ui-fixed-schema/page.tsx
+      - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
+      - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
   - id: shared-state-read-write
     name: Shared State (Read + Write)
     description: Bidirectional agent state — UI writes preferences, agent writes notes back

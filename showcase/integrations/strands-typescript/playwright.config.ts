@@ -11,7 +11,7 @@ export default defineConfig({
     baseURL: process.env.BASE_URL || "http://localhost:3000",
     trace: "on-first-retry",
     extraHTTPHeaders: {
-      "X-AIMock-Context": "strands",
+      "X-AIMock-Context": "strands-typescript",
     },
   },
   projects: [

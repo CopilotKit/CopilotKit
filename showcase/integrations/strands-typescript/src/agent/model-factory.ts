@@ -18,6 +18,17 @@
 
 import type { Model } from "@strands-agents/sdk";
 
+/**
+ * aimock keys its fixtures on the `x-aimock-context` header of the outbound
+ * OpenAI request — it identifies which integration's fixtures to match. An
+ * integration's context is constant (its slug), so we attach it statically as
+ * a default header on the OpenAI client rather than threading the inbound
+ * request header through the adapter. Harmless against real OpenAI (unknown
+ * headers are ignored); override via the AIMOCK_CONTEXT env var if needed.
+ */
+export const AIMOCK_CONTEXT =
+  process.env.AIMOCK_CONTEXT ?? "strands-typescript";
+
 export interface CreateModelOptions {
   /**
    * Request reasoning/thinking content from the provider. Defaults to
@@ -57,7 +68,11 @@ export async function createModel(
       ...(reasoning
         ? { params: { reasoning: { effort: "medium", summary: "auto" } } }
         : {}),
-      ...(baseURL ? { clientConfig: { baseURL } } : {}),
+      clientConfig: {
+        ...(baseURL ? { baseURL } : {}),
+        // Identify this integration to aimock so it matches the right fixtures.
+        defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
+      },
     });
   }
 

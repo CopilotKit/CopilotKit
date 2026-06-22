@@ -12,20 +12,18 @@
  * 4085 shell does not give each cell its own layout.tsx.
  *
  * Runtime: this cell uses its own dedicated runtime endpoint
- * (`/api/copilotkit-beautiful-chat`) so it can enable `openGenerativeUI`
- * and `mcpApps` without bleeding those global flags into other cells
- * sharing the main `/api/copilotkit` endpoint. The backend agent is the
- * shared Strands `beautiful-chat` agent served on port 8000.
- *
- * NOTE: the A2UI declarative-generative-ui catalog from the Python sibling
- * is intentionally omitted here — this TypeScript integration ships the
- * base (non-A2UI) demo set only.
+ * (`/api/copilotkit-beautiful-chat`) so it can enable `openGenerativeUI`,
+ * `a2ui` with `injectA2UITool: false`, and `mcpApps` simultaneously — the
+ * same combined-runtime shape the canonical starter uses — without bleeding
+ * those global flags into other cells sharing the main `/api/copilotkit`
+ * endpoint. The backend graph is `beautiful_chat` (src/agents/beautiful_chat.py).
  */
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core/v2";
 
 import { ThemeProvider } from "./hooks/use-theme";
+import { demonstrationCatalog } from "./declarative-generative-ui/renderers";
 import { HomePage } from "./home-page";
 
 export default function BeautifulChatPage() {
@@ -34,6 +32,7 @@ export default function BeautifulChatPage() {
       <CopilotKit
         runtimeUrl="/api/copilotkit-beautiful-chat"
         agent="beautiful-chat"
+        a2ui={{ catalog: demonstrationCatalog }}
         openGenerativeUI={{}}
         /*
          * `useSingleEndpoint` defaults to true (the single-POST-endpoint
