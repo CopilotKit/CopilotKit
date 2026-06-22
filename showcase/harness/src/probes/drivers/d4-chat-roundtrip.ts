@@ -34,7 +34,11 @@ import {
   sanitizeTestId,
 } from "../../cvdiag/ab-hmac.js";
 import type { AbOutcomeRecord } from "../../cvdiag/ab-report.js";
-import { mintSpanId as mintAbPairId, mintTestId } from "../../cvdiag/emit.js";
+import {
+  mintSpanId as mintAbPairId,
+  mintTestId,
+  sanitizeJoinTestId,
+} from "../../cvdiag/emit.js";
 import { isValidTestId } from "../../cvdiag/schema.js";
 
 /**
@@ -488,15 +492,28 @@ export class CvdiagProbeSession {
     nowMs: number;
   }) {
     this.emitter = opts.emitter;
-    // Resolve ONE stable test_id for the whole session. The probe's X-Test-Id
-    // is `d4-<slug>-<runId>`, NOT a UUIDv7 — if we threaded that raw value into
-    // every emit(), the emitter's entry-bounding would drop it and mint a
-    // FRESH random UUIDv7 PER CALL, so each boundary row would carry a
-    // different test_id and the per-run correlation (and the
-    // cvdiag_raw_byte_samples ↔ cvdiag_events join) would break. Mint the
-    // UUIDv7 ONCE here and thread the SAME value through every emit + the
-    // raw-byte sample so all rows for this level share one test_id.
-    this.testId = isValidTestId(opts.testId) ? opts.testId : mintTestId();
+    // Resolve ONE stable test_id for the whole session — the CROSS-LAYER JOIN
+    // KEY (spec §5). The probe's X-Test-Id is `d4-<slug>-<runId>` /
+    // `d6-<slug>-<runId>`, NOT a UUIDv7. It is forwarded verbatim as the
+    // `X-Test-Id` request header, and the backend ADOPTS that inbound header as
+    // its OWN cvdiag `test_id`, normalizing it through `sanitizeJoinTestId`. So
+    // the probe MUST record the SAME normalized value — `sanitizeJoinTestId`
+    // applied to the SAME forwarded id — for probe.* rows to JOIN backend.* rows
+    // on `test_id`. Recording a fresh random UUIDv7 here (the pre-fix behavior)
+    // gave probe rows an id the backend never derives, so the join never closed.
+    //
+    // Resolution order (all branches yield ONE stable id threaded through every
+    // emit() + the raw-byte sample, so intra-layer rows stay correlated too):
+    //   1. a value already a valid UUIDv7 → keep it verbatim (legacy callers
+    //      that mint a UUIDv7 up front; `sanitizeJoinTestId` only runs on
+    //      genuinely non-UUIDv7 inputs, matching the emitter/backend contract);
+    //   2. else sanitize the forwarded id the SAME way the backend does — this
+    //      is the join key both sides share;
+    //   3. else (nothing survives sanitization) mint a fresh UUIDv7 fallback so
+    //      every row still carries a valid, stable id.
+    this.testId = isValidTestId(opts.testId)
+      ? opts.testId
+      : (sanitizeJoinTestId(opts.testId) ?? mintTestId());
     this.slug = opts.slug;
     this.demo = opts.demo;
     this.bufferDir = opts.bufferDir;
@@ -1685,8 +1702,10 @@ async function runLevel(opts: {
 
   // CVDIAG session for THIS level (one test_id). The probe-layer test_id is
   // the per-level X-Test-Id so harness↔backend↔aimock correlate on the same
-  // key. The CvdiagEmitter normalizes/validates; if the X-Test-Id is not a
-  // UUIDv7 the emitter mints one rather than emitting an invalid envelope.
+  // key. The forwarded X-Test-Id (`d4-/d6-<slug>-<runId>`) is not a UUIDv7, so
+  // the session records `sanitizeJoinTestId(X-Test-Id)` — the SAME value the
+  // backend adopts from the same inbound header — making probe.* rows JOIN
+  // backend.* rows on `test_id` (spec §5).
   const cvdiag =
     cvdiagEmitter !== undefined
       ? new CvdiagProbeSession({
