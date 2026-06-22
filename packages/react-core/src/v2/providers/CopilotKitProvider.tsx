@@ -40,6 +40,10 @@ import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
 import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
+import {
+  AutoCaptureMount,
+  type AutoCaptureUserActionsConfig,
+} from "../auto-capture";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
@@ -242,6 +246,15 @@ export interface CopilotKitProviderProps {
      */
     learningContainers?: string[];
   };
+  /**
+   * Enable automatic capture of user actions across the app. When set (and
+   * `enabled !== false`), mutating HTTP requests are recorded as learn-from-user
+   * actions through the same `/annotate` pipeline as
+   * {@link useLearnFromUserAction}, with no per-site instrumentation. Equivalent
+   * to calling the `useAutoCaptureUserActions()` hook mounted inside a chat;
+   * when set here at the provider level the feature applies app-wide.
+   */
+  autoCaptureUserActions?: AutoCaptureUserActionsConfig;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -293,6 +306,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   inspectorDefaultAnchor,
   debug,
   intelligence,
+  autoCaptureUserActions,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -832,6 +846,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
               includeSchema={a2ui?.includeSchema}
             />
           )}
+          {autoCaptureUserActions &&
+            autoCaptureUserActions.enabled !== false && (
+              <AutoCaptureMount config={autoCaptureUserActions} />
+            )}
           {children}
           {shouldRenderInspector ? (
             <CopilotKitInspector

@@ -33,3 +33,11 @@ export type {
   UseAttachmentsProps,
   UseAttachmentsReturn,
 } from "./use-attachments";
+export { useAutoCaptureUserActions } from "../auto-capture";
+export type {
+  AutoCaptureUserActionsConfig,
+  AutoCapturedUserAction,
+  CapturedRequest,
+  HttpMethod,
+  RedactionConfig,
+} from "../auto-capture";
