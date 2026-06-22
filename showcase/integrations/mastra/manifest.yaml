@@ -66,6 +66,7 @@ features:
   - hitl
   - hitl-in-chat-booking
   - mcp-apps
+  - shared-state-read
 a2ui_pattern: llm-driven
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest

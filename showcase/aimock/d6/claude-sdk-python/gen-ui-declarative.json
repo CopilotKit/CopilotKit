@@ -2,11 +2,12 @@
   "_meta": {
     "description": "D6 fixtures for claude-sdk-python / gen-ui-declarative",
     "sourceScript": "d5-gen-ui-declarative.ts",
-    "created": "2026-05-22"
+    "created": "2026-05-22",
+    "_note": "Components MUST use the flat A2UI catalog shape: {id, component, ...catalog-props-at-top-level}. The sanitize_a2ui_components contract (showcase/integrations/langgraph-python/src/agents/_a2ui_utils.py) drops any entry missing top-level `id` or `component`. The renderer (showcase/integrations/claude-sdk-python/src/app/demos/declarative-gen-ui/a2ui/renderers.tsx) receives the non-id/component fields as `props.*`. Each pill emits render_a2ui with a flat catalog payload mirroring the langgraph-python D6 fixture."
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-declarative kpi-dashboard pill — emits render_a2ui with Card + Metric components. The D5 script asserts declarative-card and declarative-metric testids mount.",
+      "_comment": "gen-ui-declarative kpi-dashboard pill — emits render_a2ui with Card root + Column + Metric children. D5 asserts declarative-card and declarative-metric testids mount.",
       "match": {
         "userMessage": "KPI dashboard with 3-4 metrics",
         "hasToolResult": false,
@@ -17,7 +18,7 @@
           {
             "id": "call_d6_decl_kpi_001",
             "name": "render_a2ui",
-            "arguments": "{\"components\":[{\"type\":\"Card\",\"props\":{\"title\":\"Q4 KPI Dashboard\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Revenue\",\"value\":\"$1.2M\",\"change\":\"+15%\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Signups\",\"value\":\"4,231\",\"change\":\"+22%\"}},{\"type\":\"Metric\",\"props\":{\"label\":\"Churn\",\"value\":\"2.1%\",\"change\":\"-0.3%\"}}]}"
+            "arguments": "{\"surfaceId\":\"kpi-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"Q4 KPI Dashboard\",\"subtitle\":\"Last 30 days\",\"child\":\"metrics-col\"},{\"id\":\"metrics-col\",\"component\":\"Column\",\"children\":[\"m-rev\",\"m-sign\",\"m-churn\"],\"gap\":12},{\"id\":\"m-rev\",\"component\":\"Metric\",\"label\":\"Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\"},{\"id\":\"m-sign\",\"component\":\"Metric\",\"label\":\"Signups\",\"value\":\"4,231\",\"trend\":\"up\"},{\"id\":\"m-churn\",\"component\":\"Metric\",\"label\":\"Churn\",\"value\":\"2.1%\",\"trend\":\"down\"}]}"
           }
         ]
       }
@@ -33,7 +34,7 @@
       }
     },
     {
-      "_comment": "gen-ui-declarative pie-chart pill — emits render_a2ui with PieChart component. The D5 script asserts declarative-pie-chart testid mounts.",
+      "_comment": "gen-ui-declarative pie-chart pill — emits render_a2ui with PieChart root. D5 asserts declarative-pie-chart testid mounts.",
       "match": {
         "userMessage": "pie chart of sales by region",
         "hasToolResult": false,
@@ -44,7 +45,7 @@
           {
             "id": "call_d6_decl_pie_001",
             "name": "render_a2ui",
-            "arguments": "{\"components\":[{\"type\":\"PieChart\",\"props\":{\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":30},{\"label\":\"Asia Pacific\",\"value\":25}]}}]}"
+            "arguments": "{\"surfaceId\":\"sales-pie\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"PieChart\",\"title\":\"Sales by Region\",\"data\":[{\"label\":\"North America\",\"value\":45},{\"label\":\"Europe\",\"value\":30},{\"label\":\"Asia Pacific\",\"value\":25}]}]}"
           }
         ]
       }
@@ -60,7 +61,7 @@
       }
     },
     {
-      "_comment": "gen-ui-declarative bar-chart pill — emits render_a2ui with BarChart component. The D5 script asserts declarative-bar-chart testid mounts.",
+      "_comment": "gen-ui-declarative bar-chart pill — emits render_a2ui with BarChart root. D5 asserts declarative-bar-chart testid mounts.",
       "match": {
         "userMessage": "bar chart of quarterly revenue",
         "hasToolResult": false,
@@ -71,7 +72,7 @@
           {
             "id": "call_d6_decl_bar_001",
             "name": "render_a2ui",
-            "arguments": "{\"components\":[{\"type\":\"BarChart\",\"props\":{\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":320000},{\"label\":\"Q3\",\"value\":350000},{\"label\":\"Q4\",\"value\":410000}]}}]}"
+            "arguments": "{\"surfaceId\":\"quarterly-rev\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"BarChart\",\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":280000},{\"label\":\"Q2\",\"value\":320000},{\"label\":\"Q3\",\"value\":350000},{\"label\":\"Q4\",\"value\":410000}]}]}"
           }
         ]
       }
@@ -87,7 +88,7 @@
       }
     },
     {
-      "_comment": "gen-ui-declarative status-report pill — emits render_a2ui with StatusBadge components. The D5 script asserts declarative-status-badge testid mounts (this is the distinguishing signal).",
+      "_comment": "gen-ui-declarative status-report pill — emits render_a2ui with Card root + Column + StatusBadge children. D5 asserts declarative-status-badge testid mounts (the distinguishing signal).",
       "match": {
         "userMessage": "status report on system health",
         "hasToolResult": false,
@@ -98,7 +99,7 @@
           {
             "id": "call_d6_decl_status_001",
             "name": "render_a2ui",
-            "arguments": "{\"components\":[{\"type\":\"StatusBadge\",\"props\":{\"label\":\"API\",\"status\":\"healthy\",\"uptime\":\"99.97%\"}},{\"type\":\"StatusBadge\",\"props\":{\"label\":\"Database\",\"status\":\"healthy\",\"uptime\":\"99.99%\"}},{\"type\":\"StatusBadge\",\"props\":{\"label\":\"Background Workers\",\"status\":\"degraded\",\"uptime\":\"98.2%\"}}]}"
+            "arguments": "{\"surfaceId\":\"sys-status\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Card\",\"title\":\"System health\",\"subtitle\":\"All services\",\"child\":\"badges-col\"},{\"id\":\"badges-col\",\"component\":\"Column\",\"children\":[\"sb-api\",\"sb-db\",\"sb-bg\"],\"gap\":8},{\"id\":\"sb-api\",\"component\":\"StatusBadge\",\"text\":\"API: healthy (99.97% uptime)\",\"variant\":\"success\"},{\"id\":\"sb-db\",\"component\":\"StatusBadge\",\"text\":\"Database: healthy (99.99% uptime)\",\"variant\":\"success\"},{\"id\":\"sb-bg\",\"component\":\"StatusBadge\",\"text\":\"Background Workers: degraded (98.2% uptime)\",\"variant\":\"warning\"}]}"
           }
         ]
       }
@@ -112,6 +113,23 @@
       "response": {
         "content": "System health report: API and Database are healthy (99.97% and 99.99% uptime). Background Workers are slightly degraded at 98.2% uptime."
       }
+    },
+    {
+      "_comment": "pill sales-dashboard hero — outer agent emits generate_a2ui (no args). Mirrors LGP gen-ui-declarative.json sales-dashboard outer entry. Closes the production 503 gap where backend hits aimock with tools=[generate_a2ui] for this userMessage (see /tmp/staging-journal-diff.md shape-B).",
+      "match": {
+        "userMessage": "Show me my sales dashboard for this quarter.",
+        "context": "claude-sdk-python"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_decl_dash_outer_cspy_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      },
+      "chunkSize": 9999
     }
   ]
 }

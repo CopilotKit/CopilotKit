@@ -39,6 +39,7 @@ does, without introducing any new forwarding source.
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any, Awaitable, Callable, Dict
 
 from langchain.agents.middleware import (
@@ -65,6 +66,12 @@ from copilotkit.header_propagation import (
     get_forwarded_headers,
     set_forwarded_headers,
 )
+
+# CVDIAG schema-v1 backend emitter (L1-I). Dual-emit: this rides ALONGSIDE the
+# legacy free-form _cvdiag() log lines below — it writes the structured
+# schema-v1 CVDIAG envelope through the shared single-source emitter, guarded by
+# CVDIAG_BACKEND_EMITTER (default OFF). With the guard off it is a pure no-op.
+from src.agents._cvdiag_backend import CvdiagBackendRun
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +196,31 @@ class HeaderForwardingMiddleware(AgentMiddleware[AgentState, Any]):
         _extract_forwarded_headers_from_config()
         _instrument_and_breadcrumb()
         _ensure_httpx_hook(request.model)
-        return handler(request)
+
+        # CVDIAG schema-v1 dual-emit (L1-I). No-op when CVDIAG_BACKEND_EMITTER off.
+        headers = dict(get_forwarded_headers())
+        run = CvdiagBackendRun(headers)
+        model_name = _model_name(request)
+        run.request_ingress()
+        run.agent_enter(agent_name=self.name, model_id=model_name)
+        run.llm_call_start(provider="langchain", model=model_name)
+        run.emit_heartbeat_once()
+        start_ns = time.monotonic_ns()
+        try:
+            response = handler(request)
+        except BaseException as exc:  # noqa: BLE001 - re-raised after observing
+            run.error_caught(exc)
+            run.agent_exit(terminal_outcome="err")
+            raise
+        latency_ms = int((time.monotonic_ns() - start_ns) / 1_000_000)
+        run.llm_call_response(
+            provider="langchain", model=model_name, latency_ms=latency_ms
+        )
+        run.sse_first_byte()
+        run.sse_event(event_type="response", payload_size_bytes=None)
+        run.agent_exit(terminal_outcome="ok")
+        run.response_complete(http_status=200)
+        return response
 
     async def awrap_model_call(
         self,
@@ -199,4 +230,43 @@ class HeaderForwardingMiddleware(AgentMiddleware[AgentState, Any]):
         _extract_forwarded_headers_from_config()
         _instrument_and_breadcrumb()
         _ensure_httpx_hook(request.model)
-        return await handler(request)
+
+        # CVDIAG schema-v1 dual-emit (L1-I). No-op when CVDIAG_BACKEND_EMITTER off.
+        headers = dict(get_forwarded_headers())
+        run = CvdiagBackendRun(headers)
+        model_name = _model_name(request)
+        run.request_ingress()
+        run.agent_enter(agent_name=self.name, model_id=model_name)
+        run.llm_call_start(provider="langchain", model=model_name)
+        run.start_heartbeat()
+        start_ns = time.monotonic_ns()
+        try:
+            response = await handler(request)
+        except BaseException as exc:  # noqa: BLE001 - re-raised after observing
+            await run.stop_heartbeat()
+            run.error_caught(exc)
+            run.agent_exit(terminal_outcome="err")
+            raise
+        await run.stop_heartbeat()
+        latency_ms = int((time.monotonic_ns() - start_ns) / 1_000_000)
+        run.llm_call_response(
+            provider="langchain", model=model_name, latency_ms=latency_ms
+        )
+        run.sse_first_byte()
+        run.sse_event(event_type="response", payload_size_bytes=None)
+        run.agent_exit(terminal_outcome="ok")
+        run.response_complete(http_status=200)
+        return response
+
+
+def _model_name(request: ModelRequest) -> str:
+    """Best-effort model identifier off the ModelRequest (never raises)."""
+    try:
+        model = getattr(request, "model", None)
+        for attr in ("model_name", "model", "model_id"):
+            val = getattr(model, attr, None)
+            if isinstance(val, str) and val:
+                return val
+    except Exception:  # noqa: BLE001 - instrumentation must not throw
+        pass
+    return "unknown"

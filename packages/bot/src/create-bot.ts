@@ -4,28 +4,33 @@ import type {
   IncomingTurn,
   InteractionEvent,
   IncomingCommand,
+  IncomingThreadStart,
 } from "./platform-adapter.js";
 import { ActionRegistry, ActionExpiredError } from "./action-registry.js";
-import { InMemoryActionStore, type ActionStore } from "./action-store.js";
-import {
-  toAgentToolDescriptors,
-  parseToolArgs,
-  type BotTool,
-  type ContextEntry,
-} from "./tools.js";
-import {
-  normalizeCommandName,
-  toCommandSpec,
-  type BotCommand,
-  type CommandContext,
-} from "./commands.js";
-import { Thread, type ThreadDeps } from "./thread.js";
+import { InMemoryActionStore } from "./action-store.js";
+import type { ActionStore } from "./action-store.js";
+import { toAgentToolDescriptors, parseToolArgs } from "./tools.js";
+import type { BotTool, ContextEntry } from "./tools.js";
+import { normalizeCommandName, toCommandSpec } from "./commands.js";
+import type { BotCommand, CommandContext } from "./commands.js";
+import { Thread } from "./thread.js";
+import type { ThreadDeps } from "./thread.js";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { InteractionContext, IncomingMessage } from "@copilotkit/bot-ui";
+import type {
+  InteractionContext,
+  IncomingMessage,
+  PlatformUser,
+} from "@copilotkit/bot-ui";
 
 export type BotHandler = (ctx: {
   thread: Thread;
   message: IncomingMessage;
+}) => void | Promise<void>;
+
+/** Handler for a "conversation opened" lifecycle event (e.g. the Slack assistant pane). */
+export type ThreadStartHandler = (ctx: {
+  thread: Thread;
+  user?: PlatformUser;
 }) => void | Promise<void>;
 
 export interface CreateBotOptions {
@@ -41,6 +46,12 @@ export interface CreateBotOptions {
 export interface Bot {
   onMention(h: BotHandler): void;
   onMessage(h: BotHandler): void;
+  /**
+   * A conversation surface opened (e.g. the Slack assistant pane). Greet, set
+   * suggested prompts, set a title, or run the agent. Adapters without the
+   * concept never fire this.
+   */
+  onThreadStarted(h: ThreadStartHandler): void;
   /** Handle clicks on a specific action `id`. `ctx.action.value` is typed as `TValue`. */
   onInteraction<TValue = unknown>(
     id: string,
@@ -90,6 +101,7 @@ export function createBot(opts: CreateBotOptions): Bot {
 
   const mentionHandlers: BotHandler[] = [];
   const messageHandlers: BotHandler[] = [];
+  const threadStartedHandlers: ThreadStartHandler[] = [];
   const interactionHandlers = new Map<
     string,
     (ctx: InteractionContext) => void | Promise<void>
@@ -136,6 +148,7 @@ export function createBot(opts: CreateBotOptions): Bot {
         );
         const message: IncomingMessage = {
           text: turn.userText,
+          contentParts: turn.contentParts,
           user: turn.user ?? { id: "" },
           ref: { id: "" },
           platform: turn.platform,
@@ -168,22 +181,29 @@ export function createBot(opts: CreateBotOptions): Bot {
           user,
           platform: adapter.platform,
         };
+        // The clicked element's `value`, recovered by the registry when it
+        // re-renders to find the handler. Used to resolve a HITL waiter on
+        // platforms whose callback payload can't carry the value (Telegram),
+        // where `evt.value` is undefined.
+        let dispatchedValue: unknown;
         try {
           const explicit = interactionHandlers.get(evt.id);
           if (explicit) {
             await explicit(ctx);
           } else {
-            await registry.dispatch(evt.id, ctx);
+            dispatchedValue = await registry.dispatch(evt.id, ctx);
           }
         } catch (err) {
           // v1: swallow expired-action dispatches; surface anything else.
           if (!(err instanceof ActionExpiredError)) throw err;
         }
-        // Resolve any HITL waiter awaiting a choice in this conversation.
+        // Resolve any HITL waiter awaiting a choice in this conversation. Prefer
+        // the value carried in the event (Slack), falling back to the value the
+        // registry recovered from the rendered element (Telegram).
         const w = waiters.get(evt.conversationKey);
         if (w) {
           waiters.delete(evt.conversationKey);
-          w(evt.value);
+          w(evt.value !== undefined ? evt.value : dispatchedValue);
         }
       },
       async onCommand(cmd: IncomingCommand) {
@@ -212,6 +232,18 @@ export function createBot(opts: CreateBotOptions): Bot {
         };
         await command.handler(ctx);
       },
+      async onThreadStarted(evt: IncomingThreadStart) {
+        // The adapter has already applied its static defaults (greeting /
+        // prompts) before emitting this, so handlers layer on top and never
+        // race. Zero handlers → no-op.
+        const thread = makeThread(
+          adapter,
+          evt.replyTarget,
+          evt.conversationKey,
+        );
+        for (const h of threadStartedHandlers)
+          await h({ thread, user: evt.user });
+      },
     };
   }
 
@@ -221,6 +253,9 @@ export function createBot(opts: CreateBotOptions): Bot {
     },
     onMessage(h) {
       messageHandlers.push(h);
+    },
+    onThreadStarted(h) {
+      threadStartedHandlers.push(h);
     },
     onInteraction<TValue = unknown>(
       id: string,

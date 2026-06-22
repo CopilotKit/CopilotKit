@@ -92,6 +92,7 @@ export function TimePickerCard({
       </div>
       <button
         disabled={disabled}
+        data-testid="time-picker-cancel"
         onClick={() => {
           setCancelled(true);
           onSubmit({ cancelled: true });

@@ -1296,7 +1296,7 @@ describe("starterSmokeDriver", () => {
     // (health) fetch is in flight; that 200 still completes green, but the
     // THREE remaining levels must short-circuit to clean `aborted` rows WITHOUT
     // issuing a fresh fetch — so only ONE fetch is ever issued. Mirrors
-    // e2e-readiness.ts's pre-iteration `abort.signal.aborted` check.
+    // d3-readiness.ts's pre-iteration `abort.signal.aborted` check.
     const { writer, writes } = mkWriter();
     const driver = createStarterSmokeDriver();
     const controller = new AbortController();

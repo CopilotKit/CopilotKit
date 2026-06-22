@@ -7,16 +7,25 @@
  *
  * NOTE: Props in `definitions.ts` use `DynString` (a `string | { path }`
  * union) so the A2UI `GenericBinder` treats them as dynamic and resolves
- * path bindings before render. The binder always hands the renderer a
- * resolved string, but TypeScript sees the raw union — so we cast to
- * `Record<string, any>` at the renderer boundary. This matches the
- * canonical beautiful-chat pattern (see FlightCard in
- * `examples/integrations/langgraph-python/src/app/declarative-generative-ui/renderers.tsx`).
+ * path bindings before render. The binder USUALLY hands the renderer a
+ * resolved string, but if a binding fails to resolve (e.g., op-shape
+ * variants that the binder doesn't recognize), the raw `{path}` object
+ * leaks through. Rendering `{ path }` as a React child triggers minified
+ * React error #31 ("Objects are not valid as a React child"). We use a
+ * shared `s()` helper (matching LGP / crewai-crews) to defensively narrow
+ * to `string` at the renderer boundary so an unresolved binding renders
+ * as empty rather than crashing the page.
  */
 import React, { useState } from "react";
 import type { CatalogRenderers } from "@copilotkit/a2ui-renderer";
 
 import type { FlightDefinitions } from "./definitions";
+
+// `DynString` props are typed as `string | { path }` (see definitions.ts);
+// the binder resolves path bindings before render, but if resolution fails
+// the raw object would crash React. Narrow to string here — matches the
+// LGP / crewai-crews fixed-schema renderers exactly.
+const s = (v: unknown): string => (typeof v === "string" ? v : "");
 
 /**
  * Stateful action button: tracks `done` locally so clicking "Book flight"
@@ -87,6 +96,20 @@ function ActionButton({
 
 // @region[renderers-tsx]
 export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
+  /**
+   * Card override: wraps the basic catalog's Card output in a div carrying
+   * the `a2ui-fixed-card` testid so the e2e harness can target the
+   * fixed-schema flight card. Mirrors LGP's Card override but adapted to
+   * claude-sdk-python's inline-styled div approach.
+   */
+  Card: ({ props, children }) => {
+    const p = props as Record<string, any>;
+    return (
+      <div data-testid="a2ui-fixed-card">
+        {p.child ? children(p.child) : null}
+      </div>
+    );
+  },
   Title: ({ props: rawProps }) => {
     const props = rawProps as Record<string, any>;
     return (
@@ -97,7 +120,7 @@ export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
           color: "#010507",
         }}
       >
-        {props.text}
+        {s(props.text)}
       </div>
     );
   },
@@ -113,7 +136,7 @@ export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
           color: "#010507",
         }}
       >
-        {props.code}
+        {s(props.code)}
       </span>
     );
   },
@@ -135,7 +158,7 @@ export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
           textTransform: "uppercase",
         }}
       >
-        {props.name}
+        {s(props.name)}
       </span>
     );
   },
@@ -150,7 +173,7 @@ export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
           fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
         }}
       >
-        {props.amount}
+        {s(props.amount)}
       </span>
     );
   },

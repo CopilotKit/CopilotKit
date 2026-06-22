@@ -48,7 +48,6 @@ features:
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - tool-rendering
-  - tool-rendering-reasoning-chain
   - shared-state-read
   - shared-state-read-write
   - shared-state-streaming
@@ -69,6 +68,9 @@ not_supported_features:
   # event that this demo needs, and aimock can't replay custom events — so it's
   # marked unsupported until aimock gains customEvents support (follow-up).
   - interrupt-headless
+  - reasoning-default-render
+  - agentic-chat-reasoning
+  - tool-rendering-reasoning-chain
 a2ui_pattern: schema-loading
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest

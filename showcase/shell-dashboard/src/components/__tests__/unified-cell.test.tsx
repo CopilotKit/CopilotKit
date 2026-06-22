@@ -224,9 +224,9 @@ describe("UnifiedCell", () => {
       expect(queryByTestId("mock-depth-chip")).not.toBeInTheDocument();
 
       // No badges rendered
-      expect(queryByTestId("mock-badge-API")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-1P")).not.toBeInTheDocument();
 
       // No layer divs rendered
       expect(queryByTestId("depth-layer")).not.toBeInTheDocument();
@@ -298,23 +298,23 @@ describe("UnifiedCell", () => {
 
   // ── Test 3: Only shows badges for test levels that exist ──────────
   describe("badge existence filtering", () => {
-    it("shows API badge when D3 exists but hides RT badge when D4 is missing", () => {
+    it("shows E2E badge when D3 exists but hides BE badge when D4 is missing", () => {
       const ctx = makeCtx();
       const model = makeModel({
         d3: makeLevel(true, "green"),
-        d4: makeLevel(false), // D4 missing -- no RT badge
+        d4: makeLevel(false), // D4 missing -- no BE badge
         d5: makeLevel(true, "red"),
       });
       const { getByTestId, queryByTestId } = render(
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      // API badge present (D3 exists)
-      expect(getByTestId("mock-badge-API")).toBeInTheDocument();
-      // RT badge absent (D4 does not exist)
-      expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
-      // CV badge present (D5 exists)
-      expect(getByTestId("mock-badge-CV")).toBeInTheDocument();
+      // E2E badge present (D3 exists)
+      expect(getByTestId("mock-badge-UI")).toBeInTheDocument();
+      // BE badge absent (D4 does not exist)
+      expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
+      // 1P badge present (D5 exists)
+      expect(getByTestId("mock-badge-1P")).toBeInTheDocument();
     });
 
     it("hides all badges when no test levels exist", () => {
@@ -328,9 +328,9 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      expect(queryByTestId("mock-badge-API")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-1P")).not.toBeInTheDocument();
     });
 
     it("hides badge when level is null", () => {
@@ -344,15 +344,15 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      expect(queryByTestId("mock-badge-API")).not.toBeInTheDocument();
-      expect(getByTestId("mock-badge-RT")).toBeInTheDocument();
-      expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
+      expect(getByTestId("mock-badge-BE")).toBeInTheDocument();
+      expect(queryByTestId("mock-badge-1P")).not.toBeInTheDocument();
     });
   });
 
   // ── Test 4: Shows all three badges when all levels exist ──────────
   describe("all badges visible", () => {
-    it("shows API, RT, and CV badges when all three levels exist", () => {
+    it("shows E2E, BE, and 1P badges when all three levels exist", () => {
       const ctx = makeCtx();
       const model = makeModel({
         d3: makeLevel(true, "green"),
@@ -363,15 +363,15 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      const apiBadge = getByTestId("mock-badge-API");
-      expect(apiBadge).toBeInTheDocument();
-      expect(apiBadge.getAttribute("data-tone")).toBe("green");
+      const e2eBadge = getByTestId("mock-badge-UI");
+      expect(e2eBadge).toBeInTheDocument();
+      expect(e2eBadge.getAttribute("data-tone")).toBe("green");
 
-      const rtBadge = getByTestId("mock-badge-RT");
+      const rtBadge = getByTestId("mock-badge-BE");
       expect(rtBadge).toBeInTheDocument();
       expect(rtBadge.getAttribute("data-tone")).toBe("amber");
 
-      const cvBadge = getByTestId("mock-badge-CV");
+      const cvBadge = getByTestId("mock-badge-1P");
       expect(cvBadge).toBeInTheDocument();
       expect(cvBadge.getAttribute("data-tone")).toBe("red");
     });
@@ -391,9 +391,9 @@ describe("UnifiedCell", () => {
       );
 
       expect(queryByTestId("health-layer")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-API")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-RT")).not.toBeInTheDocument();
-      expect(queryByTestId("mock-badge-CV")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-BE")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-1P")).not.toBeInTheDocument();
     });
 
     // ── Test 6: Hides depth chip when depth overlay is not active ───
@@ -459,7 +459,7 @@ describe("UnifiedCell", () => {
       // Raw D6 dimension is green, but D5 is red so the ladder is broken
       // below D6 → d6Effective null. The D6 badge must render a real, VISIBLE
       // not-achieved indicator ("—", gray) — NOT a "?" that the real Badge
-      // hides, and never green; CV stays per-dimension red (diagnostic).
+      // hides, and never green; 1P stays per-dimension red (diagnostic).
       const model = makeModel({
         d3: makeLevel(true, "green"),
         d4: makeLevel(true, "green"),
@@ -482,8 +482,8 @@ describe("UnifiedCell", () => {
       expect(d6Badge.getAttribute("data-tone")).not.toBe("green");
       expect(d6Badge.textContent).toContain("—");
 
-      // CV badge still shows the real per-dimension D5 failure (red).
-      expect(getByTestId("mock-badge-CV").getAttribute("data-tone")).toBe(
+      // 1P badge still shows the real per-dimension D5 failure (red).
+      expect(getByTestId("mock-badge-1P").getAttribute("data-tone")).toBe(
         "red",
       );
     });
@@ -542,7 +542,7 @@ describe("UnifiedCell", () => {
         <UnifiedCell ctx={ctx} model={model} overlays={overlaySet("health")} />,
       );
 
-      const badge = getByTestId("mock-badge-API");
+      const badge = getByTestId("mock-badge-UI");
       expect(badge.getAttribute("data-tone")).toBe("green");
       expect(badge.textContent).toContain("✓");
     });
@@ -559,7 +559,7 @@ describe("UnifiedCell", () => {
       );
 
       // A no-data rung emits label "?", which the real Badge hides → no badge.
-      expect(queryByTestId("mock-badge-API")).not.toBeInTheDocument();
+      expect(queryByTestId("mock-badge-UI")).not.toBeInTheDocument();
     });
   });
 

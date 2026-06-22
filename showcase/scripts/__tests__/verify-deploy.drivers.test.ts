@@ -751,7 +751,9 @@ describe.each(DRIVER_CASES)(
       const expectedHealthCount = label === "dashboard" ? 2 : 1;
       expect(healthUrls).toHaveLength(expectedHealthCount);
       for (const u of healthUrls) {
-        expect(u).toBe(`https://${domainFor(service, "prod")}${expectedHealthPath}`);
+        expect(u).toBe(
+          `https://${domainFor(service, "prod")}${expectedHealthPath}`,
+        );
       }
     });
 

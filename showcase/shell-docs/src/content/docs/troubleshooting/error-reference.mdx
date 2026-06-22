@@ -26,11 +26,11 @@ Missing required prop: 'runtimeUrl' or 'publicApiKey' or 'publicLicenseKey'
 `console.warn` so local-agent and test setups still run.
 
 <Callout type="info" title="v1 behaves differently">
-  The **v1** `<CopilotKit>` provider throws this error **unconditionally** (in
-  both development and production; there is no dev-only `console.warn` branch),
-  and it does **not** accept `selfManagedAgents`. On v1, satisfy the provider with
-  a `runtimeUrl` or a Copilot Cloud key, or pass agents directly via
-  `agents__unsafe_dev_only` for local development.
+  The **v1** `<CopilotKit>` provider throws in **both development and
+  production** when nothing is configured, whereas the v2 `<CopilotKitProvider>`
+  only warns in development. Either way, registering `selfManagedAgents` or
+  `agents__unsafe_dev_only` satisfies the check — no `runtimeUrl` or Copilot
+  Cloud key required.
 </Callout>
 
 **Cause:** the provider has no way to reach an agent. You didn't pass a
@@ -47,7 +47,7 @@ didn't register any local agents.
 // Copilot Cloud
 <CopilotKitProvider publicApiKey="ck_pub_...">{children}</CopilotKitProvider>
 
-// Agents you manage yourself (v2 only)
+// Agents you manage yourself — the `selfManagedAgents` prop is also accepted by the v1 `<CopilotKit>` wrapper
 <CopilotKitProvider selfManagedAgents={{ "my-agent": myAgent }}>{children}</CopilotKitProvider>
 ```
 

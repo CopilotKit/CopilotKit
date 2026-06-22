@@ -45,6 +45,23 @@ describe("decodeInteraction", () => {
     expect(evt!.user).toEqual({ id: "U2", name: "bob" });
   });
 
+  it("scopes a THREADED DM (assistant pane) by its thread ts, not DM_SCOPE", () => {
+    // Regression: an assistant-pane DM is threaded, so the ingress path keys
+    // the turn by thread ts. Forcing DM_SCOPE here stranded the HITL waiter and
+    // the run never resumed after a Create/Cancel click.
+    const evt = decodeInteraction({
+      type: "block_actions",
+      user: { id: "U3", name: "Cara" },
+      channel: { id: "D7" },
+      message: { ts: "300.1", thread_ts: "300.0" },
+      actions: [{ action_id: "ck:hitl", value: '{"confirmed":true}' }],
+    });
+    expect(evt!.conversationKey).toBe("D7::300.0");
+    // Replies should go back into the assistant thread.
+    expect(evt!.replyTarget).toEqual({ channel: "D7", threadTs: "300.0" });
+    expect(evt!.value).toEqual({ confirmed: true });
+  });
+
   it("falls back to container fields when message/channel are absent", () => {
     const evt = decodeInteraction({
       type: "block_actions",

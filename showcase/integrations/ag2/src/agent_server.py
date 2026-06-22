@@ -10,24 +10,47 @@ as their own sub-apps at distinct paths so each demo gets its own
 ContextVariables-backed state slot.
 """
 
+# ORDER-CRITICAL: load .env BEFORE any agent module imports. The agent
+# modules (agents/agent.py et al.) construct module-level
+# ``openai.AsyncOpenAI()`` / autogen ``LLMConfig`` clients that read
+# ``OPENAI_API_KEY`` (and friends) at construction time. If we import the
+# agent modules before calling ``load_dotenv()``, those module-level
+# clients latch onto whatever the OS environment had at import time
+# (usually nothing in a dev shell), and subsequent .env values never
+# reach them. ``load_dotenv()`` is idempotent so the redundant call
+# inside each agent module is harmless — but the FIRST call must happen
+# here, before the agent imports below.
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
+# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
+# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
+# and has no dependency on ``.env``, so it is safe to run before ``load_dotenv``.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
-from dotenv import load_dotenv
 
 # ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
 # imports. The autogen / openai SDK construct their httpx client lazily
 # per-call, but other integrations construct at module-import time;
 # keeping the patch at the top of agent_server.py is the consistent
 # placement across all Python showcase integrations and is harmless here.
+from agents._cvdiag_backend import CvdiagBackendMiddleware
 from agents._header_forwarding import (
     HeaderForwardingHTTPMiddleware,
     install_executor_contextvar_propagation,
     install_global_httpx_hook,
 )
+from agents._request_context import RequestUserMessageMiddleware
 
 install_global_httpx_hook()
 # AG2-specific: autogen's ConversableAgent.a_generate_oai_reply dispatches
@@ -61,8 +84,6 @@ from agents.tool_rendering_reasoning_chain import (
     tool_rendering_reasoning_chain_app,
 )
 
-load_dotenv()
-
 app = FastAPI(title="AG2 Agent Server")
 
 
@@ -79,15 +100,50 @@ class HealthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+# ORDER-CRITICAL: Starlette's ``add_middleware`` is LIFO — the LAST call
+# becomes the OUTERMOST layer in the request pipeline. This ordering
+# matters because ``BaseHTTPMiddleware`` (HealthMiddleware,
+# HeaderForwardingHTTPMiddleware) internally uses anyio TaskGroups that
+# can sever ``contextvars.ContextVar`` propagation from outer layers to
+# the inner ASGI app. The raw-ASGI ``RequestUserMessageMiddleware`` sets
+# a ContextVar that downstream tool handlers must observe, so it MUST
+# sit OUTSIDE the BaseHTTPMiddleware layers — i.e. be added LAST so it
+# wraps them. CORSMiddleware (also raw ASGI) is added last of all so it
+# remains the absolute outermost layer (handles preflight + headers
+# before anything else runs).
+#
+# Resulting outer→inner execution order:
+#   CORS → RequestUserMessage → HeaderForwarding → Health → routes/mounts
+
+# Innermost: serve /health via middleware so it short-circuits BEFORE
+# route resolution. (Already declared above as HealthMiddleware.)
 app.add_middleware(HealthMiddleware)
 
 # Capture inbound CopilotKit `x-*` headers (e.g. `x-aimock-context`) into a
 # per-request ContextVar so any outbound LLM/provider httpx call made inside
-# the request scope copies them onto its outbound request. Installed BEFORE
-# the CORS middleware so the ContextVar is populated for the inner
-# handler. The matching `install_httpx_hook(...)` call lives next to each
-# LLM client construction site (see `agents/agent.py`).
+# the request scope copies them onto its outbound request. The matching
+# ``install_httpx_hook(...)`` call lives next to each LLM client
+# construction site (see ``agents/agent.py``).
 app.add_middleware(HeaderForwardingHTTPMiddleware)
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added here so
+# it wraps the Health + HeaderForwarding BaseHTTPMiddleware layers but stays
+# INSIDE the outer raw-ASGI RequestUserMessage + CORS layers (CORS remains the
+# absolute outermost so preflight is handled first). Gated behind
+# ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the middleware
+# fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
+
+# R2-A3: Capture the latest user message from each inbound RunAgentInput POST
+# into a per-request ContextVar so tool handlers (e.g. generate_a2ui) can read
+# the per-request prompt without consulting autogen's shared, race-prone
+# ``ConversableAgent.chat_messages`` state. See agents/_request_context.py.
+# Added AFTER the BaseHTTPMiddlewares above so it wraps them (raw ASGI on
+# the outside preserves ContextVar propagation across the anyio
+# TaskGroups they spawn internally).
+app.add_middleware(RequestUserMessageMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -141,13 +197,21 @@ app.mount("/", default_stream.build_asgi())
 
 
 def main():
-    """Run the uvicorn server."""
+    """Run the uvicorn server.
+
+    ``reload=True`` is gated behind ``DEV_RELOAD=1`` so production
+    containers (which set neither var) get a single non-reloading
+    process. The reloader spawns a watcher process and re-imports the
+    app on every file change, which is appropriate for local dev but
+    burns memory + risks half-imported state in prod.
+    """
     port = int(os.getenv("PORT", "8000"))
+    dev_reload = os.getenv("DEV_RELOAD", "0") == "1"
     uvicorn.run(
         "agent_server:app",
         host="0.0.0.0",
         port=port,
-        reload=True,
+        reload=dev_reload,
     )
 
 

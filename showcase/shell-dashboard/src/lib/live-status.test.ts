@@ -1,20 +1,27 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   CATALOG_TO_D5_KEY,
+  FLEET_COMM_ERROR_SIGNAL_KEY,
   STARTER_COLUMNS,
   STARTER_LEVELS,
   STATUS_LIST_FIELDS,
   buildStarterBadge,
+  commErrorFromStatusSignal,
   keyFor,
   mergeRowsToMap,
   resolveCell,
+  resolveD4Row,
+  resolveD5Row,
+  resolveD6Row,
   resolveStarterRow,
   starterIsSupported,
+  statusSignalHasCommErrorKey,
   upsertByKey,
 } from "./live-status";
 import type { LiveStatusMap, StatusRow, StarterLevel } from "./live-status";
 import { formatTs } from "./format-ts";
 import {
+  D4_STALE_AFTER_MS,
   E2E_STALE_AFTER_MS,
   LIVENESS_STALE_AFTER_MS,
   STARTER_STALE_AFTER_MS,
@@ -50,6 +57,45 @@ function mapOf(rows: StatusRow[]): LiveStatusMap {
   for (const r of rows) m.set(r.key, r);
   return m;
 }
+
+describe("statusSignalHasCommErrorKey (sibling of the harness contract companion)", () => {
+  it("distinguishes 'key present but undecodable' from 'genuinely absent' without changing the decode contract", () => {
+    // Key present, kind unknown to this reader (the version-skew case): the
+    // decode fail-safes to undefined but the companion still sees the key.
+    const unknownKind = {
+      [FLEET_COMM_ERROR_SIGNAL_KEY]: {
+        kind: "some-future-kind",
+        message: "x",
+        observedAt: FRESH_OBSERVED_AT,
+      },
+    };
+    expect(commErrorFromStatusSignal(unknownKind)).toBeUndefined();
+    expect(statusSignalHasCommErrorKey(unknownKind)).toBe(true);
+
+    // Key present and well-formed: both sides agree.
+    const wellFormed = {
+      [FLEET_COMM_ERROR_SIGNAL_KEY]: {
+        kind: "worker-unreachable",
+        message: "connect ECONNREFUSED",
+        observedAt: FRESH_OBSERVED_AT,
+      },
+    };
+    expect(commErrorFromStatusSignal(wellFormed)).toBeDefined();
+    expect(statusSignalHasCommErrorKey(wellFormed)).toBe(true);
+
+    // Genuinely absent / never a valid wire shape (mirrors the decoder's
+    // null / non-object / array guards — including the key as an array
+    // expando property).
+    expect(statusSignalHasCommErrorKey({ failedCount: 0 })).toBe(false);
+    expect(statusSignalHasCommErrorKey(null)).toBe(false);
+    expect(statusSignalHasCommErrorKey("nope")).toBe(false);
+    expect(
+      statusSignalHasCommErrorKey(
+        Object.assign([], { [FLEET_COMM_ERROR_SIGNAL_KEY]: {} }),
+      ),
+    ).toBe(false);
+  });
+});
 
 describe("keyFor", () => {
   it("integration-level dimensions have no feature segment", () => {
@@ -91,6 +137,20 @@ describe("keyFor", () => {
   it("throws when featureId contains ':' or '/'", () => {
     expect(() => keyFor("e2e", "agno", "bad:id")).toThrow(/must not contain/);
     expect(() => keyFor("e2e", "agno", "bad/id")).toThrow(/must not contain/);
+  });
+  it("throws when dimension contains ':' or '/' (G3e — same guard as the other segments)", () => {
+    // `:` is the dimension/slug delimiter; a colon-bearing dimension would
+    // silently parse as a DIFFERENT dimension + slug suffix, and a
+    // slash-bearing one would fabricate a phantom feature segment.
+    expect(() => keyFor("bad:dim", "agno")).toThrow(/must not contain/);
+    expect(() => keyFor("bad/dim", "agno")).toThrow(/must not contain/);
+  });
+  it("throws on an empty-string featureId instead of fabricating the aggregate key", () => {
+    // An empty featureId is falsy, so a truthiness guard would skip the
+    // delimiter validation AND the per-feature branch, silently producing the
+    // integration-aggregate key (`e2e:agno`) for what the caller meant as a
+    // per-feature lookup. Throw loudly, matching the guard's defensive posture.
+    expect(() => keyFor("e2e", "agno", "")).toThrow(/empty/);
   });
   it("every CATALOG_TO_D5_KEY mapping value is delimiter-free (keyFor feeds these as featureId)", () => {
     // resolveD5Row/resolveD6Row pass each mapping value into keyFor as the
@@ -149,6 +209,42 @@ describe("upsertByKey", () => {
     const after = upsertByKey(before, b);
     expect(after).not.toBe(before);
     expect(after[0]!.observed_at).toBe("2026-04-21T00:00:00Z");
+  });
+  it("allocates a new array when only fail_count changes (not a no-op)", () => {
+    // A red row's fail_count increments on every consecutive failure while
+    // observed_at/transitioned_at can stay put within a tick; the drilldown
+    // and alerting surfaces read it, so the delta must NOT be swallowed.
+    const a = row("k:fc", "smoke", "red", { fail_count: 1 });
+    const b = row("k:fc", "smoke", "red", { fail_count: 2 });
+    const before = [a];
+    const after = upsertByKey(before, b);
+    expect(after).not.toBe(before);
+    expect(after[0]!.fail_count).toBe(2);
+  });
+  it("allocates a new array when only first_failure_at changes (load-bearing in tooltips)", () => {
+    // formatTooltip renders "red since <first_failure_at>" — a delta that
+    // moves only this field is observable copy and must not be discarded.
+    const a = row("k:ffa", "smoke", "red", {
+      first_failure_at: "2026-06-01T00:00:00.000Z",
+    });
+    const b = row("k:ffa", "smoke", "red", {
+      first_failure_at: "2026-06-02T00:00:00.000Z",
+    });
+    const before = [a];
+    const after = upsertByKey(before, b);
+    expect(after).not.toBe(before);
+    expect(after[0]!.first_failure_at).toBe("2026-06-02T00:00:00.000Z");
+  });
+  it("allocates a new array when only id changes (deleted-and-recreated PB row)", () => {
+    // A status row deleted and recreated upstream keeps its key but gets a
+    // fresh PB id; keeping the stale id in the map breaks any id-keyed
+    // follow-up fetch (e.g. the drilldown's full-row load).
+    const a = row("k:id", "smoke", "green", { id: "rec-old" });
+    const b = row("k:id", "smoke", "green", { id: "rec-new" });
+    const before = [a];
+    const after = upsertByKey(before, b);
+    expect(after).not.toBe(before);
+    expect(after[0]!.id).toBe("rec-new");
   });
   it("applies a row whose signal goes from absent to present (SSE full-row delivery)", () => {
     // The initial fetch projection drops `signal`, so initial rows arrive with
@@ -216,6 +312,21 @@ describe("mergeRowsToMap", () => {
     expect(warn).toHaveBeenCalledOnce();
     expect(warn.mock.calls[0]?.[0]).toMatch(/disjoint-key invariant violated/);
   });
+  it("does NOT warn when rows differ ONLY by signal presence (projection vs SSE provenance, CF7-F3 #5)", () => {
+    // The initial bulk fetch projects `signal` away while SSE deltas (and the
+    // comm-error supplemental fetch) deliver full rows, so the SAME logical
+    // row can legitimately exist in two groups with and without `signal`.
+    // That presence flip is expected provenance, not a disjoint-key invariant
+    // violation — warning on it is pure noise. (upsertByKey's reducer keeps
+    // treating the flip as observable; only THIS divergence warn excludes it.)
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const projected = row("d6:agno", "d6", "green", { signal: undefined });
+    const full = row("d6:agno", "d6", "green", { signal: { detail: "x" } });
+    const map = mergeRowsToMap([projected], [full]);
+    // Last-wins still applies — the signal-bearing row survives.
+    expect(map.get("d6:agno")?.signal).toEqual({ detail: "x" });
+    expect(warn).not.toHaveBeenCalled();
+  });
 });
 
 describe("resolveD6Row / resolveD5Row — out-of-vocabulary state tolerance (Fix A2)", () => {
@@ -258,6 +369,160 @@ describe("resolveD6Row / resolveD5Row — out-of-vocabulary state tolerance (Fix
     expect(c.d5.row).not.toBeNull();
     expect(c.d5.row?.state).toBe(OUT_OF_VOCAB);
   });
+
+  it("d6: missing sub-row + out-of-vocab sub-row SURFACES, not collapses to no-data", () => {
+    // The anyMissing collapse must be RANK-based, not `worstState !== "red"`
+    // literal equality: an out-of-vocabulary "error" sub-row is ranked ABOVE
+    // red by the A2 machinery ("never silently swallowed"), so a family with
+    // a missing sibling must still surface it — collapsing to null would
+    // swallow exactly the state the rank fold exists to surface.
+    const live = mapOf([
+      row("d6:agno/beautiful-chat-pie-chart", "d6", OUT_OF_VOCAB),
+      row("d6:agno/beautiful-chat-toggle-theme", "d6", "green"),
+      // the other 3 beautiful-chat sub-rows are MISSING
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d6.row).not.toBeNull();
+    expect(c.d6.row?.state).toBe(OUT_OF_VOCAB);
+  });
+
+  it("d5: missing sub-row + out-of-vocab sub-row SURFACES, not collapses to no-data", () => {
+    const live = mapOf([
+      row("d5:agno/beautiful-chat-pie-chart", "d5", OUT_OF_VOCAB),
+      row("d5:agno/beautiful-chat-toggle-theme", "d5", "green"),
+      // the other 3 beautiful-chat sub-rows are MISSING
+    ]);
+    const c = resolveCell(live, "agno", "beautiful-chat");
+    expect(c.d5.row).not.toBeNull();
+    expect(c.d5.row?.state).toBe(OUT_OF_VOCAB);
+  });
+});
+
+describe("resolveD4Row — worst-state fold mirroring cell-model resolveD4", () => {
+  // Fixed `now` so the stale/fresh boundary is deterministic (same
+  // convention as the staleness-downgrade suite below).
+  const NOW = Date.parse("2026-05-30T00:00:00Z");
+  const freshAt = (ageMs: number): string =>
+    new Date(NOW - ageMs).toISOString();
+
+  it("returns null when both chat and tools rows are missing (no-data)", () => {
+    expect(resolveD4Row(mapOf([]), "agno", NOW)).toBeNull();
+  });
+
+  it("green chat + green tools (fresh) → green CHAT row (chat wins equal-rank ties)", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "green", { observed_at: freshAt(0) }),
+      row("tools:agno", "tools", "green", { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out).not.toBeNull();
+    expect(out?.state).toBe("green");
+    // Tie-break DIRECTION: the fold iterates [chatRow, toolsRow] with a
+    // strict `>` rank comparison, so at equal rank the CHAT row must win.
+    // Swapping the fold order to [toolsRow, chatRow] would return the
+    // tools row here — these identity assertions pin the documented order.
+    expect(out?.dimension).toBe("chat");
+    expect(out?.key).toBe("chat:agno");
+  });
+
+  it("red chat + red tools (equal-rank red tie) → CHAT row identity returned", () => {
+    // At an equal-rank RED tie the returned row's IDENTITY matters most:
+    // its signal/fail_count surface in the drilldown, so the fold must
+    // deterministically return the chat row, not whichever side happens
+    // to win after an order swap.
+    const live = mapOf([
+      row("chat:agno", "chat", "red", {
+        observed_at: freshAt(0),
+        fail_count: 3,
+      }),
+      row("tools:agno", "tools", "red", {
+        observed_at: freshAt(0),
+        fail_count: 7,
+      }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out).not.toBeNull();
+    expect(out?.state).toBe("red");
+    expect(out?.dimension).toBe("chat");
+    expect(out?.key).toBe("chat:agno");
+    expect(out?.fail_count).toBe(3);
+  });
+
+  it("green chat + red tools → red tools row wins the fold", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "green", { observed_at: freshAt(0) }),
+      row("tools:agno", "tools", "red", { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out?.state).toBe("red");
+    expect(out?.dimension).toBe("tools");
+  });
+
+  it("red chat + green tools → red chat row wins the fold", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "red", { observed_at: freshAt(0) }),
+      row("tools:agno", "tools", "green", { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out?.state).toBe("red");
+    expect(out?.dimension).toBe("chat");
+  });
+
+  it("stale-green chat alone (older than the 1h D4 window) → EFFECTIVE degraded row", () => {
+    // D4 uses the 1h window (D4_STALE_AFTER_MS), NOT the 6h e2e window —
+    // a 2h-old green chat row is stale for D4 but would be fresh for e2e.
+    // The returned winner must be the EFFECTIVE (downgraded) row so `.state`
+    // agrees with the rank that won the fold.
+    const live = mapOf([
+      row("chat:agno", "chat", "green", {
+        observed_at: freshAt(D4_STALE_AFTER_MS + 60 * 60 * 1000),
+      }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out).not.toBeNull();
+    expect(out?.state).toBe("degraded");
+  });
+
+  it("green tools only (chat missing) → null (unverified family collapses, e771c2351)", () => {
+    // `chat:<slug>` is producer-UNCONDITIONAL — a green tools row with the
+    // chat row missing is an unverified family and must collapse to no-data.
+    const live = mapOf([
+      row("tools:agno", "tools", "green", { observed_at: freshAt(0) }),
+    ]);
+    expect(resolveD4Row(live, "agno", NOW)).toBeNull();
+  });
+
+  it("red tools only (chat missing) → red row returned (red dominates no-data)", () => {
+    const live = mapOf([
+      row("tools:agno", "tools", "red", { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out).not.toBeNull();
+    expect(out?.state).toBe("red");
+    expect(out?.dimension).toBe("tools");
+  });
+
+  it("green chat only (tools missing) → green (conditional tools row stays lenient)", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "green", { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out?.state).toBe("green");
+    expect(out?.dimension).toBe("chat");
+  });
+
+  it("out-of-vocab tools state with chat missing still SURFACES (rank above red survives the collapse)", () => {
+    // The missing-unconditional-chat collapse must be RANK-based, not a
+    // `!== "red"` literal — an out-of-vocabulary "error" state is ranked
+    // ABOVE red by the A2 machinery and must never be silently swallowed.
+    const outOfVocab = "error" as unknown as StatusRow["state"];
+    const live = mapOf([
+      row("tools:agno", "tools", outOfVocab, { observed_at: freshAt(0) }),
+    ]);
+    const out = resolveD4Row(live, "agno", NOW);
+    expect(out).not.toBeNull();
+    expect(out?.state).toBe(outOfVocab);
+  });
 });
 
 describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
@@ -296,6 +561,26 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
 
     const liveE2eOnly = mapOf([row("e2e:agno/ac", "e2e", "green")]);
     expect(resolveCell(liveE2eOnly, "agno", "ac").rollup).toBe("gray");
+  });
+
+  it("an out-of-vocabulary contributor state (e.g. 'error') rolls up red-severity, never gray (A2)", () => {
+    // `StatusRow.state` is typed State (green|red|degraded), but the harness
+    // CAN persist an out-of-vocabulary value at runtime — notably "error"
+    // (the no-data representation; see harness result-aggregator). The rollup
+    // fold must route contributor states through the A2 rank machinery
+    // (worstStateRank ranks an unknown state ABOVE red), not literal
+    // includes() checks: a literal fold rolls the cell up GRAY (benign
+    // no-data) while the contributor's own badge renders the loud "error"
+    // tone — swallowing exactly the state the rank machinery exists to
+    // surface.
+    const outOfVocab = "error" as unknown as StatusRow["state"];
+    const live = mapOf([
+      row("health:agno", "health", outOfVocab),
+      row("e2e:agno/ac", "e2e", "green"),
+    ]);
+    const c = resolveCell(live, "agno", "ac");
+    expect(c.rollup).not.toBe("gray");
+    expect(c.rollup).toBe("red");
   });
 
   it("rolls up to gray when no rows at all", () => {
@@ -465,6 +750,63 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.d6.row).toBeNull();
   });
 
+  it("resolves d4 from integration-scoped chat+tools rows (green fold)", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "green"),
+      row("tools:agno", "tools", "green"),
+    ]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d4.tone).toBe("green");
+    expect(c.d4.label).toBe("✓");
+  });
+
+  it("d4 red tools + green chat → red badge anchored on the tools row", () => {
+    const live = mapOf([
+      row("chat:agno", "chat", "green"),
+      row("tools:agno", "tools", "red"),
+    ]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d4.tone).toBe("red");
+    expect(c.d4.label).toBe("✗");
+    expect(c.d4.row?.dimension).toBe("tools");
+  });
+
+  it("d4 does NOT contribute to the rollup (informational only — Service scope is health + e2e)", () => {
+    // The pill's gate already consumes D4 via buildCellModel; the rollup's
+    // contributors stay health + e2e (the relabel decision). A red D4 fold
+    // must surface on its own badge while the service rollup stays green.
+    const live = mapOf([
+      row("health:agno", "health", "green"),
+      row("e2e:agno/agentic-chat", "e2e", "green"),
+      row("chat:agno", "chat", "green"),
+      row("tools:agno", "tools", "red"),
+    ]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d4.tone).toBe("red");
+    expect(c.rollup).toBe("green");
+  });
+
+  it("d4 stale-green chat (older than the 1h window) → amber badge with stale tooltip", () => {
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const live = mapOf([
+      row("chat:agno", "chat", "green", {
+        observed_at: new Date(
+          NOW - (D4_STALE_AFTER_MS + 60 * 60 * 1000),
+        ).toISOString(),
+      }),
+    ]);
+    const c = resolveCell(live, "agno", "agentic-chat", { now: NOW });
+    expect(c.d4.tone).toBe("amber");
+    expect(c.d4.tooltip).toContain("stale");
+  });
+
+  it("d4 falls through to gray '?' when chat/tools rows are absent", () => {
+    const c = resolveCell(mapOf([]), "agno", "agentic-chat");
+    expect(c.d4.tone).toBe("gray");
+    expect(c.d4.label).toBe("?");
+    expect(c.d4.row).toBeNull();
+  });
+
   it("d5 / d6 do NOT contribute to the rollup (informational only)", () => {
     // Mirrors smoke's post-Phase-3 behaviour: a red d5/d6 row alone must
     // not flip the cell's rollup to red — the alert engine routes those
@@ -623,13 +965,13 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
 
   // ── unmapped feature: no direct-key fallback (mirrors cell-model.ts
   //    resolveD5 / depth-utils.ts isD5Green) ──
-  // A feature NOT in CATALOG_TO_D5_KEY has no CV test, so its D5 badge must
+  // A feature NOT in CATALOG_TO_D5_KEY has no 1P test, so its D5 badge must
   // be gray "?" even when a direct `d5:<slug>/<featureId>` row exists in the
   // map. Pre-fix, resolveD5Row fell back to the direct key and rendered the
   // row's tone (green), contradicting the coverage chip (resolveD5 returns
   // exists:false) and deriveDepth (isD5Green returns false). The fallback was
   // removed from isD5Green because it "could resolve true from stale/shared
-  // PB rows, granting D5 to cells without CV tests" — resolveD5Row must match.
+  // PB rows, granting D5 to cells without 1P tests" — resolveD5Row must match.
   it("d5 unmapped feature: present direct-key row does NOT render green (matches chip)", () => {
     // `some-unmapped-feature` is intentionally absent from CATALOG_TO_D5_KEY.
     const live = mapOf([row("d5:agno/some-unmapped-feature", "d5", "green")]);
@@ -829,6 +1171,45 @@ describe("resolveCell — staleness downgrade (unification A)", () => {
   });
 });
 
+describe("resolveD5Row / resolveD6Row — effective (stale-downgraded) winner (G2f)", () => {
+  const NOW = Date.parse("2026-05-30T00:00:00Z");
+  const staleAt = new Date(
+    NOW - E2E_STALE_AFTER_MS - 60 * 60 * 1000,
+  ).toISOString();
+  const freshAt = new Date(NOW).toISOString();
+
+  it("resolveD5Row returns the EFFECTIVE row for a stale-green winner (.row.state agrees with the fold)", () => {
+    // The fold ranks the stale-green sub-row as degraded, but the resolver
+    // used to store the RAW row — a consumer reading .state saw a latent
+    // false-green that contradicted the rank that made it the winner.
+    // Mirrors cell-model.ts resolveD5's effective-row storage.
+    const live = mapOf([
+      row("d5:agno/agentic-chat", "d5", "green", { observed_at: staleAt }),
+    ]);
+    const r = resolveD5Row(live, "agno", "agentic-chat", NOW);
+    expect(r?.state).toBe("degraded");
+    // Producer fields preserved by the spread (drilldown metadata intact).
+    expect(r?.key).toBe("d5:agno/agentic-chat");
+    expect(r?.observed_at).toBe(staleAt);
+  });
+
+  it("resolveD6Row returns the EFFECTIVE row for a stale-green winner", () => {
+    const live = mapOf([
+      row("d6:agno/agentic-chat", "d6", "green", { observed_at: staleAt }),
+    ]);
+    const r = resolveD6Row(live, "agno", "agentic-chat", NOW);
+    expect(r?.state).toBe("degraded");
+  });
+
+  it("a fresh winner row passes through by reference, unmodified", () => {
+    const fresh = row("d5:agno/agentic-chat", "d5", "green", {
+      observed_at: freshAt,
+    });
+    const live = mapOf([fresh]);
+    expect(resolveD5Row(live, "agno", "agentic-chat", NOW)).toBe(fresh);
+  });
+});
+
 describe("formatTooltip behaviour (via resolveCell)", () => {
   it("degraded tooltip drops the hardcoded '>6h' threshold (LS2)", () => {
     const live = mapOf([
@@ -858,6 +1239,83 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
       `last seen @ ${formatTs("2026-04-22T08:00:00Z")}`,
     );
     expect(c.e2e.tooltip).not.toContain("last pass");
+  });
+
+  it("a FRESH producer-emitted degraded row says 'degraded', not 'stale' (G2f)", () => {
+    // The producer genuinely emitted `degraded` on a recent tick: labeling
+    // that "stale" told operators the row had stopped updating when the
+    // signal is actually fresh-and-degraded. The stale copy is reserved for
+    // rows that fail the SAME staleness check the badge tone uses.
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const freshTs = new Date(NOW - 60 * 1000).toISOString();
+    const live = mapOf([
+      row("e2e:a/b", "e2e", "degraded", {
+        observed_at: freshTs,
+        transitioned_at: freshTs,
+      }),
+    ]);
+    const c = resolveCell(live, "a", "b", { now: NOW });
+    expect(c.e2e.tooltip).toContain("degraded since");
+    expect(c.e2e.tooltip).not.toContain("stale");
+  });
+
+  it("an age-downgraded green row keeps the 'stale — last seen' copy (G2f)", () => {
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const oldTs = new Date(
+      NOW - E2E_STALE_AFTER_MS - 60 * 60 * 1000,
+    ).toISOString();
+    const live = mapOf([
+      row("e2e:a/b", "e2e", "green", { observed_at: oldTs }),
+    ]);
+    const c = resolveCell(live, "a", "b", { now: NOW });
+    expect(c.e2e.tone).toBe("amber");
+    expect(c.e2e.tooltip).toContain(`stale — last seen @ ${formatTs(oldTs)}`);
+  });
+
+  // The health LABEL must honor the same staleness split as the tooltip —
+  // formatLabel hardcoding "stale" for every degraded health row contradicted
+  // the "degraded since …" tooltip on a fresh producer-emitted degradation.
+  it("a FRESH producer-emitted degraded health row labels 'degraded', not 'stale'", () => {
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const freshTs = new Date(NOW - 60 * 1000).toISOString();
+    const live = mapOf([
+      row("health:a", "health", "degraded", {
+        observed_at: freshTs,
+        transitioned_at: freshTs,
+      }),
+    ]);
+    const c = resolveCell(live, "a", "b", { now: NOW });
+    expect(c.health.label).toBe("degraded");
+    expect(c.health.tooltip).toContain("degraded since");
+  });
+
+  it("a degraded health row that stopped updating keeps the 'stale' label", () => {
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const oldTs = new Date(
+      NOW - LIVENESS_STALE_AFTER_MS - 60 * 1000,
+    ).toISOString();
+    const live = mapOf([
+      row("health:a", "health", "degraded", {
+        observed_at: oldTs,
+        transitioned_at: oldTs,
+      }),
+    ]);
+    const c = resolveCell(live, "a", "b", { now: NOW });
+    expect(c.health.label).toBe("stale");
+    expect(c.health.tooltip).toContain("stale — last seen");
+  });
+
+  it("an age-downgraded green health row labels 'stale' (the row froze while green)", () => {
+    const NOW = Date.parse("2026-05-30T00:00:00Z");
+    const oldTs = new Date(
+      NOW - LIVENESS_STALE_AFTER_MS - 60 * 1000,
+    ).toISOString();
+    const live = mapOf([
+      row("health:a", "health", "green", { observed_at: oldTs }),
+    ]);
+    const c = resolveCell(live, "a", "b", { now: NOW });
+    expect(c.health.tone).toBe("amber");
+    expect(c.health.label).toBe("stale");
   });
 
   it("red tooltip surfaces non-empty signal summary (LS8)", () => {

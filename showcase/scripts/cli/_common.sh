@@ -43,11 +43,12 @@ require_env() {
 # ── Docker / Compose helpers ─────────────────────────────────────────────────
 
 stage_shared() {
-  # Dereference tools/ and shared-tools/ symlinks into real copies so Docker
-  # COPY can follow them (Docker build contexts can't traverse symlinks that
-  # point outside the context).
+  # Dereference tools/, shared-tools/, and _shared/ symlinks into real copies
+  # so Docker COPY can follow them (Docker build contexts can't traverse
+  # symlinks that point outside the context). `_shared` carries the
+  # single-source CVDIAG bootstrap module into each Python integration context.
   for pkg_dir in "$SHOWCASE_ROOT"/integrations/*/; do
-    for link_name in tools shared-tools; do
+    for link_name in tools shared-tools _shared; do
       local link_path="$pkg_dir/$link_name"
       if [ -L "$link_path" ]; then
         local target
@@ -66,8 +67,10 @@ stage_shared() {
 }
 
 restore_symlinks() {
-  # Restore tools/ and shared-tools/ symlinks replaced by stage_shared.
-  (cd "$SHOWCASE_ROOT" && git checkout -- integrations/*/tools integrations/*/shared-tools 2>/dev/null || true)
+  # Restore tools/, shared-tools/, and _shared/ symlinks replaced by
+  # stage_shared. The integrations/*/_shared glob also matches the canonical
+  # source dir integrations/_shared (a real tracked dir) — harmless no-op there.
+  (cd "$SHOWCASE_ROOT" && git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared 2>/dev/null || true)
 }
 
 slug_to_container() {
@@ -149,6 +152,8 @@ ISOLATE_STALE_THRESHOLD=7200  # 2 hours in seconds — slot-age fallback
 # disable stale reaping for the full 2-hour SLOT threshold — give the lock its
 # own, much shorter staleness threshold.
 ISOLATE_SWEEP_LOCK_STALE_THRESHOLD=60  # seconds
+# Maximum slot index for --isolate (0 reserved for base stack; 1..N for isolated runs).
+ISOLATE_MAX_SLOT=45
 
 # _file_mtime <path> — epoch mtime of a path, or empty when it cannot be
 # stat'ed (vanished concurrently, permissions). Callers must treat a
@@ -252,9 +257,12 @@ _release_sweep_lock() {
   fi
 }
 
-# Claim an isolation slot using atomic mkdir. Slots start at 0 and increment.
-# Each slot dir contains a "pid" file for stale-detection. The port offset is
-# (slot + 1) * 200, so slot 0 → +200, slot 1 → +400, etc.
+# Claim an isolation slot using atomic mkdir. Slots 1..ISOLATE_MAX_SLOT are
+# usable for --isolate runs; slot 0 is reserved for the base (non-isolate)
+# stack. Each slot dir contains a "pid" file for stale-detection. The port
+# offset is (slot + 1) * 200, so slot 1 → +400, slot 2 → +600, etc. If
+# SHOWCASE_ISO_SLOT is set, the picker pins to that slot; otherwise it
+# auto-picks the first free slot in 1..ISOLATE_MAX_SLOT.
 _claim_isolate_slot() {
   mkdir -p "$ISOLATE_SLOT_DIR"
 
@@ -337,20 +345,140 @@ _claim_isolate_slot() {
     _release_sweep_lock "$sweep_lock"
   fi
 
-  # Claim the first available slot (mkdir is atomic — if it succeeds, we own it)
-  local n=0
-  while true; do
-    if mkdir "$ISOLATE_SLOT_DIR/$n" 2>/dev/null; then
-      ISOLATE_SLOT="$n"
-      echo "$$" > "$ISOLATE_SLOT_DIR/$n/pid"
-      ISOLATE_PORT_OFFSET=$(( (n + 1) * 200 ))
+  if [ -n "${SHOWCASE_ISO_SLOT:-}" ]; then
+    # Pinned path
+    local pinned="$SHOWCASE_ISO_SLOT"
+    [[ "$pinned" =~ ^[0-9]+$ ]] || die "SHOWCASE_ISO_SLOT must be a positive integer, got: $pinned"
+    [ "$pinned" -ge 1 ] || die "slot 0 is reserved for the base stack — use 1-$ISOLATE_MAX_SLOT"
+    [ "$pinned" -le "$ISOLATE_MAX_SLOT" ] || die "SHOWCASE_ISO_SLOT=$pinned exceeds ISOLATE_MAX_SLOT=$ISOLATE_MAX_SLOT"
+
+    local slot_dir="$ISOLATE_SLOT_DIR/$pinned"
+    if mkdir "$slot_dir" 2>/dev/null; then
+      :   # fresh claim, fall through to port probe
+    else
+      # EEXIST: consult liveness
+      local liveness
+      liveness=$(_slot_liveness "$pinned")
+      if [ "$liveness" = "live" ]; then
+        # Identify the live axis for the message
+        local axis="containers/pid"
+        die "Slot $pinned is already in use (liveness=$liveness, $axis) — pick a different SHOWCASE_ISO_SLOT or clear it first"
+      fi
+      # stale or inconclusive: reap and retry once
+      local pinned_entry="$ISOLATE_SLOT_DIR/$pinned"
+      local pinned_proj
+      pinned_proj="$(cat "$pinned_entry/project" 2>/dev/null || true)"
+      _reap_isolate_slot "$pinned_entry" "$pinned_proj" || true
+      mkdir "$slot_dir" 2>/dev/null || die "Slot $pinned could not be reclaimed after reap — check $slot_dir manually"
+    fi
+    # Port-probe
+    if ! _slot_ports_free "$pinned"; then
+      rmdir "$slot_dir" 2>/dev/null || true
+      die "Slot $pinned ports are held by a foreign process — see info messages above; clear conflicts or pick a different SHOWCASE_ISO_SLOT"
+    fi
+    ISOLATE_SLOT="$pinned"
+  else
+    # Auto-pick path: loop 1..ISOLATE_MAX_SLOT (slot 0 reserved)
+    local n=1
+    while [ "$n" -le "$ISOLATE_MAX_SLOT" ]; do
+      local slot_dir="$ISOLATE_SLOT_DIR/$n"
+      if mkdir "$slot_dir" 2>/dev/null; then
+        if _slot_ports_free "$n"; then
+          ISOLATE_SLOT="$n"
+          break
+        else
+          rmdir "$slot_dir" 2>/dev/null || true
+          info "Slot $n ports held, trying next"
+          # Benign race: between our rmdir and the next iteration's mkdir attempt, a concurrent
+          # claimant can mkdir this same slot dir. That's fine — mkdir is the
+          # atomic synchronization point, so only one process can hold a given
+          # slot at a time. The concurrent claimant wins; we advance to n+1 and
+          # no double-claim occurs. Port-probe and ownership-write (pid file) are
+          # also per-slot, so there is no cross-claimant corruption under load.
+        fi
+      fi
+      n=$((n + 1))
+    done
+    [ -n "${ISOLATE_SLOT:-}" ] || die "No isolation slots available (1-$ISOLATE_MAX_SLOT exhausted)"
+  fi
+
+  # Common post-claim
+  echo "$$" > "$ISOLATE_SLOT_DIR/$ISOLATE_SLOT/pid"
+  ISOLATE_PORT_OFFSET=$(( (ISOLATE_SLOT + 1) * 200 ))
+  return 0
+}
+
+# Classify a single isolation slot as live | stale | inconclusive — pure
+# classification, no reaping, no info logging. Shared between
+# _sweep_isolate_slots (which reaps stale slots) and the picker (which avoids
+# binding to live slots). Always prints exactly one word to stdout and exits 0.
+#
+# Signals (in order, matching the sweeper's documented staleness contract):
+#   1. Compose-project liveness — live containers under the slot's recorded
+#      compose project → live. Docker-ps failure → inconclusive (warn and
+#      leave it alone, same as the sweeper).
+#   2. Owning-PID liveness — pid file present + numeric + kill -0 succeeds
+#      → live. Numeric pid but kill -0 fails → stale.
+#   3. Project recorded + no pid file at all → stale (claim writes the pid
+#      file BEFORE the project record, so missing pid means owner state is
+#      genuinely gone).
+#   4. Age fallback — pid check inconclusive (pid file missing on a
+#      project-less legacy slot, OR present-but-empty/non-numeric on any
+#      slot) AND age > ISOLATE_STALE_THRESHOLD → stale.
+#   5. Otherwise → inconclusive (slot dir vanished mid-check, fresh slot
+#      whose pid write hasn't landed yet, etc.).
+_slot_liveness() {
+  local slot="${1:?slot required}"
+  local slot_entry="$ISOLATE_SLOT_DIR/$slot"
+  if [ ! -d "$slot_entry" ]; then
+    printf 'inconclusive\n'
+    return 0
+  fi
+  local slot_proj has_proj=false
+  slot_proj="$(cat "$slot_entry/project" 2>/dev/null || true)"
+  if [ -n "$slot_proj" ]; then
+    has_proj=true
+    local live_containers
+    if ! live_containers="$(docker ps -q --filter "label=com.docker.compose.project=$slot_proj" 2>/dev/null)"; then
+      warn "Cannot verify liveness of slot $slot (docker ps failed) — leaving it alone"
+      printf 'inconclusive\n'
       return 0
     fi
-    n=$((n + 1))
-    if [ "$n" -gt 45 ]; then
-      die "No isolation slots available (0-45 exhausted). Check $ISOLATE_SLOT_DIR/"
+    if [ -n "$live_containers" ]; then
+      printf 'live\n'
+      return 0
     fi
-  done
+  fi
+  local slot_pid_file="$slot_entry/pid"
+  local slot_pid="" pid_file_present=false
+  if [ -f "$slot_pid_file" ]; then
+    pid_file_present=true
+    slot_pid="$(cat "$slot_pid_file" 2>/dev/null || true)"
+  fi
+  if [[ "$slot_pid" =~ ^[0-9]+$ ]]; then
+    if kill -0 "$slot_pid" 2>/dev/null; then
+      printf 'live\n'
+      return 0
+    fi
+    printf 'stale\n'
+    return 0
+  fi
+  if [ "$has_proj" = true ] && [ "$pid_file_present" = false ]; then
+    printf 'stale\n'
+    return 0
+  fi
+  local slot_mtime
+  slot_mtime="$(_file_mtime "$slot_entry")"
+  if [[ "$slot_mtime" =~ ^[0-9]+$ ]]; then
+    local slot_age
+    slot_age=$(( $(date +%s) - slot_mtime ))
+    if [ "$slot_age" -gt "$ISOLATE_STALE_THRESHOLD" ]; then
+      printf 'stale\n'
+      return 0
+    fi
+  fi
+  printf 'inconclusive\n'
+  return 0
 }
 
 # Sweep stale slots. Caller (_claim_isolate_slot) MUST hold .sweep.lock.
@@ -397,22 +525,21 @@ _sweep_isolate_slots() {
     [ -d "$sweep_lock" ] && touch -c "$sweep_lock" 2>/dev/null || true
     local slot_name
     slot_name="$(basename "$slot_entry")"
+    local liveness
+    liveness="$(_slot_liveness "$slot_name")"
+    if [ "$liveness" = "live" ] || [ "$liveness" = "inconclusive" ]; then
+      # `live` → in use (running containers or live owning PID). `inconclusive`
+      # → docker-ps failure (already warned by _slot_liveness), or a slot dir
+      # that vanished mid-check, or a fresh-but-not-yet-aged slot whose pid
+      # write hasn't landed. Either way: leave it alone.
+      continue
+    fi
+    # Stale. Re-derive the evidence to emit the exact reason in the info line
+    # before reaping. The reads here mirror _slot_liveness — kept in the
+    # sweeper so the helper stays purely classifying.
     local slot_proj has_proj=false
     slot_proj="$(cat "$slot_entry/project" 2>/dev/null || true)"
-    if [ -n "$slot_proj" ]; then
-      has_proj=true
-      local live_containers
-      if ! live_containers="$(docker ps -q --filter "label=com.docker.compose.project=$slot_proj" 2>/dev/null)"; then
-        warn "Cannot verify liveness of slot $slot_name (docker ps failed) — leaving it alone"
-        continue
-      fi
-      if [ -n "$live_containers" ]; then
-        # Live containers → in use (covers --keep'd stacks whose owner exited).
-        continue
-      fi
-      # Zero live containers is inconclusive (project file is written before
-      # the containers start) — fall through to the owning-PID check.
-    fi
+    [ -n "$slot_proj" ] && has_proj=true
     local slot_pid_file="$slot_entry/pid"
     local slot_pid="" pid_file_present=false
     if [ -f "$slot_pid_file" ]; then
@@ -420,10 +547,6 @@ _sweep_isolate_slots() {
       slot_pid="$(cat "$slot_pid_file" 2>/dev/null || true)"
     fi
     if [[ "$slot_pid" =~ ^[0-9]+$ ]]; then
-      if kill -0 "$slot_pid" 2>/dev/null; then
-        # Live owning PID always protects the slot.
-        continue
-      fi
       info "Attempting to reclaim stale slot $slot_name (PID $slot_pid dead)"
       _reap_isolate_slot "$slot_entry" "$slot_proj"
       continue
@@ -476,12 +599,164 @@ _release_isolate_slot() {
   ISOLATE_SLOT=""
 }
 
+# Print every host port that the given isolation slot will bind, one per line.
+# Includes all slug ports from PORTS_FILE and the four infra base ports.
+# Each output port = base + (slot+1)*200.
+_slot_offset_ports() {
+  local slot="${1:?slot required}"
+
+  # Validate: must be a non-negative integer
+  if ! printf '%s' "$slot" | grep -qE '^[0-9]+$'; then
+    die "_slot_offset_ports: slot must be a non-negative integer, got: $slot"
+  fi
+  if [ "$slot" -gt "$ISOLATE_MAX_SLOT" ]; then
+    die "_slot_offset_ports: slot $slot exceeds ISOLATE_MAX_SLOT ($ISOLATE_MAX_SLOT)"
+  fi
+
+  local offset=$(( (slot + 1) * 200 ))
+  local infra_ports=(4010 8090 3210 8081)
+
+  # Slug ports from PORTS_FILE
+  local port_values
+  if command -v jq &>/dev/null; then
+    port_values="$(jq -r 'to_entries[] | .value' "$PORTS_FILE" 2>/dev/null)"
+  else
+    port_values="$(grep -o '"[^"]*"[[:space:]]*:[[:space:]]*[0-9]*' "$PORTS_FILE" | sed 's/.*:[[:space:]]*//')"
+  fi
+
+  while IFS= read -r base; do
+    [ -z "$base" ] && continue
+    printf '%d\n' $(( base + offset ))
+  done <<< "$port_values"
+
+  # Infra ports
+  for base in "${infra_ports[@]}"; do
+    printf '%d\n' $(( base + offset ))
+  done
+}
+
+# _slot_ports_free <slot> — probe every port the slot would bind for non-self
+# listeners. Returns 0 if all ports are free (or only held by this slot's own
+# compose project), 1 if any port is held by a foreign process. Emits one
+# `info` line per held port. Requires lsof (matches cmd-doctor.sh convention).
+_slot_ports_free() {
+  local slot="${1:?slot required}"
+  if ! command -v lsof &>/dev/null; then
+    die "--isolate requires lsof; install it"
+  fi
+
+  local slot_proj=""
+  local slot_proj_file="$ISOLATE_SLOT_DIR/$slot/project"
+  if [ -f "$slot_proj_file" ]; then
+    slot_proj="$(cat "$slot_proj_file" 2>/dev/null || true)"
+  fi
+
+  local liveness=""
+  local any_held=0
+  local port
+  while IFS= read -r port; do
+    [ -z "$port" ] && continue
+    local listeners
+    listeners="$(lsof -i :"$port" -sTCP:LISTEN -P -n 2>/dev/null | tail -n +2 || true)"
+    [ -z "$listeners" ] && continue
+
+    local line
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      local proc_name
+      proc_name="$(printf '%s\n' "$line" | awk '{print $1}')"
+      # Own-project filter: a docker/com.docker listener on a slot whose own
+      # compose project is recorded and live is treated as the slot's own
+      # binding, not a foreign hold.
+      if printf '%s' "$proc_name" | grep -qiE 'docker|com\.docker'; then
+        if [ -n "$slot_proj" ]; then
+          if [ -z "$liveness" ]; then
+            liveness="$(_slot_liveness "$slot")"
+          fi
+          if [ "$liveness" = "live" ]; then
+            continue
+          fi
+        fi
+      fi
+      info "Slot $slot port $port held by $proc_name"
+      any_held=1
+    done <<< "$listeners"
+  done < <(_slot_offset_ports "$slot")
+
+  if [ "$any_held" -eq 0 ]; then
+    return 0
+  fi
+  return 1
+}
+
+# _slot_state <slot> — emit one pipe-delimited line describing the slot:
+#   slot|dir|pid|liveness|ports|offset|project
+# Always exits 0. For an absent slot dir, ports is "-" (no probe) to keep the
+# `bin/showcase slots` table tidy.
+_slot_state() {
+  local slot="${1:?slot required}"
+  local slot_entry="$ISOLATE_SLOT_DIR/$slot"
+
+  local dir="absent"
+  [ -d "$slot_entry" ] && dir="present"
+
+  local pid="-"
+  if [ -f "$slot_entry/pid" ]; then
+    local raw_pid
+    raw_pid="$(cat "$slot_entry/pid" 2>/dev/null || true)"
+    if [[ "$raw_pid" =~ ^[0-9]+$ ]]; then
+      pid="$raw_pid"
+    fi
+  fi
+
+  local project="-"
+  if [ -f "$slot_entry/project" ]; then
+    local raw_proj
+    raw_proj="$(cat "$slot_entry/project" 2>/dev/null || true)"
+    if [ -n "$raw_proj" ]; then
+      project="$raw_proj"
+    fi
+  fi
+
+  local liveness
+  liveness="$(_slot_liveness "$slot")"
+
+  local ports="-"
+  if [ "$dir" = "present" ]; then
+    if ! command -v lsof >/dev/null 2>&1; then
+      ports="?"
+    elif _slot_ports_free "$slot" >/dev/null 2>&1; then
+      ports="free"
+    else
+      ports="held"
+    fi
+  fi
+
+  local offset
+  if [ "$slot" = "0" ]; then
+    offset=0
+  else
+    offset=$(( (slot + 1) * 200 ))
+  fi
+
+  printf '%s|%s|%s|%s|%s|%s|%s\n' \
+    "$slot" "$dir" "$pid" "$liveness" "$ports" "$offset" "$project"
+  return 0
+}
+
 # Contract: callers MUST arm `trap restore_isolation EXIT` BEFORE calling this
 # function (cmd-test.sh does). Every die() below — invalid name, slot
 # exhaustion, duplicate-name conflict, rewriter failure — relies on that trap
 # for cleanup of the claimed slot (and, once created, the runs/<name> dir).
 apply_isolation() {
   local name="${1:-}"
+  # Slug the run is scoped to (from `showcase test <slug>`). Used below to
+  # override the persistent stack's hardcoded LOCAL_SERVICES_JSON — that value
+  # points at langgraph-python's agentic-chat cell for fast N=1 local demos, so
+  # an iso stack for a DIFFERENT slug would inherit the wrong roster and the
+  # harness's railway-services local-injection seam would enumerate the wrong
+  # service (discovery.railway-services.local-injection count:1 names:["showcase-langgraph-python"]).
+  local slug="${2:-}"
   # NB: ISOLATE_ACTIVE is deliberately NOT set here. cmd-test.sh arms
   # `trap restore_isolation EXIT` BEFORE calling this function, so if we
   # flipped it true before COMPOSE_CMD is repointed at the isolated project,
@@ -622,8 +897,11 @@ with open('$tmp_ports', 'w') as f:
 
   # Generate offset compose file in the temp dir
   local tmp_compose="$ISOLATE_TMPDIR/docker-compose.local.yml"
-  python3 -c "
-import re
+  # Pass slug via env var instead of bash-interpolating into the python
+  # source — a slug containing a single quote would break the python literal.
+  # Internal-tool risk only (slug is developer-typed), but cheap to harden.
+  SHOWCASE_ISO_SLUG="$slug" python3 -c "
+import os, re
 with open('$COMPOSE_FILE') as f:
     content = f.read()
 
@@ -664,6 +942,54 @@ content = re.sub(r'(\s+-\s+)\./([^:\n]+:)', lambda m: _abs(m.group(1), m.group(2
 # env_file: .env            →  <showcase>/.env
 content = re.sub(r'(\s+env_file:\s+)\.env(\b)', lambda m: m.group(1) + ROOT + '/.env' + m.group(2), content)
 
+# Per-slug LOCAL_SERVICES_JSON override. The persistent stack hardcodes the
+# roster to langgraph-python's agentic-chat (a fast N=1 local-demo default).
+# An iso stack scoped to a DIFFERENT slug would inherit that value and the
+# harness's railway-services local-injection seam would enumerate the wrong
+# service. Rewrite the line to point at the requested slug. Demos are sourced
+# from the slug's manifest.yaml; if absent or unparseable, fall back to the
+# representative d5 cell ('agentic-chat') so the iso run still targets the
+# right container — just with a narrower demo set than d6 would normally use.
+SLUG = os.environ.get('SHOWCASE_ISO_SLUG', '')
+if SLUG:
+    import json as _json
+    _os = os
+    demos = []
+    for _mp in (
+        _osp.join(ROOT, 'integrations', SLUG, 'manifest.yaml'),
+        _osp.join(ROOT, 'packages', SLUG, 'manifest.yaml'),
+    ):
+        if _os.path.exists(_mp):
+            with open(_mp) as _mf:
+                _in_demos = False
+                for _line in _mf:
+                    _stripped = _line.rstrip('\n')
+                    if re.match(r'^demos:\s*$', _stripped):
+                        _in_demos = True
+                        continue
+                    if _in_demos:
+                        if re.match(r'^\S', _stripped):
+                            break
+                        _m = re.match(r'^\s+-\s+id:\s*[\"\']?([A-Za-z0-9_\-]+)', _stripped)
+                        if _m:
+                            demos.append(_m.group(1))
+            break
+    if not demos:
+        demos = ['agentic-chat']
+    _override = _json.dumps([{
+        'name': f'showcase-{SLUG}',
+        'publicUrl': f'http://{SLUG}:10000',
+        'demos': demos,
+    }])
+    # Replace the entire folded-scalar LOCAL_SERVICES_JSON=[...] payload line.
+    # docker-compose.local.yml writes it as:  '        LOCAL_SERVICES_JSON=[...]'
+    content = re.sub(
+        r'(^\s+)LOCAL_SERVICES_JSON=\[[^\n]*\]',
+        lambda m: m.group(1) + 'LOCAL_SERVICES_JSON=' + _override,
+        content,
+        flags=re.MULTILINE,
+    )
+
 with open('$tmp_compose', 'w') as f:
     f.write(content)
 "
@@ -681,7 +1007,7 @@ with open('$tmp_compose', 'w') as f:
   # Export for the TS harness CLI (config.ts / lifecycle.ts honor these).
   # Without SHOWCASE_COMPOSE_FILE the harness hardcodes the default compose
   # path, causing container-name collisions on a second concurrent --isolate.
-  # SHOWCASE_INFRA_PORT_OFFSET shifts the hardcoded :4010/:8090/:3200 health
+  # SHOWCASE_INFRA_PORT_OFFSET shifts the hardcoded :4010/:8090/:3210 health
   # checks onto the isolated stack's offset host ports (otherwise the harness
   # would silently report the DEFAULT-project aimock/pocketbase as healthy).
   export LOCAL_PORTS_FILE="$tmp_ports"
@@ -690,9 +1016,9 @@ with open('$tmp_compose', 'w') as f:
 
   # Offset host-side URLs so any harness code referencing config.aimockUrl /
   # dashboardUrl / pocketbase.url talks to THIS project's instances (not the
-  # default :4010 / :3200 / :8090).
+  # default :4010 / :3210 / :8090).
   local aimock_host_port=$(( 4010 + ISOLATE_PORT_OFFSET ))
-  local dashboard_host_port=$(( 3200 + ISOLATE_PORT_OFFSET ))
+  local dashboard_host_port=$(( 3210 + ISOLATE_PORT_OFFSET ))
   local pocketbase_host_port=$(( 8090 + ISOLATE_PORT_OFFSET ))
   export AIMOCK_URL_LOCAL="http://localhost:${aimock_host_port}"
   export DASHBOARD_URL_LOCAL="http://localhost:${dashboard_host_port}"
@@ -739,7 +1065,7 @@ restore_isolation() {
     # everything needed to reach and later tear down the stack by hand.
     if [ "${ISOLATE_KEEP:-false}" = true ]; then
       local aimock_host_port=$(( 4010 + ISOLATE_PORT_OFFSET ))
-      local dashboard_host_port=$(( 3200 + ISOLATE_PORT_OFFSET ))
+      local dashboard_host_port=$(( 3210 + ISOLATE_PORT_OFFSET ))
       local pocketbase_host_port=$(( 8090 + ISOLATE_PORT_OFFSET ))
       info "Kept isolated group standing: project=$ISOLATE_NAME slot=$ISOLATE_SLOT"
       info "  aimock:     http://localhost:${aimock_host_port}"

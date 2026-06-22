@@ -3,13 +3,14 @@
     "description": "D6 fixtures for claude-sdk-typescript / tool-rendering",
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "_shape_note": "claude-sdk-typescript calls the Anthropic /v1/messages shape: tool results arrive as user-role tool_result blocks with no text, so follow-up legs MUST be keyed on toolCallId (plus context) WITHOUT userMessage, and turnIndex (assistant count) gates break in multi-pill d6 sessions. LOOP SAFETY COMES FROM FIXTURE ORDERING, NOT FROM USER TEXT BEING ABSENT: aimock's claudeToCompletionRequest re-emits the original pill prompt as a role:'user' message every leg (see showcase/aimock/src/messages.ts lines 142-146), so getLastMessageByRole('user') still returns the pill text on follow-ups — a userMessage-only emit fixture would re-match and re-emit toolCalls forever (503 / infinite loop). Two things prevent that: (1) toolCallId matchers self-gate on `last message is role:tool with this exact tool_call_id` (see router.ts lines 170-177), so they ONLY hit follow-up legs; and (2) toolCallId-keyed follow-up fixtures MUST appear BEFORE the userMessage-keyed emit fixture in this file — matchFixture iterates in array order and returns the first match. If you reorder so an emit fixture lands first, or you drop a follow-up fixture, the pill loops. Aligned 2026-06-11; the previous userMessage+toolCallId / turnIndex:0 keying (copied from langgraph-python's OpenAI-shape fixtures) never matched the follow-up legs and 503'd every multi-leg tool loop.",
+    "updated": "2026-06-11"
   },
   "fixtures": [
     {
       "_comment": "tool-rendering pill: Chain tools — follow-up after all 3 tools ran. Matches whichever of the 3 chain-tools tool_call_ids appears last in the request (LangGraph's ToolNode preserves tool_calls order, so roll_d20 is typically last; we register all 3 for safety). MUST come before the toolCalls-emitting fixture below so iteration 2 of the chain-tools loop hits this branch instead of re-emitting.",
       "match": {
-        "userMessage": "Chain a few tools in this single turn",
         "toolCallId": "call_tr_chain_roll_001",
         "context": "claude-sdk-typescript"
       },
@@ -19,7 +20,6 @@
     },
     {
       "match": {
-        "userMessage": "Chain a few tools in this single turn",
         "toolCallId": "call_tr_chain_flights_001",
         "context": "claude-sdk-typescript"
       },
@@ -29,7 +29,6 @@
     },
     {
       "match": {
-        "userMessage": "Chain a few tools in this single turn",
         "toolCallId": "call_tr_chain_weather_001",
         "context": "claude-sdk-typescript"
       },
@@ -41,7 +40,6 @@
       "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "turnIndex": 0,
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -67,7 +65,6 @@
     {
       "_comment": "tool-rendering pill: Weather in SF — follow-up content after get_weather tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting. toolCallId chain keeps the fixture stateless across multi-pill thread history (hasToolResult breaks when a prior pill left tool results in the thread).",
       "match": {
-        "userMessage": "What's the weather in San Francisco?",
         "toolCallId": "call_tr_weather_sf_001",
         "context": "claude-sdk-typescript"
       },
@@ -78,7 +75,6 @@
     {
       "match": {
         "userMessage": "What's the weather in San Francisco?",
-        "turnIndex": 0,
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -94,7 +90,6 @@
     {
       "_comment": "tool-rendering pill: Find flights — second leg (after search_flights tool result). MUST come BEFORE the first-leg fixture below — the matcher is first-match-wins, and the second leg is uniquely identified by `toolCallId` (last message is a tool with this id), so it cannot accidentally swallow the first-leg request (whose last message is the user prompt). Must also take precedence over the a2ui beautiful-chat fixture below (which uses the same tool name with non-flight-list args shape).",
       "match": {
-        "userMessage": "Find flights from SFO to JFK.",
         "toolCallId": "call_tr_flights_sfo_jfk_001",
         "context": "claude-sdk-typescript"
       },
@@ -103,41 +98,30 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Stock price — follow-up content after get_stock_price tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting an infinite loop of tool calls.",
+      "_comment": "Find flights — first leg: emit search_flights tool call (mirrors the spring-ai/langgraph-python twins). Gated on toolName:search_flights (same pattern as the sibling weather/d20/chain first-leg fixtures) rather than turnIndex/hasToolResult, both of which are unreliable on the Anthropic /v1/messages shape (no tool role; tool results live in user content blocks). Without this fixture the pill's first request had no match → RUN_ERROR. The toolCallId follow-up fixture above still wins on iteration 2 (last message is a user tool_result block with this id), so this fixture only emits on the first leg.",
       "match": {
-        "userMessage": "What's the current price of AAPL?",
-        "toolCallId": "call_tr_stock_aapl_001",
-        "context": "claude-sdk-typescript"
-      },
-      "response": {
-        "content": "AAPL is trading at $338.37, down 2.96% on the day."
-      }
-    },
-    {
-      "_comment": "Stock price — follow-up content fallback for multi-pill sessions (chat/responses shape). The toolCallId chain above misses when get_stock_price is preceded by a PRIOR pill's tool result. Anchored on hasToolResult:true; carries no toolCalls so it is loop-safe. MUST precede the tool-emit fixtures below.",
-      "match": {
-        "userMessage": "What's the current price of AAPL?",
-        "hasToolResult": true,
-        "context": "claude-sdk-typescript"
-      },
-      "response": {
-        "content": "AAPL is trading at $338.37, down 2.96% on the day."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "What's the current price of AAPL?",
-        "turnIndex": 0,
+        "userMessage": "Find flights from SFO to JFK.",
+        "toolName": "search_flights",
         "context": "claude-sdk-typescript"
       },
       "response": {
         "toolCalls": [
           {
-            "id": "call_tr_stock_aapl_001",
-            "name": "get_stock_price",
-            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+            "id": "call_tr_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Stock price — follow-up content after get_stock_price tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting an infinite loop of tool calls.",
+      "match": {
+        "toolCallId": "call_tr_stock_aapl_001",
+        "context": "claude-sdk-typescript"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
       }
     },
     {
@@ -159,7 +143,6 @@
     {
       "_comment": "tool-rendering pill: Roll a d20 — exactly 5 sequential roll_d20 calls returning [7, 14, 3, 19, 20]. Chained by toolCallId so the sequence is stateless across thread history (turnIndex/hasToolResult break in multi-pill demo sessions where prior clicks leave assistant/tool messages in the thread). Specific-toolCallId fixtures MUST come before the userMessage-only fixture below; first-match-wins.",
       "match": {
-        "userMessage": "Roll a 20-sided die.",
         "toolCallId": "call_tr_d20_seq_001",
         "context": "claude-sdk-typescript"
       },
@@ -175,7 +158,6 @@
     },
     {
       "match": {
-        "userMessage": "Roll a 20-sided die.",
         "toolCallId": "call_tr_d20_seq_002",
         "context": "claude-sdk-typescript"
       },
@@ -191,7 +173,6 @@
     },
     {
       "match": {
-        "userMessage": "Roll a 20-sided die.",
         "toolCallId": "call_tr_d20_seq_003",
         "context": "claude-sdk-typescript"
       },
@@ -207,7 +188,6 @@
     },
     {
       "match": {
-        "userMessage": "Roll a 20-sided die.",
         "toolCallId": "call_tr_d20_seq_004",
         "context": "claude-sdk-typescript"
       },
@@ -223,7 +203,6 @@
     },
     {
       "match": {
-        "userMessage": "Roll a 20-sided die.",
         "toolCallId": "call_tr_d20_seq_005",
         "context": "claude-sdk-typescript"
       },
@@ -235,7 +214,6 @@
       "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 0,
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -251,7 +229,6 @@
     {
       "_comment": "Follow-up content after get_weather (or get-weather Mastra alias) ran for Tokyo. Keyed on the prior tool's id so it fires after iteration 1 regardless of thread history. Must come BEFORE the tool-emitting fixtures so iteration 2 hits this branch instead of re-emitting get_weather.",
       "match": {
-        "userMessage": "weather in Tokyo",
         "toolCallId": "call_d5_get_weather_001",
         "context": "claude-sdk-typescript"
       },
@@ -300,7 +277,6 @@
       "_comment": "Final fallback when the agent has neither get_weather nor get-weather registered — return narrated content with no tool call. Comes last so the tool-emitting fixtures above win when the tool IS available.",
       "match": {
         "userMessage": "weather in Tokyo",
-        "turnIndex": 0,
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -309,7 +285,6 @@
     },
     {
       "match": {
-        "userMessage": "AAPL",
         "toolCallId": "call_d5_get_stock_price_001",
         "context": "claude-sdk-typescript"
       },
@@ -320,7 +295,6 @@
     {
       "match": {
         "userMessage": "AAPL",
-        "turnIndex": 0,
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -336,32 +310,15 @@
     {
       "match": {
         "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
-        "hasToolResult": false,
         "context": "claude-sdk-typescript"
       },
       "response": {
-        "toolCalls": [
-          {
-            "id": "call_d5_bc_search_flights_001",
-            "name": "search_flights",
-            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$349\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"price\":\"$289\"}]}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
-        "hasToolResult": true,
-        "context": "claude-sdk-typescript"
+        "content": "Two flights from SFO to JFK — United at $349 (departing 08:00) and Delta at $289 (departing 10:15), both on time."
       },
-      "response": {
-        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
-      }
+      "_comment": "beautiful-chat Search Flights pill — narration-only on this family: CST's beautiful-chat runtime proxies to the pass-through `/` mount and registers no search_flights handler anywhere (see the documented limitation in src/app/api/copilotkit-beautiful-chat/route.ts), so emitting a search_flights tool call stalls the run with no result and nothing ever renders. The d5 probe (assertSearchFlights) accepts the United/Delta/$349/$289 literals from either the FlightCard surface OR the assistant narration — serve the narration directly."
     },
     {
       "match": {
-        "userMessage": "SFO to JFK",
         "toolCallId": "call_d5_display_flight_001",
         "context": "claude-sdk-typescript"
       },
@@ -393,7 +350,6 @@
     },
     {
       "match": {
-        "userMessage": "poem about autumn leaves",
         "toolCallId": "call_d5_write_document_poem_001",
         "context": "claude-sdk-typescript"
       },
@@ -420,7 +376,6 @@
     },
     {
       "match": {
-        "userMessage": "polite email declining",
         "toolCallId": "call_d5_write_document_email_001",
         "context": "claude-sdk-typescript"
       },
@@ -447,7 +402,6 @@
     },
     {
       "match": {
-        "userMessage": "quantum computing for a curious teenager",
         "toolCallId": "call_d5_write_document_quantum_001",
         "context": "claude-sdk-typescript"
       },

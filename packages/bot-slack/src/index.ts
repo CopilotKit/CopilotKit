@@ -1,7 +1,14 @@
 export { SlackConversationStore } from "./conversation-store.js";
 export type { AgentSession } from "./conversation-store.js";
 
-export type { ConversationKey, IncomingTurn, ReplyTarget } from "./types.js";
+export type {
+  ConversationKey,
+  IncomingTurn,
+  ReplyTarget,
+  SlackAssistantOptions,
+  SlackFeedback,
+  SlackFeedbackOptions,
+} from "./types.js";
 export { DM_SCOPE } from "./types.js";
 
 export { MessageStream } from "./message-stream.js";
@@ -9,6 +16,16 @@ export type { MessageStreamConfig } from "./message-stream.js";
 
 export { ChunkedMessageStream } from "./chunked-message-stream.js";
 export type { ChunkedMessageStreamConfig } from "./chunked-message-stream.js";
+
+export { NativeMessageStream } from "./native-stream.js";
+export type {
+  NativeMessageStreamConfig,
+  NativeStreamTransport,
+  TextStream,
+} from "./native-stream.js";
+
+export { attachAssistant } from "./assistant.js";
+export type { AttachAssistantConfig, AssistantHandle } from "./assistant.js";
 
 export {
   autoCloseOpenMarkdown,
@@ -47,5 +64,10 @@ export { createRunRenderer } from "./event-renderer.js";
 
 export { decodeInteraction, conversationKeyOf } from "./interaction.js";
 
-export { renderBlockKit, renderSlackMessage } from "./render/block-kit.js";
+export {
+  renderBlockKit,
+  renderSlackMessage,
+  buildFeedbackBlocks,
+  FEEDBACK_ACTION_ID,
+} from "./render/block-kit.js";
 export { SLACK_LIMITS } from "./render/budget.js";

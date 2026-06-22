@@ -26,11 +26,12 @@ not_supported_features:
   - gen-ui-interrupt
   - interrupt-headless
   - mcp-apps
+  - reasoning-default-render
+  - agentic-chat-reasoning
+  - tool-rendering-reasoning-chain
 features:
   - cli-start
   - agentic-chat
-  - agentic-chat-reasoning
-  - reasoning-default-render
   - chat-slots
   - chat-customization-css
   - prebuilt-sidebar
@@ -44,7 +45,6 @@ features:
   - tool-rendering
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
-  - tool-rendering-reasoning-chain
   - gen-ui-agent
   - gen-ui-tool-based
   - frontend-tools
@@ -63,6 +63,7 @@ features:
   - byoc-hashbrown
   - byoc-json-render
   - beautiful-chat
+  - shared-state-read
 a2ui_pattern: schema-loading
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest

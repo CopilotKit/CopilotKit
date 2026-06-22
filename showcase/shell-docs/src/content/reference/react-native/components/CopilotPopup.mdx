@@ -1,0 +1,120 @@
+---
+title: "CopilotPopup"
+description: "A prebuilt floating action button that opens a CopilotChat session in a modal overlay card."
+---
+
+## Overview
+
+`CopilotPopup` renders a floating action button (FAB) that opens a chat in a modal overlay card with a header and a dismissible backdrop. Like [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar), its chat area wraps a headless [`CopilotChat`](/reference/react-native/components/CopilotChat). Provide your chat UI as `children`, or drop in the prebuilt UI `CopilotChat` from `@copilotkit/react-native/components`.
+
+Control it imperatively through a `CopilotPopupHandle` ref.
+
+## Import
+
+```tsx
+import { CopilotPopup, type CopilotPopupHandle } from "@copilotkit/react-native";
+```
+
+## Props
+
+<PropertyReference name="agentId" type="string" default='"default"'>
+  ID of the agent to connect to. Passed through to the inner `CopilotChat`.
+</PropertyReference>
+
+<PropertyReference name="agentName" type="string">
+  **Deprecated**. Use `agentId`.
+</PropertyReference>
+
+<PropertyReference name="threadId" type="string">
+  Thread ID for this chat session.
+</PropertyReference>
+
+<PropertyReference name="throttleMs" type="number">
+  Throttle interval (ms) for re-renders.
+</PropertyReference>
+
+<PropertyReference name="defaultOpen" type="boolean" default="false">
+  Whether the popup starts in the open state.
+</PropertyReference>
+
+<PropertyReference name="height" type="number | string" default='"60%"'>
+  Height of the popup card. Accepts points (a number) or a percentage string
+  resolved against the screen height.
+</PropertyReference>
+
+<PropertyReference name="onError" type="(error: Error) => void">
+  Error handler scoped to this popup's chat agent.
+</PropertyReference>
+
+<PropertyReference name="headerTitle" type="string" default='"CopilotKit"'>
+  Title displayed in the popup header bar.
+</PropertyReference>
+
+<PropertyReference name="attachments" type="NativeAttachmentsConfig">
+  Enable multimodal file attachments. Forwarded to the inner `CopilotChat`;
+  children read attachment state from
+  [`useCopilotChatContext`](/reference/react-native/components/CopilotChat#usecopilotchatcontext).
+</PropertyReference>
+
+<PropertyReference name="children" type="ReactNode">
+  Content rendered below the chat content inside the popup card.
+</PropertyReference>
+
+<PropertyReference name="onOpen" type="() => void">
+  Callback fired when the popup opens.
+</PropertyReference>
+
+<PropertyReference name="onClose" type="() => void">
+  Callback fired when the popup closes.
+</PropertyReference>
+
+<PropertyReference name="dismissOnBackdropPress" type="boolean" default="true">
+  Whether tapping the semi-transparent backdrop dismisses the popup
+  (equivalent to the web SDK's `clickOutsideToClose`).
+</PropertyReference>
+
+<PropertyReference name="showToggleButton" type="boolean" default="true">
+  Whether to show the FAB that toggles the popup. Hidden while the popup is
+  open.
+</PropertyReference>
+
+<PropertyReference name="style" type="ViewStyle">
+  Custom style applied to the popup card container.
+</PropertyReference>
+
+## Ref handle
+
+<PropertyReference name="CopilotPopupHandle" type="{ open(): void; close(): void; toggle(): void }">
+  Imperative handle exposed via `ref` for opening, closing, and toggling the
+  popup programmatically.
+</PropertyReference>
+
+## Usage
+
+```tsx
+import { CopilotPopup, type CopilotPopupHandle } from "@copilotkit/react-native";
+import { CopilotChat } from "@copilotkit/react-native/components";
+import { useRef } from "react";
+
+export function ChatScreen() {
+  const popupRef = useRef<CopilotPopupHandle>(null);
+
+  return (
+    <CopilotPopup ref={popupRef} agentId="default" headerTitle="Chat">
+      <CopilotChat agentName="default" showHeader={false} />
+    </CopilotPopup>
+  );
+}
+```
+
+## Behavior
+
+- **Overlay**: the popup opens as a modal card floating above your content, with a semi-transparent backdrop.
+- **Backdrop dismiss**: tapping the backdrop closes the popup when `dismissOnBackdropPress` is `true`.
+- **FAB**: when `showToggleButton` is `true`, a floating action button opens the popup and hides while it is open.
+- **Height**: a percentage `height` (e.g. `"60%"`) resolves against the screen height; a number is used as points.
+
+## Related
+
+- [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar): slide-in drawer variant
+- [`CopilotChat`](/reference/react-native/components/CopilotChat): the chat primitive wrapped inside the popup

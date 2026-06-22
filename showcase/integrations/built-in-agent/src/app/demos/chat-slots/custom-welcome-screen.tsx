@@ -17,7 +17,10 @@ export function CustomWelcomeScreen({
       className="flex-1 flex flex-col items-center justify-center px-4"
     >
       <div className="w-full max-w-3xl flex flex-col items-center">
-        <div className="mb-6 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 p-6 text-white shadow-lg text-center">
+        <div
+          data-testid="custom-welcome-message"
+          className="mb-6 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 p-6 text-white shadow-lg text-center"
+        >
           <div className="inline-block rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider mb-3">
             Custom Slot
           </div>

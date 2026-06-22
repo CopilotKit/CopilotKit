@@ -514,6 +514,7 @@ describe("thread handlers", () => {
       expect(body.messages).toEqual([{ id: "m1" }]);
       expect(intelligence.getThreadMessages).toHaveBeenCalledWith({
         threadId: "thread-1",
+        userId: "user-1",
       });
       expect(identifyUser).toHaveBeenCalledTimes(1);
       expect(identifyUser).toHaveBeenCalledWith(

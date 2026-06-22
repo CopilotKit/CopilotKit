@@ -27,9 +27,14 @@ and opaque-id interactions.
 `@copilotkit/bot`'s `PlatformAdapter`. The members it implements:
 
 - `platform`, `capabilities` (`supportsStreaming: true`, modals/typing/
-  reactions `false`, `maxBlocksPerMessage: 50`), `ackDeadlineMs` (3000)
+  reactions `false`, `maxBlocksPerMessage: 50`; `supportsSuggestedPrompts` /
+  `supportsThreadTitle` computed from whether the assistant pane is enabled),
+  `ackDeadlineMs` (3000)
 - `start(sink)` / `stop()` — bring the Bolt app up / down and push normalized
-  events into the engine's `IngressSink`
+  events into the engine's `IngressSink` (`onTurn` / `onInteraction` /
+  `onCommand` / `onThreadStarted`)
+- `setSuggestedPrompts` / `setThreadTitle` — back the capability-gated
+  `thread.setSuggestedPrompts` / `thread.setTitle` via `assistant.threads.*`
 - `render(ir)` — IR → Block Kit (`renderBlockKit`)
 - `post` / `update` / `stream` / `delete` — egress via the Slack Web client
 - `createRunRenderer(target)` — the AG-UI `RunRenderer` for a run
@@ -118,6 +123,49 @@ a hot-cache hit, or a **cold-path re-render rehydration** (load the snapshot,
 re-render the named component with frozen props, re-walk to the handler's
 path). A miss after restart degrades to "this action expired."
 
+## Agent-native Slack APIs (assistant pane + native streaming)
+
+Two agent-grade Slack API families are wired in, **on by default**, each
+degrading safely:
+
+- **Native streaming** (`native-stream.ts`). `NativeMessageStream` implements
+  the same `append(fullText)/finish()` contract as `MessageStream`, so the
+  event-renderer's text stream and `adapter.stream()` are transport-agnostic.
+  It drives `chat.startStream` / `appendStream` (raw `markdown_text`, no mrkdwn
+  translation) / `stopStream`, with a ~600ms throttle (under `appendStream`'s
+  Tier-4 limit). A whole turn streams into **one** message — text accumulates
+  there (chunked at the 12k per-append cap, no multi-message splitting), and
+  `appendChunk()` interleaves structured {@link AnyChunk}s (`task_update` for
+  tool progress) after flushing pending text so ordering holds. `finish(blocks)`
+  finalizes the message, optionally with a trailing Block Kit row (feedback).
+  The event-renderer keeps the stream **turn-scoped** across `runAgent`
+  iterations and closes it via the engine's `RunRenderer.finish()` hook. Used
+  wherever a `threadTs` exists; flat DMs and a failed first `startStream` fall
+  back to the legacy `chat.update` transport (the workspace is marked legacy
+  in-memory so later streams skip the native path), and a failed structured
+  chunk degrades tool progress to `:wrench:` rows. `streaming: "legacy"` forces
+  the old transport.
+- **Feedback row** (opt-in via `feedback`). Streamed replies finalize with a
+  native `feedback_buttons` row (`context_actions`, built in `render/block-kit.ts`)
+  attached at `stopStream`; the adapter intercepts those clicks in
+  `app.action` (by `FEEDBACK_ACTION_ID`) and routes them to `onFeedback`,
+  bypassing the engine's interaction dispatch.
+- **Assistant pane** (`assistant.ts`). `attachAssistant` registers Bolt's
+  `Assistant` middleware and is the SOLE owner of pane events. On
+  `assistant_thread_started` it applies static defaults (greeting + suggested
+  prompts) then emits `sink.onThreadStarted` (engine handlers layer on top,
+  never race); a pane user message becomes exactly one `sink.onTurn` scoped to
+  the pane thread (`channelId::threadTs`), auto-titled from the first message.
+  Pane threads are tracked in-memory so `slack-listener.ts`'s one-line guard
+  skips the threaded `message.im` events the Assistant middleware already owns —
+  exactly one turn per pane message, with ordinary threaded DMs untouched. In a
+  pane thread the run lifecycle drives native composer status
+  (`assistant.threads.setStatus`) instead of placeholder / `:wrench:` messages.
+
+Status is **not** a `Thread` method — it stays renderer-managed from the
+run/tool lifecycle; only prompts and titles (which only the author knows) get
+`Thread` methods.
+
 ## Preserved mechanics
 
 These files carry over from the pre-rework package, lightly adapted:
@@ -139,7 +187,9 @@ These files carry over from the pre-rework package, lightly adapted:
 src/
 ├── index.ts                  # public exports
 ├── adapter.ts                # slack() factory + SlackAdapter (PlatformAdapter impl) + Bolt wiring
-├── event-renderer.ts         # createRunRenderer: AG-UI subscriber → stream + tool/interrupt capture
+├── assistant.ts              # attachAssistant: Bolt Assistant middleware ⇄ engine sink (pane events)
+├── native-stream.ts          # NativeMessageStream: chat.startStream/appendStream/stopStream (+ legacy fallback)
+├── event-renderer.ts         # createRunRenderer: AG-UI subscriber → stream + tool/interrupt capture + pane status
 ├── interaction.ts            # decodeInteraction (opaque id) + conversationKeyOf
 ├── render/
 │   ├── block-kit.ts          # renderBlockKit / renderSlackMessage (IR → Block Kit)
@@ -154,7 +204,7 @@ src/
 ├── sanitizing-http-agent.ts  # sanitizing AG-UI HTTP agent
 ├── built-in-tools.ts         # lookup_slack_user + defaultSlackTools (as BotTools)
 ├── built-in-context.ts       # tagging / mrkdwn / convo-model context entries
-└── types.ts                  # IncomingTurn, ReplyTarget, ConversationKey, DM_SCOPE
+└── types.ts                  # IncomingTurn, ReplyTarget, ConversationKey, DM_SCOPE, SlackAssistantOptions
 ```
 
 ## What's intentionally _not_ abstracted

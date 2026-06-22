@@ -67,9 +67,12 @@ npm install @copilotkit/runtime hono
 For standalone Express backends, install Express adapter dependencies instead of `hono`:
 
 ```bash
-npm install @copilotkit/runtime express cors
-npm install -D @types/express @types/cors
+npm install @copilotkit/runtime express dotenv zod
+npm install -D @types/express tsx typescript
 ```
+
+(`createCopilotExpressHandler` enables CORS internally, so you do not need to
+install `cors` yourself. `dotenv` and `zod` are used by the example asset.)
 
 ### Step 2: Configure the runtime
 
@@ -112,6 +115,10 @@ const app = createCopilotHonoHandler({
 
 export const GET = handle(app);
 export const POST = handle(app);
+// PATCH/DELETE are used by thread operations (useThreads); export them too
+// so the multi-route handler can serve them when you enable Intelligence/threads.
+export const PATCH = handle(app);
+export const DELETE = handle(app);
 ```
 
 #### Next.js App Router (alternative: single-route)
@@ -243,7 +250,10 @@ import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 
 export default function Home() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit">
+    // useSingleEndpoint={false} matches the multi-route backend above.
+    // The v1-compat CopilotKit bridge defaults useSingleEndpoint to true,
+    // which would 404 against multi-route endpoints.
+    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
       <div style={{ height: "100vh" }}>
         <CopilotChat />
       </div>
@@ -273,7 +283,7 @@ Set `useSingleEndpoint` when the backend uses single-route endpoints (`createCop
 | `headers`           | `Record<string, string> \| (() => Record<string, string>)` | Custom headers sent with every request. The function form is evaluated per-request (useful for dynamic auth tokens). |
 | `credentials`       | `RequestCredentials`                                       | Fetch credentials mode (e.g., `"include"` for cookies)                                                               |
 | `publicLicenseKey`  | `string`                                                   | CopilotKit Intelligence public license key (`publicApiKey` is a deprecated alias)                                    |
-| `showDevConsole`    | `boolean \| "auto"`                                        | Show the dev inspector (`"auto"` = development only)                                                                 |
+| `showDevConsole`    | `boolean`                                                  | Show the dev console. Omit it to get the default behavior (shown on `localhost` only)                                |
 | `renderToolCalls`   | `ReactToolCallRenderer[]`                                  | Custom renderers for tool call UI                                                                                    |
 | `frontendTools`     | `ReactFrontendTool[]`                                      | Frontend-defined tools (declarative alternative to `useFrontendTool`)                                                |
 | `onError`           | `(event) => void`                                          | Global error handler                                                                                                 |
@@ -293,7 +303,7 @@ Example with sidebar:
 ```tsx
 import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core/v2";
 
-<CopilotKit runtimeUrl="/api/copilotkit" showDevConsole="auto">
+<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
   <YourApp />
   <CopilotSidebar
     defaultOpen
@@ -356,7 +366,7 @@ See `references/telemetry-setup.md` for full details on what the license key ena
 2. Open the app in a browser
 3. The chat UI should render and connect to the runtime
 4. Send a test message -- you should receive an AI response
-5. Check the runtime's `/info` endpoint (GET) to confirm it reports available agents
+5. Check the runtime's info endpoint to confirm it reports available agents. For multi-route handlers this is `GET /api/copilotkit/info`; for single-route handlers (`mode: "single-route"`, e.g. the Express example) it is a `POST` to the base path with body `{ "method": "info" }` (a plain `GET` will not return agent info — the Hono single-route handler answers `405`, and the Express single-route router has no `GET` route so it falls through to a `404`)
 
 ## Security notes
 
@@ -364,7 +374,7 @@ Keep these in mind as you wire up a real deployment:
 
 - **Secrets stay server-side and in env vars.** Provider API keys (`OPENAI_API_KEY`, etc.) are read by the runtime/agent on the server. Never expose them to the browser, hardcode them, or commit them -- store them in environment variables or a secret manager (see Step 5). The CopilotKit license key is the one client-side value, and it is a public project identifier, not a secret.
 - **Treat all chat input as untrusted.** Chat messages flow from the frontend through the `CopilotRuntime` endpoint into the agent's LLM context. They are user-controlled and can attempt prompt injection -- including indirect injection via content the agent fetches (web pages, documents, tool results). Do not assume the model will only do what your system prompt intends.
-- **Give server-side tools least privilege.** A `defineTool` handler runs with your server's authority. Validate every argument (the `zod` `parameters` schema is your first gate), scope each tool to the narrowest action it needs, and enforce your own authorization inside the `execute` function for anything sensitive (database writes, payments, file access) rather than trusting that the model called it correctly.
+- **Give server-side tools least privilege.** A `defineTool`'s `execute` function runs with your server's authority. Validate every argument (the `zod` `parameters` schema is your first gate), scope each tool to the narrowest action it needs, and enforce your own authorization inside the `execute` function for anything sensitive (database writes, payments, file access) rather than trusting that the model called it correctly.
 - **Authenticate the runtime endpoint.** The runtime route is a public HTTP endpoint by default. Put your app's auth in front of it so only authorized users can drive the agent and consume provider credits.
 
 ## Quick Reference

@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -48,7 +50,6 @@ const agentNames = [
   "agent-config",
   // Tool rendering variants
   "tool-rendering-default-catchall",
-  "tool-rendering-custom-catchall",
   "tool-rendering-reasoning-chain",
   // HITL
   "hitl-in-chat",
@@ -94,6 +95,15 @@ agents["interrupt-headless"] = createAgent("/interrupt-adapted");
 // per-tool state mutations to the AG-UI bridge — same architectural
 // reason as shared-state-read-write and subagents.
 agents["gen-ui-agent"] = createAgent("/gen-ui-agent");
+// tool-rendering-custom-catchall routes to a dedicated CrewAI Flow
+// backend (`/tool-rendering`, src/agents/tool_rendering.py) that emits
+// AG-UI TOOL_CALL_* events for `get_weather` / `get_stock_price`. The
+// shared `LatestAiDevelopment` ChatWithCrewFlow on "/" runs backend
+// tools internally without emitting tool-call events, so the frontend's
+// custom wildcard renderer (`useDefaultRenderTool`) would never paint
+// the `[data-testid="custom-wildcard-card"]` shell that the
+// `d5-tool-rendering-custom-catchall` probe asserts on.
+agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
 agents["default"] = createAgent();
 
 console.log(

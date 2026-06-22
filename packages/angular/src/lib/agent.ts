@@ -1,17 +1,17 @@
+import type { Signal } from "@angular/core";
 import {
   DestroyRef,
   Injectable,
   inject,
   signal,
   computed,
-  Signal,
 } from "@angular/core";
 import { CopilotKit } from "./copilotkit";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { Message } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import type { CopilotKitCore } from "@copilotkit/core";
 import {
-  CopilotKitCore,
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
@@ -20,6 +20,11 @@ import {
  *  CopilotKitCore so the types stay in sync automatically. Injected
  *  by the factory so that AgentStore stays decoupled from the concrete class. */
 type SubscribeToAgentFn = CopilotKitCore["subscribeToAgentWithOptions"];
+type AgentWithHeaders = AbstractAgent & { headers?: Record<string, string> };
+
+function hasAgentHeaders(agent: AbstractAgent): agent is AgentWithHeaders {
+  return "headers" in agent;
+}
 
 export class AgentStore {
   readonly #subscription?: {
@@ -27,7 +32,7 @@ export class AgentStore {
   };
   readonly #isRunning = signal<boolean>(false);
   readonly #messages = signal<Message[]>([]);
-  readonly #state = signal<any>(undefined);
+  readonly #state = signal<unknown>(undefined);
 
   readonly agent: AbstractAgent;
   readonly isRunning = this.#isRunning.asReadonly();
@@ -43,7 +48,7 @@ export class AgentStore {
 
     this.#subscription = subscribeToAgent(abstractAgent, {
       onMessagesChanged: () => {
-        this.#messages.set(abstractAgent.messages);
+        this.#messages.set([...abstractAgent.messages]);
       },
       onStateChanged: () => {
         this.#state.set(abstractAgent.state);
@@ -85,72 +90,84 @@ export class CopilotkitAgentFactory {
     destroyRef: DestroyRef,
   ): Signal<AgentStore> {
     let lastAgentStore: AgentStore | undefined;
+    let lastAgent: AbstractAgent | undefined;
+    const provisionalCache = new Map<string, ProxiedCopilotRuntimeAgent>();
     const subscribeToAgent: SubscribeToAgentFn =
       this.#copilotkit.core.subscribeToAgentWithOptions.bind(
         this.#copilotkit.core,
       );
 
+    const resolveAgent = (): AbstractAgent => {
+      const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
+      const existing = this.#copilotkit.getAgent(resolvedAgentId);
+      if (existing) {
+        provisionalCache.delete(resolvedAgentId);
+        return existing;
+      }
+
+      const runtimeUrl = this.#copilotkit.runtimeUrl();
+      const isRuntimeConfigured = runtimeUrl !== undefined;
+      const { runtimeConnectionStatus } = this.#copilotkit.core;
+
+      if (
+        isRuntimeConfigured &&
+        (runtimeConnectionStatus ===
+          CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
+          runtimeConnectionStatus ===
+            CopilotKitCoreRuntimeConnectionStatus.Connecting ||
+          runtimeConnectionStatus ===
+            CopilotKitCoreRuntimeConnectionStatus.Error)
+      ) {
+        const headers = this.#copilotkit.headers();
+        const cached = provisionalCache.get(resolvedAgentId);
+        if (cached) {
+          if (hasAgentHeaders(cached)) {
+            cached.headers = { ...headers };
+          }
+          return cached;
+        }
+
+        const provisional = new ProxiedCopilotRuntimeAgent({
+          runtimeUrl,
+          agentId: resolvedAgentId,
+          transport: this.#copilotkit.runtimeTransport(),
+        });
+        if (hasAgentHeaders(provisional)) {
+          provisional.headers = { ...headers };
+        }
+        provisionalCache.set(resolvedAgentId, provisional);
+        return provisional;
+      }
+
+      const knownAgents = Object.keys(this.#copilotkit.agents() ?? {});
+      const runtimePart = isRuntimeConfigured
+        ? `runtimeUrl=${runtimeUrl}`
+        : "no runtimeUrl";
+      throw new Error(
+        `injectAgentStore: Agent '${resolvedAgentId}' not found after runtime sync (${runtimePart}). ` +
+          (knownAgents.length
+            ? `Known agents: [${knownAgents.join(", ")}]`
+            : "No agents registered.") +
+          " Verify your runtime /info and/or agents__unsafe_dev_only.",
+      );
+    };
+
     return computed(() => {
       this.#copilotkit.agents();
       this.#copilotkit.runtimeConnectionStatus();
-      const runtimeUrl = this.#copilotkit.runtimeUrl();
-      const runtimeTransport = this.#copilotkit.runtimeTransport();
-      const headers = this.#copilotkit.headers();
+      this.#copilotkit.runtimeUrl();
+      this.#copilotkit.runtimeTransport();
+      this.#copilotkit.headers();
 
-      if (lastAgentStore) {
-        lastAgentStore.teardown();
-        lastAgentStore = undefined;
+      const agent = resolveAgent();
+
+      if (lastAgentStore && lastAgent === agent) {
+        return lastAgentStore;
       }
 
-      const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
-      const abstractAgent = this.#copilotkit.getAgent(resolvedAgentId);
-      if (!abstractAgent) {
-        const { runtimeConnectionStatus } = this.#copilotkit.core;
-        const isRuntimeConfigured = runtimeUrl !== undefined;
-
-        if (
-          isRuntimeConfigured &&
-          (runtimeConnectionStatus ===
-            CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
-            runtimeConnectionStatus ===
-              CopilotKitCoreRuntimeConnectionStatus.Connecting ||
-            runtimeConnectionStatus ===
-              CopilotKitCoreRuntimeConnectionStatus.Error)
-        ) {
-          const provisional = new ProxiedCopilotRuntimeAgent({
-            runtimeUrl,
-            agentId: resolvedAgentId,
-            transport: runtimeTransport,
-          });
-          // Apply current headers so runs/connects inherit them
-
-          (provisional as any).headers = { ...headers };
-          lastAgentStore = new AgentStore(
-            provisional,
-            destroyRef,
-            subscribeToAgent,
-          );
-          return lastAgentStore;
-        }
-
-        const knownAgents = Object.keys(this.#copilotkit.agents() ?? {});
-        const runtimePart = isRuntimeConfigured
-          ? `runtimeUrl=${runtimeUrl}`
-          : "no runtimeUrl";
-        throw new Error(
-          `injectAgentStore: Agent '${resolvedAgentId}' not found after runtime sync (${runtimePart}). ` +
-            (knownAgents.length
-              ? `Known agents: [${knownAgents.join(", ")}]`
-              : "No agents registered.") +
-            " Verify your runtime /info and/or agents__unsafe_dev_only.",
-        );
-      }
-
-      lastAgentStore = new AgentStore(
-        abstractAgent,
-        destroyRef,
-        subscribeToAgent,
-      );
+      lastAgentStore?.teardown();
+      lastAgent = agent;
+      lastAgentStore = new AgentStore(agent, destroyRef, subscribeToAgent);
       return lastAgentStore;
     });
   }
