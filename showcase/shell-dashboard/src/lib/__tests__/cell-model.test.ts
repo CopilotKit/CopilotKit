@@ -2356,4 +2356,283 @@ describe("buildCellModel", () => {
       });
     });
   });
+
+  // ── U7: harness driver-error/abort INFRA reds fold to gray (§7.1) ────
+  //
+  // The harness writes an `errorClass`/`errorDesc` literal into the failing
+  // row's `signal` blob. Two of those literals are genuine INFRA failures (a
+  // driver threw, or the run was aborted by worker drain) rather than a probe
+  // that RAN and failed its functional assertion: `driver-error` and `abort`.
+  // The dashboard must fold a cell whose red is attributable ONLY to an infra
+  // signal to the existing `gray` ChipColor (no-data), so an infra blip does
+  // not masquerade as a genuine product red. Reads BOTH `signal.errorClass`
+  // AND `signal.errorDesc` — D4 writes `driver-error` into `errorDesc`, never
+  // `errorClass`. A probe that ran and failed a functional assertion (no infra
+  // class in either field) STAYS red — that is the masks-real-red guard.
+  describe("driver-error/abort infra fold (U7, §7.1)", () => {
+    it("folds a D3 red carrying signal.errorClass:'driver-error' to gray", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red", {
+          signal: { errorClass: "driver-error", errorDesc: "boom" },
+        }),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("gray");
+    });
+
+    it("folds a D4 red carrying signal.errorDesc:'driver-error' (the D4 shape) to gray", () => {
+      // D4 (d4-chat-roundtrip.ts) writes driver-error into errorDesc, NOT
+      // errorClass — an errorClass-only read would leave this RED.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "red", {
+          signal: { errorDesc: "driver-error" },
+        }),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("gray");
+    });
+
+    it("folds a D3 red carrying signal.errorClass:'abort' to gray", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red", {
+          signal: { errorClass: "abort", errorDesc: "aborted before start" },
+        }),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("gray");
+    });
+
+    it("folds a D5 red carrying signal.errorClass:'driver-error' to gray", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("tools", "agno"), "tools", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "red", {
+          signal: { errorClass: "driver-error" },
+        }),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("gray");
+    });
+
+    it("KEEPS a real assertion failure RED — errorClass:'selector-timeout' (no infra class)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red", {
+          signal: { errorClass: "selector-timeout", errorDesc: "no match" },
+        }),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("red");
+    });
+
+    it("KEEPS a real assertion failure RED — feature-timeout (a ran-and-failed signal)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("tools", "agno"), "tools", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "red", {
+          signal: { errorClass: "feature-timeout" },
+        }),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("red");
+    });
+
+    it("KEEPS a red with no signal at all RED (bare red row)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "red"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("red");
+    });
+
+    it("KEEPS red when one contributing red is infra but another is a genuine assertion fail", () => {
+      // D3 infra (driver-error) + D5 genuine (selector-timeout): the genuine
+      // red must NOT be masked by the infra blip on a sibling rung.
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "red", {
+          signal: { errorClass: "driver-error" },
+        }),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "red", {
+          signal: { errorClass: "selector-timeout" },
+        }),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("red");
+    });
+
+    it("does not disturb a genuinely green cell (no infra signal present)", () => {
+      const live = mapOf([
+        row(keyFor("e2e", "agno", "agentic-chat"), "e2e", "green"),
+        row(keyFor("chat", "agno"), "chat", "green"),
+        row(keyFor("tools", "agno"), "tools", "green"),
+        row(keyFor("d5", "agno", "agentic-chat"), "d5", "green"),
+        row(keyFor("d6", "agno", "agentic-chat"), "d6", "green"),
+      ]);
+      const model = buildCellModel(live, wiredInput("agno", "agentic-chat"));
+      expect(model.chipColor).toBe("green");
+    });
+  });
+
+  // ── U8: stale cell → gray on the matrix (§7.2 / §6.4) ───────────────
+  // The per-depth resolvers only downgrade stale GREEN → amber and let a
+  // stale RED pass straight through (frozen-historical). That is correct for
+  // the depth LADDER, but for the MATRIX presentation a cell whose freshest
+  // observation predates the re-sweep freshness window is "re-sweep pending"
+  // — its frozen colour (red INCLUDED) is no longer a live claim, so the chip
+  // must render gray, not its stale historical state. The cell is stale only
+  // when EVERY contributing row is stale relative to its own family window;
+  // one fresh row means the cell was recently swept and keeps its colour.
+  // This is the SAME treatment U9's equivalence gate applies (excludes stale
+  // prod rows). Composes with U7: a stale driver-error cell is gray either
+  // way; the masks-real-red guard is unaffected because a fresh red stays red.
+  describe("stale cell → gray on matrix (U8, §7.2)", () => {
+    const NOW = Date.parse("2026-05-30T12:00:00Z");
+
+    function rowAtAge(
+      key: string,
+      dimension: string,
+      ageMs: number,
+      state: State = "green",
+      overrides: Partial<StatusRow> = {},
+    ) {
+      const observedAt = new Date(NOW - ageMs).toISOString();
+      return row(key, dimension, state, {
+        observed_at: observedAt,
+        transitioned_at: observedAt,
+        ...overrides,
+      });
+    }
+
+    // Past the e2e window — the freshest matrix cadence (6h). A row this old
+    // is unambiguously stale for every family window.
+    const STALE = E2E_STALE_AFTER_MS + 60 * 60 * 1000;
+    const FRESH = 60 * 1000;
+
+    it("folds a stale RED cell to gray (re-sweep pending), not red", () => {
+      // A genuine red (no infra class) that is also STALE. Under the depth
+      // resolvers this stays red; U8 must fold the matrix chip to gray.
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", STALE, "red"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      // The depth resolver still reports the frozen red (ladder unchanged)…
+      expect(model.d3?.status).toBe("red");
+      // …but the MATRIX chip is gray: stale, re-sweep pending.
+      expect(model.chipColor).toBe("gray");
+    });
+
+    it("leaves a FRESH red cell red (only stale folds)", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "red"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.chipColor).toBe("red");
+    });
+
+    it("does NOT mark a cell stale when one contributing row is fresh", () => {
+      // Stale red e2e but a FRESH chat row → the cell was swept recently, so
+      // it is NOT re-sweep-pending; the frozen red still surfaces as red.
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", STALE, "red"),
+        rowAtAge(keyFor("chat", "agno"), "chat", FRESH, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.chipColor).toBe("red");
+    });
+
+    it("surfaces the observed_at age so operators see staleness", () => {
+      const ageMs = STALE;
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", ageMs, "red"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.isStaleCell).toBe(true);
+      // Age is the gap between `now` and the freshest contributing row's
+      // observed_at (the e2e row here).
+      expect(model.observedAtAgeMs).toBe(ageMs);
+    });
+
+    it("reports a non-stale cell's age and isStaleCell=false", () => {
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "red"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.isStaleCell).toBe(false);
+      expect(model.observedAtAgeMs).toBe(FRESH);
+    });
+
+    it("REGRESSION: a fresh driver-error cell still folds to gray (U7 intact)", () => {
+      // U7's infra fold must keep working alongside U8: a FRESH driver-error
+      // row is gray because of U7 (infra), independent of staleness.
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", FRESH, "red", {
+          signal: { errorClass: "driver-error" },
+        }),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.isStaleCell).toBe(false);
+      expect(model.chipColor).toBe("gray");
+    });
+
+    it("a no-data cell (no rows) is not stale and has null age", () => {
+      // No contributing rows → no-data gray already; staleness is undefined,
+      // not "stale" (there is no observation to be stale).
+      const live = mapOf([]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.isStaleCell).toBe(false);
+      expect(model.observedAtAgeMs).toBeNull();
+      expect(model.chipColor).toBe("gray");
+    });
+
+    it("folds a stale GREEN-derived cell to gray too (any colour, not just red)", () => {
+      // Every contributing row stale-green. The depth resolvers downgrade the
+      // stale greens to amber (so the chip would otherwise be amber/red); U8
+      // then folds the stale matrix cell to gray — re-sweep pending applies to
+      // any colour, the cell simply hasn't been observed recently.
+      const live = mapOf([
+        rowAtAge(keyFor("e2e", "agno", "agentic-chat"), "e2e", STALE, "green"),
+        rowAtAge(keyFor("chat", "agno"), "chat", STALE, "green"),
+        rowAtAge(keyFor("d5", "agno", "agentic-chat"), "d5", STALE, "green"),
+        rowAtAge(keyFor("d6", "agno", "agentic-chat"), "d6", STALE, "green"),
+      ]);
+      const model = buildCellModel(
+        live,
+        wiredInput("agno", "agentic-chat"),
+        NOW,
+      );
+      expect(model.isStaleCell).toBe(true);
+      expect(model.chipColor).toBe("gray");
+    });
+  });
 });

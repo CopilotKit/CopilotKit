@@ -55,6 +55,12 @@ const SDK_CHOICES: { name: string; description: string; href: string }[] = [
     href: referenceVersionHref("vue"),
   },
   {
+    name: "Angular",
+    description:
+      "Components, services, and functions for building CopilotKit into an Angular app.",
+    href: referenceVersionHref("angular"),
+  },
+  {
     name: "Core (TypeScript)",
     description:
       "The framework-agnostic @copilotkit/core client — runs anywhere JavaScript runs.",

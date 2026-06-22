@@ -1,6 +1,6 @@
 ---
 title: Microsoft Teams
-description: Build a Microsoft Teams bot with CopilotKit from an empty Node project.
+description: Build a Microsoft Teams bot with CopilotKit and Copilot Runtime from an empty Node project.
 hideTOC: true
 earlyAccess: teams
 ---
@@ -13,16 +13,16 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 ## What you will build
 
 By the end of this guide, you will have a small Node app that can answer Microsoft Teams messages
-with a CopilotKit agent. You will test it locally first with Teams DevTools, then optionally expose
+through Copilot Runtime. You will test it locally first with Teams DevTools, then optionally expose
 the same bot through Azure Bot Service and sideload it into Microsoft Teams.
 
 `@copilotkit/bot-teams` handles the Teams-specific work: receiving Teams activities, rendering
 Adaptive Cards, streaming updates, and running the local DevTools bridge. Your app provides the
-CopilotKit runtime, agent configuration, Microsoft credentials, tunnel, and Teams manifest.
+Copilot Runtime, agent configuration, Microsoft credentials, tunnel, and Teams manifest.
 
 | Process | Port | Purpose |
 | --- | --- | --- |
-| CopilotKit runtime | 8200 | Runs a `BuiltInAgent` and exposes `/api/copilotkit` |
+| Copilot Runtime | 8200 | Runs a `BuiltInAgent` and exposes `/api/copilotkit` |
 | Teams bot | 3978 | Receives Teams activities at `POST /api/messages` |
 | Teams DevTools | 3979 | Local browser UI for testing Teams messages without a Teams account |
 
@@ -48,7 +48,7 @@ For sideloading into Microsoft Teams:
 
 ### Create the Node project
 
-Start with a new Node project and install the CopilotKit runtime, core package, and Teams bridge:
+Start with a new Node project and install Copilot Runtime, the core package, and the Teams bridge:
 
 <Tabs items={["npm", "pnpm", "yarn"]}>
   <Tab value="npm">
@@ -57,8 +57,7 @@ Start with a new Node project and install the CopilotKit runtime, core package, 
     mkdir copilotkit-teams-bot
     cd copilotkit-teams-bot
     npm init -y
-    npm pkg set type=module
-    npm install @copilotkit/bot-teams @copilotkit/core @copilotkit/runtime
+    npm install @copilotkit/bot-teams@0.0.1 @copilotkit/core@1.59.1 @copilotkit/runtime
     npm install -D tsx typescript @types/node
     ```
 
@@ -69,8 +68,7 @@ Start with a new Node project and install the CopilotKit runtime, core package, 
     mkdir copilotkit-teams-bot
     cd copilotkit-teams-bot
     pnpm init
-    pnpm pkg set type=module
-    pnpm add @copilotkit/bot-teams @copilotkit/core @copilotkit/runtime
+    pnpm add @copilotkit/bot-teams@0.0.1 @copilotkit/core@1.59.1 @copilotkit/runtime
     pnpm add -D tsx typescript @types/node
     ```
 
@@ -82,13 +80,18 @@ Start with a new Node project and install the CopilotKit runtime, core package, 
     cd copilotkit-teams-bot
     yarn init -y
     yarn config set nodeLinker node-modules
-    npm pkg set type=module
-    yarn add @copilotkit/bot-teams @copilotkit/core @copilotkit/runtime
+    yarn add @copilotkit/bot-teams@0.0.1 @copilotkit/core@1.59.1 @copilotkit/runtime
     yarn add -D tsx typescript @types/node
     ```
 
   </Tab>
 </Tabs>
+
+<Callout type="info" title="Why these versions are pinned">
+  The Teams bridge is early access. `@copilotkit/bot-teams@0.0.1` expects
+  `@copilotkit/core@1.59.1`, so the quickstart pins that pair to keep
+  `CopilotKitCore` types aligned.
+</Callout>
 
 </Step>
 
@@ -115,15 +118,15 @@ Create `tsconfig.json`:
 
 <Step>
 
-### Add the CopilotKit runtime and Teams bot
+### Add Copilot Runtime and the Teams bot
 
-Create `bot.ts`. This single file starts both the CopilotKit runtime and the Teams-facing bot:
+Create `bot.cts`. This single file starts both Copilot Runtime and the Teams-facing bot:
 
-```ts title="bot.ts"
+```ts title="bot.cts"
 import { createServer } from "node:http";
-import { CopilotKitCore, ProxiedCopilotRuntimeAgent } from "@copilotkit/core";
+import { CopilotKitCore } from "@copilotkit/core";
 import { createTeamsAgentBot } from "@copilotkit/bot-teams/bot";
-import { BuiltInAgent, CopilotSseRuntime } from "@copilotkit/runtime/v2";
+import { BuiltInAgent, CopilotRuntime } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
 
 const agentId = "assistant";
@@ -131,10 +134,10 @@ const runtimePort = Number(process.env.RUNTIME_PORT ?? 8200);
 const botPort = Number(process.env.PORT ?? 3978);
 const runtimeUrl = `http://localhost:${runtimePort}/api/copilotkit`;
 
-const runtime = new CopilotSseRuntime({
+const runtime = new CopilotRuntime({
   agents: {
     [agentId]: new BuiltInAgent({
-      model: process.env.OPENAI_MODEL ?? "openai/gpt-4o-mini",
+      model: process.env.OPENAI_MODEL ?? "openai:gpt-5-mini",
       prompt:
         "You are a helpful Microsoft Teams assistant. Keep replies concise and useful.",
     }),
@@ -145,32 +148,36 @@ createServer(
   createCopilotNodeListener({
     runtime,
     basePath: "/api/copilotkit",
+    cors: true,
   }),
 ).listen(runtimePort, () => {
-  console.log(`CopilotKit runtime listening at ${runtimeUrl}`);
+  console.log(`Copilot Runtime listening at ${runtimeUrl}`);
 });
 
 const core = new CopilotKitCore({ runtimeUrl });
 core.setDefaultThrottleMs(1000);
-core.addAgent__unsafe_dev_only({
-  id: agentId,
-  agent: new ProxiedCopilotRuntimeAgent({
-    agentId,
-    runtimeAgentId: agentId,
-    runtimeUrl,
-  }),
-});
-
-const bot = createTeamsAgentBot({
-  core,
+core.registerProxiedAgent({
   agentId,
-  approvalTimeoutMs: 5 * 60 * 1000,
-  reviewerName: "Reviewer",
+  runtimeAgentId: agentId,
 });
 
-await bot.start(botPort);
-console.log(`Teams bot listening at http://localhost:${botPort}/api/messages`);
-console.log(`Teams DevTools available at http://localhost:${botPort + 1}/devtools`);
+async function main() {
+  const bot = createTeamsAgentBot({
+    core,
+    agentId,
+    approvalTimeoutMs: 5 * 60 * 1000,
+    reviewerName: "Reviewer",
+  });
+
+  await bot.start(botPort);
+  console.log(`Teams bot listening at http://localhost:${botPort}/api/messages`);
+  console.log(`Teams DevTools available at http://localhost:${botPort + 1}/devtools`);
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
 ```
 
 Your project should now look like this:
@@ -179,7 +186,7 @@ Your project should now look like this:
 copilotkit-teams-bot/
   package.json
   tsconfig.json
-  bot.ts
+  bot.cts
 ```
 
 </Step>
@@ -195,7 +202,7 @@ Set your OpenAI key and start the bot:
 
     ```bash
     export OPENAI_API_KEY=sk-...
-    npx tsx bot.ts
+    npx tsx bot.cts
     ```
 
   </Tab>
@@ -203,7 +210,7 @@ Set your OpenAI key and start the bot:
 
     ```powershell
     $env:OPENAI_API_KEY="sk-..."
-    npx tsx bot.ts
+    npx tsx bot.cts
     ```
 
   </Tab>
@@ -216,7 +223,7 @@ Hello from Teams
 ```
 
 <Callout type="success" title="Local verification">
-  If you receive a response card in DevTools, the CopilotKit runtime and Teams bot are working
+  If you receive a response card in DevTools, Copilot Runtime and the Teams bot are working
   locally.
 </Callout>
 
@@ -226,7 +233,7 @@ Hello from Teams
 ## Sideload into Microsoft Teams
 
 The local DevTools path does not require Microsoft credentials. The real Teams client does. Keep the
-same `bot.ts`; add a tunnel, a Microsoft app registration, an Azure Bot resource, and a Teams app
+same `bot.cts`; add a tunnel, a Microsoft app registration, an Azure Bot resource, and a Teams app
 manifest.
 
 <Steps>
@@ -277,7 +284,7 @@ Run the bot with those credentials:
     export CLIENT_ID=<application-client-id>
     export CLIENT_SECRET=<client-secret-value>
     export TENANT_ID=<directory-tenant-id>
-    npx tsx bot.ts
+    npx tsx bot.cts
     ```
 
   </Tab>
@@ -288,7 +295,7 @@ Run the bot with those credentials:
     $env:CLIENT_ID="<application-client-id>"
     $env:CLIENT_SECRET="<client-secret-value>"
     $env:TENANT_ID="<directory-tenant-id>"
-    npx tsx bot.ts
+    npx tsx bot.cts
     ```
 
   </Tab>
@@ -387,8 +394,8 @@ You should receive the same response you saw in DevTools.
 
 <Accordions type="single" collapsible>
   <Accordion title="DevTools opens but messages do not answer">
-    Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx bot.ts`, and check that
-    `http://localhost:8200/api/copilotkit` is not blocked by another process.
+    Confirm `OPENAI_API_KEY` is set in the terminal running `npx tsx bot.cts`, and check that
+    `http://localhost:8200/api/copilotkit/info` returns the `assistant` agent.
   </Accordion>
   <Accordion title="Teams says the bot cannot be reached">
     Confirm the Azure Bot messaging endpoint is exactly `https://<your-tunnel-host>/api/messages`,
@@ -404,6 +411,6 @@ You should receive the same response you saw in DevTools.
   </Accordion>
   <Accordion title="Port 3978 or 8200 is already in use">
     Stop the process using that port, or set `PORT` and `RUNTIME_PORT` before running
-    `npx tsx bot.ts`.
+    `npx tsx bot.cts`.
   </Accordion>
 </Accordions>

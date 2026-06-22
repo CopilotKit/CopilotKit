@@ -1,0 +1,14 @@
+{
+  "python": {
+    "deps": [
+      "ag-ui-langgraph",
+      "copilotkit",
+      "fastapi",
+      "langchain-core",
+      "langchain-openai",
+      "langgraph",
+      "python-dotenv",
+      "uvicorn"
+    ]
+  }
+}

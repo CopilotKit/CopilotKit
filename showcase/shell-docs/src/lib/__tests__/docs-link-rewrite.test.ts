@@ -25,6 +25,20 @@ describe("resolveDocsHref", () => {
     ).toBe("/mastra/quickstart#install");
   });
 
+  it("scopes links under frontend and framework when both axes are selected", () => {
+    const options = {
+      slugHrefPrefix: "/vue/langgraph-python",
+      frameworkOverride: "langgraph-python",
+    };
+
+    expect(resolveDocsHref("/generative-ui/tool-rendering", options)).toBe(
+      "/vue/langgraph-python/generative-ui/tool-rendering",
+    );
+    expect(resolveDocsHref("/langgraph-python/quickstart", options)).toBe(
+      "/vue/langgraph-python/quickstart",
+    );
+  });
+
   it("does not scope cross-framework or reserved-route links", () => {
     const options = {
       slugHrefPrefix: "/mastra",

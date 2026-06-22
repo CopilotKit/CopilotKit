@@ -134,9 +134,11 @@ function resolveHealthEndpoint(service: string): string {
 // ---------------------------------------------------------------------------
 
 /**
- * For each integration package directory, replace `tools` and `shared-tools`
- * symlinks with real directory copies so Docker can access them inside the
- * build context. This mirrors the `stage_shared()` function in dev-local.sh.
+ * For each integration package directory, replace `tools`, `shared-tools`, and
+ * `_shared` symlinks with real directory copies so Docker can access them
+ * inside the build context. This mirrors the `stage_shared()` function in
+ * dev-local.sh. `_shared` carries the single-source CVDIAG bootstrap module
+ * (`showcase/integrations/_shared/`) into each Python integration's context.
  */
 export function stageSharedModules(): void {
   log.info("staging shared modules for Docker build contexts");
@@ -155,7 +157,7 @@ export function stageSharedModules(): void {
   for (const pkg of packages) {
     const pkgDir = path.join(INTEGRATIONS_DIR, pkg.name);
 
-    for (const linkName of ["tools", "shared-tools"]) {
+    for (const linkName of ["tools", "shared-tools", "_shared"]) {
       const linkPath = path.join(pkgDir, linkName);
 
       // Only process if it's a symlink
@@ -202,8 +204,12 @@ export function stageSharedModules(): void {
 export function restoreSymlinks(): void {
   log.debug("restoring symlinks via git checkout");
   try {
+    // NOTE: the `integrations/*/_shared` glob restores the per-integration
+    // `_shared` symlinks that staging replaced with real copies. It also
+    // matches the canonical source dir `integrations/_shared` (a real tracked
+    // dir, never a symlink) — a no-op restore there is harmless.
     execSync(
-      "git checkout -- integrations/*/tools integrations/*/shared-tools",
+      "git checkout -- integrations/*/tools integrations/*/shared-tools integrations/*/_shared",
       {
         cwd: SHOWCASE_DIR,
         stdio: "pipe",

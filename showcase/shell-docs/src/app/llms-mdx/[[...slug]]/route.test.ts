@@ -17,20 +17,48 @@ vi.mock("@/lib/frontend-doc-policy", () => ({
 vi.mock("@/lib/frontend-page-content", () => ({
   FRONTEND_GUIDANCE_CONTENT_SLUG: "frontends/using-these-docs",
   getFrontendContentSlug: vi.fn((id: string) => `frontends/${id}`),
+  getFrontendGuidanceContentSlug: vi.fn((id: string) =>
+    id === "slack" || id === "teams"
+      ? "frontends/using-these-docs"
+      : "frontends/docs-status",
+  ),
 }));
 
 vi.mock("@/lib/frontend-options", () => ({
   isFrontendId: vi.fn((value: string | undefined) =>
     ["react", "vue", "react-native", "slack", "teams"].includes(value ?? ""),
   ),
+  parseFrontendRoutePath: vi.fn(
+    (pathname: string, backendFrameworkSlugs: readonly string[] = []) => {
+      const [first, ...rest] = pathname.split("/").filter(Boolean);
+      if (!["vue", "react-native", "slack", "teams"].includes(first ?? "")) {
+        return null;
+      }
+      const [maybeBackend, ...tail] = rest;
+      const backend =
+        maybeBackend && backendFrameworkSlugs.includes(maybeBackend)
+          ? maybeBackend
+          : null;
+      return {
+        frontend: first,
+        backend,
+        slugPath: backend ? tail.join("/") : rest.join("/"),
+      };
+    },
+  ),
 }));
 
 vi.mock("@/lib/registry", () => ({
   getDocsFolder: vi.fn((slug: string) =>
-    slug === "langgraph-python" ? "langgraph" : slug,
+    slug === "langgraph-python" || slug === "langgraph-typescript"
+      ? "langgraph"
+      : slug,
   ),
   getDocsMode: vi.fn(() => "generated"),
-  getIntegrations: vi.fn(() => [{ slug: "langgraph-python" }]),
+  getIntegrations: vi.fn(() => [
+    { slug: "langgraph-python" },
+    { slug: "langgraph-typescript" },
+  ]),
   ROOT_FRAMEWORK: "built-in-agent",
 }));
 
@@ -67,11 +95,14 @@ describe("llms-mdx route", () => {
       (id: string) => `frontends/${id}`,
     );
     getDocsFolderMock.mockImplementation((slug: string) =>
-      slug === "langgraph-python" ? "langgraph" : slug,
+      slug === "langgraph-python" || slug === "langgraph-typescript"
+        ? "langgraph"
+        : slug,
     );
     getDocsModeMock.mockReturnValue("generated");
     getIntegrationsMock.mockReturnValue([
       { slug: "langgraph-python" } as never,
+      { slug: "langgraph-typescript" } as never,
     ]);
     renderPageToLlmTextMock.mockReturnValue("rendered markdown");
   });
@@ -132,18 +163,53 @@ describe("llms-mdx route", () => {
         : null,
     );
 
-    const response = await callLlmsMdxRoute(["frontends", "slack"]);
+    const response = await callLlmsMdxRoute(["slack"]);
 
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toBe("rendered markdown");
     expect(loadDocMock).toHaveBeenCalledWith("frontends/slack");
     expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "frontends/slack",
+        url: "slack",
         filePath: "frontends/slack.mdx",
         loadSlug: "frontends/slack",
       }),
       { framework: undefined },
+    );
+  });
+
+  it("serves frontend quickstart markdown under two-axis frontend/backend root URLs", async () => {
+    resolveFrontendDocPageMock.mockReturnValue({ status: "not-found" });
+    loadDocMock.mockImplementation((slug: string) =>
+      slug === "frontends/vue"
+        ? {
+            source: "",
+            filePath: "frontends/vue.mdx",
+            fm: {
+              title: "Vue Quickstart",
+              description: "Vue frontend docs.",
+            },
+          }
+        : null,
+    );
+
+    const response = await callLlmsMdxRoute(["vue", "langgraph-python"]);
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("rendered markdown");
+    expect(loadDocMock).toHaveBeenCalledWith("frontends/vue");
+    expect(loadDocMock).not.toHaveBeenCalledWith("index");
+    expect(loadDocMock).not.toHaveBeenCalledWith(
+      "integrations/langgraph/index",
+    );
+    expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "vue/langgraph-python",
+        filePath: "frontends/vue.mdx",
+        loadSlug: "frontends/vue",
+        framework: "langgraph-python",
+      }),
+      { framework: "langgraph-python" },
     );
   });
 
@@ -154,29 +220,63 @@ describe("llms-mdx route", () => {
             source: "",
             filePath: "frontends/using-these-docs.mdx",
             fm: {
-              title: "Using these docs",
+              title: "About early access",
               description: "How to read frontend docs.",
             },
           }
         : null,
     );
 
-    const response = await callLlmsMdxRoute([
-      "frontends",
-      "slack",
-      "using-these-docs",
-    ]);
+    const response = await callLlmsMdxRoute(["slack", "using-these-docs"]);
 
     expect(response.status).toBe(200);
     await expect(response.text()).resolves.toBe("rendered markdown");
     expect(loadDocMock).toHaveBeenCalledWith("frontends/using-these-docs");
     expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "frontends/slack/using-these-docs",
+        url: "slack/using-these-docs",
         filePath: "frontends/using-these-docs.mdx",
         loadSlug: "frontends/using-these-docs",
       }),
       { framework: undefined },
+    );
+  });
+
+  it("serves frontend guidance markdown under two-axis frontend/backend URLs", async () => {
+    loadDocMock.mockImplementation((slug: string) =>
+      slug === "frontends/docs-status"
+        ? {
+            source: "",
+            filePath: "frontends/docs-status.mdx",
+            fm: {
+              title: "Docs status",
+              description: "What to expect while frontend docs catch up.",
+            },
+          }
+        : null,
+    );
+
+    const response = await callLlmsMdxRoute([
+      "react-native",
+      "langgraph-typescript",
+      "using-these-docs",
+    ]);
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("rendered markdown");
+    expect(loadDocMock).toHaveBeenCalledWith("frontends/docs-status");
+    expect(loadDocMock).not.toHaveBeenCalledWith("using-these-docs");
+    expect(loadDocMock).not.toHaveBeenCalledWith(
+      "integrations/langgraph/using-these-docs",
+    );
+    expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "react-native/langgraph-typescript/using-these-docs",
+        filePath: "frontends/docs-status.mdx",
+        loadSlug: "frontends/docs-status",
+        framework: "langgraph-typescript",
+      }),
+      { framework: "langgraph-typescript" },
     );
   });
 
@@ -202,7 +302,6 @@ describe("llms-mdx route", () => {
     );
 
     const response = await callLlmsMdxRoute([
-      "frontends",
       "slack",
       "concepts",
       "architecture",
@@ -217,7 +316,7 @@ describe("llms-mdx route", () => {
     expect(loadDocMock).toHaveBeenCalledWith("concepts/architecture");
     expect(renderPageToLlmTextMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: "frontends/slack/concepts/architecture",
+        url: "slack/concepts/architecture",
         filePath: "concepts/architecture.mdx",
         loadSlug: "concepts/architecture",
       }),
