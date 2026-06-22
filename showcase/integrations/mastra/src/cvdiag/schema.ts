@@ -262,11 +262,35 @@ export interface ProbeConsoleErrorMeta {
   source_file: string | null;
   line_col: string | null;
 }
+/**
+ * Why a probe run failed, mirroring `waitForTurnComplete`'s reject `reason`
+ * union (conversation-runner `TurnNotCompleteError.reason`) plus
+ * `selector-mismatch` (a readiness/selector failure the d6 pill flow surfaces).
+ * Stamped on `probe.exit` ONLY when `terminal_outcome` is non-`ok` so reds are
+ * labeled directly in cvdiag probe data instead of being inferred from the
+ * absence of SSE / first-token rows.
+ */
+export const CVDIAG_FAILURE_CLASSIFIERS = [
+  "sse-missing",
+  "dom-missing",
+  "text-unstable",
+  "surface-missing",
+  "selector-mismatch",
+] as const;
+export type CvdiagFailureClassifier =
+  (typeof CVDIAG_FAILURE_CLASSIFIERS)[number];
+
 export interface ProbeExitMeta {
   terminal_outcome: CvdiagOutcome;
   total_duration_ms: number;
   sse_event_count: number;
   first_token_delta_ms: number | null;
+  /**
+   * Present ONLY on a non-`ok` terminal outcome. Classifies which turn-complete
+   * signal was missing (the `waitForTurnComplete` reject reason, or a derived
+   * best-effort classifier from the probe's own observed signals).
+   */
+  failure_classifier?: CvdiagFailureClassifier;
 }
 
 // Layer 2 (backend) ──────────────────────────────────────────────────────────
@@ -491,6 +515,7 @@ export const BOUNDARY_METADATA_KEYS: Record<
     "total_duration_ms",
     "sse_event_count",
     "first_token_delta_ms",
+    "failure_classifier",
   ],
   // backend
   "backend.request.ingress": ["method", "path", "content_length"],
