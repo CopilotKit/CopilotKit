@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { useCopilotKit } from "../context";
 import { recordAnnotation } from "../lib/record-annotation";
+import { INTELLIGENCE_LEARNING_CONTAINERS_KEY } from "../providers/CopilotKitProvider";
 
 /**
  * Input to {@link UseLearnFromUserActionRecorder}, the function returned
@@ -98,6 +99,16 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
         ...(input.data !== undefined ? { data: input.data } : {}),
       };
 
+      // Read the global intended learning containers set by the provider via
+      // the reserved key. Default to ["project"] when absent so the backend
+      // always receives an explicit routing signal.
+      const rawContainers =
+        copilotkit.properties[INTELLIGENCE_LEARNING_CONTAINERS_KEY];
+      const intended: string[] =
+        Array.isArray(rawContainers) && rawContainers.length > 0
+          ? (rawContainers as string[])
+          : ["project"];
+
       return recordAnnotation({
         runtimeUrl,
         headers: copilotkit.headers ?? {},
@@ -106,6 +117,7 @@ export function useLearnFromUserAction(): UseLearnFromUserActionRecorder {
         threadId: input.threadId,
         clientEventId: input.clientEventId,
         occurredAt: input.occurredAt,
+        intended,
       });
     },
     [copilotkit],

@@ -33,7 +33,3 @@ export type {
   UseAttachmentsProps,
   UseAttachmentsReturn,
 } from "./use-attachments";
-export { useLearningContainers } from "./use-learning-containers";
-export type { UseLearningContainersArgs } from "./use-learning-containers";
-export { useLearningContainersInCurrentThread } from "./use-learning-containers-in-current-thread";
-export type { UseLearningContainersInCurrentThreadArgs } from "./use-learning-containers-in-current-thread";

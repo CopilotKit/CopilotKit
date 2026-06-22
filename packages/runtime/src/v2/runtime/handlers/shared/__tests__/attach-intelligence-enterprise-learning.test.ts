@@ -13,7 +13,10 @@ vi.mock("@ag-ui/mcp-middleware", () => ({
 }));
 
 import { attachIntelligenceEnterpriseLearning } from "../agent-utils";
-import { INTELLIGENCE_USER_ID_HEADER } from "../../../intelligence-platform/client";
+import {
+  INTELLIGENCE_USER_ID_HEADER,
+  INTELLIGENCE_READABLE_CONTAINERS_HEADER,
+} from "../../../intelligence-platform/client";
 import type { CopilotRuntimeLike } from "../../../core/runtime";
 import { RUNTIME_MODE_INTELLIGENCE, logger } from "@copilotkit/shared";
 
@@ -32,9 +35,18 @@ function makeAgent(): AbstractAgent & {
   return agent;
 }
 
+type IdentifiedUser = {
+  id: string;
+  name: string;
+  learningContainers?: {
+    readableContainers?: string[];
+    writableContainers?: string[];
+  };
+};
+
 function makeRuntime(opts: {
   intelligence?: IntelligenceStub;
-  identifyUser?: (req: Request) => Promise<{ id: string; name: string }>;
+  identifyUser?: (req: Request) => Promise<IdentifiedUser>;
 }): CopilotRuntimeLike {
   return {
     mode: opts.intelligence ? RUNTIME_MODE_INTELLIGENCE : "sse",
@@ -113,6 +125,71 @@ describe("attachIntelligenceEnterpriseLearning", () => {
         },
       },
     ]);
+  });
+
+  it("stamps x-cpki-readable-containers (comma-separated) from readableContainers", async () => {
+    const agent = makeAgent();
+    await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({
+        intelligence: makeIntelligenceStub(),
+        identifyUser: async () => ({
+          id: "user-42",
+          name: "Forty Two",
+          learningContainers: { readableContainers: ["team-a", "team-b"] },
+        }),
+      }),
+      request: request(),
+      agent,
+    });
+
+    const [servers] = mcpMiddlewareCalls[0] as [
+      Array<{ headers: Record<string, string> }>,
+    ];
+    expect(servers[0]!.headers[INTELLIGENCE_READABLE_CONTAINERS_HEADER]).toBe(
+      "team-a,team-b",
+    );
+  });
+
+  it("omits the readable-containers header when readableContainers is absent (all)", async () => {
+    const agent = makeAgent();
+    await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({
+        intelligence: makeIntelligenceStub(),
+        identifyUser: async () => ({ id: "user-42", name: "Forty Two" }),
+      }),
+      request: request(),
+      agent,
+    });
+
+    const [servers] = mcpMiddlewareCalls[0] as [
+      Array<{ headers: Record<string, string> }>,
+    ];
+    expect(
+      INTELLIGENCE_READABLE_CONTAINERS_HEADER in servers[0]!.headers,
+    ).toBe(false);
+  });
+
+  it("stamps an empty readable-containers header when readableContainers is [] (read nowhere)", async () => {
+    const agent = makeAgent();
+    await attachIntelligenceEnterpriseLearning({
+      runtime: makeRuntime({
+        intelligence: makeIntelligenceStub(),
+        identifyUser: async () => ({
+          id: "user-42",
+          name: "Forty Two",
+          learningContainers: { readableContainers: [] },
+        }),
+      }),
+      request: request(),
+      agent,
+    });
+
+    const [servers] = mcpMiddlewareCalls[0] as [
+      Array<{ headers: Record<string, string> }>,
+    ];
+    expect(servers[0]!.headers[INTELLIGENCE_READABLE_CONTAINERS_HEADER]).toBe(
+      "",
+    );
   });
 
   it("skips silently when identifyUser returns an invalid user", async () => {

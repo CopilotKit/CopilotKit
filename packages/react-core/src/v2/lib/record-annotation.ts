@@ -34,7 +34,7 @@ export interface RecordAnnotationArgs {
   headers: Record<string, string>;
   /**
    * The annotation discriminant understood by the Intelligence platform.
-   * Known values: `"user_action"`, `"set_learning_containers"`.
+   * Known values: `"user_action"`.
    */
   type: string;
   /**
@@ -57,6 +57,15 @@ export interface RecordAnnotationArgs {
    * Defaults to server `NOW()` when absent.
    */
   occurredAt?: string;
+  /**
+   * Client-intended learning containers for this annotation.
+   * The Intelligence backend intersects these with the BFF-stamped writable
+   * allowlist; the union that survives is the set actually written to.
+   * Defaults to `["project"]` at the hook layer when absent.
+   * Omit from the body when not supplied so the backend can apply its own
+   * default independently.
+   */
+  intended?: string[];
 }
 
 /**
@@ -84,7 +93,8 @@ export interface RecordAnnotationArgs {
 export async function recordAnnotation(
   args: RecordAnnotationArgs,
 ): Promise<RecordAnnotationResult> {
-  const { runtimeUrl, headers, type, payload, threadId, occurredAt } = args;
+  const { runtimeUrl, headers, type, payload, threadId, occurredAt, intended } =
+    args;
 
   const clientEventId = args.clientEventId ?? randomUUID();
 
@@ -94,6 +104,7 @@ export async function recordAnnotation(
     clientEventId,
     ...(payload !== undefined ? { payload } : {}),
     ...(occurredAt !== undefined ? { occurredAt } : {}),
+    ...(intended !== undefined ? { intended } : {}),
   };
 
   const response = await fetch(`${runtimeUrl}/annotate`, {

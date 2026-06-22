@@ -57,6 +57,19 @@ import { zodToJsonSchema } from "zod-to-json-schema";
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
+/**
+ * Reserved `forwardedProps` key carrying the client's intended learning
+ * containers for CopilotKit Intelligence self-learning events. Must stay
+ * byte-identical to the key Intelligence reads on the receiving side.
+ *
+ * Exported so that hooks that need to read the value from
+ * `copilotkit.properties` (e.g. `useLearnFromUserAction`) can do so without
+ * scattering the literal string.
+ */
+export const INTELLIGENCE_LEARNING_CONTAINERS_KEY =
+  "__copilotkit_intelligence_learning_containers__";
+/** Default learning container when none is configured on the provider. */
+const DEFAULT_LEARNING_CONTAINERS: readonly string[] = ["project"];
 // Stable frozen defaults keep provider effects from re-running just because a
 // caller omitted an object prop on a rerender.
 const EMPTY_HEADERS: Readonly<Record<string, string>> = Object.freeze({});
@@ -219,6 +232,16 @@ export interface CopilotKitProviderProps {
    * Enable debug logging for the client-side event pipeline.
    */
   debug?: DebugConfig;
+  /** CopilotKit Intelligence configuration. */
+  intelligence?: {
+    /**
+     * Global learning containers for this app's learning events. These are the
+     * client-intended containers (`intended`) carried with each learning event;
+     * the Intelligence backend intersects them with the BFF-stamped writable
+     * allowlist. Defaults to `["project"]`.
+     */
+    learningContainers?: string[];
+  };
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -269,6 +292,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   defaultThrottleMs,
   inspectorDefaultAnchor,
   debug,
+  intelligence,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -372,6 +396,21 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const allActivityRenderers = useMemo(() => {
     return [...renderActivityMessagesList, ...builtInActivityRenderers];
   }, [renderActivityMessagesList, builtInActivityRenderers]);
+
+  // Merge the caller's `properties` with CopilotKit Intelligence metadata under
+  // a reserved key. This is opaque to the agent (it is NOT in the agent-input
+  // override allowlist) and is read only by the Intelligence backend. We build a
+  // new object rather than mutating the caller's prop, and memoize on the inputs
+  // so the reference stays stable across rerenders that do not change them.
+  const learningContainers = intelligence?.learningContainers;
+  const mergedProperties = useMemo<Record<string, unknown>>(
+    () => ({
+      ...properties,
+      [INTELLIGENCE_LEARNING_CONTAINERS_KEY]:
+        learningContainers ?? DEFAULT_LEARNING_CONTAINERS,
+    }),
+    [properties, learningContainers],
+  );
 
   const resolvedPublicKey = publicApiKey ?? publicLicenseKey;
   const mergedAgents = useMemo(
@@ -555,7 +594,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             : "auto",
       headers: mergedHeaders,
       credentials,
-      properties,
+      properties: mergedProperties,
       agents__unsafe_dev_only: mergedAgents,
       tools: allTools,
       renderToolCalls: allRenderToolCalls,
@@ -673,7 +712,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     );
     copilotkit.setHeaders(mergedHeaders);
     copilotkit.setCredentials(credentials);
-    copilotkit.setProperties(properties);
+    copilotkit.setProperties(mergedProperties);
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
     copilotkit.setDebug(debug);
   }, [
@@ -681,7 +720,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     chatApiEndpoint,
     mergedHeaders,
     credentials,
-    properties,
+    mergedProperties,
     mergedAgents,
     useSingleEndpoint,
     debug,
