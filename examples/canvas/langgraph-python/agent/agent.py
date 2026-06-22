@@ -68,6 +68,7 @@ class AgentState(CopilotKitState):
     planSteps: List[Dict[str, Any]] = []
     currentStepIndex: int = -1
     planStatus: str = ""
+    planContinuationCount: int = 0
 
 
 def summarize_items_for_prompt(state: AgentState) -> str:
@@ -155,6 +156,8 @@ backend_tools = [
 # Extract tool names from backend_tools for comparison
 backend_tool_names = [tool.name for tool in backend_tools]
 
+MAX_AUTOMATIC_PLAN_CONTINUES = 8
+
 # Frontend tool allowlist to keep tool count under API limits and avoid noise
 FRONTEND_TOOL_ALLOWLIST = set(
     [
@@ -195,7 +198,7 @@ FRONTEND_TOOL_ALLOWLIST = set(
 
 async def chat_node(
     state: AgentState, config: RunnableConfig
-) -> Command[Literal["tool_node", "__end__"]]:
+) -> Command[Literal["chat_node", "tool_node", "__end__"]]:
     """
     Standard chat node based on the ReAct design pattern. It handles:
     - The model to use (and binds in CopilotKit actions and the tools defined above)
@@ -278,6 +281,10 @@ async def chat_node(
     plan_steps = state.get("planSteps", []) or []
     current_step_index = state.get("currentStepIndex", -1)
     plan_status = state.get("planStatus", "")
+    try:
+        plan_continue_count = int(state.get("planContinuationCount", 0) or 0)
+    except Exception:
+        plan_continue_count = 0
     field_schema = (
         "FIELD SCHEMA (authoritative):\n"
         "- project.data:\n"
@@ -441,6 +448,9 @@ async def chat_node(
                             "planSteps": state.get("planSteps", []),
                             "currentStepIndex": state.get("currentStepIndex", -1),
                             "planStatus": state.get("planStatus", ""),
+                            "planContinuationCount": state.get(
+                                "planContinuationCount", 0
+                            ),
                         },
                     )
     except Exception:
@@ -615,6 +625,7 @@ async def chat_node(
                 "currentStepIndex": state.get("currentStepIndex", -1),
                 "planStatus": state.get("planStatus", ""),
                 **plan_updates,
+                "planContinuationCount": 0,
                 # guidance for follow-up after tool execution
                 "__last_tool_guidance": "If a deletion tool reports success (deleted:ID), acknowledge deletion even if the item no longer exists afterwards.",
             },
@@ -660,6 +671,7 @@ async def chat_node(
                 "currentStepIndex": state.get("currentStepIndex", -1),
                 "planStatus": state.get("planStatus", ""),
                 **plan_updates,
+                "planContinuationCount": 0,
                 "__last_tool_guidance": (
                     "Frontend tool calls issued. Waiting for client tool results before continuing."
                 ),
@@ -667,6 +679,44 @@ async def chat_node(
         )
 
     if has_remaining and effective_plan_status != "completed":
+        if plan_continue_count >= MAX_AUTOMATIC_PLAN_CONTINUES - 1:
+            failed_steps = []
+            for step in effective_steps:
+                copied_step = dict(step)
+                if copied_step.get("status") not in ("completed", "failed"):
+                    copied_step["status"] = "failed"
+                    copied_step["note"] = (
+                        "Stopped after repeated automatic retries without plan progress."
+                    )
+                failed_steps.append(copied_step)
+
+            return Command(
+                goto=END,
+                update={
+                    "messages": [
+                        AIMessage(
+                            content=(
+                                "I couldn't complete the plan automatically after several retries. "
+                                "The unfinished steps have been marked failed so the workflow can stop cleanly. "
+                                "Please retry with clearer instructions or adjust the plan."
+                            )
+                        )
+                    ],
+                    "items": state.get("items", []),
+                    "globalTitle": state.get("globalTitle", ""),
+                    "globalDescription": state.get("globalDescription", ""),
+                    "itemsCreated": state.get("itemsCreated", 0),
+                    "lastAction": state.get("lastAction", ""),
+                    "planSteps": failed_steps,
+                    "currentStepIndex": plan_updates.get(
+                        "currentStepIndex", current_step_index
+                    ),
+                    "planStatus": "failed",
+                    "planContinuationCount": 0,
+                    "__last_tool_guidance": None,
+                },
+            )
+
         # Auto-continue; include response only if it carries frontend tool calls
         return Command(
             goto="chat_node",
@@ -683,6 +733,7 @@ async def chat_node(
                 "currentStepIndex": state.get("currentStepIndex", -1),
                 "planStatus": state.get("planStatus", ""),
                 **plan_updates,
+                "planContinuationCount": plan_continue_count + 1,
                 "__last_tool_guidance": (
                     "Plan is in progress. Proceed to the next step automatically. "
                     "Update the step status to in_progress, call necessary tools, and mark it completed when done."
@@ -701,6 +752,33 @@ async def chat_node(
         plan_marked_completed = False
 
     if all_steps_completed and not plan_marked_completed:
+        if plan_continue_count >= MAX_AUTOMATIC_PLAN_CONTINUES - 1:
+            return Command(
+                goto=END,
+                update={
+                    "messages": [
+                        AIMessage(
+                            content=(
+                                "All plan steps are complete, so I'm marking the plan completed "
+                                "and ending the automatic follow-up instead of retrying again."
+                            )
+                        )
+                    ],
+                    "items": state.get("items", []),
+                    "globalTitle": state.get("globalTitle", ""),
+                    "globalDescription": state.get("globalDescription", ""),
+                    "itemsCreated": state.get("itemsCreated", 0),
+                    "lastAction": state.get("lastAction", ""),
+                    "planSteps": effective_steps,
+                    "currentStepIndex": plan_updates.get(
+                        "currentStepIndex", current_step_index
+                    ),
+                    "planStatus": "completed",
+                    "planContinuationCount": 0,
+                    "__last_tool_guidance": None,
+                },
+            )
+
         return Command(
             goto="chat_node",
             update={
@@ -715,6 +793,7 @@ async def chat_node(
                 "currentStepIndex": state.get("currentStepIndex", -1),
                 "planStatus": state.get("planStatus", ""),
                 **plan_updates,
+                "planContinuationCount": plan_continue_count + 1,
                 "__last_tool_guidance": (
                     "All steps are completed. Call complete_plan to mark the plan as finished, "
                     "then present a concise summary of outcomes."
@@ -741,6 +820,7 @@ async def chat_node(
             "currentStepIndex": state.get("currentStepIndex", -1),
             "planStatus": state.get("planStatus", ""),
             **plan_updates,
+            "planContinuationCount": 0,
             "__last_tool_guidance": None,
         },
     )
