@@ -58,6 +58,34 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SHOWCASE_DIR="$(dirname "$HERE")"
 RAILWAY_BIN="${RAILWAY_BIN:-$SHOWCASE_DIR/bin/railway}"
 
+# Within-tier parallel fan-out cap. bin/railway promote is dominated by a
+# serial verify_serving_digest! (~300s/service), so a fully-serial fleet
+# overruns the job timeout mid-fleet. We background promote_one WITHIN a tier up
+# to PROMOTE_FANOUT concurrent processes, drain at the tier boundary (the
+# BARRIER), then reap each service's result. CROSS-tier ordering and
+# dependent-tier gating stay strictly serial. Cap chosen to stay well under
+# Railway API rate limits while cutting wall-clock to ~tier-size/cap * 300s.
+PROMOTE_FANOUT="${PROMOTE_FANOUT:-5}"
+if ! [ "$PROMOTE_FANOUT" -ge 1 ] 2>/dev/null; then
+  echo "::error::promote-fleet: PROMOTE_FANOUT='$PROMOTE_FANOUT' is not a positive integer." >&2
+  exit 1
+fi
+
+# Per-service result scratch dir. Backgrounded promote_one processes run in
+# SUBSHELLS, so their appends to succeeded[]/failed[]/drift[] would be lost; each
+# instead writes its outcome to files here (<svc>.rc / <svc>.drift / <svc>.log),
+# which the parent reap phase reads back into the aggregate arrays IN INPUT
+# ORDER. Cleaned up on exit.
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/promote-fleet.XXXXXX")"
+# Invoked indirectly via the EXIT trap below, not by name. shellcheck flags this
+# differently across versions: 0.9.0 (the ubuntu-24.04 CI runner) emits SC2317
+# ("command appears unreachable") on the body, while 0.10.0+ emits SC2329
+# ("function never invoked") on the definition. Disable both so the directive is
+# clean on every shellcheck the fleet runs (local + CI).
+# shellcheck disable=SC2317,SC2329
+cleanup() { rm -rf "$WORK"; }
+trap cleanup EXIT
+
 # ── Input mode resolution ───────────────────────────────────────────────────
 # Two input shapes:
 #   * CLOSURE_PLAN — tier-annotated `tier:name,tier:name,...` (U3 output). When
@@ -95,45 +123,181 @@ trim() {
   printf '%s' "$s"
 }
 
-# promote_one <svc> -> promote a single service best-effort, recording it into
-# succeeded[]/failed[] and aggregating any STAGING_DRIFT_MARKER into drift[].
-# Returns the railway exit code (0 = pinned). This is the EXACT per-service body
-# the flat loop used before tiering was added — preserved byte-for-byte so the
-# behavior (trim handled by caller, args, PIPESTATUS rc capture, drift scan,
-# OK/::error:: lines) is identical on both paths.
+# svc_slot <svc> -> echo a filesystem-safe scratch key for <svc>. Service names
+# are simple DNS-ish labels (e.g. showcase-ag2), but defensively replace any
+# `/` so a stray name can never escape $WORK.
+svc_slot() {
+  printf '%s' "${1//\//_}"
+}
+
+# promote_one <svc> -> promote a single service best-effort. Writes its outcome
+# to the $WORK scratch dir instead of mutating arrays, so it is safe to run in a
+# BACKGROUNDED subshell (where array appends would be lost):
+#   $WORK/<svc>.rc    the railway exit code (0 = pinned)
+#   $WORK/<svc>.log   the full captured promote output (streamed contiguously by
+#                     the reap phase, prefixed [<svc>], so interleaved parallel
+#                     output stays readable)
+#   $WORK/<svc>.drift one STAGING_DRIFT_MARKER payload per line (absent if none)
+# Returns the railway exit code. The per-service BEHAVIOR (args, PIPESTATUS rc
+# capture, drift scan, OK/::error:: lines) is preserved exactly; only the result
+# SINK changed from arrays to files so the parent can reap them in input order.
 promote_one() {
   local svc="$1"
-  local args out rc line
+  local slot args out rc line
+  slot="$(svc_slot "$svc")"
 
   args=(promote "$svc" --yes --non-interactive)
   if [ -n "${DIGEST:-}" ]; then
     args+=(--digest "$DIGEST")
   fi
 
-  echo "==> $RAILWAY_BIN ${args[*]}"
-  # Tee the promote output so we (a) still stream it live to the operator/CI
-  # log AND (b) can scan it for the STAGING_DRIFT_MARKER line that bin/railway
-  # emits when staging is NOT serving the current :latest. PIPESTATUS[0] is the
-  # railway exit code (tee always exits 0), so the per-service success/fail
-  # accounting is unaffected by the pipe.
-  out="$("$RAILWAY_BIN" "${args[@]}" 2>&1 | tee /dev/stderr)"
-  rc="${PIPESTATUS[0]}"
+  # Capture this service's full output into its own log file. We do NOT tee to
+  # the live terminal here: under fan-out, N services stream at once and their
+  # lines would interleave illegibly. The reap phase emits each <svc>.log
+  # CONTIGUOUSLY (prefixed [<svc>]) after the tier drains, preserving the
+  # readable per-service block the serial path produced. PIPESTATUS[0] is the
+  # railway exit code (the redirect/sed in the drift scan never runs in the same
+  # pipe, so rc is the railway rc directly).
+  out="$("$RAILWAY_BIN" "${args[@]}" 2>&1)"
+  rc=$?
+
+  {
+    echo "==> $RAILWAY_BIN ${args[*]}"
+    printf '%s\n' "$out"
+    if [ "$rc" -eq 0 ]; then
+      echo "    OK: $svc"
+    else
+      echo "::error::promote failed for '$svc' (exit $rc)"
+    fi
+  } > "$WORK/$slot.log"
 
   # Collect any drift marker(s) emitted for this service. The marker payload is
   # everything after "STAGING_DRIFT_MARKER: ". Promote still SUCCEEDS on drift
   # (it pins staging's running digest) — this is a warning surface, not a gate.
-  while IFS= read -r line; do
-    [ -n "$line" ] && drift+=("$line")
-  done < <(printf '%s\n' "$out" | sed -n 's/^STAGING_DRIFT_MARKER: //p')
+  printf '%s\n' "$out" | sed -n 's/^STAGING_DRIFT_MARKER: //p' > "$WORK/$slot.drift"
 
-  if [ "$rc" -eq 0 ]; then
-    echo "    OK: $svc"
-    succeeded+=("$svc")
-  else
-    echo "::error::promote failed for '$svc' (exit $rc)"
-    failed+=("$svc=$rc")
-  fi
+  echo "$rc" > "$WORK/$slot.rc"
   return "$rc"
+}
+
+# promote_tier <gated> <svc...> — promote every service in one tier best-effort
+# (unless <gated> is 1, in which case the tier is gated out by an earlier-tier
+# failure and its services are recorded NOT-ATTEMPTED). Sets the GLOBAL
+# `tier_had_failure` to 1 if this tier itself had a promote failure (so the
+# caller can gate the NEXT tier), else 0. Best-effort within the tier is
+# preserved: every member is attempted even after a sibling fails.
+#
+# WITHIN-TIER PARALLELISM: services in a non-gated tier are promoted with
+# bounded concurrency (PROMOTE_FANOUT). promote_one runs in a backgrounded
+# SUBSHELL writing its result to $WORK/<svc>.rc/.drift/.log; when the in-flight
+# count reaches the cap we `wait` the oldest PID (bash 3.2-safe — NO `wait -n`,
+# NO `declare -n`). After launching all members we drain every remaining PID:
+# that drain is the TIER BARRIER. reap_tier then folds the per-service files
+# into the aggregate arrays IN INPUT ORDER, preserving the serial path's
+# ordering, drift aggregation, and best-effort + nonzero-iff-any-failed
+# semantics. CROSS-tier ordering stays serial (the caller reaps before the next
+# tier launches). The flat (SERVICES_CSV) path reuses this as a single ungated
+# tier so it benefits from the same fan-out.
+promote_tier() {
+  local gated_in="$1"; shift
+  local svc pid
+  local launched=()    # service names launched this tier, IN INPUT ORDER
+  local pids=()        # background PIDs, parallel-indexed with launched[]
+  local inflight=0
+  tier_had_failure=0
+  for svc in "$@"; do
+    # Skip the empty arg an empty tier yields via `${arr[@]:-}` on bash 3.2
+    # (and any blank that slipped through). A blank is never a real service.
+    [ -n "$svc" ] || continue
+    if [ "$gated_in" -ne 0 ]; then
+      not_attempted+=("$svc")
+      continue
+    fi
+    # Throttle: once PROMOTE_FANOUT promotes are in flight, block on the OLDEST
+    # outstanding PID before launching the next. Plain `wait <pid>` is bash
+    # 3.2-safe; `wait -n` (4.3+) is deliberately avoided. This is a simple
+    # oldest-first drain, not a true "any-finished" reaper, but it bounds peak
+    # concurrency to the cap exactly while keeping the launch order stable.
+    if [ "$inflight" -ge "$PROMOTE_FANOUT" ]; then
+      local oldest_idx=$(( ${#pids[@]} - inflight ))
+      wait "${pids[$oldest_idx]}"
+      inflight=$(( inflight - 1 ))
+    fi
+    # Background promote_one in a subshell. Its array appends would be lost, but
+    # it writes <svc>.rc/.drift/.log to $WORK which reap_tier reads back.
+    promote_one "$svc" &
+    pids+=("$!")
+    launched+=("$svc")
+    inflight=$(( inflight + 1 ))
+  done
+
+  # TIER BARRIER: drain every remaining in-flight promote before reaping or
+  # advancing to the next tier. Wait on ALL launched PIDs (already-reaped ones
+  # return immediately — harmless).
+  for pid in "${pids[@]:-}"; do
+    [ -n "$pid" ] && wait "$pid"
+  done
+
+  reap_tier "${launched[@]:-}"
+}
+
+# reap_tier <svc...> — fold each launched service's $WORK result files into the
+# aggregate arrays IN THE GIVEN (input) ORDER, so succeeded[]/failed[]/drift[]
+# match the serial path's ordering regardless of completion order. Emits each
+# service's captured log CONTIGUOUSLY, prefixed `[<svc>]`, then OK/::error::
+# accounting identical to the old inline path. Sets tier_had_failure on any
+# nonzero rc.
+reap_tier() {
+  local svc slot rc line
+  for svc in "$@"; do
+    [ -n "$svc" ] || continue
+    slot="$(svc_slot "$svc")"
+
+    # Emit this service's full captured output as one contiguous block so a
+    # parallel tier's logs stay readable (prefixed with the service name).
+    if [ -f "$WORK/$slot.log" ]; then
+      while IFS= read -r line; do
+        echo "[$svc] $line"
+      done < "$WORK/$slot.log"
+    fi
+
+    # Aggregate drift markers (one payload per line; file may be empty/absent).
+    if [ -s "$WORK/$slot.drift" ]; then
+      while IFS= read -r line; do
+        [ -n "$line" ] && drift+=("$line")
+      done < "$WORK/$slot.drift"
+    fi
+
+    # Exit code: a MISSING .rc means the backgrounded promote_one died before
+    # writing it (crash/kill) — treat that as a failure rather than silently
+    # dropping the service, so a lost promote never reads as a phantom success.
+    if [ -f "$WORK/$slot.rc" ]; then
+      rc="$(cat "$WORK/$slot.rc")"
+      # A PRESENT but EMPTY-or-NON-NUMERIC .rc means the promote subshell was
+      # killed (or the disk filled) mid-write — the file exists but its exit code
+      # never landed. Without this guard `rc` could be "" or garbage, and the
+      # `[ "$rc" -eq 0 ]` below would error ("integer expression expected") and
+      # mis-record the service as a phantom `<svc>=` (empty rc). Coerce any
+      # non-integer rc to a failure, mirroring the missing-file branch. The
+      # `case` glob is bash-3.2-safe (no `[[ =~ ]]`, matching the file's style).
+      case "$rc" in
+        ''|*[!0-9-]*)
+          rc=1
+          echo "::error::promote-fleet: malformed result recorded for '$svc' (promote process died mid-write, leaving an empty or non-numeric exit code); treating as failed."
+          ;;
+      esac
+    else
+      rc=1
+      echo "::error::promote-fleet: no result recorded for '$svc' (promote process died before writing its exit code); treating as failed."
+    fi
+
+    if [ "$rc" -eq 0 ]; then
+      succeeded+=("$svc")
+    else
+      failed+=("$svc=$rc")
+      tier_had_failure=1
+    fi
+  done
 }
 
 if [ -n "${CLOSURE_PLAN:-}" ]; then
@@ -170,38 +334,6 @@ if [ -n "${CLOSURE_PLAN:-}" ]; then
     esac
   done
 
-  # promote_tier <gated> <svc...> — promote every service in one tier
-  # best-effort (unless <gated> is 1, in which case the tier is gated out by an
-  # earlier-tier failure and its services are recorded NOT-ATTEMPTED). Sets the
-  # GLOBAL `tier_had_failure` to 1 if this tier itself had a promote failure (so
-  # the caller can gate the NEXT tier), else 0. Best-effort within the tier is
-  # preserved: every member is attempted even after a sibling fails.
-  #
-  # NB: this MUST run in the current shell (NOT a `$(...)` command substitution)
-  # — promote_one appends to the succeeded[]/failed[]/drift[] arrays, and those
-  # mutations would be lost in a subshell. We communicate the tier result via a
-  # global rather than stdout for the same reason.
-  promote_tier() {
-    local gated_in="$1"; shift
-    local svc
-    tier_had_failure=0
-    for svc in "$@"; do
-      # Skip the empty arg an empty tier yields via `${arr[@]:-}` on bash 3.2
-      # (and any blank that slipped through). A blank is never a real service.
-      [ -n "$svc" ] || continue
-      if [ "$gated_in" -ne 0 ]; then
-        not_attempted+=("$svc")
-        continue
-      fi
-      # promote_one returns the railway rc; under `set -uo pipefail` (no -e) a
-      # non-zero return does NOT abort, so per-service best-effort within the
-      # tier is preserved.
-      if ! promote_one "$svc"; then
-        tier_had_failure=1
-      fi
-    done
-  }
-
   # Promote in strict tier order (0 -> 1 -> 2), gating each tier's dependents on
   # ANY earlier-tier failure. `${arr[@]:-}` keeps the empty-array expansion safe
   # under `set -u` on bash 3.2 (an empty tier expands to a single empty arg,
@@ -216,7 +348,11 @@ if [ -n "${CLOSURE_PLAN:-}" ]; then
 else
   # ── Flat leaf path (legacy / backward-compat) ──────────────────────────────
   # No tier gating: every service attempted best-effort, identical to the
-  # pre-U4 behavior. not_attempted[] stays empty on this path.
+  # pre-U4 behavior. not_attempted[] stays empty on this path. We route the
+  # trimmed leaf set through promote_tier as a single UNGATED tier (gated=0) so
+  # the flat path gets the same bounded fan-out as a closure tier — best-effort,
+  # input-order aggregation, and drift handling are all preserved by reap_tier.
+  flat_svcs=()
   IFS=',' read -ra SVCS <<< "$SERVICES_CSV"
   for svc in "${SVCS[@]}"; do
     # Trim BEFORE the empty-check so a whitespace-only token is also skipped.
@@ -224,8 +360,10 @@ else
     # Guard against empty tokens from a stray/trailing comma (or a
     # whitespace-only token) in the CSV.
     [ -n "$svc" ] || continue
-    promote_one "$svc" || true
+    flat_svcs+=("$svc")
   done
+  tier_had_failure=0
+  promote_tier 0 "${flat_svcs[@]:-}"
 fi
 
 # Guard against input that parsed to ONLY empty/whitespace tokens (e.g. ",,"
