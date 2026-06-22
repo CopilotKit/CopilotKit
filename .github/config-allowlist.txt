@@ -108,6 +108,7 @@ showcase/integrations/ms-agent-python/next.config.ts
 showcase/integrations/pydantic-ai/next.config.ts
 showcase/integrations/spring-ai/next.config.ts
 showcase/integrations/strands/next.config.ts
+showcase/integrations/strands-typescript/next.config.ts
 showcase/shell-dashboard/next.config.ts
 showcase/shell-docs/next.config.ts
 showcase/shell-dojo/next.config.ts
