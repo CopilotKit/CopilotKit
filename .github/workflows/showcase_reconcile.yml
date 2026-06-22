@@ -1,27 +1,21 @@
-name: "Showcase: Reconcile prod vs staging (drift gate)"
+name: "Showcase: Reconcile prod vs staging (on-demand drift check)"
 
-# Lever 1 of the promote-reliability hardening plan: proactively detect when a
-# prod showcase column has drifted STALE vs a green staging, so drift is alerted
-# automatically instead of discovered by eyeballing a dead column.
+# On-demand prod-vs-staging reconciliation. The showcase deploy model: staging
+# tracks a mutable `:latest` tag and is continuously rebuilt; prod is pinned to
+# an immutable `@sha256:` digest and advances only on an explicit promote. So
+# prod can sit BEHIND a green staging — which is OFTEN INTENTIONAL (changes are
+# batched and promoted deliberately), so a recurring drift alert would be noise.
 #
-# The showcase deploy model: staging tracks a mutable `:latest` tag and is
-# continuously rebuilt; prod is pinned to an immutable `@sha256:` digest and
-# advances only on an explicit promote. So prod can silently fall BEHIND a green
-# staging. This scheduled gate compares, per prod-eligible service
-# (probe.prod == true), the prod SERVING digest against the staging RUNNING
-# digest, reds the run on any stale service, and alerts #oss-alerts with the
-# stale-column list.
+# This workflow is therefore MANUAL ONLY (workflow_dispatch). There is no
+# schedule and no unsolicited Slack alert. A maintainer runs it from the Actions
+# tab to answer "is prod caught up with staging right now?"; the per-service
+# reconcile table is rendered into the GH step summary, and the run exits
+# nonzero when a column is stale so the drift is visibly flagged on the run.
 #
 # Read-only: runs `bin/railway reconcile-prod`, which performs NO promotes /
-# mutations. The post-promote convergence step (verifying prod == staging right
-# after a promote) is a deferred fast-follow — this workflow is the standalone
-# scheduled drift detector.
+# mutations.
 
 on:
-  schedule:
-    # Daily at 14:00 UTC (mid-morning US Eastern) — a once-a-day drift sweep is
-    # enough; promote is the corrective action and is human-triggered.
-    - cron: "0 14 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -37,11 +31,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: railway
-    env:
-      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
-    outputs:
-      state: ${{ steps.gate.outputs.state }}
-      stale_line: ${{ steps.gate.outputs.stale_line }}
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -75,73 +64,27 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Path the gate writes machine-readable JSON to, for the Slack builder.
+          # Path the gate writes machine-readable JSON to (uploaded as an
+          # artifact below). Cheap to keep — handy for a maintainer inspecting a
+          # manual run, but no Slack/alert consumer.
           RECONCILE_JSON: ${{ github.workspace }}/reconcile.json
         run: |
           set -uo pipefail
           if [ -z "${RAILWAY_TOKEN:-}" ]; then
             echo "::error::RAILWAY_TOKEN secret not configured; cannot run the reconcile gate."
-            echo "state=error" >> "$GITHUB_OUTPUT"
-            echo "stale_line=" >> "$GITHUB_OUTPUT"
             exit 1
           fi
-          # Run the gate. reconcile-prod-gate.sh exits 1 on a stale service and
-          # 2 on a hard error; either is a step failure. Capture rc explicitly
-          # so we can derive the Slack state + stale-column list before exiting.
-          rc=0
+          # Run the gate. reconcile-prod-gate.sh surfaces the per-service table
+          # into the GH step summary and exits 1 on a stale service / 2 on a hard
+          # error — either reds the run so a manual run visibly flags drift.
           RAILWAY_BIN="showcase/bin/railway" \
-            showcase/scripts/reconcile-prod-gate.sh || rc=$?
+            showcase/scripts/reconcile-prod-gate.sh
 
-          # Derive a single-line stale-column list from the machine JSON for the
-          # Slack payload (key=value GITHUB_OUTPUT contract forbids embedded
-          # newlines, so this MUST be one line). Empty when nothing is stale or
-          # the JSON could not be produced.
-          STALE_LINE=""
-          if [ -s "${RECONCILE_JSON:-}" ]; then
-            STALE_LINE="$(ruby -rjson -e '
-              data = JSON.parse(File.read(ENV["RECONCILE_JSON"])) rescue {}
-              stale = (data["services"] || []).select { |s| s["status"] == "stale" }
-              names = stale.map { |s| s["name"] }
-              print names.empty? ? "" : "Stale columns: #{names.join(", ")}"
-            ' 2>/dev/null | tr -d '\n')"
-          fi
-
-          if [ "$rc" -eq 0 ]; then
-            echo "state=clean" >> "$GITHUB_OUTPUT"
-          elif [ "$rc" -eq 1 ]; then
-            echo "state=stale" >> "$GITHUB_OUTPUT"
-          else
-            echo "state=error" >> "$GITHUB_OUTPUT"
-          fi
-          echo "stale_line=$STALE_LINE" >> "$GITHUB_OUTPUT"
-          exit "$rc"
-
-      - name: Post to #oss-alerts (stale drift)
-        # Only alert on a stale verdict (drift we can prove). A hard error reds
-        # the run via the gate step's non-zero exit but does not page Slack — it
-        # is surfaced in the run log + step summary.
-        if: always() && steps.gate.outputs.state == 'stale' && env.SLACK_WEBHOOK != ''
-        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+      - name: Upload reconcile JSON
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
-          webhook-type: incoming-webhook
-          # Newlines via fromJSON('"\n"') (a real LF char), NOT a literal '\n':
-          # GitHub Actions expression string literals do not interpret backslash
-          # escapes, so a literal '\n' would survive toJSON as the two chars \\n
-          # and Slack would render it verbatim. (Same idiom as showcase_promote.yml.)
-          payload: |
-            {
-              "text": ${{ toJSON(format(
-                ':warning: *Showcase prod drift detected*{3}Prod has fallen BEHIND a green staging — re-promote the stale column(s).{3}{1}{3}<{0}/{2}/actions/runs/{4}|View run>',
-                github.server_url,
-                steps.gate.outputs.stale_line,
-                github.repository,
-                fromJSON('"\n"'),
-                github.run_id
-              )) }}
-            }
-
-      - name: Log (no Slack — webhook unset)
-        if: always() && steps.gate.outputs.state == 'stale' && env.SLACK_WEBHOOK == ''
-        run: |
-          echo "::warning::Prod drift detected (${{ steps.gate.outputs.stale_line }}) but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+          name: reconcile-json
+          path: reconcile.json
+          if-no-files-found: ignore
+          retention-days: 7

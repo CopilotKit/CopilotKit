@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# reconcile-prod-gate.sh — scheduled drift gate: assert NO prod service has
-# drifted STALE vs a green staging (Lever 1 of the promote-reliability
-# hardening plan).
+# reconcile-prod-gate.sh — on-demand drift gate: assert NO prod service has
+# drifted STALE vs a green staging.
 #
 # Mirrors lint-prod-gate.sh (a thin wrapper around a `bin/railway` subcommand
 # whose exit-code contract IS the gate), but checks a DIFFERENT invariant:
@@ -13,8 +12,8 @@
 #     is staging=mutable `:latest` (continuously rebuilt), prod=immutable
 #     `@sha256:` (advances only on explicit promote), so prod can silently fall
 #     behind a green staging — a dead/stale prod column that today is only
-#     noticed by eyeballing it. This gate detects that drift automatically so
-#     the scheduled workflow can alert on it.
+#     noticed by eyeballing it. This gate detects that drift on demand so a
+#     manual workflow run can surface it.
 #
 # It is a thin wrapper around `bin/railway reconcile-prod`, whose exit-code
 # contract IS the gate: exit 0 = no service stale (all green, or only
@@ -23,9 +22,8 @@
 # We do NOT pass any advisory flag — a stale prod column must red the run.
 #
 # Output is surfaced into $GITHUB_STEP_SUMMARY (the readable per-service table)
-# AND to stdout (the job log). When run with --json the machine output is also
-# captured to a file the caller (the workflow) reads to build the Slack
-# payload's stale-column list.
+# AND to stdout (the job log). When RECONCILE_JSON is set the machine output is
+# also captured to that file (uploaded as a workflow artifact for inspection).
 #
 # Usage:
 #   RAILWAY_TOKEN=... scripts/reconcile-prod-gate.sh
@@ -39,7 +37,7 @@
 #   RECONCILE_JSON (optional) path to write the machine-readable JSON output to
 #                  (in addition to the human table). When set, the gate also
 #                  invokes `reconcile-prod --json` and writes the result there
-#                  for the workflow's Slack-payload builder.
+#                  (uploaded as a workflow artifact for inspection).
 
 set -uo pipefail
 
@@ -56,7 +54,7 @@ if [ ! -x "$RAILWAY_BIN" ] && ! command -v "$RAILWAY_BIN" >/dev/null 2>&1; then
   exit 1
 fi
 
-# Optionally capture machine-readable JSON for the workflow's Slack builder.
+# Optionally capture machine-readable JSON (uploaded as a workflow artifact).
 # This is a best-effort SECOND invocation (read-only) — its rc does not decide
 # the gate (the human-table invocation below does); a JSON-write failure must
 # not change the gate verdict.

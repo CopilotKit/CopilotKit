@@ -1,12 +1,10 @@
 #!/usr/bin/env bats
-# Tests for reconcile-prod-gate.sh — the scheduled prod-vs-staging drift gate
-# (Lever 1 of the promote-reliability hardening plan).
+# Tests for reconcile-prod-gate.sh — the on-demand prod-vs-staging drift gate.
 #
 # Core invariant under test: a STALE prod service (its serving digest has
 # drifted BEHIND a green staging) must be caught LOUD — the gate exits non-zero
-# so the scheduled run goes red and the workflow alerts #oss-alerts. A fleet
-# with no stale service passes (exit 0); a hard error (exit 2) is never
-# swallowed.
+# so a manual run visibly flags the drift on the run. A fleet with no stale
+# service passes (exit 0); a hard error (exit 2) is never swallowed.
 #
 # The gate is a thin wrapper around `bin/railway reconcile-prod`, whose
 # exit-code contract IS the assertion: exit 1 on a stale service, exit 0 when
@@ -103,7 +101,7 @@ STUB
   [ -f "$JSON_OUT" ] || fail "RECONCILE_JSON file not written"
 }
 
-@test "the scheduled workflow wires the gate in" {
+@test "the on-demand workflow wires the gate in" {
   # Guard against the gate being orphaned (script present + tested, but never
   # invoked by the reconcile workflow). Assert the workflow actually calls
   # reconcile-prod-gate.sh.
