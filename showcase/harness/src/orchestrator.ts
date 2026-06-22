@@ -1455,6 +1455,11 @@ export function buildPooledBrowserDrivers(
     d6: createE2eFullDriver({
       launcher: createPooledE2eFullLauncher(pool, log),
       diagPb,
+      // Same CVDIAG event-persistence writer the smoke driver uses: the d5/d6
+      // probe path now constructs a `CvdiagProbeSession` per feature and emits
+      // probe-layer boundaries (probe.exit etc.) that PERSIST to `cvdiag_events`
+      // on flush, so the flapping d5/d6 runs are readable from staging.
+      cvdiagPbWriter: cvdiagWriter,
     }),
   };
 }

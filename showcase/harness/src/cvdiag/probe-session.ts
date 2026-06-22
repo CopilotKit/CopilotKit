@@ -28,7 +28,7 @@ import type {
   ProbeSseEventMeta,
   TerminationKind,
 } from "./schema.js";
-import { isValidTestId } from "./schema.js";
+import { CVDIAG_FAILURE_CLASSIFIERS, isValidTestId } from "./schema.js";
 import { mintTestId, sanitizeJoinTestId } from "./emit.js";
 
 /**
@@ -540,17 +540,14 @@ export function nowMonoMs(): number {
 
 /**
  * Set of valid CVDIAG failure classifiers, for the duck-typed
- * `TurnNotCompleteError.reason` guard below. Kept in sync with the schema's
- * `CVDIAG_FAILURE_CLASSIFIERS` union (a mismatch is caught by the
- * `satisfies` assertion).
+ * `TurnNotCompleteError.reason` guard below AND for the d6 driver's
+ * conversation-error `reason=<classifier>` breadcrumb parse. Derived from the
+ * schema's canonical `CVDIAG_FAILURE_CLASSIFIERS` const so the allow-list can
+ * NEVER drift from the `CvdiagFailureClassifier` union — adding a classifier
+ * to the schema array automatically widens every membership check.
  */
-const FAILURE_CLASSIFIER_SET: ReadonlySet<CvdiagFailureClassifier> = new Set([
-  "sse-missing",
-  "dom-missing",
-  "text-unstable",
-  "surface-missing",
-  "selector-mismatch",
-] satisfies CvdiagFailureClassifier[]);
+export const FAILURE_CLASSIFIER_SET: ReadonlySet<CvdiagFailureClassifier> =
+  new Set(CVDIAG_FAILURE_CLASSIFIERS);
 
 /**
  * Extract a CVDIAG failure classifier from a thrown error when it is a
