@@ -169,22 +169,22 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
-      # Exclude node_modules and build caches from the artifact. Including
-      # them produces ~6.4M files for this monorepo, which OOMs
-      # upload-artifact's Node process at its 4GB heap limit during
-      # enumeration. The publish job runs `pnpm install` after download to
-      # restore node_modules from pnpm-lock.yaml.
+      # Strip caches and pack the workspace into a single tarball before
+      # upload. upload-artifact's path filters are post-walk: it still
+      # descends into every node_modules and stats every file (~6.4M for
+      # this monorepo with pnpm's .pnpm/ symlink farm) before applying
+      # negations, which is the actual bottleneck. Removing the dirs and
+      # uploading one file collapses that to a single fast step.
+      - name: Pack workspace
+        run: |
+          find . -type d \( -name node_modules -o -name .nx -o -name .turbo -o -name .next \) -prune -exec rm -rf {} +
+          tar -czf /tmp/workspace.tgz .
+
       - name: Upload workspace
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: workspace
-          path: |
-            .
-            !**/node_modules/**
-            !**/.next/**
-            !**/.turbo/**
-            !**/.nx/**
-          include-hidden-files: true
+          path: /tmp/workspace.tgz
           retention-days: 1
 
     outputs:
@@ -231,6 +231,11 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: workspace
+
+      - name: Unpack workspace
+        run: |
+          tar -xzf workspace.tgz
+          rm workspace.tgz
 
       - name: Configure git credentials
         env:
