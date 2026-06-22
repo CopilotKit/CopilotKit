@@ -291,25 +291,34 @@ async function recordTopic(
     await page.waitForTimeout(1_500);
 
     for (const cell of topic.cells) {
-      await showTitle(
-        page,
-        cell.row.name,
-        `${cell.column.name}: application interaction`,
-      );
       process.stderr.write(`Recording ${cell.row.id} / ${cell.column.slug}\n`);
-      await page.goto(cell.previewUrl, { waitUntil: "domcontentloaded" });
-      const frame = await findDemoFrame(page);
-      if (frame) {
-        const prompts =
-          args.promptLimit === null
-            ? cell.prompts
-            : cell.prompts.slice(0, args.promptLimit);
-        for (const prompt of prompts) {
+      const prompts =
+        args.promptLimit === null
+          ? cell.prompts
+          : cell.prompts.slice(0, args.promptLimit);
+      for (const prompt of prompts) {
+        await showTitle(
+          page,
+          cell.row.name,
+          `${cell.column.name}: ${prompt.title}`,
+        );
+        await page.goto(cell.previewUrl, { waitUntil: "domcontentloaded" });
+        const frame = await findDemoFrame(page);
+        if (frame) {
           const submitted = await submitPrompt(frame, prompt);
+          if (!submitted && !args.smoke) {
+            throw new Error(
+              `Could not submit ${prompt.title} for ${cell.column.slug}/${cell.row.id}`,
+            );
+          }
           await page.waitForTimeout(submitted ? args.perPromptWaitMs : 1_000);
+        } else if (!args.smoke) {
+          throw new Error(
+            `Could not find an interactive demo iframe for ${cell.column.slug}/${cell.row.id}`,
+          );
+        } else {
+          await page.waitForTimeout(2_000);
         }
-      } else {
-        await page.waitForTimeout(2_000);
       }
 
       await showTitle(page, cell.row.name, `${cell.column.name}: code view`);

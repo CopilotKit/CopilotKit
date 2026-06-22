@@ -43,7 +43,7 @@ The recorder:
 - creates one `.webm` per row/topic under `.artifacts/pr-tour-videos/`;
 - starts each topic video with a title slide;
 - opens the row-filtered dashboard view;
-- for every changed dashboard column, opens the showcase preview, clicks each suggestion pill, and sends one custom prompt that is not a pill;
+- for every changed dashboard column, opens the showcase preview, starts a fresh preview for each prompt, clicks each suggestion pill as a real visible interaction, and sends one custom prompt that is not a pill;
 - opens the shell code view for that same row/column and uses `?file=...&lines=...` to highlight the relevant code lines.
 
 Use a smoke run before a full pass:
@@ -52,7 +52,7 @@ Use a smoke run before a full pass:
 npm --prefix showcase/scripts run pr-tour-videos -- --mode showcase --preset tool-rendering --smoke
 ```
 
-Use `--columns slug-a,slug-b` when a PR only affects specific framework columns. Use `--prompt-limit 1` only for smoke/debug output; full PR tour videos should exercise all relevant pills plus the custom prompt.
+Use `--columns slug-a,slug-b` when a PR only affects specific framework columns or when some changed columns are not locally interactive. Use `--prompt-limit 1` only for smoke/debug output; never attach or present prompt-limited recordings as the review videos. Full PR tour videos must visibly exercise every relevant suggestion pill plus the custom prompt. If a non-smoke showcase recording cannot find an interactive demo iframe or submit a prompt, the recorder should fail rather than silently turning the tour into page navigation.
 
 If the video script cannot record because a local dependency is down, keep the deterministic plan output in the PR and state the missing service:
 
