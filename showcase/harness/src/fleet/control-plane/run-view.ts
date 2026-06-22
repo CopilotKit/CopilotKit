@@ -39,12 +39,19 @@ import {
 import { PROBE_JOBS_COLLECTION } from "../queue-client.js";
 import { PROBE_RUNS_COLLECTION } from "../../probes/run-history.js";
 import type { ProbeRunSummary } from "../../probes/run-history.js";
+// Import the schedule ids from the cycle-free LEAF module — NOT from
+// `control-plane.js`. The top-level `FLEET_FAMILIES` literal below reads these
+// at MODULE-EVAL time; `control-plane.ts` sits inside the
+// control-plane → job-producer → run-view → control-plane cycle, so importing
+// the ids from it left them in the TDZ under one cycle load order (the harness
+// crash-looped on boot). The leaf has no edges back into the cycle, so the ids
+// are always fully initialized before this literal evaluates.
 import {
   FLEET_PRODUCER_DEEP_SCHEDULE_ID,
   FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
   FLEET_PRODUCER_SCHEDULE_ID,
   FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
-} from "./control-plane.js";
+} from "./schedule-ids.js";
 import type { ProducerSchedule } from "./control-plane.js";
 
 // ───────────────────────────────────────────────────────────────────────
