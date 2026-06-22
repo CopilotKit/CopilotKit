@@ -309,11 +309,11 @@ describe("fixture collision detection", () => {
     // narration fallbacks share the same userMessage prefix as the emitters
     // (which the shadow detector skips because identical strings are caught
     // by the exact-duplicate test, not the shadow test).
-    // Bumped 132→133: +1 substring shadow from the strands-typescript D6 port
-    // (calculator pill in _from-feature-parity.json, mirrored from the Python
-    // strands sibling), runtime-disambiguated like the other per-integration
-    // copies.
-    const KNOWN_SHADOW_CEILING = 133;
+    // Bumped 132→137: +5 substring shadows from the strands-typescript D6 port
+    // (its per-integration fixtures mirror the Python strands sibling —
+    // calculator + tool-rendering pill variants), runtime-disambiguated by
+    // toolCallId / toolName / turnIndex like the other per-integration copies.
+    const KNOWN_SHADOW_CEILING = 137;
 
     const shadows: string[] = [];
 
