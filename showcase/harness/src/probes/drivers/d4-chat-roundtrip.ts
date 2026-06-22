@@ -19,6 +19,7 @@ import {
 } from "../../cvdiag/index.js";
 import type {
   CvdiagEnvelope,
+  CvdiagFailureClassifier,
   CvdiagOutcome,
   ProbeSseEventMeta,
   TerminationKind,
@@ -34,7 +35,11 @@ import {
   sanitizeTestId,
 } from "../../cvdiag/ab-hmac.js";
 import type { AbOutcomeRecord } from "../../cvdiag/ab-report.js";
-import { mintSpanId as mintAbPairId, mintTestId } from "../../cvdiag/emit.js";
+import {
+  mintSpanId as mintAbPairId,
+  mintTestId,
+  sanitizeJoinTestId,
+} from "../../cvdiag/emit.js";
 import { isValidTestId } from "../../cvdiag/schema.js";
 
 /**
@@ -488,15 +493,28 @@ export class CvdiagProbeSession {
     nowMs: number;
   }) {
     this.emitter = opts.emitter;
-    // Resolve ONE stable test_id for the whole session. The probe's X-Test-Id
-    // is `d4-<slug>-<runId>`, NOT a UUIDv7 — if we threaded that raw value into
-    // every emit(), the emitter's entry-bounding would drop it and mint a
-    // FRESH random UUIDv7 PER CALL, so each boundary row would carry a
-    // different test_id and the per-run correlation (and the
-    // cvdiag_raw_byte_samples ↔ cvdiag_events join) would break. Mint the
-    // UUIDv7 ONCE here and thread the SAME value through every emit + the
-    // raw-byte sample so all rows for this level share one test_id.
-    this.testId = isValidTestId(opts.testId) ? opts.testId : mintTestId();
+    // Resolve ONE stable test_id for the whole session — the CROSS-LAYER JOIN
+    // KEY (spec §5). The probe's X-Test-Id is `d4-<slug>-<runId>` /
+    // `d6-<slug>-<runId>`, NOT a UUIDv7. It is forwarded verbatim as the
+    // `X-Test-Id` request header, and the backend ADOPTS that inbound header as
+    // its OWN cvdiag `test_id`, normalizing it through `sanitizeJoinTestId`. So
+    // the probe MUST record the SAME normalized value — `sanitizeJoinTestId`
+    // applied to the SAME forwarded id — for probe.* rows to JOIN backend.* rows
+    // on `test_id`. Recording a fresh random UUIDv7 here (the pre-fix behavior)
+    // gave probe rows an id the backend never derives, so the join never closed.
+    //
+    // Resolution order (all branches yield ONE stable id threaded through every
+    // emit() + the raw-byte sample, so intra-layer rows stay correlated too):
+    //   1. a value already a valid UUIDv7 → keep it verbatim (legacy callers
+    //      that mint a UUIDv7 up front; `sanitizeJoinTestId` only runs on
+    //      genuinely non-UUIDv7 inputs, matching the emitter/backend contract);
+    //   2. else sanitize the forwarded id the SAME way the backend does — this
+    //      is the join key both sides share;
+    //   3. else (nothing survives sanitization) mint a fresh UUIDv7 fallback so
+    //      every row still carries a valid, stable id.
+    this.testId = isValidTestId(opts.testId)
+      ? opts.testId
+      : (sanitizeJoinTestId(opts.testId) ?? mintTestId());
     this.slug = opts.slug;
     this.demo = opts.demo;
     this.bufferDir = opts.bufferDir;
@@ -759,8 +777,20 @@ export class CvdiagProbeSession {
    * Terminal `probe.exit`. On a `timeout` outcome, first flush the entire
    * pre-timeout SSE window UNSAMPLED (class-(e) carve-out rule 2) so the
    * cross-layer `sequence_num` join is complete, THEN emit `probe.exit`.
+   *
+   * `failureClassifier` labels WHY a non-`ok` run failed. When the caller has
+   * the authoritative reason (e.g. `waitForTurnComplete`'s
+   * `TurnNotCompleteError.reason`) it passes it explicitly; otherwise, for a
+   * non-`ok` outcome, this derives a best-effort classifier from the probe's
+   * OWN observed signals (no SSE => `sse-missing`; SSE seen but no DOM
+   * first-token => `dom-missing`; else `text-unstable`) so reds are always
+   * labeled in cvdiag probe data. An `ok` outcome NEVER carries a classifier.
    */
-  exit(terminalOutcome: CvdiagOutcome, totalDurationMs: number): void {
+  exit(
+    terminalOutcome: CvdiagOutcome,
+    totalDurationMs: number,
+    failureClassifier?: CvdiagFailureClassifier,
+  ): void {
     if (terminalOutcome === "timeout") {
       // Flush ONLY events not already emitted live. Re-emitting the full
       // buffered window (including the already-live-emitted subset) duplicated
@@ -778,6 +808,14 @@ export class CvdiagProbeSession {
       }
       this.pendingSse.length = 0;
     }
+    // Label the failure. An explicit reason (from the caller, e.g.
+    // `waitForTurnComplete`'s reject `reason`) wins; otherwise derive a
+    // best-effort classifier from this probe's own observed signals. `ok`
+    // runs never carry a classifier (greens stay unlabeled).
+    const resolvedClassifier: CvdiagFailureClassifier | undefined =
+      terminalOutcome === "ok"
+        ? undefined
+        : (failureClassifier ?? this.deriveFailureClassifier());
     this.fire({
       boundary: "probe.exit",
       outcome: terminalOutcome,
@@ -787,8 +825,26 @@ export class CvdiagProbeSession {
         total_duration_ms: totalDurationMs,
         sse_event_count: this.sseEmittedCount,
         first_token_delta_ms: this.firstTokenDeltaMs,
+        // Only present on a non-`ok` outcome (undefined keys are dropped by
+        // the emit-time metadata validator, so greens carry no classifier).
+        ...(resolvedClassifier !== undefined
+          ? { failure_classifier: resolvedClassifier }
+          : {}),
       },
     });
+  }
+
+  /**
+   * Best-effort failure classifier from the probe's OWN observed signals,
+   * mirroring `waitForTurnComplete`'s precedence (earliest-missing signal
+   * wins): no SSE event => `sse-missing`; SSE seen but no DOM first-token =>
+   * `dom-missing`; SSE + first-token both seen but the run still failed (the
+   * text never settled / assertion red) => `text-unstable`.
+   */
+  private deriveFailureClassifier(): CvdiagFailureClassifier {
+    if (this.sseEmittedCount === 0) return "sse-missing";
+    if (this.firstTokenDeltaMs === null) return "dom-missing";
+    return "text-unstable";
   }
 }
 
@@ -1685,8 +1741,10 @@ async function runLevel(opts: {
 
   // CVDIAG session for THIS level (one test_id). The probe-layer test_id is
   // the per-level X-Test-Id so harness↔backend↔aimock correlate on the same
-  // key. The CvdiagEmitter normalizes/validates; if the X-Test-Id is not a
-  // UUIDv7 the emitter mints one rather than emitting an invalid envelope.
+  // key. The forwarded X-Test-Id (`d4-/d6-<slug>-<runId>`) is not a UUIDv7, so
+  // the session records `sanitizeJoinTestId(X-Test-Id)` — the SAME value the
+  // backend adopts from the same inbound header — making probe.* rows JOIN
+  // backend.* rows on `test_id` (spec §5).
   const cvdiag =
     cvdiagEmitter !== undefined
       ? new CvdiagProbeSession({
@@ -2031,10 +2089,19 @@ async function runLevel(opts: {
     }
 
     const assertion = assertResponse(responseText);
-    // probe.exit (ok path) — a clean completion regardless of the assertion
-    // verdict (red on a missing-vocab/empty response is still a clean run; the
-    // terminal_outcome reflects probe MECHANICS, not the green/red assertion).
-    cvdiagExit(cvdiag, "ok");
+    // probe.exit (completion path). A missing-VOCAB response is still a clean
+    // MECHANICAL run (real response present) → `terminal_outcome=ok`, reflecting
+    // probe mechanics not the green/red vocab assertion. But a run that produced
+    // NOTHING — no SSE event AND no DOM first-token (`cvdiagResponseEmpty`) — is
+    // a genuine probe FAILURE (e.g. a first-token timeout with sse_event_count=0)
+    // that previously mislabeled itself `ok`, making reds indistinguishable from
+    // greens in cvdiag. Label it `err` with the derived failure classifier so the
+    // red is identifiable directly from probe.exit.
+    if (cvdiagResponseEmpty) {
+      cvdiagExit(cvdiag, "err");
+    } else {
+      cvdiagExit(cvdiag, "ok");
+    }
     cvdiagExited = true;
     return {
       result: {
@@ -2056,8 +2123,16 @@ async function runLevel(opts: {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // probe.exit (error path) — `timeout` when the level aborted (the driver's
-    // hard-timeout / external abort fired), else `err`.
-    cvdiagExit(cvdiag, abortSignal.aborted ? "timeout" : "err");
+    // hard-timeout / external abort fired), else `err`. When the throw is a
+    // `waitForTurnComplete` `TurnNotCompleteError` (duck-typed via its `reason`
+    // field so this module stays decoupled from conversation-runner), thread the
+    // authoritative reject reason as the failure classifier; otherwise `exit`
+    // derives one from the probe's own observed signals.
+    cvdiagExit(
+      cvdiag,
+      abortSignal.aborted ? "timeout" : "err",
+      turnCompleteReason(err),
+    );
     cvdiagExited = true;
     return {
       result: {
@@ -2101,9 +2176,50 @@ async function runLevel(opts: {
   function cvdiagExit(
     session: CvdiagProbeSession | undefined,
     outcome: CvdiagOutcome,
+    failureClassifier?: CvdiagFailureClassifier,
   ): void {
-    session?.exit(outcome, Math.round(nowMonoMs() - cvdiagStartMs));
+    session?.exit(
+      outcome,
+      Math.round(nowMonoMs() - cvdiagStartMs),
+      failureClassifier,
+    );
   }
+}
+
+/**
+ * Set of valid CVDIAG failure classifiers, for the duck-typed
+ * `TurnNotCompleteError.reason` guard below. Kept in sync with the schema's
+ * `CVDIAG_FAILURE_CLASSIFIERS` union (a mismatch is caught by the
+ * `satisfies` assertion).
+ */
+const FAILURE_CLASSIFIER_SET: ReadonlySet<CvdiagFailureClassifier> = new Set([
+  "sse-missing",
+  "dom-missing",
+  "text-unstable",
+  "surface-missing",
+  "selector-mismatch",
+] satisfies CvdiagFailureClassifier[]);
+
+/**
+ * Extract a CVDIAG failure classifier from a thrown error when it is a
+ * `waitForTurnComplete` `TurnNotCompleteError` (duck-typed via its `reason`
+ * field so this driver stays decoupled from conversation-runner). Returns
+ * `undefined` for any other throw, leaving the session to derive a best-effort
+ * classifier from its own observed signals.
+ */
+function turnCompleteReason(err: unknown): CvdiagFailureClassifier | undefined {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "reason" in err &&
+    typeof (err as { reason: unknown }).reason === "string"
+  ) {
+    const reason = (err as { reason: string }).reason;
+    if (FAILURE_CLASSIFIER_SET.has(reason as CvdiagFailureClassifier)) {
+      return reason as CvdiagFailureClassifier;
+    }
+  }
+  return undefined;
 }
 
 /**

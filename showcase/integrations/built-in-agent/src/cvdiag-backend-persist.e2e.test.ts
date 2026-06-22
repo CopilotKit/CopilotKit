@@ -129,6 +129,60 @@ async function countRowsBySlug(slug: string): Promise<number> {
   return body.totalItems;
 }
 
+interface CvdiagRow {
+  test_id: string;
+  trace_id: string;
+  boundary: string;
+}
+
+/** Fetch every persisted row for a slug (for the join-key assertions). */
+async function rowsBySlug(slug: string): Promise<CvdiagRow[]> {
+  const tok = await adminToken();
+  const list = await fetch(
+    `${BASE}/api/collections/cvdiag_events/records?perPage=200&filter=${encodeURIComponent(
+      `slug="${slug}"`,
+    )}`,
+    { headers: { authorization: tok } },
+  );
+  const body = (await list.json()) as { items: CvdiagRow[] };
+  return body.items;
+}
+
+/**
+ * Drive one wrapped request carrying an inbound probe `x-test-id` header (the
+ * cross-layer join key) to completion. Mirrors `driveRequest` but stamps the
+ * header so the persisted rows can be asserted to JOIN on it.
+ */
+async function driveRequestWithTestId(
+  slug: string,
+  inboundTestId: string,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
+  const saved = { ...process.env };
+  Object.assign(process.env, env);
+  try {
+    const wrapped = withCvdiagBackend(streamingHandler(), {
+      slug,
+      agentName: "default",
+      provider: "openai",
+    });
+    const req = new Request("https://example.test/api/copilotkit", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-test-id": inboundTestId,
+      },
+      body: "{}",
+    });
+    const res = await wrapped(req);
+    await res.text();
+  } finally {
+    for (const k of Object.keys(env)) delete process.env[k];
+    Object.assign(process.env, saved);
+  }
+  await new Promise((r) => setTimeout(r, 1500));
+}
+
 /** Drive one wrapped request to completion, fully draining the body so the
  * stream-close terminals + background flush fire. */
 async function driveRequest(
@@ -257,6 +311,64 @@ describeMaybe(
 
       const rows = await countRowsBySlug(slug);
       expect(rows).toBe(0);
+    }, 30_000);
+
+    it("adopts the inbound x-test-id as test_id so backend rows JOIN the probe (trace_id stays per-request)", async () => {
+      const slug = "bia-persist-join";
+      // The probe forwards a per-run id (NOT a UUIDv7) as x-test-id.
+      const inboundTestId = "d4-built-in-agent-run-7f3a";
+      await driveRequestWithTestId(slug, inboundTestId, {
+        CVDIAG_BACKEND_EMITTER: "1",
+        CVDIAG_PB_URL: BASE,
+        CVDIAG_WRITER_KEY: WRITER_PASSWORD,
+        SHOWCASE_ENV: "test",
+        NODE_ENV: "test",
+      } as NodeJS.ProcessEnv);
+
+      const rows = await rowsBySlug(slug);
+      expect(rows.length).toBeGreaterThan(0);
+
+      // GREEN gap #1: EVERY backend row carries the inbound id as test_id (the
+      // cross-layer join key) — NOT a minted UUIDv7. Pre-fix this was a fresh
+      // random UUIDv7 per request → probe↔backend rows shared zero test_ids.
+      for (const row of rows) {
+        expect(row.test_id).toBe(inboundTestId);
+      }
+      // The backend's OWN per-request id is the trace_id — a valid UUIDv7,
+      // DISTINCT from the adopted (non-UUIDv7) test_id.
+      const traceIds = new Set(rows.map((r) => r.trace_id));
+      for (const traceId of traceIds) {
+        expect(traceId).not.toBe(inboundTestId);
+        expect(traceId).toMatch(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+        );
+      }
+    }, 30_000);
+
+    it("persists the slow-first-token boundaries (request.ingress / sse.first_byte / llm.call.*) at verbose tier", async () => {
+      const slug = "bia-persist-boundaries";
+      await driveRequestWithTestId(slug, "d6-built-in-agent-bset", {
+        CVDIAG_BACKEND_EMITTER: "1",
+        CVDIAG_PB_URL: BASE,
+        CVDIAG_WRITER_KEY: WRITER_PASSWORD,
+        CVDIAG_VERBOSE: "1",
+        SHOWCASE_ENV: "test",
+        NODE_ENV: "test",
+      } as NodeJS.ProcessEnv);
+
+      const boundaries = new Set(
+        (await rowsBySlug(slug)).map((r) => r.boundary),
+      );
+      // gap #2: the boundaries needed to discriminate slow-first-token from a
+      // true stall are all present.
+      for (const expected of [
+        "backend.request.ingress",
+        "backend.sse.first_byte",
+        "backend.llm.call.start",
+        "backend.llm.call.response",
+      ]) {
+        expect(boundaries.has(expected)).toBe(true);
+      }
     }, 30_000);
   },
 );

@@ -16,7 +16,11 @@ import { describe, expect, it } from "vitest";
 import type { ListOpts, ListResult, PbClient } from "../storage/pb-client.js";
 import type { Logger } from "../types/index.js";
 import type { JobStatus } from "../fleet/job-claim.js";
-import type { JobProducer } from "../fleet/control-plane/job-producer.js";
+import type {
+  JobProducer,
+  TickOptions,
+  TickResult,
+} from "../fleet/control-plane/job-producer.js";
 import {
   FLEET_PRODUCER_DEEP_SCHEDULE_ID,
   FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
@@ -847,5 +851,174 @@ describe("createLruTtlMemo", () => {
     ).rejects.toThrow("boom");
     const z = await memo.get("z", async () => 7);
     expect(z).toBe(7);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────
+// POST /api/runs/:family/trigger — on-demand fleet/D6 probe trigger
+// ───────────────────────────────────────────────────────────────────────
+
+const TRIGGER_TOKEN = "ops-secret-token";
+
+/** A producer that RECORDS its tick calls so a route test can assert the
+ *  enqueue path fired with the right (triggered + filter) options. */
+function recordingProducer(): {
+  producer: JobProducer;
+  ticks: TickOptions[];
+} {
+  const ticks: TickOptions[] = [];
+  const producer: JobProducer = {
+    start: () => {},
+    stop: async () => {},
+    isRunning: () => true,
+    tick: async (opts?: TickOptions): Promise<TickResult> => {
+      ticks.push(opts ?? {});
+      return {
+        runId: "frun_test_1",
+        // Two services enumerated + enqueued for this triggered run.
+        enqueued: 2,
+        enqueueFailures: 0,
+        skippedForBacklog: 0,
+        backlogGateFailedOpen: 0,
+        truncatedByStop: 0,
+        sweptExpired: false,
+        sweepFailed: false,
+        reclaimed: 0,
+        enumerateFailed: false,
+      };
+    },
+  };
+  return { producer, ticks };
+}
+
+/**
+ * Build an app whose four schedules each carry a RECORDING producer, plus the
+ * token-gated trigger route. Returns the per-family recorders so a test can
+ * assert which family's producer ticked.
+ */
+function makeTriggerApp(opts?: { withToken?: boolean; now?: () => number }): {
+  app: Hono;
+  ticksByFamily: Map<string, TickOptions[]>;
+} {
+  const app = new Hono();
+  const now = opts?.now ?? (() => NOW_MS);
+  const ticksByFamily = new Map<string, TickOptions[]>();
+  // family → scheduleId via the SCHEDULE_ID constants directly (not
+  // `fam.scheduleId`, which can be the import-cycle's undefined snapshot
+  // depending on module load order — see the route's familyToScheduleId).
+  const familyToScheduleId: Record<string, string> = {
+    d6: FLEET_PRODUCER_SCHEDULE_ID,
+    d5: FLEET_PRODUCER_DEEP_SCHEDULE_ID,
+    "e2e-demos": FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
+    "e2e-smoke": FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
+  };
+  const schedules: ProducerSchedule[] = FLEET_FAMILIES.map((fam) => {
+    const { producer, ticks } = recordingProducer();
+    ticksByFamily.set(fam.family, ticks);
+    const scheduleId = familyToScheduleId[fam.family];
+    const cron =
+      scheduleId === FLEET_PRODUCER_SCHEDULE_ID ? "40 * * * *" : "0 * * * *";
+    return { scheduleId, cron, producer };
+  });
+  const rv: RunViewDeps = {
+    pb: makeFakePb({}).pb,
+    scheduler: { nextRunAt: () => null },
+    schedules,
+    workerStaleAfterMs: 180_000,
+    logger: noopLogger,
+    now,
+  };
+  registerFleetRunsRoutes(app, {
+    summary: createMemoizedFamilySummary(rv),
+    pb: rv.pb,
+    schedules,
+    scheduler: rv.scheduler,
+    workerStaleAfterMs: rv.workerStaleAfterMs,
+    logger: noopLogger,
+    now,
+    ...(opts?.withToken === false ? {} : { triggerToken: TRIGGER_TOKEN }),
+  });
+  return { app, ticksByFamily };
+}
+
+describe("POST /api/runs/:family/trigger", () => {
+  it("401s without a valid bearer token", async () => {
+    const { app, ticksByFamily } = makeTriggerApp();
+    const noAuth = await app.request("/api/runs/d6/trigger", {
+      method: "POST",
+    });
+    expect(noAuth.status).toBe(401);
+    const wrong = await app.request("/api/runs/d6/trigger", {
+      method: "POST",
+      headers: { Authorization: "Bearer nope" },
+    });
+    expect(wrong.status).toBe(401);
+    // No producer ticked on a rejected trigger.
+    expect(ticksByFamily.get("d6")).toEqual([]);
+  });
+
+  it("fires the D6 producer's triggered tick and reports the enqueue", async () => {
+    const { app, ticksByFamily } = makeTriggerApp();
+    const res = await app.request("/api/runs/d6/trigger", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TRIGGER_TOKEN}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      family: string;
+      runId: string;
+      enqueued: number;
+    };
+    expect(body.family).toBe("d6");
+    expect(body.runId).toBe("frun_test_1");
+    expect(body.enqueued).toBe(2);
+    // The D6 producer ticked exactly once, as an OPERATOR-triggered run.
+    const ticks = ticksByFamily.get("d6") ?? [];
+    expect(ticks.length).toBe(1);
+    expect(ticks[0].triggered).toBe(true);
+    // Sibling families were not touched.
+    expect(ticksByFamily.get("e2e-smoke")).toEqual([]);
+  });
+
+  it("fires the correct producer for a non-D6 fleet family", async () => {
+    const { app, ticksByFamily } = makeTriggerApp();
+    const res = await app.request("/api/runs/e2e-smoke/trigger", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TRIGGER_TOKEN}` },
+    });
+    expect(res.status).toBe(200);
+    expect((ticksByFamily.get("e2e-smoke") ?? []).length).toBe(1);
+    expect(ticksByFamily.get("d6")).toEqual([]);
+  });
+
+  it("forwards a slug/featureType filter to the producer tick", async () => {
+    const { app, ticksByFamily } = makeTriggerApp();
+    const res = await app.request("/api/runs/d6/trigger", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TRIGGER_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        filter: { slugs: ["langgraph-python"], featureTypes: ["d6"] },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const ticks = ticksByFamily.get("d6") ?? [];
+    expect(ticks.length).toBe(1);
+    expect(ticks[0].triggered).toBe(true);
+    expect(ticks[0].filter).toEqual({
+      slugs: ["langgraph-python"],
+      featureTypes: ["d6"],
+    });
+  });
+
+  it("404s for an unknown family", async () => {
+    const { app } = makeTriggerApp();
+    const res = await app.request("/api/runs/not-a-family/trigger", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TRIGGER_TOKEN}` },
+    });
+    expect(res.status).toBe(404);
   });
 });

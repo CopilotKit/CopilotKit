@@ -233,7 +233,8 @@
         "terminal_outcome",
         "total_duration_ms",
         "sse_event_count",
-        "first_token_delta_ms"
+        "first_token_delta_ms",
+        "failure_classifier"
       ],
       "backend.request.ingress": ["method", "path", "content_length"],
       "backend.agent.enter": ["agent_name", "model_id"],
