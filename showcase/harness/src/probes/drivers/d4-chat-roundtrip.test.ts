@@ -940,6 +940,65 @@ describe("d4 CVDIAG probe instrumentation (L1-A)", () => {
     expect(alt[0]!.metadata.child_type_histogram).toEqual({ pre: 1, code: 2 });
   });
 
+  it("labels a failed run (empty SSE, no first-token) on probe.exit with outcome=err + failure_classifier=sse-missing", async () => {
+    // RED (pre-fix): a run that produces NO SSE events and NO first-token
+    // (empty assistant text) still emits `probe.exit` with `terminal_outcome=ok`
+    // and no failure classifier — so reds are indistinguishable from greens in
+    // cvdiag probe data. GREEN: the same run emits `outcome=err` AND a
+    // `failure_classifier=sse-missing` (no SSE => earliest-missing signal) in
+    // metadata, so the red is labeled at the probe.exit boundary.
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      // No `sseEvents`, empty assistant text => no probe.dom.firsttoken,
+      // sse_event_count=0 => the run actually failed.
+      { assistantText: "", alternateHistogram: { div: 1 } },
+      emitter,
+    );
+    const exit = byBoundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.outcome).toBe("err");
+    expect(exit[0]!.metadata.terminal_outcome).toBe("err");
+    expect(exit[0]!.metadata.failure_classifier).toBe("sse-missing");
+  });
+
+  it("keeps a passing run on probe.exit at outcome=ok with no failure_classifier", async () => {
+    // GREEN-CONTROL: a clean run (assistant text present, an SSE run-finished
+    // event) stays `terminal_outcome=ok` and carries NO failure classifier.
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hello there",
+        sseEvents: [{ eventType: "RUN_FINISHED", payloadSizeBytes: 10 }],
+      },
+      emitter,
+    );
+    const exit = byBoundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.outcome).toBe("ok");
+    expect(exit[0]!.metadata.terminal_outcome).toBe("ok");
+    expect(exit[0]!.metadata.failure_classifier).toBeUndefined();
+  });
+
+  it("classifies a run that streamed SSE but never rendered a DOM bubble as failure_classifier=dom-missing", async () => {
+    // RED (pre-fix): SSE arrived but no assistant bubble ever rendered (empty
+    // text, no first-token) — still `terminal_outcome=ok`. GREEN: `outcome=err`
+    // with `failure_classifier=dom-missing` (SSE present => not sse-missing;
+    // no first-token => DOM never produced a token).
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "",
+        alternateHistogram: { div: 1 },
+        sseEvents: [{ eventType: "RUN_FINISHED", payloadSizeBytes: 10 }],
+      },
+      emitter,
+    );
+    const exit = byBoundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.outcome).toBe("err");
+    expect(exit[0]!.metadata.failure_classifier).toBe("dom-missing");
+  });
+
   it("captures a browser console.error in probe.console.error", async () => {
     const { emitter, writer } = makeCvdiagEmitter();
     await runWith(

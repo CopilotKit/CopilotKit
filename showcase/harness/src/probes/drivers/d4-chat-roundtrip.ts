@@ -19,6 +19,7 @@ import {
 } from "../../cvdiag/index.js";
 import type {
   CvdiagEnvelope,
+  CvdiagFailureClassifier,
   CvdiagOutcome,
   ProbeSseEventMeta,
   TerminationKind,
@@ -776,8 +777,20 @@ export class CvdiagProbeSession {
    * Terminal `probe.exit`. On a `timeout` outcome, first flush the entire
    * pre-timeout SSE window UNSAMPLED (class-(e) carve-out rule 2) so the
    * cross-layer `sequence_num` join is complete, THEN emit `probe.exit`.
+   *
+   * `failureClassifier` labels WHY a non-`ok` run failed. When the caller has
+   * the authoritative reason (e.g. `waitForTurnComplete`'s
+   * `TurnNotCompleteError.reason`) it passes it explicitly; otherwise, for a
+   * non-`ok` outcome, this derives a best-effort classifier from the probe's
+   * OWN observed signals (no SSE => `sse-missing`; SSE seen but no DOM
+   * first-token => `dom-missing`; else `text-unstable`) so reds are always
+   * labeled in cvdiag probe data. An `ok` outcome NEVER carries a classifier.
    */
-  exit(terminalOutcome: CvdiagOutcome, totalDurationMs: number): void {
+  exit(
+    terminalOutcome: CvdiagOutcome,
+    totalDurationMs: number,
+    failureClassifier?: CvdiagFailureClassifier,
+  ): void {
     if (terminalOutcome === "timeout") {
       // Flush ONLY events not already emitted live. Re-emitting the full
       // buffered window (including the already-live-emitted subset) duplicated
@@ -795,6 +808,14 @@ export class CvdiagProbeSession {
       }
       this.pendingSse.length = 0;
     }
+    // Label the failure. An explicit reason (from the caller, e.g.
+    // `waitForTurnComplete`'s reject `reason`) wins; otherwise derive a
+    // best-effort classifier from this probe's own observed signals. `ok`
+    // runs never carry a classifier (greens stay unlabeled).
+    const resolvedClassifier: CvdiagFailureClassifier | undefined =
+      terminalOutcome === "ok"
+        ? undefined
+        : (failureClassifier ?? this.deriveFailureClassifier());
     this.fire({
       boundary: "probe.exit",
       outcome: terminalOutcome,
@@ -804,8 +825,26 @@ export class CvdiagProbeSession {
         total_duration_ms: totalDurationMs,
         sse_event_count: this.sseEmittedCount,
         first_token_delta_ms: this.firstTokenDeltaMs,
+        // Only present on a non-`ok` outcome (undefined keys are dropped by
+        // the emit-time metadata validator, so greens carry no classifier).
+        ...(resolvedClassifier !== undefined
+          ? { failure_classifier: resolvedClassifier }
+          : {}),
       },
     });
+  }
+
+  /**
+   * Best-effort failure classifier from the probe's OWN observed signals,
+   * mirroring `waitForTurnComplete`'s precedence (earliest-missing signal
+   * wins): no SSE event => `sse-missing`; SSE seen but no DOM first-token =>
+   * `dom-missing`; SSE + first-token both seen but the run still failed (the
+   * text never settled / assertion red) => `text-unstable`.
+   */
+  private deriveFailureClassifier(): CvdiagFailureClassifier {
+    if (this.sseEmittedCount === 0) return "sse-missing";
+    if (this.firstTokenDeltaMs === null) return "dom-missing";
+    return "text-unstable";
   }
 }
 
@@ -2050,10 +2089,19 @@ async function runLevel(opts: {
     }
 
     const assertion = assertResponse(responseText);
-    // probe.exit (ok path) — a clean completion regardless of the assertion
-    // verdict (red on a missing-vocab/empty response is still a clean run; the
-    // terminal_outcome reflects probe MECHANICS, not the green/red assertion).
-    cvdiagExit(cvdiag, "ok");
+    // probe.exit (completion path). A missing-VOCAB response is still a clean
+    // MECHANICAL run (real response present) → `terminal_outcome=ok`, reflecting
+    // probe mechanics not the green/red vocab assertion. But a run that produced
+    // NOTHING — no SSE event AND no DOM first-token (`cvdiagResponseEmpty`) — is
+    // a genuine probe FAILURE (e.g. a first-token timeout with sse_event_count=0)
+    // that previously mislabeled itself `ok`, making reds indistinguishable from
+    // greens in cvdiag. Label it `err` with the derived failure classifier so the
+    // red is identifiable directly from probe.exit.
+    if (cvdiagResponseEmpty) {
+      cvdiagExit(cvdiag, "err");
+    } else {
+      cvdiagExit(cvdiag, "ok");
+    }
     cvdiagExited = true;
     return {
       result: {
@@ -2075,8 +2123,16 @@ async function runLevel(opts: {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // probe.exit (error path) — `timeout` when the level aborted (the driver's
-    // hard-timeout / external abort fired), else `err`.
-    cvdiagExit(cvdiag, abortSignal.aborted ? "timeout" : "err");
+    // hard-timeout / external abort fired), else `err`. When the throw is a
+    // `waitForTurnComplete` `TurnNotCompleteError` (duck-typed via its `reason`
+    // field so this module stays decoupled from conversation-runner), thread the
+    // authoritative reject reason as the failure classifier; otherwise `exit`
+    // derives one from the probe's own observed signals.
+    cvdiagExit(
+      cvdiag,
+      abortSignal.aborted ? "timeout" : "err",
+      turnCompleteReason(err),
+    );
     cvdiagExited = true;
     return {
       result: {
@@ -2120,9 +2176,50 @@ async function runLevel(opts: {
   function cvdiagExit(
     session: CvdiagProbeSession | undefined,
     outcome: CvdiagOutcome,
+    failureClassifier?: CvdiagFailureClassifier,
   ): void {
-    session?.exit(outcome, Math.round(nowMonoMs() - cvdiagStartMs));
+    session?.exit(
+      outcome,
+      Math.round(nowMonoMs() - cvdiagStartMs),
+      failureClassifier,
+    );
   }
+}
+
+/**
+ * Set of valid CVDIAG failure classifiers, for the duck-typed
+ * `TurnNotCompleteError.reason` guard below. Kept in sync with the schema's
+ * `CVDIAG_FAILURE_CLASSIFIERS` union (a mismatch is caught by the
+ * `satisfies` assertion).
+ */
+const FAILURE_CLASSIFIER_SET: ReadonlySet<CvdiagFailureClassifier> = new Set([
+  "sse-missing",
+  "dom-missing",
+  "text-unstable",
+  "surface-missing",
+  "selector-mismatch",
+] satisfies CvdiagFailureClassifier[]);
+
+/**
+ * Extract a CVDIAG failure classifier from a thrown error when it is a
+ * `waitForTurnComplete` `TurnNotCompleteError` (duck-typed via its `reason`
+ * field so this driver stays decoupled from conversation-runner). Returns
+ * `undefined` for any other throw, leaving the session to derive a best-effort
+ * classifier from its own observed signals.
+ */
+function turnCompleteReason(err: unknown): CvdiagFailureClassifier | undefined {
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "reason" in err &&
+    typeof (err as { reason: unknown }).reason === "string"
+  ) {
+    const reason = (err as { reason: string }).reason;
+    if (FAILURE_CLASSIFIER_SET.has(reason as CvdiagFailureClassifier)) {
+      return reason as CvdiagFailureClassifier;
+    }
+  }
+  return undefined;
 }
 
 /**
