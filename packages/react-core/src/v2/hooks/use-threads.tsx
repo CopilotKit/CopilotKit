@@ -105,6 +105,12 @@ export interface UseThreadsResult {
    */
   archiveThread: (threadId: string) => Promise<void>;
   /**
+   * Restore a previously archived thread on the platform.
+   * The thread re-appears in default (non-archived) list results.
+   * Resolves when the server confirms the update; rejects on failure.
+   */
+  unarchiveThread: (threadId: string) => Promise<void>;
+  /**
    * Permanently delete a thread from the platform.
    * This is irreversible. Resolves when the server confirms deletion;
    * rejects on failure.
@@ -137,9 +143,9 @@ function useThreadStoreSelector<T>(
  * current without polling — thread creates, renames, archives, and deletes
  * from any client are reflected immediately.
  *
- * Mutation methods (`renameThread`, `archiveThread`, `deleteThread`) return
- * promises that resolve once the platform confirms the operation and reject
- * with an `Error` on failure.
+ * Mutation methods (`renameThread`, `archiveThread`, `unarchiveThread`,
+ * `deleteThread`) return promises that resolve once the platform confirms the
+ * operation and reject with an `Error` on failure.
  *
  * @param input - Agent identifier and optional list controls.
  * @returns Thread list state and stable mutation callbacks.
@@ -360,6 +366,11 @@ export function useThreads({
     [store, guardMutation],
   );
 
+  const unarchiveThread = useMemo(
+    () => guardMutation((threadId: string) => store.unarchiveThread(threadId)),
+    [store, guardMutation],
+  );
+
   const deleteThread = useMemo(
     () => guardMutation((threadId: string) => store.deleteThread(threadId)),
     [store, guardMutation],
@@ -376,6 +387,7 @@ export function useThreads({
     fetchMoreThreads,
     renameThread,
     archiveThread,
+    unarchiveThread,
     deleteThread,
   };
 }
