@@ -565,7 +565,7 @@ jobs:
 
       - name: Shellcheck promote workflow scripts
         # shellcheck is preinstalled on ubuntu-latest.
-        run: shellcheck showcase/scripts/promote-fleet.sh showcase/scripts/verify-prod-display.sh
+        run: shellcheck showcase/scripts/promote-fleet.sh showcase/scripts/verify-prod-display.sh showcase/scripts/reconcile-prod-gate.sh
 
       - name: Run bats suite
         run: bats showcase/scripts/__tests__/
