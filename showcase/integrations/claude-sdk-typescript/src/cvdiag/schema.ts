@@ -367,9 +367,21 @@ export interface AimockResponseCompleteMeta {
 export interface CvdiagEnvelope {
   /** const 1 in v1. */
   schema_version: typeof SCHEMA_VERSION;
-  /** UUIDv7, normalized lowercase hyphenated. */
+  /**
+   * The CROSS-LAYER JOIN KEY: the single id that joins one run's rows across
+   * probe / backend / aimock (spec §5). Normally a UUIDv7 (the probe mints one
+   * and threads it through). On the BACKEND adoption path it is the probe's
+   * per-run id forwarded as the inbound `x-test-id` (sanitized free text, e.g.
+   * `d4-<slug>-<runId>`) so backend rows join the probe's — PB stores this
+   * column as free text, so a non-UUIDv7 join key is valid at storage.
+   */
   test_id: string;
-  /** Equals `test_id` for join compatibility. */
+  /**
+   * The emitter's OWN PER-REQUEST id. MIRRORS `test_id` by default (probe path:
+   * one run = one test_id = one trace_id). The backend supplies a distinct
+   * per-request UUIDv7 so `trace_id` stays decoupled from an ADOPTED
+   * cross-layer `test_id`.
+   */
   trace_id: string;
   /** 16-hex, unique per emit. */
   span_id: string;
