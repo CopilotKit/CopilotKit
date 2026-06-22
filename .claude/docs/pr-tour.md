@@ -96,6 +96,16 @@ Every showcase/docs PR body should have a `PR Tour` section in the PR descriptio
 
 Prefer embedded GitHub video players in the PR description. GitHub embeds videos when they are uploaded through the PR description editor and appear as `https://github.com/user-attachments/assets/...` URLs in the body. Raw release-asset `.webm` links and `<video>` HTML do not render inline in GitHub-flavored Markdown; use release assets only as a fallback when the browser attachment flow is unavailable, and say so in the PR description.
 
+When using release assets as the fallback, upload a thumbnail PNG beside each video and put a screenshot-linked table in the PR description:
+
+```md
+| Tour       | Video                                                                                                                                    |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Demo topic | [![Demo topic](https://github.com/org/repo/releases/download/tag/demo.png)](https://github.com/org/repo/releases/download/tag/demo.webm) |
+```
+
+This makes the PR visibly reviewable even though GitHub may download the release `.webm` instead of opening it inline.
+
 When a sufficiently major change lands after the video was recorded, regenerate or replace the videos and update the PR description with the new commit SHA. Do not hide fresh walkthroughs in PR comments; reviewers should find the current tour from the description.
 
 Prefer improving these scripts over hand-writing tour details. The goal is repeatability: the next agent should be able to regenerate the same tour from the PR diff and explicit row scope.
