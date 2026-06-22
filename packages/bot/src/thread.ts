@@ -222,6 +222,11 @@ export class Thread implements ThreadInterface {
       },
       initialResume,
     });
+    // Turn-end hook: lets a renderer finalize any turn-scoped resource it kept
+    // open across runAgent iterations (e.g. a native streaming message). A
+    // no-op for renderers whose per-message streams already self-terminate, and
+    // for runs that were interrupted (the renderer guards that internally).
+    await renderer.finish?.();
     return undefined;
   }
 }

@@ -13,8 +13,8 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
-      "@copilotkitnext/angular": ["../../../../packages/angular/src/index.ts"],
-      "@copilotkitnext/angular/*": ["../../../../packages/angular/src/*"],
+      "@copilotkit/angular": ["../../../../packages/angular/src/index.ts"],
+      "@copilotkit/angular/*": ["../../../../packages/angular/src/*"],
       "@copilotkit/core": ["node_modules/@copilotkit/core"],
       "@copilotkit/shared": ["node_modules/@copilotkit/shared"],
       "@copilotkit/web-inspector": ["node_modules/@copilotkit/web-inspector"],

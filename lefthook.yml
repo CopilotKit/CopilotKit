@@ -50,13 +50,9 @@ pre-commit:
       # no per-file knobs to keep package.json valid, so the only safe fix
       # is to keep .json* out of this hook entirely.
       glob: "*.{js,jsx,ts,tsx,mjs,cjs,md,css,yml,yaml,html,vue,py}"
-      # Mirror the ignorePatterns in .oxlintrc.json / .oxfmtrc.json at the
-      # hook layer. Without this, a docs-only commit expands {staged_files}
-      # to a single docs/** path; oxlint silently processes 0 files, then
-      # oxfmt exits 2 with "Expected at least one target file" and blocks
-      # the commit.
+      # Mirror the generated-data ignorePatterns in .oxlintrc.json /
+      # .oxfmtrc.json at the hook layer.
       exclude:
-        - "docs/**"
         - "showcase/aimock/shared/**"
         - "showcase/aimock/d4/**"
         - "showcase/aimock/d6/**"
@@ -75,7 +71,11 @@ pre-commit:
       # glob above, so oxfmt never receives package.json (the old explicit
       # package.json filter is unnecessary). ruff is scoped to .py via `case`.
       run: |
-        set -- {staged_files}
+        files=
+        for f in {staged_files}; do
+          [ -f $f ] && files=$files' '$f
+        done
+        set -- $files
         if [ $# -gt 0 ]; then
           pnpm exec oxlint --fix $@
           pnpm exec oxfmt --write $@
@@ -89,7 +89,13 @@ pre-commit:
       env:
         NX_TUI: "false"
       run: |
-        set -- {staged_files}
+        files=
+        for f in {staged_files}; do
+          case $f in
+            packages/*|package.json|pnpm-lock.yaml|pnpm-workspace.yaml|nx.json|tsconfig*.json) files=$files' '$f ;;
+          esac
+        done
+        set -- $files
         if [ "$#" -gt 0 ]; then
           projects=$(printf '%s\n' "$@" | pnpm nx show projects --affected --projects 'packages/*' --stdin --sep=,)
           if [ -n "$projects" ]; then
@@ -99,7 +105,7 @@ pre-commit:
 
     check-plugin-skills:
       tags: plugin-skills
-      glob: "{packages/*/skills/**,skills/runtime/**,skills/react-core/**,skills/a2ui-renderer/**,scripts/sync-plugin-skills.ts,.claude-plugin/**}"
+      glob: "{packages/*/skills/**,skills/runtime/**,skills/react-core/**,skills/a2ui-renderer/**,scripts/sync-plugin-skills.ts,.claude-plugin/**,packages/runtime/package.json}"
       run: pnpm check:plugin-skills
       fail_text: |
         Plugin skill mirror is out of sync with the Intent source.

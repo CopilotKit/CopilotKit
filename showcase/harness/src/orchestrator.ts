@@ -4,6 +4,7 @@ import { serve } from "@hono/node-server";
 import { buildServer } from "./http/server.js";
 import { createPbClient } from "./storage/pb-client.js";
 import type { DiagSinkClient } from "./storage/diag-sink.js";
+import { CvdiagPbWriter } from "./cvdiag/pb-writer.js";
 import {
   createAlertStateStore,
   assertSafeKey,
@@ -40,6 +41,7 @@ import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
 import { pinDriftDriver } from "./probes/drivers/pin-drift.js";
 import { livenessDriver } from "./probes/drivers/d2-liveness.js";
 import { imageDriftDriver } from "./probes/drivers/image-drift.js";
+import { crossEnvPinDriftDriver } from "./probes/drivers/cross-env-pin-drift.js";
 import { versionDriftDriver } from "./probes/drivers/version-drift.js";
 import { redirectDecommissionDriver } from "./probes/drivers/redirect-decommission.js";
 import {
@@ -64,6 +66,7 @@ import { writeDiagEvent } from "./storage/diag-sink.js";
 import { qaDriver } from "./probes/drivers/qa.js";
 import { starterSmokeDriver } from "./probes/drivers/starter-smoke.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
+import { crossEnvPinDriftDiscoverySource } from "./probes/discovery/cross-env-pin-drift-discovery.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { withCache } from "./probes/discovery/caching-source.js";
 import { DiscoveryAuthTracker } from "./probes/discovery/auth-tracker.js";
@@ -739,9 +742,21 @@ export async function boot(opts: BootOptions = {}): Promise<{
 
   const probeRegistry = createProbeRegistry();
   const discoveryRegistry = createDiscoveryRegistry();
+  // CVDIAG event persistence (in-process/boot path parity with the fleet
+  // worker). Construct + collection-check the writer ONCE here and inject it
+  // into the pooled D4 smoke driver so probe-layer boundary events PERSIST to
+  // cvdiag_events on flush. `buildCvdiagPersistenceWriter` enforces the
+  // degrade-on-missing-migration guarantee (returns undefined → flush no-op)
+  // so a missing migration can never 404-spam per event. Only wired when a
+  // browser pool is available (the pooled D4 driver is the sole consumer);
+  // off the pool path there is no probe-layer emitter to persist.
+  const cvdiagPersistenceWriter = browserPoolReady
+    ? await buildCvdiagPersistenceWriter(pb, logger)
+    : undefined;
   registerAllProbeDrivers(
     probeRegistry,
     browserPoolReady ? browserPool : undefined,
+    cvdiagPersistenceWriter,
   );
   const authTracker = new DiscoveryAuthTracker({
     threshold: 3,
@@ -757,6 +772,12 @@ export async function boot(opts: BootOptions = {}): Promise<{
       authTracker,
     }),
   );
+  // Cross-env pin-drift discovery (U11): delegates the showcase-* roster to
+  // railway-services then stamps the prod/staging env-ids. Registered
+  // un-cached — its sole consumer is the weekly `pin_drift_cross_env` probe,
+  // so the per-tick re-enumeration cost is negligible and a stale cache
+  // would only hide a freshly-promoted digest.
+  discoveryRegistry.register(crossEnvPinDriftDiscoverySource);
   discoveryRegistry.register(pnpmPackagesDiscoverySource);
   const probeConfigDir =
     opts.configDir !== undefined
@@ -1352,6 +1373,48 @@ export async function boot(opts: BootOptions = {}): Promise<{
  * driver's `driverKind` constant; callers adapt (register the raw driver, or
  * pair it with a payload mapper for the worker registry).
  */
+/**
+ * Construct the CVDIAG event-persistence writer AND enforce the degrade-on-
+ * missing-migration guarantee BEFORE injecting it into any driver.
+ *
+ * BOTH production wiring paths (boot()/in-process and the fleet worker) route
+ * through here so the guarantee can never be bypassed: a `CvdiagPbWriter`
+ * injected without this check would 404 on EVERY event when the `cvdiag_events`
+ * migration is absent, emitting per-row `CVDIAG`-tagged warns indefinitely.
+ *
+ * Instead we call `assertCollectionExists()` once at wiring time:
+ *   - returns true (collection present, or writer-key 401/403 which still
+ *     proves presence) → inject the writer; the emit→persist seam is live.
+ *   - returns false (404 missing migration, PB unhealthy, or any transport
+ *     fault) → DEGRADE: log ONCE and return `undefined`, so the emitter's
+ *     flush is a clean no-op (the pre-wiring behavior) rather than 404-spam.
+ *
+ * Best-effort: a thrown construction/check error also degrades to `undefined`
+ * — CVDIAG is pure instrumentation and must never break boot.
+ */
+export async function buildCvdiagPersistenceWriter(
+  pb: ConstructorParameters<typeof CvdiagPbWriter>[0]["pb"],
+  log: Logger,
+): Promise<CvdiagPbWriter | undefined> {
+  try {
+    const writer = new CvdiagPbWriter({ pb, logger: log });
+    const present = await writer.assertCollectionExists();
+    if (!present) {
+      log.warn("orchestrator.cvdiag-persistence-degraded", {
+        hint: "cvdiag_events collection check failed (missing migration / PB unreachable) — CVDIAG event persistence is a no-op this boot; events still log to stdout. Apply the cvdiag migrations to enable durable persistence.",
+      });
+      return undefined;
+    }
+    return writer;
+  } catch (err) {
+    log.warn("orchestrator.cvdiag-persistence-degraded", {
+      hint: "constructing/checking the CVDIAG persistence writer threw — degrading to a no-op (pure instrumentation must never break boot).",
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return undefined;
+  }
+}
+
 export function buildPooledBrowserDrivers(
   pool: BrowserPool,
   log: Logger,
@@ -1365,6 +1428,17 @@ export function buildPooledBrowserDrivers(
    * skipped). Never load-bearing — a write failure can't break a probe.
    */
   diagPb?: DiagSinkClient,
+  /**
+   * CVDIAG event persistence writer (best-effort, optional). When provided, the
+   * D4 smoke driver injects it into its `CvdiagEmitter` so the probe-layer
+   * boundary events PERSIST to the `cvdiag_events` collection on flush (the
+   * emit→persist seam). The fleet worker constructs one from its own superuser
+   * `PbClient` (which bypasses the CREATE-only ACL, mirroring the cvdiag CLI);
+   * the in-process probe-registry path leaves it undefined (events emit to the
+   * queue but the durable write is skipped — the pre-wiring behavior). Never
+   * load-bearing: a write failure can't break a probe.
+   */
+  cvdiagWriter?: CvdiagPbWriter,
 ): {
   smoke: ReturnType<typeof createE2eSmokeDriver>;
   demos: ReturnType<typeof createE2eDemosDriver>;
@@ -1373,6 +1447,7 @@ export function buildPooledBrowserDrivers(
   return {
     smoke: createE2eSmokeDriver({
       launcher: createPooledE2eSmokeLauncher(pool, log),
+      cvdiagPbWriter: cvdiagWriter,
     }),
     demos: createE2eDemosDriver({
       launcher: createPooledE2eDemosLauncher(pool, log),
@@ -1422,6 +1497,7 @@ export function registerHttpProbeDrivers(
   // `"smoke"`) — there is no separate "smoke" driver export.
   probeRegistry.register(livenessDriver);
   probeRegistry.register(imageDriftDriver);
+  probeRegistry.register(crossEnvPinDriftDriver);
   probeRegistry.register(versionDriftDriver);
   probeRegistry.register(redirectDecommissionDriver);
   probeRegistry.register(qaDriver);
@@ -1592,16 +1668,35 @@ export function buildProducerSchedules(producers: {
 export function registerAllProbeDrivers(
   probeRegistry: Pick<ProbeRegistry, "register">,
   pool?: BrowserPool,
+  /**
+   * CVDIAG event-persistence writer (best-effort, optional). When provided AND
+   * a browser `pool` is present, it is threaded into the pooled D4 smoke driver
+   * so probe-layer boundary events PERSIST to `cvdiag_events` on the boot
+   * (in-process) path — parity with the fleet worker path. The caller
+   * (`boot()`) is responsible for constructing it AND for the degrade-on-
+   * missing-migration guarantee (it calls `assertCollectionExists()` first and
+   * passes `undefined` here when the collection is absent, so flush is a clean
+   * no-op rather than 404-spamming per event).
+   */
+  cvdiagWriter?: CvdiagPbWriter,
 ): void {
   probeRegistry.register(aimockWiringDriver);
   probeRegistry.register(pinDriftDriver);
   probeRegistry.register(livenessDriver);
   probeRegistry.register(imageDriftDriver);
+  probeRegistry.register(crossEnvPinDriftDriver);
   probeRegistry.register(versionDriftDriver);
   probeRegistry.register(redirectDecommissionDriver);
 
   if (pool) {
-    const pooled = buildPooledBrowserDrivers(pool, logger);
+    // Thread the persistence writer (when wired) onto the SAME pooled launcher
+    // the fleet worker uses, so the boot/in-process path persists too.
+    const pooled = buildPooledBrowserDrivers(
+      pool,
+      logger,
+      undefined,
+      cvdiagWriter,
+    );
     probeRegistry.register(pooled.smoke);
     probeRegistry.register(pooled.demos);
     probeRegistry.register(pooled.d6);
@@ -2905,7 +3000,7 @@ export async function runControlPlane(
 
   // ---- In-process HTTP-only probe families ----
   //
-  // The control-plane runs the 8 HTTP-only probe families IN-PROCESS by
+  // The control-plane runs the 9 HTTP-only probe families IN-PROCESS by
   // lifting the legacy boot() probe-loader machinery: an HTTP-only
   // `probeRegistry` (no browser drivers), a `createProbeLoader` scoped to the
   // HTTP `kind`s via `includeKind` (browser `e2e_*` YAMLs are SKIPPED, not
@@ -3822,7 +3917,24 @@ export async function runWorker(
   // sink. This is the production path that actually runs D5/D6 jobs, so the
   // post-run aimock-journal join can persist a durable cv-verdict row here
   // (best-effort; never breaks a probe).
-  const pooled = buildPooledBrowserDrivers(pool, logger, pb);
+  //
+  // ALSO construct the CVDIAG event-persistence writer from the SAME superuser
+  // `pb` client (the superuser bypasses the cvdiag_events CREATE-only ACL,
+  // mirroring the cvdiag CLI's superuser path — see cli-pb.ts). Threading it
+  // into the D4 smoke driver wires the emit→persist seam: the probe's
+  // CvdiagEmitter now flushes its queued boundary events to cvdiag_events.
+  // PB config presence is the gate — `resolveFleetPbConfig` above already
+  // resolved a real URL on this worker path (it throws off the test/dev
+  // escape hatch).
+  //
+  // CRITICAL: route through `buildCvdiagPersistenceWriter` (NOT a bare
+  // `new CvdiagPbWriter`) so `assertCollectionExists()` runs FIRST and the
+  // degrade-on-missing-migration guarantee holds in prod. Without the check, a
+  // missing `cvdiag_events` migration would inject a writer that 404s EVERY
+  // event with a per-row warn; the check makes that case a clean no-op + one
+  // log instead.
+  const cvdiagWriter = await buildCvdiagPersistenceWriter(pb, logger);
+  const pooled = buildPooledBrowserDrivers(pool, logger, pb, cvdiagWriter);
 
   // Construction-time fail-loud: each factory's self-reported `kind` MUST equal
   // the key constant we register it under, BEFORE the concrete `ProbeDriver` is

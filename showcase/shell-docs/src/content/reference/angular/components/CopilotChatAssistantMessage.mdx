@@ -1,0 +1,216 @@
+---
+title: "CopilotChatAssistantMessage"
+description: "Angular standalone component that renders a single assistant message with markdown content, tool calls, and a toolbar of copy, thumbs, read-aloud, and regenerate actions."
+---
+
+## Overview
+
+`CopilotChatAssistantMessage` renders one assistant message. It shows the message content through a markdown renderer, renders any tool calls attached to the message, and shows a toolbar with copy, thumbs up/down, read-aloud, and regenerate actions. It mirrors React's `CopilotChatAssistantMessage`.
+
+The toolbar appears only when the message has non-empty text content. The copy button always renders; the thumbs up and thumbs down buttons render when you provide a custom slot for them or when a thumbs handler is available from a surrounding [`CopilotChatView`](/reference/angular/components/CopilotChatView). The read-aloud and regenerate buttons render only when you provide a custom slot for them.
+
+The component is standalone and uses `OnPush` change detection. Reactive inputs are Angular [signals](https://angular.dev/guide/signals).
+
+## Usage
+
+Import the component class and use its `copilot-chat-assistant-message` selector. The `message` input is required.
+
+```ts title="src/app/assistant.component.ts"
+import { Component, signal } from "@angular/core";
+import { CopilotChatAssistantMessage } from "@copilotkit/angular";
+import type { AssistantMessage } from "@ag-ui/client";
+
+@Component({
+  selector: "app-assistant",
+  standalone: true,
+  imports: [CopilotChatAssistantMessage],
+  template: `
+    <copilot-chat-assistant-message
+      [message]="message()"
+      (thumbsUp)="onThumbsUp($event)"
+      (regenerate)="onRegenerate($event)"
+    />
+  `,
+})
+export class AssistantComponent {
+  message = signal<AssistantMessage>({
+    id: "1",
+    role: "assistant",
+    content: "Hello, how can I help?",
+  });
+
+  onThumbsUp(event: { message: AssistantMessage }) {
+    console.log("liked", event.message.id);
+  }
+
+  onRegenerate(event: { message: AssistantMessage }) {
+    console.log("regenerate", event.message.id);
+  }
+}
+```
+
+## Inputs
+
+<PropertyReference name="message" type="AssistantMessage" required>
+  The assistant message to render. Its `content` is passed to the markdown renderer and its `toolCalls` drive the tool calls view.
+</PropertyReference>
+
+<PropertyReference name="messages" type="Message[]" default="[]">
+  The surrounding message list. Forwarded to the tool calls view so a tool render can read prior context.
+</PropertyReference>
+
+<PropertyReference name="agentId" type="string">
+  ID of the agent that produced the message. Forwarded to the tool calls view for resolving the matching tool renderer.
+</PropertyReference>
+
+<PropertyReference name="isLoading" type="boolean" default="false">
+  Whether the agent is currently streaming. Forwarded to the tool calls view.
+</PropertyReference>
+
+<PropertyReference name="toolbarVisible" type="boolean" default="true">
+  Whether the toolbar may be shown. Even when `true`, the toolbar only renders if the message has non-empty text content.
+</PropertyReference>
+
+<PropertyReference name="additionalToolbarItems" type="TemplateRef<any>">
+  A template appended to the end of the default toolbar, after the built-in buttons.
+</PropertyReference>
+
+<PropertyReference name="inputClass" type="string">
+  Extra CSS classes merged onto the message container.
+</PropertyReference>
+
+### Slot class inputs
+
+Each of these passes extra CSS classes to the corresponding default sub-component.
+
+<PropertyReference name="markdownRendererClass" type="string">
+  Classes for the default markdown renderer.
+</PropertyReference>
+
+<PropertyReference name="toolbarClass" type="string">
+  Classes for the default toolbar.
+</PropertyReference>
+
+<PropertyReference name="copyButtonClass" type="string">
+  Classes for the default copy button.
+</PropertyReference>
+
+<PropertyReference name="thumbsUpButtonClass" type="string">
+  Classes for the default thumbs-up button.
+</PropertyReference>
+
+<PropertyReference name="thumbsDownButtonClass" type="string">
+  Classes for the default thumbs-down button.
+</PropertyReference>
+
+<PropertyReference name="readAloudButtonClass" type="string">
+  Classes for the default read-aloud button.
+</PropertyReference>
+
+<PropertyReference name="regenerateButtonClass" type="string">
+  Classes for the default regenerate button.
+</PropertyReference>
+
+<PropertyReference name="toolCallsViewClass" type="string">
+  Classes for the default tool calls view.
+</PropertyReference>
+
+### Slot component inputs
+
+Each of these replaces the corresponding default sub-component with a component class of your own. Content-projection templates (see below) take precedence over these.
+
+<PropertyReference name="markdownRendererComponent" type="Type<any>">
+  Replaces the default markdown renderer.
+</PropertyReference>
+
+<PropertyReference name="toolbarComponent" type="Type<any>">
+  Replaces the default toolbar.
+</PropertyReference>
+
+<PropertyReference name="copyButtonComponent" type="Type<any>">
+  Replaces the default copy button.
+</PropertyReference>
+
+<PropertyReference name="thumbsUpButtonComponent" type="Type<any>">
+  Replaces the default thumbs-up button.
+</PropertyReference>
+
+<PropertyReference name="thumbsDownButtonComponent" type="Type<any>">
+  Replaces the default thumbs-down button.
+</PropertyReference>
+
+<PropertyReference name="readAloudButtonComponent" type="Type<any>">
+  Replaces the default read-aloud button.
+</PropertyReference>
+
+<PropertyReference name="regenerateButtonComponent" type="Type<any>">
+  Replaces the default regenerate button.
+</PropertyReference>
+
+<PropertyReference name="toolCallsViewComponent" type="Type<any>">
+  Replaces the default tool calls view.
+</PropertyReference>
+
+## Outputs
+
+<PropertyReference name="thumbsUp" type="CopilotChatAssistantMessageOnThumbsUpProps">
+  Emitted when the thumbs-up button is clicked. The payload is `{ message: AssistantMessage }`.
+</PropertyReference>
+
+<PropertyReference name="thumbsDown" type="CopilotChatAssistantMessageOnThumbsDownProps">
+  Emitted when the thumbs-down button is clicked. The payload is `{ message: AssistantMessage }`.
+</PropertyReference>
+
+<PropertyReference name="readAloud" type="CopilotChatAssistantMessageOnReadAloudProps">
+  Emitted when the read-aloud button is clicked. The payload is `{ message: AssistantMessage }`.
+</PropertyReference>
+
+<PropertyReference name="regenerate" type="CopilotChatAssistantMessageOnRegenerateProps">
+  Emitted when the regenerate button is clicked. The payload is `{ message: AssistantMessage }`.
+</PropertyReference>
+
+## Slots and content projection
+
+You can override any piece of the message by projecting a named template. A projected template takes precedence over the matching `*Component` input. Each template receives a typed context object.
+
+| Template name | Context type | Replaces |
+| --- | --- | --- |
+| `markdownRenderer` | `AssistantMessageMarkdownRendererContext` (`{ content: string }`) | The markdown content renderer |
+| `toolbar` | `AssistantMessageToolbarContext` (`{ children?: any }`) | The whole toolbar |
+| `copyButton` | `AssistantMessageCopyButtonContext` (`{ content?: string }`) | The copy button |
+| `thumbsUpButton` | `ThumbsUpButtonContext` (empty; click via outputs) | The thumbs-up button |
+| `thumbsDownButton` | `ThumbsDownButtonContext` (empty; click via outputs) | The thumbs-down button |
+| `readAloudButton` | `ReadAloudButtonContext` (empty; click via outputs) | The read-aloud button |
+| `regenerateButton` | `RegenerateButtonContext` (empty; click via outputs) | The regenerate button |
+| `toolCallsView` | `any` | The tool calls view |
+
+```html title="src/app/assistant.component.html"
+<copilot-chat-assistant-message [message]="message()">
+  <ng-template #markdownRenderer let-content="content">
+    <article class="my-markdown">{{ content }}</article>
+  </ng-template>
+</copilot-chat-assistant-message>
+```
+
+## Related
+
+<Cards>
+  <Card
+    title="CopilotChatMessageView"
+    description="Renders a list of messages, routing each to assistant, user, reasoning, or activity rendering."
+    href="/reference/angular/components/CopilotChatMessageView"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CopilotChatUserMessage"
+    description="Renders a single user message with copy, edit, and branch navigation."
+    href="/reference/angular/components/CopilotChatUserMessage"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CopilotChatView"
+    description="The full chat layout: scroll container, message view, and input."
+    href="/reference/angular/components/CopilotChatView"
+    icon={<LinkIcon />}
+  />
+</Cards>

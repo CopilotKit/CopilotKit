@@ -50,6 +50,43 @@ describe("seoRedirects", () => {
           source: "/integrations",
           destination: "/",
         },
+        {
+          id: "FE-frontends-wild",
+          source: "/frontends/:path*",
+          destination: "/:path*",
+        },
+        {
+          id: "FE-teams",
+          source: "/microsoft-teams",
+          destination: "/teams",
+        },
+      ]),
+    );
+  });
+
+  it("redirects retired Intelligence Platform observability URLs to overview pages", () => {
+    expect(seoRedirects).toEqual(
+      expect.arrayContaining([
+        {
+          id: "INTEL-observability-root",
+          source: "/premium/observability",
+          destination: "/premium/overview",
+        },
+        {
+          id: "INTEL-observability×langgraph-python",
+          source: "/langgraph-python/premium/observability",
+          destination: "/langgraph-python/premium/overview",
+        },
+        {
+          id: "INTEL-observability-connectors",
+          source: "/troubleshooting/observability-connectors",
+          destination: "/premium/overview",
+        },
+        {
+          id: "INTEL-observability×built-in-agent",
+          source: "/built-in-agent/premium/observability",
+          destination: "/premium/overview",
+        },
       ]),
     );
   });
@@ -122,12 +159,22 @@ describe("seoRedirects", () => {
       ),
     ).toBe(true);
     expect(matchesSeoRedirectSource("/guides/self-hosting/")).toBe(true);
+    expect(matchesSeoRedirectSource("/premium/observability")).toBe(true);
+    expect(
+      matchesSeoRedirectSource("/langgraph-python/premium/observability"),
+    ).toBe(true);
+    expect(
+      matchesSeoRedirectSource("/troubleshooting/observability-connectors"),
+    ).toBe(true);
   });
 
   it("does not match live non-redirect docs paths with similar roots", () => {
     expect(matchesSeoRedirectSource("/generative-ui/tool-rendering")).toBe(
       false,
     );
+    expect(matchesSeoRedirectSource("/vue")).toBe(false);
+    expect(matchesSeoRedirectSource("/slack")).toBe(false);
+    expect(matchesSeoRedirectSource("/react-native")).toBe(false);
     expect(matchesSeoRedirectSource("/custom-look-and-feel/slots")).toBe(false);
   });
 });

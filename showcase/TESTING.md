@@ -104,12 +104,7 @@ showcase-iso<N>-aimock` + DOM/probe text):
    `--isolate` slots cold-start aimock from the volume mount, so the first
    post-edit run picks up the change automatically; warm-slot reuse will not.
 
-8. **`--isolate` slot collisions with foreign Docker projects.** The slot registry
-   only knows about `showcase-*` compose projects. If a sibling project (e.g.,
-   `ag2mm-*`) owns the same host ports for the auto-picked slot, health checks
-   cross to the wrong containers and results misroute. Either pre-reserve the
-   conflicting slot dirs in `~/.local/state/copilotkit/showcase/slots/` or tear
-   down the foreign stack first.
+8. **`--isolate` slot pinning and conflict detection.** Pin a specific slot with `SHOWCASE_ISO_SLOT=<N>` (1-45; slot 0 is reserved for the base stack), or use the equivalent CLI sugar `--isolate=<N>` — the picker uses exactly that slot or fails loudly. The auto-picker now port-probes every candidate via `lsof` before committing, so foreign-Docker (`ag2mm-*`) and host-process (macOS AirPlay on 5000) conflicts are detected pre-`docker compose up`. Run `bin/showcase slots` to inspect all 46 slots across DIR / PID / LIVE / PORTS / OFFSET (and PROJECT) — same code path the picker uses. The `LIVE` column reports `live` / `stale` / `inconclusive` and folds the live-pid and live-containers checks into one axis.
 
 9. **Cell-color flip claims MUST be empirically value-tested via the
    production-equivalent control-plane path** on ≥3 candidate cells before merge.
@@ -122,6 +117,14 @@ showcase-iso<N>-aimock` + DOM/probe text):
    (or `--d5 --isolate` for single-pill e2e). DO NOT use `--direct` for
    value-test — it bypasses the queue/worker pipeline staging actually runs and
    has misled investigations in the past.
+
+   Pick `<N>` by first running `bin/showcase slots` (or `bin/showcase slots --free --brief` for a machine-readable list) and choosing a row whose `DIR` is `absent`, `LIVE` is not `live`, and `PORTS` is not `held`, then pin the slot via either form (both are equivalent):
+
+   ```
+   SHOWCASE_ISO_SLOT=<N> bin/showcase test <slug>:<feature> --d6 --isolate
+   # — or, equivalently —
+   bin/showcase test <slug>:<feature> --d6 --isolate=<N>
+   ```
 
 10. **No fixture rewrite from real-LLM record/replay.** The canonical-phrase probe
     is anti-record/replay-against-real-LLM by construction: a real LLM won't emit
@@ -191,10 +194,10 @@ Scope: all testing-related workflows (unit, integration, e2e, smoke) across the 
 
 | Workflow file                                       | Name (CI UI)                      | Trigger                                                                                     | Path filter                                                                            | Required? | What it tests                                                                                    |
 | --------------------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------------ |
-| `.github/workflows/test_unit.yml`                   | test / unit                       | push (main), pull_request (main), workflow_dispatch                                         | paths-ignore: `docs/**`, `README.md`, `examples/**`                                    | No        | Vitest unit suite across Node 20/22/24 for all TS packages                                       |
+| `.github/workflows/test_unit.yml`                   | test / unit                       | push (main), pull_request (main), workflow_dispatch                                         | paths-ignore: `README.md`, `examples/**`, `showcase/**`, `sdk-python/**`               | No        | Vitest unit suite across Node 20/22/24 for all TS packages                                       |
 | `.github/workflows/test_unit-python-sdk.yml`        | test / unit / python-sdk          | push (main), pull_request (main)                                                            | `sdk-python/**`, this workflow                                                         | No        | pytest against `sdk-python/` under Python 3.12 + Poetry                                          |
 | `.github/workflows/test_integration-runtime.yml`    | test / integration / runtime      | push (main), pull_request (main), workflow_dispatch                                         | `packages/runtime/**`, this workflow                                                   | No        | Runtime server integration tests (Node, possibly others)                                         |
-| `.github/workflows/test_integration-docs.yml`       | test / integration / docs         | push (main), pull_request                                                                   | `docs/**`                                                                              | No        | Extracts code blocks from docs, runs them against aimock (model-name + doc-test)                 |
+| `.github/workflows/test_integration-docs.yml`       | test / integration / docs         | push (main), pull_request                                                                   | `showcase/shell-docs/src/content/**`, docs validation scripts                          | No        | Extracts code blocks from shell-docs, runs them against aimock (model-name + doc-test)           |
 | `.github/workflows/test_e2e-dojo.yml`               | test / e2e / dojo                 | push (main), pull_request (main), workflow_dispatch                                         | `packages/**`, `sdk-python/**`, this workflow, `.changeset`                            | No        | ag-ui dojo end-to-end matrix on Depot runners                                                    |
 | `.github/workflows/test_e2e-legacy-v1.yml`          | test / e2e / legacy-v1            | push (main), pull_request (main), workflow_dispatch                                         | `examples/**`, this workflow, `.changeset`                                             | No        | Legacy v1.x examples (form-filling, travel, research-canvas, chat-with-your-data, state-machine) |
 | `.github/workflows/showcase_validate.yml`           | Showcase: Validate                | push (main), pull_request                                                                   | `showcase/**`, `examples/integrations/**/fixtures/**`, `scripts/doc-tests/fixtures/**` | No        | Build-pipeline Vitest + manifest/registry validation + shell build                               |
@@ -209,7 +212,7 @@ Scope: all testing-related workflows (unit, integration, e2e, smoke) across the 
 - `showcase/**`: `Showcase: Validate`, `test / unit` (paths-ignore does not exclude showcase), `static / quality`, `static / check binaries`. No Playwright E2E runs automatically -- comment `/test-aimock` on the PR to trigger `test / e2e / showcase / on-demand`.
 - `examples/**` (legacy v1.x): `test / e2e / legacy-v1`, `static / check binaries`. `test / unit` is excluded via paths-ignore.
 - `examples/integrations/**` (starters): `test / smoke / starter` (Docker), `Showcase: Validate` (for fixtures only), `static / check binaries`.
-- `docs/**`: `test / integration / docs` only. `test / unit` and `static / quality` are excluded via paths-ignore.
+- `showcase/shell-docs/src/content/**`: `test / integration / docs`, `Showcase: Validate`, and showcase build checks.
 - `.github/workflows/**`: each workflow that lists its own path in its trigger runs (most do). No single "workflows changed" catch-all.
 
 ## Required status checks

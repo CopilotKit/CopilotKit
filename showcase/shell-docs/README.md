@@ -86,13 +86,31 @@ Reusable snippets live under `src/content/snippets/`. Snippets may be rendered b
 authored framework pages, and showcase-driven framework pages, so keep them general unless
 the path is intentionally framework-specific.
 
+### Frontend Applicability
+
+Frontend routes use page-level applicability metadata, independent from where the content is
+authored. A page can be authored MDX, showcase-generated content, mirrored protocol docs, or
+reference content and still be universal across frontends.
+
+Use the `frontend` field in page frontmatter or `meta.json` when a root doc should appear in
+non-React frontend docs:
+
+- `universal` — render the same page under `/<frontend>/...`.
+- `frontend-variant` — render only when a matching page exists under
+  `src/content/docs/frontends/<frontend>/...`.
+- `hide` — omit the page from frontend-scoped docs.
+
+Do not use "showcase-driven" as a proxy for frontend availability. Showcase derivation is an
+authoring/source detail; frontend applicability controls routing and sidebar inclusion.
+
 ### AG-UI Mirrored Docs
 
 AG-UI protocol docs are authored upstream in `ag-ui-protocol/ag-ui`. The
 `src/content/ag-ui/` tree is a downstream mirror rendered on the CopilotKit docs host.
 Change AG-UI docs upstream first, then sync the mirror back into shell-docs.
 
-## Retired Top-Level Docs
+## Top-Level Docs Symlink
 
-The repository's top-level `docs/` app and `docs/content/docs/` tree are retired. Do not add
-or update CopilotKit docs there. Use `showcase/shell-docs/src/content/` instead.
+The repository's top-level `docs/` path is a symlink to `showcase/shell-docs/` for
+contributor muscle memory. It is not a separate docs app. Do not recreate the old
+`docs/content/docs/` tree; author CopilotKit docs in `showcase/shell-docs/src/content/`.

@@ -1,0 +1,200 @@
+---
+title: "CopilotChatMessageView"
+description: "Angular standalone component that renders a list of chat messages, routing each message to assistant, user, reasoning, or activity rendering with slot customization."
+---
+
+## Overview
+
+`CopilotChatMessageView` renders an array of messages and routes each one to the correct renderer based on its `role`: assistant messages go to [`CopilotChatAssistantMessage`](/reference/angular/components/CopilotChatAssistantMessage), user messages to [`CopilotChatUserMessage`](/reference/angular/components/CopilotChatUserMessage), reasoning messages to the reasoning renderer, and activity messages to any registered activity renderer. It optionally renders a typing cursor at the end of the list while the agent is streaming.
+
+This is the message-list layer used internally by [`CopilotChatView`](/reference/angular/components/CopilotChatView). It mirrors React's `CopilotChatMessageView`. Use it directly when you manage your own `messages` array and want only the list rendering without the surrounding scroll container and input.
+
+The component is standalone and uses `OnPush` change detection. Reactive inputs are Angular [signals](https://angular.dev/guide/signals).
+
+## Usage
+
+Import the component class and use its `copilot-chat-message-view` selector in your template.
+
+```ts title="src/app/messages.component.ts"
+import { Component, signal } from "@angular/core";
+import { CopilotChatMessageView } from "@copilotkit/angular";
+import type { Message } from "@ag-ui/core";
+
+@Component({
+  selector: "app-messages",
+  standalone: true,
+  imports: [CopilotChatMessageView],
+  template: `
+    <copilot-chat-message-view
+      [messages]="messages()"
+      [showCursor]="isLoading()"
+      [isLoading]="isLoading()"
+    />
+  `,
+})
+export class MessagesComponent {
+  messages = signal<Message[]>([]);
+  isLoading = signal(false);
+}
+```
+
+## Inputs
+
+<PropertyReference name="messages" type="Message[]" default="[]">
+  The messages to render. Each entry is routed by its `role` (`assistant`, `user`, `reasoning`, or `activity`). Entries with any other role are skipped.
+</PropertyReference>
+
+<PropertyReference name="showCursor" type="boolean" default="false">
+  Whether to show the typing cursor at the end of the list. The cursor is suppressed when the last message is a reasoning message.
+</PropertyReference>
+
+<PropertyReference name="isLoading" type="boolean" default="false">
+  Whether the agent is currently streaming. Forwarded to assistant, reasoning, and activity renderers so they can show in-progress state.
+</PropertyReference>
+
+<PropertyReference name="inputClass" type="string">
+  Extra CSS classes merged onto the default list container (`flex flex-col`).
+</PropertyReference>
+
+<PropertyReference name="agentId" type="string">
+  ID of the agent whose messages are being rendered. Used to resolve the matching activity-message renderer and the agent instance passed to it.
+</PropertyReference>
+
+### Assistant message slot inputs
+
+<PropertyReference name="assistantMessageComponent" type="Type<any>">
+  A component class to render each assistant message in place of the default [`CopilotChatAssistantMessage`](/reference/angular/components/CopilotChatAssistantMessage).
+</PropertyReference>
+
+<PropertyReference name="assistantMessageTemplate" type="TemplateRef<any>">
+  A template to render each assistant message. Takes precedence over `assistantMessageComponent` when both are set.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageClass" type="string">
+  Extra CSS classes forwarded to each assistant message renderer.
+</PropertyReference>
+
+### User message slot inputs
+
+<PropertyReference name="userMessageComponent" type="Type<any>">
+  A component class to render each user message in place of the default [`CopilotChatUserMessage`](/reference/angular/components/CopilotChatUserMessage).
+</PropertyReference>
+
+<PropertyReference name="userMessageTemplate" type="TemplateRef<any>">
+  A template to render each user message. Takes precedence over `userMessageComponent` when both are set.
+</PropertyReference>
+
+<PropertyReference name="userMessageClass" type="string">
+  Extra CSS classes forwarded to each user message renderer.
+</PropertyReference>
+
+### Cursor slot inputs
+
+<PropertyReference name="cursorComponent" type="Type<any>">
+  A component class to render the typing cursor in place of the default cursor.
+</PropertyReference>
+
+<PropertyReference name="cursorTemplate" type="TemplateRef<any>">
+  A template to render the typing cursor. Takes precedence over `cursorComponent` when both are set.
+</PropertyReference>
+
+<PropertyReference name="cursorClass" type="string">
+  Extra CSS classes forwarded to the cursor renderer.
+</PropertyReference>
+
+## Outputs
+
+These bubble up from the per-message child components so you can observe toolbar interactions from the list level. Each payload is `{ message: Message }`.
+
+<PropertyReference name="assistantMessageThumbsUp" type="{ message: Message }">
+  Emitted when the thumbs-up action is triggered on an assistant message.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageThumbsDown" type="{ message: Message }">
+  Emitted when the thumbs-down action is triggered on an assistant message.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageReadAloud" type="{ message: Message }">
+  Emitted when the read-aloud action is triggered on an assistant message.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageRegenerate" type="{ message: Message }">
+  Emitted when the regenerate action is triggered on an assistant message.
+</PropertyReference>
+
+<PropertyReference name="userMessageCopy" type="{ message: Message }">
+  Emitted when a user message is copied.
+</PropertyReference>
+
+<PropertyReference name="userMessageEdit" type="{ message: Message }">
+  Emitted when a user message edit action is triggered.
+</PropertyReference>
+
+## Custom layout
+
+For full control over how the list is laid out, project a template named `customLayout`. It receives a context object with the current `messages`, the `isLoading` and `showCursor` flags, and `messageElements` (the messages filtered to the renderable roles). When this template is present, the default list rendering is replaced entirely.
+
+```html title="src/app/messages.component.html"
+<copilot-chat-message-view [messages]="messages()" [showCursor]="isLoading()">
+  <ng-template #customLayout let-messages="messages" let-showCursor="showCursor">
+    <div class="my-list">
+      @for (message of messages; track message.id) {
+        <div class="my-row">{{ message.content }}</div>
+      }
+      @if (showCursor) {
+        <span class="my-cursor">...</span>
+      }
+    </div>
+  </ng-template>
+</copilot-chat-message-view>
+```
+
+## Customizing message rendering
+
+To swap out how a whole role is rendered without rebuilding the layout, pass a slot input. The slot accepts either a component class or a template, with the template taking precedence.
+
+```ts title="src/app/messages.component.ts"
+import { Component, signal } from "@angular/core";
+import { CopilotChatMessageView } from "@copilotkit/angular";
+import { MyAssistantMessage } from "./my-assistant-message.component";
+import type { Message } from "@ag-ui/core";
+
+@Component({
+  selector: "app-messages",
+  standalone: true,
+  imports: [CopilotChatMessageView],
+  template: `
+    <copilot-chat-message-view
+      [messages]="messages()"
+      [assistantMessageComponent]="assistantMessage"
+    />
+  `,
+})
+export class MessagesComponent {
+  messages = signal<Message[]>([]);
+  protected readonly assistantMessage = MyAssistantMessage;
+}
+```
+
+## Related
+
+<Cards>
+  <Card
+    title="CopilotChatAssistantMessage"
+    description="Renders a single assistant message with markdown content, a toolbar, and tool calls."
+    href="/reference/angular/components/CopilotChatAssistantMessage"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CopilotChatUserMessage"
+    description="Renders a single user message with copy, edit, and branch navigation."
+    href="/reference/angular/components/CopilotChatUserMessage"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CopilotChatView"
+    description="The full chat layout: scroll container, message view, and input."
+    href="/reference/angular/components/CopilotChatView"
+    icon={<LinkIcon />}
+  />
+</Cards>

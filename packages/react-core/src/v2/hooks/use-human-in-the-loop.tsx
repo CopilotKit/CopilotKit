@@ -2,6 +2,7 @@ import { useCopilotKit } from "../context";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactToolCallRenderer } from "../types/react-tool-call-renderer";
+import { ToolCallStatus } from "@copilotkit/core";
 import { useCallback, useEffect, useRef } from "react";
 import React from "react";
 import { useFrontendTool } from "./use-frontend-tool";
@@ -29,38 +30,48 @@ export function useHumanInTheLoop<
     (props) => {
       const ToolComponent = tool.render;
 
-      // Enhance props based on current status
-      if (props.status === "inProgress") {
+      // Build the HITL render props per status. `props` already carries
+      // `toolCallId`; we overwrite `name`/`description` with the tool's
+      // registration values and add the registration `agentId`, so the HITL
+      // render always receives the full prop contract. `respond` is only live
+      // while the tool is executing.
+      if (props.status === ToolCallStatus.InProgress) {
         const enhancedProps = {
           ...props,
           name: tool.name,
           description: tool.description || "",
+          agentId: tool.agentId,
           respond: undefined,
         };
         return React.createElement(ToolComponent, enhancedProps);
-      } else if (props.status === "executing") {
+      } else if (props.status === ToolCallStatus.Executing) {
         const enhancedProps = {
           ...props,
           name: tool.name,
           description: tool.description || "",
+          agentId: tool.agentId,
           respond,
         };
         return React.createElement(ToolComponent, enhancedProps);
-      } else if (props.status === "complete") {
+      } else if (props.status === ToolCallStatus.Complete) {
         const enhancedProps = {
           ...props,
           name: tool.name,
           description: tool.description || "",
+          agentId: tool.agentId,
           respond: undefined,
         };
         return React.createElement(ToolComponent, enhancedProps);
       }
 
-      // Fallback - just render with original props
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return React.createElement(ToolComponent, props as any);
+      // ToolCallStatus has only the three states handled above, so this point
+      // is unreachable and `props` narrows to `never`. The assignment turns a
+      // newly-added status into a compile error here — forcing it to get its
+      // own branch above — instead of silently rendering without `respond`.
+      const exhaustiveCheck: never = props;
+      return exhaustiveCheck;
     },
-    [tool.render, tool.name, tool.description, respond],
+    [tool.render, tool.name, tool.description, tool.agentId, respond],
   );
 
   const frontendTool: ReactFrontendTool<T> = {

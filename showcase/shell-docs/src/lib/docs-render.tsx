@@ -28,9 +28,28 @@ export {
 // Nav tree types
 // ---------------------------------------------------------------------------
 
+export type NavNodeVariant = "react-docs-proxy" | "frontend-docs-upcoming";
+
+export type FrontendDocsStatus = "feature-complete" | "early-access";
+
 export type NavNode =
-  | { type: "page"; title: string; slug: string; icon?: string }
-  | { type: "section"; title: string; icon?: string }
+  | {
+      type: "page";
+      title: string;
+      slug: string;
+      href?: string;
+      icon?: string;
+      variant?: NavNodeVariant;
+    }
+  | {
+      type: "section";
+      title: string;
+      icon?: string;
+      variant?: NavNodeVariant;
+      quickstartHref?: string;
+      referenceHref?: string;
+      frontendDocsStatus?: FrontendDocsStatus;
+    }
   | {
       type: "group";
       title: string;
@@ -38,6 +57,7 @@ export type NavNode =
       children: NavNode[];
       defaultOpen?: boolean;
       icon?: string;
+      variant?: NavNodeVariant;
     };
 
 // Section headers (the all-caps separators) carry the only icons in
@@ -130,7 +150,13 @@ const isDev = process.env.NODE_ENV === "development";
 const titleCache = new Map<string, string | null>();
 const metaCache = new Map<
   string,
-  { title?: string; pages?: string[]; root?: boolean } | null
+  {
+    title?: string;
+    pages?: string[];
+    root?: boolean;
+    icon?: string;
+    frontend?: unknown;
+  } | null
 >();
 // Tree-level cache. Even with title/meta cached, `buildNavTree` still
 // allocates ~200 NavNode objects per call and is invoked from every
@@ -176,11 +202,12 @@ export function readTitle(filePath: string): string | null {
   return title;
 }
 
-// Read the `icon:` field from an MDX file's frontmatter. Mirrors
-// `readTitle` so the icon survives the same caching / extraction story
-// (frontmatter-scoped regex, dev cache bypass). Returns the raw spec
-// string (e.g. `"lucide/Paintbrush"`); the bridge resolves it to a
-// React element when building the PageTree.
+// Read the sidebar `icon:` field from an MDX file's frontmatter. Page
+// icons are opt-in: `icon:` can live in frontmatter as metadata, but
+// it only appears in navigation when the page also sets
+// `showIcon: true`. This keeps icons available for targeted surfaces
+// like cookbook partner pages without turning every icon-bearing docs
+// page into an icon row.
 export function readIcon(filePath: string): string | null {
   const cacheKey = `icon:${path.resolve(filePath)}`;
   if (!isDev && titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;
@@ -196,6 +223,11 @@ export function readIcon(filePath: string): string | null {
     return null;
   }
   const fm = extractFrontmatter(raw);
+  const showIcon = /^showIcon:\s*["']?true["']?\s*$/m.test(fm);
+  if (!showIcon) {
+    titleCache.set(cacheKey, null);
+    return null;
+  }
   const match = fm.match(/^icon:\s*["']?(.+?)["']?\s*$/m);
   const icon = match ? match[1].replace(/["']$/, "") : null;
   titleCache.set(cacheKey, icon);
@@ -222,6 +254,7 @@ export function readMeta(dir: string): {
   pages?: MetaPageEntry[];
   root?: boolean;
   icon?: string;
+  frontend?: unknown;
 } | null {
   const metaPath = path.join(dir, "meta.json");
   const cacheKey = path.resolve(metaPath);
@@ -985,9 +1018,6 @@ export const SNIPPET_MAP: Record<string, string> = {
   MigrateTo1100: "shared/troubleshooting/migrate-to-1.10.X.mdx",
   MigrateTo182: "shared/troubleshooting/migrate-to-1.8.2.mdx",
   MigrateToV2: "shared/troubleshooting/migrate-to-v2.mdx",
-  Observability: "shared/premium/observability.mdx",
-  ObservabilityConnectors:
-    "shared/troubleshooting/observability-connectors.mdx",
   Overview: "shared/premium/overview.mdx",
   PrebuiltComponents: "shared/basics/prebuilt-components.mdx",
   ProgrammaticControl: "shared/basics/programmatic-control.mdx",
@@ -1039,14 +1069,12 @@ export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "prebuilt-components": "PrebuiltComponents",
   "programmatic-control": "ProgrammaticControl",
   "premium/headless-ui": "HeadlessUI",
-  "premium/observability": "Observability",
   "premium/overview": "Overview",
   "troubleshooting/common-issues": "CommonIssues",
   "troubleshooting/error-debugging": "ErrorDebugging",
   "troubleshooting/migrate-to-1.10.X": "MigrateTo1100",
   "troubleshooting/migrate-to-1.8.2": "MigrateTo182",
   "troubleshooting/migrate-to-v2": "MigrateToV2",
-  "troubleshooting/observability-connectors": "ObservabilityConnectors",
 };
 
 /**
@@ -1587,6 +1615,7 @@ export interface DocFrontmatter {
   defaultFramework?: string;
   defaultCell?: string;
   hideTOC?: boolean;
+  frontend?: unknown;
   /**
    * Early-access gate id (see `src/lib/early-access.ts`). When set,
    * the page renders blurred behind the matching password gate.
@@ -1735,6 +1764,7 @@ export function loadDoc(
   const defaultCell =
     typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
   const hideTOC = data.hideTOC === true;
+  const frontend = data.frontend;
   const earlyAccess =
     typeof data.earlyAccess === "string" ? data.earlyAccess : undefined;
 
@@ -1747,6 +1777,7 @@ export function loadDoc(
       defaultFramework,
       defaultCell,
       hideTOC,
+      frontend,
       earlyAccess,
     },
   };

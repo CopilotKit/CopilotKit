@@ -48,7 +48,7 @@ describe("runRedeploy", () => {
     summary += s + "\n";
   };
 
-  it("default staging scope = 26 CI-built services + their imageOf consumers (harness-workers)", async () => {
+  it("default staging scope = 38 CI-built services + their imageOf consumers (harness-workers)", async () => {
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       // Reverse-lookup the SSOT name from serviceId so the test can
@@ -68,11 +68,16 @@ describe("runRedeploy", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.attempted).toBe(27);
-    expect(result.succeeded).toBe(27);
-    expect(redeploy).toHaveBeenCalledTimes(27);
+    // 38 CI-built (26 showcase/infra + 12 starters, S2) + harness-workers
+    // (imageOf consumer of showcase-harness) = 39.
+    expect(result.attempted).toBe(39);
+    expect(result.succeeded).toBe(39);
+    expect(redeploy).toHaveBeenCalledTimes(39);
     // pocketbase is now CI-built, so it IS in the default redeploy scope.
     expect(seenNames).toContain("pocketbase");
+    // S2: starters are CI-built, so they JOIN the default redeploy scope.
+    expect(seenNames).toContain("starter-adk");
+    expect(seenNames).toContain("starter-mastra");
     // harness-workers runs the shared showcase-harness image (imageOf:
     // "harness") and must follow the scheduler into the staging scope.
     expect(seenNames).toContain("harness-workers");
@@ -133,8 +138,9 @@ describe("runRedeploy", () => {
   });
 
   it("default prod scope does NOT include the staging-only harness-workers", async () => {
-    // imageOf expansion is env-aware: harness-workers has no prod env, so
-    // prod behavior is unchanged (26 CI-built services, no worker).
+    // imageOf expansion is env-aware: harness-workers has no prod env, so it
+    // never joins the prod scope. The prod default = the 38 CI-built services
+    // (26 showcase/infra + 12 starters, S2), no worker.
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       const name = Object.entries(SERVICES).find(
@@ -148,8 +154,10 @@ describe("runRedeploy", () => {
       redeploy,
       appendSummary,
     });
-    expect(result.attempted).toBe(26);
+    expect(result.attempted).toBe(38);
     expect(seenNames).not.toContain("harness-workers");
+    // S2: starters ARE in the default prod scope (CI-built, dual-env).
+    expect(seenNames).toContain("starter-adk");
   });
 
   it("default whole-env staging redeploy NEVER bounces webhooks (out-of-band)", async () => {
@@ -554,9 +562,12 @@ describe("resolveTargetServices", () => {
 
   it("returns the CI_BUILT_SERVICES set sorted when given undefined", () => {
     const resolved = resolveTargetServices(undefined);
-    expect(resolved.length).toBe(26);
+    // 26 showcase/infra CI-built + 12 starters (S2) = 38.
+    expect(resolved.length).toBe(38);
     // pocketbase is now CI-built and part of the default scope.
     expect(resolved).toContain("pocketbase");
+    // S2: starters are CI-built and part of the default scope.
+    expect(resolved).toContain("starter-adk");
     // webhooks remains out-of-band.
     expect(resolved).not.toContain("webhooks");
   });

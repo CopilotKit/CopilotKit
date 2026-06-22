@@ -3,8 +3,8 @@ import {
   D5_REGISTRY,
   __clearD5RegistryForTesting,
   getD5Script,
-  type D5BuildContext,
 } from "../helpers/d5-registry.js";
+import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
 
 let scriptModule: typeof import("./d5-tool-rendering-default-catchall.js");
