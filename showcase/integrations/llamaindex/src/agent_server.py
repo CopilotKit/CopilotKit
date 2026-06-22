@@ -9,6 +9,15 @@ implements the AG-UI protocol, so we just include it directly.
 """
 
 import os
+
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
+# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
+# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
+# (NOT llama_index), so it is safe to run before the agent imports below.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+
 import uvicorn
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -19,6 +28,7 @@ from starlette.responses import JSONResponse
 # ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
 # imports. LlamaIndex's ``llama_index.llms.openai.OpenAI`` constructs its
 # httpx client at agent-module import time.
+from agents._cvdiag_backend import CvdiagBackendMiddleware
 from agents._header_forwarding import (
     HeaderForwardingHTTPMiddleware,
     install_global_httpx_hook,
@@ -80,6 +90,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added LAST so
+# it is the OUTERMOST layer: it observes ingress before any inner layer mutates
+# the request and wraps the response stream so SSE boundaries fire as chunks
+# flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
+# middleware fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
 
 # Dedicated routers for demos that need distinct system prompts / tool sets.
 # Mount specific-path routers BEFORE the catch-all agent_router at '/'.

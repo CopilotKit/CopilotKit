@@ -9,10 +9,12 @@ import {
   PROJECT_ID,
   SERVICES,
   STAGING_ENV_ID,
+  assertClosureValid,
   assertDispatchNamesUnique,
   assertEnvRegistryConsistent,
   assertImageConsumersValid,
   assertServiceAndInstanceIdsUnique,
+  computePromoteClosure,
   domainFor,
   envsFor,
   instanceIdFor,
@@ -22,7 +24,11 @@ import {
   resolveEnv,
   serviceForDispatchName,
 } from "./railway-envs";
-import type { EnvironmentConfig, ProbeDriver } from "./railway-envs";
+import type {
+  ClosurePlan,
+  EnvironmentConfig,
+  ProbeDriver,
+} from "./railway-envs";
 
 describe("railway-envs SSOT", () => {
   it("exposes the canonical project id", () => {
@@ -100,9 +106,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains exactly 29 services", () => {
+  it("contains exactly 41 services (29 showcase/infra + 12 starter-*)", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(29);
+    expect(names.length).toBe(41);
   });
 
   it("contains the expected canonical services", () => {
@@ -174,8 +180,11 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("CI_BUILT_SERVICES contains exactly 26 services (incl. pocketbase) and excludes webhooks", () => {
-    expect(CI_BUILT_SERVICES.size).toBe(26);
+  it("CI_BUILT_SERVICES contains exactly 38 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
+    // 26 showcase/infra CI-built + 12 starter-<slug> (S2 brought them under
+    // the gate; they ARE built+pushed by showcase_build.yml's `build-starters`
+    // job to ghcr.io/copilotkit/starter-<slug>:latest).
+    expect(CI_BUILT_SERVICES.size).toBe(38);
     // pocketbase is now CI-built (showcase_build.yml `pocketbase` slot,
     // gated to showcase/pocketbase/** changes).
     expect(CI_BUILT_SERVICES.has("pocketbase")).toBe(true);
@@ -185,6 +194,9 @@ describe("railway-envs SSOT", () => {
     expect(CI_BUILT_SERVICES.has("showcase-mastra")).toBe(true);
     expect(CI_BUILT_SERVICES.has("aimock")).toBe(true);
     expect(CI_BUILT_SERVICES.has("dashboard")).toBe(true);
+    // S2: starters are now CI-built.
+    expect(CI_BUILT_SERVICES.has("starter-adk")).toBe(true);
+    expect(CI_BUILT_SERVICES.has("starter-mastra")).toBe(true);
   });
 
   it("pocketbase and webhooks have per-env GHCR repo-name overrides", () => {
@@ -327,7 +339,24 @@ describe("railway-envs SSOT", () => {
     // "showcase-pocketbase" slot is gated to showcase/pocketbase/**) and
     // so is included here; only webhooks remains non-CI-built (released by
     // the showcase-eval-webhook repo) and thus excluded from this check.
-    const yamlSet = new Set(dispatchNames);
+    //
+    // S2: the 12 starter-<slug> services are CI-built by the SEPARATE
+    // `build-starters` job, whose matrix uses `"image":"starter-<slug>"`
+    // keys (NOT `"dispatch_name":"…"`). Their dispatchName === the SSOT key
+    // === the starter matrix `.image` === the workflow_dispatch choice value
+    // (`- starter-<slug>`). So the reverse-direction membership set must also
+    // include the starter matrix `image` values; otherwise the now-CI-built
+    // starters would spuriously fail this check.
+    const starterImageRegex = /"image"\s*:\s*"(starter-[^"]+)"/g;
+    const starterImages: string[] = [];
+    for (const match of yaml.matchAll(starterImageRegex)) {
+      starterImages.push(match[1]);
+    }
+    expect(
+      starterImages.length,
+      "no starter `image` entries found in showcase_build.yml — the build-starters matrix moved or its key shape changed",
+    ).toBeGreaterThanOrEqual(12);
+    const yamlSet = new Set([...dispatchNames, ...starterImages]);
     for (const name of CI_BUILT_SERVICES) {
       const entry = SERVICES[name];
       expect(
@@ -336,7 +365,7 @@ describe("railway-envs SSOT", () => {
       ).toBeDefined();
       expect(
         yamlSet.has(entry.dispatchName as string),
-        `CI-built service "${name}" (dispatchName="${entry.dispatchName}") has no matching entry in showcase_build.yml ALL_SERVICES matrix`,
+        `CI-built service "${name}" (dispatchName="${entry.dispatchName}") has no matching entry in showcase_build.yml (ALL_SERVICES dispatch_name or build-starters image)`,
       ).toBe(true);
     }
   });
@@ -816,6 +845,7 @@ describe("railway-envs SSOT — domains + probe", () => {
       "docs",
       "dashboard",
       "agent",
+      "starter",
     ];
     for (const [name, entry] of Object.entries(SERVICES)) {
       // probeDriver is hoisted to the entry (env-independent).
@@ -938,5 +968,313 @@ describe("railway-envs SSOT — domains + probe", () => {
       repoName: "showcase-example",
     };
     expect(sample.probe).toBe(false);
+  });
+});
+
+describe("promote-tier SSOT fields", () => {
+  it("tags the tier-0 infra services with promoteTier 0", () => {
+    for (const key of ["aimock", "pocketbase", "webhooks"]) {
+      expect(SERVICES[key].promoteTier).toBe(0);
+    }
+  });
+
+  it("tags the tier-1 verification services with promoteTier 1", () => {
+    for (const key of ["harness", "harness-workers", "dashboard"]) {
+      expect(SERVICES[key].promoteTier).toBe(1);
+    }
+  });
+
+  it("leaves integrations + shells at the default tier 2 (omitted)", () => {
+    // Default-2-when-omitted contract: integrations and shells carry no
+    // explicit promoteTier.
+    for (const key of [
+      "showcase-langgraph-python",
+      "showcase-mastra",
+      "shell",
+      "docs",
+      "dojo",
+    ]) {
+      expect(SERVICES[key].promoteTier).toBeUndefined();
+    }
+  });
+
+  it("declares runtimeDeps: every agent service needs a current aimock", () => {
+    for (const [key, entry] of Object.entries(SERVICES)) {
+      if (entry.probeDriver !== "agent") continue;
+      expect(entry.runtimeDeps).toContain("aimock");
+    }
+  });
+
+  it("declares the dashboard's runtimeDeps on pocketbase + harness", () => {
+    expect(SERVICES.dashboard.runtimeDeps).toEqual(
+      expect.arrayContaining(["pocketbase", "harness"]),
+    );
+  });
+
+  it("declares serviceRefs from each agent at aimock (OPENAI_BASE_URL)", () => {
+    const lgp = SERVICES["showcase-langgraph-python"];
+    expect(lgp.serviceRefs).toEqual(
+      expect.arrayContaining([{ key: "OPENAI_BASE_URL", target: "aimock" }]),
+    );
+  });
+
+  it("every runtimeDeps / serviceRefs target is an existing SSOT key", () => {
+    for (const entry of Object.values(SERVICES)) {
+      for (const dep of entry.runtimeDeps ?? []) {
+        expect(Object.hasOwn(SERVICES, dep)).toBe(true);
+      }
+      for (const ref of entry.serviceRefs ?? []) {
+        expect(Object.hasOwn(SERVICES, ref.target)).toBe(true);
+      }
+    }
+  });
+});
+
+describe("computePromoteClosure", () => {
+  it("returns aimock(t0) + harness/workers/dashboard(t1) + langgraph-python(t2) in tier order", () => {
+    const plan: ClosurePlan = computePromoteClosure(["langgraph-python"]);
+    const names = plan.services.map((s) => s.name);
+    // Tier order: 0 before 1 before 2.
+    const tiers = plan.services.map((s) => s.tier);
+    const sorted = [...tiers].sort((a, b) => a - b);
+    expect(tiers).toEqual(sorted);
+
+    // Tier-0 runtime dep (aimock) pulled in for an agent service.
+    expect(names).toContain("aimock");
+    expect(plan.services.find((s) => s.name === "aimock")?.tier).toBe(0);
+
+    // Tier-1 verification set ALWAYS included.
+    expect(names).toContain("harness");
+    expect(names).toContain("dashboard");
+    for (const t1 of ["harness", "dashboard"]) {
+      expect(plan.services.find((s) => s.name === t1)?.tier).toBe(1);
+    }
+
+    // The requested integration (resolved from its dispatch_name) at tier 2.
+    expect(names).toContain("showcase-langgraph-python");
+    expect(
+      plan.services.find((s) => s.name === "showcase-langgraph-python")?.tier,
+    ).toBe(2);
+
+    // aimock (t0) precedes harness (t1) precedes the integration (t2).
+    expect(names.indexOf("aimock")).toBeLessThan(names.indexOf("harness"));
+    expect(names.indexOf("harness")).toBeLessThan(
+      names.indexOf("showcase-langgraph-python"),
+    );
+  });
+
+  it("resolves an SSOT key directly as well as a dispatch_name", () => {
+    const viaKey = computePromoteClosure(["showcase-langgraph-python"]);
+    const viaDispatch = computePromoteClosure(["langgraph-python"]);
+    expect(viaKey.services.map((s) => s.name).sort()).toEqual(
+      viaDispatch.services.map((s) => s.name).sort(),
+    );
+  });
+
+  it("always includes the full Tier-1 verification set even for a tier-0-only request", () => {
+    const plan = computePromoteClosure(["pocketbase"]);
+    const names = plan.services.map((s) => s.name);
+    expect(names).toEqual(
+      expect.arrayContaining(
+        ["harness", "harness-workers", "dashboard"].filter(
+          (k) => k !== "harness-workers",
+        ),
+      ),
+    );
+    // harness + dashboard are prod-promotable Tier-1 and present:
+    expect(names).toContain("harness");
+    expect(names).toContain("dashboard");
+  });
+
+  it("skips a prod-less member (harness-workers) with an explicit reason, never silently", () => {
+    const plan = computePromoteClosure(["langgraph-python"]);
+    const promotableNames = plan.services.map((s) => s.name);
+    // harness-workers has no `prod` env today → excluded from the promotable
+    // list...
+    expect(promotableNames).not.toContain("harness-workers");
+    // ...but recorded with an explicit reason (never silent).
+    const skipped = plan.skipped.find((s) => s.name === "harness-workers");
+    expect(skipped).toBeDefined();
+    expect(skipped?.reason).toMatch(/prod/i);
+  });
+
+  it("excludes harness-legacy (gateIgnore, pinned out-of-band)", () => {
+    const plan = computePromoteClosure(["langgraph-python"]);
+    expect(plan.services.map((s) => s.name)).not.toContain("harness-legacy");
+  });
+
+  it("throws on an unknown requested service (fail loud)", () => {
+    expect(() => computePromoteClosure(["does-not-exist"])).toThrow(
+      /unknown|not an SSOT key/i,
+    );
+  });
+
+  it("is pure — repeated calls return equal plans and do not mutate SERVICES", () => {
+    const before = JSON.stringify(SERVICES);
+    const a = computePromoteClosure(["langgraph-python"]);
+    const b = computePromoteClosure(["langgraph-python"]);
+    expect(a).toEqual(b);
+    expect(JSON.stringify(SERVICES)).toBe(before);
+  });
+});
+
+describe("starter-* fleet SSOT entries (S1: promote-closure inclusion)", () => {
+  // The 12 starter-<slug> services GHCR-named ghcr.io/copilotkit/starter-<slug>.
+  // Folded into the cluster-promote SSOT at tier 2 so they receive the same
+  // dependency-/env-/verification-complete + pinned-prod treatment as the
+  // showcase-* demos. The Railway service name (and SSOT key) is the RAW
+  // starter slug prefixed with `starter-` — the keys of STARTER_TO_COLUMN.
+  const STARTER_KEYS = [
+    "starter-adk",
+    "starter-agno",
+    "starter-crewai-crews",
+    "starter-langgraph-fastapi",
+    "starter-langgraph-js",
+    "starter-langgraph-python",
+    "starter-llamaindex",
+    "starter-mastra",
+    "starter-ms-agent-framework-dotnet",
+    "starter-ms-agent-framework-python",
+    "starter-pydantic-ai",
+    "starter-strands-python",
+  ] as const;
+
+  it("registers all 12 starter-* services in the SSOT", () => {
+    for (const key of STARTER_KEYS) {
+      expect(Object.hasOwn(SERVICES, key), `${key} missing from SERVICES`).toBe(
+        true,
+      );
+    }
+  });
+
+  it("every starter carries promoteTier 2, runtimeDeps [aimock] + OPENAI_BASE_URL serviceRef", () => {
+    for (const key of STARTER_KEYS) {
+      const entry = SERVICES[key];
+      expect(entry.promoteTier, `${key}.promoteTier`).toBe(2);
+      expect(entry.runtimeDeps, `${key}.runtimeDeps`).toEqual(["aimock"]);
+      expect(entry.serviceRefs, `${key}.serviceRefs`).toEqual([
+        { key: "OPENAI_BASE_URL", target: "aimock" },
+      ]);
+    }
+  });
+
+  it("every starter is fully gate-managed: ciBuilt, gateValidated, no gateIgnore, dispatchName === key, probeDriver 'starter'", () => {
+    // S2 reverses the S1 fence: starters are now treated exactly like a
+    // showcase-* agent. They ARE built+pushed by showcase_build.yml's
+    // `build-starters` job (ghcr.io/copilotkit/starter-<slug>:latest), so
+    // ciBuilt:true; the image-ref gate validates their canonical shape
+    // (prod @sha256, staging :latest) in both drift directions, so
+    // gateValidated:true and NO gateIgnore. dispatchName === the SSOT key
+    // (the starter workflow_dispatch choice value is the bare starter-<slug>;
+    // assertDispatchNamesUnique permits a dispatchName equal to its own key).
+    // probeDriver "starter" is the S3 contract: the equivalence gate routes
+    // these to the harness starter_smoke axis.
+    for (const key of STARTER_KEYS) {
+      const entry = SERVICES[key];
+      expect(entry.ciBuilt, `${key}.ciBuilt`).toBe(true);
+      expect(
+        entry.gateIgnore === undefined || entry.gateIgnore === false,
+        `${key}.gateIgnore`,
+      ).toBe(true);
+      expect(entry.gateValidated, `${key}.gateValidated`).toBe(true);
+      expect(entry.dispatchName, `${key}.dispatchName`).toBe(key);
+      expect(entry.probeDriver, `${key}.probeDriver`).toBe("starter");
+    }
+  });
+
+  it("no starter carries a repoName override (service name === GHCR repo name)", () => {
+    // The Railway service name (starter-<slug>) already equals the GHCR repo
+    // name, so the gate's default ghcr.io/copilotkit/<serviceName> resolves
+    // correctly with no per-env override — mirroring how showcase-* agents
+    // (whose names match their GHCR repos) carry no repoName.
+    for (const key of STARTER_KEYS) {
+      const entry = SERVICES[key];
+      expect(entry.environments.prod.repoName, `${key} prod repoName`).toBe(
+        undefined,
+      );
+      expect(
+        entry.environments.staging.repoName,
+        `${key} staging repoName`,
+      ).toBe(undefined);
+    }
+  });
+
+  it("every starter exists in BOTH envs with prod probe enabled", () => {
+    for (const key of STARTER_KEYS) {
+      const entry = SERVICES[key];
+      expect(Object.keys(entry.environments).sort()).toEqual([
+        "prod",
+        "staging",
+      ]);
+      // prod is probed (they ARE in prod); staging probe deferred to S3
+      // (the starter-smoke axis, not the verify-deploy matrix).
+      expect(probeEnabled(key, "prod"), `${key} prod probe`).toBe(true);
+      // staging probe OFF — starters never enter the verify-deploy staging
+      // matrix (resolve-verify-matrix filters on probe.staging===true); the
+      // starter-smoke axis owns staging verification (S3).
+      expect(probeEnabled(key, "staging"), `${key} staging probe`).toBe(false);
+    }
+  });
+
+  it("the full-fleet promote closure includes all 12 starters at tier 2", () => {
+    // `all` is not itself an SSOT key/dispatchName; the fleet closure is
+    // computed over every SSOT key — mirroring emit-railway-envs-json.ts,
+    // which builds the top-level `closure` as computePromoteClosure(keys).
+    const fleet = computePromoteClosure(Object.keys(SERVICES));
+    const tier2 = new Set(
+      fleet.services.filter((s) => s.tier === 2).map((s) => s.name),
+    );
+    for (const key of STARTER_KEYS) {
+      expect(
+        tier2.has(key),
+        `${key} should be tier-2 in the fleet closure`,
+      ).toBe(true);
+    }
+  });
+});
+
+describe("assertClosureValid", () => {
+  it("passes for the real SSOT (a normal closure with a full Tier-1 set)", () => {
+    expect(() => assertClosureValid(["langgraph-python"])).not.toThrow();
+  });
+
+  it("throws when the SSOT carries no Tier-1 verification services", () => {
+    const noTier1 = {
+      aimock: { promoteTier: 0, environments: { prod: {}, staging: {} } },
+      "showcase-x": {
+        environments: { prod: {}, staging: {} },
+        runtimeDeps: ["aimock"],
+      },
+    } as unknown as typeof SERVICES;
+    expect(() => assertClosureValid(["showcase-x"], noTier1)).toThrow(
+      /tier-1|tier 1/i,
+    );
+  });
+
+  it("throws when a member's runtimeDeps names a missing SSOT key", () => {
+    const danglingDep = {
+      aimock: { promoteTier: 0, environments: { prod: {}, staging: {} } },
+      harness: { promoteTier: 1, environments: { prod: {}, staging: {} } },
+      dashboard: { promoteTier: 1, environments: { prod: {}, staging: {} } },
+      "showcase-x": {
+        environments: { prod: {}, staging: {} },
+        runtimeDeps: ["ghost"],
+      },
+    } as unknown as typeof SERVICES;
+    expect(() => assertClosureValid(["showcase-x"], danglingDep)).toThrow(
+      /ghost|not an SSOT key|missing/i,
+    );
+  });
+
+  it("throws when the computed closure has no promotable services", () => {
+    // A Tier-1 service exists (so the missing-Tier-1 clause passes), but it
+    // is the ONLY entry and it has no prod env → every closure member is
+    // skipped-with-reason and `services` is empty. Refuse to promote nothing.
+    const allProdless = {
+      harness: { promoteTier: 1, environments: { staging: {} } },
+    } as unknown as typeof SERVICES;
+    expect(() => assertClosureValid(["harness"], allProdless)).toThrow(
+      /empty|promote nothing/i,
+    );
   });
 });

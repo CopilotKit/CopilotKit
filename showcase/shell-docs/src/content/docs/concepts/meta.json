@@ -1,5 +1,8 @@
 {
   "title": "Concepts",
+  "frontend": {
+    "kind": "universal"
+  },
   "pages": [
     "architecture",
     "generative-ui-overview",

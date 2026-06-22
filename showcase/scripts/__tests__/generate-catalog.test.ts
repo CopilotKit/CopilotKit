@@ -1,8 +1,21 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from "vitest";
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
-import { FileSnapshotRestorer, execOptsFor } from "./test-cleanup";
+import {
+  FileSnapshotRestorer,
+  acquireGeneratedDataLock,
+  execOptsFor,
+  withGeneratedDataLock,
+} from "./test-cleanup";
 import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
 // catalog.json is emitted alongside registry.json in all 4 output dirs.
@@ -23,6 +36,7 @@ const DATA_FILES = [
   path.join(SHELL_DASHBOARD_DATA_DIR, "catalog.json"),
 ];
 const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
+let releaseGeneratedDataLock: (() => void) | undefined;
 
 const EXEC_OPTS = execOptsFor(SCRIPTS_DIR);
 
@@ -36,19 +50,41 @@ function readCatalog(dir: string = SHELL_DATA_DIR): any {
   return JSON.parse(fs.readFileSync(catalogPath, "utf-8"));
 }
 
-beforeAll(() => {
-  runGenerator();
-  dataRestorer.snapshot();
-  if (dataRestorer.snapshotMap.size === 0) {
-    throw new Error(
-      `generate-catalog.test.ts: data snapshot is empty. Expected generated` +
-        ` files at:\n` +
-        DATA_FILES.map((p) => `  ${p}`).join("\n"),
-    );
+beforeAll(() =>
+  withGeneratedDataLock(() => {
+    runGenerator();
+    dataRestorer.snapshot();
+    if (dataRestorer.snapshotMap.size === 0) {
+      throw new Error(
+        `generate-catalog.test.ts: data snapshot is empty. Expected generated` +
+          ` files at:\n` +
+          DATA_FILES.map((p) => `  ${p}`).join("\n"),
+      );
+    }
+  }),
+);
+
+beforeEach(() => {
+  const release = acquireGeneratedDataLock();
+  try {
+    dataRestorer.restore();
+    releaseGeneratedDataLock = release;
+  } catch (err) {
+    release();
+    throw err;
   }
 });
-afterEach(() => dataRestorer.restore());
-afterAll(() => dataRestorer.restore());
+
+afterEach(() => {
+  try {
+    dataRestorer.restore();
+  } finally {
+    releaseGeneratedDataLock?.();
+    releaseGeneratedDataLock = undefined;
+  }
+});
+
+afterAll(() => withGeneratedDataLock(() => dataRestorer.restore()));
 
 describe("Catalog Generator", () => {
   it("output shape matches CatalogData: { metadata, cells }", () => {

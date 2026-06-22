@@ -44,6 +44,9 @@ await bot.start();
   `{ thread, message }`. (Routing is mention-preferred: if any mention
   handler is registered, all turns route to it; otherwise message handlers
   fire.)
+- `onThreadStarted(handler)` — a conversation surface opened (e.g. the Slack
+  assistant pane); receives `{ thread, user? }`. Greet, set suggested prompts
+  or a title, or run the agent. Adapters without the concept never fire it.
 - `onInteraction<TValue>(id, handler)` — explicit escape-hatch handler for a
   known action id, bypassing the registry; `ctx.action.value` is typed `TValue`.
 - `onInterrupt<TPayload>(eventName, handler)` — handle a captured agent
@@ -80,6 +83,12 @@ interface Thread {
   }): Promise<MessageRef | undefined>;
   resume(value: unknown): Promise<MessageRef | undefined>;
   awaitChoice<T = unknown>(ui: Renderable): Promise<T>;
+  // Capability-gated (return { ok: false } on surfaces without support):
+  setSuggestedPrompts(
+    prompts: ReadonlyArray<{ title: string; message: string }>,
+    opts?: { title?: string },
+  ): Promise<{ ok: boolean; error?: string }>;
+  setTitle(title: string): Promise<{ ok: boolean; error?: string }>;
 }
 ```
 
@@ -158,8 +167,9 @@ pass it as `actionStore` to make actions survive restarts.
 
 To target a new surface, implement `PlatformAdapter` from this package. The
 engine drives ingress through the `IngressSink` you receive in `start(sink)`
-(`sink.onTurn(IncomingTurn)` / `sink.onInteraction(InteractionEvent)`) and
-egress through your `post` / `update` / `stream` / `delete` (which receive
+(`sink.onTurn(IncomingTurn)` / `sink.onInteraction(InteractionEvent)` /
+`sink.onCommand(IncomingCommand)` / `sink.onThreadStarted(IncomingThreadStart)`)
+and egress through your `post` / `update` / `stream` / `delete` (which receive
 `BotNode[]` to translate to a native payload via `render`). You also provide
 `createRunRenderer(target)` (an AG-UI `RunRenderer`: the subscriber to stream
 into, plus accessors for captured tool calls and interrupts that the run-loop
@@ -168,7 +178,10 @@ reads after each `runAgent`), `decodeInteraction(raw)` (native event → opaque
 (`getOrCreate` → `AgentSession`), and the surface `capabilities` /
 `ackDeadlineMs`. Optional capability methods like `getMessages(target)` and
 `postFile(target, args)` back the matching `thread` methods when the surface
-supports them. Slash commands are also capability-gated: an adapter forwards
+supports them — likewise `setSuggestedPrompts(target, prompts, opts?)` and
+`setThreadTitle(target, title)` back `thread.setSuggestedPrompts` /
+`thread.setTitle`, and `sink.onThreadStarted(...)` emits the "conversation
+opened" lifecycle event. Slash commands are also capability-gated: an adapter forwards
 invocations via `sink.onCommand(IncomingCommand)`, and may implement
 `registerCommands(specs)` to publish the bot's declared commands up front
 (e.g. Discord's application-command API); adapters that omit it are skipped.
@@ -176,9 +189,10 @@ See `@copilotkit/bot-slack` for a complete implementation.
 
 ## Exports
 
-`createBot`, `Bot`, `CreateBotOptions`, `BotHandler`; `Thread`; the
-`PlatformAdapter` boundary types (`RunRenderer`, `IngressSink`,
-`IncomingTurn`, `InteractionEvent`, `IncomingCommand`, `SurfaceCapabilities`,
+`createBot`, `Bot`, `CreateBotOptions`, `BotHandler`, `ThreadStartHandler`;
+`Thread`; the `PlatformAdapter` boundary types (`RunRenderer`, `IngressSink`,
+`IncomingTurn`, `InteractionEvent`, `IncomingCommand`, `IncomingThreadStart`,
+`SurfaceCapabilities`,
 `ReplyTarget`, `ConversationStore`, `AgentSession`, `CapturedToolCall`,
 `CapturedInterrupt`, `UserQuery`); `ActionStore` / `InMemoryActionStore` /
 `ActionSnapshot` / `ActionRegistry` / `ActionExpiredError`; `BotTool` /

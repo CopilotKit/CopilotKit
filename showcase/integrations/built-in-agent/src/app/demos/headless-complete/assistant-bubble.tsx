@@ -12,6 +12,7 @@ export function AssistantBubble({ children }: { children: React.ReactNode }) {
   return (
     <div
       data-testid="headless-message-assistant"
+      data-message-role="assistant"
       className="flex justify-start"
     >
       <div className="max-w-[85%] flex flex-col gap-2">

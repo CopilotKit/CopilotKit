@@ -2,7 +2,12 @@
 
 // Bot orchestration
 export { createBot } from "./create-bot.js";
-export type { Bot, CreateBotOptions, BotHandler } from "./create-bot.js";
+export type {
+  Bot,
+  CreateBotOptions,
+  BotHandler,
+  ThreadStartHandler,
+} from "./create-bot.js";
 
 // Thread
 export { Thread } from "./thread.js";
@@ -16,6 +21,7 @@ export type {
   IncomingTurn,
   InteractionEvent,
   IncomingCommand,
+  IncomingThreadStart,
   SurfaceCapabilities,
   ReplyTarget,
   ConversationStore,

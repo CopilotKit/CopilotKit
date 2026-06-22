@@ -16,6 +16,7 @@ import {
   createRailwayAdapter,
   registerAllProbeDrivers,
   buildPooledBrowserDrivers,
+  buildCvdiagPersistenceWriter,
   buildProducerSchedules,
   buildSweepCommErrorSink,
   FLEET_FAMILY_PERIODS_MS,
@@ -51,7 +52,7 @@ import {
 import { FLEET_FAMILIES } from "./fleet/control-plane/run-view.js";
 import type { JobProducer } from "./fleet/control-plane/job-producer.js";
 import { createE2eFullDriver } from "./probes/drivers/d6-all-pills.js";
-import { createE2eDemosDriver } from "./probes/drivers/e2e-readiness.js";
+import { createE2eDemosDriver } from "./probes/drivers/d3-readiness.js";
 import { createE2eSmokeDriver } from "./probes/drivers/d4-chat-roundtrip.js";
 import {
   E2E_D6_DRIVER_KIND,
@@ -82,6 +83,8 @@ import { createProbeRegistry } from "./probes/drivers/index.js";
 import type { createScheduler } from "./scheduler/scheduler.js";
 import { createEventBus } from "./events/event-bus.js";
 import { logger } from "./logger.js";
+import type { CvdiagWriterClient } from "./cvdiag/pb-writer.js";
+import { PbHttpError, type ListResult } from "./storage/pb-client.js";
 import type { CompiledRule } from "./rules/rule-loader.js";
 import type { ProbeConfig } from "./probes/loader/schema.js";
 import { buildWorkerHealthServer } from "./fleet/worker/worker-health.js";
@@ -237,16 +240,83 @@ describe("orchestrator /health wiring (F1.1)", () => {
   it("HF13-A2: boot throws FATAL-CONFIG when NODE_ENV=production and POCKETBASE_URL unset", async () => {
     const prevNodeEnv = process.env.NODE_ENV;
     const prevPbUrl = process.env.POCKETBASE_URL;
+    const prevSecret = process.env.SHARED_SECRET;
     process.env.NODE_ENV = "production";
     delete process.env.POCKETBASE_URL;
+    // R1-F3: hoisted POCKETBASE_URL check now fires BEFORE
+    // loadWebhookSecrets — but production still requires both, so set a
+    // real SHARED_SECRET to ensure the test specifically asserts the
+    // POCKETBASE_URL guard, not the SHARED_SECRET one.
+    process.env.SHARED_SECRET = "hf13-a2-test-secret";
     try {
       await expect(
         boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
-      ).rejects.toThrow(/FATAL-CONFIG: POCKETBASE_URL required in production/);
+      ).rejects.toThrow(/FATAL-CONFIG: POCKETBASE_URL/);
     } finally {
       if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
       else process.env.NODE_ENV = prevNodeEnv;
       if (prevPbUrl !== undefined) process.env.POCKETBASE_URL = prevPbUrl;
+      if (prevSecret === undefined) delete process.env.SHARED_SECRET;
+      else process.env.SHARED_SECRET = prevSecret;
+    }
+  });
+
+  // R1-F3: POCKETBASE_URL fail-loud is now symmetric with SHARED_SECRET —
+  // it throws on NODE_ENV=development (pre-fix this only fired on
+  // production), and the new HARNESS_ALLOW_NO_PB_URL=1 escape hatch
+  // permits unset POCKETBASE_URL the same way HARNESS_ALLOW_NO_SECRET=1
+  // does for SHARED_SECRET. Tests both branches.
+  it("R1-F3: boot throws FATAL-CONFIG when POCKETBASE_URL unset AND NODE_ENV is non-test (regardless of production)", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevPbUrl = process.env.POCKETBASE_URL;
+    const prevSecret = process.env.SHARED_SECRET;
+    const prevEscape = process.env.HARNESS_ALLOW_NO_PB_URL;
+    process.env.NODE_ENV = "development";
+    delete process.env.POCKETBASE_URL;
+    delete process.env.HARNESS_ALLOW_NO_PB_URL;
+    process.env.SHARED_SECRET = "r1f3-test-secret";
+    try {
+      await expect(
+        boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+      ).rejects.toThrow(/FATAL-CONFIG: POCKETBASE_URL/);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevPbUrl !== undefined) process.env.POCKETBASE_URL = prevPbUrl;
+      if (prevSecret === undefined) delete process.env.SHARED_SECRET;
+      else process.env.SHARED_SECRET = prevSecret;
+      if (prevEscape !== undefined)
+        process.env.HARNESS_ALLOW_NO_PB_URL = prevEscape;
+    }
+  });
+
+  it("R1-F3: boot succeeds when POCKETBASE_URL unset AND HARNESS_ALLOW_NO_PB_URL=1 (escape hatch)", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevPbUrl = process.env.POCKETBASE_URL;
+    const prevEscape = process.env.HARNESS_ALLOW_NO_PB_URL;
+    const prevSecret = process.env.SHARED_SECRET;
+    process.env.NODE_ENV = "development";
+    delete process.env.POCKETBASE_URL;
+    process.env.HARNESS_ALLOW_NO_PB_URL = "1";
+    // SHARED_SECRET also fail-loud on non-test NODE_ENV; set it so this
+    // test specifically exercises the POCKETBASE_URL escape hatch.
+    process.env.SHARED_SECRET = "r1f3-escape-test-secret";
+    try {
+      const booted = await boot({
+        configDir: tempDir,
+        port,
+        bootstrapWindowMs: 0,
+      });
+      stopFn = booted.stop;
+      expect(booted.port).toBe(port);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevPbUrl !== undefined) process.env.POCKETBASE_URL = prevPbUrl;
+      if (prevEscape === undefined) delete process.env.HARNESS_ALLOW_NO_PB_URL;
+      else process.env.HARNESS_ALLOW_NO_PB_URL = prevEscape;
+      if (prevSecret === undefined) delete process.env.SHARED_SECRET;
+      else process.env.SHARED_SECRET = prevSecret;
     }
   });
 
@@ -1589,7 +1659,11 @@ describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () =
     try {
       await expect(
         boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
-      ).rejects.toThrow(/FATAL-CONFIG: SHARED_SECRET required in production/);
+        // B2 fix tightened the predicate (now fails loud in any deployable
+        // mode, not just NODE_ENV='production') — the error message changed
+        // accordingly. Match the message common to both the old and new
+        // throws: FATAL-CONFIG + SHARED_SECRET.
+      ).rejects.toThrow(/FATAL-CONFIG.*SHARED_SECRET/);
     } finally {
       if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
       else process.env.NODE_ENV = prevNodeEnv;
@@ -2117,6 +2191,64 @@ describe("orchestrator OPS_TRIGGER_TOKEN empty-string handling (R2-B.3)", () => 
 });
 
 /**
+ * R3-F1: `OPS_TRIGGER_TOKEN` fail-loud check is hoisted to the TOP of both
+ * boot paths (worker `boot()` and `runControlPlane`) via the exported
+ * helper `loadOpsTriggerToken`, matching `loadWebhookSecrets` /
+ * `loadPocketbaseUrl`. Pre-fix the empty-string check lived AFTER pb /
+ * bus / scheduler / writer allocations, so a typo'd `OPS_TRIGGER_TOKEN=`
+ * allocated expensive resources before throwing.
+ *
+ * Unit-tests the helper directly so the predicate is locked in
+ * independently of either boot path's other config plumbing.
+ */
+describe("orchestrator R3-F1: loadOpsTriggerToken fail-loud helper", () => {
+  let prevToken: string | undefined;
+
+  beforeEach(() => {
+    prevToken = process.env.OPS_TRIGGER_TOKEN;
+  });
+
+  afterEach(() => {
+    if (prevToken === undefined) delete process.env.OPS_TRIGGER_TOKEN;
+    else process.env.OPS_TRIGGER_TOKEN = prevToken;
+  });
+
+  it("returns undefined when OPS_TRIGGER_TOKEN is unset (intentional disable)", async () => {
+    delete process.env.OPS_TRIGGER_TOKEN;
+    const orchMod = await import("./orchestrator.js");
+    expect(orchMod.loadOpsTriggerToken()).toBeUndefined();
+  });
+
+  it('throws fail-loud when OPS_TRIGGER_TOKEN="" (empty string)', async () => {
+    process.env.OPS_TRIGGER_TOKEN = "";
+    const orchMod = await import("./orchestrator.js");
+    expect(() => orchMod.loadOpsTriggerToken()).toThrow(
+      /OPS_TRIGGER_TOKEN.*empty/i,
+    );
+  });
+
+  it("throws fail-loud when OPS_TRIGGER_TOKEN is whitespace-only", async () => {
+    process.env.OPS_TRIGGER_TOKEN = "   ";
+    const orchMod = await import("./orchestrator.js");
+    expect(() => orchMod.loadOpsTriggerToken()).toThrow(
+      /OPS_TRIGGER_TOKEN.*empty/i,
+    );
+  });
+
+  it("returns the trimmed token when set with surrounding whitespace (R3-A.5 contract)", async () => {
+    process.env.OPS_TRIGGER_TOKEN = "  abc  ";
+    const orchMod = await import("./orchestrator.js");
+    expect(orchMod.loadOpsTriggerToken()).toBe("abc");
+  });
+
+  it("returns the verbatim token when set with no whitespace", async () => {
+    process.env.OPS_TRIGGER_TOKEN = "real-token";
+    const orchMod = await import("./orchestrator.js");
+    expect(orchMod.loadOpsTriggerToken()).toBe("real-token");
+  });
+});
+
+/**
  * R2-B.1: cron-rule unregister failure must NOT be fire-and-forget. Pre-fix,
  * `diffCronSchedules` called `scheduler.unregister(id)` without awaiting the
  * returned promise — a rejection became an unhandled rejection AND the
@@ -2423,6 +2555,7 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
         "e2e_smoke",
         "image_drift",
         "pin_drift",
+        "pin_drift_cross_env",
         "qa",
         "redirect_decommission",
         "smoke",
@@ -4270,8 +4403,8 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
 /**
  * In-process HTTP-only probe families on the fleet control-plane.
  *
- * The control-plane runs the 8 HTTP-only probe families (smoke, starter_smoke,
- * image_drift, qa, aimock_wiring, version_drift, pin_drift,
+ * The control-plane runs the 9 HTTP-only probe families (smoke, starter_smoke,
+ * image_drift, pin_drift_cross_env, qa, aimock_wiring, version_drift, pin_drift,
  * redirect_decommission) IN-PROCESS, alongside the d6 producer. These tests
  * pin that behavior:
  *
@@ -5095,7 +5228,7 @@ describe("orchestrator runControlPlane in-process HTTP probes", () => {
 // BROWSER_KINDS — or an HTTP driver whose kind overlaps a browser kind — would
 // silently drop a family from the in-process schedule.
 describe("orchestrator.registerHttpProbeDrivers / BROWSER_KINDS partition (drift-lock)", () => {
-  it("registers exactly the 8 HTTP-only kinds (no browser kinds)", async () => {
+  it("registers exactly the 9 HTTP-only kinds (no browser kinds)", async () => {
     const orchMod = await import("./orchestrator.js");
     const registry = createProbeRegistry();
     orchMod.registerHttpProbeDrivers(registry);
@@ -5105,6 +5238,9 @@ describe("orchestrator.registerHttpProbeDrivers / BROWSER_KINDS partition (drift
         "aimock_wiring",
         "image_drift",
         "pin_drift",
+        // U11: cross-env pin-drift is HTTP-only (Railway GraphQL + GHCR
+        // manifest GET; no browser), so it joins the control-plane HTTP set.
+        "pin_drift_cross_env",
         "qa",
         "redirect_decommission",
         "smoke",
@@ -5391,7 +5527,7 @@ describe("FLEET_FAMILY_PERIODS_MS ↔ enumerator family drift-lock", () => {
  */
 describe("PRODUCER_FAMILY_WIRING (§4.2 family drift-lock)", () => {
   it("wired producer family ids are set-equal to FLEET_FAMILIES[*].family", () => {
-    const wired = [...Object.values(PRODUCER_FAMILY_WIRING)].sort();
+    const wired = Object.values(PRODUCER_FAMILY_WIRING).sort();
     const registry = FLEET_FAMILIES.map((f) => f.family).sort();
     expect(wired).toEqual(registry);
   });
@@ -5545,5 +5681,686 @@ describe("runControlPlane registers 4 producer schedules on the scheduler", () =
     } finally {
       await handle.stop();
     }
+  });
+});
+
+/**
+ * B2 fix: `POST /webhooks/deploy` must be registered on BOTH boot paths
+ * (worker via boot(), control-plane via runControlPlane), AND the
+ * FATAL-CONFIG guard on missing SHARED_SECRET must fire regardless of
+ * NODE_ENV (gated only by an explicit test/escape-hatch).
+ *
+ * Pre-fix: the CP path's buildServer call omitted webhookSecrets/metrics
+ * entirely, so the server.ts gate (deps.webhookSecrets?.length > 0)
+ * silently skipped route registration — every notify-harness POST from
+ * the Showcase: Verify Deploy workflow returned 404 on the public host.
+ *
+ * Test plan (red-green-refactor):
+ *   - Test A: CP boot with SHARED_SECRET set → POST /webhooks/deploy
+ *     without HMAC headers returns 401 (route IS mounted; the route's own
+ *     HMAC reject path fires). Pre-fix this returned 404.
+ *   - Test B: worker boot with SHARED_SECRET set → same 401 probe
+ *     (regression guard so the worker path keeps working).
+ *   - Test C: SHARED_SECRET unset + NODE_ENV != "test" / no escape hatch
+ *     → boot throws FATAL-CONFIG mentioning SHARED_SECRET. Pre-fix this
+ *     silently booted unless NODE_ENV === "production".
+ *   - Test D: SHARED_SECRET unset + NODE_ENV === "test" → boot succeeds
+ *     (test-mode escape hatch preserved).
+ */
+describe("orchestrator B2: /webhooks/deploy registered on CP + fail-loud on missing SHARED_SECRET", () => {
+  let tempDir: string;
+  let alertsDir: string;
+  let probesDir: string;
+  let port = 0;
+  let cpStopFn: (() => Promise<void>) | null = null;
+  let workerStopFn: (() => Promise<void>) | null = null;
+
+  beforeEach(async () => {
+    port = await pickPort();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "harness-cp-b2-"));
+    alertsDir = path.join(root, "alerts");
+    probesDir = path.join(root, "probes");
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "harness-worker-b2-"));
+    await fs.mkdir(alertsDir, { recursive: true });
+    await fs.mkdir(probesDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    if (cpStopFn) {
+      await cpStopFn().catch(() => undefined);
+      cpStopFn = null;
+    }
+    if (workerStopFn) {
+      await workerStopFn().catch(() => undefined);
+      workerStopFn = null;
+    }
+    await fs.rm(alertsDir, { recursive: true, force: true });
+    await fs.rm(probesDir, { recursive: true, force: true });
+    await fs.rm(tempDir, { recursive: true, force: true });
+    vi.resetModules();
+    vi.restoreAllMocks();
+    // CB-1 (Slot 2 #22): tests below use vi.stubEnv instead of direct
+    // process.env mutation so the test runner can guarantee restoration
+    // (restoreAllMocks does NOT undo stubEnv — explicit unstub required).
+    vi.unstubAllEnvs();
+    vi.doUnmock("@hono/node-server");
+    vi.doUnmock("./storage/pb-client.js");
+  });
+
+  // Helper: probe POST /webhooks/deploy with no HMAC headers. Expected
+  // outcomes: 404 when the route is NOT mounted (pre-fix CP), 401 when
+  // it IS mounted (the route's HMAC reject path rejects unsigned bodies).
+  async function probeWebhookDeploy(p: number): Promise<number> {
+    const res = await fetch(`http://127.0.0.1:${p}/webhooks/deploy`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    return res.status;
+  }
+
+  it("Test A: CP boot registers POST /webhooks/deploy when SHARED_SECRET is set (401, not 404)", async () => {
+    vi.resetModules();
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+
+    vi.stubEnv("SHARED_SECRET", "b2-test-secret-cp");
+    vi.stubEnv("NODE_ENV", "test");
+    const orchMod = await import("./orchestrator.js");
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+    cpStopFn = handle.stop;
+
+    const status = await probeWebhookDeploy(port);
+    // Pre-fix: 404 (route omitted because CP buildServer call dropped
+    // webhookSecrets). Post-fix: 401 (route mounted, HMAC reject path
+    // fires on the unsigned POST).
+    expect(status).toBe(401);
+  });
+
+  it("Test B: worker boot still registers POST /webhooks/deploy when SHARED_SECRET is set (401, regression guard)", async () => {
+    vi.stubEnv("SHARED_SECRET", "b2-test-secret-worker");
+    vi.stubEnv("NODE_ENV", "test");
+    const booted = await boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    workerStopFn = booted.stop;
+
+    const status = await probeWebhookDeploy(port);
+    expect(status).toBe(401);
+  });
+
+  it("Test C: boot throws FATAL-CONFIG when SHARED_SECRET unset AND NODE_ENV is non-test (regardless of production)", async () => {
+    vi.stubEnv("SHARED_SECRET", undefined as unknown as string);
+    vi.stubEnv("SHARED_SECRET_PREV", undefined as unknown as string);
+    vi.stubEnv("HARNESS_ALLOW_NO_SECRET", undefined as unknown as string);
+    // "development" — pre-fix this booted silently (only NODE_ENV ===
+    // "production" tripped the guard). Post-fix it must throw.
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("POCKETBASE_URL", "http://localhost:8090");
+    await expect(
+      boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+    ).rejects.toThrow(/SHARED_SECRET/);
+  });
+
+  it("Test D: boot succeeds when SHARED_SECRET unset AND NODE_ENV=test (test-mode escape hatch)", async () => {
+    vi.stubEnv("SHARED_SECRET", undefined as unknown as string);
+    vi.stubEnv("SHARED_SECRET_PREV", undefined as unknown as string);
+    vi.stubEnv("NODE_ENV", "test");
+    const booted = await boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    workerStopFn = booted.stop;
+    expect(booted.port).toBe(port);
+  });
+});
+
+/**
+ * R1-F1 (CR round 1, bucket a): the CP boot path MUST subscribe to
+ * `deploy.result` and route each event through its status writer so a valid
+ * signed POST against the CP host actually writes the deploy-overall
+ * dashboard row.
+ *
+ * Pre-fix: B2 mounted POST /webhooks/deploy on the CP role and the route
+ * emitted on the bus, but only the worker `boot()` path had a
+ * `bus.on("deploy.result", ...)` listener. CP signed POSTs returned 202
+ * (route accepted), but the bus event had no subscriber and the dashboard
+ * row never landed — the original B2 fix mounted the route without
+ * delivering the event.
+ */
+describe("orchestrator R1-F1: deploy.result subscriber on CP path", () => {
+  let port = 0;
+  let alertsDir: string;
+  let cpStopFn: (() => Promise<void>) | null = null;
+  let workerStopFn: (() => Promise<void>) | null = null;
+  let tempDir: string;
+  const writes: ProbeResult[] = [];
+
+  beforeEach(async () => {
+    port = await pickPort();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "harness-r1f1-"));
+    alertsDir = path.join(root, "alerts");
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "harness-r1f1-worker-"));
+    await fs.mkdir(alertsDir, { recursive: true });
+    writes.length = 0;
+  });
+
+  afterEach(async () => {
+    if (cpStopFn) {
+      await cpStopFn().catch(() => undefined);
+      cpStopFn = null;
+    }
+    if (workerStopFn) {
+      await workerStopFn().catch(() => undefined);
+      workerStopFn = null;
+    }
+    await fs.rm(alertsDir, { recursive: true, force: true });
+    await fs.rm(tempDir, { recursive: true, force: true });
+    vi.resetModules();
+    vi.restoreAllMocks();
+    // CB-1: restoreAllMocks does NOT undo vi.stubEnv — explicit unstub.
+    vi.unstubAllEnvs();
+    vi.doUnmock("@hono/node-server");
+    vi.doUnmock("./storage/pb-client.js");
+    vi.doUnmock("./writers/status-writer.js");
+  });
+
+  async function mountCommonMocks(): Promise<void> {
+    vi.resetModules();
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+    // Replace `createStatusWriter` with a stub that records every write so
+    // the test can assert the CP's deploy.result subscriber actually
+    // routed the event through `writer.write(...)`.
+    vi.doMock("./writers/status-writer.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./writers/status-writer.js")
+      >("./writers/status-writer.js");
+      return {
+        ...actual,
+        createStatusWriter: (): StatusWriter => ({
+          write: async (result: ProbeResult) => {
+            writes.push(result);
+            return {
+              previousState: null,
+              newState: "green",
+              transition: "first",
+              firstFailureAt: null,
+              failCount: 0,
+              persisted: true,
+            };
+          },
+          writeOverlay: async (): Promise<OverlayWriteOutcome> => ({
+            applied: false,
+            state: null,
+            historyPersisted: false,
+          }),
+        }),
+      };
+    });
+  }
+
+  function emitFakeDeployResult(bus: ReturnType<typeof createEventBus>): void {
+    bus.emit("deploy.result", {
+      runId: "r1f1-test-runid",
+      runUrl: "https://example.invalid/runs/123",
+      services: ["showcase-shell-docs"],
+      failed: [],
+      succeeded: ["showcase-shell-docs"],
+      cancelled: false,
+      gateSkipped: false,
+      gateReason: undefined,
+      buildRunId: undefined,
+      buildRunUrl: undefined,
+    });
+  }
+
+  it("CP boot subscribes deploy.result → writer.write fires with deploy-overall ProbeResult", async () => {
+    vi.stubEnv("SHARED_SECRET", "r1f1-test-secret");
+    vi.stubEnv("NODE_ENV", "test");
+    await mountCommonMocks();
+    const orchMod = await import("./orchestrator.js");
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+    cpStopFn = handle.stop;
+
+    // The subscriber's writer.write is sync from the bus' POV (the
+    // handler awaits internally and fire-and-forgets); the in-memory
+    // stub records synchronously inside the catch-free path, but yield
+    // one microtask to give any chained `.catch()` a chance to settle.
+    const before = writes.filter((r) => r.key === "deploy:overall").length;
+    emitFakeDeployResult(handle.bus);
+    await Promise.resolve();
+    await Promise.resolve();
+    const after = writes.filter((r) => r.key === "deploy:overall").length;
+    // deployEventToProbeResult keys the row "deploy:overall" — the
+    // subscriber must transform the event into a ProbeResult before
+    // writing (not pass the raw DeployResultEvent through).
+    expect(after - before).toBe(1);
+  });
+
+  it("worker boot subscribes deploy.result → writer.write fires (regression guard for helper extraction)", async () => {
+    vi.stubEnv("SHARED_SECRET", "r1f1-worker-secret");
+    vi.stubEnv("NODE_ENV", "test");
+    await mountCommonMocks();
+    const orchMod = await import("./orchestrator.js");
+    const booted = await orchMod.boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    workerStopFn = booted.stop;
+
+    // The worker boot writes other keys at startup (browser-pool
+    // healthy/degraded, etc.) — filter to deploy-overall to assert the
+    // deploy.result handler specifically routed through writer.write.
+    const before = writes.filter((r) => r.key === "deploy:overall").length;
+    emitFakeDeployResult(booted.bus);
+    await Promise.resolve();
+    await Promise.resolve();
+    const after = writes.filter((r) => r.key === "deploy:overall").length;
+    expect(after - before).toBe(1);
+  });
+});
+
+/**
+ * R2-F1: `runControlPlane` must capture the unsub returned by
+ * `subscribeDeployResults` so `stop()` (and bind-failure teardown) release
+ * the listener. Pre-fix the CP path discarded the unsub — a repeated
+ * boot/stop cycle leaked the deploy.result handler against the stale
+ * writer, and post-stop bus.emit("deploy.result", ...) still routed
+ * through `writer.write(...)`.
+ *
+ * Assertion shape: bind the CP, capture writes (count=0), emit one
+ * deploy.result (writes=1), call handle.stop(), emit another
+ * deploy.result, assert writes stayed at 1 (the listener detached).
+ */
+describe("orchestrator R2-F1: CP deploy.result unsub release on stop", () => {
+  let port = 0;
+  let alertsDir: string;
+  let cpStopFn: (() => Promise<void>) | null = null;
+  const writes: ProbeResult[] = [];
+
+  beforeEach(async () => {
+    port = await pickPort();
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "harness-r2f1-"));
+    alertsDir = path.join(root, "alerts");
+    await fs.mkdir(alertsDir, { recursive: true });
+    writes.length = 0;
+  });
+
+  afterEach(async () => {
+    if (cpStopFn) {
+      await cpStopFn().catch(() => undefined);
+      cpStopFn = null;
+    }
+    await fs.rm(alertsDir, { recursive: true, force: true });
+    vi.resetModules();
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.doUnmock("@hono/node-server");
+    vi.doUnmock("./storage/pb-client.js");
+    vi.doUnmock("./writers/status-writer.js");
+  });
+
+  async function mountMocks(): Promise<void> {
+    vi.resetModules();
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      return { ...actual };
+    });
+    vi.doMock("./storage/pb-client.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/pb-client.js")
+      >("./storage/pb-client.js");
+      return {
+        ...actual,
+        createPbClient: () => ({
+          health: async () => true,
+          getOne: async () => null,
+          getFirst: async () => null,
+          getList: async () => ({ items: [] }),
+        }),
+      };
+    });
+    vi.doMock("./writers/status-writer.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./writers/status-writer.js")
+      >("./writers/status-writer.js");
+      return {
+        ...actual,
+        createStatusWriter: (): StatusWriter => ({
+          write: async (result: ProbeResult) => {
+            writes.push(result);
+            return {
+              previousState: null,
+              newState: "green",
+              transition: "first",
+              firstFailureAt: null,
+              failCount: 0,
+              persisted: true,
+            };
+          },
+          writeOverlay: async (): Promise<OverlayWriteOutcome> => ({
+            applied: false,
+            state: null,
+            historyPersisted: false,
+          }),
+        }),
+      };
+    });
+  }
+
+  function emitDeployResult(bus: ReturnType<typeof createEventBus>): void {
+    bus.emit("deploy.result", {
+      runId: "r2f1-test-runid",
+      runUrl: "https://example.invalid/runs/r2f1",
+      services: ["showcase-shell-docs"],
+      failed: [],
+      succeeded: ["showcase-shell-docs"],
+      cancelled: false,
+      gateSkipped: false,
+      gateReason: undefined,
+      buildRunId: undefined,
+      buildRunUrl: undefined,
+    });
+  }
+
+  it("CP stop() releases the deploy.result subscription (post-stop emit does NOT route to writer.write)", async () => {
+    vi.stubEnv("SHARED_SECRET", "r2f1-test-secret");
+    vi.stubEnv("NODE_ENV", "test");
+    await mountMocks();
+    const orchMod = await import("./orchestrator.js");
+    const handle = await orchMod.runControlPlane(
+      { role: "control-plane", poolCount: 1 },
+      { port, configDir: alertsDir, fleetEnumerate: async () => [] },
+    );
+
+    // Pre-stop: a deploy.result emit must reach writer.write (proves the
+    // subscription is live).
+    const baseline = writes.filter((r) => r.key === "deploy:overall").length;
+    emitDeployResult(handle.bus);
+    await Promise.resolve();
+    await Promise.resolve();
+    const afterEmit = writes.filter((r) => r.key === "deploy:overall").length;
+    expect(afterEmit - baseline).toBe(1);
+
+    // Stop the CP — R2-F1: the deploy.result unsub must run.
+    await handle.stop();
+    cpStopFn = null; // already stopped
+
+    // Post-stop: another deploy.result emit must NOT reach writer.write
+    // (pre-fix this would route through the leaked listener against the
+    // stale writer).
+    emitDeployResult(handle.bus);
+    await Promise.resolve();
+    await Promise.resolve();
+    const afterStopEmit = writes.filter(
+      (r) => r.key === "deploy:overall",
+    ).length;
+    expect(afterStopEmit).toBe(afterEmit);
+  });
+});
+
+/**
+ * R2-F2: `subscribeDeployResults` must emit `deploy.writer.failed` (in
+ * addition to logging) when `writer.write(...)` rejects, so alert rules /
+ * metrics subscribers can observe deploy-writer failures as a first-class
+ * bus event rather than only via the error log.
+ *
+ * Drives the helper directly with a real bus + a writer stub whose
+ * `write` rejects, then asserts the new event fired with the err message
+ * payload.
+ */
+describe("orchestrator R2-F2: deploy.writer.failed bus event on write failure", () => {
+  it("emits `deploy.writer.failed` when writer.write rejects", async () => {
+    const orchMod = await import("./orchestrator.js");
+    const bus = createEventBus();
+    const writer: Pick<StatusWriter, "write"> = {
+      write: async () => {
+        throw new Error("pb-blew-up");
+      },
+    };
+    const emits: Array<{ event: string; payload: unknown }> = [];
+    bus.on("deploy.writer.failed", (payload) => {
+      emits.push({ event: "deploy.writer.failed", payload });
+    });
+
+    const unsub = orchMod.subscribeDeployResults(bus, writer);
+
+    bus.emit("deploy.result", {
+      runId: "r2f2-runid",
+      runUrl: "https://example.invalid/runs/r2f2",
+      services: ["showcase-shell-docs"],
+      failed: ["showcase-shell-docs"],
+      succeeded: [],
+      cancelled: false,
+      gateSkipped: false,
+      gateReason: undefined,
+      buildRunId: undefined,
+      buildRunUrl: undefined,
+    });
+
+    // The handler's `.catch` runs on the next microtask after writer.write
+    // rejects — yield a couple of microtasks for the chain to settle.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(emits.length).toBe(1);
+    expect(emits[0].event).toBe("deploy.writer.failed");
+    const payload = emits[0].payload as { err: string };
+    expect(payload.err).toContain("pb-blew-up");
+
+    unsub();
+  });
+});
+
+/**
+ * R3-F2: `subscribeDeployResults` must ALSO emit `deploy.writer.failed`
+ * (and log) when the synchronous mapping helper `deployEventToProbeResult`
+ * THROWS — not just when the async `writer.write(...)` rejects. Pre-fix
+ * the `.catch` only covered the write promise, so a sync throw inside
+ * the mapping (malformed event, unexpected type drift) bypassed both the
+ * log and the bus emit, and the failure was effectively swallowed by
+ * the bus handler boundary.
+ */
+describe("orchestrator R3-F2: deploy.writer.failed on subscribeDeployResults sync throw", () => {
+  afterEach(() => {
+    vi.resetModules();
+    vi.doUnmock("./probes/deploy-result.js");
+  });
+
+  it("emits `deploy.writer.failed` when deployEventToProbeResult throws synchronously", async () => {
+    vi.resetModules();
+    vi.doMock("./probes/deploy-result.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./probes/deploy-result.js")
+      >("./probes/deploy-result.js");
+      return {
+        ...actual,
+        deployEventToProbeResult: () => {
+          throw new Error("mapping-blew-up-sync");
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+    const busMod = await import("./events/event-bus.js");
+    const bus = busMod.createEventBus();
+    // Writer must NOT be called on a sync mapping throw — assert it stays
+    // untouched so the test pins down "throw fires before write".
+    let writeCalls = 0;
+    const writer: Pick<StatusWriter, "write"> = {
+      write: async () => {
+        writeCalls += 1;
+        return {
+          previousState: null,
+          newState: "green",
+          transition: "first",
+          firstFailureAt: null,
+          failCount: 0,
+          persisted: true,
+        };
+      },
+    };
+    const emits: Array<{ event: string; payload: unknown }> = [];
+    bus.on("deploy.writer.failed", (payload) => {
+      emits.push({ event: "deploy.writer.failed", payload });
+    });
+
+    const unsub = orchMod.subscribeDeployResults(bus, writer);
+
+    // Emit must NOT throw out of the bus handler boundary — the helper
+    // catches synchronously and converts to a bus emit.
+    expect(() => {
+      bus.emit("deploy.result", {
+        runId: "r3f2-runid",
+        runUrl: "https://example.invalid/runs/r3f2",
+        services: ["showcase-shell-docs"],
+        failed: [],
+        succeeded: ["showcase-shell-docs"],
+        cancelled: false,
+        gateSkipped: false,
+        gateReason: undefined,
+        buildRunId: undefined,
+        buildRunUrl: undefined,
+      });
+    }).not.toThrow();
+
+    // Sync throw — no microtask wait needed, but yield one for symmetry
+    // with the R2-F2 assertion shape.
+    await Promise.resolve();
+
+    expect(writeCalls).toBe(0);
+    expect(emits.length).toBe(1);
+    expect(emits[0].event).toBe("deploy.writer.failed");
+    const payload = emits[0].payload as { err: string };
+    expect(payload.err).toContain("mapping-blew-up-sync");
+
+    unsub();
+  });
+});
+
+// ── CVDIAG persistence wiring: degrade-on-missing-migration (FIX 1 / FIX 2) ──
+//
+// BOTH production wiring paths (boot()/in-process AND the fleet worker) route
+// their CvdiagPbWriter construction through `buildCvdiagPersistenceWriter`,
+// which MUST call `assertCollectionExists()` and DEGRADE (return undefined → a
+// no-op emit→flush) when the cvdiag_events migration is absent, instead of
+// injecting a writer that 404s every event with per-row warns.
+describe("buildCvdiagPersistenceWriter — degrade-on-missing-migration (FIX 1/FIX 2)", () => {
+  // A fake PB whose `list` rejects with the given error, plus health()=true so
+  // the only signal is the collection probe.
+  function fakePb(listReject: unknown): CvdiagWriterClient {
+    return {
+      health: async () => true,
+      list: <T>() => Promise.reject(listReject) as Promise<ListResult<T>>,
+      create: async <T>() => ({}) as T,
+    };
+  }
+
+  function captureLogger(): {
+    logger: typeof logger;
+    warns: Array<{ msg: string }>;
+  } {
+    const warns: Array<{ msg: string }> = [];
+    const l = {
+      ...logger,
+      warn: (msg: string) => {
+        warns.push({ msg });
+      },
+    } as unknown as typeof logger;
+    return { logger: l, warns };
+  }
+
+  it("DEGRADES to undefined + logs ONCE when cvdiag_events is absent (typed 404)", async () => {
+    const pb = fakePb(
+      new PbHttpError({
+        statusCode: 404,
+        bodyText: '{"code":404}',
+        path: "/api/collections/cvdiag_events/records?perPage=1",
+      }),
+    );
+    const { logger: l, warns } = captureLogger();
+    const writer = await buildCvdiagPersistenceWriter(pb, l);
+    expect(writer).toBeUndefined();
+    expect(
+      warns.filter((w) => w.msg === "orchestrator.cvdiag-persistence-degraded")
+        .length,
+    ).toBe(1);
+  });
+
+  it("DEGRADES to undefined when PB is unreachable (transport error)", async () => {
+    const pb = fakePb(new Error("ECONNREFUSED"));
+    const { logger: l } = captureLogger();
+    const writer = await buildCvdiagPersistenceWriter(pb, l);
+    expect(writer).toBeUndefined();
+  });
+
+  it("INJECTS a working writer when the collection exists (typed 403 from CREATE-only ACL)", async () => {
+    const pb = fakePb(
+      new PbHttpError({
+        statusCode: 403,
+        bodyText: '{"code":403}',
+        path: "/api/collections/cvdiag_events/records?perPage=1",
+      }),
+    );
+    const { logger: l, warns } = captureLogger();
+    const writer = await buildCvdiagPersistenceWriter(pb, l);
+    expect(writer).toBeDefined();
+    expect(
+      warns.filter((w) => w.msg === "orchestrator.cvdiag-persistence-degraded")
+        .length,
+    ).toBe(0);
   });
 });

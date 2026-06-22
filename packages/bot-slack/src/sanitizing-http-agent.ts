@@ -1,11 +1,7 @@
-import {
-  HttpAgent,
-  parseSSEStream,
-  runHttpRequest,
-  type HttpAgentConfig,
-} from "@ag-ui/client";
+import { HttpAgent, parseSSEStream, runHttpRequest } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/core";
-import { map, type Observable } from "rxjs";
+import { map } from "rxjs";
+import type { Observable } from "rxjs";
 
 /**
  * An `HttpAgent` that tolerates the AG-UI event streams real agents emit.
@@ -29,10 +25,6 @@ import { map, type Observable } from "rxjs";
  * (`transformHttpEventStream`) once upstream makes these fields nullable.
  */
 export class SanitizingHttpAgent extends HttpAgent {
-  constructor(config: HttpAgentConfig) {
-    super(config);
-  }
-
   run(input: RunAgentInput): Observable<BaseEvent> {
     return parseSSEStream(
       runHttpRequest(() => this.fetch(this.url, this.requestInit(input))),

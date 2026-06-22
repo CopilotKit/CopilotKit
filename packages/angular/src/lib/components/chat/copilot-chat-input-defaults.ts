@@ -19,8 +19,7 @@ import { CopilotChatToolsMenu } from "./copilot-chat-tools-menu";
  * import { CopilotChatInputDefaults } from '@copilotkit/angular';
  *
  * @Component({
-  standalone: true,
-*   template: `
+ *   template: `
  *     <copilot-chat-input [sendButtonSlot]="CustomSendButton">
  *     </copilot-chat-input>
  *   `

@@ -4,13 +4,11 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "docs/**"
       - "README.md"
       - "examples/**"
       - "showcase/**"
   pull_request:
     paths-ignore:
-      - "docs/**"
       - "README.md"
       - "examples/**"
       - "showcase/**"

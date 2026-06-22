@@ -1,0 +1,93 @@
+---
+title: "React Native"
+description: "API reference for @copilotkit/react-native: the headless provider, prebuilt UI components, and hooks for building CopilotKit into a React Native app."
+---
+
+`@copilotkit/react-native` brings CopilotKit to React Native. It ships a lightweight [provider](/reference/react-native/components/CopilotKitProvider), a set of prebuilt UI components, hooks built for React Native, and re-exports of the platform-agnostic hooks from `@copilotkit/react-core`. Everything is built on the [AG-UI](https://docs.ag-ui.com) agent protocol, with no DOM, CSS, or web framework dependencies.
+
+<Callout type="info">
+  The package root **is** the v2 API. Unlike the web SDK, which exposes v2
+  under a `/v2` subpath, React Native exports the v2 surface directly from
+  `@copilotkit/react-native`.
+</Callout>
+
+## Installation
+
+```sh
+npm install @copilotkit/react-native
+```
+
+The prebuilt UI components and native attachments rely on a few peer dependencies. Install the ones you use:
+
+```sh
+npm install @gorhom/bottom-sheet react-native-gesture-handler react-native-reanimated react-native-streamdown
+```
+
+## Polyfills
+
+React Native's JS runtime (Hermes) lacks several Web APIs that CopilotKit depends on (`ReadableStream`, `TextEncoder`, `crypto.getRandomValues`, `DOMException`, `location`). Importing `@copilotkit/react-native` **auto-installs** these polyfills, so no manual import is required.
+
+If you bring your own polyfills, import only the pieces you need before any other code in your entry point:
+
+```js title="index.js"
+import "@copilotkit/react-native/polyfills/streams";
+import "@copilotkit/react-native/polyfills/encoding";
+import "@copilotkit/react-native/polyfills/crypto";
+import "@copilotkit/react-native/polyfills/dom";
+import "@copilotkit/react-native/polyfills/location";
+```
+
+## Provider setup
+
+Wrap your app (or a sub-tree) with [`CopilotKitProvider`](/reference/react-native/components/CopilotKitProvider) to configure the runtime connection:
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-native";
+
+export default function App() {
+  return (
+    <CopilotKitProvider runtimeUrl="https://your-server/api/copilotkit">
+      <ChatScreen />
+    </CopilotKitProvider>
+  );
+}
+```
+
+## Two ways to build the chat UI
+
+The package is organized into two tiers, so you can pick how much UI you write yourself:
+
+| Tier | Import | What you get |
+|------|--------|--------------|
+| **Headless** | `@copilotkit/react-native` | Primitives that wire up an agent and expose its state. [`CopilotChat`](/reference/react-native/components/CopilotChat) and [`CopilotModal`](/reference/react-native/components/CopilotModal) render no UI; you build the interface from React Native views. |
+| **Prebuilt UI** | `@copilotkit/react-native/components` | Drop-in chat UI: a full-screen [`CopilotChat`](/reference/react-native/components/CopilotChat#prebuilt-ui), a bottom-sheet [`CopilotModal`](/reference/react-native/components/CopilotModal#prebuilt-ui), [`CopilotMarkdown`](/reference/react-native/components/CopilotMarkdown), and [message bubbles](/reference/react-native/components/AssistantMessage). |
+
+The root also exports two prebuilt chrome components: [`CopilotSidebar`](/reference/react-native/components/CopilotSidebar) (a slide-in drawer) and [`CopilotPopup`](/reference/react-native/components/CopilotPopup) (a floating action button + overlay).
+
+<Callout type="info">
+  `CopilotChat` and `CopilotModal` exist in **both** tiers with different
+  props. The root exports are headless; the `/components` exports are prebuilt
+  UI. Each component page documents both, disambiguated by import path.
+</Callout>
+
+## API Reference
+
+<Cards>
+  <Card
+    title="Components"
+    description="Provider, headless primitives, and prebuilt UI: CopilotKitProvider, CopilotChat, CopilotModal, CopilotSidebar, CopilotPopup, and message components."
+    href="/reference/react-native/components/CopilotKitProvider"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Hooks"
+    description="Native attachments and tool rendering plus the platform-agnostic hooks re-exported from react-core: useAgent, useFrontendTool, useHumanInTheLoop, and more."
+    href="/reference/react-native/hooks/useAgent"
+    icon={<LinkIcon />}
+  />
+</Cards>
+
+## Related
+
+- [React Native quickstart](/react-native): create an app, install, and connect your first agent
+- [React (V2) reference](/reference/v2): the web SDK, where the re-exported hooks behave identically

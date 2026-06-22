@@ -1160,6 +1160,111 @@ class TestAutoA2UI:
         assert "backend" in names
         assert "generate_a2ui" in names
 
+    # --- host a2ui_params override (the design-guidelines parity gap) ---------
+    #
+    # Before this, the auto-inject path hardwired get_a2ui_tools to the toolkit
+    # defaults: a host serving via CopilotKitMiddleware() could NOT override the
+    # design/generation guidelines (e.g. to favor a repeating-card layout). The
+    # a2ui_params kwarg threads a host override through; the middleware still
+    # injects the bound model and folds the registered catalog in (host wins).
+
+    @staticmethod
+    def _spy_get_a2ui_tools(monkeypatch) -> "list[dict]":
+        """Patch get_a2ui_tools to capture the params dict it is called with and
+        return a stub tool named generate_a2ui. Returns the capture list."""
+        captured: "list[dict]" = []
+
+        def _spy(params):
+            captured.append(params)
+            stub = MagicMock(name="generate_a2ui_tool")
+            stub.name = "generate_a2ui"
+            return stub
+
+        monkeypatch.setattr("copilotkit.copilotkit_lg_middleware.get_a2ui_tools", _spy)
+        return captured
+
+    # Runtime-proxy path: a registered catalog arrives as a context entry, so
+    # the middleware derives a component_schema + catalog_id to fold in.
+    _A2UI_CONTEXT_STATE = {
+        "messages": [],
+        "ag-ui": {"inject_a2ui_tool": True},
+        "copilotkit": {
+            "context": [
+                {
+                    "description": "A2UI catalog capabilities",
+                    "value": "Available A2UI catalog:\n- my-custom-catalog\n"
+                    "  - Card: {...}",
+                }
+            ]
+        },
+    }
+
+    def test_host_a2ui_params_guidelines_reach_subagent(self, monkeypatch):
+        captured = self._spy_get_a2ui_tools(monkeypatch)
+        middleware = CopilotKitMiddleware(
+            a2ui_params={"guidelines": {"design_guidelines": "REPEAT_CARDS_MARK"}}
+        )
+        request = _make_request(state=dict(_A2UI_STATE), tools=[])
+
+        _run_wrap(middleware, request)
+
+        assert len(captured) == 1
+        params = captured[0]
+        # Host override survives...
+        assert params["guidelines"]["design_guidelines"] == "REPEAT_CARDS_MARK"
+        # ...the middleware still injects the bound model...
+        assert params["model"] is request.model
+        # ...and the native path contributes no composition_guide.
+        assert "composition_guide" not in params["guidelines"]
+
+    def test_host_override_merges_with_registered_catalog(self, monkeypatch):
+        captured = self._spy_get_a2ui_tools(monkeypatch)
+        middleware = CopilotKitMiddleware(
+            a2ui_params={"guidelines": {"design_guidelines": "REPEAT_CARDS_MARK"}}
+        )
+
+        _run_wrap(
+            middleware, _make_request(state=dict(self._A2UI_CONTEXT_STATE), tools=[])
+        )
+
+        params = captured[0]
+        # Host guidance preserved alongside the catalog the middleware folded in.
+        assert params["guidelines"]["design_guidelines"] == "REPEAT_CARDS_MARK"
+        assert "my-custom-catalog" in params["guidelines"]["composition_guide"]
+        assert params["default_catalog_id"] == "my-custom-catalog"
+
+    def test_host_composition_guide_and_catalog_id_win(self, monkeypatch):
+        captured = self._spy_get_a2ui_tools(monkeypatch)
+        middleware = CopilotKitMiddleware(
+            a2ui_params={
+                "default_catalog_id": "host-catalog",
+                "guidelines": {"composition_guide": "HOST_COMP"},
+            }
+        )
+
+        _run_wrap(
+            middleware, _make_request(state=dict(self._A2UI_CONTEXT_STATE), tools=[])
+        )
+
+        params = captured[0]
+        # Host-set values are never clobbered by the registered catalog.
+        assert params["guidelines"]["composition_guide"] == "HOST_COMP"
+        assert params["default_catalog_id"] == "host-catalog"
+
+    def test_default_no_params_carries_only_model(self, monkeypatch):
+        captured = self._spy_get_a2ui_tools(monkeypatch)
+        middleware = CopilotKitMiddleware()
+        request = _make_request(state=dict(_A2UI_STATE), tools=[])
+
+        _run_wrap(middleware, request)
+
+        params = captured[0]
+        # Prior behavior intact: just the inferred model, no host guidelines, no
+        # catalog (native path with a non-JSON schema yields neither).
+        assert params["model"] is request.model
+        assert "guidelines" not in params
+        assert "default_catalog_id" not in params
+
     def test_executed_via_wrap_tool_call_with_inferred_model(self):
         middleware = CopilotKitMiddleware()
         # Model call infers the model + stashes the built tool.

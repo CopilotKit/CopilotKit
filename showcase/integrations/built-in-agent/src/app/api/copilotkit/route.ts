@@ -10,6 +10,9 @@ import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
 // LLM call. Required because `@tanstack/ai-openai`'s `openaiText()`
 // adapter has no per-request header hook of its own.
 import { withForwardedHeaders } from "@/lib/header-forwarding";
+// CVDIAG backend instrumentation (L1-E). No-op pass-through unless
+// CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
+import { withCvdiagBackend } from "@/cvdiag-backend";
 
 const runtime = new CopilotRuntime({
   agents: { default: createBuiltInAgent() },
@@ -31,9 +34,18 @@ async function withProbeCompat(req: Request): Promise<Response> {
   return res;
 }
 
+const copilotkitPost = async (req: Request): Promise<Response> =>
+  withForwardedHeaders(req, () => withProbeCompat(req));
+
 export const GET = (req: Request) =>
   withForwardedHeaders(req, () => handler(req));
-export const POST = (req: Request) =>
-  withForwardedHeaders(req, () => withProbeCompat(req));
+// Wrap POST with CVDIAG backend instrumentation (L1-E). built-in-agent runs
+// its BuiltInAgent in-process inside this route handler. No-op pass-through
+// unless CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
+export const POST = withCvdiagBackend(copilotkitPost, {
+  slug: "built-in-agent",
+  agentName: "default",
+  provider: "openai",
+});
 export const OPTIONS = (req: Request) =>
   withForwardedHeaders(req, () => handler(req));

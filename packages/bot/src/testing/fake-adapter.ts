@@ -10,6 +10,7 @@ import type {
   SurfaceCapabilities,
   IngressSink,
   IncomingTurn,
+  IncomingThreadStart,
   InteractionEvent,
   IncomingCommand,
   RunRenderer,
@@ -39,6 +40,7 @@ export function makeFakeRunRenderer(): RunRenderer {
       if (e.name) pending = { eventName: e.name, value: e.value };
     },
   };
+  let finishCalls = 0;
   return {
     subscriber,
     async markInterrupted() {},
@@ -47,18 +49,47 @@ export function makeFakeRunRenderer(): RunRenderer {
     clearPendingInterrupt: () => {
       pending = undefined;
     },
-  };
+    async finish() {
+      finishCalls++;
+    },
+    get finishCalls() {
+      return finishCalls;
+    },
+  } as RunRenderer & { readonly finishCalls: number };
 }
 
 export class FakeAdapter implements PlatformAdapter {
   readonly platform = "fake";
-  readonly capabilities: SurfaceCapabilities = {
-    supportsModals: false,
-    supportsTyping: false,
-    supportsReactions: false,
-    supportsStreaming: true,
-  };
+  readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs = 3000;
+
+  /**
+   * @param fakeOpts.paneMethods When `false`, the optional
+   *   `setSuggestedPrompts`/`setThreadTitle` methods are omitted (and the
+   *   matching capability flags cleared) so tests can exercise the
+   *   capability-gated `{ ok: false }` path. Defaults to present.
+   */
+  constructor(fakeOpts: { paneMethods?: boolean } = {}) {
+    const paneMethods = fakeOpts.paneMethods !== false;
+    this.capabilities = {
+      supportsModals: false,
+      supportsTyping: false,
+      supportsReactions: false,
+      supportsStreaming: true,
+      supportsSuggestedPrompts: paneMethods,
+      supportsThreadTitle: paneMethods,
+    };
+    if (paneMethods) {
+      this.setSuggestedPrompts = async (target, prompts, opts) => {
+        this.suggestedPromptsCalls.push({ target, prompts, opts });
+        return { ok: true };
+      };
+      this.setThreadTitle = async (target, title) => {
+        this.threadTitleCalls.push({ target, title });
+        return { ok: true };
+      };
+    }
+  }
   readonly conversationStore: ConversationStore = {
     async getOrCreate(conversationKey, _replyTarget, makeAgent) {
       return { agent: makeAgent(conversationKey) };
@@ -117,12 +148,34 @@ export class FakeAdapter implements PlatformAdapter {
     return this.messages;
   }
 
+  /** Suggested-prompt calls recorded by the capability-gated method (when present). */
+  suggestedPromptsCalls: {
+    target: ReplyTarget;
+    prompts: ReadonlyArray<{ title: string; message: string }>;
+    opts?: { title?: string };
+  }[] = [];
+  setSuggestedPrompts?: PlatformAdapter["setSuggestedPrompts"];
+
+  /** Thread-title calls recorded by the capability-gated method (when present). */
+  threadTitleCalls: { target: ReplyTarget; title: string }[] = [];
+  setThreadTitle?: PlatformAdapter["setThreadTitle"];
+
   // --- test helpers ---
   emitTurn(partial: Partial<IncomingTurn>): void {
     void this.sink?.onTurn({
       conversationKey: "c",
       replyTarget: {},
       userText: "",
+      platform: "fake",
+      ...partial,
+    });
+  }
+  emitThreadStarted(
+    partial?: Partial<IncomingThreadStart>,
+  ): Promise<void> | void {
+    return this.sink?.onThreadStarted({
+      conversationKey: "c",
+      replyTarget: {},
       platform: "fake",
       ...partial,
     });
