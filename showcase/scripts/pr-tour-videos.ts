@@ -35,6 +35,7 @@ interface CliArgs {
   dashboardUrl: string;
   docsUrl: string;
   docsUrls: string[];
+  directPreviewBaseUrls: Record<string, string>;
   promptLimit: number | null;
   perPromptWaitMs: number;
   smoke: boolean;
@@ -52,6 +53,7 @@ function parseArgs(argv: readonly string[]): CliArgs {
     dashboardUrl: DEFAULT_DASHBOARD_URL,
     docsUrl: DEFAULT_DOCS_URL,
     docsUrls: [],
+    directPreviewBaseUrls: {},
     promptLimit: null,
     perPromptWaitMs: 10_000,
     smoke: false,
@@ -90,7 +92,16 @@ function parseArgs(argv: readonly string[]): CliArgs {
     else if (arg === "--docs-url")
       args.docsUrl = trimTrailingSlash(argv[++i] ?? args.docsUrl);
     else if (arg === "--docs-urls") args.docsUrls = splitCsv(argv[++i] ?? "");
-    else if (arg === "--prompt-limit") {
+    else if (arg === "--direct-preview-base") {
+      const value = argv[++i] ?? "";
+      const [slug, baseUrl] = value.split("=", 2);
+      if (!slug || !baseUrl) {
+        throw new Error(
+          "--direct-preview-base must be formatted as <column-slug>=<url>",
+        );
+      }
+      args.directPreviewBaseUrls[slug] = trimTrailingSlash(baseUrl);
+    } else if (arg === "--prompt-limit") {
       const value = Number.parseInt(argv[++i] ?? "", 10);
       if (Number.isNaN(value))
         throw new Error("--prompt-limit must be a number");
@@ -219,7 +230,9 @@ async function showTitle(
   await page.waitForTimeout(1_200);
 }
 
-async function findDemoFrame(page: Page): Promise<Frame | null> {
+async function findDemoSurface(page: Page): Promise<Frame | Page | null> {
+  if (page.url().includes("/demos/")) return page;
+
   const hasDemoIframe = await page
     .waitForFunction(
       () =>
@@ -244,18 +257,21 @@ async function findDemoFrame(page: Page): Promise<Frame | null> {
 }
 
 async function submitPrompt(
-  frame: Frame,
+  surface: Frame | Page,
   prompt: TourPrompt,
 ): Promise<boolean> {
   if (prompt.source === "pill") {
-    const pill = frame.getByText(prompt.title, { exact: true }).first();
+    const pill = surface
+      .getByRole("button", { name: prompt.title, exact: true })
+      .or(surface.getByText(prompt.title, { exact: true }))
+      .first();
     if (await pill.isVisible({ timeout: 1_500 }).catch(() => false)) {
       await pill.click();
       return true;
     }
   }
 
-  const textbox = frame
+  const textbox = surface
     .locator('textarea, [contenteditable="true"], input[type="text"]')
     .last();
   if (!(await textbox.isVisible({ timeout: 3_000 }).catch(() => false))) {
@@ -302,19 +318,33 @@ async function recordTopic(
           cell.row.name,
           `${cell.column.name}: ${prompt.title}`,
         );
+        if (args.directPreviewBaseUrls[cell.column.slug]) {
+          await page.setExtraHTTPHeaders({
+            "X-AIMock-Context": cell.column.slug,
+          });
+        } else {
+          await page.setExtraHTTPHeaders({});
+        }
         await page.goto(cell.previewUrl, { waitUntil: "domcontentloaded" });
-        const frame = await findDemoFrame(page);
-        if (frame) {
-          const submitted = await submitPrompt(frame, prompt);
+        await page.waitForTimeout(1_000);
+        const surface = await findDemoSurface(page);
+        if (surface) {
+          const submitted = await submitPrompt(surface, prompt);
           if (!submitted && !args.smoke) {
             throw new Error(
               `Could not submit ${prompt.title} for ${cell.column.slug}/${cell.row.id}`,
             );
           }
+          if (submitted && !args.smoke) {
+            await assertPromptSubmitted(page, cell, prompt);
+          }
           await page.waitForTimeout(submitted ? args.perPromptWaitMs : 1_000);
+          if (submitted && !args.smoke) {
+            await assertNoChatError(page, cell, prompt);
+          }
         } else if (!args.smoke) {
           throw new Error(
-            `Could not find an interactive demo iframe for ${cell.column.slug}/${cell.row.id}`,
+            `Could not find an interactive demo surface for ${cell.column.slug}/${cell.row.id}`,
           );
         } else {
           await page.waitForTimeout(2_000);
@@ -322,6 +352,7 @@ async function recordTopic(
       }
 
       await showTitle(page, cell.row.name, `${cell.column.name}: code view`);
+      await page.setExtraHTTPHeaders({});
       await page.goto(cell.codeUrl, { waitUntil: "domcontentloaded" });
       await page.waitForTimeout(2_500);
     }
@@ -331,6 +362,37 @@ async function recordTopic(
     await browser.close();
   }
   return videoPath;
+}
+
+async function assertPromptSubmitted(
+  page: Page,
+  cell: ShowcaseTourTopic["cells"][number],
+  prompt: TourPrompt,
+): Promise<void> {
+  await page
+    .waitForFunction(
+      (needle) => document.body.innerText.includes(needle),
+      prompt.message,
+      { timeout: 5_000 },
+    )
+    .catch(() => {
+      throw new Error(
+        `Prompt text did not appear after ${prompt.title} for ${cell.column.slug}/${cell.row.id}`,
+      );
+    });
+}
+
+async function assertNoChatError(
+  page: Page,
+  cell: ShowcaseTourTopic["cells"][number],
+  prompt: TourPrompt,
+): Promise<void> {
+  const internalError = page.getByText("An internal error occurred").first();
+  if (await internalError.isVisible({ timeout: 500 }).catch(() => false)) {
+    throw new Error(
+      `Chat showed an internal error after ${prompt.title} for ${cell.column.slug}/${cell.row.id}`,
+    );
+  }
 }
 
 async function recordDocs(plan: DocsTourPlan): Promise<string> {
@@ -445,6 +507,7 @@ async function main(): Promise<void> {
     shellUrl: args.shellUrl,
     dashboardUrl: args.dashboardUrl,
     outputDir: args.outputDir,
+    directPreviewBaseUrls: args.directPreviewBaseUrls,
   });
   const docsPlan = buildDocsTourPlan({
     docsUrl: args.docsUrl,

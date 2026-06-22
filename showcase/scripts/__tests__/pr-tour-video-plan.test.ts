@@ -70,6 +70,22 @@ describe("pr-tour-video-plan", () => {
     });
   });
 
+  it("can point selected showcase columns at a direct local demo app", () => {
+    const [topic] = buildShowcaseTourPlan(report, {
+      shellUrl: "http://shell.test",
+      dashboardUrl: "http://dashboard.test",
+      outputDir: "/tmp/videos",
+      directPreviewBaseUrls: {
+        "langgraph-fastapi": "http://localhost:3102",
+      },
+    });
+
+    expect(topic.cells[0].previewUrl).toBe(
+      "http://localhost:3102/demos/tool-rendering-suppress-catchall",
+    );
+    expect(topic.cells[0].codeUrl).toContain("http://shell.test");
+  });
+
   it("builds docs walkthrough pages with selection needles", () => {
     const urls = defaultDocsTourUrls("http://docs.test");
     const plan = buildDocsTourPlan({

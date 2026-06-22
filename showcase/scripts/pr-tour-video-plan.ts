@@ -48,14 +48,11 @@ const TOPIC_COPY: Record<string, string> = {
 };
 
 const CUSTOM_PROMPT_BY_ROW: Record<string, string> = {
-  "tool-rendering-default-catchall":
-    "Use a tool to tell me something concrete about San Francisco weather.",
+  "tool-rendering-default-catchall": "forecast for Tokyo",
   "tool-rendering-custom-catchall":
-    "Use any available tool and show me how this custom catch-all renderer looks.",
-  "tool-rendering-suppress-catchall":
-    "Use a tool, but keep the otherwise-unhandled tool rendering suppressed.",
-  "tool-rendering-named-override":
-    "Check San Francisco weather and then use another available tool so the named override behavior is visible.",
+    "Forecast Tokyo through the wildcard renderer",
+  "tool-rendering-suppress-catchall": "suppress catch-all weather case",
+  "tool-rendering-named-override": "named override weather suppression case",
 };
 
 const CODE_NEEDLES_BY_ROW: Record<string, readonly string[]> = {
@@ -127,6 +124,7 @@ export interface ShowcaseTourPlanOptions {
   outputDir?: string;
   rows?: readonly string[];
   columns?: readonly string[];
+  directPreviewBaseUrls?: Readonly<Record<string, string>>;
 }
 
 export interface DocsTourPlanOptions {
@@ -282,7 +280,10 @@ export function buildShowcaseTourPlan(
           return {
             column: cell.column,
             row,
-            previewUrl: `${shellUrl}/integrations/${cell.column.slug}/${row.id}/preview`,
+            previewUrl:
+              options.directPreviewBaseUrls?.[cell.column.slug] !== undefined
+                ? `${options.directPreviewBaseUrls[cell.column.slug]}/demos/${row.id}`
+                : `${shellUrl}/integrations/${cell.column.slug}/${row.id}/preview`,
             codeUrl: codeTarget?.codeUrl ?? baseCodeUrl,
             codeTarget,
             prompts: promptSetForRow(row.id),
