@@ -356,7 +356,9 @@ describeMaybe(
         NODE_ENV: "test",
       } as NodeJS.ProcessEnv);
 
-      const boundaries = new Set((await rowsBySlug(slug)).map((r) => r.boundary));
+      const boundaries = new Set(
+        (await rowsBySlug(slug)).map((r) => r.boundary),
+      );
       // gap #2: the boundaries needed to discriminate slow-first-token from a
       // true stall are all present.
       for (const expected of [
