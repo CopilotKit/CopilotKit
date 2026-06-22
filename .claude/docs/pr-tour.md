@@ -54,6 +54,14 @@ npm --prefix showcase/scripts run pr-tour-videos -- --mode showcase --preset too
 
 Use `--columns slug-a,slug-b` when a PR only affects specific framework columns or when some changed columns are not locally interactive. Use `--prompt-limit 1` only for smoke/debug output; never attach or present prompt-limited recordings as the review videos. Full PR tour videos must visibly exercise every relevant suggestion pill plus the custom prompt. If a non-smoke showcase recording cannot find an interactive demo iframe or submit a prompt, the recorder should fail rather than silently turning the tour into page navigation.
 
+When a deployed shell preview is unavailable or stale for a changed row, run the integration app locally and point the recorder at it:
+
+```bash
+npm --prefix showcase/scripts run pr-tour-videos -- --mode showcase --rows row-a --columns langgraph-fastapi --direct-preview-base langgraph-fastapi=http://localhost:3102
+```
+
+For direct local previews, the recorder sets `X-AIMock-Context` to the column slug so deterministic D6 fixtures match the same way they do in the showcase E2E path. Non-smoke recordings must fail if the clicked/typed prompt text never appears in the transcript or if the chat shows an internal-error banner; a video that only shows loaded pages is not an acceptable PR tour artifact.
+
 If the video script cannot record because a local dependency is down, keep the deterministic plan output in the PR and state the missing service:
 
 ```bash
