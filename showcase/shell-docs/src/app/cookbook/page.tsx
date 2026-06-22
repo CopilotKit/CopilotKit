@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { DocsPageView } from "@/components/docs-page-view";
+import { buildCookbookNavTree } from "@/lib/cookbook-nav";
 import { loadDoc } from "@/lib/docs-render";
 import { buildDocMetadata } from "@/lib/seo-metadata";
 
@@ -16,5 +17,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default function CookbookLandingPage() {
-  redirect("/cookbook/daytona");
+  return (
+    <DocsPageView
+      slugPath="cookbook"
+      slugHrefPrefix=""
+      navTree={buildCookbookNavTree()}
+      sidebarBannerSlot={null}
+      sidebarClassName="shell-docs-sidebar-cookbook"
+    />
+  );
 }

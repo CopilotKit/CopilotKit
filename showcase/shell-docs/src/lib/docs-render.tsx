@@ -202,11 +202,12 @@ export function readTitle(filePath: string): string | null {
   return title;
 }
 
-// Read the `icon:` field from an MDX file's frontmatter. Mirrors
-// `readTitle` so the icon survives the same caching / extraction story
-// (frontmatter-scoped regex, dev cache bypass). Returns the raw spec
-// string (e.g. `"lucide/Paintbrush"`); the bridge resolves it to a
-// React element when building the PageTree.
+// Read the sidebar `icon:` field from an MDX file's frontmatter. Page
+// icons are opt-in: `icon:` can live in frontmatter as metadata, but
+// it only appears in navigation when the page also sets
+// `showIcon: true`. This keeps icons available for targeted surfaces
+// like cookbook partner pages without turning every icon-bearing docs
+// page into an icon row.
 export function readIcon(filePath: string): string | null {
   const cacheKey = `icon:${path.resolve(filePath)}`;
   if (!isDev && titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;
@@ -222,6 +223,11 @@ export function readIcon(filePath: string): string | null {
     return null;
   }
   const fm = extractFrontmatter(raw);
+  const showIcon = /^showIcon:\s*["']?true["']?\s*$/m.test(fm);
+  if (!showIcon) {
+    titleCache.set(cacheKey, null);
+    return null;
+  }
   const match = fm.match(/^icon:\s*["']?(.+?)["']?\s*$/m);
   const icon = match ? match[1].replace(/["']$/, "") : null;
   titleCache.set(cacheKey, icon);

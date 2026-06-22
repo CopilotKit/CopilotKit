@@ -32,6 +32,7 @@ export function getFrontendUsingTheseDocsPath(id: FrontendPageId): string {
 const FRONTEND_REFERENCE_SLUGS = {
   vue: "reference",
   "react-native": "reference/react-native",
+  angular: "reference",
   slack: "reference/bot",
   teams: "reference",
 } satisfies Record<FrontendPageId, string>;

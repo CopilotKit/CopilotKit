@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest";
-import {
-  runEquivalenceGate,
-  type EquivalenceGateInput,
-  type GateCell,
-} from "./equivalence-gate";
+import { runEquivalenceGate } from "./equivalence-gate";
+import type { EquivalenceGateInput, GateCell } from "./equivalence-gate";
 import type {
   LiveStatusMap,
   StatusRow,

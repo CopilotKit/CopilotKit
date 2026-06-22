@@ -2,7 +2,9 @@
   "title": "Cookbook",
   "root": true,
   "pages": [
+    "index",
     "daytona",
-    "oracle-agent-spec-memory"
+    "oracle-agent-spec-memory",
+    "arcade"
   ]
 }

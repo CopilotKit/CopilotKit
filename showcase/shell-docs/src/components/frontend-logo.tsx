@@ -1,7 +1,7 @@
 import type { FrontendIcon } from "@/lib/frontend-options";
 import type React from "react";
 import { BiLogoMicrosoftTeams } from "react-icons/bi";
-import { SiReact, SiVuedotjs } from "react-icons/si";
+import { SiAngular, SiReact, SiVuedotjs } from "react-icons/si";
 import { TbBrandReactNative } from "react-icons/tb";
 
 type BrandIcon = React.ComponentType<{
@@ -75,6 +75,7 @@ const FRONTEND_ICONS: Record<FrontendIcon, { Icon: BrandIcon; color: string }> =
     react: { Icon: SiReact, color: "#61DAFB" },
     vue: { Icon: SiVuedotjs, color: "#4FC08D" },
     "react-native": { Icon: TbBrandReactNative, color: "#61DAFB" },
+    angular: { Icon: SiAngular, color: "#DD0031" },
     slack: { Icon: SlackColorLogo, color: "currentColor" },
     teams: { Icon: BiLogoMicrosoftTeams, color: "#6264A7" },
   };

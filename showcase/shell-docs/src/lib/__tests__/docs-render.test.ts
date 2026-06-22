@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import path from "path";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("../registry", () => ({
   getDocsMode: () => "generated",
@@ -12,10 +14,14 @@ import {
   CONTENT_DIR,
   inlineSnippets,
   loadDoc,
+  readIcon,
   SNIPPET_MAP,
   SNIPPETS_DIR,
 } from "../docs-render";
 import type { NavNode } from "../docs-render";
+import { buildCookbookNavTree } from "../cookbook-nav";
+import { navTreeToPageTree } from "../page-tree-bridge";
+import { buildReferencePageTree } from "../reference-items";
 
 let tempDir = "";
 
@@ -163,6 +169,52 @@ describe("loadDoc", () => {
   });
 });
 
+describe("readIcon", () => {
+  it("only exposes page icons when frontmatter opts in with showIcon", () => {
+    const hiddenIconFile = path.join(tempDir, "hidden-icon.mdx");
+    const visibleIconFile = path.join(tempDir, "visible-icon.mdx");
+
+    fs.writeFileSync(
+      hiddenIconFile,
+      [
+        "---",
+        'title: "Hidden icon"',
+        'icon: "lucide/Bolt"',
+        "---",
+        "",
+        "Body",
+      ].join("\n"),
+    );
+    fs.writeFileSync(
+      visibleIconFile,
+      [
+        "---",
+        'title: "Visible icon"',
+        'icon: "lucide/Bolt"',
+        "showIcon: true",
+        "---",
+        "",
+        "Body",
+      ].join("\n"),
+    );
+
+    expect(readIcon(hiddenIconFile)).toBeNull();
+    expect(readIcon(visibleIconFile)).toBe("lucide/Bolt");
+  });
+});
+
+describe("reference nav", () => {
+  it("renders the Reference root entry with a book icon", () => {
+    const tree = buildReferencePageTree("v2");
+    const markup = renderToStaticMarkup(
+      React.createElement(React.Fragment, null, tree.name),
+    );
+
+    expect(markup).toContain("lucide-book-open");
+    expect(markup).toContain("Reference");
+  });
+});
+
 describe("migration docs", () => {
   it("recommends CopilotKit from the v2 entrypoint instead of CopilotKitProvider", () => {
     const snippet = fs.readFileSync(
@@ -229,6 +281,54 @@ describe("migration docs", () => {
 
     expect(rootProviderImports).toEqual([]);
     expect(oldV2StyleImports).toEqual([]);
+  });
+});
+
+describe("cookbook nav", () => {
+  it("renders overview and recipes as top-level entries without changing slugs", () => {
+    const navTree = buildCookbookNavTree();
+
+    expect(navTree).toHaveLength(4);
+    expect(navTree.map((node) => node.type)).toEqual([
+      "page",
+      "page",
+      "page",
+      "page",
+    ]);
+    expect(
+      navTree.map((node) =>
+        node.type === "page" ? [node.title, node.slug] : null,
+      ),
+    ).toEqual([
+      ["Overview", "cookbook/index"],
+      ["Daytona", "cookbook/daytona"],
+      ["Oracle Agent Memory", "cookbook/oracle-agent-spec-memory"],
+      ["Arcade", "cookbook/arcade"],
+    ]);
+
+    const pageTree = navTreeToPageTree(navTree, "");
+    expect(pageTree.children.map((node) => node.type)).toEqual([
+      "page",
+      "page",
+      "page",
+      "page",
+    ]);
+    expect(
+      pageTree.children.map((node) => (node.type === "page" ? node.url : null)),
+    ).toEqual([
+      "/cookbook",
+      "/cookbook/daytona",
+      "/cookbook/oracle-agent-spec-memory",
+      "/cookbook/arcade",
+    ]);
+
+    const overview = pageTree.children[0];
+    if (overview?.type !== "page") throw new Error("expected Overview page");
+    const overviewMarkup = renderToStaticMarkup(
+      React.createElement(React.Fragment, null, overview.name),
+    );
+    expect(overviewMarkup).toContain("lucide-book-open");
+    expect(overviewMarkup).toContain("Overview");
   });
 });
 

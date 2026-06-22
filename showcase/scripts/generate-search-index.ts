@@ -39,6 +39,7 @@ interface SearchEntry {
 const FRONTEND_SEARCH_PAGES = [
   { id: "vue", name: "Vue", guidanceTitle: "Docs status" },
   { id: "react-native", name: "React Native", guidanceTitle: "Docs status" },
+  { id: "angular", name: "Angular", guidanceTitle: "Docs status" },
   { id: "slack", name: "Slack", guidanceTitle: "About early access" },
   { id: "teams", name: "Teams", guidanceTitle: "About early access" },
 ] as const;

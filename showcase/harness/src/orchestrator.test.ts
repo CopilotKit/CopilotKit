@@ -16,6 +16,7 @@ import {
   createRailwayAdapter,
   registerAllProbeDrivers,
   buildPooledBrowserDrivers,
+  buildCvdiagPersistenceWriter,
   buildProducerSchedules,
   buildSweepCommErrorSink,
   FLEET_FAMILY_PERIODS_MS,
@@ -82,6 +83,8 @@ import { createProbeRegistry } from "./probes/drivers/index.js";
 import type { createScheduler } from "./scheduler/scheduler.js";
 import { createEventBus } from "./events/event-bus.js";
 import { logger } from "./logger.js";
+import type { CvdiagWriterClient } from "./cvdiag/pb-writer.js";
+import { PbHttpError, type ListResult } from "./storage/pb-client.js";
 import type { CompiledRule } from "./rules/rule-loader.js";
 import type { ProbeConfig } from "./probes/loader/schema.js";
 import { buildWorkerHealthServer } from "./fleet/worker/worker-health.js";
@@ -5524,7 +5527,7 @@ describe("FLEET_FAMILY_PERIODS_MS ↔ enumerator family drift-lock", () => {
  */
 describe("PRODUCER_FAMILY_WIRING (§4.2 family drift-lock)", () => {
   it("wired producer family ids are set-equal to FLEET_FAMILIES[*].family", () => {
-    const wired = [...Object.values(PRODUCER_FAMILY_WIRING)].sort();
+    const wired = Object.values(PRODUCER_FAMILY_WIRING).sort();
     const registry = FLEET_FAMILIES.map((f) => f.family).sort();
     expect(wired).toEqual(registry);
   });
@@ -6285,5 +6288,79 @@ describe("orchestrator R3-F2: deploy.writer.failed on subscribeDeployResults syn
     expect(payload.err).toContain("mapping-blew-up-sync");
 
     unsub();
+  });
+});
+
+// ── CVDIAG persistence wiring: degrade-on-missing-migration (FIX 1 / FIX 2) ──
+//
+// BOTH production wiring paths (boot()/in-process AND the fleet worker) route
+// their CvdiagPbWriter construction through `buildCvdiagPersistenceWriter`,
+// which MUST call `assertCollectionExists()` and DEGRADE (return undefined → a
+// no-op emit→flush) when the cvdiag_events migration is absent, instead of
+// injecting a writer that 404s every event with per-row warns.
+describe("buildCvdiagPersistenceWriter — degrade-on-missing-migration (FIX 1/FIX 2)", () => {
+  // A fake PB whose `list` rejects with the given error, plus health()=true so
+  // the only signal is the collection probe.
+  function fakePb(listReject: unknown): CvdiagWriterClient {
+    return {
+      health: async () => true,
+      list: <T>() => Promise.reject(listReject) as Promise<ListResult<T>>,
+      create: async <T>() => ({}) as T,
+    };
+  }
+
+  function captureLogger(): {
+    logger: typeof logger;
+    warns: Array<{ msg: string }>;
+  } {
+    const warns: Array<{ msg: string }> = [];
+    const l = {
+      ...logger,
+      warn: (msg: string) => {
+        warns.push({ msg });
+      },
+    } as unknown as typeof logger;
+    return { logger: l, warns };
+  }
+
+  it("DEGRADES to undefined + logs ONCE when cvdiag_events is absent (typed 404)", async () => {
+    const pb = fakePb(
+      new PbHttpError({
+        statusCode: 404,
+        bodyText: '{"code":404}',
+        path: "/api/collections/cvdiag_events/records?perPage=1",
+      }),
+    );
+    const { logger: l, warns } = captureLogger();
+    const writer = await buildCvdiagPersistenceWriter(pb, l);
+    expect(writer).toBeUndefined();
+    expect(
+      warns.filter((w) => w.msg === "orchestrator.cvdiag-persistence-degraded")
+        .length,
+    ).toBe(1);
+  });
+
+  it("DEGRADES to undefined when PB is unreachable (transport error)", async () => {
+    const pb = fakePb(new Error("ECONNREFUSED"));
+    const { logger: l } = captureLogger();
+    const writer = await buildCvdiagPersistenceWriter(pb, l);
+    expect(writer).toBeUndefined();
+  });
+
+  it("INJECTS a working writer when the collection exists (typed 403 from CREATE-only ACL)", async () => {
+    const pb = fakePb(
+      new PbHttpError({
+        statusCode: 403,
+        bodyText: '{"code":403}',
+        path: "/api/collections/cvdiag_events/records?perPage=1",
+      }),
+    );
+    const { logger: l, warns } = captureLogger();
+    const writer = await buildCvdiagPersistenceWriter(pb, l);
+    expect(writer).toBeDefined();
+    expect(
+      warns.filter((w) => w.msg === "orchestrator.cvdiag-persistence-degraded")
+        .length,
+    ).toBe(0);
   });
 });
