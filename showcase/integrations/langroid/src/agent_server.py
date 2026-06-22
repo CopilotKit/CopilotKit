@@ -10,17 +10,27 @@ event stream.
 """
 
 import os
-import uvicorn
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import JSONResponse
-from dotenv import load_dotenv
+
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` CVDIAG loggers
+# actually EMIT, and resolves the verbosity tier + PB writer. It imports
+# pydantic/starlette only (NOT langroid / openai), so it is safe to run before
+# the httpx hook install below — it does not construct any LLM httpx client.
+import _shared.cvdiag_bootstrap  # noqa: F401  (first non-stdlib import — bootstrap side effects)
+
+import uvicorn  # noqa: E402
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
+from starlette.responses import JSONResponse  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
 
 # ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
 # imports. Langroid / openai / pydantic-ai-style adapters construct
 # httpx clients eagerly at agent-module import time.
-from agents._header_forwarding import (
+from agents._cvdiag_backend import CvdiagBackendMiddleware  # noqa: E402
+from agents._header_forwarding import (  # noqa: E402
     HeaderForwardingHTTPMiddleware,
     install_global_httpx_hook,
 )
@@ -69,6 +79,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added LAST so
+# it is the OUTERMOST layer: it observes ingress before any inner layer mutates
+# the request and wraps the response stream so SSE boundaries fire as chunks
+# flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
+# middleware fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
 
 
 @app.post("/")

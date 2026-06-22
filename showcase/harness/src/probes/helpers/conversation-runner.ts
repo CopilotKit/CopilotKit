@@ -365,6 +365,45 @@ export interface ConversationTurn {
    * to settle within this budget fails with `error: "timeout: ..."`.
    */
   responseTimeoutMs?: number;
+  /**
+   * Surface-mount completion criterion (OPT-IN). When set, this turn is
+   * considered complete on `run-finished + a new assistant bubble + the
+   * named render-surface testids mounting` — INSTEAD OF requiring the
+   * assistant TEXT bubble to stabilise for `settleMs`.
+   *
+   * This exists for tool-rendered / declarative-A2UI demos whose
+   * MEANINGFUL output is a RENDERED SURFACE, not assistant prose. In the
+   * canonical case (`langgraph-python` `declarative-gen-ui`, which uses
+   * `a2ui.injectA2UITool: true` → a secondary `render_a2ui` call), the
+   * dashboard paints and the run FINISHES, but no assistant text bubble is
+   * ever emitted, so the text-stability conjunct can never converge and the
+   * turn would otherwise time out with `reason=text-unstable` BEFORE the
+   * turn's `assertions` (the real render check) ever runs.
+   *
+   * Semantics (see `waitForTurnComplete`): the text-stability conjunct is
+   * REPLACED — not relaxed — by a surface-mount conjunct for THIS turn. The
+   * SSE-run-finished and new-bubble (`count > baselineCount`) conjuncts
+   * STILL apply, so this never declares completion before the run actually
+   * finished or before a new assistant bubble appeared — it only swaps WHAT
+   * the third signal is (rendered surface vs. stable text).
+   *
+   *   - `testIds`: every render-surface testid that MUST be present in the
+   *     DOM for the surface to count as mounted (conjunctive — `every`).
+   *   - `minNewMounts`: minimum number of testids (from `testIds`) that must
+   *     be NEWLY mounted vs. the pre-send baseline (default 1). The runner
+   *     snapshots each testid's count BEFORE sending the turn so a leftover
+   *     surface from a prior turn cannot satisfy completion on its own — at
+   *     least `minNewMounts` of the expected testids must have grown.
+   *
+   * Turns that DO NOT set `completeOnMount` are unaffected: the third
+   * conjunct remains text-stability exactly as before (text-based demos —
+   * agentic-chat, tool-rendering, HITL, etc. — keep their existing settle
+   * semantics). This is a per-turn opt-in, not a global mode change.
+   */
+  completeOnMount?: {
+    testIds: readonly string[];
+    minNewMounts?: number;
+  };
 }
 
 export interface ConversationResult {
@@ -582,6 +621,30 @@ export async function runConversation(
         page as unknown as PlaywrightPage,
       );
 
+      // Surface-mount completion (opt-in via `turn.completeOnMount`): snapshot
+      // the pre-send testid counts so the settle gate can detect a NEW render
+      // surface for THIS turn (vs. a leftover from a prior turn). Captured
+      // BEFORE `sendTurnMessage` — same ordering rationale as `baselineCount`:
+      // the user message hasn't been submitted yet, so nothing this turn could
+      // have mounted. `null` when the turn opts out → the gate keeps requiring
+      // text-stability (unchanged for every text-based demo).
+      let surfaceReady: ((page: Page) => Promise<boolean>) | null = null;
+      if (turn.completeOnMount) {
+        const baselineTestIds = await readTestIdCounts(
+          page,
+          turn.completeOnMount.testIds,
+        );
+        surfaceReady = buildSurfaceReady(turn.completeOnMount, baselineTestIds);
+        console.debug(
+          `[conversation-runner] turn ${turnNum}/${total} — surface-mount completion armed`,
+          {
+            testIds: turn.completeOnMount.testIds,
+            minNewMounts: turn.completeOnMount.minNewMounts ?? 1,
+            baselineTestIds,
+          },
+        );
+      }
+
       await sendTurnMessage();
 
       console.debug(
@@ -645,6 +708,7 @@ export async function runConversation(
           timeoutMs: turnTimeoutMs,
           baselineBannerText,
           baselineCount,
+          surfaceReady,
         });
       } catch (settleErr) {
         // Translate a turn-incomplete failure observed alongside a
@@ -748,6 +812,22 @@ export async function runConversation(
           const retryBaselineCount = await countAssistantMessages(
             page as unknown as PlaywrightPage,
           );
+          // Re-arm surface-mount completion against the post-reload baseline.
+          // page.reload() tore down the DOM, so any prior-turn surface is gone
+          // — re-snapshot so the retry's delta gate measures growth from the
+          // fresh (typically empty) state rather than the stale pre-reload one.
+          let retrySurfaceReady: ((page: Page) => Promise<boolean>) | null =
+            null;
+          if (turn.completeOnMount) {
+            const retryBaselineTestIds = await readTestIdCounts(
+              page,
+              turn.completeOnMount.testIds,
+            );
+            retrySurfaceReady = buildSurfaceReady(
+              turn.completeOnMount,
+              retryBaselineTestIds,
+            );
+          }
           await fillAndVerifySend(page, chatInputSelector, turn.input);
           // Re-snapshot the post-reload baseline banner. The page DOM was
           // torn down + repainted, so any banner now visible is the
@@ -777,6 +857,7 @@ export async function runConversation(
               ),
               baselineBannerText: retryBaselineBannerText,
               baselineCount: retryBaselineCount,
+              surfaceReady: retrySurfaceReady,
             });
           } catch (retryErr) {
             if (retryErr instanceof BannerVisibleError) {
@@ -965,6 +1046,102 @@ export async function readUserMessageCount(page: Page): Promise<number> {
     );
     return 0;
   }
+}
+
+/**
+ * Read the current DOM count of each `[data-testid="<id>"]` selector in
+ * ONE browser-side round-trip. Used by the surface-mount completion path
+ * (`ConversationTurn.completeOnMount`) to snapshot the pre-send baseline
+ * and to poll whether the expected render surface has mounted.
+ *
+ * Returns a `{ [testId]: count }` map. On any read error every requested
+ * testid maps to 0 (same resilience strategy as `countAssistantMessages`
+ * / `readUserMessageCount`) so a transient `page.evaluate` hiccup reads as
+ * "surface not mounted yet" rather than throwing out of the settle loop.
+ *
+ * The selectors are passed as an arg into the browser closure (the real
+ * Playwright `Page.evaluate` is variadic — the runner's structural `Page`
+ * threads the second arg through `arguments`), so the reader stays generic
+ * and the caller (a probe script) owns which testids constitute its
+ * surface.
+ */
+export async function readTestIdCounts(
+  page: Page,
+  testIds: readonly string[],
+): Promise<Record<string, number>> {
+  const ids = [...testIds];
+  try {
+    // The selector list is BAKED INTO the closure source via JSON.stringify
+    // rather than passed as a `page.evaluate(fn, arg)` argument. The harness
+    // worker's `page.evaluate` arg-passing does NOT reliably round-trip the
+    // second argument to the browser side (the arg arrives `undefined`), so a
+    // captured-arg closure silently reads an empty selector list and reports
+    // every testid as absent — exactly the `baselineTestIds: {}` failure that
+    // made the A2UI-declarative surface look unmounted. Inlining the literals
+    // matches the established zero-arg convention (`_genuine-shared.ts`'s
+    // `clickByJs`, `d5-gen-ui-declarative.ts`'s `readDeclarativeTestIds`).
+    const code = `
+      (() => {
+        const ids = ${JSON.stringify(ids)};
+        const out = {};
+        for (const id of ids) {
+          out[id] = document.querySelectorAll('[data-testid="' + id + '"]').length;
+        }
+        return out;
+      })()
+    `;
+    const fn = new Function(`return ${code.trim()};`) as () => Record<
+      string,
+      number
+    >;
+    return await page.evaluate(fn);
+  } catch (readErr) {
+    // CVDIAG: surface the previously-silent testid read error. Polled in
+    // the settle loop, so routed through console.debug (still greppable)
+    // to avoid flooding warn-level logs on a transient per-poll hiccup.
+    // Control flow is unchanged — the caller reads "all zero" and keeps
+    // polling.
+    console.debug(
+      formatCvdiag({
+        component: "conversation-runner",
+        boundary: "inbound",
+        status: "error",
+        error: `testid-count read failed: ${errorMessage(readErr).slice(0, 120)}`,
+      }),
+    );
+    const zero: Record<string, number> = {};
+    for (const id of ids) zero[id] = 0;
+    return zero;
+  }
+}
+
+/**
+ * Build a surface-mount completion predicate from a turn's
+ * `completeOnMount` spec and the pre-send baseline testid counts. The
+ * returned predicate resolves `true` once ALL `testIds` are present in the
+ * DOM AND at least `minNewMounts` of them have grown vs. the baseline.
+ *
+ * The "newly mounted" delta gate mirrors the declarative assertion's own
+ * leftover guard: A2UI render nodes accumulate across turns, so an
+ * absolute-presence check would let a turn complete on a prior turn's
+ * leftover surface. Requiring `minNewMounts` of the expected testids to
+ * grow guarantees THIS turn actually painted something.
+ */
+function buildSurfaceReady(
+  spec: { testIds: readonly string[]; minNewMounts?: number },
+  baseline: Record<string, number>,
+): (page: Page) => Promise<boolean> {
+  const ids = [...spec.testIds];
+  const minNewMounts = spec.minNewMounts ?? 1;
+  return async (page: Page): Promise<boolean> => {
+    const current = await readTestIdCounts(page, ids);
+    const allPresent = ids.every((id) => (current[id] ?? 0) > 0);
+    if (!allPresent) return false;
+    const newlyMounted = ids.filter(
+      (id) => (current[id] ?? 0) > (baseline[id] ?? 0),
+    ).length;
+    return newlyMounted >= minNewMounts;
+  };
 }
 
 /**
@@ -1395,6 +1572,27 @@ export interface WaitForTurnCompleteOpts {
    * fakes that script count progressions keyed to turn ordinals.
    */
   baselineCount?: number;
+  /**
+   * Surface-mount completion predicate (OPT-IN — set only by the runner
+   * when the turn carries `completeOnMount`). When provided, the third
+   * settle conjunct is REPLACED: instead of requiring the bubble's TEXT to
+   * be non-empty and stable for `settleMs`, the gate completes once
+   * `surfaceReady(page)` resolves `true` (the expected render surface has
+   * mounted). The SSE-run-finished and new-bubble (`count > baselineCount`)
+   * conjuncts STILL apply, so completion never precedes the run finishing
+   * or a new assistant bubble appearing — only the THIRD signal changes
+   * from "stable text" to "rendered surface".
+   *
+   * `null` / omitted → the text-stability conjunct is used unchanged. This
+   * is how every text-based demo keeps its existing settle semantics — only
+   * a turn that opts in via `completeOnMount` ever sees this predicate.
+   *
+   * Failure classification: when `surfaceReady` is set and the gate times
+   * out, the post-loop reason is `surface-missing` (the surface-mount
+   * analogue of `text-unstable`) so the operator sees the render surface,
+   * not the absent text, was the unmet signal.
+   */
+  surfaceReady?: ((page: Page) => Promise<boolean>) | null;
 }
 
 /** Result of a successful `waitForTurnComplete`. */
@@ -1415,7 +1613,11 @@ export interface WaitForTurnCompleteResult {
  */
 export class TurnNotCompleteError extends Error {
   constructor(
-    readonly reason: "sse-missing" | "dom-missing" | "text-unstable",
+    readonly reason:
+      | "sse-missing"
+      | "dom-missing"
+      | "text-unstable"
+      | "surface-missing",
     readonly turnIndex: number,
     readonly observedAtMs: number,
     message: string,
@@ -1469,6 +1671,7 @@ export async function waitForTurnComplete(
 ): Promise<WaitForTurnCompleteResult> {
   const { page, turnIndex, settleMs, timeoutMs } = opts;
   const baselineBannerText = opts.baselineBannerText ?? null;
+  const surfaceReady = opts.surfaceReady ?? null;
   const pollIntervalMs = opts.pollIntervalMs ?? POLL_INTERVAL_MS;
   // Defect-2 sentinel: per-turn baseline count of assistant bubbles already
   // in the DOM BEFORE this turn submitted. The gate requires
@@ -1525,11 +1728,23 @@ export async function waitForTurnComplete(
     const domOk = count > baselineCount;
     const textOk =
       text !== null && text.trim().length > 0 && now - lastChangeAt >= settleMs;
-    if (sseOk && domOk && textOk) {
+    // Third conjunct: text-stability by default, OR surface-mount when the
+    // turn opted in via `completeOnMount` (surfaceReady != null). The
+    // surface-mount path is checked ONLY once SSE + DOM hold, so completion
+    // still requires the run to have finished and a new assistant bubble to
+    // exist — we only swap WHAT the third signal is (rendered surface vs.
+    // stable text). This is what makes the tool-rendered A2UI-declarative
+    // demo (no assistant text bubble ever stabilises) complete on its
+    // rendered dashboard instead of timing out as `text-unstable`.
+    const thirdOk =
+      surfaceReady !== null
+        ? sseOk && domOk && (await surfaceReady(page))
+        : textOk;
+    if (sseOk && domOk && thirdOk) {
       // bubbleIndex returned = last bubble in the matched tier at the
       // moment of return, so callers consuming the assertions ctx see the
-      // same bubble whose text settled the gate.
-      return { bubbleIndex: count - 1, text: text! };
+      // same bubble whose text settled (or whose turn's surface mounted).
+      return { bubbleIndex: count - 1, text: text ?? "" };
     }
     // Pre-conjunct banner fast-fail guard. We ONLY fire fast-fail when the
     // assistant hasn't yet produced a response for THIS turn (domOk =
@@ -1581,12 +1796,19 @@ export async function waitForTurnComplete(
   // "we didn't see it in time", which the final read reproduces faithfully.
   const runsFinishedFinal = await readRunsFinished(page);
   const countFinal = await countAssistantMessages(pwPage);
+  // Precedence: blame the earliest signal that hadn't arrived. The third
+  // signal differs by completion mode: `surface-missing` when the turn
+  // opted into surface-mount completion (`surfaceReady` set), else the
+  // historical `text-unstable`. SSE/DOM precedence is identical for both
+  // modes (those two conjuncts are shared).
   const reason: TurnNotCompleteError["reason"] =
     runsFinishedFinal < turnIndex
       ? "sse-missing"
       : countFinal <= baselineCount
         ? "dom-missing"
-        : "text-unstable";
+        : surfaceReady !== null
+          ? "surface-missing"
+          : "text-unstable";
   throw new TurnNotCompleteError(
     reason,
     turnIndex,

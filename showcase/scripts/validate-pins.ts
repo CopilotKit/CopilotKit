@@ -1703,6 +1703,12 @@ function validateAll(): Report {
     slugs = fs
       .readdirSync(PACKAGES_DIR, { withFileTypes: true })
       .filter((d) => d.isDirectory())
+      // `_shared` is the shared-code directory (cvdiag emitters/schema staged
+      // into each integration via the per-integration `_shared` symlink), not
+      // a showcase package: it has no dependency files and must not be pin-
+      // audited. Dot-directories (e.g. a local `.pytest_cache`) are build/test
+      // artifacts, never package slugs, so they are excluded too.
+      .filter((d) => d.name !== "_shared" && !d.name.startsWith("."))
       .map((d) => d.name)
       .sort();
   } catch (e) {

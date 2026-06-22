@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/bot-telegram",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Telegram platform adapter for CopilotKit JSX bots (@copilotkit/bot).",
   "license": "MIT",
   "repository": {

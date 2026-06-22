@@ -24,6 +24,12 @@ import {
   getReferencePages,
   resolveLastModified,
 } from "@/lib/sitemap-helpers";
+import {
+  FRONTEND_PAGE_IDS,
+  getFrontendContentSlug,
+  getFrontendGuidanceContentSlug,
+} from "@/lib/frontend-page-content";
+import { loadDoc } from "@/lib/docs-render";
 import { getDocsFolder, getIntegrations, ROOT_FRAMEWORK } from "@/lib/registry";
 
 // Force-dynamic so the sitemap is regenerated per request and reads
@@ -116,6 +122,30 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${baseUrl}/${slug}`,
       lastModified: resolveLastModified(filePath),
     });
+  }
+
+  // Frontend quickstarts. The source MDX lives under
+  // content/docs/frontends/*, but those files are not served as
+  // /frontends/* docs anymore; they canonicalize to /<frontend>.
+  for (const frontend of FRONTEND_PAGE_IDS) {
+    const doc = loadDoc(getFrontendContentSlug(frontend));
+    if (doc) {
+      entries.push({
+        url: `${baseUrl}/${frontend}`,
+        lastModified: resolveLastModified(doc.filePath),
+      });
+    }
+  }
+
+  // Status/guidance page, emitted once per non-React frontend.
+  for (const frontend of FRONTEND_PAGE_IDS) {
+    const doc = loadDoc(getFrontendGuidanceContentSlug(frontend));
+    if (doc) {
+      entries.push({
+        url: `${baseUrl}/${frontend}/using-these-docs`,
+        lastModified: resolveLastModified(doc.filePath),
+      });
+    }
   }
 
   // 4. Reference docs.

@@ -690,24 +690,34 @@ const MOVED_ROOT_REDIRECTS: RedirectEntry[] = [
 
 const FRONTEND_PLATFORM_REDIRECTS: RedirectEntry[] = [
   {
-    id: "FE-vue",
-    source: "/vue",
-    destination: "/frontends/vue",
+    id: "FE-frontends",
+    source: "/frontends",
+    destination: "/",
   },
   {
-    id: "FE-slack",
-    source: "/slack",
-    destination: "/frontends/slack",
+    id: "FE-frontends-react",
+    source: "/frontends/react",
+    destination: "/",
+  },
+  {
+    id: "FE-frontends-react-wild",
+    source: "/frontends/react/:path*",
+    destination: "/:path*",
+  },
+  {
+    id: "FE-frontends-wild",
+    source: "/frontends/:path*",
+    destination: "/:path*",
   },
   {
     id: "FE-teams",
     source: "/microsoft-teams",
-    destination: "/frontends/teams",
+    destination: "/teams",
   },
   {
-    id: "FE-react-native",
-    source: "/react-native",
-    destination: "/frontends/react-native",
+    id: "FE-teams-wild",
+    source: "/microsoft-teams/:path*",
+    destination: "/teams/:path*",
   },
 ];
 
@@ -938,6 +948,28 @@ const FOLDER_INDEX: RedirectEntry[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Retired Intelligence Platform pages.
+// ---------------------------------------------------------------------------
+
+const RETIRED_INTELLIGENCE_REDIRECTS: RedirectEntry[] = [
+  {
+    id: "INTEL-observability-root",
+    source: "/premium/observability",
+    destination: "/premium/overview",
+  },
+  {
+    id: "INTEL-observability-connectors",
+    source: "/troubleshooting/observability-connectors",
+    destination: "/premium/overview",
+  },
+  ...CANONICAL_FRAMEWORKS.map((framework) => ({
+    id: `INTEL-observability×${framework}`,
+    source: `/${framework}/premium/observability`,
+    destination: destinationPath(framework, "premium/overview"),
+  })),
+];
+
+// ---------------------------------------------------------------------------
 // Slug-rename catch-alls — bare /{old-slug}/* → /{new-slug}/*
 // Covers upstream URLs that hit a renamed framework root or any
 // subpath that isn't already matched by the more specific entries
@@ -1062,6 +1094,7 @@ export const seoRedirects: RedirectEntry[] = [
   ...INTEGRATIONS_PREFIX_RENAMES.filter((e) => !e.source.includes(":path*")),
   ...DOCS_PREFIX,
   ...MIGRATION_GUIDES,
+  ...RETIRED_INTELLIGENCE_REDIRECTS,
   ...FOLDER_INDEX,
   // 2. Generated per-framework subpath renames (exact paths)
   ...generateFrameworkRenames(),

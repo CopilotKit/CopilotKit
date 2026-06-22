@@ -6,7 +6,8 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
-import { HttpAgent, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { map } from "rxjs";
 import type { Observable } from "rxjs";
 

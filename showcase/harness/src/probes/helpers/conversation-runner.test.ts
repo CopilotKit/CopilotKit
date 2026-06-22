@@ -2187,6 +2187,209 @@ describe("runConversation", () => {
   });
 });
 
+describe("runConversation surface-mount completion (completeOnMount)", () => {
+  /**
+   * Purpose-built fake modelling the A2UI-declarative completion shape:
+   * the run FINISHES and a new assistant bubble appears, but the bubble's
+   * scoped TEXT is ALWAYS EMPTY (the demo emits a `render_a2ui` surface,
+   * not assistant prose) — so the default text-stability conjunct can
+   * never converge. A configurable set of render-surface testids mounts
+   * (or never mounts, for the integrity/red case).
+   *
+   * Routes `page.evaluate` by inspecting the closure body, mirroring
+   * `makePage`'s dispatch but with two key differences:
+   *   - the cascade-state read always returns non-empty `count` with
+   *     `text: ""` (empty → text-stability impossible), and
+   *   - the `readTestIdCounts` closure (body has `data-testid` + builds an
+   *     `out` map, no `{ count`) returns the scripted per-testid counts.
+   */
+  function makeSurfacePage(opts: {
+    /** Per-testid count returned AFTER the surface "mounts". */
+    mounted: Record<string, number>;
+    /**
+     * Polls before the surface mounts — until then `readTestIdCounts`
+     * returns all-zero. Default 1 (mounts almost immediately). Set high
+     * (or never-mounting via `neverMount`) to model a broken render.
+     */
+    mountAfterPolls?: number;
+    /** When true the surface NEVER mounts (integrity/red case). */
+    neverMount?: boolean;
+  }): Page {
+    const mountAfter = opts.mountAfterPolls ?? 1;
+    let surfacePolls = 0;
+    // Track whether the user message has been submitted. Before send the
+    // assistant-bubble count is 0 (the pre-send `baselineCount` snapshot);
+    // after the Enter press a new bubble exists (count=1) so the gate's
+    // `count > baselineCount` (domOk) conjunct holds for THIS turn.
+    let sent = false;
+    return {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {
+        sent = true;
+      },
+      async evaluate(fn: () => unknown) {
+        const body = fn.toString();
+        // SSE counter: caught up only after the run (post-send).
+        if (body.includes("__hk_runsFinished")) return (sent ? 1 : 0) as never;
+        // No error banner.
+        if (body.includes("copilot-error-banner")) {
+          return { state: "absent" } as never;
+        }
+        // User-message read: monotonic so fillAndVerifySend succeeds fast.
+        if (body.includes("copilot-user-message")) {
+          return 1 as never;
+        }
+        // Cascade-state read (`readCascadeStateLast`): builds `{ count, text }`.
+        // Route FIRST among the querySelectorAll branches — its closure ALSO
+        // references the `copilot-assistant-message` tier selector, so it
+        // must win before the count branch. A NEW bubble exists (count=1) but
+        // its scoped TEXT is ALWAYS EMPTY — text-stability can never hold.
+        if (
+          body.includes("querySelectorAll") &&
+          body.includes("textContent") &&
+          body.includes("{ count")
+        ) {
+          return { count: sent ? 1 : 0, text: "" } as never;
+        }
+        // countAssistantMessages (baseline snapshot + final-read
+        // classification): references the canonical assistant testid but does
+        // NOT build `{ count`. Returns a NUMBER — 0 before send (baseline), 1
+        // after (a new bubble exists for this turn).
+        if (body.includes("copilot-assistant-message")) {
+          return (sent ? 1 : 0) as never;
+        }
+        // readTestIdCounts: references data-testid + querySelectorAll, builds
+        // an `out` map, no `{ count`, no `copilot-assistant-message`. This is
+        // the surface-mount poll.
+        if (body.includes("data-testid") && body.includes("querySelectorAll")) {
+          surfacePolls += 1;
+          const ready = !opts.neverMount && surfacePolls >= mountAfter;
+          return (ready ? opts.mounted : {}) as never;
+        }
+        // Fallback: treat any other querySelectorAll read as 1 bubble.
+        if (body.includes("querySelectorAll")) return 1 as never;
+        return 0 as never;
+      },
+    };
+  }
+
+  it("GREEN: completes a text-empty A2UI turn once the render surface mounts (no text-stability)", async () => {
+    // The run finished + a new bubble exists, text is empty forever, but
+    // the declarative dashboard testids mount → the turn completes and the
+    // assertion runs. Without `completeOnMount` this same shape would time
+    // out as `text-unstable`.
+    const page = makeSurfacePage({
+      mounted: {
+        "declarative-metric": 4,
+        "declarative-pie-chart": 1,
+        "declarative-bar-chart": 1,
+      },
+      mountAfterPolls: 2,
+    });
+    let assertionRan = false;
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "Show me my sales dashboard for this quarter.",
+          completeOnMount: {
+            testIds: [
+              "declarative-metric",
+              "declarative-pie-chart",
+              "declarative-bar-chart",
+            ],
+            minNewMounts: 1,
+          },
+          assertions: async () => {
+            assertionRan = true;
+          },
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+    expect(result.failure_turn).toBeUndefined();
+    expect(result.turns_completed).toBe(1);
+    expect(assertionRan).toBe(true);
+  }, 20_000);
+
+  it("INTEGRITY (red): the SAME turn FAILS surface-missing when the surface never mounts", async () => {
+    // Broken render: run finishes, a new bubble appears, text is empty —
+    // but NO declarative testids ever mount. The surface-mount completion
+    // must NOT pass; the turn must fail. This proves the fixed gate stays
+    // RED when the feature does not render (it is not "always green now").
+    const page = makeSurfacePage({
+      mounted: {},
+      neverMount: true,
+    });
+    let assertionRan = false;
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "Show me my sales dashboard for this quarter.",
+          // Short timeout so the never-mount case fails fast in-test.
+          responseTimeoutMs: 1_200,
+          completeOnMount: {
+            testIds: [
+              "declarative-metric",
+              "declarative-pie-chart",
+              "declarative-bar-chart",
+            ],
+            minNewMounts: 1,
+          },
+          assertions: async () => {
+            assertionRan = true;
+          },
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toContain("surface-missing");
+    // The assertion (real render check) must NOT have run — the gate threw
+    // before it.
+    expect(assertionRan).toBe(false);
+  }, 20_000);
+
+  it("INTEGRITY (red): fails surface-missing when only a LEFTOVER surface is present (no new mount)", async () => {
+    // The expected testids ARE present but were all already in the
+    // pre-send baseline (leftover from a prior turn) — zero newly mounted.
+    // The delta gate (`minNewMounts: 1`) must reject this so a stale
+    // surface cannot satisfy completion. The fake returns the same counts
+    // on the pre-send baseline read AND every poll, so `newlyMounted` is 0.
+    const leftover = {
+      "declarative-metric": 4,
+      "declarative-pie-chart": 1,
+      "declarative-bar-chart": 1,
+    };
+    const page = makeSurfacePage({
+      mounted: leftover,
+      mountAfterPolls: 1, // present from the very first read (incl. baseline)
+    });
+    const result = await runConversation(
+      page,
+      [
+        {
+          input: "Show me my sales dashboard for this quarter.",
+          responseTimeoutMs: 1_200,
+          completeOnMount: {
+            testIds: [
+              "declarative-metric",
+              "declarative-pie-chart",
+              "declarative-bar-chart",
+            ],
+            minNewMounts: 1,
+          },
+        },
+      ],
+      { assistantSettleMs: 50 },
+    );
+    expect(result.failure_turn).toBe(1);
+    expect(result.error).toContain("surface-missing");
+  }, 20_000);
+});
+
 describe("fillAndVerifySend", () => {
   it("succeeds on first attempt when user message appears immediately", async () => {
     const recorded = { fills: [] as string[], presses: [] as string[] };

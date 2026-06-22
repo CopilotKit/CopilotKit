@@ -74,7 +74,6 @@ const EXCLUDE_SERVICES: ReadonlySet<string> = new Set([
   "showcase-pocketbase",
   "showcase-harness",
   "showcase-webhooks",
-  "showcase-ms-agent-harness-dotnet",
   "showcase-starter-ag2",
   "showcase-starter-agno",
   "showcase-starter-claude-sdk-python",
