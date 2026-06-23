@@ -400,6 +400,27 @@ export class AgentRegistry {
       const agents: Record<string, AbstractAgent> = Object.fromEntries(
         Object.entries(runtimeInfo.agents).map(
           ([id, { description, capabilities }]) => {
+            // Reuse the already-registered instance for ids that are still
+            // present. A re-connection (an /info re-settle, a header/config or
+            // transport change) re-runs this method, but the runtime agent for
+            // a given id is the SAME logical agent — minting a fresh instance
+            // would discard its accumulated `messages`/`threadId` and its live
+            // subscriptions. Downstream (e.g. the `use-agent` memo) keys on the
+            // instance identity returned by `getAgent(id)`, so replacing it
+            // unmounts an already-rendered conversation. Only re-apply what the
+            // registry owns (headers + credentials) in place; the proxy
+            // re-resolves its own runtime mode/intelligence via `/info`.
+            const existing = Object.prototype.hasOwnProperty.call(
+              this.remoteAgents,
+              id,
+            )
+              ? this.remoteAgents[id]
+              : undefined;
+            if (existing instanceof ProxiedCopilotRuntimeAgent) {
+              this.applyHeadersToAgent(existing);
+              this.applyCredentialsToAgent(existing);
+              return [id, existing];
+            }
             const agent = new ProxiedCopilotRuntimeAgent({
               runtimeUrl: this.runtimeUrl,
               agentId: id, // Runtime agents always have their ID set correctly
@@ -417,6 +438,9 @@ export class AgentRegistry {
         ),
       );
 
+      // Reassign the full set: ids present in `runtimeInfo.agents` are carried
+      // over (reused or freshly minted above); ids no longer advertised are
+      // dropped because they are absent from this rebuilt map.
       this.remoteAgents = agents;
       this._agents = { ...this.localAgents, ...this.remoteAgents };
       this._runtimeConnectionStatus =
