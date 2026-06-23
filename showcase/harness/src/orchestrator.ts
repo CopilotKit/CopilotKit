@@ -1455,6 +1455,11 @@ export function buildPooledBrowserDrivers(
     d6: createE2eFullDriver({
       launcher: createPooledE2eFullLauncher(pool, log),
       diagPb,
+      // Same CVDIAG event-persistence writer the smoke driver uses: the d5/d6
+      // probe path now constructs a `CvdiagProbeSession` per feature and emits
+      // probe-layer boundaries (probe.exit etc.) that PERSIST to `cvdiag_events`
+      // on flush, so the flapping d5/d6 runs are readable from staging.
+      cvdiagPbWriter: cvdiagWriter,
     }),
   };
 }
@@ -3302,6 +3307,14 @@ export async function runControlPlane(
     // role — `summary` is the §5.2 shared memo instance the §9 monitor also
     // reads, so a dashboard poll and a monitor evaluation inside the same TTL
     // share one PB fan-out.
+    //
+    // On-demand fleet/D6 trigger: when an OPS_TRIGGER_TOKEN is configured
+    // (the same token gating /api/probes), `triggerToken` mounts the mutating
+    // POST /api/runs/:family/trigger route so EVERY fleet/D6 probe is
+    // on-demand fireable — it enqueues an operator-triggered run through the
+    // producer this CP already owns. The three GETs stay unconditionally
+    // mounted regardless; only the trigger route is token-gated (and skipped
+    // when the token is unset, mirroring probesDeps).
     fleetRuns: {
       summary: familySummary,
       pb,
@@ -3309,6 +3322,7 @@ export async function runControlPlane(
       scheduler,
       workerStaleAfterMs,
       logger,
+      ...(triggerToken ? { triggerToken } : {}),
     },
     // §9 compensating control: stamp the monitor's last evaluation cycle into
     // /health so an external poll can detect a wedged monitor.

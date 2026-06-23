@@ -1116,6 +1116,37 @@ describe("computePromoteClosure", () => {
     expect(a).toEqual(b);
     expect(JSON.stringify(SERVICES)).toBe(before);
   });
+
+  // --- Standalone services (no deps, never gated) -------------------------
+  it("a standalone-only request (docs) promotes ONLY itself — no Tier-1 control plane", () => {
+    const plan = computePromoteClosure(["docs"]);
+    const names = plan.services.map((s) => s.name);
+    // The whole point: requesting docs must NOT drag in harness/dashboard.
+    expect(names).toEqual(["docs"]);
+    expect(names).not.toContain("harness");
+    expect(names).not.toContain("dashboard");
+    expect(plan.services.find((s) => s.name === "docs")?.standalone).toBe(true);
+  });
+
+  it("resolves the standalone leaf via dispatch_name (shell-docs) too", () => {
+    const plan = computePromoteClosure(["shell-docs"]);
+    expect(plan.services.map((s) => s.name)).toEqual(["docs"]);
+  });
+
+  it("the full-fleet (all) closure marks docs standalone AND still pulls Tier-1 for the rest", () => {
+    const plan = computePromoteClosure(Object.keys(SERVICES));
+    expect(plan.services.find((s) => s.name === "docs")?.standalone).toBe(true);
+    // The non-standalone fleet still gets the Tier-1 control plane.
+    expect(plan.services.map((s) => s.name)).toContain("harness");
+  });
+
+  it("a mixed request (standalone + normal) still pulls in Tier-1", () => {
+    const plan = computePromoteClosure(["docs", "langgraph-python"]);
+    const names = plan.services.map((s) => s.name);
+    expect(names).toContain("harness"); // forced by the non-standalone member
+    expect(names).toContain("docs");
+    expect(plan.services.find((s) => s.name === "docs")?.standalone).toBe(true);
+  });
 });
 
 describe("starter-* fleet SSOT entries (S1: promote-closure inclusion)", () => {

@@ -1,0 +1,90 @@
+name: "Showcase: Reconcile prod vs staging (on-demand drift check)"
+
+# On-demand prod-vs-staging reconciliation. The showcase deploy model: staging
+# tracks a mutable `:latest` tag and is continuously rebuilt; prod is pinned to
+# an immutable `@sha256:` digest and advances only on an explicit promote. So
+# prod can sit BEHIND a green staging — which is OFTEN INTENTIONAL (changes are
+# batched and promoted deliberately), so a recurring drift alert would be noise.
+#
+# This workflow is therefore MANUAL ONLY (workflow_dispatch). There is no
+# schedule and no unsolicited Slack alert. A maintainer runs it from the Actions
+# tab to answer "is prod caught up with staging right now?"; the per-service
+# reconcile table is rendered into the GH step summary, and the run exits
+# nonzero when a column is stale so the drift is visibly flagged on the run.
+#
+# Read-only: runs `bin/railway reconcile-prod`, which performs NO promotes /
+# mutations.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: showcase-reconcile-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    name: Reconcile prod vs staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: railway
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@afeafc3d1ab54a631816aba4c914a0081c12ff2f # v1.310.0
+        with:
+          ruby-version: "3.2"
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+
+      - name: Regenerate SSOT JSON
+        # bin/railway reads showcase/scripts/railway-envs.generated.json to
+        # derive the prod-eligible (probe.prod) set; it is never committed, so
+        # regenerate it here. Skip the oxfmt-canonical pass (repo-root oxfmt is
+        # not installed by this scripts-scoped `npm ci`), mirroring the promote
+        # workflow's resolve/promote jobs.
+        working-directory: showcase/scripts
+        env:
+          EMIT_SKIP_OXFMT: "1"
+        run: |
+          npm ci
+          npx tsx emit-railway-envs-json.ts
+
+      - name: Reconcile gate
+        id: gate
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Path the gate writes machine-readable JSON to (uploaded as an
+          # artifact below). Cheap to keep — handy for a maintainer inspecting a
+          # manual run, but no Slack/alert consumer.
+          RECONCILE_JSON: ${{ github.workspace }}/reconcile.json
+        run: |
+          set -uo pipefail
+          if [ -z "${RAILWAY_TOKEN:-}" ]; then
+            echo "::error::RAILWAY_TOKEN secret not configured; cannot run the reconcile gate."
+            exit 1
+          fi
+          # Run the gate. reconcile-prod-gate.sh surfaces the per-service table
+          # into the GH step summary and exits 1 on a stale service / 2 on a hard
+          # error — either reds the run so a manual run visibly flags drift.
+          RAILWAY_BIN="showcase/bin/railway" \
+            showcase/scripts/reconcile-prod-gate.sh
+
+      - name: Upload reconcile JSON
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: reconcile-json
+          path: reconcile.json
+          if-no-files-found: ignore
+          retention-days: 7

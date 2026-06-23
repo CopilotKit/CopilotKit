@@ -57,21 +57,27 @@ import type { ResultConsumer } from "./result-consumer.js";
 import type { ResultAggregator } from "./result-aggregator.js";
 import type { FleetHealthMonitor } from "./fleet-health.js";
 
-/** Scheduler entry id the producer's tick registers under. */
-export const FLEET_PRODUCER_SCHEDULE_ID = "fleet-job-producer";
-
 /**
- * Scheduler entry ids for the three non-d6 browser-family producers. Homed
- * HERE (beside `FLEET_PRODUCER_SCHEDULE_ID`) rather than in `orchestrator.ts`
- * so the §5.1 family registry (`run-view.ts`, inside `fleet/control-plane/`)
- * can import all four ids from one cycle-free home — `orchestrator.ts` already
- * imports from this module, so the registry importing FROM orchestrator would
- * close an import cycle. The cron constants stay in `orchestrator.ts` (the
- * registry deliberately carries no cron literals; resolution is runtime).
+ * Producer scheduler-entry ids now live in the cycle-free leaf module
+ * `schedule-ids.ts` (NO imports back into this module / `run-view.ts` /
+ * `job-producer.ts`). They are re-exported here to preserve this module's
+ * public export surface — `http/fleet-runs.ts`, `orchestrator.ts`, and the
+ * tests import the ids from `control-plane.js`. Homing the VALUES in a leaf
+ * removes the eval-time dependency that put `FLEET_FAMILIES` (run-view) in the
+ * TDZ for `FLEET_PRODUCER_SCHEDULE_ID` under one cycle load order, which
+ * crash-looped the harness on boot.
  */
-export const FLEET_PRODUCER_SMOKE_SCHEDULE_ID = "fleet-producer-e2e-smoke";
-export const FLEET_PRODUCER_DEMOS_SCHEDULE_ID = "fleet-producer-e2e-demos";
-export const FLEET_PRODUCER_DEEP_SCHEDULE_ID = "fleet-producer-e2e-deep";
+export {
+  FLEET_PRODUCER_DEEP_SCHEDULE_ID,
+  FLEET_PRODUCER_DEMOS_SCHEDULE_ID,
+  FLEET_PRODUCER_SCHEDULE_ID,
+  FLEET_PRODUCER_SMOKE_SCHEDULE_ID,
+} from "./schedule-ids.js";
+// Local binding for this module's own runtime use of the d6 id (the
+// degenerate single-schedule fallback in `createControlPlane`). The `export {
+// ... } from` above re-exports the values but does NOT bind them into this
+// module's scope, so an explicit import is required for the in-body reference.
+import { FLEET_PRODUCER_SCHEDULE_ID } from "./schedule-ids.js";
 
 /**
  * Cron cadence the producer runs on by default. Hourly at :40 mirrors the
