@@ -10,6 +10,8 @@ A `Thread` is the per-conversation handle passed to every handler, tool context,
 ```ts
 interface Thread {
   readonly platform: string;
+  readonly platform: string;
+  readonly conversationKey: string;
   post(ui: Renderable): Promise<MessageRef>;
   update(ref: MessageRef, ui: Renderable): Promise<MessageRef>;
   delete(ref: MessageRef): Promise<void>;
@@ -17,10 +19,16 @@ interface Thread {
   runAgent(input?: {
     context?: ContextEntry[];
     tools?: BotTool[];
-    prompt?: string;
+    prompt?: string | AgentContentPart[];
+    transcript?: boolean | { limit?: number };
   }): Promise<MessageRef | undefined>;
   resume(value: unknown): Promise<MessageRef | undefined>;
   awaitChoice<T = unknown>(ui: Renderable): Promise<T>;
+  subscribe(): Promise<void>;
+  unsubscribe(): Promise<void>;
+  isSubscribed(): Promise<boolean>;
+  setState<T>(value: T): Promise<void>;
+  state<T>(): Promise<T | undefined>;
   getMessages(): Promise<ThreadMessage[]>;
   lookupUser(query: string): Promise<PlatformUser | undefined>;
   postFile(args: {
@@ -36,6 +44,10 @@ interface Thread {
 
 <PropertyReference name="platform" type="string" required>
   The surface this conversation lives on, e.g. `"slack"`.
+</PropertyReference>
+
+<PropertyReference name="conversationKey" type="string" required>
+  Stable, platform-scoped identifier for this conversation — used internally by transcript bridging, per-thread state storage, and subscription records. Treat it as opaque.
 </PropertyReference>
 
 ## Methods
@@ -67,8 +79,19 @@ interface Thread {
     Extra tools merged on top of the bot-level `tools` for this run only.
   </PropertyReference>
 
-  <PropertyReference name="prompt" type="string">
-    A user message injected before running. Use when the input isn't already in the history the adapter reconstructs — e.g. a slash command's text, which is never posted to the channel.
+  <PropertyReference name="prompt" type="string | AgentContentPart[]">
+    A user message injected before running. Use when the input isn't already in the history the adapter reconstructs — e.g. a slash command's text, which is never posted to the channel. Pass `AgentContentPart[]` to include multimodal content such as inbound image or file attachments.
+  </PropertyReference>
+
+  <PropertyReference name="transcript" type="boolean | { limit?: number }">
+    Auto-bridge cross-platform transcript history for this run. When truthy **and** the bot has `store.identity` + `store.transcripts` configured:
+
+    1. Fetches prior transcript entries for the resolved user (default 20, override with `{ limit: N }`).
+    2. Injects them as a context entry so the agent sees cross-platform history.
+    3. Appends the current user turn to the transcript before the run.
+    4. Captures the assistant reply after the run and appends it.
+
+    This flag owns the transcript bridge — do not also manually append the same turns via `bot.transcripts.append`. No-ops with a one-time console warning when `identity`/`transcripts` are not configured.
   </PropertyReference>
 </PropertyReference>
 
@@ -78,6 +101,28 @@ interface Thread {
 
 <PropertyReference name="awaitChoice" type="<T>(ui: Renderable) => Promise<T>">
   Post a picker and **block** until an interaction in this conversation resolves it — the human-in-the-loop primitive. Resolves to the clicked control's `value`; pass `T` to type it. See the [Button](/reference/bot/components/Button) page for a full confirm-card example.
+</PropertyReference>
+
+<PropertyReference name="subscribe" type="() => Promise<void>">
+  Record this conversation as subscribed in the persistent store. Subscriptions survive restarts when a durable `store.adapter` is configured. Proactive delivery to subscribed conversations is not yet wired in v1 — this stores the intent for future use.
+</PropertyReference>
+
+<PropertyReference name="unsubscribe" type="() => Promise<void>">
+  Remove the subscription for this conversation.
+</PropertyReference>
+
+<PropertyReference name="isSubscribed" type="() => Promise<boolean>">
+  Returns `true` if this conversation is currently marked as subscribed.
+</PropertyReference>
+
+<PropertyReference name="setState" type="<T>(value: T) => Promise<void>">
+  Persist arbitrary per-thread state — e.g. a workflow step, user preferences, or a task id. Stored under a conversation-scoped key in the [StateStore](/reference/bot/types/StateStore).
+
+  When `store.state` is configured on `createBot`, this method validates `value` against the schema at runtime and throws `Error: thread.setState: invalid state — …` on a mismatch. Pass the schema's inferred output type as `T` to keep call-site types aligned with the schema.
+</PropertyReference>
+
+<PropertyReference name="state" type="<T>() => Promise<T | undefined>">
+  Read back the per-thread state previously written with `setState`. Returns `undefined` when no state has been written for this conversation yet. Pass `T` to type the return value — it must match what was written.
 </PropertyReference>
 
 <PropertyReference name="getMessages" type="() => Promise<ThreadMessage[]>">
@@ -115,15 +160,41 @@ async handler({ summary }, { thread }) {
 }
 ```
 
+```tsx
+// Per-thread state: track a workflow step across turns.
+bot.onMention(async ({ thread }) => {
+  const state = await thread.state<{ step: string }>();
+  if (state?.step === "awaiting-approval") {
+    await thread.runAgent({ prompt: "The user has replied to your pending approval request." });
+  } else {
+    await thread.setState({ step: "awaiting-approval" });
+    await thread.runAgent();
+  }
+});
+```
+
+```tsx
+// Cross-platform transcript bridging — one call injects history, appends the
+// user turn, runs the agent, and captures the assistant reply.
+bot.onMention(async ({ thread }) => {
+  await thread.runAgent({ transcript: true });
+});
+```
+
 ## Behavior
 
 - **Capability gating keeps tools portable** — `getMessages` / `lookupUser` / `postFile` delegate to the adapter when supported and degrade gracefully (`[]` / `undefined` / `{ ok: false }`) when not, so the same tool runs on any surface.
 - **Per-run merging** — `runAgent`'s `tools` and `context` apply to that run only, layered on top of the bot-level defaults.
 - **History reconstruction** — on Slack, the conversation's `agent.messages` are rebuilt from Slack history each turn; the platform is the source of truth, so bot restarts don't lose conversations.
+- **setState validation** — when `store.state` is set on `createBot`, `setState` runs the schema synchronously and throws before writing to the store on a mismatch, so invalid state never persists.
+- **Transcript bridge ownership** — when `runAgent({ transcript: true })` is used, you must not also manually call `bot.transcripts.append` for the same turn; the bridge is the sole owner of that user/assistant pair.
 
 ## Related
 
 - [createBot](/reference/bot/functions/createBot) — where handlers receive a Thread
+- [StateStore](/reference/bot/types/StateStore) — pluggable persistence backends
 - [defineBotTool](/reference/bot/functions/defineBotTool) — tools receive the Thread in `ctx.thread`
 - [Button](/reference/bot/components/Button) — interactive messages and `awaitChoice`
+- [Persistence guide](/bots/persistence) — configuring durable state
+- [Transcripts guide](/bots/transcripts) — cross-platform conversation history
 - [slack()](/reference/bot/slack) — how the Slack adapter backs these methods
