@@ -1410,19 +1410,15 @@ describe("HITL Thread Reconnection Bug", () => {
       toggleRemount();
     });
 
-    // After remount, should STILL see executing status
-    // This is the key assertion: executingToolCallIds survives component remounts
-    // because it's tracked at the CopilotKitProvider level
+    // After remount, the unmount should have rejected the promise (abandonment),
+    // so the status becomes Complete (with an error result under the hood)
     await waitFor(() => {
       expect(screen.getByTestId("remount-status").textContent).toBe(
-        ToolCallStatus.Executing,
-      );
-      expect(screen.getByTestId("remount-action").textContent).toBe(
-        "test-action",
+        ToolCallStatus.Complete,
       );
     });
 
-    // The respond button should be present (status is executing)
-    expect(screen.getByTestId("remount-respond")).toBeDefined();
+    // The respond button should not be present (status is complete)
+    expect(screen.queryByTestId("remount-respond")).toBeNull();
   });
 });

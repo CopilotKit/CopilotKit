@@ -5,6 +5,11 @@ export type ReactHumanInTheLoop<
   T extends Record<string, unknown> = Record<string, unknown>,
 > = Omit<FrontendTool<T>, "handler"> & {
   /**
+   * Optional timeout in milliseconds. If the user does not respond within this time,
+   * the tool call will automatically fail with a timeout error.
+   */
+  timeout?: number;
+  /**
    * Render the human-in-the-loop UI for this tool call.
    *
    * Beyond the tool call's `args`/`status`/`result`, the render props carry

@@ -12,19 +12,51 @@ export function useHumanInTheLoop<
 >(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);
+  const rejectPromiseRef = useRef<((error: unknown) => void) | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const respond = useCallback(async (result: unknown) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (resolvePromiseRef.current) {
       resolvePromiseRef.current(result);
       resolvePromiseRef.current = null;
+      rejectPromiseRef.current = null;
     }
   }, []);
 
-  const handler = useCallback(async () => {
-    return new Promise((resolve) => {
-      resolvePromiseRef.current = resolve;
-    });
-  }, []);
+  const handler = useCallback(
+    async (args: any, options?: { signal?: AbortSignal }) => {
+      return new Promise((resolve, reject) => {
+        resolvePromiseRef.current = resolve;
+        rejectPromiseRef.current = reject;
+
+        if (options?.signal) {
+          const onAbort = () => {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            if (rejectPromiseRef.current) {
+              rejectPromiseRef.current(new Error("Action aborted by user"));
+              resolvePromiseRef.current = null;
+              rejectPromiseRef.current = null;
+            }
+          };
+          options.signal.addEventListener("abort", onAbort);
+        }
+
+        if (tool.timeout) {
+          timeoutRef.current = setTimeout(() => {
+            if (rejectPromiseRef.current) {
+              rejectPromiseRef.current(
+                new Error(`Action timed out after ${tool.timeout}ms`),
+              );
+              resolvePromiseRef.current = null;
+              rejectPromiseRef.current = null;
+            }
+          }, tool.timeout);
+        }
+      });
+    },
+    [tool.timeout],
+  );
 
   const RenderComponent: ReactToolCallRenderer<T>["render"] = useCallback(
     (props) => {
@@ -86,6 +118,12 @@ export function useHumanInTheLoop<
   // since they can't respond to user interactions anymore
   useEffect(() => {
     return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (rejectPromiseRef.current) {
+        rejectPromiseRef.current(new Error("User abandoned the interaction"));
+        resolvePromiseRef.current = null;
+        rejectPromiseRef.current = null;
+      }
       copilotkit.removeHookRenderToolCall(tool.name, tool.agentId);
     };
   }, [copilotkit, tool.name, tool.agentId]);
