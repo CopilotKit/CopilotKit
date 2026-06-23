@@ -1,9 +1,7 @@
 import { WebInspectorElement, ɵCpkThreadDetails } from "../index";
 import type { CopilotKitCore } from "@copilotkit/core";
-import {
-  CopilotKitCoreRuntimeConnectionStatus,
-  type CopilotKitCoreSubscriber,
-} from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -621,6 +619,12 @@ type HeaderMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
+  threadEndpoints: {
+    list: boolean;
+    inspect: boolean;
+    mutations: boolean;
+    realtimeMetadata: boolean;
+  };
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
     unsubscribe: () => void;
   };
@@ -642,6 +646,12 @@ function createHeaderMockCore(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
+    threadEndpoints: {
+      list: true,
+      inspect: true,
+      mutations: true,
+      realtimeMetadata: true,
+    },
     subscribe(subscriber: CopilotKitCoreSubscriber) {
       subscribers.add(subscriber);
       return { unsubscribe: () => subscribers.delete(subscriber) };
