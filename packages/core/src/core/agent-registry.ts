@@ -78,6 +78,15 @@ export class AgentRegistry {
   private _licenseStatus?: RuntimeLicenseStatus;
   private _telemetryDisabled: boolean = false;
 
+  /**
+   * The headers each HttpAgent was constructed with, captured the first time
+   * the agent is seen — before core headers are applied. Core headers are
+   * merged ON TOP of this baseline so that headers configured directly on an
+   * agent (e.g. an `Authorization` for a self-hosted backend) survive
+   * registration instead of being silently replaced. See #5635.
+   */
+  private agentOwnHeaders = new WeakMap<HttpAgent, Record<string, string>>();
+
   constructor(private core: CopilotKitCore) {}
 
   /**
@@ -311,7 +320,15 @@ export class AgentRegistry {
    */
   applyHeadersToAgent(agent: AbstractAgent): void {
     if (agent instanceof HttpAgent) {
+      // Capture the agent's construction-time headers once, before any core
+      // headers overwrite them. On every subsequent apply we rebuild from this
+      // baseline so re-applying core headers (e.g. via setHeaders) never loses
+      // the agent's own headers.
+      if (!this.agentOwnHeaders.has(agent)) {
+        this.agentOwnHeaders.set(agent, { ...agent.headers });
+      }
       agent.headers = {
+        ...this.agentOwnHeaders.get(agent),
         ...(this.core as unknown as CopilotKitCoreFriendsAccess).headers,
       };
     }

@@ -309,6 +309,13 @@ export interface CopilotKitCoreFriendsAccess {
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
   getContextForAgent(agentId?: string): Context[];
   getAgent(id: string): AbstractAgent | undefined;
+  /**
+   * Re-apply the current core headers to a single agent, merged on top of the
+   * headers the agent was constructed with. The single source of truth for
+   * header application; the run handler uses it so a run never clobbers
+   * per-agent headers (see #5635).
+   */
+  applyHeadersToAgent(agent: AbstractAgent): void;
 
   // References to delegate subsystems
   readonly suggestionEngine: {
@@ -677,8 +684,10 @@ export class CopilotKitCore {
    * ```
    *
    * The resulting header set is also re-applied to every registered
-   * `HttpAgent`-derived agent (replacing its `headers`) and `onHeadersChanged`
-   * subscribers are notified.
+   * `HttpAgent`-derived agent and `onHeadersChanged` subscribers are notified.
+   * These headers are merged ON TOP of any headers the agent was constructed
+   * with, so per-agent headers (e.g. an `Authorization` for a self-hosted
+   * backend) are preserved; on a key conflict the core-level value wins.
    */
   setHeaders(headers: Record<string, string | null | undefined>): void {
     this._headers = normalizeHeaders(headers);
@@ -756,6 +765,18 @@ export class CopilotKitCore {
 
   getAgent(id: string): AbstractAgent | undefined {
     return this.agentRegistry.getAgent(id);
+  }
+
+  /**
+   * Re-apply the current headers to a single agent (delegated to
+   * AgentRegistry). Core headers are merged on top of the agent's own
+   * construction-time headers rather than replacing them, so headers
+   * configured directly on an `HttpAgent` (e.g. an `Authorization` for a
+   * self-hosted backend) survive header updates instead of being silently
+   * dropped (see #5635). On a key conflict the core-level value wins.
+   */
+  applyHeadersToAgent(agent: AbstractAgent): void {
+    this.agentRegistry.applyHeadersToAgent(agent);
   }
 
   /**

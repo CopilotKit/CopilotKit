@@ -1,7 +1,7 @@
 import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
 import { useCopilotKit } from "../../context";
 import { MockStepwiseAgent } from "../../__tests__/utils/test-helpers";
 import { useAgent } from "../use-agent";
@@ -29,6 +29,7 @@ describe("useAgent stability during runtime connection", () => {
     runtimeTransport: string;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
+    applyHeadersToAgent: (agent: AbstractAgent) => void;
     subscribeToAgentWithOptions: (
       agent: AbstractAgent,
       subscriber: any,
@@ -44,6 +45,13 @@ describe("useAgent stability during runtime connection", () => {
       runtimeTransport: "rest",
       headers: {},
       agents: {},
+      // Faithful to core: merge core headers ON TOP of the agent's own.
+      applyHeadersToAgent: (agent) => {
+        const target = agent as { headers?: Record<string, string> };
+        if (target.headers) {
+          target.headers = { ...target.headers, ...mockCopilotkit.headers };
+        }
+      },
       subscribeToAgentWithOptions: (agent, subscriber) =>
         agent.subscribe(subscriber),
     };

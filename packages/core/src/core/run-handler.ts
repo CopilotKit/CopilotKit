@@ -6,7 +6,6 @@ import type {
   Tool,
   ToolCall,
 } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
 import { randomUUID, logger, schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import type { CopilotKitCore, CopilotKitCoreFriendsAccess } from "./core";
@@ -240,11 +239,9 @@ export class RunHandler {
         }
       }
 
-      if (agent instanceof HttpAgent) {
-        agent.headers = {
-          ...this._internal.headers,
-        };
-      }
+      // Re-apply core headers (merged on top of the agent's own headers) so a
+      // late header update is picked up without clobbering per-agent headers.
+      this._internal.applyHeadersToAgent(agent);
 
       const runAgentResult = await agent.connectAgent(
         {
@@ -292,11 +289,9 @@ export class RunHandler {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
     }
 
-    if (agent instanceof HttpAgent) {
-      agent.headers = {
-        ...this._internal.headers,
-      };
-    }
+    // Re-apply core headers (merged on top of the agent's own headers) so a
+    // late header update is picked up without clobbering per-agent headers.
+    this._internal.applyHeadersToAgent(agent);
 
     // Detach any active run (e.g. a long-lived connectAgent pipeline) before
     // starting a new run.  We await the detach to ensure the previous pipeline

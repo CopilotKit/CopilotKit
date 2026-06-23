@@ -129,6 +129,71 @@ describe("CopilotKitCore headers", () => {
     }
   });
 
+  it("preserves agent-level headers not overridden by core headers (#5635)", () => {
+    const agent = new HttpAgent({
+      url: "https://runtime.example",
+      headers: { Authorization: "Bearer agent-token" },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const core = new CopilotKitCore({
+      runtimeUrl: undefined,
+      // No core-level headers configured at all.
+      agents__unsafe_dev_only: { default: agent },
+    });
+
+    // The agent's own Authorization header must survive registration.
+    expect(agent.headers).toMatchObject({
+      Authorization: "Bearer agent-token",
+    });
+  });
+
+  it("merges core headers over agent-level headers (#5635)", () => {
+    const agent = new HttpAgent({
+      url: "https://runtime.example",
+      headers: {
+        "X-Agent": "agent-value",
+        Authorization: "Bearer agent-token",
+      },
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const core = new CopilotKitCore({
+      runtimeUrl: undefined,
+      headers: { Authorization: "Bearer core-token", "X-Core": "core-value" },
+      agents__unsafe_dev_only: { default: agent },
+    });
+
+    // Agent-only header survives, core-only header is added, and the conflicting
+    // Authorization is won by the core (provider-level) value.
+    expect(agent.headers).toEqual({
+      "X-Agent": "agent-value",
+      Authorization: "Bearer core-token",
+      "X-Core": "core-value",
+    });
+  });
+
+  it("retains agent-level headers across setHeaders updates (#5635)", () => {
+    const agent = new HttpAgent({
+      url: "https://runtime.example",
+      headers: { "X-Agent": "agent-value" },
+    });
+
+    const core = new CopilotKitCore({
+      runtimeUrl: undefined,
+      headers: { Authorization: "Bearer initial" },
+      agents__unsafe_dev_only: { default: agent },
+    });
+
+    core.setHeaders({ Authorization: "Bearer updated" });
+
+    // Updating core headers must not wipe the agent's own header.
+    expect(agent.headers).toMatchObject({
+      "X-Agent": "agent-value",
+      Authorization: "Bearer updated",
+    });
+  });
+
   it("applies updated headers to existing HttpAgent instances", () => {
     const agent = new HttpAgent({ url: "https://runtime.example" });
 
