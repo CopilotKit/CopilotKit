@@ -60,14 +60,15 @@ export interface UseThreadsInput {
  * Return value of the {@link useThreads} hook.
  *
  * The `threads` array is kept in sync with the platform via a realtime
- * WebSocket subscription (when available) and is sorted most-recently-updated
- * first. Mutations reject with an `Error` if the platform request fails.
+ * WebSocket subscription (when available) and is sorted by most recent
+ * `lastRunAt`, falling back to `updatedAt` for threads that have never run.
+ * Mutations reject with an `Error` if the platform request fails.
  */
 export interface UseThreadsResult {
   /**
-   * Threads for the current user/agent pair, sorted by most recently
-   * updated first. Updated in realtime when the platform pushes metadata
-   * events. Includes archived threads only when `includeArchived` is set.
+   * Threads for the current user/agent pair, sorted by most recent `lastRunAt`
+   * with `updatedAt` fallback. Updated in realtime when the platform pushes
+   * metadata events. Includes archived threads only when `includeArchived` is set.
    */
   threads: Thread[];
   /**

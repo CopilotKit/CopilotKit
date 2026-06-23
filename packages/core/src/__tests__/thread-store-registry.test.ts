@@ -130,6 +130,69 @@ describe("ThreadStoreRegistry", () => {
     expect(unregisterOrder!).toBeLessThan(secondRegisterOrder!);
   });
 
+  it("restores the previous same-agent store when the active replacement unregisters", async () => {
+    const onRegistered = vi.fn();
+    const onUnregistered = vi.fn();
+    const subscriber: CopilotKitCoreSubscriber = {
+      onThreadStoreRegistered: onRegistered,
+      onThreadStoreUnregistered: onUnregistered,
+    };
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe(subscriber);
+
+    const first = makeStore("first");
+    const second = makeStore("second");
+    registry.register("agent-1", first);
+    registry.register("agent-1", second);
+
+    expect(registry.get("agent-1")).toBe(second);
+
+    registry.unregister("agent-1", second);
+    await Promise.resolve();
+
+    expect(registry.get("agent-1")).toBe(first);
+    expect(registry.getAll()["agent-1"]).toBe(first);
+    expect(onUnregistered).toHaveBeenLastCalledWith(
+      expect.objectContaining({ agentId: "agent-1", prevStore: second }),
+    );
+    expect(onRegistered).toHaveBeenLastCalledWith(
+      expect.objectContaining({ agentId: "agent-1", store: first }),
+    );
+  });
+
+  it("removes a non-active same-agent store without unregistering the active store", async () => {
+    const onRegistered = vi.fn();
+    const onUnregistered = vi.fn();
+    const subscriber: CopilotKitCoreSubscriber = {
+      onThreadStoreRegistered: onRegistered,
+      onThreadStoreUnregistered: onUnregistered,
+    };
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe(subscriber);
+
+    const first = makeStore("first");
+    const second = makeStore("second");
+    registry.register("agent-1", first);
+    registry.register("agent-1", second);
+
+    registry.unregister("agent-1", first);
+    await Promise.resolve();
+
+    expect(registry.get("agent-1")).toBe(second);
+    expect(registry.getAll()["agent-1"]).toBe(second);
+    expect(onRegistered).toHaveBeenCalledTimes(2);
+    expect(onUnregistered).toHaveBeenCalledTimes(1);
+
+    registry.unregister("agent-1", second);
+    await Promise.resolve();
+
+    expect(registry.get("agent-1")).toBeUndefined();
+    expect(onUnregistered).toHaveBeenCalledTimes(2);
+    expect(onRegistered).toHaveBeenCalledTimes(2);
+  });
+
   it("unregister removes the store", () => {
     registry.register("agent-1", makeStore());
     registry.unregister("agent-1");

@@ -7,6 +7,7 @@ import type {
 
 export class ThreadStoreRegistry {
   private _stores: Record<string, ɵThreadStore> = {};
+  private _storeStacks: Record<string, ɵThreadStore[]> = {};
   // Cached frozen snapshot of `_stores`. Invalidated to `null` on every
   // `register`/`unregister` so the next `getAll()` rebuilds it. Stable
   // references between mutations matter for `useSyncExternalStore` consumers
@@ -16,8 +17,19 @@ export class ThreadStoreRegistry {
   constructor(private core: CopilotKitCore) {}
 
   register(agentId: string, store: ɵThreadStore): void {
-    if (agentId in this._stores) {
-      // Capture the previous store before deleting it. `notifyUnregistered`
+    const stack = (this._storeStacks[agentId] ??= []);
+    const currentStore = this._stores[agentId];
+    if (currentStore === store) {
+      return;
+    }
+
+    const existingIndex = stack.indexOf(store);
+    if (existingIndex !== -1) {
+      stack.splice(existingIndex, 1);
+    }
+
+    if (currentStore) {
+      // Capture the previous active store before replacing it. `notifyUnregistered`
       // dispatches via `Promise.all` and returns control to this synchronous
       // body before async subscribers resume — by then `this._stores[agentId]`
       // already holds the new store, so the previous store must be forwarded
@@ -31,6 +43,8 @@ export class ThreadStoreRegistry {
         console.error("ThreadStoreRegistry notifyUnregistered failed:", err);
       });
     }
+
+    stack.push(store);
     this._stores[agentId] = store;
     this._snapshot = null;
     this.notifyRegistered(agentId, store).catch((err) => {
@@ -39,15 +53,38 @@ export class ThreadStoreRegistry {
   }
 
   unregister(agentId: string, store?: ɵThreadStore): void {
-    if (!(agentId in this._stores)) return;
-    if (store && this._stores[agentId] !== store) return;
+    const stack = this._storeStacks[agentId];
+    if (!stack || stack.length === 0) return;
+
+    const storeIndex = store ? stack.indexOf(store) : stack.length - 1;
+    if (storeIndex === -1) return;
+
+    const isActiveStore = storeIndex === stack.length - 1;
+    const [removedStore] = stack.splice(storeIndex, 1);
+
+    if (stack.length === 0) {
+      delete this._storeStacks[agentId];
+    }
+
+    if (!isActiveStore) {
+      return;
+    }
+
     // Capture before delete for the same reason as `register()` above.
-    const prevStore = this._stores[agentId]!;
     delete this._stores[agentId];
     this._snapshot = null;
-    this.notifyUnregistered(agentId, prevStore).catch((err) => {
+    this.notifyUnregistered(agentId, removedStore).catch((err) => {
       console.error("ThreadStoreRegistry notifyUnregistered failed:", err);
     });
+
+    const restoredStore = stack[stack.length - 1];
+    if (restoredStore) {
+      this._stores[agentId] = restoredStore;
+      this._snapshot = null;
+      this.notifyRegistered(agentId, restoredStore).catch((err) => {
+        console.error("ThreadStoreRegistry notifyRegistered failed:", err);
+      });
+    }
   }
 
   get(agentId: string): ɵThreadStore | undefined {
