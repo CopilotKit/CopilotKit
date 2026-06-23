@@ -309,6 +309,82 @@ STUB
   [[ "$output" != *"staging_drift=svc"* ]] || fail "unexpected drift payload: $output"
 }
 
+# ── results JSON for the three-variant Slack renderer ───────────────────────
+#
+# promote-fleet emits a base64-encoded `results` blob (schema_version=1)
+# consumed by .github/workflows/showcase_promote_notify.yml. The renderer is
+# the SSOT for the schema; these tests assert promote-fleet emits a blob that
+# matches it: valid base64 → valid JSON, schema_version=1, BOTH succeeded[] and
+# failed[] present, succeeded[] entries are `{service}` objects, and failed[]
+# entries are `{service, exit, category}` with the real exit code. The
+# end-to-end RED-GREEN proof (decode → pipe through the dry-run harness →
+# rendered ⚠️ partial / ✅ success / ❌ total message) lives outside bats.
+
+# decode_results_b64 — read results_b64 from $GITHUB_OUTPUT and decode it to
+# stdout as JSON, failing the test loudly if the key is absent or the value is
+# not valid base64/JSON. Mirrors the renderer's decode step.
+decode_results_b64() {
+  local b64
+  b64=$(grep '^results_b64=' "$GITHUB_OUTPUT" | head -1 | cut -d= -f2-)
+  [ -n "$b64" ] || fail "results_b64 key absent from GITHUB_OUTPUT: $(cat "$GITHUB_OUTPUT")"
+  printf '%s' "$b64" | base64 -d 2>/dev/null || fail "results_b64 is not valid base64: $b64"
+}
+
+@test "emits results JSON (schema_version=1) with both succeeded[] and failed[] on a partial promote" {
+  # Mixed run: svc-a/svc-c succeed, svc-b fails (exit 7). The emitted blob must
+  # carry the partial outcome the renderer turns into the ⚠️ partial message.
+  run env SERVICES_CSV="svc-a,svc-b,svc-c" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit on partial, got $status: $output"
+
+  # Decode → valid JSON with schema_version=1.
+  json=$(decode_results_b64)
+  echo "$json" | jq -e '.schema_version == 1' >/dev/null \
+    || fail "schema_version != 1: $json"
+
+  # succeeded[] = the two that pinned, as {service} objects (renderer reads
+  # length only, but we emit objects for symmetry/future use).
+  [ "$(echo "$json" | jq -r '.succeeded | length')" = "2" ] \
+    || fail "succeeded[] should have 2 entries: $json"
+  echo "$json" | jq -e '[.succeeded[].service] | sort == ["svc-a","svc-c"]' >/dev/null \
+    || fail "succeeded[] services wrong: $json"
+
+  # failed[] = svc-b with its REAL exit code (7) + the default category. The
+  # renderer renders "• `svc-b` — exit 7 (promote-failed)".
+  [ "$(echo "$json" | jq -r '.failed | length')" = "1" ] \
+    || fail "failed[] should have exactly 1 entry: $json"
+  echo "$json" | jq -e '.failed[0] == {service:"svc-b", exit:7, category:"promote-failed"}' >/dev/null \
+    || fail "failed[0] does not match {svc-b, exit 7, promote-failed}: $json"
+
+  # The failed service must NOT leak into succeeded[].
+  echo "$json" | jq -e '[.succeeded[].service] | index("svc-b") == null' >/dev/null \
+    || fail "failed svc-b leaked into succeeded[]: $json"
+}
+
+@test "emits results JSON with empty failed[] on an all-green promote" {
+  export RAILWAY_BIN="$STUB_DIR/railway-green"
+  run env SERVICES_CSV="svc-a,svc-b,svc-c" bash "$SCRIPT"
+  [ "$status" -eq 0 ] || fail "expected zero exit, got $status: $output"
+
+  json=$(decode_results_b64)
+  echo "$json" | jq -e '.schema_version == 1' >/dev/null || fail "schema_version != 1: $json"
+  [ "$(echo "$json" | jq -r '.succeeded | length')" = "3" ] || fail "succeeded[] should have 3: $json"
+  # Empty failed[] → the renderer's ✅ success variant.
+  echo "$json" | jq -e '.failed == []' >/dev/null || fail "failed[] should be empty on all-green: $json"
+}
+
+@test "emits results JSON with empty succeeded[] on an all-fail promote (total variant)" {
+  # Every service fails → succeeded[]=[], failed[] non-empty → the renderer's
+  # ❌ total-failure variant (succeeded==0 && failed>0 defensive branch).
+  run env SERVICES_CSV="svc-b" bash "$SCRIPT"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit, got $status: $output"
+
+  json=$(decode_results_b64)
+  echo "$json" | jq -e '.schema_version == 1' >/dev/null || fail "schema_version != 1: $json"
+  echo "$json" | jq -e '.succeeded == []' >/dev/null || fail "succeeded[] should be empty on all-fail: $json"
+  [ "$(echo "$json" | jq -r '.failed | length')" = "1" ] || fail "failed[] should have 1: $json"
+  echo "$json" | jq -e '.failed[0].exit == 7' >/dev/null || fail "failed exit code wrong: $json"
+}
+
 # ── U4: tier-ordered closure promote with dependent-tier gating ─────────────
 #
 # When CLOSURE_PLAN (tier-annotated `tier:name,tier:name,...` from U3's
