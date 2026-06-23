@@ -4,10 +4,8 @@ import type { ChangeValue, ReplyTarget } from "./types.js";
 import type { HistoryStore } from "./history-store.js";
 import type { WhatsAppClient } from "./client.js";
 import type { FileDeliveryConfig, WhatsAppMediaRef } from "./download-files.js";
-import {
-  buildFileContentParts,
-  type AgentContentPart,
-} from "./download-files.js";
+import { buildFileContentParts } from "./download-files.js";
+import type { AgentContentPart } from "./download-files.js";
 import { conversationKeyOf, decodeInteraction } from "./interaction.js";
 
 export interface WebhookListenerArgs {

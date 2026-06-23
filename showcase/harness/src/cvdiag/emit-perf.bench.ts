@@ -31,7 +31,8 @@
 
 import { bench, describe } from "vitest";
 
-import { CvdiagEmitter, type CvdiagEmitArgs } from "./emit.js";
+import { CvdiagEmitter } from "./emit.js";
+import type { CvdiagEmitArgs } from "./emit.js";
 
 /** Per-event budget (spec §7: 50% of the 500µs prod budget for headroom). */
 const MEDIAN_BUDGET_US = 100;

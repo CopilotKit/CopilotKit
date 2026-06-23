@@ -107,6 +107,13 @@ export class FakeAdapter implements PlatformAdapter {
   private sink?: IngressSink;
   private counter = 0;
 
+  /** Expose the registered sink so tests can invoke onTurn() directly for overlap/lock tests. */
+  getSink(): IngressSink {
+    if (!this.sink)
+      throw new Error("FakeAdapter: sink not set — call bot.start() first");
+    return this.sink;
+  }
+
   async start(sink: IngressSink): Promise<void> {
     this.sink = sink;
   }

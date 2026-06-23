@@ -63,17 +63,31 @@ interface ActionStore {
 
 The default is `InMemoryActionStore` — a `Map` with optional TTL. **It is lost on restart**: clicking a button posted before a restart raises `ActionExpiredError` internally, which [`createBot`](/reference/bot/functions/createBot) swallows rather than crashing the bot — the click is acked but nothing happens, and no message is posted.
 
-A durable store (Redis, a database) is **not shipped in v1** — implement the three-method contract against your own backend and pass it in:
+## Durable action storage
+
+<Callout type="info">
+`ActionStore` and `InMemoryActionStore` are **deprecated**. Configure `store.adapter` on `createBot` instead — any [`StateStore`](/reference/bot/types/StateStore) backend (including `createRedisStore` and `createPostgresStore`) backs action snapshots automatically via the same pluggable interface. See the [Persistence guide](/bots/persistence) for a full walkthrough.
+</Callout>
+
+Action snapshots are now stored via `store.adapter` — the [StateStore](/reference/bot/types/StateStore) you pass to `createBot({ store: { adapter: … } })`. When `store.adapter` is a Redis or Postgres backend, actions survive process restarts and are shared across horizontally-scaled instances:
 
 ```ts
+import { createRedisStore } from "@copilotkit/bot-store-redis";
+
 const bot = createBot({
   adapters: [slack({ botToken, appToken })],
-  actionStore: new RedisActionStore(redisClient), // your implementation
+  store: {
+    adapter: createRedisStore({ url: process.env.REDIS_URL }),
+  },
 });
 ```
 
+The deprecated `actionStore` option is still accepted for backward compatibility; when both `actionStore` and `store.adapter` are supplied, `store.adapter` wins.
+
 ## Related
 
-- [createBot](/reference/bot/functions/createBot) — the `actionStore` option
+- [createBot](/reference/bot/functions/createBot) — the `store.adapter` option (replaces `actionStore`)
+- [StateStore](/reference/bot/types/StateStore) — the pluggable persistence interface
 - [bind()](/reference/bot/functions/bind) — persisting handler-specific args
 - [Button](/reference/bot/components/Button) — where inline handlers live
+- [Persistence guide](/bots/persistence) — choosing and configuring a backend

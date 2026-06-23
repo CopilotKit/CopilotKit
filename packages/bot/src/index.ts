@@ -7,6 +7,10 @@ export type {
   CreateBotOptions,
   BotHandler,
   ThreadStartHandler,
+  StoreConfig,
+  LockConflictDecision,
+  StatefulThread,
+  BotComponent,
 } from "./create-bot.js";
 
 // Thread
@@ -46,6 +50,21 @@ export type { ActionStore, ActionSnapshot } from "./action-store.js";
 
 // Action registry
 export { ActionRegistry, ActionExpiredError } from "./action-registry.js";
+
+// State store
+export type { StateStore } from "./state/state-store.js";
+export { MemoryStore } from "./state/memory-store.js";
+export { runStateStoreConformance } from "./testing/state-store-conformance.js";
+export { parseDuration } from "./state/duration.js";
+export { createStateBackedConversationStore } from "./state/state-conversation-store.js";
+
+// Transcripts
+export { Transcripts } from "./transcripts.js";
+export type {
+  TranscriptEntry,
+  Identity,
+  TranscriptsConfig,
+} from "./transcripts.js";
 
 // Tools & context
 export {

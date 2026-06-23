@@ -22,6 +22,7 @@ export function conversationKeyOf(key: ConversationKey): string {
 export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   const body = raw as {
     type?: string;
+    trigger_id?: string;
     user?: { id?: string; name?: string; username?: string };
     channel?: { id?: string };
     message?: { ts?: string; thread_ts?: string };
@@ -34,6 +35,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
       action_id?: string;
       value?: string;
       selected_option?: { value?: string };
+      action_ts?: string;
     }>;
   };
   if (body.type !== "block_actions") return undefined;
@@ -90,6 +92,15 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     ? { id: messageTs, channel: channelId }
     : undefined;
 
+  // Stable per-click id for inbound dedup: the channel + picker message ts +
+  // the action's own ts uniquely identify one click. Fall back to trigger_id
+  // (single-use per interaction) when those refs are absent. Undefined only if
+  // neither is available — never fabricate (that would defeat dedup).
+  const eventId =
+    channelId && messageTs && action.action_ts
+      ? `${channelId}:${messageTs}:${action.action_ts}`
+      : body.trigger_id;
+
   return {
     id: action.action_id,
     conversationKey,
@@ -97,5 +108,6 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     value,
     user,
     messageRef,
+    eventId,
   };
 }

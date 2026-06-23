@@ -92,6 +92,32 @@ describe("decodeInteraction", () => {
     ).toBeUndefined();
   });
 
+  it("carries a stable eventId from channel + message ts + action_ts (inbound dedup)", () => {
+    const payload = {
+      type: "block_actions",
+      trigger_id: "trig-123",
+      channel: { id: "C1" },
+      message: { ts: "111.1", thread_ts: "100.0" },
+      actions: [
+        { action_id: "ck:abc", value: "yes", action_ts: "1700000000.5" },
+      ],
+    };
+    const evt = decodeInteraction(payload);
+    expect(evt!.eventId).toBe("C1:111.1:1700000000.5");
+    // Stable: decoding the same payload yields the same eventId.
+    expect(decodeInteraction(payload)!.eventId).toBe(evt!.eventId);
+  });
+
+  it("falls back to trigger_id for eventId when message/action ts are absent", () => {
+    const evt = decodeInteraction({
+      type: "block_actions",
+      trigger_id: "trig-xyz",
+      container: { channel_id: "C3" },
+      actions: [{ action_id: "ck:c", value: "x" }],
+    });
+    expect(evt!.eventId).toBe("trig-xyz");
+  });
+
   it("does NOT require a resume field (opaque id only)", () => {
     const evt = decodeInteraction({
       type: "block_actions",

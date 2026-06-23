@@ -40,6 +40,11 @@ export interface IncomingMessage {
    * `text` as the agent prompt so the model receives the attachments.
    */
   contentParts?: AgentContentPart[];
+  /**
+   * Cross-platform identity key resolved by the bot's `identity` resolver, if
+   * any. Stable across platforms for the same human (e.g. an email address).
+   */
+  userKey?: string;
 }
 export interface ThreadMessage {
   user?: PlatformUser;
@@ -78,6 +83,16 @@ export interface Thread {
   ): Promise<{ ok: boolean; error?: string }>;
   /** Name this conversation (capability-gated; returns `{ ok: false }` on surfaces without support). */
   setTitle(title: string): Promise<{ ok: boolean; error?: string }>;
+  /** Record this conversation as subscribed (persisted in state). Proactive delivery to subscribed conversations is not yet wired. */
+  subscribe(): Promise<void>;
+  /** Remove the subscription for this conversation. */
+  unsubscribe(): Promise<void>;
+  /** Returns true if this conversation is currently subscribed. */
+  isSubscribed(): Promise<boolean>;
+  /** Persist arbitrary per-thread state (e.g. workflow step). */
+  setState<T>(v: T): Promise<void>;
+  /** Read back per-thread state previously written with `setState`. */
+  state<T>(): Promise<T | undefined>;
 }
 export interface InteractionContext<TValue = unknown> {
   thread: Thread;

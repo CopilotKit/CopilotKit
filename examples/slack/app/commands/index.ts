@@ -11,7 +11,8 @@
  * surfaces with native structured args (e.g. Discord). The `options` schema
  * is optional and used there for registration/typing.
  */
-import { defineBotCommand, type BotCommand } from "@copilotkit/bot";
+import { defineBotCommand } from "@copilotkit/bot";
+import type { BotCommand } from "@copilotkit/bot";
 import { senderContext } from "../sender-context.js";
 
 export const appCommands: BotCommand[] = [
