@@ -1,9 +1,5 @@
-import {
-  createServer,
-  type Server,
-  type IncomingMessage,
-  type ServerResponse,
-} from "node:http";
+import { createServer } from "node:http";
+import type { Server, IncomingMessage, ServerResponse } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import type { WebhookBody } from "./types.js";

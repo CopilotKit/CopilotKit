@@ -43,11 +43,8 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import {
-  parseManifest,
-  type Manifest,
-  type ManifestDemo,
-} from "./lib/manifest.js";
+import { parseManifest } from "./lib/manifest.js";
+import type { Manifest, ManifestDemo } from "./lib/manifest.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // ROOT = showcase/ (NOT the repo root). validate-parity.ts lives at
