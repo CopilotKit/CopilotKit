@@ -1,11 +1,20 @@
 import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import { useCopilotKit } from "../../context";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
   ɵMAX_SOCKET_RETRIES,
 } from "@copilotkit/core";
+import type { useThreads as useThreadsHook } from "../use-threads";
 
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
@@ -255,9 +264,13 @@ const sampleThreads = [
   },
 ];
 
-const { useThreads } = await import("../use-threads");
+let useThreads: typeof useThreadsHook;
 
 describe("useThreads", () => {
+  beforeAll(async () => {
+    ({ useThreads } = await import("../use-threads"));
+  });
+
   beforeEach(() => {
     phoenix.sockets.splice(0);
     fetchMock.mockReset();

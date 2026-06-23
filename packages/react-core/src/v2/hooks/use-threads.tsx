@@ -9,6 +9,7 @@ import {
   ɵselectIsFetchingNextPage,
 } from "@copilotkit/core";
 import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
+import type { ɵThread } from "@copilotkit/core";
 import {
   useCallback,
   useEffect,
@@ -182,7 +183,7 @@ export function useThreads({
     }),
   );
 
-  const coreThreads = useThreadStoreSelector(store, ɵselectThreads);
+  const coreThreads = useThreadStoreSelector<ɵThread[]>(store, ɵselectThreads);
   const threads: Thread[] = useMemo(
     () =>
       coreThreads.map(
@@ -206,10 +207,19 @@ export function useThreads({
       ),
     [coreThreads],
   );
-  const storeIsLoading = useThreadStoreSelector(store, ɵselectThreadsIsLoading);
-  const storeError = useThreadStoreSelector(store, ɵselectThreadsError);
-  const hasMoreThreads = useThreadStoreSelector(store, ɵselectHasNextPage);
-  const isFetchingMoreThreads = useThreadStoreSelector(
+  const storeIsLoading = useThreadStoreSelector<boolean>(
+    store,
+    ɵselectThreadsIsLoading,
+  );
+  const storeError = useThreadStoreSelector<Error | null>(
+    store,
+    ɵselectThreadsError,
+  );
+  const hasMoreThreads = useThreadStoreSelector<boolean>(
+    store,
+    ɵselectHasNextPage,
+  );
+  const isFetchingMoreThreads = useThreadStoreSelector<boolean>(
     store,
     ɵselectIsFetchingNextPage,
   );
