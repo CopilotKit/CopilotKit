@@ -34,6 +34,7 @@ import type {
   FilePart,
   ToolChoice,
   ToolSet,
+  Schema,
 } from "ai";
 import { streamText, tool as createVercelAISDKTool, stepCountIs } from "ai";
 import { createMCPClient } from "@ai-sdk/mcp";
@@ -585,6 +586,22 @@ function isJsonSchema(obj: unknown): obj is JsonSchema {
   );
 }
 
+/**
+ * Type-only pass-through for handing a Zod schema to the AI SDK's `tool()`.
+ * The raw Zod schema is returned unchanged at runtime — the SDK's `asSchema()`
+ * converts and validates it internally exactly as before.
+ *
+ * The Zod type is erased through `unknown` deliberately: letting tsc relate
+ * Zod schema types to the AI SDK's `FlexibleSchema` union (conditional types
+ * spanning zod v3/v4) makes type instantiation explode (TS2589 / compiler
+ * OOM) under this package's `moduleResolution: node`.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toLanguageModelSchema(schema: z.ZodSchema): Schema<any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return schema as unknown as Schema<any>;
+}
+
 export function convertToolsToVercelAITools(
   tools: RunAgentInput["tools"],
 ): ToolSet {
@@ -598,7 +615,7 @@ export function convertToolsToVercelAITools(
     const zodSchema = convertJsonSchemaToZodSchema(tool.parameters, true);
     result[tool.name] = createVercelAISDKTool({
       description: tool.description,
-      inputSchema: zodSchema,
+      inputSchema: toLanguageModelSchema(zodSchema),
     });
   }
 
@@ -864,7 +881,12 @@ export class BuiltInAgent extends AbstractAgent {
       },
     };
 
-    if (!this.config.capabilities) {
+    // Factory-mode configs have no `capabilities` property.
+    const capabilities = isFactoryConfig(this.config)
+      ? undefined
+      : this.config.capabilities;
+
+    if (!capabilities) {
       return inferred;
     }
 
@@ -872,7 +894,7 @@ export class BuiltInAgent extends AbstractAgent {
     // entire categories when provided, inferred defaults fill the rest.
     return {
       ...inferred,
-      ...this.config.capabilities,
+      ...capabilities,
     };
   }
 
@@ -880,6 +902,10 @@ export class BuiltInAgent extends AbstractAgent {
     if (isFactoryConfig(this.config)) {
       return this.runFactory(input, this.config);
     }
+
+    // Capture the narrowed classic config — the narrowing of `this.config`
+    // above does not survive into the Observable/async closures below.
+    const config = this.config;
 
     if (this.abortController) {
       throw new Error(
@@ -901,7 +927,7 @@ export class BuiltInAgent extends AbstractAgent {
       subscriber.next(startEvent);
 
       // Resolve the model, passing API key if provided
-      const model = resolveModel(this.config.model, this.config.apiKey);
+      const model = resolveModel(config.model, config.apiKey);
 
       // Build prompt based on conditions
       let systemPrompt: string | undefined = undefined;
@@ -910,7 +936,7 @@ export class BuiltInAgent extends AbstractAgent {
       // - config.prompt is set, OR
       // - input.context is non-empty, OR
       // - input.state is non-empty and not an empty object
-      const hasPrompt = !!this.config.prompt;
+      const hasPrompt = !!config.prompt;
       const hasContext = input.context && input.context.length > 0;
       const hasState =
         input.state !== undefined &&
@@ -925,7 +951,7 @@ export class BuiltInAgent extends AbstractAgent {
 
         // First: the prompt if any
         if (hasPrompt) {
-          parts.push(this.config.prompt!);
+          parts.push(config.prompt!);
         }
 
         // Second: context from the application
@@ -950,8 +976,8 @@ export class BuiltInAgent extends AbstractAgent {
 
       // Convert messages and prepend system message if we have a prompt
       const messages = convertMessagesToVercelAISDKMessages(input.messages, {
-        forwardSystemMessages: this.config.forwardSystemMessages,
-        forwardDeveloperMessages: this.config.forwardDeveloperMessages,
+        forwardSystemMessages: config.forwardSystemMessages,
+        forwardDeveloperMessages: config.forwardDeveloperMessages,
       });
       if (systemPrompt) {
         messages.unshift({
@@ -962,10 +988,8 @@ export class BuiltInAgent extends AbstractAgent {
 
       // Merge tools from input and config
       let allTools: ToolSet = convertToolsToVercelAITools(input.tools);
-      if (this.config.tools && this.config.tools.length > 0) {
-        const configTools = convertToolDefinitionsToVercelAITools(
-          this.config.tools,
-        );
+      if (config.tools && config.tools.length > 0) {
+        const configTools = convertToolDefinitionsToVercelAITools(config.tools);
         allTools = { ...allTools, ...configTools };
       }
 
@@ -973,20 +997,18 @@ export class BuiltInAgent extends AbstractAgent {
         model,
         messages,
         tools: allTools,
-        toolChoice: this.config.toolChoice,
-        stopWhen: this.config.maxSteps
-          ? stepCountIs(this.config.maxSteps)
-          : undefined,
-        maxOutputTokens: this.config.maxOutputTokens,
-        temperature: this.config.temperature,
-        topP: this.config.topP,
-        topK: this.config.topK,
-        presencePenalty: this.config.presencePenalty,
-        frequencyPenalty: this.config.frequencyPenalty,
-        stopSequences: this.config.stopSequences,
-        seed: this.config.seed,
-        providerOptions: this.config.providerOptions,
-        maxRetries: this.config.maxRetries,
+        toolChoice: config.toolChoice,
+        stopWhen: config.maxSteps ? stepCountIs(config.maxSteps) : undefined,
+        maxOutputTokens: config.maxOutputTokens,
+        temperature: config.temperature,
+        topP: config.topP,
+        topK: config.topK,
+        presencePenalty: config.presencePenalty,
+        frequencyPenalty: config.frequencyPenalty,
+        stopSequences: config.stopSequences,
+        seed: config.seed,
+        providerOptions: config.providerOptions,
+        maxRetries: config.maxRetries,
       };
 
       // Apply forwardedProps overrides (if allowed)
@@ -1003,7 +1025,7 @@ export class BuiltInAgent extends AbstractAgent {
             // Use the configured API key when resolving overridden models
             streamTextParams.model = resolveModel(
               props.model as string | LanguageModel,
-              this.config.apiKey,
+              config.apiKey,
             );
           }
         }
@@ -1129,45 +1151,57 @@ export class BuiltInAgent extends AbstractAgent {
             AGUISendStateSnapshot: createVercelAISDKTool({
               description:
                 "Replace the entire application state with a new snapshot",
-              inputSchema: z.object({
-                snapshot: z.any().describe("The complete new state object"),
-              }),
-              execute: async ({ snapshot }) => {
+              inputSchema: toLanguageModelSchema(
+                z.object({
+                  snapshot: z.any().describe("The complete new state object"),
+                }),
+              ),
+              execute: async ({ snapshot }: { snapshot?: unknown }) => {
                 return { success: true, snapshot };
               },
             }),
             AGUISendStateDelta: createVercelAISDKTool({
               description:
                 "Apply incremental updates to application state using JSON Patch operations",
-              inputSchema: z.object({
-                delta: z
-                  .array(
-                    z.object({
-                      op: z
-                        .enum(["add", "replace", "remove"])
-                        .describe("The operation to perform"),
-                      path: z
-                        .string()
-                        .describe("JSON Pointer path (e.g., '/foo/bar')"),
-                      value: z
-                        .any()
-                        .optional()
-                        .describe(
-                          "The value to set. Required for 'add' and 'replace' operations, ignored for 'remove'.",
-                        ),
-                    }),
-                  )
-                  .describe("Array of JSON Patch operations"),
-              }),
-              execute: async ({ delta }) => {
+              inputSchema: toLanguageModelSchema(
+                z.object({
+                  delta: z
+                    .array(
+                      z.object({
+                        op: z
+                          .enum(["add", "replace", "remove"])
+                          .describe("The operation to perform"),
+                        path: z
+                          .string()
+                          .describe("JSON Pointer path (e.g., '/foo/bar')"),
+                        value: z
+                          .any()
+                          .optional()
+                          .describe(
+                            "The value to set. Required for 'add' and 'replace' operations, ignored for 'remove'.",
+                          ),
+                      }),
+                    )
+                    .describe("Array of JSON Patch operations"),
+                }),
+              ),
+              execute: async ({
+                delta,
+              }: {
+                delta: {
+                  op: "add" | "replace" | "remove";
+                  path: string;
+                  value?: unknown;
+                }[];
+              }) => {
                 return { success: true, delta };
               },
             }),
           };
 
           // Merge tools from user-managed MCP clients (user controls lifecycle)
-          if (this.config.mcpClients && this.config.mcpClients.length > 0) {
-            for (const client of this.config.mcpClients) {
+          if (config.mcpClients && config.mcpClients.length > 0) {
+            for (const client of config.mcpClients) {
               const mcpTools = await client.tools();
               streamTextParams.tools = {
                 ...streamTextParams.tools,
@@ -1179,7 +1213,7 @@ export class BuiltInAgent extends AbstractAgent {
           // Initialize MCP clients and get their tools from
           // `config.mcpServers` — the user-supplied static array.
           const allMcpServers: MCPClientConfig[] = [
-            ...(this.config.mcpServers ?? []),
+            ...(config.mcpServers ?? []),
           ];
           if (allMcpServers.length > 0) {
             for (const serverConfig of allMcpServers) {
@@ -1440,11 +1474,17 @@ export class BuiltInAgent extends AbstractAgent {
               }
 
               case "tool-result": {
+                // AI SDK tool-result uses "output"; older versions used
+                // "result" (which current typings no longer declare) — check both
+                const legacyPart = part as {
+                  output?: unknown;
+                  result?: unknown;
+                };
                 const toolResult =
                   "output" in part
                     ? part.output
-                    : "result" in part
-                      ? part.result
+                    : "result" in legacyPart
+                      ? legacyPart.result
                       : null;
                 const toolName = "toolName" in part ? part.toolName : "";
                 toolCallStates.delete(part.toolCallId);
@@ -1515,7 +1555,12 @@ export class BuiltInAgent extends AbstractAgent {
                 if (abortController.signal.aborted) {
                   break;
                 }
-                const err = part.error ?? part.message ?? part.cause;
+                // Current typings only declare `error`; older stream shapes
+                // also carried `message`/`cause`.
+                const err =
+                  part.error ??
+                  ("message" in part ? part.message : undefined) ??
+                  ("cause" in part ? part.cause : undefined);
                 const runErrorEvent: RunErrorEvent = {
                   type: EventType.RUN_ERROR,
                   message:

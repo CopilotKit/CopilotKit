@@ -18,6 +18,7 @@ import { lambdaClient } from "@copilotkit/shared";
 
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime } from "../core/runtime";
+import type { AgentRunner } from "../runner/agent-runner";
 
 const TOKEN = `header.${Buffer.from('{"telemetry_id":"abc-123"}').toString(
   "base64url",
@@ -39,7 +40,8 @@ function makeSseRunner() {
       }),
     connect: () => of({}),
     stop: async () => true,
-  };
+    isRunning: async () => false,
+  } as unknown as AgentRunner;
 }
 
 describe("SSE license env fallback → telemetry sink (integration)", () => {

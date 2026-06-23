@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CopilotKitCore } from "../core";
-import { Suggestion } from "../types";
+import type { Suggestion } from "../types";
 import {
   MockAgent,
   createSuggestionsConfig,
@@ -147,7 +147,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       const addMessageCalls = providerAgent.addMessage.mock.calls;
       expect(addMessageCalls.length).toBeGreaterThan(0);
 
-      const promptMessage = addMessageCalls[0][0];
+      const promptMessage = addMessageCalls[0]![0];
       expect(promptMessage.role).toBe("user");
       expect(promptMessage.content).toContain("copilotkitSuggest");
       expect(promptMessage.content).toContain("at least 2");
@@ -416,7 +416,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
       // Find the update with suggestions (skip empty initial updates)
       const streamingUpdate = suggestionUpdates.find(
-        (update) => update.length > 0 && update[0].isLoading === true,
+        (update) => update.length > 0 && update[0]?.isLoading === true,
       );
       expect(streamingUpdate).toBeDefined();
       expect(streamingUpdate![0]).toMatchObject({
@@ -427,12 +427,12 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
       // After finalization, isLoading should be false
       await vi.waitFor(() => {
-        const lastUpdate = suggestionUpdates[suggestionUpdates.length - 1];
+        const lastUpdate = suggestionUpdates[suggestionUpdates.length - 1]!;
         expect(lastUpdate.length).toBeGreaterThan(0);
-        expect(lastUpdate[0].isLoading).toBe(false);
+        expect(lastUpdate[0]!.isLoading).toBe(false);
       });
 
-      const finalUpdate = suggestionUpdates[suggestionUpdates.length - 1];
+      const finalUpdate = suggestionUpdates[suggestionUpdates.length - 1]!;
       expect(finalUpdate[0]).toMatchObject({
         title: "First",
         message: "First action",
@@ -493,8 +493,8 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
       const result = copilotKitCore.getSuggestions("consumer");
       expect(result.suggestions).toHaveLength(2);
-      expect(result.suggestions[0].title).toBe("First");
-      expect(result.suggestions[1].title).toBe("Second");
+      expect(result.suggestions[0]!.title).toBe("First");
+      expect(result.suggestions[1]!.title).toBe("Second");
     });
   });
 
@@ -816,7 +816,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
         expect(providerAgent.addMessage).toHaveBeenCalled();
       });
 
-      const promptMessage = providerAgent.addMessage.mock.calls[0][0];
+      const promptMessage = providerAgent.addMessage.mock.calls[0]![0];
       expect(promptMessage.content).toContain("searchTool");
       expect(promptMessage.content).toContain("analyzeTool");
     });
@@ -1667,12 +1667,8 @@ describe("CopilotKitCore - Suggestions E2E", () => {
 
       copilotKitCore.addSuggestionsConfig({
         suggestions: [
-          {
-            title: "Start Here",
-            message: "Begin your journey",
-            isLoading: false,
-          },
-          { title: "Learn More", message: "Get information", isLoading: false },
+          { title: "Start Here", message: "Begin your journey" },
+          { title: "Learn More", message: "Get information" },
         ],
         consumerAgentId: "consumer",
         available: "before-first-message",
@@ -1703,9 +1699,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
 
       copilotKitCore.addSuggestionsConfig({
-        suggestions: [
-          { title: "Next Step", message: "Continue", isLoading: false },
-        ],
+        suggestions: [{ title: "Next Step", message: "Continue" }],
         consumerAgentId: "consumer",
         available: "after-first-message",
       });
@@ -1734,9 +1728,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
 
       copilotKitCore.addSuggestionsConfig({
-        suggestions: [
-          { title: "Persistent", message: "Always here", isLoading: false },
-        ],
+        suggestions: [{ title: "Persistent", message: "Always here" }],
         consumerAgentId: "consumer",
         available: "always",
       });
@@ -1764,9 +1756,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
 
       copilotKitCore.addSuggestionsConfig({
-        suggestions: [
-          { title: "Hidden", message: "Should not appear", isLoading: false },
-        ],
+        suggestions: [{ title: "Hidden", message: "Should not appear" }],
         consumerAgentId: "consumer",
         available: "disabled",
       });
@@ -1787,13 +1777,7 @@ describe("CopilotKitCore - Suggestions E2E", () => {
       });
 
       copilotKitCore.addSuggestionsConfig({
-        suggestions: [
-          {
-            title: "Default Static",
-            message: "Default behavior",
-            isLoading: false,
-          },
-        ],
+        suggestions: [{ title: "Default Static", message: "Default behavior" }],
         consumerAgentId: "consumer",
         // No 'available' specified
       });

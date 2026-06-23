@@ -188,7 +188,7 @@ describe("CopilotKitCore error handling", () => {
 
     it("emits RUNTIME_INFO_FETCH_FAILED when runtime info sync fails", async () => {
       const fetchMock = vi.fn().mockRejectedValue(new Error("network failure"));
-      global.fetch = fetchMock;
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       const core = new CopilotKitCore({
         runtimeUrl: "https://runtime.example/rest",
@@ -215,7 +215,7 @@ describe("CopilotKitCore error handling", () => {
     it("emits AGENT_RUN_FAILED when proxied runtime agent run fails (REST)", async () => {
       const runtimeUrl = "https://runtime.example/rest";
       const fetchMock = vi.fn().mockRejectedValue(new Error("fetch failure"));
-      global.fetch = fetchMock;
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       const core = new CopilotKitCore({});
       const errors: Array<{
@@ -247,7 +247,7 @@ describe("CopilotKitCore error handling", () => {
     it("connectAgent emits AGENT_CONNECT_FAILED and resolves (does not throw)", async () => {
       const runtimeUrl = "https://runtime.example/rest";
       const fetchMock = vi.fn().mockRejectedValue(new Error("connect failure"));
-      global.fetch = fetchMock;
+      global.fetch = fetchMock as unknown as typeof fetch;
 
       const core = new CopilotKitCore({});
       const errors: Array<{
