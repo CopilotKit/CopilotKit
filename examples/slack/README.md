@@ -1,17 +1,19 @@
-# bot-example — on-call triage assistant (Slack, Discord &/or Telegram)
+# bot-example — on-call triage assistant (Slack, Discord, Telegram &/or WhatsApp)
 
 A runnable demo for [`@copilotkit/bot-slack`](../../packages/bot-slack),
-[`@copilotkit/bot-discord`](../../packages/bot-discord), **and**
-[`@copilotkit/bot-telegram`](../../packages/bot-telegram): an on-call triage bot
+[`@copilotkit/bot-discord`](../../packages/bot-discord),
+[`@copilotkit/bot-telegram`](../../packages/bot-telegram), **and**
+[`@copilotkit/bot-whatsapp`](../../packages/bot-whatsapp): an on-call triage bot
 that turns incident chatter into tracked work. It's built with
 [`@copilotkit/bot`](../../packages/bot) (the platform-agnostic bot core), one or
 more platform adapters, and [`@copilotkit/bot-ui`](../../packages/bot-ui) (a
 cross-platform JSX vocabulary for rich messages).
 
-**One app, any platform — or several at once.** `createBot` takes an array of
+**One app, any platform — or all at once.** `createBot` takes an array of
 adapters; `app/index.ts` includes the Slack adapter when `SLACK_*` secrets are
-present, the Discord adapter when `DISCORD_*` are present, and the Telegram
-adapter when `TELEGRAM_BOT_TOKEN` is present. Everything else in `app/` (tools,
+present, the Discord adapter when `DISCORD_*` are present, the Telegram adapter
+when `TELEGRAM_BOT_TOKEN` is present, and the WhatsApp adapter when `WHATSAPP_*`
+are present. Everything else in `app/` (tools,
 components, the `confirm_write` HITL gate, chart/diagram/table rendering) is
 platform-agnostic and shared verbatim — set the secrets for whichever
 platform(s) you want and run the same process. It connects to **Linear** and
@@ -398,6 +400,26 @@ one).
 > ranges in `package.json` with the published versions (e.g.
 > `@copilotkit/bot-slack: ^0.0.3`) — `workspace:*` only resolves inside this
 > monorepo.
+
+### WhatsApp (inbound webhook, needs a public domain)
+
+Slack and Discord are outbound (Socket Mode / gateway) and need no public
+ingress. WhatsApp is different: it adds an inbound webhook HTTP server on
+`$PORT`, so the bot service needs a public URL. To enable it on the deployed
+bot service (Railway):
+
+1. Generate a public domain on the **bot** service (Settings → Networking).
+   Railway routes it to `$PORT`, which the WhatsApp adapter listens on.
+2. Set `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`,
+   `WHATSAPP_VERIFY_TOKEN` on the bot service (use a System User token — the
+   temporary one expires in 24h). The `runtime` service is unchanged.
+3. In the Meta app → WhatsApp → Configuration: Callback URL
+   `https://<bot-domain>/webhook`, Verify Token = `WHATSAPP_VERIFY_TOKEN`,
+   subscribe to the `messages` field.
+
+Health check: `GET https://<bot-domain>/` returns `ok`. Chart/diagram tools use
+the same headless browser the Slack/Discord paths already run; their PNGs go
+out as WhatsApp images via the media upload.
 
 ## Tests
 

@@ -49,6 +49,19 @@ export const EARLY_ACCESS_GATES = {
       darkSrc: "/images/slack-bot-generative-ui-dark.png",
     },
   },
+  whatsapp: {
+    storageKey: "shell-docs-early-access:whatsapp",
+    password: "earlyaccess",
+    eyebrow: "Early access",
+    title: "WhatsApp is in early access",
+    description: [
+      "The WhatsApp docs are behind a password while WhatsApp support is in early access.",
+      "CopilotKit for WhatsApp turns your agent into a WhatsApp bot over the Cloud API: buffered replies, calling tools, and rendering interactive reply-button and list messages.",
+    ],
+    requestPrompt: "Don't have the password?",
+    requestLinkLabel: "Reach out to request early access to WhatsApp",
+    requestUrl: "https://go.copilotkit.ai/beyond-the-web-form",
+  },
   teams: {
     storageKey: "shell-docs-early-access:microsoft-teams",
     password: "earlyaccess",

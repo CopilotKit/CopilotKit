@@ -46,6 +46,11 @@
       "packages": ["@copilotkit/bot-telegram"],
       "versionSource": "@copilotkit/bot-telegram",
       "sharedVersion": false
+    },
+    "bot-whatsapp": {
+      "packages": ["@copilotkit/bot-whatsapp"],
+      "versionSource": "@copilotkit/bot-whatsapp",
+      "sharedVersion": false
     }
   }
 }

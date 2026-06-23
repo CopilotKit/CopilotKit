@@ -27,7 +27,10 @@ export const appCommands: BotCommand[] = [
         await thread.post("Usage: `/agent <your question>`");
         return;
       }
-      await thread.runAgent({ prompt: text, context: senderContext(user) });
+      await thread.runAgent({
+        prompt: text,
+        context: senderContext(user, thread.platform),
+      });
     },
   }),
 
@@ -41,7 +44,10 @@ export const appCommands: BotCommand[] = [
       const prompt = text
         ? `Triage this and propose Linear issues to file: ${text}`
         : "Triage the current conversation: summarize it and propose Linear issues to file.";
-      await thread.runAgent({ prompt, context: senderContext(user) });
+      await thread.runAgent({
+        prompt,
+        context: senderContext(user, thread.platform),
+      });
     },
   }),
 ];
