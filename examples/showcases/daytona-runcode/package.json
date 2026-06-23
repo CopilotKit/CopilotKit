@@ -7,8 +7,8 @@
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.58.0",
-    "@copilotkit/runtime": "1.58.0",
+    "@copilotkit/react-core": "1.60.1",
+    "@copilotkit/runtime": "1.60.1",
     "@daytonaio/sdk": "latest",
     "@types/node": "^22.10.5",
     "@types/react": "^18.3.18",
