@@ -163,6 +163,27 @@ export async function stepsStateFromArgs(
   return { steps: cleaned };
 }
 
+/** write_document → { document } (shared-state-streaming live document).
+ *
+ *  Mirrors langgraph-python's StateStreamingMiddleware target: the full
+ *  document string lands in `state.document`. Strands updates state from the
+ *  complete tool args (not per-token), which the d5 probe tolerates — it only
+ *  asserts the document grew substantively after settle, not mid-stream
+ *  chunking. */
+export async function documentStateFromArgs(
+  ctx: ToolCallContext,
+): Promise<StatePayload | null> {
+  const input = parseToolInput(ctx.toolInput);
+  let document: unknown;
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    document = (input as Record<string, unknown>).document;
+  } else if (typeof input === "string") {
+    document = input;
+  }
+  if (typeof document !== "string" || document.length === 0) return null;
+  return { document };
+}
+
 // ---- sub-agents (delegation log) -----------------------------------------
 
 interface Delegation {

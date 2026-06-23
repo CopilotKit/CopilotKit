@@ -142,6 +142,18 @@ export const setSteps = tool({
   callback: ({ steps }) => `Published ${steps.length} step(s).`,
 });
 
+export const writeDocument = tool({
+  name: "write_document",
+  description:
+    "Write a document for the user. Call this whenever the user asks you to write, draft, or revise any piece of text (a poem, email, essay, summary, etc.). Pass the FULL content as a single string in the `document` argument — the document lives in shared state and the UI renders it live; never paste it into a chat message.",
+  inputSchema: z.object({
+    document: z
+      .string()
+      .describe("The full document content as a single string."),
+  }),
+  callback: () => "Document written to shared state.",
+});
+
 // ---- Sub-agents ----------------------------------------------------------
 
 const SUBAGENT_SYSTEM_PROMPTS: Record<string, string> = {
@@ -240,6 +252,7 @@ export const SHOWCASE_TOOLS = [
   setThemeColor,
   setNotes,
   setSteps,
+  writeDocument,
   researchAgent,
   writingAgent,
   critiqueAgent,
