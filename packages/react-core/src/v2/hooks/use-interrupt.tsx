@@ -5,7 +5,11 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import { buildResumeArray, isInterruptExpired, randomUUID } from "@ag-ui/client";
+import {
+  buildResumeArray,
+  isInterruptExpired,
+  randomUUID,
+} from "@ag-ui/client";
 import type { Interrupt, Message, RunAgentResult } from "@ag-ui/client";
 import { useCopilotKit } from "../context";
 import { useAgent } from "./use-agent";

@@ -899,7 +899,11 @@ describe("useInterrupt", () => {
       expect(runAgentMock).toHaveBeenCalledWith({
         agent: mockAgent,
         resume: [
-          { interruptId: "int-1", status: "resolved", payload: { approved: true } },
+          {
+            interruptId: "int-1",
+            status: "resolved",
+            payload: { approved: true },
+          },
         ],
       });
     });

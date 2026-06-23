@@ -838,7 +838,9 @@ describe("BuiltInAgent factory native approval interrupts", () => {
       { interruptId: "tc-2", status: "cancelled" },
     ];
     await collectEvents(agent.run(createDefaultInput({ resume })));
-    const toolMsgs = captured!.messages.filter((m) => m.role === "tool") as any[];
+    const toolMsgs = captured!.messages.filter(
+      (m) => m.role === "tool",
+    ) as any[];
     expect(toolMsgs.map((m) => m.toolCallId)).toEqual(["tc-1", "tc-2"]);
     expect(toolMsgs[0].content).toContain("approved");
     expect(toolMsgs[1].content).toContain("cancelled");

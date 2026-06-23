@@ -1806,7 +1806,9 @@ export class BuiltInAgent extends AbstractAgent {
           .filter((id): id is string => typeof id === "string"),
       );
       const resumeToolMessages: Message[] = (input.resume ?? [])
-        .filter((entry: ResumeEntry) => !answeredToolCallIds.has(entry.interruptId))
+        .filter(
+          (entry: ResumeEntry) => !answeredToolCallIds.has(entry.interruptId),
+        )
         .map(
           (entry: ResumeEntry): Message => ({
             id: randomUUID(),
