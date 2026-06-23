@@ -357,7 +357,7 @@ describe("useThreads", () => {
     );
   });
 
-  it("does not fetch when connected runtime omits thread endpoint info", async () => {
+  it("uses legacy thread behavior when connected runtime omits thread endpoint info", async () => {
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {
         runtimeUrl: "http://localhost:4000",
@@ -370,6 +370,7 @@ describe("useThreads", () => {
         unregisterThreadStore: vi.fn(),
       },
     });
+    fetchMock.mockReturnValueOnce(jsonResponse({ threads: sampleThreads }));
 
     const { result } = renderHook(() => useThreads(defaultInput));
 
@@ -377,11 +378,15 @@ describe("useThreads", () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(result.current.threads).toEqual([]);
-    expect(result.current.error?.message).toBe(
-      "Thread endpoints are not available on this CopilotKit runtime",
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/threads?agentId=agent-1"),
+      expect.objectContaining({ method: "GET" }),
     );
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "t-2",
+      "t-1",
+    ]);
+    expect(result.current.error).toBeNull();
   });
 
   it("rejects mutations locally when the runtime reports mutations are unsupported", async () => {

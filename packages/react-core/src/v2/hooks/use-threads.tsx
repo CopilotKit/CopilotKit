@@ -213,9 +213,10 @@ export function useThreads({
     );
   }, [copilotkit.headers]);
   const runtimeStatus = copilotkit.runtimeConnectionStatus;
-  const threadListEndpointSupported = copilotkit.threadEndpoints?.list === true;
+  const threadListEndpointSupported =
+    copilotkit.threadEndpoints?.list !== false;
   const threadMutationsSupported =
-    copilotkit.threadEndpoints?.mutations === true;
+    copilotkit.threadEndpoints?.mutations !== false;
   const threadEndpointsUnavailable =
     !!copilotkit.runtimeUrl &&
     runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected &&

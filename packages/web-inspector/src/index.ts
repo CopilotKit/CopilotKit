@@ -2587,7 +2587,7 @@ export class WebInspectorElement extends LitElement {
     if (this.core?.getThreadStore(agentId)) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
-    if (core.threadEndpoints?.list !== true) return;
+    if (core.threadEndpoints?.list === false) return;
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
@@ -2661,7 +2661,7 @@ export class WebInspectorElement extends LitElement {
             maybeShowDisclosure();
           }
           this.flushPendingBannerViewed();
-          if (core.threadEndpoints?.list === true) {
+          if (core.threadEndpoints?.list !== false) {
             for (const agentId of this._ownedThreadStores.keys()) {
               this.refreshOwnedThreadStore(agentId);
             }
@@ -5885,7 +5885,7 @@ ${argsString}</pre
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
                   .threadInspectionAvailable=${
-                    this._core?.threadEndpoints?.inspect === true
+                    this._core?.threadEndpoints?.inspect !== false
                   }
                   .liveMessageVersion=${
                     this.selectedThreadId
