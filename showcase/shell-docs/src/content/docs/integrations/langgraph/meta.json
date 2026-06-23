@@ -6,6 +6,7 @@
     "cli",
     "---Basics---",
     "prebuilt-components",
+    "threads",
     "custom-look-and-feel",
     "programmatic-control",
     "---Generative UI---",
