@@ -4,7 +4,7 @@
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
     "created": "2026-05-21",
-    "_divergence": "langgraph-python chains the two tool legs of each pill by toolCallId; Strands mints UUID tool_call_ids and the probe runs 3 pills in ONE thread, so toolCallId and hasToolResult gating both break. Each pill's 2-tool chain is sequenced with a per-userMessage sequenceIndex counter (seq0 -> tool1, seq1 -> tool2, seq2 -> final content), id- and thread-history-invariant (same pattern as built-in-agent/frontend-tools). Reasoning rides the tool legs exactly as before."
+    "_divergence": "langgraph-python chains the two tool legs of each pill by toolCallId; Strands mints UUID tool_call_ids and the probe runs 3 pills in ONE thread, so toolCallId and hasToolResult gating both break. Each pill's 2-tool chain is sequenced with a per-userMessage sequenceIndex counter (seq0 -> tool1, seq1 -> tool2, seq2 -> final content), id- and thread-history-invariant (same pattern as built-in-agent/frontend-tools). Each tool leg intentionally carries BOTH reasoning and a short narration content alongside its toolCalls: on the Strands TS adapter the reasoning-block (reasoningMessage slot) mounts reliably only when the tool-call turn also streams narration content, which keeps the assistant bubble alive through the reasoning render. This is the one place this suite carries content+toolCalls together — a Strands-specific exception to the general 'split text from tool calls' fixture rule."
   },
   "fixtures": [
     {
@@ -16,6 +16,7 @@
       },
       "response": {
         "reasoning": "The user asked to compare AAPL and MSFT. I'll fetch AAPL first, then MSFT, then summarize the deltas in a single sentence so the comparison is the punchline.",
+        "content": "Pulling the AAPL quote first.",
         "toolCalls": [
           {
             "id": "call_rc_stock_aapl_001",
@@ -34,6 +35,7 @@
       },
       "response": {
         "reasoning": "AAPL quote is in hand. The user explicitly asked to compare AAPL with MSFT, so I'll fetch MSFT next and then summarize the side-by-side.",
+        "content": "Now pulling MSFT to complete the comparison.",
         "toolCalls": [
           {
             "id": "call_rc_stock_msft_001",
@@ -62,6 +64,7 @@
       },
       "response": {
         "reasoning": "The user asked for a d20 roll and wants to compare it against a smaller die. I'll roll the d20 first, then chain a smaller die so the contrast in possible-value ranges is concrete and observable.",
+        "content": "Rolling the d20 now.",
         "toolCalls": [
           {
             "id": "call_rc_dice_d20_001",
@@ -80,6 +83,7 @@
       },
       "response": {
         "reasoning": "Got the d20 result. The user explicitly asked to compare it to a smaller die — a d6 is a natural choice because its 1-6 range is what most people picture when they think 'die'. Rolling that next.",
+        "content": "Now rolling a d6 for contrast.",
         "toolCalls": [
           {
             "id": "call_rc_dice_d6_001",
@@ -108,6 +112,7 @@
       },
       "response": {
         "reasoning": "The user wants flights from SFO to JFK AND the destination weather. I'll call search_flights first, then chain get_weather on JFK so they have flight options and arrival conditions in one reply.",
+        "content": "Searching SFO→JFK flights.",
         "toolCalls": [
           {
             "id": "call_rc_flights_jfk_001",
@@ -126,6 +131,7 @@
       },
       "response": {
         "reasoning": "Flights are in hand. The user explicitly asked for the destination weather as part of the request, so pulling JFK weather next to round out the trip plan.",
+        "content": "Pulling JFK weather to round out the trip plan.",
         "toolCalls": [
           {
             "id": "call_rc_weather_jfk_001",

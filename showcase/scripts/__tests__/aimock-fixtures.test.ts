@@ -313,7 +313,15 @@ describe("fixture collision detection", () => {
     // (its per-integration fixtures mirror the Python strands sibling —
     // calculator + tool-rendering pill variants), runtime-disambiguated by
     // toolCallId / toolName / turnIndex like the other per-integration copies.
-    const KNOWN_SHADOW_CEILING = 137;
+    // Bumped 137→139: +2 benign shadows (one per strands/strands-typescript
+    // context) from re-keying the get_weather pills to sequenceIndex when
+    // dropping stopStreamingAfterResult — tool-rendering's "weather in Tokyo"
+    // is now a substring of gen-ui-headless-complete's "What's the weather in
+    // Tokyo" and both emit the same get_weather(Tokyo) call at sequenceIndex 0.
+    // The responses are runtime-identical (same tool, same args), so whichever
+    // wins by load order renders the same weather card — no behavioral
+    // collision (both cells pass D6).
+    const KNOWN_SHADOW_CEILING = 139;
 
     const shadows: string[] = [];
 
