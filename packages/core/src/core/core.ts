@@ -292,6 +292,7 @@ export interface CopilotKitCoreFriendsAccess {
     handler: (subscriber: CopilotKitCoreSubscriber) => void | Promise<void>,
     errorMessage: string,
   ): Promise<void>;
+  getSubscribersSnapshot(): CopilotKitCoreSubscriber[];
 
   emitError(params: {
     error: Error;
@@ -435,10 +436,10 @@ export class CopilotKitCore {
             !currentAgentIds.has(agentId)
           ) {
             try {
-              this.threadStoreRegistry.unregister(agentId);
+              this.threadStoreRegistry.unregisterAll(agentId);
             } catch (err) {
               console.error(
-                `CopilotKitCore.onAgentsChanged: threadStoreRegistry.unregister failed for "${agentId}":`,
+                `CopilotKitCore.onAgentsChanged: threadStoreRegistry.unregisterAll failed for "${agentId}":`,
                 err,
               );
             }
@@ -485,6 +486,14 @@ export class CopilotKitCore {
         }
       }),
     );
+  }
+
+  /**
+   * Internal method used by delegate classes that need to capture notification
+   * recipients at mutation time but invoke them later.
+   */
+  protected getSubscribersSnapshot(): CopilotKitCoreSubscriber[] {
+    return Array.from(this.subscribers);
   }
 
   /**

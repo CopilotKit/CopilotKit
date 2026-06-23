@@ -81,6 +81,8 @@ export class CopilotKit {
   readonly runtimeTransport = this.#runtimeTransport.asReadonly();
   readonly #headers = signal<Record<string, string>>({});
   readonly headers = this.#headers.asReadonly();
+  readonly #credentials = signal<RequestCredentials | undefined>(undefined);
+  readonly credentials = this.#credentials.asReadonly();
   readonly #intelligence = signal<IntelligenceRuntimeInfo | undefined>(
     undefined,
   );
@@ -97,6 +99,7 @@ export class CopilotKit {
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
     headers: this.#config.headers,
+    credentials: this.#config.credentials,
     properties: this.#config.properties,
     agents__unsafe_dev_only: {
       ...this.#config.agents,
@@ -157,6 +160,7 @@ export class CopilotKit {
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
     this.#headers.set(this.core.headers);
+    this.#credentials.set(this.core.credentials);
     this.#intelligence.set(this.core.intelligence);
     this.#threadEndpoints.set(this.core.threadEndpoints);
     this.#config.renderToolCalls?.forEach((renderConfig) => {

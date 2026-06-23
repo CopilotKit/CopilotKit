@@ -43,6 +43,7 @@ interface MockSocketLike {
 interface RegisteredThreadStoreLike {
   getState(): {
     context: {
+      credentials?: RequestCredentials;
       threadEndpoints?: unknown;
     } | null;
   };
@@ -418,6 +419,33 @@ describe("useThreads", () => {
       "t-1",
     ]);
     expect(result.current.error).toBeNull();
+  });
+
+  it("passes provider credentials into the shared thread store context", async () => {
+    const registerThreadStore = vi.fn();
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        credentials: "include",
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: undefined,
+        registerThreadStore,
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+    fetchMock.mockReturnValueOnce(jsonResponse({ threads: sampleThreads }));
+
+    renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      const store = registerThreadStore.mock.calls[0]?.[1] as
+        | RegisteredThreadStoreLike
+        | undefined;
+      expect(store?.getState().context?.credentials).toBe("include");
+    });
   });
 
   it("rejects mutations when the runtime reports mutations are unsupported", async () => {

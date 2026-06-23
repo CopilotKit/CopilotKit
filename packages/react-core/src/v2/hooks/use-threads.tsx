@@ -257,6 +257,7 @@ export function useThreads({
     return {
       runtimeUrl: copilotkit.runtimeUrl,
       headers,
+      credentials: copilotkit.credentials,
       wsUrl: copilotkit.intelligence?.wsUrl,
       agentId,
       includeArchived,
@@ -267,6 +268,7 @@ export function useThreads({
     copilotkit.runtimeUrl,
     runtimeStatus,
     headers,
+    copilotkit.credentials,
     copilotkit.intelligence?.wsUrl,
     agentId,
     includeArchived,
@@ -282,6 +284,7 @@ export function useThreads({
         includeArchived: includeArchived ?? null,
         limit: limit ?? null,
         headers: headersKey,
+        credentials: copilotkit.credentials ?? null,
         threadEndpoints: threadEndpoints ?? null,
       }),
     [
@@ -291,6 +294,7 @@ export function useThreads({
       includeArchived,
       limit,
       headersKey,
+      copilotkit.credentials,
       threadEndpoints,
     ],
   );

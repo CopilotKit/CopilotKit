@@ -27,6 +27,7 @@ export interface A2UIConfig {
 export interface CopilotKitConfig {
   runtimeUrl?: string;
   headers?: Record<string, string>;
+  credentials?: RequestCredentials;
   licenseKey?: string;
   properties?: Record<string, unknown>;
   agents?: Record<string, AbstractAgent>;

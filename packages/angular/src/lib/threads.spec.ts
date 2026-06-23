@@ -134,6 +134,8 @@ class CopilotKitStub {
     Authorization: "token",
   });
   readonly headers = this.#headers.asReadonly();
+  readonly #credentials = signal<RequestCredentials | undefined>(undefined);
+  readonly credentials = this.#credentials.asReadonly();
   readonly #intelligence = signal<{ wsUrl: string } | undefined>({
     wsUrl: "wss://runtime.local/client",
   });
@@ -166,6 +168,10 @@ class CopilotKitStub {
 
   setHeaders(headers: Record<string, string>) {
     this.#headers.set(headers);
+  }
+
+  setCredentials(credentials: RequestCredentials | undefined) {
+    this.#credentials.set(credentials);
   }
 
   setIntelligence(intelligence: { wsUrl: string } | undefined) {
@@ -226,6 +232,7 @@ describe("injectThreads", () => {
     expect(store.setContext).toHaveBeenLastCalledWith({
       runtimeUrl: "https://runtime.local",
       headers: { Authorization: "token" },
+      credentials: undefined,
       wsUrl: "wss://runtime.local/client",
       agentId: "agent-1",
       includeArchived: true,
@@ -284,6 +291,21 @@ describe("injectThreads", () => {
     expect(store.context).toEqual(
       expect.objectContaining({ agentId: "agent-2" }),
     );
+  });
+
+  it("passes configured credentials into the shared thread store context", () => {
+    copilotKitStub.setCredentials("include");
+
+    @Component({ standalone: true, template: "" })
+    class Host {
+      threadsResult = injectThreads({ agentId: "agent-1" });
+    }
+
+    const fixture = TestBed.createComponent(Host);
+    fixture.detectChanges();
+
+    expect(store.context?.credentials).toBe("include");
+    expect(fixture.componentInstance.threadsResult.error()).toBeNull();
   });
 
   it("returns read fields as Angular signals with the public thread shape", () => {

@@ -32,6 +32,12 @@ function makeStore(id = "store"): ɵThreadStore & { __testId: string } {
   return Object.assign(store, { __testId: id });
 }
 
+async function flushNotifications(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 describe("CopilotKitCore — onAgentsChanged auto-unregister", () => {
   it("unregisters a thread store when its agent is removed from agents", async () => {
     // Start with agent-1 registered. Add a thread store for it. Then remove
@@ -57,8 +63,7 @@ describe("CopilotKitCore — onAgentsChanged auto-unregister", () => {
     // WAS in the previous snapshot, so the auto-unregister must fire here.
     core.removeAgent__unsafe_dev_only("agent-1");
     // Subscriber notification is fire-and-forget; flush microtasks.
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(core.getThreadStore("agent-1")).toBeUndefined();
     expect(onUnregistered).toHaveBeenCalledWith(
@@ -87,8 +92,7 @@ describe("CopilotKitCore — onAgentsChanged auto-unregister", () => {
     // setAgents__unsafe_dev_only({}) — this models the initial empty-agents
     // notification a published core receives before its agents are merged in.
     core.setAgents__unsafe_dev_only({});
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushNotifications();
 
     // The store must survive — agent-1 was never in the previous snapshot,
     // so there is no transition from "had" to "missing" and nothing to
@@ -115,10 +119,41 @@ describe("CopilotKitCore — onAgentsChanged auto-unregister", () => {
     });
 
     core.removeAgent__unsafe_dev_only("agent-1");
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(core.getThreadStore("agent-1")).toBeUndefined();
     expect(onUnregistered).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears every stacked same-agent store when the agent is removed", async () => {
+    const agent1 = new MockAgent({ agentId: "agent-1" });
+    const core = new CopilotKitCore({
+      agents__unsafe_dev_only: { "agent-1": agent1 as never },
+    });
+
+    const first = makeStore("first-store");
+    const second = makeStore("second-store");
+    core.registerThreadStore("agent-1", first);
+    core.registerThreadStore("agent-1", second);
+    expect(core.getThreadStore("agent-1")).toBe(second);
+
+    const onRegistered = vi.fn();
+    const onUnregistered = vi.fn();
+    core.subscribe({
+      onThreadStoreRegistered: onRegistered,
+      onThreadStoreUnregistered: onUnregistered,
+    });
+
+    core.removeAgent__unsafe_dev_only("agent-1");
+    await flushNotifications();
+
+    expect(core.getThreadStore("agent-1")).toBeUndefined();
+    expect(onRegistered).not.toHaveBeenCalled();
+    expect(onUnregistered).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: "agent-1", prevStore: second }),
+    );
+    expect(onUnregistered).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: "agent-1", prevStore: first }),
+    );
   });
 });

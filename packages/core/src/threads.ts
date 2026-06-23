@@ -70,6 +70,7 @@ interface ThreadRecord {
 interface ThreadRuntimeContext {
   runtimeUrl: string;
   headers: Record<string, string>;
+  credentials?: RequestCredentials;
   wsUrl?: string;
   agentId: string;
   includeArchived?: boolean;
@@ -113,10 +114,19 @@ interface MutationRequest {
   path: string;
   method: "PATCH" | "POST" | "DELETE";
   body: Record<string, unknown>;
+  success: Extract<MutationOutcome, { ok: true }>;
 }
 
 type MutationOutcome =
-  | { requestId: string; ok: true }
+  | {
+      requestId: string;
+      ok: true;
+      operation: "rename";
+      threadId: string;
+      name: string;
+    }
+  | { requestId: string; ok: true; operation: "archive"; threadId: string }
+  | { requestId: string; ok: true; operation: "delete"; threadId: string }
   | { requestId: string; ok: false; error: Error };
 
 interface ThreadEnvironment {
@@ -154,11 +164,23 @@ const threadAdapterEvents = createActionGroup("Thread Adapter", {
   fetchNextPageRequested: empty(),
   renameRequested: props<{
     requestId: string;
+    sessionId: number;
+    context: ThreadRuntimeContext | null;
     threadId: string;
     name: string;
   }>(),
-  archiveRequested: props<{ requestId: string; threadId: string }>(),
-  deleteRequested: props<{ requestId: string; threadId: string }>(),
+  archiveRequested: props<{
+    requestId: string;
+    sessionId: number;
+    context: ThreadRuntimeContext | null;
+    threadId: string;
+  }>(),
+  deleteRequested: props<{
+    requestId: string;
+    sessionId: number;
+    context: ThreadRuntimeContext | null;
+    threadId: string;
+  }>(),
 });
 
 const threadRestEvents = createActionGroup("Thread REST", {
@@ -284,6 +306,37 @@ function upsertThread(
   const next = [...threads];
   next[existingIndex] = thread;
   return sortThreadsByRecency(next);
+}
+
+function applyMutationSuccess(
+  state: ThreadState,
+  outcome: Extract<MutationOutcome, { ok: true }>,
+): ThreadRecord[] {
+  if (outcome.operation === "delete") {
+    return state.threads.filter((thread) => thread.id !== outcome.threadId);
+  }
+
+  if (outcome.operation === "archive" && !state.context?.includeArchived) {
+    return state.threads.filter((thread) => thread.id !== outcome.threadId);
+  }
+
+  return state.threads.map((thread) => {
+    if (thread.id !== outcome.threadId) {
+      return thread;
+    }
+
+    if (outcome.operation === "rename") {
+      return {
+        ...thread,
+        name: outcome.name,
+      };
+    }
+
+    return {
+      ...thread,
+      archived: true,
+    };
+  });
 }
 
 function getThreadListContextError(
@@ -428,6 +481,7 @@ const threadReducer = createReducer<ThreadState>(
         threads: merged,
         isFetchingNextPage: false,
         nextCursor,
+        error: null,
       };
     },
   ),
@@ -491,7 +545,10 @@ const threadReducer = createReducer<ThreadState>(
 
       return {
         ...state,
-        error: outcome.ok ? state.error : outcome.error,
+        threads: outcome.ok
+          ? applyMutationSuccess(state, outcome)
+          : state.threads,
+        error: outcome.ok ? null : outcome.error,
       };
     },
   ),
@@ -592,6 +649,7 @@ function createThreadFetchObservable(
       {
         method: "GET",
         headers: { ...context.headers },
+        credentials: context.credentials,
       },
       (response) => {
         if (!response.ok) {
@@ -648,6 +706,7 @@ function createThreadMetadataCredentialsObservable(
           ...context.headers,
           "Content-Type": "application/json",
         },
+        credentials: context.credentials,
         body: JSON.stringify({}),
       },
       async (response) => {
@@ -703,6 +762,7 @@ function createThreadMutationObservable(
           ...context.headers,
           "Content-Type": "application/json",
         },
+        credentials: context.credentials,
         body: JSON.stringify(request.body),
       },
       async (response) => {
@@ -722,10 +782,7 @@ function createThreadMutationObservable(
       map(() =>
         threadRestEvents.mutationFinished({
           sessionId: request.sessionId,
-          outcome: {
-            requestId: request.requestId,
-            ok: true,
-          },
+          outcome: request.success,
         }),
       ),
       catchError((error) => {
@@ -1019,6 +1076,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
             {
               method: "GET",
               headers: { ...context.headers },
+              credentials: context.credentials,
             },
             (response) => {
               if (!response.ok) {
@@ -1066,7 +1124,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
   );
 
   const mutationEffect = createEffect<ThreadState, AnyAction, AnyAction>(
-    (actions$: Observable<AnyAction>, state$: Observable<ThreadState>) =>
+    (actions$: Observable<AnyAction>) =>
       actions$.pipe(
         ofType(
           threadAdapterEvents.renameRequested,
@@ -1074,15 +1132,14 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           threadAdapterEvents.deleteRequested,
         ),
         map((action) => action as MutationRequestedAction),
-        withLatestFrom(state$),
-        mergeMap(([action, state]) => {
-          const context = state.context;
+        mergeMap((action) => {
+          const context = action.context;
           const contextError = getThreadMutationContextError(context);
           if (contextError) {
             const requestId = action.requestId;
             return of(
               threadRestEvents.mutationFinished({
-                sessionId: state.sessionId,
+                sessionId: action.sessionId,
                 outcome: {
                   requestId,
                   ok: false,
@@ -1103,11 +1160,18 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               mutationContext,
               {
                 requestId: action.requestId,
-                sessionId: state.sessionId,
+                sessionId: action.sessionId,
                 method: "PATCH",
                 path: `/threads/${encodeURIComponent(action.threadId)}`,
                 body: {
                   ...commonBody,
+                  name: action.name,
+                },
+                success: {
+                  requestId: action.requestId,
+                  ok: true,
+                  operation: "rename",
+                  threadId: action.threadId,
                   name: action.name,
                 },
               },
@@ -1120,20 +1184,32 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               mutationContext,
               {
                 requestId: action.requestId,
-                sessionId: state.sessionId,
+                sessionId: action.sessionId,
                 method: "POST",
                 path: `/threads/${encodeURIComponent(action.threadId)}/archive`,
                 body: commonBody,
+                success: {
+                  requestId: action.requestId,
+                  ok: true,
+                  operation: "archive",
+                  threadId: action.threadId,
+                },
               },
             );
           }
 
           return createThreadMutationObservable(environment, mutationContext, {
             requestId: action.requestId,
-            sessionId: state.sessionId,
+            sessionId: action.sessionId,
             method: "DELETE",
             path: `/threads/${encodeURIComponent(action.threadId)}`,
             body: commonBody,
+            success: {
+              requestId: action.requestId,
+              ok: true,
+              operation: "delete",
+              threadId: action.threadId,
+            },
           });
         }),
       ),
@@ -1224,26 +1300,35 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       store.dispatch(threadAdapterEvents.fetchNextPageRequested());
     },
     renameThread(threadId: string, name: string): Promise<void> {
+      const { sessionId, context } = store.getState();
       return trackMutation(
         threadAdapterEvents.renameRequested({
           requestId: createThreadRequestId(),
+          sessionId,
+          context,
           threadId,
           name,
         }),
       );
     },
     archiveThread(threadId: string): Promise<void> {
+      const { sessionId, context } = store.getState();
       return trackMutation(
         threadAdapterEvents.archiveRequested({
           requestId: createThreadRequestId(),
+          sessionId,
+          context,
           threadId,
         }),
       );
     },
     deleteThread(threadId: string): Promise<void> {
+      const { sessionId, context } = store.getState();
       return trackMutation(
         threadAdapterEvents.deleteRequested({
           requestId: createThreadRequestId(),
+          sessionId,
+          context,
           threadId,
         }),
       );

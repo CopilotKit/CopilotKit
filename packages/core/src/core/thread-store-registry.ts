@@ -8,6 +8,7 @@ import type {
 export class ThreadStoreRegistry {
   private _stores: Record<string, ɵThreadStore> = {};
   private _storeStacks: Record<string, ɵThreadStore[]> = {};
+  private _notificationQueue: Promise<void> | null = null;
   // Cached frozen snapshot of `_stores`. Invalidated to `null` on every
   // `register`/`unregister` so the next `getAll()` rebuilds it. Stable
   // references between mutations matter for `useSyncExternalStore` consumers
@@ -39,17 +40,15 @@ export class ThreadStoreRegistry {
       const prevStore = this._stores[agentId]!;
       delete this._stores[agentId];
       this._snapshot = null;
-      this.notifyUnregistered(agentId, prevStore).catch((err) => {
-        console.error("ThreadStoreRegistry notifyUnregistered failed:", err);
-      });
+      this.enqueueNotification(
+        this.createUnregisteredNotification(agentId, prevStore),
+      );
     }
 
     stack.push(store);
     this._stores[agentId] = store;
     this._snapshot = null;
-    this.notifyRegistered(agentId, store).catch((err) => {
-      console.error("ThreadStoreRegistry notifyRegistered failed:", err);
-    });
+    this.enqueueNotification(this.createRegisteredNotification(agentId, store));
   }
 
   unregister(agentId: string, store?: ɵThreadStore): void {
@@ -73,17 +72,33 @@ export class ThreadStoreRegistry {
     // Capture before delete for the same reason as `register()` above.
     delete this._stores[agentId];
     this._snapshot = null;
-    this.notifyUnregistered(agentId, removedStore).catch((err) => {
-      console.error("ThreadStoreRegistry notifyUnregistered failed:", err);
-    });
+    this.enqueueNotification(
+      this.createUnregisteredNotification(agentId, removedStore),
+    );
 
     const restoredStore = stack[stack.length - 1];
     if (restoredStore) {
       this._stores[agentId] = restoredStore;
       this._snapshot = null;
-      this.notifyRegistered(agentId, restoredStore).catch((err) => {
-        console.error("ThreadStoreRegistry notifyRegistered failed:", err);
-      });
+      this.enqueueNotification(
+        this.createRegisteredNotification(agentId, restoredStore),
+      );
+    }
+  }
+
+  unregisterAll(agentId: string): void {
+    const stack = this._storeStacks[agentId];
+    if (!stack || stack.length === 0) return;
+
+    const removedStores = [...stack].toReversed();
+    delete this._storeStacks[agentId];
+    delete this._stores[agentId];
+    this._snapshot = null;
+
+    for (const removedStore of removedStores) {
+      this.enqueueNotification(
+        this.createUnregisteredNotification(agentId, removedStore),
+      );
     }
   }
 
@@ -105,37 +120,79 @@ export class ThreadStoreRegistry {
     return this._snapshot;
   }
 
-  private async notifyRegistered(
+  private createRegisteredNotification(
     agentId: string,
     store: ɵThreadStore,
-  ): Promise<void> {
-    await (
+  ): () => Promise<void> {
+    const subscribers = this.getSubscriberSnapshot();
+    return () =>
+      this.notifySubscriberSnapshot(
+        subscribers,
+        (subscriber: CopilotKitCoreSubscriber) =>
+          subscriber.onThreadStoreRegistered?.({
+            copilotkit: this.core,
+            agentId,
+            store,
+          }),
+        "Subscriber onThreadStoreRegistered error:",
+      );
+  }
+
+  private createUnregisteredNotification(
+    agentId: string,
+    prevStore: ɵThreadStore,
+  ): () => Promise<void> {
+    const subscribers = this.getSubscriberSnapshot();
+    return () =>
+      this.notifySubscriberSnapshot(
+        subscribers,
+        (subscriber: CopilotKitCoreSubscriber) =>
+          subscriber.onThreadStoreUnregistered?.({
+            copilotkit: this.core,
+            agentId,
+            prevStore,
+          }),
+        "Subscriber onThreadStoreUnregistered error:",
+      );
+  }
+
+  private getSubscriberSnapshot(): CopilotKitCoreSubscriber[] {
+    return (
       this.core as unknown as CopilotKitCoreFriendsAccess
-    ).notifySubscribers(
-      (subscriber: CopilotKitCoreSubscriber) =>
-        subscriber.onThreadStoreRegistered?.({
-          copilotkit: this.core,
-          agentId,
-          store,
-        }),
-      "Subscriber onThreadStoreRegistered error:",
+    ).getSubscribersSnapshot();
+  }
+
+  private async notifySubscriberSnapshot(
+    subscribers: CopilotKitCoreSubscriber[],
+    handler: (subscriber: CopilotKitCoreSubscriber) => void | Promise<void>,
+    errorMessage: string,
+  ): Promise<void> {
+    await Promise.all(
+      subscribers.map(async (subscriber) => {
+        try {
+          await handler(subscriber);
+        } catch (error) {
+          console.error(errorMessage, error);
+        }
+      }),
     );
   }
 
-  private async notifyUnregistered(
-    agentId: string,
-    prevStore: ɵThreadStore,
-  ): Promise<void> {
-    await (
-      this.core as unknown as CopilotKitCoreFriendsAccess
-    ).notifySubscribers(
-      (subscriber: CopilotKitCoreSubscriber) =>
-        subscriber.onThreadStoreUnregistered?.({
-          copilotkit: this.core,
-          agentId,
-          prevStore,
-        }),
-      "Subscriber onThreadStoreUnregistered error:",
-    );
+  private enqueueNotification(callback: () => Promise<void>): void {
+    const run = () => callback();
+    const current = this._notificationQueue
+      ? this._notificationQueue.then(run, run)
+      : run();
+
+    this._notificationQueue = current;
+    void current
+      .catch((err) => {
+        console.error("ThreadStoreRegistry notification failed:", err);
+      })
+      .finally(() => {
+        if (this._notificationQueue === current) {
+          this._notificationQueue = null;
+        }
+      });
   }
 }

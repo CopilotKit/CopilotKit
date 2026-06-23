@@ -13,6 +13,8 @@ function createMockCore() {
   const subscribers = new Set<CopilotKitCoreSubscriber>();
 
   const core = {
+    subscribers,
+    getSubscribersSnapshot: vi.fn(() => Array.from(subscribers)),
     notifySubscribers: vi.fn(
       async (
         fn: (s: CopilotKitCoreSubscriber) => unknown,
@@ -61,6 +63,12 @@ function makeStore(id = "store-a"): ɵThreadStore & { __testId: string } {
   return Object.assign(store, { __testId: id });
 }
 
+async function flushNotifications(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 describe("ThreadStoreRegistry", () => {
   let registry: ThreadStoreRegistry;
   let core: CopilotKitCore;
@@ -100,12 +108,12 @@ describe("ThreadStoreRegistry", () => {
     const first = makeStore("first");
     const second = makeStore("second");
     registry.register("agent-1", first);
-    await Promise.resolve();
+    await flushNotifications();
     expect(onRegistered).toHaveBeenCalledTimes(1);
     expect(onUnregistered).not.toHaveBeenCalled();
 
     registry.register("agent-1", second);
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(registry.get("agent-1")).toBe(second);
     expect(onUnregistered).toHaveBeenCalledTimes(1);
@@ -130,6 +138,48 @@ describe("ThreadStoreRegistry", () => {
     expect(unregisterOrder!).toBeLessThan(secondRegisterOrder!);
   });
 
+  it("waits for async unregister subscribers before notifying replacement registration", async () => {
+    const calls: string[] = [];
+    let finishUnregister: (() => void) | undefined;
+    const subscriber: CopilotKitCoreSubscriber = {
+      onThreadStoreRegistered: ({ store }) => {
+        calls.push(`registered:${(store as { __testId: string }).__testId}`);
+      },
+      onThreadStoreUnregistered: ({ prevStore }) =>
+        new Promise<void>((resolve) => {
+          calls.push(
+            `unregister-start:${(prevStore as { __testId: string }).__testId}`,
+          );
+          finishUnregister = () => {
+            calls.push(
+              `unregister-end:${(prevStore as { __testId: string }).__testId}`,
+            );
+            resolve();
+          };
+        }),
+    };
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe(subscriber);
+
+    registry.register("agent-1", makeStore("first"));
+    await flushNotifications();
+    registry.register("agent-1", makeStore("second"));
+    await flushNotifications();
+
+    expect(calls).toEqual(["registered:first", "unregister-start:first"]);
+
+    finishUnregister?.();
+    await flushNotifications();
+
+    expect(calls).toEqual([
+      "registered:first",
+      "unregister-start:first",
+      "unregister-end:first",
+      "registered:second",
+    ]);
+  });
+
   it("restores the previous same-agent store when the active replacement unregisters", async () => {
     const onRegistered = vi.fn();
     const onUnregistered = vi.fn();
@@ -145,11 +195,12 @@ describe("ThreadStoreRegistry", () => {
     const second = makeStore("second");
     registry.register("agent-1", first);
     registry.register("agent-1", second);
+    await flushNotifications();
 
     expect(registry.get("agent-1")).toBe(second);
 
     registry.unregister("agent-1", second);
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(registry.get("agent-1")).toBe(first);
     expect(registry.getAll()["agent-1"]).toBe(first);
@@ -176,9 +227,10 @@ describe("ThreadStoreRegistry", () => {
     const second = makeStore("second");
     registry.register("agent-1", first);
     registry.register("agent-1", second);
+    await flushNotifications();
 
     registry.unregister("agent-1", first);
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(registry.get("agent-1")).toBe(second);
     expect(registry.getAll()["agent-1"]).toBe(second);
@@ -186,11 +238,42 @@ describe("ThreadStoreRegistry", () => {
     expect(onUnregistered).toHaveBeenCalledTimes(1);
 
     registry.unregister("agent-1", second);
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(registry.get("agent-1")).toBeUndefined();
     expect(onUnregistered).toHaveBeenCalledTimes(2);
     expect(onRegistered).toHaveBeenCalledTimes(2);
+  });
+
+  it("unregisterAll clears every same-agent store without restoring an older store", async () => {
+    const onRegistered = vi.fn();
+    const onUnregistered = vi.fn();
+    const subscriber: CopilotKitCoreSubscriber = {
+      onThreadStoreRegistered: onRegistered,
+      onThreadStoreUnregistered: onUnregistered,
+    };
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe(subscriber);
+
+    const first = makeStore("first");
+    const second = makeStore("second");
+    registry.register("agent-1", first);
+    registry.register("agent-1", second);
+    await flushNotifications();
+
+    registry.unregisterAll("agent-1");
+    await flushNotifications();
+
+    expect(registry.get("agent-1")).toBeUndefined();
+    expect(registry.getAll()["agent-1"]).toBeUndefined();
+    expect(onRegistered).toHaveBeenCalledTimes(2);
+    expect(onUnregistered).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: "agent-1", prevStore: second }),
+    );
+    expect(onUnregistered).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: "agent-1", prevStore: first }),
+    );
   });
 
   it("unregister removes the store", () => {
@@ -217,7 +300,7 @@ describe("ThreadStoreRegistry", () => {
     registry.register("agent-1", store);
 
     // notifyRegistered is fire-and-forget (void); flush microtasks
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(onRegistered).toHaveBeenCalledWith(
       expect.objectContaining({ agentId: "agent-1", store }),
@@ -235,9 +318,10 @@ describe("ThreadStoreRegistry", () => {
 
     const store = makeStore();
     registry.register("agent-1", store);
+    await flushNotifications();
     registry.unregister("agent-1");
 
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(onUnregistered).toHaveBeenCalledWith(
       expect.objectContaining({ agentId: "agent-1", prevStore: store }),
@@ -254,7 +338,7 @@ describe("ThreadStoreRegistry", () => {
     ).subscribe(subscriber);
 
     registry.unregister("nonexistent");
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(onUnregistered).not.toHaveBeenCalled();
   });
@@ -299,7 +383,7 @@ describe("ThreadStoreRegistry", () => {
       // retrievable even though one subscriber threw.
       expect(registry.get("agent-1")).toBe(store);
 
-      await Promise.resolve();
+      await flushNotifications();
 
       expect(throwing).toHaveBeenCalledTimes(1);
       expect(ok).toHaveBeenCalledTimes(1);

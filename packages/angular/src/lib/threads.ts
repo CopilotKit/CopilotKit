@@ -133,6 +133,7 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
       headers: Object.entries(copilotkit.headers()).sort(([left], [right]) =>
         left.localeCompare(right),
       ),
+      credentials: copilotkit.credentials() ?? null,
       threadEndpoints: copilotkit.threadEndpoints() ?? null,
     }),
   );
@@ -151,6 +152,7 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
     return {
       runtimeUrl,
       headers: { ...copilotkit.headers() },
+      credentials: copilotkit.credentials(),
       wsUrl: copilotkit.intelligence()?.wsUrl,
       agentId: resolvedAgentId,
       includeArchived: includeArchived(),

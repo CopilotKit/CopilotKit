@@ -545,6 +545,59 @@ describe("thread store", () => {
     expect(ɵselectThreadsError(store.getState())).toBeNull();
   });
 
+  it("passes configured credentials to list, subscribe, pagination, and mutation requests", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+          nextCursor: "cursor-abc",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: [],
+          nextCursor: null,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      credentials: "include",
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+    store.fetchNextPage();
+    await flushEffects();
+    await store.renameThread("thread-1", "Renamed");
+
+    for (const [, init] of fetchMock.mock.calls) {
+      expect(init).toMatchObject({ credentials: "include" });
+    }
+  });
+
   it("sends rename, archive, and delete requests with agentId only", async () => {
     const fetchMock = vi
       .fn()
@@ -847,6 +900,53 @@ describe("thread store", () => {
     expect(ɵselectIsFetchingNextPage(store.getState())).toBe(false);
   });
 
+  it("clears a stale pagination error after a successful fetchMoreThreads retry", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          nextCursor: "cursor-abc",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: [],
+          nextCursor: null,
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+    store.fetchNextPage();
+    await flushEffects();
+
+    expect(ɵselectThreadsError(store.getState())?.message).toContain("500");
+
+    store.fetchNextPage();
+    await flushEffects();
+
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+    expect(ɵselectIsFetchingNextPage(store.getState())).toBe(false);
+  });
+
   it("does not fetch more threads when no next cursor is available", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce({
       ok: true,
@@ -966,6 +1066,110 @@ describe("thread store", () => {
     expect(ɵselectThreadsError(store.getState())?.message).toBe(
       "Thread mutations are not available on this CopilotKit runtime",
     );
+  });
+
+  it("captures mutation context before synchronous context changes", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: [
+            {
+              ...sampleThreads[0],
+              id: "thread-agent-2",
+              agentId: "agent-2",
+            },
+          ],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+
+    const mutation = store.renameThread("thread-1", "Renamed");
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      agentId: "agent-2",
+    });
+
+    await mutation;
+    await flushEffects();
+
+    const renameCall = fetchMock.mock.calls.find(
+      ([url, init]) =>
+        url === "https://runtime.example.com/threads/thread-1" &&
+        init?.method === "PATCH",
+    );
+    expect(renameCall).toBeDefined();
+    expect(JSON.parse(renameCall![1].body)).toMatchObject({
+      agentId: "agent-1",
+      name: "Renamed",
+    });
+  });
+
+  it("applies successful mutations locally when realtime metadata is unavailable", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads }),
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      agentId: "agent-1",
+      threadEndpoints: {
+        realtimeMetadata: false,
+      },
+    });
+
+    await flushEffects();
+
+    await store.renameThread("thread-1", "Renamed");
+    expect(ɵselectThreads(store.getState())).toContainEqual(
+      expect.objectContaining({ id: "thread-1", name: "Renamed" }),
+    );
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+
+    await store.archiveThread("thread-1");
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-2"],
+    );
+
+    await store.deleteThread("thread-2");
+    expect(ɵselectThreads(store.getState())).toEqual([]);
   });
 
   it("rejects mutation failures and records the error", async () => {
