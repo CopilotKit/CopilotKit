@@ -176,7 +176,17 @@ jobs:
           # authoritative. CI verify history is a leading indicator only.
           # Run from showcase/scripts (where `npm ci` installed tsx) so npx
           # uses the local install instead of network-fetching it.
-          npx tsx verify-deploy.ts --env staging --services "$SERVICES_CSV"
+          #
+          # --skip-ineligible: SERVICES_CSV is the PROMOTE target set, which
+          # for `service=all` legitimately includes services that are
+          # promotable but NOT staging-probe-eligible (the starter-* fleet
+          # carries probe.staging=false in the SSOT). Those are an expected
+          # state here, not a fault — verify-deploy SKIPS them with a clear
+          # status line and probes only the eligible services, rather than
+          # hard-crashing the whole precondition on the first starter-*. This
+          # flag does NOT relax green for eligible services, nor does it
+          # tolerate an unknown (non-SSOT) name — a typo is still a hard error.
+          npx tsx verify-deploy.ts --env staging --services "$SERVICES_CSV" --skip-ineligible
 
   promote:
     needs: [resolve-targets, verify-staging-precondition]
