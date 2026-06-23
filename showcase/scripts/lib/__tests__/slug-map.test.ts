@@ -24,20 +24,21 @@ const __dirname = path.dirname(__filename);
 const PACKAGES_DIR = path.resolve(__dirname, "..", "..", "..", "integrations");
 
 describe("BORN_IN_SHOWCASE", () => {
-  it("contains the 6 known born-in-showcase slugs", () => {
+  it("contains the 7 known born-in-showcase slugs", () => {
     expect(BORN_IN_SHOWCASE.has("ag2")).toBe(true);
     expect(BORN_IN_SHOWCASE.has("claude-sdk-python")).toBe(true);
     expect(BORN_IN_SHOWCASE.has("claude-sdk-typescript")).toBe(true);
     expect(BORN_IN_SHOWCASE.has("langroid")).toBe(true);
     expect(BORN_IN_SHOWCASE.has("ms-agent-harness-dotnet")).toBe(true);
     expect(BORN_IN_SHOWCASE.has("spring-ai")).toBe(true);
+    expect(BORN_IN_SHOWCASE.has("strands-typescript")).toBe(true);
   });
 
-  it("has exactly 6 entries — guards against accidental additions", () => {
+  it("has exactly 7 entries — guards against accidental additions", () => {
     // Size assertion: if someone adds a new born-in-showcase slug without
     // updating the test above, this pins the cardinality so the addition
     // is caught rather than silently accepted.
-    expect(BORN_IN_SHOWCASE.size).toBe(6);
+    expect(BORN_IN_SHOWCASE.size).toBe(7);
   });
 
   it("is a frozen / immutable ReadonlySet (add throws)", () => {
