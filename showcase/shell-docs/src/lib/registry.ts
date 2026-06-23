@@ -208,6 +208,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "google-adk": "adk",
   "crewai-crews": "crewai-flows",
   strands: "aws-strands",
+  "strands-typescript": "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",
   "ms-agent-python": "microsoft-agent-framework",
 };
@@ -239,6 +240,16 @@ const TAB_DEFAULTS_BY_SLUG: Record<string, Record<string, string>> = {
   "langgraph-fastapi": {
     language_langgraph_agent: "Python",
     deployment_method: "FastAPI",
+  },
+  // strands and strands-typescript share the aws-strands/ docs folder, whose
+  // pages carry Python/TypeScript language tabs (groupId
+  // "language_strands_agent"). Default each framework to its own language so
+  // the TS framework opens on the TS snippets (mirrors the langgraph split).
+  strands: {
+    language_strands_agent: "Python",
+  },
+  "strands-typescript": {
+    language_strands_agent: "TypeScript",
   },
   "ms-agent-dotnet": {
     "language_microsoft-agent-framework_agent": ".NET",
