@@ -72,6 +72,7 @@ not_supported_features:
   - agentic-chat-reasoning
   - tool-rendering-reasoning-chain
 a2ui_pattern: schema-loading
+thread_persistence_pattern: adk-session
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
 demos:
