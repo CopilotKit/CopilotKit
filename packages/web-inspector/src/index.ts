@@ -778,6 +778,7 @@ export class ɵCpkThreadDetails extends LitElement {
    */
   private _stateFetched = false;
   private _lastFetchedThreadId: string | null = null;
+  private _lastFetchedCredentials: RequestCredentials | undefined = undefined;
   private _lastSeenLiveMessageVersion = 0;
   private _messagesAbort: AbortController | null = null;
   private _eventsAbort: AbortController | null = null;
@@ -1398,6 +1399,7 @@ export class ɵCpkThreadDetails extends LitElement {
   updated(_changed: Map<string, unknown>): void {
     if (this.threadId !== this._lastFetchedThreadId) {
       this._lastFetchedThreadId = this.threadId;
+      this._lastFetchedCredentials = this.credentials;
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
       this._tab = "conversation";
       this._activatedTabs = new Set(["conversation"]);
@@ -1427,6 +1429,24 @@ export class ɵCpkThreadDetails extends LitElement {
         void this.fetchMessages(this.threadId);
       } else {
         this._conversation = [];
+      }
+    } else if (
+      this.threadId &&
+      this.credentials !== this._lastFetchedCredentials
+    ) {
+      this._lastFetchedCredentials = this.credentials;
+      this._messagesAbort?.abort();
+      this._messagesAbort = null;
+      this._eventsAbort?.abort();
+      this._eventsAbort = null;
+      this._stateAbort?.abort();
+      this._stateAbort = null;
+      void this.fetchMessages(this.threadId, true);
+      if (this._eventsFetched) {
+        void this.fetchEvents(this.threadId);
+      }
+      if (this._stateFetched) {
+        void this.fetchState(this.threadId);
       }
     } else if (
       this.threadId &&
@@ -2619,7 +2639,13 @@ export class WebInspectorElement extends LitElement {
     if (!store) return;
     const core = this.core;
     if (core?.runtimeUrl) {
-      store.setContext(this.createOwnedThreadStoreContext(core, agentId));
+      const nextContext = this.createOwnedThreadStoreContext(core, agentId);
+      if (
+        !this.isSameThreadStoreContext(store.getState().context, nextContext)
+      ) {
+        store.setContext(nextContext);
+        return;
+      }
     }
     // refresh() re-fetches without resetting threads to [] first, so the list
     // stays visible while new data loads and survives transient fetch failures.
@@ -2655,6 +2681,13 @@ export class WebInspectorElement extends LitElement {
       agentId,
       threadEndpoints: core.threadEndpoints,
     };
+  }
+
+  private isSameThreadStoreContext(
+    current: Parameters<ɵThreadStore["setContext"]>[0] | null | undefined,
+    next: Parameters<ɵThreadStore["setContext"]>[0],
+  ): boolean {
+    return JSON.stringify(current ?? null) === JSON.stringify(next);
   }
 
   private removeOwnedThreadStore(agentId: string): void {
@@ -2710,6 +2743,7 @@ export class WebInspectorElement extends LitElement {
       },
       onCredentialsChanged: () => {
         this.updateOwnedThreadStoreHeaders(core.headers);
+        this.requestUpdate();
       },
       onError: ({ code, error }) => {
         this.lastCoreError = { code, message: error.message };

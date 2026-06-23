@@ -320,6 +320,8 @@ type ThreadDetailsInternals = {
   _loadingMessages: boolean;
   _loadingState: boolean;
   _loadingEvents: boolean;
+  _eventsFetched: boolean;
+  _stateFetched: boolean;
   _panelTplCache: Map<string, { key: readonly unknown[]; tpl: unknown }>;
   credentials?: RequestCredentials;
   fetchMessages: (threadId: string) => Promise<void>;
@@ -439,6 +441,63 @@ describe("ɵCpkThreadDetails caching", () => {
       await internals.fetchState("t1");
 
       expect(fetchSpy).toHaveBeenCalledTimes(3);
+      for (const call of fetchSpy.mock.calls) {
+        expect(credentialsOf(call)).toBe("include");
+      }
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("re-fetches selected thread details when credentials change", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ messages: [] }), { status: 200 }),
+          );
+        }
+        if (url.endsWith("/events")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ events: [] }), { status: 200 }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ state: null }), { status: 200 }),
+        );
+      });
+    try {
+      const { el, internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.threadInspectionAvailable = true;
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(
+          fetchSpy.mock.calls.some((call) =>
+            String(call[0]).endsWith("/messages"),
+          ),
+        ).toBe(true);
+      });
+      await internals.fetchEvents("t1");
+      await internals.fetchState("t1");
+      internals._eventsFetched = true;
+      internals._stateFetched = true;
+      fetchSpy.mockClear();
+
+      internals.credentials = "include";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalledTimes(3);
+      });
+      expect(
+        fetchSpy.mock.calls.map((call) => String(call[0]).split("/").at(-1)),
+      ).toEqual(expect.arrayContaining(["messages", "events", "state"]));
       for (const call of fetchSpy.mock.calls) {
         expect(credentialsOf(call)).toBe("include");
       }
@@ -979,6 +1038,11 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(contextOf(ownedStore)?.credentials).toBeUndefined();
     expect(contextOf(ownedStore)?.wsUrl).toBeUndefined();
 
+    await vi.waitFor(() => {
+      expect(threadListCalls()).toHaveLength(1);
+    });
+    const callsBeforeRefresh = threadListCalls().length;
+
     harness.core.credentials = "include";
     harness.core.intelligence = { wsUrl: "wss://localhost/client" };
     harness.core.threadEndpoints.realtimeMetadata = false;
@@ -990,6 +1054,9 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       credentials: "include",
       wsUrl: "wss://localhost/client",
       threadEndpoints: expect.objectContaining({ realtimeMetadata: false }),
+    });
+    await vi.waitFor(() => {
+      expect(threadListCalls()).toHaveLength(callsBeforeRefresh + 1);
     });
   });
 

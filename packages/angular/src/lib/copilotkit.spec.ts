@@ -478,6 +478,22 @@ describe("CopilotKit", () => {
     expect(copilotKit.credentials()).toBeUndefined();
   });
 
+  it("mirrors direct core credential updates into the Angular signal", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = lastCoreInstance!;
+
+    core.credentials = "include";
+    core.listener!.onCredentialsChanged({
+      credentials: "include",
+    });
+
+    expect(copilotKit.credentials()).toBe("include");
+  });
+
   it("reflects agent updates from core subscriptions", () => {
     TestBed.configureTestingModule({
       providers: [provideCopilotKit({ licenseKey })],

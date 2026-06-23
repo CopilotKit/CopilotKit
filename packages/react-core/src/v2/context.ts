@@ -40,6 +40,9 @@ export const useCopilotKit = (): CopilotKitContextValue => {
       onHeadersChanged: () => {
         forceUpdate();
       },
+      onCredentialsChanged: () => {
+        forceUpdate();
+      },
     });
     return () => {
       subscription.unsubscribe();

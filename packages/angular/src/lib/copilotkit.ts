@@ -203,6 +203,9 @@ export class CopilotKit {
       onHeadersChanged: ({ headers }) => {
         this.#headers.set(headers);
       },
+      onCredentialsChanged: ({ credentials }) => {
+        this.#credentials.set(credentials);
+      },
       onSuggestionsChanged: ({ agentId, suggestions }) => {
         this.#setSuggestions(agentId, {
           suggestions,
