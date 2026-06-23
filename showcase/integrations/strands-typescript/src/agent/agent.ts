@@ -30,6 +30,7 @@ import {
   salesStateFromArgs,
   notesStateFromArgs,
   stepsStateFromArgs,
+  documentStateFromArgs,
   makeSubagentStateFromResult,
 } from "./state";
 import {
@@ -43,9 +44,6 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
   const config: StrandsAgentConfig = {
     stateContextBuilder: buildStatePrompt,
     toolBehaviors: {
-      // The weather card IS the response — halt after the first result so
-      // the model doesn't loop or stream a redundant text summary.
-      get_weather: { stopStreamingAfterResult: true },
       // Sales pipeline lives in shared state; emit the snapshot from args.
       manage_sales_todos: {
         skipMessagesSnapshot: true,
@@ -55,6 +53,8 @@ export async function buildShowcaseAgent(): Promise<StrandsAgent> {
       set_notes: { stateFromArgs: notesStateFromArgs },
       // gen-ui-agent — live progress card driven by set_steps transitions.
       set_steps: { stateFromArgs: stepsStateFromArgs },
+      // shared-state-streaming — stream the document string into state.
+      write_document: { stateFromArgs: documentStateFromArgs },
       // Sub-agents — append a delegation entry carrying the actual output.
       research_agent: {
         stateFromResult: makeSubagentStateFromResult("research_agent"),

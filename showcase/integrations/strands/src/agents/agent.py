@@ -693,6 +693,72 @@ async def notes_state_from_args(context):
     return {"notes": cleaned}
 
 
+# ---- Shared State (Streaming) demo --------------------------------------
+#
+# The shared-state-streaming demo writes a document into ``state["document"]``
+# via a ``write_document`` tool; the frontend subscribes via ``useAgent`` and
+# renders ``state.document`` live. Mirrors langgraph-python's
+# ``StateStreamingMiddleware`` target. Strands updates state from the complete
+# tool args (not per-token), which the d5 probe tolerates — it only asserts the
+# document grew substantively after settle, not mid-stream chunking.
+
+
+@tool
+def write_document(document: str):
+    """Write a document for the user.
+
+    Call this whenever the user asks you to write, draft, or revise any
+    piece of text (a poem, email, essay, summary, etc.). Pass the FULL
+    content as a single string in the ``document`` argument — the document
+    lives in shared state and the UI renders it live; never paste it into a
+    chat message.
+
+    Args:
+        document: The full document content as a single string.
+
+    Returns:
+        Confirmation string for the LLM to summarise back to the user.
+    """
+    return "Document written to shared state."
+
+
+async def document_state_from_args(context):
+    """Emit a StateSnapshotEvent for the ``document`` slot when
+    ``write_document`` fires. Accepts str-or-dict tool input, mirrors
+    ``notes_state_from_args`` shape."""
+    raw_input = getattr(context, "tool_input", None)
+    if raw_input is None:
+        logger.warning("document_state_from_args: context has no tool_input")
+        return None
+
+    tool_input = raw_input
+    if isinstance(tool_input, str):
+        try:
+            tool_input = json.loads(tool_input)
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "document_state_from_args: malformed JSON tool input (%s); input excerpt: %s",
+                exc,
+                repr(raw_input)[:200],
+            )
+            return None
+
+    if isinstance(tool_input, dict):
+        document = tool_input.get("document")
+    elif isinstance(tool_input, str):
+        document = tool_input
+    else:
+        logger.warning(
+            "document_state_from_args: unsupported tool_input type %s",
+            type(tool_input).__name__,
+        )
+        return None
+
+    if not isinstance(document, str) or not document:
+        return None
+    return {"document": document}
+
+
 # ---- Sub-Agents demo ----------------------------------------------------
 #
 # A supervisor LLM (this top-level Strands Agent) delegates to three
@@ -1539,23 +1605,17 @@ def build_showcase_agent(
                 skip_messages_snapshot=True,
                 state_from_args=sales_state_from_args,
             ),
-            # get_weather is used by the tool-rendering demo. The frontend
-            # renders a weather card from the tool result via useRenderTool.
-            # There is no need for the agent to continue streaming a text
-            # summary afterwards -- the card IS the response. Halting after
-            # the first tool result also protects against upstream LLM/mock
-            # loops (e.g. aimock's fuzzy fixture matching on "weather"
-            # returns the same get_weather tool call every turn, which would
-            # otherwise recurse indefinitely).
-            "get_weather": ToolBehavior(
-                stop_streaming_after_result=True,
-            ),
             # Shared State (Read + Write) — the agent writes notes to
             # `state["notes"]` via the `set_notes` tool. Emit a snapshot
             # the moment the tool fires so the UI's NotesCard re-renders
             # without waiting for the full text-response to stream.
             "set_notes": ToolBehavior(
                 state_from_args=notes_state_from_args,
+            ),
+            # Shared State (Streaming) — write_document streams the document
+            # string into state["document"] so the DocumentView renders it.
+            "write_document": ToolBehavior(
+                state_from_args=document_state_from_args,
             ),
             # gen-ui-agent — the planner writes the full step list to
             # `state["steps"]` via `set_steps` on every transition. Emit a
@@ -1597,6 +1657,7 @@ def build_showcase_agent(
             set_theme_color,
             set_notes,
             set_steps,
+            write_document,
             research_agent,
             writing_agent,
             critique_agent,
