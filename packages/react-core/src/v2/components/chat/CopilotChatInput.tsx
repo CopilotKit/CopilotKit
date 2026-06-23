@@ -1130,7 +1130,7 @@ export function CopilotChatInput({
         // must stay still when the banner is present.
         ...(positioning === "absolute" || bottomAnchored
           ? { paddingBottom: "var(--copilotkit-license-banner-offset, 0px)" }
-          : {}),
+          : { paddingBottom: "var(--copilotkit-input-safe-area, 12px)" }),
       }}
       {...props}
     >
