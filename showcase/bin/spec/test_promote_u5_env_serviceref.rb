@@ -177,14 +177,17 @@ class PromoteU5EnvServiceRefTest < Minitest::Test
     # test_snapshot_graphql.rb#test_limit_override_warn_is_unimplementable_via_real_snapshot
     # for the regression guard proving it through the real snapshot path.
 
-    def test_concurrency_env_divergence_warns_not_refuses
+    def test_concurrency_env_divergence_is_advisory_not_refuses
+        # Concurrency knobs (BROWSER_POOL_SIZE) are a RESOURCE/scaling signal,
+        # not a functional contract — divergence is ADVISORY (report-only,
+        # never blocks) per the 2026-06-22 prod↔staging comparison policy.
         c = cmd
         staging = { "services" => [svc("x", "x-stg", "env_keys" => %w[BROWSER_POOL_SIZE])] }
         prod    = { "services" => [svc("x", "x-prod", "env_keys" => [])] }
         findings = c.check_resource_divergence(staging, prod)
-        assert(findings.any? { |f| f.start_with?("WARN") && f =~ /BROWSER_POOL_SIZE/ },
-               "expected WARN for concurrency env divergence, got #{findings.inspect}")
-        assert(findings.none? { |f| f.start_with?("REFUSE") })
+        assert(findings.any? { |f| f.start_with?("ADVISORY") && f =~ /BROWSER_POOL_SIZE/ },
+               "expected ADVISORY for concurrency env divergence, got #{findings.inspect}")
+        assert(findings.none? { |f| f.start_with?("REFUSE") || f.start_with?("WARN") })
     end
 
     private

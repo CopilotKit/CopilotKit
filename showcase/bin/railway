@@ -1311,9 +1311,11 @@ module Railway
                              P3 staging live-green probe, P6 startCommand/
                              healthcheckPath/image-shape parity, service-set
                              parity, critical env-key parity.
-                      WARN: P6 region/replicas/restartPolicy/env-key-set
-                             divergence, missing expected prod custom domains.
-                      IGNORE: env var VALUES, env-scoped URLs, volumes.
+                      ADVISORY (report-only, never blocks): P6 region/replicas/
+                             restartPolicy divergence, concurrency-key presence,
+                             missing expected prod custom domains.
+                      IGNORE: env var KEY set, env var VALUES, env-scoped URLs,
+                             volumes.
 
                       Exit 0 on clean promotion, 1 on refuse/findings, 2 on error.
                 BANNER
@@ -1507,8 +1509,17 @@ module Railway
                  "(intentional — staging and prod hold different secrets/URLs). " \
                  "Only the set of keys is compared."
 
-            refuses = findings.select { |f| f.start_with?("REFUSE") }
-            warns   = findings.select { |f| f.start_with?("WARN") }
+            # Three-tier disposition (2026-06-22 prod↔staging comparison policy):
+            #   REFUSE   — functional-contract violation; blocks unconditionally.
+            #   WARN     — blocks unless --confirm-divergence.
+            #   ADVISORY — operational/env-specific divergence; reported but
+            #              NEVER blocks (region/replicas/restartPolicy, missing
+            #              expected prod domains, concurrency-key presence).
+            refuses   = findings.select { |f| f.start_with?("REFUSE") }
+            warns     = findings.select { |f| f.start_with?("WARN") }
+            advisories = findings.select { |f| f.start_with?("ADVISORY") }
+
+            advisories.each { |f| puts f } unless advisories.empty?
 
             unless refuses.empty?
                 refuses.each { |f| puts f }
@@ -1929,10 +1940,11 @@ module Railway
         end
 
         # P6 — parity matrix.
-        #   REFUSE: startCommand, healthcheckPath, image shape.
-        #   WARN:   region, replicas, restartPolicy, env-var KEY set.
-        #   IGNORE: env-var VALUES (printed as NOTE every run; see
-        #           run_with_preflight_only).
+        #   REFUSE:   startCommand, healthcheckPath, image shape.
+        #   ADVISORY: region, replicas, restartPolicy (report-only, never block).
+        #   IGNORE:   env-var KEY set (dropped — env-specific by default) and
+        #             env-var VALUES (printed as NOTE every run; see
+        #             run_with_preflight_only).
         def check_p6_parity(staging, prod)
             findings = []
             (staging["services"] || []).each do |svc|
@@ -1963,33 +1975,30 @@ module Railway
                                 "prod=#{prod_shape} expected=#{expected_prod_shape})"
                 end
 
-                # WARN — region
+                # ADVISORY — region (operational placement; intentional per-env)
                 if svc["region"] != pmatch["region"]
-                    findings << "WARN: P6 (#{name}): region divergence " \
+                    findings << "ADVISORY: P6 (#{name}): region divergence " \
                                 "(staging=#{svc['region'].inspect} prod=#{pmatch['region'].inspect})"
                 end
 
-                # WARN — replicas
+                # ADVISORY — replicas (capacity scaling; intentional per-env)
                 if svc["replicas"] != pmatch["replicas"]
-                    findings << "WARN: P6 (#{name}): replicas divergence " \
+                    findings << "ADVISORY: P6 (#{name}): replicas divergence " \
                                 "(staging=#{svc['replicas']} prod=#{pmatch['replicas']})"
                 end
 
-                # WARN — restartPolicy
+                # ADVISORY — restartPolicy (operational policy; not artifact behavior)
                 if svc["restart_policy"] != pmatch["restart_policy"]
-                    findings << "WARN: P6 (#{name}): restartPolicy divergence " \
+                    findings << "ADVISORY: P6 (#{name}): restartPolicy divergence " \
                                 "(staging=#{svc['restart_policy'].inspect} prod=#{pmatch['restart_policy'].inspect})"
                 end
 
-                # WARN — env var KEY set
-                staging_keys = (svc["env_keys"] || []).sort
-                prod_keys    = (pmatch["env_keys"] || []).sort
-                if staging_keys != prod_keys
-                    only_staging = staging_keys - prod_keys
-                    only_prod    = prod_keys - staging_keys
-                    findings << "WARN: P6 (#{name}): env key set divergence " \
-                                "(only-in-staging=#{only_staging.inspect} only-in-prod=#{only_prod.inspect})"
-                end
+                # env-var KEY-SET diff intentionally DROPPED (IGNORE tier).
+                # Env vars are environment-specific by default (NODE_ENV,
+                # CVDIAG_*, SHOWCASE_BACKEND_HOST_PATTERN, BROWSER_POOL_*); the
+                # blanket set diff was a false-positive engine. The whitelist
+                # presence assertion (check_critical_env_key_parity) is the sole
+                # env-key gate.
             end
             findings
         end
@@ -2038,6 +2047,11 @@ module Railway
             (staging["services"] || []).each do |svc|
                 pmatch = Railway.find_service(prod, svc["name"])
                 next unless pmatch
+                # Staging-gated: flag a CRITICAL_ENV_KEYS member that staging
+                # carries but prod is missing (a real, fixable divergence).
+                # Infra/operator tokens (RAILWAY_TOKEN, GHCR_TOKEN, SHARED_SECRET,
+                # OPS_TRIGGER_TOKEN, GITHUB_APP_PRIVATE_KEY) live in neither env's
+                # container env_keys and must NOT be demanded of every service.
                 missing = (CRITICAL_ENV_KEYS & (svc["env_keys"] || [])) - (pmatch["env_keys"] || [])
                 findings << "REFUSE: #{svc['name']}: critical env keys missing in prod: #{missing.join(', ')}" unless missing.empty?
             end
@@ -2227,12 +2241,13 @@ module Railway
                 pmatch = Railway.find_service(prod, name)
                 next unless pmatch
 
-                # WARN — concurrency env-var key presence (e.g. BROWSER_POOL_SIZE).
+                # ADVISORY — concurrency env-var key presence (e.g. BROWSER_POOL_SIZE).
+                # Resource/scaling knob, not a functional contract; report-only.
                 staging_keys = svc["env_keys"] || []
                 prod_keys    = pmatch["env_keys"] || []
                 CONCURRENCY_ENV_KEYS.each do |ck|
                     if staging_keys.include?(ck) != prod_keys.include?(ck)
-                        findings << "WARN: §5.4 (#{name}): concurrency env key #{ck} presence diverges " \
+                        findings << "ADVISORY: §5.4 (#{name}): concurrency env key #{ck} presence diverges " \
                                     "(staging=#{staging_keys.include?(ck)} prod=#{prod_keys.include?(ck)}) " \
                                     "[detect-only]"
                     end
@@ -2246,7 +2261,9 @@ module Railway
             actual = (prod["services"] || []).flat_map { |s| s["custom_domains"] || [] }.uniq.sort
             missing = expected - actual
             return [] if missing.empty?
-            ["WARN: production missing expected custom domains: #{missing.join(', ')}"]
+            # ADVISORY: a missing public host is a useful operational signal but
+            # does not affect whether the promoted digest runs correctly.
+            ["ADVISORY: production missing expected custom domains: #{missing.join(', ')}"]
         end
 
         def execute_promotion(staging, prod)
