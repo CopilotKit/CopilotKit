@@ -1,0 +1,242 @@
+---
+title: "injectThreads"
+description: "Angular function that lists and manages CopilotKit thread history as signals for @copilotkit/angular."
+---
+
+## Overview
+
+`injectThreads` returns an Angular signal-based thread history store for one agent. Use it to list previous conversations, load additional pages, rename threads, archive threads, and delete threads from Angular components or services.
+
+Call it from an Angular injection context, such as a field initializer or constructor. The helper creates a thread store for the current injector scope and cleans it up automatically when that scope is destroyed.
+
+<Callout type="warn">
+  Thread history requires CopilotKit Enterprise Intelligence with thread endpoints available from your runtime. When the runtime does not advertise thread history support, the returned `error` signal reports that thread listing or mutation is not supported.
+</Callout>
+
+<Callout type="info">
+  `injectThreads` does not choose the active chat thread. It only exposes thread history for display and management. Keep active thread selection in your app state and pass the selected thread id to your chat or agent integration separately.
+</Callout>
+
+## Signature
+
+```ts
+import { injectThreads } from "@copilotkit/angular";
+import type { Signal } from "@angular/core";
+
+interface InjectThreadsInput {
+  agentId: string | Signal<string | undefined>;
+  includeArchived?: boolean | Signal<boolean | undefined>;
+  limit?: number | Signal<number | undefined>;
+}
+
+interface Thread {
+  id: string;
+  agentId: string;
+  name: string | null;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastRunAt?: string;
+}
+
+interface InjectThreadsResult {
+  threads: Signal<Thread[]>;
+  isLoading: Signal<boolean>;
+  error: Signal<Error | null>;
+  hasMoreThreads: Signal<boolean>;
+  isFetchingMoreThreads: Signal<boolean>;
+  fetchMoreThreads: () => void;
+  renameThread: (threadId: string, name: string) => Promise<void>;
+  archiveThread: (threadId: string) => Promise<void>;
+  deleteThread: (threadId: string) => Promise<void>;
+}
+
+function injectThreads(input: InjectThreadsInput): InjectThreadsResult;
+```
+
+## Parameters
+
+<PropertyReference name="input" type="InjectThreadsInput" required>
+  Thread history query settings. Each setting can be a plain value or an Angular signal.
+
+  <PropertyReference name="agentId" type="string | Signal<string | undefined>" required>
+    Agent id whose threads should be listed. Pass a signal to switch the thread list reactively when the selected agent changes. When the resolved value is `undefined`, no thread query is dispatched.
+  </PropertyReference>
+
+  <PropertyReference name="includeArchived" type="boolean | Signal<boolean | undefined>">
+    Whether archived threads should be included. When omitted, the runtime default is used.
+  </PropertyReference>
+
+  <PropertyReference name="limit" type="number | Signal<number | undefined>">
+    Maximum number of threads to request per page. When omitted, the runtime default is used.
+  </PropertyReference>
+</PropertyReference>
+
+## Return Value
+
+<PropertyReference name="threads" type="Signal<Thread[]>">
+  The current page of threads for the resolved agent. Read it with `threads()`. Each `Thread` includes id, agent id, display name, archive status, creation and update timestamps, and `lastRunAt` when the runtime provides it.
+</PropertyReference>
+
+<PropertyReference name="isLoading" type="Signal<boolean>">
+  `true` while the initial thread request is waiting on runtime connection or loading data.
+</PropertyReference>
+
+<PropertyReference name="error" type="Signal<Error | null>">
+  The current runtime or thread-store error. This is set when the runtime URL is missing, thread listing is not supported by the runtime, or a thread request fails.
+</PropertyReference>
+
+<PropertyReference name="hasMoreThreads" type="Signal<boolean>">
+  `true` when another page of threads is available.
+</PropertyReference>
+
+<PropertyReference name="isFetchingMoreThreads" type="Signal<boolean>">
+  `true` while `fetchMoreThreads()` is loading the next page.
+</PropertyReference>
+
+<PropertyReference name="fetchMoreThreads" type="() => void">
+  Loads the next page when `hasMoreThreads()` is `true`. Calling it while a page is already loading is ignored.
+</PropertyReference>
+
+<PropertyReference name="renameThread" type="(threadId: string, name: string) => Promise<void>">
+  Renames a thread through the runtime thread mutation endpoint.
+</PropertyReference>
+
+<PropertyReference name="archiveThread" type="(threadId: string) => Promise<void>">
+  Archives a thread through the runtime thread mutation endpoint.
+</PropertyReference>
+
+<PropertyReference name="deleteThread" type="(threadId: string) => Promise<void>">
+  Deletes a thread through the runtime thread mutation endpoint.
+</PropertyReference>
+
+## Usage
+
+### Listing Threads
+
+```ts title="src/app/thread-list.component.ts"
+import { Component } from "@angular/core";
+import { injectThreads } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-thread-list",
+  standalone: true,
+  template: `
+    @if (threads.error(); as error) {
+      <p>{{ error.message }}</p>
+    } @else if (threads.isLoading()) {
+      <p>Loading threads...</p>
+    } @else {
+      <ul>
+        @for (thread of threads.threads(); track thread.id) {
+          <li>
+            <button type="button" (click)="selectThread(thread.id)">
+              {{ thread.name ?? "Untitled thread" }}
+            </button>
+          </li>
+        }
+      </ul>
+
+      @if (threads.hasMoreThreads()) {
+        <button
+          type="button"
+          [disabled]="threads.isFetchingMoreThreads()"
+          (click)="threads.fetchMoreThreads()"
+        >
+          Load more
+        </button>
+      }
+    }
+  `,
+})
+export class ThreadListComponent {
+  readonly threads = injectThreads({ agentId: "support" });
+
+  selectThread(threadId: string) {
+    // Store the selected thread id in app state and pass it to your chat integration.
+  }
+}
+```
+
+### Reactive Query Options
+
+```ts title="src/app/thread-history.component.ts"
+import { Component, signal } from "@angular/core";
+import { injectThreads } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-thread-history",
+  standalone: true,
+  template: `
+    <button type="button" (click)="includeArchived.update((value) => !value)">
+      Toggle archived
+    </button>
+
+    @for (thread of threadHistory.threads(); track thread.id) {
+      <div>{{ thread.name ?? thread.id }}</div>
+    }
+  `,
+})
+export class ThreadHistoryComponent {
+  readonly agentId = signal<string | undefined>("support");
+  readonly includeArchived = signal(false);
+
+  readonly threadHistory = injectThreads({
+    agentId: this.agentId,
+    includeArchived: this.includeArchived,
+    limit: 20,
+  });
+}
+```
+
+### Mutating Threads
+
+```ts title="src/app/thread-actions.component.ts"
+import { Component } from "@angular/core";
+import { injectThreads } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-thread-actions",
+  standalone: true,
+  template: `
+    @for (thread of threads.threads(); track thread.id) {
+      <div>
+        <span>{{ thread.name ?? "Untitled thread" }}</span>
+        <button type="button" (click)="rename(thread.id)">Rename</button>
+        <button type="button" (click)="threads.archiveThread(thread.id)">Archive</button>
+        <button type="button" (click)="threads.deleteThread(thread.id)">Delete</button>
+      </div>
+    }
+  `,
+})
+export class ThreadActionsComponent {
+  readonly threads = injectThreads({ agentId: "support", includeArchived: true });
+
+  rename(threadId: string) {
+    void this.threads.renameThread(threadId, "Follow-up conversation");
+  }
+}
+```
+
+## Behavior
+
+- **Runtime-backed.** Thread data comes from your CopilotKit runtime and requires Enterprise Intelligence thread endpoints.
+- **Reactive inputs.** When `agentId`, `includeArchived`, or `limit` is a signal, the store refreshes when that signal changes.
+- **Connection-aware loading.** The initial `isLoading` signal remains `true` until the runtime is connected and the first thread request settles.
+- **Automatic cleanup.** The underlying thread store subscription stops when the owning Angular injector scope is destroyed.
+- **Shared semantics.** The Angular helper uses the same core thread store as React's `useThreads()`, so pagination, mutation, and error behavior match across frontends.
+
+## Related
+
+<Cards>
+  <Card
+    title="CopilotKit service"
+    description="The Angular service that exposes runtime connection state and agents."
+    href="/reference/angular/services/CopilotKit"
+  />
+  <Card
+    title="injectAgentStore"
+    description="Subscribe to an AG-UI agent and read its messages, state, and run status."
+    href="/reference/angular/functions/injectAgentStore"
+  />
+</Cards>
