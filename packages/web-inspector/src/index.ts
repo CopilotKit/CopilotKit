@@ -1441,7 +1441,7 @@ export class ɵCpkThreadDetails extends LitElement {
       this._eventsAbort = null;
       this._stateAbort?.abort();
       this._stateAbort = null;
-      void this.fetchMessages(this.threadId, true);
+      void this.fetchMessages(this.threadId);
       if (this._eventsFetched) {
         void this.fetchEvents(this.threadId);
       }

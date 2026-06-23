@@ -151,7 +151,7 @@ function ThreadList() {
 - Thread creates, renames, archives, and deletes from any client are reflected immediately without polling.
 - All mutation methods use **pessimistic updates**: the UI updates after the server confirms the REST mutation, not immediately on dispatch. Realtime metadata events reconcile cross-client updates when available. Promises resolve on confirmation (15-second timeout) and reject on failure.
 - The `error` state updates with the most recent error from any operation.
-- The `threads` array stays sorted by `updatedAt` descending (most recent first).
+- The `threads` array stays sorted by `lastRunAt` descending, with `updatedAt` and `createdAt` fallbacks for threads that have not run yet.
 - New threads are **automatically named** by the LLM after their first run (a short title of 2 to 5 words). This is configurable via `generateThreadNames` on the runtime.
 
 ## Next steps

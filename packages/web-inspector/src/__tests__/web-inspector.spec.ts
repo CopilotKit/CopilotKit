@@ -311,6 +311,7 @@ type ThreadDetailsInternals = {
   threadInspectionAvailable: boolean;
   liveMessageVersion: number;
   _conversation: Array<Record<string, unknown>>;
+  _messagesError: string | null;
   _fetchedState: Record<string, unknown> | null;
   _fetchedEvents: Array<unknown> | null;
   _expandedTools: Set<string>;
@@ -501,6 +502,126 @@ describe("ɵCpkThreadDetails caching", () => {
       for (const call of fetchSpy.mock.calls) {
         expect(credentialsOf(call)).toBe("include");
       }
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("clears a stale message error when credential refresh succeeds", async () => {
+    let messageFetches = 0;
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          messageFetches += 1;
+          if (messageFetches === 1) {
+            return Promise.resolve(
+              new Response(JSON.stringify({ error: "unauthorized" }), {
+                status: 401,
+              }),
+            );
+          }
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                messages: [
+                  {
+                    id: "m1",
+                    role: "user",
+                    content: "Recovered",
+                  },
+                ],
+              }),
+              { status: 200 },
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ events: [] }), { status: 200 }),
+        );
+      });
+    try {
+      const { el, internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.threadInspectionAvailable = true;
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(internals._messagesError).toBe("HTTP 401");
+      });
+
+      internals.credentials = "include";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(messageFetches).toBe(2);
+        expect(internals._messagesError).toBeNull();
+        expect(internals._conversation).toHaveLength(1);
+      });
+      expect(credentialsOf(fetchSpy.mock.calls[1])).toBe("include");
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("clears the previous conversation when credential refresh fails", async () => {
+    let messageFetches = 0;
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          messageFetches += 1;
+          if (messageFetches === 1) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  messages: [
+                    {
+                      id: "m1",
+                      role: "user",
+                      content: "Old credentials",
+                    },
+                  ],
+                }),
+                { status: 200 },
+              ),
+            );
+          }
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: "unauthorized" }), {
+              status: 401,
+            }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ events: [] }), { status: 200 }),
+        );
+      });
+    try {
+      const { el, internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.threadInspectionAvailable = true;
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(internals._conversation).toHaveLength(1);
+      });
+
+      internals.credentials = "include";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(messageFetches).toBe(2);
+        expect(internals._messagesError).toBe("HTTP 401");
+      });
+      expect(internals._conversation).toHaveLength(0);
+      expect(credentialsOf(fetchSpy.mock.calls[1])).toBe("include");
     } finally {
       fetchSpy.mockRestore();
     }
