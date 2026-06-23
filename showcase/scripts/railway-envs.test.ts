@@ -1230,20 +1230,20 @@ describe("starter-* fleet SSOT entries (S1: promote-closure inclusion)", () => {
     }
   });
 
-  it("every starter exists in BOTH envs with prod probe enabled", () => {
+  it("every starter exists in BOTH envs with prod AND staging probe enabled (always-on)", () => {
     for (const key of STARTER_KEYS) {
       const entry = SERVICES[key];
       expect(Object.keys(entry.environments).sort()).toEqual([
         "prod",
         "staging",
       ]);
-      // prod is probed (they ARE in prod); staging probe deferred to S3
-      // (the starter-smoke axis, not the verify-deploy matrix).
+      // Starters are always-on + staging-probed like every other managed
+      // showcase service: both envs are probed by the verify-deploy baseline
+      // driver (resolve-verify-matrix filters on probe.staging===true, so a
+      // probed starter now enters the staging matrix). The starter-smoke axis
+      // ALSO covers them — orthogonal to the baseline liveness probe here.
       expect(probeEnabled(key, "prod"), `${key} prod probe`).toBe(true);
-      // staging probe OFF — starters never enter the verify-deploy staging
-      // matrix (resolve-verify-matrix filters on probe.staging===true); the
-      // starter-smoke axis owns staging verification (S3).
-      expect(probeEnabled(key, "staging"), `${key} staging probe`).toBe(false);
+      expect(probeEnabled(key, "staging"), `${key} staging probe`).toBe(true);
     }
   });
 

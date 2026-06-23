@@ -115,13 +115,15 @@ export function resolveEnv(name: string): { env: EnvName; envId: string } {
  * - "agent" — generic agent backend (the showcase-* integration services);
  *   feature-level fixture call into the integration's /api endpoint.
  * - "starter" — the starter-template container fleet (`starter-<slug>`).
- *   These are NOT verified by the verify-deploy feature-driver matrix: they
- *   are probed by the harness `starter_smoke` axis (railway-services source,
- *   namePrefix "starter-", writing `starter:<column-slug>/<level>` rows).
- *   verify-deploy.drivers.ts carries a fail-loud placeholder `case "starter"`
- *   purely to satisfy the exhaustive switch; the equivalence gate (S3) reads
- *   this driver to route a starter to the starter-smoke axis. Starters set
- *   staging probe OFF so they never enter the verify-deploy staging matrix.
+ *   Verified by the verify-deploy baseline driver (deployment-SUCCESS +
+ *   HTTP 200 on `/`) in `verify-deploy.drivers.starter.ts`, exactly like the
+ *   Next.js shells — the starters EXPOSE only their Next.js frontend (serving
+ *   `/` + `/api/copilotkit`, NO `/api/health`), so `/` is the only correct
+ *   healthcheck. Starters are always-on + staging-probed, so they enter the
+ *   verify-deploy staging matrix like every other managed showcase service.
+ *   (They are ALSO covered by the harness `starter_smoke` axis — railway-
+ *   services source, namePrefix "starter-", writing `starter:<column-slug>/
+ *   <level>` rows — which is orthogonal to the baseline liveness probe here.)
  */
 export type ProbeDriver =
   | "shell"
@@ -1168,17 +1170,17 @@ export const SERVICES: Record<
   //   - bin/railway lint-prod now COVERS these prod services (asserts they are
   //                        @sha256-pinned).
   //
-  // probeDriver "starter": the starters are verified by the harness
-  // `starter_smoke` axis, NOT the verify-deploy feature-driver matrix. The
-  // `starter_smoke` probe auto-discovers `starter-*` services (railway-services
-  // source, namePrefix "starter-") and writes `starter:<column-slug>/<level>`
-  // rows. prod probe ON (they ARE in prod); staging probe OFF so they do NOT
-  // enter the verify-deploy staging matrix (resolve-verify-matrix filters on
-  // probe.staging===true). The "starter" ProbeDriver is the S3 CONTRACT field:
-  // S3 wires the equivalence gate to READ this driver and route these entries
-  // to the starter-smoke axis (verify-deploy.drivers.ts has a placeholder
-  // `case "starter"` that fails loud if dispatched, since verify-deploy is not
-  // the starter verification path).
+  // probeDriver "starter": the starters are verified by the verify-deploy
+  // baseline driver (deployment-SUCCESS + HTTP 200 on `/`) in
+  // verify-deploy.drivers.starter.ts, exactly like the Next.js shells. They
+  // are always-on + staging-probed (prod probe ON and staging probe ON), so
+  // resolve-verify-matrix routes them through the verify-deploy staging matrix
+  // (which filters on probe.staging===true) like every other managed showcase
+  // service. The starters are ALSO auto-discovered by the harness
+  // `starter_smoke` axis (railway-services source, namePrefix "starter-",
+  // writing `starter:<column-slug>/<level>` rows) — orthogonal to the baseline
+  // liveness probe here. The "starter" ProbeDriver is the contract field the
+  // dispatch switch keys on to route a starter target to probeStarter.
   //
   // runtimeDeps/serviceRefs mirror the showcase-* agents: each starter routes
   // its LLM traffic at the env-local aimock (tier-0), so a cluster promote
@@ -1202,7 +1204,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "208a160a-0d7d-44b2-a94d-39e13b24e21a",
         domain: "starter-adk-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },
@@ -1224,7 +1226,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "9944eb97-7f58-47f8-a49d-65603e209609",
         domain: "starter-agno-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },
@@ -1246,7 +1248,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "820895fb-f65c-4834-a07d-d454035d39c4",
         domain: "starter-crewai-crews-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },
@@ -1268,7 +1270,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "5f10e976-e121-48a5-bc18-2619798f2f10",
         domain: "starter-langgraph-fastapi-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },
@@ -1290,7 +1292,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "43db83fe-fafb-445b-a19a-51bb086c71b9",
         domain: "starter-langgraph-js-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },
@@ -1312,7 +1314,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "58105e79-4020-4692-8749-c1a63ab63f2c",
         domain: "starter-langgraph-python-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },
@@ -1334,7 +1336,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "44446803-0505-456a-b0c4-01fe82fb3832",
         domain: "starter-llamaindex-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },
@@ -1356,7 +1358,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "b246e52d-52d8-4015-bb06-89bd09d54f8f",
         domain: "starter-mastra-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },
@@ -1378,7 +1380,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "6684c246-e8fd-45a7-86e4-c529a439976f",
         domain: "starter-ms-agent-framework-dotnet-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },
@@ -1400,7 +1402,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "a162348a-f768-4c3f-815c-f617819f64e6",
         domain: "starter-ms-agent-framework-python-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },
@@ -1422,7 +1424,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "25f4eb93-501a-4e5e-b7cf-343eb08ea613",
         domain: "starter-pydantic-ai-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },
@@ -1444,7 +1446,7 @@ export const SERVICES: Record<
       staging: {
         instanceId: "adc24096-584a-4ef3-93de-0bc92d49235c",
         domain: "starter-strands-python-staging.up.railway.app",
-        probe: false,
+        probe: true,
       },
     },
   },

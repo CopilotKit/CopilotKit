@@ -38,6 +38,8 @@ import { probeAimock } from "../verify-deploy.drivers.aimock";
 import { probePocketbase } from "../verify-deploy.drivers.pocketbase";
 import { probeWebhooks } from "../verify-deploy.drivers.webhooks";
 import { probeAgent } from "../verify-deploy.drivers.agent";
+import { probeStarter } from "../verify-deploy.drivers.starter";
+import { runDriver } from "../verify-deploy.drivers";
 
 const TOKEN = "tok_test_abcdef";
 
@@ -692,6 +694,17 @@ const DRIVER_CASES: DriverCase[] = [
     enumLiteral: "agent",
     expectedHealthPath: "/api/health",
   },
+  {
+    // The starter-template container fleet (`starter-<slug>`). Starters
+    // EXPOSE only the Next.js frontend (port 3000) which serves `/` and
+    // `/api/copilotkit` but NO `/api/health` — so the baseline driver
+    // healthchecks `/`, exactly like the Next.js shells.
+    label: "starter",
+    driver: probeStarter,
+    service: "starter-adk",
+    enumLiteral: "starter",
+    expectedHealthPath: "/",
+  },
 ];
 
 describe.each(DRIVER_CASES)(
@@ -817,6 +830,43 @@ describe.each(DRIVER_CASES)(
     });
   },
 );
+
+describe("runDriver dispatch: starter is a real baseline driver, not a fail-loud stub", () => {
+  it("routes a driver:'starter' target through the baseline probe (ok on a healthy starter)", async () => {
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("/graphql/v2")) return gqlDeploymentResponse("SUCCESS");
+      return Promise.resolve(mkResponse({ status: 200 }));
+    });
+    await withGlobalSeam(fetchImpl, TOKEN, async () => {
+      const out = await runDriver({
+        name: "starter-adk",
+        host: asHost(domainFor("starter-adk", "staging")),
+        driver: "starter",
+      });
+      expect(out.ok).toBe(true);
+      if (out.ok === false) {
+        // The legacy stub returned this exact phrasing — assert it's gone.
+        expect(out.error).not.toMatch(/is not handled by verify-deploy/);
+      }
+    });
+  });
+
+  it("still fails for a genuinely-down starter (CRASHED deployment)", async () => {
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("/graphql/v2")) return gqlDeploymentResponse("CRASHED");
+      return Promise.resolve(mkResponse({ status: 200 }));
+    });
+    await withGlobalSeam(fetchImpl, TOKEN, async () => {
+      const out = await runDriver({
+        name: "starter-adk",
+        host: asHost(domainFor("starter-adk", "staging")),
+        driver: "starter",
+      });
+      expect(out.ok).toBe(false);
+      if (out.ok === false) expect(out.error).toMatch(/CRASHED/);
+    });
+  });
+});
 
 describe("probeDashboard runtime-config sentinel guard", () => {
   // Build the dashboard `/` HTML carrying the root-layout injection
