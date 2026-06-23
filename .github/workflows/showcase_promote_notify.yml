@@ -122,6 +122,16 @@ jobs:
           succeeded_count=$(jq -r '.succeeded | length' "$R")
           failed_count=$(jq -r '.failed | length' "$R")
 
+          # Comma-separated list of the SUCCEEDED service names, for the ✅
+          # success thread reply. The runtime blob emits .succeeded[] as
+          # {service} objects (see promote-fleet.sh); tolerate bare strings too.
+          succeeded_csv=$(jq -r '[.succeeded[] | if type == "object" then .service else . end] | join(", ")' "$R")
+
+          # GitHub Actions run URL — used by the success message's inline
+          # "View run" link AND by the cross-post branch's permalink fallback.
+          # Computed once here so both render the SAME url.
+          gha_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
           # Sort failed alphabetically by service and split off the
           # truncation-suffix sentinel (if any) so it renders as a
           # trailing "+ K more" line instead of a bullet.
@@ -272,8 +282,8 @@ jobs:
             fi
           elif [ "$failed_real_count" -eq 0 ]; then
             outcome="success"
-            thread_text="✅ *Done in ${elapsed_str}* — ${succeeded_count} ✓ · 0 ✗
-          verify-prod: ✓ all green"
+            thread_text="✅ *Showcase Promoted to Prod* — ${succeeded_count} ✓  ·  <${gha_url}|View run>
+          Services: ${succeeded_csv}"
           elif [ "$succeeded_count" -gt 0 ] && [ "$failed_real_count" -gt 0 ]; then
             outcome="partial"
             thread_text="⚠️ *Done in ${elapsed_str}* — ${succeeded_count} ✓ · ${failed_real_count} ✗
@@ -325,8 +335,9 @@ jobs:
             if [ -n "$permalink" ]; then
               link_suffix="thread: ${permalink}"
             else
-              # No Slack permalink available; link to the GitHub Actions run instead.
-              gha_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+              # No Slack permalink available; link to the GitHub Actions run
+              # instead. gha_url is hoisted in the decode-payload section so the
+              # success message and this fallback share the same URL.
               link_suffix="thread permalink unavailable; see ${gha_url}"
             fi
             case "$outcome" in

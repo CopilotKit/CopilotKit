@@ -90,6 +90,16 @@ failed_real_count=$(jq 'length' /tmp/dry-run-failed-render.json)
 
 total_count=$((succeeded_count + failed_real_count))
 
+# Comma-separated list of the SUCCEEDED service names, for the ✅ success
+# thread reply. The runtime blob emits .succeeded[] as {service} objects (see
+# promote-fleet.sh); tolerate bare strings too (hand-written fixtures use them).
+succeeded_csv=$(jq -r '[.succeeded[] | if type == "object" then .service else . end] | join(", ")' "$R")
+
+# GitHub Actions run URL — used by the success message's inline "View run" link.
+# In CI GITHUB_REPOSITORY/GITHUB_RUN_ID are set; in a bare dry-run they may not
+# be, so fall back to a stable placeholder so the rendered shape still matches.
+gha_url="https://github.com/${GITHUB_REPOSITORY:-CopilotKit/CopilotKit}/actions/runs/${GITHUB_RUN_ID:-<run_id>}"
+
 fmt_elapsed() {
   local total="$1"
   local m=$((total / 60))
@@ -170,8 +180,8 @@ ${fail_bullets}"
   fi
 elif [ "$failed_real_count" -eq 0 ]; then
   outcome="success"
-  thread_text="✅ *Done in ${elapsed_str}* — ${succeeded_count} ✓ · 0 ✗
-verify-prod: ✓ all green"
+  thread_text="✅ *Showcase Promoted to Prod* — ${succeeded_count} ✓  ·  <${gha_url}|View run>
+Services: ${succeeded_csv}"
 elif [ "$succeeded_count" -gt 0 ] && [ "$failed_real_count" -gt 0 ]; then
   outcome="partial"
   thread_text="⚠️ *Done in ${elapsed_str}* — ${succeeded_count} ✓ · ${failed_real_count} ✗
