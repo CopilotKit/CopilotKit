@@ -1,6 +1,7 @@
 import {
   BaseEvent,
   EventType,
+  Interrupt,
   RunAgentInput,
   Message,
   TextMessageChunkEvent,
@@ -230,10 +231,15 @@ export function convertInputToTanStackAI(
  * This is a pure converter — it does NOT emit lifecycle events
  * (RUN_STARTED / RUN_FINISHED / RUN_ERROR). The caller (Agent class)
  * is responsible for those.
+ *
+ * `pendingInterrupts`, when provided, is filled with one AG-UI Interrupt per
+ * CUSTOM "approval-requested" chunk (a tool declared `needsApproval: true`).
+ * The caller turns a non-empty array into a RUN_FINISHED `outcome:interrupt`.
  */
 export async function* convertTanStackStream(
   stream: AsyncIterable<unknown>,
   abortSignal: AbortSignal,
+  pendingInterrupts?: Interrupt[],
 ): AsyncGenerator<BaseEvent> {
   const messageId = randomUUID();
   const toolNamesById = new Map<string, string>();
@@ -280,6 +286,29 @@ export async function* convertTanStackStream(
 
     const raw = chunk as Record<string, unknown>;
     const type = raw.type as string;
+
+    // TanStack native human-in-the-loop: a tool declared `needsApproval: true`
+    // emits a CUSTOM "approval-requested" chunk. These are built from the
+    // finish event and can arrive AROUND RUN_FINISHED, so handle them BEFORE
+    // the run-finished skip below — otherwise ordering could drop the pause.
+    // The tool-call lifecycle was already streamed in the model pass.
+    if (type === "CUSTOM" && raw.name === "approval-requested") {
+      const value = (raw.value ?? {}) as {
+        toolCallId?: string;
+        toolName?: string;
+      };
+      const toolCallId = value.toolCallId;
+      if (toolCallId) {
+        pendingInterrupts?.push({
+          id: toolCallId,
+          toolCallId,
+          reason: "tool_approval",
+          message: value.toolName ? `Approve "${value.toolName}"?` : undefined,
+          ...(value.toolName ? { metadata: { toolName: value.toolName } } : {}),
+        });
+      }
+      continue;
+    }
 
     // Stop converting after the first RUN_FINISHED — any subsequent events
     // come from TanStack's internal tool-execution loop and would produce
