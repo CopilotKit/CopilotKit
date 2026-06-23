@@ -147,7 +147,7 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
         });
         ```
 
-        If you're using Cloud-Hosted Enterprise Intelligence, the CLI writes the hosted platform URLs and project-scoped `INTELLIGENCE_API_KEY` to `.env`. For self-hosted deployments, see [Self-Hosting Enterprise Intelligence](/premium/self-hosting) for the Helm chart install and database configuration.
+        If you're using Cloud-Hosted Enterprise Intelligence, the CLI writes the hosted platform URLs and project-scoped `INTELLIGENCE_API_KEY` to `.env`. For the persistence model behind thread storage, event replay, and realtime sync, see [Threads & Persistence Architecture](/premium/threads-explained). For self-hosted deployments, see [Self-Hosting Enterprise Intelligence](/premium/self-hosting) for the Helm chart install and database configuration.
 
         **Thread lock options:** When an agent run starts, the runtime acquires a lock on the thread to prevent concurrent runs. You can tune this behavior:
 
