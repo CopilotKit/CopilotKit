@@ -2590,7 +2590,7 @@ export class WebInspectorElement extends LitElement {
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: {},
+      headers: { ...core.headers },
       agentId,
     });
     this._ownedThreadStores.set(agentId, store);
@@ -2607,6 +2607,24 @@ export class WebInspectorElement extends LitElement {
     // refresh() re-fetches without resetting threads to [] first, so the list
     // stays visible while new data loads and survives transient fetch failures.
     store.refresh();
+  }
+
+  // Keep inspector-owned thread stores in sync when the host updates headers
+  // at runtime (e.g. a refreshed auth/CSRF token via core.setHeaders). Mirrors
+  // useThreads(), which re-dispatches the context whenever core.headers change,
+  // so the owned stores' /threads requests stay authorized.
+  private updateOwnedThreadStoreHeaders(
+    headers: Readonly<Record<string, string>>,
+  ): void {
+    const core = this.core;
+    if (!core?.runtimeUrl) return;
+    for (const [agentId, store] of this._ownedThreadStores) {
+      store.setContext({
+        runtimeUrl: core.runtimeUrl,
+        headers: { ...headers },
+        agentId,
+      });
+    }
   }
 
   private removeOwnedThreadStore(agentId: string): void {
@@ -2652,6 +2670,9 @@ export class WebInspectorElement extends LitElement {
       onPropertiesChanged: ({ properties }) => {
         this.coreProperties = properties;
         this.requestUpdate();
+      },
+      onHeadersChanged: ({ headers }) => {
+        this.updateOwnedThreadStoreHeaders(headers);
       },
       onError: ({ code, error }) => {
         this.lastCoreError = { code, message: error.message };
