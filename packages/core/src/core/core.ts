@@ -166,6 +166,10 @@ export interface CopilotKitCoreSubscriber {
     copilotkit: CopilotKitCore;
     headers: Readonly<Record<string, string>>;
   }) => void | Promise<void>;
+  onCredentialsChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    credentials: RequestCredentials | undefined;
+  }) => void | Promise<void>;
   onError?: (event: {
     copilotkit: CopilotKitCore;
     error: Error;
@@ -713,6 +717,14 @@ export class CopilotKitCore {
     this._credentials = credentials;
     this.agentRegistry.applyCredentialsToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
+    );
+    void this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onCredentialsChanged?.({
+          copilotkit: this,
+          credentials: this.credentials,
+        }),
+      "Subscriber onCredentialsChanged error:",
     );
   }
 

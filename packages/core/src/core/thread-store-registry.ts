@@ -8,7 +8,7 @@ import type {
 export class ThreadStoreRegistry {
   private _stores: Record<string, ɵThreadStore> = {};
   private _storeStacks: Record<string, ɵThreadStore[]> = {};
-  private _notificationQueue: Promise<void> | null = null;
+  private _notificationQueues = new Map<string, Promise<void>>();
   // Cached frozen snapshot of `_stores`. Invalidated to `null` on every
   // `register`/`unregister` so the next `getAll()` rebuilds it. Stable
   // references between mutations matter for `useSyncExternalStore` consumers
@@ -41,6 +41,7 @@ export class ThreadStoreRegistry {
       delete this._stores[agentId];
       this._snapshot = null;
       this.enqueueNotification(
+        agentId,
         this.createUnregisteredNotification(agentId, prevStore),
       );
     }
@@ -48,7 +49,10 @@ export class ThreadStoreRegistry {
     stack.push(store);
     this._stores[agentId] = store;
     this._snapshot = null;
-    this.enqueueNotification(this.createRegisteredNotification(agentId, store));
+    this.enqueueNotification(
+      agentId,
+      this.createRegisteredNotification(agentId, store),
+    );
   }
 
   unregister(agentId: string, store?: ɵThreadStore): void {
@@ -73,6 +77,7 @@ export class ThreadStoreRegistry {
     delete this._stores[agentId];
     this._snapshot = null;
     this.enqueueNotification(
+      agentId,
       this.createUnregisteredNotification(agentId, removedStore),
     );
 
@@ -81,6 +86,7 @@ export class ThreadStoreRegistry {
       this._stores[agentId] = restoredStore;
       this._snapshot = null;
       this.enqueueNotification(
+        agentId,
         this.createRegisteredNotification(agentId, restoredStore),
       );
     }
@@ -98,6 +104,7 @@ export class ThreadStoreRegistry {
 
     for (const removedStore of removedStores) {
       this.enqueueNotification(
+        agentId,
         this.createUnregisteredNotification(agentId, removedStore),
       );
     }
@@ -179,20 +186,22 @@ export class ThreadStoreRegistry {
     );
   }
 
-  private enqueueNotification(callback: () => Promise<void>): void {
+  private enqueueNotification(
+    agentId: string,
+    callback: () => Promise<void>,
+  ): void {
     const run = () => callback();
-    const current = this._notificationQueue
-      ? this._notificationQueue.then(run, run)
-      : run();
+    const previous = this._notificationQueues.get(agentId);
+    const current = previous ? previous.then(run, run) : run();
 
-    this._notificationQueue = current;
+    this._notificationQueues.set(agentId, current);
     void current
       .catch((err) => {
         console.error("ThreadStoreRegistry notification failed:", err);
       })
       .finally(() => {
-        if (this._notificationQueue === current) {
-          this._notificationQueue = null;
+        if (this._notificationQueues.get(agentId) === current) {
+          this._notificationQueues.delete(agentId);
         }
       });
   }

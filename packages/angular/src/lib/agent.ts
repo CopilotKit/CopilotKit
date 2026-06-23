@@ -21,9 +21,18 @@ import {
  *  by the factory so that AgentStore stays decoupled from the concrete class. */
 type SubscribeToAgentFn = CopilotKitCore["subscribeToAgentWithOptions"];
 type AgentWithHeaders = AbstractAgent & { headers?: Record<string, string> };
+type AgentWithCredentials = AbstractAgent & {
+  credentials?: RequestCredentials;
+};
 
 function hasAgentHeaders(agent: AbstractAgent): agent is AgentWithHeaders {
   return "headers" in agent;
+}
+
+function hasAgentCredentials(
+  agent: AbstractAgent,
+): agent is AgentWithCredentials {
+  return "credentials" in agent;
 }
 
 export class AgentStore {
@@ -119,10 +128,14 @@ export class CopilotkitAgentFactory {
             CopilotKitCoreRuntimeConnectionStatus.Error)
       ) {
         const headers = this.#copilotkit.headers();
+        const credentials = this.#copilotkit.credentials();
         const cached = provisionalCache.get(resolvedAgentId);
         if (cached) {
           if (hasAgentHeaders(cached)) {
             cached.headers = { ...headers };
+          }
+          if (hasAgentCredentials(cached)) {
+            cached.credentials = credentials;
           }
           return cached;
         }
@@ -131,6 +144,7 @@ export class CopilotkitAgentFactory {
           runtimeUrl,
           agentId: resolvedAgentId,
           transport: this.#copilotkit.runtimeTransport(),
+          credentials,
         });
         if (hasAgentHeaders(provisional)) {
           provisional.headers = { ...headers };

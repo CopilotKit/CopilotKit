@@ -113,6 +113,21 @@ describe("CopilotKitCore credentials", () => {
     expect(secondInit.credentials).toBe("include");
   });
 
+  it("notifies subscribers when credentials change", async () => {
+    const core = new CopilotKitCore({});
+    const onCredentialsChanged = vi.fn();
+    core.subscribe({ onCredentialsChanged });
+
+    core.setCredentials("include");
+
+    await waitForCondition(() => onCredentialsChanged.mock.calls.length === 1);
+
+    expect(onCredentialsChanged).toHaveBeenCalledWith({
+      copilotkit: core,
+      credentials: "include",
+    });
+  });
+
   it("propagates credentials to remote agents created from runtime info", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

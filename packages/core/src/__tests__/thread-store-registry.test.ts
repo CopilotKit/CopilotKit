@@ -180,6 +180,42 @@ describe("ThreadStoreRegistry", () => {
     ]);
   });
 
+  it("does not let a pending same-agent unregister block unrelated agent notifications", async () => {
+    const calls: string[] = [];
+    const subscriber: CopilotKitCoreSubscriber = {
+      onThreadStoreRegistered: ({ agentId, store }) => {
+        calls.push(
+          `registered:${agentId}:${(store as { __testId: string }).__testId}`,
+        );
+      },
+      onThreadStoreUnregistered: ({ agentId, prevStore }) => {
+        calls.push(
+          `unregister-start:${agentId}:${
+            (prevStore as { __testId: string }).__testId
+          }`,
+        );
+        return new Promise<void>(() => {});
+      },
+    };
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe(subscriber);
+
+    registry.register("agent-1", makeStore("first"));
+    await flushNotifications();
+    registry.register("agent-1", makeStore("second"));
+    await flushNotifications();
+
+    registry.register("agent-2", makeStore("unrelated"));
+    await flushNotifications();
+
+    expect(calls).toEqual([
+      "registered:agent-1:first",
+      "unregister-start:agent-1:first",
+      "registered:agent-2:unrelated",
+    ]);
+  });
+
   it("restores the previous same-agent store when the active replacement unregisters", async () => {
     const onRegistered = vi.fn();
     const onUnregistered = vi.fn();

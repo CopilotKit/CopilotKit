@@ -674,6 +674,7 @@ export class ɵCpkThreadDetails extends LitElement {
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
+    credentials: { attribute: false },
     threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
@@ -702,6 +703,7 @@ export class ɵCpkThreadDetails extends LitElement {
   thread: ɵThread | null = null;
   runtimeUrl = "";
   headers: Record<string, string> = {};
+  credentials?: RequestCredentials;
   threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
@@ -1471,7 +1473,11 @@ export class ɵCpkThreadDetails extends LitElement {
     try {
       const res = await fetch(
         `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
-        { headers: { ...this.headers }, signal: controller.signal },
+        {
+          headers: { ...this.headers },
+          credentials: this.credentials,
+          signal: controller.signal,
+        },
       );
       if (controller.signal.aborted || this.threadId !== threadId) return;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1507,7 +1513,11 @@ export class ɵCpkThreadDetails extends LitElement {
     try {
       const res = await fetch(
         `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/events`,
-        { headers: { ...this.headers }, signal: controller.signal },
+        {
+          headers: { ...this.headers },
+          credentials: this.credentials,
+          signal: controller.signal,
+        },
       );
       // Drop results if a newer fetch superseded this one (thread switched
       // mid-flight). Without this, switching A→B can leave thread B's view
@@ -1554,7 +1564,11 @@ export class ɵCpkThreadDetails extends LitElement {
     try {
       const res = await fetch(
         `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/state`,
-        { headers: { ...this.headers }, signal: controller.signal },
+        {
+          headers: { ...this.headers },
+          credentials: this.credentials,
+          signal: controller.signal,
+        },
       );
       if (controller.signal.aborted || this.threadId !== threadId) return;
       if (res.status === 501) {
@@ -2603,6 +2617,10 @@ export class WebInspectorElement extends LitElement {
   private refreshOwnedThreadStore(agentId: string): void {
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
+    const core = this.core;
+    if (core?.runtimeUrl) {
+      store.setContext(this.createOwnedThreadStoreContext(core, agentId));
+    }
     // refresh() re-fetches without resetting threads to [] first, so the list
     // stays visible while new data loads and survives transient fetch failures.
     store.refresh();
@@ -2689,6 +2707,9 @@ export class WebInspectorElement extends LitElement {
       },
       onHeadersChanged: ({ headers }) => {
         this.updateOwnedThreadStoreHeaders(headers);
+      },
+      onCredentialsChanged: () => {
+        this.updateOwnedThreadStoreHeaders(core.headers);
       },
       onError: ({ code, error }) => {
         this.lastCoreError = { code, message: error.message };
@@ -5892,6 +5913,7 @@ ${argsString}</pre
                   .thread=${selectedThread}
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
+                  .credentials=${this._core?.credentials}
                   .threadInspectionAvailable=${
                     this._core?.threadEndpoints?.inspect !== false
                   }

@@ -321,6 +321,8 @@ type ThreadDetailsInternals = {
   _loadingState: boolean;
   _loadingEvents: boolean;
   _panelTplCache: Map<string, { key: readonly unknown[]; tpl: unknown }>;
+  credentials?: RequestCredentials;
+  fetchMessages: (threadId: string) => Promise<void>;
   fetchEvents: (threadId: string) => Promise<void>;
   fetchState: (threadId: string) => Promise<void>;
   renderConversation: () => unknown;
@@ -401,6 +403,45 @@ describe("ɵCpkThreadDetails caching", () => {
       await internals.fetchState("t1");
 
       expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("forwards credentials to thread detail fetches", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ messages: [] }), { status: 200 }),
+          );
+        }
+        if (url.endsWith("/events")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ events: [] }), { status: 200 }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ state: null }), { status: 200 }),
+        );
+      });
+    try {
+      const { internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.credentials = "include";
+      internals.threadInspectionAvailable = true;
+
+      await internals.fetchMessages("t1");
+      await internals.fetchEvents("t1");
+      await internals.fetchState("t1");
+
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      for (const call of fetchSpy.mock.calls) {
+        expect(credentialsOf(call)).toBe("include");
+      }
     } finally {
       fetchSpy.mockRestore();
     }
@@ -683,6 +724,23 @@ function createHeaderMockCore(
         s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
       );
     },
+    emitCredentialsChanged(nextCredentials: RequestCredentials | undefined) {
+      core.credentials = nextCredentials;
+      subscribers.forEach((s) =>
+        s.onCredentialsChanged?.({
+          copilotkit: asCore(),
+          credentials: nextCredentials,
+        }),
+      );
+    },
+    emitRuntimeConnectionStatusChanged(
+      status: CopilotKitCoreRuntimeConnectionStatus,
+    ) {
+      core.runtimeConnectionStatus = status;
+      subscribers.forEach((s) =>
+        s.onRuntimeConnectionStatusChanged?.({ copilotkit: asCore(), status }),
+      );
+    },
   };
 }
 
@@ -861,6 +919,77 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
         mutations: true,
         realtimeMetadata: false,
       },
+    });
+  });
+
+  it("re-applies credentials on the owned store when core credentials change", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(harness.core.registerThreadStore).toHaveBeenCalledWith(
+        "alpha",
+        expect.any(Object),
+      );
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+    expect(contextOf(ownedStore)?.credentials).toBeUndefined();
+
+    harness.emitCredentialsChanged("include");
+
+    expect(contextOf(ownedStore)).toMatchObject({
+      headers: { "X-CSRF": "1" },
+      credentials: "include",
+    });
+  });
+
+  it("refreshes owned store context when runtime metadata or credentials change", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+    harness.core.credentials = undefined;
+    harness.core.intelligence = undefined;
+    harness.core.threadEndpoints.realtimeMetadata = true;
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(harness.core.registerThreadStore).toHaveBeenCalledWith(
+        "alpha",
+        expect.any(Object),
+      );
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+    expect(contextOf(ownedStore)).toMatchObject({
+      threadEndpoints: expect.objectContaining({ realtimeMetadata: true }),
+    });
+    expect(contextOf(ownedStore)?.credentials).toBeUndefined();
+    expect(contextOf(ownedStore)?.wsUrl).toBeUndefined();
+
+    harness.core.credentials = "include";
+    harness.core.intelligence = { wsUrl: "wss://localhost/client" };
+    harness.core.threadEndpoints.realtimeMetadata = false;
+    harness.emitRuntimeConnectionStatusChanged(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    expect(contextOf(ownedStore)).toMatchObject({
+      credentials: "include",
+      wsUrl: "wss://localhost/client",
+      threadEndpoints: expect.objectContaining({ realtimeMetadata: false }),
     });
   });
 
