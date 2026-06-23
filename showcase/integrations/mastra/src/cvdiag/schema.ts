@@ -262,11 +262,35 @@ export interface ProbeConsoleErrorMeta {
   source_file: string | null;
   line_col: string | null;
 }
+/**
+ * Why a probe run failed, mirroring `waitForTurnComplete`'s reject `reason`
+ * union (conversation-runner `TurnNotCompleteError.reason`) plus
+ * `selector-mismatch` (a readiness/selector failure the d6 pill flow surfaces).
+ * Stamped on `probe.exit` ONLY when `terminal_outcome` is non-`ok` so reds are
+ * labeled directly in cvdiag probe data instead of being inferred from the
+ * absence of SSE / first-token rows.
+ */
+export const CVDIAG_FAILURE_CLASSIFIERS = [
+  "sse-missing",
+  "dom-missing",
+  "text-unstable",
+  "surface-missing",
+  "selector-mismatch",
+] as const;
+export type CvdiagFailureClassifier =
+  (typeof CVDIAG_FAILURE_CLASSIFIERS)[number];
+
 export interface ProbeExitMeta {
   terminal_outcome: CvdiagOutcome;
   total_duration_ms: number;
   sse_event_count: number;
   first_token_delta_ms: number | null;
+  /**
+   * Present ONLY on a non-`ok` terminal outcome. Classifies which turn-complete
+   * signal was missing (the `waitForTurnComplete` reject reason, or a derived
+   * best-effort classifier from the probe's own observed signals).
+   */
+  failure_classifier?: CvdiagFailureClassifier;
 }
 
 // Layer 2 (backend) ──────────────────────────────────────────────────────────
@@ -367,9 +391,21 @@ export interface AimockResponseCompleteMeta {
 export interface CvdiagEnvelope {
   /** const 1 in v1. */
   schema_version: typeof SCHEMA_VERSION;
-  /** UUIDv7, normalized lowercase hyphenated. */
+  /**
+   * The CROSS-LAYER JOIN KEY: the single id that joins one run's rows across
+   * probe / backend / aimock (spec §5). Normally a UUIDv7 (the probe mints one
+   * and threads it through). On the BACKEND adoption path it is the probe's
+   * per-run id forwarded as the inbound `x-test-id` (sanitized free text, e.g.
+   * `d4-<slug>-<runId>`) so backend rows join the probe's — PB stores this
+   * column as free text, so a non-UUIDv7 join key is valid at storage.
+   */
   test_id: string;
-  /** Equals `test_id` for join compatibility. */
+  /**
+   * The emitter's OWN PER-REQUEST id. MIRRORS `test_id` by default (probe path:
+   * one run = one test_id = one trace_id). The backend supplies a distinct
+   * per-request UUIDv7 so `trace_id` stays decoupled from an ADOPTED
+   * cross-layer `test_id`.
+   */
   trace_id: string;
   /** 16-hex, unique per emit. */
   span_id: string;
@@ -479,6 +515,7 @@ export const BOUNDARY_METADATA_KEYS: Record<
     "total_duration_ms",
     "sse_event_count",
     "first_token_delta_ms",
+    "failure_classifier",
   ],
   // backend
   "backend.request.ingress": ["method", "path", "content_length"],

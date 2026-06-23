@@ -14,6 +14,7 @@ on:
           - bot-discord
           - bot-slack
           - bot-telegram
+          - bot-whatsapp
       bump:
         description: "Version bump level"
         required: true

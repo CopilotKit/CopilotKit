@@ -2554,6 +2554,213 @@ module Railway
         end
     end
 
+    # reconcile-prod — detect prod columns that have drifted STALE vs a green
+    # staging (Lever 1 of the promote-reliability hardening plan).
+    #
+    # The showcase deploy model: staging tracks a mutable `:latest` tag and is
+    # continuously rebuilt; prod is pinned to an immutable `@sha256:` digest and
+    # only advances on an explicit promote. So prod can silently fall BEHIND a
+    # green staging — a dead/stale prod column that today is only noticed by
+    # eyeballing it. This gate compares, per prod-eligible service, the prod
+    # SERVING digest against the staging RUNNING digest and reds the run when
+    # any service is stale, so drift is alerted automatically.
+    #
+    # For each prod-eligible (`probe.prod == true`, the same set
+    # resolve-promote-targets.sh promotes) service:
+    #   prod serving digest    = the `@sha256:` prod is pinned to (LintProd
+    #                            path — SnapshotCommand.build_snapshot(prod)).
+    #   staging running digest  = staging's latest SUCCESS deployment
+    #                            meta.imageDigest (reuses
+    #                            PromoteCommand#staging_running_digest).
+    #
+    # Classification:
+    #   green  — prod == staging (in sync).
+    #   stale  — prod != staging AND staging running digest IS resolvable
+    #            (prod has drifted behind a green staging — what we alert on).
+    #   gray   — staging running digest not resolvable (no SUCCESS deploy / no
+    #            imageDigest), OR the service has no prod snapshot entry yet.
+    #            Informational, NOT stale — we cannot prove drift.
+    #
+    # Exit codes: 0 = no stale, 1 = at least one stale, 2 = hard error.
+    # Read-only — performs NO promotes / mutations.
+    class ReconcileProdCommand < BaseCommand
+        STATUS_GREEN = "green"
+        STATUS_STALE = "stale"
+        STATUS_GRAY  = "gray"
+
+        def initialize(argv)
+            super
+            @json = false
+        end
+
+        def parser
+            OptionParser.new do |o|
+                o.banner = <<~BANNER
+                    Usage: bin/railway reconcile-prod [--json]
+
+                      Detect production services whose serving digest has drifted
+                      STALE vs a green staging. For every prod-eligible service
+                      (probe.prod == true) compares the prod SERVING digest
+                      (immutable @sha256:) against the staging RUNNING digest
+                      (staging's latest SUCCESS deployment). Classifies each:
+
+                        green   prod digest == staging running digest (in sync)
+                        stale   prod != staging AND staging IS resolvable
+                                (prod drifted behind a green staging)
+                        gray    staging running digest not resolvable, or the
+                                service has no prod snapshot entry yet
+                                (informational — NOT stale)
+
+                      Exits 1 iff any service is STALE. Read-only: NO promotes.
+
+                      --json   Emit machine-readable JSON instead of a table:
+                                 {services:[{name,prod,staging,status}],
+                                  green:N, stale:N, gray:N, timestamp:"ISO8601"}
+                BANNER
+                o.on("--json", "Emit machine-readable JSON") { @json = true }
+                o.on("-h", "--help") { puts o; exit 0 }
+            end
+        end
+
+        def run
+            parser.parse!(argv)
+            rows = classify_all
+
+            if @json
+                stale = rows.count { |r| r["status"] == STATUS_STALE }
+                green = rows.count { |r| r["status"] == STATUS_GREEN }
+                gray  = rows.count { |r| r["status"] == STATUS_GRAY }
+                puts JSON.generate(
+                    "services"  => rows,
+                    "green"     => green,
+                    "stale"     => stale,
+                    "gray"      => gray,
+                    "timestamp" => Time.now.utc.iso8601,
+                )
+                return run_classification(rows)
+            end
+
+            print_table(rows)
+            run_classification(rows)
+        end
+
+        # Classify every prod-eligible service. Returns an array of
+        # { "name", "service_id", "prod", "staging", "status" } hashes, sorted
+        # by name. `prod`/`staging` are the `sha256:...` digests (or nil).
+        def classify_all
+            prod_by_sid = prod_digests_by_service_id
+            eligible_services.map do |elig|
+                sid  = elig["service_id"]
+                name = elig["name"]
+                prod_digest = prod_by_sid[sid]
+                staging_digest = staging_running_digest_for(elig)
+                {
+                    "name"       => name,
+                    "service_id" => sid,
+                    "prod"       => prod_digest,
+                    "staging"    => staging_digest,
+                    "status"     => classify(prod_digest, staging_digest),
+                }
+            end.sort_by { |r| r["name"].to_s }
+        end
+
+        # green  — prod present AND staging present AND equal.
+        # stale  — prod present AND staging present AND different.
+        # gray   — staging unresolvable, OR prod absent (can't prove drift).
+        def classify(prod_digest, staging_digest)
+            return STATUS_GRAY if staging_digest.nil? || staging_digest.empty?
+            return STATUS_GRAY if prod_digest.nil? || prod_digest.empty?
+            prod_digest == staging_digest ? STATUS_GREEN : STATUS_STALE
+        end
+
+        # Exit-code contract: 1 iff any service is stale, else 0.
+        def run_classification(rows)
+            rows.any? { |r| r["status"] == STATUS_STALE } ? 1 : 0
+        end
+
+        private
+
+        # prod serving digest per service_id, from the prod snapshot (the same
+        # LintProd path). Prefer the parsed `digest` field; fall back to parsing
+        # `@sha256:` out of the image ref (prod is always digest-pinned).
+        def prod_digests_by_service_id
+            snap = build_prod_snapshot
+            (snap["services"] || []).each_with_object({}) do |svc, acc|
+                sid = svc["service_id"]
+                next if sid.nil?
+                digest = svc["digest"]
+                if (digest.nil? || digest.empty?)
+                    image = svc["image"].to_s
+                    digest = image.split("@", 2).last if image.include?("@sha256:")
+                end
+                acc[sid] = digest unless digest.nil? || digest.empty?
+            end
+        end
+
+        # The prod snapshot — same source LintProdCommand reads. Isolated into a
+        # method so tests can inject a fixture.
+        def build_prod_snapshot
+            SnapshotCommand.new(["--env", "production", "--dry-run"])
+                .build_snapshot(PRODUCTION_ENV_ID)
+        end
+
+        # The prod-eligible service set: every SSOT service with
+        # `probe.prod == true` (the set resolve-promote-targets.sh promotes).
+        # Each element is { "name" =>, "service_id" => } — service_id is the
+        # SSOT `serviceId`, which equals the snapshot `service_id` (same project
+        # service node across envs), so it correlates prod ⇆ staging.
+        def eligible_services
+            SSOT_DATA.fetch("services")
+                .select { |s| s.dig("probe", "prod") == true }
+                .map { |s| { "name" => s.fetch("name"), "service_id" => s["serviceId"] } }
+        end
+
+        # The staging RUNNING digest for a prod-eligible service. Reuses
+        # PromoteCommand#staging_running_digest (latest SUCCESS staging
+        # deployment meta.imageDigest) — the same source the promote pin uses —
+        # so the comparator and the promote agree on "what staging is serving".
+        # Shares this command's GraphQL client so we don't double-auth.
+        def staging_running_digest_for(svc)
+            promote_helper.send(:staging_running_digest, svc)
+        end
+
+        # A PromoteCommand instance used purely as a library for its
+        # staging-digest resolution. Shares our gql client. NEVER runs a
+        # promote — we only call its read-only digest resolver.
+        def promote_helper
+            @promote_helper ||= begin
+                p = PromoteCommand.new(["--non-interactive"])
+                p.instance_variable_set(:@gql, gql)
+                p
+            end
+        end
+
+        def short(d)
+            return "(none)" if d.nil? || d.to_s.empty?
+            d.to_s.sub(/^sha256:/, "")[0, 12]
+        end
+
+        def print_table(rows)
+            name_w = ([4] + rows.map { |r| r["name"].to_s.length }).max
+            puts format("%-#{name_w}s  %-6s  %-12s  %-12s", "NAME", "STATUS", "PROD", "STAGING")
+            rows.each do |r|
+                puts format("%-#{name_w}s  %-6s  %-12s  %-12s",
+                    r["name"], r["status"], short(r["prod"]), short(r["staging"]))
+            end
+            stale = rows.count { |r| r["status"] == STATUS_STALE }
+            green = rows.count { |r| r["status"] == STATUS_GREEN }
+            gray  = rows.count { |r| r["status"] == STATUS_GRAY }
+            puts ""
+            puts "Summary: #{green} green, #{stale} stale, #{gray} gray (#{rows.size} prod-eligible)."
+            if stale.positive?
+                names = rows.select { |r| r["status"] == STATUS_STALE }.map { |r| r["name"] }
+                puts "STALE: prod has drifted behind green staging for: #{names.join(', ')}."
+            else
+                puts "OK: no production service is stale vs staging."
+            end
+        end
+    end
+
     # ── Dispatcher ─────────────────────────────────────────────────────────────
 
     SUBCOMMANDS = {
@@ -2566,6 +2773,7 @@ module Railway
         "env-diff"         => EnvDiffCommand,
         "resolve-digest"   => ResolveDigestCommand,
         "lint-prod"        => LintProdCommand,
+        "reconcile-prod"   => ReconcileProdCommand,
     }.freeze
 
     def self.usage
@@ -2582,6 +2790,7 @@ module Railway
               env-diff          Diff two envs; exit 1 if drift.
               resolve-digest    Resolve an image tag to its GHCR digest.
               lint-prod         CI gate: fail if any prod service is not digest-pinned.
+              reconcile-prod    Drift gate: fail if any prod service is stale vs staging.
 
             Run any subcommand with --help for full flag list.
 

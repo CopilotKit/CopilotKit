@@ -181,3 +181,79 @@ run_resolve() {
   [[ "$output" == *"0:aimock"* ]] || fail "closure_plan missing tier-annotated tier-0 entry: $output"
   [[ "$output" == *"2:agent-a"* ]] || fail "closure_plan missing tier-annotated tier-2 entry: $output"
 }
+
+# --- NEW: standalone services (no deps, never gated) -------------------------
+# A standalone leaf (e.g. `docs`) depends on nothing and gates on nothing: a
+# request for ONLY standalone services must resolve to a closure of just those
+# services (NO Tier-1 control plane pulled in), and each standalone member is
+# emitted with the `s:` marker so the fleet driver promotes it ungated.
+
+# Fixture variant: the normal tier-gated fleet PLUS a standalone leaf `docs`.
+_gen_with_standalone() {
+  cat > "$GENERATED" <<'JSON'
+{
+  "closure": {
+    "services": [
+      { "name": "aimock", "tier": 0 },
+      { "name": "harness", "tier": 1 },
+      { "name": "dashboard", "tier": 1 },
+      { "name": "agent-a", "tier": 2 },
+      { "name": "docs", "tier": 2, "standalone": true }
+    ],
+    "skipped": []
+  },
+  "services": [
+    { "name": "aimock", "dispatchName": "showcase-aimock", "probe": { "prod": true }, "promoteTier": 0 },
+    { "name": "harness", "dispatchName": "showcase-harness", "probe": { "prod": true }, "promoteTier": 1 },
+    { "name": "dashboard", "dispatchName": "shell-dashboard", "probe": { "prod": true }, "promoteTier": 1 },
+    { "name": "agent-a", "dispatchName": "a", "probe": { "prod": true }, "promoteTier": 2, "runtimeDeps": ["aimock"] },
+    { "name": "docs", "dispatchName": "shell-docs", "probe": { "prod": true }, "promoteTier": 2, "standalone": true }
+  ]
+}
+JSON
+}
+
+@test "standalone-only request resolves to a closure of JUST itself (no Tier-1 pulled in)" {
+  _gen_with_standalone
+  run_resolve "docs"
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^closure_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "closure_csv=docs" ] \
+    || fail "standalone closure must be docs ONLY (no harness/dashboard): $output"
+}
+
+@test "standalone request resolves via dispatch_name (shell-docs) too" {
+  _gen_with_standalone
+  run_resolve "shell-docs"
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^closure_csv=' "$GITHUB_OUTPUT"
+  [ "$output" = "closure_csv=docs" ] \
+    || fail "shell-docs must resolve to a docs-only closure: $output"
+}
+
+@test "standalone member is emitted with the s: marker in closure_plan" {
+  _gen_with_standalone
+  run_resolve "docs"
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^closure_plan=' "$GITHUB_OUTPUT"
+  [ "$output" = "closure_plan=s:docs" ] \
+    || fail "standalone must emit the s:docs marker (not a numeric tier): $output"
+}
+
+@test "a normal request still pulls Tier-1 and excludes the unrelated standalone leaf" {
+  _gen_with_standalone
+  run_resolve "agent-a"
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^closure_csv=' "$GITHUB_OUTPUT"
+  [[ "$output" == *"harness"* ]] || fail "non-standalone request must still pull Tier-1 harness: $output"
+  [[ "$output" != *"docs"* ]] || fail "agent-a closure must NOT include the unrelated standalone docs: $output"
+}
+
+@test "all closure_plan marks the standalone member s: and keeps the rest tier-annotated" {
+  _gen_with_standalone
+  run_resolve "all"
+  [ "$status" -eq 0 ] || fail "expected exit 0, got $status: $output"
+  run grep '^closure_plan=' "$GITHUB_OUTPUT"
+  [[ "$output" == *"s:docs"* ]] || fail "all plan must mark docs standalone (s:docs): $output"
+  [[ "$output" == *"1:harness"* ]] || fail "all plan must keep harness tier-annotated: $output"
+}

@@ -120,6 +120,7 @@ export const Input = ({
           autoFocus={false}
           maxRows={MAX_NEWLINES}
           value={text}
+          data-testid="copilot-chat-textarea"
           onChange={(event) => setText(event.target.value)}
           onCompositionStart={() => setIsComposing(true)}
           onCompositionEnd={() => setIsComposing(false)}
@@ -161,6 +162,7 @@ export const Input = ({
             disabled={sendDisabled}
             onClick={isInProgress && !hideStopButton ? onStop : send}
             data-copilotkit-in-progress={inProgress}
+            data-testid="copilot-send-button"
             data-test-id={
               inProgress
                 ? "copilot-chat-request-in-progress"

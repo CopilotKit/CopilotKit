@@ -82,6 +82,11 @@ interface Emitted {
     // Cross-service env-var references the Stage-2 Ruby preflight (U5)
     // ASSERTS. OMITTED when the SSOT entry declares none.
     serviceRefs?: { key: string; target: string }[];
+    // Standalone leaf (no deps, never gated). OMITTED unless true so normal
+    // tier-gated services keep the frozen shape. Read by the resolve-targets jq
+    // (closure: skip Tier-1 union for an all-standalone request) + the fleet
+    // driver (promote ungated, never NOT-ATTEMPTED on an unrelated failure).
+    standalone?: boolean;
   }>;
   // --- Top-level promote-closure plan (ADDITIVE, U2). The tier-ordered
   // closure for the FULL fleet (`all`), computed via `computePromoteClosure`.
@@ -168,6 +173,8 @@ function projectServiceToLegacyJson(
     ...(entry.serviceRefs !== undefined
       ? { serviceRefs: entry.serviceRefs }
       : {}),
+    // Standalone leaf: emitted only when true (keeps the leaf default shape).
+    ...(entry.standalone === true ? { standalone: true } : {}),
   };
 }
 

@@ -257,6 +257,19 @@ export interface ServiceEntry {
    */
   promoteTier?: 0 | 1 | 2;
   /**
+   * STANDALONE service: a leaf that neither depends on anything nor gates on
+   * anything. When set, `computePromoteClosure` (and the resolve-promote-targets
+   * jq mirror) (a) do NOT pull the always-on Tier-1 verification set into a
+   * promote whose REQUESTED set is entirely standalone — so promoting it alone
+   * promotes ONLY itself, not the whole control plane — and (b) the promote
+   * fleet runner attempts it UNGATED and never records it NOT-ATTEMPTED because
+   * an unrelated service failed. Use for self-contained services with no runtime
+   * dependency on the equivalence control plane (e.g. the `docs` shell). A
+   * standalone service must therefore declare no `runtimeDeps`. OPTIONAL;
+   * omitted = false (the normal tier-gated leaf).
+   */
+  standalone?: boolean;
+  /**
    * SSOT keys this service needs PRESENT-AND-CURRENT in the target env for
    * its own promote to be meaningful — the transitive runtime dependencies
    * `computePromoteClosure` pulls into the promote closure. Distinct from
@@ -401,6 +414,12 @@ export const SERVICES: Record<
     gateValidated: true,
     dispatchName: "shell-docs",
     probeDriver: "docs",
+    // Standalone: the docs shell is self-contained — it has no runtime
+    // dependency on the equivalence control plane, so a `docs` promote must
+    // promote ONLY docs (never drag in the Tier-1 harness/aimock set) and must
+    // never be gated by an unrelated service's failure (e.g. a harness P6
+    // env-divergence WARN-refusal must not block docs).
+    standalone: true,
     // Railway service name is `docs`; GHCR repo is `showcase-shell-docs`.
     environments: {
       prod: {
@@ -1682,6 +1701,12 @@ export interface ClosureMember {
   name: string;
   /** Promote tier (0 infra → 1 verification → 2 leaf). */
   tier: 0 | 1 | 2;
+  /**
+   * Standalone service (see {@link ClosureEntry.standalone}): promoted ungated
+   * and never pulls the Tier-1 verification set into its own closure. Only set
+   * (to `true`) on standalone members so the emitted JSON stays minimal.
+   */
+  standalone?: boolean;
 }
 
 /** A member excluded from the promotable set, with an explicit reason. */
@@ -1718,6 +1743,7 @@ type ClosureEntry = {
   runtimeDeps?: string[];
   imageOf?: string;
   gateIgnore?: boolean;
+  standalone?: boolean;
   environments?: Record<string, unknown>;
 };
 
@@ -1774,10 +1800,22 @@ export function computePromoteClosure(
     closure.add(resolveKey(raw));
   }
 
-  // 2) ALWAYS include the full Tier-1 verification set (the control plane +
-  //    dashboard the post-promote re-sweep / equivalence read run against).
-  for (const [key, entry] of Object.entries(services)) {
-    if (tierOf(entry) === 1) closure.add(key);
+  // A promote whose REQUESTED set is ENTIRELY standalone services pulls in NO
+  // Tier-1 verification set: a standalone leaf (e.g. `docs`) is self-contained
+  // and depends on nothing, so promoting it alone must promote ONLY itself, not
+  // the whole control plane. A mixed or `all` request still forces Tier-1 below.
+  const requestedKeys = [...closure];
+  const allStandalone =
+    requestedKeys.length > 0 &&
+    requestedKeys.every((k) => services[k]?.standalone === true);
+
+  // 2) Include the full Tier-1 verification set (the control plane + dashboard
+  //    the post-promote re-sweep / equivalence read run against) — UNLESS the
+  //    request is entirely standalone (a standalone leaf needs no control plane).
+  if (!allStandalone) {
+    for (const [key, entry] of Object.entries(services)) {
+      if (tierOf(entry) === 1) closure.add(key);
+    }
   }
 
   // 3) Transitive runtimeDeps closure (BFS). Every dep must be a real key —
@@ -1822,7 +1860,11 @@ export function computePromoteClosure(
       });
       continue;
     }
-    promotable.push({ name: key, tier: tierOf(entry) });
+    promotable.push({
+      name: key,
+      tier: tierOf(entry),
+      ...(entry.standalone === true ? { standalone: true } : {}),
+    });
   }
 
   // Tier-ordered (0→1→2), stable within a tier on insertion order.
