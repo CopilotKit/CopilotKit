@@ -210,6 +210,41 @@ it("throws with the HTTP status when the response is not ok", async () => {
   ).rejects.toThrow(/422/);
 });
 
+it("includes intended in the body when provided", async () => {
+  const { calls, fetch } = mockFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+  ]);
+  globalThis.fetch = fetch;
+
+  await recordAnnotation({
+    runtimeUrl: "https://bff.example.com/api/copilotkit",
+    headers: {},
+    type: "user_action",
+    threadId: "t",
+    intended: ["org", "project"],
+  });
+
+  expect(calls[0]!.body!.intended).toEqual(["org", "project"]);
+  expect(calls[0]!.body).not.toHaveProperty("userId");
+});
+
+it("omits intended from the body when not supplied", async () => {
+  const { calls, fetch } = mockFetch([
+    { status: 200, body: { id: "1", duplicate: false } },
+  ]);
+  globalThis.fetch = fetch;
+
+  await recordAnnotation({
+    runtimeUrl: "https://bff.example.com/api/copilotkit",
+    headers: {},
+    type: "user_action",
+    threadId: "t",
+  });
+
+  expect(calls[0]!.body).not.toHaveProperty("intended");
+  expect(calls[0]!.body).not.toHaveProperty("userId");
+});
+
 it("accepts undefined payload and omits it from the body", async () => {
   const { calls, fetch } = mockFetch([
     { status: 200, body: { id: "1", duplicate: false } },

@@ -10,7 +10,10 @@ import {
   resolveAgents,
 } from "../../core/runtime";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
-import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client";
+import {
+  INTELLIGENCE_USER_ID_HEADER,
+  INTELLIGENCE_READABLE_CONTAINERS_HEADER,
+} from "../../intelligence-platform/client";
 import { extractForwardableHeaders } from "../header-utils";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { logger } from "@copilotkit/shared";
@@ -155,6 +158,19 @@ export async function attachIntelligenceEnterpriseLearning(params: {
   const userResult = await resolveIntelligenceUser({ runtime, request });
   if (userResult instanceof Response) return;
 
+  // TRUST HINGE: stamp the user's read-authorized containers, resolved
+  // server-side from identifyUser. Absent ⇒ omit the header ⇒ Intelligence
+  // treats the user as able to read all containers. The client cannot
+  // influence this value.
+  const readableContainers = userResult.learningContainers?.readableContainers;
+  const readableHeader: Record<string, string> =
+    readableContainers !== undefined
+      ? {
+          [INTELLIGENCE_READABLE_CONTAINERS_HEADER]:
+            readableContainers.join(","),
+        }
+      : {};
+
   agent.use(
     new MCPMiddleware([
       {
@@ -164,6 +180,7 @@ export async function attachIntelligenceEnterpriseLearning(params: {
         headers: {
           Authorization: `Bearer ${runtime.intelligence.ɵgetApiKey()}`,
           [INTELLIGENCE_USER_ID_HEADER]: userResult.id,
+          ...readableHeader,
         },
       },
     ]),

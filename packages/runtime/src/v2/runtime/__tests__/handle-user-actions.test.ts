@@ -7,10 +7,17 @@ import { PlatformRequestError } from "../intelligence-platform/client";
 const createIdentifyUser = () =>
   vi.fn().mockResolvedValue({ id: "user-1", name: "User One" });
 
+type IdentifiedUser = {
+  id: string;
+  name: string;
+  learningContainers?: {
+    readableContainers?: string[];
+    writableContainers?: string[];
+  };
+};
+
 const createIntelligenceRuntime = (options?: {
-  identifyUser?: (
-    request: Request,
-  ) => { id: string; name: string } | Promise<{ id: string; name: string }>;
+  identifyUser?: (request: Request) => IdentifiedUser | Promise<IdentifiedUser>;
   intelligence?: Record<string, unknown>;
 }) =>
   ({
@@ -247,6 +254,50 @@ it("returns the duplicate=true payload verbatim from the platform", async () => 
   });
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toEqual({ id: "42", duplicate: true });
+});
+
+it("stamps permitted from identifyUser writableContainers (trusted allowlist)", async () => {
+  const annotate = vi.fn().mockResolvedValue({ id: "1", duplicate: false });
+  const runtime = createIntelligenceRuntime({
+    identifyUser: vi.fn().mockResolvedValue({
+      id: "user-1",
+      name: "User One",
+      learningContainers: { writableContainers: ["team-a"] },
+    }),
+    intelligence: { annotate },
+  });
+
+  await handleAnnotate({ runtime, request: buildRequest(validBody()) });
+
+  expect(annotate.mock.calls[0]![0].permitted).toEqual(["team-a"]);
+});
+
+it("stamps permitted = [] when writableContainers is [] (write nowhere)", async () => {
+  const annotate = vi.fn().mockResolvedValue({ id: "1", duplicate: false });
+  const runtime = createIntelligenceRuntime({
+    identifyUser: vi.fn().mockResolvedValue({
+      id: "user-1",
+      name: "User One",
+      learningContainers: { writableContainers: [] },
+    }),
+    intelligence: { annotate },
+  });
+
+  await handleAnnotate({ runtime, request: buildRequest(validBody()) });
+
+  expect(annotate.mock.calls[0]![0].permitted).toEqual([]);
+});
+
+it("leaves permitted undefined when writableContainers is unconfigured (unrestricted)", async () => {
+  const annotate = vi.fn().mockResolvedValue({ id: "1", duplicate: false });
+  const runtime = createIntelligenceRuntime({
+    identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
+    intelligence: { annotate },
+  });
+
+  await handleAnnotate({ runtime, request: buildRequest(validBody()) });
+
+  expect(annotate.mock.calls[0]![0].permitted).toBeUndefined();
 });
 
 it("forwards payload verbatim (any shape) to intelligence.annotate", async () => {

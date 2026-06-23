@@ -1,6 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCopilotKit } from "../../context";
+import { INTELLIGENCE_LEARNING_CONTAINERS_KEY } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers";
 import { useLearnFromUserActionInCurrentThread } from "../use-learn-from-user-action-in-current-thread";
 
@@ -56,11 +57,17 @@ const mockFetch = (
   return { calls, fetch: fetch as unknown as typeof globalThis.fetch };
 };
 
-const installCopilotKit = () => {
+const installCopilotKit = (
+  overrides: { learningContainers?: string[] } = {},
+) => {
   mockUseCopilotKit.mockReturnValue({
     copilotkit: {
       runtimeUrl: "https://bff.example.com/api/copilotkit",
       headers: undefined,
+      properties: {
+        [INTELLIGENCE_LEARNING_CONTAINERS_KEY]:
+          overrides.learningContainers ?? ["project"],
+      },
     },
   });
 };
@@ -245,5 +252,21 @@ describe("useLearnFromUserActionInCurrentThread", () => {
       expect(payload).not.toHaveProperty("title");
       expect(payload).not.toHaveProperty("description");
     }
+  });
+
+  it("includes intended from the provider-global learning containers in the request body", async () => {
+    installCopilotKit({ learningContainers: ["team-a", "project"] });
+    installChatConfig("thread-1");
+    const { calls, fetch } = mockFetch([
+      { status: 200, body: { id: "1", duplicate: false } },
+    ]);
+    globalThis.fetch = fetch;
+
+    const { result } = renderHook(() =>
+      useLearnFromUserActionInCurrentThread(),
+    );
+    await result.current({ title: "Clicked save" });
+
+    expect(calls[0]!.body!.intended).toEqual(["team-a", "project"]);
   });
 });

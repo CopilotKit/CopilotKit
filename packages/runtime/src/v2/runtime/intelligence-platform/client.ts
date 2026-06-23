@@ -14,6 +14,42 @@ import { randomUUID } from "crypto";
 export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
 
 /**
+ * Header name carrying the user's read-authorized learning containers to the
+ * CopilotKit Intelligence MCP/bash endpoint. Comma-separated list of container
+ * ids, mirroring {@link INTELLIGENCE_USER_ID_HEADER}'s stamping mechanism.
+ *
+ * BFF-stamped and trusted: resolved server-side from
+ * `identifyUser().learningContainers?.readableContainers`. When the field is
+ * absent the header is omitted entirely, which Intelligence treats as
+ * "all containers readable" (unrestricted). The client cannot influence it.
+ *
+ * @internal
+ */
+export const INTELLIGENCE_READABLE_CONTAINERS_HEADER =
+  "x-cpki-readable-containers";
+
+/**
+ * Reserved `forwardedProps` key carrying the BFF-stamped, trusted `permitted`
+ * write-authorization allowlist on forwarded learning events. The value is
+ * `string[] | null`; absent/null means "unrestricted" (write anywhere) and
+ * `[]` means "write nowhere".
+ *
+ * SECURITY: this key is the trust hinge. The BFF OVERWRITES it on every
+ * forwarded learning event — any client-supplied value is stripped and
+ * replaced with the value resolved server-side from
+ * `identifyUser().learningContainers?.writableContainers`. A browser cannot
+ * forge write authority by setting this in `forwardedProps`.
+ *
+ * Byte-identical to the Intelligence platform's reserved key. Distinct from
+ * the client-owned, untrusted "intended" key
+ * (`__copilotkit_intelligence_learning_containers__`).
+ *
+ * @internal
+ */
+export const INTELLIGENCE_PERMITTED_CONTAINERS_KEY =
+  "__copilotkit_intelligence_permitted_containers__";
+
+/**
  * Error thrown when an Intelligence platform HTTP request returns a non-2xx
  * status. Carries the HTTP {@link status} code so callers can branch on
  * specific failures (e.g. 404 for "not found", 409 for "conflict") without
@@ -206,10 +242,9 @@ export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
  * it with the project id at write time.
  *
  * `payload` is the type-specific JSON blob for the annotation (e.g. a
- * `"user_action"` event carries the recorded fields, a
- * `"set_learning_containers"` event carries the container list). The exact
- * shape per type is validated by the Intelligence backend; canonical shapes
- * are documented on the Intelligence react-core side.
+ * `"user_action"` event carries the recorded fields). The exact shape per
+ * type is validated by the Intelligence backend; canonical shapes are
+ * documented on the Intelligence react-core side.
  */
 export interface AnnotateParams {
   /** The user the annotation belongs to. */
@@ -219,7 +254,7 @@ export interface AnnotateParams {
   /**
    * Discriminator identifying the annotation type.
    * Must match a type known to the Intelligence platform
-   * (e.g. `"user_action"`, `"set_learning_containers"`).
+   * (e.g. `"user_action"`).
    */
   type: string;
   /** Type-specific payload. Shape varies by `type`. */
@@ -233,6 +268,13 @@ export interface AnnotateParams {
   clientEventId?: string;
   /** ISO-8601 client-asserted timestamp. Defaults to server NOW() when absent. */
   occurredAt?: string;
+  /**
+   * BFF-stamped, trusted write-authorization allowlist for this annotation.
+   * Resolved server-side from `identifyUser().learningContainers?.writableContainers`;
+   * the client cannot influence it. `undefined` (omitted) or `null` ⇒
+   * unrestricted; `[]` ⇒ write nowhere; a list ⇒ exactly those containers.
+   */
+  permitted?: string[] | null;
 }
 
 /** Response from {@link CopilotKitIntelligence.annotate}. */
@@ -783,7 +825,6 @@ export class CopilotKitIntelligence {
    * `PUT /connector/user-actions/record/:clientEventId` endpoint. It supports
    * multiple annotation types via the `type` discriminator:
    * - `"user_action"` — records a user UI interaction for the self-learning loop.
-   * - `"set_learning_containers"` — sets the learning containers for a thread.
    *
    * `userId` must be resolved on the runtime side before calling this — the
    * platform prefixes it with the project id from the API key.
@@ -810,6 +851,12 @@ export class CopilotKitIntelligence {
     }
     if (params.occurredAt !== undefined) {
       body.occurredAt = params.occurredAt;
+    }
+    // `permitted` is the BFF-stamped, trusted write-authorization allowlist.
+    // `undefined` (unconfigured) ⇒ omit the field so the platform treats the
+    // user as unrestricted; `null` and `[]` are forwarded as-is.
+    if (params.permitted !== undefined) {
+      body.permitted = params.permitted;
     }
     const response = await this.#request<AnnotateResponse | null | undefined>(
       "PUT",

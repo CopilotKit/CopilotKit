@@ -57,7 +57,7 @@ function isNonEmptyString(value: unknown): value is string {
  * `POST /annotate` handler.
  *
  * Three-tier flow:
- *   recordAnnotation() (frontend lib; called by useLearnFromUserAction / useLearningContainers)
+ *   recordAnnotation() (frontend lib; called by useLearnFromUserAction)
  *     → POST ${runtimeUrl}/annotate
  *     → this handler resolves the Intel user from BFF auth
  *     → intelligence.annotate(...)
@@ -94,6 +94,10 @@ export async function handleAnnotate({
       payload: parsed.payload,
       clientEventId: parsed.clientEventId,
       occurredAt: parsed.occurredAt,
+      // TRUST HINGE: `permitted` comes solely from identifyUser. The client
+      // cannot influence it. `undefined` (unconfigured) ⇒ omitted ⇒
+      // unrestricted; `[]` ⇒ write nowhere; a list ⇒ exactly those containers.
+      permitted: user.learningContainers?.writableContainers,
     });
     return new Response(JSON.stringify(result), {
       status: 200,

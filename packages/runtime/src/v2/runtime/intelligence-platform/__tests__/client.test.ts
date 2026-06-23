@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CopilotKitIntelligence } from "../client";
 
 const fetchMock = vi.fn();
-globalThis.fetch = fetchMock;
+globalThis.fetch = fetchMock as unknown as typeof fetch;
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 function jsonResponse(body: unknown, status = 200) {
@@ -693,6 +693,43 @@ describe("CopilotKitIntelligence", () => {
 
       const [, opts] = fetchMock.mock.calls[0];
       expect(JSON.parse(opts.body).occurredAt).toBeUndefined();
+    });
+
+    it("omits permitted from the body when undefined (unrestricted)", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect("permitted" in body).toBe(false);
+    });
+
+    it("forwards permitted = [] (write nowhere) verbatim", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate({ ...validParams, permitted: [] });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).permitted).toEqual([]);
+    });
+
+    it("forwards permitted = null verbatim", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate({ ...validParams, permitted: null });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).permitted).toBeNull();
+    });
+
+    it("forwards a permitted allowlist verbatim", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate({ ...validParams, permitted: ["team-a"] });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).permitted).toEqual(["team-a"]);
     });
 
     it("sends Authorization Bearer with the configured apiKey", async () => {

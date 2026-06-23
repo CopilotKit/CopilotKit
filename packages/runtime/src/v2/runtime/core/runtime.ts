@@ -151,6 +151,20 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
 export interface CopilotRuntimeUser {
   id: string;
   name: string;
+  /**
+   * CopilotKit Intelligence learning-container authorization for this user.
+   * Consumed by the runtime to stamp the BFF-authoritative `permitted` /
+   * `readable` allowlists on learning events.
+   *
+   * Absent fields mean "unrestricted" (all containers); an empty
+   * `writableContainers` array means "write nowhere".
+   */
+  learningContainers?: {
+    /** Containers this user may read. Absent = all (unrestricted). */
+    readableContainers?: string[];
+    /** Containers this user may write. Absent = all; `[]` = none. */
+    writableContainers?: string[];
+  };
 }
 
 export type IdentifyUserCallback = (

@@ -11,6 +11,7 @@ import { logger } from "@copilotkit/shared";
 import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
+import { INTELLIGENCE_PERMITTED_CONTAINERS_KEY } from "../../intelligence-platform/client";
 import type { AgentRunnerRunRequest } from "../../runner/agent-runner";
 import type { Observable } from "rxjs";
 
@@ -47,6 +48,44 @@ function hasRunnerStartupBoundary(
     (Object.prototype.hasOwnProperty.call(runner, "runWithStartupBoundary") ||
       Object.prototype.hasOwnProperty.call(runner, "threads"))
   );
+}
+
+/**
+ * TRUST HINGE: produce the `forwardedProps` the BFF forwards to Intelligence
+ * with the trusted `permitted` write-authorization allowlist stamped.
+ *
+ * On every forwarded run the BFF OVERWRITES the permitted key: any
+ * client-supplied {@link INTELLIGENCE_PERMITTED_CONTAINERS_KEY} value is
+ * stripped first, then replaced with `writableContainers` resolved
+ * server-side from `identifyUser`. A browser cannot forge write authority by
+ * putting this key in `forwardedProps`.
+ *
+ * The client-owned "intended" key is intentionally left untouched.
+ *
+ * @param forwardedProps - The client-supplied forwardedProps (untrusted).
+ * @param writableContainers - Resolved server-side from `identifyUser`.
+ *   `undefined` (unconfigured) ⇒ key left absent ⇒ unrestricted; `[]` ⇒
+ *   write nowhere; a list ⇒ exactly those containers.
+ * @returns A new forwardedProps object with the permitted key overwritten.
+ */
+function stampPermittedContainers(
+  forwardedProps: Record<string, unknown> | undefined,
+  writableContainers: string[] | undefined,
+): Record<string, unknown> {
+  // Always strip any client-forged permitted key first.
+  const { [INTELLIGENCE_PERMITTED_CONTAINERS_KEY]: _stripped, ...rest } =
+    forwardedProps ?? {};
+
+  // Unconfigured ⇒ leave the key absent (genuinely unrestricted).
+  if (writableContainers === undefined) {
+    return rest;
+  }
+
+  // `[]` (write nowhere) and lists are stamped verbatim.
+  return {
+    ...rest,
+    [INTELLIGENCE_PERMITTED_CONTAINERS_KEY]: writableContainers,
+  };
 }
 
 interface HandleIntelligenceRunParams {
@@ -165,6 +204,13 @@ export async function handleIntelligenceRun({
     ...input,
     threadId: canonicalThreadId,
     runId: canonicalRunId,
+    // TRUST HINGE: overwrite the client-supplied permitted key with the
+    // server-resolved writable allowlist before the run is forwarded to
+    // Intelligence. See stampPermittedContainers.
+    forwardedProps: stampPermittedContainers(
+      input.forwardedProps as Record<string, unknown> | undefined,
+      user.learningContainers?.writableContainers,
+    ),
   };
 
   let persistedInputMessages: Message[] | undefined;
