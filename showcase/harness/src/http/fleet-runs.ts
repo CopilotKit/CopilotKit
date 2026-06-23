@@ -45,13 +45,15 @@ import {
   fetchFamilyJobRows,
   groupBatches,
   projectRunBatch,
-  type FamilyJobCursor,
-  type FleetFamily,
-  type MemoizedFamilySummary,
-  type ProbeJobRecord,
-  type RunBatch,
-  type RunBatchRows,
-  type RunViewDeps,
+} from "../fleet/control-plane/run-view.js";
+import type {
+  FamilyJobCursor,
+  FleetFamily,
+  MemoizedFamilySummary,
+  ProbeJobRecord,
+  RunBatch,
+  RunBatchRows,
+  RunViewDeps,
 } from "../fleet/control-plane/run-view.js";
 
 // ───────────────────────────────────────────────────────────────────────

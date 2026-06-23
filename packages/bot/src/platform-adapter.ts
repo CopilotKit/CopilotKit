@@ -65,6 +65,8 @@ export interface IncomingTurn {
    */
   contentParts?: AgentContentPart[];
   user?: PlatformUser;
+  /** Stable platform event id for idempotency; omit if the platform provides none. */
+  eventId?: string;
   platform: string;
 }
 
@@ -74,6 +76,8 @@ export interface InteractionEvent {
   replyTarget: ReplyTarget;
   value?: unknown;
   user?: PlatformUser;
+  /** Stable platform event id for idempotency; omit if the platform provides none. */
+  eventId?: string;
   /** The message the interaction occurred on (the picker), so handlers can update it in place. */
   messageRef?: MessageRef;
 }
@@ -89,6 +93,8 @@ export interface IncomingCommand {
   conversationKey: string;
   replyTarget: ReplyTarget;
   user?: PlatformUser;
+  /** Stable platform event id for idempotency; omit if the platform provides none. */
+  eventId?: string;
   platform: string;
 }
 

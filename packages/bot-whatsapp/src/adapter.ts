@@ -22,15 +22,14 @@ import type {
 } from "./types.js";
 import { WhatsAppClient } from "./client.js";
 import { WhatsAppConversationStore } from "./conversation-store.js";
-import { InMemoryHistoryStore, type HistoryStore } from "./history-store.js";
+import { InMemoryHistoryStore } from "./history-store.js";
+import type { HistoryStore } from "./history-store.js";
 import { WebhookServer } from "./webhook-server.js";
 import { handleWebhookValue } from "./webhook-listener.js";
 import { createRunRenderer } from "./event-renderer.js";
 import { conversationKeyOf, decodeInteraction } from "./interaction.js";
-import {
-  renderWhatsAppMessage,
-  type WhatsAppOutbound,
-} from "./render/message.js";
+import { renderWhatsAppMessage } from "./render/message.js";
+import type { WhatsAppOutbound } from "./render/message.js";
 import { markdownToWhatsApp } from "./markdown-to-wa.js";
 import { WA_LIMITS } from "./render/budget.js";
 
