@@ -1459,6 +1459,9 @@ export class ɵCpkThreadDetails extends LitElement {
       // mapping in the parent. `silent: true` so the loading-state indicator
       // doesn't flash between every streaming chunk and we keep the
       // last-good view on transient fetch errors.
+      if (this._loadingMessages) {
+        return;
+      }
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
       this._messagesAbort?.abort();
       this._messagesAbort = null;

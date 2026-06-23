@@ -627,6 +627,86 @@ describe("ɵCpkThreadDetails caching", () => {
     }
   });
 
+  it("keeps credential refresh authoritative when live messages arrive", async () => {
+    let messageFetches = 0;
+    let resolveCredentialReload: ((response: Response) => void) | undefined =
+      undefined;
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          messageFetches += 1;
+          if (messageFetches === 1) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  messages: [
+                    {
+                      id: "m1",
+                      role: "user",
+                      content: "Old credentials",
+                    },
+                  ],
+                }),
+                { status: 200 },
+              ),
+            );
+          }
+          if (messageFetches === 2) {
+            return new Promise<Response>((resolve) => {
+              resolveCredentialReload = resolve;
+            });
+          }
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: "unauthorized" }), {
+              status: 401,
+            }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ events: [] }), { status: 200 }),
+        );
+      });
+    try {
+      const { el, internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.threadInspectionAvailable = true;
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(internals._conversation).toHaveLength(1);
+      });
+
+      internals.credentials = "include";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(messageFetches).toBe(2);
+      });
+
+      internals.liveMessageVersion = 1;
+      await el.updateComplete;
+
+      expect(messageFetches).toBe(2);
+      resolveCredentialReload?.(
+        new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+        }),
+      );
+
+      await vi.waitFor(() => {
+        expect(internals._messagesError).toBe("HTTP 401");
+      });
+      expect(internals._conversation).toHaveLength(0);
+      expect(credentialsOf(fetchSpy.mock.calls[1])).toBe("include");
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it("conversation cache invalidates when _conversation is reassigned", async () => {
     const { el, internals } = createThreadDetails();
     await settleThread(el, internals, "t1");
