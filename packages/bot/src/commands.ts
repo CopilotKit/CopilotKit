@@ -1,6 +1,6 @@
 import type { InferSchemaOutput, ObjectSchema } from "./standard-schema.js";
 import { toJsonSchema } from "./standard-schema.js";
-import type { Thread, PlatformUser } from "@copilotkit/bot-ui";
+import type { Thread, PlatformUser, ModalView } from "@copilotkit/bot-ui";
 
 /**
  * Context handed to a slash-command handler. `text` is the raw argument string
@@ -20,6 +20,8 @@ export interface CommandContext<TOptions = Record<string, never>> {
   /** The invoking user, when the surface provides it. */
   user?: PlatformUser;
   platform: string;
+  /** Open a modal in response to this command (requires the surface's trigger; `undefined` when unavailable). */
+  openModal?(view: ModalView): Promise<{ ok: boolean; error?: string }>;
 }
 
 /**
@@ -74,12 +76,20 @@ export interface CommandSpec {
 
 /** Normalize a command name for matching: drop a leading slash, lower-case, trim. */
 export function normalizeCommandName(name: string): string {
-  return name.trim().replace(/^\//, "").toLowerCase();
+  // Collapse "-"→"_" so a command routes the same whether invoked as
+  // /file-issue (Slack/Discord allow hyphens) or /file_issue (Telegram forbids
+  // them; its adapter converts on registration). This is the ROUTING key only —
+  // per-adapter display names are decided in each adapter / `toCommandSpec`.
+  return name.trim().replace(/^\//, "").toLowerCase().replace(/-/g, "_");
 }
 
 export function toCommandSpec(command: BotCommand): CommandSpec {
   return {
-    name: normalizeCommandName(command.name),
+    // Preserve hyphens here (display/registration name): Discord and Slack
+    // accept them, so `/file-issue` stays `/file-issue` there. Telegram's
+    // adapter converts hyphens to underscores itself; routing still matches
+    // because `normalizeCommandName` collapses both forms.
+    name: command.name.trim().replace(/^\//, "").toLowerCase(),
     description: command.description ?? "",
     options: command.options ? toJsonSchema(command.options) : undefined,
   };

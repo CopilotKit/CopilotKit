@@ -457,6 +457,19 @@ describe("slack-listener", () => {
     expect(f.commands[0]!.text).toBe("");
   });
 
+  it("forwards trigger_id from a slash command to the SlackCommand", async () => {
+    const f = setup();
+    await f.fireCommand({
+      command: "/triage",
+      channel_id: "C1",
+      user_id: "UATAI001",
+      text: "hello",
+      trigger_id: "T999.888",
+    });
+    expect(f.commands).toHaveLength(1);
+    expect(f.commands[0]!.triggerId).toBe("T999.888");
+  });
+
   it("repeat command from same user reuses the same conversation scope", async () => {
     const f = setup();
     await f.fireCommand({

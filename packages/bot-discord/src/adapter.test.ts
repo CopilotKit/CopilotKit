@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { MessageFlags } from "discord.js";
 import { DiscordAdapter, discord } from "./adapter.js";
 
 function fakeClient() {
@@ -29,15 +30,17 @@ const sink = () => ({
   onTurn: vi.fn(),
   onInteraction: vi.fn(),
   onCommand: vi.fn(),
+  onModalSubmit: vi.fn(),
 });
 
 describe("DiscordAdapter", () => {
-  it("advertises Discord capabilities (modals off in v1)", () => {
+  it("advertises Discord capabilities", () => {
     const a = new DiscordAdapter({ botToken: "t", appId: "app" });
     expect(a.platform).toBe("discord");
-    expect(a.capabilities.supportsModals).toBe(false);
+    expect(a.capabilities.supportsModals).toBe(true);
     expect(a.capabilities.supportsTyping).toBe(true);
     expect(a.capabilities.supportsReactions).toBe(true);
+    expect(a.capabilities.supportsEphemeral).toBe(false);
     expect(a.capabilities.supportsStreaming).toBe(true);
     expect(a.capabilities.maxBlocksPerMessage).toBe(40);
     expect(a.ackDeadlineMs).toBe(3000);
@@ -64,6 +67,10 @@ describe("DiscordAdapter", () => {
     await a.start(sink() as never);
     expect(client.login).toHaveBeenCalledWith("t");
     expect(put).not.toHaveBeenCalled();
+    // Stash a non-empty command list — publishCommands guards an empty list (an
+    // empty PUT would clear all of the bot's commands), so a command must be
+    // registered for the once("ready") publish to PUT anything.
+    a.registerCommands([{ name: "agent", description: "x" }]);
     client.emit("ready", client); // discord.js passes the ready client
     // ready handler is async; flush microtasks
     await Promise.resolve();
@@ -209,6 +216,7 @@ describe("DiscordAdapter", () => {
     const interaction = {
       isButton: () => true,
       isStringSelectMenu: () => false,
+      id: "int-1",
       customId: "btn-1",
       channelId: "c1",
       user: { id: "u1", username: "ada" },
@@ -232,5 +240,157 @@ describe("DiscordAdapter", () => {
       expect.any(Error),
     );
     errSpy.mockRestore();
+  });
+
+  // A modal opened from a slash command yields a ModalSubmitInteraction with
+  // no originating message — `deferUpdate()` is invalid there and throws. The
+  // ack must use `deferReply` (ephemeral) for that origin, and must never throw
+  // uncaught.
+  function fakeModalSubmit(over: Record<string, unknown>) {
+    return {
+      isButton: () => false,
+      isStringSelectMenu: () => false,
+      isModalSubmit: () => true,
+      customId: "triage",
+      channelId: "c1",
+      guildId: "g1",
+      user: { id: "u1", username: "ada" },
+      fields: {
+        fields: new Map([["summary", { customId: "summary", value: "x" }]]),
+      },
+      replied: false,
+      deferred: false,
+      ...over,
+    };
+  }
+
+  it("modal-submit from a slash command acks with deferReply (ephemeral), not deferUpdate", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    await a.start(s as never);
+
+    // Slash-command origin: isFromMessage() === false. deferUpdate would throw
+    // for such an interaction in discord.js, so simulate that to prove the
+    // correct method is chosen (and that a stray call would surface).
+    const deferReply = vi.fn(async (_opts: { flags: number }) => {});
+    const deferUpdate = vi.fn(async () => {
+      throw new Error("interaction not from message");
+    });
+    const interaction = fakeModalSubmit({
+      isFromMessage: () => false,
+      deferReply,
+      deferUpdate,
+    });
+
+    client.emit("interactionCreate", interaction);
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+
+    expect(s.onModalSubmit).toHaveBeenCalledTimes(1);
+    expect(deferReply).toHaveBeenCalledTimes(1);
+    // ephemeral flag passed
+    expect(deferReply.mock.calls[0]?.[0]).toMatchObject({
+      flags: MessageFlags.Ephemeral,
+    });
+    expect(deferUpdate).not.toHaveBeenCalled();
+  });
+
+  it("modal-submit from a message component acks with deferUpdate, not deferReply", async () => {
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    const s = sink();
+    await a.start(s as never);
+
+    const deferReply = vi.fn(async () => {});
+    const deferUpdate = vi.fn(async () => {});
+    const interaction = fakeModalSubmit({
+      isFromMessage: () => true,
+      deferReply,
+      deferUpdate,
+    });
+
+    client.emit("interactionCreate", interaction);
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+
+    expect(s.onModalSubmit).toHaveBeenCalledTimes(1);
+    expect(deferUpdate).toHaveBeenCalledTimes(1);
+    expect(deferReply).not.toHaveBeenCalled();
+  });
+
+  it("openModal opens a modal for a slash-command interaction (commandPending registry)", async () => {
+    // The bug: openModal only consulted the component registry (`pending`), so a
+    // modal opened from a slash command — whose live interaction lives in
+    // `commandPending` — silently failed. openModal must try BOTH registries.
+    const client = fakeClient();
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+    // `commandPending` is constructed in start(); spin it up with the fake client.
+    await a.start(sink() as never);
+
+    // Register a live slash-command interaction in the COMMAND registry only
+    // (not the component `pending` one), then open a modal against its trigger.
+    const showModal = vi.fn(async () => {});
+    const triggerId = (
+      a as unknown as {
+        commandPending: {
+          register(i: { id: string; showModal: unknown }): string;
+        };
+      }
+    ).commandPending.register({ id: "cmdTrigger", showModal });
+
+    // A minimal valid modal IR: a <Modal> root with no children renders fine
+    // (zero text inputs is allowed; renderDiscordModal only throws on
+    // unsupported elements or >5 inputs).
+    const modalIr = [
+      { type: "modal", props: { callbackId: "x", title: "t", children: [] } },
+    ];
+    const res = await a.openModal(
+      { channelId: "c1" } as never,
+      triggerId,
+      modalIr as never,
+    );
+
+    expect(showModal).toHaveBeenCalledTimes(1);
+    expect(res).toEqual({ ok: true });
+  });
+
+  it("registerCommands never clears on empty, and publishes when already ready", async () => {
+    const client = fakeClient();
+    const put = vi.fn(
+      async (_route: string, _opts: { body: unknown }) => undefined,
+    );
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put } as never },
+    );
+    await a.start(sink() as never);
+
+    // (i) An empty command list must NOT PUT — an empty PUT clears all of the
+    // bot's registered commands. Register empty, then fire `ready`.
+    a.registerCommands([]);
+    client.emit("ready", client);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(put).not.toHaveBeenCalled();
+
+    // (ii) Registering after `ready` must publish immediately (the once("ready")
+    // publish already ran, so a later registerCommands has to PUT itself).
+    a.registerCommands([{ name: "agent", description: "x" }]);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(put).toHaveBeenCalledTimes(1);
+    // The published body carries the registered command.
+    const body = put.mock.calls[0]?.[1] as { body: Array<{ name: string }> };
+    expect(body.body).toEqual([
+      expect.objectContaining({ name: "agent", description: "x" }),
+    ]);
   });
 });

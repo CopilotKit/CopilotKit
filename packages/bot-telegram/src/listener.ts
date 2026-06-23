@@ -6,6 +6,7 @@ import {
   deriveConversationKey,
   toPlatformUser,
   decodeInteraction,
+  decodeReaction,
 } from "./interaction.js";
 import { buildFileContentParts } from "./download-files.js";
 import type { AgentContentPart, TelegramFileRef } from "./download-files.js";
@@ -523,6 +524,25 @@ export function attachTelegramListener(config: ListenerConfig): void {
       }
     } catch (err) {
       console.error("[bot-telegram] onInteraction failed:", err);
+    }
+  });
+
+  // ── Emoji reactions ────────────────────────────────────────────────
+  bot.on("message_reaction", async (ctx) => {
+    // LOOP GUARD: ignore the bot's OWN reactions. If our setMessageReaction
+    // egress is ever echoed back as a message_reaction update, dispatching it
+    // to sink.onReaction would treat it as a user reaction (loop risk for a
+    // catch-all handler). Mirrors the from?.id === botUserId guard the message
+    // handlers use, and Discord's user?.bot skip.
+    const reactor = (
+      ctx.update as { message_reaction?: { user?: { id?: number } } }
+    ).message_reaction?.user;
+    if (reactor?.id === botUserId) return;
+
+    try {
+      for (const evt of decodeReaction(ctx.update)) await sink.onReaction(evt);
+    } catch (err) {
+      console.error("[bot-telegram] onReaction failed:", err);
     }
   });
 

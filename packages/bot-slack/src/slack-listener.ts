@@ -22,6 +22,8 @@ export interface SlackCommand {
   conversation: { channelId: string; scope: string };
   replyTarget: { channel: string };
   senderUserId?: string;
+  /** Opaque platform trigger for opening a modal (Slack `trigger_id`). */
+  triggerId?: string;
   /**
    * Stable per-invocation id for inbound idempotency. Slash commands carry no
    * Events API `event_id`, so this is derived from
@@ -123,6 +125,7 @@ export function attachSlackListener(config: ListenerConfig): void {
         },
         replyTarget: { channel: command.channel_id },
         senderUserId: command.user_id,
+        triggerId: command.trigger_id,
         // Slash commands carry no Events API event_id; trigger_id is the most
         // stable per-invocation value Slack provides.
         eventId: command.trigger_id

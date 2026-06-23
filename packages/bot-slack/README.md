@@ -251,14 +251,41 @@ structured args (e.g. Discord) and is unused on Slack. The adapter does not
 implement `registerCommands`, so the engine skips it (Slack matches commands
 dynamically rather than registering them up front).
 
+## OAuth bot scopes
+
+The following bot token scopes are required or relevant depending on the
+features your app uses:
+
+| Scope              | Required for                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat:write`       | Posting messages, streaming, ephemeral messages (`chat.postEphemeral`), and opening modals (`views.open`) — all share this single scope. |
+| `reactions:read`   | Reading reactions; subscribe to `reaction_added` / `reaction_removed` events in the app manifest to receive them.                        |
+| `reactions:write`  | Adding or removing reactions via `reactions.add` / `reactions.remove`.                                                                   |
+| `assistant:write`  | Native streaming task chunks and assistant-pane status updates.                                                                          |
+| `files:write`      | Uploading files via `thread.postFile()`.                                                                                                 |
+| `users:read`       | Resolving Slack user profiles (name, email) via `users.info`.                                                                            |
+| `users:read.email` | Resolving user email addresses.                                                                                                          |
+| `channels:history` | Reading channel thread messages via `conversations.replies`.                                                                             |
+| `groups:history`   | Reading private-channel thread messages via `conversations.replies`.                                                                     |
+| `im:history`       | Reading DM thread messages via `conversations.replies`.                                                                                  |
+| `mpim:history`     | Reading group-DM thread messages via `conversations.replies`.                                                                            |
+
+### Notes
+
+- **Modals** (`views.open`, `view_submission`, `view_closed`): handled via
+  `chat:write` — no additional scope is needed.
+- **Ephemeral messages** (`chat.postEphemeral`): covered by `chat:write`.
+- **Reactions** (`reactions:read` / `reactions:write`): these scopes alone
+  are not enough — you must also subscribe to the `reaction_added` and
+  `reaction_removed` events in the Slack app manifest so that Slack delivers
+  the events to your bot.
+
 ## What's NOT in v1
 
-- Modals / true batched form submit
 - OAuth / multi-workspace install (single bot token only)
 - Durable (Redis/DB) `ActionStore` — in-memory only; actions expire on
   restart
 - Proactive posting (bot replies only to turns it's part of)
-- Reactions
 
 ## Exports
 
