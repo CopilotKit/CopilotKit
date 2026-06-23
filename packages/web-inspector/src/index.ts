@@ -2590,7 +2590,7 @@ export class WebInspectorElement extends LitElement {
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: {},
+      headers: core.headers,
       agentId,
     });
     this._ownedThreadStores.set(agentId, store);
@@ -2651,6 +2651,17 @@ export class WebInspectorElement extends LitElement {
       },
       onPropertiesChanged: ({ properties }) => {
         this.coreProperties = properties;
+        this.requestUpdate();
+      },
+      onHeadersChanged: ({ headers }) => {
+        if (!core.runtimeUrl) return;
+        for (const [agentId, store] of this._ownedThreadStores) {
+          store.setContext({
+            runtimeUrl: core.runtimeUrl,
+            headers,
+            agentId,
+          });
+        }
         this.requestUpdate();
       },
       onError: ({ code, error }) => {
