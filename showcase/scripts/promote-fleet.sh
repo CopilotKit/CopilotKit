@@ -315,11 +315,13 @@ if [ -n "${CLOSURE_PLAN:-}" ]; then
   tier0=()
   tier1=()
   tier2=()
+  standalone_svcs=()   # `s:`-marked services: promoted UNGATED (never gate / gated)
   IFS=',' read -ra PLAN_TOKENS <<< "$CLOSURE_PLAN"
   for tok in "${PLAN_TOKENS[@]}"; do
     tok="$(trim "$tok")"
     [ -n "$tok" ] || continue
-    # Split `tier:name`; the tier is the part before the FIRST colon.
+    # Split `tier:name`; the tier is the part before the FIRST colon. A
+    # standalone service carries the `s` marker instead of a numeric tier.
     tier="${tok%%:*}"
     svc="$(trim "${tok#*:}")"
     [ -n "$svc" ] || continue
@@ -327,8 +329,9 @@ if [ -n "${CLOSURE_PLAN:-}" ]; then
       0) tier0+=("$svc") ;;
       1) tier1+=("$svc") ;;
       2) tier2+=("$svc") ;;
+      s) standalone_svcs+=("$svc") ;;
       *)
-        echo "::error::promote-fleet: CLOSURE_PLAN token '$tok' has an unknown tier '$tier' (expected 0, 1, or 2)." >&2
+        echo "::error::promote-fleet: CLOSURE_PLAN token '$tok' has an unknown tier '$tier' (expected 0, 1, 2, or s)." >&2
         exit 1
         ;;
     esac
@@ -339,6 +342,13 @@ if [ -n "${CLOSURE_PLAN:-}" ]; then
   # under `set -u` on bash 3.2 (an empty tier expands to a single empty arg,
   # which promote_tier skips via promote_one's no-op on "" — see below).
   gated=0
+  tier_had_failure=0
+  # Standalone services FIRST and ALWAYS ungated. Their failures still land in
+  # failed[] (so the run exits non-zero), but we deliberately do NOT fold their
+  # tier_had_failure into `gated`: a standalone leaf neither gates a dependent
+  # nor is gated by an unrelated failure. The reset below ensures a standalone
+  # failure cannot leak into tier 0's gating decision.
+  promote_tier 0 "${standalone_svcs[@]:-}"
   tier_had_failure=0
   promote_tier "$gated" "${tier0[@]:-}"
   [ "$tier_had_failure" -ne 0 ] && gated=1

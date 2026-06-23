@@ -142,16 +142,22 @@ CLOSURE_PLAN_JSON=$(jq -n \
   | ($ordered | map({ key: .name, value: .tier }) | from_entries) as $tierOf
   # name -> runtimeDeps[] from the per-service entries.
   | ($g.services | map({ key: .name, value: (.runtimeDeps // []) }) | from_entries) as $depsOf
+  # name -> standalone? from the per-service entries (mirrors railway-envs.ts
+  # computePromoteClosure). A standalone leaf depends on nothing and gates on
+  # nothing.
+  | ($g.services | map({ key: .name, value: (.standalone // false) }) | from_entries) as $standaloneOf
   # ALL Tier-1 verification services are always part of an equivalence-gated
-  # promote closure (§4.2).
+  # promote closure (§4.2) — UNLESS the request is ENTIRELY standalone services,
+  # in which case the closure is just the requested leaf (no control plane).
   | ($ordered | map(select(.tier == 1) | .name)) as $tier1
+  | (($requested | length) > 0 and ($requested | all(. as $r | $standaloneOf[$r] == true))) as $allStandalone
   # Transitive runtimeDeps walk over the requested set (bounded; the dep graph is
   # shallow — tier-2 -> tier-0/1, tier-1 -> tier-0).
   | def expand(seed):
       reduce range(0; 8) as $_ (seed;
         (. + ([ .[] | ($depsOf[.] // []) ] | add // [])) | unique
       );
-    expand(($requested + $tier1))
+    expand(if $allStandalone then $requested else ($requested + $tier1) end)
   # name -> position in the authoritative closure ordering. We build this as an
   # explicit map rather than using index(name): the jq index builtin on an array
   # of strings does a SUBSEQUENCE search when the argument is a string (e.g.
@@ -164,13 +170,16 @@ CLOSURE_PLAN_JSON=$(jq -n \
   | map(select($tierOf[.] != null))
   | unique
   | sort_by([ $tierOf[.], $posOf[.] ])
-  | map({ name: ., tier: $tierOf[.] })
+  | map({ name: ., tier: $tierOf[.], standalone: ($standaloneOf[.] == true) })
 ')
 
 # closure_csv — tier-ordered SSOT-name CSV.
 CLOSURE_CSV=$(printf '%s' "$CLOSURE_PLAN_JSON" | jq -r 'map(.name) | join(",")')
 # closure_plan — tier-annotated `tier:name` CSV for U4's tier-ordered gating.
-CLOSURE_PLAN=$(printf '%s' "$CLOSURE_PLAN_JSON" | jq -r 'map("\(.tier):\(.name)") | join(",")')
+# A standalone member is emitted with the `s:` marker instead of its numeric
+# tier, so the fleet driver promotes it UNGATED (never gated by, and never
+# gating, another service).
+CLOSURE_PLAN=$(printf '%s' "$CLOSURE_PLAN_JSON" | jq -r 'map(if .standalone then "s:\(.name)" else "\(.tier):\(.name)" end) | join(",")')
 
 # Defense in depth: an empty closure means the SSOT closure block is broken (the
 # requested set always self-includes, and Tier-1 is always present). Fail loud

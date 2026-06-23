@@ -781,3 +781,54 @@ STUB
   [[ "$output" != *"svc-empty= "* && "$output" != *"svc-empty="$'\n'* ]] \
     || fail "garbage empty-rc entry (svc-empty=) leaked into summary: $output"
 }
+
+# --- NEW: standalone services (`s:` tier marker) -----------------------------
+# A standalone service is promoted UNGATED: it is attempted regardless of any
+# other service's failure (never NOT-ATTEMPTED on an unrelated failure), and its
+# own failure fails the run WITHOUT gating the tiered services.
+
+@test "U4: a standalone (s:) service is promoted even when an unrelated tier-1 service fails" {
+  setup_tier_stub
+  # tier-1 svc-fail fails (gating tier-2 svc-i1 as usual). The standalone
+  # svc-docs (s:) must STILL be attempted and must land in succeeded_csv.
+  run env CLOSURE_PLAN="s:svc-docs,0:svc-a,1:svc-fail,2:svc-i1" bash "$SCRIPT"
+
+  # Standalone attempted DESPITE the unrelated tier-1 failure.
+  [[ "$output" == *"STUB called for: svc-docs"* ]] \
+    || fail "standalone svc-docs must be attempted despite the tier-1 failure: $output"
+  # Normal tier gating is unchanged: tier-2 svc-i1 is still gated.
+  [[ "$output" != *"STUB called for: svc-i1"* ]] \
+    || fail "tier-2 svc-i1 should still be gated by the tier-1 failure: $output"
+  # The run still fails (svc-fail genuinely failed)...
+  [ "$status" -ne 0 ] || fail "expected non-zero exit (svc-fail failed), got $status: $output"
+  # ...but the standalone promoted successfully and is NOT in NOT-ATTEMPTED.
+  run cat "$GITHUB_OUTPUT"
+  [[ "$output" == *"svc-docs"* ]] || fail "standalone svc-docs should be in succeeded_csv: $output"
+}
+
+@test "U4: a standalone (s:) service's OWN failure fails the run but does NOT gate the tiers" {
+  setup_tier_stub
+  # The standalone svc-fail fails. Because a standalone neither gates nor is
+  # gated, EVERY tier must still be attempted, and the run exits non-zero.
+  run env CLOSURE_PLAN="s:svc-fail,0:svc-a,1:svc-h,2:svc-i1" bash "$SCRIPT"
+
+  [[ "$output" == *"STUB called for: svc-fail"* ]] || fail "standalone svc-fail not attempted: $output"
+  # All tiers STILL attempted — the standalone failure must not gate them.
+  [[ "$output" == *"STUB called for: svc-a"* ]] || fail "tier-0 svc-a gated by standalone failure: $output"
+  [[ "$output" == *"STUB called for: svc-h"* ]] || fail "tier-1 svc-h gated by standalone failure: $output"
+  [[ "$output" == *"STUB called for: svc-i1"* ]] || fail "tier-2 svc-i1 gated by standalone failure: $output"
+  [ "$status" -ne 0 ] || fail "expected non-zero exit (standalone svc-fail failed), got $status: $output"
+  # The tiered services were NOT recorded NOT-ATTEMPTED.
+  [[ "$output" != *"NOT-ATTEMPTED"* ]] || fail "a standalone failure must not gate (NOT-ATTEMPTED) any tier: $output"
+}
+
+@test "U4: an all-green plan with a standalone (s:) member promotes everything" {
+  setup_tier_stub
+  run env CLOSURE_PLAN="s:svc-docs,0:svc-a,1:svc-h,2:svc-i1" bash "$SCRIPT"
+  [ "$status" -eq 0 ] || fail "expected exit 0 for an all-green plan, got $status: $output"
+  for s in svc-docs svc-a svc-h svc-i1; do
+    [[ "$output" == *"STUB called for: $s"* ]] || fail "$s not attempted: $output"
+  done
+  run cat "$GITHUB_OUTPUT"
+  [[ "$output" == *"svc-docs"* ]] || fail "standalone svc-docs should be in succeeded_csv: $output"
+}

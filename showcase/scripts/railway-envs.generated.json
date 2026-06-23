@@ -73,7 +73,8 @@
         "prod": true,
         "driver": "docs"
       },
-      "promoteTier": 2
+      "promoteTier": 2,
+      "standalone": true
     },
     {
       "name": "dojo",
@@ -1065,7 +1066,8 @@
       },
       {
         "name": "docs",
-        "tier": 2
+        "tier": 2,
+        "standalone": true
       },
       {
         "name": "dojo",
