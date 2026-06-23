@@ -1,4 +1,5 @@
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
+import type { ThreadEndpointRuntimeInfo } from "@copilotkit/shared";
 import type { Observable } from "rxjs";
 import { defer, firstValueFrom, merge, of } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
@@ -41,6 +42,11 @@ const THREADS_CHANNEL_EVENT = "thread_metadata";
 const THREAD_SUBSCRIBE_PATH = "/threads/subscribe";
 const MAX_SOCKET_RETRIES = 5;
 const REQUEST_TIMEOUT_MS = 15_000;
+const RUNTIME_URL_MISSING_MESSAGE = "Runtime URL is not configured";
+const THREAD_LIST_UNAVAILABLE_MESSAGE =
+  "Thread endpoints are not available on this CopilotKit runtime";
+const THREAD_MUTATIONS_UNAVAILABLE_MESSAGE =
+  "Thread mutations are not available on this CopilotKit runtime";
 
 interface ThreadRecord {
   id: string;
@@ -61,6 +67,7 @@ interface ThreadRuntimeContext {
   agentId: string;
   includeArchived?: boolean;
   limit?: number;
+  threadEndpoints?: Partial<ThreadEndpointRuntimeInfo>;
 }
 
 type ThreadMetadataEvent =
@@ -211,20 +218,56 @@ function upsertThread(
   return sortThreadsByRecency(next);
 }
 
+function getThreadListContextError(
+  context: ThreadRuntimeContext | null,
+): Error | null {
+  if (!context) {
+    return null;
+  }
+
+  if (!context.runtimeUrl) {
+    return new Error(RUNTIME_URL_MISSING_MESSAGE);
+  }
+
+  if (context.threadEndpoints?.list === false) {
+    return new Error(THREAD_LIST_UNAVAILABLE_MESSAGE);
+  }
+
+  return null;
+}
+
+function getThreadMutationContextError(
+  context: ThreadRuntimeContext | null,
+): Error | null {
+  if (!context?.runtimeUrl) {
+    return new Error(RUNTIME_URL_MISSING_MESSAGE);
+  }
+
+  if (context.threadEndpoints?.mutations === false) {
+    return new Error(THREAD_MUTATIONS_UNAVAILABLE_MESSAGE);
+  }
+
+  return null;
+}
+
 const threadReducer = createReducer<ThreadState>(
   initialThreadState,
-  on(threadAdapterEvents.contextChanged, (state, { context }) => ({
-    ...state,
-    context,
-    sessionId: state.sessionId + 1,
-    threads: [],
-    isLoading: Boolean(context),
-    isFetchingNextPage: false,
-    error: null,
-    metadataCredentialsRequested: false,
-    metadataJoinCode: null,
-    nextCursor: null,
-  })),
+  on(threadAdapterEvents.contextChanged, (state, { context }) => {
+    const contextError = getThreadListContextError(context);
+
+    return {
+      ...state,
+      context,
+      sessionId: state.sessionId + 1,
+      threads: [],
+      isLoading: Boolean(context) && !contextError,
+      isFetchingNextPage: false,
+      error: contextError,
+      metadataCredentialsRequested: false,
+      metadataJoinCode: null,
+      nextCursor: null,
+    };
+  }),
   on(threadAdapterEvents.stopped, (state) => ({
     ...state,
     threads: [],
@@ -238,6 +281,15 @@ const threadReducer = createReducer<ThreadState>(
   on(threadRestEvents.listRequested, (state, { sessionId }) => {
     if (sessionId !== state.sessionId || !state.context) {
       return state;
+    }
+
+    const contextError = getThreadListContextError(state.context);
+    if (contextError) {
+      return {
+        ...state,
+        isLoading: false,
+        error: contextError,
+      };
     }
 
     return {
@@ -406,6 +458,16 @@ function createThreadFetchObservable(
   | ReturnType<typeof threadRestEvents.listFailed>
 > {
   return defer(() => {
+    const contextError = getThreadListContextError(context);
+    if (contextError) {
+      return of(
+        threadRestEvents.listFailed({
+          sessionId,
+          error: contextError,
+        }),
+      );
+    }
+
     const params: Record<string, string> = {
       agentId: context.agentId,
     };
@@ -852,25 +914,27 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       withLatestFrom(state$),
       mergeMap(([action, state]) => {
         const context = state.context;
-        if (!context?.runtimeUrl) {
+        const contextError = getThreadMutationContextError(context);
+        if (contextError) {
           const requestId = action.requestId;
           return of(
             threadRestEvents.mutationFinished({
               outcome: {
                 requestId,
                 ok: false,
-                error: new Error("Runtime URL is not configured"),
+                error: contextError,
               },
             }),
           );
         }
 
+        const mutationContext = context;
         const commonBody = {
-          agentId: context.agentId,
+          agentId: mutationContext.agentId,
         };
 
         if (threadAdapterEvents.renameRequested.match(action)) {
-          return createThreadMutationObservable(environment, context, {
+          return createThreadMutationObservable(environment, mutationContext, {
             requestId: action.requestId,
             method: "PATCH",
             path: `/threads/${encodeURIComponent(action.threadId)}`,
@@ -882,7 +946,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
         }
 
         if (threadAdapterEvents.archiveRequested.match(action)) {
-          return createThreadMutationObservable(environment, context, {
+          return createThreadMutationObservable(environment, mutationContext, {
             requestId: action.requestId,
             method: "POST",
             path: `/threads/${encodeURIComponent(action.threadId)}/archive`,
@@ -890,7 +954,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           });
         }
 
-        return createThreadMutationObservable(environment, context, {
+        return createThreadMutationObservable(environment, mutationContext, {
           requestId: action.requestId,
           method: "DELETE",
           path: `/threads/${encodeURIComponent(action.threadId)}`,
@@ -965,6 +1029,10 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       store.stop();
     },
     setContext(context: ThreadRuntimeContext | null): void {
+      if (store.getState().context === context) {
+        return;
+      }
+
       store.dispatch(threadAdapterEvents.contextChanged({ context }));
     },
     refresh(): void {
@@ -973,6 +1041,11 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       store.dispatch(threadRestEvents.listRequested({ sessionId }));
     },
     fetchNextPage(): void {
+      const { nextCursor, isFetchingNextPage } = store.getState();
+      if (!nextCursor || isFetchingNextPage) {
+        return;
+      }
+
       store.dispatch(threadAdapterEvents.fetchNextPageRequested());
     },
     renameThread(threadId: string, name: string): Promise<void> {
