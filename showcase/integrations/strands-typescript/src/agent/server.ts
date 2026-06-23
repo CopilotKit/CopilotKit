@@ -21,6 +21,7 @@ import {
   buildVoiceAgent,
   buildByocHashbrownAgent,
   buildByocJsonRenderAgent,
+  buildA2uiFixedSchemaAgent,
 } from "./agent";
 
 /** Mount an agent at `path` and `path/` so trailing-slash proxies resolve. */
@@ -50,16 +51,23 @@ async function main(): Promise<void> {
   });
   addPing(app, "/ping");
 
-  const [showcase, voice, hashbrown, jsonRender] = await Promise.all([
-    buildShowcaseAgent(),
-    buildVoiceAgent(),
-    buildByocHashbrownAgent(),
-    buildByocJsonRenderAgent(),
-  ]);
+  const [showcase, voice, hashbrown, jsonRender, a2uiFixed] = await Promise.all(
+    [
+      buildShowcaseAgent(),
+      buildVoiceAgent(),
+      buildByocHashbrownAgent(),
+      buildByocJsonRenderAgent(),
+      buildA2uiFixedSchemaAgent(),
+    ],
+  );
 
   mountAgent(app, "/voice", voice);
   mountAgent(app, "/byoc-hashbrown", hashbrown);
   mountAgent(app, "/byoc-json-render", jsonRender);
+  // Fixed-schema A2UI: the dedicated agent wires its OWN backend tool
+  // (`display_flight`) returning an a2ui_operations envelope; the runtime
+  // A2UIMiddleware paints it directly. No generate_a2ui injection.
+  mountAgent(app, "/a2ui-fixed-schema", a2uiFixed);
   // Mount the shared agent LAST at the root so the sub-path POST routes are
   // matched first by Express's route table.
   mountAgent(app, "/", showcase);
