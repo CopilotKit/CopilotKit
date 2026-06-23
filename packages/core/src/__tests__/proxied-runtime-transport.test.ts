@@ -235,6 +235,26 @@ describe("ProxiedCopilotRuntimeAgent capabilities", () => {
   });
 });
 
+describe("ProxiedCopilotRuntimeAgent subscribers", () => {
+  it("repairs missing subscriber storage before subscribing", () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost:3000",
+      agentId: "test-agent",
+      description: "Test agent",
+    });
+
+    delete (agent as unknown as { subscribers?: unknown[] }).subscribers;
+
+    const subscription = agent.subscribe({ onRunFinalized: vi.fn() });
+
+    expect(agent.subscribers).toHaveLength(1);
+
+    subscription.unsubscribe();
+
+    expect(agent.subscribers).toHaveLength(0);
+  });
+});
+
 describe("ProxiedCopilotRuntimeAgent cloning", () => {
   const originalFetch = global.fetch;
   const runtimeUrl = "https://runtime.example/single";
