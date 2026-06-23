@@ -1,16 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { InMemoryAgentRunner } from "../in-memory";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   Message,
   RunAgentInput,
+  RunAgentResult,
   RunErrorEvent,
   RunFinishedEvent,
   RunStartedEvent,
 } from "@ag-ui/client";
-import { EMPTY, Subscription, firstValueFrom, from } from "rxjs";
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { Subscription } from "rxjs";
+import { EMPTY, firstValueFrom, from } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 type RunCallbacks = {
@@ -35,7 +36,10 @@ class EmitAgent extends AbstractAgent {
     super();
   }
 
-  async runAgent(input: RunAgentInput, callbacks: RunCallbacks): Promise<void> {
+  async runAgent(
+    input: RunAgentInput,
+    callbacks: RunCallbacks,
+  ): Promise<RunAgentResult> {
     const {
       emitDefaultRunStarted = true,
       includeRunFinished = true,
@@ -80,6 +84,7 @@ class EmitAgent extends AbstractAgent {
       };
       await emit(finishEvent);
     }
+    return { result: undefined, newMessages: [] };
   }
 
   clone(): AbstractAgent {
@@ -89,7 +94,7 @@ class EmitAgent extends AbstractAgent {
     });
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -106,11 +111,11 @@ class ReplayAgent extends AbstractAgent {
     super({ threadId });
   }
 
-  async runAgent(): Promise<void> {
+  async runAgent(): Promise<RunAgentResult> {
     throw new Error("not used");
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -127,11 +132,11 @@ class RunnerConnectAgent extends AbstractAgent {
     super({ threadId });
   }
 
-  async runAgent(): Promise<void> {
+  async runAgent(): Promise<RunAgentResult> {
     throw new Error("not used");
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
