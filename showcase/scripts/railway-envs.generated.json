@@ -26,7 +26,11 @@
         "prod": true,
         "driver": "aimock"
       },
-      "promoteTier": 0
+      "promoteTier": 0,
+      "healthcheckPath": {
+        "prod": "/health",
+        "staging": "/health"
+      }
     },
     {
       "name": "dashboard",
@@ -120,7 +124,11 @@
         "prod": true,
         "driver": "harness"
       },
-      "promoteTier": 1
+      "promoteTier": 1,
+      "healthcheckPath": {
+        "prod": "/health",
+        "staging": "/health"
+      }
     },
     {
       "name": "harness-legacy",
@@ -142,7 +150,10 @@
         "prod": false,
         "driver": "harness"
       },
-      "promoteTier": 2
+      "promoteTier": 2,
+      "healthcheckPath": {
+        "staging": "/health"
+      }
     },
     {
       "name": "harness-workers",
@@ -164,7 +175,10 @@
         "prod": false,
         "driver": "harness"
       },
-      "promoteTier": 1
+      "promoteTier": 1,
+      "healthcheckPath": {
+        "staging": "/health"
+      }
     },
     {
       "name": "pocketbase",
@@ -210,7 +224,11 @@
         "prod": true,
         "driver": "shell"
       },
-      "promoteTier": 2
+      "promoteTier": 2,
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "showcase-ag2",
@@ -236,7 +254,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-agno",
@@ -262,7 +284,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-built-in-agent",
@@ -288,7 +314,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-claude-sdk-python",
@@ -314,7 +344,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-claude-sdk-typescript",
@@ -340,7 +374,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-crewai-crews",
@@ -366,7 +404,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-google-adk",
@@ -392,7 +434,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-langgraph-fastapi",
@@ -418,7 +464,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-langgraph-python",
@@ -444,7 +494,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-langgraph-typescript",
@@ -470,7 +524,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-langroid",
@@ -496,7 +554,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-llamaindex",
@@ -522,7 +584,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-mastra",
@@ -548,7 +614,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-ms-agent-dotnet",
@@ -574,7 +644,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-ms-agent-harness-dotnet",
@@ -600,7 +674,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-ms-agent-python",
@@ -626,7 +704,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-pydantic-ai",
@@ -652,7 +734,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-spring-ai",
@@ -678,7 +764,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "showcase-strands",
@@ -704,7 +794,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
     },
     {
       "name": "starter-adk",
@@ -730,7 +824,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "starter-agno",
@@ -756,7 +854,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "starter-crewai-crews",
@@ -782,7 +884,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "starter-langgraph-fastapi",
@@ -808,7 +914,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "starter-langgraph-js",
@@ -834,7 +944,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "starter-langgraph-python",
@@ -860,7 +974,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "starter-llamaindex",
@@ -886,7 +1004,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "starter-mastra",
@@ -912,7 +1034,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "starter-ms-agent-framework-dotnet",
@@ -938,7 +1064,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "starter-ms-agent-framework-python",
@@ -964,7 +1094,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "starter-pydantic-ai",
@@ -990,7 +1124,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "starter-strands-python",
@@ -1016,7 +1154,11 @@
           "key": "OPENAI_BASE_URL",
           "target": "aimock"
         }
-      ]
+      ],
+      "healthcheckPath": {
+        "prod": "/",
+        "staging": "/"
+      }
     },
     {
       "name": "webhooks",

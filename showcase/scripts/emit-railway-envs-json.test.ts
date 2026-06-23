@@ -90,6 +90,41 @@ describe("emit-railway-envs-json closure block", () => {
     // promoteTier is always present (defaults to 2 for a leaf integration).
     expect(agent?.promoteTier).toBe(2);
   });
+
+  it("emits per-env healthcheckPath when the SSOT declares one, omits it for live-null services", () => {
+    const services = parsed.services as Array<{
+      name: string;
+      healthcheckPath?: { prod?: string; staging?: string };
+    }>;
+
+    // aimock declares /health in BOTH envs (the repaired incident service).
+    const aimock = services.find((s) => s.name === "aimock");
+    expect(aimock?.healthcheckPath).toEqual({
+      prod: "/health",
+      staging: "/health",
+    });
+
+    // An agent integration is /api/health in both envs.
+    const agent = services.find((s) => s.name === "showcase-ag2");
+    expect(agent?.healthcheckPath).toEqual({
+      prod: "/api/health",
+      staging: "/api/health",
+    });
+
+    // shell is the Next.js shell that probes `/` (NOT the live-null docs/dojo).
+    const shell = services.find((s) => s.name === "shell");
+    expect(shell?.healthcheckPath).toEqual({ prod: "/", staging: "/" });
+
+    // docs is live-null in BOTH envs → the healthcheckPath key is OMITTED
+    // entirely (never `/`), so the pin omits the mutation field.
+    const docs = services.find((s) => s.name === "docs");
+    expect(docs?.healthcheckPath).toBeUndefined();
+
+    // harness-legacy is /health in staging, OMITTED in prod (per-env asymmetry).
+    const legacy = services.find((s) => s.name === "harness-legacy");
+    expect(legacy?.healthcheckPath).toEqual({ staging: "/health" });
+    expect(legacy?.healthcheckPath?.prod).toBeUndefined();
+  });
 });
 
 describe("emit-railway-envs-json legacy shape preservation (golden)", () => {
@@ -191,10 +226,13 @@ describe("emit-railway-envs-json EMIT_SKIP_OXFMT ephemeral opt-out", () => {
   // and that job's `npm ci` does not install the repo-root oxfmt binary the
   // committed path shells out to. EMIT_SKIP_OXFMT=1 lets those jobs skip the
   // oxfmt-canonical pass so a missing binary no longer ENOENT-aborts EVERY
-  // promote. We force the oxfmt binary to resolve to a path that does NOT exist
-  // (PATH-independent: the emitter shells out to an absolute repo-root path) by
-  // running with EMIT_SKIP_OXFMT unset vs set and asserting the failure flips.
-  function emitWithSkip(skip: boolean): {
+  // promote. These tests assert the OPT-OUT behavior directly: with
+  // EMIT_SKIP_OXFMT=1 the emitter SUCCEEDS without invoking oxfmt and returns
+  // the raw JSON.stringify form. (The DEFAULT, oxfmt-required path is covered
+  // by the "oxfmt-canonical output" golden tests above; we do not assert a
+  // failure here because whether oxfmt is installed varies by checkout, which
+  // would make a `skip=false` failure assertion non-deterministic.)
+  function emitWithSkip(): {
     status: number | null;
     stderr: string;
     out: string;
@@ -202,19 +240,7 @@ describe("emit-railway-envs-json EMIT_SKIP_OXFMT ephemeral opt-out", () => {
   } {
     const dir = mkdtempSync(join(tmpdir(), "emit-railway-envs-skip-"));
     const out = join(dir, "railway-envs.generated.json");
-    // Point OXFMT discovery at a binary that cannot exist so the default
-    // (oxfmt-required) path fails loud, isolating the env-var behavior from
-    // whether the repo-root oxfmt happens to be installed in this checkout.
-    const env = {
-      ...process.env,
-      // The emitter resolves OXFMT_BIN from import.meta.url, so we cannot
-      // redirect it via PATH; instead we rely on the natural CI condition the
-      // bug hits — oxfmt absent at the repo-root path. To make this test
-      // deterministic regardless of local install state we set EMIT_SKIP_OXFMT
-      // and assert the run SUCCEEDS, then (separately) that the committed-path
-      // golden tests above continue to require oxfmt.
-      ...(skip ? { EMIT_SKIP_OXFMT: "1" } : {}),
-    };
+    const env = { ...process.env, EMIT_SKIP_OXFMT: "1" };
     const res = spawnSync("npx", ["tsx", EMITTER, `--out=${out}`], {
       cwd: SCRIPTS_DIR,
       stdio: "pipe",
@@ -230,7 +256,7 @@ describe("emit-railway-envs-json EMIT_SKIP_OXFMT ephemeral opt-out", () => {
   }
 
   it("EMIT_SKIP_OXFMT=1 emits valid JSON (no oxfmt invocation required)", () => {
-    const r = emitWithSkip(true);
+    const r = emitWithSkip();
     try {
       expect(r.status).toBe(0);
       // The emitted artifact parses and carries the shape downstream consumers
@@ -253,7 +279,7 @@ describe("emit-railway-envs-json EMIT_SKIP_OXFMT ephemeral opt-out", () => {
     // arrays (oxfmt would collapse short arrays onto one line). We assert at
     // least one multi-line array marker exists, proving oxfmt was NOT run — the
     // exact divergence the committed path canonicalizes away.
-    const r = emitWithSkip(true);
+    const r = emitWithSkip();
     try {
       expect(r.status).toBe(0);
       const raw = readFileSync(r.out, "utf8");
