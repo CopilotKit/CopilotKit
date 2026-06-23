@@ -234,6 +234,14 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public debug: ResolvedDebugConfig;
   public debugLogger?: CopilotRuntimeLogger;
 
+  /**
+   * License token resolved once with the env fallback, so telemetry
+   * attribution (below) and subclass feature gating
+   * (CopilotIntelligenceRuntime's licenseChecker) read the exact same value
+   * instead of each re-applying `?? COPILOTKIT_LICENSE_TOKEN`.
+   */
+  protected readonly resolvedLicenseToken?: string;
+
   abstract readonly intelligence?: CopilotKitIntelligence;
   abstract readonly mode: RuntimeMode;
 
@@ -258,6 +266,21 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.mcpApps = mcpApps;
     this.openGenerativeUI = openGenerativeUI;
     this.runner = runner;
+
+    // Resolve the license token once (matching the license-verifier's env
+    // fallback) so telemetry attribution and subclass feature gating share
+    // one value.
+    this.resolvedLicenseToken =
+      options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
+
+    // Attribute telemetry to the licensed customer for *every* runtime mode.
+    // Done in the shared base (not the subclasses) so SSE and Intelligence
+    // runtimes behave identically — previously only CopilotIntelligenceRuntime
+    // set this, so self-hosted SSE users never got a telemetry_id on their
+    // runtime events even with a license token configured.
+    if (this.resolvedLicenseToken) {
+      telemetry.setLicenseToken(this.resolvedLicenseToken);
+    }
 
     if (process.env.NODE_ENV !== "production") {
       this.debugEventBus = new DebugEventBus();
@@ -314,16 +337,10 @@ export class CopilotIntelligenceRuntime
     this.intelligence = options.intelligence;
     this.identifyUser = options.identifyUser;
     this.generateThreadNames = options.generateThreadNames ?? true;
-    // Match license-verifier's env fallback so telemetry attribution
-    // resolves the same way as feature gating — otherwise customers who
-    // set only COPILOTKIT_LICENSE_TOKEN would get a working license but
-    // anonymous telemetry.
-    const licenseToken =
-      options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
-    this.licenseChecker = createLicenseChecker(licenseToken);
-    if (licenseToken) {
-      telemetry.setLicenseToken(licenseToken);
-    }
+    // Telemetry attribution is handled by the base constructor for all modes;
+    // here we only need the token for feature gating. Reuse the base-resolved
+    // value so gating and attribution can never disagree.
+    this.licenseChecker = createLicenseChecker(this.resolvedLicenseToken);
     this.lockTtlSeconds = Math.min(
       options.lockTtlSeconds ?? 20,
       CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
