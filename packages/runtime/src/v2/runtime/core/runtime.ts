@@ -259,6 +259,20 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     this.openGenerativeUI = openGenerativeUI;
     this.runner = runner;
 
+    // Attribute telemetry to the licensed customer for *every* runtime mode.
+    // Done in the shared base (not the subclasses) so SSE and Intelligence
+    // runtimes behave identically — previously only CopilotIntelligenceRuntime
+    // set this, so self-hosted SSE users never got a telemetry_id on their
+    // runtime events even with a license token configured. Matches the
+    // license-verifier's env fallback so attribution resolves the same way as
+    // feature gating; otherwise customers who set only COPILOTKIT_LICENSE_TOKEN
+    // would get a working license but anonymous telemetry.
+    const licenseToken =
+      options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
+    if (licenseToken) {
+      telemetry.setLicenseToken(licenseToken);
+    }
+
     if (process.env.NODE_ENV !== "production") {
       this.debugEventBus = new DebugEventBus();
     }
@@ -314,16 +328,12 @@ export class CopilotIntelligenceRuntime
     this.intelligence = options.intelligence;
     this.identifyUser = options.identifyUser;
     this.generateThreadNames = options.generateThreadNames ?? true;
-    // Match license-verifier's env fallback so telemetry attribution
-    // resolves the same way as feature gating — otherwise customers who
-    // set only COPILOTKIT_LICENSE_TOKEN would get a working license but
-    // anonymous telemetry.
-    const licenseToken =
-      options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN;
-    this.licenseChecker = createLicenseChecker(licenseToken);
-    if (licenseToken) {
-      telemetry.setLicenseToken(licenseToken);
-    }
+    // Telemetry attribution (telemetry.setLicenseToken) is handled by the
+    // base constructor for all modes; here we only need the license token for
+    // feature gating. Same env fallback so gating and attribution agree.
+    this.licenseChecker = createLicenseChecker(
+      options.licenseToken ?? process.env.COPILOTKIT_LICENSE_TOKEN,
+    );
     this.lockTtlSeconds = Math.min(
       options.lockTtlSeconds ?? 20,
       CopilotIntelligenceRuntime.MAX_LOCK_TTL_SECONDS,
