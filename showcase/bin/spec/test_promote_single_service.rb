@@ -88,7 +88,10 @@ class PromoteSingleServiceTest < Minitest::Test
         {
             "name" => name, "service_id" => "svc-#{name}",
             "image" => "ghcr.io/copilotkit/#{name}:latest",
-            "env_keys" => [],
+            # All CRITICAL_ENV_KEYS present so the (now unconditional) critical
+            # env-key presence assertion does not fire — this spec isolates the
+            # single-service narrowing behavior, not env-key parity.
+            "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
             "start_command" => "node server.js", "healthcheck_path" => "/health",
             "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
         }
@@ -98,7 +101,10 @@ class PromoteSingleServiceTest < Minitest::Test
         {
             "name" => name, "service_id" => "prod-#{name}",
             "image" => "ghcr.io/copilotkit/#{name}@sha256:OLD#{name.gsub('-', '')}",
-            "env_keys" => [],
+            # All CRITICAL_ENV_KEYS present so the (now unconditional) critical
+            # env-key presence assertion does not fire — this spec isolates the
+            # single-service narrowing behavior, not env-key parity.
+            "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
             "start_command" => "node server.js", "healthcheck_path" => "/health",
             "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
         }
