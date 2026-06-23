@@ -544,13 +544,14 @@ export class CopilotKit {
     runtimeUrl?: string;
     runtimeTransport?: CopilotRuntimeTransport;
     headers?: Record<string, string>;
+    credentials?: RequestCredentials;
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
     selfManagedAgents?: Record<string, AbstractAgent>;
   }): void {
     if (options.runtimeUrl !== undefined) {
       this.core.setRuntimeUrl(options.runtimeUrl);
-      this.#runtimeUrl.set(options.runtimeUrl);
+      this.#runtimeUrl.set(this.core.runtimeUrl);
     }
     if (options.runtimeTransport !== undefined) {
       this.core.setRuntimeTransport(options.runtimeTransport);
@@ -559,6 +560,10 @@ export class CopilotKit {
     if (options.headers !== undefined) {
       this.core.setHeaders(options.headers);
       this.#headers.set(options.headers);
+    }
+    if (options.credentials !== undefined) {
+      this.core.setCredentials(options.credentials);
+      this.#credentials.set(options.credentials);
     }
     if (options.properties !== undefined) {
       this.core.setProperties(options.properties);

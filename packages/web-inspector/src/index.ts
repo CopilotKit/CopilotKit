@@ -2635,14 +2635,14 @@ export class WebInspectorElement extends LitElement {
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
     store.stop();
-    this.core?.unregisterThreadStore(agentId);
+    this.core?.unregisterThreadStore(agentId, store);
     this._ownedThreadStores.delete(agentId);
   }
 
   private teardownOwnedThreadStores(): void {
     for (const [agentId, store] of this._ownedThreadStores) {
       store.stop();
-      this.core?.unregisterThreadStore(agentId);
+      this.core?.unregisterThreadStore(agentId, store);
     }
     this._ownedThreadStores.clear();
   }

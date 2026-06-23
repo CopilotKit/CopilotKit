@@ -90,7 +90,8 @@ export class ThreadStoreRegistry {
     const stack = this._storeStacks[agentId];
     if (!stack || stack.length === 0) return;
 
-    const removedStores = [...stack].toReversed();
+    // oxlint-disable-next-line unicorn/no-array-reverse -- toReversed is not available in all supported runtimes.
+    const removedStores = [...stack].reverse();
     delete this._storeStacks[agentId];
     delete this._stores[agentId];
     this._snapshot = null;

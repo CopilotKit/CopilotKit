@@ -631,7 +631,7 @@ type HeaderMockCore = {
   getThreadStores: () => Record<string, never>;
   getThreadStore: (agentId: string) => undefined;
   registerThreadStore: (agentId: string, store: unknown) => void;
-  unregisterThreadStore: (agentId: string) => void;
+  unregisterThreadStore: (agentId: string, store?: unknown) => void;
 };
 
 function createHeaderMockCore(
@@ -662,8 +662,8 @@ function createHeaderMockCore(
     getThreadStore() {
       return undefined;
     },
-    registerThreadStore() {},
-    unregisterThreadStore() {},
+    registerThreadStore: vi.fn(),
+    unregisterThreadStore: vi.fn(),
   };
 
   const asCore = () => core as unknown as CopilotKitCore;
@@ -757,5 +757,33 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(headersOf(threadListCalls().at(-1)!)).toMatchObject({
       "X-CSRF": "2",
     });
+  });
+
+  it("unregisters the exact owned store when the inspector detaches", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(harness.core.registerThreadStore).toHaveBeenCalledWith(
+        "alpha",
+        expect.any(Object),
+      );
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+
+    inspector.core = null;
+
+    expect(harness.core.unregisterThreadStore).toHaveBeenCalledWith(
+      "alpha",
+      ownedStore,
+    );
   });
 });

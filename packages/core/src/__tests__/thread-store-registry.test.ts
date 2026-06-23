@@ -276,6 +276,28 @@ describe("ThreadStoreRegistry", () => {
     );
   });
 
+  it("unregisterAll works without Array.prototype.toReversed", async () => {
+    const arrayPrototype = Array.prototype as { toReversed?: unknown };
+    const originalToReversed = arrayPrototype.toReversed;
+    try {
+      delete arrayPrototype.toReversed;
+      const first = makeStore("first");
+      const second = makeStore("second");
+      registry.register("agent-1", first);
+      registry.register("agent-1", second);
+      await flushNotifications();
+
+      expect(() => registry.unregisterAll("agent-1")).not.toThrow();
+      await flushNotifications();
+
+      expect(registry.get("agent-1")).toBeUndefined();
+    } finally {
+      if (originalToReversed !== undefined) {
+        arrayPrototype.toReversed = originalToReversed;
+      }
+    }
+  });
+
   it("unregister removes the store", () => {
     registry.register("agent-1", makeStore());
     registry.unregister("agent-1");

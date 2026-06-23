@@ -30,6 +30,7 @@ const mockRemoveTool = vi.fn();
 const mockSetRuntimeUrl = vi.fn();
 const mockSetRuntimeTransport = vi.fn();
 const mockSetHeaders = vi.fn();
+const mockSetCredentials = vi.fn();
 const mockSetProperties = vi.fn();
 const mockSetAgents = vi.fn();
 const mockGetAgent = vi.fn();
@@ -60,9 +61,9 @@ vi.mock("@copilotkit/core", () => {
     readonly subscribe = mockSubscribe;
     readonly addTool = mockAddTool;
     readonly removeTool = mockRemoveTool;
-    readonly setRuntimeUrl = mockSetRuntimeUrl;
     readonly setRuntimeTransport = mockSetRuntimeTransport;
     readonly setHeaders = mockSetHeaders;
+    readonly setCredentials = mockSetCredentials;
     readonly setProperties = mockSetProperties;
     readonly setAgents__unsafe_dev_only = mockSetAgents;
     readonly getAgent = mockGetAgent;
@@ -72,9 +73,10 @@ vi.mock("@copilotkit/core", () => {
     readonly registerThreadStore = mockRegisterThreadStore;
     readonly unregisterThreadStore = mockUnregisterThreadStore;
     agents: Record<string, any> = {};
-    runtimeUrl = undefined;
+    runtimeUrl: string | undefined = undefined;
     runtimeTransport = "auto";
     headers: Record<string, string> = {};
+    credentials: RequestCredentials | undefined = undefined;
     intelligence?: { wsUrl: string };
     threadEndpoints?: {
       list: boolean;
@@ -91,6 +93,9 @@ vi.mock("@copilotkit/core", () => {
     constructor(config: any) {
       lastCoreConfig = config;
       recordCoreInstance(this);
+      this.runtimeUrl = config.runtimeUrl?.replace(/\/$/, "");
+      this.headers = config.headers ?? {};
+      this.credentials = config.credentials;
       mockSubscribe.mockImplementationOnce((listener: any) => {
         this.listener = listener;
         return { unsubscribe: vi.fn() };
@@ -98,6 +103,11 @@ vi.mock("@copilotkit/core", () => {
       mockAddContext.mockImplementation(
         () => `ctx-${mockAddContext.mock.calls.length}`,
       );
+    }
+
+    setRuntimeUrl(runtimeUrl: string | undefined) {
+      mockSetRuntimeUrl(runtimeUrl);
+      this.runtimeUrl = runtimeUrl?.replace(/\/$/, "");
     }
   }
 
@@ -429,17 +439,27 @@ describe("CopilotKit", () => {
 
     const copilotKit = TestBed.inject(CopilotKit);
 
-    copilotKit.updateRuntime({
-      runtimeUrl: "https://other",
+    (
+      copilotKit.updateRuntime as (
+        options: Parameters<CopilotKit["updateRuntime"]>[0] & {
+          credentials?: RequestCredentials;
+        },
+      ) => void
+    )({
+      runtimeUrl: "https://other/",
       runtimeTransport: "single",
       headers: { Authorization: "different" },
+      credentials: "include",
       properties: { locale: "en" },
       agents: { a: {} as any },
     });
 
-    expect(mockSetRuntimeUrl).toHaveBeenCalledWith("https://other");
+    expect(mockSetRuntimeUrl).toHaveBeenCalledWith("https://other/");
+    expect(copilotKit.runtimeUrl()).toBe("https://other");
     expect(mockSetRuntimeTransport).toHaveBeenCalledWith("single");
     expect(mockSetHeaders).toHaveBeenCalledWith({ Authorization: "different" });
+    expect(mockSetCredentials).toHaveBeenCalledWith("include");
+    expect(copilotKit.credentials()).toBe("include");
     expect(mockSetProperties).toHaveBeenCalledWith({ locale: "en" });
     expect(mockSetAgents).toHaveBeenCalledWith({ a: {} });
   });
