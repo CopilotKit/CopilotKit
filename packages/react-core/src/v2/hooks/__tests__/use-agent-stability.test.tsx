@@ -45,7 +45,10 @@ describe("useAgent stability during runtime connection", () => {
       runtimeTransport: "rest",
       headers: {},
       agents: {},
-      // Faithful to core: merge core headers ON TOP of the agent's own.
+      // Additive stand-in for core's merge (core headers ON TOP of the
+      // agent's own). These tests only assert agent identity / threadId and
+      // never remove a header, so this approximation is sufficient; it does
+      // NOT model core's frozen construction-time baseline.
       applyHeadersToAgent: (agent) => {
         const target = agent as { headers?: Record<string, string> };
         if (target.headers) {

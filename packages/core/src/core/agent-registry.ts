@@ -79,11 +79,14 @@ export class AgentRegistry {
   private _telemetryDisabled: boolean = false;
 
   /**
-   * The headers each HttpAgent was constructed with, captured the first time
-   * the agent is seen — before core headers are applied. Core headers are
-   * merged ON TOP of this baseline so that headers configured directly on an
-   * agent (e.g. an `Authorization` for a self-hosted backend) survive
-   * registration instead of being silently replaced. See #5635.
+   * The headers each HttpAgent was constructed with, captured on the first
+   * `applyHeadersToAgent` call for that agent (which, for agents the registry
+   * owns, happens at registration before any core headers are applied). Core
+   * headers are merged ON TOP of this baseline so that headers configured
+   * directly on an agent (e.g. an `Authorization` for a self-hosted backend)
+   * survive registration instead of being silently replaced. The baseline is
+   * captured once and never re-captured, so a later direct mutation of
+   * `agent.headers` is not folded into it. See #5635.
    */
   private agentOwnHeaders = new WeakMap<HttpAgent, Record<string, string>>();
 
@@ -316,7 +319,10 @@ export class AgentRegistry {
   }
 
   /**
-   * Apply current headers to an agent
+   * Apply current core headers to an agent, merged ON TOP of the agent's own
+   * construction-time headers (the per-agent baseline in `agentOwnHeaders`).
+   * Core wins on a key conflict. Non-`HttpAgent` agents are left untouched
+   * because only `HttpAgent` carries a `headers` field. See #5635.
    */
   applyHeadersToAgent(agent: AbstractAgent): void {
     if (agent instanceof HttpAgent) {

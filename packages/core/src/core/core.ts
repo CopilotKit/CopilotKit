@@ -683,11 +683,19 @@ export class CopilotKitCore {
    * });
    * ```
    *
-   * The resulting header set is also re-applied to every registered
-   * `HttpAgent`-derived agent and `onHeadersChanged` subscribers are notified.
-   * These headers are merged ON TOP of any headers the agent was constructed
-   * with, so per-agent headers (e.g. an `Authorization` for a self-hosted
-   * backend) are preserved; on a key conflict the core-level value wins.
+   * The resulting header set is also re-applied to every agent in the registry
+   * and `onHeadersChanged` subscribers are notified. These headers are merged
+   * ON TOP of the headers each `HttpAgent` was constructed with, so per-agent
+   * headers (e.g. an `Authorization` for a self-hosted backend) are preserved;
+   * on a key conflict the core-level value wins.
+   *
+   * Because the agent's construction-time headers form the merge baseline, this
+   * method can override a per-agent header but cannot REMOVE one: clearing a
+   * core key here only drops the core-level override, after which the agent's
+   * own value (if any) re-surfaces. To change a header an agent was constructed
+   * with, set it at the provider/core level instead of on the agent, or update
+   * it on the agent directly. The clear-on-logout pattern above is for
+   * core-level headers.
    */
   setHeaders(headers: Record<string, string | null | undefined>): void {
     this._headers = normalizeHeaders(headers);
@@ -774,6 +782,12 @@ export class CopilotKitCore {
    * configured directly on an `HttpAgent` (e.g. an `Authorization` for a
    * self-hosted backend) survive header updates instead of being silently
    * dropped (see #5635). On a key conflict the core-level value wins.
+   *
+   * The merge baseline is the agent's headers as captured the first time the
+   * agent is applied (at registration), so the way to change headers
+   * afterwards is `setHeaders` (which re-applies to every agent), not mutating
+   * `agent.headers` directly — a direct mutation is overwritten on the next
+   * re-apply.
    */
   applyHeadersToAgent(agent: AbstractAgent): void {
     this.agentRegistry.applyHeadersToAgent(agent);

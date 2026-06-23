@@ -194,6 +194,30 @@ describe("CopilotKitCore headers", () => {
     });
   });
 
+  it("re-surfaces the agent's own header when the core override is cleared (#5635)", () => {
+    const agent = new HttpAgent({
+      url: "https://runtime.example",
+      headers: { Authorization: "Bearer agent-token" },
+    });
+
+    const core = new CopilotKitCore({
+      runtimeUrl: undefined,
+      headers: { Authorization: "Bearer core-token" },
+      agents__unsafe_dev_only: { default: agent },
+    });
+
+    // Core overrides the agent's own Authorization on conflict.
+    expect(agent.headers).toMatchObject({ Authorization: "Bearer core-token" });
+
+    // Clearing the core override only drops core's value. The agent's own
+    // construction-time header is the merge baseline, so it re-surfaces rather
+    // than being removed — clearing an agent-level header is not possible via
+    // setHeaders by design (see #5635).
+    core.setHeaders({ Authorization: null });
+
+    expect(agent.headers).toEqual({ Authorization: "Bearer agent-token" });
+  });
+
   it("applies updated headers to existing HttpAgent instances", () => {
     const agent = new HttpAgent({ url: "https://runtime.example" });
 
