@@ -98,9 +98,13 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
   if [ $ELAPSED -ge $GRACE ]; then
     echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
   fi
+  # Steady-state. Probe agent on :8124/ok and Next.js on :$PORT/api/health in
+  # the same 30s tick. Earned by the 05-26 outage on crewai-crews: Next.js can
+  # silently die while the agent stays up; the watchdog must catch both.
   FAILS=0
+  NEXTJS_FAILS=0
   while sleep 30; do
-    if ! kill -0 $AGENT_PID 2>/dev/null; then
+    if ! kill -0 $AGENT_PID 2>/dev/null || ! kill -0 $NEXTJS_PID 2>/dev/null; then
       break
     fi
     if curl -fsS --max-time 5 http://127.0.0.1:8124/ok > /dev/null 2>&1; then
@@ -111,6 +115,17 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
       if [ $FAILS -ge 3 ]; then
         echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
         kill -9 $AGENT_PID 2>/dev/null || true
+        break
+      fi
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:${PORT:-10000}/api/health > /dev/null 2>&1; then
+      NEXTJS_FAILS=0
+    else
+      NEXTJS_FAILS=$((NEXTJS_FAILS + 1))
+      echo "[watchdog] Next.js health probe failed (count=$NEXTJS_FAILS)"
+      if [ $NEXTJS_FAILS -ge 3 ]; then
+        echo "[watchdog] Next.js unresponsive for ~90s — killing PID $NEXTJS_PID to trigger container restart"
+        kill -9 $NEXTJS_PID 2>/dev/null || true
         break
       fi
     fi
