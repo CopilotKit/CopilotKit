@@ -50,6 +50,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: npm
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_ENGR }}
     steps:
       - name: Check for existing release PR
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
@@ -90,7 +92,9 @@ jobs:
           node-version: 20.x
 
       - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
+        # The release scripts need workspace deps for tsx, but they do not need
+        # package lifecycle scripts or local hook installation.
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Prepare release
         id: prepare
@@ -174,6 +178,22 @@ jobs:
 
             > **Do not merge until CI is fully green.** The full test suite runs automatically on this PR.
           labels: release
+
+      - name: Post release PR to #engr
+        if: steps.create_pr.outputs.pull-request-operation == 'created' && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(format('🚀 *CopilotKit {0} v{1}* release PR created · <{2}|Release PR>', inputs.scope, steps.prepare.outputs.version, steps.create_pr.outputs.pull-request-url)) }}
+            }
+
+      - name: Log (no Slack webhook)
+        if: steps.create_pr.outputs.pull-request-operation == 'created' && env.SLACK_WEBHOOK == ''
+        run: |
+          echo "::warning::Release PR was created but SLACK_WEBHOOK_ENGR is not set; no #engr notification sent."
 
       - name: Comment Notion link on PR
         if: inputs.dry_run != true && steps.ai_notes.outputs.notion_url
