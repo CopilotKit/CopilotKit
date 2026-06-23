@@ -17,6 +17,7 @@ import {
   getWeatherImpl,
   manageSalesTodosImpl,
   queryDataImpl,
+  rollDiceImpl,
   scheduleMeetingImpl,
   searchFlightsImpl,
 } from "./lib/tool-impls";
@@ -84,6 +85,21 @@ export const searchFlights = tool({
   }),
   callback: ({ flights }) =>
     JSON.stringify(searchFlightsImpl(flights as unknown as Flight[])),
+});
+
+export const rollDice = tool({
+  name: "roll_dice",
+  description:
+    "Roll a die with the given number of sides and return the result. Use for any dice-rolling request (e.g. 'roll a d20' → sides=20).",
+  inputSchema: z.object({
+    sides: z
+      .number()
+      .int()
+      .min(2)
+      .max(1000)
+      .describe("Number of sides (e.g. 20 for a d20)."),
+  }),
+  callback: ({ sides }) => JSON.stringify(rollDiceImpl(sides)),
 });
 
 export const setThemeColor = tool({
@@ -218,6 +234,7 @@ export const SHOWCASE_TOOLS = [
   manageSalesTodos,
   getWeather,
   queryData,
+  rollDice,
   scheduleMeeting,
   searchFlights,
   setThemeColor,

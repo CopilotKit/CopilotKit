@@ -20,6 +20,7 @@ from .generate_a2ui import (
     build_a2ui_operations_from_tool_call,
 )
 from .schedule_meeting import schedule_meeting_impl
+from .roll_dice import roll_dice_impl
 
 __all__ = [
     # Types
@@ -43,4 +44,6 @@ __all__ = [
     "build_a2ui_operations_from_tool_call",
     # Schedule meeting (HITL)
     "schedule_meeting_impl",
+    # Dice roll
+    "roll_dice_impl",
 ]
