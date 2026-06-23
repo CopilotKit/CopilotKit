@@ -218,6 +218,24 @@ describe("CopilotKitCore headers", () => {
     expect(agent.headers).toEqual({ Authorization: "Bearer agent-token" });
   });
 
+  it("keeps the pristine baseline across remove + re-add (no core-header pollution) (#5635)", () => {
+    const agent = new HttpAgent({ url: "https://runtime.example" });
+    const core = new CopilotKitCore({ runtimeUrl: undefined });
+
+    core.addAgent__unsafe_dev_only({ id: "x", agent });
+    core.setHeaders({ Authorization: "Bearer core" });
+    expect(agent.headers).toMatchObject({ Authorization: "Bearer core" });
+
+    // The baseline is captured once (pristine, empty here) and never
+    // re-captured, so removing then re-adding the same instance must not fold
+    // the stale core Authorization into the agent's "own" headers.
+    core.removeAgent__unsafe_dev_only("x");
+    core.setHeaders({});
+    core.addAgent__unsafe_dev_only({ id: "x", agent });
+
+    expect("Authorization" in agent.headers).toBe(false);
+  });
+
   it("applies updated headers to existing HttpAgent instances", () => {
     const agent = new HttpAgent({ url: "https://runtime.example" });
 

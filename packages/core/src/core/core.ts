@@ -40,7 +40,11 @@ export interface CopilotKitCoreConfig {
   runtimeTransport?: CopilotRuntimeTransport;
   /** Mapping from agent name to its `AbstractAgent` instance. For development only - production requires CopilotRuntime. */
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
-  /** Headers appended to every HTTP request made by `CopilotKitCore`. */
+  /**
+   * Headers sent with every runtime request and merged on top of each
+   * `HttpAgent`'s own headers (the core value wins on a key conflict). See
+   * `setHeaders`.
+   */
   headers?: Record<string, string>;
   /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
   credentials?: RequestCredentials;

@@ -46,7 +46,9 @@ describe("useAgent preserves agent-level headers (#5635)", () => {
     );
 
     await waitFor(() => {
-      expect(agent.headers).toMatchObject({
+      // Exact match: with no provider headers, the agent's own header set is
+      // the complete result (HttpAgent adds no defaults).
+      expect(agent.headers).toEqual({
         Authorization: "Bearer agent-token",
       });
     });
