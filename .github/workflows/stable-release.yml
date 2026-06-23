@@ -113,12 +113,27 @@ jobs:
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_RELEASE_NOTES_PAGE: ${{ secrets.NOTION_RELEASE_NOTES_PAGE }}
 
+      - name: Mint devops-bot token
+        if: inputs.dry_run != true
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: 1108748
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
       - name: Create release PR
         if: inputs.dry_run != true
         id: create_pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        env:
+          # The PR branch is validated by CI after creation; do not run local
+          # developer pre-commit hooks inside the automation commit.
+          LEFTHOOK: "0"
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           branch: release/publish/${{ inputs.scope }}/v${{ steps.prepare.outputs.version }}
           delete-branch: true
           commit-message: "chore: release ${{ inputs.scope }} v${{ steps.prepare.outputs.version }}"
@@ -166,7 +181,7 @@ jobs:
           NOTION_URL: ${{ steps.ai_notes.outputs.notion_url }}
           PR_NUMBER: ${{ steps.create_pr.outputs.pull-request-number }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ steps.app-token.outputs.token }}
           script: |
             const { owner, repo } = context.repo;
             const prNumber = parseInt(process.env.PR_NUMBER, 10);
