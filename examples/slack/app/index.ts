@@ -44,6 +44,8 @@ import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
+import { emojiTriage } from "./reactions/index.js";
+import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
 import { closeBrowser } from "./render/browser.js";
 
 const required = (name: string): string => {
@@ -193,20 +195,22 @@ async function main() {
     // guidance; `appContext` adds identity + triage policy.
     tools,
     context,
-    // Slash commands (`/agent`, `/triage`). For Slack each must ALSO be
-    // declared in the app config; Discord and Telegram register them up front.
-    // The engine routes by name; adapters that can't take commands ignore them.
+    // Slash commands (`/agent`, `/triage`, `/preview`, `/file-issue`). For Slack
+    // each must ALSO be declared in the app config (or paste the manifest); Discord
+    // and Telegram register them up front. The engine routes by name; adapters that
+    // can't take commands ignore them.
     commands: appCommands,
   });
 
-  // Register ONLY onMention. Each adapter pre-filters ingress to the turns this
-  // bot should answer — @-mentions, replies in threads it owns, and DMs (and
-  // every WhatsApp message). createBot is mention-preferred: a single handler
-  // covers all of them across every active platform. `senderContext` names the
+  // The turn handler. Each adapter pre-filters ingress to the turns this bot
+  // should answer — @-mentions, replies in threads it owns, and DMs (and every
+  // WhatsApp message). createBot is mention-preferred: a single handler covers
+  // all of them across every active platform. `senderContext` names the
   // requesting user per `thread.platform`, so the label is correct on whichever
-  // surface the turn arrived from. Wrap the turn so a failed run (agent backend
-  // down, network/auth error) is logged and surfaced to the user instead of
-  // crashing the process or vanishing silently.
+  // surface the turn arrived from. (The feature demos below add their own
+  // handlers — onReaction, onModalSubmit, onThreadStarted.) Wrap the turn so a
+  // failed run (agent backend down, network/auth error) is logged and surfaced
+  // to the user instead of crashing the process or vanishing silently.
   bot.onMention(async ({ thread, message }) => {
     try {
       await thread.runAgent({
@@ -219,6 +223,17 @@ async function main() {
         .catch(() => {});
     }
   });
+
+  // Reaction demo — "emoji triage". React 🐛 / 🔥 / ✅ to any message to file a
+  // bug, escalate, or mark triaged; the bot acks with 👀 then ✅. Works on every
+  // active platform (reactions are supported on Slack, Discord, and Telegram).
+  bot.onReaction(["bug", "fire", "check"], emojiTriage);
+
+  // Modal demo (cont.) — handle the /file-issue submission. The handler lives in
+  // `modals/file-issue.tsx` (extracted + unit-tested): it validates, then
+  // fire-and-forgets the agent run so the submission can be ack'd within Slack's
+  // ~3s view_submission deadline (awaiting the run blows it → Slack double-files).
+  bot.onModalSubmit(FILE_ISSUE_CALLBACK, fileIssueSubmit);
 
   // Slack-only nicety: personalize the assistant-pane prompt chips for the
   // opener. Harmless elsewhere — `onThreadStarted` only fires from adapters
