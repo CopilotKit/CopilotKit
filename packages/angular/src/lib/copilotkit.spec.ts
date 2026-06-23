@@ -22,6 +22,7 @@ import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
 } from "@copilotkit/shared";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 
 const mockSubscribe = vi.fn();
 const mockAddTool = vi.fn();
@@ -35,14 +36,20 @@ const mockGetAgent = vi.fn();
 const mockGetTool = vi.fn();
 const mockAddContext = vi.fn();
 const mockRemoveContext = vi.fn();
+const mockRegisterThreadStore = vi.fn();
+const mockUnregisterThreadStore = vi.fn();
 
 const licenseKey = "ck_pub_" + "a".repeat(32);
 
 let lastCoreInstance: any;
 let lastCoreConfig: any;
 
+function recordCoreInstance(core: any): void {
+  lastCoreInstance = core;
+}
+
 vi.mock("@copilotkit/core", () => {
-  const CopilotKitCoreRuntimeConnectionStatus = {
+  const MockCopilotKitCoreRuntimeConnectionStatus = {
     Disconnected: "disconnected",
     Connected: "connected",
     Connecting: "connecting",
@@ -62,19 +69,28 @@ vi.mock("@copilotkit/core", () => {
     readonly getTool = mockGetTool;
     readonly addContext = mockAddContext;
     readonly removeContext = mockRemoveContext;
+    readonly registerThreadStore = mockRegisterThreadStore;
+    readonly unregisterThreadStore = mockUnregisterThreadStore;
     agents: Record<string, any> = {};
     runtimeUrl = undefined;
     runtimeTransport = "auto";
     headers: Record<string, string> = {};
+    intelligence?: { wsUrl: string };
+    threadEndpoints?: {
+      list: boolean;
+      inspect: boolean;
+      mutations: boolean;
+      realtimeMetadata: boolean;
+    };
     a2uiEnabled = false;
     openGenerativeUIEnabled = false;
     runtimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+      MockCopilotKitCoreRuntimeConnectionStatus.Disconnected;
     listener?: Parameters<typeof mockSubscribe>[0];
 
     constructor(config: any) {
       lastCoreConfig = config;
-      lastCoreInstance = this;
+      recordCoreInstance(this);
       mockSubscribe.mockImplementationOnce((listener: any) => {
         this.listener = listener;
         return { unsubscribe: vi.fn() };
@@ -87,7 +103,8 @@ vi.mock("@copilotkit/core", () => {
 
   return {
     CopilotKitCore: MockCopilotKitCore,
-    CopilotKitCoreRuntimeConnectionStatus,
+    CopilotKitCoreRuntimeConnectionStatus:
+      MockCopilotKitCoreRuntimeConnectionStatus,
   } as any;
 });
 
@@ -441,6 +458,46 @@ describe("CopilotKit", () => {
 
     core.listener!.onAgentsChanged();
     expect(copilotKit.agents()).toEqual(core.agents);
+  });
+
+  it("mirrors thread runtime info and delegates thread-store registration", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = lastCoreInstance!;
+    const threadStore = { start: vi.fn() } as any;
+
+    core.intelligence = { wsUrl: "wss://runtime.local/client" };
+    core.threadEndpoints = {
+      list: true,
+      inspect: true,
+      mutations: false,
+      realtimeMetadata: true,
+    };
+    core.listener!.onRuntimeConnectionStatusChanged({
+      status: CopilotKitCoreRuntimeConnectionStatus.Connected,
+    });
+
+    expect(copilotKit.intelligence()).toEqual({
+      wsUrl: "wss://runtime.local/client",
+    });
+    expect(copilotKit.threadEndpoints()).toEqual({
+      list: true,
+      inspect: true,
+      mutations: false,
+      realtimeMetadata: true,
+    });
+
+    copilotKit.registerThreadStore("agent-1", threadStore);
+    copilotKit.unregisterThreadStore("agent-1");
+
+    expect(mockRegisterThreadStore).toHaveBeenCalledWith(
+      "agent-1",
+      threadStore,
+    );
+    expect(mockUnregisterThreadStore).toHaveBeenCalledWith("agent-1");
   });
 
   it("does not add a watermark when license key is missing (watermark disabled)", () => {

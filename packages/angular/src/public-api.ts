@@ -8,6 +8,7 @@ export * from "./lib/agent";
 export * from "./lib/chat-config";
 export * from "./lib/chat-state";
 export * from "./lib/transcription";
+export * from "./lib/threads";
 export * from "./lib/scroll-position";
 export * from "./lib/resize-observer";
 export * from "./lib/utils";
