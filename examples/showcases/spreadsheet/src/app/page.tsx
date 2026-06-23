@@ -19,6 +19,34 @@ import { PreviewSpreadsheetChanges } from "./components/PreviewSpreadsheetChange
 import { sampleData, sampleData2 } from "./utils/sampleData";
 // import { Bottombar } from "./components/Bottombar";
 
+type WorkPaperPricingProof = {
+  input: {
+    units: number;
+    unitPrice: number;
+    discountRate: number;
+  };
+  editedCells: string[];
+  formulaCells: string[];
+  readback: {
+    grossRevenue: string;
+    discountAmount: string;
+    netRevenue: string;
+  };
+  restoredReadback: {
+    grossRevenue: string;
+    discountAmount: string;
+    netRevenue: string;
+  };
+  expectedNetRevenue: number;
+  persistedDocumentBytes: number;
+  checks: {
+    expectedFormulaValue: boolean;
+    exportedSnapshot: boolean;
+    restartReadbackMatches: boolean;
+  };
+  verified: boolean;
+};
+
 const HomePage = () => {
   return (
     <CopilotKit
@@ -76,6 +104,8 @@ const Main = () => {
   ]);
 
   const [selectedSpreadsheetIndex, setSelectedSpreadsheetIndex] = useState(0);
+  const [workpaperPricingProof, setWorkpaperPricingProof] =
+    useState<WorkPaperPricingProof | null>(null);
 
   useCopilotAction({
     name: "createSpreadsheet",
@@ -144,6 +174,47 @@ const Main = () => {
     value: new Date().toLocaleDateString(),
   });
 
+  useCopilotAction({
+    name: "runPricingWorkbook",
+    description:
+      "Run a backend Bilig WorkPaper pricing model, then return formula readback proof.",
+    parameters: [
+      {
+        name: "units",
+        type: "number",
+        description: "Number of units sold.",
+      },
+      {
+        name: "unitPrice",
+        type: "number",
+        description: "Price per unit without currency symbols or commas.",
+      },
+      {
+        name: "discountRate",
+        type: "number",
+        description: "Discount as a decimal, for example 0.2 for 20%.",
+      },
+    ],
+    handler: async ({ units, unitPrice, discountRate }) => {
+      const response = await fetch("/api/workpaper-pricing", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ units, unitPrice, discountRate }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json();
+        throw new Error(body.error ?? "WorkPaper pricing run failed");
+      }
+
+      const proof = (await response.json()) as WorkPaperPricingProof;
+      setWorkpaperPricingProof(proof);
+      return proof;
+    },
+  });
+
   return (
     <div className="flex">
       <SingleSpreadsheet
@@ -160,6 +231,29 @@ const Main = () => {
           });
         }}
       />
+      {workpaperPricingProof && (
+        <aside className="fixed right-6 bottom-20 max-w-sm rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-800 shadow-lg">
+          <h2 className="mb-2 font-semibold text-slate-950">
+            WorkPaper formula proof
+          </h2>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+            <dt>Gross</dt>
+            <dd>{workpaperPricingProof.readback.grossRevenue}</dd>
+            <dt>Discount</dt>
+            <dd>{workpaperPricingProof.readback.discountAmount}</dd>
+            <dt>Net</dt>
+            <dd>{workpaperPricingProof.readback.netRevenue}</dd>
+            <dt>Verified</dt>
+            <dd>{workpaperPricingProof.verified ? "true" : "false"}</dd>
+            <dt>Restart</dt>
+            <dd>
+              {workpaperPricingProof.checks.restartReadbackMatches
+                ? "matched"
+                : "mismatch"}
+            </dd>
+          </dl>
+        </aside>
+      )}
     </div>
   );
 };
