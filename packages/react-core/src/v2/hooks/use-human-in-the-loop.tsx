@@ -12,19 +12,49 @@ export function useHumanInTheLoop<
 >(tool: ReactHumanInTheLoop<T>, deps?: ReadonlyArray<unknown>) {
   const { copilotkit } = useCopilotKit();
   const resolvePromiseRef = useRef<((result: unknown) => void) | null>(null);
+  // Cleanup that detaches the pending abort listener; cleared whenever the
+  // promise settles (via respond() or abort) so the listener can't fire twice
+  // or leak after the interaction is done.
+  const cleanupAbortRef = useRef<(() => void) | null>(null);
 
   const respond = useCallback(async (result: unknown) => {
     if (resolvePromiseRef.current) {
+      cleanupAbortRef.current?.();
+      cleanupAbortRef.current = null;
       resolvePromiseRef.current(result);
       resolvePromiseRef.current = null;
     }
   }, []);
 
-  const handler = useCallback(async () => {
-    return new Promise((resolve) => {
-      resolvePromiseRef.current = resolve;
-    });
-  }, []);
+  const handler = useCallback(
+    async (_args: T, context?: { signal?: AbortSignal }) => {
+      const signal = context?.signal;
+      return new Promise((resolve, reject) => {
+        // If the run was already aborted before the handler ran, reject
+        // immediately so core records an explicit error tool result instead of
+        // silently resolving to an empty string.
+        if (signal?.aborted) {
+          reject(new Error("Human-in-the-loop interaction aborted"));
+          return;
+        }
+
+        resolvePromiseRef.current = resolve;
+
+        if (signal) {
+          const onAbort = () => {
+            cleanupAbortRef.current = null;
+            resolvePromiseRef.current = null;
+            reject(new Error("Human-in-the-loop interaction aborted"));
+          };
+          signal.addEventListener("abort", onAbort, { once: true });
+          cleanupAbortRef.current = () => {
+            signal.removeEventListener("abort", onAbort);
+          };
+        }
+      });
+    },
+    [],
+  );
 
   const RenderComponent: ReactToolCallRenderer<T>["render"] = useCallback(
     (props) => {
