@@ -180,6 +180,149 @@ describe("thread store", () => {
     });
   });
 
+  it("does not subscribe to realtime metadata when the endpoint is disabled", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        threads: sampleThreads,
+        joinCode: "jc-1",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+      threadEndpoints: {
+        realtimeMetadata: false,
+      },
+    });
+
+    await flushEffects();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      "https://runtime.example.com/threads/subscribe",
+      expect.anything(),
+    );
+    expect(phoenix.sockets).toHaveLength(0);
+  });
+
+  it("ignores realtime upserts for other agents", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+
+    phoenix.sockets[0].channels[0].serverPush("thread_metadata", {
+      operation: "created",
+      threadId: "thread-other",
+      userId: "user-1",
+      organizationId: "org-1",
+      occurredAt: "2026-01-03T00:00:00Z",
+      thread: {
+        ...sampleThreads[0],
+        id: "thread-other",
+        agentId: "agent-2",
+      },
+    });
+
+    await flushEffects();
+
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-2", "thread-1"],
+    );
+  });
+
+  it("retries realtime credential fetches after a failed subscribe request", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+
+    expect(ɵselectThreadsError(store.getState())?.message).toContain("503");
+
+    store.refresh();
+    await flushEffects();
+
+    const subscribeCalls = fetchMock.mock.calls.filter(
+      ([url]) => url === "https://runtime.example.com/threads/subscribe",
+    );
+    expect(subscribeCalls).toHaveLength(2);
+    expect(phoenix.sockets).toHaveLength(1);
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+  });
+
   it("applies realtime events without client-side user filtering", async () => {
     const fetchMock = vi
       .fn()
@@ -338,6 +481,68 @@ describe("thread store", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(ɵselectThreads(store.getState())).toHaveLength(2);
+  });
+
+  it("clears context on stop so restarting with the same context ref fetches again", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        threads: sampleThreads,
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    const context: ThreadRuntimeContext = {
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      agentId: "agent-1",
+    };
+
+    store.start();
+    store.setContext(context);
+    await flushEffects();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    store.stop();
+    store.start();
+    store.setContext(context);
+    await flushEffects();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses the injected fetch implementation instead of global fetch", async () => {
+    const globalFetch = vi.fn().mockRejectedValue(new Error("global fetch"));
+    vi.stubGlobal("fetch", globalFetch);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        threads: sampleThreads,
+      }),
+    });
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+    await store.renameThread("thread-1", "Renamed");
+
+    expect(globalFetch).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
   });
 
   it("sends rename, archive, and delete requests with agentId only", async () => {
@@ -795,6 +1000,102 @@ describe("thread store", () => {
     expect(ɵselectThreadsError(store.getState())?.message).toBe(
       "Request failed: 503",
     );
+  });
+
+  it("rejects timed-out mutations instead of leaving callers pending forever", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads }),
+      })
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+
+    vi.useFakeTimers();
+    try {
+      const mutation = store.renameThread("thread-1", "Renamed");
+      const rejection = expect(mutation).rejects.toThrow("Request timed out");
+      await vi.advanceTimersByTimeAsync(15_000);
+      await rejection;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not apply mutation failures to a newer context session", async () => {
+    let rejectMutation: ((error: unknown) => void) | null = null;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads }),
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            rejectMutation = reject;
+          }),
+      )
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: [
+            {
+              ...sampleThreads[0],
+              id: "thread-next",
+              agentId: "agent-2",
+            },
+          ],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(
+      createEnvironment(fetchMock as typeof fetch),
+    );
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+
+    const mutation = store.renameThread("thread-1", "Renamed");
+    await flushEffects();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      agentId: "agent-2",
+    });
+    rejectMutation?.(new Error("stale mutation failed"));
+
+    await expect(mutation).rejects.toThrow("stale mutation failed");
+    await flushEffects();
+
+    expect(ɵselectThreads(store.getState())).toEqual([
+      expect.objectContaining({
+        id: "thread-next",
+        agentId: "agent-2",
+      }),
+    ]);
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
   });
 
   it("removes thread on archived WS event when includeArchived is false", async () => {

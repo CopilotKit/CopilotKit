@@ -16,6 +16,18 @@ class MockThreadStore {
   readonly setContext = vi.fn((context: ɵThreadRuntimeContext | null) => {
     if (context === this.context) return;
     this.context = context;
+    if (context === null) {
+      this.state = {
+        ...this.state,
+        threads: [],
+        isLoading: false,
+        error: null,
+        nextCursor: null,
+        isFetchingNextPage: false,
+      };
+      this.emit();
+      return;
+    }
     if (context?.threadEndpoints?.list === false) {
       this.state = {
         ...this.state,
@@ -263,6 +275,7 @@ describe("injectThreads", () => {
 
     expect(copilotKitStub.unregisterThreadStore).toHaveBeenCalledWith(
       "agent-1",
+      store,
     );
     expect(copilotKitStub.registerThreadStore).toHaveBeenCalledWith(
       "agent-2",
@@ -401,8 +414,61 @@ describe("injectThreads", () => {
 
     expect(copilotKitStub.unregisterThreadStore).toHaveBeenCalledWith(
       "agent-1",
+      store,
     );
     expect(store.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not show preconnect loading when the agent id signal is unresolved", () => {
+    @Component({ standalone: true, template: "" })
+    class Host {
+      agentId = signal<string | undefined>(undefined);
+      threadsResult = injectThreads({ agentId: this.agentId });
+    }
+
+    const fixture = TestBed.createComponent(Host);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.threadsResult.isLoading()).toBe(false);
+    expect(store.setContext).toHaveBeenCalledWith(null);
+    expect(copilotKitStub.registerThreadStore).not.toHaveBeenCalled();
+  });
+
+  it("clears stale threads when input changes while runtime is disconnected", () => {
+    @Component({ standalone: true, template: "" })
+    class Host {
+      agentId = signal<string | undefined>("agent-1");
+      threadsResult = injectThreads({ agentId: this.agentId });
+    }
+
+    const fixture = TestBed.createComponent(Host);
+    fixture.detectChanges();
+    store.setState({
+      threads: [
+        {
+          id: "thread-1",
+          organizationId: "org-1",
+          agentId: "agent-1",
+          createdById: "user-1",
+          name: "Plan",
+          archived: false,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-02T00:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(fixture.componentInstance.threadsResult.threads()).toHaveLength(1);
+
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+    fixture.componentInstance.agentId.set("agent-2");
+    fixture.detectChanges();
+
+    expect(store.setContext).toHaveBeenLastCalledWith(null);
+    expect(fixture.componentInstance.threadsResult.threads()).toEqual([]);
+    expect(fixture.componentInstance.threadsResult.isLoading()).toBe(true);
   });
 
   it("waits for the connected runtime before setting context and shows preconnect loading", () => {

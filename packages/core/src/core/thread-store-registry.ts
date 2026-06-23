@@ -1,6 +1,9 @@
-import { type ɵThreadStore } from "../threads";
+import type { ɵThreadStore } from "../threads";
 import type { CopilotKitCore } from "./core";
-import { CopilotKitCoreFriendsAccess, CopilotKitCoreSubscriber } from "./core";
+import type {
+  CopilotKitCoreFriendsAccess,
+  CopilotKitCoreSubscriber,
+} from "./core";
 
 export class ThreadStoreRegistry {
   private _stores: Record<string, ɵThreadStore> = {};
@@ -35,8 +38,9 @@ export class ThreadStoreRegistry {
     });
   }
 
-  unregister(agentId: string): void {
+  unregister(agentId: string, store?: ɵThreadStore): void {
     if (!(agentId in this._stores)) return;
+    if (store && this._stores[agentId] !== store) return;
     // Capture before delete for the same reason as `register()` above.
     const prevStore = this._stores[agentId]!;
     delete this._stores[agentId];

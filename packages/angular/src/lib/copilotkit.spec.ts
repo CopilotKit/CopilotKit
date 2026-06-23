@@ -497,7 +497,10 @@ describe("CopilotKit", () => {
       "agent-1",
       threadStore,
     );
-    expect(mockUnregisterThreadStore).toHaveBeenCalledWith("agent-1");
+    expect(mockUnregisterThreadStore).toHaveBeenCalledWith(
+      "agent-1",
+      undefined,
+    );
   });
 
   it("does not add a watermark when license key is missing (watermark disabled)", () => {

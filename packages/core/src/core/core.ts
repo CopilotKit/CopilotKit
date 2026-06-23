@@ -791,8 +791,8 @@ export class CopilotKitCore {
     this.threadStoreRegistry.register(agentId, store);
   }
 
-  unregisterThreadStore(agentId: string): void {
-    this.threadStoreRegistry.unregister(agentId);
+  unregisterThreadStore(agentId: string, store?: ɵThreadStore): void {
+    this.threadStoreRegistry.unregister(agentId, store);
   }
 
   getThreadStore(agentId: string): ɵThreadStore | undefined {

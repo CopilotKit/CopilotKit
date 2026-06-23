@@ -839,7 +839,10 @@ describe("useThreads", () => {
 
     unmount();
 
-    expect(unregisterThreadStore).toHaveBeenCalledWith("agent-1");
+    expect(unregisterThreadStore).toHaveBeenCalledWith(
+      "agent-1",
+      expect.objectContaining({ select: expect.any(Function) }),
+    );
   });
 
   it("waits for runtimeConnectionStatus=Connected before fetching /threads", async () => {
@@ -919,5 +922,55 @@ describe("useThreads", () => {
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
+  });
+
+  it("clears stale threads when input changes while runtime is disconnected", async () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+
+    fetchMock
+      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const { result, rerender } = renderHook(
+      ({ agentId }) => useThreads({ agentId }),
+      {
+        initialProps: { agentId: "agent-1" },
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(2);
+    });
+
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connecting,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+
+    rerender({ agentId: "agent-2" });
+
+    await waitFor(() => {
+      expect(result.current.threads).toEqual([]);
+    });
+    expect(result.current.isLoading).toBe(true);
   });
 });

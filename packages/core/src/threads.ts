@@ -1,8 +1,6 @@
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import type { ThreadEndpointRuntimeInfo } from "@copilotkit/shared";
-import type { Observable, ObservableInput } from "rxjs";
-import { defer, firstValueFrom, merge, of } from "rxjs";
-import { fromFetch } from "rxjs/fetch";
+import { Observable, defer, firstValueFrom, merge, of } from "rxjs";
 import {
   catchError,
   filter,
@@ -111,6 +109,7 @@ interface ThreadMetadataCredentialsResponse {
 
 interface MutationRequest {
   requestId: string;
+  sessionId: number;
   path: string;
   method: "PATCH" | "POST" | "DELETE";
   body: Record<string, unknown>;
@@ -123,11 +122,6 @@ type MutationOutcome =
 interface ThreadEnvironment {
   fetch: typeof fetch;
 }
-
-type ThreadFetchInit<T> = RequestInit & {
-  selector: (response: Response) => ObservableInput<T>;
-  fetch: typeof fetch;
-};
 
 interface ThreadState {
   threads: ThreadRecord[];
@@ -188,7 +182,7 @@ const threadRestEvents = createActionGroup("Thread REST", {
     joinToken: string;
   }>(),
   metadataCredentialsFailed: props<{ sessionId: number; error: Error }>(),
-  mutationFinished: props<{ outcome: MutationOutcome }>(),
+  mutationFinished: props<{ sessionId: number; outcome: MutationOutcome }>(),
 });
 
 const threadSocketEvents = createActionGroup("Thread Socket", {
@@ -229,6 +223,43 @@ type MutationRequestedAction =
 type MutationFinishedAction = ReturnType<
   typeof threadRestEvents.mutationFinished
 >;
+
+function createFetchObservable<T>(
+  environment: ThreadEnvironment,
+  input: RequestInfo | URL,
+  init: RequestInit,
+  selector: (response: Response) => T | Promise<T>,
+): Observable<T> {
+  return new Observable<T>((observer) => {
+    const controller = new AbortController();
+
+    environment
+      .fetch(input, {
+        ...init,
+        signal: controller.signal,
+      })
+      .then((response) => selector(response))
+      .then(
+        (value) => {
+          if (observer.closed) {
+            return;
+          }
+
+          observer.next(value);
+          observer.complete();
+        },
+        (error) => {
+          if (!observer.closed) {
+            observer.error(error);
+          }
+        },
+      );
+
+    return () => {
+      controller.abort();
+    };
+  });
+}
 
 function sortThreadsByRecency(threads: ThreadRecord[]): ThreadRecord[] {
   // Prefer lastRunAt so the order reflects actual agent activity and stays
@@ -319,6 +350,8 @@ const threadReducer = createReducer<ThreadState>(
   }),
   onThreadReducer(threadAdapterEvents.stopped, (state) => ({
     ...state,
+    context: null,
+    sessionId: state.sessionId + 1,
     threads: [],
     isLoading: false,
     isFetchingNextPage: false,
@@ -421,6 +454,7 @@ const threadReducer = createReducer<ThreadState>(
 
       return {
         ...state,
+        metadataCredentialsRequested: false,
         error,
       };
     },
@@ -448,10 +482,19 @@ const threadReducer = createReducer<ThreadState>(
       isFetchingNextPage: true,
     };
   }),
-  onThreadReducer(threadRestEvents.mutationFinished, (state, { outcome }) => ({
-    ...state,
-    error: outcome.ok ? state.error : outcome.error,
-  })),
+  onThreadReducer(
+    threadRestEvents.mutationFinished,
+    (state, { sessionId, outcome }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
+
+      return {
+        ...state,
+        error: outcome.ok ? state.error : outcome.error,
+      };
+    },
+  ),
   onThreadReducer(
     threadDomainEvents.threadUpserted,
     (state, { sessionId, thread }) => {
@@ -543,20 +586,20 @@ function createThreadFetchObservable(
     if (context.limit != null) params.limit = String(context.limit);
 
     const qs = new URLSearchParams(params);
-    return fromFetch<ThreadListResponse>(
+    return createFetchObservable<ThreadListResponse>(
+      environment,
       `${context.runtimeUrl}/threads?${qs.toString()}`,
       {
-        selector: (response) => {
-          if (!response.ok) {
-            throw new Error(`Failed to fetch threads: ${response.status}`);
-          }
-
-          return response.json() as Promise<ThreadListResponse>;
-        },
-        fetch: environment.fetch,
         method: "GET",
         headers: { ...context.headers },
-      } as ThreadFetchInit<ThreadListResponse>,
+      },
+      (response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch threads: ${response.status}`);
+        }
+
+        return response.json() as Promise<ThreadListResponse>;
+      },
     ).pipe(
       timeout({
         first: REQUEST_TIMEOUT_MS,
@@ -596,26 +639,26 @@ function createThreadMetadataCredentialsObservable(
   | ReturnType<typeof threadRestEvents.metadataCredentialsFailed>
 > {
   return defer(() => {
-    return fromFetch<ThreadMetadataCredentialsResponse>(
+    return createFetchObservable<ThreadMetadataCredentialsResponse>(
+      environment,
       `${context.runtimeUrl}${THREAD_SUBSCRIBE_PATH}`,
       {
-        selector: async (response) => {
-          if (!response.ok) {
-            throw new Error(
-              `Failed to fetch thread metadata credentials: ${response.status}`,
-            );
-          }
-
-          return response.json() as Promise<ThreadMetadataCredentialsResponse>;
-        },
-        fetch: environment.fetch,
         method: "POST",
         headers: {
           ...context.headers,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({}),
-      } as ThreadFetchInit<ThreadMetadataCredentialsResponse>,
+      },
+      async (response) => {
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch thread metadata credentials: ${response.status}`,
+          );
+        }
+
+        return response.json() as Promise<ThreadMetadataCredentialsResponse>;
+      },
     ).pipe(
       timeout({
         first: REQUEST_TIMEOUT_MS,
@@ -651,24 +694,34 @@ function createThreadMutationObservable(
   request: MutationRequest,
 ): Observable<ReturnType<typeof threadRestEvents.mutationFinished>> {
   return defer(() => {
-    return fromFetch<null>(`${context.runtimeUrl}${request.path}`, {
-      selector: async (response) => {
+    return createFetchObservable<null>(
+      environment,
+      `${context.runtimeUrl}${request.path}`,
+      {
+        method: request.method,
+        headers: {
+          ...context.headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request.body),
+      },
+      async (response) => {
         if (!response.ok) {
           throw new Error(`Request failed: ${response.status}`);
         }
 
         return null;
       },
-      fetch: environment.fetch,
-      method: request.method,
-      headers: {
-        ...context.headers,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request.body),
-    } as ThreadFetchInit<null>).pipe(
+    ).pipe(
+      timeout({
+        first: REQUEST_TIMEOUT_MS,
+        with: () => {
+          throw new Error("Request timed out");
+        },
+      }),
       map(() =>
         threadRestEvents.mutationFinished({
+          sessionId: request.sessionId,
           outcome: {
             requestId: request.requestId,
             ok: true,
@@ -678,6 +731,7 @@ function createThreadMutationObservable(
       catchError((error) => {
         return of(
           threadRestEvents.mutationFinished({
+            sessionId: request.sessionId,
             outcome: {
               requestId: request.requestId,
               ok: false,
@@ -757,7 +811,8 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           action.sessionId === state.sessionId &&
           !state.metadataCredentialsRequested &&
           Boolean(state.context?.wsUrl) &&
-          Boolean(state.metadataJoinCode)
+          Boolean(state.metadataJoinCode) &&
+          state.context?.threadEndpoints?.realtimeMetadata !== false
         );
       }),
       map(([action]) =>
@@ -904,7 +959,13 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
         ofType(threadSocketEvents.metadataReceived),
         map((action) => action as MetadataReceivedAction),
         withLatestFrom(state$),
-        filter(([action, state]) => action.sessionId === state.sessionId),
+        filter(([action, state]) => {
+          return (
+            action.sessionId === state.sessionId &&
+            (action.payload.operation === "deleted" ||
+              action.payload.thread.agentId === state.context?.agentId)
+          );
+        }),
         map(([action, state]) => {
           if (action.payload.operation === "deleted") {
             return threadDomainEvents.threadDeleted({
@@ -950,24 +1011,24 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           if (context.includeArchived) params.includeArchived = "true";
           if (context.limit != null) params.limit = String(context.limit);
 
-          return fromFetch<ThreadListResponse>(
+          return createFetchObservable<ThreadListResponse>(
+            environment,
             `${context.runtimeUrl}/threads?${new URLSearchParams(
               params,
             ).toString()}`,
             {
-              selector: (response) => {
-                if (!response.ok) {
-                  throw new Error(
-                    `Failed to fetch next page: ${response.status}`,
-                  );
-                }
-
-                return response.json() as Promise<ThreadListResponse>;
-              },
-              fetch: environment.fetch,
               method: "GET",
               headers: { ...context.headers },
-            } as ThreadFetchInit<ThreadListResponse>,
+            },
+            (response) => {
+              if (!response.ok) {
+                throw new Error(
+                  `Failed to fetch next page: ${response.status}`,
+                );
+              }
+
+              return response.json() as Promise<ThreadListResponse>;
+            },
           ).pipe(
             timeout({
               first: REQUEST_TIMEOUT_MS,
@@ -1021,6 +1082,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
             const requestId = action.requestId;
             return of(
               threadRestEvents.mutationFinished({
+                sessionId: state.sessionId,
                 outcome: {
                   requestId,
                   ok: false,
@@ -1041,6 +1103,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               mutationContext,
               {
                 requestId: action.requestId,
+                sessionId: state.sessionId,
                 method: "PATCH",
                 path: `/threads/${encodeURIComponent(action.threadId)}`,
                 body: {
@@ -1057,6 +1120,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               mutationContext,
               {
                 requestId: action.requestId,
+                sessionId: state.sessionId,
                 method: "POST",
                 path: `/threads/${encodeURIComponent(action.threadId)}/archive`,
                 body: commonBody,
@@ -1066,6 +1130,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
 
           return createThreadMutationObservable(environment, mutationContext, {
             requestId: action.requestId,
+            sessionId: state.sessionId,
             method: "DELETE",
             path: `/threads/${encodeURIComponent(action.threadId)}`,
             body: commonBody,

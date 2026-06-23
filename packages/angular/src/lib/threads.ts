@@ -123,6 +123,19 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
     return new Error("Runtime URL is not configured");
   });
   const runtimeStatus = computed(() => copilotkit.runtimeConnectionStatus());
+  const queryKey = computed(() =>
+    JSON.stringify({
+      runtimeUrl: copilotkit.runtimeUrl() ?? null,
+      wsUrl: copilotkit.intelligence()?.wsUrl ?? null,
+      agentId: agentIdSignal() ?? null,
+      includeArchived: includeArchived() ?? null,
+      limit: limit() ?? null,
+      headers: Object.entries(copilotkit.headers()).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+      threadEndpoints: copilotkit.threadEndpoints() ?? null,
+    }),
+  );
   const context = computed<ɵThreadRuntimeContext | null>(() => {
     const runtimeUrl = copilotkit.runtimeUrl();
     const resolvedAgentId = agentIdSignal();
@@ -146,11 +159,13 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
     };
   });
 
+  const hasRunnableInput = computed(() =>
+    Boolean(copilotkit.runtimeUrl() && agentIdSignal()),
+  );
   const isLoading = computed(() =>
     runtimeError()
       ? false
-      : (!!copilotkit.runtimeUrl() && !hasDispatchedContext()) ||
-        storeIsLoading(),
+      : (hasRunnableInput() && !hasDispatchedContext()) || storeIsLoading(),
   );
   const error = computed(() => runtimeError() ?? storeError());
 
@@ -160,6 +175,7 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
     .subscribe(() => {
       version.update((current) => current + 1);
     });
+  const lastQueryKey = signal(queryKey());
 
   effect((onCleanup) => {
     const resolvedAgentId = agentIdSignal();
@@ -169,20 +185,27 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
 
     copilotkit.registerThreadStore(resolvedAgentId, store);
     onCleanup(() => {
-      copilotkit.unregisterThreadStore(resolvedAgentId);
+      copilotkit.unregisterThreadStore(resolvedAgentId, store);
     });
   });
 
   effect(() => {
     const nextContext = context();
+    const nextQueryKey = queryKey();
+    const queryChanged = lastQueryKey() !== nextQueryKey;
+    lastQueryKey.set(nextQueryKey);
 
-    if (!copilotkit.runtimeUrl()) {
+    if (!copilotkit.runtimeUrl() || !agentIdSignal()) {
       store.setContext(null);
       hasDispatchedContext.set(false);
       return;
     }
 
     if (runtimeStatus() !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
+      if (queryChanged) {
+        store.setContext(null);
+        hasDispatchedContext.set(false);
+      }
       return;
     }
 

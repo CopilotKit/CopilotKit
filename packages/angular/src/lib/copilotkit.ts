@@ -503,8 +503,8 @@ export class CopilotKit {
     this.core.registerThreadStore(agentId, store);
   }
 
-  unregisterThreadStore(agentId: string): void {
-    this.core.unregisterThreadStore(agentId);
+  unregisterThreadStore(agentId: string, store?: ɵThreadStore): void {
+    this.core.unregisterThreadStore(agentId, store);
   }
 
   #isSameAgentId<T extends { agentId?: string }>(

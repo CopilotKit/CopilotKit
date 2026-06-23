@@ -14,6 +14,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -271,6 +272,27 @@ export function useThreads({
     limit,
     threadEndpoints,
   ]);
+  const queryKey = useMemo(
+    () =>
+      JSON.stringify({
+        runtimeUrl: copilotkit.runtimeUrl ?? null,
+        wsUrl: copilotkit.intelligence?.wsUrl ?? null,
+        agentId,
+        includeArchived: includeArchived ?? null,
+        limit: limit ?? null,
+        headers: headersKey,
+        threadEndpoints: threadEndpoints ?? null,
+      }),
+    [
+      copilotkit.runtimeUrl,
+      copilotkit.intelligence?.wsUrl,
+      agentId,
+      includeArchived,
+      limit,
+      headersKey,
+      threadEndpoints,
+    ],
+  );
 
   // Tracks whether we've dispatched the first real context to the store.
   // The store itself starts with `isLoading: false`, so before we dispatch
@@ -280,6 +302,7 @@ export function useThreads({
   // the first fetch is in flight (at which point the store's own
   // isLoading takes over).
   const [hasDispatchedContext, setHasDispatchedContext] = useState(false);
+  const lastQueryKeyRef = useRef(queryKey);
   const preConnectLoading = !!copilotkit.runtimeUrl && !hasDispatchedContext;
 
   const isLoading = runtimeError ? false : preConnectLoading || storeIsLoading;
@@ -306,11 +329,14 @@ export function useThreads({
   useEffect(() => {
     copilotkit.registerThreadStore(agentId, store);
     return () => {
-      copilotkit.unregisterThreadStore(agentId);
+      copilotkit.unregisterThreadStore(agentId, store);
     };
   }, [copilotkit, agentId, store]);
 
   useEffect(() => {
+    const queryChanged = lastQueryKeyRef.current !== queryKey;
+    lastQueryKeyRef.current = queryKey;
+
     if (!copilotkit.runtimeUrl) {
       store.setContext(null);
       setHasDispatchedContext(false);
@@ -320,12 +346,16 @@ export function useThreads({
     // Wait for /info to land so we can include `wsUrl` in the initial
     // context and avoid a redundant second list fetch.
     if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
+      if (queryChanged) {
+        store.setContext(null);
+        setHasDispatchedContext(false);
+      }
       return;
     }
 
     store.setContext(context);
-    setHasDispatchedContext(true);
-  }, [store, copilotkit.runtimeUrl, runtimeStatus, context]);
+    setHasDispatchedContext(context !== null);
+  }, [store, copilotkit.runtimeUrl, runtimeStatus, context, queryKey]);
 
   const renameThread = useCallback(
     (threadId: string, name: string) => store.renameThread(threadId, name),
