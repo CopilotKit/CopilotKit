@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
-import { InputProps } from "./props";
+import type { InputProps } from "./props";
 import { useChatContext } from "./ChatContext";
 import AutoResizingTextarea from "./Textarea";
 import { usePushToTalk } from "../../hooks/use-push-to-talk";

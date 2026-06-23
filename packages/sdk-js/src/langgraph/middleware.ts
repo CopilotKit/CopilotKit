@@ -5,7 +5,8 @@ import type {
   StandardSchemaV1,
 } from "@standard-schema/spec";
 import * as z from "zod";
-import { getA2UITools, type A2UIToolParams } from "@ag-ui/langgraph";
+import { getA2UITools } from "@ag-ui/langgraph";
+import type { A2UIToolParams } from "@ag-ui/langgraph";
 import { getForwardedHeaders } from "../header-propagation";
 
 // ---------------------------------------------------------------------------
@@ -403,7 +404,7 @@ const buildMiddlewareInput = (
       // host cannot know — the bound model, and the registered catalog id +
       // compositionGuide — without clobbering any host-set value.
       const params: A2UIToolParams = {
-        ...(a2uiParams ?? {}),
+        ...a2uiParams,
         model: request.model,
       };
       if (catalog?.catalogId && params.defaultCatalogId == null)
@@ -411,7 +412,7 @@ const buildMiddlewareInput = (
       // Merge the registered catalog schema into any host `guidelines` bag; a
       // host-set compositionGuide wins, host generation/design overrides stay.
       if (catalog?.compositionGuide) {
-        const guidelines = { ...(params.guidelines ?? {}) };
+        const guidelines = { ...params.guidelines };
         if (guidelines.compositionGuide == null)
           guidelines.compositionGuide = catalog.compositionGuide;
         params.guidelines = guidelines;

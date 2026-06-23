@@ -22,6 +22,13 @@ export interface SlackCommand {
   conversation: { channelId: string; scope: string };
   replyTarget: { channel: string };
   senderUserId?: string;
+  /**
+   * Stable per-invocation id for inbound idempotency. Slash commands carry no
+   * Events API `event_id`, so this is derived from
+   * `${command}:${user_id}:${trigger_id}` — the closest stable-per-click value
+   * Slack provides.
+   */
+  eventId?: string;
 }
 
 export type CommandHandler = (
@@ -52,6 +59,28 @@ const MENTION_RE = /<@[UW][A-Z0-9]+>/g;
 
 const stripMentions = (text: string): string =>
   text.replace(MENTION_RE, "").replace(/\s+/g, " ").trim();
+
+/**
+ * Derive a stable per-delivery id for a message/event turn, used for inbound
+ * idempotency. Prefer the Events API envelope `event_id` (it is stable across
+ * Slack's automatic retries), then the message's own `client_msg_id`, then a
+ * synthesized `${channel}:${ts}`. Returns undefined only when none is
+ * available — never fabricate a random id (that would defeat dedup).
+ *
+ * TODO(dedup): wire eventId for Discord/Telegram (same pattern) — Discord
+ * message/interaction id; Telegram `update_id`.
+ */
+function deriveEventId(
+  body: unknown,
+  event: { client_msg_id?: string; ts?: string; channel?: string },
+  channel: string,
+): string | undefined {
+  const envelopeEventId = (body as { event_id?: string } | undefined)?.event_id;
+  if (envelopeEventId) return envelopeEventId;
+  if (event.client_msg_id) return event.client_msg_id;
+  if (event.ts) return `${channel}:${event.ts}`;
+  return undefined;
+}
 
 /**
  * Attach Slack event handlers to a Bolt app. After this returns, the listener
@@ -94,12 +123,17 @@ export function attachSlackListener(config: ListenerConfig): void {
         },
         replyTarget: { channel: command.channel_id },
         senderUserId: command.user_id,
+        // Slash commands carry no Events API event_id; trigger_id is the most
+        // stable per-invocation value Slack provides.
+        eventId: command.trigger_id
+          ? `${command.command}:${command.user_id}:${command.trigger_id}`
+          : undefined,
       },
       client,
     );
   });
 
-  app.event("app_mention", async ({ event, client }) => {
+  app.event("app_mention", async ({ event, body, client }) => {
     const threadTs = event.thread_ts ?? event.ts;
     const userText = stripMentions(event.text ?? "");
     const hasFiles =
@@ -114,12 +148,17 @@ export function attachSlackListener(config: ListenerConfig): void {
         replyTarget: { channel: event.channel, threadTs },
         userText,
         senderUserId: event.user,
+        eventId: deriveEventId(
+          body,
+          event as { client_msg_id?: string; ts?: string },
+          event.channel,
+        ),
       },
       client,
     );
   });
 
-  app.message(async ({ message, client }) => {
+  app.message(async ({ message, body, client }) => {
     if (!isPlainUserMessage(message, config.botUserId)) return;
 
     const text = (message.text ?? "").trim();
@@ -147,6 +186,7 @@ export function attachSlackListener(config: ListenerConfig): void {
           replyTarget: { channel: message.channel },
           userText: text,
           senderUserId: message.user,
+          eventId: deriveEventId(body, message, message.channel),
         },
         client,
       );
@@ -175,6 +215,7 @@ export function attachSlackListener(config: ListenerConfig): void {
         replyTarget: { channel: message.channel, threadTs: message.thread_ts },
         userText: stripMentions(text),
         senderUserId: message.user,
+        eventId: deriveEventId(body, message, message.channel),
       },
       client,
     );
@@ -189,6 +230,10 @@ interface PlainUserMessage {
   thread_ts?: string;
   channel_type?: string;
   files?: unknown[];
+  /** Slack's client-generated message id; a per-delivery dedup fallback. */
+  client_msg_id?: string;
+  /** Message ts; last-resort dedup key as `${channel}:${ts}`. */
+  ts?: string;
 }
 
 /**

@@ -151,8 +151,8 @@ describe("resolvePackageCountSafe", () => {
     expect(resolvePackageCountSafe("monorepo")).toBe(15);
   });
 
-  it("returns the real package count for the bot scope (bot + bot-ui, drift guard)", () => {
-    expect(resolvePackageCountSafe("bot")).toBe(2);
+  it("returns the real package count for the bot scope (bot + bot-ui + bot-store-redis + bot-store-postgres, drift guard)", () => {
+    expect(resolvePackageCountSafe("bot")).toBe(4);
   });
 
   it("returns the real package count for the bot-slack scope (drift guard)", () => {
