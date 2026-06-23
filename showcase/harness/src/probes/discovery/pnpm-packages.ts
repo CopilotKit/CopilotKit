@@ -77,7 +77,11 @@ export const pnpmPackagesDiscoverySource: DiscoverySource<PnpmPackageRecord> = {
     const workspacePath = path.join(rootDir, "pnpm-workspace.yaml");
 
     const patterns = await readWorkspacePatterns(workspacePath);
-    const matchedDirs = await expandPatterns(rootDir, patterns);
+    const matchedDirs = await expandPatterns(
+      rootDir,
+      patterns,
+      filter.pathPrefix,
+    );
 
     const records: PnpmPackageRecord[] = [];
     for (const relDir of matchedDirs) {
@@ -165,19 +169,60 @@ async function readWorkspacePatterns(workspacePath: string): Promise<string[]> {
 }
 
 /**
+ * The static (wildcard-free) leading portion of a pattern — everything
+ * before the first `*`. Every directory a pattern can possibly match
+ * begins with this prefix, so it's the cheapest sound test for "could
+ * this pattern ever produce a path under the requested pathPrefix?".
+ * For a literal pattern the whole pattern is its static prefix.
+ */
+function staticPrefix(pattern: string): string {
+  const starIdx = pattern.indexOf("*");
+  return starIdx === -1 ? pattern : pattern.slice(0, starIdx);
+}
+
+/**
+ * True iff a pattern could match at least one directory under
+ * `pathPrefix`. Two ranges of paths overlap iff one's static prefix is a
+ * prefix of the other's: e.g. pathPrefix "packages/" overlaps pattern
+ * "packages/*" and "packages/*\/apps/*" (static "packages/"), but NOT
+ * "examples/v2/*\/apps/*" (static "examples/v2/"). When no pathPrefix is
+ * requested every pattern is in scope.
+ */
+function patternIntersectsPrefix(
+  pattern: string,
+  pathPrefix: string | undefined,
+): boolean {
+  if (!pathPrefix) return true;
+  const sp = staticPrefix(pattern);
+  return sp.startsWith(pathPrefix) || pathPrefix.startsWith(sp);
+}
+
+/**
  * Expand a list of pnpm-workspace patterns into workspace-relative dirs.
  * Supports: literal paths, `<prefix>/*`, and leading-`!` negation.
  * Does NOT support `**` or brace expansion (see class-level JSDoc).
+ *
+ * When `pathPrefix` is set, patterns whose static prefix cannot intersect
+ * it are skipped BEFORE their glob shape is validated. This keeps a
+ * deep-glob the workspace uses for an unrelated subtree (e.g.
+ * `examples/v2/*\/apps/*`) from aborting enumeration for a probe that only
+ * wants `packages/` — the strict-shape SchemaError still fires for an
+ * unsupported pattern that DOES overlap the requested prefix.
  */
 async function expandPatterns(
   rootDir: string,
   patterns: string[],
+  pathPrefix?: string,
 ): Promise<string[]> {
   const include: string[] = [];
   const exclude: string[] = [];
   for (const p of patterns) {
-    if (p.startsWith("!")) exclude.push(p.slice(1));
-    else include.push(p);
+    const bare = p.startsWith("!") ? p.slice(1) : p;
+    // Out-of-prefix patterns can neither add nor remove an in-prefix dir,
+    // so skip both includes and excludes before shape validation.
+    if (!patternIntersectsPrefix(bare, pathPrefix)) continue;
+    if (p.startsWith("!")) exclude.push(bare);
+    else include.push(bare);
   }
   const dirs = new Set<string>();
   for (const pattern of include) {
