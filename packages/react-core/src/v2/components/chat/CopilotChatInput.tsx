@@ -981,7 +981,7 @@ export function CopilotChatInput({
       role="listbox"
       aria-label="Slash commands"
       ref={slashMenuRef}
-      className="cpk:absolute cpk:bottom-full cpk:left-0 cpk:right-0 cpk:z-30 cpk:mb-2 cpk:max-h-64 cpk:overflow-y-auto cpk:rounded-lg cpk:border cpk:border-border cpk:bg-white cpk:shadow-lg cpk:dark:border-[#3a3a3a] cpk:dark:bg-[#1f1f1f]"
+      className="cpk:absolute cpk:bottom-full cpk:left-0 cpk:right-0 cpk:z-30 cpk:mb-2 cpk:max-h-64 cpk:overflow-y-auto cpk:rounded-lg cpk:border cpk:border-[var(--cpk-menu-border)] cpk:bg-[var(--cpk-menu-background)] cpk:shadow-lg"
       style={{
         maxHeight: `${SLASH_MENU_MAX_VISIBLE_ITEMS * SLASH_MENU_ITEM_HEIGHT_PX}px`,
       }}
@@ -1003,9 +1003,9 @@ export function CopilotChatInput({
               data-slash-index={index}
               className={twMerge(
                 "cpk:w-full cpk:px-3 cpk:py-2 cpk:text-left cpk:text-sm cpk:transition-colors",
-                "cpk:hover:bg-muted cpk:dark:hover:bg-[#2f2f2f]",
+                "cpk:hover:bg-[var(--cpk-menu-item-active-background)]",
                 isActive
-                  ? "cpk:bg-muted cpk:dark:bg-[#2f2f2f]"
+                  ? "cpk:bg-[var(--cpk-menu-item-active-background)]"
                   : "cpk:bg-transparent",
               )}
               onMouseEnter={() => setSlashHighlightIndex(index)}
@@ -1035,8 +1035,8 @@ export function CopilotChatInput({
         "cpk:cursor-text",
         // Overflow and clipping
         "cpk:overflow-visible cpk:bg-clip-padding cpk:contain-inline-size",
-        // Background
-        "cpk:bg-white cpk:dark:bg-[#303030]",
+        // Background (override --cpk-input-background to theme; default unchanged)
+        "cpk:bg-[var(--cpk-input-background)]",
         // Visual effects
         "cpk:shadow-[0_4px_4px_0_#0000000a,0_0_1px_0_#0000009e] cpk:rounded-[28px]",
       )}
