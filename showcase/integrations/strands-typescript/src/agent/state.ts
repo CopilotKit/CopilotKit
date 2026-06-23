@@ -53,24 +53,56 @@ function formatPreferencesBlock(prefs: unknown): string | null {
 }
 
 /**
- * Inject UI-owned shared-state slots into the outgoing prompt.
- * Degrades to the original prompt when no relevant slot is present.
+ * Format the AG-UI `context` array into a prompt block.
+ *
+ * `RunAgentInput.context` is populated by the frontend's `useAgentContext`
+ * (readonly-state-agent-context), by `openGenerativeUI.designSkill`, and by
+ * sandbox-function descriptors (open-gen-ui / advanced). The Strands adapter
+ * does NOT surface `context` to the model on its own, so without lifting it
+ * here the agent never sees readonly context ("Who am I?") nor the
+ * open-gen-ui design skill / "call generateSandboxedUi" guidance. Mirrors
+ * langgraph's lift-context-into-prompt pattern; the Python sibling does the
+ * same in `build_state_prompt`.
+ */
+function formatContextBlock(context: unknown): string | null {
+  if (!Array.isArray(context) || context.length === 0) return null;
+  const lines: string[] = [];
+  for (const item of context) {
+    if (!item || typeof item !== "object") continue;
+    const c = item as Record<string, unknown>;
+    if (c.description == null || c.value == null) continue;
+    lines.push(`- ${String(c.description)}: ${String(c.value)}`);
+  }
+  if (lines.length === 0) return null;
+  return (
+    "Context for this conversation (treat as authoritative — use it to answer questions about the user and follow any instructions it contains):\n" +
+    lines.join("\n")
+  );
+}
+
+/**
+ * Inject UI-owned shared-state slots and AG-UI context into the outgoing
+ * prompt. Degrades to the original prompt when no relevant slot is present.
  */
 export function buildStatePrompt(
   inputData: RunAgentInput,
   prompt: string,
 ): string {
   const state = (inputData.state ?? {}) as Record<string, unknown>;
-  if (!state || typeof state !== "object") return prompt;
 
   const blocks: string[] = [];
-  const prefsBlock = formatPreferencesBlock(state.preferences);
-  if (prefsBlock) blocks.push(prefsBlock);
-  if ("todos" in state) {
-    blocks.push(
-      `Current sales pipeline:\n${JSON.stringify(state.todos, null, 2)}`,
-    );
+  if (state && typeof state === "object") {
+    const prefsBlock = formatPreferencesBlock(state.preferences);
+    if (prefsBlock) blocks.push(prefsBlock);
+    if ("todos" in state) {
+      blocks.push(
+        `Current sales pipeline:\n${JSON.stringify(state.todos, null, 2)}`,
+      );
+    }
   }
+  const contextBlock = formatContextBlock(inputData.context);
+  if (contextBlock) blocks.push(contextBlock);
+
   if (blocks.length === 0) return prompt;
   return `${blocks.join("\n\n")}\n\nUser request: ${prompt}`;
 }

@@ -60,6 +60,7 @@ from tools import (
     get_weather_impl,
     query_data_impl,
     manage_sales_todos_impl,
+    roll_dice_impl,
     schedule_meeting_impl,
     search_flights_impl,
     build_a2ui_operations_from_tool_call,
@@ -345,6 +346,21 @@ def get_weather(location: str):
 
 
 # @endregion[weather-tool-backend]
+
+
+@tool
+def roll_dice(sides: int):
+    """Roll a die with the given number of sides and return the result.
+
+    Use for any dice-rolling request (e.g. 'roll a d20' -> sides=20).
+
+    Args:
+        sides: Number of sides (e.g. 20 for a d20)
+
+    Returns:
+        Roll result as JSON string
+    """
+    return json.dumps(roll_dice_impl(sides))
 
 
 @tool
@@ -1060,6 +1076,42 @@ def _recover_original_user_message(input_data) -> Optional[str]:
     return None
 
 
+def _format_context_block(context) -> Optional[str]:
+    """Format the AG-UI ``context`` array into a prompt block.
+
+    ``RunAgentInput.context`` is populated by the frontend's
+    ``useAgentContext`` (readonly-state-agent-context), by
+    ``openGenerativeUI.designSkill``, and by sandbox-function descriptors
+    (open-gen-ui / advanced). ag_ui_strands does NOT surface ``context`` to
+    the model on its own, so without lifting it here the agent never sees
+    readonly context ("Who am I?") nor the open-gen-ui design skill / "call
+    generateSandboxedUi" guidance. Mirrors langgraph's lift-context-into-prompt
+    pattern; the TS sibling does the same in ``buildStatePrompt``.
+
+    Each item is an AG-UI Context object with ``.description`` and ``.value``.
+    Returns ``None`` when nothing usable is present.
+    """
+    if not isinstance(context, list) or not context:
+        return None
+    lines: list[str] = []
+    for item in context:
+        description = getattr(item, "description", None)
+        value = getattr(item, "value", None)
+        if isinstance(item, dict):
+            description = item.get("description", description)
+            value = item.get("value", value)
+        if description is None or value is None:
+            continue
+        lines.append(f"- {str(description)}: {str(value)}")
+    if not lines:
+        return None
+    return (
+        "Context for this conversation (treat as authoritative — use it to "
+        "answer questions about the user and follow any instructions it "
+        "contains):\n" + "\n".join(lines)
+    )
+
+
 def build_state_prompt(input_data, user_message: str) -> str:
     """Inject UI-owned shared state slots into the outgoing prompt.
 
@@ -1084,19 +1136,21 @@ def build_state_prompt(input_data, user_message: str) -> str:
     if recovered is not None:
         user_message = recovered
 
-    state_dict = getattr(input_data, "state", None)
-    if not isinstance(state_dict, dict):
-        return user_message
-
     blocks: list[str] = []
 
-    prefs_block = _format_preferences_block(state_dict.get("preferences") or {})
-    if prefs_block:
-        blocks.append(prefs_block)
+    state_dict = getattr(input_data, "state", None)
+    if isinstance(state_dict, dict):
+        prefs_block = _format_preferences_block(state_dict.get("preferences") or {})
+        if prefs_block:
+            blocks.append(prefs_block)
 
-    if "todos" in state_dict:
-        todos_json = json.dumps(state_dict["todos"], indent=2)
-        blocks.append(f"Current sales pipeline:\n{todos_json}")
+        if "todos" in state_dict:
+            todos_json = json.dumps(state_dict["todos"], indent=2)
+            blocks.append(f"Current sales pipeline:\n{todos_json}")
+
+    context_block = _format_context_block(getattr(input_data, "context", None))
+    if context_block:
+        blocks.append(context_block)
 
     if not blocks:
         return user_message
@@ -1536,6 +1590,7 @@ def build_showcase_agent(
             manage_sales_todos,
             get_weather,
             query_data,
+            roll_dice,
             schedule_meeting,
             search_flights,
             generate_a2ui,
