@@ -177,7 +177,12 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     "readonly-state-agent-context": AgentSpec(readonly_state_agent_context_agent),
     "agent_config": AgentSpec(agent_config_agent),
     # ----- A2UI -----
+    # Dynamic A2UI: the agent owns `generate_a2ui` via the middleware's
+    # get_a2ui_tool (backend-owned; route sets injectA2UITool: false). See
+    # declarative_gen_ui_agent.py.
     "declarative_gen_ui": AgentSpec(declarative_gen_ui_agent),
+    # Fixed-schema A2UI emits a2ui_operations directly from a deterministic
+    # backend tool (no secondary planner), injectA2UITool: false.
     "a2ui_fixed_schema": AgentSpec(a2ui_fixed_agent),
     # ----- BYOC / Declarative -----
     "declarative-hashbrown": AgentSpec(byoc_agent),
@@ -186,6 +191,8 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     "open_gen_ui": AgentSpec(open_gen_ui_agent),
     "open_gen_ui_advanced": AgentSpec(open_gen_ui_advanced_agent),
     # ----- Beautiful chat -----
+    # A2UI is backend-owned via get_a2ui_tool on the agent (injectA2UITool:
+    # false); coexists with openGenerativeUI + mcpApps. See beautiful_chat_agent.py.
     "beautiful_chat": AgentSpec(beautiful_chat_agent),
     # ----- Auth (uses simple chat — auth gate is in route.ts) -----
     "auth": AgentSpec(_simple_chat),
