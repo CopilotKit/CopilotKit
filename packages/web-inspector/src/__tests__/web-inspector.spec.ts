@@ -306,6 +306,9 @@ describe("WebInspectorElement", () => {
 
 type ThreadDetailsInternals = {
   threadId: string | null;
+  runtimeUrl: string;
+  headers: Record<string, string>;
+  threadInspectionAvailable: boolean;
   liveMessageVersion: number;
   _conversation: Array<Record<string, unknown>>;
   _fetchedState: Record<string, unknown> | null;
@@ -318,6 +321,8 @@ type ThreadDetailsInternals = {
   _loadingState: boolean;
   _loadingEvents: boolean;
   _panelTplCache: Map<string, { key: readonly unknown[]; tpl: unknown }>;
+  fetchEvents: (threadId: string) => Promise<void>;
+  fetchState: (threadId: string) => Promise<void>;
   renderConversation: () => unknown;
   renderState: () => unknown;
   renderEvents: () => unknown;
@@ -375,6 +380,30 @@ describe("ɵCpkThreadDetails caching", () => {
     await el.updateComplete;
 
     expect(internals._panelTplCache.size).toBe(0);
+  });
+
+  it("does not fetch messages, events, or state when threadInspectionAvailable is omitted", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    try {
+      const { el, internals } = createThreadDetails();
+
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      expect(internals.threadInspectionAvailable).toBe(false);
+      expect(fetchSpy).not.toHaveBeenCalled();
+
+      await internals.fetchEvents("t1");
+      await internals.fetchState("t1");
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   it("conversation cache invalidates when _conversation is reassigned", async () => {
@@ -590,6 +619,12 @@ type HeaderMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
+  threadEndpoints: {
+    list: boolean;
+    inspect: boolean;
+    mutations: boolean;
+    realtimeMetadata: boolean;
+  };
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
     unsubscribe: () => void;
   };
@@ -611,6 +646,12 @@ function createHeaderMockCore(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
+    threadEndpoints: {
+      list: true,
+      inspect: true,
+      mutations: true,
+      realtimeMetadata: true,
+    },
     subscribe(subscriber: CopilotKitCoreSubscriber) {
       subscribers.add(subscriber);
       return { unsubscribe: () => subscribers.delete(subscriber) };
