@@ -1,17 +1,11 @@
-import {
-  computed,
-  defineComponent,
-  h,
-  onBeforeUnmount,
-  ref,
-  watch,
-  type PropType,
-} from "vue";
+import { computed, defineComponent, h, onBeforeUnmount, ref, watch } from "vue";
+import type { PropType } from "vue";
 import { z } from "zod";
 import { ToolCallStatus } from "@copilotkit/core";
 import {
   processPartialHtml,
   extractCompleteStyles,
+  maskBlockContent,
 } from "../lib/processPartialHtml";
 import { useSandboxFunctions } from "../providers/SandboxFunctionsContext";
 
@@ -25,6 +19,13 @@ export const OpenGenerativeUIContentSchema = z.object({
   html: z.array(z.string()).optional(),
   htmlComplete: z.boolean().optional(),
   jsFunctions: z.string().optional(),
+  // `jsFunctionsComplete` / `jsExpressionsComplete` are streamed by the Open
+  // Generative UI middleware (open-generative-ui-middleware.ts emits them when
+  // the jsFunctions string / jsExpressions array finish parsing). They are not
+  // needed for execution — jsFunctions/jsExpressions run incrementally as they
+  // arrive — but they ARE the per-segment terminal markers the completion
+  // fallback reads (see isGenerationComplete) to recognize a fully-streamed
+  // payload whose `generating: false` delta never arrived.
   jsFunctionsComplete: z.boolean().optional(),
   jsExpressions: z.array(z.string()).optional(),
   jsExpressionsComplete: z.boolean().optional(),
@@ -63,27 +64,263 @@ function shouldFlushImmediately(
   return false;
 }
 
+/**
+ * Whether generation has finished. The Open Generative UI middleware emits the
+ * `generating: false` delta ONLY from its TOOL_CALL_END handler
+ * (open-generative-ui-middleware.ts). On a terminal path where the upstream
+ * agent never emits TOOL_CALL_END for the genui tool call — an abort/stop, an
+ * abrupt stream end, or a transport error after the args fully streamed — the
+ * runner's `finalizeRunEvents` synthesizes a TOOL_CALL_END at the runner level,
+ * AFTER the middleware already processed the stream, so it never flows back
+ * through the middleware and `generating: false` is never emitted. The
+ * fully-streamed payload then arrives with `generating` absent.
+ *
+ * Without a fallback, a renderer keying purely on `generating === false` leaves
+ * such a finished, interactive artifact permanently covered by the
+ * pointer-blocking overlay. The fallback treats a payload as terminal when
+ * every streamed segment that is PRESENT carries its `*Complete` flag
+ * (`htmlComplete`, plus `cssComplete`/`jsFunctionsComplete`/
+ * `jsExpressionsComplete` for whichever of css/jsFunctions/jsExpressions are
+ * present). Those flags are emitted by the producer as each segment finishes
+ * parsing, so this fires only once the WHOLE payload is terminal — never
+ * mid-stream (e.g. html done but jsExpressions still arriving leaves
+ * `jsExpressionsComplete` absent, so this stays false and the overlay stays up,
+ * matching the pre-fallback behavior on every normal path). `htmlComplete` is
+ * required because an interactive artifact only exists once html is complete.
+ * Mirrors the react-core renderer's identical helper.
+ */
+export function isGenerationComplete(
+  content: OpenGenerativeUIContent,
+): boolean {
+  if (content.generating === false) return true;
+  if (!content.htmlComplete) return false;
+  if (content.css !== undefined && !content.cssComplete) return false;
+  if (content.jsFunctions !== undefined && !content.jsFunctionsComplete)
+    return false;
+  if (
+    content.jsExpressions !== undefined &&
+    content.jsExpressions.length > 0 &&
+    !content.jsExpressionsComplete
+  )
+    return false;
+  return true;
+}
+
+// Match only a real head-opening tag: `<head>`, or `<head` followed by
+// whitespace + attributes. This deliberately excludes `<header …>` (which a
+// looser `/<head[^>]*>/i` would capture). The attribute span is quote-aware:
+// unquoted runs forbid `<`/`>` (so the tag can never greedily swallow a
+// following `<tag>`), while quoted runs (`"…"` / `'…'`) may contain `<`/`>` so
+// a realistic `<head data-config='{"a":">"}'>` is matched whole. Mirrors
+// react-core's assembleDocument head-open matcher.
+const HEAD_OPEN = /<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/i;
+
+// Word-bounded `<body` open token (`<body>` or `<body …>`), used as the implicit
+// head close when no `</head>` follows the head-open. `[\s>]` forbids `<bodyfoo>`
+// from being mistaken for `<body>`. Matched on the masked copy (see below).
+const BODY_OPEN = /<body[\s>]/i;
+
+/**
+ * Locates the real head-opening tag on a length-preserving MASKED copy of the
+ * raw html — the content of complete `<style>`/`<script>` blocks and `<!-- … -->`
+ * comments is blanked (and quoted attribute runs inside style/script open tags),
+ * so a `<head>` token inside a comment or inside style/script content can never
+ * be mistaken for the real head-open. Indices map 1:1 to the original, so callers
+ * splice on the ORIGINAL string at the returned index. Mirrors react-core's
+ * assembleDocument, which masks inert spans before its head-open match.
+ */
+function matchHeadOpen(
+  masked: string,
+): { index: number; token: string } | null {
+  const match = masked.match(HEAD_OPEN);
+  if (!match || match.index === undefined) return null;
+  return { index: match.index, token: match[0] };
+}
+
+/**
+ * Ensures the final frameContent contains the EXACT literal lowercase token
+ * `<head>`. @jetbrains/websandbox hard-requires it: validateOptions throws
+ * `'Websandbox: iFrame content must have "<head>" tag.'` when
+ * `!frameContent.includes('<head>')`, and it injects its bootstrap via
+ * `frameContent.replace('<head>', …)` — both case-sensitive on the 6-char
+ * token. An agent-emitted `<HEAD>` or `<head lang="en">` would otherwise fail
+ * mounting (stuck spinner) and never receive the bootstrap.
+ *
+ * If a real head-opening tag exists, its token is NORMALIZED to `<head>` (head
+ * attributes have negligible runtime semantics inside the sandbox iframe and
+ * cannot be preserved given websandbox's exact-token demand). If none exists,
+ * `<head></head>` is prepended.
+ *
+ * The head-open is matched on a MASKED copy (complete comments + style/script
+ * content blanked) and the token is replaced on the ORIGINAL at the masked
+ * index, so a `<head>` token inside a comment is never matched (it would
+ * short-circuit on the comment's literal `<head>`, leaving the real attributed
+ * head un-normalized — websandbox would then `.replace('<head>', …)` its
+ * bootstrap INTO THE COMMENT and never initialize) and a comment containing a
+ * head token is preserved byte-for-byte.
+ *
+ * Mirrors the masked-matching + literal-`<head>` normalization of react-core's
+ * assembleDocument NON-legacy path (which masks inert spans before its head-open
+ * match). Two intentional differences: Vue injects no kit/importmap, so the head
+ * is only normalized, never prefixed; and react-core's LEGACY path deliberately
+ * diverges — it matches on the raw html (a `<head>` inside a comment is a pinned
+ * byte-identity quirk there).
+ */
 function ensureHead(html: string): string {
-  if (/<head[\s>]/i.test(html)) return html;
+  const head = matchHeadOpen(maskBlockContent(html));
+  if (head) {
+    if (head.token === "<head>") return html;
+    return (
+      html.slice(0, head.index) +
+      "<head>" +
+      html.slice(head.index + head.token.length)
+    );
+  }
   return `<head></head>${html}`;
 }
 
+/**
+ * Neutralizes the `<style>`-element-closing sequence inside agent css before it
+ * is spliced into a `<style>` element. The agent css is injected RAW into every
+ * `<style>${css}</style>` sink in this file (the final document via
+ * `injectCssIntoHtml`, and the streaming preview head via
+ * `buildPreviewHeadHtml`); a css value containing `</style>` would otherwise
+ * close the element early and let the markup after it become LIVE content in the
+ * sandbox iframe (e.g. `css: "a{}</style><script>alert(1)</script>"` → live
+ * script).
+ *
+ * The escape inserts a CSS backslash into the `/` of the close token
+ * (`</style` → `<\/style`), case-preservingly via `$1`. This is LOSSLESS inside
+ * a CSS string (a CSS parser reads `"\/"` back as `/`) and a dead, non-closing
+ * token in any other CSS position, so it changes nothing about how the css
+ * renders while making the element-close impossible.
+ *
+ * Mirrors react-core's exported helper (which guards its own assembleDocument /
+ * buildPreviewHeadHtml css sinks) and MUST stay lockstep with it — the escape is
+ * byte-for-byte identical so the final document and preview are produced the same
+ * way on both packages.
+ */
+function escapeStyleClose(css: string): string {
+  return css.replace(/<(\/style)/gi, "<\\$1");
+}
+
+/**
+ * Injects the agent css into the real head so the documented cascade holds
+ * (author head content first, agent css last). Every structural search runs on a
+ * length-preserving MASKED copy (complete comments + style/script content
+ * blanked) and the css is spliced on the ORIGINAL at the masked index, so a
+ * `</head>`/`<body>` token inside a comment or style/script content cannot
+ * capture the splice (it would otherwise land the css inside that inert region)
+ * and comments are preserved byte-for-byte.
+ *
+ * Always called after `ensureHead`, so a real head-opening tag exists by
+ * construction. The anchor is chosen on the masked copy:
+ *  - `</head>` AT/AFTER the matched head-open wins — the css lands inside the
+ *    REAL head (before that close), not at a stray `</head>` PRECEDING it (e.g.
+ *    `foo</head><head>…</head>`), which would put the css outside and before the
+ *    real head (cascade inversion). The close search is anchored at/after the
+ *    head-open to pair it with the SAME head.
+ *  - else the first word-bounded `<body[\s>]` token after the head-open is the
+ *    IMPLICIT head close (the browser closes an unclosed head at `<body>`): the
+ *    css is inserted JUST BEFORE it, so it sits after the author's in-head styles
+ *    (cascade parity) rather than before them.
+ *  - else (no close, no body) insert the css immediately AFTER the (normalized)
+ *    head-open rather than prepending a fresh `<head>`, which would produce two
+ *    head elements with the agent css before the author's head content.
+ *
+ * Mirrors the masked-matching + real-head/stray-`</head>` anchoring of
+ * react-core's assembleDocument NON-legacy path (Vue injects no kit/importmap, so
+ * only the agent css is anchored). Two intentional differences: the IMPLICIT
+ * `<body>` close fallback matches THIS package's own preview region logic
+ * (`analyzeRegions` in processPartialHtml — an unclosed head closes at `<body>`),
+ * keeping the preview and final document in parity, whereas react-core's
+ * non-legacy no-`</head>` fallback inserts right after the head-open; and
+ * react-core's LEGACY path diverges entirely (raw, unmasked `indexOf("</head>")`,
+ * a pinned byte-identity quirk).
+ */
 function injectCssIntoHtml(html: string, css: string): string {
-  const headCloseIdx = html.indexOf("</head>");
-  if (headCloseIdx !== -1) {
+  const masked = maskBlockContent(html);
+  const head = matchHeadOpen(masked);
+  // ensureHead runs first, so a real head-opening tag exists by construction.
+  // Anchor the close-tag search at/after the matched head-open so it pairs with
+  // the SAME head: a global first-match would resolve to a stray `</head>` that
+  // PRECEDES the real head, splicing the agent css outside and before the real
+  // head and inverting the documented cascade.
+  const searchFrom = head ? head.index + head.token.length : 0;
+  // Escape any `</style>` in the agent css (escapeStyleClose) at EVERY sink
+  // below so a css value cannot close the injected `<style>` element early and
+  // smuggle live markup into the sandbox iframe. Lossless inside CSS, dead token
+  // otherwise. Mirrors react-core's css sinks.
+  const safeCss = escapeStyleClose(css);
+  const closeRel = masked.slice(searchFrom).search(/<\/head>/i);
+  if (closeRel !== -1) {
+    const headCloseIdx = closeRel + searchFrom;
     return (
       html.slice(0, headCloseIdx) +
-      `<style>${css}</style>` +
+      `<style>${safeCss}</style>` +
       html.slice(headCloseIdx)
     );
   }
-  return `<head><style>${css}</style></head>${html}`;
+  // No `</head>` at/after the head-open. An unclosed head closes IMPLICITLY at
+  // the first `<body>` after it (browser behavior): insert the css JUST BEFORE
+  // that `<body>` so it follows the author's in-head styles (cascade parity).
+  const bodyRel = masked.slice(searchFrom).match(BODY_OPEN);
+  if (bodyRel && bodyRel.index !== undefined) {
+    const bodyIdx = searchFrom + bodyRel.index;
+    return (
+      html.slice(0, bodyIdx) + `<style>${safeCss}</style>` + html.slice(bodyIdx)
+    );
+  }
+  // No `</head>` and no `<body>`. ensureHead guaranteed a real head-open, so
+  // insert the agent css immediately AFTER that (normalized) head-open rather
+  // than prepending a fresh `<head>` — which would produce two head elements
+  // with the agent css before the author's head content (cascade inversion).
+  if (head) {
+    const insertAt = head.index + head.token.length;
+    return (
+      html.slice(0, insertAt) +
+      `<style>${safeCss}</style>` +
+      html.slice(insertAt)
+    );
+  }
+  return `<head><style>${safeCss}</style></head>${html}`;
+}
+
+/**
+ * Overflow guard for the preview iframe: `html, body { overflow: hidden }`. It
+ * must be baked into the head innerHTML so it survives every
+ * `document.head.innerHTML = …` reassignment built from head parts — a one-time
+ * `head.appendChild` on ready would be clobbered by the first reassignment and
+ * the preview iframe could then show scrollbars. Mirrors react-core's
+ * `buildPreviewHeadHtml` (overflow guard first, then preview styles, then agent
+ * css last so the cascade matches the final document). Vue has no
+ * kit/design-system injection, so the only head parts are: guard → extracted
+ * styles → agent css.
+ */
+const PREVIEW_OVERFLOW_GUARD =
+  "<style data-ck-preview-overflow>html, body { overflow: hidden !important; }</style>";
+
+function buildPreviewHeadHtml(
+  previewStyles: string,
+  css: string | undefined,
+): string {
+  const headParts: string[] = [PREVIEW_OVERFLOW_GUARD];
+  // previewStyles are hoisted from the agent's OWN complete `<style>` elements
+  // (extractCompleteStyles). They are spliced verbatim and NOT escaped: by
+  // construction a complete `<style>` element cannot contain a live `</style>`
+  // (that token already terminated it), so re-emitting it cannot break out.
+  // Mirrors react-core (only the agent css param is escaped here).
+  if (previewStyles) headParts.push(previewStyles);
+  // Escape any `</style>` in the agent css so the css value cannot close this
+  // `<style>` element early and inject live markup into the preview iframe.
+  if (css) headParts.push(`<style>${escapeStyleClose(css)}</style>`);
+  return headParts.join("");
 }
 
 type SandboxInstance = {
   iframe: HTMLIFrameElement;
   promise: Promise<unknown>;
-  run: (code: string | Function) => Promise<unknown>;
+  run: (code: string | ((...args: unknown[]) => unknown)) => Promise<unknown>;
   destroy: () => void;
 };
 
@@ -99,7 +336,9 @@ type WebsandboxModule = {
 };
 
 async function loadWebsandbox(): Promise<WebsandboxModule> {
-  const mod = (await import("@jetbrains/websandbox")) as any;
+  const mod = (await import("@jetbrains/websandbox")) as {
+    default?: { default?: unknown } & unknown;
+  };
   return (mod.default?.default ?? mod.default) as WebsandboxModule;
 }
 
@@ -252,10 +491,12 @@ export const OpenGenerativeUIRenderer = defineComponent({
 
           sandbox.promise.then(() => {
             if (cancelled || !previewSandboxRef.value) return;
+            // Flip ready — the content-update watcher (which lists previewReady
+            // in its source) then assigns the head/body. The overflow guard is
+            // baked into that head payload (buildPreviewHeadHtml), so it survives
+            // every reassignment; a separate appendChild here would be clobbered
+            // by the first head.innerHTML assignment. Mirrors react-core.
             previewReady.value = true;
-            void sandbox.run(
-              "var s=document.createElement('style');s.textContent='html, body { overflow: hidden !important; }';document.head.appendChild(s);",
-            );
           });
         } catch (error) {
           console.error(
@@ -275,14 +516,19 @@ export const OpenGenerativeUIRenderer = defineComponent({
       [previewBody, previewStyles, css, previewReady],
       ([body, styles, cssText, ready]) => {
         if (!previewSandboxRef.value || !ready) return;
-        const headParts: string[] = [];
-        if (cssText) headParts.push(`<style>${cssText}</style>`);
-        if (styles) headParts.push(styles);
-        if (headParts.length) {
-          void previewSandboxRef.value.run(
-            `document.head.innerHTML = ${JSON.stringify(headParts.join(""))}`,
-          );
-        }
+        // Cascade parity: overflow guard first, then extracted head styles, then
+        // agent css LAST — mirroring the final document, where injectCssIntoHtml
+        // inserts the agent css immediately before </head> (after the existing
+        // head content). Ordering the agent css first would flip its cascade
+        // position at the preview→final swap, visibly restyling artifacts that
+        // collide with it at equal specificity. The guard is ALWAYS present (so
+        // the head is assigned even with no styles/css), which also keeps the
+        // overflow guard from being lost when css/head styles arrive — the head
+        // payload is fully rebuilt on every assignment. Mirrors react-core's
+        // buildPreviewHeadHtml.
+        void previewSandboxRef.value.run(
+          `document.head.innerHTML = ${JSON.stringify(buildPreviewHeadHtml(styles, cssText))}`,
+        );
         if (body) {
           void previewSandboxRef.value.run(
             `document.body.innerHTML = ${JSON.stringify(body)}`,
@@ -331,6 +577,16 @@ export const OpenGenerativeUIRenderer = defineComponent({
             const functionsCode = throttledContent.value.jsFunctions;
             if (functionsCode && !jsFunctionsInjected.value) {
               jsFunctionsInjected.value = true;
+              // unshift (NOT push): during the rebuild window the jsExpressions
+              // watcher can already have pushed an expression onto pendingQueue
+              // before this ready callback runs. jsFunctions must be DEFINED
+              // before any expression executes (expressions call them), so they
+              // go to the FRONT, ahead of that queued expression. A push would
+              // append them after it and the expression would run against
+              // undefined functions. Matches react-core's effective order
+              // (Effect 1 clears the queue then requeues functions first, then
+              // expressions). Pinned by the "runs jsFunctions before a
+              // jsExpression queued during the rebuild window" test.
               pendingQueue.value.unshift(functionsCode);
             }
             const expressions = throttledContent.value.jsExpressions;
@@ -394,7 +650,7 @@ export const OpenGenerativeUIRenderer = defineComponent({
     );
 
     const isGenerating = computed(
-      () => throttledContent.value.generating !== false,
+      () => !isGenerationComplete(throttledContent.value),
     );
     watch(
       [hasPreview, fullHtml],
@@ -516,16 +772,41 @@ export const OpenGenerativeUIToolRenderer = defineComponent({
   },
   setup(props) {
     const visibleMessageIndex = ref(0);
+    const prevMessageCount = ref(0);
 
+    // Key the placeholder cycle on the message COUNT and the status — both as
+    // stable SCALAR sources. A `() => [placeholderMessages, status]` getter
+    // returns a FRESH array literal each tick, which Vue compares by reference,
+    // so the watcher would fire on essentially every reactive tick (every
+    // placeholderMessages identity change during streaming): the index would be
+    // forced to length-1 and the 5s interval torn down/re-armed each time. Vue
+    // compares the elements of a MULTI-SOURCE array by value for scalars, so
+    // `[() => length, () => status]` fires only when the count or the status
+    // actually changes. Mirrors react-core's placeholder effect, whose deps are
+    // `[messages?.length, props.status]`.
     watch(
-      () => props.args.placeholderMessages,
-      (messages, _, onCleanup) => {
-        if (!messages?.length || props.status === ToolCallStatus.Complete)
-          return;
-        visibleMessageIndex.value = Math.max(messages.length - 1, 0);
+      [
+        () => props.args.placeholderMessages?.length,
+        () => props.status,
+      ] as const,
+      ([count, status], _previous, onCleanup) => {
+        if (!count) return;
+        // Jump to the newest message ONLY when the count changes (a new message
+        // streamed in) — never on a status-only re-run. Tracked against a
+        // previous-count ref, mirroring react-core's prevMessageCountRef.
+        if (count !== prevMessageCount.value) {
+          prevMessageCount.value = count;
+          visibleMessageIndex.value = count - 1;
+        }
+        // Auto-cycle only while in progress. The interval is cleared (onCleanup)
+        // and re-armed only when this watcher re-runs, i.e. only on a count or
+        // status change — not on every tick. On Complete it is cleared and NOT
+        // re-armed (the render returns null, so a lingering timer would be an
+        // invisible leak firing until unmount). Mirrors react-core's
+        // clear-on-complete + status-keyed re-arm.
+        if (status === ToolCallStatus.Complete) return;
         const timer = window.setInterval(() => {
-          visibleMessageIndex.value =
-            (visibleMessageIndex.value + 1) % Math.max(messages.length, 1);
+          visibleMessageIndex.value = (visibleMessageIndex.value + 1) % count;
         }, 5000);
         onCleanup(() => window.clearInterval(timer));
       },

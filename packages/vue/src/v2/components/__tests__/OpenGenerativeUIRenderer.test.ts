@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/vue";
-import { ref } from "vue";
+import { nextTick, ref } from "vue";
 import type { Ref } from "vue";
-import { OpenGenerativeUIActivityRenderer } from "../OpenGenerativeUIRenderer";
+import { ToolCallStatus } from "@copilotkit/core";
+import {
+  OpenGenerativeUIActivityRenderer,
+  OpenGenerativeUIToolRenderer,
+} from "../OpenGenerativeUIRenderer";
 import type { OpenGenerativeUIContent } from "../OpenGenerativeUIRenderer";
 import { SandboxFunctionsKey } from "../../providers/keys";
 import type { SandboxFunction } from "../../types";
@@ -46,6 +50,40 @@ vi.mock("@jetbrains/websandbox", () => ({
 
 async function flushImport() {
   await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+// The renderer's content watcher throttles non-immediate changes with
+// window.setTimeout(flush, THROTTLE_MS). Keep this in lockstep with the 1000ms
+// throttle window in the source.
+const THROTTLE_MS = 1000;
+
+/**
+ * Fake-timer-safe drain of the Vue scheduler + the dynamic-import / sandbox-ready
+ * microtask chain the renderer kicks off (the `import("@jetbrains/websandbox")`
+ * resolve, its `.then` running `create`, and the `sandbox.promise.then` ready
+ * callback are each a microtask hop, interleaved with Vue reactive re-renders).
+ * Uses ONLY microtask hops (`Promise.resolve()`) and `nextTick` — NO real timer
+ * — so, unlike `flushImport`'s `setTimeout(0)`, it does not hang under
+ * `vi.useFakeTimers()`. Mirrors react-core's fake-timer-safe `flushImport` loop.
+ */
+async function flushMicrotasks() {
+  for (let i = 0; i < 8; i++) {
+    await Promise.resolve();
+    await nextTick();
+  }
+}
+
+/**
+ * Advance the renderer's throttle window deterministically. Under
+ * `vi.useFakeTimers()` we step exactly THROTTLE_MS so the deferred flush fires
+ * (no wall-clock margin a loaded parallel worker can blow through), then drain
+ * the scheduler + microtask chain the resulting reactive update queues (the
+ * preview head/body `run` calls). Requires `vi.useFakeTimers()` to be active —
+ * it uses NO real timer. Mirrors react-core's `flushThrottle`.
+ */
+async function flushThrottle() {
+  await vi.advanceTimersByTimeAsync(THROTTLE_MS);
+  await flushMicrotasks();
 }
 
 function renderRenderer(
@@ -257,6 +295,67 @@ describe("OpenGenerativeUIRenderer", () => {
     expect(mockRun).toHaveBeenCalledWith("foo()");
   });
 
+  // Ordering invariant on a final-sandbox rebuild: jsFunctions must be DEFINED
+  // before any jsExpression runs (expressions call the functions). During the
+  // rebuild window the jsExpressions watcher can push an expression into the
+  // pending queue BEFORE the sandbox's ready callback runs. The ready callback
+  // therefore `unshift`es jsFunctions to the FRONT of the queue so they execute
+  // ahead of that already-queued expression. A plain `push` would append the
+  // functions AFTER the queued expression and the expression would run against
+  // undefined functions. This pins functions-before-expressions through that
+  // exact race (and discriminates unshift from push — flip it and this fails).
+  it("runs jsFunctions before a jsExpression queued during the rebuild window", async () => {
+    // 1. Mount with html + jsFunctions, NO jsExpressions. The final-sandbox
+    //    watch fires, creates the sandbox and registers its ready callback, but
+    //    the promise stays UNRESOLVED (we don't resolve it yet). The
+    //    jsFunctions/jsExpressions watchers do not fire on mount (no immediate),
+    //    so the queue is empty and jsFunctions are NOT yet injected.
+    const mounted = renderRenderer({
+      html: ["<head></head><body></body>"],
+      htmlComplete: true,
+      jsFunctions: "function defineThings() {}",
+      generating: true,
+    });
+    await flushImport();
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    // Nothing has run yet — the sandbox is not ready.
+    expect(mockRun).not.toHaveBeenCalled();
+
+    // 2. While the sandbox promise is still unresolved, a jsExpression streams
+    //    in. The jsExpressions watcher fires, sees the sandbox not ready, and
+    //    pushes the expression onto the pending queue — so the queue holds the
+    //    EXPRESSION before the functions are ever queued.
+    mounted.rerender({
+      activityType: "open-generative-ui",
+      content: {
+        html: ["<head></head><body></body>"],
+        htmlComplete: true,
+        jsFunctions: "function defineThings() {}",
+        jsExpressions: ["defineThings()"],
+        generating: true,
+      },
+      message: {},
+      agent: {},
+    });
+    await flushImport();
+    // Still nothing executed — promise not resolved; both are queued.
+    expect(mockRun).not.toHaveBeenCalled();
+
+    // 3. Resolve the sandbox. The ready callback unshifts jsFunctions ahead of
+    //    the already-queued expression, then flushes the queue in order.
+    mockPromiseResolve();
+    await mockPromise;
+    await flushImport();
+
+    const jsCalls = mockRun.mock.calls
+      .map((c) => c[0])
+      .filter(
+        (c) => c === "function defineThings() {}" || c === "defineThings()",
+      );
+    // Functions MUST come before the expression.
+    expect(jsCalls).toEqual(["function defineThings() {}", "defineThings()"]);
+  });
+
   it("passes localApi built from sandbox functions to websandbox", async () => {
     const handler = vi.fn().mockResolvedValue(42);
     const sandboxFunctions: SandboxFunction[] = [
@@ -393,17 +492,29 @@ describe("OpenGenerativeUIRenderer", () => {
     });
 
     it("updates preview after throttled rerender", async () => {
+      // Deterministic throttle: drive the whole test with fake timers and step
+      // exactly THROTTLE_MS for the deferred flush, instead of racing a real
+      // 1100ms wall-clock wait against the renderer's 1000ms throttle (the
+      // ~100ms margin a loaded parallel worker could blow through). Fake timers
+      // are enabled from the START so the sandbox-setup chain and the rerender's
+      // throttle timer share one fake clock; flushMicrotasks drains the
+      // import/promise chain without a real timer. vi.useRealTimers() in
+      // afterEach restores real timers.
+      vi.useFakeTimers();
       const mounted = renderRenderer({
         html: ["<body><div>Hello</div>"],
         htmlComplete: false,
         cssComplete: true,
         generating: true,
       });
-      await flushImport();
+      // Drain the dynamic import + Websandbox.create chain (fake-timer-safe).
+      await flushMicrotasks();
 
+      // Resolve the preview sandbox's ready promise, then drain the resulting
+      // head/body assignment (the initial content is an immediate flush, so no
+      // throttle timer is pending after this).
       mockPromiseResolve();
-      await mockPromise;
-      await flushImport();
+      await flushMicrotasks();
       mockRun.mockClear();
 
       mounted.rerender({
@@ -418,8 +529,9 @@ describe("OpenGenerativeUIRenderer", () => {
         agent: {},
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 1100));
-      await flushImport();
+      // Advance exactly the throttle window so the deferred flush fires, then
+      // drain the reactive update it queues.
+      await flushThrottle();
 
       const bodyCalls = mockRun.mock.calls.filter(
         (call) =>
@@ -512,5 +624,841 @@ describe("OpenGenerativeUIRenderer", () => {
       expect(options.frameContent).toContain("Done");
       expect(options.frameContent).not.toBe("<head></head><body></body>");
     });
+  });
+
+  // The Open Generative UI middleware emits `generating: false` ONLY from its
+  // TOOL_CALL_END handler. On a terminal path where the upstream agent never
+  // emits TOOL_CALL_END for the genui tool call — an abort/stop, an abrupt
+  // stream end, or a transport error after the args fully streamed — the
+  // runner's finalizeRunEvents synthesizes a TOOL_CALL_END at the runner level,
+  // AFTER the middleware already processed the stream, so it never flows back
+  // through the middleware and `generating: false` is never emitted. The
+  // fully-streamed payload then arrives with `generating` absent. Without a
+  // fallback the renderer would keep the pointer-blocking overlay over a
+  // finished, interactive artifact forever. The completion fallback treats an
+  // all-segments-complete payload as terminal.
+  describe("terminal payload with absent generating flag (TOOL_CALL_END never reached the middleware)", () => {
+    it("does not cover a fully-streamed artifact with the progress overlay", async () => {
+      const { queryByTestId } = renderRenderer({
+        initialHeight: 200,
+        html: ["<head></head><body><div>Tall content</div></body>"],
+        htmlComplete: true,
+        css: "body { color: blue; }",
+        cssComplete: true,
+        jsFunctions: "function init(){}",
+        jsFunctionsComplete: true,
+        jsExpressions: ["init()"],
+        jsExpressionsComplete: true,
+        // generating intentionally ABSENT — no `generating: false` delta arrived.
+      });
+      await flushImport();
+
+      expect(queryByTestId("open-generative-ui-progress-overlay")).toBeNull();
+    });
+
+    it("still covers an in-flight artifact whose js segments are not yet complete (no premature completion)", async () => {
+      // html finished but jsExpressions are still streaming
+      // (jsExpressionsComplete absent) — the NORMAL mid-stream shape, NOT a
+      // terminal payload. The overlay must stay up.
+      const { queryByTestId } = renderRenderer({
+        initialHeight: 200,
+        html: ["<head></head><body><div>partial</div></body>"],
+        htmlComplete: true,
+        css: "body { color: blue; }",
+        cssComplete: true,
+        jsExpressions: ["init()"],
+        // jsExpressionsComplete ABSENT — still streaming. generating ABSENT too.
+      });
+      await flushImport();
+
+      expect(
+        queryByTestId("open-generative-ui-progress-overlay"),
+      ).not.toBeNull();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Preview cascade must match the FINAL document's cascade, region by region.
+  // The final document (ensureHead + injectCssIntoHtml) injects the agent css
+  // immediately before </head>, i.e. AFTER any existing head content. So the
+  // preview head must order extracted head styles BEFORE the agent css. A
+  // body-region style stays in the preview BODY, matching the final document
+  // where it sits in the body after the head css.
+  // -------------------------------------------------------------------------
+  describe("preview cascade parity", () => {
+    function lastHeadPayload(): string | undefined {
+      const headCalls = mockRun.mock.calls.filter(
+        (c) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.head.innerHTML"),
+      );
+      return headCalls.length
+        ? (headCalls[headCalls.length - 1]![0] as string)
+        : undefined;
+    }
+    function lastBodyPayload(): string | undefined {
+      const bodyCalls = mockRun.mock.calls.filter(
+        (c) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.body.innerHTML"),
+      );
+      return bodyCalls.length
+        ? (bodyCalls[bodyCalls.length - 1]![0] as string)
+        : undefined;
+    }
+
+    // Case A — HEAD-region style: the preview head order (extracted head style
+    // < agent css) matches the final document, where injectCssIntoHtml puts the
+    // agent css after the existing head content (immediately before </head>).
+    //
+    // RED pre-fix: the renderer pushed the agent css BEFORE the extracted style,
+    // flipping the cascade relative to the final document. GREEN post-fix: the
+    // extracted style precedes the agent css.
+    it("orders preview head as head-region style -> agent css (matches final document)", async () => {
+      const agentCss = "main { color: rebeccapurple; }";
+      const inlineStyleContent = ".inline-block { color: seagreen; }";
+      // Inline style in the HEAD element (before <body>). The preview receives
+      // the streaming prefix (no closing tags); both must order the inline style
+      // before the agent css param.
+      const previewHtml = `<head><style>${inlineStyleContent}</style></head><body><div class="inline-block">Preview body</div>`;
+
+      renderRenderer({
+        css: agentCss,
+        cssComplete: true,
+        html: [previewHtml],
+        htmlComplete: false,
+        generating: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      mockPromiseResolve();
+      await mockPromise;
+      await flushImport();
+
+      const headPayload = lastHeadPayload();
+      expect(headPayload).toBeDefined();
+      const inlineStyleIdx = headPayload!.indexOf(inlineStyleContent);
+      const agentCssIdx = headPayload!.indexOf(agentCss);
+      expect(inlineStyleIdx).toBeGreaterThan(-1);
+      expect(agentCssIdx).toBeGreaterThan(-1);
+      // Preview cascade: extracted head style first, agent css param LAST.
+      expect(inlineStyleIdx).toBeLessThan(agentCssIdx);
+    });
+
+    // Case B — BODY-region style: the style stays in the PREVIEW BODY (the body
+    // innerHTML run call contains it; the head payload does NOT), matching the
+    // final document where a body-region style also sits in the body after the
+    // head css.
+    //
+    // RED pre-fix: extractCompleteStyles hoisted EVERY style, so this body style
+    // was injected into the preview head and stripped from the preview body —
+    // the opposite of the final document. GREEN post-fix: it is left in the body.
+    it("keeps a body-region style in the preview body, not the head (matches final document)", async () => {
+      const agentCss = "main { color: rebeccapurple; }";
+      const bodyStyleContent = ".body-block { color: seagreen; }";
+      // The complete <style> sits INSIDE <body>, so it is body-region.
+      const previewHtml = `<body><div class="body-block">Preview body</div><style>${bodyStyleContent}</style>`;
+
+      renderRenderer({
+        css: agentCss,
+        cssComplete: true,
+        html: [previewHtml],
+        htmlComplete: false,
+        generating: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      mockPromiseResolve();
+      await mockPromise;
+      await flushImport();
+
+      const headPayload = lastHeadPayload();
+      const bodyPayload = lastBodyPayload();
+      // Body-region style lives in the body payload, never hoisted to the head.
+      expect(bodyPayload).toBeDefined();
+      expect(bodyPayload!).toContain(bodyStyleContent);
+      if (headPayload) expect(headPayload).not.toContain(bodyStyleContent);
+      // The agent css is still applied to the head.
+      expect(headPayload).toBeDefined();
+      expect(headPayload!).toContain(agentCss);
+    });
+
+    // Case C — the overflow guard must survive every `document.head.innerHTML`
+    // assignment. The preview sandbox shows scrollbars unless `html, body {
+    // overflow: hidden }` is part of the assigned head content: a one-time
+    // appendChild on ready is clobbered by the first head reassignment built
+    // from headParts (extracted styles + agent css). Mirroring react-core's
+    // buildPreviewHeadHtml, the guard must be the FIRST part of the head payload
+    // on EVERY assignment.
+    //
+    // RED pre-fix: the head payload contained only the extracted styles + agent
+    // css, no guard. GREEN post-fix: the guard leads the payload, then extracted
+    // styles, then agent css.
+    it("keeps the overflow guard first in the head assignment, then extracted styles, then agent css", async () => {
+      const agentCss = "main { color: rebeccapurple; }";
+      const inlineStyleContent = ".inline-block { color: seagreen; }";
+      const previewHtml = `<head><style>${inlineStyleContent}</style></head><body><div class="inline-block">Preview body</div>`;
+
+      renderRenderer({
+        css: agentCss,
+        cssComplete: true,
+        html: [previewHtml],
+        htmlComplete: false,
+        generating: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      mockPromiseResolve();
+      await mockPromise;
+      await flushImport();
+
+      const headPayload = lastHeadPayload();
+      expect(headPayload).toBeDefined();
+      const guardIdx = headPayload!.indexOf(
+        "html, body { overflow: hidden !important; }",
+      );
+      const inlineStyleIdx = headPayload!.indexOf(inlineStyleContent);
+      const agentCssIdx = headPayload!.indexOf(agentCss);
+      expect(guardIdx).toBeGreaterThan(-1);
+      expect(inlineStyleIdx).toBeGreaterThan(-1);
+      expect(agentCssIdx).toBeGreaterThan(-1);
+      // Guard FIRST, then extracted styles, then agent css.
+      expect(guardIdx).toBeLessThan(inlineStyleIdx);
+      expect(inlineStyleIdx).toBeLessThan(agentCssIdx);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // FINAL document head normalization for websandbox mounting.
+  //
+  // @jetbrains/websandbox@1.1.3 hard-requires the EXACT literal lowercase token
+  // `<head>` in frameContent: validateOptions throws when
+  // `!frameContent.includes('<head>')`, and it injects its bootstrap via
+  // `frameContent.replace('<head>', …)` (both case-sensitive on the 6-char
+  // token). An agent-emitted `<HEAD>` or `<head lang="en">` therefore both fails
+  // mounting (stuck spinner) and, even if it slipped past, never receives the
+  // bootstrap. The final-document helpers must normalize the head-open token to
+  // the literal `<head>` and inject the agent css INSIDE the existing head
+  // (after author content, before the close) so the documented cascade holds:
+  // author head styles first, agent css last — matching react-core.
+  // -------------------------------------------------------------------------
+  describe("final document head normalization (websandbox)", () => {
+    function finalFrameContent(): string {
+      const finalCall = mockCreate.mock.calls.find(
+        ([, options]) =>
+          typeof options.frameContent === "string" &&
+          options.frameContent !== "<head></head><body></body>",
+      );
+      return (finalCall?.[1].frameContent as string) ?? "";
+    }
+
+    // Case 1 — uppercase <HEAD>…</HEAD>, NO css. ensureHead matched the head
+    // case-insensitively and left the uppercase token verbatim, so frameContent
+    // had no literal `<head>` → websandbox.validateOptions throws → never mounts.
+    // GREEN post-fix: the open token is normalized to the literal `<head>`.
+    it("normalizes an uppercase head with no css so frameContent has the literal <head>", async () => {
+      renderRenderer({
+        html: ["<HEAD><title>t</title></HEAD><body>x</body>"],
+        htmlComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+      // websandbox's literal-head gate is satisfied.
+      expect(frameContent).toContain("<head>");
+      // The author's head content survives the normalization.
+      expect(frameContent).toContain("<title>t</title>");
+    });
+
+    // Case 2 — attributed <head lang="en">…</head> WITH css. injectCssIntoHtml
+    // found </head> and injected before it, but the only head-open token was the
+    // attributed `<head lang="en">` → no literal `<head>` → websandbox throws.
+    // GREEN post-fix: the literal `<head>` is present AND the agent css <style>
+    // sits INSIDE the real head — after the author's title, before the close.
+    it("normalizes an attributed head with css so the literal <head> is present and css lands inside the real head", async () => {
+      const agentCss = ".a{color:red}";
+      renderRenderer({
+        html: ['<head lang="en"><title>t</title></head><body>x</body>'],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+      // websandbox's literal-head gate is satisfied.
+      expect(frameContent).toContain("<head>");
+      // The agent css must sit INSIDE the real head element.
+      const headOpenIdx = frameContent.indexOf("<head>");
+      const headCloseIdx = frameContent.toLowerCase().indexOf("</head>");
+      const titleIdx = frameContent.indexOf("<title>t</title>");
+      const cssIdx = frameContent.indexOf(agentCss);
+      expect(headOpenIdx).toBeGreaterThan(-1);
+      expect(headCloseIdx).toBeGreaterThan(-1);
+      expect(cssIdx).toBeGreaterThan(-1);
+      // css is between the head-open and head-close (inside the real head).
+      expect(cssIdx).toBeGreaterThan(headOpenIdx);
+      expect(cssIdx).toBeLessThan(headCloseIdx);
+      // Cascade: author head content (title) precedes the agent css.
+      expect(titleIdx).toBeGreaterThan(-1);
+      expect(titleIdx).toBeLessThan(cssIdx);
+    });
+
+    // Case 3 (cascade) — uppercase head WITH css. injectCssIntoHtml's
+    // case-sensitive indexOf("</head>") missed the uppercase `</HEAD>`, so it
+    // PREPENDED a fresh `<head><style>…</style></head>` before the author's
+    // uppercase head — two head elements, agent css cascading BEFORE the author's
+    // head styles. GREEN post-fix: exactly one head element, author styles before
+    // agent css.
+    it("produces exactly one head element with author styles before agent css (uppercase head with css)", async () => {
+      const authorStyle = ".author{color:blue}";
+      const agentCss = ".agent{color:red}";
+      renderRenderer({
+        html: [`<HEAD><style>${authorStyle}</style></HEAD><body>x</body>`],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+      // Exactly one head-open token (no duplicate head was prepended). Match is
+      // quote-aware, mirroring the renderer's normalization regex.
+      const headOpenings =
+        frameContent.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi) ?? [];
+      expect(headOpenings).toHaveLength(1);
+      // Cascade: author head style precedes the agent css.
+      const authorIdx = frameContent.indexOf(authorStyle);
+      const agentIdx = frameContent.indexOf(agentCss);
+      expect(authorIdx).toBeGreaterThan(-1);
+      expect(agentIdx).toBeGreaterThan(-1);
+      expect(authorIdx).toBeLessThan(agentIdx);
+    });
+
+    // Case 4 — stray </head> BEFORE the real head, WITH css. A global
+    // `search(/<\/head>/i)` resolves to the FIRST close anywhere — here the
+    // stray one before the real `<head>` — so the agent css splices outside and
+    // before the real head (cascade inversion). React's assembleDocument scopes
+    // the close search to at/after the matched head-open. GREEN post-fix: the
+    // css lands INSIDE the real head, after the author's head content, before
+    // the real `</head>`.
+    it("anchors the css to the real head when a stray </head> precedes it", async () => {
+      const agentCss = ".agent{color:red}";
+      renderRenderer({
+        html: ["foo</head><head><title>t</title></head><body>x</body>"],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // The css must sit inside the REAL head: after the head-open, after the
+      // author's <title>, and before the real (last) </head>.
+      const headOpenIdx = frameContent.indexOf("<head>");
+      const titleIdx = frameContent.indexOf("<title>t</title>");
+      const cssIdx = frameContent.indexOf(agentCss);
+      const realHeadCloseIdx = frameContent
+        .toLowerCase()
+        .lastIndexOf("</head>");
+      expect(headOpenIdx).toBeGreaterThan(-1);
+      expect(titleIdx).toBeGreaterThan(-1);
+      expect(cssIdx).toBeGreaterThan(-1);
+      // Inside the real head, after the author content, before the real close.
+      expect(cssIdx).toBeGreaterThan(headOpenIdx);
+      expect(cssIdx).toBeGreaterThan(titleIdx);
+      expect(cssIdx).toBeLessThan(realHeadCloseIdx);
+    });
+
+    // Case 5 — head-open with NO close AND NO `<body>`, WITH css (the final
+    // fallback). ensureHead normalizes the open token; injectCssIntoHtml then
+    // finds no `</head>` and no `<body>` and (pre-fix) PREPENDED a fresh
+    // `<head><style>…</style></head>`, producing TWO head elements with the agent
+    // css before the author's head content. GREEN post-fix: exactly ONE `<head`
+    // token, css inserted immediately after the open (no `<body>` exists to
+    // anchor the implicit-close branch — see the unclosed-head-with-body test
+    // below for that path). React's assembleDocument non-legacy fallback inserts
+    // after the head-open here too.
+    it("inserts css after the head-open (one head) when no close and no body exist", async () => {
+      const agentCss = ".agent{color:red}";
+      renderRenderer({
+        html: ["<HEAD><title>t</title>"],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // Exactly one head-open token — no duplicate head was prepended. Match is
+      // quote-aware, mirroring the renderer's normalization regex.
+      const headOpenings =
+        frameContent.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi) ?? [];
+      expect(headOpenings).toHaveLength(1);
+      // The css sits after the (normalized) head-open and before the author's
+      // <title>, i.e. immediately after the open rather than in a prepended head.
+      const headOpenIdx = frameContent.indexOf("<head>");
+      const cssIdx = frameContent.indexOf(agentCss);
+      const titleIdx = frameContent.indexOf("<title>t</title>");
+      expect(headOpenIdx).toBeGreaterThan(-1);
+      expect(cssIdx).toBeGreaterThan(-1);
+      expect(titleIdx).toBeGreaterThan(-1);
+      expect(cssIdx).toBeGreaterThan(headOpenIdx);
+      expect(cssIdx).toBeLessThan(titleIdx);
+    });
+
+    // ---------------------------------------------------------------------
+    // Mask-before-match (Finding 1): the head helpers run their head-open
+    // match and `</head>` close search on a length-preserving MASKED copy
+    // (complete comments + style/script content blanked) and splice on the
+    // ORIGINAL at the masked indices — mirroring react-core's assembleDocument
+    // non-legacy anchoring. A `<head>`/`</head>` token inside a comment or
+    // style/script content therefore can never capture the splice or
+    // short-circuit normalization, and comments are preserved byte-for-byte.
+    // ---------------------------------------------------------------------
+
+    // Finding 1a — a `</head>` lookalike inside a comment BEFORE the real
+    // close. RED pre-fix: injectCssIntoHtml searched the RAW html, so the
+    // comment's `</head>` captured the close search and the agent css spliced
+    // INSIDE the comment (inert — never applied). GREEN post-fix: the masked
+    // search skips the comment's lookalike and the css lands inside the REAL
+    // head, after the comment, before the real `</head>`.
+    it("anchors css to the real </head>, not a </head> inside a comment (masked)", async () => {
+      const agentCss = ".agent{color:red}";
+      renderRenderer({
+        html: ["<head><title>t</title><!-- </head> --></head><body>x</body>"],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      const titleIdx = frameContent.indexOf("<title>t</title>");
+      const commentIdx = frameContent.indexOf("<!-- </head> -->");
+      const cssIdx = frameContent.indexOf(agentCss);
+      const realCloseIdx = frameContent.toLowerCase().lastIndexOf("</head>");
+      expect(titleIdx).toBeGreaterThan(-1);
+      expect(commentIdx).toBeGreaterThan(-1);
+      expect(cssIdx).toBeGreaterThan(-1);
+      // The css lands AFTER the author content and AFTER the inert comment, and
+      // BEFORE the real (last) </head> — i.e. inside the real head, not in the
+      // comment.
+      expect(cssIdx).toBeGreaterThan(titleIdx);
+      expect(cssIdx).toBeGreaterThan(commentIdx);
+      expect(cssIdx).toBeLessThan(realCloseIdx);
+      // The comment (with its </head> lookalike) is preserved byte-for-byte.
+      expect(frameContent).toContain("<!-- </head> -->");
+    });
+
+    // Finding 1b — a literal `<head>` inside a comment BEFORE the real
+    // attributed head. RED pre-fix: ensureHead's RAW match found the comment's
+    // `<head>` first and (token === "<head>") short-circuited, leaving the real
+    // `<head lang="en">` un-normalized — so the only normalization websandbox's
+    // `.replace('<head>', bootstrap)` could anchor on was the inert comment
+    // token, and the real head never received the bootstrap (permanent spinner).
+    // GREEN post-fix: the masked match skips the comment and normalizes the REAL
+    // head to the literal `<head>`; the comment is preserved byte-for-byte.
+    it("normalizes the real head, not a <head> inside a comment, keeping the comment intact (masked)", async () => {
+      renderRenderer({
+        html: [
+          '<!-- <head> --><head lang="en"><title>t</title></head><body>x</body>',
+        ],
+        htmlComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // websandbox's literal-head gate is satisfied.
+      expect(frameContent).toContain("<head>");
+      // The comment is preserved byte-for-byte (its inner <head> lookalike was
+      // never rewritten).
+      expect(frameContent).toContain("<!-- <head> -->");
+      // The REAL head (past the comment close) was normalized: no attributed
+      // head-open token survives there. Scoped past the comment so the
+      // comment's own literal `<head>` is not counted, and this input has no
+      // `<header>` to false-positive the broad attributed-head match.
+      const commentClose = frameContent.indexOf("-->");
+      expect(commentClose).toBeGreaterThan(-1);
+      expect(frameContent.slice(commentClose)).not.toMatch(/<head[^>]+>/);
+      expect(frameContent).not.toContain('lang="en"');
+      // The author's head content survives.
+      expect(frameContent).toContain("<title>t</title>");
+    });
+
+    // Finding 1c — a comment containing an attributed head lookalike BEFORE the
+    // real attributed head. RED pre-fix: ensureHead's RAW match landed on the
+    // comment's `<head lang="en">` and REWROTE that token to `<head>` (corrupting
+    // the comment), while the real `<head lang="fr">` was left untouched. GREEN
+    // post-fix: the masked match skips the comment (preserved byte-for-byte) and
+    // normalizes the REAL head.
+    it("rewrites the real head, not an attributed <head> inside a comment (masked)", async () => {
+      renderRenderer({
+        html: [
+          '<!-- example: <head lang="en"> --><head lang="fr"><title>t</title></head><body>x</body>',
+        ],
+        htmlComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // The comment is preserved byte-for-byte (its attributed head lookalike was
+      // never rewritten).
+      expect(frameContent).toContain('<!-- example: <head lang="en"> -->');
+      // websandbox's literal token is present and the real head was normalized:
+      // neither attribute string survives.
+      expect(frameContent).toContain("<head>");
+      expect(frameContent).not.toContain('lang="fr"');
+      // The author's head content survives.
+      expect(frameContent).toContain("<title>t</title>");
+    });
+
+    // Finding 2 — an UNCLOSED head WITH css and an in-head author style. RED
+    // pre-fix: with no `</head>`, injectCssIntoHtml inserted the agent css
+    // immediately after the head-open — BEFORE the author's in-head `<style>`,
+    // inverting the author-first/css-last cascade (and flipping order against the
+    // streaming preview, whose analyzeRegions implicitly closes the head at
+    // `<body>`). GREEN post-fix: the first `<body>` after the head-open is the
+    // implicit head close, so the css is inserted JUST BEFORE `<body>` — after
+    // the author style, before the body.
+    it("anchors css to the implicit <body> close for an unclosed head (author style before agent css)", async () => {
+      const authorStyle = ".a{color:blue}";
+      const agentCss = ".agent{color:red}";
+      renderRenderer({
+        html: [`<head><style>${authorStyle}</style><body>x</body>`],
+        htmlComplete: true,
+        css: agentCss,
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // Exactly one head-open token — no duplicate head was synthesized.
+      const headOpenings =
+        frameContent.match(/<head(\s(?:[^<>"']|"[^"]*"|'[^']*')*)?>/gi) ?? [];
+      expect(headOpenings).toHaveLength(1);
+
+      const authorIdx = frameContent.indexOf(authorStyle);
+      const agentIdx = frameContent.indexOf(agentCss);
+      const bodyIdx = frameContent.search(/<body[\s>]/i);
+      expect(authorIdx).toBeGreaterThan(-1);
+      expect(agentIdx).toBeGreaterThan(-1);
+      expect(bodyIdx).toBeGreaterThan(-1);
+      // Cascade parity: author in-head style FIRST, then the agent css, and the
+      // agent css sits before the implicit `<body>` close.
+      expect(authorIdx).toBeLessThan(agentIdx);
+      expect(agentIdx).toBeLessThan(bodyIdx);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Finding 1 — agent css is injected RAW into `<style>` elements (the final
+  // document via injectCssIntoHtml, and the streaming preview head via
+  // buildPreviewHeadHtml). A css value containing `</style>` closes the style
+  // element early, and any markup after it becomes LIVE content in the sandbox
+  // iframe. The renderer must neutralize the element-close sequence with the
+  // SAME escape semantics react-core ships: `css.replace(/<(\/style)/gi,
+  // "<\\$1")` — a CSS backslash is inserted into the `/`, which is lossless
+  // inside a CSS string (`"\/"` unescapes to `/`) and a dead token otherwise.
+  // The previewStyles HOISTED from the agent's real `<style>` elements are NOT
+  // escaped: they were extracted from already-terminated style elements, so by
+  // construction they cannot contain a live `</style>`.
+  // -------------------------------------------------------------------------
+  describe("agent css style-close escaping (Finding 1)", () => {
+    function finalFrameContent(): string {
+      const finalCall = mockCreate.mock.calls.find(
+        ([, options]) =>
+          typeof options.frameContent === "string" &&
+          options.frameContent !== "<head></head><body></body>",
+      );
+      return (finalCall?.[1].frameContent as string) ?? "";
+    }
+    function lastHeadPayload(): string | undefined {
+      const headCalls = mockRun.mock.calls.filter(
+        (c) =>
+          typeof c[0] === "string" &&
+          (c[0] as string).includes("document.head.innerHTML"),
+      );
+      return headCalls.length
+        ? (headCalls[headCalls.length - 1]![0] as string)
+        : undefined;
+    }
+
+    // The reviewer's repro: a css value that closes the style element early and
+    // injects a live <script>. RED pre-fix: the raw `</style>` terminates the
+    // injected `<style>` and the `<script>alert(1)</script>` lands as live markup
+    // in the frameContent (unbalanced style tags). GREEN post-fix: the close
+    // sequence is escaped, the style tags stay balanced, and no live
+    // `<script>alert` exists outside a style element.
+    it("escapes a </style> breakout in the final document so no live script is injected", async () => {
+      renderRenderer({
+        html: ["<head></head><body><div>x</div></body>"],
+        htmlComplete: true,
+        css: "a{}</style><script>alert(1)</script>",
+        cssComplete: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+      const frameContent = finalFrameContent();
+
+      // No LIVE <script>alert lands outside a <style> element. Strip every
+      // <style>…</style> region, then assert the malicious tag is not in what
+      // remains (it survives only as inert text inside the escaped style block).
+      const outsideStyles = frameContent.replace(
+        /<style[^>]*>[\s\S]*?<\/style>/gi,
+        "",
+      );
+      expect(outsideStyles).not.toContain("<script>alert");
+
+      // Style tags are balanced: every `<style…>` has a matching `</style>`.
+      const openCount = (frameContent.match(/<style[^>]*>/gi) ?? []).length;
+      const closeCount = (frameContent.match(/<\/style>/gi) ?? []).length;
+      expect(openCount).toBe(closeCount);
+
+      // The escape is exactly react-core's: the `/` of the close gains a CSS
+      // backslash, so the literal `<\/style` token is present.
+      expect(frameContent).toContain("<\\/style");
+    });
+
+    // Lossless inside a CSS string: `content: "</style>"` is a legitimate value.
+    // The escape inserts a backslash before the `/` — `"</style>"` becomes
+    // `"<\/style>"`, which a CSS parser reads back as the original `</style>`
+    // (the backslash is an identity escape on `/`). The injected style element
+    // stays balanced (the close is neutralized) and the escaped token is present.
+    it("losslessly escapes a CSS string value of </style>", async () => {
+      const css = '.x::before{content:"</style>"}';
+      renderRenderer({
+        html: ["<head></head><body><div>x</div></body>"],
+        htmlComplete: true,
+        css,
+        cssComplete: true,
+      });
+      await flushImport();
+      const frameContent = finalFrameContent();
+
+      // The raw, element-closing `</style>` from the css does NOT appear as-is
+      // inside the value (it was escaped); the escaped form does.
+      expect(frameContent).toContain('content:"<\\/style>"');
+      // Style tags stay balanced — the value's `</style>` did not close the tag.
+      const openCount = (frameContent.match(/<style[^>]*>/gi) ?? []).length;
+      const closeCount = (frameContent.match(/<\/style>/gi) ?? []).length;
+      expect(openCount).toBe(closeCount);
+    });
+
+    // The preview head payload (buildPreviewHeadHtml) injects the agent css into
+    // a `<style>` too, so it must escape the close sequence with identical
+    // semantics. RED pre-fix: the raw `</style>` from the css closes the agent
+    // style element inside the head innerHTML payload. GREEN post-fix: the
+    // payload carries the escaped `<\/style` token and no bare element-closing
+    // `</style>` from the css value.
+    it("escapes a </style> breakout in the preview head payload", async () => {
+      renderRenderer({
+        css: "a{}</style><script>alert(1)</script>",
+        cssComplete: true,
+        html: ["<body><div>Preview body</div>"],
+        htmlComplete: false,
+        generating: true,
+      });
+      await flushImport();
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+
+      mockPromiseResolve();
+      await mockPromise;
+      await flushImport();
+
+      const headPayload = lastHeadPayload();
+      expect(headPayload).toBeDefined();
+      // The payload is `document.head.innerHTML = ${JSON.stringify(headHtml)}`,
+      // so the single CSS backslash from the escape is doubled by JSON.stringify
+      // → the runtime payload carries `<\\/style` (two literal backslashes).
+      expect(headPayload!).toContain("<\\\\/style");
+      // The breakout signature — a bare element-closing `</style>` immediately
+      // followed by the `<script>` — must be gone. Pre-fix the raw css produced
+      // exactly `</style><script>`; post-fix the close is escaped so that exact
+      // sequence never appears (the only real `</style>` is the agent block's own
+      // terminator, preceded by `</script>`).
+      expect(headPayload!).not.toContain("</style><script>");
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tool renderer placeholder-message timer lifecycle.
+//
+// While the call is in progress and placeholderMessages exist, a 5s interval
+// cycles the visible message. When the call completes the renderer returns
+// null, but the interval keeps firing until unmount unless it is cleared on
+// completion. React's equivalent keys its effect on `[messages?.length,
+// props.status]`: it clears the interval when status === Complete, jumps the
+// index to the newest message only when the COUNT changes, and re-arms only on
+// a count/status change. The Vue watcher must do the same — its sources are the
+// stable scalars `[() => placeholderMessages?.length, () => props.status]`, NOT
+// a fresh `[messages, status]` array literal (which Vue compares by reference,
+// firing every tick: forcing the index to length-1 and re-arming the interval
+// on every placeholderMessages identity change during streaming).
+// ---------------------------------------------------------------------------
+describe("OpenGenerativeUIToolRenderer placeholder timer", () => {
+  function renderTool(props: {
+    status: ToolCallStatus;
+    placeholderMessages?: string[];
+    result?: string;
+  }) {
+    return render(OpenGenerativeUIToolRenderer, {
+      props: {
+        name: "generateSandboxedUi",
+        args: { placeholderMessages: props.placeholderMessages },
+        status: props.status,
+        result: props.result,
+      },
+    });
+  }
+
+  // The placeholderMessages array is referentially STABLE across rerenders, so
+  // the only thing that changes between in-progress and complete is `status`.
+  // Pre-fix the watch source is `() => props.args.placeholderMessages` only, so
+  // flipping status (same array ref) does NOT re-run the watcher and the
+  // interval is never cleared — it keeps ticking until unmount. Post-fix the
+  // watch source includes status, so completion re-runs the watcher, clears the
+  // interval, and (being complete) does not re-arm.
+  //
+  // RED pre-fix: the captured interval callback still fires after completion
+  // (the timer was never cleared). GREEN post-fix: it is cleared, so it never
+  // fires again.
+  it("clears the placeholder interval when the call completes", async () => {
+    vi.useFakeTimers();
+    let ticks = 0;
+    const realSetInterval = window.setInterval.bind(window);
+    const setSpy = vi.spyOn(window, "setInterval").mockImplementation(((
+      cb: TimerHandler,
+      ms?: number,
+    ) => {
+      // Wrap the renderer's callback so we can count actual ticks while still
+      // arming a real fake-timers interval that advanceTimersByTime drives.
+      const wrapped = () => {
+        ticks += 1;
+        if (typeof cb === "function") (cb as () => void)();
+      };
+      return realSetInterval(wrapped, ms);
+    }) as typeof window.setInterval);
+
+    const messages = ["First", "Second", "Third"];
+    const mounted = renderTool({
+      status: ToolCallStatus.Executing,
+      placeholderMessages: messages,
+    });
+
+    // A 5s interval is armed while in progress.
+    expect(setSpy).toHaveBeenCalledTimes(1);
+
+    // While in progress, the interval fires on each 5s tick.
+    vi.advanceTimersByTime(5000);
+    expect(ticks).toBe(1);
+    vi.advanceTimersByTime(5000);
+    expect(ticks).toBe(2);
+
+    // The call completes — SAME placeholderMessages reference, only status
+    // changes. The renderer returns null AND the interval must be cleared.
+    const clearSpy = vi.spyOn(window, "clearInterval");
+    await mounted.rerender({
+      name: "generateSandboxedUi",
+      args: { placeholderMessages: messages },
+      status: ToolCallStatus.Complete,
+      result: "done",
+    });
+    // The interval was cleared on completion (without unmounting).
+    expect(clearSpy).toHaveBeenCalled();
+    // No new interval was armed for the completed call.
+    expect(setSpy).toHaveBeenCalledTimes(1);
+
+    // Advancing well past several tick windows must produce NO further ticks —
+    // proving the timer is gone rather than merely producing no visible output.
+    const ticksAtCompletion = ticks;
+    vi.advanceTimersByTime(20000);
+    expect(ticks).toBe(ticksAtCompletion);
+
+    mounted.unmount();
+  });
+
+  // Pin (Finding 2b): a NEW placeholderMessages array with the SAME length must
+  // NOT reset visibleMessageIndex and must NOT tear down / re-arm the interval.
+  // A fresh-array-literal watch source (or jumping the index on every re-run)
+  // would, on each streaming tick that re-creates the array at the same length,
+  // snap the visible message back to the newest and restart the 5s timer. With
+  // the scalar `[length, status]` sources and the count-keyed jump, an identity
+  // change at constant length is a no-op: the watcher does not even re-run.
+  //
+  // RED (fresh-array-literal source): the same-length rerender re-runs the
+  // watcher, clears+re-arms the interval, and resets the index to length-1.
+  // GREEN (scalar sources): no re-run, so no clear, no re-arm, and the cycled
+  // index is preserved.
+  it("does not reset the index or restart the interval on a same-length placeholderMessages change", async () => {
+    vi.useFakeTimers();
+    const setSpy = vi.spyOn(window, "setInterval");
+    const clearSpy = vi.spyOn(window, "clearInterval");
+
+    // Distinct strings per array so the rendered text reveals the exact index:
+    // index 0 → "A0"/"B0", index 2 (length-1) → "A2"/"B2".
+    const first = ["A0", "A1", "A2"];
+    const mounted = renderTool({
+      status: ToolCallStatus.Executing,
+      placeholderMessages: first,
+    });
+
+    // Armed once; index jumped to the newest (length-1 = 2) → shows "A2".
+    expect(setSpy).toHaveBeenCalledTimes(1);
+    await nextTick();
+    expect(
+      mounted.getByTestId("open-generative-ui-tool-placeholder").textContent,
+    ).toBe("A2");
+
+    // One 5s tick cycles the index to (2 + 1) % 3 = 0 → shows "A0". The interval
+    // callback mutates a ref; flush the Vue scheduler (microtask-based, so it
+    // runs under fake timers) so the DOM reflects the new index.
+    vi.advanceTimersByTime(5000);
+    await nextTick();
+    expect(
+      mounted.getByTestId("open-generative-ui-tool-placeholder").textContent,
+    ).toBe("A0");
+
+    setSpy.mockClear();
+    clearSpy.mockClear();
+
+    // A NEW array of the SAME length (3) streams in — identity changed, count
+    // and status unchanged.
+    const second = ["B0", "B1", "B2"];
+    await mounted.rerender({
+      name: "generateSandboxedUi",
+      args: { placeholderMessages: second },
+      status: ToolCallStatus.Executing,
+      result: undefined,
+    });
+
+    // The interval was neither cleared nor re-armed (the watcher did not re-run).
+    expect(clearSpy).not.toHaveBeenCalled();
+    expect(setSpy).not.toHaveBeenCalled();
+    // The index was NOT reset to length-1: it stayed at 0, now showing the new
+    // array's first element "B0" (a reset would show "B2").
+    await nextTick();
+    expect(
+      mounted.getByTestId("open-generative-ui-tool-placeholder").textContent,
+    ).toBe("B0");
+
+    // The original interval is still live: a further 5s tick advances 0 → 1.
+    vi.advanceTimersByTime(5000);
+    await nextTick();
+    expect(
+      mounted.getByTestId("open-generative-ui-tool-placeholder").textContent,
+    ).toBe("B1");
+
+    mounted.unmount();
   });
 });

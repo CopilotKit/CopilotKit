@@ -627,9 +627,10 @@ describe("CopilotChat activity message rendering", () => {
     await waitFor(() => {
       expect(mockWebsandboxCreate).toHaveBeenCalledTimes(1);
     });
-    expect(mockWebsandboxCreate.mock.calls[0]?.[1]).toMatchObject({
-      frameContent: restoredHtml,
-    });
+    // assembleDocument injects importmap + design system kit into the head before agent html
+    expect(mockWebsandboxCreate.mock.calls[0]?.[1]?.frameContent).toContain(
+      "<body><div>Restored open generative UI</div></body>",
+    );
 
     unmount();
 
@@ -640,9 +641,10 @@ describe("CopilotChat activity message rendering", () => {
     await waitFor(() => {
       expect(mockWebsandboxCreate).toHaveBeenCalledTimes(2);
     });
-    expect(mockWebsandboxCreate.mock.calls[1]?.[1]).toMatchObject({
-      frameContent: restoredHtml,
-    });
+    // assembleDocument injects importmap + design system kit into the head before agent html
+    expect(mockWebsandboxCreate.mock.calls[1]?.[1]?.frameContent).toContain(
+      "<body><div>Restored open generative UI</div></body>",
+    );
 
     expect(mockWebsandboxDestroy).toHaveBeenCalledTimes(1);
   });
