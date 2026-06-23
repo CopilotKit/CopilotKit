@@ -52,7 +52,7 @@ jobs:
     environment: npm
     steps:
       - name: Check for existing release PR
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -73,7 +73,7 @@ jobs:
             }
 
       - name: Checkout Repo
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -177,7 +177,7 @@ jobs:
 
       - name: Comment Notion link on PR
         if: inputs.dry_run != true && steps.ai_notes.outputs.notion_url
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           NOTION_URL: ${{ steps.ai_notes.outputs.notion_url }}
           PR_NUMBER: ${{ steps.create_pr.outputs.pull-request-number }}
