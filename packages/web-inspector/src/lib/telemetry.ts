@@ -1,6 +1,5 @@
-// Inspector-side anonymous telemetry. Three V1 events fire from index.ts —
-// `oss.inspector.banner_viewed`, `oss.inspector.banner_clicked`, and
-// `oss.inspector.threads_tab_clicked`. POSTs directly from the browser
+// Inspector-side anonymous telemetry. V1 events fire from index.ts for
+// banner and thread-inspection interactions. POSTs directly from the browser
 // to the CopilotKit telemetry sink at `telemetry.copilotkit.ai/ingest`,
 // where a Lambda fan-out forwards events to PostHog / Reo / Scarf.
 //
@@ -31,6 +30,14 @@ export const TELEMETRY_EVENTS = {
   bannerViewed: "oss.inspector.banner_viewed",
   bannerClicked: "oss.inspector.banner_clicked",
   threadsTabClicked: "oss.inspector.threads_tab_clicked",
+  threadsLockedViewed: "oss.inspector.threads_locked_viewed",
+  threadsIntelligenceSignupClicked:
+    "oss.inspector.threads_intelligence_signup_clicked",
+  threadsTalkToEngineerClicked:
+    "oss.inspector.threads_talk_to_engineer_clicked",
+  talkToEngineerClicked: "oss.inspector.talk_to_engineer_clicked",
+  threadsEmptyEnabledViewed: "oss.inspector.threads_empty_enabled_viewed",
+  threadsEnabledViewed: "oss.inspector.threads_enabled_viewed",
 } as const;
 
 export type TelemetryEvent =
@@ -47,10 +54,62 @@ export const TELEMETRY_INGEST_URL = "https://telemetry.copilotkit.ai/ingest";
 export const TELEMETRY_DOCS_URL = "https://docs.copilotkit.ai/telemetry";
 
 const PACKAGE_NAME = "@copilotkit/web-inspector";
+const PACKAGE_VERSION = "1.61.1";
 
 // 3-second cap so a slow gateway can't hang the host app. Matches the
 // runtime's existing scarf-client convention.
 const FETCH_TIMEOUT_MS = 3000;
+
+function isThreadsTelemetryEvent(event: TelemetryEvent): boolean {
+  return (
+    event === TELEMETRY_EVENTS.threadsTabClicked ||
+    event === TELEMETRY_EVENTS.threadsLockedViewed ||
+    event === TELEMETRY_EVENTS.threadsIntelligenceSignupClicked ||
+    event === TELEMETRY_EVENTS.threadsTalkToEngineerClicked ||
+    event === TELEMETRY_EVENTS.talkToEngineerClicked ||
+    event === TELEMETRY_EVENTS.threadsEmptyEnabledViewed ||
+    event === TELEMETRY_EVENTS.threadsEnabledViewed
+  );
+}
+
+export type RuntimeUrlType =
+  | "missing"
+  | "relative"
+  | "localhost"
+  | "same_origin"
+  | "remote"
+  | "invalid";
+
+export function getRuntimeUrlType(
+  runtimeUrl: string | undefined,
+): RuntimeUrlType {
+  if (!runtimeUrl) return "missing";
+  if (runtimeUrl.startsWith("/") && !runtimeUrl.startsWith("//")) {
+    return "relative";
+  }
+
+  try {
+    const baseHref =
+      typeof window !== "undefined"
+        ? window.location.href
+        : "https://copilotkit.ai";
+    const url = new URL(runtimeUrl, baseHref);
+    const baseUrl = new URL(baseHref);
+    const hostname = url.hostname.toLowerCase();
+
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "[::1]"
+    ) {
+      return "localhost";
+    }
+
+    return url.origin === baseUrl.origin ? "same_origin" : "remote";
+  } catch {
+    return "invalid";
+  }
+}
 
 /**
  * Fire-and-forget telemetry send. Returns synchronously; the network
@@ -64,16 +123,34 @@ export function track(
   event: TelemetryEvent,
   properties: Record<string, unknown> = {},
 ): void {
+  if (isTelemetryOptedOut()) return;
+
   const distinctId = getOrCreateTelemetryDistinctId();
-  const body = JSON.stringify({
-    event,
-    properties: {
-      ...properties,
-      distinct_id: distinctId,
-    },
-    package: { name: PACKAGE_NAME },
-    ts: Math.floor(Date.now() / 1000),
-  });
+  const threadsProperties = isThreadsTelemetryEvent(event)
+    ? {
+        package_name: PACKAGE_NAME,
+        package_version: PACKAGE_VERSION,
+        inspector_distinct_id: distinctId,
+      }
+    : {};
+  let body: string;
+  try {
+    body = JSON.stringify({
+      event,
+      properties: {
+        ...properties,
+        ...threadsProperties,
+        distinct_id: distinctId,
+      },
+      package: {
+        name: PACKAGE_NAME,
+        ...(isThreadsTelemetryEvent(event) ? { version: PACKAGE_VERSION } : {}),
+      },
+      ts: Math.floor(Date.now() / 1000),
+    });
+  } catch {
+    return;
+  }
 
   void postBestEffort(TELEMETRY_INGEST_URL, body, distinctId);
 }
@@ -97,8 +174,75 @@ export function trackBannerClicked(props: {
   track(TELEMETRY_EVENTS.bannerClicked, props);
 }
 
-export function trackThreadsTabClicked(): void {
-  track(TELEMETRY_EVENTS.threadsTabClicked);
+type InspectorThreadTelemetryProps = {
+  package_name?: typeof PACKAGE_NAME;
+  package_version?: typeof PACKAGE_VERSION;
+  inspector_distinct_id?: string;
+  posthog_distinct_id?: string;
+  intelligence_status?:
+    | "intelligence_not_enabled"
+    | "intelligence_enabled"
+    | "unknown";
+  thread_service_status?: "unavailable" | "available" | "unknown" | "error";
+  license_status?:
+    | "valid"
+    | "none"
+    | "expired"
+    | "expiring"
+    | "invalid"
+    | "unknown";
+  runtime_mode?: "sse" | "intelligence";
+  runtime_url_type?: RuntimeUrlType;
+  cta_surface?:
+    | "threads_locked"
+    | "threads_header"
+    | "threads_empty"
+    | "threads_populated";
+  cta?: "signup" | "talk_to_engineer";
+  telemetry_disabled?: boolean;
+  thread_count?: number;
+};
+
+export function trackThreadsTabClicked(
+  props: InspectorThreadTelemetryProps = {},
+): void {
+  track(TELEMETRY_EVENTS.threadsTabClicked, props);
+}
+
+export function trackThreadsLockedViewed(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsLockedViewed, props);
+}
+
+export function trackThreadsIntelligenceSignupClicked(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsIntelligenceSignupClicked, props);
+}
+
+export function trackThreadsTalkToEngineerClicked(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsTalkToEngineerClicked, props);
+}
+
+export function trackTalkToEngineerClicked(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.talkToEngineerClicked, props);
+}
+
+export function trackThreadsEmptyEnabledViewed(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsEmptyEnabledViewed, props);
+}
+
+export function trackThreadsEnabledViewed(
+  props: InspectorThreadTelemetryProps,
+): void {
+  track(TELEMETRY_EVENTS.threadsEnabledViewed, props);
 }
 
 /**

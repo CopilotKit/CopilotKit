@@ -50,11 +50,18 @@ import type { PersistedState } from "./lib/persistence.js";
 import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
+  getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
   trackBannerClicked,
   trackBannerViewed,
+  trackTalkToEngineerClicked,
+  trackThreadsEmptyEnabledViewed,
+  trackThreadsEnabledViewed,
+  trackThreadsIntelligenceSignupClicked,
+  trackThreadsLockedViewed,
   trackThreadsTabClicked,
+  trackThreadsTalkToEngineerClicked,
 } from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
@@ -90,6 +97,10 @@ const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
+const INTELLIGENCE_SIGNUP_URL = "https://go.copilotkit.ai/intelligence-signup";
+const TALK_TO_ENGINEER_URL = "https://www.copilotkit.ai/talk-to-an-engineer";
+
+type ThreadServiceStatus = "available" | "unavailable" | "unknown" | "error";
 
 type InspectorAgentEventType =
   | "RUN_STARTED"
@@ -336,9 +347,10 @@ function eventColors(type: string): { bg: string; fg: string } {
     return { bg: "rgba(133,236,206,0.15)", fg: "#189370" };
   if (type.startsWith("STATE"))
     return { bg: "rgba(190,194,255,0.102)", fg: "#5558B2" };
+  if (type === "RUN_ERROR" || type === "ERROR")
+    return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
   if (type.startsWith("RUN_") || type.startsWith("STEP_"))
     return { bg: "rgba(255,172,77,0.2)", fg: "#996300" };
-  if (type === "ERROR") return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
   return { bg: "#F7F7F9", fg: "#838389" };
 }
 
@@ -1472,7 +1484,7 @@ export class ɵCpkThreadDetails extends LitElement {
     }
     try {
       const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
+        this.getThreadInspectionUrl(threadId, "messages"),
         { headers: { ...this.headers }, signal: controller.signal },
       );
       if (controller.signal.aborted || this.threadId !== threadId) return;
@@ -1507,10 +1519,10 @@ export class ɵCpkThreadDetails extends LitElement {
     this._loadingEvents = true;
     this._eventsError = null;
     try {
-      const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/events`,
-        { headers: { ...this.headers }, signal: controller.signal },
-      );
+      const res = await fetch(this.getThreadInspectionUrl(threadId, "events"), {
+        headers: { ...this.headers },
+        signal: controller.signal,
+      });
       // Drop results if a newer fetch superseded this one (thread switched
       // mid-flight). Without this, switching A→B can leave thread B's view
       // showing thread A's events when A's request resolves last.
@@ -1554,10 +1566,10 @@ export class ɵCpkThreadDetails extends LitElement {
     this._loadingState = true;
     this._stateError = null;
     try {
-      const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/state`,
-        { headers: { ...this.headers }, signal: controller.signal },
-      );
+      const res = await fetch(this.getThreadInspectionUrl(threadId, "state"), {
+        headers: { ...this.headers },
+        signal: controller.signal,
+      });
       if (controller.signal.aborted || this.threadId !== threadId) return;
       if (res.status === 501) {
         this._stateNotAvailable = true;
@@ -1581,6 +1593,13 @@ export class ɵCpkThreadDetails extends LitElement {
         this._loadingState = false;
       }
     }
+  }
+
+  private getThreadInspectionUrl(
+    threadId: string,
+    resource: "messages" | "events" | "state",
+  ): string {
+    return `${this.runtimeUrl.replace(/\/+$/, "")}/threads/${encodeURIComponent(threadId)}/${resource}`;
   }
 
   private mapMessages(messages: ApiThreadMessage[]): ConversationItem[] {
@@ -2448,6 +2467,7 @@ export class WebInspectorElement extends LitElement {
   // `${bannerId}:${cta}`) so copy-button retries and accidental multi-clicks
   // don't inflate funnel counts beyond one signal per intent type per banner.
   private clickedBannerIds: Set<string> = new Set();
+  private viewedThreadsTelemetryStates: Set<string> = new Set();
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -2529,7 +2549,54 @@ export class WebInspectorElement extends LitElement {
     ];
   }
 
+  private getThreadServiceStatus(): ThreadServiceStatus {
+    if (!this._core) return "unknown";
+    if (!this._core.threadEndpoints) return "unknown";
+    return this._core.threadEndpoints?.list === false
+      ? "unavailable"
+      : "available";
+  }
+
+  private areThreadEndpointsAvailable(): boolean {
+    return this.getThreadServiceStatus() !== "unavailable";
+  }
+
+  private getThreadsTelemetryProps(
+    extra: Record<string, unknown> = {},
+    options: { includeUrlAttribution?: boolean } = {},
+  ) {
+    const distinctId =
+      options.includeUrlAttribution && !this.core?.telemetryDisabled
+        ? getTelemetryDistinctIdForUrl()
+        : null;
+    const threadServiceStatus = this.getThreadServiceStatus();
+    return {
+      posthog_distinct_id: distinctId ?? undefined,
+      intelligence_status:
+        threadServiceStatus === "available"
+          ? "intelligence_enabled"
+          : threadServiceStatus === "unavailable"
+            ? "intelligence_not_enabled"
+            : "unknown",
+      thread_service_status: threadServiceStatus,
+      license_status: this.core?.licenseStatus ?? undefined,
+      runtime_mode: this.core?.runtimeMode ?? undefined,
+      runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
+      telemetry_disabled: this.core?.telemetryDisabled ?? false,
+      ...extra,
+    };
+  }
+
+  private getIntelligenceSignupUrl(): string {
+    return this.appendRefParam(INTELLIGENCE_SIGNUP_URL, "cpk-inspector");
+  }
+
+  private getTalkToEngineerUrl(): string {
+    return this.appendRefParam(TALK_TO_ENGINEER_URL, "cpk-inspector-threads");
+  }
+
   private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
+    if (!this.areThreadEndpointsAvailable()) return;
     if (this._threadStoreSubscriptions.has(agentId)) return;
     const threadsSub = store.select(ɵselectThreads).subscribe((threads) => {
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
@@ -2589,7 +2656,7 @@ export class WebInspectorElement extends LitElement {
     if (this.core?.getThreadStore(agentId)) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
-    if (core.threadEndpoints?.list === false) return;
+    if (!this.areThreadEndpointsAvailable()) return;
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
@@ -2628,6 +2695,7 @@ export class WebInspectorElement extends LitElement {
       store.setContext({
         runtimeUrl: core.runtimeUrl,
         headers: { ...headers },
+        wsUrl: core.intelligence?.wsUrl,
         agentId,
       });
     }
@@ -2663,7 +2731,7 @@ export class WebInspectorElement extends LitElement {
             maybeShowDisclosure();
           }
           this.flushPendingBannerViewed();
-          if (core.threadEndpoints?.list !== false) {
+          if (this.areThreadEndpointsAvailable()) {
             for (const agentId of this._ownedThreadStores.keys()) {
               this.refreshOwnedThreadStore(agentId);
             }
@@ -2714,6 +2782,14 @@ export class WebInspectorElement extends LitElement {
 
     this.coreUnsubscribe = core.subscribe(this.coreSubscriber).unsubscribe;
     this.processAgentsChanged(core.agents);
+
+    if (core.runtimeConnectionStatus === "connected") {
+      if (!core.telemetryDisabled) {
+        ensureTelemetryDistinctId();
+        maybeShowDisclosure();
+      }
+      this.flushPendingBannerViewed();
+    }
 
     // Subscribe to any already-registered thread stores. `getThreadStores` was
     // added in the same release as this inspector; guard so consumers still on
@@ -3409,6 +3485,10 @@ ${argsString}</pre
     const base =
       "font-mono text-[10px] font-medium inline-flex items-center rounded-sm px-1.5 py-0.5 border";
 
+    if (type === "RUN_ERROR") {
+      return `${base} bg-rose-50 text-rose-700 border-rose-200`;
+    }
+
     if (type.startsWith("RUN_")) {
       return `${base} bg-blue-50 text-blue-700 border-blue-200`;
     }
@@ -3431,10 +3511,6 @@ ${argsString}</pre
 
     if (type.startsWith("MESSAGES")) {
       return `${base} bg-sky-50 text-sky-700 border-sky-200`;
-    }
-
-    if (type === "RUN_ERROR") {
-      return `${base} bg-rose-50 text-rose-700 border-rose-200`;
     }
 
     return `${base} bg-gray-100 text-gray-600 border-gray-200`;
@@ -5796,6 +5872,45 @@ ${argsString}</pre
     });
   }
 
+  private handleTalkToEngineerClick = (): void => {
+    if (this.core?.telemetryDisabled) return;
+    trackTalkToEngineerClicked(
+      this.getThreadsTelemetryProps(
+        {
+          cta: "talk_to_engineer",
+          cta_surface: "threads_header",
+        },
+        { includeUrlAttribution: true },
+      ),
+    );
+  };
+
+  private handleThreadsIntelligenceSignupClick = (): void => {
+    if (this.core?.telemetryDisabled) return;
+    trackThreadsIntelligenceSignupClicked(
+      this.getThreadsTelemetryProps(
+        {
+          cta: "signup",
+          cta_surface: "threads_locked",
+        },
+        { includeUrlAttribution: true },
+      ),
+    );
+  };
+
+  private handleThreadsTalkToEngineerClick = (): void => {
+    if (this.core?.telemetryDisabled) return;
+    trackThreadsTalkToEngineerClicked(
+      this.getThreadsTelemetryProps(
+        {
+          cta: "talk_to_engineer",
+          cta_surface: "threads_locked",
+        },
+        { includeUrlAttribution: true },
+      ),
+    );
+  };
+
   private handleThreadDividerPointerDown = (event: PointerEvent) => {
     this.threadDividerResizing = true;
     this.threadDividerPointerId = event.pointerId;
@@ -5828,7 +5943,326 @@ ${argsString}</pre
     this.threadDividerResizing = false;
   };
 
+  private trackThreadsViewStateOnce(
+    state: "locked" | "empty_enabled" | "enabled",
+    threadCount: number,
+  ): void {
+    if (this.core?.telemetryDisabled) return;
+    const key = `${state}:${this.getThreadServiceStatus()}`;
+    if (this.viewedThreadsTelemetryStates.has(key)) return;
+    this.viewedThreadsTelemetryStates.add(key);
+    const props = this.getThreadsTelemetryProps({ thread_count: threadCount });
+    if (state === "locked") {
+      trackThreadsLockedViewed(props);
+    } else if (state === "empty_enabled") {
+      trackThreadsEmptyEnabledViewed(props);
+    } else {
+      trackThreadsEnabledViewed(props);
+    }
+  }
+
+  private renderThreadsLockedBackgroundMockup() {
+    const threadRows = [
+      { width: 74, accent: true },
+      { width: 92 },
+      { width: 68 },
+      { width: 84 },
+      { width: 58 },
+      { width: 76 },
+    ];
+
+    return html`
+      <div
+        aria-hidden="true"
+        style="
+          position: absolute;
+          inset: 0;
+          display: grid;
+          grid-template-columns: minmax(180px, 28%) 1fr;
+          overflow: hidden;
+          opacity: 0.58;
+          pointer-events: none;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 28px 24px;
+            border-right: 1px solid #dbdbe5;
+            background: #fafafa;
+          "
+        >
+          ${threadRows.map(
+            (row) => html`
+              <div
+                style="
+                  padding: 12px;
+                  border-radius: 8px;
+                  background: ${row.accent ? "#eee6fe" : "#ffffff"};
+                  box-shadow: inset 0 0 0 1px #eeeef4;
+                "
+              >
+                <div
+                  style="
+                    height: 8px;
+                    width: ${row.width}%;
+                    border-radius: 99px;
+                    background: ${row.accent ? "#a984f5" : "#d7d7df"};
+                  "
+                ></div>
+                <div
+                  style="
+                    height: 6px;
+                    width: 88%;
+                    margin-top: 10px;
+                    border-radius: 99px;
+                    background: #e3e3eb;
+                  "
+                ></div>
+                <div
+                  style="
+                    height: 6px;
+                    width: 62%;
+                    margin-top: 7px;
+                    border-radius: 99px;
+                    background: #e8e8ef;
+                  "
+                ></div>
+              </div>
+            `,
+          )}
+        </div>
+        <div
+          style="
+            min-width: 0;
+            padding: 42px 48px;
+            background: #ffffff;
+          "
+        >
+          <div
+            style="
+              height: 10px;
+              width: 180px;
+              border-radius: 99px;
+              background: #d7d7df;
+            "
+          ></div>
+          <div
+            style="
+              height: 8px;
+              width: min(520px, 58%);
+              margin-top: 28px;
+              border-radius: 99px;
+              background: #e3e3eb;
+            "
+          ></div>
+          <div
+            style="
+              height: 8px;
+              width: min(430px, 48%);
+              margin-top: 12px;
+              border-radius: 99px;
+              background: #e8e8ef;
+            "
+          ></div>
+          <div
+            style="
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 16px;
+              max-width: 620px;
+              margin-top: 30px;
+            "
+          >
+            <div
+              style="
+                height: 116px;
+                border-radius: 8px;
+                background: #f5f5f8;
+                box-shadow: inset 0 0 0 1px #eeeef4;
+              "
+            ></div>
+            <div
+              style="
+                height: 116px;
+                border-radius: 8px;
+                background: #f5f5f8;
+                box-shadow: inset 0 0 0 1px #eeeef4;
+              "
+            ></div>
+          </div>
+          <div
+            style="
+              height: 10px;
+              width: min(680px, 74%);
+              margin-top: 34px;
+              border-radius: 99px;
+              background: #e3e3eb;
+            "
+          ></div>
+          <div
+            style="
+              height: 10px;
+              width: min(560px, 60%);
+              margin-top: 14px;
+              border-radius: 99px;
+              background: #e8e8ef;
+            "
+          ></div>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderThreadsLockedView() {
+    this.trackThreadsViewStateOnce("locked", 0);
+    return html`
+      <div
+        style="
+          position: relative;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 32px;
+          overflow: hidden;
+          background: #ffffff;
+        "
+      >
+        ${this.renderThreadsLockedBackgroundMockup()}
+        <div
+          aria-hidden="true"
+          style="
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+              radial-gradient(circle at center, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.78) 24%, rgba(255,255,255,0.34) 48%, rgba(255,255,255,0.56) 100%);
+          "
+        ></div>
+        <div
+          style="
+            position: relative;
+            z-index: 1;
+            max-width: 440px;
+            text-align: center;
+            color: #57575b;
+          "
+        >
+          <div
+            aria-hidden="true"
+            style="
+              margin: 0 auto 18px;
+              display: flex;
+              justify-content: center;
+            "
+          >
+            <div
+              style="
+                display: flex;
+                height: 44px;
+                width: 44px;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid #dfd6fb;
+                border-radius: 8px;
+                background: #eee6fe;
+                color: #57575b;
+                box-shadow: 0 8px 18px rgba(87, 87, 91, 0.14);
+              "
+            >
+              ${this.renderIcon("Lock")}
+            </div>
+          </div>
+          <h2
+            style="
+              margin: 0 0 8px;
+              font-size: 16px;
+              line-height: 1.35;
+              font-weight: 600;
+              color: #010507;
+            "
+          >
+            Enable Intelligence to inspect Threads.
+          </h2>
+          <p
+            style="
+              margin: 0 auto 18px;
+              max-width: 380px;
+              font-size: 13px;
+              line-height: 1.55;
+              color: #57575b;
+            "
+          >
+            Persist conversations and inspect saved thread history from the
+            Inspector.
+          </p>
+          <div
+            style="
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: center;
+              gap: 8px;
+            "
+          >
+            <a
+              href=${this.getTalkToEngineerUrl()}
+              target="_blank"
+              rel="noopener"
+              style="
+                display: inline-flex;
+                min-height: 34px;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                border-radius: 6px;
+                background: #010507;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #ffffff;
+                text-decoration: none;
+              "
+              @click=${this.handleThreadsTalkToEngineerClick}
+            >
+              Talk to an Engineer
+            </a>
+            <a
+              href=${this.getIntelligenceSignupUrl()}
+              target="_blank"
+              rel="noopener"
+              style="
+                display: inline-flex;
+                min-height: 34px;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                border-radius: 6px;
+                border: 1px solid #dbdbe5;
+                background: #ffffff;
+                padding: 8px 12px;
+                font-size: 12px;
+                font-weight: 600;
+                color: #57575b;
+                text-decoration: none;
+              "
+              @click=${this.handleThreadsIntelligenceSignupClick}
+            >
+              Sign up for Intelligence
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   private renderThreadsView() {
+    if (!this.areThreadEndpointsAvailable()) {
+      return this.renderThreadsLockedView();
+    }
+
     const displayThreads =
       this.selectedContext === "all-agents"
         ? this._threads
@@ -5852,91 +6286,110 @@ ${argsString}</pre
         ? (displayThreads.find((t) => t.id === this.selectedThreadId) ?? null)
         : null;
 
+    if (!threadsErrorMessage) {
+      this.trackThreadsViewStateOnce(
+        displayThreads.length === 0 ? "empty_enabled" : "enabled",
+        displayThreads.length,
+      );
+    }
+
     return html`
-      <div style="display:flex;height:100%;overflow:hidden;">
-        <!-- Left sidebar: thread list -->
+      <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
         <div
-          style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+          style="display:flex;align-items:center;justify-content:flex-end;border-bottom:1px solid #DBDBE5;background:#ffffff;padding:8px 12px;flex-shrink:0;"
         >
-          <cpk-thread-list
-            style="height:100%;"
-            .threads=${displayThreads}
-            .selectedThreadId=${this.selectedThreadId}
-            .errorMessage=${threadsErrorMessage}
-            @threadSelected=${(e: CustomEvent<string>) => {
-              this.selectedThreadId = e.detail;
-              this.requestUpdate();
-            }}
-          ></cpk-thread-list>
+          <a
+            href=${this.getTalkToEngineerUrl()}
+            target="_blank"
+            rel="noopener"
+            style="display:inline-flex;align-items:center;gap:6px;border-radius:6px;border:1px solid #dbdbe5;background:#ffffff;padding:7px 10px;font-size:12px;font-weight:600;color:#57575b;text-decoration:none;"
+            @click=${this.handleTalkToEngineerClick}
+          >
+            Talk to an Engineer
+          </a>
         </div>
+        <div style="display:flex;min-height:0;flex:1;overflow:hidden;">
+          <!-- Left sidebar: thread list -->
+          <div
+            style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+          >
+            <cpk-thread-list
+              style="height:100%;"
+              .threads=${displayThreads}
+              .selectedThreadId=${this.selectedThreadId}
+              .errorMessage=${threadsErrorMessage}
+              @threadSelected=${(e: CustomEvent<string>) => {
+                this.selectedThreadId = e.detail;
+                this.requestUpdate();
+              }}
+            ></cpk-thread-list>
+          </div>
 
-        <!-- Resize divider -->
-        <div
-          style="width:4px;flex-shrink:0;cursor:col-resize;background:transparent;position:relative;z-index:1;"
-          @pointerdown=${this.handleThreadDividerPointerDown}
-          @pointermove=${this.handleThreadDividerPointerMove}
-          @pointerup=${this.handleThreadDividerPointerUp}
-          @pointercancel=${this.handleThreadDividerPointerUp}
-        ></div>
+          <!-- Resize divider -->
+          <div
+            style="width:4px;flex-shrink:0;cursor:col-resize;background:transparent;position:relative;z-index:1;"
+            @pointerdown=${this.handleThreadDividerPointerDown}
+            @pointermove=${this.handleThreadDividerPointerMove}
+            @pointerup=${this.handleThreadDividerPointerUp}
+            @pointercancel=${this.handleThreadDividerPointerUp}
+          ></div>
 
-        <!-- Center + right: thread details or empty state -->
-        <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
-          ${
-            this.selectedThreadId
-              ? html`<cpk-thread-details
-                  style="flex:1;min-width:0;"
-                  .threadId=${this.selectedThreadId}
-                  .thread=${selectedThread}
-                  .runtimeUrl=${this._core?.runtimeUrl ?? ""}
-                  .headers=${this._core?.headers ?? {}}
-                  .threadInspectionAvailable=${
-                    this._core?.threadEndpoints?.inspect !== false
-                  }
-                  .liveMessageVersion=${
-                    this.selectedThreadId
-                      ? (this.liveMessageVersion.get(this.selectedThreadId) ??
-                        0)
-                      : 0
-                  }
-                  .agentStateInput=${
-                    selectedThread
-                      ? this.getLatestStateForAgent(selectedThread.agentId)
-                      : null
-                  }
-                  .agentEventsInput=${
-                    selectedThread
-                      ? (this.agentEvents.get(selectedThread.agentId) ?? [])
-                      : []
-                  }
-                ></cpk-thread-details>`
-              : html`
-                  <div
-                    style="
-                      flex: 1;
-                      display: flex;
-                      flex-direction: column;
-                      align-items: center;
-                      justify-content: center;
-                      gap: 8px;
-                      color: #838389;
-                    "
-                  >
-                    <svg
-                      width="32"
-                      height="32"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#c0c0c8"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
+          <!-- Center + right: thread details or empty state -->
+          <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
+            ${
+              selectedThread
+                ? html`<cpk-thread-details
+                    style="flex:1;min-width:0;"
+                    .threadId=${selectedThread.id}
+                    .thread=${selectedThread}
+                    .runtimeUrl=${this._core?.runtimeUrl ?? ""}
+                    .headers=${this._core?.headers ?? {}}
+                    .threadInspectionAvailable=${
+                      this._core?.threadEndpoints?.inspect !== false
+                    }
+                    .liveMessageVersion=${
+                      this.liveMessageVersion.get(selectedThread.id) ?? 0
+                    }
+                    .agentStateInput=${this.getLatestStateForAgent(
+                      selectedThread.agentId,
+                    )}
+                    .agentEventsInput=${
+                      this.agentEvents.get(selectedThread.agentId) ?? []
+                    }
+                  ></cpk-thread-details>`
+                : html`
+                    <div
+                      style="
+                        flex: 1;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 8px;
+                        color: #838389;
+                      "
                     >
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                    <span style="font-size: 13px">${displayThreads.length === 0 ? "No threads yet" : "Select a thread to inspect"}</span>
-                  </div>
-                `
-          }
+                      <svg
+                        width="32"
+                        height="32"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#c0c0c8"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      <span style="font-size: 13px">${
+                        displayThreads.length === 0
+                          ? "No threads yet"
+                          : "Select a thread to inspect"
+                      }</span>
+                    </div>
+                  `
+            }
+          </div>
         </div>
       </div>
     `;
@@ -6608,8 +7061,8 @@ ${prettyEvent}</pre
     }
 
     if (key === "threads") {
-      if (this.selectedMenu !== "threads" && !this.core?.telemetryDisabled) {
-        trackThreadsTabClicked();
+      if (previousMenu !== "threads" && !this.core?.telemetryDisabled) {
+        trackThreadsTabClicked(this.getThreadsTelemetryProps());
       }
       this.autoSelectLatestThread();
     }
@@ -7289,6 +7742,22 @@ ${prettyEvent}</pre
                           }
                         </button>
                       </div>
+                      <pre
+                        style="
+                          margin: 0;
+                          max-height: 180px;
+                          overflow: auto;
+                          white-space: pre-wrap;
+                          word-break: break-word;
+                          border-radius: 6px;
+                          border: 1px solid #eeeef4;
+                          background: #f7f7f9;
+                          padding: 10px;
+                          font-size: 11px;
+                          line-height: 1.5;
+                          color: #2d2d30;
+                        "
+                      >${this.formatContextValue(context.value)}</pre>
                     `
                     : html`
                         <div class="flex items-center justify-center py-4 text-xs text-gray-500">
@@ -7637,10 +8106,15 @@ ${prettyEvent}</pre
   ): Promise<string | null> {
     const renderer = new marked.Renderer();
     renderer.link = (href, title, text) => {
-      const safeHref = this.escapeHtmlAttr(this.appendRefParam(href ?? ""));
+      const safeHref = this.escapeHtmlAttr(
+        this.isSafeAnnouncementHref(href ?? "")
+          ? this.appendRefParam(href ?? "")
+          : "#",
+      );
       const titleAttr = title ? ` title="${this.escapeHtmlAttr(title)}"` : "";
       return `<a href="${safeHref}" target="_blank" rel="noopener"${titleAttr}>${text}</a>`;
     };
+    renderer.html = (html) => escapeHtml(html);
     renderer.code = (code, lang) => {
       const safeLang = (lang ?? "").replace(/[^a-z0-9-]/gi, "");
       const langClass = safeLang ? ` class="language-${safeLang}"` : "";
@@ -7649,6 +8123,24 @@ ${prettyEvent}</pre
       return `<div class="announcement-code"><pre><code${langClass}>${escaped}</code></pre><div class="announcement-code__copy-shield"><button type="button" class="announcement-code__copy" data-copy="${encoded}" aria-label="Copy code">Copy</button></div></div>`;
     };
     return marked.parse(markdown, { renderer, async: false });
+  }
+
+  private isSafeAnnouncementHref(href: string): boolean {
+    try {
+      const url = new URL(
+        href,
+        typeof window !== "undefined"
+          ? window.location.href
+          : "https://copilotkit.ai",
+      );
+      return (
+        url.protocol === "http:" ||
+        url.protocol === "https:" ||
+        url.protocol === "mailto:"
+      );
+    } catch {
+      return false;
+    }
   }
 
   private copyResetTimeouts = new WeakMap<HTMLButtonElement, number>();
@@ -7715,8 +8207,9 @@ ${prettyEvent}</pre
     }
   };
 
-  private appendRefParam(href: string): string {
+  private appendRefParam(href: string, ref = "cpk-inspector"): string {
     try {
+      const isRootRelative = href.startsWith("/") && !href.startsWith("//");
       const url = new URL(
         href,
         typeof window !== "undefined"
@@ -7724,7 +8217,7 @@ ${prettyEvent}</pre
           : "https://copilotkit.ai",
       );
       if (!url.searchParams.has("ref")) {
-        url.searchParams.append("ref", "cpk-inspector");
+        url.searchParams.append("ref", ref);
       }
       // Propagate the inspector's anonymous distinct-ID so the website /
       // Ops API can call posthog.alias(...) on signup-flow landing and
@@ -7733,17 +8226,26 @@ ${prettyEvent}</pre
       // suppresses cross-domain ID leaks too.
       if (
         !url.searchParams.has("posthog_distinct_id") &&
-        !this.core?.telemetryDisabled
+        !this.core?.telemetryDisabled &&
+        this.isCopilotKitDestination(url)
       ) {
         const distinctId = getTelemetryDistinctIdForUrl();
         if (distinctId) {
           url.searchParams.append("posthog_distinct_id", distinctId);
         }
       }
+      if (isRootRelative) {
+        return `${url.pathname}${url.search}${url.hash}`;
+      }
       return url.toString();
     } catch {
       return href;
     }
+  }
+
+  private isCopilotKitDestination(url: URL): boolean {
+    const hostname = url.hostname.toLowerCase();
+    return hostname === "copilotkit.ai" || hostname.endsWith(".copilotkit.ai");
   }
 
   private escapeHtmlAttr(value: string): string {
