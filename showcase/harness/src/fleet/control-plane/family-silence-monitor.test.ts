@@ -5,6 +5,7 @@ import {
   FAMILY_SILENCE_EVAL_RULE_ID,
   SILENCE_ALERT_RATE_LIMIT_MS,
   SILENCE_PERIOD_MULTIPLIER,
+  SILENCE_CONSECUTIVE_TICK_THRESHOLD,
 } from "./family-silence-monitor.js";
 import { FLEET_FAMILIES } from "./run-view.js";
 import type {
@@ -213,57 +214,78 @@ describe("family-silence monitor — evaluation gate", () => {
 
 describe("family-silence monitor — silence alert", () => {
   it("a family silent past 3x period posts the silence alert with k cycles", async () => {
-    const now = BASE + 2 * PERIOD;
+    // Change 3 (2026-06-17 Cloudflare-WAF-burst remediation): the silence
+    // alert is gated on THREE consecutive silent evaluation cycles AND the
+    // 3×period elapsed-time threshold. lastSuccessAt is pinned 2 periods
+    // BEFORE BASE so every tick observes ≥4×period of silence — the
+    // elapsed-time gate fires on every pre-warm tick, and the variable
+    // under test is the consecutive-tick counter.
+    const lastSuccessMs = BASE - 2 * PERIOD;
+    const t1 = BASE + 2 * PERIOD; // 4×period since lastSuccess
+    const t2 = BASE + 3 * PERIOD; // 5×period since lastSuccess
+    const t3 = BASE + 4 * PERIOD; // 6×period since lastSuccess → "6 cycles"
     const { monitor, posts } = makeMonitor({
       get: async () =>
         response(
-          withD6(now, {
-            lastSuccessAt: iso(now - 4 * PERIOD),
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
             lastRun: batch({
-              enqueuedAt: iso(now - 4 * PERIOD - 120_000),
-              finishedAt: iso(now - 4 * PERIOD),
+              enqueuedAt: iso(lastSuccessMs - 120_000),
+              finishedAt: iso(lastSuccessMs),
             }),
           }),
         ),
     });
-    await monitor.tick(now);
+    await monitor.tick(t1);
+    expect(posts).toEqual([]);
+    await monitor.tick(t2);
+    expect(posts).toEqual([]);
+    await monitor.tick(t3);
     expect(posts).toHaveLength(1);
     expect(posts[0]).toContain("worker family D6 all-pills silent");
-    expect(posts[0]).toContain(
-      `no successful run since ${iso(now - 4 * PERIOD)}`,
-    );
-    expect(posts[0]).toContain("(4 cycles)");
+    expect(posts[0]).toContain(`no successful run since ${iso(lastSuccessMs)}`);
+    expect(posts[0]).toContain("(6 cycles)");
     expect(posts[0]).toContain("last attempt: completed");
   });
 
   it("last attempt is inflight-aware: a stalled inflight batch posts stalled, never the prior completed lastRun outcome", async () => {
-    const now = BASE + 2 * PERIOD;
+    // lastSuccessAt pinned BEFORE BASE so the elapsed-time gate fires on
+    // every pre-warm tick (see Change-3 test above for the same idiom).
+    const lastSuccessMs = BASE - 2 * PERIOD;
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
     const { monitor, posts } = makeMonitor({
       get: async () =>
         response(
-          withD6(now, {
-            lastSuccessAt: iso(now - 4 * PERIOD),
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
             lastRun: batch({ outcome: "completed" }),
             inflight: inflightState({
               stalled: true,
-              enqueuedAt: iso(now - PERIOD),
+              enqueuedAt: iso(t3 - PERIOD),
             }),
           }),
         ),
     });
-    await monitor.tick(now);
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
     expect(posts).toHaveLength(1);
     expect(posts[0]).toContain("last attempt: stalled");
     expect(posts[0]).not.toContain("last attempt: completed");
   });
 
   it("an abandoned failed-plus-zombie batch reports stalled, never failed (no re-classification)", async () => {
-    const now = BASE + 2 * PERIOD;
+    const lastSuccessMs = BASE - 2 * PERIOD;
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
     const { monitor, posts } = makeMonitor({
       get: async () =>
         response(
-          withD6(now, {
-            lastSuccessAt: iso(now - 4 * PERIOD),
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
             // run-view already derived "stalled" by precedence (a failed job
             // plus a zombie pending job in an abandoned batch). The monitor
             // renders that value verbatim — never re-derives "failed".
@@ -274,19 +296,26 @@ describe("family-silence monitor — silence alert", () => {
           }),
         ),
     });
-    await monitor.tick(now);
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
     expect(posts).toHaveLength(1);
     expect(posts[0]).toContain("last attempt: stalled");
     expect(posts[0]).not.toMatch(/last attempt: failed/);
   });
 
   it("null lastSuccessAt: never-succeeded family alerts off oldest batch enqueuedAt with the never-completed variant", async () => {
-    const now = BASE + 2 * PERIOD;
-    const oldest = now - 4 * PERIOD;
+    // Oldest batch's enqueuedAt is BEFORE BASE so every tick observes
+    // ≥4×period of silence (the elapsed-time gate fires on every pre-warm
+    // tick; the consecutive-tick gate is the only thing delaying the post).
+    const oldest = BASE - 2 * PERIOD;
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
     const { monitor, posts } = makeMonitor({
       get: async () =>
         response(
-          withD6(now, {
+          withD6(t3, {
             lastSuccessAt: null,
             lastRun: batch({
               outcome: "failed",
@@ -296,7 +325,9 @@ describe("family-silence monitor — silence alert", () => {
           }),
         ),
     });
-    await monitor.tick(now);
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
     expect(posts).toHaveLength(1);
     expect(posts[0]).toContain(
       `has never completed a run since ${iso(oldest)}`,
@@ -334,23 +365,29 @@ describe("family-silence monitor — silence alert", () => {
 
   it("still alerts when the family STOPS emitting results entirely (real outage)", async () => {
     // Negative case to preserve: a real worker outage (lastSuccessAt very
-    // stale, fresh inflight that's also stalled) must still trip the banner.
-    const now = BASE + 5 * PERIOD;
+    // stale, fresh inflight that's also stalled) must still trip the banner —
+    // once the Change-3 consecutive-tick gate is satisfied.
+    const lastSuccessMs = BASE - 2 * PERIOD;
+    const t1 = BASE + 3 * PERIOD;
+    const t2 = BASE + 4 * PERIOD;
+    const t3 = BASE + 5 * PERIOD;
     const { monitor, posts } = makeMonitor({
       get: async () =>
         response(
-          withD6(now, {
-            lastSuccessAt: iso(now - 4 * PERIOD),
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
             lastRun: batch({
               outcome: "failed",
-              enqueuedAt: iso(now - 4 * PERIOD - 120_000),
-              finishedAt: iso(now - 4 * PERIOD),
+              enqueuedAt: iso(lastSuccessMs - 120_000),
+              finishedAt: iso(lastSuccessMs),
               commErrorKinds: ["worker-crashed-mid-job"],
             }),
           }),
         ),
     });
-    await monitor.tick(now);
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
     expect(posts).toHaveLength(1);
     expect(posts[0]).toContain("worker family D6 all-pills silent");
   });
@@ -458,6 +495,9 @@ describe("family-silence monitor — rate limiting + recovered one-shot", () => 
   }
 
   it("alerts rate-limited to one per family per 6h via the alert-state store; recovered one-shot on next successful batch", async () => {
+    // Change 3: the silence alert posts on the THIRD consecutive silent
+    // tick, so the pre-warm advances through two non-posting ticks before
+    // the third posts and seeds the durable rate-limit row.
     let nowRef = BASE + 2 * PERIOD;
     let recovered = false;
     const { monitor, posts, store } = makeMonitor({
@@ -467,21 +507,28 @@ describe("family-silence monitor — rate limiting + recovered one-shot", () => 
           : response(silentD6At(nowRef)),
     });
 
-    await monitor.tick(nowRef);
+    await monitor.tick(nowRef); // silent tick 1 — counter=1, no post
+    expect(posts).toEqual([]);
+    nowRef = BASE + 3 * PERIOD;
+    await monitor.tick(nowRef); // silent tick 2 — counter=2, no post
+    expect(posts).toEqual([]);
+    nowRef = BASE + 4 * PERIOD;
+    await monitor.tick(nowRef); // silent tick 3 — counter=3, posts
     expect(posts).toHaveLength(1);
     // The post is recorded into the alert-state store under the §9 keying.
     const row = await store.get(FAMILY_SILENCE_RULE_ID, "d6");
-    expect(row?.last_alert_at).toBe(iso(BASE + 2 * PERIOD));
+    expect(row?.last_alert_at).toBe(iso(BASE + 4 * PERIOD));
 
     // Every period for the next 5 hours: still silent, still suppressed.
     for (let i = 1; i <= 5; i += 1) {
-      nowRef = BASE + (2 + i) * PERIOD;
+      nowRef = BASE + (4 + i) * PERIOD;
       await monitor.tick(nowRef);
     }
     expect(posts).toHaveLength(1);
 
-    // Past the 6 h window: posts again.
-    nowRef = BASE + 2 * PERIOD + SILENCE_ALERT_RATE_LIMIT_MS + 60_000;
+    // Past the 6 h window: posts again — the counter is well past threshold,
+    // so the rate limit (not the consecutive-tick gate) is the only suppressor.
+    nowRef = BASE + 4 * PERIOD + SILENCE_ALERT_RATE_LIMIT_MS + 60_000;
     await monitor.tick(nowRef);
     expect(posts).toHaveLength(2);
 
@@ -497,18 +544,24 @@ describe("family-silence monitor — rate limiting + recovered one-shot", () => 
   });
 
   it("a pre-seeded alert-state row suppresses across a monitor restart (durable rate limit)", async () => {
-    const now = BASE + 2 * PERIOD;
+    // Drive past the consecutive-tick gate so the only suppressor left is
+    // the durable rate-limit row this test is pinning.
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
     const store = makeFakeStore();
     await store.record(FAMILY_SILENCE_RULE_ID, "d6", {
-      at: iso(now - 3_600_000), // 1 h ago — inside the 6 h window
+      at: iso(t3 - 3_600_000), // 1 h ago — inside the 6 h window
       hash: "seeded",
       preview: "seeded",
     });
     const { monitor, posts } = makeMonitor({
-      get: async () => response(silentD6At(now)),
+      get: async () => response(silentD6At(t3)),
       store,
     });
-    await monitor.tick(now);
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
     expect(posts).toEqual([]);
   });
 
@@ -562,7 +615,111 @@ describe("family-silence monitor — constants", () => {
   it("pins the §9 threshold + keying constants consumers rely on", () => {
     expect(SILENCE_PERIOD_MULTIPLIER).toBe(3);
     expect(SILENCE_ALERT_RATE_LIMIT_MS).toBe(6 * 3_600_000);
+    expect(SILENCE_CONSECUTIVE_TICK_THRESHOLD).toBe(3);
     expect(FAMILY_SILENCE_RULE_ID).toBe("family-silence");
     expect(FAMILY_SILENCE_EVAL_RULE_ID).toBe("family-silence-eval");
+  });
+});
+
+/**
+ * RED-GREEN gate for Change 3 of the 2026-06-17 Cloudflare-WAF-burst incident
+ * fix: the silence alert must require THREE consecutive failed evaluation
+ * cycles before firing, layered ON TOP of the existing 3×period elapsed-time
+ * gate. On main today, a single cycle with `lastSuccessAt > 3×period` posts
+ * the alert immediately — the failure mode the incident exposed (one bad
+ * tick on a stale `lastSuccessAt` paged every family at once). Post-fix the
+ * counter delays the alert to the 3rd silent cycle.
+ *
+ * The §9 6 h rate limit + boot-grace + meta-alert paths must be unaffected.
+ */
+describe("family-silence monitor — consecutive-silent-tick gate (Change 3)", () => {
+  it("does NOT alert on the first or second silent tick — only the third (RED on main: alerts on tick #1)", async () => {
+    // Boot was 4×PERIOD ago so the boot-grace window (1×period) is closed
+    // before tick 1. lastSuccessAt = 4×PERIOD ago, so the 3×period
+    // elapsed-time gate is satisfied on every tick — the variable under
+    // test is the new consecutive-tick gate.
+    const bootMs = BASE;
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = t1 + PERIOD;
+    const t3 = t2 + PERIOD;
+
+    const { monitor, posts } = makeMonitor({
+      get: async () =>
+        response(
+          withD6(t3, {
+            lastSuccessAt: iso(BASE - 2 * PERIOD),
+            lastRun: batch({
+              outcome: "failed",
+              enqueuedAt: iso(BASE - 2 * PERIOD - 120_000),
+              finishedAt: iso(BASE - 2 * PERIOD),
+            }),
+          }),
+        ),
+      bootAtMs: bootMs,
+    });
+
+    // Tick 1: counter increments to 1 (post-grace, elapsed-time gate
+    // satisfied) — NO alert yet.
+    await monitor.tick(t1);
+    expect(posts).toEqual([]);
+
+    // Tick 2: counter increments to 2 — still NO alert.
+    await monitor.tick(t2);
+    expect(posts).toEqual([]);
+
+    // Tick 3: counter reaches the threshold (3) — alert posts.
+    await monitor.tick(t3);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toContain("worker family D6 all-pills silent");
+  });
+
+  it("a healthy tick between two silent ticks resets the counter — alert needs THREE more silent ticks in a row", async () => {
+    // Counter discipline: ANY healthy cycle resets the counter. This pins
+    // the consecutive-run semantic explicitly: a family that flaps silent
+    // → healthy → silent does NOT carry the prior silent count forward.
+    const bootMs = BASE;
+    const t1 = BASE + 2 * PERIOD; // silent
+    const t2 = t1 + PERIOD; // HEALTHY (reset)
+    const t3 = t2 + PERIOD; // silent again
+    const t4 = t3 + PERIOD; // silent
+    const t5 = t4 + PERIOD; // silent → alert
+
+    let phase: "silent" | "healthy" = "silent";
+    const { monitor, posts } = makeMonitor({
+      get: async () => {
+        if (phase === "healthy") {
+          return response(healthyFamilies(t2));
+        }
+        // Use t5 here so cycles arithmetic stays stable on the final tick.
+        const lastSucc = iso(BASE - 2 * PERIOD);
+        return response(
+          withD6(t5, {
+            lastSuccessAt: lastSucc,
+            lastRun: batch({
+              outcome: "failed",
+              enqueuedAt: iso(BASE - 2 * PERIOD - 120_000),
+              finishedAt: iso(BASE - 2 * PERIOD),
+            }),
+          }),
+        );
+      },
+      bootAtMs: bootMs,
+    });
+
+    phase = "silent";
+    await monitor.tick(t1);
+    expect(posts).toEqual([]);
+
+    phase = "healthy";
+    await monitor.tick(t2);
+    expect(posts).toEqual([]);
+
+    phase = "silent";
+    await monitor.tick(t3);
+    expect(posts).toEqual([]);
+    await monitor.tick(t4);
+    expect(posts).toEqual([]);
+    await monitor.tick(t5);
+    expect(posts).toHaveLength(1);
   });
 });

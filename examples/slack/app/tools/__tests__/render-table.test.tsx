@@ -98,11 +98,17 @@ describe("render_table tool", () => {
     expect(posts).toHaveLength(1);
     expect(out).toBe("Rendered the table (monospace fallback) for the user.");
 
+    // Fallback is a platform-neutral <Message><Header>…</Header><Section>…</Section></Message>.
     const { blocks } = renderSlackMessage(renderToIR(posts[0] as never));
+    // Title is in a plain-text header block.
+    expect(blocks[0]).toMatchObject({
+      type: "header",
+      text: { type: "plain_text", text: "Open issues" },
+    });
+    // Monospace table is in the section block.
     const text = JSON.stringify(blocks);
     expect(text).toContain("```");
     expect(text).toContain("CPK-1");
-    expect(text).toContain("*Open issues*");
   });
 
   it("clamps to 99 data rows and reports the drop", async () => {

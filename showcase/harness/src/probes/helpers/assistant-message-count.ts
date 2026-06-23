@@ -344,9 +344,16 @@ export async function readCascadeState(
  * Contract — same as `readCascadeState` but with `idx` resolved internally:
  *   - count: from whichever tier matched (first tier whose `length > 0`)
  *   - text:  per-tier scoped text at index `count - 1` within that SAME tier,
- *            using the same scoped-text cascade as `findAssistantBubbleAt`
- *            (null when the last bubble's scoped selectors are all empty —
- *            mid-stream placeholder state).
+ *            using the same scoped-text cascade as `findAssistantBubbleAt`.
+ *            When ALL scoped selectors are empty, this reader falls back to
+ *            `bubble.textContent` minus the assistant-toolbar's textContent
+ *            (the "Class B fallback") — load-bearing for tool-only-response
+ *            bubbles (gen-UI, recharts, A2UI cards) whose content lives in
+ *            non-cascade children. The fallback is safe ONLY on the LAST
+ *            bubble (by RUN_FINISHED its content has mounted), which is why
+ *            it lives here and NOT in `readCascadeState` / `findAssistantBubbleAt`
+ *            (those address arbitrary indices and would re-introduce the
+ *            cross-bubble flap PR #5462 fixed).
  *   - When no tier matches: `{ count: 0, text: null }`.
  *
  * Implementation note: the closure body references `querySelectorAll` AND
@@ -407,10 +414,44 @@ export async function readCascadeStateLast(
               }
             }
           }
-          // Cascade-pollution guard mirroring `readCascadeState`:
-          // no scoped child has non-empty text — return null rather than
-          // falling back to the whole bubble's textContent (which would
-          // re-introduce LGP suggestion-pill / toolbar pollution).
+          // Class B fallback: tool-only-response bubbles where ALL scoped
+          // text selectors are empty but the bubble has substantial content
+          // in non-cascade children (recharts SVG text, gen-UI / A2UI cards,
+          // tool-call render output, etc.). Use `bubble.textContent` EXCLUDING
+          // the toolbar (the LGP-pill / post-message area), so we capture the
+          // real rendered content without re-introducing the toolbar-icon /
+          // suggestion-pill pollution the scoped cascade was added to prevent.
+          //
+          // This is gated to the LAST bubble for two reasons:
+          //   (a) `readCascadeStateLast` only reads the last bubble — by
+          //       RUN_FINISHED the last bubble's non-cascade children have
+          //       fully mounted, so whole-bubble text is stable.
+          //   (b) intermediate bubbles in multi-step responses can transiently
+          //       carry empty scoped text while the NEXT bubble is mounting;
+          //       reading whole-bubble there would re-introduce the
+          //       cross-bubble text flap r4f2 (PR #5462) sought to prevent.
+          // The toolbar is a leaf sibling of the prose div, so its textContent
+          // is the trailing slice of the bubble's full textContent — strip it
+          // by suffix when present.
+          const toolbar = bubble.querySelector(
+            '[data-testid="copilot-assistant-toolbar"]',
+          );
+          const wholeText = bubble.textContent ?? "";
+          const toolbarText =
+            toolbar !== null ? (toolbar.textContent ?? "") : "";
+          let contentText = wholeText;
+          if (toolbarText.length > 0 && contentText.endsWith(toolbarText)) {
+            contentText = contentText.slice(
+              0,
+              contentText.length - toolbarText.length,
+            );
+          }
+          const trimmed = contentText.trim();
+          if (trimmed.length > 0) {
+            return { count, text: trimmed };
+          }
+          // Still nothing — keep the settle gate polling rather than locking
+          // onto an empty placeholder.
           return { count, text: null };
         }
       }

@@ -40,6 +40,7 @@ export function makeFakeRunRenderer(): RunRenderer {
       if (e.name) pending = { eventName: e.name, value: e.value };
     },
   };
+  let finishCalls = 0;
   return {
     subscriber,
     async markInterrupted() {},
@@ -48,7 +49,13 @@ export function makeFakeRunRenderer(): RunRenderer {
     clearPendingInterrupt: () => {
       pending = undefined;
     },
-  };
+    async finish() {
+      finishCalls++;
+    },
+    get finishCalls() {
+      return finishCalls;
+    },
+  } as RunRenderer & { readonly finishCalls: number };
 }
 
 export class FakeAdapter implements PlatformAdapter {
@@ -99,6 +106,13 @@ export class FakeAdapter implements PlatformAdapter {
   user?: PlatformUser;
   private sink?: IngressSink;
   private counter = 0;
+
+  /** Expose the registered sink so tests can invoke onTurn() directly for overlap/lock tests. */
+  getSink(): IngressSink {
+    if (!this.sink)
+      throw new Error("FakeAdapter: sink not set — call bot.start() first");
+    return this.sink;
+  }
 
   async start(sink: IngressSink): Promise<void> {
     this.sink = sink;

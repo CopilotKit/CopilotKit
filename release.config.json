@@ -23,18 +23,38 @@
       "sharedVersion": true
     },
     "angular": {
-      "packages": ["@copilotkitnext/angular"],
-      "versionSource": "@copilotkitnext/angular",
+      "packages": ["@copilotkit/angular"],
+      "versionSource": "@copilotkit/angular",
       "sharedVersion": false
     },
     "bot": {
-      "packages": ["@copilotkit/bot", "@copilotkit/bot-ui"],
+      "packages": [
+        "@copilotkit/bot",
+        "@copilotkit/bot-ui",
+        "@copilotkit/bot-store-redis",
+        "@copilotkit/bot-store-postgres"
+      ],
       "versionSource": "@copilotkit/bot",
       "sharedVersion": true
+    },
+    "bot-discord": {
+      "packages": ["@copilotkit/bot-discord"],
+      "versionSource": "@copilotkit/bot-discord",
+      "sharedVersion": false
     },
     "bot-slack": {
       "packages": ["@copilotkit/bot-slack"],
       "versionSource": "@copilotkit/bot-slack",
+      "sharedVersion": false
+    },
+    "bot-telegram": {
+      "packages": ["@copilotkit/bot-telegram"],
+      "versionSource": "@copilotkit/bot-telegram",
+      "sharedVersion": false
+    },
+    "bot-whatsapp": {
+      "packages": ["@copilotkit/bot-whatsapp"],
+      "versionSource": "@copilotkit/bot-whatsapp",
       "sharedVersion": false
     }
   }

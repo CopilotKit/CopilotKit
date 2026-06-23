@@ -17,5 +17,6 @@
   { "slug": "ms-agent-python", "name": "MS Agent Python" },
   { "slug": "pydantic-ai", "name": "Pydantic AI" },
   { "slug": "spring-ai", "name": "Spring AI" },
-  { "slug": "strands", "name": "Strands" }
+  { "slug": "strands", "name": "AWS Strands (Python)" },
+  { "slug": "strands-typescript", "name": "AWS Strands (TypeScript)" }
 ]

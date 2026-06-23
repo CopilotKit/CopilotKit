@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifyScope, type ScopeResult } from "./scope.js";
+import { classifyScope } from "./scope.js";
 
 const ALL_SLUGS = [
   "langgraph-python",
@@ -122,8 +122,8 @@ describe("classifyScope", () => {
 
   // ---- Unrelated ----
 
-  it('returns "unrelated" for docs/** changes', () => {
-    const result = classifyScope(["docs/pages/getting-started.mdx"], ALL_SLUGS);
+  it('returns "unrelated" for non-showcase documentation changes', () => {
+    const result = classifyScope(["README.md"], ALL_SLUGS);
     expect(result.mode).toBe("unrelated");
     expect(result.slugs).toEqual([]);
   });

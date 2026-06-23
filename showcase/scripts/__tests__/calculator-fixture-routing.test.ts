@@ -49,8 +49,8 @@ const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
 const CALC_PILL = "build a modern calculator with standard buttons";
 const GENERIC_PILL = "build a modern calculator";
 // The FULL production pill text, from
-// src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx in 16 of the
-// 18 integrations — built-in-agent and claude-sdk-python have no calculator
+// src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx in 17 of the
+// 19 integrations — built-in-agent and claude-sdk-python have no calculator
 // pill; their fixture blocks are mirror-parity entries per the GOTCHAS MIRROR
 // rule, ready for when those demos gain the pill. The fixture matchers above
 // (CALC_PILL / GENERIC_PILL) are SUBSTRINGS of this — the behavioral walk
@@ -164,12 +164,12 @@ function send(
 }
 
 describe("beautiful-chat calculator fixture routing", () => {
-  it("discovers all 18 integration _from-feature-parity.json files", () => {
+  it("discovers all 20 integration _from-feature-parity.json files", () => {
     expect(
       integrations.map((i) => i.slug),
       "integration count changed — new integration added? mirror its " +
         "calculator fixtures from langgraph-python and update this pin",
-    ).toHaveLength(18);
+    ).toHaveLength(20);
   });
 
   for (const { slug, file } of integrations) {

@@ -182,7 +182,7 @@ services:
       - POCKETBASE_URL=http://localhost:8090
       - SHOWCASE_LOCAL=1
     ports:
-      - "3200:10000"
+      - "3210:10000"
     depends_on:
       pocketbase:
         condition: service_healthy
@@ -516,6 +516,20 @@ services:
     profiles: ["strands", "all"]
     volumes:
       - ./integrations/strands/src:/app/src
+
+  strands-typescript:
+    <<: *integration-defaults
+    build: ./integrations/strands-typescript
+    image: showcase-strands-typescript:local
+    container_name: showcase-strands-typescript
+    ports:
+      - "3119:10000"
+    profiles: ["strands-typescript", "all"]
+    volumes:
+      - ./integrations/strands-typescript/src:/app/src
+      # Preserve the agent's node_modules from the Docker image (the src bind
+      # mount would otherwise clobber src/agent/node_modules installed at build).
+      - /app/src/agent/node_modules
 
   langroid:
     <<: *integration-defaults

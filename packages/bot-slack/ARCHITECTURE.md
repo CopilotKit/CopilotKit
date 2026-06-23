@@ -132,12 +132,24 @@ degrading safely:
   the same `append(fullText)/finish()` contract as `MessageStream`, so the
   event-renderer's text stream and `adapter.stream()` are transport-agnostic.
   It drives `chat.startStream` / `appendStream` (raw `markdown_text`, no mrkdwn
-  translation) / `stopStream`, with the same ≥800ms throttle and a fence-aware
-  ~12k continuation split (reusing `auto-close-streaming`'s context detection).
-  Used wherever a `threadTs` exists; flat DMs and a failed first `startStream`
-  fall back to the legacy `chat.update` transport (the workspace is marked
-  legacy in-memory so later streams skip the native path). `streaming: "legacy"`
-  forces the old transport.
+  translation) / `stopStream`, with a ~600ms throttle (under `appendStream`'s
+  Tier-4 limit). A whole turn streams into **one** message — text accumulates
+  there (chunked at the 12k per-append cap, no multi-message splitting), and
+  `appendChunk()` interleaves structured {@link AnyChunk}s (`task_update` for
+  tool progress) after flushing pending text so ordering holds. `finish(blocks)`
+  finalizes the message, optionally with a trailing Block Kit row (feedback).
+  The event-renderer keeps the stream **turn-scoped** across `runAgent`
+  iterations and closes it via the engine's `RunRenderer.finish()` hook. Used
+  wherever a `threadTs` exists; flat DMs and a failed first `startStream` fall
+  back to the legacy `chat.update` transport (the workspace is marked legacy
+  in-memory so later streams skip the native path), and a failed structured
+  chunk degrades tool progress to `:wrench:` rows. `streaming: "legacy"` forces
+  the old transport.
+- **Feedback row** (opt-in via `feedback`). Streamed replies finalize with a
+  native `feedback_buttons` row (`context_actions`, built in `render/block-kit.ts`)
+  attached at `stopStream`; the adapter intercepts those clicks in
+  `app.action` (by `FEEDBACK_ACTION_ID`) and routes them to `onFeedback`,
+  bypassing the engine's interaction dispatch.
 - **Assistant pane** (`assistant.ts`). `attachAssistant` registers Bolt's
   `Assistant` middleware and is the SOLE owner of pane events. On
   `assistant_thread_started` it applies static defaults (greeting + suggested

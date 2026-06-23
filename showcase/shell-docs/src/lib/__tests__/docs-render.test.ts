@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import fs from "fs";
 import path from "path";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 vi.mock("../registry", () => ({
   getDocsMode: () => "generated",
@@ -12,10 +14,14 @@ import {
   CONTENT_DIR,
   inlineSnippets,
   loadDoc,
+  readIcon,
   SNIPPET_MAP,
   SNIPPETS_DIR,
 } from "../docs-render";
 import type { NavNode } from "../docs-render";
+import { buildCookbookNavTree } from "../cookbook-nav";
+import { navTreeToPageTree } from "../page-tree-bridge";
+import { buildReferencePageTree } from "../reference-items";
 
 let tempDir = "";
 
@@ -46,6 +52,28 @@ function hasSectionPage(navTree: NavNode[], section: string, page: string) {
     if (inSection && node.type === "page" && node.title === page) return true;
   }
   return false;
+}
+
+function hasPageTitle(navTree: NavNode[], page: string): boolean {
+  return navTree.some((node) => {
+    if (node.type === "page") return node.title === page;
+    if (node.type === "group") return hasPageTitle(node.children, page);
+    return false;
+  });
+}
+
+function sectionPages(navTree: NavNode[], section: string): string[] {
+  const pages: string[] = [];
+  let inSection = false;
+  for (const node of navTree) {
+    if (node.type === "section") {
+      inSection = node.title === section;
+      continue;
+    }
+    if (!inSection) continue;
+    if (node.type === "page") pages.push(node.title);
+  }
+  return pages;
 }
 
 function collectMdxFiles(dir: string): string[] {
@@ -141,6 +169,52 @@ describe("loadDoc", () => {
   });
 });
 
+describe("readIcon", () => {
+  it("only exposes page icons when frontmatter opts in with showIcon", () => {
+    const hiddenIconFile = path.join(tempDir, "hidden-icon.mdx");
+    const visibleIconFile = path.join(tempDir, "visible-icon.mdx");
+
+    fs.writeFileSync(
+      hiddenIconFile,
+      [
+        "---",
+        'title: "Hidden icon"',
+        'icon: "lucide/Bolt"',
+        "---",
+        "",
+        "Body",
+      ].join("\n"),
+    );
+    fs.writeFileSync(
+      visibleIconFile,
+      [
+        "---",
+        'title: "Visible icon"',
+        'icon: "lucide/Bolt"',
+        "showIcon: true",
+        "---",
+        "",
+        "Body",
+      ].join("\n"),
+    );
+
+    expect(readIcon(hiddenIconFile)).toBeNull();
+    expect(readIcon(visibleIconFile)).toBe("lucide/Bolt");
+  });
+});
+
+describe("reference nav", () => {
+  it("renders the Reference root entry with a book icon", () => {
+    const tree = buildReferencePageTree("v2");
+    const markup = renderToStaticMarkup(
+      React.createElement(React.Fragment, null, tree.name),
+    );
+
+    expect(markup).toContain("lucide-book-open");
+    expect(markup).toContain("Reference");
+  });
+});
+
 describe("migration docs", () => {
   it("recommends CopilotKit from the v2 entrypoint instead of CopilotKitProvider", () => {
     const snippet = fs.readFileSync(
@@ -210,10 +284,62 @@ describe("migration docs", () => {
   });
 });
 
+describe("cookbook nav", () => {
+  it("renders overview and recipes as top-level entries without changing slugs", () => {
+    const navTree = buildCookbookNavTree();
+
+    expect(navTree).toHaveLength(5);
+    expect(navTree.map((node) => node.type)).toEqual([
+      "page",
+      "page",
+      "page",
+      "page",
+      "page",
+    ]);
+    expect(
+      navTree.map((node) =>
+        node.type === "page" ? [node.title, node.slug] : null,
+      ),
+    ).toEqual([
+      ["Overview", "cookbook/index"],
+      ["Daytona", "cookbook/daytona"],
+      ["Oracle Agent Memory", "cookbook/oracle-agent-spec-memory"],
+      ["Arcade", "cookbook/arcade"],
+      ["Angular + Google ADK", "cookbook/angular-adk-agentic-app"],
+    ]);
+
+    const pageTree = navTreeToPageTree(navTree, "");
+    expect(pageTree.children.map((node) => node.type)).toEqual([
+      "page",
+      "page",
+      "page",
+      "page",
+      "page",
+    ]);
+    expect(
+      pageTree.children.map((node) => (node.type === "page" ? node.url : null)),
+    ).toEqual([
+      "/cookbook",
+      "/cookbook/daytona",
+      "/cookbook/oracle-agent-spec-memory",
+      "/cookbook/arcade",
+      "/cookbook/angular-adk-agentic-app",
+    ]);
+
+    const overview = pageTree.children[0];
+    if (overview?.type !== "page") throw new Error("expected Overview page");
+    const overviewMarkup = renderToStaticMarkup(
+      React.createElement(React.Fragment, null, overview.name),
+    );
+    expect(overviewMarkup).toContain("lucide-book-open");
+    expect(overviewMarkup).toContain("Overview");
+  });
+});
+
 describe("framework nav", () => {
   it("loads early-access frontmatter for gated platform guides", () => {
-    const slack = loadDoc("slack")?.fm;
-    const teams = loadDoc("microsoft-teams")?.fm;
+    const slack = loadDoc("frontends/slack")?.fm;
+    const teams = loadDoc("frontends/teams")?.fm;
 
     expect(slack?.earlyAccess).toBe("slack");
     expect(slack?.hideTOC).toBe(true);
@@ -221,19 +347,52 @@ describe("framework nav", () => {
     expect(teams?.hideTOC).toBe(true);
   });
 
-  it("includes the shared React Native platform guide in generated framework nav", () => {
+  it("keeps frontend platform guides out of generated framework nav", () => {
     const navTree = buildFrameworkNav(
       "langgraph",
       "LangGraph (Python)",
       "langgraph-python",
     );
 
-    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Vue")).toBe(false);
   });
 
-  it("includes the shared React Native platform guide in authored framework nav", () => {
+  it("keeps frontend platform guides out of authored framework nav", () => {
     const navTree = buildFrameworkOnlyNav("built-in-agent");
 
-    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(true);
+    expect(hasSectionPage(navTree, "Platforms", "React Native")).toBe(false);
+    expect(hasSectionPage(navTree, "Platforms", "Slack")).toBe(false);
+  });
+
+  it("shows the CLI page in generated and authored framework nav", () => {
+    const generatedNav = buildFrameworkNav(
+      "langgraph",
+      "LangGraph (Python)",
+      "langgraph-python",
+    );
+    const authoredNav = buildFrameworkOnlyNav("mastra");
+    const sharedFolderAuthoredNav = buildFrameworkOnlyNav("langgraph");
+
+    expect(hasPageTitle(generatedNav, "CopilotKit CLI")).toBe(true);
+    expect(hasPageTitle(authoredNav, "CopilotKit CLI")).toBe(true);
+    expect(hasPageTitle(sharedFolderAuthoredNav, "CopilotKit CLI")).toBe(true);
+  });
+
+  it("uses the generated Intelligence Platform section for authored framework nav", () => {
+    const navTree = buildFrameworkOnlyNav("ag2");
+
+    expect(navTree.some((node) => node.title === "Premium Features")).toBe(
+      false,
+    );
+    expect(navTree.some((node) => node.title === "Enterprise")).toBe(false);
+    expect(sectionPages(navTree, "Intelligence Platform")).toEqual([
+      "Enterprise Intelligence Platform",
+      "Cloud-Hosted Enterprise Intelligence",
+      "Self-Hosting Enterprise Intelligence",
+      "Enterprise Intelligence Architecture",
+      "Threads & Persistence Architecture",
+      "Threads",
+    ]);
   });
 });

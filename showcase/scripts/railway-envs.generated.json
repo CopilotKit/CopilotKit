@@ -25,7 +25,8 @@
         "staging": true,
         "prod": true,
         "driver": "aimock"
-      }
+      },
+      "promoteTier": 0
     },
     {
       "name": "dashboard",
@@ -47,7 +48,9 @@
         "staging": true,
         "prod": true,
         "driver": "dashboard"
-      }
+      },
+      "promoteTier": 1,
+      "runtimeDeps": ["pocketbase", "harness"]
     },
     {
       "name": "docs",
@@ -69,7 +72,9 @@
         "staging": true,
         "prod": true,
         "driver": "docs"
-      }
+      },
+      "promoteTier": 2,
+      "standalone": true
     },
     {
       "name": "dojo",
@@ -91,7 +96,8 @@
         "staging": true,
         "prod": true,
         "driver": "dojo"
-      }
+      },
+      "promoteTier": 2
     },
     {
       "name": "harness",
@@ -113,7 +119,8 @@
         "staging": true,
         "prod": true,
         "driver": "harness"
-      }
+      },
+      "promoteTier": 1
     },
     {
       "name": "harness-legacy",
@@ -134,7 +141,8 @@
         "staging": false,
         "prod": false,
         "driver": "harness"
-      }
+      },
+      "promoteTier": 2
     },
     {
       "name": "harness-workers",
@@ -155,7 +163,8 @@
         "staging": false,
         "prod": false,
         "driver": "harness"
-      }
+      },
+      "promoteTier": 1
     },
     {
       "name": "pocketbase",
@@ -177,7 +186,8 @@
         "staging": true,
         "prod": true,
         "driver": "pocketbase"
-      }
+      },
+      "promoteTier": 0
     },
     {
       "name": "shell",
@@ -199,7 +209,8 @@
         "staging": true,
         "prod": true,
         "driver": "shell"
-      }
+      },
+      "promoteTier": 2
     },
     {
       "name": "showcase-ag2",
@@ -217,7 +228,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-agno",
@@ -235,7 +254,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-built-in-agent",
@@ -253,7 +280,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-claude-sdk-python",
@@ -271,7 +306,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-claude-sdk-typescript",
@@ -289,7 +332,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-crewai-crews",
@@ -307,7 +358,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-google-adk",
@@ -325,7 +384,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-langgraph-fastapi",
@@ -343,7 +410,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-langgraph-python",
@@ -361,7 +436,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-langgraph-typescript",
@@ -379,7 +462,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-langroid",
@@ -397,7 +488,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-llamaindex",
@@ -415,7 +514,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-mastra",
@@ -433,7 +540,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-ms-agent-dotnet",
@@ -451,7 +566,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-ms-agent-harness-dotnet",
@@ -469,7 +592,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-ms-agent-python",
@@ -487,7 +618,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-pydantic-ai",
@@ -505,7 +644,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-spring-ai",
@@ -523,7 +670,15 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "showcase-strands",
@@ -541,7 +696,327 @@
         "staging": true,
         "prod": true,
         "driver": "agent"
-      }
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-adk",
+      "serviceId": "37691009-c0b2-4af7-8960-9f0b3f0a6be3",
+      "prodInstanceId": "cb23cae4-9555-4ddd-8a62-f1aa1ff72c67",
+      "stagingInstanceId": "208a160a-0d7d-44b2-a94d-39e13b24e21a",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-adk",
+      "domains": {
+        "staging": "starter-adk-staging.up.railway.app",
+        "prod": "starter-adk-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-agno",
+      "serviceId": "5ab3c37e-18a5-44e5-8329-26243dd98da8",
+      "prodInstanceId": "2f58513b-5fe4-4b09-a28f-93d4caa277b5",
+      "stagingInstanceId": "9944eb97-7f58-47f8-a49d-65603e209609",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-agno",
+      "domains": {
+        "staging": "starter-agno-staging.up.railway.app",
+        "prod": "starter-agno-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-crewai-crews",
+      "serviceId": "2a9a4230-e6cd-4c1d-92a5-36e5c624371a",
+      "prodInstanceId": "1a3e24cb-0752-45c8-b4a2-0c6096899875",
+      "stagingInstanceId": "820895fb-f65c-4834-a07d-d454035d39c4",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-crewai-crews",
+      "domains": {
+        "staging": "starter-crewai-crews-staging.up.railway.app",
+        "prod": "starter-crewai-crews-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-langgraph-fastapi",
+      "serviceId": "6ae57213-52ea-4fea-b4a0-7bc304cbc80e",
+      "prodInstanceId": "0679bc18-e9af-40c6-bc17-0b5eb2cd7bec",
+      "stagingInstanceId": "5f10e976-e121-48a5-bc18-2619798f2f10",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-langgraph-fastapi",
+      "domains": {
+        "staging": "starter-langgraph-fastapi-staging.up.railway.app",
+        "prod": "starter-langgraph-fastapi-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-langgraph-js",
+      "serviceId": "d044c3e5-bb27-4d5e-a2bf-e3b382981372",
+      "prodInstanceId": "50a2205b-8768-4765-b7a1-21941c105051",
+      "stagingInstanceId": "43db83fe-fafb-445b-a19a-51bb086c71b9",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-langgraph-js",
+      "domains": {
+        "staging": "starter-langgraph-js-staging.up.railway.app",
+        "prod": "starter-langgraph-js-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-langgraph-python",
+      "serviceId": "10dca514-7c8f-4a32-9708-9f29a944da36",
+      "prodInstanceId": "24dad599-576a-4154-a621-c3af40629a8f",
+      "stagingInstanceId": "58105e79-4020-4692-8749-c1a63ab63f2c",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-langgraph-python",
+      "domains": {
+        "staging": "starter-langgraph-python-staging.up.railway.app",
+        "prod": "starter-langgraph-python-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-llamaindex",
+      "serviceId": "3255b27f-ea84-44b7-b587-b1687b409363",
+      "prodInstanceId": "c119f40b-dc71-4734-9716-c1085754b085",
+      "stagingInstanceId": "44446803-0505-456a-b0c4-01fe82fb3832",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-llamaindex",
+      "domains": {
+        "staging": "starter-llamaindex-staging.up.railway.app",
+        "prod": "starter-llamaindex-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-mastra",
+      "serviceId": "6548403e-3fee-4443-9d59-d8b041a3d43a",
+      "prodInstanceId": "c6fba6d8-8dde-442b-948f-560bf25fa2f1",
+      "stagingInstanceId": "b246e52d-52d8-4015-bb06-89bd09d54f8f",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-mastra",
+      "domains": {
+        "staging": "starter-mastra-staging.up.railway.app",
+        "prod": "starter-mastra-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-ms-agent-framework-dotnet",
+      "serviceId": "1b4c5296-97f6-463d-90af-6e04d7919957",
+      "prodInstanceId": "993237a4-9ee7-47b2-a5be-267e247c1409",
+      "stagingInstanceId": "6684c246-e8fd-45a7-86e4-c529a439976f",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-ms-agent-framework-dotnet",
+      "domains": {
+        "staging": "starter-ms-agent-framework-dotnet-staging.up.railway.app",
+        "prod": "starter-ms-agent-framework-dotnet-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-ms-agent-framework-python",
+      "serviceId": "225d0a06-d1cd-4b82-ae9c-2d1e8ecbaf86",
+      "prodInstanceId": "aa934881-340a-4fb7-8b39-9cb0a6f372b2",
+      "stagingInstanceId": "a162348a-f768-4c3f-815c-f617819f64e6",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-ms-agent-framework-python",
+      "domains": {
+        "staging": "starter-ms-agent-framework-python-staging.up.railway.app",
+        "prod": "starter-ms-agent-framework-python-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-pydantic-ai",
+      "serviceId": "c01d0d24-af88-4631-8a9a-23cffef2b36a",
+      "prodInstanceId": "74ce36fe-0b8f-446e-8e06-0b6496b6e829",
+      "stagingInstanceId": "25f4eb93-501a-4e5e-b7cf-343eb08ea613",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-pydantic-ai",
+      "domains": {
+        "staging": "starter-pydantic-ai-staging.up.railway.app",
+        "prod": "starter-pydantic-ai-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
+    },
+    {
+      "name": "starter-strands-python",
+      "serviceId": "321735ab-c14d-4e45-a1c2-e47f2b29d774",
+      "prodInstanceId": "4af440e0-ba05-48a5-b922-5b96a033891a",
+      "stagingInstanceId": "adc24096-584a-4ef3-93de-0bc92d49235c",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "starter-strands-python",
+      "domains": {
+        "staging": "starter-strands-python-staging.up.railway.app",
+        "prod": "starter-strands-python-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "starter"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ]
     },
     {
       "name": "webhooks",
@@ -563,7 +1038,175 @@
         "staging": true,
         "prod": true,
         "driver": "webhooks"
-      }
+      },
+      "promoteTier": 0
     }
-  ]
+  ],
+  "closure": {
+    "services": [
+      {
+        "name": "aimock",
+        "tier": 0
+      },
+      {
+        "name": "pocketbase",
+        "tier": 0
+      },
+      {
+        "name": "webhooks",
+        "tier": 0
+      },
+      {
+        "name": "dashboard",
+        "tier": 1
+      },
+      {
+        "name": "harness",
+        "tier": 1
+      },
+      {
+        "name": "docs",
+        "tier": 2,
+        "standalone": true
+      },
+      {
+        "name": "dojo",
+        "tier": 2
+      },
+      {
+        "name": "shell",
+        "tier": 2
+      },
+      {
+        "name": "showcase-ag2",
+        "tier": 2
+      },
+      {
+        "name": "showcase-agno",
+        "tier": 2
+      },
+      {
+        "name": "showcase-built-in-agent",
+        "tier": 2
+      },
+      {
+        "name": "showcase-claude-sdk-python",
+        "tier": 2
+      },
+      {
+        "name": "showcase-claude-sdk-typescript",
+        "tier": 2
+      },
+      {
+        "name": "showcase-crewai-crews",
+        "tier": 2
+      },
+      {
+        "name": "showcase-google-adk",
+        "tier": 2
+      },
+      {
+        "name": "showcase-langgraph-fastapi",
+        "tier": 2
+      },
+      {
+        "name": "showcase-langgraph-python",
+        "tier": 2
+      },
+      {
+        "name": "showcase-langgraph-typescript",
+        "tier": 2
+      },
+      {
+        "name": "showcase-langroid",
+        "tier": 2
+      },
+      {
+        "name": "showcase-llamaindex",
+        "tier": 2
+      },
+      {
+        "name": "showcase-mastra",
+        "tier": 2
+      },
+      {
+        "name": "showcase-ms-agent-dotnet",
+        "tier": 2
+      },
+      {
+        "name": "showcase-ms-agent-harness-dotnet",
+        "tier": 2
+      },
+      {
+        "name": "showcase-ms-agent-python",
+        "tier": 2
+      },
+      {
+        "name": "showcase-pydantic-ai",
+        "tier": 2
+      },
+      {
+        "name": "showcase-spring-ai",
+        "tier": 2
+      },
+      {
+        "name": "showcase-strands",
+        "tier": 2
+      },
+      {
+        "name": "starter-adk",
+        "tier": 2
+      },
+      {
+        "name": "starter-agno",
+        "tier": 2
+      },
+      {
+        "name": "starter-crewai-crews",
+        "tier": 2
+      },
+      {
+        "name": "starter-langgraph-fastapi",
+        "tier": 2
+      },
+      {
+        "name": "starter-langgraph-js",
+        "tier": 2
+      },
+      {
+        "name": "starter-langgraph-python",
+        "tier": 2
+      },
+      {
+        "name": "starter-llamaindex",
+        "tier": 2
+      },
+      {
+        "name": "starter-mastra",
+        "tier": 2
+      },
+      {
+        "name": "starter-ms-agent-framework-dotnet",
+        "tier": 2
+      },
+      {
+        "name": "starter-ms-agent-framework-python",
+        "tier": 2
+      },
+      {
+        "name": "starter-pydantic-ai",
+        "tier": 2
+      },
+      {
+        "name": "starter-strands-python",
+        "tier": 2
+      }
+    ],
+    "skipped": [
+      {
+        "name": "harness-workers",
+        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
+      }
+    ]
+  }
 }

@@ -228,7 +228,16 @@ jobs:
             cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
           fi
 
-          for link_name in tools shared-tools; do
+          # Dereference tools/, shared-tools/, and _shared/ symlinks for the
+          # Docker context. Integration directories use symlinks pointing
+          # outside the build context (tools -> ../../shared/python/tools,
+          # _shared -> ../_shared for the CVDIAG bootstrap modules). Docker
+          # build contexts cannot follow a symlink whose target escapes the
+          # context root — buildkit fails the checksum with "too many
+          # symlinks: /_shared" — so each symlink is replaced with a real
+          # copy of its target. Mirrors stage_shared() in
+          # showcase/scripts/cli/_common.sh (the local bin/showcase path).
+          for link_name in tools shared-tools _shared; do
             link_path="$CONTEXT/$link_name"
             if [ -L "$link_path" ]; then
               target="$(readlink -f "$link_path")"

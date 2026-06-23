@@ -36,6 +36,18 @@ interface SearchEntry {
   href: string;
 }
 
+const FRONTEND_SEARCH_PAGES = [
+  { id: "vue", name: "Vue", guidanceTitle: "Docs status" },
+  { id: "react-native", name: "React Native", guidanceTitle: "Docs status" },
+  { id: "angular", name: "Angular", guidanceTitle: "Docs status" },
+  { id: "slack", name: "Slack", guidanceTitle: "About early access" },
+  { id: "teams", name: "Teams", guidanceTitle: "About early access" },
+] as const;
+
+const FRONTEND_NAMES = new Map(
+  FRONTEND_SEARCH_PAGES.map((frontend) => [frontend.id, frontend.name]),
+);
+
 // Derive a human-readable section breadcrumb from a relative path.
 // e.g. "concepts/middleware" → "Concepts"
 //      "sdk/js/client/middleware" → "JS SDK › @ag-ui/client"
@@ -146,6 +158,45 @@ function scanMdxDir(
 
   walk(dir, "");
   return entries;
+}
+
+function normalizeDocsSearchEntry(entry: SearchEntry): SearchEntry[] {
+  const frontendPrefix = "/docs/frontends/";
+  if (!entry.href.startsWith(frontendPrefix)) return [entry];
+
+  const slugPath = entry.href.slice(frontendPrefix.length);
+  if (slugPath === "using-these-docs") {
+    return FRONTEND_SEARCH_PAGES.filter(
+      (frontend) => frontend.guidanceTitle === "About early access",
+    ).map((frontend) => ({
+      ...entry,
+      title: `${frontend.name}: ${frontend.guidanceTitle}`,
+      section: "Frontends",
+      href: `/${frontend.id}/using-these-docs`,
+    }));
+  }
+
+  if (slugPath === "docs-status") {
+    return FRONTEND_SEARCH_PAGES.filter(
+      (frontend) => frontend.guidanceTitle === "Docs status",
+    ).map((frontend) => ({
+      ...entry,
+      title: `${frontend.name}: ${frontend.guidanceTitle}`,
+      section: "Frontends",
+      href: `/${frontend.id}/using-these-docs`,
+    }));
+  }
+
+  const [frontend, ...tail] = slugPath.split("/").filter(Boolean);
+  if (!frontend || !FRONTEND_NAMES.has(frontend)) return [];
+
+  return [
+    {
+      ...entry,
+      section: "Frontends",
+      href: tail.length > 0 ? `/${frontend}/${tail.join("/")}` : `/${frontend}`,
+    },
+  ];
 }
 
 function main() {
@@ -282,7 +333,9 @@ function main() {
   // CopilotKit Docs
   const docsDir = path.join(CONTENT_ROOT, "content", "docs");
   if (fs.existsSync(docsDir)) {
-    const docsEntries = scanMdxDir(docsDir, "/docs", "page");
+    const docsEntries = scanMdxDir(docsDir, "/docs", "page").flatMap(
+      normalizeDocsSearchEntry,
+    );
     entries.push(...docsEntries);
     console.log(`  Docs: ${docsEntries.length} entries`);
     scanDirsPresent.push(docsDir);

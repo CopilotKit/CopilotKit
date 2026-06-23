@@ -207,10 +207,10 @@ describe("Overlay selector integration — real UI components", () => {
     expect(queryByTestId("depth-chip")).not.toBeInTheDocument();
     expect(queryByTestId("depth-layer")).not.toBeInTheDocument();
 
-    // No health badges (API, UI, CV)
+    // No health badges (API, UI, 1P)
     expect(queryByText("API")).not.toBeInTheDocument();
     expect(queryByText("UI")).not.toBeInTheDocument();
-    expect(queryByText("CV")).not.toBeInTheDocument();
+    expect(queryByText("1P")).not.toBeInTheDocument();
 
     // No docs indicators
     expect(queryByText("docs-og")).not.toBeInTheDocument();
@@ -250,9 +250,9 @@ describe("Overlay selector integration — real UI components", () => {
   // -------------------------------------------------------------------------
   // 3. Health only — the critical case (no docs indicators must appear)
   // -------------------------------------------------------------------------
-  it("health only: API/UI/CV badges visible, NO docs indicators", () => {
+  it("health only: API/UI/1P badges visible, NO docs indicators", () => {
     // `agentic-chat` is a real CATALOG_TO_D5_KEY entry, so its d5 row resolves
-    // green and the CV badge renders. An UNMAPPED feature's CV badge is gray
+    // green and the 1P badge renders. An UNMAPPED feature's 1P badge is gray
     // "?" and hidden by design (resolveD5Row returns null for unmapped
     // features, matching resolveD5 / isD5Green) — "don't show tests that
     // don't exist".
@@ -274,7 +274,7 @@ describe("Overlay selector integration — real UI components", () => {
     expect(getByTestId("health-layer")).toBeInTheDocument();
     expect(getByText("API")).toBeInTheDocument();
     expect(getByText("UI")).toBeInTheDocument();
-    expect(getByText("CV")).toBeInTheDocument();
+    expect(getByText("1P")).toBeInTheDocument();
 
     // No docs indicators — this is the critical regression test for B2's fix
     expect(queryByText("docs-og")).not.toBeInTheDocument();
@@ -338,8 +338,8 @@ describe("Overlay selector integration — real UI components", () => {
   // 6. Health + Docs — both badges AND docs indicators visible
   // -------------------------------------------------------------------------
   it("health + docs: badges AND docs indicators both visible", () => {
-    // `agentic-chat` is a real CATALOG_TO_D5_KEY entry so the CV badge has a
-    // resolved (green) d5 row to render; an unmapped feature's CV badge is
+    // `agentic-chat` is a real CATALOG_TO_D5_KEY entry so the 1P badge has a
+    // resolved (green) d5 row to render; an unmapped feature's 1P badge is
     // hidden by design. The docs-status mock also covers `agentic-chat`, so
     // the docs-og / docs-shell indicators still resolve.
     const ctx = makeCtx({
@@ -360,7 +360,7 @@ describe("Overlay selector integration — real UI components", () => {
     expect(getByTestId("health-layer")).toBeInTheDocument();
     expect(getByText("API")).toBeInTheDocument();
     expect(getByText("UI")).toBeInTheDocument();
-    expect(getByText("CV")).toBeInTheDocument();
+    expect(getByText("1P")).toBeInTheDocument();
 
     // Docs layer
     expect(getByTestId("docs-layer")).toBeInTheDocument();
@@ -444,9 +444,9 @@ describe("Overlay selector integration — real UI components", () => {
   });
 
   // -------------------------------------------------------------------------
-  // 9. Testing-kind features: CV badges hidden
+  // 9. Testing-kind features: 1P badges hidden
   // -------------------------------------------------------------------------
-  it("testing-kind feature with health: CV badges hidden, API/RT still shown", () => {
+  it("testing-kind feature with health: 1P badges hidden, API/BE still shown", () => {
     const ctx = makeTestingCtx();
     const { getByTestId, getByText, queryByText } = render(
       <ComposedCell ctx={ctx} overlays={overlaySet("health")} />,
@@ -455,12 +455,12 @@ describe("Overlay selector integration — real UI components", () => {
     // Health layer present
     expect(getByTestId("health-layer")).toBeInTheDocument();
 
-    // API and RT badges still visible for testing-kind
+    // API and BE badges still visible for testing-kind
     expect(getByText("API")).toBeInTheDocument();
     expect(getByText("UI")).toBeInTheDocument();
 
-    // CV hidden for testing-kind features (CellStatus hides them)
-    expect(queryByText("CV")).not.toBeInTheDocument();
+    // 1P hidden for testing-kind features (CellStatus hides them)
+    expect(queryByText("1P")).not.toBeInTheDocument();
   });
 
   // -------------------------------------------------------------------------

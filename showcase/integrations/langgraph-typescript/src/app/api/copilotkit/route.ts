@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import {
   CopilotRuntime,
@@ -6,6 +7,9 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+// CVDIAG backend instrumentation (L1-E). No-op pass-through unless
+// CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
+import { withCvdiagBackend } from "@/cvdiag-backend";
 
 // The LangGraph TypeScript agent runs as a separate process on port 8123
 // via @langchain/langgraph-cli. This runtime proxies CopilotKit requests
@@ -88,7 +92,7 @@ console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
 );
 
-export const POST = async (req: NextRequest) => {
+const copilotkitPost = async (req: NextRequest): Promise<Response> => {
   const url = req.url;
   const contentType = req.headers.get("content-type");
   console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
@@ -129,6 +133,15 @@ export const POST = async (req: NextRequest) => {
     );
   }
 };
+
+// Wrap with CVDIAG backend instrumentation. `withCvdiagBackend` returns
+// `copilotkitPost` unchanged when CVDIAG_BACKEND_EMITTER is off (default), so
+// the instrumented path costs nothing in normal operation.
+export const POST = withCvdiagBackend(copilotkitPost, {
+  slug: "langgraph-typescript",
+  agentName: "starterAgent",
+  provider: "openai",
+});
 
 export const GET = async () => {
   console.log("[copilotkit/route] GET /api/copilotkit (health probe)");

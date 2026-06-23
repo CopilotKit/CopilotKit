@@ -27,6 +27,7 @@ const backendDescriptions: Record<string, string> = {
   ag2: "AG2 agents with CopilotKit chat, tools, and HITL flows.",
   llamaindex: "LlamaIndex workflows connected to CopilotKit experiences.",
   strands: "AWS Strands agents with CopilotKit frontend primitives.",
+  "strands-typescript": "TypeScript AWS Strands agents over the AG-UI adapter.",
   "ms-agent-python": "Microsoft Agent Framework agents in Python.",
   "ms-agent-dotnet": "Microsoft Agent Framework agents in .NET.",
   "ms-agent-harness-dotnet": "Microsoft Agent Harness on .NET via AG-UI.",
@@ -59,11 +60,7 @@ function BackendGrid() {
         {integrations.map((i) => (
           <Link
             key={i.slug}
-            href={
-              i.slug === "built-in-agent"
-                ? "/built-in-agent/quickstart"
-                : `/${i.slug}`
-            }
+            href={i.slug === "built-in-agent" ? "/quickstart" : `/${i.slug}`}
             className="shell-docs-radius-surface group relative flex min-h-[84px] items-start gap-3 overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)]/30 p-3.5 no-underline transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] sm:min-h-[96px]"
           >
             <span

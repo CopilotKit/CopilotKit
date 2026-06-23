@@ -674,6 +674,7 @@ export class ɵCpkThreadDetails extends LitElement {
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
+    threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
     liveMessageVersion: { attribute: false },
@@ -701,6 +702,7 @@ export class ɵCpkThreadDetails extends LitElement {
   thread: ɵThread | null = null;
   runtimeUrl = "";
   headers: Record<string, string> = {};
+  threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
   /**
@@ -1456,7 +1458,7 @@ export class ɵCpkThreadDetails extends LitElement {
     threadId: string,
     silent: boolean = false,
   ): Promise<void> {
-    if (!this.runtimeUrl) {
+    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
       if (!silent) this._conversation = [];
       return;
     }
@@ -1494,7 +1496,7 @@ export class ɵCpkThreadDetails extends LitElement {
 
   private async fetchEvents(threadId: string): Promise<void> {
     this._eventsNotAvailable = false;
-    if (!this.runtimeUrl) {
+    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
       this._fetchedEvents = null;
       return;
     }
@@ -1541,7 +1543,7 @@ export class ɵCpkThreadDetails extends LitElement {
 
   private async fetchState(threadId: string): Promise<void> {
     this._stateNotAvailable = false;
-    if (!this.runtimeUrl) {
+    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
       this._fetchedState = null;
       return;
     }
@@ -2585,12 +2587,14 @@ export class WebInspectorElement extends LitElement {
     if (this.core?.getThreadStore(agentId)) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
+    if (core.threadEndpoints?.list === false) return;
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
-      headers: {},
+      headers: { ...core.headers },
+      wsUrl: core.intelligence?.wsUrl,
       agentId,
     });
     this._ownedThreadStores.set(agentId, store);
@@ -2607,6 +2611,24 @@ export class WebInspectorElement extends LitElement {
     // refresh() re-fetches without resetting threads to [] first, so the list
     // stays visible while new data loads and survives transient fetch failures.
     store.refresh();
+  }
+
+  // Keep inspector-owned thread stores in sync when the host updates headers
+  // at runtime (e.g. a refreshed auth/CSRF token via core.setHeaders). Mirrors
+  // useThreads(), which re-dispatches the context whenever core.headers change,
+  // so the owned stores' /threads requests stay authorized.
+  private updateOwnedThreadStoreHeaders(
+    headers: Readonly<Record<string, string>>,
+  ): void {
+    const core = this.core;
+    if (!core?.runtimeUrl) return;
+    for (const [agentId, store] of this._ownedThreadStores) {
+      store.setContext({
+        runtimeUrl: core.runtimeUrl,
+        headers: { ...headers },
+        agentId,
+      });
+    }
   }
 
   private removeOwnedThreadStore(agentId: string): void {
@@ -2639,8 +2661,12 @@ export class WebInspectorElement extends LitElement {
             maybeShowDisclosure();
           }
           this.flushPendingBannerViewed();
-          for (const agentId of this._ownedThreadStores.keys()) {
-            this.refreshOwnedThreadStore(agentId);
+          if (core.threadEndpoints?.list !== false) {
+            for (const agentId of this._ownedThreadStores.keys()) {
+              this.refreshOwnedThreadStore(agentId);
+            }
+          } else {
+            this.teardownOwnedThreadStores();
           }
         } else {
           // Clear stale thread data immediately when the server goes away
@@ -2652,6 +2678,9 @@ export class WebInspectorElement extends LitElement {
       onPropertiesChanged: ({ properties }) => {
         this.coreProperties = properties;
         this.requestUpdate();
+      },
+      onHeadersChanged: ({ headers }) => {
+        this.updateOwnedThreadStoreHeaders(headers);
       },
       onError: ({ code, error }) => {
         this.lastCoreError = { code, message: error.message };
@@ -3463,6 +3492,11 @@ ${argsString}</pre
         transition: transform 300ms ease;
       }
 
+      .console-button-wrapper {
+        position: relative;
+        display: inline-flex;
+      }
+
       .console-button {
         transition:
           transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
@@ -3588,6 +3622,36 @@ ${argsString}</pre
       .announcement-preview[data-side="right"] .announcement-preview__arrow {
         left: -5px;
         box-shadow: -6px 6px 10px rgba(1, 5, 7, 0.08);
+      }
+
+      .announcement-preview__dismiss {
+        flex: none;
+        margin-top: -1px;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        appearance: none;
+        background: none;
+        border: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: #838389;
+        cursor: pointer;
+        transition:
+          background 120ms ease,
+          color 120ms ease;
+      }
+
+      .announcement-preview__dismiss:hover {
+        background: rgba(0, 0, 0, 0.06);
+        color: #010507;
+      }
+
+      .announcement-preview__dismiss:focus-visible {
+        outline: 2px solid #bec2ff;
+        outline-offset: 1px;
       }
 
       .announcement-dismiss {
@@ -4270,29 +4334,38 @@ ${argsString}</pre
       this.isDragging ? "cursor-grabbing" : "cursor-grab",
     ].join(" ");
 
+    // The announcement preview renders as a SIBLING of the floating button (not
+    // a child) so its dismiss affordance can be a real <button>. Nesting any
+    // interactive/tabbable element inside the floating <button> violates the
+    // HTML button content model. The wrapper is position: relative so the
+    // absolutely-positioned preview still anchors to the button's edge.
     return html`
-      <button
-        class=${buttonClasses}
-        type="button"
-        aria-label="Web Inspector"
-        data-drag-context="button"
-        data-dragging=${
-          this.isDragging && this.pointerContext === "button" ? "true" : "false"
-        }
-        @pointerdown=${this.handlePointerDown}
-        @pointermove=${this.handlePointerMove}
-        @pointerup=${this.handlePointerUp}
-        @pointercancel=${this.handlePointerCancel}
-        @click=${this.handleButtonClick}
-      >
+      <div class="console-button-wrapper">
+        <button
+          class=${buttonClasses}
+          type="button"
+          aria-label="Web Inspector"
+          data-drag-context="button"
+          data-dragging=${
+            this.isDragging && this.pointerContext === "button"
+              ? "true"
+              : "false"
+          }
+          @pointerdown=${this.handlePointerDown}
+          @pointermove=${this.handlePointerMove}
+          @pointerup=${this.handlePointerUp}
+          @pointercancel=${this.handlePointerCancel}
+          @click=${this.handleButtonClick}
+        >
+          <img
+            src=${inspectorLogoIconUrl}
+            alt="Inspector logo"
+            class="h-5 w-auto"
+            loading="lazy"
+          />
+        </button>
         ${this.renderAnnouncementPreview()}
-        <img
-          src=${inspectorLogoIconUrl}
-          alt="Inspector logo"
-          class="h-5 w-auto"
-          loading="lazy"
-        />
-      </button>
+      </div>
     `;
   }
 
@@ -5811,6 +5884,9 @@ ${argsString}</pre
                   .thread=${selectedThread}
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
+                  .threadInspectionAvailable=${
+                    this._core?.threadEndpoints?.inspect !== false
+                  }
                   .liveMessageVersion=${
                     this.selectedThreadId
                       ? (this.liveMessageVersion.get(this.selectedThreadId) ??
@@ -7439,6 +7515,9 @@ ${prettyEvent}</pre
     const side =
       this.contextState.button.anchor.horizontal === "left" ? "right" : "left";
 
+    // The preview is a sibling of the floating button (see renderButton), so the
+    // dismiss control is a real <button>. stopPropagation keeps the X from
+    // bubbling to the preview body, whose click opens the inspector.
     return html`<div
       class="announcement-preview"
       data-side=${side}
@@ -7446,6 +7525,14 @@ ${prettyEvent}</pre
       @click=${() => this.handleAnnouncementPreviewClick()}
     >
       <span>${this.announcementPreviewText}</span>
+      <button
+        type="button"
+        class="announcement-preview__dismiss"
+        aria-label="Dismiss announcement"
+        @click=${this.handleDismissAnnouncementPreview}
+      >
+        ${this.renderIcon("X")}
+      </button>
       <span class="announcement-preview__arrow"></span>
     </div>`;
   }
@@ -7454,6 +7541,19 @@ ${prettyEvent}</pre
     this.showAnnouncementPreview = false;
     this.openInspector();
   }
+
+  // Dismissing the preview bubble must PERSIST via markAnnouncementSeen(),
+  // otherwise the bubble pops back out on the next mount because
+  // fetchAnnouncement() recomputes showAnnouncementPreview from the stored
+  // timestamp. Clearing only the in-memory flag (as handleAnnouncementPreviewClick
+  // and openInspector do) is intentionally transient — it's the X that makes
+  // the dismissal stick.
+  private handleDismissAnnouncementPreview = (event: Event): void => {
+    // Don't let the dismiss bubble to the preview body, whose click opens the
+    // inspector.
+    event.stopPropagation();
+    this.handleDismissAnnouncement();
+  };
 
   private handleDismissAnnouncement = (): void => {
     this.trackBannerClickedOnce({ cta: "dismiss" });

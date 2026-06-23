@@ -136,7 +136,7 @@
         "next.config.ts"
       ],
       "packageJsonOverrides": {
-        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\\\run-agent.bat",
+        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
         "scripts.install:agent": "cd agent && npm install"
       }
     },
@@ -175,8 +175,8 @@
         "scripts/**"
       ],
       "packageJsonOverrides": {
-        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\\\run-agent.bat",
-        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\\\setup-agent.bat"
+        "scripts.dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+        "scripts.install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat"
       }
     }
   }

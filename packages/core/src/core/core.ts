@@ -9,6 +9,7 @@ import type {
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+  ThreadEndpointRuntimeInfo,
 } from "../types";
 import type {
   CopilotKitCoreAddAgentParams,
@@ -323,6 +324,22 @@ export interface CopilotKitCoreFriendsAccess {
   waitForPendingFrameworkUpdates(): Promise<void>;
 }
 
+/**
+ * Normalize a header map to the internal invariant: a `Record<string, string>`
+ * with no `null`/`undefined` values. Entries whose value is `null`/`undefined`
+ * are dropped (this is how a header is cleared). Shared by the constructor and
+ * `setHeaders` so both write paths into `_headers` enforce the same invariant.
+ */
+function normalizeHeaders(
+  headers: Record<string, string | null | undefined>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers).filter(
+      (entry): entry is [string, string] => entry[1] != null,
+    ),
+  );
+}
+
 export class CopilotKitCore {
   private _headers: Record<string, string>;
   private _credentials?: RequestCredentials;
@@ -358,7 +375,7 @@ export class CopilotKitCore {
     suggestionsConfig = [],
     debug,
   }: CopilotKitCoreConfig) {
-    this._headers = headers;
+    this._headers = normalizeHeaders(headers);
     this._credentials = credentials;
     this._properties = properties;
     this._debug = debug;
@@ -618,6 +635,10 @@ export class CopilotKitCore {
     return this.agentRegistry.intelligence;
   }
 
+  get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
+    return this.agentRegistry.threadEndpoints;
+  }
+
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
   }
@@ -645,8 +666,27 @@ export class CopilotKitCore {
   /**
    * Configuration updates
    */
-  setHeaders(headers: Record<string, string>): void {
-    this._headers = headers;
+  /**
+   * Replace the headers sent with every runtime request.
+   *
+   * This is an overwrite, not a merge — the supplied object becomes the
+   * complete header set. Entries whose value is `null` or `undefined` are
+   * dropped, which is how you clear a header (e.g. removing `Authorization`
+   * on logout) without leaving an empty-string value behind:
+   *
+   * ```ts
+   * copilotkit.setHeaders({
+   *   ...copilotkit.headers,
+   *   Authorization: token ? `Bearer ${token}` : null,
+   * });
+   * ```
+   *
+   * The resulting header set is also re-applied to every registered
+   * `HttpAgent`-derived agent (replacing its `headers`) and `onHeadersChanged`
+   * subscribers are notified.
+   */
+  setHeaders(headers: Record<string, string | null | undefined>): void {
+    this._headers = normalizeHeaders(headers);
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );

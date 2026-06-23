@@ -16,6 +16,7 @@ import {
   createRailwayAdapter,
   registerAllProbeDrivers,
   buildPooledBrowserDrivers,
+  buildCvdiagPersistenceWriter,
   buildProducerSchedules,
   buildSweepCommErrorSink,
   FLEET_FAMILY_PERIODS_MS,
@@ -51,7 +52,7 @@ import {
 import { FLEET_FAMILIES } from "./fleet/control-plane/run-view.js";
 import type { JobProducer } from "./fleet/control-plane/job-producer.js";
 import { createE2eFullDriver } from "./probes/drivers/d6-all-pills.js";
-import { createE2eDemosDriver } from "./probes/drivers/e2e-readiness.js";
+import { createE2eDemosDriver } from "./probes/drivers/d3-readiness.js";
 import { createE2eSmokeDriver } from "./probes/drivers/d4-chat-roundtrip.js";
 import {
   E2E_D6_DRIVER_KIND,
@@ -82,6 +83,9 @@ import { createProbeRegistry } from "./probes/drivers/index.js";
 import type { createScheduler } from "./scheduler/scheduler.js";
 import { createEventBus } from "./events/event-bus.js";
 import { logger } from "./logger.js";
+import type { CvdiagWriterClient } from "./cvdiag/pb-writer.js";
+import { PbHttpError } from "./storage/pb-client.js";
+import type { ListResult } from "./storage/pb-client.js";
 import type { CompiledRule } from "./rules/rule-loader.js";
 import type { ProbeConfig } from "./probes/loader/schema.js";
 import { buildWorkerHealthServer } from "./fleet/worker/worker-health.js";
@@ -2552,6 +2556,7 @@ describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () =>
         "e2e_smoke",
         "image_drift",
         "pin_drift",
+        "pin_drift_cross_env",
         "qa",
         "redirect_decommission",
         "smoke",
@@ -4399,8 +4404,8 @@ describe("orchestrator runControlPlane REQ-B worker-self-report wiring (aggregat
 /**
  * In-process HTTP-only probe families on the fleet control-plane.
  *
- * The control-plane runs the 8 HTTP-only probe families (smoke, starter_smoke,
- * image_drift, qa, aimock_wiring, version_drift, pin_drift,
+ * The control-plane runs the 9 HTTP-only probe families (smoke, starter_smoke,
+ * image_drift, pin_drift_cross_env, qa, aimock_wiring, version_drift, pin_drift,
  * redirect_decommission) IN-PROCESS, alongside the d6 producer. These tests
  * pin that behavior:
  *
@@ -5224,7 +5229,7 @@ describe("orchestrator runControlPlane in-process HTTP probes", () => {
 // BROWSER_KINDS — or an HTTP driver whose kind overlaps a browser kind — would
 // silently drop a family from the in-process schedule.
 describe("orchestrator.registerHttpProbeDrivers / BROWSER_KINDS partition (drift-lock)", () => {
-  it("registers exactly the 8 HTTP-only kinds (no browser kinds)", async () => {
+  it("registers exactly the 9 HTTP-only kinds (no browser kinds)", async () => {
     const orchMod = await import("./orchestrator.js");
     const registry = createProbeRegistry();
     orchMod.registerHttpProbeDrivers(registry);
@@ -5234,6 +5239,9 @@ describe("orchestrator.registerHttpProbeDrivers / BROWSER_KINDS partition (drift
         "aimock_wiring",
         "image_drift",
         "pin_drift",
+        // U11: cross-env pin-drift is HTTP-only (Railway GraphQL + GHCR
+        // manifest GET; no browser), so it joins the control-plane HTTP set.
+        "pin_drift_cross_env",
         "qa",
         "redirect_decommission",
         "smoke",
@@ -5520,7 +5528,7 @@ describe("FLEET_FAMILY_PERIODS_MS ↔ enumerator family drift-lock", () => {
  */
 describe("PRODUCER_FAMILY_WIRING (§4.2 family drift-lock)", () => {
   it("wired producer family ids are set-equal to FLEET_FAMILIES[*].family", () => {
-    const wired = [...Object.values(PRODUCER_FAMILY_WIRING)].sort();
+    const wired = Object.values(PRODUCER_FAMILY_WIRING).sort();
     const registry = FLEET_FAMILIES.map((f) => f.family).sort();
     expect(wired).toEqual(registry);
   });
@@ -6281,5 +6289,79 @@ describe("orchestrator R3-F2: deploy.writer.failed on subscribeDeployResults syn
     expect(payload.err).toContain("mapping-blew-up-sync");
 
     unsub();
+  });
+});
+
+// ── CVDIAG persistence wiring: degrade-on-missing-migration (FIX 1 / FIX 2) ──
+//
+// BOTH production wiring paths (boot()/in-process AND the fleet worker) route
+// their CvdiagPbWriter construction through `buildCvdiagPersistenceWriter`,
+// which MUST call `assertCollectionExists()` and DEGRADE (return undefined → a
+// no-op emit→flush) when the cvdiag_events migration is absent, instead of
+// injecting a writer that 404s every event with per-row warns.
+describe("buildCvdiagPersistenceWriter — degrade-on-missing-migration (FIX 1/FIX 2)", () => {
+  // A fake PB whose `list` rejects with the given error, plus health()=true so
+  // the only signal is the collection probe.
+  function fakePb(listReject: unknown): CvdiagWriterClient {
+    return {
+      health: async () => true,
+      list: <T>() => Promise.reject(listReject) as Promise<ListResult<T>>,
+      create: async <T>() => ({}) as T,
+    };
+  }
+
+  function captureLogger(): {
+    logger: typeof logger;
+    warns: Array<{ msg: string }>;
+  } {
+    const warns: Array<{ msg: string }> = [];
+    const l = {
+      ...logger,
+      warn: (msg: string) => {
+        warns.push({ msg });
+      },
+    } as unknown as typeof logger;
+    return { logger: l, warns };
+  }
+
+  it("DEGRADES to undefined + logs ONCE when cvdiag_events is absent (typed 404)", async () => {
+    const pb = fakePb(
+      new PbHttpError({
+        statusCode: 404,
+        bodyText: '{"code":404}',
+        path: "/api/collections/cvdiag_events/records?perPage=1",
+      }),
+    );
+    const { logger: l, warns } = captureLogger();
+    const writer = await buildCvdiagPersistenceWriter(pb, l);
+    expect(writer).toBeUndefined();
+    expect(
+      warns.filter((w) => w.msg === "orchestrator.cvdiag-persistence-degraded")
+        .length,
+    ).toBe(1);
+  });
+
+  it("DEGRADES to undefined when PB is unreachable (transport error)", async () => {
+    const pb = fakePb(new Error("ECONNREFUSED"));
+    const { logger: l } = captureLogger();
+    const writer = await buildCvdiagPersistenceWriter(pb, l);
+    expect(writer).toBeUndefined();
+  });
+
+  it("INJECTS a working writer when the collection exists (typed 403 from CREATE-only ACL)", async () => {
+    const pb = fakePb(
+      new PbHttpError({
+        statusCode: 403,
+        bodyText: '{"code":403}',
+        path: "/api/collections/cvdiag_events/records?perPage=1",
+      }),
+    );
+    const { logger: l, warns } = captureLogger();
+    const writer = await buildCvdiagPersistenceWriter(pb, l);
+    expect(writer).toBeDefined();
+    expect(
+      warns.filter((w) => w.msg === "orchestrator.cvdiag-persistence-degraded")
+        .length,
+    ).toBe(0);
   });
 });
