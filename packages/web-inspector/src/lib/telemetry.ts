@@ -174,7 +174,7 @@ export function trackBannerClicked(props: {
   track(TELEMETRY_EVENTS.bannerClicked, props);
 }
 
-type InspectorThreadTelemetryProps = {
+export type InspectorThreadTelemetryProps = {
   package_name?: typeof PACKAGE_NAME;
   package_version?: typeof PACKAGE_VERSION;
   inspector_distinct_id?: string;

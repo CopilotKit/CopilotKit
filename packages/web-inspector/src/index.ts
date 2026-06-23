@@ -63,6 +63,7 @@ import {
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
 } from "./lib/telemetry.js";
+import type { InspectorThreadTelemetryProps } from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
 
@@ -2562,9 +2563,9 @@ export class WebInspectorElement extends LitElement {
   }
 
   private getThreadsTelemetryProps(
-    extra: Record<string, unknown> = {},
+    extra: Partial<InspectorThreadTelemetryProps> = {},
     options: { includeUrlAttribution?: boolean } = {},
-  ) {
+  ): InspectorThreadTelemetryProps {
     const distinctId =
       options.includeUrlAttribution && !this.core?.telemetryDisabled
         ? getTelemetryDistinctIdForUrl()
