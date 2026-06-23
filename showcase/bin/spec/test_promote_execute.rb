@@ -93,15 +93,17 @@ class PromoteExecuteTest < Minitest::Test
     # Build a command with staging-tag service, snapshot the prod target, and
     # inject fakes. Returns [cmd, gql].
     def build_cmd(staging_image:, resolve_map:, exists_set: nil)
-        # --confirm-divergence: bypass the (test-irrelevant) WARN that prod is
-        # missing the EXPECTED_DOMAINS set; we are testing pin behavior.
+        # --confirm-divergence: retained as a harmless no-op (the only finding,
+        # missing EXPECTED_DOMAINS, is now ADVISORY and never blocks); we are
+        # testing pin behavior. All CRITICAL_ENV_KEYS present so the (now
+        # unconditional) critical env-key presence assertion does not fire.
         cmd = Railway::PromoteCommand.new(["--non-interactive", "--yes", "--confirm-divergence"])
         cmd.parser.parse!(cmd.argv)
         cmd.instance_variable_set(:@staging_snapshot, {
             "services" => [{
                 "name" => "x", "service_id" => "svc-staging",
                 "image" => staging_image,
-                "env_keys" => [],
+                "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
                 "start_command" => "node server.js", "healthcheck_path" => "/health",
                 "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
             }],
@@ -110,7 +112,7 @@ class PromoteExecuteTest < Minitest::Test
             "services" => [{
                 "name" => "x", "service_id" => "svc-prod",
                 "image" => "ghcr.io/copilotkit/x@sha256:OLD",
-                "env_keys" => [],
+                "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
                 "start_command" => "node server.js", "healthcheck_path" => "/health",
                 "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
             }],
