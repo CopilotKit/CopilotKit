@@ -4,6 +4,7 @@ import { z } from "zod";
 import { useHumanInTheLoop } from "../use-human-in-the-loop";
 import type { ReactHumanInTheLoop } from "../../types";
 import { ToolCallStatus } from "@copilotkit/core";
+import { useCopilotKit } from "../../context";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import CopilotChatToolCallsView from "../../components/chat/CopilotChatToolCallsView";
 import type { AssistantMessage, Message } from "@ag-ui/core";
@@ -1424,5 +1425,109 @@ describe("HITL Thread Reconnection Bug", () => {
 
     // The respond button should be present (status is executing)
     expect(screen.getByTestId("remount-respond")).toBeDefined();
+  });
+});
+
+describe("HITL Run Abort", () => {
+  it("rejects the pending HITL promise with an error tool result when the run is aborted", async () => {
+    // Reproduces #5554: when a run is aborted (stopAgent/abortRun) while a HITL
+    // tool is waiting on the user (Executing) and respond() was never called,
+    // the handler must reject so core records an explicit error tool result —
+    // not silently resolve to an empty string (silent state corruption).
+
+    const agent = new MockStepwiseAgent();
+    const toolExecutionEnds: Array<{ result: string; error?: string }> = [];
+
+    const AbortHITLComponent: React.FC = () => {
+      const { copilotkit } = useCopilotKit();
+
+      useEffect(() => {
+        const subscription = copilotkit.subscribe({
+          onToolExecutionEnd: ({ result, error }) => {
+            toolExecutionEnds.push({ result, error });
+          },
+        });
+        return () => subscription.unsubscribe();
+      }, [copilotkit]);
+
+      const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
+        name: "abortApprovalTool",
+        description: "Requires human approval",
+        parameters: z.object({ action: z.string() }),
+        render: ({ status, args, respond }) => (
+          <div data-testid="abort-hitl">
+            <div data-testid="abort-status">{status}</div>
+            <div data-testid="abort-action">{args.action ?? ""}</div>
+            {respond && <button data-testid="abort-respond">Respond</button>}
+          </div>
+        ),
+      };
+
+      useHumanInTheLoop(hitlTool);
+      return null;
+    };
+
+    renderWithCopilotKit({
+      agent,
+      children: (
+        <>
+          <AbortHITLComponent />
+          <div style={{ height: 400 }}>
+            <CopilotChat welcomeScreen={false} />
+          </div>
+        </>
+      ),
+    });
+
+    const input = await screen.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "Request approval" } });
+    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByText("Request approval")).toBeDefined();
+    });
+
+    const messageId = testId("msg");
+    const toolCallId = testId("tc");
+
+    agent.emit(runStartedEvent());
+    agent.emit(
+      toolCallChunkEvent({
+        toolCallId,
+        toolCallName: "abortApprovalTool",
+        parentMessageId: messageId,
+        delta: JSON.stringify({ action: "delete" }),
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("abort-status").textContent).toBe(
+        ToolCallStatus.InProgress,
+      );
+    });
+
+    // Finish the run so the HITL handler starts executing (Executing state).
+    agent.emit(runFinishedEvent());
+    agent.complete();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("abort-status").textContent).toBe(
+        ToolCallStatus.Executing,
+      );
+    });
+
+    // Abort the run WITHOUT responding. This fires the AbortSignal that core
+    // passes to the tool handler.
+    act(() => {
+      agent.abortRun();
+    });
+
+    // The handler must settle with an explicit error tool result.
+    await waitFor(() => {
+      expect(toolExecutionEnds.length).toBeGreaterThan(0);
+      const last = toolExecutionEnds[toolExecutionEnds.length - 1];
+      expect(last.error).toBeDefined();
+      expect(last.error).not.toBe("");
+    });
   });
 });

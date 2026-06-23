@@ -338,6 +338,7 @@ export function createPbClient(config: PbClientConfig): PbClient {
           }
           throw new Error(
             `pb-client: re-auth failed on ${path} (status 401): ${String(err)}`,
+            { cause: err },
           );
         }
         if (authToken) headers.set("authorization", authToken);

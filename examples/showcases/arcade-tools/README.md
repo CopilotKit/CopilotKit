@@ -18,15 +18,15 @@ right in the conversation. Approve it once and the agent completes the action.
 
 ## What's inside
 
-| Path | What it does |
-| --- | --- |
-| `lib/arcade.ts` | `runArcadeTool()`, the authorize-then-execute helper around the Arcade SDK |
+| Path                          | What it does                                                                     |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| `lib/arcade.ts`               | `runArcadeTool()`, the authorize-then-execute helper around the Arcade SDK       |
 | `app/api/copilotkit/route.ts` | The CopilotKit runtime (single-route): 3 Arcade-backed tools on a Built-in Agent |
-| `app/page.tsx` | Server entry that reads env for the keys banner and renders the client UI |
-| `app/home-client.tsx` | The chat + `useRenderTool` renderers that turn tool calls into cards |
-| `components/tool-cards.tsx` | The generative UI: `AuthorizationCard`, sent / inbox / news cards |
-| `app/mock/page.tsx` | A static preview of every card, no keys or agent required (`/mock`) |
-| `app/providers.tsx` | The `<CopilotKit>` v2 provider (single-route) |
+| `app/page.tsx`                | Server entry that reads env for the keys banner and renders the client UI        |
+| `app/home-client.tsx`         | The chat + `useRenderTool` renderers that turn tool calls into cards             |
+| `components/tool-cards.tsx`   | The generative UI: `AuthorizationCard`, sent / inbox / news cards                |
+| `app/mock/page.tsx`           | A static preview of every card, no keys or agent required (`/mock`)              |
+| `app/providers.tsx`           | The `<CopilotKit>` v2 provider (single-route)                                    |
 
 The cookbook write-up lives in the docs at
 [`showcase/shell-docs/src/content/docs/cookbook/arcade.mdx`](../../../showcase/shell-docs/src/content/docs/cookbook/arcade.mdx).

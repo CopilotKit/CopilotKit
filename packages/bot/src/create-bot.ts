@@ -7,8 +7,10 @@ import type {
   IncomingThreadStart,
 } from "./platform-adapter.js";
 import { ActionRegistry, ActionExpiredError } from "./action-registry.js";
-import { InMemoryActionStore } from "./action-store.js";
 import type { ActionStore } from "./action-store.js";
+import { MemoryStore } from "./state/memory-store.js";
+import { kvActionStore } from "./state/kv-action-store.js";
+import type { StateStore } from "./state/state-store.js";
 import { toAgentToolDescriptors, parseToolArgs } from "./tools.js";
 import type { BotTool, ContextEntry } from "./tools.js";
 import { normalizeCommandName, toCommandSpec } from "./commands.js";
@@ -20,38 +22,104 @@ import type {
   InteractionContext,
   IncomingMessage,
   PlatformUser,
+  ComponentFn,
 } from "@copilotkit/bot-ui";
+import { Transcripts } from "./transcripts.js";
+import type { Identity, TranscriptsConfig } from "./transcripts.js";
+import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
 
-export type BotHandler = (ctx: {
-  thread: Thread;
+export type LockConflictDecision = "drop" | "force";
+
+/**
+ * Any `@copilotkit/bot-ui` component function, regardless of its props type.
+ * Accepting `(props: never)` lets a component with required, strongly-typed
+ * props (e.g. `({ title }: { title: string }) => …`) be passed to
+ * `createBot({ components })` without a cast — the registry only ever calls it
+ * with the props persisted in the store, so the specific shape isn't needed here.
+ */
+export type BotComponent = (props: never) => ReturnType<ComponentFn>;
+
+export type BotHandler<TState = unknown> = (ctx: {
+  thread: StatefulThread<TState>;
   message: IncomingMessage;
 }) => void | Promise<void>;
 
 /** Handler for a "conversation opened" lifecycle event (e.g. the Slack assistant pane). */
-export type ThreadStartHandler = (ctx: {
-  thread: Thread;
+export type ThreadStartHandler<TState = unknown> = (ctx: {
+  thread: StatefulThread<TState>;
   user?: PlatformUser;
 }) => void | Promise<void>;
 
-export interface CreateBotOptions {
+/** The per-thread state type implied by the configured `store.state` schema. */
+type ThreadStateOf<TSchema extends StandardSchemaV1 | undefined> =
+  TSchema extends StandardSchemaV1 ? InferSchemaOutput<TSchema> : unknown;
+
+/** A Thread whose state()/setState() are narrowed to the configured state type. */
+export type StatefulThread<TState> = Omit<Thread, "setState" | "state"> & {
+  setState(value: TState): Promise<void>;
+  state(): Promise<TState | undefined>;
+};
+
+/**
+ * Persistence and per-thread state configuration. Groups the pluggable
+ * backend, optional state schema, transcript storage, and turn-lock/dedup
+ * tuning under a single `store` option.
+ */
+export interface StoreConfig<
+  TStateSchema extends StandardSchemaV1 | undefined = undefined,
+> {
+  /** Pluggable persistence backend. Defaults to in-memory MemoryStore (lost on restart). */
+  adapter?: StateStore;
+  /** Standard Schema for per-thread state. When set, thread.state()/setState() are typed to its output and setState validates at runtime. */
+  state?: TStateSchema;
+  /** Resolve a stable cross-platform identity key (e.g. email). Paired with `transcripts`. */
+  identity?: Identity;
+  /** Cross-platform transcript storage config. Paired with `identity`. */
+  transcripts?: TranscriptsConfig;
+  /** What to do when a turn arrives while a prior turn on the same conversationKey is processing. */
+  onLockConflict?:
+    | LockConflictDecision
+    | ((
+        conversationKey: string,
+        message: IncomingMessage,
+      ) => LockConflictDecision | Promise<LockConflictDecision>);
+  /** TTL (ms) for the per-conversation turn lock. Default 60_000. */
+  lockTtl?: number;
+  /** TTL (ms) for the inbound event dedup window. Default 300_000. */
+  dedupTtl?: number;
+}
+
+export interface CreateBotOptions<
+  TStateSchema extends StandardSchemaV1 | undefined = undefined,
+> {
   adapters: PlatformAdapter[];
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
+  /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
   tools?: BotTool[];
   context?: ContextEntry[];
+  /**
+   * Named JSX components used in interactive messages. Registering them here
+   * lets the bot re-render and re-fire their handlers after a restart (durable
+   * actions); without registration, a click on a message posted before the
+   * restart degrades to "action expired".
+   */
+  components?: BotComponent[];
   /** Slash commands. Forwarded to adapters that support them; ignored elsewhere. */
   commands?: BotCommand[];
+  /** Persistence, per-thread state schema, transcripts, and lock/dedup tuning. */
+  store?: StoreConfig<TStateSchema>;
 }
 
-export interface Bot {
-  onMention(h: BotHandler): void;
-  onMessage(h: BotHandler): void;
+export interface Bot<TState = unknown> {
+  onMention(h: BotHandler<TState>): void;
+  onMessage(h: BotHandler<TState>): void;
   /**
    * A conversation surface opened (e.g. the Slack assistant pane). Greet, set
    * suggested prompts, set a title, or run the agent. Adapters without the
    * concept never fire this.
    */
-  onThreadStarted(h: ThreadStartHandler): void;
+  onThreadStarted(h: ThreadStartHandler<TState>): void;
   /** Handle clicks on a specific action `id`. `ctx.action.value` is typed as `TValue`. */
   onInteraction<TValue = unknown>(
     id: string,
@@ -64,7 +132,10 @@ export interface Bot {
    */
   onInterrupt<TPayload = unknown>(
     eventName: string,
-    h: (args: { payload: TPayload; thread: Thread }) => void | Promise<void>,
+    h: (args: {
+      payload: TPayload;
+      thread: StatefulThread<TState>;
+    }) => void | Promise<void>,
   ): void;
   /** Register a slash command (with optional typed options). */
   onCommand(command: BotCommand): void;
@@ -76,12 +147,49 @@ export interface Bot {
   tool(t: BotTool): void;
   start(): Promise<void>;
   stop(): Promise<void>;
+  /** Cross-platform transcript store. Append, list, and delete entries per user. */
+  transcripts: Transcripts;
 }
 
-export function createBot(opts: CreateBotOptions): Bot {
+/** Build the IncomingMessage object from an IncomingTurn (shared by lock-conflict callback and handler path). */
+function msgFromTurn(turn: IncomingTurn): IncomingMessage {
+  return {
+    text: turn.userText,
+    contentParts: turn.contentParts,
+    user: turn.user ?? { id: "" },
+    ref: { id: "" },
+    platform: turn.platform,
+  };
+}
+
+export function createBot<
+  TStateSchema extends StandardSchemaV1 | undefined = undefined,
+>(opts: CreateBotOptions<TStateSchema>): Bot<ThreadStateOf<TStateSchema>> {
+  const cfg = opts.store ?? {};
+  if (
+    (cfg.identity && !cfg.transcripts) ||
+    (!cfg.identity && cfg.transcripts)
+  ) {
+    throw new Error(
+      "createBot: `identity` and `transcripts` must be configured together.",
+    );
+  }
+
+  const backend: StateStore = cfg.adapter ?? new MemoryStore();
+  const transcripts = new Transcripts(backend, cfg.transcripts ?? {});
   const registry = new ActionRegistry({
-    store: opts.actionStore ?? new InMemoryActionStore(),
+    store: opts.actionStore ?? kvActionStore(backend),
   });
+
+  for (const c of opts.components ?? []) {
+    if (!c.name) {
+      console.warn(
+        "[bot] createBot: skipping anonymous component — give it a name to enable durable actions after restart.",
+      );
+      continue;
+    }
+    registry.registerComponent(c.name, c as unknown as ComponentFn);
+  }
 
   const agentFactory: (threadId: string) => AbstractAgent = (() => {
     const a = opts.agent;
@@ -122,6 +230,7 @@ export function createBot(opts: CreateBotOptions): Bot {
     adapter: PlatformAdapter,
     replyTarget: unknown,
     conversationKey: string,
+    extras?: { userKey?: string; message?: IncomingMessage },
   ): Thread {
     const deps: ThreadDeps = {
       adapter,
@@ -134,6 +243,11 @@ export function createBot(opts: CreateBotOptions): Bot {
       context,
       registerWaiter: (k, r) => waiters.set(k, r),
       interruptHandlers,
+      state: backend,
+      stateSchema: cfg.state,
+      transcripts,
+      userKey: extras?.userKey,
+      message: extras?.message,
     };
     return new Thread(deps);
   }
@@ -141,27 +255,96 @@ export function createBot(opts: CreateBotOptions): Bot {
   function makeSink(adapter: PlatformAdapter): IngressSink {
     return {
       async onTurn(turn: IncomingTurn) {
-        const thread = makeThread(
-          adapter,
-          turn.replyTarget,
-          turn.conversationKey,
-        );
-        const message: IncomingMessage = {
-          text: turn.userText,
-          contentParts: turn.contentParts,
-          user: turn.user ?? { id: "" },
-          ref: { id: "" },
-          platform: turn.platform,
-        };
-        // v1 routing: there is no turn `kind`, so prefer mention handlers; if
-        // none are registered, fall back to message handlers. (The reference
-        // example registers identical handlers on both, so this avoids
-        // double-firing while still invoking whatever is registered.)
-        const handlers =
-          mentionHandlers.length > 0 ? mentionHandlers : messageHandlers;
-        for (const h of handlers) await h({ thread, message });
+        const lockKey = `turn:${turn.conversationKey}`;
+        const acquired = await backend.lock.acquire(lockKey, {
+          ttlMs: cfg.lockTtl ?? 60_000,
+        });
+
+        if (!acquired) {
+          const decision =
+            typeof cfg.onLockConflict === "function"
+              ? await cfg.onLockConflict(
+                  turn.conversationKey,
+                  msgFromTurn(turn),
+                )
+              : (cfg.onLockConflict ?? "drop");
+          if (decision === "drop") return; // discard overlapping turn
+          // "force": proceed WITHOUT a lock token. Does NOT cancel the
+          // in-flight handler — cooperative cancellation is a future extension.
+        }
+
+        try {
+          // Dedup AFTER acquiring the lock: a turn dropped on lock-conflict must NOT burn its
+          // eventId, so Slack's retry can still be processed once the lock frees. (A handler
+          // that throws still leaves its event marked seen — dedup drops duplicate DELIVERIES,
+          // it is not retry-of-failed-turns.)
+          if (turn.eventId) {
+            const dupKey = `evt:${adapter.platform}:${turn.eventId}`;
+            try {
+              if (await backend.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
+                return;
+            } catch (err) {
+              console.warn(
+                `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
+                err,
+              );
+            }
+          }
+
+          // Resolve cross-platform identity key (if configured) and stamp it on
+          // the message so handlers and transcript storage can use it. Done
+          // BEFORE makeThread so the thread carries the userKey + message for
+          // the transcript auto-bridge (runAgent({ transcript: true })).
+          let userKey: string | undefined;
+          if (cfg.identity) {
+            try {
+              const resolved = await cfg.identity({
+                adapter: adapter.platform,
+                author: turn.user ?? { id: "" },
+                message: msgFromTurn(turn),
+              });
+              userKey = resolved ?? undefined;
+            } catch (err) {
+              console.warn(
+                `[bot] identity resolution failed for ${adapter.platform}; continuing without userKey`,
+                err,
+              );
+            }
+          }
+          const message: IncomingMessage = { ...msgFromTurn(turn), userKey };
+          const thread = makeThread(
+            adapter,
+            turn.replyTarget,
+            turn.conversationKey,
+            { userKey, message },
+          );
+          // v1 routing: there is no turn `kind`, so prefer mention handlers; if
+          // none are registered, fall back to message handlers. (The reference
+          // example registers identical handlers on both, so this avoids
+          // double-firing while still invoking whatever is registered.)
+          const handlers =
+            mentionHandlers.length > 0 ? mentionHandlers : messageHandlers;
+          for (const h of handlers) await h({ thread, message });
+        } finally {
+          // acquired is null on "force" — naturally skips release.
+          if (acquired) await backend.lock.release(lockKey, acquired.token);
+        }
       },
       async onInteraction(evt: InteractionEvent) {
+        // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
+        if (evt.eventId) {
+          const dupKey = `evt:${adapter.platform}:${evt.eventId}`;
+          try {
+            if (await backend.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
+              return;
+          } catch (err) {
+            console.warn(
+              `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
+              err,
+            );
+          }
+        }
+
         const thread = makeThread(
           adapter,
           evt.replyTarget,
@@ -207,6 +390,20 @@ export function createBot(opts: CreateBotOptions): Bot {
         }
       },
       async onCommand(cmd: IncomingCommand) {
+        // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
+        if (cmd.eventId) {
+          const dupKey = `evt:${adapter.platform}:${cmd.eventId}`;
+          try {
+            if (await backend.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
+              return;
+          } catch (err) {
+            console.warn(
+              `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
+              err,
+            );
+          }
+        }
+
         const command = commandHandlers.get(normalizeCommandName(cmd.command));
         if (!command) return; // unregistered command → skip
         const thread = makeThread(
@@ -247,15 +444,20 @@ export function createBot(opts: CreateBotOptions): Bot {
     };
   }
 
-  return {
+  const bot: Bot<ThreadStateOf<TStateSchema>> = {
+    transcripts,
     onMention(h) {
-      mentionHandlers.push(h);
+      // The public surface narrows `thread` to StatefulThread<TState>; the
+      // internal arrays hold the loose `BotHandler` shape. A real Thread is
+      // assignable to StatefulThread<TState> (its generic setState/state
+      // satisfy the narrowed signatures), so the cast is sound.
+      mentionHandlers.push(h as BotHandler);
     },
     onMessage(h) {
-      messageHandlers.push(h);
+      messageHandlers.push(h as BotHandler);
     },
     onThreadStarted(h) {
-      threadStartedHandlers.push(h);
+      threadStartedHandlers.push(h as ThreadStartHandler);
     },
     onInteraction<TValue = unknown>(
       id: string,
@@ -268,7 +470,10 @@ export function createBot(opts: CreateBotOptions): Bot {
     },
     onInterrupt<TPayload = unknown>(
       eventName: string,
-      h: (args: { payload: TPayload; thread: Thread }) => void | Promise<void>,
+      h: (args: {
+        payload: TPayload;
+        thread: StatefulThread<ThreadStateOf<TStateSchema>>;
+      }) => void | Promise<void>,
     ) {
       interruptHandlers.set(
         eventName,
@@ -307,4 +512,5 @@ export function createBot(opts: CreateBotOptions): Bot {
       await Promise.all(opts.adapters.map((a) => a.stop()));
     },
   };
+  return bot;
 }

@@ -104,4 +104,12 @@ export interface IncomingTurn {
    * Absent only if the originating event carried no user (rare).
    */
   senderUserId?: string;
+  /**
+   * Stable per-delivery id for inbound idempotency. Prefer the Events API
+   * envelope `event_id` (survives Slack's retries), falling back to
+   * `client_msg_id` or `${channel}:${ts}`. Undefined when no stable id is
+   * available — the engine simply skips dedup for that event (never fabricate
+   * a random id; that would defeat dedup).
+   */
+  eventId?: string;
 }

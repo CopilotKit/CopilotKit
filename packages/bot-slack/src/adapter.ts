@@ -193,6 +193,9 @@ export class SlackAdapter implements PlatformAdapter {
           user: turn.senderUserId
             ? await this.resolveUser(turn.senderUserId)
             : undefined,
+          // Stable per-delivery id for inbound dedup (Events API event_id, or a
+          // fallback derived by the listener); undefined when unavailable.
+          eventId: turn.eventId,
           platform: "slack",
         });
       },
@@ -207,6 +210,8 @@ export class SlackAdapter implements PlatformAdapter {
           user: cmd.senderUserId
             ? await this.resolveUser(cmd.senderUserId)
             : undefined,
+          // Stable per-invocation id for inbound dedup (command:user:trigger_id).
+          eventId: cmd.eventId,
           platform: "slack",
         });
       },
