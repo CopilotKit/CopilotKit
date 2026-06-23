@@ -194,7 +194,13 @@ jobs:
     # mirrors the verify-prod gate idiom below.
     if: ${{ !cancelled() && needs.resolve-targets.result == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # promote-fleet.sh now fans out promotes WITHIN a tier (PROMOTE_FANOUT, cap
+    # 5) instead of running the whole fleet serially. Even so, the largest tier
+    # (~30 integration leaves) at cap 5 with bin/railway's ~300s/service
+    # verify_serving_digest! is ~6 batches * ~5 min ≈ 30 min, so 20 min cancelled
+    # a `service=all` promote mid-fleet. 35 min leaves headroom above the
+    # worst-case tier without masking a genuinely stuck promote.
+    timeout-minutes: 35
     environment: railway
     permissions:
       contents: read
@@ -236,6 +242,14 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Tier-ordered closure plan (U4): promote-fleet.sh prefers CLOSURE_PLAN
+          # over SERVICES_CSV, promoting BY TIER (0->1->2) with dependent-tier
+          # gating AND within-tier parallel fan-out (PROMOTE_FANOUT). A serial
+          # `service=all` fleet overran the job timeout; tiered fan-out cuts the
+          # wall-clock so the whole fleet completes inside timeout-minutes.
+          CLOSURE_PLAN: ${{ needs.resolve-targets.outputs.closure_plan }}
+          # Retained as the backward-compat fallback: promote-fleet.sh uses this
+          # ONLY when CLOSURE_PLAN is empty (e.g. an older resolve step).
           SERVICES_CSV: ${{ needs.resolve-targets.outputs.services_csv }}
           DIGEST: ${{ inputs.digest }}
         run: |

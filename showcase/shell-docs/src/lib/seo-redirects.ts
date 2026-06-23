@@ -103,6 +103,7 @@ const CANONICAL_FRAMEWORKS = [
   "ag2",
   "llamaindex",
   "strands",
+  "strands-typescript",
   "ms-agent-python",
   "ms-agent-dotnet",
   "claude-sdk-python",

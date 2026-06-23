@@ -27,6 +27,7 @@ import {
   QUEUE_CAP,
   SLUG_FALLBACK,
   boundEntryFields,
+  mintTestId,
 } from "./emit.js";
 import type { CvdiagPbWriter } from "./emit.js";
 import type { CvdiagEmitArgs } from "./emit.js";
@@ -781,7 +782,11 @@ describe("cvdiag emit — entry bound applied end-to-end (slug never violates co
     expect(isValidTestId(env!.test_id)).toBe(true);
   });
 
-  it("an invalid testId override is re-minted and trace_id mirrors it", () => {
+  it("a non-UUIDv7 testId override is ADOPTED as the cross-layer join key (not re-minted); trace_id still mirrors it", () => {
+    // CHANGED CONTRACT (cross-layer join fix): a non-UUIDv7 `testId` is the
+    // probe's per-run id forwarded as `x-test-id`. It is ADOPTED verbatim
+    // (sanitized) as the join key — NOT replaced by a fresh mint, which would
+    // break probe↔backend correlation. With no `traceId`, trace_id mirrors it.
     const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
     const env = emitter.emit({
       layer: "probe",
@@ -790,6 +795,27 @@ describe("cvdiag emit — entry bound applied end-to-end (slug never violates co
       demo: "chat",
       outcome: "info",
       testId: "not-a-uuidv7",
+      metadata: { message_index: 0, char_count: 3, demo: "chat" },
+    });
+    expect(env).not.toBeNull();
+    // Adopted verbatim (charset-clean already) — NOT a minted UUIDv7.
+    expect(env!.test_id).toBe("not-a-uuidv7");
+    expect(isValidTestId(env!.test_id)).toBe(false);
+    expect(env!.trace_id).toBe(env!.test_id);
+  });
+
+  it("a fully-unsanitizable testId override falls back to a minted UUIDv7", () => {
+    // When the inbound id has NO surviving charset chars (whitespace / control
+    // only), there is no usable join key → mint a fresh UUIDv7 so the row is
+    // still well-formed (the join is simply unavailable for that request).
+    const emitter = new CvdiagEmitter({ env: { NODE_ENV: "test" } });
+    const env = emitter.emit({
+      layer: "probe",
+      boundary: "probe.message.send",
+      slug: "langgraph-python",
+      demo: "chat",
+      outcome: "info",
+      testId: "  \n\t  ",
       metadata: { message_index: 0, char_count: 3, demo: "chat" },
     });
     expect(env).not.toBeNull();
@@ -1017,5 +1043,124 @@ describe("CvdiagEmitter — DEBUG prod fail-closed (safe-env allow-list, §6)", 
       () =>
         new CvdiagEmitter({ debug: true, env: { SHOWCASE_ENV: "staging" } }),
     ).toThrow(/CVDIAG_DEBUG_ALLOW_LIST is required/);
+  });
+});
+
+/**
+ * Cross-layer JOIN-KEY adoption (spec §5 `test_id` = the single id that joins
+ * one run's rows across all layers). The backend receives the probe's per-run
+ * `x-test-id` (e.g. `d4-<slug>-<runId>` — NOT a UUIDv7) and MUST stamp it as
+ * the envelope `test_id` so probe↔backend rows join on the same key. The
+ * backend's OWN per-request id is the `trace_id`/`span_id` (per-request), which
+ * is decoupled from `test_id` on the adoption path.
+ *
+ * RED before the fix:
+ *   - a non-UUIDv7 `testId` override was DROPPED by `boundEntryFields` and a
+ *     fresh random UUIDv7 was minted → backend `test_id` ≠ the probe's id →
+ *     join impossible.
+ *   - `trace_id` was hard-mirrored to `test_id`, so there was no way to carry a
+ *     distinct backend per-request id.
+ */
+describe("CvdiagEmitter cross-layer test_id adoption + trace_id decoupling", () => {
+  const mkEmitter = (): {
+    emitter: CvdiagEmitter;
+    captured: CvdiagEnvelope[];
+  } => {
+    const captured: CvdiagEnvelope[] = [];
+    // Verbose tier so backend.request.ingress / llm.call.start (default:false)
+    // pass the §6 tier matrix and the adoption assertion is not masked by the
+    // tier filter.
+    const emitter = new CvdiagEmitter({
+      layer: "backend",
+      verbose: true,
+      env: { NODE_ENV: "test" },
+      pbWriter: {
+        async writeBatch(events) {
+          captured.push(...events);
+        },
+      },
+    });
+    return { emitter, captured };
+  };
+
+  it("adopts a non-UUIDv7 inbound testId as the envelope test_id (the cross-layer join key)", () => {
+    const { emitter } = mkEmitter();
+    const inbound = "d4-langgraph-typescript-run42";
+    const env = emitter.emit({
+      layer: "backend",
+      boundary: "backend.request.ingress",
+      slug: "langgraph-typescript",
+      demo: "langgraph-typescript",
+      outcome: "info",
+      testId: inbound,
+      metadata: { method: "POST", path: "/api", content_length: 2 },
+    });
+    expect(env).not.toBeNull();
+    // The inbound id is adopted verbatim (sanitized) — NOT replaced by a mint.
+    expect(env!.test_id).toBe(inbound);
+  });
+
+  it("keeps trace_id decoupled from test_id when a distinct traceId is supplied", () => {
+    const { emitter } = mkEmitter();
+    const inbound = "d6-mastra-abc";
+    const backendTrace = mintTestId(); // backend's own per-request UUIDv7
+    const env = emitter.emit({
+      layer: "backend",
+      boundary: "backend.agent.enter",
+      slug: "mastra",
+      demo: "mastra",
+      outcome: "info",
+      testId: inbound,
+      traceId: backendTrace,
+      metadata: { agent_name: "default", model_id: "x" },
+    });
+    expect(env).not.toBeNull();
+    // test_id = the cross-layer join key (probe's id); trace_id = backend's own.
+    expect(env!.test_id).toBe(inbound);
+    expect(env!.trace_id).toBe(backendTrace);
+    expect(env!.trace_id).not.toBe(env!.test_id);
+  });
+
+  it("still mirrors trace_id to test_id when no traceId is supplied (back-compat: probe path)", () => {
+    const { emitter } = mkEmitter();
+    const probeUuid = mintTestId();
+    const env = emitter.emit({
+      layer: "probe",
+      boundary: "probe.message.send",
+      slug: "langgraph-typescript",
+      demo: "chat",
+      outcome: "info",
+      testId: probeUuid,
+      metadata: { message_index: 0, char_count: 1, demo: "chat" },
+    });
+    expect(env).not.toBeNull();
+    expect(env!.test_id).toBe(probeUuid);
+    // Probe passes no traceId → trace_id mirrors test_id (existing invariant).
+    expect(env!.trace_id).toBe(probeUuid);
+  });
+
+  it("sanitizes a malformed/oversize inbound testId rather than dropping it", () => {
+    const { emitter } = mkEmitter();
+    // Control chars + whitespace + over-length: must be bounded to a safe
+    // free-text key (never dropped → minted, which would break the join).
+    const dirty = `  d4-evil\n${"z".repeat(300)}   `;
+    const env = emitter.emit({
+      layer: "backend",
+      boundary: "backend.request.ingress",
+      slug: "built-in-agent",
+      demo: "built-in-agent",
+      outcome: "info",
+      testId: dirty,
+      metadata: { method: "POST", path: "/", content_length: 0 },
+    });
+    expect(env).not.toBeNull();
+    // No control chars / newlines / NULs leaked into the join key.
+    expect(env!.test_id).not.toMatch(/[\s ]/);
+    // Bounded length (≤128) and non-empty.
+    expect(env!.test_id.length).toBeGreaterThan(0);
+    expect(env!.test_id.length).toBeLessThanOrEqual(128);
+    // Derived deterministically from the dirty input prefix (so probe+backend
+    // applying the SAME sanitizer land on the SAME join key).
+    expect(env!.test_id.startsWith("d4-evil")).toBe(true);
   });
 });
