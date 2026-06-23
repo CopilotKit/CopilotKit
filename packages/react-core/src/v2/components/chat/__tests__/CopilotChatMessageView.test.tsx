@@ -160,7 +160,8 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     // Should NOT produce React duplicate key warnings
     const duplicateKeyWarnings = consoleSpy.mock.calls.filter(
       (call) =>
-        typeof call[0] === "string" && call[0].includes("duplicate key"),
+        typeof call[0] === "string" &&
+        call[0].includes("two children with the same key"),
     );
     expect(duplicateKeyWarnings).toHaveLength(0);
 
@@ -183,6 +184,131 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     );
     expect(userMessages).toHaveLength(2);
     expect(assistantMessages).toHaveLength(2);
+  });
+});
+
+describe("CopilotChatMessageView stable row keying across message id changes", () => {
+  /**
+   * Tree builder (not renderMessageView) so tests can `rerender` the same
+   * component instance — remount-vs-reconcile is only observable across a
+   * rerender of one root.
+   */
+  function messageViewTree(messages: Message[]) {
+    return (
+      <CopilotKitProvider>
+        <CopilotChatConfigurationProvider
+          agentId={AGENT_ID}
+          threadId={THREAD_ID}
+        >
+          <CopilotChatMessageView messages={messages} />
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>
+    );
+  }
+
+  function rerenderWithIdSwap(before: Message[], after: Message[]) {
+    const view = render(messageViewTree(before));
+    const node = screen.getByTestId("copilot-assistant-message");
+    view.rerender(messageViewTree(after));
+    return { node, nodeAfter: screen.getByTestId("copilot-assistant-message") };
+  }
+
+  it("reconciles the row in place when the message id changes but the tool-call id is stable", () => {
+    const { node, nodeAfter } = rerenderWithIdSwap(
+      [assistantMsg("lc_run--1", "Working...", [toolCall("tc-1", "approve")])],
+      [assistantMsg("resp_1", "Done", [toolCall("tc-1", "approve")])],
+    );
+
+    expect(nodeAfter).toBe(node);
+    // Content update must flow through the memoized component — proves React
+    // reconciled in place AND re-rendered, not just kept a stale DOM node.
+    expect(nodeAfter.textContent).toContain("Done");
+  });
+
+  // Documents the current limitation: text-only assistant messages have no
+  // stable anchor across an id rename, so the row remounts. This is not a
+  // contract — if a future change provides a stable anchor for such rows,
+  // update this test to assert in-place reconcile rather than reverting.
+  it("remounts the row on an id change when the message has no tool-call anchor", () => {
+    const { node, nodeAfter } = rerenderWithIdSwap(
+      [assistantMsg("lc_run--1", "Working...")],
+      [assistantMsg("resp_1", "Done")],
+    );
+
+    expect(nodeAfter).not.toBe(node);
+  });
+
+  it("remounts the row on an id change when toolCalls is an empty array (no anchor available)", () => {
+    // toolCalls: [] (explicit empty) means no first tool-call id exists, so
+    // the row falls back to id keying — pins the ?.[0]?.id fallback behavior.
+    const { node, nodeAfter } = rerenderWithIdSwap(
+      [assistantMsg("lc_run--1", "Working...", [])],
+      [assistantMsg("resp_1", "Done", [])],
+    );
+
+    expect(nodeAfter).not.toBe(node);
+  });
+
+  it("falls back to message.id when two assistant messages share a first tool-call id (no duplicate keys)", () => {
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const messages: Message[] = [
+      assistantMsg("a-1", "First", [toolCall("tc-1", "approve")]),
+      assistantMsg("a-2", "Second", [toolCall("tc-1", "approve")]),
+    ];
+
+    render(messageViewTree(messages));
+
+    // Both assistant rows must render — duplicate React keys can cause React
+    // to reconcile a row with the wrong DOM node and inherit stale state; the
+    // warning-count assertion below is the actual safety net.
+    const assistantMessages = screen.getAllByTestId(
+      "copilot-assistant-message",
+    );
+    expect(assistantMessages).toHaveLength(2);
+
+    // Render order matches input order — pins first-claimant-wins precedence
+    // so the first occurrence keeps `tc:<id>` and the second falls back to id.
+    expect(assistantMessages[0].textContent).toContain("First");
+    expect(assistantMessages[1].textContent).toContain("Second");
+
+    // No React "two children with the same key" warning should fire.
+    const duplicateKeyWarnings = consoleSpy.mock.calls.filter(
+      (call) =>
+        typeof call[0] === "string" &&
+        call[0].includes("two children with the same key"),
+    );
+    expect(duplicateKeyWarnings).toHaveLength(0);
+
+    consoleSpy.mockRestore();
+  });
+
+  it("keeps row keys unique when a literal message id collides with an earlier tc:-prefixed key", () => {
+    // Pathological: a backend emits a message id that literally starts with
+    // "tc:" and matches an earlier assistant's first tool-call id. The
+    // structural uniqueness guard in buildRowRenderKeys must disambiguate.
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const messages: Message[] = [
+      assistantMsg("a-1", "First", [toolCall("tc-1", "approve")]),
+      assistantMsg("tc:tc-1", "Second"),
+    ];
+
+    render(messageViewTree(messages));
+
+    const assistantMessages = screen.getAllByTestId(
+      "copilot-assistant-message",
+    );
+    expect(assistantMessages).toHaveLength(2);
+
+    const duplicateKeyWarnings = consoleSpy.mock.calls.filter(
+      (call) =>
+        typeof call[0] === "string" &&
+        call[0].includes("two children with the same key"),
+    );
+    expect(duplicateKeyWarnings).toHaveLength(0);
+
+    consoleSpy.mockRestore();
   });
 });
 
