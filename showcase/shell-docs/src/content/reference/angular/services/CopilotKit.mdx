@@ -54,6 +54,21 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
   The HTTP headers currently sent with runtime requests.
 </PropertyReference>
 
+<PropertyReference name="credentials" type="Signal<RequestCredentials | undefined>">
+  The fetch credentials mode currently used for runtime requests.
+</PropertyReference>
+
+<PropertyReference name="intelligence" type="Signal<IntelligenceRuntimeInfo | undefined>">
+  Runtime intelligence metadata, including the websocket URL used for realtime
+  thread updates when the connected runtime provides one.
+</PropertyReference>
+
+<PropertyReference name="threadEndpoints" type="Signal<ThreadEndpointRuntimeInfo | undefined>">
+  Thread endpoint capabilities reported by the runtime. `injectThreads()` uses
+  this to disable unsupported list, mutation, inspection, or realtime metadata
+  calls.
+</PropertyReference>
+
 <PropertyReference name="suggestionsByAgent" type="Signal<Record<string, CopilotKitCoreGetSuggestionsResult>>">
   Suggestions keyed by agent id. Each value is
   `{ suggestions: Suggestion[]; isLoading: boolean }`.
@@ -144,9 +159,11 @@ All reactive state is exposed as read-only Angular signals. Read a signal by cal
 
 <PropertyReference name="updateRuntime" type="(options) => void">
   Update the runtime connection at runtime. `options` may include `runtimeUrl`,
-  `runtimeTransport`, `headers`, `properties`, `agents`, and
+  `runtimeTransport`, `headers`, `credentials`, `properties`, `agents`, and
   `selfManagedAgents`. Only the fields you pass are applied; `runtimeUrl`,
-  `runtimeTransport`, and `headers` also update the corresponding signals.
+  `runtimeTransport`, `headers`, and `credentials` also update the corresponding
+  signals. Pass `credentials: undefined` to clear a previously configured
+  credentials mode.
 </PropertyReference>
 
 ## Usage

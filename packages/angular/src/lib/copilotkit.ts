@@ -561,7 +561,7 @@ export class CopilotKit {
       this.core.setHeaders(options.headers);
       this.#headers.set(options.headers);
     }
-    if (options.credentials !== undefined) {
+    if (Object.prototype.hasOwnProperty.call(options, "credentials")) {
       this.core.setCredentials(options.credentials);
       this.#credentials.set(options.credentials);
     }

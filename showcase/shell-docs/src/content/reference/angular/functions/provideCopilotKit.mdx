@@ -37,6 +37,12 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
     already set one here.
   </PropertyReference>
 
+  <PropertyReference name="credentials" type="RequestCredentials">
+    Fetch credentials mode used for runtime requests. Set this to `"include"`
+    when your runtime relies on cookies or other browser-managed credentials,
+    especially for cross-origin thread and agent requests.
+  </PropertyReference>
+
   <PropertyReference name="licenseKey" type="string">
     Your CopilotCloud license key (a `ck_pub_...` value). When present and valid
     it is sent as the `X-CopilotCloud-Public-Api-Key` header and removes the
@@ -158,6 +164,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideCopilotKit({
       runtimeUrl: "/api/copilotkit",
+      credentials: "include",
       headers: {
         Authorization: "Bearer <token>",
       },

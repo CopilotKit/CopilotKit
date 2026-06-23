@@ -91,4 +91,39 @@ describe("useThreads provider headers", () => {
       });
     });
   });
+
+  it("refreshes thread requests when provider credentials change", async () => {
+    const runtimeUrl = "https://runtime.example.com";
+
+    const { rerender } = render(
+      <CopilotKitProvider runtimeUrl={runtimeUrl} useSingleEndpoint={false}>
+        <ThreadsConsumer />
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      expect(threadListCalls()).toHaveLength(1);
+      expect(threadListCalls()[0]?.[1]).not.toMatchObject({
+        credentials: "include",
+      });
+    });
+
+    rerender(
+      <CopilotKitProvider
+        runtimeUrl={runtimeUrl}
+        useSingleEndpoint={false}
+        credentials="include"
+      >
+        <ThreadsConsumer />
+      </CopilotKitProvider>,
+    );
+
+    await waitFor(() => {
+      const calls = threadListCalls();
+      expect(calls).toHaveLength(2);
+      expect(calls[1]?.[1]).toMatchObject({
+        credentials: "include",
+      });
+    });
+  });
 });

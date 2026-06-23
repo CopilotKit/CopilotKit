@@ -619,6 +619,8 @@ type HeaderMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
+  credentials?: RequestCredentials;
+  intelligence?: { wsUrl: string };
   threadEndpoints: {
     list: boolean;
     inspect: boolean;
@@ -646,6 +648,7 @@ function createHeaderMockCore(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
+    intelligence: { wsUrl: "wss://localhost/client" },
     threadEndpoints: {
       list: true,
       inspect: true,
@@ -685,6 +688,22 @@ function createHeaderMockCore(
 
 const headersOf = (call: unknown[]) =>
   (call[1] as { headers?: Record<string, string> } | undefined)?.headers ?? {};
+
+const credentialsOf = (call: unknown[]) =>
+  (call[1] as { credentials?: RequestCredentials } | undefined)?.credentials;
+
+const contextOf = (store: unknown) =>
+  (
+    store as {
+      getState: () => {
+        context?: {
+          credentials?: RequestCredentials;
+          wsUrl?: string;
+          threadEndpoints?: HeaderMockCore["threadEndpoints"];
+        };
+      };
+    }
+  ).getState().context;
 
 describe("WebInspectorElement owned thread store headers (#5581)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -734,6 +753,55 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     });
   });
 
+  it("forwards credentials and realtime endpoint metadata to the owned store", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+    harness.core.credentials = "include";
+    harness.core.threadEndpoints.realtimeMetadata = false;
+    fetchMock.mockImplementation((input: RequestInfo | URL) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            String(input).includes("/threads/subscribe")
+              ? { joinToken: "token" }
+              : { threads: [], joinCode: "join" },
+          ),
+      }),
+    );
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(0);
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+    expect(contextOf(ownedStore)).toMatchObject({
+      credentials: "include",
+      wsUrl: "wss://localhost/client",
+      threadEndpoints: {
+        list: true,
+        inspect: true,
+        mutations: true,
+        realtimeMetadata: false,
+      },
+    });
+    expect(credentialsOf(threadListCalls()[0]!)).toBe("include");
+    await Promise.resolve();
+    expect(
+      fetchMock.mock.calls.some((call) =>
+        String(call[0]).includes("/threads/subscribe"),
+      ),
+    ).toBe(false);
+  });
+
   it("re-applies headers on the owned store when core headers change", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
@@ -756,6 +824,43 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     expect(headersOf(threadListCalls().at(-1)!)).toMatchObject({
       "X-CSRF": "2",
+    });
+  });
+
+  it("preserves non-header thread context fields when core headers change", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+    harness.core.credentials = "include";
+    harness.core.threadEndpoints.realtimeMetadata = false;
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(harness.core.registerThreadStore).toHaveBeenCalledWith(
+        "alpha",
+        expect.any(Object),
+      );
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+
+    harness.emitHeadersChanged({ "X-CSRF": "2" });
+
+    expect(contextOf(ownedStore)).toMatchObject({
+      headers: { "X-CSRF": "2" },
+      credentials: "include",
+      wsUrl: "wss://localhost/client",
+      threadEndpoints: {
+        list: true,
+        inspect: true,
+        mutations: true,
+        realtimeMetadata: false,
+      },
     });
   });
 

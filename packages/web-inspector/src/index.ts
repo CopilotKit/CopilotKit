@@ -2591,12 +2591,7 @@ export class WebInspectorElement extends LitElement {
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
-    store.setContext({
-      runtimeUrl: core.runtimeUrl,
-      headers: { ...core.headers },
-      wsUrl: core.intelligence?.wsUrl,
-      agentId,
-    });
+    store.setContext(this.createOwnedThreadStoreContext(core, agentId));
     this._ownedThreadStores.set(agentId, store);
     // Subscribe directly so threads render even before the registry callback
     // fires (some published-core code paths land on the subscriber after
@@ -2623,12 +2618,25 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
     for (const [agentId, store] of this._ownedThreadStores) {
-      store.setContext({
-        runtimeUrl: core.runtimeUrl,
-        headers: { ...headers },
-        agentId,
-      });
+      store.setContext(
+        this.createOwnedThreadStoreContext(core, agentId, headers),
+      );
     }
+  }
+
+  private createOwnedThreadStoreContext(
+    core: CopilotKitCore,
+    agentId: string,
+    headers: Readonly<Record<string, string>> = core.headers,
+  ): Parameters<ɵThreadStore["setContext"]>[0] {
+    return {
+      runtimeUrl: core.runtimeUrl,
+      headers: { ...headers },
+      credentials: core.credentials,
+      wsUrl: core.intelligence?.wsUrl,
+      agentId,
+      threadEndpoints: core.threadEndpoints,
+    };
   }
 
   private removeOwnedThreadStore(agentId: string): void {

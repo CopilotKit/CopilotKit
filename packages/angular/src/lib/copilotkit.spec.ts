@@ -464,6 +464,20 @@ describe("CopilotKit", () => {
     expect(mockSetAgents).toHaveBeenCalledWith({ a: {} });
   });
 
+  it("clears runtime credentials when updateRuntime receives an explicit undefined value", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey, credentials: "include" })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    expect(copilotKit.credentials()).toBe("include");
+
+    copilotKit.updateRuntime({ credentials: undefined });
+
+    expect(mockSetCredentials).toHaveBeenCalledWith(undefined);
+    expect(copilotKit.credentials()).toBeUndefined();
+  });
+
   it("reflects agent updates from core subscriptions", () => {
     TestBed.configureTestingModule({
       providers: [provideCopilotKit({ licenseKey })],
