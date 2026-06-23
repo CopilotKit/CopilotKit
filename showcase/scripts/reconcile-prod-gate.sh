@@ -58,9 +58,27 @@ fi
 # This is a best-effort SECOND invocation (read-only) — its rc does not decide
 # the gate (the human-table invocation below does); a JSON-write failure must
 # not change the gate verdict.
+#
+# We capture stdout to a temp first (NOT straight to $RECONCILE_JSON) so that:
+#   * the probe's stderr is PRESERVED to the job log (a failed --json capture —
+#     e.g. a staging GraphQL outage — must leave a diagnostic trail, never be
+#     routed to /dev/null and vanish); and
+#   * we only publish a NON-BLANK payload. On a hard error reconcile-prod emits
+#     no stdout, and writing the empty result straight to $RECONCILE_JSON would
+#     upload a blank artifact that looks like a real (empty) reconciliation.
+#     Guard the write so a blank/empty payload is skipped.
 if [ -n "${RECONCILE_JSON:-}" ]; then
   echo "==> $RAILWAY_BIN reconcile-prod --json (machine output -> $RECONCILE_JSON)"
-  "$RAILWAY_BIN" reconcile-prod --json > "$RECONCILE_JSON" 2>/dev/null || true
+  json_tmp="$(mktemp)"
+  # stdout -> temp; stderr -> the job log (preserve the diagnostic). rc is
+  # ignored (best-effort); the human-table invocation below decides the gate.
+  "$RAILWAY_BIN" reconcile-prod --json > "$json_tmp" || true
+  if [ -s "$json_tmp" ]; then
+    cp "$json_tmp" "$RECONCILE_JSON"
+  else
+    echo "reconcile-prod-gate: --json capture produced no payload; skipping blank artifact write to $RECONCILE_JSON." >&2
+  fi
+  rm -f "$json_tmp"
 fi
 
 echo "==> $RAILWAY_BIN reconcile-prod"

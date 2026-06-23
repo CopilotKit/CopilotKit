@@ -65,6 +65,25 @@ echo "graphql error: boom" >&2
 exit 2
 STUB
   chmod +x "$STUB_DIR/railway-error"
+
+  # JSON-error stub: distinguishes the machine-output (`--json`) invocation from
+  # the human-table invocation. The `--json` invocation emits a DISTINCT stderr
+  # diagnostic (`JSON-CAPTURE-DIAG`) and NO stdout payload, then exits 2; the
+  # human-table invocation emits its own line. This isolates the `--json`
+  # capture path so we can assert it (a) preserves ITS stderr diagnostic instead
+  # of routing it to /dev/null and (b) does not write a blank artifact from the
+  # empty stdout.
+  cat > "$STUB_DIR/railway-json-error" <<'STUB'
+#!/usr/bin/env bash
+[ "$1" = "reconcile-prod" ] || { echo "expected first arg 'reconcile-prod', got '$1'" >&2; exit 99; }
+if [ "$2" = "--json" ]; then
+  echo "graphql error: JSON-CAPTURE-DIAG staging outage" >&2
+  exit 2
+fi
+echo "graphql error: human-table boom" >&2
+exit 2
+STUB
+  chmod +x "$STUB_DIR/railway-json-error"
 }
 
 @test "stale prod service -> gate fails loud (non-zero, finding surfaced)" {
@@ -99,6 +118,26 @@ STUB
   run env RAILWAY_BIN="$STUB_DIR/railway-green" RECONCILE_JSON="$JSON_OUT" bash "$SCRIPT"
   [ "$status" -eq 0 ] || fail "expected exit 0 with green stub + RECONCILE_JSON, got $status ($output)"
   [ -f "$JSON_OUT" ] || fail "RECONCILE_JSON file not written"
+}
+
+@test "RECONCILE_JSON capture preserves the stderr diagnostic on a hard error" {
+  # When the --json capture invocation hits a hard error, its stderr diagnostic
+  # must NOT be swallowed (routed to /dev/null) — a failed probe has to leave a
+  # diagnostic trail in the job log instead of vanishing.
+  JSON_OUT="$BATS_TEST_TMPDIR/reconcile.json"
+  run env RAILWAY_BIN="$STUB_DIR/railway-json-error" RECONCILE_JSON="$JSON_OUT" bash "$SCRIPT"
+  [[ "$output" == *"JSON-CAPTURE-DIAG"* ]] || fail "stderr diagnostic from the --json capture was swallowed: $output"
+}
+
+@test "RECONCILE_JSON does not write a blank artifact when the capture produces nothing" {
+  # When the --json invocation errors and emits no payload, the gate must NOT
+  # leave a blank/empty reconcile.json behind — an empty artifact is uploaded as
+  # if it were a real result. Either no file, or a non-empty file.
+  JSON_OUT="$BATS_TEST_TMPDIR/reconcile.json"
+  run env RAILWAY_BIN="$STUB_DIR/railway-json-error" RECONCILE_JSON="$JSON_OUT" bash "$SCRIPT"
+  if [ -f "$JSON_OUT" ]; then
+    [ -s "$JSON_OUT" ] || fail "wrote a blank reconcile.json artifact (empty file) on a no-payload error"
+  fi
 }
 
 @test "the on-demand workflow wires the gate in" {
