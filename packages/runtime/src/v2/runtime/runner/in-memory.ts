@@ -3,7 +3,8 @@ import type {
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
 } from "./agent-runner";
-import { AgentRunner, type AgentRunnerStopRequest } from "./agent-runner";
+import { AgentRunner } from "./agent-runner";
+import type { AgentRunnerStopRequest } from "./agent-runner";
 import type { Observable } from "rxjs";
 import { ReplaySubject } from "rxjs";
 import type {

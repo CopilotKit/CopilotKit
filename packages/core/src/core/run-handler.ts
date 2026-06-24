@@ -3,6 +3,7 @@ import type {
   AgentSubscriber,
   Message,
   RunAgentResult,
+  ResumeEntry,
   Tool,
   ToolCall,
 } from "@ag-ui/client";
@@ -17,6 +18,11 @@ import type { FrontendTool } from "../types";
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
   forwardedProps?: Record<string, unknown>;
+  /**
+   * Per-interrupt responses addressing every open AG-UI interrupt from the
+   * previous run. Forwarded to the agent as the standard `resume` array.
+   */
+  resume?: ResumeEntry[];
 }
 
 export interface CopilotKitCoreConnectAgentParams {
@@ -286,6 +292,7 @@ export class RunHandler {
   async runAgent({
     agent,
     forwardedProps,
+    resume,
   }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
@@ -345,6 +352,7 @@ export class RunHandler {
             ...this._internal.properties,
             ...forwardedProps,
           },
+          ...(resume !== undefined ? { resume } : {}),
           tools: this.buildFrontendTools(agent.agentId),
           context: this._internal.getContextForAgent(agent.agentId),
         },
@@ -643,7 +651,6 @@ export class RunHandler {
 
     let toolCallResult = "";
     let errorMessage: string | undefined;
-    let isArgumentError = false;
 
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
@@ -656,7 +663,6 @@ export class RunHandler {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
         errorMessage = parseError.message;
-        isArgumentError = true;
         await this._internal.emitError({
           error: parseError,
           code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
@@ -989,7 +995,7 @@ function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const { $schema, ...schema } = rawSchema as Record<string, unknown>;
+  const { $schema: _$schema, ...schema } = rawSchema as Record<string, unknown>;
 
   if (typeof schema.type !== "string") {
     schema.type = "object";
