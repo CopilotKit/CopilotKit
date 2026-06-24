@@ -1555,6 +1555,10 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 
     harness.emitThreadStoreUnregistered("alpha", ownedStore);
 
+    expect(harness.core.unregisterThreadStore).toHaveBeenCalledWith(
+      "alpha",
+      ownedStore,
+    );
     expect(internals._ownedThreadStores.has("alpha")).toBe(false);
   });
 });

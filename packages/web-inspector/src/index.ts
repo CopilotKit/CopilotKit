@@ -2801,6 +2801,7 @@ export class WebInspectorElement extends LitElement {
       onThreadStoreUnregistered: ({ agentId, prevStore }) => {
         const ownedStore = this._ownedThreadStores.get(agentId);
         if (ownedStore && ownedStore === prevStore) {
+          core.unregisterThreadStore(agentId, ownedStore);
           ownedStore.stop();
           this._ownedThreadStores.delete(agentId);
         }
