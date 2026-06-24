@@ -20,7 +20,7 @@
     "@json-render/core": "0.18.0",
     "@json-render/react": "0.18.0",
     "@tanstack/ai": "0.35.0",
-    "@tanstack/ai-openai": "0.15.5",
+    "@tanstack/ai-openai": "0.15.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.14.0",
