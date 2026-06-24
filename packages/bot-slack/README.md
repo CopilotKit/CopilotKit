@@ -44,9 +44,9 @@ await bot.start();
 `slack(opts)` returns a `SlackAdapter`. By default it runs in **Socket Mode**
 (`socketMode: true`) — outbound WebSocket only, no public URL needed. HTTP
 mode (`socketMode: false`) needs `signingSecret` and a `port`. The Slack
-listener pre-filters ingress to the turns the bot should answer (@-mentions,
-replies in threads it owns, DMs), so a single `onMention` handler usually
-covers everything.
+listener pre-filters ingress to the turns the bot should answer. By default,
+DMs are conversational, app mentions respond in-thread, and plain replies in
+channel/private-channel threads require another app mention.
 
 ### Required env
 
@@ -54,6 +54,47 @@ covers everything.
 | ----------------- | ------- | -------------------------------- |
 | `SLACK_BOT_TOKEN` | `xoxb-` | Bot token for the Web API.       |
 | `SLACK_APP_TOKEN` | `xapp-` | App-level token for Socket Mode. |
+
+## Response routing
+
+Use `respondTo` to choose which Slack message events become `onMention` turns:
+
+| Surface                                 | Default behavior        | Option                                                |
+| --------------------------------------- | ----------------------- | ----------------------------------------------------- |
+| Direct messages (`message.im`)          | Respond                 | `respondTo.directMessages`                            |
+| App mentions (`app_mention`)            | Respond in-thread       | `respondTo.appMentions` / `appMentions.reply`         |
+| Plain channel/private-channel replies   | Ignore unless mentioned | `respondTo.threadReplies: "afterBotReply"` for legacy |
+| Assistant pane                          | Separate default-on API | `assistant`; not controlled by `respondTo`            |
+| Slash commands, reactions, interactions | Explicit trigger paths  | Not controlled by `respondTo`                         |
+
+```ts
+// Default routing made explicit.
+slack({
+  botToken,
+  appToken,
+  respondTo: {
+    directMessages: true,
+    appMentions: { reply: "thread" },
+    threadReplies: "mentionsOnly",
+  },
+});
+```
+
+```ts
+// Legacy owned-thread continuation.
+slack({
+  botToken,
+  appToken,
+  respondTo: {
+    threadReplies: "afterBotReply",
+  },
+});
+```
+
+For the default mention-only thread behavior, subscribe to `app_mention` and
+`message.im` events. Add `message.channels` and `message.groups` only when you
+enable `respondTo.threadReplies: "afterBotReply"` and want Slack to deliver
+plain channel/private-channel thread replies.
 
 ## What it provides
 
@@ -289,7 +330,8 @@ features your app uses:
 
 ## Exports
 
-`slack`, `SlackAdapter`, `SlackAdapterOptions`, `SlackAssistantOptions`;
+`slack`, `SlackAdapter`, `SlackAdapterOptions`, `SlackAssistantOptions`,
+`SlackRespondToOptions`;
 `createRunRenderer`; `decodeInteraction`, `conversationKeyOf`; `renderBlockKit`,
 `renderSlackMessage`, `SLACK_LIMITS`; `defaultSlackTools`,
 `lookupSlackUserTool`, `defaultSlackContext` (+ the individual context

@@ -79,10 +79,10 @@ settings:
       - app_mention
       - assistant_thread_started # user opened the assistant pane
       - assistant_thread_context_changed # the channel/context the user is viewing
-      - message.channels # messages in public channels the bot is in
-      - message.groups # messages in private channels the bot is in
       - message.im # DMs to the bot + assistant-pane messages
       - message.mpim # messages in group DMs the bot is in
+      # Add message.channels/message.groups only when using
+      # respondTo.threadReplies: "afterBotReply" for legacy plain thread continuation.
       - reaction_added # required for the emoji-triage demo (bot.onReaction)
       - reaction_removed # required for the emoji-triage demo (bot.onReaction)
   interactivity:
