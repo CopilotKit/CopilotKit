@@ -20,19 +20,29 @@ import type {
   MessageRef,
   PlatformUser,
   UserQuery,
+  EphemeralResult,
+  NativePayload,
 } from "@copilotkit/bot";
 import type { AbstractAgent } from "@ag-ui/client";
-import type { BotNode, ThreadMessage } from "@copilotkit/bot-ui";
+import type { BotNode, ThreadMessage, EmojiValue } from "@copilotkit/bot-ui";
+import { toPlatformEmoji } from "@copilotkit/bot-ui";
 import { SlackConversationStore } from "./conversation-store.js";
 import { attachSlackListener } from "./slack-listener.js";
 import { createRunRenderer } from "./event-renderer.js";
-import { decodeInteraction, conversationKeyOf } from "./interaction.js";
+import {
+  decodeInteraction,
+  decodeReaction,
+  decodeViewSubmission,
+  decodeViewClosed,
+  conversationKeyOf,
+} from "./interaction.js";
 import {
   renderBlockKit,
   renderSlackMessage,
   buildFeedbackBlocks,
   FEEDBACK_ACTION_ID,
 } from "./render/block-kit.js";
+import { renderSlackModal } from "./render/modal.js";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { NativeMessageStream } from "./native-stream.js";
 import type { TextStream, NativeStreamTransport } from "./native-stream.js";
@@ -121,10 +131,11 @@ export class SlackAdapter implements PlatformAdapter {
   constructor(private readonly opts: SlackAdapterOptions) {
     const assistantEnabled = opts.assistant !== false;
     this.capabilities = {
-      supportsModals: false,
+      supportsModals: true,
       supportsTyping: false,
-      supportsReactions: false,
+      supportsReactions: true,
       supportsStreaming: true,
+      supportsEphemeral: true,
       maxBlocksPerMessage: 50,
       supportsSuggestedPrompts: assistantEnabled,
       supportsThreadTitle: assistantEnabled,
@@ -213,6 +224,7 @@ export class SlackAdapter implements PlatformAdapter {
           // Stable per-invocation id for inbound dedup (command:user:trigger_id).
           eventId: cmd.eventId,
           platform: "slack",
+          triggerId: cmd.triggerId,
         });
       },
     });
@@ -229,6 +241,54 @@ export class SlackAdapter implements PlatformAdapter {
       const evt = this.decodeInteraction(body);
       if (evt) await sink.onInteraction(evt);
     });
+
+    this.app.event("reaction_added", async ({ event }) => {
+      // Loop guard: Slack delivers reaction events for the bot's OWN reactions
+      // (e.g. our addReaction egress), which would echo back as phantom user
+      // reactions. Skip them, like every other ingress path guards botUserId.
+      if (event.user === this.botUserId) return;
+      const evt = decodeReaction(event, true);
+      if (!evt) return;
+      // Enrich the reactor to parity with onTurn/onCommand so per-user
+      // attribution (e.g. senderContext(evt.user) → filter by email) works
+      // for reaction-triggered runs, not just mentions and commands.
+      if (event.user) evt.user = await this.resolveUser(event.user);
+      await sink.onReaction(evt);
+    });
+    this.app.event("reaction_removed", async ({ event }) => {
+      if (event.user === this.botUserId) return;
+      const evt = decodeReaction(event, false);
+      if (!evt) return;
+      if (event.user) evt.user = await this.resolveUser(event.user);
+      await sink.onReaction(evt);
+    });
+
+    // Modal submit: route to the engine and ack. When the handler returns
+    // per-field errors, ack with `response_action: "errors"` (keeps the modal
+    // open with inline messages); otherwise a plain ack closes the modal.
+    // A catch-all `/.*/` callback_id constraint defaults to `view_submission`.
+    this.app.view(/.*/, async ({ ack, body, view }) => {
+      const user = body.user?.id
+        ? { id: body.user.id, name: body.user.name }
+        : undefined;
+      const result = await sink.onModalSubmit(decodeViewSubmission(view, user));
+      if (result?.errors) {
+        await ack({ response_action: "errors", errors: result.errors });
+      } else {
+        await ack();
+      }
+    });
+    // Modal dismissed (only delivered when the view set `notify_on_close`).
+    this.app.view(
+      { type: "view_closed", callback_id: /.*/ },
+      async ({ ack, body, view }) => {
+        const user = body.user?.id
+          ? { id: body.user.id, name: body.user.name }
+          : undefined;
+        await sink.onModalClose(decodeViewClosed(view, user));
+        await ack();
+      },
+    );
 
     // Socket Mode ignores the port; HTTP mode binds it.
     await this.app.start(this.opts.port ?? 0);
@@ -785,6 +845,125 @@ export class SlackAdapter implements PlatformAdapter {
       return { ok: true };
     } catch (e) {
       return { ok: false, error: (e as Error).message };
+    }
+  }
+
+  async addReaction(
+    target: BotReplyTarget,
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const name = toPlatformEmoji(emoji, "slack") ?? emoji;
+    const channel =
+      (messageRef as { channel?: string }).channel ??
+      (target as ReplyTarget).channel;
+    try {
+      await this.client.reactions.add({
+        channel,
+        timestamp: messageRef.id,
+        name,
+      });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  async removeReaction(
+    target: BotReplyTarget,
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const name = toPlatformEmoji(emoji, "slack") ?? emoji;
+    const channel =
+      (messageRef as { channel?: string }).channel ??
+      (target as ReplyTarget).channel;
+    try {
+      await this.client.reactions.remove({
+        channel,
+        timestamp: messageRef.id,
+        name,
+      });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  /**
+   * Post an ephemeral message visible only to `user`. Slack always supports
+   * native ephemeral, so `fallbackToDM` is ignored and `usedFallback` is
+   * always `false` on success. On API error returns `{ ok: false, error }`.
+   */
+  async postEphemeral(
+    target: BotReplyTarget,
+    user: PlatformUser | string,
+    ir: BotNode[],
+    _opts: { fallbackToDM: boolean },
+  ): Promise<EphemeralResult | null> {
+    const t = target as ReplyTarget;
+    const userId = typeof user === "string" ? user : user.id;
+    const { blocks } = renderSlackMessage(ir);
+    const text = fallbackText(ir);
+    try {
+      const res = await this.client.chat.postEphemeral({
+        channel: t.channel,
+        user: userId,
+        ...(t.threadTs ? { thread_ts: t.threadTs } : {}),
+        blocks,
+        text,
+      });
+      return {
+        ok: true,
+        usedFallback: false,
+        ref: {
+          id: (res as { message_ts?: string }).message_ts ?? "",
+          channel: t.channel,
+        },
+      };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  /** Render a modal IR tree to a Slack `views.open` `View` (pure; backs `openModal`). */
+  renderModal(ir: BotNode[]): NativePayload {
+    return renderSlackModal(ir);
+  }
+
+  /**
+   * Open a modal against a Slack `trigger_id` via `views.open`. Degrades rather
+   * than throwing: a render error (unsupported element) or API failure (expired
+   * trigger, etc.) resolves to `{ ok: false, error }`.
+   */
+  async openModal(
+    target: BotReplyTarget,
+    triggerId: string,
+    ir: BotNode[],
+  ): Promise<{ ok: boolean; error?: string }> {
+    try {
+      const t = target as ReplyTarget;
+      const view = renderSlackModal(ir);
+      // Slack `view_submission`/`view_closed` payloads are detached from the
+      // originating channel, so private_metadata is the only carrier of the
+      // conversation context. Stamp a `__cpk` envelope with the reply target,
+      // preserving any author-set private_metadata under `pm` for round-trip.
+      view.private_metadata = JSON.stringify({
+        __cpk: {
+          channel: t.channel,
+          ...(t.threadTs ? { threadTs: t.threadTs } : {}),
+        },
+        ...(view.private_metadata !== undefined
+          ? { pm: view.private_metadata }
+          : {}),
+      });
+      await this.client.views.open({
+        trigger_id: triggerId,
+        view,
+      });
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
     }
   }
 }
