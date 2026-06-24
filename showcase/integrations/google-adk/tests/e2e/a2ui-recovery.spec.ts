@@ -36,8 +36,8 @@ import type { Page } from "@playwright/test";
 // args correctly in-sandbox (OSS-158 toolkit gate) and against real Gemini.
 // It does NOT red CI — these per-integration specs are not run for google-adk
 // in CI; we only see it via a manual `pnpm test:e2e` run. Tracked in Linear:
-// (1) showcase-aimock inner-subagent disambiguation; (2) recovery-demo LP
-// parity. The `exhaust` + page-load tests pass.
+// OSS-374 (showcase-aimock inner-subagent disambiguation) + OSS-375
+// (recovery-demo LP parity). The `exhaust` + page-load tests pass.
 // └─────────────────────────────────────────────────────────────────────────┘
 //
 // Requires the stack running with aimock (GOOGLE_GEMINI_BASE_URL -> aimock) so
@@ -97,7 +97,7 @@ test.describe("A2UI Error Recovery (ADK-only)", () => {
 
   // KNOWN-FAILING by design — see the header block. Kept running (not skipped)
   // as a live demonstration of the showcase-aimock inner-subagent
-  // disambiguation gap; the heal pill receives the EXHAUST fixture, so this
+  // disambiguation gap (OSS-374); the heal pill receives the EXHAUST fixture, so this
   // asserts the surface that *should* paint but doesn't under aimock.
   test("heal: free-form/sloppy render is healed into a valid surface", async ({
     page,

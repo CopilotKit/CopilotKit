@@ -45,7 +45,7 @@
 >
 > This is an **aimock harness limitation, not a middleware/demo bug**: the middleware heals free-form args correctly in the OSS-158 toolkit gate (in-sandbox) and against real Gemini. The `e2e` `heal` test is **kept failing on purpose** as a live demonstration for the Showcase team. It does **not** red CI (these per-integration specs are not run for google-adk in CI). The `exhaust` + page-load tests pass.
 >
-> Tracked in Linear: (1) showcase-aimock inner-subagent disambiguation; (2) recovery-demo langgraph-python parity.
+> Tracked in Linear: OSS-374 (showcase-aimock inner-subagent disambiguation) + OSS-375 (recovery-demo langgraph-python parity).
 
 ## Notes
 

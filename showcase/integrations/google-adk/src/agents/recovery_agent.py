@@ -31,7 +31,8 @@ showcase aimock — that harness can't disambiguate the two pills' inner
 prompt + shared suggestion context), so both pills match the same inner fixture
 and the heal pill exhausts. The e2e `heal` test is kept failing on purpose to
 demonstrate this; see `tests/e2e/a2ui-recovery.spec.ts` and
-`qa/a2ui-recovery.md`. Tracked in Linear.
+`qa/a2ui-recovery.md`. Tracked in Linear: OSS-374 (aimock disambiguation),
+OSS-375 (recovery-demo LP parity).
 """
 
 from __future__ import annotations
