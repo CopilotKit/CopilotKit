@@ -217,6 +217,8 @@ export function ɵcreateMemoryStore(
       store.stop();
     },
     refresh(): Promise<void> {
+      // Intentional no-op: the in-memory mock has no transport to re-pull from.
+      // The real REST snapshot re-fetch is RD-34's responsibility.
       return Promise.resolve();
     },
     addMemory(input: NewMemory): Promise<PublicMemory> {
