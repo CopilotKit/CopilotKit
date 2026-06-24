@@ -5,8 +5,10 @@ const OPENBOX_VISIBLE_TIMEOUT_MS = 180_000;
 
 /**
  * Navigate to the app with a fresh reset token, then wait for the chat
- * interface to be ready. The `reset` parameter is appended to the URL as
- * `?reset=e2e-<reset>-<timestamp>` so each test gets an isolated session.
+ * interface to be ready. The `?reset=e2e-<reset>-<timestamp>` query parameter
+ * is a cache-buster only — nothing in the app reads it. A fresh session per
+ * test is achieved by the full page navigation (`page.goto`) remounting the
+ * CopilotKit provider, combined with serial execution (`fullyParallel: false`).
  */
 export async function openFresh(page: Page, reset: string): Promise<void> {
   await page.goto(`/?reset=e2e-${reset}-${Date.now()}`);

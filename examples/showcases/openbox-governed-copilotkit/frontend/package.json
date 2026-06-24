@@ -6,7 +6,6 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
-    "lint": "next lint",
     "test:e2e": "playwright test"
   },
   "dependencies": {

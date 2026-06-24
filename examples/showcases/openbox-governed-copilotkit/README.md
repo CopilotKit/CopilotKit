@@ -76,15 +76,17 @@ from the governance matrix below.
 
 ### Frontend (`frontend/.env.local`)
 
-| Variable                  | Description                                                                |
-| ------------------------- | -------------------------------------------------------------------------- |
-| `AGENT_URL`               | LangGraph agent server URL (default `http://localhost:8123`)               |
-| `APP_URL`                 | Public URL of this app (default `http://localhost:3000`)                   |
-| `OPENBOX_ENABLED`         | Set to `true` to enable OpenBox governance                                 |
-| `OPENBOX_CORE_URL`        | OpenBox Core service URL                                                   |
-| `OPENBOX_API_KEY`         | OpenBox API key for the agent runtime (server-only)                        |
-| `OPENBOX_API_URL`         | OpenBox approval/governance API base URL (server-only)                     |
-| `OPENBOX_BACKEND_API_KEY` | Backend API key for the approval route (server-only, never `NEXT_PUBLIC_`) |
+| Variable                    | Description                                                                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AGENT_URL`                 | LangGraph agent server URL (default `http://localhost:8123`)                                                                                         |
+| `APP_URL`                   | Public URL of this app (default `http://localhost:3000`)                                                                                             |
+| `OPENBOX_ENABLED`           | Set to `true` to enable OpenBox governance                                                                                                           |
+| `OPENBOX_CORE_URL`          | OpenBox Core service URL                                                                                                                             |
+| `OPENBOX_API_KEY`           | OpenBox API key for the agent runtime (server-only)                                                                                                  |
+| `OPENBOX_API_URL`           | OpenBox approval/governance API base URL (server-only)                                                                                               |
+| `OPENBOX_BACKEND_API_KEY`   | Backend API key for the approval route (server-only, never `NEXT_PUBLIC_`)                                                                           |
+| `OPENBOX_AGENT_DID`         | Optional — agent DID for signed-agent identity; **must be set together with `OPENBOX_AGENT_PRIVATE_KEY`** (setting only one causes the SDK to throw) |
+| `OPENBOX_AGENT_PRIVATE_KEY` | Optional — base64 raw Ed25519 private key for signed-agent identity; **must be set together with `OPENBOX_AGENT_DID`**                               |
 
 ## Governance demo matrix
 
