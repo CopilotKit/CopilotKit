@@ -1,0 +1,64 @@
+{
+  "name": "@copilotkit/web-components",
+  "version": "1.61.1",
+  "private": false,
+  "description": "Framework-agnostic CopilotKit web components — the controlled <copilotkit-drawer> threads drawer Lit custom element",
+  "keywords": [
+    "ai",
+    "copilotkit",
+    "lit",
+    "web-components",
+    "custom-elements",
+    "drawer",
+    "threads"
+  ],
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/web-components"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}'",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "publint": "publint ."
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "lit": "^3.3.2",
+    "tsdown": "^0.20.3",
+    "typescript": "5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "lit": "^3.3.2"
+  }
+}
