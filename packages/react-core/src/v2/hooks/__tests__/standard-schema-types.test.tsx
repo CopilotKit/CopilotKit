@@ -105,7 +105,7 @@ describe("RenderToolProps type inference", () => {
 describe("ReactToolCallRenderer type inference", () => {
   it("args field accepts a StandardSchemaV1", () => {
     expectTypeOf<ReactToolCallRenderer<{ x: number }>["args"]>().toMatchTypeOf<
-      StandardSchemaV1<any, { x: number }>
+      StandardSchemaV1<any, { x: number }> | undefined
     >();
   });
 

@@ -1,9 +1,12 @@
 import { Observable, Subject } from "rxjs";
 import { filter, map, tap } from "rxjs/operators";
 import { describe, expect, it } from "vitest";
-import {
+import type {
   AnyAction,
+  Reducer,
   StoreLifecycleAction,
+} from "../utils/micro-redux";
+import {
   createActionGroup,
   createEffect,
   createReducer,
@@ -20,6 +23,10 @@ const flushAsap = async (): Promise<void> => {
   await Promise.resolve();
   await Promise.resolve();
 };
+
+const widenReducer = <State, Action extends AnyAction>(
+  reducer: Reducer<State, Action>,
+): Reducer<State> => reducer as Reducer<State>;
 
 describe("micro-redux", () => {
   describe("action groups", () => {
@@ -67,34 +74,42 @@ describe("micro-redux", () => {
 
   describe("reducers", () => {
     it("handles reducers with single and multiple action creators", () => {
+      type CounterState = { count: number; updates: number };
+
       const counterActions = createActionGroup("Counter", {
         increment: empty(),
         reset: empty(),
         setCount: props<{ count: number }>(),
       });
 
-      const reducer = createReducer(
-        { count: 0, updates: 0 },
-        on(counterActions.increment, (state) => ({
-          ...state,
-          count: state.count + 1,
-          updates: state.updates + 1,
-        })),
-        on(counterActions.setCount, counterActions.reset, (state, action) => {
-          if (counterActions.reset.match(action)) {
-            return {
-              ...state,
-              count: 0,
-              updates: state.updates + 1,
-            };
-          }
-
-          return {
+      const reducer = widenReducer(
+        createReducer(
+          { count: 0, updates: 0 },
+          on(counterActions.increment, (state: CounterState) => ({
             ...state,
-            count: action.count,
+            count: state.count + 1,
             updates: state.updates + 1,
-          };
-        }),
+          })),
+          on(
+            counterActions.setCount,
+            counterActions.reset,
+            (state: CounterState, action) => {
+              if (counterActions.reset.match(action)) {
+                return {
+                  ...state,
+                  count: 0,
+                  updates: state.updates + 1,
+                };
+              }
+
+              return {
+                ...state,
+                count: action.count,
+                updates: state.updates + 1,
+              };
+            },
+          ),
+        ),
       );
 
       const unknownAction = { type: "[Counter] unknown" };
@@ -121,10 +136,10 @@ describe("micro-redux", () => {
 
       const reducer = createReducer(
         { history: [] as string[] },
-        on(actions.tick, (state) => ({
+        on(actions.tick, (state: { history: string[] }) => ({
           history: [...state.history, "first"],
         })),
-        on(actions.tick, (state) => ({
+        on(actions.tick, (state: { history: string[] }) => ({
           history: [...state.history, "second"],
         })),
       );
@@ -153,14 +168,14 @@ describe("micro-redux", () => {
       const selectMultiplier = (state: State) => state.multiplier;
 
       let projectorCalls = 0;
-      const selectScaled = createSelector(
-        selectItems,
-        selectMultiplier,
-        (items, multiplier) => {
-          projectorCalls += 1;
-          return items.map((item) => item * multiplier);
-        },
-      );
+      const selectScaled = createSelector<
+        State,
+        [typeof selectItems, typeof selectMultiplier],
+        number[]
+      >(selectItems, selectMultiplier, (items, multiplier) => {
+        projectorCalls += 1;
+        return items.map((item) => item * multiplier);
+      });
 
       const state: State = {
         items: [1, 2],
@@ -255,10 +270,12 @@ describe("micro-redux", () => {
 
       const reducer = createReducer(
         { count: 0 },
-        on(actions.increment, (state) => ({ count: state.count + 1 })),
+        on(actions.increment, (state: { count: number }) => ({
+          count: state.count + 1,
+        })),
       );
 
-      const store = createStore({ reducer });
+      const store = createStore({ reducer: widenReducer(reducer) });
       store.dispatch(actions.increment());
 
       expect(store.getState()).toEqual({ count: 1 });
@@ -270,13 +287,15 @@ describe("micro-redux", () => {
         completed: empty(),
       });
 
+      type EffectState = { triggerCount: number; completedCount: number };
+
       const reducer = createReducer(
         { triggerCount: 0, completedCount: 0 },
-        on(actions.trigger, (state) => ({
+        on(actions.trigger, (state: EffectState) => ({
           ...state,
           triggerCount: state.triggerCount + 1,
         })),
-        on(actions.completed, (state) => ({
+        on(actions.completed, (state: EffectState) => ({
           ...state,
           completedCount: state.completedCount + 1,
         })),
@@ -289,7 +308,10 @@ describe("micro-redux", () => {
         ),
       );
 
-      const store = createStore({ reducer, effects: [effect] });
+      const store = createStore<EffectState, AnyAction>({
+        reducer: widenReducer(reducer),
+        effects: [effect],
+      });
       store.init();
       store.dispatch(actions.trigger());
 
@@ -304,13 +326,15 @@ describe("micro-redux", () => {
         done: empty(),
       });
 
+      type HelloState = { count: number; done: number };
+
       const reducer = createReducer(
         { count: 0, done: 0 },
-        on(someGroup.world, (state, action) => ({
+        on(someGroup.world, (state: HelloState, action) => ({
           ...state,
           count: state.count + action.a,
         })),
-        on(someGroup.done, (state) => ({
+        on(someGroup.done, (state: HelloState) => ({
           ...state,
           done: state.done + 1,
         })),
@@ -328,7 +352,10 @@ describe("micro-redux", () => {
         );
       });
 
-      const store = createStore({ reducer, effects: [someEffect] });
+      const store = createStore<HelloState, AnyAction>({
+        reducer: widenReducer(reducer),
+        effects: [someEffect],
+      });
       store.init();
       store.dispatch(someGroup.world({ a: 123 }));
 
@@ -343,13 +370,15 @@ describe("micro-redux", () => {
         completed: empty(),
       });
 
+      type SideEffectState = { triggerCount: number; completedCount: number };
+
       const reducer = createReducer(
         { triggerCount: 0, completedCount: 0 },
-        on(actions.trigger, (state) => ({
+        on(actions.trigger, (state: SideEffectState) => ({
           ...state,
           triggerCount: state.triggerCount + 1,
         })),
-        on(actions.completed, (state) => ({
+        on(actions.completed, (state: SideEffectState) => ({
           ...state,
           completedCount: state.completedCount + 1,
         })),
@@ -368,7 +397,10 @@ describe("micro-redux", () => {
         { dispatch: false },
       );
 
-      const store = createStore({ reducer, effects: [effect] });
+      const store = createStore({
+        reducer: widenReducer(reducer),
+        effects: [effect],
+      });
       store.init();
       store.dispatch(actions.trigger());
 
@@ -385,7 +417,7 @@ describe("micro-redux", () => {
 
       const reducer = createReducer(
         { completedCount: 0 },
-        on(actions.completed, (state) => ({
+        on(actions.completed, (state: { completedCount: number }) => ({
           completedCount: state.completedCount + 1,
         })),
       );
@@ -398,7 +430,10 @@ describe("micro-redux", () => {
           ),
       );
 
-      const store = createStore({ reducer, effects: [effect] });
+      const store = createStore({
+        reducer: widenReducer(reducer),
+        effects: [effect],
+      });
       store.init();
 
       expect(store.getState()).toEqual({ completedCount: 0 });
@@ -408,7 +443,7 @@ describe("micro-redux", () => {
 
     it("dispatches lifecycle actions during init and stop and keeps calls idempotent", () => {
       const reducer = createReducer({ count: 0 });
-      const store = createStore({ reducer });
+      const store = createStore({ reducer: widenReducer(reducer) });
 
       const seenActionTypes: string[] = [];
       const sub = store.actions$.subscribe({
@@ -436,7 +471,7 @@ describe("micro-redux", () => {
 
       const reducer = createReducer(
         { completedCount: 0 },
-        on(actions.completed, (state) => ({
+        on(actions.completed, (state: { completedCount: number }) => ({
           completedCount: state.completedCount + 1,
         })),
       );
@@ -448,7 +483,10 @@ describe("micro-redux", () => {
         ),
       );
 
-      const store = createStore({ reducer, effects: [effect] });
+      const store = createStore<{ completedCount: number }, AnyAction>({
+        reducer: widenReducer(reducer),
+        effects: [effect],
+      });
       store.init();
       store.stop();
 
@@ -465,10 +503,12 @@ describe("micro-redux", () => {
 
       const reducer = createReducer(
         { count: 0 },
-        on(actions.ping, (state) => ({ count: state.count + 1 })),
+        on(actions.ping, (state: { count: number }) => ({
+          count: state.count + 1,
+        })),
       );
 
-      const store = createStore({ reducer });
+      const store = createStore({ reducer: widenReducer(reducer) });
 
       const stateEmissions: number[] = [];
       const actionTypes: string[] = [];
@@ -499,7 +539,7 @@ describe("micro-redux", () => {
         on(actions.set, (_state, action) => ({ count: action.count })),
       );
 
-      const store = createStore({ reducer });
+      const store = createStore({ reducer: widenReducer(reducer) });
       const parityValues: number[] = [];
       const sub = store
         .select((s) => s.count % 2)
@@ -521,7 +561,9 @@ describe("micro-redux", () => {
 
       const reducer = createReducer(
         { count: 0 },
-        on(actions.trigger, (state) => ({ count: state.count + 1 })),
+        on(actions.trigger, (state: { count: number }) => ({
+          count: state.count + 1,
+        })),
       );
 
       const healthyEffectCalls = { value: 0 };
@@ -547,7 +589,7 @@ describe("micro-redux", () => {
       );
 
       const store = createStore({
-        reducer,
+        reducer: widenReducer(reducer),
         effects: [healthyEffect, throwingEffect],
       });
 
@@ -588,7 +630,10 @@ describe("micro-redux", () => {
         { dispatch: false },
       );
 
-      const store = createStore({ reducer, effects: [throwingEffect] });
+      const store = createStore({
+        reducer: widenReducer(reducer),
+        effects: [throwingEffect],
+      });
 
       const actionErrors: unknown[] = [];
       const stateErrors: unknown[] = [];

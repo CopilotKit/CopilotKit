@@ -207,7 +207,7 @@ export interface CopilotRuntimeLike {
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
   intelligence?: undefined;
-  mode: RUNTIME_MODE_SSE;
+  mode: typeof RUNTIME_MODE_SSE;
 }
 
 export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
@@ -217,7 +217,7 @@ export interface CopilotIntelligenceRuntimeLike extends CopilotRuntimeLike {
   lockTtlSeconds: number;
   lockKeyPrefix?: string;
   lockHeartbeatIntervalSeconds: number;
-  mode: RUNTIME_MODE_INTELLIGENCE;
+  mode: typeof RUNTIME_MODE_INTELLIGENCE;
 }
 
 abstract class BaseCopilotRuntime implements CopilotRuntimeLike {

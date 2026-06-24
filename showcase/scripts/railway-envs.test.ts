@@ -17,6 +17,7 @@ import {
   computePromoteClosure,
   domainFor,
   envsFor,
+  healthcheckPathFor,
   instanceIdFor,
   listServiceNames,
   probeEnabled,
@@ -150,6 +151,40 @@ describe("railway-envs SSOT", () => {
         ).toMatch(uuid);
       }
     }
+  });
+
+  it("every declared healthcheckPath is a non-empty `/`-prefixed string", () => {
+    // A wrong healthcheckPath 404s and WEDGES the deploy forever, so the
+    // schema guards the shape: when present it MUST be a non-empty path
+    // starting with `/`. Absence is legal (live-null → omit / do not assert).
+    for (const [name, entry] of Object.entries(SERVICES)) {
+      for (const [env, cfg] of Object.entries(entry.environments)) {
+        if (cfg.healthcheckPath === undefined) continue;
+        expect(
+          cfg.healthcheckPath,
+          `${name}.environments.${env}.healthcheckPath`,
+        ).toMatch(/^\/\S*$/);
+      }
+    }
+  });
+
+  it("healthcheckPathFor returns the tracked value / undefined", () => {
+    // Tracked: aimock /health (the repaired incident service).
+    expect(healthcheckPathFor("aimock", "prod")).toBe("/health");
+    expect(healthcheckPathFor("aimock", "staging")).toBe("/health");
+    // Agent integration: /api/health.
+    expect(healthcheckPathFor("showcase-ag2", "prod")).toBe("/api/health");
+    // Next.js shell: `/`.
+    expect(healthcheckPathFor("shell", "prod")).toBe("/");
+    // Live-null service: undefined (do not assert).
+    expect(healthcheckPathFor("docs", "prod")).toBeUndefined();
+    expect(healthcheckPathFor("dashboard", "staging")).toBeUndefined();
+    // Per-env asymmetry: harness-workers staging /health, prod undefined
+    // (staging-only service — it declares no prod env).
+    expect(healthcheckPathFor("harness-workers", "staging")).toBe("/health");
+    expect(healthcheckPathFor("harness-workers", "prod")).toBeUndefined();
+    // Unknown service / undeclared env → undefined (never throws).
+    expect(healthcheckPathFor("nope", "prod")).toBeUndefined();
   });
 
   it("instance IDs differ across a service's envs", () => {

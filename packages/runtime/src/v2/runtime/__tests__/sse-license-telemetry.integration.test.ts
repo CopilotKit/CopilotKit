@@ -19,6 +19,7 @@ import { lambdaClient } from "@copilotkit/shared";
 
 import { createCopilotExpressHandler } from "../endpoints/express";
 import { CopilotRuntime } from "../core/runtime";
+import type { AgentRunner } from "../runner/agent-runner";
 
 // Real JWT shape with telemetry_id so the token parses to an identified
 // caller — identified callers bypass the sample gate, so the send is
@@ -43,7 +44,8 @@ function makeSseRuntimeWithLicense() {
       }),
     connect: () => of({}),
     stop: async () => true,
-  };
+    isRunning: async () => false,
+  } as unknown as AgentRunner;
   // No `intelligence` option → the CopilotRuntime shim builds a CopilotSseRuntime.
   return new CopilotRuntime({
     agents: { default: makeAgent() },

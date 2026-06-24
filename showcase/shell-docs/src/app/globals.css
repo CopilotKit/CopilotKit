@@ -339,6 +339,12 @@
   text-decoration: none;
 }
 
+.reference-content a.shell-docs-primary-cta,
+.reference-content a.shell-docs-primary-cta:hover {
+  color: var(--primary-foreground);
+  text-decoration: none;
+}
+
 .reference-content a.shell-docs-cta-accent,
 .reference-content a.shell-docs-cta-accent:hover,
 .reference-content .shell-docs-cta-accent {
