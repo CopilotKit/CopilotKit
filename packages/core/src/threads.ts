@@ -37,6 +37,7 @@ import {
   ɵobservePhoenixSocketSignals$,
 } from "./utils/phoenix-observable";
 import type { ɵPhoenixChannelSession } from "./utils/phoenix-observable";
+import { CopilotKitCoreRuntimeConnectionStatus } from "./core";
 
 const THREADS_CHANNEL_EVENT = "thread_metadata";
 const THREAD_SUBSCRIBE_PATH = "/threads/subscribe";
@@ -63,6 +64,7 @@ interface ThreadRuntimeContext {
   includeArchived?: boolean;
   limit?: number;
   threadEndpoints?: ThreadEndpointRuntimeInfo;
+  runtimeConnectionStatus?: CopilotKitCoreRuntimeConnectionStatus;
 }
 
 type ThreadMetadataEvent =
@@ -120,6 +122,7 @@ interface ThreadState {
   metadataCredentialsRequested: boolean;
   metadataJoinCode: string | null;
   nextCursor: string | null;
+  contextAvailabilityKey: string | null;
 }
 
 const initialThreadState: ThreadState = {
@@ -132,9 +135,12 @@ const initialThreadState: ThreadState = {
   metadataCredentialsRequested: false,
   metadataJoinCode: null,
   nextCursor: null,
+  contextAvailabilityKey: null,
 };
 
 const RUNTIME_URL_NOT_CONFIGURED_MESSAGE = "Runtime URL is not configured";
+const RUNTIME_INFO_UNAVAILABLE_MESSAGE =
+  "CopilotKit runtime info is unavailable";
 const THREAD_ENDPOINTS_UNAVAILABLE_MESSAGE =
   "Thread endpoints are not available on this CopilotKit runtime";
 const THREAD_MUTATIONS_UNAVAILABLE_MESSAGE =
@@ -145,11 +151,18 @@ type ThreadFetchContext = ThreadRuntimeContext & { runtimeUrl: string };
 function getThreadListContextError(
   context: ThreadRuntimeContext,
 ): Error | null {
+  if (
+    context.runtimeConnectionStatus ===
+    CopilotKitCoreRuntimeConnectionStatus.Error
+  ) {
+    return new Error(RUNTIME_INFO_UNAVAILABLE_MESSAGE);
+  }
+
   if (!context.runtimeUrl) {
     return new Error(RUNTIME_URL_NOT_CONFIGURED_MESSAGE);
   }
 
-  if (context.threadEndpoints?.list === false) {
+  if (context.threadEndpoints?.list !== true) {
     return new Error(THREAD_ENDPOINTS_UNAVAILABLE_MESSAGE);
   }
 
@@ -159,11 +172,18 @@ function getThreadListContextError(
 function getThreadMutationContextError(
   context: ThreadRuntimeContext | null,
 ): Error | null {
+  if (
+    context?.runtimeConnectionStatus ===
+    CopilotKitCoreRuntimeConnectionStatus.Error
+  ) {
+    return new Error(RUNTIME_INFO_UNAVAILABLE_MESSAGE);
+  }
+
   if (!context?.runtimeUrl) {
     return new Error(RUNTIME_URL_NOT_CONFIGURED_MESSAGE);
   }
 
-  if (context.threadEndpoints?.mutations === false) {
+  if (context.threadEndpoints?.mutations !== true) {
     return new Error(THREAD_MUTATIONS_UNAVAILABLE_MESSAGE);
   }
 
@@ -190,6 +210,7 @@ const threadAdapterEvents = createActionGroup("Thread Adapter", {
   started: empty(),
   stopped: empty(),
   contextChanged: props<{ context: ThreadRuntimeContext | null }>(),
+  contextAvailabilityChanged: props<{ context: ThreadRuntimeContext }>(),
   fetchNextPageRequested: empty(),
   renameRequested: props<{
     requestId: string;
@@ -266,24 +287,56 @@ function upsertThread(
   return sortThreadsByRecency(next);
 }
 
+function getThreadListAvailabilityKey(
+  context: ThreadRuntimeContext | null,
+): string | null {
+  if (!context) {
+    return null;
+  }
+
+  return [
+    context.runtimeConnectionStatus ?? "",
+    context.runtimeUrl ?? "",
+    context.threadEndpoints?.list === true ? "list:true" : "list:unavailable",
+  ].join("|");
+}
+
+function resetThreadStateForContext(
+  state: ThreadState,
+  context: ThreadRuntimeContext | null,
+): ThreadState {
+  const contextError = context ? getThreadListContextError(context) : null;
+
+  return {
+    ...state,
+    context,
+    contextAvailabilityKey: getThreadListAvailabilityKey(context),
+    sessionId: state.sessionId + 1,
+    threads: [],
+    isLoading: Boolean(context && !contextError),
+    isFetchingNextPage: false,
+    error: contextError,
+    metadataCredentialsRequested: false,
+    metadataJoinCode: null,
+    nextCursor: null,
+  };
+}
+
 const threadReducer = createReducer(
   initialThreadState,
-  on(threadAdapterEvents.contextChanged, (state: ThreadState, { context }) => {
-    const contextError = context ? getThreadListContextError(context) : null;
+  on(threadAdapterEvents.contextChanged, (state: ThreadState, { context }) =>
+    resetThreadStateForContext(state, context),
+  ),
+  on(
+    threadAdapterEvents.contextAvailabilityChanged,
+    (state: ThreadState, { context }) => {
+      if (state.context !== context) {
+        return state;
+      }
 
-    return {
-      ...state,
-      context,
-      sessionId: state.sessionId + 1,
-      threads: [],
-      isLoading: Boolean(context && !contextError),
-      isFetchingNextPage: false,
-      error: contextError,
-      metadataCredentialsRequested: false,
-      metadataJoinCode: null,
-      nextCursor: null,
-    };
-  }),
+      return resetThreadStateForContext(state, context);
+    },
+  ),
   on(threadAdapterEvents.stopped, (state: ThreadState) => ({
     ...state,
     threads: [],
@@ -293,6 +346,7 @@ const threadReducer = createReducer(
     metadataCredentialsRequested: false,
     metadataJoinCode: null,
     nextCursor: null,
+    contextAvailabilityKey: null,
   })),
   on(threadRestEvents.listRequested, (state: ThreadState, { sessionId }) => {
     if (sessionId !== state.sessionId || !isThreadFetchContext(state.context)) {
@@ -646,7 +700,10 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       state$: Observable<ThreadState>,
     ): Observable<ReturnType<typeof threadRestEvents.listRequested>> =>
       actions$.pipe(
-        ofType(threadAdapterEvents.contextChanged),
+        ofType(
+          threadAdapterEvents.contextChanged,
+          threadAdapterEvents.contextAvailabilityChanged,
+        ),
         withLatestFrom(state$),
         filter(([, state]) => isThreadFetchContext(state.context)),
         map(([, state]) =>
@@ -1073,6 +1130,13 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     },
     setContext(context: ThreadRuntimeContext | null): void {
       if (store.getState().context === context) {
+        const state = store.getState();
+        const nextAvailabilityKey = getThreadListAvailabilityKey(context);
+        if (context && state.contextAvailabilityKey !== nextAvailabilityKey) {
+          store.dispatch(
+            threadAdapterEvents.contextAvailabilityChanged({ context }),
+          );
+        }
         return;
       }
       store.dispatch(threadAdapterEvents.contextChanged({ context }));

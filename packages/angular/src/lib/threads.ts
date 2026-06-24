@@ -60,18 +60,6 @@ function toInputSignal<T extends StaticSignalValue>(
   return computed(() => value);
 }
 
-function sameThreadEndpoints(
-  left: ThreadEndpointRuntimeInfo | undefined,
-  right: ThreadEndpointRuntimeInfo | undefined,
-): boolean {
-  return (
-    left?.list === right?.list &&
-    left?.inspect === right?.inspect &&
-    left?.mutations === right?.mutations &&
-    left?.realtimeMetadata === right?.realtimeMetadata
-  );
-}
-
 function toPublicThread({
   id,
   agentId,
@@ -143,6 +131,7 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
     resolvedIncludeArchived: boolean | undefined,
     resolvedLimit: number | undefined,
     threadEndpoints: ThreadEndpointRuntimeInfo | undefined,
+    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus,
   ): ɵThreadRuntimeContext => {
     if (
       lastContext &&
@@ -151,9 +140,14 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
       lastContext.headers === headers &&
       lastContext.wsUrl === wsUrl &&
       lastContext.includeArchived === resolvedIncludeArchived &&
-      lastContext.limit === resolvedLimit &&
-      sameThreadEndpoints(lastContext.threadEndpoints, threadEndpoints)
+      lastContext.limit === resolvedLimit
     ) {
+      // Keep Angular context identity tied to the documented stable keys.
+      // Capability/status fields are live availability inputs consumed by
+      // the shared core; updating them in place lets core surface errors or
+      // reject mutations without an Angular-driven list reset/refetch.
+      lastContext.threadEndpoints = threadEndpoints;
+      lastContext.runtimeConnectionStatus = runtimeConnectionStatus;
       return lastContext;
     }
 
@@ -165,6 +159,7 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
       includeArchived: resolvedIncludeArchived,
       limit: resolvedLimit,
       threadEndpoints,
+      runtimeConnectionStatus,
     };
     return lastContext;
   };
@@ -181,21 +176,27 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
     if (
       runtimeUrl &&
       runtimeConnectionStatus !==
-        CopilotKitCoreRuntimeConnectionStatus.Connected
+        CopilotKitCoreRuntimeConnectionStatus.Connected &&
+      runtimeConnectionStatus !== CopilotKitCoreRuntimeConnectionStatus.Error
     ) {
       store.setContext(null);
       return;
     }
 
+    const isRuntimeConnected =
+      runtimeConnectionStatus ===
+      CopilotKitCoreRuntimeConnectionStatus.Connected;
+
     store.setContext(
       resolveContext(
         resolvedAgentId,
-        runtimeUrl,
+        isRuntimeConnected ? runtimeUrl : undefined,
         copilotKit.headers() ?? EMPTY_HEADERS,
-        copilotKit.intelligence()?.wsUrl,
+        isRuntimeConnected ? copilotKit.intelligence()?.wsUrl : undefined,
         includeArchived(),
         limit(),
         copilotKit.threadEndpoints(),
+        runtimeConnectionStatus,
       ),
     );
   });

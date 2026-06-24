@@ -2,6 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
 import type { MockChannel } from "./test-utils";
 import { MockSocket } from "./test-utils";
+import {
+  ɵcreateThreadStore,
+  ɵselectHasNextPage,
+  ɵselectIsFetchingNextPage,
+  ɵselectThreads,
+  ɵselectThreadsError,
+  ɵselectThreadsIsLoading,
+} from "../threads";
+import type {
+  ɵThread,
+  ɵThreadEnvironment,
+  ɵThreadRuntimeContext,
+} from "../threads";
 
 const phoenix = vi.hoisted(() => ({
   sockets: [] as MockSocket[],
@@ -9,23 +22,14 @@ const phoenix = vi.hoisted(() => ({
 
 vi.mock("phoenix", () => ({
   Socket: class extends MockSocket {
-    constructor(url = "", opts: Record<string, any> = {}) {
+    constructor(url = "", opts: Record<string, unknown> = {}) {
       super(url, opts);
       phoenix.sockets.push(this);
     }
   },
 }));
 
-const {
-  ɵcreateThreadStore,
-  ɵselectThreads,
-  ɵselectThreadsError,
-  ɵselectThreadsIsLoading,
-  ɵselectHasNextPage,
-  ɵselectIsFetchingNextPage,
-} = await import("../threads");
-
-type ThreadRecord = import("../threads").ɵThread;
+type ThreadRecord = ɵThread;
 
 const flushEffects = async (): Promise<void> => {
   await Promise.resolve();
@@ -58,9 +62,41 @@ const sampleThreads: ThreadRecord[] = [
   },
 ];
 
-function createEnvironment(fetchImpl: Mock) {
+const supportedThreadEndpoints = {
+  list: true,
+  inspect: true,
+  mutations: true,
+  realtimeMetadata: true,
+};
+
+function createEnvironment(fetchImpl: Mock): ɵThreadEnvironment {
   return {
-    fetch: fetchImpl as unknown as typeof fetch,
+    fetch: async (input, init) => {
+      const response = await fetchImpl(input, init);
+      if (response instanceof Response) {
+        return response;
+      }
+
+      const body =
+        typeof response.json === "function" ? await response.json() : {};
+      return new Response(JSON.stringify(body), {
+        status: response.ok ? 200 : (response.status ?? 500),
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+  };
+}
+
+function context(
+  overrides: Partial<ɵThreadRuntimeContext> = {},
+): ɵThreadRuntimeContext {
+  return {
+    runtimeUrl: "https://runtime.example.com",
+    headers: {},
+    wsUrl: "ws://localhost:4000/client",
+    agentId: "agent-1",
+    threadEndpoints: supportedThreadEndpoints,
+    ...overrides,
   };
 }
 
@@ -115,12 +151,11 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: { Authorization: "Bearer token" },
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-    });
+    store.setContext(
+      context({
+        headers: { Authorization: "Bearer token" },
+      }),
+    );
 
     await flushEffects();
 
@@ -161,12 +196,7 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: {},
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-    });
+    store.setContext(context());
 
     await flushEffects();
 
@@ -214,12 +244,7 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: {},
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-    });
+    store.setContext(context());
 
     await flushEffects();
 
@@ -272,20 +297,14 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: {},
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-    });
+    store.setContext(context());
     await flushEffects();
 
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: {},
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-2",
-    });
+    store.setContext(
+      context({
+        agentId: "agent-2",
+      }),
+    );
 
     resolveFirstFetch({
       ok: true,
@@ -330,12 +349,11 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: { Authorization: "Bearer token" },
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-    });
+    store.setContext(
+      context({
+        headers: { Authorization: "Bearer token" },
+      }),
+    );
 
     await flushEffects();
 
@@ -392,12 +410,11 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: { Authorization: "Bearer token" },
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-    });
+    store.setContext(
+      context({
+        headers: { Authorization: "Bearer token" },
+      }),
+    );
 
     await flushEffects();
 
@@ -424,12 +441,7 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: {},
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-    });
+    store.setContext(context());
 
     await flushEffects();
 
@@ -452,13 +464,11 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: {},
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-      includeArchived: true,
-    });
+    store.setContext(
+      context({
+        includeArchived: true,
+      }),
+    );
 
     await flushEffects();
 
@@ -484,13 +494,11 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: {},
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-      limit: 10,
-    });
+    store.setContext(
+      context({
+        limit: 10,
+      }),
+    );
 
     await flushEffects();
 
@@ -537,13 +545,11 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: {},
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-      limit: 2,
-    });
+    store.setContext(
+      context({
+        limit: 2,
+      }),
+    );
 
     await flushEffects();
 
@@ -578,12 +584,7 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: {},
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-    });
+    store.setContext(context());
 
     await flushEffects();
     expect(ɵselectThreads(store.getState())).toHaveLength(2);
@@ -620,13 +621,11 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: {},
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-      includeArchived: true,
-    });
+    store.setContext(
+      context({
+        includeArchived: true,
+      }),
+    );
 
     await flushEffects();
     expect(ɵselectThreads(store.getState())).toHaveLength(2);
@@ -709,13 +708,11 @@ describe("thread store", () => {
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: {},
-      wsUrl: "ws://localhost:4000/client",
-      agentId: "agent-1",
-      includeArchived: true,
-    });
+    store.setContext(
+      context({
+        includeArchived: true,
+      }),
+    );
 
     await flushEffects();
 

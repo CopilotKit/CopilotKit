@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { CopilotKitCoreRuntimeConnectionStatus } from "../core";
 import {
   ɵcreateThreadStore,
   ɵselectThreads,
@@ -117,6 +118,74 @@ describe("shared thread store context behavior", () => {
     await flushEffects();
 
     expect(fetch.calls).toHaveLength(0);
+    expect(ɵselectThreads(store.getState())).toEqual([]);
+    expect(ɵselectThreadsError(store.getState())?.message).toBe(
+      "Thread endpoints are not available on this CopilotKit runtime",
+    );
+    store.stop();
+  });
+
+  it("surfaces missing thread endpoint capability info as an error without fetching", async () => {
+    const fetch = jsonFetch([{ threads: sampleThreads }]);
+    vi.stubGlobal("fetch", fetch);
+    const store = ɵcreateThreadStore({ fetch });
+
+    store.start();
+    store.setContext(context({ threadEndpoints: undefined }));
+    await flushEffects();
+
+    expect(fetch.calls).toHaveLength(0);
+    expect(ɵselectThreads(store.getState())).toEqual([]);
+    expect(ɵselectThreadsError(store.getState())?.message).toBe(
+      "Thread endpoints are not available on this CopilotKit runtime",
+    );
+    store.stop();
+  });
+
+  it("surfaces runtime info failures as an error without fetching", async () => {
+    const fetch = jsonFetch([{ threads: sampleThreads }]);
+    vi.stubGlobal("fetch", fetch);
+    const store = ɵcreateThreadStore({ fetch });
+
+    store.start();
+    store.setContext(
+      context({
+        runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Error,
+      }),
+    );
+    await flushEffects();
+
+    expect(fetch.calls).toHaveLength(0);
+    expect(ɵselectThreads(store.getState())).toEqual([]);
+    expect(ɵselectThreadsError(store.getState())?.message).toBe(
+      "CopilotKit runtime info is unavailable",
+    );
+    store.stop();
+  });
+
+  it("revalidates list capability changes without requiring a new context reference", async () => {
+    const fetch = jsonFetch([{ threads: sampleThreads }]);
+    vi.stubGlobal("fetch", fetch);
+    const store = ɵcreateThreadStore({ fetch });
+    const stableContext = context();
+
+    store.start();
+    store.setContext(stableContext);
+    await flushEffects();
+
+    expect(fetch.calls).toHaveLength(1);
+    expect(ɵselectThreads(store.getState())).toHaveLength(1);
+
+    stableContext.threadEndpoints = {
+      list: false,
+      inspect: true,
+      mutations: true,
+      realtimeMetadata: true,
+    };
+    store.setContext(stableContext);
+    await flushEffects();
+
+    expect(fetch.calls).toHaveLength(1);
     expect(ɵselectThreads(store.getState())).toEqual([]);
     expect(ɵselectThreadsError(store.getState())?.message).toBe(
       "Thread endpoints are not available on this CopilotKit runtime",

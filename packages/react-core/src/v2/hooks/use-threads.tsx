@@ -289,6 +289,23 @@ export function useThreads({
       return;
     }
 
+    if (runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Error) {
+      const context: ɵThreadRuntimeContext = {
+        runtimeUrl: undefined,
+        headers,
+        wsUrl: undefined,
+        agentId,
+        includeArchived,
+        limit,
+        threadEndpoints,
+        runtimeConnectionStatus: runtimeStatus,
+      };
+
+      store.setContext(context);
+      setHasDispatchedContext(true);
+      return;
+    }
+
     // Wait for /info to land so we can include `wsUrl` in the initial
     // context and avoid a redundant second list fetch.
     if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
@@ -303,6 +320,7 @@ export function useThreads({
       includeArchived,
       limit,
       threadEndpoints,
+      runtimeConnectionStatus: runtimeStatus,
     };
 
     store.setContext(context);

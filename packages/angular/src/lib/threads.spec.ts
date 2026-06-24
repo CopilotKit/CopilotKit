@@ -69,6 +69,18 @@ class CopilotKitThreadsStub {
   setRuntimeUrl(runtimeUrl: string | undefined): void {
     this.#runtimeUrl.set(runtimeUrl);
   }
+
+  setRuntimeConnectionStatus(
+    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus,
+  ): void {
+    this.#runtimeConnectionStatus.set(runtimeConnectionStatus);
+  }
+
+  setThreadEndpoints(
+    threadEndpoints: ThreadEndpointRuntimeInfo | undefined,
+  ): void {
+    this.#threadEndpoints.set(threadEndpoints);
+  }
 }
 
 function createQueuedFetch(): QueuedFetch {
@@ -290,5 +302,67 @@ describe("injectThreads", () => {
       expect(result.error()?.message).toBe("Runtime URL is not configured");
     });
     expect(fetchMock.calls).toHaveLength(0);
+  });
+
+  it("surfaces runtime info failures with a configured runtime URL visibly", async () => {
+    copilotKit.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class HostComponent {
+      readonly threads = injectThreads({ agentId: "agent-1" });
+    }
+
+    const fixture = TestBed.createComponent(HostComponent);
+    const result = fixture.componentInstance.threads;
+
+    await waitForCondition(() => {
+      expect(result.isLoading()).toBe(false);
+      expect(result.threads()).toEqual([]);
+      expect(result.error()?.message).toBe(
+        "CopilotKit runtime info is unavailable",
+      );
+    });
+    expect(fetchMock.calls).toHaveLength(0);
+  });
+
+  it("does not refetch or reset threads for mutation-only endpoint capability changes", async () => {
+    fetchMock.enqueue({ threads: sampleThreads });
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class HostComponent {
+      readonly threads = injectThreads({ agentId: "agent-1" });
+    }
+
+    const fixture = TestBed.createComponent(HostComponent);
+    const result = fixture.componentInstance.threads;
+
+    await waitForCondition(() => {
+      expect(result.threads()).toHaveLength(1);
+    });
+
+    copilotKit.setThreadEndpoints({
+      list: true,
+      inspect: true,
+      mutations: false,
+      realtimeMetadata: true,
+    });
+    fixture.detectChanges();
+
+    await waitForCondition(() => {
+      expect(fetchMock.calls).toHaveLength(1);
+      expect(result.threads()).toHaveLength(1);
+    });
+
+    await expect(result.renameThread("thread-1", "Renamed")).rejects.toThrow(
+      "Thread mutations are not available on this CopilotKit runtime",
+    );
   });
 });
