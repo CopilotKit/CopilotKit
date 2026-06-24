@@ -1,10 +1,16 @@
+import type { Observable } from "rxjs";
+import { map, switchMap, takeUntil, withLatestFrom } from "rxjs/operators";
 import {
   createActionGroup,
+  createEffect,
   createReducer,
+  createStore,
+  empty,
+  ofType,
   on,
   props,
 } from "./utils/micro-redux";
-import type { Reducer } from "./utils/micro-redux";
+import type { Reducer, Store } from "./utils/micro-redux";
 
 /** Public, customer-facing memory kind vocabulary (single taxonomy, no mapping). */
 type MemoryKind = "topical" | "episodic" | "operational";
@@ -52,6 +58,73 @@ const memoryDomainEvents = createActionGroup("Memory Domain", {
   memoryUpserted: props<{ sessionId: number; memory: Memory }>(),
   memoryInvalidated: props<{ sessionId: number; memoryId: string }>(),
 });
+
+/** Wire shape of a memory inside a `memory_metadata` payload (carries tenant ids). */
+interface MemoryMetadataPayloadMemory extends Memory {
+  organizationId: string;
+  projectId: string;
+}
+
+/**
+ * The realtime `memory_metadata` event broadcast on the `user_meta` channel:
+ * `created`/`updated` carry the full memory, `invalidated` carries only its id.
+ * The gateway strips `userId` before broadcasting and only delivers
+ * user-scoped memories, so this is always the current user's stream.
+ */
+type MemoryMetadataEvent =
+  | {
+      operation: "created" | "updated";
+      memoryId: string;
+      organizationId: string;
+      projectId: string;
+      occurredAt: string;
+      memory: MemoryMetadataPayloadMemory;
+    }
+  | {
+      operation: "invalidated";
+      memoryId: string;
+      organizationId: string;
+      projectId: string;
+      occurredAt: string;
+      invalidated: { id: string };
+    };
+
+/** Projects a wire memory to the public {@link Memory} shape (drops tenant ids). */
+function toMemory(memory: MemoryMetadataPayloadMemory): Memory {
+  return {
+    id: memory.id,
+    kind: memory.kind,
+    scope: memory.scope,
+    content: memory.content,
+    sourceThreadIds: memory.sourceThreadIds,
+    invalidatedAt: memory.invalidatedAt,
+  };
+}
+
+/**
+ * Maps a realtime `memory_metadata` event to the domain action that applies it:
+ * `created`/`updated` upsert the projected memory, `invalidated` removes it by
+ * id. Carries the current `sessionId` so the reducer's session guard can drop
+ * deltas left over from a previous context.
+ */
+function mapMemoryMetadataEvent(
+  event: MemoryMetadataEvent,
+  sessionId: number,
+):
+  | ReturnType<typeof memoryDomainEvents.memoryUpserted>
+  | ReturnType<typeof memoryDomainEvents.memoryInvalidated> {
+  if (event.operation === "invalidated") {
+    return memoryDomainEvents.memoryInvalidated({
+      sessionId,
+      memoryId: event.invalidated.id,
+    });
+  }
+
+  return memoryDomainEvents.memoryUpserted({
+    sessionId,
+    memory: toMemory(event.memory),
+  });
+}
 
 /**
  * Inserts or replaces a memory by id. A new memory is prepended (newest first,
@@ -114,10 +187,86 @@ const memoryReducer = createReducer(
   ),
 ) as Reducer<MemoryState>;
 
+const memoryAdapterEvents = createActionGroup("Memory Adapter", {
+  started: empty(),
+  stopped: empty(),
+});
+
+/**
+ * Dependencies injected into the memory store. `observeUserMetaEvent` is the
+ * thread store's `ɵobserveUserMetaEvent` in production: the memory store rides
+ * the single `user_meta` socket the thread store already owns rather than
+ * opening its own. Injected (not imported) so the store stays decoupled from
+ * the thread store and is testable with a plain event source.
+ */
+interface MemoryEnvironment {
+  observeUserMetaEvent: <T>(eventName: string) => Observable<T>;
+}
+
+interface MemoryStore {
+  start(): void;
+  stop(): void;
+  getState(): MemoryState;
+  select: Store<MemoryState>["select"];
+}
+
+const MEMORY_METADATA_EVENT = "memory_metadata";
+
+/**
+ * Creates the framework-agnostic memory store. For now it consumes realtime
+ * `memory_metadata` deltas off the injected `user_meta` event source and
+ * reduces them into observable state; the REST snapshot + mutation surface is
+ * layered on in a later increment.
+ */
+function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
+  const realtimeEffect = createEffect(
+    (actions$, state$: Observable<MemoryState>) =>
+      actions$.pipe(
+        ofType(memoryAdapterEvents.started),
+        switchMap(() =>
+          environment
+            .observeUserMetaEvent<MemoryMetadataEvent>(MEMORY_METADATA_EVENT)
+            .pipe(
+              withLatestFrom(state$),
+              map(([event, state]) =>
+                mapMemoryMetadataEvent(event, state.sessionId),
+              ),
+              takeUntil(actions$.pipe(ofType(memoryAdapterEvents.stopped))),
+            ),
+        ),
+      ),
+  );
+
+  const store = createStore<MemoryState>({
+    reducer: memoryReducer,
+    effects: [realtimeEffect],
+  });
+
+  return {
+    start(): void {
+      store.init();
+      store.dispatch(memoryAdapterEvents.started());
+    },
+    stop(): void {
+      store.dispatch(memoryAdapterEvents.stopped());
+      store.stop();
+    },
+    getState(): MemoryState {
+      return store.getState();
+    },
+    select: store.select.bind(store),
+  };
+}
+
 export type ɵMemory = Memory;
 export type ɵMemoryKind = MemoryKind;
 export type ɵMemoryScope = MemoryScope;
 export type ɵMemoryState = MemoryState;
+export type ɵMemoryMetadataEvent = MemoryMetadataEvent;
+export type ɵMemoryEnvironment = MemoryEnvironment;
+export type ɵMemoryStore = MemoryStore;
 export const ɵmemoryRestEvents = memoryRestEvents;
 export const ɵmemoryDomainEvents = memoryDomainEvents;
 export const ɵmemoryReducer = memoryReducer;
+export const ɵmapMemoryMetadataEvent = mapMemoryMetadataEvent;
+export { createMemoryStore as ɵcreateMemoryStore };
