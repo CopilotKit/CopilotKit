@@ -175,6 +175,44 @@ describe("thread store", () => {
     expect(getChannel().topic).toBe("user_meta:jc-1");
   });
 
+  it("lists threads without realtime setup when realtime metadata is unsupported", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        threads: [sampleThreads[0], sampleThreads[1]],
+        joinCode: "jc-1",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext(
+      context({
+        threadEndpoints: {
+          list: true,
+          inspect: true,
+          mutations: true,
+          realtimeMetadata: false,
+        },
+      }),
+    );
+
+    await flushEffects();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://runtime.example.com/threads?agentId=agent-1",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-2", "thread-1"],
+    );
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+    expect(phoenix.sockets).toHaveLength(0);
+  });
+
   it("upserts realtime thread metadata without refetching", async () => {
     const fetchMock = vi
       .fn()

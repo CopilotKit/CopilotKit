@@ -751,6 +751,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           return (
             action.sessionId === state.sessionId &&
             !state.metadataCredentialsRequested &&
+            state.context?.threadEndpoints?.realtimeMetadata === true &&
             Boolean(state.context?.wsUrl) &&
             Boolean(state.metadataJoinCode)
           );
