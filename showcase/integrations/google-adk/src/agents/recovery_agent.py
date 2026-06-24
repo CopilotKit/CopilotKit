@@ -23,6 +23,15 @@ demo is ADK-only. Catalog is reused from declarative-gen-ui
 
 Ported from ag-ui `integrations/adk-middleware/python/examples/server/api/
 a2ui_recovery.py`.
+
+Note (showcase aimock): the HEAL behavior above is real against Gemini and is
+covered by the OSS-158 toolkit gate, but it does NOT reproduce under the
+showcase aimock — that harness can't disambiguate the two pills' inner
+`render_a2ui` sub-agent calls (the middleware issues them with a generic render
+prompt + shared suggestion context), so both pills match the same inner fixture
+and the heal pill exhausts. The e2e `heal` test is kept failing on purpose to
+demonstrate this; see `tests/e2e/a2ui-recovery.spec.ts` and
+`qa/a2ui-recovery.md`. Tracked in Linear.
 """
 
 from __future__ import annotations

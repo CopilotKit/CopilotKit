@@ -37,8 +37,16 @@
 ### 4. Regression / isolation
 
 - [ ] Verify the recovery demo does not affect the declarative-gen-ui or beautiful-chat demos (separate routes/agents)
-- [ ] Re-run each pill a second time and verify the same lifecycle (the `sequenceIndex` fixtures reset per test session / `X-Test-Id`)
+- [ ] Re-run each pill a second time and verify the same lifecycle
+
+## Known limitation (aimock) — read before running e2e
+
+> **The `heal` pill does not heal under the current showcase aimock.** Diagnosis (agent logs): the showcase aimock cannot disambiguate the two pills' **inner** `render_a2ui` sub-agent calls — the middleware issues that call with a generic render prompt + shared suggestion context, so the "last user turn" aimock keys on is not the pill prompt. Both pills therefore match the **same** inner fixture (the EXHAUST one, by first-match order), so the heal pill **exhausts** ("Couldn't generate the UI", 0 metrics) instead of healing.
+>
+> This is an **aimock harness limitation, not a middleware/demo bug**: the middleware heals free-form args correctly in the OSS-158 toolkit gate (in-sandbox) and against real Gemini. The `e2e` `heal` test is **kept failing on purpose** as a live demonstration for the Showcase team. It does **not** red CI (these per-integration specs are not run for google-adk in CI). The `exhaust` + page-load tests pass.
+>
+> Tracked in Linear: (1) showcase-aimock inner-subagent disambiguation; (2) recovery-demo langgraph-python parity.
 
 ## Notes
 
-- The malformed renders are forced deterministically by aimock fixtures (`showcase/aimock/d6/google-adk/a2ui-recovery.json`): the inner `render_a2ui` call is keyed by `sequenceIndex` per recovery attempt (heal: 0 invalid → 1 valid; exhaust: invalid for every attempt). Healing itself is performed live by the ADK middleware, not the fixture.
+- The malformed renders are forced by aimock fixtures (`showcase/aimock/d6/google-adk/a2ui-recovery.json`): the inner `render_a2ui` call is matched by `toolName=render_a2ui`. Healing itself is performed live by the ADK middleware, not the fixture. See the limitation above for why the per-pill inner match does not currently hold.

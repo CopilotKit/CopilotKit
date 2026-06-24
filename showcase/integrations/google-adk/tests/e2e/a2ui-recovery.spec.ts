@@ -12,13 +12,33 @@ import type { Page } from "@playwright/test";
 // dependent (see @copilotkit/react-core/v2 A2UIRecoveryStates) and would be
 // flaky.
 //
-// The aimock fixtures (showcase/aimock/d6/google-adk/a2ui-recovery.json) force
-// the inner render_a2ui sub-agent to emit a structurally-invalid surface
-// (unresolved child) on attempt 0 then a valid one on attempt 1 (heal), or
-// invalid on every attempt (exhaust). Healing itself runs live in the ADK
-// middleware (ag_ui_adk >= 0.7.0); the failure UI text ("Couldn't generate the
-// UI") comes from @copilotkit/react-core/v2. The recovered surface reuses the
-// declarative-gen-ui catalog, so it carries the `declarative-metric` testid.
+// The aimock fixtures (showcase/aimock/d6/google-adk/a2ui-recovery.json) drive
+// the inner render_a2ui sub-agent two ways: HEAL emits free-form/sloppy args
+// (components/data as JSON strings) the middleware heals via parse_and_fix;
+// EXHAUST is structurally invalid (unresolved child) on every attempt, so the
+// validate->retry loop hits the cap and returns the a2ui_recovery_exhausted
+// envelope. Healing + the loop run live in the ADK middleware (ag_ui_adk >=
+// 0.7.0); the failure UI text ("Couldn't generate the UI") comes from
+// @copilotkit/react-core/v2. The recovered surface reuses the declarative-gen-ui
+// catalog, so it carries the `declarative-metric` testid.
+//
+// ┌─ KNOWN-FAILING, KEPT ON PURPOSE (not skipped) ──────────────────────────┐
+// The `heal` test currently FAILS against the live showcase aimock, and is
+// left RUNNING as a deliberate demonstration of a showcase-harness deficiency
+// for the Showcase team. Diagnosis (from the agent logs): the showcase aimock
+// cannot disambiguate the two pills' inner render_a2ui sub-agent calls. The
+// middleware builds the inner call with a generic render prompt + shared
+// suggestion context, so the "last user turn" aimock matches on is NOT
+// pill-specific -> both pills receive the SAME inner fixture (the EXHAUST one,
+// by first-match order), so the heal pill exhausts instead of healing (0
+// `declarative-metric`, "Couldn't generate the UI" appears). This is an aimock
+// harness limitation, NOT a middleware/demo bug: the middleware heals free-form
+// args correctly in-sandbox (OSS-158 toolkit gate) and against real Gemini.
+// It does NOT red CI — these per-integration specs are not run for google-adk
+// in CI; we only see it via a manual `pnpm test:e2e` run. Tracked in Linear:
+// (1) showcase-aimock inner-subagent disambiguation; (2) recovery-demo LP
+// parity. The `exhaust` + page-load tests pass.
+// └─────────────────────────────────────────────────────────────────────────┘
 //
 // Requires the stack running with aimock (GOOGLE_GEMINI_BASE_URL -> aimock) so
 // the malformed renders fire deterministically; against a real LLM the demo
@@ -75,6 +95,10 @@ test.describe("A2UI Error Recovery (ADK-only)", () => {
     await expect(page.getByTestId("declarative-metric")).toHaveCount(0);
   });
 
+  // KNOWN-FAILING by design — see the header block. Kept running (not skipped)
+  // as a live demonstration of the showcase-aimock inner-subagent
+  // disambiguation gap; the heal pill receives the EXHAUST fixture, so this
+  // asserts the surface that *should* paint but doesn't under aimock.
   test("heal: free-form/sloppy render is healed into a valid surface", async ({
     page,
   }) => {
@@ -82,7 +106,8 @@ test.describe("A2UI Error Recovery (ADK-only)", () => {
 
     // The model emits free-form (stringified) A2UI args; the middleware heals
     // them via parse_and_fix into a valid surface that paints. Allow 90s for
-    // the sub-agent round-trip.
+    // the sub-agent round-trip. (Under the current showcase aimock this never
+    // arrives — both pills get the same inner fixture; see header.)
     const metrics = page.locator('[data-testid="declarative-metric"]');
     await expect
       .poll(async () => await metrics.count(), { timeout: 90_000 })
