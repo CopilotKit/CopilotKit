@@ -1,27 +1,44 @@
 import { useState } from "react";
 import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
-import { StreamdownRenderer } from "../lib/markdown-renderers";
+import {
+  StreamdownRenderer,
+  customMarkdownConfig,
+} from "../lib/markdown-renderers";
 
 type AgentType = "tanstack" | "aisdk";
-type MarkdownMode = "built-in" | "streamdown";
+type MarkdownMode = "built-in" | "custom" | "streamdown";
 
 export default function Index() {
   const [agentType, setAgentType] = useState<AgentType>("tanstack");
   // Demo: swap the markdown renderer at runtime via the provider's pluggable
-  // `markdownRenderer` prop. "built-in" = CopilotKit's basic GFM renderer
-  // (no extra deps); "streamdown" = the app-supplied streamdown renderer
-  // (syntax highlighting, math, diagrams). Ask the agent for a code block,
-  // table, or math to see the difference.
+  // `markdownRenderer` prop, which accepts EITHER a config object or a
+  // component. Three scenarios:
+  //   "built-in"  = undefined -> CopilotKit's default streaming renderer
+  //                 (@copilotkit/markdown-renderer — zero extra deps,
+  //                 streaming-safe incremental rendering + per-token animation).
+  //   "custom"    = a DefaultMarkdownRendererProps config object that configures
+  //                 the built-in renderer with custom node renderers (here a
+  //                 terminal-style code block + accent blockquote) while keeping
+  //                 the streaming behavior.
+  //   "streamdown"= the app-supplied streamdown component — the escape hatch
+  //                 that replaces the renderer entirely (syntax highlighting,
+  //                 math, diagrams).
+  // Ask the agent for a code block, blockquote, table, or math to compare.
   const [markdownMode, setMarkdownMode] = useState<MarkdownMode>("built-in");
+
+  const markdownRenderer =
+    markdownMode === "streamdown"
+      ? StreamdownRenderer
+      : markdownMode === "custom"
+        ? customMarkdownConfig
+        : undefined;
 
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
       showDevConsole="auto"
-      markdownRenderer={
-        markdownMode === "streamdown" ? StreamdownRenderer : undefined
-      }
+      markdownRenderer={markdownRenderer}
     >
       <div className="h-screen w-screen flex flex-col">
         <div className="flex items-center gap-3 px-4 py-2 border-b bg-white">
@@ -58,7 +75,17 @@ export default function Index() {
                 : "bg-gray-100 text-gray-700 hover:bg-gray-200"
             }`}
           >
-            Built-in (basic)
+            Built-in (streaming)
+          </button>
+          <button
+            onClick={() => setMarkdownMode("custom")}
+            className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              markdownMode === "custom"
+                ? "bg-black text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            Custom (config)
           </button>
           <button
             onClick={() => setMarkdownMode("streamdown")}

@@ -1,4 +1,6 @@
 export * from "./types";
+export { default as BasicMarkdown } from "./BasicMarkdown.vue";
+export { default as StreamingMarkdownDefault } from "./StreamingMarkdownDefault.vue";
 export { default as CopilotChatAssistantMessage } from "./CopilotChatAssistantMessage.vue";
 export { default as CopilotChatAudioRecorder } from "./CopilotChatAudioRecorder.vue";
 import _CopilotChat from "./CopilotChat.vue";

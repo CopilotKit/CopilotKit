@@ -488,10 +488,10 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       );
 
       // Verify the follow-up message appears
+      // Use textContent check because the streaming renderer splits text across
+      // per-segment <span>s — getByText can't match the full string in one element.
       await waitFor(() => {
-        expect(
-          screen.getByText("This is a follow-up message after tool execution"),
-        ).toBeDefined();
+        expect(document.body.textContent).toContain("This is a follow-up message after tool execution");
       });
 
       agent.emit(runFinishedEvent());

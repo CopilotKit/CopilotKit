@@ -149,10 +149,10 @@ describe("useAgent e2e", () => {
       agent.complete();
 
       // Assistant response should appear in the chat
+      // Use textContent check because the streaming renderer splits text across
+      // per-segment <span>s — getByText can't match the full string in one element.
       await waitFor(() => {
-        expect(
-          screen.getByText("Hello! I received your message."),
-        ).toBeDefined();
+        expect(document.body.textContent).toContain("Hello! I received your message.");
       });
     });
   });
