@@ -76,6 +76,7 @@ features:
   - agent-config
 a2ui_pattern: schema-loading
 interrupt_pattern: native
+thread_persistence_pattern: langgraph
 agent_config_pattern: shared-state
 auth_pattern: langgraph
 demos:
