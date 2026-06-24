@@ -271,8 +271,28 @@ export function createAgent(
 type V3StreamResult = Awaited<ReturnType<MockLanguageModelV3["doStream"]>>;
 type V3StreamPart =
   V3StreamResult["stream"] extends ReadableStream<infer P> ? P : never;
+type V3FinishPart = Extract<V3StreamPart, { type: "finish" }>;
 /** The shape of the options object the model's `doStream` is invoked with. */
 type V3CallOptions = MockLanguageModelV3["doStreamCalls"][number];
+
+function toV3FinishReason(value: unknown): V3FinishPart["finishReason"] {
+  if (value && typeof value === "object" && "unified" in value) {
+    return value as V3FinishPart["finishReason"];
+  }
+
+  const raw = typeof value === "string" ? value : undefined;
+  switch (raw) {
+    case "length":
+    case "content-filter":
+    case "tool-calls":
+    case "error":
+    case "other":
+    case "stop":
+      return { unified: raw, raw };
+    default:
+      return { unified: "stop", raw };
+  }
+}
 
 /** A BuiltInAgent augmented with a test-only seam exposing the messages the
  *  model received on its most recent `doStream` invocation. */
@@ -342,9 +362,9 @@ function toV3StreamParts(chunks: MockStreamEvent[]): V3StreamPart[] {
       }
       case "finish": {
         closeTextIfOpen();
-        parts.push({
+        const finishPart: V3FinishPart = {
           type: "finish",
-          finishReason: (chunk.finishReason as string | undefined) ?? "stop",
+          finishReason: toV3FinishReason(chunk.finishReason),
           usage: {
             inputTokens: {
               total: 0,
@@ -354,7 +374,8 @@ function toV3StreamParts(chunks: MockStreamEvent[]): V3StreamPart[] {
             },
             outputTokens: { total: 0, text: 0, reasoning: 0 },
           },
-        } as V3StreamPart);
+        };
+        parts.push(finishPart);
         break;
       }
       default: {

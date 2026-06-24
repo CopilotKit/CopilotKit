@@ -14,7 +14,10 @@ import {
  * Minimal Phoenix push contract used by the observable adapters.
  */
 export interface ɵPhoenixPushLike {
-  receive(status: string, callback: (payload?: unknown) => unknown): unknown;
+  receive(
+    status: string,
+    callback: (payload?: unknown) => unknown,
+  ): ɵPhoenixPushLike;
 }
 
 /**

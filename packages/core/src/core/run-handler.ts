@@ -282,7 +282,7 @@ export class RunHandler {
           context,
         });
       }
-      return { newMessages: [] };
+      return { result: undefined, newMessages: [] };
     }
   }
 
@@ -371,7 +371,7 @@ export class RunHandler {
         code: CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
         context,
       });
-      return { newMessages: [] };
+      return { result: undefined, newMessages: [] };
     } finally {
       this._runDepth--;
       // Restore original abortRun when the entire chain (including
@@ -805,20 +805,19 @@ export class RunHandler {
 
     // 3. Create assistant message with tool call
     const toolCallId = randomUUID();
+    const assistantToolCall = {
+      id: toolCallId,
+      type: "function" as const,
+      function: {
+        name,
+        arguments: JSON.stringify(parameters),
+      },
+    };
     const assistantMessage: Message = {
       id: randomUUID(),
       role: "assistant",
       content: "",
-      toolCalls: [
-        {
-          id: toolCallId,
-          type: "function",
-          function: {
-            name,
-            arguments: JSON.stringify(parameters),
-          },
-        },
-      ],
+      toolCalls: [assistantToolCall],
     };
 
     // 4. Push assistant message into agent's messages
@@ -834,7 +833,7 @@ export class RunHandler {
     if (tool.handler) {
       handlerResult = await this.executeToolHandler({
         tool,
-        toolCall: assistantMessage.toolCalls![0],
+        toolCall: assistantToolCall,
         agent,
         agentId: resolvedAgentId,
         handlerArgs: parameters,
@@ -895,7 +894,7 @@ export class RunHandler {
       .filter(
         (tool) =>
           tool.available !== false &&
-          tool.available !== "disabled" &&
+          (tool.available as boolean | string | undefined) !== "disabled" &&
           (!tool.agentId || tool.agentId === agentId),
       )
       .map((tool) => ({
@@ -984,7 +983,13 @@ function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const rawSchema = schemaToJsonSchema(tool.parameters, { zodToJsonSchema });
+  const rawSchema = schemaToJsonSchema(tool.parameters, {
+    zodToJsonSchema: (schema, options) =>
+      zodToJsonSchema(
+        schema as Parameters<typeof zodToJsonSchema>[0],
+        options as Parameters<typeof zodToJsonSchema>[1],
+      ),
+  });
 
   if (!rawSchema || typeof rawSchema !== "object") {
     return { ...EMPTY_TOOL_SCHEMA };

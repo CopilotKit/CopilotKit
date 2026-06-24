@@ -43,7 +43,7 @@ describe("buildFileContentParts", () => {
   });
 
   it("skips a file over the size cap without fetching (notes the skip)", async () => {
-    const fetchImpl = vi.fn();
+    const fetchImpl = vi.fn() as any;
     const parts = await buildFileContentParts(
       [
         {
@@ -172,7 +172,7 @@ describe("buildFileContentParts", () => {
   });
 
   it("surfaces an unsupported binary type as a note", async () => {
-    const fetchImpl = vi.fn();
+    const fetchImpl = vi.fn() as any;
     const parts = await buildFileContentParts(
       [
         {

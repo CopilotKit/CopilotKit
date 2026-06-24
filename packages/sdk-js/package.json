@@ -60,7 +60,8 @@
   },
   "dependencies": {
     "@ag-ui/langgraph": "0.0.42",
-    "@copilotkit/shared": "workspace:*"
+    "@copilotkit/shared": "workspace:*",
+    "@standard-schema/spec": "^1.0.0"
   },
   "devDependencies": {
     "@langchain/core": "^1.1.41",

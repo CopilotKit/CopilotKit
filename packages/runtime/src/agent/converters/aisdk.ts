@@ -1,6 +1,5 @@
-import {
+import type {
   BaseEvent,
-  EventType,
   Interrupt,
   ReasoningEndEvent,
   ReasoningMessageContentEvent,
@@ -15,6 +14,7 @@ import {
   StateSnapshotEvent,
   StateDeltaEvent,
 } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 
 /**
@@ -341,7 +341,8 @@ export async function* convertAISDKStream(
             toolResult &&
             typeof toolResult === "object"
           ) {
-            const delta = (toolResult as Record<string, unknown>).delta;
+            const delta = (toolResult as { delta?: StateDeltaEvent["delta"] })
+              .delta;
             if (delta !== undefined) {
               const stateDeltaEvent: StateDeltaEvent = {
                 type: EventType.STATE_DELTA,

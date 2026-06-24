@@ -6,10 +6,10 @@
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-open-advanced — 'Inline expression evaluator' pill. Emits generateSandboxedUi with a sandboxed iframe (sandbox='allow-scripts') that the D5 assertion probes for. hasToolResult:false on the tool-emitting leg.",
+      "_comment": "gen-ui-open-advanced — 'Inline expression evaluator' pill, 1st leg: emit generateSandboxedUi (sandbox='allow-scripts') the D5 assertion probes for. sequenceIndex:0 gates it to the first match — Strands mints UUID tool ids so the toolCallId follow-up below can't match, and hasToolResult flips true after the tool runs; sequenceIndex is invariant to both, so the bare-userMessage content leg cleanly catches the follow-up turn.",
       "match": {
         "userMessage": "Inline expression evaluator",
-        "hasToolResult": false,
+        "sequenceIndex": 0,
         "context": "strands"
       },
       "response": {
@@ -23,10 +23,9 @@
       }
     },
     {
-      "_comment": "gen-ui-open-advanced — follow-up after generateSandboxedUi renders.",
+      "_comment": "gen-ui-open-advanced — 'Inline expression evaluator' pill, 2nd leg: follow-up content after the iframe renders (sequenceIndex:0 exhausted).",
       "match": {
         "userMessage": "Inline expression evaluator",
-        "toolCallId": "call_d6_open_advanced_eval_001",
         "context": "strands"
       },
       "response": {

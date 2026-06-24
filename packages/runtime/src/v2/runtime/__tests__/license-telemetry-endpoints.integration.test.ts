@@ -20,6 +20,7 @@ import { lambdaClient } from "@copilotkit/shared";
 import { createCopilotHonoHandler } from "../endpoints/hono";
 import { createCopilotRuntimeHandler } from "../core/fetch-handler";
 import { CopilotRuntime, CopilotIntelligenceRuntime } from "../core/runtime";
+import type { AgentRunner } from "../runner/agent-runner";
 import type { CopilotKitIntelligence } from "../intelligence-platform";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 
@@ -45,7 +46,8 @@ function makeSseRunner() {
       }),
     connect: () => of({}),
     stop: async () => true,
-  };
+    isRunning: async () => false,
+  } as unknown as AgentRunner;
 }
 
 function runRequest(): Request {

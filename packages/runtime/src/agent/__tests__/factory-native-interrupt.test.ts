@@ -8,8 +8,10 @@
  *      accepted by `streamText` so the run continues (no re-approval loop).
  */
 import { describe, it, expect } from "vitest";
-import { EventType, type RunAgentInput } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+import type { RunAgentInput } from "@ag-ui/client";
 import { streamText, tool } from "ai";
+import type { FlexibleSchema } from "ai";
 import { MockLanguageModelV3, simulateReadableStream } from "ai/test";
 import { z } from "zod";
 import { BuiltInAgent, convertMessagesToVercelAISDKMessages } from "../index";
@@ -19,6 +21,16 @@ const USAGE = {
   inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
   outputTokens: { total: 0, text: 0, reasoning: 0 },
 } as const;
+
+type BookFlightInput = { destination: string };
+
+const bookFlightInputSchema = z.object({
+  destination: z.string(),
+}) as unknown as FlexibleSchema<BookFlightInput>;
+
+function finishReason(unified: "stop" | "tool-calls") {
+  return { unified, raw: unified };
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function modelEmitting(chunks: any[]): MockLanguageModelV3 {
@@ -37,9 +49,9 @@ function aisdkApprovalAgent(model: MockLanguageModelV3): BuiltInAgent {
         model,
         messages: convertMessagesToVercelAISDKMessages(input.messages),
         tools: {
-          bookFlight: tool({
+          bookFlight: tool<BookFlightInput, never>({
             description: "Book a flight. Requires approval.",
-            inputSchema: z.object({ destination: z.string() }),
+            inputSchema: bookFlightInputSchema,
             needsApproval: true,
           }),
         },
@@ -57,7 +69,11 @@ describe("factory aisdk native interrupt (real streamText)", () => {
         toolName: "bookFlight",
         input: JSON.stringify({ destination: "Tokyo" }),
       },
-      { type: "finish", finishReason: "tool-calls", usage: USAGE },
+      {
+        type: "finish",
+        finishReason: finishReason("tool-calls"),
+        usage: USAGE,
+      },
     ]);
     const agent = aisdkApprovalAgent(model);
 
@@ -90,7 +106,7 @@ describe("factory aisdk native interrupt (real streamText)", () => {
       { type: "text-start", id: "t1" },
       { type: "text-delta", id: "t1", delta: "Booked your flight to Tokyo!" },
       { type: "text-end", id: "t1" },
-      { type: "finish", finishReason: "stop", usage: USAGE },
+      { type: "finish", finishReason: finishReason("stop"), usage: USAGE },
     ]);
     const agent = aisdkApprovalAgent(model);
 

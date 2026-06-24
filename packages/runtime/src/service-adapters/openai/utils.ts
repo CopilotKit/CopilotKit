@@ -1,7 +1,7 @@
 import type OpenAI from "openai";
-import { Message } from "../../graphql/types/converted";
-import { ActionInput } from "../../graphql/inputs/action.input";
-import {
+import type { Message } from "../../graphql/types/converted";
+import type { ActionInput } from "../../graphql/inputs/action.input";
+import type {
   ChatCompletionAssistantMessageParam,
   ChatCompletionMessageParam,
   ChatCompletionSystemMessageParam,
@@ -14,18 +14,18 @@ import { parseJson } from "@copilotkit/shared";
 /**
  * OpenAI v4 exposes streaming completions under `beta.chat.completions`.
  * v5 removed `beta.chat` and promoted streaming to `chat.completions`.
- * These interfaces model the v4-specific shape so we can detect and access
+ * These types model the v4-specific shape so we can detect and access
  * the beta namespace safely without `as any`.
  */
+type StreamingChatCompletions = OpenAI["beta"]["chat"]["completions"];
+
 interface OpenAIV4BetaChat {
   chat: {
-    completions: OpenAI["chat"]["completions"];
+    completions: StreamingChatCompletions;
   };
 }
 
-interface OpenAIV4Beta extends OpenAI.Beta {
-  chat: OpenAIV4BetaChat["chat"];
-}
+type OpenAIV4Beta = OpenAI["beta"] & OpenAIV4BetaChat;
 
 /**
  * Type guard: checks whether the OpenAI client has the v4-era `beta.chat`
@@ -50,11 +50,14 @@ export function isOpenAIV5(openai: OpenAI): boolean {
  */
 export function getChatCompletionsForStreaming(
   openai: OpenAI,
-): OpenAI["chat"]["completions"] {
+): StreamingChatCompletions {
   if (hasV4BetaChat(openai.beta)) {
     return openai.beta.chat.completions;
   }
-  return openai.chat.completions;
+  // v5+ runtime: streaming was promoted to `chat.completions`, which the
+  // installed v4 type definitions don't model — same boundary between two
+  // incompatible SDK type surfaces as retrieveThreadRun below.
+  return openai.chat.completions as unknown as StreamingChatCompletions;
 }
 
 /**
