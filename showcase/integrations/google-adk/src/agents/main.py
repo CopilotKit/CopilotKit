@@ -36,6 +36,7 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+
 def get_weather(tool_context: ToolContext, location: str) -> dict:
     """Get the weather for a given location. Ensure location is fully spelled out."""
     return get_weather_impl(location)
