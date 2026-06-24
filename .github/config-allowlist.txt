@@ -77,6 +77,7 @@ packages/a2ui-renderer/tsdown.config.ts
 packages/agentcore-runner/tsdown.config.ts
 packages/core/tsdown.config.ts
 packages/demo-agents/tsdown.config.ts
+packages/markdown-renderer/tsdown.config.ts
 packages/react-core/tsdown.config.ts
 packages/react-native/tsdown.config.ts
 packages/react-textarea/tsdown.config.ts
