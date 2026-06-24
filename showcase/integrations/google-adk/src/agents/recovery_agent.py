@@ -1,17 +1,18 @@
 """Agent backing the A2UI Error Recovery demo (OSS-158, ADK-only).
 
 Same dynamic-schema setup as declarative_gen_ui_agent, but with the toolkit's
-validate->retry recovery loop made *visible*. The aimock fixtures force two
-sequences against the inner `render_a2ui` sub-agent:
+healing + recovery made *visible*. The aimock fixtures drive the inner
+`render_a2ui` sub-agent two ways:
 
-  - HEAL pill: attempt 0 emits a structurally-invalid surface (an unresolved
-    child reference) that never paints; the middleware feeds the validation
-    errors back and attempt 1 emits a valid surface that paints. The renderer
-    (`@ag-ui/a2ui-middleware` >= 0.0.10) shows the `building -> retrying (N/M)
-    -> painted` lifecycle.
-  - EXHAUST pill: every attempt is invalid, so the loop hits the cap and the
-    tool returns the `a2ui_recovery_exhausted` hard-fail envelope, which the
-    renderer surfaces as a tasteful `failed` state (no broken surface).
+  - HEAL pill: the model emits FREE-FORM / sloppy A2UI args (components and data
+    as JSON strings rather than structured arrays) — the toolkit heals them via
+    `parse_and_fix` into a valid surface in a single pass, which paints. (A
+    single deterministic response: no per-attempt fixture switching needed.)
+  - EXHAUST pill: every attempt is structurally invalid (the root references a
+    missing child), so the validate->retry loop hits the cap and the tool
+    returns the `a2ui_recovery_exhausted` hard-fail envelope, which the renderer
+    (`@ag-ui/a2ui-middleware` >= 0.0.10) surfaces as a tasteful `failed` state
+    (no broken surface).
 
 Backend-owned wiring (route sets `injectA2UITool: false`), mirroring
 declarative-gen-ui and the AWS Strands / ag2 convention. The recovery loop +

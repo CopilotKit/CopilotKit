@@ -1,59 +1,40 @@
 {
  "_meta": {
   "description": "D6 fixtures for google-adk / a2ui-recovery (A2UI error recovery, ADK-only)",
-  "_note": "Backend-owned A2UI (recovery_agent.py, get_a2ui_tool, injectA2UITool=false) with the toolkit validate->retry loop made visible. Same two-stage pattern as gen-ui-declarative: (a) outer agent emits no-arg generate_a2ui (matched by userMessage+context); (b) the inner render_a2ui sub-agent emits the flat A2UI payload (matched by toolName=render_a2ui); (c) outer narration (matched by toolCallId). The recovery loop re-invokes the inner sub-agent per attempt, so the inner render_a2ui calls are discriminated by sequenceIndex (the per-attempt counter). HEAL pill: sequenceIndex 0 emits a structurally-invalid surface (root references a missing child -> unresolved_child) that never paints; the middleware feeds the errors back; sequenceIndex 1 emits a valid surface that paints. EXHAUST pill: a single no-sequenceIndex inner fixture returns invalid for EVERY attempt, so the loop hits maxAttempts (3) and the tool returns the a2ui_recovery_exhausted envelope (renderer shows a 'failed' state). Inner render_a2ui mirrors are ordered BEFORE the outer generate_a2ui fixtures so first-match-wins routes inner traffic to them. Prompts are unique within the google-adk context (no collision with gen-ui-declarative.json). Requires @ag-ui/a2ui-middleware >= 0.0.10 for the lifecycle rendering; recovery loop is ag_ui_adk >= 0.7.0.",
+  "_note": "Backend-owned A2UI (recovery_agent.py, get_a2ui_tool, injectA2UITool=false) with the toolkit recovery/healing made visible. Two pills, each a two-stage flow: outer generate_a2ui (no args, matched by userMessage+context); inner render_a2ui (matched by toolName=render_a2ui); outer narration (matched by toolCallId). HEAL pill: the inner render returns FREE-FORM args (components/data as JSON strings) \u2014 the sloppy shape a model emits \u2014 which the middleware heals via parse_and_fix into a valid surface in a SINGLE pass (no retry; deterministic, so no sequenceIndex needed). EXHAUST pill: the inner render is structurally invalid (root references a missing child) on EVERY attempt, so the validate->retry loop hits the cap and returns the a2ui_recovery_exhausted hard-fail envelope (renderer shows a 'failed' state). Inner render_a2ui mirrors are ordered BEFORE the outer generate_a2ui fixtures (first-match-wins). Prompts are unique within the google-adk context. Requires ag_ui_adk>=0.7.0 (heal/recovery) and @ag-ui/a2ui-middleware>=0.0.10 (lifecycle render).",
   "created": "2026-06-24"
  },
  "fixtures": [
   {
-   "_comment": "HEAL pill — inner render_a2ui attempt 0: structurally INVALID (root Column references child 'missing-card' with no matching component). Never paints; errors are fed back to attempt 1.",
+   "_comment": "HEAL pill - inner render_a2ui: FREE-FORM args (components/data as JSON strings); middleware heals via parse_and_fix into a valid surface in one pass.",
    "match": {
     "userMessage": "Render my Q2 sales dashboard, recovering if the first attempt is malformed.",
-    "toolName": "render_a2ui",
-    "sequenceIndex": 0
+    "toolName": "render_a2ui"
    },
    "response": {
     "toolCalls": [
      {
-      "id": "call_d6_recover_heal_design_attempt0",
+      "id": "call_d6_recover_heal_design",
       "name": "render_a2ui",
-      "arguments": "{\"surfaceId\":\"recovery-demo\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"missing-card\"]}]}"
+      "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"m1\\\", \\\"m2\\\"]}, {\\\"id\\\": \\\"m1\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Quarterly Revenue\\\", \\\"value\\\": \\\"$4.2M\\\", \\\"trend\\\": \\\"up\\\", \\\"trendValue\\\": \\\"+12% QoQ\\\"}, {\\\"id\\\": \\\"m2\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Win Rate\\\", \\\"value\\\": \\\"31%\\\", \\\"trend\\\": \\\"down\\\", \\\"trendValue\\\": \\\"-2 pts\\\"}]\", \"data\": \"{}\"}"
      }
     ]
    },
    "chunkSize": 9999
   },
   {
-   "_comment": "HEAL pill — inner render_a2ui attempt 1: VALID surface that paints after the structural errors from attempt 0 are fed back.",
-   "match": {
-    "userMessage": "Render my Q2 sales dashboard, recovering if the first attempt is malformed.",
-    "toolName": "render_a2ui",
-    "sequenceIndex": 1
-   },
-   "response": {
-    "toolCalls": [
-     {
-      "id": "call_d6_recover_heal_design_attempt1",
-      "name": "render_a2ui",
-      "arguments": "{\"surfaceId\":\"recovery-demo\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"title\",\"kpi-row\"]},{\"id\":\"title\",\"component\":\"Text\",\"text\":\"Q2 Sales Dashboard (recovered)\"},{\"id\":\"kpi-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"metric-revenue\",\"metric-win-rate\"]},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12% QoQ\"},{\"id\":\"metric-win-rate\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\",\"trendValue\":\"-2 pts\"}]}"
-     }
-    ]
-   },
-   "chunkSize": 9999
-  },
-  {
-   "_comment": "HEAL pill — outer agent narration after generate_a2ui returns the (recovered) surface.",
+   "_comment": "HEAL pill - outer narration after generate_a2ui returns the healed surface.",
    "match": {
     "context": "google-adk",
     "toolCallId": "call_d6_recover_heal_outer_001"
    },
    "response": {
-    "content": "The first render was malformed — I recovered and painted your Q2 dashboard."
+    "content": "The render came back malformed - I healed it and painted your Q2 dashboard."
    },
    "chunkSize": 9999
   },
   {
-   "_comment": "HEAL pill — outer agent emits generate_a2ui (no args).",
+   "_comment": "HEAL pill - outer agent emits generate_a2ui (no args).",
    "match": {
     "userMessage": "Render my Q2 sales dashboard, recovering if the first attempt is malformed.",
     "context": "google-adk"
@@ -70,7 +51,7 @@
    "chunkSize": 9999
   },
   {
-   "_comment": "EXHAUST pill — inner render_a2ui: INVALID on every attempt (no sequenceIndex, so it matches all 3 attempts). Drives the loop to the maxAttempts cap -> a2ui_recovery_exhausted hard-fail envelope.",
+   "_comment": "EXHAUST pill - inner render_a2ui: structurally INVALID on every attempt (unresolved child) -> recovery exhausts.",
    "match": {
     "userMessage": "Render a dashboard that keeps failing validation so I can see the fallback.",
     "toolName": "render_a2ui"
@@ -80,25 +61,25 @@
      {
       "id": "call_d6_recover_exhaust_design",
       "name": "render_a2ui",
-      "arguments": "{\"surfaceId\":\"recovery-demo-fail\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"never-defined\"]}]}"
+      "arguments": "{\"surfaceId\": \"recovery-demo-fail\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"never-defined\"]}]}"
      }
     ]
    },
    "chunkSize": 9999
   },
   {
-   "_comment": "EXHAUST pill — outer agent narration after generate_a2ui returns the recovery-exhausted envelope.",
+   "_comment": "EXHAUST pill - outer narration after generate_a2ui returns the recovery-exhausted envelope.",
    "match": {
     "context": "google-adk",
     "toolCallId": "call_d6_recover_exhaust_outer_001"
    },
    "response": {
-    "content": "I couldn't produce a valid surface after several attempts — showing a graceful fallback instead."
+    "content": "I couldn't produce a valid surface after several attempts - showing a graceful fallback instead."
    },
    "chunkSize": 9999
   },
   {
-   "_comment": "EXHAUST pill — outer agent emits generate_a2ui (no args).",
+   "_comment": "EXHAUST pill - outer agent emits generate_a2ui (no args).",
    "match": {
     "userMessage": "Render a dashboard that keeps failing validation so I can see the fallback.",
     "context": "google-adk"

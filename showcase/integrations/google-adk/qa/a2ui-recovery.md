@@ -19,13 +19,13 @@
   - "Recover a bad render"
   - "Show an unrecoverable failure"
 
-### 2. Recovery (heal) path
+### 2. Healing path
 
 - [ ] Click "Recover a bad render" ("Render my Q2 sales dashboard, recovering if the first attempt is malformed.")
-- [ ] Verify the lifecycle is visible in order: a `building` skeleton → a `retrying` state showing a "Retrying… (N/3)" label (the first render is structurally invalid — root references a missing child — and never paints) → a painted surface
-- [ ] Verify the **painted** surface is valid: a `declarative-metric` row ("Quarterly Revenue $4.2M", "Win Rate 31%") under a "Q2 Sales Dashboard (recovered)" title — i.e., the invalid first attempt did NOT paint, only the recovered one did
-- [ ] DevTools → Network: verify the inner `render_a2ui` sub-agent was called more than once (attempt 0 invalid, attempt 1 valid) and the final tool result carries an `a2ui_operations` container (no `a2ui_recovery_exhausted`)
-- [ ] Verify the chat reply is one short sentence noting the recovery
+- [ ] The inner `render_a2ui` returns **free-form / sloppy** A2UI args (components & data as JSON strings rather than structured arrays). Verify the middleware **heals** them via `parse_and_fix` into a valid surface that paints (no broken surface, no error banner)
+- [ ] Verify the **painted** surface is valid: a `declarative-metric` row ("Quarterly Revenue $4.2M", "Win Rate 31%") — i.e., the sloppy render was repaired and rendered
+- [ ] DevTools → Network: verify the final tool result carries an `a2ui_operations` container (no `a2ui_recovery_exhausted`)
+- [ ] Verify the chat reply is one short sentence noting the heal
 
 ### 3. Hard-fail (recovery exhausted) path
 

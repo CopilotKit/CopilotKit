@@ -75,13 +75,14 @@ test.describe("A2UI Error Recovery (ADK-only)", () => {
     await expect(page.getByTestId("declarative-metric")).toHaveCount(0);
   });
 
-  test("heal: invalid first render recovers to a valid surface", async ({
+  test("heal: free-form/sloppy render is healed into a valid surface", async ({
     page,
   }) => {
     await clickPill(page, HEAL_PILL, HEAL_MSG);
 
-    // The faulty first attempt is suppressed (never paints); the recovered
-    // surface paints. Recovery is a multi-LLM-call loop, so allow 90s.
+    // The model emits free-form (stringified) A2UI args; the middleware heals
+    // them via parse_and_fix into a valid surface that paints. Allow 90s for
+    // the sub-agent round-trip.
     const metrics = page.locator('[data-testid="declarative-metric"]');
     await expect
       .poll(async () => await metrics.count(), { timeout: 90_000 })
