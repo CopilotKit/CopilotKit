@@ -53,9 +53,8 @@ await bot.start();
 
 `discord(opts)` returns a `DiscordAdapter`. The adapter connects via the
 Discord Gateway (WebSocket) — no public URL required. The listener pre-filters
-ingress to the turns the bot should answer (@-mentions in guild channels,
-replies in threads it owns, and DMs), so a single `onMention` handler covers
-most use cases.
+ingress to the turns the bot should answer (@-mentions in guild channels and
+DMs), so a single `onMention` handler covers most use cases.
 
 ### Required env
 

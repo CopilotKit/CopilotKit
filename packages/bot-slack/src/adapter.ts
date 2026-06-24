@@ -50,12 +50,13 @@ import { attachAssistant } from "./assistant.js";
 import type { AssistantHandle } from "./assistant.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
-import { DM_SCOPE } from "./types.js";
+import { DM_SCOPE, resolveSlackRespondToOptions } from "./types.js";
 import type {
   ConversationKey,
   ReplyTarget,
   SlackAssistantOptions,
   SlackFeedbackOptions,
+  SlackRespondToOptions,
 } from "./types.js";
 
 export interface SlackAdapterOptions {
@@ -82,6 +83,12 @@ export interface SlackAdapterOptions {
    * disable pane handling entirely.
    */
   assistant?: SlackAssistantOptions | false;
+  /**
+   * Controls which Slack message surfaces become bot turns. Defaults: DMs
+   * respond, app mentions respond in-thread, and plain channel thread replies
+   * require another app mention.
+   */
+  respondTo?: SlackRespondToOptions;
   /**
    * Reply-stream transport. "native" (default): `chat.startStream` wherever the
    * reply target is a thread; flat DMs and workspaces where the streaming API
@@ -190,6 +197,7 @@ export class SlackAdapter implements PlatformAdapter {
       app: this.app,
       store: this.store,
       botUserId: this.botUserId,
+      respondTo: resolveSlackRespondToOptions(this.opts.respondTo),
       isAssistantThread: this.assistantHandle?.isAssistantThread,
       onTurn: async (turn) => {
         await sink.onTurn({

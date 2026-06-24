@@ -80,6 +80,11 @@ const bot = createBot({
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!,
       appToken: process.env.SLACK_APP_TOKEN!,
+      respondTo: {
+        directMessages: true,
+        appMentions: { reply: "thread" },
+        threadReplies: "mentionsOnly",
+      },
     }),
   ],
   // One AG-UI agent per conversation, pointed at the runtime.
@@ -96,7 +101,7 @@ const bot = createBot({
   context: [...defaultSlackContext, ...appContext],
 });
 
-// One handler covers @-mentions, replies in threads the bot owns, and DMs.
+// One handler covers explicit @-mentions and normal DMs.
 // senderContext names the requesting user so the agent acts "as" them.
 bot.onMention(async ({ thread, message }) => {
   await thread.runAgent({ context: senderContext(message.user) });
@@ -104,6 +109,11 @@ bot.onMention(async ({ thread, message }) => {
 
 await bot.start();
 ```
+
+The runnable Slack example keeps DMs and the assistant pane conversational, but
+channel/private-channel threads require `@Kite` on each follow-up by default.
+Set `respondTo.threadReplies: "afterBotReply"` to restore legacy behavior where
+plain replies in a thread can continue after the bot has posted there.
 
 ### Tools (`app/tools/index.ts`)
 
@@ -251,6 +261,10 @@ several from one process).
   bot token (`SLACK_BOT_TOKEN`).
 - _Basic Information → App-Level Tokens_ → generate one with
   `connections:write` → copy the `xapp-` app token (`SLACK_APP_TOKEN`).
+- The manifest is tuned for mention-only channel threads. If you enable
+  `respondTo.threadReplies: "afterBotReply"`, also subscribe to
+  `message.channels` and `message.groups` so Slack delivers plain thread
+  replies.
 
 ### 1b. Discord app (set `DISCORD_*` to enable Discord)
 
@@ -321,8 +335,9 @@ pnpm --filter slack-example dev       # tsx watch app/index.ts
 
 ### 6. Try it
 
-@mention the bot in a channel (Slack/Discord) or DM it / @mention it in a group
-(Telegram):
+@mention the bot in a channel (Slack/Discord) or DM it / @mention it in a
+group (Telegram). In Slack channel threads, mention Kite again for each
+follow-up unless you enabled legacy thread continuation:
 
 > @CopilotKit Triage what are the open CPK issues this cycle?
 

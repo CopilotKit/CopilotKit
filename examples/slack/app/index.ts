@@ -85,6 +85,14 @@ async function main() {
         // `:wrench:` rows, or pane "is using `tool`…" status). Tools still run;
         // only the display is hidden.
         showToolStatus: false,
+        // Kite keeps DMs conversational and responds to explicit app mentions
+        // in channels/threads. Plain channel thread replies stay quiet unless
+        // they mention Kite again.
+        respondTo: {
+          directMessages: true,
+          appMentions: { reply: "thread" },
+          threadReplies: "mentionsOnly",
+        },
         // Assistant-pane behavior is ON by default; this just customizes it.
         // The greeting + chips show when a user opens the pane (matching the
         // app manifest's `assistant_view`); native streaming + status need no
@@ -203,9 +211,9 @@ async function main() {
   });
 
   // The turn handler. Each adapter pre-filters ingress to the turns this bot
-  // should answer — @-mentions, replies in threads it owns, and DMs (and every
-  // WhatsApp message). createBot is mention-preferred: a single handler covers
-  // all of them across every active platform. `senderContext` names the
+  // should answer — DMs, explicit mentions, and every WhatsApp message.
+  // createBot is mention-preferred: a single handler covers them across every
+  // active platform. `senderContext` names the
   // requesting user per `thread.platform`, so the label is correct on whichever
   // surface the turn arrived from. (The feature demos below add their own
   // handlers — onReaction, onModalSubmit, onThreadStarted.) Wrap the turn so a
