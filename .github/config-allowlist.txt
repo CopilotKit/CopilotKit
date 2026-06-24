@@ -48,6 +48,7 @@ examples/showcases/multi-agent-canvas/frontend/next.config.ts
 examples/showcases/multi-page/vite.config.ts
 examples/showcases/open-mcp-client/apps/threejs-server/vite.config.ts
 examples/showcases/open-mcp-client/apps/web/next.config.ts
+examples/showcases/openbox-governed-copilotkit/frontend/next.config.ts
 examples/showcases/orca/frontend/next.config.mjs
 examples/showcases/presentation/next.config.mjs
 examples/showcases/pydantic-ai-todos/next.config.ts
