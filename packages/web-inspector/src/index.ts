@@ -2603,11 +2603,7 @@ export class WebInspectorElement extends LitElement {
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
-    if (shouldUpdateOwnedThreadStoreContext(core.runtimeConnectionStatus)) {
-      store.setContext(
-        this.createOwnedThreadStoreContext(agentId, core.headers),
-      );
-    }
+    store.setContext(this.getOwnedThreadStoreContext(agentId, core.headers));
     this._ownedThreadStores.set(agentId, store);
     // Subscribe directly so threads render even before the registry callback
     // fires (some published-core code paths land on the subscriber after
@@ -2631,22 +2627,37 @@ export class WebInspectorElement extends LitElement {
     };
   }
 
+  private getOwnedThreadStoreContext(
+    agentId: string,
+    headers: Readonly<Record<string, string>>,
+  ): ɵThreadRuntimeContext | null {
+    const core = this.core;
+    if (
+      !core ||
+      !shouldUpdateOwnedThreadStoreContext(core.runtimeConnectionStatus)
+    ) {
+      return null;
+    }
+    return this.createOwnedThreadStoreContext(agentId, headers);
+  }
+
   private updateOwnedThreadStoreContexts(
     headers: Readonly<Record<string, string>> = this.core?.headers ?? {},
   ): void {
-    const core = this.core;
-    if (!core?.runtimeUrl) return;
-    if (!shouldUpdateOwnedThreadStoreContext(core.runtimeConnectionStatus)) {
-      return;
-    }
     for (const [agentId, store] of this._ownedThreadStores) {
-      store.setContext(this.createOwnedThreadStoreContext(agentId, headers));
+      store.setContext(this.getOwnedThreadStoreContext(agentId, headers));
     }
   }
 
   private refreshOwnedThreadStore(agentId: string): void {
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
+    if (
+      this.core?.runtimeConnectionStatus !==
+      CopilotKitCoreRuntimeConnectionStatus.Connected
+    ) {
+      return;
+    }
     // refresh() re-fetches without resetting threads to [] first, so the list
     // stays visible while new data loads and survives transient fetch failures.
     store.refresh();

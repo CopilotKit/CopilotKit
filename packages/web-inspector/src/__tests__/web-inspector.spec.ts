@@ -14,6 +14,7 @@ type InspectorInternals = {
   agentMessages: Map<string, Array<{ contentText?: string }>>;
   agentStates: Map<string, unknown>;
   cachedTools: Array<{ name: string }>;
+  _threads: Array<{ id: string }>;
 };
 
 type InspectorContextInternals = {
@@ -774,8 +775,8 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     });
   });
 
-  it("does not fetch with stale capabilities while runtime reconnects", async () => {
-    const { agent } = createMockAgent("alpha");
+  it("does not fetch or repopulate stale threads while runtime reconnects", async () => {
+    const { agent, controller } = createMockAgent("alpha");
     const harness = createHeaderMockCore(
       { alpha: agent },
       { Authorization: "Bearer abc" },
@@ -802,6 +803,14 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     await Promise.resolve();
 
     expect(threadListCalls()).toHaveLength(0);
+
+    controller.emit("onRunFinishedEvent", { event: { id: "run-1" } });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(threadListCalls()).toHaveLength(0);
+    expect(getInternals(inspector)._threads).toEqual([]);
 
     harness.core.threadEndpoints = {
       list: true,
