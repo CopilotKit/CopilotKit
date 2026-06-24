@@ -1150,6 +1150,51 @@ export const SERVICES: Record<
       },
     },
   },
+  // STAGING-ONLY (for now). The TypeScript sibling of `showcase-strands`
+  // ships to staging first; its prod instance is intentionally NOT yet
+  // provisioned. Under the env-map schema the entry declares only `staging`
+  // (no prod key, no placeholder ID). gateIgnore skips BOTH image-ref-gate
+  // directions so a prod-less, not-yet-pinned service does not trip
+  // findMissingServices / findUntrackedServices; gateValidated is therefore
+  // false. ciBuilt:true keeps it in the staging redeploy scope so a
+  // main-merge build of its image bounces the staging instance. When prod is
+  // later provisioned + promoted via showcase_promote.yml, convert this to
+  // the dual-env `showcase-strands` shape: add a `prod` env entry with its
+  // real serviceInstance ID, flip gateValidated:true, drop gateIgnore, and
+  // remove the legacyJsonCompat prod-domain placeholder below.
+  "showcase-strands-typescript": {
+    serviceId: "d6f47c8c-a0a1-4dbe-991c-50f8463fd68d",
+    ciBuilt: true,
+    gateValidated: false,
+    gateIgnore: true,
+    dispatchName: "strands-typescript",
+    probeDriver: "agent",
+    // Tier-2 leaf (default). Runtime dep: the agent routes its LLM traffic
+    // at the env-local aimock, so a cluster promote pulls aimock (tier-0)
+    // into the closure. The OPENAI_BASE_URL service-ref is ASSERTED prod→prod
+    // by the Stage-2 Ruby preflight (never copied).
+    runtimeDeps: ["aimock"],
+    serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }],
+    environments: {
+      staging: {
+        instanceId: "3f917b9f-c3f0-4d8b-96ca-7f455e06b5ba",
+        healthcheckPath: "/api/health",
+        domain: "showcase-strands-typescript-staging.up.railway.app",
+        probe: true,
+      },
+    },
+    // Ruby/jq JSON-shape compat (see ServiceEntry.legacyJsonCompat). The
+    // emitter fills the absent prod env's prodInstanceId from serviceId and
+    // the missing prod domain from this borrowed staging host so the
+    // generated JSON keeps its legacy {prod,staging} shape. Neither is read
+    // by any TS accessor (no prod env => never dereferenced; probe.prod is
+    // emitted false).
+    legacyJsonCompat: {
+      domains: {
+        prod: "showcase-strands-typescript-staging.up.railway.app",
+      },
+    },
+  },
   // ───────────────────────── starter-* container fleet ─────────────────────
   // The 12 starter-template containers (ghcr.io/copilotkit/starter-<slug>),
   // live in BOTH staging and prod. Folded into the cluster-promote SSOT (S1)

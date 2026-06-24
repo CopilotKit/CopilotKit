@@ -72,6 +72,8 @@ jobs:
               - 'showcase/integrations/spring-ai/**'
             strands:
               - 'showcase/integrations/strands/**'
+            strands_typescript:
+              - 'showcase/integrations/strands-typescript/**'
             ms_agent_python:
               - 'showcase/integrations/ms-agent-python/**'
             claude_sdk_typescript:
@@ -140,6 +142,7 @@ jobs:
             {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/integrations/langroid","image":"showcase-langroid","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/integrations/spring-ai","image":"showcase-spring-ai","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"strands","filter_key":"strands","context":"showcase/integrations/strands","image":"showcase-strands","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
+            {"dispatch_name":"strands-typescript","filter_key":"strands_typescript","context":"showcase/integrations/strands-typescript","image":"showcase-strands-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/integrations/ms-agent-python","image":"showcase-ms-agent-python","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/integrations/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
             {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/integrations/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
