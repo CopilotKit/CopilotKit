@@ -24,10 +24,13 @@ import {
   parseResult,
 } from "@/components/tool-cards";
 
-const isAuth = (r: ArcadeResult | undefined): r is Extract<ArcadeResult, { authorizationRequired: true }> =>
+const isAuth = (
+  r: ArcadeResult | undefined,
+): r is Extract<ArcadeResult, { authorizationRequired: true }> =>
   !!r && "authorizationRequired" in r && r.authorizationRequired === true;
-const isError = (r: ArcadeResult | undefined): r is Extract<ArcadeResult, { error: string }> =>
-  !!r && "error" in r;
+const isError = (
+  r: ArcadeResult | undefined,
+): r is Extract<ArcadeResult, { error: string }> => !!r && "error" in r;
 const outputOf = (r: ArcadeResult | undefined): unknown =>
   r && "output" in r ? r.output : null;
 
@@ -41,14 +44,25 @@ function ToolRenderers() {
       body: z.string(),
     }),
     render: ({ status, parameters, result }) => {
-      if (status === "inProgress") return <LoadingCard label="Preparing email…" />;
+      if (status === "inProgress")
+        return <LoadingCard label="Preparing email…" />;
       if (status === "executing")
-        return <LoadingCard label={`Sending email to ${parameters.recipient ?? "…"}…`} />;
+        return (
+          <LoadingCard
+            label={`Sending email to ${parameters.recipient ?? "…"}…`}
+          />
+        );
 
       const r = parseResult<ArcadeResult>(result);
       if (isError(r)) return <ErrorCard message={r.error} />;
-      if (isAuth(r)) return <AuthorizationCard provider={r.provider} authUrl={r.authUrl} />;
-      return <EmailSentCard recipient={parameters.recipient} subject={parameters.subject} />;
+      if (isAuth(r))
+        return <AuthorizationCard provider={r.provider} authUrl={r.authUrl} />;
+      return (
+        <EmailSentCard
+          recipient={parameters.recipient}
+          subject={parameters.subject}
+        />
+      );
     },
   });
 
@@ -59,11 +73,13 @@ function ToolRenderers() {
       n_emails: z.number().optional(),
     }),
     render: ({ status, result }) => {
-      if (status !== "complete") return <LoadingCard label="Reading your inbox…" />;
+      if (status !== "complete")
+        return <LoadingCard label="Reading your inbox…" />;
 
       const r = parseResult<ArcadeResult>(result);
       if (isError(r)) return <ErrorCard message={r.error} />;
-      if (isAuth(r)) return <AuthorizationCard provider={r.provider} authUrl={r.authUrl} />;
+      if (isAuth(r))
+        return <AuthorizationCard provider={r.provider} authUrl={r.authUrl} />;
       return <EmailListCard emails={extractEmails(outputOf(r))} />;
     },
   });
@@ -82,8 +98,14 @@ function ToolRenderers() {
 
       const r = parseResult<ArcadeResult>(result);
       if (isError(r)) return <ErrorCard message={r.error} />;
-      if (isAuth(r)) return <AuthorizationCard provider={r.provider} authUrl={r.authUrl} />;
-      return <NewsCard keywords={parameters.keywords} stories={extractNews(outputOf(r))} />;
+      if (isAuth(r))
+        return <AuthorizationCard provider={r.provider} authUrl={r.authUrl} />;
+      return (
+        <NewsCard
+          keywords={parameters.keywords}
+          stories={extractNews(outputOf(r))}
+        />
+      );
     },
   });
 
@@ -114,7 +136,13 @@ function Suggestions() {
 }
 
 type IconProps = { className?: string };
-const Stroke = ({ children, className }: { children: ReactNode; className?: string }) => (
+const Stroke = ({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) => (
   <svg
     viewBox="0 0 24 24"
     fill="none"
@@ -223,11 +251,12 @@ export function HomeClient({ keysConfigured }: { keysConfigured: boolean }) {
               </span>
             </h1>
             <p className="mt-5 max-w-md text-lg leading-relaxed text-zinc-600">
-              This agent uses <span className="font-medium text-zinc-900">Arcade</span> to act
-              on real services. When a tool needs OAuth, Arcade hands back an authorization
-              URL and CopilotKit renders it as a{" "}
-              <span className="font-medium text-zinc-900">Connect card</span> right in the
-              chat. No credentials ever reach the model.
+              This agent uses{" "}
+              <span className="font-medium text-zinc-900">Arcade</span> to act
+              on real services. When a tool needs OAuth, Arcade hands back an
+              authorization URL and CopilotKit renders it as a{" "}
+              <span className="font-medium text-zinc-900">Connect card</span>{" "}
+              right in the chat. No credentials ever reach the model.
             </p>
 
             <ul className="mt-8 space-y-2.5">
@@ -238,12 +267,18 @@ export function HomeClient({ keysConfigured }: { keysConfigured: boolean }) {
                     key={c.name}
                     className="flex items-center gap-3.5 rounded-xl border border-zinc-200/70 bg-white/70 px-4 py-3 shadow-sm ring-1 ring-inset ring-white/50 backdrop-blur transition-colors hover:bg-white"
                   >
-                    <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ring-1 ring-inset ${c.tone}`}>
+                    <span
+                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ring-1 ring-inset ${c.tone}`}
+                    >
                       <Icon className="h-5 w-5" />
                     </span>
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-zinc-900">{c.name}</p>
-                      <p className="text-[13px] leading-snug text-zinc-500">{c.desc}</p>
+                      <p className="text-sm font-semibold text-zinc-900">
+                        {c.name}
+                      </p>
+                      <p className="text-[13px] leading-snug text-zinc-500">
+                        {c.desc}
+                      </p>
                     </div>
                   </li>
                 );
@@ -253,17 +288,33 @@ export function HomeClient({ keysConfigured }: { keysConfigured: boolean }) {
             {keysConfigured ? (
               <p className="mt-7 flex max-w-md items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-800 backdrop-blur">
                 <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-emerald-600 text-white">
-                  <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-3 w-3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
                 </span>
-                Keys detected. Ask the assistant on the right, then send an email to see
-                the one-time <span className="font-medium">Connect</span> card.
+                Keys detected. Ask the assistant on the right, then send an
+                email to see the one-time{" "}
+                <span className="font-medium">Connect</span> card.
               </p>
             ) : (
               <p className="mt-7 max-w-md rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-800 backdrop-blur">
-                Add your <code className="font-mono text-[13px]">ARCADE_API_KEY</code> and{" "}
+                Add your{" "}
+                <code className="font-mono text-[13px]">ARCADE_API_KEY</code>{" "}
+                and{" "}
                 <code className="font-mono text-[13px]">OPENAI_API_KEY</code> to{" "}
                 <code className="font-mono text-[13px]">.env.local</code>, or{" "}
-                <Link href="/mock" className="font-medium text-amber-900 underline underline-offset-2">
+                <Link
+                  href="/mock"
+                  className="font-medium text-amber-900 underline underline-offset-2"
+                >
                   see a static preview
                 </Link>{" "}
                 with no keys.
@@ -275,8 +326,12 @@ export function HomeClient({ keysConfigured }: { keysConfigured: boolean }) {
             <div className="flex items-center gap-3 border-b border-zinc-100 bg-white/60 px-4 py-3">
               <ArcadeWordmark className="h-4 w-auto text-zinc-900" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold leading-tight text-zinc-900">Assistant</p>
-                <p className="text-[11px] leading-tight text-zinc-400">Gmail · Google News, via Arcade</p>
+                <p className="text-sm font-semibold leading-tight text-zinc-900">
+                  Assistant
+                </p>
+                <p className="text-[11px] leading-tight text-zinc-400">
+                  Gmail · Google News, via Arcade
+                </p>
               </div>
               {keysConfigured ? (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-medium text-emerald-700 ring-1 ring-inset ring-emerald-200">
@@ -296,7 +351,8 @@ export function HomeClient({ keysConfigured }: { keysConfigured: boolean }) {
                 labels={{
                   welcomeMessageText:
                     "Hi! I'm your Arcade-powered assistant. I can search Google News and read or send your Gmail. Try a suggestion below. The first time I touch Gmail, you'll get a one-time Connect card.",
-                  chatInputPlaceholder: "Try: search news on AI agents and email me a summary…",
+                  chatInputPlaceholder:
+                    "Try: search news on AI agents and email me a summary…",
                 }}
               />
             </div>
@@ -306,12 +362,29 @@ export function HomeClient({ keysConfigured }: { keysConfigured: boolean }) {
         <footer className="mt-12 flex flex-col items-center gap-1.5 pb-2 text-center text-xs text-zinc-400">
           <p>
             Built with{" "}
-            <a href="https://www.arcade.dev" target="_blank" rel="noopener noreferrer" className="font-medium text-zinc-500 hover:text-zinc-700">Arcade</a>{" "}
+            <a
+              href="https://www.arcade.dev"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-zinc-500 hover:text-zinc-700"
+            >
+              Arcade
+            </a>{" "}
             and{" "}
-            <a href="https://www.copilotkit.ai" target="_blank" rel="noopener noreferrer" className="font-medium text-zinc-500 hover:text-zinc-700">CopilotKit</a>
+            <a
+              href="https://www.copilotkit.ai"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-zinc-500 hover:text-zinc-700"
+            >
+              CopilotKit
+            </a>
             . Credentials are vaulted by Arcade and never shared with the model.
           </p>
-          <Link href="/mock" className="font-medium text-zinc-500 hover:text-zinc-700">
+          <Link
+            href="/mock"
+            className="font-medium text-zinc-500 hover:text-zinc-700"
+          >
             View the static UI preview →
           </Link>
         </footer>

@@ -34,8 +34,8 @@ every framework URL uses the same MDX source.
      Generated pages usually load the bare root MDX first and only use the
      integration file as a sparse fallback when no root page exists.
    - Shared snippets: `src/content/snippets/`
-   Use `find src/content/docs -path '*<route>*' -print` and inspect the nearest
-   `meta.json` files to understand sidebar structure.
+     Use `find src/content/docs -path '*<route>*' -print` and inspect the nearest
+     `meta.json` files to understand sidebar structure.
 2. Discover whether the page is showcase-derived. Search the target file and
    nearby shared snippets with:
    `rg -n "snippet_cell|<Snippet|<InlineDemo|@/snippets|<IntegrationGrid|<ToolRendering|<FrameworkSetup|<RunAndConnect"`.
