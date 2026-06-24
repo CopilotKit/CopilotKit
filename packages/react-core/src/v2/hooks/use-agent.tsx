@@ -23,6 +23,10 @@ const ALL_UPDATES: UseAgentUpdate[] = [
 ];
 
 export interface UseAgentProps {
+  /**
+   * Agent to bind to. Resolution precedence: this property, then the surrounding
+   * chat configuration's agentId, then the global default.
+   */
   agentId?: string;
   updates?: UseAgentUpdate[];
   /**
