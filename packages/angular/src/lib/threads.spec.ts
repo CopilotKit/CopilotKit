@@ -115,6 +115,10 @@ function deferredFetchBody() {
   return { promise, resolve };
 }
 
+function threadIds(result: InjectThreadsResult): string[] {
+  return result.threads().map((thread) => thread.id);
+}
+
 async function waitForCondition(assertion: () => void): Promise<void> {
   let lastError: unknown;
   for (let attempt = 0; attempt < 30; attempt += 1) {
@@ -327,8 +331,62 @@ describe("injectThreads", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(result.isLoading()).toBe(false);
-    expect(result.threads().map((thread) => thread.id)).toEqual(["thread-1"]);
+    expect(threadIds(result)).toEqual(["thread-1"]);
     expect(fetchMock.calls).toHaveLength(1);
+  });
+
+  it("clears fetched threads without refetching when inputs change during transient reconnects", async () => {
+    fetchMock.enqueue({ threads: sampleThreads });
+    fetchMock.enqueue({
+      threads: [{ ...sampleThreads[0], id: "thread-2", archived: true }],
+    });
+    const includeArchived = signal<boolean | undefined>(false);
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class HostComponent {
+      readonly threads = injectThreads({
+        agentId: "agent-1",
+        includeArchived,
+      });
+    }
+
+    const fixture = TestBed.createComponent(HostComponent);
+    const result = fixture.componentInstance.threads;
+
+    await waitForCondition(() => {
+      expect(result.isLoading()).toBe(false);
+      expect(threadIds(result)).toEqual(["thread-1"]);
+    });
+
+    copilotKit.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+    fixture.detectChanges();
+
+    includeArchived.set(true);
+    fixture.detectChanges();
+
+    await waitForCondition(() => {
+      expect(result.threads()).toEqual([]);
+      expect(result.isLoading()).toBe(true);
+    });
+    expect(fetchMock.calls).toHaveLength(1);
+
+    copilotKit.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    fixture.detectChanges();
+
+    await waitForCondition(() => {
+      expect(result.isLoading()).toBe(false);
+      expect(threadIds(result)).toEqual(["thread-2"]);
+    });
+    expect(fetchMock.calls[1]?.input).toBe(
+      "https://runtime.example.com/threads?agentId=agent-1&includeArchived=true",
+    );
   });
 
   it("unregisters and stops the store when the injection context is destroyed", async () => {

@@ -51,6 +51,14 @@ type StaticSignalValue = string | boolean | number | undefined;
 
 const EMPTY_HEADERS: Record<string, string> = {};
 
+interface ThreadListInputIdentity {
+  agentId: string;
+  runtimeUrl: string | undefined;
+  headers: Record<string, string>;
+  includeArchived: boolean | undefined;
+  limit: number | undefined;
+}
+
 function toInputSignal<T extends StaticSignalValue>(
   value: T | Signal<T>,
 ): Signal<T> {
@@ -79,6 +87,19 @@ function toPublicThread({
     updatedAt,
     ...(lastRunAt !== undefined ? { lastRunAt } : {}),
   };
+}
+
+function hasSameThreadListInputIdentity(
+  context: ɵThreadRuntimeContext,
+  identity: ThreadListInputIdentity,
+): boolean {
+  return (
+    context.agentId === identity.agentId &&
+    context.runtimeUrl === identity.runtimeUrl &&
+    context.headers === identity.headers &&
+    context.includeArchived === identity.includeArchived &&
+    context.limit === identity.limit
+  );
 }
 
 function bindSelector<T>(
@@ -185,12 +206,30 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
 
     const runtimeUrl = copilotKit.runtimeUrl();
     const runtimeConnectionStatus = copilotKit.runtimeConnectionStatus();
+    const resolvedHeaders = copilotKit.headers() ?? EMPTY_HEADERS;
+    const resolvedIncludeArchived = includeArchived();
+    const resolvedLimit = limit();
+
     if (
       runtimeUrl &&
       runtimeConnectionStatus !==
         CopilotKitCoreRuntimeConnectionStatus.Connected &&
       runtimeConnectionStatus !== CopilotKitCoreRuntimeConnectionStatus.Error
     ) {
+      if (
+        lastContext &&
+        !hasSameThreadListInputIdentity(lastContext, {
+          agentId: resolvedAgentId,
+          runtimeUrl,
+          headers: resolvedHeaders,
+          includeArchived: resolvedIncludeArchived,
+          limit: resolvedLimit,
+        })
+      ) {
+        store.setContext(null);
+        hasDispatchedContext.set(false);
+        lastContext = null;
+      }
       return;
     }
 
@@ -201,10 +240,10 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
     const context = resolveContext(
       resolvedAgentId,
       isRuntimeConnected ? runtimeUrl : undefined,
-      copilotKit.headers() ?? EMPTY_HEADERS,
+      resolvedHeaders,
       isRuntimeConnected ? copilotKit.intelligence()?.wsUrl : undefined,
-      includeArchived(),
-      limit(),
+      resolvedIncludeArchived,
+      resolvedLimit,
       copilotKit.threadEndpoints(),
       runtimeConnectionStatus,
     );
