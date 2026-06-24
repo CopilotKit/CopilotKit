@@ -107,9 +107,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains exactly 40 services (28 showcase/infra + 12 starter-*)", () => {
+  it("contains exactly 41 services (29 showcase/infra + 12 starter-*)", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(40);
+    expect(names.length).toBe(41);
   });
 
   it("contains the expected canonical services", () => {
@@ -223,11 +223,12 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("CI_BUILT_SERVICES contains exactly 38 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
-    // 26 showcase/infra CI-built + 12 starter-<slug> (S2 brought them under
+  it("CI_BUILT_SERVICES contains exactly 39 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
+    // 27 showcase/infra CI-built (incl. the staging-only
+    // showcase-strands-typescript) + 12 starter-<slug> (S2 brought them under
     // the gate; they ARE built+pushed by showcase_build.yml's `build-starters`
     // job to ghcr.io/copilotkit/starter-<slug>:latest).
-    expect(CI_BUILT_SERVICES.size).toBe(38);
+    expect(CI_BUILT_SERVICES.size).toBe(39);
     // pocketbase is now CI-built (showcase_build.yml `pocketbase` slot,
     // gated to showcase/pocketbase/** changes).
     expect(CI_BUILT_SERVICES.has("pocketbase")).toBe(true);
