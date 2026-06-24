@@ -1,17 +1,33 @@
-import { describe, expect, it } from "vitest";
-import { Subject } from "rxjs";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Mock } from "vitest";
+import { NEVER, Subject } from "rxjs";
 import type { Observable } from "rxjs";
 import {
   ɵmemoryReducer as memoryReducer,
   ɵmemoryRestEvents as memoryRestEvents,
   ɵmemoryDomainEvents as memoryDomainEvents,
+  ɵmemoryAdapterEvents as memoryAdapterEvents,
   ɵmapMemoryMetadataEvent as mapMemoryMetadataEvent,
   ɵcreateMemoryStore as createMemoryStore,
+  ɵselectMemories,
+  ɵselectMemoriesIsLoading,
+  ɵselectMemoriesError,
 } from "../memory";
 import type {
   ɵMemory as Memory,
   ɵMemoryMetadataEvent as MemoryMetadataEvent,
+  ɵMemoryEnvironment as MemoryEnvironment,
 } from "../memory";
+
+const noUserMeta: MemoryEnvironment["observeUserMetaEvent"] = <T>() =>
+  NEVER as Observable<T>;
+
+function memoryEnvironment(fetchImpl: Mock): MemoryEnvironment {
+  return {
+    fetch: fetchImpl as unknown as typeof fetch,
+    observeUserMetaEvent: noUserMeta,
+  };
+}
 
 const flushEffects = async (): Promise<void> => {
   await Promise.resolve();
@@ -221,6 +237,7 @@ describe("memory store realtime", () => {
   it("applies created and invalidated memory_metadata events to observable state", async () => {
     const events$ = new Subject<MemoryMetadataEvent>();
     const store = createMemoryStore({
+      fetch: vi.fn() as unknown as typeof fetch,
       observeUserMetaEvent: (<T>() =>
         events$ as unknown as Observable<T>) as <T>(
         eventName: string,
@@ -256,5 +273,97 @@ describe("memory store realtime", () => {
 
     sub.unsubscribe();
     store.stop();
+  });
+});
+
+const sampleContext = {
+  runtimeUrl: "https://runtime.example.com",
+  headers: { Authorization: "Bearer token", "X-Cpki-User-Id": "u1" },
+};
+
+describe("memory store REST snapshot", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("loads the snapshot on setContext, keeping only user-scoped memories", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        memories: [
+          {
+            id: "m1",
+            kind: "topical",
+            scope: "user",
+            content: "mine",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+          },
+          {
+            id: "p1",
+            kind: "topical",
+            scope: "project",
+            content: "shared",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://runtime.example.com/api/memories",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
+    expect(store.getState().isLoading).toBe(false);
+
+    store.stop();
+  });
+
+  it("surfaces a fetch failure as state.error and clears isLoading", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+
+    expect(store.getState().error).toBeInstanceOf(Error);
+    expect(store.getState().isLoading).toBe(false);
+    expect(store.getState().memories).toEqual([]);
+
+    store.stop();
+  });
+});
+
+describe("memory selectors", () => {
+  it("project the relevant state slices", () => {
+    const state = memoryReducer(
+      undefined,
+      memoryRestEvents.listSucceeded({ sessionId: 0, memories: [memory("m1")] }),
+    );
+
+    expect(ɵselectMemories(state).map((m) => m.id)).toEqual(["m1"]);
+    expect(ɵselectMemoriesIsLoading(state)).toBe(false);
+    expect(ɵselectMemoriesError(state)).toBeNull();
+  });
+
+  it("reflects loading state after contextChanged", () => {
+    const state = memoryReducer(
+      undefined,
+      memoryAdapterEvents.contextChanged({ context: sampleContext }),
+    );
+
+    expect(ɵselectMemoriesIsLoading(state)).toBe(true);
   });
 });
