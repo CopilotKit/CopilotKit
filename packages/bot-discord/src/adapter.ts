@@ -499,14 +499,17 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async addReaction(
-    _target: BotReplyTarget,
+    target: BotReplyTarget,
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
     const token = toPlatformEmoji(emoji, "discord") ?? String(emoji);
     try {
+      // Fall back to the conversation's target channel when the reacted ref
+      // carries no channelId — parity with Slack/Telegram, which the bot-ui
+      // contract and the example rely on (the reacted ref is often just `{ id }`).
       const channel = await this.fetchSendable(
-        String((messageRef as { channelId?: unknown }).channelId ?? ""),
+        this.channelIdOf(messageRef) || (target as ReplyTarget).channelId,
       );
       const msg = await channel.messages.fetch(messageRef.id);
       await msg.react(token);
@@ -517,14 +520,16 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   async removeReaction(
-    _target: BotReplyTarget,
+    target: BotReplyTarget,
     messageRef: MessageRef,
     emoji: EmojiValue,
   ): Promise<{ ok: boolean; error?: string }> {
     const token = toPlatformEmoji(emoji, "discord") ?? String(emoji);
     try {
+      // Fall back to the conversation's target channel when the reacted ref
+      // carries no channelId — parity with Slack/Telegram (see addReaction).
       const channel = await this.fetchSendable(
-        String((messageRef as { channelId?: unknown }).channelId ?? ""),
+        this.channelIdOf(messageRef) || (target as ReplyTarget).channelId,
       );
       const msg = await channel.messages.fetch(messageRef.id);
       // Discord may key the cache by the bare codepoint while `token` carries

@@ -197,6 +197,39 @@ describe("DiscordAdapter", () => {
     expect(out).toHaveLength(2);
   });
 
+  it("addReaction falls back to the target channel when the reacted ref has no channelId", async () => {
+    // The reacted ref the bot-ui example sends is just `{ id }` (no channelId);
+    // the channel must come from the conversation's reply target — parity with
+    // Slack/Telegram. Regression: previously Discord resolved fetchSendable("")
+    // and the react silently failed (acks never fired on Discord).
+    const message = { react: vi.fn(async () => undefined) };
+    const channel = {
+      id: "c1",
+      send: vi.fn(async () => ({ id: "x" })),
+      messages: { fetch: vi.fn(async () => message) },
+    };
+    const channelsFetch = vi.fn(async (id: string) => {
+      if (!id) throw new Error("channel  is not sendable"); // empty id is the bug
+      return channel;
+    });
+    const client = { ...fakeClient(), channels: { fetch: channelsFetch } };
+    const a = new DiscordAdapter(
+      { botToken: "t", appId: "app" },
+      { client: client as never, rest: { put: vi.fn() } as never },
+    );
+
+    const res = await a.addReaction(
+      { channelId: "c1" } as never,
+      { id: "m1" } as never,
+      "eyes" as never,
+    );
+    expect(res).toEqual({ ok: true });
+    // Resolved the TARGET channel, never the empty string.
+    expect(channelsFetch).toHaveBeenCalledWith("c1");
+    expect(channelsFetch).not.toHaveBeenCalledWith("");
+    expect(message.react).toHaveBeenCalled();
+  });
+
   it("interactionCreate dispatch failures are caught, not left unhandled", async () => {
     const client = fakeClient();
     const a = new DiscordAdapter(
