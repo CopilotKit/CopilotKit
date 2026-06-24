@@ -1,0 +1,94 @@
+# Skill eval for copilotkit-setup, run with skillgrade (https://github.com/mgechev/skillgrade).
+#
+# WHY THIS LIVES UNDER skill-evals/ (not inside skills/copilotkit-setup/):
+#   `npx copilotkit skills install` copies the entire skills/<name>/ directory into
+#   user projects. Eval config, fixtures, graders, and rubrics must never ship to
+#   users, so they live here. The `skill:` field below points skillgrade back at
+#   the skill under test.
+#
+# WHAT THIS EVAL MEASURES — skill LIFT, not absolute correctness:
+#   A capable agent usually reaches a correct setup eventually, with or without the
+#   skill. The skill's value is getting there *better* — faster, fewer commands,
+#   fewer tokens, fewer dead-ends. So the headline signal is the DELTA between a
+#   with-skill run and a without-skill run (see lift/run.mjs). This eval.yaml
+#   defines a single run; lift/run.mjs invokes it twice and diffs the results.
+#
+#   - Correctness GATE (deterministic grader): we actually BUILD / type-check the
+#     project, we do not grep for API names. A project that does not compile is not
+#     a working setup.
+#   - Trace JUDGE (llm_rubric grader): skillgrade feeds the agent's session
+#     transcript (the instruction, every command it ran, the final result) to the
+#     grader LLM. The rubric judges whether the agent leaned on the skill's guidance
+#     or floundered. This is the "did the skill help" signal, read off the trace.
+#
+# MANUAL RUN (requires Docker; agent runs key-free on a `claude setup-token`
+# subscription via CLAUDE_CODE_OAUTH_TOKEN — only the llm_rubric trace judge needs
+# a real ANTHROPIC_API_KEY, and the runner skips it automatically when absent):
+#   pnpm eval:skill:setup          # runs the with/without-skill lift comparison
+# or a single raw skillgrade run for quick iteration:
+#   cd skill-evals/copilotkit-setup && pnpm exec skillgrade --trials=1
+
+version: "1"
+
+skill: ../../skills/copilotkit-setup
+
+defaults:
+  # claude-only by design: these are Claude Code skills, so grading real Claude Code
+  # following the skill is the faithful signal. Keeping it claude-only also collapses
+  # the container setup to a single wrapper line (no codex login / sandbox-bypass
+  # plumbing). Cross-agent grading can be added later if we ever want that signal.
+  agent: claude
+  provider: docker
+  # Low default for cheap single-run iteration. The lift comparison (lift/run.mjs)
+  # overrides this with a higher count, because efficiency deltas are noisy and only
+  # mean something across several trials.
+  trials: 1
+  timeout: 600
+  threshold: 0.8
+  # The llm_rubric (trace judge) needs a real LLM key. OAuth subscription tokens
+  # cannot call the messages API, so the rubric path needs ANTHROPIC_API_KEY even
+  # when the agent itself authenticates via CLAUDE_CODE_OAUTH_TOKEN.
+  grader_provider: anthropic
+  grader_model: claude-haiku-4-5-20251001
+  docker:
+    base: node:20-slim
+    # git + jq: graders/check.sh needs them. The claude wrapper sets IS_SANDBOX=1:
+    # skillgrade containers run as root, and Claude Code refuses
+    # --dangerously-skip-permissions as root unless it knows it is inside a sandbox
+    # (the container IS the sandbox). Auth is forwarded from a .env next to this file
+    # (ANTHROPIC_API_KEY for Console billing, or CLAUDE_CODE_OAUTH_TOKEN from
+    # `claude setup-token` for subscription billing).
+    setup: |
+      apt-get update && apt-get install -y git jq && if [ -f /usr/local/bin/claude ]; then mv /usr/local/bin/claude /usr/local/bin/claude-real && printf '#!/bin/bash\nexport IS_SANDBOX=1\nexec /usr/local/bin/claude-real "$@"\n' > /usr/local/bin/claude && chmod +x /usr/local/bin/claude; fi
+
+tasks:
+  - name: vite-react-setup
+    timeout: 900
+    instruction: |
+      Add CopilotKit to this existing Vite+React project with a chat sidebar and a
+      BuiltInAgent backend. The setup should include:
+      - The CopilotKit frontend package (@copilotkit/react-core) in the Vite app
+      - A backend server (Express or Hono) running a CopilotRuntime with a
+        BuiltInAgent, using @copilotkit/runtime
+      - The CopilotKit provider in the React app pointing at the backend URL
+      - A CopilotSidebar component for the chat UI
+      - The CopilotKit stylesheet imported
+      Write the code only. Do NOT start dev servers or leave any long-running
+      processes; the work is graded from the files on disk and from a build.
+    workspace:
+      - src: workspace/vite-react
+        dest: /workspace
+    graders:
+      # Correctness GATE — see graders/check.sh. Runs in the post-agent container
+      # against /workspace: installs deps, builds / type-checks, and emits
+      # {"score": 0-1, "details": "...", "checks": [...]} on stdout.
+      # File-reference: skillgrade reads the file's contents as the grader script.
+      - type: deterministic
+        weight: 0.6
+        run: graders/check.sh
+      # Trace JUDGE — see rubric.md. skillgrade builds a transcript from the session
+      # log (instruction + every command + final result) and grades it against this
+      # rubric. File-reference: skillgrade reads the file's contents as the rubric.
+      - type: llm_rubric
+        weight: 0.4
+        rubric: rubric.md
