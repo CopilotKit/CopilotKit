@@ -146,6 +146,93 @@ export async function installPrePaintFromEnv(page: Page): Promise<void> {
 }
 
 /**
+ * Install browser-context shims the probe environment needs but the raw page
+ * realm lacks. Registered at document_start of every document so they are in
+ * place before any app code or probe `page.evaluate` runs.
+ *
+ * Two independent shims, both passed as STRINGs (same rationale as the other
+ * init scripts here — a function-form payload would itself be subject to the
+ * tsx/esbuild transform):
+ *
+ * 1. **esbuild `__name` helper.** The harness runs under tsx (esbuild) with
+ *    name-keeping enabled, so every named inner function the transform touches
+ *    is wrapped in a `__name(fn, "fn")` call. When such a function is handed
+ *    to `page.evaluate` / `page.waitForFunction`, Playwright serializes it via
+ *    `fn.toString()` — carrying the `__name(...)` calls into the browser
+ *    realm, where `__name` is not defined, so the function throws
+ *    `ReferenceError: __name is not defined` at evaluate time and fails the
+ *    cell. Scattered call sites work around this by hand-authoring string-form
+ *    evaluate payloads (see `installPrePaintFromEnv`, `_gen-ui-shared`,
+ *    `sse-interceptor`); defining the shim once makes the whole class of
+ *    failure impossible regardless of how a payload was authored. The shim
+ *    matches esbuild's own helper contract (define the name, return target).
+ *
+ * 2. **`crypto.randomUUID` secure-context polyfill.** `crypto.randomUUID` is
+ *    only exposed in a secure context (HTTPS or the localhost family). The
+ *    fleet worker drives the app over its Docker service origin
+ *    (`http://<slug>:10000`), which is NOT a secure context, so
+ *    `crypto.randomUUID` is `undefined` there even though it exists in the
+ *    HTTPS-served production showcase. Demos that hand-roll a chat shell call
+ *    `crypto.randomUUID()` directly (e.g. the headless chats), so the missing
+ *    function throws `TypeError: crypto.randomUUID is not a function`, the
+ *    chat never mounts, and the turn fails `sse-missing`. Polyfilling it in
+ *    the harness makes the test origin capability-match production rather than
+ *    weakening any demo. Only defined when absent.
+ */
+export async function installBrowserContextShims(page: Page): Promise<void> {
+  await page.addInitScript(`
+            (function () {
+              var g = globalThis;
+              if (typeof g.__name !== "function") {
+                g.__name = function (target, value) {
+                  try {
+                    Object.defineProperty(target, "name", {
+                      value: value,
+                      configurable: true,
+                    });
+                  } catch (e) {}
+                  return target;
+                };
+              }
+              try {
+                var c = g.crypto;
+                if (c && typeof c.randomUUID !== "function") {
+                  c.randomUUID = function () {
+                    // RFC 4122 v4 shape. Uses crypto.getRandomValues when
+                    // available (it is, in every modern context — only
+                    // randomUUID itself is secure-context gated), falling
+                    // back to Math.random only if getRandomValues is absent.
+                    var bytes = new Uint8Array(16);
+                    if (c.getRandomValues) {
+                      c.getRandomValues(bytes);
+                    } else {
+                      for (var i = 0; i < 16; i++) {
+                        bytes[i] = Math.floor(Math.random() * 256);
+                      }
+                    }
+                    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+                    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+                    var hex = [];
+                    for (var j = 0; j < 256; j++) {
+                      hex[j] = (j + 0x100).toString(16).slice(1);
+                    }
+                    var b = bytes;
+                    return (
+                      hex[b[0]] + hex[b[1]] + hex[b[2]] + hex[b[3]] + "-" +
+                      hex[b[4]] + hex[b[5]] + "-" +
+                      hex[b[6]] + hex[b[7]] + "-" +
+                      hex[b[8]] + hex[b[9]] + "-" +
+                      hex[b[10]] + hex[b[11]] + hex[b[12]] +
+                      hex[b[13]] + hex[b[14]] + hex[b[15]]
+                    );
+                  };
+                }
+              } catch (e) {}
+            })();
+        `);
+}
+
+/**
  * Node-side helper that consumes `BUBBLE_RACE_MESSAGES` from the
  * environment and, when set, returns the per-turn override array
  * the d5/d6 driver should pass to `runConversation` in place of

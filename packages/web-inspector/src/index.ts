@@ -28,7 +28,7 @@ import type {
   DockMode,
   Position,
   Size,
-} from "./lib/types";
+} from "./lib/types.js";
 import {
   applyAnchorPosition as applyAnchorPositionHelper,
   centerContext as centerContextHelper,
@@ -37,7 +37,7 @@ import {
   updateAnchorFromPosition as updateAnchorFromPositionHelper,
   updateSizeFromElement,
   clampSize as clampSizeToViewport,
-} from "./lib/context-helpers";
+} from "./lib/context-helpers.js";
 import {
   loadInspectorState,
   saveInspectorState,
@@ -45,8 +45,8 @@ import {
   isValidPosition,
   isValidSize,
   isValidDockMode,
-} from "./lib/persistence";
-import type { PersistedState } from "./lib/persistence";
+} from "./lib/persistence.js";
+import type { PersistedState } from "./lib/persistence.js";
 import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
@@ -55,7 +55,9 @@ import {
   trackBannerClicked,
   trackBannerViewed,
   trackThreadsTabClicked,
-} from "./lib/telemetry";
+} from "./lib/telemetry.js";
+
+export type { Anchor } from "./lib/types.js";
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
@@ -674,6 +676,7 @@ export class ɵCpkThreadDetails extends LitElement {
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
+    threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
     liveMessageVersion: { attribute: false },
@@ -701,6 +704,7 @@ export class ɵCpkThreadDetails extends LitElement {
   thread: ɵThread | null = null;
   runtimeUrl = "";
   headers: Record<string, string> = {};
+  threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
   /**
@@ -1456,7 +1460,7 @@ export class ɵCpkThreadDetails extends LitElement {
     threadId: string,
     silent: boolean = false,
   ): Promise<void> {
-    if (!this.runtimeUrl) {
+    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
       if (!silent) this._conversation = [];
       return;
     }
@@ -1494,7 +1498,7 @@ export class ɵCpkThreadDetails extends LitElement {
 
   private async fetchEvents(threadId: string): Promise<void> {
     this._eventsNotAvailable = false;
-    if (!this.runtimeUrl) {
+    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
       this._fetchedEvents = null;
       return;
     }
@@ -1541,7 +1545,7 @@ export class ɵCpkThreadDetails extends LitElement {
 
   private async fetchState(threadId: string): Promise<void> {
     this._stateNotAvailable = false;
-    if (!this.runtimeUrl) {
+    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
       this._fetchedState = null;
       return;
     }
@@ -2585,12 +2589,14 @@ export class WebInspectorElement extends LitElement {
     if (this.core?.getThreadStore(agentId)) return;
     const core = this.core;
     if (!core?.runtimeUrl) return;
+    if (core.threadEndpoints?.list === false) return;
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
     store.setContext({
       runtimeUrl: core.runtimeUrl,
       headers: { ...core.headers },
+      wsUrl: core.intelligence?.wsUrl,
       agentId,
     });
     this._ownedThreadStores.set(agentId, store);
@@ -2657,8 +2663,12 @@ export class WebInspectorElement extends LitElement {
             maybeShowDisclosure();
           }
           this.flushPendingBannerViewed();
-          for (const agentId of this._ownedThreadStores.keys()) {
-            this.refreshOwnedThreadStore(agentId);
+          if (core.threadEndpoints?.list !== false) {
+            for (const agentId of this._ownedThreadStores.keys()) {
+              this.refreshOwnedThreadStore(agentId);
+            }
+          } else {
+            this.teardownOwnedThreadStores();
           }
         } else {
           // Clear stale thread data immediately when the server goes away
@@ -2851,8 +2861,11 @@ export class WebInspectorElement extends LitElement {
       onRunStartedEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RUN_STARTED", event);
       },
-      onRunFinishedEvent: ({ event, result }) => {
-        this.recordAgentEvent(agentId, "RUN_FINISHED", { event, result });
+      onRunFinishedEvent: (params) => {
+        this.recordAgentEvent(agentId, "RUN_FINISHED", {
+          event: params.event,
+          result: "result" in params ? params.result : undefined,
+        });
         this.refreshOwnedThreadStore(agentId);
       },
       onRunErrorEvent: ({ event }) => {
@@ -5876,6 +5889,9 @@ ${argsString}</pre
                   .thread=${selectedThread}
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
+                  .threadInspectionAvailable=${
+                    this._core?.threadEndpoints?.inspect !== false
+                  }
                   .liveMessageVersion=${
                     this.selectedThreadId
                       ? (this.liveMessageVersion.get(this.selectedThreadId) ??

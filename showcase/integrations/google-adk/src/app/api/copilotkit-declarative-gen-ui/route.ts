@@ -1,14 +1,18 @@
 // Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic Schema)
-// demo. Mirrors langgraph-python/src/app/api/copilotkit-declarative-gen-ui:
-// `a2ui.injectA2UITool: false` because the backend ADK agent owns the
-// `generate_a2ui` tool itself (see src/agents/declarative_gen_ui_agent.py
-// and src/agents/main.py for the implementation). Double-binding from the
-// runtime would duplicate the tool slot and confuse the LLM.
+// demo. `a2ui.injectA2UITool: false` — the backend ADK agent OWNS
+// `generate_a2ui` via the ag-ui-adk >= 0.7.0 middleware (`get_a2ui_tool`, see
+// src/agents/declarative_gen_ui_agent.py), which drives the forced
+// `render_a2ui` sub-agent + toolkit recovery loop + recovery-exhausted
+// hard-fail envelope (OSS-158). The runtime must NOT inject a second copy or it
+// would double-bind the tool slot. NOTE: this `false` is load-bearing —
+// CopilotKit#5611 makes a provider catalog default `injectA2UITool` to true, so
+// omitting it would re-introduce the double-bind. Mirrors the AWS Strands / ag2
+// external-framework convention (vs langgraph-python's runtime-driven `true`).
 //
-// The A2UI middleware still runs — it serialises the registered client
-// catalog into the agent's `copilotkit.context` so the secondary LLM inside
-// `generate_a2ui` knows which components to emit, and detects the
-// `a2ui_operations` container in the tool result for client-side rendering.
+// The A2UI middleware still serialises the registered client catalog into the
+// agent's context (routed into the sub-agent prompt) so the planner knows
+// which components to emit, and detects the `a2ui_operations` container in the
+// tool result for client-side rendering.
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";

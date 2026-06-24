@@ -9,6 +9,7 @@ import type {
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+  ThreadEndpointRuntimeInfo,
 } from "../types";
 import type {
   CopilotKitCoreAddAgentParams,
@@ -632,6 +633,10 @@ export class CopilotKitCore {
 
   get intelligence(): IntelligenceRuntimeInfo | undefined {
     return this.agentRegistry.intelligence;
+  }
+
+  get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
+    return this.agentRegistry.threadEndpoints;
   }
 
   get a2uiEnabled(): boolean {

@@ -43,7 +43,6 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
 
       beforeEach(() => {
         fetchMock = vi.fn();
-        // @ts-expect-error - Node typings allow reassigning fetch in tests
         global.fetch = fetchMock;
       });
 
@@ -240,7 +239,6 @@ describe("ProxiedCopilotRuntimeAgent cloning", () => {
   const runtimeUrl = "https://runtime.example/single";
 
   beforeEach(() => {
-    // @ts-expect-error - Node typings allow reassigning fetch in tests
     global.fetch = vi.fn(() => Promise.resolve(createSseResponse()));
   });
 
@@ -262,7 +260,7 @@ describe("ProxiedCopilotRuntimeAgent cloning", () => {
       newMessages: expect.any(Array),
     });
 
-    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(runtimeUrl);
@@ -281,7 +279,6 @@ describe("Suggestions engine with single-endpoint runtime agents", () => {
   const runtimeUrl = "https://runtime.example/single";
 
   beforeEach(() => {
-    // @ts-expect-error - Node typings allow reassigning fetch in tests
     global.fetch = vi.fn(() => Promise.resolve(createSseResponse()));
   });
 
@@ -318,7 +315,7 @@ describe("Suggestions engine with single-endpoint runtime agents", () => {
 
     core.reloadSuggestions("consumer");
 
-    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
     await vi.waitFor(() => {
       expect(fetchMock).toHaveBeenCalled();
     });
@@ -400,7 +397,6 @@ describe("Auto-detect transport from runtime info response", () => {
         headers: { "content-type": "application/json" },
       }),
     );
-    // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
     // No runtimeTransport specified — defaults to "auto"
@@ -451,7 +447,6 @@ describe("Auto-detect transport from runtime info response", () => {
         }
         return Promise.reject(new Error("Unexpected fetch call"));
       });
-    // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
     // No runtimeTransport specified — defaults to "auto"
@@ -492,7 +487,6 @@ describe("Auto-detect transport from runtime info response", () => {
         headers: { "content-type": "application/json" },
       }),
     );
-    // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
     const core = new CopilotKitCore({
@@ -531,7 +525,6 @@ describe("Auto-detect transport from runtime info response", () => {
         headers: { "content-type": "application/json" },
       }),
     );
-    // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
     const core = new CopilotKitCore({
@@ -617,7 +610,6 @@ describe("Auto-detect transport edge cases (AgentRegistry)", () => {
         }
         return Promise.reject(new Error("Unexpected fetch call"));
       });
-    // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
     const core = new CopilotKitCore({ runtimeUrl });
@@ -662,7 +654,6 @@ describe("Auto-detect transport edge cases (AgentRegistry)", () => {
         }
         return Promise.reject(new Error("Unexpected fetch call"));
       });
-    // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
     const core = new CopilotKitCore({ runtimeUrl });
@@ -697,7 +688,6 @@ describe("Auto-detect transport edge cases (AgentRegistry)", () => {
         }
         return Promise.reject(new Error("Unexpected fetch call"));
       });
-    // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
     const core = new CopilotKitCore({ runtimeUrl });
@@ -729,7 +719,6 @@ describe("Auto-detect transport edge cases (AgentRegistry)", () => {
         }
         return Promise.reject(new Error("Unexpected fetch call"));
       });
-    // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
     const errorSpy = vi.fn();
@@ -773,7 +762,6 @@ describe("Auto-detect transport edge cases (AgentRegistry)", () => {
         }
         return Promise.reject(new Error("Unexpected fetch call"));
       });
-    // @ts-expect-error - override in test environment
     global.fetch = fetchMock;
 
     const core = new CopilotKitCore({ runtimeUrl });
@@ -858,7 +846,6 @@ describe("AgentRegistry runtime info requests", () => {
           headers: { "content-type": "application/json" },
         }),
       );
-      // @ts-expect-error - override in test environment
       global.fetch = fetchMock;
 
       const core = new CopilotKitCore({

@@ -1,30 +1,36 @@
 """Agent backing the Declarative Generative UI (A2UI dynamic) demo.
 
-Re-exports the `generate_a2ui` tool defined in agents/main.py; this
-secondary-LLM A2UI planner is already wired up there. The agent calls
-`generate_a2ui` whenever the user's request can be served by a dashboard
-component (cards, charts, lists, forms, etc.) and the runtime middleware
-detects the a2ui_operations container in the tool result.
+Owns the A2UI tool explicitly via the middleware's `get_a2ui_tool()`
+(ag-ui-adk >= 0.7.0): the model calls the no-arg `generate_a2ui`, and the
+tool drives a forced `render_a2ui` sub-agent plus the toolkit's
+validate->retry recovery loop + recovery-exhausted hard-fail envelope
+(OSS-158). The result is wrapped as `a2ui_operations`, which the A2UI
+middleware detects and renders.
 
-The instruction mirrors LP's `a2ui_dynamic.py` SYSTEM_PROMPT (plus an
-ADK-specific note that `generate_a2ui` takes no arguments) so both
+This replaces the previous hand-rolled `google.genai` secondary planner
+with the published middleware sub-agent, using the **backend-owned** wiring
+(`injectA2UITool: false` on the route) — matching the AWS Strands / ag2
+external-framework convention rather than langgraph-python's runtime-driven
+`injectA2UITool: true`. Backend-owned is required here: with the planner now
+living in the ADK middleware, letting the runtime also inject its tool would
+double-bind (and CopilotKit#5611 makes a provider catalog default
+`injectA2UITool` to true unless the route sets it false explicitly).
+
+The instruction mirrors LP's `a2ui_dynamic.py` SYSTEM_PROMPT so both
 showcases steer the LLM toward the same sales-analyst persona and
-composition heuristics. See
-`showcase/integrations/langgraph-python/src/agents/a2ui_dynamic.py` for
-the canonical source. The fictional sales dataset and the per-question
+composition heuristics. The fictional sales dataset and the per-question
 composition rules arrive via frontend context entries (registered in
-declarative-gen-ui/sales-context.ts), which `generate_a2ui` serialises
-into the secondary planner's system instruction.
+declarative-gen-ui/sales-context.ts); the middleware routes that copilotkit
+context — and the frontend catalog schema — into the sub-agent prompt
+automatically (see ag-ui-adk CONTEXT_STATE_KEY routing).
 """
 
 from __future__ import annotations
 
 from google.adk.agents import LlmAgent
+from ag_ui_adk import get_a2ui_tool
 
-from agents.shared_chat import get_model, stop_on_terminal_text
-
-# `agents.main` defines `generate_a2ui` — reuse it here instead of cloning.
-from agents.main import generate_a2ui
+from agents.shared_chat import get_a2ui_model, get_model, stop_on_terminal_text
 
 _INSTRUCTION = (
     "You are the embedded sales analyst for Vantage Threads, the fictional "
@@ -44,10 +50,22 @@ _INSTRUCTION = (
     "real analytics product, not a single widget."
 )
 
+# Backend-owned A2UI: wire the middleware's `generate_a2ui` (no-arg) tool
+# directly. `default_catalog_id` matches the frontend `defaultCatalogId` and
+# the page's `createCatalog({ catalogId: "declarative-gen-ui-catalog" })`; the
+# actual catalog schema still arrives from the client via context. Recovery +
+# hard-fail are enabled by the toolkit defaults (resolve_a2ui_tool_params).
 declarative_gen_ui_agent = LlmAgent(
     name="DeclarativeGenUiAgent",
     model=get_model(),
     instruction=_INSTRUCTION,
-    tools=[generate_a2ui],
+    tools=[
+        get_a2ui_tool(
+            {
+                "model": get_a2ui_model(),
+                "default_catalog_id": "declarative-gen-ui-catalog",
+            }
+        )
+    ],
     after_model_callback=stop_on_terminal_text,
 )

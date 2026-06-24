@@ -3,7 +3,7 @@
  * provision-starter-fleet.ts — Committed, reproducible Railway provisioner
  * for the "starter container fleet" in the showcase STAGING environment.
  *
- * Creates (or idempotently updates) one sleepable Railway service per
+ * Creates (or idempotently updates) one always-on Railway service per
  * starter template, pulling the per-starter image from GHCR:
  *
  *   service name : starter-<slug>          (RAW starter slug, e.g.
@@ -11,7 +11,8 @@
  *                                            remapped dashboard column slug)
  *   image        : ghcr.io/copilotkit/starter-<slug>:latest
  *   env          : STAGING ONLY (railway-envs STAGING_ENV_ID)
- *   sleep        : sleepApplication = true (the whole point — sleepable)
+ *   sleep        : sleepApplication = false (always-on, so the starters are
+ *                  staging-probed like every other managed showcase service)
  *   healthcheck  : "/"  (the starters' single deployable image EXPOSEs 3000
  *                  running the Next.js frontend; the frontend serves "/" and
  *                  "/api/copilotkit" but has NO "/api/health" route — that
@@ -217,7 +218,8 @@ interface ServiceInstanceRedeployResult {
  * registryCredentials) is applied. Same precedent as serviceInstanceRedeploy
  * (redeploy-env.ts / bin/railway treat the scalar as a bare boolean). A
  * `false`/`null` return means the config was NOT applied — e.g. the service
- * would run WITHOUT sleep — so it must be asserted, never discarded.
+ * would run WITHOUT the intended always-on/healthcheck config — so it must be
+ * asserted, never discarded.
  */
 interface ServiceInstanceUpdateResult {
   serviceInstanceUpdate: boolean | null;
@@ -450,7 +452,7 @@ export interface ProvisionSummary {
  *   - create the service (source.image = GHCR ref) if it does not exist,
  *     otherwise reuse the existing service id (UPDATE path);
  *   - serviceInstanceUpdate against the STAGING env with
- *     sleepApplication: true + healthcheckPath + region + (optional) GHCR
+ *     sleepApplication: false + healthcheckPath + region + (optional) GHCR
  *     registryCredentials — applied on BOTH the create and update paths so a
  *     re-run converges drifted settings;
  *   - serviceInstanceRedeploy so the pinned image ACTUALLY RUNS. A
@@ -572,7 +574,7 @@ export async function provisionStarterFleet(
     // drifted existing service converges back to the canonical GHCR ref.
     const instanceInput: Record<string, unknown> = {
       source: { image: target.image },
-      sleepApplication: true,
+      sleepApplication: false,
       healthcheckPath: STARTER_HEALTHCHECK_PATH,
       region: STARTER_REGION,
     };
@@ -602,8 +604,9 @@ export async function provisionStarterFleet(
       );
       // serviceInstanceUpdate returns Boolean! — a `false`/`null` return means
       // sleepApplication/healthcheck/image/creds were NOT applied (the service
-      // would run WITHOUT sleep) while the script reports success. Assert the
-      // result and only log "configured ..." AFTER it is verified.
+      // would run WITHOUT the intended always-on/healthcheck config) while the
+      // script reports success. Assert the result and only log "configured ..."
+      // AFTER it is verified.
       assertMutationOk(
         updated,
         (r) => r.serviceInstanceUpdate,
@@ -612,7 +615,7 @@ export async function provisionStarterFleet(
         serviceId,
       );
       log(
-        `  configured sleep=true, healthcheck=${STARTER_HEALTHCHECK_PATH}, region=${STARTER_REGION}${
+        `  configured sleep=false, healthcheck=${STARTER_HEALTHCHECK_PATH}, region=${STARTER_REGION}${
           registryCredentials ? ", registry creds" : ""
         }`,
       );
@@ -871,7 +874,7 @@ async function main(): Promise<void> {
   }
 
   console.log(
-    `Provisioning ${targets.length} sleepable starter-* services in STAGING (env ${STAGING_ENV_ID})${
+    `Provisioning ${targets.length} always-on starter-* services in STAGING (env ${STAGING_ENV_ID})${
       dryRun ? " [DRY RUN]" : ""
     }\n`,
   );

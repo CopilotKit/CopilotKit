@@ -252,6 +252,17 @@ export function manageSalesTodosImpl(todos: Partial<SalesTodo>[]): SalesTodo[] {
   }));
 }
 
+// ---- roll_dice -----------------------------------------------------------
+
+export interface RollDiceResult {
+  sides: number;
+  result: number;
+}
+
+export function rollDiceImpl(sides: number): RollDiceResult {
+  return { sides, result: 1 + Math.floor(Math.random() * sides) };
+}
+
 // ---- schedule_meeting (HITL gated) ---------------------------------------
 
 export interface ScheduleMeetingResult {

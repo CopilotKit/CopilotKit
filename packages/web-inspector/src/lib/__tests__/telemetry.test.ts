@@ -11,7 +11,7 @@ import {
   trackBannerClicked,
   trackBannerViewed,
   trackThreadsTabClicked,
-} from "../telemetry";
+} from "../telemetry.js";
 import {
   _resetTelemetryPersistenceForTesting,
   getOrCreateTelemetryDistinctId,
@@ -19,7 +19,7 @@ import {
   isTelemetryOptedOut,
   markTelemetryDisclosureShown,
   setTelemetryOptOut,
-} from "../persistence";
+} from "../persistence.js";
 
 // The wrapper short-circuits before any network call when opted out, but
 // for the network-touching cases we mock fetch globally so we can read
