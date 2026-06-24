@@ -19,6 +19,7 @@ import type {
   CopilotKitCoreErrorCode,
   ɵThreadStore,
   ɵThread,
+  ɵThreadRuntimeContext,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -2593,18 +2594,38 @@ export class WebInspectorElement extends LitElement {
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
-    store.setContext({
-      runtimeUrl: core.runtimeUrl,
-      headers: { ...core.headers },
-      wsUrl: core.intelligence?.wsUrl,
-      agentId,
-    });
+    store.setContext(this.createOwnedThreadStoreContext(agentId, core.headers));
     this._ownedThreadStores.set(agentId, store);
     // Subscribe directly so threads render even before the registry callback
     // fires (some published-core code paths land on the subscriber after
     // registerThreadStore returns).
     this.subscribeToThreadStore(agentId, store);
     core.registerThreadStore(agentId, store);
+  }
+
+  private createOwnedThreadStoreContext(
+    agentId: string,
+    headers: Readonly<Record<string, string>>,
+  ): ɵThreadRuntimeContext {
+    const core = this.core;
+    return {
+      runtimeUrl: core?.runtimeUrl,
+      headers: { ...headers },
+      wsUrl: core?.intelligence?.wsUrl,
+      agentId,
+      threadEndpoints: core?.threadEndpoints,
+      runtimeConnectionStatus: core?.runtimeConnectionStatus,
+    };
+  }
+
+  private updateOwnedThreadStoreContexts(
+    headers: Readonly<Record<string, string>> = this.core?.headers ?? {},
+  ): void {
+    const core = this.core;
+    if (!core?.runtimeUrl) return;
+    for (const [agentId, store] of this._ownedThreadStores) {
+      store.setContext(this.createOwnedThreadStoreContext(agentId, headers));
+    }
   }
 
   private refreshOwnedThreadStore(agentId: string): void {
@@ -2622,15 +2643,7 @@ export class WebInspectorElement extends LitElement {
   private updateOwnedThreadStoreHeaders(
     headers: Readonly<Record<string, string>>,
   ): void {
-    const core = this.core;
-    if (!core?.runtimeUrl) return;
-    for (const [agentId, store] of this._ownedThreadStores) {
-      store.setContext({
-        runtimeUrl: core.runtimeUrl,
-        headers: { ...headers },
-        agentId,
-      });
-    }
+    this.updateOwnedThreadStoreContexts(headers);
   }
 
   private removeOwnedThreadStore(agentId: string): void {
@@ -2657,6 +2670,7 @@ export class WebInspectorElement extends LitElement {
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
+        this.updateOwnedThreadStoreContexts();
         if (status === "connected") {
           if (!core.telemetryDisabled) {
             ensureTelemetryDistinctId();
