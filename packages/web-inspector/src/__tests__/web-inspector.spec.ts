@@ -3,11 +3,12 @@ import type { CopilotKitCore, ɵThread } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
+import type * as TelemetryModule from "../lib/telemetry";
 
 const trackThreadsTabClickedMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../lib/telemetry", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../lib/telemetry")>();
+  const actual = await importOriginal<typeof TelemetryModule>();
   return {
     ...actual,
     trackThreadsTabClicked: trackThreadsTabClickedMock,
