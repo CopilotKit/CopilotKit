@@ -25,9 +25,12 @@ import type { Page } from "@playwright/test";
 // would not reliably produce the invalid attempts.
 
 /** Click a suggestion pill and confirm the message dispatched (the user
- *  bubble with the pill's full message text appears). Copied from
- *  declarative-gen-ui.spec.ts — see that file for the rationale (slow
- *  hydration can swallow the first click; never re-click once dispatched). */
+ *  bubble with the pill's full message text appears). Adapted from
+ *  declarative-gen-ui.spec.ts — the user bubble is matched by
+ *  `data-testid="copilot-user-message"` (CopilotChatUserMessage in
+ *  @copilotkit/react-core/v2 >= 1.60; the older `data-message-role="user"`
+ *  selector the sibling specs still use no longer exists). Slow hydration can
+ *  swallow the first click, so we retry; never re-click once dispatched. */
 async function clickPill(page: Page, title: string, message: string) {
   const pill = page
     .locator('[data-testid="copilot-suggestion"]')
@@ -35,7 +38,7 @@ async function clickPill(page: Page, title: string, message: string) {
     .first();
   await expect(pill).toBeVisible({ timeout: 15_000 });
   const userBubble = page
-    .locator('[data-message-role="user"]')
+    .locator('[data-testid="copilot-user-message"]')
     .filter({ hasText: message })
     .first();
   await expect(async () => {
