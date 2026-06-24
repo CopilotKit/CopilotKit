@@ -76,8 +76,6 @@
         "chat:write.customize",
         "im:write",
         "mpim:write",
-        "reactions:read",
-        "reactions:write",
         "files:read",
         "files:write",
         "channels:join",
@@ -92,9 +90,7 @@
         "assistant_thread_started",
         "assistant_thread_context_changed",
         "message.im",
-        "message.mpim",
-        "reaction_added",
-        "reaction_removed"
+        "message.mpim"
       ]
     },
     "interactivity": {
