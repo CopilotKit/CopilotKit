@@ -3,7 +3,8 @@ import type {
   AgentRunnerIsRunningRequest,
   AgentRunnerRunRequest,
 } from "./agent-runner";
-import { AgentRunner, type AgentRunnerStopRequest } from "./agent-runner";
+import { AgentRunner } from "./agent-runner";
+import type { AgentRunnerStopRequest } from "./agent-runner";
 import { EMPTY, Observable, from } from "rxjs";
 import { catchError, finalize } from "rxjs/operators";
 import type { AbstractAgent, BaseEvent, RunStartedEvent } from "@ag-ui/client";

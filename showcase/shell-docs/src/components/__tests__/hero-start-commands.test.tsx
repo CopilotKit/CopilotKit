@@ -39,9 +39,7 @@ describe("hero_command_copied analytics", () => {
 describe("hero quickstart CTA styling", () => {
   it("opts the primary quickstart link out of prose link colors", () => {
     expect(heroStartCommandsSource).toContain("shell-docs-primary-cta");
-    expect(globalsCss).toContain(
-      ".reference-content a.shell-docs-primary-cta",
-    );
+    expect(globalsCss).toContain(".reference-content a.shell-docs-primary-cta");
     expect(globalsCss).toContain("color: var(--primary-foreground);");
   });
 });

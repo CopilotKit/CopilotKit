@@ -9,7 +9,7 @@
  *   npx tsx showcase/scripts/redeploy-env.ts staging
  *     → redeploys all CI_BUILT_SERVICES (every ciBuilt SSOT entry; the
  *       default scope excludes webhooks and the non-CI-built
- *       harness-workers/harness-legacy — though harness-workers joins via
+ *       harness-workers — though harness-workers joins via
  *       imageOf expansion on staging; explicit --services can still
  *       target any SSOT key)
  *
@@ -20,8 +20,8 @@
  * Behavior:
  *   - Default target set: CI_BUILT_SERVICES (every ciBuilt SSOT entry,
  *     pocketbase included). webhooks is first-party but released by its
- *     own repo, and harness-workers/harness-legacy are not CI-built —
- *     none of them are in the default scope. An explicit
+ *     own repo, and harness-workers is not CI-built —
+ *     neither is in the default scope. An explicit
  *     `--services webhooks` (or harness-workers) WILL still redeploy
  *     them; resolveTargetServices honors any SSOT key the caller asks
  *     for.

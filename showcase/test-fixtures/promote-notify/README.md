@@ -24,9 +24,9 @@ sentinel is present.
 
 | File                 | Outcome                                                                                                                  | `succeeded` | `failed`                              | `pre_staging` | `abort_reason`    |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------- | ------------------------------------- | ------------- | ----------------- |
-| `success.json`       | All-green promote                                                                                                        | 29 services | 0                                     | `green`       | `null`            |
-| `partial.json`       | Mixed result, 3 services failed with diverse failure categories (`staging-divergence`, `verify-prod-timeout`, `sigkill`) | 26 services | 3                                     | `amber`       | `null`            |
-| `total-failure.json` | Fleet-wide preflight abort, no services attempted                                                                        | 0 services  | 29 services (all `staging-probe-red`) | `red`         | `fleet-preflight` |
+| `success.json`       | All-green promote                                                                                                        | 28 services | 0                                     | `green`       | `null`            |
+| `partial.json`       | Mixed result, 3 services failed with diverse failure categories (`staging-divergence`, `verify-prod-timeout`, `sigkill`) | 25 services | 3                                     | `amber`       | `null`            |
+| `total-failure.json` | Fleet-wide preflight abort, no services attempted                                                                        | 0 services  | 28 services (all `staging-probe-red`) | `red`         | `fleet-preflight` |
 
 > `abort_reason` is meaningful only on `outcome=total` (zero succeeded); the validator enforces this invariant via `assert_outcome_consistency`.
 
@@ -73,7 +73,7 @@ jq . real-results.json
 Until PR2 is on `main`, the fixtures here are hand-crafted to exercise the
 schema's edge cases. The handwritten fixtures should remain the canonical
 contract-test inputs even after PR2 ships, because they're deterministic and
-include cases (e.g. `staging-probe-red` across all 29 services) that are
+include cases (e.g. `staging-probe-red` across all 28 services) that are
 inconvenient to reproduce live.
 
 ## Validation

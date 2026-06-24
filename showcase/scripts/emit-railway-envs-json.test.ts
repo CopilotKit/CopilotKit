@@ -120,10 +120,11 @@ describe("emit-railway-envs-json closure block", () => {
     const docs = services.find((s) => s.name === "docs");
     expect(docs?.healthcheckPath).toBeUndefined();
 
-    // harness-legacy is /health in staging, OMITTED in prod (per-env asymmetry).
-    const legacy = services.find((s) => s.name === "harness-legacy");
-    expect(legacy?.healthcheckPath).toEqual({ staging: "/health" });
-    expect(legacy?.healthcheckPath?.prod).toBeUndefined();
+    // harness-workers is /health in staging, OMITTED in prod (per-env
+    // asymmetry — the staging-only worker declares no prod env).
+    const workers = services.find((s) => s.name === "harness-workers");
+    expect(workers?.healthcheckPath).toEqual({ staging: "/health" });
+    expect(workers?.healthcheckPath?.prod).toBeUndefined();
   });
 });
 
