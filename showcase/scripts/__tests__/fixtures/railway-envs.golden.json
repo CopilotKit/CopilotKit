@@ -79,22 +79,6 @@
       "repoName": "showcase-harness"
     }
   },
-  "harness-legacy": {
-    "prod": {
-      "instanceId": "3d125700-a08d-4a7f-904b-c13f3f7cc0fc",
-      "domain": null,
-      "probe": false,
-      "driver": "harness",
-      "repoName": "showcase-harness"
-    },
-    "staging": {
-      "instanceId": "ed184024-fdfa-4b6f-bb51-37d6648e0beb",
-      "domain": null,
-      "probe": false,
-      "driver": "harness",
-      "repoName": "showcase-harness"
-    }
-  },
   "harness-workers": {
     "staging": {
       "instanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",

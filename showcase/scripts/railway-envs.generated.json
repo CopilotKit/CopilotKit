@@ -131,31 +131,6 @@
       }
     },
     {
-      "name": "harness-legacy",
-      "serviceId": "11279eba-97eb-417e-82a5-7cb4254eb147",
-      "prodInstanceId": "3d125700-a08d-4a7f-904b-c13f3f7cc0fc",
-      "stagingInstanceId": "ed184024-fdfa-4b6f-bb51-37d6648e0beb",
-      "ciBuilt": false,
-      "gateValidated": false,
-      "repoNameOverride": {
-        "prod": "showcase-harness",
-        "staging": "showcase-harness"
-      },
-      "domains": {
-        "staging": "harness-staging-2ee4.up.railway.app",
-        "prod": "showcase-harness-production.up.railway.app"
-      },
-      "probe": {
-        "staging": false,
-        "prod": false,
-        "driver": "harness"
-      },
-      "promoteTier": 2,
-      "healthcheckPath": {
-        "staging": "/health"
-      }
-    },
-    {
       "name": "harness-workers",
       "serviceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
       "prodInstanceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
