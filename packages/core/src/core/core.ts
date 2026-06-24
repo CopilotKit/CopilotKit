@@ -419,15 +419,15 @@ export class CopilotKitCore {
           }
         });
 
-        // Unregister thread stores for agents that have been removed.
+        // Unregister thread and memory stores for agents that have been removed.
         //
         // Critically, only unregister an agentId that was present in the
         // PREVIOUS agents snapshot AND is missing from the new one. Without
         // the "previously had" guard, the FIRST `onAgentsChanged({ agents: {} })`
-        // delivered to a freshly-published core would tear out a thread store
-        // that a consumer (e.g. useThreads) just registered — `core.agents`
-        // is asynchronously populated and the empty-map notification fires
-        // before the published agents are merged in.
+        // delivered to a freshly-published core would tear out a store that a
+        // consumer (e.g. useThreads) just registered — `core.agents` is
+        // asynchronously populated and the empty-map notification fires before
+        // the published agents are merged in.
         const currentAgentIds = new Set(Object.keys(agents));
         // Each iteration is wrapped so a throw on one id does not stall
         // cleanup for the rest of the set. Both registries' unregister
@@ -443,6 +443,21 @@ export class CopilotKitCore {
             } catch (err) {
               console.error(
                 `CopilotKitCore.onAgentsChanged: threadStoreRegistry.unregister failed for "${agentId}":`,
+                err,
+              );
+            }
+          }
+        }
+        for (const agentId of Object.keys(this.memoryStoreRegistry.getAll())) {
+          if (
+            this.previousAgentIds.has(agentId) &&
+            !currentAgentIds.has(agentId)
+          ) {
+            try {
+              this.memoryStoreRegistry.unregister(agentId);
+            } catch (err) {
+              console.error(
+                `CopilotKitCore.onAgentsChanged: memoryStoreRegistry.unregister failed for "${agentId}":`,
                 err,
               );
             }
