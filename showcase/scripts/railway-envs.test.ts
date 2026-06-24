@@ -106,9 +106,9 @@ describe("railway-envs SSOT", () => {
     expect(ENV_IDS.staging).toBe(STAGING_ENV_ID);
   });
 
-  it("contains exactly 41 services (29 showcase/infra + 12 starter-*)", () => {
+  it("contains exactly 40 services (28 showcase/infra + 12 starter-*)", () => {
     const names = listServiceNames();
-    expect(names.length).toBe(41);
+    expect(names.length).toBe(40);
   });
 
   it("contains the expected canonical services", () => {
@@ -127,6 +127,14 @@ describe("railway-envs SSOT", () => {
     ]) {
       expect(names).toContain(expected);
     }
+  });
+
+  it("does NOT contain harness-legacy (fleet-migration bridge retired)", () => {
+    // The pool-fleet migration is complete: the control-plane + prod
+    // workers cover every probe dimension `harness-legacy` was bridging,
+    // so the interim service is dead config and removed from the SSOT.
+    const names = listServiceNames();
+    expect(names).not.toContain("harness-legacy");
   });
 
   it("every service has a non-empty serviceId and per-env instance UUIDs", () => {
@@ -868,7 +876,6 @@ describe("railway-envs SSOT — domains + probe", () => {
     // Dual-env services declare both; the staging-only worker declares one.
     expect(envsFor("aimock")).toEqual(["prod", "staging"]);
     expect(envsFor("harness-workers")).toEqual(["staging"]);
-    expect(envsFor("harness-legacy")).toEqual(["prod", "staging"]);
   });
 
   it("harness-workers is a staging-only, domainless, probe-disabled worker", () => {
@@ -1096,11 +1103,6 @@ describe("computePromoteClosure", () => {
     const skipped = plan.skipped.find((s) => s.name === "harness-workers");
     expect(skipped).toBeDefined();
     expect(skipped?.reason).toMatch(/prod/i);
-  });
-
-  it("excludes harness-legacy (gateIgnore, pinned out-of-band)", () => {
-    const plan = computePromoteClosure(["langgraph-python"]);
-    expect(plan.services.map((s) => s.name)).not.toContain("harness-legacy");
   });
 
   it("throws on an unknown requested service (fail loud)", () => {

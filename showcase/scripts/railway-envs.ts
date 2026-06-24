@@ -190,8 +190,8 @@ export interface ServiceEntry {
   /**
    * True iff `verify-railway-image-refs.ts` validates this service's
    * image refs. As of WS-C completion this is `true` for every service
-   * in `SERVICES` except the two `gateIgnore` entries (`harness-workers`,
-   * `harness-legacy`) — the historic Phase-2 deferral on dashboard, docs,
+   * in `SERVICES` except the `gateIgnore` `harness-workers` entry — the
+   * historic Phase-2 deferral on dashboard, docs,
    * dojo, shell, and harness has been retired. New services added to
    * the SSOT MUST land with `gateValidated: true` (and a per-env
    * `repoName` if the Railway service name does not match the GHCR repo
@@ -226,8 +226,7 @@ export interface ServiceEntry {
    * The expansion is env-aware: a consumer only enters an env's redeploy
    * scope if it declares that env (the staging-only worker never enters
    * the prod scope). Omit for any service with its own build slot or a
-   * pinned/out-of-band image (e.g. `harness-legacy`, which deliberately
-   * runs a pinned pre-fleet digest and must NOT follow rebuilds).
+   * pinned/out-of-band image that must NOT follow rebuilds.
    */
   imageOf?: string;
   /**
@@ -493,22 +492,26 @@ export const SERVICES: Record<
   // not `showcase-harness-worker`.
   "harness-workers": {
     serviceId: "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
-    // STAGING-ONLY worker (pool-fleet cutover). There is no prod
-    // serviceInstance — the pool-fleet runs in staging only for now. Under
-    // the env-map schema we simply OMIT the prod key (no placeholder ID is
-    // needed). gateIgnore skips both gate directions; ciBuilt:false because
-    // the worker has no build slot of its own — but `imageOf: "harness"`
-    // (below) puts it in the staging redeploy scope whenever the shared
-    // showcase-harness image is rebuilt. If/when a prod worker is
-    // provisioned, add a `prod` env entry, flip gateIgnore off, and set
-    // gateValidated: true (the
-    // imageOf expansion is env-aware and will start covering prod
-    // automatically once the prod env entry exists).
+    // Pool-fleet worker. Workers now run in BOTH staging and prod: the
+    // prod worker is live on Railway (deployed 2026-06-19, HARNESS_ROLE=worker,
+    // pool count 2). This SSOT entry, however, still only models the STAGING
+    // instance — a `prod` env entry has NOT yet been backfilled here, so the
+    // entry currently declares staging only. Under the env-map schema we
+    // simply OMIT the prod key (no placeholder ID is needed). gateIgnore
+    // skips both gate directions; ciBuilt:false because the worker has no
+    // build slot of its own — but `imageOf: "harness"` (below) puts it in the
+    // staging redeploy scope whenever the shared showcase-harness image is
+    // rebuilt. To bring the live prod worker under this SSOT, add a `prod`
+    // env entry with its real serviceInstance ID, flip gateIgnore off, and
+    // set gateValidated: true (the imageOf expansion is env-aware and will
+    // start covering prod automatically once the prod env entry exists).
     ciBuilt: false,
-    // gateIgnore: deliberately-untracked for the image-ref gate. The
-    // worker is staging-only and domainless (it pulls jobs from the
-    // control-plane queue rather than serving HTTP), so it does not fit the
-    // symmetric dual-env / public-domain shape the gate validates. Listing
+    // gateIgnore: deliberately-untracked for the image-ref gate. As modeled
+    // here the worker is single-env (staging only) and domainless (it pulls
+    // jobs from the control-plane queue rather than serving HTTP), so it does
+    // not fit the symmetric dual-env / public-domain shape the gate validates.
+    // (The live prod worker exists on Railway but is not yet an SSOT prod env
+    // — see the entry header above.) Listing
     // it here (with gateIgnore) is what clears the "untracked Railway
     // service" failure — findUntrackedServices treats any SSOT entry as
     // known — WITHOUT triggering a false "missing from prod" failure from
@@ -516,9 +519,11 @@ export const SERVICES: Record<
     gateValidated: false,
     gateIgnore: true,
     probeDriver: "harness",
-    // Tier-1 verification fleet. STAGING-ONLY today (no prod env below), so
-    // computePromoteClosure records it as skipped-with-reason rather than
-    // promoting it; the tier survives for when a prod worker is provisioned.
+    // Tier-1 verification fleet. This SSOT entry declares no prod env below
+    // (only the staging instance is modeled, though a prod worker is live on
+    // Railway — see the entry header), so computePromoteClosure records it as
+    // skipped-with-reason rather than promoting it; the tier survives for when
+    // the prod worker is backfilled as a `prod` env entry here.
     promoteTier: 1,
     // The worker runs the SAME `showcase-harness` GHCR image that the
     // existing `harness` (control-plane) service runs — it is NOT a
@@ -554,60 +559,6 @@ export const SERVICES: Record<
       // The absent prod env carried a placeholder repoName in the legacy
       // JSON; restore it so repoNameOverride stays {prod, staging}.
       repoNameOverride: { prod: "showcase-harness" },
-    },
-  },
-  "harness-legacy": {
-    serviceId: "11279eba-97eb-417e-82a5-7cb4254eb147",
-    // INTERIM service (fleet-migration bridge). This is the legacy all-probe
-    // harness (HARNESS_ROLE unset) stood up to keep the non-d6 probe coverage
-    // live while the pool-fleet migration proceeds. It runs a PINNED pre-fleet
-    // `showcase-harness` image digest set out-of-band — it is NOT CI-built —
-    // and will be torn down (removed from this SSOT and from Railway) at
-    // migration end. Real serviceInstance IDs exist for BOTH envs on Railway
-    // (resolved 2026-06-05 via GraphQL); we record both. gateIgnore keeps the
-    // image-ref gate from validating either instance's (out-of-band) ref, and
-    // ciBuilt:false keeps it out of the default CI_BUILT_SERVICES redeploy
-    // scope. The build only failed because the Railway→SSOT untracked-services
-    // check saw this service name with no SSOT entry; listing it here clears
-    // that without subjecting its pinned digest to the gate's shape check.
-    ciBuilt: false,
-    // gateIgnore: deliberately-untracked for the image-ref gate. This
-    // interim service runs a pinned digest (not the canonical :latest /
-    // @sha256 shape the gate enforces) and is short-lived. Mirrors
-    // harness-workers exactly (minus the worker's single-env shape —
-    // harness-legacy DOES exist in both envs).
-    gateValidated: false,
-    gateIgnore: true,
-    probeDriver: "harness",
-    // Runs a pinned pre-fleet `showcase-harness` image digest, set
-    // out-of-band rather than tracked by showcase_build.yml. The repoName
-    // override points at `showcase-harness` so the image-ref shape resolves
-    // if the gate ever validates it.
-    //
-    // probe disabled in BOTH envs: this interim service's coverage is
-    // exercised out-of-band during the migration, not by verify-deploy.
-    // Domainless under the env-map schema — no public host is probed, so the
-    // borrowed control-plane host is omitted.
-    environments: {
-      prod: {
-        instanceId: "3d125700-a08d-4a7f-904b-c13f3f7cc0fc",
-        probe: false,
-        repoName: "showcase-harness",
-      },
-      staging: {
-        instanceId: "ed184024-fdfa-4b6f-bb51-37d6648e0beb",
-        probe: false,
-        repoName: "showcase-harness",
-      },
-    },
-    // Ruby/jq JSON-shape compat (see ServiceEntry.legacyJsonCompat). Both
-    // envs exist with real instance IDs; only the borrowed domains need
-    // restoring so the generated JSON stays byte-identical. Not read by TS.
-    legacyJsonCompat: {
-      domains: {
-        prod: "showcase-harness-production.up.railway.app",
-        staging: "harness-staging-2ee4.up.railway.app",
-      },
     },
   },
   pocketbase: {
@@ -1585,9 +1536,8 @@ export function listServiceNames(): string[] {
 /**
  * The subset of SERVICES that `showcase_build.yml` actually builds and
  * pushes. Excludes `webhooks` (released by its own repo's workflow) AND
- * the non-CI-built harness services: `harness-workers` (consumes the
- * shared showcase-harness image via imageOf; no build slot of its own)
- * and `harness-legacy` (runs a pinned out-of-band digest). pocketbase
+ * the non-CI-built `harness-workers` (consumes the shared showcase-harness
+ * image via imageOf; no build slot of its own). pocketbase
  * IS CI-built (its matrix slot is gated to `showcase/pocketbase/**`
  * changes). Default target set for `redeploy-env.ts <env>` when no
  * explicit `--services` list is provided — though the actual default
@@ -1771,8 +1721,7 @@ function tierOf(entry: ClosureEntry): 0 | 1 | 2 {
  * NOTE the promote path does NOT inherit the staging-redeploy `imageOf`
  * EXPANSION wholesale — it pulls a consumer in only because that consumer
  * runs a closure member's image and would otherwise run a stale image after
- * the member is pinned (§4.2). `harness-legacy` (`gateIgnore`, pinned
- * out-of-band) is excluded entirely (§4.3). A member whose `environments`
+ * the member is pinned (§4.2). A member whose `environments`
  * omits `prod` (e.g. `harness-workers` today, §4.4) cannot be promoted and is
  * recorded in `skipped` with a reason rather than silently dropped (§4.3).
  *
@@ -1848,9 +1797,6 @@ export function computePromoteClosure(
   const skipped: ClosureSkip[] = [];
   for (const key of closure) {
     const entry = services[key];
-    // harness-legacy class: pinned out-of-band, gateIgnore → excluded
-    // entirely (not even reported as skipped — it is deliberately untracked).
-    if (entry.gateIgnore === true && key === "harness-legacy") continue;
     // No prod env → cannot be promoted (the staging-only worker today).
     const envs = entry.environments ?? {};
     if (!Object.hasOwn(envs, "prod")) {
