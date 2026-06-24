@@ -43,18 +43,13 @@ function route(state: AgentState) {
   ) {
     const aiMessage = messages[messages.length - 1] as AIMessage;
 
-    if (
-      aiMessage.tool_calls &&
-      aiMessage.tool_calls.length > 0 &&
-      aiMessage.tool_calls[0].name === "Search"
-    ) {
+    const toolName = aiMessage.tool_calls?.[0]?.name;
+    if (toolName === "Search") {
       return "search_node";
-    } else if (
-      aiMessage.tool_calls &&
-      aiMessage.tool_calls.length > 0 &&
-      aiMessage.tool_calls[0].name === "DeleteResources"
-    ) {
+    } else if (toolName === "DeleteResources") {
       return "delete_node";
+    } else if (toolName) {
+      return "chat_node";
     }
   }
   if (
