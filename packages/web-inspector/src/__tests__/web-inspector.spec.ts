@@ -1239,7 +1239,7 @@ function createHeaderMockCore(
         s.onThreadStoreUnregistered?.({
           copilotkit: asCore(),
           agentId,
-          store: store as ɵThreadStore,
+          prevStore: store as ɵThreadStore,
         }),
       );
     },

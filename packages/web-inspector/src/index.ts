@@ -2798,9 +2798,9 @@ export class WebInspectorElement extends LitElement {
         this.subscribeToThreadStore(agentId, store);
         this.requestUpdate();
       },
-      onThreadStoreUnregistered: ({ agentId, store }) => {
+      onThreadStoreUnregistered: ({ agentId, prevStore }) => {
         const ownedStore = this._ownedThreadStores.get(agentId);
-        if (ownedStore && ownedStore === store) {
+        if (ownedStore && ownedStore === prevStore) {
           ownedStore.stop();
           this._ownedThreadStores.delete(agentId);
         }
