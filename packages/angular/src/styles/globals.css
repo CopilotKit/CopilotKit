@@ -1,13 +1,28 @@
-@import "tailwindcss";
+@import "tailwindcss" prefix(cpk);
+@import "tw-animate-css";
+
 @plugin "@tailwindcss/typography";
 @source "../**/*.{ts,html}";
-@source "../../apps/angular/storybook/stories/**/*.{ts,html}";
-
-@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
 [data-copilotkit] {
+  --copilot-kit-primary-color: rgb(28, 28, 28);
+  --copilot-kit-contrast-color: rgb(255, 255, 255);
+  --copilot-kit-background-color: rgb(255 255 255);
+  --copilot-kit-input-background-color: #fbfbfb;
+  --copilot-kit-secondary-color: rgb(255 255 255);
+  --copilot-kit-secondary-contrast-color: rgb(28, 28, 28);
+  --copilot-kit-separator-color: rgb(200 200 200);
+  --copilot-kit-muted-color: rgb(200 200 200);
+  --copilot-kit-error-background: #fef2f2;
+  --copilot-kit-error-border: #fecaca;
+  --copilot-kit-error-text: #dc2626;
+  --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --copilot-kit-shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --copilot-kit-shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -45,6 +60,22 @@
 
 .dark [data-copilotkit],
 [data-copilotkit].dark {
+  --copilot-kit-primary-color: rgb(255, 255, 255);
+  --copilot-kit-contrast-color: rgb(28, 28, 28);
+  --copilot-kit-background-color: rgb(17, 17, 17);
+  --copilot-kit-input-background-color: #2c2c2c;
+  --copilot-kit-secondary-color: rgb(28, 28, 28);
+  --copilot-kit-secondary-contrast-color: rgb(255, 255, 255);
+  --copilot-kit-separator-color: rgb(45, 45, 45);
+  --copilot-kit-muted-color: rgb(45, 45, 45);
+  --copilot-kit-error-background: #7f1d1d;
+  --copilot-kit-error-border: #dc2626;
+  --copilot-kit-error-text: #fca5a5;
+  --copilot-kit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --copilot-kit-shadow-md:
+    0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --copilot-kit-shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.145 0 0);
@@ -136,12 +167,26 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply cpk:border-border cpk:outline-ring/50;
   }
   /* Apply foreground/background on CopilotKit roots (replaces body rule) */
   [data-copilotkit] {
     color: var(--foreground);
     background-color: var(--background);
+  }
+}
+
+@layer components {
+  .copilot-a2ui-surface-renderer-layout {
+    @apply cpk:block cpk:min-w-0 cpk:max-w-full;
+  }
+
+  .copilot-a2ui-surface-scroll {
+    @apply cpk:w-full cpk:max-w-full cpk:min-w-0 cpk:overflow-x-auto cpk:overflow-y-visible cpk:pt-1 cpk:pb-2;
+  }
+
+  .copilot-a2ui-surface-scroll-surface {
+    @apply cpk:block cpk:min-w-full;
   }
 }
 
@@ -256,7 +301,304 @@
 }
 
 [data-copilotkit] .prose em {
-  @apply text-foreground;
+  @apply cpk:text-foreground;
+}
+
+/* Attachment Queue */
+[data-copilotkit] .copilotKitAttachmentQueue {
+  margin: 0;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueItem {
+  position: relative;
+  display: inline-flex;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: transparent;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueItem--image,
+[data-copilotkit] .copilotKitAttachmentQueueItem--video {
+  width: 72px;
+  height: 72px;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueItem--audio {
+  min-width: 200px;
+  max-width: 280px;
+  flex-direction: column;
+  padding: 4px 32px 4px 4px;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueItem--document {
+  padding: 8px 32px 8px 12px;
+  max-width: 240px;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueSpinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: copilotKitSpin 0.6s linear infinite;
+}
+
+@keyframes copilotKitSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueRemoveButton {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+  z-index: 2;
+  line-height: 1;
+}
+
+[data-copilotkit]
+  .copilotKitAttachmentQueueItem--image
+  .copilotKitAttachmentQueueRemoveButton,
+[data-copilotkit]
+  .copilotKitAttachmentQueueItem--video
+  .copilotKitAttachmentQueueRemoveButton {
+  top: 4px;
+  right: 4px;
+}
+
+[data-copilotkit]
+  .copilotKitAttachmentQueueItem--audio
+  .copilotKitAttachmentQueueRemoveButton,
+[data-copilotkit]
+  .copilotKitAttachmentQueueItem--document
+  .copilotKitAttachmentQueueRemoveButton {
+  top: 6px;
+  right: 6px;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueRemoveButton:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+[data-copilotkit] .copilotKitAttachmentQueuePreviewPlaceholder {
+  width: 100%;
+  height: 100%;
+  background: var(--copilot-kit-input-background-color);
+}
+
+[data-copilotkit] .copilotKitAttachmentQueuePreviewImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueuePreviewAudio {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueuePreviewAudio audio {
+  width: 100%;
+  height: 32px;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueuePreviewVideo {
+  width: 100%;
+  height: 100%;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueuePreviewDocument {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueDocIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--copilot-kit-primary-color, #6366f1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueDocInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueFilename {
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-copilotkit]
+  .copilotKitAttachmentQueueItem--document
+  .copilotKitAttachmentQueueFilename {
+  line-height: 1.25;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: break-all;
+}
+
+[data-copilotkit] .copilotKitAttachmentQueueFileSize {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+/* Drag-and-drop overlay */
+[data-copilotkit] .copilotKitDragOver {
+  outline: 2px dashed var(--copilot-kit-primary-color, #6366f1);
+  outline-offset: -4px;
+  border-radius: 8px;
+}
+
+/* Attachment Rendering in Messages */
+[data-copilotkit] .copilotKitAttachment {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 100%;
+}
+
+[data-copilotkit] .copilotKitAttachmentAudio audio {
+  max-width: 300px;
+  width: 100%;
+  height: 40px;
+}
+
+[data-copilotkit] .copilotKitAttachmentFilename {
+  font-size: 12px;
+  color: var(--copilot-kit-secondary-contrast-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-copilotkit] .copilotKitAttachmentVideo video {
+  max-width: 400px;
+  width: 100%;
+  border-radius: 8px;
+}
+
+[data-copilotkit] .copilotKitAttachmentDocument {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--copilot-kit-separator-color);
+  border-radius: 8px;
+  background: var(--copilot-kit-input-background-color);
+}
+
+[data-copilotkit] .copilotKitAttachmentDocIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--copilot-kit-primary-color, #6366f1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+[data-copilotkit] .copilotKitAttachmentDocInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+[data-copilotkit] .copilotKitAttachmentDocName {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-copilotkit] .copilotKitAttachmentDocMeta {
+  font-size: 11px;
+  color: var(--copilot-kit-secondary-contrast-color);
+}
+
+[data-copilotkit] .copilotKitImageRendering {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+[data-copilotkit] .copilotKitImageRenderingImage {
+  max-width: 80px;
+  max-height: 80px;
+  width: auto;
+  height: auto;
+  object-fit: cover;
+  border-radius: 12px;
+  background-color: var(--copilot-kit-input-background-color);
+  box-shadow: var(--copilot-kit-shadow-sm);
+  cursor: pointer;
+}
+
+[data-copilotkit] .copilotKitImageRenderingError {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--copilot-kit-separator-color);
+  border-radius: 8px;
+  background-color: var(--copilot-kit-input-background-color);
+}
+
+[data-copilotkit] .copilotKitImageRenderingErrorMessage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--copilot-kit-error-background);
+  border: 1px solid var(--copilot-kit-error-border);
+  border-radius: 6px;
+  color: var(--copilot-kit-error-text);
+  font-size: 13px;
 }
 
 [data-copilotkit] .prose hr {
@@ -268,5 +610,5 @@
 }
 
 [data-copilotkit] .prose td {
-  @apply text-foreground;
+  @apply cpk:text-foreground;
 }

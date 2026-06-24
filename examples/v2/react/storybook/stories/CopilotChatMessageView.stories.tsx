@@ -641,3 +641,91 @@ export function WithToolCallsExample() {
     );
   },
 };
+
+export const DefaultToolRendererDarkTheme: Story = {
+  parameters: {
+    layout: "fullscreen",
+    docs: {
+      description: {
+        story:
+          "Shows the built-in zero-config tool-call fallback in a dark CopilotKit surface.",
+      },
+    },
+  },
+  decorators: [
+    (Story, context) => {
+      const isDarkTheme = context.globals.theme === "dark";
+
+      return (
+        <div
+          style={{
+            minHeight: "100vh",
+            margin: 0,
+            padding: "32px",
+            overflow: "auto",
+            background: isDarkTheme ? "#212121" : "#ffffff",
+          }}
+        >
+          <Story />
+        </div>
+      );
+    },
+  ],
+  render: () => {
+    const messages = [
+      {
+        id: "user-default-tools",
+        content:
+          "Find the latest CopilotKit release notes and check npm status.",
+        timestamp: new Date(),
+        role: "user" as const,
+      },
+      {
+        id: "assistant-default-tools",
+        content: "I'll check both sources and summarize what I find.",
+        timestamp: new Date(),
+        role: "assistant" as const,
+        toolCalls: [
+          {
+            id: "release-notes-tool",
+            type: "function" as const,
+            function: {
+              name: "searchReleaseNotes",
+              arguments: JSON.stringify({
+                query: "CopilotKit release notes",
+                includePrereleases: false,
+              }),
+            },
+          },
+          {
+            id: "npm-status-tool",
+            type: "function" as const,
+            function: {
+              name: "checkPackageStatus",
+              arguments: JSON.stringify({
+                packageName: "@copilotkit/react-core",
+              }),
+            },
+          },
+        ],
+      },
+      {
+        id: "tool-release-notes",
+        role: "tool" as const,
+        toolCallId: "release-notes-tool",
+        content:
+          "Found release notes for the current React core package and related runtime packages.",
+      },
+    ];
+
+    return (
+      <CopilotKitProvider runtimeUrl="https://copilotkit.ai">
+        <CopilotChatConfigurationProvider threadId={STORYBOOK_THREAD_ID}>
+          <div style={{ width: "min(760px, 100%)", margin: "0 auto" }}>
+            <CopilotChatMessageView messages={messages} />
+          </div>
+        </CopilotChatConfigurationProvider>
+      </CopilotKitProvider>
+    );
+  },
+};

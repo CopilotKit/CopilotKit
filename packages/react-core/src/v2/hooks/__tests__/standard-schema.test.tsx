@@ -4,7 +4,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { z } from "zod";
 import * as v from "valibot";
 import { type } from "arktype";
-import { useRenderTool, type RenderToolProps } from "../use-render-tool";
+import { useRenderTool } from "../use-render-tool";
+import type { RenderToolProps } from "../use-render-tool";
 import { useComponent } from "../use-component";
 import { useCopilotKit } from "../../context";
 import { useFrontendTool } from "../use-frontend-tool";
@@ -116,7 +117,7 @@ describe("useRenderTool with Standard Schema", () => {
         (item) => item.name === "searchValibot",
       );
       expect(renderer).toBeDefined();
-      expect(renderer?.args["~standard"].vendor).toBe("valibot");
+      expect(renderer?.args?.["~standard"].vendor).toBe("valibot");
     });
   });
 
@@ -149,7 +150,7 @@ describe("useRenderTool with Standard Schema", () => {
         (item) => item.name === "searchArktype",
       );
       expect(renderer).toBeDefined();
-      expect(renderer?.args["~standard"].vendor).toBe("arktype");
+      expect(renderer?.args?.["~standard"].vendor).toBe("arktype");
     });
   });
 

@@ -182,7 +182,7 @@ services:
       - POCKETBASE_URL=http://localhost:8090
       - SHOWCASE_LOCAL=1
     ports:
-      - "3200:10000"
+      - "3210:10000"
     depends_on:
       pocketbase:
         condition: service_healthy
@@ -244,6 +244,18 @@ services:
       # bring up matching worker replicas). The control-plane reads this to
       # know how many workers to expect in the pool.
       - HARNESS_POOL_COUNT=${HARNESS_POOL_COUNT:-1}
+      # Local-dev escape hatch for the SHARED_SECRET fail-loud gate added in
+      # PR #5458 (commit c81b361f1). The harness refuses to boot in any
+      # deployable mode (NODE_ENV != "test") without SHARED_SECRET /
+      # SHARED_SECRET_PREV because POST /webhooks/deploy is only registered
+      # when webhookSecrets.length > 0 (see src/http/server.ts:119 and
+      # loadWebhookSecrets in src/orchestrator.ts). The local docker-compose
+      # stack does not run the Showcase: Verify Deploy webhook flow, so we
+      # enable the documented HARNESS_ALLOW_NO_SECRET=1 escape to let the
+      # harness boot locally. PROD IS UNAFFECTED: Railway sets SHARED_SECRET
+      # explicitly via env, so the gate fires normally there and this flag
+      # is never read.
+      - HARNESS_ALLOW_NO_SECRET=1
       # Control-plane needs PocketBase (the work queue + status store) but
       # runs no Chromium, so it does not need demo reachability for browsing.
       - POCKETBASE_URL=http://pocketbase:8090
@@ -318,6 +330,11 @@ services:
       # control-plane connection.
       - HARNESS_ROLE=worker
       - HARNESS_POOL_COUNT=${HARNESS_POOL_COUNT:-1}
+      # Local-dev escape hatch for the SHARED_SECRET fail-loud gate (see
+      # the matching comment on harness-control-plane above). Prod-on-Railway
+      # sets SHARED_SECRET explicitly; this flag only matters for the local
+      # docker-compose stack.
+      - HARNESS_ALLOW_NO_SECRET=1
       - POCKETBASE_URL=http://pocketbase:8090
       - POCKETBASE_SUPERUSER_EMAIL=admin@example.com
       - POCKETBASE_SUPERUSER_PASSWORD=showcase-local-dev
@@ -499,6 +516,20 @@ services:
     profiles: ["strands", "all"]
     volumes:
       - ./integrations/strands/src:/app/src
+
+  strands-typescript:
+    <<: *integration-defaults
+    build: ./integrations/strands-typescript
+    image: showcase-strands-typescript:local
+    container_name: showcase-strands-typescript
+    ports:
+      - "3119:10000"
+    profiles: ["strands-typescript", "all"]
+    volumes:
+      - ./integrations/strands-typescript/src:/app/src
+      # Preserve the agent's node_modules from the Docker image (the src bind
+      # mount would otherwise clobber src/agent/node_modules installed at build).
+      - /app/src/agent/node_modules
 
   langroid:
     <<: *integration-defaults

@@ -12,11 +12,19 @@ import type {
 } from "../helpers/d5-registry.js";
 import { demosToFeatureTypes } from "../helpers/d5-feature-mapping.js";
 import { D5_REPRESENTATIVES } from "../helpers/d5-representatives.js";
+import type { Page as PlaywrightPage } from "playwright";
+import { countAssistantMessages } from "../helpers/assistant-message-count.js";
 import { runConversation } from "../helpers/conversation-runner.js";
 import type {
   ConversationResult,
   Page,
 } from "../helpers/conversation-runner.js";
+import {
+  installPrePaintFromEnv,
+  installBrowserContextShims,
+  messagesOverrideFromEnv,
+} from "../helpers/init-scripts.js";
+import { attachSseInterceptor } from "../helpers/sse-interceptor.js";
 import {
   formatCvdiag,
   appendHop,
@@ -25,10 +33,18 @@ import {
   X_DIAG_RUN_ID,
   X_DIAG_HOPS,
 } from "../helpers/cv-diag.js";
+import { writeDiagEvent } from "../../storage/diag-sink.js";
+import type { DiagSinkClient } from "../../storage/diag-sink.js";
+import { CvdiagEmitter } from "../../cvdiag/index.js";
 import {
-  writeDiagEvent,
-  type DiagSinkClient,
-} from "../../storage/diag-sink.js";
+  CvdiagProbeSession,
+  defaultCvdiagBufferDir,
+  FAILURE_CLASSIFIER_SET,
+  nowMonoMs,
+  turnCompleteReason,
+} from "../../cvdiag/probe-session.js";
+import type { CvdiagFailureClassifier } from "../../cvdiag/index.js";
+import type { CvdiagPbWriter } from "../../cvdiag/pb-writer.js";
 import type { ProbeDriver } from "../types.js";
 import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 import type { BrowserPool } from "../helpers/browser-pool.js";
@@ -49,8 +65,11 @@ import type playwright from "playwright";
  *      featureType — unlike D5 which skips with green, D6 treats
  *      missing scripts as a hard failure.
  *   3. Opens a fresh Playwright context with `X-AIMock-Context: <slug>`
- *      and `X-Test-Id: d6-<slug>` headers, navigates to the per-feature
- *      route, and runs the conversation through `runConversation`.
+ *      and `X-Test-Id: d6-<slug>-<runId>` headers (see `buildE2eTestId`;
+ *      the runId suffix gives each run fresh aimock fixture-count state —
+ *      the old per-slug constant id caused the staging flap), navigates to
+ *      the per-feature route, and runs the conversation through
+ *      `runConversation`.
  *   4. Emits one `d6:<slug>/<featureType>` diagnostic side row per
  *      feature (not consumed by dashboard rollup — diagnostic only).
  *   5. Emits an aggregate `d6:<slug>` primary result that is green ONLY
@@ -253,6 +272,57 @@ export interface E2eFullDriverDeps {
    * swallowed by `writeDiagEvent` and can never break a probe.
    */
   diagPb?: DiagSinkClient;
+  /**
+   * CVDIAG flap-observability emitter (spec §3 Layer 1). When provided (or
+   * constructed from `ctx.env` on first use), each feature run constructs a
+   * `CvdiagProbeSession` and emits the probe-layer boundaries — notably
+   * `probe.exit` carrying `terminal_outcome` + `failure_classifier` — so the
+   * flapping d5/d6 runs are readable from `cvdiag_events`. This is the SAME
+   * session the d4 driver uses (extracted to `cvdiag/probe-session.ts`).
+   * Injectable so unit tests can supply a VERBOSE emitter with a captured
+   * PB-writer seam and assert envelopes without a live PB. CVDIAG is pure
+   * instrumentation — a missing or failing emitter NEVER changes a probe's
+   * red/green outcome.
+   */
+  cvdiagEmitter?: CvdiagEmitter;
+  /**
+   * CVDIAG event-persistence writer. When provided, the driver injects it into
+   * the `CvdiagEmitter` it constructs so the queued probe-layer events PERSIST
+   * to the `cvdiag_events` collection on flush (the emit→persist seam). The
+   * fleet worker / CLI constructs one from a writer-role PB connection; absent
+   * → events emit to the queue but the durable write is a no-op. Never
+   * load-bearing: a write failure can't break a probe.
+   */
+  cvdiagPbWriter?: CvdiagPbWriter;
+  /**
+   * Root directory for the per-test replay-fallback ndjson buffer
+   * (`<dir>/<date>/<test-id>.ndjson`). Defaults to `~/.cvdiag/buffer`.
+   * Injectable so tests buffer into a tmpdir. Best-effort: a write failure is
+   * swallowed and never breaks a probe.
+   */
+  cvdiagBufferDir?: string;
+  /**
+   * Factory for the per-`run()` correlation id (`runId`). Defaults to
+   * `mintRunId` (`crypto.randomUUID()`). Injectable ONLY so unit tests can
+   * supply a deterministic counter and assert the per-run-unique X-Test-Id
+   * (`d6-<slug>-<runId>`) without matching a brittle UUID regex. Production
+   * always uses the default. The id is minted once per `run()` and is stable
+   * across every feature-cell of that run, unique across runs.
+   */
+  idFactory?: () => string;
+}
+
+/**
+ * Build the per-feature aimock X-Test-Id. Folds the per-`run()` correlation
+ * id (`runId`) into the previously per-slug-only id so each run starts from a
+ * fresh aimock per-test-id fixture-match count, eliminating the cross-run
+ * sequence/turn-count desync that flapped the staging dashboard. Stable across
+ * a run's feature-cells (same `runId`), unique across runs. D5 runs THIS driver
+ * (take-one), so it is covered by the same `d6-` value; the D5 dashboard column
+ * is derived from `rowPrefix`, not from this header.
+ */
+export function buildE2eTestId(slug: string, runId: string): string {
+  return `d6-${slug}-${runId}`;
 }
 
 /**
@@ -447,8 +517,21 @@ const defaultLauncher: E2eFullBrowserLauncher =
               press: (s, k, o) => page.press(s, k, o),
               evaluate: <R>(fn: () => R) => page.evaluate(fn),
               inputValue: (s) => page.inputValue(s),
-              goto: (u, gotoOpts) =>
-                page.goto(u, gotoOpts as Parameters<typeof page.goto>[1]),
+              goto: async (u, gotoOpts) => {
+                // Order is load-bearing per Phase 3 Task 3.2:
+                // installPrePaintFromEnv FIRST (defect-4 pre-paint
+                // injection, no-op in production), attachSseInterceptor
+                // SECOND. Both must complete before page.goto so the
+                // init scripts (pre-paint DOM seed + __hk_runsFinished
+                // window counter) are registered at document_start.
+                await installBrowserContextShims(page);
+                await installPrePaintFromEnv(page);
+                await attachSseInterceptor(page);
+                return page.goto(
+                  u,
+                  gotoOpts as Parameters<typeof page.goto>[1],
+                );
+              },
               close: () => page.close(),
               click: (s, o) => page.click(s, o),
               waitForFunction: (fn, wfOpts) =>
@@ -573,8 +656,21 @@ export function createPooledE2eFullLauncher(
               press: (s, k, o) => page.press(s, k, o),
               evaluate: <R>(fn: () => R) => page.evaluate(fn),
               inputValue: (s) => page.inputValue(s),
-              goto: (u, gotoOpts) =>
-                page.goto(u, gotoOpts as Parameters<typeof page.goto>[1]),
+              goto: async (u, gotoOpts) => {
+                // Order is load-bearing per Phase 3 Task 3.2:
+                // installPrePaintFromEnv FIRST (defect-4 pre-paint
+                // injection, no-op in production), attachSseInterceptor
+                // SECOND. Both must complete before page.goto so the
+                // init scripts (pre-paint DOM seed + __hk_runsFinished
+                // window counter) are registered at document_start.
+                await installBrowserContextShims(page);
+                await installPrePaintFromEnv(page);
+                await attachSseInterceptor(page);
+                return page.goto(
+                  u,
+                  gotoOpts as Parameters<typeof page.goto>[1],
+                );
+              },
               close: () => page.close(),
               click: (s, o) => page.click(s, o),
               waitForFunction: (fn, wfOpts) =>
@@ -674,6 +770,12 @@ export function createE2eFullDriver(
   const scriptLoader = deps.scriptLoader ?? defaultScriptLoader;
   const representatives = deps.representatives ?? D5_REPRESENTATIVES;
   const diagPb = deps.diagPb;
+  const idFactory = deps.idFactory ?? mintRunId;
+  // CVDIAG probe-session deps (best-effort). The emitter may be injected (tests)
+  // or constructed once per `run()` from `ctx.env`; the PB writer + buffer dir
+  // are resolved here so the per-feature sessions persist + buffer.
+  const cvdiagPbWriter = deps.cvdiagPbWriter;
+  const cvdiagBufferDir = deps.cvdiagBufferDir ?? defaultCvdiagBufferDir();
 
   return {
     kind: "e2e_d6",
@@ -713,7 +815,7 @@ export function createE2eFullDriver(
       // component tag distinguishes the D5 take-one path from a full D6 run
       // even though they share THIS driver — that distinction is the whole
       // point of the CV incident (D5/CV red while D6 green).
-      const runId = mintRunId();
+      const runId = idFactory();
       const cvComponent = rowPrefix === "d5" ? "harness-d5" : "harness-d6";
       // The aimock base URL the framework apps are wired to send X-AIMock-*
       // against. Read from env (orchestrator sets AIMOCK_URL; the CLI sets
@@ -721,6 +823,34 @@ export function createE2eFullDriver(
       // probe matches against. Used for the best-effort post-run journal
       // join; absent → the join is skipped (logged as status=error).
       const aimockBaseUrl = ctx.env.AIMOCK_URL ?? ctx.env.AIMOCK_URL_LOCAL;
+
+      // CVDIAG probe-session emitter (spec §3 Layer 1). Injected for tests;
+      // otherwise constructed once per `run()` from the probe's env so the
+      // resolved verbosity tier honors CVDIAG_VERBOSE / CVDIAG_DEBUG. The PB
+      // writer (when wired) makes the queued probe-layer events PERSIST to
+      // `cvdiag_events` on the run-level flush below. Construction is wrapped so
+      // a fail-closed DEBUG guard throw can never break the probe — CVDIAG is
+      // pure instrumentation. This is the SAME session the d4 driver
+      // constructs (extracted to `cvdiag/probe-session.ts`); the d5/d6 path was
+      // previously the ONLY probe family that did NOT emit these boundaries,
+      // which is exactly why the flapping d5/d6 runs were unreadable from
+      // `cvdiag_events`.
+      let cvdiagEmitter: CvdiagEmitter | undefined = deps.cvdiagEmitter;
+      if (cvdiagEmitter === undefined) {
+        try {
+          cvdiagEmitter = new CvdiagEmitter({
+            env: ctx.env,
+            layer: "probe",
+            pbWriter: cvdiagPbWriter,
+          });
+        } catch (err) {
+          ctx.logger.warn("probe.e2e-full.cvdiag-init-failed", {
+            slug,
+            err: err instanceof Error ? err.message : String(err),
+          });
+          cvdiagEmitter = undefined;
+        }
+      }
 
       // Resolve the feature list. ALL features, not one-per-type.
       const featuresFromInput = input.features ?? [];
@@ -1071,29 +1201,48 @@ export function createE2eFullDriver(
           > = [];
           try {
             if (abort.signal.aborted) {
-              await sideEmit(ctx, {
-                key: sideKey,
-                state: "red",
-                signal: {
-                  slug,
-                  featureType: ft,
-                  backendUrl,
-                  url,
-                  fixtureFile: script.fixtureFile,
-                  errorClass: "abort",
-                  errorDesc: timedOut
-                    ? `timeout after ${timeoutMs}ms`
-                    : "aborted",
-                },
-                observedAt: ctx.now().toISOString(),
-              });
+              // GRACEFUL DRAIN (FIX 3): when the abort is a worker drain —
+              // `ctx.drainReason === "shutdown"` AND the EXTERNAL drain signal
+              // actually FIRED — SUPPRESS the red per-cell side-emit for this
+              // not-yet-started pill; a redeploy must not paint a mass-red
+              // block. The pill keeps its prior dashboard colour; the
+              // worker-loop layer separately abandons the partial (skips
+              // `queue.report`) so the lease lapses into the sweeper's
+              // neutral-gray re-queue. The internal `abort` controller ALSO
+              // fires on the driver's own wall-clock `timeoutMs` cap, so the
+              // drain reason alone is not proof of a drain — require
+              // `ctx.abortSignal.aborted` too. A timeout/error abort still
+              // emits red so a genuine failure stays visible.
+              const drainAborted =
+                ctx.drainReason === "shutdown" &&
+                ctx.abortSignal?.aborted === true;
+              if (!drainAborted) {
+                await sideEmit(ctx, {
+                  key: sideKey,
+                  state: "red",
+                  signal: {
+                    slug,
+                    featureType: ft,
+                    backendUrl,
+                    url,
+                    fixtureFile: script.fixtureFile,
+                    errorClass: "abort",
+                    errorDesc: timedOut
+                      ? `timeout after ${timeoutMs}ms`
+                      : "aborted",
+                  },
+                  observedAt: ctx.now().toISOString(),
+                });
+              }
               ctx.logger.info("probe.e2e-full.feature-complete", {
                 slug,
                 featureType: ft,
                 pass: false,
                 errorDesc: timedOut
                   ? `timeout after ${timeoutMs}ms`
-                  : "aborted",
+                  : drainAborted
+                    ? "drain-suppressed"
+                    : "aborted",
                 durationMs: Date.now() - featureStart,
               });
               return {
@@ -1161,6 +1310,12 @@ export function createE2eFullDriver(
                 // inbound-boundary line at header injection.
                 runId,
                 cvComponent,
+                // CVDIAG probe-session: the emitter (when present) + buffer dir
+                // let runFeature construct a `CvdiagProbeSession` per feature
+                // and emit the probe-layer boundaries (probe.start / navigate /
+                // message.send / firstToken / exit) for THIS d5/d6 cell.
+                cvdiagEmitter,
+                cvdiagBufferDir,
               });
               inFlightRunFeatures.push(runFeaturePromise);
               try {
@@ -1262,31 +1417,48 @@ export function createE2eFullDriver(
                 featureType: ft,
                 rowPrefix,
                 cvComponent,
-                testId: `d6-${slug}`,
+                testId: buildE2eTestId(slug, runId),
                 featureOk: true,
               });
               return { ft, ok: true as const };
             } else {
-              await sideEmit(ctx, {
-                key: sideKey,
-                state: "red",
-                signal: {
-                  slug,
-                  featureType: ft,
-                  backendUrl,
-                  url,
-                  fixtureFile: script.fixtureFile,
-                  turns_completed: featureResult.conversation?.turns_completed,
-                  total_turns: featureResult.conversation?.total_turns,
-                  failure_turn: featureResult.conversation?.failure_turn,
-                  turn_durations_ms:
-                    featureResult.conversation?.turn_durations_ms,
-                  errorDesc: featureResult.errorDesc,
-                  errorClass: featureResult.errorClass,
-                  diagnostics: featureResult.diagnostics,
-                },
-                observedAt: ctx.now().toISOString(),
-              });
+              // GRACEFUL DRAIN (FIX 3): a feature that STARTED then got aborted
+              // MID-RUN by the worker drain (`errorClass: "abort"` while
+              // `ctx.drainReason === "shutdown"` AND the EXTERNAL drain signal
+              // actually fired) is a not-yet-completed pill — suppress its red
+              // side-emit too so a redeploy doesn't paint it red. The internal
+              // abort ALSO fires on the driver's own wall-clock `timeoutMs`
+              // cap, so require `ctx.abortSignal.aborted` to distinguish a true
+              // drain from a timeout — a timeout abort, and a genuine in-driver
+              // failure (any non-abort errorClass), still paint red even within
+              // the drain window.
+              const drainAborted =
+                ctx.drainReason === "shutdown" &&
+                ctx.abortSignal?.aborted === true &&
+                featureResult.errorClass === "abort";
+              if (!drainAborted) {
+                await sideEmit(ctx, {
+                  key: sideKey,
+                  state: "red",
+                  signal: {
+                    slug,
+                    featureType: ft,
+                    backendUrl,
+                    url,
+                    fixtureFile: script.fixtureFile,
+                    turns_completed:
+                      featureResult.conversation?.turns_completed,
+                    total_turns: featureResult.conversation?.total_turns,
+                    failure_turn: featureResult.conversation?.failure_turn,
+                    turn_durations_ms:
+                      featureResult.conversation?.turn_durations_ms,
+                    errorDesc: featureResult.errorDesc,
+                    errorClass: featureResult.errorClass,
+                    diagnostics: featureResult.diagnostics,
+                  },
+                  observedAt: ctx.now().toISOString(),
+                });
+              }
               ctx.logger.info("probe.e2e-full.feature-complete", {
                 slug,
                 featureType: ft,
@@ -1307,7 +1479,7 @@ export function createE2eFullDriver(
                 featureType: ft,
                 rowPrefix,
                 cvComponent,
-                testId: `d6-${slug}`,
+                testId: buildE2eTestId(slug, runId),
                 featureOk: false,
                 featureError: featureResult.errorDesc,
               });
@@ -1425,6 +1597,18 @@ export function createE2eFullDriver(
         if (externalAbort) {
           externalAbort.removeEventListener("abort", onExternalAbort);
         }
+        // Drain the CVDIAG emitter's queued probe-layer events to PB before
+        // returning. `flush()` is best-effort (no-op when no `pbWriter` was
+        // injected, and never throws into the probe), so this can run
+        // unconditionally and can NEVER change the probe's red/green outcome.
+        try {
+          await cvdiagEmitter?.flush();
+        } catch (err) {
+          ctx.logger.warn("probe.e2e-full.cvdiag-flush-failed", {
+            slug,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
         if (browser) {
           try {
             await browser.close();
@@ -1459,6 +1643,14 @@ async function runFeature(opts: {
   runId: string;
   /** CVDIAG component tag (`harness-d5` | `harness-d6`). */
   cvComponent: string;
+  /**
+   * CVDIAG probe-session emitter for THIS feature cell. Absent → no
+   * probe-layer emission (instrumentation off). Same session as the d4 driver
+   * (extracted to `cvdiag/probe-session.ts`).
+   */
+  cvdiagEmitter?: CvdiagEmitter;
+  /** Replay-fallback ndjson buffer root for this cell's CVDIAG session. */
+  cvdiagBufferDir?: string;
 }): Promise<
   | { ok: true; conversation: ConversationResult }
   | {
@@ -1473,7 +1665,7 @@ async function runFeature(opts: {
     browser,
     url,
     slug,
-    featureType: _featureType,
+    featureType,
     pageTimeoutMs,
     script,
     buildCtx,
@@ -1481,8 +1673,49 @@ async function runFeature(opts: {
     logger,
     runId,
     cvComponent,
+    cvdiagEmitter,
+    cvdiagBufferDir,
   } = opts;
+
+  const testId = buildE2eTestId(slug, runId);
+  // CVDIAG probe-session for THIS feature cell (one test_id). The session
+  // records `sanitizeJoinTestId(X-Test-Id)` — the SAME value the backend adopts
+  // from the inbound `X-Test-Id` header (injected on the browser context below)
+  // — so probe.* rows JOIN backend.* rows on `test_id`. Absent emitter → no-op.
+  const cvdiag =
+    cvdiagEmitter !== undefined
+      ? new CvdiagProbeSession({
+          emitter: cvdiagEmitter,
+          testId,
+          slug,
+          demo: featureType,
+          bufferDir: cvdiagBufferDir ?? defaultCvdiagBufferDir(),
+          nowMs: nowMonoMs(),
+        })
+      : undefined;
+  // Terminal-exit tracking: `probe.exit` fires EXACTLY ONCE per feature across
+  // the success / catch / finally paths (mirrors d4's `cvdiagExited` guard).
+  const cvdiagStartMs = nowMonoMs();
+  let cvdiagExited = false;
+  const cvdiagExit = (
+    outcome: Parameters<CvdiagProbeSession["exit"]>[0],
+    failureClassifier?: CvdiagFailureClassifier,
+  ): void => {
+    if (cvdiagExited) return;
+    cvdiagExited = true;
+    cvdiag?.exit(
+      outcome,
+      Math.round(nowMonoMs() - cvdiagStartMs),
+      failureClassifier,
+    );
+  };
+
   if (abortSignal.aborted) {
+    // Balance the session: emit start+exit even on the abort-before-start
+    // early return so the test_id always carries an open/close pair (mirrors
+    // d4). `timeout` outcome — the cell was aborted before it could run.
+    cvdiag?.start(url, { width: 1280, height: 720 });
+    cvdiagExit("timeout");
     return {
       ok: false,
       errorClass: "abort",
@@ -1492,7 +1725,6 @@ async function runFeature(opts: {
 
   let context: E2eFullBrowserContext | undefined;
   let page: E2eFullPage | undefined;
-  const testId = `d6-${slug}`;
   try {
     // D6 sets per-feature context headers: X-AIMock-Context and X-Test-Id.
     //
@@ -1536,18 +1768,32 @@ async function runFeature(opts: {
       slug: buildCtx.integrationSlug,
     });
 
+    // CVDIAG probe.start — record entry for THIS cell's test_id.
+    cvdiag?.start(url, { width: 1280, height: 720 });
+
+    const navStartMs = nowMonoMs();
     try {
       await page.goto(url, {
         waitUntil: "load",
         timeout: pageTimeoutMs,
       });
       logger.debug("probe.e2e-full.runFeature.navigation-complete", { url });
+      // CVDIAG probe.navigate.complete — nav timing (the d6 launcher's goto
+      // resolves void, so HTTP status is unavailable here → null).
+      cvdiag?.navigateComplete(url, Math.round(nowMonoMs() - navStartMs), null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.debug("probe.e2e-full.runFeature.navigation-failed", {
         url,
         error: msg,
       });
+      // CVDIAG probe.exit — a goto failure is a probe FAILURE. `surface-missing`
+      // (the page never loaded → the chat surface never appeared); on an abort
+      // the outcome is `timeout`.
+      cvdiagExit(
+        abortSignal.aborted ? "timeout" : "err",
+        abortSignal.aborted ? undefined : "surface-missing",
+      );
       return {
         ok: false,
         errorClass: "goto-error",
@@ -1614,12 +1860,39 @@ async function runFeature(opts: {
       hydrationMs: Date.now() - hydrationStart,
     });
 
-    const turns = script.buildTurns(buildCtx);
+    const defaultTurns = script.buildTurns(buildCtx);
+    // BUBBLE_RACE_MESSAGES env override (bubble-race-repro integration
+    // tests only — no-op in production). When set, replaces the demo's
+    // default turn sequence with one `{ input: <string> }` per env
+    // message so per-scenario test inputs flow through ONE channel
+    // rather than scattering test logic across each defect commit.
+    const turnsOverride = messagesOverrideFromEnv();
+    const turns = turnsOverride ?? defaultTurns;
     logger.debug("probe.e2e-full.runFeature.turns-built", {
       turnCount: turns.length,
       featureType: buildCtx.featureType,
       slug: buildCtx.integrationSlug,
+      bubbleRaceMessagesOverride: turnsOverride !== undefined,
     });
+
+    // CVDIAG probe.message.send — record the first turn send with the total
+    // input char count (Unicode code points across all turns). The d6 launcher
+    // exposes no message-POST response seam, so edge headers are unavailable
+    // here (passed undefined); the boundary still records the send.
+    //
+    // cvdiag instrumentation must NEVER compute-or-throw into the probe path:
+    // the char count is computed ONLY when the session exists (no-op when the
+    // emitter is absent), and each turn's length coerces non-string/missing
+    // `input` to 0 (`[...t.input]` would throw on null/undefined/non-string,
+    // which would RED an otherwise-green probe).
+    if (cvdiag) {
+      const totalInputChars = turns.reduce(
+        (n, t) => n + (typeof t.input === "string" ? [...t.input].length : 0),
+        0,
+      );
+      cvdiag.messageSend(0, totalInputChars);
+    }
+
     const conversation = await runConversation(page, turns);
 
     if (conversation.failure_turn !== undefined) {
@@ -1657,6 +1930,17 @@ async function runFeature(opts: {
           ).slice(0, 200),
         }),
       );
+      // CVDIAG probe.exit — the conversation failed. Parse the turn-runner's
+      // `reason=<classifier>` breadcrumb out of `conversation.error` so the
+      // probe.exit row carries the authoritative failure classifier; otherwise
+      // the session derives a best-effort one from its own observed signals
+      // (no SSE seam wired in d6 → typically `sse-missing`). A drain/timeout
+      // abort maps to `timeout`.
+      const conversationClassifier = parseFailureClassifier(conversation.error);
+      cvdiagExit(
+        abortSignal.aborted ? "timeout" : "err",
+        abortSignal.aborted ? undefined : conversationClassifier,
+      );
       return {
         ok: false,
         errorClass: "conversation-error",
@@ -1675,10 +1959,29 @@ async function runFeature(opts: {
       turnsCompleted: conversation.turns_completed,
       turnDurations: conversation.turn_durations_ms,
     });
+    // CVDIAG probe.dom.firsttoken — best-effort: the d6 path has no per-token
+    // DOM seam, so approximate first-token latency from the FIRST turn's
+    // wall-clock duration (the time the first assistant turn took to settle).
+    // Gives the ok-path a non-null `first_token_delta_ms` and prevents the
+    // derived classifier from ever labeling a green as `dom-missing`.
+    const firstTurnMs = conversation.turn_durations_ms[0];
+    if (firstTurnMs !== undefined) {
+      cvdiag?.firstToken(cvdiagStartMs + firstTurnMs, 1);
+    }
+    // CVDIAG probe.exit — clean completion.
+    cvdiagExit("ok");
     return { ok: true, conversation };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     const diagnostics = page ? await captureDiagnostics(page) : undefined;
+    // CVDIAG probe.exit (error path) — `timeout` when this attempt aborted
+    // (the driver's outer / per-feature timeout fired), else `err`. A
+    // `TurnNotCompleteError` carries its authoritative `reason` as the
+    // classifier; otherwise the session derives one from its observed signals.
+    cvdiagExit(
+      abortSignal.aborted ? "timeout" : "err",
+      abortSignal.aborted ? undefined : turnCompleteReason(err),
+    );
     return {
       ok: false,
       errorClass: abortSignal.aborted ? "abort" : "driver-error",
@@ -1686,6 +1989,12 @@ async function runFeature(opts: {
       diagnostics,
     };
   } finally {
+    // Defense in depth: if neither the success nor the error path emitted a
+    // probe.exit (an unexpected control-flow gap), emit it here so probe.exit
+    // fires EXACTLY ONCE per feature on every path.
+    if (!cvdiagExited) {
+      cvdiagExit(abortSignal.aborted ? "timeout" : "err");
+    }
     if (page) {
       try {
         await page.close();
@@ -1701,6 +2010,33 @@ async function runFeature(opts: {
       }
     }
   }
+}
+
+/**
+ * Parse a CVDIAG failure classifier out of a conversation-runner error string.
+ * `waitForTurnComplete` rejections embed a `reason=<classifier>` breadcrumb in
+ * the thrown message (e.g. `turn 0 failed: reason=dom-missing — ...`). When the
+ * breadcrumb names one of the canonical flap classifiers, return it so the
+ * `probe.exit` row carries the authoritative reason instead of the session's
+ * best-effort derivation. Returns `undefined` for any message without a
+ * recognizable breadcrumb (the session then derives from its own signals).
+ *
+ * Validates against the shared `FAILURE_CLASSIFIER_SET` (derived from the
+ * schema's canonical `CVDIAG_FAILURE_CLASSIFIERS`) — never a hand-maintained
+ * subset — so a newly-added classifier (e.g. `selector-mismatch`) can never be
+ * silently dropped here and mislabeled by the derived classifier.
+ */
+export function parseFailureClassifier(
+  error: string | undefined,
+): CvdiagFailureClassifier | undefined {
+  if (typeof error !== "string") return undefined;
+  const m = /reason=(\S+)/.exec(error);
+  if (!m) return undefined;
+  // Strip trailing punctuation the breadcrumb may carry (e.g. `reason=dom-missing,`).
+  const reason = m[1]!.replace(/[.,;:)\]]+$/, "");
+  return FAILURE_CLASSIFIER_SET.has(reason as CvdiagFailureClassifier)
+    ? (reason as CvdiagFailureClassifier)
+    : undefined;
 }
 
 /**
@@ -1722,6 +2058,18 @@ async function captureDiagnostics(
     }
     return { pageClosed: true };
   }
+  // Read the assistant-message count Node-side via the shared cascade
+  // BEFORE entering page.evaluate, then merge it into the diagnostics
+  // object. Routing through `countAssistantMessages` here is what
+  // closes defect 3 by construction — the conversation runner reads
+  // its settled count via the same helper, so diagnostics and runner
+  // can no longer report mismatched counts for the same frame.
+  // `page.evaluate` cannot await a Node-side helper from inside the
+  // browser context, so the call is hoisted out (per plan §2.2/N6).
+  const assistantMsgCount = await countAssistantMessages(
+    page as unknown as PlaywrightPage,
+  );
+
   try {
     diagnostics = await page.evaluate(() => {
       type EvalElement = {
@@ -1749,9 +2097,6 @@ async function captureDiagnostics(
         location: { href: string };
       };
 
-      const assistantMsgs = win.document.querySelectorAll(
-        '[data-testid="copilot-assistant-message"]',
-      );
       const userMsgs = win.document.querySelectorAll(
         '[data-testid="copilot-user-message"]',
       );
@@ -1779,7 +2124,6 @@ async function captureDiagnostics(
       );
 
       return {
-        assistantMsgCount: assistantMsgs.length,
         userMsgCount: userMsgs.length,
         apiRequestCount: apiEntries.length,
         apiRequests: apiEntries.slice(0, 5),
@@ -1794,6 +2138,15 @@ async function captureDiagnostics(
     });
   } catch {
     // Page may be closed or crashed — can't gather DOM diagnostics.
+  }
+
+  // Merge the shared-cascade count Node-side. Done only when the
+  // browser-side evaluate succeeded so a crashed/closed page still
+  // produces the same `undefined` diagnostics as before this refactor
+  // — preserving the prior failure shape exactly. The browser-diag
+  // merge below independently hydrates a fresh object when needed.
+  if (diagnostics) {
+    diagnostics.assistantMsgCount = assistantMsgCount;
   }
 
   const browserDiag = page.getDiagnostics?.();

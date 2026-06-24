@@ -1,0 +1,265 @@
+---
+title: "CopilotChatView"
+description: "Angular standalone component that renders the chat layout (message feed and input) without agent wiring, the @copilotkit/angular equivalent of React's CopilotChatView"
+---
+
+## Overview
+
+`CopilotChatView` is the layout-only chat view. It renders the message feed, the input container, the feather effect, the disclaimer, the suggestion pills, and a welcome screen when there are no messages. It does not wire an agent on its own. You pass it `messages` and read interaction handlers from the surrounding `ChatState`.
+
+This is the Angular equivalent of React's `<CopilotChatView>`. Contrast it with [`CopilotChat`](/reference/angular/components/CopilotChat): `CopilotChat` wires the agent (resolving messages, running state, suggestions, and submission) and renders `CopilotChatView` underneath, while `CopilotChatView` is presentational. Use it directly when you manage messages and handlers yourself, or when you need deep control over the layout and its slots.
+
+Almost every visual piece is a slot. Each slot accepts either a component class (`*Component`) or an Angular template (`*Template`), plus an optional class string (`*Class`).
+
+## Usage
+
+`CopilotChatView` is a standalone component with the selector `copilot-chat-view`. Import the class into your component's `imports` array and use the element in the template.
+
+```ts title="src/app/chat.component.ts"
+import { Component, signal } from "@angular/core";
+import { CopilotChatView } from "@copilotkit/angular";
+import type { Message } from "@ag-ui/client";
+
+@Component({
+  selector: "app-chat",
+  standalone: true,
+  imports: [CopilotChatView],
+  template: `
+    <copilot-chat-view [messages]="messages()" [autoScroll]="true" />
+  `,
+})
+export class ChatComponent {
+  messages = signal<Message[]>([]);
+}
+```
+
+## Inputs
+
+### Core inputs
+
+<PropertyReference name="messages" type="Message[]" default="[]">
+  The messages to render in the feed. When empty (and no explicit thread is selected), the welcome screen is shown instead.
+</PropertyReference>
+
+<PropertyReference name="agentId" type="string">
+  ID of the agent whose messages are being rendered. Forwarded to the scroll view for per-agent rendering.
+</PropertyReference>
+
+<PropertyReference name="autoScroll" type="boolean" default="true">
+  Whether the feed sticks to the bottom as new messages stream in.
+</PropertyReference>
+
+<PropertyReference name="showCursor" type="boolean" default="false">
+  Whether to show a streaming cursor at the end of the feed while the agent is responding.
+</PropertyReference>
+
+<PropertyReference name="hasExplicitThreadId" type="boolean" default="false">
+  Whether an explicit thread id was provided. When true, the welcome screen is suppressed even with no messages (the conversation is being resumed).
+</PropertyReference>
+
+### Slot inputs
+
+Each visual region exposes a component override, a template override, and a class. The template takes precedence over the component when both are set.
+
+<PropertyReference name="messageViewComponent" type="Type<any>">
+  Component class to render the message list. Pair with `messageViewClass` to style it, or use `messageViewTemplate` for a template.
+</PropertyReference>
+
+<PropertyReference name="messageViewTemplate" type="TemplateRef<any>">
+  Template to render the message list.
+</PropertyReference>
+
+<PropertyReference name="messageViewClass" type="string">
+  Class applied to the message list.
+</PropertyReference>
+
+<PropertyReference name="scrollViewComponent" type="Type<any>">
+  Component class for the scrolling container around the message list.
+</PropertyReference>
+
+<PropertyReference name="scrollViewTemplate" type="TemplateRef<any>">
+  Template for the scrolling container.
+</PropertyReference>
+
+<PropertyReference name="scrollViewClass" type="string">
+  Class applied to the scrolling container.
+</PropertyReference>
+
+<PropertyReference name="scrollToBottomButtonComponent" type="Type<any>">
+  Component class for the scroll-to-bottom button.
+</PropertyReference>
+
+<PropertyReference name="scrollToBottomButtonTemplate" type="TemplateRef<any>">
+  Template for the scroll-to-bottom button.
+</PropertyReference>
+
+<PropertyReference name="scrollToBottomButtonClass" type="string">
+  Class applied to the scroll-to-bottom button.
+</PropertyReference>
+
+<PropertyReference name="inputComponent" type="Type<any>">
+  Component class for the chat input. Defaults to [`CopilotChatInput`](/reference/angular/components/CopilotChatInput).
+</PropertyReference>
+
+<PropertyReference name="inputTemplate" type="TemplateRef<any>">
+  Template for the chat input.
+</PropertyReference>
+
+<PropertyReference name="inputContainerComponent" type="Type<any>">
+  Component class for the container that wraps the input and disclaimer.
+</PropertyReference>
+
+<PropertyReference name="inputContainerTemplate" type="TemplateRef<any>">
+  Template for the input container.
+</PropertyReference>
+
+<PropertyReference name="inputContainerClass" type="string">
+  Class applied to the input container.
+</PropertyReference>
+
+<PropertyReference name="featherComponent" type="Type<any>">
+  Component class for the feather (fade) effect above the input.
+</PropertyReference>
+
+<PropertyReference name="featherTemplate" type="TemplateRef<any>">
+  Template for the feather effect.
+</PropertyReference>
+
+<PropertyReference name="featherClass" type="string">
+  Class applied to the feather effect.
+</PropertyReference>
+
+<PropertyReference name="disclaimerComponent" type="Type<any>">
+  Component class for the disclaimer shown beneath the input.
+</PropertyReference>
+
+<PropertyReference name="disclaimerTemplate" type="TemplateRef<any>">
+  Template for the disclaimer.
+</PropertyReference>
+
+<PropertyReference name="disclaimerClass" type="string">
+  Class applied to the disclaimer.
+</PropertyReference>
+
+<PropertyReference name="disclaimerText" type="string">
+  Text content for the disclaimer.
+</PropertyReference>
+
+## Outputs
+
+`CopilotChatView` bubbles message-level interaction events from the message feed. Each payload is an object with the relevant `message`.
+
+<PropertyReference name="assistantMessageThumbsUp" type="{ message: Message }">
+  Emitted when the thumbs-up action is triggered on an assistant message.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageThumbsDown" type="{ message: Message }">
+  Emitted when the thumbs-down action is triggered on an assistant message.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageReadAloud" type="{ message: Message }">
+  Emitted when the read-aloud action is triggered on an assistant message.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageRegenerate" type="{ message: Message }">
+  Emitted when the regenerate action is triggered on an assistant message.
+</PropertyReference>
+
+<PropertyReference name="userMessageCopy" type="{ message: Message }">
+  Emitted when the copy action is triggered on a user message.
+</PropertyReference>
+
+<PropertyReference name="userMessageEdit" type="{ message: Message }">
+  Emitted when the edit action is triggered on a user message.
+</PropertyReference>
+
+## Content projection
+
+Beyond the slot inputs, `CopilotChatView` reads named templates from content projection (via `@ContentChild`) for deep customization. Provide them as `<ng-template>` elements with the matching reference variable inside `<copilot-chat-view>`.
+
+<PropertyReference name="customLayout" type="TemplateRef<CopilotChatViewLayoutContext>">
+  Replaces the entire default layout (render-prop pattern). Receives a context object with the resolved slots: `messageView`, `input`, `scrollView`, `scrollToBottomButton`, `feather`, `inputContainer`, and `disclaimer`.
+</PropertyReference>
+
+<PropertyReference name="sendButton" type="TemplateRef<any>">
+  Custom send button passed down to the input.
+</PropertyReference>
+
+<PropertyReference name="toolbar" type="TemplateRef<any>">
+  Custom input toolbar.
+</PropertyReference>
+
+<PropertyReference name="textArea" type="TemplateRef<any>">
+  Custom textarea for the input.
+</PropertyReference>
+
+<PropertyReference name="audioRecorder" type="TemplateRef<any>">
+  Custom audio recorder for transcription mode.
+</PropertyReference>
+
+<PropertyReference name="assistantMessageMarkdownRenderer" type="TemplateRef<any>">
+  Custom markdown renderer for assistant messages.
+</PropertyReference>
+
+<PropertyReference name="thumbsUpButton" type="TemplateRef<any>">
+  Custom thumbs-up button on assistant messages.
+</PropertyReference>
+
+<PropertyReference name="thumbsDownButton" type="TemplateRef<any>">
+  Custom thumbs-down button on assistant messages.
+</PropertyReference>
+
+<PropertyReference name="readAloudButton" type="TemplateRef<any>">
+  Custom read-aloud button on assistant messages.
+</PropertyReference>
+
+<PropertyReference name="regenerateButton" type="TemplateRef<any>">
+  Custom regenerate button on assistant messages.
+</PropertyReference>
+
+### Custom layout example
+
+```ts title="src/app/chat.component.ts"
+import { Component, signal } from "@angular/core";
+import { CopilotChatView } from "@copilotkit/angular";
+import type { Message } from "@ag-ui/client";
+
+@Component({
+  selector: "app-chat",
+  standalone: true,
+  imports: [CopilotChatView],
+  template: `
+    <copilot-chat-view [messages]="messages()">
+      <ng-template #customLayout let-ctx>
+        <div class="my-layout">
+          <ng-container [ngTemplateOutlet]="ctx.messageView" />
+          <ng-container [ngTemplateOutlet]="ctx.input" />
+        </div>
+      </ng-template>
+    </copilot-chat-view>
+  `,
+})
+export class ChatComponent {
+  messages = signal<Message[]>([]);
+}
+```
+
+## Related
+
+<Cards>
+  <Card
+    title="CopilotChat"
+    description="The all-in-one component that wires an agent and renders this view."
+    href="/reference/angular/components/CopilotChat"
+  />
+  <Card
+    title="CopilotChatInput"
+    description="The default input rendered inside the view: textarea, send, tools menu, file upload, and transcription."
+    href="/reference/angular/components/CopilotChatInput"
+  />
+  <Card
+    title="provideCopilotKit"
+    description="Configures the runtime connection and agents that power the chat."
+    href="/reference/angular/functions/provideCopilotKit"
+  />
+</Cards>

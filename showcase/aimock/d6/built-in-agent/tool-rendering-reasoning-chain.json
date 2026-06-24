@@ -66,7 +66,7 @@
       }
     },
     {
-      "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — second leg: after roll_dice(sides=20) returns, chain a smaller die for contrast.",
+      "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — second leg: after roll_d20(value=20) returns, chain a smaller die for contrast.",
       "match": {
         "userMessage": "compare it to a smaller one",
         "toolCallId": "call_rc_dice_d20_001",
@@ -78,14 +78,14 @@
         "toolCalls": [
           {
             "id": "call_rc_dice_d6_001",
-            "name": "roll_dice",
-            "arguments": "{\"sides\":6}"
+            "name": "roll_d20",
+            "arguments": "{\"value\":6}"
           }
         ]
       }
     },
     {
-      "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — first leg: emit roll_dice(sides=20). Unique substring 'compare it to a smaller one' keeps us scoped to this demo (other integrations' dice pills still send 'Roll a 20-sided die for me.' and fall through to the older 5x roll_d20 fixtures further down). NB: aimock's `toolName` gate is a tool-LIST gate, not a tool-CALL gate; we don't use it here because the reasoning-chain agents across the fleet all register `roll_dice`, so a `toolName: roll_dice` claim would NOT have distinguished this demo from the others.",
+      "_comment": "tool-rendering-reasoning-chain pill 2 (dice) — first leg: emit roll_d20(value=20). Unique substring 'compare it to a smaller one' keeps us scoped to this demo (other integrations' dice pills still send 'Roll a 20-sided die for me.' and fall through to the older 5x roll_d20 fixtures further down). NB: aimock's `toolName` gate is a tool-LIST gate, not a tool-CALL gate; we don't use it here because the reasoning-chain agents across the fleet all register `roll_d20`, so a `toolName: roll_d20` claim would NOT have distinguished this demo from the others.",
       "match": {
         "userMessage": "compare it to a smaller one",
         "context": "built-in-agent"
@@ -96,8 +96,8 @@
         "toolCalls": [
           {
             "id": "call_rc_dice_d20_001",
-            "name": "roll_dice",
-            "arguments": "{\"sides\":20}"
+            "name": "roll_d20",
+            "arguments": "{\"value\":20}"
           }
         ]
       }

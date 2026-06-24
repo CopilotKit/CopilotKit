@@ -43,7 +43,7 @@ function Demo() {
 
   useEffect(() => {
     if (!agent.state || Object.keys(agent.state).length === 0) {
-      agent.state = { ...defaultRecipe } as unknown as typeof agent.state;
+      agent.setState({ ...defaultRecipe } as unknown as typeof agent.state);
     }
   }, [agent]);
 
@@ -55,10 +55,10 @@ function Demo() {
   // @region[set-state]
   // @region[use-agent-write]
   function setTitle(next: string) {
-    agent.state = {
+    agent.setState({
       ...(agent.state as object),
       title: next,
-    } as unknown as typeof agent.state;
+    } as unknown as typeof agent.state);
   }
   // @endregion[use-agent-write]
   // @endregion[set-state]

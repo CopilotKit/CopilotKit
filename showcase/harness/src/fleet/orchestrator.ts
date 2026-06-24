@@ -43,6 +43,7 @@ import type { FleetQueueClient } from "./contracts.js";
 import { buildWorkerHealthServer } from "./worker/worker-health.js";
 import {
   startWorkerLoop,
+  safeLog,
   type PayloadToDriverInput,
   type ServiceJobDriver,
   type DriverRegistry,
@@ -55,7 +56,22 @@ import {
 
 /** The worker boot handle — symmetric with the control-plane `boot()` shape. */
 export interface WorkerHandle {
-  /** Stops the loop, drains the in-flight job, and shuts down the pool. */
+  /**
+   * SYNCHRONOUSLY request the drain (forwards `WorkerLoopHandle.drain()`):
+   * fires the loop's abort/abandon signal WITHOUT awaiting teardown, so a
+   * caller can deregister the worker's roster row BEFORE the platform kill
+   * grace expires and only then spend the drain budget in `stop()`.
+   * Idempotent; `stop()` implies it.
+   */
+  drain: () => void;
+  /**
+   * Stops the loop, drains the in-flight job, and shuts down the pool. The
+   * pool shutdown applies only when THIS entrypoint constructed the pool
+   * (the self-contained boot path) — callers that inject their own
+   * `budgetSource` + run path own their pool's lifecycle and shut it down
+   * themselves. A rejecting loop stop still closes the /health server and
+   * shuts the pool down before the rejection re-surfaces to the caller.
+   */
   stop: () => Promise<void>;
   /** The port the worker's liveness endpoint binds (for fleet-health probes). */
   port: number;
@@ -271,7 +287,24 @@ export async function runWorker(
   } catch (err) {
     // Loop construction is synchronous and shouldn't throw, but if it does,
     // never strand the pool's chromium processes (PID-ceiling compounding).
-    if (pool) await pool.shutdown().catch(() => {});
+    // The shutdown is best-effort but LOGGED (consistent with the stop path's
+    // pool-shutdown logging below) — an empty catch would hide why chromium
+    // processes were left stranded behind the construction failure. The
+    // original construction error still rethrows.
+    if (pool) {
+      // Guarded: a throwing logger inside this .catch handler would reject
+      // the awaited chain and mask the construction error being rethrown.
+      await pool.shutdown().catch((shutdownErr) =>
+        safeLog(logger, "error", "fleet.worker.pool-shutdown-failed", {
+          workerId,
+          phase: "loop-construction-failed",
+          err:
+            shutdownErr instanceof Error
+              ? shutdownErr.message
+              : String(shutdownErr),
+        }),
+      );
+    }
     throw err;
   }
 
@@ -279,10 +312,28 @@ export async function runWorker(
   // the loop exits (clean stop OR an unexpected crash). Until then the loop is
   // alive. A loop that exits WITHOUT a stop() (crash) flips /health to 503 so
   // the healthcheck reflects a dead worker rather than reporting healthy.
+  // A REJECTED `done` is a crashed loop: log it loud (message + stack) before
+  // flipping /health — a bare `.finally()` chain would re-propagate the
+  // rejection as an UNHANDLED rejection with no record of WHY the loop died.
+  // DEFENSE-IN-DEPTH: with every log inside the loop's done-IIFE guarded
+  // (`safeLog`), a throwing logger can no longer reject `done` — the residual
+  // crash vectors are structural (e.g. a poison queue result throwing outside
+  // the loop's try/catch blocks), so this catch is kept but nearly
+  // unreachable. The crash log itself is guarded too: a throwing logger
+  // inside this handler would turn the HANDLED rejection back into an
+  // unhandled one on the derived chain.
   let loopAlive = true;
-  void loop.done.finally(() => {
-    loopAlive = false;
-  });
+  void loop.done
+    .catch((err) => {
+      safeLog(logger, "error", "fleet.worker.loop-crashed", {
+        workerId,
+        err: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+    })
+    .finally(() => {
+      loopAlive = false;
+    });
 
   // Bind the worker's /health server on the resolved port. The docker/Railway
   // healthcheck GETs this; without it the container is restart-looped. Bind
@@ -301,9 +352,33 @@ export async function runWorker(
       logger.info("fleet.worker.health-listening", { workerId, port });
     } catch (err) {
       // A bind failure (EADDRINUSE) must not strand the pool's chromium
-      // processes or the loop; tear both down before rethrowing.
-      await loop.stop().catch(() => {});
-      if (pool) await pool.shutdown().catch(() => {});
+      // processes or the loop; tear both down before rethrowing. Both
+      // teardown arms are best-effort but LOGGED (consistent with the stop
+      // path's pool-shutdown logging below) — empty catches would hide why a
+      // bind-failure teardown also failed. The original bind error still
+      // rethrows.
+      // Both .catch handlers log GUARDED: a throwing logger inside either
+      // would reject the awaited chain, skip the teardown arm behind it, and
+      // mask the bind error being rethrown.
+      await loop.stop().catch((stopErr) =>
+        safeLog(logger, "error", "fleet.worker.loop-stop-failed", {
+          workerId,
+          phase: "health-bind-failed",
+          err: stopErr instanceof Error ? stopErr.message : String(stopErr),
+        }),
+      );
+      if (pool) {
+        await pool.shutdown().catch((shutdownErr) =>
+          safeLog(logger, "error", "fleet.worker.pool-shutdown-failed", {
+            workerId,
+            phase: "health-bind-failed",
+            err:
+              shutdownErr instanceof Error
+                ? shutdownErr.message
+                : String(shutdownErr),
+          }),
+        );
+      }
       throw err;
     }
   }
@@ -311,27 +386,48 @@ export async function runWorker(
   return {
     port,
     bus,
+    drain(): void {
+      loop.drain();
+    },
     async stop(): Promise<void> {
-      logger.info("fleet.worker.stopping", { workerId });
-      await loop.stop();
-      if (server) {
-        await new Promise<void>((resolve) => {
-          const srv = server as unknown as {
-            close?: (cb?: () => void) => void;
-          };
-          if (typeof srv.close === "function") srv.close(() => resolve());
-          else resolve();
-        });
+      // GUARDED (sits BEFORE the try/finally): in the self-contained path a
+      // throwing logger here would skip loop.stop, the /health server close,
+      // AND the pool shutdown — the entire teardown — for a forensic line.
+      safeLog(logger, "info", "fleet.worker.stopping", { workerId });
+      // A REJECTING loop.stop() (the loop's done-promise crashed) must not
+      // leak the bound /health server (the port would stay taken and the
+      // container healthcheck would keep answering for a dead worker) or
+      // strand the pool's chromium processes (PID-ceiling compounding) — both
+      // teardown arms ALWAYS run, then the stop rejection re-surfaces to the
+      // caller. Neither arm throws in practice (the server-close promise only
+      // resolves, and the pool shutdown carries its own .catch) — the one
+      // residual is a SYNCHRONOUSLY-throwing `srv.close`, which would reject
+      // inside this finally and mask the stop error; vanishingly unlikely for
+      // a node server handle, and accepted.
+      try {
+        await loop.stop();
+      } finally {
+        if (server) {
+          await new Promise<void>((resolve) => {
+            const srv = server as unknown as {
+              close?: (cb?: () => void) => void;
+            };
+            if (typeof srv.close === "function") srv.close(() => resolve());
+            else resolve();
+          });
+        }
+        if (pool) {
+          // Guarded: a throwing logger inside this .catch would reject the
+          // finally chain and mask the stop error being re-surfaced.
+          await pool.shutdown().catch((err) =>
+            safeLog(logger, "error", "fleet.worker.pool-shutdown-failed", {
+              workerId,
+              err: err instanceof Error ? err.message : String(err),
+            }),
+          );
+        }
       }
-      if (pool) {
-        await pool.shutdown().catch((err) =>
-          logger.error("fleet.worker.pool-shutdown-failed", {
-            workerId,
-            err: err instanceof Error ? err.message : String(err),
-          }),
-        );
-      }
-      logger.info("fleet.worker.stopped", { workerId });
+      safeLog(logger, "info", "fleet.worker.stopped", { workerId });
     },
   };
 }

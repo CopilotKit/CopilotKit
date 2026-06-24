@@ -22,7 +22,7 @@ export const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
  * @example
  * ```ts
  * try {
- *   await intelligence.getThread({ threadId });
+ *   await intelligence.getThread({ threadId, userId });
  * } catch (error) {
  *   if (error instanceof PlatformRequestError && error.status === 404) {
  *     // thread does not exist yet
@@ -612,10 +612,14 @@ export class CopilotKitIntelligence {
    * @throws {@link PlatformRequestError} with status 404 if the thread does
    *   not exist.
    */
-  async getThread(params: { threadId: string }): Promise<ThreadSummary> {
+  async getThread(params: {
+    threadId: string;
+    userId: string;
+  }): Promise<ThreadSummary> {
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     const response = await this.#request<ThreadEnvelope>(
       "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}`,
+      `/api/threads/${encodeURIComponent(params.threadId)}?${qs}`,
     );
     return response.thread;
   }
@@ -639,7 +643,10 @@ export class CopilotKitIntelligence {
     params: CreateThreadRequest,
   ): Promise<{ thread: ThreadSummary; created: boolean }> {
     try {
-      const thread = await this.getThread({ threadId: params.threadId });
+      const thread = await this.getThread({
+        threadId: params.threadId,
+        userId: params.userId,
+      });
       return { thread, created: false };
     } catch (error) {
       if (!(error instanceof PlatformRequestError && error.status === 404)) {
@@ -653,7 +660,10 @@ export class CopilotKitIntelligence {
     } catch (error) {
       // Another request created the thread between our get and create — retry get.
       if (error instanceof PlatformRequestError && error.status === 409) {
-        const thread = await this.getThread({ threadId: params.threadId });
+        const thread = await this.getThread({
+          threadId: params.threadId,
+          userId: params.userId,
+        });
         return { thread, created: false };
       }
       throw error;
@@ -668,10 +678,12 @@ export class CopilotKitIntelligence {
    */
   async getThreadMessages(params: {
     threadId: string;
+    userId: string;
   }): Promise<ThreadMessagesResponse> {
+    const qs = new URLSearchParams({ userId: params.userId }).toString();
     return this.#request<ThreadMessagesResponse>(
       "GET",
-      `/api/threads/${encodeURIComponent(params.threadId)}/messages`,
+      `/api/threads/${encodeURIComponent(params.threadId)}/messages?${qs}`,
     );
   }
 
@@ -755,6 +767,8 @@ export class CopilotKitIntelligence {
       "DELETE",
       `/api/threads/${encodeURIComponent(params.threadId)}`,
       {
+        userId: params.userId,
+        agentId: params.agentId,
         reason: `Deleted via CopilotKit runtime (userId=${params.userId}, agentId=${params.agentId})`,
       },
     );

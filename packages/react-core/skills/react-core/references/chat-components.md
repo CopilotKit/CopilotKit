@@ -1,7 +1,8 @@
 # CopilotKit Chat Components (React)
 
 This skill builds on `copilotkit/provider-setup`. Read it first — every
-chat component must be inside `CopilotKitProvider`.
+chat component must be inside the `CopilotKit` provider (from
+`@copilotkit/react-core/v2`).
 
 All chat components live on `@copilotkit/react-core/v2`. The legacy
 `@copilotkit/react-ui` package is v1-only; its `/v2` subpath is a CSS-only
@@ -30,7 +31,7 @@ suggestions internally via `useAgent`. You do not pass `messages` or
 ```tsx
 import { CopilotPopup } from "@copilotkit/react-core/v2";
 
-<CopilotPopup agentId="default" isModalDefaultOpen={false} />;
+<CopilotPopup agentId="default" defaultOpen={false} />;
 ```
 
 ### Persistent sidebar
@@ -52,8 +53,6 @@ want to manage `messages`/`isRunning` yourself.
 ```tsx
 import {
   CopilotChatView,
-  CopilotChatInput,
-  CopilotChatMessageView,
   useAgent,
   useCopilotKit,
 } from "@copilotkit/react-core/v2";
@@ -66,7 +65,7 @@ export function HeadlessChat() {
     <CopilotChatView
       messages={agent.messages}
       isRunning={agent.isRunning}
-      onSubmitInput={async (text) => {
+      onSubmitMessage={async (text) => {
         agent.addMessage({
           id: crypto.randomUUID(),
           role: "user",
@@ -75,8 +74,12 @@ export function HeadlessChat() {
         await copilotkit.runAgent({ agent });
       }}
     >
-      <CopilotChatMessageView />
-      <CopilotChatInput />
+      {({ messageView, input }) => (
+        <>
+          {messageView}
+          {input}
+        </>
+      )}
     </CopilotChatView>
   );
 }
@@ -89,7 +92,7 @@ export function HeadlessChat() {
   agentId="default"
   labels={{
     chatInputPlaceholder: "Ask about the data…",
-    thinking: "Analyzing…",
+    welcomeMessageText: "What would you like to analyze?",
   }}
 />
 ```
@@ -157,14 +160,19 @@ Correct:
 // CopilotChat manages messages and isRunning internally.
 <CopilotChat agentId="default" />
 
-// For manual control, drop down to headless CopilotChatView:
+// For manual control, drop down to headless CopilotChatView. Its `children`
+// is a render prop that receives the bound slot elements:
 <CopilotChatView
   messages={myMessages}
   isRunning={busy}
-  onSubmitInput={handleSubmit}
+  onSubmitMessage={handleSubmit}
 >
-  <CopilotChatMessageView />
-  <CopilotChatInput />
+  {({ messageView, input }) => (
+    <>
+      {messageView}
+      {input}
+    </>
+  )}
 </CopilotChatView>
 ```
 

@@ -66,6 +66,15 @@ export interface RegistrationPbClient {
     value: string,
     record: Record<string, unknown>,
   ): Promise<T>;
+  /**
+   * Delete every row matching a PB filter, returning the count deleted. Used by
+   * `deregister()` on graceful drain to remove this worker's own registry row
+   * by its `worker_id` unique key (the handle never holds the PB row `id`, since
+   * registration upserts BY FIELD and never reads the row back). The real
+   * harness `PbClient` already exposes this (pb-client.ts), so production wiring
+   * is unchanged; test fakes add a `deleteByFilter` stub/spy.
+   */
+  deleteByFilter(collection: string, filter: string): Promise<number>;
 }
 
 /** Logger surface — matches the harness optional-method idiom. */
@@ -73,6 +82,7 @@ export interface RegistrationLogger {
   info(msg: string, meta?: Record<string, unknown>): void;
   warn?(msg: string, meta?: Record<string, unknown>): void;
   error?(msg: string, meta?: Record<string, unknown>): void;
+  debug?(msg: string, meta?: Record<string, unknown>): void;
 }
 
 export interface WorkerRegistrationOptions {
@@ -103,11 +113,42 @@ export interface WorkerRegistration {
    * Perform one heartbeat write NOW (best-effort). Exposed so a worker can
    * heartbeat opportunistically (e.g. right after winning/finishing a job) and
    * so tests can drive a beat without the timer. `currentJobId` is the job the
-   * worker is running, or null when idle.
+   * worker is running, or null when idle. Once `deregister()` has been invoked
+   * the handle is LATCHED: any later heartbeat is a logged no-op, so a
+   * straggler beat can never re-create the deleted roster row.
    */
   heartbeat(currentJobId: string | null): Promise<void>;
   /** Cancel the heartbeat loop. Idempotent. */
   stop(): void;
+  /**
+   * Deregister this worker on a GRACEFUL drain: best-effort DELETE this
+   * worker's registry row (by its `worker_id` unique key) so fleet-health never
+   * sees a stale row for a gracefully-drained worker (no row → no 180s reclaim →
+   * no red "crashed/unreachable" overlay), letting the abandoned job reach the
+   * 300s lease expiry where the sweeper re-queues it neutral-gray.
+   *
+   * LATCHES the handle synchronously on entry, then runs the DELETE as the
+   * terminal link of the handle's write-serialization chain. Two hazards both
+   * stem from the final job-settle heartbeat being fire-and-forget (`void
+   * registration.heartbeat(...)` in `runWorker`'s `onCurrentJobChange` wiring,
+   * orchestrator.ts): (1) a still-in-flight upsert could land AFTER the delete
+   * and re-create the row — closed by chaining the delete behind every prior
+   * write; (2) a heartbeat issued AFTER deregister() starts (e.g. the
+   * drain-abandon branch firing `onCurrentJobChange(null)` when a wedged
+   * driver finally settles, after the drain grace already detached) would
+   * upsert the row right back via find-or-create — closed by the latch, which
+   * turns every later `heartbeat()`/write into a logged no-op. Together they
+   * make the no-re-upsert guarantee independent of caller ordering.
+   *
+   * Best-effort: a failed delete (or a rejected prior write) is logged and
+   * swallowed, never thrown into shutdown — the worst case degrades to today's
+   * behavior (the row persists, fleet-health reclaims it red at 180s), not a
+   * regression. Call AFTER `stop()` so the periodic heartbeat timer is cancelled
+   * (the latch also covers a straggler tick). The crash path (process died,
+   * no deregistration) keeps today's red-overlay reclaim — deregistration is the
+   * marker that distinguishes a graceful drain from a crash.
+   */
+  deregister(): Promise<void>;
 }
 
 function resolveHeartbeatMs(explicit: number | undefined): number {
@@ -173,6 +214,14 @@ export async function registerWorker(
   const setIntervalFn = options.setIntervalImpl ?? setInterval;
   const clearIntervalFn = options.clearIntervalImpl ?? clearInterval;
 
+  // DEREGISTERED LATCH: set synchronously at deregister() entry, BEFORE any
+  // await — so a heartbeat arriving after deregister() has merely STARTED is
+  // already a no-op. Without it, any late heartbeat (the drain-abandon branch's
+  // fire-and-forget `onCurrentJobChange(null)` is the concrete production
+  // path) would re-create the just-deleted row via upsertByField's
+  // find-or-create and resurrect the 180s red-reclaim flap FIX 3 removes.
+  let deregistered = false;
+
   /** One best-effort upsert. `isRegister` adds `registered_at` to the patch. */
   async function write(
     currentJobId: string | null,
@@ -210,8 +259,45 @@ export async function registerWorker(
     }
   }
 
+  // IN-FLIGHT-WRITE SERIALIZATION (the no-re-upsert guarantee lives HERE, not in
+  // caller ordering). Every upsert is funneled through `lastWrite`, a promise
+  // chain that resolves only after the prior write SETTLES — so writes never
+  // interleave, and `deregister()` appends its DELETE as the chain's TERMINAL
+  // link, guaranteeing every prior upsert settled before the delete runs. WHY
+  // THIS IS REQUIRED: the final job-settle heartbeat is FIRE-AND-FORGET (`void
+  // registration.heartbeat(...)` in `runWorker`'s `onCurrentJobChange` wiring,
+  // orchestrator.ts; the worker loop only attaches `.catch`, never awaits), so
+  // `await worker.stop()` resolving guarantees the heartbeat was CALLED, NOT
+  // that its PB upsert COMPLETED. A still-in-flight upsert could otherwise land
+  // AFTER the delete and re-create the row. `write()` already swallows its own
+  // errors (never rejects), so the chain never breaks; we still catch
+  // defensively so a future throwing `write` can't poison the chain.
+  let lastWrite: Promise<void> = Promise.resolve();
+  function serializedWrite(
+    currentJobId: string | null,
+    isRegister: boolean,
+  ): Promise<void> {
+    // LATCH CHECK AT ENQUEUE TIME (synchronous): a write requested at or after
+    // deregister() entry must never enqueue — the chain's terminal link is the
+    // row DELETE, and anything queued behind it would re-create the row via
+    // upsertByField's find-or-create. Writes enqueued BEFORE deregister() are
+    // unaffected: the delete is chained behind them, so they settle first.
+    if (deregistered) {
+      logger.debug?.("worker.heartbeat-after-deregister-skipped", {
+        workerId,
+        currentJobId,
+      });
+      return Promise.resolve();
+    }
+    lastWrite = lastWrite.then(
+      () => write(currentJobId, isRegister),
+      () => write(currentJobId, isRegister),
+    );
+    return lastWrite;
+  }
+
   // Boot registration (idle: no job claimed yet).
-  await write(null, true);
+  await serializedWrite(null, true);
 
   let timer: ReturnType<typeof setIntervalFn> | undefined = setIntervalFn(
     () => {
@@ -219,7 +305,7 @@ export async function registerWorker(
       // explicitly via the returned `heartbeat(jobId)` on its run path; the
       // periodic safety beat just refreshes liveness so fleet-health doesn't mark
       // a long-idle worker stale.
-      void write(null, false);
+      void serializedWrite(null, false);
     },
     heartbeatMs,
   );
@@ -232,13 +318,48 @@ export async function registerWorker(
 
   return {
     async heartbeat(currentJobId: string | null): Promise<void> {
-      await write(currentJobId, false);
+      await serializedWrite(currentJobId, false);
     },
     stop(): void {
       if (timer !== undefined) {
         clearIntervalFn(timer);
         timer = undefined;
       }
+    },
+    async deregister(): Promise<void> {
+      // Latch SYNCHRONOUSLY before any await: from this point every
+      // `heartbeat()`/periodic write is a logged no-op, so a beat arriving
+      // while the delete is still in flight (or any time after) can never
+      // re-create the row via upsertByField's find-or-create.
+      deregistered = true;
+      const doDelete = async (): Promise<void> => {
+        try {
+          // JSON.stringify escapes quotes/backslashes in the id — same
+          // defense-in-depth filter idiom as createStatusReader /
+          // verifyWorkerRegistered (orchestrator.ts). workerId is our own
+          // hostname-derived id, but never interpolate raw into a PB filter.
+          await pb.deleteByFilter(
+            WORKERS_COLLECTION,
+            `worker_id = ${JSON.stringify(workerId)}`,
+          );
+          logger.info("worker.deregistered", { workerId, endpoint });
+        } catch (err) {
+          // BEST-EFFORT: a failed delete degrades to today's behavior (the row
+          // persists, fleet-health reclaims it red at the 180s stale window) —
+          // NOT a regression. Swallow + warn; never throw into shutdown.
+          logger.warn?.("worker.deregister-failed", {
+            workerId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      };
+      // Route the DELETE THROUGH the write-serialization chain as its terminal
+      // link: every still-pending (fire-and-forget) heartbeat upsert settles
+      // BEFORE the delete runs, and no upsert can interleave with it. The
+      // rejection arm is defensive only — `write`/`doDelete` swallow their own
+      // errors, so the chain never rejects.
+      lastWrite = lastWrite.then(doDelete, doDelete);
+      await lastWrite;
     },
   };
 }

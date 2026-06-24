@@ -1,10 +1,10 @@
-import {
+import type {
   AbstractAgent,
   BaseEvent,
   Message,
   RunAgentInput,
 } from "@ag-ui/client";
-import { Observable } from "rxjs";
+import type { Observable } from "rxjs";
 
 export interface AgentRunnerRunRequest {
   threadId: string;
@@ -27,7 +27,35 @@ export interface AgentRunnerStopRequest {
   threadId: string;
 }
 
+export interface LocalThreadEndpointRecord {
+  id: string;
+  name: string | null;
+  agentId: string;
+  organizationId: string;
+  createdById: string;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LocalThreadEndpointRunner extends AgentRunner {
+  readonly ɵsupportsLocalThreadEndpoints: true;
+  listThreads(): LocalThreadEndpointRecord[];
+  getThreadMessages(threadId: string): Message[];
+  getThreadEvents(threadId: string): BaseEvent[];
+  getThreadState(threadId: string): Record<string, unknown> | null;
+  clearThreads(): void;
+}
+
+export function supportsLocalThreadEndpoints(
+  runner: AgentRunner,
+): runner is LocalThreadEndpointRunner {
+  return runner.ɵsupportsLocalThreadEndpoints === true;
+}
+
 export abstract class AgentRunner {
+  readonly ɵsupportsLocalThreadEndpoints?: boolean;
+
   abstract run(request: AgentRunnerRunRequest): Observable<BaseEvent>;
   abstract connect(request: AgentRunnerConnectRequest): Observable<BaseEvent>;
   abstract isRunning(request: AgentRunnerIsRunningRequest): Promise<boolean>;

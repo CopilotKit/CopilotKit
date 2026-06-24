@@ -30,8 +30,8 @@ export default defineConfig([
       "@copilotkit/shared",
       "@copilotkit/runtime-client-gql",
     ],
-    codeSplitting: false,
     outputOptions(options) {
+      options.codeSplitting = false;
       options.entryFileNames = "[name].umd.js";
       options.globals = {
         react: "React",

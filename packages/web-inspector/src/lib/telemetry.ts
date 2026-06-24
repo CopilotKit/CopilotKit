@@ -21,7 +21,7 @@ import {
   hasTelemetryDisclosureBeenShown,
   isTelemetryOptedOut,
   markTelemetryDisclosureShown,
-} from "./persistence";
+} from "./persistence.js";
 
 // V1 funnel events. Namespaced `oss.inspector.*` so the lambda's
 // event-type allowlist (oss-path-to-production) can gate them

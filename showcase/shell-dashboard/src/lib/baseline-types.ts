@@ -287,15 +287,14 @@ export const BASELINE_PARTNERS: readonly { name: string; slug: string }[] = [
   { name: "Google ADK", slug: "google-adk" },
   { name: "MS Agent Framework (Python)", slug: "ms-agent-python" },
   { name: "MS Agent Framework (.NET)", slug: "ms-agent-dotnet" },
-  // ms-agent-harness-dotnet is intentionally NOT rendered. It is deployed but
-  // NOT probe-wired: it is excluded from EVERY harness probe (d5, d6, e2e-smoke,
-  // e2e-demos, smoke, aimock-wiring) because it has no aimock fixtures and shares
-  // the ms-agent-dotnet AsyncLocal bug. Rendering its column would produce cells
-  // with no fresh probe data → perpetual stale red in both the Baseline and
-  // Live-status dimensions. RENDERING must stay consistent with PROBING. Re-add
-  // this entry (and the sort-order.ts slot) only once it is fully probe-wired:
-  // deploy + aimock fixtures + inclusion in the probe configs + the AsyncLocal fix.
+  // ms-agent-harness-dotnet is now fully probe-wired: the column shipped
+  // (PR #5569) with d6/d4 aimock fixtures, and it is included in EVERY harness
+  // probe (d5, d6, e2e-smoke, e2e-demos, smoke, aimock-wiring). RENDERING stays
+  // consistent with PROBING — it contributes rendered cells backed by fresh
+  // probe data. Sorts via the 6.5 slot in sort-order.ts (after ms-agent-dotnet).
+  { name: "MS Agent Harness (.NET)", slug: "ms-agent-harness-dotnet" },
   { name: "Strands", slug: "strands" },
+  { name: "Strands (TypeScript)", slug: "strands-typescript" },
   { name: "Mastra", slug: "mastra" },
   { name: "CrewAI", slug: "crewai-crews" },
   { name: "PydanticAI", slug: "pydantic-ai" },

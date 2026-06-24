@@ -29,11 +29,7 @@
 import { registerD5Script } from "../helpers/d5-registry.js";
 import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
-import {
-  readLastAssistantText,
-  readSvgChartShape,
-  waitForGenUiComponent,
-} from "./_gen-ui-shared.js";
+import { readSvgChartShape, waitForGenUiComponent } from "./_gen-ui-shared.js";
 
 /**
  * Integrations that register chart tools (`render_pie_chart` and/or
@@ -92,7 +88,7 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
   return [
     {
       input: usePieChart ? PIE_CHART_USER_MESSAGE : HAIKU_USER_MESSAGE,
-      assertions: async (page) => {
+      assertions: async (page, ctx) => {
         // 1. Cascade-find the rendered component. Gen-UI components
         //    surface through the same selector hooks regardless of which
         //    tool fired.
@@ -110,7 +106,18 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
           // Narration check: the second-leg LLM response must
           // mention the chart. Token-level so wording drift doesn't
           // fail the probe.
-          const text = (await readLastAssistantText(page)).toLowerCase();
+          //
+          // `ctx.text` is the SAME turn-scoped text resolved by the
+          // runner's settle path — the values returned by
+          // `waitForTurnComplete` (turn-indexed bubble lookup, defect-2
+          // safe). We no longer read `readLastAssistantText` here
+          // because that returned `list[list.length - 1]` and could
+          // leak a later turn's bubble into THIS turn's assertions.
+          //
+          // `ctx` is REQUIRED on the runner's `ConversationTurn` type;
+          // unit tests driving `turn.assertions` directly must supply
+          // a synthetic ctx (`{ bubbleIndex, text }`).
+          const text = ctx.text.toLowerCase();
           console.debug("[d5-gen-ui-custom] pie chart follow-up text check", {
             expectedTokens: [...PIE_CHART_FOLLOWUP_TOKENS],
             assistantText: text.slice(0, 300),

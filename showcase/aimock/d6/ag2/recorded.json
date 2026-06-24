@@ -81,7 +81,7 @@
       }
     },
     {
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-02-547Z-7afa30ad.json",
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-02-547Z-7afa30ad.json. SUPERSEDED: this entry is unreachable and editing it has no effect — the calculator pill is served by the specific calculator fixtures in _from-feature-parity.json (loaded first alphabetically; first match wins). Note the model gate (gpt-4o) is NOT an independent safety net — whether it matches depends on each integration's current model; unreachability is guaranteed only by the load-order shadowing above. Kept for historical reference; do not delete.",
       "match": {
         "userMessage": "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",
         "model": "gpt-4o",
@@ -100,7 +100,7 @@
       }
     },
     {
-      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-04-559Z-1bafed55.json",
+      "_comment": "Recorded fixture from d5-recorded: openai-2026-05-15T20-56-04-559Z-1bafed55.json. SUPERSEDED: this entry is unreachable and editing it has no effect — the calculator pill is served by the specific calculator fixtures in _from-feature-parity.json (loaded first alphabetically; first match wins). Note the model gate (gpt-4o) is NOT an independent safety net — whether it matches depends on each integration's current model; unreachability is guaranteed only by the load-order shadowing above. Kept for historical reference; do not delete.",
       "match": {
         "userMessage": "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",
         "model": "gpt-4o",

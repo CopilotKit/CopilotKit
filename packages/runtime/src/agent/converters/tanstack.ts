@@ -1,6 +1,6 @@
-import {
+import type {
   BaseEvent,
-  EventType,
+  Interrupt,
   RunAgentInput,
   Message,
   TextMessageChunkEvent,
@@ -16,6 +16,7 @@ import {
   ReasoningMessageEndEvent,
   ReasoningEndEvent,
 } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 
 type ContentPartSource =
@@ -54,6 +55,24 @@ export interface TanStackChatMessage {
 }
 
 /**
+ * A TanStack AI client-side tool, derived from a frontend-provided AG-UI tool.
+ *
+ * Shaped to match `@tanstack/ai`'s `ClientTool` (`__toolSide: "client"`, no
+ * `execute`): the model may CALL it, but TanStack does not run it — it pauses
+ * the run and hands the call back to the AG-UI client (the CopilotKit frontend
+ * / bot) to execute, mirroring CopilotKit's client-tool round-trip. `chat()`
+ * accepts a JSON Schema directly as `inputSchema`, so the AG-UI tool's
+ * `parameters` pass through unchanged.
+ */
+export interface TanStackClientTool {
+  __toolSide: "client";
+  name: string;
+  description: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  inputSchema: any;
+}
+
+/**
  * Result of converting RunAgentInput to TanStack AI format.
  */
 export interface TanStackInputResult {
@@ -61,6 +80,14 @@ export interface TanStackInputResult {
   messages: TanStackChatMessage[];
   /** System prompts extracted from system/developer messages, context, and state */
   systemPrompts: string[];
+  /**
+   * Client-side tools derived from `input.tools` (the frontend-provided tools
+   * the CopilotKit client forwards on every run). Pass these into `chat()`
+   * alongside any server/provider tools so the model can call the frontend's
+   * generative-UI and human-in-the-loop tools; TanStack pauses the run on a
+   * client-tool call and the client executes it.
+   */
+  tools: TanStackClientTool[];
 }
 
 /**
@@ -153,6 +180,62 @@ function convertUserContent(
 }
 
 /**
+ * Recursively normalizes a frontend tool's JSON Schema so OpenAI accepts it as
+ * a function-tool schema.
+ *
+ * Frontend tools are often authored with permissive Zod (`z.any()`,
+ * `z.record(...)`, `.passthrough()`), which serialize to open objects —
+ * `additionalProperties: {}` (an empty sub-schema) or `additionalProperties:
+ * true`. OpenAI rejects both: strict mode requires `additionalProperties:
+ * false`, and an empty `{}` sub-schema fails base validation ("schema must
+ * have a 'type' key"). The classic (Vercel AI SDK) path sanitized these
+ * implicitly via a Zod round-trip; the TanStack path forwards the raw schema,
+ * so we close open objects here to match. (Models can't supply free-form extra
+ * keys either way — same as the classic path.)
+ */
+function sanitizeClientToolSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) {
+    return schema.map(sanitizeClientToolSchema);
+  }
+  if (!schema || typeof schema !== "object") {
+    return schema;
+  }
+  const node: Record<string, unknown> = {
+    ...(schema as Record<string, unknown>),
+  };
+
+  // Any `additionalProperties` (empty `{}`, `true`, or a sub-schema) becomes
+  // `false` — the only form OpenAI accepts for strict function tools.
+  if ("additionalProperties" in node) {
+    node.additionalProperties = false;
+  }
+
+  if (node.properties && typeof node.properties === "object") {
+    const props: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(
+      node.properties as Record<string, unknown>,
+    )) {
+      props[key] = sanitizeClientToolSchema(value);
+    }
+    node.properties = props;
+  }
+
+  if ("items" in node) {
+    node.items = sanitizeClientToolSchema(node.items);
+  }
+
+  for (const combinator of ["anyOf", "allOf", "oneOf"] as const) {
+    if (Array.isArray(node[combinator])) {
+      node[combinator] = (node[combinator] as unknown[]).map(
+        sanitizeClientToolSchema,
+      );
+    }
+  }
+
+  return node;
+}
+
+/**
  * Converts a RunAgentInput into the format expected by TanStack AI's `chat()`.
  *
  * - Keeps only user/assistant/tool messages (activity, reasoning, and other roles are also excluded)
@@ -221,7 +304,17 @@ export function convertInputToTanStackAI(
     );
   }
 
-  return { messages, systemPrompts };
+  // Frontend-provided tools become client-side TanStack tools (no executor):
+  // the model can call them, TanStack pauses the run, and the AG-UI client
+  // executes them and resumes — the CopilotKit client-tool round-trip.
+  const tools: TanStackClientTool[] = (input.tools ?? []).map((t) => ({
+    __toolSide: "client",
+    name: t.name,
+    description: t.description,
+    inputSchema: sanitizeClientToolSchema(t.parameters),
+  }));
+
+  return { messages, systemPrompts, tools };
 }
 
 /**
@@ -230,10 +323,15 @@ export function convertInputToTanStackAI(
  * This is a pure converter — it does NOT emit lifecycle events
  * (RUN_STARTED / RUN_FINISHED / RUN_ERROR). The caller (Agent class)
  * is responsible for those.
+ *
+ * `pendingInterrupts`, when provided, is filled with one AG-UI Interrupt per
+ * CUSTOM "approval-requested" chunk (a tool declared `needsApproval: true`).
+ * The caller turns a non-empty array into a RUN_FINISHED `outcome:interrupt`.
  */
 export async function* convertTanStackStream(
   stream: AsyncIterable<unknown>,
   abortSignal: AbortSignal,
+  pendingInterrupts?: Interrupt[],
 ): AsyncGenerator<BaseEvent> {
   const messageId = randomUUID();
   const toolNamesById = new Map<string, string>();
@@ -266,14 +364,22 @@ export async function* convertTanStackStream(
     }
   }
 
-  // TanStack's chat() engine runs a multi-turn agent loop: after the model
-  // returns tool calls, the engine tries to execute them and re-prompt. This
-  // produces a second round of TOOL_CALL_START / TOOL_CALL_END events that
-  // duplicate the ones from the first streaming pass. The CopilotKit runtime
-  // handles tool execution externally (via the frontend SDK), so we must stop
-  // converting events once the TanStack adapter signals the first turn is
-  // complete with RUN_FINISHED.
-  let runFinished = false;
+  // TanStack's chat() engine runs a multi-turn agent loop and emits a
+  // RUN_STARTED / RUN_FINISHED pair PER model turn — not once for the whole
+  // run. When it executes a tool itself (an MCP server tool or a provider tool
+  // like web_search), it does so between turns and streams a TOOL_CALL_RESULT
+  // followed by the next turn's text. The overall run lifecycle is owned by the
+  // Agent wrapper (it emits exactly one outer RUN_STARTED / RUN_FINISHED), so
+  // we drop TanStack's per-turn lifecycle markers and convert every content
+  // event across all turns. (A previous version stopped converting at the first
+  // RUN_FINISHED — that truncated the run at the first tool turn and silently
+  // dropped both the tool result and the model's final answer.)
+  //
+  // chat() can re-announce a tool call when it re-prompts after executing it,
+  // so START / END are de-duplicated by toolCallId to avoid emitting a pair
+  // twice (which would violate the ag-ui verify middleware).
+  const startedToolCalls = new Set<string>();
+  const endedToolCalls = new Set<string>();
 
   for await (const chunk of stream) {
     if (abortSignal.aborted) break;
@@ -281,14 +387,42 @@ export async function* convertTanStackStream(
     const raw = chunk as Record<string, unknown>;
     const type = raw.type as string;
 
-    // Stop converting after the first RUN_FINISHED — any subsequent events
-    // come from TanStack's internal tool-execution loop and would produce
-    // duplicate TOOL_CALL_END events that violate the ag-ui verify middleware.
-    if (type === "RUN_FINISHED") {
-      runFinished = true;
+    // TanStack native human-in-the-loop: a tool declared `needsApproval: true`
+    // emits a CUSTOM "approval-requested" chunk. These are built from the
+    // finish event and can arrive around lifecycle markers, so handle them
+    // before dropping TanStack's per-turn lifecycle events.
+    // The tool-call lifecycle was already streamed in the model pass.
+    if (type === "CUSTOM" && raw.name === "approval-requested") {
+      const value = (raw.value ?? {}) as {
+        toolCallId?: string;
+        toolName?: string;
+      };
+      const toolCallId = value.toolCallId;
+      if (toolCallId) {
+        pendingInterrupts?.push({
+          id: toolCallId,
+          toolCallId,
+          reason: "tool_approval",
+          message: value.toolName ? `Approve "${value.toolName}"?` : undefined,
+          ...(value.toolName ? { metadata: { toolName: value.toolName } } : {}),
+        });
+      }
       continue;
     }
-    if (runFinished) continue;
+
+    // Per-turn lifecycle markers are owned by the Agent wrapper, not forwarded.
+    if (type === "RUN_STARTED" || type === "RUN_FINISHED") {
+      continue;
+    }
+
+    // Surface engine errors instead of dropping them: throw so the Agent
+    // wrapper emits a terminal RUN_ERROR. Without this a failed run (e.g. a
+    // provider 4xx) would finish empty with no indication of what went wrong.
+    if (type === "RUN_ERROR") {
+      throw new Error(
+        typeof raw.message === "string" ? raw.message : "TanStack AI run error",
+      );
+    }
 
     if (type === "TEXT_MESSAGE_CONTENT" && raw.delta != null) {
       yield* closeReasoningIfOpen();
@@ -300,16 +434,22 @@ export async function* convertTanStackStream(
       };
       yield textEvent;
     } else if (type === "TOOL_CALL_START") {
+      const toolCallId = raw.toolCallId as string;
+      if (startedToolCalls.has(toolCallId)) continue;
+      startedToolCalls.add(toolCallId);
       yield* closeReasoningIfOpen();
-      toolNamesById.set(raw.toolCallId as string, raw.toolCallName as string);
+      toolNamesById.set(toolCallId, raw.toolCallName as string);
       const startEvent: ToolCallStartEvent = {
         type: EventType.TOOL_CALL_START,
         parentMessageId: messageId,
-        toolCallId: raw.toolCallId as string,
+        toolCallId,
         toolCallName: raw.toolCallName as string,
       };
       yield startEvent;
     } else if (type === "TOOL_CALL_ARGS") {
+      // Drop args re-announced after the call has ended (the re-prompt pass);
+      // forwarding them would corrupt the already-closed call's accumulated args.
+      if (endedToolCalls.has(raw.toolCallId as string)) continue;
       yield* closeReasoningIfOpen();
       const argsEvent: ToolCallArgsEvent = {
         type: EventType.TOOL_CALL_ARGS,
@@ -318,10 +458,13 @@ export async function* convertTanStackStream(
       };
       yield argsEvent;
     } else if (type === "TOOL_CALL_END") {
+      const toolCallId = raw.toolCallId as string;
+      if (endedToolCalls.has(toolCallId)) continue;
+      endedToolCalls.add(toolCallId);
       yield* closeReasoningIfOpen();
       const endEvent: ToolCallEndEvent = {
         type: EventType.TOOL_CALL_END,
-        toolCallId: raw.toolCallId as string,
+        toolCallId,
       };
       yield endEvent;
     } else if (type === "TOOL_CALL_RESULT") {

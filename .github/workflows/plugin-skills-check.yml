@@ -12,6 +12,9 @@ on:
       - "scripts/__tests__/sync-plugin-skills.test.ts"
       - ".claude-plugin/**"
       - ".github/workflows/plugin-skills-check.yml"
+      # The plugin version pins to packages/runtime/package.json, so a release
+      # bump there must re-trigger the drift check or the pin silently rots.
+      - "packages/runtime/package.json"
   pull_request:
     paths:
       - "packages/*/skills/**"
@@ -22,6 +25,7 @@ on:
       - "scripts/__tests__/sync-plugin-skills.test.ts"
       - ".claude-plugin/**"
       - ".github/workflows/plugin-skills-check.yml"
+      - "packages/runtime/package.json"
 
 permissions:
   contents: read

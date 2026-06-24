@@ -1,0 +1,6 @@
+{
+  "extends": "@copilotkit/typescript-config/base.json",
+  "compilerOptions": { "noEmit": true, "lib": ["es2022"], "types": ["node"] },
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

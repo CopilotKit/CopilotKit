@@ -7,9 +7,8 @@ import {
   ɵselectThreadsIsLoading,
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
-  type ɵThreadRuntimeContext,
-  type ɵThreadStore,
 } from "@copilotkit/core";
+import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import {
   useCallback,
   useEffect,
@@ -106,6 +105,12 @@ export interface UseThreadsResult {
    */
   archiveThread: (threadId: string) => Promise<void>;
   /**
+   * Restore a previously archived thread on the platform.
+   * The thread re-appears in default (non-archived) list results.
+   * Resolves when the server confirms the update; rejects on failure.
+   */
+  unarchiveThread: (threadId: string) => Promise<void>;
+  /**
    * Permanently delete a thread from the platform.
    * This is irreversible. Resolves when the server confirms deletion;
    * rejects on failure.
@@ -138,9 +143,9 @@ function useThreadStoreSelector<T>(
  * current without polling — thread creates, renames, archives, and deletes
  * from any client are reflected immediately.
  *
- * Mutation methods (`renameThread`, `archiveThread`, `deleteThread`) return
- * promises that resolve once the platform confirms the operation and reject
- * with an `Error` on failure.
+ * Mutation methods (`renameThread`, `archiveThread`, `unarchiveThread`,
+ * `deleteThread`) return promises that resolve once the platform confirms the
+ * operation and reject with an `Error` on failure.
  *
  * @param input - Agent identifier and optional list controls.
  * @returns Thread list state and stable mutation callbacks.
@@ -213,6 +218,15 @@ export function useThreads({
       ),
     );
   }, [copilotkit.headers]);
+  const runtimeStatus = copilotkit.runtimeConnectionStatus;
+  const threadListEndpointSupported =
+    copilotkit.threadEndpoints?.list !== false;
+  const threadMutationsSupported =
+    copilotkit.threadEndpoints?.mutations !== false;
+  const threadEndpointsUnavailable =
+    !!copilotkit.runtimeUrl &&
+    runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected &&
+    !threadListEndpointSupported;
   const runtimeError = useMemo(() => {
     if (copilotkit.runtimeUrl) {
       return null;
@@ -220,6 +234,24 @@ export function useThreads({
 
     return new Error("Runtime URL is not configured");
   }, [copilotkit.runtimeUrl]);
+  const threadEndpointsError = useMemo(() => {
+    if (!threadEndpointsUnavailable) {
+      return null;
+    }
+
+    return new Error(
+      "Thread endpoints are not available on this CopilotKit runtime",
+    );
+  }, [threadEndpointsUnavailable]);
+  const threadMutationsError = useMemo(() => {
+    if (threadMutationsSupported) {
+      return null;
+    }
+
+    return new Error(
+      "Thread mutations are not available on this CopilotKit runtime",
+    );
+  }, [threadMutationsSupported]);
 
   // Tracks whether we've dispatched the first real context to the store.
   // The store itself starts with `isLoading: false`, so before we dispatch
@@ -229,10 +261,16 @@ export function useThreads({
   // the first fetch is in flight (at which point the store's own
   // isLoading takes over).
   const [hasDispatchedContext, setHasDispatchedContext] = useState(false);
-  const preConnectLoading = !!copilotkit.runtimeUrl && !hasDispatchedContext;
+  const preConnectLoading =
+    !!copilotkit.runtimeUrl &&
+    !threadEndpointsUnavailable &&
+    !hasDispatchedContext;
 
-  const isLoading = runtimeError ? false : preConnectLoading || storeIsLoading;
-  const error = runtimeError ?? storeError;
+  const isLoading =
+    runtimeError || threadEndpointsError
+      ? false
+      : preConnectLoading || storeIsLoading;
+  const error = runtimeError ?? threadEndpointsError ?? storeError;
 
   useEffect(() => {
     store.start();
@@ -252,7 +290,6 @@ export function useThreads({
   // leave the previously-dispatched context in place — any in-flight
   // realtime subscription or cached thread list stays usable while the
   // runtime recovers, and we don't re-trigger a fetch storm on transitions.
-  const runtimeStatus = copilotkit.runtimeConnectionStatus;
   useEffect(() => {
     copilotkit.registerThreadStore(agentId, store);
     return () => {
@@ -263,12 +300,19 @@ export function useThreads({
   useEffect(() => {
     if (!copilotkit.runtimeUrl) {
       store.setContext(null);
+      setHasDispatchedContext(false);
       return;
     }
 
     // Wait for /info to land so we can include `wsUrl` in the initial
     // context and avoid a redundant second list fetch.
     if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
+      return;
+    }
+
+    if (!threadListEndpointSupported) {
+      store.setContext(null);
+      setHasDispatchedContext(false);
       return;
     }
 
@@ -289,24 +333,47 @@ export function useThreads({
     runtimeStatus,
     headersKey,
     copilotkit.intelligence?.wsUrl,
+    threadListEndpointSupported,
     agentId,
     includeArchived,
     limit,
   ]);
 
-  const renameThread = useCallback(
-    (threadId: string, name: string) => store.renameThread(threadId, name),
-    [store],
+  const guardMutation = useCallback(
+    <TArgs extends unknown[]>(
+      mutation: (...args: TArgs) => Promise<void>,
+    ): ((...args: TArgs) => Promise<void>) => {
+      return (...args: TArgs) => {
+        if (threadMutationsError) {
+          return Promise.reject(threadMutationsError);
+        }
+        return mutation(...args);
+      };
+    },
+    [threadMutationsError],
   );
 
-  const archiveThread = useCallback(
-    (threadId: string) => store.archiveThread(threadId),
-    [store],
+  const renameThread = useMemo(
+    () =>
+      guardMutation((threadId: string, name: string) =>
+        store.renameThread(threadId, name),
+      ),
+    [store, guardMutation],
   );
 
-  const deleteThread = useCallback(
-    (threadId: string) => store.deleteThread(threadId),
-    [store],
+  const archiveThread = useMemo(
+    () => guardMutation((threadId: string) => store.archiveThread(threadId)),
+    [store, guardMutation],
+  );
+
+  const unarchiveThread = useMemo(
+    () => guardMutation((threadId: string) => store.unarchiveThread(threadId)),
+    [store, guardMutation],
+  );
+
+  const deleteThread = useMemo(
+    () => guardMutation((threadId: string) => store.deleteThread(threadId)),
+    [store, guardMutation],
   );
 
   const fetchMoreThreads = useCallback(() => store.fetchNextPage(), [store]);
@@ -320,6 +387,7 @@ export function useThreads({
     fetchMoreThreads,
     renameThread,
     archiveThread,
+    unarchiveThread,
     deleteThread,
   };
 }

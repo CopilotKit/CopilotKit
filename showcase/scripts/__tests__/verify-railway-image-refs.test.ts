@@ -22,16 +22,18 @@ import type { ServiceEntry } from "../railway-envs";
 describe("ServiceEntry gateIgnore field", () => {
   it("is optional on the type and defaults to falsy when unset", () => {
     // Every real SSOT entry has gateIgnore unset (undefined / falsy),
-    // EXCEPT two deliberately gateIgnore:true entries: the staging-only
+    // EXCEPT one deliberately gateIgnore:true entry: the staging-only
     // `harness-workers` pool-fleet worker (no public domain, does not
-    // fit the symmetric dual-env shape the gate validates) and the interim
-    // `harness-legacy` fleet-migration bridge (runs a pinned out-of-band
-    // digest, not the canonical :latest/@sha256 shape). See their SSOT
-    // entries in railway-envs.ts for the rationale.
-    const GATE_IGNORED = new Set(["harness-workers", "harness-legacy"]);
+    // fit the symmetric dual-env shape the gate validates). See its SSOT
+    // entry in railway-envs.ts for the rationale.
+    // S2: the 12 starter-<slug> services are NO LONGER gate-ignored — they
+    // are fully gate-managed (gateValidated, no gateIgnore), so they fall
+    // into the default-falsy branch below exactly like every showcase-* agent.
+    const GATE_IGNORED = new Set(["harness-workers"]);
+    const isGateIgnored = (name: string): boolean => GATE_IGNORED.has(name);
     for (const [name, entry] of Object.entries(SERVICES)) {
       const gi = (entry as ServiceEntry).gateIgnore;
-      if (GATE_IGNORED.has(name)) {
+      if (isGateIgnored(name)) {
         expect(gi, `${name} gateIgnore`).toBe(true);
         continue;
       }
@@ -65,16 +67,27 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
     expect(findUntrackedServices(railway)).toEqual(["alpha-svc", "zeta-svc"]);
   });
 
-  it("does NOT flag a `starter-*` live service that is absent from the SSOT", () => {
-    // The starter container fleet (starter-<slug>) is auto-discovered by
-    // the starter_smoke probe (railway-services source, namePrefix
-    // "starter-") and is intentionally DECOUPLED from this 27-service
-    // SSOT. Provisioning a starter-* service must NOT trip the
-    // Railway->SSOT drift gate (which previously SKIPPED the build).
+  it("tolerates the 12 SSOT-managed starters via the normal SSOT-membership branch (S2)", () => {
+    // S2: starter-langgraph-python / starter-mastra are now SSOT entries, so
+    // they are tolerated by the `if (entry) continue` SSOT-membership branch
+    // exactly like every other tracked service — NOT by the starter carve-out.
     const railway = new Set<string>([
       "showcase-mastra", // tracked
-      "starter-langgraph-python", // starter fleet, decoupled — tolerated
-      "starter-mastra", // starter fleet, decoupled — tolerated
+      "starter-langgraph-python", // SSOT-managed starter (S2) — tracked
+      "starter-mastra", // SSOT-managed starter (S2) — tracked
+    ]);
+    expect(findUntrackedServices(railway)).toEqual([]);
+  });
+
+  it("tolerates a NON-SSOT `starter-*` live service via the narrow carve-out", () => {
+    // The narrowed carve-out only covers a stray/in-flight starter that is
+    // NOT (yet) in the SSOT — e.g. a brand-new starter slug provisioned ahead
+    // of its SSOT entry. `starter-experimental-xyz` has no SSOT entry, so it
+    // falls past the SSOT-membership branch into isStarterFleetService() and
+    // is tolerated (the starter_smoke probe auto-discovers it by prefix).
+    const railway = new Set<string>([
+      "showcase-mastra", // tracked
+      "starter-experimental-xyz", // non-SSOT starter — narrow carve-out
     ]);
     expect(findUntrackedServices(railway)).toEqual([]);
   });
@@ -85,7 +98,7 @@ describe("findUntrackedServices (Railway -> SSOT direction)", () => {
     // even when a tolerated starter-* service is present alongside it.
     const railway = new Set<string>([
       "showcase-mastra", // tracked
-      "starter-mastra", // starter fleet — tolerated
+      "starter-mastra", // SSOT-managed starter — tolerated
       "showcase-rogue-untracked", // real drift — must be flagged
     ]);
     expect(findUntrackedServices(railway)).toEqual([
@@ -141,17 +154,20 @@ describe("isStarterFleetService predicate", () => {
   });
 });
 
-describe("findMissingServices — starter fleet is never required", () => {
-  it("does not require any `starter-*` service (none are in the SSOT)", () => {
-    // Starter services are decoupled from the SSOT, so they are never
-    // gateValidated SSOT entries and findMissingServices never demands
-    // them. A present-set containing only a starter service must still
-    // report the real gateValidated services as missing — and never the
-    // starter itself.
+describe("findMissingServices — starter fleet IS required (S2)", () => {
+  it("requires the 12 SSOT-managed `starter-*` services like any tracked service", () => {
+    // S2 reversed the S1 decoupling: starters are gateValidated SSOT entries,
+    // so findMissingServices DEMANDS them when absent from Railway, exactly
+    // like a showcase-* agent. A present-set containing only starter-mastra
+    // must therefore still report starter-langgraph-python (and the showcase
+    // fleet) as missing — proving the carve-out is gone.
     const present = new Set<string>(["starter-mastra"]);
     const missing = findMissingServices("prod", present);
+    // starter-mastra is present → not missing; the other starters ARE.
     expect(missing).not.toContain("starter-mastra");
-    // Sanity: the tracked fleet is still required when absent.
+    expect(missing).toContain("starter-langgraph-python");
+    expect(missing).toContain("starter-adk");
+    // Sanity: the showcase fleet is still required when absent.
     expect(missing).toContain("showcase-mastra");
   });
 });
@@ -240,21 +256,20 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     ["harness", "showcase-harness"],
   ] as const;
 
-  it("has 29 services in the SSOT", () => {
-    expect(Object.keys(SERVICES)).toHaveLength(29);
+  it("has 40 services in the SSOT (28 showcase/infra + 12 starter-*)", () => {
+    expect(Object.keys(SERVICES)).toHaveLength(40);
   });
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
-    // Two intentional gateValidated:false entries: the staging-only
-    // `harness-workers` (gateIgnore:true — no public domain) and the
-    // interim `harness-legacy` fleet-migration bridge (gateIgnore:true — runs
-    // a pinned out-of-band digest). Every OTHER service must be
-    // gateValidated:true.
-    const GATE_IGNORED = new Set(["harness-workers", "harness-legacy"]);
+    // Intentional gateValidated:false entry: the staging-only
+    // `harness-workers` (gateIgnore:true — no public domain). S2 brought
+    // the 12 starter-<slug> services UNDER the gate (gateValidated:true), so
+    // they are no longer holdouts — every OTHER service, starters included,
+    // must be gateValidated:true.
+    const GATE_IGNORED = new Set(["harness-workers"]);
+    const isGateIgnored = (name: string): boolean => GATE_IGNORED.has(name);
     const unvalidated = Object.entries(SERVICES)
-      .filter(
-        ([name, entry]) => !entry.gateValidated && !GATE_IGNORED.has(name),
-      )
+      .filter(([name, entry]) => !entry.gateValidated && !isGateIgnored(name))
       .map(([name]) => name);
     expect(unvalidated).toEqual([]);
   });
@@ -272,13 +287,20 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     });
   }
 
-  it("findMissingServices treats all 27 as gateValidated targets", () => {
-    // With nothing "present", every gateValidated service should
-    // appear in the missing set; after C.3 that means all 27.
+  it("findMissingServices treats all 39 gateValidated services as targets (27 showcase/infra + 12 starters)", () => {
+    // With nothing "present", every gateValidated service should appear in
+    // the missing set. After S2 brought the 12 starter-<slug> services under
+    // the gate (gateValidated:true, dual-env), that means all 39 — the 27
+    // showcase/infra gateValidated services plus the 12 starters. (The
+    // gateIgnore entry harness-workers is NOT gateValidated and so is not
+    // required here.)
     const missingProd = findMissingServices("prod", new Set<string>());
     const missingStaging = findMissingServices("staging", new Set<string>());
-    expect(missingProd).toHaveLength(27);
-    expect(missingStaging).toHaveLength(27);
+    expect(missingProd).toHaveLength(39);
+    expect(missingStaging).toHaveLength(39);
+    // The 12 starters are now demanded in BOTH envs.
+    expect(missingProd).toContain("starter-adk");
+    expect(missingStaging).toContain("starter-mastra");
   });
 });
 

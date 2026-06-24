@@ -3,7 +3,8 @@
     "description": "D6 fixtures for built-in-agent / tool-rendering",
     "sourceFile": "d5-all.json",
     "copiedFrom": "langgraph-python",
-    "created": "2026-05-21"
+    "created": "2026-05-21",
+    "lastEditedNote": "BIA's /v1/responses endpoint REWRITES assistant tool_call ids to runtime-generated `fc-…` values, so toolCallId-keyed follow-ups never match on iteration 2 across the fleet. Each pill therefore uses a layered matcher: (a) toolCallId follow-up retained for the non-rewriting code path, (b) hasToolResult:true follow-up that fires regardless of id rewrites, (c) hasToolResult:false first-leg tool emitter so multi-pill sessions still trigger the tool. Mirrors the SF-weather pattern already in this file."
   },
   "fixtures": [
     {
@@ -38,10 +39,21 @@
       }
     },
     {
-      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. No hasToolResult gate: in multi-pill demo sessions prior clicks leave tool results in the thread, which previously caused this fixture to be skipped in favour of the follow-up content fixture and the pill rendered no cards.",
+      "_comment": "Chain tools — follow-up fallback for BIA /v1/responses id-rewriting (mirrors the SF-weather hasToolResult:true pattern). Fires AFTER any of the 3 chain tools ran when the toolCallId-chained fixtures above couldn't match because the id was rewritten to `fc-…`. Must precede the first-leg emitter below.",
       "match": {
         "userMessage": "Chain a few tools in this single turn",
-        "turnIndex": 0,
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Done — Tokyo is sunny, three flights found, and the d20 came up 11."
+      }
+    },
+    {
+      "_comment": "tool-rendering pill: Chain tools — emit 3 tool calls in one assistant turn (get_weather Tokyo + search_flights SFO->Tokyo + roll_d20=11). MUST appear before the bare 'weather in Tokyo' fixture below; substring match would otherwise leak into this prompt. hasToolResult:false anchors the first-leg so multi-pill sessions (prior pills already left tool results) still emit the chain.",
+      "match": {
+        "userMessage": "Chain a few tools in this single turn",
+        "hasToolResult": false,
         "context": "built-in-agent"
       },
       "response": {
@@ -131,6 +143,34 @@
       }
     },
     {
+      "_comment": "Find flights — follow-up content fallback for BIA /v1/responses id-rewriting. Same rationale as SF-weather hasToolResult:true fixture: if the toolCallId chain above missed because the id was rewritten to `fc-…`, this fires after search_flights ran. Must precede the first-leg emitter below.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "hasToolResult": true,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Three flights from SFO to JFK — United UA231 at 08:15 ($348), Delta DL412 at 11:20 ($312), and JetBlue B6722 at 17:05 ($289)."
+      }
+    },
+    {
+      "_comment": "Find flights — first leg: emit search_flights tool call. Anchored on hasToolResult:false so multi-pill demo sessions (prior pills left tool results) still emit; the hasToolResult:true follow-up above handles iteration 2 so there's no emit loop.",
+      "match": {
+        "userMessage": "Find flights from SFO to JFK.",
+        "hasToolResult": false,
+        "context": "built-in-agent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_flights_sfo_jfk_001",
+            "name": "search_flights",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\"}"
+          }
+        ]
+      }
+    },
+    {
       "_comment": "tool-rendering pill: Stock price — follow-up content after get_stock_price tool ran. MUST come before the tool-emitting fixture below (first-match-wins) so iteration 2 of the loop hits this branch instead of re-emitting an infinite loop of tool calls.",
       "match": {
         "userMessage": "What's the current price of AAPL?",
@@ -142,9 +182,10 @@
       }
     },
     {
+      "_comment": "Stock price — first-leg tool-emit. Uses sequenceIndex:0 (per-test counter) instead of hasToolResult/turnIndex because the tool-rendering-custom-catchall probe sends 'weather in Tokyo' first which leaves a tool result + assistant turn in history, making BOTH hasToolResult:false AND turnIndex:0 false-y when AAPL arrives at turn 2. sequenceIndex:0 fires exactly once per test; on iteration 2 (count=1) it falls through to the bare narration below, breaking the emit→tool-result→re-emit loop without depending on hasToolResult-based history inspection. Ordered BEFORE the bare narration so first-match-wins on iteration 1.",
       "match": {
         "userMessage": "What's the current price of AAPL?",
-        "turnIndex": 0,
+        "sequenceIndex": 0,
         "context": "built-in-agent"
       },
       "response": {
@@ -155,6 +196,16 @@
             "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "Stock price — narration after get_stock_price ran. No hasToolResult constraint: in a multi-pill session a prior pill's tool result poisons hasToolResult:true with a false positive AND blocks hasToolResult:false on the first AAPL turn. The sequenceIndex:0 emitter above fires once on iteration 1; this bare narration takes over on iteration 2 onward (after the emitter is exhausted). The toolCallId-keyed narration above keeps the non-BIA fast path; this is the BIA fallback that no longer cross-shadows a sibling pill's first turn.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
       }
     },
     {
@@ -233,10 +284,10 @@
       }
     },
     {
-      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first.",
+      "_comment": "First roll. Matches the initial user prompt (no prior d20 tool result in this chain yet). Comes after the toolCallId-chained fixtures above so iterations 2-6 of the loop hit those first. Anchored on hasToolResult:false rather than turnIndex:0 so multi-pill demo sessions (prior pills' tool results in the thread) still trigger the first roll.",
       "match": {
         "userMessage": "Roll a 20-sided die.",
-        "turnIndex": 0,
+        "hasToolResult": false,
         "context": "built-in-agent"
       },
       "response": {
@@ -254,6 +305,17 @@
       "match": {
         "userMessage": "weather in Tokyo",
         "toolCallId": "call_d5_get_weather_001",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "_comment": "weather in Tokyo — follow-up content fallback for BIA /v1/responses id-rewriting (same rationale as SF-weather hasToolResult:true fixture). Must precede the tool-emitting fixtures below.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "hasToolResult": true,
         "context": "built-in-agent"
       },
       "response": {
@@ -309,8 +371,9 @@
       }
     },
     {
+      "_comment": "Legacy 'current price of AAPL' probe (tool-rendering Stock-price pill alias). MUST NOT be loosened to bare 'AAPL' — bare 'AAPL' matches the headless-complete probe's 'What's the price of AAPL right now?' as a substring and shadows gen-ui-headless-complete.json's tighter matcher when the BIA reprompt loop fires after id rewriting.",
       "match": {
-        "userMessage": "AAPL",
+        "userMessage": "current price of AAPL",
         "toolCallId": "call_d5_get_stock_price_001",
         "context": "built-in-agent"
       },
@@ -319,9 +382,10 @@
       }
     },
     {
+      "_comment": "AAPL probe — first-leg tool-emit. Uses sequenceIndex:0 (fires once per test) instead of hasToolResult:false because the tool-rendering-custom-catchall probe sends 'weather in Tokyo' first which leaves a tool result in history, making hasToolResult:false false-y for the AAPL turn. sequenceIndex:0 is stable across multi-pill sessions (per-test counter resets) AND breaks the emit→tool-result→re-emit loop on iteration 2 (count=1, seqIdx:0 mismatch → falls through to narration below). Ordered BEFORE the bare-userMessage narration so first-match-wins on iteration 1.",
       "match": {
-        "userMessage": "AAPL",
-        "turnIndex": 0,
+        "userMessage": "current price of AAPL",
+        "sequenceIndex": 0,
         "context": "built-in-agent"
       },
       "response": {
@@ -332,6 +396,16 @@
             "arguments": "{\"ticker\":\"AAPL\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "AAPL probe — narration after get_stock_price ran. No hasToolResult constraint: in a multi-pill session a prior pill's tool result poisons hasToolResult:true with a false positive AND blocks hasToolResult:false on the first AAPL turn. The sequenceIndex:0 emitter above fires once on iteration 1; this bare narration takes over on iteration 2 onward (after the emitter is exhausted). The toolCallId-keyed narration above keeps the non-BIA fast path; this is the BIA fallback that no longer cross-shadows because the emitter is gated by sequenceIndex rather than hasToolResult.",
+      "match": {
+        "userMessage": "current price of AAPL",
+        "context": "built-in-agent"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
       }
     },
     {

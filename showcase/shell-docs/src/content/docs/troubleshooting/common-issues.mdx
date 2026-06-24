@@ -71,7 +71,7 @@ If you're getting a *"CopilotKit's Remote Endpoint not found"* error, the `/info
 
 <Accordions>
 <Accordion title="Check your FastAPI / backend setup">
-Confirm the CopilotKit SDK is mounted. If you're using Python + FastAPI, follow the [Remote Python Endpoint](/reference/sdk/python/RemoteEndpoints) guide.
+Confirm the CopilotKit SDK is mounted. If you're using Python + FastAPI, follow the [Remote Python Endpoint](/reference/v1/sdk/python/RemoteEndpoints) guide.
 </Accordion>
 
 <Accordion title="Test the /info endpoint directly">
@@ -121,7 +121,7 @@ If any of these fail:
 
 Usually one of:
 
-- The LLM model string isn't supported by the runtime's provider. Check it against [Model Selection](/built-in-agent/model-selection).
+- The LLM model string isn't supported by the runtime's provider. Check it against [Model Selection](/model-selection).
 - The Built-in Agent's `prompt` is empty and the user message gives it nothing useful to do. Give the agent a system prompt.
 - A frontend tool is throwing during its handler and the agent is treating the empty result as the turn output. See [Error Debugging](./error-debugging) for the `tool_handler_failed` code.
 
