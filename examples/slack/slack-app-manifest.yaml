@@ -64,8 +64,6 @@ oauth_config:
       - chat:write.customize # per-message username/icon (handy for branding)
       - im:write # open DMs
       - mpim:write # open group DMs
-      - reactions:read
-      - reactions:write # 👀 / ✅ reactions as "thinking" / "done" affordance
       # --- Files (for future image/file passing) ---
       - files:read
       - files:write
@@ -83,8 +81,6 @@ settings:
       - message.mpim # messages in group DMs the bot is in
       # Add message.channels/message.groups only when using
       # respondTo.threadReplies: "afterBotReply" for legacy plain thread continuation.
-      - reaction_added # required for the emoji-triage demo (bot.onReaction)
-      - reaction_removed # required for the emoji-triage demo (bot.onReaction)
   interactivity:
     is_enabled: true
   socket_mode_enabled: true
