@@ -313,7 +313,10 @@ describe("fixture collision detection", () => {
     // (its per-integration fixtures mirror the Python strands sibling —
     // calculator + tool-rendering pill variants), runtime-disambiguated by
     // toolCallId / toolName / turnIndex like the other per-integration copies.
-    const KNOWN_SHADOW_CEILING = 137;
+    // Bumped 137→139: +2 existing ag2 D6 shadows counted after this PR rebased
+    // against current main ("project planning" and "build a modern calculator"),
+    // both tracked as baseline cleanup debt rather than changed routing here.
+    const KNOWN_SHADOW_CEILING = 139;
 
     const shadows: string[] = [];
 

@@ -8,20 +8,10 @@
   },
   "fixtures": [
     {
-      "_comment": "tool-rendering-default-catchall — follow-up after get_weather tool result. MUST come before the tool-emitting fixture (first-match-wins).",
+      "_comment": "tool-rendering-default-catchall — 'forecast for Tokyo' 1st leg: emit get_weather. sequenceIndex:0 gates it to the first match — with stopStreamingAfterResult removed the agent takes a 2nd turn, and Strands' UUID tool ids defeat the old toolCallId follow-up; sequenceIndex is id-invariant so the bare narration below catches the 2nd leg. The built-in default catchall renderer fires for unhandled tools ([data-testid='copilot-tool-render'][data-tool-name='get_weather']).",
       "match": {
         "userMessage": "forecast for Tokyo",
-        "toolCallId": "call_d6_default_catchall_weather_001",
-        "context": "strands"
-      },
-      "response": {
-        "content": "Tokyo is 22°C and partly cloudy with light easterly winds."
-      }
-    },
-    {
-      "_comment": "tool-rendering-default-catchall — 'weather in Tokyo' turn. Emits get_weather tool call. The built-in default catchall renderer fires (CopilotKit's own renderer for unhandled tools), rendering [data-testid='copilot-tool-render'][data-tool-name='get_weather'] with a status pill. Matches on userMessage+context alone; toolCallId narration above wins after the tool result arrives.",
-      "match": {
-        "userMessage": "forecast for Tokyo",
+        "sequenceIndex": 0,
         "context": "strands"
       },
       "response": {
@@ -32,6 +22,16 @@
             "arguments": "{\"location\":\"Tokyo\"}"
           }
         ]
+      }
+    },
+    {
+      "_comment": "tool-rendering-default-catchall — 'forecast for Tokyo' 2nd leg: narration after get_weather (sequenceIndex:0 exhausted).",
+      "match": {
+        "userMessage": "forecast for Tokyo",
+        "context": "strands"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy with light easterly winds."
       }
     }
   ]
