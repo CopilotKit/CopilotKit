@@ -1,10 +1,11 @@
 import type { Observable } from "rxjs";
-import { defer, of } from "rxjs";
+import { defer, firstValueFrom, merge, of } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
   catchError,
   filter,
   map,
+  mergeMap,
   switchMap,
   take,
   takeUntil,
@@ -46,6 +47,22 @@ interface Memory {
   invalidatedAt: string | null;
 }
 
+/** Input for creating a memory; `scope` defaults to `"user"` (v1 is user-scoped). */
+interface NewMemory {
+  content: string;
+  kind: MemoryKind;
+  scope?: MemoryScope;
+  sourceThreadIds?: readonly string[];
+}
+
+/** New values for superseding (updating) a memory — same shape as create. */
+type MemoryChanges = NewMemory;
+
+/** Outcome of a mutation, tracked so the caller's promise resolves/rejects. */
+type MemoryMutationOutcome =
+  | { requestId: string; ok: true; memory: Memory | null }
+  | { requestId: string; ok: false; error: Error };
+
 /**
  * Runtime wiring for the memory store: where to reach the REST surface and the
  * headers (auth + `X-Cpki-User-Id`) to send. Scoped to the current user; v1
@@ -65,6 +82,7 @@ interface MemoryRuntimeContext {
 interface MemoryState {
   memories: Memory[];
   isLoading: boolean;
+  isMutating: boolean;
   error: Error | null;
   context: MemoryRuntimeContext | null;
   sessionId: number;
@@ -73,6 +91,7 @@ interface MemoryState {
 const initialMemoryState: MemoryState = {
   memories: [],
   isLoading: false,
+  isMutating: false,
   error: null,
   context: null,
   sessionId: 0,
@@ -82,12 +101,16 @@ const memoryAdapterEvents = createActionGroup("Memory Adapter", {
   started: empty(),
   stopped: empty(),
   contextChanged: props<{ context: MemoryRuntimeContext | null }>(),
+  addRequested: props<{ requestId: string; input: NewMemory }>(),
+  updateRequested: props<{ requestId: string; id: string; changes: MemoryChanges }>(),
+  removeRequested: props<{ requestId: string; id: string }>(),
 });
 
 const memoryRestEvents = createActionGroup("Memory REST", {
   listRequested: props<{ sessionId: number }>(),
   listSucceeded: props<{ sessionId: number; memories: Memory[] }>(),
   listFailed: props<{ sessionId: number; error: Error }>(),
+  mutationFinished: props<{ outcome: MemoryMutationOutcome }>(),
 });
 
 const memoryDomainEvents = createActionGroup("Memory Domain", {
@@ -217,6 +240,17 @@ const memoryReducer = createReducer(
     };
   }),
   on(
+    memoryAdapterEvents.addRequested,
+    memoryAdapterEvents.updateRequested,
+    memoryAdapterEvents.removeRequested,
+    (state: MemoryState) => ({ ...state, isMutating: true }),
+  ),
+  on(memoryRestEvents.mutationFinished, (state: MemoryState, { outcome }) => ({
+    ...state,
+    isMutating: false,
+    error: outcome.ok ? state.error : outcome.error,
+  })),
+  on(
     memoryRestEvents.listSucceeded,
     (state: MemoryState, { sessionId, memories }) => {
       if (sessionId !== state.sessionId) {
@@ -285,6 +319,12 @@ interface MemoryStore {
   setContext(context: MemoryRuntimeContext | null): void;
   /** Re-fetches the snapshot without clearing the current list. */
   refresh(): void;
+  /** Creates a memory; resolves to the stored memory (server-authoritative). */
+  addMemory(input: NewMemory): Promise<Memory>;
+  /** Supersedes a memory; resolves to the new memory (its id changes). */
+  updateMemory(id: string, changes: MemoryChanges): Promise<Memory>;
+  /** Retires a memory (non-lossy delete). */
+  removeMemory(id: string): Promise<void>;
   getState(): MemoryState;
   select: Store<MemoryState>["select"];
 }
@@ -353,11 +393,156 @@ function createMemoryFetchObservable(
   });
 }
 
+type MemoryMutationAction =
+  | ReturnType<typeof memoryDomainEvents.memoryUpserted>
+  | ReturnType<typeof memoryDomainEvents.memoryInvalidated>
+  | ReturnType<typeof memoryRestEvents.mutationFinished>;
+
+type MemoryMutationRequest =
+  | { requestId: string; sessionId: number; kind: "add"; body: Record<string, unknown> }
+  | {
+      requestId: string;
+      sessionId: number;
+      kind: "update";
+      id: string;
+      body: Record<string, unknown>;
+    }
+  | { requestId: string; sessionId: number; kind: "remove"; id: string };
+
+/** Projects a REST mutation response to the public {@link Memory} shape. */
+function responseToMemory(data: {
+  id: string;
+  kind: MemoryKind;
+  scope: MemoryScope;
+  content: string;
+  sourceThreadIds: readonly string[];
+  invalidatedAt: string | null;
+}): Memory {
+  return {
+    id: data.id,
+    kind: data.kind,
+    scope: data.scope,
+    content: data.content,
+    sourceThreadIds: data.sourceThreadIds,
+    invalidatedAt: data.invalidatedAt,
+  };
+}
+
+/** Request body for create/supersede; defaults scope to user and threads to []. */
+function toMutationBody(input: NewMemory): Record<string, unknown> {
+  return {
+    content: input.content,
+    kind: input.kind,
+    scope: input.scope ?? "user",
+    sourceThreadIds: input.sourceThreadIds ?? [],
+  };
+}
+
 /**
- * Creates the framework-agnostic memory store. For now it consumes realtime
- * `memory_metadata` deltas off the injected `user_meta` event source and
- * reduces them into observable state; the REST snapshot + mutation surface is
- * layered on in a later increment.
+ * Builds the actions a successful mutation dispatches (server-authoritative):
+ * the REST response is applied to local state immediately, and the realtime
+ * event reconciles idempotently (upsert-by-id). `mutationFinished` resolves the
+ * caller's promise.
+ */
+function buildMutationSuccessActions(
+  request: MemoryMutationRequest,
+  data: Record<string, unknown> | null,
+): MemoryMutationAction[] {
+  const { requestId, sessionId } = request;
+
+  if (request.kind === "remove") {
+    return [
+      memoryDomainEvents.memoryInvalidated({ sessionId, memoryId: request.id }),
+      memoryRestEvents.mutationFinished({
+        outcome: { requestId, ok: true, memory: null },
+      }),
+    ];
+  }
+
+  const memory = responseToMemory(data as Parameters<typeof responseToMemory>[0]);
+
+  if (request.kind === "update") {
+    const retiredId = (data as { retiredId: string }).retiredId;
+    return [
+      memoryDomainEvents.memoryInvalidated({ sessionId, memoryId: retiredId }),
+      memoryDomainEvents.memoryUpserted({ sessionId, memory }),
+      memoryRestEvents.mutationFinished({
+        outcome: { requestId, ok: true, memory },
+      }),
+    ];
+  }
+
+  return [
+    memoryDomainEvents.memoryUpserted({ sessionId, memory }),
+    memoryRestEvents.mutationFinished({
+      outcome: { requestId, ok: true, memory },
+    }),
+  ];
+}
+
+/** Performs a create/supersede/retire HTTP call and emits its resulting actions. */
+function createMemoryMutationObservable(
+  environment: MemoryEnvironment,
+  context: MemoryRuntimeContext,
+  request: MemoryMutationRequest,
+): Observable<MemoryMutationAction> {
+  const method =
+    request.kind === "add" ? "POST" : request.kind === "update" ? "PATCH" : "DELETE";
+  const path =
+    request.kind === "add"
+      ? MEMORIES_PATH
+      : `${MEMORIES_PATH}/${encodeURIComponent(request.id)}`;
+
+  return defer(() =>
+    memoryFromFetch(`${context.runtimeUrl}${path}`, {
+      selector: async (response) => {
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status}`);
+        }
+
+        return request.kind === "remove"
+          ? null
+          : ((await response.json()) as Record<string, unknown>);
+      },
+      fetch: environment.fetch,
+      method,
+      headers: { ...context.headers, "Content-Type": "application/json" },
+      body: request.kind === "remove" ? undefined : JSON.stringify(request.body),
+    }).pipe(
+      timeout({
+        first: REQUEST_TIMEOUT_MS,
+        with: () => {
+          throw new Error("Request timed out");
+        },
+      }),
+      mergeMap((data) => of(...buildMutationSuccessActions(request, data))),
+      catchError((error) =>
+        of(
+          memoryRestEvents.mutationFinished({
+            outcome: {
+              requestId: request.requestId,
+              ok: false,
+              error: error instanceof Error ? error : new Error(String(error)),
+            },
+          }),
+        ),
+      ),
+    ),
+  );
+}
+
+let memoryRequestId = 0;
+
+function createMemoryRequestId(): string {
+  memoryRequestId += 1;
+  return `memory-request-${memoryRequestId}`;
+}
+
+/**
+ * Creates the framework-agnostic memory store: a REST snapshot on `setContext`,
+ * server-authoritative add/update/remove mutations, and realtime
+ * `memory_metadata` deltas off the injected `user_meta` event source — all
+ * reduced into observable state.
  */
 function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
   const bootstrapEffect = createEffect(
@@ -404,6 +589,57 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
       ),
   );
 
+  const mutationEffect = createEffect(
+    (actions$, state$: Observable<MemoryState>) =>
+      actions$.pipe(
+        ofType(
+          memoryAdapterEvents.addRequested,
+          memoryAdapterEvents.updateRequested,
+          memoryAdapterEvents.removeRequested,
+        ),
+        withLatestFrom(state$),
+        mergeMap(([action, state]) => {
+          const context = state.context;
+          if (!context?.runtimeUrl) {
+            return of(
+              memoryRestEvents.mutationFinished({
+                outcome: {
+                  requestId: action.requestId,
+                  ok: false,
+                  error: new Error("Runtime URL is not configured"),
+                },
+              }),
+            );
+          }
+
+          const sessionId = state.sessionId;
+          if (memoryAdapterEvents.addRequested.match(action)) {
+            return createMemoryMutationObservable(environment, context, {
+              requestId: action.requestId,
+              sessionId,
+              kind: "add",
+              body: toMutationBody(action.input),
+            });
+          }
+          if (memoryAdapterEvents.updateRequested.match(action)) {
+            return createMemoryMutationObservable(environment, context, {
+              requestId: action.requestId,
+              sessionId,
+              kind: "update",
+              id: action.id,
+              body: toMutationBody(action.changes),
+            });
+          }
+          return createMemoryMutationObservable(environment, context, {
+            requestId: action.requestId,
+            sessionId,
+            kind: "remove",
+            id: action.id,
+          });
+        }),
+      ),
+  );
+
   const realtimeEffect = createEffect(
     (actions$, state$: Observable<MemoryState>) =>
       actions$.pipe(
@@ -424,8 +660,46 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
 
   const store = createStore<MemoryState>({
     reducer: memoryReducer,
-    effects: [bootstrapEffect, fetchEffect, realtimeEffect],
+    effects: [bootstrapEffect, fetchEffect, mutationEffect, realtimeEffect],
   });
+
+  function trackMutation<T>(
+    dispatchAction:
+      | ReturnType<typeof memoryAdapterEvents.addRequested>
+      | ReturnType<typeof memoryAdapterEvents.updateRequested>
+      | ReturnType<typeof memoryAdapterEvents.removeRequested>,
+    extract: (outcome: Extract<MemoryMutationOutcome, { ok: true }>) => T,
+  ): Promise<T> {
+    const { requestId } = dispatchAction;
+    const completion$ = merge(
+      store.actions$.pipe(
+        ofType(memoryRestEvents.mutationFinished),
+        filter((action) => action.outcome.requestId === requestId),
+        map((action) => action.outcome),
+      ),
+      store.actions$.pipe(
+        ofType(memoryAdapterEvents.stopped),
+        map(
+          () =>
+            ({
+              requestId,
+              ok: false,
+              error: new Error("Memory store stopped before mutation completed"),
+            }) satisfies MemoryMutationOutcome,
+        ),
+      ),
+    ).pipe(take(1));
+
+    const resultPromise = firstValueFrom(completion$).then((outcome) => {
+      if (!outcome.ok) {
+        throw outcome.error;
+      }
+      return extract(outcome);
+    });
+
+    store.dispatch(dispatchAction);
+    return resultPromise;
+  }
 
   return {
     start(): void {
@@ -443,6 +717,34 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
       const { sessionId, context } = store.getState();
       if (!context) return;
       store.dispatch(memoryRestEvents.listRequested({ sessionId }));
+    },
+    addMemory(input: NewMemory): Promise<Memory> {
+      return trackMutation(
+        memoryAdapterEvents.addRequested({
+          requestId: createMemoryRequestId(),
+          input,
+        }),
+        (outcome) => outcome.memory as Memory,
+      );
+    },
+    updateMemory(id: string, changes: MemoryChanges): Promise<Memory> {
+      return trackMutation(
+        memoryAdapterEvents.updateRequested({
+          requestId: createMemoryRequestId(),
+          id,
+          changes,
+        }),
+        (outcome) => outcome.memory as Memory,
+      );
+    },
+    removeMemory(id: string): Promise<void> {
+      return trackMutation(
+        memoryAdapterEvents.removeRequested({
+          requestId: createMemoryRequestId(),
+          id,
+        }),
+        () => undefined,
+      );
     },
     getState(): MemoryState {
       return store.getState();

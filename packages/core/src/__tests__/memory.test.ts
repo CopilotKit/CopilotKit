@@ -346,6 +346,117 @@ describe("memory store REST snapshot", () => {
   });
 });
 
+describe("memory store mutations", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const userMemory = (id: string, content = `content-${id}`) => ({
+    id,
+    kind: "topical" as const,
+    scope: "user" as const,
+    content,
+    sourceThreadIds: [],
+    invalidatedAt: null,
+  });
+
+  async function connectedStore(fetchMock: Mock) {
+    vi.stubGlobal("fetch", fetchMock);
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+    return store;
+  }
+
+  it("addMemory POSTs and applies the created memory, resolving to it", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ...userMemory("m1", "hi"), absorbed: false }),
+      });
+    const store = await connectedStore(fetchMock);
+
+    const created = await store.addMemory({ content: "hi", kind: "topical" });
+
+    expect(created.id).toBe("m1");
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://runtime.example.com/api/memories",
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    store.stop();
+  });
+
+  it("removeMemory DELETEs and removes the memory from state", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ memories: [userMemory("m1")] }),
+      })
+      .mockResolvedValueOnce({ ok: true });
+    const store = await connectedStore(fetchMock);
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
+
+    await store.removeMemory("m1");
+
+    expect(store.getState().memories).toEqual([]);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://runtime.example.com/api/memories/m1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+
+    store.stop();
+  });
+
+  it("updateMemory supersedes: retires the old id, applies the new memory", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ memories: [userMemory("m1", "old")] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ...userMemory("m2", "new"), retiredId: "m1" }),
+      });
+    const store = await connectedStore(fetchMock);
+
+    const updated = await store.updateMemory("m1", {
+      content: "new",
+      kind: "topical",
+    });
+
+    expect(updated.id).toBe("m2");
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m2"]);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "https://runtime.example.com/api/memories/m1",
+      expect.objectContaining({ method: "PATCH" }),
+    );
+
+    store.stop();
+  });
+
+  it("rejects and records an error when a mutation fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({ ok: false, status: 500 });
+    const store = await connectedStore(fetchMock);
+
+    await expect(
+      store.addMemory({ content: "x", kind: "topical" }),
+    ).rejects.toThrow();
+    expect(store.getState().error).toBeInstanceOf(Error);
+
+    store.stop();
+  });
+});
+
 describe("memory selectors", () => {
   it("project the relevant state slices", () => {
     const state = memoryReducer(
