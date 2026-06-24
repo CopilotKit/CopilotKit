@@ -125,6 +125,7 @@ export interface ShowcaseTourPlanOptions {
   rows?: readonly string[];
   columns?: readonly string[];
   directPreviewBaseUrls?: Readonly<Record<string, string>>;
+  backendHostPattern?: string;
 }
 
 export interface DocsTourPlanOptions {
@@ -180,7 +181,7 @@ function promptSetForRow(rowId: string): TourPrompt[] {
   ];
 }
 
-function lineRangeForNeedles(
+function lineSpecForNeedles(
   content: string,
   needles: readonly string[],
 ): { lines: string; matchedNeedles: string[] } | null {
@@ -197,9 +198,8 @@ function lineRangeForNeedles(
   }
 
   if (matchedLines.length === 0) return null;
-  const start = Math.max(1, Math.min(...matchedLines) - 1);
-  const end = Math.min(lines.length, Math.max(...matchedLines) + 4);
-  return { lines: `${start}-${end}`, matchedNeedles };
+  const uniqueLines = Array.from(new Set(matchedLines)).sort((a, b) => a - b);
+  return { lines: uniqueLines.join(","), matchedNeedles };
 }
 
 function findCodeTarget(
@@ -219,7 +219,7 @@ function findCodeTarget(
   ];
 
   for (const file of candidateFiles) {
-    const match = lineRangeForNeedles(file.content, needles);
+    const match = lineSpecForNeedles(file.content, needles);
     if (!match) continue;
     const params = new URLSearchParams({
       file: file.filename,
@@ -242,6 +242,25 @@ function findCodeTarget(
     codeUrl: `${shellUrl}/integrations/${slug}/${rowId}/code?${params.toString()}`,
     matchedNeedles: [],
   };
+}
+
+function previewUrlForCell(
+  shellUrl: string,
+  cell: PrTourReport["cells"][number],
+  directPreviewBaseUrls: Readonly<Record<string, string>> | undefined,
+  backendHostPattern: string | undefined,
+): string {
+  const directBase = directPreviewBaseUrls?.[cell.column.slug];
+  const route = cell.column.demos.find(
+    (demo) => demo.id === cell.row.id,
+  )?.route;
+  if (directBase !== undefined) {
+    return `${directBase}${route ?? `/demos/${cell.row.id}`}`;
+  }
+  if (backendHostPattern && route) {
+    return `${backendHostPattern.replace("{slug}", cell.column.slug)}${route}`;
+  }
+  return `${shellUrl}/integrations/${cell.column.slug}/${cell.row.id}/preview`;
 }
 
 export function buildShowcaseTourPlan(
@@ -280,10 +299,12 @@ export function buildShowcaseTourPlan(
           return {
             column: cell.column,
             row,
-            previewUrl:
-              options.directPreviewBaseUrls?.[cell.column.slug] !== undefined
-                ? `${options.directPreviewBaseUrls[cell.column.slug]}/demos/${row.id}`
-                : `${shellUrl}/integrations/${cell.column.slug}/${row.id}/preview`,
+            previewUrl: previewUrlForCell(
+              shellUrl,
+              cell,
+              options.directPreviewBaseUrls,
+              options.backendHostPattern,
+            ),
             codeUrl: codeTarget?.codeUrl ?? baseCodeUrl,
             codeTarget,
             prompts: promptSetForRow(row.id),

@@ -41,10 +41,14 @@ npm --prefix showcase/scripts run pr-tour-videos -- --mode showcase --preset too
 The recorder:
 
 - creates one `.webm` per row/topic under `.artifacts/pr-tour-videos/`;
-- starts each topic video with a title slide;
+- starts each topic video with one title slide, not one repeated title slide per prompt;
 - opens the row-filtered dashboard view;
-- for every changed dashboard column, opens the showcase preview, starts a fresh preview for each prompt, clicks each suggestion pill as a real visible interaction, and sends one custom prompt that is not a pill;
-- opens the shell code view for that same row/column and uses `?file=...&lines=...` to highlight the relevant code lines.
+- for every changed dashboard column, shows one column title slide, opens the showcase preview, starts a fresh preview for each prompt, clicks each suggestion pill as a real visible interaction, and sends one custom prompt that is not a pill;
+- opens the shell code view for that same row/column and uses `?file=...&lines=...` to highlight the exact relevant code lines.
+
+For row-wide showcase changes, final attached videos should cover every affected dashboard column. Use `--columns` only when the PR truly affects a subset of columns, or when a recording is explicitly labeled as representative/debug output rather than the final review artifact.
+
+Before attaching a video, spot-check the code section for each topic: it must show the source that actually implements the row's behavior. For example, a custom catch-all renderer tour should land on the `useDefaultRenderTool` registration that passes `render: ({ name, parameters, status, result }) => (...)`, not only on the renderer component or unrelated schema setup.
 
 Use a smoke run before a full pass:
 
@@ -58,6 +62,12 @@ When a deployed shell preview is unavailable or stale for a changed row, run the
 
 ```bash
 npm --prefix showcase/scripts run pr-tour-videos -- --mode showcase --rows row-a --columns langgraph-fastapi --direct-preview-base langgraph-fastapi=http://localhost:3102
+```
+
+When the review target should be staging rather than production, point every preview at the staging host pattern while keeping code links in the local shell:
+
+```bash
+npm --prefix showcase/scripts run pr-tour-videos -- --mode showcase --preset tool-rendering --backend-host-pattern https://showcase-{slug}-staging.up.railway.app
 ```
 
 For direct local previews, the recorder sets `X-AIMock-Context` to the column slug so deterministic D6 fixtures match the same way they do in the showcase E2E path. Non-smoke recordings must fail if the clicked/typed prompt text never appears in the transcript or if the chat shows an internal-error banner; a video that only shows loaded pages is not an acceptable PR tour artifact.

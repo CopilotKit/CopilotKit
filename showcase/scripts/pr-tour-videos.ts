@@ -23,6 +23,7 @@ const DEFAULT_OUTPUT_DIR = path.join(REPO_ROOT, ".artifacts", "pr-tour-videos");
 const DEFAULT_SHELL_URL = "http://localhost:3000";
 const DEFAULT_DASHBOARD_URL = "http://localhost:3002";
 const DEFAULT_DOCS_URL = "http://localhost:3003";
+const CODE_VIEW_WAIT_MS = 6_500;
 
 interface CliArgs {
   mode: "showcase" | "docs" | "all" | "plan";
@@ -36,6 +37,7 @@ interface CliArgs {
   docsUrl: string;
   docsUrls: string[];
   directPreviewBaseUrls: Record<string, string>;
+  backendHostPattern?: string;
   promptLimit: number | null;
   perPromptWaitMs: number;
   smoke: boolean;
@@ -54,6 +56,7 @@ function parseArgs(argv: readonly string[]): CliArgs {
     docsUrl: DEFAULT_DOCS_URL,
     docsUrls: [],
     directPreviewBaseUrls: {},
+    backendHostPattern: undefined,
     promptLimit: null,
     perPromptWaitMs: 10_000,
     smoke: false,
@@ -92,6 +95,8 @@ function parseArgs(argv: readonly string[]): CliArgs {
     else if (arg === "--docs-url")
       args.docsUrl = trimTrailingSlash(argv[++i] ?? args.docsUrl);
     else if (arg === "--docs-urls") args.docsUrls = splitCsv(argv[++i] ?? "");
+    else if (arg === "--backend-host-pattern")
+      args.backendHostPattern = trimTrailingSlash(argv[++i] ?? "");
     else if (arg === "--direct-preview-base") {
       const value = argv[++i] ?? "";
       const [slug, baseUrl] = value.split("=", 2);
@@ -221,6 +226,13 @@ function escapeHtml(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
+function firstLineFromSpec(spec: string): number | null {
+  const firstPart = spec.split(",")[0]?.trim();
+  if (!firstPart) return null;
+  const firstLine = Number.parseInt(firstPart.split("-")[0] ?? "", 10);
+  return Number.isFinite(firstLine) ? firstLine : null;
+}
+
 async function showTitle(
   page: Page,
   title: string,
@@ -253,6 +265,17 @@ async function findDemoSurface(page: Page): Promise<Frame | Page | null> {
     if (frame) return frame;
     await page.waitForTimeout(250);
   }
+
+  const iframeSrc = await page
+    .locator('iframe[src*="/demos/"]')
+    .first()
+    .getAttribute("src")
+    .catch(() => null);
+  if (iframeSrc) {
+    await page.goto(iframeSrc, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1_000);
+    return page;
+  }
   return null;
 }
 
@@ -260,6 +283,12 @@ async function submitPrompt(
   surface: Frame | Page,
   prompt: TourPrompt,
 ): Promise<boolean> {
+  await surface.evaluate(() => {
+    document.querySelectorAll("nextjs-portal").forEach((element) => {
+      element.remove();
+    });
+  });
+
   if (prompt.source === "pill") {
     const pill = surface
       .getByRole("button", { name: prompt.title, exact: true })
@@ -308,16 +337,16 @@ async function recordTopic(
 
     for (const cell of topic.cells) {
       process.stderr.write(`Recording ${cell.row.id} / ${cell.column.slug}\n`);
+      await showTitle(
+        page,
+        cell.column.name,
+        `${cell.row.name}: app interactions`,
+      );
       const prompts =
         args.promptLimit === null
           ? cell.prompts
           : cell.prompts.slice(0, args.promptLimit);
       for (const prompt of prompts) {
-        await showTitle(
-          page,
-          cell.row.name,
-          `${cell.column.name}: ${prompt.title}`,
-        );
         if (args.directPreviewBaseUrls[cell.column.slug]) {
           await page.setExtraHTTPHeaders({
             "X-AIMock-Context": cell.column.slug,
@@ -336,11 +365,11 @@ async function recordTopic(
             );
           }
           if (submitted && !args.smoke) {
-            await assertPromptSubmitted(page, cell, prompt);
+            await assertPromptSubmitted(surface, cell, prompt);
           }
           await page.waitForTimeout(submitted ? args.perPromptWaitMs : 1_000);
           if (submitted && !args.smoke) {
-            await assertNoChatError(page, cell, prompt);
+            await assertNoChatError(surface, cell, prompt);
           }
         } else if (!args.smoke) {
           throw new Error(
@@ -351,10 +380,15 @@ async function recordTopic(
         }
       }
 
-      await showTitle(page, cell.row.name, `${cell.column.name}: code view`);
+      await showTitle(
+        page,
+        cell.column.name,
+        `${cell.row.name}: relevant code`,
+      );
       await page.setExtraHTTPHeaders({});
       await page.goto(cell.codeUrl, { waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(2_500);
+      await assertCodeViewLoaded(page, cell);
+      await page.waitForTimeout(CODE_VIEW_WAIT_MS);
     }
 
     videoPath = await closeAndSaveVideo(page, context, topic.outputFile);
@@ -365,11 +399,11 @@ async function recordTopic(
 }
 
 async function assertPromptSubmitted(
-  page: Page,
+  surface: Frame | Page,
   cell: ShowcaseTourTopic["cells"][number],
   prompt: TourPrompt,
 ): Promise<void> {
-  await page
+  await surface
     .waitForFunction(
       (needle) => document.body.innerText.includes(needle),
       prompt.message,
@@ -383,15 +417,58 @@ async function assertPromptSubmitted(
 }
 
 async function assertNoChatError(
-  page: Page,
+  surface: Frame | Page,
   cell: ShowcaseTourTopic["cells"][number],
   prompt: TourPrompt,
 ): Promise<void> {
-  const internalError = page.getByText("An internal error occurred").first();
+  const internalError = surface.getByText("An internal error occurred").first();
   if (await internalError.isVisible({ timeout: 500 }).catch(() => false)) {
     throw new Error(
       `Chat showed an internal error after ${prompt.title} for ${cell.column.slug}/${cell.row.id}`,
     );
+  }
+}
+
+async function assertCodeViewLoaded(
+  page: Page,
+  cell: ShowcaseTourTopic["cells"][number],
+): Promise<void> {
+  if (!cell.codeTarget?.matchedNeedles.length) {
+    await page.waitForTimeout(2_500);
+    return;
+  }
+
+  await page
+    .waitForFunction(
+      (needles) => {
+        const text = document.body.innerText;
+        return needles.some((needle) => text.includes(needle));
+      },
+      cell.codeTarget.matchedNeedles,
+      { timeout: 10_000 },
+    )
+    .catch(async () => {
+      const bodyText = await page
+        .locator("body")
+        .innerText()
+        .catch(() => "");
+      if (bodyText.includes("No source files bundled for this demo.")) {
+        throw new Error(
+          `Code view has no bundled source for ${cell.column.slug}/${cell.row.id}`,
+        );
+      }
+      throw new Error(
+        `Code view did not show expected highlighted code for ${cell.column.slug}/${cell.row.id}`,
+      );
+    });
+
+  const firstLine = firstLineFromSpec(cell.codeTarget.lines);
+  if (firstLine !== null) {
+    await page.evaluate((line) => {
+      document
+        .querySelector<HTMLElement>(`[data-tour-line="${line}"]`)
+        ?.scrollIntoView({ block: "center", inline: "nearest" });
+    }, firstLine);
   }
 }
 
@@ -508,6 +585,7 @@ async function main(): Promise<void> {
     dashboardUrl: args.dashboardUrl,
     outputDir: args.outputDir,
     directPreviewBaseUrls: args.directPreviewBaseUrls,
+    backendHostPattern: args.backendHostPattern,
   });
   const docsPlan = buildDocsTourPlan({
     docsUrl: args.docsUrl,
