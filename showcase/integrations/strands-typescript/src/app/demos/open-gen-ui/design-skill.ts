@@ -3,7 +3,9 @@
 // for intricate, educational, self-running visualisations. Injected as
 // agent context for the `generateSandboxedUi` tool (see CopilotKitProvider
 // `openGenerativeUI.designSkill`).
-export const VISUALIZATION_DESIGN_SKILL = `When generating UI with generateSandboxedUi, your goal is to produce a polished, intricate, EDUCATIONAL visualisation that teaches the concept the user asked about. Treat the output like a figure from a well-designed textbook or explorable-explanation — not a bare-bones demo.
+export const VISUALIZATION_DESIGN_SKILL = `IMPERATIVE — HOW TO RESPOND: On every user turn you MUST call the \`generateSandboxedUi\` tool exactly once and render the answer as a self-running visual. NEVER reply with a plain-text explanation, prose, or math instead of calling the tool — even for a conceptual question ("how does X work", "explain Y"), render the explanation AS a visualisation. The chat assistant's "keep it to 1-2 sentences" guidance does NOT apply here; this cell exists to draw, not to chat.
+
+When generating UI with generateSandboxedUi, your goal is to produce a polished, intricate, EDUCATIONAL visualisation that teaches the concept the user asked about. Treat the output like a figure from a well-designed textbook or explorable-explanation — not a bare-bones demo.
 
 Geometry + rendering:
 - Use inline SVG (preferred) or <canvas> for geometric content — NEVER stack dozens of <div>s to draw shapes. SVG gives you crisp lines, labelled groups, and easy transforms.

@@ -6,10 +6,10 @@
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-open — 3D axis visualization pill. Emits generateSandboxedUi with an HTML+CSS+JS payload that renders an iframe[srcdoc] >= 100 chars (the assertion threshold). hasToolResult:false on the tool-emitting leg.",
+      "_comment": "gen-ui-open — 3D axis visualization pill, 1st leg: emit generateSandboxedUi (iframe[srcdoc] >= 100 chars, the assertion threshold). sequenceIndex:0 gates it to the first match — Strands mints UUID tool ids so the toolCallId follow-up below can't match, and hasToolResult flips true after the tool runs; sequenceIndex is invariant to both, so the bare-userMessage content leg cleanly catches the follow-up turn.",
       "match": {
         "userMessage": "3D axis visualization",
-        "hasToolResult": false,
+        "sequenceIndex": 0,
         "context": "strands"
       },
       "response": {
@@ -23,10 +23,9 @@
       }
     },
     {
-      "_comment": "gen-ui-open — follow-up after generateSandboxedUi renders.",
+      "_comment": "gen-ui-open — 3D axis visualization pill, 2nd leg: follow-up content after the iframe renders (sequenceIndex:0 exhausted).",
       "match": {
         "userMessage": "3D axis visualization",
-        "toolCallId": "call_d6_open_gen_ui_3d_001",
         "context": "strands"
       },
       "response": {

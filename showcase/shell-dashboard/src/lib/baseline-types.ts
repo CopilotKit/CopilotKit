@@ -294,6 +294,7 @@ export const BASELINE_PARTNERS: readonly { name: string; slug: string }[] = [
   // probe data. Sorts via the 6.5 slot in sort-order.ts (after ms-agent-dotnet).
   { name: "MS Agent Harness (.NET)", slug: "ms-agent-harness-dotnet" },
   { name: "Strands", slug: "strands" },
+  { name: "Strands (TypeScript)", slug: "strands-typescript" },
   { name: "Mastra", slug: "mastra" },
   { name: "CrewAI", slug: "crewai-crews" },
   { name: "PydanticAI", slug: "pydantic-ai" },

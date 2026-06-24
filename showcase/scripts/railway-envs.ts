@@ -154,6 +154,16 @@ export type ProbeDriver =
  * - `repoName` — GHCR repo-name override for this env. OPTIONAL. When unset,
  *   the gate expects `ghcr.io/copilotkit/<serviceName>:<tag>`; when set, it
  *   uses `ghcr.io/copilotkit/<repoName>:<tag>` for THIS env only.
+ * - `healthcheckPath` — Railway HTTP healthcheck path for this env (the path
+ *   Railway probes to mark a deploy healthy). OPTIONAL; OMITTED ⇒ "do not
+ *   assert" (Railway default / null — TCP-port liveness, no HTTP path). This
+ *   is the SSOT the promote pin re-asserts on every promote so a prod
+ *   instance whose healthcheckPath silently went null (the aimock incident)
+ *   self-heals to the tracked value. MUST encode the LIVE Railway value
+ *   verbatim per env — a wrong path 404s and WEDGES the deploy forever. A
+ *   live-null service OMITS this field entirely; it is NEVER written as `/`
+ *   or `/api/health` (and the pin mutation OMITS the key when absent rather
+ *   than sending `null`, which would actively CLEAR it).
  */
 export interface EnvironmentConfig {
   /** env-scoped Railway serviceInstance ID. */
@@ -164,6 +174,11 @@ export interface EnvironmentConfig {
   probe?: boolean;
   /** Per-env GHCR repo-name override. Defaults to the service name. */
   repoName?: string;
+  /**
+   * Railway HTTP healthcheck path for this env. OPTIONAL; omitted ⇒ do not
+   * assert (Railway default / null). Encode the LIVE value verbatim.
+   */
+  healthcheckPath?: string;
 }
 
 export interface ServiceEntry {
@@ -190,8 +205,8 @@ export interface ServiceEntry {
   /**
    * True iff `verify-railway-image-refs.ts` validates this service's
    * image refs. As of WS-C completion this is `true` for every service
-   * in `SERVICES` except the two `gateIgnore` entries (`harness-workers`,
-   * `harness-legacy`) — the historic Phase-2 deferral on dashboard, docs,
+   * in `SERVICES` except the `gateIgnore` `harness-workers` entry — the
+   * historic Phase-2 deferral on dashboard, docs,
    * dojo, shell, and harness has been retired. New services added to
    * the SSOT MUST land with `gateValidated: true` (and a per-env
    * `repoName` if the Railway service name does not match the GHCR repo
@@ -226,8 +241,7 @@ export interface ServiceEntry {
    * The expansion is env-aware: a consumer only enters an env's redeploy
    * scope if it declares that env (the staging-only worker never enters
    * the prod scope). Omit for any service with its own build slot or a
-   * pinned/out-of-band image (e.g. `harness-legacy`, which deliberately
-   * runs a pinned pre-fleet digest and must NOT follow rebuilds).
+   * pinned/out-of-band image that must NOT follow rebuilds.
    */
   imageOf?: string;
   /**
@@ -369,12 +383,14 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "5801d8be-5ad9-4eff-9c9c-7be61d9a023e",
+        healthcheckPath: "/health",
         domain: "showcase-aimock-production.up.railway.app",
         probe: true,
         repoName: "showcase-aimock",
       },
       staging: {
         instanceId: "9f260dfd-d9d4-43e9-98fe-49696f87fe50",
+        healthcheckPath: "/health",
         domain: "aimock-staging.up.railway.app",
         probe: true,
         repoName: "showcase-aimock",
@@ -475,12 +491,14 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "05fbcdf2-8a50-4b71-b4f6-c92c4b17e626",
+        healthcheckPath: "/health",
         domain: "showcase-harness-production.up.railway.app",
         probe: true,
         repoName: "showcase-harness",
       },
       staging: {
         instanceId: "0811f68f-fac4-440e-a350-3a7ca5855b80",
+        healthcheckPath: "/health",
         domain: "harness-staging-2ee4.up.railway.app",
         probe: true,
         repoName: "showcase-harness",
@@ -493,22 +511,26 @@ export const SERVICES: Record<
   // not `showcase-harness-worker`.
   "harness-workers": {
     serviceId: "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
-    // STAGING-ONLY worker (pool-fleet cutover). There is no prod
-    // serviceInstance — the pool-fleet runs in staging only for now. Under
-    // the env-map schema we simply OMIT the prod key (no placeholder ID is
-    // needed). gateIgnore skips both gate directions; ciBuilt:false because
-    // the worker has no build slot of its own — but `imageOf: "harness"`
-    // (below) puts it in the staging redeploy scope whenever the shared
-    // showcase-harness image is rebuilt. If/when a prod worker is
-    // provisioned, add a `prod` env entry, flip gateIgnore off, and set
-    // gateValidated: true (the
-    // imageOf expansion is env-aware and will start covering prod
-    // automatically once the prod env entry exists).
+    // Pool-fleet worker. Workers now run in BOTH staging and prod: the
+    // prod worker is live on Railway (deployed 2026-06-19, HARNESS_ROLE=worker,
+    // pool count 2). This SSOT entry, however, still only models the STAGING
+    // instance — a `prod` env entry has NOT yet been backfilled here, so the
+    // entry currently declares staging only. Under the env-map schema we
+    // simply OMIT the prod key (no placeholder ID is needed). gateIgnore
+    // skips both gate directions; ciBuilt:false because the worker has no
+    // build slot of its own — but `imageOf: "harness"` (below) puts it in the
+    // staging redeploy scope whenever the shared showcase-harness image is
+    // rebuilt. To bring the live prod worker under this SSOT, add a `prod`
+    // env entry with its real serviceInstance ID, flip gateIgnore off, and
+    // set gateValidated: true (the imageOf expansion is env-aware and will
+    // start covering prod automatically once the prod env entry exists).
     ciBuilt: false,
-    // gateIgnore: deliberately-untracked for the image-ref gate. The
-    // worker is staging-only and domainless (it pulls jobs from the
-    // control-plane queue rather than serving HTTP), so it does not fit the
-    // symmetric dual-env / public-domain shape the gate validates. Listing
+    // gateIgnore: deliberately-untracked for the image-ref gate. As modeled
+    // here the worker is single-env (staging only) and domainless (it pulls
+    // jobs from the control-plane queue rather than serving HTTP), so it does
+    // not fit the symmetric dual-env / public-domain shape the gate validates.
+    // (The live prod worker exists on Railway but is not yet an SSOT prod env
+    // — see the entry header above.) Listing
     // it here (with gateIgnore) is what clears the "untracked Railway
     // service" failure — findUntrackedServices treats any SSOT entry as
     // known — WITHOUT triggering a false "missing from prod" failure from
@@ -516,9 +538,11 @@ export const SERVICES: Record<
     gateValidated: false,
     gateIgnore: true,
     probeDriver: "harness",
-    // Tier-1 verification fleet. STAGING-ONLY today (no prod env below), so
-    // computePromoteClosure records it as skipped-with-reason rather than
-    // promoting it; the tier survives for when a prod worker is provisioned.
+    // Tier-1 verification fleet. This SSOT entry declares no prod env below
+    // (only the staging instance is modeled, though a prod worker is live on
+    // Railway — see the entry header), so computePromoteClosure records it as
+    // skipped-with-reason rather than promoting it; the tier survives for when
+    // the prod worker is backfilled as a `prod` env entry here.
     promoteTier: 1,
     // The worker runs the SAME `showcase-harness` GHCR image that the
     // existing `harness` (control-plane) service runs — it is NOT a
@@ -538,6 +562,7 @@ export const SERVICES: Record<
     environments: {
       staging: {
         instanceId: "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
+        healthcheckPath: "/health",
         probe: false,
         repoName: "showcase-harness",
       },
@@ -554,60 +579,6 @@ export const SERVICES: Record<
       // The absent prod env carried a placeholder repoName in the legacy
       // JSON; restore it so repoNameOverride stays {prod, staging}.
       repoNameOverride: { prod: "showcase-harness" },
-    },
-  },
-  "harness-legacy": {
-    serviceId: "11279eba-97eb-417e-82a5-7cb4254eb147",
-    // INTERIM service (fleet-migration bridge). This is the legacy all-probe
-    // harness (HARNESS_ROLE unset) stood up to keep the non-d6 probe coverage
-    // live while the pool-fleet migration proceeds. It runs a PINNED pre-fleet
-    // `showcase-harness` image digest set out-of-band — it is NOT CI-built —
-    // and will be torn down (removed from this SSOT and from Railway) at
-    // migration end. Real serviceInstance IDs exist for BOTH envs on Railway
-    // (resolved 2026-06-05 via GraphQL); we record both. gateIgnore keeps the
-    // image-ref gate from validating either instance's (out-of-band) ref, and
-    // ciBuilt:false keeps it out of the default CI_BUILT_SERVICES redeploy
-    // scope. The build only failed because the Railway→SSOT untracked-services
-    // check saw this service name with no SSOT entry; listing it here clears
-    // that without subjecting its pinned digest to the gate's shape check.
-    ciBuilt: false,
-    // gateIgnore: deliberately-untracked for the image-ref gate. This
-    // interim service runs a pinned digest (not the canonical :latest /
-    // @sha256 shape the gate enforces) and is short-lived. Mirrors
-    // harness-workers exactly (minus the worker's single-env shape —
-    // harness-legacy DOES exist in both envs).
-    gateValidated: false,
-    gateIgnore: true,
-    probeDriver: "harness",
-    // Runs a pinned pre-fleet `showcase-harness` image digest, set
-    // out-of-band rather than tracked by showcase_build.yml. The repoName
-    // override points at `showcase-harness` so the image-ref shape resolves
-    // if the gate ever validates it.
-    //
-    // probe disabled in BOTH envs: this interim service's coverage is
-    // exercised out-of-band during the migration, not by verify-deploy.
-    // Domainless under the env-map schema — no public host is probed, so the
-    // borrowed control-plane host is omitted.
-    environments: {
-      prod: {
-        instanceId: "3d125700-a08d-4a7f-904b-c13f3f7cc0fc",
-        probe: false,
-        repoName: "showcase-harness",
-      },
-      staging: {
-        instanceId: "ed184024-fdfa-4b6f-bb51-37d6648e0beb",
-        probe: false,
-        repoName: "showcase-harness",
-      },
-    },
-    // Ruby/jq JSON-shape compat (see ServiceEntry.legacyJsonCompat). Both
-    // envs exist with real instance IDs; only the borrowed domains need
-    // restoring so the generated JSON stays byte-identical. Not read by TS.
-    legacyJsonCompat: {
-      domains: {
-        prod: "showcase-harness-production.up.railway.app",
-        staging: "harness-staging-2ee4.up.railway.app",
-      },
     },
   },
   pocketbase: {
@@ -652,12 +623,14 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "01614ccf-e109-4b30-b41b-7c5551c0a34c",
+        healthcheckPath: "/",
         domain: "showcase.copilotkit.ai",
         probe: true,
         repoName: "showcase-shell",
       },
       staging: {
         instanceId: "25b7de41-188c-4f2e-ac07-538212eaeb91",
+        healthcheckPath: "/",
         domain: "showcase.staging.copilotkit.ai",
         probe: true,
         repoName: "showcase-shell",
@@ -679,11 +652,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "de571c97-03fd-486b-8a54-9767a4a53f95",
+        healthcheckPath: "/api/health",
         domain: "showcase-ag2-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "ecaf81b3-93a8-4862-92b6-04a016b634ed",
+        healthcheckPath: "/api/health",
         domain: "showcase-ag2-staging.up.railway.app",
         probe: true,
       },
@@ -704,11 +679,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "026d12fb-2844-42af-8f92-b47bc8a06bc8",
+        healthcheckPath: "/api/health",
         domain: "showcase-agno-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "68964ab6-75ca-4095-a64a-52cacfb684f5",
+        healthcheckPath: "/api/health",
         domain: "showcase-agno-staging.up.railway.app",
         probe: true,
       },
@@ -729,11 +706,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "40018ef7-1ed1-4979-b80c-9c2d957b6d88",
+        healthcheckPath: "/api/health",
         domain: "showcase-built-in-agent-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "b89ae7b3-01cc-4ed4-aca6-23aaa63cd59e",
+        healthcheckPath: "/api/health",
         domain: "showcase-built-in-agent-staging.up.railway.app",
         probe: true,
       },
@@ -754,11 +733,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "bb18caaf-9a3e-4fdd-85ec-562fd82a3a89",
+        healthcheckPath: "/api/health",
         domain: "showcase-claude-sdk-python-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "1ef25aec-5fbd-40b9-8685-57c2681bd45d",
+        healthcheckPath: "/api/health",
         domain: "showcase-claude-sdk-python-staging.up.railway.app",
         probe: true,
       },
@@ -779,11 +760,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "bee425e4-9661-4a88-8888-922b8cd4b61d",
+        healthcheckPath: "/api/health",
         domain: "showcase-claude-sdk-typescript-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "92305747-2f55-4122-aad4-882e989558ab",
+        healthcheckPath: "/api/health",
         domain: "showcase-claude-sdk-typescript-staging.up.railway.app",
         probe: true,
       },
@@ -804,11 +787,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "3dab0cc3-cab1-4579-b772-947268088514",
+        healthcheckPath: "/api/health",
         domain: "showcase-crewai-crews-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "88c2a14f-435b-499e-a811-ee4f4be18fd8",
+        healthcheckPath: "/api/health",
         domain: "showcase-crewai-crews-staging.up.railway.app",
         probe: true,
       },
@@ -829,11 +814,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "7b2da5db-87d2-40ad-a3d9-b2d7a5485a22",
+        healthcheckPath: "/api/health",
         domain: "showcase-google-adk-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "7efe2fa0-fa78-4585-bc4c-6d39c326e6d1",
+        healthcheckPath: "/api/health",
         domain: "showcase-google-adk-staging.up.railway.app",
         probe: true,
       },
@@ -854,11 +841,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "105b7e01-acd0-48e2-9a09-541e2103e8d2",
+        healthcheckPath: "/api/health",
         domain: "showcase-langgraph-fastapi-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "7899afe0-141b-4217-8dbb-5907813231dc",
+        healthcheckPath: "/api/health",
         domain: "showcase-langgraph-fastapi-staging.up.railway.app",
         probe: true,
       },
@@ -879,11 +868,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "aec504f7-63d7-4ea6-9d50-601b00d2ae80",
+        healthcheckPath: "/api/health",
         domain: "showcase-langgraph-python-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "04d29664-a776-4670-9db3-b1d18bce1669",
+        healthcheckPath: "/api/health",
         domain: "showcase-langgraph-python-staging.up.railway.app",
         probe: true,
       },
@@ -904,11 +895,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "f53e9fdc-7c3e-4dfd-9fa8-d7241fd55bb8",
+        healthcheckPath: "/api/health",
         domain: "showcase-langgraph-typescript-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "481ab37f-da8a-4015-bd88-2b28d9eb261a",
+        healthcheckPath: "/api/health",
         domain: "showcase-langgraph-typescript-staging.up.railway.app",
         probe: true,
       },
@@ -929,11 +922,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "6b5e20b5-8f8e-4ec3-9288-7a41122e42e5",
+        healthcheckPath: "/api/health",
         domain: "showcase-langroid-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "a213f7d9-2117-4944-988b-05e68d819dd5",
+        healthcheckPath: "/api/health",
         domain: "showcase-langroid-staging.up.railway.app",
         probe: true,
       },
@@ -954,11 +949,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "b778856e-9f90-4136-9415-fb2b41173f8d",
+        healthcheckPath: "/api/health",
         domain: "showcase-llamaindex-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "17899ea7-355c-43f2-a152-28cb0b7fa864",
+        healthcheckPath: "/api/health",
         domain: "showcase-llamaindex-staging.up.railway.app",
         probe: true,
       },
@@ -979,11 +976,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "eaeddd9c-8b75-426f-b033-0fd935cbf6ef",
+        healthcheckPath: "/api/health",
         domain: "showcase-mastra-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "eec22411-aab5-47a1-8f5b-d097e233d7f8",
+        healthcheckPath: "/api/health",
         domain: "showcase-mastra-staging.up.railway.app",
         probe: true,
       },
@@ -1004,11 +1003,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "93ca0edf-7b59-4de4-b1fd-3412bb07bc6a",
+        healthcheckPath: "/api/health",
         domain: "showcase-ms-agent-dotnet-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "9826bc58-c472-41e6-b050-29249d4b2a52",
+        healthcheckPath: "/api/health",
         domain: "showcase-ms-agent-dotnet-staging.up.railway.app",
         probe: true,
       },
@@ -1029,11 +1030,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "8f91ebc6-95c0-4433-b1f7-657ff49c2d59",
+        healthcheckPath: "/api/health",
         domain: "showcase-ms-agent-harness-dotnet-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "6b0fe181-9156-4a40-9e44-90befe09833a",
+        healthcheckPath: "/api/health",
         domain: "showcase-ms-agent-harness-dotnet-staging.up.railway.app",
         probe: true,
       },
@@ -1054,11 +1057,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "323ed911-4d28-45ab-8fc0-7d151828b938",
+        healthcheckPath: "/api/health",
         domain: "showcase-ms-agent-python-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "741725ce-5fa1-4327-aff5-53dcc000c29c",
+        healthcheckPath: "/api/health",
         domain: "showcase-ms-agent-python-staging.up.railway.app",
         probe: true,
       },
@@ -1079,11 +1084,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "192cd647-6824-4f01-937a-1da675d83805",
+        healthcheckPath: "/api/health",
         domain: "showcase-pydantic-ai-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "6edf5ca5-6a56-4d28-92c3-2a3360c735db",
+        healthcheckPath: "/api/health",
         domain: "showcase-pydantic-ai-staging.up.railway.app",
         probe: true,
       },
@@ -1104,11 +1111,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "2fbf1db2-5e51-44c9-983c-3f2242d95c61",
+        healthcheckPath: "/api/health",
         domain: "showcase-spring-ai-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "189ac76f-bd77-45c0-9c45-3853dae763cc",
+        healthcheckPath: "/api/health",
         domain: "showcase-spring-ai-staging.up.railway.app",
         probe: true,
       },
@@ -1129,11 +1138,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "2123c71b-9385-443c-a1c3-bcf4b1669eeb",
+        healthcheckPath: "/api/health",
         domain: "showcase-strands-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "f8a9d2ed-50ec-4f06-85d6-230baced8471",
+        healthcheckPath: "/api/health",
         domain: "showcase-strands-staging.up.railway.app",
         probe: true,
       },
@@ -1198,11 +1209,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "cb23cae4-9555-4ddd-8a62-f1aa1ff72c67",
+        healthcheckPath: "/",
         domain: "starter-adk-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "208a160a-0d7d-44b2-a94d-39e13b24e21a",
+        healthcheckPath: "/",
         domain: "starter-adk-staging.up.railway.app",
         probe: true,
       },
@@ -1220,11 +1233,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "2f58513b-5fe4-4b09-a28f-93d4caa277b5",
+        healthcheckPath: "/",
         domain: "starter-agno-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "9944eb97-7f58-47f8-a49d-65603e209609",
+        healthcheckPath: "/",
         domain: "starter-agno-staging.up.railway.app",
         probe: true,
       },
@@ -1242,11 +1257,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "1a3e24cb-0752-45c8-b4a2-0c6096899875",
+        healthcheckPath: "/",
         domain: "starter-crewai-crews-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "820895fb-f65c-4834-a07d-d454035d39c4",
+        healthcheckPath: "/",
         domain: "starter-crewai-crews-staging.up.railway.app",
         probe: true,
       },
@@ -1264,11 +1281,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "0679bc18-e9af-40c6-bc17-0b5eb2cd7bec",
+        healthcheckPath: "/",
         domain: "starter-langgraph-fastapi-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "5f10e976-e121-48a5-bc18-2619798f2f10",
+        healthcheckPath: "/",
         domain: "starter-langgraph-fastapi-staging.up.railway.app",
         probe: true,
       },
@@ -1286,11 +1305,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "50a2205b-8768-4765-b7a1-21941c105051",
+        healthcheckPath: "/",
         domain: "starter-langgraph-js-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "43db83fe-fafb-445b-a19a-51bb086c71b9",
+        healthcheckPath: "/",
         domain: "starter-langgraph-js-staging.up.railway.app",
         probe: true,
       },
@@ -1308,11 +1329,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "24dad599-576a-4154-a621-c3af40629a8f",
+        healthcheckPath: "/",
         domain: "starter-langgraph-python-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "58105e79-4020-4692-8749-c1a63ab63f2c",
+        healthcheckPath: "/",
         domain: "starter-langgraph-python-staging.up.railway.app",
         probe: true,
       },
@@ -1330,11 +1353,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "c119f40b-dc71-4734-9716-c1085754b085",
+        healthcheckPath: "/",
         domain: "starter-llamaindex-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "44446803-0505-456a-b0c4-01fe82fb3832",
+        healthcheckPath: "/",
         domain: "starter-llamaindex-staging.up.railway.app",
         probe: true,
       },
@@ -1352,11 +1377,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "c6fba6d8-8dde-442b-948f-560bf25fa2f1",
+        healthcheckPath: "/",
         domain: "starter-mastra-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "b246e52d-52d8-4015-bb06-89bd09d54f8f",
+        healthcheckPath: "/",
         domain: "starter-mastra-staging.up.railway.app",
         probe: true,
       },
@@ -1374,11 +1401,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "993237a4-9ee7-47b2-a5be-267e247c1409",
+        healthcheckPath: "/",
         domain: "starter-ms-agent-framework-dotnet-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "6684c246-e8fd-45a7-86e4-c529a439976f",
+        healthcheckPath: "/",
         domain: "starter-ms-agent-framework-dotnet-staging.up.railway.app",
         probe: true,
       },
@@ -1396,11 +1425,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "aa934881-340a-4fb7-8b39-9cb0a6f372b2",
+        healthcheckPath: "/",
         domain: "starter-ms-agent-framework-python-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "a162348a-f768-4c3f-815c-f617819f64e6",
+        healthcheckPath: "/",
         domain: "starter-ms-agent-framework-python-staging.up.railway.app",
         probe: true,
       },
@@ -1418,11 +1449,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "74ce36fe-0b8f-446e-8e06-0b6496b6e829",
+        healthcheckPath: "/",
         domain: "starter-pydantic-ai-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "25f4eb93-501a-4e5e-b7cf-343eb08ea613",
+        healthcheckPath: "/",
         domain: "starter-pydantic-ai-staging.up.railway.app",
         probe: true,
       },
@@ -1440,11 +1473,13 @@ export const SERVICES: Record<
     environments: {
       prod: {
         instanceId: "4af440e0-ba05-48a5-b922-5b96a033891a",
+        healthcheckPath: "/",
         domain: "starter-strands-python-production.up.railway.app",
         probe: true,
       },
       staging: {
         instanceId: "adc24096-584a-4ef3-93de-0bc92d49235c",
+        healthcheckPath: "/",
         domain: "starter-strands-python-staging.up.railway.app",
         probe: true,
       },
@@ -1585,9 +1620,8 @@ export function listServiceNames(): string[] {
 /**
  * The subset of SERVICES that `showcase_build.yml` actually builds and
  * pushes. Excludes `webhooks` (released by its own repo's workflow) AND
- * the non-CI-built harness services: `harness-workers` (consumes the
- * shared showcase-harness image via imageOf; no build slot of its own)
- * and `harness-legacy` (runs a pinned out-of-band digest). pocketbase
+ * the non-CI-built `harness-workers` (consumes the shared showcase-harness
+ * image via imageOf; no build slot of its own). pocketbase
  * IS CI-built (its matrix slot is gated to `showcase/pocketbase/**`
  * changes). Default target set for `redeploy-env.ts <env>` when no
  * explicit `--services` list is provided — though the actual default
@@ -1677,6 +1711,42 @@ export function probeEnabled(serviceName: string, env: EnvName): boolean {
   const envCfg = findEnvCfg(entry, env);
   if (envCfg === undefined) return false;
   return envCfg.probe ?? true;
+}
+
+/**
+ * Resolve the Railway HTTP healthcheck path for a (serviceName, env) pair, or
+ * `undefined` when none is tracked. Returns undefined (rather than throwing)
+ * on unknown service AND on an undeclared env — mirroring `probeEnabled` —
+ * because absence is LEGAL and semantically meaningful: it means "leave the
+ * Railway default (null); do not assert any path." Callers MUST treat
+ * undefined as "omit the field" (never coerce to a literal path) — the promote
+ * pin sends `healthcheckPath` to Railway only when this returns a value, so a
+ * live-null service is never accidentally cleared OR set to a wrong path.
+ */
+export function healthcheckPathFor(
+  serviceName: string,
+  env: EnvName,
+): string | undefined {
+  const entry = findEntry(serviceName);
+  if (entry === undefined) return undefined;
+  const envCfg = findEnvCfg(entry, env);
+  if (envCfg === undefined) return undefined;
+  return envCfg.healthcheckPath;
+}
+
+/**
+ * Whether `serviceName` is a tracked SSOT entry. Uses the same own-property
+ * semantics as {@link findEntry} (so inherited Object.prototype keys are NOT
+ * counted as members). Callers need this to disambiguate the two reasons
+ * {@link healthcheckPathFor} returns undefined: a service that is NOT in the
+ * SSOT at all (brand-new/unknown) versus a TRACKED service that deliberately
+ * has a null/omitted healthcheckPath (dashboard, docs, dojo, webhooks,
+ * pocketbase). The former may take an agent-class default; the latter must
+ * NOT have a healthcheck forced onto it (doing so wedges the deploy — the
+ * `/api/health` 404 incident).
+ */
+export function isTrackedService(serviceName: string): boolean {
+  return findEntry(serviceName) !== undefined;
 }
 
 /**
@@ -1771,8 +1841,7 @@ function tierOf(entry: ClosureEntry): 0 | 1 | 2 {
  * NOTE the promote path does NOT inherit the staging-redeploy `imageOf`
  * EXPANSION wholesale — it pulls a consumer in only because that consumer
  * runs a closure member's image and would otherwise run a stale image after
- * the member is pinned (§4.2). `harness-legacy` (`gateIgnore`, pinned
- * out-of-band) is excluded entirely (§4.3). A member whose `environments`
+ * the member is pinned (§4.2). A member whose `environments`
  * omits `prod` (e.g. `harness-workers` today, §4.4) cannot be promoted and is
  * recorded in `skipped` with a reason rather than silently dropped (§4.3).
  *
@@ -1848,9 +1917,6 @@ export function computePromoteClosure(
   const skipped: ClosureSkip[] = [];
   for (const key of closure) {
     const entry = services[key];
-    // harness-legacy class: pinned out-of-band, gateIgnore → excluded
-    // entirely (not even reported as skipped — it is deliberately untracked).
-    if (entry.gateIgnore === true && key === "harness-legacy") continue;
     // No prod env → cannot be promoted (the staging-only worker today).
     const envs = entry.environments ?? {};
     if (!Object.hasOwn(envs, "prod")) {

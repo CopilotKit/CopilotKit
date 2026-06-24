@@ -802,6 +802,28 @@ module Railway
             }
         GQL
 
+        # Variant of UPDATE_IMAGE_MUTATION that ALSO re-asserts the SSOT
+        # healthcheckPath alongside source.image. Railway's
+        # ServiceInstanceUpdateInput accepts healthcheckPath next to source (see
+        # deploy-to-railway.ts / provision-starter-fleet.ts, which set it via the
+        # same mutation), and treats an absent input key as "leave as-is" — so a
+        # partial update of {source, healthcheckPath} is safe.
+        #
+        # CRITICAL: this variant is used ONLY when the SSOT declares a path for
+        # the target service+env. When the SSOT has NO path (a live-null
+        # service), the caller uses the plain UPDATE_IMAGE_MUTATION above so the
+        # `healthcheckPath` key is OMITTED entirely — we MUST NOT send
+        # `healthcheckPath: null`, which would actively CLEAR it on Railway.
+        UPDATE_IMAGE_AND_HEALTHCHECK_MUTATION = <<~GQL
+            mutation UpdateImage($serviceId: String!, $envId: String!, $image: String!, $healthcheckPath: String!) {
+                serviceInstanceUpdate(
+                    serviceId: $serviceId
+                    environmentId: $envId
+                    input: { source: { image: $image }, healthcheckPath: $healthcheckPath }
+                )
+            }
+        GQL
+
         # serviceInstanceDeployV2 spawns a NEW deployment that pulls the current
         # source.image (just advanced by UPDATE_IMAGE_MUTATION) and returns the
         # new deployment id (String!). This is what actually activates the pin.
@@ -1120,7 +1142,16 @@ module Railway
         # SUCCESS and SERVES the pinned digest (bug #2 — config advancing is not
         # enough; the running container must actually pull the pinned image).
         # `sleeper:` is injected for tests.
-        def self.pin_and_verify(gql, service_id:, env_id:, image:, sleeper: ->(n) { sleep(n) })
+        #
+        # `healthcheck_path:` — the SSOT-declared HTTP healthcheck path for this
+        # service+env, or nil when the SSOT tracks NONE. When present, the pin
+        # mutation RE-ASSERTS it alongside source.image so a prod instance whose
+        # healthcheckPath silently went null (the aimock incident) self-heals to
+        # the tracked value on the next promote. When nil, the plain
+        # image-only mutation is used and the `healthcheckPath` key is OMITTED
+        # entirely — we NEVER send `healthcheckPath: null` (which would actively
+        # CLEAR it). This is the durable lever the SSOT-tracking change adds.
+        def self.pin_and_verify(gql, service_id:, env_id:, image:, healthcheck_path: nil, sleeper: ->(n) { sleep(n) })
             # Upfront guard: this method's contract is to pin a DIGEST-form
             # image. Pre-fix, a stray tag ref would fall through to retries
             # (since expected_digest stayed nil and image_ok was always false)
@@ -1141,8 +1172,18 @@ module Railway
             pre_inst = pre_data && pre_data["serviceInstance"]
             pre_update_ts = pre_inst && pre_inst["updatedAt"]
 
-            updated = gql.query(RestoreCommand::UPDATE_IMAGE_MUTATION,
-                serviceId: service_id, envId: env_id, image: image)
+            # Re-assert the SSOT healthcheckPath alongside source.image ONLY when
+            # the SSOT declares one. A nil/empty path uses the image-only
+            # mutation so the healthcheckPath key is OMITTED (never sent as
+            # null, which would clear it) — a live-null service stays null.
+            if healthcheck_path.nil? || healthcheck_path.to_s.empty?
+                updated = gql.query(RestoreCommand::UPDATE_IMAGE_MUTATION,
+                    serviceId: service_id, envId: env_id, image: image)
+            else
+                updated = gql.query(RestoreCommand::UPDATE_IMAGE_AND_HEALTHCHECK_MUTATION,
+                    serviceId: service_id, envId: env_id, image: image,
+                    healthcheckPath: healthcheck_path)
+            end
             unless updated && updated["serviceInstanceUpdate"] == true
                 raise MutationError,
                     "P5: serviceInstanceUpdate returned #{updated.inspect} (expected true) for #{service_id} -> #{image}"
@@ -1721,8 +1762,10 @@ module Railway
         # `:latest` — record it so emit_staging_drift_warnings can surface it
         # loudly. Does NOT add a finding (promote PROCEEDS with the running
         # digest — that is the contract); a drift is a visible warning, not a
-        # refuse. Best-effort: a GHCR error resolving `:latest` is swallowed so
-        # it never blocks a promote whose running digest already verified.
+        # refuse. Best-effort: a GHCR error resolving `:latest` is surfaced as a
+        # WARN (never blocks) so a promote whose running digest already verified
+        # proceeds, while the operator is not misled into reading a check
+        # failure as "no drift".
         def detect_staging_drift(svc, resolved)
             # --digest override: when the operator deliberately pinned an
             # explicit digest for this single service (see resolved_prod_image
@@ -2304,10 +2347,18 @@ module Railway
                     next
                 end
                 begin
+                    # Re-assert the SSOT-tracked prod healthcheckPath on every
+                    # promote (the durable fix: a prod instance whose path
+                    # silently went null self-heals). Read it from the generated
+                    # SSOT record; nil when the service tracks none (live-null) —
+                    # pin_and_verify then OMITS the field rather than clearing it.
+                    ssot_healthcheck = (ssot_service(svc["name"]) || {})
+                        .dig("healthcheckPath", "prod")
                     PromoteCommand.pin_and_verify(gql,
                         service_id: pmatch["service_id"],
                         env_id: PRODUCTION_ENV_ID,
-                        image: image)
+                        image: image,
+                        healthcheck_path: ssot_healthcheck)
                     puts "promoted #{svc['name']} -> #{image}"
                     already_pinned << svc["name"]
                 # Broadened rescue: a transient GraphQL or network error

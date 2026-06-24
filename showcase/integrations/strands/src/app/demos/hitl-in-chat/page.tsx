@@ -10,7 +10,8 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { TimePickerCard, TimeSlot } from "./time-picker-card";
+import type { TimeSlot } from "./time-picker-card";
+import { TimePickerCard } from "./time-picker-card";
 
 const DEFAULT_SLOTS: TimeSlot[] = [
   { label: "Tomorrow 10:00 AM", iso: "2026-04-19T10:00:00-07:00" },
@@ -52,7 +53,7 @@ function Chat() {
     agentId: "hitl-in-chat",
     name: "book_call",
     description:
-      "Ask the user to pick a time slot for a call. The picker UI presents fixed candidate slots; the user's choice is returned to the agent.",
+      "Use this tool for ANY request to schedule, book, set up, arrange, or organize a call, meeting, 1:1, intro, sync, or chat — including phrasings like 'schedule a 1:1 with Alice', 'book a call', or 'set up a meeting'. It presents the user an in-chat time picker with candidate slots and returns their chosen time. ALWAYS prefer this tool over `schedule_meeting` or any other scheduling tool when the user wants to pick a meeting time in this conversation.",
     parameters: z.object({
       topic: z
         .string()
