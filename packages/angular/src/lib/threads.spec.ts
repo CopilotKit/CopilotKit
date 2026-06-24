@@ -224,6 +224,7 @@ describe("injectThreads", () => {
   it("forwards mutation methods to the shared store and returns promises", async () => {
     fetchMock.enqueue({ threads: sampleThreads });
     fetchMock.enqueue({});
+    fetchMock.enqueue({});
 
     @Component({
       standalone: true,
@@ -251,6 +252,83 @@ describe("injectThreads", () => {
     expect(renameCall?.init?.body).toBe(
       JSON.stringify({ agentId: "agent-1", name: "Renamed" }),
     );
+
+    await result.unarchiveThread("thread-1");
+
+    const unarchiveCall = fetchMock.calls.find(
+      (call) =>
+        call.input === "https://runtime.example.com/threads/thread-1" &&
+        call.init?.method === "PATCH" &&
+        call.init.body ===
+          JSON.stringify({ agentId: "agent-1", archived: false }),
+    );
+    expect(unarchiveCall).toBeDefined();
+  });
+
+  it("shows loading before the runtime connects without fetching threads", async () => {
+    copilotKit.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+    fetchMock.enqueue({ threads: sampleThreads });
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class HostComponent {
+      readonly threads = injectThreads({ agentId: "agent-1" });
+    }
+
+    const fixture = TestBed.createComponent(HostComponent);
+    const result = fixture.componentInstance.threads;
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(fetchMock.calls).toHaveLength(0);
+    expect(result.isLoading()).toBe(true);
+    expect(result.threads()).toEqual([]);
+
+    copilotKit.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+    fixture.detectChanges();
+
+    await waitForCondition(() => {
+      expect(result.isLoading()).toBe(false);
+      expect(result.threads()).toHaveLength(1);
+    });
+    expect(fetchMock.calls).toHaveLength(1);
+  });
+
+  it("preserves fetched threads during transient runtime reconnects", async () => {
+    fetchMock.enqueue({ threads: sampleThreads });
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class HostComponent {
+      readonly threads = injectThreads({ agentId: "agent-1" });
+    }
+
+    const fixture = TestBed.createComponent(HostComponent);
+    const result = fixture.componentInstance.threads;
+
+    await waitForCondition(() => {
+      expect(result.isLoading()).toBe(false);
+      expect(result.threads().map((thread) => thread.id)).toEqual(["thread-1"]);
+    });
+
+    copilotKit.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+    fixture.detectChanges();
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(result.isLoading()).toBe(false);
+    expect(result.threads().map((thread) => thread.id)).toEqual(["thread-1"]);
+    expect(fetchMock.calls).toHaveLength(1);
   });
 
   it("unregisters and stops the store when the injection context is destroyed", async () => {

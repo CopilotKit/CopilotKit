@@ -43,6 +43,7 @@ export interface InjectThreadsResult {
   fetchMoreThreads: () => void;
   renameThread: (threadId: string, name: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
+  unarchiveThread: (threadId: string) => Promise<void>;
   deleteThread: (threadId: string) => Promise<void>;
 }
 
@@ -104,6 +105,7 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
   const includeArchived = toInputSignal(input.includeArchived);
   const limit = toInputSignal(input.limit);
   const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
+  const hasDispatchedContext = signal(false);
 
   store.start();
   destroyRef.onDestroy(() => {
@@ -112,7 +114,16 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
 
   const coreThreads = bindSelector(store, ɵselectThreads, destroyRef);
   const threads = computed(() => coreThreads().map(toPublicThread));
-  const isLoading = bindSelector(store, ɵselectThreadsIsLoading, destroyRef);
+  const storeIsLoading = bindSelector(
+    store,
+    ɵselectThreadsIsLoading,
+    destroyRef,
+  );
+  const isLoading = computed(
+    () =>
+      (!!agentId() && !!copilotKit.runtimeUrl() && !hasDispatchedContext()) ||
+      storeIsLoading(),
+  );
   const error = bindSelector(store, ɵselectThreadsError, destroyRef);
   const hasMoreThreads = bindSelector(store, ɵselectHasNextPage, destroyRef);
   const isFetchingMoreThreads = bindSelector(
@@ -168,6 +179,7 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
     const resolvedAgentId = agentId();
     if (!resolvedAgentId) {
       store.setContext(null);
+      hasDispatchedContext.set(false);
       return;
     }
 
@@ -179,7 +191,6 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
         CopilotKitCoreRuntimeConnectionStatus.Connected &&
       runtimeConnectionStatus !== CopilotKitCoreRuntimeConnectionStatus.Error
     ) {
-      store.setContext(null);
       return;
     }
 
@@ -187,18 +198,18 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
       runtimeConnectionStatus ===
       CopilotKitCoreRuntimeConnectionStatus.Connected;
 
-    store.setContext(
-      resolveContext(
-        resolvedAgentId,
-        isRuntimeConnected ? runtimeUrl : undefined,
-        copilotKit.headers() ?? EMPTY_HEADERS,
-        isRuntimeConnected ? copilotKit.intelligence()?.wsUrl : undefined,
-        includeArchived(),
-        limit(),
-        copilotKit.threadEndpoints(),
-        runtimeConnectionStatus,
-      ),
+    const context = resolveContext(
+      resolvedAgentId,
+      isRuntimeConnected ? runtimeUrl : undefined,
+      copilotKit.headers() ?? EMPTY_HEADERS,
+      isRuntimeConnected ? copilotKit.intelligence()?.wsUrl : undefined,
+      includeArchived(),
+      limit(),
+      copilotKit.threadEndpoints(),
+      runtimeConnectionStatus,
     );
+    store.setContext(context);
+    hasDispatchedContext.set(true);
   });
 
   effect((onCleanup) => {
@@ -225,6 +236,7 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
     renameThread: (threadId: string, name: string) =>
       store.renameThread(threadId, name),
     archiveThread: (threadId: string) => store.archiveThread(threadId),
+    unarchiveThread: (threadId: string) => store.unarchiveThread(threadId),
     deleteThread: (threadId: string) => store.deleteThread(threadId),
   };
 }
