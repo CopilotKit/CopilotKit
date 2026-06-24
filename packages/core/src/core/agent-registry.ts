@@ -319,6 +319,7 @@ export class AgentRegistry {
     if (agent instanceof HttpAgent) {
       agent.headers = {
         ...(this.core as unknown as CopilotKitCoreFriendsAccess).headers,
+        ...agent.headers,
       };
     }
   }
