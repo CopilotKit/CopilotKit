@@ -36,7 +36,8 @@
     "sync:plugin-skills": "tsx scripts/sync-plugin-skills.ts",
     "parity:sync": "tsx examples/integrations/_parity/sync.ts",
     "parity:verify": "tsx examples/integrations/_parity/verify.ts",
-    "parity:check": "tsx examples/integrations/_parity/verify.ts --no-color"
+    "parity:check": "tsx examples/integrations/_parity/verify.ts --no-color",
+    "eval:skill:setup": "node skill-evals/copilotkit-setup/lift/run.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
@@ -65,6 +66,7 @@
     "remark-mdx": "^3.1.1",
     "remark-parse": "^11.0.0",
     "size-limit": "12.1.0",
+    "skillgrade": "0.1.5",
     "storybook": "^10.2.10",
     "ts-node": "^10.9.2",
     "tsdown": "^0.20.3",
