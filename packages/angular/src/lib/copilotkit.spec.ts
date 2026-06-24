@@ -22,6 +22,7 @@ import {
   A2UI_DEFAULT_DESIGN_GUIDELINES,
   A2UI_DEFAULT_GENERATION_GUIDELINES,
 } from "@copilotkit/shared";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 
 const mockSubscribe = vi.fn();
 const mockAddTool = vi.fn();
@@ -29,20 +30,27 @@ const mockRemoveTool = vi.fn();
 const mockSetRuntimeUrl = vi.fn();
 const mockSetRuntimeTransport = vi.fn();
 const mockSetHeaders = vi.fn();
+const mockSetCredentials = vi.fn();
 const mockSetProperties = vi.fn();
 const mockSetAgents = vi.fn();
 const mockGetAgent = vi.fn();
 const mockGetTool = vi.fn();
 const mockAddContext = vi.fn();
 const mockRemoveContext = vi.fn();
+const mockRegisterThreadStore = vi.fn();
+const mockUnregisterThreadStore = vi.fn();
 
 const licenseKey = "ck_pub_" + "a".repeat(32);
 
 let lastCoreInstance: any;
 let lastCoreConfig: any;
 
+function recordCoreInstance(core: any): void {
+  lastCoreInstance = core;
+}
+
 vi.mock("@copilotkit/core", () => {
-  const CopilotKitCoreRuntimeConnectionStatus = {
+  const MockCopilotKitCoreRuntimeConnectionStatus = {
     Disconnected: "disconnected",
     Connected: "connected",
     Connecting: "connecting",
@@ -53,28 +61,42 @@ vi.mock("@copilotkit/core", () => {
     readonly subscribe = mockSubscribe;
     readonly addTool = mockAddTool;
     readonly removeTool = mockRemoveTool;
-    readonly setRuntimeUrl = mockSetRuntimeUrl;
     readonly setRuntimeTransport = mockSetRuntimeTransport;
     readonly setHeaders = mockSetHeaders;
+    readonly setCredentials = mockSetCredentials;
     readonly setProperties = mockSetProperties;
     readonly setAgents__unsafe_dev_only = mockSetAgents;
     readonly getAgent = mockGetAgent;
     readonly getTool = mockGetTool;
     readonly addContext = mockAddContext;
     readonly removeContext = mockRemoveContext;
+    readonly registerThreadStore = mockRegisterThreadStore;
+    readonly unregisterThreadStore = mockUnregisterThreadStore;
     agents: Record<string, any> = {};
-    runtimeUrl = undefined;
+    runtimeUrl: string | undefined = undefined;
     runtimeTransport = "auto";
     headers: Record<string, string> = {};
+    credentials: RequestCredentials | undefined = undefined;
+    intelligence?: { wsUrl: string };
+    threadEndpoints?: {
+      list: boolean;
+      inspect: boolean;
+      mutations: boolean;
+      realtimeMetadata: boolean;
+    };
     a2uiEnabled = false;
     openGenerativeUIEnabled = false;
     runtimeConnectionStatus =
-      CopilotKitCoreRuntimeConnectionStatus.Disconnected;
+      MockCopilotKitCoreRuntimeConnectionStatus.Disconnected;
     listener?: Parameters<typeof mockSubscribe>[0];
 
     constructor(config: any) {
       lastCoreConfig = config;
-      lastCoreInstance = this;
+      recordCoreInstance(this);
+      this.runtimeUrl = config.runtimeUrl?.replace(/\/$/, "");
+      this.runtimeTransport = config.runtimeTransport ?? "auto";
+      this.headers = config.headers ?? {};
+      this.credentials = config.credentials;
       mockSubscribe.mockImplementationOnce((listener: any) => {
         this.listener = listener;
         return { unsubscribe: vi.fn() };
@@ -83,11 +105,17 @@ vi.mock("@copilotkit/core", () => {
         () => `ctx-${mockAddContext.mock.calls.length}`,
       );
     }
+
+    setRuntimeUrl(runtimeUrl: string | undefined) {
+      mockSetRuntimeUrl(runtimeUrl);
+      this.runtimeUrl = runtimeUrl?.replace(/\/$/, "");
+    }
   }
 
   return {
     CopilotKitCore: MockCopilotKitCore,
-    CopilotKitCoreRuntimeConnectionStatus,
+    CopilotKitCoreRuntimeConnectionStatus:
+      MockCopilotKitCoreRuntimeConnectionStatus,
   } as any;
 });
 
@@ -112,6 +140,7 @@ describe("CopilotKit", () => {
       providers: [
         provideCopilotKit({
           runtimeUrl: "https://runtime.local",
+          runtimeTransport: "single",
           headers: { Authorization: "token" },
           properties: { region: "eu" },
           licenseKey,
@@ -139,6 +168,7 @@ describe("CopilotKit", () => {
     const copilotKit = TestBed.inject(CopilotKit);
 
     expect(lastCoreConfig.runtimeUrl).toBe("https://runtime.local");
+    expect(lastCoreConfig.runtimeTransport).toBe("single");
     expect(lastCoreConfig.headers).toEqual({
       Authorization: "token",
       "X-CopilotCloud-Public-Api-Key": licenseKey,
@@ -167,6 +197,7 @@ describe("CopilotKit", () => {
         agentId: undefined,
       },
     ]);
+    expect(copilotKit.runtimeTransport()).toBe("single");
   });
 
   it("tracks client tools and executes handlers within injection context", async () => {
@@ -412,19 +443,59 @@ describe("CopilotKit", () => {
 
     const copilotKit = TestBed.inject(CopilotKit);
 
-    copilotKit.updateRuntime({
-      runtimeUrl: "https://other",
+    (
+      copilotKit.updateRuntime as (
+        options: Parameters<CopilotKit["updateRuntime"]>[0] & {
+          credentials?: RequestCredentials;
+        },
+      ) => void
+    )({
+      runtimeUrl: "https://other/",
       runtimeTransport: "single",
       headers: { Authorization: "different" },
+      credentials: "include",
       properties: { locale: "en" },
       agents: { a: {} as any },
     });
 
-    expect(mockSetRuntimeUrl).toHaveBeenCalledWith("https://other");
+    expect(mockSetRuntimeUrl).toHaveBeenCalledWith("https://other/");
+    expect(copilotKit.runtimeUrl()).toBe("https://other");
     expect(mockSetRuntimeTransport).toHaveBeenCalledWith("single");
     expect(mockSetHeaders).toHaveBeenCalledWith({ Authorization: "different" });
+    expect(mockSetCredentials).toHaveBeenCalledWith("include");
+    expect(copilotKit.credentials()).toBe("include");
     expect(mockSetProperties).toHaveBeenCalledWith({ locale: "en" });
     expect(mockSetAgents).toHaveBeenCalledWith({ a: {} });
+  });
+
+  it("clears runtime credentials when updateRuntime receives an explicit undefined value", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey, credentials: "include" })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    expect(copilotKit.credentials()).toBe("include");
+
+    copilotKit.updateRuntime({ credentials: undefined });
+
+    expect(mockSetCredentials).toHaveBeenCalledWith(undefined);
+    expect(copilotKit.credentials()).toBeUndefined();
+  });
+
+  it("mirrors direct core credential updates into the Angular signal", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = lastCoreInstance!;
+
+    core.credentials = "include";
+    core.listener!.onCredentialsChanged({
+      credentials: "include",
+    });
+
+    expect(copilotKit.credentials()).toBe("include");
   });
 
   it("reflects agent updates from core subscriptions", () => {
@@ -441,6 +512,49 @@ describe("CopilotKit", () => {
 
     core.listener!.onAgentsChanged();
     expect(copilotKit.agents()).toEqual(core.agents);
+  });
+
+  it("mirrors thread runtime info and delegates thread-store registration", () => {
+    TestBed.configureTestingModule({
+      providers: [provideCopilotKit({ licenseKey })],
+    });
+
+    const copilotKit = TestBed.inject(CopilotKit);
+    const core = lastCoreInstance!;
+    const threadStore = { start: vi.fn() } as any;
+
+    core.intelligence = { wsUrl: "wss://runtime.local/client" };
+    core.threadEndpoints = {
+      list: true,
+      inspect: true,
+      mutations: false,
+      realtimeMetadata: true,
+    };
+    core.listener!.onRuntimeConnectionStatusChanged({
+      status: CopilotKitCoreRuntimeConnectionStatus.Connected,
+    });
+
+    expect(copilotKit.intelligence()).toEqual({
+      wsUrl: "wss://runtime.local/client",
+    });
+    expect(copilotKit.threadEndpoints()).toEqual({
+      list: true,
+      inspect: true,
+      mutations: false,
+      realtimeMetadata: true,
+    });
+
+    copilotKit.registerThreadStore("agent-1", threadStore);
+    copilotKit.unregisterThreadStore("agent-1");
+
+    expect(mockRegisterThreadStore).toHaveBeenCalledWith(
+      "agent-1",
+      threadStore,
+    );
+    expect(mockUnregisterThreadStore).toHaveBeenCalledWith(
+      "agent-1",
+      undefined,
+    );
   });
 
   it("does not add a watermark when license key is missing (watermark disabled)", () => {

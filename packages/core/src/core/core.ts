@@ -166,6 +166,10 @@ export interface CopilotKitCoreSubscriber {
     copilotkit: CopilotKitCore;
     headers: Readonly<Record<string, string>>;
   }) => void | Promise<void>;
+  onCredentialsChanged?: (event: {
+    copilotkit: CopilotKitCore;
+    credentials: RequestCredentials | undefined;
+  }) => void | Promise<void>;
   onError?: (event: {
     copilotkit: CopilotKitCore;
     error: Error;
@@ -292,6 +296,7 @@ export interface CopilotKitCoreFriendsAccess {
     handler: (subscriber: CopilotKitCoreSubscriber) => void | Promise<void>,
     errorMessage: string,
   ): Promise<void>;
+  getSubscribersSnapshot(): CopilotKitCoreSubscriber[];
 
   emitError(params: {
     error: Error;
@@ -435,10 +440,10 @@ export class CopilotKitCore {
             !currentAgentIds.has(agentId)
           ) {
             try {
-              this.threadStoreRegistry.unregister(agentId);
+              this.threadStoreRegistry.unregisterAll(agentId);
             } catch (err) {
               console.error(
-                `CopilotKitCore.onAgentsChanged: threadStoreRegistry.unregister failed for "${agentId}":`,
+                `CopilotKitCore.onAgentsChanged: threadStoreRegistry.unregisterAll failed for "${agentId}":`,
                 err,
               );
             }
@@ -485,6 +490,14 @@ export class CopilotKitCore {
         }
       }),
     );
+  }
+
+  /**
+   * Internal method used by delegate classes that need to capture notification
+   * recipients at mutation time but invoke them later.
+   */
+  protected getSubscribersSnapshot(): CopilotKitCoreSubscriber[] {
+    return Array.from(this.subscribers);
   }
 
   /**
@@ -705,6 +718,14 @@ export class CopilotKitCore {
     this.agentRegistry.applyCredentialsToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
+    void this.notifySubscribers(
+      (subscriber) =>
+        subscriber.onCredentialsChanged?.({
+          copilotkit: this,
+          credentials: this.credentials,
+        }),
+      "Subscriber onCredentialsChanged error:",
+    );
   }
 
   setProperties(properties: Record<string, unknown>): void {
@@ -791,8 +812,8 @@ export class CopilotKitCore {
     this.threadStoreRegistry.register(agentId, store);
   }
 
-  unregisterThreadStore(agentId: string): void {
-    this.threadStoreRegistry.unregister(agentId);
+  unregisterThreadStore(agentId: string, store?: ɵThreadStore): void {
+    this.threadStoreRegistry.unregister(agentId, store);
   }
 
   getThreadStore(agentId: string): ɵThreadStore | undefined {

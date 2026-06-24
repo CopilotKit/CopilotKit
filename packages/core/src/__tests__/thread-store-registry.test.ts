@@ -13,6 +13,8 @@ function createMockCore() {
   const subscribers = new Set<CopilotKitCoreSubscriber>();
 
   const core = {
+    subscribers,
+    getSubscribersSnapshot: vi.fn(() => Array.from(subscribers)),
     notifySubscribers: vi.fn(
       async (
         fn: (s: CopilotKitCoreSubscriber) => unknown,
@@ -38,6 +40,10 @@ function createMockCore() {
   return { core, subscribers };
 }
 
+function testIdFor(store: ɵThreadStore): string {
+  return (store as unknown as { __testId: string }).__testId;
+}
+
 // Build a typed minimal stub of ɵThreadStore. The registry only stores and
 // hands the reference back to subscribers; the methods are never invoked in
 // these tests. Using `vi.fn()` for every property keeps the shape honest
@@ -59,6 +65,12 @@ function makeStore(id = "store-a"): ɵThreadStore & { __testId: string } {
     select: vi.fn(),
   };
   return Object.assign(store, { __testId: id });
+}
+
+async function flushNotifications(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 describe("ThreadStoreRegistry", () => {
@@ -100,12 +112,12 @@ describe("ThreadStoreRegistry", () => {
     const first = makeStore("first");
     const second = makeStore("second");
     registry.register("agent-1", first);
-    await Promise.resolve();
+    await flushNotifications();
     expect(onRegistered).toHaveBeenCalledTimes(1);
     expect(onUnregistered).not.toHaveBeenCalled();
 
     registry.register("agent-1", second);
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(registry.get("agent-1")).toBe(second);
     expect(onUnregistered).toHaveBeenCalledTimes(1);
@@ -128,6 +140,192 @@ describe("ThreadStoreRegistry", () => {
     expect(unregisterOrder).toBeDefined();
     expect(secondRegisterOrder).toBeDefined();
     expect(unregisterOrder!).toBeLessThan(secondRegisterOrder!);
+  });
+
+  it("waits for async unregister subscribers before notifying replacement registration", async () => {
+    const calls: string[] = [];
+    let finishUnregister: (() => void) | undefined;
+    const subscriber: CopilotKitCoreSubscriber = {
+      onThreadStoreRegistered: ({ store }) => {
+        calls.push(`registered:${testIdFor(store)}`);
+      },
+      onThreadStoreUnregistered: ({ prevStore }) =>
+        new Promise<void>((resolve) => {
+          calls.push(`unregister-start:${testIdFor(prevStore)}`);
+          finishUnregister = () => {
+            calls.push(`unregister-end:${testIdFor(prevStore)}`);
+            resolve();
+          };
+        }),
+    };
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe(subscriber);
+
+    registry.register("agent-1", makeStore("first"));
+    await flushNotifications();
+    registry.register("agent-1", makeStore("second"));
+    await flushNotifications();
+
+    expect(calls).toEqual(["registered:first", "unregister-start:first"]);
+
+    finishUnregister?.();
+    await flushNotifications();
+
+    expect(calls).toEqual([
+      "registered:first",
+      "unregister-start:first",
+      "unregister-end:first",
+      "registered:second",
+    ]);
+  });
+
+  it("does not let a pending same-agent unregister block unrelated agent notifications", async () => {
+    const calls: string[] = [];
+    const subscriber: CopilotKitCoreSubscriber = {
+      onThreadStoreRegistered: ({ agentId, store }) => {
+        calls.push(`registered:${agentId}:${testIdFor(store)}`);
+      },
+      onThreadStoreUnregistered: ({ agentId, prevStore }) => {
+        calls.push(`unregister-start:${agentId}:${testIdFor(prevStore)}`);
+        return new Promise<void>(() => {});
+      },
+    };
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe(subscriber);
+
+    registry.register("agent-1", makeStore("first"));
+    await flushNotifications();
+    registry.register("agent-1", makeStore("second"));
+    await flushNotifications();
+
+    registry.register("agent-2", makeStore("unrelated"));
+    await flushNotifications();
+
+    expect(calls).toEqual([
+      "registered:agent-1:first",
+      "unregister-start:agent-1:first",
+      "registered:agent-2:unrelated",
+    ]);
+  });
+
+  it("restores the previous same-agent store when the active replacement unregisters", async () => {
+    const onRegistered = vi.fn();
+    const onUnregistered = vi.fn();
+    const subscriber: CopilotKitCoreSubscriber = {
+      onThreadStoreRegistered: onRegistered,
+      onThreadStoreUnregistered: onUnregistered,
+    };
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe(subscriber);
+
+    const first = makeStore("first");
+    const second = makeStore("second");
+    registry.register("agent-1", first);
+    registry.register("agent-1", second);
+    await flushNotifications();
+
+    expect(registry.get("agent-1")).toBe(second);
+
+    registry.unregister("agent-1", second);
+    await flushNotifications();
+
+    expect(registry.get("agent-1")).toBe(first);
+    expect(registry.getAll()["agent-1"]).toBe(first);
+    expect(onUnregistered).toHaveBeenLastCalledWith(
+      expect.objectContaining({ agentId: "agent-1", prevStore: second }),
+    );
+    expect(onRegistered).toHaveBeenLastCalledWith(
+      expect.objectContaining({ agentId: "agent-1", store: first }),
+    );
+  });
+
+  it("removes a non-active same-agent store without unregistering the active store", async () => {
+    const onRegistered = vi.fn();
+    const onUnregistered = vi.fn();
+    const subscriber: CopilotKitCoreSubscriber = {
+      onThreadStoreRegistered: onRegistered,
+      onThreadStoreUnregistered: onUnregistered,
+    };
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe(subscriber);
+
+    const first = makeStore("first");
+    const second = makeStore("second");
+    registry.register("agent-1", first);
+    registry.register("agent-1", second);
+    await flushNotifications();
+
+    registry.unregister("agent-1", first);
+    await flushNotifications();
+
+    expect(registry.get("agent-1")).toBe(second);
+    expect(registry.getAll()["agent-1"]).toBe(second);
+    expect(onRegistered).toHaveBeenCalledTimes(2);
+    expect(onUnregistered).toHaveBeenCalledTimes(1);
+
+    registry.unregister("agent-1", second);
+    await flushNotifications();
+
+    expect(registry.get("agent-1")).toBeUndefined();
+    expect(onUnregistered).toHaveBeenCalledTimes(2);
+    expect(onRegistered).toHaveBeenCalledTimes(2);
+  });
+
+  it("unregisterAll clears every same-agent store without restoring an older store", async () => {
+    const onRegistered = vi.fn();
+    const onUnregistered = vi.fn();
+    const subscriber: CopilotKitCoreSubscriber = {
+      onThreadStoreRegistered: onRegistered,
+      onThreadStoreUnregistered: onUnregistered,
+    };
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe(subscriber);
+
+    const first = makeStore("first");
+    const second = makeStore("second");
+    registry.register("agent-1", first);
+    registry.register("agent-1", second);
+    await flushNotifications();
+
+    registry.unregisterAll("agent-1");
+    await flushNotifications();
+
+    expect(registry.get("agent-1")).toBeUndefined();
+    expect(registry.getAll()["agent-1"]).toBeUndefined();
+    expect(onRegistered).toHaveBeenCalledTimes(2);
+    expect(onUnregistered).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: "agent-1", prevStore: second }),
+    );
+    expect(onUnregistered).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: "agent-1", prevStore: first }),
+    );
+  });
+
+  it("unregisterAll works without Array.prototype.toReversed", async () => {
+    const arrayPrototype = Array.prototype as { toReversed?: unknown };
+    const originalToReversed = arrayPrototype.toReversed;
+    try {
+      delete arrayPrototype.toReversed;
+      const first = makeStore("first");
+      const second = makeStore("second");
+      registry.register("agent-1", first);
+      registry.register("agent-1", second);
+      await flushNotifications();
+
+      expect(() => registry.unregisterAll("agent-1")).not.toThrow();
+      await flushNotifications();
+
+      expect(registry.get("agent-1")).toBeUndefined();
+    } finally {
+      if (originalToReversed !== undefined) {
+        arrayPrototype.toReversed = originalToReversed;
+      }
+    }
   });
 
   it("unregister removes the store", () => {
@@ -154,7 +352,7 @@ describe("ThreadStoreRegistry", () => {
     registry.register("agent-1", store);
 
     // notifyRegistered is fire-and-forget (void); flush microtasks
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(onRegistered).toHaveBeenCalledWith(
       expect.objectContaining({ agentId: "agent-1", store }),
@@ -172,9 +370,10 @@ describe("ThreadStoreRegistry", () => {
 
     const store = makeStore();
     registry.register("agent-1", store);
+    await flushNotifications();
     registry.unregister("agent-1");
 
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(onUnregistered).toHaveBeenCalledWith(
       expect.objectContaining({ agentId: "agent-1", prevStore: store }),
@@ -191,7 +390,7 @@ describe("ThreadStoreRegistry", () => {
     ).subscribe(subscriber);
 
     registry.unregister("nonexistent");
-    await Promise.resolve();
+    await flushNotifications();
 
     expect(onUnregistered).not.toHaveBeenCalled();
   });
@@ -236,7 +435,7 @@ describe("ThreadStoreRegistry", () => {
       // retrievable even though one subscriber threw.
       expect(registry.get("agent-1")).toBe(store);
 
-      await Promise.resolve();
+      await flushNotifications();
 
       expect(throwing).toHaveBeenCalledTimes(1);
       expect(ok).toHaveBeenCalledTimes(1);

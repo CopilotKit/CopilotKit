@@ -91,6 +91,16 @@ const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed si
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
 
+function threadActivityTime(thread: ɵThread): string {
+  return thread.lastRunAt ?? thread.updatedAt ?? thread.createdAt;
+}
+
+function compareThreadsByActivity(left: ɵThread, right: ɵThread): number {
+  return (
+    Date.parse(threadActivityTime(right)) - Date.parse(threadActivityTime(left))
+  );
+}
+
 type InspectorAgentEventType =
   | "RUN_STARTED"
   | "RUN_FINISHED"
@@ -529,6 +539,10 @@ class CpkThreadList extends LitElement {
     return `${diffD}d ago`;
   }
 
+  private threadActivityTime(thread: ɵThread): string {
+    return thread.lastRunAt ?? thread.updatedAt ?? thread.createdAt;
+  }
+
   private get filtered(): ɵThread[] {
     const q = this._query.toLowerCase();
     if (!q) return this.threads;
@@ -589,7 +603,7 @@ class CpkThreadList extends LitElement {
                     >${thread.name ?? "Untitled"}</span
                   >
                   <span class="cpk-tl__time"
-                    >${this.relativeTime(thread.updatedAt)}</span
+                    >${this.relativeTime(this.threadActivityTime(thread))}</span
                   >
                 </div>
                 <div class="cpk-tl__meta">
@@ -676,6 +690,7 @@ export class ɵCpkThreadDetails extends LitElement {
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
+    credentials: { attribute: false },
     threadInspectionAvailable: { attribute: false },
     agentStateInput: { attribute: false },
     agentEventsInput: { attribute: false },
@@ -704,6 +719,7 @@ export class ɵCpkThreadDetails extends LitElement {
   thread: ɵThread | null = null;
   runtimeUrl = "";
   headers: Record<string, string> = {};
+  credentials?: RequestCredentials;
   threadInspectionAvailable = false;
   agentStateInput: Record<string, unknown> | null = null;
   agentEventsInput: ApiAgentEvent[] = [];
@@ -778,6 +794,7 @@ export class ɵCpkThreadDetails extends LitElement {
    */
   private _stateFetched = false;
   private _lastFetchedThreadId: string | null = null;
+  private _lastFetchedDetailKey = "";
   private _lastSeenLiveMessageVersion = 0;
   private _messagesAbort: AbortController | null = null;
   private _eventsAbort: AbortController | null = null;
@@ -1395,9 +1412,21 @@ export class ɵCpkThreadDetails extends LitElement {
     }
   `;
 
+  private detailFetchKey(): string {
+    return JSON.stringify({
+      runtimeUrl: this.runtimeUrl,
+      headers: Object.entries(this.headers).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+      credentials: this.credentials ?? null,
+      threadInspectionAvailable: this.threadInspectionAvailable,
+    });
+  }
+
   updated(_changed: Map<string, unknown>): void {
     if (this.threadId !== this._lastFetchedThreadId) {
       this._lastFetchedThreadId = this.threadId;
+      this._lastFetchedDetailKey = this.detailFetchKey();
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
       this._tab = "conversation";
       this._activatedTabs = new Set(["conversation"]);
@@ -1430,6 +1459,24 @@ export class ɵCpkThreadDetails extends LitElement {
       }
     } else if (
       this.threadId &&
+      this.detailFetchKey() !== this._lastFetchedDetailKey
+    ) {
+      this._lastFetchedDetailKey = this.detailFetchKey();
+      this._messagesAbort?.abort();
+      this._messagesAbort = null;
+      this._eventsAbort?.abort();
+      this._eventsAbort = null;
+      this._stateAbort?.abort();
+      this._stateAbort = null;
+      void this.fetchMessages(this.threadId);
+      if (this._eventsFetched) {
+        void this.fetchEvents(this.threadId);
+      }
+      if (this._stateFetched) {
+        void this.fetchState(this.threadId);
+      }
+    } else if (
+      this.threadId &&
       this.liveMessageVersion !== this._lastSeenLiveMessageVersion
     ) {
       // Same thread, but the parent inspector signalled new agent-emitted
@@ -1439,6 +1486,9 @@ export class ɵCpkThreadDetails extends LitElement {
       // mapping in the parent. `silent: true` so the loading-state indicator
       // doesn't flash between every streaming chunk and we keep the
       // last-good view on transient fetch errors.
+      if (this._loadingMessages) {
+        return;
+      }
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
       this._messagesAbort?.abort();
       this._messagesAbort = null;
@@ -1473,7 +1523,11 @@ export class ɵCpkThreadDetails extends LitElement {
     try {
       const res = await fetch(
         `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
-        { headers: { ...this.headers }, signal: controller.signal },
+        {
+          headers: { ...this.headers },
+          credentials: this.credentials,
+          signal: controller.signal,
+        },
       );
       if (controller.signal.aborted || this.threadId !== threadId) return;
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1509,7 +1563,11 @@ export class ɵCpkThreadDetails extends LitElement {
     try {
       const res = await fetch(
         `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/events`,
-        { headers: { ...this.headers }, signal: controller.signal },
+        {
+          headers: { ...this.headers },
+          credentials: this.credentials,
+          signal: controller.signal,
+        },
       );
       // Drop results if a newer fetch superseded this one (thread switched
       // mid-flight). Without this, switching A→B can leave thread B's view
@@ -1556,7 +1614,11 @@ export class ɵCpkThreadDetails extends LitElement {
     try {
       const res = await fetch(
         `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/state`,
-        { headers: { ...this.headers }, signal: controller.signal },
+        {
+          headers: { ...this.headers },
+          credentials: this.credentials,
+          signal: controller.signal,
+        },
       );
       if (controller.signal.aborted || this.threadId !== threadId) return;
       if (res.status === 501) {
@@ -2533,7 +2595,6 @@ export class WebInspectorElement extends LitElement {
     if (this._threadStoreSubscriptions.has(agentId)) return;
     const threadsSub = store.select(ɵselectThreads).subscribe((threads) => {
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
-      this._threads = Array.from(this._threadsByAgent.values()).flat();
       this.autoSelectLatestThread();
       this.requestUpdate();
     });
@@ -2558,18 +2619,28 @@ export class WebInspectorElement extends LitElement {
     } else {
       this._threadsErrorByAgent.delete(agentId);
     }
-    this._threads = Array.from(this._threadsByAgent.values()).flat();
     this.autoSelectLatestThread();
   }
 
   private autoSelectLatestThread(): void {
-    if (this._threads.length === 0) return;
+    this._threads = Array.from(this._threadsByAgent.values())
+      .flat()
+      .sort(compareThreadsByActivity);
+    const displayThreads =
+      this.selectedContext === "all-agents"
+        ? this._threads
+        : [...(this._threadsByAgent.get(this.selectedContext) ?? [])].sort(
+            compareThreadsByActivity,
+          );
+    if (displayThreads.length === 0) {
+      this.selectedThreadId = null;
+      return;
+    }
     const stillValid =
       this.selectedThreadId != null &&
-      this._threads.some((t) => t.id === this.selectedThreadId);
+      displayThreads.some((t) => t.id === this.selectedThreadId);
     if (!stillValid) {
-      // Threads are sorted most-recently-updated first
-      this.selectedThreadId = this._threads[0]!.id;
+      this.selectedThreadId = displayThreads[0]!.id;
     }
   }
 
@@ -2581,6 +2652,7 @@ export class WebInspectorElement extends LitElement {
     this._threadsByAgent.clear();
     this._threadsErrorByAgent.clear();
     this._threads = [];
+    this.selectedThreadId = null;
   }
 
   private ensureOwnedThreadStore(agentId: string): void {
@@ -2593,12 +2665,7 @@ export class WebInspectorElement extends LitElement {
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
-    store.setContext({
-      runtimeUrl: core.runtimeUrl,
-      headers: { ...core.headers },
-      wsUrl: core.intelligence?.wsUrl,
-      agentId,
-    });
+    store.setContext(this.createOwnedThreadStoreContext(core, agentId));
     this._ownedThreadStores.set(agentId, store);
     // Subscribe directly so threads render even before the registry callback
     // fires (some published-core code paths land on the subscriber after
@@ -2610,6 +2677,16 @@ export class WebInspectorElement extends LitElement {
   private refreshOwnedThreadStore(agentId: string): void {
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
+    const core = this.core;
+    if (core?.runtimeUrl) {
+      const nextContext = this.createOwnedThreadStoreContext(core, agentId);
+      if (
+        !this.isSameThreadStoreContext(store.getState().context, nextContext)
+      ) {
+        store.setContext(nextContext);
+        return;
+      }
+    }
     // refresh() re-fetches without resetting threads to [] first, so the list
     // stays visible while new data loads and survives transient fetch failures.
     store.refresh();
@@ -2625,26 +2702,50 @@ export class WebInspectorElement extends LitElement {
     const core = this.core;
     if (!core?.runtimeUrl) return;
     for (const [agentId, store] of this._ownedThreadStores) {
-      store.setContext({
-        runtimeUrl: core.runtimeUrl,
-        headers: { ...headers },
-        agentId,
-      });
+      store.setContext(
+        this.createOwnedThreadStoreContext(core, agentId, headers),
+      );
     }
+  }
+
+  private createOwnedThreadStoreContext(
+    core: CopilotKitCore,
+    agentId: string,
+    headers: Readonly<Record<string, string>> = core.headers,
+  ): Parameters<ɵThreadStore["setContext"]>[0] {
+    if (!core.runtimeUrl) {
+      throw new Error("Cannot create thread store context without runtimeUrl");
+    }
+
+    return {
+      runtimeUrl: core.runtimeUrl,
+      headers: { ...headers },
+      credentials: core.credentials,
+      wsUrl: core.intelligence?.wsUrl,
+      agentId,
+      threadEndpoints: core.threadEndpoints,
+    };
+  }
+
+  private isSameThreadStoreContext(
+    current: Parameters<ɵThreadStore["setContext"]>[0] | null | undefined,
+    next: Parameters<ɵThreadStore["setContext"]>[0],
+  ): boolean {
+    return JSON.stringify(current ?? null) === JSON.stringify(next);
   }
 
   private removeOwnedThreadStore(agentId: string): void {
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
     store.stop();
-    this.core?.unregisterThreadStore(agentId);
+    this.core?.unregisterThreadStore(agentId, store);
     this._ownedThreadStores.delete(agentId);
   }
 
   private teardownOwnedThreadStores(): void {
     for (const [agentId, store] of this._ownedThreadStores) {
       store.stop();
-      this.core?.unregisterThreadStore(agentId);
+      this.core?.unregisterThreadStore(agentId, store);
     }
     this._ownedThreadStores.clear();
   }
@@ -2684,6 +2785,10 @@ export class WebInspectorElement extends LitElement {
       onHeadersChanged: ({ headers }) => {
         this.updateOwnedThreadStoreHeaders(headers);
       },
+      onCredentialsChanged: () => {
+        this.updateOwnedThreadStoreHeaders(core.headers);
+        this.requestUpdate();
+      },
       onError: ({ code, error }) => {
         this.lastCoreError = { code, message: error.message };
         this.requestUpdate();
@@ -2699,7 +2804,13 @@ export class WebInspectorElement extends LitElement {
         this.subscribeToThreadStore(agentId, store);
         this.requestUpdate();
       },
-      onThreadStoreUnregistered: ({ agentId }) => {
+      onThreadStoreUnregistered: ({ agentId, prevStore }) => {
+        const ownedStore = this._ownedThreadStores.get(agentId);
+        if (ownedStore && ownedStore === prevStore) {
+          core.unregisterThreadStore(agentId, ownedStore);
+          ownedStore.stop();
+          this._ownedThreadStores.delete(agentId);
+        }
         const unsub = this._threadStoreSubscriptions.get(agentId);
         if (unsub) {
           unsub();
@@ -2707,7 +2818,7 @@ export class WebInspectorElement extends LitElement {
         }
         this._threadsByAgent.delete(agentId);
         this._threadsErrorByAgent.delete(agentId);
-        this._threads = Array.from(this._threadsByAgent.values()).flat();
+        this.autoSelectLatestThread();
         this.requestUpdate();
       },
     } satisfies CopilotKitCoreSubscriber;
@@ -5882,21 +5993,19 @@ ${argsString}</pre
         <!-- Center + right: thread details or empty state -->
         <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
           ${
-            this.selectedThreadId
+            selectedThread
               ? html`<cpk-thread-details
                   style="flex:1;min-width:0;"
-                  .threadId=${this.selectedThreadId}
+                  .threadId=${selectedThread.id}
                   .thread=${selectedThread}
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
+                  .credentials=${this._core?.credentials}
                   .threadInspectionAvailable=${
                     this._core?.threadEndpoints?.inspect !== false
                   }
                   .liveMessageVersion=${
-                    this.selectedThreadId
-                      ? (this.liveMessageVersion.get(this.selectedThreadId) ??
-                        0)
-                      : 0
+                    this.liveMessageVersion.get(selectedThread.id) ?? 0
                   }
                   .agentStateInput=${
                     selectedThread
@@ -6608,7 +6717,7 @@ ${prettyEvent}</pre
     }
 
     if (key === "threads") {
-      if (this.selectedMenu !== "threads" && !this.core?.telemetryDisabled) {
+      if (previousMenu !== "threads" && !this.core?.telemetryDisabled) {
         trackThreadsTabClicked();
       }
       this.autoSelectLatestThread();
@@ -6641,6 +6750,7 @@ ${prettyEvent}</pre
     if (this.selectedContext !== key) {
       this.selectedContext = key;
       this.expandedRows.clear();
+      this.autoSelectLatestThread();
     }
 
     this.contextMenuOpen = false;

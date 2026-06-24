@@ -21,9 +21,40 @@ import {
  *  by the factory so that AgentStore stays decoupled from the concrete class. */
 type SubscribeToAgentFn = CopilotKitCore["subscribeToAgentWithOptions"];
 type AgentWithHeaders = AbstractAgent & { headers?: Record<string, string> };
+type AgentWithCredentials = AbstractAgent & {
+  credentials?: RequestCredentials;
+};
+
+const PROVISIONAL_CACHE_KEY_SEPARATOR = "\u0000";
+
+function provisionalCacheKey(
+  agentId: string,
+  runtimeUrl: string,
+  transport: string,
+): string {
+  return [agentId, runtimeUrl, transport].join(PROVISIONAL_CACHE_KEY_SEPARATOR);
+}
+
+function deleteProvisionalAgentsForId(
+  cache: Map<string, ProxiedCopilotRuntimeAgent>,
+  agentId: string,
+): void {
+  const prefix = `${agentId}${PROVISIONAL_CACHE_KEY_SEPARATOR}`;
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) {
+      cache.delete(key);
+    }
+  }
+}
 
 function hasAgentHeaders(agent: AbstractAgent): agent is AgentWithHeaders {
   return "headers" in agent;
+}
+
+function hasAgentCredentials(
+  agent: AbstractAgent,
+): agent is AgentWithCredentials {
+  return "credentials" in agent;
 }
 
 export class AgentStore {
@@ -101,7 +132,7 @@ export class CopilotkitAgentFactory {
       const resolvedAgentId = agentId() || DEFAULT_AGENT_ID;
       const existing = this.#copilotkit.getAgent(resolvedAgentId);
       if (existing) {
-        provisionalCache.delete(resolvedAgentId);
+        deleteProvisionalAgentsForId(provisionalCache, resolvedAgentId);
         return existing;
       }
 
@@ -119,10 +150,20 @@ export class CopilotkitAgentFactory {
             CopilotKitCoreRuntimeConnectionStatus.Error)
       ) {
         const headers = this.#copilotkit.headers();
-        const cached = provisionalCache.get(resolvedAgentId);
+        const credentials = this.#copilotkit.credentials();
+        const transport = this.#copilotkit.runtimeTransport();
+        const cacheKey = provisionalCacheKey(
+          resolvedAgentId,
+          runtimeUrl,
+          transport,
+        );
+        const cached = provisionalCache.get(cacheKey);
         if (cached) {
           if (hasAgentHeaders(cached)) {
             cached.headers = { ...headers };
+          }
+          if (hasAgentCredentials(cached)) {
+            cached.credentials = credentials;
           }
           return cached;
         }
@@ -130,12 +171,14 @@ export class CopilotkitAgentFactory {
         const provisional = new ProxiedCopilotRuntimeAgent({
           runtimeUrl,
           agentId: resolvedAgentId,
-          transport: this.#copilotkit.runtimeTransport(),
+          transport,
+          credentials,
+          runtimeMode: "pending",
         });
         if (hasAgentHeaders(provisional)) {
           provisional.headers = { ...headers };
         }
-        provisionalCache.set(resolvedAgentId, provisional);
+        provisionalCache.set(cacheKey, provisional);
         return provisional;
       }
 

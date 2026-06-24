@@ -39,6 +39,15 @@ interface MockSocketLike {
   triggerOpen(): void;
 }
 
+interface RegisteredThreadStoreLike {
+  getState(): {
+    context: {
+      credentials?: RequestCredentials;
+      threadEndpoints?: unknown;
+    } | null;
+  };
+}
+
 const phoenix = vi.hoisted(() => ({
   sockets: [] as MockSocketLike[],
 }));
@@ -338,20 +347,23 @@ describe("useThreads", () => {
   });
 
   it("does not fetch when the runtime does not advertise thread endpoints", async () => {
+    const registerThreadStore = vi.fn();
+    const disabledThreadEndpoints = {
+      list: false,
+      inspect: false,
+      mutations: false,
+      realtimeMetadata: false,
+    };
+
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {
         runtimeUrl: "http://localhost:4000",
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         headers: { Authorization: "Bearer test-token" },
-        threadEndpoints: {
-          list: false,
-          inspect: false,
-          mutations: false,
-          realtimeMetadata: false,
-        },
+        threadEndpoints: disabledThreadEndpoints,
         intelligence: undefined,
-        registerThreadStore: vi.fn(),
+        registerThreadStore,
         unregisterThreadStore: vi.fn(),
       },
     });
@@ -366,6 +378,13 @@ describe("useThreads", () => {
     expect(result.current.threads).toEqual([]);
     expect(result.current.error?.message).toBe(
       "Thread endpoints are not available on this CopilotKit runtime",
+    );
+
+    const store = registerThreadStore.mock.calls[0]?.[1] as
+      | RegisteredThreadStoreLike
+      | undefined;
+    expect(store?.getState().context?.threadEndpoints).toBe(
+      disabledThreadEndpoints,
     );
   });
 
@@ -401,21 +420,51 @@ describe("useThreads", () => {
     expect(result.current.error).toBeNull();
   });
 
-  it("rejects mutations locally when the runtime reports mutations are unsupported", async () => {
+  it("passes provider credentials into the shared thread store context", async () => {
+    const registerThreadStore = vi.fn();
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {
         runtimeUrl: "http://localhost:4000",
         runtimeConnectionStatus:
           CopilotKitCoreRuntimeConnectionStatus.Connected,
         headers: { Authorization: "Bearer test-token" },
-        threadEndpoints: {
-          list: true,
-          inspect: true,
-          mutations: false,
-          realtimeMetadata: false,
-        },
+        credentials: "include",
+        threadEndpoints: supportedThreadEndpoints,
         intelligence: undefined,
-        registerThreadStore: vi.fn(),
+        registerThreadStore,
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+    fetchMock.mockReturnValueOnce(jsonResponse({ threads: sampleThreads }));
+
+    renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      const store = registerThreadStore.mock.calls[0]?.[1] as
+        | RegisteredThreadStoreLike
+        | undefined;
+      expect(store?.getState().context?.credentials).toBe("include");
+    });
+  });
+
+  it("rejects mutations when the runtime reports mutations are unsupported", async () => {
+    const registerThreadStore = vi.fn();
+    const mutationDisabledThreadEndpoints = {
+      list: true,
+      inspect: true,
+      mutations: false,
+      realtimeMetadata: false,
+    };
+
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: mutationDisabledThreadEndpoints,
+        intelligence: undefined,
+        registerThreadStore,
         unregisterThreadStore: vi.fn(),
       },
     });
@@ -426,6 +475,13 @@ describe("useThreads", () => {
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
+
+    const store = registerThreadStore.mock.calls[0]?.[1] as
+      | RegisteredThreadStoreLike
+      | undefined;
+    expect(store?.getState().context?.threadEndpoints).toBe(
+      mutationDisabledThreadEndpoints,
+    );
 
     fetchMock.mockClear();
 
@@ -679,9 +735,16 @@ describe("useThreads", () => {
   });
 
   it("does not expose organizationId or createdById on threads", async () => {
+    const threadsWithLastRunAt = [
+      {
+        ...sampleThreads[0],
+        lastRunAt: "2026-01-01T12:00:00Z",
+      },
+    ];
+
     fetchMock
       .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        jsonResponse({ threads: threadsWithLastRunAt, joinCode: "jc-1" }),
       )
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
@@ -691,16 +754,19 @@ describe("useThreads", () => {
       expect(result.current.isLoading).toBe(false);
     });
 
-    for (const thread of result.current.threads) {
-      expect(thread).not.toHaveProperty("organizationId");
-      expect(thread).not.toHaveProperty("createdById");
-      expect(thread).toHaveProperty("id");
-      expect(thread).toHaveProperty("agentId");
-      expect(thread).toHaveProperty("name");
-      expect(thread).toHaveProperty("archived");
-      expect(thread).toHaveProperty("createdAt");
-      expect(thread).toHaveProperty("updatedAt");
-    }
+    expect(result.current.threads).toEqual([
+      {
+        id: "t-1",
+        agentId: "agent-1",
+        name: "Thread One",
+        archived: false,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-01T00:00:00Z",
+        lastRunAt: "2026-01-01T12:00:00Z",
+      },
+    ]);
+    expect(result.current.threads[0]).not.toHaveProperty("organizationId");
+    expect(result.current.threads[0]).not.toHaveProperty("createdById");
   });
 
   it("tears down sockets after repeated connection failures", async () => {
@@ -800,7 +866,10 @@ describe("useThreads", () => {
 
     unmount();
 
-    expect(unregisterThreadStore).toHaveBeenCalledWith("agent-1");
+    expect(unregisterThreadStore).toHaveBeenCalledWith(
+      "agent-1",
+      expect.objectContaining({ select: expect.any(Function) }),
+    );
   });
 
   it("waits for runtimeConnectionStatus=Connected before fetching /threads", async () => {
@@ -880,5 +949,80 @@ describe("useThreads", () => {
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
+  });
+
+  it("does not stay loading when runtime info fails before first connect", async () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Error,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: undefined,
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.threads).toEqual([]);
+  });
+
+  it("clears stale threads when input changes while runtime is disconnected", async () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+
+    fetchMock
+      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const { result, rerender } = renderHook(
+      ({ agentId }) => useThreads({ agentId }),
+      {
+        initialProps: { agentId: "agent-1" },
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(2);
+    });
+
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connecting,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+
+    rerender({ agentId: "agent-2" });
+
+    await waitFor(() => {
+      expect(result.current.threads).toEqual([]);
+    });
+    expect(result.current.isLoading).toBe(true);
   });
 });

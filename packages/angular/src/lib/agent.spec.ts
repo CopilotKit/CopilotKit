@@ -151,12 +151,14 @@ class CopilotKitStub {
   readonly #runtimeUrl = signal<string | undefined>(undefined);
   readonly #runtimeTransport = signal<"rest" | "single" | "auto">("auto");
   readonly #headers = signal<Record<string, string>>({});
+  readonly #credentials = signal<RequestCredentials | undefined>(undefined);
   getAgent = vi.fn((id: string) => this.#agents()[id]);
   agents = this.#agents.asReadonly();
   runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
   runtimeUrl = this.#runtimeUrl.asReadonly();
   runtimeTransport = this.#runtimeTransport.asReadonly();
   headers = this.#headers.asReadonly();
+  credentials = this.#credentials.asReadonly();
   #coreInstance = new CopilotKitCore({});
   core: StubCore = {
     runtimeUrl: undefined,
@@ -185,6 +187,10 @@ class CopilotKitStub {
   setHeaders(value: Record<string, string>) {
     this.#headers.set(value);
     this.core = { ...this.core, headers: value };
+  }
+
+  setCredentials(value: RequestCredentials | undefined) {
+    this.#credentials.set(value);
   }
 
   setRuntimeTransport(value: "rest" | "single" | "auto") {
@@ -302,6 +308,79 @@ describe("injectAgentStore", () => {
     const proxiedAgent = proxied as ProxiedCopilotRuntimeAgent;
     expect(proxiedAgent.agentId).toBe("missing");
     expect(proxiedAgent.headers).toEqual({ "x-test": "1" });
+    expect(
+      (proxiedAgent as unknown as { runtimeMode: string }).runtimeMode,
+    ).toBe("pending");
+  });
+
+  it("passes credentials to provisional proxied agents and updates cached provisional agents", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://runtime.local");
+    copilotKitStub.setHeaders({ "x-test": "1" });
+    copilotKitStub.setCredentials("include");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class MissingAgentHost {
+      store = injectAgentStore("missing");
+    }
+
+    const fixture = TestBed.createComponent(MissingAgentHost);
+    fixture.detectChanges();
+
+    const firstAgent = fixture.componentInstance.store()
+      .agent as ProxiedCopilotRuntimeAgent;
+    expect(firstAgent.credentials).toBe("include");
+
+    copilotKitStub.setCredentials("omit");
+    fixture.detectChanges();
+
+    const cachedAgent = fixture.componentInstance.store()
+      .agent as ProxiedCopilotRuntimeAgent;
+    expect(cachedAgent).toBe(firstAgent);
+    expect(cachedAgent.credentials).toBe("omit");
+  });
+
+  it("recreates provisional agents when runtime URL or transport changes", () => {
+    copilotKitStub.setAgents({});
+    copilotKitStub.setRuntimeUrl("https://old.example");
+    copilotKitStub.setRuntimeTransport("rest");
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    @Component({
+      standalone: true,
+      template: "",
+    })
+    class MissingAgentHost {
+      store = injectAgentStore("missing");
+    }
+
+    const fixture = TestBed.createComponent(MissingAgentHost);
+    fixture.detectChanges();
+
+    const firstAgent = fixture.componentInstance.store()
+      .agent as ProxiedCopilotRuntimeAgent;
+
+    copilotKitStub.setRuntimeUrl("https://new.example");
+    fixture.detectChanges();
+
+    const afterUrlChange = fixture.componentInstance.store()
+      .agent as ProxiedCopilotRuntimeAgent;
+    expect(afterUrlChange).not.toBe(firstAgent);
+
+    copilotKitStub.setRuntimeTransport("single");
+    fixture.detectChanges();
+
+    const afterTransportChange = fixture.componentInstance.store()
+      .agent as ProxiedCopilotRuntimeAgent;
+    expect(afterTransportChange).not.toBe(afterUrlChange);
   });
 
   it("throws when agent cannot be resolved after runtime sync", () => {

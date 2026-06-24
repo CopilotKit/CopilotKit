@@ -1,9 +1,21 @@
-import { WebInspectorElement, ɵCpkThreadDetails } from "../index.js";
-import type { CopilotKitCore } from "@copilotkit/core";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { CopilotKitCore, ɵThread, ɵThreadStore } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type * as TelemetryModule from "../lib/telemetry.js";
+
+const trackThreadsTabClickedMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../lib/telemetry", async (importOriginal) => {
+  const actual = await importOriginal<typeof TelemetryModule>();
+  return {
+    ...actual,
+    trackThreadsTabClicked: trackThreadsTabClickedMock,
+  };
+});
+
+import { WebInspectorElement, ɵCpkThreadDetails } from "../index.js";
 
 // --- Types for accessing LitElement-private reactive properties ---
 // WebInspectorElement stores these as private Lit reactive properties.
@@ -14,6 +26,16 @@ type InspectorInternals = {
   agentMessages: Map<string, Array<{ contentText?: string }>>;
   agentStates: Map<string, unknown>;
   cachedTools: Array<{ name: string }>;
+  contextOptions: Array<{ key: string; label: string }>;
+  selectedMenu: string;
+  selectedContext: string;
+  selectedThreadId: string | null;
+  _threads: ɵThread[];
+  _threadsByAgent: Map<string, ɵThread[]>;
+  _ownedThreadStores: Map<string, unknown>;
+  handleMenuSelect: (key: "ag-ui-events" | "threads") => void;
+  handleContextOptionSelect: (key: string) => void;
+  autoSelectLatestThread: () => void;
 };
 
 type InspectorContextInternals = {
@@ -88,6 +110,7 @@ type MockCore = {
   agents: Record<string, AbstractAgent>;
   context: Record<string, unknown>;
   properties: Record<string, unknown>;
+  telemetryDisabled?: boolean;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
     unsubscribe: () => void;
@@ -95,6 +118,24 @@ type MockCore = {
   getThreadStores: () => Record<string, never>;
   getThreadStore: (agentId: string) => undefined;
 };
+
+function threadFixture(
+  id: string,
+  agentId: string,
+  timestamps: Partial<Pick<ɵThread, "createdAt" | "updatedAt" | "lastRunAt">>,
+): ɵThread {
+  return {
+    id,
+    agentId,
+    name: id,
+    archived: false,
+    createdAt: timestamps.createdAt ?? "2026-06-01T00:00:00.000Z",
+    updatedAt: timestamps.updatedAt ?? "2026-06-01T00:00:00.000Z",
+    lastRunAt: timestamps.lastRunAt,
+    organizationId: "org",
+    createdById: "user",
+  };
+}
 
 function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
   const subscribers = new Set<CopilotKitCoreSubscriber>();
@@ -168,9 +209,13 @@ function getContextInternals(inspector: WebInspectorElement) {
 
 describe("WebInspectorElement", () => {
   let mockClipboard: { writeText: ReturnType<typeof vi.fn> };
+  let originalClipboard: (typeof navigator)["clipboard"] | undefined =
+    undefined;
 
   beforeEach(() => {
     document.body.innerHTML = "";
+    trackThreadsTabClickedMock.mockClear();
+    originalClipboard = navigator.clipboard;
 
     const store: Record<string, string> = {};
     vi.stubGlobal("localStorage", {
@@ -199,6 +244,13 @@ describe("WebInspectorElement", () => {
 
   afterEach(() => {
     vi.clearAllTimers();
+    vi.unstubAllGlobals();
+    if (originalClipboard) {
+      (
+        navigator as unknown as { clipboard: (typeof navigator)["clipboard"] }
+      ).clipboard = originalClipboard;
+    }
+    originalClipboard = undefined;
   });
 
   it("records agent events and syncs state/messages/tools", async () => {
@@ -259,6 +311,75 @@ describe("WebInspectorElement", () => {
     expect(localStorage.getItem("cpk:inspector:state")).toBeTruthy();
   });
 
+  it("tracks the first switch into the Threads tab", async () => {
+    const { core } = createMockCore();
+    const inspector = createInspectorWithCore(core);
+    const internals = getInternals(inspector);
+    internals.selectedMenu = "ag-ui-events";
+
+    internals.handleMenuSelect("threads");
+
+    expect(trackThreadsTabClickedMock).toHaveBeenCalledTimes(1);
+
+    internals.handleMenuSelect("threads");
+
+    expect(trackThreadsTabClickedMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps all-agent threads globally sorted by activity", async () => {
+    const { core } = createMockCore();
+    const inspector = createInspectorWithCore(core);
+    const internals = getInternals(inspector);
+    const older = threadFixture("older", "alpha", {
+      lastRunAt: "2026-06-23T18:00:00.000Z",
+    });
+    const newer = threadFixture("newer", "beta", {
+      lastRunAt: "2026-06-23T19:00:00.000Z",
+    });
+    internals._threadsByAgent = new Map([
+      ["alpha", [older]],
+      ["beta", [newer]],
+    ]);
+    internals._threads = Array.from(internals._threadsByAgent.values()).flat();
+
+    internals.autoSelectLatestThread();
+
+    expect(internals._threads.map((thread) => thread.id)).toEqual([
+      "newer",
+      "older",
+    ]);
+    expect(internals.selectedThreadId).toBe("newer");
+  });
+
+  it("reselects a valid thread when the thread context changes", async () => {
+    const { core } = createMockCore();
+    const inspector = createInspectorWithCore(core);
+    const internals = getInternals(inspector);
+    const alphaThread = threadFixture("alpha-thread", "alpha", {
+      lastRunAt: "2026-06-23T18:00:00.000Z",
+    });
+    const betaThread = threadFixture("beta-thread", "beta", {
+      lastRunAt: "2026-06-23T19:00:00.000Z",
+    });
+    internals.contextOptions = [
+      { key: "all-agents", label: "All Agents" },
+      { key: "alpha", label: "alpha" },
+      { key: "beta", label: "beta" },
+    ];
+    internals._threadsByAgent = new Map([
+      ["alpha", [alphaThread]],
+      ["beta", [betaThread]],
+    ]);
+    internals._threads = [betaThread, alphaThread];
+    internals.selectedContext = "all-agents";
+    internals.selectedThreadId = "alpha-thread";
+
+    internals.handleContextOptionSelect("beta");
+
+    expect(internals.selectedContext).toBe("beta");
+    expect(internals.selectedThreadId).toBe("beta-thread");
+  });
+
   it("syncs agent state on direct setState (onStateChanged without pipeline events)", async () => {
     // Simulates a selfManagedAgent where agent.setState() is called directly
     // from UI code, bypassing the AG-UI event pipeline. Before the fix,
@@ -292,6 +413,64 @@ describe("WebInspectorElement", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────
+// cpk-thread-list — rendered thread recency
+// ─────────────────────────────────────────────────────────────────────────
+
+type ThreadListElement = HTMLElement & {
+  threads: ɵThread[];
+  selectedThreadId: string | null;
+  errorMessage: string | null;
+  updateComplete: Promise<boolean>;
+};
+
+function createThreadList(): ThreadListElement {
+  const ThreadListCtor = customElements.get("cpk-thread-list") as
+    | (new () => ThreadListElement)
+    | undefined;
+  if (!ThreadListCtor) {
+    throw new Error("cpk-thread-list is not registered");
+  }
+  const el = new ThreadListCtor();
+  document.body.appendChild(el);
+  return el;
+}
+
+describe("cpk-thread-list", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-23T20:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("renders relative time from lastRunAt before updatedAt", async () => {
+    const el = createThreadList();
+    el.threads = [
+      {
+        id: "t1",
+        agentId: "agent",
+        name: "Recent run",
+        archived: false,
+        createdAt: "2026-06-01T00:00:00.000Z",
+        updatedAt: "2026-06-10T20:00:00.000Z",
+        lastRunAt: "2026-06-23T19:00:00.000Z",
+        organizationId: "org",
+        createdById: "user",
+      } satisfies ɵThread,
+    ];
+
+    await el.updateComplete;
+
+    expect(
+      el.shadowRoot?.querySelector(".cpk-tl__time")?.textContent?.trim(),
+    ).toBe("1h ago");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
 // CpkThreadDetails — per-panel TemplateResult cache invariants
 // ─────────────────────────────────────────────────────────────────────────
 //
@@ -311,6 +490,7 @@ type ThreadDetailsInternals = {
   threadInspectionAvailable: boolean;
   liveMessageVersion: number;
   _conversation: Array<Record<string, unknown>>;
+  _messagesError: string | null;
   _fetchedState: Record<string, unknown> | null;
   _fetchedEvents: Array<unknown> | null;
   _expandedTools: Set<string>;
@@ -320,7 +500,11 @@ type ThreadDetailsInternals = {
   _loadingMessages: boolean;
   _loadingState: boolean;
   _loadingEvents: boolean;
+  _eventsFetched: boolean;
+  _stateFetched: boolean;
   _panelTplCache: Map<string, { key: readonly unknown[]; tpl: unknown }>;
+  credentials?: RequestCredentials;
+  fetchMessages: (threadId: string) => Promise<void>;
   fetchEvents: (threadId: string) => Promise<void>;
   fetchState: (threadId: string) => Promise<void>;
   renderConversation: () => unknown;
@@ -401,6 +585,363 @@ describe("ɵCpkThreadDetails caching", () => {
       await internals.fetchState("t1");
 
       expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("forwards credentials to thread detail fetches", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ messages: [] }), { status: 200 }),
+          );
+        }
+        if (url.endsWith("/events")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ events: [] }), { status: 200 }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ state: null }), { status: 200 }),
+        );
+      });
+    try {
+      const { internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.credentials = "include";
+      internals.threadInspectionAvailable = true;
+
+      await internals.fetchMessages("t1");
+      await internals.fetchEvents("t1");
+      await internals.fetchState("t1");
+
+      expect(fetchSpy).toHaveBeenCalledTimes(3);
+      for (const call of fetchSpy.mock.calls) {
+        expect(credentialsOf(call)).toBe("include");
+      }
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("re-fetches selected thread details when credentials change", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ messages: [] }), { status: 200 }),
+          );
+        }
+        if (url.endsWith("/events")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ events: [] }), { status: 200 }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ state: null }), { status: 200 }),
+        );
+      });
+    try {
+      const { el, internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.threadInspectionAvailable = true;
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(
+          fetchSpy.mock.calls.some((call) =>
+            String(call[0]).endsWith("/messages"),
+          ),
+        ).toBe(true);
+      });
+      await internals.fetchEvents("t1");
+      await internals.fetchState("t1");
+      internals._eventsFetched = true;
+      internals._stateFetched = true;
+      fetchSpy.mockClear();
+
+      internals.credentials = "include";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalledTimes(3);
+      });
+      expect(
+        fetchSpy.mock.calls.map((call) => String(call[0]).split("/").at(-1)),
+      ).toEqual(expect.arrayContaining(["messages", "events", "state"]));
+      for (const call of fetchSpy.mock.calls) {
+        expect(credentialsOf(call)).toBe("include");
+      }
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("re-fetches selected thread details when headers change", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ messages: [] }), { status: 200 }),
+          );
+        }
+        if (url.endsWith("/events")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ events: [] }), { status: 200 }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ state: null }), { status: 200 }),
+        );
+      });
+    try {
+      const { el, internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer old" };
+      internals.threadInspectionAvailable = true;
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(
+          fetchSpy.mock.calls.some((call) =>
+            String(call[0]).endsWith("/messages"),
+          ),
+        ).toBe(true);
+      });
+      await internals.fetchEvents("t1");
+      await internals.fetchState("t1");
+      internals._eventsFetched = true;
+      internals._stateFetched = true;
+      fetchSpy.mockClear();
+
+      internals.headers = { Authorization: "Bearer new" };
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalledTimes(3);
+      });
+      for (const call of fetchSpy.mock.calls) {
+        expect(headersOf(call)).toMatchObject({
+          Authorization: "Bearer new",
+        });
+      }
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("clears a stale message error when credential refresh succeeds", async () => {
+    let messageFetches = 0;
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          messageFetches += 1;
+          if (messageFetches === 1) {
+            return Promise.resolve(
+              new Response(JSON.stringify({ error: "unauthorized" }), {
+                status: 401,
+              }),
+            );
+          }
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                messages: [
+                  {
+                    id: "m1",
+                    role: "user",
+                    content: "Recovered",
+                  },
+                ],
+              }),
+              { status: 200 },
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ events: [] }), { status: 200 }),
+        );
+      });
+    try {
+      const { el, internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.threadInspectionAvailable = true;
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(internals._messagesError).toBe("HTTP 401");
+      });
+
+      internals.credentials = "include";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(messageFetches).toBe(2);
+        expect(internals._messagesError).toBeNull();
+        expect(internals._conversation).toHaveLength(1);
+      });
+      expect(credentialsOf(fetchCall(fetchSpy, 1))).toBe("include");
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("clears the previous conversation when credential refresh fails", async () => {
+    let messageFetches = 0;
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          messageFetches += 1;
+          if (messageFetches === 1) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  messages: [
+                    {
+                      id: "m1",
+                      role: "user",
+                      content: "Old credentials",
+                    },
+                  ],
+                }),
+                { status: 200 },
+              ),
+            );
+          }
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: "unauthorized" }), {
+              status: 401,
+            }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ events: [] }), { status: 200 }),
+        );
+      });
+    try {
+      const { el, internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.threadInspectionAvailable = true;
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(internals._conversation).toHaveLength(1);
+      });
+
+      internals.credentials = "include";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(messageFetches).toBe(2);
+        expect(internals._messagesError).toBe("HTTP 401");
+      });
+      expect(internals._conversation).toHaveLength(0);
+      expect(credentialsOf(fetchCall(fetchSpy, 1))).toBe("include");
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("keeps credential refresh authoritative when live messages arrive", async () => {
+    let messageFetches = 0;
+    const credentialReload = {
+      resolve: undefined as ((response: Response) => void) | undefined,
+    };
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          messageFetches += 1;
+          if (messageFetches === 1) {
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  messages: [
+                    {
+                      id: "m1",
+                      role: "user",
+                      content: "Old credentials",
+                    },
+                  ],
+                }),
+                { status: 200 },
+              ),
+            );
+          }
+          if (messageFetches === 2) {
+            return new Promise<Response>((resolve) => {
+              credentialReload.resolve = resolve;
+            });
+          }
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: "unauthorized" }), {
+              status: 401,
+            }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ events: [] }), { status: 200 }),
+        );
+      });
+    try {
+      const { el, internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.threadInspectionAvailable = true;
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(internals._conversation).toHaveLength(1);
+      });
+
+      internals.credentials = "include";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(messageFetches).toBe(2);
+      });
+
+      internals.liveMessageVersion = 1;
+      await el.updateComplete;
+
+      expect(messageFetches).toBe(2);
+      const resolveCredentialReload = credentialReload.resolve;
+      if (!resolveCredentialReload) {
+        throw new Error("expected credential reload resolver to be captured");
+      }
+      resolveCredentialReload(
+        new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+        }),
+      );
+
+      await vi.waitFor(() => {
+        expect(internals._messagesError).toBe("HTTP 401");
+      });
+      expect(internals._conversation).toHaveLength(0);
+      expect(credentialsOf(fetchCall(fetchSpy, 1))).toBe("include");
     } finally {
       fetchSpy.mockRestore();
     }
@@ -619,6 +1160,8 @@ type HeaderMockCore = {
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
+  credentials?: RequestCredentials;
+  intelligence?: { wsUrl: string };
   threadEndpoints: {
     list: boolean;
     inspect: boolean;
@@ -631,7 +1174,7 @@ type HeaderMockCore = {
   getThreadStores: () => Record<string, never>;
   getThreadStore: (agentId: string) => undefined;
   registerThreadStore: (agentId: string, store: unknown) => void;
-  unregisterThreadStore: (agentId: string) => void;
+  unregisterThreadStore: (agentId: string, store?: unknown) => void;
 };
 
 function createHeaderMockCore(
@@ -646,6 +1189,7 @@ function createHeaderMockCore(
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
+    intelligence: { wsUrl: "wss://localhost/client" },
     threadEndpoints: {
       list: true,
       inspect: true,
@@ -662,8 +1206,8 @@ function createHeaderMockCore(
     getThreadStore() {
       return undefined;
     },
-    registerThreadStore() {},
-    unregisterThreadStore() {},
+    registerThreadStore: vi.fn(),
+    unregisterThreadStore: vi.fn(),
   };
 
   const asCore = () => core as unknown as CopilotKitCore;
@@ -680,11 +1224,64 @@ function createHeaderMockCore(
         s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
       );
     },
+    emitCredentialsChanged(nextCredentials: RequestCredentials | undefined) {
+      core.credentials = nextCredentials;
+      subscribers.forEach((s) =>
+        s.onCredentialsChanged?.({
+          copilotkit: asCore(),
+          credentials: nextCredentials,
+        }),
+      );
+    },
+    emitRuntimeConnectionStatusChanged(
+      status: CopilotKitCoreRuntimeConnectionStatus,
+    ) {
+      core.runtimeConnectionStatus = status;
+      subscribers.forEach((s) =>
+        s.onRuntimeConnectionStatusChanged?.({ copilotkit: asCore(), status }),
+      );
+    },
+    emitThreadStoreUnregistered(agentId: string, store: unknown) {
+      subscribers.forEach((s) =>
+        s.onThreadStoreUnregistered?.({
+          copilotkit: asCore(),
+          agentId,
+          prevStore: store as ɵThreadStore,
+        }),
+      );
+    },
   };
 }
 
-const headersOf = (call: unknown[]) =>
+const headersOf = (call: readonly unknown[]) =>
   (call[1] as { headers?: Record<string, string> } | undefined)?.headers ?? {};
+
+const credentialsOf = (call: readonly unknown[]) =>
+  (call[1] as { credentials?: RequestCredentials } | undefined)?.credentials;
+
+function fetchCall(
+  fetchMock: { mock: { calls: readonly unknown[][] } },
+  index: number,
+) {
+  const call = fetchMock.mock.calls[index];
+  if (!call) {
+    throw new Error(`expected fetch call at index ${index}`);
+  }
+  return call;
+}
+
+const contextOf = (store: unknown) =>
+  (
+    store as {
+      getState: () => {
+        context?: {
+          credentials?: RequestCredentials;
+          wsUrl?: string;
+          threadEndpoints?: HeaderMockCore["threadEndpoints"];
+        };
+      };
+    }
+  ).getState().context;
 
 describe("WebInspectorElement owned thread store headers (#5581)", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
@@ -734,6 +1331,55 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     });
   });
 
+  it("forwards credentials and realtime endpoint metadata to the owned store", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+    harness.core.credentials = "include";
+    harness.core.threadEndpoints.realtimeMetadata = false;
+    fetchMock.mockImplementation((input: RequestInfo | URL) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve(
+            String(input).includes("/threads/subscribe")
+              ? { joinToken: "token" }
+              : { threads: [], joinCode: "join" },
+          ),
+      }),
+    );
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(0);
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+    expect(contextOf(ownedStore)).toMatchObject({
+      credentials: "include",
+      wsUrl: "wss://localhost/client",
+      threadEndpoints: {
+        list: true,
+        inspect: true,
+        mutations: true,
+        realtimeMetadata: false,
+      },
+    });
+    expect(credentialsOf(threadListCalls()[0]!)).toBe("include");
+    await Promise.resolve();
+    expect(
+      fetchMock.mock.calls.some((call) =>
+        String(call[0]).includes("/threads/subscribe"),
+      ),
+    ).toBe(false);
+  });
+
   it("re-applies headers on the owned store when core headers change", async () => {
     const { agent } = createMockAgent("alpha");
     const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
@@ -757,5 +1403,180 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(headersOf(threadListCalls().at(-1)!)).toMatchObject({
       "X-CSRF": "2",
     });
+  });
+
+  it("preserves non-header thread context fields when core headers change", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+    harness.core.credentials = "include";
+    harness.core.threadEndpoints.realtimeMetadata = false;
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(harness.core.registerThreadStore).toHaveBeenCalledWith(
+        "alpha",
+        expect.any(Object),
+      );
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+
+    harness.emitHeadersChanged({ "X-CSRF": "2" });
+
+    expect(contextOf(ownedStore)).toMatchObject({
+      headers: { "X-CSRF": "2" },
+      credentials: "include",
+      wsUrl: "wss://localhost/client",
+      threadEndpoints: {
+        list: true,
+        inspect: true,
+        mutations: true,
+        realtimeMetadata: false,
+      },
+    });
+  });
+
+  it("re-applies credentials on the owned store when core credentials change", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(harness.core.registerThreadStore).toHaveBeenCalledWith(
+        "alpha",
+        expect.any(Object),
+      );
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+    expect(contextOf(ownedStore)?.credentials).toBeUndefined();
+
+    harness.emitCredentialsChanged("include");
+
+    expect(contextOf(ownedStore)).toMatchObject({
+      headers: { "X-CSRF": "1" },
+      credentials: "include",
+    });
+  });
+
+  it("refreshes owned store context when runtime metadata or credentials change", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+    harness.core.credentials = undefined;
+    harness.core.intelligence = undefined;
+    harness.core.threadEndpoints.realtimeMetadata = true;
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(harness.core.registerThreadStore).toHaveBeenCalledWith(
+        "alpha",
+        expect.any(Object),
+      );
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+    expect(contextOf(ownedStore)).toMatchObject({
+      threadEndpoints: expect.objectContaining({ realtimeMetadata: true }),
+    });
+    expect(contextOf(ownedStore)?.credentials).toBeUndefined();
+    expect(contextOf(ownedStore)?.wsUrl).toBeUndefined();
+
+    await vi.waitFor(() => {
+      expect(threadListCalls()).toHaveLength(1);
+    });
+    const callsBeforeRefresh = threadListCalls().length;
+
+    harness.core.credentials = "include";
+    harness.core.intelligence = { wsUrl: "wss://localhost/client" };
+    harness.core.threadEndpoints.realtimeMetadata = false;
+    harness.emitRuntimeConnectionStatusChanged(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+
+    expect(contextOf(ownedStore)).toMatchObject({
+      credentials: "include",
+      wsUrl: "wss://localhost/client",
+      threadEndpoints: expect.objectContaining({ realtimeMetadata: false }),
+    });
+    await vi.waitFor(() => {
+      expect(threadListCalls()).toHaveLength(callsBeforeRefresh + 1);
+    });
+  });
+
+  it("unregisters the exact owned store when the inspector detaches", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(harness.core.registerThreadStore).toHaveBeenCalledWith(
+        "alpha",
+        expect.any(Object),
+      );
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+
+    inspector.core = null;
+
+    expect(harness.core.unregisterThreadStore).toHaveBeenCalledWith(
+      "alpha",
+      ownedStore,
+    );
+  });
+
+  it("drops an owned fallback store when an external store replaces it", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(harness.core.registerThreadStore).toHaveBeenCalledWith(
+        "alpha",
+        expect.any(Object),
+      );
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+    const internals = getInternals(inspector);
+    expect(internals._ownedThreadStores.get("alpha")).toBe(ownedStore);
+
+    harness.emitThreadStoreUnregistered("alpha", ownedStore);
+
+    expect(harness.core.unregisterThreadStore).toHaveBeenCalledWith(
+      "alpha",
+      ownedStore,
+    );
+    expect(internals._ownedThreadStores.has("alpha")).toBe(false);
   });
 });

@@ -30,11 +30,22 @@ function provideCopilotKit(config: CopilotKitConfig): Provider;
     traffic through a runtime (for example a Next.js, Express, or Hono backend).
   </PropertyReference>
 
+  <PropertyReference name="runtimeTransport" type={`"auto" | "rest" | "single"`}>
+    Runtime request transport. Defaults to `"auto"`; set `"rest"` or `"single"`
+    when your deployment requires a deterministic transport from bootstrap.
+  </PropertyReference>
+
   <PropertyReference name="headers" type="Record<string, string>">
     Extra HTTP headers sent with every runtime request, for example an
     `Authorization` header. If you pass a `licenseKey`, a
     `X-CopilotCloud-Public-Api-Key` header is merged in automatically unless you
     already set one here.
+  </PropertyReference>
+
+  <PropertyReference name="credentials" type="RequestCredentials">
+    Fetch credentials mode used for runtime requests. Set this to `"include"`
+    when your runtime relies on cookies or other browser-managed credentials,
+    especially for cross-origin thread and agent requests.
   </PropertyReference>
 
   <PropertyReference name="licenseKey" type="string">
@@ -158,6 +169,8 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideCopilotKit({
       runtimeUrl: "/api/copilotkit",
+      runtimeTransport: "auto",
+      credentials: "include",
       headers: {
         Authorization: "Bearer <token>",
       },

@@ -4,8 +4,11 @@ import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
   CopilotRuntimeTransport,
+  type IntelligenceRuntimeInfo,
   type CopilotKitCoreGetSuggestionsResult,
   type SuggestionsConfig,
+  type ThreadEndpointRuntimeInfo,
+  type ɵThreadStore,
 } from "@copilotkit/core";
 import {
   Injectable,
@@ -78,6 +81,16 @@ export class CopilotKit {
   readonly runtimeTransport = this.#runtimeTransport.asReadonly();
   readonly #headers = signal<Record<string, string>>({});
   readonly headers = this.#headers.asReadonly();
+  readonly #credentials = signal<RequestCredentials | undefined>(undefined);
+  readonly credentials = this.#credentials.asReadonly();
+  readonly #intelligence = signal<IntelligenceRuntimeInfo | undefined>(
+    undefined,
+  );
+  readonly intelligence = this.#intelligence.asReadonly();
+  readonly #threadEndpoints = signal<ThreadEndpointRuntimeInfo | undefined>(
+    undefined,
+  );
+  readonly threadEndpoints = this.#threadEndpoints.asReadonly();
   readonly #suggestionsByAgent = signal<
     Record<string, CopilotKitCoreGetSuggestionsResult>
   >({});
@@ -85,7 +98,9 @@ export class CopilotKit {
 
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
+    runtimeTransport: this.#config.runtimeTransport,
     headers: this.#config.headers,
+    credentials: this.#config.credentials,
     properties: this.#config.properties,
     agents__unsafe_dev_only: {
       ...this.#config.agents,
@@ -146,6 +161,9 @@ export class CopilotKit {
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
     this.#headers.set(this.core.headers);
+    this.#credentials.set(this.core.credentials);
+    this.#intelligence.set(this.core.intelligence);
+    this.#threadEndpoints.set(this.core.threadEndpoints);
     this.#config.renderToolCalls?.forEach((renderConfig) => {
       this.addRenderToolCall(renderConfig);
     });
@@ -178,11 +196,16 @@ export class CopilotKit {
       },
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.#runtimeConnectionStatus.set(status);
+        this.#intelligence.set(this.core.intelligence);
+        this.#threadEndpoints.set(this.core.threadEndpoints);
         this.#syncBuiltInActivityMessageRenderers();
         this.#syncBuiltInOpenGenerativeUI();
       },
       onHeadersChanged: ({ headers }) => {
         this.#headers.set(headers);
+      },
+      onCredentialsChanged: ({ credentials }) => {
+        this.#credentials.set(credentials);
       },
       onSuggestionsChanged: ({ agentId, suggestions }) => {
         this.#setSuggestions(agentId, {
@@ -484,6 +507,14 @@ export class CopilotKit {
     );
   }
 
+  registerThreadStore(agentId: string, store: ɵThreadStore): void {
+    this.core.registerThreadStore(agentId, store);
+  }
+
+  unregisterThreadStore(agentId: string, store?: ɵThreadStore): void {
+    this.core.unregisterThreadStore(agentId, store);
+  }
+
   #isSameAgentId<T extends { agentId?: string }>(
     target: T,
     agentId?: string,
@@ -517,13 +548,14 @@ export class CopilotKit {
     runtimeUrl?: string;
     runtimeTransport?: CopilotRuntimeTransport;
     headers?: Record<string, string>;
+    credentials?: RequestCredentials;
     properties?: Record<string, unknown>;
     agents?: Record<string, AbstractAgent>;
     selfManagedAgents?: Record<string, AbstractAgent>;
   }): void {
     if (options.runtimeUrl !== undefined) {
       this.core.setRuntimeUrl(options.runtimeUrl);
-      this.#runtimeUrl.set(options.runtimeUrl);
+      this.#runtimeUrl.set(this.core.runtimeUrl);
     }
     if (options.runtimeTransport !== undefined) {
       this.core.setRuntimeTransport(options.runtimeTransport);
@@ -532,6 +564,10 @@ export class CopilotKit {
     if (options.headers !== undefined) {
       this.core.setHeaders(options.headers);
       this.#headers.set(options.headers);
+    }
+    if (Object.prototype.hasOwnProperty.call(options, "credentials")) {
+      this.core.setCredentials(options.credentials);
+      this.#credentials.set(options.credentials);
     }
     if (options.properties !== undefined) {
       this.core.setProperties(options.properties);
