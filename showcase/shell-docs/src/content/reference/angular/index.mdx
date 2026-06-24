@@ -1,0 +1,125 @@
+---
+title: "Angular"
+description: "API reference for @copilotkit/angular: the CopilotKit providers, prebuilt chat components, services, and functions for building CopilotKit into an Angular app."
+---
+
+`@copilotkit/angular` brings CopilotKit to Angular. It ships a set of [providers](/reference/angular/functions/provideCopilotKit), prebuilt chat components, a `CopilotKit` service, and standalone functions that mirror the React SDK. Everything is built on the [AG-UI](https://docs.ag-ui.com) agent protocol.
+
+<Callout type="info">
+  The package targets Angular 19, 20, and 21, and ships as standalone
+  components and providers. Import everything from the package root,
+  `@copilotkit/angular`. There is no `/v2` subpath.
+</Callout>
+
+## Installation
+
+```sh
+npm install @copilotkit/angular @angular/cdk
+```
+
+`@angular/cdk` and `rxjs` are peer dependencies. If your agent connects directly over AG-UI, also install `@ag-ui/client`.
+
+## Styling
+
+When using the prebuilt UI components, import the stylesheet once in your global styles. It is self-contained, so the chat renders without any other CSS.
+
+```css title="src/styles.css"
+@import "@copilotkit/angular/styles.css";
+```
+
+## Provider setup
+
+CopilotKit is configured through Angular's dependency injection rather than a wrapper component. Add [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) to your application providers and configure the runtime connection there. Every component, service, and function reads this configuration through the injector, so they must be used within an application (or component) that has the provider in scope.
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      runtimeUrl: "/api/copilotkit",
+    }),
+  ],
+};
+```
+
+To connect directly to an AG-UI agent without a runtime, pass `selfManagedAgents` instead of `runtimeUrl`:
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from "@angular/core";
+import { provideCopilotKit } from "@copilotkit/angular";
+import { HttpAgent } from "@ag-ui/client";
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideCopilotKit({
+      selfManagedAgents: {
+        default: new HttpAgent({ url: "http://localhost:8000/" }),
+      },
+    }),
+  ],
+};
+```
+
+Then drop the chat into a standalone component's template:
+
+```ts title="src/app/app.component.ts"
+import { Component } from "@angular/core";
+import { CopilotChat } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-root",
+  standalone: true,
+  imports: [CopilotChat],
+  template: `<copilot-chat />`,
+})
+export class AppComponent {}
+```
+
+## Angular conventions
+
+A few patterns recur across this reference and differ from the React SDK:
+
+- **Setup is a provider, not a component.** Where the React SDK wraps your app in `<CopilotKit>`, the Angular SDK registers [`provideCopilotKit`](/reference/angular/functions/provideCopilotKit) in your application or component providers.
+- **State is exposed as signals.** Where React hooks return values that trigger re-renders, the Angular SDK exposes Angular [signals](https://angular.dev/guide/signals). Read them by calling the signal, for example `agentStore().messages()`.
+- **Functions run in an injection context.** Functions such as [`injectAgentStore`](/reference/angular/functions/injectAgentStore), [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool), and [`connectAgentContext`](/reference/angular/functions/connectAgentContext) use Angular's `inject()` under the hood. Call them from a constructor, a field initializer, or another injection context. They clean themselves up when the owning component or service is destroyed.
+- **Components are standalone.** Import the component class into your `imports` array and use its element selector in the template, for example `<copilot-chat>` for [`CopilotChat`](/reference/angular/components/CopilotChat).
+- **Templates and directives replace render props.** Where the React SDK uses render props or `children`, the Angular components accept Angular templates and content projection for the same customization.
+
+## API Reference
+
+<Callout type="info">
+  Looking for tool rendering? Start with
+  [`registerFrontendTool`](/reference/angular/functions/registerFrontendTool),
+  [`registerRenderToolCall`](/reference/angular/functions/registerRenderToolCall),
+  and
+  [`registerHumanInTheLoop`](/reference/angular/functions/registerHumanInTheLoop).
+</Callout>
+
+<Cards>
+  <Card
+    title="UI Components"
+    description="Prebuilt chat components: CopilotChat, CopilotChatView, CopilotChatInput, and the message components."
+    href="/reference/angular/components/CopilotChat"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Functions"
+    description="Setup providers and injectable functions for agents, tools, context, and chat labels."
+    href="/reference/angular/functions/provideCopilotKit"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Services"
+    description="The CopilotKit service: the central handle on agents, tools, runtime connection, and suggestions."
+    href="/reference/angular/services/CopilotKit"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Directives"
+    description="The CopilotKitAgentContext directive for sharing application state with the agent from a template."
+    href="/reference/angular/directives/CopilotKitAgentContext"
+    icon={<LinkIcon />}
+  />
+</Cards>

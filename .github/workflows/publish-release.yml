@@ -2,7 +2,7 @@
 #
 # Single npm OIDC entry point for both stable releases and prerelease canaries.
 # npm trusted publisher records for the 15 @copilotkit/* monorepo packages plus
-# @copilotkitnext/angular are registered against THIS workflow file. Matching
+# @copilotkit/angular are registered against THIS workflow file. Matching
 # happens on the OIDC token's `workflow_ref` claim, which is always
 # publish-release.yml when this workflow is the entry point.
 #
@@ -39,6 +39,11 @@ on:
         options:
           - monorepo
           - angular
+          - bot
+          - bot-discord
+          - bot-slack
+          - bot-telegram
+          - bot-whatsapp
       mode:
         description: "Release mode: stable (full release with tag + GH Release) or prerelease (canary, no tag/release)"
         required: false
@@ -67,7 +72,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-release
+  # Scope the lock to the package being released so a `monorepo` publish and an
+  # `angular` publish run in independent lanes instead of queuing behind each
+  # other. On the manual path `inputs.scope` carries the target; on the merged
+  # release-PR path inputs are empty, but the PR branch is
+  # `release/publish/<scope>/v<version>`, so `github.head_ref` already encodes
+  # the scope. Same-scope runs still serialize (cancel-in-progress: false),
+  # which is what protects the tag push / npm publish.
+  group: publish-release-${{ inputs.scope || github.head_ref || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -75,11 +87,13 @@ env:
 
 jobs:
   build:
-    # Run on a merged release PR (normal flow) or a manual workflow_dispatch
-    # from main (escape hatch). The main-branch guard on workflow_dispatch
-    # prevents republishing from arbitrary branches.
+    # Run on a merged release PR (normal flow), a stable manual dispatch from
+    # main (retry escape hatch), or a prerelease manual dispatch from any
+    # selected branch. Canary publishes are intentionally branch-scoped so
+    # maintainers can push a button on feature work without merging first.
     if: >
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_dispatch' &&
+        (inputs.mode == 'prerelease' || github.ref == 'refs/heads/main')) ||
       (github.event.pull_request.merged == true &&
         startsWith(github.event.pull_request.head.ref, 'release/publish/'))
     runs-on: ubuntu-latest
@@ -99,7 +113,8 @@ jobs:
             SCOPE="$INPUT_SCOPE"
           else
             # Branch format: release/publish/<scope>/v<version>
-            SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+            SCOPE="${PR_HEAD_REF#release/publish/}"
+            SCOPE="${SCOPE%%/v*}"
           fi
           MODE="${INPUT_MODE:-stable}"
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
@@ -155,22 +170,22 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
-      # Exclude node_modules and build caches from the artifact. Including
-      # them produces ~6.4M files for this monorepo, which OOMs
-      # upload-artifact's Node process at its 4GB heap limit during
-      # enumeration. The publish job runs `pnpm install` after download to
-      # restore node_modules from pnpm-lock.yaml.
+      # Strip caches and pack the workspace into a single tarball before
+      # upload. upload-artifact's path filters are post-walk: it still
+      # descends into every node_modules and stats every file (~6.4M for
+      # this monorepo with pnpm's .pnpm/ symlink farm) before applying
+      # negations, which is the actual bottleneck. Removing the dirs and
+      # uploading one file collapses that to a single fast step.
+      - name: Pack workspace
+        run: |
+          find . -type d \( -name node_modules -o -name .nx -o -name .turbo -o -name .next \) -prune -exec rm -rf {} +
+          tar -czf /tmp/workspace.tgz .
+
       - name: Upload workspace
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: workspace
-          path: |
-            .
-            !**/node_modules/**
-            !**/.next/**
-            !**/.turbo/**
-            !**/.nx/**
-          include-hidden-files: true
+          path: /tmp/workspace.tgz
           retention-days: 1
 
     outputs:
@@ -182,6 +197,9 @@ jobs:
     if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # npm trusted publishing is bound to this environment. Its deployment
+    # branch policy must allow prerelease workflow_dispatch refs; stable
+    # releases remain main-only via the build job guard.
     environment: npm
     permissions:
       contents: write
@@ -199,7 +217,8 @@ jobs:
             SCOPE="$INPUT_SCOPE"
           else
             # Branch format: release/publish/<scope>/v<version>
-            SCOPE=$(echo "$PR_HEAD_REF" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+            SCOPE="${PR_HEAD_REF#release/publish/}"
+            SCOPE="${SCOPE%%/v*}"
           fi
           if [ -z "$SCOPE" ]; then
             echo "::error::Failed to resolve scope (input=$INPUT_SCOPE, ref=$PR_HEAD_REF)"
@@ -213,6 +232,11 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: workspace
+
+      - name: Unpack workspace
+        run: |
+          tar -xzf workspace.tgz
+          rm workspace.tgz
 
       - name: Configure git credentials
         env:
@@ -242,9 +266,11 @@ jobs:
       - name: Dry-run notice
         if: ${{ inputs.dry-run == true }}
         run: |
-          echo "## Dry Run" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Dry Run"
+            echo ""
+            echo "DRY RUN — skipping publish step. Scope: ${{ steps.meta.outputs.scope }}, mode: ${{ steps.meta.outputs.mode }}."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish to npm
         id: publish
@@ -308,7 +334,7 @@ jobs:
           fi
           git tag -a "$TAG" -m "Release ${SCOPE} ${VERSION}"
           git push origin "$TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
         id: tag
 
       - name: Create GitHub Release
@@ -386,6 +412,13 @@ jobs:
             echo "- Publish step was skipped; no npm publish, no git tag, no GitHub Release."
           } >> "$GITHUB_STEP_SUMMARY"
 
+    # Populated only on a stable, non-dry-run success (the publish/tag steps are
+    # gated on mode != prerelease && dry-run != true). On prerelease, dry-run, or
+    # failure these are empty — the notify job gates on that emptiness.
+    outputs:
+      version: ${{ steps.publish.outputs.version }}
+      tag: ${{ steps.tag.outputs.tag }}
+
   # ===========================================================================
   # Python SDK publish lane
   #
@@ -411,6 +444,13 @@ jobs:
       should_publish: ${{ steps.detect.outputs.should_publish }}
       version: ${{ steps.detect.outputs.version }}
       name: ${{ steps.detect.outputs.name }}
+      # Earliest Python-release intent signal: emitted by the `changed` step
+      # BEFORE any failure-prone step (setup-python, detect, build). The notify
+      # job gates the PyPI FAILURE alert on this (not should_publish, which is
+      # emitted only at the END of detect) so a build-python failure at/before
+      # detect on a genuine release still pages instead of being silently
+      # swallowed.
+      pyproject_changed: ${{ steps.changed.outputs.pyproject_changed }}
     steps:
       - name: Checkout merged main
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -620,3 +660,212 @@ jobs:
             echo "- \`copilotkit@${PY_VERSION}\`"
             echo "- https://pypi.org/project/copilotkit/${PY_VERSION}/"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ===========================================================================
+  # Slack #engr notification
+  #
+  # A single concise post to #engr when a release publishes (or fails).
+  # Runs after both lanes regardless of their outcome (`if: always()`). The
+  # load-bearing truth table lives in the unit-tested pure builder at
+  # scripts/release/lib/build-release-notification.ts; this job only feeds it the
+  # needs.* signals and posts what it returns. Suppressed entirely for canaries
+  # (mode=prerelease) and dry-runs — the builder returns should_post=false there.
+  # Webhook empty-guard mirrors showcase_validate.yml so an unset
+  # SLACK_WEBHOOK_ENGR secret does not break the shell or red this step.
+  # ===========================================================================
+  notify:
+    needs: [build, publish, build-python, publish-python]
+    # always() so we still report on a failed lane, but guard on a real release
+    # context: a workflow_dispatch (manual release) OR a *merged* PR. A
+    # closed-unmerged PR is not a release attempt and must not notify.
+    if: >
+      always() &&
+      (github.event_name == 'workflow_dispatch' ||
+        github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_ENGR }}
+    steps:
+      # Determine release intent IN THIS JOB, from the github.event payload +
+      # the PR changed-files API — NOT from needs.build*/needs.build-python
+      # outputs. The build jobs emit their intent signals (should_publish,
+      # pyproject_changed) AFTER failure-prone steps (SHA guards, setup-python,
+      # the PyPI version-compare), so a build job that dies before emitting them
+      # on a REAL release would leave the intent empty → no alert. Computing
+      # intent here, independent of whether the build jobs ran at all, closes
+      # that silent-swallow class. The builder gates the npm/PyPI FAILURE arms on
+      # these signals.
+      #
+      # This step runs FIRST — before Checkout/Setup/Install — on purpose:
+      # computing intent before any infra step means steps.intent.outputs.* are
+      # always populated even if a later infra step (the dependency install,
+      # checkout, or setup) fails. The failure() self-alert below gates its
+      # best-effort Slack post on these outputs, so running intent first
+      # guarantees that gate can still fire when the notify job dies during
+      # install — exactly the silent-swallow the self-watchdog exists to prevent.
+      # It needs only `gh api` (preinstalled), the github.event context, and
+      # GITHUB_TOKEN (in its own env), so it has no dependency on checkout/deps.
+      - name: Determine release intent
+        id: intent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # npm intent: a manual dispatch, or a merged release/publish/* PR.
+          # Computed purely from event-context expressions (no API needed).
+          NPM_INTENDED="${{ (github.event_name == 'workflow_dispatch' || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'release/publish/'))) && 'true' || 'false' }}"
+          echo "npm_intended=$NPM_INTENDED" >> "$GITHUB_OUTPUT"
+
+          # Python intent: a python_publish dispatch, OR a merged PR that changed
+          # sdk-python/pyproject.toml (per the GitHub PR changed-files API —
+          # robust to an uncomputed local merge_commit_sha). Default false.
+          PY_INTENDED="false"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ "${{ inputs.python_publish }}" = "true" ]; then PY_INTENDED="true"; fi
+          elif [ "${{ github.event.pull_request.merged }}" = "true" ]; then
+            # Query the merged PR's changed files. Fail TOWARD paging: if the API
+            # call fails on a merged PR, default PY_INTENDED=true (never toward
+            # silence) and emit a ::warning::.
+            if FILES="$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" --paginate --jq '.[].filename' 2>/dev/null)"; then
+              if printf '%s\n' "$FILES" | grep -qx 'sdk-python/pyproject.toml'; then PY_INTENDED="true"; fi
+            else
+              echo "::warning::Could not list changed files for PR #${{ github.event.pull_request.number }} via the GitHub API — defaulting py_intended=true (fail toward paging, never toward silence)."
+              PY_INTENDED="true"
+            fi
+          fi
+          echo "py_intended=$PY_INTENDED" >> "$GITHUB_OUTPUT"
+          echo "npm_intended=$NPM_INTENDED py_intended=$PY_INTENDED"
+
+      - name: Checkout Repo
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+
+      - name: Setup Node
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 22.x
+
+      # Restore node_modules so `pnpm tsx` (and the release-config import the
+      # notifier does) resolves. The build/publish jobs install before running
+      # tsx for the same reason; without this the notify step fails and NO
+      # release notification can ever post.
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Compute the scope-correct npm URL: the monorepo packages live under the
+      # @copilotkit org page, but the angular release is a single package.
+      - name: Resolve npm URL for scope
+        id: npmurl
+        env:
+          SCOPE: ${{ needs.build.outputs.scope }}
+        run: |
+          set -euo pipefail
+          case "$SCOPE" in
+            angular)
+              NPM_URL="https://www.npmjs.com/package/@copilotkit/angular"
+              ;;
+            *)
+              NPM_URL="https://www.npmjs.com/org/copilotkit"
+              ;;
+          esac
+          echo "npm_url=$NPM_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Build notification message
+        id: build
+        env:
+          MODE: ${{ needs.build.outputs.mode }}
+          NPM_RESULT: ${{ needs.publish.result }}
+          NPM_VER: ${{ needs.publish.outputs.version }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          # Event-derived release intent computed in the `intent` step above
+          # (independent of the build jobs). The builder gates the npm/PyPI
+          # FAILURE arms on these so a build-job failure on a genuine release
+          # always pages, even if the build jobs emitted no usable outputs.
+          NPM_INTENDED: ${{ steps.intent.outputs.npm_intended }}
+          PY_INTENDED: ${{ steps.intent.outputs.py_intended }}
+          # should_publish still legitimately gates the PyPI SUCCESS arm (a real
+          # success means detect ran and emitted it).
+          PY_PUB: ${{ needs.build-python.outputs.should_publish }}
+          PY_RESULT: ${{ needs.publish-python.result }}
+          PY_BUILD_RESULT: ${{ needs.build-python.result }}
+          PY_VER: ${{ needs.build-python.outputs.version }}
+          SCOPE: ${{ needs.build.outputs.scope }}
+          DRY_RUN: ${{ inputs.dry-run }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # Empty when no tag was created (non-stable / dry-run). The builder's
+          # empty-releaseUrl guard that consumes this is retained as
+          # DEFENSE-IN-DEPTH: the empty-releaseUrl-on-SUCCESS state is NOT
+          # currently reachable — the tag step is `if: success()`, so a tag-step
+          # failure flips the publish JOB to `failure` and routes to the failure
+          # arm rather than rendering an empty link. The guard protects against a
+          # FUTURE change making the tag step continue-on-error (publish success
+          # + empty tag output), which would otherwise render a broken empty
+          # "<|Release notes>" / "/releases/tag/" link — do NOT remove it.
+          RELEASE_URL: ${{ needs.publish.outputs.tag && format('{0}/{1}/releases/tag/{2}', github.server_url, github.repository, needs.publish.outputs.tag) || '' }}
+          NPM_URL: ${{ steps.npmurl.outputs.npm_url }}
+          # Empty-version guard, mirroring RELEASE_URL above: with no version
+          # the per-version PyPI URL would be a broken ".../copilotkit//" link,
+          # so fall back to the project root page.
+          PY_URL: ${{ needs.build-python.outputs.version && format('https://pypi.org/project/copilotkit/{0}/', needs.build-python.outputs.version) || 'https://pypi.org/project/copilotkit/' }}
+        run: pnpm tsx scripts/release/build-release-notification.ts
+
+      - name: Post to #engr
+        if: ${{ steps.build.outputs.should_post == 'true' && env.SLACK_WEBHOOK != '' && inputs.dry-run != true }}
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(steps.build.outputs.message) }}
+            }
+
+      - name: Log (no Slack — webhook unset)
+        if: ${{ steps.build.outputs.should_post == 'true' && env.SLACK_WEBHOOK == '' }}
+        run: |
+          echo "::warning::A release notification was ready to post but SLACK_WEBHOOK_ENGR is not set; no Slack notification sent."
+
+      # Self-watchdog: if any earlier step in THIS job failed (e.g. the
+      # dependency install or the builder crashed), the notifier itself is the
+      # thing that broke — so a real release alert could be silently swallowed.
+      # Emit a ::error:: and, when the webhook is configured, a minimal
+      # best-effort Slack post so the failure isn't completely invisible.
+      - name: Notifier failed — self-alert
+        if: ${{ failure() }}
+        run: |
+          echo "::error::The release notify job failed before it could post — a release alert may have been swallowed. Check this run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Notifier failed — best-effort Slack
+        # Guard on dry-run: the self-watchdog Slack post must honor the same
+        # silence invariant as the real notification — a dry-run is silent
+        # EVERYWHERE, so a notify-job failure during one must not post a false
+        # red page.
+        #
+        # ALSO guard on real-release-context via the robust, build-job-INDEPENDENT
+        # intent computed in the `intent` step: the notify job runs on EVERY
+        # merged PR (always()), so a routine non-release merge whose notify job
+        # hits a transient install/builder flake would otherwise self-page even
+        # though no release was attempted. Only self-alert when a release was
+        # actually in flight (npm_intended OR py_intended). This replaces the old
+        # npm-biased `mode != 'prerelease'` + should_publish/pyproject_changed
+        # heuristic — which both relied on the build jobs' outputs (the very
+        # signals that may be empty if a build job died) AND would have suppressed
+        # a python_publish self-alert under a prerelease-mode dispatch. The intent
+        # gate is correct and robust. (The ::error:: echo step above stays
+        # unconditional — only the Slack POST needs these guards.)
+        if: ${{ failure() && env.SLACK_WEBHOOK != '' && inputs.dry-run != true && (steps.intent.outputs.npm_intended == 'true' || steps.intent.outputs.py_intended == 'true') }}
+        uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_ENGR }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ${{ toJSON(format('🔴 *CopilotKit release notifier failed* — a release alert may have been swallowed · <{0}/{1}/actions/runs/{2}|View run>', github.server_url, github.repository, github.run_id)) }}
+            }

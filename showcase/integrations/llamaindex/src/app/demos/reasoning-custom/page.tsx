@@ -4,7 +4,7 @@
 //
 // Pairs with `reasoning-default` so users can compare default vs custom
 // reasoning rendering side by side. Both demos share the same backend
-// (`reasoning_agent` graph) and runtime URL (/api/copilotkit). This cell
+// (`reasoning_agent` router) and runtime URL (/api/copilotkit). This cell
 // overrides the `reasoningMessage` slot on the `messageView` slot with
 // `ReasoningBlock` — a tagged amber banner that emphasizes the agent's
 // thinking chain.
@@ -22,7 +22,11 @@ import { ReasoningBlock } from "./reasoning-block";
 import { useReasoningCustomSuggestions } from "./suggestions";
 
 // @region[reasoning-block-render]
-const AGENT_ID = "reasoning-custom";
+// Functional agent-registration key (matches the /api/copilotkit route's
+// specializedAgents map and the backend /reasoning router). The manifest
+// demo id is `reasoning-custom`; the agent key stays `agentic-chat-reasoning`
+// to mirror built-in-agent / claude-sdk-python.
+const AGENT_ID = "agentic-chat-reasoning";
 
 export default function ReasoningCustomDemo() {
   return (

@@ -26,7 +26,7 @@
  *      placeholder text".
  *
  * Side effect: importing this module triggers `registerD5Script`. The
- * default loader in `e2e-deep.ts` discovers it via the `d5-*` filename
+ * default loader in `d6-all-pills.ts` discovers it via the `d5-*` filename
  * convention.
  */
 
@@ -239,7 +239,12 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
   return [
     {
       input: USER_PROMPT,
-      assertions: assertSubagentsChain,
+      // Wrapped so the assertions callback ignores the Phase-4 `ctx`
+      // argument: `assertSubagentsChain` takes `(page, timeoutMs?, dwellMs?)`,
+      // not `(page, ctx)`, and ctx is irrelevant to the chain-card probe.
+      assertions: async (page) => {
+        await assertSubagentsChain(page);
+      },
       // The chain involves 3 LLM round-trips; bump the per-turn
       // response timeout to match the polling budget so the runner
       // doesn't declare timeout BEFORE the assertion has a chance to

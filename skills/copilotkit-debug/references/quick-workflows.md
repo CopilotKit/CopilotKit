@@ -18,7 +18,7 @@ curl -v http://localhost:3001/api/copilotkit/info
 ### Step 2: Check the client configuration
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit">
+<CopilotKit runtimeUrl="/api/copilotkit">
 ```
 
 - Does `runtimeUrl` match the runtime's basePath exactly?
@@ -57,7 +57,7 @@ createCopilotEndpoint({
 And on the client:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="https://your-api.com/api/copilotkit"
   credentials="include"
 />

@@ -288,7 +288,6 @@ describe("Headless integration", () => {
         useFrontendTool({
           name: "test-tool",
           description: "A test tool",
-          parameters: {},
           handler: async () => "done",
         });
         return null;
@@ -344,7 +343,6 @@ describe("Headless integration", () => {
         useFrontendTool({
           name: "multi-tool",
           description: "Another tool",
-          parameters: {},
           handler: async () => "ok",
         });
         return null;
@@ -387,7 +385,6 @@ describe("Headless integration", () => {
         useFrontendTool({
           name: "orphan-tool",
           description: "No provider",
-          parameters: {},
           handler: async () => "fail",
         });
         return null;
@@ -419,7 +416,7 @@ describe("Headless integration", () => {
 
     it("useHumanInTheLoop throws when called outside CopilotKitProvider", () => {
       function TestComponent() {
-        useHumanInTheLoop();
+        useHumanInTheLoop({ name: "orphan-hitl", render: () => null });
         return null;
       }
 
@@ -434,7 +431,7 @@ describe("Headless integration", () => {
 
     it("useInterrupt throws when called outside CopilotKitProvider", () => {
       function TestComponent() {
-        useInterrupt();
+        useInterrupt({ render: () => <></> });
         return null;
       }
 

@@ -5,6 +5,7 @@ import {
   StreamingMarkdownRenderer,
   createStreamingMarkdownNodeRenderers,
 } from "@copilotkit/markdown-renderer/react";
+import { warnUnsupportedRichSyntaxOnce } from "@copilotkit/markdown-renderer";
 import type {
   DefaultMarkdownRendererProps,
   MarkdownRendererProps,
@@ -54,6 +55,9 @@ export function StreamingMarkdownDefaultRenderer({
     [nodeRenderers],
   );
   if (!content) return null;
+  // Dev-only: nudge upgraders from the bundled Streamdown default when their
+  // content needs math/syntax highlighting the built-in renderer doesn't do.
+  warnUnsupportedRichSyntaxOnce(content);
   return (
     <StreamingMarkdownRenderer
       className={className}

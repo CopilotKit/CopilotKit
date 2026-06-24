@@ -1,0 +1,5 @@
+{
+  "title": "Bots",
+  "icon": "lucide/Bot",
+  "pages": ["index", "persistence", "transcripts"]
+}

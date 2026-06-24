@@ -1793,3 +1793,195 @@ describe("railwayServicesSource", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// LOCAL_SERVICES_JSON injection seam
+// ---------------------------------------------------------------------------
+//
+// The local D6 gate (and any non-Railway driver) feeds the IDENTICAL
+// RailwayServiceInfo[] shape into the probe path without querying Railway.
+// The critical correctness contract: the injected `demos` array MUST survive
+// onto the resolved RailwayServiceInfo, because the d6-all-pills driver derives
+// its feature matrix via `demosToFeatureTypes(input.demos ?? [])`. An empty
+// `demos` short-circuits the driver to a zero-cell false-green, so this seam
+// is worthless unless `demos` is plumbed end-to-end.
+
+// A fetch that fails loudly: the local-injection path must NOT touch Railway
+// at all, so any fetch call here is a contract violation.
+const NO_FETCH: typeof fetch = async () => {
+  throw new Error(
+    "LOCAL_SERVICES_JSON path must not query Railway (fetch called)",
+  );
+};
+
+describe("railwayServicesSource — LOCAL_SERVICES_JSON injection", () => {
+  it("returns the injected services WITH demos populated, without querying Railway", async () => {
+    const localServices = [
+      {
+        name: "showcase-langgraph-python",
+        publicUrl: "http://langgraph-python:10000",
+        demos: ["agentic_chat", "human_in_the_loop"],
+      },
+    ];
+    const env = {
+      ...BASE_ENV,
+      LOCAL_SERVICES_JSON: JSON.stringify(localServices),
+    };
+    const out = await railwayServicesSource.enumerate(
+      makeCtx(NO_FETCH, env),
+      {},
+    );
+
+    expect(out).toHaveLength(1);
+    const svc = out[0]!;
+    expect(svc.name).toBe("showcase-langgraph-python");
+    expect(svc.publicUrl).toBe("http://langgraph-python:10000");
+    // The load-bearing assertion: demos survive onto the resolved record so
+    // the d6-all-pills driver's `demosToFeatureTypes(input.demos)` produces a
+    // real feature matrix instead of a zero-cell false-green.
+    expect(svc.demos).toEqual(["agentic_chat", "human_in_the_loop"]);
+    // shape is recomputed from the name via classifyShape (single source of
+    // truth) rather than trusted from the injected record.
+    expect(svc.shape).toBe("package");
+  });
+
+  it("does NOT engage the injection seam when LOCAL_SERVICES_JSON is unset (Railway path unchanged)", async () => {
+    // No LOCAL_SERVICES_JSON in env → the Railway discovery path runs exactly
+    // as today. We assert byte-identical behaviour by driving the normal
+    // scripted-fetch happy path and confirming the seam never short-circuits.
+    const { fetchImpl, calls } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "svc-1",
+            name: "showcase-langgraph-python",
+            image: "ghcr.io/org/langgraph-python:latest",
+            domain: "langgraph-python.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    // BASE_ENV has no LOCAL_SERVICES_JSON → Railway path.
+    const out = await railwayServicesSource.enumerate(
+      makeCtx(fetchImpl, BASE_ENV),
+      {},
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]!.name).toBe("showcase-langgraph-python");
+    expect(out[0]!.publicUrl).toBe("https://langgraph-python.up.railway.app");
+    // The Railway path made its GraphQL round-trips — proof the seam was a
+    // no-op and discovery behaviour is unchanged when the env var is absent.
+    expect(calls.length).toBeGreaterThan(0);
+  });
+
+  it("treats empty-string LOCAL_SERVICES_JSON as unset (no-op, Railway path runs)", async () => {
+    const { fetchImpl, calls } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "svc-1",
+            name: "showcase-langgraph-python",
+            image: "ghcr.io/org/langgraph-python:latest",
+            domain: "langgraph-python.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const env = { ...BASE_ENV, LOCAL_SERVICES_JSON: "" };
+    const out = await railwayServicesSource.enumerate(
+      makeCtx(fetchImpl, env),
+      {},
+    );
+    expect(out).toHaveLength(1);
+    expect(calls.length).toBeGreaterThan(0);
+  });
+
+  it("applies namePrefix + nameExcludes filters to injected services", async () => {
+    const localServices = [
+      {
+        name: "showcase-langgraph-python",
+        publicUrl: "http://langgraph-python:10000",
+        demos: ["agentic_chat"],
+      },
+      {
+        name: "showcase-crewai-python",
+        publicUrl: "http://crewai-python:10000",
+        demos: ["agentic_chat"],
+      },
+      {
+        name: "smoke-runner",
+        publicUrl: "http://smoke-runner:10000",
+        demos: [],
+      },
+    ];
+    const env = {
+      ...BASE_ENV,
+      LOCAL_SERVICES_JSON: JSON.stringify(localServices),
+    };
+    const out = await railwayServicesSource.enumerate(makeCtx(NO_FETCH, env), {
+      namePrefix: "showcase-",
+      nameExcludes: ["showcase-crewai-python"],
+    });
+    // smoke-runner dropped by namePrefix; crewai dropped by nameExcludes.
+    expect(out.map((s) => s.name)).toEqual(["showcase-langgraph-python"]);
+  });
+
+  it("throws DiscoverySourceSchemaError when LOCAL_SERVICES_JSON is not valid JSON", async () => {
+    const env = { ...BASE_ENV, LOCAL_SERVICES_JSON: "{not json" };
+    await expect(
+      railwayServicesSource.enumerate(makeCtx(NO_FETCH, env), {}),
+    ).rejects.toBeInstanceOf(DiscoverySourceSchemaError);
+  });
+
+  it("throws DiscoverySourceSchemaError when LOCAL_SERVICES_JSON has the wrong shape", async () => {
+    // Missing required `publicUrl`.
+    const env = {
+      ...BASE_ENV,
+      LOCAL_SERVICES_JSON: JSON.stringify([{ name: "showcase-x" }]),
+    };
+    await expect(
+      railwayServicesSource.enumerate(makeCtx(NO_FETCH, env), {}),
+    ).rejects.toBeInstanceOf(DiscoverySourceSchemaError);
+  });
+
+  it("defaults demos to [] when an injected record omits it", async () => {
+    const localServices = [
+      {
+        name: "showcase-langgraph-python",
+        publicUrl: "http://langgraph-python:10000",
+      },
+    ];
+    const env = {
+      ...BASE_ENV,
+      LOCAL_SERVICES_JSON: JSON.stringify(localServices),
+    };
+    const out = await railwayServicesSource.enumerate(
+      makeCtx(NO_FETCH, env),
+      {},
+    );
+    expect(out[0]!.demos).toEqual([]);
+  });
+
+  it("does not require Railway credentials on the injection path", async () => {
+    // No RAILWAY_* creds at all — the injection path must not throw
+    // DiscoverySourceAuthError because it never consults Railway.
+    const localServices = [
+      {
+        name: "showcase-langgraph-python",
+        publicUrl: "http://langgraph-python:10000",
+        demos: ["agentic_chat"],
+      },
+    ];
+    const env = { LOCAL_SERVICES_JSON: JSON.stringify(localServices) };
+    const out = await railwayServicesSource.enumerate(
+      makeCtx(NO_FETCH, env),
+      {},
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0]!.demos).toEqual(["agentic_chat"]);
+  });
+});

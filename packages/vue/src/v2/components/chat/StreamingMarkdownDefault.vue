@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, watchEffect } from "vue";
 import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/vue";
+import { warnUnsupportedRichSyntaxOnce } from "@copilotkit/markdown-renderer";
 import type { StreamingMarkdownParserOptions } from "@copilotkit/markdown-renderer";
 import type { DefaultMarkdownRendererProps } from "../../providers/markdown-renderer";
 
@@ -14,6 +15,10 @@ const props = withDefaults(
 const resolvedOptions = computed(
   () => props.options as StreamingMarkdownParserOptions | undefined,
 );
+
+// Dev-only: nudge upgraders from the bundled Streamdown default when their
+// content needs math/syntax highlighting the built-in renderer doesn't do.
+watchEffect(() => warnUnsupportedRichSyntaxOnce(props.content));
 </script>
 
 <template>

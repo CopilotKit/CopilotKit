@@ -1,5 +1,9 @@
 # Showcase GOTCHAS — Framework & Integration Edge Cases
 
+Tagline: framework-specific traps, aimock matcher / fixture-authoring edge
+cases, and `--isolate` operational gotchas. Load when a fixture, framework, or
+`--isolate` slot is misbehaving in ways the CLI output alone won't explain.
+
 What we learned from getting all 18 integrations to D5 green. Many of these are things that were "green" but still wrong — passing probes while the underlying wiring was fragile, framework-specific, or relying on coincidence. This document exists so we don't re-learn these when rebuilding.
 
 ---
@@ -112,7 +116,7 @@ What we learned from getting all 18 integrations to D5 green. Many of these are 
 
 **Check fixtures FIRST.** When an agent misbehaves through aimock, the fixture determines behavior — the real LLM is never consulted.
 
-**`sequenceIndex` counters are global.** They persist across all test runs within the same aimock process. Use `hasToolResult` (stateless) instead for fixtures shared across integrations.
+**`sequenceIndex` counters are scoped per X-Test-Id.** aimock tracks match counts in `fixtureMatchCountsByTestId` (src/journal.ts), keyed by the request's `X-Test-Id` header — `DEFAULT_TEST_ID` when no header is sent, so manual/staging traffic effectively shares one counter set for the process lifetime (subject to the `fixtureCountsMaxTestIds` FIFO eviction cap). The D6 harness mints per-run unique ids via `buildE2eTestId`, so CI runs are isolated from each other. Three caveats: (1) the sibling co-increment grouping (`matchCriteriaEqual`) ignores `context`, so identical fixtures mirrored across integrations form ONE co-increment group — a match on any integration consumes a slot for all; (2) the grouping is exact-equality over the other match criteria, so adding `turnIndex`/`hasToolResult`/`predicate` to sequenceIndex variants — with per-variant values, or to some siblings but not others (predicates compare by function reference, so even identical ones differ) — silently un-groups the siblings, and click 2 falls to the fallback instead of the sequenceIndex 1 variant; (3) under shared/default test ids the counters never reset within a map entry's lifetime — but the `DEFAULT_TEST_ID` entry can itself be FIFO-evicted once the per-test-id map exceeds `fixtureCountsMaxTestIds` (default 500), which silently resets its counters to zero. The sanctioned pattern for repeat-invocation fixtures is sequenceIndex variants with a non-sequenced fallback ordered AFTER them, so strict mode never 503s and shared-test-id traffic gracefully degrades to the fallback id — see the beautiful-chat calculator fixtures. `hasToolResult` remains the stateless alternative, but it is thread-global (a shape predicate over the whole conversation) and breaks interleaved pills, so it is not a universal substitute.
 
 **Tool-rendering fixtures need `toolName` in match criteria.** If the request doesn't include tool definitions, the fixture falls through to text-only. Spring-ai omitted tools; mastra's shorthand keys produced wrong function names.
 
@@ -128,7 +132,7 @@ What we learned from getting all 18 integrations to D5 green. Many of these are 
 
 **Never combine `content` and `toolCalls` in a single fixture.** A fixture must return either text (`content`) or tool calls (`toolCalls`), not both. Combining them produces undefined behavior: some providers stream the text, others stream the tool call, and the order is non-deterministic. Split into two fixtures with `sequenceIndex` if you need text followed by a tool call (or vice versa).
 
-**`hasToolResult: false` breaks multi-pill flows.** When a fixture returns `toolCalls` with `hasToolResult: false`, aimock treats the conversation as complete after the tool call -- it will not match a follow-up turn where the client sends back the tool result. In multi-pill flows (D6), the agent cycles through multiple tool calls and text responses. Use `hasToolResult: true` (or omit it, since `true` is the default) so aimock expects the client to send tool results and continues matching subsequent turns.
+**`hasToolResult` is a request-match predicate over the WHOLE thread, not response-side conversation tracking.** It gates matching on whether ANY `role: "tool"` message exists anywhere in the incoming request's messages (aimock src/router.ts). Omitting it applies NO gate -- there is no `true` default. `hasToolResult: false` on a leg-1 fixture means it stops matching as soon as any tool result appears in the thread -- and because the check is thread-global, a tool result from a DIFFERENT pill earlier in the conversation also disqualifies it, breaking interleaved multi-pill flows (see the sequenceIndex caveats above). The sanctioned pattern is to pair each leg-1 fixture with a `toolCallId`-anchored follow-up entry ordered BEFORE it, as the beautiful-chat calculator fixtures do.
 
 **MIRROR the canonical (langgraph-python) fixtures — never re-record per-integration.** D6 fixtures must be authored by copying the canonical `aimock/d6/langgraph-python/<cell>.json` (and `langgraph-typescript/`) and re-keying `match.context` to the integration slug. Do NOT run `aimock --record` against an integration to capture its live traffic: the matcher keys mainly on `userMessage` + `context` and does not gate on the system prompt or tool schema, so a recording bakes in whatever (possibly buggy) request the integration sent and replays it green forever. Recording launders request-side bugs; mirroring forces every integration onto one shared contract. (See "What Was Green But Still Wrong" #7.)
 
@@ -136,9 +140,40 @@ What we learned from getting all 18 integrations to D5 green. Many of these are 
 
 ---
 
+## `--isolate` & aimock operational edge cases
+
+**aimock caches fixtures at container startup.** aimock reads fixtures from disk
+exactly once at boot and serves matches from an in-memory map. Editing a
+fixture in a live stack has no effect until the container restarts. Within an
+`--isolate` slot:
+
+- **Fresh slot** (cold-start) — aimock loads fixtures from the volume mount on
+  startup, so the first run after a fixture edit picks up the change for free.
+- **Warm slot** (reusing a kept stack) — fixture edits require an explicit
+  `docker restart showcase-iso<N>-aimock` before the next test run, or you'll
+  see the pre-edit behavior with no log indication of why.
+
+This is the most-recurring "why isn't my fixture fix working?" trap during
+iterative cell debugging.
+
+**`--isolate` slot collisions with foreign Docker projects.** The slot registry
+under `~/.local/state/copilotkit/showcase/slots/` only tracks `showcase-*`
+compose projects. If a sibling project (e.g. `ag2mm-*`, or another tool's
+docker stack) owns the same host ports for an auto-picked slot, health checks
+cross-resolve to the foreign containers and results misroute silently — the
+isolated stack appears red even though its own containers are healthy. Two
+remediations:
+
+- **Pre-reserve the conflicting slot:** `mkdir
+~/.local/state/copilotkit/showcase/slots/<N>` for each slot whose port range
+  collides with the foreign stack. The CLI skips reserved slots when picking.
+- **Tear down the foreign stack first:** `docker compose -p <foreign-project> down`
+  before launching `--isolate`. Cleanest, but requires knowing which project
+  is the culprit.
+
 ## Running D6 in Parallel (`--isolate`)
 
-**The shared aimock is NOT a serialization bottleneck.** aimock is stateless and context-keyed (`x-aimock-context: <slug>` per request), so one instance serves many integrations concurrently with zero cross-talk. Many integrations can run D6 at once.
+**The shared aimock is NOT a serialization bottleneck.** aimock matching is stateless per-request and context-keyed (`x-aimock-context: <slug>` per request); the only cross-request state is the per-X-Test-Id sequence counters (see the `sequenceIndex` gotcha above), which D6's per-run unique test ids (`buildE2eTestId`) keep isolated. So one instance serves many integrations concurrently with zero cross-talk for D6 traffic. Many integrations can run D6 at once.
 
 **Use `--isolate <name>` for concurrent fixture-triage runs.** Each isolated stack gets its OWN aimock + pocketbase + dashboard + integration container on offset ports (`(slot+1)*200`, slot auto-claimed 0..45). The key benefit during triage: aimock has no hot-reload, so picking up edited fixtures requires a restart — and restarting a _shared_ aimock would nuke every concurrent run. A per-stack aimock means each run restarts only its own. Template: `bin/showcase test <slug>:<cell> --d6 --isolate iso-<slug>-w1 --verbose`. `<name>` must be lowercase `[a-z0-9_-]+`.
 

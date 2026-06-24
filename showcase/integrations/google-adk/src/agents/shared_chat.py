@@ -5,18 +5,18 @@ tools — appropriate for any demo whose only customisation is on the frontend
 (prebuilt-sidebar, prebuilt-popup, chat-slots, chat-customization-css,
 headless-simple, headless-complete, voice, frontend-tools, agentic-chat).
 
-`build_thinking_chat_agent` uses Gemini 2.5 Flash with the thinking_config
+`build_thinking_chat_agent` uses Gemini 3.1 Flash-Lite with the thinking_config
 exposed so reasoning is streamed back as `thought` parts; the v2 React core
 renders these via CopilotChatReasoningMessage.
 
 `get_model` returns a `Gemini` instance configured with the aimock proxy
 endpoint when `GOOGLE_GEMINI_BASE_URL` is set, or the default model string
 otherwise. All agent modules should call `get_model()` instead of
-hard-coding `"gemini-2.5-flash"` so Railway deployments route through
+hard-coding `"gemini-3.1-flash-lite"` so Railway deployments route through
 aimock.
 
 `stop_on_terminal_text` is the canonical after_model_callback shared by every
-registered LlmAgent. Gemini 2.5-flash does not naturally end its agentic
+registered LlmAgent. Gemini 3.1 Flash-Lite does not naturally end its agentic
 loop after a successful tool call — it keeps re-issuing the same tool. The
 callback inspects each non-partial model response and, when it contains
 text with no pending function_call, sets `_invocation_context.end_invocation
@@ -41,7 +41,7 @@ from agents._header_forwarding import install_httpx_hook
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.1-flash-lite"
 
 
 def stop_on_terminal_text(
@@ -58,7 +58,7 @@ def stop_on_terminal_text(
        in `entrypoint.sh`).
     2. Only terminate when the final non-partial response contains TEXT
        and NO pending function_call — mixed text+function_call responses
-       (a known Gemini 2.5-flash quirk) must NOT terminate.
+       (a known Gemini Flash quirk) must NOT terminate.
     3. `_invocation_context` is an ADK private attribute; if it disappears
        in a future ADK release, log-and-degrade rather than crash the
        callback (which would stall the request).
@@ -140,6 +140,25 @@ def get_model(model: str = DEFAULT_MODEL) -> Union[str, Gemini]:
         install_httpx_hook(gemini)
         return gemini
     return model
+
+
+def get_a2ui_model(model: str = DEFAULT_MODEL) -> Gemini:
+    """Return a concrete ``Gemini`` BaseLlm for the A2UI sub-agent.
+
+    The middleware's ``get_a2ui_tool({"model": ...})`` invokes the model
+    directly (forced ``render_a2ui`` call), so it needs a model *object*, not
+    the bare string ``get_model`` may return for ``LlmAgent.model=``. This
+    mirrors ``get_model``'s aimock-proxy wiring (base_url + x-header hook) so
+    the sub-agent's Gemini calls route through the same proxy as the primary
+    agent and match the same aimock fixtures. (The auto-inject path got this
+    object for free from the agent's ``canonical_model``; backend-owned wiring
+    must resolve it explicitly.)
+    """
+    resolved = get_model(model)
+    if isinstance(resolved, Gemini):
+        return resolved
+    # No proxy: build a plain Gemini against the default endpoint.
+    return Gemini(model=model)
 
 
 def build_simple_chat_agent(

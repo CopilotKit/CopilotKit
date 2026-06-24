@@ -1,9 +1,7 @@
-import { WebInspectorElement, ɵCpkThreadDetails } from "../index";
-import {
-  CopilotKitCore,
-  CopilotKitCoreRuntimeConnectionStatus,
-  type CopilotKitCoreSubscriber,
-} from "@copilotkit/core";
+import { WebInspectorElement, ɵCpkThreadDetails } from "../index.js";
+import type { CopilotKitCore } from "@copilotkit/core";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -308,6 +306,9 @@ describe("WebInspectorElement", () => {
 
 type ThreadDetailsInternals = {
   threadId: string | null;
+  runtimeUrl: string;
+  headers: Record<string, string>;
+  threadInspectionAvailable: boolean;
   liveMessageVersion: number;
   _conversation: Array<Record<string, unknown>>;
   _fetchedState: Record<string, unknown> | null;
@@ -320,6 +321,8 @@ type ThreadDetailsInternals = {
   _loadingState: boolean;
   _loadingEvents: boolean;
   _panelTplCache: Map<string, { key: readonly unknown[]; tpl: unknown }>;
+  fetchEvents: (threadId: string) => Promise<void>;
+  fetchState: (threadId: string) => Promise<void>;
   renderConversation: () => unknown;
   renderState: () => unknown;
   renderEvents: () => unknown;
@@ -377,6 +380,30 @@ describe("ɵCpkThreadDetails caching", () => {
     await el.updateComplete;
 
     expect(internals._panelTplCache.size).toBe(0);
+  });
+
+  it("does not fetch messages, events, or state when threadInspectionAvailable is omitted", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+    try {
+      const { el, internals } = createThreadDetails();
+
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer test-token" };
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      expect(internals.threadInspectionAvailable).toBe(false);
+      expect(fetchSpy).not.toHaveBeenCalled();
+
+      await internals.fetchEvents("t1");
+      await internals.fetchState("t1");
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   it("conversation cache invalidates when _conversation is reassigned", async () => {
@@ -460,5 +487,275 @@ describe("ɵCpkThreadDetails caching", () => {
 
     expect(internals.renderState()).not.toBe(stateA);
     expect(internals.renderEvents()).not.toBe(eventsA);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Announcement preview (popout) dismissal MUST persist
+// ─────────────────────────────────────────────────────────────────────────
+//
+// The preview bubble that pops out of the floating button carries an X. Clicking
+// it MUST persist the announcement timestamp to localStorage. Otherwise
+// fetchAnnouncement() recomputes `showAnnouncementPreview` from the (still
+// empty) stored timestamp on the next mount and the bubble pops straight back
+// out — the regression these tests guard against. Persistence lives only in
+// markAnnouncementSeen(); the body-click / open paths clear the flag in memory
+// only and are intentionally NOT persistent.
+
+const ANNOUNCEMENT_STORAGE_KEY = "cpk:inspector:announcements";
+
+type AnnouncementInternals = {
+  hasUnseenAnnouncement: boolean;
+  showAnnouncementPreview: boolean;
+  announcementPreviewText: string | null;
+  announcementTimestamp: string | null;
+  isOpen: boolean;
+};
+
+describe("WebInspectorElement announcement preview dismissal", () => {
+  let store: Record<string, string>;
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    store = {};
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+      clear: () => {
+        for (const key of Object.keys(store)) delete store[key];
+      },
+      get length() {
+        return Object.keys(store).length;
+      },
+      key: (index: number) => Object.keys(store)[index] ?? null,
+    });
+  });
+
+  /** Mount a closed inspector with an unseen announcement so the popout renders. */
+  async function mountWithUnseenAnnouncement(timestamp: string) {
+    const { core } = createMockCore();
+    const inspector = createInspectorWithCore(core);
+    const a = inspector as unknown as AnnouncementInternals;
+    a.announcementTimestamp = timestamp;
+    a.announcementPreviewText = "Slack early access is here!";
+    a.hasUnseenAnnouncement = true;
+    a.showAnnouncementPreview = true;
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+    return { inspector, a };
+  }
+
+  it("persists the announcement timestamp when the popout X is clicked", async () => {
+    const timestamp = "2026-06-11T13:00:00.000Z";
+    const { inspector, a } = await mountWithUnseenAnnouncement(timestamp);
+
+    const dismiss = inspector.shadowRoot?.querySelector<HTMLElement>(
+      ".announcement-preview__dismiss",
+    );
+    expect(dismiss, "popout dismiss control should render").not.toBeNull();
+
+    dismiss?.click();
+    await inspector.updateComplete;
+
+    // The dismissal is persisted, so a remount would stay closed.
+    expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBe(JSON.stringify({ timestamp }));
+    // In-memory flags cleared and the bubble is gone.
+    expect(a.hasUnseenAnnouncement).toBe(false);
+    expect(a.showAnnouncementPreview).toBe(false);
+    expect(
+      inspector.shadowRoot?.querySelector(".announcement-preview"),
+    ).toBeNull();
+  });
+
+  it("dismissing the popout X does not open the inspector", async () => {
+    const { inspector, a } = await mountWithUnseenAnnouncement(
+      "2026-06-11T13:00:00.000Z",
+    );
+    expect(a.isOpen).toBe(false);
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview__dismiss")
+      ?.click();
+    await inspector.updateComplete;
+
+    // X dismisses without opening (only a body click opens the inspector).
+    expect(a.isOpen).toBe(false);
+  });
+
+  it("clicking the popout body opens the inspector without persisting", async () => {
+    const { inspector, a } = await mountWithUnseenAnnouncement(
+      "2026-06-11T13:00:00.000Z",
+    );
+
+    inspector.shadowRoot
+      ?.querySelector<HTMLElement>(".announcement-preview")
+      ?.click();
+    await inspector.updateComplete;
+
+    // Body click is engagement, not dismissal: it opens but must NOT persist,
+    // so the in-window banner still shows the announcement.
+    expect(a.isOpen).toBe(true);
+    expect(store[ANNOUNCEMENT_STORAGE_KEY]).toBeUndefined();
+    expect(a.hasUnseenAnnouncement).toBe(true);
+  });
+});
+
+// --- Owned thread store header forwarding (issue #5581) ---
+//
+// When useThreads() isn't mounted, the inspector creates its own thread store
+// per agent (ensureOwnedThreadStore). That store's /threads requests must carry
+// the headers configured on <CopilotKit> (e.g. X-CSRF / auth), otherwise the
+// requests 403 in environments that enforce CSRF/auth checks.
+
+type HeaderMockCore = {
+  agents: Record<string, AbstractAgent>;
+  context: Record<string, unknown>;
+  properties: Record<string, unknown>;
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  runtimeUrl: string;
+  headers: Record<string, string>;
+  threadEndpoints: {
+    list: boolean;
+    inspect: boolean;
+    mutations: boolean;
+    realtimeMetadata: boolean;
+  };
+  subscribe: (subscriber: CopilotKitCoreSubscriber) => {
+    unsubscribe: () => void;
+  };
+  getThreadStores: () => Record<string, never>;
+  getThreadStore: (agentId: string) => undefined;
+  registerThreadStore: (agentId: string, store: unknown) => void;
+  unregisterThreadStore: (agentId: string) => void;
+};
+
+function createHeaderMockCore(
+  agents: Record<string, AbstractAgent>,
+  headers: Record<string, string>,
+) {
+  const subscribers = new Set<CopilotKitCoreSubscriber>();
+  const core: HeaderMockCore = {
+    agents,
+    context: {},
+    properties: {},
+    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+    runtimeUrl: "http://localhost/api",
+    headers,
+    threadEndpoints: {
+      list: true,
+      inspect: true,
+      mutations: true,
+      realtimeMetadata: true,
+    },
+    subscribe(subscriber: CopilotKitCoreSubscriber) {
+      subscribers.add(subscriber);
+      return { unsubscribe: () => subscribers.delete(subscriber) };
+    },
+    getThreadStores() {
+      return {};
+    },
+    getThreadStore() {
+      return undefined;
+    },
+    registerThreadStore() {},
+    unregisterThreadStore() {},
+  };
+
+  const asCore = () => core as unknown as CopilotKitCore;
+  return {
+    core,
+    emitAgentsChanged() {
+      subscribers.forEach((s) =>
+        s.onAgentsChanged?.({ copilotkit: asCore(), agents: core.agents }),
+      );
+    },
+    emitHeadersChanged(nextHeaders: Record<string, string>) {
+      core.headers = nextHeaders;
+      subscribers.forEach((s) =>
+        s.onHeadersChanged?.({ copilotkit: asCore(), headers: nextHeaders }),
+      );
+    },
+  };
+}
+
+const headersOf = (call: unknown[]) =>
+  (call[1] as { headers?: Record<string, string> } | undefined)?.headers ?? {};
+
+describe("WebInspectorElement owned thread store headers (#5581)", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  const threadListCalls = () =>
+    fetchMock.mock.calls.filter((call) =>
+      String(call[0]).includes("/threads?"),
+    );
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ threads: [] }),
+      }),
+    );
+    // The owned store captures globalThis.fetch when it's created, so stub
+    // before the inspector attaches to the core.
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("forwards core headers on the owned store's /threads request", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore(
+      { alpha: agent },
+      { "X-CSRF": "1", Authorization: "Bearer abc" },
+    );
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(0);
+    });
+
+    expect(headersOf(threadListCalls()[0]!)).toMatchObject({
+      "X-CSRF": "1",
+      Authorization: "Bearer abc",
+    });
+  });
+
+  it("re-applies headers on the owned store when core headers change", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(0);
+    });
+    const callsBefore = threadListCalls().length;
+
+    harness.emitHeadersChanged({ "X-CSRF": "2" });
+
+    await vi.waitFor(() => {
+      expect(threadListCalls().length).toBeGreaterThan(callsBefore);
+    });
+
+    expect(headersOf(threadListCalls().at(-1)!)).toMatchObject({
+      "X-CSRF": "2",
+    });
   });
 });

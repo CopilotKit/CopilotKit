@@ -1,14 +1,18 @@
-# Probe: e2e-deep (D5 — multi-turn complex-interact parity vs reference)
+# Probe: e2e-deep (D5 — "D6 take-one", multi-turn complex-interact parity)
 #
-# Drives a Playwright multi-turn conversation through every D5 feature
-# type wired on each showcase Railway service. Where `e2e-demos` does a
-# cheap goto + chat-input-ready check (1 page-load per cell) and
-# `e2e-smoke` does a single chat round-trip on two canonical demos,
-# `e2e-deep` runs the full conversation script — multiple turns,
-# tool-call routing, hitl, gen-ui — captured as fixtures under
-# `showcase/harness/fixtures/d5/`.
+# D5 runs the SAME D6 driver (`kind: e2e_d6`,
+# `src/probes/drivers/d6-all-pills.ts`) scoped to a single representative
+# pill per feature category (`representativeOnly: true`, `rowPrefix:
+# "d5"`). It drives a Playwright multi-turn conversation through the
+# representative D5 feature types wired on each showcase Railway service.
+# Where `e2e-demos` does a cheap goto + chat-input-ready check (1
+# page-load per cell) and `e2e-smoke` does a single chat round-trip on
+# two canonical demos, this probe runs the full conversation script —
+# multiple turns, tool-call routing, hitl, gen-ui — captured as fixtures
+# under `showcase/harness/fixtures/d5/`. (The separate `d5-single-pill.ts`
+# driver was deleted; see the "D5 take-one" note below.)
 #
-# Rows emitted per driver invocation (see `src/probes/drivers/e2e-deep.ts`):
+# Rows emitted per driver invocation (d6-all-pills.ts under the `d5` rowPrefix):
 #   - Primary `e2e-deep:<slug>`     ProbeResult carrying the aggregate
 #                                   { total, passed, failed[], skipped[],
 #                                     shape, backendUrl } signal.
@@ -32,37 +36,48 @@
 # D5 ticks take ~3.5 min with max_concurrency=4; every-15-min gives
 # continuous regression coverage within a single deploy window.
 #
-# Cron string: `5,20,35,50 * * * *` (every 15 min, offset from :00 to
-# avoid Chromium EAGAIN when co-firing with e2e-smoke's browser pool).
+# Cron string: `5,20,35,50 * * * *` (every 15 min, offset +5 off the
+# :00/:15/:30/:45 quarter-ticks so D5 never co-fires with e2e-smoke
+# (`*/15` = :00/:15/:30/:45) and contends for the shared browser pool
+# (Chromium EAGAIN). The +5 offset also clears e2e-demos (:10) and
+# d6-all-pills-e2e (:40), so no two Playwright probes tick together.
 #
 # ── timeout_ms: 600_000 (10 min) ────────────────────────────────────────
 #
 # Outer driver-invocation cap. Per-feature run subdivides further: the
 # conversation-runner's per-turn `responseTimeoutMs` defaults to 30s,
 # the driver's per-page goto timeout is 30s, and the per-feature
-# wall-clock cap (`DEFAULT_FEATURE_TIMEOUT_MS` in e2e-deep.ts) is 5
+# wall-clock cap (`DEFAULT_FEATURE_TIMEOUT_MS` in d6-all-pills.ts) is 5
 # min so a single wedged feature can't drain the global budget for
 # downstream features.
 #
 # Sized for the worst-case integration. langgraph-python now declares
-# ~28 D5 features (Phase 2 LGP coverage wave) — 28 / FEATURE_CONCURRENCY(2)
-# = 14 per worker × ~15s realistic per-feature wall-clock = ~210s, which
-# blows the prior 3-min cap before any slack. 10 min gives ~5x headroom
-# at current feature count; lighter integrations (5–10 features) still
-# finish in <60s and exit early without sitting on the cap.
+# ~28 D5 features (Phase 2 LGP coverage wave) — 28 / FEATURE_CONCURRENCY_D6(4)
+# = 7 per worker × ~15s realistic per-feature wall-clock = ~105s, which
+# blows the prior 3-min cap once goto/cold-start overhead is layered on.
+# 10 min gives generous headroom at current feature count; lighter
+# integrations (5–10 features) still finish in <60s and exit early without
+# sitting on the cap.
 #
-# Other knobs that bound the slug: increasing `FEATURE_CONCURRENCY` (in
-# e2e-deep.ts, currently 2) cuts wall-clock proportionally but doubles
-# concurrent Chromium contexts; revisit before raising the cap further.
+# Other knobs that bound the slug: increasing `FEATURE_CONCURRENCY_D6` (in
+# d6-all-pills.ts) cuts wall-clock proportionally but doubles concurrent
+# Chromium contexts; revisit before raising the cap further.
 #
 # ── max_concurrency: 4 ──────────────────────────────────────────────────
 #
-# 4 services (max_concurrency) × FEATURE_CONCURRENCY(2) features per
-# service = up to 8 concurrent chromium contexts. Each context
-# resident-set is ~300MB; 8 parallel ≈ 2.4GB peak. Production memory
-# headroom on the orchestrator's Railway footprint has been measured and
-# can sustain this. Higher service concurrency cuts tail latency roughly
-# in half vs. the prior max_concurrency=2.
+# 4 services (max_concurrency) × FEATURE_CONCURRENCY_D6(4) features per
+# service = up to 16 concurrent chromium contexts. Those contexts are drawn
+# from the 3 shared chromium processes (BROWSER_POOL_BROWSERS=3) under the
+# global BROWSER_POOL_MAX_CONTEXTS=24 cap (D6 peak now 5×4=20 + this D5 peak
+# 16 = 36 > 24, so a d6+d5 OVERLAP serializes against the global cap — that
+# back-pressure is intended: it is the demand-side lever that keeps the
+# simultaneous-renderer count off the cgroup pids.max=1000 ceiling).
+# Each context resident-set is ~300MB; 16 parallel ≈ 4.8GB peak. Production
+# memory headroom on the orchestrator's Railway footprint has been measured
+# and can sustain this — the binding constraint is the PID ceiling of 1000,
+# not memory, so contexts (not processes) are the scaling knob. Higher
+# service concurrency cuts tail latency roughly in half vs. the prior
+# max_concurrency=2.
 #
 # ── Scope: all showcase packages ────────────────────────────────────────
 #
@@ -70,7 +85,24 @@
 # Infra services are excluded — same list as smoke / e2e-smoke / e2e-
 # demos so a new infra service added there lands here too during review.
 # Starters short-circuit green inside the driver (no /demos routing).
-kind: e2e_deep
+# D5 is now LITERALLY "D6 take-one": this probe runs the SAME D6 driver
+# (`kind: e2e_d6`) under D6's exact conditions (route, headers, conversation,
+# pooled launcher), but scoped to a single representative pill per feature
+# category and emitting the `d5:` dashboard prefix. The separate D5
+# driver/launcher was deleted because its own launcher instance + cadence
+# systematically lost the `x-aimock-context` header against the shared fleet
+# pool (aimock strict 503 → red).
+#
+# The D5-scoping inputs (`representativeOnly: true`, `rowPrefix: "d5"`) are NOT
+# expressed in this YAML — the probe-config schema is `.strict()` and rejects
+# unknown top-level keys. Instead they are stamped onto the driver inputs by
+# the run paths that actually construct them: the fleet producer's
+# `createE2eDeepServiceEnumerator` (`extraDriverInputs`) and the CLI's
+# `buildDeepInputs` (`src/cli/targets.ts`). This YAML retains the
+# `d5-single-pill-e2e` id, the staggered cadence, and the discovery filter that
+# enumerate the D5 service set; the `kind: e2e_d6` line just points it at the
+# unified driver.
+kind: e2e_d6
 id: d5-single-pill-e2e
 schedule: "5,20,35,50 * * * *"
 timeout_ms: 600000
@@ -87,9 +119,6 @@ discovery:
       - showcase-shell-dashboard
       - showcase-shell-docs
       - showcase-shell-dojo
-      # Harness service for .NET integration testing — not a demo service,
-      # deployed: false in manifest, no aimock wiring yet.
-      - showcase-ms-agent-harness-dotnet
       # Decommissioned starters — Railway services stopped (PR #4390)
       - showcase-starter-ag2
       - showcase-starter-agno

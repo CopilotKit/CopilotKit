@@ -3,38 +3,73 @@ import type { Message } from "@ag-ui/core";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 import { useAgent, UseAgentUpdate } from "../../hooks/use-agent";
+import { renderSlot } from "../../lib/slots";
+import type { SlotValue } from "../../lib/slots";
+import { IntelligenceIndicatorView } from "./IntelligenceIndicatorView";
 
 /**
  * Grace window before showing the spinner. A matching tool call must
  * remain unresolved (no `tool`-role result message in `agent.messages`)
- * for at least this long before the pill appears. This filters out
- * history-replay flashes — during `connectAgent` replay, tool calls and
- * their results arrive back-to-back in sub-millisecond bursts, so the
- * timer is cancelled before it fires. Live runs cross the threshold
- * easily because the tool actually has to execute.
+ * for at least this long before the indicator transitions out of
+ * `hidden`. This filters out history-replay flashes — during
+ * `connectAgent` replay, tool calls and their results arrive
+ * back-to-back in sub-millisecond bursts, so the timer is cancelled
+ * before it fires. Live runs cross the threshold easily because the
+ * tool actually has to execute.
  */
 const PENDING_THRESHOLD_MS = 100;
 
-/** Hold the checkmark briefly before fading out. */
-const CHECK_HOLD_MS = 800;
-
 /**
- * Duration of the fade-out animation. Must match
- * `cpk-intelligence-pill-fade-out` keyframes in `v2/styles/globals.css`.
- */
-const FADE_OUT_ANIMATION_MS = 480;
-
-/**
- * Tool-name regex patterns that trigger the indicator. Currently
- * hardcoded to the Intelligence MCP server's canonical tool name. If
- * we add per-instance customization later (e.g. a `CopilotKitProvider`
- * prop or a runtime-info field), this constant becomes the fallback.
+ * Tool-name regex patterns that trigger the indicator. Matches any tool
+ * name *containing* the Intelligence MCP server's canonical tool name, so
+ * both the bare `copilotkit_knowledge_base_shell` and the namespaced
+ * `mcp__<server>__copilotkit_knowledge_base_shell` form (emitted by
+ * `@ag-ui/mcp-middleware`) light up the pill. If we add per-instance
+ * customization later (e.g. a `CopilotKitProvider` prop or a runtime-info
+ * field), this constant becomes the fallback.
  */
 const DEFAULT_TOOL_PATTERNS: readonly RegExp[] = [
-  /^copilotkit_knowledge_base_shell$/,
+  /copilotkit_knowledge_base_shell/,
 ];
 
-type Phase = "idle" | "spinner" | "check" | "fading" | "hidden";
+/**
+ * Phase machine. Once `finished` is reached the indicator persists
+ * indefinitely; placement (one indicator per turn, at the turn's first
+ * bash-using message) is owned by `getIntelligenceTurnAnchors`, not by
+ * this machine.
+ */
+export type Phase = "hidden" | "spinner" | "finished";
+
+/**
+ * Phase to start in when an indicator first mounts. A turn that is already
+ * complete at mount jumps straight to `finished` — no `hidden` flash, no
+ * spinner blip — which is what makes scrolled-back / replayed history render
+ * its indicators directly in the finished state.
+ *
+ * Pure and timing-free on purpose: the grace window ({@link
+ * PENDING_THRESHOLD_MS}) only controls *when* the live transition is applied;
+ * these functions decide *what* it resolves to, so the decision can be unit
+ * tested deterministically without any timers.
+ */
+export function initialIndicatorPhase(turnComplete: boolean): Phase {
+  return turnComplete ? "finished" : "hidden";
+}
+
+/**
+ * Phase the grace window resolves to once it elapses:
+ *   - completed turn → `finished` (replay-flash suppression: a tool whose
+ *     result lands within the window skips the spinner entirely),
+ *   - a still-pending matching tool call → `spinner`,
+ *   - otherwise stay `hidden` (the matching tool call hasn't landed yet).
+ */
+export function resolveGracePhase(
+  turnComplete: boolean,
+  hasPending: boolean,
+): Phase {
+  if (turnComplete) return "finished";
+  if (hasPending) return "spinner";
+  return "hidden";
+}
 
 export interface IntelligenceIndicatorProps {
   /** The message this indicator is attached to. */
@@ -46,14 +81,70 @@ export interface IntelligenceIndicatorProps {
    */
   agentId: string;
   /**
-   * Optional override for the visible label. Defaults to "Using
-   * CopilotKit Intelligence".
+   * Optional override for the visible label. Defaults to
+   * "CopilotKit Intelligence".
    */
   label?: string;
+  /**
+   * Slot override for the presentational face. A className string, a
+   * props object, or a full replacement component — see
+   * {@link IntelligenceIndicatorView}. Forwarded from the
+   * `intelligenceIndicator` slot on `CopilotChat`.
+   */
+  intelligenceIndicator?: SlotValue<typeof IntelligenceIndicatorView>;
 }
 
 const isMatchingToolCallName = (name: unknown): boolean =>
   typeof name === "string" && DEFAULT_TOOL_PATTERNS.some((p) => p.test(name));
+
+const messageHasMatchingToolCall = (m: Message): boolean => {
+  if (m.role !== "assistant") return false;
+  const tcs = Array.isArray(m.toolCalls) ? m.toolCalls : [];
+  return tcs.some((tc) => isMatchingToolCallName(tc?.function?.name));
+};
+
+/**
+ * Stable turn id for the messages that precede the first user message (a turn
+ * with no opening user message of its own). Used as the React key so the
+ * indicator for that turn never collides with a real user-message id.
+ */
+export const INTELLIGENCE_TURN_HEAD = "__cpk_turn_head__";
+
+/**
+ * Map each Intelligence-using turn to its anchor message — the FIRST bash-using
+ * assistant message of the turn — and a stable turn id (the id of the user
+ * message that opened the turn, or {@link INTELLIGENCE_TURN_HEAD} for the
+ * pre-first-user turn). Returns `Map<anchorMessageId, turnId>`.
+ *
+ * Anchoring to the FIRST (not last) bash-using message keeps the indicator
+ * fixed in place for the whole turn: later bash steps don't reposition it, so
+ * the spinner never abruptly jumps mid-turn (bug 1). `CopilotChatMessageView`
+ * emits exactly one `IntelligenceIndicator` per entry, keyed by the turn id and
+ * positioned at the anchor; the per-turn key also lets every past turn keep its
+ * own indicator in scroll-back.
+ */
+export function getIntelligenceTurnAnchors(
+  messages: readonly Message[],
+): Map<string, string> {
+  const anchors = new Map<string, string>();
+  let turnId = INTELLIGENCE_TURN_HEAD;
+  let anchorId: string | null = null;
+  const commit = (): void => {
+    if (anchorId !== null) anchors.set(anchorId, turnId);
+    anchorId = null;
+  };
+  for (const m of messages) {
+    if (m.role === "user") {
+      commit();
+      turnId = m.id;
+      continue;
+    }
+    // First bash-using message of the turn wins; later ones don't move it.
+    if (anchorId === null && messageHasMatchingToolCall(m)) anchorId = m.id;
+  }
+  commit();
+  return anchors;
+}
 
 /**
  * "Tool-call-like" messages do NOT count as a real follow-up: tool
@@ -75,47 +166,58 @@ const isToolCallLikeMessage = (m: Message): boolean => {
 };
 
 /**
- * The "Using CopilotKit Intelligence" pill. Auto-mounted by
- * `CopilotChatMessageView` for every message slot when
- * `copilotkit.intelligence` is configured — callers do not register
- * this themselves. Self-gates so only the canonical message renders a
- * pill.
+ * The "Using CopilotKit Intelligence" indicator brain. Auto-mounted by
+ * `CopilotChatMessageView` — once per Intelligence-using turn, at that
+ * turn's anchor message and keyed by the turn id (see
+ * {@link getIntelligenceTurnAnchors}). Callers do not register this
+ * themselves. It owns the run subscription and the phase machine and
+ * renders its swappable face via the `intelligenceIndicator` slot.
+ *
+ * Placement (which message anchors the turn) is decided by the view, so
+ * this component does not self-gate its own placement; it only derives
+ * in-progress/finished for the turn it was mounted on.
  *
  * Render gates (all must hold):
  *   1. `copilotkit.intelligence !== undefined`
- *   2. The message is an assistant message with at least one tool call
- *      whose name matches {@link DEFAULT_TOOL_PATTERNS}
- *   3. The message is the *latest* such matching-assistant message in
- *      `agent.messages` — tool-result messages and prose-only assistant
- *      messages don't invalidate the slot, so the pill stays
- *      continuously through a multi-step tool chain.
- *   4. The phase machine is past `idle` (the pending-grace timer fired)
- *      and not yet `hidden`.
+ *   2. The (anchor) message is an assistant message with at least one
+ *      tool call whose name matches {@link DEFAULT_TOOL_PATTERNS}.
+ *   3. The phase machine is past `hidden`.
+ *
+ * Because the view keys each indicator by its turn id, the instance moves
+ * with the anchor across a hand-off (no remount, no spinner restart), and
+ * every prior Intelligence-using turn keeps its own persistent indicator
+ * in chat history.
  *
  * Phase machine (per-instance, all timers local):
- *   - Starts in `idle` — nothing rendered.
- *   - `idle → spinner` once a matching tool call has been pending
+ *   - Starts in `hidden`, unless the message mounts onto an
+ *     already-completed turn (no pending work, agent stopped or a
+ *     real follow-up already present), in which case the lazy
+ *     `useState` initializer starts directly in `finished`. This is
+ *     what avoids a "hidden flash" on history replay.
+ *   - `hidden → spinner` once a matching tool call has been pending
  *     (no `tool`-role result with a matching `toolCallId`) for
  *     {@link PENDING_THRESHOLD_MS}. Replay flashes (tool call + result
  *     in the same tick) never cross this threshold.
- *   - `spinner → check` as soon as EITHER `agent.isRunning` flips
+ *   - `hidden → finished` if after the grace window the turn is
+ *     already complete (no pending work AND
+ *     `sawRealFollowup || !agent.isRunning`). Handles very fast tools
+ *     whose result lands within the grace window.
+ *   - `spinner → finished` as soon as EITHER `agent.isRunning` flips
  *     false OR a non-tool-call-like message appears later in
- *     `agent.messages` (i.e. the agent has produced a "real"
- *     follow-up — prose answer or a new user turn).
- *   - `check → fading` after {@link CHECK_HOLD_MS}.
- *   - `fading → hidden` after {@link FADE_OUT_ANIMATION_MS}.
- *
- * Once `hidden`, the phase is sticky — a finished pill never re-spawns
- * on the same message. New runs mount fresh indicator instances on
- * their own assistant messages.
- *
- * The "exactly one pill at a time" guarantee is structural: only one
- * message satisfies the latest-matching-assistant gate at any moment.
+ *     `agent.messages` (i.e. the agent produced a "real" follow-up —
+ *     prose answer or a new user turn).
+ *   - `finished` is terminal: the indicator settles into its
+ *     persistent tag form and stays mounted.
  */
 export function IntelligenceIndicator(
   props: IntelligenceIndicatorProps,
 ): React.ReactElement | null {
-  const { message, agentId, label = "Using CopilotKit Intelligence" } = props;
+  const {
+    message,
+    agentId,
+    label = "CopilotKit Intelligence",
+    intelligenceIndicator,
+  } = props;
 
   const { copilotkit } = useCopilotKit();
   const config = useCopilotChatConfiguration();
@@ -163,124 +265,64 @@ export function IntelligenceIndicator(
     return false;
   }, [agent.messages, message.id]);
 
-  const [phase, setPhase] = useState<Phase>("idle");
+  // Turn-completion signal — set the moment the agent stops running or
+  // a "real" follow-up (prose / user turn) appears after this message.
+  // Independent of whether the pending tool call resolved; if the run
+  // finishes with a still-unresolved match (rare in production, common
+  // in tests), the indicator should still settle.
+  const turnComplete = sawRealFollowup || !agent.isRunning;
 
-  // idle → spinner: pending tool call hasn't been resolved within the
-  // grace window. Cleared if the result arrives first (replay) or if
-  // there's nothing to wait on.
+  // Lazy init: if this indicator mounts onto a message whose turn has
+  // already completed (e.g. history replay finished before mount),
+  // skip directly to `finished` — no `hidden` flash, no spinner blip.
+  const [phase, setPhase] = useState<Phase>(() =>
+    initialIndicatorPhase(turnComplete),
+  );
+
+  // hidden → spinner OR hidden → finished (after grace window). The grace
+  // window only controls the *timing*; `resolveGracePhase` owns the decision.
+  // Resolving back to `hidden` (matching tool call not landed yet) is a
+  // no-op `setPhase`, preserving the "only leave hidden once decided" rule.
   useEffect(() => {
-    if (phase !== "idle") return undefined;
-    if (!hasPending) return undefined;
-    const t = setTimeout(() => setPhase("spinner"), PENDING_THRESHOLD_MS);
+    if (phase !== "hidden") return undefined;
+    const t = setTimeout(() => {
+      setPhase(resolveGracePhase(turnComplete, hasPending));
+    }, PENDING_THRESHOLD_MS);
     return () => clearTimeout(t);
-  }, [phase, hasPending]);
+  }, [phase, hasPending, turnComplete]);
 
-  // spinner → check: agent stopped running OR a real follow-up
-  // message arrived. Both are independent signals; whichever fires
-  // first wins.
+  // spinner → finished
   useEffect(() => {
     if (phase !== "spinner") return undefined;
-    if (!agent.isRunning || sawRealFollowup) {
-      setPhase("check");
+    if (turnComplete) {
+      setPhase("finished");
     }
     return undefined;
-  }, [phase, agent.isRunning, sawRealFollowup]);
-
-  // check → fading after the hold.
-  useEffect(() => {
-    if (phase !== "check") return undefined;
-    const t = setTimeout(() => setPhase("fading"), CHECK_HOLD_MS);
-    return () => clearTimeout(t);
-  }, [phase]);
-
-  // fading → hidden after the fade animation.
-  useEffect(() => {
-    if (phase !== "fading") return undefined;
-    const t = setTimeout(() => setPhase("hidden"), FADE_OUT_ANIMATION_MS);
-    return () => clearTimeout(t);
-  }, [phase]);
+  }, [phase, turnComplete]);
 
   // ─── Render gates ────────────────────────────────────────────────────
   // Hooks above MUST run unconditionally; bail with `null` only after.
 
   if (copilotkit.intelligence === undefined) return null;
   if (!config) return null;
-  if (phase === "idle" || phase === "hidden") return null;
+  if (phase === "hidden") return null;
 
   if (message.role !== "assistant") return null;
-  // Defensive: a malformed `toolCalls` (non-array, missing nested
-  // `function.name`) would otherwise throw inside `.some(...)` and take
-  // down the chat tree. Treat as "no match" instead.
-  const toolCalls = Array.isArray(message.toolCalls) ? message.toolCalls : [];
-  const hasMatch = toolCalls.some((tc) =>
-    isMatchingToolCallName(tc?.function?.name),
-  );
-  if (!hasMatch) return null;
+  if (!messageHasMatchingToolCall(message)) return null;
 
-  // Walk `agent.messages` from the end and find the latest assistant
-  // message that itself has a matching tool call. If that's not us,
-  // we're not the canonical slot — return `null`.
-  let latestMatchingAssistantId: string | undefined;
-  for (let i = agent.messages.length - 1; i >= 0; i -= 1) {
-    const m = agent.messages[i]!;
-    if (m.role !== "assistant") continue;
-    const tcs = Array.isArray(m.toolCalls) ? m.toolCalls : [];
-    if (tcs.some((tc) => isMatchingToolCallName(tc?.function?.name))) {
-      latestMatchingAssistantId = m.id;
-      break;
-    }
-  }
-  if (latestMatchingAssistantId !== message.id) return null;
+  // Placement (which message anchors this turn's indicator) is decided by
+  // `CopilotChatMessageView` via `getIntelligenceTurnAnchors`, which mounts
+  // exactly one instance per turn keyed by the turn id. The brain therefore
+  // does not decide its own placement; it only owns the run-status →
+  // in-progress/finished derivation for the turn it anchors.
 
-  // ─── Visual ──────────────────────────────────────────────────────────
+  // ─── Render the (swappable) face ──────────────────────────────────────
 
-  const showSpinner = phase === "spinner";
-  const isFading = phase === "fading";
+  const status = phase === "finished" ? "finished" : "in-progress";
 
-  return (
-    <span
-      className={
-        "cpk-intelligence-pill" +
-        (isFading ? " cpk-intelligence-pill--fading" : "")
-      }
-      role="status"
-      aria-live="polite"
-      aria-hidden={isFading || undefined}
-      data-testid={`cpk-intelligence-pill-${message.id}`}
-      title={label}
-    >
-      <svg
-        className="cpk-intelligence-pill__icon"
-        viewBox="0 0 24 24"
-        width="14"
-        height="14"
-        aria-hidden="true"
-      >
-        <circle
-          cx="12"
-          cy="12"
-          r="9"
-          fill="none"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          className={
-            "cpk-intelligence-pill__ring" +
-            (showSpinner ? "" : " cpk-intelligence-pill__ring--done")
-          }
-        />
-        <path
-          d="M8 12.5l3 3 5-6"
-          fill="none"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={
-            "cpk-intelligence-pill__check" +
-            (showSpinner ? "" : " cpk-intelligence-pill__check--shown")
-          }
-        />
-      </svg>
-      <span>{label}</span>
-    </span>
-  );
+  return renderSlot(intelligenceIndicator, IntelligenceIndicatorView, {
+    message,
+    status,
+    label,
+  });
 }

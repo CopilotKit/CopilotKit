@@ -102,6 +102,18 @@ export interface Registry {
 
 const registry = registryData as Registry;
 
+/**
+ * The soft-default framework whose authored docs are served at the ROOT
+ * URL surface (`/quickstart`, `/server-tools`, …) instead of under a
+ * `/<framework>/` prefix. `/built-in-agent/:path*` permanently
+ * redirects to `/:path*` (next.config.ts).
+ *
+ * Client components must not import this (registry.json would leak into
+ * the client bundle) — they use DEFAULT_FRAMEWORK in
+ * `components/framework-provider.tsx`, which mirrors this value.
+ */
+export const ROOT_FRAMEWORK = "built-in-agent";
+
 const DOCS_ONLY_INTEGRATIONS: Integration[] = [
   {
     name: "Deep Agents",
@@ -196,6 +208,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "google-adk": "adk",
   "crewai-crews": "crewai-flows",
   strands: "aws-strands",
+  "strands-typescript": "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",
   "ms-agent-python": "microsoft-agent-framework",
 };
@@ -227,6 +240,16 @@ const TAB_DEFAULTS_BY_SLUG: Record<string, Record<string, string>> = {
   "langgraph-fastapi": {
     language_langgraph_agent: "Python",
     deployment_method: "FastAPI",
+  },
+  // strands and strands-typescript share the aws-strands/ docs folder, whose
+  // pages carry Python/TypeScript language tabs (groupId
+  // "language_strands_agent"). Default each framework to its own language so
+  // the TS framework opens on the TS snippets (mirrors the langgraph split).
+  strands: {
+    language_strands_agent: "Python",
+  },
+  "strands-typescript": {
+    language_strands_agent: "TypeScript",
   },
   "ms-agent-dotnet": {
     "language_microsoft-agent-framework_agent": ".NET",
@@ -281,7 +304,7 @@ export function getDemo(
 const CATEGORY_LABELS: Record<string, string> = {
   popular: "Most Popular",
   "agent-framework": "Agent Frameworks",
-  "enterprise-platform": "Enterprise",
+  "enterprise-platform": "Intelligence Platform",
   "provider-sdk": "Provider SDKs",
   protocol: "Protocols & Standards",
   emerging: "Emerging",

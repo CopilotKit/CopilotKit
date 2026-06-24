@@ -1,15 +1,15 @@
 "use client";
-import {
+import type {
   NewCardRequest,
   Card as ICard,
   ExpensePolicy,
-  MemberRole,
   Transaction,
 } from "@/app/api/v1/data";
+import { MemberRole } from "@/app/api/v1/data";
 import { randomDigits } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { useAuthContext } from "@/components/auth-context";
-import { useCopilotReadable } from "@copilotkit/react-core";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 
 export default function useCreditCards() {
   const [cards, setCards] = useState<ICard[]>([]);
@@ -96,7 +96,7 @@ export default function useCreditCards() {
           .toISOString()
           .split("-")[1] +
         "/" +
-        new Date().toISOString().split("-")[0].substring(2),
+        new Date().toISOString().split("-")[0].slice(2),
       type: type,
       color: color,
       pin: pin,
@@ -201,10 +201,10 @@ export default function useCreditCards() {
   // Provide the cards data to our copilot
   // This readable is set up here because the `useCards` hook is also used in the dashboard
   // So the cards information is available in both cards and dashboard pages.
-  useCopilotReadable({
+  useAgentContext({
     description:
       "The available credit cards, possible expense policies and transactions",
-    value: { cards, policies, transactions },
+    value: JSON.stringify({ cards, policies, transactions }),
   });
 
   return {

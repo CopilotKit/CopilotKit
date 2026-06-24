@@ -47,6 +47,14 @@ export default function RootLayout({
   // inside getRuntimeConfig opts this segment out of the static
   // cache so the inline <script> below always reflects the current
   // Railway env vars.
+  //
+  // NOTE: `runtimeConfig.opsBaseUrl` is the CLIENT direct override
+  // (`NEXT_PUBLIC_OPS_DIRECT_BASE_URL`, default ""), NOT the server proxy
+  // target `OPS_BASE_URL`. The harness URL must never be serialized into
+  // `window.__SHOWCASE_CONFIG__` — doing so makes the browser fetch the
+  // harness cross-origin (CORS-blocked). With opsBaseUrl empty the client
+  // uses the same-origin `/api/ops` proxy, which reads `OPS_BASE_URL`
+  // server-side in the Route Handler.
   const runtimeConfig = getRuntimeConfig();
   const injection = `window.__SHOWCASE_CONFIG__=${serializeRuntimeConfig(runtimeConfig)};`;
 

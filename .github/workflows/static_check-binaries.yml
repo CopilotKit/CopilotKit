@@ -71,13 +71,13 @@ jobs:
           fi
 
           # Check for large files (>1MB) among changed files
-          # Exclude known large files: lockfiles, assets, docs media, bundled actions
+          # Exclude known large files: lockfiles, assets, bundled actions
           LARGE_FILES=""
           while IFS= read -r file; do
             if [ -f "$file" ]; then
               case "$file" in
                 pnpm-lock.yaml|*/pnpm-lock.yaml|*/package-lock.json|*/poetry.lock) continue ;;
-                assets/*|docs/public/*|examples/*/preview.gif|examples/*/assets/*) continue ;;
+                assets/*|examples/*/preview.gif|examples/*/assets/*) continue ;;
                 .github/actions/*/dist/*) continue ;;
                 showcase/shell/src/data/*|showcase/shell-docs/src/data/*|showcase/shell-dojo/src/data/demo-content.json) continue ;;
               esac

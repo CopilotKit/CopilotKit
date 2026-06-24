@@ -22,7 +22,11 @@ import { CopilotKitInspector } from "../components/CopilotKitInspector";
 import type { Anchor } from "@copilotkit/web-inspector";
 import { LicenseWarningBanner } from "../components/license-warning-banner";
 import { createLicenseContextValue } from "@copilotkit/shared";
-import type { LicenseContextValue, DebugConfig } from "@copilotkit/shared";
+import type {
+  LicenseContextValue,
+  DebugConfig,
+  RuntimeLicenseStatus,
+} from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   MCPAppsActivityContentSchema,
@@ -37,6 +41,7 @@ import {
   GenerateSandboxedUiArgsSchema,
 } from "../components/OpenGenerativeUIRenderer";
 import { createA2UIMessageRenderer } from "../a2ui/A2UIMessageRenderer";
+import type { A2UIRecoveryRendererOptions } from "../a2ui/A2UIRecoveryStates";
 import { A2UIBuiltInToolCallRenderer } from "../a2ui/A2UIToolCallRenderer";
 import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
@@ -51,12 +56,29 @@ import type { ReactHumanInTheLoop } from "../types/human-in-the-loop";
 import type { ReactCustomMessageRenderer } from "../types/react-custom-message-renderer";
 import type { SandboxFunction } from "../types/sandbox-function";
 import { SandboxFunctionsContext } from "./SandboxFunctionsContext";
-import {
-  MarkdownRendererProvider,
-  type MarkdownRenderer,
-} from "./MarkdownRendererContext";
+import { MarkdownRendererProvider } from "./MarkdownRendererContext";
+import type { MarkdownRenderer } from "./MarkdownRendererContext";
 import { schemaToJsonSchema } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
+
+// Adapts zod-to-json-schema's zod-specific signature to the injectable
+// `zodToJsonSchema` contract of `schemaToJsonSchema`, which only invokes it
+// for schemas whose `~standard.vendor` is "zod".
+const zodToJsonSchemaAdapter = (
+  schema: unknown,
+  options?: { $refStrategy?: string },
+): Record<string, unknown> => {
+  const refStrategy = options?.$refStrategy;
+  return zodToJsonSchema(
+    schema as z.ZodType,
+    refStrategy === "root" ||
+      refStrategy === "relative" ||
+      refStrategy === "none" ||
+      refStrategy === "seen"
+      ? { $refStrategy: refStrategy }
+      : {},
+  );
+};
 
 const HEADER_NAME = "X-CopilotCloud-Public-Api-Key";
 const COPILOT_CLOUD_CHAT_URL = "https://api.cloud.copilotkit.ai/copilotkit/v1";
@@ -99,17 +121,13 @@ export interface CopilotKitProviderProps {
    * Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies in cross-origin requests).
    */
   credentials?: RequestCredentials;
-  /**
-   * The Copilot Cloud public API key.
-   */
+  /** Your CopilotKit public license key. */
   publicApiKey?: string;
-  /**
-   * Alias for `publicApiKey`
-   **/
+  /** Your public license key for accessing Enterprise Intelligence Platform features. */
   publicLicenseKey?: string;
   /**
-   * Signed license token for offline verification of premium features.
-   * Obtain from https://cloud.copilotkit.ai.
+   * Signed license token for offline verification of Enterprise Intelligence Platform features.
+   * Obtain from https://dashboard.operations.copilotkit.ai.
    */
   licenseToken?: string;
   properties?: Record<string, unknown>;
@@ -207,6 +225,12 @@ export interface CopilotKitProviderProps {
      * schema if configured. Set to false to disable.
      */
     includeSchema?: boolean;
+    /**
+     * Options for the A2UI error-recovery status UI (OSS-162): how long before
+     * the transient "Retrying…" hint appears, after how many attempts, and how
+     * much retry/debug detail to surface. When omitted, sane defaults apply.
+     */
+    recovery?: A2UIRecoveryRendererOptions;
   };
   /**
    * Default throttle interval (in milliseconds) for `useAgent` re-renders
@@ -284,7 +308,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
   const openGenUIActive = runtimeOpenGenUIEnabled || !!openGenerativeUI;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
-    string | undefined
+    RuntimeLicenseStatus | undefined
   >(undefined);
 
   useEffect(() => {
@@ -359,11 +383,16 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     if (runtimeA2UIEnabled) {
+      // The a2ui-surface renderer owns the WHOLE generative-UI lifecycle (OSS-162):
+      // building skeleton → retrying → hard-failure → painted surface, all on one
+      // activity, swapped in place. `recovery` tunes the pre-paint UX (timing +
+      // debug exposure); the server can override debugExposure via the middleware.
       renderers.unshift(
         createA2UIMessageRenderer({
           theme: a2ui?.theme ?? viewerTheme,
           catalog: a2ui?.catalog,
           loadingComponent: a2ui?.loadingComponent,
+          recovery: a2ui?.recovery,
         }),
       );
     }
@@ -383,6 +412,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     [agents, selfManagedAgents],
   );
   const hasLocalAgents = mergedAgents && Object.keys(mergedAgents).length > 0;
+
+  // `selfManagedAgents` is part of CopilotKit's Enterprise Intelligence offering.
+  // The signal is advisory and client-side only (not enforced): warn — in both
+  // development and production — when it is used without a license key so
+  // production usage is surfaced. `agents__unsafe_dev_only` is the free local-dev
+  // escape hatch and is intentionally NOT gated here.
+  const hasSelfManagedAgents = Object.keys(selfManagedAgents).length > 0;
+  useEffect(() => {
+    if (hasSelfManagedAgents && !resolvedPublicKey) {
+      console.warn(
+        "[CopilotKit] `selfManagedAgents` is part of CopilotKit's Enterprise " +
+          "Intelligence offering. Provide a `publicLicenseKey` for production " +
+          "use — contact the CopilotKit team about licensing.",
+      );
+    }
+  }, [hasSelfManagedAgents, resolvedPublicKey]);
 
   // Resolve headers from function or static object
   const headers =
@@ -459,10 +504,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       if (tool.render) {
         processedRenderToolCalls.push({
           name: tool.name,
-          args: tool.parameters!,
-          render: tool.render,
+          args: tool.parameters,
+          render: tool.render as React.ComponentType<any>,
           ...(tool.agentId && { agentId: tool.agentId }),
-        } as ReactToolCallRenderer<unknown>);
+        });
       }
     });
 
@@ -741,7 +786,9 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       sandboxFunctionsList.map((fn) => ({
         name: fn.name,
         description: fn.description,
-        parameters: schemaToJsonSchema(fn.parameters, { zodToJsonSchema }),
+        parameters: schemaToJsonSchema(fn.parameters, {
+          zodToJsonSchema: zodToJsonSchemaAdapter,
+        }),
       })),
     );
   }, [sandboxFunctionsList]);
@@ -766,8 +813,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   // License context — driven by server-reported status via /info endpoint
   const licenseContextValue = useMemo(
-    () => createLicenseContextValue(null),
-    [],
+    () => createLicenseContextValue(runtimeLicenseStatus),
+    [runtimeLicenseStatus],
   );
 
   return (

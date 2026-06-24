@@ -3,14 +3,14 @@ title: "API Reference"
 description: "API Reference for the next-generation CopilotKit React API."
 ---
 
-The v2 React API (`@copilotkit/react-core`) is the next-generation interface for building copilot-powered applications. It provides a streamlined set of hooks and components built on top of the [AG-UI](https://docs.ag-ui.com) agent protocol.
+The v2 React API (`@copilotkit/react-core/v2`) is the next-generation interface for building copilot-powered applications. It provides a streamlined set of hooks and components built on top of the [AG-UI](https://docs.ag-ui.com) agent protocol.
 
 ## Provider Setup
 
 The v2 API uses the [`<CopilotKit>`](/reference/components/CopilotKit) provider. Wrap your application with it to configure the runtime connection:
 
 ```tsx
-// CopilotKit is imported from the root package, not from the v2 subpackage
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 function App() {
   return (
@@ -25,12 +25,14 @@ function App() {
 <Accordion title="Advanced: Using CopilotKit directly">
 
 <Callout type="warn">
-  `CopilotKit` is a low-level provider intended for advanced use cases. Most applications should use the `<CopilotKit>` component from `@copilotkit/react-core` instead.
+  `CopilotKit` is a low-level provider intended for advanced use cases. Most applications should use the `<CopilotKit>` component from `@copilotkit/react-core/v2` instead.
 </Callout>
 
-If you need direct control over the v2 provider (e.g. for custom integrations), you can import `CopilotKit` from `@copilotkit/react-core`:
+If you need direct control over the v2 provider (e.g. for custom integrations), import `CopilotKit` from `@copilotkit/react-core/v2`:
 
 ```tsx
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
 <CopilotKit runtimeUrl="/api/copilotkit">
   <App />
 </CopilotKit>
@@ -161,6 +163,12 @@ import "@copilotkit/react-core/v2/styles.css";
     title="UI Components"
     description="Pre-built chat components: CopilotChat, CopilotPopup, CopilotSidebar, and more."
     href="/reference/components/CopilotChat"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Packages"
+    description="Standalone packages: @copilotkit/markdown-renderer, the built-in streaming markdown renderer."
+    href="/reference/packages/markdown-renderer"
     icon={<LinkIcon />}
   />
 </Cards>

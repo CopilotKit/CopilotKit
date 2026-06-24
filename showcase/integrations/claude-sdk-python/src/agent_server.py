@@ -37,12 +37,22 @@ import os
 from collections.abc import AsyncIterator, Callable
 from typing import Any
 
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
+# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
+# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
+# (NOT anthropic / claude-agent-sdk), so it is safe to run before the agent
+# imports below.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+
 # ORDER-CRITICAL: install the global httpx hook BEFORE any agent module
 # (and before the ``anthropic`` SDK) imports. The Claude SDK Python
 # integration constructs ``anthropic.AsyncAnthropic`` inside ``run_agent``
 # per request, but installing the hook at module-import time guarantees
 # every future httpx client (including sub-agent calls) auto-attaches the
 # forwarded-header hook.
+from agents._cvdiag_backend import CvdiagBackendMiddleware
 from agents._header_forwarding import (
     HeaderForwardingHTTPMiddleware,
     install_global_httpx_hook,
@@ -114,6 +124,16 @@ def _stream_agent_response(
 
 
 app = create_app()
+
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added right
+# after ``create_app`` so it is the OUTERMOST layer over the routes + CORS
+# ``create_app`` installs: it observes ingress before any inner layer mutates
+# the request and wraps the response stream so SSE boundaries fire as chunks
+# flow. Gated behind ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the
+# middleware fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
 
 # Tighten CORS: the dedicated endpoints share the same CORS policy as the
 # default route, which `create_app` already opens up with `*`. No extra
@@ -210,7 +230,7 @@ async def shared_state_read_write_endpoint(request: Request) -> StreamingRespons
 async def reasoning_endpoint(request: Request) -> StreamingResponse:
     """Reasoning demo backend — emits AG-UI REASONING_MESSAGE_* events.
 
-    Shared by the agentic-chat-reasoning and reasoning-default-render
+    Shared by the reasoning-custom and reasoning-default
     demos. Both demos hit the same backend; the difference is purely
     on the frontend slot configuration.
     """

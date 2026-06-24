@@ -10,8 +10,8 @@ describe("convertInputToTanStackAI", () => {
     it("filters out system messages from the messages array", () => {
       const input = createDefaultInput({
         messages: [
-          { role: "system", content: "You are helpful" },
-          { role: "user", content: "Hello" },
+          { id: "msg-1", role: "system", content: "You are helpful" },
+          { id: "msg-2", role: "user", content: "Hello" },
         ],
       });
 
@@ -25,8 +25,8 @@ describe("convertInputToTanStackAI", () => {
     it("filters out developer messages from the messages array", () => {
       const input = createDefaultInput({
         messages: [
-          { role: "developer", content: "Internal instruction" },
-          { role: "user", content: "Hi" },
+          { id: "msg-3", role: "developer", content: "Internal instruction" },
+          { id: "msg-4", role: "user", content: "Hi" },
         ],
       });
 
@@ -39,9 +39,9 @@ describe("convertInputToTanStackAI", () => {
     it("extracts system and developer messages into systemPrompts", () => {
       const input = createDefaultInput({
         messages: [
-          { role: "system", content: "System prompt" },
-          { role: "developer", content: "Dev instruction" },
-          { role: "user", content: "Hello" },
+          { id: "msg-5", role: "system", content: "System prompt" },
+          { id: "msg-6", role: "developer", content: "Dev instruction" },
+          { id: "msg-7", role: "user", content: "Hello" },
         ],
       });
 
@@ -54,9 +54,9 @@ describe("convertInputToTanStackAI", () => {
     it("preserves user and assistant messages in order", () => {
       const input = createDefaultInput({
         messages: [
-          { role: "user", content: "Question 1" },
-          { role: "assistant", content: "Answer 1" },
-          { role: "user", content: "Question 2" },
+          { id: "msg-8", role: "user", content: "Question 1" },
+          { id: "msg-9", role: "assistant", content: "Answer 1" },
+          { id: "msg-10", role: "user", content: "Question 2" },
         ],
       });
 
@@ -86,6 +86,7 @@ describe("convertInputToTanStackAI", () => {
       const input = createDefaultInput({
         messages: [
           {
+            id: "msg-14",
             role: "assistant",
             content: null,
             toolCalls: [
@@ -114,6 +115,7 @@ describe("convertInputToTanStackAI", () => {
       const input = createDefaultInput({
         messages: [
           {
+            id: "msg-15",
             role: "tool",
             content: '{"temp": 72}',
             toolCallId: "tc-1",
@@ -126,6 +128,84 @@ describe("convertInputToTanStackAI", () => {
       expect(messages).toHaveLength(1);
       expect(messages[0].role).toBe("tool");
       expect(messages[0].toolCallId).toBe("tc-1");
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Client tools (frontend-provided tools → TanStack client tools)
+  // -------------------------------------------------------------------------
+  describe("client tools", () => {
+    it("converts input.tools to TanStack client tools (no executor)", () => {
+      const params = {
+        type: "object" as const,
+        properties: { issues: { type: "array" as const } },
+        required: ["issues"],
+      };
+      const input = createDefaultInput({
+        tools: [
+          {
+            name: "issue_list",
+            description: "Render a list of issues",
+            parameters: params,
+          },
+        ],
+      });
+
+      const { tools } = convertInputToTanStackAI(input);
+
+      expect(tools).toHaveLength(1);
+      expect(tools[0]).toEqual({
+        __toolSide: "client",
+        name: "issue_list",
+        description: "Render a list of issues",
+        inputSchema: params,
+      });
+      // Client tools must NOT carry an executor — TanStack pauses and hands
+      // the call back to the AG-UI client instead of running it.
+      expect("execute" in tools[0]).toBe(false);
+    });
+
+    it("returns an empty tools array when input has no tools", () => {
+      const { tools } = convertInputToTanStackAI(createDefaultInput());
+      expect(tools).toEqual([]);
+    });
+
+    it("closes open objects (additionalProperties → false) for OpenAI compatibility", () => {
+      const input = createDefaultInput({
+        tools: [
+          {
+            name: "render_chart",
+            description: "Render a chart",
+            parameters: {
+              type: "object",
+              properties: {
+                // z.record(z.string(), z.any()) → additionalProperties: {}
+                options: { type: "object", additionalProperties: {} },
+                data: {
+                  type: "array",
+                  // .passthrough() → additionalProperties: true on items
+                  items: {
+                    type: "object",
+                    properties: { v: { type: "number" } },
+                    additionalProperties: true,
+                  },
+                },
+              },
+              additionalProperties: false,
+            },
+          },
+        ],
+      });
+
+      const { tools } = convertInputToTanStackAI(input);
+      const schema = tools[0].inputSchema as Record<string, any>;
+
+      expect(schema.properties.options.additionalProperties).toBe(false);
+      expect(schema.properties.data.items.additionalProperties).toBe(false);
+      // Nested defined properties are preserved.
+      expect(schema.properties.data.items.properties.v).toEqual({
+        type: "number",
+      });
     });
   });
 

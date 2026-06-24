@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 import { notFound } from "next/navigation";
 import { ImageResponse } from "next/og";
 import { loadDoc } from "@/lib/docs-render";
-import { getDocsFolder, getIntegration } from "@/lib/registry";
+import { getDocsFolder, getIntegration, ROOT_FRAMEWORK } from "@/lib/registry";
 
 // Per-page Open Graph image route — emits a 1200x630-ish PNG used by
 // Twitter cards, LinkedIn previews, and Slack unfurls. Ported from
@@ -63,6 +63,8 @@ const copilotKitLogo = toPngDataUri(
   readPublicAsset("images/og/copilotkit-logo.png"),
 );
 
+export const maxDuration = 60;
+
 // In Next.js 13+ (app directory), route handlers use the following signature:
 export async function GET(
   _: NextRequest,
@@ -78,16 +80,21 @@ export async function GET(
     // Drop the trailing `og.png` segment to recover the actual page slug.
     const slugParts = resolvedParams.slug.slice(0, -1);
     const slugPath = slugParts.join("/");
-    // Resolution mirrors the framework page route's order so that the
-    // OG image always reflects the same MDX file the user sees:
-    //   1. Direct loadDoc(slugPath) for unscoped paths (e.g. concepts/...).
-    //   2. Framework-scoped: when the first segment is a registered
+    // Resolution mirrors the page routes' order so that the OG image
+    // always reflects the same MDX file the user sees:
+    //   1. ROOT_FRAMEWORK override — the root surface serves the
+    //      BIA-authored page when one exists (see UnscopedDocsPage).
+    //   2. Direct loadDoc(slugPath) for unscoped paths (e.g. concepts/...).
+    //   3. Framework-scoped: when the first segment is a registered
     //      integration slug, try integrations/<docsFolder>/<rest>.
-    //   3. Bare framework root (e.g. "built-in-agent") -> the file at
+    //   4. Bare framework root (e.g. "built-in-agent") -> the file at
     //      that name in the docs root (built-in-agent.mdx) — the
     //      existing behavior preserved here so prior callers keep
     //      working.
-    let doc = slugPath ? loadDoc(slugPath) : null;
+    let doc = slugPath
+      ? (loadDoc(`integrations/${getDocsFolder(ROOT_FRAMEWORK)}/${slugPath}`) ??
+        loadDoc(slugPath))
+      : null;
     if (!doc && slugParts.length >= 2) {
       const [framework, ...rest] = slugParts;
       if (getIntegration(framework)) {

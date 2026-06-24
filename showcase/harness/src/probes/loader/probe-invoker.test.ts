@@ -24,7 +24,12 @@ function mkWriter(): {
         transition: "first",
         firstFailureAt: null,
         failCount: 0,
+        persisted: true,
       };
+    },
+    // H1 overlay path — unused by the invoker; present to satisfy StatusWriter.
+    async writeOverlay() {
+      return { applied: false, state: null };
     },
   };
   return { writer, writes };
@@ -1456,7 +1461,11 @@ describe("buildProbeInvoker", () => {
           transition: "first",
           firstFailureAt: null,
           failCount: 0,
+          persisted: true,
         };
+      },
+      async writeOverlay() {
+        return { applied: false, state: null };
       },
     };
     await buildProbeInvoker(cfg, {
@@ -2460,6 +2469,9 @@ describe("buildProbeInvoker", () => {
         starts.push(opts);
         return { id: `run-${nextId++}` };
       },
+      async findByJobId() {
+        return null;
+      },
       async update(opts) {
         updates.push({
           id: opts.id,
@@ -2815,6 +2827,93 @@ describe("buildProbeInvoker", () => {
   });
 
   // ---------------------------------------------------------------------
+  // Orphan-window guard: the per-target partial-rollup `runWriter.update`
+  // (which advances the durable `probe_runs.summary` counters) must NOT run
+  // before the `writer.write(result)` that commits the corresponding
+  // `status`/`status_history` detail row. The old ordering bumped the run-row
+  // counters first and then swallowed a `writer.write` failure — leaving a
+  // `probe_runs` row reporting `failed: N` for a target whose detail row was
+  // never durably written (the "run-row-orphan" / stale-red ingestion
+  // artifact). The detail write must be committed FIRST so the counter never
+  // outruns its backing detail row.
+  // ---------------------------------------------------------------------
+  it("commits the detail write before advancing the run-row counter (no orphan window)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      // Serialize so the interleaving of write/update is deterministic.
+      max_concurrency: 1,
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }],
+    };
+
+    // Record the global ordering of detail-writes and counter-updates.
+    const order: Array<"write" | "update"> = [];
+    const writer: StatusWriter = {
+      async write() {
+        order.push("write");
+        return {
+          previousState: null,
+          newState: "green",
+          transition: "first",
+          firstFailureAt: null,
+          failCount: 0,
+          persisted: true,
+        };
+      },
+      async writeOverlay() {
+        return { applied: false, state: null };
+      },
+    };
+    const updates: Array<{ id: string }> = [];
+    const runWriter: ProbeRunWriter = {
+      async start() {
+        return { id: "run-1" };
+      },
+      async findByJobId() {
+        return null;
+      },
+      async update(opts) {
+        order.push("update");
+        updates.push({ id: opts.id });
+      },
+      async finish() {},
+      async recent() {
+        return [];
+      },
+    };
+
+    const sched = fakeScheduler();
+    await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter,
+      ...BASE_DEPS,
+    })();
+
+    // Two targets → two write/update pairs. For EACH target the detail
+    // `write` must precede the run-row `update`, i.e. the sequence is
+    // write, update, write, update — never update, write.
+    expect(order).toEqual(["write", "update", "write", "update"]);
+  });
+
+  // ---------------------------------------------------------------------
   // R3-A.3: orphan-risk warn log when runWriter.start fails
   // ---------------------------------------------------------------------
   // When PB's `start()` fails after the row may have been created at the PB
@@ -2849,6 +2948,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingWriter: ProbeRunWriter = {
       start: vi.fn().mockRejectedValue(new Error("network blip")),
+      findByJobId: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockResolvedValue(undefined),
       recent: vi.fn().mockResolvedValue([]),
@@ -2910,6 +3010,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingWriter: ProbeRunWriter = {
       start: vi.fn().mockRejectedValue(new Error("PB down")),
+      findByJobId: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockResolvedValue(undefined),
       recent: vi.fn().mockResolvedValue([]),
@@ -2954,6 +3055,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const failingFinish: ProbeRunWriter = {
       start: vi.fn().mockResolvedValue({ id: "run-x" }),
+      findByJobId: vi.fn().mockResolvedValue(null),
       update: vi.fn().mockResolvedValue(undefined),
       finish: vi.fn().mockRejectedValue(new Error("PB down")),
       recent: vi.fn().mockResolvedValue([]),

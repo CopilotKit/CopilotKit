@@ -48,7 +48,7 @@ Key hooks and components to find and replace:
 | `useCopilotChatSuggestions`        | `useConfigureSuggestions` + `useSuggestions`         |
 | `useCopilotAdditionalInstructions` | `useAgentContext`                                    |
 | `useMakeCopilotDocumentReadable`   | `useAgentContext`                                    |
-| `CopilotKit` (provider)            | `CopilotKitProvider`                                 |
+| `CopilotKit` (root import)         | `CopilotKit` (from `@copilotkit/react-core/v2`)      |
 | `CopilotTextarea`                  | Removed -- use standard textarea + `useFrontendTool` |
 
 ### 3. Map to v2 Equivalents
@@ -94,21 +94,23 @@ const app = createCopilotEndpoint({ runtime, basePath: "/api/copilotkit" });
 
 ### 6. Update Provider
 
-**v1:**
+The provider component keeps the name `CopilotKit` -- only the import path changes. The package root (`@copilotkit/react-core`) is the legacy v1 provider; the `/v2` subpath is the migration target.
+
+**v1 (root import):**
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
 <CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>;
 ```
 
-**v2:**
+**v2 (`/v2` import):**
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react";
-<CopilotKitProvider runtimeUrl="/api/copilotkit">
-  {children}
-</CopilotKitProvider>;
+import { CopilotKit } from "@copilotkit/react-core/v2";
+<CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>;
 ```
+
+> **Note:** `@copilotkit/react-core/v2` also exports a `CopilotKitProvider` component. Do **not** migrate to it -- it is a functionality subset of `CopilotKit`, which is the compatibility bridge across v1 and v2 and accepts every `CopilotKitProvider` prop.
 
 ### 7. Verify
 
@@ -123,7 +125,7 @@ import { CopilotKitProvider } from "@copilotkit/react";
 | -------------------- | ----------------------------------------------- | -------------------------------------------------------------------------- |
 | Package scope        | `@copilotkit/*`                                 | `@copilotkit/*` (same scope, updated APIs)                                 |
 | Protocol             | GraphQL                                         | AG-UI (SSE)                                                                |
-| Provider component   | `CopilotKit`                                    | `CopilotKitProvider`                                                       |
+| Provider component   | `CopilotKit` (from `@copilotkit/react-core`)    | `CopilotKit` (from `@copilotkit/react-core/v2`)                            |
 | Define frontend tool | `useCopilotAction`                              | `useFrontendTool`                                                          |
 | Share app state      | `useCopilotReadable`                            | `useAgentContext`                                                          |
 | Agent interaction    | `useCoAgent`                                    | `useAgent`                                                                 |

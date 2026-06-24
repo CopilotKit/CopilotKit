@@ -3,6 +3,7 @@
   "root": true,
   "pages": [
     "index",
+    "cli",
     "---Basics---",
     "prebuilt-components",
     "custom-look-and-feel",
@@ -18,10 +19,7 @@
     "configurable",
     "subgraphs",
     "auth",
-    "---Threads---",
-    "threads",
-    "---Premium Features---",
-    "...premium",
+    "---Intelligence Platform---",
     "---Tutorials---",
     "...tutorials"
   ]

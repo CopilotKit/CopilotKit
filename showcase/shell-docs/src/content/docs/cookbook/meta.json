@@ -3,7 +3,9 @@
   "root": true,
   "pages": [
     "index",
-    "---Recipes---",
-    "daytona"
+    "daytona",
+    "oracle-agent-spec-memory",
+    "arcade",
+    "angular-adk-agentic-app"
   ]
 }

@@ -2,9 +2,11 @@ import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { fileURLToPath } from "node:url";
 import { createProbeLoader } from "./probe-loader.js";
 import { createProbeRegistry } from "../drivers/index.js";
 import { createDiscoveryRegistry } from "../discovery/index.js";
+import { registerAllProbeDrivers } from "../../orchestrator.js";
 import { z } from "zod";
 import type { DiscoverySource, ProbeDriver } from "../types.js";
 import { logger } from "../../logger.js";
@@ -183,6 +185,52 @@ describe("createProbeLoader", () => {
     );
   });
 
+  it("includeKind SKIPS (not rejects) a config whose kind the predicate excludes", async () => {
+    // An HTTP family (smoke) + a browser family (e2e_smoke). The HTTP-only
+    // caller registers ONLY the smoke driver and scopes the loader to exclude
+    // browser kinds — the e2e_smoke YAML must be SKIPPED (loaded out), NOT
+    // surfaced as a `probes.reload.failed` (it would otherwise fail the
+    // no-driver-registered check against the HTTP-only registry).
+    await fs.writeFile(
+      path.join(dir, "smoke.yml"),
+      [
+        "kind: smoke",
+        "id: smoke-http",
+        'schedule: "*/5 * * * *"',
+        "targets: [{ key: 'smoke:http', url: 'https://x.example' }]",
+      ].join("\n"),
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(dir, "e2e-smoke.yml"),
+      [
+        "kind: e2e_smoke",
+        "id: e2e-smoke-browser",
+        'schedule: "*/5 * * * *"',
+        "target: { key: 'e2e_smoke:browser', url: 'https://x.example' }",
+      ].join("\n"),
+      "utf-8",
+    );
+    const probeRegistry = createProbeRegistry();
+    probeRegistry.register(mkDriver("smoke"));
+    // NOTE: deliberately do NOT register an e2e_smoke driver — proving the
+    // skip happens BEFORE the driver-resolution check.
+    const bus = mkBus();
+    const loader = createProbeLoader(dir, {
+      probeRegistry,
+      discoveryRegistry: createDiscoveryRegistry(),
+      bus,
+      logger,
+      includeKind: (kind) => kind !== "e2e_smoke",
+    });
+    const configs = await loader.load();
+    expect(configs.map((c) => c.id)).toEqual(["smoke-http"]);
+    // Skipping must NOT produce a reload-failed event.
+    expect(bus.events.some((e) => e.event === "probes.reload.failed")).toBe(
+      false,
+    );
+  });
+
   it("rejects a config whose kind has no registered driver", async () => {
     await fs.writeFile(
       path.join(dir, "unregistered.yml"),
@@ -331,4 +379,79 @@ describe("createProbeLoader", () => {
       unwatch();
     }
   }, 15_000);
+});
+
+/**
+ * Shipped-config integration guard.
+ *
+ * The hardcoded-set guard in orchestrator.test.ts only asserts that
+ * `registerAllProbeDrivers` populates an EXPECTED list of kinds — it does
+ * NOT read the on-disk YAMLs, so an orphaned config whose `kind` has no
+ * registered driver (e.g. `e2e-parity.yml` after commit 7ac3e59a5 replaced
+ * the `e2e_parity` driver registration with `e2e_d6`) sails past it while
+ * the loader silently rejects that file at boot and drops its probe family
+ * from the scheduler.
+ *
+ * This test closes that gap: it loads the REAL shipped `config/probes`
+ * directory against the REAL driver registry (`registerAllProbeDrivers`)
+ * and the REAL discovery sources, and asserts EVERY shipped YAML loads
+ * clean — no `probes.reload.failed` errors, and the loaded config count
+ * equals the shipped YAML count. Before the fix this fails on
+ * `e2e-parity.yml` with `no driver registered for kind 'e2e_parity'`.
+ */
+describe("createProbeLoader against the real shipped config set", () => {
+  // probes/loader/ -> ../../../config/probes (showcase/harness/config/probes)
+  const shippedConfigDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../../../config/probes",
+  );
+
+  it("loads every shipped config/probes/*.yml with a registered driver and discovery source", async () => {
+    const probeRegistry = createProbeRegistry();
+    // No browser pool: the no-pool branch still registers the e2e_d6 driver
+    // (the D6 all-pills kind that superseded e2e_parity), which is all the
+    // shipped YAML's kinds need to resolve.
+    registerAllProbeDrivers(probeRegistry);
+
+    const discoveryRegistry = createDiscoveryRegistry();
+    // The loader only checks that the source NAME is registered at load time
+    // (it does not enumerate), so stub sources matching the real names are
+    // sufficient to exercise the load-time invariant without Railway/pnpm.
+    discoveryRegistry.register(mkSource("railway-services"));
+    discoveryRegistry.register(mkSource("cross-env-pin-drift"));
+    discoveryRegistry.register(mkSource("pnpm-packages"));
+
+    const bus = mkBus();
+    const loader = createProbeLoader(shippedConfigDir, {
+      probeRegistry,
+      discoveryRegistry,
+      bus,
+      logger,
+    });
+
+    const configs = await loader.load();
+
+    // No file may have been rejected at load time. A rejection surfaces as a
+    // `probes.reload.failed` bus event carrying the per-file errors — assert
+    // none fired, and render the offenders if they did so a regression names
+    // the exact file + reason.
+    const failures = bus.events.filter(
+      (e) => e.event === "probes.reload.failed",
+    );
+    expect(
+      failures,
+      `probe-loader rejected shipped config(s): ${JSON.stringify(failures.map((f) => f.payload))}`,
+    ).toEqual([]);
+
+    // Every shipped YAML must have produced a ProbeConfig (defends against a
+    // silently-dropped file where the error list is empty but the count is
+    // short — e.g. a future loader change that skips instead of erroring).
+    const shippedYamls = (await fs.readdir(shippedConfigDir)).filter(
+      (f) =>
+        (f.endsWith(".yml") || f.endsWith(".yaml")) &&
+        f !== "_defaults.yml" &&
+        f !== "_defaults.yaml",
+    );
+    expect(configs.length).toBe(shippedYamls.length);
+  });
 });

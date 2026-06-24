@@ -3,6 +3,7 @@ export {
   finalizeStreamingMarkdown,
   parseStreamingMarkdownChunk,
 } from "./parser/state";
+export { warnUnsupportedRichSyntaxOnce } from "./dev-warning";
 export type {
   CitationDefinition,
   CitationState,

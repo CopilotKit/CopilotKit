@@ -11,7 +11,7 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
 <OpsPlatformCTA
   variant="inline"
   title="Threads run on the Enterprise Intelligence Platform"
-  body="Get persistent threads, realtime sync, and observability on the free Developer tier."
+  body="Get persistent threads and realtime sync on the free Developer tier."
   surface="docs_threads"
 />
 
@@ -51,11 +51,10 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
       <Step>
         ### Run the CLI
 
-        Bootstrap a new project pre-configured for threads. Follow the interactive prompts to choose a project name, enable Intelligence, and the CLI will install a starter project and dependencies.
+        Bootstrap a new project pre-configured for threads. Follow the interactive prompts to choose a project name and framework. The CLI signs you in when needed, lets you select or create a cloud-hosted Enterprise Intelligence project, and installs a starter project with the hosted runtime configuration in place.
 
         ```bash
-        # When prompted, choose: "Yes — enable Intelligence (threads, persistence, insights)"
-        npx -y @copilotkit/cli@latest create
+        npx copilotkit@latest create
         ```
       </Step>
 
@@ -111,10 +110,9 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
           </Tab>
         </Tabs>
 
-        This boots three things concurrently:
+        This starts your local development environment:
 
-        - **A local instance of the Enterprise Intelligence Platform** — stores threads and powers realtime sync
-        - **A BFF (backend-for-frontend)** — your CopilotKit runtime, wired to the local Enterprise Intelligence Platform
+        - **Your CopilotKit runtime** — wired to the cloud-hosted Enterprise Intelligence project selected by the CLI
         - **The web app** — reachable at [http://localhost:3000](http://localhost:3000)
 
         Open the app, send a message, and the conversation will be saved as a thread you can resume later.
@@ -149,7 +147,7 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
         });
         ```
 
-        If you're using Copilot Cloud, thread storage is handled automatically. For self-hosted deployments, see [Self-Hosting Intelligence](/premium/self-hosting) for the Helm chart install and database configuration.
+        If you're using Cloud-Hosted Enterprise Intelligence, the CLI writes the hosted platform URLs and project-scoped `INTELLIGENCE_API_KEY` to `.env`. For self-hosted deployments, see [Self-Hosting Enterprise Intelligence](/premium/self-hosting) for the Helm chart install and database configuration.
 
         **Thread lock options:** When an agent run starts, the runtime acquires a lock on the thread to prevent concurrent runs. You can tune this behavior:
 
@@ -259,7 +257,5 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
 
 ## Next steps
 
-- **Understand how it works:** [How Threads & Persistence Work](/learn/threads) — architecture, event replay model, and WebSocket sync
+- **Thread architecture:** [Threads & Persistence Architecture](/premium/threads-explained) — event replay model and WebSocket sync
 - **API reference:** [useThreads](/reference/hooks/useThreads) — parameters, return values, types
-- **Tutorial:** [Build a Multi-Conversation Chat App](/learn/tutorials/multi-conversation-chat) — end-to-end walkthrough building a chat app with thread history
-

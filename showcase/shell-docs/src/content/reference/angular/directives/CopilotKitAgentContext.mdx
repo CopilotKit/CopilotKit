@@ -1,0 +1,118 @@
+---
+title: "CopilotKitAgentContext"
+description: "Angular standalone directive that shares application state with the agent as context from a template for @copilotkit/angular."
+---
+
+## Overview
+
+`CopilotKitAgentContext` is a standalone Angular directive that shares a piece of [context](https://docs.ag-ui.com/concepts/context) with the agent from your template. Apply it to any element. It adds the context when the element initializes, updates it when its inputs change, and removes it when the element is destroyed.
+
+You can supply the context either as a single object via the directive selector input, or as separate `description` and `value` inputs. The context object takes precedence when both are provided.
+
+This is the template-based equivalent of the [`connectAgentContext`](/reference/angular/functions/connectAgentContext) function, which mirrors React's `useAgentContext()`.
+
+## Import
+
+The directive is standalone. Import the class into your component's `imports` array, then use the `copilotkitAgentContext` attribute selector in the template.
+
+```ts title="src/app/profile.component.ts"
+import { Component } from "@angular/core";
+import { CopilotKitAgentContext } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-profile",
+  standalone: true,
+  imports: [CopilotKitAgentContext],
+  template: `
+    <div copilotkitAgentContext
+         description="User profile"
+         [value]="profile">
+    </div>
+  `,
+})
+export class ProfileComponent {
+  profile = { name: "Ada", plan: "pro" };
+}
+```
+
+## Selector
+
+```
+[copilotkitAgentContext]
+```
+
+It is an attribute directive, so apply it to any element.
+
+## Inputs
+
+<PropertyReference name="copilotkitAgentContext" type="Context">
+  A complete context object containing both `description` and `value`. This is the directive's selector input (`[copilotkitAgentContext]="..."`). When provided, it takes precedence over the separate `description` and `value` inputs. A `Context` has the shape `{ description: string; value: string }`.
+</PropertyReference>
+
+<PropertyReference name="description" type="string">
+  A human-readable description of what this context represents. Used to build the context object when the `copilotkitAgentContext` object input is not provided. The context is only registered when both `description` and `value` are set.
+</PropertyReference>
+
+<PropertyReference name="value" type="any">
+  The context value. Used together with `description` to build the context object when the `copilotkitAgentContext` object input is not provided. The context is only registered when both `description` and `value` are set.
+</PropertyReference>
+
+## Usage
+
+### Separate inputs
+
+```html
+<div copilotkitAgentContext
+     description="User preferences"
+     [value]="userSettings">
+</div>
+```
+
+### Context object
+
+Pass a complete `{ description, value }` object through the selector input.
+
+```html
+<div [copilotkitAgentContext]="contextObject"></div>
+```
+
+### Dynamic values
+
+The directive re-registers the context whenever its inputs change, so binding a dynamic value keeps the agent in sync.
+
+```html
+<div copilotkitAgentContext
+     description="Form state"
+     [value]="formData$ | async">
+</div>
+```
+
+## Behavior
+
+- **Adds on init.** The context is registered with the agent in `ngOnInit`.
+- **Updates on change.** When `copilotkitAgentContext`, `description`, or `value` change, the directive removes the previous context and adds the new one. The first change is handled by init, so it is not double-registered.
+- **Removes on destroy.** The context is removed when the host element is destroyed.
+- **Object input precedence.** When the `copilotkitAgentContext` object input is set, it is used and the separate `description` and `value` inputs are ignored. Otherwise, the context is built from `description` and `value`, and is only registered when both are set.
+
+## Related
+
+<Cards>
+  <Card
+    title="connectAgentContext"
+    description="Share context with the agent from a function instead of a template."
+    href="/reference/angular/functions/connectAgentContext"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="injectAgentStore"
+    description="Subscribe to an agent and read its messages, state, and run status."
+    href="/reference/angular/functions/injectAgentStore"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="CopilotKit service"
+    description="The central handle on agents, tools, and the runtime connection."
+    href="/reference/angular/services/CopilotKit"
+    icon={<LinkIcon />}
+  />
+</Cards>

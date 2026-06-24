@@ -161,38 +161,10 @@ export async function handleIntelligenceRun({
     );
   }
 
-  // When Intelligence has `mcpServer: true`, hand the agent the per-request
-  // bits it needs to attach the platform's MCP server: the resolved user-id,
-  // the project Bearer (`apiKey`), and the MCP URL. These ride through
-  // `forwardedProps.auth.copilotkitIntelligence` so the agent doesn't need a
-  // typed reference to the Intelligence client. `BuiltInAgent` reads the
-  // bag and builds a per-request MCP config with a closure-baked fetch;
-  // non-BuiltInAgent agents naturally ignore the key. The `auth` namespace
-  // is the convention for credentials that downstream redaction policies
-  // strip before durable storage and FE replay.
-  const upstreamAuth =
-    (input.forwardedProps as { auth?: Record<string, unknown> } | undefined)
-      ?.auth ?? {};
-  const copilotkitIntelligenceAuth =
-    runtime.intelligence.ɵisMcpServerEnabled?.()
-      ? {
-          copilotkitIntelligence: {
-            userId,
-            apiKey: runtime.intelligence.ɵgetApiKey(),
-            mcpUrl: `${runtime.intelligence.ɵgetApiUrl()}/mcp`,
-          },
-        }
-      : {};
-  const mergedAuth = { ...upstreamAuth, ...copilotkitIntelligenceAuth };
-
   const canonicalInput: RunAgentInput = {
     ...input,
     threadId: canonicalThreadId,
     runId: canonicalRunId,
-    forwardedProps: {
-      ...input.forwardedProps,
-      ...(Object.keys(mergedAuth).length > 0 ? { auth: mergedAuth } : {}),
-    },
   };
 
   let persistedInputMessages: Message[] | undefined;
@@ -200,6 +172,7 @@ export async function handleIntelligenceRun({
     try {
       const history = await runtime.intelligence.getThreadMessages({
         threadId: canonicalThreadId,
+        userId,
       });
       const historicMessageIds = new Set(
         history.messages.map((message) => message.id),

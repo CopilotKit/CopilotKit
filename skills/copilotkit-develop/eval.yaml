@@ -23,9 +23,10 @@ tasks:
       - type: deterministic
         check: file_contains
         path: "src/app/page.tsx"
-        pattern: "CopilotKitProvider"
+        # Matches <CopilotKit and legacy <CopilotKitProvider
+        pattern: "<CopilotKit"
       - type: llm_rubric
-        prompt: "Is CopilotSidebar properly imported from @copilotkit/react and rendered within a CopilotKitProvider that has a runtimeUrl configured?"
+        prompt: "Is CopilotSidebar properly imported and rendered within the CopilotKit provider (the `CopilotKit` component from @copilotkit/react-core/v2; the legacy `CopilotKitProvider` is also acceptable) that has a runtimeUrl configured?"
 
   - name: add-popup-chat
     description: "Add a floating popup chat to a CopilotKit project"
@@ -195,4 +196,4 @@ tasks:
         path: "src/"
         pattern: "onError"
       - type: llm_rubric
-        prompt: "Does the code set onError on both CopilotKitProvider (for global error logging) and CopilotChat (for user-facing notifications), with both handlers receiving error, code, and context?"
+        prompt: "Does the code set onError on both the CopilotKit provider (the `CopilotKit` component from @copilotkit/react-core/v2, or the legacy `CopilotKitProvider`) for global error logging and CopilotChat for user-facing notifications, with both handlers receiving error, code, and context?"

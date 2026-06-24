@@ -1,6 +1,6 @@
 import { Check, MessageSquare, PlusCircle, Send, X } from "lucide-react";
-import { Transaction } from "@/app/api/v1/data";
-import { cn } from "@/lib/utils";
+import type { Transaction } from "@/app/api/v1/data";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -98,7 +98,7 @@ export function TransactionsList({
               )}
             >
               {transaction.amount > 0 ? "+" : ""}
-              {transaction.amount.toFixed(2)}
+              {formatCurrency(transaction.amount)}
             </div>
           </div>
           {transaction.note && (
