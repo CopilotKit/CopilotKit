@@ -127,7 +127,7 @@ export async function probeDefaultCatchall(
           textContent?: string | null;
         }>;
         querySelector(sel: string): unknown;
-        body: { textContent?: string | null };
+        body?: { textContent?: string | null };
       };
     };
 
@@ -171,8 +171,7 @@ export async function probeDefaultCatchall(
       }
     }
     if (!customLeakPhrasePresent) {
-      const body = win.document.body;
-      const bodyText = (body.textContent ?? "") as string;
+      const bodyText = (win.document.body?.textContent ?? "") as string;
       customLeakPhrasePresent = bodyText.includes(needle);
     }
 

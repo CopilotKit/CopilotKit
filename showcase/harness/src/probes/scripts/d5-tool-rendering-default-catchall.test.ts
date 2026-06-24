@@ -141,6 +141,7 @@ describe("D5 tool-rendering-default-catchall — validateDefaultCatchall", () =>
       statusAttributePresent: true,
       observedToolNames: ["get_weather"],
       observedStatuses: ["complete"],
+      customLeakPhrasePresent: false,
     });
     expect(err).toMatch(/no status pill/);
   });
@@ -166,6 +167,7 @@ describe("D5 tool-rendering-default-catchall — validateDefaultCatchall", () =>
       statusAttributePresent: false,
       observedToolNames: [],
       observedStatuses: [],
+      customLeakPhrasePresent: false,
     });
     expect(err).toMatch(/\(none\)/);
   });
@@ -205,6 +207,7 @@ describe("D5 tool-rendering-default-catchall — probeDefaultCatchall", () => {
       statusAttributePresent: true,
       observedToolNames: ["get_weather"],
       observedStatuses: ["complete"],
+      customLeakPhrasePresent: false,
     });
   });
 
@@ -223,6 +226,7 @@ describe("D5 tool-rendering-default-catchall — probeDefaultCatchall", () => {
       statusAttributePresent: false,
       observedToolNames: [],
       observedStatuses: [],
+      customLeakPhrasePresent: false,
     });
   });
 });
@@ -316,7 +320,9 @@ describe("D5 tool-rendering-default-catchall — customLeakPhrasePresent branch 
     const err = mod.validateDefaultCatchall({
       containerWithToolName: true,
       statusPillPresent: true,
+      statusAttributePresent: true,
       observedToolNames: ["get_weather"],
+      observedStatuses: ["complete"],
       customLeakPhrasePresent: true,
     });
     expect(err).not.toBeNull();
@@ -331,7 +337,9 @@ describe("D5 tool-rendering-default-catchall — customLeakPhrasePresent branch 
       mod.validateDefaultCatchall({
         containerWithToolName: true,
         statusPillPresent: true,
+        statusAttributePresent: true,
         observedToolNames: ["get_weather"],
+        observedStatuses: ["complete"],
         customLeakPhrasePresent: false,
       }),
     ).toBeNull();
@@ -343,7 +351,9 @@ describe("D5 tool-rendering-default-catchall — customLeakPhrasePresent branch 
       mod.validateDefaultCatchall({
         containerWithToolName: true,
         statusPillPresent: true,
+        statusAttributePresent: true,
         observedToolNames: ["get_weather"],
+        observedStatuses: ["complete"],
         // customLeakPhrasePresent omitted — treated as false.
       }),
     ).toBeNull();
