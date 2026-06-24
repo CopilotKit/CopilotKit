@@ -527,6 +527,10 @@ class CpkThreadList extends LitElement {
     return `${diffD}d ago`;
   }
 
+  private threadActivityTime(thread: ɵThread): string {
+    return thread.lastRunAt ?? thread.updatedAt ?? thread.createdAt;
+  }
+
   private get filtered(): ɵThread[] {
     const q = this._query.toLowerCase();
     if (!q) return this.threads;
@@ -587,7 +591,7 @@ class CpkThreadList extends LitElement {
                     >${thread.name ?? "Untitled"}</span
                   >
                   <span class="cpk-tl__time"
-                    >${this.relativeTime(thread.updatedAt)}</span
+                    >${this.relativeTime(this.threadActivityTime(thread))}</span
                   >
                 </div>
                 <div class="cpk-tl__meta">
@@ -6670,7 +6674,7 @@ ${prettyEvent}</pre
     }
 
     if (key === "threads") {
-      if (this.selectedMenu !== "threads" && !this.core?.telemetryDisabled) {
+      if (previousMenu !== "threads" && !this.core?.telemetryDisabled) {
         trackThreadsTabClicked();
       }
       this.autoSelectLatestThread();

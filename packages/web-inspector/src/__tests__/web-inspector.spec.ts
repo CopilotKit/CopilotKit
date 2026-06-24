@@ -1,9 +1,20 @@
-import { WebInspectorElement, ɵCpkThreadDetails } from "../index";
-import type { CopilotKitCore } from "@copilotkit/core";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import type { CopilotKitCore, ɵThread } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+
+const trackThreadsTabClickedMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../lib/telemetry", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/telemetry")>();
+  return {
+    ...actual,
+    trackThreadsTabClicked: trackThreadsTabClickedMock,
+  };
+});
+
+import { WebInspectorElement, ɵCpkThreadDetails } from "../index";
 
 // --- Types for accessing LitElement-private reactive properties ---
 // WebInspectorElement stores these as private Lit reactive properties.
@@ -14,6 +25,8 @@ type InspectorInternals = {
   agentMessages: Map<string, Array<{ contentText?: string }>>;
   agentStates: Map<string, unknown>;
   cachedTools: Array<{ name: string }>;
+  selectedMenu: string;
+  handleMenuSelect: (key: "ag-ui-events" | "threads") => void;
 };
 
 type InspectorContextInternals = {
@@ -88,6 +101,7 @@ type MockCore = {
   agents: Record<string, AbstractAgent>;
   context: Record<string, unknown>;
   properties: Record<string, unknown>;
+  telemetryDisabled?: boolean;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
     unsubscribe: () => void;
@@ -168,9 +182,13 @@ function getContextInternals(inspector: WebInspectorElement) {
 
 describe("WebInspectorElement", () => {
   let mockClipboard: { writeText: ReturnType<typeof vi.fn> };
+  let originalClipboard: (typeof navigator)["clipboard"] | undefined =
+    undefined;
 
   beforeEach(() => {
     document.body.innerHTML = "";
+    trackThreadsTabClickedMock.mockClear();
+    originalClipboard = navigator.clipboard;
 
     const store: Record<string, string> = {};
     vi.stubGlobal("localStorage", {
@@ -199,6 +217,13 @@ describe("WebInspectorElement", () => {
 
   afterEach(() => {
     vi.clearAllTimers();
+    vi.unstubAllGlobals();
+    if (originalClipboard) {
+      (
+        navigator as unknown as { clipboard: (typeof navigator)["clipboard"] }
+      ).clipboard = originalClipboard;
+    }
+    originalClipboard = undefined;
   });
 
   it("records agent events and syncs state/messages/tools", async () => {
@@ -259,6 +284,21 @@ describe("WebInspectorElement", () => {
     expect(localStorage.getItem("cpk:inspector:state")).toBeTruthy();
   });
 
+  it("tracks the first switch into the Threads tab", async () => {
+    const { core } = createMockCore();
+    const inspector = createInspectorWithCore(core);
+    const internals = getInternals(inspector);
+    internals.selectedMenu = "ag-ui-events";
+
+    internals.handleMenuSelect("threads");
+
+    expect(trackThreadsTabClickedMock).toHaveBeenCalledTimes(1);
+
+    internals.handleMenuSelect("threads");
+
+    expect(trackThreadsTabClickedMock).toHaveBeenCalledTimes(1);
+  });
+
   it("syncs agent state on direct setState (onStateChanged without pipeline events)", async () => {
     // Simulates a selfManagedAgent where agent.setState() is called directly
     // from UI code, bypassing the AG-UI event pipeline. Before the fix,
@@ -288,6 +328,63 @@ describe("WebInspectorElement", () => {
     controller.simulateSetState({ counter: 5 });
     await inspector.updateComplete;
     expect(internals.agentStates.get("counter")).toEqual({ counter: 5 });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// cpk-thread-list — rendered thread recency
+// ─────────────────────────────────────────────────────────────────────────
+
+type ThreadListElement = HTMLElement & {
+  threads: ɵThread[];
+  selectedThreadId: string | null;
+  errorMessage: string | null;
+  updateComplete: Promise<boolean>;
+};
+
+function createThreadList(): ThreadListElement {
+  const ThreadListCtor = customElements.get("cpk-thread-list") as
+    | (new () => ThreadListElement)
+    | undefined;
+  if (!ThreadListCtor) {
+    throw new Error("cpk-thread-list is not registered");
+  }
+  const el = new ThreadListCtor();
+  document.body.appendChild(el);
+  return el;
+}
+
+describe("cpk-thread-list", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-23T20:00:00.000Z"));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("renders relative time from lastRunAt before updatedAt", async () => {
+    const el = createThreadList();
+    el.threads = [
+      {
+        id: "t1",
+        agentId: "agent",
+        name: "Recent run",
+        archived: false,
+        createdAt: "2026-06-01T00:00:00.000Z",
+        updatedAt: "2026-06-10T20:00:00.000Z",
+        lastRunAt: "2026-06-23T19:00:00.000Z",
+        createdById: "user",
+      } satisfies ɵThread,
+    ];
+
+    await el.updateComplete;
+
+    expect(
+      el.shadowRoot?.querySelector(".cpk-tl__time")?.textContent?.trim(),
+    ).toBe("1h ago");
   });
 });
 
