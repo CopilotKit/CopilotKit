@@ -92,6 +92,36 @@ export const SLUG_FALLBACK = "unknown";
 const SLUG_MAX_LEN = 64;
 /** 16-hex lowercase span-id shape (spec §5 `span_id` / `parent_span_id`). */
 const SPAN_ID_REGEX = /^[0-9a-f]{16}$/;
+/**
+ * Max length (chars) of a sanitized free-text cross-layer join key adopted from
+ * an inbound `x-test-id` header. The probe's per-run id (`d4-<slug>-<runId>` /
+ * `d6-<slug>-<runId>`) is well under this; the cap defends against an
+ * unbounded/hostile header value while keeping the key usable as a PB filter.
+ */
+const JOIN_TEST_ID_MAX_LEN = 128;
+
+/**
+ * Sanitize an inbound, non-UUIDv7 `x-test-id` into a SAFE, DETERMINISTIC
+ * free-text cross-layer join key (spec §5 `test_id`). The transform is pure and
+ * deterministic so the probe and the backend, applying it to the SAME inbound
+ * header, derive the SAME join key:
+ *   1. lowercase + trim surrounding whitespace,
+ *   2. drop EVERYTHING except `[a-z0-9._-]` (strips whitespace, control chars,
+ *      NUL, and any injection-prone punctuation — the key is used verbatim in a
+ *      PB filter string),
+ *   3. cap to `JOIN_TEST_ID_MAX_LEN`.
+ * Returns `null` when nothing survives (→ caller mints a fresh UUIDv7). A value
+ * that is ALREADY a valid UUIDv7 is handled by the caller before this is
+ * reached, so this only ever runs on genuinely non-UUIDv7 inputs.
+ */
+export function sanitizeJoinTestId(raw: string): string | null {
+  const cleaned = raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "")
+    .slice(0, JOIN_TEST_ID_MAX_LEN);
+  return cleaned.length > 0 ? cleaned : null;
+}
 
 /** In-memory queue cap (spec §7 R5-F5). */
 export const QUEUE_CAP = 5000;
@@ -141,8 +171,31 @@ export interface CvdiagEmitArgs {
   metadata?: Record<string, unknown>;
   durationMs?: number | null;
   parentSpanId?: string | null;
-  /** Override test_id (e.g. probe.start mints one and threads it through). */
+  /**
+   * Override the envelope `test_id` — the CROSS-LAYER JOIN KEY (spec §5: the
+   * single id that joins one run's rows across probe / backend / aimock). Two
+   * shapes are honored:
+   *   - a valid UUIDv7 (e.g. probe.start mints one and threads it through), OR
+   *   - a probe-minted per-run id forwarded as the inbound `x-test-id` header
+   *     (e.g. `d4-<slug>-<runId>` — NOT a UUIDv7). The backend MUST adopt this
+   *     verbatim (sanitized to a safe free-text key) so its rows JOIN the
+   *     probe's rows. PB stores `test_id` as free text, so a non-UUIDv7 join
+   *     key is valid at the storage layer — the cross-layer correlation is the
+   *     whole point.
+   * An absent / empty / unsanitizable value falls back to a freshly minted
+   * UUIDv7.
+   */
   testId?: string;
+  /**
+   * Override the envelope `trace_id` — the emitter's OWN PER-REQUEST id
+   * (spec §5: trace/span are per-request, test_id is the shared run id). The
+   * backend mints a fresh UUIDv7 per request and passes it here so `trace_id`
+   * stays decoupled from an ADOPTED cross-layer `test_id`. When omitted,
+   * `trace_id` mirrors `test_id` (the historical probe-path invariant). Honored
+   * only when it is a valid UUIDv7 or 16-hex span id; otherwise it falls back
+   * to mirroring `test_id`.
+   */
+  traceId?: string;
 }
 
 /**
@@ -258,8 +311,18 @@ export interface BoundEntryFields {
   slug: string;
   demo: string;
   parentSpanId: string | null;
-  /** A valid UUIDv7 override to honor, or undefined to mint fresh. */
+  /**
+   * The cross-layer join key to honor, or undefined to mint a fresh UUIDv7.
+   * Either a valid UUIDv7 (passed through unchanged) OR a sanitized non-UUIDv7
+   * inbound `x-test-id` adopted verbatim so backend rows JOIN the probe's.
+   */
   testId: string | undefined;
+  /**
+   * The emitter's OWN per-request id (a valid UUIDv7 or 16-hex span id) to use
+   * as `trace_id`, or undefined to mirror `test_id` (historical probe-path
+   * invariant). Decouples `trace_id` from an ADOPTED non-UUIDv7 `test_id`.
+   */
+  traceId: string | undefined;
   /** True iff any field was sanitized/bounded (diagnostic; does NOT set _truncated). */
   boundedAny: boolean;
 }
@@ -307,14 +370,32 @@ export function boundEntryFields(args: CvdiagEmitArgs): BoundEntryFields {
     boundedAny = true;
   }
 
-  // testId override → honor only if a valid UUIDv7; else undefined (mint fresh).
+  // testId override → the CROSS-LAYER JOIN KEY (spec §5). Honor a valid UUIDv7
+  // verbatim. For a non-UUIDv7 inbound id (the probe's `d4-/d6-<slug>-<runId>`
+  // forwarded as `x-test-id`), ADOPT it via the deterministic sanitizer so the
+  // backend's rows join the probe's — PB stores `test_id` as free text, so a
+  // non-UUIDv7 join key is valid at storage. Only an absent / empty /
+  // fully-stripped value falls through to a freshly minted UUIDv7.
   let testId: string | undefined = args.testId;
   if (testId !== undefined && !isValidTestId(testId)) {
-    testId = undefined;
+    const adopted = sanitizeJoinTestId(testId);
+    if (adopted === null || adopted !== testId) boundedAny = true;
+    testId = adopted ?? undefined;
+  }
+
+  // traceId override → the emitter's OWN per-request id. Honor a valid UUIDv7
+  // or 16-hex span id; anything else falls through to mirroring `test_id`.
+  let traceId: string | undefined = args.traceId;
+  if (
+    traceId !== undefined &&
+    !isValidTestId(traceId) &&
+    !SPAN_ID_REGEX.test(traceId)
+  ) {
+    traceId = undefined;
     boundedAny = true;
   }
 
-  return { slug, demo, parentSpanId, testId, boundedAny };
+  return { slug, demo, parentSpanId, testId, traceId, boundedAny };
 }
 
 /**
@@ -473,6 +554,11 @@ export class CvdiagEmitter {
     // fallback keeps `trace_id` (its mirror) valid.
     const bound = boundEntryFields(args);
     const testId = bound.testId ?? mintTestId();
+    // `trace_id` is the emitter's OWN per-request id. It MIRRORS `test_id` by
+    // default (probe path: one run = one test_id = one trace_id), but the
+    // backend supplies a distinct per-request UUIDv7 via `traceId` so it stays
+    // decoupled from an ADOPTED cross-layer `test_id` (spec §5).
+    const traceId = bound.traceId ?? testId;
     const isDataPlane = !args.boundary.startsWith(ACCOUNTING_PREFIX);
     let metadata: Record<string, unknown> = {};
     let metadataDropped = false;
@@ -497,7 +583,7 @@ export class CvdiagEmitter {
     const envelope: CvdiagEnvelope = {
       schema_version: SCHEMA_VERSION,
       test_id: testId,
-      trace_id: testId,
+      trace_id: traceId,
       span_id: mintSpanId(),
       parent_span_id: bound.parentSpanId,
       layer: args.layer,
@@ -548,14 +634,16 @@ export class CvdiagEmitter {
    * ONLY the three genuinely-unbounded inputs — the `metadata` bag, the
    * free-text `demo` string, and the free-string `edge_headers` VALUES — and
    * NEVER touches a format-constrained field. It cannot produce a non-16-hex
-   * `span_id`/`parent_span_id`, break the documented `trace_id === test_id`
-   * join, or write a `slug` that violates the PB/codegen contract
+   * `span_id`/`parent_span_id`, alter the `test_id`/`trace_id` join keys (they
+   * are minted/adopted/entry-bound, never clamped), or write a `slug` that
+   * violates the PB/codegen contract
    * `^[a-z][a-z0-9-]{0,63}$`, because those fields are NOT in the clamp set at
    * all. They are bounded by construction:
    *   - `slug`     — entry-bounded to ≤64 pattern-valid chars (`boundEntryFields`)
    *   - `demo`     — entry-bounded to ≤`DEMO_MAX_LEN` (then the only clampable field)
    *   - `parent_span_id` — entry-bounded to 16-hex or `null`
-   *   - `test_id`/`trace_id` — minted UUIDv7 (36 chars), `trace_id === test_id`
+   *   - `test_id` — minted UUIDv7 OR an adopted/sanitized inbound join key
+   *     (≤128 chars); `trace_id` — minted UUIDv7 or a mirror of `test_id`
    *   - `span_id`  — minted 16-hex
    *   - `schema_version` (const int), `layer`/`boundary`/`outcome` (enums),
    *     `ts` (ISO-8601), `mono_ns`/`duration_ms` (numbers)

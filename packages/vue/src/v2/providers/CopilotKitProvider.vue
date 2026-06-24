@@ -16,6 +16,7 @@ import type {
   FrontendTool,
 } from "@copilotkit/core";
 import { schemaToJsonSchema } from "@copilotkit/shared";
+import type { RuntimeLicenseStatus } from "@copilotkit/shared";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
 import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
@@ -37,8 +38,8 @@ import { CopilotKitKey, SandboxFunctionsKey } from "./keys";
 import {
   LicenseContextKey,
   createLicenseContextValue,
-  type LicenseContextValue,
 } from "./license-context";
+import type { LicenseContextValue } from "./license-context";
 import CopilotKitInspector from "../components/CopilotKitInspector.vue";
 import LicenseWarningBanner from "../components/LicenseWarningBanner.vue";
 import type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
@@ -290,7 +291,7 @@ const allRenderCustomMessages = computed(
 );
 const runtimeA2UIEnabled = ref(false);
 const runtimeOpenGenerativeUIEnabled = ref(false);
-const runtimeLicenseStatus = ref<string | undefined>(undefined);
+const runtimeLicenseStatus = ref<RuntimeLicenseStatus | undefined>(undefined);
 const openGenerativeUIActive = computed(
   () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
 );
@@ -616,11 +617,8 @@ provide(CopilotKitKey, {
 provide(SandboxFunctionsKey, sandboxFunctions);
 
 // License context — driven by server-reported `/info` license status.
-// Stays at the permissive default (`createLicenseContextValue(null)`)
-// to mirror React's current provider behavior; banner rendering below
-// is the sole consumer of `runtimeLicenseStatus`.
 const licenseContextValue = computed<LicenseContextValue>(() =>
-  createLicenseContextValue(null),
+  createLicenseContextValue(runtimeLicenseStatus.value),
 );
 provide(LicenseContextKey, licenseContextValue);
 

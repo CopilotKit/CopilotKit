@@ -18,6 +18,7 @@ export const sortOrder: Record<string, number> = {
   // in baseline-types.ts). The 6.5 slot sorts it right after ms-agent-dotnet.
   "ms-agent-harness-dotnet": 6.5,
   strands: 7,
+  "strands-typescript": 7.5,
   mastra: 8,
   "crewai-crews": 9,
   crewai: 9,

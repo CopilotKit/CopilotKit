@@ -82,6 +82,19 @@ interface Emitted {
     // Cross-service env-var references the Stage-2 Ruby preflight (U5)
     // ASSERTS. OMITTED when the SSOT entry declares none.
     serviceRefs?: { key: string; target: string }[];
+    // Standalone leaf (no deps, never gated). OMITTED unless true so normal
+    // tier-gated services keep the frozen shape. Read by the resolve-targets jq
+    // (closure: skip Tier-1 union for an all-standalone request) + the fleet
+    // driver (promote ungated, never NOT-ATTEMPTED on an unrelated failure).
+    standalone?: boolean;
+    // Per-env Railway HTTP healthcheck path (ADDITIVE). Read by the Ruby
+    // promote pin to RE-ASSERT the tracked path on every promote (the durable
+    // fix for the aimock silent-null incident). Each env key is emitted ONLY
+    // when the SSOT declares a healthcheckPath for that env — a live-null
+    // service omits the key (and the pin omits the mutation field, never
+    // sending `null`). The whole `healthcheckPath` object is omitted when
+    // NEITHER env declares one, so live-null services keep the frozen shape.
+    healthcheckPath?: { prod?: string; staging?: string };
   }>;
   // --- Top-level promote-closure plan (ADDITIVE, U2). The tier-ordered
   // closure for the FULL fleet (`all`), computed via `computePromoteClosure`.
@@ -138,6 +151,24 @@ function projectServiceToLegacyJson(
   const prodDomain = prodEnv?.domain ?? compatDomains?.prod ?? "";
   const stagingDomain = stagingEnv?.domain ?? compatDomains?.staging ?? "";
 
+  // Per-env healthcheckPath: mirror the per-env-flat ({prod, staging}) legacy
+  // shape used by domains/repoNameOverride. Each env key is conditionally
+  // spread (omitted when the EnvironmentConfig omits it), and the whole object
+  // is included ONLY when at least one env declares a path — a live-null
+  // service (both envs omit) keeps the frozen shape with NO healthcheckPath
+  // key, exactly like repoNameOverride.
+  const prodHealthcheck = prodEnv?.healthcheckPath;
+  const stagingHealthcheck = stagingEnv?.healthcheckPath;
+  const healthcheckPath =
+    prodHealthcheck !== undefined || stagingHealthcheck !== undefined
+      ? {
+          ...(prodHealthcheck !== undefined ? { prod: prodHealthcheck } : {}),
+          ...(stagingHealthcheck !== undefined
+            ? { staging: stagingHealthcheck }
+            : {}),
+        }
+      : undefined;
+
   return {
     name,
     serviceId: entry.serviceId,
@@ -168,6 +199,12 @@ function projectServiceToLegacyJson(
     ...(entry.serviceRefs !== undefined
       ? { serviceRefs: entry.serviceRefs }
       : {}),
+    // Standalone leaf: emitted only when true (keeps the leaf default shape).
+    ...(entry.standalone === true ? { standalone: true } : {}),
+    // Per-env healthcheckPath, appended AFTER the legacy keys (additive). The
+    // golden test projects only LEGACY_KEYS so this stays byte-safe; omitted
+    // entirely for live-null services so their frozen shape is preserved.
+    ...(healthcheckPath !== undefined ? { healthcheckPath } : {}),
   };
 }
 

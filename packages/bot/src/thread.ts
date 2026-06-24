@@ -6,9 +6,13 @@ import type {
   MessageRef,
   PlatformUser,
   ThreadMessage,
+  IncomingMessage,
   Thread as ThreadInterface,
+  EmojiValue,
+  EphemeralResult,
 } from "@copilotkit/bot-ui";
 import { runAgentLoop } from "./run-loop.js";
+import type { Transcripts } from "./transcripts.js";
 import { toAgentToolDescriptors } from "./tools.js";
 import type {
   BotTool,
@@ -17,6 +21,9 @@ import type {
   AgentToolDescriptor,
 } from "./tools.js";
 import type { AbstractAgent } from "@ag-ui/client";
+import type { StateStore } from "./state/state-store.js";
+import { validateSchema } from "./standard-schema.js";
+import type { StandardSchemaV1 } from "./standard-schema.js";
 
 export interface ThreadDeps {
   adapter: PlatformAdapter;
@@ -35,14 +42,32 @@ export interface ThreadDeps {
     string,
     (args: { payload: unknown; thread: Thread }) => void | Promise<void>
   >;
+  /** Pluggable persistence. Injected by createBot; always required. */
+  state: StateStore;
+  /**
+   * Optional Standard Schema for per-thread state. When set, `setState`
+   * validates its argument before persisting and throws on a schema mismatch.
+   */
+  stateSchema?: StandardSchemaV1;
+  /** Cross-platform transcript store. Present only when `store.transcripts` is configured. */
+  transcripts?: Transcripts;
+  /** Resolved cross-platform identity key for this turn (if any). */
+  userKey?: string;
+  /** The inbound message that triggered this turn (for transcript bridging). */
+  message?: IncomingMessage;
 }
 
 /** A concrete conversation thread: posts UI, runs the agent loop, and resolves HITL waiters. */
 export class Thread implements ThreadInterface {
   readonly platform: string;
+  /** Stable key identifying this conversation (used by transcript bridging). */
+  readonly conversationKey: string;
+  private readonly store: StateStore;
 
   constructor(private deps: ThreadDeps) {
     this.platform = deps.adapter.platform;
+    this.conversationKey = deps.conversationKey;
+    this.store = deps.state;
   }
 
   private async bindForPost(ui: Renderable) {
@@ -118,6 +143,97 @@ export class Thread implements ThreadInterface {
     return adapter.setThreadTitle(this.deps.replyTarget, title);
   }
 
+  /** Add an emoji reaction to a message (capability-gated; `{ ok: false }` on surfaces without support). */
+  async react(
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const adapter = this.deps.adapter;
+    if (!adapter.addReaction) {
+      return {
+        ok: false,
+        error: `${this.platform} does not support reactions`,
+      };
+    }
+    return adapter.addReaction(this.deps.replyTarget, messageRef, emoji);
+  }
+
+  /** Remove the bot's emoji reaction from a message (capability-gated). */
+  async unreact(
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const adapter = this.deps.adapter;
+    if (!adapter.removeReaction) {
+      return {
+        ok: false,
+        error: `${this.platform} does not support reactions`,
+      };
+    }
+    return adapter.removeReaction(this.deps.replyTarget, messageRef, emoji);
+  }
+
+  /**
+   * Post a message only `user` can see. `fallbackToDM` is required:
+   * `true` → DM the user when native ephemeral is unsupported; `false` →
+   * resolve to `null` when native ephemeral is unsupported.
+   */
+  async postEphemeral(
+    user: PlatformUser | string,
+    ui: Renderable,
+    opts: { fallbackToDM: boolean },
+  ): Promise<EphemeralResult | null> {
+    const adapter = this.deps.adapter;
+    if (!adapter.postEphemeral) {
+      return {
+        ok: false,
+        error: `${this.platform} does not support ephemeral messages`,
+      };
+    }
+    return adapter.postEphemeral(
+      this.deps.replyTarget,
+      user,
+      await this.bindForPost(ui),
+      opts,
+    );
+  }
+
+  // Subscription STORAGE lands here; subscription ROUTING (onSubscribedMessage) is deferred.
+
+  /** Record this conversation as subscribed (persisted in state). Proactive delivery to subscribed conversations is not yet wired. */
+  async subscribe(): Promise<void> {
+    await this.store.kv.set(`sub:${this.deps.conversationKey}`, true);
+  }
+
+  /** Remove the subscription for this conversation. */
+  async unsubscribe(): Promise<void> {
+    await this.store.kv.delete(`sub:${this.deps.conversationKey}`);
+  }
+
+  /** Returns true if this conversation is currently subscribed. */
+  async isSubscribed(): Promise<boolean> {
+    return (
+      (await this.store.kv.get<boolean>(`sub:${this.deps.conversationKey}`)) ===
+      true
+    );
+  }
+
+  /** Persist arbitrary per-thread state (e.g. workflow step). */
+  async setState<T>(v: T): Promise<void> {
+    let value: unknown = v;
+    if (this.deps.stateSchema) {
+      const r = await validateSchema(this.deps.stateSchema, v);
+      if (!r.ok) throw new Error(`thread.setState: invalid state — ${r.error}`);
+      value = r.value;
+    }
+    await this.store.kv.set(`threadstate:${this.deps.conversationKey}`, value);
+  }
+
+  /** Read back per-thread state previously written with `setState`. */
+  async state<T>(): Promise<T | undefined> {
+    return this.store.kv.get<T>(`threadstate:${this.deps.conversationKey}`);
+  }
+
   /** Read the conversation's messages (returns `[]` when the adapter can't read history). */
   async getMessages(): Promise<ThreadMessage[]> {
     return (await this.deps.adapter.getMessages?.(this.deps.replyTarget)) ?? [];
@@ -151,6 +267,19 @@ export class Thread implements ThreadInterface {
      * attachments) the model can read.
      */
     prompt?: string | AgentContentPart[];
+    /**
+     * Auto-bridge cross-platform transcripts for this run. When truthy AND the
+     * thread has a resolved `userKey` AND a `Transcripts` instance, this:
+     *   1. injects prior history (`transcripts.list`, default limit 20) as a
+     *      context entry,
+     *   2. appends the current user turn,
+     *   3. runs the agent,
+     *   4. captures the assistant reply and appends it.
+     * This flag OWNS the bridge — callers using it should NOT also manually
+     * append the same user/assistant turn via `bot.transcripts.append`.
+     * No-ops with a one-time warning when identity/transcripts aren't configured.
+     */
+    transcript?: boolean | { limit?: number };
   }): Promise<MessageRef | undefined> {
     return this.run(undefined, input);
   }
@@ -165,6 +294,7 @@ export class Thread implements ThreadInterface {
       context?: ContextEntry[];
       tools?: BotTool[];
       prompt?: string | AgentContentPart[];
+      transcript?: boolean | { limit?: number };
     },
   ): Promise<MessageRef | undefined> {
     const session = await this.deps.adapter.conversationStore.getOrCreate(
@@ -190,6 +320,38 @@ export class Thread implements ThreadInterface {
     }
     const renderer = this.deps.adapter.createRunRenderer(this.deps.replyTarget);
 
+    // Transcript auto-bridge (step 1 + 2): inject prior cross-platform history
+    // as a context entry, then append the current user turn. This flag owns the
+    // bridge — see `runAgent`'s `transcript` doc. No-ops with one warning when
+    // identity/transcripts aren't configured.
+    const transcripts = this.deps.transcripts;
+    const userKey = this.deps.userKey;
+    let transcriptContext: ContextEntry | undefined;
+    if (extra?.transcript) {
+      if (transcripts && userKey) {
+        const limit =
+          typeof extra.transcript === "object"
+            ? (extra.transcript.limit ?? 20)
+            : 20;
+        // List BEFORE appending the current user turn so the current message
+        // isn't counted as its own "prior history".
+        const prior = await transcripts.list({ userKey, limit });
+        if (prior.length > 0) {
+          transcriptContext = {
+            description: `Prior cross-platform conversation history with this user. Current channel: ${this.platform}.`,
+            value: prior
+              .map((e) => `[${e.platform}] ${e.role}: ${e.text}`)
+              .join("\n"),
+          };
+        }
+        if (this.deps.message) {
+          await transcripts.append(this, this.deps.message, { userKey });
+        }
+      } else {
+        warnTranscriptIgnored();
+      }
+    }
+
     // Merge per-run context/tools (this run only) on top of the bot-level deps.
     const extraTools = extra?.tools ?? [];
     let tools = this.deps.tools;
@@ -202,9 +364,15 @@ export class Thread implements ThreadInterface {
         ...toAgentToolDescriptors(extraTools),
       ];
     }
-    const context = extra?.context?.length
-      ? [...this.deps.context, ...extra.context]
-      : this.deps.context;
+    const context: ContextEntry[] = [
+      ...this.deps.context,
+      ...(transcriptContext ? [transcriptContext] : []),
+      ...(extra?.context ?? []),
+    ];
+
+    // Snapshot the message count BEFORE the loop so we can isolate the
+    // assistant messages this run produced (step 4).
+    const messagesBefore = session.agent.messages.length;
 
     await runAgentLoop({
       agent: session.agent,
@@ -222,6 +390,29 @@ export class Thread implements ThreadInterface {
       },
       initialResume,
     });
+    // Transcript auto-bridge (step 4): capture the assistant text this run
+    // produced and append it. Only when the bridge actually applied (transcripts
+    // + userKey both present and `transcript` was requested).
+    if (extra?.transcript && transcripts && userKey) {
+      const produced = session.agent.messages.slice(messagesBefore);
+      const text = produced
+        .filter(
+          (m) =>
+            m.role === "assistant" &&
+            typeof m.content === "string" &&
+            m.content.trim().length > 0,
+        )
+        .map((m) => m.content as string)
+        .join("\n\n");
+      if (text.length > 0) {
+        await transcripts.append(
+          this,
+          { role: "assistant", text },
+          { userKey },
+        );
+      }
+    }
+
     // Turn-end hook: lets a renderer finalize any turn-scoped resource it kept
     // open across runAgent iterations (e.g. a native streaming message). A
     // no-op for renderers whose per-message streams already self-terminate, and
@@ -229,4 +420,14 @@ export class Thread implements ThreadInterface {
     await renderer.finish?.();
     return undefined;
   }
+}
+
+let transcriptWarned = false;
+/** Warn once when `runAgent({ transcript })` is used without identity/transcripts configured. */
+function warnTranscriptIgnored(): void {
+  if (transcriptWarned) return;
+  transcriptWarned = true;
+  console.warn(
+    "[bot] runAgent({ transcript }) ignored — configure store.identity + store.transcripts so a userKey resolves",
+  );
 }

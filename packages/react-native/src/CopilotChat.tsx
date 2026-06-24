@@ -62,7 +62,7 @@ export function useCopilotChatContext(): CopilotChatContextValue {
 // Props
 // ---------------------------------------------------------------------------
 
-export interface CopilotChatProps {
+export interface CopilotChatBaseProps {
   /**
    * The agent ID to use for this chat session.
    * Matches the web SDK's CopilotChat `agentId` prop.
@@ -114,7 +114,9 @@ export interface CopilotChatProps {
    * Optional children rendered inside the chat context.
    */
   children?: ReactNode;
+}
 
+export interface CopilotChatProps extends CopilotChatBaseProps {
   /** Passthrough props are forwarded to consumers via the agent context. */
   [key: string]: unknown;
 }

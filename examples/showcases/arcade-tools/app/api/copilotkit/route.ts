@@ -5,7 +5,8 @@ import {
   defineTool,
 } from "@copilotkit/runtime/v2";
 import { z } from "zod";
-import { getArcadeUserId, runArcadeTool, type ArcadeToolResult } from "@/lib/arcade";
+import { getArcadeUserId, runArcadeTool } from "@/lib/arcade";
+import type { ArcadeToolResult } from "@/lib/arcade";
 
 /**
  * Keep the model-facing payload small. The agent re-sends every tool result on
@@ -18,7 +19,10 @@ function slimOutput(
   result: ArcadeToolResult,
   transform: (output: unknown) => unknown,
 ): ArcadeToolResult {
-  if ("authorizationRequired" in result && result.authorizationRequired === false) {
+  if (
+    "authorizationRequired" in result &&
+    result.authorizationRequired === false
+  ) {
     return { ...result, output: transform(result.output) };
   }
   return result;
@@ -52,8 +56,11 @@ function buildTools(userId: string) {
       });
       // Cap the stories handed to the model (the tool can return many).
       return slimOutput(result, (out) => {
-        const stories = (out as { news_results?: unknown[] } | null)?.news_results;
-        return Array.isArray(stories) ? { news_results: stories.slice(0, 6) } : out;
+        const stories = (out as { news_results?: unknown[] } | null)
+          ?.news_results;
+        return Array.isArray(stories)
+          ? { news_results: stories.slice(0, 6) }
+          : out;
       });
     },
   });
@@ -103,7 +110,12 @@ function buildTools(userId: string) {
         return {
           emails: emails.map((e) => {
             const m = (e ?? {}) as Record<string, unknown>;
-            return { subject: m.subject, from: m.from ?? m.sender, snippet: m.snippet, date: m.date };
+            return {
+              subject: m.subject,
+              from: m.from ?? m.sender,
+              snippet: m.snippet,
+              date: m.date,
+            };
           }),
         };
       });
@@ -128,10 +140,14 @@ function buildAgent(userId: string) {
   // Fail with a readable message instead of a cryptic provider 401 / Arcade
   // construction error when keys are missing on a fresh clone.
   if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is not set. Add it to .env.local (see .env.example).");
+    throw new Error(
+      "OPENAI_API_KEY is not set. Add it to .env.local (see .env.example).",
+    );
   }
   if (!process.env.ARCADE_API_KEY) {
-    throw new Error("ARCADE_API_KEY is not set. Add it to .env.local (see .env.example).");
+    throw new Error(
+      "ARCADE_API_KEY is not set. Add it to .env.local (see .env.example).",
+    );
   }
   return new BuiltInAgent({
     model: process.env.OPENAI_MODEL || "openai/gpt-4o",
@@ -202,7 +218,9 @@ function authorizeRuntimeRequest(request: Request): void {
 const runtime = new CopilotRuntime({
   // Per-request factory → a fresh agent scoped to the resolved user id (and it
   // avoids the "agent is already running" error on overlapping messages).
-  agents: ({ request }) => ({ default: buildAgent(resolveArcadeUserId(request)) }),
+  agents: ({ request }) => ({
+    default: buildAgent(resolveArcadeUserId(request)),
+  }),
 });
 
 // Single-route transport: CopilotKit's provider defaults to `useSingleEndpoint`,

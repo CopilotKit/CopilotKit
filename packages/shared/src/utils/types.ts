@@ -31,6 +31,13 @@ export interface IntelligenceRuntimeInfo {
   wsUrl: string;
 }
 
+export interface ThreadEndpointRuntimeInfo {
+  list: boolean;
+  inspect: boolean;
+  mutations: boolean;
+  realtimeMetadata: boolean;
+}
+
 export type RuntimeLicenseStatus =
   | "valid"
   | "none"
@@ -54,6 +61,7 @@ export interface RuntimeInfo {
   audioFileTranscriptionEnabled: boolean;
   mode: RuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
+  threadEndpoints?: ThreadEndpointRuntimeInfo;
   /**
    * @deprecated Use `a2ui` instead, which preserves per-agent scoping.
    * Kept for backward compatibility with older clients.

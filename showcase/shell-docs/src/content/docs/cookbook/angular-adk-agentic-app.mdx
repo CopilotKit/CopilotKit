@@ -1,0 +1,211 @@
+---
+title: "Angular + Google ADK"
+description: "Wire an Angular frontend to a Google ADK agent over AG-UI, with optional persistent threads and memory. The non-obvious production gotchas, as symptom, cause, and fix."
+icon: "custom/google-adk"
+showIcon: true
+doc_type: how-to
+---
+
+This recipe assembles a production agentic app from three pieces: an **Angular** frontend built with [`@copilotkit/angular`](/frontends/angular), a **Google ADK** agent (running Gemini by default, or any model ADK supports) served over the open [AG-UI](https://docs.ag-ui.com/) protocol, and an optional [CopilotKit Intelligence](/premium/overview) layer for persistent threads and cross-session memory.
+
+Both halves have their own quickstarts already, and this recipe does not repeat them:
+
+- [Angular frontend](/frontends/angular) gets you a working Angular app with a chat UI backed by a local Copilot Runtime.
+- [ADK quickstart](/integrations/adk/quickstart) turns your ADK agents into an agent-native application.
+
+What this recipe covers is the part that bites once the two are wired together: the handful of correctness issues that only show up in a real, multi-user, governed app. Each one is framed as symptom, cause, and fix.
+
+## How the pieces fit
+
+Three processes, with one load-bearing seam between them:
+
+1. The **Angular client** renders chat and generative UI and runs the agent.
+2. A **runtime / backend-for-frontend (BFF)** wires the Copilot Runtime, resolves the per-request user, enforces governance, proxies memory, and forwards each run to your agent. Most of the subtle, correctness-critical logic lives here, not in the browser or the agent.
+3. The **Google ADK agent** does the reasoning and emits generative UI. An optional deterministic specialist agent handles fixed payloads.
+
+<Callout type="info" title="The BFF is where correctness lives">
+  Treat the browser as untrusted and the agent as replaceable. The seam that resolves the user, strips disallowed tools, and proxies memory is the part to get right.
+</Callout>
+
+## The chat surface: one agent, one store
+
+`injectAgentStore("default")` returns a **shared** store keyed by agent id. Every component that injects `"default"` sees the same messages and run state.
+
+```ts title="chat.component.ts"
+import { Component } from "@angular/core";
+import { CopilotChat, injectAgentStore } from "@copilotkit/angular";
+
+@Component({
+  selector: "app-chat",
+  imports: [CopilotChat],
+  template: `<copilot-chat agentId="default" />`,
+  // Give the surface a bounded height, or the composer slides off-screen on long threads.
+  styles: [`:host { display: block; height: 100%; min-height: 0; }`],
+})
+export class ChatComponent {
+  readonly agentStore = injectAgentStore("default");
+}
+```
+
+<Callout type="warn" title="A second composer must not create its own agent store">
+  **Symptom:** a welcome or secondary composer submits, but its messages never appear in the conversation.
+  **Cause:** that composer called `injectAgentStore` itself, so it holds a *different* instance than the one your surface renders.
+  **Fix:** route every composer's submit through the one shared store. There is one surface and one store per agent id.
+</Callout>
+
+<Callout type="warn" title="Do not fetch history for a brand-new thread">
+  **Symptom:** starting a new conversation throws before the first message.
+  **Cause:** a fresh thread id has no messages, so the history request errors.
+  **Fix:** only fetch history for an existing, user-selected thread. Run new conversations on a fresh id, and reload stored messages only when the bound thread id changes.
+</Callout>
+
+<Callout type="error" title="Never reconfigure the runtime mid-submit">
+  **Symptom:** intermittent blank conversations, where a just-sent user message vanishes.
+  **Cause:** mutating runtime config (for example swapping `headers` or `runtimeUrl`) invalidates the agent-store computed and **recreates the store mid-run**, dropping the message that was just added.
+  **Fix:** carry per-request values in the run body (see below), and do any config changes *before* the chat mounts, never during a submit.
+</Callout>
+
+## Scope the user through the run body, not a header
+
+This is the single most common correctness bug on this stack.
+
+<Callout type="error" title="An HTTP header lags by one user switch">
+  **Symptom:** right after switching users in the same session, the agent recalls the *previous* user's data. Fresh page loads are always fine.
+  **Cause:** if you identify the user with an HTTP header, the transport reuses connections, so the outbound run still carries the prior user's header for one run after an in-session switch.
+  **Fix:** put the user id in the **run body**, which is serialized fresh on every run and never lags.
+</Callout>
+
+Carry the user id as **agent context**, not as `properties`. This matters on ADK: the adapter copies the run's `state` and `context` into the ADK session, but it does **not** mirror `forwardedProps` (CopilotKit `properties`) into session state. A user id sent through `properties` never reaches `tool_context.state`, so the scoping silently fails. Use [`connectAgentContext`](/reference/angular/functions/connectAgentContext), which rides the run body and is serialized fresh every run:
+
+```ts title="chat.component.ts"
+import { Component, signal } from "@angular/core";
+import { connectAgentContext } from "@copilotkit/angular";
+
+@Component({ /* ... */ })
+export class ChatComponent {
+  readonly userId = signal(currentUserId);
+
+  constructor() {
+    // Re-registers reactively when the signal changes (e.g. an in-session user switch).
+    connectAgentContext(() => ({ description: "userId", value: this.userId() }));
+  }
+}
+```
+
+On the agent side, the AG-UI adapter stores context under the `_ag_ui_context` key, so a tool reads the user id from there:
+
+```python title="agent/main.py"
+def _user_id(tool_context) -> str | None:
+    for entry in tool_context.state.get("_ag_ui_context", []):
+        if entry.get("description") == "userId":
+            return entry.get("value")
+    return None
+
+def recall_for_user(tool_context) -> dict:
+    user_id = _user_id(tool_context)
+    # ...scope every read and write to user_id
+    return {"ok": True}
+```
+
+Shared agent **state** works too, and lands directly as `tool_context.state["userId"]` (no `_ag_ui_context` scan). Pick one. If your BFF also accepts a user header, **prefer the run-body value over the header** when scoping, so a stale header can never win.
+
+## Choose a capable model
+
+ADK runs Google's Gemini by default, but it is model-flexible: you can point it at any model ADK supports (see [the ADK quickstart](/integrations/adk/quickstart)). Whatever you pick, the agentic-flow guidance is the same.
+
+- Prefer a **current, capable agentic model**. Governance and tool substitution are multi-step instructions, and a strong instruction-follower handles them reliably without paying for a top-tier reasoning model.
+- An **under-powered or generation-old model is a false economy** for agentic flows. It follows multi-step instructions inconsistently, for example removing a disallowed tool from context but forgetting to emit the substitute, which yields an empty or half answer.
+- A **top-tier reasoning model** has the best instruction-following and tool use, but it is slower and pricier, and usually overkill outside the hardest reasoning step.
+
+<Callout type="tip" title="Validate availability against your provider, do not trust web summaries">
+  Confirm a model id actually exists for your account before wiring it in. On Gemini, for example:
+  ```bash
+  curl "https://generativelanguage.googleapis.com/v1beta/models?key=$GOOGLE_API_KEY" | grep '"name"'
+  ```
+</Callout>
+
+Two more agent-side habits:
+
+- **Keep MCP and tool timeouts short.** A generous timeout lets a slow or cold external tool server stall the first reply. A tight timeout degrades gracefully instead of hanging.
+- **For exact, fixed generative-UI payloads, use a deterministic sub-agent.** Asking an LLM to "echo this verbatim" mangles non-trivial JSON. Emit the payload directly from code.
+
+## Enforce governance on the server
+
+<Callout type="warn" title="A client-side tool guard is presentation only">
+  **Symptom:** a tool you "hid" in the UI still gets called by the agent.
+  **Cause:** the browser is untrusted, and hiding a tool in the UI does nothing to the agent's tool list.
+  **Fix:** on the BFF, strip disallowed tools from the inbound run body so the model cannot call them, and filter the outbound generative-UI stream. Emit a single governance receipt rather than silently dropping output.
+</Callout>
+
+- **Make the per-request allow-list ride the run body.** Toggling a capability mid-conversation then takes effect on the next run without recreating the agent store and without leaking a suppressed surface.
+- **Normalize capability names across casings** (for example `pieChart` versus `PieChart`) on both the inbound strip and the outbound filter, or governance leaks through a casing mismatch.
+- **Let generative-UI cards reflow, do not truncate.** Long dynamic labels overflow fixed-size cards. Let the layout grow rather than clipping content.
+
+## Add persistent threads and memory (optional)
+
+[CopilotKit Intelligence](/premium/overview) adds persistent [threads](/threads) and durable cross-session memory. Build so a missing or unreachable platform degrades gracefully instead of erroring on every call:
+
+- **Auto-detect:** at startup, probe the platform health endpoint with a short timeout. If it is unreachable or unlicensed, fall back to an in-memory runner.
+- **Configurable endpoint:** honor a single base-URL env var from the runtime, the agent's memory client, and the probe, so a non-default host or port just works. Re-detection happens on restart.
+
+Memory tools call the platform's streaming JSON-RPC `/mcp` endpoint, scoped per user:
+
+```http
+POST {INTELLIGENCE_API_URL}/mcp
+Authorization: Bearer <key>
+X-Cpki-User-Id: <user_id>
+Accept: application/json, text/event-stream
+
+{"jsonrpc":"2.0","id":1,"method":"tools/call",
+ "params":{"name":"recall_memory","arguments":{}}}
+```
+
+The response is a server-sent event stream. Read the JSON-RPC body from the first `data:` line and join the text content. Writes hit an embedding step and can take several seconds, so give the call generous timeout headroom and keep it async.
+
+<Callout type="warn" title="Do not let saved memories disappear from a memory browser">
+  **Symptom:** the agent clearly remembers things a custom memory panel never shows.
+  **Cause:** recall often defaults to *user* scope and caps at a small top-N, so a panel that hard-codes user scope hides project- or team-scoped memories.
+  **Fix:** if you build a memory browser, query both user and project scopes, de-duplicate, and merge.
+</Callout>
+
+<Callout type="info" title="Self-hosting the platform">
+  Running CopilotKit Intelligence yourself has its own setup notes (license verification and the embedding service). See [Self-hosting](/premium/self-hosting).
+</Callout>
+
+## The five that bite hardest
+
+1. **One agent, one store.** A second composer that injects its own store is a different instance, and its messages never appear.
+2. **Scope the user through the run body, never an HTTP header.** A header lags by one in-session switch.
+3. **Never reconfigure the runtime mid-submit.** It recreates the agent store and eats the just-sent message.
+4. **Governance is server-side.** Strip disallowed tools from the run body and let the per-request allow-list ride it.
+5. **Use a current, capable agentic model** (Gemini or any model ADK supports), and validate availability against your provider.
+
+## Going further
+
+- **Local dev:** only your frontend dev server hot-reloads. A `tsx`/`node` BFF and a Python agent do not, so restart them after edits. Give each service a stable, non-colliding port and write them down.
+- **Porting a rich React chat UI?** The Angular client is leaner. You build the welcome and empty states yourself, customize through `messageViewComponent` rather than a template, and iterate the full message list yourself to interleave generative UI. See the [Angular guide](/frontends/angular).
+- **Threads in depth:** see [Threads explained](/premium/threads-explained).
+
+## Get started with a coding agent
+
+Paste this into your coding agent (Cursor, Claude Code, etc.) once you have the Angular and ADK quickstarts running:
+
+```text
+In my Angular + Google ADK + CopilotKit app, harden it for multi-user production:
+
+1. Standardize on one chat surface: a single `injectAgentStore("default")`, and route every
+   composer (including any welcome composer) through that one shared store.
+2. Scope the user via the run body, not a header. On ADK, `forwardedProps` (CopilotKit `properties`)
+   is NOT mirrored into session state, so carry the user id as agent context with
+   `connectAgentContext({ description: "userId", value: userId })`, and read it in ADK tools by
+   scanning `tool_context.state["_ag_ui_context"]` for the `userId` entry (or use shared agent state,
+   which lands directly as `tool_context.state["userId"]`). If the BFF also accepts a user header,
+   prefer the run-body value over the header.
+3. Never mutate runtime config (runtimeUrl/headers) during a submit. Do config changes before the
+   chat mounts. Carry per-request values in the run body instead.
+4. Enforce governance on the server: strip disallowed tools from the inbound run body and filter the
+   outbound generative-UI stream. Make the allow-list ride the run body, and normalize tool-name casing.
+5. Give the chat surface a bounded height, and only fetch thread history for an existing thread id.
+
+Keep my existing Angular and ADK setup otherwise unchanged.
+```

@@ -7,8 +7,8 @@ import {
   convertToolsToVercelAITools,
   convertToolDefinitionsToVercelAITools,
   defineTool,
-  type ToolDefinition,
 } from "../index";
+import type { ToolDefinition } from "../index";
 import type { Message } from "@ag-ui/client";
 
 describe("resolveModel", () => {
@@ -28,31 +28,31 @@ describe("resolveModel", () => {
   it("should resolve OpenAI models with / separator", () => {
     const model = resolveModel("openai/gpt-4o");
     expect(model).toBeDefined();
-    expect(model.modelId).toBe("gpt-4o");
+    expect((model as { modelId: string }).modelId).toBe("gpt-4o");
   });
 
   it("should resolve OpenAI models with : separator", () => {
     const model = resolveModel("openai:gpt-4o-mini");
     expect(model).toBeDefined();
-    expect(model.modelId).toBe("gpt-4o-mini");
+    expect((model as { modelId: string }).modelId).toBe("gpt-4o-mini");
   });
 
   it("should resolve Anthropic models", () => {
     const model = resolveModel("anthropic/claude-sonnet-4.5");
     expect(model).toBeDefined();
-    expect(model.modelId).toBe("claude-sonnet-4.5");
+    expect((model as { modelId: string }).modelId).toBe("claude-sonnet-4.5");
   });
 
   it("should resolve Google models", () => {
     const model = resolveModel("google/gemini-2.5-pro");
     expect(model).toBeDefined();
-    expect(model.modelId).toBe("gemini-2.5-pro");
+    expect((model as { modelId: string }).modelId).toBe("gemini-2.5-pro");
   });
 
   it("should handle gemini provider alias", () => {
     const model = resolveModel("gemini/gemini-2.5-flash");
     expect(model).toBeDefined();
-    expect(model.modelId).toBe("gemini-2.5-flash");
+    expect((model as { modelId: string }).modelId).toBe("gemini-2.5-flash");
   });
 
   it("should throw error for invalid format", () => {
@@ -390,6 +390,7 @@ describe("convertToolDefinitionsToVercelAITools", () => {
         parameters: z.object({
           input: z.string(),
         }),
+        execute: async () => undefined,
       },
     ];
 
@@ -405,11 +406,13 @@ describe("convertToolDefinitionsToVercelAITools", () => {
         name: "tool1",
         description: "First tool",
         parameters: z.object({}),
+        execute: async () => undefined,
       },
       {
         name: "tool2",
         description: "Second tool",
         parameters: z.object({ value: z.number() }),
+        execute: async () => undefined,
       },
     ];
 
@@ -507,12 +510,14 @@ describe("defineTool", () => {
       parameters: z.object({
         input: z.string(),
       }),
+      execute: async () => undefined,
     });
 
     expect(tool).toEqual({
       name: "myTool",
       description: "My test tool",
       parameters: expect.any(Object),
+      execute: expect.any(Function),
     });
 
     expect(tool.name).toBe("myTool");
@@ -527,6 +532,7 @@ describe("defineTool", () => {
         a: z.number(),
         b: z.number(),
       }),
+      execute: async () => undefined,
     });
 
     // Should be able to parse valid input

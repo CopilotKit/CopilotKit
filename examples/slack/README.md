@@ -1,17 +1,19 @@
-# bot-example — on-call triage assistant (Slack, Discord &/or Telegram)
+# bot-example — on-call triage assistant (Slack, Discord, Telegram &/or WhatsApp)
 
 A runnable demo for [`@copilotkit/bot-slack`](../../packages/bot-slack),
-[`@copilotkit/bot-discord`](../../packages/bot-discord), **and**
-[`@copilotkit/bot-telegram`](../../packages/bot-telegram): an on-call triage bot
+[`@copilotkit/bot-discord`](../../packages/bot-discord),
+[`@copilotkit/bot-telegram`](../../packages/bot-telegram), **and**
+[`@copilotkit/bot-whatsapp`](../../packages/bot-whatsapp): an on-call triage bot
 that turns incident chatter into tracked work. It's built with
 [`@copilotkit/bot`](../../packages/bot) (the platform-agnostic bot core), one or
 more platform adapters, and [`@copilotkit/bot-ui`](../../packages/bot-ui) (a
 cross-platform JSX vocabulary for rich messages).
 
-**One app, any platform — or several at once.** `createBot` takes an array of
+**One app, any platform — or all at once.** `createBot` takes an array of
 adapters; `app/index.ts` includes the Slack adapter when `SLACK_*` secrets are
-present, the Discord adapter when `DISCORD_*` are present, and the Telegram
-adapter when `TELEGRAM_BOT_TOKEN` is present. Everything else in `app/` (tools,
+present, the Discord adapter when `DISCORD_*` are present, the Telegram adapter
+when `TELEGRAM_BOT_TOKEN` is present, and the WhatsApp adapter when `WHATSAPP_*`
+are present. Everything else in `app/` (tools,
 components, the `confirm_write` HITL gate, chart/diagram/table rendering) is
 platform-agnostic and shared verbatim — set the secrets for whichever
 platform(s) you want and run the same process. It connects to **Linear** and
@@ -183,12 +185,16 @@ decision the moment it's clicked. (On Telegram the value can't ride in the
 
 ### Slash commands (`app/commands/`)
 
-Two app-owned slash commands, registered via `createBot({ commands })`:
+Four app-owned slash commands, registered via `createBot({ commands })`:
 
 - **`/agent <text>`** — a mention-free entry point; runs the agent with the
   command text as the prompt.
 - **`/triage [note]`** — summarizes the conversation and proposes Linear
   issues to file.
+- **`/preview <title>`** — privately previews the issue the bot would file
+  (only you see it); degrades to a DM on platforms without ephemeral messages.
+- **`/file-issue`** — opens a structured Linear issue form; degrades to a
+  conversational flow on platforms without modal support (e.g. Telegram).
 
 ```ts
 defineBotCommand({
@@ -205,10 +211,12 @@ The args arrive as `ctx.text`; `runAgent({ prompt })` injects them as the
 user message (a slash command's text is never posted to the channel, so it
 isn't in the history the agent reconstructs).
 
-> **Slack setup:** each command must also be declared in your Slack app under
-> **Slash Commands** (add `/agent` and `/triage`) — Slack won't deliver an
-> unregistered command, even over Socket Mode. Discord and Telegram register
-> their commands up front via the adapter.
+> **Slack setup:** all four commands (`/agent`, `/triage`, `/preview`,
+> `/file-issue`) must be declared in your Slack app under **Slash Commands** —
+> Slack won't deliver an unregistered command, even over Socket Mode. The
+> easiest path is to paste the full `slack-app-manifest.yaml` when creating
+> (or updating) your app, which already declares all four. Discord and Telegram
+> register their commands up front via the adapter.
 
 ### The agent (`runtime.ts`)
 
@@ -262,7 +270,8 @@ several from one process).
 - In Telegram, message **@BotFather** → `/newbot` → follow the prompts (name +
   a username ending in `bot`) → copy the HTTP API token (`TELEGRAM_BOT_TOKEN`).
 - Long-polling is the default ingress — no public URL or webhook needed.
-- The bot auto-registers `/agent` and `/triage` via `setMyCommands` on start
+- The bot auto-registers its slash commands (`/agent`, `/triage`, `/preview`,
+  `/file-issue` — all four passed to `createBot`) via `setMyCommands` on start
   (no manual BotFather `/setcommands` step). For group use, `/setprivacy` →
   **Disable** if you want it to see non-mention messages.
 
@@ -399,10 +408,84 @@ one).
 > `@copilotkit/bot-slack: ^0.0.3`) — `workspace:*` only resolves inside this
 > monorepo.
 
+### WhatsApp (inbound webhook, needs a public domain)
+
+Slack and Discord are outbound (Socket Mode / gateway) and need no public
+ingress. WhatsApp is different: it adds an inbound webhook HTTP server on
+`$PORT`, so the bot service needs a public URL. To enable it on the deployed
+bot service (Railway):
+
+1. Generate a public domain on the **bot** service (Settings → Networking).
+   Railway routes it to `$PORT`, which the WhatsApp adapter listens on.
+2. Set `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`,
+   `WHATSAPP_VERIFY_TOKEN` on the bot service (use a System User token — the
+   temporary one expires in 24h). The `runtime` service is unchanged.
+3. In the Meta app → WhatsApp → Configuration: Callback URL
+   `https://<bot-domain>/webhook`, Verify Token = `WHATSAPP_VERIFY_TOKEN`,
+   subscribe to the `messages` field.
+
+Health check: `GET https://<bot-domain>/` returns `ok`. Chart/diagram tools use
+the same headless browser the Slack/Discord paths already run; their PNGs go
+out as WhatsApp images via the media upload.
+
+## Feature demos
+
+Three runnable demos extend the on-call triage bot to narrate per-platform degradation explicitly.
+
+### 1. Reactions — "emoji triage"
+
+React to any message (best on a top-level message or a thread's root — Slack's reaction event carries no parent `thread_ts`, so a reaction on a deep reply is read from that reply onward):
+
+| Emoji | Action                                                                       |
+| ----- | ---------------------------------------------------------------------------- |
+| 🐛    | File the message as a bug (drafts a Linear issue via the usual confirm flow) |
+| 🔥    | Escalate — proposes a high-priority Linear issue                             |
+| ✅    | Mark as triaged — agent acknowledges and notes it handled                    |
+
+The bot acks with 👀 (picked up) then ✅ (turn complete) as reactions on the same message, so progress shows without chat noise. For 🐛 and 🔥 the ✅ means the agent finished its turn and proposed an issue — actual filing is still gated behind the usual `confirm_write` human-in-the-loop step. Reaction removals are ignored.
+
+**Source:** `app/reactions/index.ts` (`emojiTriage` handler), registered in `app/index.ts` as `bot.onReaction(["bug", "fire", "check"], emojiTriage)`.
+
+### 2. Ephemeral — `/preview <title>`
+
+```
+/preview Login button throws 500 on submit
+```
+
+Posts a private draft issue card visible only to you — a "here's what I'd file, only you see this" preview — before anything is written to Linear or posted publicly. Run `/file-issue` afterwards to actually file it.
+
+**Source:** `app/commands/index.ts` (`preview` command) using `thread.postEphemeral(user, draft, { fallbackToDM: true })`.
+
+> **Slack setup:** `/preview` must be declared under **Slash Commands** in your Slack app manifest (already present in `slack-app-manifest.yaml`). Slack won't deliver an undeclared command even over Socket Mode.
+
+### 3. Modals — `/file-issue`
+
+```
+/file-issue
+```
+
+Opens a structured Linear issue form. On Slack you get the full form (title, description text inputs, priority dropdown, type radio). On Discord the form is text-only. On Telegram there is no modal surface, so the bot narrates that and continues conversationally.
+
+On submission (`bot.onModalSubmit("file_issue", …)` in `app/index.ts`), the bot validates the inputs and files the issue via the agent (Linear MCP) with the usual `confirm_write` gate, then shows the filed card.
+
+**Source:** `app/modals/file-issue.tsx` (`FileIssueModal`, `issueFromValues`), `app/commands/index.ts` (`file-issue` command).
+
+> **Slack setup:** `/file-issue` must be declared under **Slash Commands** in your Slack app manifest (already present in `slack-app-manifest.yaml`).
+
+### Per-platform behavior
+
+| Demo                   | Slack                         | Discord                                         | Telegram                                                                                                        |
+| ---------------------- | ----------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Reactions (🐛/🔥/✅)   | ✅                            | ✅                                              | ✅ triage runs; bot ack emoji (👀/✅/⚠️) subject to Telegram's allowed-reaction set — visual ack may not appear |
+| Ephemeral (`/preview`) | native only-you message       | DM fallback                                     | DM fallback                                                                                                     |
+| Modal (`/file-issue`)  | rich form (dropdowns + radio) | text-only (≤5 inputs; type/priority default in) | unsupported → conversational fallback                                                                           |
+
+The degradation is always narrated, never silent: `/preview` reports whether it used the DM path; `/file-issue` says "modals aren't supported here" on Telegram and continues in chat.
+
 ## Tests
 
 ```bash
-pnpm --filter slack-example test     # unit tests (read_thread, render tools, components, confirm_write)
+pnpm --filter slack-example test     # unit tests (read_thread, render tools, components, confirm_write, reactions, modals, commands)
 ```
 
 > **Note:** the live-Slack e2e harness (`pnpm e2e` / `pnpm e2e:restart`) is

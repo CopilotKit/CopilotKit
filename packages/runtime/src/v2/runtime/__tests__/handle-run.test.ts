@@ -1,6 +1,6 @@
-import { Observable } from "rxjs";
+import { EMPTY, Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
-import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
@@ -17,7 +17,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
-    } as CopilotRuntime;
+    } as unknown as CopilotRuntime;
   };
 
   const createMockRequest = (): Request => {
@@ -53,7 +53,7 @@ describe("handleRunAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
-    } as CopilotRuntime;
+    } as unknown as CopilotRuntime;
     const request = createMockRequest();
     const agentId = "test-agent";
 
@@ -86,7 +86,7 @@ describe("handleRunAgent", () => {
         this.headers = initialHeaders;
       }
 
-      clone(): AbstractAgent {
+      clone(): HttpAgent {
         return new RecordingHttpAgent({});
       }
     }
@@ -122,7 +122,7 @@ describe("handleRunAgent", () => {
         isRunning: async () => false,
         stop: async () => false,
       },
-    } as CopilotRuntime;
+    } as unknown as CopilotRuntime;
 
     const requestBody = {
       threadId: "thread-1",
@@ -809,10 +809,11 @@ describe("handleRunAgent", () => {
         ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
       };
       const runtime = createIntelligenceRuntime(agent, platform);
-      runtime.runner.runWithStartupBoundary = vi.fn(() => ({
-        events: new Observable<BaseEvent>(() => {}),
-        startup,
-      }));
+      (runtime.runner as IntelligenceAgentRunner).runWithStartupBoundary =
+        vi.fn(() => ({
+          events: new Observable<BaseEvent>(() => {}),
+          startup,
+        }));
       let settled = false;
 
       const responsePromise = handleRunAgent({
@@ -832,7 +833,9 @@ describe("handleRunAgent", () => {
       const response = await responsePromise;
 
       expect(response.status).toBe(200);
-      expect(runtime.runner.runWithStartupBoundary).toHaveBeenCalledWith(
+      expect(
+        (runtime.runner as IntelligenceAgentRunner).runWithStartupBoundary,
+      ).toHaveBeenCalledWith(
         expect.objectContaining({
           threadId: "canonical-thread",
           input: expect.objectContaining({
@@ -859,10 +862,11 @@ describe("handleRunAgent", () => {
         ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
       };
       const runtime = createIntelligenceRuntime(agent, platform);
-      runtime.runner.runWithStartupBoundary = vi.fn(() => ({
-        events: new Observable<BaseEvent>(() => {}),
-        startup: Promise.reject(new Error("Failed to join channel: denied")),
-      }));
+      (runtime.runner as IntelligenceAgentRunner).runWithStartupBoundary =
+        vi.fn(() => ({
+          events: new Observable<BaseEvent>(() => {}),
+          startup: Promise.reject(new Error("Failed to join channel: denied")),
+        }));
 
       const response = await handleRunAgent({
         runtime,
@@ -1478,10 +1482,14 @@ describe("handleRunAgent", () => {
      * runner records the registry key, NOT "default".
      */
     class TaggingTestAgent extends AbstractAgent {
+      run(_input: RunAgentInput): Observable<BaseEvent> {
+        return EMPTY;
+      }
+
       async runAgent(
         _input: RunAgentInput,
         options: { onEvent: (event: { event: BaseEvent }) => void },
-      ): Promise<void> {
+      ): Promise<RunAgentResult> {
         // Emit a single TEXT_MESSAGE_END event so the run produces at least
         // one event and gets persisted to historicRuns. RUN_STARTED /
         // RUN_FINISHED are appended by the runner itself.
@@ -1491,6 +1499,7 @@ describe("handleRunAgent", () => {
             messageId: "msg-1",
           } as BaseEvent,
         });
+        return { result: undefined, newMessages: [] };
       }
 
       clone(): AbstractAgent {

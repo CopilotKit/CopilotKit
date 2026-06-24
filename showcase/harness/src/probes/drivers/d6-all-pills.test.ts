@@ -7,8 +7,10 @@ import {
   e2eFullDriver,
   FEATURE_CONCURRENCY_D6,
   openGuardedContext,
+  parseFailureClassifier,
   Semaphore,
 } from "./d6-all-pills.js";
+import { CVDIAG_FAILURE_CLASSIFIERS } from "../../cvdiag/index.js";
 import type { GuardableBrowser } from "./d6-all-pills.js";
 import type {
   E2eFullAggregateSignal,
@@ -169,16 +171,20 @@ function noopScriptLoader() {
 
 function makeScript(
   featureTypes: string[],
-  opts?: { preNavigateRoute?: string },
+  opts?: {
+    preNavigateRoute?: string;
+    turns?: ReturnType<D5Script["buildTurns"]>;
+  },
 ): D5Script {
   return {
     featureTypes: featureTypes as D5Script["featureTypes"],
     fixtureFile: "test-fixture.json",
-    buildTurns: () => [
-      {
-        input: "hello",
-      },
-    ],
+    buildTurns: () =>
+      opts?.turns ?? [
+        {
+          input: "hello",
+        },
+      ],
     preNavigateRoute: opts?.preNavigateRoute
       ? () => opts.preNavigateRoute!
       : undefined,
@@ -1575,5 +1581,279 @@ describe("e2e-full per-feature retry signal isolation", () => {
         expect(sig.errorDesc).not.toContain("600000");
       }
     }, 20_000);
+  });
+});
+
+// ── D6 CVDIAG probe instrumentation (probe-session) ─────────────────────────
+//
+// The d5/d6 probe path (`d6-all-pills`) now constructs the SAME
+// `CvdiagProbeSession` the d4 driver uses, emitting probe-layer boundaries
+// (notably `probe.exit` with `terminal_outcome` + `failure_classifier`) so the
+// flapping d5/d6 runs are readable from `cvdiag_events`. These tests inject a
+// VERBOSE-tier emitter wired to a capturing PB writer and assert the emitted
+// envelopes directly — mirroring the d4 CVDIAG tests.
+
+import { CvdiagEmitter } from "../../cvdiag/index.js";
+import type { CvdiagEnvelope } from "../../cvdiag/index.js";
+
+/** Capturing PB writer: records every flushed envelope for assertion. */
+class D6CaptureWriter {
+  events: CvdiagEnvelope[] = [];
+  async writeBatch(events: CvdiagEnvelope[]): Promise<void> {
+    this.events.push(...events);
+  }
+}
+
+/** Build a VERBOSE-tier emitter wired to a capturing PB writer. */
+function makeD6CvdiagEmitter(): {
+  emitter: CvdiagEmitter;
+  writer: D6CaptureWriter;
+} {
+  const writer = new D6CaptureWriter();
+  const emitter = new CvdiagEmitter({
+    verbose: true,
+    env: {},
+    layer: "probe",
+    pbWriter: writer,
+  });
+  return { emitter, writer };
+}
+
+function byD6Boundary(
+  writer: D6CaptureWriter,
+  boundary: string,
+): CvdiagEnvelope[] {
+  return writer.events.filter((e) => e.boundary === boundary);
+}
+
+describe("d6 CVDIAG probe instrumentation (probe-session)", () => {
+  beforeEach(() => {
+    __clearD5RegistryForTesting();
+  });
+
+  it("emits exactly one probe.exit with terminal_outcome=ok for a passing feature", async () => {
+    // RED (pre-change): runFeature constructed NO CvdiagProbeSession, so an
+    // injected VERBOSE emitter received ZERO `probe.exit` rows on the d5/d6
+    // path. GREEN: a passing feature emits exactly one `probe.exit` with
+    // `terminal_outcome=ok` and no failure classifier.
+    registerD5Script(makeScript(["agentic-chat"]));
+    const { emitter, writer } = makeD6CvdiagEmitter();
+
+    const driver = createE2eFullDriver({
+      launcher: async () => makeBrowser(),
+      scriptLoader: noopScriptLoader(),
+      cvdiagEmitter: emitter,
+    });
+    const result = await driver.run(makeCtx(), {
+      key: "d6:showcase-test-slug",
+      backendUrl: "https://test.example.com",
+      features: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    expect(result.state).toBe("green");
+    const exit = byD6Boundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.outcome).toBe("ok");
+    expect(exit[0]!.metadata.terminal_outcome).toBe("ok");
+    expect(exit[0]!.metadata.failure_classifier).toBeUndefined();
+  });
+
+  it("emits a probe.start before navigation for a passing feature", async () => {
+    registerD5Script(makeScript(["agentic-chat"]));
+    const { emitter, writer } = makeD6CvdiagEmitter();
+
+    const driver = createE2eFullDriver({
+      launcher: async () => makeBrowser(),
+      scriptLoader: noopScriptLoader(),
+      cvdiagEmitter: emitter,
+    });
+    await driver.run(makeCtx(), {
+      key: "d6:showcase-test-slug",
+      backendUrl: "https://test.example.com",
+      features: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    const start = byD6Boundary(writer, "probe.start");
+    expect(start.length).toBe(1);
+  });
+
+  it("labels a failed feature (goto error) on probe.exit with outcome=err + a failure_classifier", async () => {
+    // RED (pre-change): a failing feature emitted no probe.exit at all on the
+    // d5/d6 path, so reds were invisible in cvdiag. GREEN: the feature emits a
+    // single `probe.exit` with `outcome=err` AND a `failure_classifier`
+    // (derived: no SSE observed by the probe-session => `sse-missing`).
+    registerD5Script(makeScript(["agentic-chat"]));
+    const { emitter, writer } = makeD6CvdiagEmitter();
+
+    const driver = createE2eFullDriver({
+      launcher: async () =>
+        makeBrowser({ pageScript: { throwOnGoto: new Error("nav boom") } }),
+      scriptLoader: noopScriptLoader(),
+      cvdiagEmitter: emitter,
+    });
+    const result = await driver.run(makeCtx(), {
+      key: "d6:showcase-test-slug",
+      backendUrl: "https://test.example.com",
+      features: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    expect(result.state).toBe("red");
+    const exit = byD6Boundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.outcome).toBe("err");
+    expect(exit[0]!.metadata.terminal_outcome).toBe("err");
+    expect(exit[0]!.metadata.failure_classifier).toBeDefined();
+  });
+
+  it("never emits CVDIAG rows when no emitter is injected (instrumentation off)", async () => {
+    // Control: a missing emitter is a clean no-op — the probe path is
+    // unchanged and still greens.
+    registerD5Script(makeScript(["agentic-chat"]));
+    const driver = createE2eFullDriver({
+      launcher: async () => makeBrowser(),
+      scriptLoader: noopScriptLoader(),
+    });
+    const result = await driver.run(makeCtx(), {
+      key: "d6:showcase-test-slug",
+      backendUrl: "https://test.example.com",
+      features: ["agentic-chat"],
+    });
+    expect(result.state).toBe("green");
+  });
+
+  it("does not throw the cvdiag char-count out of the probe path on a non-string turn input (cvdiag isolation)", async () => {
+    // RED (pre-change): the cvdiag message-send char count was computed
+    // UNGUARDED in the probe's main path BEFORE `runConversation`, via
+    // `turns.reduce((n, t) => n + [...t.input].length, 0)`. A turn whose
+    // `input` is null/undefined/non-string makes the spread throw
+    // `t.input is not iterable`, which escapes runFeature and REDs the probe
+    // with THAT cvdiag error. cvdiag instrumentation must NEVER compute-or-
+    // throw into the probe path. GREEN (post-change): the per-turn length
+    // coerces a non-string `input` to 0, so the cvdiag spread no longer
+    // throws — the probe never fails with the cvdiag `is not iterable`
+    // error (the conversation-runner separately rejects a non-string input
+    // on its own merits, which is correct probe behavior, NOT a cvdiag
+    // concern).
+    registerD5Script(
+      makeScript(["agentic-chat"], {
+        // A malformed turn (e.g. a buggy script producing a non-string input).
+        // Typed `string`, so cast to exercise the runtime defect the cvdiag
+        // spread would have thrown on.
+        turns: [{ input: undefined as unknown as string }],
+      }),
+    );
+    const { emitter } = makeD6CvdiagEmitter();
+
+    const driver = createE2eFullDriver({
+      launcher: async () => makeBrowser(),
+      scriptLoader: noopScriptLoader(),
+      cvdiagEmitter: emitter,
+    });
+    const result = await driver.run(makeCtx(), {
+      key: "d6:showcase-test-slug",
+      backendUrl: "https://test.example.com",
+      features: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    // The cvdiag char-count spread no longer throws into the probe path: the
+    // feature's failure (if any) is the conversation-runner's own non-string
+    // rejection, never the cvdiag `t.input is not iterable` throw.
+    const signal = result.signal as E2eFullAggregateSignal;
+    expect(signal.failureSummary ?? "").not.toContain("is not iterable");
+  });
+
+  it("computes no char count and emits nothing when the emitter is absent (cvdiag no-op)", async () => {
+    // The char-count reduction lives INSIDE the `if (cvdiag)` guard, so with
+    // no emitter the reduction is never evaluated and cvdiag is a clean no-op
+    // — a normal valid-string feature still greens and (the control already
+    // covered) emits zero CVDIAG rows. This pins the guard: the computation
+    // must not run on the emitter-absent path.
+    registerD5Script(
+      makeScript(["agentic-chat"], { turns: [{ input: "hi" }] }),
+    );
+    const driver = createE2eFullDriver({
+      launcher: async () => makeBrowser(),
+      scriptLoader: noopScriptLoader(),
+    });
+    const result = await driver.run(makeCtx(), {
+      key: "d6:showcase-test-slug",
+      backendUrl: "https://test.example.com",
+      features: ["agentic-chat"],
+    });
+    expect(result.state).toBe("green");
+  });
+
+  it("records the cvdiag message-send char count for valid turns (computation intact under the guard)", async () => {
+    // Post-change the char count moved INSIDE `if (cvdiag)`. This pins that
+    // the normal path still records one `probe.message.send` whose char count
+    // is the Unicode code-point total across the (valid string) turns —
+    // "hello" (5) + "world!" (6) = 11.
+    registerD5Script(
+      makeScript(["agentic-chat"], {
+        turns: [{ input: "hello" }, { input: "world!" }],
+      }),
+    );
+    const { emitter, writer } = makeD6CvdiagEmitter();
+
+    const driver = createE2eFullDriver({
+      launcher: async () => makeBrowser(),
+      scriptLoader: noopScriptLoader(),
+      cvdiagEmitter: emitter,
+    });
+    const result = await driver.run(makeCtx(), {
+      key: "d6:showcase-test-slug",
+      backendUrl: "https://test.example.com",
+      features: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    expect(result.state).toBe("green");
+    const sends = byD6Boundary(writer, "probe.message.send");
+    expect(sends.length).toBe(1);
+    expect(sends[0]!.metadata.char_count).toBe(11);
+  });
+});
+
+describe("parseFailureClassifier (conversation-error breadcrumb)", () => {
+  it("accepts selector-mismatch (regression: was dropped by a stale 4-member allow-list)", () => {
+    // RED before fix: parseFailureClassifier validated against a hardcoded
+    // {dom-missing, text-unstable, sse-missing, surface-missing} subset that
+    // omitted `selector-mismatch`, so a `reason=selector-mismatch` breadcrumb
+    // returned undefined → fell through to the derived `sse-missing` classifier
+    // → the cell was mislabeled. The allow-list now derives from the canonical
+    // CVDIAG_FAILURE_CLASSIFIERS, so the breadcrumb survives.
+    expect(
+      parseFailureClassifier(
+        "turn 0 failed: reason=selector-mismatch — pill never matched",
+      ),
+    ).toBe("selector-mismatch");
+  });
+
+  it("accepts every canonical CVDIAG_FAILURE_CLASSIFIERS member (no drift)", () => {
+    for (const classifier of CVDIAG_FAILURE_CLASSIFIERS) {
+      expect(
+        parseFailureClassifier(`turn 0 failed: reason=${classifier}`),
+      ).toBe(classifier);
+    }
+  });
+
+  it("strips trailing punctuation from the breadcrumb", () => {
+    expect(
+      parseFailureClassifier("turn 0 failed: reason=selector-mismatch,"),
+    ).toBe("selector-mismatch");
+  });
+
+  it("returns undefined for an unrecognized reason or a missing breadcrumb", () => {
+    expect(
+      parseFailureClassifier("turn 0 failed: reason=bogus"),
+    ).toBeUndefined();
+    expect(
+      parseFailureClassifier("turn 0 failed: no breadcrumb"),
+    ).toBeUndefined();
+    expect(parseFailureClassifier(undefined)).toBeUndefined();
   });
 });

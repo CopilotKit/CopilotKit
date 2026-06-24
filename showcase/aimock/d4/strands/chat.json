@@ -631,7 +631,7 @@
     },
     {
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the sales pipeline",
         "context": "strands"
       },
       "response": {

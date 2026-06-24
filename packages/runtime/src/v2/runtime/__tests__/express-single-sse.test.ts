@@ -2,6 +2,8 @@ import express from "express";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { AbstractAgent } from "@ag-ui/client";
+
 import { createCopilotEndpointSingleRouteExpress } from "../express";
 import { CopilotRuntime } from "../core/runtime";
 import { InMemoryAgentRunner } from "../runner/in-memory";
@@ -38,7 +40,7 @@ const buildRuntime = () => {
   };
 
   return new CopilotRuntime({
-    agents: { default: fakeAgent },
+    agents: { default: fakeAgent as unknown as AbstractAgent },
     runner: new InMemoryAgentRunner(),
   });
 };

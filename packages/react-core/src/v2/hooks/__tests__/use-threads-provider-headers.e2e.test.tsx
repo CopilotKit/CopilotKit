@@ -32,7 +32,16 @@ describe("useThreads provider headers", () => {
     fetchMock.mockReset();
     fetchMock.mockImplementation((url: string) => {
       if (url.endsWith("/info")) {
-        return jsonResponse({ version: "1.0.0", agents: {} });
+        return jsonResponse({
+          version: "1.0.0",
+          agents: {},
+          threadEndpoints: {
+            list: true,
+            inspect: true,
+            mutations: true,
+            realtimeMetadata: true,
+          },
+        });
       }
 
       if (url.includes("/threads?")) {

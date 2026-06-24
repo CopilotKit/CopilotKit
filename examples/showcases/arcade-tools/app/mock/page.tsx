@@ -10,9 +10,8 @@ import {
   GenericToolCard,
   LoadingCard,
   NewsCard,
-  type Email,
-  type NewsStory,
 } from "@/components/tool-cards";
+import type { Email, NewsStory } from "@/components/tool-cards";
 
 export const metadata: Metadata = {
   title: "Mock preview · Arcade × CopilotKit",
@@ -78,7 +77,9 @@ function AssistantText({ children }: { children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs font-medium text-violet-600">Assistant</span>
-      <p className="max-w-[90%] text-sm leading-relaxed text-zinc-700">{children}</p>
+      <p className="max-w-[90%] text-sm leading-relaxed text-zinc-700">
+        {children}
+      </p>
     </div>
   );
 }
@@ -87,10 +88,18 @@ function CardRow({ children }: { children: ReactNode }) {
   return <div className="max-w-[92%]">{children}</div>;
 }
 
-function GalleryItem({ label, children }: { label: string; children: ReactNode }) {
+function GalleryItem({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+        {label}
+      </p>
       {children}
     </div>
   );
@@ -136,9 +145,13 @@ export default function MockPage() {
             looks like
           </h1>
           <p className="mt-4 max-w-xl text-lg leading-relaxed text-zinc-600">
-            A scripted run-through of the cards CopilotKit renders from Arcade tool calls, so
-            you can see the design without keys, the runtime, or OAuth. The{" "}
-            <Link href="/" className="font-medium text-violet-700 underline-offset-2 hover:underline">
+            A scripted run-through of the cards CopilotKit renders from Arcade
+            tool calls, so you can see the design without keys, the runtime, or
+            OAuth. The{" "}
+            <Link
+              href="/"
+              className="font-medium text-violet-700 underline-offset-2 hover:underline"
+            >
               live demo
             </Link>{" "}
             is the real thing.
@@ -159,19 +172,26 @@ export default function MockPage() {
 
             <div className="space-y-5 p-4 sm:p-5">
               <UserBubble>
-                Find the latest news on open-source AI agents and email me a 3-bullet summary.
+                Find the latest news on open-source AI agents and email me a
+                3-bullet summary.
               </UserBubble>
 
               <AssistantText>On it, searching the news first.</AssistantText>
               <CardRow>
-                <NewsCard keywords="open-source AI agents" stories={SAMPLE_NEWS} />
+                <NewsCard
+                  keywords="open-source AI agents"
+                  stories={SAMPLE_NEWS}
+                />
               </CardRow>
 
               <AssistantText>
                 Got three good ones. To email them I need to connect your Gmail:
               </AssistantText>
               <CardRow>
-                <AuthorizationCard provider="Gmail" authUrl="https://www.arcade.dev" />
+                <AuthorizationCard
+                  provider="Gmail"
+                  authUrl="https://www.arcade.dev"
+                />
               </CardRow>
 
               <UserBubble>Done, go ahead.</UserBubble>
@@ -180,7 +200,9 @@ export default function MockPage() {
                 <LoadingCard label="Sending email to you@example.com…" />
               </CardRow>
 
-              <AssistantText>Sent! Here&rsquo;s the summary in your inbox.</AssistantText>
+              <AssistantText>
+                Sent! Here&rsquo;s the summary in your inbox.
+              </AssistantText>
               <CardRow>
                 <EmailSentCard
                   recipient="you@example.com"
@@ -202,11 +224,17 @@ export default function MockPage() {
             </div>
 
             <GalleryItem label="Authorization (the headline moment)">
-              <AuthorizationCard provider="Gmail" authUrl="https://www.arcade.dev" />
+              <AuthorizationCard
+                provider="Gmail"
+                authUrl="https://www.arcade.dev"
+              />
             </GalleryItem>
 
             <GalleryItem label="Email sent">
-              <EmailSentCard recipient="taylor@example.com" subject="Hello from my agent" />
+              <EmailSentCard
+                recipient="taylor@example.com"
+                subject="Hello from my agent"
+              />
             </GalleryItem>
 
             <GalleryItem label="Inbox">

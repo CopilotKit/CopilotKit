@@ -28,7 +28,12 @@
       "sharedVersion": false
     },
     "bot": {
-      "packages": ["@copilotkit/bot", "@copilotkit/bot-ui"],
+      "packages": [
+        "@copilotkit/bot",
+        "@copilotkit/bot-ui",
+        "@copilotkit/bot-store-redis",
+        "@copilotkit/bot-store-postgres"
+      ],
       "versionSource": "@copilotkit/bot",
       "sharedVersion": true
     },
@@ -45,6 +50,11 @@
     "bot-telegram": {
       "packages": ["@copilotkit/bot-telegram"],
       "versionSource": "@copilotkit/bot-telegram",
+      "sharedVersion": false
+    },
+    "bot-whatsapp": {
+      "packages": ["@copilotkit/bot-whatsapp"],
+      "versionSource": "@copilotkit/bot-whatsapp",
       "sharedVersion": false
     }
   }

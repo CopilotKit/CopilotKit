@@ -6,6 +6,7 @@ import {
   runVerify,
 } from "../verify-deploy";
 import type { ProbeRunner } from "../verify-deploy";
+import { SERVICES, probeEnabled } from "../railway-envs";
 
 describe("verify-deploy argv parsing", () => {
   it("requires --env", () => {
@@ -40,6 +41,22 @@ describe("verify-deploy argv parsing", () => {
     expect(() => parseArgs(["--env=staging", "--services", ",,"])).toThrow(
       /--services requires a CSV value/,
     );
+  });
+
+  it("defaults skipIneligible to false (strict mode)", () => {
+    const parsed = parseArgs(["--env", "staging"]);
+    expect(parsed.skipIneligible).toBeFalsy();
+  });
+
+  it("accepts --skip-ineligible (opt-in skip of probe.staging=false services)", () => {
+    const parsed = parseArgs([
+      "--env",
+      "staging",
+      "--services",
+      "docs",
+      "--skip-ineligible",
+    ]);
+    expect(parsed.skipIneligible).toBe(true);
   });
 
   it("rejects bare trailing --env (no following value)", () => {
@@ -105,6 +122,51 @@ describe("resolveProbeTargets", () => {
     // than "not probe-eligible". The two paths must be distinguished.
     expect(() =>
       resolveProbeTargets({ env: "staging", services: ["totally-fake"] }),
+    ).toThrow(/unknown service/i);
+  });
+
+  it("REFUSES a non-probe-eligible service by default (strict mode for explicit probes)", () => {
+    // Find a real SSOT service whose probe.staging===false (e.g. a
+    // starter-*). The default (strict) path must still throw the
+    // distinct "not probe-eligible" error — an operator who explicitly
+    // typed a single non-eligible service deserves a hard refusal.
+    const ineligible = Object.keys(SERVICES).find(
+      (n) => SERVICES[n] !== undefined && !probeEnabled(n, "staging"),
+    );
+    expect(ineligible).toBeDefined();
+    expect(() =>
+      resolveProbeTargets({ env: "staging", services: [ineligible as string] }),
+    ).toThrow(/not probe-eligible/i);
+  });
+
+  it("SKIPS non-probe-eligible services (skipIneligible) instead of crashing, keeping eligible ones", () => {
+    // The promote precondition probes the FULL promote set (service=all),
+    // which legitimately includes non-probe-eligible starters
+    // (probe.staging=false). Those must be SKIPPED, not crash the run.
+    const ineligible = Object.keys(SERVICES).find(
+      (n) => SERVICES[n] !== undefined && !probeEnabled(n, "staging"),
+    );
+    expect(ineligible).toBeDefined();
+    // "docs" is probe.staging=true — must survive the skip filter.
+    const targets = resolveProbeTargets({
+      env: "staging",
+      services: ["docs", ineligible as string],
+      skipIneligible: true,
+    });
+    const names = targets.map((t) => t.name);
+    expect(names).toContain("docs");
+    expect(names).not.toContain(ineligible);
+  });
+
+  it("still REFUSES an unknown service even with skipIneligible (typo is a real error, not a skip)", () => {
+    // skipIneligible only relaxes the probe.staging=false case; a name
+    // that is not in the SSOT at all is still a hard error.
+    expect(() =>
+      resolveProbeTargets({
+        env: "staging",
+        services: ["docs", "totally-fake"],
+        skipIneligible: true,
+      }),
     ).toThrow(/unknown service/i);
   });
 
@@ -244,6 +306,31 @@ describe("runVerify driver dispatch", () => {
       services: ["docs"],
       runner: async () => ({ ok: true }),
     });
+    expect(summary.exitCode).toBe(0);
+  });
+
+  it("with skipIneligible, exits 0 probing only eligible services when the set mixes in non-eligible ones", async () => {
+    // Mirrors the promote precondition `service=all` shape: a
+    // probe-eligible service (docs) mixed with a probe.staging=false
+    // service (a starter-*). The eligible one is probed normally; the
+    // ineligible one is skipped — no crash, exit 0 when greens pass.
+    const ineligible = Object.keys(SERVICES).find(
+      (n) => SERVICES[n] !== undefined && !probeEnabled(n, "staging"),
+    );
+    expect(ineligible).toBeDefined();
+    const calls: string[] = [];
+    const runner: ProbeRunner = async (target) => {
+      calls.push(target.name);
+      return { ok: true };
+    };
+    const summary = await runVerify({
+      env: "staging",
+      services: ["docs", ineligible as string],
+      skipIneligible: true,
+      runner,
+    });
+    expect(calls).toContain("docs");
+    expect(calls).not.toContain(ineligible);
     expect(summary.exitCode).toBe(0);
   });
 

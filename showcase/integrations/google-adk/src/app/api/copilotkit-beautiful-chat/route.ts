@@ -53,9 +53,12 @@ export const POST = async (req: NextRequest) => {
       // Canonical: openGenerativeUI: true, a2ui.injectA2UITool: false, mcpApps.
       openGenerativeUI: true,
       a2ui: {
-        // The backend graph has its own `generate_a2ui` tool, so we must NOT
-        // inject the runtime's default A2UI tool on top (that would double-bind
-        // the tool slot and confuse the LLM).
+        // The backend agent OWNS `generate_a2ui` via the ag-ui-adk >= 0.7.0
+        // middleware (get_a2ui_tool — render_a2ui sub-agent + recovery loop +
+        // hard-fail, OSS-158), so the runtime must NOT inject a second copy
+        // (double-bind). This `false` is load-bearing post-CopilotKit#5611,
+        // which otherwise defaults injectA2UITool to true when a provider
+        // catalog is present.
         injectA2UITool: false,
         // Models follow the tool-usage guide and omit `catalogId`, and the
         // middleware then falls back to the unregistered spec basic catalog

@@ -5,6 +5,10 @@ const heroStartCommandsSource = readFileSync(
   new URL("../hero-start-commands.tsx", import.meta.url),
   "utf8",
 );
+const globalsCss = readFileSync(
+  new URL("../../app/globals.css", import.meta.url),
+  "utf8",
+);
 
 // `hero_command_copied` fires alongside the global <CopyTracker>'s
 // `cli_command_copied` for the same copy. The sibling records
@@ -29,5 +33,13 @@ describe("hero_command_copied analytics", () => {
 
   it("guards the location read for SSR, mirroring the CopyTracker sibling", () => {
     expect(heroStartCommandsSource).toContain('typeof window !== "undefined"');
+  });
+});
+
+describe("hero quickstart CTA styling", () => {
+  it("opts the primary quickstart link out of prose link colors", () => {
+    expect(heroStartCommandsSource).toContain("shell-docs-primary-cta");
+    expect(globalsCss).toContain(".reference-content a.shell-docs-primary-cta");
+    expect(globalsCss).toContain("color: var(--primary-foreground);");
   });
 });
