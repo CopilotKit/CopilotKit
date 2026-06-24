@@ -6,6 +6,8 @@ import {
   CopilotRuntimeTransport,
   type CopilotKitCoreGetSuggestionsResult,
   type SuggestionsConfig,
+  type IntelligenceRuntimeInfo,
+  type ThreadEndpointRuntimeInfo,
 } from "@copilotkit/core";
 import {
   Injectable,
@@ -78,6 +80,14 @@ export class CopilotKit {
   readonly runtimeTransport = this.#runtimeTransport.asReadonly();
   readonly #headers = signal<Record<string, string>>({});
   readonly headers = this.#headers.asReadonly();
+  readonly #intelligence = signal<IntelligenceRuntimeInfo | undefined>(
+    undefined,
+  );
+  readonly intelligence = this.#intelligence.asReadonly();
+  readonly #threadEndpoints = signal<ThreadEndpointRuntimeInfo | undefined>(
+    undefined,
+  );
+  readonly threadEndpoints = this.#threadEndpoints.asReadonly();
   readonly #suggestionsByAgent = signal<
     Record<string, CopilotKitCoreGetSuggestionsResult>
   >({});
@@ -146,6 +156,8 @@ export class CopilotKit {
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
     this.#headers.set(this.core.headers);
+    this.#intelligence.set(this.core.intelligence);
+    this.#threadEndpoints.set(this.core.threadEndpoints);
     this.#config.renderToolCalls?.forEach((renderConfig) => {
       this.addRenderToolCall(renderConfig);
     });
@@ -178,6 +190,8 @@ export class CopilotKit {
       },
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.#runtimeConnectionStatus.set(status);
+        this.#intelligence.set(this.core.intelligence);
+        this.#threadEndpoints.set(this.core.threadEndpoints);
         this.#syncBuiltInActivityMessageRenderers();
         this.#syncBuiltInOpenGenerativeUI();
       },
