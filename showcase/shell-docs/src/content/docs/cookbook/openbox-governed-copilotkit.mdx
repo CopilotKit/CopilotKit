@@ -1,0 +1,51 @@
+---
+title: "OpenBox Governance"
+description: "Add OpenBox runtime governance — guardrails, policies, and human-in-the-loop approvals — to a CopilotKit + LangGraph agent."
+icon: "custom/openbox"
+showIcon: true
+doc_type: how-to
+---
+
+## How it works
+
+OpenBox wraps your agent with runtime governance policies that enforce guardrails and route decisions to human approvers.
+
+## The stack
+
+The stack combines CopilotKit, LangGraph, and the OpenBox policy engine.
+
+## Try it live
+
+A hosted demo is available so you can explore the governed agent without any setup.
+
+## Prerequisites
+
+You will need Node.js, Python, and valid API keys for your LLM provider.
+
+## Run the agent
+
+Start the LangGraph backend with OpenBox middleware enabled.
+
+## Run the frontend
+
+Launch the Next.js frontend that connects to CopilotKit.
+
+## Try it
+
+Send a message that triggers a policy guardrail to see human-in-the-loop approval in action.
+
+## The key pieces, in code
+
+The critical integration points are the OpenBox middleware, the CopilotKit runtime, and the approval UI component.
+
+## Going further
+
+Extend the example by adding custom policies or integrating additional data sources.
+
+## Get started with a coding agent
+
+Use a coding agent to scaffold the OpenBox integration in your own project.
+
+## Get the code
+
+Clone the repository and follow the setup instructions to run the recipe locally.

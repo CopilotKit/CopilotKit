@@ -288,8 +288,9 @@ describe("cookbook nav", () => {
   it("renders overview and recipes as top-level entries without changing slugs", () => {
     const navTree = buildCookbookNavTree();
 
-    expect(navTree).toHaveLength(5);
+    expect(navTree).toHaveLength(6);
     expect(navTree.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -306,10 +307,12 @@ describe("cookbook nav", () => {
       ["Oracle Agent Memory", "cookbook/oracle-agent-spec-memory"],
       ["Arcade", "cookbook/arcade"],
       ["Angular + Google ADK", "cookbook/angular-adk-agentic-app"],
+      ["OpenBox Governance", "cookbook/openbox-governed-copilotkit"],
     ]);
 
     const pageTree = navTreeToPageTree(navTree, "");
     expect(pageTree.children.map((node) => node.type)).toEqual([
+      "page",
       "page",
       "page",
       "page",
@@ -324,6 +327,7 @@ describe("cookbook nav", () => {
       "/cookbook/oracle-agent-spec-memory",
       "/cookbook/arcade",
       "/cookbook/angular-adk-agentic-app",
+      "/cookbook/openbox-governed-copilotkit",
     ]);
 
     const overview = pageTree.children[0];
