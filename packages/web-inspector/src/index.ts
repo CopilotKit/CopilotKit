@@ -92,6 +92,15 @@ const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed si
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
 
+function shouldUpdateOwnedThreadStoreContext(
+  status: CopilotKitCoreRuntimeConnectionStatus | undefined,
+): boolean {
+  return (
+    status === CopilotKitCoreRuntimeConnectionStatus.Connected ||
+    status === CopilotKitCoreRuntimeConnectionStatus.Error
+  );
+}
+
 type InspectorAgentEventType =
   | "RUN_STARTED"
   | "RUN_FINISHED"
@@ -2594,7 +2603,11 @@ export class WebInspectorElement extends LitElement {
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
-    store.setContext(this.createOwnedThreadStoreContext(agentId, core.headers));
+    if (shouldUpdateOwnedThreadStoreContext(core.runtimeConnectionStatus)) {
+      store.setContext(
+        this.createOwnedThreadStoreContext(agentId, core.headers),
+      );
+    }
     this._ownedThreadStores.set(agentId, store);
     // Subscribe directly so threads render even before the registry callback
     // fires (some published-core code paths land on the subscriber after
@@ -2623,6 +2636,9 @@ export class WebInspectorElement extends LitElement {
   ): void {
     const core = this.core;
     if (!core?.runtimeUrl) return;
+    if (!shouldUpdateOwnedThreadStoreContext(core.runtimeConnectionStatus)) {
+      return;
+    }
     for (const [agentId, store] of this._ownedThreadStores) {
       store.setContext(this.createOwnedThreadStoreContext(agentId, headers));
     }
