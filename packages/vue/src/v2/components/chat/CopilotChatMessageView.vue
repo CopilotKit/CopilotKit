@@ -462,8 +462,11 @@ function resolveToolMessage(
       v-if="interruptState"
       name="interrupt"
       :event="interruptState.event"
+      :interrupt="interruptState.interrupt"
+      :interrupts="interruptState.interrupts"
       :result="interruptState.result"
       :resolve="interruptState.resolve"
+      :cancel="interruptState.cancel"
     />
 
     <slot v-if="showCursor" name="cursor">
