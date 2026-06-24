@@ -44,9 +44,9 @@ await bot.start();
 `slack(opts)` returns a `SlackAdapter`. By default it runs in **Socket Mode**
 (`socketMode: true`) — outbound WebSocket only, no public URL needed. HTTP
 mode (`socketMode: false`) needs `signingSecret` and a `port`. The Slack
-listener pre-filters ingress to the turns the bot should answer (@-mentions,
-replies in threads it owns, DMs), so a single `onMention` handler usually
-covers everything.
+listener pre-filters ingress to the turns the bot should answer. By default,
+DMs are conversational, app mentions respond in-thread, and plain replies in
+channel/private-channel threads require another app mention.
 
 ### Required env
 
@@ -54,6 +54,47 @@ covers everything.
 | ----------------- | ------- | -------------------------------- |
 | `SLACK_BOT_TOKEN` | `xoxb-` | Bot token for the Web API.       |
 | `SLACK_APP_TOKEN` | `xapp-` | App-level token for Socket Mode. |
+
+## Response routing
+
+Use `respondTo` to choose which Slack message events become `onMention` turns:
+
+| Surface                                 | Default behavior        | Option                                                |
+| --------------------------------------- | ----------------------- | ----------------------------------------------------- |
+| Direct messages (`message.im`)          | Respond                 | `respondTo.directMessages`                            |
+| App mentions (`app_mention`)            | Respond in-thread       | `respondTo.appMentions` / `appMentions.reply`         |
+| Plain channel/private-channel replies   | Ignore unless mentioned | `respondTo.threadReplies: "afterBotReply"` for legacy |
+| Assistant pane                          | Separate default-on API | `assistant`; not controlled by `respondTo`            |
+| Slash commands, reactions, interactions | Explicit trigger paths  | Not controlled by `respondTo`                         |
+
+```ts
+// Default routing made explicit.
+slack({
+  botToken,
+  appToken,
+  respondTo: {
+    directMessages: true,
+    appMentions: { reply: "thread" },
+    threadReplies: "mentionsOnly",
+  },
+});
+```
+
+```ts
+// Legacy owned-thread continuation.
+slack({
+  botToken,
+  appToken,
+  respondTo: {
+    threadReplies: "afterBotReply",
+  },
+});
+```
+
+For the default mention-only thread behavior, subscribe to `app_mention` and
+`message.im` events. Add `message.channels` and `message.groups` only when you
+enable `respondTo.threadReplies: "afterBotReply"` and want Slack to deliver
+plain channel/private-channel thread replies.
 
 ## What it provides
 
@@ -251,18 +292,46 @@ structured args (e.g. Discord) and is unused on Slack. The adapter does not
 implement `registerCommands`, so the engine skips it (Slack matches commands
 dynamically rather than registering them up front).
 
+## OAuth bot scopes
+
+The following bot token scopes are required or relevant depending on the
+features your app uses:
+
+| Scope              | Required for                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat:write`       | Posting messages, streaming, ephemeral messages (`chat.postEphemeral`), and opening modals (`views.open`) — all share this single scope. |
+| `reactions:read`   | Reading reactions; subscribe to `reaction_added` / `reaction_removed` events in the app manifest to receive them.                        |
+| `reactions:write`  | Adding or removing reactions via `reactions.add` / `reactions.remove`.                                                                   |
+| `assistant:write`  | Native streaming task chunks and assistant-pane status updates.                                                                          |
+| `files:write`      | Uploading files via `thread.postFile()`.                                                                                                 |
+| `users:read`       | Resolving Slack user profiles (name, email) via `users.info`.                                                                            |
+| `users:read.email` | Resolving user email addresses.                                                                                                          |
+| `channels:history` | Reading channel thread messages via `conversations.replies`.                                                                             |
+| `groups:history`   | Reading private-channel thread messages via `conversations.replies`.                                                                     |
+| `im:history`       | Reading DM thread messages via `conversations.replies`.                                                                                  |
+| `mpim:history`     | Reading group-DM thread messages via `conversations.replies`.                                                                            |
+
+### Notes
+
+- **Modals** (`views.open`, `view_submission`, `view_closed`): handled via
+  `chat:write` — no additional scope is needed.
+- **Ephemeral messages** (`chat.postEphemeral`): covered by `chat:write`.
+- **Reactions** (`reactions:read` / `reactions:write`): these scopes alone
+  are not enough — you must also subscribe to the `reaction_added` and
+  `reaction_removed` events in the Slack app manifest so that Slack delivers
+  the events to your bot.
+
 ## What's NOT in v1
 
-- Modals / true batched form submit
 - OAuth / multi-workspace install (single bot token only)
 - Durable (Redis/DB) `ActionStore` — in-memory only; actions expire on
   restart
 - Proactive posting (bot replies only to turns it's part of)
-- Reactions
 
 ## Exports
 
-`slack`, `SlackAdapter`, `SlackAdapterOptions`, `SlackAssistantOptions`;
+`slack`, `SlackAdapter`, `SlackAdapterOptions`, `SlackAssistantOptions`,
+`SlackRespondToOptions`;
 `createRunRenderer`; `decodeInteraction`, `conversationKeyOf`; `renderBlockKit`,
 `renderSlackMessage`, `SLACK_LIMITS`; `defaultSlackTools`,
 `lookupSlackUserTool`, `defaultSlackContext` (+ the individual context

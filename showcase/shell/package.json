@@ -11,8 +11,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@copilotkit/react-core": "^1.60.2",
-    "@copilotkit/runtime": "^1.60.2",
+    "@copilotkit/react-core": "1.61.1",
+    "@copilotkit/runtime": "1.61.1",
     "client-only": "0.0.1",
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",

@@ -6,7 +6,7 @@ doc_type: how-to
 ---
 ## What is this?
 
-CopilotKit threads enable persistent, resumable multi-turn conversations. The `useThreads` hook lists, creates, renames, archives, and deletes threads with realtime synchronization via WebSocket. Threads work with any agent framework — the Enterprise Intelligence Platform stores conversation history server-side, so users can close their browser and pick up where they left off. Thread metadata updates (renames, archives, new threads) are pushed to all connected clients in realtime without polling.
+CopilotKit threads enable persistent, resumable multi-turn conversations. The `useThreads` hook lists, creates, renames, archives, and deletes Enterprise Intelligence Platform threads with realtime synchronization via WebSocket. Threads work with any agent framework — the Enterprise Intelligence Platform stores conversation history server-side, so users can close their browser and pick up where they left off. It does not list or mutate native LangGraph, ADK, or other framework stores unless your backend explicitly bridges those systems. Thread metadata updates (renames, archives, new threads) appear on connected clients without polling.
 
 <OpsPlatformCTA
   variant="inline"
@@ -147,7 +147,7 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
         });
         ```
 
-        If you're using Cloud-Hosted Enterprise Intelligence, the CLI writes the hosted platform URLs and project-scoped `INTELLIGENCE_API_KEY` to `.env`. For self-hosted deployments, see [Self-Hosting Enterprise Intelligence](/premium/self-hosting) for the Helm chart install and database configuration.
+        If you're using Cloud-Hosted Enterprise Intelligence, the CLI writes the hosted platform URLs and project-scoped `INTELLIGENCE_API_KEY` to `.env`. For the persistence model behind thread storage, event replay, and realtime sync, see [Threads & Persistence Architecture](/premium/threads-explained). For self-hosted deployments, see [Self-Hosting Enterprise Intelligence](/premium/self-hosting) for the Helm chart install and database configuration.
 
         **Thread lock options:** When an agent run starts, the runtime acquires a lock on the thread to prevent concurrent runs. You can tune this behavior:
 
@@ -222,6 +222,18 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
         ```
 
         When `threadId` changes, the chat component automatically loads the selected thread's history and reconnects to the agent's stream. If the agent is still running on that thread, the chat picks up the live stream.
+
+        <WhenFrameworkHas flag="thread_persistence_pattern" equals="langgraph">
+          <Callout type="info" title="LangGraph persistence">
+            When you pass an explicit CopilotKit `threadId`, CopilotKit forwards it to your backend as the AG-UI `threadId`. A LangGraph backend can use that value directly, or map it to its own checkpoint/thread identifier, when you implement that mapping. LangGraph Platform thread IDs must be UUIDs. CopilotKit `useThreads` manages Enterprise Intelligence Platform thread records; rename, archive, and delete operations do not update LangGraph stores unless your backend adds that bridge.
+          </Callout>
+        </WhenFrameworkHas>
+
+        <WhenFrameworkHas flag="thread_persistence_pattern" equals="adk-session">
+          <Callout type="info" title="ADK sessions">
+            When you pass an explicit CopilotKit `threadId`, CopilotKit forwards it to your backend as the AG-UI `threadId`. An ADK backend can map that value to an ADK session ID, but the current showcase uses in-memory ADK services, so those sessions are not durable by default. Durable ADK session persistence requires configuring a separate ADK session service. CopilotKit `useThreads` manages Enterprise Intelligence Platform thread records, not ADK's native session store.
+          </Callout>
+        </WhenFrameworkHas>
       </Step>
 
       <Step>

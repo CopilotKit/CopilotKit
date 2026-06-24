@@ -4,12 +4,21 @@ export type { AgentSession } from "./conversation-store.js";
 export type {
   ConversationKey,
   IncomingTurn,
+  ResolvedSlackRespondToOptions,
   ReplyTarget,
   SlackAssistantOptions,
+  SlackAppMentionOptions,
   SlackFeedback,
   SlackFeedbackOptions,
+  SlackMentionReplyMode,
+  SlackRespondToOptions,
+  SlackThreadReplyMode,
 } from "./types.js";
-export { DM_SCOPE } from "./types.js";
+export {
+  DEFAULT_SLACK_RESPOND_TO_OPTIONS,
+  DM_SCOPE,
+  resolveSlackRespondToOptions,
+} from "./types.js";
 
 export { MessageStream } from "./message-stream.js";
 export type { MessageStreamConfig } from "./message-stream.js";

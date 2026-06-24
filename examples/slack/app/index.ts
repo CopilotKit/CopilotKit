@@ -44,6 +44,7 @@ import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
 import { senderContext } from "./sender-context.js";
+import { fileIssueSubmit, FILE_ISSUE_CALLBACK } from "./modals/file-issue.js";
 import { closeBrowser } from "./render/browser.js";
 
 const required = (name: string): string => {
@@ -83,6 +84,14 @@ async function main() {
         // `:wrench:` rows, or pane "is using `tool`…" status). Tools still run;
         // only the display is hidden.
         showToolStatus: false,
+        // Kite keeps DMs conversational and responds to explicit app mentions
+        // in channels/threads. Plain channel thread replies stay quiet unless
+        // they mention Kite again.
+        respondTo: {
+          directMessages: true,
+          appMentions: { reply: "thread" },
+          threadReplies: "mentionsOnly",
+        },
         // Assistant-pane behavior is ON by default; this just customizes it.
         // The greeting + chips show when a user opens the pane (matching the
         // app manifest's `assistant_view`); native streaming + status need no
@@ -193,20 +202,23 @@ async function main() {
     // guidance; `appContext` adds identity + triage policy.
     tools,
     context,
-    // Slash commands (`/agent`, `/triage`). For Slack each must ALSO be
-    // declared in the app config; Discord and Telegram register them up front.
-    // The engine routes by name; adapters that can't take commands ignore them.
+    // Slash commands (`/agent`, `/triage`, `/preview`, `/file-issue`). For Slack
+    // each must ALSO be declared in the app config (or paste the manifest); Discord
+    // and Telegram register them up front. The engine routes by name; adapters that
+    // can't take commands ignore them.
     commands: appCommands,
   });
 
-  // Register ONLY onMention. Each adapter pre-filters ingress to the turns this
-  // bot should answer — @-mentions, replies in threads it owns, and DMs (and
-  // every WhatsApp message). createBot is mention-preferred: a single handler
-  // covers all of them across every active platform. `senderContext` names the
+  // The turn handler. Each adapter pre-filters ingress to the turns this bot
+  // should answer — DMs, explicit mentions, and every WhatsApp message.
+  // createBot is mention-preferred: a single handler covers them across every
+  // active platform. `senderContext` names the
   // requesting user per `thread.platform`, so the label is correct on whichever
-  // surface the turn arrived from. Wrap the turn so a failed run (agent backend
-  // down, network/auth error) is logged and surfaced to the user instead of
-  // crashing the process or vanishing silently.
+  // surface the turn arrived from. Additional feature demos below add their own
+  // handlers for modal submissions and assistant-pane thread starts. Wrap the
+  // turn so a failed run (agent backend down, network/auth error) is logged
+  // and surfaced to the user instead of crashing the process or vanishing
+  // silently.
   bot.onMention(async ({ thread, message }) => {
     try {
       await thread.runAgent({
@@ -219,6 +231,12 @@ async function main() {
         .catch(() => {});
     }
   });
+
+  // Modal demo (cont.) — handle the /file-issue submission. The handler lives in
+  // `modals/file-issue.tsx` (extracted + unit-tested): it validates, then
+  // fire-and-forgets the agent run so the submission can be ack'd within Slack's
+  // ~3s view_submission deadline (awaiting the run blows it → Slack double-files).
+  bot.onModalSubmit(FILE_ISSUE_CALLBACK, fileIssueSubmit);
 
   // Slack-only nicety: personalize the assistant-pane prompt chips for the
   // opener. Harmless elsewhere — `onThreadStarted` only fires from adapters

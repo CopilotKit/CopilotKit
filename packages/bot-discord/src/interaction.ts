@@ -1,4 +1,8 @@
-import type { InteractionEvent } from "@copilotkit/bot";
+import type {
+  InteractionEvent,
+  IncomingReaction,
+  IncomingModalSubmit,
+} from "@copilotkit/bot";
 import type { PlatformUser } from "@copilotkit/bot-ui";
 
 /** The structural subset of a discord.js component interaction we read. */
@@ -59,6 +63,9 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     value,
     user,
     messageRef: i.message ? { id: i.message.id, channelId } : undefined,
+    // Filled by the adapter from the pending-interaction registry; the bare
+    // decode has no live trigger to attach.
+    triggerId: undefined,
   };
 }
 
@@ -75,4 +82,92 @@ function unpackValue(customId: string): unknown {
 function toUser(u: ComponentInteractionLike["user"]): PlatformUser | undefined {
   if (!u?.id) return undefined;
   return { id: u.id, name: u.globalName ?? u.username, handle: u.username };
+}
+
+// ---------------------------------------------------------------------------
+// Reaction decode
+// ---------------------------------------------------------------------------
+
+interface ReactionLike {
+  emoji?: { name?: string | null; id?: string | null };
+  message?: { id?: string; channelId?: string; guildId?: string | null };
+}
+interface ReactUserLike {
+  id?: string;
+  username?: string;
+  globalName?: string;
+  bot?: boolean;
+}
+
+/** custom emoji → "name:id"; unicode → the char. */
+function emojiToken(e: ReactionLike["emoji"]): string | undefined {
+  if (!e?.name) return undefined;
+  return e.id ? `${e.name}:${e.id}` : e.name;
+}
+
+// ---------------------------------------------------------------------------
+// Modal submit decode
+// ---------------------------------------------------------------------------
+
+interface ModalSubmitLike {
+  customId?: string;
+  channelId?: string;
+  guildId?: string | null;
+  user?: { id?: string; username?: string; globalName?: string };
+  fields?: { fields?: Map<string, { customId?: string; value?: string }> };
+}
+
+/** Decode a discord.js `ModalSubmitInteraction` into an `IncomingModalSubmit`. */
+export function decodeModalSubmit(interaction: unknown): IncomingModalSubmit {
+  const i = interaction as ModalSubmitLike;
+  const values: Record<string, unknown> = {};
+  for (const [key, comp] of i.fields?.fields ?? new Map()) {
+    values[comp?.customId ?? key] = comp?.value;
+  }
+  return {
+    callbackId: i.customId ?? "",
+    values,
+    user: i.user?.id
+      ? { id: i.user.id, name: i.user.globalName ?? i.user.username }
+      : undefined,
+    conversationKey: i.channelId,
+    replyTarget: i.channelId
+      ? { channelId: i.channelId, ...(i.guildId ? { guildId: i.guildId } : {}) }
+      : undefined,
+    platform: "discord",
+    raw: interaction,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Reaction decode
+// ---------------------------------------------------------------------------
+
+/**
+ * Decode a discord.js `MessageReaction` + `User` pair into an `IncomingReaction`.
+ * Returns `undefined` when required fields (emoji token, channelId, messageId) are missing.
+ */
+export function decodeReaction(
+  reaction: unknown,
+  user: unknown,
+  added: boolean,
+): IncomingReaction | undefined {
+  const r = reaction as ReactionLike;
+  const u = user as ReactUserLike;
+  const token = emojiToken(r.emoji);
+  const channelId = r.message?.channelId;
+  const messageId = r.message?.id;
+  if (!token || !channelId || !messageId) return undefined;
+  return {
+    rawEmoji: token,
+    added,
+    user: u.id ? { id: u.id, name: u.globalName ?? u.username } : undefined,
+    conversationKey: channelId,
+    replyTarget: {
+      channelId,
+      ...(r.message?.guildId ? { guildId: r.message.guildId } : {}),
+    },
+    messageId,
+    raw: reaction,
+  };
 }

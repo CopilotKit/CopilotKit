@@ -104,7 +104,7 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
       const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
         // Update headers on the cached agent in case they changed
-        cached.headers = { ...copilotkit.headers };
+        copilotkit.applyHeadersToAgent(cached);
         return cached;
       }
 
@@ -115,7 +115,7 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
         runtimeMode: "pending",
       });
       // Apply current headers so runs/connects inherit them
-      provisional.headers = { ...copilotkit.headers };
+      copilotkit.applyHeadersToAgent(provisional);
       provisionalAgentCache.current.set(resolvedAgentId, provisional);
       return provisional;
     }
@@ -131,7 +131,7 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     ) {
       const cached = provisionalAgentCache.current.get(resolvedAgentId);
       if (cached) {
-        cached.headers = { ...copilotkit.headers };
+        copilotkit.applyHeadersToAgent(cached);
         return cached;
       }
       const provisional = new ProxiedCopilotRuntimeAgent({
@@ -140,7 +140,7 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
         transport: copilotkit.runtimeTransport,
         runtimeMode: "pending",
       });
-      provisional.headers = { ...copilotkit.headers };
+      copilotkit.applyHeadersToAgent(provisional);
       provisionalAgentCache.current.set(resolvedAgentId, provisional);
       return provisional;
     }
@@ -228,7 +228,10 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
   // discard intermediate results, but mutations always land).
   useEffect(() => {
     if (agent instanceof HttpAgent) {
-      agent.headers = { ...copilotkit.headers };
+      // Merge core headers on top of the agent's own headers rather than
+      // replacing them, so per-agent headers (e.g. an Authorization for a
+      // self-hosted backend) are preserved (see #5635).
+      copilotkit.applyHeadersToAgent(agent);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, JSON.stringify(copilotkit.headers)]);

@@ -417,6 +417,7 @@ describe("SlackAdapter action wiring", () => {
       event: vi.fn(),
       message: vi.fn(),
       assistant: vi.fn(),
+      view: vi.fn(),
     });
 
     const received: InteractionEvent[] = [];
@@ -427,6 +428,9 @@ describe("SlackAdapter action wiring", () => {
       },
       onCommand: vi.fn(),
       onThreadStarted: vi.fn(),
+      onReaction: vi.fn(),
+      onModalSubmit: vi.fn(async () => {}),
+      onModalClose: vi.fn(),
     };
     await adapter.start(sink);
 

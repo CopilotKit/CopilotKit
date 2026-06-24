@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-  AbstractAgent,
+import type {
   BaseEvent,
-  EventType,
   RunAgentInput,
+  RunAgentResult,
   RunStartedEvent,
   RunFinishedEvent,
   RunErrorEvent,
@@ -11,6 +10,7 @@ import {
   TextMessageContentEvent,
   TextMessageEndEvent,
 } from "@ag-ui/client";
+import { AbstractAgent, EventType } from "@ag-ui/client";
 import { EMPTY, firstValueFrom } from "rxjs";
 import { toArray } from "rxjs/operators";
 import {
@@ -53,10 +53,11 @@ class MockAgent extends AbstractAgent {
   async runAgent(
     _input: RunAgentInput,
     subscriber?: { onEvent?: (arg: { event: BaseEvent }) => void },
-  ): Promise<void> {
+  ): Promise<RunAgentResult> {
     for (const event of this.events) {
       subscriber?.onEvent?.({ event });
     }
+    return { result: undefined, newMessages: [] };
   }
 
   abortRun(): void {
@@ -67,7 +68,7 @@ class MockAgent extends AbstractAgent {
     return new MockAgent(this.events);
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -85,7 +86,7 @@ class ThrowingMockAgent extends AbstractAgent {
     this.errorMessage = errorMessage;
   }
 
-  async runAgent(): Promise<void> {
+  async runAgent(): Promise<RunAgentResult> {
     throw new Error(this.errorMessage);
   }
 
@@ -97,7 +98,7 @@ class ThrowingMockAgent extends AbstractAgent {
     return new ThrowingMockAgent(this.errorMessage);
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -115,8 +116,8 @@ class BlockingMockAgent extends AbstractAgent {
   aborted = false;
   private rejectFn: ((reason: Error) => void) | null = null;
 
-  async runAgent(): Promise<void> {
-    return new Promise<void>((_resolve, reject) => {
+  async runAgent(): Promise<RunAgentResult> {
+    return new Promise<RunAgentResult>((_resolve, reject) => {
       this.rejectFn = reject;
     });
   }
@@ -130,7 +131,7 @@ class BlockingMockAgent extends AbstractAgent {
     return new BlockingMockAgent();
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 

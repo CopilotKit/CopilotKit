@@ -32,10 +32,8 @@ export type {
   LicenseOwner,
 } from "@copilotkit/license-verifier";
 
-import type {
-  LicenseStatus,
-  LicensePayload,
-} from "@copilotkit/license-verifier";
+import type { LicensePayload } from "@copilotkit/license-verifier";
+import type { RuntimeLicenseStatus } from "./utils/types";
 
 // LicenseContextValue was dropped from license-verifier's public API in
 // 0.3.0, so it is defined here. The context shape is owned by this package
@@ -46,9 +44,9 @@ import type {
  * Frontend providers create their own context using this shape.
  */
 export interface LicenseContextValue {
-  /** The resolved license status after verification. Null if no token provided. */
-  status: LicenseStatus | null;
-  /** Convenience: the license payload if valid, null otherwise. */
+  /** Server-reported license status from the runtime's /info endpoint. Null until known. */
+  status: RuntimeLicenseStatus | null;
+  /** The license payload if available. Always null on the client; the payload stays server-side. */
   license: LicensePayload | null;
   /** Whether a specific feature is licensed. Returns true if no licensing is active (no token). */
   checkFeature: (feature: string) => boolean;
@@ -57,23 +55,28 @@ export interface LicenseContextValue {
 }
 
 /**
- * Client-safe license context factory.
+ * Client-safe license context factory, driven by the license status the
+ * runtime reports via /info.
  *
- * When status is null (no token provided), all features return true
- * (unlicensed = unrestricted, with branding). This is inlined here to
- * avoid importing the full license-verifier bundle (which depends on
- * Node's `crypto`) into browser bundles.
+ * Features are enabled unless the runtime definitively reports the license
+ * as "expired" or "invalid". A null/"none"/"unknown" status fails open
+ * (unlicensed = unrestricted, with branding), and "expiring" keeps features
+ * on while the provider surfaces a warning banner. Per-feature data is not
+ * in /info yet, so checkFeature is uniform across features and getLimit has
+ * no limits to report. This is inlined here to avoid importing the full
+ * license-verifier bundle (which depends on Node's `crypto`) into browser
+ * bundles.
  */
-export function createLicenseContextValue(status: null): {
-  status: null;
-  license: null;
-  checkFeature: (feature: string) => boolean;
-  getLimit: (feature: string) => number | null;
-} {
+export function createLicenseContextValue(
+  status: RuntimeLicenseStatus | null | undefined,
+): LicenseContextValue {
+  const resolvedStatus = status ?? null;
+  const featuresEnabled =
+    resolvedStatus !== "expired" && resolvedStatus !== "invalid";
   return {
-    status: null,
+    status: resolvedStatus,
     license: null,
-    checkFeature: () => true,
+    checkFeature: () => featuresEnabled,
     getLimit: () => null,
   };
 }

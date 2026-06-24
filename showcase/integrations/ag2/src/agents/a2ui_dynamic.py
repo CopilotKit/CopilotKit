@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Annotated
+from typing import cast
 
 import openai
 from autogen import ConversableAgent, LLMConfig
-from autogen.ag_ui import AGUIStream
+from autogen.ag_ui import AGUIStream  # type: ignore[import-not-found]  # runtime-only submodule (ag2[ag-ui] extra); not present in static type stubs
 from fastapi import FastAPI
+from openai.types.chat import ChatCompletionFunctionToolParam
+from openai.types.shared_params import FunctionDefinition
 
 from tools import (
     build_a2ui_operations_from_tool_call,
@@ -51,18 +53,24 @@ SYSTEM_PROMPT = (
     "`PieChart` for part-of-whole breakdowns (sales by region, traffic "
     "sources, portfolio allocation) and `BarChart` for comparisons across "
     "categories (quarterly revenue, headcount by team, signups per month). "
-    "`generate_a2ui` takes a single `context` argument summarising the "
-    "conversation. Keep chat replies to one short sentence; let the UI do "
+    "`generate_a2ui` takes no arguments and handles the rendering "
+    "automatically. Keep chat replies to one short sentence; let the UI do "
     "the talking."
 )
 
 
-async def generate_a2ui(
-    context: Annotated[
-        str, "Conversation context summary the secondary LLM should design UI from"
-    ],
-) -> str:
+async def generate_a2ui() -> str:
     """Generate dynamic A2UI components based on the conversation.
+
+    Takes NO arguments. The outer agent calls this tool with empty
+    arguments (``{}``); the per-request user prompt is read from the
+    ``RequestUserMessageMiddleware`` ContextVar (see ``_request_context``)
+    rather than threaded through a tool parameter. This mirrors the
+    langgraph-python sibling, whose ``generate_a2ui`` also takes no args
+    (``a2ui_dynamic.py``), and keeps the tool schema aligned with the D6
+    fixtures, which emit ``generate_a2ui`` with ``arguments="{}"``. A
+    required ``context`` parameter here would make pydantic reject every
+    empty-args call and drive the outer agent into a retry hot loop.
 
     A secondary LLM designs the UI schema and data using the `render_a2ui`
     tool schema. The result is returned as an `a2ui_operations` container
@@ -85,6 +93,13 @@ async def generate_a2ui(
     user_prompt = get_latest_user_message() or (
         "Generate a dynamic A2UI dashboard based on the conversation."
     )
+    # The inner-call system message is constant; per-pill distinctness comes
+    # from ``user_prompt`` above (the outer conversation's latest user
+    # message, captured per-request). Previously this was the outer agent's
+    # ``context`` tool argument, but the outer agent calls ``generate_a2ui``
+    # with empty args ``{}`` (see the no-arg signature + the D6 fixtures),
+    # so a required ``context`` param only produced a pydantic hot loop.
+    inner_system_prompt = "Generate a useful dashboard UI."
     # A13: forward inbound x-* headers via extra_headers as a defense in depth
     # alongside the global httpx hook (see _header_forwarding.py). The hook
     # patches httpx at module load, but extra_headers makes the intent
@@ -96,15 +111,18 @@ async def generate_a2ui(
             messages=[
                 {
                     "role": "system",
-                    "content": context or "Generate a useful dashboard UI.",
+                    "content": inner_system_prompt,
                 },
                 {"role": "user", "content": user_prompt},
             ],
             tools=[
-                {
-                    "type": "function",
-                    "function": RENDER_A2UI_TOOL_SCHEMA,
-                }
+                ChatCompletionFunctionToolParam(
+                    type="function",
+                    # RENDER_A2UI_TOOL_SCHEMA is an untyped dict literal that
+                    # conforms to the OpenAI FunctionDefinition TypedDict shape;
+                    # cast so the type checker accepts it (no runtime change).
+                    function=cast(FunctionDefinition, RENDER_A2UI_TOOL_SCHEMA),
+                )
             ],
             tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
             extra_headers=forwarded or None,
@@ -127,8 +145,21 @@ async def generate_a2ui(
         logger.warning("generate_a2ui: secondary LLM produced no render_a2ui tool call")
         return json.dumps({"error": "LLM did not call render_a2ui"})
 
+    # tool_calls is a union of function- and custom-tool calls; only the
+    # function variant carries `.function`. `tool_choice` above forces the
+    # `render_a2ui` FUNCTION tool, so the first call is always the function
+    # variant at runtime — narrow on `.type` to make that explicit to the type
+    # checker (and degrade gracefully to the same error shape if it ever isn't).
+    first_call = choice.message.tool_calls[0]
+    if first_call.type != "function":
+        logger.warning(
+            "generate_a2ui: secondary LLM returned non-function tool call type=%s",
+            first_call.type,
+        )
+        return json.dumps({"error": "LLM did not call render_a2ui"})
+
     try:
-        args = json.loads(choice.message.tool_calls[0].function.arguments)
+        args = json.loads(first_call.function.arguments)
         result = build_a2ui_operations_from_tool_call(args)
         return json.dumps(result)
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:

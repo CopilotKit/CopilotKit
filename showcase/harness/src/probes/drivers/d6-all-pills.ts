@@ -21,6 +21,7 @@ import type {
 } from "../helpers/conversation-runner.js";
 import {
   installPrePaintFromEnv,
+  installBrowserContextShims,
   messagesOverrideFromEnv,
 } from "../helpers/init-scripts.js";
 import { attachSseInterceptor } from "../helpers/sse-interceptor.js";
@@ -523,6 +524,7 @@ const defaultLauncher: E2eFullBrowserLauncher =
                 // SECOND. Both must complete before page.goto so the
                 // init scripts (pre-paint DOM seed + __hk_runsFinished
                 // window counter) are registered at document_start.
+                await installBrowserContextShims(page);
                 await installPrePaintFromEnv(page);
                 await attachSseInterceptor(page);
                 return page.goto(
@@ -661,6 +663,7 @@ export function createPooledE2eFullLauncher(
                 // SECOND. Both must complete before page.goto so the
                 // init scripts (pre-paint DOM seed + __hk_runsFinished
                 // window counter) are registered at document_start.
+                await installBrowserContextShims(page);
                 await installPrePaintFromEnv(page);
                 await attachSseInterceptor(page);
                 return page.goto(

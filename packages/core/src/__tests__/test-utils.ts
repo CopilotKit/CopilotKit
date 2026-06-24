@@ -1,6 +1,20 @@
-import { Message } from "@ag-ui/client";
+import type {
+  AssistantMessage,
+  Message,
+  ToolCall,
+  ToolMessage,
+} from "@ag-ui/client";
 import { vi } from "vitest";
-import { DynamicSuggestionsConfig, FrontendTool } from "../types";
+import type { DynamicSuggestionsConfig, FrontendTool } from "../types";
+
+export interface MessageOverrides {
+  id?: string;
+  role?: Message["role"];
+  content?: string;
+  name?: string;
+  toolCalls?: ToolCall[];
+  toolCallId?: string;
+}
 
 export interface MockAgentOptions {
   messages?: Message[];
@@ -115,7 +129,7 @@ export class MockAgent {
   }
 }
 
-export function createMessage(overrides: Partial<Message> = {}): Message {
+export function createMessage(overrides: MessageOverrides = {}): Message {
   return {
     id: `msg-${Math.random().toString(36).substr(2, 9)}`,
     role: "user",
@@ -125,7 +139,7 @@ export function createMessage(overrides: Partial<Message> = {}): Message {
 }
 
 export function createAssistantMessage(
-  overrides: Partial<Message> = {},
+  overrides: MessageOverrides = {},
 ): Message {
   return createMessage({
     role: "assistant",
@@ -137,7 +151,7 @@ export function createAssistantMessage(
 export function createToolCallMessage(
   toolCallName: string,
   args: any = {},
-  overrides: Partial<Message> = {},
+  overrides: MessageOverrides = {},
 ): Message {
   const toolCallId = `tool-call-${Math.random().toString(36).substr(2, 9)}`;
   return createAssistantMessage({
@@ -159,7 +173,7 @@ export function createToolCallMessage(
 export function createToolResultMessage(
   toolCallId: string,
   content: string,
-  overrides: Partial<Message> = {},
+  overrides: MessageOverrides = {},
 ): Message {
   return createMessage({
     role: "tool",
@@ -167,6 +181,26 @@ export function createToolResultMessage(
     toolCallId,
     ...overrides,
   });
+}
+
+export function getAssistantMessage(
+  message: Message | undefined,
+): AssistantMessage {
+  if (message?.role !== "assistant") {
+    throw new Error(
+      `Expected assistant message, got ${message?.role ?? "undefined"}`,
+    );
+  }
+  return message;
+}
+
+export function getToolMessage(message: Message | undefined): ToolMessage {
+  if (message?.role !== "tool") {
+    throw new Error(
+      `Expected tool message, got ${message?.role ?? "undefined"}`,
+    );
+  }
+  return message;
 }
 
 export function createTool<T extends Record<string, unknown>>(
@@ -183,7 +217,7 @@ export function createTool<T extends Record<string, unknown>>(
 
 export function createMultipleToolCallsMessage(
   toolCalls: Array<{ name: string; args?: any }>,
-  overrides: Partial<Message> = {},
+  overrides: MessageOverrides = {},
 ): Message {
   return createAssistantMessage({
     content: "",
@@ -235,7 +269,7 @@ export function createSuggestionsConfig(
  */
 export function createSuggestionToolCall(
   suggestions: Array<{ title: string; message: string }>,
-  overrides: Partial<Message> = {},
+  overrides: MessageOverrides = {},
 ): Message {
   const toolCallId = `suggest-call-${Math.random().toString(36).substr(2, 9)}`;
   return createAssistantMessage({

@@ -26,7 +26,7 @@ import {
   on,
   props,
 } from "./utils/micro-redux";
-import type { Store } from "./utils/micro-redux";
+import type { Reducer, Store } from "./utils/micro-redux";
 import {
   ɵphoenixChannel$,
   ɵphoenixSocket$,
@@ -143,6 +143,7 @@ const threadAdapterEvents = createActionGroup("Thread Adapter", {
     name: string;
   }>(),
   archiveRequested: props<{ requestId: string; threadId: string }>(),
+  unarchiveRequested: props<{ requestId: string; threadId: string }>(),
   deleteRequested: props<{ requestId: string; threadId: string }>(),
 });
 
@@ -211,9 +212,9 @@ function upsertThread(
   return sortThreadsByRecency(next);
 }
 
-const threadReducer = createReducer<ThreadState>(
+const threadReducer = createReducer(
   initialThreadState,
-  on(threadAdapterEvents.contextChanged, (state, { context }) => ({
+  on(threadAdapterEvents.contextChanged, (state: ThreadState, { context }) => ({
     ...state,
     context,
     sessionId: state.sessionId + 1,
@@ -225,7 +226,7 @@ const threadReducer = createReducer<ThreadState>(
     metadataJoinCode: null,
     nextCursor: null,
   })),
-  on(threadAdapterEvents.stopped, (state) => ({
+  on(threadAdapterEvents.stopped, (state: ThreadState) => ({
     ...state,
     threads: [],
     isLoading: false,
@@ -235,7 +236,7 @@ const threadReducer = createReducer<ThreadState>(
     metadataJoinCode: null,
     nextCursor: null,
   })),
-  on(threadRestEvents.listRequested, (state, { sessionId }) => {
+  on(threadRestEvents.listRequested, (state: ThreadState, { sessionId }) => {
     if (sessionId !== state.sessionId || !state.context) {
       return state;
     }
@@ -248,7 +249,7 @@ const threadReducer = createReducer<ThreadState>(
   }),
   on(
     threadRestEvents.listSucceeded,
-    (state, { sessionId, threads, joinCode, nextCursor }) => {
+    (state: ThreadState, { sessionId, threads, joinCode, nextCursor }) => {
       if (sessionId !== state.sessionId) {
         return state;
       }
@@ -263,20 +264,23 @@ const threadReducer = createReducer<ThreadState>(
       };
     },
   ),
-  on(threadRestEvents.listFailed, (state, { sessionId, error }) => {
-    if (sessionId !== state.sessionId) {
-      return state;
-    }
+  on(
+    threadRestEvents.listFailed,
+    (state: ThreadState, { sessionId, error }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
 
-    return {
-      ...state,
-      isLoading: false,
-      error,
-    };
-  }),
+      return {
+        ...state,
+        isLoading: false,
+        error,
+      };
+    },
+  ),
   on(
     threadRestEvents.nextPageSucceeded,
-    (state, { sessionId, threads, nextCursor }) => {
+    (state: ThreadState, { sessionId, threads, nextCursor }) => {
       if (sessionId !== state.sessionId) {
         return state;
       }
@@ -294,20 +298,23 @@ const threadReducer = createReducer<ThreadState>(
       };
     },
   ),
-  on(threadRestEvents.nextPageFailed, (state, { sessionId, error }) => {
-    if (sessionId !== state.sessionId) {
-      return state;
-    }
+  on(
+    threadRestEvents.nextPageFailed,
+    (state: ThreadState, { sessionId, error }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
 
-    return {
-      ...state,
-      isFetchingNextPage: false,
-      error,
-    };
-  }),
+      return {
+        ...state,
+        isFetchingNextPage: false,
+        error,
+      };
+    },
+  ),
   on(
     threadRestEvents.metadataCredentialsFailed,
-    (state, { sessionId, error }) => {
+    (state: ThreadState, { sessionId, error }) => {
       if (sessionId !== state.sessionId) {
         return state;
       }
@@ -318,17 +325,20 @@ const threadReducer = createReducer<ThreadState>(
       };
     },
   ),
-  on(threadRestEvents.metadataCredentialsRequested, (state, { sessionId }) => {
-    if (sessionId !== state.sessionId) {
-      return state;
-    }
+  on(
+    threadRestEvents.metadataCredentialsRequested,
+    (state: ThreadState, { sessionId }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
 
-    return {
-      ...state,
-      metadataCredentialsRequested: true,
-    };
-  }),
-  on(threadAdapterEvents.fetchNextPageRequested, (state) => {
+      return {
+        ...state,
+        metadataCredentialsRequested: true,
+      };
+    },
+  ),
+  on(threadAdapterEvents.fetchNextPageRequested, (state: ThreadState) => {
     if (!state.nextCursor || state.isFetchingNextPage) {
       return state;
     }
@@ -338,31 +348,37 @@ const threadReducer = createReducer<ThreadState>(
       isFetchingNextPage: true,
     };
   }),
-  on(threadRestEvents.mutationFinished, (state, { outcome }) => ({
+  on(threadRestEvents.mutationFinished, (state: ThreadState, { outcome }) => ({
     ...state,
     error: outcome.ok ? state.error : outcome.error,
   })),
-  on(threadDomainEvents.threadUpserted, (state, { sessionId, thread }) => {
-    if (sessionId !== state.sessionId) {
-      return state;
-    }
+  on(
+    threadDomainEvents.threadUpserted,
+    (state: ThreadState, { sessionId, thread }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
 
-    return {
-      ...state,
-      threads: upsertThread(state.threads, thread),
-    };
-  }),
-  on(threadDomainEvents.threadDeleted, (state, { sessionId, threadId }) => {
-    if (sessionId !== state.sessionId) {
-      return state;
-    }
+      return {
+        ...state,
+        threads: upsertThread(state.threads, thread),
+      };
+    },
+  ),
+  on(
+    threadDomainEvents.threadDeleted,
+    (state: ThreadState, { sessionId, threadId }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
 
-    return {
-      ...state,
-      threads: state.threads.filter((thread) => thread.id !== threadId),
-    };
-  }),
-);
+      return {
+        ...state,
+        threads: state.threads.filter((thread) => thread.id !== threadId),
+      };
+    },
+  ),
+) as Reducer<ThreadState>;
 
 const selectThreads = createSelector((state: ThreadState) => state.threads);
 const selectThreadsIsLoading = createSelector(
@@ -385,6 +401,7 @@ interface ThreadStore {
   fetchNextPage(): void;
   renameThread(threadId: string, name: string): Promise<void>;
   archiveThread(threadId: string): Promise<void>;
+  unarchiveThread(threadId: string): Promise<void>;
   deleteThread(threadId: string): Promise<void>;
   getState(): ThreadState;
   select: Store<ThreadState>["select"];
@@ -395,6 +412,16 @@ let threadRequestId = 0;
 function createThreadRequestId(): string {
   threadRequestId += 1;
   return `thread-request-${threadRequestId}`;
+}
+
+function threadFromFetch<T>(
+  input: string,
+  init: RequestInit & {
+    selector: (response: Response) => Promise<T>;
+    fetch: typeof fetch;
+  },
+): Observable<T> {
+  return fromFetch(input, init);
 }
 
 function createThreadFetchObservable(
@@ -413,7 +440,7 @@ function createThreadFetchObservable(
     if (context.limit != null) params.limit = String(context.limit);
 
     const qs = new URLSearchParams(params);
-    return fromFetch(`${context.runtimeUrl}/threads?${qs.toString()}`, {
+    return threadFromFetch(`${context.runtimeUrl}/threads?${qs.toString()}`, {
       selector: (response) => {
         if (!response.ok) {
           throw new Error(`Failed to fetch threads: ${response.status}`);
@@ -463,7 +490,7 @@ function createThreadMetadataCredentialsObservable(
   | ReturnType<typeof threadRestEvents.metadataCredentialsFailed>
 > {
   return defer(() => {
-    return fromFetch(`${context.runtimeUrl}${THREAD_SUBSCRIBE_PATH}`, {
+    return threadFromFetch(`${context.runtimeUrl}${THREAD_SUBSCRIBE_PATH}`, {
       selector: async (response) => {
         if (!response.ok) {
           throw new Error(
@@ -515,7 +542,7 @@ function createThreadMutationObservable(
   request: MutationRequest,
 ): Observable<ReturnType<typeof threadRestEvents.mutationFinished>> {
   return defer(() => {
-    return fromFetch(`${context.runtimeUrl}${request.path}`, {
+    return threadFromFetch(`${context.runtimeUrl}${request.path}`, {
       selector: async (response) => {
         if (!response.ok) {
           throw new Error(`Request failed: ${response.status}`);
@@ -558,7 +585,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
   const bootstrapEffect = createEffect(
     (
       actions$,
-      state$,
+      state$: Observable<ThreadState>,
     ): Observable<ReturnType<typeof threadRestEvents.listRequested>> =>
       actions$.pipe(
         ofType(threadAdapterEvents.contextChanged),
@@ -570,337 +597,358 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       ),
   );
 
-  const fetchEffect = createEffect((actions$, state$) =>
-    actions$.pipe(
-      ofType(threadRestEvents.listRequested),
-      switchMap((action) =>
-        state$.pipe(
-          map((state) => state.context),
-          filter((context): context is ThreadRuntimeContext =>
-            Boolean(context),
-          ),
-          take(1),
-          map((context) => ({ action, context })),
-          takeUntil(
-            actions$.pipe(
-              ofType(
-                threadAdapterEvents.contextChanged,
-                threadAdapterEvents.stopped,
+  const fetchEffect = createEffect(
+    (actions$, state$: Observable<ThreadState>) =>
+      actions$.pipe(
+        ofType(threadRestEvents.listRequested),
+        switchMap((action) =>
+          state$.pipe(
+            map((state) => state.context),
+            filter((context): context is ThreadRuntimeContext =>
+              Boolean(context),
+            ),
+            take(1),
+            map((context) => ({ action, context })),
+            takeUntil(
+              actions$.pipe(
+                ofType(
+                  threadAdapterEvents.contextChanged,
+                  threadAdapterEvents.stopped,
+                ),
               ),
             ),
-          ),
-          switchMap(({ action: currentAction, context }) =>
-            createThreadFetchObservable(
-              environment,
-              context,
-              currentAction.sessionId,
+            switchMap(({ action: currentAction, context }) =>
+              createThreadFetchObservable(
+                environment,
+                context,
+                currentAction.sessionId,
+              ),
             ),
           ),
         ),
       ),
-    ),
   );
 
-  const metadataCredentialsEffect = createEffect((actions$, state$) =>
-    actions$.pipe(
-      ofType(threadRestEvents.listSucceeded),
-      withLatestFrom(state$),
-      filter(([action, state]) => {
-        return (
-          action.sessionId === state.sessionId &&
-          !state.metadataCredentialsRequested &&
-          Boolean(state.context?.wsUrl) &&
-          Boolean(state.metadataJoinCode)
-        );
-      }),
-      map(([action]) =>
-        threadRestEvents.metadataCredentialsRequested({
-          sessionId: action.sessionId,
+  const metadataCredentialsEffect = createEffect(
+    (actions$, state$: Observable<ThreadState>) =>
+      actions$.pipe(
+        ofType(threadRestEvents.listSucceeded),
+        withLatestFrom(state$),
+        filter(([action, state]) => {
+          return (
+            action.sessionId === state.sessionId &&
+            !state.metadataCredentialsRequested &&
+            Boolean(state.context?.wsUrl) &&
+            Boolean(state.metadataJoinCode)
+          );
+        }),
+        map(([action]) =>
+          threadRestEvents.metadataCredentialsRequested({
+            sessionId: action.sessionId,
+          }),
+        ),
+      ),
+  );
+
+  const metadataCredentialsFetchEffect = createEffect(
+    (actions$, state$: Observable<ThreadState>) =>
+      actions$.pipe(
+        ofType(threadRestEvents.metadataCredentialsRequested),
+        switchMap((action) =>
+          state$.pipe(
+            map((state) => state.context),
+            filter((context): context is ThreadRuntimeContext =>
+              Boolean(context),
+            ),
+            take(1),
+            map((context) => ({ action, context })),
+            takeUntil(
+              actions$.pipe(
+                ofType(
+                  threadAdapterEvents.contextChanged,
+                  threadAdapterEvents.stopped,
+                ),
+              ),
+            ),
+            switchMap(({ action: currentAction, context }) =>
+              createThreadMetadataCredentialsObservable(
+                environment,
+                context,
+                currentAction.sessionId,
+              ),
+            ),
+          ),
+        ),
+      ),
+  );
+
+  const socketEffect = createEffect(
+    (actions$, state$: Observable<ThreadState>) =>
+      actions$.pipe(
+        ofType(threadRestEvents.metadataCredentialsSucceeded),
+        withLatestFrom(state$),
+        filter(([action, state]) => {
+          return (
+            action.sessionId === state.sessionId &&
+            Boolean(state.context?.wsUrl)
+          );
+        }),
+        switchMap(([action, state]) => {
+          const context = state.context as ThreadRuntimeContext;
+          const joinToken = action.joinToken as string;
+          const joinCode = state.metadataJoinCode as string;
+          const shutdown$ = actions$.pipe(
+            ofType(
+              threadAdapterEvents.contextChanged,
+              threadAdapterEvents.stopped,
+            ),
+          );
+
+          return defer(() => {
+            const socket$ = ɵphoenixSocket$({
+              url: context.wsUrl!,
+              options: {
+                params: { join_token: joinToken },
+                reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
+                rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+              },
+            }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+            const channel$ = ɵphoenixChannel$({
+              socket$,
+              topic: `user_meta:${joinCode}`,
+            }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+            const socketSignals$ =
+              ɵobservePhoenixSocketSignals$(socket$).pipe(share());
+            const fatalSocketShutdown$ = ɵobservePhoenixSocketHealth$(
+              socketSignals$,
+              MAX_SOCKET_RETRIES,
+            ).pipe(
+              catchError(() => {
+                console.warn(
+                  `[threads] WebSocket failed after ${MAX_SOCKET_RETRIES} attempts, giving up`,
+                );
+                return of(undefined);
+              }),
+              share(),
+            );
+            const socketLifecycle$ = socketSignals$.pipe(
+              map((signal) =>
+                signal.type === "open"
+                  ? threadSocketEvents.opened({ sessionId: action.sessionId })
+                  : threadSocketEvents.errored({ sessionId: action.sessionId }),
+              ),
+            );
+            const metadata$ = channel$.pipe(
+              switchMap(({ channel }: ɵPhoenixChannelSession) =>
+                ɵobservePhoenixEvent$<ThreadMetadataEvent>(
+                  channel,
+                  THREADS_CHANNEL_EVENT,
+                ),
+              ),
+              map((payload) =>
+                threadSocketEvents.metadataReceived({
+                  sessionId: action.sessionId,
+                  payload,
+                }),
+              ),
+            );
+            const joinOutcome$ = ɵobservePhoenixJoinOutcome$(channel$).pipe(
+              filter((outcome) => outcome.type !== "joined"),
+              map((outcome) =>
+                outcome.type === "timeout"
+                  ? threadSocketEvents.joinTimedOut({
+                      sessionId: action.sessionId,
+                    })
+                  : threadSocketEvents.joinFailed({
+                      sessionId: action.sessionId,
+                    }),
+              ),
+            );
+
+            return merge(socketLifecycle$, metadata$, joinOutcome$).pipe(
+              takeUntil(merge(shutdown$, fatalSocketShutdown$)),
+            );
+          });
         }),
       ),
-    ),
   );
 
-  const metadataCredentialsFetchEffect = createEffect((actions$, state$) =>
-    actions$.pipe(
-      ofType(threadRestEvents.metadataCredentialsRequested),
-      switchMap((action) =>
-        state$.pipe(
-          map((state) => state.context),
-          filter((context): context is ThreadRuntimeContext =>
-            Boolean(context),
-          ),
-          take(1),
-          map((context) => ({ action, context })),
-          takeUntil(
-            actions$.pipe(
-              ofType(
-                threadAdapterEvents.contextChanged,
-                threadAdapterEvents.stopped,
-              ),
-            ),
-          ),
-          switchMap(({ action: currentAction, context }) =>
-            createThreadMetadataCredentialsObservable(
-              environment,
-              context,
-              currentAction.sessionId,
-            ),
-          ),
+  const realtimeMappingEffect = createEffect(
+    (actions$, state$: Observable<ThreadState>) =>
+      actions$.pipe(
+        ofType(threadSocketEvents.metadataReceived),
+        withLatestFrom(state$),
+        filter(([action, state]) => action.sessionId === state.sessionId),
+        map(([action, state]) => {
+          if (action.payload.operation === "deleted") {
+            return threadDomainEvents.threadDeleted({
+              sessionId: action.sessionId,
+              threadId: action.payload.deleted.id,
+            });
+          }
+
+          // When includeArchived is false, an "archived" event should remove
+          // the thread from the local list rather than upserting it.
+          if (
+            action.payload.operation === "archived" &&
+            !state.context?.includeArchived
+          ) {
+            return threadDomainEvents.threadDeleted({
+              sessionId: action.sessionId,
+              threadId: action.payload.threadId,
+            });
+          }
+
+          return threadDomainEvents.threadUpserted({
+            sessionId: action.sessionId,
+            thread: action.payload.thread,
+          });
+        }),
+      ),
+  );
+
+  const fetchNextPageEffect = createEffect(
+    (actions$, state$: Observable<ThreadState>) =>
+      actions$.pipe(
+        ofType(threadAdapterEvents.fetchNextPageRequested),
+        withLatestFrom(state$),
+        filter(
+          ([, state]) => Boolean(state.context) && Boolean(state.nextCursor),
         ),
-      ),
-    ),
-  );
+        switchMap(([, state]) => {
+          const context = state.context as ThreadRuntimeContext;
+          const params: Record<string, string> = {
+            agentId: context.agentId,
+            cursor: state.nextCursor!,
+          };
+          if (context.includeArchived) params.includeArchived = "true";
+          if (context.limit != null) params.limit = String(context.limit);
 
-  const socketEffect = createEffect((actions$, state$) =>
-    actions$.pipe(
-      ofType(threadRestEvents.metadataCredentialsSucceeded),
-      withLatestFrom(state$),
-      filter(([action, state]) => {
-        return (
-          action.sessionId === state.sessionId && Boolean(state.context?.wsUrl)
-        );
-      }),
-      switchMap(([action, state]) => {
-        const context = state.context as ThreadRuntimeContext;
-        const joinToken = action.joinToken as string;
-        const joinCode = state.metadataJoinCode as string;
-        const shutdown$ = actions$.pipe(
-          ofType(
-            threadAdapterEvents.contextChanged,
-            threadAdapterEvents.stopped,
-          ),
-        );
+          return threadFromFetch(
+            `${context.runtimeUrl}/threads?${new URLSearchParams(params).toString()}`,
+            {
+              selector: (response) => {
+                if (!response.ok) {
+                  throw new Error(
+                    `Failed to fetch next page: ${response.status}`,
+                  );
+                }
 
-        return defer(() => {
-          const socket$ = ɵphoenixSocket$({
-            url: context.wsUrl!,
-            options: {
-              params: { join_token: joinToken },
-              reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
-              rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+                return response.json() as Promise<ThreadListResponse>;
+              },
+              fetch: environment.fetch,
+              method: "GET",
+              headers: { ...context.headers },
             },
-          }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
-          const channel$ = ɵphoenixChannel$({
-            socket$,
-            topic: `user_meta:${joinCode}`,
-          }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
-          const socketSignals$ =
-            ɵobservePhoenixSocketSignals$(socket$).pipe(share());
-          const fatalSocketShutdown$ = ɵobservePhoenixSocketHealth$(
-            socketSignals$,
-            MAX_SOCKET_RETRIES,
           ).pipe(
-            catchError(() => {
-              console.warn(
-                `[threads] WebSocket failed after ${MAX_SOCKET_RETRIES} attempts, giving up`,
-              );
-              return of(undefined);
-            }),
-            share(),
-          );
-          const socketLifecycle$ = socketSignals$.pipe(
-            map((signal) =>
-              signal.type === "open"
-                ? threadSocketEvents.opened({ sessionId: action.sessionId })
-                : threadSocketEvents.errored({ sessionId: action.sessionId }),
-            ),
-          );
-          const metadata$ = channel$.pipe(
-            switchMap(({ channel }: ɵPhoenixChannelSession) =>
-              ɵobservePhoenixEvent$<ThreadMetadataEvent>(
-                channel,
-                THREADS_CHANNEL_EVENT,
-              ),
-            ),
-            map((payload) =>
-              threadSocketEvents.metadataReceived({
-                sessionId: action.sessionId,
-                payload,
-              }),
-            ),
-          );
-          const joinOutcome$ = ɵobservePhoenixJoinOutcome$(channel$).pipe(
-            filter((outcome) => outcome.type !== "joined"),
-            map((outcome) =>
-              outcome.type === "timeout"
-                ? threadSocketEvents.joinTimedOut({
-                    sessionId: action.sessionId,
-                  })
-                : threadSocketEvents.joinFailed({
-                    sessionId: action.sessionId,
-                  }),
-            ),
-          );
-
-          return merge(socketLifecycle$, metadata$, joinOutcome$).pipe(
-            takeUntil(merge(shutdown$, fatalSocketShutdown$)),
-          );
-        });
-      }),
-    ),
-  );
-
-  const realtimeMappingEffect = createEffect((actions$, state$) =>
-    actions$.pipe(
-      ofType(threadSocketEvents.metadataReceived),
-      withLatestFrom(state$),
-      filter(([action, state]) => action.sessionId === state.sessionId),
-      map(([action, state]) => {
-        if (action.payload.operation === "deleted") {
-          return threadDomainEvents.threadDeleted({
-            sessionId: action.sessionId,
-            threadId: action.payload.deleted.id,
-          });
-        }
-
-        // When includeArchived is false, an "archived" event should remove
-        // the thread from the local list rather than upserting it.
-        if (
-          action.payload.operation === "archived" &&
-          !state.context?.includeArchived
-        ) {
-          return threadDomainEvents.threadDeleted({
-            sessionId: action.sessionId,
-            threadId: action.payload.threadId,
-          });
-        }
-
-        return threadDomainEvents.threadUpserted({
-          sessionId: action.sessionId,
-          thread: action.payload.thread,
-        });
-      }),
-    ),
-  );
-
-  const fetchNextPageEffect = createEffect((actions$, state$) =>
-    actions$.pipe(
-      ofType(threadAdapterEvents.fetchNextPageRequested),
-      withLatestFrom(state$),
-      filter(
-        ([, state]) => Boolean(state.context) && Boolean(state.nextCursor),
-      ),
-      switchMap(([, state]) => {
-        const context = state.context as ThreadRuntimeContext;
-        const params: Record<string, string> = {
-          agentId: context.agentId,
-          cursor: state.nextCursor!,
-        };
-        if (context.includeArchived) params.includeArchived = "true";
-        if (context.limit != null) params.limit = String(context.limit);
-
-        return fromFetch(
-          `${context.runtimeUrl}/threads?${new URLSearchParams(params).toString()}`,
-          {
-            selector: (response) => {
-              if (!response.ok) {
-                throw new Error(
-                  `Failed to fetch next page: ${response.status}`,
-                );
-              }
-
-              return response.json() as Promise<ThreadListResponse>;
-            },
-            fetch: environment.fetch,
-            method: "GET",
-            headers: { ...context.headers },
-          },
-        ).pipe(
-          timeout({
-            first: REQUEST_TIMEOUT_MS,
-            with: () => {
-              throw new Error("Request timed out");
-            },
-          }),
-          map((data) =>
-            threadRestEvents.nextPageSucceeded({
-              sessionId: state.sessionId,
-              threads: data.threads,
-              nextCursor: data.nextCursor ?? null,
-            }),
-          ),
-          catchError((error) =>
-            of(
-              threadRestEvents.nextPageFailed({
-                sessionId: state.sessionId,
-                error:
-                  error instanceof Error ? error : new Error(String(error)),
-              }),
-            ),
-          ),
-          takeUntil(
-            actions$.pipe(
-              ofType(
-                threadAdapterEvents.contextChanged,
-                threadAdapterEvents.stopped,
-              ),
-            ),
-          ),
-        );
-      }),
-    ),
-  );
-
-  const mutationEffect = createEffect((actions$, state$) =>
-    actions$.pipe(
-      ofType(
-        threadAdapterEvents.renameRequested,
-        threadAdapterEvents.archiveRequested,
-        threadAdapterEvents.deleteRequested,
-      ),
-      withLatestFrom(state$),
-      mergeMap(([action, state]) => {
-        const context = state.context;
-        if (!context?.runtimeUrl) {
-          const requestId = action.requestId;
-          return of(
-            threadRestEvents.mutationFinished({
-              outcome: {
-                requestId,
-                ok: false,
-                error: new Error("Runtime URL is not configured"),
+            timeout({
+              first: REQUEST_TIMEOUT_MS,
+              with: () => {
+                throw new Error("Request timed out");
               },
             }),
+            map((data) =>
+              threadRestEvents.nextPageSucceeded({
+                sessionId: state.sessionId,
+                threads: data.threads,
+                nextCursor: data.nextCursor ?? null,
+              }),
+            ),
+            catchError((error) =>
+              of(
+                threadRestEvents.nextPageFailed({
+                  sessionId: state.sessionId,
+                  error:
+                    error instanceof Error ? error : new Error(String(error)),
+                }),
+              ),
+            ),
+            takeUntil(
+              actions$.pipe(
+                ofType(
+                  threadAdapterEvents.contextChanged,
+                  threadAdapterEvents.stopped,
+                ),
+              ),
+            ),
           );
-        }
-
-        const commonBody = {
-          agentId: context.agentId,
-        };
-
-        if (threadAdapterEvents.renameRequested.match(action)) {
-          return createThreadMutationObservable(environment, context, {
-            requestId: action.requestId,
-            method: "PATCH",
-            path: `/threads/${encodeURIComponent(action.threadId)}`,
-            body: {
-              ...commonBody,
-              name: action.name,
-            },
-          });
-        }
-
-        if (threadAdapterEvents.archiveRequested.match(action)) {
-          return createThreadMutationObservable(environment, context, {
-            requestId: action.requestId,
-            method: "POST",
-            path: `/threads/${encodeURIComponent(action.threadId)}/archive`,
-            body: commonBody,
-          });
-        }
-
-        return createThreadMutationObservable(environment, context, {
-          requestId: action.requestId,
-          method: "DELETE",
-          path: `/threads/${encodeURIComponent(action.threadId)}`,
-          body: commonBody,
-        });
-      }),
-    ),
+        }),
+      ),
   );
 
-  const store = createStore({
+  const mutationEffect = createEffect(
+    (actions$, state$: Observable<ThreadState>) =>
+      actions$.pipe(
+        ofType(
+          threadAdapterEvents.renameRequested,
+          threadAdapterEvents.archiveRequested,
+          threadAdapterEvents.unarchiveRequested,
+          threadAdapterEvents.deleteRequested,
+        ),
+        withLatestFrom(state$),
+        mergeMap(([action, state]) => {
+          const context = state.context;
+          if (!context?.runtimeUrl) {
+            const requestId = action.requestId;
+            return of(
+              threadRestEvents.mutationFinished({
+                outcome: {
+                  requestId,
+                  ok: false,
+                  error: new Error("Runtime URL is not configured"),
+                },
+              }),
+            );
+          }
+
+          const commonBody = {
+            agentId: context.agentId,
+          };
+
+          if (threadAdapterEvents.renameRequested.match(action)) {
+            return createThreadMutationObservable(environment, context, {
+              requestId: action.requestId,
+              method: "PATCH",
+              path: `/threads/${encodeURIComponent(action.threadId)}`,
+              body: {
+                ...commonBody,
+                name: action.name,
+              },
+            });
+          }
+
+          if (threadAdapterEvents.archiveRequested.match(action)) {
+            return createThreadMutationObservable(environment, context, {
+              requestId: action.requestId,
+              method: "POST",
+              path: `/threads/${encodeURIComponent(action.threadId)}/archive`,
+              body: commonBody,
+            });
+          }
+
+          if (threadAdapterEvents.unarchiveRequested.match(action)) {
+            return createThreadMutationObservable(environment, context, {
+              requestId: action.requestId,
+              method: "PATCH",
+              path: `/threads/${encodeURIComponent(action.threadId)}`,
+              body: {
+                ...commonBody,
+                archived: false,
+              },
+            });
+          }
+
+          return createThreadMutationObservable(environment, context, {
+            requestId: action.requestId,
+            method: "DELETE",
+            path: `/threads/${encodeURIComponent(action.threadId)}`,
+            body: commonBody,
+          });
+        }),
+      ),
+  );
+
+  const store = createStore<ThreadState>({
     reducer: threadReducer,
     effects: [
       bootstrapEffect,
@@ -918,6 +966,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     dispatchAction:
       | ReturnType<typeof threadAdapterEvents.renameRequested>
       | ReturnType<typeof threadAdapterEvents.archiveRequested>
+      | ReturnType<typeof threadAdapterEvents.unarchiveRequested>
       | ReturnType<typeof threadAdapterEvents.deleteRequested>,
   ): Promise<void> {
     const completion$ = merge(
@@ -987,6 +1036,14 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     archiveThread(threadId: string): Promise<void> {
       return trackMutation(
         threadAdapterEvents.archiveRequested({
+          requestId: createThreadRequestId(),
+          threadId,
+        }),
+      );
+    },
+    unarchiveThread(threadId: string): Promise<void> {
+      return trackMutation(
+        threadAdapterEvents.unarchiveRequested({
           requestId: createThreadRequestId(),
           threadId,
         }),

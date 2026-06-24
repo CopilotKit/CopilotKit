@@ -130,6 +130,32 @@ svc_slot() {
   printf '%s' "${1//\//_}"
 }
 
+# failed_set_to_json <svc=rc>... -> emit the failed[] array consumed by the
+# showcase_promote_notify.yml renderer: one object per entry, each
+# `{service, exit, category}`. promote-fleet tracks only `svc=exitcode` (no
+# failure taxonomy), so every entry gets the default category "promote-failed".
+# The renderer renders these as "• `<service>` — exit <exit> (<category>)".
+# Kept as a top-level function (not an inline `case` inside `$( )`) because a
+# `case` glob ending in `)` inside command substitution trips the bash parser
+# on some versions ("syntax error near unexpected token `;;'").
+failed_set_to_json() {
+  local entry svc rc
+  for entry in "$@"; do
+    [ -n "$entry" ] || continue
+    # Split on the LAST '=' so the exit code is always the trailing field even
+    # if a service name (defensively) contained '='.
+    svc="${entry%=*}"
+    rc="${entry##*=}"
+    # Coerce a non-numeric / empty rc to 1 so the jq --argjson below always
+    # gets a valid integer (a malformed entry must not crash the JSON build).
+    case "$rc" in
+      ''|*[!0-9-]*) rc=1 ;;
+    esac
+    jq -nc --arg s "$svc" --argjson e "$rc" \
+      '{service: $s, exit: $e, category: "promote-failed"}'
+  done | jq -sc '.'
+}
+
 # promote_one <svc> -> promote a single service best-effort. Writes its outcome
 # to the $WORK scratch dir instead of mutating arrays, so it is safe to run in a
 # BACKGROUNDED subshell (where array appends would be lost):
@@ -428,6 +454,55 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
   fi
   if ! echo "staging_drift=$staging_drift" >> "$GITHUB_OUTPUT"; then
     echo "::error::promote-fleet: failed to write staging_drift to \$GITHUB_OUTPUT ('$GITHUB_OUTPUT')." >&2
+    exit 1
+  fi
+
+  # ── results JSON for the three-variant Slack renderer ──────────────────────
+  # Build the base64-encoded `results` blob consumed by
+  # .github/workflows/showcase_promote_notify.yml (schema_version=1). That
+  # renderer is the SSOT for the schema; the canonical fields it decodes are:
+  #   .schema_version  must equal "1" (else the renderer aborts gracefully)
+  #   .succeeded[]     succeeded-set; the renderer reads `.succeeded | length`
+  #                    only (count), never per-entry fields — we emit objects
+  #                    `{service}` for symmetry with failed[] / future use.
+  #   .failed[]        each `{service, exit, category}` — the renderer renders
+  #                    "• `<service>` — exit <exit> (<category>)" bullets and
+  #                    uses `category == "truncation-suffix"` as a sentinel.
+  #   .abort_reason    "fleet-preflight" | "per-service" | "" — drives the
+  #                    total-abort branch + *Reason:* line. promote-fleet has
+  #                    no preflight/abort concept of its own (bin/railway owns
+  #                    §7 preflight), so we leave it "" and let the renderer's
+  #                    succeeded==0 && failed>0 defensive branch render the
+  #                    total-failure variant.
+  # CATEGORY CAVEAT: promote-fleet only tracks `svc=exitcode` (no failure
+  # taxonomy), so every failed entry gets the sane default category
+  # "promote-failed". A richer taxonomy would live upstream in bin/railway.
+  #
+  # The run-context fields the renderer also reads — run_id, trigger,
+  # operator_email/git_name, elapsed_seconds, pre_staging — are NOT known here
+  # (they are properties of the dispatching RUN, not the promote loop). The
+  # workflow that dispatches the renderer merges those into this blob; see
+  # showcase_promote.yml's "Build notify payload" step. We still emit a valid
+  # schema_version=1 blob with succeeded[]/failed[] so promote-fleet is the
+  # SSOT for the result set and the bats suite can assert it directly.
+  succeeded_json="[]"
+  if [ "${#succeeded[@]}" -gt 0 ]; then
+    succeeded_json=$(printf '%s\n' "${succeeded[@]}" | jq -R '{service: .}' | jq -sc '.')
+  fi
+  failed_json="[]"
+  if [ "${#failed[@]}" -gt 0 ]; then
+    failed_json=$(failed_set_to_json "${failed[@]}")
+  fi
+  results_json=$(jq -nc \
+    --argjson succeeded "$succeeded_json" \
+    --argjson failed "$failed_json" \
+    '{schema_version: 1, abort_reason: "", succeeded: $succeeded, failed: $failed}')
+  # base64-encode (single line; the renderer's `base64 -d` tolerates wrapping
+  # but a single line keeps the GITHUB_OUTPUT key=value contract trivially
+  # intact — no embedded newline to corrupt the output map).
+  results_b64=$(printf '%s' "$results_json" | base64 | tr -d '\n')
+  if ! echo "results_b64=$results_b64" >> "$GITHUB_OUTPUT"; then
+    echo "::error::promote-fleet: failed to write results_b64 to \$GITHUB_OUTPUT ('$GITHUB_OUTPUT')." >&2
     exit 1
   fi
 fi

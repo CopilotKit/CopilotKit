@@ -25,6 +25,7 @@ function makeStore(id = "store"): ɵThreadStore & { __testId: string } {
     fetchNextPage: vi.fn(),
     renameThread: vi.fn(),
     archiveThread: vi.fn(),
+    unarchiveThread: vi.fn(),
     deleteThread: vi.fn(),
     getState: vi.fn(),
     select: vi.fn(),

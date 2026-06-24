@@ -115,7 +115,7 @@ export type CopilotChatViewProps = WithSlots<
      * className string, a props object, or a replacement component.
      */
     intelligenceIndicator?: SlotValue<typeof IntelligenceIndicatorView>;
-  } & React.HTMLAttributes<HTMLDivElement>
+  } & Omit<React.HTMLAttributes<HTMLDivElement>, "inputMode">
 >;
 
 function DropOverlay() {
@@ -517,7 +517,7 @@ export namespace CopilotChatView {
   const PinToSendScrollContainer: React.FC<
     React.HTMLAttributes<HTMLDivElement> & {
       scrollRef: React.MutableRefObject<HTMLElement | null>;
-      contentRef: React.MutableRefObject<HTMLElement | null>;
+      contentRef: React.MutableRefObject<HTMLDivElement | null>;
       scrollToBottom: () => void;
       scrollToBottomButton?: SlotValue<
         React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>
@@ -636,7 +636,7 @@ export namespace CopilotChatView {
     // behavior to these refs and fight pin-to-send. The "pin-to-bottom" path
     // gets its refs via <StickToBottom> below, scoped to that branch only.
     const scrollRef = useRef<HTMLElement | null>(null);
-    const contentRef = useRef<HTMLElement | null>(null);
+    const contentRef = useRef<HTMLDivElement | null>(null);
     const scrollToBottom = useCallback(() => {
       const el = scrollRef.current;
       if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });

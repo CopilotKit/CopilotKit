@@ -58,21 +58,16 @@ export async function runDriver(target: ProbeTarget): Promise<ProbeOutcome> {
           target,
         );
       case "starter":
-        // The starter-template fleet (`starter-<slug>`) is NOT verified by the
-        // verify-deploy feature-driver matrix — it is probed by the harness
-        // `starter_smoke` axis. This case exists ONLY to satisfy the exhaustive
-        // switch (the `never` guard below) now that "starter" is a ProbeDriver.
-        // Starters set staging probe OFF, so resolve-verify-matrix never routes
-        // one here; if a starter is ever dispatched to verify-deploy that is a
-        // wiring bug, so fail loud rather than silently pass. S3 wires the
-        // equivalence gate to route a "starter"-driver service to starter-smoke.
-        return {
-          ok: false,
-          error:
-            `driver "starter" is not handled by verify-deploy (service ` +
-            `"${target.name}"): the starter fleet is verified by the harness ` +
-            `starter_smoke axis, not the verify-deploy matrix`,
-        };
+        // The starter-template fleet (`starter-<slug>`) is verified by the
+        // verify-deploy baseline driver (deployment-SUCCESS + HTTP 200 on
+        // `/`), exactly like the Next.js shells — the starters EXPOSE only
+        // their Next.js frontend (serving `/` + `/api/copilotkit`, NO
+        // `/api/health`), so `/` is the only correct healthcheck. Starters
+        // are always-on + staging-probed, so resolve-verify-matrix routes
+        // them here like every other managed showcase service.
+        return (await import("./verify-deploy.drivers.starter")).probeStarter(
+          target,
+        );
       default: {
         const exhaustive: never = target.driver;
         return { ok: false, error: `unknown driver: ${String(exhaustive)}` };
