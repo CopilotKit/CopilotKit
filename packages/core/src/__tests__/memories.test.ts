@@ -83,6 +83,28 @@ describe("ɵcreateMemoryStore", () => {
     expect(updated.sourceThreadIds).toEqual(["thread-1"]);
   });
 
+  it("updateMemory does not carry score onto the superseded memory", async () => {
+    const store = ɵcreateMemoryStore({
+      idFactory: () => "mem-no-score",
+    });
+    store.ɵemitMetadataEvent({
+      operation: "created",
+      memory: {
+        id: "m1",
+        kind: "topical",
+        scope: "user",
+        content: "x",
+        sourceThreadIds: [],
+        score: 0.9,
+        invalidatedAt: null,
+      },
+    });
+
+    const updated = await store.updateMemory("m1", { content: "y" });
+
+    expect(updated.score).toBeUndefined();
+  });
+
   it("updateMemory rejects with MEMORY_NOT_FOUND for an unknown id", async () => {
     const store = ɵcreateMemoryStore();
 

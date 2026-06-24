@@ -238,8 +238,11 @@ export function ɵcreateMemoryStore(
       if (!current) {
         return Promise.reject(new Error("MEMORY_NOT_FOUND"));
       }
+      // Destructure `score` out so it is never carried onto a freshly superseded
+      // memory. `score` is recall-only and must not appear on list entries.
+      const { score: _score, ...currentWithoutScore } = current;
       const superseded: PublicMemory = {
-        ...current,
+        ...currentWithoutScore,
         ...changes,
         id: mintId(),
         invalidatedAt: null,
