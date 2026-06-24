@@ -337,6 +337,35 @@ describe("useThreads", () => {
     expect(result.current.error?.message).toBe("Runtime URL is not configured");
   });
 
+  it("does not fetch or load when enabled is false", async () => {
+    const { result } = renderHook(() =>
+      useThreads({ ...defaultInput, enabled: false }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.threads).toEqual([]);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("reports no error when enabled is false even though the runtime is misconfigured", async () => {
+    setupCopilotKit("");
+
+    const { result } = renderHook(() =>
+      useThreads({ ...defaultInput, enabled: false }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.error).toBeNull();
+  });
+
   it("does not fetch when the runtime does not advertise thread endpoints", async () => {
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {

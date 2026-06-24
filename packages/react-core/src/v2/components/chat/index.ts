@@ -60,6 +60,12 @@ export {
 } from "./CopilotChatToggleButton";
 
 export {
+  CopilotChatThreadListButton,
+  type CopilotChatThreadListButtonProps,
+  CopilotChatThreadListButtonIcon,
+} from "./CopilotChatThreadListButton";
+
+export {
   CopilotSidebarView,
   type CopilotSidebarViewProps,
 } from "./CopilotSidebarView";
@@ -77,6 +83,8 @@ export {
 export { CopilotSidebar, type CopilotSidebarProps } from "./CopilotSidebar";
 
 export { CopilotPopup, type CopilotPopupProps } from "./CopilotPopup";
+
+export { CopilotDrawer, type CopilotDrawerProps } from "./CopilotDrawer";
 
 export { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 export { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";

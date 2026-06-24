@@ -52,6 +52,15 @@ export interface UseThreadsInput {
   includeArchived?: boolean;
   /** Maximum number of threads to fetch per page. When set, enables cursor-based pagination. */
   limit?: number;
+  /**
+   * When `false`, the hook does not dispatch a runtime context and therefore
+   * issues no thread-list fetch or realtime subscription. Use this to skip the
+   * request entirely when the surface consuming the list is not entitled to it
+   * (e.g. an unlicensed feature whose list is never shown). Defaults to `true`.
+   * Mutation callbacks remain callable but will reject if the runtime cannot
+   * service them. The returned `threads` stays empty while disabled.
+   */
+  enabled?: boolean;
 }
 
 /**
@@ -179,6 +188,7 @@ export function useThreads({
   agentId,
   includeArchived,
   limit,
+  enabled = true,
 }: UseThreadsInput): UseThreadsResult {
   const { copilotkit } = useCopilotKit();
 
@@ -262,6 +272,7 @@ export function useThreads({
   // isLoading takes over).
   const [hasDispatchedContext, setHasDispatchedContext] = useState(false);
   const preConnectLoading =
+    enabled &&
     !!copilotkit.runtimeUrl &&
     !threadEndpointsUnavailable &&
     !hasDispatchedContext;
@@ -270,7 +281,14 @@ export function useThreads({
     runtimeError || threadEndpointsError
       ? false
       : preConnectLoading || storeIsLoading;
-  const error = runtimeError ?? threadEndpointsError ?? storeError;
+  // A disabled hook performs no fetch/subscription, so it must surface no
+  // error: the "Runtime URL is not configured" / "Thread endpoints …" errors
+  // describe a request that is intentionally never attempted while disabled.
+  // Returning them would be a leaky disabled-hook contract (consumers without
+  // their own `enabled && error` guard would see a phantom failure).
+  const error = !enabled
+    ? null
+    : (runtimeError ?? threadEndpointsError ?? storeError);
 
   useEffect(() => {
     store.start();
@@ -278,6 +296,16 @@ export function useThreads({
       store.stop();
     };
   }, [store]);
+
+  // Register this store on the core so other consumers (and the core's own
+  // thread coordination) can find the store for this agent; unregister on
+  // unmount or when the agent/store identity changes.
+  useEffect(() => {
+    copilotkit.registerThreadStore(agentId, store);
+    return () => {
+      copilotkit.unregisterThreadStore(agentId);
+    };
+  }, [copilotkit, agentId, store]);
 
   // Defer setting the context until the runtime reports Connected. Before
   // `/info` resolves we don't know `intelligence.wsUrl`, so dispatching the
@@ -291,13 +319,15 @@ export function useThreads({
   // realtime subscription or cached thread list stays usable while the
   // runtime recovers, and we don't re-trigger a fetch storm on transitions.
   useEffect(() => {
-    copilotkit.registerThreadStore(agentId, store);
-    return () => {
-      copilotkit.unregisterThreadStore(agentId);
-    };
-  }, [copilotkit, agentId, store]);
+    // When disabled, never dispatch a real context: clear the store so no
+    // thread-list fetch or realtime subscription is issued for a surface that
+    // is not entitled to (or does not need) the list.
+    if (!enabled) {
+      store.setContext(null);
+      setHasDispatchedContext(false);
+      return;
+    }
 
-  useEffect(() => {
     if (!copilotkit.runtimeUrl) {
       store.setContext(null);
       setHasDispatchedContext(false);
@@ -328,6 +358,7 @@ export function useThreads({
     store.setContext(context);
     setHasDispatchedContext(true);
   }, [
+    enabled,
     store,
     copilotkit.runtimeUrl,
     runtimeStatus,

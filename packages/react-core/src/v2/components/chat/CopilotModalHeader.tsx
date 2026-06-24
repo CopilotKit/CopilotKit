@@ -7,22 +7,46 @@ import {
 } from "../../providers/CopilotChatConfigurationProvider";
 import { renderSlot, WithSlots } from "../../lib/slots";
 import { X } from "lucide-react";
+import { CopilotChatThreadListButton } from "./CopilotChatThreadListButton";
 
 type HeaderSlots = {
   titleContent: typeof CopilotModalHeader.Title;
   closeButton: typeof CopilotModalHeader.CloseButton;
+  threadListButton: typeof CopilotChatThreadListButton;
 };
 
 type HeaderRestProps = {
   title?: string;
 } & Omit<React.HTMLAttributes<HTMLDivElement>, "children">;
 
-export type CopilotModalHeaderProps = WithSlots<HeaderSlots, HeaderRestProps>;
+/**
+ * Slot elements handed to the `children` render function. Mirrors the slot map
+ * but reflects that `threadListButton` is opt-in: it is `null` unless the
+ * consumer explicitly provides the `threadListButton` slot.
+ */
+type HeaderSlotElements = {
+  titleContent: React.ReactElement;
+  closeButton: React.ReactElement;
+  threadListButton: React.ReactElement | null;
+};
+
+export type CopilotModalHeaderProps = Omit<
+  WithSlots<HeaderSlots, HeaderRestProps>,
+  "children"
+> & {
+  /**
+   * Render-prop for fully custom header layouts. Receives the bound slot
+   * elements (`threadListButton` is `null` unless its slot was provided) plus
+   * the resolved rest props.
+   */
+  children?: (props: HeaderSlotElements & HeaderRestProps) => React.ReactNode;
+};
 
 export function CopilotModalHeader({
   title,
   titleContent,
   closeButton,
+  threadListButton,
   children,
   className,
   ...rest
@@ -50,10 +74,22 @@ export function CopilotModalHeader({
     },
   );
 
+  // The thread-list launcher is OPT-IN: it renders only when the consumer
+  // explicitly supplies the `threadListButton` slot. Rendering a default
+  // launcher in every shared header would flip the shared modal state to
+  // "threads" for consumers with no drawer mounted (or with threads
+  // unlicensed), blanking the chat surface with no opt-out. Absent the slot,
+  // existing consumers see no header change.
+  const BoundThreadListButton =
+    threadListButton === undefined
+      ? null
+      : renderSlot(threadListButton, CopilotChatThreadListButton, {});
+
   if (children) {
     return children({
       titleContent: BoundTitle,
       closeButton: BoundCloseButton,
+      threadListButton: BoundThreadListButton,
       title: resolvedTitle,
       ...rest,
     });
@@ -72,7 +108,9 @@ export function CopilotModalHeader({
       {...rest}
     >
       <div className="cpk:flex cpk:w-full cpk:items-center cpk:gap-2">
-        <div className="cpk:flex-1" aria-hidden="true" />
+        <div className="cpk:flex cpk:flex-1 cpk:justify-start">
+          {BoundThreadListButton}
+        </div>
         <div className="cpk:flex cpk:flex-1 cpk:justify-center cpk:text-center">
           {BoundTitle}
         </div>

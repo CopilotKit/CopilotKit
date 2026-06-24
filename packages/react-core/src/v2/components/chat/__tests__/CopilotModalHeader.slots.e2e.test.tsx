@@ -488,4 +488,84 @@ describe("CopilotModalHeader Slot System E2E Tests", () => {
       expect(closeBtn?.querySelector("svg")).toBeDefined();
     });
   });
+
+  // ============================================================================
+  // 7. THREAD-LIST BUTTON (OPT-IN) TESTS
+  // ============================================================================
+  describe("7. Thread-list button is opt-in", () => {
+    it("does not render the thread-list button by default", () => {
+      render(
+        <TestWrapper>
+          <CopilotModalHeader title="Test Title" />
+        </TestWrapper>,
+      );
+
+      // No threadListButton slot supplied → no launcher in the header, so
+      // existing consumers without a drawer see no header change.
+      expect(screen.queryByTestId("copilot-thread-list-button")).toBeNull();
+    });
+
+    it("renders the thread-list button when the slot is explicitly provided", () => {
+      render(
+        <TestWrapper>
+          <CopilotModalHeader title="Test Title" threadListButton={{}} />
+        </TestWrapper>,
+      );
+
+      expect(screen.queryByTestId("copilot-thread-list-button")).not.toBeNull();
+    });
+
+    it("renders a custom thread-list button component when provided", () => {
+      const CustomThreadListButton: React.FC = () => (
+        <button data-testid="custom-thread-list-btn">Threads</button>
+      );
+
+      render(
+        <TestWrapper>
+          <CopilotModalHeader
+            title="Test Title"
+            threadListButton={CustomThreadListButton as any}
+          />
+        </TestWrapper>,
+      );
+
+      expect(screen.queryByTestId("custom-thread-list-btn")).not.toBeNull();
+      // The default launcher must not also render.
+      expect(screen.queryByTestId("copilot-thread-list-button")).toBeNull();
+    });
+
+    it("passes a null threadListButton through the children render function by default", () => {
+      const childrenFn = vi.fn(
+        (_props: { threadListButton?: React.ReactNode }) => <div />,
+      );
+
+      render(
+        <TestWrapper>
+          <CopilotModalHeader title="Test Title">
+            {childrenFn}
+          </CopilotModalHeader>
+        </TestWrapper>,
+      );
+
+      const callArgs = childrenFn.mock.calls[0][0];
+      expect(callArgs.threadListButton).toBeNull();
+    });
+
+    it("passes a rendered threadListButton through the children render function when the slot is provided", () => {
+      const childrenFn = vi.fn(
+        (_props: { threadListButton?: React.ReactNode }) => <div />,
+      );
+
+      render(
+        <TestWrapper>
+          <CopilotModalHeader title="Test Title" threadListButton={{}}>
+            {childrenFn}
+          </CopilotModalHeader>
+        </TestWrapper>,
+      );
+
+      const callArgs = childrenFn.mock.calls[0][0];
+      expect(callArgs.threadListButton).not.toBeNull();
+    });
+  });
 });

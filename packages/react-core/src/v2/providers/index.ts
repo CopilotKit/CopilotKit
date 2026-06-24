@@ -1,7 +1,10 @@
 export {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
+  isModalStateOpen,
+  modalStateFromBoolean,
   type CopilotChatLabels,
+  type CopilotChatModalState,
   type CopilotChatConfigurationValue,
   type CopilotChatConfigurationProviderProps,
 } from "./CopilotChatConfigurationProvider";
