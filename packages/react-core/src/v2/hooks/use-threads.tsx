@@ -13,6 +13,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -134,6 +135,46 @@ function useThreadStoreSelector<T>(
   );
 }
 
+const EMPTY_HEADERS: Record<string, string> = {};
+
+function getSortedHeaderEntries(
+  headers: Record<string, string>,
+): Array<[string, string]> {
+  return Object.entries(headers).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+}
+
+function getHeadersKey(headers: Record<string, string>): string {
+  return JSON.stringify(getSortedHeaderEntries(headers));
+}
+
+function createStableHeaders(headers: Record<string, string>) {
+  return Object.fromEntries(getSortedHeaderEntries(headers));
+}
+
+function getThreadListIdentity({
+  runtimeUrl,
+  headers,
+  agentId,
+  includeArchived,
+  limit,
+}: {
+  runtimeUrl?: string;
+  headers: Record<string, string>;
+  agentId: string;
+  includeArchived?: boolean;
+  limit?: number;
+}): string {
+  return JSON.stringify({
+    runtimeUrl: runtimeUrl ?? null,
+    headers: getSortedHeaderEntries(headers),
+    agentId,
+    includeArchived: includeArchived === true,
+    limit: limit ?? null,
+  });
+}
+
 /**
  * React hook for listing and managing Intelligence platform threads.
  *
@@ -192,9 +233,17 @@ export function useThreads({
   const threads: Thread[] = useMemo(
     () =>
       coreThreads.map(
-        ({ id, agentId, name, archived, createdAt, updatedAt, lastRunAt }) => ({
+        ({
           id,
-          agentId,
+          agentId: threadAgentId,
+          name,
+          archived,
+          createdAt,
+          updatedAt,
+          lastRunAt,
+        }) => ({
+          id,
+          agentId: threadAgentId,
           name,
           archived,
           createdAt,
@@ -211,47 +260,31 @@ export function useThreads({
     store,
     ɵselectIsFetchingNextPage,
   );
-  const headersKey = useMemo(() => {
-    return JSON.stringify(
-      Object.entries(copilotkit.headers ?? {}).sort(([left], [right]) =>
-        left.localeCompare(right),
-      ),
-    );
-  }, [copilotkit.headers]);
+  const rawHeaders = copilotkit.headers ?? EMPTY_HEADERS;
+  const headersKey = useMemo(() => getHeadersKey(rawHeaders), [rawHeaders]);
+  const stableHeadersRef = useRef<{
+    key: string;
+    headers: Record<string, string>;
+  } | null>(null);
+  let stableHeaders = stableHeadersRef.current;
+  if (stableHeaders === null || stableHeaders.key !== headersKey) {
+    stableHeaders = {
+      key: headersKey,
+      headers: createStableHeaders(rawHeaders),
+    };
+    stableHeadersRef.current = stableHeaders;
+  }
+  const headers = stableHeaders.headers;
   const runtimeStatus = copilotkit.runtimeConnectionStatus;
-  const threadListEndpointSupported =
-    copilotkit.threadEndpoints?.list !== false;
-  const threadMutationsSupported =
-    copilotkit.threadEndpoints?.mutations !== false;
-  const threadEndpointsUnavailable =
-    !!copilotkit.runtimeUrl &&
-    runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Connected &&
-    !threadListEndpointSupported;
-  const runtimeError = useMemo(() => {
-    if (copilotkit.runtimeUrl) {
-      return null;
-    }
-
-    return new Error("Runtime URL is not configured");
-  }, [copilotkit.runtimeUrl]);
-  const threadEndpointsError = useMemo(() => {
-    if (!threadEndpointsUnavailable) {
-      return null;
-    }
-
-    return new Error(
-      "Thread endpoints are not available on this CopilotKit runtime",
-    );
-  }, [threadEndpointsUnavailable]);
-  const threadMutationsError = useMemo(() => {
-    if (threadMutationsSupported) {
-      return null;
-    }
-
-    return new Error(
-      "Thread mutations are not available on this CopilotKit runtime",
-    );
-  }, [threadMutationsSupported]);
+  const threadEndpoints = useMemo(
+    () => copilotkit.threadEndpoints,
+    [
+      copilotkit.threadEndpoints?.list,
+      copilotkit.threadEndpoints?.inspect,
+      copilotkit.threadEndpoints?.mutations,
+      copilotkit.threadEndpoints?.realtimeMetadata,
+    ],
+  );
 
   // Tracks whether we've dispatched the first real context to the store.
   // The store itself starts with `isLoading: false`, so before we dispatch
@@ -261,16 +294,16 @@ export function useThreads({
   // the first fetch is in flight (at which point the store's own
   // isLoading takes over).
   const [hasDispatchedContext, setHasDispatchedContext] = useState(false);
-  const preConnectLoading =
-    !!copilotkit.runtimeUrl &&
-    !threadEndpointsUnavailable &&
-    !hasDispatchedContext;
+  const hasDispatchedContextRef = useRef(false);
+  const lastDispatchedListIdentityRef = useRef<string | null>(null);
+  const preConnectLoading = !!copilotkit.runtimeUrl && !hasDispatchedContext;
+  const markHasDispatchedContext = useCallback((value: boolean) => {
+    hasDispatchedContextRef.current = value;
+    setHasDispatchedContext(value);
+  }, []);
 
-  const isLoading =
-    runtimeError || threadEndpointsError
-      ? false
-      : preConnectLoading || storeIsLoading;
-  const error = runtimeError ?? threadEndpointsError ?? storeError;
+  const isLoading = preConnectLoading || storeIsLoading;
+  const error = storeError;
 
   useEffect(() => {
     store.start();
@@ -285,7 +318,8 @@ export function useThreads({
   // second list fetch (and a `/threads/subscribe`) once the flag lands.
   // Waiting lets the hook issue just one `/threads?…` + one `/threads/subscribe`.
   //
-  // When `runtimeUrl` is absent we dispatch `null` to clear the store. For
+  // When `runtimeUrl` is absent we dispatch a context so the shared store can
+  // expose a visible configuration error. For
   // transient states (Disconnected/Connecting/Error with a URL still set) we
   // leave the previously-dispatched context in place — any in-flight
   // realtime subscription or cached thread list stays usable while the
@@ -298,82 +332,109 @@ export function useThreads({
   }, [copilotkit, agentId, store]);
 
   useEffect(() => {
+    const listIdentity = getThreadListIdentity({
+      runtimeUrl: copilotkit.runtimeUrl,
+      headers,
+      agentId,
+      includeArchived,
+      limit,
+    });
+
     if (!copilotkit.runtimeUrl) {
-      store.setContext(null);
-      setHasDispatchedContext(false);
+      const context: ɵThreadRuntimeContext = {
+        runtimeUrl: undefined,
+        headers,
+        wsUrl: copilotkit.intelligence?.wsUrl,
+        agentId,
+        includeArchived,
+        limit,
+        threadEndpoints,
+      };
+
+      store.setContext(context);
+      lastDispatchedListIdentityRef.current = listIdentity;
+      markHasDispatchedContext(true);
+      return;
+    }
+
+    if (runtimeStatus === CopilotKitCoreRuntimeConnectionStatus.Error) {
+      const context: ɵThreadRuntimeContext = {
+        runtimeUrl: undefined,
+        headers,
+        wsUrl: undefined,
+        agentId,
+        includeArchived,
+        limit,
+        threadEndpoints,
+        runtimeConnectionStatus: runtimeStatus,
+      };
+
+      store.setContext(context);
+      lastDispatchedListIdentityRef.current = listIdentity;
+      markHasDispatchedContext(true);
       return;
     }
 
     // Wait for /info to land so we can include `wsUrl` in the initial
     // context and avoid a redundant second list fetch.
     if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
-      return;
-    }
-
-    if (!threadListEndpointSupported) {
-      store.setContext(null);
-      setHasDispatchedContext(false);
+      if (
+        hasDispatchedContextRef.current &&
+        lastDispatchedListIdentityRef.current !== listIdentity
+      ) {
+        store.setContext(null);
+        lastDispatchedListIdentityRef.current = null;
+        markHasDispatchedContext(false);
+      }
       return;
     }
 
     const context: ɵThreadRuntimeContext = {
       runtimeUrl: copilotkit.runtimeUrl,
-      headers: { ...copilotkit.headers },
+      headers,
       wsUrl: copilotkit.intelligence?.wsUrl,
       agentId,
       includeArchived,
       limit,
+      threadEndpoints,
+      runtimeConnectionStatus: runtimeStatus,
     };
 
     store.setContext(context);
-    setHasDispatchedContext(true);
+    lastDispatchedListIdentityRef.current = listIdentity;
+    markHasDispatchedContext(true);
   }, [
     store,
     copilotkit.runtimeUrl,
     runtimeStatus,
-    headersKey,
+    headers,
     copilotkit.intelligence?.wsUrl,
-    threadListEndpointSupported,
+    threadEndpoints,
     agentId,
     includeArchived,
     limit,
+    markHasDispatchedContext,
   ]);
 
-  const guardMutation = useCallback(
-    <TArgs extends unknown[]>(
-      mutation: (...args: TArgs) => Promise<void>,
-    ): ((...args: TArgs) => Promise<void>) => {
-      return (...args: TArgs) => {
-        if (threadMutationsError) {
-          return Promise.reject(threadMutationsError);
-        }
-        return mutation(...args);
-      };
-    },
-    [threadMutationsError],
-  );
-
   const renameThread = useMemo(
-    () =>
-      guardMutation((threadId: string, name: string) =>
-        store.renameThread(threadId, name),
-      ),
-    [store, guardMutation],
+    () => (threadId: string, name: string) =>
+      store.renameThread(threadId, name),
+    [store],
   );
 
   const archiveThread = useMemo(
-    () => guardMutation((threadId: string) => store.archiveThread(threadId)),
-    [store, guardMutation],
+    () => (threadId: string) => store.archiveThread(threadId),
+    [store],
   );
 
   const unarchiveThread = useMemo(
-    () => guardMutation((threadId: string) => store.unarchiveThread(threadId)),
-    [store, guardMutation],
+    () => (threadId: string) => store.unarchiveThread(threadId),
+    [store],
   );
 
   const deleteThread = useMemo(
-    () => guardMutation((threadId: string) => store.deleteThread(threadId)),
-    [store, guardMutation],
+    () => (threadId: string) => store.deleteThread(threadId),
+    [store],
   );
 
   const fetchMoreThreads = useCallback(() => store.fetchNextPage(), [store]);

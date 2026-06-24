@@ -19,6 +19,7 @@ import type {
   CopilotKitCoreErrorCode,
   ɵThreadStore,
   ɵThread,
+  ɵThreadRuntimeContext,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -90,6 +91,15 @@ const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
+
+function shouldUpdateOwnedThreadStoreContext(
+  status: CopilotKitCoreRuntimeConnectionStatus | undefined,
+): boolean {
+  return (
+    status === CopilotKitCoreRuntimeConnectionStatus.Connected ||
+    status === CopilotKitCoreRuntimeConnectionStatus.Error
+  );
+}
 
 type InspectorAgentEventType =
   | "RUN_STARTED"
@@ -2534,7 +2544,7 @@ export class WebInspectorElement extends LitElement {
     const threadsSub = store.select(ɵselectThreads).subscribe((threads) => {
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
       this._threads = Array.from(this._threadsByAgent.values()).flat();
-      this.autoSelectLatestThread();
+      this.syncSelectedThreadWithThreads();
       this.requestUpdate();
     });
     const errorSub = store.select(ɵselectThreadsError).subscribe((error) => {
@@ -2559,11 +2569,14 @@ export class WebInspectorElement extends LitElement {
       this._threadsErrorByAgent.delete(agentId);
     }
     this._threads = Array.from(this._threadsByAgent.values()).flat();
-    this.autoSelectLatestThread();
+    this.syncSelectedThreadWithThreads();
   }
 
-  private autoSelectLatestThread(): void {
-    if (this._threads.length === 0) return;
+  private syncSelectedThreadWithThreads(): void {
+    if (this._threads.length === 0) {
+      this.selectedThreadId = null;
+      return;
+    }
     const stillValid =
       this.selectedThreadId != null &&
       this._threads.some((t) => t.id === this.selectedThreadId);
@@ -2581,6 +2594,7 @@ export class WebInspectorElement extends LitElement {
     this._threadsByAgent.clear();
     this._threadsErrorByAgent.clear();
     this._threads = [];
+    this.syncSelectedThreadWithThreads();
   }
 
   private ensureOwnedThreadStore(agentId: string): void {
@@ -2593,12 +2607,7 @@ export class WebInspectorElement extends LitElement {
 
     const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
     store.start();
-    store.setContext({
-      runtimeUrl: core.runtimeUrl,
-      headers: { ...core.headers },
-      wsUrl: core.intelligence?.wsUrl,
-      agentId,
-    });
+    store.setContext(this.getOwnedThreadStoreContext(agentId, core.headers));
     this._ownedThreadStores.set(agentId, store);
     // Subscribe directly so threads render even before the registry callback
     // fires (some published-core code paths land on the subscriber after
@@ -2607,9 +2616,52 @@ export class WebInspectorElement extends LitElement {
     core.registerThreadStore(agentId, store);
   }
 
+  private createOwnedThreadStoreContext(
+    agentId: string,
+    headers: Readonly<Record<string, string>>,
+  ): ɵThreadRuntimeContext {
+    const core = this.core;
+    return {
+      runtimeUrl: core?.runtimeUrl,
+      headers: { ...headers },
+      wsUrl: core?.intelligence?.wsUrl,
+      agentId,
+      threadEndpoints: core?.threadEndpoints,
+      runtimeConnectionStatus: core?.runtimeConnectionStatus,
+    };
+  }
+
+  private getOwnedThreadStoreContext(
+    agentId: string,
+    headers: Readonly<Record<string, string>>,
+  ): ɵThreadRuntimeContext | null {
+    const core = this.core;
+    if (
+      !core ||
+      !shouldUpdateOwnedThreadStoreContext(core.runtimeConnectionStatus)
+    ) {
+      return null;
+    }
+    return this.createOwnedThreadStoreContext(agentId, headers);
+  }
+
+  private updateOwnedThreadStoreContexts(
+    headers: Readonly<Record<string, string>> = this.core?.headers ?? {},
+  ): void {
+    for (const [agentId, store] of this._ownedThreadStores) {
+      store.setContext(this.getOwnedThreadStoreContext(agentId, headers));
+    }
+  }
+
   private refreshOwnedThreadStore(agentId: string): void {
     const store = this._ownedThreadStores.get(agentId);
     if (!store) return;
+    if (
+      this.core?.runtimeConnectionStatus !==
+      CopilotKitCoreRuntimeConnectionStatus.Connected
+    ) {
+      return;
+    }
     // refresh() re-fetches without resetting threads to [] first, so the list
     // stays visible while new data loads and survives transient fetch failures.
     store.refresh();
@@ -2622,15 +2674,7 @@ export class WebInspectorElement extends LitElement {
   private updateOwnedThreadStoreHeaders(
     headers: Readonly<Record<string, string>>,
   ): void {
-    const core = this.core;
-    if (!core?.runtimeUrl) return;
-    for (const [agentId, store] of this._ownedThreadStores) {
-      store.setContext({
-        runtimeUrl: core.runtimeUrl,
-        headers: { ...headers },
-        agentId,
-      });
-    }
+    this.updateOwnedThreadStoreContexts(headers);
   }
 
   private removeOwnedThreadStore(agentId: string): void {
@@ -2657,6 +2701,7 @@ export class WebInspectorElement extends LitElement {
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
+        this.updateOwnedThreadStoreContexts();
         if (status === "connected") {
           if (!core.telemetryDisabled) {
             ensureTelemetryDistinctId();
@@ -2674,6 +2719,7 @@ export class WebInspectorElement extends LitElement {
           // Clear stale thread data immediately when the server goes away
           this._threadsByAgent.clear();
           this._threads = [];
+          this.syncSelectedThreadWithThreads();
         }
         this.requestUpdate();
       },
@@ -2708,6 +2754,7 @@ export class WebInspectorElement extends LitElement {
         this._threadsByAgent.delete(agentId);
         this._threadsErrorByAgent.delete(agentId);
         this._threads = Array.from(this._threadsByAgent.values()).flat();
+        this.syncSelectedThreadWithThreads();
         this.requestUpdate();
       },
     } satisfies CopilotKitCoreSubscriber;
@@ -5882,10 +5929,10 @@ ${argsString}</pre
         <!-- Center + right: thread details or empty state -->
         <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
           ${
-            this.selectedThreadId
+            selectedThread
               ? html`<cpk-thread-details
                   style="flex:1;min-width:0;"
-                  .threadId=${this.selectedThreadId}
+                  .threadId=${selectedThread.id}
                   .thread=${selectedThread}
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
@@ -5893,20 +5940,13 @@ ${argsString}</pre
                     this._core?.threadEndpoints?.inspect !== false
                   }
                   .liveMessageVersion=${
-                    this.selectedThreadId
-                      ? (this.liveMessageVersion.get(this.selectedThreadId) ??
-                        0)
-                      : 0
+                    this.liveMessageVersion.get(selectedThread.id) ?? 0
                   }
-                  .agentStateInput=${
-                    selectedThread
-                      ? this.getLatestStateForAgent(selectedThread.agentId)
-                      : null
-                  }
+                  .agentStateInput=${this.getLatestStateForAgent(
+                    selectedThread.agentId,
+                  )}
                   .agentEventsInput=${
-                    selectedThread
-                      ? (this.agentEvents.get(selectedThread.agentId) ?? [])
-                      : []
+                    this.agentEvents.get(selectedThread.agentId) ?? []
                   }
                 ></cpk-thread-details>`
               : html`
@@ -6611,7 +6651,7 @@ ${prettyEvent}</pre
       if (this.selectedMenu !== "threads" && !this.core?.telemetryDisabled) {
         trackThreadsTabClicked();
       }
-      this.autoSelectLatestThread();
+      this.syncSelectedThreadWithThreads();
     }
 
     if (key === "ag-ui-events" || key === "agents") {
