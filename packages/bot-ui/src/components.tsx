@@ -92,7 +92,7 @@ export interface CellProps extends WithChildren {}
 // `intrinsic` produces a typed component that lowers `<X .../>` to an IR node
 // of the given `type`; the generic `P` is what gives each tag its prop type.
 
-const intrinsic =
+export const intrinsic =
   <P,>(type: string) =>
   (props: P): BotNode => ({
     type,

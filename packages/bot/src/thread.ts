@@ -8,6 +8,8 @@ import type {
   ThreadMessage,
   IncomingMessage,
   Thread as ThreadInterface,
+  EmojiValue,
+  EphemeralResult,
 } from "@copilotkit/bot-ui";
 import { runAgentLoop } from "./run-loop.js";
 import type { Transcripts } from "./transcripts.js";
@@ -139,6 +141,61 @@ export class Thread implements ThreadInterface {
       };
     }
     return adapter.setThreadTitle(this.deps.replyTarget, title);
+  }
+
+  /** Add an emoji reaction to a message (capability-gated; `{ ok: false }` on surfaces without support). */
+  async react(
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const adapter = this.deps.adapter;
+    if (!adapter.addReaction) {
+      return {
+        ok: false,
+        error: `${this.platform} does not support reactions`,
+      };
+    }
+    return adapter.addReaction(this.deps.replyTarget, messageRef, emoji);
+  }
+
+  /** Remove the bot's emoji reaction from a message (capability-gated). */
+  async unreact(
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const adapter = this.deps.adapter;
+    if (!adapter.removeReaction) {
+      return {
+        ok: false,
+        error: `${this.platform} does not support reactions`,
+      };
+    }
+    return adapter.removeReaction(this.deps.replyTarget, messageRef, emoji);
+  }
+
+  /**
+   * Post a message only `user` can see. `fallbackToDM` is required:
+   * `true` → DM the user when native ephemeral is unsupported; `false` →
+   * resolve to `null` when native ephemeral is unsupported.
+   */
+  async postEphemeral(
+    user: PlatformUser | string,
+    ui: Renderable,
+    opts: { fallbackToDM: boolean },
+  ): Promise<EphemeralResult | null> {
+    const adapter = this.deps.adapter;
+    if (!adapter.postEphemeral) {
+      return {
+        ok: false,
+        error: `${this.platform} does not support ephemeral messages`,
+      };
+    }
+    return adapter.postEphemeral(
+      this.deps.replyTarget,
+      user,
+      await this.bindForPost(ui),
+      opts,
+    );
   }
 
   // Subscription STORAGE lands here; subscription ROUTING (onSubscribedMessage) is deferred.

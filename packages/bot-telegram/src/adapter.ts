@@ -13,7 +13,13 @@ import type {
   UserQuery,
   CommandSpec,
 } from "@copilotkit/bot";
-import type { BotNode, ThreadMessage } from "@copilotkit/bot-ui";
+import type {
+  BotNode,
+  ThreadMessage,
+  EmojiValue,
+  EphemeralResult,
+} from "@copilotkit/bot-ui";
+import { toPlatformEmoji } from "@copilotkit/bot-ui";
 import { TelegramConversationStore } from "./conversation-store.js";
 import { attachTelegramListener } from "./listener.js";
 import { createRunRenderer } from "./event-renderer.js";
@@ -33,6 +39,27 @@ import type {
 } from "./types.js";
 
 /**
+ * Update types that the Telegram adapter subscribes to. Includes
+ * `message_reaction` so the bot receives emoji-reaction events.
+ *
+ * In **group** chats the bot must be an administrator to receive
+ * `message_reaction` updates; private chats and channels work without
+ * additional permissions.
+ *
+ * For **webhook** deployments pass this list to `setWebhook`:
+ * ```ts
+ * await bot.api.setWebhook(url, { allowed_updates: [...TELEGRAM_ALLOWED_UPDATES] });
+ * ```
+ * Long-polling (`start()`) passes it automatically.
+ */
+export const TELEGRAM_ALLOWED_UPDATES = [
+  "message",
+  "edited_message",
+  "callback_query",
+  "message_reaction",
+] as const;
+
+/**
  * Telegram `PlatformAdapter`: ingress via grammY (long-polling or webhook),
  * egress via the package's HTML renderer + chunked-edit streaming.
  *
@@ -44,7 +71,8 @@ export class TelegramAdapter implements PlatformAdapter {
   readonly capabilities: SurfaceCapabilities = {
     supportsModals: false,
     supportsTyping: true,
-    supportsReactions: false,
+    supportsReactions: true,
+    supportsEphemeral: false,
     supportsStreaming: true,
     supportsSuggestedPrompts: false,
     supportsThreadTitle: true,
@@ -116,7 +144,7 @@ export class TelegramAdapter implements PlatformAdapter {
       // Surface a startup rejection (e.g. 409 "terminated by other getUpdates
       // request" or a revoked token) instead of swallowing it silently.
       this.bot
-        .start()
+        .start({ allowed_updates: [...TELEGRAM_ALLOWED_UPDATES] })
         .catch((err) =>
           console.error("[telegram] long-polling failed to start:", err),
         );
@@ -538,12 +566,32 @@ export class TelegramAdapter implements PlatformAdapter {
   }
 
   async registerCommands(specs: readonly CommandSpec[]): Promise<void> {
-    await this.bot.api.setMyCommands(
-      specs.map((s) => ({
-        command: s.name,
-        description: s.description ?? s.name,
-      })),
-    );
+    // Telegram restricts command names to 1–32 chars of [a-z0-9_] (no hyphens,
+    // unlike Slack/Discord) and rejects the WHOLE setMyCommands call with
+    // 400 BOT_COMMAND_INVALID if any name violates that. Convert hyphens to
+    // underscores so e.g. `/file-issue` registers here as `/file_issue`; engine
+    // routing still matches because `normalizeCommandName` collapses "-"→"_",
+    // so an incoming `/file_issue` reaches the `file-issue` handler. Names still
+    // invalid after conversion (spaces, other punctuation, >32 chars) are
+    // skipped with a warning rather than failing the whole call.
+    const valid: { command: string; description: string }[] = [];
+    for (const s of specs) {
+      const tgName = s.name.toLowerCase().replace(/-/g, "_");
+      if (!/^[a-z0-9_]{1,32}$/.test(tgName)) {
+        console.warn(
+          `[bot-telegram] skipping command "/${s.name}": cannot map to a Telegram-valid name (1–32 chars of [a-z0-9_])`,
+        );
+        continue;
+      }
+      valid.push({
+        command: tgName,
+        // Telegram allows 1–256 chars for the description; truncate defensively.
+        description: (s.description ?? s.name).slice(0, 256),
+      });
+    }
+    // An empty array would clear all commands — skip the call entirely instead.
+    if (valid.length === 0) return;
+    await this.bot.api.setMyCommands(valid);
   }
 
   async setThreadTitle(
@@ -561,6 +609,80 @@ export class TelegramAdapter implements PlatformAdapter {
       return { ok: true };
     } catch (e) {
       return { ok: false, error: String(e) };
+    }
+  }
+
+  async addReaction(
+    target: BotReplyTarget,
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const r = messageRef as TelegramMessageRef;
+    const chatId = r.chatId ?? (target as ReplyTarget).chatId;
+    const messageId = Number(r.messageId ?? r.id);
+    const token = toPlatformEmoji(emoji, "telegram") ?? emoji;
+    try {
+      // grammy types ReactionTypeEmoji.emoji as a strict union of allowed emoji;
+      // cast via unknown since we accept any EmojiValue passthrough.
+      await this.bot.api.setMessageReaction(chatId, messageId, [
+        {
+          type: "emoji",
+          emoji: token,
+        } as unknown as import("grammy/types").ReactionType,
+      ]);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  async removeReaction(
+    target: BotReplyTarget,
+    messageRef: MessageRef,
+    _emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const r = messageRef as TelegramMessageRef;
+    const chatId = r.chatId ?? (target as ReplyTarget).chatId;
+    const messageId = Number(r.messageId ?? r.id);
+    try {
+      // Telegram clears the bot's reactions by setting an empty list.
+      await this.bot.api.setMessageReaction(chatId, messageId, []);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  async postEphemeral(
+    _target: BotReplyTarget,
+    user: PlatformUser | string,
+    ir: BotNode[],
+    opts: { fallbackToDM: boolean },
+  ): Promise<EphemeralResult | null> {
+    if (!opts.fallbackToDM) return null; // no native ephemeral on Telegram
+    const userId = typeof user === "string" ? user : user.id;
+    const payload = renderTelegram(ir);
+    const replyMarkup = this.toReplyMarkup(payload.inlineKeyboard);
+    try {
+      const sent = await this.bot.api.sendMessage(
+        String(userId),
+        payload.text,
+        {
+          ...(payload.parseMode ? { parse_mode: payload.parseMode } : {}),
+          ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+        },
+      );
+      return {
+        ok: true,
+        usedFallback: true,
+        ref: {
+          id: `${sent.chat.id}:${sent.message_id}`,
+          chatId: sent.chat.id,
+          messageId: sent.message_id,
+        },
+      };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
     }
   }
 
