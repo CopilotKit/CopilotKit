@@ -32,6 +32,8 @@ import type { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
+import { MemoryStoreRegistry } from "./memory-store-registry";
+import type { ɵMemoryStore } from "../memory";
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -195,6 +197,23 @@ export interface CopilotKitCoreSubscriber {
     agentId: string;
     prevStore: ɵThreadStore;
   }) => void | Promise<void>;
+  onMemoryStoreRegistered?: (event: {
+    copilotkit: CopilotKitCore;
+    agentId: string;
+    store: ɵMemoryStore;
+  }) => void | Promise<void>;
+  /**
+   * Fired when a memory store is removed from the registry, either by an
+   * explicit `unregister()` call or by a `register()` that replaces an existing
+   * store for the same `agentId`. The previous store is delivered via
+   * `prevStore` (see the thread-store note above for why `registry.get()` is
+   * unsafe inside this callback).
+   */
+  onMemoryStoreUnregistered?: (event: {
+    copilotkit: CopilotKitCore;
+    agentId: string;
+    prevStore: ɵMemoryStore;
+  }) => void | Promise<void>;
 }
 
 // Subscription object returned by subscribe() and subscribeToAgentWithOptions()
@@ -356,6 +375,7 @@ export class CopilotKitCore {
   private runHandler: RunHandler;
   private stateManager: StateManager;
   private threadStoreRegistry: ThreadStoreRegistry;
+  private memoryStoreRegistry: MemoryStoreRegistry;
   /**
    * Tracks the agent IDs from the most recent `onAgentsChanged` notification.
    * Used to gate thread-store auto-unregister so the FIRST empty-agents
@@ -387,6 +407,7 @@ export class CopilotKitCore {
     this.runHandler = new RunHandler(this);
     this.stateManager = new StateManager(this);
     this.threadStoreRegistry = new ThreadStoreRegistry(this);
+    this.memoryStoreRegistry = new MemoryStoreRegistry(this);
 
     // Initialize each subsystem
     this.agentRegistry.initialize(agents__unsafe_dev_only);
@@ -439,6 +460,25 @@ export class CopilotKitCore {
             } catch (err) {
               console.error(
                 `CopilotKitCore.onAgentsChanged: threadStoreRegistry.unregister failed for "${agentId}":`,
+                err,
+              );
+            }
+          }
+        }
+
+        // Symmetric auto-unregister for memory stores (same "previously had"
+        // guard so the first empty-agents notification can't rip out a store
+        // a consumer just registered).
+        for (const agentId of Object.keys(this.memoryStoreRegistry.getAll())) {
+          if (
+            this.previousAgentIds.has(agentId) &&
+            !currentAgentIds.has(agentId)
+          ) {
+            try {
+              this.memoryStoreRegistry.unregister(agentId);
+            } catch (err) {
+              console.error(
+                `CopilotKitCore.onAgentsChanged: memoryStoreRegistry.unregister failed for "${agentId}":`,
                 err,
               );
             }
@@ -801,6 +841,28 @@ export class CopilotKitCore {
 
   getThreadStores(): Readonly<Record<string, ɵThreadStore>> {
     return this.threadStoreRegistry.getAll();
+  }
+
+  /**
+   * Memory store registry (delegated to MemoryStoreRegistry). Mirrors the
+   * thread-store registry: consumers (e.g. a useMemories binding) create and
+   * register a store per agent so it can be shared/looked up, and tear it down
+   * on unmount.
+   */
+  registerMemoryStore(agentId: string, store: ɵMemoryStore): void {
+    this.memoryStoreRegistry.register(agentId, store);
+  }
+
+  unregisterMemoryStore(agentId: string): void {
+    this.memoryStoreRegistry.unregister(agentId);
+  }
+
+  getMemoryStore(agentId: string): ɵMemoryStore | undefined {
+    return this.memoryStoreRegistry.get(agentId);
+  }
+
+  getMemoryStores(): Readonly<Record<string, ɵMemoryStore>> {
+    return this.memoryStoreRegistry.getAll();
   }
 
   /**
