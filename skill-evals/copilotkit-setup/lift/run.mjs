@@ -165,10 +165,12 @@ function preflightAuth() {
   const malformed = (name, prefix) => {
     const v = val(name);
     if (!v) return null;
-    if (/\s/.test(v) || v.split("").some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127))
+    if (
+      /\s/.test(v) ||
+      v.split("").some((c) => c.charCodeAt(0) < 32 || c.charCodeAt(0) === 127)
+    )
       return `${name} contains whitespace or control characters`;
-    if (!v.startsWith(prefix))
-      return `${name} does not start with "${prefix}"`;
+    if (!v.startsWith(prefix)) return `${name} does not start with "${prefix}"`;
     return null;
   };
   const badToken =

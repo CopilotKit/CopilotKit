@@ -9,13 +9,13 @@ Each skill that has an eval gets its own directory here:
 directories into user projects. Harness files must never ship to users; the
 `skill:` field in each `eval.yaml` points skillgrade back at the skill under test.
 
-## What an eval measures: skill *lift*
+## What an eval measures: skill _lift_
 
 A capable agent usually reaches a correct answer eventually, with or without the
-skill. So absolute "did it end correct" mostly measures the *agent*, not the
-*skill*. What we actually want is **lift**: does the skill get the agent there
-*better* — faster, fewer commands, fewer tokens, fewer dead-ends — and does the
-agent actually *use* the skill's guidance?
+skill. So absolute "did it end correct" mostly measures the _agent_, not the
+_skill_. What we actually want is **lift**: does the skill get the agent there
+_better_ — faster, fewer commands, fewer tokens, fewer dead-ends — and does the
+agent actually _use_ the skill's guidance?
 
 That makes the real experiment **comparative**: run the same task twice, once with
 the skill mounted and once without, and diff the results. Two signals matter:
@@ -23,7 +23,7 @@ the skill mounted and once without, and diff the results. Two signals matter:
 1. **Headline — efficiency lift.** Δ in wall-clock `duration`, command count, and
    tokens between the with-skill and without-skill runs, at equal success.
 2. **Gate — correctness.** The project must actually build / type-check. The
-   deterministic grader *runs the project*, it does not grep for API names: a
+   deterministic grader _runs the project_, it does not grep for API names: a
    capable agent reaches the right APIs either way, so grepping measures the agent.
 3. **Judge — did the skill help.** An `llm_rubric` grader reads the agent's session
    transcript (instruction + every command + result) and judges whether the agent
@@ -53,9 +53,11 @@ second skill eval lands (do not pre-abstract from one example).
 Every deterministic grader prints a single JSON object to stdout:
 
 ```json
-{ "score": 0.0, "details": "human-readable summary", "checks": [
-  { "name": "build succeeds", "passed": true, "message": "..." }
-] }
+{
+  "score": 0.0,
+  "details": "human-readable summary",
+  "checks": [{ "name": "build succeeds", "passed": true, "message": "..." }]
+}
 ```
 
 `score` is in `[0, 1]`. Graders run in the post-agent container (`node:20-slim`
@@ -74,14 +76,26 @@ or a no-op agent scores points by matching the skill's own example files.
   "timestamp": "ISO-8601",
   "skill": "copilotkit-setup",
   "trials": 5,
-  "withSkill":    { "passRate": 0.0, "meanReward": 0.0, "medianDurationMs": 0, "medianCommands": 0, "medianTokens": 0 },
-  "withoutSkill": { "passRate": 0.0, "meanReward": 0.0, "medianDurationMs": 0, "medianCommands": 0, "medianTokens": 0 },
+  "withSkill": {
+    "passRate": 0.0,
+    "meanReward": 0.0,
+    "medianDurationMs": 0,
+    "medianCommands": 0,
+    "medianTokens": 0
+  },
+  "withoutSkill": {
+    "passRate": 0.0,
+    "meanReward": 0.0,
+    "medianDurationMs": 0,
+    "medianCommands": 0,
+    "medianTokens": 0
+  },
   "lift": { "passRate": 0.0, "durationMs": 0, "commands": 0, "tokens": 0 }
 }
 ```
 
-`lift.*` is `withSkill - withoutSkill` (so a *negative* `durationMs`/`commands`/
-`tokens` lift is good — the skill made the agent faster/leaner; a *positive*
+`lift.*` is `withSkill - withoutSkill` (so a _negative_ `durationMs`/`commands`/
+`tokens` lift is good — the skill made the agent faster/leaner; a _positive_
 `passRate` lift is good). The script also prints a human-readable table.
 
 ## Running
