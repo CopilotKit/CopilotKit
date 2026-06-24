@@ -552,11 +552,6 @@ interface JsonSchema {
   required?: string[];
   items?: JsonSchema;
   enum?: string[];
-  /** String constraints carried through to the generated Zod schema. */
-  format?: string;
-  pattern?: string;
-  minLength?: number;
-  maxLength?: number;
 }
 
 /**
@@ -592,40 +587,7 @@ export function convertJsonSchemaToZodSchema(
         .describe(jsonSchema.description ?? "");
       return required ? schema : schema.optional();
     }
-    // Carry the JSON-schema string constraints through to Zod so the model
-    // sees the field's real shape (e.g. a uuid id presented as a uuid, not a
-    // bare string). Without this, a constrained OPTIONAL string degrades to a
-    // plain optional string: models fill it with "" instead of omitting it,
-    // and the loosened model-side validation accepts "" — only for a stricter
-    // downstream (e.g. an MCP server) to reject it.
-    let strSchema = z.string();
-    switch (jsonSchema.format) {
-      case "uuid":
-        strSchema = strSchema.uuid();
-        break;
-      case "email":
-        strSchema = strSchema.email();
-        break;
-      case "url":
-      case "uri":
-        strSchema = strSchema.url();
-        break;
-      case "date-time":
-        strSchema = strSchema.datetime();
-        break;
-      default:
-        break;
-    }
-    if (jsonSchema.pattern !== undefined) {
-      strSchema = strSchema.regex(new RegExp(jsonSchema.pattern));
-    }
-    if (jsonSchema.minLength !== undefined) {
-      strSchema = strSchema.min(jsonSchema.minLength);
-    }
-    if (jsonSchema.maxLength !== undefined) {
-      strSchema = strSchema.max(jsonSchema.maxLength);
-    }
-    const schema = strSchema.describe(jsonSchema.description ?? "");
+    const schema = z.string().describe(jsonSchema.description ?? "");
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "number" || jsonSchema.type === "integer") {
     const schema = z.number().describe(jsonSchema.description ?? "");
