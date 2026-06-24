@@ -87,6 +87,13 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
 
   const renderArr = useMemo(() => [{ render: CoAgentStateRenderBridge }], []);
 
+  // v1's `onError` takes a v1 `CopilotErrorEvent` (with `type`/`timestamp`),
+  // which the v2 provider's `onError` does not produce. The v1 handler is
+  // invoked exclusively through `CopilotKitErrorBridge`, which adapts v2
+  // error events to the v1 shape — so it must not be spread into the v2
+  // provider directly.
+  const { onError: _onError, ...v2Props } = props;
+
   return (
     <ToastProvider enabled={enabled}>
       <CopilotErrorBoundary
@@ -95,7 +102,7 @@ export function CopilotKit({ children, ...props }: CopilotKitProps) {
       >
         <ThreadsProvider threadId={props.threadId}>
           <CopilotKitV2Provider
-            {...props}
+            {...v2Props}
             showDevConsole={showInspector}
             renderCustomMessages={renderArr}
             useSingleEndpoint={props.useSingleEndpoint ?? true}

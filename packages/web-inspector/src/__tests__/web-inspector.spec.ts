@@ -3,7 +3,7 @@ import type { CopilotKitCore, ɵThread, ɵThreadStore } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
-import type * as TelemetryModule from "../lib/telemetry";
+import type * as TelemetryModule from "../lib/telemetry.js";
 
 const trackThreadsTabClickedMock = vi.hoisted(() => vi.fn());
 
@@ -15,7 +15,7 @@ vi.mock("../lib/telemetry", async (importOriginal) => {
   };
 });
 
-import { WebInspectorElement, ɵCpkThreadDetails } from "../index";
+import { WebInspectorElement, ɵCpkThreadDetails } from "../index.js";
 
 // --- Types for accessing LitElement-private reactive properties ---
 // WebInspectorElement stores these as private Lit reactive properties.
@@ -132,6 +132,7 @@ function threadFixture(
     createdAt: timestamps.createdAt ?? "2026-06-01T00:00:00.000Z",
     updatedAt: timestamps.updatedAt ?? "2026-06-01T00:00:00.000Z",
     lastRunAt: timestamps.lastRunAt,
+    organizationId: "org",
     createdById: "user",
   };
 }
@@ -456,6 +457,7 @@ describe("cpk-thread-list", () => {
         createdAt: "2026-06-01T00:00:00.000Z",
         updatedAt: "2026-06-10T20:00:00.000Z",
         lastRunAt: "2026-06-23T19:00:00.000Z",
+        organizationId: "org",
         createdById: "user",
       } satisfies ɵThread,
     ];
@@ -794,7 +796,7 @@ describe("ɵCpkThreadDetails caching", () => {
         expect(internals._messagesError).toBeNull();
         expect(internals._conversation).toHaveLength(1);
       });
-      expect(credentialsOf(fetchSpy.mock.calls[1])).toBe("include");
+      expect(credentialsOf(fetchCall(fetchSpy, 1))).toBe("include");
     } finally {
       fetchSpy.mockRestore();
     }
@@ -854,7 +856,7 @@ describe("ɵCpkThreadDetails caching", () => {
         expect(internals._messagesError).toBe("HTTP 401");
       });
       expect(internals._conversation).toHaveLength(0);
-      expect(credentialsOf(fetchSpy.mock.calls[1])).toBe("include");
+      expect(credentialsOf(fetchCall(fetchSpy, 1))).toBe("include");
     } finally {
       fetchSpy.mockRestore();
     }
@@ -862,8 +864,9 @@ describe("ɵCpkThreadDetails caching", () => {
 
   it("keeps credential refresh authoritative when live messages arrive", async () => {
     let messageFetches = 0;
-    let resolveCredentialReload: ((response: Response) => void) | undefined =
-      undefined;
+    const credentialReload = {
+      resolve: undefined as ((response: Response) => void) | undefined,
+    };
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockImplementation((input: RequestInfo | URL) => {
@@ -888,7 +891,7 @@ describe("ɵCpkThreadDetails caching", () => {
           }
           if (messageFetches === 2) {
             return new Promise<Response>((resolve) => {
-              resolveCredentialReload = resolve;
+              credentialReload.resolve = resolve;
             });
           }
           return Promise.resolve(
@@ -924,7 +927,11 @@ describe("ɵCpkThreadDetails caching", () => {
       await el.updateComplete;
 
       expect(messageFetches).toBe(2);
-      resolveCredentialReload?.(
+      const resolveCredentialReload = credentialReload.resolve;
+      if (!resolveCredentialReload) {
+        throw new Error("expected credential reload resolver to be captured");
+      }
+      resolveCredentialReload(
         new Response(JSON.stringify({ error: "unauthorized" }), {
           status: 401,
         }),
@@ -934,7 +941,7 @@ describe("ɵCpkThreadDetails caching", () => {
         expect(internals._messagesError).toBe("HTTP 401");
       });
       expect(internals._conversation).toHaveLength(0);
-      expect(credentialsOf(fetchSpy.mock.calls[1])).toBe("include");
+      expect(credentialsOf(fetchCall(fetchSpy, 1))).toBe("include");
     } finally {
       fetchSpy.mockRestore();
     }
@@ -1246,11 +1253,22 @@ function createHeaderMockCore(
   };
 }
 
-const headersOf = (call: unknown[]) =>
+const headersOf = (call: readonly unknown[]) =>
   (call[1] as { headers?: Record<string, string> } | undefined)?.headers ?? {};
 
-const credentialsOf = (call: unknown[]) =>
+const credentialsOf = (call: readonly unknown[]) =>
   (call[1] as { credentials?: RequestCredentials } | undefined)?.credentials;
+
+function fetchCall(
+  fetchMock: { mock: { calls: readonly unknown[][] } },
+  index: number,
+) {
+  const call = fetchMock.mock.calls[index];
+  if (!call) {
+    throw new Error(`expected fetch call at index ${index}`);
+  }
+  return call;
+}
 
 const contextOf = (store: unknown) =>
   (

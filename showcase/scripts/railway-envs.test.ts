@@ -17,6 +17,7 @@ import {
   computePromoteClosure,
   domainFor,
   envsFor,
+  healthcheckPathFor,
   instanceIdFor,
   listServiceNames,
   probeEnabled,
@@ -142,6 +143,40 @@ describe("railway-envs SSOT", () => {
         ).toMatch(uuid);
       }
     }
+  });
+
+  it("every declared healthcheckPath is a non-empty `/`-prefixed string", () => {
+    // A wrong healthcheckPath 404s and WEDGES the deploy forever, so the
+    // schema guards the shape: when present it MUST be a non-empty path
+    // starting with `/`. Absence is legal (live-null → omit / do not assert).
+    for (const [name, entry] of Object.entries(SERVICES)) {
+      for (const [env, cfg] of Object.entries(entry.environments)) {
+        if (cfg.healthcheckPath === undefined) continue;
+        expect(
+          cfg.healthcheckPath,
+          `${name}.environments.${env}.healthcheckPath`,
+        ).toMatch(/^\/\S*$/);
+      }
+    }
+  });
+
+  it("healthcheckPathFor returns the tracked value / undefined", () => {
+    // Tracked: aimock /health (the repaired incident service).
+    expect(healthcheckPathFor("aimock", "prod")).toBe("/health");
+    expect(healthcheckPathFor("aimock", "staging")).toBe("/health");
+    // Agent integration: /api/health.
+    expect(healthcheckPathFor("showcase-ag2", "prod")).toBe("/api/health");
+    // Next.js shell: `/`.
+    expect(healthcheckPathFor("shell", "prod")).toBe("/");
+    // Live-null service: undefined (do not assert).
+    expect(healthcheckPathFor("docs", "prod")).toBeUndefined();
+    expect(healthcheckPathFor("dashboard", "staging")).toBeUndefined();
+    // Per-env asymmetry: harness-legacy staging /health, prod undefined.
+    expect(healthcheckPathFor("harness-legacy", "staging")).toBe("/health");
+    expect(healthcheckPathFor("harness-legacy", "prod")).toBeUndefined();
+    // Unknown service / undeclared env → undefined (never throws).
+    expect(healthcheckPathFor("nope", "prod")).toBeUndefined();
+    expect(healthcheckPathFor("harness-workers", "prod")).toBeUndefined();
   });
 
   it("instance IDs differ across a service's envs", () => {
@@ -1230,20 +1265,20 @@ describe("starter-* fleet SSOT entries (S1: promote-closure inclusion)", () => {
     }
   });
 
-  it("every starter exists in BOTH envs with prod probe enabled", () => {
+  it("every starter exists in BOTH envs with prod AND staging probe enabled (always-on)", () => {
     for (const key of STARTER_KEYS) {
       const entry = SERVICES[key];
       expect(Object.keys(entry.environments).sort()).toEqual([
         "prod",
         "staging",
       ]);
-      // prod is probed (they ARE in prod); staging probe deferred to S3
-      // (the starter-smoke axis, not the verify-deploy matrix).
+      // Starters are always-on + staging-probed like every other managed
+      // showcase service: both envs are probed by the verify-deploy baseline
+      // driver (resolve-verify-matrix filters on probe.staging===true, so a
+      // probed starter now enters the staging matrix). The starter-smoke axis
+      // ALSO covers them — orthogonal to the baseline liveness probe here.
       expect(probeEnabled(key, "prod"), `${key} prod probe`).toBe(true);
-      // staging probe OFF — starters never enter the verify-deploy staging
-      // matrix (resolve-verify-matrix filters on probe.staging===true); the
-      // starter-smoke axis owns staging verification (S3).
-      expect(probeEnabled(key, "staging"), `${key} staging probe`).toBe(false);
+      expect(probeEnabled(key, "staging"), `${key} staging probe`).toBe(true);
     }
   });
 

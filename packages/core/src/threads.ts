@@ -29,7 +29,9 @@ import type {
   ActionCreator,
   ActionFromCreators,
   AnyAction,
+  Reducer,
   Store,
+  StoreLifecycleAction,
 } from "./utils/micro-redux";
 import {
   ɵphoenixChannel$,
@@ -383,7 +385,7 @@ function onThreadReducer<
   return on<ThreadState, Creators, Action>(...args);
 }
 
-const threadReducer = createReducer<ThreadState>(
+const threadReducer = createReducer(
   initialThreadState,
   onThreadReducer(threadAdapterEvents.contextChanged, (state, { context }) => {
     const contextError = getThreadListContextError(context);
@@ -578,7 +580,7 @@ const threadReducer = createReducer<ThreadState>(
       };
     },
   ),
-);
+) as Reducer<ThreadState, AnyAction | StoreLifecycleAction>;
 
 const selectThreads = createSelector<ThreadState, ThreadRecord[]>(
   (state: ThreadState) => state.threads,

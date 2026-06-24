@@ -14,7 +14,6 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
   ɵMAX_SOCKET_RETRIES,
 } from "@copilotkit/core";
-import type { useThreads as useThreadsHook } from "../use-threads";
 
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
@@ -265,13 +264,13 @@ const sampleThreads = [
   },
 ];
 
-let useThreads: typeof useThreadsHook;
+let useThreads: typeof import("../use-threads").useThreads;
+
+beforeAll(async () => {
+  ({ useThreads } = await import("../use-threads"));
+});
 
 describe("useThreads", () => {
-  beforeAll(async () => {
-    ({ useThreads } = await import("../use-threads"));
-  });
-
   beforeEach(() => {
     phoenix.sockets.splice(0);
     fetchMock.mockReset();

@@ -28,7 +28,7 @@ import type {
   DockMode,
   Position,
   Size,
-} from "./lib/types";
+} from "./lib/types.js";
 import {
   applyAnchorPosition as applyAnchorPositionHelper,
   centerContext as centerContextHelper,
@@ -37,7 +37,7 @@ import {
   updateAnchorFromPosition as updateAnchorFromPositionHelper,
   updateSizeFromElement,
   clampSize as clampSizeToViewport,
-} from "./lib/context-helpers";
+} from "./lib/context-helpers.js";
 import {
   loadInspectorState,
   saveInspectorState,
@@ -45,8 +45,8 @@ import {
   isValidPosition,
   isValidSize,
   isValidDockMode,
-} from "./lib/persistence";
-import type { PersistedState } from "./lib/persistence";
+} from "./lib/persistence.js";
+import type { PersistedState } from "./lib/persistence.js";
 import {
   TELEMETRY_DOCS_URL,
   ensureTelemetryDistinctId,
@@ -55,7 +55,9 @@ import {
   trackBannerClicked,
   trackBannerViewed,
   trackThreadsTabClicked,
-} from "./lib/telemetry";
+} from "./lib/telemetry.js";
+
+export type { Anchor } from "./lib/types.js";
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
@@ -2711,6 +2713,10 @@ export class WebInspectorElement extends LitElement {
     agentId: string,
     headers: Readonly<Record<string, string>> = core.headers,
   ): Parameters<ɵThreadStore["setContext"]>[0] {
+    if (!core.runtimeUrl) {
+      throw new Error("Cannot create thread store context without runtimeUrl");
+    }
+
     return {
       runtimeUrl: core.runtimeUrl,
       headers: { ...headers },
@@ -2966,8 +2972,11 @@ export class WebInspectorElement extends LitElement {
       onRunStartedEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RUN_STARTED", event);
       },
-      onRunFinishedEvent: ({ event, result }) => {
-        this.recordAgentEvent(agentId, "RUN_FINISHED", { event, result });
+      onRunFinishedEvent: (params) => {
+        this.recordAgentEvent(agentId, "RUN_FINISHED", {
+          event: params.event,
+          result: "result" in params ? params.result : undefined,
+        });
         this.refreshOwnedThreadStore(agentId);
       },
       onRunErrorEvent: ({ event }) => {

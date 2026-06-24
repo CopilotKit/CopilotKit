@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CopilotKitIntelligence } from "../client";
 
 const fetchMock = vi.fn();
-globalThis.fetch = fetchMock;
+globalThis.fetch = fetchMock as unknown as typeof fetch;
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 function jsonResponse(body: unknown, status = 200) {

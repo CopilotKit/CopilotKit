@@ -64,6 +64,7 @@ export class ThreadStoreRegistry {
 
     const isActiveStore = storeIndex === stack.length - 1;
     const [removedStore] = stack.splice(storeIndex, 1);
+    if (!removedStore) return;
 
     if (stack.length === 0) {
       delete this._storeStacks[agentId];

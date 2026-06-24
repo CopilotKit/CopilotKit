@@ -48,7 +48,12 @@ describe("handleGetRuntimeInfo", () => {
       mcpApps: undefined,
       openGenerativeUI: undefined,
       mode: "sse",
-      debug: { enabled: false },
+      debug: {
+        enabled: false,
+        events: false,
+        lifecycle: false,
+        verbose: false,
+      },
       ...overrides,
     }) as unknown as CopilotRuntimeLike;
   const createIntelligenceRuntimeLike = (
@@ -63,7 +68,7 @@ describe("handleGetRuntimeInfo", () => {
     mcpApps: undefined,
     openGenerativeUI: undefined,
     mode: "intelligence",
-    debug: { enabled: false },
+    debug: { enabled: false, events: false, lifecycle: false, verbose: false },
     intelligence: new CopilotKitIntelligence({
       apiUrl: "https://runtime.example",
       wsUrl: "wss://runtime.example",

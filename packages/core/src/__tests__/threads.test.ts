@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Mock } from "vitest";
+import type { MockChannel } from "./test-utils";
 import { MockSocket } from "./test-utils";
 
 const phoenix = vi.hoisted(() => ({
@@ -57,10 +59,26 @@ const sampleThreads: ThreadRecord[] = [
   },
 ];
 
-function createEnvironment(fetchImpl: typeof fetch) {
+function createEnvironment(fetchImpl: Mock) {
   return {
-    fetch: fetchImpl,
+    fetch: fetchImpl as unknown as typeof fetch,
   };
+}
+
+function getChannel(): MockChannel {
+  const channel = phoenix.sockets[0]?.channels[0];
+  if (!channel) {
+    throw new Error("expected a phoenix channel to exist");
+  }
+  return channel;
+}
+
+function getFetchCall(fetchMock: Mock, index: number) {
+  const call = fetchMock.mock.calls[index];
+  if (!call) {
+    throw new Error(`expected fetch call at index ${index}`);
+  }
+  return call;
 }
 
 describe("thread store", () => {
@@ -95,9 +113,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -122,7 +138,7 @@ describe("thread store", () => {
     );
     expect(ɵselectThreadsIsLoading(store.getState())).toBe(false);
     expect(phoenix.sockets).toHaveLength(1);
-    expect(phoenix.sockets[0].channels[0].topic).toBe("user_meta:jc-1");
+    expect(getChannel().topic).toBe("user_meta:jc-1");
   });
 
   it("upserts realtime thread metadata without refetching", async () => {
@@ -143,9 +159,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -157,7 +171,7 @@ describe("thread store", () => {
 
     await flushEffects();
 
-    const channel = phoenix.sockets[0].channels[0];
+    const channel = getChannel();
     channel.serverPush("thread_metadata", {
       operation: "renamed",
       threadId: "thread-1",
@@ -190,9 +204,7 @@ describe("thread store", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -233,9 +245,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -247,7 +257,7 @@ describe("thread store", () => {
 
     await flushEffects();
 
-    phoenix.sockets[0].channels[0].serverPush("thread_metadata", {
+    getChannel().serverPush("thread_metadata", {
       operation: "created",
       threadId: "thread-other",
       userId: "user-1",
@@ -296,9 +306,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -341,9 +349,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -355,7 +361,7 @@ describe("thread store", () => {
 
     await flushEffects();
 
-    phoenix.sockets[0].channels[0].serverPush("thread_metadata", {
+    getChannel().serverPush("thread_metadata", {
       operation: "deleted",
       threadId: "thread-2",
       userId: "user-2",
@@ -370,7 +376,7 @@ describe("thread store", () => {
   });
 
   it("switches sessions when context changes and ignores stale results", async () => {
-    let resolveFirstFetch: ((value: unknown) => void) | null = null;
+    let resolveFirstFetch: (value: unknown) => void = () => {};
     const fetchMock = vi
       .fn()
       .mockImplementationOnce(
@@ -401,9 +407,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -421,7 +425,7 @@ describe("thread store", () => {
       agentId: "agent-2",
     });
 
-    resolveFirstFetch?.({
+    resolveFirstFetch({
       ok: true,
       json: async () => ({
         threads: sampleThreads,
@@ -448,9 +452,7 @@ describe("thread store", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
 
@@ -492,9 +494,7 @@ describe("thread store", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     const context: ThreadRuntimeContext = {
       runtimeUrl: "https://runtime.example.com",
@@ -526,9 +526,7 @@ describe("thread store", () => {
       }),
     });
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -575,9 +573,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -620,9 +616,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -638,7 +632,7 @@ describe("thread store", () => {
     await store.archiveThread("thread-2");
     await store.deleteThread("thread-2");
 
-    const renameCall = fetchMock.mock.calls[2];
+    const renameCall = getFetchCall(fetchMock, 2);
     expect(renameCall[0]).toBe("https://runtime.example.com/threads/thread-1");
     expect(renameCall[1]).toMatchObject({ method: "PATCH" });
     expect(JSON.parse(renameCall[1].body)).toMatchObject({
@@ -646,7 +640,7 @@ describe("thread store", () => {
       name: "Renamed",
     });
 
-    const archiveCall = fetchMock.mock.calls[3];
+    const archiveCall = getFetchCall(fetchMock, 3);
     expect(archiveCall[0]).toBe(
       "https://runtime.example.com/threads/thread-2/archive",
     );
@@ -654,7 +648,7 @@ describe("thread store", () => {
       agentId: "agent-1",
     });
 
-    const deleteCall = fetchMock.mock.calls[4];
+    const deleteCall = getFetchCall(fetchMock, 4);
     expect(deleteCall[0]).toBe("https://runtime.example.com/threads/thread-2");
     expect(deleteCall[1]).toMatchObject({ method: "DELETE" });
     expect(JSON.parse(deleteCall[1].body)).toMatchObject({
@@ -669,9 +663,7 @@ describe("thread store", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -690,9 +682,7 @@ describe("thread store", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as unknown as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -715,9 +705,7 @@ describe("thread store", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as unknown as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -746,9 +734,7 @@ describe("thread store", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -781,9 +767,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -815,9 +799,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -870,9 +852,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -923,9 +903,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -954,9 +932,7 @@ describe("thread store", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -975,7 +951,9 @@ describe("thread store", () => {
   });
 
   it("does not start a duplicate fetchMoreThreads request while already fetching", async () => {
-    let resolveNextPage: ((value: unknown) => void) | null = null;
+    const nextPage = {
+      resolve: undefined as ((value: unknown) => void) | undefined,
+    };
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -988,14 +966,12 @@ describe("thread store", () => {
       .mockImplementationOnce(
         () =>
           new Promise((resolve) => {
-            resolveNextPage = resolve;
+            nextPage.resolve = resolve;
           }),
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -1018,7 +994,11 @@ describe("thread store", () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
 
-    resolveNextPage?.({
+    const resolveNextPage = nextPage.resolve;
+    if (!resolveNextPage) {
+      throw new Error("expected next-page resolver to be captured");
+    }
+    resolveNextPage({
       ok: true,
       json: async () => ({
         threads: [],
@@ -1035,9 +1015,7 @@ describe("thread store", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -1093,9 +1071,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -1141,9 +1117,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -1185,9 +1159,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -1216,9 +1188,7 @@ describe("thread store", () => {
       .mockImplementationOnce(() => new Promise(() => undefined));
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -1241,7 +1211,9 @@ describe("thread store", () => {
   });
 
   it("does not apply mutation failures to a newer context session", async () => {
-    let rejectMutation: ((error: unknown) => void) | null = null;
+    const mutationControl = {
+      reject: undefined as ((error: unknown) => void) | undefined,
+    };
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -1251,7 +1223,7 @@ describe("thread store", () => {
       .mockImplementationOnce(
         () =>
           new Promise((_resolve, reject) => {
-            rejectMutation = reject;
+            mutationControl.reject = reject;
           }),
       )
       .mockResolvedValueOnce({
@@ -1268,9 +1240,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -1288,7 +1258,11 @@ describe("thread store", () => {
       headers: {},
       agentId: "agent-2",
     });
-    rejectMutation?.(new Error("stale mutation failed"));
+    const rejectMutation = mutationControl.reject;
+    if (!rejectMutation) {
+      throw new Error("expected mutation rejecter to be captured");
+    }
+    rejectMutation(new Error("stale mutation failed"));
 
     await expect(mutation).rejects.toThrow("stale mutation failed");
     await flushEffects();
@@ -1315,9 +1289,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -1330,7 +1302,7 @@ describe("thread store", () => {
     await flushEffects();
     expect(ɵselectThreads(store.getState())).toHaveLength(2);
 
-    const channel = phoenix.sockets[0].channels[0];
+    const channel = getChannel();
     channel.serverPush("thread_metadata", {
       operation: "archived",
       threadId: "thread-1",
@@ -1343,7 +1315,7 @@ describe("thread store", () => {
     await flushEffects();
 
     expect(ɵselectThreads(store.getState())).toHaveLength(1);
-    expect(ɵselectThreads(store.getState())[0].id).toBe("thread-2");
+    expect(ɵselectThreads(store.getState())[0]?.id).toBe("thread-2");
   });
 
   it("keeps thread on archived WS event when includeArchived is true", async () => {
@@ -1359,9 +1331,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({
@@ -1375,7 +1345,7 @@ describe("thread store", () => {
     await flushEffects();
     expect(ɵselectThreads(store.getState())).toHaveLength(2);
 
-    const channel = phoenix.sockets[0].channels[0];
+    const channel = getChannel();
     channel.serverPush("thread_metadata", {
       operation: "archived",
       threadId: "thread-1",
@@ -1450,9 +1420,7 @@ describe("thread store", () => {
       });
     vi.stubGlobal("fetch", fetchMock);
 
-    const store = ɵcreateThreadStore(
-      createEnvironment(fetchMock as typeof fetch),
-    );
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
     stores.push(store);
     store.start();
     store.setContext({

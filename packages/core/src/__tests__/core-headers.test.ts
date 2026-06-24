@@ -18,7 +18,7 @@ describe("CopilotKitCore headers", () => {
     if (originalFetch) {
       global.fetch = originalFetch;
     } else {
-      delete (global as typeof globalThis & { fetch?: typeof fetch }).fetch;
+      delete (global as { fetch?: typeof fetch }).fetch;
     }
     // Restore window
     if (originalWindow === undefined) {
@@ -95,16 +95,18 @@ describe("CopilotKitCore headers", () => {
 
       async connectAgent(...args: Parameters<HttpAgent["connectAgent"]>) {
         recorded.push({ ...this.headers });
-        return Promise.resolve({ newMessages: [] }) as ReturnType<
-          HttpAgent["connectAgent"]
-        >;
+        return Promise.resolve({
+          result: undefined,
+          newMessages: [],
+        }) as ReturnType<HttpAgent["connectAgent"]>;
       }
 
       async runAgent(...args: Parameters<HttpAgent["runAgent"]>) {
         recorded.push({ ...this.headers });
-        return Promise.resolve({ newMessages: [] }) as ReturnType<
-          HttpAgent["runAgent"]
-        >;
+        return Promise.resolve({
+          result: undefined,
+          newMessages: [],
+        }) as ReturnType<HttpAgent["runAgent"]>;
       }
     }
 
@@ -203,9 +205,10 @@ describe("CopilotKitCore headers", () => {
 
       async runAgent(...args: Parameters<HttpAgent["runAgent"]>) {
         recorded.push({ ...this.headers });
-        return Promise.resolve({ newMessages: [] }) as ReturnType<
-          HttpAgent["runAgent"]
-        >;
+        return Promise.resolve({
+          result: undefined,
+          newMessages: [],
+        }) as ReturnType<HttpAgent["runAgent"]>;
       }
     }
 

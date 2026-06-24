@@ -176,7 +176,17 @@ jobs:
           # authoritative. CI verify history is a leading indicator only.
           # Run from showcase/scripts (where `npm ci` installed tsx) so npx
           # uses the local install instead of network-fetching it.
-          npx tsx verify-deploy.ts --env staging --services "$SERVICES_CSV"
+          #
+          # --skip-ineligible: SERVICES_CSV is the PROMOTE target set, which
+          # for `service=all` legitimately includes services that are
+          # promotable but NOT staging-probe-eligible (the starter-* fleet
+          # carries probe.staging=false in the SSOT). Those are an expected
+          # state here, not a fault — verify-deploy SKIPS them with a clear
+          # status line and probes only the eligible services, rather than
+          # hard-crashing the whole precondition on the first starter-*. This
+          # flag does NOT relax green for eligible services, nor does it
+          # tolerate an unknown (non-SSOT) name — a typo is still a hard error.
+          npx tsx verify-deploy.ts --env staging --services "$SERVICES_CSV" --skip-ineligible
 
   promote:
     needs: [resolve-targets, verify-staging-precondition]
@@ -487,6 +497,9 @@ jobs:
       # GITHUB_TOKEN), so the renderer dispatch goes through the devops-bot App
       # token minted below — mirroring canary.yml's cross-workflow dispatch.
       contents: read
+      # actions:read lets the payload step query this run's own metadata
+      # (created_at) to compute real wall-clock elapsed for the Slack message.
+      actions: read
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -507,6 +520,8 @@ jobs:
           # reliable email for github.actor, so pass the actor as the git-name
           # fallback (the renderer degrades to it when the email lookup is empty).
           ACTOR: ${{ github.actor }}
+          # gh api (run metadata lookup for real wall-clock elapsed) needs a token.
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           # SKIP cases that must NOT post a Slack message (parity with the old
@@ -548,17 +563,37 @@ jobs:
             jq -nc '{schema_version:1, abort_reason:"fleet-preflight", succeeded:[], failed:[]}' > /tmp/results-base.json
           fi
 
+          # Real wall-clock elapsed: this notify job runs last (needs: [...],
+          # if: always()), so (now - run.created_at) is the run's end-to-end
+          # duration. Query this run's own metadata via gh api (actions:read).
+          # Fall back to 0 only if the lookup fails or yields a non-sane value,
+          # in which case the renderer omits the "in {elapsed}" phrasing.
+          ELAPSED=0
+          created_at=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --jq '.created_at' 2>/dev/null || echo "")
+          if [ -n "$created_at" ]; then
+            start_epoch=$(date -u -d "$created_at" +%s 2>/dev/null || echo "")
+            if [ -n "$start_epoch" ]; then
+              now_epoch=$(date -u +%s)
+              delta=$(( now_epoch - start_epoch ))
+              # Guard against clock skew / parse glitches producing a negative.
+              if [ "$delta" -ge 0 ]; then
+                ELAPSED="$delta"
+              fi
+            fi
+          fi
+
           # Enrich the base blob with this run's context (run_id, trigger,
           # operator, elapsed, pre_staging). trigger=workflow (the renderer maps
-          # it to the `showcase_promote.yml` label). elapsed is best-effort 0
-          # here (the workflow does not track wall-clock); the renderer formats
-          # it as "0m 00s".
+          # it to the `showcase_promote.yml` label). elapsed_seconds is the real
+          # wall-clock computed above; the renderer formats it as "Nm SSs".
           ENRICHED_B64=$(jq -c \
             --arg run_id "$RUN_ID" \
             --arg trigger "workflow" \
             --arg actor "$ACTOR" \
             --arg pre "$PRE_STAGING" \
-            '. + {run_id:$run_id, trigger:$trigger, operator_git_name:$actor, elapsed_seconds:0, pre_staging:$pre}' \
+            --argjson elapsed "$ELAPSED" \
+            '. + {run_id:$run_id, trigger:$trigger, operator_git_name:$actor, elapsed_seconds:$elapsed, pre_staging:$pre}' \
             /tmp/results-base.json | base64 | tr -d '\n')
 
           {

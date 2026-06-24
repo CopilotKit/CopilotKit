@@ -40,6 +40,10 @@ function createMockCore() {
   return { core, subscribers };
 }
 
+function testIdFor(store: ɵThreadStore): string {
+  return (store as unknown as { __testId: string }).__testId;
+}
+
 // Build a typed minimal stub of ɵThreadStore. The registry only stores and
 // hands the reference back to subscribers; the methods are never invoked in
 // these tests. Using `vi.fn()` for every property keeps the shape honest
@@ -143,17 +147,13 @@ describe("ThreadStoreRegistry", () => {
     let finishUnregister: (() => void) | undefined;
     const subscriber: CopilotKitCoreSubscriber = {
       onThreadStoreRegistered: ({ store }) => {
-        calls.push(`registered:${(store as { __testId: string }).__testId}`);
+        calls.push(`registered:${testIdFor(store)}`);
       },
       onThreadStoreUnregistered: ({ prevStore }) =>
         new Promise<void>((resolve) => {
-          calls.push(
-            `unregister-start:${(prevStore as { __testId: string }).__testId}`,
-          );
+          calls.push(`unregister-start:${testIdFor(prevStore)}`);
           finishUnregister = () => {
-            calls.push(
-              `unregister-end:${(prevStore as { __testId: string }).__testId}`,
-            );
+            calls.push(`unregister-end:${testIdFor(prevStore)}`);
             resolve();
           };
         }),
@@ -184,16 +184,10 @@ describe("ThreadStoreRegistry", () => {
     const calls: string[] = [];
     const subscriber: CopilotKitCoreSubscriber = {
       onThreadStoreRegistered: ({ agentId, store }) => {
-        calls.push(
-          `registered:${agentId}:${(store as { __testId: string }).__testId}`,
-        );
+        calls.push(`registered:${agentId}:${testIdFor(store)}`);
       },
       onThreadStoreUnregistered: ({ agentId, prevStore }) => {
-        calls.push(
-          `unregister-start:${agentId}:${
-            (prevStore as { __testId: string }).__testId
-          }`,
-        );
+        calls.push(`unregister-start:${agentId}:${testIdFor(prevStore)}`);
         return new Promise<void>(() => {});
       },
     };

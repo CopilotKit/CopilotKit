@@ -1,4 +1,4 @@
-import type { Anchor, DockMode, Position, Size } from "./types";
+import type { Anchor, DockMode, Position, Size } from "./types.js";
 
 export type PersistedContextState = {
   anchor?: Anchor;
