@@ -25,7 +25,11 @@ import {
 } from "./utils/micro-redux";
 import type { Reducer, Store } from "./utils/micro-redux";
 
-const MEMORIES_PATH = "/api/memories";
+// Runtime-relative path, mirroring the thread store's `/threads` (NOT
+// `/api/threads`): `runtimeUrl` is the CopilotKit runtime mount (e.g.
+// `/api/copilotkit`), and the runtime maps `/memories` to the app-api's
+// `/api/memories` the same way it maps `/threads` -> `/api/threads`.
+const MEMORIES_PATH = "/memories";
 const REQUEST_TIMEOUT_MS = 15_000;
 
 /** Public, customer-facing memory kind vocabulary (single taxonomy, no mapping). */

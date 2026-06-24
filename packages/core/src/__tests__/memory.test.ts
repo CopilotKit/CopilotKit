@@ -318,7 +318,7 @@ describe("memory store REST snapshot", () => {
     await flushEffects();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://runtime.example.com/api/memories",
+      "https://runtime.example.com/memories",
       expect.objectContaining({ method: "GET" }),
     );
     expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
@@ -384,7 +384,7 @@ describe("memory store mutations", () => {
     expect(created.id).toBe("m1");
     expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
     expect(fetchMock).toHaveBeenLastCalledWith(
-      "https://runtime.example.com/api/memories",
+      "https://runtime.example.com/memories",
       expect.objectContaining({ method: "POST" }),
     );
 
@@ -406,7 +406,7 @@ describe("memory store mutations", () => {
 
     expect(store.getState().memories).toEqual([]);
     expect(fetchMock).toHaveBeenLastCalledWith(
-      "https://runtime.example.com/api/memories/m1",
+      "https://runtime.example.com/memories/m1",
       expect.objectContaining({ method: "DELETE" }),
     );
 
@@ -434,7 +434,7 @@ describe("memory store mutations", () => {
     expect(updated.id).toBe("m2");
     expect(store.getState().memories.map((m) => m.id)).toEqual(["m2"]);
     expect(fetchMock).toHaveBeenLastCalledWith(
-      "https://runtime.example.com/api/memories/m1",
+      "https://runtime.example.com/memories/m1",
       expect.objectContaining({ method: "PATCH" }),
     );
 
