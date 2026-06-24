@@ -59,7 +59,8 @@ export { defineToolCallRenderer } from "./types/defineToolCallRenderer";
 // Platform-agnostic types
 export type { ReactFrontendTool } from "./types/frontend-tool";
 export type { ReactHumanInTheLoop } from "./types/human-in-the-loop";
-export type { Interrupt, ResumeEntry, ResumeStatus } from "./types/interrupt";
+export type { Interrupt, ResumeEntry } from "./types/interrupt";
+export type { ResumeStatus } from "@ag-ui/client";
 
 // Platform-agnostic capability introspection
 export { useCapabilities } from "./hooks/use-capabilities";

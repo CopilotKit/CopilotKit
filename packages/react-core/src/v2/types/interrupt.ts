@@ -1,8 +1,6 @@
 import type { Interrupt, ResumeEntry, RunAgentResult } from "@ag-ui/client";
 
 export type { Interrupt, ResumeEntry };
-/** Resume status for a single interrupt: "resolved" (payload) or "cancelled". */
-export type ResumeStatus = ResumeEntry["status"];
 
 /** Legacy custom-event interrupt payload (agent emits a custom `on_interrupt` event). */
 export interface InterruptEvent<TValue = unknown> {

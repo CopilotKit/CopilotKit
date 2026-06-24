@@ -876,7 +876,7 @@ describe("useInterrupt", () => {
         useInterrupt({
           render: ({ resolve }) => {
             calls.push(resolve);
-            return null;
+            return <></>;
           },
         });
         return null;
@@ -915,7 +915,7 @@ describe("useInterrupt", () => {
         useInterrupt({
           render: ({ resolve }) => {
             calls.push(resolve);
-            return null;
+            return <></>;
           },
         });
         return null;
@@ -939,7 +939,7 @@ describe("useInterrupt", () => {
         useInterrupt({
           render: ({ resolve }) => {
             calls.push(resolve);
-            return null;
+            return <></>;
           },
         });
         return null;
@@ -973,7 +973,7 @@ describe("useInterrupt", () => {
         useInterrupt({
           render: ({ resolve }) => {
             calls.push(resolve);
-            return null;
+            return <></>;
           },
         });
         return null;
@@ -1008,7 +1008,7 @@ describe("useInterrupt", () => {
         useInterrupt({
           render: ({ resolve }) => {
             calls.push(resolve);
-            return null;
+            return <></>;
           },
         });
         return null;
@@ -1029,7 +1029,7 @@ describe("useInterrupt", () => {
         useInterrupt({
           render: ({ event, resolve }) => {
             calls.push({ event, resolve });
-            return null;
+            return <></>;
           },
         });
         return null;
