@@ -1,7 +1,7 @@
 let warned = false;
 
 const MIGRATION_GUIDE_URL =
-  "https://docs.copilotkit.ai/migrate/markdown-renderer";
+  "https://docs.copilotkit.ai/migrate/markdown-renderer#migrate-with-your-ai-assistant";
 
 // A ``` or ~~~ fence immediately followed by a language token (e.g. ```ts).
 // Plain fences with no language are not flagged — they render fine.
@@ -47,7 +47,8 @@ export function warnUnsupportedRichSyntaxOnce(content: string): void {
     `[CopilotKit] The built-in markdown renderer rendered ${feature} without ${missing}. ` +
       `It supports GFM, tables, autolinks, and citations, but not math, syntax ` +
       `highlighting, or diagrams. To restore those, plug in a custom markdownRenderer ` +
-      `(e.g. react-markdown or streamdown). See ${MIGRATION_GUIDE_URL}`,
+      `(e.g. react-markdown or streamdown) — or paste the migration prompt into your ` +
+      `AI assistant: ${MIGRATION_GUIDE_URL}`,
   );
 }
 
