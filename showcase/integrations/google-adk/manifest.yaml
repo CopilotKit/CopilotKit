@@ -71,7 +71,6 @@ not_supported_features:
   - interrupt-headless
   - reasoning-default-render
   - agentic-chat-reasoning
-  - tool-rendering-reasoning-chain
 a2ui_pattern: schema-loading
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
