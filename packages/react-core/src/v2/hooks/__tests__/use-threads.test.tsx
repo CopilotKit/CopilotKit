@@ -248,6 +248,12 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+function threadListFetchCalls() {
+  return fetchMock.mock.calls.filter(
+    ([url]) => typeof url === "string" && url.includes("/threads?"),
+  );
+}
+
 const defaultInput = { agentId: "agent-1" };
 
 const sampleThreads = [
@@ -943,6 +949,53 @@ describe("useThreads", () => {
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
+  });
+
+  it("does not refetch threads when headers are reallocated with the same contents", async () => {
+    const threadEndpointsWithoutRealtime = {
+      ...supportedThreadEndpoints,
+      realtimeMetadata: false,
+    };
+    let currentCopilotKit = createMockCopilotKit({
+      headers: {
+        Authorization: "Bearer test-token",
+        "X-CSRF": "1",
+      },
+      threadEndpoints: threadEndpointsWithoutRealtime,
+      intelligence: undefined,
+    });
+    mockUseCopilotKit.mockImplementation(() => ({
+      copilotkit: currentCopilotKit,
+    }));
+    fetchMock.mockReturnValue(jsonResponse({ threads: sampleThreads }));
+
+    const { result, rerender } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(threadListFetchCalls()).toHaveLength(1);
+
+    currentCopilotKit = createMockCopilotKit({
+      headers: {
+        "X-CSRF": "1",
+        Authorization: "Bearer test-token",
+      },
+      threadEndpoints: threadEndpointsWithoutRealtime,
+      intelligence: undefined,
+    });
+    rerender();
+
+    await act(async () => {
+      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(threadListFetchCalls()).toHaveLength(1);
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "t-2",
+      "t-1",
+    ]);
   });
 
   it("clears stale threads when list identity changes during a transient reconnect", async () => {

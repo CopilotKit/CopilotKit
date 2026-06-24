@@ -137,6 +137,22 @@ function useThreadStoreSelector<T>(
 
 const EMPTY_HEADERS: Record<string, string> = {};
 
+function getSortedHeaderEntries(
+  headers: Record<string, string>,
+): Array<[string, string]> {
+  return Object.entries(headers).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+}
+
+function getHeadersKey(headers: Record<string, string>): string {
+  return JSON.stringify(getSortedHeaderEntries(headers));
+}
+
+function createStableHeaders(headers: Record<string, string>) {
+  return Object.fromEntries(getSortedHeaderEntries(headers));
+}
+
 function getThreadListIdentity({
   runtimeUrl,
   headers,
@@ -150,13 +166,9 @@ function getThreadListIdentity({
   includeArchived?: boolean;
   limit?: number;
 }): string {
-  const headerEntries = Object.entries(headers).sort(([left], [right]) =>
-    left.localeCompare(right),
-  );
-
   return JSON.stringify({
     runtimeUrl: runtimeUrl ?? null,
-    headers: headerEntries,
+    headers: getSortedHeaderEntries(headers),
     agentId,
     includeArchived: includeArchived === true,
     limit: limit ?? null,
@@ -248,7 +260,21 @@ export function useThreads({
     store,
     ɵselectIsFetchingNextPage,
   );
-  const headers = copilotkit.headers ?? EMPTY_HEADERS;
+  const rawHeaders = copilotkit.headers ?? EMPTY_HEADERS;
+  const headersKey = useMemo(() => getHeadersKey(rawHeaders), [rawHeaders]);
+  const stableHeadersRef = useRef<{
+    key: string;
+    headers: Record<string, string>;
+  } | null>(null);
+  let stableHeaders = stableHeadersRef.current;
+  if (stableHeaders === null || stableHeaders.key !== headersKey) {
+    stableHeaders = {
+      key: headersKey,
+      headers: createStableHeaders(rawHeaders),
+    };
+    stableHeadersRef.current = stableHeaders;
+  }
+  const headers = stableHeaders.headers;
   const runtimeStatus = copilotkit.runtimeConnectionStatus;
   const threadEndpoints = useMemo(
     () => copilotkit.threadEndpoints,
