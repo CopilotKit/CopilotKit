@@ -1,0 +1,10 @@
+:root {
+  --background: #ffffff;
+  --border: #e5e7eb;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
