@@ -6,3 +6,4 @@ test-results
 playwright-report
 artifacts
 *.tsbuildinfo
+next-env.d.ts
