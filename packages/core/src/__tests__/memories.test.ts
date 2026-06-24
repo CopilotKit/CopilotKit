@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { firstValueFrom } from "rxjs";
 import { take, toArray } from "rxjs/operators";
 import {
-  ɵcreateInMemoryMemoryStore,
+  ɵcreateMemoryStore,
   ɵselectMemories,
   ɵselectMemoriesError,
   ɵselectMemoriesIsLoading,
@@ -18,9 +18,9 @@ const sampleMemory: PublicMemory = {
   invalidatedAt: null,
 };
 
-describe("ɵcreateInMemoryMemoryStore", () => {
+describe("ɵcreateMemoryStore", () => {
   it("starts empty with no error and not loading", () => {
-    const store = ɵcreateInMemoryMemoryStore();
+    const store = ɵcreateMemoryStore();
 
     expect(store.getState().memories).toEqual([]);
     expect(store.getState().isLoading).toBe(false);
@@ -28,13 +28,13 @@ describe("ɵcreateInMemoryMemoryStore", () => {
   });
 
   it("seeds the list from initial memories", () => {
-    const store = ɵcreateInMemoryMemoryStore({ initial: [sampleMemory] });
+    const store = ɵcreateMemoryStore({ initial: [sampleMemory] });
 
     expect(store.getState().memories).toEqual([sampleMemory]);
   });
 
   it("addMemory inserts the created memory and resolves to it", async () => {
-    const store = ɵcreateInMemoryMemoryStore({
+    const store = ɵcreateMemoryStore({
       idFactory: () => "mem-created",
     });
 
@@ -52,7 +52,7 @@ describe("ɵcreateInMemoryMemoryStore", () => {
 
   it("updateMemory supersedes: new id minted, old id removed, change applied", async () => {
     let next = 0;
-    const store = ɵcreateInMemoryMemoryStore({
+    const store = ɵcreateMemoryStore({
       initial: [sampleMemory],
       idFactory: () => `mem-superseded-${(next += 1)}`,
     });
@@ -69,7 +69,7 @@ describe("ɵcreateInMemoryMemoryStore", () => {
   });
 
   it("updateMemory preserves untouched fields onto the superseded memory", async () => {
-    const store = ɵcreateInMemoryMemoryStore({
+    const store = ɵcreateMemoryStore({
       initial: [sampleMemory],
       idFactory: () => "mem-next",
     });
@@ -84,7 +84,7 @@ describe("ɵcreateInMemoryMemoryStore", () => {
   });
 
   it("updateMemory rejects with MEMORY_NOT_FOUND for an unknown id", async () => {
-    const store = ɵcreateInMemoryMemoryStore();
+    const store = ɵcreateMemoryStore();
 
     await expect(store.updateMemory("nope", { content: "x" })).rejects.toThrow(
       "MEMORY_NOT_FOUND",
@@ -92,7 +92,7 @@ describe("ɵcreateInMemoryMemoryStore", () => {
   });
 
   it("removeMemory removes the memory from the list", async () => {
-    const store = ɵcreateInMemoryMemoryStore({ initial: [sampleMemory] });
+    const store = ɵcreateMemoryStore({ initial: [sampleMemory] });
 
     await store.removeMemory("mem-seed");
 
@@ -100,7 +100,7 @@ describe("ɵcreateInMemoryMemoryStore", () => {
   });
 
   it("ɵselectMemories emits the updated list after a mutation", async () => {
-    const store = ɵcreateInMemoryMemoryStore({
+    const store = ɵcreateMemoryStore({
       idFactory: () => "mem-rt",
     });
 
@@ -121,7 +121,7 @@ describe("ɵcreateInMemoryMemoryStore", () => {
   });
 
   it("applies an externally emitted created event (realtime reconciliation)", () => {
-    const store = ɵcreateInMemoryMemoryStore();
+    const store = ɵcreateMemoryStore();
 
     store.ɵemitMetadataEvent({ operation: "created", memory: sampleMemory });
 
@@ -129,7 +129,7 @@ describe("ɵcreateInMemoryMemoryStore", () => {
   });
 
   it("applies an externally emitted invalidated event", () => {
-    const store = ɵcreateInMemoryMemoryStore({ initial: [sampleMemory] });
+    const store = ɵcreateMemoryStore({ initial: [sampleMemory] });
 
     store.ɵemitMetadataEvent({
       operation: "invalidated",
@@ -140,7 +140,7 @@ describe("ɵcreateInMemoryMemoryStore", () => {
   });
 
   it("exposes loading and error via selectors", async () => {
-    const store = ɵcreateInMemoryMemoryStore();
+    const store = ɵcreateMemoryStore();
 
     expect(await firstValueFrom(store.select(ɵselectMemoriesIsLoading))).toBe(
       false,

@@ -157,6 +157,11 @@ export interface InMemoryMemoryStoreOptions {
   initial?: PublicMemory[];
   /** Id minted for created/superseded memories. Defaults to a counter. */
   idFactory?: () => string;
+  /**
+   * Transport hook consumed by RD-34's real store implementation. Accepted here
+   * for interface compatibility but unused by the in-memory mock.
+   */
+  fetch?: typeof fetch;
 }
 
 /**
@@ -181,10 +186,12 @@ function createDefaultIdFactory(): () => string {
 }
 
 /**
- * Creates an {@link InMemoryMemoryStore}. See {@link InMemoryMemoryStore} for
- * why this exists and how it relates to RD-34's real store.
+ * Creates an {@link InMemoryMemoryStore}. This is the canonical factory name
+ * consumed by the React and Angular SDK bindings. RD-34 replaces this
+ * function's body with the transport-backed implementation; the name,
+ * signature, and {@link MemoryStore} contract remain stable.
  */
-export function ɵcreateInMemoryMemoryStore(
+export function ɵcreateMemoryStore(
   options: InMemoryMemoryStoreOptions = {},
 ): InMemoryMemoryStore {
   const mintId = options.idFactory ?? createDefaultIdFactory();
