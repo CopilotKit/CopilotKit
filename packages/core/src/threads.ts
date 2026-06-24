@@ -297,7 +297,11 @@ function getThreadListAvailabilityKey(
   return [
     context.runtimeConnectionStatus ?? "",
     context.runtimeUrl ?? "",
+    context.wsUrl ?? "",
     context.threadEndpoints?.list === true ? "list:true" : "list:unavailable",
+    context.threadEndpoints?.realtimeMetadata === true
+      ? "realtime:true"
+      : "realtime:unavailable",
   ].join("|");
 }
 
@@ -726,6 +730,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               actions$.pipe(
                 ofType(
                   threadAdapterEvents.contextChanged,
+                  threadAdapterEvents.contextAvailabilityChanged,
                   threadAdapterEvents.stopped,
                 ),
               ),
@@ -778,6 +783,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               actions$.pipe(
                 ofType(
                   threadAdapterEvents.contextChanged,
+                  threadAdapterEvents.contextAvailabilityChanged,
                   threadAdapterEvents.stopped,
                 ),
               ),
@@ -812,6 +818,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           const shutdown$ = actions$.pipe(
             ofType(
               threadAdapterEvents.contextChanged,
+              threadAdapterEvents.contextAvailabilityChanged,
               threadAdapterEvents.stopped,
             ),
           );
@@ -980,6 +987,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               actions$.pipe(
                 ofType(
                   threadAdapterEvents.contextChanged,
+                  threadAdapterEvents.contextAvailabilityChanged,
                   threadAdapterEvents.stopped,
                 ),
               ),

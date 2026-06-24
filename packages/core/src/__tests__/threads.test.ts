@@ -108,6 +108,14 @@ function getChannel(): MockChannel {
   return channel;
 }
 
+function getSocket(): MockSocket {
+  const socket = phoenix.sockets[0];
+  if (!socket) {
+    throw new Error("expected a phoenix socket to exist");
+  }
+  return socket;
+}
+
 function getFetchCall(fetchMock: Mock, index: number) {
   const call = fetchMock.mock.calls[index];
   if (!call) {
@@ -259,6 +267,82 @@ describe("thread store", () => {
       id: "thread-1",
       name: "Renamed Thread",
     });
+  });
+
+  it("tears down realtime when capability is withdrawn on the same context reference", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-2",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    const stableContext = context();
+    stores.push(store);
+    store.start();
+    store.setContext(stableContext);
+
+    await flushEffects();
+
+    const socket = getSocket();
+    const channel = getChannel();
+    expect(socket.disconnected).toBe(false);
+    expect(channel.left).toBe(false);
+
+    stableContext.threadEndpoints = {
+      list: true,
+      inspect: true,
+      mutations: true,
+      realtimeMetadata: false,
+    };
+    store.setContext(stableContext);
+
+    await flushEffects();
+
+    expect(channel.left).toBe(true);
+    expect(socket.disconnected).toBe(true);
+
+    channel.serverPush("thread_metadata", {
+      operation: "renamed",
+      threadId: "thread-1",
+      userId: "user-1",
+      organizationId: "org-1",
+      occurredAt: "2026-01-03T00:00:00Z",
+      thread: {
+        ...sampleThreads[0],
+        name: "Should Not Apply",
+        updatedAt: "2026-01-03T00:00:00Z",
+      },
+    });
+
+    await flushEffects();
+
+    const thread = ɵselectThreads(store.getState()).find(
+      (item) => item.id === "thread-1",
+    );
+    expect(thread).toMatchObject({
+      id: "thread-1",
+      name: "Older Thread",
+    });
+    expect(phoenix.sockets).toHaveLength(1);
   });
 
   it("applies realtime events without client-side user filtering", async () => {

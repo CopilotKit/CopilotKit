@@ -13,6 +13,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -136,6 +137,32 @@ function useThreadStoreSelector<T>(
 
 const EMPTY_HEADERS: Record<string, string> = {};
 
+function getThreadListIdentity({
+  runtimeUrl,
+  headers,
+  agentId,
+  includeArchived,
+  limit,
+}: {
+  runtimeUrl?: string;
+  headers: Record<string, string>;
+  agentId: string;
+  includeArchived?: boolean;
+  limit?: number;
+}): string {
+  const headerEntries = Object.entries(headers).sort(([left], [right]) =>
+    left.localeCompare(right),
+  );
+
+  return JSON.stringify({
+    runtimeUrl: runtimeUrl ?? null,
+    headers: headerEntries,
+    agentId,
+    includeArchived: includeArchived === true,
+    limit: limit ?? null,
+  });
+}
+
 /**
  * React hook for listing and managing Intelligence platform threads.
  *
@@ -241,7 +268,13 @@ export function useThreads({
   // the first fetch is in flight (at which point the store's own
   // isLoading takes over).
   const [hasDispatchedContext, setHasDispatchedContext] = useState(false);
+  const hasDispatchedContextRef = useRef(false);
+  const lastDispatchedListIdentityRef = useRef<string | null>(null);
   const preConnectLoading = !!copilotkit.runtimeUrl && !hasDispatchedContext;
+  const markHasDispatchedContext = useCallback((value: boolean) => {
+    hasDispatchedContextRef.current = value;
+    setHasDispatchedContext(value);
+  }, []);
 
   const isLoading = preConnectLoading || storeIsLoading;
   const error = storeError;
@@ -273,6 +306,14 @@ export function useThreads({
   }, [copilotkit, agentId, store]);
 
   useEffect(() => {
+    const listIdentity = getThreadListIdentity({
+      runtimeUrl: copilotkit.runtimeUrl,
+      headers,
+      agentId,
+      includeArchived,
+      limit,
+    });
+
     if (!copilotkit.runtimeUrl) {
       const context: ɵThreadRuntimeContext = {
         runtimeUrl: undefined,
@@ -285,7 +326,8 @@ export function useThreads({
       };
 
       store.setContext(context);
-      setHasDispatchedContext(true);
+      lastDispatchedListIdentityRef.current = listIdentity;
+      markHasDispatchedContext(true);
       return;
     }
 
@@ -302,13 +344,22 @@ export function useThreads({
       };
 
       store.setContext(context);
-      setHasDispatchedContext(true);
+      lastDispatchedListIdentityRef.current = listIdentity;
+      markHasDispatchedContext(true);
       return;
     }
 
     // Wait for /info to land so we can include `wsUrl` in the initial
     // context and avoid a redundant second list fetch.
     if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
+      if (
+        hasDispatchedContextRef.current &&
+        lastDispatchedListIdentityRef.current !== listIdentity
+      ) {
+        store.setContext(null);
+        lastDispatchedListIdentityRef.current = null;
+        markHasDispatchedContext(false);
+      }
       return;
     }
 
@@ -324,7 +375,8 @@ export function useThreads({
     };
 
     store.setContext(context);
-    setHasDispatchedContext(true);
+    lastDispatchedListIdentityRef.current = listIdentity;
+    markHasDispatchedContext(true);
   }, [
     store,
     copilotkit.runtimeUrl,
@@ -335,6 +387,7 @@ export function useThreads({
     agentId,
     includeArchived,
     limit,
+    markHasDispatchedContext,
   ]);
 
   const renameThread = useMemo(

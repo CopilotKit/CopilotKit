@@ -216,19 +216,26 @@ const supportedThreadEndpoints = {
   realtimeMetadata: true,
 };
 
+function createMockCopilotKit(
+  overrides: Partial<MockCopilotKitForThreads> = {},
+): MockCopilotKitForThreads {
+  return {
+    runtimeUrl: "http://localhost:4000",
+    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+    headers: { Authorization: "Bearer test-token" },
+    threadEndpoints: supportedThreadEndpoints,
+    intelligence: {
+      wsUrl: "ws://localhost:4000/client",
+    },
+    registerThreadStore: vi.fn(),
+    unregisterThreadStore: vi.fn(),
+    ...overrides,
+  };
+}
+
 function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
   mockUseCopilotKit.mockReturnValue({
-    copilotkit: {
-      runtimeUrl,
-      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
-      headers: { Authorization: "Bearer test-token" },
-      threadEndpoints: supportedThreadEndpoints,
-      intelligence: {
-        wsUrl: "ws://localhost:4000/client",
-      },
-      registerThreadStore: vi.fn(),
-      unregisterThreadStore: vi.fn(),
-    },
+    copilotkit: createMockCopilotKit({ runtimeUrl }),
   });
 }
 
@@ -936,5 +943,90 @@ describe("useThreads", () => {
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
+  });
+
+  it("clears stale threads when list identity changes during a transient reconnect", async () => {
+    const agentTwoThreads = [
+      {
+        ...sampleThreads[0],
+        id: "t-agent-2",
+        agentId: "agent-2",
+        name: "Agent Two Thread",
+        updatedAt: "2026-02-01T00:00:00Z",
+      },
+    ];
+    let currentCopilotKit = createMockCopilotKit({
+      threadEndpoints: {
+        list: true,
+        inspect: true,
+        mutations: true,
+        realtimeMetadata: false,
+      },
+      intelligence: undefined,
+    });
+    mockUseCopilotKit.mockImplementation(() => ({
+      copilotkit: currentCopilotKit,
+    }));
+    fetchMock
+      .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+      .mockReturnValueOnce(jsonResponse({ threads: agentTwoThreads }));
+
+    const { result, rerender } = renderHook(
+      ({ agentId }: { agentId: string }) => useThreads({ agentId }),
+      { initialProps: { agentId: "agent-1" } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+    expect(result.current.threads.map((thread) => thread.agentId)).toEqual([
+      "agent-1",
+      "agent-1",
+    ]);
+    fetchMock.mockClear();
+
+    currentCopilotKit = createMockCopilotKit({
+      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connecting,
+      threadEndpoints: {
+        list: true,
+        inspect: true,
+        mutations: true,
+        realtimeMetadata: false,
+      },
+      intelligence: undefined,
+    });
+    rerender({ agentId: "agent-2" });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.threads).toEqual([]);
+    expect(result.current.isLoading).toBe(true);
+
+    currentCopilotKit = createMockCopilotKit({
+      threadEndpoints: {
+        list: true,
+        inspect: true,
+        mutations: true,
+        realtimeMetadata: false,
+      },
+      intelligence: undefined,
+    });
+    rerender({ agentId: "agent-2" });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/threads?agentId=agent-2"),
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(result.current.threads.map((thread) => thread.id)).toEqual([
+      "t-agent-2",
+    ]);
   });
 });
