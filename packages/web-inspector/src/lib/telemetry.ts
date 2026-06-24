@@ -21,11 +21,11 @@ import {
   isTelemetryOptedOut,
   markTelemetryDisclosureShown,
 } from "./persistence.js";
+import packageJson from "../../package.json" with { type: "json" };
 
 // V1 funnel events. Namespaced `oss.inspector.*` so the lambda's
-// event-type allowlist (oss-path-to-production) can gate them
-// server-side. Adding a new event here requires a corresponding
-// allowlist entry on the lambda or events will be rejected.
+// owned-prefix gate (oss-path-to-production) can accept them server-side
+// without a per-event sink deploy.
 export const TELEMETRY_EVENTS = {
   bannerViewed: "oss.inspector.banner_viewed",
   bannerClicked: "oss.inspector.banner_clicked",
@@ -54,7 +54,7 @@ export const TELEMETRY_INGEST_URL = "https://telemetry.copilotkit.ai/ingest";
 export const TELEMETRY_DOCS_URL = "https://docs.copilotkit.ai/telemetry";
 
 const PACKAGE_NAME = "@copilotkit/web-inspector";
-const PACKAGE_VERSION = "1.61.1";
+const PACKAGE_VERSION = packageJson.version;
 
 // 3-second cap so a slow gateway can't hang the host app. Matches the
 // runtime's existing scarf-client convention.
@@ -176,7 +176,7 @@ export function trackBannerClicked(props: {
 
 export type InspectorThreadTelemetryProps = {
   package_name?: typeof PACKAGE_NAME;
-  package_version?: typeof PACKAGE_VERSION;
+  package_version?: string;
   inspector_distinct_id?: string;
   posthog_distinct_id?: string;
   intelligence_status?:
