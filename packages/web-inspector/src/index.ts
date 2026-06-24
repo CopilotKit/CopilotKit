@@ -2544,7 +2544,7 @@ export class WebInspectorElement extends LitElement {
     const threadsSub = store.select(ɵselectThreads).subscribe((threads) => {
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
       this._threads = Array.from(this._threadsByAgent.values()).flat();
-      this.autoSelectLatestThread();
+      this.syncSelectedThreadWithThreads();
       this.requestUpdate();
     });
     const errorSub = store.select(ɵselectThreadsError).subscribe((error) => {
@@ -2569,11 +2569,14 @@ export class WebInspectorElement extends LitElement {
       this._threadsErrorByAgent.delete(agentId);
     }
     this._threads = Array.from(this._threadsByAgent.values()).flat();
-    this.autoSelectLatestThread();
+    this.syncSelectedThreadWithThreads();
   }
 
-  private autoSelectLatestThread(): void {
-    if (this._threads.length === 0) return;
+  private syncSelectedThreadWithThreads(): void {
+    if (this._threads.length === 0) {
+      this.selectedThreadId = null;
+      return;
+    }
     const stillValid =
       this.selectedThreadId != null &&
       this._threads.some((t) => t.id === this.selectedThreadId);
@@ -2591,6 +2594,7 @@ export class WebInspectorElement extends LitElement {
     this._threadsByAgent.clear();
     this._threadsErrorByAgent.clear();
     this._threads = [];
+    this.syncSelectedThreadWithThreads();
   }
 
   private ensureOwnedThreadStore(agentId: string): void {
@@ -2715,6 +2719,7 @@ export class WebInspectorElement extends LitElement {
           // Clear stale thread data immediately when the server goes away
           this._threadsByAgent.clear();
           this._threads = [];
+          this.syncSelectedThreadWithThreads();
         }
         this.requestUpdate();
       },
@@ -2749,6 +2754,7 @@ export class WebInspectorElement extends LitElement {
         this._threadsByAgent.delete(agentId);
         this._threadsErrorByAgent.delete(agentId);
         this._threads = Array.from(this._threadsByAgent.values()).flat();
+        this.syncSelectedThreadWithThreads();
         this.requestUpdate();
       },
     } satisfies CopilotKitCoreSubscriber;
@@ -5923,10 +5929,10 @@ ${argsString}</pre
         <!-- Center + right: thread details or empty state -->
         <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
           ${
-            this.selectedThreadId
+            selectedThread
               ? html`<cpk-thread-details
                   style="flex:1;min-width:0;"
-                  .threadId=${this.selectedThreadId}
+                  .threadId=${selectedThread.id}
                   .thread=${selectedThread}
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
@@ -5934,20 +5940,13 @@ ${argsString}</pre
                     this._core?.threadEndpoints?.inspect !== false
                   }
                   .liveMessageVersion=${
-                    this.selectedThreadId
-                      ? (this.liveMessageVersion.get(this.selectedThreadId) ??
-                        0)
-                      : 0
+                    this.liveMessageVersion.get(selectedThread.id) ?? 0
                   }
-                  .agentStateInput=${
-                    selectedThread
-                      ? this.getLatestStateForAgent(selectedThread.agentId)
-                      : null
-                  }
+                  .agentStateInput=${this.getLatestStateForAgent(
+                    selectedThread.agentId,
+                  )}
                   .agentEventsInput=${
-                    selectedThread
-                      ? (this.agentEvents.get(selectedThread.agentId) ?? [])
-                      : []
+                    this.agentEvents.get(selectedThread.agentId) ?? []
                   }
                 ></cpk-thread-details>`
               : html`
@@ -6652,7 +6651,7 @@ ${prettyEvent}</pre
       if (this.selectedMenu !== "threads" && !this.core?.telemetryDisabled) {
         trackThreadsTabClicked();
       }
-      this.autoSelectLatestThread();
+      this.syncSelectedThreadWithThreads();
     }
 
     if (key === "ag-ui-events" || key === "agents") {

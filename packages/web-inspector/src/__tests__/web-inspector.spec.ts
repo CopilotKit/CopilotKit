@@ -15,6 +15,8 @@ type InspectorInternals = {
   agentStates: Map<string, unknown>;
   cachedTools: Array<{ name: string }>;
   _threads: Array<{ id: string }>;
+  selectedMenu: string;
+  selectedThreadId: string | null;
 };
 
 type InspectorContextInternals = {
@@ -709,6 +711,10 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     fetchMock.mock.calls.filter((call) =>
       String(call[0]).includes("/threads?"),
     );
+  const threadDetailsCalls = () =>
+    fetchMock.mock.calls.filter((call) =>
+      String(call[0]).includes("/threads/thread-1/"),
+    );
 
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -835,5 +841,78 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(headersOf(threadListCalls()[0]!)).toMatchObject({
       Authorization: "Bearer abc",
     });
+  });
+
+  it("clears selected thread and does not render details when reconnect clears threads", async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/threads?")) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              threads: [
+                {
+                  id: "thread-1",
+                  organizationId: "org-1",
+                  agentId: "alpha",
+                  createdById: "user-1",
+                  name: "Selected thread",
+                  archived: false,
+                  createdAt: "2026-06-24T12:00:00.000Z",
+                  updatedAt: "2026-06-24T12:00:00.000Z",
+                },
+              ],
+            }),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ messages: [] }),
+      });
+    });
+
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore(
+      { alpha: agent },
+      { Authorization: "Bearer abc" },
+    );
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = getInternals(inspector);
+    await vi.waitFor(() => {
+      expect(internals._threads).toHaveLength(1);
+      expect(internals.selectedThreadId).toBe("thread-1");
+    });
+
+    fetchMock.mockClear();
+
+    harness.core.runtimeUrl = "http://localhost/new-runtime";
+    harness.core.intelligence = undefined;
+    harness.emitRuntimeConnectionStatusChanged(
+      CopilotKitCoreRuntimeConnectionStatus.Connecting,
+    );
+
+    await inspector.updateComplete;
+
+    expect(internals._threads).toEqual([]);
+    expect(internals.selectedThreadId).toBeNull();
+
+    internals.selectedMenu = "threads";
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+    await Promise.resolve();
+
+    expect(
+      inspector.shadowRoot?.querySelector("cpk-thread-details"),
+    ).toBeNull();
+    expect(threadDetailsCalls()).toHaveLength(0);
   });
 });
