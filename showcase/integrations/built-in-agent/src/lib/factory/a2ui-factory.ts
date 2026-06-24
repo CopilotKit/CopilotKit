@@ -2,11 +2,14 @@ import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
+// @doc-replace
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+// @doc-as
+// @doc-end
 
 const CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog";
 const A2UI_OPERATIONS_KEY = "a2ui_operations";
@@ -108,7 +111,11 @@ function buildGenerateA2uiTool(
       : SECONDARY_LLM_INSTRUCTIONS;
 
     const text = await chat({
+      // @doc-replace
       adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+      // @doc-as
+      // adapter: openaiText("gpt-4o"),
+      // @doc-end
       messages: [{ role: "user", content: brief }],
       systemPrompts: [systemPrompt],
       stream: false,
@@ -184,7 +191,11 @@ export function createDeclarativeGenUIAgent() {
       );
 
       return chat({
+        // @doc-replace
         adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
+        // @doc-as
+        // adapter: openaiText("gpt-4o"),
+        // @doc-end
         messages,
         systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
         tools: [generateA2ui],

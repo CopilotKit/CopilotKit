@@ -24,15 +24,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import type { ToolRunnableConfig } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import {
-  AIMessage,
-  SystemMessage,
-  ToolMessage,
-} from "@langchain/core/messages";
+import type { AIMessage } from "@langchain/core/messages";
+import { SystemMessage, ToolMessage } from "@langchain/core/messages";
 import {
   Annotation,
   Command,
@@ -40,7 +37,11 @@ import {
   START,
   StateGraph,
 } from "@langchain/langgraph";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// import { ChatOpenAI } from "@langchain/openai";
+// @doc-end
 import {
   convertActionsToDynamicStructuredTools,
   copilotkitEmitState,
@@ -265,11 +266,19 @@ Tool guidance:
 `;
 
 async function chatNode(state: BeautifulChatState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     temperature: 0,
     model: "gpt-4o",
     modelKwargs: { parallel_tool_calls: false },
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //     temperature: 0,
+  //     model: "gpt-4o",
+  //     modelKwargs: { parallel_tool_calls: false },
+  //   });
+  // @doc-end
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

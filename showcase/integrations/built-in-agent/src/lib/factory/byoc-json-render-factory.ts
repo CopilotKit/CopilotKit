@@ -3,11 +3,14 @@ import { EventType } from "@ag-ui/client";
 import type { BaseEvent } from "@ag-ui/client";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+// @doc-replace
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+// @doc-as
+// @doc-end
 
 const SYSTEM_PROMPT = `\
 You are a sales-dashboard UI generator for a BYOC json-render demo.
@@ -151,7 +154,11 @@ export function createByocJsonRenderAgent() {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
 
       const stream = chat({
+        // @doc-replace
         adapter: openaiText("gpt-4o-mini", { fetch: forwardingFetch }),
+        // @doc-as
+        // adapter: openaiText("gpt-4o-mini"),
+        // @doc-end
         messages,
         systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
         tools: [],

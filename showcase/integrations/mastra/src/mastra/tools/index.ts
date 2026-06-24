@@ -2,10 +2,14 @@
 // @region[weather-tool-backend]
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+// @doc-replace
 // Use the header-forwarding `openai` so backend tool LLM calls (e.g.
 // generateText inside generateA2ui) carry the inbound aimock context
 // headers. See `_header_forwarding.ts`.
 import { openai } from "@/mastra/_header_forwarding";
+// @doc-as
+// import { openai } from "@ai-sdk/openai";
+// @doc-end
 import { generateText, tool as aiTool } from "ai";
 import {
   getWeatherImpl,

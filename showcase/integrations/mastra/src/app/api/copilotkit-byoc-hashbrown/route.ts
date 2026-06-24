@@ -10,7 +10,8 @@
 // weatherAgent produces plain text that `useJsonParser` parses as `null`,
 // leaving the dashboard empty — which is why D5 probes time out.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -18,7 +19,10 @@ import {
 } from "@copilotkit/runtime";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
+// @doc-replace
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
+// @doc-as
+// @doc-end
 
 const byocHashbrownAgent = getLocalAgent({
   mastra,
@@ -37,6 +41,7 @@ const runtime = new CopilotRuntime({
   agents: { "byoc-hashbrown-demo": byocHashbrownAgent },
 });
 
+// @doc-replace
 export const POST = async (req: NextRequest) =>
   withForwardedHeaders(req, async () => {
     try {
@@ -54,3 +59,21 @@ export const POST = async (req: NextRequest) =>
       );
     }
   });
+// @doc-as
+// export const POST = async (req: NextRequest) => {
+//   try {
+//     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+//       endpoint: "/api/copilotkit-byoc-hashbrown",
+//       serviceAdapter: new ExperimentalEmptyAdapter(),
+//       runtime,
+//     });
+//     return await handleRequest(req);
+//   } catch (error: unknown) {
+//     const e = error as { message?: string; stack?: string };
+//     return NextResponse.json(
+//       { error: e.message, stack: e.stack },
+//       { status: 500 },
+//     );
+//   }
+// };
+// @doc-end

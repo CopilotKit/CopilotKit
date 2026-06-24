@@ -1,15 +1,16 @@
 import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
-import {
-  OpenAIChatCompletionsTextAdapter,
-  type OpenAIChatCompletionsProviderOptions,
-} from "@tanstack/ai-openai";
+import { OpenAIChatCompletionsTextAdapter } from "@tanstack/ai-openai";
+import type { OpenAIChatCompletionsProviderOptions } from "@tanstack/ai-openai";
 import { baseServerTools } from "./server-tools";
+// @doc-replace
 // Custom fetch that injects ALS-bound inbound x-* headers (e.g.
 // x-aimock-context) onto every outbound OpenAI call. Required so aimock
 // can match fixtures by integration context. See ../header-forwarding.ts
 // for the full rationale; mirrors the Mastra precedent.
 import { forwardingFetch } from "../header-forwarding";
+// @doc-as
+// @doc-end
 
 /**
  * Reasoning model used by all three reasoning demos.
@@ -84,7 +85,11 @@ function createReasoningAdapter() {
   // REASONING_MODEL is read from env (string); the adapter's generic is
   // pinned to a concrete reasoning-capable chat model for typing.
   return new ReasoningChatCompletionsAdapter(
+    // @doc-replace
     { apiKey, fetch: forwardingFetch },
+    // @doc-as
+    // { apiKey },
+    // @doc-end
     REASONING_MODEL as "gpt-5.2",
   );
 }

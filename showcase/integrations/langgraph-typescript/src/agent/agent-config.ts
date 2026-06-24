@@ -22,7 +22,10 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
 
@@ -151,10 +154,17 @@ function buildSystemPrompt(props: ResolvedProps): string {
 }
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     model: "gpt-4o-mini",
     temperature: 0.4,
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //     model: "gpt-4o-mini",
+  //     temperature: 0.4,
+  //   });
+  // @doc-end
   const props = readConfig(state, config);
   const systemPrompt = buildSystemPrompt(props);
 

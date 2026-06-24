@@ -14,10 +14,12 @@
 console.log(`[agent_server] module loaded ${new Date().toISOString()}`);
 
 // @region[weather-tool-backend]
-import express, { Request, Response } from "express";
+import type { Request, Response } from "express";
+import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
-import { EventType, RunAgentInput, Message } from "@ag-ui/core";
+import type { RunAgentInput, Message } from "@ag-ui/core";
+import { EventType } from "@ag-ui/core";
 import * as dotenv from "dotenv";
 import { randomUUID } from "crypto";
 import { BYOC_JSON_RENDER_SYSTEM_PROMPT } from "./agent/byoc-json-render-prompt";
@@ -35,8 +37,8 @@ import {
   SUBAGENT_SYSTEM_BY_NAME,
   SUBAGENT_TOOL_SCHEMAS,
   SUPERVISOR_SYSTEM_PROMPT,
-  type SubAgentName,
 } from "./agent/subagents-prompts";
+import type { SubAgentName } from "./agent/subagents-prompts";
 import {
   A2UI_FIXED_SYSTEM_PROMPT,
   DISPLAY_FLIGHT_TOOL_SCHEMA,
@@ -95,6 +97,7 @@ console.log(
 // Helpers
 // ---------------------------------------------------------------------------
 
+// @doc-replace
 /**
  * Extract inbound headers that should ride along to the outbound Anthropic
  * call: `authorization` + every `x-*` header. Mirrors the runtime's
@@ -109,6 +112,20 @@ console.log(
  * call. We strip `host`, `content-length` and `accept-encoding` because
  * those are connection-level concerns the SDK manages itself.
  */
+// @doc-as
+// /**
+//  * Extract inbound headers that should ride along to the outbound Anthropic
+//  * call: `authorization` + every `x-*` header. Mirrors the runtime's
+//  * `extractForwardableHeaders` (@copilotkit/runtime
+//  * `v2/runtime/handlers/header-utils.ts`) and the LGT/LGP forwarding
+//  * pattern.
+//  *
+//  * Returns a plain Record so it can be spread into Anthropic SDK
+//  * `RequestOptions.headers` on every `messages.stream` / `messages.create`
+//  * call. We strip `host`, `content-length` and `accept-encoding` because
+//  * those are connection-level concerns the SDK manages itself.
+//  */
+// @doc-end
 function extractForwardedHeaders(req: Request): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(req.headers)) {
@@ -118,6 +135,7 @@ function extractForwardedHeaders(req: Request): Record<string, string> {
       out[key] = value;
     }
   }
+  // @doc-replace
   // CVDIAG (als-snapshot): record whether the inbound x-aimock-context
   // discriminator was present at the moment we capture the inbound
   // headers off the Express request. Never log the full value — prefix
@@ -140,9 +158,12 @@ function extractForwardedHeaders(req: Request): Record<string, string> {
       `hop=${hops ? hopCount : "-"} status=${slug ? "ok" : "miss"} ` +
       `test_id=${lookup("x-test-id") ?? "none"} error=`,
   );
+  // @doc-as
+  // @doc-end
   return out;
 }
 
+// @doc-replace
 /**
  * CVDIAG (outbound-llm) choke-point for the claude-sdk-ts backend. Returns
  * a NEW headers map (never mutates the caller's) with this layer's hop tag
@@ -195,6 +216,8 @@ function diagOutboundHeaders(
   );
   return augmented;
 }
+// @doc-as
+// @doc-end
 
 /**
  * Convert an AG-UI `binary` content part into an Anthropic ContentBlock.
@@ -440,11 +463,18 @@ function makeAgentHandler(config: DemoConfig = {}) {
   return async (req: Request, res: Response): Promise<void> => {
     const input = req.body as RunAgentInput;
     const accept = req.headers["accept"] ?? "";
+    // @doc-replace
     // Inbound x-* / authorization headers travel from the AG-UI client →
     // CopilotRuntime → HttpAgent → here. We forward them to every
     // Anthropic call so aimock (and any other downstream observer)
     // receives `x-aimock-context` and friends.
     const forwardedHeaders = extractForwardedHeaders(req);
+    // @doc-as
+    // // Inbound x-* / authorization headers travel from the AG-UI client →
+    // // CopilotRuntime → HttpAgent → here. We forward them to every
+    // // Anthropic call so downstream observers receive them.
+    // const forwardedHeaders = extractForwardedHeaders(req);
+    // @doc-end
 
     const encoder = new EventEncoder({ accept });
     res.setHeader("Content-Type", encoder.getContentType());
@@ -529,9 +559,15 @@ function makeAgentHandler(config: DemoConfig = {}) {
       let reasoningEnded = false;
 
       try {
+        // @doc-replace
         const stream = await anthropic.messages.stream(claudeRequest, {
           headers: diagOutboundHeaders(forwardedHeaders),
         });
+        // @doc-as
+        // const stream = await anthropic.messages.stream(claudeRequest, {
+        //   headers: forwardedHeaders,
+        // });
+        // @doc-end
 
         for await (const event of stream) {
           if (event.type === "message_start") {
@@ -733,7 +769,11 @@ async function invokeSubAgent(
       system: systemPrompt,
       messages: [{ role: "user", content: task }],
     },
+    // @doc-replace
     { headers: diagOutboundHeaders(forwardedHeaders) },
+    // @doc-as
+    // { headers: forwardedHeaders },
+    // @doc-end
   );
   const parts = response.content
     .filter((c): c is Anthropic.TextBlock => c.type === "text")
@@ -994,12 +1034,19 @@ async function runAgenticLoop(
 ): Promise<void> {
   const input = req.body as RunAgentInput;
   const accept = req.headers["accept"] ?? "";
+  // @doc-replace
   // See `makeAgentHandler` — same forwarding contract applies to the
   // agentic-loop demos (shared-state-read-write, subagents, a2ui-fixed,
   // headless-complete). Without this, the secondary Anthropic calls
   // inside the loop (and the supervisor's stream) all miss
   // x-aimock-context and aimock returns 404.
   const forwardedHeaders = extractForwardedHeaders(req);
+  // @doc-as
+  // // See `makeAgentHandler` — same forwarding contract applies to the
+  // // agentic-loop demos. The secondary Anthropic calls inside the loop
+  // // (and the supervisor's stream) all forward these headers.
+  // const forwardedHeaders = extractForwardedHeaders(req);
+  // @doc-end
 
   const encoder = new EventEncoder({ accept });
   res.setHeader("Content-Type", encoder.getContentType());
@@ -1090,7 +1137,11 @@ async function runAgenticLoop(
                 }
               : {}),
           },
+          // @doc-replace
           { headers: diagOutboundHeaders(forwardedHeaders) },
+          // @doc-as
+          // { headers: forwardedHeaders },
+          // @doc-end
         );
 
         for await (const event of stream) {

@@ -30,7 +30,11 @@ from tools import (
     RENDER_A2UI_TOOL_SCHEMA,
 )
 
+# @doc-replace
 from ._header_forwarding import get_forwarded_headers
+
+# @doc-as
+# @doc-end
 from ._request_context import get_latest_user_message
 
 logger = logging.getLogger(__name__)
@@ -100,11 +104,14 @@ async def generate_a2ui() -> str:
     # with empty args ``{}`` (see the no-arg signature + the D6 fixtures),
     # so a required ``context`` param only produced a pydantic hot loop.
     inner_system_prompt = "Generate a useful dashboard UI."
+    # @doc-replace
     # A13: forward inbound x-* headers via extra_headers as a defense in depth
     # alongside the global httpx hook (see _header_forwarding.py). The hook
     # patches httpx at module load, but extra_headers makes the intent
     # explicit at the call site and is robust to alternative HTTP transports.
     forwarded = get_forwarded_headers()
+    # @doc-as
+    # @doc-end
     try:
         response = await _async_openai_client.chat.completions.create(
             model="gpt-4.1",
@@ -125,7 +132,10 @@ async def generate_a2ui() -> str:
                 )
             ],
             tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+            # @doc-replace
             extra_headers=forwarded or None,
+            # @doc-as
+            # @doc-end
         )
     except Exception as exc:
         logger.error(

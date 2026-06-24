@@ -9,7 +9,8 @@
 // weatherAgent — the advanced cell only differs by client-side
 // sandbox-function registrations passed to <CopilotKit openGenerativeUI={...}>.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -17,7 +18,10 @@ import {
 } from "@copilotkit/runtime";
 import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
+// @doc-replace
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
+// @doc-as
+// @doc-end
 
 const openGenUiAgent = getLocalAgent({
   mastra,
@@ -67,6 +71,7 @@ const runtime = new CopilotRuntime({
 // @endregion[advanced-runtime-config]
 // @endregion[minimal-runtime-flag]
 
+// @doc-replace
 export const POST = async (req: NextRequest) =>
   withForwardedHeaders(req, async () => {
     try {
@@ -84,3 +89,21 @@ export const POST = async (req: NextRequest) =>
       );
     }
   });
+// @doc-as
+// export const POST = async (req: NextRequest) => {
+//   try {
+//     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+//       endpoint: "/api/copilotkit-ogui",
+//       serviceAdapter: new ExperimentalEmptyAdapter(),
+//       runtime,
+//     });
+//     return await handleRequest(req);
+//   } catch (error: unknown) {
+//     const e = error as { message?: string; stack?: string };
+//     return NextResponse.json(
+//       { error: e.message, stack: e.stack },
+//       { status: 500 },
+//     );
+//   }
+// };
+// @doc-end

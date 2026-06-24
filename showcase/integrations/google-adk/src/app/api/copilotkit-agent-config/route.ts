@@ -23,20 +23,26 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
+// @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 export const POST = async (req: NextRequest) => {
   try {
-    // Per-request agent build conveys inbound `x-aimock-context` (and any
-    // other x-* header) to the Python agent_server. See
-    // `src/lib/header-forwarding.ts` for the rationale.
+    // @doc-replace
     const headers = extractForwardedHeaders(req);
     const agentConfigAgent = new HttpAgent({
       url: `${AGENT_URL}/agent_config`,
       headers,
     });
+    // @doc-as
+    // const agentConfigAgent = new HttpAgent({
+    //   url: `${AGENT_URL}/agent_config`,
+    // });
+    // @doc-end
 
     const agents: Record<string, HttpAgent> = {
       // The page's <CopilotKit agent="agent-config-demo"> resolves here.

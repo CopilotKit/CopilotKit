@@ -7,9 +7,12 @@ import {
 } from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
+// @doc-replace
 // CVDIAG backend instrumentation (L1-E). No-op pass-through unless
 // CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
 import { withCvdiagBackend } from "@/cvdiag-backend";
+// @doc-as
+// @doc-end
 
 // The Claude agent backend runs as a separate TypeScript process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -196,6 +199,7 @@ const copilotkitPost = async (req: NextRequest): Promise<Response> => {
   }
 };
 
+// @doc-replace
 // Wrap with CVDIAG backend instrumentation (L1-E). The Claude Agent SDK (TS)
 // backend is a pass-through proxy with no per-request named agent, so a fixed
 // `agent_name` is stamped. No-op pass-through unless CVDIAG_BACKEND_EMITTER is
@@ -205,6 +209,9 @@ export const POST = withCvdiagBackend(copilotkitPost, {
   agentName: "claude-agent",
   provider: "anthropic",
 });
+// @doc-as
+// export const POST = copilotkitPost;
+// @doc-end
 
 export const GET = async () => {
   console.log("[copilotkit/route] GET /api/copilotkit (health probe)");

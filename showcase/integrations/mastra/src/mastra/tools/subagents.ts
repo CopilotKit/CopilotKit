@@ -2,11 +2,15 @@
 // @region[subagent-setup]
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+// @doc-replace
 // Use the header-forwarding `openai` so subagents' internal LLM calls
 // carry the inbound `x-aimock-context` / `x-aimock-strict` headers. Without
 // this, sub-agent calls return 404 from aimock under strict mode. See
 // `_header_forwarding.ts` for the ALS-bound fetch wrapper.
 import { openai } from "@/mastra/_header_forwarding";
+// @doc-as
+// import { openai } from "@ai-sdk/openai";
+// @doc-end
 import { Agent } from "@mastra/core/agent";
 import crypto from "node:crypto";
 import { writeDelegationsToWorkingMemory } from "./working-memory";

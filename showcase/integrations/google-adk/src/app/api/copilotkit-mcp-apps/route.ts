@@ -9,29 +9,38 @@
 // Reference:
 // https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+// @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 export const POST = async (req: NextRequest) => {
   try {
-    // Per-request build conveys inbound `x-aimock-context` to the Python
-    // agent_server. See `src/lib/header-forwarding.ts`.
+    // @doc-replace
     const headers = extractForwardedHeaders(req);
+    // @doc-as
+    // @doc-end
     const mcpAppsAgent: AbstractAgent = new HttpAgent({
       // Backend mounts this agent at `/mcp-apps` (dash) per
       // agents/registry.py — not `/mcp_apps`. Stale underscore here caused
       // every MCP Apps request to 404 at the ADK FastAPI layer, surfacing
       // as `HTTP 404: {"detail":"Not Found"}` in the chat.
       url: `${AGENT_URL}/mcp-apps`,
+      // @doc-replace
       headers,
+      // @doc-as
+      // @doc-end
     });
 
     // headless-complete shares this runtime because its cell also exercises
@@ -40,7 +49,10 @@ export const POST = async (req: NextRequest) => {
     // registry entry of the same name (mapped to _simple_chat).
     const headlessCompleteAgent: AbstractAgent = new HttpAgent({
       url: `${AGENT_URL}/headless_complete`,
+      // @doc-replace
       headers,
+      // @doc-as
+      // @doc-end
     });
 
     // @region[runtime-mcpapps-config]

@@ -4,6 +4,7 @@ import {
   InMemoryAgentRunner,
 } from "@copilotkit/runtime/v2";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
+// @doc-replace
 // `withForwardedHeaders` snapshots inbound x-* headers (e.g.
 // x-aimock-context) into an AsyncLocalStorage scope so the wrapped
 // OpenAI client's custom fetch can re-attach them on every outbound
@@ -13,6 +14,8 @@ import { withForwardedHeaders } from "@/lib/header-forwarding";
 // CVDIAG backend instrumentation (L1-E). No-op pass-through unless
 // CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
 import { withCvdiagBackend } from "@/cvdiag-backend";
+// @doc-as
+// @doc-end
 
 const runtime = new CopilotRuntime({
   agents: { default: createBuiltInAgent() },
@@ -25,6 +28,7 @@ const handler = createCopilotRuntimeHandler({
   mode: "single-route",
 });
 
+// @doc-replace
 async function withProbeCompat(req: Request): Promise<Response> {
   const res = await handler(req);
   if (res.status === 404) {
@@ -49,3 +53,8 @@ export const POST = withCvdiagBackend(copilotkitPost, {
 });
 export const OPTIONS = (req: Request) =>
   withForwardedHeaders(req, () => handler(req));
+// @doc-as
+// export const GET = (req: Request) => handler(req);
+// export const POST = (req: Request) => handler(req);
+// export const OPTIONS = (req: Request) => handler(req);
+// @doc-end

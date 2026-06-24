@@ -30,7 +30,10 @@ from agno.models.openai import OpenAIChat
 from agno.run import RunContext
 from dotenv import load_dotenv
 
+# @doc-replace
 from agents._header_forwarding import get_forwarded_headers
+# @doc-as
+# @doc-end
 
 from tools import (
     build_a2ui_operations_from_tool_call,
@@ -103,6 +106,7 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
     if context and context.strip():
         system_prompt = f"{system_prompt}\n\nConversation context:\n{context}"
 
+    # @doc-replace
     # Forward the request-scoped CopilotKit ``x-*`` headers (notably
     # ``x-aimock-context``) onto this SECONDARY OpenAI call explicitly.
     # agno runs under uvloop in prod, where the executor-contextvar shim is
@@ -114,6 +118,9 @@ def generate_a2ui(run_context: RunContext, context: str) -> str:
     # ``x-aimock-context``.
     forwarded_headers = get_forwarded_headers()
     client = openai.OpenAI(default_headers=forwarded_headers or None)
+    # @doc-as
+    # client = openai.OpenAI()
+    # @doc-end
     response = client.chat.completions.create(
         model="gpt-4.1",
         messages=[
