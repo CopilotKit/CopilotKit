@@ -143,6 +143,7 @@ const threadAdapterEvents = createActionGroup("Thread Adapter", {
     name: string;
   }>(),
   archiveRequested: props<{ requestId: string; threadId: string }>(),
+  unarchiveRequested: props<{ requestId: string; threadId: string }>(),
   deleteRequested: props<{ requestId: string; threadId: string }>(),
 });
 
@@ -400,6 +401,7 @@ interface ThreadStore {
   fetchNextPage(): void;
   renameThread(threadId: string, name: string): Promise<void>;
   archiveThread(threadId: string): Promise<void>;
+  unarchiveThread(threadId: string): Promise<void>;
   deleteThread(threadId: string): Promise<void>;
   getState(): ThreadState;
   select: Store<ThreadState>["select"];
@@ -880,6 +882,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
         ofType(
           threadAdapterEvents.renameRequested,
           threadAdapterEvents.archiveRequested,
+          threadAdapterEvents.unarchiveRequested,
           threadAdapterEvents.deleteRequested,
         ),
         withLatestFrom(state$),
@@ -923,6 +926,18 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
             });
           }
 
+          if (threadAdapterEvents.unarchiveRequested.match(action)) {
+            return createThreadMutationObservable(environment, context, {
+              requestId: action.requestId,
+              method: "PATCH",
+              path: `/threads/${encodeURIComponent(action.threadId)}`,
+              body: {
+                ...commonBody,
+                archived: false,
+              },
+            });
+          }
+
           return createThreadMutationObservable(environment, context, {
             requestId: action.requestId,
             method: "DELETE",
@@ -951,6 +966,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     dispatchAction:
       | ReturnType<typeof threadAdapterEvents.renameRequested>
       | ReturnType<typeof threadAdapterEvents.archiveRequested>
+      | ReturnType<typeof threadAdapterEvents.unarchiveRequested>
       | ReturnType<typeof threadAdapterEvents.deleteRequested>,
   ): Promise<void> {
     const completion$ = merge(
@@ -1020,6 +1036,14 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     archiveThread(threadId: string): Promise<void> {
       return trackMutation(
         threadAdapterEvents.archiveRequested({
+          requestId: createThreadRequestId(),
+          threadId,
+        }),
+      );
+    },
+    unarchiveThread(threadId: string): Promise<void> {
+      return trackMutation(
+        threadAdapterEvents.unarchiveRequested({
           requestId: createThreadRequestId(),
           threadId,
         }),

@@ -592,6 +592,36 @@ describe("useThreads", () => {
     );
   });
 
+  it("unarchives a thread through the runtime contract", async () => {
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
+      .mockReturnValueOnce(jsonResponse({}));
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.unarchiveThread("t-2");
+    });
+
+    const unarchiveCall = fetchMock.mock.calls.find(
+      (args: unknown[]) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).includes("/threads/t-2") &&
+        (args[1] as { method?: string } | undefined)?.method === "PATCH",
+    );
+    expect(unarchiveCall).toBeDefined();
+    expect(
+      JSON.parse((unarchiveCall![1] as { body: string }).body),
+    ).toMatchObject({ agentId: "agent-1", archived: false });
+  });
+
   it("exposes thread-scoped pagination properties", async () => {
     fetchMock
       .mockReturnValueOnce(

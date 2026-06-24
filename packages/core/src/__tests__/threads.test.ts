@@ -367,6 +367,53 @@ describe("thread store", () => {
     });
   });
 
+  it("unarchives a thread via a PATCH with archived:false", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: { Authorization: "Bearer token" },
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+
+    await store.unarchiveThread("thread-2");
+
+    const unarchiveCall = getFetchCall(fetchMock, 2);
+    expect(unarchiveCall[0]).toBe(
+      "https://runtime.example.com/threads/thread-2",
+    );
+    expect(unarchiveCall[1]).toMatchObject({ method: "PATCH" });
+    expect(JSON.parse(unarchiveCall[1].body)).toMatchObject({
+      agentId: "agent-1",
+      archived: false,
+    });
+  });
+
   it("stores fetch failures in error state", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
