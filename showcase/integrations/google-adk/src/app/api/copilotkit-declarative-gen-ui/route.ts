@@ -1,13 +1,13 @@
 // Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic Schema)
-// demo. `a2ui.injectA2UITool: false` — the backend ADK agent OWNS
-// `generate_a2ui` via the ag-ui-adk >= 0.7.0 middleware (`get_a2ui_tool`, see
-// src/agents/declarative_gen_ui_agent.py), which drives the forced
-// `render_a2ui` sub-agent + toolkit recovery loop + recovery-exhausted
-// hard-fail envelope (OSS-158). The runtime must NOT inject a second copy or it
-// would double-bind the tool slot. NOTE: this `false` is load-bearing —
-// CopilotKit#5611 makes a provider catalog default `injectA2UITool` to true, so
-// omitting it would re-introduce the double-bind. Mirrors the AWS Strands / ag2
-// external-framework convention (vs langgraph-python's runtime-driven `true`).
+// demo. `a2ui.injectA2UITool: true` — runtime-driven auto-injection, matching
+// the langgraph-python and AWS Strands gold-standard declarative-gen-ui routes.
+// The backend agent (src/agents/declarative_gen_ui_agent.py) wires NO
+// `generate_a2ui` tool; the ag-ui-adk >= 0.7.0 adapter sees this forwarded flag
+// and auto-injects `generate_a2ui` (via `plan_a2ui_injection`), then drives the
+// forced `render_a2ui` sub-agent + toolkit validate->retry recovery and emits
+// the `a2ui_operations` container the A2UI middleware paints. (The ADK-only
+// a2ui-recovery demo keeps the backend-owned `get_a2ui_tool` wiring instead,
+// since only that path surfaces the recovery loop explicitly.)
 //
 // The A2UI middleware still serialises the registered client catalog into the
 // agent's context (routed into the sub-agent prompt) so the planner knows
@@ -39,7 +39,7 @@ export const POST = async (req: NextRequest) => {
     const runtime = new CopilotRuntime({
       agents: { "declarative-gen-ui": declarativeGenUiAgent },
       a2ui: {
-        injectA2UITool: false,
+        injectA2UITool: true,
         // Models follow the tool-usage guide and omit `catalogId`, and the
         // middleware then falls back to the unregistered spec basic catalog
         // ("Catalog not found" render error). Pin the catalog the page registers.
