@@ -259,7 +259,11 @@ export async function* convertAISDKStream(
           };
           const toolCallId =
             (p.toolCallId as string | undefined) ?? nested.toolCallId;
-          if (!toolCallId) break;
+          if (!toolCallId) {
+            throw new Error(
+              "AI SDK tool-approval-request is missing toolCallId",
+            );
+          }
           const state = ensureToolCallState(toolCallId);
           const toolName = state.toolName ?? nested.toolName;
 
