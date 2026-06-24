@@ -1,11 +1,11 @@
-import type { DraftNode } from './internal';
+import type { DraftNode } from "./internal";
 import type {
   CitationState,
   StreamingMarkdownAstNode,
   StreamingMarkdownHeadingNode,
   StreamingMarkdownWarning,
   TextSegment,
-} from './types';
+} from "./types";
 
 /**
  * Operation protocol used to reduce tokenized draft trees into immutable AST state.
@@ -13,19 +13,19 @@ import type {
  */
 export type StreamingMarkdownAstOp =
   | {
-      kind: 'upsert-node';
+      kind: "upsert-node";
       path: string;
       parentPath: string | null;
-      type: DraftNode['type'];
+      type: DraftNode["type"];
       range: { start: number; end: number };
       closed: boolean;
       props: Record<string, unknown>;
       childPaths: string[];
     }
-  | { kind: 'set-warnings'; warnings: StreamingMarkdownWarning[] }
-  | { kind: 'set-citations'; citations: CitationState }
+  | { kind: "set-warnings"; warnings: StreamingMarkdownWarning[] }
+  | { kind: "set-citations"; citations: CitationState }
   | {
-      kind: 'set-segmenter-warning-state';
+      kind: "set-segmenter-warning-state";
       hasWarnedSegmenterUnavailable: boolean;
     };
 
@@ -35,7 +35,9 @@ export type StreamingMarkdownAstOp =
  * @param root - Draft AST root.
  * @returns Ordered operations for reducer application.
  */
-export function createAstOpsFromDraft(root: DraftNode): StreamingMarkdownAstOp[] {
+export function createAstOpsFromDraft(
+  root: DraftNode,
+): StreamingMarkdownAstOp[] {
   const ops: StreamingMarkdownAstOp[] = [];
 
   function visit(node: DraftNode, parentPath: string | null) {
@@ -44,7 +46,7 @@ export function createAstOpsFromDraft(root: DraftNode): StreamingMarkdownAstOp[]
     );
 
     ops.push({
-      kind: 'upsert-node',
+      kind: "upsert-node",
       path: node.path,
       parentPath,
       type: node.type,
@@ -88,8 +90,8 @@ export function applyAstOps(input: {
     input.previousNodes.map((node) => [node.id, node]),
   );
   const nodeOps = input.ops.filter(
-    (op): op is Extract<StreamingMarkdownAstOp, { kind: 'upsert-node' }> =>
-      op.kind === 'upsert-node',
+    (op): op is Extract<StreamingMarkdownAstOp, { kind: "upsert-node" }> =>
+      op.kind === "upsert-node",
   );
 
   const pathToId: Record<string, number> = {};
@@ -110,7 +112,7 @@ export function applyAstOps(input: {
     const materialized = opToAstNode(op, id, parentId, childIds);
     const previous = previousNodeById.get(id);
     const reconciled =
-      previous?.type === 'text' && materialized.type === 'text'
+      previous?.type === "text" && materialized.type === "text"
         ? reconcileTextNode(previous, materialized)
         : materialized;
 
@@ -122,17 +124,17 @@ export function applyAstOps(input: {
 
   const rootPath = nodeOps[0]?.path;
   if (!rootPath) {
-    throw new Error('StreamingMarkdown op stream did not include a root node');
+    throw new Error("StreamingMarkdown op stream did not include a root node");
   }
 
   const warnings =
     input.ops.find(
-      (op): op is Extract<StreamingMarkdownAstOp, { kind: 'set-warnings' }> =>
-        op.kind === 'set-warnings',
+      (op): op is Extract<StreamingMarkdownAstOp, { kind: "set-warnings" }> =>
+        op.kind === "set-warnings",
     )?.warnings ?? [];
   const citations = input.ops.find(
-    (op): op is Extract<StreamingMarkdownAstOp, { kind: 'set-citations' }> =>
-      op.kind === 'set-citations',
+    (op): op is Extract<StreamingMarkdownAstOp, { kind: "set-citations" }> =>
+      op.kind === "set-citations",
   )?.citations ?? { order: [], numbers: {}, definitions: {} };
   const hasWarnedSegmenterUnavailable =
     input.ops.find(
@@ -140,8 +142,8 @@ export function applyAstOps(input: {
         op,
       ): op is Extract<
         StreamingMarkdownAstOp,
-        { kind: 'set-segmenter-warning-state' }
-      > => op.kind === 'set-segmenter-warning-state',
+        { kind: "set-segmenter-warning-state" }
+      > => op.kind === "set-segmenter-warning-state",
     )?.hasWarnedSegmenterUnavailable ?? false;
 
   return {
@@ -156,7 +158,7 @@ export function applyAstOps(input: {
 }
 
 function opToAstNode(
-  op: Extract<StreamingMarkdownAstOp, { kind: 'upsert-node' }>,
+  op: Extract<StreamingMarkdownAstOp, { kind: "upsert-node" }>,
   id: number,
   parentId: number | null,
   children: number[],
@@ -170,121 +172,124 @@ function opToAstNode(
   };
 
   switch (op.type) {
-    case 'document':
-      return { ...base, type: 'document', children };
-    case 'paragraph':
-      return { ...base, type: 'paragraph', children };
-    case 'heading':
+    case "document":
+      return { ...base, type: "document", children };
+    case "paragraph":
+      return { ...base, type: "paragraph", children };
+    case "heading":
       return {
         ...base,
-        type: 'heading',
-        level: op.props['level'] as StreamingMarkdownHeadingNode['level'],
+        type: "heading",
+        level: op.props["level"] as StreamingMarkdownHeadingNode["level"],
         children,
       };
-    case 'blockquote':
-      return { ...base, type: 'blockquote', children };
-    case 'list':
+    case "blockquote":
+      return { ...base, type: "blockquote", children };
+    case "list":
       return {
         ...base,
-        type: 'list',
-        ordered: op.props['ordered'] as boolean,
-        start: op.props['start'] as number | null,
-        tight: op.props['tight'] as boolean,
+        type: "list",
+        ordered: op.props["ordered"] as boolean,
+        start: op.props["start"] as number | null,
+        tight: op.props["tight"] as boolean,
         children,
       };
-    case 'list-item':
-      return { ...base, type: 'list-item', children };
-    case 'code-block':
+    case "list-item":
+      return { ...base, type: "list-item", children };
+    case "code-block":
       return {
         ...base,
-        type: 'code-block',
-        fence: op.props['fence'] as '```' | '~~~',
-        info: op.props['info'] as string | undefined,
-        meta: op.props['meta'] as string | undefined,
-        text: op.props['text'] as string,
+        type: "code-block",
+        fence: op.props["fence"] as "```" | "~~~",
+        info: op.props["info"] as string | undefined,
+        meta: op.props["meta"] as string | undefined,
+        text: op.props["text"] as string,
       };
-    case 'table':
+    case "table":
       return {
         ...base,
-        type: 'table',
-        align: op.props['align'] as Array<'left' | 'right' | 'center' | 'none'>,
+        type: "table",
+        align: op.props["align"] as Array<"left" | "right" | "center" | "none">,
         children,
       };
-    case 'table-row':
+    case "table-row":
       return {
         ...base,
-        type: 'table-row',
-        isHeader: op.props['isHeader'] as boolean,
+        type: "table-row",
+        isHeader: op.props["isHeader"] as boolean,
         children,
       };
-    case 'table-cell':
-      return { ...base, type: 'table-cell', children };
-    case 'thematic-break':
-      return { ...base, type: 'thematic-break' };
-    case 'text':
+    case "table-cell":
+      return { ...base, type: "table-cell", children };
+    case "thematic-break":
+      return { ...base, type: "thematic-break" };
+    case "text":
       return {
         ...base,
-        type: 'text',
-        text: op.props['text'] as string,
-        segments: op.props['segments'] as TextSegment[],
+        type: "text",
+        text: op.props["text"] as string,
+        segments: op.props["segments"] as TextSegment[],
       };
-    case 'em':
-      return { ...base, type: 'em', children };
-    case 'strong':
-      return { ...base, type: 'strong', children };
-    case 'strikethrough':
-      return { ...base, type: 'strikethrough', children };
-    case 'inline-code':
+    case "em":
+      return { ...base, type: "em", children };
+    case "strong":
+      return { ...base, type: "strong", children };
+    case "strikethrough":
+      return { ...base, type: "strikethrough", children };
+    case "inline-code":
       return {
         ...base,
-        type: 'inline-code',
-        text: op.props['text'] as string,
+        type: "inline-code",
+        text: op.props["text"] as string,
       };
-    case 'soft-break':
-      return { ...base, type: 'soft-break' };
-    case 'hard-break':
-      return { ...base, type: 'hard-break' };
-    case 'link':
+    case "soft-break":
+      return { ...base, type: "soft-break" };
+    case "hard-break":
+      return { ...base, type: "hard-break" };
+    case "link":
       return {
         ...base,
-        type: 'link',
-        url: op.props['url'] as string,
-        title: op.props['title'] as string | undefined,
+        type: "link",
+        url: op.props["url"] as string,
+        title: op.props["title"] as string | undefined,
         children,
       };
-    case 'image':
+    case "image":
       return {
         ...base,
-        type: 'image',
-        url: op.props['url'] as string,
-        title: op.props['title'] as string | undefined,
-        alt: op.props['alt'] as string,
+        type: "image",
+        url: op.props["url"] as string,
+        title: op.props["title"] as string | undefined,
+        alt: op.props["alt"] as string,
       };
-    case 'autolink':
+    case "autolink":
       return {
         ...base,
-        type: 'autolink',
-        url: op.props['url'] as string,
-        text: op.props['text'] as string,
+        type: "autolink",
+        url: op.props["url"] as string,
+        text: op.props["text"] as string,
       };
     default:
       return {
         ...base,
-        type: 'citation',
-        idRef: op.props['idRef'] as string,
-        number: op.props['number'] as number | undefined,
+        type: "citation",
+        idRef: op.props["idRef"] as string,
+        number: op.props["number"] as number | undefined,
       };
   }
 }
 
-function astNodeEquals(a: StreamingMarkdownAstNode, b: StreamingMarkdownAstNode): boolean {
+function astNodeEquals(
+  a: StreamingMarkdownAstNode,
+  b: StreamingMarkdownAstNode,
+): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
 function reconcileTextNode(
-  previous: Extract<StreamingMarkdownAstNode, { type: 'text' }>,
-  next: Extract<StreamingMarkdownAstNode, { type: 'text' }>,
-): Extract<StreamingMarkdownAstNode, { type: 'text' }> {
+  previous: Extract<StreamingMarkdownAstNode, { type: "text" }>,
+  next: Extract<StreamingMarkdownAstNode, { type: "text" }>,
+): Extract<StreamingMarkdownAstNode, { type: "text" }> {
   if (next.segments.length === 0 || previous.segments.length === 0) {
     return next;
   }

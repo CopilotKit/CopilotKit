@@ -6,7 +6,7 @@ export {
   createStreamingMarkdownParserState,
   finalizeStreamingMarkdown,
   parseStreamingMarkdownChunk,
-} from './state';
+} from "./state";
 
 /**
  * streaming markdown parser and AST types.
@@ -23,4 +23,4 @@ export type {
   ParseMode,
   SegmenterOptions,
   TextSegment,
-} from './types';
+} from "./types";

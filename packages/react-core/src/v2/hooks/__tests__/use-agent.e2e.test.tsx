@@ -152,7 +152,9 @@ describe("useAgent e2e", () => {
       // Use textContent check because the streaming renderer splits text across
       // per-segment <span>s — getByText can't match the full string in one element.
       await waitFor(() => {
-        expect(document.body.textContent).toContain("Hello! I received your message.");
+        expect(document.body.textContent).toContain(
+          "Hello! I received your message.",
+        );
       });
     });
   });

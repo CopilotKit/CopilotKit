@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react';
-import { useStreamingMarkdownParser } from './use-streaming-markdown-parser';
+import { renderHook } from "@testing-library/react";
+import { useStreamingMarkdownParser } from "./use-streaming-markdown-parser";
 
-test('useStreamingMarkdownParser parses prefix updates incrementally', () => {
+test("useStreamingMarkdownParser parses prefix updates incrementally", () => {
   const { result, rerender } = renderHook(
     ({ text }) =>
       useStreamingMarkdownParser(text, {
@@ -9,28 +9,28 @@ test('useStreamingMarkdownParser parses prefix updates incrementally', () => {
       }),
     {
       initialProps: {
-        text: 'first\n\nsecond',
+        text: "first\n\nsecond",
       },
     },
   );
 
   const firstParagraphBefore = result.current.nodes.find(
-    (node) => node.type === 'paragraph' && node.range.start === 0,
+    (node) => node.type === "paragraph" && node.range.start === 0,
   );
 
   rerender({
-    text: 'first\n\nsecond line',
+    text: "first\n\nsecond line",
   });
 
   const firstParagraphAfter = result.current.nodes.find(
-    (node) => node.type === 'paragraph' && node.range.start === 0,
+    (node) => node.type === "paragraph" && node.range.start === 0,
   );
 
   expect(firstParagraphBefore).toBeDefined();
   expect(firstParagraphAfter).toBe(firstParagraphBefore);
 });
 
-test('useStreamingMarkdownParser resets when text is not a prefix update', () => {
+test("useStreamingMarkdownParser resets when text is not a prefix update", () => {
   const { result, rerender } = renderHook(
     ({ text }) =>
       useStreamingMarkdownParser(text, {
@@ -38,24 +38,28 @@ test('useStreamingMarkdownParser resets when text is not a prefix update', () =>
       }),
     {
       initialProps: {
-        text: 'hello',
+        text: "hello",
       },
     },
   );
 
-  expect(result.current.source).toBe('hello');
+  expect(result.current.source).toBe("hello");
 
   rerender({
-    text: 'yo',
+    text: "yo",
   });
 
-  expect(result.current.source).toBe('yo');
+  expect(result.current.source).toBe("yo");
 });
 
-test('useStreamingMarkdownParser finalizes when complete flag is enabled', () => {
+test("useStreamingMarkdownParser finalizes when complete flag is enabled", () => {
   const { result, rerender } = renderHook(
     ({ isComplete }) =>
-      useStreamingMarkdownParser('```ts\nconst a = 1;', { segmenter: false }, isComplete),
+      useStreamingMarkdownParser(
+        "```ts\nconst a = 1;",
+        { segmenter: false },
+        isComplete,
+      ),
     {
       initialProps: {
         isComplete: false,
@@ -64,13 +68,13 @@ test('useStreamingMarkdownParser finalizes when complete flag is enabled', () =>
   );
 
   const openFenceBefore = result.current.nodes.find(
-    (node) => node.type === 'code-block',
+    (node) => node.type === "code-block",
   );
 
   rerender({ isComplete: true });
 
   const openFenceAfter = result.current.nodes.find(
-    (node) => node.type === 'code-block',
+    (node) => node.type === "code-block",
   );
 
   expect(openFenceBefore?.closed).toBe(false);
@@ -78,10 +82,14 @@ test('useStreamingMarkdownParser finalizes when complete flag is enabled', () =>
   expect(result.current.isComplete).toBe(true);
 });
 
-test('useStreamingMarkdownParser preserves unchanged node identity when complete flag toggles', () => {
+test("useStreamingMarkdownParser preserves unchanged node identity when complete flag toggles", () => {
   const { result, rerender } = renderHook(
     ({ isComplete }) =>
-      useStreamingMarkdownParser('first\n\nsecond', { segmenter: false }, isComplete),
+      useStreamingMarkdownParser(
+        "first\n\nsecond",
+        { segmenter: false },
+        isComplete,
+      ),
     {
       initialProps: {
         isComplete: false,
@@ -90,13 +98,13 @@ test('useStreamingMarkdownParser preserves unchanged node identity when complete
   );
 
   const firstParagraphBefore = result.current.nodes.find(
-    (node) => node.type === 'paragraph' && node.range.start === 0,
+    (node) => node.type === "paragraph" && node.range.start === 0,
   );
 
   rerender({ isComplete: true });
 
   const firstParagraphAfter = result.current.nodes.find(
-    (node) => node.type === 'paragraph' && node.range.start === 0,
+    (node) => node.type === "paragraph" && node.range.start === 0,
   );
 
   expect(firstParagraphBefore).toBeDefined();

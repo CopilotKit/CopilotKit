@@ -42,7 +42,10 @@ describe("AssistantMessage provider markdown renderer (slot -> provider -> built
     }) =>
       React.createElement(
         "span",
-        { "data-testid": "custom-renderer", "data-streaming": String(!!isStreaming) },
+        {
+          "data-testid": "custom-renderer",
+          "data-streaming": String(!!isStreaming),
+        },
         content,
       );
 

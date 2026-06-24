@@ -4,8 +4,8 @@ import {
   type StreamingMarkdownParserOptions,
   type StreamingMarkdownParserState,
   parseStreamingMarkdownChunk,
-} from '@copilotkit/markdown-renderer';
-import { useMemo, useRef } from 'react';
+} from "@copilotkit/markdown-renderer";
+import { useMemo, useRef } from "react";
 
 interface StreamingMarkdownParserSession {
   parserState: StreamingMarkdownParserState;
@@ -26,17 +26,20 @@ function normalizeOptions(
   return {
     segmenter: options?.segmenter ?? DEFAULT_OPTIONS.segmenter,
     enableTables: options?.enableTables ?? DEFAULT_OPTIONS.enableTables,
-    enableAutolinks: options?.enableAutolinks ?? DEFAULT_OPTIONS.enableAutolinks,
+    enableAutolinks:
+      options?.enableAutolinks ?? DEFAULT_OPTIONS.enableAutolinks,
   };
 }
 
-function getSegmenterKey(segmenter: StreamingMarkdownParserOptions['segmenter']): string {
+function getSegmenterKey(
+  segmenter: StreamingMarkdownParserOptions["segmenter"],
+): string {
   if (segmenter === true || segmenter === false) {
     return String(segmenter);
   }
 
-  const locale = segmenter.locale ?? '';
-  const granularity = segmenter.granularity ?? 'word';
+  const locale = segmenter.locale ?? "";
+  const granularity = segmenter.granularity ?? "word";
   return `object:${locale}:${granularity}`;
 }
 
@@ -50,7 +53,10 @@ function parseFullText(
   isCompleteInput: boolean,
 ): StreamingMarkdownParserState {
   const initialState = createStreamingMarkdownParserState(options);
-  const parsedState = text.length > 0 ? parseStreamingMarkdownChunk(initialState, text) : initialState;
+  const parsedState =
+    text.length > 0
+      ? parseStreamingMarkdownChunk(initialState, text)
+      : initialState;
 
   return isCompleteInput ? finalizeStreamingMarkdown(parsedState) : parsedState;
 }
@@ -91,7 +97,7 @@ function resolveNextSession(
   if (!textChanged && completionChanged) {
     const parserState = isCompleteInput
       ? finalizeStreamingMarkdown(previous.parserState)
-      : parseStreamingMarkdownChunk(previous.parserState, '');
+      : parseStreamingMarkdownChunk(previous.parserState, "");
 
     return {
       ...previous,
@@ -105,7 +111,9 @@ function resolveNextSession(
   if (text.startsWith(previous.text)) {
     const suffix = text.slice(previous.text.length);
     nextParserState =
-      suffix.length > 0 ? parseStreamingMarkdownChunk(previous.parserState, suffix) : previous.parserState;
+      suffix.length > 0
+        ? parseStreamingMarkdownChunk(previous.parserState, suffix)
+        : previous.parserState;
   } else {
     nextParserState = parseFullText(text, options, false);
   }
@@ -138,17 +146,17 @@ export function useStreamingMarkdownParser(
   const sessionRef = useRef<StreamingMarkdownParserSession | null>(null);
   const segmenter = options?.segmenter;
   const segmenterKind =
-    typeof segmenter === 'object' && segmenter !== null
-      ? 'object'
+    typeof segmenter === "object" && segmenter !== null
+      ? "object"
       : String(segmenter ?? true);
   const segmenterLocale =
-    typeof segmenter === 'object' && segmenter !== null
-      ? (segmenter.locale ?? '')
-      : '';
+    typeof segmenter === "object" && segmenter !== null
+      ? (segmenter.locale ?? "")
+      : "";
   const segmenterGranularity =
-    typeof segmenter === 'object' && segmenter !== null
-      ? (segmenter.granularity ?? 'word')
-      : '';
+    typeof segmenter === "object" && segmenter !== null
+      ? (segmenter.granularity ?? "word")
+      : "";
   const normalizedOptions = useMemo(
     () => normalizeOptions(options),
     [

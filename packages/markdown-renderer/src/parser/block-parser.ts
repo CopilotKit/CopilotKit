@@ -14,14 +14,14 @@ import {
   parseTableAlignment,
   splitTableCells,
   startsNewBlock,
-} from './helpers';
+} from "./helpers";
 import type {
   DraftNode,
   ParseContext,
   ParseResult,
   SourceLine,
-} from './internal';
-import { parseInline } from './inline-parser';
+} from "./internal";
+import { parseInline } from "./inline-parser";
 
 /**
  * Parses a contiguous range of source lines into block-level draft nodes.
@@ -44,7 +44,7 @@ export function parseBlocks(
 ): ParseResult<DraftNode> {
   let root: DraftNode = {
     path,
-    type: 'document',
+    type: "document",
     range: {
       start: from < to ? lines[from].start : 0,
       end: from < to ? lines[to - 1].end : 0,
@@ -145,7 +145,7 @@ export function parseBlocks(
         ...root.children,
         {
           path: nodePath,
-          type: 'heading',
+          type: "heading",
           range: { start: line.start, end: line.end },
           closed: context.isComplete || line.hasNewline,
           props: { level: heading.level },
@@ -165,7 +165,7 @@ export function parseBlocks(
       !isBlank(line.text)
     ) {
       const nodePath = `${path}.${root.children.length}`;
-      const level = lines[i + 1].text.trim().startsWith('=') ? 1 : 2;
+      const level = lines[i + 1].text.trim().startsWith("=") ? 1 : 2;
       const children = parseInline(line.text, line.start, nodePath, {
         ...context,
         citations,
@@ -177,7 +177,7 @@ export function parseBlocks(
         ...root.children,
         {
           path: nodePath,
-          type: 'heading',
+          type: "heading",
           range: { start: line.start, end: lines[i + 1].end },
           closed: context.isComplete || lines[i + 1].hasNewline,
           props: { level },
@@ -196,7 +196,7 @@ export function parseBlocks(
         ...root.children,
         {
           path: `${path}.${root.children.length}`,
-          type: 'thematic-break',
+          type: "thematic-break",
           range: { start: line.start, end: line.end },
           closed: true,
           props: {},
@@ -265,7 +265,7 @@ function parseCodeFence(
   to: number,
   path: string,
   context: ParseContext,
-  fenceOpen: { marker: '```' | '~~~'; length: number; info: string },
+  fenceOpen: { marker: "```" | "~~~"; length: number; info: string },
 ): { node: DraftNode; next: number } {
   let i = from + 1;
   let closeLine = -1;
@@ -280,20 +280,20 @@ function parseCodeFence(
 
   const endLine = closeLine >= 0 ? closeLine : to - 1;
   const textLines = lines.slice(from + 1, closeLine >= 0 ? closeLine : to);
-  const text = textLines.map((line) => line.text).join('\n');
+  const text = textLines.map((line) => line.text).join("\n");
   const closed = closeLine >= 0 || context.isComplete;
 
   return {
     node: {
       path,
-      type: 'code-block',
+      type: "code-block",
       range: { start: lines[from].start, end: lines[endLine].end },
       closed,
       props: {
         fence: fenceOpen.marker,
         ...(fenceOpen.info ? { info: fenceOpen.info.split(/\s+/)[0] } : {}),
-        ...(fenceOpen.info.includes(' ')
-          ? { meta: fenceOpen.info.slice(fenceOpen.info.indexOf(' ') + 1) }
+        ...(fenceOpen.info.includes(" ")
+          ? { meta: fenceOpen.info.slice(fenceOpen.info.indexOf(" ") + 1) }
           : {}),
         text,
       },
@@ -360,7 +360,7 @@ function parseBlockquote(
   return {
     value: {
       path,
-      type: 'blockquote',
+      type: "blockquote",
       range: { start: picked[0].start, end: picked[picked.length - 1].end },
       closed: context.isComplete || picked[picked.length - 1].hasNewline,
       props: {},
@@ -446,7 +446,7 @@ function parseList(
 
     const paragraphText = contentLines
       .map((line) => line.text)
-      .join('\n')
+      .join("\n")
       .trimEnd();
     const itemPath = `${path}.${items.length}`;
     const parsedInline = parseInline(
@@ -462,7 +462,7 @@ function parseList(
     );
     const paragraph: DraftNode = {
       path: `${itemPath}.0`,
-      type: 'paragraph',
+      type: "paragraph",
       range: {
         start: contentLines[0].start,
         end: contentLines[contentLines.length - 1].end,
@@ -475,7 +475,7 @@ function parseList(
 
     items.push({
       path: itemPath,
-      type: 'list-item',
+      type: "list-item",
       range: {
         start: contentLines[0].start,
         end: contentLines[contentLines.length - 1].end,
@@ -498,7 +498,7 @@ function parseList(
   return {
     value: {
       path,
-      type: 'list',
+      type: "list",
       range: {
         start: lines[from].start,
         end: lines[Math.max(from, i - 1)].end,
@@ -555,7 +555,7 @@ function parsePipeTable(
 
     headerChildren.push({
       path: `${path}.0.${cellIndex}`,
-      type: 'table-cell',
+      type: "table-cell",
       range: { start: lines[from].start, end: lines[from].end },
       closed: true,
       props: {},
@@ -569,7 +569,7 @@ function parsePipeTable(
 
   const headerRow: DraftNode = {
     path: `${path}.0`,
-    type: 'table-row',
+    type: "table-row",
     range: { start: lines[from].start, end: lines[from].end },
     closed: true,
     props: { isHeader: true },
@@ -595,7 +595,7 @@ function parsePipeTable(
 
       cellNodes.push({
         path: `${path}.${rowIndex + 1}.${cellIndex}`,
-        type: 'table-cell',
+        type: "table-cell",
         range: {
           start: lines[from + 2 + rowIndex].start,
           end: lines[from + 2 + rowIndex].end,
@@ -612,7 +612,7 @@ function parsePipeTable(
 
     bodyRows.push({
       path: `${path}.${rowIndex + 1}`,
-      type: 'table-row',
+      type: "table-row",
       range: {
         start: lines[from + 2 + rowIndex].start,
         end: lines[from + 2 + rowIndex].end,
@@ -626,7 +626,7 @@ function parsePipeTable(
   return {
     value: {
       path,
-      type: 'table',
+      type: "table",
       range: { start: lines[from].start, end: lines[i - 1].end },
       closed: context.isComplete || lines[i - 1].hasNewline,
       props: { align },
@@ -676,13 +676,13 @@ function parseParagraph(
     i += 1;
   }
 
-  const text = picked.map((line) => line.text).join('\n');
+  const text = picked.map((line) => line.text).join("\n");
   const children = parseInline(text, picked[0].start, path, context);
 
   return {
     value: {
       path,
-      type: 'paragraph',
+      type: "paragraph",
       range: { start: picked[0].start, end: picked[picked.length - 1].end },
       closed: context.isComplete || picked[picked.length - 1].hasNewline,
       props: {},

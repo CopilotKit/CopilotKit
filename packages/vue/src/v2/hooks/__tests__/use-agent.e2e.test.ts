@@ -132,7 +132,9 @@ describe("useAgent e2e", () => {
       // The streaming renderer splits text across span segments; query by textContent instead.
       await waitFor(() => {
         const el = screen.queryAllByText((_text, element) =>
-          (element?.textContent ?? "").includes("Hello! I received your message."),
+          (element?.textContent ?? "").includes(
+            "Hello! I received your message.",
+          ),
         );
         expect(el.length).toBeGreaterThan(0);
       });

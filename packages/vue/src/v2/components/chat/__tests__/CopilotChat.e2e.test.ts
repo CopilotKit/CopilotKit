@@ -93,7 +93,9 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       // The streaming renderer splits text across span segments; query by textContent instead.
       await waitFor(() => {
         const el = screen.queryAllByText((_t, element) =>
-          (element?.textContent ?? "").includes("Hello! How can I help you today?"),
+          (element?.textContent ?? "").includes(
+            "Hello! How can I help you today?",
+          ),
         );
         expect(el.length).toBeGreaterThan(0);
       });
@@ -131,7 +133,9 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       await waitFor(() => {
         const el = screen.queryAllByText((_t, element) =>
-          (element?.textContent ?? "").includes("Once upon a time there was a robot."),
+          (element?.textContent ?? "").includes(
+            "Once upon a time there was a robot.",
+          ),
         );
         expect(el.length).toBeGreaterThan(0);
       });
@@ -633,7 +637,9 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       await waitFor(() => {
         // The streaming renderer splits text across span segments; query by textContent instead.
         const allMessages = screen.queryAllByText((_t, element) =>
-          (element?.textContent ?? "").includes("Here is some actual text content"),
+          (element?.textContent ?? "").includes(
+            "Here is some actual text content",
+          ),
         );
         expect(allMessages.length).toBeGreaterThan(0);
 
@@ -1002,10 +1008,11 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
 
       // The streaming renderer splits text across span segments; query by textContent instead.
       await waitFor(() => {
-        const el = screen.queryAllByText((_t, element) =>
-          (element?.textContent ?? "").includes("Part 1") &&
-          (element?.textContent ?? "").includes("Part 2") &&
-          (element?.textContent ?? "").includes("Part 3"),
+        const el = screen.queryAllByText(
+          (_t, element) =>
+            (element?.textContent ?? "").includes("Part 1") &&
+            (element?.textContent ?? "").includes("Part 2") &&
+            (element?.textContent ?? "").includes("Part 3"),
         );
         expect(el.length).toBeGreaterThan(0);
       });

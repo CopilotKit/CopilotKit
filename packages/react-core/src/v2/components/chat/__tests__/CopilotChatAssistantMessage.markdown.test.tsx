@@ -62,6 +62,8 @@ describe("CopilotChatAssistantMessage markdown resolution", () => {
         message={{ id: "s1", role: "assistant", content: "# Streaming" } as any}
       />,
     );
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Streaming");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
+      "Streaming",
+    );
   });
 });

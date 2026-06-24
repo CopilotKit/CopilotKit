@@ -1,4 +1,4 @@
-import type { SegmenterOptions, TextSegment } from './types';
+import type { SegmenterOptions, TextSegment } from "./types";
 
 /**
  * Computes parse-time text segments for animation and incremental rendering.
@@ -17,7 +17,7 @@ export function createSegments(
   },
 ): {
   segments: TextSegment[];
-  warning?: { code: 'segmenter_unavailable'; at: number };
+  warning?: { code: "segmenter_unavailable"; at: number };
   hasWarnedSegmenterUnavailable: boolean;
 } {
   if (options.segmenter === false) {
@@ -28,7 +28,7 @@ export function createSegments(
   }
 
   const segmenterCtor =
-    typeof Intl === 'undefined'
+    typeof Intl === "undefined"
       ? undefined
       : (Intl as unknown as { Segmenter?: typeof Intl.Segmenter }).Segmenter;
 
@@ -36,7 +36,7 @@ export function createSegments(
     if (!options.hasWarnedSegmenterUnavailable) {
       return {
         segments: [],
-        warning: { code: 'segmenter_unavailable', at: absoluteStart },
+        warning: { code: "segmenter_unavailable", at: absoluteStart },
         hasWarnedSegmenterUnavailable: true,
       };
     }
@@ -49,8 +49,8 @@ export function createSegments(
 
   const granularity =
     options.segmenter === true
-      ? 'word'
-      : (options.segmenter.granularity ?? 'word');
+      ? "word"
+      : (options.segmenter.granularity ?? "word");
   const locale =
     options.segmenter === true ? undefined : options.segmenter.locale;
 
@@ -137,54 +137,54 @@ function isOnlyFromSet(value: string, charset: ReadonlySet<string>): boolean {
 }
 
 const CLOSING_PUNCTUATION = new Set([
-  ']',
-  ',',
-  '.',
-  '!',
-  '?',
-  ';',
-  ':',
-  '%',
-  ')',
-  '}',
-  '>',
+  "]",
+  ",",
+  ".",
+  "!",
+  "?",
+  ";",
+  ":",
+  "%",
+  ")",
+  "}",
+  ">",
   '"',
   "'",
-  '、',
-  '。',
-  '，',
-  '．',
-  '！',
-  '？',
-  '：',
-  '；',
-  '％',
-  '）',
-  '］',
-  '｝',
-  '〉',
-  '》',
-  '」',
-  '』',
-  '】',
-  '〕',
-  '〗',
+  "、",
+  "。",
+  "，",
+  "．",
+  "！",
+  "？",
+  "：",
+  "；",
+  "％",
+  "）",
+  "］",
+  "｝",
+  "〉",
+  "》",
+  "」",
+  "』",
+  "】",
+  "〕",
+  "〗",
 ]);
 
 const OPENING_PUNCTUATION = new Set([
-  '(',
-  '{',
-  '[',
+  "(",
+  "{",
+  "[",
   '"',
   "'",
-  '〈',
-  '《',
-  '「',
-  '『',
-  '【',
-  '〔',
-  '〖',
-  '（',
-  '［',
-  '｛',
+  "〈",
+  "《",
+  "「",
+  "『",
+  "【",
+  "〔",
+  "〖",
+  "（",
+  "［",
+  "｛",
 ]);

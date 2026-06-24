@@ -16,7 +16,7 @@ describe("CopilotChatReasoningMessage markdown", () => {
     // segments in <span>s within the <strong>).
     const el = screen.getByText("thinking");
     const strongAncestor =
-      el.closest("strong") ?? el.tagName.toLowerCase() === "strong"
+      (el.closest("strong") ?? el.tagName.toLowerCase() === "strong")
         ? el
         : null;
     expect(strongAncestor).not.toBeNull();

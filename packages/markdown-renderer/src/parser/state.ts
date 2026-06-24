@@ -1,19 +1,19 @@
-import { parseBlocks } from './block-parser';
-import { parseCitationDefinitions } from './citations';
+import { parseBlocks } from "./block-parser";
+import { parseCitationDefinitions } from "./citations";
 import {
   getLineBuffer,
   normalizeChunk,
   normalizeOptions,
   splitLines,
   toLineColumn,
-} from './helpers';
-import { applyAstOps, createAstOpsFromDraft } from './ops';
+} from "./helpers";
+import { applyAstOps, createAstOpsFromDraft } from "./ops";
 import type {
   StreamingMarkdownAstNode,
   StreamingMarkdownParserOptions,
   StreamingMarkdownParserState,
   ParseMode,
-} from './types';
+} from "./types";
 
 /**
  * Creates a new streaming markdown parser state.
@@ -28,7 +28,7 @@ export function createStreamingMarkdownParserState(
   const normalizedOptions = normalizeOptions(options);
   const documentNode = {
     id: 1,
-    type: 'document' as const,
+    type: "document" as const,
     parentId: null,
     closed: false,
     range: { start: 0, end: 0 },
@@ -40,21 +40,21 @@ export function createStreamingMarkdownParserState(
     nodes: [documentNode],
     rootId: 1,
     stack: [1],
-    mode: 'block',
+    mode: "block",
     warnings: [],
     citations: {
       order: [],
       numbers: {},
       definitions: {},
     },
-    lineBuffer: '',
+    lineBuffer: "",
     isComplete: false,
     index: 0,
     line: 1,
     column: 1,
     options: normalizedOptions,
-    source: '',
-    pathToId: { '0': 1 },
+    source: "",
+    pathToId: { "0": 1 },
     pendingCarriageReturn: false,
     hasWarnedSegmenterUnavailable: false,
   };
@@ -96,7 +96,7 @@ export function finalizeStreamingMarkdown(
     return state;
   }
 
-  const source = state.source + (state.pendingCarriageReturn ? '\n' : '');
+  const source = state.source + (state.pendingCarriageReturn ? "\n" : "");
 
   return rebuildState(state, {
     source,
@@ -127,15 +127,15 @@ function rebuildState(
     lines,
     0,
     lines.length,
-    '0',
+    "0",
     parseContext,
     true,
   );
   const ops = [
-    { kind: 'set-warnings', warnings: parsedBlocks.warnings } as const,
-    { kind: 'set-citations', citations: parsedBlocks.citations } as const,
+    { kind: "set-warnings", warnings: parsedBlocks.warnings } as const,
+    { kind: "set-citations", citations: parsedBlocks.citations } as const,
     {
-      kind: 'set-segmenter-warning-state',
+      kind: "set-segmenter-warning-state",
       hasWarnedSegmenterUnavailable: parsedBlocks.hasWarnedSegmenterUnavailable,
     } as const,
     ...createAstOpsFromDraft(parsedBlocks.value),
@@ -172,7 +172,10 @@ function rebuildState(
   };
 }
 
-function computeOpenStack(nodes: StreamingMarkdownAstNode[], rootId: number): number[] {
+function computeOpenStack(
+  nodes: StreamingMarkdownAstNode[],
+  rootId: number,
+): number[] {
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const stack: number[] = [];
 
@@ -184,12 +187,12 @@ function computeOpenStack(nodes: StreamingMarkdownAstNode[], rootId: number): nu
     }
 
     stack.push(cursor);
-    if (!('children' in node) || node.children.length === 0) {
+    if (!("children" in node) || node.children.length === 0) {
       break;
     }
 
     const lastChild = node.children[node.children.length - 1];
-    cursor = typeof lastChild === 'number' ? lastChild : null;
+    cursor = typeof lastChild === "number" ? lastChild : null;
   }
 
   return stack;
@@ -200,39 +203,39 @@ function inferMode(
   rootId: number | null,
 ): ParseMode {
   if (rootId == null) {
-    return 'block';
+    return "block";
   }
 
   const root = nodes.find((node) => node.id === rootId);
-  if (!root || !('children' in root) || root.children.length === 0) {
-    return 'block';
+  if (!root || !("children" in root) || root.children.length === 0) {
+    return "block";
   }
 
   const lastChild = nodes.find(
     (node) => node.id === root.children[root.children.length - 1],
   );
   if (!lastChild || lastChild.closed) {
-    return 'block';
+    return "block";
   }
 
-  if (lastChild.type === 'paragraph') {
-    return 'paragraph';
+  if (lastChild.type === "paragraph") {
+    return "paragraph";
   }
-  if (lastChild.type === 'heading') {
-    return 'heading';
+  if (lastChild.type === "heading") {
+    return "heading";
   }
-  if (lastChild.type === 'blockquote') {
-    return 'blockquote';
+  if (lastChild.type === "blockquote") {
+    return "blockquote";
   }
-  if (lastChild.type === 'list-item') {
-    return 'list-item';
+  if (lastChild.type === "list-item") {
+    return "list-item";
   }
-  if (lastChild.type === 'code-block') {
-    return 'code-fence';
+  if (lastChild.type === "code-block") {
+    return "code-fence";
   }
-  if (lastChild.type === 'table') {
-    return 'table';
+  if (lastChild.type === "table") {
+    return "table";
   }
 
-  return 'block';
+  return "block";
 }

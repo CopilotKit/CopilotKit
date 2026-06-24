@@ -1,4 +1,4 @@
-type SegmentGranularity = 'grapheme' | 'word' | 'sentence';
+type SegmentGranularity = "grapheme" | "word" | "sentence";
 
 /**
  * Segmenter configuration for parse-time text segmentation.
@@ -27,52 +27,52 @@ export type StreamingMarkdownParserOptions = {
  * @public
  */
 export type StreamingMarkdownNodeType =
-  | 'document'
-  | 'paragraph'
-  | 'heading'
-  | 'blockquote'
-  | 'list'
-  | 'list-item'
-  | 'code-block'
-  | 'table'
-  | 'table-row'
-  | 'table-cell'
-  | 'thematic-break'
-  | 'text'
-  | 'em'
-  | 'strong'
-  | 'strikethrough'
-  | 'inline-code'
-  | 'soft-break'
-  | 'hard-break'
-  | 'image'
-  | 'link'
-  | 'autolink'
-  | 'citation';
+  | "document"
+  | "paragraph"
+  | "heading"
+  | "blockquote"
+  | "list"
+  | "list-item"
+  | "code-block"
+  | "table"
+  | "table-row"
+  | "table-cell"
+  | "thematic-break"
+  | "text"
+  | "em"
+  | "strong"
+  | "strikethrough"
+  | "inline-code"
+  | "soft-break"
+  | "hard-break"
+  | "image"
+  | "link"
+  | "autolink"
+  | "citation";
 
 /**
  * Parsing mode for block-level processing.
  * @public
  */
 export type ParseMode =
-  | 'block'
-  | 'paragraph'
-  | 'heading'
-  | 'blockquote'
-  | 'list-item'
-  | 'code-fence'
-  | 'table';
+  | "block"
+  | "paragraph"
+  | "heading"
+  | "blockquote"
+  | "list-item"
+  | "code-fence"
+  | "table";
 
 /**
  * Parser warning variants.
  * @public
  */
 export type StreamingMarkdownWarning =
-  | { code: 'unterminated_construct'; kind: string; at: number }
-  | { code: 'invalid_citation_definition'; at: number }
-  | { code: 'unmatched_closer'; token: string; at: number }
-  | { code: 'segmenter_unavailable'; at: number }
-  | { code: 'unknown_construct'; at: number };
+  | { code: "unterminated_construct"; kind: string; at: number }
+  | { code: "invalid_citation_definition"; at: number }
+  | { code: "unmatched_closer"; token: string; at: number }
+  | { code: "segmenter_unavailable"; at: number }
+  | { code: "unknown_construct"; at: number };
 
 /**
  * Parse-time text segment for animation-friendly rendering.
@@ -108,7 +108,7 @@ export type StreamingMarkdownAstNodeBase = {
  * @public
  */
 export type StreamingMarkdownDocumentNode = StreamingMarkdownAstNodeBase & {
-  type: 'document';
+  type: "document";
   children: number[];
 };
 
@@ -117,7 +117,7 @@ export type StreamingMarkdownDocumentNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownParagraphNode = StreamingMarkdownAstNodeBase & {
-  type: 'paragraph';
+  type: "paragraph";
   children: number[];
 };
 
@@ -126,7 +126,7 @@ export type StreamingMarkdownParagraphNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownHeadingNode = StreamingMarkdownAstNodeBase & {
-  type: 'heading';
+  type: "heading";
   level: 1 | 2 | 3 | 4 | 5 | 6;
   children: number[];
 };
@@ -136,7 +136,7 @@ export type StreamingMarkdownHeadingNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownBlockquoteNode = StreamingMarkdownAstNodeBase & {
-  type: 'blockquote';
+  type: "blockquote";
   children: number[];
 };
 
@@ -145,7 +145,7 @@ export type StreamingMarkdownBlockquoteNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownListNode = StreamingMarkdownAstNodeBase & {
-  type: 'list';
+  type: "list";
   ordered: boolean;
   start: number | null;
   tight: boolean;
@@ -157,7 +157,7 @@ export type StreamingMarkdownListNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownListItemNode = StreamingMarkdownAstNodeBase & {
-  type: 'list-item';
+  type: "list-item";
   children: number[];
 };
 
@@ -166,8 +166,8 @@ export type StreamingMarkdownListItemNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownCodeBlockNode = StreamingMarkdownAstNodeBase & {
-  type: 'code-block';
-  fence: '```' | '~~~';
+  type: "code-block";
+  fence: "```" | "~~~";
   info?: string;
   meta?: string;
   text: string;
@@ -178,8 +178,8 @@ export type StreamingMarkdownCodeBlockNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownTableNode = StreamingMarkdownAstNodeBase & {
-  type: 'table';
-  align: Array<'left' | 'right' | 'center' | 'none'>;
+  type: "table";
+  align: Array<"left" | "right" | "center" | "none">;
   children: number[];
 };
 
@@ -188,7 +188,7 @@ export type StreamingMarkdownTableNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownTableRowNode = StreamingMarkdownAstNodeBase & {
-  type: 'table-row';
+  type: "table-row";
   isHeader: boolean;
   children: number[];
 };
@@ -198,7 +198,7 @@ export type StreamingMarkdownTableRowNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownTableCellNode = StreamingMarkdownAstNodeBase & {
-  type: 'table-cell';
+  type: "table-cell";
   children: number[];
 };
 
@@ -206,16 +206,17 @@ export type StreamingMarkdownTableCellNode = StreamingMarkdownAstNodeBase & {
  * AST node representing a thematic break.
  * @public
  */
-export type StreamingMarkdownThematicBreakNode = StreamingMarkdownAstNodeBase & {
-  type: 'thematic-break';
-};
+export type StreamingMarkdownThematicBreakNode =
+  StreamingMarkdownAstNodeBase & {
+    type: "thematic-break";
+  };
 
 /**
  * AST node representing a text run.
  * @public
  */
 export type StreamingMarkdownTextNode = StreamingMarkdownAstNodeBase & {
-  type: 'text';
+  type: "text";
   text: string;
   segments: TextSegment[];
 };
@@ -225,7 +226,7 @@ export type StreamingMarkdownTextNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownEmphasisNode = StreamingMarkdownAstNodeBase & {
-  type: 'em';
+  type: "em";
   children: number[];
 };
 
@@ -234,7 +235,7 @@ export type StreamingMarkdownEmphasisNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownStrongNode = StreamingMarkdownAstNodeBase & {
-  type: 'strong';
+  type: "strong";
   children: number[];
 };
 
@@ -242,17 +243,18 @@ export type StreamingMarkdownStrongNode = StreamingMarkdownAstNodeBase & {
  * AST node representing strikethrough.
  * @public
  */
-export type StreamingMarkdownStrikethroughNode = StreamingMarkdownAstNodeBase & {
-  type: 'strikethrough';
-  children: number[];
-};
+export type StreamingMarkdownStrikethroughNode =
+  StreamingMarkdownAstNodeBase & {
+    type: "strikethrough";
+    children: number[];
+  };
 
 /**
  * AST node representing inline code.
  * @public
  */
 export type StreamingMarkdownInlineCodeNode = StreamingMarkdownAstNodeBase & {
-  type: 'inline-code';
+  type: "inline-code";
   text: string;
 };
 
@@ -261,7 +263,7 @@ export type StreamingMarkdownInlineCodeNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownSoftBreakNode = StreamingMarkdownAstNodeBase & {
-  type: 'soft-break';
+  type: "soft-break";
 };
 
 /**
@@ -269,7 +271,7 @@ export type StreamingMarkdownSoftBreakNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownHardBreakNode = StreamingMarkdownAstNodeBase & {
-  type: 'hard-break';
+  type: "hard-break";
 };
 
 /**
@@ -277,7 +279,7 @@ export type StreamingMarkdownHardBreakNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownLinkNode = StreamingMarkdownAstNodeBase & {
-  type: 'link';
+  type: "link";
   url: string;
   title?: string;
   children: number[];
@@ -288,7 +290,7 @@ export type StreamingMarkdownLinkNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownImageNode = StreamingMarkdownAstNodeBase & {
-  type: 'image';
+  type: "image";
   url: string;
   title?: string;
   alt: string;
@@ -299,7 +301,7 @@ export type StreamingMarkdownImageNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownAutolinkNode = StreamingMarkdownAstNodeBase & {
-  type: 'autolink';
+  type: "autolink";
   url: string;
   text: string;
 };
@@ -309,7 +311,7 @@ export type StreamingMarkdownAutolinkNode = StreamingMarkdownAstNodeBase & {
  * @public
  */
 export type StreamingMarkdownCitationNode = StreamingMarkdownAstNodeBase & {
-  type: 'citation';
+  type: "citation";
   idRef: string;
   number?: number;
 };

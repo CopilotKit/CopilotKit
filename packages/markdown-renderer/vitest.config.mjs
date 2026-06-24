@@ -12,13 +12,19 @@ export default defineConfig({
       // react-native uses Flow syntax that vite/rollup cannot parse.
       // Redirect to a minimal stub so import analysis succeeds during tests.
       // Individual tests can still override via vi.mock("react-native", ...).
-      "react-native": resolve(__dirname, "src/react-native/__mocks__/react-native.ts"),
+      "react-native": resolve(
+        __dirname,
+        "src/react-native/__mocks__/react-native.ts",
+      ),
     },
   },
   test: {
     environment: "jsdom",
     globals: true,
-    include: ["src/**/__tests__/**/*.{test,spec}.{ts,tsx}", "src/**/*.{test,spec}.{ts,tsx}"],
+    include: [
+      "src/**/__tests__/**/*.{test,spec}.{ts,tsx}",
+      "src/**/*.{test,spec}.{ts,tsx}",
+    ],
     exclude: ["**/node_modules/**"],
     reporters: [["default", { summary: false }]],
     silent: true,

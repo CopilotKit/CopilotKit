@@ -1,5 +1,5 @@
-import type { StreamingMarkdownParserOptions } from './types';
-import type { SourceLine } from './internal';
+import type { StreamingMarkdownParserOptions } from "./types";
+import type { SourceLine } from "./internal";
 
 /**
  * Default parser options for streaming markdown.
@@ -38,12 +38,12 @@ export function normalizeChunk(
   chunk: string,
   hadPendingCR: boolean,
 ): { text: string; pendingCarriageReturn: boolean } {
-  const input = (hadPendingCR ? '\r' : '') + chunk;
-  const pendingCarriageReturn = input.endsWith('\r');
+  const input = (hadPendingCR ? "\r" : "") + chunk;
+  const pendingCarriageReturn = input.endsWith("\r");
   const head = pendingCarriageReturn ? input.slice(0, -1) : input;
 
   return {
-    text: head.replace(/\r\n?/g, '\n'),
+    text: head.replace(/\r\n?/g, "\n"),
     pendingCarriageReturn,
   };
 }
@@ -59,7 +59,7 @@ export function splitLines(source: string): SourceLine[] {
   let start = 0;
 
   for (let i = 0; i < source.length; i += 1) {
-    if (source[i] !== '\n') {
+    if (source[i] !== "\n") {
       continue;
     }
 
@@ -91,7 +91,7 @@ export function splitLines(source: string): SourceLine[] {
  * @returns Last line content after the final newline.
  */
 export function getLineBuffer(source: string): string {
-  const newline = source.lastIndexOf('\n');
+  const newline = source.lastIndexOf("\n");
   return newline < 0 ? source : source.slice(newline + 1);
 }
 
@@ -110,7 +110,7 @@ export function toLineColumn(
   let column = 1;
 
   for (let i = 0; i < index; i += 1) {
-    if (source[i] === '\n') {
+    if (source[i] === "\n") {
       line += 1;
       column = 1;
     } else {
@@ -166,12 +166,12 @@ export function isCitationDefinitionPrefixCandidate(
  */
 export function matchFenceOpen(
   value: string,
-): { marker: '```' | '~~~'; length: number; info: string } | null {
+): { marker: "```" | "~~~"; length: number; info: string } | null {
   const trimmed = value.trimStart();
   const backtick = /^(`{3,})(.*)$/.exec(trimmed);
   if (backtick) {
     return {
-      marker: '```',
+      marker: "```",
       length: backtick[1].length,
       info: backtick[2].trim(),
     };
@@ -180,7 +180,7 @@ export function matchFenceOpen(
   const tilde = /^(~{3,})(.*)$/.exec(trimmed);
   if (tilde) {
     return {
-      marker: '~~~',
+      marker: "~~~",
       length: tilde[1].length,
       info: tilde[2].trim(),
     };
@@ -194,10 +194,10 @@ export function matchFenceOpen(
  */
 export function matchFenceClose(
   value: string,
-  marker: '```' | '~~~',
+  marker: "```" | "~~~",
   length: number,
 ): boolean {
-  const re = marker === '```' ? /^\s*`{3,}\s*$/ : /^\s*~{3,}\s*$/;
+  const re = marker === "```" ? /^\s*`{3,}\s*$/ : /^\s*~{3,}\s*$/;
   if (!re.test(value)) {
     return false;
   }
@@ -209,9 +209,7 @@ export function matchFenceClose(
 /**
  * Matches ATX heading syntax and extracts heading metadata.
  */
-export function matchAtxHeading(
-  value: string,
-): {
+export function matchAtxHeading(value: string): {
   level: 1 | 2 | 3 | 4 | 5 | 6;
   text: string;
   contentOffset: number;
@@ -303,7 +301,7 @@ export function isPipeTableHeader(
  * Returns true when a line appears to be a table row.
  */
 export function looksLikeTableRow(value: string): boolean {
-  return value.includes('|') && /\S/.test(value.replace(/\|/g, ''));
+  return value.includes("|") && /\S/.test(value.replace(/\|/g, ""));
 }
 
 /**
@@ -323,9 +321,9 @@ export function isTableDividerRow(value: string): boolean {
  */
 export function splitTableCells(value: string): string[] {
   const trimmed = value.trim();
-  const body = trimmed.startsWith('|') ? trimmed.slice(1) : trimmed;
-  const core = body.endsWith('|') ? body.slice(0, -1) : body;
-  return core.split('|').map((cell) => cell.trim());
+  const body = trimmed.startsWith("|") ? trimmed.slice(1) : trimmed;
+  const core = body.endsWith("|") ? body.slice(0, -1) : body;
+  return core.split("|").map((cell) => cell.trim());
 }
 
 /**
@@ -333,23 +331,23 @@ export function splitTableCells(value: string): string[] {
  */
 export function parseTableAlignment(
   cells: string[],
-): Array<'left' | 'right' | 'center' | 'none'> {
+): Array<"left" | "right" | "center" | "none"> {
   return cells.map((cell) => {
     const trimmed = cell.trim();
-    const left = trimmed.startsWith(':');
-    const right = trimmed.endsWith(':');
+    const left = trimmed.startsWith(":");
+    const right = trimmed.endsWith(":");
 
     if (left && right) {
-      return 'center';
+      return "center";
     }
     if (left) {
-      return 'left';
+      return "left";
     }
     if (right) {
-      return 'right';
+      return "right";
     }
 
-    return 'none';
+    return "none";
   });
 }
 
@@ -388,13 +386,13 @@ export function isEscapable(ch: string): boolean {
 export function findClosing(
   input: string,
   openAt: number,
-  openChar: '[' | '(',
-  closeChar: ']' | ')',
+  openChar: "[" | "(",
+  closeChar: "]" | ")",
 ): number {
   let depth = 0;
   for (let i = openAt; i < input.length; i += 1) {
     const ch = input[i];
-    if (ch === '\\') {
+    if (ch === "\\") {
       i += 1;
       continue;
     }
@@ -424,8 +422,8 @@ export function parseLinkDestination(input: string): {
 } {
   const trimmed = input.trim();
 
-  if (trimmed.startsWith('<')) {
-    const close = trimmed.indexOf('>');
+  if (trimmed.startsWith("<")) {
+    const close = trimmed.indexOf(">");
     if (close > 0) {
       const url = trimmed.slice(1, close);
       const rest = trimmed.slice(close + 1).trim();
@@ -460,7 +458,7 @@ export function parseLinkTitle(input: string): string | undefined {
     return input.slice(1, -1);
   }
 
-  if (input.startsWith('(') && input.endsWith(')')) {
+  if (input.startsWith("(") && input.endsWith(")")) {
     return input.slice(1, -1);
   }
 
@@ -491,7 +489,7 @@ export function trimAutolinkTrailingPunctuation(value: string): string {
   }
 
   let candidate = value.slice(0, end);
-  if (candidate.endsWith(')')) {
+  if (candidate.endsWith(")")) {
     const open = (candidate.match(/\(/g) ?? []).length;
     const close = (candidate.match(/\)/g) ?? []).length;
     if (close > open) {

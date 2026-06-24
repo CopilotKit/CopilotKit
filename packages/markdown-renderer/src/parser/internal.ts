@@ -3,7 +3,7 @@ import type {
   StreamingMarkdownNodeType,
   StreamingMarkdownParserOptions,
   StreamingMarkdownWarning,
-} from './types';
+} from "./types";
 
 /**
  * Internal mutable draft representation used before AST materialization.

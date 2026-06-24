@@ -32,7 +32,22 @@ const shared = {
 
 export default defineConfig([
   { ...shared, entry: { index: "src/index.ts" }, outDir: "dist", clean: true },
-  { ...shared, entry: { index: "src/react/index.ts" }, outDir: "dist/react", clean: false },
-  { ...shared, entry: { index: "src/vue/index.ts" }, outDir: "dist/vue", clean: false },
-  { ...shared, entry: { index: "src/react-native/index.ts" }, outDir: "dist/react-native", clean: false },
+  {
+    ...shared,
+    entry: { index: "src/react/index.ts" },
+    outDir: "dist/react",
+    clean: false,
+  },
+  {
+    ...shared,
+    entry: { index: "src/vue/index.ts" },
+    outDir: "dist/vue",
+    clean: false,
+  },
+  {
+    ...shared,
+    entry: { index: "src/react-native/index.ts" },
+    outDir: "dist/react-native",
+    clean: false,
+  },
 ]);

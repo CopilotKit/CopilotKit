@@ -30,7 +30,9 @@ describe("CopilotMarkdown back-compat `code` style alias", () => {
   });
 
   it("maps the back-compat `code` alias onto `inlineCode` (which the renderer reads)", () => {
-    render(<CopilotMarkdown content={"`x`"} style={{ code: { color: "red" } }} />);
+    render(
+      <CopilotMarkdown content={"`x`"} style={{ code: { color: "red" } }} />,
+    );
     // Regression: the renderer reads `inlineCode`, not `code`. Without the
     // alias translation, `style={{ code }}` silently lost inline-code styling.
     expect(capturedProps[0].style.inlineCode).toEqual({ color: "red" });
@@ -49,7 +51,9 @@ describe("CopilotMarkdown back-compat `code` style alias", () => {
   });
 
   it("passes style through untouched when no `code` alias is present", () => {
-    render(<CopilotMarkdown content={"`x`"} style={{ paragraph: { margin: 1 } }} />);
+    render(
+      <CopilotMarkdown content={"`x`"} style={{ paragraph: { margin: 1 } }} />,
+    );
     expect(capturedProps[0].style).toEqual({ paragraph: { margin: 1 } });
   });
 });

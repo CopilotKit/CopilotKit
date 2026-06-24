@@ -1,4 +1,7 @@
-export { StreamingMarkdownRenderer, createStreamingMarkdownNodeRenderers } from "./streaming-markdown-renderer";
+export {
+  StreamingMarkdownRenderer,
+  createStreamingMarkdownNodeRenderers,
+} from "./streaming-markdown-renderer";
 export type {
   StreamingMarkdownRendererProps,
   StreamingMarkdownNodeRenderers,

@@ -229,7 +229,10 @@ function toggleOpen() {
                 <div class="cpk:text-sm cpk:text-muted-foreground">
                   <!-- Reasoning content uses the streaming renderer (same as assistant);
                        the pluggable provider renderer applies to assistant messages only. -->
-                  <StreamingMarkdownDefault :content="normalizedContent" :is-streaming="isStreaming" />
+                  <StreamingMarkdownDefault
+                    :content="normalizedContent"
+                    :is-streaming="isStreaming"
+                  />
                   <span
                     v-if="isStreaming && hasContent"
                     class="cpk:inline-flex cpk:items-center cpk:ml-1 cpk:align-middle"

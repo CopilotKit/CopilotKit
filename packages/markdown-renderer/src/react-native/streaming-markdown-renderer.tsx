@@ -131,7 +131,11 @@ export const defaultMarkdownStyles: MarkdownStyle = {
   listBullet: { marginRight: 6, fontSize: 16, lineHeight: 24 },
   link: { color: "#0066cc", textDecorationLine: "underline" },
   image: {},
-  tableRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#e0e0e0" } as any,
+  tableRow: {
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+  } as any,
   tableCell: { flex: 1, padding: 4 },
 };
 
@@ -234,7 +238,9 @@ function renderInlineNode(
       // Non-navigable: render as styled Text only — zero URL/XSS surface.
       return (
         <Text key={node.id} style={ctx.s.link as any}>
-          {"children" in node ? renderTextContent(node as any, ctx) : (node as any).text}
+          {"children" in node
+            ? renderTextContent(node as any, ctx)
+            : (node as any).text}
         </Text>
       );
 
@@ -258,7 +264,10 @@ function renderInlineNode(
       // fall through to `default` and render nothing (no text/children).
       // Prefer the resolved number, fall back to the citation id.
       return (
-        <Text key={node.id} style={{ fontSize: 12, verticalAlign: "top" } as any}>
+        <Text
+          key={node.id}
+          style={{ fontSize: 12, verticalAlign: "top" } as any}
+        >
           [{(node as any).number ?? (node as any).idRef}]
         </Text>
       );
@@ -292,7 +301,8 @@ function renderNode(
 
     case "heading": {
       const level = node.level as 1 | 2 | 3 | 4 | 5 | 6;
-      const headingStyle = ctx.s[`h${level}` as keyof MarkdownStyle] ?? ctx.s.h6;
+      const headingStyle =
+        ctx.s[`h${level}` as keyof MarkdownStyle] ?? ctx.s.h6;
       return (
         <Text key={node.id} style={headingStyle as any}>
           {renderTextContent(node, ctx)}
@@ -313,13 +323,18 @@ function renderNode(
           {node.children.map((itemId, index) => {
             const item = ctx.nodeById.get(itemId);
             if (!item) return null;
-            const bullet = node.ordered ? `${(node.start ?? 1) + index}. ` : "• ";
+            const bullet = node.ordered
+              ? `${(node.start ?? 1) + index}. `
+              : "• ";
             return (
               <View key={itemId} style={ctx.s.listItem as any}>
                 <Text style={ctx.s.listBullet as any}>{bullet}</Text>
                 <View style={{ flex: 1 }}>
                   {renderChildren(
-                    item as Extract<StreamingMarkdownAstNode, { children: number[] }>,
+                    item as Extract<
+                      StreamingMarkdownAstNode,
+                      { children: number[] }
+                    >,
                     ctx,
                   )}
                 </View>
@@ -345,11 +360,7 @@ function renderNode(
       );
 
     case "table":
-      return (
-        <View key={node.id}>
-          {renderChildren(node, ctx)}
-        </View>
-      );
+      return <View key={node.id}>{renderChildren(node, ctx)}</View>;
 
     case "table-row":
       return (
@@ -433,7 +444,8 @@ export function StreamingMarkdownRenderer({
   animate = false,
 }: StreamingMarkdownRendererProps): React.ReactElement | null {
   const mergedStyles = useMemo<MarkdownStyle>(
-    () => (style ? { ...defaultMarkdownStyles, ...style } : defaultMarkdownStyles),
+    () =>
+      style ? { ...defaultMarkdownStyles, ...style } : defaultMarkdownStyles,
     [style],
   );
 

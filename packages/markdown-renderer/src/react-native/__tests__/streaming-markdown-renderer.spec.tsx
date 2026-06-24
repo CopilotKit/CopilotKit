@@ -6,15 +6,21 @@ import { describe, it, expect } from "vitest";
 import { StreamingMarkdownRenderer } from "../streaming-markdown-renderer";
 describe("RN StreamingMarkdownRenderer", () => {
   it("renders text content", () => {
-    const { container } = render(<StreamingMarkdownRenderer content="# Title" />);
+    const { container } = render(
+      <StreamingMarkdownRenderer content="# Title" />,
+    );
     expect(container.textContent).toContain("Title");
   });
   it("renders bold text", () => {
-    const { container } = render(<StreamingMarkdownRenderer content="**bold**" />);
+    const { container } = render(
+      <StreamingMarkdownRenderer content="**bold**" />,
+    );
     expect(container.textContent).toContain("bold");
   });
   it("renders code blocks", () => {
-    const { container } = render(<StreamingMarkdownRenderer content={"```\ncode\n```"} />);
+    const { container } = render(
+      <StreamingMarkdownRenderer content={"```\ncode\n```"} />,
+    );
     expect(container.textContent).toContain("code");
   });
   it("renders nothing for empty content", () => {
@@ -42,7 +48,11 @@ describe("RN StreamingMarkdownRenderer", () => {
     try {
       if (intl) delete intl.Segmenter;
       const { container } = render(
-        <StreamingMarkdownRenderer content="streaming text" isComplete={false} animate />,
+        <StreamingMarkdownRenderer
+          content="streaming text"
+          isComplete={false}
+          animate
+        />,
       );
       expect(container.textContent).toContain("streaming text");
     } finally {

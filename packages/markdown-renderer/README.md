@@ -6,7 +6,7 @@ A zero-dependency streaming markdown parser and React renderer for CopilotKit. T
 
 ```ts
 // Streaming markdown parser (no React dependency)
-import { } from "@copilotkit/markdown-renderer";
+import {} from "@copilotkit/markdown-renderer";
 
 // React renderer
 import { StreamingMarkdownRenderer } from "@copilotkit/markdown-renderer/react";

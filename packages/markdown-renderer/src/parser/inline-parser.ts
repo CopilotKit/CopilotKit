@@ -1,4 +1,4 @@
-import { assignCitationNumber } from './citations';
+import { assignCitationNumber } from "./citations";
 import {
   findClosing,
   isEmail,
@@ -6,10 +6,14 @@ import {
   isUrl,
   parseLinkDestination,
   trimAutolinkTrailingPunctuation,
-} from './helpers';
-import type { DraftNode, ParseContext, ParseResult } from './internal';
-import { createSegments } from './segments';
-import type { CitationState, StreamingMarkdownWarning, TextSegment } from './types';
+} from "./helpers";
+import type { DraftNode, ParseContext, ParseResult } from "./internal";
+import { createSegments } from "./segments";
+import type {
+  CitationState,
+  StreamingMarkdownWarning,
+  TextSegment,
+} from "./types";
 
 /**
  * Parses inline markdown content into inline draft nodes.
@@ -28,7 +32,7 @@ export function parseInline(
 ): ParseResult<DraftNode[]> {
   const nodes: DraftNode[] = [];
   let i = 0;
-  let textBuffer = '';
+  let textBuffer = "";
   let textBufferStart = -1;
   let citations = context.citations;
   let warnings = context.warnings;
@@ -52,7 +56,7 @@ export function parseInline(
         ? [...warnings, ...appendResult.warnings]
         : warnings;
     hasWarnedSegmenterUnavailable = appendResult.hasWarnedSegmenterUnavailable;
-    textBuffer = '';
+    textBuffer = "";
     textBufferStart = -1;
   };
 
@@ -71,13 +75,13 @@ export function parseInline(
   while (i < text.length) {
     const current = text[i];
 
-    if (current === '\n') {
-      const trailingBackslashes = countTrailing(text, i - 1, '\\');
+    if (current === "\n") {
+      const trailingBackslashes = countTrailing(text, i - 1, "\\");
       const hardByBackslash = trailingBackslashes % 2 === 1;
-      const hardBySpaces = i > 1 && text.slice(i - 2, i) === '  ';
+      const hardBySpaces = i > 1 && text.slice(i - 2, i) === "  ";
       const hard = hardByBackslash || hardBySpaces;
 
-      if (hardByBackslash && textBuffer.endsWith('\\')) {
+      if (hardByBackslash && textBuffer.endsWith("\\")) {
         textBuffer = textBuffer.slice(0, -1);
       }
 
@@ -85,7 +89,7 @@ export function parseInline(
 
       nodes.push({
         path: `${path}.${nodes.length}`,
-        type: hard ? 'hard-break' : 'soft-break',
+        type: hard ? "hard-break" : "soft-break",
         range: { start: absoluteStart + i, end: absoluteStart + i + 1 },
         closed: true,
         props: {},
@@ -95,7 +99,7 @@ export function parseInline(
       continue;
     }
 
-    if (current === '\\' && i + 1 < text.length && isEscapable(text[i + 1])) {
+    if (current === "\\" && i + 1 < text.length && isEscapable(text[i + 1])) {
       appendBufferedText(text[i + 1], absoluteStart + i);
       i += 2;
       continue;
@@ -174,8 +178,8 @@ export function parseInline(
       parseDelimitedInline(
         text,
         i,
-        '**',
-        'strong',
+        "**",
+        "strong",
         absoluteStart,
         path,
         nodes.length,
@@ -187,8 +191,8 @@ export function parseInline(
       parseDelimitedInline(
         text,
         i,
-        '__',
-        'strong',
+        "__",
+        "strong",
         absoluteStart,
         path,
         nodes.length,
@@ -210,8 +214,8 @@ export function parseInline(
     const strike = parseDelimitedInline(
       text,
       i,
-      '~~',
-      'strikethrough',
+      "~~",
+      "strikethrough",
       absoluteStart,
       path,
       nodes.length,
@@ -234,8 +238,8 @@ export function parseInline(
       parseDelimitedInline(
         text,
         i,
-        '*',
-        'em',
+        "*",
+        "em",
         absoluteStart,
         path,
         nodes.length,
@@ -247,8 +251,8 @@ export function parseInline(
       parseDelimitedInline(
         text,
         i,
-        '_',
-        'em',
+        "_",
+        "em",
         absoluteStart,
         path,
         nodes.length,
@@ -298,11 +302,11 @@ function annotateNoBreakBeforeSegments(nodes: DraftNode[]): DraftNode[] {
   let changed = false;
 
   const next = nodes.map((node, index) => {
-    if (node.type !== 'text') {
+    if (node.type !== "text") {
       return node;
     }
 
-    const segments = node.props['segments'];
+    const segments = node.props["segments"];
     if (!Array.isArray(segments) || segments.length === 0) {
       return node;
     }
@@ -346,12 +350,12 @@ function shouldPreventBreakBeforeNode(node: DraftNode | null): boolean {
     return false;
   }
 
-  if (node.type === 'soft-break' || node.type === 'hard-break') {
+  if (node.type === "soft-break" || node.type === "hard-break") {
     return false;
   }
 
-  if (node.type === 'text') {
-    const text = String(node.props['text'] ?? '');
+  if (node.type === "text") {
+    const text = String(node.props["text"] ?? "");
     if (!text || /\s$/u.test(text)) {
       return false;
     }
@@ -370,38 +374,38 @@ function startsWithClosingPunctuation(value: string): boolean {
 }
 
 const CLOSING_PUNCTUATION = new Set([
-  ']',
-  ',',
-  '.',
-  '!',
-  '?',
-  ';',
-  ':',
-  '%',
-  ')',
-  '}',
-  '>',
+  "]",
+  ",",
+  ".",
+  "!",
+  "?",
+  ";",
+  ":",
+  "%",
+  ")",
+  "}",
+  ">",
   '"',
   "'",
-  '、',
-  '。',
-  '，',
-  '．',
-  '！',
-  '？',
-  '：',
-  '；',
-  '％',
-  '）',
-  '］',
-  '｝',
-  '〉',
-  '》',
-  '」',
-  '』',
-  '】',
-  '〕',
-  '〗',
+  "、",
+  "。",
+  "，",
+  "．",
+  "！",
+  "？",
+  "：",
+  "；",
+  "％",
+  "）",
+  "］",
+  "｝",
+  "〉",
+  "》",
+  "」",
+  "』",
+  "】",
+  "〕",
+  "〗",
 ]);
 
 function appendText(
@@ -409,9 +413,12 @@ function appendText(
   text: string,
   start: number,
   path: string,
-  segmenter: ParseContext['options']['segmenter'],
+  segmenter: ParseContext["options"]["segmenter"],
   hasWarnedSegmenterUnavailable: boolean,
-): { warnings: StreamingMarkdownWarning[]; hasWarnedSegmenterUnavailable: boolean } {
+): {
+  warnings: StreamingMarkdownWarning[];
+  hasWarnedSegmenterUnavailable: boolean;
+} {
   if (!text) {
     return { warnings: [], hasWarnedSegmenterUnavailable };
   }
@@ -423,7 +430,7 @@ function appendText(
 
   nodes.push({
     path: `${path}.${nodes.length}`,
-    type: 'text',
+    type: "text",
     range: { start, end: start + text.length },
     closed: true,
     props: {
@@ -448,11 +455,11 @@ function parseCitationInline(
   index: number,
   isComplete: boolean,
 ): { node: DraftNode; next: number; citations: CitationState } | null {
-  if (!text.startsWith('[^', at)) {
+  if (!text.startsWith("[^", at)) {
     return null;
   }
 
-  const close = text.indexOf(']', at + 2);
+  const close = text.indexOf("]", at + 2);
   if (close >= 0) {
     const idRef = text.slice(at + 2, close).trim();
     if (!idRef) {
@@ -464,7 +471,7 @@ function parseCitationInline(
     return {
       node: {
         path: `${path}.${index}`,
-        type: 'citation',
+        type: "citation",
         range: { start: start + at, end: start + close + 1 },
         closed: true,
         props: { idRef, number: numbered.number },
@@ -489,7 +496,7 @@ function parseCitationInline(
   return {
     node: {
       path: `${path}.${index}`,
-      type: 'citation',
+      type: "citation",
       range: { start: start + at, end: start + text.length },
       closed: false,
       props: { idRef: partialIdRef },
@@ -507,16 +514,16 @@ function parseImageInline(
   path: string,
   index: number,
 ): { node: DraftNode; next: number } | null {
-  if (!text.startsWith('![', at)) {
+  if (!text.startsWith("![", at)) {
     return null;
   }
 
-  const labelEnd = findClosing(text, at + 1, '[', ']');
-  if (labelEnd < 0 || text[labelEnd + 1] !== '(') {
+  const labelEnd = findClosing(text, at + 1, "[", "]");
+  if (labelEnd < 0 || text[labelEnd + 1] !== "(") {
     return null;
   }
 
-  const destEnd = findClosing(text, labelEnd + 1, '(', ')');
+  const destEnd = findClosing(text, labelEnd + 1, "(", ")");
   if (destEnd < 0) {
     return null;
   }
@@ -527,7 +534,7 @@ function parseImageInline(
   return {
     node: {
       path: `${path}.${index}`,
-      type: 'image',
+      type: "image",
       range: { start: start + at, end: start + destEnd + 1 },
       closed: true,
       props: {
@@ -558,16 +565,16 @@ function parseLinkInline(
   warnings: StreamingMarkdownWarning[];
   hasWarnedSegmenterUnavailable: boolean;
 } | null {
-  if (text[at] !== '[' || text.startsWith('[^', at)) {
+  if (text[at] !== "[" || text.startsWith("[^", at)) {
     return null;
   }
 
-  const labelEnd = findClosing(text, at, '[', ']');
-  if (labelEnd < 0 || text[labelEnd + 1] !== '(') {
+  const labelEnd = findClosing(text, at, "[", "]");
+  if (labelEnd < 0 || text[labelEnd + 1] !== "(") {
     return null;
   }
 
-  const destEnd = findClosing(text, labelEnd + 1, '(', ')');
+  const destEnd = findClosing(text, labelEnd + 1, "(", ")");
   if (destEnd < 0) {
     return null;
   }
@@ -584,7 +591,7 @@ function parseLinkInline(
   return {
     node: {
       path: `${path}.${index}`,
-      type: 'link',
+      type: "link",
       range: { start: start + at, end: start + destEnd + 1 },
       closed: true,
       props: {
@@ -612,8 +619,8 @@ function parseAutolinkInline(
     return null;
   }
 
-  if (text[at] === '<') {
-    const close = text.indexOf('>', at + 1);
+  if (text[at] === "<") {
+    const close = text.indexOf(">", at + 1);
     if (close > at + 1) {
       const value = text.slice(at + 1, close).trim();
       if (isUrl(value) || isEmail(value)) {
@@ -621,7 +628,7 @@ function parseAutolinkInline(
         return {
           node: {
             path: `${path}.${index}`,
-            type: 'autolink',
+            type: "autolink",
             range: { start: start + at, end: start + close + 1 },
             closed: true,
             props: { url, text: value },
@@ -653,14 +660,14 @@ function parseAutolinkInline(
 
   const url = isEmail(raw)
     ? `mailto:${raw}`
-    : raw.startsWith('www.')
+    : raw.startsWith("www.")
       ? `https://${raw}`
       : raw;
 
   return {
     node: {
       path: `${path}.${index}`,
-      type: 'autolink',
+      type: "autolink",
       range: { start: start + at, end: start + at + raw.length },
       closed: true,
       props: {
@@ -680,22 +687,22 @@ function parseInlineCode(
   path: string,
   index: number,
 ): { node: DraftNode; next: number } | null {
-  if (text[at] !== '`') {
+  if (text[at] !== "`") {
     return null;
   }
 
   let len = 1;
-  while (text[at + len] === '`') {
+  while (text[at + len] === "`") {
     len += 1;
   }
 
-  const delimiter = '`'.repeat(len);
+  const delimiter = "`".repeat(len);
   const close = text.indexOf(delimiter, at + len);
   if (close < 0) {
     return {
       node: {
         path: `${path}.${index}`,
-        type: 'inline-code',
+        type: "inline-code",
         range: { start: start + at, end: start + text.length },
         closed: false,
         props: {
@@ -710,7 +717,7 @@ function parseInlineCode(
   return {
     node: {
       path: `${path}.${index}`,
-      type: 'inline-code',
+      type: "inline-code",
       range: { start: start + at, end: start + close + len },
       closed: true,
       props: {
@@ -726,7 +733,7 @@ function parseDelimitedInline(
   text: string,
   at: number,
   delimiter: string,
-  type: 'em' | 'strong' | 'strikethrough',
+  type: "em" | "strong" | "strikethrough",
   start: number,
   path: string,
   index: number,

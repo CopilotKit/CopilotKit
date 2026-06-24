@@ -1,5 +1,5 @@
-export { StreamingMarkdownRenderer } from './streaming-markdown-renderer';
+export { StreamingMarkdownRenderer } from "./streaming-markdown-renderer";
 export type {
   VueStreamingMarkdownNodeRenderer,
   VueStreamingMarkdownNodeRenderers,
-} from './streaming-markdown-renderer';
+} from "./streaming-markdown-renderer";

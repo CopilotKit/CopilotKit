@@ -11,7 +11,9 @@ describe("StreamingMarkdownDefaultRenderer", () => {
   });
 
   it("renders bold text", () => {
-    const { container } = render(<StreamingMarkdownDefaultRenderer content="**bold**" />);
+    const { container } = render(
+      <StreamingMarkdownDefaultRenderer content="**bold**" />,
+    );
     expect(container.querySelector("strong")?.textContent).toContain("bold");
   });
 
@@ -27,7 +29,9 @@ describe("StreamingMarkdownDefaultRenderer", () => {
   });
 
   it("renders nothing for empty content", () => {
-    const { container } = render(<StreamingMarkdownDefaultRenderer content="" />);
+    const { container } = render(
+      <StreamingMarkdownDefaultRenderer content="" />,
+    );
     expect(container.textContent).toBe("");
   });
 });

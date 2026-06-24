@@ -1,16 +1,16 @@
-import { computed, defineComponent, h } from 'vue';
-import type { PropType, VNode } from 'vue';
+import { computed, defineComponent, h } from "vue";
+import type { PropType, VNode } from "vue";
 import {
   createStreamingMarkdownParserState,
   finalizeStreamingMarkdown,
   parseStreamingMarkdownChunk,
-} from '@copilotkit/markdown-renderer';
+} from "@copilotkit/markdown-renderer";
 import type {
   StreamingMarkdownAstNode,
   StreamingMarkdownParserOptions,
   StreamingMarkdownParserState,
   TextSegment,
-} from '@copilotkit/markdown-renderer';
+} from "@copilotkit/markdown-renderer";
 
 // ---------------------------------------------------------------------------
 // URL sanitization (mirrors BasicMarkdown.vue allowlists)
@@ -45,7 +45,8 @@ function normalizeOptions(
   return {
     segmenter: options?.segmenter ?? DEFAULT_OPTIONS.segmenter,
     enableTables: options?.enableTables ?? DEFAULT_OPTIONS.enableTables,
-    enableAutolinks: options?.enableAutolinks ?? DEFAULT_OPTIONS.enableAutolinks,
+    enableAutolinks:
+      options?.enableAutolinks ?? DEFAULT_OPTIONS.enableAutolinks,
   };
 }
 
@@ -55,7 +56,8 @@ function buildParserState(
   isComplete: boolean,
 ): StreamingMarkdownParserState {
   const state = createStreamingMarkdownParserState(options);
-  const parsed = content.length > 0 ? parseStreamingMarkdownChunk(state, content) : state;
+  const parsed =
+    content.length > 0 ? parseStreamingMarkdownChunk(state, content) : state;
   return isComplete ? finalizeStreamingMarkdown(parsed) : parsed;
 }
 
@@ -65,22 +67,20 @@ function buildParserState(
 
 type NodeById = Map<number, StreamingMarkdownAstNode>;
 
-type TextNode = Extract<StreamingMarkdownAstNode, { type: 'text' }>;
+type TextNode = Extract<StreamingMarkdownAstNode, { type: "text" }>;
 
 function renderTextSegments(node: TextNode): (VNode | string)[] {
   if (node.text.length === 0) return [];
   if (node.segments.length === 0) {
-    return [
-      h('span', { class: 'cpk-streaming-markdown-segment' }, node.text),
-    ];
+    return [h("span", { class: "cpk-streaming-markdown-segment" }, node.text)];
   }
   return node.segments.map((segment: TextSegment) =>
     h(
-      'span',
+      "span",
       {
-        class: 'cpk-streaming-markdown-segment',
-        'data-streaming-markdown-segment-kind': segment.kind,
-        'data-streaming-markdown-whitespace': String(segment.isWhitespace),
+        class: "cpk-streaming-markdown-segment",
+        "data-streaming-markdown-segment-kind": segment.kind,
+        "data-streaming-markdown-whitespace": String(segment.isWhitespace),
       },
       segment.noBreakBefore ? `⁠${segment.text}` : segment.text,
     ),
@@ -104,213 +104,225 @@ function renderNode(
   nodeRenderers?: VueStreamingMarkdownNodeRenderers,
 ): VNode | string | null {
   // Helper: apply a nodeRenderers override if one is registered for this node type.
-  function withOverride(key: string, defaultVNode: VNode | string | null): VNode | string | null {
+  function withOverride(
+    key: string,
+    defaultVNode: VNode | string | null,
+  ): VNode | string | null {
     const override = nodeRenderers?.[key];
     return override ? override(node, defaultVNode) : defaultVNode;
   }
 
   switch (node.type) {
-    case 'document': {
+    case "document": {
       // Document is transparent — render children directly as a Fragment via array
       // We wrap in a div for the root element, handled at the top level.
       // Here just return children inlined (will be wrapped by root div).
-      return h('span', { style: 'display:contents' }, renderChildren(node.children, nodeById, nodeRenderers));
+      return h(
+        "span",
+        { style: "display:contents" },
+        renderChildren(node.children, nodeById, nodeRenderers),
+      );
     }
 
-    case 'paragraph': {
+    case "paragraph": {
       const defaultVNode = h(
-        'p',
+        "p",
         {
-          'data-streaming-markdown-node': 'paragraph',
-          'data-node-open': String(!node.closed),
+          "data-streaming-markdown-node": "paragraph",
+          "data-node-open": String(!node.closed),
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride('paragraph', defaultVNode);
+      return withOverride("paragraph", defaultVNode);
     }
 
-    case 'heading': {
-      const tag = `h${node.level}` as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+    case "heading": {
+      const tag = `h${node.level}` as "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
       const defaultVNode = h(
         tag,
         {
-          'data-streaming-markdown-node': 'heading',
-          'data-node-open': String(!node.closed),
+          "data-streaming-markdown-node": "heading",
+          "data-node-open": String(!node.closed),
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride('heading', defaultVNode);
+      return withOverride("heading", defaultVNode);
     }
 
-    case 'blockquote': {
+    case "blockquote": {
       const defaultVNode = h(
-        'blockquote',
+        "blockquote",
         {
-          'data-streaming-markdown-node': 'blockquote',
-          'data-node-open': String(!node.closed),
+          "data-streaming-markdown-node": "blockquote",
+          "data-node-open": String(!node.closed),
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride('blockquote', defaultVNode);
+      return withOverride("blockquote", defaultVNode);
     }
 
-    case 'list': {
-      const tag = node.ordered ? 'ol' : 'ul';
+    case "list": {
+      const tag = node.ordered ? "ol" : "ul";
       const attrs: Record<string, unknown> = {
-        'data-streaming-markdown-node': 'list',
-        'data-node-open': String(!node.closed),
-        'data-list-tight': String(node.tight),
+        "data-streaming-markdown-node": "list",
+        "data-node-open": String(!node.closed),
+        "data-list-tight": String(node.tight),
       };
       if (node.ordered && node.start != null) {
         attrs.start = node.start;
       }
-      const defaultVNode = h(tag, attrs, renderChildren(node.children, nodeById, nodeRenderers));
-      return withOverride('list', defaultVNode);
+      const defaultVNode = h(
+        tag,
+        attrs,
+        renderChildren(node.children, nodeById, nodeRenderers),
+      );
+      return withOverride("list", defaultVNode);
     }
 
-    case 'list-item': {
+    case "list-item": {
       const defaultVNode = h(
-        'li',
+        "li",
         {
-          'data-streaming-markdown-node': 'list-item',
-          'data-node-open': String(!node.closed),
+          "data-streaming-markdown-node": "list-item",
+          "data-node-open": String(!node.closed),
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride('list-item', defaultVNode);
+      return withOverride("list-item", defaultVNode);
     }
 
-    case 'code-block': {
+    case "code-block": {
       const defaultVNode = h(
-        'pre',
+        "pre",
         {
-          'data-streaming-markdown-node': 'code-block',
-          'data-node-open': String(!node.closed),
-          class: 'cpk:overflow-x-auto cpk:rounded-lg cpk:p-3',
+          "data-streaming-markdown-node": "code-block",
+          "data-node-open": String(!node.closed),
+          class: "cpk:overflow-x-auto cpk:rounded-lg cpk:p-3",
         },
-        [h('code', { 'data-code-info': node.info ?? undefined }, node.text)],
+        [h("code", { "data-code-info": node.info ?? undefined }, node.text)],
       );
-      return withOverride('codeBlock', defaultVNode);
+      return withOverride("codeBlock", defaultVNode);
     }
 
-    case 'table': {
+    case "table": {
       const defaultVNode = h(
-        'table',
+        "table",
         {
-          'data-streaming-markdown-node': 'table',
-          'data-node-open': String(!node.closed),
+          "data-streaming-markdown-node": "table",
+          "data-node-open": String(!node.closed),
         },
-        [h('tbody', renderChildren(node.children, nodeById, nodeRenderers))],
+        [h("tbody", renderChildren(node.children, nodeById, nodeRenderers))],
       );
-      return withOverride('table', defaultVNode);
+      return withOverride("table", defaultVNode);
     }
 
-    case 'table-row': {
+    case "table-row": {
       const defaultVNode = h(
-        'tr',
+        "tr",
         {
-          'data-streaming-markdown-node': 'table-row',
-          'data-node-open': String(!node.closed),
+          "data-streaming-markdown-node": "table-row",
+          "data-node-open": String(!node.closed),
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride('table-row', defaultVNode);
+      return withOverride("table-row", defaultVNode);
     }
 
-    case 'table-cell': {
-      const parent = node.parentId != null ? nodeById.get(node.parentId) : undefined;
-      const isHeader = parent?.type === 'table-row' && parent.isHeader;
-      const tag = isHeader ? 'th' : 'td';
+    case "table-cell": {
+      const parent =
+        node.parentId != null ? nodeById.get(node.parentId) : undefined;
+      const isHeader = parent?.type === "table-row" && parent.isHeader;
+      const tag = isHeader ? "th" : "td";
       const defaultVNode = h(
         tag,
         {
-          'data-streaming-markdown-node': 'table-cell',
-          'data-node-open': String(!node.closed),
+          "data-streaming-markdown-node": "table-cell",
+          "data-node-open": String(!node.closed),
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride('table-cell', defaultVNode);
+      return withOverride("table-cell", defaultVNode);
     }
 
-    case 'thematic-break': {
-      const defaultVNode = h('hr', {
-        'data-streaming-markdown-node': 'thematic-break',
-        'data-node-open': String(!node.closed),
+    case "thematic-break": {
+      const defaultVNode = h("hr", {
+        "data-streaming-markdown-node": "thematic-break",
+        "data-node-open": String(!node.closed),
       });
-      return withOverride('thematic-break', defaultVNode);
+      return withOverride("thematic-break", defaultVNode);
     }
 
-    case 'text': {
-      return h('span', { style: 'display:contents' }, renderTextSegments(node));
+    case "text": {
+      return h("span", { style: "display:contents" }, renderTextSegments(node));
     }
 
-    case 'em': {
+    case "em": {
       const defaultVNode = h(
-        'em',
+        "em",
         {
-          'data-streaming-markdown-node': 'em',
-          'data-node-open': String(!node.closed),
+          "data-streaming-markdown-node": "em",
+          "data-node-open": String(!node.closed),
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride('em', defaultVNode);
+      return withOverride("em", defaultVNode);
     }
 
-    case 'strong': {
+    case "strong": {
       const defaultVNode = h(
-        'strong',
+        "strong",
         {
-          'data-streaming-markdown-node': 'strong',
-          'data-node-open': String(!node.closed),
+          "data-streaming-markdown-node": "strong",
+          "data-node-open": String(!node.closed),
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride('strong', defaultVNode);
+      return withOverride("strong", defaultVNode);
     }
 
-    case 'strikethrough': {
+    case "strikethrough": {
       const defaultVNode = h(
-        'del',
+        "del",
         {
-          'data-streaming-markdown-node': 'strikethrough',
-          'data-node-open': String(!node.closed),
+          "data-streaming-markdown-node": "strikethrough",
+          "data-node-open": String(!node.closed),
         },
         renderChildren(node.children, nodeById, nodeRenderers),
       );
-      return withOverride('strikethrough', defaultVNode);
+      return withOverride("strikethrough", defaultVNode);
     }
 
-    case 'inline-code': {
+    case "inline-code": {
       const defaultVNode = h(
-        'code',
+        "code",
         {
-          'data-streaming-markdown-node': 'inline-code',
-          'data-node-open': String(!node.closed),
+          "data-streaming-markdown-node": "inline-code",
+          "data-node-open": String(!node.closed),
         },
         node.text,
       );
-      return withOverride('inline-code', defaultVNode);
+      return withOverride("inline-code", defaultVNode);
     }
 
-    case 'soft-break': {
-      return '\n';
+    case "soft-break": {
+      return "\n";
     }
 
-    case 'hard-break': {
-      const defaultVNode = h('br', {
-        'data-streaming-markdown-node': 'hard-break',
-        'data-node-open': String(!node.closed),
+    case "hard-break": {
+      const defaultVNode = h("br", {
+        "data-streaming-markdown-node": "hard-break",
+        "data-node-open": String(!node.closed),
       });
-      return withOverride('hard-break', defaultVNode);
+      return withOverride("hard-break", defaultVNode);
     }
 
-    case 'link': {
+    case "link": {
       const safeHref = sanitizeHref(node.url);
       const attrs: Record<string, unknown> = {
-        'data-streaming-markdown-node': 'link',
-        'data-node-open': String(!node.closed),
-        target: '_blank',
-        rel: 'noopener noreferrer',
+        "data-streaming-markdown-node": "link",
+        "data-node-open": String(!node.closed),
+        target: "_blank",
+        rel: "noopener noreferrer",
       };
       if (safeHref != null) {
         attrs.href = safeHref;
@@ -318,15 +330,19 @@ function renderNode(
       if (node.title) {
         attrs.title = node.title;
       }
-      const defaultVNode = h('a', attrs, renderChildren(node.children, nodeById, nodeRenderers));
-      return withOverride('link', defaultVNode);
+      const defaultVNode = h(
+        "a",
+        attrs,
+        renderChildren(node.children, nodeById, nodeRenderers),
+      );
+      return withOverride("link", defaultVNode);
     }
 
-    case 'image': {
+    case "image": {
       const safeSrc = sanitizeImgSrc(node.url);
       const attrs: Record<string, unknown> = {
-        'data-streaming-markdown-node': 'image',
-        'data-node-open': String(!node.closed),
+        "data-streaming-markdown-node": "image",
+        "data-node-open": String(!node.closed),
         alt: node.alt,
       };
       if (safeSrc != null) {
@@ -335,43 +351,46 @@ function renderNode(
       if (node.title) {
         attrs.title = node.title;
       }
-      const defaultVNode = h('img', attrs);
-      return withOverride('image', defaultVNode);
+      const defaultVNode = h("img", attrs);
+      return withOverride("image", defaultVNode);
     }
 
-    case 'autolink': {
+    case "autolink": {
       const safeHref = sanitizeHref(node.url);
       const attrs: Record<string, unknown> = {
-        'data-streaming-markdown-node': 'autolink',
-        'data-node-open': String(!node.closed),
-        target: '_blank',
-        rel: 'noopener noreferrer',
+        "data-streaming-markdown-node": "autolink",
+        "data-node-open": String(!node.closed),
+        target: "_blank",
+        rel: "noopener noreferrer",
       };
       if (safeHref != null) {
         attrs.href = safeHref;
       }
-      const defaultVNode = h('a', attrs, node.text);
-      return withOverride('autolink', defaultVNode);
+      const defaultVNode = h("a", attrs, node.text);
+      return withOverride("autolink", defaultVNode);
     }
 
-    case 'citation': {
+    case "citation": {
       // Render as a superscript with the citation reference
       const defaultVNode = h(
-        'sup',
+        "sup",
         {
-          'data-streaming-markdown-node': 'citation',
-          'data-node-open': String(!node.closed),
-          class: 'cpk-streaming-markdown-citation',
+          "data-streaming-markdown-node": "citation",
+          "data-node-open": String(!node.closed),
+          class: "cpk-streaming-markdown-citation",
         },
         [
           h(
-            'span',
-            { role: 'doc-noteref', class: 'cpk-streaming-markdown-citation-label' },
+            "span",
+            {
+              role: "doc-noteref",
+              class: "cpk-streaming-markdown-citation-label",
+            },
             String(node.number ?? node.idRef),
           ),
         ],
       );
-      return withOverride('citation', defaultVNode);
+      return withOverride("citation", defaultVNode);
     }
 
     default: {
@@ -414,7 +433,7 @@ export type VueStreamingMarkdownNodeRenderers = Partial<
  * @public
  */
 export const StreamingMarkdownRenderer = defineComponent({
-  name: 'StreamingMarkdownRenderer',
+  name: "StreamingMarkdownRenderer",
 
   props: {
     /** The full markdown source string, which may grow over time during streaming. */
@@ -462,7 +481,7 @@ export const StreamingMarkdownRenderer = defineComponent({
   setup(props) {
     const parserState = computed<StreamingMarkdownParserState>(() => {
       const opts = normalizeOptions(props.options);
-      return buildParserState(props.content ?? '', opts, props.isComplete);
+      return buildParserState(props.content ?? "", opts, props.isComplete);
     });
 
     const nodeById = computed<NodeById>(() => {
@@ -476,23 +495,24 @@ export const StreamingMarkdownRenderer = defineComponent({
     return () => {
       const state = parserState.value;
       const byId = nodeById.value;
-      const rootNode = state.rootId != null ? byId.get(state.rootId) : undefined;
+      const rootNode =
+        state.rootId != null ? byId.get(state.rootId) : undefined;
       const renderers = props.nodeRenderers;
 
       const rootClass = props.class
         ? `cpk-streaming-markdown-root ${props.class}`
-        : 'cpk-streaming-markdown-root';
+        : "cpk-streaming-markdown-root";
 
       if (!rootNode) {
-        return h('div', {
+        return h("div", {
           class: rootClass,
-          'data-streaming-markdown-root': true,
+          "data-streaming-markdown-root": true,
         });
       }
 
       // Render children of document directly (skip the transparent document wrapper)
       const children: (VNode | string | null)[] =
-        rootNode.type === 'document'
+        rootNode.type === "document"
           ? rootNode.children.map((id) => {
               const child = byId.get(id);
               return child ? renderNode(child, byId, renderers) : null;
@@ -502,29 +522,29 @@ export const StreamingMarkdownRenderer = defineComponent({
       // Append caret if requested and not complete
       if (props.caret && !state.isComplete) {
         children.push(
-          h('span', {
-            'aria-hidden': true,
-            class: 'cpk-streaming-markdown-caret',
-            'data-streaming-markdown-caret': true,
+          h("span", {
+            "aria-hidden": true,
+            class: "cpk-streaming-markdown-caret",
+            "data-streaming-markdown-caret": true,
             style: {
-              display: 'inline-block',
-              width: '0.48em',
-              height: '0.48em',
-              marginInlineStart: '0.08em',
-              verticalAlign: '-0.08em',
-              borderRadius: '999px',
-              backgroundColor: 'currentColor',
-              opacity: '0.55',
+              display: "inline-block",
+              width: "0.48em",
+              height: "0.48em",
+              marginInlineStart: "0.08em",
+              verticalAlign: "-0.08em",
+              borderRadius: "999px",
+              backgroundColor: "currentColor",
+              opacity: "0.55",
             },
           }),
         );
       }
 
       return h(
-        'div',
+        "div",
         {
           class: rootClass,
-          'data-streaming-markdown-root': true,
+          "data-streaming-markdown-root": true,
         },
         children,
       );
