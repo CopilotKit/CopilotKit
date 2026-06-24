@@ -55,6 +55,7 @@ from agents.interrupt_agent import interrupt_agent
 from agents.mcp_apps_agent import mcp_apps_agent
 from agents.multimodal_agent import multimodal_agent
 from agents.declarative_gen_ui_agent import declarative_gen_ui_agent
+from agents.recovery_agent import recovery_agent
 from agents.a2ui_fixed_agent import a2ui_fixed_agent
 from agents.byoc_agents import byoc_agent
 from agents.open_gen_ui_agents import (
@@ -181,6 +182,10 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     # get_a2ui_tool (backend-owned; route sets injectA2UITool: false). See
     # declarative_gen_ui_agent.py.
     "declarative_gen_ui": AgentSpec(declarative_gen_ui_agent),
+    # A2UI error recovery (ADK-only): same backend-owned get_a2ui_tool wiring,
+    # but the aimock fixtures force invalid->valid (heal) and always-invalid
+    # (exhaust) sequences to make the toolkit recovery loop + hard-fail visible.
+    "a2ui_recovery": AgentSpec(recovery_agent),
     # Fixed-schema A2UI emits a2ui_operations directly from a deterministic
     # backend tool (no secondary planner), injectA2UITool: false.
     "a2ui_fixed_schema": AgentSpec(a2ui_fixed_agent),

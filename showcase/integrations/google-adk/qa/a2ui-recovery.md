@@ -1,0 +1,44 @@
+# QA: A2UI Error Recovery — Google ADK (ADK-only)
+
+## Prerequisites
+
+- Demo is deployed and accessible at `/demos/a2ui-recovery` on the dashboard host
+- Agent backend is healthy (`/api/health`); `GOOGLE_API_KEY` is set; `AGENT_URL` points at the ADK agent server exposing the `a2ui_recovery` agent path (registered as agent name `a2ui-recovery` — see `src/app/api/copilotkit-a2ui-recovery/route.ts`)
+- Requires `ag-ui-adk >= 0.7.0` (the validate→retry recovery loop + `a2ui_recovery_exhausted` hard-fail envelope) and `@ag-ui/a2ui-middleware >= 0.0.10` (the `building`/`retrying`/`failed` lifecycle rendering)
+- Backend-owned wiring: the route sets `injectA2UITool: false`; the agent owns `generate_a2ui` via `get_a2ui_tool({ recovery: { maxAttempts: 3 } })` (see `src/agents/recovery_agent.py`)
+- Reuses the **declarative-gen-ui** catalog (`catalogId: "declarative-gen-ui-catalog"`) and the Vantage Threads sales context — no new components
+- This demo is **ADK-only**: the recovery loop lives in the ADK middleware; the langgraph-python runtime path has no equivalent, so there is no langgraph-python parity reference for this demo (it is exempt from the LP e2e-parity comparison)
+
+## Test Steps
+
+### 1. Basic Functionality
+
+- [ ] Navigate to `/demos/a2ui-recovery`; verify the page renders within 3s and a single `CopilotChat` pane is centered (max-width ~896px, rounded-2xl, full-height)
+- [ ] Verify the chat is wired to `runtimeUrl="/api/copilotkit-a2ui-recovery"` and `agent="a2ui-recovery"` (DevTools → Network: sending a message hits that endpoint, not `/api/copilotkit`)
+- [ ] Verify both suggestion pills are visible with verbatim titles:
+  - "Recover a bad render"
+  - "Show an unrecoverable failure"
+
+### 2. Recovery (heal) path
+
+- [ ] Click "Recover a bad render" ("Render my Q2 sales dashboard, recovering if the first attempt is malformed.")
+- [ ] Verify the lifecycle is visible in order: a `building` skeleton → a `retrying` state showing a "Retrying… (N/3)" label (the first render is structurally invalid — root references a missing child — and never paints) → a painted surface
+- [ ] Verify the **painted** surface is valid: a `declarative-metric` row ("Quarterly Revenue $4.2M", "Win Rate 31%") under a "Q2 Sales Dashboard (recovered)" title — i.e., the invalid first attempt did NOT paint, only the recovered one did
+- [ ] DevTools → Network: verify the inner `render_a2ui` sub-agent was called more than once (attempt 0 invalid, attempt 1 valid) and the final tool result carries an `a2ui_operations` container (no `a2ui_recovery_exhausted`)
+- [ ] Verify the chat reply is one short sentence noting the recovery
+
+### 3. Hard-fail (recovery exhausted) path
+
+- [ ] Click "Show an unrecoverable failure" ("Render a dashboard that keeps failing validation so I can see the fallback.")
+- [ ] Verify the lifecycle ends in a tasteful `failed` state (NOT a broken/half-rendered surface and NOT a silent drop)
+- [ ] DevTools → Network: verify `render_a2ui` was attempted up to the cap (3 attempts, all invalid) and the tool returned an `a2ui_recovery_exhausted` envelope (no `a2ui_operations` painted)
+- [ ] Verify the chat reply gracefully explains the fallback (one short sentence)
+
+### 4. Regression / isolation
+
+- [ ] Verify the recovery demo does not affect the declarative-gen-ui or beautiful-chat demos (separate routes/agents)
+- [ ] Re-run each pill a second time and verify the same lifecycle (the `sequenceIndex` fixtures reset per test session / `X-Test-Id`)
+
+## Notes
+
+- The malformed renders are forced deterministically by aimock fixtures (`showcase/aimock/d6/google-adk/a2ui-recovery.json`): the inner `render_a2ui` call is keyed by `sequenceIndex` per recovery attempt (heal: 0 invalid → 1 valid; exhaust: invalid for every attempt). Healing itself is performed live by the ADK middleware, not the fixture.
