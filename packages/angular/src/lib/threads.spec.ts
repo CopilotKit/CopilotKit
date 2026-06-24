@@ -518,6 +518,24 @@ describe("injectThreads", () => {
       expect.objectContaining({ agentId: "agent-1" }),
     );
   });
+
+  it("does not stay loading when runtime info fails before first connect", () => {
+    copilotKitStub.setRuntimeConnectionStatus(
+      CopilotKitCoreRuntimeConnectionStatus.Error,
+    );
+
+    @Component({ standalone: true, template: "" })
+    class Host {
+      threadsResult = injectThreads({ agentId: "agent-1" });
+    }
+
+    const fixture = TestBed.createComponent(Host);
+    fixture.detectChanges();
+
+    expect(store.setContext).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.threadsResult.isLoading()).toBe(false);
+    expect(fixture.componentInstance.threadsResult.threads()).toEqual([]);
+  });
 });
 
 function assertSignal<T>(value: Signal<T>): void {

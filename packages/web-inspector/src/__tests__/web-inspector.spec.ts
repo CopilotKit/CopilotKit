@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import type { CopilotKitCore, ɵThread } from "@copilotkit/core";
+import type { CopilotKitCore, ɵThread, ɵThreadStore } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
@@ -26,8 +26,16 @@ type InspectorInternals = {
   agentMessages: Map<string, Array<{ contentText?: string }>>;
   agentStates: Map<string, unknown>;
   cachedTools: Array<{ name: string }>;
+  contextOptions: Array<{ key: string; label: string }>;
   selectedMenu: string;
+  selectedContext: string;
+  selectedThreadId: string | null;
+  _threads: ɵThread[];
+  _threadsByAgent: Map<string, ɵThread[]>;
+  _ownedThreadStores: Map<string, unknown>;
   handleMenuSelect: (key: "ag-ui-events" | "threads") => void;
+  handleContextOptionSelect: (key: string) => void;
+  autoSelectLatestThread: () => void;
 };
 
 type InspectorContextInternals = {
@@ -110,6 +118,23 @@ type MockCore = {
   getThreadStores: () => Record<string, never>;
   getThreadStore: (agentId: string) => undefined;
 };
+
+function threadFixture(
+  id: string,
+  agentId: string,
+  timestamps: Partial<Pick<ɵThread, "createdAt" | "updatedAt" | "lastRunAt">>,
+): ɵThread {
+  return {
+    id,
+    agentId,
+    name: id,
+    archived: false,
+    createdAt: timestamps.createdAt ?? "2026-06-01T00:00:00.000Z",
+    updatedAt: timestamps.updatedAt ?? "2026-06-01T00:00:00.000Z",
+    lastRunAt: timestamps.lastRunAt,
+    createdById: "user",
+  };
+}
 
 function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
   const subscribers = new Set<CopilotKitCoreSubscriber>();
@@ -298,6 +323,60 @@ describe("WebInspectorElement", () => {
     internals.handleMenuSelect("threads");
 
     expect(trackThreadsTabClickedMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps all-agent threads globally sorted by activity", async () => {
+    const { core } = createMockCore();
+    const inspector = createInspectorWithCore(core);
+    const internals = getInternals(inspector);
+    const older = threadFixture("older", "alpha", {
+      lastRunAt: "2026-06-23T18:00:00.000Z",
+    });
+    const newer = threadFixture("newer", "beta", {
+      lastRunAt: "2026-06-23T19:00:00.000Z",
+    });
+    internals._threadsByAgent = new Map([
+      ["alpha", [older]],
+      ["beta", [newer]],
+    ]);
+    internals._threads = Array.from(internals._threadsByAgent.values()).flat();
+
+    internals.autoSelectLatestThread();
+
+    expect(internals._threads.map((thread) => thread.id)).toEqual([
+      "newer",
+      "older",
+    ]);
+    expect(internals.selectedThreadId).toBe("newer");
+  });
+
+  it("reselects a valid thread when the thread context changes", async () => {
+    const { core } = createMockCore();
+    const inspector = createInspectorWithCore(core);
+    const internals = getInternals(inspector);
+    const alphaThread = threadFixture("alpha-thread", "alpha", {
+      lastRunAt: "2026-06-23T18:00:00.000Z",
+    });
+    const betaThread = threadFixture("beta-thread", "beta", {
+      lastRunAt: "2026-06-23T19:00:00.000Z",
+    });
+    internals.contextOptions = [
+      { key: "all-agents", label: "All Agents" },
+      { key: "alpha", label: "alpha" },
+      { key: "beta", label: "beta" },
+    ];
+    internals._threadsByAgent = new Map([
+      ["alpha", [alphaThread]],
+      ["beta", [betaThread]],
+    ]);
+    internals._threads = [betaThread, alphaThread];
+    internals.selectedContext = "all-agents";
+    internals.selectedThreadId = "alpha-thread";
+
+    internals.handleContextOptionSelect("beta");
+
+    expect(internals.selectedContext).toBe("beta");
+    expect(internals.selectedThreadId).toBe("beta-thread");
   });
 
   it("syncs agent state on direct setState (onStateChanged without pipeline events)", async () => {
@@ -599,6 +678,62 @@ describe("ɵCpkThreadDetails caching", () => {
       ).toEqual(expect.arrayContaining(["messages", "events", "state"]));
       for (const call of fetchSpy.mock.calls) {
         expect(credentialsOf(call)).toBe("include");
+      }
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("re-fetches selected thread details when headers change", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ messages: [] }), { status: 200 }),
+          );
+        }
+        if (url.endsWith("/events")) {
+          return Promise.resolve(
+            new Response(JSON.stringify({ events: [] }), { status: 200 }),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ state: null }), { status: 200 }),
+        );
+      });
+    try {
+      const { el, internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000";
+      internals.headers = { Authorization: "Bearer old" };
+      internals.threadInspectionAvailable = true;
+      internals.threadId = "t1";
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(
+          fetchSpy.mock.calls.some((call) =>
+            String(call[0]).endsWith("/messages"),
+          ),
+        ).toBe(true);
+      });
+      await internals.fetchEvents("t1");
+      await internals.fetchState("t1");
+      internals._eventsFetched = true;
+      internals._stateFetched = true;
+      fetchSpy.mockClear();
+
+      internals.headers = { Authorization: "Bearer new" };
+      await el.updateComplete;
+
+      await vi.waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalledTimes(3);
+      });
+      for (const call of fetchSpy.mock.calls) {
+        expect(headersOf(call)).toMatchObject({
+          Authorization: "Bearer new",
+        });
       }
     } finally {
       fetchSpy.mockRestore();
@@ -1099,6 +1234,15 @@ function createHeaderMockCore(
         s.onRuntimeConnectionStatusChanged?.({ copilotkit: asCore(), status }),
       );
     },
+    emitThreadStoreUnregistered(agentId: string, store: unknown) {
+      subscribers.forEach((s) =>
+        s.onThreadStoreUnregistered?.({
+          copilotkit: asCore(),
+          agentId,
+          store: store as ɵThreadStore,
+        }),
+      );
+    },
   };
 }
 
@@ -1385,5 +1529,32 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
       "alpha",
       ownedStore,
     );
+  });
+
+  it("drops an owned fallback store when an external store replaces it", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, { "X-CSRF": "1" });
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    await vi.waitFor(() => {
+      expect(harness.core.registerThreadStore).toHaveBeenCalledWith(
+        "alpha",
+        expect.any(Object),
+      );
+    });
+
+    const ownedStore = (
+      harness.core.registerThreadStore as ReturnType<typeof vi.fn>
+    ).mock.calls[0]![1];
+    const internals = getInternals(inspector);
+    expect(internals._ownedThreadStores.get("alpha")).toBe(ownedStore);
+
+    harness.emitThreadStoreUnregistered("alpha", ownedStore);
+
+    expect(internals._ownedThreadStores.has("alpha")).toBe(false);
   });
 });

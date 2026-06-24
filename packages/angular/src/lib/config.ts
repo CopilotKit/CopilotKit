@@ -9,6 +9,7 @@ import {
 import { LICENSE_WATERMARK_ENABLED } from "./license-watermark";
 import type { RenderActivityMessageConfig } from "./activity-renderer";
 import type { SuggestionsConfig } from "@copilotkit/core";
+import type { CopilotRuntimeTransport } from "@copilotkit/core";
 import type { OpenGenerativeUIConfig } from "./open-generative-ui";
 import type {
   Catalog,
@@ -26,6 +27,7 @@ export interface A2UIConfig {
 
 export interface CopilotKitConfig {
   runtimeUrl?: string;
+  runtimeTransport?: CopilotRuntimeTransport;
   headers?: Record<string, string>;
   credentials?: RequestCredentials;
   licenseKey?: string;

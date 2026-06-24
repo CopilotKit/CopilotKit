@@ -98,6 +98,7 @@ export class CopilotKit {
 
   readonly core = new CopilotKitCore({
     runtimeUrl: this.#config.runtimeUrl,
+    runtimeTransport: this.#config.runtimeTransport,
     headers: this.#config.headers,
     credentials: this.#config.credentials,
     properties: this.#config.properties,

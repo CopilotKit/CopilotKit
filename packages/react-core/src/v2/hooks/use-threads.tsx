@@ -308,7 +308,10 @@ export function useThreads({
   // isLoading takes over).
   const [hasDispatchedContext, setHasDispatchedContext] = useState(false);
   const lastQueryKeyRef = useRef(queryKey);
-  const preConnectLoading = !!copilotkit.runtimeUrl && !hasDispatchedContext;
+  const preConnectLoading =
+    !!copilotkit.runtimeUrl &&
+    !hasDispatchedContext &&
+    runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Error;
 
   const isLoading = runtimeError ? false : preConnectLoading || storeIsLoading;
   const error = runtimeError ?? storeError;

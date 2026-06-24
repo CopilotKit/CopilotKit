@@ -952,6 +952,31 @@ describe("useThreads", () => {
     });
   });
 
+  it("does not stay loading when runtime info fails before first connect", async () => {
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Error,
+        headers: { Authorization: "Bearer test-token" },
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: undefined,
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.threads).toEqual([]);
+  });
+
   it("clears stale threads when input changes while runtime is disconnected", async () => {
     mockUseCopilotKit.mockReturnValue({
       copilotkit: {

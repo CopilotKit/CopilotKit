@@ -89,6 +89,16 @@ const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed si
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
 
+function threadActivityTime(thread: ɵThread): string {
+  return thread.lastRunAt ?? thread.updatedAt ?? thread.createdAt;
+}
+
+function compareThreadsByActivity(left: ɵThread, right: ɵThread): number {
+  return (
+    Date.parse(threadActivityTime(right)) - Date.parse(threadActivityTime(left))
+  );
+}
+
 type InspectorAgentEventType =
   | "RUN_STARTED"
   | "RUN_FINISHED"
@@ -782,7 +792,7 @@ export class ɵCpkThreadDetails extends LitElement {
    */
   private _stateFetched = false;
   private _lastFetchedThreadId: string | null = null;
-  private _lastFetchedCredentials: RequestCredentials | undefined = undefined;
+  private _lastFetchedDetailKey = "";
   private _lastSeenLiveMessageVersion = 0;
   private _messagesAbort: AbortController | null = null;
   private _eventsAbort: AbortController | null = null;
@@ -1400,10 +1410,21 @@ export class ɵCpkThreadDetails extends LitElement {
     }
   `;
 
+  private detailFetchKey(): string {
+    return JSON.stringify({
+      runtimeUrl: this.runtimeUrl,
+      headers: Object.entries(this.headers).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+      credentials: this.credentials ?? null,
+      threadInspectionAvailable: this.threadInspectionAvailable,
+    });
+  }
+
   updated(_changed: Map<string, unknown>): void {
     if (this.threadId !== this._lastFetchedThreadId) {
       this._lastFetchedThreadId = this.threadId;
-      this._lastFetchedCredentials = this.credentials;
+      this._lastFetchedDetailKey = this.detailFetchKey();
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
       this._tab = "conversation";
       this._activatedTabs = new Set(["conversation"]);
@@ -1436,9 +1457,9 @@ export class ɵCpkThreadDetails extends LitElement {
       }
     } else if (
       this.threadId &&
-      this.credentials !== this._lastFetchedCredentials
+      this.detailFetchKey() !== this._lastFetchedDetailKey
     ) {
-      this._lastFetchedCredentials = this.credentials;
+      this._lastFetchedDetailKey = this.detailFetchKey();
       this._messagesAbort?.abort();
       this._messagesAbort = null;
       this._eventsAbort?.abort();
@@ -2572,7 +2593,6 @@ export class WebInspectorElement extends LitElement {
     if (this._threadStoreSubscriptions.has(agentId)) return;
     const threadsSub = store.select(ɵselectThreads).subscribe((threads) => {
       this._threadsByAgent.set(agentId, threads as ɵThread[]);
-      this._threads = Array.from(this._threadsByAgent.values()).flat();
       this.autoSelectLatestThread();
       this.requestUpdate();
     });
@@ -2597,18 +2617,28 @@ export class WebInspectorElement extends LitElement {
     } else {
       this._threadsErrorByAgent.delete(agentId);
     }
-    this._threads = Array.from(this._threadsByAgent.values()).flat();
     this.autoSelectLatestThread();
   }
 
   private autoSelectLatestThread(): void {
-    if (this._threads.length === 0) return;
+    this._threads = Array.from(this._threadsByAgent.values())
+      .flat()
+      .sort(compareThreadsByActivity);
+    const displayThreads =
+      this.selectedContext === "all-agents"
+        ? this._threads
+        : [...(this._threadsByAgent.get(this.selectedContext) ?? [])].sort(
+            compareThreadsByActivity,
+          );
+    if (displayThreads.length === 0) {
+      this.selectedThreadId = null;
+      return;
+    }
     const stillValid =
       this.selectedThreadId != null &&
-      this._threads.some((t) => t.id === this.selectedThreadId);
+      displayThreads.some((t) => t.id === this.selectedThreadId);
     if (!stillValid) {
-      // Threads are sorted most-recently-updated first
-      this.selectedThreadId = this._threads[0]!.id;
+      this.selectedThreadId = displayThreads[0]!.id;
     }
   }
 
@@ -2620,6 +2650,7 @@ export class WebInspectorElement extends LitElement {
     this._threadsByAgent.clear();
     this._threadsErrorByAgent.clear();
     this._threads = [];
+    this.selectedThreadId = null;
   }
 
   private ensureOwnedThreadStore(agentId: string): void {
@@ -2767,7 +2798,12 @@ export class WebInspectorElement extends LitElement {
         this.subscribeToThreadStore(agentId, store);
         this.requestUpdate();
       },
-      onThreadStoreUnregistered: ({ agentId }) => {
+      onThreadStoreUnregistered: ({ agentId, store }) => {
+        const ownedStore = this._ownedThreadStores.get(agentId);
+        if (ownedStore && ownedStore === store) {
+          ownedStore.stop();
+          this._ownedThreadStores.delete(agentId);
+        }
         const unsub = this._threadStoreSubscriptions.get(agentId);
         if (unsub) {
           unsub();
@@ -2775,7 +2811,7 @@ export class WebInspectorElement extends LitElement {
         }
         this._threadsByAgent.delete(agentId);
         this._threadsErrorByAgent.delete(agentId);
-        this._threads = Array.from(this._threadsByAgent.values()).flat();
+        this.autoSelectLatestThread();
         this.requestUpdate();
       },
     } satisfies CopilotKitCoreSubscriber;
@@ -5947,10 +5983,10 @@ ${argsString}</pre
         <!-- Center + right: thread details or empty state -->
         <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
           ${
-            this.selectedThreadId
+            selectedThread
               ? html`<cpk-thread-details
                   style="flex:1;min-width:0;"
-                  .threadId=${this.selectedThreadId}
+                  .threadId=${selectedThread.id}
                   .thread=${selectedThread}
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
@@ -5959,10 +5995,7 @@ ${argsString}</pre
                     this._core?.threadEndpoints?.inspect !== false
                   }
                   .liveMessageVersion=${
-                    this.selectedThreadId
-                      ? (this.liveMessageVersion.get(this.selectedThreadId) ??
-                        0)
-                      : 0
+                    this.liveMessageVersion.get(selectedThread.id) ?? 0
                   }
                   .agentStateInput=${
                     selectedThread
@@ -6707,6 +6740,7 @@ ${prettyEvent}</pre
     if (this.selectedContext !== key) {
       this.selectedContext = key;
       this.expandedRows.clear();
+      this.autoSelectLatestThread();
     }
 
     this.contextMenuOpen = false;

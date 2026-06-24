@@ -94,6 +94,7 @@ vi.mock("@copilotkit/core", () => {
       lastCoreConfig = config;
       recordCoreInstance(this);
       this.runtimeUrl = config.runtimeUrl?.replace(/\/$/, "");
+      this.runtimeTransport = config.runtimeTransport ?? "auto";
       this.headers = config.headers ?? {};
       this.credentials = config.credentials;
       mockSubscribe.mockImplementationOnce((listener: any) => {
@@ -139,6 +140,7 @@ describe("CopilotKit", () => {
       providers: [
         provideCopilotKit({
           runtimeUrl: "https://runtime.local",
+          runtimeTransport: "single",
           headers: { Authorization: "token" },
           properties: { region: "eu" },
           licenseKey,
@@ -166,6 +168,7 @@ describe("CopilotKit", () => {
     const copilotKit = TestBed.inject(CopilotKit);
 
     expect(lastCoreConfig.runtimeUrl).toBe("https://runtime.local");
+    expect(lastCoreConfig.runtimeTransport).toBe("single");
     expect(lastCoreConfig.headers).toEqual({
       Authorization: "token",
       "X-CopilotCloud-Public-Api-Key": licenseKey,
@@ -194,6 +197,7 @@ describe("CopilotKit", () => {
         agentId: undefined,
       },
     ]);
+    expect(copilotKit.runtimeTransport()).toBe("single");
   });
 
   it("tracks client tools and executes handlers within injection context", async () => {

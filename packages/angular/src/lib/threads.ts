@@ -167,7 +167,10 @@ export function injectThreads(input: InjectThreadsInput): InjectThreadsResult {
   const isLoading = computed(() =>
     runtimeError()
       ? false
-      : (hasRunnableInput() && !hasDispatchedContext()) || storeIsLoading(),
+      : (hasRunnableInput() &&
+          !hasDispatchedContext() &&
+          runtimeStatus() !== CopilotKitCoreRuntimeConnectionStatus.Error) ||
+        storeIsLoading(),
   );
   const error = computed(() => runtimeError() ?? storeError());
 
