@@ -12,7 +12,7 @@ The example is a **governed business assistant**: it creates support tickets, dr
 
 ## How it works
 
-- OpenBox wraps the CopilotKit runtime and the LangGraph agent with a governance adapter, so it intercepts every tool call on both sides — the runtime and the agent share one `createOpenBoxCopilotKitAdapter` configuration.
+- OpenBox wraps the CopilotKit runtime and the LangGraph agent with a governance adapter, so it intercepts every tool call on both sides — both create a `createOpenBoxCopilotKitAdapter` with the same `selfGovernedToolNames` and `clientName`, but different `agentWorkflowType`/`taskQueue` (the runtime uses `"CopilotKitRuntime"`/`"copilotkit-runtime"`; the agent uses `"CopilotKitLangGraphAgent"`/`"copilotkit-langgraph"`).
 - For each governed tool, OpenBox Core evaluates the input and output against your policies and returns a verdict: **allow**, **redact**, **approval required**, or **block** — money movement is routed to a human, disallowed actions are stopped before the tool body runs.
 - An **approval route** (`/api/openbox/approvals/decide`) lets the UI post an Approve/Reject decision back to OpenBox Core, which resumes (or halts) the paused tool run.
 - Every decision is appended to an immutable audit trail in OpenBox Core, and each verdict streams to CopilotKit as a **generative UI** governance card alongside the chat.
@@ -44,7 +44,7 @@ A hosted demo is not published yet. Run it locally with the steps below — `age
 
 ## Prerequisites
 
-- **Node.js ≥ 22** and npm
+- **Node.js ≥ 20** and npm
 - An **OpenAI-compatible API key** (`OPENAI_API_KEY`); the agent defaults to `gpt-4o`, override with `OPENAI_MODEL`
 - An **OpenBox account with a test API key** — sign up at [openbox.ai](https://openbox.ai) to get `OPENBOX_API_KEY` (starts with `obx_test_`), `OPENBOX_CORE_URL`, `OPENBOX_AGENT_ID`, `OPENBOX_AGENT_DID`, and `OPENBOX_AGENT_PRIVATE_KEY`
 
@@ -183,7 +183,7 @@ const approvalRoute = createOpenBoxApprovalRoute({
 export async function POST(request: Request) {
   const parsed = DecisionSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "Invalid OpenBox approval decision request." }, { status: 400 });
   }
   const resolved = await approvalRoute.decide(parsed.data);
   return NextResponse.json({ ok: true, decision: parsed.data.decision, eventId: resolved.eventId });
