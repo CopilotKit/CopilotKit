@@ -192,6 +192,14 @@
       "shell_docs_path": "/generative-ui/a2ui/fixed-schema"
     },
     {
+      "id": "a2ui-recovery",
+      "name": "A2UI Error Recovery",
+      "category": "declarative-generative-ui",
+      "description": "Visible A2UI validate-retry recovery loop: an invalid render heals to a valid one, an always-invalid render shows a graceful recovery-exhausted fallback",
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/a2ui",
+      "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
+    },
+    {
       "id": "mcp-apps",
       "name": "MCP Apps",
       "category": "open-generative-ui",
