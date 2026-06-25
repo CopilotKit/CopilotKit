@@ -1,11 +1,15 @@
+import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import type { Observable } from "rxjs";
 import { defer, firstValueFrom, merge, of } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
   catchError,
   filter,
+  finalize,
   map,
   mergeMap,
+  share,
+  shareReplay,
   switchMap,
   take,
   takeUntil,
@@ -24,6 +28,14 @@ import {
   props,
 } from "./utils/micro-redux";
 import type { Reducer, Store } from "./utils/micro-redux";
+import {
+  ɵphoenixChannel$,
+  ɵphoenixSocket$,
+  ɵobservePhoenixEvent$,
+  ɵobservePhoenixSocketHealth$,
+  ɵobservePhoenixSocketSignals$,
+} from "./utils/phoenix-observable";
+import type { ɵPhoenixChannelSession } from "./utils/phoenix-observable";
 
 // Runtime-relative path, mirroring the thread store's `/threads` (NOT
 // `/api/threads`): `runtimeUrl` is the CopilotKit runtime mount (e.g.
@@ -32,6 +44,8 @@ import type { Reducer, Store } from "./utils/micro-redux";
 const MEMORIES_PATH = "/memories";
 const MEMORIES_SUBSCRIBE_PATH = "/memories/subscribe";
 const REQUEST_TIMEOUT_MS = 15_000;
+/** Consecutive socket errors tolerated before the realtime stream gives up. */
+const MAX_SOCKET_RETRIES = 5;
 
 /** Public, customer-facing memory kind vocabulary (single taxonomy, no mapping). */
 type MemoryKind = "topical" | "episodic" | "operational";
@@ -764,27 +778,82 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
       ),
   );
 
-  const realtimeEffect = createEffect(
+  const socketEffect = createEffect(
     (actions$, state$: Observable<MemoryState>) =>
       actions$.pipe(
-        ofType(memoryAdapterEvents.started),
-        switchMap(() =>
-          environment
-            .observeUserMetaEvent<MemoryMetadataEvent>(MEMORY_METADATA_EVENT)
-            .pipe(
-              withLatestFrom(state$),
-              map(([event, state]) =>
-                mapMemoryMetadataEvent(event, state.sessionId),
-              ),
-              takeUntil(actions$.pipe(ofType(memoryAdapterEvents.stopped))),
+        ofType(memoryRestEvents.credentialsSucceeded),
+        withLatestFrom(state$),
+        filter(([action, state]) => {
+          return (
+            action.sessionId === state.sessionId &&
+            Boolean(state.context?.wsUrl)
+          );
+        }),
+        switchMap(([action, state]) => {
+          const context = state.context as MemoryRuntimeContext;
+          const { joinToken, joinCode } = action;
+          const shutdown$ = actions$.pipe(
+            ofType(
+              memoryAdapterEvents.contextChanged,
+              memoryAdapterEvents.stopped,
             ),
-        ),
+          );
+
+          return defer(() => {
+            const socket$ = ɵphoenixSocket$({
+              url: context.wsUrl,
+              options: {
+                params: { join_token: joinToken },
+                reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
+                rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+              },
+            }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+            const channel$ = ɵphoenixChannel$({
+              socket$,
+              topic: `user_meta:memories:${joinCode}`,
+            }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+            const socketSignals$ =
+              ɵobservePhoenixSocketSignals$(socket$).pipe(share());
+            const fatalSocketShutdown$ = ɵobservePhoenixSocketHealth$(
+              socketSignals$,
+              MAX_SOCKET_RETRIES,
+            ).pipe(
+              catchError(() => {
+                console.warn(
+                  `[memory] WebSocket failed after ${MAX_SOCKET_RETRIES} attempts, giving up`,
+                );
+                return of(undefined);
+              }),
+              share(),
+            );
+            const metadata$ = channel$.pipe(
+              switchMap(({ channel }: ɵPhoenixChannelSession) =>
+                ɵobservePhoenixEvent$<MemoryMetadataEvent>(
+                  channel,
+                  MEMORY_METADATA_EVENT,
+                ),
+              ),
+              map((event) =>
+                mapMemoryMetadataEvent(event, action.sessionId),
+              ),
+            );
+
+            return metadata$.pipe(
+              takeUntil(merge(shutdown$, fatalSocketShutdown$)),
+              finalize(() => {
+                // Socket/channel teardown is handled by the `finalize` operators
+                // inside `ɵphoenixSocket$`/`ɵphoenixChannel$`; this hook exists to
+                // mirror the thread store's socket-effect lifecycle shape.
+              }),
+            );
+          });
+        }),
       ),
   );
 
   const store = createStore<MemoryState>({
     reducer: memoryReducer,
-    effects: [bootstrapEffect, credentialsBootstrapEffect, fetchEffect, credentialsFetchEffect, mutationEffect, realtimeEffect],
+    effects: [bootstrapEffect, credentialsBootstrapEffect, fetchEffect, credentialsFetchEffect, mutationEffect, socketEffect],
   });
 
   function trackMutation<T>(

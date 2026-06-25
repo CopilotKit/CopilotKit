@@ -1,18 +1,38 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
-import { NEVER, Subject } from "rxjs";
+import { NEVER } from "rxjs";
 import type { Observable } from "rxjs";
-import {
-  ɵmemoryReducer as memoryReducer,
-  ɵmemoryRestEvents as memoryRestEvents,
-  ɵmemoryDomainEvents as memoryDomainEvents,
-  ɵmemoryAdapterEvents as memoryAdapterEvents,
-  ɵmapMemoryMetadataEvent as mapMemoryMetadataEvent,
-  ɵcreateMemoryStore as createMemoryStore,
+import type { MockChannel } from "./test-utils";
+import { MockSocket } from "./test-utils";
+
+// Phoenix mock harness: the memory store opens its OWN socket/channel, so the
+// `phoenix` module is mocked here (mirrors `thread-store-user-meta.test.ts`).
+// `phoenix.sockets` captures every socket the store constructs so tests can
+// reach the joined channel and `serverPush` events onto it.
+const phoenix = vi.hoisted(() => ({
+  sockets: [] as MockSocket[],
+}));
+
+vi.mock("phoenix", () => ({
+  Socket: class extends MockSocket {
+    constructor(url = "", opts: Record<string, any> = {}) {
+      super(url, opts);
+      phoenix.sockets.push(this);
+    }
+  },
+}));
+
+const {
+  ɵmemoryReducer: memoryReducer,
+  ɵmemoryRestEvents: memoryRestEvents,
+  ɵmemoryDomainEvents: memoryDomainEvents,
+  ɵmemoryAdapterEvents: memoryAdapterEvents,
+  ɵmapMemoryMetadataEvent: mapMemoryMetadataEvent,
+  ɵcreateMemoryStore: createMemoryStore,
   ɵselectMemories,
   ɵselectMemoriesIsLoading,
   ɵselectMemoriesError,
-} from "../memory";
+} = await import("../memory");
 import type {
   ɵMemory as Memory,
   ɵMemoryMetadataEvent as MemoryMetadataEvent,
@@ -27,6 +47,15 @@ function memoryEnvironment(fetchImpl: Mock): MemoryEnvironment {
     fetch: fetchImpl as unknown as typeof fetch,
     observeUserMetaEvent: noUserMeta,
   };
+}
+
+/** Returns the channel the store joined (its own `user_meta:memories:*` topic). */
+function memoryChannel(): MockChannel {
+  const channel = phoenix.sockets[0]?.channels[0];
+  if (!channel) {
+    throw new Error("expected a phoenix channel to exist");
+  }
+  return channel;
 }
 
 const flushEffects = async (): Promise<void> => {
@@ -234,30 +263,65 @@ describe("memory_metadata realtime mapping", () => {
 });
 
 describe("memory store realtime", () => {
-  it("applies created and invalidated memory_metadata events to observable state", async () => {
-    const events$ = new Subject<MemoryMetadataEvent>();
-    const store = createMemoryStore({
-      fetch: vi.fn() as unknown as typeof fetch,
-      observeUserMetaEvent: (<T>() =>
-        events$ as unknown as Observable<T>) as <T>(
-        eventName: string,
-      ) => Observable<T>,
-    });
+  const realtimeContext = {
+    runtimeUrl: "https://runtime.example.com",
+    wsUrl: "wss://gw.example.com/client",
+    headers: { Authorization: "Bearer token", "X-Cpki-User-Id": "u1" },
+  };
+
+  /**
+   * Boots a store, sets context, and lets it fetch credentials so it opens its
+   * own `user_meta:memories:<joinCode>` channel. Returns the connected store.
+   */
+  async function connectedRealtimeStore() {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
     store.start();
+    store.setContext(realtimeContext);
     await flushEffects();
+    return store;
+  }
+
+  afterEach(() => {
+    phoenix.sockets.splice(0);
+    vi.unstubAllGlobals();
+  });
+
+  it("delivers memory_metadata over its own user_meta:memories channel (no thread store)", async () => {
+    const store = await connectedRealtimeStore();
+
+    memoryChannel().serverPush("memory_metadata", createdEvent("m1"));
+    await flushEffects();
+
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
+    expect(memoryChannel().topic).toBe("user_meta:memories:jc-1");
+
+    store.stop();
+  });
+
+  it("applies created and invalidated memory_metadata events to observable state", async () => {
+    const store = await connectedRealtimeStore();
 
     const seen: string[][] = [];
     const sub = store
       .select((state) => state.memories)
       .subscribe((memories) => seen.push(memories.map((m) => m.id)));
 
-    events$.next(createdEvent("m1"));
-    events$.next(createdEvent("m2"));
+    memoryChannel().serverPush("memory_metadata", createdEvent("m1"));
+    memoryChannel().serverPush("memory_metadata", createdEvent("m2"));
     await flushEffects();
 
     expect(store.getState().memories.map((m) => m.id)).toEqual(["m2", "m1"]);
 
-    events$.next({
+    memoryChannel().serverPush("memory_metadata", {
       operation: "invalidated",
       memoryId: "m1",
       organizationId: "org-1",
