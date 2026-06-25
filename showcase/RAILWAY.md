@@ -107,7 +107,7 @@ Until the prod `serviceInstance` exists, **D6 false-reds the entire column**:
 the harness has no `health:<slug>` record for prod, so the per-cell probe is
 handed an empty `backendUrl`, Playwright calls `page.goto("/demos/…")` on a
 bare relative path, and Chromium rejects it as an invalid URL —
-`errorClass=goto-error` on *every* cell (column-wide, uniform `fail_count`).
+`errorClass=goto-error` on _every_ cell (column-wide, uniform `fail_count`).
 The fix is not a code fix; it is provisioning the missing prod instance and
 flipping the SSOT gate.
 
@@ -193,7 +193,7 @@ Once promoted, run the digest promote itself the normal way —
 [`./bin/README.md`](./bin/README.md) "Worked example: promote staging →
 production".
 
-> **Related:** for the *single-shot* "create prod service → go live"
+> **Related:** for the _single-shot_ "create prod service → go live"
 > bring-up (where prod is provisioned immediately, with no staging-first
 > phase), see [`./INTEGRATION-CHECKLIST.md`](./INTEGRATION-CHECKLIST.md) §B.
 > This section is the **staging-first → promote-later** counterpart.
