@@ -115,7 +115,7 @@ describe("issue #5533: CopilotListeners with only a non-default agent registered
     expect(defaultNotFound, defaultNotFound?.message).toBeUndefined();
   });
 
-  it("does not log a \"Agent default not found\" console warning for the valid setup", async () => {
+  it('does not log a "Agent default not found" console warning for the valid setup', async () => {
     // The crash is fixed by resolving to a registered agent — but the listener
     // must also not probe getAgent('default'), which logs a post-sync warning.
     // A valid setup should be silent. (#5533 follow-up.)
@@ -135,7 +135,9 @@ describe("issue #5533: CopilotListeners with only a non-default agent registered
     await new Promise((r) => setTimeout(r, 0));
     const warned = warnSpy.mock.calls
       .flat()
-      .some((arg) => typeof arg === "string" && /Agent default not found/.test(arg));
+      .some(
+        (arg) => typeof arg === "string" && /Agent default not found/.test(arg),
+      );
     expect(warned).toBe(false);
   });
 });
