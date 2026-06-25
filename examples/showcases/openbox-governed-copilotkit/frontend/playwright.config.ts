@@ -21,7 +21,12 @@ export default defineConfig({
   timeout: 300_000,
   expect: { timeout: 30_000 },
   fullyParallel: false,
-  reporter: [["list"], ["html", { open: "never" }]],
+  retries: process.env.CI ? 1 : 0,
+  reporter: [
+    ["list"],
+    ["html", { open: "never" }],
+    ["json", { outputFile: "artifacts/openbox-e2e-results.json" }],
+  ],
   use: {
     baseURL: appUrl,
   },
