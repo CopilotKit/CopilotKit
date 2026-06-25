@@ -68,17 +68,17 @@ describe("runRedeploy", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    // 39 CI-built (27 showcase/infra incl. the staging-only
-    // showcase-strands-typescript, + 12 starters) + harness-workers
-    // (imageOf consumer of showcase-harness) = 40. All 39 declare staging,
-    // so the env-aware default scope keeps every one of them.
+    // 39 CI-built (27 showcase/infra incl. showcase-strands-typescript,
+    // now dual-env, + 12 starters) + harness-workers (imageOf consumer of
+    // showcase-harness) = 40. All 39 declare staging, so the env-aware
+    // default scope keeps every one of them.
     expect(result.attempted).toBe(40);
     expect(result.succeeded).toBe(40);
     expect(redeploy).toHaveBeenCalledTimes(40);
     // pocketbase is now CI-built, so it IS in the default redeploy scope.
     expect(seenNames).toContain("pocketbase");
-    // The staging-only TypeScript Strands integration declares staging, so
-    // it IS in the staging default scope (but NOT prod — see below).
+    // The TypeScript Strands integration declares staging, so it IS in the
+    // staging default scope (and now prod too — see below).
     expect(seenNames).toContain("showcase-strands-typescript");
     // S2: starters are CI-built, so they JOIN the default redeploy scope.
     expect(seenNames).toContain("starter-adk");
@@ -142,14 +142,14 @@ describe("runRedeploy", () => {
     ]);
   });
 
-  it("default prod scope excludes staging-only services (harness-workers + showcase-strands-typescript)", async () => {
+  it("default prod scope excludes staging-only services (harness-workers) but includes dual-env showcase-strands-typescript", async () => {
     // The default scope is env-aware: a service with no prod env never joins
     // the prod scope. harness-workers (imageOf consumer, staging-only) is
-    // excluded by the env-aware imageOf expansion; showcase-strands-typescript
-    // (ciBuilt, staging-only — prod not yet provisioned) is excluded by the
-    // env-aware base-scope filter. The prod default = the 38 CI-built services
-    // that declare prod (26 showcase/infra + 12 starters), neither staging-only
-    // service.
+    // excluded by the env-aware imageOf expansion. showcase-strands-typescript
+    // is now provisioned dual-env, so it DOES join the prod default scope. The
+    // prod default = the 39 CI-built services that declare prod (27
+    // showcase/infra incl. showcase-strands-typescript + 12 starters); only
+    // staging-only harness-workers is excluded.
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       const name = Object.entries(SERVICES).find(
@@ -163,9 +163,10 @@ describe("runRedeploy", () => {
       redeploy,
       appendSummary,
     });
-    expect(result.attempted).toBe(38);
+    expect(result.attempted).toBe(39);
     expect(seenNames).not.toContain("harness-workers");
-    expect(seenNames).not.toContain("showcase-strands-typescript");
+    // showcase-strands-typescript is now dual-env, so it joins the prod scope.
+    expect(seenNames).toContain("showcase-strands-typescript");
     // S2: starters ARE in the default prod scope (CI-built, dual-env).
     expect(seenNames).toContain("starter-adk");
   });

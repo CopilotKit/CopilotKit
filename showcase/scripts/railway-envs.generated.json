@@ -778,18 +778,18 @@
     {
       "name": "showcase-strands-typescript",
       "serviceId": "d6f47c8c-a0a1-4dbe-991c-50f8463fd68d",
-      "prodInstanceId": "d6f47c8c-a0a1-4dbe-991c-50f8463fd68d",
+      "prodInstanceId": "8a50728e-6119-43c4-b59c-d9535b6717a4",
       "stagingInstanceId": "3f917b9f-c3f0-4d8b-96ca-7f455e06b5ba",
       "ciBuilt": true,
-      "gateValidated": false,
+      "gateValidated": true,
       "dispatchName": "strands-typescript",
       "domains": {
         "staging": "showcase-strands-typescript-staging.up.railway.app",
-        "prod": "showcase-strands-typescript-staging.up.railway.app"
+        "prod": "showcase-strands-typescript-production.up.railway.app"
       },
       "probe": {
         "staging": true,
-        "prod": false,
+        "prod": true,
         "driver": "agent"
       },
       "promoteTier": 2,
@@ -801,6 +801,7 @@
         }
       ],
       "healthcheckPath": {
+        "prod": "/api/health",
         "staging": "/api/health"
       }
     },
@@ -1300,6 +1301,10 @@
         "tier": 2
       },
       {
+        "name": "showcase-strands-typescript",
+        "tier": 2
+      },
+      {
         "name": "starter-adk",
         "tier": 2
       },
@@ -1351,10 +1356,6 @@
     "skipped": [
       {
         "name": "harness-workers",
-        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
-      },
-      {
-        "name": "showcase-strands-typescript",
         "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
       }
     ]
