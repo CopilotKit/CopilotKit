@@ -29,8 +29,13 @@ defineCopilotKitDrawer(); // registers <copilotkit-drawer> (idempotent)
 <script>
   const drawer = document.querySelector("copilotkit-drawer");
   drawer.threads = [
-    { id: "t-123", name: "My thread", archived: false,
-      createdAt: "...", updatedAt: "..." },
+    {
+      id: "t-123",
+      name: "My thread",
+      archived: false,
+      createdAt: "...",
+      updatedAt: "...",
+    },
   ];
   drawer.addEventListener("thread-selected", (e) => open(e.detail.threadId));
   drawer.addEventListener("new-thread", () => createThread());
@@ -39,17 +44,17 @@ defineCopilotKitDrawer(); // registers <copilotkit-drawer> (idempotent)
 
 ### Inbound properties (DOMAIN state — owned by the consumer)
 
-| property          | type                | notes                                            |
-| ----------------- | ------------------- | ------------------------------------------------ |
-| `threads`         | `DrawerThread[]`    | the element re-orders + filters authoritatively  |
-| `loading`         | `boolean`           | initial-fetch loading                            |
-| `error`           | `string \| null`    | initial-fetch error → actionable Retry           |
-| `activeThreadId`  | `string \| null`    | drives selection highlight                       |
-| `licensed`        | `boolean`           | `false` → upsell replaces the list               |
-| `fetchingMore`    | `boolean`           | in-flight pagination                             |
-| `fetchMoreError`  | `string \| null`    | inline "couldn't load more — retry"              |
-| `open`            | `boolean`           | externally controllable (mobile coordination)    |
-| `collapsed`       | `boolean`           | desktop collapse-to-rail                          |
+| property         | type             | notes                                           |
+| ---------------- | ---------------- | ----------------------------------------------- |
+| `threads`        | `DrawerThread[]` | the element re-orders + filters authoritatively |
+| `loading`        | `boolean`        | initial-fetch loading                           |
+| `error`          | `string \| null` | initial-fetch error → actionable Retry          |
+| `activeThreadId` | `string \| null` | drives selection highlight                      |
+| `licensed`       | `boolean`        | `false` → upsell replaces the list              |
+| `fetchingMore`   | `boolean`        | in-flight pagination                            |
+| `fetchMoreError` | `string \| null` | inline "couldn't load more — retry"             |
+| `open`           | `boolean`        | externally controllable (mobile coordination)   |
+| `collapsed`      | `boolean`        | desktop collapse-to-rail                        |
 
 ### Outbound events (INTENT — bubbling + composed `CustomEvent`s)
 

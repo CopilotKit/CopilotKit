@@ -10,20 +10,21 @@
  * token while the built-in skin stays in sync with react-core.
  */
 export const GENERATED_DRAWER_TOKEN_DEFAULTS = {
-  "bg": "oklch(1 0 0)",
-  "fg": "oklch(0.145 0 0)",
-  "surface": "oklch(1 0 0)",
+  bg: "oklch(1 0 0)",
+  fg: "oklch(0.145 0 0)",
+  surface: "oklch(1 0 0)",
   "surface-fg": "oklch(0.145 0 0)",
-  "muted": "oklch(0.97 0 0)",
+  muted: "oklch(0.97 0 0)",
   "muted-fg": "oklch(0.556 0 0)",
-  "accent": "oklch(0.97 0 0)",
+  accent: "oklch(0.97 0 0)",
   "accent-fg": "oklch(0.205 0 0)",
-  "primary": "oklch(0.205 0 0)",
+  primary: "oklch(0.205 0 0)",
   "primary-fg": "oklch(0.985 0 0)",
-  "danger": "oklch(0.577 0.245 27.325)",
-  "border": "oklch(0.922 0 0)",
-  "ring": "oklch(0.708 0 0)",
-  "radius": "0.625rem",
+  danger: "oklch(0.577 0.245 27.325)",
+  border: "oklch(0.922 0 0)",
+  ring: "oklch(0.708 0 0)",
+  radius: "0.625rem",
 } as const satisfies Record<string, string>;
 
-export type GeneratedDrawerTokenKey = keyof typeof GENERATED_DRAWER_TOKEN_DEFAULTS;
+export type GeneratedDrawerTokenKey =
+  keyof typeof GENERATED_DRAWER_TOKEN_DEFAULTS;
