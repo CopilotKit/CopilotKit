@@ -4,7 +4,10 @@
   "type": "module",
   "scripts": {
     "dev": "npx @langchain/langgraph-cli@1.2.1 dev --port 8123 --no-browser",
-    "typecheck": "tsc --noEmit"
+    "dev:agent": "node --experimental-strip-types scripts/run-agent.ts",
+    "typecheck": "tsc --noEmit",
+    "openbox:admin:setup": "tsx scripts/openbox-setup.ts",
+    "openbox:verify": "tsx scripts/openbox-verify.ts"
   },
   "dependencies": {
     "@copilotkit/sdk-js": "^1.59.3",
@@ -17,6 +20,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
+    "tsx": "^4.22.4",
     "typescript": "^5.6.3"
   }
 }
