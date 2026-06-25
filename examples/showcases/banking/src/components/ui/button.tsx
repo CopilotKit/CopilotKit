@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
-import { cva, type VariantProps } from "class-variance-authority";
+import { cva } from "class-variance-authority";
+import type { VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
@@ -12,8 +13,7 @@ const buttonVariants = cva(
         // Signature violet→indigo gradient pill with a soft glow.
         default:
           "brand-gradient text-brand-foreground shadow-[0_8px_20px_hsl(252_83%_60%/0.28)] hover:shadow-[0_12px_28px_hsl(252_83%_60%/0.4)] hover:brightness-[1.05]",
-        destructive:
-          "bg-negative text-white shadow-sm hover:bg-negative/90",
+        destructive: "bg-negative text-white shadow-sm hover:bg-negative/90",
         outline:
           "border border-hairline bg-surface text-ink shadow-soft hover:bg-brand-soft hover:text-brand-indigo hover:border-brand/40",
         secondary:

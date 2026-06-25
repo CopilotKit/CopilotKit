@@ -7,7 +7,10 @@ export const POST = async (req: NextRequest) => {
   try {
     const body = await req.json();
     code = body?.code;
-    const exception = store.openPolicyException(body?.transactionId, code as string);
+    const exception = store.openPolicyException(
+      body?.transactionId,
+      code as string,
+    );
     return new Response(JSON.stringify(exception), { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";

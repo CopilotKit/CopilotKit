@@ -46,7 +46,11 @@ export function ChatInbox({
     hasMoreThreads,
     isFetchingMoreThreads,
     fetchMoreThreads,
-  } = useThreads({ agentId: "default", includeArchived: showArchived, limit: 20 });
+  } = useThreads({
+    agentId: "default",
+    includeArchived: showArchived,
+    limit: 20,
+  });
 
   const visible = isInboxOpen && panelOpen;
 
@@ -70,7 +74,7 @@ export function ChatInbox({
       data-testid="chat-inbox"
       aria-label="Conversations"
       aria-hidden={!visible}
-      style={{ ["--inbox-width" as string]: `${width}px` }}
+      style={{ "--inbox-width": `${width}px` }}
       className={cn(
         "fixed top-0 right-0 z-[1300] flex h-[100dvh] max-h-screen w-full flex-col",
         "w-full md:w-[var(--inbox-width)]",
@@ -195,7 +199,9 @@ export function ChatInbox({
                         )}
                       </span>
                       <span className="truncate text-xs text-ink-muted">
-                        {formatRelativeTime(thread.lastRunAt ?? thread.updatedAt)}
+                        {formatRelativeTime(
+                          thread.lastRunAt ?? thread.updatedAt,
+                        )}
                       </span>
                     </span>
                   </button>

@@ -132,8 +132,8 @@ export function StatisticsChart({
         ))}
       </div>
       <p className="sr-only">
-        Latest {formatCurrency(last?.value ?? 0)}; range{" "}
-        {formatCurrency(min)}–{formatCurrency(max)}.
+        Latest {formatCurrency(last?.value ?? 0)}; range {formatCurrency(min)}–
+        {formatCurrency(max)}.
       </p>
     </div>
   );
