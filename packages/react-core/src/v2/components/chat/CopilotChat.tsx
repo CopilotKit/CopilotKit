@@ -231,13 +231,6 @@ export function CopilotChat({
     // ship the same SDK-generated threadId that the chat UI is rendering.
     agent.threadId = resolvedThreadId;
 
-    // When the caller hasn't picked a specific thread, resolvedThreadId is a
-    // UUID minted locally (either in this CopilotChat or in a wrapping
-    // ThreadsProvider). The backend has never seen it, so /connect would
-    // always 404 — skip the call. A real thread is only created once the
-    // user runs the agent for the first time.
-    if (!hasExplicitThreadId) return;
-
     let detached = false;
 
     // Create a fresh AbortController so we can cancel the HTTP request on cleanup.
@@ -245,41 +238,57 @@ export function CopilotChat({
     // in its fetch config. Unlike runAgent(), connectAgent() does NOT create a new
     // AbortController automatically, so we must set one before connecting.
     const connectAbortController = new AbortController();
-    if (agent instanceof HttpAgent) {
-      agent.abortController = connectAbortController;
+
+    // When the caller hasn't picked a specific thread, resolvedThreadId is a
+    // UUID minted locally (either in this CopilotChat or in a wrapping
+    // ThreadsProvider). The backend has never seen it, so /connect would
+    // always 404 — skip the call. A real thread is only created once the
+    // user runs the agent for the first time.
+    if (hasExplicitThreadId) {
+      if (agent instanceof HttpAgent) {
+        agent.abortController = connectAbortController;
+      }
+
+      const connect = async (agentToConnect: AbstractAgent) => {
+        try {
+          await copilotkit.connectAgent({ agent: agentToConnect });
+        } catch (error) {
+          // Ignore errors from aborted connections (e.g., React StrictMode cleanup)
+          if (detached) return;
+          // connectAgent already emits via the subscriber system, but catch
+          // here to prevent unhandled rejections from unexpected errors.
+          console.error("CopilotChat: connectAgent failed", error);
+        } finally {
+          // Whether the connect succeeded or failed, we're no longer in the
+          // transitional "connecting" state for this thread — unblock the
+          // welcome-screen-suppression so the view can settle.
+          //
+          // Defer one animation frame so any trailing React commits from the
+          // bootstrap replay (final assistant message content) paint before
+          // isConnecting flips off. Without this, suggestions + copy button
+          // can briefly appear against an incompletely-laid-out message tree
+          // and visibly snap once the last text chunk lands.
+          if (!detached) {
+            const raf =
+              typeof requestAnimationFrame === "function"
+                ? requestAnimationFrame
+                : (cb: () => void) => setTimeout(cb, 16);
+            raf(() => {
+              if (!detached) setLastConnectedThreadId(resolvedThreadId);
+            });
+          }
+        }
+      };
+      connect(agent);
     }
 
-    const connect = async (agentToConnect: AbstractAgent) => {
-      try {
-        await copilotkit.connectAgent({ agent: agentToConnect });
-      } catch (error) {
-        // Ignore errors from aborted connections (e.g., React StrictMode cleanup)
-        if (detached) return;
-        // connectAgent already emits via the subscriber system, but catch
-        // here to prevent unhandled rejections from unexpected errors.
-        console.error("CopilotChat: connectAgent failed", error);
-      } finally {
-        // Whether the connect succeeded or failed, we're no longer in the
-        // transitional "connecting" state for this thread — unblock the
-        // welcome-screen-suppression so the view can settle.
-        //
-        // Defer one animation frame so any trailing React commits from the
-        // bootstrap replay (final assistant message content) paint before
-        // isConnecting flips off. Without this, suggestions + copy button
-        // can briefly appear against an incompletely-laid-out message tree
-        // and visibly snap once the last text chunk lands.
-        if (!detached) {
-          const raf =
-            typeof requestAnimationFrame === "function"
-              ? requestAnimationFrame
-              : (cb: () => void) => setTimeout(cb, 16);
-          raf(() => {
-            if (!detached) setLastConnectedThreadId(resolvedThreadId);
-          });
-        }
-      }
-    };
-    connect(agent);
+    // The cleanup is registered even when no connect() was issued above: a
+    // run can be streaming on a non-explicit (locally-minted) thread, and a
+    // thread switch must detach it BEFORE the shared per-agentId agent is
+    // repointed at the new thread. An early return here is what let the old
+    // run keep applying events to the agent and collide with the next
+    // thread's connect replay ("Cannot send 'RUN_STARTED' while a run is
+    // still active").
     return () => {
       // Abort the HTTP request and detach the active run.
       // This is critical for React StrictMode which unmounts+remounts in dev,
