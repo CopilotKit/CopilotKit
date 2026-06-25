@@ -30,9 +30,7 @@
     "bot": {
       "packages": [
         "@copilotkit/bot",
-        "@copilotkit/bot-ui",
-        "@copilotkit/bot-store-redis",
-        "@copilotkit/bot-store-postgres"
+        "@copilotkit/bot-ui"
       ],
       "versionSource": "@copilotkit/bot",
       "sharedVersion": true

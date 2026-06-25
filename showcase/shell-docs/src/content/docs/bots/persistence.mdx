@@ -11,73 +11,65 @@ earlyAccess: slack
 
 <Steps>
   <Step>
-    ### Choose a storage backend
+    ### Understand the default: MemoryStore
 
-    `createBot` accepts a `store.adapter` — the backing store for actions, locks, dedup, and state. Pick the backend that matches your deployment:
+    `createBot` uses `MemoryStore` by default — no configuration needed. It is built-in, zero-dependency, and good enough for local development and ephemeral environments. All data is lost when the process restarts.
 
-    <Tabs items={["Memory", "Redis", "PostgreSQL"]}>
-      <Tab value="Memory">
-        The default. No install needed. State is lost on every restart — useful for local development and ephemeral environments.
+    ```ts title="bot.ts"
+    import { createBot } from "@copilotkit/bot";
 
-        ```ts title="bot.ts"
-        import { createBot, MemoryStore } from "@copilotkit/bot";
-
-        const bot = createBot({
-          adapters: [/* ... */],
-          agent: (threadId) => /* ... */,
-          store: {
-            adapter: new MemoryStore(), // default — can be omitted
-          },
-        });
-        ```
-      </Tab>
-      <Tab value="Redis">
-        Durable, fast, production-ready. Actions survive restarts; the store works across multiple bot instances pointing at the same Redis URL.
-
-        ```bash
-        npm install @copilotkit/bot-store-redis
-        ```
-
-        ```ts title="bot.ts"
-        import { createBot } from "@copilotkit/bot";
-        import { createRedisStore } from "@copilotkit/bot-store-redis";
-
-        const bot = createBot({
-          adapters: [/* ... */],
-          agent: (threadId) => /* ... */,
-          store: {
-            adapter: createRedisStore({ url: process.env.REDIS_URL! }),
-          },
-        });
-        ```
-      </Tab>
-      <Tab value="PostgreSQL">
-        Relational persistence with automatic schema management. Set `autoMigrate: true` to let the store create its tables on first boot.
-
-        ```bash
-        npm install @copilotkit/bot-store-postgres
-        ```
-
-        ```ts title="bot.ts"
-        import { createBot } from "@copilotkit/bot";
-        import { createPostgresStore } from "@copilotkit/bot-store-postgres";
-
-        const bot = createBot({
-          adapters: [/* ... */],
-          agent: (threadId) => /* ... */,
-          store: {
-            adapter: createPostgresStore({
-              connectionString: process.env.DATABASE_URL!,
-              autoMigrate: true,
-            }),
-          },
-        });
-        ```
-      </Tab>
-    </Tabs>
+    const bot = createBot({
+      adapters: [/* ... */],
+      agent: (threadId) => /* ... */,
+      // No store.adapter — MemoryStore is the default.
+    });
+    ```
 
     <Callout type="info" title="Durable actions are automatic">
-      No code changes needed for button handlers. With `MemoryStore`, a button clicked after a restart is acknowledged by Slack but ignored — the handler is gone. Swap in Redis or PostgreSQL and the same handler is fetched from the store and executed normally. The [ActionStore reference](/reference/bot/types/ActionStore) documents the contract if you want to inspect it.
+      No code changes needed for button handlers. With `MemoryStore`, a button clicked after a restart is acknowledged by Slack but ignored — the handler is gone. Swap in a durable `StateStore` implementation and the same handler is fetched from the store and executed normally. The [ActionStore reference](/reference/bot/types/ActionStore) documents the contract if you want to inspect it.
+    </Callout>
+  </Step>
+  <Step>
+    ### Add a durable store for production
+
+    For persistence across restarts and horizontal scale, implement the [`StateStore`](/reference/bot/types/StateStore) interface and pass your instance as `store.adapter`:
+
+    ```ts title="my-store.ts"
+    import type { StateStore } from "@copilotkit/bot";
+
+    export class MyDurableStore implements StateStore {
+      // Implement all five primitive groups: kv, list, lock, dedup, queue.
+      // See the StateStore reference for the full contract and signatures.
+    }
+    ```
+
+    ```ts title="bot.ts"
+    import { createBot } from "@copilotkit/bot";
+    import { MyDurableStore } from "./my-store.js";
+
+    const bot = createBot({
+      adapters: [/* ... */],
+      agent: (threadId) => /* ... */,
+      store: {
+        adapter: new MyDurableStore(),
+      },
+    });
+    ```
+
+    The package ships `runStateStoreConformance(name, make, teardown?)` — a Vitest describe block that verifies your implementation against the full contract (locking, dedup, state round-trips). Run it in your test suite before wiring the store into production:
+
+    ```ts
+    import { runStateStoreConformance } from "@copilotkit/bot";
+
+    runStateStoreConformance(
+      "MyDurableStore",
+      () => new MyDurableStore(),
+      async (s) => s.close(), // optional teardown
+    );
+    ```
+
+    <Callout type="info" title="StateStore reference">
+      The full interface definition and conformance test helper are documented in the [StateStore reference](/reference/bot/types/StateStore).
     </Callout>
   </Step>
   <Step>
@@ -89,7 +81,7 @@ earlyAccess: slack
 
     ```ts
     store: {
-      adapter: createRedisStore({ url: process.env.REDIS_URL! }),
+      adapter: new MyDurableStore(),
       onLockConflict: "drop",   // silently ignore the new event (default)
       // onLockConflict: "force",  // evict the running turn and start fresh
       // onLockConflict: async ({ thread }) => { /* custom logic */ },
@@ -101,7 +93,7 @@ earlyAccess: slack
 
     ```ts
     store: {
-      adapter: createRedisStore({ url: process.env.REDIS_URL! }),
+      adapter: new MyDurableStore(),
       dedupTtl: 300_000, // 5-minute dedup window (default: 300 000)
     },
     ```
@@ -117,7 +109,6 @@ earlyAccess: slack
 
     ```ts title="bot.ts"
     import { createBot } from "@copilotkit/bot";
-    import { createRedisStore } from "@copilotkit/bot-store-redis";
     import { z } from "zod";
 
     const TicketFlow = z.object({
@@ -130,7 +121,7 @@ earlyAccess: slack
       adapters: [/* ... */],
       agent: (threadId) => /* ... */,
       store: {
-        adapter: createRedisStore({ url: process.env.REDIS_URL! }),
+        adapter: new MyDurableStore(), // add a durable adapter for persistence across restarts
         state: TicketFlow,
       },
     });
@@ -155,26 +146,6 @@ earlyAccess: slack
 
     <Callout type="info" title="Thread API reference">
       Full signatures for `state()`, `setState()`, `runAgent()`, and the rest of the thread surface are in the [Thread reference](/reference/bot/classes/Thread).
-    </Callout>
-  </Step>
-  <Step>
-    ### Bring your own store
-
-    If neither Redis nor PostgreSQL fits your infrastructure, implement the `StateStore` interface directly:
-
-    ```ts title="my-store.ts"
-    import type { StateStore } from "@copilotkit/bot";
-
-    export class MyCustomStore implements StateStore {
-      // Required methods: get, set, delete, lock, unlock, dedup
-      // See the StateStore reference for the full contract.
-    }
-    ```
-
-    The package ships `runStateStoreConformance(store)` — a test suite that verifies your implementation against the full contract (locking, dedup, state round-trips). Run it in your test suite before wiring the store into production.
-
-    <Callout type="info" title="StateStore reference">
-      The full interface definition and conformance test helper are documented in the [StateStore reference](/reference/bot/types/StateStore).
     </Callout>
   </Step>
 </Steps>
