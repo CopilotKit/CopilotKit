@@ -437,12 +437,17 @@ function responseToMemory(data: {
   };
 }
 
-/** Request body for create/supersede; defaults scope to user and threads to []. */
+/**
+ * Request body for create/supersede. `scope` is forwarded only when the caller
+ * supplies it: the platform owns the default (`scope` defaults to `"user"` in
+ * the `/api/memories` schema), so the store does not second-guess it here —
+ * one default, at the contract owner. `sourceThreadIds` defaults to `[]`.
+ */
 function toMutationBody(input: NewMemory): Record<string, unknown> {
   return {
     content: input.content,
     kind: input.kind,
-    scope: input.scope ?? "user",
+    ...(input.scope !== undefined ? { scope: input.scope } : {}),
     sourceThreadIds: input.sourceThreadIds ?? [],
   };
 }
@@ -726,7 +731,7 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
       const { sessionId, context } = store.getState();
       if (!context) return Promise.resolve();
 
-      // Resolve when the re-pulled snapshot settles for this session (success
+      // Settle when the re-pulled snapshot completes for this session (success
       // or failure), or if the store is stopped first. Subscribe before
       // dispatching so the resulting list action can't slip past, mirroring
       // trackMutation.
@@ -738,7 +743,20 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
         store.actions$.pipe(ofType(memoryAdapterEvents.stopped)),
       ).pipe(take(1));
 
-      const done = firstValueFrom(completion$).then(() => undefined);
+      // `await refresh()` resolving must mean the snapshot actually refreshed,
+      // so reject on anything that isn't a successful re-pull — a failed list
+      // (its error also lands in the `error` selector) or the store being
+      // stopped mid-flight. This keeps `refresh` fully symmetric with the
+      // mutation methods, which reject on both failure and stop via
+      // `trackMutation`.
+      const done = firstValueFrom(completion$).then((action) => {
+        if (memoryRestEvents.listFailed.match(action)) {
+          throw action.error;
+        }
+        if (memoryAdapterEvents.stopped.match(action)) {
+          throw new Error("Memory store stopped before refresh completed");
+        }
+      });
       store.dispatch(memoryRestEvents.listRequested({ sessionId }));
       return done;
     },

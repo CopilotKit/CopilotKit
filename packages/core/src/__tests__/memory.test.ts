@@ -415,6 +415,46 @@ describe("memory store REST snapshot", () => {
 
     store.stop();
   });
+
+  it("refresh() rejects when the re-pull fails (no silent success)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ memories: [] }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 500 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+
+    await expect(store.refresh()).rejects.toThrow();
+    expect(store.getState().error).toBeInstanceOf(Error);
+
+    store.stop();
+  });
+
+  it("refresh() rejects when the store is stopped mid-flight (symmetric with mutations)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      // Second pull never settles on its own: the store is stopped first.
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+
+    const pending = store.refresh();
+    store.stop();
+
+    await expect(pending).rejects.toThrow("stopped before refresh completed");
+  });
 });
 
 describe("memory store mutations", () => {
@@ -458,6 +498,49 @@ describe("memory store mutations", () => {
       "https://runtime.example.com/memories",
       expect.objectContaining({ method: "POST" }),
     );
+
+    store.stop();
+  });
+
+  it("addMemory omits scope from the body when the caller does not provide it", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ...userMemory("m1", "hi"), absorbed: false }),
+      });
+    const store = await connectedStore(fetchMock);
+
+    await store.addMemory({ content: "hi", kind: "topical" });
+
+    const init = fetchMock.mock.calls[1]?.[1] as { body: string };
+    const body = JSON.parse(init.body);
+    expect(body).not.toHaveProperty("scope");
+    expect(body).toMatchObject({
+      content: "hi",
+      kind: "topical",
+      sourceThreadIds: [],
+    });
+
+    store.stop();
+  });
+
+  it("addMemory forwards scope when the caller provides it", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ...userMemory("m1", "hi"), absorbed: false }),
+      });
+    const store = await connectedStore(fetchMock);
+
+    await store.addMemory({ content: "hi", kind: "topical", scope: "user" });
+
+    const init = fetchMock.mock.calls[1]?.[1] as { body: string };
+    const body = JSON.parse(init.body);
+    expect(body.scope).toBe("user");
 
     store.stop();
   });
