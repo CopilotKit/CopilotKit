@@ -278,6 +278,7 @@ describe("memory store realtime", () => {
 
 const sampleContext = {
   runtimeUrl: "https://runtime.example.com",
+  wsUrl: "wss://gw.example.com/client",
   headers: { Authorization: "Bearer token", "X-Cpki-User-Id": "u1" },
 };
 
@@ -609,6 +610,18 @@ describe("memory store mutations", () => {
 
     store.stop();
   });
+});
+
+it("setContext stores wsUrl alongside runtimeUrl", () => {
+  const store = createMemoryStore(memoryEnvironment(vi.fn()));
+  store.start();
+  store.setContext({
+    runtimeUrl: "https://runtime.example.com",
+    wsUrl: "wss://gw.example.com/client",
+    headers: {},
+  });
+  expect(store.getState().context?.wsUrl).toBe("wss://gw.example.com/client");
+  store.stop();
 });
 
 describe("memory selectors", () => {

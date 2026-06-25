@@ -74,6 +74,8 @@ type MemoryMutationOutcome =
  */
 interface MemoryRuntimeContext {
   runtimeUrl: string;
+  /** WebSocket URL for the realtime gateway (e.g. `wss://gw.example.com/client`). */
+  wsUrl: string;
   headers: Record<string, string>;
   includeInvalidated?: boolean;
 }
@@ -115,6 +117,9 @@ const memoryRestEvents = createActionGroup("Memory REST", {
   listSucceeded: props<{ sessionId: number; memories: Memory[] }>(),
   listFailed: props<{ sessionId: number; error: Error }>(),
   mutationFinished: props<{ outcome: MemoryMutationOutcome }>(),
+  credentialsRequested: props<{ sessionId: number }>(),
+  credentialsSucceeded: props<{ sessionId: number; joinToken: string; joinCode: string }>(),
+  credentialsFailed: props<{ sessionId: number; error: Error }>(),
 });
 
 const memoryDomainEvents = createActionGroup("Memory Domain", {
