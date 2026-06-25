@@ -1,8 +1,10 @@
 // Dedicated runtime for the Declarative Generative UI (A2UI — Dynamic Schema)
-// demo. `a2ui.injectA2UITool: true` — runtime-driven auto-injection, matching
-// the langgraph-python and AWS Strands gold-standard declarative-gen-ui routes.
+// demo. No runtime `a2ui` config: the page passes a catalog to the provider
+// (`<CopilotKit a2ui={{ catalog }}>`), which auto-enables A2UI and defaults tool
+// injection on (CopilotKit >= 1.61.2, PR #5611), matching the langgraph-python
+// and AWS Strands gold-standard declarative-gen-ui routes.
 // The backend agent (src/agents/declarative_gen_ui_agent.py) wires NO
-// `generate_a2ui` tool; the ag-ui-adk >= 0.7.0 adapter sees this forwarded flag
+// `generate_a2ui` tool; the ag-ui-adk >= 0.7.0 adapter sees the injected flag
 // and auto-injects `generate_a2ui` (via `plan_a2ui_injection`), then drives the
 // forced `render_a2ui` sub-agent + toolkit validate->retry recovery and emits
 // the `a2ui_operations` container the A2UI middleware paints. (The ADK-only
@@ -38,13 +40,6 @@ export const POST = async (req: NextRequest) => {
 
     const runtime = new CopilotRuntime({
       agents: { "declarative-gen-ui": declarativeGenUiAgent },
-      a2ui: {
-        injectA2UITool: true,
-        // Models follow the tool-usage guide and omit `catalogId`, and the
-        // middleware then falls back to the unregistered spec basic catalog
-        // ("Catalog not found" render error). Pin the catalog the page registers.
-        defaultCatalogId: "declarative-gen-ui-catalog",
-      },
     });
 
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({

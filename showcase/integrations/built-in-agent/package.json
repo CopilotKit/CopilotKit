@@ -10,11 +10,11 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@copilotkit/a2ui-renderer": "1.61.1",
-    "@copilotkit/react-core": "1.61.1",
-    "@copilotkit/runtime": "1.61.1",
-    "@copilotkit/shared": "1.61.1",
-    "@copilotkit/voice": "1.61.1",
+    "@copilotkit/a2ui-renderer": "1.61.2",
+    "@copilotkit/react-core": "1.61.2",
+    "@copilotkit/runtime": "1.61.2",
+    "@copilotkit/shared": "1.61.2",
+    "@copilotkit/voice": "1.61.2",
     "@hashbrownai/core": "0.5.0-beta.4",
     "@hashbrownai/react": "0.5.0-beta.4",
     "@json-render/core": "0.18.0",
