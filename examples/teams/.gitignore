@@ -1,0 +1,14 @@
+node_modules
+dist
+.env*
+!.env.example
+*.log
+devTools
+
+# Built Teams app package (rezip from manifest.json + icons)
+appPackage/*.zip
+
+# Host-specific deploy config lives in your platform's dashboard, not the repo.
+# Keep a local copy here for `railway up` if you like; it won't be committed.
+railway.json
+railway.toml
