@@ -144,6 +144,83 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  describe("memory mutations", () => {
+    it("createMemory POSTs /api/memories with the user header + body", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse(
+          {
+            id: "m1",
+            kind: "topical",
+            scope: "user",
+            content: "c",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+            absorbed: false,
+          },
+          201,
+        ),
+      );
+
+      const res = await client.createMemory({
+        userId: "user-1",
+        content: "c",
+        kind: "topical",
+        scope: "user",
+      });
+
+      expect(res.id).toBe("m1");
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories");
+      expect(opts.method).toBe("POST");
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(JSON.parse(opts.body)).toEqual({
+        content: "c",
+        kind: "topical",
+        scope: "user",
+        sourceThreadIds: [],
+      });
+    });
+
+    it("updateMemory PATCHes /api/memories/:id (supersede) and returns retiredId", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({
+          id: "m2",
+          kind: "topical",
+          scope: "user",
+          content: "c2",
+          sourceThreadIds: [],
+          invalidatedAt: null,
+          retiredId: "m1",
+        }),
+      );
+
+      const res = await client.updateMemory({
+        userId: "user-1",
+        id: "m1",
+        content: "c2",
+        kind: "topical",
+        scope: "user",
+      });
+
+      expect(res.retiredId).toBe("m1");
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/m1");
+      expect(opts.method).toBe("PATCH");
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+    });
+
+    it("removeMemory DELETEs /api/memories/:id with the user header", async () => {
+      fetchMock.mockReturnValue(emptyResponse(204));
+
+      await client.removeMemory({ userId: "user-1", id: "m1" });
+
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/m1");
+      expect(opts.method).toBe("DELETE");
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+    });
+  });
+
   describe("subscribeToThreads", () => {
     it("sends POST with userId and returns the join token", async () => {
       fetchMock.mockReturnValue(jsonResponse({ joinToken: "jt-subscribe" }));

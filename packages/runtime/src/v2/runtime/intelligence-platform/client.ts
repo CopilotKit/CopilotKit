@@ -173,6 +173,18 @@ export interface ListMemoriesResponse {
 }
 
 /**
+ * Response from a create ({@link CopilotKitIntelligence.createMemory}) or
+ * supersede ({@link CopilotKitIntelligence.updateMemory}) call: the stored
+ * memory, plus the operation-specific marker the client store consumes.
+ */
+export interface SaveMemoryResponse extends MemorySummary {
+  /** Create only: content was merged into a near-duplicate, not inserted new. */
+  absorbed?: boolean;
+  /** Supersede only: the id of the memory retired by this call. */
+  retiredId?: string;
+}
+
+/**
  * Fields that can be updated on a thread via {@link CopilotKitIntelligence.updateThread}.
  *
  * Additional platform-specific fields can be passed as extra keys and will be
@@ -590,6 +602,74 @@ export class CopilotKitIntelligence {
     return this.#request<ListMemoriesResponse>(
       "GET",
       `/api/memories${qs}`,
+      undefined,
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
+  /**
+   * Create a memory for the given user (platform `POST /api/memories`).
+   * @returns The stored memory; `absorbed` is true if the content was merged
+   *   into a near-duplicate rather than inserted as a new row.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async createMemory(params: {
+    userId: string;
+    content: string;
+    kind: string;
+    scope: string;
+    sourceThreadIds?: string[];
+  }): Promise<SaveMemoryResponse> {
+    return this.#request<SaveMemoryResponse>(
+      "POST",
+      `/api/memories`,
+      {
+        content: params.content,
+        kind: params.kind,
+        scope: params.scope,
+        sourceThreadIds: params.sourceThreadIds ?? [],
+      },
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
+  /**
+   * Supersede an existing memory (platform `PATCH /api/memories/:id`). The
+   * `:id` row is retired and a new memory with the supplied content is
+   * inserted atomically.
+   * @returns The new memory plus `retiredId` (the id of the retired row).
+   * @throws {@link PlatformRequestError} on non-2xx responses (e.g. 404 when
+   *   `:id` is not a live, same-scope memory for this user).
+   */
+  async updateMemory(params: {
+    userId: string;
+    id: string;
+    content: string;
+    kind: string;
+    scope: string;
+    sourceThreadIds?: string[];
+  }): Promise<SaveMemoryResponse> {
+    return this.#request<SaveMemoryResponse>(
+      "PATCH",
+      `/api/memories/${encodeURIComponent(params.id)}`,
+      {
+        content: params.content,
+        kind: params.kind,
+        scope: params.scope,
+        sourceThreadIds: params.sourceThreadIds ?? [],
+      },
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
+  }
+
+  /**
+   * Non-lossily retire (forget) a memory (platform `DELETE /api/memories/:id`).
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async removeMemory(params: { userId: string; id: string }): Promise<void> {
+    await this.#request<void>(
+      "DELETE",
+      `/api/memories/${encodeURIComponent(params.id)}`,
       undefined,
       { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
     );

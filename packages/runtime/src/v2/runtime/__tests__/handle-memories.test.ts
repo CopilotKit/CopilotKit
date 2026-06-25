@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { handleListMemories } from "../handlers/handle-memories";
+import {
+  handleListMemories,
+  handleCreateMemory,
+  handleUpdateMemory,
+  handleRemoveMemory,
+} from "../handlers/handle-memories";
 import { CopilotRuntime } from "../core/runtime";
 
 describe("memory handlers", () => {
@@ -108,5 +113,130 @@ describe("memory handlers", () => {
     });
 
     expect(response.status).toBe(500);
+  });
+
+  const jsonRequest = (
+    path: string,
+    method: "POST" | "PATCH" | "DELETE",
+    body?: Record<string, unknown>,
+  ) =>
+    new Request(`https://example.com${path}`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+  it("creates a memory via identifyUser and returns 201", async () => {
+    const intelligence = {
+      createMemory: vi.fn().mockResolvedValue({
+        id: "m-new",
+        kind: "topical",
+        scope: "user",
+        content: "User plays bass.",
+        sourceThreadIds: [],
+        invalidatedAt: null,
+      }),
+    };
+    const identifyUser = createIdentifyUser();
+    const runtime = createIntelligenceRuntime({ intelligence, identifyUser });
+    const request = jsonRequest("/memories", "POST", {
+      content: "User plays bass.",
+      kind: "topical",
+      scope: "user",
+    });
+
+    const response = await handleCreateMemory({ runtime, request });
+
+    expect(response.status).toBe(201);
+    expect(identifyUser).toHaveBeenCalledWith(request);
+    expect(intelligence.createMemory).toHaveBeenCalledWith({
+      userId: "user-1",
+      content: "User plays bass.",
+      kind: "topical",
+      scope: "user",
+    });
+  });
+
+  it("returns 400 on a create body missing required fields", async () => {
+    const intelligence = { createMemory: vi.fn() };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleCreateMemory({
+      runtime,
+      request: jsonRequest("/memories", "POST", { content: "no kind/scope" }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(intelligence.createMemory).not.toHaveBeenCalled();
+  });
+
+  it("supersedes a memory (PATCH) and forwards retiredId", async () => {
+    const intelligence = {
+      updateMemory: vi.fn().mockResolvedValue({
+        id: "m-2",
+        kind: "topical",
+        scope: "user",
+        content: "updated",
+        sourceThreadIds: [],
+        invalidatedAt: null,
+        retiredId: "m-1",
+      }),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleUpdateMemory({
+      runtime,
+      request: jsonRequest("/memories/m-1", "PATCH", {
+        content: "updated",
+        kind: "topical",
+        scope: "user",
+      }),
+      memoryId: "m-1",
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      id: "m-2",
+      retiredId: "m-1",
+    });
+    expect(intelligence.updateMemory).toHaveBeenCalledWith({
+      userId: "user-1",
+      id: "m-1",
+      content: "updated",
+      kind: "topical",
+      scope: "user",
+    });
+  });
+
+  it("removes a memory (DELETE) and returns 204", async () => {
+    const intelligence = { removeMemory: vi.fn().mockResolvedValue(undefined) };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleRemoveMemory({
+      runtime,
+      request: jsonRequest("/memories/m-1", "DELETE"),
+      memoryId: "m-1",
+    });
+
+    expect(response.status).toBe(204);
+    expect(intelligence.removeMemory).toHaveBeenCalledWith({
+      userId: "user-1",
+      id: "m-1",
+    });
+  });
+
+  it("returns 422 for create when intelligence is not configured", async () => {
+    const runtime = new CopilotRuntime({ agents: {} });
+
+    const response = await handleCreateMemory({
+      runtime,
+      request: jsonRequest("/memories", "POST", {
+        content: "x",
+        kind: "topical",
+        scope: "user",
+      }),
+    });
+
+    expect(response.status).toBe(422);
   });
 });

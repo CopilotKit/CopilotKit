@@ -199,7 +199,15 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/list" };
   }
 
-  // /memories (1 segment) — list the resolved user's memories
+  // /memories/:id (2 segments) — supersede (PATCH) or retire (DELETE).
+  // Disambiguated by HTTP method in the handler.
+  if (len >= 2 && segments[len - 2] === "memories") {
+    const memoryId = safeDecodeURIComponent(segments[len - 1]!);
+    if (!memoryId) return null;
+    return { method: "memories/mutate", memoryId };
+  }
+
+  // /memories (1 segment) — GET lists; POST creates.
   if (len >= 1 && segments[len - 1] === "memories") {
     return { method: "memories/list" };
   }
