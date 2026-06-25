@@ -25,6 +25,25 @@ export const PUT = async (
         date: new Date().toISOString().split("T")[0],
       };
     }
+    // Policy-limit gate. `status` arrives inside `rest`, so apply the patch
+    // to a merged view before checking. The rejection names ONLY the
+    // symptom (the policy is over its limit) — never the policy-exception
+    // path that lifts the gate. The agent has to learn that recipe from
+    // `/knowledge`; leaking it here would defeat the SL demo.
+    const merged = { ...existing, ...patch };
+    if (
+      patch.status === "approved" &&
+      !store.isWithinPolicyLimit(merged) &&
+      !store.hasApprovedException(merged)
+    ) {
+      return new Response(
+        JSON.stringify({
+          error: "OVER_POLICY_LIMIT",
+          message: `${store.findPolicy(existing.policyId)?.type} policy limit exceeded`,
+        }),
+        { status: 422, headers: { "content-type": "application/json" } },
+      );
+    }
     const updated = store.updateTransaction(id, patch);
     return new Response(JSON.stringify(updated), { status: 201 });
   } catch (error) {
