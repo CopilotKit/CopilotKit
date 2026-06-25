@@ -243,16 +243,29 @@ export const Chat = () => {
 When you build a fully headless UI, use `useToolRenderingResolver` to render tool calls with the same renderers you register through `useRenderTool`, `useFrontendTool`, or `useHumanInTheLoop`.
 
 ```tsx title="src/app/components/chat.tsx"
-import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
+import type { Message, ToolMessage } from "@ag-ui/core";
 import {
+  useAgent,
+  useCopilotKit,
   useRenderTool,
   useToolRenderingResolver,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
 export const Chat = () => {
-  const { messages } = useCopilotChatHeadless_c();
+  const { agent } = useAgent({ agentId: "weather-agent" });
+  const { copilotkit } = useCopilotKit();
+  const messages = agent.messages as Message[];
   const resolveToolRendering = useToolRenderingResolver(); // [!code highlight]
+
+  async function sendMessage(content: string) {
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+    });
+    await copilotkit.runAgent({ agent });
+  }
 
   useRenderTool({
     name: "get_weather",
@@ -274,11 +287,11 @@ export const Chat = () => {
         <div key={message.id}>
           <p>{message.content}</p>
           {/* Render the tool calls if they exist */}
-          {/* [!code highlight:15] */}
+          {/* [!code highlight:16] */}
           {message.role === "assistant" &&
             message.toolCalls?.map((toolCall) => {
               const toolMessage = messages.find(
-                (candidate) =>
+                (candidate): candidate is ToolMessage =>
                   candidate.role === "tool" &&
                   candidate.toolCallId === toolCall.id,
               );
@@ -291,6 +304,9 @@ export const Chat = () => {
             })}
         </div>
       ))}
+      <button onClick={() => void sendMessage("What's the weather in Lisbon?")}>
+        Ask
+      </button>
     </div>
   );
 };

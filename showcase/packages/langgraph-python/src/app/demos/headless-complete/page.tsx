@@ -1,8 +1,10 @@
 "use client";
 
 import React, { FormEvent, useMemo, useState } from "react";
-import { CopilotKit, useCopilotChatHeadless_c } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core";
 import {
+  useAgent,
+  useCopilotKit,
   useRenderTool,
   useToolRenderingResolver,
 } from "@copilotkit/react-core/v2";
@@ -26,9 +28,12 @@ export default function HeadlessUIDemo() {
 }
 
 function HeadlessChat() {
-  const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c();
+  const { agent } = useAgent({ agentId: "headless-complete" });
+  const { copilotkit } = useCopilotKit();
   const resolveToolRendering = useToolRenderingResolver();
   const [input, setInput] = useState("");
+  const messages = agent.messages as HeadlessMessage[];
+  const isLoading = agent.isRunning;
 
   useRenderTool({
     name: "get_weather",
@@ -83,11 +88,12 @@ function HeadlessChat() {
     if (!content || isLoading) return;
 
     setInput("");
-    await sendMessage({
+    agent.addMessage({
       id: crypto.randomUUID(),
       role: "user",
       content,
     });
+    await copilotkit.runAgent({ agent });
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -178,9 +184,7 @@ function HeadlessChat() {
   );
 }
 
-type HeadlessMessage = ReturnType<
-  typeof useCopilotChatHeadless_c
->["messages"][number];
+type HeadlessMessage = ReturnType<typeof useAgent>["agent"]["messages"][number];
 type AssistantMessage = Extract<HeadlessMessage, { role: "assistant" }>;
 type ToolMessage = Extract<HeadlessMessage, { role: "tool" }>;
 type ToolRenderingResolver = ReturnType<typeof useToolRenderingResolver>;

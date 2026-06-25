@@ -2,7 +2,7 @@
 
 ## What This Demo Shows
 
-Custom chat UI built with the headless chat hook while still rendering registered tool UI through `useToolRenderingResolver`.
+Custom chat UI built with the lower-level agent runtime while still rendering registered tool UI through `useToolRenderingResolver`.
 
 ## How to Interact
 
@@ -15,7 +15,8 @@ Try asking:
 
 The application code intentionally uses the lower-level headless path:
 
-- `useCopilotChatHeadless_c` owns messages, loading state, and `sendMessage`.
+- `useAgent` owns the chat messages and loading state.
+- `useCopilotKit().copilotkit.runAgent` sends each user message to the agent.
 - `useRenderTool` registers the `get_weather` renderer.
 - `useToolRenderingResolver` renders each assistant tool call by resolving the matching registered renderer.
 
