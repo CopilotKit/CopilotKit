@@ -55,17 +55,17 @@ async function parseJsonBody(
  * Extracts and validates the create/supersede body fields the platform's
  * memory endpoints require. Returns a `Response` (400) on invalid input.
  */
-function parseMemoryBody(
-  body: Record<string, unknown>,
-):
-  | { content: string; kind: string; scope?: string; sourceThreadIds?: string[] }
+function parseMemoryBody(body: Record<string, unknown>):
+  | {
+      content: string;
+      kind: string;
+      scope?: string;
+      sourceThreadIds?: string[];
+    }
   | Response {
   const { content, kind, scope, sourceThreadIds } = body;
   if (typeof content !== "string" || typeof kind !== "string") {
-    return errorResponse(
-      "Memory requires string `content` and `kind`",
-      400,
-    );
+    return errorResponse("Memory requires string `content` and `kind`", 400);
   }
   // `scope` is optional: when omitted the platform applies its default
   // (`"user"`). Only reject a present-but-wrong-typed scope.

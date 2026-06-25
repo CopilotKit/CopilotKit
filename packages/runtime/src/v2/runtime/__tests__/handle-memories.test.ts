@@ -79,7 +79,9 @@ describe("memory handlers", () => {
     });
     expect(identifyUser).toHaveBeenCalledTimes(1);
     expect(identifyUser).toHaveBeenCalledWith(request);
-    expect(intelligence.listMemories).toHaveBeenCalledWith({ userId: "user-1" });
+    expect(intelligence.listMemories).toHaveBeenCalledWith({
+      userId: "user-1",
+    });
   });
 
   it("forwards includeInvalidated=true to the platform", async () => {

@@ -62,7 +62,10 @@ describe("fetch-router", () => {
 
     it("matches /memories/:id to memories/mutate with the id", () => {
       const result = matchRoute("/api/copilotkit/memories/mem-123", basePath);
-      expect(result).toEqual({ method: "memories/mutate", memoryId: "mem-123" });
+      expect(result).toEqual({
+        method: "memories/mutate",
+        memoryId: "mem-123",
+      });
     });
 
     it("matches POST /annotate", () => {

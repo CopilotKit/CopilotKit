@@ -59,7 +59,10 @@ const flushEffects = async (): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
-function createdEvent(id: string, content = `content-${id}`): MemoryMetadataEvent {
+function createdEvent(
+  id: string,
+  content = `content-${id}`,
+): MemoryMetadataEvent {
   return {
     operation: "created",
     memoryId: id,
@@ -120,7 +123,10 @@ describe("memory reducer", () => {
   it("prepends a newly created memory (newest first)", () => {
     const base = memoryReducer(
       undefined,
-      memoryRestEvents.listSucceeded({ sessionId: 0, memories: [memory("m1")] }),
+      memoryRestEvents.listSucceeded({
+        sessionId: 0,
+        memories: [memory("m1")],
+      }),
     );
 
     const next = memoryReducer(
@@ -387,9 +393,11 @@ describe("memory store REST snapshot", () => {
   });
 
   it("surfaces a fetch failure as state.error and clears isLoading", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) });
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = createMemoryStore(memoryEnvironment(fetchMock));
@@ -749,7 +757,10 @@ describe("memory selectors", () => {
   it("project the relevant state slices", () => {
     const state = memoryReducer(
       undefined,
-      memoryRestEvents.listSucceeded({ sessionId: 0, memories: [memory("m1")] }),
+      memoryRestEvents.listSucceeded({
+        sessionId: 0,
+        memories: [memory("m1")],
+      }),
     );
 
     expect(ɵselectMemories(state).map((m) => m.id)).toEqual(["m1"]);

@@ -123,7 +123,11 @@ const memoryAdapterEvents = createActionGroup("Memory Adapter", {
   stopped: empty(),
   contextChanged: props<{ context: MemoryRuntimeContext | null }>(),
   addRequested: props<{ requestId: string; input: NewMemory }>(),
-  updateRequested: props<{ requestId: string; id: string; changes: MemoryChanges }>(),
+  updateRequested: props<{
+    requestId: string;
+    id: string;
+    changes: MemoryChanges;
+  }>(),
   removeRequested: props<{ requestId: string; id: string }>(),
 });
 
@@ -133,7 +137,11 @@ const memoryRestEvents = createActionGroup("Memory REST", {
   listFailed: props<{ sessionId: number; error: Error }>(),
   mutationFinished: props<{ outcome: MemoryMutationOutcome }>(),
   credentialsRequested: props<{ sessionId: number }>(),
-  credentialsSucceeded: props<{ sessionId: number; joinToken: string; joinCode: string }>(),
+  credentialsSucceeded: props<{
+    sessionId: number;
+    joinToken: string;
+    joinCode: string;
+  }>(),
   credentialsFailed: props<{ sessionId: number; error: Error }>(),
 });
 
@@ -252,17 +260,20 @@ const memoryReducer = createReducer(
       error: null,
     };
   }),
-  on(memoryRestEvents.listFailed, (state: MemoryState, { sessionId, error }) => {
-    if (sessionId !== state.sessionId) {
-      return state;
-    }
+  on(
+    memoryRestEvents.listFailed,
+    (state: MemoryState, { sessionId, error }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
 
-    return {
-      ...state,
-      isLoading: false,
-      error,
-    };
-  }),
+      return {
+        ...state,
+        isLoading: false,
+        error,
+      };
+    },
+  ),
   on(
     memoryAdapterEvents.addRequested,
     memoryAdapterEvents.updateRequested,
@@ -321,9 +332,7 @@ const selectMemories = createSelector((state: MemoryState) => state.memories);
 const selectMemoriesIsLoading = createSelector(
   (state: MemoryState) => state.isLoading,
 );
-const selectMemoriesError = createSelector(
-  (state: MemoryState) => state.error,
-);
+const selectMemoriesError = createSelector((state: MemoryState) => state.error);
 
 /**
  * Dependencies injected into the memory store. The store opens its own
@@ -437,10 +446,15 @@ function createMemoryCredentialsFetchObservable(
     memoryFromFetch(`${context.runtimeUrl}${MEMORIES_SUBSCRIBE_PATH}`, {
       selector: async (response) => {
         if (!response.ok) {
-          throw new Error(`Failed to fetch memory subscribe credentials: ${response.status}`);
+          throw new Error(
+            `Failed to fetch memory subscribe credentials: ${response.status}`,
+          );
         }
 
-        return response.json() as Promise<{ joinToken: string; joinCode: string }>;
+        return response.json() as Promise<{
+          joinToken: string;
+          joinCode: string;
+        }>;
       },
       fetch: environment.fetch,
       method: "POST",
@@ -485,7 +499,12 @@ type MemoryMutationAction =
   | ReturnType<typeof memoryRestEvents.mutationFinished>;
 
 type MemoryMutationRequest =
-  | { requestId: string; sessionId: number; kind: "add"; body: Record<string, unknown> }
+  | {
+      requestId: string;
+      sessionId: number;
+      kind: "add";
+      body: Record<string, unknown>;
+    }
   | {
       requestId: string;
       sessionId: number;
@@ -550,7 +569,9 @@ function buildMutationSuccessActions(
     ];
   }
 
-  const memory = responseToMemory(data as Parameters<typeof responseToMemory>[0]);
+  const memory = responseToMemory(
+    data as Parameters<typeof responseToMemory>[0],
+  );
 
   if (request.kind === "update") {
     const retiredId = (data as { retiredId: string }).retiredId;
@@ -578,7 +599,11 @@ function createMemoryMutationObservable(
   request: MemoryMutationRequest,
 ): Observable<MemoryMutationAction> {
   const method =
-    request.kind === "add" ? "POST" : request.kind === "update" ? "PATCH" : "DELETE";
+    request.kind === "add"
+      ? "POST"
+      : request.kind === "update"
+        ? "PATCH"
+        : "DELETE";
   const path =
     request.kind === "add"
       ? MEMORIES_PATH
@@ -598,7 +623,8 @@ function createMemoryMutationObservable(
       fetch: environment.fetch,
       method,
       headers: { ...context.headers, "Content-Type": "application/json" },
-      body: request.kind === "remove" ? undefined : JSON.stringify(request.body),
+      body:
+        request.kind === "remove" ? undefined : JSON.stringify(request.body),
     }).pipe(
       timeout({
         first: REQUEST_TIMEOUT_MS,
@@ -830,9 +856,7 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
                   MEMORY_METADATA_EVENT,
                 ),
               ),
-              map((event) =>
-                mapMemoryMetadataEvent(event, action.sessionId),
-              ),
+              map((event) => mapMemoryMetadataEvent(event, action.sessionId)),
             );
 
             return metadata$.pipe(
@@ -850,7 +874,14 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
 
   const store = createStore<MemoryState>({
     reducer: memoryReducer,
-    effects: [bootstrapEffect, credentialsBootstrapEffect, fetchEffect, credentialsFetchEffect, mutationEffect, socketEffect],
+    effects: [
+      bootstrapEffect,
+      credentialsBootstrapEffect,
+      fetchEffect,
+      credentialsFetchEffect,
+      mutationEffect,
+      socketEffect,
+    ],
   });
 
   function trackMutation<T>(
@@ -874,7 +905,9 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
             ({
               requestId,
               ok: false,
-              error: new Error("Memory store stopped before mutation completed"),
+              error: new Error(
+                "Memory store stopped before mutation completed",
+              ),
             }) satisfies MemoryMutationOutcome,
         ),
       ),
