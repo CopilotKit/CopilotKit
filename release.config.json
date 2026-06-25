@@ -28,10 +28,7 @@
       "sharedVersion": false
     },
     "bot": {
-      "packages": [
-        "@copilotkit/bot",
-        "@copilotkit/bot-ui"
-      ],
+      "packages": ["@copilotkit/bot", "@copilotkit/bot-ui"],
       "versionSource": "@copilotkit/bot",
       "sharedVersion": true
     },
