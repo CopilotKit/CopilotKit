@@ -41,8 +41,12 @@ export default defineConfig([
     // Force `lit` (a peer dependency, which tsdown would otherwise externalize)
     // to be INLINED into the UMD bundle so the single `<script>`/CDN artifact is
     // self-contained. Externalizing it emitted a bare `require('lit')` that has
-    // no meaning in a browser global script.
-    noExternal: [/^lit(\/|$)/],
+    // no meaning in a browser global script. Inlining `lit` necessarily pulls in
+    // its runtime deps (`@lit/reactive-element`, `lit-html`, `lit-element`,
+    // `@lit-labs/ssr-dom-shim`); that transitive bundling is intentional here, so
+    // disable tsdown's "unintended bundling" guard (which is fatal under CI).
+    noExternal: [/^lit(\/|$)/, /^@lit\//, "lit-html", "lit-element"],
+    inlineOnly: false,
     codeSplitting: false,
     outputOptions(options) {
       options.entryFileNames = "[name].umd.js";
