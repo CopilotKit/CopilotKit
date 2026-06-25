@@ -172,6 +172,7 @@ export async function handleIntelligenceRun({
     try {
       const history = await runtime.intelligence.getThreadMessages({
         threadId: canonicalThreadId,
+        userId,
       });
       const historicMessageIds = new Set(
         history.messages.map((message) => message.id),

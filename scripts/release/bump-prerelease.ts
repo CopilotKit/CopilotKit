@@ -5,7 +5,7 @@
  * the build, in a job that has no access to NPM_TOKEN or other publish secrets.
  * The publish job then receives pre-built, correctly-versioned artifacts.
  *
- * Usage: tsx scripts/release/bump-prerelease.ts --scope <monorepo|angular> [--suffix <label>]
+ * Usage: tsx scripts/release/bump-prerelease.ts --scope <scope from release.config.json> [--suffix <label>]
  */
 
 import {
@@ -14,9 +14,11 @@ import {
   bumpPackages,
   getPackagesForScope,
 } from "./lib/versions.js";
-import { loadConfig, type ReleaseScope } from "./lib/config.js";
+import { loadConfig } from "./lib/config.js";
+import type { ReleaseScope } from "./lib/config.js";
 
-const VALID_SCOPES = ["monorepo", "angular"];
+// Valid scopes come from release.config.json — the single source of truth.
+const VALID_SCOPES = Object.keys(loadConfig().scopes);
 
 function main() {
   const argv = process.argv.slice(2);

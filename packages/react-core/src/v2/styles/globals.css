@@ -1,7 +1,6 @@
 @import "tailwindcss" prefix(cpk);
 @plugin "@tailwindcss/typography";
 @source "../**/*.{ts,tsx}";
-@source "../../../../node_modules/streamdown/dist/index.js";
 
 @import "tw-animate-css";
 
@@ -180,6 +179,135 @@
   @apply cpk:mt-0 cpk:mb-0;
 }
 
+@layer components {
+  [data-copilotkit] [data-streamdown="ordered-list"] {
+    @apply cpk:list-inside cpk:list-decimal cpk:whitespace-normal;
+  }
+
+  [data-copilotkit] [data-streamdown="unordered-list"] {
+    @apply cpk:list-inside cpk:list-disc cpk:whitespace-normal;
+  }
+
+  [data-copilotkit] [data-streamdown="list-item"] {
+    @apply cpk:py-1;
+  }
+
+  [data-copilotkit] [data-streamdown="list-item"] > p {
+    @apply cpk:inline;
+  }
+
+  [data-copilotkit] [data-streamdown="horizontal-rule"] {
+    @apply cpk:my-6 cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="strong"] {
+    @apply cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="link"] {
+    @apply cpk:font-medium cpk:text-primary cpk:underline;
+    overflow-wrap: anywhere;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-1"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-3xl cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-2"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-2xl cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-3"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-xl cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-4"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-lg cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-5"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-base cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="heading-6"] {
+    @apply cpk:mt-6 cpk:mb-2 cpk:text-sm cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="table-wrapper"] {
+    @apply cpk:my-4 cpk:flex cpk:flex-col cpk:space-y-2;
+  }
+
+  [data-copilotkit] [data-streamdown="table-wrapper"] > div:last-child {
+    @apply cpk:overflow-x-auto;
+  }
+
+  [data-copilotkit] [data-streamdown="table"] {
+    @apply cpk:w-full cpk:border-collapse cpk:border cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="table-header"] {
+    @apply cpk:bg-muted/80;
+  }
+
+  [data-copilotkit] [data-streamdown="table-body"] {
+    @apply cpk:divide-y cpk:divide-border cpk:bg-muted/40;
+  }
+
+  [data-copilotkit] [data-streamdown="table-row"] {
+    @apply cpk:border-b cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="table-header-cell"] {
+    @apply cpk:whitespace-nowrap cpk:px-4 cpk:py-2 cpk:text-left cpk:text-sm cpk:font-semibold;
+  }
+
+  [data-copilotkit] [data-streamdown="table-cell"] {
+    @apply cpk:px-4 cpk:py-2 cpk:text-sm;
+  }
+
+  [data-copilotkit] [data-streamdown="blockquote"] {
+    @apply cpk:my-4 cpk:border-l-4 cpk:border-muted-foreground/30 cpk:pl-4 cpk:text-muted-foreground cpk:italic;
+  }
+
+  [data-copilotkit] [data-streamdown="inline-code"] {
+    @apply cpk:rounded cpk:bg-muted cpk:px-1.5 cpk:py-0.5 cpk:font-mono cpk:text-sm;
+  }
+
+  [data-copilotkit] [data-streamdown="image-wrapper"] {
+    @apply cpk:relative cpk:my-4 cpk:inline-block;
+  }
+
+  [data-copilotkit] [data-streamdown="image"] {
+    @apply cpk:max-w-full cpk:rounded-lg;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block"] {
+    @apply cpk:my-4 cpk:w-full cpk:overflow-hidden cpk:rounded-xl cpk:border cpk:border-border;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block-header"] {
+    @apply cpk:flex cpk:items-center cpk:justify-between cpk:bg-muted/80 cpk:p-3 cpk:text-xs cpk:text-muted-foreground;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block-body"] {
+    @apply cpk:overflow-x-auto cpk:border-t cpk:border-border cpk:p-4 cpk:text-sm;
+  }
+
+  [data-copilotkit] [data-streamdown="code-block-copy-button"],
+  [data-copilotkit] [data-streamdown="code-block-download-button"] {
+    @apply cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50;
+  }
+
+  [data-copilotkit] [data-streamdown="mermaid-block"] {
+    @apply cpk:relative cpk:my-4 cpk:h-auto cpk:rounded-xl cpk:border cpk:border-border cpk:p-4;
+  }
+
+  [data-copilotkit] [data-streamdown="subscript"],
+  [data-copilotkit] [data-streamdown="superscript"] {
+    @apply cpk:text-sm;
+  }
+}
+
 /* Minimal scrollbar for WebKit browsers (Chrome, Safari, Edge) */
 [data-copilotkit] ::-webkit-scrollbar {
   width: 6px;
@@ -230,43 +358,43 @@
   background-size: 100% 100%;
 }
 /*
- * IntelligenceIndicator — single-element, three-stage design.
+ * IntelligenceIndicator — the default "CopilotKit Intelligence" face.
  *
- * Layers (always in the DOM, always at full opacity for layout
- * purposes — only individual properties animate):
+ * Layers (all always in the DOM; individual properties animate as the
+ * `data-status` attribute flips in-progress → finished):
  *
- *   • `__chrome`   — the glassmorphism pill (bg, border, shadow,
- *                    backdrop-blur). Absolute-positioned behind the
- *                    content. Visible while in-progress; fades to 0
- *                    once the icon morph completes.
- *   • `__content`  — icon + label flex row. Stays in place across
- *                    the whole transition. Only its `color` alpha
- *                    drops on settle (0.92 → 0.55).
- *   • `__icon-path` — single SVG path whose `d` morphs between a
- *                    270° arc and a checkmark. Both shapes share the
- *                    same 3-segment cubic Bézier topology, which is
- *                    what makes the d interpolate cleanly. The "spin"
- *                    is a marching-dash animation on the stroke, not
- *                    an SVG rotation — so there is no rotation state
- *                    to snap back to identity when the animation is
- *                    removed at status flip.
+ *   • `__chrome`     — the glassmorphism pill (bg, border, shadow,
+ *                      backdrop-blur), absolute-positioned behind the
+ *                      content. Visible while in-progress; fades to 0
+ *                      on settle.
+ *   • `__content`    — icon + label flex row. Stays in place across the
+ *                      whole transition; on settle its `color` shifts
+ *                      from saturated purple to neutral gray and the
+ *                      label slants (faux-italic via `transform: skewX`).
+ *   • `__icon-arc`   — a full-circle SVG path shown as a partial ring by
+ *                      its dash pattern; spins (CSS rotation) while
+ *                      in-progress and fades out mid-spin on finish.
+ *   • `__icon-check` — a checkmark path that draws itself in upright
+ *                      (animated `stroke-dashoffset`) on finish.
  *
- * Stage timing (hard sequence — stage 2 waits for stage 1):
- *   • Stage 1, icon morph: 0 → 250 ms.
- *       - d interpolates arc → check
- *       - stroke-dasharray transitions dashed → solid
- *       - marching-dash animation is removed (`animation: none`)
- *   • Stage 2, settle:     250 → 650 ms (transition-delay 250 ms).
- *       - chrome opacity 1 → 0
- *       - content color alpha 0.92 → 0.55
+ * Icon geometry lives in each path's `d` ATTRIBUTE, not the CSS `d:`
+ * property (which is Chrome-only), so it renders in every browser; the
+ * arc spins via `transform-box: fill-box` so it stays centered in Safari
+ * too. See the per-rule comments below for the cross-browser details.
  *
- * Total ~650 ms in production. No moment exists where the icon or
+ * Timing on finish: the arc fades and the checkmark draws in over
+ * ~360 ms, then the chrome + color/slant settle (400 ms, after a 250 ms
+ * delay so it waits for the icon). No moment exists where the icon or
  * label is invisible, so the eye never sees a "bump."
  *
- * Mount-already-finished is handled implicitly: CSS transitions
- * don't fire when the target value is the computed value at first
- * paint, so a historical-replay turn renders directly in its
- * settled state with no animation — which is the desired behavior.
+ * Reduced motion: all of the above is gated behind
+ * `prefers-reduced-motion` — the arc does not spin and the states swap
+ * instantly (see the media query at the end of this section).
+ *
+ * Mount-already-finished is handled implicitly: CSS transitions don't
+ * fire when the target value is the computed value at first paint, so a
+ * historical-replay turn renders directly in its settled state with no
+ * animation — which is the desired behavior.
  */
 .cpk-intelligence-indicator {
   position: relative;
@@ -370,58 +498,74 @@
 .cpk-intelligence-indicator__icon {
   display: block;
   flex-shrink: 0;
-  /* The whole SVG rotates while in-progress; the dash pattern on the
-     path inside is static, so what the viewer sees is one continuous
-     arc rotating around the SVG's visual center. Rotation is removed
-     on status flip — the snap back to identity is masked by the
-     simultaneous d-morph (the shape is changing so rapidly the eye
-     does not register the angle reset). */
-  transform-origin: 7px 7px;
-  animation: cpk-intelligence-spin 0.9s linear infinite;
+  /* The icon holds two overlaid paths: a spinning arc (in-progress)
+     and a checkmark (done). The spin lives on the ARC PATH itself
+     (below), NOT on this SVG — so the checkmark sibling always renders
+     upright instead of inheriting whatever angle the arc was spinning
+     through, and the arc can keep spinning as it fades out (no abrupt
+     stop, no snap back to a fixed angle). */
 }
 
-.cpk-intelligence-indicator[data-status="finished"]
-  .cpk-intelligence-indicator__icon {
-  animation: none;
-}
+/* ─── Icon paths — arc (spinner) → checkmark (done) ─────────────────── */
+/* Geometry lives in each path's `d` ATTRIBUTE (set in the view), not the
+   CSS `d:` property, so the icon renders in every browser. The arc eases
+   out while the checkmark draws itself in (stroke-dashoffset) — a smooth,
+   cross-browser stand-in for the old Blink-only `d:` morph. */
 
-/* ─── Icon path — d-morph + dashed-to-solid stroke ──────────────────── */
-
-.cpk-intelligence-indicator__icon-path {
+.cpk-intelligence-indicator__icon-arc,
+.cpk-intelligence-indicator__icon-check {
   fill: none;
   stroke: currentColor;
   stroke-width: 2.5;
   stroke-linecap: round;
   stroke-linejoin: round;
-  /* In-progress shape: a 270° arc (3 cubic Béziers approximating three
-     quarter-circles, top → right → bottom → left). The fourth quarter
-     is the visible "gap" in the loader. */
-  d: path("M 12 3 C 17 3 21 7 21 12 C 21 17 17 21 12 21 C 7 21 3 17 3 12");
-  /* One continuous arc + one gap, summing to roughly the path length
-     (~42 units). The static dash pattern shows as a single C-shape
-     stroke; the rotation on the SVG above makes that C appear to
-     spin around the center. */
-  stroke-dasharray: 30 14;
-  /* Stage 1 — d and stroke-dasharray both interpolate over 250 ms with
-     the same eased curve so the morph reads as one motion. */
+}
+
+/* In-progress: the arc is a full circle (in the view) shown as a partial ring
+   by this dash pattern — `0.53` visible + `0.47` gap of the `pathLength="1"`
+   normalized circle reads as a C-shape — and the whole ring spins. Expressing
+   the dash as fractions (rather than raw path-length units) matches how the
+   checkmark below is normalized, so both shapes use one consistent idiom.
+   The spin lives here on the arc (not the parent SVG) so the checkmark stays
+   upright. `transform-box: fill-box` + `transform-origin: center` rotates around
+   the arc's geometry-box center — exactly the icon center (12,12) — and is the
+   Safari-safe combo (`transform-box: view-box` is mis-resolved by WebKit and
+   spins off-center; a SMIL `<animateTransform>` stalls for a beat on first paint
+   in Chrome). The animation is `infinite` and is left running in the finished
+   state, so the arc keeps rotating while its opacity fades to 0 (fades out
+   mid-spin rather than stopping dead). */
+.cpk-intelligence-indicator__icon-arc {
+  stroke-dasharray: 0.53 0.47;
+  opacity: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cpk-intelligence-spin 0.9s linear infinite;
+  transition: opacity 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* `pathLength="1"` (set in the view) normalizes the path's length to 1, so the
+   checkmark starts fully offset (undrawn) and, on finish, draws itself in by
+   animating stroke-dashoffset 1 → 0 — slightly delayed and overlapping the
+   arc's fade so the spinner resolves into the tick rather than hard-cutting. */
+.cpk-intelligence-indicator__icon-check {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
   transition:
-    d 250ms cubic-bezier(0.4, 0, 0.2, 1),
-    stroke-dasharray 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    stroke-dashoffset 360ms cubic-bezier(0.22, 0.61, 0.36, 1) 90ms,
+    opacity 140ms linear 90ms;
 }
 
 .cpk-intelligence-indicator[data-status="finished"]
-  .cpk-intelligence-indicator__icon-path {
-  /* Finished shape: a checkmark expressed as 3 cubic Béziers with
-     collinear control points (so each segment renders as a straight
-     line). Three segments instead of the natural two so the topology
-     matches the 270° arc above and the d morph interpolates cleanly. */
-  d: path(
-    "M 5 12.5 C 6.33 13.83 7.67 15.17 9 16.5 C 10.67 14.83 12.33 13.17 14 11.5 C 15.67 9.83 17.33 8.17 19 6.5"
-  );
-  /* Large first value, zero gap = solid stroke. Interpolates from
-     `30 14` over 250 ms in lock-step with the d morph, filling in
-     the gap that was the spinner's "open" portion. */
-  stroke-dasharray: 100 0;
+  .cpk-intelligence-indicator__icon-arc {
+  /* Spin is intentionally left running here (now invisible): stopping it
+     would snap the arc back to 0° mid-fade. The cost is negligible. */
+  opacity: 0;
+}
+.cpk-intelligence-indicator[data-status="finished"]
+  .cpk-intelligence-indicator__icon-check {
+  stroke-dashoffset: 0;
+  opacity: 1;
 }
 
 /* ─── Keyframes ─────────────────────────────────────────────────────── */
@@ -429,5 +573,23 @@
 @keyframes cpk-intelligence-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* ─── Reduced motion ────────────────────────────────────────────────── */
+/* Honor the OS "reduce motion" preference: the arc does not spin and the
+   in-progress → finished states swap instantly instead of animating. The
+   pill + label still convey "working", and the static check still conveys
+   "done" — the information is intact, just without movement. */
+@media (prefers-reduced-motion: reduce) {
+  .cpk-intelligence-indicator__icon-arc {
+    animation: none;
+  }
+  .cpk-intelligence-indicator__chrome,
+  .cpk-intelligence-indicator__content,
+  .cpk-intelligence-indicator__label,
+  .cpk-intelligence-indicator__icon-arc,
+  .cpk-intelligence-indicator__icon-check {
+    transition: none;
   }
 }

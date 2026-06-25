@@ -2,10 +2,11 @@
   "title": "Troubleshooting",
   "pages": [
     "common-issues",
+    "error-reference",
     "error-debugging",
+    "inspector-dev-console",
     "debug-mode",
     "event-inspector",
-    "hook-explorer",
-    "observability-connectors"
+    "hook-explorer"
   ]
 }

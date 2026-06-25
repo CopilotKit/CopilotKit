@@ -14,7 +14,8 @@
 // Reference:
 // https://docs.copilotkit.ai/integrations/agno/generative-ui/mcp-apps
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -31,16 +32,22 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 // the MCP-provided toolset.
 const mcpAppsAgent = new HttpAgent({ url: `${AGENT_URL}/mcp-apps/agui` });
 
+// headless-complete shares this runtime (its page wires
+// runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the main Agno
+// agent at /agui — the same backend the main route registers it against.
+const headlessCompleteAgent = new HttpAgent({ url: `${AGENT_URL}/agui` });
+
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime
 // auto-applies the MCP Apps middleware: on each MCP tool call it fetches
 // the associated UI resource and emits an `activity` event that the
 // built-in `MCPAppsActivityRenderer` renders inline in the chat.
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts; published CopilotRuntime's `agents`
-  // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
-  // plain Records. Fixed in source, pending release.
   agents: {
+    // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
+    // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
+    // plain Records. Fixed in source, pending release.
+    "headless-complete": headlessCompleteAgent,
     "mcp-apps": mcpAppsAgent,
   },
   mcpApps: {

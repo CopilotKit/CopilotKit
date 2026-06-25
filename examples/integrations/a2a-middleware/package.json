@@ -16,10 +16,10 @@
   "dependencies": {
     "@a2a-js/sdk": "latest",
     "@ag-ui/a2a-middleware": "0.0.2",
-    "@ag-ui/client": "0.0.53",
-    "@ag-ui/core": "0.0.53",
-    "@copilotkit/react-core": "1.59.3",
-    "@copilotkit/runtime": "1.59.3",
+    "@ag-ui/client": "0.0.57",
+    "@ag-ui/core": "0.0.57",
+    "@copilotkit/react-core": "1.61.0",
+    "@copilotkit/runtime": "1.61.0",
     "hono": "^4",
     "lucide-react": "^0.577.0",
     "next": "15.5.15",
@@ -40,7 +40,7 @@
     "typescript": "^5"
   },
   "overrides": {
-    "@ag-ui/client": "0.0.53",
-    "@ag-ui/core": "0.0.53"
+    "@ag-ui/client": "0.0.57",
+    "@ag-ui/core": "0.0.57"
   }
 }

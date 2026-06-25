@@ -27,4 +27,18 @@ describe("public image assets", () => {
       );
     }
   });
+
+  it("serves the slack early-access gate previews as real PNG files", () => {
+    for (const assetPath of [
+      "images/slack-bot-generative-ui-light.png",
+      "images/slack-bot-generative-ui-dark.png",
+    ]) {
+      const bytes = readPublicAsset(assetPath);
+
+      expect(bytes.subarray(0, pngSignature.length)).toEqual(pngSignature);
+      expect(bytes.toString("utf8", 0, 32)).not.toContain(
+        "version https://git-lfs",
+      );
+    }
+  });
 });

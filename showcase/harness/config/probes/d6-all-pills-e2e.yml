@@ -65,9 +65,6 @@ discovery:
       - showcase-shell-dashboard
       - showcase-shell-docs
       - showcase-shell-dojo
-      # Harness service for .NET integration testing — not a demo service,
-      # deployed: false in manifest, no aimock wiring yet.
-      - showcase-ms-agent-harness-dotnet
       # Decommissioned starters
       - showcase-starter-ag2
       - showcase-starter-agno

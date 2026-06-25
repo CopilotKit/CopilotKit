@@ -42,7 +42,9 @@ Find-and-replace import paths across your codebase:
 
 ## Provider Migration
 
-### v1: `CopilotKit`
+The provider component keeps the name `CopilotKit` -- only the import path changes. The package root (`@copilotkit/react-core`) is the legacy v1 provider; the `/v2` subpath (`@copilotkit/react-core/v2`) is the migration target.
+
+### v1: `CopilotKit` from the package root
 
 ```tsx
 import { CopilotKit } from "@copilotkit/react-core";
@@ -56,26 +58,28 @@ function App() {
 }
 ```
 
-### v2: `CopilotKitProvider`
+### v2: `CopilotKit` from `@copilotkit/react-core/v2`
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 function App() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
+    <CopilotKit runtimeUrl="/api/copilotkit">
       <MyApp />
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```
 
 **Key differences:**
 
-- Component renamed from `CopilotKit` to `CopilotKitProvider`
-- Props type renamed from `CopilotKitProps` to `CopilotKitProviderProps`
+- Same component name; the import path changes from the package root (legacy v1) to the `/v2` subpath
+- The props type keeps the name `CopilotKitProps` (also exported from `/v2`); it extends `CopilotKitProviderProps`, so every `CopilotKitProvider` prop also works on it
 - v2 adds `credentials`, `selfManagedAgents`, `renderToolCalls`, `renderActivityMessages` props
 - v2 removes `agents` prop (use `selfManagedAgents` or `agents__unsafe_dev_only` for local dev)
+
+> **Note:** `@copilotkit/react-core/v2` also exports a `CopilotKitProvider` component. Do **not** migrate to it -- it is a functionality subset of `CopilotKit`, which is the compatibility bridge across v1 and v2.
 
 ---
 

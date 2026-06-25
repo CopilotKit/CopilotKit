@@ -93,7 +93,7 @@ function makeFakePb(): {
       const sort = opts?.sort ?? "-observed_at";
       // "observed_at" => oldest first; "-observed_at" (or default) => newest.
       const sorted = [...created].sort(newestFirst);
-      const ordered = sort.startsWith("-") ? sorted : sorted.toReversed();
+      const ordered = sort.startsWith("-") ? sorted : [...sorted].toReversed();
       const perPage = opts?.perPage ?? 30;
       const page = opts?.page ?? 1;
       const start = (page - 1) * perPage;
@@ -755,5 +755,165 @@ describe("resource-snapshot-writer", () => {
 
   it("uses the documented collection name", () => {
     expect(RESOURCE_SNAPSHOTS_COLLECTION).toBe("resource_snapshots");
+  });
+
+  it("WORKER_ID: stamps the configured workerId onto every row", async () => {
+    // Per-replica attribution (migration 1779990000): a fleet replica's writer
+    // is constructed with its stable workerId and MUST stamp it onto each
+    // snapshot row so the 6 concurrent replicas writing the SAME collection are
+    // attributable post-wedge.
+    const { pb, created } = makeFakePb();
+    const { logger } = makeLogger();
+    const writer = createResourceSnapshotWriter({
+      pb,
+      logger,
+      workerId: "worker-abc123",
+    });
+
+    await writer.write("heartbeat", makeGauges(), STATS);
+
+    expect(created).toHaveLength(1);
+    expect(created[0].worker_id).toBe("worker-abc123");
+  });
+
+  it('WORKER_ID: legacy boot() path (no workerId) stamps worker_id ""', async () => {
+    // The legacy single-process boot() path constructs the writer with NO
+    // workerId; it must write rows with worker_id "" (the unset-text-field
+    // value PocketBase actually stores, matching the codebase convention) so a
+    // query can separate fleet-replica rows from the legacy single-process
+    // partition.
+    const { pb, created } = makeFakePb();
+    const { logger } = makeLogger();
+    const writer = createResourceSnapshotWriter({ pb, logger });
+
+    await writer.write("heartbeat", makeGauges(), STATS);
+
+    expect(created).toHaveLength(1);
+    expect(created[0].worker_id).toBe("");
+  });
+
+  it("WORKER_ID: a blank/whitespace workerId collapses to the legacy null partition", async () => {
+    // A blank env (`HOSTNAME=""`) must not produce a literal "" worker; it
+    // collapses to the legacy null-partition behavior.
+    const { pb, created } = makeFakePb();
+    const { logger } = makeLogger();
+    const writer = createResourceSnapshotWriter({
+      pb,
+      logger,
+      workerId: "   ",
+    });
+
+    await writer.write("heartbeat", makeGauges(), STATS);
+
+    expect(created[0].worker_id).toBe("");
+  });
+
+  it("MULTI-WRITER: each replica prunes ONLY its own worker_id partition (never a peer's rows)", async () => {
+    // The harness now runs as a FLEET: N replicas write the SAME collection.
+    // The ring prune MUST be scoped per worker_id so a busy replica's history is
+    // not pruned by an idle peer's sweep. With maxRows=3, writer-A writing 6 of
+    // its own rows must converge to 3 A-rows while leaving B's rows untouched.
+
+    // Shared in-memory store both writers' fake PBs operate on.
+    const created: Array<Record<string, unknown>> = [];
+    let seq = 0;
+    // Filter the store by the worker_id scope filter the writer passes, so the
+    // per-partition prune is exercised faithfully (the writer scopes its
+    // head-count probe + oldest-list to `worker_id = "<id>"`).
+    function matchScope(
+      filter: string | undefined,
+      row: Record<string, unknown>,
+    ): boolean {
+      if (!filter) return true;
+      // workerId path: `worker_id = "worker-x"`.
+      const eq = filter.match(/^worker_id = "([^"]*)"$/);
+      if (eq) return String(row.worker_id ?? "") === eq[1];
+      // legacy path: `worker_id = "" || worker_id = null`.
+      if (filter.includes('worker_id = ""')) {
+        return row.worker_id === null || row.worker_id === "";
+      }
+      return true;
+    }
+    function makeScopedPb(): SnapshotPbClient {
+      return {
+        async create(_c, record) {
+          const row = { id: `row-${seq}`, __seq: seq, ...record };
+          seq += 1;
+          created.push(row);
+          return row as never;
+        },
+        async list(_c, opts) {
+          const scoped = created.filter((r) => matchScope(opts?.filter, r));
+          const sort = opts?.sort ?? "-observed_at";
+          const cmp = (
+            a: Record<string, unknown>,
+            b: Record<string, unknown>,
+          ): number => {
+            const c1 = String(b.observed_at).localeCompare(
+              String(a.observed_at),
+            );
+            return c1 !== 0 ? c1 : Number(b.__seq) - Number(a.__seq);
+          };
+          const sorted = [...scoped].sort(cmp);
+          // es2022-safe reverse (avoid toReversed; the harness tsconfig lib is
+          // es2022).
+          const ordered = sort.startsWith("-")
+            ? sorted
+            : [...sorted].toReversed();
+          const perPage = opts?.perPage ?? 30;
+          const page = opts?.page ?? 1;
+          const start = (page - 1) * perPage;
+          return {
+            totalItems: scoped.length,
+            items: ordered.slice(start, start + perPage) as never[],
+          };
+        },
+        async deleteByFilter(_c, filter) {
+          const ids = new Set(
+            Array.from(filter.matchAll(/id = "([^"]+)"/g)).map((m) => m[1]),
+          );
+          const before = created.length;
+          for (let i = created.length - 1; i >= 0; i--) {
+            if (ids.has(String(created[i].id))) created.splice(i, 1);
+          }
+          return before - created.length;
+        },
+      };
+    }
+
+    const { logger } = makeLogger();
+    const writerA = createResourceSnapshotWriter({
+      pb: makeScopedPb(),
+      logger,
+      workerId: "worker-A",
+      maxRows: 3,
+      pruneIntervalMs: 0,
+    });
+    const writerB = createResourceSnapshotWriter({
+      pb: makeScopedPb(),
+      logger,
+      workerId: "worker-B",
+      maxRows: 3,
+      pruneIntervalMs: 0,
+    });
+
+    // B writes 2 rows (well under its own cap).
+    await writerB.write("heartbeat", makeGauges({ ts: "b0" }), STATS);
+    await writerB.write("heartbeat", makeGauges({ ts: "b1" }), STATS);
+
+    // A writes 6 rows — A's partition is over its cap and must prune to 3.
+    for (let i = 0; i < 6; i++) {
+      await writerA.write("heartbeat", makeGauges({ ts: `a${i}` }), STATS);
+    }
+
+    const aRows = created.filter((r) => r.worker_id === "worker-A");
+    const bRows = created.filter((r) => r.worker_id === "worker-B");
+    // A converged to its own ring cap…
+    expect(aRows).toHaveLength(3);
+    // …and B's rows were NEVER touched by A's prune.
+    expect(bRows).toHaveLength(2);
+    // The surviving A rows are the 3 newest (a3/a4/a5), proving the prune
+    // deleted A's oldest, not B's.
+    expect(aRows.map((r) => r.observed_at).sort()).toEqual(["a3", "a4", "a5"]);
   });
 });

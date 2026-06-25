@@ -47,7 +47,7 @@ export function ThreadsPanelGate({ children }: { children: React.ReactNode }) {
           </p>
           <div className={styles.lockedCommand}>
             <code className={styles.lockedCommandCode}>
-              copilotkit add-intelligence
+              npx copilotkit@latest license
             </code>
           </div>
           <button

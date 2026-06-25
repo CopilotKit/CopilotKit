@@ -11,13 +11,15 @@
 // tools via the standard `tools` field in the AG-UI request; the MCP
 // activity rendering is driven entirely by the runtime + frontend.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -26,6 +28,11 @@ function createAgent(): AbstractAgent {
 }
 
 const agents: Record<string, AbstractAgent> = {
+  // headless-complete shares this runtime (its page wires
+  // runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the shared
+  // Spring-AI ChatClient at "/" — the same backend the main route
+  // registers it against.
+  "headless-complete": createAgent(),
   "mcp-apps": createAgent(),
 };
 

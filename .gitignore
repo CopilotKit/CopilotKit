@@ -49,6 +49,8 @@ build
 debug-storybook.log
 storybook-static
 coverage
+output/
+packages/angular/src/styles/generated.css
 .turbo
 .langgraph_api
 lefthook-local.yml
@@ -74,3 +76,7 @@ release-notes-notion.json
 *.lib
 *.wasm
 tasks/
+
+# Transient session artifacts
+.playwright-mcp/
+.claude/scheduled_tasks.lock

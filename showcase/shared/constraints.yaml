@@ -61,6 +61,7 @@ generative_ui:
       - hitl
       - declarative-gen-ui
       - a2ui-fixed-schema
+      - a2ui-recovery
       - mcp-apps
       - tool-rendering
       - useComponent

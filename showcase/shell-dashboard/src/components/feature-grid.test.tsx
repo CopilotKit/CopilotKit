@@ -46,6 +46,65 @@ describe("LiveIndicator", () => {
     expect(el.getAttribute("data-tone")).toBe("red");
     expect(el.textContent).toContain("offline");
   });
+
+  // `degraded` (flapping / partially-degraded feed) is a state DISTINCT from
+  // connected/connecting/offline: the stream is technically up but unreliable.
+  // It must render a visually-distinct treatment (own data-degraded flag +
+  // amber "degraded" label), separate from the steady connecting/live/offline
+  // dots — so an operator can tell a flapping feed apart from a clean one.
+  it("renders degraded → distinct flapping treatment when degraded prop is true", () => {
+    const { getByTestId } = render(
+      <LiveIndicator status="live" degraded={true} />,
+    );
+    const el = getByTestId("live-indicator");
+    expect(el.getAttribute("data-degraded")).toBe("true");
+    expect(el.getAttribute("data-tone")).toBe("amber");
+    expect(el.textContent).toContain("degraded");
+  });
+
+  it("does NOT show the degraded treatment when degraded is false (live stays green)", () => {
+    const { getByTestId } = render(
+      <LiveIndicator status="live" degraded={false} />,
+    );
+    const el = getByTestId("live-indicator");
+    expect(el.getAttribute("data-degraded")).toBe("false");
+    expect(el.getAttribute("data-tone")).toBe("green");
+    expect(el.textContent).toContain("live");
+    expect(el.textContent).not.toContain("degraded");
+  });
+
+  it("degraded takes visual precedence even while connecting", () => {
+    const { getByTestId } = render(
+      <LiveIndicator status="connecting" degraded={true} />,
+    );
+    const el = getByTestId("live-indicator");
+    expect(el.getAttribute("data-degraded")).toBe("true");
+    expect(el.getAttribute("data-tone")).toBe("amber");
+    expect(el.textContent).toContain("degraded");
+  });
+
+  // A terminal `error` (the red OfflineBanner state) is strictly worse than a
+  // flapping feed: hard-offline must outrank `degraded`. Otherwise the header
+  // would show an amber "degraded — feed is up but flapping" dot/label stacked
+  // on top of the red "dashboard unavailable" banner — a self-contradicting
+  // "degraded but up" + "offline" display. When status === "error", the
+  // indicator must show the OFFLINE treatment regardless of `degraded`.
+  it("error outranks degraded → shows offline treatment, not degraded", () => {
+    const { getByTestId } = render(
+      <LiveIndicator status="error" degraded={true} />,
+    );
+    const el = getByTestId("live-indicator");
+    expect(el.getAttribute("data-status")).toBe("error");
+    expect(el.getAttribute("data-tone")).toBe("red");
+    // `data-degraded` must reflect the EFFECTIVE (gated) value, not the raw
+    // prop: since `error` outranks `degraded` the indicator renders the offline
+    // treatment, so the attribute downstream CSS / tests key off must agree
+    // and read "false" — never a stale "true" that contradicts the red tone.
+    expect(el.getAttribute("data-degraded")).toBe("false");
+    expect(el.textContent).toContain("offline");
+    expect(el.textContent).not.toContain("degraded");
+    expect(el.querySelector(".bg-\\[var\\(--danger\\)\\]")).not.toBeNull();
+  });
 });
 
 // Recent timestamp so green e2e rows are not treated as stale by the
@@ -490,5 +549,52 @@ describe("OverlayColumnHeader — loading / offline rendering (§5.3)", () => {
     expect(getByText(/✓/)).toBeDefined(); // ✓
     expect(queryByText(/loading/)).toBeNull();
     expect(queryByText(/offline/)).toBeNull();
+  });
+
+  // A.3: a STALE tally is still authoritative (real counts render) but the
+  // feed is mid-reconnect, so the line wears a muted treatment distinct from
+  // the fresh-load `loading` affordance — the operator sees the numbers but is
+  // signalled they may be behind. `stale` is threaded exactly like `loading`.
+  it("stale tally → renders count glyphs in a muted treatment (data-stale), not the loading affordance", () => {
+    const { getByText, queryByText, container } = render(
+      <OverlayColumnHeader
+        integration={integration}
+        tally={{ green: 2, amber: 1, red: 3, unknown: false, loading: false }}
+        tallyDetail={{
+          green: [],
+          amber: [],
+          red: [],
+          unknown: false,
+          loading: false,
+          stale: true,
+        }}
+        overlays={HEALTH}
+      />,
+    );
+    // Authoritative counts still render (NOT the loading/offline affordance).
+    expect(getByText(/✓/)).toBeDefined();
+    expect(queryByText(/loading/)).toBeNull();
+    expect(queryByText(/offline/)).toBeNull();
+    // …but the line carries a stale marker for the muted treatment.
+    expect(container.querySelector("[data-stale='true']")).not.toBeNull();
+  });
+
+  it("fresh authoritative tally is NOT marked stale", () => {
+    const { container } = render(
+      <OverlayColumnHeader
+        integration={integration}
+        tally={{ green: 2, amber: 1, red: 3, unknown: false, loading: false }}
+        tallyDetail={{
+          green: [],
+          amber: [],
+          red: [],
+          unknown: false,
+          loading: false,
+          stale: false,
+        }}
+        overlays={HEALTH}
+      />,
+    );
+    expect(container.querySelector("[data-stale='true']")).toBeNull();
   });
 });

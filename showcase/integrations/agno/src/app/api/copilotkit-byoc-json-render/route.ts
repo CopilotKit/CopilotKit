@@ -1,6 +1,7 @@
 // Dedicated runtime for the byoc-json-render demo (Agno).
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -15,7 +16,7 @@ const byocJsonRenderAgent = new HttpAgent({
 });
 
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts
+  // @ts-expect-error -- see main route.ts
   agents: { byoc_json_render: byocJsonRenderAgent },
 });
 

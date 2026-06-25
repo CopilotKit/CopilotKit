@@ -1,9 +1,12 @@
 # CopilotKit Provider Setup (React)
 
-Mount `CopilotKitProvider` once near the root of the React tree. Every
-CopilotKit hook (`useAgent`, `useFrontendTool`, `useRenderTool`, etc.) and
-every chat component (`CopilotChat`, `CopilotPopup`, `CopilotSidebar`) must
-be rendered inside this provider.
+Mount the `CopilotKit` provider (from `@copilotkit/react-core/v2`) once
+near the root of the React tree. Every CopilotKit hook (`useAgent`,
+`useFrontendTool`, `useRenderTool`, etc.) and every chat component
+(`CopilotChat`, `CopilotPopup`, `CopilotSidebar`) must be rendered inside
+this provider.
+
+> **Which provider component?** Always use `CopilotKit` imported from `@copilotkit/react-core/v2`. It is the compatibility bridge across v1 and v2 and a strict superset of the other provider APIs. Do **not** use `CopilotKit` from the package root (`@copilotkit/react-core`, legacy v1) or `CopilotKitProvider` from `/v2` (a subset of the functionality).
 
 All v2 imports use the `@copilotkit/react-core/v2` subpath. Imports from the
 package root are v1 and will not work with v2 hooks or components.
@@ -20,12 +23,12 @@ pattern is a dedicated client-only `providers.tsx`.
 // app/providers.tsx
 "use client";
 
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <CopilotKitProvider
+    <CopilotKit
       runtimeUrl="/api/copilotkit"
       credentials="include"
       onError={({ code, error, context }) => {
@@ -33,7 +36,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-    </CopilotKitProvider>
+    </CopilotKit>
   );
 }
 ```
@@ -66,28 +69,24 @@ export default function RootLayout({
 ### Vite / React Router v7 / SPA
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
 export function App({ children }: { children: React.ReactNode }) {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
-      {children}
-    </CopilotKitProvider>
-  );
+  return <CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>;
 }
 ```
 
-### SPA with CopilotKit Cloud (no self-hosted runtime)
+### SPA with CopilotKit Intelligence (no self-hosted runtime)
 
 ```tsx
-<CopilotKitProvider publicApiKey="ck_pub_..." />
+<CopilotKit publicLicenseKey="ck_pub_..." />
 ```
 
-`publicApiKey` is the canonical prop for running CopilotKit from a pure
-client bundle. `publicLicenseKey` is an alias that resolves to the same
-value (`publicApiKey ?? publicLicenseKey`) — accept in old code, but
-always write `publicApiKey` in new code.
+`publicLicenseKey` is the canonical prop for running CopilotKit from a
+pure client bundle. `publicApiKey` is a deprecated alias that resolves to
+the same value — accept it in old code, but always write
+`publicLicenseKey` in new code.
 
 ## Core Patterns
 
@@ -101,14 +100,32 @@ of re-rendering the provider with a new `headers` prop.
 import { useCopilotKit } from "@copilotkit/react-core/v2";
 import { useEffect } from "react";
 
-export function AuthTokenSync({ token }: { token: string }) {
+export function AuthTokenSync({ token }: { token: string | null }) {
   const { copilotkit } = useCopilotKit();
   useEffect(() => {
-    copilotkit.setHeaders({ Authorization: `Bearer ${token}` });
+    // setHeaders is an overwrite, not a merge — spread the current headers so
+    // entries set elsewhere (e.g. the public license key) survive. A `null`
+    // value clears that header, so logging out removes `Authorization` instead
+    // of sending an empty one.
+    copilotkit.setHeaders({
+      ...copilotkit.headers,
+      Authorization: token ? `Bearer ${token}` : null,
+    });
   }, [copilotkit, token]);
   return null;
 }
 ```
+
+`setHeaders` accepts `null`/`undefined` values and drops those keys, so passing
+`Authorization: null` is the supported way to clear a header. Setting it to an
+empty string would keep the header present with a blank value.
+
+Do not set the same header through both the `headers` prop and imperative
+`setHeaders`. Whenever any provider prop changes, the provider calls
+`setHeaders` with its prop-derived headers — a full overwrite that drops every
+imperatively-set header, not just keys the prop also defines. Keep rotating
+values like the auth token out of the `headers` prop and manage them only
+through `setHeaders` (as above).
 
 ### Global error handler
 
@@ -117,7 +134,7 @@ UI from getting stuck in "connecting..." when the runtime URL is wrong or
 CORS is misconfigured.
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   onError={({ code, error, context }) => {
     telemetry.capture({ code, message: error.message, context });
@@ -136,7 +153,7 @@ const properties = useMemo(
   [user.tenantId, user.locale],
 );
 
-<CopilotKitProvider runtimeUrl="/api/copilotkit" properties={properties} />;
+<CopilotKit runtimeUrl="/api/copilotkit" properties={properties} />;
 ```
 
 ## Common Mistakes
@@ -147,12 +164,10 @@ Wrong:
 
 ```tsx
 // app/page.tsx (server component — no "use client")
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export default function Page() {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">...</CopilotKitProvider>
-  );
+  return <CopilotKit runtimeUrl="/api/copilotkit">...</CopilotKit>;
 }
 ```
 
@@ -161,14 +176,10 @@ Correct:
 ```tsx
 // app/providers.tsx
 "use client";
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit">
-      {children}
-    </CopilotKitProvider>
-  );
+  return <CopilotKit runtimeUrl="/api/copilotkit">{children}</CopilotKit>;
 }
 
 // app/layout.tsx imports <Providers>.
@@ -185,13 +196,13 @@ Source: `packages/react-core/src/v2/index.ts:1`
 Wrong:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   agents__unsafe_dev_only={{
     default: new BuiltInAgent({ apiKey: process.env.OPENAI_KEY! }),
   }}
 />
 // or the alias (same thing):
-<CopilotKitProvider
+<CopilotKit
   selfManagedAgents={{ default: new BuiltInAgent({ apiKey: "..." }) }}
 />
 ```
@@ -200,10 +211,10 @@ Correct:
 
 ```tsx
 // Route through a runtime that keeps secrets server-side:
-<CopilotKitProvider runtimeUrl="/api/copilotkit" />
+<CopilotKit runtimeUrl="/api/copilotkit" />
 
-// Or for a pure SPA, use CopilotKit Cloud:
-<CopilotKitProvider publicApiKey="ck_pub_..." />
+// Or for a pure SPA, use CopilotKit Intelligence:
+<CopilotKit publicLicenseKey="ck_pub_..." />
 ```
 
 Both props are aliases for the same dev-only mechanism and ship any embedded
@@ -216,7 +227,7 @@ Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:136-138,393
 Wrong:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   headers={{ Authorization: `Bearer ${token}` }}
   properties={{ tenantId: user.tenantId }}
@@ -232,7 +243,7 @@ const properties = useMemo(
   [user.tenantId],
 );
 
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   headers={headers}
   properties={properties}
@@ -251,13 +262,13 @@ Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:324-340,399
 Wrong:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit" />
+<CopilotKit runtimeUrl="/api/copilotkit" />
 ```
 
 Correct:
 
 ```tsx
-<CopilotKitProvider
+<CopilotKit
   runtimeUrl="/api/copilotkit"
   onError={({ code, error, context }) => {
     telemetry.capture({ code, error, context });
@@ -272,26 +283,26 @@ forever and users never see the actual error.
 
 Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:638-660`
 
-### HIGH — Writing `publicLicenseKey` in new code
+### HIGH — Writing `publicApiKey` in new code
 
 Wrong:
 
 ```tsx
-<CopilotKitProvider publicLicenseKey="ck_pub_..." />
+<CopilotKit publicApiKey="ck_pub_..." />
 ```
 
 Correct:
 
 ```tsx
-<CopilotKitProvider publicApiKey="ck_pub_..." />
+<CopilotKit publicLicenseKey="ck_pub_..." />
 ```
 
-`publicLicenseKey` still works as an alias, but `publicApiKey` is the
-canonical name in v2. The provider resolves
-`publicApiKey ?? publicLicenseKey`. Always write the canonical form in
+`publicApiKey` still works as a deprecated alias, but `publicLicenseKey`
+is the canonical name. The `CopilotKit` provider resolves
+`publicLicenseKey || publicApiKey`. Always write the canonical form in
 new code.
 
-Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:122-128,391`
+Source: `packages/react-core/src/components/copilot-provider/copilotkit.tsx:172`
 
 ### MEDIUM — Putting the provider below a layout that uses CopilotKit
 
@@ -301,7 +312,7 @@ Wrong:
 <html>
   <body>
     <Header>{/* Header uses useFrontendTool internally */}</Header>
-    <CopilotKitProvider>{children}</CopilotKitProvider>
+    <CopilotKit>{children}</CopilotKit>
   </body>
 </html>
 ```
@@ -311,16 +322,16 @@ Correct:
 ```tsx
 <html>
   <body>
-    <CopilotKitProvider>
+    <CopilotKit>
       <Header />
       {children}
-    </CopilotKitProvider>
+    </CopilotKit>
   </body>
 </html>
 ```
 
 Any component that calls `useCopilotKit`, `useFrontendTool`, `useAgent`, or
-any other CopilotKit hook must be a descendant of `CopilotKitProvider`.
-Placing the provider beside or below a consumer throws at mount.
+any other CopilotKit hook must be a descendant of the `CopilotKit`
+provider. Placing the provider beside or below a consumer throws at mount.
 
 Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx` (context)

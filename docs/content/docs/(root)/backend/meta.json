@@ -1,8 +1,0 @@
-{
-  "title": "Backend",
-  "pages": [
-    "copilot-runtime",
-    "custom-agent",
-    "ag-ui"
-  ]
-}

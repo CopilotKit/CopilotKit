@@ -22,7 +22,11 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
   a2ui: {
-    injectA2UITool: false,
+    injectA2UITool: true,
+    // Models follow the tool-usage guide and omit `catalogId`, and the
+    // middleware then falls back to the unregistered spec basic catalog
+    // ("Catalog not found" render error). Pin the catalog the page registers.
+    defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
 

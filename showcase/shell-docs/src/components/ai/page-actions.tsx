@@ -138,7 +138,7 @@ export function MarkdownCopyButton({
         buttonVariants({
           color: "secondary",
           size: "sm",
-          className: "gap-2 [&_svg]:size-3.5 [&_svg]:text-fd-muted-foreground",
+          className: "gap-2 [&_svg]:size-3.5 [&_svg]:text-[var(--text-muted)]",
         }),
         props.className,
       )}
@@ -280,12 +280,12 @@ export function ViewOptionsPopover({
             color: "secondary",
             size: "sm",
           }),
-          "gap-2 data-[state=open]:bg-fd-accent data-[state=open]:text-fd-accent-foreground",
+          "gap-2 data-[state=open]:border-[var(--accent)] data-[state=open]:bg-[var(--accent-dim)] data-[state=open]:text-[var(--accent)]",
           props.className,
         )}
       >
         {props.children ?? "Open"}
-        <ChevronDown className="size-3.5 text-fd-muted-foreground" />
+        <ChevronDown className="size-3.5 text-[var(--text-muted)]" />
       </PopoverTrigger>
       <PopoverContent className="flex flex-col">
         {items.map((item) => (
@@ -311,11 +311,11 @@ export function ViewOptionsPopover({
                 path: pathname,
               })
             }
-            className="text-sm p-2 rounded-lg inline-flex items-center gap-2 hover:text-fd-accent-foreground hover:bg-fd-accent [&_svg]:size-4"
+            className="shell-docs-radius-control inline-flex items-center gap-2 p-2 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] [&_svg]:size-4"
           >
             {item.icon}
             {item.title}
-            <ExternalLinkIcon className="text-fd-muted-foreground size-3.5 ms-auto" />
+            <ExternalLinkIcon className="ms-auto size-3.5 text-[var(--text-muted)]" />
           </a>
         ))}
       </PopoverContent>

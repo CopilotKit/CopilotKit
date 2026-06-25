@@ -13,6 +13,12 @@ import {
 } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
+// `withForwardedHeaders` snapshots inbound x-* headers (e.g.
+// x-aimock-context) into an AsyncLocalStorage scope; `forwardingFetch`
+// re-attaches them on every outbound LLM call. Required because
+// `@tanstack/ai-openai`'s `openaiText()` adapter has no per-request
+// header hook. See @/lib/header-forwarding for the full rationale.
+import { forwardingFetch, withForwardedHeaders } from "@/lib/header-forwarding";
 
 const TONE_GUIDANCE: Record<string, string> = {
   professional:
@@ -69,7 +75,7 @@ function createAgentConfigAgent() {
       const props = (input.forwardedProps ?? {}) as Record<string, unknown>;
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       return chat({
-        adapter: openaiText("gpt-4o"),
+        adapter: openaiText("gpt-4o", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [buildConfigSystemPrompt(props), ...systemPrompts],
         tools: [],
@@ -99,6 +105,9 @@ async function withProbeCompat(req: Request): Promise<Response> {
   return res;
 }
 
-export const GET = (req: Request) => handler(req);
-export const POST = (req: Request) => withProbeCompat(req);
-export const OPTIONS = (req: Request) => handler(req);
+export const GET = (req: Request) =>
+  withForwardedHeaders(req, () => handler(req));
+export const POST = (req: Request) =>
+  withForwardedHeaders(req, () => withProbeCompat(req));
+export const OPTIONS = (req: Request) =>
+  withForwardedHeaders(req, () => handler(req));

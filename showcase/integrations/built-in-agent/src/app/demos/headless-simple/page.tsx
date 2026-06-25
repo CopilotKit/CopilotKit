@@ -34,11 +34,33 @@ function ShowCard({ title, body }: { title: string; body: string }) {
   );
 }
 
+/**
+ * Browser-friendly UUID. `crypto.randomUUID` only exists in secure
+ * contexts — the local harness drives this page over plain http
+ * (http://built-in-agent:10000), where it is undefined and the page throws
+ * before the message ever sends. Fall back to a math-based UUIDv4
+ * (same pattern as the spring-ai headless-simple demo's generateMessageId).
+ */
+function generateMessageId(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 function HeadlessChat() {
   // @region[headless-hooks]
   const { agent } = useAgent({ agentId: "default" });
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   useComponent({
     name: "show_card",
@@ -57,27 +79,35 @@ function HeadlessChat() {
   const send = (override?: string) => {
     const text = (override ?? input).trim();
     if (!text || agent.isRunning) return;
+    setError(null);
     agent.addMessage({
-      id: crypto.randomUUID(),
+      id: generateMessageId(),
       role: "user",
       content: text,
     });
     // Use copilotkit.runAgent so frontend tools registered via useComponent are
     // forwarded to the agent. Calling agent.runAgent() directly would bypass
     // tool registration and the agent would never see `show_card`.
-    void copilotkit.runAgent({ agent }).catch(() => {});
+    void copilotkit.runAgent({ agent }).catch((err) => {
+      // Don't swallow run failures: log so a network failure / runtime
+      // error / transport disconnect surfaces in the console — and
+      // render an inline banner so the end user isn't staring at a
+      // frozen UI.
+      console.error("[built-in-agent:headless-simple] runAgent failed", err);
+      setError(err instanceof Error ? err.message : String(err));
+    });
     setInput("");
   };
 
+  // The literal pill labels ARE the contract: the d5 probe
+  // (showcase/harness/src/probes/scripts/d5-headless-simple.ts) clicks the
+  // first one by exact text, and the aimock d6 fixtures
+  // (showcase/aimock/d6/built-in-agent/headless-simple.json) match on these
+  // prompts. Change one and the other has to match or the probe goes red.
   const suggestions = [
-    {
-      title: "Profile card",
-      message: "Show me a profile card for Ada Lovelace",
-    },
-    {
-      title: "Largest continent",
-      message: "What is the largest continent?",
-    },
+    "Say hello in one short sentence.",
+    "Tell me a one-line joke.",
+    "Give me a fun fact.",
   ];
 
   return (
@@ -93,6 +123,7 @@ function HeadlessChat() {
             return (
               <div
                 key={m.id}
+                data-testid="headless-message-user"
                 data-message-role="user"
                 className="self-end rounded-lg bg-blue-600 px-3 py-2 text-white max-w-[80%]"
               >
@@ -106,6 +137,7 @@ function HeadlessChat() {
             return (
               <div
                 key={m.id}
+                data-testid="headless-message-assistant"
                 data-message-role="assistant"
                 className="self-start max-w-[90%]"
               >
@@ -130,17 +162,26 @@ function HeadlessChat() {
       <div data-testid="headless-suggestions" className="flex flex-wrap gap-2">
         {suggestions.map((s) => (
           <button
-            key={s.title}
+            key={s}
             type="button"
-            onClick={() => send(s.message)}
+            onClick={() => send(s)}
             disabled={agent.isRunning}
             className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
-            {s.title}
+            {s}
           </button>
         ))}
       </div>
-      <div className="flex gap-2">
+      {error && (
+        <div
+          data-testid="headless-simple-error"
+          role="alert"
+          className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+        >
+          {error}
+        </div>
+      )}
+      <div data-testid="headless-composer" className="flex gap-2">
         <textarea
           className="flex-1 rounded-lg border border-gray-300 p-2 text-sm"
           rows={2}

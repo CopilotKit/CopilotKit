@@ -6,10 +6,12 @@ Angular bindings for CopilotKit core and AG-UI agents. This package provides ser
 
 ```bash
 # npm
-npm install @copilotkit/{core,angular}
+npm install @copilotkit/angular
 ```
 
-- `@angular/core` and `@angular/common` (19+)
+Peer dependencies you provide in your app:
+
+- `@angular/core` and `@angular/common` (19, 20, or 21)
 - `@angular/cdk` (match your Angular major)
 - `rxjs`
 
@@ -26,7 +28,6 @@ import { provideCopilotKit } from "@copilotkit/angular";
 export const appConfig: ApplicationConfig = {
   providers: [
     provideCopilotKit({
-      licenseKey: "ck_pub_your_public_api_key",
       runtimeUrl: "http://localhost:3001/api/copilotkit",
       headers: { Authorization: "Bearer ..." },
       properties: { app: "demo" },
@@ -110,7 +111,6 @@ export interface CopilotKitConfig {
 
 - `runtimeUrl`: URL to your CopilotKit runtime.
 - `headers`: Default headers sent to the runtime.
-- `licenseKey`: Copilot Cloud public API key (`ck_pub_...`), required by `provideCopilotKit`.
 - `properties`: Arbitrary props forwarded to agent runs.
 - `agents`: Local, in-browser agents keyed by `agentId`.
 - `tools`: Tool definitions advertised to the runtime (no handler).
@@ -278,7 +278,6 @@ registerHumanInTheLoop({
 
 ```ts
 provideCopilotKit({
-  licenseKey: "ck_pub_your_public_api_key",
   frontendTools: [
     /* FrontendToolConfig[] */
   ],

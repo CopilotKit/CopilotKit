@@ -13,17 +13,19 @@
  */
 
 import {
-  type Action,
-  type CopilotErrorHandler,
   CopilotKitMisuseError,
-  type MaybePromise,
-  type NonEmptyRecord,
-  type Parameter,
   readBody,
   getZodParameters,
-  type PartialBy,
   isTelemetryDisabled,
-  type DebugConfig,
+} from "@copilotkit/shared";
+import type {
+  Action,
+  CopilotErrorHandler,
+  MaybePromise,
+  NonEmptyRecord,
+  Parameter,
+  PartialBy,
+  DebugConfig,
 } from "@copilotkit/shared";
 import type { RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
@@ -33,13 +35,15 @@ import type {
 } from "../../service-adapters";
 import {
   CopilotRuntime as CopilotRuntimeVNext,
-  type CopilotRuntimeOptions,
-  type CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
-  type AgentRunner,
-  type AgentsConfig,
-  type AgentsFactory,
-  type AgentFactoryContext,
   InMemoryAgentRunner,
+} from "../../v2/runtime";
+import type {
+  CopilotRuntimeOptions,
+  CopilotRuntimeOptions as CopilotRuntimeOptionsVNext,
+  AgentRunner,
+  AgentsConfig,
+  AgentsFactory,
+  AgentFactoryContext,
 } from "../../v2/runtime";
 
 export type { AgentsConfig, AgentsFactory, AgentFactoryContext };
@@ -50,11 +54,11 @@ import { logRuntimeTelemetryDisclosure } from "../telemetry-disclosure";
 import type { MessageInput } from "../../graphql/inputs/message.input";
 import type { Message } from "../../graphql/types/converted";
 
-import {
-  EndpointType,
-  type EndpointDefinition,
-  type CopilotKitEndpoint,
-  type LangGraphPlatformEndpoint,
+import { EndpointType } from "./types";
+import type {
+  EndpointDefinition,
+  CopilotKitEndpoint,
+  LangGraphPlatformEndpoint,
 } from "./types";
 
 import type {
@@ -65,13 +69,10 @@ import type {
 import type { AbstractAgent } from "@ag-ui/client";
 
 // +++ MCP Imports +++
-import {
-  type MCPClient,
-  type MCPEndpointConfig,
-  type MCPTool,
-  extractParametersFromSchema,
-} from "./mcp-tools-utils";
-import { BuiltInAgent, type BuiltInAgentClassicConfig } from "../../agent";
+import { extractParametersFromSchema } from "./mcp-tools-utils";
+import type { MCPClient, MCPEndpointConfig, MCPTool } from "./mcp-tools-utils";
+import { BuiltInAgent } from "../../agent";
+import type { BuiltInAgentClassicConfig } from "../../agent";
 // Define the function type alias here or import if defined elsewhere
 type CreateMCPClientFunction = (
   config: MCPEndpointConfig,
@@ -217,11 +218,6 @@ export interface CopilotRuntimeConstructorParams_BASE<
 
   /**
    * Configuration for LLM request/response logging.
-   * Requires publicApiKey from CopilotKit component to be set:
-   *
-   * ```tsx
-   * <CopilotKit publicApiKey="ck_pub_..." />
-   * ```
    *
    * Example logging config:
    * ```ts
@@ -275,9 +271,6 @@ export interface CopilotRuntimeConstructorParams_BASE<
 
   /**
    * Optional error handler for comprehensive debugging and observability.
-   *
-   * **Requires publicApiKey**: Error handling only works when requests include a valid publicApiKey.
-   * This is a premium Copilot Cloud feature.
    *
    * @param errorEvent - Structured error event with rich debugging context
    *
@@ -460,7 +453,9 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
     this.runtimeArgs.agents = Promise.resolve(
       this.runtimeArgs.agents ?? {},
     ).then(async (agents) => {
-      let agentsList = agents;
+      // An AgentsFactory function has no enumerable keys, so it flows through
+      // this path the same way an empty record does.
+      let agentsList = agents as Record<string, AbstractAgent>;
       const isAgentsListEmpty = !Object.keys(agents).length;
       const hasServiceAdapter = Boolean(serviceAdapter);
       const illegalServiceAdapterNames = ["EmptyAdapter"];
@@ -503,7 +498,7 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       const actions = this.params?.actions;
       if (actions) {
         const mcpTools = await this.getToolsFromMCP();
-        agentsList = this.assignToolsToAgents(agents, [
+        agentsList = this.assignToolsToAgents(agentsList, [
           ...this.getToolsFromActions(actions),
           ...mcpTools,
         ]);
@@ -558,7 +553,8 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
         continue;
       }
 
-      const classicConfig = existingConfig as BuiltInAgentClassicConfig;
+      const classicConfig =
+        existingConfig as unknown as BuiltInAgentClassicConfig;
       const existingTools = classicConfig.tools ?? [];
 
       const updatedConfig: BuiltInAgentClassicConfig = {

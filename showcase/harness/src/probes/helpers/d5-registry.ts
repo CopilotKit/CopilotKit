@@ -1,7 +1,8 @@
 /**
  * D5 — script registry.
  *
- * The D5 driver (`drivers/e2e-deep.ts`) discovers per-feature scripts at
+ * The D5 path (the D6 driver `drivers/d6-all-pills.ts`, run as "D6
+ * take-one") discovers per-feature scripts at
  * runtime by scanning `src/probes/scripts/d5-*.{js,ts}` and invoking each
  * file's top-level `registerD5Script(...)` call. The registry maps a
  * `D5FeatureType` to the script that owns it.

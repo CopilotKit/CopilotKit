@@ -13,17 +13,26 @@
 // Reference:
 // https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const agents: Record<string, AbstractAgent> = {
+  // headless-complete shares this runtime (its page wires
+  // runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the dedicated
+  // /headless_complete/ mount — the same backend the main route registers
+  // it against.
+  "headless-complete": new HttpAgent({
+    url: `${AGENT_URL}/headless_complete/`,
+  }),
   "mcp-apps": new HttpAgent({ url: `${AGENT_URL}/mcp_apps/` }),
 };
 
@@ -34,7 +43,11 @@ const agents: Record<string, AbstractAgent> = {
 // `activity` event that the built-in `MCPAppsActivityRenderer` renders
 // inline in the chat.
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts
+  // The explicit `Record<string, AbstractAgent>` annotation on `agents`
+  // above narrows the value to the type CopilotRuntime's `agents` map
+  // expects; see main route.ts for the underlying published-type quirk
+  // (MaybePromise<NonEmptyRecord<...>> around the Record). Fixed in
+  // source, pending release.
   agents,
   mcpApps: {
     servers: [

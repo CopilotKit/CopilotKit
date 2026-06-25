@@ -11,19 +11,25 @@ Usage: showcase test <slug> [options]
 Run probe tests against a showcase service (via Docker containers).
 
 Options:
-  --d6             Run D6 (e2e-full) probes only
-  --d5             Run D5 (e2e-deep) probes only
+  --d6             Run D6 (e2e-full) probes only (via fleet control-plane)
+  --d5             Run D5 (e2e-deep) probes only (via fleet control-plane)
   --d4             Run D4 probes only
+  --direct         Legacy/debug: run d5/d6 via the in-process driver
+                   instead of the fleet control-plane (producer->queue->worker)
   --smoke          Run smoke probes only
   --verbose        Verbose test output
   --headed         Run Playwright in headed (visible) mode
   --repeat <n>     Run N times
-  --keep           Don't stop auto-started packages after test
+  --keep           Don't stop auto-started packages after test; with --isolate,
+                   also leaves the isolated stack standing (teardown command
+                   printed at exit)
   --live           Write results to PocketBase for dashboard
   --rebuild        Force Docker rebuild before running
   --cycle          On failure, auto-dump aimock logs from the test window
   --isolate [name] Run in an isolated compose project with offset ports
-                   (default name: isolate-<PID>). Allows parallel test runs.
+                   (default name: showcase-iso<slot>). Allows parallel test runs.
+  --isolate=<N>    Sugar form: pin the isolation slot to N (equivalent to
+                   prefixing SHOWCASE_ISO_SLOT=<N>). 1≤N≤ISOLATE_MAX_SLOT.
 
 Examples:
   showcase test mastra --d6 --verbose         # D6 probes (full matrix) with verbose output
@@ -33,6 +39,7 @@ Examples:
   showcase test mastra --d5 --headed          # watch the browser
   showcase test agno --d5 --isolate           # isolated run (auto-named)
   showcase test agno --d5 --isolate d5verify  # isolated with explicit name
+  showcase test agno --d5 --isolate=9         # pin to slot 9 (equiv: SHOWCASE_ISO_SLOT=9 ... --isolate)
 HELP
 }
 
@@ -52,9 +59,10 @@ cmd_test() {
       --smoke)   harness_args+=(--smoke);   shift ;;
       --verbose) harness_args+=(--verbose); shift ;;
       --headed)  harness_args+=(--headed);  shift ;;
-      --keep)    harness_args+=(--keep);    shift ;;
+      --keep)    ISOLATE_KEEP=true; harness_args+=(--keep); shift ;;
       --live)    harness_args+=(--live);    shift ;;
       --rebuild) harness_args+=(--rebuild); shift ;;
+      --direct)  harness_args+=(--direct);  shift ;;
       --cycle)   cycle=1;                   shift ;;
       --isolate)
         use_isolate=true
@@ -78,6 +86,15 @@ cmd_test() {
             :
           fi
         fi
+        ;;
+      --isolate=*)
+        # Sugar form: --isolate=<N> pins the slot by exporting SHOWCASE_ISO_SLOT.
+        # The picker (_claim_isolate_slot in _common.sh) handles all validation
+        # (positive integer, 1≤N≤ISOLATE_MAX_SLOT, slot 0 reserved, port probe).
+        use_isolate=true
+        SHOWCASE_ISO_SLOT="${1#--isolate=}"
+        export SHOWCASE_ISO_SLOT
+        shift
         ;;
       --repeat)
         shift
@@ -106,15 +123,26 @@ cmd_test() {
 
   # Apply isolation if requested (must happen before any compose commands).
   # Register the trap BEFORE apply_isolation so cleanup runs even if the
-  # function itself crashes partway through.
+  # function itself crashes partway through. restore_isolation reads the
+  # ISOLATE_KEEP global (set above when --keep is parsed). It MUST be a global,
+  # not a local: on the normal path cmd_test returns and its locals unwind
+  # before the EXIT trap fires at top-level script exit, so a function-local
+  # flag would silently read as false there (a local is only visible to the
+  # trap when `die` exits from inside cmd_test itself). Under --keep,
+  # restore_isolation leaves the stack standing and prints a survival notice
+  # instead of tearing down, so the slot's live containers keep it from being
+  # reaped.
   if $use_isolate; then
     trap restore_isolation EXIT
-    apply_isolation "${isolate_name:-}"
+    apply_isolation "${isolate_name:-}" "$slug"
+    if $ISOLATE_KEEP; then
+      info "--keep set: isolated stack will be left standing after the run (teardown command printed at exit)"
+    fi
   fi
 
   # Build the filter description for the info line
   local filter_desc=""
-  for arg in "${harness_args[@]}"; do
+  for arg in ${harness_args[@]+"${harness_args[@]}"}; do
     case "$arg" in
       --d6|--d5|--d4|--smoke) filter_desc="${filter_desc:+$filter_desc,}$arg" ;;
     esac
@@ -140,7 +168,7 @@ cmd_test() {
   date -u +%Y-%m-%dT%H:%M:%SZ > "$SHOWCASE_ROOT/.last-test-ts"
 
   local test_exit=0
-  npx tsx "$SHOWCASE_ROOT/harness/src/cli.ts" test "$slug" "${harness_args[@]}" \
+  npx tsx "$SHOWCASE_ROOT/harness/src/cli.ts" test "$slug" ${harness_args[@]+"${harness_args[@]}"} \
     || test_exit=$?
 
   # --cycle: dump aimock log delta on failure

@@ -22,17 +22,27 @@
 
 import { runDriver } from "./verify-deploy.drivers";
 import type { ProbeRunner } from "./verify-deploy.drivers";
-import { SERVICES, domainFor, resolveEnv } from "./railway-envs";
+import { SERVICES, domainFor, probeEnabled, resolveEnv } from "./railway-envs";
 import type { EnvName, ProbeDriver } from "./railway-envs";
 
 export interface ParsedArgs {
   env: EnvName;
   services?: string[];
+  /**
+   * Opt-in: when a `--services` filter names a service that exists in the
+   * SSOT but is NOT probe-eligible for `--env` (`probe.<env>=false`), SKIP
+   * it with a clear status line instead of throwing. Off by default so an
+   * explicit single-service probe still hard-refuses a non-eligible name;
+   * the promote staging precondition (which probes the FULL promote set,
+   * legitimately mixing in non-eligible starters) passes this flag.
+   */
+  skipIneligible?: boolean;
 }
 
 export function parseArgs(argv: string[]): ParsedArgs {
   let envRaw: string | undefined;
   let services: string[] | undefined;
+  let skipIneligible = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--env") {
@@ -78,6 +88,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
       if (services.length === 0) {
         throw new Error("--services requires a CSV value");
       }
+    } else if (a === "--skip-ineligible") {
+      skipIneligible = true;
     } else {
       throw new Error(`Unknown argument: ${a}`);
     }
@@ -86,7 +98,8 @@ export function parseArgs(argv: string[]): ParsedArgs {
     throw new Error("--env is required (staging|prod)");
   }
   const { env } = resolveEnv(envRaw);
-  return services === undefined ? { env } : { env, services };
+  const base: ParsedArgs = { env, skipIneligible };
+  return services === undefined ? base : { ...base, services };
 }
 
 /**
@@ -207,8 +220,20 @@ export interface ProbeTarget {
 export interface ResolveOpts {
   env: EnvName;
   services?: string[];
-  /** Test seam: shallow-merge a partial entry over the SSOT before resolve. */
-  overrides?: Record<string, { domains?: { staging: string; prod: string } }>;
+  /**
+   * When true, a `--services` entry that is in the SSOT but not
+   * probe-eligible for `env` (`probe.<env>=false`) is SKIPPED (with a
+   * status line) rather than throwing. Unknown (non-SSOT) names are STILL
+   * a hard error — a typo is a real fault, not a legitimate skip. See
+   * `ParsedArgs.skipIneligible`.
+   */
+  skipIneligible?: boolean;
+  /**
+   * Test seam: shallow-merge a partial entry over the SSOT before resolve.
+   * `domains` is keyed by env name (matches the open `EnvName`); callers
+   * supply at least the env under test.
+   */
+  overrides?: Record<string, { domains?: Record<EnvName, string> }>;
 }
 
 export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
@@ -218,6 +243,15 @@ export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
   // filtering — a typo (`docss`) or a name that's not probe-eligible
   // for the target env must surface as a clear, distinct error, not a
   // silent zero-targets vacuous green.
+  //
+  // EXCEPTION (opts.skipIneligible): the promote staging precondition
+  // probes the FULL promote set (service=all), which legitimately mixes
+  // in services that are promotable but NOT probe-eligible for staging
+  // (the starter-* fleet carries probe.staging=false in the SSOT). For
+  // that caller a non-eligible service is an expected state, not a fault,
+  // so SKIP it (with a clear status line) instead of crashing the gate.
+  // An UNKNOWN (non-SSOT) name stays a hard error on BOTH paths — a typo
+  // is a real fault, never a legitimate skip.
   if (filter) {
     for (const name of filter) {
       const entry = SERVICES[name];
@@ -226,7 +260,13 @@ export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
           `unknown service "${name}" (not in SSOT). Run \`bin/showcase services\` to list known names.`,
         );
       }
-      if (!entry.probe[opts.env]) {
+      if (!probeEnabled(name, opts.env)) {
+        if (opts.skipIneligible) {
+          process.stdout.write(
+            `  ${name.padEnd(36)} (skipped — not probe-eligible for ${opts.env}, probe.${opts.env}=false)\n`,
+          );
+          continue;
+        }
         throw new Error(
           `service "${name}" is not probe-eligible for env "${opts.env}" (probe.${opts.env}=false in SSOT)`,
         );
@@ -235,7 +275,7 @@ export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
   }
   for (const [name, entry] of Object.entries(SERVICES)) {
     if (filter && !filter.has(name)) continue;
-    if (!entry.probe[opts.env]) continue;
+    if (!probeEnabled(name, opts.env)) continue;
     const overrideDomains = opts.overrides?.[name]?.domains;
     const rawHost = overrideDomains
       ? overrideDomains[opts.env]
@@ -255,7 +295,7 @@ export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
     // bypasses `domainFor` entirely; `asHost` is the sole gate that
     // catches those for both paths.
     const host = asHost(rawHost);
-    targets.push({ name, host, driver: entry.probe.driver });
+    targets.push({ name, host, driver: entry.probeDriver });
   }
   return targets.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -263,6 +303,8 @@ export function resolveProbeTargets(opts: ResolveOpts): ProbeTarget[] {
 export interface VerifyOpts {
   env: EnvName;
   services?: string[];
+  /** See `ResolveOpts.skipIneligible` — forwarded to resolveProbeTargets. */
+  skipIneligible?: boolean;
   runner?: ProbeRunner;
 }
 
@@ -277,6 +319,7 @@ export async function runVerify(opts: VerifyOpts): Promise<VerifySummary> {
   const targets = resolveProbeTargets({
     env: opts.env,
     services: opts.services,
+    skipIneligible: opts.skipIneligible,
   });
   const runner = opts.runner ?? runDriver;
   const passed: Array<{ name: string }> = [];

@@ -114,9 +114,37 @@
       }
     },
     {
+      "_comment": "Stock price — follow-up content fallback for multi-pill sessions. The toolCallId chain above misses when get_stock_price is preceded by a PRIOR pill's tool result (the last tool message carries that prior pill's id, not call_tr_stock_aapl_001). Anchored on hasToolResult:true so it fires only after a tool has run; carries no toolCalls so it is loop-safe. MUST precede both tool-emit fixtures below.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "hasToolResult": true,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "content": "AAPL is trading at $338.37, down 2.96% on the day."
+      }
+    },
+    {
       "match": {
         "userMessage": "What's the current price of AAPL?",
         "turnIndex": 0,
+        "context": "langgraph-fastapi"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_tr_stock_aapl_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\",\"price_usd\":338.37,\"change_pct\":-2.96}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Stock price — first-turn tool-emit fallback for multi-pill sessions where a PRIOR pill already left an assistant message, so turnIndex is not 0 and the fixture above is skipped → strict 503. Anchored on hasToolResult:false so it emits get_stock_price only before any tool has run; the hasToolResult:true content fixture above handles the follow-up turn, so no loop.",
+      "match": {
+        "userMessage": "What's the current price of AAPL?",
+        "hasToolResult": false,
         "context": "langgraph-fastapi"
       },
       "response": {

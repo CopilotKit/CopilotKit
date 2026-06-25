@@ -87,7 +87,7 @@ that surfaces to the client depends on the runtime mode:
 - **Intelligence mode** — the Intelligence platform returns HTTP `409` when a lock is
   held. The client core maps this to `CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED`
   and fires `onError({ code: "agent_thread_locked", ... })`. Handle this in
-  `<CopilotKitProvider onError>`.
+  `<CopilotKit onError>` (the `CopilotKit` provider from `@copilotkit/react-core/v2`).
 - **SSE mode** (default, in-memory / SQLite runners) — the runner throws
   synchronously and the handler returns a plain `500` JSON body like
   `{ "error": "Failed to run agent", "message": "Thread already running" }`.
@@ -96,9 +96,9 @@ that surfaces to the client depends on the runtime mode:
 
 ```tsx
 // client — Intelligence mode (typed code)
-import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-<CopilotKitProvider
+<CopilotKit
   onError={({ code }) => {
     if (code === "agent_thread_locked") {
       alert("Agent is busy — wait for the current response to finish.");
@@ -181,7 +181,7 @@ new CopilotRuntime({
 ```
 
 `CopilotIntelligenceRuntimeOptions` does not declare a `runner` field — Intelligence mode
-auto-wires `IntelligenceAgentRunner` pointed at the Cloud socket. Excess-property checks will
+auto-wires `IntelligenceAgentRunner` pointed at the Intelligence service socket. Excess-property checks will
 flag a `runner:` key on an Intelligence-shaped options object as a type error, and at runtime
 the auto-wired Intelligence runner wins regardless of what you pass.
 
@@ -261,7 +261,7 @@ const [busy, setBusy] = useState(false);
 
 Both runners throw `"Thread already running"` on concurrent runs. Debounce on the client.
 In Intelligence mode you can additionally handle `code === "agent_thread_locked"` in
-`<CopilotKitProvider onError>`; SSE mode surfaces only a generic 500 with that message.
+`<CopilotKit onError>`; SSE mode surfaces only a generic 500 with that message.
 
 Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts:110`;
 `packages/core/src/intelligence-agent.ts:368-369`.
@@ -299,6 +299,6 @@ Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts:63-96`.
 
 ## See also
 
-- `copilotkit/intelligence-mode` — managed durability alternative (Cloud-only)
+- `copilotkit/intelligence-mode` — managed durability alternative (CopilotKit Intelligence managed service, not self-hostable)
 - `copilotkit/setup-endpoint` — runner is passed via the CopilotRuntime constructor
 - `copilotkit/scale-to-multi-agent` — horizontal scaling considerations

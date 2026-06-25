@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  type BaselineStatus,
-  type BaselineTag,
-  type BaselineCell,
   STATUSES,
   TAGS,
   INDIVIDUAL_TAGS,
@@ -11,6 +8,11 @@ import {
   FEATURE_CATEGORIES,
   BASELINE_PARTNERS,
   validateCell,
+} from "../baseline-types";
+import type {
+  BaselineStatus,
+  BaselineTag,
+  BaselineCell,
 } from "../baseline-types";
 
 /* ------------------------------------------------------------------ */
@@ -69,6 +71,39 @@ describe("validateCell", () => {
 
   it("impossible + empty tags = valid", () => {
     expect(validateCell(cell("impossible"))).toBe(true);
+  });
+
+  // Tag-membership: a tag outside the TAGS set is invalid even when the
+  // count rule is satisfied. The `as BaselineTag` cast simulates malformed
+  // data arriving from PocketBase, which is not compile-time checked.
+  it("possible + unknown tag = invalid", () => {
+    expect(validateCell(cell("possible", ["bogus" as BaselineTag]))).toBe(
+      false,
+    );
+  });
+
+  it("possible + mix of valid and unknown tag = invalid", () => {
+    expect(validateCell(cell("possible", ["cpk", "nope" as BaselineTag]))).toBe(
+      false,
+    );
+  });
+
+  // "all"-exclusivity: the `all` meta-tag means "needs everything" and must
+  // not coexist with individual tags.
+  it("possible + all alone = valid", () => {
+    expect(validateCell(cell("possible", ["all"]))).toBe(true);
+  });
+
+  it("possible + all combined with an individual tag = invalid", () => {
+    expect(validateCell(cell("possible", ["all", "cpk"]))).toBe(false);
+  });
+
+  it("possible + individual tag before all = invalid", () => {
+    expect(validateCell(cell("possible", ["docs", "all"]))).toBe(false);
+  });
+
+  it("possible + multiple individual tags = valid", () => {
+    expect(validateCell(cell("possible", ["cpk", "docs"]))).toBe(true);
   });
 });
 
@@ -148,8 +183,8 @@ describe("FEATURE_CATEGORIES", () => {
 /*  BASELINE_PARTNERS                                                  */
 /* ------------------------------------------------------------------ */
 describe("BASELINE_PARTNERS", () => {
-  it("has exactly 26 partners", () => {
-    expect(BASELINE_PARTNERS).toHaveLength(26);
+  it("has exactly 27 partners", () => {
+    expect(BASELINE_PARTNERS).toHaveLength(27);
   });
 
   it("each partner has name and slug", () => {
@@ -164,6 +199,15 @@ describe("BASELINE_PARTNERS", () => {
   it("slugs are unique", () => {
     const slugs = BASELINE_PARTNERS.map((p) => p.slug);
     expect(new Set(slugs).size).toBe(slugs.length);
+  });
+
+  // ms-agent-harness-dotnet is now fully probe-wired: the column shipped
+  // (PR #5569) with d6/d4 aimock fixtures and is included in EVERY harness probe
+  // (d5/d6/e2e-smoke/e2e-demos/smoke/aimock-wiring). RENDERING stays consistent
+  // with PROBING — it contributes rendered cells backed by fresh probe data.
+  it("renders the probe-wired ms-agent-harness-dotnet partner column", () => {
+    const slugs = BASELINE_PARTNERS.map((p) => p.slug);
+    expect(slugs).toContain("ms-agent-harness-dotnet");
   });
 });
 

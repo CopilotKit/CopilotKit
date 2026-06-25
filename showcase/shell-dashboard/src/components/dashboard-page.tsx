@@ -18,6 +18,10 @@ import type { CellContext } from "@/components/feature-grid";
 import { StatusTab } from "@/components/status-tab";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { useProbes, useTriggerProbe } from "@/hooks/use-probes";
+import { useWorkerRunsPoll } from "@/hooks/use-worker-runs";
+import { WorkerRunsProvider } from "@/lib/worker-runs-context";
+import { WorkerRunsSection } from "@/components/worker-runs-section";
+import { WorkerSilenceBanner } from "@/components/worker-silence-banner";
 import { mergeRowsToMap } from "@/lib/live-status";
 import { useOverlays } from "@/hooks/useOverlays";
 import { OverlayToggleBar } from "@/components/overlay-toggle-bar";
@@ -95,6 +99,12 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
     () => probesQuery.data?.probes ?? [],
     [probesQuery.data],
   );
+  // §6.1: worker-runs poll beside the probe poll, same ~10 s cadence. The
+  // result feeds WorkerRunsProvider (§7.1) so the ops section, the matrix
+  // staleness consumers, and the coverage banner read it without
+  // prop-drilling run data into matrix internals.
+  const workerRunsStatus = useWorkerRunsPoll();
+
   const triggerToken = process.env.NEXT_PUBLIC_OPS_TRIGGER_TOKEN;
   const { trigger } = useTriggerProbe({ token: triggerToken });
   const handleTrigger = useCallback(
@@ -190,104 +200,114 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
   );
 
   return (
-    <div data-testid="tab-shell" className="h-dvh flex flex-col">
-      {/* Tab bar — pinned above scroll area */}
-      <div className="flex-shrink-0 flex items-center gap-0 border-b border-[var(--border)] px-8">
-        <button
-          type="button"
-          data-testid="tab-matrix"
-          onClick={() => setTab("matrix")}
-          className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
-            activeTab === "matrix"
-              ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
-              : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-          }`}
-        >
-          Coverage
-        </button>
-        <button
-          type="button"
-          data-testid="tab-baseline"
-          onClick={() => setTab("baseline")}
-          className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
-            activeTab === "baseline"
-              ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
-              : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-          }`}
-        >
-          Baseline
-        </button>
-        <button
-          type="button"
-          data-testid="tab-ops"
-          onClick={() => setTab("ops")}
-          className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
-            activeTab === "ops"
-              ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
-              : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
-          }`}
-        >
-          Ops
-        </button>
-        <div className="ml-auto flex items-center pr-1">
-          <ThemeToggle />
-        </div>
-      </div>
-
-      <DiscoveryAuthBanner rows={allStatus.rows} />
-
-      {activeTab === "matrix" && (
-        <>
-          {/* Overlay toggle — pinned below tab bar */}
-          <div className="flex-shrink-0 px-8 py-3 bg-[var(--bg-surface)] border-b border-[var(--border)]">
-            <OverlayToggleBar
-              overlays={overlays}
-              onToggle={toggle}
-              onApplyPreset={applyPreset}
-              activePreset={activePreset}
-            />
+    <WorkerRunsProvider value={workerRunsStatus}>
+      <div data-testid="tab-shell" className="h-dvh flex flex-col">
+        {/* Tab bar — pinned above scroll area */}
+        <div className="flex-shrink-0 flex items-center gap-0 border-b border-[var(--border)] px-8">
+          <button
+            type="button"
+            data-testid="tab-matrix"
+            onClick={() => setTab("matrix")}
+            className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+              activeTab === "matrix"
+                ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
+                : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            }`}
+          >
+            Coverage
+          </button>
+          <button
+            type="button"
+            data-testid="tab-baseline"
+            onClick={() => setTab("baseline")}
+            className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+              activeTab === "baseline"
+                ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
+                : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            }`}
+          >
+            Baseline
+          </button>
+          <button
+            type="button"
+            data-testid="tab-ops"
+            onClick={() => setTab("ops")}
+            className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+              activeTab === "ops"
+                ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
+                : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+            }`}
+          >
+            Ops
+          </button>
+          <div className="ml-auto flex items-center pr-1">
+            <ThemeToggle />
           </div>
-          {/* Single scroll area — stats bar and title scroll away, table headers stick */}
-          <div className="flex-1 min-h-0 overflow-auto pb-12">
-            <div className="px-8 py-3 border-b border-[var(--border)]">
-              <AdaptiveStatsBar
+        </div>
+
+        <DiscoveryAuthBanner rows={allStatus.rows} />
+
+        {activeTab === "matrix" && (
+          <>
+            {/* §7.4: coverage-tab silence banner — matrix-tab-scoped (first
+              child of this block), styled after the DiscoveryAuthBanner
+              slot pattern but deliberately NOT mounted beside it: the
+              banner is coverage-tab intent, not global. */}
+            <WorkerSilenceBanner />
+            {/* Overlay toggle — pinned below tab bar */}
+            <div className="flex-shrink-0 px-8 py-3 bg-[var(--bg-surface)] border-b border-[var(--border)]">
+              <OverlayToggleBar
                 overlays={overlays}
-                catalog={catalogData}
-                healthStats={healthStats}
-                parityStats={parityStats}
-                docsStats={docsStats}
-                depthDistribution={depthDistribution}
-                d6Stats={d6Stats}
+                onToggle={toggle}
+                onApplyPreset={applyPreset}
+                activePreset={activePreset}
               />
             </div>
-            <FeatureGrid
-              title="Feature Matrix"
-              renderCell={renderCell}
-              minColWidth={180}
-              liveStatus={liveStatus}
-              connection={connection}
-              now={now}
-              overlays={overlays}
-              catalog={catalogData}
-              shellUrl={shellUrl}
+            {/* Single scroll area — stats bar and title scroll away, table headers stick */}
+            <div className="flex-1 min-h-0 overflow-auto pb-12">
+              <div className="px-8 py-3 border-b border-[var(--border)]">
+                <AdaptiveStatsBar
+                  overlays={overlays}
+                  catalog={catalogData}
+                  healthStats={healthStats}
+                  parityStats={parityStats}
+                  docsStats={docsStats}
+                  depthDistribution={depthDistribution}
+                  d6Stats={d6Stats}
+                />
+              </div>
+              <FeatureGrid
+                title="Feature Matrix"
+                renderCell={renderCell}
+                minColWidth={180}
+                liveStatus={liveStatus}
+                connection={connection}
+                degraded={allStatus.degraded}
+                now={now}
+                overlays={overlays}
+                catalog={catalogData}
+                shellUrl={shellUrl}
+              />
+              <AdaptiveLegend overlays={overlays} />
+            </div>
+          </>
+        )}
+
+        {activeTab === "baseline" && <BaselineTab />}
+
+        {activeTab === "ops" && (
+          <div className="flex-1 min-h-0 overflow-auto">
+            {/* §6.2: worker-runs section ABOVE the probe Schedule table. */}
+            <WorkerRunsSection probeEntries={probeEntries} />
+            <StatusTab
+              entries={probeEntries}
+              onTrigger={handleTrigger}
+              selectedProbeId={selectedProbeId}
+              onSelectProbe={selectProbe}
             />
-            <AdaptiveLegend overlays={overlays} />
           </div>
-        </>
-      )}
-
-      {activeTab === "baseline" && <BaselineTab />}
-
-      {activeTab === "ops" && (
-        <div className="flex-1 min-h-0 overflow-auto">
-          <StatusTab
-            entries={probeEntries}
-            onTrigger={handleTrigger}
-            selectedProbeId={selectedProbeId}
-            onSelectProbe={selectProbe}
-          />
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </WorkerRunsProvider>
   );
 }

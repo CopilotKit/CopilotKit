@@ -41,27 +41,27 @@ import {
   captureReferenceForFeature,
   defaultWriteSnapshot,
   serializeRelevantDom,
-  type ReferenceCaptureBrowserHandle,
-  type ReferenceCaptureContext,
-  type ReferenceCaptureDeps,
-  type ReferenceCapturePage,
-  type ReferenceCaptureResult,
 } from "../src/probes/helpers/reference-capture.js";
-import {
-  attachSseInterceptor,
-  type SseInterceptorHandle,
-} from "../src/probes/helpers/sse-interceptor.js";
-import {
-  runConversation,
-  type ConversationTurn,
-  type Page as RunnerPage,
+import type {
+  ReferenceCaptureBrowserHandle,
+  ReferenceCaptureContext,
+  ReferenceCaptureDeps,
+  ReferenceCapturePage,
+  ReferenceCaptureResult,
+} from "../src/probes/helpers/reference-capture.js";
+import { attachSseInterceptor } from "../src/probes/helpers/sse-interceptor.js";
+import type { SseInterceptorHandle } from "../src/probes/helpers/sse-interceptor.js";
+import { runConversation } from "../src/probes/helpers/conversation-runner.js";
+import type {
+  ConversationTurn,
+  Page as RunnerPage,
 } from "../src/probes/helpers/conversation-runner.js";
 import {
   D5_REGISTRY,
   isD5FeatureType,
-  type D5FeatureType,
 } from "../src/probes/helpers/d5-registry.js";
-import { defaultScriptLoader } from "../src/probes/drivers/d5-single-pill.js";
+import type { D5FeatureType } from "../src/probes/helpers/d5-registry.js";
+import { defaultScriptLoader } from "../src/probes/drivers/d6-all-pills.js";
 import type { ProbeContext } from "../src/types/index.js";
 
 interface Args {

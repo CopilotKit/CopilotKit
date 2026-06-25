@@ -1,9 +1,9 @@
-import {
+import type {
   AbstractAgent,
   AgentSubscriber,
-  HttpAgent,
   Message,
   RunAgentResult,
+  ResumeEntry,
   Tool,
   ToolCall,
 } from "@ag-ui/client";
@@ -17,6 +17,11 @@ import type { FrontendTool } from "../types";
 export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
   forwardedProps?: Record<string, unknown>;
+  /**
+   * Per-interrupt responses addressing every open AG-UI interrupt from the
+   * previous run. Forwarded to the agent as the standard `resume` array.
+   */
+  resume?: ResumeEntry[];
 }
 
 export interface CopilotKitCoreConnectAgentParams {
@@ -240,17 +245,15 @@ export class RunHandler {
         }
       }
 
-      if (agent instanceof HttpAgent) {
-        agent.headers = {
-          ...this._internal.headers,
-        };
-      }
+      // Re-apply core headers (merged on top of the agent's own headers) so a
+      // late header update is picked up without clobbering per-agent headers.
+      this._internal.applyHeadersToAgent(agent);
 
       const runAgentResult = await agent.connectAgent(
         {
           forwardedProps: this._internal.properties,
           tools: this.buildFrontendTools(agent.agentId),
-          context: Object.values(this._internal.context),
+          context: this._internal.getContextForAgent(agent.agentId),
         },
         this.createAgentErrorSubscriber(agent),
       );
@@ -276,7 +279,7 @@ export class RunHandler {
           context,
         });
       }
-      return { newMessages: [] };
+      return { result: undefined, newMessages: [] };
     }
   }
 
@@ -286,17 +289,16 @@ export class RunHandler {
   async runAgent({
     agent,
     forwardedProps,
+    resume,
   }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
     }
 
-    if (agent instanceof HttpAgent) {
-      agent.headers = {
-        ...this._internal.headers,
-      };
-    }
+    // Re-apply core headers (merged on top of the agent's own headers) so a
+    // late header update is picked up without clobbering per-agent headers.
+    this._internal.applyHeadersToAgent(agent);
 
     // Detach any active run (e.g. a long-lived connectAgent pipeline) before
     // starting a new run.  We await the detach to ensure the previous pipeline
@@ -345,8 +347,9 @@ export class RunHandler {
             ...this._internal.properties,
             ...forwardedProps,
           },
+          ...(resume !== undefined ? { resume } : {}),
           tools: this.buildFrontendTools(agent.agentId),
-          context: Object.values(this._internal.context),
+          context: this._internal.getContextForAgent(agent.agentId),
         },
         this.createAgentErrorSubscriber(agent),
       );
@@ -363,7 +366,7 @@ export class RunHandler {
         code: CopilotKitCoreErrorCode.AGENT_RUN_FAILED,
         context,
       });
-      return { newMessages: [] };
+      return { result: undefined, newMessages: [] };
     } finally {
       this._runDepth--;
       // Restore original abortRun when the entire chain (including
@@ -643,7 +646,6 @@ export class RunHandler {
 
     let toolCallResult = "";
     let errorMessage: string | undefined;
-    let isArgumentError = false;
 
     if (wildcardTool?.handler) {
       let parsedArgs: unknown;
@@ -656,7 +658,6 @@ export class RunHandler {
         const parseError =
           error instanceof Error ? error : new Error(String(error));
         errorMessage = parseError.message;
-        isArgumentError = true;
         await this._internal.emitError({
           error: parseError,
           code: CopilotKitCoreErrorCode.TOOL_ARGUMENT_PARSE_FAILED,
@@ -799,20 +800,19 @@ export class RunHandler {
 
     // 3. Create assistant message with tool call
     const toolCallId = randomUUID();
+    const assistantToolCall = {
+      id: toolCallId,
+      type: "function" as const,
+      function: {
+        name,
+        arguments: JSON.stringify(parameters),
+      },
+    };
     const assistantMessage: Message = {
       id: randomUUID(),
       role: "assistant",
       content: "",
-      toolCalls: [
-        {
-          id: toolCallId,
-          type: "function",
-          function: {
-            name,
-            arguments: JSON.stringify(parameters),
-          },
-        },
-      ],
+      toolCalls: [assistantToolCall],
     };
 
     // 4. Push assistant message into agent's messages
@@ -828,7 +828,7 @@ export class RunHandler {
     if (tool.handler) {
       handlerResult = await this.executeToolHandler({
         tool,
-        toolCall: assistantMessage.toolCalls![0],
+        toolCall: assistantToolCall,
         agent,
         agentId: resolvedAgentId,
         handlerArgs: parameters,
@@ -889,7 +889,7 @@ export class RunHandler {
       .filter(
         (tool) =>
           tool.available !== false &&
-          tool.available !== "disabled" &&
+          (tool.available as boolean | string | undefined) !== "disabled" &&
           (!tool.agentId || tool.agentId === agentId),
       )
       .map((tool) => ({
@@ -978,13 +978,19 @@ function createToolSchema(tool: FrontendTool<any>): Record<string, unknown> {
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const rawSchema = schemaToJsonSchema(tool.parameters, { zodToJsonSchema });
+  const rawSchema = schemaToJsonSchema(tool.parameters, {
+    zodToJsonSchema: (schema, options) =>
+      zodToJsonSchema(
+        schema as Parameters<typeof zodToJsonSchema>[0],
+        options as Parameters<typeof zodToJsonSchema>[1],
+      ),
+  });
 
   if (!rawSchema || typeof rawSchema !== "object") {
     return { ...EMPTY_TOOL_SCHEMA };
   }
 
-  const { $schema, ...schema } = rawSchema as Record<string, unknown>;
+  const { $schema: _$schema, ...schema } = rawSchema as Record<string, unknown>;
 
   if (typeof schema.type !== "string") {
     schema.type = "object";

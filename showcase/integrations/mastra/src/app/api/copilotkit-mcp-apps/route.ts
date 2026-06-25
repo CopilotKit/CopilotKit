@@ -6,7 +6,8 @@
 // built-in `MCPAppsActivityRenderer` (registered by CopilotKit internally)
 // renders in the chat as a sandboxed iframe.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -25,6 +26,19 @@ if (!mcpAppsAgent) {
   throw new Error("getLocalAgent returned null for mcpAppsAgent");
 }
 
+// headless-complete shares this runtime (its page wires
+// runtimeUrl="/api/copilotkit-mcp-apps") but is backed by the dedicated
+// headlessCompleteAgent — the same Mastra agent + resourceId the main
+// route registers it against.
+const headlessCompleteAgent = getLocalAgent({
+  mastra,
+  agentId: "headlessCompleteAgent",
+  resourceId: "mastra-headlessCompleteAgent",
+});
+if (!headlessCompleteAgent) {
+  throw new Error("getLocalAgent returned null for headlessCompleteAgent");
+}
+
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime
 // auto-applies the MCP Apps middleware to every registered agent: on each
@@ -32,8 +46,11 @@ if (!mcpAppsAgent) {
 // `activity` event that the built-in `MCPAppsActivityRenderer` renders
 // inline in the chat.
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts
+  // @ts-expect-error -- see main route.ts; published CopilotRuntime's `agents`
+  // type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects
+  // plain Records. Fixed in source, pending release.
   agents: {
+    "headless-complete": headlessCompleteAgent,
     "mcp-apps": mcpAppsAgent,
     default: mcpAppsAgent,
   },

@@ -11,7 +11,8 @@
 // `open-generative-ui` activity event the built-in renderer mounts inside a
 // sandboxed iframe.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -44,7 +45,7 @@ export const POST = async (req: NextRequest) => {
       // the provider. The single `openGenerativeUI` flag below turns on
       // Open Generative UI for the listed agent(s).
       runtime: new CopilotRuntime({
-        // @ts-ignore -- see main route.ts
+        // @ts-expect-error -- see main route.ts
         agents,
         openGenerativeUI: {
           agents: ["open-gen-ui", "open-gen-ui-advanced"],

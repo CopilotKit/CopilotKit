@@ -5,6 +5,15 @@ FastAPI server that hosts the CrewAI crew backend.
 The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
 """
 
+# CVDIAG bootstrap — MUST be the first non-stdlib import (folded in from the
+# dropped L1-H slot). Importing this module configures the root logger via
+# ``logging.basicConfig`` so the ``agents._header_forwarding`` (and sibling
+# ``agents.*``) CVDIAG loggers actually EMIT (fixes the silent-drop bug), and
+# resolves the verbosity tier + PB writer. It imports pydantic/starlette only
+# (NOT crewai / litellm), so it is safe to run before ``load_dotenv`` /
+# ``configure_aimock`` — it does not pull any LLM SDK into ``sys.modules``.
+import _shared.cvdiag_bootstrap  # noqa: F401,E402  (first non-stdlib import — bootstrap side effects)
+
 # ORDER-CRITICAL: load .env and apply aimock redirection FIRST — before any
 # crewai / litellm / openai module is imported. Those modules can construct
 # clients at import time that latch onto OPENAI_BASE_URL / OPENAI_API_KEY as
@@ -28,8 +37,9 @@ configure_aimock()
 # `_cached_flow` + `asyncio.Lock` inside `add_crewai_crew_fastapi_endpoint`.
 # Any LLM hiccup now surfaces as a 5xx on the first request instead of a
 # startup crash, which is the correct failure mode for a runtime outage and
-# is what the shim was reaching for. With the requirements.txt pin bumped to
-# `>=0.2.0,<0.3.0`, the shim is dead code and has been removed.
+# is what the shim was reaching for. With the ag-ui-crewai pin in
+# requirements.txt at the deferred-construction version, the shim is dead
+# code and has been removed.
 
 import asyncio
 import json
@@ -40,6 +50,7 @@ from typing import Any
 # (and before crewai / litellm / openai) imports. CrewAI / litellm
 # construct httpx clients per-call; this patch ensures every new client
 # auto-attaches the forwarded-header hook on construction.
+from agents._cvdiag_backend import CvdiagBackendMiddleware
 from agents._header_forwarding import (
     HeaderForwardingHTTPMiddleware,
     install_global_httpx_hook,
@@ -66,6 +77,7 @@ from agents.interrupt_crew import InterruptScheduling
 from agents.gen_ui_agent import gen_ui_agent_flow
 from agents.shared_state_read_write import shared_state_read_write_flow
 from agents.subagents import subagents_flow
+from agents.reasoning_agent import reasoning_app
 
 try:
     from agents.tool_rendering import tool_rendering_flow
@@ -397,6 +409,15 @@ app.add_middleware(ForwardedPropsASGIMiddleware)
 # Paired with ``install_global_httpx_hook`` at the top of this file.
 app.add_middleware(HeaderForwardingHTTPMiddleware)
 
+# CVDIAG backend emitter (spec §3 Layer 2) — emits the HTTP-observable backend
+# boundaries (request.ingress, sse.first_byte, sse.event, sse.aborted,
+# response.complete, error.caught) as structured CVDIAG envelopes. Added here so
+# it wraps the Health + ForwardedProps + HeaderForwarding layers but stays
+# INSIDE the outermost CORS layer (CORS handles preflight first). Gated behind
+# ``CVDIAG_BACKEND_EMITTER`` (default OFF, canary-safe) — the middleware
+# fast-paths to a bare pass-through when the flag is unset.
+app.add_middleware(CvdiagBackendMiddleware)
+
 # CORS: `allow_origins=["*"]` is intentional for this LOCAL DEMO / SHOWCASE
 # STARTER package. The agent server binds to localhost:8000 during `pnpm dev`
 # (or :8123 inside a generated starter container) and is reached ONLY by the
@@ -440,6 +461,13 @@ if tool_rendering_flow is not None:
     add_crewai_flow_fastapi_endpoint(app, tool_rendering_flow, "/tool-rendering")
 
 add_crewai_crew_fastapi_endpoint(app, InterruptScheduling(), "/interrupt-adapted")
+
+# Reasoning-aware route. CrewAI's stock ChatWithCrewFlow emits no
+# REASONING_MESSAGE_* events (and the litellm adapter drops the model's
+# reasoning_content channel), so the reasoning-custom / reasoning-default
+# cells use this custom sub-app instead. Mounted BEFORE the shared "/"
+# catch-all so its route is not shadowed. Mirrors ag2's /reasoning mount.
+app.mount("/reasoning", reasoning_app)
 
 add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")
 

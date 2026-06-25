@@ -6,6 +6,10 @@ import {
   useComponent,
 } from "@copilotkit/react-core/v2";
 
+import { DelegationLog } from "./delegation-log";
+import { SubAgentActivityCard } from "./subagent-activity-card";
+import type { SubAgentActivityCardProps } from "./subagent-activity-card";
+
 export default function Subagents() {
   return (
     <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
@@ -14,18 +18,34 @@ export default function Subagents() {
   );
 }
 
+// One per-tool render component per sub-agent role. Each captures its
+// own `subAgent` identity so the activity card can stamp the per-role
+// testid (`subagent-card-<role>`) without needing the tool name to be
+// forwarded by `useComponent` render props.
+function ResearchAgentCard(props: Omit<SubAgentActivityCardProps, "subAgent">) {
+  return <SubAgentActivityCard subAgent="research_agent" {...props} />;
+}
+
+function WritingAgentCard(props: Omit<SubAgentActivityCardProps, "subAgent">) {
+  return <SubAgentActivityCard subAgent="writing_agent" {...props} />;
+}
+
+function CritiqueAgentCard(props: Omit<SubAgentActivityCardProps, "subAgent">) {
+  return <SubAgentActivityCard subAgent="critique_agent" {...props} />;
+}
+
 function Demo() {
   useComponent({
     name: "research_agent",
-    render: DelegationCard,
+    render: ResearchAgentCard,
   });
   useComponent({
     name: "writing_agent",
-    render: DelegationCard,
+    render: WritingAgentCard,
   });
   useComponent({
     name: "critique_agent",
-    render: DelegationCard,
+    render: CritiqueAgentCard,
   });
 
   return (
@@ -42,46 +62,21 @@ function Demo() {
         Try: &ldquo;Research the benefits of remote work and draft a
         one-paragraph summary.&rdquo;
       </p>
-      <CopilotChat />
-    </main>
-  );
-}
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function DelegationCard(props: any) {
-  const { name, status, parameters, result } = props;
-  const role =
-    typeof name === "string"
-      ? name.replace(/_agent$/, "").replace(/_/g, " ")
-      : "subagent";
-
-  let parsed: { role?: string; text?: string } = {};
-  if (status === "complete" && typeof result === "string") {
-    try {
-      parsed = JSON.parse(result);
-    } catch {
-      // leave parsed empty
-    }
-  }
-
-  const task = parameters?.task ?? "";
-
-  return (
-    <div className="border rounded p-3 my-2 bg-blue-50">
-      <div className="font-medium">
-        Delegating to {role}
-        {status === "complete" ? (
-          <span className="opacity-60"> · done</span>
-        ) : (
-          <span className="opacity-60"> · running…</span>
-        )}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
+        <CopilotChat />
+        <div className="h-[640px]">
+          {/*
+            Side-panel delegation log. The supervisor's `delegations`
+            slot is not yet exposed to the frontend in built-in-agent
+            (the per-call cards in chat are the primary surface), so we
+            render an empty log here. The always-visible role indicator
+            chips inside this component are the e2e anchor
+            (`[data-testid="subagent-indicator-<role>"]`).
+          */}
+          <DelegationLog delegations={[]} isRunning={false} />
+        </div>
       </div>
-      {task ? (
-        <div className="text-sm mt-1 opacity-80">Task: {task}</div>
-      ) : null}
-      {status === "complete" && parsed.text ? (
-        <div className="mt-2 text-sm whitespace-pre-wrap">{parsed.text}</div>
-      ) : null}
-    </div>
+    </main>
   );
 }

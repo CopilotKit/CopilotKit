@@ -9,7 +9,7 @@ import {
   provideCopilotChatLabels,
   provideCopilotKit,
 } from "@copilotkit/angular";
-import { Message } from "@ag-ui/client";
+import type { Message } from "@ag-ui/client";
 
 const meta: Meta<CopilotChatView> = {
   title: "UI/CopilotChatView/Custom Actions",

@@ -361,6 +361,19 @@ jobs:
         # version on a registry cache miss.
         run: pnpm exec vitest run
 
+      - name: CVDIAG emit perf-regression gate
+        working-directory: showcase/harness
+        # Perf gate for the CVDIAG `CvdiagEmitter` hot path (plan unit L2-D).
+        # Pure instrumentation must stay cheap on the boundary it observes:
+        # spec §7 sets a 500µs/event prod budget; this gate holds emit at 50%
+        # of that for headroom — per-event median ≤100µs, p99 ≤250µs — and the
+        # bench's teardown throws (failing this step, and the job) on a >20%
+        # regression past either threshold. vitest `bench` is experimental but
+        # stable for this single-task run; the throw-on-breach is what gates,
+        # not the (advisory) hz/p99 table. Resolve vitest via pnpm so the
+        # pnpm-lock.yaml-pinned version is used (no registry-cache-miss drift).
+        run: pnpm exec vitest bench src/cvdiag/emit-perf.bench.ts --run
+
       - name: Validate manifests & generate registry
         working-directory: showcase/scripts
         run: pnpm exec tsx generate-registry.ts
@@ -550,9 +563,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y bats
 
-      - name: Shellcheck promote-fleet.sh
+      - name: Shellcheck promote workflow scripts
         # shellcheck is preinstalled on ubuntu-latest.
-        run: shellcheck showcase/scripts/promote-fleet.sh
+        run: shellcheck showcase/scripts/promote-fleet.sh showcase/scripts/verify-prod-display.sh showcase/scripts/reconcile-prod-gate.sh
 
       - name: Run bats suite
         run: bats showcase/scripts/__tests__/

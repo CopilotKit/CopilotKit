@@ -34,10 +34,9 @@
 
 import { fileURLToPath } from "url";
 import {
-  PRODUCTION_ENV_ID,
+  ENV_ID_BY_NAME,
   PROJECT_ID,
   SERVICES,
-  STAGING_ENV_ID,
   repoNameFor,
 } from "./railway-envs";
 import type { EnvName } from "./railway-envs";
@@ -61,15 +60,18 @@ const STARTER_FLEET_PREFIX = "starter-";
  * True iff `name` is a starter-container-fleet Railway service
  * (`starter-<slug>`).
  *
- * The starter fleet is DECOUPLED from this 27-service SSOT: each
- * `starter-*` service is AUTO-DISCOVERED at runtime by the `starter_smoke`
- * probe via the `railway-services` discovery source filtered on
- * `namePrefix: "starter-"` — it is never read from `railway-envs.ts`.
- * Therefore the SSOT⨉Railway drift checks below MUST exclude these
- * services: a provisioned `starter-*` service is neither required-in-SSOT
- * (findMissingServices) nor flagged-as-untracked (findUntrackedServices).
- * Without this carve-out, provisioning a starter service trips the
- * Railway→SSOT drift gate and SKIPS the showcase build.
+ * S2: the 12 known starter-<slug> services are now FULLY SSOT-managed and
+ * `gateValidated` in `railway-envs.ts` — they are validated and required in
+ * both drift directions exactly like a showcase-* agent, with NO carve-out.
+ * This predicate is retained for a single NARROW purpose: tolerating a
+ * stray/in-flight `starter-<slug>` live service that is provisioned ahead of
+ * (or absent from) its SSOT entry. `findUntrackedServices` consults it ONLY
+ * after the SSOT-membership check, so an SSOT-managed starter never reaches
+ * this carve-out. It does NOT exempt any SSOT starter from the gate.
+ *
+ * The `starter_smoke` probe still auto-discovers `starter-*` services at
+ * runtime (railway-services source, `namePrefix: "starter-"`), independent of
+ * this gate — that is the verification axis for the fleet (S3).
  *
  * NOTE: this matches the `starter-` prefix only — the decommissioned
  * `showcase-starter-*` services use the `showcase-` prefix and are NOT
@@ -221,17 +223,24 @@ export function validateImage(
  * result does not depend on it. Result is sorted for stable output.
  */
 export function findMissingServices(
-  _env: EnvName,
+  env: EnvName,
   presentServiceNames: Set<string>,
 ): string[] {
   const missing: string[] = [];
   for (const [name, entry] of Object.entries(SERVICES)) {
-    // Starter-fleet services are SSOT-decoupled (see
-    // isStarterFleetService) — never require them in the SSOT→Railway
-    // direction. Defense-in-depth: SERVICES never contains a starter-*
-    // key today, so this is a guard against a future stray entry.
-    if (isStarterFleetService(name)) continue;
+    // S2: the 12 starter-<slug> services are now SSOT-managed +
+    // gateValidated, exactly like a showcase-* agent — no starter carve-out
+    // here. They are REQUIRED in the SSOT→Railway direction in any env they
+    // declare. The `!entry.gateValidated` guard below is the single gate
+    // membership filter; a starter that is gateValidated:true is demanded
+    // just like every other tracked service.
     if (!entry.gateValidated) continue;
+    // Only require the service in an env it actually DECLARES. A service
+    // that does not exist in `env` (a single-env worker) is not "missing"
+    // from that env — it was never expected there. (Every gateValidated
+    // service today is dual-env, so this preserves the prior behavior;
+    // the guard generalizes the gate to single-env gateValidated entries.)
+    if (!entry.environments[env]) continue;
     if (!presentServiceNames.has(name)) missing.push(name);
   }
   return missing.sort();
@@ -256,17 +265,20 @@ export function findUntrackedServices(
 ): string[] {
   const untracked: string[] = [];
   for (const name of railwayServiceNames) {
-    // Starter-fleet services (starter-<slug>) are SSOT-decoupled and
-    // auto-discovered by the starter_smoke probe (see
-    // isStarterFleetService) — a provisioned starter-* service is NOT
-    // drift, so never flag it as untracked. This is the carve-out that
-    // lets the 12 starter services be provisioned without skipping the
-    // showcase build.
-    if (isStarterFleetService(name)) continue;
     const entry = SERVICES[name];
     // Any SSOT entry — gateIgnored or not — is known/accounted-for in
-    // the Railway->SSOT direction. Only absence from the SSOT counts.
+    // the Railway->SSOT direction. Only absence from the SSOT counts. The
+    // 12 starter-<slug> services are now SSOT entries (S2), so they take
+    // this branch and are tolerated exactly like every other tracked
+    // service — no special-case skip.
     if (entry) continue;
+    // Narrow carve-out for a starter-* live service that is NOT (yet) in the
+    // SSOT. The 12 known starters are SSOT-managed above; this only tolerates
+    // a stray/in-flight `starter-<slug>` provisioned ahead of its SSOT entry
+    // (the starter_smoke probe auto-discovers it by namePrefix "starter-").
+    // It does NOT exempt any SSOT-managed starter from drift — those are
+    // handled by the `if (entry) continue` branch and ARE gate-validated.
+    if (isStarterFleetService(name)) continue;
     untracked.push(name);
   }
   return untracked.sort();
@@ -301,7 +313,14 @@ export function summarizeFailures(
   input: FailureSummaryInput,
 ): FailureSummaryOutput {
   const { violations, missingByEnv, untracked, checked, skipped } = input;
-  const totalMissing = missingByEnv.prod.length + missingByEnv.staging.length;
+  // Sum + iterate across EVERY env present in missingByEnv (not a hardcoded
+  // prod/staging pair) so the gate generalizes to any SSOT env. Sorted for
+  // stable output ordering.
+  const missingEnvNames = Object.keys(missingByEnv).sort();
+  const totalMissing = missingEnvNames.reduce(
+    (sum, env) => sum + missingByEnv[env].length,
+    0,
+  );
   const shouldFail =
     violations.length > 0 || totalMissing > 0 || untracked.length > 0;
   const lines: string[] = [];
@@ -316,7 +335,7 @@ export function summarizeFailures(
     lines.push(`    current:  ${v.image ?? "<unset>"}`);
     lines.push(`    reason:   ${v.reason}`);
   }
-  for (const env of ["prod", "staging"] as const) {
+  for (const env of missingEnvNames) {
     for (const name of missingByEnv[env]) {
       lines.push(`  ✗ [${env}] ${name}`);
       lines.push(`    current:  <missing from Railway>`);
@@ -446,10 +465,11 @@ async function main(): Promise<void> {
   let skipped = 0;
   // Per-env set of SSOT-known, gateValidated service names we actually
   // saw in the Railway response. Used post-loop for coverage assertion.
-  const seenByEnv: Record<EnvName, Set<string>> = {
-    prod: new Set<string>(),
-    staging: new Set<string>(),
-  };
+  // Keyed by every registered env name (not a hardcoded prod/staging pair)
+  // so the gate generalizes to any env the SSOT declares.
+  const seenByEnv: Record<EnvName, Set<string>> = Object.fromEntries(
+    Object.keys(ENV_ID_BY_NAME).map((env) => [env, new Set<string>()]),
+  );
   // Names Railway actually reported back, used post-loop for the
   // Railway -> SSOT coverage assertion (findUntrackedServices).
   const railwayReportedNames = new Set<string>();
@@ -483,8 +503,18 @@ async function main(): Promise<void> {
       continue;
     }
 
-    for (const env of ["prod", "staging"] as const) {
-      const envId = env === "prod" ? PRODUCTION_ENV_ID : STAGING_ENV_ID;
+    // Iterate the envs THIS service actually declares in the SSOT
+    // (`environments`), not a hardcoded prod/staging pair. Each env name
+    // resolves to its Railway env-id via the registry. A dual-env service
+    // visits prod+staging exactly as before; a single-env service visits
+    // only its env (such services are gateIgnore'd above and never reach
+    // here, but the loop is correct regardless).
+    for (const env of Object.keys(entry.environments)) {
+      const envId = ENV_ID_BY_NAME[env];
+      // Defense-in-depth: an env name with no registry entry cannot be
+      // resolved to a Railway env-id, so we cannot validate it. Skip it
+      // rather than guess (a future env name must be registered).
+      if (!envId) continue;
       const instance = svc.serviceInstances.edges.find(
         (e) => e.node.environmentId === envId,
       );
@@ -510,10 +540,12 @@ async function main(): Promise<void> {
   //     up in the Railway response is drift.
   //   - Railway->SSOT: a Railway service that has no SSOT entry (and
   //     is not opted out via gateIgnore) is drift.
-  const missingByEnv: Record<EnvName, string[]> = {
-    prod: findMissingServices("prod", seenByEnv.prod),
-    staging: findMissingServices("staging", seenByEnv.staging),
-  };
+  const missingByEnv: Record<EnvName, string[]> = Object.fromEntries(
+    Object.keys(ENV_ID_BY_NAME).map((env) => [
+      env,
+      findMissingServices(env, seenByEnv[env]),
+    ]),
+  );
   const untracked = findUntrackedServices(railwayReportedNames);
 
   const summary = summarizeFailures({

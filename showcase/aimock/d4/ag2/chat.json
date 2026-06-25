@@ -266,8 +266,9 @@
       }
     },
     {
+      "_comment": "Disabled: prior matcher 'weather' load-order-shadowed D6 pills like 'What's the weather in San Francisco?' (custom-catchall) and 'Chain a few tools ... weather in Tokyo' (default-catchall). Mirrors the LGP d4 disabled-weather pattern (_d4_unused_weather_probe_sf) — userMessage renamed to a non-matching sentinel so this entry is effectively dead; downstream D6 fixtures own the get_weather flow.",
       "match": {
-        "userMessage": "weather",
+        "userMessage": "_d4_unused_weather_probe_sf",
         "hasToolResult": false,
         "context": "ag2"
       },
@@ -473,8 +474,9 @@
       }
     },
     {
+      "_comment": "Disabled: 'flights from SFO to JFK' was the exact pill prompt for the D6 beautiful-chat 'Search Flights' demo, so this d4 fixture load-order-shadowed the d6 beautiful-chat fixture (d4 loads before d6). The d4 chat-roundtrip probe does not exercise the flights tool, so this entry is dead. Mirrors the LGP _d4_unused_flights_probe_sfo_jfk pattern.",
       "match": {
-        "userMessage": "flights from SFO to JFK",
+        "userMessage": "_d4_unused_flights_probe_sfo_jfk",
         "hasToolResult": false,
         "context": "ag2"
       },
@@ -514,11 +516,12 @@
       }
     },
     {
-      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError.",
+      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError. chunkSize MUST live at the fixture root (alongside match/response) — server.ts:681 reads `fixture.chunkSize`, NOT `response.chunkSize`.",
       "match": {
         "toolCallId": "call_fp_beautiful_chat_enable_app_mode_001",
         "context": "ag2"
       },
+      "chunkSize": 9999,
       "response": {
         "toolCalls": [
           {
@@ -630,8 +633,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Summarize' button — narrowed from bare 'summarize' so it doesn't shadow the d6 gen-ui-agent pill 'Research our top competitor and summarize their strengths and weaknesses.' (same narrowing as langgraph-python). 'Summarize the sales pipeline' is unique to the D4 toolbar probe.",
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the sales pipeline",
         "context": "ag2"
       },
       "response": {
@@ -657,8 +661,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Detailed' button — tightened from bare 'detailed' so it doesn't shadow d6 agent-config 'responseLength:detailed — describe agent context per your config'. Anchored on the longer phrase that the d4 button actually sends (same narrowing as langgraph-python).",
       "match": {
-        "userMessage": "detailed",
+        "userMessage": "Make this more detailed",
         "context": "ag2"
       },
       "response": {
@@ -876,8 +881,9 @@
       }
     },
     {
+      "_comment": "Narrowed from bare 'Roll a 20-sided die' to 'Roll a 20-sided die for me' so it no longer shadows the D6 tool-rendering pill 'Roll a 20-sided die.' (which chains 5 roll_d20 calls). Mirrors the LGP d4 narrowing.",
       "match": {
-        "userMessage": "Roll a 20-sided die",
+        "userMessage": "Roll a 20-sided die for me",
         "hasToolResult": false,
         "context": "ag2"
       },
@@ -931,9 +937,9 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar)",
+      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar). Narrowed userMessage from bare 'fun fact' to 'fun fact for the prebuilt sidebar' so it does not shadow the D6 headless-simple pill 'Give me a fun fact.' Mirrors the LGP d4 narrowing.",
       "match": {
-        "userMessage": "fun fact",
+        "userMessage": "fun fact for the prebuilt sidebar",
         "context": "ag2"
       },
       "response": {

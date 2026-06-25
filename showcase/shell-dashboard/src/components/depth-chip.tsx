@@ -33,6 +33,26 @@ export interface DepthChipProps {
    * already determined the correct color (e.g. green when achieved == ceiling).
    */
   chipColor?: "green" | "amber" | "red" | "gray";
+  /**
+   * Pool COMMUNICATION error (REQ-B). When set, the chip renders a DISTINCT
+   * "couldn't reach the pool" treatment — a purple/indigo fill with a "⚡"
+   * glyph — that is visually unlike green/amber/red/gray, so an operator can
+   * tell "the pool was unreachable" apart from "the test went red". The
+   * underlying depth/colour is intentionally suppressed in favour of the
+   * comm-error overlay; the descriptive tooltip is supplied via `commTooltip`.
+   */
+  unreachable?: boolean;
+  /**
+   * Pool RECLAIM-PENDING state (flap-band #70). When set, the job's lease
+   * lapsed and the control-plane RE-QUEUED it (back in flight). The sweep
+   * boundary cannot tell a real crash from an expected platform teardown, so
+   * this is NEUTRAL — a gray "⟳ pending" treatment, distinct from both the red
+   * `unreachable` overlay and a real probe colour, so a routine teardown never
+   * reads as a failure. `unreachable` takes precedence when both are set.
+   */
+  pending?: boolean;
+  /** Tooltip text for the unreachable / pending treatment (names the kind). */
+  commTooltip?: string;
 }
 
 /**
@@ -91,7 +111,47 @@ export function DepthChip({
   regression,
   maxDepth,
   chipColor,
+  unreachable,
+  pending,
+  commTooltip,
 }: DepthChipProps) {
+  // Pool comm-error overlay (REQ-B) takes precedence over every probe colour:
+  // a "couldn't reach the pool" state must never be mistaken for a red test.
+  // A distinct indigo fill + ⚡ glyph, resolved BEFORE the unshipped/unsupported
+  // branches so an unreachable cell is always loud.
+  if (unreachable) {
+    return (
+      <span
+        data-testid="depth-chip"
+        data-status="unreachable"
+        data-surface-state="unreachable"
+        className="inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums border border-indigo-400/60 bg-indigo-500/20 text-indigo-300"
+        title={commTooltip ?? "pool unreachable — comm error"}
+      >
+        ⚡
+      </span>
+    );
+  }
+
+  // Reclaim-pending overlay (flap-band #70): the job's lease lapsed and was
+  // re-queued (back in flight). NEUTRAL — a gray fill + ⟳ glyph, distinct from
+  // the red `unreachable` overlay above, so an expected platform teardown never
+  // flaps the service red. Resolved before unshipped/unsupported so it always
+  // shows, but AFTER `unreachable` (a known crash outranks an ambiguous reclaim).
+  if (pending) {
+    return (
+      <span
+        data-testid="depth-chip"
+        data-status="pending"
+        data-surface-state="pending"
+        className="inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums border border-[var(--text-muted)]/40 bg-[var(--text-muted)]/20 text-[var(--text-muted)]"
+        title={commTooltip ?? "re-queued — pending re-run"}
+      >
+        ⟳
+      </span>
+    );
+  }
+
   if (status === "unshipped") {
     return (
       <span

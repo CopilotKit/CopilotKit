@@ -65,6 +65,34 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { SERVICES } from "./railway-envs";
+import type { ServiceEntry } from "./railway-envs";
+
+/**
+ * Whether an entry is prod-promotable: it declares a prod environment whose
+ * probe is enabled (`probe` defaults to true when omitted). Operates on the
+ * passed entry (NOT the global SSOT) so `computeOptionTokens` can be exercised
+ * with an injected synthetic services map in tests.
+ *
+ * Recognizes the single canonical eligibility shape: the env-map schema used by
+ * `railway-envs.ts` (`SERVICES`), where per-env config lives under
+ * `environments.prod.probe`. This is the TS SSOT shape every current service
+ * (including the 12 starters) carries, and it is the ONLY shape the generator
+ * reads — the generator imports the TS SSOT, never the generated JSON.
+ *
+ * This predicate is equivalent to the workflow resolve step's
+ * `select(.probe.prod == true)`: that step runs against the EMITTED JSON whose
+ * flat `probe.prod` is derived solely from this same `environments.prod.probe`
+ * (see `emit-railway-envs-json.ts`). So an entry is promotable here iff resolve
+ * would accept it, keeping the dropdown and the resolve step in lockstep.
+ */
+function isProdPromotable(entry: Pick<ServiceEntry, "environments">): boolean {
+  // Env-map schema — environments.prod.probe (defaults true when omitted).
+  const envMapProd = entry.environments?.prod;
+  if (envMapProd) {
+    if ((envMapProd.probe ?? true) === true) return true;
+  }
+  return false;
+}
 
 /** Selecting this option aborts the promote run (rejected by resolve step). */
 export const SENTINEL = "__select_a_service__";
@@ -109,7 +137,7 @@ export function computeOptionTokens(
   services: typeof SERVICES = SERVICES,
 ): string[] {
   const promotable = Object.entries(services)
-    .filter(([, entry]) => entry.probe.prod === true)
+    .filter(([, entry]) => isProdPromotable(entry))
     .map(([name, entry]) => {
       const token = entry.dispatchName ?? name;
       // Fail loud (routes through the exit-3 render path) rather than emit a
@@ -176,7 +204,7 @@ export function computeOptionTokens(
     // chained `select`s in the opposite order).
     const matches = allEntries.filter(
       ([name, entry]) =>
-        entry.probe.prod === true &&
+        isProdPromotable(entry) &&
         (name === token || entry.dispatchName === token),
     );
     if (matches.length !== 1) {

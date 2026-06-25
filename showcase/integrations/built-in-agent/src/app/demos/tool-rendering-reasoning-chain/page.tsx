@@ -4,7 +4,7 @@
 //
 // Combines two patterns in a single cell:
 //   1. Reasoning tokens via a custom `reasoningMessage` slot — same
-//      approach as `agentic-chat-reasoning`.
+//      approach as `reasoning-custom`.
 //   2. Sequential tool calls rendered with:
 //        get_weather     → <WeatherCard />
 //        search_flights  → <FlightListCard />
@@ -15,10 +15,10 @@
 // using gpt-5.2 with `reasoning_effort: "low"`.
 
 import React from "react";
+import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
 import {
   CopilotKit,
   CopilotChat,
-  CopilotChatReasoningMessage,
   useRenderTool,
   useDefaultRenderTool,
   useConfigureSuggestions,
@@ -26,11 +26,10 @@ import {
 import { z } from "zod";
 import { ReasoningBlock } from "./reasoning-block";
 import { WeatherCard } from "./weather-card";
-import { FlightListCard, type Flight } from "./flight-list-card";
-import {
-  CustomCatchallRenderer,
-  type CatchallToolStatus,
-} from "./custom-catchall-renderer";
+import { FlightListCard } from "./flight-list-card";
+import type { Flight } from "./flight-list-card";
+import { CustomCatchallRenderer } from "./custom-catchall-renderer";
+import type { CatchallToolStatus } from "./custom-catchall-renderer";
 
 interface WeatherResult {
   city?: string;

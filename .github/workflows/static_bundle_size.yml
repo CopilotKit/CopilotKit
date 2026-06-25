@@ -3,7 +3,6 @@ name: static / bundle-size
 on:
   pull_request:
     paths-ignore:
-      - "docs/**"
       - "README.md"
       - "examples/**"
       - "showcase/**"

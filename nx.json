@@ -95,5 +95,6 @@
     }
   },
   "parallel": 14,
-  "defaultBase": "main"
+  "defaultBase": "main",
+  "analytics": false
 }

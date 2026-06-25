@@ -54,26 +54,14 @@ export function CopyButton({ text }: { text: string }) {
         }
       }}
       aria-label={label}
-      style={{
-        padding: "2px 8px",
-        fontSize: "10px",
-        lineHeight: 1.2,
-        border: "1px solid var(--border)",
-        borderRadius: "4px",
-        background: copied
-          ? "var(--accent-light)"
+      className={[
+        "shell-docs-radius-control cursor-pointer border border-[var(--border)] px-2 py-0.5 text-[10px] leading-[1.2] transition-colors",
+        copied
+          ? "bg-[var(--accent-light)] text-[var(--accent)]"
           : error
-            ? "var(--bg-elevated)"
-            : "var(--bg-surface)",
-        color: copied
-          ? "var(--accent)"
-          : error
-            ? "var(--text)"
-            : "var(--text-muted)",
-        cursor: "pointer",
-        fontFamily: "inherit",
-        transition: "background 120ms, color 120ms",
-      }}
+            ? "bg-[var(--bg-elevated)] text-[var(--text)]"
+            : "bg-[var(--bg-surface)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]",
+      ].join(" ")}
     >
       {label}
     </button>

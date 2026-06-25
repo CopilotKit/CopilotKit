@@ -14,6 +14,7 @@
 import { memo, useState, useEffect, useRef, useCallback } from "react";
 import type { CellContext } from "@/components/feature-grid";
 import type { CellModel, TestLevel } from "@/lib/cell-model";
+import type { PoolCommError } from "@/lib/live-status";
 import { DepthChip } from "@/components/depth-chip";
 import { Badge, FlashOnChange } from "@/components/badges";
 import type { BadgeTone } from "@/lib/live-status";
@@ -98,6 +99,29 @@ function TestBadge({
 }
 
 // ---------------------------------------------------------------------------
+// Pool comm-error tooltip (REQ-B)
+// ---------------------------------------------------------------------------
+
+/**
+ * Format the "couldn't reach the pool" tooltip for the unreachable chip,
+ * NAMING the `PoolCommErrorKind` and (when known) the worker so an operator
+ * can triage which pool member dropped. Falls back to the raw message when no
+ * structured detail is available.
+ */
+export function commErrorTooltip(err: PoolCommError): string {
+  const worker = err.workerId ? ` — worker ${err.workerId}` : "";
+  // A re-queued (reclaimed-pending) job is NOT an outage — the lease lapsed and
+  // the control-plane re-queued it (back in flight), which the sweep boundary
+  // cannot tell apart from an expected platform teardown. Phrase it neutrally
+  // (flap-band #70) so the tooltip doesn't read as "unreachable".
+  const lead =
+    err.kind === "worker-reclaimed-pending"
+      ? "re-queued (pending)"
+      : "pool unreachable";
+  return `${lead}: ${err.kind}${worker} — ${err.message}`;
+}
+
+// ---------------------------------------------------------------------------
 // Layer renderers
 // ---------------------------------------------------------------------------
 
@@ -173,6 +197,11 @@ function DepthLayer({ ctx, model }: { ctx: CellContext; model: CellModel }) {
           chipColor={model.chipColor}
           depth={model.achievedDepth}
           status="wired"
+          unreachable={model.surfaceState === "unreachable"}
+          pending={model.surfaceState === "pending"}
+          commTooltip={
+            model.commError ? commErrorTooltip(model.commError) : undefined
+          }
         />
       </button>
       {drilldownOpen && (
@@ -196,9 +225,12 @@ function HealthLayer({ model }: { model: CellModel }) {
       data-testid="health-layer"
       className="flex items-center justify-center gap-2.5"
     >
-      <TestBadge name="API" level={model.d3} />
-      <TestBadge name="RT" level={model.d4} />
-      <TestBadge name="CV" level={model.d5} />
+      {/* Legend-correct names: D3 = UI (frontend renders in a browser; the
+          "API" name belongs to the D2 agent badge), D4 = BE (chat/tools
+          round-trip). */}
+      <TestBadge name="UI" level={model.d3} />
+      <TestBadge name="BE" level={model.d4} />
+      <TestBadge name="1P" level={model.d5} />
       {/*
         D6 is the TOP of the verification ladder, so its badge must reflect the
         LADDER-GATED status (`model.d6Effective`), NOT the raw per-dimension
@@ -208,7 +240,7 @@ function HealthLayer({ model }: { model: CellModel }) {
             is genuinely FAILING — D3/D4 non-green or a mapped D5 red/amber):
             render a VISIBLE not-achieved indicator ("—", gray) — NOT the
             no-data "?" (which the real Badge hides → the badge would vanish).
-            The actual lower-rung failure is already shown by the CV/API/RT
+            The actual lower-rung failure is already shown by the 1P/API/BE
             badges.
           - NO-DATA (d6 does not exist, OR d6Effective null only because the
             ladder is unverified/no-data — e.g. empty live map → D5 mapped but
@@ -216,7 +248,7 @@ function HealthLayer({ model }: { model: CellModel }) {
             badge. A no-data ladder is NOT a failure, so it shows nothing.
           - LADDER INTACT (d6Effective non-null): pass d6Effective through so a
             genuine D6 red/amber/green renders per-dimension.
-        API/RT/CV stay per-dimension (diagnostic); only D6 is gated. See
+        API/BE/1P stay per-dimension (diagnostic); only D6 is gated. See
         `d6Effective` in cell-model.ts.
       */}
       {(() => {
@@ -361,6 +393,10 @@ function modelsEqual(a: CellModel, b: CellModel): boolean {
     a.achievedDepth === b.achievedDepth &&
     a.ceilingDepth === b.ceilingDepth &&
     a.chipColor === b.chipColor &&
+    a.surfaceState === b.surfaceState &&
+    a.commError?.kind === b.commError?.kind &&
+    a.commError?.workerId === b.commError?.workerId &&
+    a.commError?.message === b.commError?.message &&
     a.d6Effective === b.d6Effective &&
     a.isRegression === b.isRegression &&
     testLevelsEqual(a.d3, b.d3) &&
@@ -370,7 +406,13 @@ function modelsEqual(a: CellModel, b: CellModel): boolean {
   );
 }
 
-function arePropsEqual(
+/**
+ * Memo equality used by `UnifiedCell`. Exported for direct unit testing of the
+ * `directKeys` watch (a comm error landing solely on the aggregate `d6:<slug>`
+ * row must force a re-render even when the precomputed `model` reference is
+ * reused). Returns `true` to SKIP the re-render, `false` to re-render.
+ */
+export function arePropsEqual(
   prev: UnifiedCellProps,
   next: UnifiedCellProps,
 ): boolean {
@@ -398,6 +440,17 @@ function arePropsEqual(
     keyFor("e2e", slug, featureId),
     keyFor("chat", slug),
     keyFor("tools", slug),
+    // health:<slug> is a pool comm-error carrier (REQ-B) even though it does
+    // not feed the depth ladder — watch it so an incoming comm-error signal
+    // repaints the cell's unreachable overlay.
+    keyFor("health", slug),
+    // d6:<slug> is the integration-level AGGREGATE row. It does not feed the
+    // per-cell depth ladder (that reads `d6:<slug>/<featureType>`), but it IS
+    // a pool comm-error carrier (REQ-B): a worker-death comm error lands solely
+    // on the aggregate row, and `decodeCellCommError` in buildCellModel reads it
+    // to light the cell's "unreachable" overlay. Watch it here so that signal
+    // actually triggers a re-render — keep in sync with buildCellModel.
+    keyFor("d6", slug),
   ];
 
   // Add D5 + D6 sub-keys from CATALOG_TO_D5_KEY. D6 is per-cell (not the

@@ -5,9 +5,12 @@
     "---Getting Started---",
     "index",
     "quickstart",
+    "cli",
     "build-with-agents",
+    "---Concepts---",
     "---Basics---",
     "prebuilt-components",
+    "threads",
     "custom-look-and-feel",
     "programmatic-control",
     "inspector",
@@ -16,7 +19,6 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
-    "threads",
     "agent-app-context",
     "---Built-in Agent---",
     "server-tools",
@@ -24,11 +26,10 @@
     "model-selection",
     "advanced-configuration",
     "telemetry",
-    "---Backend---",
-    "copilot-runtime", "custom-agent", "ag-ui",
-    "---Premium Features---",
-    "...premium",
-    "---Troubleshooting---",
-    "...troubleshooting"
+    "---Runtime---",
+    "---Intelligence Platform---",
+    "---Deploy---",
+    "---Platforms---",
+    "---Other---"
   ]
 }

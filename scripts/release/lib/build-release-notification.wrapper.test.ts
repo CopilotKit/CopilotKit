@@ -151,6 +151,25 @@ describe("resolvePackageCountSafe", () => {
     expect(resolvePackageCountSafe("monorepo")).toBe(15);
   });
 
+  it("returns the real package count for the bot scope (bot + bot-ui + bot-store-redis + bot-store-postgres, drift guard)", () => {
+    expect(resolvePackageCountSafe("bot")).toBe(4);
+  });
+
+  it("returns the real package count for the bot-slack scope (drift guard)", () => {
+    expect(resolvePackageCountSafe("bot-slack")).toBe(1);
+  });
+
+  it("resolves a positive count for EVERY scope in release.config.json (anti-drift)", () => {
+    // Membership is read from the config at runtime, so a newly added scope
+    // can never silently render without a package count. If this fails for a
+    // future scope, that scope's package list is empty or the wrapper has
+    // drifted from release.config.json.
+    for (const [scope, cfg] of Object.entries(config.loadConfig().scopes)) {
+      expect(resolvePackageCountSafe(scope)).toBe(cfg.packages.length);
+      expect(resolvePackageCountSafe(scope)).toBeGreaterThan(0);
+    }
+  });
+
   it("swallows a getScopeConfig throw on a KNOWN scope → returns 0 AND emits ::warning::", () => {
     // Drive the catch branch (not the early return): stub getScopeConfig to
     // throw for a KNOWN scope (monorepo), simulating a corrupt/missing

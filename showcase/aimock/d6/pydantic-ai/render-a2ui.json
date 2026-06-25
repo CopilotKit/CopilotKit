@@ -7,6 +7,66 @@
   },
   "fixtures": [
     {
+      "_comment": "render_a2ui — auto-dashboard turn. The runtime issues a system-only request ('Generate a useful dashboard UI from the conversation so far.') with NO user message and render_a2ui in the tool list, so every userMessage fixture is skipped → strict 503. Anchored on the systemMessage substring + toolName:render_a2ui so it fires for exactly this turn and emits a KPI dashboard schema mirroring the 'KPI dashboard' pill below.",
+      "match": {
+        "systemMessage": "Generate a useful dashboard",
+        "toolName": "render_a2ui",
+        "context": "pydantic-ai"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_a2ui",
+            "arguments": {
+              "surfaceId": "declarative-surface",
+              "catalogId": "declarative-gen-ui-catalog",
+              "components": [
+                {
+                  "id": "root",
+                  "component": "Card",
+                  "title": "Dashboard",
+                  "subtitle": "Last 30 days",
+                  "child": "metrics-col"
+                },
+                {
+                  "id": "metrics-col",
+                  "component": "Column",
+                  "children": [
+                    "metric-revenue",
+                    "metric-signups",
+                    "metric-churn"
+                  ],
+                  "gap": 12
+                },
+                {
+                  "id": "metric-revenue",
+                  "component": "Metric",
+                  "label": "Revenue",
+                  "value": "$1.2M",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-signups",
+                  "component": "Metric",
+                  "label": "Signups",
+                  "value": "4,820",
+                  "trend": "up"
+                },
+                {
+                  "id": "metric-churn",
+                  "component": "Metric",
+                  "label": "Churn",
+                  "value": "2.1%",
+                  "trend": "down"
+                }
+              ],
+              "data": {}
+            }
+          }
+        ]
+      }
+    },
+    {
       "match": {
         "userMessage": "render the a2ui schema",
         "turnIndex": 0,

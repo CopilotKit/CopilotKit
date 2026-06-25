@@ -4,7 +4,11 @@ import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import type { CopilotRuntimeLike } from "../../core/runtime";
-import { isIntelligenceRuntime, resolveAgents } from "../../core/runtime";
+import {
+  isA2UIEnabled,
+  isIntelligenceRuntime,
+  resolveAgents,
+} from "../../core/runtime";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
 import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client";
 import { extractForwardableHeaders } from "../header-utils";
@@ -54,15 +58,44 @@ export function configureAgentForRequest(params: {
   request: Request;
   agentId: string;
   agent: AbstractAgent;
+  /**
+   * True when the React provider was given an A2UI catalog
+   * (`<CopilotKit a2ui={{ catalog }}>`), forwarded per-run. A catalog alone is
+   * enough to enable A2UI and inject the render tool — the developer no longer
+   * has to also set `a2ui.injectA2UITool` on the runtime.
+   */
+  providerA2UIHasCatalog?: boolean;
 }): void {
-  const { runtime, request, agentId } = params;
+  const { runtime, request, agentId, providerA2UIHasCatalog } = params;
   const agent = params.agent as MiddlewareCapableAgent;
 
-  if (runtime.a2ui) {
-    const { agents: targetAgents, ...a2uiOptions } = runtime.a2ui;
+  // A2UI is on when the runtime explicitly enables it, OR when the provider
+  // forwarded a catalog — but an explicit `enabled: false` always wins (we
+  // provide a quick default, never override a deeper opt-out).
+  const a2uiEnabledByCatalog =
+    !!providerA2UIHasCatalog && runtime.a2ui?.enabled !== false;
+
+  if (isA2UIEnabled(runtime.a2ui) || a2uiEnabledByCatalog) {
+    // `enabled` is a CopilotKit-level switch, not an A2UIMiddleware option —
+    // drop it (alongside the agent filter) before forwarding to the middleware.
+    const {
+      agents: targetAgents,
+      enabled: _enabled,
+      injectA2UITool,
+      ...a2uiOptions
+    } = runtime.a2ui ?? {};
     const shouldApply = !targetAgents || targetAgents.includes(agentId);
     if (shouldApply && typeof agent.use === "function") {
-      agent.use(new A2UIMiddleware(a2uiOptions));
+      agent.use(
+        new A2UIMiddleware({
+          ...a2uiOptions,
+          // Default render-tool injection on when a catalog is present and the
+          // developer hasn't set it explicitly. `??` means an explicit value
+          // (including `false`) is always respected.
+          injectA2UITool:
+            injectA2UITool ?? (providerA2UIHasCatalog ? true : undefined),
+        }),
+      );
     }
   }
 

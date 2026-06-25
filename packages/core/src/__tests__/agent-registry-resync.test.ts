@@ -23,7 +23,7 @@ describe("CopilotKitCore runtime re-sync", () => {
     if (originalFetch) {
       global.fetch = originalFetch;
     } else {
-      delete (global as typeof globalThis & { fetch?: typeof fetch }).fetch;
+      delete (global as { fetch?: typeof fetch }).fetch;
     }
     if (originalWindow === undefined) {
       delete (global as unknown as { window?: unknown }).window;

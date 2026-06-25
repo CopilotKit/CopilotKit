@@ -185,6 +185,52 @@ describe("createProbeLoader", () => {
     );
   });
 
+  it("includeKind SKIPS (not rejects) a config whose kind the predicate excludes", async () => {
+    // An HTTP family (smoke) + a browser family (e2e_smoke). The HTTP-only
+    // caller registers ONLY the smoke driver and scopes the loader to exclude
+    // browser kinds — the e2e_smoke YAML must be SKIPPED (loaded out), NOT
+    // surfaced as a `probes.reload.failed` (it would otherwise fail the
+    // no-driver-registered check against the HTTP-only registry).
+    await fs.writeFile(
+      path.join(dir, "smoke.yml"),
+      [
+        "kind: smoke",
+        "id: smoke-http",
+        'schedule: "*/5 * * * *"',
+        "targets: [{ key: 'smoke:http', url: 'https://x.example' }]",
+      ].join("\n"),
+      "utf-8",
+    );
+    await fs.writeFile(
+      path.join(dir, "e2e-smoke.yml"),
+      [
+        "kind: e2e_smoke",
+        "id: e2e-smoke-browser",
+        'schedule: "*/5 * * * *"',
+        "target: { key: 'e2e_smoke:browser', url: 'https://x.example' }",
+      ].join("\n"),
+      "utf-8",
+    );
+    const probeRegistry = createProbeRegistry();
+    probeRegistry.register(mkDriver("smoke"));
+    // NOTE: deliberately do NOT register an e2e_smoke driver — proving the
+    // skip happens BEFORE the driver-resolution check.
+    const bus = mkBus();
+    const loader = createProbeLoader(dir, {
+      probeRegistry,
+      discoveryRegistry: createDiscoveryRegistry(),
+      bus,
+      logger,
+      includeKind: (kind) => kind !== "e2e_smoke",
+    });
+    const configs = await loader.load();
+    expect(configs.map((c) => c.id)).toEqual(["smoke-http"]);
+    // Skipping must NOT produce a reload-failed event.
+    expect(bus.events.some((e) => e.event === "probes.reload.failed")).toBe(
+      false,
+    );
+  });
+
   it("rejects a config whose kind has no registered driver", async () => {
     await fs.writeFile(
       path.join(dir, "unregistered.yml"),
@@ -372,6 +418,7 @@ describe("createProbeLoader against the real shipped config set", () => {
     // (it does not enumerate), so stub sources matching the real names are
     // sufficient to exercise the load-time invariant without Railway/pnpm.
     discoveryRegistry.register(mkSource("railway-services"));
+    discoveryRegistry.register(mkSource("cross-env-pin-drift"));
     discoveryRegistry.register(mkSource("pnpm-packages"));
 
     const bus = mkBus();

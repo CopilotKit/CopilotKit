@@ -1,5 +1,11 @@
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { CopilotRuntime } from "../core/runtime";
+import type {
+  CopilotIntelligenceRuntimeLike,
+  CopilotRuntimeLike,
+} from "../core/runtime";
+import type { AgentRunner } from "../runner/agent-runner";
+import { CopilotKitIntelligence } from "../intelligence-platform";
 import { TranscriptionService } from "../transcription-service/transcription-service";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -13,6 +19,67 @@ class MockTranscriptionService extends TranscriptionService {
 
 describe("handleGetRuntimeInfo", () => {
   const mockRequest = new Request("https://example.com/info");
+  const inMemoryThreadEndpoints = {
+    list: true,
+    inspect: true,
+    mutations: false,
+    realtimeMetadata: false,
+  };
+  const createRunner = (supportsLocalThreadEndpoints = false) =>
+    ({
+      ...(supportsLocalThreadEndpoints
+        ? { ɵsupportsLocalThreadEndpoints: true }
+        : {}),
+      run: vi.fn(),
+      connect: vi.fn(),
+      isRunning: vi.fn(),
+      stop: vi.fn(),
+    }) as unknown as AgentRunner;
+  const createRuntimeLike = (
+    overrides: Partial<CopilotRuntimeLike>,
+  ): CopilotRuntimeLike =>
+    ({
+      agents: {},
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: createRunner(),
+      a2ui: undefined,
+      mcpApps: undefined,
+      openGenerativeUI: undefined,
+      mode: "sse",
+      debug: {
+        enabled: false,
+        events: false,
+        lifecycle: false,
+        verbose: false,
+      },
+      ...overrides,
+    }) as unknown as CopilotRuntimeLike;
+  const createIntelligenceRuntimeLike = (
+    overrides: Partial<CopilotIntelligenceRuntimeLike> = {},
+  ): CopilotIntelligenceRuntimeLike => ({
+    agents: {},
+    transcriptionService: undefined,
+    beforeRequestMiddleware: undefined,
+    afterRequestMiddleware: undefined,
+    runner: createRunner(),
+    a2ui: undefined,
+    mcpApps: undefined,
+    openGenerativeUI: undefined,
+    mode: "intelligence",
+    debug: { enabled: false, events: false, lifecycle: false, verbose: false },
+    intelligence: new CopilotKitIntelligence({
+      apiUrl: "https://runtime.example",
+      wsUrl: "wss://runtime.example",
+      apiKey: "test-key",
+    }),
+    identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
+    generateThreadNames: true,
+    lockTtlSeconds: 20,
+    lockHeartbeatIntervalSeconds: 15,
+    ...overrides,
+  });
 
   it("should return runtime info with audioFileTranscriptionEnabled=false when no transcription service", async () => {
     const runtime = new CopilotRuntime({
@@ -33,6 +100,7 @@ describe("handleGetRuntimeInfo", () => {
       agents: {},
       audioFileTranscriptionEnabled: false,
       mode: "sse",
+      threadEndpoints: inMemoryThreadEndpoints,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
@@ -59,6 +127,7 @@ describe("handleGetRuntimeInfo", () => {
       agents: {},
       audioFileTranscriptionEnabled: true,
       mode: "sse",
+      threadEndpoints: inMemoryThreadEndpoints,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
@@ -97,9 +166,94 @@ describe("handleGetRuntimeInfo", () => {
       },
       audioFileTranscriptionEnabled: true,
       mode: "sse",
+      threadEndpoints: inMemoryThreadEndpoints,
       a2uiEnabled: false,
       openGenerativeUIEnabled: false,
       telemetryDisabled: false,
+    });
+  });
+
+  it("detects local thread endpoints from the runner capability flag", async () => {
+    const runtime = createRuntimeLike({
+      runner: createRunner(true),
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: true,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.threadEndpoints).toEqual(inMemoryThreadEndpoints);
+  });
+
+  it("reports no thread endpoints when multi-route REST endpoints are disabled", async () => {
+    const runtime = createRuntimeLike({
+      runner: createRunner(true),
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: false,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.threadEndpoints).toEqual({
+      list: false,
+      inspect: false,
+      mutations: false,
+      realtimeMetadata: false,
+    });
+  });
+
+  it("does not advertise thread endpoints for a plain runner", async () => {
+    const runtime = createRuntimeLike({
+      runner: createRunner(false),
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: true,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.threadEndpoints).toEqual({
+      list: false,
+      inspect: false,
+      mutations: false,
+      realtimeMetadata: false,
+    });
+  });
+
+  it("reports all Intelligence thread endpoints when multi-route REST endpoints are enabled", async () => {
+    const runtime = createIntelligenceRuntimeLike();
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+      threadEndpointsEnabled: true,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.threadEndpoints).toEqual({
+      list: true,
+      inspect: true,
+      mutations: true,
+      realtimeMetadata: true,
+    });
+    expect(data.intelligence).toEqual({
+      wsUrl: "wss://runtime.example/client",
     });
   });
 
@@ -118,6 +272,62 @@ describe("handleGetRuntimeInfo", () => {
 
     const data = await response.json();
     expect(data.a2uiEnabled).toBe(true);
+    expect(data.a2ui).toEqual({ enabled: true });
+  });
+
+  it("should forward per-agent a2ui scoping in the a2ui info object", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      a2ui: { agents: ["agentic_chat", "tool_based_generative_ui"] },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.a2uiEnabled).toBe(true);
+    expect(data.a2ui).toEqual({
+      enabled: true,
+      agents: ["agentic_chat", "tool_based_generative_ui"],
+    });
+  });
+
+  it("should omit the a2ui info object when a2ui is not configured", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.a2uiEnabled).toBe(false);
+    expect(data.a2ui).toBeUndefined();
+  });
+
+  it("should return a2uiEnabled: false when a2ui is explicitly disabled", async () => {
+    const runtime = new CopilotRuntime({
+      agents: {},
+      a2ui: { enabled: false },
+    });
+
+    const response = await handleGetRuntimeInfo({
+      runtime,
+      request: mockRequest,
+    });
+
+    expect(response.status).toBe(200);
+
+    const data = await response.json();
+    expect(data.a2uiEnabled).toBe(false);
   });
 
   it("should include capabilities when agent implements getCapabilities", async () => {

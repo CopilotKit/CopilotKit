@@ -37,12 +37,26 @@
  * rate-limited so a heartbeat burst doesn't issue a delete sweep on every
  * single insert.
  *
- * SINGLE-WRITER ASSUMPTION: the rate-limit clock (`lastPruneAt`) and the
- * `knownOverCap` ring state are PER-PROCESS in-memory. They are correct for the
- * current single-writer harness. A future FLEET of writers against the SAME
- * collection would each prune independently (extra delete sweeps, no shared
- * rate-limit) — the planned multi-writer case needs an ELECTED pruner (or a
- * server-side TTL) rather than inheriting this per-process state silently.
+ * MULTI-WRITER (FLEET) SAFETY: the rate-limit clock (`lastPruneAt`) and the
+ * `knownOverCap` ring state are PER-PROCESS in-memory. The harness now runs as a
+ * FLEET — a control-plane plus N worker REPLICAS, each with its own pool + its
+ * own snapshot writer against the SAME `resource_snapshots` collection. Two
+ * problems arise from naively sharing the collection:
+ *   1. ATTRIBUTION — anonymous rows from N replicas interleave, so a post-wedge
+ *      query can't tell which replica's pool was nearing the cgroup ceiling.
+ *   2. PRUNE CONTENTION — N writers each pruning the GLOBALLY-oldest rows would
+ *      delete EACH OTHER's recent rows (a busy replica's history gets pruned by
+ *      an idle replica's sweep), and their per-process rate-limits don't
+ *      coordinate (extra sweeps).
+ * BOTH are solved by SCOPING each writer to its own `workerId` (see the
+ * constructor option): every row is STAMPED with `worker_id`, and the ring
+ * prune FILTERS to `worker_id = <this writer>` so each replica retains its own
+ * last `maxRows` independently and never deletes a peer's rows. The per-process
+ * rate-limit is then correct again because each writer prunes a disjoint row
+ * set. The legacy single-process `boot()` path passes no `workerId`; it stamps
+ * `worker_id` "" (the unset-text-field value PocketBase actually stores) and
+ * prunes the empty-scoped (i.e. legacy) partition, byte-for-byte identical to
+ * the pre-fleet behavior.
  */
 
 import type { ResourceGauges } from "./resource-gauges.js";
@@ -162,6 +176,17 @@ export interface ResourceSnapshotWriter {
 export interface ResourceSnapshotWriterOptions {
   pb: SnapshotPbClient;
   logger: SnapshotLogger;
+  /**
+   * Stable id of the writing replica — stamped onto every `worker_id` field and
+   * used to SCOPE the ring prune to this writer's own rows (so N fleet replicas
+   * against the SAME collection don't prune each other's history). MUST be the
+   * same id the worker stamps on `workers.worker_id` / `probe_jobs.claimed_by`
+   * (`worker-${HOSTNAME}`). OMITTED on the legacy single-process `boot()` path:
+   * rows are written with `worker_id` "" (PB's unset-text-field value) and the
+   * prune is scoped to the empty (legacy) partition, identical to the pre-fleet
+   * single-writer behavior.
+   */
+  workerId?: string;
   /** Ring cap; defaults to env RESOURCE_SNAPSHOT_MAX_ROWS or 5000. */
   maxRows?: number;
   /** Minimum ms between prune sweeps. Defaults to 5min. Tests pass 0 to force
@@ -207,6 +232,22 @@ export function createResourceSnapshotWriter(
   options: ResourceSnapshotWriterOptions,
 ): ResourceSnapshotWriter {
   const { pb, logger } = options;
+  // The replica id stamped on every row + the prune scope. Normalize an
+  // empty/whitespace id to undefined so a blank env collapses to the legacy
+  // null-partition behavior rather than a literal "" worker.
+  const workerId =
+    options.workerId && options.workerId.trim().length > 0
+      ? options.workerId.trim()
+      : undefined;
+  // PB filter that scopes the ring prune to THIS writer's own partition so N
+  // fleet replicas never prune each other's history. When no workerId is set
+  // (legacy boot path) scope to the rows with no worker stamp (`worker_id = ""`
+  // / null), keeping the single-writer behavior byte-for-byte. PB stores an
+  // unset text field as "", so the null partition is matched via `worker_id = ""`.
+  const pruneScopeFilter =
+    workerId !== undefined
+      ? `worker_id = ${JSON.stringify(workerId)}`
+      : `worker_id = "" || worker_id = null`;
   const maxRows = resolveMaxRows(options.maxRows);
   const pruneIntervalMs = options.pruneIntervalMs ?? DEFAULT_PRUNE_INTERVAL_MS;
   const escalationThreshold =
@@ -334,8 +375,13 @@ export function createResourceSnapshotWriter(
 
   async function prune(): Promise<void> {
     try {
-      // Cheapest possible "are we over cap?" probe: ask PB for the total.
+      // Cheapest possible "are we over cap?" probe: ask PB for the total IN
+      // THIS WRITER'S PARTITION. Scoping by worker_id is what makes the ring cap
+      // per-replica (each fleet replica retains its own last `maxRows`) and
+      // prevents a busy replica's history from being pruned by an idle peer's
+      // sweep (see the MULTI-WRITER note in the file header).
       const head = await pb.list(RESOURCE_SNAPSHOTS_COLLECTION, {
+        filter: pruneScopeFilter,
         perPage: 1,
         skipTotal: false,
       });
@@ -365,6 +411,9 @@ export function createResourceSnapshotWriter(
       const oldest = await pb.list<{ id: string; observed_at: string }>(
         RESOURCE_SNAPSHOTS_COLLECTION,
         {
+          // Scope to THIS writer's partition so we only ever delete our own
+          // oldest rows, never a peer replica's.
+          filter: pruneScopeFilter,
           sort: "observed_at", // oldest first
           page: 1,
           perPage: batch,
@@ -450,6 +499,14 @@ export function createResourceSnapshotWriter(
         await createWithTimeout({
           observed_at: gauges.ts,
           event,
+          // Per-replica attribution (migration 1779990000). "" on the legacy
+          // single-process boot() path (workerId omitted) so a query separates
+          // fleet-replica rows from the legacy partition. PB stores an unset text
+          // field as "" (not null), so "" matches both what PocketBase persists
+          // and the null-partition prune filter (`worker_id = ""`); this mirrors
+          // the codebase's unset-text-field convention (run-history `job_id ?? ""`,
+          // registration `current_job_id ?? ""`).
+          worker_id: workerId ?? "",
           pids_current: gaugeOrNull(gauges.cgroupPidsCurrent),
           pids_max: gaugeOrNull(gauges.cgroupPidsMax),
           threads: gaugeOrNull(gauges.treeThreadCount),

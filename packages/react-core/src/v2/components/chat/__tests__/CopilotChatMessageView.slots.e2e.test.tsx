@@ -2,6 +2,9 @@ import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { CopilotChatMessageView } from "../CopilotChatMessageView";
+import type { CopilotChatAssistantMessage } from "../CopilotChatAssistantMessage";
+import type { CopilotChatUserMessage } from "../CopilotChatUserMessage";
+import type { CopilotChatToolCallsViewProps } from "../CopilotChatToolCallsView";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
 
@@ -140,11 +143,16 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
   describe("2. Properties Slot Override", () => {
     describe("assistantMessage props", () => {
       it("should pass data-testid prop to assistantMessage", () => {
+        const assistantMessageProps: Partial<
+          React.ComponentProps<typeof CopilotChatAssistantMessage>
+        > & { "data-testid": string } = {
+          "data-testid": "assistant-with-testid",
+        };
         render(
           <TestWrapper>
             <CopilotChatMessageView
               messages={sampleMessages}
-              assistantMessage={{ "data-testid": "assistant-with-testid" }}
+              assistantMessage={assistantMessageProps}
             />
           </TestWrapper>,
         );
@@ -200,14 +208,15 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
       });
 
       it("should pass toolbarVisible prop to assistantMessage", () => {
+        const assistantMessageProps = {
+          toolbarVisible: true,
+          "data-testid": "toolbar-visible-test",
+        };
         render(
           <TestWrapper>
             <CopilotChatMessageView
               messages={sampleMessages}
-              assistantMessage={{
-                toolbarVisible: true,
-                "data-testid": "toolbar-visible-test",
-              }}
+              assistantMessage={assistantMessageProps}
             />
           </TestWrapper>,
         );
@@ -221,11 +230,14 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
     describe("userMessage props", () => {
       it("should pass data-testid prop to userMessage", () => {
+        const userMessageProps: Partial<
+          React.ComponentProps<typeof CopilotChatUserMessage>
+        > & { "data-testid": string } = { "data-testid": "user-with-testid" };
         render(
           <TestWrapper>
             <CopilotChatMessageView
               messages={sampleMessages}
-              userMessage={{ "data-testid": "user-with-testid" }}
+              userMessage={userMessageProps}
             />
           </TestWrapper>,
         );
@@ -256,12 +268,15 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
     describe("cursor props", () => {
       it("should pass data-testid prop to cursor", () => {
+        const cursorProps: Partial<React.HTMLAttributes<HTMLDivElement>> & {
+          "data-testid": string;
+        } = { "data-testid": "custom-cursor-testid" };
         render(
           <TestWrapper>
             <CopilotChatMessageView
               messages={sampleMessages}
               isRunning={true}
-              cursor={{ "data-testid": "custom-cursor-testid" }}
+              cursor={cursorProps}
             />
           </TestWrapper>,
         );
@@ -308,7 +323,9 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           <TestWrapper>
             <CopilotChatMessageView
               messages={sampleMessages}
-              assistantMessage={CustomAssistant}
+              assistantMessage={
+                CustomAssistant as typeof CopilotChatAssistantMessage
+              }
             />
           </TestWrapper>,
         );
@@ -333,7 +350,9 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
             <CopilotChatMessageView
               messages={sampleMessages}
               isRunning={true}
-              assistantMessage={CustomAssistant}
+              assistantMessage={
+                CustomAssistant as typeof CopilotChatAssistantMessage
+              }
             />
           </TestWrapper>,
         );
@@ -355,7 +374,9 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           <TestWrapper>
             <CopilotChatMessageView
               messages={sampleMessages}
-              assistantMessage={CustomAssistant}
+              assistantMessage={
+                CustomAssistant as typeof CopilotChatAssistantMessage
+              }
             />
           </TestWrapper>,
         );
@@ -378,7 +399,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           <TestWrapper>
             <CopilotChatMessageView
               messages={sampleMessages}
-              userMessage={CustomUser}
+              userMessage={CustomUser as typeof CopilotChatUserMessage}
             />
           </TestWrapper>,
         );
@@ -400,7 +421,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           <TestWrapper>
             <CopilotChatMessageView
               messages={sampleMessages}
-              userMessage={CustomUser}
+              userMessage={CustomUser as typeof CopilotChatUserMessage}
             />
           </TestWrapper>,
         );
@@ -413,7 +434,7 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
     describe("cursor custom component", () => {
       it("should render custom cursor component", () => {
-        const CustomCursor: React.FC<any> = () => (
+        const CustomCursor = () => (
           <span data-testid="custom-cursor" className="blinking">
             ▊
           </span>
@@ -446,17 +467,17 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
           <div data-testid="multi-user">Human: {message?.content}</div>
         );
 
-        const CustomCursor: React.FC<any> = () => (
-          <span data-testid="multi-cursor">...</span>
-        );
+        const CustomCursor = () => <span data-testid="multi-cursor">...</span>;
 
         render(
           <TestWrapper>
             <CopilotChatMessageView
               messages={sampleMessages}
               isRunning={true}
-              assistantMessage={CustomAssistant}
-              userMessage={CustomUser}
+              assistantMessage={
+                CustomAssistant as typeof CopilotChatAssistantMessage
+              }
+              userMessage={CustomUser as typeof CopilotChatUserMessage}
               cursor={CustomCursor}
             />
           </TestWrapper>,
@@ -672,9 +693,11 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
 
     describe("assistantMessage -> toolCallsView drill-down", () => {
       it("should allow customizing toolCallsView within assistantMessage", () => {
-        const CustomToolCallsView: React.FC<any> = ({ toolCalls }) => (
+        const CustomToolCallsView = ({
+          message,
+        }: CopilotChatToolCallsViewProps) => (
           <div data-testid="custom-tool-calls">
-            Tool Calls: {toolCalls?.length || 0}
+            Tool Calls: {message.toolCalls?.length || 0}
           </div>
         );
 
@@ -986,12 +1009,9 @@ describe("CopilotChatMessageView Slot System E2E Tests", () => {
       render(
         <TestWrapper>
           <CopilotChatMessageView messages={sampleMessages}>
-            {({ assistantMessage, userMessage }) => (
+            {({ messageElements }) => (
               <div data-testid="custom-message-layout">
-                <div className="messages-column">
-                  {assistantMessage}
-                  {userMessage}
-                </div>
+                <div className="messages-column">{messageElements}</div>
               </div>
             )}
           </CopilotChatMessageView>

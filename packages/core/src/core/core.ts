@@ -9,6 +9,7 @@ import type {
   RuntimeMode,
   RuntimeLicenseStatus,
   IntelligenceRuntimeInfo,
+  ThreadEndpointRuntimeInfo,
 } from "../types";
 import type {
   CopilotKitCoreAddAgentParams,
@@ -16,6 +17,7 @@ import type {
   CopilotKitCoreRegisterProxiedAgentResult,
 } from "./agent-registry";
 import { AgentRegistry } from "./agent-registry";
+import type { ScopedContext } from "./context-store";
 import { ContextStore } from "./context-store";
 import { SuggestionEngine } from "./suggestion-engine";
 import type {
@@ -39,7 +41,11 @@ export interface CopilotKitCoreConfig {
   runtimeTransport?: CopilotRuntimeTransport;
   /** Mapping from agent name to its `AbstractAgent` instance. For development only - production requires CopilotRuntime. */
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
-  /** Headers appended to every HTTP request made by `CopilotKitCore`. */
+  /**
+   * Headers sent with every runtime request and merged on top of each
+   * `HttpAgent`'s own headers (the core value wins on a key conflict). See
+   * `setHeaders`.
+   */
   headers?: Record<string, string>;
   /** Credentials mode for fetch requests (e.g., "include" for HTTP-only cookies). */
   credentials?: RequestCredentials;
@@ -306,7 +312,15 @@ export interface CopilotKitCoreFriendsAccess {
 
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
+  getContextForAgent(agentId?: string): Context[];
   getAgent(id: string): AbstractAgent | undefined;
+  /**
+   * Re-apply the current core headers to a single agent, merged on top of the
+   * headers the agent was constructed with. The single source of truth for
+   * header application; the run handler uses it so a run never clobbers
+   * per-agent headers (see #5635).
+   */
+  applyHeadersToAgent(agent: AbstractAgent): void;
 
   // References to delegate subsystems
   readonly suggestionEngine: {
@@ -319,6 +333,22 @@ export interface CopilotKitCoreFriendsAccess {
    * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
+}
+
+/**
+ * Normalize a header map to the internal invariant: a `Record<string, string>`
+ * with no `null`/`undefined` values. Entries whose value is `null`/`undefined`
+ * are dropped (this is how a header is cleared). Shared by the constructor and
+ * `setHeaders` so both write paths into `_headers` enforce the same invariant.
+ */
+function normalizeHeaders(
+  headers: Record<string, string | null | undefined>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers).filter(
+      (entry): entry is [string, string] => entry[1] != null,
+    ),
+  );
 }
 
 export class CopilotKitCore {
@@ -356,7 +386,7 @@ export class CopilotKitCore {
     suggestionsConfig = [],
     debug,
   }: CopilotKitCoreConfig) {
-    this._headers = headers;
+    this._headers = normalizeHeaders(headers);
     this._credentials = credentials;
     this._properties = properties;
     this._debug = debug;
@@ -514,7 +544,7 @@ export class CopilotKitCore {
   /**
    * Snapshot accessors
    */
-  get context(): Readonly<Record<string, Context>> {
+  get context(): Readonly<Record<string, ScopedContext>> {
     return this.contextStore.context;
   }
 
@@ -616,8 +646,20 @@ export class CopilotKitCore {
     return this.agentRegistry.intelligence;
   }
 
+  get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
+    return this.agentRegistry.threadEndpoints;
+  }
+
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
+  }
+
+  /**
+   * Agent ids the runtime applies A2UI to. `undefined` means A2UI applies to
+   * every agent (or is disabled — check `a2uiEnabled`).
+   */
+  get a2uiAgents(): string[] | undefined {
+    return this.agentRegistry.a2uiAgents;
   }
 
   get openGenerativeUIEnabled(): boolean {
@@ -635,8 +677,37 @@ export class CopilotKitCore {
   /**
    * Configuration updates
    */
-  setHeaders(headers: Record<string, string>): void {
-    this._headers = headers;
+  /**
+   * Replace the headers sent with every runtime request.
+   *
+   * This is an overwrite, not a merge — the supplied object becomes the
+   * complete header set. Entries whose value is `null` or `undefined` are
+   * dropped, which is how you clear a header (e.g. removing `Authorization`
+   * on logout) without leaving an empty-string value behind:
+   *
+   * ```ts
+   * copilotkit.setHeaders({
+   *   ...copilotkit.headers,
+   *   Authorization: token ? `Bearer ${token}` : null,
+   * });
+   * ```
+   *
+   * The resulting header set is also re-applied to every agent in the registry
+   * and `onHeadersChanged` subscribers are notified. These headers are merged
+   * ON TOP of the headers each `HttpAgent` was constructed with, so per-agent
+   * headers (e.g. an `Authorization` for a self-hosted backend) are preserved;
+   * on a key conflict the core-level value wins.
+   *
+   * Because the agent's construction-time headers form the merge baseline, this
+   * method can override a per-agent header but cannot REMOVE one: clearing a
+   * core key here only drops the core-level override, after which the agent's
+   * own value (if any) re-surfaces. To change a header an agent was constructed
+   * with, set it at the provider/core level instead of on the agent, or update
+   * it on the agent directly. The clear-on-logout pattern above is for
+   * core-level headers.
+   */
+  setHeaders(headers: Record<string, string | null | undefined>): void {
+    this._headers = normalizeHeaders(headers);
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
@@ -714,14 +785,42 @@ export class CopilotKitCore {
   }
 
   /**
-   * Context management (delegated to ContextStore)
+   * Re-apply the current headers to a single agent (delegated to
+   * AgentRegistry). Core headers are merged on top of the agent's own
+   * construction-time headers rather than replacing them, so headers
+   * configured directly on an `HttpAgent` (e.g. an `Authorization` for a
+   * self-hosted backend) survive header updates instead of being silently
+   * dropped (see #5635). On a key conflict the core-level value wins.
+   *
+   * The merge baseline is the agent's headers as captured the first time the
+   * agent is applied (at registration), so the way to change headers
+   * afterwards is `setHeaders` (which re-applies to every agent), not mutating
+   * `agent.headers` directly — a direct mutation is overwritten on the next
+   * re-apply.
    */
-  addContext(context: Context): string {
+  applyHeadersToAgent(agent: AbstractAgent): void {
+    this.agentRegistry.applyHeadersToAgent(agent);
+  }
+
+  /**
+   * Context management (delegated to ContextStore).
+   * Pass `agentIds` to restrict the entry to runs of specific agents;
+   * omit it for context every agent should receive.
+   */
+  addContext(context: ScopedContext): string {
     return this.contextStore.addContext(context);
   }
 
   removeContext(id: string): void {
     this.contextStore.removeContext(id);
+  }
+
+  /**
+   * Build the context array for a run of the given agent, dropping entries
+   * scoped to other agents and stripping the scoping metadata.
+   */
+  getContextForAgent(agentId?: string): Context[] {
+    return this.contextStore.getContextForAgent(agentId);
   }
 
   /**

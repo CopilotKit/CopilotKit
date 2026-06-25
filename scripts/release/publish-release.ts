@@ -16,7 +16,7 @@
  * Auth: Uses npm OIDC trusted publishers (id-token: write) via npx npm@11.
  * No NPM_TOKEN needed — NODE_AUTH_TOKEN must be empty to avoid blocking OIDC.
  *
- * Usage: tsx scripts/release/publish-release.ts --scope <monorepo|angular>
+ * Usage: tsx scripts/release/publish-release.ts --scope <scope from release.config.json>
  */
 
 import fs from "fs";
@@ -28,7 +28,9 @@ import {
   parseSemver,
 } from "./lib/versions.js";
 import { readReleaseDraft } from "./lib/notion.js";
-import { ROOT, getScopeConfig, type ReleaseScope } from "./lib/config.js";
+import { ROOT, getScopeConfig, loadConfig } from "./lib/config.js";
+import type { ReleaseScope } from "./lib/config.js";
+import { emitGithubOutputs } from "./lib/github-output.js";
 
 function run(cmd: string, args: string[], opts?: { cwd?: string }) {
   const result = spawnSync(cmd, args, {
@@ -71,7 +73,8 @@ function isGreaterVersion(next: string, current: string): boolean {
   return a.patch > b.patch;
 }
 
-const VALID_SCOPES = ["monorepo", "angular"];
+// Valid scopes come from release.config.json — the single source of truth.
+const VALID_SCOPES = Object.keys(loadConfig().scopes);
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -89,6 +92,18 @@ async function main() {
 
   const version = getCurrentVersion(scope);
   const scopeConfig = getScopeConfig(scope);
+
+  // Resolve packages before any version/registry safety checks so that a
+  // misconfigured scope fails with a clear "no packages" error instead of a
+  // misleading "not greater than published" one.
+  const packages = getPackagesForScope(scope);
+  if (packages.length === 0) {
+    console.error(
+      `No packages found for scope "${scope}" — refusing to emit a version for a publish that did nothing.`,
+    );
+    process.exit(1);
+  }
+
   console.log(`Scope: ${scope}`);
   console.log(`Publishing version: ${version}`);
 
@@ -156,7 +171,7 @@ async function main() {
   // Skips packages already published at this version (idempotent retries).
   console.log("\nPublishing packages...");
   let skipped = 0;
-  for (const p of getPackagesForScope(scope)) {
+  for (const p of packages) {
     const pubVersion = getPublishedVersion(p.name);
     if (pubVersion === version) {
       console.log(`  Skipping ${p.name}@${version} (already published)`);
@@ -186,11 +201,7 @@ async function main() {
   }
 
   // Output version for downstream steps
-  const outputPath = process.env.GITHUB_OUTPUT;
-  if (outputPath) {
-    fs.appendFileSync(outputPath, `version=${version}\n`);
-    fs.appendFileSync(outputPath, `scope=${scope}\n`);
-  }
+  emitGithubOutputs({ version, scope });
 
   console.log(`\nRelease published: ${version} (${scope})`);
 }

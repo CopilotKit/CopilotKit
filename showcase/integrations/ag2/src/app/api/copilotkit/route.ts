@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -38,13 +40,26 @@ const sharedAgentNames = [
   "chat-customization-css",
   "headless-simple",
   "readonly-state-agent-context",
-  "reasoning-default-render",
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
   "frontend_tools",
   "frontend-tools-async",
   "hitl-in-app",
   "hitl-in-chat",
+];
+
+// Reasoning agent names — backed by the reasoning-enabled AG2 agent at
+// /reasoning. Emits AG-UI REASONING_MESSAGE_* events that the frontend
+// renders via the `reasoningMessage` slot (built-in card for
+// `reasoning-default`, custom amber ReasoningBlock for `reasoning-custom`).
+// The demo pages use the ids `reasoning-default` / `reasoning-custom`; both
+// share the one reasoning backend. `agentic-chat-reasoning` and
+// `reasoning-default-render` are legacy aliases kept for any cell that still
+// references them.
+const reasoningAgentNames = [
+  "reasoning-default",
+  "reasoning-custom",
+  "reasoning-default-render",
   "agentic-chat-reasoning",
 ];
 
@@ -69,6 +84,9 @@ const interruptAgentNames = ["gen-ui-interrupt", "interrupt-headless"];
 const agents: Record<string, AbstractAgent> = {};
 for (const name of sharedAgentNames) {
   agents[name] = createAgent();
+}
+for (const name of reasoningAgentNames) {
+  agents[name] = createAgent("/reasoning/");
 }
 for (const [name, path] of Object.entries(dedicatedAgents)) {
   agents[name] = createAgent(path);

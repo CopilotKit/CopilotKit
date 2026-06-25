@@ -10,8 +10,88 @@ import { SERVICES } from "../railway-envs";
 // import). If this import wrote the workflow, the suite would have side
 // effects on the real file — see the dedicated guard test below.
 import { computeOptionTokens, SENTINEL } from "../sync-promote-service-options";
+import type { ServiceEntry } from "../railway-envs";
 
 const SCRIPT = resolve(__dirname, "..", "sync-promote-service-options.ts");
+
+// The REAL, committed workflow file that GitHub validates the `service`
+// workflow_dispatch choice against server-side. `gh workflow run` is rejected
+// with HTTP 422 ("Provided value '<svc>' ... not in the list of allowed
+// values") whenever a chosen value is absent from THIS file on the default
+// branch — so the durable regression test below asserts against the committed
+// file, not just the in-memory generator output.
+const COMMITTED_WORKFLOW = resolve(
+  __dirname,
+  "..",
+  "..",
+  "..",
+  ".github",
+  "workflows",
+  "showcase_promote.yml",
+);
+
+/**
+ * The full set of services that MUST appear in the promote dropdown. This is
+ * the regression guard's allowlist: if a future generator change (or a botched
+ * SSOT edit) drops ANY of these, both the generator-output and committed-file
+ * assertions below fail LOUDLY in CI.
+ *
+ * `shell-docs` is called out by name on purpose: it is promoted regularly by a
+ * teammate, and the explicit worry is that a future pinning/generator
+ * regression must NEVER silently strip it from the dropdown. The 12 `starter-*`
+ * services are listed because they were historically OMITTED (the committed
+ * dropdown was never regenerated after they joined the SSOT), which caused the
+ * HTTP 422 rejection this regression test exists to prevent recurring.
+ */
+const REQUIRED_PROMOTE_TARGETS = [
+  // The teammate-critical target — guarded by name, never just by count.
+  "shell-docs",
+  // The 12 starter-* container fleet (the previously-omitted set).
+  "starter-adk",
+  "starter-agno",
+  "starter-crewai-crews",
+  "starter-langgraph-fastapi",
+  "starter-langgraph-js",
+  "starter-langgraph-python",
+  "starter-llamaindex",
+  "starter-mastra",
+  "starter-ms-agent-framework-dotnet",
+  "starter-ms-agent-framework-python",
+  "starter-pydantic-ai",
+  "starter-strands-python",
+] as const;
+
+/**
+ * Build a synthetic env-map `ServiceEntry` for computeOptionTokens tests.
+ * Only the fields the generator reads matter (`environments.prod.probe` +
+ * `dispatchName`); the rest are filler to satisfy the type. `slug` seeds the
+ * placeholder IDs/domains so each synthetic entry is internally distinct.
+ */
+function mkEntry(
+  slug: string,
+  opts: { dispatchName?: string; prodProbe?: boolean } = {},
+): ServiceEntry & { dispatchName?: string } {
+  const { dispatchName, prodProbe = true } = opts;
+  return {
+    serviceId: `s-${slug}`,
+    ciBuilt: true,
+    gateValidated: true,
+    probeDriver: "harness",
+    ...(dispatchName !== undefined ? { dispatchName } : {}),
+    environments: {
+      prod: {
+        instanceId: `p-${slug}`,
+        domain: `${slug}.prod`,
+        probe: prodProbe,
+      },
+      staging: {
+        instanceId: `st-${slug}`,
+        domain: `${slug}.staging`,
+        probe: true,
+      },
+    },
+  };
+}
 
 // The exact diagnostic fragments the generator emits for each marker-error
 // case. Tests assert against these specific strings (not a generic /marker/i)
@@ -64,39 +144,15 @@ function fixture(generatedBody: string): string {
 // proving the sort is by rendered token.
 const SYNTHETIC: typeof SERVICES = {
   // SSOT key "zeta" but renders as "alpha" via dispatchName → must sort FIRST.
-  zeta: {
-    serviceId: "s-zeta",
-    prodInstanceId: "p-zeta",
-    stagingInstanceId: "st-zeta",
-    ciBuilt: true,
-    gateValidated: true,
-    dispatchName: "alpha",
-    domains: { staging: "zeta.staging", prod: "zeta.prod" },
-    probe: { staging: true, prod: true, driver: "harness" },
-  },
+  zeta: mkEntry("zeta", { dispatchName: "alpha" }),
   // SSOT key "beta", no dispatchName → token falls back to the bare key
   // "beta", which sorts AFTER the rendered token "alpha" (from key "zeta").
-  beta: {
-    serviceId: "s-beta",
-    prodInstanceId: "p-beta",
-    stagingInstanceId: "st-beta",
-    ciBuilt: true,
-    gateValidated: true,
-    // no dispatchName → token falls back to the SSOT key "beta".
-    domains: { staging: "beta.staging", prod: "beta.prod" },
-    probe: { staging: true, prod: true, driver: "harness" },
-  },
+  beta: mkEntry("beta"),
   // prod:false → MUST be excluded from the dropdown entirely.
-  excluded: {
-    serviceId: "s-excl",
-    prodInstanceId: "p-excl",
-    stagingInstanceId: "st-excl",
-    ciBuilt: true,
-    gateValidated: true,
+  excluded: mkEntry("excl", {
     dispatchName: "aaa-would-sort-first",
-    domains: { staging: "excl.staging", prod: "excl.prod" },
-    probe: { staging: true, prod: false, driver: "harness" },
-  },
+    prodProbe: false,
+  }),
 };
 
 describe("computeOptionTokens (unit)", () => {
@@ -127,16 +183,8 @@ describe("computeOptionTokens (unit)", () => {
     // a colon + space) would, if interpolated raw, emit a malformed workflow
     // the pre-commit hook silently `git add`s. The generator must fail loud.
     const badMap: typeof SERVICES = {
-      gamma: {
-        serviceId: "s-gamma",
-        prodInstanceId: "p-gamma",
-        stagingInstanceId: "st-gamma",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "bad: token", // colon + space → NOT YAML-safe
-        domains: { staging: "g.staging", prod: "g.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
+      // colon + space → NOT YAML-safe
+      gamma: mkEntry("gamma", { dispatchName: "bad: token" }),
     };
     expect(() => computeOptionTokens(badMap)).toThrow(/not YAML-safe/);
     // The diagnostic names the offending token and its SSOT key.
@@ -154,27 +202,10 @@ describe("computeOptionTokens (unit)", () => {
     // catches it because token "dup" matches BOTH services (key "dup" by
     // name, key "dup-a" by dispatchName) → resolves to 2, not 1.
     const dupMap: typeof SERVICES = {
-      "dup-a": {
-        serviceId: "s-dupa",
-        prodInstanceId: "p-dupa",
-        stagingInstanceId: "st-dupa",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "dup",
-        domains: { staging: "dupa.staging", prod: "dupa.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
-      dup: {
-        serviceId: "s-dup",
-        prodInstanceId: "p-dup",
-        stagingInstanceId: "st-dup",
-        ciBuilt: true,
-        gateValidated: true,
-        // no dispatchName → renders as the bare key "dup", colliding with
-        // the dispatchName above.
-        domains: { staging: "dup.staging", prod: "dup.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
+      "dup-a": mkEntry("dupa", { dispatchName: "dup" }),
+      // no dispatchName → renders as the bare key "dup", colliding with the
+      // dispatchName above.
+      dup: mkEntry("dup"),
     };
     expect(() => computeOptionTokens(dupMap)).toThrow(/resolves to 2 services/);
     expect(() => computeOptionTokens(dupMap)).toThrow(/"dup"/);
@@ -192,26 +223,9 @@ describe("computeOptionTokens (unit)", () => {
     // un-promotable. The generator must fail loud, naming the ambiguous
     // token and both colliding service keys.
     const crossMap: typeof SERVICES = {
-      "svc-a": {
-        serviceId: "s-a",
-        prodInstanceId: "p-a",
-        stagingInstanceId: "st-a",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "foo", // renders token "foo"
-        domains: { staging: "a.staging", prod: "a.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
-      foo: {
-        serviceId: "s-foo",
-        prodInstanceId: "p-foo",
-        stagingInstanceId: "st-foo",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "bar", // renders token "bar" (DISTINCT from "foo")
-        domains: { staging: "foo.staging", prod: "foo.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
+      "svc-a": mkEntry("a", { dispatchName: "foo" }), // renders token "foo"
+      // renders token "bar" (DISTINCT from "foo")
+      foo: mkEntry("foo", { dispatchName: "bar" }),
     };
     // Token "foo" resolves to 2 services (svc-a by dispatchName, foo by name).
     expect(() => computeOptionTokens(crossMap)).toThrow(
@@ -237,27 +251,11 @@ describe("computeOptionTokens (unit)", () => {
     // services (X by dispatchName, Y by name) and THROW (false positive). With
     // the probe.prod restriction it resolves to exactly 1 (X) and must pass.
     const prodFilteredMap: typeof SERVICES = {
-      "svc-x": {
-        serviceId: "s-x",
-        prodInstanceId: "p-x",
-        stagingInstanceId: "st-x",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "shared", // renders + emits token "shared"
-        domains: { staging: "x.staging", prod: "x.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
-      shared: {
-        serviceId: "s-shared",
-        prodInstanceId: "p-shared",
-        stagingInstanceId: "st-shared",
-        ciBuilt: true,
-        gateValidated: true,
-        // name "shared" collides with X's emitted token, but probe.prod:false
-        // means the resolve step (and now the guard) filters it out.
-        domains: { staging: "shared.staging", prod: "shared.prod" },
-        probe: { staging: true, prod: false, driver: "harness" },
-      },
+      // renders + emits token "shared"
+      "svc-x": mkEntry("x", { dispatchName: "shared" }),
+      // name "shared" collides with X's emitted token, but probe.prod:false
+      // means the resolve step (and now the guard) filters it out.
+      shared: mkEntry("shared", { prodProbe: false }),
     };
     // The guard must NOT throw: X resolves uniquely once Y is excluded.
     expect(() => computeOptionTokens(prodFilteredMap)).not.toThrow();
@@ -273,16 +271,8 @@ describe("computeOptionTokens (unit)", () => {
     // option and masquerade as the reserved value the resolve step
     // special-cases. The generator must fail loud, naming the offender.
     const reservedCollisionMap: typeof SERVICES = {
-      delta: {
-        serviceId: "s-delta",
-        prodInstanceId: "p-delta",
-        stagingInstanceId: "st-delta",
-        ciBuilt: true,
-        gateValidated: true,
-        dispatchName: "all", // collides with the reserved "all" literal
-        domains: { staging: "d.staging", prod: "d.prod" },
-        probe: { staging: true, prod: true, driver: "harness" },
-      },
+      // collides with the reserved "all" literal
+      delta: mkEntry("delta", { dispatchName: "all" }),
     };
     expect(() => computeOptionTokens(reservedCollisionMap)).toThrow(
       /reserved literal/,
@@ -590,7 +580,10 @@ describe("sync-promote-service-options", () => {
       // an ambiguous match here either.
       const matches = Object.entries(SERVICES).filter(
         ([name, entry]) =>
-          entry.probe.prod === true &&
+          // Mirror the generator's isProdPromotable: declares a prod env
+          // whose probe is enabled (probe defaults to true when omitted).
+          entry.environments.prod !== undefined &&
+          (entry.environments.prod.probe ?? true) === true &&
           (name === token || entry.dispatchName === token),
       );
       // Exactly ONE service resolves from each generated token — no ambiguity,
@@ -623,5 +616,72 @@ describe("sync-promote-service-options", () => {
     expect(tokens[1]).toBe("all");
     expect(tokens.filter((t) => t === SENTINEL)).toHaveLength(1);
     expect(tokens.filter((t) => t === "all")).toHaveLength(1);
+  });
+});
+
+describe("promote dropdown regression guard (shell-docs + starters must stay listed)", () => {
+  // The whole set the dropdown must currently expose, computed from the SSOT.
+  // Used as the "no previously-listed target is dropped" oracle: every token
+  // the generator currently emits (minus the two reserved literals) MUST
+  // survive in both the generator output and the committed workflow file.
+  const expectedTokens = computeOptionTokens(SERVICES);
+  const expectedRealTargets = expectedTokens.filter(
+    (t) => t !== SENTINEL && t !== "all",
+  );
+
+  it("generator output contains shell-docs AND all 12 starters by name", () => {
+    const tokens = computeOptionTokens(SERVICES);
+    // Assert MEMBERSHIP by name (not just a count) so a regression that swaps
+    // one target for another is still caught.
+    for (const required of REQUIRED_PROMOTE_TARGETS) {
+      expect(
+        tokens,
+        `promote dropdown (generator output) must contain "${required}" — ` +
+          `it is a required promote target and must never be dropped`,
+      ).toContain(required);
+    }
+  });
+
+  it("the COMMITTED showcase_promote.yml choice list contains shell-docs AND all 12 starters", () => {
+    // This is the file GitHub validates the choice enum against server-side.
+    // If shell-docs or any starter is absent here, `gh workflow run
+    // showcase_promote.yml -f service=<svc>` is rejected with HTTP 422 even
+    // though the SSOT lists the service. Asserting the COMMITTED file (not
+    // just the in-memory generator output) is what makes this guard real:
+    // it fails if the dropdown is ever left un-regenerated after an SSOT change.
+    const doc = parseYaml(readFileSync(COMMITTED_WORKFLOW, "utf8"));
+    const options: string[] = doc.on.workflow_dispatch.inputs.service.options;
+
+    for (const required of REQUIRED_PROMOTE_TARGETS) {
+      expect(
+        options,
+        `committed showcase_promote.yml service dropdown must contain ` +
+          `"${required}" (GitHub validates the choice enum against this file; ` +
+          `a missing value yields HTTP 422 on dispatch)`,
+      ).toContain(required);
+    }
+  });
+
+  it("the committed dropdown is the EXACT union — drops no previously-listed target", () => {
+    // The committed file must equal the generator's full output, guaranteeing
+    // the fix is purely additive: every service the generator emits (the union
+    // of shell-docs, the starters, and every pre-existing target) is present,
+    // in order, with nothing removed.
+    const doc = parseYaml(readFileSync(COMMITTED_WORKFLOW, "utf8"));
+    const options: string[] = doc.on.workflow_dispatch.inputs.service.options;
+
+    // Nothing the generator currently emits may be missing from the committed
+    // file — this is the "never drop an existing target" invariant.
+    for (const target of expectedRealTargets) {
+      expect(
+        options,
+        `committed dropdown dropped previously-listed promote target ` +
+          `"${target}"`,
+      ).toContain(target);
+    }
+
+    // And the committed list is byte-for-byte the generator's output, so the
+    // dropdown can never silently drift from the SSOT in either direction.
+    expect(options).toEqual(expectedTokens);
   });
 });
