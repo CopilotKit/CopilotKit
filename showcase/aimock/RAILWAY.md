@@ -128,8 +128,8 @@ into the image:
 - `d6/` → `/fixtures/d6/` — per-slug fixtures for the D6 demos. The
   `showcase/aimock/d6/<slug>/` tree is the source of truth for these.
 
-The container loads these baked-in directories at boot (see the `--fixtures`
-flags in section 5). There are no remote fixture URLs and no boot-time fetch —
+The container loads these baked-in directories at boot (see the
+`--fixtures /fixtures` flag in section 5). There are no remote fixture URLs and no boot-time fetch —
 the old `d5-all.json` / `feature-parity.json` / remote-`smoke.json` bundles
 no longer exist (`d5-all.json` was a one-time migration source that was split
 into the per-slug `d6/` tree).

@@ -27,9 +27,11 @@ Most image-sourced Railway services have `source.autoUpdates.type = "minor"`
 (24 of the 40 services in the production environment as of this writing); the
 12 `starter-*` services and a handful of others (incl. `showcase-built-in-agent`,
 `harness-workers`, `showcase-ms-agent-harness-dotnet`, `webhooks`) currently
-have none. The `minor` services carry a `schedule` array covering all hours,
-every day (effectively immediate). When a new GHCR `:latest` digest is pushed,
-Railway auto-pulls and redeploys those services without manual intervention.
+have none. Most of the `minor` services carry no `source.autoUpdates.schedule`
+at all, so updates apply immediately whenever a new digest lands; only `aimock`
+carries a `schedule` array (covering all hours, every day — operationally
+equivalent to no schedule). When a new GHCR `:latest` digest is pushed, Railway
+auto-pulls and redeploys those services without manual intervention.
 
 CI (`showcase_build.yml`, "Build & Push") still triggers an explicit
 `serviceInstanceRedeploy` (via `redeploy-env.ts`) after each GHCR push for

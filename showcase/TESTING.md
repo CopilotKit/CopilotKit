@@ -139,15 +139,20 @@ Tagline: what test surface exists per demo. PASS=covered, WARN=partial, FAIL=non
 
 | Demo                         | Manual QA               | Vitest Unit | Playwright E2E (smoke)  | Playwright E2E (interaction) | Per-Package E2E                                  | Aimock Fixtures                                              | CI Auto                                             |
 | ---------------------------- | ----------------------- | ----------- | ----------------------- | ---------------------------- | ------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------------- |
-| **Agentic Chat**             | PASS 20 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS weather card, background change, multi-turn | WARN `background`, `weather` matches                         | WARN validate only (no Playwright in CI by default) |
-| **Human in the Loop**        | PASS 20 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS step selector, approve/reject               | WARN `plan`/`steps`/`mars` matches (text only, no interrupt) | WARN validate only                                  |
-| **Tool Rendering**           | PASS 20 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS WeatherCard with stats grid                 | WARN `weather` match (tool call)                             | WARN validate only                                  |
-| **Gen UI (Tool-Based)**      | PASS 20 packages        | FAIL        | FAIL                    | FAIL                         | PASS sidebar, haiku card, pie/bar chart          | FAIL no haiku-specific fixture                               | WARN validate only                                  |
-| **Gen UI (Agent)**           | PASS 20 packages        | FAIL        | FAIL                    | FAIL                         | PASS task progress tracker, progress bar         | FAIL no gen-ui-agent fixture                                 | WARN validate only                                  |
-| **Shared State (Read)**      | PASS 20 packages        | FAIL        | FAIL                    | FAIL                         | PASS recipe card, sidebar, pipeline              | FAIL no shared-state fixture                                 | WARN validate only                                  |
-| **Shared State (Write)**     | PASS 20 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS pipeline, deal CRUD, agent state writes     | FAIL no shared-state fixture                                 | WARN validate only                                  |
-| **Shared State (Streaming)** | PASS 20 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS document editor, confirm/reject changes     | FAIL no streaming fixture                                    | WARN validate only                                  |
-| **Sub-Agents**               | PASS 20 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS travel planner, agent indicators, sections  | FAIL no subagent fixture                                     | WARN validate only                                  |
+| **Agentic Chat**             | PASS 19 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS weather card, background change, multi-turn | WARN `background`, `weather` matches                         | WARN validate only (no Playwright in CI by default) |
+| **Human in the Loop**        | PASS 19 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS step selector, approve/reject               | WARN `plan`/`steps`/`mars` matches (text only, no interrupt) | WARN validate only                                  |
+| **Tool Rendering**           | PASS 19 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS WeatherCard with stats grid                 | WARN `weather` match (tool call)                             | WARN validate only                                  |
+| **Gen UI (Tool-Based)**      | PASS 19 packages        | FAIL        | FAIL                    | FAIL                         | PASS sidebar, haiku card, pie/bar chart          | FAIL no haiku-specific fixture                               | WARN validate only                                  |
+| **Gen UI (Agent)**           | PASS 19 packages        | FAIL        | FAIL                    | FAIL                         | PASS task progress tracker, progress bar         | FAIL no gen-ui-agent fixture                                 | WARN validate only                                  |
+| **Shared State (Read)**      | PASS 19 packages        | FAIL        | FAIL                    | FAIL                         | PASS recipe card, sidebar, pipeline              | FAIL no shared-state fixture                                 | WARN validate only                                  |
+| **Shared State (Write)**     | PASS 19 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS pipeline, deal CRUD, agent state writes     | FAIL no shared-state fixture                                 | WARN validate only                                  |
+| **Shared State (Streaming)** | PASS 19 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS document editor, confirm/reject changes     | FAIL no streaming fixture                                    | WARN validate only                                  |
+| **Sub-Agents**               | PASS 19 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS travel planner, agent indicators, sections  | FAIL no subagent fixture                                     | WARN validate only                                  |
+
+> The Manual-QA column counts the **19 integration packages that ship a `qa/`
+> directory** — `ms-agent-harness-dotnet` ships no manual-QA checklists, so it
+> is excluded from these counts (the package count of 20 in Test Infrastructure
+> Locations still reflects all integration packages).
 
 ### Starter Hero Coverage
 
@@ -173,7 +178,7 @@ Tagline: what test surface exists per demo. PASS=covered, WARN=partial, FAIL=non
 - **Vitest unit**: `showcase/scripts/__tests__/*.test.ts` — registry/constraint/bundle/integration generators.
 - **Shared E2E**: `showcase/scripts/__tests__/e2e/` — `starter-e2e.spec.ts`, `demo-e2e.spec.ts`, `screenshots.spec.ts`.
 - **Per-package E2E**: `showcase/integrations/*/tests/e2e/` — ~33–41 demo/feature specs per package (e.g. `langgraph-python` 38; `ms-agent-harness-dotnet` only 9).
-- **Aimock fixtures**: `showcase/aimock/` — `shared/smoke.json`, `d4/<slug>/`, `d6/<slug>/`.
+- **Aimock fixtures**: `showcase/aimock/` — `shared/common.json`, `shared/smoke.json`, `d4/<slug>/`, `d6/<slug>/`.
 - **CI**: `.github/workflows/showcase_*.yml` (see Test-Gating Matrix below).
 
 ### Known coverage gaps
@@ -225,6 +230,6 @@ Practical consequence: a red CI run does not block merge. Reviewers must eyeball
 ## Footnotes
 
 - `test / unit` matrix is Node 20/22/24; the other workflows pin a single Node version each (22 most common).
-- Most workflows run on Depot runners (`depot-ubuntu-24.04-4`) — including `test / e2e / dojo`, `test / unit`, `test / e2e / legacy-v1`, `test / integration / docs`, `test / unit / python-sdk`, and `Showcase: Validate`.
+- Most workflows run on Depot runners (`depot-ubuntu-24.04-4`) — including `test / e2e / dojo`, `test / unit`, `test / e2e / legacy-v1`, `test / integration / docs`, `test / integration / runtime`, `test / unit / python-sdk`, and `Showcase: Validate`.
 - `test / smoke / starter` runs every 6h and validates Docker-build integrity of `examples/integrations/`.
 - `workflow_run` triggers fire after another workflow completes -- they do not gate the triggering PR, they run post-merge.
