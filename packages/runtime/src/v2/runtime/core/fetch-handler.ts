@@ -454,6 +454,7 @@ function validateHttpMethod(
     case "threads/messages":
     case "threads/events":
     case "threads/state":
+    case "memories/list":
     case "cpk-debug-events":
       if (method === "GET") return null;
       return jsonResponse({ error: "Method not allowed" }, 405, {
