@@ -122,6 +122,41 @@ export async function handleListMemories({
 }
 
 /**
+ * Mints memory-realtime join credentials (platform `POST
+ * /api/memories/subscribe`). Mirrors {@link handleSubscribeToThreads}: requires
+ * a `CopilotKitIntelligence` runtime and resolves the user with `identifyUser`
+ * (never a client-supplied id). Returns `{ joinToken, joinCode }` — memory needs
+ * the `joinCode` here (unlike threads, where it rides the thread-list response)
+ * because the client builds the `user_meta:memories:<joinCode>` channel topic
+ * from it.
+ */
+export async function handleSubscribeToMemories({
+  runtime,
+  request,
+}: MemoriesHandlerParams): Promise<Response> {
+  if (isIntelligenceRuntime(runtime)) {
+    try {
+      const user = await resolveIntelligenceUser({ runtime, request });
+      if (isHandlerResponse(user)) return user;
+
+      const credentials = await runtime.intelligence.ɵsubscribeToMemories({
+        userId: user.id,
+      });
+
+      return Response.json({
+        joinToken: credentials.joinToken,
+        joinCode: credentials.joinCode,
+      });
+    } catch (error) {
+      logger.error({ err: error }, "Error subscribing to memories");
+      return memoryErrorResponse(error, "Failed to subscribe to memories");
+    }
+  }
+
+  return errorResponse(MISSING_INTELLIGENCE_MESSAGE, 422);
+}
+
+/**
  * Creates a memory for the resolved user (platform `POST /api/memories`).
  * Identity comes from `identifyUser`, never the request body. Returns 201
  * with the stored memory (the client store applies it server-authoritatively).

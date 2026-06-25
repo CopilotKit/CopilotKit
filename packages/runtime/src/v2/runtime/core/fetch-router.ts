@@ -199,9 +199,22 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/list" };
   }
 
+  // /memories/subscribe (2 segments) — mint memory-realtime join credentials.
+  if (
+    len >= 2 &&
+    segments[len - 2] === "memories" &&
+    segments[len - 1] === "subscribe"
+  ) {
+    return { method: "memories/subscribe" };
+  }
+
   // /memories/:id (2 segments) — supersede (PATCH) or retire (DELETE).
   // Disambiguated by HTTP method in the handler.
-  if (len >= 2 && segments[len - 2] === "memories") {
+  if (
+    len >= 2 &&
+    segments[len - 2] === "memories" &&
+    segments[len - 1] !== "subscribe"
+  ) {
     const memoryId = safeDecodeURIComponent(segments[len - 1]!);
     if (!memoryId) return null;
     return { method: "memories/mutate", memoryId };

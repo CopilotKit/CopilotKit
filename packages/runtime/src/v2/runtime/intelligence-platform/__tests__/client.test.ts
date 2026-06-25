@@ -271,6 +271,26 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  describe("subscribeToMemories", () => {
+    it("sends POST with userId and returns the join token + code", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse({ joinToken: "jt-mem", joinCode: "jc-mem" }),
+      );
+
+      const result = await client.ɵsubscribeToMemories({
+        userId: "user-1",
+      });
+
+      expect(result).toEqual({ joinToken: "jt-mem", joinCode: "jc-mem" });
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories/subscribe");
+      expect(opts.method).toBe("POST");
+      expect(JSON.parse(opts.body)).toEqual({
+        userId: "user-1",
+      });
+    });
+  });
+
   describe("updateThread", () => {
     it("sends PATCH with userId, agentId, and updates in body", async () => {
       const thread = {

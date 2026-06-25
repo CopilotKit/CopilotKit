@@ -60,6 +60,7 @@ import {
 } from "../handlers/handle-threads";
 import {
   handleListMemories,
+  handleSubscribeToMemories,
   handleCreateMemory,
   handleUpdateMemory,
   handleRemoveMemory,
@@ -345,6 +346,8 @@ function dispatchRoute(
       return request.method.toUpperCase() === "POST"
         ? handleCreateMemory({ runtime, request })
         : handleListMemories({ runtime, request });
+    case "memories/subscribe":
+      return handleSubscribeToMemories({ runtime, request });
     case "memories/mutate":
       return request.method.toUpperCase() === "DELETE"
         ? handleRemoveMemory({ runtime, request, memoryId: route.memoryId })

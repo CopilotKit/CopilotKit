@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   handleListMemories,
+  handleSubscribeToMemories,
   handleCreateMemory,
   handleUpdateMemory,
   handleRemoveMemory,
@@ -340,6 +341,40 @@ describe("memory handlers", () => {
         kind: "topical",
         scope: "user",
       }),
+    });
+
+    expect(response.status).toBe(422);
+  });
+
+  it("subscribes to memories via identifyUser and returns joinToken + joinCode", async () => {
+    const intelligence = {
+      ɵsubscribeToMemories: vi
+        .fn()
+        .mockResolvedValue({ joinToken: "jt-1", joinCode: "jc-1" }),
+    };
+    const identifyUser = createIdentifyUser();
+    const runtime = createIntelligenceRuntime({ intelligence, identifyUser });
+    const request = jsonRequest("/memories/subscribe", "POST");
+
+    const response = await handleSubscribeToMemories({ runtime, request });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      joinToken: "jt-1",
+      joinCode: "jc-1",
+    });
+    expect(identifyUser).toHaveBeenCalledWith(request);
+    expect(intelligence.ɵsubscribeToMemories).toHaveBeenCalledWith({
+      userId: "user-1",
+    });
+  });
+
+  it("returns 422 for subscribe when intelligence is not configured", async () => {
+    const runtime = new CopilotRuntime({ agents: {} });
+
+    const response = await handleSubscribeToMemories({
+      runtime,
+      request: jsonRequest("/memories/subscribe", "POST"),
     });
 
     expect(response.status).toBe(422);

@@ -68,6 +68,11 @@ describe("fetch-router", () => {
       });
     });
 
+    it("matches POST /memories/subscribe (not memories/mutate)", () => {
+      const result = matchRoute("/api/copilotkit/memories/subscribe", basePath);
+      expect(result).toEqual({ method: "memories/subscribe" });
+    });
+
     it("matches POST /annotate", () => {
       const result = matchRoute("/api/copilotkit/annotate", basePath);
       expect(result).toEqual({ method: "annotate" });

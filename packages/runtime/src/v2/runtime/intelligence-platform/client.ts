@@ -228,6 +228,21 @@ export interface SubscribeToThreadsResponse {
   joinToken: string;
 }
 
+export interface SubscribeToMemoriesRequest {
+  userId: string;
+}
+
+/**
+ * Memory subscribe returns both the token and the join code, unlike threads
+ * (whose join code reaches the client via the thread-list response). Memory has
+ * no list-borne code, so the code is delivered here and used to build the
+ * `user_meta:memories:<joinCode>` channel topic.
+ */
+export interface SubscribeToMemoriesResponse {
+  joinToken: string;
+  joinCode: string;
+}
+
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
 
 export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
@@ -683,6 +698,26 @@ export class CopilotKitIntelligence {
     return this.#request<SubscribeToThreadsResponse>(
       "POST",
       "/api/threads/subscribe",
+      {
+        userId: params.userId,
+      },
+    );
+  }
+
+  /**
+   * Mint memory-realtime join credentials (platform `POST
+   * /api/memories/subscribe`). Returns both the single-use `joinToken` and the
+   * per-user `joinCode` the client needs to build the
+   * `user_meta:memories:<joinCode>` channel topic.
+   *
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async ɵsubscribeToMemories(
+    params: SubscribeToMemoriesRequest,
+  ): Promise<SubscribeToMemoriesResponse> {
+    return this.#request<SubscribeToMemoriesResponse>(
+      "POST",
+      "/api/memories/subscribe",
       {
         userId: params.userId,
       },
