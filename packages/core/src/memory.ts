@@ -30,6 +30,7 @@ import type { Reducer, Store } from "./utils/micro-redux";
 // `/api/copilotkit`), and the runtime maps `/memories` to the app-api's
 // `/api/memories` the same way it maps `/threads` -> `/api/threads`.
 const MEMORIES_PATH = "/memories";
+const MEMORIES_SUBSCRIBE_PATH = "/memories/subscribe";
 const REQUEST_TIMEOUT_MS = 15_000;
 
 /** Public, customer-facing memory kind vocabulary (single taxonomy, no mapping). */
@@ -407,6 +408,66 @@ function createMemoryFetchObservable(
   });
 }
 
+/**
+ * Fetches join credentials from the `/memories/subscribe` endpoint and maps
+ * the response to a success/failure action. Requires both `joinToken` and
+ * `joinCode` to be non-empty strings; throws otherwise so the `catchError`
+ * path emits `credentialsFailed`.
+ */
+function createMemoryCredentialsFetchObservable(
+  environment: MemoryEnvironment,
+  context: MemoryRuntimeContext,
+  sessionId: number,
+): Observable<
+  | ReturnType<typeof memoryRestEvents.credentialsSucceeded>
+  | ReturnType<typeof memoryRestEvents.credentialsFailed>
+> {
+  return defer(() =>
+    memoryFromFetch(`${context.runtimeUrl}${MEMORIES_SUBSCRIBE_PATH}`, {
+      selector: async (response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to fetch memory subscribe credentials: ${response.status}`);
+        }
+
+        return response.json() as Promise<{ joinToken: string; joinCode: string }>;
+      },
+      fetch: environment.fetch,
+      method: "POST",
+      headers: { ...context.headers, "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    }).pipe(
+      timeout({
+        first: REQUEST_TIMEOUT_MS,
+        with: () => {
+          throw new Error("Request timed out");
+        },
+      }),
+      map((data) => {
+        if (typeof data.joinToken !== "string" || data.joinToken.length === 0) {
+          throw new Error("missing joinToken");
+        }
+        if (typeof data.joinCode !== "string" || data.joinCode.length === 0) {
+          throw new Error("missing joinCode");
+        }
+
+        return memoryRestEvents.credentialsSucceeded({
+          sessionId,
+          joinToken: data.joinToken,
+          joinCode: data.joinCode,
+        });
+      }),
+      catchError((error) =>
+        of(
+          memoryRestEvents.credentialsFailed({
+            sessionId,
+            error: error instanceof Error ? error : new Error(String(error)),
+          }),
+        ),
+      ),
+    ),
+  );
+}
+
 type MemoryMutationAction =
   | ReturnType<typeof memoryDomainEvents.memoryUpserted>
   | ReturnType<typeof memoryDomainEvents.memoryInvalidated>
@@ -576,6 +637,50 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
       ),
   );
 
+  const credentialsBootstrapEffect = createEffect(
+    (actions$, state$: Observable<MemoryState>) =>
+      actions$.pipe(
+        ofType(memoryAdapterEvents.contextChanged),
+        withLatestFrom(state$),
+        filter(([, state]) => Boolean(state.context)),
+        map(([, state]) =>
+          memoryRestEvents.credentialsRequested({ sessionId: state.sessionId }),
+        ),
+      ),
+  );
+
+  const credentialsFetchEffect = createEffect(
+    (actions$, state$: Observable<MemoryState>) =>
+      actions$.pipe(
+        ofType(memoryRestEvents.credentialsRequested),
+        switchMap((action) =>
+          state$.pipe(
+            map((state) => state.context),
+            filter((context): context is MemoryRuntimeContext =>
+              Boolean(context),
+            ),
+            take(1),
+            map((context) => ({ action, context })),
+            takeUntil(
+              actions$.pipe(
+                ofType(
+                  memoryAdapterEvents.contextChanged,
+                  memoryAdapterEvents.stopped,
+                ),
+              ),
+            ),
+            switchMap(({ action: currentAction, context }) =>
+              createMemoryCredentialsFetchObservable(
+                environment,
+                context,
+                currentAction.sessionId,
+              ),
+            ),
+          ),
+        ),
+      ),
+  );
+
   const fetchEffect = createEffect(
     (actions$, state$: Observable<MemoryState>) =>
       actions$.pipe(
@@ -679,7 +784,7 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
 
   const store = createStore<MemoryState>({
     reducer: memoryReducer,
-    effects: [bootstrapEffect, fetchEffect, mutationEffect, realtimeEffect],
+    effects: [bootstrapEffect, credentialsBootstrapEffect, fetchEffect, credentialsFetchEffect, mutationEffect, realtimeEffect],
   });
 
   function trackMutation<T>(

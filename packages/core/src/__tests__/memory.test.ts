@@ -364,6 +364,11 @@ describe("memory store REST snapshot", () => {
           ],
         }),
       })
+      // credentials subscribe POST fires concurrently with the initial list GET
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -398,7 +403,8 @@ describe("memory store REST snapshot", () => {
     // The promise must resolve only after the re-pull settles.
     await store.refresh();
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // 3 calls: initial list GET + credentials subscribe POST + refresh list GET
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(store.getState().memories.map((m) => m.id)).toEqual(["m1", "m2"]);
 
     store.stop();
@@ -424,6 +430,11 @@ describe("memory store REST snapshot", () => {
         ok: true,
         json: async () => ({ memories: [] }),
       })
+      // credentials subscribe POST fires concurrently with the initial list GET
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
       .mockResolvedValueOnce({ ok: false, status: 500 });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -442,7 +453,12 @@ describe("memory store REST snapshot", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
-      // Second pull never settles on its own: the store is stopped first.
+      // credentials subscribe POST fires concurrently with the initial list GET
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      // Second list pull never settles on its own: the store is stopped first.
       .mockImplementationOnce(() => new Promise(() => undefined));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -487,6 +503,10 @@ describe("memory store mutations", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ ...userMemory("m1", "hi"), absorbed: false }),
       });
     const store = await connectedStore(fetchMock);
@@ -509,14 +529,18 @@ describe("memory store mutations", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ ...userMemory("m1", "hi"), absorbed: false }),
       });
     const store = await connectedStore(fetchMock);
 
     await store.addMemory({ content: "hi", kind: "topical" });
 
-    const init = fetchMock.mock.calls[1]?.[1] as { body: string };
-    const body = JSON.parse(init.body);
+    const lastCall = fetchMock.mock.calls.at(-1) as [string, { body: string }];
+    const body = JSON.parse(lastCall[1].body);
     expect(body).not.toHaveProperty("scope");
     expect(body).toMatchObject({
       content: "hi",
@@ -533,14 +557,18 @@ describe("memory store mutations", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ ...userMemory("m1", "hi"), absorbed: false }),
       });
     const store = await connectedStore(fetchMock);
 
     await store.addMemory({ content: "hi", kind: "topical", scope: "user" });
 
-    const init = fetchMock.mock.calls[1]?.[1] as { body: string };
-    const body = JSON.parse(init.body);
+    const lastCall = fetchMock.mock.calls.at(-1) as [string, { body: string }];
+    const body = JSON.parse(lastCall[1].body);
     expect(body.scope).toBe("user");
 
     store.stop();
@@ -552,6 +580,10 @@ describe("memory store mutations", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ memories: [userMemory("m1")] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
       })
       .mockResolvedValueOnce({ ok: true });
     const store = await connectedStore(fetchMock);
@@ -574,6 +606,10 @@ describe("memory store mutations", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ memories: [userMemory("m1", "old")] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -600,6 +636,10 @@ describe("memory store mutations", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
       .mockResolvedValueOnce({ ok: false, status: 500 });
     const store = await connectedStore(fetchMock);
 
@@ -610,6 +650,29 @@ describe("memory store mutations", () => {
 
     store.stop();
   });
+});
+
+it("fetches memory subscribe credentials when context is set", async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValue({ ok: true, json: async () => ({ memories: [] }) })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+    });
+  vi.stubGlobal("fetch", fetchMock);
+  const store = createMemoryStore(memoryEnvironment(fetchMock));
+  store.start();
+  store.setContext(sampleContext);
+
+  await flushEffects();
+
+  expect(fetchMock).toHaveBeenCalledWith(
+    "https://runtime.example.com/memories/subscribe",
+    expect.objectContaining({ method: "POST" }),
+  );
+  store.stop();
 });
 
 it("setContext stores wsUrl alongside runtimeUrl", () => {
