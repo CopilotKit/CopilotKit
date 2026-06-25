@@ -9,8 +9,7 @@ import {
 import { z } from "zod";
 import { WeatherCard } from "./weather-card";
 import { StockCard } from "./stock-card";
-import { ChartCard } from "./chart-card";
-import type { ChartPoint } from "./chart-card";
+import { ChartCard, type ChartPoint } from "./chart-card";
 import { HighlightNote, highlightNotePropsSchema } from "./highlight-note";
 
 /**

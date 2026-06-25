@@ -14,8 +14,7 @@ import {
   bumpPackages,
   getPackagesForScope,
 } from "./lib/versions.js";
-import { loadConfig } from "./lib/config.js";
-import type { ReleaseScope } from "./lib/config.js";
+import { loadConfig, type ReleaseScope } from "./lib/config.js";
 
 // Valid scopes come from release.config.json — the single source of truth.
 const VALID_SCOPES = Object.keys(loadConfig().scopes);

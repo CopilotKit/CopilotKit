@@ -57,8 +57,8 @@ import {
   heartbeatParseable,
   isWorkerStale,
   deriveHealth,
+  type PoolCommError,
 } from "../contracts.js";
-import type { PoolCommError } from "../contracts.js";
 
 /**
  * Default staleness window: a worker whose `last_heartbeat_at` is older than

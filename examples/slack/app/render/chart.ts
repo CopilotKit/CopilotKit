@@ -31,7 +31,7 @@ export async function renderChart(
       const el = document.getElementById("c") as HTMLCanvasElement | null;
       if (!el) return "no canvas";
       const s = spec as { options?: Record<string, unknown> };
-      s.options = { ...s.options, animation: false, responsive: false };
+      s.options = { ...(s.options ?? {}), animation: false, responsive: false };
       try {
         // @ts-expect-error Chart is injected by the CDN script
         new Chart(el.getContext("2d"), s);

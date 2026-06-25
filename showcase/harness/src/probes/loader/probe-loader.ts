@@ -1,12 +1,10 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import yaml from "js-yaml";
-import chokidar from "chokidar";
-import type { FSWatcher } from "chokidar";
+import chokidar, { type FSWatcher } from "chokidar";
 import type { Logger } from "../../types/index.js";
 import type { ProbeRegistry, DiscoveryRegistry } from "../types.js";
-import { ProbeConfigSchema } from "./schema.js";
-import type { ProbeConfig } from "./schema.js";
+import { ProbeConfigSchema, type ProbeConfig } from "./schema.js";
 
 /**
  * Minimal emitter shape used by probe-loader to surface reload errors.
@@ -191,7 +189,7 @@ export function createProbeLoader(
         if (!base.includes(".")) return false;
         return true;
       },
-      ...watcherOptionsOverride,
+      ...(watcherOptionsOverride ?? {}),
     });
     let timer: NodeJS.Timeout | null = null;
     // Monotonic reload sequence — a slow parse followed by a fast re-edit

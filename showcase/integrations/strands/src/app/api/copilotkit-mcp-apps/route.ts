@@ -15,8 +15,7 @@
 // Reference (langgraph-python sibling):
 // showcase/integrations/langgraph-python/src/app/api/copilotkit-mcp-apps/route.ts
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,

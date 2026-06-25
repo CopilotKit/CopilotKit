@@ -15,8 +15,7 @@
 // Reference:
 // https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,

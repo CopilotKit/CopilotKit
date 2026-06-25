@@ -18,8 +18,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { createElement } from "react";
-import type { ReactNode } from "react";
+import { createElement, type ReactNode } from "react";
 
 vi.mock("../lib/ops-api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/ops-api")>();
@@ -27,17 +26,17 @@ vi.mock("../lib/ops-api", async (importOriginal) => {
 });
 
 import * as opsApi from "../lib/ops-api";
-import { OpsApiHttpError } from "../lib/ops-api";
-import type {
-  WorkerRunsResponse,
-  WorkerFamilySummary,
-  WorkerRunBatch,
+import {
+  OpsApiHttpError,
+  type WorkerRunsResponse,
+  type WorkerFamilySummary,
+  type WorkerRunBatch,
 } from "../lib/ops-api";
 import {
   EXPECT_WORKER_RUNS_ENDPOINT,
   useWorkerRunsPoll,
+  type WorkerRunsStatus,
 } from "./use-worker-runs";
-import type { WorkerRunsStatus } from "./use-worker-runs";
 import {
   WorkerRunsProvider,
   useWorkerRuns,

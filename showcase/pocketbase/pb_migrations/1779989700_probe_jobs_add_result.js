@@ -40,7 +40,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("probe_jobs");
-    } catch {
+    } catch (e) {
       // Base collection not present yet (S0 create runs first, lower prefix).
       // No-op rather than a hard failure.
       return;
@@ -96,7 +96,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("probe_jobs");
-    } catch {
+    } catch (e) {
       return;
     }
     let changed = false;

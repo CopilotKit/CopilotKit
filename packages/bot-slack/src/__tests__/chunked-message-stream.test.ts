@@ -211,7 +211,7 @@ describe("ChunkedMessageStream", () => {
     // The text of each subsequent message (after applying our manual mrkdwn-free transform here)
     // is checked via slack.updates. Examine the SECOND chunk's last text:
     const lastForSecondTs = [...slack.updates]
-      .toReversed()
+      .reverse()
       .find((u) => u.ts === "2.0");
     expect(lastForSecondTs?.text.startsWith("```python\n")).toBe(true);
   });
@@ -227,7 +227,7 @@ describe("ChunkedMessageStream", () => {
     s.append(fullText);
     await s.finish();
     expect(slack.posts.length).toBeGreaterThan(1);
-    const second = [...slack.updates].toReversed().find((u) => u.ts === "2.0");
+    const second = [...slack.updates].reverse().find((u) => u.ts === "2.0");
     expect(second?.text.startsWith("```\n")).toBe(true);
   });
 

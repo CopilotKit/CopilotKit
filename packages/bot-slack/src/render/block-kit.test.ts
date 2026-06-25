@@ -1,5 +1,10 @@
-import { Header, Message, Section, renderToIR } from "@copilotkit/bot-ui";
-import type { BotNode } from "@copilotkit/bot-ui";
+import {
+  Header,
+  Message,
+  Section,
+  renderToIR,
+  type BotNode,
+} from "@copilotkit/bot-ui";
 import { describe, expect, it } from "vitest";
 import { renderBlockKit, renderSlackMessage } from "./block-kit.js";
 

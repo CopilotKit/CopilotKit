@@ -23,15 +23,13 @@ import {
   fetchWorkerRunDetail,
   OpsApiHttpError,
   ThrottledError,
-} from "./ops-api";
-import type {
-  ProbesResponse,
-  TriggerResponse,
-  ProbeScheduleEntry,
-  ProbeRun,
-  WorkerRunsResponse,
-  WorkerRunHistoryResponse,
-  WorkerRunDetailResponse,
+  type ProbesResponse,
+  type TriggerResponse,
+  type ProbeScheduleEntry,
+  type ProbeRun,
+  type WorkerRunsResponse,
+  type WorkerRunHistoryResponse,
+  type WorkerRunDetailResponse,
 } from "./ops-api";
 
 type FetchInit = Parameters<typeof fetch>[1];

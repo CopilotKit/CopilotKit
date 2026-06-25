@@ -31,7 +31,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("probe_jobs");
-    } catch {
+    } catch (e) {
       // The base collection isn't present yet — nothing to extend. The S0
       // create migration runs first (lower unix prefix); if it somehow has
       // not, this is a no-op rather than a hard failure.
@@ -55,7 +55,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("probe_jobs");
-    } catch {
+    } catch (e) {
       return;
     }
     if (!c.schema.getFieldByName("payload")) {

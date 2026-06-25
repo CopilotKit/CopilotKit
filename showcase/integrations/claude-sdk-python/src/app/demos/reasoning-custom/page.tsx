@@ -2,8 +2,11 @@
 
 // @region[reasoning-block-render]
 import React from "react";
-import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  CopilotChatReasoningMessage,
+} from "@copilotkit/react-core/v2";
 import { ReasoningBlock } from "./reasoning-block";
 
 export default function AgenticChatReasoningDemo() {

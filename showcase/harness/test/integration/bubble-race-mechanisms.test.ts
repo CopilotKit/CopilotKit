@@ -1,6 +1,5 @@
 import { describe, it, expect, afterAll } from "vitest";
-import { chromium } from "playwright";
-import type { Browser } from "playwright";
+import { chromium, type Browser } from "playwright";
 import { countAssistantMessages } from "../../src/probes/helpers/assistant-message-count.js";
 import { installPrePaintFromEnv } from "../../src/probes/helpers/init-scripts.js";
 import { runBubbleRaceRepro } from "./bubble-race-repro.js";

@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { registerWorker } from "./registration.js";
-import type {
-  RegistrationPbClient,
-  RegistrationLogger,
-  WorkerPoolBudgetSource,
+import {
+  registerWorker,
+  type RegistrationPbClient,
+  type RegistrationLogger,
+  type WorkerPoolBudgetSource,
 } from "./registration.js";
 import { WORKERS_COLLECTION } from "../contracts.js";
 import type { BrowserPoolBudget } from "../../probes/helpers/browser-pool.js";
@@ -41,7 +41,7 @@ function makeFakePb(): {
       upserts.push({ collection, field, value, record });
       settled.push("upsert");
       // Merge over existing state (mirrors PB upsert semantics).
-      state = { ...state, [field]: value, ...record };
+      state = { ...(state ?? {}), [field]: value, ...record };
       return state as T;
     },
     async deleteByFilter(collection: string, filter: string): Promise<number> {
@@ -432,7 +432,7 @@ describe("registerWorker", () => {
         // AFTER the delete settles, modeling the PB write landing last.
         if (n > 1) await lateUpsertGate;
         settled.push("upsert");
-        state = { ...state, [field]: value, ...record };
+        state = { ...(state ?? {}), [field]: value, ...record };
         return state as T;
       },
       async deleteByFilter(): Promise<number> {

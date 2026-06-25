@@ -27,8 +27,11 @@
  * be indistinguishable from a genuine count.
  */
 
-import { WORKERS_COLLECTION, workerCapacityFromBudget } from "../contracts.js";
-import type { WorkerCapacity } from "../contracts.js";
+import {
+  WORKERS_COLLECTION,
+  workerCapacityFromBudget,
+  type WorkerCapacity,
+} from "../contracts.js";
 import type { BrowserPoolBudget } from "../../probes/helpers/browser-pool.js";
 
 /**

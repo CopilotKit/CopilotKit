@@ -11,8 +11,7 @@
 // `open-generative-ui` activity event the built-in renderer mounts inside a
 // sandboxed iframe.
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,

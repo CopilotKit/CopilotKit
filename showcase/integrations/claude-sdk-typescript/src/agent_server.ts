@@ -14,12 +14,10 @@
 console.log(`[agent_server] module loaded ${new Date().toISOString()}`);
 
 // @region[weather-tool-backend]
-import type { Request, Response } from "express";
-import express from "express";
+import express, { Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
-import type { RunAgentInput, Message } from "@ag-ui/core";
-import { EventType } from "@ag-ui/core";
+import { EventType, RunAgentInput, Message } from "@ag-ui/core";
 import * as dotenv from "dotenv";
 import { randomUUID } from "crypto";
 import { BYOC_JSON_RENDER_SYSTEM_PROMPT } from "./agent/byoc-json-render-prompt";
@@ -37,8 +35,8 @@ import {
   SUBAGENT_SYSTEM_BY_NAME,
   SUBAGENT_TOOL_SCHEMAS,
   SUPERVISOR_SYSTEM_PROMPT,
+  type SubAgentName,
 } from "./agent/subagents-prompts";
-import type { SubAgentName } from "./agent/subagents-prompts";
 import {
   A2UI_FIXED_SYSTEM_PROMPT,
   DISPLAY_FLIGHT_TOOL_SCHEMA,

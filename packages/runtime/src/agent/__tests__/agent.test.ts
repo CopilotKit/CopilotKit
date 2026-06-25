@@ -1,14 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { EventType } from "@ag-ui/client";
-import type {
-  BaseEvent,
-  Interrupt,
-  ResumeEntry,
-  RunAgentInput,
+import {
+  EventType,
+  type BaseEvent,
+  type Interrupt,
+  type ResumeEntry,
+  type RunAgentInput,
 } from "@ag-ui/client";
 import { z } from "zod";
 import {
   BuiltInAgent,
+  type AgentFactoryContext,
+  type BuiltInAgentFactoryConfig,
   createDefaultInput,
   createAgent,
   createThrowingAgent,
@@ -26,12 +28,8 @@ import {
   tanstackToolCallEnd,
   tanstackApprovalRequested,
   aisdkToolApprovalRequest,
-} from "./agent-test-helpers";
-import type {
-  AgentFactoryContext,
-  BuiltInAgentFactoryConfig,
-  AgentType,
-  MockStreamEvent,
+  type AgentType,
+  type MockStreamEvent,
 } from "./agent-test-helpers";
 
 // ---------------------------------------------------------------------------

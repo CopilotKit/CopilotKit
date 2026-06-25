@@ -269,7 +269,6 @@ export function createJobClaimClient(config: JobClaimConfig): JobClaimClient {
         `job-claim auth: unparseable response body (status ${res.status}): ${
           err instanceof Error ? err.message : String(err)
         }`,
-        { cause: err },
       );
     }
     if (typeof body.token !== "string" || body.token.length === 0) {

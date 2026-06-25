@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import type { SubAgentName } from "./delegation-log";
+import { SubAgentName } from "./delegation-log";
 
 // Compact sticky banner at the top of the chat panel that names the
 // currently-running sub-agent + task. Mirrors LGP's

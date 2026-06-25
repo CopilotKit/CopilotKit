@@ -8,8 +8,7 @@
 // The page at src/app/demos/multimodal/page.tsx points its `runtimeUrl` at
 // this endpoint and sets `agent="multimodal-demo"` (resolved below).
 
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,

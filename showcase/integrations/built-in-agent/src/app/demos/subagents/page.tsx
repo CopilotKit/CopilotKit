@@ -7,8 +7,10 @@ import {
 } from "@copilotkit/react-core/v2";
 
 import { DelegationLog } from "./delegation-log";
-import { SubAgentActivityCard } from "./subagent-activity-card";
-import type { SubAgentActivityCardProps } from "./subagent-activity-card";
+import {
+  SubAgentActivityCard,
+  type SubAgentActivityCardProps,
+} from "./subagent-activity-card";
 
 export default function Subagents() {
   return (

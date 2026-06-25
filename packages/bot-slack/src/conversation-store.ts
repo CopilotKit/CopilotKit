@@ -3,11 +3,11 @@ import type { HttpAgent } from "@ag-ui/client";
 import type { WebClient } from "@slack/web-api";
 import type { ConversationKey, ReplyTarget } from "./types.js";
 import { DM_SCOPE } from "./types.js";
-import { buildFileContentParts } from "./download-files.js";
-import type {
-  AgentContentPart,
-  FileDeliveryConfig,
-  SlackFileRef,
+import {
+  buildFileContentParts,
+  type AgentContentPart,
+  type FileDeliveryConfig,
+  type SlackFileRef,
 } from "./download-files.js";
 
 /**
@@ -145,7 +145,7 @@ export class SlackConversationStore {
           channel: key.channelId,
           limit: 100,
         });
-        const slackMsgs = ((r.messages ?? []) as RawSlackMsg[]).toReversed(); // oldest first
+        const slackMsgs = ((r.messages ?? []) as RawSlackMsg[]).reverse(); // oldest first
         return this.translate(slackMsgs);
       }
       const r = await this.client.conversations.replies({

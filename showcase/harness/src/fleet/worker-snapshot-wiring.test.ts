@@ -4,8 +4,8 @@ import { BrowserPool } from "../probes/helpers/browser-pool.js";
 import {
   createResourceSnapshotWriter,
   RESOURCE_SNAPSHOTS_COLLECTION,
+  type SnapshotPbClient,
 } from "../probes/helpers/resource-snapshot-writer.js";
-import type { SnapshotPbClient } from "../probes/helpers/resource-snapshot-writer.js";
 import type { Logger } from "../types/index.js";
 
 /**
