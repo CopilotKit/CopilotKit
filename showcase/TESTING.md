@@ -230,6 +230,6 @@ Practical consequence: a red CI run does not block merge. Reviewers must eyeball
 ## Footnotes
 
 - `test / unit` matrix is Node 20/22/24; the other workflows pin a single Node version each (22 most common).
-- Most workflows run on Depot runners (`depot-ubuntu-24.04-4`) — including `test / e2e / dojo`, `test / unit`, `test / e2e / legacy-v1`, `test / integration / docs`, `test / integration / runtime`, `test / unit / python-sdk`, and `Showcase: Validate`.
+- Ten workflows run on Depot runners. Nine use `depot-ubuntu-24.04-4`: `test / e2e / dojo`, `test / unit`, `test / e2e / legacy-v1`, `test / integration / docs`, `test / integration / runtime`, `test / unit / python-sdk`, `Showcase: Validate`, `Showcase: Build & Push`, and `Showcase: Build Check (PR)`. The tenth, `showcase / eval`, runs on the larger `depot-ubuntu-24.04-16`.
 - `test / smoke / starter` runs every 6h and validates Docker-build integrity of `examples/integrations/`.
 - `workflow_run` triggers fire after another workflow completes -- they do not gate the triggering PR, they run post-merge.
