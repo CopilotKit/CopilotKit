@@ -272,7 +272,7 @@ describe("CopilotKitIntelligence", () => {
   });
 
   describe("subscribeToMemories", () => {
-    it("sends POST with userId and returns the join token + code", async () => {
+    it("sends POST identifying the user via the x-cpki-user-id header and returns the join token + code", async () => {
       fetchMock.mockReturnValue(
         jsonResponse({ joinToken: "jt-mem", joinCode: "jc-mem" }),
       );
@@ -285,9 +285,10 @@ describe("CopilotKitIntelligence", () => {
       const [url, opts] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.example.com/api/memories/subscribe");
       expect(opts.method).toBe("POST");
-      expect(JSON.parse(opts.body)).toEqual({
-        userId: "user-1",
-      });
+      // The platform's memory routes resolve identity from the header, not the
+      // body — so no userId body, unlike ɵsubscribeToThreads.
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(opts.body).toBeUndefined();
     });
   });
 

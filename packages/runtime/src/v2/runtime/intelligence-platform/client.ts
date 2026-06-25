@@ -710,6 +710,12 @@ export class CopilotKitIntelligence {
    * per-user `joinCode` the client needs to build the
    * `user_meta:memories:<joinCode>` channel topic.
    *
+   * The user is supplied via the `x-cpki-user-id` header — the same way every
+   * other memory endpoint (`listMemories`/`createMemory`/…) identifies the app
+   * user — because the platform's memory routes resolve identity from that
+   * header, not the body. (This differs from `ɵsubscribeToThreads`, whose
+   * platform endpoint reads `userId` from the body.)
+   *
    * @throws {@link PlatformRequestError} on non-2xx responses.
    */
   async ɵsubscribeToMemories(
@@ -718,9 +724,8 @@ export class CopilotKitIntelligence {
     return this.#request<SubscribeToMemoriesResponse>(
       "POST",
       "/api/memories/subscribe",
-      {
-        userId: params.userId,
-      },
+      undefined,
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
     );
   }
 
