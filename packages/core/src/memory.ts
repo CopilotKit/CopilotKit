@@ -321,8 +321,13 @@ interface MemoryStore {
   start(): void;
   stop(): void;
   setContext(context: MemoryRuntimeContext | null): void;
-  /** Re-fetches the snapshot without clearing the current list. */
-  refresh(): void;
+  /**
+   * Re-fetches the REST snapshot without clearing the current list. Resolves
+   * once the re-pull settles (success or failure) for the current context, so
+   * callers (e.g. a `useMemories` `refresh()`) can await it. Resolves
+   * immediately when no context is set.
+   */
+  refresh(): Promise<void>;
   /** Creates a memory; resolves to the stored memory (server-authoritative). */
   addMemory(input: NewMemory): Promise<Memory>;
   /** Supersedes a memory; resolves to the new memory (its id changes). */
@@ -717,10 +722,25 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
     setContext(context: MemoryRuntimeContext | null): void {
       store.dispatch(memoryAdapterEvents.contextChanged({ context }));
     },
-    refresh(): void {
+    refresh(): Promise<void> {
       const { sessionId, context } = store.getState();
-      if (!context) return;
+      if (!context) return Promise.resolve();
+
+      // Resolve when the re-pulled snapshot settles for this session (success
+      // or failure), or if the store is stopped first. Subscribe before
+      // dispatching so the resulting list action can't slip past, mirroring
+      // trackMutation.
+      const completion$ = merge(
+        store.actions$.pipe(
+          ofType(memoryRestEvents.listSucceeded, memoryRestEvents.listFailed),
+          filter((action) => action.sessionId === sessionId),
+        ),
+        store.actions$.pipe(ofType(memoryAdapterEvents.stopped)),
+      ).pipe(take(1));
+
+      const done = firstValueFrom(completion$).then(() => undefined);
       store.dispatch(memoryRestEvents.listRequested({ sessionId }));
+      return done;
     },
     addMemory(input: NewMemory): Promise<Memory> {
       return trackMutation(

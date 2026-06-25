@@ -344,6 +344,77 @@ describe("memory store REST snapshot", () => {
 
     store.stop();
   });
+
+  it("refresh() re-pulls the snapshot and resolves once it settles", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          memories: [
+            {
+              id: "m1",
+              kind: "topical",
+              scope: "user",
+              content: "first",
+              sourceThreadIds: [],
+              invalidatedAt: null,
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          memories: [
+            {
+              id: "m1",
+              kind: "topical",
+              scope: "user",
+              content: "first",
+              sourceThreadIds: [],
+              invalidatedAt: null,
+            },
+            {
+              id: "m2",
+              kind: "topical",
+              scope: "user",
+              content: "second",
+              sourceThreadIds: [],
+              invalidatedAt: null,
+            },
+          ],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
+
+    // The promise must resolve only after the re-pull settles.
+    await store.refresh();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1", "m2"]);
+
+    store.stop();
+  });
+
+  it("refresh() resolves immediately when no context is set", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+
+    await expect(store.refresh()).resolves.toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    store.stop();
+  });
 });
 
 describe("memory store mutations", () => {
