@@ -58,6 +58,7 @@ import {
   handleGetThreadEvents,
   handleGetThreadState,
 } from "../handlers/handle-threads";
+import { handleListMemories } from "../handlers/handle-memories";
 import { handleAnnotate } from "../handlers/handle-user-actions";
 import {
   parseMethodCall,
@@ -335,6 +336,8 @@ function dispatchRoute(
       return Promise.resolve(handleClearThreads({ runtime, request }));
     case "threads/list":
       return handleListThreads({ runtime, request });
+    case "memories/list":
+      return handleListMemories({ runtime, request });
     case "threads/subscribe":
       return handleSubscribeToThreads({ runtime, request });
     case "threads/update":

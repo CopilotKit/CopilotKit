@@ -106,6 +106,44 @@ describe("CopilotKitIntelligence", () => {
     });
   });
 
+  describe("listMemories", () => {
+    it("sends GET /api/memories with the user in the x-cpki-user-id header", async () => {
+      const payload = {
+        memories: [
+          {
+            id: "m-1",
+            kind: "topical",
+            scope: "user",
+            content: "User's dog is called Pepe.",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+          },
+        ],
+      };
+      fetchMock.mockReturnValue(jsonResponse(payload));
+
+      const result = await client.listMemories({ userId: "user-1" });
+
+      expect(result).toEqual(payload);
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/memories");
+      expect(opts.method).toBe("GET");
+      // The platform scopes by header, not a query param.
+      expect(opts.headers["x-cpki-user-id"]).toBe("user-1");
+      expect(opts.headers.Authorization).toBe("Bearer test-key");
+    });
+
+    it("forwards includeInvalidated as a query param", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ memories: [] }));
+
+      await client.listMemories({ userId: "user-1", includeInvalidated: true });
+
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        "https://api.example.com/api/memories?includeInvalidated=true",
+      );
+    });
+  });
+
   describe("subscribeToThreads", () => {
     it("sends POST with userId and returns the join token", async () => {
       fetchMock.mockReturnValue(jsonResponse({ joinToken: "jt-subscribe" }));

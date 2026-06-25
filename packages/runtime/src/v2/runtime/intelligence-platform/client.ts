@@ -149,6 +149,30 @@ export interface ListThreadsResponse {
 }
 
 /**
+ * A single memory as returned by the platform's list endpoint. Mirrors the
+ * public projection the client memory store consumes (tenant ids stripped).
+ */
+export interface MemorySummary {
+  /** Platform-assigned unique identifier. */
+  id: string;
+  /** Memory kind, e.g. `"topical"`, `"episodic"`, `"operational"`. */
+  kind: string;
+  /** Memory scope: `"user"` (private) or `"project"` (shared). */
+  scope: string;
+  /** The remembered fact, preference, or procedure. */
+  content: string;
+  /** Ids of the threads this memory was learned from. */
+  sourceThreadIds: string[];
+  /** ISO-8601 timestamp when the memory was retired, or `null` if live. */
+  invalidatedAt: string | null;
+}
+
+/** Response from {@link CopilotKitIntelligence.listMemories}. */
+export interface ListMemoriesResponse {
+  memories: MemorySummary[];
+}
+
+/**
  * Fields that can be updated on a thread via {@link CopilotKitIntelligence.updateThread}.
  *
  * Additional platform-specific fields can be passed as extra keys and will be
@@ -459,12 +483,18 @@ export class CopilotKitIntelligence {
     return this.#enterpriseLearningEnabled;
   }
 
-  async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async #request<T>(
+    method: string,
+    path: string,
+    body?: unknown,
+    extraHeaders?: Record<string, string>,
+  ): Promise<T> {
     const url = `${this.#apiUrl}${path}`;
 
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.#apiKey}`,
       "Content-Type": "application/json",
+      ...extraHeaders,
     };
 
     const response = await fetch(url, {
@@ -540,6 +570,29 @@ export class CopilotKitIntelligence {
 
     const qs = new URLSearchParams(query).toString();
     return this.#request<ListThreadsResponse>("GET", `/api/threads?${qs}`);
+  }
+
+  /**
+   * List the given user's long-term memories, newest first.
+   *
+   * The platform scopes by the opaque app user supplied in the
+   * `x-cpki-user-id` header (resolved by the runtime via `identifyUser`),
+   * not a query param. Pass `includeInvalidated` to also return retired rows.
+   *
+   * @returns The `{ memories }` envelope the client memory store consumes.
+   * @throws {@link PlatformRequestError} on non-2xx responses.
+   */
+  async listMemories(params: {
+    userId: string;
+    includeInvalidated?: boolean;
+  }): Promise<ListMemoriesResponse> {
+    const qs = params.includeInvalidated ? "?includeInvalidated=true" : "";
+    return this.#request<ListMemoriesResponse>(
+      "GET",
+      `/api/memories${qs}`,
+      undefined,
+      { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
+    );
   }
 
   async ɵsubscribeToThreads(

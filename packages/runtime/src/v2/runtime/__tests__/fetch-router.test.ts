@@ -55,6 +55,11 @@ describe("fetch-router", () => {
       expect(result).toEqual({ method: "threads/list" });
     });
 
+    it("matches GET /memories", () => {
+      const result = matchRoute("/api/copilotkit/memories", basePath);
+      expect(result).toEqual({ method: "memories/list" });
+    });
+
     it("matches POST /annotate", () => {
       const result = matchRoute("/api/copilotkit/annotate", basePath);
       expect(result).toEqual({ method: "annotate" });

@@ -199,6 +199,11 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/list" };
   }
 
+  // /memories (1 segment) — list the resolved user's memories
+  if (len >= 1 && segments[len - 1] === "memories") {
+    return { method: "memories/list" };
+  }
+
   // /annotate (1 segment) — annotate a thread event
   if (len >= 1 && segments[len - 1] === "annotate") {
     return { method: "annotate" };
