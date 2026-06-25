@@ -1,6 +1,6 @@
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import type { Observable } from "rxjs";
-import { defer, firstValueFrom, merge, of } from "rxjs";
+import { defer, EMPTY, firstValueFrom, merge, of } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
   catchError,
@@ -31,6 +31,7 @@ import type { Reducer, Store } from "./utils/micro-redux";
 import {
   ɵphoenixChannel$,
   ɵphoenixSocket$,
+  ɵjoinPhoenixChannel$,
   ɵobservePhoenixEvent$,
   ɵobservePhoenixSocketHealth$,
   ɵobservePhoenixSocketSignals$,
@@ -859,7 +860,26 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
               map((event) => mapMemoryMetadataEvent(event, action.sessionId)),
             );
 
-            return metadata$.pipe(
+            // Drives the actual `channel.join()`. `ɵphoenixChannel$` only creates
+            // the channel + a lazy join-outcome stream; the join is sent when that
+            // stream is subscribed. Observing channel events (`metadata$`) alone
+            // does NOT subscribe it, so without this the socket connects but never
+            // joins `user_meta:memories:<code>` and no realtime deltas arrive. The
+            // thread store joins for the same reason (its merged `joinOutcome$`).
+            // Resolves (EMPTY) on a successful join and swallows a failed/timed-out
+            // join so a transient rejection doesn't tear down the metadata stream;
+            // Phoenix re-attempts the join on socket reconnect.
+            const join$ = ɵjoinPhoenixChannel$(channel$).pipe(
+              catchError((error) => {
+                console.warn(
+                  `[memory] failed to join user_meta:memories:${joinCode}`,
+                  error,
+                );
+                return EMPTY;
+              }),
+            );
+
+            return merge(metadata$, join$).pipe(
               takeUntil(merge(shutdown$, fatalSocketShutdown$)),
               finalize(() => {
                 // Socket/channel teardown is handled by the `finalize` operators

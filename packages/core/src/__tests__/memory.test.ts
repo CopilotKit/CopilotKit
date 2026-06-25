@@ -298,6 +298,13 @@ describe("memory store realtime", () => {
   it("delivers memory_metadata over its own user_meta:memories channel (no thread store)", async () => {
     const store = await connectedRealtimeStore();
 
+    // The store must actually JOIN the channel — `ɵphoenixChannel$` only creates
+    // it lazily; the join is sent when the join-outcome stream is subscribed.
+    // Observing channel events alone does not join, so without the socket
+    // effect's join driver the server would never push deltas. (Regression: the
+    // socket connected but never joined `user_meta:memories:<code>`.)
+    expect(memoryChannel().joinCount).toBeGreaterThan(0);
+
     memoryChannel().serverPush("memory_metadata", createdEvent("m1"));
     await flushEffects();
 

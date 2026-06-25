@@ -320,6 +320,8 @@ export class MockChannel {
   public topic: string;
   public params: Record<string, any>;
   public joinPayload: Record<string, any> | null = null;
+  /** Number of times `join()` was invoked — proves the consumer actually joined. */
+  public joinCount = 0;
   public pushLog: Array<{ event: string; payload: any; push: MockPush }> = [];
   public left = false;
 
@@ -360,6 +362,7 @@ export class MockChannel {
   }
 
   join(payload?: Record<string, any>): MockPush {
+    this.joinCount += 1;
     this.joinPayload = payload ?? null;
     return this.joinPush;
   }
