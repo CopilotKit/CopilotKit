@@ -263,12 +263,12 @@ export const openbox_resume_governed_action = tool(
 
 async function timeTool<T>(name: string, fn: () => Promise<T>): Promise<T> {
   const startedAt = Date.now();
-  console.info(`[openbox-demo] ${name} started`);
+  console.info(`[openbox-governed-copilotkit] ${name} started`);
   try {
     return await fn();
   } finally {
     console.info(
-      `[openbox-demo] ${name} finished in ${Date.now() - startedAt}ms`,
+      `[openbox-governed-copilotkit] ${name} finished in ${Date.now() - startedAt}ms`,
     );
   }
 }
