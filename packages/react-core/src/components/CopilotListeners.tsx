@@ -81,7 +81,12 @@ function CopilotListenersAgentSubscription() {
   // conditionally — that would violate the rules of hooks).
   const resolvedAgentId = useMemo(() => {
     const requested = configAgentId ?? DEFAULT_AGENT_ID;
-    if (copilotkit.getAgent(requested)) {
+    const registered = copilotkit.agents ?? {};
+    // Check the registry record directly rather than `copilotkit.getAgent()`:
+    // getAgent() logs `console.warn("Agent <id> not found")` on a post-sync
+    // miss, which is noisy for a valid setup where the default placeholder
+    // simply isn't a registered agent (#5533).
+    if (registered[requested]) {
       return requested;
     }
     // Requested agent isn't registered. If it's the default placeholder, bind
@@ -89,7 +94,7 @@ function CopilotListenersAgentSubscription() {
     // configured non-default id, leave it as-is so useAgent's provisional /
     // error handling applies as before.)
     if (requested === DEFAULT_AGENT_ID) {
-      const firstRegistered = Object.keys(copilotkit.agents ?? {})[0];
+      const firstRegistered = Object.keys(registered)[0];
       if (firstRegistered) {
         return firstRegistered;
       }
