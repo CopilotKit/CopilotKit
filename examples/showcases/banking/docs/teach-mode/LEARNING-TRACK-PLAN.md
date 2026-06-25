@@ -9,6 +9,7 @@
 > **Owner:** jerel@copilotkit.ai · **Date:** 2026-06-05 · **Status:** Draft for review
 >
 > **Repos in play (read both):**
+>
 > - **Banking demo (canonical, OSS):** `CopilotKit/examples/showcases/banking` — Next.js App
 >   Router, CopilotKit v2 hooks, `workspace:*` packages (react-core 1.59.2, **no recording
 >   hook**). This is where the gate/unlock/framing/UX live and verify today.
@@ -52,20 +53,20 @@ backend (FOR-147)**; then **pin the hook + swap the import (FOR-146)**; then the
 
 ## 1. The loop, end to end — concretely, against THIS demo
 
-The banking entities are: `transaction` (the gated write is *approve*), `expense-policy`
+The banking entities are: `transaction` (the gated write is _approve_), `expense-policy`
 (the limit that blocks it), `policy-exception` (the unlock record), and a
 `policy-exception-code` catalogue (justifying vs decoy vs invalid).
 
-| Step | What happens | THIS demo's concrete entities + file |
-|------|--------------|--------------------------------------|
-| **1. Agent A tries the obvious write** | A fresh agent is asked to approve an over-limit transaction. It calls the approve write. | The agent prompt in `src/app/api/copilotkit/[[...slug]]/route.ts` (`bankingAgent`) lists the tools but withholds the unlock recipe. The approve path is the `showAndApproveTransactions` HITL in `src/app/page.tsx` → `changeTransactionStatus` (`src/app/actions.ts`) → `PUT /api/v1/transactions/[id]`. |
-| **2. Gate fails, symptom-only** | The PUT returns **422 `OVER_POLICY_LIMIT`**, message `"<policy> policy limit exceeded"`. It names the *problem* (over limit), never the *fix* (policy exception). | `src/app/api/v1/transactions/[id]/route.ts` (the `patch.status === "approved" && !isWithinPolicyLimit && !hasApprovedException` branch). Rules in `src/lib/store.ts`: `isWithinPolicyLimit` / `hasApprovedException` / `canApprove`. Seed: `t-1` (Google Ads, −5000, Marketing limit 5000/spent 500) ⇒ over limit. |
-| **3. Agent stops (framing holds)** | Per the **ACTION DISCIPLINE** clause, the agent does not improvise. It reports the failure and asks the human how to proceed. It does NOT fire a distractor (`sendSpendAlert` / `requestCardReplacement` / `flagForReview`). | Prompt + distractor tools in the runtime route and `src/app/page.tsx` (the three `useFrontendTool` no-op distractors). This is the **control**: pre-learning, a correctly-framed agent cannot pass. |
-| **4. Human demonstrates the unlock** | A human opens a policy exception under a **justifying** code (e.g. `EXC-BOARD-APPROVED`), finalizes it (auto-approves + links `activeExceptionId`), then re-approves — now **201**. | Today: `PolicyExceptionModal` (`src/components/policy-exception-modal.tsx`) opened from the over-limit row in `src/components/transactions-list.tsx`. Catalogue: `src/app/api/v1/policy-exception-codes.ts` (`JUSTIFYING_EXCEPTION_CODES` = BOARD-APPROVED / CONTRACTUAL-COMMITMENT / EMERGENCY-SPEND; decoys = WILL-REIMBURSE / ONE-TIME). REST: `exceptions/route.ts` + `exceptions/[id]/finalize/route.ts`. **This plan moves that flow inline into the chat — see §3.2.** |
-| **5. Each mutation is recorded on the thread** | After `open()` and after `finalize()`, the UI calls `recordUserAction({title, description, previousData, newData, metadata})`. `previousData` carries the gated flags (`approvePermitted: false`); `newData` the unlocked effect (flipped flags + the linking exception id); `metadata` the `transactionId`. | Two existing calls in `policy-exception-modal.tsx` (`policy_exception.opened`, `policy_exception.finalized`) + two in `transactions-list.tsx` (`transaction.approved`, `transaction.denied`). The import is the no-op shim `@/lib/record-user-action` **today** — see Blocker 2a. |
-| **6. Events stream to the gateway** | With the real hook + Intelligence runtime, every AG-UI event of the run (including the recorded user actions) streams over the Phoenix WebSocket to the Intelligence gateway, scoped to the current user + thread. | The env-gated `CopilotKitIntelligence({apiUrl,wsUrl,apiKey})` branch of `createRuntime()` in the runtime route; `identifyUser` maps `properties.userRole` → a stable `northwind-<role>` id so threads + knowledge are scoped consistently. Reference: `cpk-intelligence-banking/demos/e-commerce/bff/.../main.ts`. |
-| **7. Distilled into `/knowledge`** | The `sl-worker` sweeps the recorded actions and an LLM writer distills a reusable procedure: *"to approve an over-policy-limit transaction, open a policy exception under a justifying code (board-approved / contractual / emergency), finalize it, then approve."* It lands in `/knowledge` (shared per org+project). | `apps/sl-worker` in the Intelligence repo (gated on `SL_ENABLED=true`); writes `cpki.knowledge_base_files` exposed to agents as `/knowledge`. |
-| **8. Agent B (fresh) learns + succeeds** | In a NEW thread with no memory of the human, the agent is asked the same over-limit approval. It greps `/knowledge` (via the `copilotkit_knowledge_base_shell` tool), discovers the procedure, files a *justifying* exception, finalizes it, approves → **201** — no human help, nothing added to the prompt. | Same `bankingAgent` prompt (still recipe-free) reading `/knowledge`. This is the **proof of learning** — see §5. |
+| Step                                           | What happens                                                                                                                                                                                                                                                                                                            | THIS demo's concrete entities + file                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **1. Agent A tries the obvious write**         | A fresh agent is asked to approve an over-limit transaction. It calls the approve write.                                                                                                                                                                                                                                | The agent prompt in `src/app/api/copilotkit/[[...slug]]/route.ts` (`bankingAgent`) lists the tools but withholds the unlock recipe. The approve path is the `showAndApproveTransactions` HITL in `src/app/page.tsx` → `changeTransactionStatus` (`src/app/actions.ts`) → `PUT /api/v1/transactions/[id]`.                                                                                                                                                                     |
+| **2. Gate fails, symptom-only**                | The PUT returns **422 `OVER_POLICY_LIMIT`**, message `"<policy> policy limit exceeded"`. It names the _problem_ (over limit), never the _fix_ (policy exception).                                                                                                                                                       | `src/app/api/v1/transactions/[id]/route.ts` (the `patch.status === "approved" && !isWithinPolicyLimit && !hasApprovedException` branch). Rules in `src/lib/store.ts`: `isWithinPolicyLimit` / `hasApprovedException` / `canApprove`. Seed: `t-1` (Google Ads, −5000, Marketing limit 5000/spent 500) ⇒ over limit.                                                                                                                                                            |
+| **3. Agent stops (framing holds)**             | Per the **ACTION DISCIPLINE** clause, the agent does not improvise. It reports the failure and asks the human how to proceed. It does NOT fire a distractor (`sendSpendAlert` / `requestCardReplacement` / `flagForReview`).                                                                                            | Prompt + distractor tools in the runtime route and `src/app/page.tsx` (the three `useFrontendTool` no-op distractors). This is the **control**: pre-learning, a correctly-framed agent cannot pass.                                                                                                                                                                                                                                                                           |
+| **4. Human demonstrates the unlock**           | A human opens a policy exception under a **justifying** code (e.g. `EXC-BOARD-APPROVED`), finalizes it (auto-approves + links `activeExceptionId`), then re-approves — now **201**.                                                                                                                                     | Today: `PolicyExceptionModal` (`src/components/policy-exception-modal.tsx`) opened from the over-limit row in `src/components/transactions-list.tsx`. Catalogue: `src/app/api/v1/policy-exception-codes.ts` (`JUSTIFYING_EXCEPTION_CODES` = BOARD-APPROVED / CONTRACTUAL-COMMITMENT / EMERGENCY-SPEND; decoys = WILL-REIMBURSE / ONE-TIME). REST: `exceptions/route.ts` + `exceptions/[id]/finalize/route.ts`. **This plan moves that flow inline into the chat — see §3.2.** |
+| **5. Each mutation is recorded on the thread** | After `open()` and after `finalize()`, the UI calls `recordUserAction({title, description, previousData, newData, metadata})`. `previousData` carries the gated flags (`approvePermitted: false`); `newData` the unlocked effect (flipped flags + the linking exception id); `metadata` the `transactionId`.            | Two existing calls in `policy-exception-modal.tsx` (`policy_exception.opened`, `policy_exception.finalized`) + two in `transactions-list.tsx` (`transaction.approved`, `transaction.denied`). The import is the no-op shim `@/lib/record-user-action` **today** — see Blocker 2a.                                                                                                                                                                                             |
+| **6. Events stream to the gateway**            | With the real hook + Intelligence runtime, every AG-UI event of the run (including the recorded user actions) streams over the Phoenix WebSocket to the Intelligence gateway, scoped to the current user + thread.                                                                                                      | The env-gated `CopilotKitIntelligence({apiUrl,wsUrl,apiKey})` branch of `createRuntime()` in the runtime route; `identifyUser` maps `properties.userRole` → a stable `northwind-<role>` id so threads + knowledge are scoped consistently. Reference: `cpk-intelligence-banking/demos/e-commerce/bff/.../main.ts`.                                                                                                                                                            |
+| **7. Distilled into `/knowledge`**             | The `sl-worker` sweeps the recorded actions and an LLM writer distills a reusable procedure: _"to approve an over-policy-limit transaction, open a policy exception under a justifying code (board-approved / contractual / emergency), finalize it, then approve."_ It lands in `/knowledge` (shared per org+project). | `apps/sl-worker` in the Intelligence repo (gated on `SL_ENABLED=true`); writes `cpki.knowledge_base_files` exposed to agents as `/knowledge`.                                                                                                                                                                                                                                                                                                                                 |
+| **8. Agent B (fresh) learns + succeeds**       | In a NEW thread with no memory of the human, the agent is asked the same over-limit approval. It greps `/knowledge` (via the `copilotkit_knowledge_base_shell` tool), discovers the procedure, files a _justifying_ exception, finalizes it, approves → **201** — no human help, nothing added to the prompt.           | Same `bankingAgent` prompt (still recipe-free) reading `/knowledge`. This is the **proof of learning** — see §5.                                                                                                                                                                                                                                                                                                                                                              |
 
 The contrast in step 5 (`previousData` gated flags vs `newData` unlocked flags) is the signal
 the distiller turns into the procedure — which is why the flag names must stay stable across
@@ -78,6 +79,7 @@ the distiller turns into the procedure — which is why the flag names must stay
 ### 2a. The recording hook (FOR-146) — pin the build, swap one import
 
 **Current state (verified).**
+
 - Banking demo `package.json` pins CopilotKit packages as `workspace:*`; the installed
   `@copilotkit/react-core` is **1.59.2**, whose `v2` hooks index exports
   `useFrontendTool` / `useHumanInTheLoop` / `useAgent` / `useThreads` / `useComponent` /
@@ -100,11 +102,11 @@ the distiller turns into the procedure — which is why the flag names must stay
      `e103a19` pins (at minimum `@copilotkit/react-core`, plus `@copilotkit/core`,
      `@copilotkit/runtime`, `@copilotkit/shared` to keep the runtime route's
      `CopilotKitIntelligence` / `BuiltInAgent` imports on the same line). Re-install.
-     *Cost:* the demo leaves the OSS monorepo `workspace:*` graph; lockfile churn. Best when
+     _Cost:_ the demo leaves the OSS monorepo `workspace:*` graph; lockfile churn. Best when
      the demo is being **vendored into the Intelligence repo** (where these pins already
      exist — see §6).
    - **(B) Land the recording hook into the OSS `react-core/v2` build** the demo's
-     `workspace:*` already resolves, then bump. *Cost:* a real OSS change; out of scope for
+     `workspace:*` already resolves, then bump. _Cost:_ a real OSS change; out of scope for
      this demo plan but the cleaner long-term home. Treat as a CopilotKit-core ticket.
 2. **The one-line import swap** at each of the **four** call sites. Change ONLY the import;
    every `recordUserAction({...})` body and the `UserActionRecord` type stay identical:
@@ -145,16 +147,16 @@ const intelligenceEnabled = Boolean(
 // missing → new CopilotRuntime({ agents:{default:bankingAgent}, runner: new InMemoryAgentRunner() })
 ```
 
-So no route code changes to *turn on* the backend — it is purely a deploy + env exercise.
+So no route code changes to _turn on_ the backend — it is purely a deploy + env exercise.
 What each var points at:
 
-| Env var | Points at | Local-dev value | Notes |
-|---------|-----------|-----------------|-------|
-| `INTELLIGENCE_API_URL` | `apps/app-api` HTTP — the `/knowledge` + threads + user_actions store | `http://localhost:7050` (`APP_API_PORT` default in `scripts/local-dev.sh`) | The durable backend the gateway writes to and `/knowledge` is read from. |
-| `INTELLIGENCE_GATEWAY_WS_URL` | `apps/realtime-gateway` Phoenix WebSocket — where AG-UI run events (incl. recorded actions) stream | `ws://localhost:7053` (`REALTIME_GATEWAY_PORT` default) | The live ingestion seam. |
-| `INTELLIGENCE_API_KEY` | the org/project key (scopes threads + `/knowledge`) | the seeded `cpk_…` key for `casa-de-erlang` (e-commerce uses `cpk_sPRVSEED_seed0privat0longtoken00`) | Must belong to an org whose `cpki.users` includes the demo identities `identifyUser` mints (`northwind-<role>`), or those users must be seeded. |
-| `COPILOTKIT_LICENSE_TOKEN` | optional, read automatically by the runtime | — | Only if the build requires it. |
-| `SL_ENABLED` | gate on the **`sl-worker`** distillation sweep (Intelligence side) | `true` | Without it the worker won't distill — recording streams but `/knowledge` never fills. |
+| Env var                       | Points at                                                                                          | Local-dev value                                                                                      | Notes                                                                                                                                           |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INTELLIGENCE_API_URL`        | `apps/app-api` HTTP — the `/knowledge` + threads + user_actions store                              | `http://localhost:7050` (`APP_API_PORT` default in `scripts/local-dev.sh`)                           | The durable backend the gateway writes to and `/knowledge` is read from.                                                                        |
+| `INTELLIGENCE_GATEWAY_WS_URL` | `apps/realtime-gateway` Phoenix WebSocket — where AG-UI run events (incl. recorded actions) stream | `ws://localhost:7053` (`REALTIME_GATEWAY_PORT` default)                                              | The live ingestion seam.                                                                                                                        |
+| `INTELLIGENCE_API_KEY`        | the org/project key (scopes threads + `/knowledge`)                                                | the seeded `cpk_…` key for `casa-de-erlang` (e-commerce uses `cpk_sPRVSEED_seed0privat0longtoken00`) | Must belong to an org whose `cpki.users` includes the demo identities `identifyUser` mints (`northwind-<role>`), or those users must be seeded. |
+| `COPILOTKIT_LICENSE_TOKEN`    | optional, read automatically by the runtime                                                        | —                                                                                                    | Only if the build requires it.                                                                                                                  |
+| `SL_ENABLED`                  | gate on the **`sl-worker`** distillation sweep (Intelligence side)                                 | `true`                                                                                               | Without it the worker won't distill — recording streams but `/knowledge` never fills.                                                           |
 
 **Standing it up — two paths.**
 
@@ -177,7 +179,7 @@ What each var points at:
 distilled procedure appearing in `/knowledge` (verifiable by grepping `/knowledge` via the
 agent or inspecting `cpki.knowledge_base_files`).
 
-**Ordering.** 2a and 2b are independent to *build* but both required for the live loop. Do
+**Ordering.** 2a and 2b are independent to _build_ but both required for the live loop. Do
 2b's standup in parallel with the UX shell; 2a is the final flip. The cleanest single move is
 §6 (vendor into the Intelligence repo), which clears 2a and 2b together because the pins and
 services already live there.
@@ -209,11 +211,15 @@ useConfigureSuggestions({
   suggestions: [
     {
       title: "Approve the $5,000 Marketing transaction",
-      message: "Approve the $5,000 Google Ads transaction on the Marketing policy.",
+      message:
+        "Approve the $5,000 Google Ads transaction on the Marketing policy.",
     },
     { title: "View transactions", message: "Show me my recent transactions" },
     { title: "Add a card", message: "Add a new credit card" },
-    { title: "Assign a policy", message: "Assign a spending policy to one of my cards" },
+    {
+      title: "Assign a policy",
+      message: "Assign a spending policy to one of my cards",
+    },
   ],
 });
 ```
@@ -230,11 +236,12 @@ useConfigureSuggestions({
 ### 3.2 Inline HITL — approve/deny + file-exception rendered IN the chat
 
 **Goal.** The human's whole demonstration — see the over-limit symptom, approve/deny, and
-*file a policy exception* — happens **inline in the chat as a tool-call card**, not in a
+_file a policy exception_ — happens **inline in the chat as a tool-call card**, not in a
 separate page modal. That's what makes the recorded demonstration feel like "the agent
 watched me do it right here."
 
 **What exists today.**
+
 - The approve/deny inline card is **already** an inline HITL: `showAndApproveTransactions`
   (`src/app/page.tsx`, ~line 405) renders `<TransactionsList showApprovalInterface>` inside
   the chat via `useHumanInTheLoop`'s `render`. That list shows the **over-limit symptom**
@@ -256,21 +263,21 @@ watched me do it right here."
    - **File exception** (calls `openPolicyException` → `finalizePolicyException`, the same
      REST callers threaded from `useCreditCards` in `actions.ts`),
    - and on success a confirmation + the approve affordance.
-   It carries the **same two `recordUserAction` calls** (`policy_exception.opened` →
-   `policy_exception.finalized`) verbatim from the modal — the recording payloads do not
-   change.
+     It carries the **same two `recordUserAction` calls** (`policy_exception.opened` →
+     `policy_exception.finalized`) verbatim from the modal — the recording payloads do not
+     change.
 2. **A new inline HITL tool `fileAndApproveOverLimit`** (a `useHumanInTheLoop` in
    `src/app/page.tsx`) whose `render` mounts `PolicyExceptionInline`. Description stays
    **neutral** (does not name the exception path or which codes justify — preserves the
-   learning invariant), e.g. *"Resolve a blocked over-limit approval. Requires human
-   approval."* This becomes the inline surface the human uses to teach, and later the surface
+   learning invariant), e.g. _"Resolve a blocked over-limit approval. Requires human
+   approval."_ This becomes the inline surface the human uses to teach, and later the surface
    the learned agent's `openPolicyException` / `finalizePolicyException` calls render into.
 3. **Reuse vs replace.**
    - **Reuse** `approval-buttons.tsx` unchanged for approve/deny.
    - **Reuse** the existing `openPolicyException` / `finalizePolicyException` HITL tools
      (`src/app/page.tsx`, ~lines 492 / 549) — they already render inline approve cards; the
      learned agent drives the unlock through these. `PolicyExceptionInline` is the
-     *human-initiated* twin.
+     _human-initiated_ twin.
    - **Replace** the page-modal entrypoint: drop the `setExceptionTxnId` → `<PolicyExceptionModal>`
      branch in `transactions-list.tsx` in favor of rendering `PolicyExceptionInline` within the
      chat card. Keep `policy-exception-modal.tsx` only if a non-chat entry is still wanted;
@@ -293,6 +300,7 @@ exposing `isRecording` + `beginRecording()` / `endRecording()` (or a ref-counted
 `withRecording()` wrapper). Wire it around the **`recordUserAction` calls**: each call site
 calls `beginRecording()` immediately before firing the record(s) and `endRecording()` when the
 demonstration step settles. Concretely:
+
 - In `PolicyExceptionInline` (§3.2): `beginRecording()` at the start of `handleSubmit`, and
   `endRecording()` after the second (`finalized`) record resolves (or in `finally`).
 - In `transactions-list.tsx` approve/deny: wrap the `recordUserAction(...)` call the same way.
@@ -305,6 +313,7 @@ demonstration step settles. Concretely:
 > (FOR-148) and stays correct once the real hook streams (FOR-146).
 
 **Visual treatment.**
+
 - An **edge vignette**: a full-viewport overlay with `box-shadow: inset 0 0 0 …` /
   `radial-gradient` mask so color concentrates at the **edges** and fades to transparent in the
   center (content stays unobscured).
@@ -338,15 +347,15 @@ wrapping in `policy-exception-inline.tsx` and `transactions-list.tsx`.
 
 ## 4. Buildable NOW vs blocked — the explicit split
 
-| Piece | Ticket | Needs the real hook? | Needs the Intelligence backend? | Buildable today? |
-|-------|--------|----------------------|---------------------------------|------------------|
-| Suggested prompt (§3.1) | FOR-148 | No | No | **Yes** — pure `useConfigureSuggestions` copy. |
-| Inline HITL card (§3.2) | FOR-148 | No (renders the demonstration UI; recording payloads already present via the shim) | No | **Yes** — renders + drives REST unlock; records via the shim. |
-| Recording vignette (§3.3) | FOR-148 | No (reads a local `recording` flag set around the record calls) | No | **Yes** — flag is true even against the no-op shim. |
-| Recording actually streams (role #3 beyond no-op) | FOR-146 | **Yes** (pin `e103a19` + import swap) | Indirectly (events have somewhere to go) | No — blocked on 2a. |
-| Distill → `/knowledge` (role #5) | FOR-147 | — | **Yes** (`app-api` + gateway + `sl-worker`, `SL_ENABLED=true`) | No — blocked on 2b. |
-| Fresh-agent learns + succeeds | FOR-149 | Yes | Yes | No — needs 2a + 2b. |
-| Fresh-agent verification harness | FOR-145 | The script half works today (§5); the learning half needs 2a+2b | Partial | The REST proof: **yes**. The learning proof: blocked. |
+| Piece                                             | Ticket  | Needs the real hook?                                                               | Needs the Intelligence backend?                                | Buildable today?                                              |
+| ------------------------------------------------- | ------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------- |
+| Suggested prompt (§3.1)                           | FOR-148 | No                                                                                 | No                                                             | **Yes** — pure `useConfigureSuggestions` copy.                |
+| Inline HITL card (§3.2)                           | FOR-148 | No (renders the demonstration UI; recording payloads already present via the shim) | No                                                             | **Yes** — renders + drives REST unlock; records via the shim. |
+| Recording vignette (§3.3)                         | FOR-148 | No (reads a local `recording` flag set around the record calls)                    | No                                                             | **Yes** — flag is true even against the no-op shim.           |
+| Recording actually streams (role #3 beyond no-op) | FOR-146 | **Yes** (pin `e103a19` + import swap)                                              | Indirectly (events have somewhere to go)                       | No — blocked on 2a.                                           |
+| Distill → `/knowledge` (role #5)                  | FOR-147 | —                                                                                  | **Yes** (`app-api` + gateway + `sl-worker`, `SL_ENABLED=true`) | No — blocked on 2b.                                           |
+| Fresh-agent learns + succeeds                     | FOR-149 | Yes                                                                                | Yes                                                            | No — needs 2a + 2b.                                           |
+| Fresh-agent verification harness                  | FOR-145 | The script half works today (§5); the learning half needs 2a+2b                    | Partial                                                        | The REST proof: **yes**. The learning proof: blocked.         |
 
 **Why the UX is safe to build first.** The three UX pieces only depend on (a) the v2 chat +
 HITL APIs the demo already uses, and (b) a local `recording` boolean. The no-op shim already
@@ -385,6 +394,7 @@ BASE_URL=http://localhost:3000 ./verify-teachable-gate.sh   # next dev defaults 
 ```
 
 It asserts, in order:
+
 - **A. GATE** — `PUT /api/v1/transactions/t-1 {"status":"approved"}` → **422
   `OVER_POLICY_LIMIT`**, and the body does **not** mention the exception/unlock path
   (symptom-only invariant).
@@ -396,7 +406,7 @@ It asserts, in order:
   enumerate the catalogue (non-enumeration invariant).
 
 This proves the gate is real and the unlock is discriminating — i.e. there is genuinely
-*something to learn* — without any Intelligence backend. It is the control that the demo isn't
+_something to learn_ — without any Intelligence backend. It is the control that the demo isn't
 faked. Re-run from a fresh server to reseed (in-memory store).
 
 ### 5.2 The fresh-agent proof (activates after 2a + 2b) — roles #3 + #5 — FOR-149
@@ -404,19 +414,19 @@ faked. Re-run from a fresh server to reseed (in-memory store).
 This is the proof the loop **learned**, not that REST works. Requires the real hook (2a) and
 the env-gated `CopilotKitIntelligence` backend with `SL_ENABLED=true` (2b).
 
-1. **Baseline (control).** Fresh thread, ask: *"Approve the $5,000 Google Ads transaction on
-   the Marketing policy."* With the recipe-free prompt + ACTION DISCIPLINE intact, the agent
+1. **Baseline (control).** Fresh thread, ask: _"Approve the $5,000 Google Ads transaction on
+   the Marketing policy."_ With the recipe-free prompt + ACTION DISCIPLINE intact, the agent
    hits the gate, has no procedure, and **reports the failure** instead of firing a distractor.
-   *This failure is the control — record it.*
+   _This failure is the control — record it._
 2. **Human teaches.** Open the inline policy-exception card (§3.2), pick a **justifying** code,
    file + finalize. Each step fires `recordUserAction(...)` on the current thread — now a real
    stream (2a), and the vignette (§3.3) confirms recording is live on screen.
 3. **Distill.** The `sl-worker` (2b, `SL_ENABLED=true`) distills the recorded actions into a
-   reusable procedure in `/knowledge`. *Spot-check:* grep `/knowledge` (via the agent or
+   reusable procedure in `/knowledge`. _Spot-check:_ grep `/knowledge` (via the agent or
    `cpki.knowledge_base_files`) and confirm the over-limit/policy-exception procedure exists.
 4. **Fresh agent succeeds unaided.** A **new** thread (and ideally a different seeded user, to
    prove cross-thread/cross-user transfer), same approval request. The agent greps `/knowledge`,
-   files a *justifying* exception, finalizes, approves → **201** — **no human help, nothing
+   files a _justifying_ exception, finalizes, approves → **201** — **no human help, nothing
    added to the prompt.**
 
 **Pass criteria:** step 1 fails, step 4 succeeds, and the **only** thing that changed between
@@ -425,9 +435,10 @@ the REST proof (§5.1) gates "is there something to learn," the fresh-agent run 
 learn it."
 
 **Anti-cheat checks (keep the proof honest):**
+
 - The agent prompt at step 4 is **byte-identical** to step 1 (recipe still withheld — diff the
   runtime route prompt).
-- A run that files a **decoy** code must still fail (the agent must learn *which* codes justify,
+- A run that files a **decoy** code must still fail (the agent must learn _which_ codes justify,
   not just "file an exception").
 - Distractor tools must remain harmless no-ops (a "success" from `sendSpendAlert` must not be
   mistaken for clearing the gate).
@@ -436,8 +447,9 @@ learn it."
 
 ## 6. Recommended path: vendor into the Intelligence repo (clears 2a + 2b together)
 
-The standalone Next.js banking demo can *render* the full UX today, but the **live learning
+The standalone Next.js banking demo can _render_ the full UX today, but the **live learning
 loop's natural home is the Intelligence repo**, because:
+
 - it already pins `@copilotkit/react-core@e103a19` (the hook-bearing build) — **2a is free
   there**;
 - it already runs `app-api` + `realtime-gateway` + `sl-worker` via `scripts/local-dev.sh`, and
@@ -464,8 +476,9 @@ gives for free.
 ## 7. File / component touch-point summary
 
 **Edit (UX shell, FOR-148 — buildable now):**
+
 - `src/app/wrapper.tsx` — add the teachable suggestion pill (§3.1); mount `RecordingProvider`
-  + `<RecordingVignette />` (§3.3).
+  - `<RecordingVignette />` (§3.3).
 - `src/app/page.tsx` — add the `fileAndApproveOverLimit` inline HITL tool whose `render` mounts
   `PolicyExceptionInline` (§3.2).
 - `src/components/transactions-list.tsx` — swap the page-modal entry for the inline card; wrap
@@ -473,6 +486,7 @@ gives for free.
 - `src/app/globals.css` — `.recording-vignette` + `@keyframes` + reduced-motion variant (§3.3).
 
 **Create (UX shell, FOR-148):**
+
 - `src/components/policy-exception-inline.tsx` — inline version of the file-exception flow
   (carries the two existing recording payloads verbatim).
 - `src/components/recording-context.tsx` — `isRecording` + `begin/endRecording` (ref-counted,
@@ -480,6 +494,7 @@ gives for free.
 - `src/components/recording-vignette.tsx` — the edge-glow overlay.
 
 **Edit (unblock the loop):**
+
 - `package.json` — pin `@copilotkit/react-core` (+ core/runtime/shared) to `e103a19` (FOR-146,
   option A) — or do this via vendoring (§6).
 - `src/lib/record-user-action.ts` — turn into a re-export of the real hook (FOR-146) so no call
@@ -501,7 +516,7 @@ react/.../order-actions-bar.tsx, react/.../incident-create-modal.tsx}` and
 ## 8. Risks / open questions
 
 - **Hook parity at `e103a19`.** Confirm the published `react-core@e103a19` `v2` index exports
-  `useRecordUserActionInCurrentThread` *and* the `UserActionRecord` type (e-commerce imports the
+  `useRecordUserActionInCurrentThread` _and_ the `UserActionRecord` type (e-commerce imports the
   hook; verify the type export before relying on it in the re-export shim — otherwise keep the
   local type).
 - **Pin drift vs `workspace:*`.** Pinning the demo to `e103a19` takes it off the OSS monorepo
@@ -512,8 +527,7 @@ react/.../order-actions-bar.tsx, react/.../incident-create-modal.tsx}` and
   org must have those users seeded (e-commerce seeds four users in `casa-de-erlang`). Mismatch
   = threads/knowledge land under an unexpected scope and the fresh-agent retrieval misses.
 - **Writer non-determinism.** The LLM distiller may phrase `/knowledge` differently run to run;
-  keep a deterministic fallback note for scripted live demos, and assert on *behavior* (the
-  201) not on the knowledge text.
+  keep a deterministic fallback note for scripted live demos, and assert on _behavior_ (the 201) not on the knowledge text.
 - **Vignette over modals.** Ensure the overlay's `z-index` sits above page content but **below**
   HITL cards/toasts, and `pointer-events: none` everywhere, so it never blocks the approve
   buttons the human needs during recording.
@@ -525,10 +539,10 @@ react/.../order-actions-bar.tsx, react/.../incident-create-modal.tsx}` and
 
 ## 9. Ticket map (suggested)
 
-| Ticket | Scope |
-|--------|-------|
-| **FOR-145** | Verification harness: REST gate proof (works today) + fresh-agent learning proof (activates post-146/147). |
-| **FOR-146** | Recording hook unblock: pin `e103a19` (or re-export shim) + one-line import swap. |
+| Ticket      | Scope                                                                                                                               |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **FOR-145** | Verification harness: REST gate proof (works today) + fresh-agent learning proof (activates post-146/147).                          |
+| **FOR-146** | Recording hook unblock: pin `e103a19` (or re-export shim) + one-line import swap.                                                   |
 | **FOR-147** | Intelligence backend standup: `app-api` + gateway + `sl-worker` (`SL_ENABLED=true`); wire the three env vars (local-dev or hosted). |
-| **FOR-148** | Teachable-demo UX shell (buildable now): suggested prompt + inline HITL card + recording vignette. |
-| **FOR-149** | Close the loop: with 146+147 live, demonstrate fresh-agent success unaided and capture it in the harness. |
+| **FOR-148** | Teachable-demo UX shell (buildable now): suggested prompt + inline HITL card + recording vignette.                                  |
+| **FOR-149** | Close the loop: with 146+147 live, demonstrate fresh-agent success unaided and capture it in the harness.                           |

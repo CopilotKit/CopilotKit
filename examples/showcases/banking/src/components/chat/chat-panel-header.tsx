@@ -22,8 +22,7 @@ export function ChatPanelHeader() {
   const configuration = useCopilotChatConfiguration();
   const { isInboxOpen, toggleInbox, startNewConversation } = useChatInbox();
 
-  const title =
-    configuration?.labels.modalHeaderTitle ?? IDENTITY.assistant;
+  const title = configuration?.labels.modalHeaderTitle ?? IDENTITY.assistant;
 
   const closePanel = () => configuration?.setModalOpen?.(false);
 

@@ -36,33 +36,33 @@ colors (`brand`, `brand-violet`, `brand-indigo`, `brand-soft`, `surface`,
 `surface-muted`, `canvas`, `ink`, `ink-muted`, `positive`, `positive-soft`,
 `negative`, `negative-soft`, `hairline`).
 
-| Token              | Light                | Dark                  | Role                                   |
-| ------------------ | -------------------- | --------------------- | -------------------------------------- |
-| `--canvas`         | `255 60% 97%`        | `252 30% 7%`          | App background (lavender / deep indigo)|
-| `--surface`        | `0 0% 100%`          | `252 24% 11%`         | Cards, sidebar, menus                  |
-| `--surface-muted`  | `252 40% 98%`        | `252 22% 14%`         | Row hover, inset blocks                |
-| `--ink`            | `252 30% 14%`        | `250 30% 96%`         | Primary text / headings                |
-| `--ink-muted`      | `250 12% 46%`        | `250 12% 66%`         | Secondary / label text                 |
-| `--hairline`       | `252 30% 92%`        | `252 20% 22%`         | Borders / dividers                     |
-| `--brand`/`-violet`| `252 83% 67%`        | (shared)              | Primary violet                         |
-| `--brand-indigo`   | `248 84% 60%`        | (shared)              | Gradient end / heading color           |
-| `--brand-soft`     | `252 90% 96%`        | `252 50% 18%`         | Lilac chips, hover wash, avatar bg     |
-| `--positive`       | `152 62% 40%`        | `152 56% 50%`         | Income / available credit              |
-| `--positive-soft`  | `152 70% 95%`        | `152 40% 16%`         | Income chip background                 |
-| `--negative`       | `349 78% 56%`        | `349 80% 64%`         | Expense / destructive                  |
-| `--negative-soft`  | `349 90% 96%`        | `349 40% 18%`         | Expense chip background                |
+| Token               | Light         | Dark          | Role                                    |
+| ------------------- | ------------- | ------------- | --------------------------------------- |
+| `--canvas`          | `255 60% 97%` | `252 30% 7%`  | App background (lavender / deep indigo) |
+| `--surface`         | `0 0% 100%`   | `252 24% 11%` | Cards, sidebar, menus                   |
+| `--surface-muted`   | `252 40% 98%` | `252 22% 14%` | Row hover, inset blocks                 |
+| `--ink`             | `252 30% 14%` | `250 30% 96%` | Primary text / headings                 |
+| `--ink-muted`       | `250 12% 46%` | `250 12% 66%` | Secondary / label text                  |
+| `--hairline`        | `252 30% 92%` | `252 20% 22%` | Borders / dividers                      |
+| `--brand`/`-violet` | `252 83% 67%` | (shared)      | Primary violet                          |
+| `--brand-indigo`    | `248 84% 60%` | (shared)      | Gradient end / heading color            |
+| `--brand-soft`      | `252 90% 96%` | `252 50% 18%` | Lilac chips, hover wash, avatar bg      |
+| `--positive`        | `152 62% 40%` | `152 56% 50%` | Income / available credit               |
+| `--positive-soft`   | `152 70% 95%` | `152 40% 16%` | Income chip background                  |
+| `--negative`        | `349 78% 56%` | `349 80% 64%` | Expense / destructive                   |
+| `--negative-soft`   | `349 90% 96%` | `349 40% 18%` | Expense chip background                 |
 
 ## Radius, shadow, font scale
 
-| Token            | Value                                          |
-| ---------------- | ---------------------------------------------- |
-| `--radius` (lg)  | `1.375rem` (~22px) — card baseline             |
-| `radius-xl/2xl`  | `+6px` / `+12px` — sidebar, hero panels        |
-| `radius-md/sm`   | `-6px` / `-10px`                               |
-| `--shadow-soft`  | resting card shadow (low, violet-tinted)       |
-| `--shadow-lift`  | hover / floating panels / menus                |
-| `--shadow-glow`  | violet glow under gradient CTAs                |
-| `--font-sans`    | `var(--font-inter), ui-sans-serif, system-ui…` |
+| Token           | Value                                          |
+| --------------- | ---------------------------------------------- |
+| `--radius` (lg) | `1.375rem` (~22px) — card baseline             |
+| `radius-xl/2xl` | `+6px` / `+12px` — sidebar, hero panels        |
+| `radius-md/sm`  | `-6px` / `-10px`                               |
+| `--shadow-soft` | resting card shadow (low, violet-tinted)       |
+| `--shadow-lift` | hover / floating panels / menus                |
+| `--shadow-glow` | violet glow under gradient CTAs                |
+| `--font-sans`   | `var(--font-inter), ui-sans-serif, system-ui…` |
 
 ## Helper classes (in `@layer components`)
 

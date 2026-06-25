@@ -48,7 +48,9 @@ export function CreditCardDetails({
           </div>
         </div>
       ) : (
-        <p className="px-1 text-sm text-ink-muted">No expense policy assigned</p>
+        <p className="px-1 text-sm text-ink-muted">
+          No expense policy assigned
+        </p>
       )}
 
       <Popover>
