@@ -437,6 +437,55 @@ test("Escape on desktop does NOT close the drawer (no modal behavior)", async ()
   teardown();
 });
 
+test("mobile modal traps Tab at both boundaries, including the out-of-root backdrop", async () => {
+  const { element, teardown } = await setup({
+    mobile: true,
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+  await flush(element);
+
+  const shadow = element.shadowRoot as ShadowRoot;
+  const backdrop = shadow.querySelector('[part="backdrop"]') as HTMLElement;
+  expect(backdrop).not.toBeNull();
+  // Focusables in DOM order: the backdrop (sibling before .root) then the
+  // controls inside .root. The trap must treat the backdrop as the first stop.
+  const focusables = Array.from(
+    shadow.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ),
+  );
+  const last = focusables[focusables.length - 1]!;
+  expect(focusables[0]).toBe(backdrop);
+  expect(last).not.toBe(backdrop);
+
+  // Shift+Tab from the backdrop (first) must wrap to the last control — a keydown
+  // dispatched ON the backdrop has to reach the HOST-level trap and be handled.
+  backdrop.focus();
+  const back = new KeyboardEvent("keydown", {
+    key: "Tab",
+    shiftKey: true,
+    bubbles: true,
+    composed: true,
+    cancelable: true,
+  });
+  backdrop.dispatchEvent(back);
+  expect(back.defaultPrevented).toBe(true);
+  expect(shadow.activeElement).toBe(last);
+
+  // Tab from the last control wraps back to the backdrop — focus stays in the modal.
+  last.focus();
+  const fwd = new KeyboardEvent("keydown", {
+    key: "Tab",
+    bubbles: true,
+    composed: true,
+    cancelable: true,
+  });
+  last.dispatchEvent(fwd);
+  expect(fwd.defaultPrevented).toBe(true);
+  expect(shadow.activeElement).toBe(backdrop);
+  teardown();
+});
+
 test("mobile root carries dialog role + aria-modal; desktop is a region", async () => {
   const { element, q, mediaController, teardown } = await setup({
     mobile: true,

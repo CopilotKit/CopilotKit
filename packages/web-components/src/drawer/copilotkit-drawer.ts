@@ -113,6 +113,15 @@ export class CopilotKitDrawer extends LitElement {
         this._setOpen(false);
         event.stopPropagation();
       }
+      return;
+    }
+    // Tab focus-trap for the mobile modal. Handled at the HOST (not on `.root`)
+    // so it fires wherever focus sits in the shadow root — including the
+    // backdrop button, which renders as a sibling OUTSIDE `.root`. A trap bound
+    // only to `.root` lets Tab from the backdrop (or any out-of-root node)
+    // escape the modal to the page behind it.
+    if (event.key === "Tab") {
+      this._trapTab(event);
     }
   };
 
@@ -275,11 +284,16 @@ export class CopilotKitDrawer extends LitElement {
    * rows). Walks assigned nodes of each `<slot>`.
    */
   private _composedFocusable(): HTMLElement[] {
-    const root = this.renderRoot.querySelector(".root");
-    if (!root) return [];
     const selector =
       'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
     const out: HTMLElement[] = [];
+    // The backdrop button is a modal-owned focusable rendered as a sibling of
+    // `.root`. Include it first (it precedes `.root` in DOM order) so the focus
+    // trap treats it as part of the modal's cycle rather than an escape hatch.
+    const backdrop = this.renderRoot.querySelector<HTMLElement>(".backdrop");
+    if (backdrop) out.push(backdrop);
+    const root = this.renderRoot.querySelector(".root");
+    if (!root) return out;
     const collect = (node: ParentNode) => {
       node
         .querySelectorAll<HTMLElement>(selector)
@@ -301,11 +315,16 @@ export class CopilotKitDrawer extends LitElement {
     // Defer so the rendered tree exists.
     queueMicrotask(() => {
       const focusable = this._composedFocusable();
-      focusable[0]?.focus();
+      // Prefer the first real control over the backdrop scrim so opening the
+      // modal lands focus on actionable content, not the close-on-click overlay
+      // (the backdrop is still part of the trap cycle below).
+      const backdrop = this.renderRoot.querySelector(".backdrop");
+      const target = focusable.find((el) => el !== backdrop) ?? focusable[0];
+      target?.focus();
     });
   }
 
-  private readonly _onTrapKeydown = (event: KeyboardEvent) => {
+  private readonly _trapTab = (event: KeyboardEvent) => {
     if (event.key !== "Tab" || !this._isMobileModalOpen()) return;
     const focusable = this._composedFocusable();
     if (focusable.length === 0) return;
@@ -349,7 +368,6 @@ export class CopilotKitDrawer extends LitElement {
         role=${this._isMobileModalOpen() ? "dialog" : "region"}
         aria-modal=${this._isMobileModalOpen() ? "true" : nothing}
         aria-label="Threads"
-        @keydown=${this._onTrapKeydown}
       >
         ${this._renderHeader()} ${this._renderBody()} ${this._renderMemories()}
         ${this._renderFooter()} ${this._renderConfirmDialog()}
