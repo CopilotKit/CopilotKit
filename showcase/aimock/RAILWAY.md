@@ -160,34 +160,51 @@ node /app/dist/cli.js \
   --provider-openai https://api.openai.com \
   --provider-anthropic https://api.anthropic.com \
   --provider-gemini https://generativelanguage.googleapis.com \
-  --fixtures /fixtures/shared \
-  --fixtures /fixtures/d4 \
-  --fixtures /fixtures/d6 \
+  --fixtures /fixtures \
   --validate-on-load \
   --host 0.0.0.0 \
   --port 4010
 ```
 
-> **The `--fixtures` flags must point at the three baked-in subdirectories,
-> not the `/fixtures` parent.** A single `--fixtures /fixtures` does NOT
-> recurse into the subdirectories — it loads nothing useful and every request
-> falls through to the proxy. Pass each of `/fixtures/shared`, `/fixtures/d4`,
-> and `/fixtures/d6` explicitly.
+> **A single `--fixtures /fixtures` loads the entire baked-in fixture tree —
+> this is the canonical, recommended form.** The deployed aimock loader
+> (`/app/dist/fixture-loader.js`, `loadFixturesFromDir`) recurses **fully** into
+> every subdirectory at any depth, so bare `--fixtures /fixtures` loads all of
+> `/fixtures/{shared,d4,d6}/**` — including the 2-levels-deep
+> `d4/<integration>/*.json` fixtures. Verified against both deployed images:
+> running aimock **1.34.0** (`:latest`, `@sha256:888fa0…`) with bare
+> `--fixtures /fixtures` logs `Loaded 8107 fixture(s) from /fixtures` — the
+> identical count to the per-directory form — and serves the deep
+> `d4/llamaindex` fixture verbatim; prod **1.33.0** (`@sha256:7a35786e…`)
+> behaves identically (`Loaded 8090 fixture(s)`, same deep tree).
+>
+> The per-directory form (`--fixtures /fixtures/shared --fixtures /fixtures/d4
+--fixtures /fixtures/d6`) is therefore **not required** for the deployed
+> versions and is equivalent, just more verbose. Keep the bare single-flag
+> form as the canonical startCommand so prod and staging stay byte-identical.
+>
+> **Caution: recursion is a property of the deployed aimock version.** It is
+> recursive in aimock ≥ 1.33.0 (an older one-level loader, e.g. the
+> `@copilotkit/aimock@1.26.1` dev dep in `showcase/scripts`, recursed only one
+> level and would miss the deep `d4/<integration>/` fixtures). If a future
+> aimock changes the loader's recursion behavior, **re-verify this guidance
+> against that version** before relying on the bare form — do not silently
+> reintroduce the per-directory flags without an empirical fixture-count test.
 
 Flag-by-flag:
 
-| Flag                    | Value                                       | Purpose                                                                                                                      |
-| ----------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `node /app/dist/cli.js` | —                                           | Explicit bin invocation — required because Railway's `startCommand` overrides ENTRYPOINT.                                    |
-| `--proxy-only`          | —                                           | Forward unmatched requests to upstream providers instead of failing.                                                         |
-| `--provider-openai`     | `https://api.openai.com`                    | Upstream URL for OpenAI passthrough.                                                                                         |
-| `--provider-anthropic`  | `https://api.anthropic.com`                 | Upstream URL for Anthropic passthrough.                                                                                      |
-| `--provider-gemini`     | `https://generativelanguage.googleapis.com` | Upstream URL for Gemini passthrough.                                                                                         |
-| `--fixtures` (×3 dirs)  | `/fixtures/{shared,d4,d6}`                  | Repeatable flag; each loads one baked-in fixture directory at boot. Point at the subdirectories, not the `/fixtures` parent. |
-| `--validate-on-load`    | —                                           | Fail-loud on schema errors at boot.                                                                                          |
-| `--host`                | `0.0.0.0`                                   | Bind all interfaces so Railway can route to the container.                                                                   |
-| `--port`                | `4010`                                      | Hardcoded listen port — matches the legacy wrapper container convention and the fixed                                        |
-|                         |                                             | Railway domain routing. Railway injects `$PORT` but the image defaults align with 4010.                                      |
+| Flag                    | Value                                       | Purpose                                                                                                                                                                                                      |
+| ----------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `node /app/dist/cli.js` | —                                           | Explicit bin invocation — required because Railway's `startCommand` overrides ENTRYPOINT.                                                                                                                    |
+| `--proxy-only`          | —                                           | Forward unmatched requests to upstream providers instead of failing.                                                                                                                                         |
+| `--provider-openai`     | `https://api.openai.com`                    | Upstream URL for OpenAI passthrough.                                                                                                                                                                         |
+| `--provider-anthropic`  | `https://api.anthropic.com`                 | Upstream URL for Anthropic passthrough.                                                                                                                                                                      |
+| `--provider-gemini`     | `https://generativelanguage.googleapis.com` | Upstream URL for Gemini passthrough.                                                                                                                                                                         |
+| `--fixtures`            | `/fixtures`                                 | Loads the entire baked-in fixture tree; the deployed loader recurses fully into `/fixtures/{shared,d4,d6}/**`. (Repeatable if you ever need to scope to specific subdirs, but the bare parent is canonical.) |
+| `--validate-on-load`    | —                                           | Fail-loud on schema errors at boot.                                                                                                                                                                          |
+| `--host`                | `0.0.0.0`                                   | Bind all interfaces so Railway can route to the container.                                                                                                                                                   |
+| `--port`                | `4010`                                      | Hardcoded listen port — matches the legacy wrapper container convention and the fixed                                                                                                                        |
+|                         |                                             | Railway domain routing. Railway injects `$PORT` but the image defaults align with 4010.                                                                                                                      |
 
 If adopting `$PORT` interpolation in the future, both startCommand and any
 upstream `OPENAI_BASE_URL` env vars pointing at this service stay unchanged —
@@ -268,8 +285,8 @@ GraphQL directly.
 
    Expect the smoke fixture's "OK" response. If proxy-fallthrough to OpenAI
    fires instead, the smoke fixture did not load — confirm the deployed image
-   is the baked `showcase-aimock` image and that the `--fixtures` flags point
-   at `/fixtures/{shared,d4,d6}` (not the bare `/fixtures` parent).
+   is the baked `showcase-aimock` image and that `--fixtures /fixtures` is
+   present (the loader recurses into `/fixtures/{shared,d4,d6}/**`).
 
 8. Update any showcase services whose `OPENAI_BASE_URL` points at the old
    URL, if the domain changed during reconstruction.
