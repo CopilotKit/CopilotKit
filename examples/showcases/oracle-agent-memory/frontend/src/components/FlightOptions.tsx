@@ -1,20 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import { useEffect, useRef, useState } from "react";
 import type { Flight } from "@/lib/flights";
 import { formatTime, stopsLabel } from "@/lib/flights";
-
-const AGENT_ID = "oracle_concierge";
+import { BookingConfirmCard } from "@/components/BookingConfirmCard";
+import { BoardingPass } from "@/components/BoardingPass";
 
 export function FlightCard({
   flight,
   onSelect,
-  disabled,
 }: {
   flight: Flight;
   onSelect?: (flight: Flight) => void;
-  disabled?: boolean;
 }) {
   const isNonstop = flight.stops === 0;
   const selectable = Boolean(onSelect);
@@ -86,13 +83,14 @@ export function FlightCard({
         </div>
       </div>
 
-      {/* Selector — sends a booking request for this flight (HITL confirm follows) */}
+      {/* Selector — opens the booking confirm inline (no agent round-trip), so the
+          confirm step renders right here in view instead of being appended below
+          the fold by a fresh agent turn. */}
       {selectable && (
         <button
           type="button"
-          disabled={disabled}
           onClick={() => onSelect?.(flight)}
-          className="self-end inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+          className="self-end inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors cursor-pointer"
         >
           Select this flight
           <svg
@@ -113,30 +111,39 @@ export function FlightCard({
 }
 
 export function FlightOptions({ flights = [] }: { flights?: Flight[] }) {
-  const { agent } = useAgent({ agentId: AGENT_ID });
-  const { copilotkit } = useCopilotKit();
-  const [pending, setPending] = useState(false);
+  // The whole select → confirm → book flow is local to this card: no agent run,
+  // so nothing gets appended to the chat stream and the booking UI can never be
+  // scrolled out of view. The conversational "Book me flight X" path still goes
+  // through the agent's book_flight HITL tool.
+  const [chosen, setChosen] = useState<Flight | null>(null);
+  const [booked, setBooked] = useState(false);
+  const focusRef = useRef<HTMLDivElement>(null);
+
+  // Keep the confirm card / boarding pass in view as it replaces the list.
+  useEffect(() => {
+    if (chosen) focusRef.current?.scrollIntoView({ block: "nearest" });
+  }, [chosen, booked]);
 
   if (flights.length === 0) {
     return <p className="text-sm text-gray-400 py-2">No flights found.</p>;
   }
 
-  const onSelect = async (flight: Flight) => {
-    if (pending || !agent || !copilotkit) return;
-    setPending(true);
-    try {
-      agent.addMessage({
-        id: crypto.randomUUID(),
-        role: "user",
-        content: `Book me flight ${flight.id} (${flight.airline} ${flight.flight_no}) to ${flight.destination}.`,
-      });
-      await copilotkit.runAgent({ agent });
-    } catch (e) {
-      console.error("flight select failed", e);
-    } finally {
-      setPending(false);
-    }
-  };
+  if (chosen) {
+    return (
+      <div ref={focusRef}>
+        {booked ? (
+          <BoardingPass flightId={chosen.id} flight={chosen} booked />
+        ) : (
+          <BookingConfirmCard
+            flight={chosen}
+            flightId={chosen.id}
+            onConfirm={() => setBooked(true)}
+            onCancel={() => setChosen(null)}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="mt-3 space-y-1">
@@ -148,8 +155,7 @@ export function FlightOptions({ flights = [] }: { flights?: Flight[] }) {
           <FlightCard
             key={flight.id ?? `${flight.flight_no ?? "flight"}-${i}`}
             flight={flight}
-            onSelect={onSelect}
-            disabled={pending}
+            onSelect={setChosen}
           />
         ))}
       </div>

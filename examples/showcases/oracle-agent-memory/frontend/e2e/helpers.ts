@@ -27,13 +27,15 @@ export async function sendMessage(page: Page, text: string): Promise<void> {
 }
 
 /**
- * Send a message and wait until the agent has *persisted* the turn to Oracle.
+ * Send a message and wait for the agent run's response stream to finish.
  *
- * The concierge writes memory as the AG-UI stream drains, and the run's response
- * body stays open until then — so waiting for that response to finish is our
- * "memory written" signal, which the next session needs before it can recall.
+ * NOTE: persistence is no longer coupled to stream close. The concierge writes
+ * memory in a background task AFTER the SSE stream closes at RUN_FINISHED, so a
+ * finished response is NOT a "memory written" signal. Callers that need the turn
+ * to be recallable must poll for it separately (see wait-until-searchable.py in
+ * the cross-session test); this only waits for the run to complete.
  */
-export async function sendAndPersist(page: Page, text: string): Promise<void> {
+export async function sendAndAwaitRun(page: Page, text: string): Promise<void> {
   const streamClosed = page
     .waitForResponse(
       (r) =>

@@ -2,14 +2,17 @@
 
 We hand-roll the AG-UI streaming route (copied from the adapter's thin
 `add_agentspec_fastapi_endpoint`) so we can persist each exchange to Oracle
-Agent Memory *after the SSE stream drains* — the adapter exposes no post-run
-hook. Persistence is fully server-side; the frontend just streams from /run.
+Agent Memory — the adapter exposes no post-run hook. Persistence runs as a
+background task once the run finishes (off the SSE critical path, so the stream
+closes at RUN_FINISHED); it is fully server-side, and the frontend just streams
+from /run.
 """
 
 from __future__ import annotations
 
 import asyncio
 import functools
+from contextlib import asynccontextmanager
 
 from ag_ui.core import EventType, RunAgentInput, RunErrorEvent
 from ag_ui.encoder import EventEncoder
@@ -57,7 +60,18 @@ async def _replace_history_with_client(_agent, _thread_id, input_messages):
 _lg_runner.filter_only_new_messages = _replace_history_with_client
 
 
-app = FastAPI(title="Oracle Concierge Agent")
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    yield
+    # Drain in-flight background persists on shutdown so a graceful stop doesn't
+    # drop the last turn's memory write. Loop rather than a single gather: a
+    # request finishing during the drain can add a task after the snapshot, so
+    # re-check until the set is empty. Persists are serialized (one at a time).
+    while _PERSIST_TASKS:
+        await asyncio.gather(*list(_PERSIST_TASKS), return_exceptions=True)
+
+
+app = FastAPI(title="Oracle Concierge Agent", lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
@@ -81,6 +95,54 @@ def _last_user_message(messages: list) -> str:
         if getattr(message, "role", None) == "user":
             return getattr(message, "content", "") or ""
     return ""
+
+
+# Background persistence tasks are tracked here so the event loop keeps a strong
+# reference until each finishes — a bare fire-and-forget task can be garbage
+# collected mid-flight (see the asyncio.create_task docs).
+_PERSIST_TASKS: set[asyncio.Task] = set()
+# Serialize background persists: only one extraction + reconciliation runs at a
+# time. The old await made the client wait on stream-close before sending the
+# next turn, which serialized persists for free; now that the stream closes at
+# RUN_FINISHED, overlapping turns could otherwise run reconcile's read-modify-
+# write concurrently (racing on which durable fact "wins") and exhaust the small
+# Oracle connection pool. Background persists queue on this lock instead.
+_PERSIST_LOCK = asyncio.Lock()
+
+
+async def _persist_serialized(user_text: str, assistant_text: str) -> None:
+    async with _PERSIST_LOCK:
+        await asyncio.to_thread(_persist_sync, user_text, assistant_text)
+
+
+def _on_persist_done(task: asyncio.Task) -> None:
+    """Drop the task ref and surface any failure. The write happens off the
+    request path, so a silently-dropped task exception would make a lost write
+    invisible. _persist_sync swallows its own DB/LLM errors; this catches
+    cancellation (loop shutdown) and scheduling failures that would vanish."""
+    _PERSIST_TASKS.discard(task)
+    if task.cancelled():
+        print("[persist] warning: background persist cancelled before completing")
+        return
+    exc = task.exception()
+    if exc is not None:
+        print(f"[persist] warning: background persist task failed ({exc!r})")
+
+
+def _spawn_persist(user_text: str, assistant_text: str) -> None:
+    """Run persistence off the request's critical path.
+
+    _persist_sync makes two LLM calls (memory extraction + reconciliation) plus
+    DB writes — ~2-13s in practice. Awaiting it in the SSE generator's finally
+    held the HTTP stream open that whole time *after* RUN_FINISHED, so the client
+    (which ends its run/loading state on stream-close, not on RUN_FINISHED) showed
+    a multi-second lag once the reply had already finished. Spawning it as a
+    tracked, serialized background task lets the stream close at RUN_FINISHED; the
+    write still lands a few seconds later, well before a human starts the next turn.
+    """
+    task = asyncio.create_task(_persist_serialized(user_text, assistant_text))
+    _PERSIST_TASKS.add(task)
+    task.add_done_callback(_on_persist_done)
 
 
 def _persist_sync(user_text: str, assistant_text: str) -> None:
@@ -115,11 +177,12 @@ def _persist_sync(user_text: str, assistant_text: str) -> None:
 
 @app.post("/run")
 async def run_endpoint(input_data: RunAgentInput, request: Request):
-    """Stream the Agent Spec run over AG-UI, then persist the turn to memory.
+    """Stream the Agent Spec run over AG-UI, then persist the turn in the background.
 
     The event_generator mirrors the adapter's endpoint.py: a per-request queue is
     set into EVENT_QUEUE, the run is spawned as a task, and events are drained to
-    SSE. We additionally collect the assistant's text deltas and persist after.
+    SSE. We additionally collect the assistant's text deltas and, once the stream
+    closes, spawn persistence as a background task (off the critical path).
     """
     encoder = EventEncoder(accept=request.headers.get("accept"))
     user_text = _last_user_message(input_data.messages)
@@ -153,7 +216,9 @@ async def run_endpoint(input_data: RunAgentInput, request: Request):
             yield encoder.encode(RunErrorEvent(message=str(exc)))
         finally:
             EVENT_QUEUE.reset(token)
-            # Persist after the stream drains so the next session can recall it.
-            await asyncio.to_thread(_persist_sync, user_text, "".join(assistant_parts))
+            # Persist off the critical path so the SSE stream closes at RUN_FINISHED
+            # instead of blocking on memory extraction + reconciliation. The write
+            # still lands shortly after, so the next session can recall it.
+            _spawn_persist(user_text, "".join(assistant_parts))
 
     return StreamingResponse(event_generator(), media_type=encoder.get_content_type())
