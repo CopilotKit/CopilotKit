@@ -13,21 +13,28 @@
     "@copilotkit/react-core": "^1.59.3",
     "@copilotkit/runtime": "^1.59.3",
     "@openbox-ai/openbox-sdk": "^0.1.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.577.0",
     "next": "^16.2.7",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.5.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "tailwindcss": "^4",
     "typescript": "^5"
   },
   "overrides": {
     "@langchain/core": "1.1.48",
-    "@langchain/langgraph": "1.3.4"
+    "@langchain/langgraph": "1.3.4",
+    "postcss": "8.5.10"
   },
   "engines": {
     "node": ">=20"
