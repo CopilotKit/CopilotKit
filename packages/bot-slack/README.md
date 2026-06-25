@@ -136,6 +136,18 @@ The row is attached at `chat.stopStream` (the only streaming call that accepts
 `blocks`), so it appears on the native path only — the legacy `chat.update`
 fallback omits it.
 
+### Native "is thinking…" status (everywhere)
+
+While the agent runs, the bot shows Slack's **native** loading status
+(`assistant.threads.setStatus`: "is thinking…") on every thread-anchored reply —
+channel @-mentions, threads it owns, DMs, and the assistant pane. Slack now
+accepts this method with the ordinary **`chat:write`** scope (no `assistant:write`
+needed just for the loading state), so it works for channel-based apps too. The
+status auto-clears when the reply streams in. Tool progress is surfaced per
+surface: the pane uses live composer status ("is using \`tool\`…"); elsewhere it
+uses the native `task_update` timeline (or `:wrench:` rows on older workspaces).
+Set `assistant: false` to opt out of the status (and pane) entirely.
+
 ### Assistant pane (agent-native, default-on)
 
 When the Slack app has the **Agents & AI Apps** toggle (an `assistant_view`
@@ -144,9 +156,8 @@ the adapter activates Slack's assistant pane with **zero config**:
 
 - Opening the pane posts a greeting + tappable prompt chips, and each pane
   conversation is its own thread (replies stay in-thread).
-- While the agent runs, native composer status is shown
-  (`assistant.threads.setStatus`: "is thinking…", "is using \`tool\`…") instead
-  of placeholder/`:wrench:` messages.
+- While the agent runs, native composer status is shown (see above), with
+  "is using \`tool\`…" per tool call.
 - The pane thread is auto-titled from the first message.
 
 Customize via the `assistant` option, or set `assistant: false` to disable pane
@@ -261,7 +272,7 @@ features your app uses:
 | `chat:write`       | Posting messages, streaming, ephemeral messages (`chat.postEphemeral`), and opening modals (`views.open`) — all share this single scope. |
 | `reactions:read`   | Reading reactions; subscribe to `reaction_added` / `reaction_removed` events in the app manifest to receive them.                        |
 | `reactions:write`  | Adding or removing reactions via `reactions.add` / `reactions.remove`.                                                                   |
-| `assistant:write`  | Native streaming task chunks and assistant-pane status updates.                                                                          |
+| `assistant:write`  | Native streaming `task_update` tool-timeline chunks and the assistant pane. (The "is thinking…" status works with `chat:write` alone.)   |
 | `files:write`      | Uploading files via `thread.postFile()`.                                                                                                 |
 | `users:read`       | Resolving Slack user profiles (name, email) via `users.info`.                                                                            |
 | `users:read.email` | Resolving user email addresses.                                                                                                          |
