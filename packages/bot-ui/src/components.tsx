@@ -88,6 +88,34 @@ export interface TableProps extends WithChildren {
 export interface RowProps extends WithChildren {}
 export interface CellProps extends WithChildren {}
 
+/** The chart kinds a surface can render. Platforms that don't support a native
+ *  chart simply skip the node (the renderer is total). */
+export type ChartType =
+  | "verticalBar"
+  | "horizontalBar"
+  | "line"
+  | "pie"
+  | "donut";
+
+/** One `(label, value)` datum. `label` is the category/x value, `value` the
+ *  numeric y value (or the slice size for pie/donut). */
+export interface ChartDataPoint {
+  label: string;
+  value: number;
+}
+
+export interface ChartProps {
+  /** Chart kind; defaults to `verticalBar`. */
+  type?: ChartType;
+  /** Title shown above the chart. */
+  title?: string;
+  /** Axis titles (cartesian charts only — bar/line; ignored for pie/donut). */
+  xAxisTitle?: string;
+  yAxisTitle?: string;
+  /** The data to plot — one entry per category. */
+  data: ChartDataPoint[];
+}
+
 // ---- Components ----------------------------------------------------------
 // `intrinsic` produces a typed component that lowers `<X .../>` to an IR node
 // of the given `type`; the generic `P` is what gives each tag its prop type.
@@ -109,6 +137,7 @@ export const Context = intrinsic<ContextProps>("context");
 export const Actions = intrinsic<ActionsProps>("actions");
 export const Image = intrinsic<ImageProps>("image");
 export const Divider = intrinsic<DividerProps>("divider");
+export const Chart = intrinsic<ChartProps>("chart");
 export const Row = intrinsic<RowProps>("row");
 export const Cell = intrinsic<CellProps>("cell");
 
