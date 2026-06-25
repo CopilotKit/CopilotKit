@@ -59,23 +59,60 @@ function renderA2uiOperations(operations: unknown[]) {
   return { [A2UI_OPERATIONS_KEY]: operations };
 }
 
+// Generation RULES ported from the canonical Python SDK
+// (`sdk-python/copilotkit/a2ui.py` DEFAULT_GENERATION_GUIDELINES), re-authored
+// for THIS demo's FLAT catalog. The canonical prose ships List/form/
+// repeating-card + path-binding patterns; this catalog (Metric / PieChart /
+// BarChart / DataTable / InfoRow / StatusBadge / Card composed with Row /
+// Column / Text) has NO List/form/repeating-card construct and binds NOTHING
+// to the data model, so those patterns are deliberately OMITTED — porting them
+// verbatim would steer the LLM into List/path shapes this catalog cannot
+// resolve. We keep the rules that matter here: single-`root`, the DAG /
+// no-self-reference contract, and the inline-literal-only rule (the
+// literal-vs-`{path}` crash rule).
 const SECONDARY_LLM_INSTRUCTIONS = `\
 You are an A2UI v0.9 component designer. Output ONLY a single JSON object \
-matching this exact shape:
+matching this exact shape (no code fences, no prose outside the JSON):
 
 {
-  "surfaceId": string,    // unique short id, e.g. "dashboard"
+  "surfaceId": string,    // unique short id, e.g. "sales-dashboard"
   "catalogId": string,    // use "${CUSTOM_CATALOG_ID}"
-  "components": [ ... ],  // A2UI v0.9 flat component array; the root MUST have id "root"
-  "data": { ... }         // optional flat object for the data model; may be {}
+  "components": [ ... ],  // A2UI v0.9 flat component array (see RULES)
+  "data": { ... }         // leave as {} — this catalog uses inline literals only
 }
 
-Use ONLY components from the registered catalog (described below). For each \
-component you emit, set "id" to a unique string and "component" to the \
-component name; props go alongside as top-level keys. Compose layouts with \
-basic A2UI primitives (Column, Row, Card, Text, …) plus the custom \
-components. Do NOT wrap in code fences. Do NOT include any prose outside \
-the JSON object.`;
+For each component, set "id" to a unique string and "component" to the \
+component name; put all props alongside as top-level keys. Use ONLY \
+components from the registered catalog (described below) plus the basic \
+A2UI layout primitives (Row, Column, Text).
+
+COMPONENT ID RULES (a tree that breaks these renders NOTHING):
+- Exactly ONE component MUST have id "root". This is the surface entry \
+point — the renderer begins at "root" and walks the child/children tree from \
+there. Every other component must be reachable from "root". If no component \
+has id "root", the surface renders an empty loading placeholder and none of \
+your components show.
+- Every component id must be unique within the surface.
+- A component MUST NOT reference itself as child/children (e.g. id "card" \
+must not list "card" as a child) — that is a circular dependency. The \
+child/children tree must be a DAG; no cycles.
+
+LAYOUT:
+- Use "Row" (with "gap" and a "children" array of ids) to place tiles \
+side by side; use "Column" (with "gap" and a "children" array of ids) to \
+stack sections. A "Card" wraps a single child id via its "child" prop — to \
+put several components in a Card, point "child" at a Column.
+
+COMPONENT VALUES — INLINE LITERALS ONLY:
+Pass every prop as an inline literal value (strings, numbers, arrays, \
+objects) directly on the component. This catalog does NOT declare path \
+support on ANY property, so NEVER use a { "path": "..." } object for a prop \
+value — doing so crashes the render. Keep the top-level "data" field {}.
+- A Metric's "value" is an inline string: "value": "$4.2M".
+- A chart's "data" is an inline array: \
+"data": [{"label":"NA","value":1900000},{"label":"EMEA","value":1300000}].
+- A DataTable's "columns"/"rows" are inline arrays; every row's keys MUST \
+match the declared "columns[].key".`;
 
 /**
  * Build a per-run `generate_a2ui` tool. Closure-captures `catalogContext` (the
@@ -118,6 +155,18 @@ function buildGenerateA2uiTool(
       },
     });
 
+    // A non-string `chat()` return cannot be parsed and must not be
+    // blind-cast: doing so lets an unexpected envelope slip past the catch and
+    // get misreported downstream as "no components" instead of naming the real
+    // cause. Fail loud here.
+    if (typeof text !== "string") {
+      return {
+        error:
+          "Secondary LLM returned a non-string result (expected a JSON " +
+          "string) — cannot parse the A2UI schema.",
+      };
+    }
+
     let parsed: {
       surfaceId?: string;
       catalogId?: string;
@@ -125,8 +174,7 @@ function buildGenerateA2uiTool(
       data?: Record<string, unknown>;
     };
     try {
-      parsed =
-        typeof text === "string" ? JSON.parse(text) : (text as typeof parsed);
+      parsed = JSON.parse(text);
     } catch {
       return { error: "Secondary LLM returned non-JSON output" };
     }
@@ -138,11 +186,72 @@ function buildGenerateA2uiTool(
       : [];
     const data = parsed.data ?? {};
 
+    // Output validation (fail loud, not silent-no-paint). What is validated
+    // here: (1) a non-empty `components` array, (2) presence of an `id:"root"`
+    // node (the renderer entry point is hardcoded to id "root" / base path
+    // "/", so a tree missing either genuinely renders nothing — the surface
+    // holds in its loading placeholder, the `surface-missing` failure), and
+    // (3) component ids are unique (a duplicate id makes the tree ambiguous to
+    // the renderer). Surface these as typed errors so the demo fails visibly
+    // rather than streaming an empty/ambiguous surface.
+    //
+    // NOT validated here: no-cycle and reachable-from-root. Those require graph
+    // traversal and are not enforced — a cyclic/orphan tree from the secondary
+    // LLM is not a realistic failure mode, and the tree is trusted from the
+    // renderer's perspective beyond the cheap structural checks above.
+    if (components.length === 0) {
+      return {
+        error:
+          "Secondary LLM returned no components — nothing to render on the A2UI surface.",
+      };
+    }
+    const hasRoot = components.some(
+      (c) =>
+        typeof c === "object" &&
+        c !== null &&
+        (c as { id?: unknown }).id === "root",
+    );
+    if (!hasRoot) {
+      return {
+        error:
+          'Secondary LLM output has no component with id "root" — the A2UI ' +
+          "renderer begins at root, so the surface would render empty.",
+      };
+    }
+    // Cheap O(n) unique-id check (no traversal): a duplicate id makes the tree
+    // ambiguous for the renderer. Compare collected ids against their Set size.
+    const ids = components
+      .filter((c): c is { id?: unknown } => typeof c === "object" && c !== null)
+      .map((c) => c.id)
+      .filter((id): id is string => typeof id === "string");
+    if (ids.length !== new Set(ids).size) {
+      return {
+        error:
+          "Secondary LLM output has duplicate component ids — the A2UI " +
+          "renderer requires unique ids, so the tree is ambiguous to render.",
+      };
+    }
+
+    // `data` MUST be a plain object before it becomes an `updateDataModel`
+    // value. A non-object (string -> char-index keys, array -> numeric-index
+    // keys) still passes `Object.keys(...).length > 0`, so it would emit a
+    // malformed op. Fail loud rather than stream a broken data model.
+    const isPlainObject =
+      typeof data === "object" && data !== null && !Array.isArray(data);
+    if (!isPlainObject) {
+      return {
+        error:
+          'Secondary LLM "data" field is not a plain object — the A2UI data ' +
+          "model requires an object value, so this would emit a malformed " +
+          "updateDataModel op.",
+      };
+    }
+
     const ops: unknown[] = [
       createSurfaceOp(surfaceId, catalogId),
       updateComponentsOp(surfaceId, components),
     ];
-    if (data && Object.keys(data).length > 0) {
+    if (Object.keys(data).length > 0) {
       ops.push(updateDataModelOp(surfaceId, data));
     }
     return renderA2uiOperations(ops);
