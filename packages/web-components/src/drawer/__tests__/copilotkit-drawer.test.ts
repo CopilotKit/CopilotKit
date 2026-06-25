@@ -783,3 +783,90 @@ test("a safe thread id still emits its row slot for projection", async () => {
   expect(q('slot[name="row:safe-id_123"]')).not.toBeNull();
   teardown();
 });
+
+test("row actions render icons (not text) with instant tooltips", async () => {
+  const { q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A", archived: false })],
+  });
+
+  const archive = q('[part="row-archive"]') as HTMLElement;
+  const del = q('[part="row-delete"]') as HTMLElement;
+
+  expect(archive.querySelector("svg.row-action-icon")).not.toBeNull();
+  expect(del.querySelector("svg.row-action-icon")).not.toBeNull();
+  // tooltip carried on a data attribute (CSS instant tooltip), NOT native title
+  expect(archive.getAttribute("data-tooltip")).toBe("Archive");
+  expect(del.getAttribute("data-tooltip")).toBe("Delete");
+  expect(archive.hasAttribute("title")).toBe(false);
+  teardown();
+});
+
+test("archived rows are muted, not struck through", async () => {
+  const { q, element, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A", archived: true })],
+  });
+  (q('[part="filter-all"]') as HTMLElement).click();
+  await flush(element);
+
+  const name = q(".row.archived .row-name") as HTMLElement;
+  expect(name).not.toBeNull();
+  expect(getComputedStyle(name).textDecorationLine).not.toContain(
+    "line-through",
+  );
+  teardown();
+});
+
+test("a refetch keeps the known list visible instead of flashing loading", async () => {
+  const { q, qa, element, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+
+  // loading goes true during a refetch while threads are already known
+  element.loading = true;
+  await flush(element);
+
+  expect(q('[data-testid="drawer-loading"]')).toBeNull();
+  expect(qa("li.row")).toHaveLength(1);
+  teardown();
+});
+
+test("the footer region stays hidden when nothing is slotted into it", async () => {
+  const { q, teardown } = await setup({ threads: [makeThread()] });
+
+  const footer = q('[part="footer"]') as HTMLElement;
+  expect(footer).not.toBeNull();
+  expect(footer.hasAttribute("hidden")).toBe(true);
+  teardown();
+});
+
+test("mobile renders a self-owned launcher that opens the drawer", async () => {
+  const { q, element, teardown } = await setup({
+    mobile: true,
+    threads: [makeThread()],
+  });
+  // start closed so the launcher (open-affordance) shows
+  element.open = false;
+  await flush(element);
+
+  const launcher = q('[part="launcher"]') as HTMLElement;
+  expect(launcher).not.toBeNull();
+  // icon is swappable via a named slot (CPK slot convention)
+  expect(launcher.querySelector('slot[name="launcher-icon"]')).not.toBeNull();
+
+  launcher.click();
+  await flush(element);
+  expect(element.open).toBe(true);
+  teardown();
+});
+
+test("desktop does NOT render the mobile launcher", async () => {
+  const { q, element, teardown } = await setup({
+    mobile: false,
+    threads: [makeThread()],
+  });
+  element.open = false;
+  await flush(element);
+
+  expect(q('[part="launcher"]')).toBeNull();
+  teardown();
+});

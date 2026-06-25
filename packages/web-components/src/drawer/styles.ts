@@ -39,21 +39,40 @@ export const drawerStyles = css`
       var(--cpk-drawer-font-family, ui-sans-serif, system-ui, sans-serif);
     font-size: var(--cpk-drawer-font-size, 14px);
     line-height: var(--cpk-drawer-line-height, 1.4);
-    color: var(--cpk-drawer-fg, ${tok(T.fg)});
+    color: var(--cpk-drawer-fg, var(--foreground, ${tok(T.fg)}));
 
-    --_bg: var(--cpk-drawer-bg, ${tok(T.bg)});
-    --_surface: var(--cpk-drawer-surface, ${tok(T.surface)});
-    --_surface-fg: var(--cpk-drawer-surface-fg, ${tok(T["surface-fg"])});
-    --_muted: var(--cpk-drawer-muted, ${tok(T.muted)});
-    --_muted-fg: var(--cpk-drawer-muted-fg, ${tok(T["muted-fg"])});
-    --_accent: var(--cpk-drawer-accent, ${tok(T.accent)});
-    --_accent-fg: var(--cpk-drawer-accent-fg, ${tok(T["accent-fg"])});
-    --_primary: var(--cpk-drawer-primary, ${tok(T.primary)});
-    --_primary-fg: var(--cpk-drawer-primary-fg, ${tok(T["primary-fg"])});
-    --_danger: var(--cpk-drawer-danger, ${tok(T.danger)});
-    --_border: var(--cpk-drawer-border, ${tok(T.border)});
-    --_ring: var(--cpk-drawer-ring, ${tok(T.ring)});
-    --_radius: var(--cpk-drawer-radius, ${tok(T.radius)});
+    /* Three-level token resolution, highest priority first:
+       1. explicit per-token override (--cpk-drawer-*),
+       2. the host app's theme variable (--background/--card/… — the standard
+          react-core/shadcn names), so the drawer follows the host's light/dark
+          theme by inheritance (custom properties are NOT reset by all:initial),
+       3. the built-in light default derived from react-core at build time, so a
+          host with no theme still renders correctly (self-contained). */
+    --_bg: var(--cpk-drawer-bg, var(--background, ${tok(T.bg)}));
+    --_surface: var(--cpk-drawer-surface, var(--card, ${tok(T.surface)}));
+    --_surface-fg: var(
+      --cpk-drawer-surface-fg,
+      var(--card-foreground, ${tok(T["surface-fg"])})
+    );
+    --_muted: var(--cpk-drawer-muted, var(--muted, ${tok(T.muted)}));
+    --_muted-fg: var(
+      --cpk-drawer-muted-fg,
+      var(--muted-foreground, ${tok(T["muted-fg"])})
+    );
+    --_accent: var(--cpk-drawer-accent, var(--accent, ${tok(T.accent)}));
+    --_accent-fg: var(
+      --cpk-drawer-accent-fg,
+      var(--accent-foreground, ${tok(T["accent-fg"])})
+    );
+    --_primary: var(--cpk-drawer-primary, var(--primary, ${tok(T.primary)}));
+    --_primary-fg: var(
+      --cpk-drawer-primary-fg,
+      var(--primary-foreground, ${tok(T["primary-fg"])})
+    );
+    --_danger: var(--cpk-drawer-danger, var(--destructive, ${tok(T.danger)}));
+    --_border: var(--cpk-drawer-border, var(--border, ${tok(T.border)}));
+    --_ring: var(--cpk-drawer-ring, var(--ring, ${tok(T.ring)}));
+    --_radius: var(--cpk-drawer-radius, var(--radius, ${tok(T.radius)}));
     --_width: var(--cpk-drawer-width, 320px);
     --_rail-width: var(--cpk-drawer-rail-width, 56px);
   }
@@ -107,6 +126,34 @@ export const drawerStyles = css`
     cursor: pointer;
   }
 
+  /* Mobile-only floating affordance to OPEN the off-canvas drawer. Rendered by
+     the element itself so phones always have a way in with no host wiring. */
+  .launcher {
+    position: fixed;
+    z-index: 998;
+    /* Position is themeable so a host can line the launcher up with its own
+       header controls (e.g. vertically centering it on a toggle group). */
+    top: var(--cpk-drawer-launcher-top, 12px);
+    left: var(--cpk-drawer-launcher-left, 12px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--_border);
+    background: var(--_surface);
+    color: var(--_surface-fg);
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+  }
+
+  .launcher-icon {
+    width: 18px;
+    height: 18px;
+    display: block;
+  }
+
   .header {
     display: flex;
     align-items: center;
@@ -142,7 +189,7 @@ export const drawerStyles = css`
   .list {
     flex: 1;
     overflow-y: auto;
-    padding: 8px;
+    padding: 8px 12px;
     margin: 0;
     list-style: none;
     display: flex;
@@ -179,7 +226,6 @@ export const drawerStyles = css`
   }
 
   .row.archived .row-name {
-    text-decoration: line-through;
     color: var(--_muted-fg);
   }
 
@@ -209,17 +255,59 @@ export const drawerStyles = css`
   }
 
   .row-action {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
     border: 0;
     background: transparent;
     color: var(--_muted-fg);
     cursor: pointer;
     font: inherit;
-    padding: 2px 6px;
-    border-radius: 4px;
+    padding: 5px;
+    border-radius: 6px;
   }
 
-  .row-action.danger {
+  /* Instant tooltip (matches the react components' delayDuration:0). Rendered to
+     the LEFT of the action so the list's vertical overflow never clips it; the
+     native \`title\` tooltip is avoided because its show-delay is browser-fixed
+     (~1.5s) and cannot be tuned. */
+  .row-action[data-tooltip]:hover::after,
+  .row-action[data-tooltip]:focus-visible::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    right: calc(100% + 6px);
+    top: 50%;
+    transform: translateY(-50%);
+    white-space: nowrap;
+    background: var(--_surface);
+    color: var(--_surface-fg);
+    border: 1px solid var(--_border);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 12px;
+    line-height: 1.4;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  .row-action:hover,
+  .row-action:focus-visible {
+    background: var(--_muted);
+    color: inherit;
+  }
+
+  .row-action.danger:hover,
+  .row-action.danger:focus-visible {
     color: var(--_danger);
+  }
+
+  .row-action-icon {
+    width: 15px;
+    height: 15px;
+    display: block;
   }
 
   button.primary {
@@ -296,5 +384,9 @@ export const drawerStyles = css`
   .footer {
     border-top: 1px solid var(--_border);
     padding: 12px;
+  }
+
+  .footer[hidden] {
+    display: none;
   }
 `;
