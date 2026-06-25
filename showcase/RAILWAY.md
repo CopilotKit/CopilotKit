@@ -5,38 +5,39 @@ recipe for adding a new Railway service. For day-to-day promote/snapshot/pin
 operations see [`./bin/README.md`](./bin/README.md). For aimock-specific
 service reconstruction see [`./aimock/RAILWAY.md`](./aimock/RAILWAY.md).
 
-## Pending Service Provisioning
+## built-in-agent service
 
-One service is wired into `showcase_deploy.yml` with placeholder
-`railway_id="PLACEHOLDER-CREATE-RAILWAY-SERVICE"` and needs a real Railway
-service ID filled in before its first successful deploy:
-
-- `built-in-agent` → image `showcase-built-in-agent`
+`built-in-agent` → image `showcase-built-in-agent` is fully provisioned in the
+`ALL_SERVICES` matrix in `showcase_build.yml` (real `railway_id`
+`f4f8371a-bc46-45b2-b6d4-9c9af608bdbf`; `ciBuilt`/`gateValidated` set in
+`showcase/scripts/railway-envs.ts`).
 
 Single-service Next.js app (`BuiltInAgent` runs in-process; no separate
 agent server). Required env: `OPENAI_API_KEY`. Health probe at
 `/api/health`.
 
-Until the Railway service exists, the deploy job for this entry will
-fail loudly on `serviceInstanceRedeploy` — that's intentional. Provision
-it via the "Adding a New Railway Service" flow below, then swap the
-placeholder ID in the matrix.
-
-The matching `starter-built-in-agent` is intentionally absent: the
-starter generator (`showcase/scripts/generate-starters.ts`) does not
-yet support single-service packages, so the starter will be added in a
-follow-up PR alongside generator support.
+The matching `starter-built-in-agent` is intentionally absent from the build
+matrix: the starter tooling (`showcase/scripts/extract-starter.ts`,
+`provision-starter-fleet.ts`) does not yet support single-service packages, so
+the starter will be added in a follow-up PR alongside that support.
 
 ## Auto-Updates (Fleet-Wide)
 
-All 41 Railway services have `source.autoUpdates.type = "minor"` with no
-schedule restriction (any time, immediately). When a new GHCR `:latest`
-digest is pushed, Railway auto-pulls and redeploys without manual
-intervention.
+Most image-sourced Railway services have `source.autoUpdates.type = "minor"`
+(24 of the 40 services in the production environment as of this writing); the
+12 `starter-*` services and a handful of others (incl. `showcase-built-in-agent`,
+`harness-workers`, `showcase-ms-agent-harness-dotnet`, `webhooks`) currently
+have none. Most of the `minor` services carry no `source.autoUpdates.schedule`
+at all, so updates apply immediately whenever a new digest lands; only `aimock`
+carries a `schedule` array (covering all hours, every day — operationally
+equivalent to no schedule). When a new GHCR `:latest` digest is pushed, Railway
+auto-pulls and redeploys those services without manual intervention.
 
-CI (`showcase_deploy.yml`) still triggers an explicit `serviceInstanceRedeploy`
-after each GHCR push for deterministic health-checking. The auto-update is a
-safety net, not the primary deploy path.
+CI (`showcase_build.yml`, "Build & Push") still triggers an explicit
+`serviceInstanceRedeploy` (via `redeploy-env.ts`) after each GHCR push for
+deterministic health-checking; `showcase_deploy.yml` ("Verify Deploy") then
+health-checks that redeployment. The auto-update is a safety net, not the
+primary deploy path.
 
 ## Adding a New Railway Service
 
@@ -61,11 +62,13 @@ safety net, not the primary deploy path.
    Or via Dashboard: Settings > Configure Auto Updates > "Automatically
    update to the latest tag" + "At any time, immediately".
 
-2. **Add to `showcase_deploy.yml`** `ALL_SERVICES` matrix so CI builds
+2. **Add to `showcase_build.yml`** `ALL_SERVICES` matrix so CI builds
    and pushes the GHCR image on code changes.
 
-3. **Add to `showcase/harness/config/probes/smoke.yml`** so the service is
-   monitored by showcase-harness probes.
+3. **No `smoke.yml` edit needed for a normal `showcase-*` service** —
+   `showcase/harness/config/probes/smoke.yml` is auto-discovery driven and
+   picks up any new `showcase-*` service on the next tick. Only edit its
+   `filter.nameExcludes` to EXCLUDE an infra / non-runtime service.
 
 4. **Git-based services**: auto-updates only apply to image-sourced
    services. Skip step 1 for git-deploy services.
@@ -92,7 +95,8 @@ safety net, not the primary deploy path.
 - **`source.autoUpdates.schedule`**: array of
   `{day, startHour, endHour}`. Omit entirely for "any time, immediately".
 
-- **CI still redeploys explicitly**: `showcase_deploy.yml` calls
-  `serviceInstanceRedeploy` after GHCR push so the health-check step
-  can verify the exact deployment it triggered. Auto-updates are the
-  fallback, not a replacement for CI-driven deploy verification.
+- **CI still redeploys explicitly**: `showcase_build.yml` triggers
+  `serviceInstanceRedeploy` (via `redeploy-env.ts`) after the GHCR push, and
+  `showcase_deploy.yml` ("Verify Deploy") health-checks that redeployment so it
+  can verify the exact deployment it triggered. Auto-updates are the fallback,
+  not a replacement for CI-driven deploy verification.
