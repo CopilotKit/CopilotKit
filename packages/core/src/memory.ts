@@ -798,6 +798,11 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
 export type ɵMemory = Memory;
 export type ɵMemoryKind = MemoryKind;
 export type ɵMemoryScope = MemoryScope;
+// Mutation input types: exported so framework bindings can name the arguments
+// of `ɵMemoryStore.addMemory(input)` / `updateMemory(id, changes)` when wrapping
+// them (e.g. `useMemories` / `injectMemories`).
+export type ɵNewMemory = NewMemory;
+export type ɵMemoryChanges = MemoryChanges;
 export type ɵMemoryState = MemoryState;
 export type ɵMemoryRuntimeContext = MemoryRuntimeContext;
 export type ɵMemoryMetadataEvent = MemoryMetadataEvent;
