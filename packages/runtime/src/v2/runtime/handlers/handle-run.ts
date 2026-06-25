@@ -40,13 +40,30 @@ export async function handleRunAgent({
     // tag historic runs with the correct agentId for filtering.
     agent.agentId = agentId;
 
-    configureAgentForRequest({ runtime, request, agentId, agent });
-    await attachIntelligenceEnterpriseLearning({ runtime, request, agent });
-
+    // Parse the body before configuring middleware: the request is single-read,
+    // and middleware configuration needs the A2UI catalog signal the React
+    // provider forwards (see `a2uiCatalogAvailable` below). Middleware is applied
+    // to the agent here; the run itself is kicked off later, so this is safe.
     const input = await parseRunRequest(request);
     if (input instanceof Response) {
       return input;
     }
+
+    // `<CopilotKit a2ui={{ catalog }}>` forwards this flag on every run. Its
+    // presence alone is enough to turn A2UI on end-to-end — no runtime-side
+    // `a2ui` config required.
+    const providerA2UIHasCatalog =
+      (input.forwardedProps as Record<string, unknown> | undefined)
+        ?.a2uiCatalogAvailable === true;
+
+    configureAgentForRequest({
+      runtime,
+      request,
+      agentId,
+      agent,
+      providerA2UIHasCatalog,
+    });
+    await attachIntelligenceEnterpriseLearning({ runtime, request, agent });
 
     agent.setMessages(input.messages);
     agent.setState(input.state);

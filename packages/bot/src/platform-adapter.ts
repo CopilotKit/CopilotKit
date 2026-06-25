@@ -2,6 +2,8 @@ import type { AgentSubscriber, AbstractAgent } from "@ag-ui/client";
 import type {
   AgentContentPart,
   BotNode,
+  EmojiValue,
+  EphemeralResult,
   MessageRef,
   PlatformUser,
   ThreadMessage,
@@ -23,6 +25,8 @@ export interface SurfaceCapabilities {
   supportsSuggestedPrompts?: boolean;
   /** Nameable conversations (Slack assistant-thread titles). */
   supportsThreadTitle?: boolean;
+  /** Native ephemeral messages (Slack). When false, `postEphemeral` still works via DM fallback. */
+  supportsEphemeral?: boolean;
   [k: string]: unknown;
 }
 
@@ -80,6 +84,8 @@ export interface InteractionEvent {
   eventId?: string;
   /** The message the interaction occurred on (the picker), so handlers can update it in place. */
   messageRef?: MessageRef;
+  /** Opaque platform trigger for opening a modal (Slack `trigger_id`; Discord interaction id). */
+  triggerId?: string;
 }
 
 /** A slash-command invocation normalized by an adapter. */
@@ -96,6 +102,8 @@ export interface IncomingCommand {
   /** Stable platform event id for idempotency; omit if the platform provides none. */
   eventId?: string;
   platform: string;
+  /** Opaque platform trigger for opening a modal (Slack `trigger_id`; Discord interaction id). */
+  triggerId?: string;
 }
 
 /**
@@ -109,6 +117,54 @@ export interface IncomingThreadStart {
   platform: string;
 }
 
+/** A reaction added/removed on a message. Adapters that can't observe reactions never emit it. */
+export interface IncomingReaction {
+  /** Platform-native emoji token (Slack shortcode, Unicode, Discord custom). */
+  rawEmoji: string;
+  /** true = added, false = removed. */
+  added: boolean;
+  user?: PlatformUser;
+  conversationKey: string;
+  replyTarget: ReplyTarget;
+  /** Id of the reacted-to message. */
+  messageId: string;
+  /** Containing thread/conversation id, when distinct from the message. */
+  threadId?: string;
+  /** Native payload. */
+  raw: unknown;
+}
+
+/** A modal submission. Adapters without modals never emit it. */
+export interface IncomingModalSubmit {
+  callbackId: string;
+  /** Field id → value (text string, selected option value, etc.). */
+  values: Record<string, unknown>;
+  user?: PlatformUser;
+  privateMetadata?: string;
+  /** Present when the submission carries a conversation context (so the engine can build a Thread). */
+  conversationKey?: string;
+  replyTarget?: ReplyTarget;
+  platform: string;
+  raw: unknown;
+}
+
+/** A modal dismissal (Slack `view_closed`; requires `notifyOnClose`). */
+export interface IncomingModalClose {
+  callbackId: string;
+  user?: PlatformUser;
+  privateMetadata?: string;
+  /** Present when the dismissal carries a conversation context (so the engine can build a Thread). */
+  conversationKey?: string;
+  replyTarget?: ReplyTarget;
+  platform: string;
+  raw: unknown;
+}
+
+/** What a submit handler may return to keep the modal open with per-field errors. */
+export interface ModalSubmitResult {
+  errors?: Record<string, string>;
+}
+
 export interface IngressSink {
   onTurn(turn: IncomingTurn): void | Promise<void>;
   onInteraction(evt: InteractionEvent): void | Promise<void>;
@@ -116,6 +172,16 @@ export interface IngressSink {
   onCommand(cmd: IncomingCommand): void | Promise<void>;
   /** A conversation surface opened. Adapters without the concept never call it. */
   onThreadStarted(evt: IncomingThreadStart): void | Promise<void>;
+  /** A reaction was added/removed. Adapters that can't observe reactions never call it. */
+  onReaction(evt: IncomingReaction): void | Promise<void>;
+  /**
+   * A modal was submitted. Returns the handler's result so the adapter can ack
+   * with per-field errors (Slack `response_action: "errors"`). Adapters without
+   * modals never call it.
+   */
+  onModalSubmit(evt: IncomingModalSubmit): Promise<ModalSubmitResult | void>;
+  /** A modal was dismissed. Adapters without `view_closed` never call it. */
+  onModalClose(evt: IncomingModalClose): void | Promise<void>;
 }
 
 export interface UserQuery {
@@ -202,5 +268,42 @@ export interface PlatformAdapter {
   setThreadTitle?(
     target: ReplyTarget,
     title: string,
+  ): Promise<{ ok: boolean; error?: string }>;
+  /**
+   * Optional reactions egress (backs `Thread.react`/`unreact`). Adapters without
+   * reactions omit these; the Thread methods then return `{ ok: false, error }`.
+   */
+  addReaction?(
+    target: ReplyTarget,
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }>;
+  removeReaction?(
+    target: ReplyTarget,
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }>;
+  /**
+   * Optional ephemeral post (backs `Thread.postEphemeral`). The adapter decides
+   * native vs DM fallback based on `opts.fallbackToDM` and returns
+   * `{ ok, usedFallback }` or `null` (native unsupported and no fallback).
+   */
+  postEphemeral?(
+    target: ReplyTarget,
+    user: PlatformUser | string,
+    ir: BotNode[],
+    opts: { fallbackToDM: boolean },
+  ): Promise<EphemeralResult | null>;
+  /** Optional modal render (pure; backs `openModal`). Throws `ModalRenderError` on unsupported elements. */
+  renderModal?(ir: BotNode[]): NativePayload;
+  /**
+   * Optional modal open (backs context `openModal`). Renders `ir` and opens it
+   * against the platform `triggerId`. Returns `{ ok: false }` on failure
+   * (expired trigger, unsupported elements) — never throws.
+   */
+  openModal?(
+    target: ReplyTarget,
+    triggerId: string,
+    ir: BotNode[],
   ): Promise<{ ok: boolean; error?: string }>;
 }

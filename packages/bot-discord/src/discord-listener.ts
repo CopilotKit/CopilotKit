@@ -1,5 +1,7 @@
-import { MessageFlags } from "discord.js";
+import type { IncomingReaction } from "@copilotkit/bot";
 import type { IncomingTurn, ReplyTarget } from "./types.js";
+import { decodeReaction } from "./interaction.js";
+import type { PendingInteractions } from "./pending-interactions.js";
 
 interface MessageLike {
   author: {
@@ -17,17 +19,28 @@ interface MessageLike {
 
 interface ChatInputLike {
   isChatInputCommand(): boolean;
+  /** Discord interaction id — used as the pending-interaction triggerId. */
+  id: string;
   commandName: string;
   channelId: string;
   guildId?: string | null;
   user: { id: string; username?: string; globalName?: string | null };
   options: { data: ReadonlyArray<{ name: string; value: unknown }> };
-  reply(options: { content: string; flags?: number }): Promise<unknown>;
+  /** discord.js interaction state — set once the interaction has been deferred. */
+  deferred?: boolean;
+  /** discord.js interaction state — set once a reply has been sent. */
+  replied?: boolean;
+  /** Remove the (deferred) reply. Used to clear a dangling ephemeral ack. */
+  deleteReply?: () => Promise<unknown>;
 }
 
 export interface ClientLike {
   on(event: "messageCreate", cb: (msg: MessageLike) => void): void;
   on(event: "interactionCreate", cb: (i: ChatInputLike) => void): void;
+  on(
+    event: "messageReactionAdd" | "messageReactionRemove",
+    cb: (reaction: unknown, user: unknown) => void,
+  ): void;
   on(event: string, cb: (arg: unknown) => void): void;
 }
 
@@ -38,6 +51,8 @@ export interface IncomingCommandRaw {
   conversationKey: string;
   replyTarget: ReplyTarget;
   senderUserId: string;
+  /** Pending-interaction triggerId (the live interaction id) — backs `openModal`. */
+  triggerId?: string;
 }
 
 export interface ListenerConfig {
@@ -50,11 +65,21 @@ export interface ListenerConfig {
   botUserId: string | (() => string);
   onTurn(turn: IncomingTurn): void | Promise<void>;
   onCommand(cmd: IncomingCommandRaw): void | Promise<void>;
+  /** Optional: called when a user adds or removes a reaction. */
+  onReaction?: (evt: IncomingReaction) => void | Promise<void>;
+  /**
+   * Pending-interaction registry for slash commands. The live command
+   * interaction is registered (arming an auto-`deferReply`), dispatched with a
+   * `triggerId` so a handler may `openModal` first, then settled. When absent,
+   * the command path skips registration (no modal support / no ack).
+   */
+  commandPending?: PendingInteractions;
 }
 
 /** Wire Gateway events to normalized turns/commands. Mirrors attachSlackListener. */
 export function attachDiscordListener(cfg: ListenerConfig): void {
-  const { client, botUserId, onTurn, onCommand } = cfg;
+  const { client, botUserId, onTurn, onCommand, onReaction, commandPending } =
+    cfg;
 
   client.on("messageCreate", (msg: MessageLike) => {
     const botId = typeof botUserId === "function" ? botUserId() : botUserId;
@@ -76,33 +101,79 @@ export function attachDiscordListener(cfg: ListenerConfig): void {
   client.on("interactionCreate", async (i: ChatInputLike) => {
     if (typeof i?.isChatInputCommand !== "function" || !i.isChatInputCommand())
       return;
-    // Ack within Discord's 3s window. The real reply is delivered out-of-band as a
-    // channel message, so ack with a minimal ephemeral note (visible only to the invoker).
-    try {
-      await i.reply({
-        content: "On it — posting the response in this channel…",
-        flags: MessageFlags.Ephemeral,
-      });
-    } catch (e) {
-      console.error("[bot-discord] failed to ack command interaction:", e);
-    }
+    // Register the live interaction with the timer-race registry, arming an
+    // auto-`deferReply` ~500ms before Discord's 3s window. This replaces the
+    // old eager `i.reply(...)` so a handler can `openModal` first; if it
+    // doesn't, `settle` acks (deferReply) and the real reply is delivered
+    // out-of-band as a channel message.
+    const triggerId = commandPending?.register(i as never);
     const rawOptions: Record<string, unknown> = {};
     for (const opt of i.options?.data ?? []) rawOptions[opt.name] = opt.value;
     const replyTarget = {
       channelId: i.channelId,
       ...(i.guildId ? { guildId: i.guildId } : {}),
     };
-    void Promise.resolve(
-      onCommand({
+    try {
+      await onCommand({
         command: i.commandName,
         text: Object.values(rawOptions).map(String).join(" "),
         rawOptions,
         conversationKey: i.channelId,
         replyTarget,
         senderUserId: i.user.id,
-      }),
-    ).catch((e) => console.error("[bot-discord] onCommand handler failed:", e));
+        triggerId,
+      });
+    } catch (e) {
+      console.error("[bot-discord] onCommand handler failed:", e);
+    } finally {
+      if (triggerId !== undefined) await commandPending?.settle(triggerId);
+      // The deferReply(ephemeral) auto-ack only satisfies Discord's 3s window;
+      // the real response is delivered out-of-band as channel messages, so
+      // remove the dangling ephemeral "thinking…" once dispatch completes. A
+      // modal (showModal) does not defer, so `i.deferred` is false there and
+      // this is skipped; likewise if the handler itself already replied.
+      try {
+        if (i.deferred && !i.replied) await i.deleteReply?.();
+      } catch {
+        /* interaction already gone / cleared */
+      }
+    }
   });
+
+  if (onReaction) {
+    const handleReaction =
+      (added: boolean) => async (reaction: unknown, user: unknown) => {
+        const botId = typeof botUserId === "function" ? botUserId() : botUserId;
+        const u = user as { bot?: boolean; id?: string };
+        // Skip the bot's own reaction. `u.bot` is `undefined` on a PARTIAL user
+        // (the uncached path these handlers support via Partials), so also guard
+        // by id — matching the other platforms' bot-id guard.
+        if (u?.bot || u?.id === botId) return;
+        try {
+          const r = reaction as {
+            partial?: boolean;
+            fetch?(): Promise<unknown>;
+            message?: { partial?: boolean; fetch?(): Promise<unknown> };
+          };
+          if (r.partial) await r.fetch?.();
+          if (r.message?.partial) await r.message.fetch?.();
+        } catch {
+          return;
+        }
+        // Keep the sink dispatch inside a try/catch so a throwing/rejecting
+        // user handler degrades-never-throws instead of escaping as an
+        // unhandled rejection — mirroring the onTurn/onCommand paths above.
+        try {
+          const evt = decodeReaction(reaction, user, added);
+          if (evt) await onReaction(evt);
+        } catch (e) {
+          console.error("[bot-discord] onReaction handler failed:", e);
+        }
+      };
+
+    client.on("messageReactionAdd", handleReaction(true));
+    client.on("messageReactionRemove", handleReaction(false));
+  }
 }
 
 /** Answer @-mentions and DMs; skip our own messages and other bots. */

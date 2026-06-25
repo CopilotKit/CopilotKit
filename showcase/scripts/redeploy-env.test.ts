@@ -48,7 +48,7 @@ describe("runRedeploy", () => {
     summary += s + "\n";
   };
 
-  it("default staging scope = 38 CI-built services + their imageOf consumers (harness-workers)", async () => {
+  it("default staging scope = 39 CI-built services + their imageOf consumers (harness-workers)", async () => {
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       // Reverse-lookup the SSOT name from serviceId so the test can
@@ -68,13 +68,18 @@ describe("runRedeploy", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    // 38 CI-built (26 showcase/infra + 12 starters, S2) + harness-workers
-    // (imageOf consumer of showcase-harness) = 39.
-    expect(result.attempted).toBe(39);
-    expect(result.succeeded).toBe(39);
-    expect(redeploy).toHaveBeenCalledTimes(39);
+    // 39 CI-built (27 showcase/infra incl. the staging-only
+    // showcase-strands-typescript, + 12 starters) + harness-workers
+    // (imageOf consumer of showcase-harness) = 40. All 39 declare staging,
+    // so the env-aware default scope keeps every one of them.
+    expect(result.attempted).toBe(40);
+    expect(result.succeeded).toBe(40);
+    expect(redeploy).toHaveBeenCalledTimes(40);
     // pocketbase is now CI-built, so it IS in the default redeploy scope.
     expect(seenNames).toContain("pocketbase");
+    // The staging-only TypeScript Strands integration declares staging, so
+    // it IS in the staging default scope (but NOT prod — see below).
+    expect(seenNames).toContain("showcase-strands-typescript");
     // S2: starters are CI-built, so they JOIN the default redeploy scope.
     expect(seenNames).toContain("starter-adk");
     expect(seenNames).toContain("starter-mastra");
@@ -137,10 +142,14 @@ describe("runRedeploy", () => {
     ]);
   });
 
-  it("default prod scope does NOT include the staging-only harness-workers", async () => {
-    // imageOf expansion is env-aware: harness-workers has no prod env, so it
-    // never joins the prod scope. The prod default = the 38 CI-built services
-    // (26 showcase/infra + 12 starters, S2), no worker.
+  it("default prod scope excludes staging-only services (harness-workers + showcase-strands-typescript)", async () => {
+    // The default scope is env-aware: a service with no prod env never joins
+    // the prod scope. harness-workers (imageOf consumer, staging-only) is
+    // excluded by the env-aware imageOf expansion; showcase-strands-typescript
+    // (ciBuilt, staging-only — prod not yet provisioned) is excluded by the
+    // env-aware base-scope filter. The prod default = the 38 CI-built services
+    // that declare prod (26 showcase/infra + 12 starters), neither staging-only
+    // service.
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       const name = Object.entries(SERVICES).find(
@@ -156,6 +165,7 @@ describe("runRedeploy", () => {
     });
     expect(result.attempted).toBe(38);
     expect(seenNames).not.toContain("harness-workers");
+    expect(seenNames).not.toContain("showcase-strands-typescript");
     // S2: starters ARE in the default prod scope (CI-built, dual-env).
     expect(seenNames).toContain("starter-adk");
   });
@@ -562,8 +572,10 @@ describe("resolveTargetServices", () => {
 
   it("returns the CI_BUILT_SERVICES set sorted when given undefined", () => {
     const resolved = resolveTargetServices(undefined);
-    // 26 showcase/infra CI-built + 12 starters (S2) = 38.
-    expect(resolved.length).toBe(38);
+    // 27 showcase/infra CI-built (incl. showcase-strands-typescript) + 12
+    // starters = 39. resolveTargetServices returns the FULL CI_BUILT set;
+    // the env-aware narrowing happens later in runRedeploy, not here.
+    expect(resolved.length).toBe(39);
     // pocketbase is now CI-built and part of the default scope.
     expect(resolved).toContain("pocketbase");
     // S2: starters are CI-built and part of the default scope.

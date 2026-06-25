@@ -20,6 +20,10 @@ import type {
   NativePayload,
   UserQuery,
   ConversationStore,
+  IncomingReaction,
+  IncomingModalSubmit,
+  IncomingModalClose,
+  ModalSubmitResult,
 } from "../platform-adapter.js";
 import type { CommandSpec } from "../commands.js";
 
@@ -59,25 +63,62 @@ export function makeFakeRunRenderer(): RunRenderer {
 }
 
 export class FakeAdapter implements PlatformAdapter {
-  readonly platform = "fake";
+  platform = "fake";
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs = 3000;
+
+  /** When true, `start()` rejects (set via constructor `failStart`). */
+  readonly failStart: boolean;
+  /** When true, `registerCommands()` rejects (set via constructor `failRegisterCommands`). */
+  readonly failRegisterCommands: boolean;
+  /** When true, `stop()` rejects (set via constructor `failStop`). */
+  readonly failStop: boolean;
+  /** Set once `start()` has run to completion; lets tests assert a healthy adapter still started. */
+  started = false;
 
   /**
    * @param fakeOpts.paneMethods When `false`, the optional
    *   `setSuggestedPrompts`/`setThreadTitle` methods are omitted (and the
    *   matching capability flags cleared) so tests can exercise the
    *   capability-gated `{ ok: false }` path. Defaults to present.
+   * @param fakeOpts.reactions When `false`, `addReaction`/`removeReaction` are
+   *   omitted and `supportsReactions` is cleared. Defaults to present.
+   * @param fakeOpts.nativeEphemeral When `true`, `postEphemeral` reports a
+   *   native success (`usedFallback: false`) and `supportsEphemeral` is set;
+   *   otherwise DM-fallback / `null` semantics apply and `supportsEphemeral`
+   *   is `false`.
+   * @param fakeOpts.modals When `false`, `renderModal`/`openModal` are omitted
+   *   and `supportsModals` is `false`. Defaults to present.
    */
-  constructor(fakeOpts: { paneMethods?: boolean } = {}) {
+  constructor(
+    fakeOpts: {
+      paneMethods?: boolean;
+      reactions?: boolean;
+      nativeEphemeral?: boolean;
+      modals?: boolean;
+      /** Platform name override (defaults to "fake"); useful when a test needs distinct adapters. */
+      platform?: string;
+      /** When true, `start()` rejects — simulates an adapter that fails to come up. */
+      failStart?: boolean;
+      /** When true, `registerCommands()` rejects — simulates a command-registration failure. */
+      failRegisterCommands?: boolean;
+      /** When true, `stop()` rejects — simulates a shutdown failure. */
+      failStop?: boolean;
+    } = {},
+  ) {
+    if (fakeOpts.platform) this.platform = fakeOpts.platform;
+    this.failStart = fakeOpts.failStart === true;
+    this.failRegisterCommands = fakeOpts.failRegisterCommands === true;
+    this.failStop = fakeOpts.failStop === true;
     const paneMethods = fakeOpts.paneMethods !== false;
     this.capabilities = {
-      supportsModals: false,
+      supportsModals: fakeOpts.modals !== false,
       supportsTyping: false,
-      supportsReactions: false,
+      supportsReactions: fakeOpts.reactions !== false,
       supportsStreaming: true,
       supportsSuggestedPrompts: paneMethods,
       supportsThreadTitle: paneMethods,
+      supportsEphemeral: fakeOpts.nativeEphemeral === true,
     };
     if (paneMethods) {
       this.setSuggestedPrompts = async (target, prompts, opts) => {
@@ -86,6 +127,42 @@ export class FakeAdapter implements PlatformAdapter {
       };
       this.setThreadTitle = async (target, title) => {
         this.threadTitleCalls.push({ target, title });
+        return { ok: true };
+      };
+    }
+    if (fakeOpts.reactions !== false) {
+      this.addReaction = async (_t, ref, e) => {
+        this.reactionsAdded.push({ ref, emoji: e });
+        return { ok: true };
+      };
+      this.removeReaction = async (_t, ref, e) => {
+        this.reactionsRemoved.push({ ref, emoji: e });
+        return { ok: true };
+      };
+    }
+    // Native ephemeral when nativeEphemeral === true; otherwise DM-fallback semantics.
+    this.postEphemeral = async (_t, user, ir, opts) => {
+      this.ephemeralPosts.push({ user, ir, opts });
+      if (this.capabilities.supportsEphemeral) {
+        return {
+          ok: true,
+          usedFallback: false,
+          ref: { id: `eph-${++this.counter}` },
+        };
+      }
+      if (opts.fallbackToDM) {
+        return {
+          ok: true,
+          usedFallback: true,
+          ref: { id: `dm-${++this.counter}` },
+        };
+      }
+      return null;
+    };
+    if (fakeOpts.modals !== false) {
+      this.renderModal = (ir) => ir;
+      this.openModal = async (_t, triggerId, ir) => {
+        this.openedModals.push({ triggerId, ir });
         return { ok: true };
       };
     }
@@ -115,9 +192,13 @@ export class FakeAdapter implements PlatformAdapter {
   }
 
   async start(sink: IngressSink): Promise<void> {
+    if (this.failStart) throw new Error("fake-adapter: start failed");
     this.sink = sink;
+    this.started = true;
   }
-  async stop(): Promise<void> {}
+  async stop(): Promise<void> {
+    if (this.failStop) throw new Error("fake-adapter: stop failed");
+  }
 
   render(ir: BotNode[]): NativePayload {
     return ir;
@@ -167,6 +248,25 @@ export class FakeAdapter implements PlatformAdapter {
   threadTitleCalls: { target: ReplyTarget; title: string }[] = [];
   setThreadTitle?: PlatformAdapter["setThreadTitle"];
 
+  // --- reactions ---
+  reactionsAdded: { ref: MessageRef; emoji: string }[] = [];
+  reactionsRemoved: { ref: MessageRef; emoji: string }[] = [];
+  addReaction?: PlatformAdapter["addReaction"];
+  removeReaction?: PlatformAdapter["removeReaction"];
+
+  // --- ephemeral ---
+  ephemeralPosts: {
+    user: unknown;
+    ir: BotNode[];
+    opts: { fallbackToDM: boolean };
+  }[] = [];
+  postEphemeral?: PlatformAdapter["postEphemeral"];
+
+  // --- modals ---
+  openedModals: { triggerId: string; ir: BotNode[] }[] = [];
+  renderModal?: PlatformAdapter["renderModal"];
+  openModal?: PlatformAdapter["openModal"];
+
   // --- test helpers ---
   emitTurn(partial: Partial<IncomingTurn>): void {
     void this.sink?.onTurn({
@@ -208,10 +308,39 @@ export class FakeAdapter implements PlatformAdapter {
       ...partial,
     });
   }
+  emitReaction(
+    partial: Partial<IncomingReaction> & { rawEmoji: string },
+  ): Promise<void> | void {
+    return this.sink?.onReaction({
+      added: true,
+      conversationKey: "c",
+      replyTarget: {},
+      messageId: "m1",
+      raw: {},
+      ...partial,
+    });
+  }
+  emitModalSubmit(
+    partial: Partial<IncomingModalSubmit> & { callbackId: string },
+  ): Promise<ModalSubmitResult | void> | undefined {
+    return this.sink?.onModalSubmit({
+      values: {},
+      platform: "fake",
+      raw: {},
+      ...partial,
+    });
+  }
+  emitModalClose(
+    partial: Partial<IncomingModalClose> & { callbackId: string },
+  ): Promise<void> | void {
+    return this.sink?.onModalClose({ platform: "fake", raw: {}, ...partial });
+  }
 
   /** Commands handed to the adapter via `registerCommands`; asserts the capability hook fires. */
   registeredCommands?: readonly CommandSpec[];
-  registerCommands(commands: readonly CommandSpec[]): void {
+  async registerCommands(commands: readonly CommandSpec[]): Promise<void> {
+    if (this.failRegisterCommands)
+      throw new Error("fake-adapter: registerCommands failed");
     this.registeredCommands = commands;
   }
 }

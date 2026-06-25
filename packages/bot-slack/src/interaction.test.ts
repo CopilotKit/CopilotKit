@@ -130,4 +130,16 @@ describe("decodeInteraction", () => {
     // on the ActionStore, not the payload.
     expect(evt!.value).toBeUndefined();
   });
+
+  it("carries trigger_id from a block_actions payload", () => {
+    const evt = decodeInteraction({
+      type: "block_actions",
+      trigger_id: "T123.456",
+      user: { id: "U1" },
+      channel: { id: "C1" },
+      message: { ts: "1.0" },
+      actions: [{ action_id: "ck:x", value: "v" }],
+    });
+    expect(evt!.triggerId).toBe("T123.456");
+  });
 });

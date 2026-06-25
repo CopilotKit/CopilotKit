@@ -30,7 +30,8 @@ describe("TelegramAdapter", () => {
     expect(a.capabilities).toEqual({
       supportsModals: false,
       supportsTyping: true,
-      supportsReactions: false,
+      supportsReactions: true,
+      supportsEphemeral: false,
       supportsStreaming: true,
       supportsSuggestedPrompts: false,
       supportsThreadTitle: true,
@@ -62,6 +63,44 @@ describe("TelegramAdapter", () => {
     expect((a as any).bot.api.setMyCommands).toHaveBeenCalledWith([
       { command: "triage", description: "Triage" },
     ]);
+  });
+
+  it("registerCommands converts hyphens to underscores so the command registers", async () => {
+    const a = telegram({ token: "t" });
+    (a as any).bot = { api: fakeApi() };
+    await a.registerCommands!([
+      { name: "agent" },
+      { name: "triage" },
+      { name: "preview" },
+      { name: "file-issue" },
+    ] as any);
+    expect((a as any).bot.api.setMyCommands).toHaveBeenCalledTimes(1);
+    // `file-issue` is converted to `file_issue` (Telegram forbids hyphens);
+    // engine routing still matches because normalizeCommandName collapses both.
+    expect((a as any).bot.api.setMyCommands).toHaveBeenCalledWith([
+      { command: "agent", description: "agent" },
+      { command: "triage", description: "triage" },
+      { command: "preview", description: "preview" },
+      { command: "file_issue", description: "file-issue" },
+    ]);
+  });
+
+  it("registerCommands skips names still invalid after conversion, and skips the call when none are valid", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const a = telegram({ token: "t" });
+      (a as any).bot = { api: fakeApi() };
+      await a.registerCommands!([
+        { name: "bad name" }, // space — invalid even after hyphen conversion
+        { name: "no!" }, // punctuation — invalid
+      ] as any);
+      expect((a as any).bot.api.setMyCommands).not.toHaveBeenCalled();
+      expect(
+        warnSpy.mock.calls.some((c) => String(c[0]).includes("bad name")),
+      ).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("delete delegates to deleteMessage", async () => {

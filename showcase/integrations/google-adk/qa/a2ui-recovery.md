@@ -39,14 +39,11 @@
 - [ ] Verify the recovery demo does not affect the declarative-gen-ui or beautiful-chat demos (separate routes/agents)
 - [ ] Re-run each pill a second time and verify the same lifecycle
 
-## Known limitation (aimock) — read before running e2e
+## Per-pill fixture selection (how the two pills stay distinct under aimock)
 
-> **The `heal` pill does not heal under the current showcase aimock.** Diagnosis (agent logs): the showcase aimock cannot disambiguate the two pills' **inner** `render_a2ui` sub-agent calls — the middleware issues that call with a generic render prompt + shared suggestion context, so the "last user turn" aimock keys on is not the pill prompt. Both pills therefore match the **same** inner fixture (the EXHAUST one, by first-match order), so the heal pill **exhausts** ("Couldn't generate the UI", 0 metrics) instead of healing.
->
-> This is an **aimock harness limitation, not a middleware/demo bug**: the middleware heals free-form args correctly in the OSS-158 toolkit gate (in-sandbox) and against real Gemini. The `e2e` `heal` test is **kept failing on purpose** as a live demonstration for the Showcase team. It does **not** red CI (these per-integration specs are not run for google-adk in CI). The `exhaust` + page-load tests pass.
->
-> Tracked in Linear: OSS-374 (showcase-aimock inner-subagent disambiguation) + OSS-375 (recovery-demo langgraph-python parity).
+> Both pills run against the same inner `render_a2ui` tool, but ag_ui_adk >= 0.7.0 forwards the run's conversation into that inner call, so the **last user turn aimock keys on is the pill prompt** (the generic A2UI render guidance rides as the system prompt, not the matched user message). Each pill therefore matches its **own** inner fixture by `userMessage`: HEAL → the free-form/healable fixture, EXHAUST → the always-invalid one. Verified against the aimock journal (HEAL → `call_d6_recover_heal_design`; EXHAUST → `call_d6_recover_exhaust_design`, called 3× for the retry loop). All three e2e tests (page-load, heal, exhaust) pass under aimock.
 
 ## Notes
 
-- The malformed renders are forced by aimock fixtures (`showcase/aimock/d6/google-adk/a2ui-recovery.json`): the inner `render_a2ui` call is matched by `toolName=render_a2ui`. Healing itself is performed live by the ADK middleware, not the fixture. See the limitation above for why the per-pill inner match does not currently hold.
+- The malformed renders are forced by aimock fixtures (`showcase/aimock/d6/google-adk/a2ui-recovery.json`): the inner `render_a2ui` call is matched by `userMessage` + `toolName=render_a2ui`. Healing itself is performed live by the ADK middleware, not the fixture.
+- This demo is ADK-only (the recovery loop lives in the `ag_ui_adk` middleware; langgraph-python's runtime A2UI path has no equivalent). OSS-375 tracks LP parity.

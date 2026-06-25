@@ -178,13 +178,14 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     "readonly-state-agent-context": AgentSpec(readonly_state_agent_context_agent),
     "agent_config": AgentSpec(agent_config_agent),
     # ----- A2UI -----
-    # Dynamic A2UI: the agent owns `generate_a2ui` via the middleware's
-    # get_a2ui_tool (backend-owned; route sets injectA2UITool: false). See
-    # declarative_gen_ui_agent.py.
+    # Dynamic A2UI: a plain agent; the runtime's injectA2UITool: true makes the
+    # ag-ui-adk adapter auto-inject `generate_a2ui` (matching langgraph-python /
+    # AWS Strands). See declarative_gen_ui_agent.py.
     "declarative_gen_ui": AgentSpec(declarative_gen_ui_agent),
-    # A2UI error recovery (ADK-only): same backend-owned get_a2ui_tool wiring,
-    # but the aimock fixtures force invalid->valid (heal) and always-invalid
-    # (exhaust) sequences to make the toolkit recovery loop + hard-fail visible.
+    # A2UI error recovery (ADK-only): backend-owned get_a2ui_tool wiring (the
+    # only path that surfaces the recovery loop), with aimock fixtures forcing a
+    # heal (free-form -> parse_and_fix) and an exhaust (always-invalid -> cap)
+    # to make the toolkit recovery loop + hard-fail visible.
     "a2ui_recovery": AgentSpec(recovery_agent),
     # Fixed-schema A2UI emits a2ui_operations directly from a deterministic
     # backend tool (no secondary planner), injectA2UITool: false.

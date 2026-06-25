@@ -424,6 +424,15 @@
       "repoName": "showcase-strands"
     }
   },
+  "showcase-strands-typescript": {
+    "staging": {
+      "instanceId": "3f917b9f-c3f0-4d8b-96ca-7f455e06b5ba",
+      "domain": "showcase-strands-typescript-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-strands-typescript"
+    }
+  },
   "starter-adk": {
     "prod": {
       "instanceId": "cb23cae4-9555-4ddd-8a62-f1aa1ff72c67",

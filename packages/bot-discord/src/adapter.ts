@@ -1,4 +1,10 @@
-import { Client, GatewayIntentBits, Partials, REST } from "discord.js";
+import {
+  Client,
+  GatewayIntentBits,
+  MessageFlags,
+  Partials,
+  REST,
+} from "discord.js";
 import type {
   PlatformAdapter,
   SurfaceCapabilities,
@@ -11,17 +17,26 @@ import type {
   PlatformUser,
   UserQuery,
   CommandSpec,
+  NativePayload,
 } from "@copilotkit/bot";
-import type { BotNode, ThreadMessage } from "@copilotkit/bot-ui";
+import type {
+  BotNode,
+  ThreadMessage,
+  EmojiValue,
+  EphemeralResult,
+} from "@copilotkit/bot-ui";
+import { toPlatformEmoji } from "@copilotkit/bot-ui";
 import { DiscordConversationStore } from "./conversation-store.js";
 import type { DiscordHistoryMessage } from "./conversation-store.js";
 import { attachDiscordListener } from "./discord-listener.js";
 import { createRunRenderer } from "./event-renderer.js";
-import { decodeInteraction } from "./interaction.js";
+import { decodeInteraction, decodeModalSubmit } from "./interaction.js";
+import { PendingInteractions } from "./pending-interactions.js";
 import {
   renderComponents,
   renderDiscordMessage,
 } from "./render/components-v2.js";
+import { renderDiscordModal } from "./render/modal.js";
 import { registerCommands as putCommands } from "./commands.js";
 import type { RestLike } from "./commands.js";
 import {
@@ -59,12 +74,51 @@ interface SendableChannel {
   };
 }
 
+/**
+ * Default Gateway intents for the bot.
+ *
+ * - `Guilds`, `GuildMessages`, `MessageContent`, `DirectMessages` — message ingress.
+ * - `GuildMembers` — privileged; backs `lookup_discord_user` / `thread.lookupUser`.
+ *   Must be toggled on in the Discord Developer Portal (Bot → Privileged Gateway Intents).
+ * - `GuildMessageReactions` — non-privileged; no portal toggle needed.
+ *   Required to receive reaction add/remove events in guild channels.
+ * - `DirectMessageReactions` — non-privileged; required to receive reaction
+ *   add/remove events in DMs. Distinct from `GuildMessageReactions` in discord.js v14.
+ */
+export const DISCORD_DEFAULT_INTENTS = [
+  GatewayIntentBits.Guilds,
+  GatewayIntentBits.GuildMessages,
+  GatewayIntentBits.MessageContent,
+  GatewayIntentBits.DirectMessages,
+  // Privileged intent — required for `guild.members.search` in
+  // `lookupUser`. Like MessageContent, it must be enabled in the
+  // Discord Developer Portal for the bot application.
+  GatewayIntentBits.GuildMembers,
+  GatewayIntentBits.GuildMessageReactions, // reactions in guild channels — non-privileged
+  GatewayIntentBits.DirectMessageReactions, // reactions in DMs — non-privileged
+] as const;
+
+/**
+ * Default partials for the bot.
+ *
+ * - `Channel` — needed to receive DMs.
+ * - `Message` + `Reaction` — required to receive reactions on uncached messages.
+ *   Discord only delivers partial reaction events when the reacted-to message is not
+ *   in the client's cache; without these partials those events are silently dropped.
+ */
+export const DISCORD_DEFAULT_PARTIALS = [
+  Partials.Channel, // needed to receive DMs
+  Partials.Message, // receive reactions on uncached messages
+  Partials.Reaction,
+] as const;
+
 export class DiscordAdapter implements PlatformAdapter {
   readonly platform = "discord";
   readonly capabilities: SurfaceCapabilities = {
-    supportsModals: false,
+    supportsModals: true,
     supportsTyping: true,
     supportsReactions: true,
+    supportsEphemeral: false, // ephemeral only via interaction reply / DM fallback
     supportsStreaming: true,
     maxBlocksPerMessage: 40,
   };
@@ -74,8 +128,22 @@ export class DiscordAdapter implements PlatformAdapter {
   private readonly rest: RestLike;
   private readonly store: DiscordConversationStore;
   private botUserId = "";
+  private isReady = false;
   private pendingCommands: readonly CommandSpec[] = [];
   private readonly userCache = new Map<string, PlatformUser>();
+  /**
+   * Tracks live component interactions so a handler can open a modal (which
+   * must be the interaction's INITIAL response, within ~3s) before the adapter
+   * auto-defers. Constructed in `start()`. Used by `openModal` (Task D4).
+   */
+  private pending!: PendingInteractions;
+  /**
+   * Tracks live slash-command interactions (a command's initial response is a
+   * reply, not a component update, so it needs its own registry). `openModal`
+   * consults this too, so a command handler can `showModal` before the adapter
+   * auto-defers. Constructed in `start()`.
+   */
+  private commandPending!: PendingInteractions;
 
   constructor(
     private readonly opts: DiscordAdapterOptions,
@@ -84,17 +152,8 @@ export class DiscordAdapter implements PlatformAdapter {
     this.client =
       injected?.client ??
       new Client({
-        intents: [
-          GatewayIntentBits.Guilds,
-          GatewayIntentBits.GuildMessages,
-          GatewayIntentBits.MessageContent,
-          GatewayIntentBits.DirectMessages,
-          // Privileged intent — required for `guild.members.search` in
-          // `lookupUser`. Like MessageContent, it must be enabled in the
-          // Discord Developer Portal for the bot application.
-          GatewayIntentBits.GuildMembers,
-        ],
-        partials: [Partials.Channel], // needed to receive DMs
+        intents: [...DISCORD_DEFAULT_INTENTS],
+        partials: [...DISCORD_DEFAULT_PARTIALS],
       });
     this.rest =
       injected?.rest ??
@@ -110,27 +169,59 @@ export class DiscordAdapter implements PlatformAdapter {
   }
 
   registerCommands(commands: readonly CommandSpec[]): void {
-    this.pendingCommands = commands; // published on ready
+    this.pendingCommands = commands;
+    // `ready` may have already fired (start() resolves before the gateway READY
+    // event, and the engine calls registerCommands AFTER start()). If so, the
+    // once("ready") publish already ran with an empty list — publish now.
+    if (this.isReady) void this.publishCommands();
+  }
+
+  /**
+   * Publish the registered commands. Guards against an empty list: an empty
+   * `setMyCommands`/`PUT` CLEARS all of the bot's commands, so a race where
+   * `ready` fires before commands are stashed must not wipe them.
+   */
+  private async publishCommands(): Promise<void> {
+    if (this.pendingCommands.length === 0) return;
+    try {
+      await putCommands(
+        this.rest,
+        this.opts.appId,
+        this.opts.guildId,
+        this.pendingCommands,
+      );
+    } catch (err) {
+      console.error("[bot-discord] command registration failed:", err);
+    }
   }
 
   async start(sink: IngressSink): Promise<void> {
     this.client.once("ready", async () => {
       this.botUserId = this.client.user?.id ?? "";
-      try {
-        await putCommands(
-          this.rest,
-          this.opts.appId,
-          this.opts.guildId,
-          this.pendingCommands,
-        );
-      } catch (err) {
-        console.error("[bot-discord] command registration failed:", err);
-      }
+      this.isReady = true;
+      await this.publishCommands();
+    });
+
+    // Slash commands ack via `deferReply` (a command's initial response is a
+    // reply, not a component update), so they need a registry distinct from
+    // the component one above. A handler may `openModal` first; otherwise the
+    // auto-defer fires inside the 3s window.
+    this.commandPending = new PendingInteractions({
+      ackBufferMs: this.ackDeadlineMs - 500,
+      defer: (i) =>
+        (
+          i as unknown as {
+            deferReply(opts: { flags: number }): Promise<unknown>;
+          }
+        )
+          .deferReply({ flags: MessageFlags.Ephemeral })
+          .then(() => undefined),
     });
 
     attachDiscordListener({
       client: this.client as never,
       botUserId: () => this.botUserId, // read lazily — only known after `ready`
+      commandPending: this.commandPending,
       onTurn: async (turn) => {
         // The conversation store reconstructs the full channel history each
         // turn — including the triggering message and ALL its attachments — so
@@ -146,40 +237,73 @@ export class DiscordAdapter implements PlatformAdapter {
         });
       },
       onCommand: async (cmd) => {
+        const user = cmd.senderUserId
+          ? await this.resolveUser(cmd.senderUserId)
+          : undefined;
         await sink.onCommand({
           command: cmd.command,
           text: cmd.text,
           rawOptions: cmd.rawOptions,
           conversationKey: cmd.conversationKey,
           replyTarget: cmd.replyTarget,
-          user: cmd.senderUserId
-            ? await this.resolveUser(cmd.senderUserId)
-            : undefined,
+          user,
           platform: "discord",
+          triggerId: cmd.triggerId,
         });
       },
+      onReaction: sink.onReaction ? sink.onReaction.bind(sink) : undefined,
     });
 
-    // Component interactions: ack within 3s, then hand the decoded event to the sink.
+    // One registry per adapter. Auto-defer fires `ackBufferMs` after register,
+    // leaving a ~500ms cushion inside Discord's 3s window. A handler may
+    // `openModal` (Task D4) first, which calls `pending.respondWith` to win the
+    // race and cancel the auto-defer.
+    this.pending = new PendingInteractions({
+      ackBufferMs: this.ackDeadlineMs - 500,
+      defer: (i) =>
+        (i as unknown as { deferUpdate(): Promise<void> }).deferUpdate(),
+    });
+
+    // Component interactions: register with the timer-race registry, hand the
+    // decoded event to the sink (so a handler can open a modal first), then
+    // settle — acking with deferUpdate if the handler never responded.
     this.client.on("interactionCreate", async (i: any) => {
       if (typeof i?.isButton !== "function") return;
-      if (!i.isButton() && !i.isStringSelectMenu?.()) return;
-      try {
-        await i.deferUpdate();
-      } catch (err) {
-        // Usually a benign "already acknowledged" race; but an expired token
-        // or network error also lands here, so surface it before proceeding.
-        console.error("[bot-discord] interaction deferUpdate failed:", err);
-      }
-      try {
-        const evt = this.decodeInteraction(i);
-        if (evt) await sink.onInteraction(evt);
-      } catch (err) {
-        // Mirror discord-listener's onTurn/onCommand guards: a malformed
-        // payload (decode throw) or a rejected sink dispatch must not become
-        // an unhandled promise rejection. The interaction is already acked
-        // via deferUpdate above, so logging here is sufficient.
-        console.error("[bot-discord] interaction dispatch failed:", err);
+      if (i.isButton() || i.isStringSelectMenu?.()) {
+        const triggerId = this.pending.register(i);
+        try {
+          const evt = this.decodeInteraction(i);
+          if (evt) {
+            evt.triggerId = triggerId;
+            await sink.onInteraction(evt);
+          }
+        } catch (err) {
+          // Mirror discord-listener's onTurn/onCommand guards: a malformed
+          // payload (decode throw) or a rejected sink dispatch must not become
+          // an unhandled promise rejection. `settle` below still acks the
+          // interaction, so logging here is sufficient.
+          console.error("[bot-discord] interaction dispatch failed:", err);
+        }
+        await this.pending.settle(triggerId);
+      } else if (i.isModalSubmit?.()) {
+        try {
+          await sink.onModalSubmit(decodeModalSubmit(i)); // result ignored — Discord can't re-open with errors
+        } catch (err) {
+          console.error("[bot-discord] modal submit dispatch failed:", err);
+        }
+        // Ack must match the modal's origin: `deferUpdate` is only valid for a
+        // modal opened FROM a message component (button/select). A modal opened
+        // from a slash command has no originating message, so `deferUpdate`
+        // throws there — use `deferReply` (ephemeral) instead. Guard the ack so
+        // it can never become an unhandled rejection in the event listener.
+        try {
+          if (!i.replied && !i.deferred) {
+            if (i.isFromMessage?.()) await i.deferUpdate();
+            else await i.deferReply({ flags: MessageFlags.Ephemeral });
+          }
+        } catch (err) {
+          console.error("[bot-discord] modal submit ack failed:", err);
+        }
       }
     });
 
@@ -372,6 +496,120 @@ export class DiscordAdapter implements PlatformAdapter {
     } catch (e) {
       return { ok: false, error: (e as Error).message };
     }
+  }
+
+  async addReaction(
+    target: BotReplyTarget,
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const token = toPlatformEmoji(emoji, "discord") ?? String(emoji);
+    try {
+      // Fall back to the conversation's target channel when the reacted ref
+      // carries no channelId — parity with Slack/Telegram, which the bot-ui
+      // contract and the example rely on (the reacted ref is often just `{ id }`).
+      const channel = await this.fetchSendable(
+        this.channelIdOf(messageRef) || (target as ReplyTarget).channelId,
+      );
+      const msg = await channel.messages.fetch(messageRef.id);
+      await msg.react(token);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  async removeReaction(
+    target: BotReplyTarget,
+    messageRef: MessageRef,
+    emoji: EmojiValue,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const token = toPlatformEmoji(emoji, "discord") ?? String(emoji);
+    try {
+      // Fall back to the conversation's target channel when the reacted ref
+      // carries no channelId — parity with Slack/Telegram (see addReaction).
+      const channel = await this.fetchSendable(
+        this.channelIdOf(messageRef) || (target as ReplyTarget).channelId,
+      );
+      const msg = await channel.messages.fetch(messageRef.id);
+      // Discord may key the cache by the bare codepoint while `token` carries
+      // the table's trailing U+FE0F (e.g. "❤️" vs "❤"), so resolve tolerantly.
+      const cache = (msg as any).reactions?.cache;
+      const reaction = cache?.get(token) ?? cache?.get(token.replace(/️/g, ""));
+      // Prefer the cached bot id (known after `ready`); fall back to the live
+      // client user without a non-null assertion that could throw pre-`ready`.
+      await reaction?.users?.remove(this.botUserId || this.client.user?.id);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  async postEphemeral(
+    _target: BotReplyTarget,
+    user: PlatformUser | string,
+    ir: BotNode[],
+    opts: { fallbackToDM: boolean },
+  ): Promise<EphemeralResult | null> {
+    // Native interaction-ephemeral is only reachable from within a live,
+    // unresponded interaction; that path is not plumbed into postEphemeral in
+    // this pass, so we use the DM fallback (or null).
+    if (!opts.fallbackToDM) return null;
+    const userId = typeof user === "string" ? user : user.id;
+    try {
+      const u = await this.client.users.fetch(userId);
+      const dm = await u.createDM();
+      const { components, flags } = renderDiscordMessage(ir);
+      await dm.send({ components, flags });
+      return {
+        ok: true,
+        usedFallback: true,
+        ref: { id: "", channelId: dm.id },
+      };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  renderModal(ir: BotNode[]): NativePayload {
+    return renderDiscordModal(ir);
+  }
+
+  async openModal(
+    _target: BotReplyTarget,
+    triggerId: string,
+    ir: BotNode[],
+  ): Promise<{ ok: boolean; error?: string }> {
+    let modal: ReturnType<typeof renderDiscordModal>;
+    try {
+      modal = renderDiscordModal(ir);
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+    let shown: boolean;
+    try {
+      const show = (i: { id: string }) =>
+        (i as unknown as { showModal(m: unknown): Promise<void> }).showModal(
+          modal,
+        );
+      // A triggerId belongs to exactly one registry: component interactions
+      // (buttons/selects) live in `pending`, slash commands in `commandPending`.
+      // `respondWith` returns false (no throw) when the id isn't in a registry,
+      // so try both — without this, opening a modal from a slash command (e.g.
+      // /file-issue) silently fails because the command isn't in `pending`.
+      shown =
+        (await this.pending.respondWith(triggerId, show)) ||
+        (await this.commandPending.respondWith(triggerId, show));
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+    return shown
+      ? { ok: true }
+      : {
+          ok: false,
+          error:
+            "interaction already acknowledged (open the modal before other work)",
+        };
   }
 
   async resolveUser(userId: string): Promise<PlatformUser> {

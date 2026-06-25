@@ -80,6 +80,11 @@ const bot = createBot({
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!,
       appToken: process.env.SLACK_APP_TOKEN!,
+      respondTo: {
+        directMessages: true,
+        appMentions: { reply: "thread" },
+        threadReplies: "mentionsOnly",
+      },
     }),
   ],
   // One AG-UI agent per conversation, pointed at the runtime.
@@ -96,7 +101,7 @@ const bot = createBot({
   context: [...defaultSlackContext, ...appContext],
 });
 
-// One handler covers @-mentions, replies in threads the bot owns, and DMs.
+// One handler covers explicit @-mentions and normal DMs.
 // senderContext names the requesting user so the agent acts "as" them.
 bot.onMention(async ({ thread, message }) => {
   await thread.runAgent({ context: senderContext(message.user) });
@@ -104,6 +109,11 @@ bot.onMention(async ({ thread, message }) => {
 
 await bot.start();
 ```
+
+The runnable Slack example keeps DMs and the assistant pane conversational, but
+channel/private-channel threads require `@Kite` on each follow-up by default.
+Set `respondTo.threadReplies: "afterBotReply"` to restore legacy behavior where
+plain replies in a thread can continue after the bot has posted there.
 
 ### Tools (`app/tools/index.ts`)
 
@@ -185,12 +195,16 @@ decision the moment it's clicked. (On Telegram the value can't ride in the
 
 ### Slash commands (`app/commands/`)
 
-Two app-owned slash commands, registered via `createBot({ commands })`:
+Four app-owned slash commands, registered via `createBot({ commands })`:
 
 - **`/agent <text>`** — a mention-free entry point; runs the agent with the
   command text as the prompt.
 - **`/triage [note]`** — summarizes the conversation and proposes Linear
   issues to file.
+- **`/preview <title>`** — privately previews the issue the bot would file
+  (only you see it); degrades to a DM on platforms without ephemeral messages.
+- **`/file-issue`** — opens a structured Linear issue form; degrades to a
+  conversational flow on platforms without modal support (e.g. Telegram).
 
 ```ts
 defineBotCommand({
@@ -207,10 +221,12 @@ The args arrive as `ctx.text`; `runAgent({ prompt })` injects them as the
 user message (a slash command's text is never posted to the channel, so it
 isn't in the history the agent reconstructs).
 
-> **Slack setup:** each command must also be declared in your Slack app under
-> **Slash Commands** (add `/agent` and `/triage`) — Slack won't deliver an
-> unregistered command, even over Socket Mode. Discord and Telegram register
-> their commands up front via the adapter.
+> **Slack setup:** all four commands (`/agent`, `/triage`, `/preview`,
+> `/file-issue`) must be declared in your Slack app under **Slash Commands** —
+> Slack won't deliver an unregistered command, even over Socket Mode. The
+> easiest path is to paste the full `slack-app-manifest.yaml` when creating
+> (or updating) your app, which already declares all four. Discord and Telegram
+> register their commands up front via the adapter.
 
 ### The agent (`runtime.ts`)
 
@@ -245,6 +261,10 @@ several from one process).
   bot token (`SLACK_BOT_TOKEN`).
 - _Basic Information → App-Level Tokens_ → generate one with
   `connections:write` → copy the `xapp-` app token (`SLACK_APP_TOKEN`).
+- The manifest is tuned for mention-only channel threads. If you enable
+  `respondTo.threadReplies: "afterBotReply"`, also subscribe to
+  `message.channels` and `message.groups` so Slack delivers plain thread
+  replies.
 
 ### 1b. Discord app (set `DISCORD_*` to enable Discord)
 
@@ -264,7 +284,8 @@ several from one process).
 - In Telegram, message **@BotFather** → `/newbot` → follow the prompts (name +
   a username ending in `bot`) → copy the HTTP API token (`TELEGRAM_BOT_TOKEN`).
 - Long-polling is the default ingress — no public URL or webhook needed.
-- The bot auto-registers `/agent` and `/triage` via `setMyCommands` on start
+- The bot auto-registers its slash commands (`/agent`, `/triage`, `/preview`,
+  `/file-issue` — all four passed to `createBot`) via `setMyCommands` on start
   (no manual BotFather `/setcommands` step). For group use, `/setprivacy` →
   **Disable** if you want it to see non-mention messages.
 
@@ -314,8 +335,9 @@ pnpm --filter slack-example dev       # tsx watch app/index.ts
 
 ### 6. Try it
 
-@mention the bot in a channel (Slack/Discord) or DM it / @mention it in a group
-(Telegram):
+@mention the bot in a channel (Slack/Discord) or DM it / @mention it in a
+group (Telegram). In Slack channel threads, mention Kite again for each
+follow-up unless you enabled legacy thread continuation:
 
 > @CopilotKit Triage what are the open CPK issues this cycle?
 
@@ -421,10 +443,49 @@ Health check: `GET https://<bot-domain>/` returns `ok`. Chart/diagram tools use
 the same headless browser the Slack/Discord paths already run; their PNGs go
 out as WhatsApp images via the media upload.
 
+## Feature demos
+
+Two runnable demos extend the on-call triage bot to narrate per-platform degradation explicitly.
+
+### 1. Ephemeral — `/preview <title>`
+
+```
+/preview Login button throws 500 on submit
+```
+
+Posts a private draft issue card visible only to you — a "here's what I'd file, only you see this" preview — before anything is written to Linear or posted publicly. Run `/file-issue` afterwards to actually file it.
+
+**Source:** `app/commands/index.ts` (`preview` command) using `thread.postEphemeral(user, draft, { fallbackToDM: true })`.
+
+> **Slack setup:** `/preview` must be declared under **Slash Commands** in your Slack app manifest (already present in `slack-app-manifest.yaml`). Slack won't deliver an undeclared command even over Socket Mode.
+
+### 2. Modals — `/file-issue`
+
+```
+/file-issue
+```
+
+Opens a structured Linear issue form. On Slack you get the full form (title, description text inputs, priority dropdown, type radio). On Discord the form is text-only. On Telegram there is no modal surface, so the bot narrates that and continues conversationally.
+
+On submission (`bot.onModalSubmit("file_issue", …)` in `app/index.ts`), the bot validates the inputs and files the issue via the agent (Linear MCP) with the usual `confirm_write` gate, then shows the filed card.
+
+**Source:** `app/modals/file-issue.tsx` (`FileIssueModal`, `issueFromValues`), `app/commands/index.ts` (`file-issue` command).
+
+> **Slack setup:** `/file-issue` must be declared under **Slash Commands** in your Slack app manifest (already present in `slack-app-manifest.yaml`).
+
+### Per-platform behavior
+
+| Demo                   | Slack                         | Discord                                         | Telegram                              |
+| ---------------------- | ----------------------------- | ----------------------------------------------- | ------------------------------------- |
+| Ephemeral (`/preview`) | native only-you message       | DM fallback                                     | DM fallback                           |
+| Modal (`/file-issue`)  | rich form (dropdowns + radio) | text-only (≤5 inputs; type/priority default in) | unsupported → conversational fallback |
+
+The degradation is always narrated, never silent: `/preview` reports whether it used the DM path; `/file-issue` says "modals aren't supported here" on Telegram and continues in chat.
+
 ## Tests
 
 ```bash
-pnpm --filter slack-example test     # unit tests (read_thread, render tools, components, confirm_write)
+pnpm --filter slack-example test     # unit tests (read_thread, render tools, components, confirm_write, modals, commands)
 ```
 
 > **Note:** the live-Slack e2e harness (`pnpm e2e` / `pnpm e2e:restart`) is

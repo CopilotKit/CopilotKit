@@ -12,7 +12,7 @@
 // - showcase/integrations/langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts
 // - src/app/api/copilotkit-ogui/route.ts (scoping pattern)
 // - src/app/api/copilotkit-mcp-apps/route.ts (mcpApps config pattern)
-// - src/app/api/copilotkit-declarative-gen-ui/route.ts (a2ui injectA2UITool: false pattern)
+// - src/app/api/copilotkit-a2ui-fixed-schema/route.ts (a2ui injectA2UITool: false pattern)
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";

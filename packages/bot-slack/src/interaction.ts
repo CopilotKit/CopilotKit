@@ -1,4 +1,9 @@
-import type { InteractionEvent } from "@copilotkit/bot";
+import type {
+  InteractionEvent,
+  IncomingReaction,
+  IncomingModalSubmit,
+  IncomingModalClose,
+} from "@copilotkit/bot";
 import { DM_SCOPE } from "./types.js";
 import type { ConversationKey, ReplyTarget } from "./types.js";
 
@@ -108,6 +113,179 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     value,
     user,
     messageRef,
+    triggerId: body.trigger_id,
     eventId,
+  };
+}
+
+interface SlackReactionEvent {
+  user?: string;
+  reaction?: string;
+  item?: { type?: string; channel?: string; ts?: string };
+}
+
+/** Decode a Slack `reaction_added`/`reaction_removed` event into an `IncomingReaction`. */
+export function decodeReaction(
+  event: unknown,
+  added: boolean,
+): IncomingReaction | undefined {
+  const e = event as SlackReactionEvent;
+  if (e.item?.type !== "message") return undefined;
+  const channel = e.item.channel;
+  const ts = e.item.ts;
+  if (!channel || !ts || !e.reaction) return undefined;
+  const scope = channel.startsWith("D") ? DM_SCOPE : ts;
+  return {
+    rawEmoji: e.reaction,
+    added,
+    user: e.user ? { id: e.user } : undefined,
+    conversationKey: conversationKeyOf({ channelId: channel, scope }),
+    // Thread the reply under the reacted message (channel/thread reactions);
+    // DMs stay flat. A handler replying via thread.post/runAgent must land
+    // under the reacted message, not at the channel root. Carry the reactor id
+    // as `recipientUserId` (parity with onTurn): `chat.startStream` REQUIRES
+    // `recipient_user_id` when streaming to a channel, so without it the
+    // adapter's first native channel stream for this target fails — and the
+    // adapter then flips its own `nativeStreamingOk` to false, downgrading the
+    // whole workspace to the legacy transport.
+    replyTarget: {
+      channel,
+      ...(scope === DM_SCOPE ? {} : { threadTs: ts }),
+      ...(e.user ? { recipientUserId: e.user } : {}),
+    },
+    messageId: ts,
+    threadId: ts,
+    raw: event,
+  };
+}
+
+interface SlackViewState {
+  callback_id?: string;
+  private_metadata?: string;
+  state?: {
+    values?: Record<
+      string,
+      Record<
+        string,
+        {
+          type?: string;
+          value?: string;
+          selected_option?: { value?: string };
+        }
+      >
+    >;
+  };
+}
+
+/**
+ * Flatten a Slack view's `state.values` to a flat `fieldId → value` map. The
+ * modal vocabulary names every block id == action id (the field id), so for
+ * each block we take the inner element keyed by that same block id, falling
+ * back to the first element. Text inputs expose `value`; selects/radios expose
+ * `selected_option.value`.
+ */
+function flattenViewValues(view: SlackViewState): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const values = view.state?.values ?? {};
+  for (const blockId of Object.keys(values)) {
+    const inner = values[blockId]!;
+    const el = inner[blockId] ?? Object.values(inner)[0];
+    if (!el) continue;
+    out[blockId] = el.value ?? el.selected_option?.value;
+  }
+  return out;
+}
+
+/**
+ * The conversation context stamped into a modal's `private_metadata` at open
+ * time (see the Slack adapter's `openModal`). Slack `view_submission`/
+ * `view_closed` payloads are detached from the originating channel, so this
+ * envelope is the only carrier that lets a submit/close route back to the
+ * conversation that opened the modal.
+ */
+interface CpkModalEnvelope {
+  /** Conversation context: target channel + optional thread ts. */
+  __cpk: { channel: string; threadTs?: string };
+  /** The author's original `private_metadata`, preserved verbatim (may be absent). */
+  pm?: string;
+}
+
+/**
+ * Decode a view's `private_metadata` into the conversation context + the
+ * author's original metadata. When the string is a `__cpk` envelope (stamped at
+ * open time), return the derived `conversationKey`/`replyTarget` and restore the
+ * author's `pm`. Otherwise (absent, non-JSON, or a plain author string from a
+ * modal opened some other way) preserve back-compat: pass the raw string
+ * through as `privateMetadata`, with no conversationKey/replyTarget.
+ */
+function decodeModalContext(privateMetadata: string | undefined): {
+  conversationKey?: string;
+  replyTarget?: ReplyTarget;
+  privateMetadata?: string;
+} {
+  if (privateMetadata === undefined) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(privateMetadata);
+  } catch {
+    // Non-JSON string → treat as a plain author privateMetadata.
+    return { privateMetadata };
+  }
+  if (
+    !parsed ||
+    typeof parsed !== "object" ||
+    typeof (parsed as CpkModalEnvelope).__cpk !== "object" ||
+    (parsed as CpkModalEnvelope).__cpk === null ||
+    typeof (parsed as CpkModalEnvelope).__cpk.channel !== "string"
+  ) {
+    // Valid JSON but not our envelope → treat the original string as plain
+    // author metadata (e.g. a modal opened with a JSON private_metadata).
+    return { privateMetadata };
+  }
+  const env = parsed as CpkModalEnvelope;
+  const channelId = env.__cpk.channel;
+  const threadTs = env.__cpk.threadTs;
+  const scope = threadTs ?? DM_SCOPE;
+  return {
+    conversationKey: conversationKeyOf({ channelId, scope }),
+    replyTarget: { channel: channelId, ...(threadTs ? { threadTs } : {}) },
+    privateMetadata: env.pm,
+  };
+}
+
+/** Decode a Slack `view_submission` payload into an `IncomingModalSubmit`. */
+export function decodeViewSubmission(
+  view: unknown,
+  user?: { id: string; name?: string },
+): IncomingModalSubmit {
+  const v = view as SlackViewState;
+  const ctx = decodeModalContext(v.private_metadata);
+  return {
+    callbackId: v.callback_id ?? "",
+    values: flattenViewValues(v),
+    user,
+    privateMetadata: ctx.privateMetadata,
+    ...(ctx.conversationKey ? { conversationKey: ctx.conversationKey } : {}),
+    ...(ctx.replyTarget ? { replyTarget: ctx.replyTarget } : {}),
+    platform: "slack",
+    raw: view,
+  };
+}
+
+/** Decode a Slack `view_closed` payload into an `IncomingModalClose`. */
+export function decodeViewClosed(
+  view: unknown,
+  user?: { id: string; name?: string },
+): IncomingModalClose {
+  const v = view as SlackViewState;
+  const ctx = decodeModalContext(v.private_metadata);
+  return {
+    callbackId: v.callback_id ?? "",
+    user,
+    privateMetadata: ctx.privateMetadata,
+    ...(ctx.conversationKey ? { conversationKey: ctx.conversationKey } : {}),
+    ...(ctx.replyTarget ? { replyTarget: ctx.replyTarget } : {}),
+    platform: "slack",
+    raw: view,
   };
 }
