@@ -40,12 +40,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
       - name: Set up JDK 21 (matches Dockerfile)
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        uses: actions/setup-java@ad2b38190b15e4d6bdf0c97fb4fca8412226d287 # v5.3.0
         with:
           distribution: temurin
           java-version: "21"
@@ -70,7 +70,7 @@ jobs:
         # Explicit cache keyed on AG_UI_SHA so SHA bumps invalidate the cache
         # — otherwise CI would silently reuse stale AG-UI community artifacts
         # installed under a prior SHA (R3-A1).
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6.0.0
         with:
           path: ~/.m2/repository
           key: ${{ runner.os }}-maven-agui-${{ env.AG_UI_SHA }}-${{ hashFiles('**/pom.xml') }}
