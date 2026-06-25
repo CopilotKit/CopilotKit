@@ -12,10 +12,54 @@
  * Column, Image, Card, Button, …) come along for free.
  */
 // @region[definitions-zod]
+// ZOD VERSION: stays on root zod@4 (NOT the `zod-v3` alias) because this catalog
+// declares NO {path} dynamic bindings — only inline literals — so @a2ui/web_core's
+// Zod-3 schema scraper never needs to classify a binding here. If a path-bound prop
+// is ever added, switch to the `zod-v3` alias like sibling a2ui-fixed-schema/a2ui/
+// definitions.ts (whose ZOD VERSION comment explains the React #31 crash otherwise).
 import { z } from "zod";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
 export const myDefinitions = {
+  // Override the basic catalog's Row/Column so `gap` is honoured — the
+  // built-in versions ignore it, which makes composed dashboards cramped.
+  Row: {
+    description:
+      "Horizontal layout container. Children share the width evenly. Use `gap` (px) to space dashboard tiles.",
+    props: z.object({
+      gap: z.number().optional(),
+      // Enum mirrors the keys the renderer actually maps to CSS. Anything
+      // outside this set silently falls back at render time, so we reject
+      // it at schema-parse time to surface LLM typos early.
+      align: z
+        .enum(["start", "center", "end", "stretch", "baseline"])
+        .optional(),
+      justify: z.enum(["start", "center", "end", "spaceBetween"]).optional(),
+      children: z.array(z.string()),
+    }),
+  },
+
+  Column: {
+    description:
+      "Vertical layout container. Use `gap` (px) to space stacked sections.",
+    props: z.object({
+      gap: z.number().optional(),
+      align: z
+        .enum(["start", "center", "end", "stretch", "baseline"])
+        .optional(),
+      children: z.array(z.string()),
+    }),
+  },
+
+  // Override the basic catalog's Text so it aligns flush with sibling
+  // components (the built-in version carries an 8px outer margin).
+  Text: {
+    description: "A plain text line. Use for short explanations inside cards.",
+    props: z.object({
+      text: z.string(),
+    }),
+  },
+
   Card: {
     description:
       "A titled card container with an optional subtitle and a single child slot. Use it to group related content (metrics, rows, buttons).",
@@ -37,20 +81,33 @@ export const myDefinitions = {
 
   Metric: {
     description:
-      "A key/value KPI display with an optional trend indicator. Ideal for dashboards (e.g. 'Revenue • $12.4k • up').",
+      "A key/value KPI tile with an optional trend indicator and trend delta. Ideal for dashboard KPI rows (e.g. 'Revenue • $4.2M • up 12%').",
     props: z.object({
       label: z.string(),
       value: z.string(),
       trend: z.enum(["up", "down", "neutral"]).optional(),
+      trendValue: z.string().optional(),
     }),
   },
 
   InfoRow: {
     description:
-      "A compact two-column 'label: value' row. Good for stacks of facts inside a Card (owner, region, last updated, etc.).",
+      "A compact two-column 'label: value' row. Good for stacks of facts inside a Card (owner, region, ARR, renewal date, etc.).",
     props: z.object({
       label: z.string(),
       value: z.string(),
+    }),
+  },
+
+  DataTable: {
+    description:
+      "A data table with column headers and rows. Ideal for rankings and per-person/per-item breakdowns (rep performance vs quota, deal lists). Each row's keys MUST appear in `columns[].key`; unknown row keys render as blank cells and indicate model/schema drift.",
+    props: z.object({
+      columns: z.array(z.object({ key: z.string(), label: z.string() })),
+      // Cells may be strings or numbers — the renderer stringifies at
+      // render time, but accepting both lets the LLM emit raw numerics
+      // (e.g. attainment 124) instead of being forced to stringify.
+      rows: z.array(z.record(z.string(), z.union([z.string(), z.number()]))),
     }),
   },
 
