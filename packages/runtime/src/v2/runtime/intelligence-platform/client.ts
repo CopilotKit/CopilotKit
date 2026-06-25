@@ -617,7 +617,8 @@ export class CopilotKitIntelligence {
     userId: string;
     content: string;
     kind: string;
-    scope: string;
+    /** Optional: when omitted, the platform applies its default (`"user"`). */
+    scope?: string;
     sourceThreadIds?: string[];
   }): Promise<SaveMemoryResponse> {
     return this.#request<SaveMemoryResponse>(
@@ -626,7 +627,7 @@ export class CopilotKitIntelligence {
       {
         content: params.content,
         kind: params.kind,
-        scope: params.scope,
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
         sourceThreadIds: params.sourceThreadIds ?? [],
       },
       { [INTELLIGENCE_USER_ID_HEADER]: params.userId },
@@ -646,7 +647,8 @@ export class CopilotKitIntelligence {
     id: string;
     content: string;
     kind: string;
-    scope: string;
+    /** Optional: when omitted, the platform applies its default (`"user"`). */
+    scope?: string;
     sourceThreadIds?: string[];
   }): Promise<SaveMemoryResponse> {
     return this.#request<SaveMemoryResponse>(
@@ -655,7 +657,7 @@ export class CopilotKitIntelligence {
       {
         content: params.content,
         kind: params.kind,
-        scope: params.scope,
+        ...(params.scope !== undefined ? { scope: params.scope } : {}),
         sourceThreadIds: params.sourceThreadIds ?? [],
       },
       { [INTELLIGENCE_USER_ID_HEADER]: params.userId },

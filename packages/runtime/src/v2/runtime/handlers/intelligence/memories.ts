@@ -3,6 +3,7 @@ import { isIntelligenceRuntime } from "../../core/runtime";
 import { logger } from "@copilotkit/shared";
 import { errorResponse, isHandlerResponse } from "../shared/json-response";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
+import { PlatformRequestError } from "../../intelligence-platform/client";
 
 interface MemoriesHandlerParams {
   runtime: CopilotRuntimeLike;
@@ -15,6 +16,29 @@ interface MemoryMutationParams extends MemoriesHandlerParams {
 
 const MISSING_INTELLIGENCE_MESSAGE =
   "Missing CopilotKitIntelligence configuration. Memory operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.";
+
+/**
+ * Maps a thrown error to a `Response`.
+ *
+ * For a {@link PlatformRequestError}, forward only client-actionable **4xx**
+ * statuses verbatim (e.g. 404 missing/wrong-scope memory, 409 conflict, 422
+ * unprocessable) so a `useMemories` consumer can branch on them — a flat 500
+ * would erase that distinction. A platform **5xx** (or any non-4xx / malformed
+ * status) means the runtime is healthy but its dependency failed, so it surfaces
+ * as `502 Bad Gateway` rather than echoing the upstream status as if the runtime
+ * itself broke — and this also avoids a `new Response(..., { status })`
+ * `RangeError` on an out-of-range status. Non-platform throws stay 500.
+ */
+function memoryErrorResponse(error: unknown, message: string): Response {
+  if (error instanceof PlatformRequestError) {
+    const { status } = error;
+    if (Number.isInteger(status) && status >= 400 && status <= 499) {
+      return errorResponse(message, status);
+    }
+    return errorResponse(message, 502);
+  }
+  return errorResponse(message, 500);
+}
 
 async function parseJsonBody(
   request: Request,
@@ -34,23 +58,24 @@ async function parseJsonBody(
 function parseMemoryBody(
   body: Record<string, unknown>,
 ):
-  | { content: string; kind: string; scope: string; sourceThreadIds?: string[] }
+  | { content: string; kind: string; scope?: string; sourceThreadIds?: string[] }
   | Response {
   const { content, kind, scope, sourceThreadIds } = body;
-  if (
-    typeof content !== "string" ||
-    typeof kind !== "string" ||
-    typeof scope !== "string"
-  ) {
+  if (typeof content !== "string" || typeof kind !== "string") {
     return errorResponse(
-      "Memory requires string `content`, `kind`, and `scope`",
+      "Memory requires string `content` and `kind`",
       400,
     );
+  }
+  // `scope` is optional: when omitted the platform applies its default
+  // (`"user"`). Only reject a present-but-wrong-typed scope.
+  if (scope !== undefined && typeof scope !== "string") {
+    return errorResponse("Memory `scope` must be a string when provided", 400);
   }
   return {
     content,
     kind,
-    scope,
+    ...(typeof scope === "string" ? { scope } : {}),
     ...(Array.isArray(sourceThreadIds)
       ? { sourceThreadIds: sourceThreadIds as string[] }
       : {}),
@@ -89,7 +114,7 @@ export async function handleListMemories({
       return Response.json(data);
     } catch (error) {
       logger.error({ err: error }, "Error listing memories");
-      return errorResponse("Failed to list memories", 500);
+      return memoryErrorResponse(error, "Failed to list memories");
     }
   }
 
@@ -124,7 +149,7 @@ export async function handleCreateMemory({
     return Response.json(data, { status: 201 });
   } catch (error) {
     logger.error({ err: error }, "Error creating memory");
-    return errorResponse("Failed to create memory", 500);
+    return memoryErrorResponse(error, "Failed to create memory");
   }
 }
 
@@ -157,7 +182,7 @@ export async function handleUpdateMemory({
     return Response.json(data);
   } catch (error) {
     logger.error({ err: error }, "Error updating memory");
-    return errorResponse("Failed to update memory", 500);
+    return memoryErrorResponse(error, "Failed to update memory");
   }
 }
 
@@ -181,6 +206,6 @@ export async function handleRemoveMemory({
     return new Response(null, { status: 204 });
   } catch (error) {
     logger.error({ err: error }, "Error removing memory");
-    return errorResponse("Failed to remove memory", 500);
+    return memoryErrorResponse(error, "Failed to remove memory");
   }
 }

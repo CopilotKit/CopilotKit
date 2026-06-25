@@ -7,6 +7,7 @@ import {
   handleRemoveMemory,
 } from "../handlers/handle-memories";
 import { CopilotRuntime } from "../core/runtime";
+import { PlatformRequestError } from "../intelligence-platform/client";
 
 describe("memory handlers", () => {
   const createIdentifyUser = () =>
@@ -101,7 +102,7 @@ describe("memory handlers", () => {
     });
   });
 
-  it("returns 500 when the platform call throws", async () => {
+  it("returns 500 when the platform call throws a non-platform error", async () => {
     const intelligence = {
       listMemories: vi.fn().mockRejectedValue(new Error("platform down")),
     };
@@ -113,6 +114,38 @@ describe("memory handlers", () => {
     });
 
     expect(response.status).toBe(500);
+  });
+
+  it("forwards a PlatformRequestError status instead of collapsing to 500", async () => {
+    const intelligence = {
+      listMemories: vi
+        .fn()
+        .mockRejectedValue(new PlatformRequestError("nope", 404)),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleListMemories({
+      runtime,
+      request: new Request("https://example.com/memories"),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("maps a platform 5xx to 502 (dependency failed, not the runtime's own fault)", async () => {
+    const intelligence = {
+      listMemories: vi
+        .fn()
+        .mockRejectedValue(new PlatformRequestError("boom", 503)),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleListMemories({
+      runtime,
+      request: new Request("https://example.com/memories"),
+    });
+
+    expect(response.status).toBe(502);
   });
 
   const jsonRequest = (
@@ -155,6 +188,76 @@ describe("memory handlers", () => {
       kind: "topical",
       scope: "user",
     });
+  });
+
+  it("omits scope when the create body has none (platform applies its default)", async () => {
+    const intelligence = {
+      createMemory: vi.fn().mockResolvedValue({
+        id: "m-new",
+        kind: "topical",
+        scope: "user",
+        content: "User plays bass.",
+        sourceThreadIds: [],
+        invalidatedAt: null,
+      }),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleCreateMemory({
+      runtime,
+      request: jsonRequest("/memories", "POST", {
+        content: "User plays bass.",
+        kind: "topical",
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(intelligence.createMemory).toHaveBeenCalledWith({
+      userId: "user-1",
+      content: "User plays bass.",
+      kind: "topical",
+    });
+  });
+
+  it("forwards a PlatformRequestError status on supersede (e.g. 404 wrong-scope target)", async () => {
+    const intelligence = {
+      updateMemory: vi
+        .fn()
+        .mockRejectedValue(new PlatformRequestError("not found", 404)),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleUpdateMemory({
+      runtime,
+      request: jsonRequest("/memories/m-1", "PATCH", {
+        content: "updated",
+        kind: "topical",
+        scope: "project",
+      }),
+      memoryId: "m-1",
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("forwards a 409 conflict on create verbatim (client-actionable)", async () => {
+    const intelligence = {
+      createMemory: vi
+        .fn()
+        .mockRejectedValue(new PlatformRequestError("conflict", 409)),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleCreateMemory({
+      runtime,
+      request: jsonRequest("/memories", "POST", {
+        content: "x",
+        kind: "topical",
+        scope: "user",
+      }),
+    });
+
+    expect(response.status).toBe(409);
   });
 
   it("returns 400 on a create body missing required fields", async () => {

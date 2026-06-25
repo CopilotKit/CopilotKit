@@ -181,6 +181,38 @@ describe("CopilotKitIntelligence", () => {
       });
     });
 
+    it("createMemory omits scope from the body when not provided (platform defaults it)", async () => {
+      fetchMock.mockReturnValue(
+        jsonResponse(
+          {
+            id: "m1",
+            kind: "topical",
+            scope: "user",
+            content: "c",
+            sourceThreadIds: [],
+            invalidatedAt: null,
+            absorbed: false,
+          },
+          201,
+        ),
+      );
+
+      await client.createMemory({
+        userId: "user-1",
+        content: "c",
+        kind: "topical",
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body).not.toHaveProperty("scope");
+      expect(body).toEqual({
+        content: "c",
+        kind: "topical",
+        sourceThreadIds: [],
+      });
+    });
+
     it("updateMemory PATCHes /api/memories/:id (supersede) and returns retiredId", async () => {
       fetchMock.mockReturnValue(
         jsonResponse({
