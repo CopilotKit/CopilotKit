@@ -73,6 +73,136 @@ primary deploy path.
 4. **Git-based services**: auto-updates only apply to image-sourced
    services. Skip step 1 for git-deploy services.
 
+## Promoting a Staging-Only Integration to Production
+
+### When this applies
+
+You added an integration **staging-only on purpose** — it ships to staging
+first and its prod instance is deferred to "promote later." In the SSOT
+(`showcase/scripts/railway-envs.ts`) such an entry looks like the
+`showcase-strands-typescript` block did before [PR #5705](https://github.com/CopilotKit/CopilotKit/pull/5705):
+
+- `gateValidated: false`,
+- `gateIgnore: true`,
+- an `environments:` map containing **only `staging`** (no `prod` block, so no
+  prod `serviceInstance` ID exists),
+- a `legacyJsonCompat.domains.prod` placeholder pointing at the **borrowed
+  staging host**, purely to keep the generated JSON's legacy `{prod, staging}`
+  shape (it is never dereferenced by any TS accessor).
+
+This is the worked example to follow — `showcase-strands-typescript` was
+promoted exactly this way in PR #5705.
+
+### The critical gotcha (read this first)
+
+**The promote pipeline only promotes image digests to a prod service that
+ALREADY exists — it does NOT provision a new prod `serviceInstance`.** Both the
+promote workflow (`showcase_promote.yml`, "Showcase: Promote (staging → prod)")
+and `bin/railway promote` move the staging-tested `@sha256` digest onto an
+existing prod instance; neither has a "create the prod service" step (there is
+no provisioning subcommand in `bin/railway`). So a staging-only integration
+will **never** appear in prod just by running promote.
+
+Until the prod `serviceInstance` exists, **D6 false-reds the entire column**:
+the harness has no `health:<slug>` record for prod, so the per-cell probe is
+handed an empty `backendUrl`, Playwright calls `page.goto("/demos/…")` on a
+bare relative path, and Chromium rejects it as an invalid URL —
+`errorClass=goto-error` on *every* cell (column-wide, uniform `fail_count`).
+The fix is not a code fix; it is provisioning the missing prod instance and
+flipping the SSOT gate.
+
+### Ordered checklist
+
+1. **Provision the prod Railway `serviceInstance`.** This is out-of-band (no
+   `bin/railway` subcommand covers it; see [`./bin/README.md`](./bin/README.md),
+   which defers "new-service provisioning" to this doc). Use the GraphQL
+   staged-change primitive, mirroring a peer prod TypeScript showcase service
+   (PR #5705 mirrored `showcase-claude-sdk-typescript`):
+   - `environmentStageChanges(production, …)` — stage a `services.<svc>` block
+     copied from the peer: `source.image` (pinned `@sha256` digest with
+     `autoUpdates.minor`), `networking.serviceDomains.<prod-domain>`,
+     `build.builder RAILPACK`, and a `deploy` block (reused GHCR
+     `registryCredentials`, runtime V2, `healthcheckPath: /api/health`,
+     `multiRegionConfig`).
+   - `environmentPatchCommitStaged(production, <msg>)` — commit the staged
+     change; this **materializes** the prod `serviceInstance` (in PR #5705,
+     `8a50728e-6119-43c4-b59c-d9535b6717a4`).
+   - Deploy it (`serviceInstanceDeployV2`) and poll the deployment to
+     `SUCCESS`.
+
+2. **Edit the SSOT (`showcase/scripts/railway-envs.ts`)** — convert the entry
+   to the dual-env `showcase-strands` shape:
+   - add a `prod` env block under `environments:` with the **real**
+     `instanceId`, `healthcheckPath: "/api/health"`, the prod `domain`, and
+     `probe: true`;
+   - set `gateValidated: true` (per the `gateValidated` doc in that file, new
+     SSOT services MUST land `gateValidated: true`; `gateIgnore` is only for
+     "deliberately-untracked third-party / domainless / single-env services" —
+     a prod-promoted demo is none of those);
+   - **remove** `gateIgnore: true`;
+   - **remove** the `legacyJsonCompat` prod-domain placeholder (the borrowed
+     staging host);
+   - update the leading comment to reflect the dual-env state.
+
+   See the PR #5705 diff on this file for the exact before/after.
+
+3. **Regenerate the derived artifacts and run the gate:**
+   - `npx tsx showcase/scripts/emit-railway-envs-json.ts` — regenerate
+     `railway-envs.generated.json` (CI verifies with `--check`).
+   - Regenerate the golden fixture
+     `showcase/scripts/__tests__/fixtures/railway-envs.golden.json` so the new
+     prod `(service, env)` pair is captured — this is an **intentional**
+     behavior change, not a refactor regression
+     (`railway-envs.golden.test.ts` is a behavior-preservation guard).
+   - `npx tsx showcase/scripts/sync-promote-service-options.ts` — regenerate
+     the `showcase_promote.yml` workflow_dispatch dropdown so the slug becomes
+     a promote target (CI verifies with `--check`).
+   - `npx tsx showcase/scripts/verify-railway-image-refs.ts` — run the image-ref
+     gate; with `gateValidated: true` it now validates the prod pin too.
+   - Run the scripts test suite (`pnpm exec vitest run` from `showcase/`),
+     including `verify-railway-image-refs.test.ts` and `redeploy-env.test.ts`,
+     whose gate-target / redeploy-scope counts and "staging-only" comments
+     change when the entry flips dual-env.
+
+4. **Secrets.** A prod TypeScript integration gets its provider keys
+   (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY`, and `OPENAI_BASE_URL` for
+   aimock-routed agents) from the **prod env's variable set**, mirroring the
+   peer prod service's config — set them on the new prod instance, never inline
+   a secret value in the SSOT or in a commit. If the agent routes 100% to
+   aimock (the `serviceRefs: [{ key: "OPENAI_BASE_URL", target: "aimock" }]`
+   case), `OPENAI_BASE_URL` points at the **prod** aimock origin and the
+   `OPENAI_API_KEY` is the non-secret `sk-aim…` aimock placeholder — so no real
+   prod secret is sourced. The `OPENAI_BASE_URL` service-ref is asserted
+   prod→prod by the promote preflight (never copied across envs).
+
+5. **Verify GREEN.** After the prod instance is up:
+   - prod `/api/health` returns **200**
+     (`https://showcase-<slug>-production.up.railway.app/api/health`);
+   - the prod PocketBase `health` collection gains a `health:<slug>` record
+     (`dimension="health"`, `status:200`, a real prod `url`);
+   - the D6 column flips on the prod harness's **next hourly
+     `d6-all-pills-e2e` tick** (runs at `:40`). The probe needs the harness to
+     have discovered the new prod health record first, so expect up to ~1 hour
+     of lag — the column stays red until the next tick even though the service
+     is healthy. Don't panic about that lag; confirm health (200 + the
+     PocketBase record) as the discriminating GREEN signal, then let the tick
+     clear the cells.
+
+Once promoted, run the digest promote itself the normal way —
+`showcase_promote.yml` (now listing the slug) or `bin/railway promote`; see
+[`./bin/README.md`](./bin/README.md) "Worked example: promote staging →
+production".
+
+> **Related:** for the *single-shot* "create prod service → go live"
+> bring-up (where prod is provisioned immediately, with no staging-first
+> phase), see [`./INTEGRATION-CHECKLIST.md`](./INTEGRATION-CHECKLIST.md) §B.
+> This section is the **staging-first → promote-later** counterpart.
+>
+> TODO: `INTEGRATION-CHECKLIST.md` §B.3 still names `showcase_deploy.yml` as
+> the build/push workflow to edit; the build/push matrix has since moved to
+> `showcase_build.yml` ("Build & Push"), with `showcase_deploy.yml` now the
+> staging verify gate. Correct §B.3 in a follow-up.
+
 ## Environment IDs
 
 - Project: `<project-id>`

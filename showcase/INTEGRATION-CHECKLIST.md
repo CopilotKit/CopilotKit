@@ -118,6 +118,14 @@ When running `migrate-integration-examples.ts` or reasoning about drift, remembe
 
 ## B. External Setup (after the package is ready)
 
+This section is the **single-shot** bring-up: provision the prod Railway
+service immediately, then go live. If instead you ship the integration
+**staging-only first** and defer prod ("promote later"), follow
+[`./RAILWAY.md`](./RAILWAY.md) → "Promoting a Staging-Only Integration to
+Production" for the provision-prod-instance + SSOT-gate-flip + promote path
+(and note: the promote pipeline does NOT provision a new prod service — D6
+false-reds the whole column until the prod instance exists).
+
 ### 1. Railway Service
 
 - [ ] Create service in the **CopilotKit Showcase** Railway project, **US-West** region
