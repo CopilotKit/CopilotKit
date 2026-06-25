@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
-import { NEVER } from "rxjs";
-import type { Observable } from "rxjs";
 import type { MockChannel } from "./test-utils";
 import { MockSocket } from "./test-utils";
 
@@ -39,13 +37,9 @@ import type {
   ɵMemoryEnvironment as MemoryEnvironment,
 } from "../memory";
 
-const noUserMeta: MemoryEnvironment["observeUserMetaEvent"] = <T>() =>
-  NEVER as Observable<T>;
-
 function memoryEnvironment(fetchImpl: Mock): MemoryEnvironment {
   return {
     fetch: fetchImpl as unknown as typeof fetch,
-    observeUserMetaEvent: noUserMeta,
   };
 }
 

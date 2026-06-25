@@ -326,15 +326,12 @@ const selectMemoriesError = createSelector(
 );
 
 /**
- * Dependencies injected into the memory store. `observeUserMetaEvent` is the
- * thread store's `ɵobserveUserMetaEvent` in production: the memory store rides
- * the single `user_meta` socket the thread store already owns rather than
- * opening its own. Injected (not imported) so the store stays decoupled from
- * the thread store and is testable with a plain event source.
+ * Dependencies injected into the memory store. The store opens its own
+ * `user_meta:memories:<joinCode>` socket/channel and does not share the
+ * thread store's socket, so only a `fetch` implementation is required.
  */
 interface MemoryEnvironment {
   fetch: typeof fetch;
-  observeUserMetaEvent: <T>(eventName: string) => Observable<T>;
 }
 
 interface MemoryStore {

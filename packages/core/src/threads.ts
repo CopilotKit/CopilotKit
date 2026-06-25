@@ -1,12 +1,10 @@
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import type { Observable } from "rxjs";
-import { BehaviorSubject, defer, firstValueFrom, merge, of } from "rxjs";
+import { defer, firstValueFrom, merge, of } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
   catchError,
   filter,
-  finalize,
-  ignoreElements,
   map,
   mergeMap,
   share,
@@ -14,7 +12,6 @@ import {
   switchMap,
   take,
   takeUntil,
-  tap,
   timeout,
   withLatestFrom,
 } from "rxjs/operators";
@@ -406,19 +403,6 @@ interface ThreadStore {
   deleteThread(threadId: string): Promise<void>;
   getState(): ThreadState;
   select: Store<ThreadState>["select"];
-  /**
-   * Observe a named event on the live `user_meta` channel (e.g.
-   * `"memory_metadata"`). Emits payloads while the channel is connected and is
-   * silent otherwise. Scoped to the `user_meta` channel only — not the
-   * per-thread (`thread:{id}`) or any future project channel.
-   *
-   * This lets sibling per-user stores (e.g. the memory store) ride the single
-   * socket/channel the thread store already owns, without touching Phoenix
-   * lifecycle themselves: the channel/socket stay fully encapsulated here, and
-   * callers receive plain payloads. Multiple subscribers to the same event
-   * share one underlying channel listener (memoized + `share`d).
-   */
-  ɵobserveUserMetaEvent<T>(eventName: string): Observable<T>;
 }
 
 let threadRequestId = 0;
@@ -596,33 +580,6 @@ function createThreadMutationObservable(
 }
 
 function createThreadStore(environment: ThreadEnvironment): ThreadStore {
-  // Holds the currently-joined `user_meta` channel session, or null when the
-  // socket is not connected. Published by the socket effect and consumed by
-  // `observeUserMetaEvent` so sibling stores can ride the same channel.
-  const userMetaChannel$ = new BehaviorSubject<ɵPhoenixChannelSession | null>(
-    null,
-  );
-  // One memoized, shared stream per event name: a single `channel.on(event)`
-  // listener fanned out to all subscribers of that event.
-  const userMetaEventStreams = new Map<string, Observable<unknown>>();
-
-  function observeUserMetaEvent<T>(eventName: string): Observable<T> {
-    let stream = userMetaEventStreams.get(eventName);
-    if (!stream) {
-      stream = userMetaChannel$.pipe(
-        filter(
-          (session): session is ɵPhoenixChannelSession => session !== null,
-        ),
-        switchMap(({ channel }) =>
-          ɵobservePhoenixEvent$<unknown>(channel, eventName),
-        ),
-        share(),
-      );
-      userMetaEventStreams.set(eventName, stream);
-    }
-    return stream as Observable<T>;
-  }
-
   const bootstrapEffect = createEffect(
     (
       actions$,
@@ -806,25 +763,8 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               ),
             );
 
-            // Publish the live channel session so sibling stores can observe
-            // their own events on it (see `observeUserMetaEvent`); emits no
-            // actions of its own. Cleared on teardown so late subscribers
-            // don't switchMap onto a dead channel.
-            const channelExposure$ = channel$.pipe(
-              tap((session: ɵPhoenixChannelSession) =>
-                userMetaChannel$.next(session),
-              ),
-              ignoreElements(),
-            );
-
-            return merge(
-              socketLifecycle$,
-              metadata$,
-              joinOutcome$,
-              channelExposure$,
-            ).pipe(
+            return merge(socketLifecycle$, metadata$, joinOutcome$).pipe(
               takeUntil(merge(shutdown$, fatalSocketShutdown$)),
-              finalize(() => userMetaChannel$.next(null)),
             );
           });
         }),
@@ -1097,7 +1037,6 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       return store.getState();
     },
     select: store.select.bind(store),
-    ɵobserveUserMetaEvent: observeUserMetaEvent,
   };
 }
 
