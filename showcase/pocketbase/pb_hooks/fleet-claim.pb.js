@@ -478,6 +478,13 @@ routerAdd(
           // stays untouched (null until a TERMINAL release): a re-queued job
           // has not finished.
           rec.set("reclaim_count", (rec.get("reclaim_count") || 0) + 1);
+          // RECLAIMABLE-LEASES re-anchor (§4.2, layer a): stamp the re-queue
+          // time so the queue-client's stale-age math ages this row off
+          // `requeued_at` (not the renewal-immune `created`). This re-anchor is
+          // what lets the lease-phase carve-out RE-CLAIM a stale-aged orphan
+          // instead of claim-deleting it: the next sweep measures the row as
+          // young again, so its "back in flight" signal is not falsified.
+          rec.set("requeued_at", new Date().toISOString());
         } else {
           // Run-metadata (§4.2): terminal release (done|failed) stamps the
           // finish time so run duration (finished_at − claimed_at) is readable
