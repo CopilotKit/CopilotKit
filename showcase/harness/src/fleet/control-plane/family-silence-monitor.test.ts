@@ -530,6 +530,112 @@ describe("family-silence monitor — post-bounce drain grace window", () => {
   });
 });
 
+describe("family-silence monitor — bounce-grace window edge (2×period boundary)", () => {
+  // Pin the exact 2×period boundary of the bounce grace. The suppression
+  // predicate is `nowMs - bounceMs < BOUNCE_GRACE_PERIOD_MULTIPLIER × period`
+  // (strict <), evaluated per-tick. To isolate the boundary we want the
+  // FINAL evaluated tick to be the one that straddles the edge, so the
+  // earlier ticks must ALSO fall on the same side — otherwise an earlier
+  // outside-grace tick would advance the consecutive-silent counter and
+  // confound the edge under test. We therefore place the bounce so that all
+  // three pre-warm ticks share the boundary relationship being pinned.
+
+  it("a bounce JUST INSIDE 2×period (grace strictly holds across all ticks) suppresses the alert", async () => {
+    // lastSuccessAt is 4×period stale so the elapsed-time gate fires every
+    // tick. Bounce is positioned so the LAST tick (t3) sits 1 min before the
+    // 2×period edge: nowMs - bounceMs = 2×period − 60s < 2×period → inside.
+    // t1/t2 are earlier, so even closer to the bounce → also inside.
+    const lastSuccessMs = BASE - 2 * PERIOD;
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
+    // bounce so that t3 is just inside: t3 - bounce = 2×period - 60s.
+    const bounceMs = t3 - (2 * PERIOD - 60_000);
+    const { monitor, posts } = makeMonitor({
+      get: async () =>
+        response(
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
+            lastRun: batch({
+              enqueuedAt: iso(lastSuccessMs - 120_000),
+              finishedAt: iso(lastSuccessMs),
+            }),
+          }),
+          [workerView(bounceMs)],
+        ),
+    });
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
+    expect(posts).toEqual([]);
+  });
+
+  it("a bounce JUST OUTSIDE 2×period on every tick lets the alert fire", async () => {
+    // Same shape, but the bounce is old enough that EVERY tick is past the
+    // 2×period grace by ≥1 min: t1 - bounce = 2×period + 60s > 2×period →
+    // outside on t1, and t2/t3 are even further out. With grace lapsed on all
+    // three ticks the consecutive-silent counter reaches threshold and posts.
+    const lastSuccessMs = BASE - 2 * PERIOD;
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
+    const bounceMs = t1 - (2 * PERIOD + 60_000);
+    const { monitor, posts } = makeMonitor({
+      get: async () =>
+        response(
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
+            lastRun: batch({
+              enqueuedAt: iso(lastSuccessMs - 120_000),
+              finishedAt: iso(lastSuccessMs),
+            }),
+          }),
+          [workerView(bounceMs)],
+        ),
+    });
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toContain("worker family D6 all-pills silent");
+  });
+
+  it("grace does NOT apply when the bounce predates last-success + 1 period (the family already succeeded after the bounce)", async () => {
+    // Intent: the grace covers the post-bounce DRAIN — the gap before the
+    // family lands its first success after a (re)start. If the family ALREADY
+    // succeeded well after the bounce (lastSuccessAt is more than one period
+    // newer than the bounce) the drain is over; a subsequent silence is a
+    // GENUINE outage and the stale bounce must not re-grant grace. Here the
+    // bounce is 5×period old while lastSuccessAt is only 2×period old — i.e.
+    // lastSuccess is ~3 periods AFTER the bounce, comfortably past
+    // last-success+1period — so the grace window (2×period since the OLD
+    // bounce) has long elapsed and the alert fires.
+    const bounceMs = BASE - 5 * PERIOD;
+    const lastSuccessMs = BASE - 2 * PERIOD; // 3 periods after the bounce
+    const t1 = BASE + 2 * PERIOD;
+    const t2 = BASE + 3 * PERIOD;
+    const t3 = BASE + 4 * PERIOD;
+    const { monitor, posts } = makeMonitor({
+      get: async () =>
+        response(
+          withD6(t3, {
+            lastSuccessAt: iso(lastSuccessMs),
+            lastRun: batch({
+              enqueuedAt: iso(lastSuccessMs - 120_000),
+              finishedAt: iso(lastSuccessMs),
+            }),
+          }),
+          [workerView(bounceMs)],
+        ),
+    });
+    await monitor.tick(t1);
+    await monitor.tick(t2);
+    await monitor.tick(t3);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toContain("worker family D6 all-pills silent");
+  });
+});
+
 describe("family-silence monitor — boot grace", () => {
   it("boot grace (1x period) suppresses the silence alert AND the meta-alert failing-since clock", async () => {
     // (a) silence alert suppressed inside the grace window.

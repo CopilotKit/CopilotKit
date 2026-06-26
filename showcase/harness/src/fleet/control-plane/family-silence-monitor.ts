@@ -101,11 +101,19 @@ export const SILENCE_CONSECUTIVE_TICK_THRESHOLD = 3;
  * VALUE = 2: the family needs roughly one full period to enqueue + run its
  * first post-bounce sweep and a second for headroom against scheduling skew
  * and a sweep that runs slightly long — it must clear ~1–2 full sweep cycles
- * before a fresh `lastSuccessAt` can exist. Two periods is also the §7.4
- * banner's own silence threshold, so the banner (which keys off the same
- * `registeredAt` shipped in the `/api/runs` workers strip) and this alert
- * stay consistent: within two periods of a bounce neither surface flags
- * silence, beyond it both do. Past the grace with still-no-success → a
+ * before a fresh `lastSuccessAt` can exist. This 2×period bounce-grace TERM is
+ * identical on both surfaces: the §7.4 dashboard banner applies the same
+ * `BOUNCE_GRACE_PERIOD_MULTIPLIER` (=2) keyed off the same worker
+ * `registeredAt` shipped in the `/api/runs` workers strip, so for the grace
+ * window specifically the banner and this Slack alert agree — within two
+ * periods of a bounce neither flags silence, beyond it both can. NOTE the
+ * silence-ONSET thresholds are NOT identical and were never meant to be: the
+ * dashboard treats a family silent at 2×period of staleness, while this
+ * server gate requires 3×period of staleness AND 3 consecutive silent ticks
+ * (see `SILENCE_PERIOD_MULTIPLIER` / `SILENCE_CONSECUTIVE_TICK_THRESHOLD`).
+ * That onset asymmetry is pre-existing / by-design (the dashboard is a
+ * lower-latency visual hint; the pager is deliberately slower to fire) — only
+ * the bounce-grace term is shared. Past the grace with still-no-success → a
  * GENUINE outage, alerts exactly as before.
  *
  * The grace keys off the freshest worker `registeredAt` (NOT CP `bootAtMs`):
@@ -588,8 +596,7 @@ export function createFamilySilenceMonitor(
         // Fleet-wide bounce signal for this cycle: the freshest worker
         // (re)registration across the shared workers strip. One read serves
         // every due family (a deploy bounces the whole pool at once).
-        const bounceMs =
-          body !== null ? freshestBounceMs(body.workers) : null;
+        const bounceMs = body !== null ? freshestBounceMs(body.workers) : null;
 
         const metaTrips: Array<{ family: string; sinceMs: number }> = [];
         const metaRecoveries: string[] = [];

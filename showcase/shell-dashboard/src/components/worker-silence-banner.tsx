@@ -85,8 +85,10 @@ export function WorkerSilenceBanner() {
     ];
   } else {
     // Post-bounce drain grace: a recent fleet bounce (PR #5715) suppresses
-    // both this banner and the §9 Slack alert, keyed off the same worker
-    // `registeredAt` shipped in the strip.
+    // both this banner and the §9 Slack alert via the SAME 2×period grace
+    // term, keyed off the same worker `registeredAt` shipped in the strip.
+    // (Only the grace term is shared — the banner's silence ONSET is 2×period
+    // vs. the pager's 3×period + 3-tick debounce, an intentional asymmetry.)
     const bounceAtMs = freshestBounceMs(status.data.workers);
     const silentFamilies = status.data.families.filter((family) =>
       isFamilySilent(family, nowMs, bounceAtMs),

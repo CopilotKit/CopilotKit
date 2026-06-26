@@ -302,6 +302,54 @@ describe("DepthChip", () => {
     expect(chip.textContent).toContain("⟳");
   });
 
+  // A11Y: an EXPLICIT gray chipColor means "no live probe data", so a grey
+  // depth>0 chip is NOT genuinely prior-good — it must fall through to the
+  // honest grey ⟳ chip (data-has-prior="false"), not claim a prior result.
+  it("pending with gray chipColor + depth>0 is NOT prior-good (honest grey ⟳)", () => {
+    const { getByTestId } = render(
+      <DepthChip depth={3} status="wired" chipColor="gray" pending />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.getAttribute("data-has-prior")).toBe("false");
+    expect(chip.getAttribute("data-refreshing")).toBe("true");
+    expect(chip.className).toContain("text-muted");
+    expect(chip.className).not.toContain("emerald");
+    expect(chip.textContent).toContain("⟳");
+  });
+
+  // A11Y: the refreshing aria-label says "regression" ONLY for an actually-
+  // flagged regression — a danger-COLOURED-but-not-flagged pending cell (deep
+  // below ceiling) suppresses the spinner the same way but must not be
+  // announced as a regression.
+  it("pending danger-coloured (not flagged) chip does NOT say 'regression' in its label", () => {
+    const { getByTestId } = render(
+      // depth 1, maxDepth 6 → danger colour via depthColorClass, but
+      // regression flag is NOT set.
+      <DepthChip depth={1} status="wired" maxDepth={6} pending />,
+    );
+    const chip = getByTestId("depth-chip");
+    // Failure colour ⇒ no spinner (colour passthrough), but the label must be
+    // the neutral depth form, never "regression".
+    expect(chip.className).toContain("danger");
+    expect(chip.getAttribute("aria-label")).toBe("Depth 1");
+    expect(chip.getAttribute("aria-label")).not.toContain("regression");
+    expect(chip.getAttribute("data-refreshing")).not.toBe("true");
+  });
+
+  it("pending FLAGGED regression still announces 'regression' in its label", () => {
+    const { getByTestId } = render(
+      <DepthChip
+        depth={5}
+        status="wired"
+        chipColor="green"
+        regression
+        pending
+      />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.getAttribute("aria-label")).toBe("Depth 5 — regression");
+  });
+
   // A pending re-run must NEVER read as a failure — no red, no indigo overlay,
   // regardless of whether there is a prior-good result.
   it("pending never reads as a failure (no danger, no indigo overlay)", () => {

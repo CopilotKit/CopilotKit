@@ -34,7 +34,10 @@ const GENERATED_JSON_PATH = resolve(
 function loadGeneratedSnapshot(): {
   services: Array<{
     name: string;
-    workerProvisioning?: { prod: WorkerProvisioning; staging: WorkerProvisioning };
+    workerProvisioning?: {
+      prod: WorkerProvisioning;
+      staging: WorkerProvisioning;
+    };
   }>;
 } {
   return JSON.parse(readFileSync(GENERATED_JSON_PATH, "utf8"));
@@ -182,28 +185,10 @@ describe("harness-workers provisioning drift gate (SSOT vs generated JSON snapsh
 
 describe("harness-workers provisioning with injected test data", () => {
   /**
-   * These tests use injected SSOT data to verify the drift detection logic
-   * itself — proving the gate FAILS when SSOT and snapshot disagree.
-   * They do NOT modify the real SERVICES map; they exercise the same
-   * comparison logic the drift gate uses with synthetic inputs.
+   * This test injects a synthetic SSOT entry and confirms the accessor
+   * returns the correct fields. It does NOT modify the real SERVICES map
+   * beyond the sentinel, which is removed in the finally block.
    */
-
-  it("drift gate logic: detects mismatched numReplicas", () => {
-    // Simulate: SSOT says numReplicas=99, snapshot still says 3.
-    // The gate must FAIL (i.e. the values differ).
-    const ssotValue = 99;
-    const snapshotValue = 3;
-    // This IS the assertion the drift gate performs — if this fails, the gate
-    // correctly catches the drift.
-    expect(ssotValue).not.toBe(snapshotValue);
-  });
-
-  it("drift gate logic: passes when SSOT and snapshot agree", () => {
-    // Simulate: SSOT says numReplicas=3, snapshot says 3 → PASS.
-    const ssotValue = 3;
-    const snapshotValue = 3;
-    expect(ssotValue).toBe(snapshotValue);
-  });
 
   it("transient injected SSOT entry: workerProvisioningFor returns correct values", () => {
     // Inject a synthetic harness-workers-like entry and confirm the accessor
@@ -216,7 +201,17 @@ describe("harness-workers provisioning with injected test data", () => {
     (
       SERVICES as Record<
         string,
-        { serviceId: string; environments: Record<string, unknown>; probeDriver: string; ciBuilt: boolean; gateValidated: boolean; workerProvisioning?: { prod: WorkerProvisioning; staging: WorkerProvisioning } }
+        {
+          serviceId: string;
+          environments: Record<string, unknown>;
+          probeDriver: string;
+          ciBuilt: boolean;
+          gateValidated: boolean;
+          workerProvisioning?: {
+            prod: WorkerProvisioning;
+            staging: WorkerProvisioning;
+          };
+        }
       >
     )[sentinel] = {
       serviceId: "00000000-0000-0000-0000-000000000099",
@@ -224,8 +219,14 @@ describe("harness-workers provisioning with injected test data", () => {
       gateValidated: false,
       probeDriver: "harness",
       environments: {
-        prod: { instanceId: "11111111-1111-1111-1111-111111111111", probe: false },
-        staging: { instanceId: "22222222-2222-2222-2222-222222222222", probe: false },
+        prod: {
+          instanceId: "11111111-1111-1111-1111-111111111111",
+          probe: false,
+        },
+        staging: {
+          instanceId: "22222222-2222-2222-2222-222222222222",
+          probe: false,
+        },
       },
       workerProvisioning: mockProv,
     };

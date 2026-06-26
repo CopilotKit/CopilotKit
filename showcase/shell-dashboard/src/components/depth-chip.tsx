@@ -151,12 +151,15 @@ export function DepthChip({
   // always shows, but AFTER `unreachable` (a known crash outranks an ambiguous
   // reclaim).
   if (pending) {
-    // Prior-good: a real last-known result exists. A non-gray chipColor OR a
-    // depth above zero means the cell HAS data worth preserving while the
-    // re-run is in flight — keep its colour, add a non-destructive refreshing
-    // affordance. (Never-run / first load falls through to the grey ⟳ below.)
+    // Prior-good: a real last-known result exists. A non-gray chipColor means
+    // the cell HAS a genuine last-known colour worth preserving; when no
+    // chipColor is supplied a depth above zero stands in for that signal.
+    // An EXPLICIT gray chipColor means "no live probe data" (the muted
+    // no-data fill), so it is NOT prior-good even at depth>0 — a grey depth>0
+    // chip falls through to the honest grey ⟳ below rather than claiming a
+    // prior result. (Never-run / first load also falls through.)
     const hasPrior =
-      (chipColor !== undefined && chipColor !== "gray") || depth > 0;
+      chipColor === "gray" ? false : chipColor !== undefined || depth > 0;
 
     if (hasPrior) {
       // Reuse the default branch's EXACT colour derivation, threading
@@ -196,9 +199,16 @@ export function DepthChip({
           data-depth={String(depth)}
           role="status"
           aria-label={
-            isFailureColor
+            // "regression" is reserved for an ACTUALLY-flagged regression —
+            // not any cell that merely resolves to the danger colour (e.g. a
+            // depth far below ceiling). A danger-coloured-but-not-flagged cell
+            // suppresses the ⟳ spinner the same way (failure → no spinner) but
+            // must not be announced as a regression.
+            regression
               ? `Depth ${depth} — regression`
-              : `Depth ${depth} — re-running`
+              : isFailureColor
+                ? `Depth ${depth}`
+                : `Depth ${depth} — re-running`
           }
           className={`relative inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums ${colorClass}`}
           title={commTooltip ?? "re-queued — pending re-run"}

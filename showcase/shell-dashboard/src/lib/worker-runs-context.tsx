@@ -15,21 +15,27 @@
  * `not.toThrow`). `null` is also the provider-mounted value until the
  * first poll settles, so consumers have exactly one no-data case.
  */
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext } from "react";
+import type { ReactNode } from "react";
 
 import type { WorkerFamilySummary, WorkerView } from "./ops-api";
 import type { WorkerRunsStatus } from "../hooks/use-worker-runs";
 
 /**
  * Post-bounce drain grace, in resolved periods — mirrors the §9 monitor's
- * `BOUNCE_GRACE_PERIOD_MULTIPLIER`. A NORMAL harness deploy rebuilds the
+ * `BOUNCE_GRACE_PERIOD_MULTIPLIER` (=2). A NORMAL harness deploy rebuilds the
  * shared image and bounces the pool workers (PR #5715); for ~1–2 sweep cycles
  * afterward each family is legitimately mid-sweep with a still-stale
  * `lastSuccessAt`, so neither the §7.3 glyph nor the §7.4 banner should flag
- * silence. Two periods == the silence threshold itself, keeping the dashboard
- * and the Slack alert consistent (both key off the same worker `registeredAt`
- * shipped in the `/api/runs` workers strip): within 2 periods of a bounce
- * neither surfaces silence, beyond it both do.
+ * silence. This 2×period bounce-grace TERM is the one piece the dashboard and
+ * the §9 Slack monitor share verbatim (both key off the same worker
+ * `registeredAt` shipped in the `/api/runs` workers strip): within 2 periods
+ * of a bounce neither surface flags silence, beyond it both can. The
+ * silence-ONSET threshold, by contrast, is NOT shared — the dashboard treats
+ * a family silent at 2×period (see `isFamilySilent` below) while the server
+ * pager requires 3×period plus a 3-tick debounce; that onset asymmetry is
+ * pre-existing / by-design (visual hint vs. pager) and only the grace term is
+ * intentionally kept in lockstep.
  */
 export const BOUNCE_GRACE_PERIOD_MULTIPLIER = 2;
 
@@ -111,8 +117,11 @@ export function useWorkerRuns(): WorkerRunsContextValue {
  *   `registeredAt`, via `freshestBounceMs`) is within
  *   `BOUNCE_GRACE_PERIOD_MULTIPLIER` periods of now, the family is
  *   legitimately mid-sweep after a deploy bounce (PR #5715) and is NOT
- *   silent — the same grace the §9 Slack monitor applies, so banner/glyph
- *   and alert stay consistent. Pass `null` (or omit) to disable the grace.
+ *   silent — this is the SAME 2×period bounce-grace term the §9 Slack monitor
+ *   applies, so for the grace window banner/glyph and pager agree. (The
+ *   silence-onset thresholds differ — 2×period here vs. 3×period + 3-tick
+ *   debounce server-side — by design; see the module-level grace JSDoc.) Pass
+ *   `null` (or omit) to disable the grace.
  */
 export function isFamilySilent(
   entry: WorkerFamilySummary,
