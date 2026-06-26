@@ -61,7 +61,7 @@ describe("oss.bot.* end-to-end (real BotTelemetry, only network boundary stubbed
     const run = sendSpy.mock.calls.find(
       (c) => c[0].event === "oss.bot.agent_run",
     )![0];
-    expect(run.properties.platform).toBe("fake");
+    expect(run.properties.platform).toBe("custom"); // "fake" → normalized
     expect(typeof run.properties.durationMs).toBe("number");
   });
 });

@@ -12,7 +12,7 @@ import type {
   EphemeralResult,
 } from "@copilotkit/bot-ui";
 import { runAgentLoop } from "./run-loop.js";
-import { errorClass } from "./telemetry/sanitize-error.js";
+import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import type { Transcripts } from "./transcripts.js";
 import { toAgentToolDescriptors } from "./tools.js";
 import type {
@@ -404,6 +404,11 @@ export class Thread implements ThreadInterface {
 
     const startedAt = Date.now();
     let loopResult: { iterations: number; interrupted: boolean };
+    // Telemetry stage: "agent" while the run loop runs, "finalize" for the
+    // transcript-append + renderer.finish() steps below. A throw in either is
+    // reported as agent_run_failed (with the right stage) instead of being
+    // hidden behind an already-sent success event.
+    let stage: "agent" | "finalize" = "agent";
     try {
       loopResult = await runAgentLoop({
         agent: session.agent,
@@ -421,51 +426,55 @@ export class Thread implements ThreadInterface {
         },
         initialResume,
       });
+      stage = "finalize";
+      // Transcript auto-bridge (step 4): capture the assistant text this run
+      // produced and append it. Only when the bridge actually applied (transcripts
+      // + userKey both present and `transcript` was requested).
+      if (extra?.transcript && transcripts && userKey) {
+        const produced = session.agent.messages.slice(messagesBefore);
+        const text = produced
+          .filter(
+            (m) =>
+              m.role === "assistant" &&
+              typeof m.content === "string" &&
+              m.content.trim().length > 0,
+          )
+          .map((m) => m.content as string)
+          .join("\n\n");
+        if (text.length > 0) {
+          await transcripts.append(
+            this,
+            { role: "assistant", text },
+            { userKey },
+          );
+        }
+      }
+
+      // Turn-end hook: lets a renderer finalize any turn-scoped resource it kept
+      // open across runAgent iterations (e.g. a native streaming message). A
+      // no-op for renderers whose per-message streams already self-terminate, and
+      // for runs that were interrupted (the renderer guards that internally).
+      await renderer.finish?.();
     } catch (err) {
-      // Tool-handler errors are swallowed inside the loop and returned as JSON
-      // results, so a throw here is an agent-level failure.
+      // A throw is a run failure — in the agent loop (tool-handler errors are
+      // swallowed inside the loop, so a throw is agent-level) or in finalization.
+      // `stage` distinguishes the two.
       this.deps.telemetry?.capture("oss.bot.agent_run_failed", {
-        platform: this.platform,
+        platform: normalizePlatform(this.platform),
         errorClass: errorClass(err),
-        stage: "agent",
+        stage,
       });
       throw err;
     }
+    // Emit success ONLY after the loop AND finalization both completed, so a
+    // late transcript/finish rejection can never follow a success event.
     this.deps.telemetry?.capture("oss.bot.agent_run", {
-      platform: this.platform,
+      platform: normalizePlatform(this.platform),
       durationMs: Date.now() - startedAt,
       toolCallCount: renderer.getCapturedToolCalls().length,
       iterations: loopResult.iterations,
       interrupted: loopResult.interrupted,
     });
-    // Transcript auto-bridge (step 4): capture the assistant text this run
-    // produced and append it. Only when the bridge actually applied (transcripts
-    // + userKey both present and `transcript` was requested).
-    if (extra?.transcript && transcripts && userKey) {
-      const produced = session.agent.messages.slice(messagesBefore);
-      const text = produced
-        .filter(
-          (m) =>
-            m.role === "assistant" &&
-            typeof m.content === "string" &&
-            m.content.trim().length > 0,
-        )
-        .map((m) => m.content as string)
-        .join("\n\n");
-      if (text.length > 0) {
-        await transcripts.append(
-          this,
-          { role: "assistant", text },
-          { userKey },
-        );
-      }
-    }
-
-    // Turn-end hook: lets a renderer finalize any turn-scoped resource it kept
-    // open across runAgent iterations (e.g. a native streaming message). A
-    // no-op for renderers whose per-message streams already self-terminate, and
-    // for runs that were interrupted (the renderer guards that internally).
-    await renderer.finish?.();
     return undefined;
   }
 }

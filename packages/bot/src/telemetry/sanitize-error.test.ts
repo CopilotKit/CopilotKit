@@ -1,5 +1,18 @@
 import { describe, it, expect } from "vitest";
-import { errorClass } from "./sanitize-error.js";
+import { errorClass, normalizePlatform } from "./sanitize-error.js";
+
+describe("normalizePlatform", () => {
+  it("passes through known platforms and buckets the rest as custom", () => {
+    expect(normalizePlatform("slack")).toBe("slack");
+    expect(normalizePlatform("discord")).toBe("discord");
+    expect(normalizePlatform("telegram")).toBe("telegram");
+    expect(normalizePlatform("whatsapp")).toBe("whatsapp");
+    // Free-form / custom adapter labels must not leak through.
+    expect(normalizePlatform("acme-internal-tenant")).toBe("custom");
+    expect(normalizePlatform("fake")).toBe("custom");
+    expect(normalizePlatform("")).toBe("custom");
+  });
+});
 
 describe("errorClass", () => {
   it("never leaks the error message", () => {

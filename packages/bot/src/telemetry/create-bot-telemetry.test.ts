@@ -32,7 +32,7 @@ describe("createBot telemetry wiring", () => {
     });
     const call = capture.mock.calls.find((c) => c[0] === "oss.bot.configured");
     expect(call).toBeDefined();
-    expect(call![1].platforms).toEqual(["fake"]);
+    expect(call![1].platforms).toEqual(["custom"]); // FakeAdapter.platform "fake" → normalized
     expect(call![1].store).toBe("memory");
     expect(call![1].hasComponents).toBe(true);
   });
@@ -73,7 +73,7 @@ describe("createBot telemetry wiring", () => {
     await tick();
     const run = capture.mock.calls.find((c) => c[0] === "oss.bot.agent_run");
     expect(run).toBeDefined();
-    expect(run![1].platform).toBe("fake");
+    expect(run![1].platform).toBe("custom"); // "fake" → normalized
     expect(typeof run![1].durationMs).toBe("number");
     expect(run![1].interrupted).toBe(false);
   });

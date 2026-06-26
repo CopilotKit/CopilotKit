@@ -13,3 +13,12 @@ export function errorClass(err: unknown): string {
   if (/zod|valid|schema|parse/.test(hay)) return "validation";
   return "unknown";
 }
+
+// `Adapter.platform` is a free-form string an adapter author sets, so a custom
+// third-party adapter could put a tenant/project name there. Bound it to the
+// known platforms and bucket everything else as "custom" — prevents leaking
+// caller-chosen labels and caps telemetry cardinality.
+const KNOWN_PLATFORMS = new Set(["slack", "discord", "telegram", "whatsapp"]);
+export function normalizePlatform(platform: string): string {
+  return KNOWN_PLATFORMS.has(platform) ? platform : "custom";
+}

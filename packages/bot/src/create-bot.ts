@@ -41,7 +41,7 @@ import { Transcripts } from "./transcripts.js";
 import type { Identity, TranscriptsConfig } from "./transcripts.js";
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
 import { BotTelemetry } from "./telemetry/bot-telemetry.js";
-import { errorClass } from "./telemetry/sanitize-error.js";
+import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import { createRequire } from "node:module";
 
 const pkg = createRequire(import.meta.url)("../package.json") as {
@@ -735,11 +735,13 @@ export function createBot<
       const startedPlatforms: string[] = [];
       const failedPlatforms: string[] = [];
       startResults.forEach((r, i) => {
-        const platform = opts.adapters[i]!.platform;
+        const rawPlatform = opts.adapters[i]!.platform;
+        // Raw label for the human-facing log; normalized label for telemetry.
+        const platform = normalizePlatform(rawPlatform);
         if (r.status === "rejected") {
           failedPlatforms.push(platform);
           console.error(
-            `[bot] adapter "${platform}" failed to start:`,
+            `[bot] adapter "${rawPlatform}" failed to start:`,
             r.reason,
           );
           telemetry.capture("oss.bot.start_failed", {
@@ -797,7 +799,7 @@ export function createBot<
     },
   };
   telemetry.capture("oss.bot.configured", {
-    platforms: opts.adapters.map((a) => a.platform),
+    platforms: opts.adapters.map((a) => normalizePlatform(a.platform)),
     adapterCount: opts.adapters.length,
     store: storeKind(backend),
     hasComponents: (opts.components?.length ?? 0) > 0,
