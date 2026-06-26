@@ -1,0 +1,45 @@
+# OpenTag Slack app manifest.
+# Create your app at https://api.slack.com/apps?new_app=1 → "From a manifest" →
+# paste this. It enables Socket Mode (no public URL needed), the /tag command,
+# the assistant pane, and the scopes/events OpenTag uses.
+display_information:
+  name: OpenTag
+  description: Reads a thread and suggests a tag.
+  background_color: "#1e293b"
+features:
+  bot_user:
+    display_name: OpenTag
+    always_online: true
+  assistant_view:
+    assistant_description: I read a thread and suggest a tag.
+    suggested_prompts:
+      - title: Tag this thread
+        message: Tag this thread
+  slash_commands:
+    - command: /tag
+      description: Read this thread and suggest a tag
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - assistant:write
+      - channels:history
+      - chat:write
+      - commands
+      - groups:history
+      - im:history
+      - im:read
+      - im:write
+      - users:read
+      - users:read.email
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_mention
+      - assistant_thread_started
+      - message.im
+  interactivity:
+    is_enabled: true
+  socket_mode_enabled: true
+  org_deploy_enabled: false

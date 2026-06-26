@@ -188,6 +188,52 @@ importers:
         specifier: ^4.1.3
         version: 4.1.3(@opentelemetry/api@1.9.0)(@types/node@18.19.130)(@vitest/coverage-v8@3.2.4)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@18.19.130)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
 
+  examples/opentag:
+    dependencies:
+      '@copilotkit/bot':
+        specifier: workspace:*
+        version: link:../../packages/bot
+      '@copilotkit/bot-discord':
+        specifier: workspace:*
+        version: link:../../packages/bot-discord
+      '@copilotkit/bot-slack':
+        specifier: workspace:*
+        version: link:../../packages/bot-slack
+      '@copilotkit/bot-telegram':
+        specifier: workspace:*
+        version: link:../../packages/bot-telegram
+      '@copilotkit/bot-ui':
+        specifier: workspace:*
+        version: link:../../packages/bot-ui
+      '@copilotkit/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
+      '@tanstack/ai':
+        specifier: ^0.32.0
+        version: 0.32.0(@opentelemetry/api@1.9.0)
+      '@tanstack/ai-openai':
+        specifier: ^0.15.2
+        version: 0.15.6(@tanstack/ai@0.32.0(@opentelemetry/api@1.9.0))(ws@8.19.0)(zod@3.25.76)
+      zod:
+        specifier: '>=3.22.3'
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.0
+        version: 22.19.11
+      dotenv:
+        specifier: ^16.4.5
+        version: 16.6.1
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.3
+        version: 4.1.5(@opentelemetry/api@1.9.0)(@types/node@22.19.11)(@vitest/coverage-v8@4.1.5)(jsdom@29.1.0(@noble/hashes@1.8.0))(vite@7.3.2(@types/node@22.19.11)(jiti@2.7.0)(less@4.5.1)(lightningcss@1.32.0)(sass@1.97.3)(terser@5.46.0)(tsx@4.21.0)(yaml@2.9.0))
+
   examples/showcases/banking:
     dependencies:
       '@copilotkit/core':
@@ -12668,6 +12714,12 @@ packages:
       '@tanstack/ai-client': ^0.18.0
       zod: '>=3.22.3'
 
+  '@tanstack/ai-openai@0.15.6':
+    resolution: {integrity: sha512-frItUmGMqHeM85zL562Zg7Au+0DBxpAL53jtBhCjIQToV5YR6Ocun4Ksid19o2fOP1cGgLYus67mVPH5lvOUIw==}
+    peerDependencies:
+      '@tanstack/ai': ^0.35.0
+      zod: '>=3.22.3'
+
   '@tanstack/ai-openai@0.8.2':
     resolution: {integrity: sha512-fnrY2nPhn+KZzBbMU84vmuaK74+SAOjs5XtsW/2eX1Ke3Gj3ItGrXDks7Gt9pDrDADjYK6ZSsgtUCm9F++OFOg==}
     peerDependencies:
@@ -12677,6 +12729,9 @@ packages:
 
   '@tanstack/ai-utils@0.2.2':
     resolution: {integrity: sha512-QZNgbhoPhh5snlMf21SuF4QNTJme4aldvBx2ppMefqfMQHBQPFDJl6TxHDNW8voIzQe42rE5U9XfoWrS0K/xFQ==}
+
+  '@tanstack/ai-utils@0.3.0':
+    resolution: {integrity: sha512-gy36dQvyd+DG2uuvZK533kEfBhK5S6eV2AGc7iBQBBTeCpzs+hMhqeJ5xAnqfZ2nyHsn6jzkzLyfabyrLU5dKA==}
 
   '@tanstack/ai@0.14.0':
     resolution: {integrity: sha512-oiyYHcWMmyVoKDf018xZMEX62BaJVhdgeeRQeRbqP3p5Nvar2UZUhKzFkUiE4L9KzklPqrtI5aYhVdAp9Z142g==}
@@ -12717,6 +12772,11 @@ packages:
     resolution: {integrity: sha512-x4iBvzDXPLtNsevteyD9KbJPBSy/IDCQ6O1E/bsNpAKUVljnCza9dcoIsooA/IfAjFofL9P6gd9PiEorrZ6TCw==}
     peerDependencies:
       '@tanstack/ai': ^0.32.0
+
+  '@tanstack/openai-base@0.9.2':
+    resolution: {integrity: sha512-wf6Yl5KDBE3ZDUlDsZuPSAgH154t/X9aNIEk9UMtzi4EiLy8UgaTAR8forqaWCZjdspp5kvM+5WTmOavStEQow==}
+    peerDependencies:
+      '@tanstack/ai': ^0.35.0
 
   '@tanstack/pacer@0.20.1':
     resolution: {integrity: sha512-ZNQ1bIL6eUXVKdic0tiImvBVkWrg/IoSK6VIacTrO3d3HAGnd70qFJNJagR/YOJIOw4EKGWnodwpYZkN1pWuVQ==}
@@ -33275,7 +33335,7 @@ snapshots:
     dependencies:
       '@langchain/core': 1.1.42(@opentelemetry/api@1.9.0)(openai@4.104.0(encoding@0.1.13)(ws@8.19.0)(zod@3.25.76))(ws@8.19.0)
       js-tiktoken: 1.0.21
-      openai: 6.35.0(ws@8.19.0)(zod@3.25.76)
+      openai: 6.44.0(ws@8.19.0)(zod@3.25.76)
       zod: 3.25.76
     transitivePeerDependencies:
       - ws
@@ -38376,6 +38436,16 @@ snapshots:
     transitivePeerDependencies:
       - ws
 
+  '@tanstack/ai-openai@0.15.6(@tanstack/ai@0.32.0(@opentelemetry/api@1.9.0))(ws@8.19.0)(zod@3.25.76)':
+    dependencies:
+      '@tanstack/ai': 0.32.0(@opentelemetry/api@1.9.0)
+      '@tanstack/ai-utils': 0.3.0
+      '@tanstack/openai-base': 0.9.2(@tanstack/ai@0.32.0(@opentelemetry/api@1.9.0))(ws@8.19.0)(zod@3.25.76)
+      openai: 6.44.0(ws@8.19.0)(zod@3.25.76)
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - ws
+
   '@tanstack/ai-openai@0.8.2(@tanstack/ai-client@0.7.5)(@tanstack/ai@0.14.0)(ws@8.19.0)(zod@3.25.76)':
     dependencies:
       '@tanstack/ai': 0.14.0
@@ -38386,6 +38456,8 @@ snapshots:
       - ws
 
   '@tanstack/ai-utils@0.2.2': {}
+
+  '@tanstack/ai-utils@0.3.0': {}
 
   '@tanstack/ai@0.14.0':
     dependencies:
@@ -38427,6 +38499,15 @@ snapshots:
     dependencies:
       '@tanstack/ai': 0.32.0(@opentelemetry/api@1.9.0)
       '@tanstack/ai-utils': 0.2.2
+      openai: 6.44.0(ws@8.19.0)(zod@3.25.76)
+    transitivePeerDependencies:
+      - ws
+      - zod
+
+  '@tanstack/openai-base@0.9.2(@tanstack/ai@0.32.0(@opentelemetry/api@1.9.0))(ws@8.19.0)(zod@3.25.76)':
+    dependencies:
+      '@tanstack/ai': 0.32.0(@opentelemetry/api@1.9.0)
+      '@tanstack/ai-utils': 0.3.0
       openai: 6.44.0(ws@8.19.0)(zod@3.25.76)
     transitivePeerDependencies:
       - ws
@@ -43254,8 +43335,8 @@ snapshots:
       '@next/eslint-plugin-next': 16.0.8
       eslint: 9.39.2(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.2(jiti@2.7.0))
-      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-react: 7.37.5(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-react-hooks: 7.1.1(eslint@9.39.2(jiti@2.7.0))
@@ -43274,8 +43355,8 @@ snapshots:
       '@next/eslint-plugin-next': 16.2.9
       eslint: 9.39.2(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.2(jiti@2.7.0))
-      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
+      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-react: 7.37.5(eslint@9.39.2(jiti@2.7.0))
       eslint-plugin-react-hooks: 7.1.1(eslint@9.39.2(jiti@2.7.0))
@@ -43297,6 +43378,21 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)):
+    dependencies:
+      '@nolyfill/is-core-module': 1.0.39
+      debug: 4.4.3(supports-color@5.5.0)
+      eslint: 9.39.2(jiti@2.7.0)
+      get-tsconfig: 4.13.6
+      is-bun-module: 2.0.0
+      stable-hash: 0.0.5
+      tinyglobby: 0.2.16
+      unrs-resolver: 1.11.1
+    optionalDependencies:
+      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
+    transitivePeerDependencies:
+      - supports-color
+
   eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.2(jiti@1.21.7)):
     dependencies:
       '@nolyfill/is-core-module': 1.0.39
@@ -43312,21 +43408,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.2(jiti@2.7.0)):
-    dependencies:
-      '@nolyfill/is-core-module': 1.0.39
-      debug: 4.4.3(supports-color@5.5.0)
-      eslint: 9.39.2(jiti@2.7.0)
-      get-tsconfig: 4.13.6
-      is-bun-module: 2.0.0
-      stable-hash: 0.0.5
-      tinyglobby: 0.2.16
-      unrs-resolver: 1.11.1
-    optionalDependencies:
-      eslint-plugin-import: 2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0))
-    transitivePeerDependencies:
-      - supports-color
-
   eslint-module-utils@2.12.1(@typescript-eslint/parser@7.2.0(eslint@9.39.2(jiti@1.21.7))(typescript@5.9.2))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@1.21.7)):
     dependencies:
       debug: 3.2.7
@@ -43338,13 +43419,13 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.12.1(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0)):
+  eslint-module-utils@2.12.1(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
       eslint: 9.39.2(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0)(eslint@9.39.2(jiti@2.7.0))
+      eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
     transitivePeerDependencies:
       - supports-color
 
@@ -43377,7 +43458,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-plugin-import@2.32.0(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0)):
+  eslint-plugin-import@2.32.0(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9
@@ -43388,7 +43469,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.39.2(jiti@2.7.0)
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.1(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.7.0))
+      eslint-module-utils: 2.12.1(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0)))(eslint@9.39.2(jiti@2.7.0))
       hasown: 2.0.2
       is-core-module: 2.16.1
       is-glob: 4.0.3
