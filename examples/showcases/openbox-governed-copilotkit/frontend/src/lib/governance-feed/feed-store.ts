@@ -43,11 +43,19 @@ function commit(next: FeedStoreSnapshot) {
 }
 
 export function resetFeed(): void {
-  snapshot = EMPTY;
-  arrivalCounter = 0;
-  seenResultIds.clear();
-  seenTimingKeys.clear();
-  subscribers.forEach((listener) => listener());
+  // Durable clear: bump revision via commit() (monotonic — useGovernanceFeed's
+  // useMemo is keyed on snapshot.revision, so a non-monotonic reset-to-0 would
+  // serve a stale tree when the number repeats). KEEP seenResultIds/seenTimingKeys
+  // and arrivalCounter so already-ingested messages are NOT re-added when the agent
+  // subscription next fires — the clear sticks until genuinely new actions arrive.
+  // revision is carried for the type; commit() overwrites it with snapshot.revision + 1.
+  commit({
+    ...snapshot,
+    results: [],
+    timings: [],
+    halted: false,
+    haltedAtMs: undefined,
+  });
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -69,6 +77,7 @@ function numberValue(value: unknown): number | undefined {
 function toResultRecord(
   id: string,
   record: Record<string, unknown>,
+  isResume: boolean,
 ): FeedResultRecord {
   const guardrails = asRecord(record.guardrailsResult);
   // Use ingest (arrival) time, not expiresAt: for approval_required results
@@ -100,7 +109,7 @@ function toResultRecord(
     activityId: textValue(record.activityId) || undefined,
     approvalId: textValue(record.approvalId) || undefined,
     governanceEventId: textValue(record.governanceEventId) || undefined,
-    isResume: record.__isResume === true,
+    isResume,
     arrivalIndex: arrivalCounter++,
     emittedAtMs,
     raw: record,
@@ -134,18 +143,17 @@ export function ingestResultsFromMessages(
       `${textValue(parsed.action)}:${textValue(parsed.approvalId)}:${textValue(parsed.status)}`;
     if (!id || seenResultIds.has(id)) continue;
 
-    // Resume detection: a result that has an approvalId AND an executed/
-    // constrained/blocked terminal status following an approval is a resume.
-    // The reliable signal is the resume tool name, resolved upstream; here we
-    // treat any result carrying approvalId with a terminal (non-approval)
-    // status as a resume continuation.
+    // Resume detection (heuristic only): a result carrying an approvalId with a
+    // terminal status — anything other than approval_required / approval_pending
+    // — is treated as a resume continuation of an earlier approval. This is the
+    // sole signal used; there is no upstream resume-tool-name resolution.
     const isResume =
       Boolean(textValue(parsed.approvalId)) &&
       parsed.status !== "approval_required" &&
       parsed.status !== "approval_pending";
 
     seenResultIds.add(id);
-    additions.push(toResultRecord(id, { ...parsed, __isResume: isResume }));
+    additions.push(toResultRecord(id, parsed, isResume));
   }
 
   if (additions.length === 0) return;
