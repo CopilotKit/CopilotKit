@@ -8,7 +8,7 @@ partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langgraph-fastapi
 copilotkit_version: 2.0.0
 deployed: true
-docs_mode: authored
+docs_mode: generated
 sort_order: 12
 generative_ui:
   - constrained-explicit
