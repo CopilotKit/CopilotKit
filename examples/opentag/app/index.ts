@@ -3,34 +3,21 @@
  * `runtime.ts` holds the AG-UI agent backend (a CopilotKit `BuiltInAgent`);
  * this directory holds everything that runs on the chat-platform side.
  *
- * MULTI-PLATFORM: this single app drives Slack and/or Discord from one process.
- * `@copilotkit/bot`'s `createBot` accepts an array of adapters and starts them
- * all, so we include each platform's adapter only when its secrets are present.
- * Drop in `SLACK_*` for Slack, `DISCORD_*` for Discord — or both. Everything
- * else in `app/` (tools, the tag card, the confirm_tag HITL gate, the /tag
- * command) is platform-agnostic and shared verbatim. This is the directory you
- * copy to start your own bot.
- *
- * Adding another platform (Telegram, WhatsApp): the engine is platform-agnostic,
- * so a new surface is just another secret-gated adapter block below (e.g.
- * `@copilotkit/bot-telegram`). Telegram is left out here only until
- * `@copilotkit/bot-telegram` is published to npm, so a standalone clone can
- * `npm install` the whole thing.
+ * This is the directory you copy to start your own bot. It runs on Slack via
+ * `@copilotkit/bot-slack` over Socket Mode (no public URL needed). Everything in
+ * `app/` (the tools, the tag card, the confirm_tag HITL gate, the /tag command)
+ * is platform-agnostic, so moving to another surface is just swapping the
+ * adapter: `@copilotkit/bot` ships `-discord`, `-telegram`, `-whatsapp`, and
+ * `-teams` adapters with the same shape. See the README ("Run it elsewhere").
  */
 import "dotenv/config";
 import { createBot } from "@copilotkit/bot";
-import type { PlatformAdapter, BotTool, ContextEntry } from "@copilotkit/bot";
 import {
   slack,
   defaultSlackTools,
   defaultSlackContext,
   SanitizingHttpAgent,
 } from "@copilotkit/bot-slack";
-import {
-  discord,
-  defaultDiscordTools,
-  defaultDiscordContext,
-} from "@copilotkit/bot-discord";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
@@ -39,15 +26,13 @@ import { senderContext } from "./sender-context.js";
 const required = (name: string): string => {
   const v = process.env[name];
   if (!v) {
-    console.error(`Missing required env var: ${name}`);
+    console.error(
+      `Missing required env var: ${name} (see README / .env.example)`,
+    );
     process.exit(1);
   }
   return v;
 };
-
-/** True only when every named env var is set and non-empty. */
-const have = (...names: string[]): boolean =>
-  names.every((n) => Boolean(process.env[n]));
 
 async function main() {
   const agentUrl = required("AGENT_URL");
@@ -55,69 +40,35 @@ async function main() {
     ? { Authorization: process.env.AGENT_AUTH_HEADER }
     : undefined;
 
-  // Build the platform list from whichever secrets are present. Each adapter
-  // contributes its own built-in tools (e.g. `lookup_*_user`) and context
-  // (tagging + formatting guidance), added only when that platform is active so
-  // the model isn't handed a different platform's conventions.
-  const adapters: PlatformAdapter[] = [];
-  const tools: BotTool[] = [...appTools];
-  const context: ContextEntry[] = [...appContext];
-
-  if (have("SLACK_BOT_TOKEN", "SLACK_APP_TOKEN")) {
-    adapters.push(
-      slack({
-        botToken: required("SLACK_BOT_TOKEN"),
-        appToken: required("SLACK_APP_TOKEN"),
-        // Keep DMs conversational and respond to explicit @mentions in
-        // channels/threads. Plain channel replies stay quiet unless they
-        // mention OpenTag again.
-        respondTo: {
-          directMessages: true,
-          appMentions: { reply: "thread" },
-          threadReplies: "mentionsOnly",
-        },
-        // Assistant pane greeting + chips (shown when a user opens the pane).
-        assistant: {
-          greeting: "Hi! Mention me in a thread and I'll suggest a tag.",
-          suggestedPrompts: [
-            { title: "Tag this thread", message: "Tag this thread" },
-          ],
-        },
-      }),
-    );
-    tools.push(...defaultSlackTools);
-    context.push(...defaultSlackContext);
-  }
-
-  if (have("DISCORD_BOT_TOKEN", "DISCORD_APP_ID")) {
-    adapters.push(
-      discord({
-        botToken: required("DISCORD_BOT_TOKEN"),
-        appId: required("DISCORD_APP_ID"),
-        // Optional: register slash commands to one guild instantly during dev
-        // (global commands can take up to ~1h to propagate). Omit in prod.
-        guildId: process.env.DISCORD_GUILD_ID,
-      }),
-    );
-    tools.push(...defaultDiscordTools);
-    context.push(...defaultDiscordContext);
-  }
-
-  if (adapters.length === 0) {
-    console.error(
-      "No platform secrets found. Set SLACK_BOT_TOKEN + SLACK_APP_TOKEN " +
-        "and/or DISCORD_BOT_TOKEN + DISCORD_APP_ID (see README).",
-    );
-    process.exit(1);
-  }
+  // The Slack adapter. It contributes its own built-in tools (`lookup_slack_user`)
+  // and context (Slack tagging + formatting guidance), which we add alongside
+  // OpenTag's own tools/context below.
+  const slackAdapter = slack({
+    botToken: required("SLACK_BOT_TOKEN"),
+    appToken: required("SLACK_APP_TOKEN"),
+    // Keep DMs conversational and respond to explicit @mentions in
+    // channels/threads. Plain channel replies stay quiet unless they mention
+    // OpenTag again.
+    respondTo: {
+      directMessages: true,
+      appMentions: { reply: "thread" },
+      threadReplies: "mentionsOnly",
+    },
+    // Assistant pane greeting + chips (shown when a user opens the pane).
+    assistant: {
+      greeting: "Hi! Mention me in a thread and I'll suggest a tag.",
+      suggestedPrompts: [
+        { title: "Tag this thread", message: "Tag this thread" },
+      ],
+    },
+  });
 
   const bot = createBot({
-    adapters,
+    adapters: [slackAdapter],
     // One AG-UI agent per conversation, pointed at the runtime. The backend is a
     // CopilotKit `BuiltInAgent` (CopilotSseRuntime), which does NOT require a
     // UUID-format threadId, so the raw conversation thread id is fine.
-    // `SanitizingHttpAgent` is a lenient superset of `HttpAgent`; one factory
-    // covers Slack and Discord alike.
+    // `SanitizingHttpAgent` is a lenient superset of `HttpAgent`.
     agent: (threadId) => {
       const a = new SanitizingHttpAgent({
         url: agentUrl,
@@ -126,21 +77,20 @@ async function main() {
       a.threadId = threadId;
       return a;
     },
-    // `appTools` adds OpenTag's tools (read_thread, confirm_tag, tag_card); the
-    // per-platform `default*Tools` add `lookup_*_user`. `default*Context` ships
-    // tagging/formatting guidance; `appContext` adds OpenTag's identity + policy.
-    tools,
-    context,
+    // `appTools` adds OpenTag's tools (read_thread, confirm_tag, tag_card);
+    // `defaultSlackTools` adds `lookup_slack_user`. `defaultSlackContext` ships
+    // Slack tagging/formatting guidance; `appContext` adds OpenTag's identity +
+    // policy.
+    tools: [...appTools, ...defaultSlackTools],
+    context: [...appContext, ...defaultSlackContext],
     // The `/tag` slash command. On Slack it must ALSO be declared in the app
-    // config (paste `slack-app-manifest.yaml`); Discord registers commands up
-    // front. The engine routes by name; adapters that can't take commands ignore
-    // them.
+    // config (paste `slack-app-manifest.yaml`); the engine routes by name.
     commands: appCommands,
   });
 
-  // One handler covers explicit @-mentions and DMs across every active platform.
-  // `senderContext` names the requesting user per `thread.platform`. Wrap the
-  // run so a failed turn is logged and surfaced instead of crashing the process.
+  // One handler covers explicit @-mentions and DMs. `senderContext` names the
+  // requesting user. Wrap the run so a failed turn is logged and surfaced
+  // instead of crashing the process.
   bot.onMention(async ({ thread, message }) => {
     try {
       await thread.runAgent({
@@ -154,10 +104,7 @@ async function main() {
     }
   });
 
-  // Slack-only nicety: set the assistant-pane prompt chips when a pane opens.
-  // Harmless elsewhere — `onThreadStarted` only fires from adapters that emit it
-  // (Discord has no assistant pane), and platforms without suggested-prompt
-  // support no-op.
+  // Set the assistant-pane prompt chips when a Slack pane opens.
   bot.onThreadStarted(async ({ thread }) => {
     await thread.setSuggestedPrompts([
       { title: "Tag this thread", message: "Tag this thread" },
@@ -165,9 +112,7 @@ async function main() {
   });
 
   await bot.start();
-  console.log(
-    `[opentag] started on: ${adapters.map((a) => a.platform).join(", ")}`,
-  );
+  console.log("[opentag] started on: slack");
 
   const shutdown = async (signal: string) => {
     console.log(`\n[opentag] received ${signal}, stopping…`);

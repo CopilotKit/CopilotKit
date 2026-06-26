@@ -5,11 +5,10 @@
  *
  * NOTE: on Slack a command only fires if it's ALSO declared in the Slack app
  * config ("Slash Commands" / manifest) with the same name — Slack won't deliver
- * an unregistered command, even over Socket Mode. Discord and Telegram register
- * their commands up front via the adapter.
+ * an unregistered command, even over Socket Mode. (Other adapters register their
+ * commands up front; the engine routes by name regardless.)
  *
- * Args arrive as free text (`ctx.text`) on Slack; `ctx.options` is for surfaces
- * with native structured args (e.g. Discord).
+ * Args arrive as free text (`ctx.text`) on Slack.
  */
 import { defineBotCommand } from "@copilotkit/bot";
 import type { BotCommand } from "@copilotkit/bot";

@@ -193,9 +193,6 @@ importers:
       '@copilotkit/bot':
         specifier: workspace:*
         version: link:../../packages/bot
-      '@copilotkit/bot-discord':
-        specifier: workspace:*
-        version: link:../../packages/bot-discord
       '@copilotkit/bot-slack':
         specifier: workspace:*
         version: link:../../packages/bot-slack

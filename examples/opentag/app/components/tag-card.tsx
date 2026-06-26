@@ -3,10 +3,10 @@
  * the conversation: the label as a colored header, a one-line rationale, and an
  * optional confidence / "applied by" footer.
  *
- * Authored with the `@copilotkit/bot-ui` JSX vocabulary; each adapter renders
- * the same IR natively (Block Kit on Slack, Components V2 on Discord, HTML on
- * Telegram). Its exported zod prop schema doubles as the render-tool input
- * schema (see `app/tools/tag-card.tsx`).
+ * Authored with the `@copilotkit/bot-ui` JSX vocabulary, which renders to each
+ * platform's native format (Block Kit on Slack) — so the same component works
+ * unchanged on other adapters. Its exported zod prop schema doubles as the
+ * render-tool input schema (see `app/tools/tag-card.tsx`).
  */
 import { z } from "zod";
 import { Context, Header, Message, Section } from "@copilotkit/bot-ui";

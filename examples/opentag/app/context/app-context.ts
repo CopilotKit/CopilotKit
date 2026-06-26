@@ -1,9 +1,8 @@
 /**
  * App-specific context entries — bot identity, tone, and tagging policy.
- * Platform tagging/formatting/thread-model guidance ships in each adapter's
- * default context (`defaultSlackContext` / `defaultDiscordContext` /
- * `defaultTelegramContext`) and is spread per-bot in `app/index.ts`; this file
- * holds the platform-neutral identity + policy only.
+ * Platform tagging/formatting/thread-model guidance ships in the adapter's
+ * default context (`defaultSlackContext`) and is spread in `app/index.ts`; this
+ * file holds the platform-neutral identity + policy only.
  *
  * Each entry is `{ description, value }`. The SDK forwards them as AG-UI
  * `context` on every turn; the agent backend surfaces them as a system-level

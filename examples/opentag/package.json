@@ -2,7 +2,7 @@
   "name": "opentag",
   "version": "0.0.1",
   "private": true,
-  "description": "OpenTag — a minimal multi-platform CopilotKit bot starter. A thread-tagging assistant on Slack, Discord, and/or Telegram: it reads a thread, proposes a label, and applies it after a human-in-the-loop confirm. Built on @copilotkit/bot.",
+  "description": "OpenTag — a minimal CopilotKit bot starter for Slack. A thread-tagging assistant: it reads a thread, proposes a label, and applies it after a human-in-the-loop confirm. Built on @copilotkit/bot; the same app runs on Discord/Telegram/WhatsApp/Teams by swapping the adapter.",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@copilotkit/bot": "workspace:*",
-    "@copilotkit/bot-discord": "workspace:*",
     "@copilotkit/bot-slack": "workspace:*",
     "@copilotkit/bot-ui": "workspace:*",
     "@copilotkit/runtime": "workspace:*",

@@ -24,9 +24,9 @@ import { chat } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 
 const SYSTEM_PROMPT = [
-  "You are OpenTag, a thread-tagging assistant living in a team chat workspace",
-  "(Slack or Discord). Your job: read a conversation and apply ONE",
-  "concise label that captures what it is.",
+  "You are OpenTag, a thread-tagging assistant living in a Slack workspace.",
+  "Your job: read a conversation and apply ONE concise label that captures",
+  "what it is.",
   "",
   "Taxonomy — prefer these labels (pick the single best fit):",
   "- bug      — something is broken or not working as intended",
