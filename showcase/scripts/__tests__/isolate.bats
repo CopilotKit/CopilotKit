@@ -1724,6 +1724,55 @@ FIXTURE
     || fail "_slot_ports_free 8 did not emit the foreign-hold info line for Python: $output"
 }
 
+@test "_slot_ports_free fails LOUDLY for a bad slot instead of falsely reporting all-free" {
+  # Regression: _slot_ports_free fed its port list from
+  #   while read port; do ...; done < <(_slot_offset_ports "$slot")
+  # When _slot_offset_ports dies on a bad slot (out-of-range / non-numeric), the
+  # die only kills the process-substitution SUBSHELL — not _slot_ports_free. The
+  # while loop then read ZERO ports, any_held stayed 0, and the function returned
+  # 0 ("all ports free"), SILENTLY defeating the port-conflict guard for a bad
+  # slot. Both claim paths treat 0 as "free, go claim it", so a bad slot would
+  # have sailed past the guard. The fix captures the port list (and thus
+  # _slot_offset_ports's exit status) BEFORE the loop, so a bad slot fails LOUDLY.
+  load_common
+  export LSOF_HOLD_PORTS=""
+
+  # Out-of-range slot (ISOLATE_MAX_SLOT=45). _slot_offset_ports dies on this.
+  run _slot_ports_free 99
+  [ "$status" -ne 0 ] \
+    || fail "_slot_ports_free 99 (out-of-range) wrongly reported success; the bad slot defeated the guard. status=$status output=$output"
+  [[ "$output" == *"exceeds ISOLATE_MAX_SLOT"* ]] \
+    || fail "_slot_ports_free 99 did not surface the _slot_offset_ports die reason: $output"
+
+  # Non-numeric slot. _slot_offset_ports dies on this too.
+  run _slot_ports_free "bogus"
+  [ "$status" -ne 0 ] \
+    || fail "_slot_ports_free bogus (non-numeric) wrongly reported success. status=$status output=$output"
+  [[ "$output" == *"non-negative integer"* ]] \
+    || fail "_slot_ports_free bogus did not surface the _slot_offset_ports die reason: $output"
+}
+
+@test "_slot_ports_free still reports a valid slot correctly (free when free, held when held)" {
+  # Guard the fix: valid slots must NOT regress. Slot 8's dashboard port post-
+  # shift is 3210 + 1800 = 5010 (same arithmetic as the own-project test above).
+  load_common
+
+  # Free: nothing held → returns 0.
+  export LSOF_HOLD_PORTS=""
+  run _slot_ports_free 8
+  [ "$status" -eq 0 ] \
+    || fail "_slot_ports_free 8 should be free when no port is held, got status=$status output=$output"
+
+  # Held by a foreign (non-docker) process on slot 8's dashboard port → returns 1.
+  export LSOF_HOLD_PORTS="5010"
+  export LSOF_HOLD_COMMAND="Python"
+  run _slot_ports_free 8
+  [ "$status" -ne 0 ] \
+    || fail "_slot_ports_free 8 should be held when port 5010 is taken by Python, got status=0 output=$output"
+  [[ "$output" == *"Slot 8 port 5010 held by Python"* ]] \
+    || fail "_slot_ports_free 8 did not emit the foreign-hold info line: $output"
+}
+
 # ── Composite tests (MT3.2d): _slot_state axes, bin/showcase slots, concurrent claim ──
 #
 # Three additional behaviors pinned here:
@@ -2058,4 +2107,173 @@ FIXTURE
   [ "$status" -ne 0 ] || fail "--isolate=99 unexpectedly succeeded: $output"
   [[ "$output" == *"exceeds ISOLATE_MAX_SLOT=45"* ]] \
     || fail "--isolate=99 did not surface the out-of-range die: $output"
+}
+
+# ── --isolate <name> space-form arg-parser (cmd-test.sh) ─────────────────────
+#
+# The space-separated `--isolate <name>` form (vs the `--isolate=<name>` sugar)
+# is parsed entirely inside cmd-test.sh's option loop, which must bind the
+# explicit name to ISOLATE's name slot and the service to the positional slug
+# REGARDLESS of token order — `--isolate <name> <slug>` (name first) and
+# `<slug> --isolate <name>` (slug first) must both resolve correctly. The
+# auto-named form (`--isolate <slug>` with NO explicit name) must still treat
+# the lone trailing token as the slug. And a bare/empty `--isolate=` (or
+# `--isolate` with no value) must be REJECTED loudly, never silently auto-pick.
+#
+# These tests drive the REAL cmd_test parser end-to-end (the same source +
+# stub-after-parser pattern as the --isolate=<N> drift guard above): they stub
+# everything cmd_test invokes after parsing (apply_isolation, run-harness, etc.)
+# and snapshot the parsed slug + isolate_name so a parser regression fails
+# LOUDLY. apply_isolation receives ("$isolate_name" "$slug") in that order
+# (see _common.sh), so the snapshot records the two positional args it was
+# handed — exactly the contract downstream depends on.
+
+# _run_cmd_test_parse <args...> — source the real cmd-test.sh, stub the entire
+# post-parser body, and snapshot what the parser bound. Writes two files:
+#   $PARSE_SNAP.name  → the isolate name apply_isolation was handed ($1)
+#   $PARSE_SNAP.slug  → the slug apply_isolation was handed ($2)
+# When --isolate is NOT requested, apply_isolation never fires; the no-isolate
+# fallback stub records need_slug's argument as the slug and "<no-iso>" name.
+# Sets $status/$output via `run`.
+_run_cmd_test_parse() {
+  local cmd_test_sh="$BATS_TEST_DIRNAME/../cli/cmd-test.sh"
+  [ -f "$cmd_test_sh" ] || fail "cmd-test.sh not found: $cmd_test_sh"
+  PARSE_SNAP="$BATS_TEST_TMPDIR/parse-snap"
+  rm -f "$PARSE_SNAP".name "$PARSE_SNAP".slug
+  # apply_isolation snapshots (name, slug) then exits cleanly so the docker/
+  # python3-forking remainder of cmd_test never runs. need_slug snapshots the
+  # slug too (and preserves its real "slug required" die so the empty-slug
+  # contract is exercised). info/success/warn are silenced; the harness call is
+  # a no-op (it is never reached — apply_isolation exits first when isolating).
+  run bash -euo pipefail -c "
+    source '$COMMON'
+    source '$cmd_test_sh'
+    apply_isolation() {
+      printf '%s' \"\${1:-}\" > '$PARSE_SNAP.name'
+      printf '%s' \"\${2:-}\" > '$PARSE_SNAP.slug'
+      exit 0
+    }
+    need_slug() {
+      [ -n \"\${1:-}\" ] || die 'slug required'
+      printf '<no-iso>' > '$PARSE_SNAP.name'
+      printf '%s' \"\${1:-}\" > '$PARSE_SNAP.slug'
+    }
+    info() { :; }
+    success() { :; }
+    npx() { :; }
+    cmd_test $*
+  "
+}
+
+@test "cmd-test.sh --isolate <name> <slug> (name BEFORE slug) binds name and slug correctly" {
+  load_common
+  _run_cmd_test_parse --isolate myname mastra
+  [ "$status" -eq 0 ] || fail "cmd_test --isolate myname mastra failed: $output"
+  [ -f "$PARSE_SNAP.name" ] || fail "apply_isolation never fired (use_isolate wiring broken): $output"
+  run cat "$PARSE_SNAP.name"
+  [[ "$output" == "myname" ]] || fail "name-before-slug bound wrong isolate name: got '$output' (want myname)"
+  run cat "$PARSE_SNAP.slug"
+  [[ "$output" == "mastra" ]] || fail "name-before-slug bound wrong slug: got '$output' (want mastra)"
+}
+
+@test "cmd-test.sh <slug> --isolate <name> (slug BEFORE name) still binds name and slug correctly" {
+  load_common
+  _run_cmd_test_parse mastra --isolate myname
+  [ "$status" -eq 0 ] || fail "cmd_test mastra --isolate myname failed: $output"
+  run cat "$PARSE_SNAP.name"
+  [[ "$output" == "myname" ]] || fail "slug-before-name bound wrong isolate name: got '$output' (want myname)"
+  run cat "$PARSE_SNAP.slug"
+  [[ "$output" == "mastra" ]] || fail "slug-before-name bound wrong slug: got '$output' (want mastra)"
+}
+
+@test "cmd-test.sh --isolate <slug> (no explicit name) treats the lone token as the slug (auto-named)" {
+  load_common
+  _run_cmd_test_parse --isolate mastra
+  [ "$status" -eq 0 ] || fail "cmd_test --isolate mastra failed: $output"
+  run cat "$PARSE_SNAP.name"
+  [[ "$output" == "" ]] || fail "auto-named --isolate wrongly bound an explicit name: got '$output' (want empty)"
+  run cat "$PARSE_SNAP.slug"
+  [[ "$output" == "mastra" ]] || fail "auto-named --isolate bound wrong slug: got '$output' (want mastra)"
+}
+
+@test "cmd-test.sh --isolate <name> <slug> with surrounding flags binds name and slug correctly" {
+  load_common
+  _run_cmd_test_parse --d5 --isolate d5verify agno --verbose
+  [ "$status" -eq 0 ] || fail "cmd_test with flags around --isolate failed: $output"
+  run cat "$PARSE_SNAP.name"
+  [[ "$output" == "d5verify" ]] || fail "flagged name-before-slug bound wrong name: got '$output' (want d5verify)"
+  run cat "$PARSE_SNAP.slug"
+  [[ "$output" == "agno" ]] || fail "flagged name-before-slug bound wrong slug: got '$output' (want agno)"
+}
+
+@test "cmd-test.sh bare --isolate= (empty value) is rejected loudly, never silently auto-picks" {
+  load_common
+  _run_cmd_test_parse --isolate= mastra
+  [ "$status" -ne 0 ] || fail "bare --isolate= unexpectedly succeeded (silent auto-pick): $output"
+  # It must NOT have reached apply_isolation with an empty pin and proceeded.
+  [ ! -f "$PARSE_SNAP.slug" ] || fail "bare --isolate= fell through to apply_isolation instead of erroring: name='$(cat "$PARSE_SNAP.name" 2>/dev/null)' slug='$(cat "$PARSE_SNAP.slug" 2>/dev/null)'"
+  [[ "$output" == *"isolate"* ]] || fail "bare --isolate= error did not mention isolate: $output"
+}
+
+@test "cmd-test.sh --isolate=<name> (non-numeric sugar) binds the explicit name, not a slot" {
+  load_common
+  # The =<name> sugar is equivalent to the space form `--isolate <name>`: a
+  # non-numeric value is an explicit isolate name, NOT a slot pin (a slot pin
+  # would die in the picker on "must be a positive integer"). SHOWCASE_ISO_SLOT
+  # must remain unset so the picker auto-picks a slot for the named project.
+  local snap="$BATS_TEST_TMPDIR/iso-namesugar-snap"
+  local cmd_test_sh="$BATS_TEST_DIRNAME/../cli/cmd-test.sh"
+  run bash -euo pipefail -c "
+    source '$COMMON'
+    source '$cmd_test_sh'
+    apply_isolation() {
+      printf '%s' \"\${SHOWCASE_ISO_SLOT:-<unset>}\" > '$snap.slot'
+      printf '%s' \"\${1:-}\" > '$snap.name'
+      printf '%s' \"\${2:-}\" > '$snap.slug'
+      exit 0
+    }
+    need_slug() { :; }
+    info() { :; }
+    success() { :; }
+    npx() { :; }
+    cmd_test --isolate=d5verify agno
+  "
+  [ "$status" -eq 0 ] || fail "cmd_test --isolate=d5verify agno failed: $output"
+  run cat "$snap.slot"
+  [[ "$output" == "<unset>" ]] || fail "--isolate=d5verify wrongly pinned a slot: SHOWCASE_ISO_SLOT='$output'"
+  run cat "$snap.name"
+  [[ "$output" == "d5verify" ]] || fail "--isolate=d5verify bound wrong name: got '$output'"
+  run cat "$snap.slug"
+  [[ "$output" == "agno" ]] || fail "--isolate=d5verify bound wrong slug: got '$output'"
+}
+
+@test "cmd-test.sh --isolate=<N> numeric pinned path is unchanged (still exports the slot)" {
+  load_common
+  # Regression guard for the existing numeric sugar: --isolate=7 must still
+  # export SHOWCASE_ISO_SLOT=7 and reach apply_isolation with an EMPTY name and
+  # the real slug (the picker, not the parser, owns numeric validation).
+  local snap="$BATS_TEST_TMPDIR/iso-num-snap"
+  local cmd_test_sh="$BATS_TEST_DIRNAME/../cli/cmd-test.sh"
+  run bash -euo pipefail -c "
+    source '$COMMON'
+    source '$cmd_test_sh'
+    apply_isolation() {
+      printf '%s' \"\${SHOWCASE_ISO_SLOT:-<unset>}\" > '$snap.slot'
+      printf '%s' \"\${1:-}\" > '$snap.name'
+      printf '%s' \"\${2:-}\" > '$snap.slug'
+      exit 0
+    }
+    need_slug() { :; }
+    info() { :; }
+    success() { :; }
+    npx() { :; }
+    cmd_test --isolate=7 mastra
+  "
+  [ "$status" -eq 0 ] || fail "cmd_test --isolate=7 mastra failed: $output"
+  run cat "$snap.slot"
+  [[ "$output" == "7" ]] || fail "--isolate=7 did not export SHOWCASE_ISO_SLOT=7: got '$output'"
+  run cat "$snap.name"
+  [[ "$output" == "" ]] || fail "--isolate=7 wrongly bound a name: got '$output'"
+  run cat "$snap.slug"
+  [[ "$output" == "mastra" ]] || fail "--isolate=7 bound wrong slug: got '$output'"
 }
