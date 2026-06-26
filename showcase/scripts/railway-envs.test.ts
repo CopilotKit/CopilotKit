@@ -179,10 +179,11 @@ describe("railway-envs SSOT", () => {
     // Live-null service: undefined (do not assert).
     expect(healthcheckPathFor("docs", "prod")).toBeUndefined();
     expect(healthcheckPathFor("dashboard", "staging")).toBeUndefined();
-    // Per-env asymmetry: harness-workers staging /health, prod undefined
-    // (staging-only service — it declares no prod env).
+    // harness-workers is dual-env: /health in BOTH staging and prod (the prod
+    // worker was backfilled into the SSOT so a showcase-harness rebuild bounces
+    // it; both envs declare the shared probe path).
     expect(healthcheckPathFor("harness-workers", "staging")).toBe("/health");
-    expect(healthcheckPathFor("harness-workers", "prod")).toBeUndefined();
+    expect(healthcheckPathFor("harness-workers", "prod")).toBe("/health");
     // Unknown service / undeclared env → undefined (never throws).
     expect(healthcheckPathFor("nope", "prod")).toBeUndefined();
   });
@@ -302,14 +303,15 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("repoNameFor throws on a registered env the service does not declare", () => {
-    // harness-workers is staging-only and its GHCR repo everywhere is
-    // showcase-harness — echoing "harness-workers" for prod would be a
-    // silently wrong GHCR name (consistent with instanceIdFor/domainFor,
-    // which both throw on an undeclared env).
-    expect(() => repoNameFor("harness-workers", "prod")).toThrow(
-      /has no "prod" environment/,
-    );
+  it("repoNameFor resolves the per-env repoName override for a dual-env worker", () => {
+    // harness-workers is now dual-env (prod backfilled into the SSOT). Both
+    // env entries carry an explicit repoName override of "showcase-harness"
+    // (it runs the shared showcase-harness image, NOT a "harness-workers"
+    // image), so repoNameFor returns that override in BOTH envs rather than
+    // echoing the SSOT key. (The throw-on-an-undeclared-env path is covered by
+    // the prototype-key env-axis test below and the unknown-service test above.)
+    expect(repoNameFor("harness-workers", "prod")).toBe("showcase-harness");
+    expect(repoNameFor("harness-workers", "staging")).toBe("showcase-harness");
   });
 
   it("serviceForDispatchName round-trips through SSOT keys", () => {
@@ -909,38 +911,53 @@ describe("railway-envs SSOT — domains + probe", () => {
   });
 
   it("envsFor lists exactly the envs a service declares", () => {
-    // Dual-env services declare both; the staging-only worker declares one.
+    // Dual-env services declare both; harness-workers is now dual-env too
+    // (the prod worker was backfilled into the SSOT).
     expect(envsFor("aimock")).toEqual(["prod", "staging"]);
-    expect(envsFor("harness-workers")).toEqual(["staging"]);
+    expect(envsFor("harness-workers")).toEqual(["prod", "staging"]);
   });
 
-  it("harness-workers is a staging-only, domainless, probe-disabled worker", () => {
-    // The pool-fleet worker is the canonical single-env / domainless shape
-    // the env-map schema enables (the old schema forced a placeholder prod
-    // instanceId + a borrowed control-plane domain). Pin every facet:
+  it("harness-workers is a dual-env, domainless, probe-disabled worker", () => {
+    // The pool-fleet worker now runs in BOTH staging and prod: the prod worker
+    // was backfilled into the SSOT (real serviceInstance ID 7c48ee43-…) so an
+    // env-aware imageOf rebuild of showcase-harness bounces the prod worker too
+    // (it used to be staging-only, which silently skipped the prod worker on a
+    // rebuild and left it on a stale image). Pin every facet:
     const worker = SERVICES["harness-workers"];
-    // Staging-only: no prod env at all (no placeholder).
-    expect(worker.environments.prod).toBeUndefined();
+    // Dual-env: both envs declared (no placeholder — each carries a real
+    // serviceInstance ID).
+    expect(worker.environments.prod).toBeDefined();
     expect(worker.environments.staging).toBeDefined();
-    // Domainless: the staging env omits a public host entirely (it is a
-    // queue consumer, not HTTP-exposed). domainFor MUST throw rather than
-    // return a borrowed host.
+    // Domainless in BOTH envs: the worker is a queue consumer, not
+    // HTTP-exposed, so each env omits a public host entirely and domainFor
+    // MUST throw rather than return a borrowed control-plane host.
+    expect(worker.environments.prod.domain).toBeUndefined();
     expect(worker.environments.staging.domain).toBeUndefined();
+    expect(() => domainFor("harness-workers", "prod")).toThrow(
+      /malformed\/missing prod domain/,
+    );
     expect(() => domainFor("harness-workers", "staging")).toThrow(
       /malformed\/missing staging domain/,
     );
-    // Probe disabled (covered by the control-plane harness probe + the
-    // Railway-internal healthcheck).
+    // Probe disabled in both envs (covered by the control-plane harness probe +
+    // the Railway-internal healthcheck).
+    expect(probeEnabled("harness-workers", "prod")).toBe(false);
     expect(probeEnabled("harness-workers", "staging")).toBe(false);
-    // Runs the shared showcase-harness image; not separately CI-built; kept
-    // out of both gate directions via gateIgnore. The image consumption is
+    // Runs the shared showcase-harness image; not separately CI-built. As a
+    // fully-modeled dual-env service it is now gateValidated (gateIgnore is
+    // dropped — both gate directions validate it). The image consumption is
     // modeled explicitly via imageOf so a rebuilt showcase-harness:latest
-    // redeploys the worker alongside the scheduler.
+    // redeploys the worker alongside the scheduler in EVERY env it declares.
+    expect(worker.environments.prod.repoName).toBe("showcase-harness");
     expect(worker.environments.staging.repoName).toBe("showcase-harness");
     expect(worker.imageOf).toBe("harness");
     expect(worker.ciBuilt).toBe(false);
-    expect(worker.gateIgnore).toBe(true);
+    expect(worker.gateValidated).toBe(true);
+    expect(worker.gateIgnore).toBeUndefined();
     expect(worker.serviceId).toBe("c2aa8a0b-350e-4b76-8541-3012dfac41d0");
+    expect(worker.environments.prod.instanceId).toBe(
+      "7c48ee43-6df4-457b-b977-10f1f1ac1680",
+    );
     expect(worker.environments.staging.instanceId).toBe(
       "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
     );
@@ -1117,28 +1134,31 @@ describe("computePromoteClosure", () => {
   it("always includes the full Tier-1 verification set even for a tier-0-only request", () => {
     const plan = computePromoteClosure(["pocketbase"]);
     const names = plan.services.map((s) => s.name);
+    // harness-workers is now prod-promotable Tier-1 (the prod worker was
+    // backfilled into the SSOT), so it joins the always-included Tier-1 set
+    // alongside harness + dashboard — no longer filtered out.
     expect(names).toEqual(
-      expect.arrayContaining(
-        ["harness", "harness-workers", "dashboard"].filter(
-          (k) => k !== "harness-workers",
-        ),
-      ),
+      expect.arrayContaining(["harness", "harness-workers", "dashboard"]),
     );
-    // harness + dashboard are prod-promotable Tier-1 and present:
+    // harness + dashboard + the dual-env worker are prod-promotable Tier-1:
     expect(names).toContain("harness");
+    expect(names).toContain("harness-workers");
     expect(names).toContain("dashboard");
   });
 
-  it("skips a prod-less member (harness-workers) with an explicit reason, never silently", () => {
+  it("promotes the dual-env worker (harness-workers) at Tier-1, never skipping it", () => {
     const plan = computePromoteClosure(["langgraph-python"]);
     const promotableNames = plan.services.map((s) => s.name);
-    // harness-workers has no `prod` env today → excluded from the promotable
-    // list...
-    expect(promotableNames).not.toContain("harness-workers");
-    // ...but recorded with an explicit reason (never silent).
+    // harness-workers now declares a `prod` env (backfilled into the SSOT) and
+    // is promoteTier:1, so it is PROMOTED alongside the harness control-plane
+    // rather than recorded skipped-with-reason.
+    expect(promotableNames).toContain("harness-workers");
+    expect(plan.services.find((s) => s.name === "harness-workers")?.tier).toBe(
+      1,
+    );
+    // ...and it is NOT in the skipped list (it is no longer prod-less).
     const skipped = plan.skipped.find((s) => s.name === "harness-workers");
-    expect(skipped).toBeDefined();
-    expect(skipped?.reason).toMatch(/prod/i);
+    expect(skipped).toBeUndefined();
   });
 
   it("throws on an unknown requested service (fail loud)", () => {
