@@ -65,6 +65,29 @@ _assert_stub_sentinel_logged() {
     || fail "sentinel 'docker version' invocation not logged — stub/DOCKER_LOG pipeline broken: $(cat "$DOCKER_LOG")"
 }
 
+# _seed_live_owner <slot-dir> [pid] — record a LIVE, start-time-VERIFIED owner
+# in <slot-dir>: write the pid file AND a matching pid.start (the new
+# anti-PID-reuse fingerprint). Under the post-Change-1 owner contract a bare
+# `pid` file with NO pid.start is "unverifiable" (treated as dead), so every
+# fixture that wants a slot to read `live` via its owning PID must seed BOTH
+# files — that is what this helper does. Defaults to $$ (the bats process,
+# definitely alive). The pid.start is produced by the SAME _pid_start_time
+# helper the classifier reads, so the recorded and current values match. The
+# pid file is written FIRST (preserving the claim-time write order the
+# classifier's "missing pid ⇒ owner gone" signal relies on).
+#
+# NB: this sources _common.sh into the CURRENT shell to reach _pid_start_time.
+# Tests that have already run load_common are unaffected; tests that have not
+# get a harmless extra source (the path vars are re-pointed by load_common).
+_seed_live_owner() {
+  local slotdir="${1:?slot dir required}"
+  local pid="${2:-$$}"
+  # shellcheck disable=SC1090
+  type _pid_start_time >/dev/null 2>&1 || source "$COMMON"
+  echo "$pid" > "$slotdir/pid"
+  _pid_start_time "$pid" > "$slotdir/pid.start"
+}
+
 setup() {
   COMMON="$BATS_TEST_DIRNAME/../cli/_common.sh"
 
@@ -254,6 +277,31 @@ load_common() {
   [ -d "$ISOLATE_TMPDIR" ] || fail "run dir not created: $ISOLATE_TMPDIR"
 }
 
+@test "apply_isolation stamps the com.copilotkit.showcase.isolate label on every service" {
+  # The forward-stack self-id label is what lets `showcase reap` identify a
+  # harness-owned isolated project even when its slot record + run dir are both
+  # gone (a user-supplied --isolate <name> orphan). Drive the REAL rewrite and
+  # assert the label landed on the (only) service, right under its rewritten
+  # container_name, as a compose-native labels: block.
+  require_python3
+  load_common
+  apply_isolation foo
+  local rewritten="$ISOLATE_TMPDIR/docker-compose.local.yml"
+  [ -f "$rewritten" ] || fail "rewritten compose not created: $rewritten"
+  grep -q 'com.copilotkit.showcase.isolate: "1"' "$rewritten" \
+    || fail "self-id label not stamped into the rewritten compose:
+$(cat "$rewritten")"
+  # The label must sit under a labels: block, not be orphaned at the wrong
+  # indent — assert the labels: key is present too.
+  grep -q '^    labels:$' "$rewritten" \
+    || fail "labels: block missing/mis-indented in the rewritten compose:
+$(cat "$rewritten")"
+  # And it never touched the source compose (originals stay pristine).
+  grep -q 'com.copilotkit.showcase.isolate' "$SHOWCASE_ROOT/docker-compose.local.yml" \
+    && fail "source compose was mutated with the label (must rewrite a COPY only)"
+  return 0
+}
+
 # ── Change 2: stale-slot reaping by compose-project liveness ─────────────────
 
 @test "claim reaps a slot whose project has no live containers and no live owning PID" {
@@ -315,7 +363,7 @@ load_common() {
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/0"
   echo "racer-proj" > "$slots/0/project"
-  echo "$$" > "$slots/0/pid"   # this bats process — definitely alive
+  _seed_live_owner "$slots/0"   # this bats process — definitely alive (pid + pid.start)
 
   export DOCKER_PS_OUTPUT=""   # no containers yet (still building)
   _claim_isolate_slot
@@ -867,6 +915,42 @@ load_common() {
   [ "$status" -ne 0 ] || fail "keep path composed the kept stack down: $output"
 }
 
+# The survival notice's human-readable hours must track ISOLATE_KEEP_TTL, not a
+# hardcoded "(4h)". SHOWCASE_ISOLATE_KEEP_TTL is read at source time, so it must
+# be exported BEFORE load_common sources _common.sh.
+@test "survival notice's human-readable hours track an overridden ISOLATE_KEEP_TTL (not a stale (4h))" {
+  require_python3
+  export SHOWCASE_ISOLATE_KEEP_TTL=7200   # 2h, not the 4h default
+  load_common
+  [ "$ISOLATE_KEEP_TTL" = 7200 ] || fail "precondition: TTL override not picked up, got '$ISOLATE_KEEP_TTL'"
+  apply_isolation keepttl
+
+  ISOLATE_KEEP=true
+  run restore_isolation
+  [ "$status" -eq 0 ] || fail "restore_isolation failed under keep: $output"
+
+  # The seconds value must reflect the override.
+  [[ "$output" == *"7200s"* ]] || fail "notice missing overridden TTL seconds: $output"
+  # And the parenthetical hours must NOT contradict it with a stale 4h.
+  [[ "$output" != *"(4h)"* ]] || fail "notice still says (4h) for a 2h TTL: $output"
+  # The computed hours should read sensibly (2h here).
+  [[ "$output" == *"(2h)"* ]] || fail "notice missing computed (2h): $output"
+}
+
+@test "survival notice reads sensibly at the default ISOLATE_KEEP_TTL (4h)" {
+  require_python3
+  load_common
+  [ "$ISOLATE_KEEP_TTL" = 14400 ] || fail "precondition: expected default TTL 14400, got '$ISOLATE_KEEP_TTL'"
+  apply_isolation keepdef
+
+  ISOLATE_KEEP=true
+  run restore_isolation
+  [ "$status" -eq 0 ] || fail "restore_isolation failed under keep: $output"
+
+  [[ "$output" == *"14400s"* ]] || fail "notice missing default TTL seconds: $output"
+  [[ "$output" == *"(4h)"* ]] || fail "notice missing default (4h): $output"
+}
+
 # ── Change 4: a FAILED apply_isolation must never down the default stack ─────
 #
 # cmd-test.sh registers `trap restore_isolation EXIT` BEFORE calling
@@ -1073,7 +1157,7 @@ load_common() {
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/0"
   echo "dupename" > "$slots/0/project"
-  echo "$$" > "$slots/0/pid"
+  _seed_live_owner "$slots/0"
 
   export DOCKER_PS_OUTPUT=""   # zero containers (still building) — PID protects
   run apply_isolation dupename
@@ -1117,7 +1201,7 @@ load_common() {
   # Winner: slot 0 already holds 'dup' (live owning PID) plus its run dir.
   mkdir -p "$slots/0"
   echo "dup" > "$slots/0/project"
-  echo "$$" > "$slots/0/pid"
+  _seed_live_owner "$slots/0"
   mkdir -p "$base/runs/dup"
   touch "$base/runs/dup/docker-compose.local.yml"
   export DOCKER_PS_OUTPUT=""   # zero containers (still building) — PID protects
@@ -1177,7 +1261,7 @@ load_common() {
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/0"
   echo "tiename" > "$slots/0/project"
-  echo "$$" > "$slots/0/pid"           # live owner — sweep must not reap it
+  _seed_live_owner "$slots/0"          # live owner — sweep must not reap it
   export DOCKER_PS_OUTPUT=""
 
   _file_mtime() { echo 1700000000; }   # our record and theirs: EQUAL mtimes
@@ -1434,7 +1518,7 @@ FIXTURE
   local n
   for n in 1 2 3; do
     mkdir -p "$slots/$n"
-    echo "$$" > "$slots/$n/pid"   # this bats process — definitely alive
+    _seed_live_owner "$slots/$n"   # this bats process — definitely alive (pid + pid.start)
   done
 
   export SHOWCASE_ISO_SLOT=9
@@ -1461,7 +1545,7 @@ FIXTURE
   load_common
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/9"
-  echo "$$" > "$slots/9/pid"   # this bats process — _slot_liveness → live
+  _seed_live_owner "$slots/9"   # this bats process — _slot_liveness → live
 
   export SHOWCASE_ISO_SLOT=9
   run _claim_isolate_slot
@@ -1621,7 +1705,7 @@ FIXTURE
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/8"
   echo "iso8-proj" > "$slots/8/project"
-  echo "$$" > "$slots/8/pid"   # _slot_liveness 8 → live (pid live, no containers needed)
+  _seed_live_owner "$slots/8"   # _slot_liveness 8 → live (pid live + pid.start, no containers needed)
 
   # Case A: docker listener on slot 8's dashboard port → filtered as own-project.
   export DOCKER_PS_OUTPUT=""   # no docker containers; pid-liveness still wins
@@ -1663,7 +1747,7 @@ FIXTURE
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/5"
   echo "iso5-proj" > "$slots/5/project"
-  echo "$$" > "$slots/5/pid"   # this bats process — _slot_liveness → live
+  _seed_live_owner "$slots/5"   # this bats process — _slot_liveness → live (pid + pid.start)
 
   # No held ports → _slot_ports_free returns 0 → ports="free".
   export LSOF_HOLD_PORTS=""
@@ -1754,7 +1838,7 @@ FIXTURE
   local n
   for n in 1 2 3 4 5 6 7 8; do
     mkdir -p "$slots/$n"
-    echo "$$" > "$slots/$n/pid"   # this bats process — definitely alive
+    _seed_live_owner "$slots/$n"   # this bats process — definitely alive (pid + pid.start)
   done
 
   # No held ports for any slot's offset range → _slot_ports_free returns 0
