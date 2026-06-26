@@ -12,6 +12,7 @@ import type {
   EphemeralResult,
 } from "@copilotkit/bot-ui";
 import { runAgentLoop } from "./run-loop.js";
+import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
 import type { Transcripts } from "./transcripts.js";
 import { toAgentToolDescriptors } from "./tools.js";
 import type {
@@ -55,6 +56,13 @@ export interface ThreadDeps {
   userKey?: string;
   /** The inbound message that triggered this turn (for transcript bridging). */
   message?: IncomingMessage;
+  /**
+   * Optional anonymous telemetry sink. Structural type (not the concrete
+   * BotTelemetry) avoids an import cycle; the real BotTelemetry satisfies it.
+   */
+  telemetry?: {
+    capture(event: string, properties: Record<string, unknown>): void;
+  };
 }
 
 /** A concrete conversation thread: posts UI, runs the agent loop, and resolves HITL waiters. */
@@ -394,50 +402,79 @@ export class Thread implements ThreadInterface {
     // assistant messages this run produced (step 4).
     const messagesBefore = session.agent.messages.length;
 
-    await runAgentLoop({
-      agent: session.agent,
-      renderer,
-      tools,
-      toolDescriptors,
-      context,
-      makeToolCtx: (): BotToolContext => ({
-        thread: this,
-        platform: this.platform,
-      }),
-      handleInterrupt: async (interrupt) => {
-        const h = this.deps.interruptHandlers.get(interrupt.eventName);
-        if (h) await h({ payload: interrupt.value, thread: this });
-      },
-      initialResume,
-    });
-    // Transcript auto-bridge (step 4): capture the assistant text this run
-    // produced and append it. Only when the bridge actually applied (transcripts
-    // + userKey both present and `transcript` was requested).
-    if (extra?.transcript && transcripts && userKey) {
-      const produced = session.agent.messages.slice(messagesBefore);
-      const text = produced
-        .filter(
-          (m) =>
-            m.role === "assistant" &&
-            typeof m.content === "string" &&
-            m.content.trim().length > 0,
-        )
-        .map((m) => m.content as string)
-        .join("\n\n");
-      if (text.length > 0) {
-        await transcripts.append(
-          this,
-          { role: "assistant", text },
-          { userKey },
-        );
+    const startedAt = Date.now();
+    let loopResult: { iterations: number; interrupted: boolean };
+    // Telemetry stage: "agent" while the run loop runs, "finalize" for the
+    // transcript-append + renderer.finish() steps below. A throw in either is
+    // reported as agent_run_failed (with the right stage) instead of being
+    // hidden behind an already-sent success event.
+    let stage: "agent" | "finalize" = "agent";
+    try {
+      loopResult = await runAgentLoop({
+        agent: session.agent,
+        renderer,
+        tools,
+        toolDescriptors,
+        context,
+        makeToolCtx: (): BotToolContext => ({
+          thread: this,
+          platform: this.platform,
+        }),
+        handleInterrupt: async (interrupt) => {
+          const h = this.deps.interruptHandlers.get(interrupt.eventName);
+          if (h) await h({ payload: interrupt.value, thread: this });
+        },
+        initialResume,
+      });
+      stage = "finalize";
+      // Transcript auto-bridge (step 4): capture the assistant text this run
+      // produced and append it. Only when the bridge actually applied (transcripts
+      // + userKey both present and `transcript` was requested).
+      if (extra?.transcript && transcripts && userKey) {
+        const produced = session.agent.messages.slice(messagesBefore);
+        const text = produced
+          .filter(
+            (m) =>
+              m.role === "assistant" &&
+              typeof m.content === "string" &&
+              m.content.trim().length > 0,
+          )
+          .map((m) => m.content as string)
+          .join("\n\n");
+        if (text.length > 0) {
+          await transcripts.append(
+            this,
+            { role: "assistant", text },
+            { userKey },
+          );
+        }
       }
-    }
 
-    // Turn-end hook: lets a renderer finalize any turn-scoped resource it kept
-    // open across runAgent iterations (e.g. a native streaming message). A
-    // no-op for renderers whose per-message streams already self-terminate, and
-    // for runs that were interrupted (the renderer guards that internally).
-    await renderer.finish?.();
+      // Turn-end hook: lets a renderer finalize any turn-scoped resource it kept
+      // open across runAgent iterations (e.g. a native streaming message). A
+      // no-op for renderers whose per-message streams already self-terminate, and
+      // for runs that were interrupted (the renderer guards that internally).
+      await renderer.finish?.();
+    } catch (err) {
+      // A throw is a run failure — in the agent loop (tool-handler errors are
+      // swallowed inside the loop, so a throw is agent-level) or in finalization.
+      // `stage` distinguishes the two.
+      this.deps.telemetry?.capture("oss.bot.agent_run_failed", {
+        platform: normalizePlatform(this.platform),
+        errorClass: errorClass(err),
+        stage,
+      });
+      throw err;
+    }
+    // Emit success ONLY after the loop AND finalization both completed, so a
+    // late transcript/finish rejection can never follow a success event.
+    this.deps.telemetry?.capture("oss.bot.agent_run", {
+      platform: normalizePlatform(this.platform),
+      durationMs: Date.now() - startedAt,
+      toolCallCount: renderer.getCapturedToolCalls().length,
+      iterations: loopResult.iterations,
+      interrupted: loopResult.interrupted,
+    });
     return undefined;
   }
 }
