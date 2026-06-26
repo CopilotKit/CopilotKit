@@ -136,6 +136,47 @@ test("a named row carries the full name as a data-tooltip (CPK bubble; shown whe
   teardown();
 });
 
+test("a clipped name marks BOTH the row-name and the owning row (tooltip + z-index stacking contract)", async () => {
+  const longName = "A very long thread name that gets clipped with an ellipsis";
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: longName })],
+  });
+
+  const row = q("li.row") as HTMLElement;
+  const name = q('[part="row-name"]') as HTMLElement;
+  const text = name.querySelector(".row-name-text") as HTMLElement;
+
+  // jsdom has no layout, so simulate a truncated text node.
+  Object.defineProperty(text, "scrollWidth", {
+    value: 200,
+    configurable: true,
+  });
+  Object.defineProperty(text, "clientWidth", {
+    value: 100,
+    configurable: true,
+  });
+  (element as unknown as { _syncNameClipping(): void })._syncNameClipping();
+
+  // The tooltip bubble keys off `.row-name.name-clipped`; the z-index lift that
+  // frees the bubble from the row's transform stacking context keys off
+  // `.row.name-clipped`. BOTH elements must carry the flag — if it only landed
+  // on `.row-name` (the original bug), the z-lift selector never matched and the
+  // tooltip stayed trapped under later rows.
+  expect(name.classList.contains("name-clipped")).toBe(true);
+  expect(row.classList.contains("name-clipped")).toBe(true);
+
+  // And it clears on both when the name fits (no stale bubble / z-lift).
+  Object.defineProperty(text, "scrollWidth", {
+    value: 100,
+    configurable: true,
+  });
+  (element as unknown as { _syncNameClipping(): void })._syncNameClipping();
+  expect(name.classList.contains("name-clipped")).toBe(false);
+  expect(row.classList.contains("name-clipped")).toBe(false);
+
+  teardown();
+});
+
 test("a placeholder (unnamed) row has no name tooltip", async () => {
   const { q, teardown } = await setup({
     threads: [makeThread({ id: "a", name: null })],

@@ -1,4 +1,5 @@
-import { LitElement, html, nothing, type PropertyValues } from "lit";
+import { LitElement, html, nothing } from "lit";
+import type { PropertyValues } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { classMap } from "lit/directives/class-map.js";
 import { drawerStyles } from "./styles";
@@ -298,6 +299,15 @@ export class CopilotKitDrawer extends LitElement {
       const text = name.querySelector<HTMLElement>(".row-name-text");
       const clipped = !!text && text.scrollWidth > text.clientWidth;
       name.classList.toggle("name-clipped", clipped);
+      // The z-index lift in styles.ts (`.row.name-clipped:hover`) targets the
+      // `.row` stacking context — each row creates its own via `transform`, so a
+      // tooltip anchored on `.row-name` is trapped inside it and paints under
+      // later rows unless the row itself is re-floated. Stamp the flag on the
+      // owning row too so that rule matches; the tooltip bubble stays scoped to
+      // `.row-name:hover`, so hovering a row-action never surfaces it.
+      name
+        .closest<HTMLElement>(".row")
+        ?.classList.toggle("name-clipped", clipped);
     });
   }
 
