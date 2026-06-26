@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/bot-store-redis",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "Redis StateStore backend for @copilotkit/bot.",
   "license": "MIT",
   "repository": {
