@@ -260,6 +260,63 @@ never renders.
 > `showcase_build.yml` ("Build & Push"), with `showcase_deploy.yml` now the
 > staging verify gate. Correct §B.3 in a follow-up.
 
+## harness-workers Replica Count (Worker Provisioning)
+
+The `harness-workers` fleet provisioning is tracked in the SSOT at
+`showcase/scripts/railway-envs.ts` under the `harness-workers` entry's
+`workerProvisioning` field. The `railway-envs.generated.json` snapshot
+captures these values for CI drift detection.
+
+### Worker model (1-worker-per-replica)
+
+Railway runs **one worker process per replica container** (keyed on `HOSTNAME`).
+There is no per-process forking. The live worker count equals `numReplicas`
+strictly 1:1. `HARNESS_POOL_COUNT` is an **informational-only** control-plane
+hint — it does NOT fork additional workers. The authoritative per-worker
+concurrency knob is `BROWSER_POOL_MAX_CONTEXTS`.
+
+### Current declared values (live reality as of 2026-06-26)
+
+| Env     | `numReplicas` (live workers) | `BROWSER_POOL_MAX_CONTEXTS` |
+|---------|------------------------------|-----------------------------|
+| prod    | 3                            | 40                          |
+| staging | 6                            | 40                          |
+
+**Staging config-field drift**: the Railway staging replicas config field was
+observed as `2` at audit time, but `6` instances were live. The SSOT records `6`
+(live reality). Follow-up: update the Railway staging replicas config field to 6.
+
+**Prod/staging parity**: prod runs 3 replicas vs. staging's 6. Bringing prod
+to parity is a deliberate one-field change (`numReplicas: 3 → 6`) that is
+deferred to a follow-up operational item.
+
+### SSOT fields
+
+- `workerProvisioning.{prod,staging}.numReplicas` — authoritative worker count
+  (= Railway replica count, 1:1). This is the ONLY field to update when
+  changing the replica count.
+- `workerProvisioning.{prod,staging}.BROWSER_POOL_MAX_CONTEXTS` — per-worker
+  Playwright context budget.
+- `workerProvisioning.{prod,staging}.HARNESS_POOL_COUNT` — INFORMATIONAL ONLY;
+  records what the `HARNESS_POOL_COUNT` env var is set to on Railway for audit
+  visibility. Never use this as a worker count or fork factor.
+
+### Applying a replica count change (MANUAL)
+
+The `emit-railway-envs-json.ts` emitter and `bin/railway` tooling are
+**VERIFY-ONLY** with respect to `numReplicas` — they do not write replica counts
+to Railway. To change the replica count:
+
+1. Change the `numReplicas` value in `railway-envs.ts` (SSOT).
+2. Regenerate the snapshot: `npx tsx showcase/scripts/emit-railway-envs-json.ts`
+3. Commit both files (`railway-envs.ts` + `railway-envs.generated.json`).
+4. Apply the change to Railway manually via the Railway Dashboard (Service >
+   Settings > Replicas) or the Railway GraphQL API.
+
+The CI drift gate (`showcase/scripts/__tests__/harness-workers-provisioning.test.ts`)
+will fail if `railway-envs.ts` and `railway-envs.generated.json` disagree on
+`numReplicas`, catching a forgotten regeneration step.
+
 ## Environment IDs
 
 - Project: `<project-id>`

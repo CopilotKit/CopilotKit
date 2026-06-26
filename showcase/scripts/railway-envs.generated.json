@@ -154,6 +154,18 @@
       "healthcheckPath": {
         "prod": "/health",
         "staging": "/health"
+      },
+      "workerProvisioning": {
+        "prod": {
+          "numReplicas": 3,
+          "BROWSER_POOL_MAX_CONTEXTS": 40,
+          "HARNESS_POOL_COUNT": 3
+        },
+        "staging": {
+          "numReplicas": 6,
+          "BROWSER_POOL_MAX_CONTEXTS": 40,
+          "HARNESS_POOL_COUNT": 6
+        }
       }
     },
     {

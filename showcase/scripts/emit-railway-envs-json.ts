@@ -49,7 +49,7 @@ import {
   STAGING_ENV_ID,
   computePromoteClosure,
 } from "./railway-envs";
-import type { ClosurePlan } from "./railway-envs";
+import type { ClosurePlan, WorkerProvisioning } from "./railway-envs";
 
 const DEFAULT_OUTPUT_PATH = resolve(
   new URL(".", import.meta.url).pathname,
@@ -95,6 +95,12 @@ interface Emitted {
     // sending `null`). The whole `healthcheckPath` object is omitted when
     // NEITHER env declares one, so live-null services keep the frozen shape.
     healthcheckPath?: { prod?: string; staging?: string };
+    // Worker-fleet provisioning record (ADDITIVE, SSOT). Only present for
+    // `harness-workers`; omitted for all other services. The drift-gate test
+    // (`harness-workers-provisioning.test.ts`) asserts that the SSOT
+    // numReplicas values match this committed snapshot — the authoritative
+    // worker-count source.
+    workerProvisioning?: { prod: WorkerProvisioning; staging: WorkerProvisioning };
   }>;
   // --- Top-level promote-closure plan (ADDITIVE, U2). The tier-ordered
   // closure for the FULL fleet (`all`), computed via `computePromoteClosure`.
@@ -205,6 +211,14 @@ function projectServiceToLegacyJson(
     // golden test projects only LEGACY_KEYS so this stays byte-safe; omitted
     // entirely for live-null services so their frozen shape is preserved.
     ...(healthcheckPath !== undefined ? { healthcheckPath } : {}),
+    // Worker-fleet provisioning (ADDITIVE). Only emitted for `harness-workers`;
+    // omitted for all other services so the frozen per-service shape is
+    // preserved. The drift-gate test (`harness-workers-provisioning.test.ts`)
+    // asserts SSOT numReplicas matches this committed snapshot — compare SSOT
+    // vs. snapshot, never vs. a live Railway API call.
+    ...(entry.workerProvisioning !== undefined
+      ? { workerProvisioning: entry.workerProvisioning }
+      : {}),
   };
 }
 

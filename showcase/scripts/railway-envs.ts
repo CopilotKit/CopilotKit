@@ -139,6 +139,49 @@ export type ProbeDriver =
   | "starter";
 
 /**
+ * Provisioning configuration for the `harness-workers` pool fleet. Carried on
+ * `ServiceEntry.workerProvisioning` and ONLY populated for `harness-workers`.
+ *
+ * The worker model is strictly 1-worker-per-replica: Railway runs ONE worker
+ * process per replica container (keyed on HOSTNAME), so the REAL live worker
+ * count equals `numReplicas`. `HARNESS_POOL_COUNT` is the control-plane's
+ * informational "expected worker count" hint — it does NOT fork additional
+ * workers per replica and MUST NOT be treated as a multiplier or fork factor.
+ * The authoritative concurrency knob per worker is `BROWSER_POOL_MAX_CONTEXTS`.
+ *
+ * This is a DECLARE-AND-VERIFY record. The tooling (`emit-railway-envs-json.ts`,
+ * `bin/railway`) is VERIFY-ONLY with respect to numReplicas — it does not write
+ * replica counts to Railway. Applying a replica-count change is a MANUAL
+ * operation (Railway Dashboard > Service > Settings > Replicas, or the Railway
+ * GraphQL API). See `showcase/RAILWAY.md` for the manual procedure.
+ */
+export interface WorkerProvisioning {
+  /**
+   * Number of Railway replicas for the `harness-workers` service in this env.
+   * Strictly 1:1 with live worker processes — each replica runs exactly ONE
+   * worker process (keyed on HOSTNAME). This is the authoritative worker-count
+   * field; `HARNESS_POOL_COUNT` is informational only.
+   */
+  numReplicas: number;
+  /**
+   * Per-worker in-process concurrency budget: the `BROWSER_POOL_MAX_CONTEXTS`
+   * env var that caps how many Playwright browser contexts each worker may hold
+   * open simultaneously. NOT a per-fleet total; the fleet-wide budget is
+   * `numReplicas × BROWSER_POOL_MAX_CONTEXTS`.
+   */
+  BROWSER_POOL_MAX_CONTEXTS: number;
+  /**
+   * INFORMATIONAL ONLY — the `HARNESS_POOL_COUNT` env var forwarded to each
+   * worker as a control-plane "expected worker count" hint. The worker code
+   * does NOT fork additional processes per pool count; it runs exactly one
+   * process per replica. The authoritative concurrency knob is
+   * `BROWSER_POOL_MAX_CONTEXTS`. This field is recorded here purely for
+   * operational visibility / config-audit purposes.
+   */
+  HARNESS_POOL_COUNT?: number;
+}
+
+/**
  * Per-env configuration for a service. One of these lives under each key of
  * `ServiceEntry.environments`. A service that exists in only one env has a
  * single key here (no placeholder for the missing env).
@@ -345,6 +388,34 @@ export interface ServiceEntry {
      * `repoNameOverride` object stays byte-identical.
      */
     repoNameOverride?: { prod?: string; staging?: string };
+  };
+  /**
+   * Harness-worker fleet provisioning record. ONLY populated on the
+   * `harness-workers` entry — all other services omit this field.
+   *
+   * These values match CURRENT LIVE REALITY as of 2026-06-26:
+   *   prod:    numReplicas=3, BROWSER_POOL_MAX_CONTEXTS=40
+   *   staging: numReplicas=6, BROWSER_POOL_MAX_CONTEXTS=40
+   *
+   * NOTE — PROD/STAGING PARITY: prod currently runs 3 replicas, staging 6.
+   * Bringing prod to 6 (parity with staging) is a deliberate one-field
+   * change (numReplicas: 3 → 6 on the prod entry). That change is
+   * INTENTIONALLY NOT made here — this commit records current live reality
+   * only and defers the parity decision to a follow-up.
+   *
+   * NOTE — STAGING CONFIG-FIELD-VS-LIVE DRIFT: The Railway config field for
+   * staging numReplicas was observed as 2 at the time of this audit, but
+   * the LIVE running instance count is 6. The declared value here (6) reflects
+   * LIVE REALITY, not the stale config field. This drift (config=2, live=6)
+   * should be reconciled by updating the Railway staging config field to 6.
+   * Follow-up item: align Railway staging replicas config to 6.
+   *
+   * See the `WorkerProvisioning` interface (above) for the 1-worker-per-replica
+   * model and HARNESS_POOL_COUNT informational semantics.
+   */
+  workerProvisioning?: {
+    prod: WorkerProvisioning;
+    staging: WorkerProvisioning;
   };
 }
 
@@ -576,6 +647,38 @@ export const SERVICES: Record<
       domains: {
         prod: "showcase-harness-production.up.railway.app",
         staging: "harness-staging-2ee4.up.railway.app",
+      },
+    },
+    // Worker-fleet provisioning (SSOT). Values = CURRENT LIVE REALITY (2026-06-26).
+    // 1-worker-per-replica model: numReplicas IS the worker count (strictly 1:1).
+    // HARNESS_POOL_COUNT is INFORMATIONAL ONLY — it does NOT fork workers.
+    // The authoritative per-worker concurrency knob is BROWSER_POOL_MAX_CONTEXTS.
+    //
+    // prod:    3 replicas → 3 live workers. Staging runs 6 (see note below).
+    // staging: 6 replicas → 6 live workers. The Railway staging config FIELD
+    //          read 2 at audit time, but 6 instances were LIVE. The declared
+    //          value here (6) reflects live reality. Follow-up: align the
+    //          Railway staging replicas config field from 2 → 6.
+    //
+    // PARITY DECISION DEFERRED: bringing prod to 6 replicas (to match staging)
+    // is a deliberate one-field change (numReplicas: 3 → 6 on the prod entry).
+    // That change is INTENTIONALLY NOT made in this commit — this commit records
+    // current live reality only. The parity change is a follow-up operational item.
+    workerProvisioning: {
+      prod: {
+        numReplicas: 3,
+        BROWSER_POOL_MAX_CONTEXTS: 40,
+        // INFORMATIONAL ONLY — not a fork factor.
+        HARNESS_POOL_COUNT: 3,
+      },
+      staging: {
+        // STAGING CONFIG DRIFT: Railway staging replicas config field = 2,
+        // but 6 instances are LIVE. numReplicas here = 6 (live reality).
+        // Follow-up item: update Railway staging config field to 6.
+        numReplicas: 6,
+        BROWSER_POOL_MAX_CONTEXTS: 40,
+        // INFORMATIONAL ONLY — not a fork factor.
+        HARNESS_POOL_COUNT: 6,
       },
     },
   },
@@ -1778,6 +1881,26 @@ export function healthcheckPathFor(
  */
 export function isTrackedService(serviceName: string): boolean {
   return findEntry(serviceName) !== undefined;
+}
+
+/**
+ * Resolve the `WorkerProvisioning` record for a (serviceName, env) pair, or
+ * `undefined` when the service declares no `workerProvisioning` or has no
+ * entry for the given env. Returns undefined (rather than throwing) on unknown
+ * service, missing field, or undeclared env — the caller decides whether absence
+ * is an error (the drift-gate test requires it to be non-null for
+ * `harness-workers`).
+ *
+ * Only `harness-workers` carries this field today. Use it to read the
+ * authoritative `numReplicas` and `BROWSER_POOL_MAX_CONTEXTS` for a given env.
+ */
+export function workerProvisioningFor(
+  serviceName: string,
+  env: "prod" | "staging",
+): WorkerProvisioning | undefined {
+  const entry = findEntry(serviceName);
+  if (entry === undefined) return undefined;
+  return entry.workerProvisioning?.[env];
 }
 
 /**
