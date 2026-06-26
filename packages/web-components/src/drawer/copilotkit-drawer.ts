@@ -282,6 +282,23 @@ export class CopilotKitDrawer extends LitElement {
     if (this._justRevealed.size > 0) {
       this._justRevealed = new Set<string>();
     }
+
+    this._syncNameClipping();
+  }
+
+  /**
+   * Marks each row whose name text is truncated with `name-clipped`, so the CSS
+   * shows the name tooltip ONLY when the full name isn't already visible (an
+   * always-on bubble over every row on hover would be noise). Measured after
+   * render because truncation depends on the laid-out width.
+   */
+  private _syncNameClipping(): void {
+    const names = this.renderRoot.querySelectorAll<HTMLElement>(".row-name");
+    names.forEach((name) => {
+      const text = name.querySelector<HTMLElement>(".row-name-text");
+      const clipped = !!text && text.scrollWidth > text.clientWidth;
+      name.classList.toggle("name-clipped", clipped);
+    });
   }
 
   // --- View-state helpers ----------------------------------------------------
@@ -610,11 +627,21 @@ export class CopilotKitDrawer extends LitElement {
       revealed: justRevealed,
     };
     const slotName = rowSlotName(thread.id);
+    // A long thread name is clipped with an ellipsis. The full name is exposed
+    // via a tooltip styled to match the row-action tooltips (an instant primary
+    // bubble, NOT the native `title`), shown only when the name is actually
+    // truncated (`name-clipped`, toggled in `_syncNameClipping`). The name text
+    // lives in an inner span that owns the ellipsis, so the outer `.row-name`
+    // can host the tooltip pseudo-element without its own `overflow: hidden`
+    // clipping it.
     const nameSpan = html`<span
       class=${classMap(nameClasses)}
       part="row-name"
+      data-tooltip=${hasName ? thread.name : nothing}
     >
-      ${hasName ? thread.name : "New thread"}
+      <span class="row-name-text"
+        >${hasName ? thread.name : "New thread"}</span
+      >
     </span>`;
 
     return html`

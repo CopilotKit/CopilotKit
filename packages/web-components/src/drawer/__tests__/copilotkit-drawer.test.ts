@@ -122,6 +122,31 @@ test("renders a row per visible thread into the shadow root", async () => {
   teardown();
 });
 
+test("a named row carries the full name as a data-tooltip (CPK bubble; shown when clipped)", async () => {
+  const longName = "A very long thread name that gets clipped with an ellipsis";
+  const { q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: longName })],
+  });
+
+  // The full name rides on the row-name as data-tooltip (the same instant-bubble
+  // mechanism as the row actions); CSS reveals it only when `.name-clipped`.
+  const name = q('[part="row-name"]') as HTMLElement;
+  expect(name.getAttribute("data-tooltip")).toBe(longName);
+  expect(name.querySelector(".row-name-text")?.textContent).toBe(longName);
+  teardown();
+});
+
+test("a placeholder (unnamed) row has no name tooltip", async () => {
+  const { q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: null })],
+  });
+
+  const name = q('[part="row-name"]') as HTMLElement;
+  expect(name.classList.contains("placeholder")).toBe(true);
+  expect(name.hasAttribute("data-tooltip")).toBe(false);
+  teardown();
+});
+
 test("emits thread-selected with the thread id on row click", async () => {
   const { q, events, teardown } = await setup({
     threads: [makeThread({ id: "abc", name: "Pick me" })],
