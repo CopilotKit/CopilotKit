@@ -1,0 +1,232 @@
+---
+title: Migrate to useToolRenderingResolver
+description: Migration guide for replacing the v2 useRenderToolCall resolver hook
+icon: "lucide/RefreshCw"
+---
+
+## What's Changing
+
+The v2 `useRenderToolCall` hook is deprecated and replaced by `useToolRenderingResolver`.
+
+| Deprecated | Replacement |
+| ---------- | ----------- |
+| `useRenderToolCall` from `@copilotkit/react-core/v2` | `useToolRenderingResolver` from `@copilotkit/react-core/v2` |
+| `UseRenderToolCallProps` | `UseToolRenderingResolverProps` |
+
+The old hook continues to work during the deprecation window, but it logs a development warning once per mounted hook instance.
+
+## Why
+
+`useRenderToolCall` sounded like a hook for registering or defining tool renderers, and it was easy to confuse with `useRenderTool`. The replacement name describes the actual job: resolving the renderer that should be used for a raw tool call inside a custom or headless chat UI.
+
+## Minimum Version
+
+- **New `useToolRenderingResolver` hook:** available from v1.56.0
+- **`useRenderToolCall` deprecated:** v1.56.0
+- **Deprecated alias removed:** next major version
+
+## Before / After
+
+**Before:**
+
+```tsx
+"use client";
+
+import React from "react";
+import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import { useRenderToolCall } from "@copilotkit/react-core/v2";
+
+interface HeadlessToolCallsProps {
+  message: AssistantMessage;
+  messages: Message[];
+}
+
+export function HeadlessToolCalls({
+  message,
+  messages,
+}: HeadlessToolCallsProps) {
+  const renderToolCall = useRenderToolCall();
+
+  if (!message.toolCalls?.length) {
+    return null;
+  }
+
+  return (
+    <>
+      {message.toolCalls.map((toolCall) => {
+        const toolMessage = messages.find(
+          (candidate) =>
+            candidate.role === "tool" && candidate.toolCallId === toolCall.id,
+        ) as ToolMessage | undefined;
+
+        const renderedToolElement = renderToolCall({ toolCall, toolMessage });
+
+        return renderedToolElement ? (
+          <React.Fragment key={toolCall.id}>
+            {renderedToolElement}
+          </React.Fragment>
+        ) : null;
+      })}
+    </>
+  );
+}
+```
+
+**After:**
+
+```tsx
+"use client";
+
+import React from "react";
+import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import { useToolRenderingResolver } from "@copilotkit/react-core/v2";
+
+interface HeadlessToolCallsProps {
+  message: AssistantMessage;
+  messages: Message[];
+}
+
+export function HeadlessToolCalls({
+  message,
+  messages,
+}: HeadlessToolCallsProps) {
+  const resolveToolRendering = useToolRenderingResolver();
+
+  if (!message.toolCalls?.length) {
+    return null;
+  }
+
+  return (
+    <>
+      {message.toolCalls.map((toolCall) => {
+        const toolMessage = messages.find(
+          (candidate) =>
+            candidate.role === "tool" && candidate.toolCallId === toolCall.id,
+        ) as ToolMessage | undefined;
+
+        const renderedToolElement = resolveToolRendering({
+          toolCall,
+          toolMessage,
+        });
+
+        return renderedToolElement ? (
+          <React.Fragment key={toolCall.id}>
+            {renderedToolElement}
+          </React.Fragment>
+        ) : null;
+      })}
+    </>
+  );
+}
+```
+
+## Codemod Instructions
+
+Run the codemod to update imports, unaliased call sites, and v2 re-exports:
+
+```bash
+npx jscodeshift -t https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/codemods/migrate-use-tool-rendering-resolver.ts --parser=tsx --extensions=tsx,ts ./src
+```
+
+Expected output from `jscodeshift` is a list of transformed files. Review the diff and run your app's typecheck afterward.
+
+The codemod handles:
+- `import { useRenderToolCall } from "@copilotkit/react-core/v2"`
+- `import { useRenderToolCall as useRenderer } from "@copilotkit/react-core/v2"`
+- unaliased call sites like `useRenderToolCall()`
+- the common returned callback local `renderToolCall` when it is initialized by the replacement hook
+- re-exports from `@copilotkit/react-core/v2`
+
+It intentionally does not transform:
+- `useRenderToolCall` from the root `@copilotkit/react-core` package, because that is the v1 renderer registration hook with a different API
+- local hook aliases, because the local name is part of your application code style
+- other variables named `renderToolCall` that are not initialized by the replacement hook
+
+## Step-by-Step Migration
+
+<Steps>
+  <Step>
+    ### Update the import
+
+    ```tsx
+    // Before
+    import { useRenderToolCall } from "@copilotkit/react-core/v2";
+
+    // After
+    import { useToolRenderingResolver } from "@copilotkit/react-core/v2";
+    ```
+
+  </Step>
+
+  <Step>
+    ### Update the hook call
+
+    ```tsx
+    // Before
+    const renderToolCall = useRenderToolCall();
+
+    // After
+    const resolveToolRendering = useToolRenderingResolver();
+    ```
+
+  </Step>
+
+  <Step>
+    ### Keep the resolver arguments unchanged
+
+    The input shape is unchanged. Continue passing the raw `toolCall` and the optional matching `toolMessage`.
+
+    ```tsx
+    resolveToolRendering({
+      toolCall,
+      toolMessage,
+    });
+    ```
+
+  </Step>
+
+  <Step>
+    ### Update public re-exports
+
+    If your app or library re-exports the old hook, rename the re-export:
+
+    ```tsx
+    // Before
+    export { useRenderToolCall } from "@copilotkit/react-core/v2";
+
+    // After
+    export { useToolRenderingResolver } from "@copilotkit/react-core/v2";
+    ```
+
+  </Step>
+</Steps>
+
+## Gotchas
+
+<Callout type="warning">
+  The v1 `useRenderToolCall` hook from `@copilotkit/react-core` is not part of
+  this migration. That hook registers a renderer. The v2
+  `useToolRenderingResolver` hook resolves an already-registered renderer.
+</Callout>
+
+<Callout type="info">
+  The migration is a rename, not a behavior change. Renderer lookup order,
+  argument parsing, status inference, and `null` returns for unmatched tools are
+  unchanged.
+</Callout>
+
+If you kept a local alias, the codemod updates the imported symbol while preserving your alias:
+
+```tsx
+import {
+  useToolRenderingResolver as useRenderer,
+} from "@copilotkit/react-core/v2";
+
+const resolver = useRenderer();
+```
+
+## Coexistence Period
+
+`useRenderToolCall` and `useToolRenderingResolver` can coexist in the same codebase during the transition period. The deprecated alias will remain available for at least two minor versions and will be removed in the next major version.
+
+For the new reference docs, see [`useToolRenderingResolver`](/reference/v2/hooks/useToolRenderingResolver). For the deprecated alias reference, see [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall).

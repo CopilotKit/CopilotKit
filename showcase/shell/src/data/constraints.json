@@ -27,6 +27,7 @@
         "gen-ui-tool-based",
         "gen-ui-interrupt",
         "gen-ui-agent",
+        "headless-complete",
         "hitl",
         "tool-rendering",
         "useComponent",

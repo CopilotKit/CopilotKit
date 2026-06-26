@@ -9,7 +9,15 @@ import {
 
 ## Overview
 
-CopilotKit offers *fully headless UI* through the `useCopilotChatHeadless_c` hook. By using this hook, you can build your own chat interfaces
+<Callout type="warning">
+  **Deprecated.** `useCopilotChatHeadless_c` is still supported during the
+  deprecation window, but new fully custom chat UIs should use
+  [`useAgent`](/reference/v2/hooks/useAgent) with
+  `useCopilotKit().copilotkit.runAgent` from the v2 API. See the
+  [migration guide](/migration-guides/migrate-use-copilot-chat-headless-c).
+</Callout>
+
+CopilotKit previously offered *fully headless UI* through the `useCopilotChatHeadless_c` hook. By using this hook, you can build your own chat interfaces
 from the ground up while still utilizing CopilotKit's core features and ease-of-use.
 
 ## Navigation
@@ -226,24 +234,50 @@ export const Chat = () => {
 };
 ```
 
-### With raw data
-If you don't want to use `useCopilotAction`, you can also render the raw data directly.
+### With registered tool renderers
+When you build a fully headless UI, use `useToolRenderingResolver` to render tool calls with the same renderers you register through `useRenderTool`, `useFrontendTool`, or `useHumanInTheLoop`.
 
 ```tsx title="src/app/components/chat.tsx"
+import {
+  useCopilotChatHeadless_c,
+  useRenderTool,
+  useToolRenderingResolver,
+} from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
 export const Chat = () => {
-  // ...
+  const { messages } = useCopilotChatHeadless_c();
+  const resolveToolRendering = useToolRenderingResolver(); // [!code highlight]
+
+  useRenderTool({
+    name: "get_weather",
+    parameters: z.object({
+      location: z.string(),
+    }),
+    render: ({ parameters, result, status }) => (
+      <WeatherCard location={parameters.location} result={result} status={status} />
+    ),
+  });
 
   return <div>
     {messages.map((message) => (
-      <p key={message.id}>
+      <div key={message.id}>
+        <p>{message.content}</p>
         {/* Render the tool calls if they exist */}
-        {/* [!code highlight:5] */}
-        {message.role === "assistant" && message.toolCalls?.map((toolCall) => (
-          <p key={toolCall.id}>
-            {toolCall.function.name}: {toolCall.function.arguments}
-          </p>
-        ))}
-      </p>
+        {/* [!code highlight:15] */}
+        {message.role === "assistant" && message.toolCalls?.map((toolCall) => {
+          const toolMessage = messages.find(
+            (candidate) =>
+              candidate.role === "tool" && candidate.toolCallId === toolCall.id,
+          );
+          const renderedToolElement = resolveToolRendering({
+            toolCall,
+            toolMessage,
+          });
+
+          return <div key={toolCall.id}>{renderedToolElement}</div>;
+        })}
+      </div>
     ))}
   </div>
 };

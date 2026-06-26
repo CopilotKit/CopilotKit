@@ -1,4 +1,11 @@
 /**
+ * `useCopilotChatHeadless_c` is deprecated.
+ *
+ * <Callout type="warning">
+ * `useCopilotChatHeadless_c` is deprecated. For fully custom chat UIs, use [`useAgent`](/reference/v2/hooks/useAgent) with `useCopilotKit().copilotkit.runAgent` from the v2 API.
+ * See the [migration guide](/migration-guides/migrate-use-copilot-chat-headless-c).
+ * </Callout>
+ *
  * `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
  *
  * <Callout title="This is a premium-only feature">
@@ -23,7 +30,7 @@
  *
  * ```tsx
  * import { CopilotKit } from "@copilotkit/react-core";
- * import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
+ * import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
  *
  * export function App() {
  *   return (
@@ -34,14 +41,18 @@
  * }
  *
  * export function YourComponent() {
- *   const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c();
+ *   const { agent } = useAgent({ agentId: "default" });
+ *   const { copilotkit } = useCopilotKit();
+ *   const messages = agent.messages;
+ *   const isLoading = agent.isRunning;
  *
  *   const handleSendMessage = async () => {
- *     await sendMessage({
+ *     agent.addMessage({
  *       id: "123",
  *       role: "user",
  *       content: "Hello World",
  *     });
+ *     await copilotkit.runAgent({ agent });
  *   };
  *
  *   return (
@@ -58,29 +69,25 @@
  * ### Working with Suggestions
  *
  * ```tsx
- * import { useCopilotChatHeadless_c, useCopilotChatSuggestions } from "@copilotkit/react-core";
+ * import { useAgent, useCopilotKit, useConfigureSuggestions } from "@copilotkit/react-core/v2";
  *
  * export function SuggestionExample() {
- *   const {
- *     suggestions,
- *     setSuggestions,
- *     generateSuggestions,
- *     isLoadingSuggestions
- *   } = useCopilotChatHeadless_c();
+ *   const { agent } = useAgent({ agentId: "default" });
+ *   const { copilotkit } = useCopilotKit();
  *
  *   // Configure AI suggestion generation
- *   useCopilotChatSuggestions({
- *     instructions: "Suggest helpful actions based on the current context",
- *     maxSuggestions: 3
+ *   useConfigureSuggestions({
+ *     suggestions: [
+ *       { title: "Summarize", message: "Summarize the current context" },
+ *     ],
+ *     available: "enabled"
  *   });
  *
  *   return (
  *     <div>
- *       {suggestions.map(suggestion => (
- *         <button key={suggestion.title}>{suggestion.title}</button>
- *       ))}
- *       <button onClick={generateSuggestions} disabled={isLoadingSuggestions}>
- *         Generate Suggestions
+ *       {agent.messages.map(msg => <div key={msg.id}>{msg.content}</div>)}
+ *       <button onClick={() => copilotkit.runAgent({ agent })}>
+ *         Run agent
  *       </button>
  *     </div>
  *   );
@@ -158,7 +165,7 @@
  * Interrupt content for human-in-the-loop workflows
  * </PropertyReference>
  */
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useCopilotContext } from "../context/copilot-context";
 import {
   useCopilotChatInternal,
@@ -199,6 +206,24 @@ const createNonFunctionalReturn = (): UseCopilotChatReturn_c => ({
   isLoadingSuggestions: false,
   interrupt: null,
 });
+
+const useCopilotChatHeadlessDeprecationWarning =
+  "[CopilotKit] useCopilotChatHeadless_c is deprecated since v1.56.0. " +
+  "For fully custom chat UIs, use useAgent from @copilotkit/react-core/v2 " +
+  "with useCopilotKit().copilotkit.runAgent instead.\n\n" +
+  "Migration guide: https://docs.copilotkit.ai/migration-guides/migrate-use-copilot-chat-headless-c\n" +
+  "useAgent docs: https://docs.copilotkit.ai/reference/v2/hooks/useAgent\n\n" +
+  "Before:\n" +
+  "const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c();\n" +
+  "await sendMessage({ id, role: 'user', content });\n\n" +
+  "After:\n" +
+  "const { agent } = useAgent({ agentId });\n" +
+  "const { copilotkit } = useCopilotKit();\n" +
+  "const messages = agent.messages;\n" +
+  "const isLoading = agent.isRunning;\n" +
+  "agent.addMessage({ id, role: 'user', content });\n" +
+  "await copilotkit.runAgent({ agent });";
+
 /**
  * Enterprise React hook that provides complete chat functionality for fully custom UI implementations.
  * Includes all advanced features like direct message access, suggestions array, interrupt handling, and MCP support.
@@ -212,11 +237,22 @@ const createNonFunctionalReturn = (): UseCopilotChatReturn_c => ({
  * ```tsx
  * const { messages, sendMessage, suggestions, interrupt } = useCopilotChatHeadless_c();
  * ```
+ *
+ * @deprecated Since v1.56.0. For fully custom chat UIs, use `useAgent` from
+ * `@copilotkit/react-core/v2` with `useCopilotKit().copilotkit.runAgent`
+ * instead. See
+ * https://docs.copilotkit.ai/migration-guides/migrate-use-copilot-chat-headless-c.
  */
 function useCopilotChatHeadless_c(
   options: UseCopilotChatOptions_c = {},
 ): UseCopilotChatReturn_c {
+  const warnedRef = useRef(false);
   const { copilotApiConfig, setBannerError } = useCopilotContext();
+
+  if (process.env.NODE_ENV !== "production" && !warnedRef.current) {
+    warnedRef.current = true;
+    console.warn(useCopilotChatHeadlessDeprecationWarning);
+  }
 
   // Check if publicApiKey is available
   const hasPublicApiKey = Boolean(copilotApiConfig.publicApiKey);

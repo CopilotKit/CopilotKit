@@ -31,7 +31,7 @@ function Chat() {
             wind_speed: z.number().optional(),
             feels_like: z.number().optional(),
         }),
-        render: ({ args, result, status }: any) => {
+        render: ({ parameters, result, status }) => {
             if (status !== "complete") {
                 return (
                     <div
@@ -47,21 +47,23 @@ function Chat() {
                                 Checking weather...
                             </p>
                             <p className="text-white/60 text-xs">
-                                {args.location}
+                                {parameters.location ?? "the selected location"}
                             </p>
                         </div>
                     </div>
                 );
             }
 
+            const weather = parseWeatherResult(result);
+
             return (
                 <WeatherCard
-                    location={result?.city || args.location}
-                    temperature={result?.temperature ?? args.temperature ?? 22}
-                    conditions={result?.conditions || args.conditions || "Clear skies"}
-                    humidity={result?.humidity ?? args.humidity ?? 55}
-                    windSpeed={result?.wind_speed ?? args.wind_speed ?? 12}
-                    feelsLike={result?.feels_like ?? args.feels_like ?? result?.temperature ?? 22}
+                    location={weather.city || parameters.location}
+                    temperature={weather.temperature ?? parameters.temperature ?? 22}
+                    conditions={weather.conditions || parameters.conditions || "Clear skies"}
+                    humidity={weather.humidity ?? parameters.humidity ?? 55}
+                    windSpeed={weather.wind_speed ?? parameters.wind_speed ?? 12}
+                    feelsLike={weather.feels_like ?? parameters.feels_like ?? weather.temperature ?? 22}
                 />
             );
         },
@@ -92,6 +94,35 @@ function Chat() {
             </div>
         </div>
     );
+}
+
+type WeatherResult = {
+    city?: string;
+    location?: string;
+    temperature?: number;
+    conditions?: string;
+    humidity?: number;
+    wind_speed?: number;
+    windSpeed?: number;
+    feels_like?: number;
+    feelsLike?: number;
+};
+
+function parseWeatherResult(result: unknown): WeatherResult {
+    if (!result) return {};
+
+    if (typeof result === "string") {
+        try {
+            const parsed = JSON.parse(result);
+            return typeof parsed === "object" && parsed !== null
+                ? (parsed as WeatherResult)
+                : {};
+        } catch {
+            return {};
+        }
+    }
+
+    return typeof result === "object" ? (result as WeatherResult) : {};
 }
 
 function getGradient(conditions: string): string {

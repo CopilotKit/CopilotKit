@@ -25,6 +25,7 @@ function createAgent(graphId: string = "sample_agent") {
 // Each demo specifies an agent ID; they all route to the same LangGraph graph.
 const agentNames = [
     "agentic_chat",
+    "headless-complete",
     "human_in_the_loop",
     "tool-rendering",
     "gen-ui-tool-based",

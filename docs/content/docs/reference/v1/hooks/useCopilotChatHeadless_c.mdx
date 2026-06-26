@@ -11,7 +11,11 @@ title: "useCopilotChatHeadless_c"
 }
 
 <Callout type="warning">
-  `useCopilotChatHeadless_c` is still supported, but we recommend migrating to [`useAgent`](/reference/v2/hooks/useAgent) from the v2 API.
+  **Deprecated.** `useCopilotChatHeadless_c` is still supported during the
+  deprecation window, but new fully custom chat UIs should use
+  [`useAgent`](/reference/v2/hooks/useAgent) with
+  `useCopilotKit().copilotkit.runAgent` from the v2 API. See the
+  [migration guide](/migration-guides/migrate-use-copilot-chat-headless-c).
 </Callout>
 
 `useCopilotChatHeadless_c` is for building fully custom UI (headless UI) implementations.
@@ -172,4 +176,3 @@ Whether suggestions are currently being generated
 <PropertyReference name="interrupt" type="string | React.ReactElement | null">
 Interrupt content for human-in-the-loop workflows
 </PropertyReference>
-

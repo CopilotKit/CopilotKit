@@ -1,0 +1,122 @@
+---
+title: "useToolRenderingResolver"
+description: "Resolve registered tool renderers inside custom and headless chat UIs"
+---
+
+## Overview
+
+`useToolRenderingResolver` returns CopilotKit's low-level tool rendering resolver. It is the hook used by custom or headless chat message components when they already have an AG-UI `ToolCall` and need CopilotKit to resolve the closest registered renderer for that tool call.
+
+The resolver reads the renderer registry from the nearest CopilotKit provider, finds the best renderer for the tool name, parses the tool call arguments, infers the `ToolCallStatus`, and returns a React element. If no renderer matches, it returns `null`.
+
+<Callout type="info">
+  Migrating from `useRenderToolCall`? See the [migration guide](/migration-guides/migrate-use-tool-rendering-resolver). The old hook name is deprecated because it sounded like a registration hook, while this hook resolves already-registered renderers.
+</Callout>
+
+Use this hook when you are building the part of a custom chat UI that renders tool calls. To register renderers, use [`useRenderTool`](/reference/v2/hooks/useRenderTool) or [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool) instead.
+
+## Signature
+
+```tsx
+import { useToolRenderingResolver } from "@copilotkit/react-core/v2";
+
+function useToolRenderingResolver(): ToolRenderingResolver;
+
+type ToolRenderingResolver = (props: UseToolRenderingResolverProps) => React.ReactElement | null;
+
+interface UseToolRenderingResolverProps {
+  toolCall: ToolCall;
+  toolMessage?: ToolMessage;
+}
+```
+
+## Return Value
+
+<PropertyReference name="resolveToolRendering" type="(props: UseToolRenderingResolverProps) => React.ReactElement | null">
+  A resolver function that accepts a tool call and returns the registered renderer output, or `null` when no renderer matches.
+
+  <PropertyReference name="props" type="UseToolRenderingResolverProps" required>
+    The tool call data to resolve.
+
+    <PropertyReference name="toolCall" type="ToolCall" required>
+      The AG-UI tool call containing the tool name and JSON-encoded arguments.
+    </PropertyReference>
+
+    <PropertyReference name="toolMessage" type="ToolMessage">
+      The matching tool result message. When present, the renderer receives `ToolCallStatus.Complete` and the result string.
+    </PropertyReference>
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+### Render tool calls in a headless message component
+
+```tsx
+"use client";
+
+import React from "react";
+import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
+import { useToolRenderingResolver } from "@copilotkit/react-core/v2";
+
+interface HeadlessToolCallsProps {
+  message: AssistantMessage;
+  messages: Message[];
+}
+
+export function HeadlessToolCalls({
+  message,
+  messages,
+}: HeadlessToolCallsProps) {
+  const resolveToolRendering = useToolRenderingResolver();
+
+  if (!message.toolCalls?.length) {
+    return null;
+  }
+
+  return (
+    <>
+      {message.toolCalls.map((toolCall) => {
+        const toolMessage = messages.find(
+          (candidate) =>
+            candidate.role === "tool" && candidate.toolCallId === toolCall.id,
+        ) as ToolMessage | undefined;
+
+        const renderedToolElement = resolveToolRendering({
+          toolCall,
+          toolMessage,
+        });
+
+        return renderedToolElement ? (
+          <React.Fragment key={toolCall.id}>{renderedToolElement}</React.Fragment>
+        ) : null;
+      })}
+    </>
+  );
+}
+```
+
+## Status Resolution
+
+The resolver passes one of these statuses to the matched renderer:
+
+| Condition | Status | `result` |
+| --------- | ------ | -------- |
+| No `toolMessage` and the tool call is still streaming | `ToolCallStatus.InProgress` | `undefined` |
+| The tool call is executing with resolved arguments | `ToolCallStatus.Executing` | `undefined` |
+| A matching `toolMessage` exists | `ToolCallStatus.Complete` | The result string from the tool message |
+
+## Behavior
+
+- **Name-based lookup:** exact tool-name renderers win before the wildcard `"*"` renderer.
+- **Agent-aware priority:** if multiple exact renderers exist, the resolver prefers the renderer scoped to the current chat agent, then an unscoped renderer, then any exact renderer.
+- **Argument parsing:** the resolver parses the tool call's JSON arguments before passing them to the renderer.
+- **Null for unmatched calls:** when no exact or wildcard renderer exists, the resolver returns `null`.
+- **Registry consumer only:** this hook does not register a renderer or execute a tool handler.
+
+## Related
+
+- [`useRenderTool`](/reference/v2/hooks/useRenderTool) - register a named or wildcard tool renderer
+- [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool) - register or use the default wildcard renderer
+- [`CopilotChatAssistantMessage`](/reference/v2/components/CopilotChatAssistantMessage) - built-in assistant message component that uses the resolver through its tool calls view
+- [`Migrate from useRenderToolCall`](/migration-guides/migrate-use-tool-rendering-resolver)

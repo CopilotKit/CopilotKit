@@ -1,5 +1,13 @@
 // React hooks for CopilotKit2
-export { useRenderToolCall } from "./use-render-tool-call";
+export {
+  useRenderToolCall,
+  useToolRenderingResolver,
+} from "./use-tool-rendering-resolver";
+export type {
+  ToolRenderingResolver,
+  UseRenderToolCallProps,
+  UseToolRenderingResolverProps,
+} from "./use-tool-rendering-resolver";
 export { useRenderCustomMessages } from "./use-render-custom-messages";
 export { useRenderActivityMessage } from "./use-render-activity-message";
 export { useFrontendTool } from "./use-frontend-tool";

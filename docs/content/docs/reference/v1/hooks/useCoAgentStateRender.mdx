@@ -12,7 +12,7 @@ description: "The useCoAgentStateRender hook allows you to render the state of t
 }
 
 <Callout type="warning">
-  `useCoAgentStateRender` is still supported, but we recommend migrating to [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall) from the v2 API.
+  `useCoAgentStateRender` is still supported in v1. For v2 custom rendering, use the v2 tool rendering APIs such as [`useRenderTool`](/reference/v2/hooks/useRenderTool).
 </Callout>
 
 The useCoAgentStateRender hook allows you to render UI or text based components on a Agentic Copilot's state in the chat.
@@ -73,4 +73,3 @@ The handler function to handle the state of the agent.
 <PropertyReference name="render" type="| ((props: CoAgentStateRenderProps<T>) => string | React.ReactElement | undefined | null) | string"  > 
 The render function to handle the state of the agent.
 </PropertyReference>
-

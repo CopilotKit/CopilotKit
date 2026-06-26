@@ -219,12 +219,12 @@ function ToolCallsList({ message, allMessages }) {
 - **Markdown Support**: The default Markdown renderer supports GitHub Flavored Markdown (tables, strikethrough, task lists), math expressions rendered with KaTeX, and syntax-highlighted code blocks via `rehype-pretty-code`.
 - **Toolbar Visibility**: The toolbar appears on hover or focus by default. Individual buttons are only rendered when their corresponding callback prop (`onThumbsUp`, `onThumbsDown`, `onReadAloud`, `onRegenerate`) is provided. The copy button is always visible when the toolbar is shown.
 - **Localized Labels**: All toolbar button tooltips are sourced from the nearest `CopilotChatConfigurationProvider`. See [`useCopilotChatConfiguration`](/reference/v2/hooks/useCopilotChatConfiguration) for the full list of label keys.
-- **Tool Call Rendering**: Tool calls embedded in the assistant message are rendered by the `toolCallsView` slot. Each tool call is resolved using the `useRenderToolCall` hook, which looks up registered renderers by tool name.
+- **Tool Call Rendering**: Tool calls embedded in the assistant message are rendered by the `toolCallsView` slot. Each tool call is resolved using the `useToolRenderingResolver` hook, which looks up registered renderers by tool name.
 - **Slot System**: Each slot prop accepts three forms -- a replacement component, a className string merged into the default, or a partial props object that extends the default component's props.
 
 ## Related
 
 - [`CopilotChatMessageView`](/reference/v2/components/CopilotChatMessageView) -- Parent component that uses this as the default assistant message slot
 - [`CopilotChatUserMessage`](/reference/v2/components/CopilotChatUserMessage) -- Companion component for user messages
-- [`useRenderToolCall`](/reference/v2/hooks/useRenderToolCall) -- Hook used internally for resolving tool call renderers
+- [`useToolRenderingResolver`](/reference/v2/hooks/useToolRenderingResolver) -- Hook used internally for resolving tool call renderers
 - [`useCopilotChatConfiguration`](/reference/v2/hooks/useCopilotChatConfiguration) -- Provider for localized toolbar labels

@@ -10,7 +10,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@copilotkit/react-core": "next",
+    "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "next",
     "next": "^15.0.0",
     "react": "^19.0.0",

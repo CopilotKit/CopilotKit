@@ -9,6 +9,10 @@ export default function Home() {
                         <h3>Agentic Chat</h3>
                         <p>Natural conversation with frontend tool execution</p>
                     </a>
+                    <a key="headless-complete" href="/demos/headless-complete" className="demo-card">
+                        <h3>Fully Headless UI</h3>
+                        <p>Custom chat shell rendering registered tool UI through the resolver</p>
+                    </a>
                     <a key="hitl" href="/demos/hitl" className="demo-card">
                         <h3>Human in the Loop</h3>
                         <p>User approves agent actions before execution</p>

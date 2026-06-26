@@ -23,7 +23,7 @@ function Chat() {
         parameters: z.object({
             location: z.string(),
         }),
-        render: ({ args, result, status }: any) => {
+        render: ({ parameters, status }) => {
             if (status !== "complete") {
                 return (
                     <div className="flex items-center gap-3 px-5 py-4 rounded-2xl max-w-sm"
@@ -31,14 +31,14 @@ function Chat() {
                         <div className="animate-pulse text-2xl">🌤️</div>
                         <div>
                             <p className="text-white font-medium text-sm">Checking weather...</p>
-                            <p className="text-white/60 text-xs">{args.location}</p>
+                            <p className="text-white/60 text-xs">{parameters.location ?? "the selected location"}</p>
                         </div>
                     </div>
                 );
             }
 
             return (
-                <WeatherCard location={args.location} />
+                <WeatherCard location={parameters.location ?? "the selected location"} />
             );
         },
     });

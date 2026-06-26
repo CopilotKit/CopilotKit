@@ -1,0 +1,187 @@
+---
+title: Migrate from useCopilotChatHeadless_c
+description: Migration guide for replacing the deprecated fully headless chat hook
+icon: "lucide/RefreshCw"
+---
+
+## What's Changing
+
+`useCopilotChatHeadless_c` is deprecated. For fully custom chat UIs, use the v2 agent runtime directly:
+
+| Deprecated | Replacement |
+| ---------- | ----------- |
+| `useCopilotChatHeadless_c` from `@copilotkit/react-core` | `useAgent` from `@copilotkit/react-core/v2` |
+| `sendMessage(message)` | `agent.addMessage(message)` followed by `copilotkit.runAgent({ agent })` |
+| `messages` | `agent.messages` |
+| `isLoading` | `agent.isRunning` |
+
+The old hook continues to work during the deprecation window, but it logs a development warning once per mounted hook instance.
+
+## Why
+
+`useCopilotChatHeadless_c` bundles several responsibilities into one premium-only hook: message state, run orchestration, suggestions, interrupts, and custom chat UI wiring. The v2 runtime APIs expose those pieces directly, which makes fully headless chat easier to reason about and keeps custom UIs aligned with the same agent model used by the built-in v2 chat components.
+
+## Minimum Version
+
+- **Replacement pattern:** available in v1.56.0 through `@copilotkit/react-core/v2`
+- **`useCopilotChatHeadless_c` deprecated:** v1.56.0
+- **Deprecated hook removed:** next major version
+
+## Before / After
+
+**Before:**
+
+```tsx
+"use client";
+
+import { CopilotKit, useCopilotChatHeadless_c } from "@copilotkit/react-core";
+
+export function App() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="default">
+      <HeadlessChat />
+    </CopilotKit>
+  );
+}
+
+function HeadlessChat() {
+  const { messages, sendMessage, isLoading } = useCopilotChatHeadless_c();
+
+  async function submitMessage(content: string) {
+    await sendMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+    });
+  }
+
+  return (
+    <div>
+      {messages.map((message) => (
+        <p key={message.id}>{message.content}</p>
+      ))}
+      <button
+        type="button"
+        disabled={isLoading}
+        onClick={() => void submitMessage("Hello")}
+      >
+        Send
+      </button>
+    </div>
+  );
+}
+```
+
+**After:**
+
+```tsx
+"use client";
+
+import { CopilotKit } from "@copilotkit/react-core";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+
+export function App() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="default">
+      <HeadlessChat />
+    </CopilotKit>
+  );
+}
+
+function HeadlessChat() {
+  const { agent } = useAgent({ agentId: "default" });
+  const { copilotkit } = useCopilotKit();
+  const messages = agent.messages;
+  const isLoading = agent.isRunning;
+
+  async function submitMessage(content: string) {
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+    });
+    await copilotkit.runAgent({ agent });
+  }
+
+  return (
+    <div>
+      {messages.map((message) => (
+        <p key={message.id}>{message.content}</p>
+      ))}
+      <button
+        type="button"
+        disabled={isLoading}
+        onClick={() => void submitMessage("Hello")}
+      >
+        Send
+      </button>
+    </div>
+  );
+}
+```
+
+## Step-by-Step Migration
+
+<Steps>
+  <Step>
+    ### Replace the import
+
+    ```tsx
+    // Before
+    import { useCopilotChatHeadless_c } from "@copilotkit/react-core";
+
+    // After
+    import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+    ```
+
+  </Step>
+
+  <Step>
+    ### Read message state from the agent
+
+    ```tsx
+    const { agent } = useAgent({ agentId: "default" });
+    const messages = agent.messages;
+    const isLoading = agent.isRunning;
+    ```
+
+  </Step>
+
+  <Step>
+    ### Send messages by adding a user message and running the agent
+
+    ```tsx
+    const { copilotkit } = useCopilotKit();
+
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content,
+    });
+    await copilotkit.runAgent({ agent });
+    ```
+
+  </Step>
+
+  <Step>
+    ### Move optional headless features to their v2 hooks
+
+    Use `useConfigureSuggestions` and `useSuggestions` for suggestions, `useInterrupt` for interrupts, and `useToolRenderingResolver` when your custom message component needs to render registered tool UI.
+
+  </Step>
+</Steps>
+
+## Gotchas
+
+- This is not a pure rename. `useAgent` exposes the lower-level agent object, so your app explicitly adds the user message and triggers the run.
+- `useCopilotChatHeadless_c` returned convenience fields such as `suggestions`, `interrupt`, and `sendMessage`. In v2, those responsibilities live in focused hooks and agent methods.
+- If your headless UI renders tool calls, keep using registered renderers through [`useToolRenderingResolver`](/reference/hooks/useToolRenderingResolver).
+
+## Codemod Instructions
+
+No codemod is provided because the migration is semantic. Most call sites need a small manual rewrite from a single convenience hook to the lower-level v2 agent runtime pattern.
+
+## Related
+
+- [`useAgent`](/reference/hooks/useAgent)
+- [`useToolRenderingResolver`](/reference/hooks/useToolRenderingResolver)
