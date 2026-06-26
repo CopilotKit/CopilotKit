@@ -1,4 +1,4 @@
-# OpenTag — a multi-platform bot starter (Slack · Discord · Telegram)
+# OpenTag — a multi-platform bot starter (Slack · Discord)
 
 The clean **"how to get started with CopilotKit bots"** starter. OpenTag is a
 thread-tagging assistant: @mention it (or run `/tag`) in a thread and it reads
@@ -8,17 +8,17 @@ the conversation, proposes a label (`bug` / `question` / `feature` / `docs` /
 It's built with [`@copilotkit/bot`](../../packages/bot) (the platform-agnostic
 bot engine), one or more platform adapters
 ([`-slack`](../../packages/bot-slack) /
-[`-discord`](../../packages/bot-discord) /
-[`-telegram`](../../packages/bot-telegram)), and
+[`-discord`](../../packages/bot-discord)), and
 [`@copilotkit/bot-ui`](../../packages/bot-ui) (a cross-platform JSX vocabulary
 for rich messages). It's the distilled sibling of
 [`examples/slack`](../slack) — the same engine and patterns, minus the kitchen
 sink (no MCP, no modals, no charts).
 
-**One app, any platform — or all at once.** `createBot` takes an array of
-adapters; `app/index.ts` includes Slack when `SLACK_*` are set, Discord when
-`DISCORD_*` are set, and Telegram when `TELEGRAM_BOT_TOKEN` is set. Everything
-in `app/` is platform-agnostic and shared verbatim.
+**One app, any platform — or both at once.** `createBot` takes an array of
+adapters; `app/index.ts` includes Slack when `SLACK_*` are set and Discord when
+`DISCORD_*` are set. Everything in `app/` is platform-agnostic and shared
+verbatim — adding another surface (e.g. Telegram) is just one more secret-gated
+adapter block.
 
 ## What it teaches
 
@@ -53,8 +53,8 @@ You need an `OPENAI_API_KEY` and the secrets for **at least one** platform.
 ## How it fits together
 
 ```
-Slack / Discord / Telegram ──@mention──▶ bot (app/) ──AG-UI──▶ runtime (runtime.ts)
-                                                                  └─ BuiltInAgent (LLM)
+Slack / Discord ──@mention──▶ bot (app/) ──AG-UI──▶ runtime (runtime.ts)
+                                                       └─ BuiltInAgent (LLM)
 ```
 
 - **`app/`** — the platform-agnostic bot: `createBot` + whichever adapters have
@@ -91,12 +91,6 @@ The manifest declares the `/tag` command, the assistant pane, and Socket Mode
   URL to add it to your server. Optionally set `DISCORD_GUILD_ID` so slash
   commands register instantly during dev.
 
-### Telegram (set `TELEGRAM_BOT_TOKEN`)
-
-- Message **@BotFather** → `/newbot` → copy the HTTP API token
-  (`TELEGRAM_BOT_TOKEN`). Long-polling is the default — no public URL needed.
-- The bot auto-registers `/tag` via `setMyCommands` on start.
-
 ## 2. Run it
 
 ```bash
@@ -107,7 +101,7 @@ pnpm --filter opentag dev       # terminal 2 — the bot
 
 ## 3. Try it
 
-@mention the bot in a thread (Slack/Discord) or DM it (Telegram), or run `/tag`:
+@mention the bot in a thread (Slack/Discord), or run `/tag`:
 
 > @OpenTag tag this thread
 
@@ -171,7 +165,7 @@ forwarded to the agent on every run as client-side tools.
 - **Change the taxonomy.** Edit the label list in the `runtime.ts` system prompt
   and the colors in `app/components/tag-card.tsx`.
 - **Add a platform.** Add another adapter to the secret-gated block in
-  `app/index.ts` (e.g. `@copilotkit/bot-whatsapp`).
+  `app/index.ts` — e.g. `@copilotkit/bot-telegram` or `@copilotkit/bot-whatsapp`.
 - **Durable buttons.** Pass a `@copilotkit/bot-store-redis` store to `createBot`
   so an Apply/Cancel click still resolves after a restart.
 

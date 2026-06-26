@@ -199,9 +199,6 @@ importers:
       '@copilotkit/bot-slack':
         specifier: workspace:*
         version: link:../../packages/bot-slack
-      '@copilotkit/bot-telegram':
-        specifier: workspace:*
-        version: link:../../packages/bot-telegram
       '@copilotkit/bot-ui':
         specifier: workspace:*
         version: link:../../packages/bot-ui

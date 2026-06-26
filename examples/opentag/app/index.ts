@@ -3,14 +3,19 @@
  * `runtime.ts` holds the AG-UI agent backend (a CopilotKit `BuiltInAgent`);
  * this directory holds everything that runs on the chat-platform side.
  *
- * MULTI-PLATFORM: this single app drives Slack, Discord, and/or Telegram from
- * one process. `@copilotkit/bot`'s `createBot` accepts an array of adapters and
- * starts them all, so we include each platform's adapter only when its secrets
- * are present. Drop in `SLACK_*` for Slack, `DISCORD_*` for Discord,
- * `TELEGRAM_BOT_TOKEN` for Telegram — or any combination. Everything else in
- * `app/` (tools, the tag card, the confirm_tag HITL gate, the /tag command) is
- * platform-agnostic and shared verbatim. This is the directory you copy to
- * start your own bot.
+ * MULTI-PLATFORM: this single app drives Slack and/or Discord from one process.
+ * `@copilotkit/bot`'s `createBot` accepts an array of adapters and starts them
+ * all, so we include each platform's adapter only when its secrets are present.
+ * Drop in `SLACK_*` for Slack, `DISCORD_*` for Discord — or both. Everything
+ * else in `app/` (tools, the tag card, the confirm_tag HITL gate, the /tag
+ * command) is platform-agnostic and shared verbatim. This is the directory you
+ * copy to start your own bot.
+ *
+ * Adding another platform (Telegram, WhatsApp): the engine is platform-agnostic,
+ * so a new surface is just another secret-gated adapter block below (e.g.
+ * `@copilotkit/bot-telegram`). Telegram is left out here only until
+ * `@copilotkit/bot-telegram` is published to npm, so a standalone clone can
+ * `npm install` the whole thing.
  */
 import "dotenv/config";
 import { createBot } from "@copilotkit/bot";
@@ -26,11 +31,6 @@ import {
   defaultDiscordTools,
   defaultDiscordContext,
 } from "@copilotkit/bot-discord";
-import {
-  telegram,
-  defaultTelegramTools,
-  defaultTelegramContext,
-} from "@copilotkit/bot-telegram";
 import { appTools } from "./tools/index.js";
 import { appContext } from "./context/app-context.js";
 import { appCommands } from "./commands/index.js";
@@ -103,17 +103,10 @@ async function main() {
     context.push(...defaultDiscordContext);
   }
 
-  if (have("TELEGRAM_BOT_TOKEN")) {
-    // Telegram long-polls by default (no public URL / webhook needed).
-    adapters.push(telegram({ token: required("TELEGRAM_BOT_TOKEN") }));
-    tools.push(...defaultTelegramTools);
-    context.push(...defaultTelegramContext);
-  }
-
   if (adapters.length === 0) {
     console.error(
-      "No platform secrets found. Set SLACK_BOT_TOKEN + SLACK_APP_TOKEN, " +
-        "DISCORD_BOT_TOKEN + DISCORD_APP_ID, and/or TELEGRAM_BOT_TOKEN (see README).",
+      "No platform secrets found. Set SLACK_BOT_TOKEN + SLACK_APP_TOKEN " +
+        "and/or DISCORD_BOT_TOKEN + DISCORD_APP_ID (see README).",
     );
     process.exit(1);
   }
@@ -124,7 +117,7 @@ async function main() {
     // CopilotKit `BuiltInAgent` (CopilotSseRuntime), which does NOT require a
     // UUID-format threadId, so the raw conversation thread id is fine.
     // `SanitizingHttpAgent` is a lenient superset of `HttpAgent`; one factory
-    // covers Slack, Discord, and Telegram alike.
+    // covers Slack and Discord alike.
     agent: (threadId) => {
       const a = new SanitizingHttpAgent({
         url: agentUrl,
@@ -139,9 +132,9 @@ async function main() {
     tools,
     context,
     // The `/tag` slash command. On Slack it must ALSO be declared in the app
-    // config (paste `slack-app-manifest.yaml`); Discord and Telegram register
-    // commands up front. The engine routes by name; adapters that can't take
-    // commands ignore them.
+    // config (paste `slack-app-manifest.yaml`); Discord registers commands up
+    // front. The engine routes by name; adapters that can't take commands ignore
+    // them.
     commands: appCommands,
   });
 
@@ -163,8 +156,8 @@ async function main() {
 
   // Slack-only nicety: set the assistant-pane prompt chips when a pane opens.
   // Harmless elsewhere — `onThreadStarted` only fires from adapters that emit it
-  // (Discord/Telegram have no assistant pane), and platforms without
-  // suggested-prompt support no-op.
+  // (Discord has no assistant pane), and platforms without suggested-prompt
+  // support no-op.
   bot.onThreadStarted(async ({ thread }) => {
     await thread.setSuggestedPrompts([
       { title: "Tag this thread", message: "Tag this thread" },

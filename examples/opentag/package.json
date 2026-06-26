@@ -16,7 +16,6 @@
     "@copilotkit/bot": "workspace:*",
     "@copilotkit/bot-discord": "workspace:*",
     "@copilotkit/bot-slack": "workspace:*",
-    "@copilotkit/bot-telegram": "workspace:*",
     "@copilotkit/bot-ui": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@tanstack/ai": "^0.32.0",
