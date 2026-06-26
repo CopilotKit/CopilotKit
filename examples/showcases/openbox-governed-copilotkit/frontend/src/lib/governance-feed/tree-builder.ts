@@ -169,7 +169,7 @@ export function buildExecutionTree(snapshot: FeedStoreSnapshot): RunNode[] {
   }
 
   // Final ordering of actions inside each run.
-  const out = orderByArrival(Array.from(runs.values()), (r) => 0);
+  const out = orderByArrival(Array.from(runs.values()), () => 0);
   for (const run of out) {
     run.actions = orderByArrival(run.actions, (a) => a.arrivalIndex);
   }
