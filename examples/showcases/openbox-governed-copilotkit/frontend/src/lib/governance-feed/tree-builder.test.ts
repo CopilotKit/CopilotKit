@@ -163,4 +163,114 @@ describe("buildExecutionTree", () => {
     );
     expect(tree[0].actions.map((a) => a.id)).toEqual(["b", "a"]);
   });
+
+  it("collapses a started/finished pair for the same key into one step (finished wins)", () => {
+    const tree = buildExecutionTree(
+      snapshot(
+        [result({ id: "a", runId: "run-1", action: "review_data_handoff" })],
+        [
+          timing({
+            action: "review_data_handoff",
+            key: "policy",
+            phase: "started",
+            ms: undefined,
+          }),
+          timing({
+            action: "review_data_handoff",
+            key: "policy",
+            phase: "finished",
+            ms: 12,
+          }),
+        ],
+      ),
+    );
+    const action = tree[0].actions[0];
+    // Same action+key collapses to a single step...
+    expect(action.steps).toHaveLength(1);
+    // ...and finished wins, so the surviving step is not pending.
+    expect(action.steps[0].id).toBe("review_data_handoff:policy");
+    expect(action.steps[0].pending).toBe(false);
+    expect(action.steps[0].ms).toBe(12);
+  });
+
+  it("treats step pending asymmetrically by phase and ms", () => {
+    const tree = buildExecutionTree(
+      snapshot(
+        [result({ id: "a", runId: "run-1", action: "review_data_handoff" })],
+        [
+          // started WITH a numeric ms -> not pending
+          timing({
+            action: "review_data_handoff",
+            key: "started-with-ms",
+            phase: "started",
+            ms: 5,
+          }),
+          // finished -> not pending
+          timing({
+            action: "review_data_handoff",
+            key: "done",
+            phase: "finished",
+            ms: 8,
+          }),
+          // started with NO ms -> pending
+          timing({
+            action: "review_data_handoff",
+            key: "started-no-ms",
+            phase: "started",
+            ms: undefined,
+          }),
+        ],
+      ),
+    );
+    const steps = tree[0].actions[0].steps;
+    const byKey = (k: string) => steps.find((s) => s.id.endsWith(`:${k}`));
+    expect(byKey("started-with-ms")?.pending).toBe(false);
+    expect(byKey("done")?.pending).toBe(false);
+    expect(byKey("started-no-ms")?.pending).toBe(true);
+  });
+
+  it("produces one RunNode per distinct real runId, ordered by arrival", () => {
+    const tree = buildExecutionTree(
+      snapshot([
+        result({ id: "a", runId: "run-late", arrivalIndex: 1 }),
+        result({ id: "b", runId: "run-early", arrivalIndex: 0 }),
+      ]),
+    );
+    expect(tree).toHaveLength(2);
+    // Runs are ordered by the arrival of their first record.
+    expect(tree.map((r) => r.id)).toEqual(["run-early", "run-late"]);
+  });
+
+  it("does not consume a resume when the matching approvalId resolves to a non-approval verdict", () => {
+    const tree = buildExecutionTree(
+      snapshot([
+        result({
+          id: "blocked",
+          runId: "run-1",
+          action: "issue_large_refund",
+          verdict: "block",
+          status: "blocked",
+          approvalId: "ap1",
+        }),
+        result({
+          id: "resume",
+          runId: "run-1",
+          action: "issue_large_refund",
+          verdict: "allow",
+          status: "executed",
+          approvalId: "ap1",
+          isResume: true,
+        }),
+      ]),
+    );
+    // The record with approvalId "ap1" is a block, not an approval, so the
+    // r.verdict === "approval" guard keeps the resume from being skipped.
+    const node = tree[0].actions.find((a) => a.id === "resume");
+    expect(node).toBeDefined();
+    expect(node?.isResume).toBe(true);
+    // The blocked record carries no continuation (it isn't an approval node).
+    const blocked = tree[0].actions.find((a) => a.id === "blocked");
+    expect(blocked?.continuation).toBeUndefined();
+    expect(tree[0].actions).toHaveLength(2);
+  });
 });

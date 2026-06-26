@@ -104,10 +104,11 @@ function orderByArrival<T extends { arrivalIndex: number }>(
 /**
  * Pure flat-records -> Run→Action→Step tree.
  *
- * Ordering caveat: no monotonic server sequence field exists client-side, so
- * order is synthesized from client arrival order (arrivalIndex) and then
- * emittedAt/startedAt timestamps. Concurrent same-millisecond events keep
- * arrival order.
+ * Ordering caveat: there is no server sequence field, so order is by
+ * arrivalIndex — a single monotonic client-side counter shared across results
+ * and timings. Because that counter is drawn from one source, every value is
+ * unique and the resulting order is total; the secondary timestamp tiebreaker
+ * is effectively unused since arrivalIndex never ties.
  *
  * Approval->resume join: a resume result (isResume) whose approvalId matches
  * an earlier approval_required result is nested as that node's `continuation`
@@ -123,7 +124,6 @@ export function buildExecutionTree(snapshot: FeedStoreSnapshot): RunNode[] {
       resumesByApproval.set(record.approvalId, record);
     }
   }
-  const consumedResumeIds = new Set<string>();
 
   const runs = new Map<string, RunNode>();
   let runArrival = 0;
@@ -138,7 +138,6 @@ export function buildExecutionTree(snapshot: FeedStoreSnapshot): RunNode[] {
           r.verdict === "approval",
       );
       if (approvalExists) {
-        consumedResumeIds.add(record.id);
         continue;
       }
     }
@@ -174,7 +173,5 @@ export function buildExecutionTree(snapshot: FeedStoreSnapshot): RunNode[] {
   for (const run of out) {
     run.actions = orderByArrival(run.actions, (a) => a.arrivalIndex);
   }
-  // Mark consumed resumes as referenced (no-op guard for lint clarity).
-  void consumedResumeIds;
   return out;
 }
