@@ -1,4 +1,5 @@
-import { OPENBOX_COPILOTKIT_RESULT_SCHEMA_VERSION } from "@openbox-ai/openbox-sdk/copilotkit";
+// mirrors OPENBOX_COPILOTKIT_RESULT_SCHEMA_VERSION from @openbox-ai/openbox-sdk/copilotkit (not imported: that subpath is Node-only and breaks the client bundle)
+const OPENBOX_COPILOTKIT_RESULT_SCHEMA_VERSION = "openbox.copilotkit.result.v1";
 import type { GovernanceVerdict } from "./types";
 
 /** Governed tool names that produce OpenBox result tool-messages. */
