@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test:e2e": "playwright test",
-    "test:self-learning": "node scripts/self-learning-smoke.mjs"
+    "test:self-learning": "playwright test e2e/memory-learning.spec.ts"
   },
   "dependencies": {
     "@copilotkit/core": "workspace:*",
@@ -43,6 +43,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@copilotkit/aimock": "1.19.1",
     "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
