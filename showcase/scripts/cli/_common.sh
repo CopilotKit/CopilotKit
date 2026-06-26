@@ -147,6 +147,12 @@ _showcase_state_base() { printf '%s/copilotkit/showcase' "${XDG_STATE_HOME:-$HOM
 # protection via pid is also unreliable.
 ISOLATE_SLOT_DIR="$(_showcase_state_base)/slots"
 ISOLATE_STALE_THRESHOLD=7200  # 2 hours in seconds — slot-age fallback
+# TTL on a `kept` stack (running containers whose owning process is gone or
+# unverifiable — a forgotten `--keep` leak). Once a kept slot's age exceeds this
+# TTL it is reclassified `stale` and reaped by the sweep, so a --keep'd stack
+# left running with no owner cannot accumulate indefinitely. Default 4 hours.
+# Overridable via SHOWCASE_ISOLATE_KEEP_TTL (e.g. for tests / longer sessions).
+ISOLATE_KEEP_TTL="${SHOWCASE_ISOLATE_KEEP_TTL:-14400}"  # 4 hours in seconds
 # The sweep lock is held only for the duration of one sweep pass (seconds, even
 # with all 46 slots populated). A crashed sweeper's leftover lock must not
 # disable stale reaping for the full 2-hour SLOT threshold — give the lock its
@@ -163,6 +169,65 @@ _file_mtime() {
     stat -f %m "$1" 2>/dev/null || true
   else
     stat -c %Y "$1" 2>/dev/null || true
+  fi
+}
+
+# _kept_slot_age <slot> — age in seconds of a slot for the ISOLATE_KEEP_TTL
+# comparison, or empty when no anchor can be stat'ed. The TTL anchor is the
+# `pid` file's mtime: it is written ONCE at claim (~line 406) and never
+# rewritten, so it is a stable claim-time stamp (and `pid.start` is a SIBLING
+# file, so writing it never disturbs `pid`'s mtime). Mandatory fallback chain so
+# a kept slot is never immortal even if `pid` is gone: pid-file mtime →
+# `project`-file mtime → slot-dir mtime. If NONE of these can be stat'ed the
+# caller falls back to the existing ISOLATE_STALE_THRESHOLD age path; without
+# that fallback an unstattable anchor would skip the age comparison and the
+# kept→stale transition would silently never fire.
+_kept_slot_age() {
+  local slot_entry="$ISOLATE_SLOT_DIR/${1:?slot required}"
+  local anchor anchor_mtime
+  for anchor in "$slot_entry/pid" "$slot_entry/project" "$slot_entry"; do
+    anchor_mtime="$(_file_mtime "$anchor")"
+    if [[ "$anchor_mtime" =~ ^[0-9]+$ ]]; then
+      printf '%d\n' "$(( $(date +%s) - anchor_mtime ))"
+      return 0
+    fi
+  done
+  return 0
+}
+
+# _pid_start_time <pid> — the process start time of <pid> as an opaque,
+# platform-native string, or empty when it cannot be read (no such pid, EPERM
+# on a cross-user pid, or an unsupported platform). This is the anti-PID-reuse
+# fingerprint: a recycled pid lands on a DIFFERENT process with a DIFFERENT
+# start time, so a recorded-vs-current mismatch means the original owner is
+# gone. The exact textual format is never interpreted — it only has to be
+# stable for one process's lifetime and to DIFFER across a pid recycle, which
+# both forms below satisfy. Written to a `pid.start` sibling of the slot's
+# `pid` file at claim and re-read at verify; the SAME function produces both
+# sides so the comparison can never drift across a format change.
+#   macOS:  `ps -o lstart=` — the full "Wed Jun 26 11:33:20 2026" start stamp.
+#   Linux:  field 22 of /proc/<pid>/stat — starttime in clock ticks since boot.
+_pid_start_time() {
+  local pid="${1:?pid required}"
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 0
+  if [[ "$OSTYPE" == darwin* ]]; then
+    # ps prints a fixed-format date; trim surrounding whitespace so a stray
+    # leading/trailing space can never manufacture a spurious mismatch.
+    local out
+    out="$(ps -o lstart= -p "$pid" 2>/dev/null || true)"
+    printf '%s' "$out" | awk '{$1=$1; print}'
+  elif [ -r "/proc/$pid/stat" ]; then
+    # /proc/<pid>/stat: comm (field 2) is parenthesized and may contain spaces;
+    # split on the LAST ')' so the numeric fields after it line up regardless.
+    local stat rest
+    stat="$(cat "/proc/$pid/stat" 2>/dev/null || true)"
+    [ -n "$stat" ] || return 0
+    rest="${stat##*) }"
+    # After comm+state, starttime is field 22 of the full line == field 20 of
+    # `rest` (rest begins at field 3 = state). state ppid pgrp session tty_nr
+    # tpgid flags minflt cminflt majflt cmajflt utime stime cutime cstime
+    # priority nice num_threads itrealvalue starttime → 20th token.
+    printf '%s' "$rest" | awk '{print $20}'
   fi
 }
 
@@ -402,31 +467,126 @@ _claim_isolate_slot() {
     [ -n "${ISOLATE_SLOT:-}" ] || die "No isolation slots available (1-$ISOLATE_MAX_SLOT exhausted)"
   fi
 
-  # Common post-claim
+  # Common post-claim. Write order is load-bearing: `pid` FIRST (preserving the
+  # "pid written before the project record" invariant the liveness classifier
+  # relies on — a missing pid file with a recorded project means the owner is
+  # genuinely gone), THEN `pid.start`. `pid.start` is the anti-reuse
+  # fingerprint: the owning process's start time, re-read and compared at
+  # liveness time so a recycled pid (same number, different process, different
+  # start time) reads as "owner gone" rather than spuriously alive. It is a
+  # SIBLING file, written AFTER pid, so it never perturbs the `pid` file's own
+  # mtime (which the kept-slot TTL anchor depends on). A crash between the two
+  # writes leaves `pid` but no `pid.start` → owner "unverifiable" → treated as
+  # dead, which is the safe direction.
   echo "$$" > "$ISOLATE_SLOT_DIR/$ISOLATE_SLOT/pid"
+  _pid_start_time "$$" > "$ISOLATE_SLOT_DIR/$ISOLATE_SLOT/pid.start"
   ISOLATE_PORT_OFFSET=$(( (ISOLATE_SLOT + 1) * 200 ))
   return 0
 }
 
-# Classify a single isolation slot as live | stale | inconclusive — pure
-# classification, no reaping, no info logging. Shared between
+# _owner_liveness <slot> — classify the slot's OWNING PROCESS, independent of
+# any container state. Prints exactly one word and exits 0:
+#   alive        — pid file present + numeric + kill -0 succeeds AND the pid's
+#                  current start time matches the recorded pid.start.
+#   reused       — kill -0 succeeds but the current start time DIFFERS from the
+#                  recorded pid.start: the pid was recycled to a NEW process,
+#                  so the original owner is gone.
+#   dead         — pid file present + numeric but kill -0 fails (ESRCH, or
+#                  EPERM on a cross-user pid — both read as "not our owner",
+#                  matching the single-user model documented at the top of
+#                  this file; we do NOT parse kill -0 stderr, which is
+#                  locale/platform fragile).
+#   unverifiable — pid file present + numeric + alive, but no readable
+#                  pid.start to verify against (legacy slot written before the
+#                  pid.start invariant, a crash between the pid and pid.start
+#                  writes, or a platform that cannot read process start times).
+#                  Treated as "owner gone" by every caller — REMOVES the old
+#                  bare-kill-0 reuse hole at the cost of demoting a legacy
+#                  live-owner slot to kept (TTL-reaped) instead of protected.
+#   absent       — no pid file, or its contents are empty/non-numeric
+#                  (inconclusive: a truncated pid write, or a project-less
+#                  legacy slot). Distinct from `dead`: callers route this to
+#                  the age fallback, never to an immediate PID-driven reap.
+#
+# This is the SINGLE source of truth for owner liveness, shared by
+# _slot_liveness (the live|kept|stale classifier) and _slot_state (the table's
+# PID annotation) so the two can never diverge.
+_owner_liveness() {
+  local slot="${1:?slot required}"
+  local slot_entry="$ISOLATE_SLOT_DIR/$slot"
+  local slot_pid_file="$slot_entry/pid"
+  local slot_pid=""
+  if [ -f "$slot_pid_file" ]; then
+    slot_pid="$(cat "$slot_pid_file" 2>/dev/null || true)"
+  fi
+  if ! [[ "$slot_pid" =~ ^[0-9]+$ ]]; then
+    printf 'absent\n'
+    return 0
+  fi
+  # kill -0 failure (ESRCH or EPERM) → the pid is not a process we own → dead.
+  if ! kill -0 "$slot_pid" 2>/dev/null; then
+    printf 'dead\n'
+    return 0
+  fi
+  # Pid is alive — but is it the SAME process we recorded? Verify start time.
+  local recorded_start=""
+  if [ -f "$slot_entry/pid.start" ]; then
+    recorded_start="$(cat "$slot_entry/pid.start" 2>/dev/null || true)"
+  fi
+  if [ -z "$recorded_start" ]; then
+    # No fingerprint to verify against — cannot prove this is our owner.
+    printf 'unverifiable\n'
+    return 0
+  fi
+  local current_start
+  current_start="$(_pid_start_time "$slot_pid")"
+  if [ -z "$current_start" ]; then
+    # Pid is alive (kill -0 ok) but its start time is unreadable (e.g. EPERM on
+    # a cross-user pid) — cannot confirm identity → treat as unverifiable.
+    printf 'unverifiable\n'
+    return 0
+  fi
+  if [ "$current_start" = "$recorded_start" ]; then
+    printf 'alive\n'
+  else
+    printf 'reused\n'
+  fi
+  return 0
+}
+
+# Classify a single isolation slot as live | kept | stale | inconclusive —
+# pure classification, no reaping, no info logging. Shared between
 # _sweep_isolate_slots (which reaps stale slots) and the picker (which avoids
 # binding to live slots). Always prints exactly one word to stdout and exits 0.
 #
-# Signals (in order, matching the sweeper's documented staleness contract):
-#   1. Compose-project liveness — live containers under the slot's recorded
-#      compose project → live. Docker-ps failure → inconclusive (warn and
-#      leave it alone, same as the sweeper).
-#   2. Owning-PID liveness — pid file present + numeric + kill -0 succeeds
-#      → live. Numeric pid but kill -0 fails → stale.
-#   3. Project recorded + no pid file at all → stale (claim writes the pid
-#      file BEFORE the project record, so missing pid means owner state is
-#      genuinely gone).
-#   4. Age fallback — pid check inconclusive (pid file missing on a
-#      project-less legacy slot, OR present-but-empty/non-numeric on any
-#      slot) AND age > ISOLATE_STALE_THRESHOLD → stale.
-#   5. Otherwise → inconclusive (slot dir vanished mid-check, fresh slot
-#      whose pid write hasn't landed yet, etc.).
+# Governing rule: when a slot has RUNNING containers, the container check wins
+# → the slot is `kept` or `live`, NEVER reaped solely on an owner-PID result.
+# Owner liveness only UPGRADES a running-container slot from TTL-bounded `kept`
+# to indefinitely-protected `live`; it can never by itself make a
+# running-container slot eligible for immediate reaping.
+#
+# Signals (in order):
+#   1. Compose-project containers first. Docker-ps failure → inconclusive
+#      (warn and leave it alone, unchanged). If containers ARE running, branch
+#      on owner liveness:
+#        - owner alive (start-time-verified)            → live
+#        - owner dead / reused / unverifiable / absent  → kept: owning
+#          process gone (or unprovable) but the project still has running
+#          containers. NOT live, NOT immediately stale. The kept-slot TTL
+#          (below) governs the kept→stale transition: a `kept` slot is left
+#          alone until it outlives ISOLATE_KEEP_TTL, then ages out to stale.
+#   2. No running containers (or none recorded). The owner PID is authoritative
+#      for "in active use":
+#        - owner alive (start-time-verified)            → live (e.g. mid-build
+#          before any container exists)
+#        - owner dead OR reused                         → stale
+#   3. Project recorded + no pid file (owner absent) + no running containers
+#      → stale (claim writes the pid file BEFORE the project record, so a
+#      missing pid means the owner state is genuinely gone). Unchanged.
+#   4. Age fallback — owner absent/unverifiable (missing/empty/non-numeric pid,
+#      or a live-but-unverifiable owner on a project-less legacy slot) AND age
+#      > ISOLATE_STALE_THRESHOLD → stale. Unchanged.
+#   5. Otherwise → inconclusive.
 _slot_liveness() {
   local slot="${1:?slot required}"
   local slot_entry="$ISOLATE_SLOT_DIR/$slot"
@@ -434,6 +594,8 @@ _slot_liveness() {
     printf 'inconclusive\n'
     return 0
   fi
+  local owner
+  owner="$(_owner_liveness "$slot")"
   local slot_proj has_proj=false
   slot_proj="$(cat "$slot_entry/project" 2>/dev/null || true)"
   if [ -n "$slot_proj" ]; then
@@ -445,25 +607,68 @@ _slot_liveness() {
       return 0
     fi
     if [ -n "$live_containers" ]; then
-      printf 'live\n'
+      # Running containers → the container check wins. A live, start-time-
+      # verified owner protects the slot indefinitely (`live`); any other
+      # owner state (dead/reused/unverifiable/absent) means the owning process
+      # is gone or unprovable while containers still run → `kept`.
+      if [ "$owner" = "alive" ]; then
+        printf 'live\n'
+        return 0
+      fi
+      # ── TTL on running kept stacks ────────────────────────────────────────
+      # The owner is gone/unprovable while containers still run → `kept`. A
+      # `kept` stack is protected only until it outlives ISOLATE_KEEP_TTL: a
+      # forgotten `--keep` must not accumulate indefinitely. Age anchors on the
+      # `pid`-file mtime (stable claim-time stamp), with the mandatory fallback
+      # chain in _kept_slot_age (pid → project → slot-dir mtime → the existing
+      # ISOLATE_STALE_THRESHOLD path) so a kept slot is never immortal.
+      local kept_age
+      kept_age="$(_kept_slot_age "$slot")"
+      if [[ "$kept_age" =~ ^[0-9]+$ ]]; then
+        if [ "$kept_age" -gt "$ISOLATE_KEEP_TTL" ]; then
+          printf 'stale\n'
+          return 0
+        fi
+        printf 'kept\n'
+        return 0
+      fi
+      # No anchor was stat'able: fall back to the slot-age / ISOLATE_STALE_
+      # THRESHOLD path below so an unanchored kept slot still ages out to stale
+      # rather than living forever.
+      local fallback_mtime
+      fallback_mtime="$(_file_mtime "$slot_entry")"
+      if [[ "$fallback_mtime" =~ ^[0-9]+$ ]]; then
+        local fallback_age
+        fallback_age=$(( $(date +%s) - fallback_mtime ))
+        if [ "$fallback_age" -gt "$ISOLATE_STALE_THRESHOLD" ]; then
+          printf 'stale\n'
+          return 0
+        fi
+      fi
+      printf 'kept\n'
       return 0
     fi
   fi
-  local slot_pid_file="$slot_entry/pid"
-  local slot_pid="" pid_file_present=false
-  if [ -f "$slot_pid_file" ]; then
-    pid_file_present=true
-    slot_pid="$(cat "$slot_pid_file" 2>/dev/null || true)"
+  # No running containers (or none recorded): the owner PID is authoritative.
+  if [ "$owner" = "alive" ]; then
+    printf 'live\n'
+    return 0
   fi
-  if [[ "$slot_pid" =~ ^[0-9]+$ ]]; then
-    if kill -0 "$slot_pid" 2>/dev/null; then
-      printf 'live\n'
-      return 0
-    fi
+  # A numeric owner pid that is dead, reused, or alive-but-unverifiable is
+  # authoritative proof the original owner is gone (no containers to defer to)
+  # → stale. `absent` (no numeric pid at all) is NOT proof — it routes to the
+  # project / age fallbacks below.
+  if [ "$owner" = "dead" ] || [ "$owner" = "reused" ] || [ "$owner" = "unverifiable" ]; then
     printf 'stale\n'
     return 0
   fi
-  if [ "$has_proj" = true ] && [ "$pid_file_present" = false ]; then
+  # owner is `absent` from here on (no pid file, or empty/non-numeric contents).
+  if [ "$has_proj" = true ] && [ ! -f "$slot_entry/pid" ]; then
+    # Project recorded, no live containers, and no pid file AT ALL — the claim
+    # writes the pid file BEFORE the project record, so a missing pid means the
+    # owner state is genuinely gone → stale. A present-but-empty/non-numeric
+    # pid file is NOT this case: it may be a live owner mid-build whose pid
+    # write was truncated, so it defers to the age fallback below.
     printf 'stale\n'
     return 0
   fi
@@ -527,11 +732,15 @@ _sweep_isolate_slots() {
     slot_name="$(basename "$slot_entry")"
     local liveness
     liveness="$(_slot_liveness "$slot_name")"
-    if [ "$liveness" = "live" ] || [ "$liveness" = "inconclusive" ]; then
-      # `live` → in use (running containers or live owning PID). `inconclusive`
-      # → docker-ps failure (already warned by _slot_liveness), or a slot dir
-      # that vanished mid-check, or a fresh-but-not-yet-aged slot whose pid
-      # write hasn't landed. Either way: leave it alone.
+    if [ "$liveness" = "live" ] || [ "$liveness" = "kept" ] || [ "$liveness" = "inconclusive" ]; then
+      # `live` → in active use (running containers + live verified owner, or a
+      # live verified owner mid-build). `kept` → running containers whose owner
+      # is gone/unprovable — a --keep'd stack — protected until it outlives
+      # ISOLATE_KEEP_TTL, at which point _slot_liveness returns `stale` and the
+      # reap path below (with the loud kept-past-TTL warning) fires.
+      # `inconclusive` → docker-ps failure (already warned by _slot_liveness),
+      # or a slot dir that vanished mid-check, or a fresh-but-not-yet-aged slot
+      # whose pid write hasn't landed. Either way: leave it alone.
       continue
     fi
     # Stale. Re-derive the evidence to emit the exact reason in the info line
@@ -547,7 +756,29 @@ _sweep_isolate_slots() {
       slot_pid="$(cat "$slot_pid_file" 2>/dev/null || true)"
     fi
     if [[ "$slot_pid" =~ ^[0-9]+$ ]]; then
-      info "Attempting to reclaim stale slot $slot_name (PID $slot_pid dead)"
+      # The classifier called this stale with a numeric pid: the owner is dead,
+      # the pid was reused, or it is alive-but-unverifiable (no pid.start). Name
+      # the shared owner verdict so the reason matches the classifier exactly.
+      local owner_verdict
+      owner_verdict="$(_owner_liveness "$slot_name")"
+      # Distinguish a kept stack reaped PAST its TTL: a recorded project whose
+      # containers are STILL RUNNING, yet liveness came back `stale` — the only
+      # way that happens for a numeric-pid slot is the ISOLATE_KEEP_TTL
+      # transition (a forgotten `--keep` leak). Emit a LOUD warning naming
+      # project / age / TTL so the leak is visible, not a quiet info line.
+      if [ "$has_proj" = true ]; then
+        local running_containers=""
+        running_containers="$(docker ps -q --filter "label=com.docker.compose.project=$slot_proj" 2>/dev/null || true)"
+        if [ -n "$running_containers" ]; then
+          local kept_age
+          kept_age="$(_kept_slot_age "$slot_name")"
+          [[ "$kept_age" =~ ^[0-9]+$ ]] || kept_age="?"
+          warn "reaping kept stack '$slot_proj' (slot $slot_name): owner PID $slot_pid $owner_verdict, containers still running, age ${kept_age}s > keep TTL ${ISOLATE_KEEP_TTL}s — forgotten --keep leak"
+          _reap_isolate_slot "$slot_entry" "$slot_proj"
+          continue
+        fi
+      fi
+      info "Attempting to reclaim stale slot $slot_name (PID $slot_pid owner $owner_verdict)"
       _reap_isolate_slot "$slot_entry" "$slot_proj"
       continue
     fi
@@ -635,12 +866,19 @@ _slot_offset_ports() {
   done
 }
 
-# _slot_ports_free <slot> — probe every port the slot would bind for non-self
-# listeners. Returns 0 if all ports are free (or only held by this slot's own
-# compose project), 1 if any port is held by a foreign process. Emits one
-# `info` line per held port. Requires lsof (matches cmd-doctor.sh convention).
+# _slot_ports_free <slot> [precomputed_liveness] — probe every port the slot
+# would bind for non-self listeners. Returns 0 if all ports are free (or only
+# held by this slot's own compose project), 1 if any port is held by a foreign
+# process. Emits one `info` line per held port. Requires lsof (matches
+# cmd-doctor.sh convention).
+#
+# A caller that has ALREADY computed the slot's liveness (e.g. _slot_state,
+# which probes it once and reuses the value) may pass it as the second arg to
+# avoid a redundant docker-ps round-trip; an empty/absent second arg falls back
+# to a lazy on-demand probe.
 _slot_ports_free() {
   local slot="${1:?slot required}"
+  local precomputed_liveness="${2:-}"
   if ! command -v lsof &>/dev/null; then
     die "--isolate requires lsof; install it"
   fi
@@ -651,7 +889,9 @@ _slot_ports_free() {
     slot_proj="$(cat "$slot_proj_file" 2>/dev/null || true)"
   fi
 
-  local liveness=""
+  # Honor a non-empty precomputed value so liveness is probed at most once per
+  # slot; otherwise leave empty and lazily probe on first need below.
+  local liveness="$precomputed_liveness"
   local any_held=0
   local port
   while IFS= read -r port; do
@@ -666,14 +906,25 @@ _slot_ports_free() {
       local proc_name
       proc_name="$(printf '%s\n' "$line" | awk '{print $1}')"
       # Own-project filter: a docker/com.docker listener on a slot whose own
-      # compose project is recorded and live is treated as the slot's own
-      # binding, not a foreign hold.
-      if printf '%s' "$proc_name" | grep -qiE 'docker|com\.docker'; then
+      # compose project is recorded and either `live` (live verified owner) OR
+      # `kept` (running containers, owner gone/unprovable — a --keep'd stack) is
+      # the slot's OWN binding, not a foreign hold. `kept` MUST be accepted here
+      # too: with the new vocabulary a kept stack returns `kept`, and without
+      # this a subsequent pinned/auto claim onto it would see its own
+      # containers' ports as foreign and die "ports are held by a foreign
+      # process".
+      #
+      # The `com\.docke` alternative matches macOS lsof's 9-char COMMAND
+      # truncation of `com.docker.vmnetd`/`com.docker.backend` to `com.docke`
+      # (the full names never fit the column) — without it the own-project
+      # filter silently never fired on macOS and a kept stack's own published
+      # port read as a foreign hold. `Python`/other names still do not match.
+      if printf '%s' "$proc_name" | grep -qiE 'docker|com\.docke'; then
         if [ -n "$slot_proj" ]; then
           if [ -z "$liveness" ]; then
             liveness="$(_slot_liveness "$slot")"
           fi
-          if [ "$liveness" = "live" ]; then
+          if [ "$liveness" = "live" ] || [ "$liveness" = "kept" ]; then
             continue
           fi
         fi
@@ -700,12 +951,28 @@ _slot_state() {
   local dir="absent"
   [ -d "$slot_entry" ] && dir="present"
 
+  # PID annotation derived from the SHARED _owner_liveness helper so the
+  # table's render can never diverge from the classifier's verdict. The four
+  # owner outputs map to exactly three render tokens:
+  #   alive                  → <pid>          (start-time-verified our owner)
+  #   reused                 → <pid>(reused)  (start-time mismatch — recycled)
+  #   dead | unverifiable    → <pid>(dead)    (ESRCH/EPERM, or no pid.start)
+  # `absent` (no numeric pid) keeps the bare "-". A `(dead)` annotation can
+  # accompany EITHER LIVE=kept (dead owner + running containers) or LIVE=stale
+  # (dead owner + no containers).
   local pid="-"
   if [ -f "$slot_entry/pid" ]; then
     local raw_pid
     raw_pid="$(cat "$slot_entry/pid" 2>/dev/null || true)"
     if [[ "$raw_pid" =~ ^[0-9]+$ ]]; then
-      pid="$raw_pid"
+      local owner
+      owner="$(_owner_liveness "$slot")"
+      case "$owner" in
+        alive)            pid="$raw_pid" ;;
+        reused)           pid="${raw_pid}(reused)" ;;
+        dead|unverifiable) pid="${raw_pid}(dead)" ;;
+        *)                pid="$raw_pid" ;;
+      esac
     fi
   fi
 
@@ -718,6 +985,9 @@ _slot_state() {
     fi
   fi
 
+  # Probe liveness ONCE, BEFORE the port probe, and thread the value into
+  # _slot_ports_free so the own-project filter sees the same verdict without a
+  # second docker-ps round-trip.
   local liveness
   liveness="$(_slot_liveness "$slot")"
 
@@ -725,7 +995,7 @@ _slot_state() {
   if [ "$dir" = "present" ]; then
     if ! command -v lsof >/dev/null 2>&1; then
       ports="?"
-    elif _slot_ports_free "$slot" >/dev/null 2>&1; then
+    elif _slot_ports_free "$slot" "$liveness" >/dev/null 2>&1; then
       ports="free"
     else
       ports="held"
@@ -914,6 +1184,23 @@ def offset_port(m):
 content = re.sub(r'(\s+)- \"(\d+):(\d+)\"', offset_port, content)
 content = content.replace('container_name: showcase-', 'container_name: $name-')
 
+# Forward-stack self-id label: stamp every isolated service's container with
+# 'com.copilotkit.showcase.isolate=1' so 'showcase reap' can identify a
+# harness-owned isolated project even when its slot record and run dir are
+# both gone (e.g. a user-supplied --isolate <name> orphan). Injected as a
+# 'labels:' block right after each service-level 'container_name:' directive
+# (4-space indent, line start — a commented mention like the 8-space
+# '# container_name:' note never matches). 'labels' under a service is a
+# compose-native key; a service may legitimately already define labels, but
+# this compose file defines none, so a fresh block is unambiguous.
+content = re.sub(
+    r'(?m)^(    )container_name: ([^\n]+)$',
+    lambda m: m.group(1) + 'container_name: ' + m.group(2) + '\n'
+              + m.group(1) + 'labels:\n'
+              + m.group(1) + '  com.copilotkit.showcase.isolate: \"1\"',
+    content,
+)
+
 # Rewrite relative paths to absolute, anchored at SHOWCASE_ROOT. Without this,
 # docker compose resolves them against the temp dir holding the rewritten
 # compose file and fails (env_file: .env, build: ./pocketbase, volume mounts).
@@ -1072,6 +1359,15 @@ restore_isolation() {
       info "  dashboard:  http://localhost:${dashboard_host_port}"
       info "  pocketbase: http://localhost:${pocketbase_host_port}"
       info "  tear down:  docker compose -p $ISOLATE_NAME down --remove-orphans --volumes && rm -rf \"$ISOLATE_TMPDIR\" \"$ISOLATE_SLOT_DIR/$ISOLATE_SLOT\""
+      # Derive the human-readable hours from ISOLATE_KEEP_TTL so an overridden
+      # SHOWCASE_ISOLATE_KEEP_TTL can't leave a stale "(4h)" contradicting the
+      # seconds. Only append the parenthetical for a whole number of hours; a
+      # non-integer-hour TTL drops it rather than print a misleading fraction.
+      local ttl_hours_note=""
+      if [ $(( ISOLATE_KEEP_TTL % 3600 )) -eq 0 ]; then
+        ttl_hours_note=" ($(( ISOLATE_KEEP_TTL / 3600 ))h)"
+      fi
+      info "  NOTE: this kept stack is auto-reaped after ${ISOLATE_KEEP_TTL}s${ttl_hours_note} if left running with no owner — run 'showcase reap' to tear down sooner, or 'showcase up' to keep using it."
       ISOLATE_ACTIVE=false
       # Disown the surviving state: with ISOLATE_ACTIVE back to false, a
       # repeated restore_isolation would otherwise hit the half-initialized

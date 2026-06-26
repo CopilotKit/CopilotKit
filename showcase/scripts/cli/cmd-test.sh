@@ -22,7 +22,9 @@ Options:
   --repeat <n>     Run N times
   --keep           Don't stop auto-started packages after test; with --isolate,
                    also leaves the isolated stack standing (teardown command
-                   printed at exit)
+                   printed at exit). A kept stack left running with no owner is
+                   auto-reaped after its keep TTL (default 4h); run
+                   'showcase reap' to tear it down sooner.
   --live           Write results to PocketBase for dashboard
   --rebuild        Force Docker rebuild before running
   --cycle          On failure, auto-dump aimock logs from the test window
