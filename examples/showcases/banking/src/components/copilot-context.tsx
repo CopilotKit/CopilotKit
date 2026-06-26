@@ -749,13 +749,14 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             denyLabel="Discard"
             onApprove={() => {
               endRecording();
-              // The charge the user demonstrated on was cleared BY that
-              // demonstration, so it is already approved. Tell the agent
-              // explicitly, or it tends to immediately re-run the just-saved
-              // procedure on that same charge — opening a redundant exception
-              // on an approved transaction and tangling the next request.
+              // Resolve a result the agent recognizes as "saved" and that drives it
+              // to persist the procedure durably via save_memory (Option A — see the
+              // TEACH & RECALL prompt). The demonstrated charge was cleared BY the
+              // demonstration, so it is already approved; say so explicitly or the
+              // agent tends to re-run the just-saved procedure on that same charge —
+              // opening a redundant exception on an approved transaction.
               respond?.(
-                `${canonicalProcedure(code)} You learned this by watching the user clear transaction ${transactionId}, which is already approved now — do NOT apply the procedure to ${transactionId} again or re-approve it. The original request is complete; wait for the user's next instruction before acting.`,
+                `(status: saved) ${canonicalProcedure(code)} Now persist this durably: call save_memory with scope "project", kind "operational", and content describing this over-limit procedure using code "${code}". You learned this by watching the user clear transaction ${transactionId}, which is already approved now — do NOT apply the procedure to ${transactionId} again or re-approve it. The original request is complete; wait for the user's next instruction before acting.`,
               );
             }}
             onDeny={() => {
