@@ -202,6 +202,11 @@ function createRuntime(): CopilotRuntime {
       agents: { default: bankingAgent },
       intelligence,
       identifyUser,
+      licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
+      lockTtlSeconds: 30,
+      lockKeyPrefix: "northwind-lock",
+      lockHeartbeatIntervalSeconds: 12,
+      generateThreadNames: true,
     });
   }
 
