@@ -242,6 +242,22 @@ function msgFromTurn(turn: IncomingTurn): IncomingMessage {
 }
 
 /**
+ * Enforce V1 managed exclusivity: a managed adapter (`intelligenceAdapter`)
+ * must be the only adapter on a bot. Managed and direct delivery are
+ * alternative modes per platform — Intelligence holds the platform creds, or
+ * the runtime does, never both.
+ */
+function assertExclusive(adapters: PlatformAdapter[]): void {
+  if (adapters.some((a) => a.__managed) && adapters.length > 1) {
+    throw new Error(
+      "intelligenceAdapter() must be the only adapter on a bot — managed and " +
+        "direct delivery are alternative modes. Use intelligenceAdapter() OR " +
+        "direct adapters (slack/discord/...), not both.",
+    );
+  }
+}
+
+/**
  * Resolve the persistence backend at start(): an explicit `store.adapter` wins
  * (silently); otherwise an adapter-provided `stateStore` is used (warning when
  * more than one adapter provides one); otherwise an in-memory store.
@@ -280,6 +296,7 @@ export function createBot<
   // Adapters can be supplied up front or added later via `bot.addAdapter`
   // (before `start()`). The runtime uses the latter to attach managed delivery.
   const adapters: PlatformAdapter[] = [...(opts.adapters ?? [])];
+  assertExclusive(adapters);
   let started = false;
 
   // Backend, transcripts, the action registry, and component registration are
@@ -409,7 +426,7 @@ export function createBot<
           // eventId, so Slack's retry can still be processed once the lock frees. (A handler
           // that throws still leaves its event marked seen — dedup drops duplicate DELIVERIES,
           // it is not retry-of-failed-turns.)
-          if (turn.eventId) {
+          if (turn.eventId && !adapter.skipIngressDedup) {
             const dupKey = `evt:${adapter.platform}:${turn.eventId}`;
             try {
               if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
@@ -463,7 +480,7 @@ export function createBot<
       },
       async onInteraction(evt: InteractionEvent) {
         // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
-        if (evt.eventId) {
+        if (evt.eventId && !adapter.skipIngressDedup) {
           const dupKey = `evt:${adapter.platform}:${evt.eventId}`;
           try {
             if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
@@ -527,7 +544,7 @@ export function createBot<
       },
       async onCommand(cmd: IncomingCommand) {
         // Dedup guard: drop duplicate deliveries of the same event within the TTL window.
-        if (cmd.eventId) {
+        if (cmd.eventId && !adapter.skipIngressDedup) {
           const dupKey = `evt:${adapter.platform}:${cmd.eventId}`;
           try {
             if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
@@ -651,6 +668,7 @@ export function createBot<
       if (started) {
         throw new Error("bot.addAdapter must be called before bot.start()");
       }
+      assertExclusive([...adapters, adapter]);
       adapters.push(adapter);
     },
     onMention(h) {
@@ -730,6 +748,7 @@ export function createBot<
     },
     async start() {
       started = true;
+      assertExclusive(adapters);
       // Resolve persistence now that all adapters (including any attached via
       // addAdapter) are known, then build the transcript store, action
       // registry, and register components against it.

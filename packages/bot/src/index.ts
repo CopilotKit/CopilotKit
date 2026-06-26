@@ -98,5 +98,25 @@ export { mintId, stableStringify } from "./mint-id.js";
 export { runAgentLoop } from "./run-loop.js";
 export type { RunLoopArgs } from "./run-loop.js";
 
+// Managed bots (Intelligence-delivered delivery). @internal — not a publicly
+// documented API; exported so the closed-source runtime can wire transports.
+export {
+  intelligenceAdapter,
+  IntelligenceAdapter,
+} from "./managed/intelligence-adapter.js";
+export type { IntelligenceAdapterOptions } from "./managed/intelligence-adapter.js";
+export type { DeliverySource, EgressSink } from "./managed/transports.js";
+export type {
+  ManagedIngressEnvelope,
+  EgressOperation,
+  EgressOp,
+  EgressResult,
+  EgressRoute,
+} from "./managed/contracts.js";
+export {
+  InMemoryDeliverySource,
+  InMemoryEgressSink,
+} from "./managed/in-memory-transports.js";
+
 // Re-export the bot-ui component vocabulary + types for convenience.
 export * from "@copilotkit/bot-ui";

@@ -240,6 +240,15 @@ export interface PlatformAdapter {
    * {@link conversationStore}.
    */
   readonly stateStore?: StateStore;
+  /** @internal Marks the managed adapter; bot core uses it for the V1 exclusivity guard. */
+  readonly __managed?: boolean;
+  /**
+   * When true, bot core skips its ingress dedup for events from this adapter.
+   * Set by at-least-once transports (managed delivery) that enforce
+   * idempotency at egress instead — dropping a redelivery at ingress would lose
+   * a legitimate retry.
+   */
+  readonly skipIngressDedup?: boolean;
   /**
    * Optional conversation-history read. Backs the capability-gated
    * `Thread.getMessages()`; adapters that can't read history simply omit this,
