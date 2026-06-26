@@ -1,0 +1,33 @@
+import { describe, it, expect } from "vitest";
+import { errorClass } from "./sanitize-error.js";
+
+describe("errorClass", () => {
+  it("never leaks the error message", () => {
+    const err = new Error("postgres://user:s3cret@db/prod failed");
+    const out = errorClass(err);
+    expect(out).not.toContain("s3cret");
+    expect(["auth", "network", "timeout", "validation", "unknown"]).toContain(
+      out,
+    );
+  });
+  it("categorizes by name/code", () => {
+    expect(
+      errorClass(
+        new (class extends Error {
+          name = "AbortError";
+        })(),
+      ),
+    ).toBe("timeout");
+    expect(
+      errorClass(Object.assign(new Error("x"), { code: "ENOTFOUND" })),
+    ).toBe("network");
+    expect(
+      errorClass(
+        new (class extends Error {
+          name = "ZodError";
+        })(),
+      ),
+    ).toBe("validation");
+    expect(errorClass("plain string")).toBe("unknown");
+  });
+});
