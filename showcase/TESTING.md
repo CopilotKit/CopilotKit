@@ -43,6 +43,49 @@ services (aimock, pocketbase, dashboard, harness, harness-pool-worker) reuse
 cached images from the local Docker store. Cold-build is ~30s–2 min per slug
 instead of 10+ min full-stack rebuild.
 
+### Session-stack discipline / Cleanup after isolated runs
+
+This governs every `--isolate`/`--keep` invocation below. The leak it prevents:
+agents minting a _new_ named kept stack per cell (`cvtest2`, `greenproof`,
+`gp1`..`gp10`, `showcase-iso2/4`, …) and never tearing them down — each one
+holds a slot and burns offset ports until the host fills up.
+
+1. **One stack per session, reused.** At the start of a debugging/testing
+   session, choose ONE stable isolate name and use
+   `--isolate <session-name> --keep` for ALL tests in that session. Every
+   subsequent test in the same session MUST reuse ONE `--isolate <session-name>`
+   — never mint a new named stack per individual cell/feature/pill (that is what
+   leaks named stacks). Derive the session name from the primary slug under test
+   so reuse is unambiguous, e.g. `--isolate <slug>-session`. Each `--keep` re-run
+   with the same name pre-cleans (`docker compose -p <name> down`) and recreates
+   that ONE stack, so you never pile up N named stacks. (Re-running the same name
+   while the prior kept stack is still live fails loudly with a duplicate-name
+   guard — another reason to keep to ONE name and tear down between fresh
+   builds.)
+
+2. **`--keep` is for intra-session reuse only, never a license to leak.** It
+   exists so a session-long stack survives between tests; if you pass `--keep`,
+   you OWN teardown at session end.
+
+3. **Tear down at session end.** When the session's work is done — and as part
+   of the Done criteria — tear down every stack the session created and release
+   its slot, using the survival-notice teardown command (printed at exit):
+
+   ```sh
+   docker compose -p <name> down --remove-orphans --volumes && rm -rf <run-dir> <slot-dir>
+   ```
+
+   `bin/showcase down` does NOT tear down an isolated stack — it only stops the
+   default (non-isolated) `showcase-*` project. Use the explicit
+   `docker compose -p <name> down …` from the notice (run-dir and slot-dir are
+   the real paths it prints). Bare `--isolate` (no `--keep`) auto-cleans on exit
+   and frees its slot — prefer it for one-off tests that don't need to persist
+   across the session.
+
+The teardown mechanics, the RUNNING-only slot protection, and the scratch/slot
+paths are documented once in [`DEBUGGING.md` → Cleanup](./DEBUGGING.md#cleanup);
+this section owns the discipline (reuse ONE, tear down at end).
+
 ## SOP: turning a cell red → green
 
 1. **Run the harness LOCALLY FIRST.** Capture the RED log via the production-equivalent
