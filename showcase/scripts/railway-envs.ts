@@ -139,6 +139,78 @@ export type ProbeDriver =
   | "starter";
 
 /**
+ * Provisioning configuration for the `harness-workers` pool fleet. Carried on
+ * `ServiceEntry.workerProvisioning` and ONLY populated for `harness-workers`.
+ *
+ * The worker model is strictly 1-worker-per-replica: Railway runs ONE worker
+ * process per replica container (keyed on HOSTNAME), so the REAL live worker
+ * count equals the EFFECTIVE replica count. `HARNESS_POOL_COUNT` is the
+ * control-plane's informational "expected worker count" hint — it does NOT fork
+ * additional workers per replica and MUST NOT be treated as a multiplier or fork
+ * factor. The authoritative concurrency knob per worker is
+ * `BROWSER_POOL_MAX_CONTEXTS`.
+ *
+ * EFFECTIVE REPLICA COUNT — `multiRegionConfig.<region>.numReplicas`, NOT the
+ * top-level `numReplicas`. The harness-workers service is single-region
+ * (us-west2), and Railway derives the LIVE running replica count from the
+ * per-region `multiRegionConfig.us-west2.numReplicas` field. The top-level
+ * `numReplicas` is the legacy/aggregate knob; on a multiRegion service it is
+ * Railway-maintained to mirror the region sum but it is NOT the field the
+ * deploy honors. The SSOT therefore models `multiRegionConfig.us-west2.
+ * numReplicas` as the authoritative `effectiveReplicas` and keeps the
+ * top-level `numReplicas` only as a documented mirror. Verified live
+ * 2026-06-26 via the Railway GraphQL `environment.config` staged-config read:
+ * BOTH envs carry `deploy.multiRegionConfig = {"us-west2":{"numReplicas":6}}`.
+ *
+ * This is a DECLARE-AND-VERIFY record. The tooling (`emit-railway-envs-json.ts`,
+ * `bin/railway`) is VERIFY-ONLY with respect to the replica count — it does not
+ * write replica counts to Railway. Applying a replica-count change is a MANUAL
+ * operation (Railway Dashboard > Service > Settings > Replicas, which edits the
+ * per-region `multiRegionConfig.us-west2.numReplicas`, or the Railway GraphQL
+ * API). See `showcase/RAILWAY.md` for the manual procedure.
+ */
+export interface WorkerProvisioning {
+  /**
+   * EFFECTIVE replica count — the AUTHORITATIVE worker-count field. This is the
+   * `multiRegionConfig.us-west2.numReplicas` value Railway actually uses to
+   * derive the LIVE running replica count for this single-region (us-west2)
+   * service. The drift gate watches THIS field because it is the one that
+   * drives reality; the top-level `numReplicas` mirror below does NOT (Railway
+   * keeps it in sync as an aggregate, but the deploy honors the per-region
+   * config). Strictly 1:1 with live worker processes — each replica runs
+   * exactly ONE worker process (keyed on HOSTNAME). `HARNESS_POOL_COUNT` is
+   * informational only.
+   */
+  effectiveReplicas: number;
+  /**
+   * Top-level Railway `numReplicas` field for this env. Retained as a
+   * DOCUMENTED MIRROR of `effectiveReplicas` (Railway keeps it equal to the
+   * region sum on a multiRegion service), NOT as an authoritative knob — the
+   * deploy honors `multiRegionConfig.<region>.numReplicas` (`effectiveReplicas`).
+   * Kept here so the SSOT records both and makes the effective-vs-mirror
+   * distinction explicit. For harness-workers (single region) it always equals
+   * `effectiveReplicas`.
+   */
+  numReplicas: number;
+  /**
+   * Per-worker in-process concurrency budget: the `BROWSER_POOL_MAX_CONTEXTS`
+   * env var that caps how many Playwright browser contexts each worker may hold
+   * open simultaneously. NOT a per-fleet total; the fleet-wide budget is
+   * `effectiveReplicas × BROWSER_POOL_MAX_CONTEXTS`.
+   */
+  BROWSER_POOL_MAX_CONTEXTS: number;
+  /**
+   * INFORMATIONAL ONLY — the `HARNESS_POOL_COUNT` env var forwarded to each
+   * worker as a control-plane "expected worker count" hint. The worker code
+   * does NOT fork additional processes per pool count; it runs exactly one
+   * process per replica. The authoritative concurrency knob is
+   * `BROWSER_POOL_MAX_CONTEXTS`. This field is recorded here purely for
+   * operational visibility / config-audit purposes.
+   */
+  HARNESS_POOL_COUNT?: number;
+}
+
+/**
  * Per-env configuration for a service. One of these lives under each key of
  * `ServiceEntry.environments`. A service that exists in only one env has a
  * single key here (no placeholder for the missing env).
@@ -345,6 +417,36 @@ export interface ServiceEntry {
      * `repoNameOverride` object stays byte-identical.
      */
     repoNameOverride?: { prod?: string; staging?: string };
+  };
+  /**
+   * Harness-worker fleet provisioning record. ONLY populated on the
+   * `harness-workers` entry — all other services omit this field.
+   *
+   * These values match CURRENT LIVE REALITY as of 2026-06-26, VERIFIED via the
+   * Railway GraphQL `environment.config` staged-config read (both envs carry
+   * `deploy.multiRegionConfig = {"us-west2":{"numReplicas":6}}`):
+   *   prod:    effectiveReplicas=6, numReplicas(mirror)=6, BROWSER_POOL_MAX_CONTEXTS=40
+   *   staging: effectiveReplicas=6, numReplicas(mirror)=6, BROWSER_POOL_MAX_CONTEXTS=40
+   *
+   * EFFECTIVE FIELD: `effectiveReplicas` models `multiRegionConfig.us-west2.
+   * numReplicas` — the field Railway actually honors for this single-region
+   * service. The top-level `numReplicas` is a documented mirror only. The drift
+   * gate asserts `effectiveReplicas`.
+   *
+   * PROD/STAGING PARITY ACHIEVED: B-reconcile scaled prod harness-workers to 6
+   * replicas (both the top-level field AND `multiRegionConfig.us-west2.
+   * numReplicas`) to match staging (6). Prod and staging are now at parity
+   * (6/6). The earlier prod=3 state and the staging config-field-vs-live drift
+   * (config=2 / live=6) are both RESOLVED: the live staged config now reads 6
+   * in both envs, verified above.
+   *
+   * See the `WorkerProvisioning` interface (above) for the 1-worker-per-replica
+   * model, the effective-vs-mirror replica distinction, and HARNESS_POOL_COUNT
+   * informational semantics.
+   */
+  workerProvisioning?: {
+    prod: WorkerProvisioning;
+    staging: WorkerProvisioning;
   };
 }
 
@@ -576,6 +678,43 @@ export const SERVICES: Record<
       domains: {
         prod: "showcase-harness-production.up.railway.app",
         staging: "harness-staging-2ee4.up.railway.app",
+      },
+    },
+    // Worker-fleet provisioning (SSOT). Values = CURRENT LIVE REALITY (2026-06-26),
+    // verified via the Railway GraphQL environment.config staged-config read.
+    // 1-worker-per-replica model: the EFFECTIVE replica count IS the worker count
+    // (strictly 1:1). The authoritative field is `effectiveReplicas` =
+    // multiRegionConfig.us-west2.numReplicas — the value Railway honors. The
+    // top-level `numReplicas` is a documented mirror only (always equal here,
+    // single-region). HARNESS_POOL_COUNT is INFORMATIONAL ONLY — it does NOT
+    // fork workers. Per-worker concurrency knob is BROWSER_POOL_MAX_CONTEXTS.
+    //
+    // PARITY ACHIEVED (B-reconcile): prod was scaled 3 → 6 to match staging, in
+    // BOTH the top-level numReplicas and multiRegionConfig.us-west2.numReplicas.
+    // Live staged config now reads {"us-west2":{"numReplicas":6}} in both envs.
+    //   prod:    effectiveReplicas=6 → 6 live workers.
+    //   staging: effectiveReplicas=6 → 6 live workers.
+    // The earlier staging config-field-vs-live drift (config=2 / live=6) is also
+    // resolved: the staged config field now reads 6.
+    workerProvisioning: {
+      prod: {
+        // EFFECTIVE = multiRegionConfig.us-west2.numReplicas (Railway honors this).
+        effectiveReplicas: 6,
+        // Top-level mirror (equal, single-region).
+        numReplicas: 6,
+        BROWSER_POOL_MAX_CONTEXTS: 40,
+        // INFORMATIONAL ONLY — not a fork factor.
+        HARNESS_POOL_COUNT: 3,
+      },
+      staging: {
+        // EFFECTIVE = multiRegionConfig.us-west2.numReplicas (Railway honors this).
+        effectiveReplicas: 6,
+        // Top-level mirror (equal, single-region).
+        numReplicas: 6,
+        BROWSER_POOL_MAX_CONTEXTS: 40,
+        // INFORMATIONAL ONLY — not a fork factor. Live staging value is 2
+        // (verified via the variables read); it does not gate the worker count.
+        HARNESS_POOL_COUNT: 2,
       },
     },
   },
@@ -1778,6 +1917,26 @@ export function healthcheckPathFor(
  */
 export function isTrackedService(serviceName: string): boolean {
   return findEntry(serviceName) !== undefined;
+}
+
+/**
+ * Resolve the `WorkerProvisioning` record for a (serviceName, env) pair, or
+ * `undefined` when the service declares no `workerProvisioning` or has no
+ * entry for the given env. Returns undefined (rather than throwing) on unknown
+ * service, missing field, or undeclared env — the caller decides whether absence
+ * is an error (the drift-gate test requires it to be non-null for
+ * `harness-workers`).
+ *
+ * Only `harness-workers` carries this field today. Use it to read the
+ * authoritative `numReplicas` and `BROWSER_POOL_MAX_CONTEXTS` for a given env.
+ */
+export function workerProvisioningFor(
+  serviceName: string,
+  env: "prod" | "staging",
+): WorkerProvisioning | undefined {
+  const entry = findEntry(serviceName);
+  if (entry === undefined) return undefined;
+  return entry.workerProvisioning?.[env];
 }
 
 /**
