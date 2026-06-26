@@ -533,36 +533,54 @@ describe("family-silence monitor — post-bounce drain grace window", () => {
 describe("family-silence monitor — bounce-grace window edge (2×period boundary)", () => {
   // Pin the exact 2×period boundary of the bounce grace. The suppression
   // predicate is `nowMs - bounceMs < BOUNCE_GRACE_PERIOD_MULTIPLIER × period`
-  // (strict <), evaluated per-tick. To isolate the boundary we want the
-  // FINAL evaluated tick to be the one that straddles the edge, so the
-  // earlier ticks must ALSO fall on the same side — otherwise an earlier
-  // outside-grace tick would advance the consecutive-silent counter and
-  // confound the edge under test. We therefore place the bounce so that all
-  // three pre-warm ticks share the boundary relationship being pinned.
+  // (strict <), evaluated per-tick against the freshest worker registration.
+  //
+  // To make this a GENUINE pin of the 2× term (not merely a "grace exists"
+  // smoke test), the FINAL tick must straddle the 2×period edge while the
+  // consecutive-silent counter has ALREADY been primed to threshold−1 by
+  // earlier ticks — so the boundary tick is the deciding 3rd observation.
+  // The earlier (priming) ticks see an ANCIENT bounce that is outside the
+  // grace at ANY positive multiplier (so they bind identically whether the
+  // term is 1, 2, or 3 and reliably advance the counter 1→2); the final tick
+  // sees a FRESH bounce placed exactly 1 min inside 2×period. That asymmetry
+  // is realistic: the old registration is the pre-deploy worker, and a fresh
+  // image-rebuild bounce (PR #5715) re-registers the worker just before the
+  // last observed tick. The bounce is always in the PAST of the tick that
+  // reads it (positive elapsed), never future-dated.
 
-  it("a bounce JUST INSIDE 2×period (grace strictly holds across all ticks) suppresses the alert", async () => {
-    // lastSuccessAt is 4×period stale so the elapsed-time gate fires every
-    // tick. Bounce is positioned so the LAST tick (t3) sits 1 min before the
-    // 2×period edge: nowMs - bounceMs = 2×period − 60s < 2×period → inside.
-    // t1/t2 are earlier, so even closer to the bounce → also inside.
+  it("a bounce JUST INSIDE 2×period (deciding 3rd tick) suppresses the alert", async () => {
+    // lastSuccessAt is 2×period before BASE so every tick observes ≥4×period
+    // of silence — the elapsed-time gate fires on all three. t1/t2 read an
+    // ancient bounce (10×period old → outside grace at any multiplier) and so
+    // advance the consecutive-silent counter to 2. The fresh bounce served on
+    // the t3 read sits 1 min inside the 2×period edge:
+    //   t3 − freshBounceMs = 2×period − 60s.
+    // At BOUNCE_GRACE_PERIOD_MULTIPLIER = 2 that is < 2×period → INSIDE →
+    // the deciding 3rd tick is suppressed, the counter resets, no alert.
+    // This is the load-bearing pin: mutate the multiplier to 1 and the same
+    // 2×period − 60s elapsed becomes ≥ 1×period → OUTSIDE → the 3rd silent
+    // tick posts the alert and this expectation flips RED.
     const lastSuccessMs = BASE - 2 * PERIOD;
-    const t1 = BASE + 2 * PERIOD;
-    const t2 = BASE + 3 * PERIOD;
-    const t3 = BASE + 4 * PERIOD;
-    // bounce so that t3 is just inside: t3 - bounce = 2×period - 60s.
-    const bounceMs = t3 - (2 * PERIOD - 60_000);
+    const t1 = BASE + 2 * PERIOD; // 4×period since lastSuccess
+    const t2 = BASE + 3 * PERIOD; // 5×period
+    const t3 = BASE + 4 * PERIOD; // 6×period
+    const oldBounceMs = BASE - 10 * PERIOD; // ancient → outside grace always
+    const freshBounceMs = t3 - (2 * PERIOD - 60_000); // 1 min inside 2×period
+    const d6 = {
+      lastSuccessAt: iso(lastSuccessMs),
+      lastRun: batch({
+        enqueuedAt: iso(lastSuccessMs - 120_000),
+        finishedAt: iso(lastSuccessMs),
+      }),
+    };
+    let call = 0;
     const { monitor, posts } = makeMonitor({
-      get: async () =>
-        response(
-          withD6(t3, {
-            lastSuccessAt: iso(lastSuccessMs),
-            lastRun: batch({
-              enqueuedAt: iso(lastSuccessMs - 120_000),
-              finishedAt: iso(lastSuccessMs),
-            }),
-          }),
-          [workerView(bounceMs)],
-        ),
+      // t1/t2 reads (calls 0,1) see the ancient pre-deploy registration; the
+      // t3 read (call 2) sees the fresh post-bounce registration.
+      get: async () => {
+        const bounceMs = call++ < 2 ? oldBounceMs : freshBounceMs;
+        return response(withD6(t3, d6), [workerView(bounceMs)]);
+      },
     });
     await monitor.tick(t1);
     await monitor.tick(t2);
