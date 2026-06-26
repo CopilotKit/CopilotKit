@@ -7,6 +7,7 @@ describe("normalizePlatform", () => {
     expect(normalizePlatform("discord")).toBe("discord");
     expect(normalizePlatform("telegram")).toBe("telegram");
     expect(normalizePlatform("whatsapp")).toBe("whatsapp");
+    expect(normalizePlatform("teams")).toBe("teams");
     // Free-form / custom adapter labels must not leak through.
     expect(normalizePlatform("acme-internal-tenant")).toBe("custom");
     expect(normalizePlatform("fake")).toBe("custom");
