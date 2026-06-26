@@ -194,11 +194,21 @@ export const CopilotChatConfigurationProvider: React.FC<
 
   const resolvedAgentId = agentId ?? parentConfig?.agentId ?? DEFAULT_AGENT_ID;
 
-  // Whether this provider's threadId is controlled by the consumer (supplied
-  // via the `threadId` prop). Mirrors the top-level `<CopilotKit>` provider's
-  // `props.threadId` guard: when controlled, the imperative active-thread
-  // setters below must not override the prop-driven value.
-  const isThreadIdControlled = threadId !== undefined;
+  // A threadId prop is "authoritative" (caller-chosen) only when it is present
+  // AND not explicitly flagged non-explicit. The v1 `<CopilotKit>` bridge pipes
+  // an auto-minted UUID through as `threadId` with `hasExplicitThreadId={false}`
+  // to SEED the thread without claiming the caller picked it; that seed must
+  // stay overridable so imperative callers (e.g. `<CopilotDrawer>` selecting a
+  // row, or `startNewThread`) can switch threads. A bare `threadId` prop (no
+  // `hasExplicitThreadId`) is still treated as a caller choice.
+  const threadIdPropIsAuthoritative =
+    threadId !== undefined && hasExplicitThreadId !== false;
+
+  // Whether this provider's threadId is controlled by the consumer. When
+  // controlled, the imperative active-thread setters below must not override
+  // the prop-driven value. A non-authoritative seed (v1 bridge auto-mint) is
+  // NOT controlled, so imperative selection still works underneath it.
+  const isThreadIdControlled = threadIdPropIsAuthoritative;
 
   // Imperative active-thread override owned by the TOP-MOST provider (the one
   // with no parent). A non-null override takes precedence over the auto-minted
@@ -211,28 +221,38 @@ export const CopilotChatConfigurationProvider: React.FC<
   } | null>(null);
 
   const resolvedThreadId = useMemo(() => {
-    if (threadId) {
-      return threadId;
+    // An authoritative (caller-chosen) threadId prop always wins.
+    if (threadIdPropIsAuthoritative) {
+      return threadId as string;
+    }
+    // Otherwise an imperative override (a picked row or freshly-started thread)
+    // beats both a non-authoritative seed (the v1 bridge's auto-minted UUID) and
+    // the thread inherited from a parent provider.
+    if (activeThreadOverride) {
+      return activeThreadOverride.threadId;
     }
     if (parentConfig?.threadId) {
       return parentConfig.threadId;
     }
-    if (activeThreadOverride) {
-      return activeThreadOverride.threadId;
+    if (threadId) {
+      return threadId;
     }
     return randomUUID();
-  }, [threadId, parentConfig?.threadId, activeThreadOverride]);
+  }, [
+    threadIdPropIsAuthoritative,
+    threadId,
+    parentConfig?.threadId,
+    activeThreadOverride,
+  ]);
 
-  // If a caller passed `hasExplicitThreadId`, trust it verbatim (lets the v1
-  // bridge mark an auto-minted UUID as non-explicit). Otherwise: a threadId
-  // supplied as a prop here is by definition a caller choice; an imperative
-  // override carries its own explicitness.
-  const ownHasExplicitThreadId =
-    hasExplicitThreadId !== undefined
-      ? hasExplicitThreadId
-      : threadId
-        ? true
-        : (activeThreadOverride?.explicit ?? false);
+  // Explicitness of this provider's own thread, mirroring the resolution order
+  // above: an authoritative prop is a caller choice; otherwise an imperative
+  // override carries its own explicitness (a picked row is explicit, a fresh
+  // `startNewThread` is not); failing both, fall back to the (non-authoritative)
+  // prop flag, which is `false` for the v1 bridge seed.
+  const ownHasExplicitThreadId = threadIdPropIsAuthoritative
+    ? true
+    : (activeThreadOverride?.explicit ?? hasExplicitThreadId ?? false);
   const resolvedHasExplicitThreadId =
     ownHasExplicitThreadId || !!parentConfig?.hasExplicitThreadId;
 
