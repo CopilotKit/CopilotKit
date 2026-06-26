@@ -1664,10 +1664,7 @@ export class ɵCpkThreadDetails extends LitElement {
         const tc = toolCallMap.get(msg.toolCallId);
         if (tc) {
           try {
-            tc.result = JSON.parse(msg.content ?? "{}") as Record<
-              string,
-              unknown
-            >;
+            tc.result = this.parseToolCallResultContent(msg.content);
           } catch (err) {
             // See the comment on the assistant tool-call args parse above —
             // same rationale, same sentinel shape so the renderer can treat
@@ -1682,6 +1679,17 @@ export class ɵCpkThreadDetails extends LitElement {
       }
     }
     return items;
+  }
+
+  private parseToolCallResultContent(
+    content: string | null | undefined,
+  ): Record<string, unknown> {
+    const normalizedContent = content?.trim();
+    if (!normalizedContent) {
+      return {};
+    }
+
+    return JSON.parse(normalizedContent) as Record<string, unknown>;
   }
 
   private mapApiEvents(

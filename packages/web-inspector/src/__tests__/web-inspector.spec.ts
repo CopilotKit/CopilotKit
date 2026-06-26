@@ -327,6 +327,19 @@ type ThreadDetailsInternals = {
   renderConversation: () => unknown;
   renderState: () => unknown;
   renderEvents: () => unknown;
+  mapMessages: (
+    messages: Array<{
+      id: string;
+      role: string;
+      content?: string | null;
+      toolCallId?: string | null;
+      toolCalls?: Array<{
+        id: string;
+        name: string;
+        args: string;
+      }>;
+    }>,
+  ) => Array<Record<string, unknown>>;
 };
 
 function createThreadDetails(): {
@@ -341,28 +354,28 @@ function createThreadDetails(): {
   return { el, internals };
 }
 
+/**
+ * Drive the threadId-change `updated()` block once so its reset path
+ * runs on entry, then seed the data the test cares about AFTER. If we
+ * seed before the first updateComplete, `updated()` immediately nulls
+ * `_fetchedState` / `_fetchedEvents` / `_conversation` (and
+ * `fetchMessages` re-clears `_conversation` when no `runtimeUrl` is
+ * configured, as in this jsdom test), so the assertions below would
+ * be running against an empty element.
+ */
+async function settleThread(
+  el: ɵCpkThreadDetails,
+  internals: ThreadDetailsInternals,
+  threadId: string,
+): Promise<void> {
+  internals.threadId = threadId;
+  await el.updateComplete;
+}
+
 describe("ɵCpkThreadDetails caching", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
   });
-
-  /**
-   * Drive the threadId-change `updated()` block once so its reset path
-   * runs on entry, then seed the data the test cares about AFTER. If we
-   * seed before the first updateComplete, `updated()` immediately nulls
-   * `_fetchedState` / `_fetchedEvents` / `_conversation` (and
-   * `fetchMessages` re-clears `_conversation` when no `runtimeUrl` is
-   * configured, as in this jsdom test), so the assertions below would
-   * be running against an empty element.
-   */
-  async function settleThread(
-    el: ɵCpkThreadDetails,
-    internals: ThreadDetailsInternals,
-    threadId: string,
-  ): Promise<void> {
-    internals.threadId = threadId;
-    await el.updateComplete;
-  }
 
   it("threadId change drops all three template caches", async () => {
     const { el, internals } = createThreadDetails();
@@ -525,6 +538,55 @@ describe("ɵCpkThreadDetails caching", () => {
 
     expect(internals.renderState()).not.toBe(stateA);
     expect(internals.renderEvents()).not.toBe(eventsA);
+  });
+
+  it("maps empty tool result content as an empty result object", () => {
+    const { internals } = createThreadDetails();
+
+    const items = internals.mapMessages([
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "call-empty",
+            name: "lookupUser",
+            args: "{}",
+          },
+          {
+            id: "call-whitespace",
+            name: "lookupOrder",
+            args: "{}",
+          },
+        ],
+      },
+      {
+        id: "tool-empty",
+        role: "tool",
+        toolCallId: "call-empty",
+        content: "",
+      },
+      {
+        id: "tool-whitespace",
+        role: "tool",
+        toolCallId: "call-whitespace",
+        content: "   ",
+      },
+    ]);
+
+    expect(items).toMatchObject([
+      {
+        type: "tool_call",
+        toolCallId: "call-empty",
+        result: {},
+      },
+      {
+        type: "tool_call",
+        toolCallId: "call-whitespace",
+        result: {},
+      },
+    ]);
   });
 });
 
