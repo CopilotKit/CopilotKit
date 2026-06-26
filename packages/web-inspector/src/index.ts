@@ -60,6 +60,7 @@ import {
 export type { Anchor } from "./lib/types.js";
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
+export const THREAD_INSPECTOR_TAG = "cpk-thread-inspector" as const;
 
 type LucideIconName = keyof typeof icons;
 
@@ -188,15 +189,62 @@ type InspectorEvent = {
 
 // ─── Thread details types ────────────────────────────────────────────────────
 
-interface ApiThreadMessage {
+export type ThreadDebuggerProviderLoadOptions = {
+  signal: AbortSignal;
+};
+
+export type ThreadDebuggerToolCall = {
+  id: string;
+  name: string;
+  args: string | Record<string, unknown>;
+};
+
+export type ThreadDebuggerMessage = {
   id: string;
   role: string;
   content?: string;
-  toolCalls?: Array<{ id: string; name: string; args: string }>;
+  toolCalls?: ThreadDebuggerToolCall[];
   toolCallId?: string;
   /** Present when role === "activity" (Generative UI output). */
   activityType?: string;
-}
+};
+
+export type ThreadDebuggerEvent = {
+  type: string;
+  timestamp: string | number;
+  payload?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+export type ThreadDebuggerMetadata = {
+  id: string;
+  name?: string | null;
+  agentId?: string | null;
+  endUserId?: string | null;
+  createdById?: string | null;
+  status?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type ThreadDebuggerProvider = {
+  getThreadMetadata?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<ThreadDebuggerMetadata | null>;
+  getMessages?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<ThreadDebuggerMessage[]>;
+  getEvents?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<ThreadDebuggerEvent[]>;
+  getState?: (
+    threadId: string,
+    options: ThreadDebuggerProviderLoadOptions,
+  ) => Promise<Record<string, unknown> | null>;
+};
 
 interface ConversationUser {
   id: string;
@@ -270,9 +318,32 @@ interface ApiAgentEvent {
   type: string;
   timestamp: string | number;
   payload: Record<string, unknown>;
+  sourceIndex?: number;
+  rawEvent?: ThreadDebuggerEvent;
 }
 
-type ThreadDetailsTab = "conversation" | "agent-state" | "ag-ui-events";
+type ThreadDetailsTab = "timeline" | "state" | "raw-events";
+
+type TimelineItemKind = "message" | "tool" | "state" | "run" | "warning";
+
+type TimelineItem = {
+  id: string;
+  kind: TimelineItemKind;
+  title: string;
+  body?: string;
+  timestamp: string | number;
+  sourceIndex: number;
+  severity?: "warning" | "error";
+  details?: Record<string, unknown>;
+};
+
+type RuntimeEventsFetchResult =
+  | { status: "available"; events: ThreadDebuggerEvent[] }
+  | { status: "not-available" };
+
+type RuntimeStateFetchResult =
+  | { status: "available"; state: Record<string, unknown> | null }
+  | { status: "not-available" };
 
 // ─── JSON syntax highlighter ─────────────────────────────────────────────────
 // Inline-styled so shadow DOM encapsulation preserves colors when the output
@@ -605,28 +676,30 @@ class CpkThreadList extends LitElement {
                   ${
                     this.errorMessage
                       ? html`
-                          <svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            class="cpk-tl__empty-icon"
+                        <svg
+                          width="24"
+                          height="24"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.5"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="cpk-tl__empty-icon"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="12" y1="8" x2="12" y2="12" />
+                          <line x1="12" y1="16" x2="12.01" y2="16" />
+                        </svg>
+                        <div>
+                          Failed to load threads
+                          <div
+                            style="font-size:11px;margin-top:4px;color:#c0333a;"
                           >
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="12" y1="8" x2="12" y2="12" />
-                            <line x1="12" y1="16" x2="12.01" y2="16" />
-                          </svg>
-                          <div>
-                            Failed to load threads
-                            <div style="font-size:11px;margin-top:4px;color:#c0333a;">
-                              ${this.errorMessage}
-                            </div>
+                            ${this.errorMessage}
                           </div>
-                        `
+                        </div>
+                      `
                       : this.threads.length === 0
                         ? html`
                             <svg
@@ -658,21 +731,14 @@ class CpkThreadList extends LitElement {
   }
 }
 
-// ─── cpk-thread-details ──────────────────────────────────────────────────────
-// Renders the selected thread's conversation, agent state, and AG-UI events.
-// Conversation comes from the runtime's `/threads/:id/messages` endpoint
-// (always thread-accurate). Agent state and AG-UI events accept live inputs
-// (`agentStateInput`, `agentEventsInput`) from the parent inspector's ongoing
-// agent subscriptions; when those are absent we fall back to the per-thread
-// fetched data via `/threads/:id/{events,state}`.
-
-// Exported (with the underscore-prefixed name signalling internal/test-only)
-// so unit tests can pin down the per-panel template-cache invariants without
-// reaching through `customElements`. Production consumers continue to use the
-// `cpk-thread-details` custom element registered below.
-export class ɵCpkThreadDetails extends LitElement {
+// ─── cpk-thread-inspector ────────────────────────────────────────────────────
+// Renders the selected thread's read-only timeline, state, raw AG-UI events,
+// and compact technical metadata. External hosts provide a ThreadDebuggerProvider;
+// the legacy CopilotKit Inspector wrapper can still pass runtime URL inputs.
+export class CpkThreadInspector extends LitElement {
   static properties = {
     threadId: { attribute: false },
+    provider: { attribute: false },
     thread: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
@@ -681,6 +747,7 @@ export class ɵCpkThreadDetails extends LitElement {
     agentEventsInput: { attribute: false },
     liveMessageVersion: { attribute: false },
     _tab: { state: true },
+    _fetchedMetadata: { state: true },
     _conversation: { state: true },
     _fetchedEvents: { state: true },
     _fetchedState: { state: true },
@@ -701,7 +768,8 @@ export class ɵCpkThreadDetails extends LitElement {
   };
 
   threadId: string | null = null;
-  thread: ɵThread | null = null;
+  provider: ThreadDebuggerProvider | null = null;
+  thread: ThreadDebuggerMetadata | ɵThread | null = null;
   runtimeUrl = "";
   headers: Record<string, string> = {};
   threadInspectionAvailable = false;
@@ -715,7 +783,8 @@ export class ɵCpkThreadDetails extends LitElement {
    */
   liveMessageVersion = 0;
 
-  private _tab: ThreadDetailsTab = "conversation";
+  private _tab: ThreadDetailsTab = "timeline";
+  private _fetchedMetadata: ThreadDebuggerMetadata | null = null;
   private _conversation: ConversationItem[] = [];
   private _fetchedEvents: ApiAgentEvent[] | null = null;
   private _fetchedState: Record<string, unknown> | null = null;
@@ -748,9 +817,9 @@ export class ɵCpkThreadDetails extends LitElement {
    * switching back to AG-UI Events on a thread with hundreds of events
    * triggers a multi-second DOM-creation pass each time.
    *
-   * Reset to {"conversation"} when the selected thread changes.
+   * Reset to {"timeline"} when the selected thread changes.
    */
-  private _activatedTabs: Set<ThreadDetailsTab> = new Set(["conversation"]);
+  private _activatedTabs: Set<ThreadDetailsTab> = new Set(["timeline"]);
   /**
    * Memoized per-panel templates keyed by the inputs they render from.
    * When the underlying data hasn't changed (same `_conversation` /
@@ -777,8 +846,9 @@ export class ɵCpkThreadDetails extends LitElement {
    * lazy-load reasoning as `_eventsFetched`.
    */
   private _stateFetched = false;
-  private _lastFetchedThreadId: string | null = null;
+  private _lastLoadKey: string | null = null;
   private _lastSeenLiveMessageVersion = 0;
+  private _metadataAbort: AbortController | null = null;
   private _messagesAbort: AbortController | null = null;
   private _eventsAbort: AbortController | null = null;
   private _stateAbort: AbortController | null = null;
@@ -788,18 +858,53 @@ export class ɵCpkThreadDetails extends LitElement {
   private _dividerStartWidth = 0;
 
   static readonly COLLAPSE_THRESHOLD = 800;
-  private static readonly TAB_LIST: ReadonlyArray<{
+  static readonly TAB_LIST: ReadonlyArray<{
     id: ThreadDetailsTab;
     label: string;
   }> = [
-    { id: "conversation", label: "Conversation" },
-    { id: "agent-state", label: "Agent State" },
-    { id: "ag-ui-events", label: "AG-UI Events" },
+    { id: "timeline", label: "Timeline" },
+    { id: "raw-events", label: "Raw AG-UI Events" },
+    { id: "state", label: "State" },
   ];
 
+  private static providerIds = new WeakMap<ThreadDebuggerProvider, number>();
+  private static nextProviderId = 1;
+
+  private static providerLoadKey(
+    provider: ThreadDebuggerProvider | null,
+  ): string {
+    if (!provider) return "provider:none";
+    let id = CpkThreadInspector.providerIds.get(provider);
+    if (!id) {
+      id = CpkThreadInspector.nextProviderId;
+      CpkThreadInspector.nextProviderId += 1;
+      CpkThreadInspector.providerIds.set(provider, id);
+    }
+    return [
+      `provider:${id}`,
+      provider.getThreadMetadata ? "metadata:1" : "metadata:0",
+      provider.getMessages ? "messages:1" : "messages:0",
+      provider.getEvents ? "events:1" : "events:0",
+      provider.getState ? "state:1" : "state:0",
+    ].join("|");
+  }
+
+  /**
+   * Build a deterministic signature for runtime fetch headers so auth/CSRF
+   * changes invalidate cached thread data even when the selected thread is
+   * otherwise unchanged.
+   */
+  private static headersLoadKey(headers: Record<string, string>): string {
+    return JSON.stringify(
+      Object.entries(headers).sort(([leftKey], [rightKey]) =>
+        leftKey.localeCompare(rightKey),
+      ),
+    );
+  }
+
   private renderTabContent(id: ThreadDetailsTab): TemplateResult {
-    if (id === "conversation") return this.renderConversation();
-    if (id === "agent-state") return this.renderState();
+    if (id === "timeline") return this.renderTimeline();
+    if (id === "state") return this.renderState();
     return this.renderEvents();
   }
 
@@ -832,10 +937,10 @@ export class ɵCpkThreadDetails extends LitElement {
     // the entire panel for seconds — including making the tab buttons
     // themselves feel unresponsive.
     if (!this.threadId) return;
-    if (id === "ag-ui-events" && !this._eventsFetched) {
+    if ((id === "timeline" || id === "raw-events") && !this._eventsFetched) {
       this._eventsFetched = true;
       void this.fetchEvents(this.threadId);
-    } else if (id === "agent-state" && !this._stateFetched) {
+    } else if (id === "state" && !this._stateFetched) {
       this._stateFetched = true;
       void this.fetchState(this.threadId);
     }
@@ -965,6 +1070,42 @@ export class ɵCpkThreadDetails extends LitElement {
     /* Pin direct children so expanded tool bodies don't get flex-shrunk. */
     .cpk-td__content > * {
       flex-shrink: 0;
+    }
+
+    .cpk-td__metadata-strip {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 10px 16px;
+      border-bottom: 1px solid #e9e9ef;
+      background: #fbfbfd;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__metadata-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 220px;
+      padding: 3px 7px;
+      border: 1px solid #e9e9ef;
+      border-radius: 5px;
+      background: #ffffff;
+      color: #57575b;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .cpk-td__metadata-label {
+      color: #838389;
+      text-transform: uppercase;
+      font-size: 9px;
+    }
+
+    .cpk-td__metadata-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     /*
@@ -1187,6 +1328,81 @@ export class ɵCpkThreadDetails extends LitElement {
       background: #e9e9ef;
     }
 
+    /* ── Interaction timeline ───────────────────────────────────────── */
+    .cpk-td__timeline-item {
+      border: 1px solid #e9e9ef;
+      border-radius: 6px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+
+    .cpk-td__timeline-item--warning {
+      border-color: rgba(250, 95, 103, 0.35);
+      background: rgba(250, 95, 103, 0.04);
+    }
+
+    .cpk-td__timeline-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      background: #f7f7f9;
+    }
+
+    .cpk-td__timeline-kind {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: #5558b2;
+    }
+
+    .cpk-td__timeline-title {
+      flex: 1;
+      min-width: 0;
+      font-size: 12px;
+      font-weight: 500;
+      color: #010507;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .cpk-td__timeline-time {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      color: #838389;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__timeline-body {
+      padding: 9px 10px;
+      font-size: 12px;
+      line-height: 1.55;
+      color: #57575b;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border-top: 1px solid #e9e9ef;
+    }
+
+    .cpk-td__source-link {
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: #5558b2;
+      cursor: pointer;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__source-link:hover {
+      color: #010507;
+    }
+
     /* ── Generative UI ──────────────────────────────────────────────── */
     @keyframes cpk-genui-enter {
       from {
@@ -1396,36 +1612,27 @@ export class ɵCpkThreadDetails extends LitElement {
   `;
 
   updated(_changed: Map<string, unknown>): void {
-    if (this.threadId !== this._lastFetchedThreadId) {
-      this._lastFetchedThreadId = this.threadId;
+    const loadKey = this.currentLoadKey();
+    if (loadKey !== this._lastLoadKey) {
+      this._lastLoadKey = loadKey;
       this._lastSeenLiveMessageVersion = this.liveMessageVersion;
-      this._tab = "conversation";
-      this._activatedTabs = new Set(["conversation"]);
-      this._panelTplCache = new Map();
-      this._expandedTools = new Set();
-      this._expandedMessages = new Set();
-      this._messagesAbort?.abort();
-      this._messagesAbort = null;
-      this._eventsAbort?.abort();
-      this._eventsAbort = null;
-      this._stateAbort?.abort();
-      this._stateAbort = null;
-      // Reset cleared so the next click into events/state triggers a fresh
-      // fetch. Eagerly clear `_fetchedEvents` / `_fetchedState` so the empty
-      // state doesn't briefly show last thread's data.
-      this._eventsFetched = false;
-      this._stateFetched = false;
-      this._fetchedEvents = null;
-      this._fetchedState = null;
+      this.resetLoadedThreadData();
 
       if (this.threadId) {
-        // Conversation is the default tab and shows immediately on thread
-        // open, so fetch eagerly. Events and state are only visible once the
-        // user clicks their sub-tab; deferring those fetches prevents a long
-        // JSON.parse of a large events payload from blocking the main thread
-        // before the user has even shown intent to view them.
-        void this.fetchMessages(this.threadId);
+        // Timeline is the default tab and should be event-derived. Fetch
+        // events eagerly; the raw tab reuses the same response when opened.
+        void this.fetchMetadata(this.threadId);
+        if (this.canFetchEvents()) {
+          this._eventsFetched = true;
+          void this.fetchEvents(this.threadId);
+        } else {
+          // Last-resort compatibility path for consumers that only implement
+          // messages. New integrations should provide events so Timeline can
+          // expose source references and decode warnings.
+          void this.fetchMessages(this.threadId);
+        }
       } else {
+        this._fetchedMetadata = null;
         this._conversation = [];
       }
     } else if (
@@ -1446,6 +1653,88 @@ export class ɵCpkThreadDetails extends LitElement {
     }
   }
 
+  private canFetchMessages(): boolean {
+    return (
+      !!this.provider?.getMessages ||
+      (!!this.runtimeUrl && this.threadInspectionAvailable)
+    );
+  }
+
+  private canFetchEvents(): boolean {
+    return (
+      !!this.provider?.getEvents ||
+      (!!this.runtimeUrl && this.threadInspectionAvailable)
+    );
+  }
+
+  private canFetchState(): boolean {
+    return (
+      !!this.provider?.getState ||
+      (!!this.runtimeUrl && this.threadInspectionAvailable)
+    );
+  }
+
+  private currentLoadKey(): string {
+    return [
+      this.threadId ?? "thread:none",
+      CpkThreadInspector.providerLoadKey(this.provider),
+      `runtime:${this.runtimeUrl}`,
+      `headers:${CpkThreadInspector.headersLoadKey(this.headers)}`,
+      `inspect:${this.threadInspectionAvailable ? "1" : "0"}`,
+    ].join("||");
+  }
+
+  private resetLoadedThreadData(): void {
+    this._tab = "timeline";
+    this._activatedTabs = new Set(["timeline"]);
+    this._panelTplCache = new Map();
+    this._expandedTools = new Set();
+    this._expandedMessages = new Set();
+    this._metadataAbort?.abort();
+    this._metadataAbort = null;
+    this._messagesAbort?.abort();
+    this._messagesAbort = null;
+    this._eventsAbort?.abort();
+    this._eventsAbort = null;
+    this._stateAbort?.abort();
+    this._stateAbort = null;
+    // Reset cleared so the next click into events/state triggers a fresh
+    // fetch. Eagerly clear fetched data so a provider/runtime swap cannot
+    // briefly show the old source's values for the same threadId.
+    this._eventsFetched = false;
+    this._stateFetched = false;
+    this._eventsNotAvailable = false;
+    this._stateNotAvailable = false;
+    this._loadingMessages = false;
+    this._loadingEvents = false;
+    this._loadingState = false;
+    this._messagesError = null;
+    this._eventsError = null;
+    this._stateError = null;
+    this._fetchedMetadata = null;
+    this._conversation = [];
+    this._fetchedEvents = null;
+    this._fetchedState = null;
+  }
+
+  private async fetchMetadata(threadId: string): Promise<void> {
+    if (!this.provider?.getThreadMetadata) return;
+    this._metadataAbort?.abort();
+    const controller = new AbortController();
+    this._metadataAbort = controller;
+    try {
+      const metadata = await this.provider.getThreadMetadata(threadId, {
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted || this.threadId !== threadId) return;
+      this._fetchedMetadata = metadata;
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      if (this.threadId !== threadId) return;
+      this._fetchedMetadata = null;
+    }
+  }
+
   /**
    * Fetch the canonical conversation for `threadId` from the runtime.
    *
@@ -1460,10 +1749,11 @@ export class ɵCpkThreadDetails extends LitElement {
     threadId: string,
     silent: boolean = false,
   ): Promise<void> {
-    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
+    if (!this.canFetchMessages()) {
       if (!silent) this._conversation = [];
       return;
     }
+    this._messagesAbort?.abort();
     const controller = new AbortController();
     this._messagesAbort = controller;
     if (!silent) {
@@ -1471,15 +1761,13 @@ export class ɵCpkThreadDetails extends LitElement {
       this._messagesError = null;
     }
     try {
-      const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
-        { headers: { ...this.headers }, signal: controller.signal },
-      );
+      const messages = this.provider?.getMessages
+        ? await this.provider.getMessages(threadId, {
+            signal: controller.signal,
+          })
+        : await this.fetchRuntimeMessages(threadId, controller.signal);
       if (controller.signal.aborted || this.threadId !== threadId) return;
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as { messages: ApiThreadMessage[] };
-      if (controller.signal.aborted || this.threadId !== threadId) return;
-      this._conversation = this.mapMessages(data.messages);
+      this._conversation = this.mapMessages(messages);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (!silent) {
@@ -1497,45 +1785,51 @@ export class ɵCpkThreadDetails extends LitElement {
   }
 
   private async fetchEvents(threadId: string): Promise<void> {
-    this._eventsNotAvailable = false;
-    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
+    if (!this.canFetchEvents()) {
       this._fetchedEvents = null;
       return;
     }
+    this._eventsAbort?.abort();
     const controller = new AbortController();
     this._eventsAbort = controller;
     this._loadingEvents = true;
     this._eventsError = null;
     try {
-      const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/events`,
-        { headers: { ...this.headers }, signal: controller.signal },
-      );
+      const result = this.provider?.getEvents
+        ? {
+            status: "available" as const,
+            events: await this.provider.getEvents(threadId, {
+              signal: controller.signal,
+            }),
+          }
+        : await this.fetchRuntimeEvents(threadId, controller.signal);
       // Drop results if a newer fetch superseded this one (thread switched
-      // mid-flight). Without this, switching A→B can leave thread B's view
-      // showing thread A's events when A's request resolves last.
+      // or provider/runtime changed mid-flight). Without this, switching A→B
+      // can leave thread B's view showing thread A's events when A's request
+      // resolves last.
       if (controller.signal.aborted || this.threadId !== threadId) return;
-      if (res.status === 501) {
-        // Endpoint not supported on this runtime (e.g. Intelligence platform).
-        // Mark unavailable so we don't misleadingly fall back to the parent's
-        // live agent events — those are agent-keyed, not thread-keyed, and
-        // would render identical across every thread on the same agent.
+      if (result.status === "not-available") {
         this._eventsNotAvailable = true;
-        this._fetchedEvents = null;
+        this._fetchedEvents = [];
+        if (this.canFetchMessages()) {
+          void this.fetchMessages(threadId);
+        }
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as {
-        events: Array<Record<string, unknown>>;
-      };
-      if (controller.signal.aborted || this.threadId !== threadId) return;
-      this._fetchedEvents = this.mapApiEvents(data.events);
+      const mappedEvents = this.mapApiEvents(result.events);
+      this._fetchedEvents = mappedEvents;
+      if (mappedEvents.length === 0 && this.canFetchMessages()) {
+        void this.fetchMessages(threadId);
+      }
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (this.threadId !== threadId) return;
       this._eventsError =
         err instanceof Error ? err.message : "Failed to load events";
       this._fetchedEvents = [];
+      if (this.canFetchMessages()) {
+        void this.fetchMessages(threadId);
+      }
     } finally {
       if (!controller.signal.aborted && this.threadId === threadId) {
         this._loadingEvents = false;
@@ -1544,32 +1838,31 @@ export class ɵCpkThreadDetails extends LitElement {
   }
 
   private async fetchState(threadId: string): Promise<void> {
-    this._stateNotAvailable = false;
-    if (!this.runtimeUrl || !this.threadInspectionAvailable) {
+    if (!this.canFetchState()) {
       this._fetchedState = null;
       return;
     }
+    this._stateAbort?.abort();
     const controller = new AbortController();
     this._stateAbort = controller;
     this._loadingState = true;
     this._stateError = null;
     try {
-      const res = await fetch(
-        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/state`,
-        { headers: { ...this.headers }, signal: controller.signal },
-      );
+      const result = this.provider?.getState
+        ? {
+            status: "available" as const,
+            state: await this.provider.getState(threadId, {
+              signal: controller.signal,
+            }),
+          }
+        : await this.fetchRuntimeState(threadId, controller.signal);
       if (controller.signal.aborted || this.threadId !== threadId) return;
-      if (res.status === 501) {
+      if (result.status === "not-available") {
         this._stateNotAvailable = true;
         this._fetchedState = null;
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as {
-        state: Record<string, unknown> | null;
-      };
-      if (controller.signal.aborted || this.threadId !== threadId) return;
-      this._fetchedState = data.state ?? null;
+      this._fetchedState = result.state ?? null;
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       if (this.threadId !== threadId) return;
@@ -1583,7 +1876,56 @@ export class ɵCpkThreadDetails extends LitElement {
     }
   }
 
-  private mapMessages(messages: ApiThreadMessage[]): ConversationItem[] {
+  private async fetchRuntimeMessages(
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<ThreadDebuggerMessage[]> {
+    const res = await fetch(
+      `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
+      { headers: { ...this.headers }, signal },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as { messages: ThreadDebuggerMessage[] };
+    return data.messages;
+  }
+
+  private async fetchRuntimeEvents(
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<RuntimeEventsFetchResult> {
+    const res = await fetch(
+      `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/events`,
+      { headers: { ...this.headers }, signal },
+    );
+    if (res.status === 501) {
+      return { status: "not-available" };
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as {
+      events: ThreadDebuggerEvent[];
+    };
+    return { status: "available", events: data.events };
+  }
+
+  private async fetchRuntimeState(
+    threadId: string,
+    signal: AbortSignal,
+  ): Promise<RuntimeStateFetchResult> {
+    const res = await fetch(
+      `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/state`,
+      { headers: { ...this.headers }, signal },
+    );
+    if (res.status === 501) {
+      return { status: "not-available" };
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = (await res.json()) as {
+      state: Record<string, unknown> | null;
+    };
+    return { status: "available", state: data.state ?? null };
+  }
+
+  private mapMessages(messages: ThreadDebuggerMessage[]): ConversationItem[] {
     const items: ConversationItem[] = [];
     const toolCallMap = new Map<string, ConversationToolCall>();
     for (const msg of messages) {
@@ -1598,19 +1940,20 @@ export class ɵCpkThreadDetails extends LitElement {
         if (msg.toolCalls?.length) {
           for (const tc of msg.toolCalls) {
             let args: Record<string, unknown> = {};
-            try {
-              args = JSON.parse(tc.args) as Record<string, unknown>;
-            } catch (err) {
-              // Inspector is a debugging surface — surface malformed payloads
-              // instead of silently substituting `{}`. The sentinel lets the
-              // renderer flag "raw arguments — failed to parse" if/when it
-              // grows that branch; the console.error gives anyone with the
-              // devtools open immediate visibility into the offending blob.
-              console.error(
-                "[CopilotKit Inspector] Failed to parse tool-call arguments",
-                { toolCallId: tc.id, raw: tc.args, error: err },
-              );
-              args = { __parseError: true, __raw: tc.args };
+            if (typeof tc.args === "string") {
+              try {
+                args = JSON.parse(tc.args) as Record<string, unknown>;
+              } catch (err) {
+                // Inspector is a debugging surface — surface malformed payloads
+                // instead of silently substituting `{}`.
+                console.error(
+                  "[CopilotKit Inspector] Failed to parse tool-call arguments",
+                  { toolCallId: tc.id, raw: tc.args, error: err },
+                );
+                args = { __parseError: true, __raw: tc.args };
+              }
+            } else {
+              args = tc.args;
             }
             const item: ConversationToolCall = {
               id: tc.id,
@@ -1664,20 +2007,260 @@ export class ɵCpkThreadDetails extends LitElement {
     return items;
   }
 
-  private mapApiEvents(
-    events: Array<Record<string, unknown>>,
-  ): ApiAgentEvent[] {
-    return events.map((event) => {
-      const { type, timestamp, ...rest } = event;
+  private mapApiEvents(events: ThreadDebuggerEvent[]): ApiAgentEvent[] {
+    return events.map((event, index) => {
+      const { type, timestamp, payload, ...rest } = event;
       return {
         type: typeof type === "string" ? type : "UNKNOWN",
         timestamp:
           typeof timestamp === "string" || typeof timestamp === "number"
             ? timestamp
             : Date.now(),
-        payload: rest,
+        payload: payload ?? rest,
+        sourceIndex: index + 1,
+        rawEvent: event,
       };
     });
+  }
+
+  private get activeTimelineItems(): TimelineItem[] {
+    const events = this.activeEvents;
+    if (events.length === 0) return [];
+
+    const items: TimelineItem[] = [];
+    const messageItems = new Map<string, TimelineItem>();
+    const toolItems = new Map<string, TimelineItem & { rawArgs?: string }>();
+
+    const readString = (
+      payload: Record<string, unknown>,
+      keys: string[],
+    ): string | null => {
+      for (const key of keys) {
+        const value = payload[key];
+        if (typeof value === "string") return value;
+      }
+      return null;
+    };
+
+    const sourceIndexFor = (event: ApiAgentEvent): number =>
+      event.sourceIndex ?? 0;
+
+    const appendWarning = (
+      event: ApiAgentEvent,
+      title: string,
+      body: string,
+      severity: "warning" | "error" = "warning",
+    ): void => {
+      const sourceIndex = sourceIndexFor(event);
+      items.push({
+        id: `warning-${sourceIndex}-${items.length}`,
+        kind: "warning",
+        title,
+        body,
+        timestamp: event.timestamp,
+        sourceIndex,
+        severity,
+      });
+    };
+
+    const ensureMessage = (
+      event: ApiAgentEvent,
+      role: string,
+    ): TimelineItem => {
+      const sourceIndex = sourceIndexFor(event);
+      const key =
+        readString(event.payload, ["messageId", "message_id", "id"]) ??
+        `message-${sourceIndex}`;
+      let item = messageItems.get(key);
+      if (!item) {
+        item = {
+          id: `message-${key}`,
+          kind: "message",
+          title: `${role || "message"} message`,
+          body: "",
+          timestamp: event.timestamp,
+          sourceIndex,
+        };
+        messageItems.set(key, item);
+        items.push(item);
+      }
+      return item;
+    };
+
+    const ensureTool = (
+      event: ApiAgentEvent,
+    ): TimelineItem & {
+      rawArgs?: string;
+    } => {
+      const sourceIndex = sourceIndexFor(event);
+      const key =
+        readString(event.payload, [
+          "toolCallId",
+          "tool_call_id",
+          "id",
+          "callId",
+        ]) ?? `tool-${sourceIndex}`;
+      let item = toolItems.get(key);
+      if (!item) {
+        item = {
+          id: `tool-${key}`,
+          kind: "tool",
+          title:
+            readString(event.payload, [
+              "toolCallName",
+              "toolName",
+              "name",
+              "functionName",
+            ]) ?? "Tool call",
+          body: "",
+          timestamp: event.timestamp,
+          sourceIndex,
+        };
+        toolItems.set(key, item);
+        items.push(item);
+      }
+      return item;
+    };
+
+    for (const event of events) {
+      const { type, payload } = event;
+      const sourceIndex = sourceIndexFor(event);
+
+      if (type === "UNKNOWN") {
+        appendWarning(
+          event,
+          "Unknown AG-UI event",
+          "The event is missing a string type and could not be normalized.",
+        );
+        continue;
+      }
+
+      if (type === "RUN_STARTED" || type === "STEP_STARTED") {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "run",
+          title: type === "RUN_STARTED" ? "Run started" : "Step started",
+          timestamp: event.timestamp,
+          sourceIndex,
+          details: payload,
+        });
+        continue;
+      }
+
+      if (type === "RUN_FINISHED" || type === "STEP_FINISHED") {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "run",
+          title: type === "RUN_FINISHED" ? "Run finished" : "Step finished",
+          timestamp: event.timestamp,
+          sourceIndex,
+          details: payload,
+        });
+        continue;
+      }
+
+      if (type === "RUN_ERROR" || type === "ERROR") {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "warning",
+          title: "Run error",
+          body: readString(payload, ["message", "error", "description"]) ?? "",
+          timestamp: event.timestamp,
+          sourceIndex,
+          severity: "error",
+          details: payload,
+        });
+        continue;
+      }
+
+      if (type === "TEXT_MESSAGE_START") {
+        ensureMessage(event, readString(payload, ["role"]) ?? "assistant");
+        continue;
+      }
+
+      if (type === "TEXT_MESSAGE_CONTENT") {
+        const item = ensureMessage(
+          event,
+          readString(payload, ["role"]) ?? "assistant",
+        );
+        item.body = `${item.body ?? ""}${
+          readString(payload, ["delta", "content", "text"]) ?? ""
+        }`;
+        continue;
+      }
+
+      if (type === "TEXT_MESSAGE_END") {
+        ensureMessage(event, readString(payload, ["role"]) ?? "assistant");
+        continue;
+      }
+
+      if (type === "TOOL_CALL_START") {
+        ensureTool(event);
+        continue;
+      }
+
+      if (type === "TOOL_CALL_ARGS") {
+        const item = ensureTool(event);
+        const chunk =
+          readString(payload, ["args", "arguments", "delta"]) ??
+          (typeof payload.args === "object"
+            ? JSON.stringify(payload.args)
+            : null);
+        if (chunk) {
+          item.rawArgs = `${item.rawArgs ?? ""}${chunk}`;
+          item.body = item.rawArgs;
+        }
+        continue;
+      }
+
+      if (type === "TOOL_CALL_END") {
+        const item = ensureTool(event);
+        if (item.rawArgs) {
+          try {
+            JSON.parse(item.rawArgs);
+          } catch {
+            appendWarning(
+              event,
+              "Could not decode tool call arguments",
+              item.rawArgs,
+            );
+          }
+        }
+        continue;
+      }
+
+      if (type === "TOOL_CALL_RESULT") {
+        const item = ensureTool(event);
+        const result = readString(payload, ["result", "content", "delta"]);
+        if (result) {
+          item.body = item.body
+            ? `${item.body}\nResult: ${result}`
+            : `Result: ${result}`;
+          try {
+            JSON.parse(result);
+          } catch {
+            appendWarning(event, "Could not decode tool result", result);
+          }
+        }
+        continue;
+      }
+
+      if (type.startsWith("STATE_")) {
+        items.push({
+          id: `${type}-${sourceIndex}`,
+          kind: "state",
+          title:
+            type === "STATE_SNAPSHOT"
+              ? "State snapshot captured"
+              : "State delta captured",
+          timestamp: event.timestamp,
+          sourceIndex,
+          details: payload,
+        });
+      }
+    }
+
+    return items;
   }
 
   private get renderItems(): RenderItem[] {
@@ -1722,7 +2305,7 @@ export class ɵCpkThreadDetails extends LitElement {
   }
 
   private get duration(): string {
-    const t = this.thread;
+    const t = this.metadata;
     if (!t?.createdAt || !t?.updatedAt) return "—";
     const ms =
       new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime();
@@ -1755,7 +2338,11 @@ export class ɵCpkThreadDetails extends LitElement {
     // threads (those would render identically for every thread on the same
     // agent and mislead the reader).
     if (this._eventsNotAvailable) return [];
-    return this._fetchedEvents ?? this.agentEventsInput ?? [];
+    const events = this._fetchedEvents ?? this.agentEventsInput ?? [];
+    if (events.every((event) => event.sourceIndex != null)) return events;
+    return events.map((event, index) =>
+      event.sourceIndex == null ? { ...event, sourceIndex: index + 1 } : event,
+    );
   }
 
   private get activeState(): Record<string, unknown> | null {
@@ -1771,6 +2358,10 @@ export class ɵCpkThreadDetails extends LitElement {
   private shortId(id: string | null | undefined): string {
     if (!id) return "—";
     return id.length > 20 ? id.slice(0, 8) + "…" : id;
+  }
+
+  private get metadata(): ThreadDebuggerMetadata | null {
+    return this._fetchedMetadata ?? this.thread ?? null;
   }
 
   private fmtTime(dateStr: string | null | undefined): string {
@@ -1821,7 +2412,7 @@ export class ɵCpkThreadDetails extends LitElement {
           <!-- Tab bar -->
           <div class="cpk-td__tabs-header">
             <div class="cpk-td__tab-group" role="tablist">
-              ${ɵCpkThreadDetails.TAB_LIST.map(
+              ${CpkThreadInspector.TAB_LIST.map(
                 (tab) => html`
                   <button
                     role="tab"
@@ -1837,6 +2428,7 @@ export class ɵCpkThreadDetails extends LitElement {
             </div>
             ${this.renderPanelToggle()}
           </div>
+          ${this.renderMetadataStrip()}
 
           <!-- Scrollable content -->
           <div class="cpk-td__content">
@@ -1847,18 +2439,18 @@ export class ɵCpkThreadDetails extends LitElement {
                   `
                 : nothing
             }
-            ${ɵCpkThreadDetails.TAB_LIST.map((tab) =>
+            ${CpkThreadInspector.TAB_LIST.map((tab) =>
               this._activatedTabs.has(tab.id)
                 ? html`<div
-                      class="cpk-td__panel"
-                      style=${
-                        this._tab === tab.id && !this._panelInitializing
-                          ? ""
-                          : "display:none"
-                      }
-                    >
-                      ${this.renderTabContent(tab.id)}
-                    </div>`
+                    class="cpk-td__panel"
+                    style=${
+                      this._tab === tab.id && !this._panelInitializing
+                        ? ""
+                        : "display:none"
+                    }
+                  >
+                    ${this.renderTabContent(tab.id)}
+                  </div>`
                 : nothing,
             )}
           </div>
@@ -1891,6 +2483,126 @@ export class ɵCpkThreadDetails extends LitElement {
           }
           ${this.renderDetailPanel()}
         </div>
+      </div>
+    `;
+  }
+
+  private renderMetadataStrip() {
+    const metadata = this.metadata;
+    const pills: Array<{ label: string; value: string | null | undefined }> = [
+      { label: "Thread", value: metadata?.id ?? this.threadId },
+      { label: "Agent", value: metadata?.agentId },
+      {
+        label: "End user",
+        value: metadata?.endUserId ?? metadata?.createdById,
+      },
+      { label: "Status", value: metadata?.status },
+    ].filter((pill) => pill.value != null && pill.value !== "");
+
+    if (pills.length === 0) return nothing;
+
+    return html`
+      <div class="cpk-td__metadata-strip" aria-label="Thread metadata">
+        ${pills.map(
+          (pill) => html`
+            <span class="cpk-td__metadata-pill" title=${pill.value ?? ""}>
+              <span class="cpk-td__metadata-label">${pill.label}</span>
+              <span class="cpk-td__metadata-value"
+                >${this.shortId(pill.value)}</span
+              >
+            </span>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  private revealSourceEvent(sourceIndex: number): void {
+    this._activatedTabs = new Set([...this._activatedTabs, "raw-events"]);
+    this._tab = "raw-events";
+    this.requestUpdate();
+    requestAnimationFrame(() => {
+      const source = this.shadowRoot?.querySelector<HTMLElement>(
+        `[data-source-index="${sourceIndex}"]`,
+      );
+      source?.scrollIntoView?.({ block: "center" });
+    });
+  }
+
+  private renderTimeline() {
+    if (this._loadingEvents) {
+      return html`
+        <div class="cpk-td__status">Loading timeline…</div>
+      `;
+    }
+    if (this._eventsError) {
+      return html`<div class="cpk-td__status cpk-td__status--error">
+        ${this._eventsError}
+      </div>`;
+    }
+    if (this._eventsNotAvailable) {
+      if (this._conversation.length > 0) return this.renderConversation();
+      return html`
+        <div class="cpk-td__empty-state">
+          <span>Timeline event history not available</span>
+          <span class="cpk-td__empty-hint"
+            >This runtime doesn't yet expose per-thread AG-UI events.</span
+          >
+        </div>
+      `;
+    }
+
+    const timelineItems = this.activeTimelineItems;
+    if (timelineItems.length === 0) {
+      if (this._conversation.length > 0) return this.renderConversation();
+      return html`
+        <div class="cpk-td__empty-state">
+          <span>No timeline events captured</span>
+          <span class="cpk-td__empty-hint"
+            >Timeline rows are normalized from AG-UI events.</span
+          >
+        </div>
+      `;
+    }
+
+    return this.cachedPanelTpl("timeline", [this.activeEvents], () => {
+      return html`${timelineItems.map((item) => this.renderTimelineItem(item))}`;
+    });
+  }
+
+  private renderTimelineItem(item: TimelineItem) {
+    const isWarning = item.kind === "warning";
+    return html`
+      <div
+        class="cpk-td__timeline-item ${
+          isWarning ? "cpk-td__timeline-item--warning" : ""
+        }"
+      >
+        <div class="cpk-td__timeline-header">
+          <span class="cpk-td__timeline-kind"
+            >${item.severity === "error" ? "error" : item.kind}</span
+          >
+          <span class="cpk-td__timeline-title">${item.title}</span>
+          <button
+            type="button"
+            class="cpk-td__source-link"
+            @click=${() => this.revealSourceEvent(item.sourceIndex)}
+          >
+            Source event #${item.sourceIndex}
+          </button>
+          <span class="cpk-td__timeline-time"
+            >${formatTimestamp(item.timestamp)}</span
+          >
+        </div>
+        ${
+          item.body
+            ? html`<div class="cpk-td__timeline-body">${item.body}</div>`
+            : item.details
+              ? html`<pre class="cpk-td__timeline-body">
+${unsafeHTML(highlightedJson(item.details))}</pre
+              >`
+              : nothing
+        }
       </div>
     `;
   }
@@ -1931,7 +2643,7 @@ export class ɵCpkThreadDetails extends LitElement {
     // `_conversation` — without those keys the cache returns the
     // pre-toggle template and the disclosure appears broken.
     return this.cachedPanelTpl(
-      "conversation",
+      "timeline",
       [this._conversation, this._expandedTools, this._expandedMessages],
       () => {
         const items = this.renderItems;
@@ -1995,7 +2707,7 @@ export class ɵCpkThreadDetails extends LitElement {
 
   private renderBubble(item: ConversationUser | ConversationAssistant) {
     const isUser = item.type === "user";
-    const threshold = ɵCpkThreadDetails.COLLAPSE_THRESHOLD;
+    const threshold = CpkThreadInspector.COLLAPSE_THRESHOLD;
     const expanded = this._expandedMessages.has(item.id);
     const tooLong = item.content.length > threshold;
     const shown =
@@ -2178,7 +2890,7 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
       `;
     }
     const stateValue = this.activeState;
-    return this.cachedPanelTpl("agent-state", [stateValue], () => {
+    return this.cachedPanelTpl("state", [stateValue], () => {
       return html`<pre class="cpk-td__json-block">
 ${unsafeHTML(highlightedJson(stateValue))}</pre
       >`;
@@ -2218,11 +2930,11 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
         </div>
       `;
     }
-    return this.cachedPanelTpl("ag-ui-events", [events], () => {
+    return this.cachedPanelTpl("raw-events", [events], () => {
       return html`${events.map((event) => {
         const { bg, fg } = eventColors(event.type);
         return html`
-          <div class="cpk-td__event">
+          <div class="cpk-td__event" data-source-index=${event.sourceIndex}>
             <div class="cpk-td__event-header" style="background:${bg}">
               <span class="cpk-td__event-type" style="color:${fg}"
                 >${event.type}</span
@@ -2232,7 +2944,7 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
               >
             </div>
             <pre class="cpk-td__event-payload">
-${unsafeHTML(highlightedJson(event.payload))}</pre
+${unsafeHTML(highlightedJson(event.rawEvent ?? event))}</pre
             >
           </div>
         `;
@@ -2271,29 +2983,42 @@ ${unsafeHTML(highlightedJson(event.payload))}</pre
 
   private renderDetailPanel() {
     const counts = this.activityCounts;
+    const metadata = this.metadata;
     return html`
       <!-- Thread -->
       <div class="cpk-tdp__section-title">Thread</div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">ID</span>
         <span class="cpk-tdp__value cpk-tdp__value--wrap"
-          >${this.shortId(this.thread?.id)}</span
+          >${this.shortId(metadata?.id)}</span
         >
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Name</span>
-        <span class="cpk-tdp__value">${this.thread?.name ?? "—"}</span>
+        <span class="cpk-tdp__value">${metadata?.name ?? "—"}</span>
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Agent</span>
         <span class="cpk-tdp__value cpk-tdp__value--truncate"
-          >${this.thread?.agentId ?? "—"}</span
+          >${metadata?.agentId ?? "—"}</span
+        >
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">End user</span>
+        <span class="cpk-tdp__value cpk-tdp__value--truncate"
+          >${metadata?.endUserId ?? "—"}</span
         >
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Created by</span>
         <span class="cpk-tdp__value cpk-tdp__value--truncate"
-          >${this.thread?.createdById ?? "—"}</span
+          >${metadata?.createdById ?? "—"}</span
+        >
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">Status</span>
+        <span class="cpk-tdp__value cpk-tdp__value--truncate"
+          >${metadata?.status ?? "—"}</span
         >
       </div>
 
@@ -2303,11 +3028,11 @@ ${unsafeHTML(highlightedJson(event.payload))}</pre
       <div class="cpk-tdp__section-title">Timestamps</div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Created</span>
-        <span class="cpk-tdp__value">${this.fmtTime(this.thread?.createdAt)}</span>
+        <span class="cpk-tdp__value">${this.fmtTime(metadata?.createdAt)}</span>
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Updated</span>
-        <span class="cpk-tdp__value">${this.fmtTime(this.thread?.updatedAt)}</span>
+        <span class="cpk-tdp__value">${this.fmtTime(metadata?.updatedAt)}</span>
       </div>
       <div class="cpk-tdp__row">
         <span class="cpk-tdp__label">Duration</span>
@@ -2334,8 +3059,16 @@ ${unsafeHTML(highlightedJson(event.payload))}</pre
   }
 }
 
+// Backwards-compatible internal element name used by the full CopilotKit
+// Inspector shell. Keep this class thin so the public body remains the single
+// implementation.
+export class ɵCpkThreadDetails extends CpkThreadInspector {}
+
 if (!customElements.get("cpk-thread-list")) {
   customElements.define("cpk-thread-list", CpkThreadList);
+}
+if (!customElements.get(THREAD_INSPECTOR_TAG)) {
+  customElements.define(THREAD_INSPECTOR_TAG, CpkThreadInspector);
 }
 if (!customElements.get("cpk-thread-details")) {
   customElements.define("cpk-thread-details", ɵCpkThreadDetails);
@@ -2683,6 +3416,7 @@ export class WebInspectorElement extends LitElement {
       },
       onHeadersChanged: ({ headers }) => {
         this.updateOwnedThreadStoreHeaders(headers);
+        this.requestUpdate();
       },
       onError: ({ code, error }) => {
         this.lastCoreError = { code, message: error.message };
@@ -5755,7 +6489,9 @@ ${argsString}</pre
 
             <div class="space-y-2">
               <h3 class="text-sm text-slate-500">Privacy</h3>
-              <div class="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
+              <div
+                class="rounded-lg border border-slate-200 bg-white p-4 space-y-3"
+              >
                 <p class="text-sm text-gray-600 flex items-start gap-2">
                   <span>${optedOut ? "❌" : "✅"}</span>
                   <span>
@@ -5771,7 +6507,8 @@ ${argsString}</pre
                   href=${TELEMETRY_DOCS_URL}
                   target="_blank"
                   rel="noopener"
-                >Learn more →</a>
+                  >Learn more →</a
+                >
               </div>
             </div>
           </div>
@@ -5856,7 +6593,9 @@ ${argsString}</pre
       <div style="display:flex;height:100%;overflow:hidden;">
         <!-- Left sidebar: thread list -->
         <div
-          style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+          style="width:${
+            this.threadListWidth
+          }px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
         >
           <cpk-thread-list
             style="height:100%;"
@@ -5884,34 +6623,33 @@ ${argsString}</pre
           ${
             this.selectedThreadId
               ? html`<cpk-thread-details
-                  style="flex:1;min-width:0;"
-                  .threadId=${this.selectedThreadId}
-                  .thread=${selectedThread}
-                  .runtimeUrl=${this._core?.runtimeUrl ?? ""}
-                  .headers=${this._core?.headers ?? {}}
-                  .threadInspectionAvailable=${
-                    this._core?.threadEndpoints?.inspect !== false
-                  }
-                  .liveMessageVersion=${
-                    this.selectedThreadId
-                      ? (this.liveMessageVersion.get(this.selectedThreadId) ??
-                        0)
-                      : 0
-                  }
-                  .agentStateInput=${
-                    selectedThread
-                      ? this.getLatestStateForAgent(selectedThread.agentId)
-                      : null
-                  }
-                  .agentEventsInput=${
-                    selectedThread
-                      ? (this.agentEvents.get(selectedThread.agentId) ?? [])
-                      : []
-                  }
-                ></cpk-thread-details>`
+                style="flex:1;min-width:0;"
+                .threadId=${this.selectedThreadId}
+                .thread=${selectedThread}
+                .runtimeUrl=${this._core?.runtimeUrl ?? ""}
+                .headers=${this._core?.headers ?? {}}
+                .threadInspectionAvailable=${
+                  this._core?.threadEndpoints?.inspect !== false
+                }
+                .liveMessageVersion=${
+                  this.selectedThreadId
+                    ? (this.liveMessageVersion.get(this.selectedThreadId) ?? 0)
+                    : 0
+                }
+                .agentStateInput=${
+                  selectedThread
+                    ? this.getLatestStateForAgent(selectedThread.agentId)
+                    : null
+                }
+                .agentEventsInput=${
+                  selectedThread
+                    ? (this.agentEvents.get(selectedThread.agentId) ?? [])
+                    : []
+                }
+              ></cpk-thread-details>`
               : html`
-                  <div
-                    style="
+                <div
+                  style="
                       flex: 1;
                       display: flex;
                       flex-direction: column;
@@ -5920,22 +6658,30 @@ ${argsString}</pre
                       gap: 8px;
                       color: #838389;
                     "
+                >
+                  <svg
+                    width="32"
+                    height="32"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#c0c0c8"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
                   >
-                    <svg
-                      width="32"
-                      height="32"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="#c0c0c8"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                    <span style="font-size: 13px">${displayThreads.length === 0 ? "No threads yet" : "Select a thread to inspect"}</span>
-                  </div>
-                `
+                    <path
+                      d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                    />
+                  </svg>
+                  <span style="font-size: 13px"
+                    >${
+                      displayThreads.length === 0
+                        ? "No threads yet"
+                        : "Select a thread to inspect"
+                    }</span
+                  >
+                </div>
+              `
           }
         </div>
       </div>
@@ -6073,28 +6819,30 @@ ${argsString}</pre
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
             <colgroup>
-              <col style="width:${this.evtColWidths[0]}px">
-              <col style="width:${this.evtColWidths[1]}px">
-              <col style="width:${this.evtColWidths[2]}px">
-              <col>
+              <col style="width:${this.evtColWidths[0]}px" />
+              <col style="width:${this.evtColWidths[1]}px" />
+              <col style="width:${this.evtColWidths[2]}px" />
+              <col />
             </colgroup>
             <thead class="sticky top-0 z-10">
               <tr class="bg-white">
                 ${["Agent", "Time", "Event Type"].map(
-                  (label, col) => html`
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                  style="position:relative;overflow:hidden;"
-                >
-                  ${label}
-                  <div
-                    style="position:absolute;top:0;right:0;width:5px;height:100%;cursor:col-resize;user-select:none;background:transparent;"
-                    @pointerdown=${(e: PointerEvent) => this._onEvtColResizeStart(e, col)}
-                    @pointermove=${(e: PointerEvent) => this._onEvtColResizeMove(e)}
-                    @pointerup=${() => this._onEvtColResizeEnd()}
-                    @pointercancel=${() => this._onEvtColResizeEnd()}
-                  ></div>
-                </th>`,
+                  (label, col) =>
+                    html` <th
+                      class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                      style="position:relative;overflow:hidden;"
+                    >
+                      ${label}
+                      <div
+                        style="position:absolute;top:0;right:0;width:5px;height:100%;cursor:col-resize;user-select:none;background:transparent;"
+                        @pointerdown=${(e: PointerEvent) =>
+                          this._onEvtColResizeStart(e, col)}
+                        @pointermove=${(e: PointerEvent) =>
+                          this._onEvtColResizeMove(e)}
+                        @pointerup=${() => this._onEvtColResizeEnd()}
+                        @pointercancel=${() => this._onEvtColResizeEnd()}
+                      ></div>
+                    </th>`,
                 )}
                 <th
                   class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
@@ -6426,8 +7174,14 @@ ${prettyEvent}</pre
                 ? html`
                   <div class="w-full text-xs">
                     <div class="flex bg-gray-50">
-                      <div class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700">Role</div>
-                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">Content</div>
+                      <div
+                        class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700"
+                      >
+                        Role
+                      </div>
+                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">
+                        Content
+                      </div>
                     </div>
                     <div class="divide-y divide-gray-200">
                       ${messages.map((msg) => {
@@ -6450,7 +7204,9 @@ ${prettyEvent}</pre
                           <div class="flex items-start">
                             <div class="w-40 shrink-0 px-4 py-2">
                               <span
-                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${roleColors[role] || roleColors.unknown}"
+                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${
+                                  roleColors[role] || roleColors.unknown
+                                }"
                               >
                                 ${role}
                               </span>
@@ -7440,7 +8196,9 @@ ${prettyEvent}</pre
       return nothing;
     }
 
-    return html`<div class="mx-4 mt-3 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+    return html`<div
+      class="mx-4 mt-3 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
+    >
       <div
         class="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-900"
       >
@@ -7459,7 +8217,13 @@ ${prettyEvent}</pre
           ${this.renderIcon("X")}
         </button>
       </div>
-      <div class="announcement-body ${this.announcementExpanded ? "announcement-body--expanded" : "announcement-body--collapsed"}">
+      <div
+        class="announcement-body ${
+          this.announcementExpanded
+            ? "announcement-body--expanded"
+            : "announcement-body--collapsed"
+        }"
+      >
         <div
           class="announcement-content"
           @click=${this.handleAnnouncementContentClick}
