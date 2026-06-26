@@ -474,11 +474,19 @@ jobs:
           AGENT_TYPE="${{ steps.pkg-type.outputs.agent_type }}"
           AGENT_PORT="${{ steps.pkg-type.outputs.agent_port }}"
           cd "showcase/integrations/$SLUG"
-          # Invoke `next dev` directly instead of `pnpm dev` — the package's
-          # `pnpm dev` script spawns a SECOND agent process via concurrently,
-          # but the previous "Start Python agent" step already bound the agent
-          # port. A second bind would fail with EADDRINUSE. Running Next
-          # directly also keeps the aimock env flow clean.
+          # Invoke the `next` binary directly via `pnpm exec` instead of `pnpm
+          # dev` — the package's `pnpm dev` script spawns a SECOND agent process
+          # via concurrently, but the previous "Start Python agent" step already
+          # bound the agent port. A second bind would fail with EADDRINUSE.
+          # Running Next directly also keeps the aimock env flow clean.
+          #
+          # Use `pnpm exec next` (NOT `npx next`): `npx next` ignores the
+          # pnpm-installed local binary and fetches next@latest from the registry
+          # (observed: next@16 instead of the pinned ^15.5.15), and next@16's
+          # Turbopack fails workspace-root inference in this monorepo layout
+          # ("couldn't find next/package.json from .../src/app"). `pnpm exec`
+          # resolves the lockfile-pinned next, matching the repo's convention for
+          # CI binary invocation (see showcase_validate / showcase_promote).
           #
           # The provider base-urls + dummy keys on Next are DEFENSIVE ONLY.
           # Next proxies chat traffic to the Python agent via the CopilotKit
@@ -506,7 +514,7 @@ jobs:
           export GOOGLE_GEMINI_BASE_URL=http://localhost:4010
           export GEMINI_API_KEY=aimock-dev-ci-only
           export GOOGLE_API_KEY=aimock-dev-ci-only
-          npx next dev --turbopack &
+          pnpm exec next dev --turbopack &
           # Wait for dev server. `--max-time 2 --connect-timeout 1` caps each
           # probe so a hung socket can't blow the loop budget.
           for i in $(seq 1 30); do
@@ -518,7 +526,11 @@ jobs:
       - name: Install Playwright
         run: |
           cd "showcase/integrations/${{ steps.slug.outputs.slug }}"
-          npx playwright install chromium --with-deps
+          # `pnpm exec` (not `npx`) so the browser version matches the
+          # lockfile-pinned @playwright/test used by "Run Playwright tests"
+          # below — `npx playwright` would fetch playwright@latest and install
+          # mismatched browsers, causing "executable doesn't exist" at test time.
+          pnpm exec playwright install chromium --with-deps
 
       - name: Re-probe aimock liveness
         # aimock was readiness-checked once right after startup, but several
@@ -540,12 +552,12 @@ jobs:
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
           cd "showcase/integrations/$SLUG"
-          BASE_URL=http://localhost:3000 npx playwright test --reporter=list
+          BASE_URL=http://localhost:3000 pnpm exec playwright test --reporter=list
         env:
           CI: "true"
           # Dead env — Next.js is already running from the "Start dev server"
           # step above (which set these inline on that process). Env set here
-          # would only affect the `npx playwright test` process, which does not
+          # would only affect the `pnpm exec playwright test` process, which does not
           # read OPENAI_BASE_URL / OPENAI_API_KEY. Leaving unset to avoid the
           # false impression that these values flow to the running Next server.
 
