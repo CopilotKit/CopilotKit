@@ -154,10 +154,17 @@ export const RESULT_WRITE_RETRY_DELAY_MS = 250;
  * an abrupt worker bounce (SIGKILL past grace / OOM / crash) is non-LOSSY. At
  * or above the cap the row is treated as terminally expired (claim-deleted, no
  * re-run) so a poison job that crashes the worker every run cannot re-queue
- * forever. The per-job tally is the durable `reclaim_count` column the
- * fleet-claim release CAS already bumps on every pending re-queue (and the
- * claim CAS bumps on every expired-lease steal) — so the cap survives the
- * last-write-wins overwrite of `result` without a second counter.
+ * forever.
+ *
+ * The counter is `consecutive_orphan_count` — the number of CONSECUTIVE
+ * re-orphans of THIS job (i.e. sweeper re-queues that were never followed by
+ * a terminal done/failed). It is bumped ONLY by the sweeper re-queue path
+ * (fleet-claim release CAS with target "pending") and reset to 0 on every
+ * terminal release (done|failed) or fresh claim. It is NOT bumped by the
+ * peer-worker expired-lease steal (claim CAS `wasExpiredSteal` branch), so a
+ * healthy long-lived job that accrues peer steals does NOT consume its reclaim
+ * budget. The lifetime steal+requeue tally remains the separate `reclaim_count`
+ * column (dashboard diagnostic).
  *
  * Exported so the cap test pins THIS constant rather than a magic number that
  * could drift from the implementation (mirrors RESULT_WRITE_MAX_ATTEMPTS).
@@ -328,10 +335,17 @@ interface ProbeJobRecord extends JobView {
    * retry-idempotency guard before any rewrite. */
   result?: unknown;
   result_processed?: boolean;
-  /** Durable per-job reclaim tally (migration 1779990200) — bumped by the
-   * fleet-claim CAS on every expired-lease steal AND every sweeper re-queue.
-   * Read here as the reclaim ATTEMPT count for the MAX_RECLAIM_ATTEMPTS cap. */
+  /** Durable per-job lifetime reclaim tally (migration 1779990200) — bumped by
+   * the fleet-claim CAS on every expired-lease steal AND every sweeper re-queue.
+   * Dashboard diagnostic: `reclaim_count > 0` → `jobs.reclaimed`. Never reset. */
   reclaim_count?: number;
+  /** CONSECUTIVE re-orphan counter (migration 1779990400) — bumped ONLY by the
+   * sweeper re-queue path (fleet-claim release CAS, target "pending"); reset to
+   * 0 on every terminal release (done|failed). NOT bumped by the claim CAS's
+   * expired-lease steal, so a healthy long-lived job that accrues peer steals
+   * does NOT exhaust the MAX_RECLAIM_ATTEMPTS budget. This is what the reaper
+   * uses for the cap check. */
+  consecutive_orphan_count?: number;
   /** Re-anchor timestamp (migration 1779990300) — stamped by the fleet-claim
    * release CAS on every pending re-queue. Re-anchors the stale-age clock so a
    * just-reclaimed row is NOT immediately claim-deleted off its (renewal-immune)
@@ -1810,7 +1824,7 @@ export function createFleetQueueClient(
     // long-expired carve-out to delete-rather-than-re-queue a stale-aged row:
     // re-queueing now emits a "back in flight" signal the next sweep HONORS.
     // The carve-out (G1d, below) therefore no longer deletes on the FIRST
-    // expired sweep — it RE-CLAIMS until `reclaim_count` reaches
+    // expired sweep — it RE-CLAIMS until `consecutive_orphan_count` reaches
     // MAX_RECLAIM_ATTEMPTS, only then claim-deleting a row that keeps
     // re-orphaning (a poison job) so the queue cannot loop forever. The
     // lease-based RECENT-LEASE heuristic in drainStalePending is retained as a
@@ -1888,7 +1902,7 @@ export function createFleetQueueClient(
       // it has been reclaimed, else `created`) past its family's window AND
       // its lease expired LONGER than that window — used to be claim-DELETED
       // here, dropping orphaned in-flight work on an abrupt worker bounce. It
-      // is now RE-CLAIMED to pending (the path below) until its `reclaim_count`
+      // is now RE-CLAIMED to pending (the path below) until its `consecutive_orphan_count`
       // reaches MAX_RECLAIM_ATTEMPTS, so a bounce is NON-LOSSY (the work
       // re-runs; idempotent probes make at-least-once safe). The honesty bind
       // the original carve-out dodged — re-queueing a `created`-stale row emits
@@ -1918,10 +1932,13 @@ export function createFleetQueueClient(
           (!Number.isFinite(leaseMs) || leaseMs <= nowMs - maxAgeMs);
         // RECLAIM-WINS-UNTIL-CAP: only delete a stale-expirable row once it
         // has exhausted its reclaim budget; below the cap it falls through to
-        // the re-queue path (reclaim WINS over the carve-out). `reclaim_count`
-        // is the durable per-job tally the fleet-claim CAS bumps on every
-        // reclaim (absent → 0 for a pre-migration row, i.e. never reclaimed).
-        const reclaimAttempts = row.reclaim_count ?? 0;
+        // the re-queue path (reclaim WINS over the carve-out).
+        // `consecutive_orphan_count` is the CONSECUTIVE re-orphan tally —
+        // bumped ONLY by the sweeper re-queue path and reset on terminal
+        // done|failed — so a healthy long-lived job that accrues peer steals
+        // (expired-lease claim steals) does NOT exhaust its budget (absent → 0
+        // for pre-migration rows, i.e. no consecutive orphans yet).
+        const reclaimAttempts = row.consecutive_orphan_count ?? 0;
         if (staleExpirable && reclaimAttempts >= MAX_RECLAIM_ATTEMPTS) {
           // PER-ROW containment mirrors the stale phase: a thrown claim is
           // indeterminate (skip this sweep; the row is unchanged for the

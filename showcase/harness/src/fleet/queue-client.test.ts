@@ -118,9 +118,14 @@ interface JobRow extends JobView {
   family?: string;
   /** PB system column; seeded by prune tests (real PB stamps it on create). */
   created?: string;
-  /** Durable per-job reclaim tally (migration 1779990200) the fleet-claim CAS
-   * bumps; read by the reaper as the MAX_RECLAIM_ATTEMPTS cap signal. */
+  /** Durable per-job lifetime reclaim tally (migration 1779990200) the
+   * fleet-claim CAS bumps on every expired-lease steal AND sweeper re-queue.
+   * Dashboard diagnostic only — NOT the cap signal. */
   reclaim_count?: number;
+  /** CONSECUTIVE re-orphan counter (migration 1779990400) — bumped ONLY by the
+   * sweeper re-queue path and reset on terminal done|failed. The reaper reads
+   * THIS (not reclaim_count) for the MAX_RECLAIM_ATTEMPTS cap check. */
+  consecutive_orphan_count?: number;
   /** Re-anchor timestamp (migration 1779990300) the release CAS stamps on a
    * pending re-queue; the reaper's stale-age anchor for a reclaimed row. */
   requeued_at?: string;
@@ -3035,14 +3040,22 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
         async claimJob(jobId, workerId): Promise<ClaimResult> {
           const r = store.find((x) => x.id === jobId);
           if (!r) return { won: false };
-          const reclaimable =
-            r.status === "pending" ||
-            (["claimed", "running"].includes(r.status) &&
-              leaseExpired(r.lease_expires_at, nowMs));
+          const wasExpiredSteal =
+            ["claimed", "running"].includes(r.status) &&
+            leaseExpired(r.lease_expires_at, nowMs);
+          const reclaimable = r.status === "pending" || wasExpiredSteal;
           if (!reclaimable) return { won: false };
           r.status = "claimed";
           r.claimed_by = workerId;
           r.version += 1;
+          // Mirror the claim CAS: an expired-lease steal bumps the LIFETIME
+          // reclaim tally (`reclaim_count`) but does NOT touch the consecutive
+          // re-orphan counter (`consecutive_orphan_count`). A plain pending
+          // claim bumps neither.
+          if (wasExpiredSteal) {
+            r.reclaim_count = (r.reclaim_count ?? 0) + 1;
+            // consecutive_orphan_count is intentionally NOT bumped here.
+          }
           return { won: true, job: { ...r } };
         },
         renewLease: vi.fn(
@@ -3053,9 +3066,16 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
           if (!r || r.claimed_by !== workerId) return { released: false };
           if (status === "pending") {
             sink?.releasedPending.push(jobId);
-            // Mirror the release CAS: bump the reclaim tally and re-anchor.
+            // Mirror the release CAS: bump BOTH tallies and re-anchor.
+            // `reclaim_count` is the lifetime diagnostic; `consecutive_orphan_count`
+            // is the cap counter (sweeper re-queue path only).
             r.reclaim_count = (r.reclaim_count ?? 0) + 1;
+            r.consecutive_orphan_count = (r.consecutive_orphan_count ?? 0) + 1;
             r.requeued_at = new Date(nowMs).toISOString();
+          } else {
+            // Terminal release: reset the consecutive counter so a LATER
+            // re-orphan starts with a fresh budget. Lifetime tally is NOT reset.
+            r.consecutive_orphan_count = 0;
           }
           r.status = status;
           r.claimed_by = "";
@@ -3114,12 +3134,13 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       expect(row?.requeued_at).toBe(new Date(T).toISOString());
     });
 
-    it("ATTEMPT CAP (layer a): a stale-aged long-expired orphan AT MAX_RECLAIM_ATTEMPTS is claim-DELETED — a poison job cannot re-queue forever", async () => {
+    it("ATTEMPT CAP (layer a): a stale-aged long-expired orphan AT MAX_RECLAIM_ATTEMPTS consecutive orphans is claim-DELETED — a poison job cannot re-queue forever", async () => {
       // The reclaim-wins inversion is bounded: a row that has already been
-      // reclaimed MAX_RECLAIM_ATTEMPTS times and STILL re-orphaned (it crashes
-      // the worker every run) falls through to the carve-out delete — no
-      // re-queue, no comm error, counted with the stale expiries — so the
-      // queue cannot loop on a genuinely poison job.
+      // reclaimed MAX_RECLAIM_ATTEMPTS times CONSECUTIVELY (consecutive_orphan_count
+      // at cap) and STILL re-orphaned (it crashes the worker every run) falls
+      // through to the carve-out delete — no re-queue, no comm error, counted
+      // with the stale expiries — so the queue cannot loop on a genuinely poison
+      // job.
       const poison: CreatedJobRow = {
         ...jobView({
           id: "poison",
@@ -3130,8 +3151,8 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
         }),
         payload: samplePayload({ probeKey: "d6:a" }),
         created: new Date(T - 8 * HOUR).toISOString(),
-        // Already at the cap.
-        reclaim_count: MAX_RECLAIM_ATTEMPTS,
+        // Already at the cap: consecutive re-orphans, never completed.
+        consecutive_orphan_count: MAX_RECLAIM_ATTEMPTS,
       };
       const { pb, store } = makePagingPb([poison]);
       const sink = { releasedPending: [] as string[] };
@@ -3197,6 +3218,126 @@ describe("FleetQueueClient — FAMILY FAIRNESS (backlogged families must not sta
       const sweep2 = await q.sweepExpired(T2);
       expect(store.find((r) => r.id === "long-dead")?.status).toBe("pending");
       expect(sweep2.expiredPending).toBe(0);
+    });
+
+    // ── P1-A RED-GREEN REGRESSION ────────────────────────────────────────────
+    // A job that has accrued N benign peer steals over its lifetime (high
+    // reclaim_count) but ZERO consecutive sweeper re-orphans must be RE-QUEUED
+    // on its first real orphan — NOT deleted. Pre-fix this was broken because
+    // the cap used `reclaim_count` (bumped by both steal + re-queue paths), so
+    // a long-lived job with many peer steals would hit the cap and get
+    // claim-DELETED on its first fresh orphan.
+    it("P1-A CAP SCOPE: a job with benign peer steals (high reclaim_count) but no consecutive orphans is RE-QUEUED on its first fresh orphan, never deleted", async () => {
+      // Simulate a job that has been stolen by peers 3 times (reclaim_count=3
+      // — already AT the old cap) but has consecutive_orphan_count=0 (never
+      // been re-queued by the sweeper — it always re-ran successfully).
+      const longLived: CreatedJobRow = {
+        ...jobView({
+          id: "long-lived",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-dead",
+          // Lease expired 4h ago — LONGER than the 3h (3×60min) stale window.
+          lease_expires_at: new Date(T - 4 * HOUR).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        created: new Date(T - 8 * HOUR).toISOString(), // stale-aged
+        // LIFETIME tally at the old-cap value (3 benign steals).
+        reclaim_count: MAX_RECLAIM_ATTEMPTS,
+        // But ZERO consecutive sweeper re-orphans: should NOT be deleted.
+        consecutive_orphan_count: 0,
+      };
+      const { pb, store } = makePagingPb([longLived]);
+      const sink = { releasedPending: [] as string[] };
+      const claim = makeReclaimClaim(store, T, sink);
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      // Must be RE-QUEUED (non-lossy), not deleted.
+      const row = store.find((r) => r.id === "long-lived");
+      expect(row).toBeDefined();
+      expect(row?.status).toBe("pending");
+      expect(sink.releasedPending).toContain("long-lived");
+      expect(sweep.reclaimed).toBe(1);
+      expect(sweep.expiredPending).toBe(0);
+      // consecutive_orphan_count was 0 before → 1 after first sweeper re-queue.
+      expect(row?.consecutive_orphan_count).toBe(1);
+      // lifetime tally still increases (the re-queue path bumps it too).
+      expect(row?.reclaim_count).toBe(MAX_RECLAIM_ATTEMPTS + 1);
+    });
+
+    // ── P1-B LOW-BOUNDARY TEST ───────────────────────────────────────────────
+    // The LOW boundary of the cap must be pinned: a row at consecutive_orphan_count
+    // = MAX-1 (= 2) must be RE-QUEUED (pending), never deleted. Without this
+    // test, a mutation `>= MAX` → `>= MAX-1` (delete one attempt too early)
+    // passes all other tests undetected.
+    it("P1-B CAP LOW BOUNDARY: a stale-aged orphan at consecutive_orphan_count = MAX-1 is RE-QUEUED (not deleted) — the low boundary is pinned", async () => {
+      const nearCap: CreatedJobRow = {
+        ...jobView({
+          id: "near-cap",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-dead",
+          lease_expires_at: new Date(T - 4 * HOUR).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        created: new Date(T - 8 * HOUR).toISOString(),
+        // ONE BELOW the cap (= 2 when MAX = 3): must be RE-QUEUED.
+        consecutive_orphan_count: MAX_RECLAIM_ATTEMPTS - 1,
+      };
+      const { pb, store } = makePagingPb([nearCap]);
+      const sink = { releasedPending: [] as string[] };
+      const claim = makeReclaimClaim(store, T, sink);
+      const q = createFleetQueueClient({ pb, claim, logger });
+
+      const sweep = await q.sweepExpired(T);
+
+      // Must be RE-QUEUED at MAX-1 (not at cap yet).
+      const row = store.find((r) => r.id === "near-cap");
+      expect(row).toBeDefined();
+      expect(row?.status).toBe("pending");
+      expect(sink.releasedPending).toContain("near-cap");
+      expect(sweep.reclaimed).toBe(1);
+      expect(sweep.expiredPending).toBe(0);
+      // Counter now at MAX_RECLAIM_ATTEMPTS (cap) — NEXT orphan would be deleted.
+      expect(row?.consecutive_orphan_count).toBe(MAX_RECLAIM_ATTEMPTS);
+    });
+
+    // ── STEAL-BUDGET PIN ─────────────────────────────────────────────────────
+    // Explicit test that an expired-lease steal (peer claim of an abandoned row)
+    // does NOT increment consecutive_orphan_count — steals must never consume
+    // the reclaim budget.
+    it("peer-worker expired-lease steal does NOT consume the consecutive_orphan_count budget (steals bump lifetime reclaim_count only)", async () => {
+      // A row with consecutive_orphan_count near the cap but with an
+      // expired-lease that will be claimed (stolen) by a peer worker.
+      const contested: CreatedJobRow = {
+        ...jobView({
+          id: "contested",
+          probe_key: "d6:a",
+          status: "running",
+          claimed_by: "worker-old",
+          // Lease expired but NOT stale-aged — so the carve-out does NOT apply;
+          // this tests the claim steal path in isolation.
+          lease_expires_at: new Date(T - 5 * MIN).toISOString(),
+        }),
+        payload: samplePayload({ probeKey: "d6:a" }),
+        // Recent: not stale-aged, won't hit the carve-out.
+        created: new Date(T - 10 * MIN).toISOString(),
+        reclaim_count: 2,
+        consecutive_orphan_count: MAX_RECLAIM_ATTEMPTS - 1,
+      };
+      const store = [contested];
+      // Claim the row as a "peer" via the fake's claimJob (the steal path).
+      const claim = makeReclaimClaim(store, T);
+      const result = await claim.claimJob("contested", "worker-peer", 30);
+      expect(result.won).toBe(true);
+
+      const row = store.find((r) => r.id === "contested");
+      // Lifetime tally bumped by the steal.
+      expect(row?.reclaim_count).toBe(3);
+      // Consecutive budget NOT consumed by the steal.
+      expect(row?.consecutive_orphan_count).toBe(MAX_RECLAIM_ATTEMPTS - 1);
     });
 
     it("a release that THROWS after committing server-side still graces the row AND synthesizes its comm error (timeout-after-commit)", async () => {
