@@ -12,6 +12,7 @@ import type {
   EphemeralResult,
 } from "@copilotkit/bot-ui";
 import { runAgentLoop } from "./run-loop.js";
+import { errorClass } from "./telemetry/sanitize-error.js";
 import type { Transcripts } from "./transcripts.js";
 import { toAgentToolDescriptors } from "./tools.js";
 import type {
@@ -55,6 +56,13 @@ export interface ThreadDeps {
   userKey?: string;
   /** The inbound message that triggered this turn (for transcript bridging). */
   message?: IncomingMessage;
+  /**
+   * Optional anonymous telemetry sink. Structural type (not the concrete
+   * BotTelemetry) avoids an import cycle; the real BotTelemetry satisfies it.
+   */
+  telemetry?: {
+    capture(event: string, properties: Record<string, unknown>): void;
+  };
 }
 
 /** A concrete conversation thread: posts UI, runs the agent loop, and resolves HITL waiters. */
@@ -394,21 +402,41 @@ export class Thread implements ThreadInterface {
     // assistant messages this run produced (step 4).
     const messagesBefore = session.agent.messages.length;
 
-    await runAgentLoop({
-      agent: session.agent,
-      renderer,
-      tools,
-      toolDescriptors,
-      context,
-      makeToolCtx: (): BotToolContext => ({
-        thread: this,
+    const startedAt = Date.now();
+    let loopResult: { iterations: number; interrupted: boolean };
+    try {
+      loopResult = await runAgentLoop({
+        agent: session.agent,
+        renderer,
+        tools,
+        toolDescriptors,
+        context,
+        makeToolCtx: (): BotToolContext => ({
+          thread: this,
+          platform: this.platform,
+        }),
+        handleInterrupt: async (interrupt) => {
+          const h = this.deps.interruptHandlers.get(interrupt.eventName);
+          if (h) await h({ payload: interrupt.value, thread: this });
+        },
+        initialResume,
+      });
+    } catch (err) {
+      // Tool-handler errors are swallowed inside the loop and returned as JSON
+      // results, so a throw here is an agent-level failure.
+      this.deps.telemetry?.capture("oss.bot.agent_run_failed", {
         platform: this.platform,
-      }),
-      handleInterrupt: async (interrupt) => {
-        const h = this.deps.interruptHandlers.get(interrupt.eventName);
-        if (h) await h({ payload: interrupt.value, thread: this });
-      },
-      initialResume,
+        errorClass: errorClass(err),
+        stage: "agent",
+      });
+      throw err;
+    }
+    this.deps.telemetry?.capture("oss.bot.agent_run", {
+      platform: this.platform,
+      durationMs: Date.now() - startedAt,
+      toolCallCount: renderer.getCapturedToolCalls().length,
+      iterations: loopResult.iterations,
+      interrupted: loopResult.interrupted,
     });
     // Transcript auto-bridge (step 4): capture the assistant text this run
     // produced and append it. Only when the bridge actually applied (transcripts

@@ -40,6 +40,22 @@ import {
 import { Transcripts } from "./transcripts.js";
 import type { Identity, TranscriptsConfig } from "./transcripts.js";
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
+import { BotTelemetry } from "./telemetry/bot-telemetry.js";
+import { errorClass } from "./telemetry/sanitize-error.js";
+import { createRequire } from "node:module";
+
+const pkg = createRequire(import.meta.url)("../package.json") as {
+  name: string;
+  version: string;
+};
+
+function storeKind(s: StateStore): "memory" | "postgres" | "redis" | "custom" {
+  const n = s.constructor?.name;
+  if (n === "MemoryStore") return "memory";
+  if (n === "PostgresStore") return "postgres";
+  if (n === "RedisStore") return "redis";
+  return "custom";
+}
 
 /** Platforms whose tokens the emoji table can normalize. */
 const EMOJI_PLATFORMS: ReadonlySet<EmojiPlatform> = new Set([
@@ -249,6 +265,11 @@ export function createBot<
   }
 
   const backend: StateStore = cfg.adapter ?? new MemoryStore();
+  const telemetry = new BotTelemetry({
+    backend,
+    packageName: pkg.name,
+    packageVersion: pkg.version,
+  });
   const transcripts = new Transcripts(backend, cfg.transcripts ?? {});
   const registry = new ActionRegistry({
     store: opts.actionStore ?? kvActionStore(backend),
@@ -327,6 +348,7 @@ export function createBot<
       transcripts,
       userKey: extras?.userKey,
       message: extras?.message,
+      telemetry,
     };
     return new Thread(deps);
   }
@@ -710,14 +732,36 @@ export function createBot<
       const startResults = await Promise.allSettled(
         opts.adapters.map((a) => a.start(makeSink(a))),
       );
+      const startedPlatforms: string[] = [];
+      const failedPlatforms: string[] = [];
       startResults.forEach((r, i) => {
+        const platform = opts.adapters[i]!.platform;
         if (r.status === "rejected") {
+          failedPlatforms.push(platform);
           console.error(
-            `[bot] adapter "${opts.adapters[i]!.platform}" failed to start:`,
+            `[bot] adapter "${platform}" failed to start:`,
             r.reason,
           );
+          telemetry.capture("oss.bot.start_failed", {
+            platform,
+            errorClass: errorClass(r.reason),
+          });
+        } else {
+          startedPlatforms.push(platform);
         }
       });
+      if (startedPlatforms.length > 0) {
+        telemetry.capture("oss.bot.started", {
+          platforms: startedPlatforms,
+          startedCount: startedPlatforms.length,
+          failedCount: failedPlatforms.length,
+          hasMentionHandler: mentionHandlers.length > 0,
+          hasMessageHandler: messageHandlers.length > 0,
+          interruptHandlers: interruptHandlers.size,
+          commandsCount: commandHandlers.size,
+          toolsCount: toolMap.size,
+        });
+      }
       // Hand declared commands to adapters that register them up front (e.g.
       // Discord); adapters without `registerCommands` are skipped. Per-adapter
       // failures are isolated the same way as start().
@@ -752,5 +796,17 @@ export function createBot<
       });
     },
   };
+  telemetry.capture("oss.bot.configured", {
+    platforms: opts.adapters.map((a) => a.platform),
+    adapterCount: opts.adapters.length,
+    store: storeKind(backend),
+    hasComponents: (opts.components?.length ?? 0) > 0,
+    componentsCount: opts.components?.length ?? 0,
+    toolsCount: toolMap.size,
+    commandsCount: commandHandlers.size,
+    contextCount: context.length,
+    transcripts: !!cfg.transcripts,
+    identity: !!cfg.identity,
+  });
   return bot;
 }
