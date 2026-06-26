@@ -14,7 +14,7 @@
   "dependencies": {
     "@ag-ui/client": "0.0.57",
     "@ag-ui/mcp-apps-middleware": "^0.0.3",
-    "@copilotkit/react-core": "1.61.0",
+    "@copilotkit/react-core": "workspace:*",
     "@copilotkit/react-ui": "1.61.0",
     "@copilotkit/runtime": "1.61.0",
     "hono": "^4.12.10",

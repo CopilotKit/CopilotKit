@@ -38,7 +38,7 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
       <div
         className={`max-h-full flex flex-col dark:bg-stone-950 ${
           mode === "app"
-            ? "w-1/3 px-6 max-lg:hidden" // Hide on mobile in app mode
+            ? "w-1/2 px-6 max-lg:hidden" // Half/half with the canvas; hidden on mobile in app mode
             : "flex-1 max-lg:px-4"
         }`}
       >
@@ -63,11 +63,17 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
       <div
         className={`h-full overflow-hidden ${
           mode === "app"
-            ? "w-2/3 max-lg:w-full border-l border-[var(--border)] max-lg:border-l-0" // Full width on mobile
+            ? "w-1/2 max-lg:w-full border-l border-[var(--border)] max-lg:border-l-0" // Half/half with the chat; full width on mobile
             : "w-0 border-l-0"
         }`}
       >
-        <div className="w-full lg:w-[66.666vw] h-full">{appContent}</div>
+        {/*
+          Fill the state panel's own width. The previous `lg:w-[66.666vw]` was
+          viewport-relative, so with a reserved drawer column it overflowed this
+          container (clipped by overflow-hidden) and pushed centered content
+          (e.g. the empty-state) right of the visible box's center.
+        */}
+        <div className="w-full h-full">{appContent}</div>
       </div>
     </div>
   );

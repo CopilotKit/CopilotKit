@@ -18,7 +18,7 @@
     "@ag-ui/a2a-middleware": "0.0.2",
     "@ag-ui/client": "0.0.57",
     "@ag-ui/core": "0.0.57",
-    "@copilotkit/react-core": "1.61.0",
+    "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "1.61.0",
     "hono": "^4",
     "lucide-react": "^0.577.0",

@@ -1,5 +1,5 @@
 {
-  "name": "langgraph-js-starter",
+  "name": "copilotkit-langgraph-template",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,14 +9,13 @@
     "dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "install:agent": "cd agent && npm install",
+    "install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat",
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
-    "@copilotkit/a2ui-renderer": "workspace:*",
-    "@copilotkit/react-core": "workspace:*",
-    "@copilotkit/runtime": "npm:@copilotkit/runtime@1.61.0",
+    "@copilotkit/a2ui-renderer": "1.61.0",
+    "@copilotkit/react-core": "1.61.0",
+    "@copilotkit/runtime": "1.61.0",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-separator": "^1.1.8",
@@ -30,7 +29,6 @@
     "react-rnd": "^10.5.2",
     "react18-json-view": "^0.2.9",
     "recharts": "^3.7.0",
-    "shiki": "^3.22.0",
     "tailwind-merge": "^3.5.0",
     "zod": "^3.23.8"
   },
@@ -42,12 +40,5 @@
     "concurrently": "^9.1.2",
     "tailwindcss": "^4",
     "typescript": "^5"
-  },
-  "overrides": {
-    "@langchain/core": "1.1.44",
-    "@langchain/langgraph": "1.3.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }
