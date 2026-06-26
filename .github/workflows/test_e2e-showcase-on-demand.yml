@@ -269,17 +269,23 @@ jobs:
 
       - name: Start aimock
         run: |
-          # Pin aimock to a known-good floor (caret = safe patch/minor).
-          # An unrestricted `@latest` means a bad aimock publish silently
-          # poisons CI for everyone; pinning makes the upgrade explicit and
-          # keeps this PR's CI signal reproducible.
-          npm install -g "@copilotkit/aimock@^1.16.4" --ignore-scripts
+          # Pin aimock to an EXACT version, NOT a caret range. This package has
+          # shipped a BREAKING CLI change inside its 1.x minor line: the old
+          # directory-based `--fixtures <dir>` (repeatable) + `--validate-on-load`
+          # flags were removed in 1.19.1 in favor of a single `-c/--config <path>`
+          # JSON config. A caret spec (`^1.16.4`) silently resolved to that new
+          # surface and broke every run at this step. An exact pin makes any CLI
+          # upgrade an explicit, reviewed change and keeps CI reproducible (it
+          # also subsumes the old "@latest can poison CI" concern). Bump this pin
+          # deliberately, re-validating the config schema below against a fresh
+          # `aimock --help` / config-loader before merging.
+          npm install -g "@copilotkit/aimock@1.34.0" --ignore-scripts
           # Invoke the installed global binary directly rather than `npx`.
-          # `npx @copilotkit/aimock@^1.16.4` re-resolves the spec against the
+          # `npx @copilotkit/aimock@<spec>` re-resolves the spec against the
           # registry and MAY re-fetch a package even when an identical global
           # install exists — which would defeat `--ignore-scripts` on the
           # npm-install step above (npx's transient install does not inherit
-          # that flag) and would also defeat the caret pin if a new patch
+          # that flag) and would also defeat the exact pin if a new patch
           # published between those two invocations.
           #
           # `npm prefix -g` returns the npm global prefix; its `bin/` subdir
@@ -298,15 +304,31 @@ jobs:
             echo "::error::aimock binary not found at $AIMOCK_BIN after global install"
             exit 1
           fi
-          # Fixture layout matches docker-compose.local.yml: feature-parity.json
-          # was split into per-framework shared/d4/d5-recorded/d6 directories
-          # (directory-based loading, one --fixtures per directory).
-          "$AIMOCK_BIN" --port 4010 --host 127.0.0.1 \
-            --fixtures showcase/aimock/shared \
-            --fixtures showcase/aimock/d4 \
-            --fixtures showcase/aimock/d5-recorded \
-            --fixtures showcase/aimock/d6 \
-            --validate-on-load &
+          # The new CLI loads everything from a single `-c/--config <path>` JSON.
+          # `llm.fixtures` is a SINGLE path; when it points at a directory aimock
+          # recurses into it (config-loader: loadFixtureDir -> loadFixturesFromDir,
+          # which walks subdirs and loads only *.json). Pointing at showcase/aimock
+          # therefore loads the whole shared/d4/d5-recorded/d6 tree in one shot —
+          # the new-CLI equivalent of the old repeated `--fixtures <dir>` flags and
+          # of Railway's single recursing `--fixtures /fixtures`. The README /
+          # RAILWAY.md / Dockerfile in that dir are ignored (non-.json). `strict`
+          # preserves the fail-on-bad-fixture intent of the retired
+          # `--validate-on-load` flag; fixture *schema* is also validated
+          # independently by showcase_validate's aimock-fixtures.test.ts, so CI
+          # still fails loud on a malformed fixture even though directory loading
+          # itself no longer validates.
+          #
+          # Unquoted heredoc so $PWD expands; the only `$` in the body is that
+          # path, so there is nothing else to accidentally interpolate.
+          cat > "$RUNNER_TEMP/aimock.config.json" <<JSON
+          {
+            "host": "127.0.0.1",
+            "port": 4010,
+            "strict": true,
+            "llm": { "fixtures": "$PWD/showcase/aimock" }
+          }
+          JSON
+          "$AIMOCK_BIN" --config "$RUNNER_TEMP/aimock.config.json" --port 4010 --host 127.0.0.1 &
           AIMOCK_PID=$!
           echo "AIMOCK_PID=$AIMOCK_PID" >> "$GITHUB_ENV"
           # Wait for aimock to be ready. Capture the PID + `kill -0` inside
@@ -350,6 +372,31 @@ jobs:
           AGENT_PORT="${{ steps.pkg-type.outputs.agent_port }}"
           AGENT_HEALTH="${{ steps.pkg-type.outputs.agent_health_path }}"
           cd "showcase/integrations/$SLUG"
+          # aimock redirect env, mirroring docker-compose.local.yml. We inject
+          # ALL THREE provider base-urls (not just OpenAI) so a slug whose agent
+          # talks to a different provider cannot silently fall through to the
+          # real API and burn real tokens. The comment-trigger path accepts any
+          # whitelisted slug with an existing dir — not just the workflow_dispatch
+          # enum — so e.g. `/test-aimock google-adk` (Gemini) or a Strands slug
+          # (OpenAI) can reach this step. Without the Gemini/Anthropic vars those
+          # would hit real LLMs even with aimock running. Note the path shapes
+          # differ: OpenAI wants the `/v1` suffix; Anthropic and Gemini take the
+          # bare origin (matches the compose file). Dummy keys keep SDKs that
+          # require a non-empty credential from erroring before they ever reach
+          # aimock. AIMOCK_URL stays set for slugs (crewai-crews) that ship
+          # aimock_toggle.py and wire the redirect themselves via configure_aimock().
+          # NOTE the AIMOCK_URL shape: aimock_toggle.py copies AIMOCK_URL into
+          # OPENAI_BASE_URL VERBATIM (no `/v1` appended — see configure_aimock),
+          # so AIMOCK_URL must already carry `/v1` to yield a valid OpenAI base.
+          # This preserves the prior working CI behavior for crewai-crews.
+          export OPENAI_BASE_URL=http://localhost:4010/v1
+          export OPENAI_API_KEY=sk-aimock-dev-ci-only
+          export ANTHROPIC_BASE_URL=http://localhost:4010
+          export ANTHROPIC_API_KEY=sk-aimock-dev-ci-only
+          export GOOGLE_GEMINI_BASE_URL=http://localhost:4010
+          export GEMINI_API_KEY=aimock-dev-ci-only
+          export GOOGLE_API_KEY=aimock-dev-ci-only
+          export AIMOCK_URL=http://localhost:4010/v1
           # SECURITY / RELIABILITY trade-off: `pip install` runs setup.py /
           # PEP 517 build hooks from PR-controlled packages. Unlike npm / pnpm
           # there is no `--ignore-scripts` flag for pip; the closest equivalent
@@ -367,33 +414,34 @@ jobs:
           # residual source-build-hook risk is bounded to a trusted commenter.
           pip install --prefer-binary -r requirements.txt
 
+          # The provider base-url + AIMOCK_URL env are exported above and apply
+          # to whichever branch runs below — both agent types inherit the same
+          # aimock redirect.
           if [ "$AGENT_TYPE" = "langgraph" ]; then
             # langgraph-python: start via langgraph_cli dev on port 8123.
             # Uses langgraph.json for graph configuration. The /ok endpoint
-            # is the readiness probe. Inject OPENAI_BASE_URL + dummy key
-            # directly since langgraph-python does not ship aimock_toggle.py.
+            # is the readiness probe. langgraph-python does not ship
+            # aimock_toggle.py; it reads OPENAI_BASE_URL directly (exported above).
             if [ ! -f "langgraph.json" ]; then
               echo "::error::Slug '$SLUG' detected as langgraph but langgraph.json is missing."
               exit 1
             fi
-            OPENAI_BASE_URL=http://localhost:4010/v1 \
-            OPENAI_API_KEY=sk-aimock-dev-ci-only \
             python -u -m langgraph_cli dev \
               --config langgraph.json \
               --host 127.0.0.1 \
               --port "$AGENT_PORT" \
               --no-browser &
           else
-            # uvicorn-based agent (crewai-crews): start via agent_server:app
-            # on port 8000. Packages that ship aimock_toggle.py wire
-            # OPENAI_BASE_URL internally — set AIMOCK_URL only so the toggle
-            # itself is exercised end-to-end.
+            # uvicorn-based agent (crewai-crews et al.): start via
+            # agent_server:app on port 8000. Packages that ship aimock_toggle.py
+            # consume AIMOCK_URL (exported above) and wire OPENAI_BASE_URL
+            # internally; packages that don't read the exported provider
+            # base-urls directly.
             if [ ! -f "src/agent_server.py" ]; then
               echo "::error::Slug '$SLUG' is missing src/agent_server.py — uvicorn agent type requires the FastAPI entrypoint."
               exit 1
             fi
             export PYTHONPATH="$PWD/src:${PYTHONPATH:-}"
-            AIMOCK_URL=http://localhost:4010/v1 \
             python -m uvicorn "agent_server:app" --host 127.0.0.1 --port "$AGENT_PORT" &
           fi
 
@@ -432,10 +480,13 @@ jobs:
           # port. A second bind would fail with EADDRINUSE. Running Next
           # directly also keeps the aimock env flow clean.
           #
-          # `OPENAI_BASE_URL` + `OPENAI_API_KEY` on Next are DEFENSIVE ONLY.
+          # The provider base-urls + dummy keys on Next are DEFENSIVE ONLY.
           # Next proxies chat traffic to the Python agent via the CopilotKit
-          # runtime — it does not call OpenAI directly. Setting these prevents
-          # accidental real-API fallback if a future route adds a direct call.
+          # runtime — it does not call the providers directly. Setting all three
+          # (OpenAI/Anthropic/Gemini) prevents accidental real-API fallback if a
+          # future route adds a direct call, regardless of which provider the
+          # selected slug uses. Same path-shape rules as the agent step: OpenAI
+          # carries `/v1`, Anthropic and Gemini take the bare origin.
           #
           # Agent URL wiring differs by agent type:
           # - uvicorn (crewai-crews): AGENT_URL=http://localhost:8000
@@ -450,6 +501,11 @@ jobs:
           fi
           export OPENAI_BASE_URL=http://localhost:4010/v1
           export OPENAI_API_KEY=sk-aimock-dev-ci-only
+          export ANTHROPIC_BASE_URL=http://localhost:4010
+          export ANTHROPIC_API_KEY=sk-aimock-dev-ci-only
+          export GOOGLE_GEMINI_BASE_URL=http://localhost:4010
+          export GEMINI_API_KEY=aimock-dev-ci-only
+          export GOOGLE_API_KEY=aimock-dev-ci-only
           npx next dev --turbopack &
           # Wait for dev server. `--max-time 2 --connect-timeout 1` caps each
           # probe so a hung socket can't blow the loop budget.
