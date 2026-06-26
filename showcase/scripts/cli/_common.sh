@@ -894,6 +894,19 @@ _slot_ports_free() {
   local liveness="$precomputed_liveness"
   local any_held=0
   local port
+
+  # Capture the slot's port list BEFORE the loop so _slot_offset_ports's exit
+  # status reaches us. Consuming it inline via `done < <(_slot_offset_ports ...)`
+  # ran _slot_offset_ports in a process-substitution SUBSHELL: a `die` on a bad
+  # slot (out-of-range / non-numeric) exited only that subshell, the loop read
+  # zero ports, any_held stayed 0, and we returned 0 ("all free") — silently
+  # defeating the port-conflict guard for a bad slot. With command substitution
+  # the die propagates the failing exit status; `|| die` re-raises it loudly so
+  # both claim paths see an error, never a false "free".
+  local ports
+  ports="$(_slot_offset_ports "$slot")" \
+    || die "_slot_ports_free: could not enumerate ports for slot $slot"
+
   while IFS= read -r port; do
     [ -z "$port" ] && continue
     local listeners
@@ -932,7 +945,7 @@ _slot_ports_free() {
       info "Slot $slot port $port held by $proc_name"
       any_held=1
     done <<< "$listeners"
-  done < <(_slot_offset_ports "$slot")
+  done <<< "$ports"
 
   if [ "$any_held" -eq 0 ]; then
     return 0
