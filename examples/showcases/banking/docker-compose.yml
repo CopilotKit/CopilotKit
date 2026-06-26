@@ -42,7 +42,9 @@ services:
   postgres:
     image: pgvector/pgvector:0.8.2-pg16
     ports:
-      - '${POSTGRES_HOST_PORT:-7056}:5432'
+      # Banking-specific host-port range (715x) so a bare `docker compose up`
+      # coexists with a developer's Intelligence dev deps (which use 705x).
+      - '${POSTGRES_HOST_PORT:-7156}:5432'
     environment:
       POSTGRES_USER: intelligence
       POSTGRES_PASSWORD: intelligence
@@ -62,7 +64,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - '${REDIS_HOST_PORT:-7058}:6379'
+      - '${REDIS_HOST_PORT:-7158}:6379'
     volumes:
       - redis-data:/data
     healthcheck:
@@ -76,8 +78,8 @@ services:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     ports:
-      - '${MINIO_HOST_PORT:-7060}:9000'
-      - '${MINIO_CONSOLE_HOST_PORT:-7061}:9001'
+      - '${MINIO_HOST_PORT:-7160}:9000'
+      - '${MINIO_CONSOLE_HOST_PORT:-7161}:9001'
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
@@ -92,18 +94,27 @@ services:
     restart: unless-stopped
 
   # One-shot: create the bucket the realtime-gateway archives events into.
-  # `mc ready local` in minio's healthcheck guarantees the server is up first.
+  # `mc ready local` in minio's healthcheck guarantees the server is up first,
+  # but the embedded Docker DNS resolver can briefly fail to resolve the `minio`
+  # service name at container start, so retry `mc alias set` until it resolves.
+  # The `$$` escapes compose interpolation so the container shell sees `$`.
   minio-init:
     image: minio/mc:latest
     depends_on:
       minio:
         condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://minio:9000 minioadmin minioadmin &&
-      mc mb --ignore-existing local/realtime-gateway-events &&
-      echo 'minio bucket ready'
-      "
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        i=0
+        until mc alias set local http://minio:9000 minioadmin minioadmin; do
+          i=$$((i + 1))
+          if [ "$$i" -ge 30 ]; then echo 'minio unreachable after 30 tries' >&2; exit 1; fi
+          echo 'waiting for minio dns/health...'; sleep 2
+        done
+        mc mb --ignore-existing local/realtime-gateway-events
+        echo 'minio bucket ready'
     restart: 'no'
 
   # OpenAI-compatible embeddings sidecar. The cpu-1.9.3 tag publishes a
@@ -131,7 +142,7 @@ services:
         '${TEI_MAX_BATCH_TOKENS:-16384}',
       ]
     ports:
-      - '${TEI_HOST_PORT:-7067}:80'
+      - '${TEI_HOST_PORT:-7167}:80'
     volumes:
       - tei-model-cache:/data
     healthcheck:
@@ -164,7 +175,13 @@ services:
       REDIS_URL: redis://redis:6379
       MEMORY_ENABLED: "true"
       SL_ENABLED: "true"                                  # REQUIRED — memory MCP tools attach by extending the SL /mcp server
-      MEMORY_EMBEDDINGS_URL: http://tei:80                # in-container TEI port is 80; host-mapped to 7067
+      # Embedder is pluggable. Default = the bundled `tei` container (self-contained,
+      # correct on amd64/CI/deploy). On a RAM-constrained Apple-Silicon dev box the
+      # emulated TEI can OOM (exit 137); override to a host/native embedder, e.g.
+      #   MEMORY_EMBEDDINGS_URL=http://host.docker.internal:7067 docker compose up -d --wait \
+      #     postgres redis minio minio-init intelligence
+      # (omits the bundled tei — its dependency below is required:false).
+      MEMORY_EMBEDDINGS_URL: ${MEMORY_EMBEDDINGS_URL:-http://tei:80}
       MEMORY_EMBEDDING_MODEL: Qwen/Qwen3-Embedding-0.6B
       DEFAULT_ORGANIZATION_ID: casa-de-erlang
       COPILOTKIT_LICENSE_TOKEN: "${COPILOTKIT_LICENSE_TOKEN:-}"
@@ -194,6 +211,9 @@ services:
         condition: service_completed_successfully
       tei:
         condition: service_healthy
+        # Optional: when an external embedder is supplied via MEMORY_EMBEDDINGS_URL,
+        # bring the stack up without the bundled tei (`up ... intelligence` omitting tei).
+        required: false
     healthcheck:
       # app-api answers /api/health on 4201; gateway listens on 4401.
       test:
