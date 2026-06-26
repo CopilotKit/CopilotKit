@@ -161,7 +161,7 @@ export function buildExecutionTree(snapshot: FeedStoreSnapshot): RunNode[] {
     // Attach the resume continuation if this is the approval node.
     if (record.verdict === "approval" && record.approvalId) {
       const resume = resumesByApproval.get(record.approvalId);
-      if (resume && !resume.isResume === false) {
+      if (resume) {
         node.continuation = toActionNode(resume, snapshot.timings);
       }
     }

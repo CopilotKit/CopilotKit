@@ -56,16 +56,3 @@ export function pillarLabel(pillar: GovernancePillar): string {
       return "Governance";
   }
 }
-
-export function pillarCopy(pillar: GovernancePillar): string {
-  switch (pillar) {
-    case "guardrails":
-      return "Input/output guardrails and redaction.";
-    case "policies":
-      return "Rego policy and destination/goal-drift checks.";
-    case "behavioral_rules":
-      return "Behavioral rules and human-in-the-loop approval.";
-    default:
-      return "OpenBox runtime governance.";
-  }
-}

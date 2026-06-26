@@ -9,8 +9,6 @@ export const GOVERNED_TOOL_NAMES = [
   "openbox_resume_governed_action",
 ] as const;
 
-export const RESUME_TOOL_NAME = "openbox_resume_governed_action";
-
 /** Mirror of the SDK's parseToolResult (also exported by the SDK, kept local for purity). */
 export function parseFeedToolResult(value: unknown): Record<string, unknown> {
   if (!value) return {};
@@ -95,14 +93,6 @@ export function extractToolCalls(
 export function toolCallName(toolCall: Record<string, unknown>): string {
   const fn = asRecord(toolCall.function);
   return textValue(toolCall.name ?? fn.name);
-}
-
-export function toolCallArgs(
-  toolCall: Record<string, unknown>,
-): Record<string, unknown> {
-  const fn = asRecord(toolCall.function);
-  const args = fn.arguments ?? toolCall.args;
-  return parseFeedToolResult(args);
 }
 
 /**
