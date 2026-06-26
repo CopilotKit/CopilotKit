@@ -193,6 +193,63 @@ Once promoted, run the digest promote itself the normal way —
 [`./bin/README.md`](./bin/README.md) "Worked example: promote staging →
 production".
 
+### CVDIAG instrumentation + per-request `X-AIMock-Strict` forwarding (REQUIRED)
+
+Any integration being **added or promoted** MUST also be wired for
+flap-observability (CVDIAG) and per-request header forwarding, or its D6 column
+can silently degrade. Two non-optional steps:
+
+1. **CVDIAG backend instrumentation.** Add the slug to
+   `_CVDIAG_TS_INTEGRATIONS` in `scripts/cli/cmd-cvdiag-stage-ts.sh` and run
+   `bin/showcase cvdiag-stage-ts` (then `--check`, which must exit 0 with zero
+   drift). This stages the co-located `src/cvdiag/` emitter into the
+   integration's standalone build context. Then WIRE the emitter so backend
+   `backend.*` boundaries actually emit and persist to the `cvdiag_events`
+   PocketBase collection (set `CVDIAG_BACKEND_EMITTER`, `CVDIAG_PB_URL`,
+   `CVDIAG_WRITER_KEY` on the prod env's variable set, mirroring the local
+   compose service). Without backend rows, `bin/showcase cvdiag classify` has
+   nothing to classify and a flap cannot be diagnosed.
+
+2. **Per-request `X-AIMock-Strict` forwarding.** The probe sends
+   `X-AIMock-Strict: true` (+ `x-test-id`, `x-aimock-context`, `x-diag-*`) on
+   every request so a fixture MISS becomes a HARD FAILURE instead of silently
+   proxying to the real provider. The integration's outbound LLM call to aimock
+   MUST carry that header through. If it does not, a fixture miss falls through
+   and a stale/drifted answer renders as a PASS — the classic symptom is the
+   **D3 column flapping** (an e2e cell intermittently going amber/red) because
+   the rendered answer is non-deterministic real-provider output rather than the
+   pinned fixture. Forward ONLY headers PRESENT inbound (never hardcode strict
+   on) so ordinary demo traffic still proxies normally.
+
+**Two-process caveat.** For a two-process integration (a Next proxy route in
+front of a separate agent process — e.g. `strands-typescript`,
+`claude-sdk-typescript`, where the Next route is a bare `HttpAgent` proxy and
+the model call happens in the agent process), the CVDIAG emitter AND the header
+forwarder must live **agent-side**, not on the Next route. Wrapping the Next
+route would instrument the proxy hop, not the real model call, and the AG-UI
+transport may drop inbound `x-*` before `agent.run()` (e.g.
+`@ag-ui/aws-strands` reads only `req.body` + `accept`). The seams are: (a) the
+Next route forwards inbound `x-*` onto the proxy POST (HttpAgent `fetch`
+option + an `AsyncLocalStorage` snapshot), and (b) the agent process recovers
+them via a middleware mounted before the framework handler, seeds an
+`AsyncLocalStorage`, and the model client's `fetch` override injects them on the
+outbound aimock call. See `integrations/strands-typescript/src/agent/{header-forwarding,cvdiag-backend-strands}.ts`
+for the worked two-process example, and `integrations/built-in-agent/src/lib/header-forwarding.ts`
+for the in-process precedent.
+
+**Two-process Docker staging (REQUIRED).** When the separate agent process
+imports the co-located emitter directly (e.g. `../cvdiag/cvdiag-emitter.js`),
+the integration's `Dockerfile` MUST `COPY src/cvdiag` into the runner stage so
+the emitter ships in the image — e.g. `COPY --chown=app:app src/cvdiag
+./src/cvdiag` immediately after the `COPY --chown=app:app src/agent ./src/agent`.
+Single-process integrations (`mastra`, `langgraph-typescript`,
+`claude-sdk-typescript`) get the emitter via Next's `.next` bundling and do NOT
+need this extra COPY. **Symptom if omitted:** the image passes local d6 — where
+`bin/showcase cvdiag-stage-ts` materializes the emitter into the working tree —
+but **crashes at boot in Docker/staging with `ERR_MODULE_NOT_FOUND:
+.../src/cvdiag/cvdiag-emitter.js`**, so the agent never starts and the D6 column
+never renders.
+
 > **Related:** for the _single-shot_ "create prod service → go live"
 > bring-up (where prod is provisioned immediately, with no staging-first
 > phase), see [`./INTEGRATION-CHECKLIST.md`](./INTEGRATION-CHECKLIST.md) §B.

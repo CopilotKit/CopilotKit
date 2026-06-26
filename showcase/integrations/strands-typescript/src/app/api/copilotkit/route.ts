@@ -5,8 +5,9 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import type { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent, HttpAgentConfig } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -15,8 +16,41 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
+// Per-request inbound x-* forwarding over the HttpAgent proxy hop. The Next
+// route is a bare proxy; the model call happens in the Express agent (:8000).
+// @ag-ui/client's HttpAgent `headers` are STATIC (construction-time), so the
+// per-request seam is its `fetch` option: a custom fetch that reads an
+// AsyncLocalStorage snapshot (seeded by the POST handler below) and injects the
+// inbound x-* (incl. X-AIMock-Strict / x-test-id / x-diag-*) onto the outbound
+// POST. These then arrive on req.headers at the Express endpoint, where the
+// agent-side middleware reads them. Byte-identical to a plain fetch when no x-*
+// are in scope, so demo traffic proxies unchanged.
+const proxyHeaders = new AsyncLocalStorage<Record<string, string>>();
+
+function extractXHeaders(req: NextRequest): Record<string, string> {
+  const out: Record<string, string> = {};
+  req.headers.forEach((value, key) => {
+    const lower = key.toLowerCase();
+    if (lower.startsWith("x-")) out[lower] = value;
+  });
+  return out;
+}
+
+const forwardingProxyFetch: NonNullable<HttpAgentConfig["fetch"]> = (
+  url,
+  requestInit,
+) => {
+  const forwarded = proxyHeaders.getStore() ?? {};
+  if (Object.keys(forwarded).length === 0) return fetch(url, requestInit);
+  const merged = new Headers(requestInit?.headers);
+  for (const [k, v] of Object.entries(forwarded)) {
+    if (!merged.has(k)) merged.set(k, v);
+  }
+  return fetch(url, { ...requestInit, headers: merged });
+};
+
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+  return new HttpAgent({ url: `${AGENT_URL}/`, fetch: forwardingProxyFetch });
 }
 
 // Register the same agent under all names used by demo pages.
@@ -87,34 +121,41 @@ console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
 );
 
-export const POST = async (req: NextRequest) => {
-  const url = req.url;
-  const contentType = req.headers.get("content-type");
-  console.log(`[copilotkit/route] POST ${url} (content-type: ${contentType})`);
-
-  try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      endpoint: "/api/copilotkit",
-      serviceAdapter: new ExperimentalEmptyAdapter(),
-      runtime: new CopilotRuntime({
-        // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
-        agents,
-      }),
-    });
-
-    const response = await handleRequest(req);
-    console.log(`[copilotkit/route] Response status: ${response.status}`);
-    return response;
-  } catch (error: unknown) {
-    const err = error as Error;
-    console.error(`[copilotkit/route] ERROR: ${err.message}`);
-    console.error(`[copilotkit/route] Stack: ${err.stack}`);
-    return NextResponse.json(
-      { error: err.message, stack: err.stack },
-      { status: 500 },
+export const POST = async (req: NextRequest) =>
+  // Snapshot the inbound x-* into ALS for the duration of the request so the
+  // HttpAgent's forwardingProxyFetch can inject them onto the outbound POST to
+  // the Express agent. Only headers PRESENT inbound are forwarded — never
+  // hardcoded — so non-diagnostic demo traffic is byte-identical.
+  proxyHeaders.run(extractXHeaders(req), async () => {
+    const url = req.url;
+    const contentType = req.headers.get("content-type");
+    console.log(
+      `[copilotkit/route] POST ${url} (content-type: ${contentType})`,
     );
-  }
-};
+
+    try {
+      const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+        endpoint: "/api/copilotkit",
+        serviceAdapter: new ExperimentalEmptyAdapter(),
+        runtime: new CopilotRuntime({
+          // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
+          agents,
+        }),
+      });
+
+      const response = await handleRequest(req);
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+      return response;
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error(`[copilotkit/route] ERROR: ${err.message}`);
+      console.error(`[copilotkit/route] Stack: ${err.stack}`);
+      return NextResponse.json(
+        { error: err.message, stack: err.stack },
+        { status: 500 },
+      );
+    }
+  });
 
 export const GET = async () => {
   console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
