@@ -9,7 +9,7 @@ export const GOVERNED_TOOL_NAMES = [
   "openbox_resume_governed_action",
 ] as const;
 
-/** Mirror of the SDK's parseToolResult (also exported by the SDK, kept local for purity). */
+/** Local result-content parser (kept dependency-free so this module stays in the client bundle). Returns {} for any non-object input. */
 export function parseFeedToolResult(value: unknown): Record<string, unknown> {
   if (!value) return {};
   if (typeof value === "string") {
@@ -35,13 +35,18 @@ export function isOpenBoxResultRecord(
 }
 
 /**
- * Mirror of the SDK-internal verdictFromResult (NOT exported by the SDK).
- * Verified verbatim against react.js. Returns the feed badge verdict.
+ * Adapted from the SDK-internal verdictFromResult (NOT exported by the SDK).
+ * Maps a raw result envelope to the feed badge verdict; note `approval_pending`
+ * is shown as `approval` (a pending-approval state), not `block`.
  */
 export function verdictFromResultRecord(
   result: Record<string, unknown>,
 ): GovernanceVerdict {
-  if (result.status === "approval_required") return "approval";
+  if (
+    result.status === "approval_required" ||
+    result.status === "approval_pending"
+  )
+    return "approval";
   if (result.status === "rejected") return "rejected";
   if (result.status === "error" || result.verdict === "error") return "error";
   if (result.status === "halted" || result.verdict === "halt") return "halt";
@@ -56,13 +61,7 @@ export function verdictFromResultRecord(
   }
   if (result.status === "executed" || result.verdict === "allow")
     return "allow";
-  if (
-    result.status === "blocked" ||
-    result.status === "approval_pending" ||
-    result.verdict === "block"
-  ) {
-    return "block";
-  }
+  if (result.status === "blocked" || result.verdict === "block") return "block";
   if (result.verdict === "require_approval") return "approval";
   return "reviewing";
 }
