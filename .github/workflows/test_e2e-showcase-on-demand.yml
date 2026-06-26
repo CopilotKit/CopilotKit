@@ -461,12 +461,24 @@ jobs:
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
           cd "showcase/integrations/$SLUG"
-          # `--ignore-scripts`: a trusted commenter can run `/test-aimock` on
-          # a PR whose package.json is untrusted content. Without this flag
-          # an attacker's postinstall script would execute on the runner with
-          # the workflow's token. The E2E path (Playwright + Next.js dev) does
-          # not require install-time scripts to succeed.
-          pnpm install --ignore-scripts
+          # Install with `npm ci`, NOT pnpm. Each integration under
+          # showcase/integrations/* is a STANDALONE npm package (ships its own
+          # package-lock.json; built with `npm ci --legacy-peer-deps` in its
+          # Dockerfile) and is intentionally NOT a member of the root pnpm
+          # workspace. Running `pnpm install` here makes pnpm walk up to the root
+          # pnpm-workspace.yaml and operate on the WORKSPACE instead of this
+          # package — so the package's own deps (next, @playwright/test) were
+          # never installed locally. The previous `npx next`/`npx playwright`
+          # calls masked that by silently fetching the binaries from the registry
+          # (which then pulled next@16 and broke Turbopack). `npm ci` installs
+          # this package's pinned deps into ./node_modules with linked bins, and
+          # the steps below invoke those bins directly.
+          # `--legacy-peer-deps` mirrors the Dockerfile; `--ignore-scripts`:
+          # a trusted commenter can run `/test-aimock` on a PR whose package.json
+          # is untrusted content — without it an attacker's postinstall script
+          # would execute on the runner with the workflow's token. The E2E path
+          # (Playwright + Next.js dev) does not require install-time scripts.
+          npm ci --legacy-peer-deps --ignore-scripts
 
       - name: Start dev server
         run: |
@@ -480,13 +492,13 @@ jobs:
           # bound the agent port. A second bind would fail with EADDRINUSE.
           # Running Next directly also keeps the aimock env flow clean.
           #
-          # Use `pnpm exec next` (NOT `npx next`): `npx next` ignores the
-          # pnpm-installed local binary and fetches next@latest from the registry
-          # (observed: next@16 instead of the pinned ^15.5.15), and next@16's
-          # Turbopack fails workspace-root inference in this monorepo layout
-          # ("couldn't find next/package.json from .../src/app"). `pnpm exec`
-          # resolves the lockfile-pinned next, matching the repo's convention for
-          # CI binary invocation (see showcase_validate / showcase_promote).
+          # Invoke the LOCAL next binary (./node_modules/.bin/next) installed by
+          # `npm ci` above, NOT `npx next`. `npx next` ignores a local binary it
+          # can't resolve and fetches next@latest from the registry (observed:
+          # next@16 instead of the pinned ^15.5.15), and next@16's Turbopack
+          # fails workspace-root inference in this monorepo layout ("couldn't
+          # find next/package.json from .../src/app"). The explicit bin path is
+          # deterministic — it uses the package's pinned next or fails loud.
           #
           # The provider base-urls + dummy keys on Next are DEFENSIVE ONLY.
           # Next proxies chat traffic to the Python agent via the CopilotKit
@@ -514,7 +526,7 @@ jobs:
           export GOOGLE_GEMINI_BASE_URL=http://localhost:4010
           export GEMINI_API_KEY=aimock-dev-ci-only
           export GOOGLE_API_KEY=aimock-dev-ci-only
-          pnpm exec next dev --turbopack &
+          ./node_modules/.bin/next dev --turbopack &
           # Wait for dev server. `--max-time 2 --connect-timeout 1` caps each
           # probe so a hung socket can't blow the loop budget.
           for i in $(seq 1 30); do
@@ -526,11 +538,11 @@ jobs:
       - name: Install Playwright
         run: |
           cd "showcase/integrations/${{ steps.slug.outputs.slug }}"
-          # `pnpm exec` (not `npx`) so the browser version matches the
-          # lockfile-pinned @playwright/test used by "Run Playwright tests"
+          # Local bin (not `npx`) so the installed browser version matches the
+          # package's pinned @playwright/test used by "Run Playwright tests"
           # below — `npx playwright` would fetch playwright@latest and install
           # mismatched browsers, causing "executable doesn't exist" at test time.
-          pnpm exec playwright install chromium --with-deps
+          ./node_modules/.bin/playwright install chromium --with-deps
 
       - name: Re-probe aimock liveness
         # aimock was readiness-checked once right after startup, but several
@@ -552,12 +564,12 @@ jobs:
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
           cd "showcase/integrations/$SLUG"
-          BASE_URL=http://localhost:3000 pnpm exec playwright test --reporter=list
+          BASE_URL=http://localhost:3000 ./node_modules/.bin/playwright test --reporter=list
         env:
           CI: "true"
           # Dead env — Next.js is already running from the "Start dev server"
           # step above (which set these inline on that process). Env set here
-          # would only affect the `pnpm exec playwright test` process, which does not
+          # would only affect the `playwright test` process, which does not
           # read OPENAI_BASE_URL / OPENAI_API_KEY. Leaving unset to avoid the
           # false impression that these values flow to the running Next server.
 
