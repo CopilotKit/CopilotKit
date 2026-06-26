@@ -130,7 +130,7 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
             RecordingProvider exposes the teach-mode `isRecording` flag; the
             <RecordingVignette/> reads it to pulse a soft violet glow around the
             canvas while an officer demonstration is being recorded. It wraps
-            BOTH the page content and the chat panel so every `recordUserAction`
+            BOTH the page content and the chat panel so every demonstration
             call site (the transactions list approve/deny, the inline policy
             exception card) is inside it.
           */}
