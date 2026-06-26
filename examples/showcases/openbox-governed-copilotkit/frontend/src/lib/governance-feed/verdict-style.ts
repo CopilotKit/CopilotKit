@@ -18,9 +18,10 @@ export interface VerdictStyle {
 }
 
 /**
- * Verdict -> presentation. Labels intentionally match the terminal-verdict
- * regex used by the e2e suite: Allowed | Redacted | Constrained | Blocked |
- * Halted | Rejected. "Reviewing" is the pre-decision state.
+ * Verdict -> presentation. Labels emitted by this map:
+ *   Reviewing (pre-decision) | Allowed | Constrained | Approval |
+ *   Blocked | Halted | Rejected | Error.
+ * No "Redacted" label is produced — constrain renders as "Constrained".
  */
 export const VERDICT_STYLE: Record<GovernanceVerdict, VerdictStyle> = {
   reviewing: {
