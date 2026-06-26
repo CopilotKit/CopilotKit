@@ -131,6 +131,29 @@ describe("buildExecutionTree", () => {
     expect(node.continuation?.isResume).toBe(true);
   });
 
+  it("renders a resume with no matching approval as its own top-level action", () => {
+    const tree = buildExecutionTree(
+      snapshot([
+        result({
+          id: "resume",
+          runId: "run-1",
+          action: "issue_large_refund",
+          verdict: "allow",
+          status: "executed",
+          approvalId: "ap-orphan",
+          isResume: true,
+        }),
+      ]),
+    );
+    // No approval_required node for ap-orphan: the resume is neither nested
+    // nor dropped — it stands on its own at the top level.
+    expect(tree[0].actions).toHaveLength(1);
+    const node = tree[0].actions[0];
+    expect(node.id).toBe("resume");
+    expect(node.isResume).toBe(true);
+    expect(node.continuation).toBeUndefined();
+  });
+
   it("orders runs and actions by arrivalIndex then emittedAt", () => {
     const tree = buildExecutionTree(
       snapshot([
