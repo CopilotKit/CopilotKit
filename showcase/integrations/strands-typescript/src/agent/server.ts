@@ -23,6 +23,7 @@ import {
   buildByocJsonRenderAgent,
   buildA2uiFixedSchemaAgent,
   buildA2uiDynamicAgent,
+  buildA2uiRecoveryAgent,
 } from "./agent";
 
 /** Mount an agent at `path` and `path/` so trailing-slash proxies resolve. */
@@ -52,15 +53,23 @@ async function main(): Promise<void> {
   });
   addPing(app, "/ping");
 
-  const [showcase, voice, hashbrown, jsonRender, a2uiFixed, a2uiDynamic] =
-    await Promise.all([
-      buildShowcaseAgent(),
-      buildVoiceAgent(),
-      buildByocHashbrownAgent(),
-      buildByocJsonRenderAgent(),
-      buildA2uiFixedSchemaAgent(),
-      buildA2uiDynamicAgent(),
-    ]);
+  const [
+    showcase,
+    voice,
+    hashbrown,
+    jsonRender,
+    a2uiFixed,
+    a2uiDynamic,
+    a2uiRecovery,
+  ] = await Promise.all([
+    buildShowcaseAgent(),
+    buildVoiceAgent(),
+    buildByocHashbrownAgent(),
+    buildByocJsonRenderAgent(),
+    buildA2uiFixedSchemaAgent(),
+    buildA2uiDynamicAgent(),
+    buildA2uiRecoveryAgent(),
+  ]);
 
   mountAgent(app, "/voice", voice);
   mountAgent(app, "/byoc-hashbrown", hashbrown);
@@ -73,6 +82,9 @@ async function main(): Promise<void> {
   // `injectA2UITool: true` makes the adapter auto-inject `generate_a2ui` and
   // GENERATE the surface, stamped with the page's catalog id.
   mountAgent(app, "/declarative-gen-ui", a2uiDynamic);
+  // Error-recovery A2UI: same auto-inject setup; aimock fixtures force the
+  // inner render to heal or exhaust so the adapter's recovery loop is visible.
+  mountAgent(app, "/a2ui-recovery", a2uiRecovery);
   // Mount the shared agent LAST at the root so the sub-path POST routes are
   // matched first by Express's route table.
   mountAgent(app, "/", showcase);
