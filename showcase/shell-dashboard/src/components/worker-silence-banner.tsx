@@ -29,7 +29,11 @@
 import { useState } from "react";
 
 import type { WorkerFamilySummary } from "@/lib/ops-api";
-import { isFamilySilent, useWorkerRuns } from "@/lib/worker-runs-context";
+import {
+  freshestBounceMs,
+  isFamilySilent,
+  useWorkerRuns,
+} from "@/lib/worker-runs-context";
 import { formatRelative } from "./status-table";
 
 /**
@@ -80,8 +84,12 @@ export function WorkerSilenceBanner() {
         : "Worker run telemetry unreachable — ops endpoint not responding; see Ops tab.",
     ];
   } else {
+    // Post-bounce drain grace: a recent fleet bounce (PR #5715) suppresses
+    // both this banner and the §9 Slack alert, keyed off the same worker
+    // `registeredAt` shipped in the strip.
+    const bounceAtMs = freshestBounceMs(status.data.workers);
     const silentFamilies = status.data.families.filter((family) =>
-      isFamilySilent(family, nowMs),
+      isFamilySilent(family, nowMs, bounceAtMs),
     );
     if (silentFamilies.length === 0) return null;
     variant = "silence";

@@ -141,6 +141,14 @@ export interface WorkerRow {
   capacity_max?: number;
   current_job_id?: string;
   last_heartbeat_at?: string;
+  /**
+   * ISO instant the worker last (re)registered — seeded on every worker boot
+   * upsert (worker/registration.ts) and preserved verbatim across heartbeats.
+   * The freshest value across the strip is the fleet's most-recent BOUNCE
+   * instant (PR #5715: an image rebuild bounces the pool workers), which the
+   * §7.4 banner / §9 silence monitor key their post-bounce drain grace off.
+   */
+  registered_at?: string;
 }
 
 /** The `probe_runs` row fields the reds read path consumes (§4.2). */
@@ -207,6 +215,16 @@ export interface WorkerView {
   workerId: string;
   health: WorkerHealthState;
   lastHeartbeatAt: string;
+  /**
+   * ISO instant the worker last (re)registered (`registered_at`), or "" when
+   * the column is absent (pre-migration / never-registered row). The freshest
+   * non-empty value across the strip is the fleet's most-recent bounce instant
+   * — the §7.4 banner / §9 silence monitor use it to grace a post-deploy drain
+   * (workers just restarted, families legitimately mid-sweep) instead of
+   * flagging false silence. A non-secret identifier timestamp, same exposure
+   * carve-out as `lastHeartbeatAt`.
+   */
+  registeredAt: string;
   currentJobId: string | null;
   capacity: { inUse: number; available: number; max: number };
 }
@@ -722,6 +740,7 @@ export function projectWorker(
     workerId: row.worker_id,
     health,
     lastHeartbeatAt: heartbeat,
+    registeredAt: row.registered_at ?? "",
     currentJobId:
       row.current_job_id && row.current_job_id !== ""
         ? row.current_job_id

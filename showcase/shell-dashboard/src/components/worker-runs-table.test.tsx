@@ -76,6 +76,7 @@ function worker(overrides: Partial<WorkerView> = {}): WorkerView {
     workerId: "worker-railway-abc",
     health: "online",
     lastHeartbeatAt: new Date(NOW - 5_000).toISOString(),
+    registeredAt: new Date(NOW - 3_600_000).toISOString(),
     currentJobId: null,
     capacity: { inUse: 0, available: 24, max: 24 },
     ...overrides,
