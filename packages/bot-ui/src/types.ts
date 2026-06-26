@@ -158,11 +158,24 @@ export interface MessageReaction {
   user?: PlatformUser;
   /** Id of the reacted-to message. */
   messageId: string;
+  /**
+   * The conversation thread — same surface an `onClick` gets via `ctx.thread`.
+   * Post new UI (`thread.post`), run the agent (`thread.runAgent`), block on a
+   * human choice (`thread.awaitChoice`, HITL), react back, etc.
+   */
+  thread: Thread;
+  /**
+   * Ref to the reacted-to message, for swapping its UI in place:
+   * `thread.update(reaction.messageRef, <NewUi/>)`.
+   */
+  messageRef: MessageRef;
 }
 /**
  * Handler for reactions on a posted message, set via `<Message onReaction>`.
  * Fires for both adds and removes (check `reaction.added`); the first arg is
- * the emoji for the common `(reaction) => reaction === "bug"` shape.
+ * the emoji for the common `(reaction) => reaction === "bug"` shape. The second
+ * carries the full reaction including `thread`/`messageRef`, so a handler can
+ * post, swap UI, or run a HITL flow exactly like an `onClick`.
  */
 export type MessageReactionHandler = (
   emoji: EmojiValue,

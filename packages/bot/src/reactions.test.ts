@@ -151,6 +151,33 @@ describe("bot.onReaction", () => {
     expect(seen).toEqual(["🎉"]);
   });
 
+  it("gives the handler a thread to post new UI and the reacted message's ref", async () => {
+    const fake = new FakeAdapter();
+    const bot = createBot({ adapters: [fake] });
+    let seenRefId: string | undefined;
+    bot.onMessage(async ({ thread }) => {
+      await thread.post(
+        Message({
+          onReaction: async (_e, r) => {
+            seenRefId = r.messageRef.id;
+            await r.thread.post("thanks for the reaction"); // post new UI like onClick can
+          },
+          children: "hi",
+        }),
+      );
+    });
+    await bot.start();
+    fake.emitTurn({});
+    await tick();
+    const before = fake.posted.length;
+    fake.emitReaction({ rawEmoji: "🎉", added: true, messageId: "msg-1" });
+    await tick();
+    // The handler posted a second message via its thread.
+    expect(fake.posted.length).toBe(before + 1);
+    // …and received an update-capable ref to the reacted message (fallback id here).
+    expect(seenRefId).toBe("msg-1");
+  });
+
   it("does not fire a message handler for a reaction on a different message", async () => {
     const fake = new FakeAdapter();
     const bot = createBot({ adapters: [fake] });

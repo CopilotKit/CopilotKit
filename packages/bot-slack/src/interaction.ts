@@ -163,6 +163,9 @@ export function decodeReaction(
       ...(e.user ? { recipientUserId: e.user } : {}),
     },
     messageId: ts,
+    // Update-capable ref (channel + ts) so an onReaction handler can swap the
+    // reacted message's UI in place via thread.update.
+    messageRef: { id: ts, channel },
     threadId: ts,
     raw: event,
   };

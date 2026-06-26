@@ -185,6 +185,9 @@ export function decodeReaction(
       ...(r.message?.guildId ? { guildId: r.message.guildId } : {}),
     },
     messageId,
+    // Update-capable ref (channelId + message id) so an onReaction handler can
+    // edit the reacted message in place via thread.update.
+    messageRef: { id: messageId, channelId },
     raw: reaction,
   };
 }

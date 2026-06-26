@@ -30,10 +30,12 @@ export interface MessageProps extends WithChildren {
   /**
    * Called when a user reacts to this message (add or remove). The first arg is
    * the emoji, e.g. `onReaction={(r) => r === "bug" ? triage() : ack()}`; the
-   * second carries `added`/`user`/`rawEmoji`. Durable on the same terms as a
-   * component `onClick`: survives a restart when the `<Message>` comes from a
-   * registered component and a durable store is configured; inline handlers
-   * route in-process only.
+   * second carries `added`/`user`/`rawEmoji` plus a `thread` and the reacted
+   * message's `messageRef` — the same surface an `onClick` gets, so the handler
+   * can `thread.post(...)`, `thread.update(messageRef, ...)`, or run a HITL flow.
+   * Durable on the same terms as a component `onClick`: survives a restart when
+   * the `<Message>` comes from a registered component and a durable store is
+   * configured; inline handlers route in-process only.
    */
   onReaction?: MessageReactionHandler;
 }

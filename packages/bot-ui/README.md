@@ -117,10 +117,19 @@ Interactive components carry handler props typed as `ClickHandler`:
 
 `Message` also takes `onReaction`, fired when a user reacts to the posted
 message (adds or removes). The first arg is the emoji; the second carries
-`added`/`user`/`rawEmoji`:
+`added`/`user`/`rawEmoji` plus a `thread` and the reacted message's
+`messageRef` — the same surface an `onClick` gets, so a reaction can post new
+UI, swap the message in place, or run a HITL flow:
 
 ```tsx
-<Message onReaction={(emoji, r) => r.added && emoji === "bug" && triage()}>
+<Message
+  onReaction={async (emoji, r) => {
+    if (!r.added) return;
+    if (emoji === "bug") await r.thread.post(<FileBug />); // post new UI
+    if (emoji === "white_check_mark")
+      await r.thread.update(r.messageRef, <Resolved />); // swap UI in place
+  }}
+>
   …
 </Message>
 ```
