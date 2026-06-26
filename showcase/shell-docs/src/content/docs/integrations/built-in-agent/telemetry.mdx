@@ -11,13 +11,27 @@ We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.
 - We do not use cookies or trackers in open-source telemetry
 - To minimize the frequency of data sent, we apply batching and sampling to telemetry
 
+## Bot SDK telemetry
+
+The CopilotKit bot packages (`@copilotkit/bot` and its platform adapters) send the same kind of anonymous, metadata-only telemetry so we can understand how the bot SDK is adopted. No message content, user identities, channel names, or application data are ever collected, and errors are recorded only as a sanitized category — never the error message.
+
+The bot SDK records a small set of lifecycle events:
+
+- `oss.bot.configured` — a bot was created (which platform adapters and store backend, plus counts of tools/commands/components — never their names or values)
+- `oss.bot.started` — the bot connected to at least one platform
+- `oss.bot.start_failed` — an adapter failed to start (sanitized error category only)
+- `oss.bot.agent_run` — an agent run completed (platform, duration, tool-call count)
+- `oss.bot.agent_run_failed` — an agent run errored (sanitized error category only)
+
+Unlike runtime telemetry, bot SDK telemetry is **not sampled** — every event is sent. The opt-out below disables it along with all other CopilotKit telemetry.
+
 ## How to opt out of anonymous telemetry
 
-Set `COPILOTKIT_TELEMETRY_DISABLED=true` in your runtime environment. This disables telemetry for both the CopilotRuntime and the Inspector dev-console. We also respect [Do Not Track (DNT)](https://consoledonottrack.com/).
+Set `COPILOTKIT_TELEMETRY_DISABLED=true` in your environment. This disables all CopilotKit open-source telemetry — the CopilotRuntime, the Inspector dev-console, and the bot SDK packages (`@copilotkit/bot`). We also respect [Do Not Track (DNT)](https://consoledonottrack.com/).
 
 ## How to adjust telemetry sample rate
 
-The default sample rate is `0.05` (5%). You can adjust it by setting the `COPILOTKIT_TELEMETRY_SAMPLE_RATE` to any value between 0 and 1.
+The default sample rate is `0.05` (5%). You can adjust it by setting the `COPILOTKIT_TELEMETRY_SAMPLE_RATE` to any value between 0 and 1. This applies to runtime telemetry; bot SDK telemetry is not sampled.
 
 ## Get in touch
 
