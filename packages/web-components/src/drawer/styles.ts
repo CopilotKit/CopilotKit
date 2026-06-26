@@ -269,28 +269,58 @@ export const drawerStyles = css`
     border-radius: 6px;
   }
 
-  /* Instant tooltip (matches the react components' delayDuration:0). Rendered to
-     the LEFT of the action so the list's vertical overflow never clips it; the
-     native \`title\` tooltip is avoided because its show-delay is browser-fixed
-     (~1.5s) and cannot be tuned. */
+  /* Instant tooltip (matches the react components' delayDuration:0) styled to
+     match the CPK standard tooltip: a solid primary-colored bubble with
+     primary-foreground text, rounded corners, no border, and a small arrow —
+     NOT a surface/bordered box (which reads as a button). Rendered to the LEFT
+     of the action so the list's vertical overflow never clips it; the native
+     \`title\` tooltip is avoided because its show-delay is browser-fixed (~1.5s)
+     and cannot be tuned. */
   .row-action[data-tooltip]:hover::after,
   .row-action[data-tooltip]:focus-visible::after {
     content: attr(data-tooltip);
     position: absolute;
-    right: calc(100% + 6px);
+    right: calc(100% + 8px);
     top: 50%;
     transform: translateY(-50%);
     white-space: nowrap;
-    background: var(--_surface);
-    color: var(--_surface-fg);
-    border: 1px solid var(--_border);
+    background: var(--_primary);
+    color: var(--_primary-fg);
     border-radius: 6px;
-    padding: 2px 7px;
+    padding: 4px 8px;
     font-size: 12px;
     line-height: 1.4;
-    box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
     pointer-events: none;
     z-index: 20;
+  }
+
+  /* Arrow: a small rotated square at the bubble's right edge, pointing at the
+     action — same primary fill as the bubble. */
+  .row-action[data-tooltip]:hover::before,
+  .row-action[data-tooltip]:focus-visible::before {
+    content: "";
+    position: absolute;
+    right: calc(100% + 4.5px);
+    top: 50%;
+    transform: translateY(-50%) rotate(45deg);
+    width: 7px;
+    height: 7px;
+    background: var(--_primary);
+    border-radius: 1px;
+    pointer-events: none;
+    z-index: 21;
+  }
+
+  /* While the delete-confirmation dialog is open, suppress row-action tooltips:
+     the clicked trash button keeps :focus-visible (and may stay hovered), which
+     would otherwise leave its "Delete" tooltip floating over the dialog. */
+  .root.confirming .row-action[data-tooltip]:hover::after,
+  .root.confirming .row-action[data-tooltip]:focus-visible::after,
+  .root.confirming .row-action[data-tooltip]:hover::before,
+  .root.confirming .row-action[data-tooltip]:focus-visible::before {
+    content: none;
+    display: none;
   }
 
   .row-action:hover,

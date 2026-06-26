@@ -427,6 +427,9 @@ export class CopilotKitDrawer extends LitElement {
       collapsed: this.collapsed && !this._viewportIsMobile,
       mobile: this._viewportIsMobile,
       open: this.open,
+      // Suppresses row-action tooltips while the confirm dialog is open (the
+      // clicked trash button keeps :focus-visible/:hover otherwise).
+      confirming: this._confirmingDeleteId !== null,
     };
 
     return html`

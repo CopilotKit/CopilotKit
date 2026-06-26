@@ -247,6 +247,26 @@ test("confirm dialog can be cancelled without emitting delete", async () => {
   teardown();
 });
 
+test("opening the confirm dialog marks the root `confirming` so row-action tooltips are suppressed", async () => {
+  const { q, element, teardown } = await setup({
+    threads: [makeThread({ id: "del", name: "Delete me" })],
+  });
+
+  const root = () => q('[part="root"]') as HTMLElement;
+  expect(root().classList.contains("confirming")).toBe(false);
+
+  (q('[part="row-delete"]') as HTMLElement).click();
+  await flush(element);
+  // While the dialog is open the clicked trash button keeps :focus-visible; the
+  // `confirming` class is what hides its lingering "Delete" tooltip via CSS.
+  expect(root().classList.contains("confirming")).toBe(true);
+
+  (q('[part="confirm-cancel"]') as HTMLElement).click();
+  await flush(element);
+  expect(root().classList.contains("confirming")).toBe(false);
+  teardown();
+});
+
 test("loading state renders while loading", async () => {
   const { element, q, teardown } = await setup({ threads: [] });
   element.loading = true;
