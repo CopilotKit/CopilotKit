@@ -169,6 +169,14 @@ function factSet(fieldNodes: BotNode[]): CardElement {
 
 function renderButton(node: BotNode): CardAction {
   const props = node.props ?? {};
+  // Link button → Action.OpenUrl (opens the URL; carries no submit data).
+  if (typeof props.url === "string" && props.url.length > 0) {
+    return {
+      type: "Action.OpenUrl",
+      title: truncateText(collectText(node), TEAMS_LIMITS.buttonText),
+      url: props.url,
+    };
+  }
   const action: CardAction = {
     type: "Action.Submit",
     title: truncateText(collectText(node), TEAMS_LIMITS.buttonText),
@@ -201,6 +209,8 @@ function renderSelect(node: BotNode): CardElement {
       value: String(o.value),
     })),
   };
+  // Multi-select: Teams submits the chosen values as a comma-joined string.
+  if (props.multi) el.isMultiSelect = true;
   if (props.placeholder) el.placeholder = String(props.placeholder);
   return el;
 }

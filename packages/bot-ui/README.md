@@ -91,21 +91,21 @@ compile-time errors — `<Section bogus={1} />` or `<Button style="nope">` won't
 type-check. There are no lowercase intrinsic tags; the vocabulary is the
 capitalized component set below.
 
-| Component  | Purpose                                                           |
-| ---------- | ----------------------------------------------------------------- | ---------- |
-| `Message`  | Root container for a single posted message.                       |
-| `Header`   | Bold header / title row.                                          |
-| `Section`  | A block of (markdown) body text.                                  |
-| `Markdown` | Explicit markdown text block.                                     |
-| `Field`    | One label/value cell inside `Fields`.                             |
-| `Fields`   | A grid of `Field`s (two-column key/value layout).                 |
-| `Context`  | Small, muted secondary text (footnotes, metadata).                |
-| `Actions`  | Row container for interactive controls.                           |
-| `Button`   | Clickable button — `onClick`, `value`, `style: "primary"          | "danger"`. |
-| `Select`   | Dropdown — `onSelect`, `placeholder`, `options: {label,value}[]`. |
-| `Input`    | Text input — `onSubmit`, `placeholder`, `multiline`, `name`.      |
-| `Image`    | An image block.                                                   |
-| `Divider`  | A horizontal rule.                                                |
+| Component  | Purpose                                                                    |
+| ---------- | -------------------------------------------------------------------------- |
+| `Message`  | Root container for a single posted message — `accent`, `onReaction`.       |
+| `Header`   | Bold header / title row.                                                   |
+| `Section`  | A block of (markdown) body text.                                           |
+| `Markdown` | Explicit markdown text block.                                              |
+| `Field`    | One label/value cell inside `Fields` — optional `label`.                   |
+| `Fields`   | A grid of `Field`s (two-column key/value layout).                          |
+| `Context`  | Small, muted secondary text (footnotes, metadata).                         |
+| `Actions`  | Row container for interactive controls.                                    |
+| `Button`   | Clickable button — `onClick`, `value`, `style`, or `url` (link button).    |
+| `Select`   | Dropdown — `onSelect`, `placeholder`, `options: {label,value}[]`, `multi`. |
+| `Input`    | Text input — `onSubmit`, `placeholder`, `multiline`, `name`.               |
+| `Image`    | An image block.                                                            |
+| `Divider`  | A horizontal rule.                                                         |
 
 ### Behavior props
 
@@ -114,6 +114,23 @@ Interactive components carry handler props typed as `ClickHandler`:
 - `Button` → `onClick`
 - `Select` → `onSelect`
 - `Input` → `onSubmit`
+
+`Message` also takes `onReaction`, fired when a user reacts to the posted
+message (adds or removes). The first arg is the emoji; the second carries
+`added`/`user`/`rawEmoji`:
+
+```tsx
+<Message onReaction={(emoji, r) => r.added && emoji === "bug" && triage()}>
+  …
+</Message>
+```
+
+It's durable on the same terms as a component `onClick`: when the `<Message>`
+comes from a component registered via `createBot({ components: [...] })` and a
+durable `store` is configured, a reaction after a restart re-renders the
+component to re-derive the handler. Inline handlers (and `<Message>` used
+directly) route in-process but don't survive a restart. For durable, filtered
+reaction routing across _all_ messages, use `bot.onReaction(...)`.
 
 A `ClickHandler` receives an `InteractionContext`, both generic over the
 clicked control's value type:

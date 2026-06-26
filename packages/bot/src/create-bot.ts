@@ -573,6 +573,18 @@ export function createBot<
           if (!reg.emojis || reg.emojis.has(value))
             await reg.handler(reactionEvt);
         }
+        // Per-message handler set via `<Message onReaction>` on the posted
+        // message — hot cache, falling back to the durable snapshot after a restart.
+        const perMessage = await registry.resolveMessageReaction(evt.messageId);
+        if (perMessage) {
+          await perMessage(value, {
+            emoji: value,
+            rawEmoji: evt.rawEmoji,
+            added: evt.added,
+            user: evt.user,
+            messageId: evt.messageId,
+          });
+        }
       },
       async onModalSubmit(evt: IncomingModalSubmit) {
         const handler = modalSubmitHandlers.get(evt.callbackId);

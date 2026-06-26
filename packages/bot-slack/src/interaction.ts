@@ -40,6 +40,7 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
       action_id?: string;
       value?: string;
       selected_option?: { value?: string };
+      selected_options?: Array<{ value?: string }>;
       action_ts?: string;
     }>;
   };
@@ -74,15 +75,13 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   };
 
   // Tiny, non-sensitive value: the clicked button's value (or selected option
-  // value), JSON-parsed if it round-trips, otherwise the raw string.
-  const rawValue = action.value ?? action.selected_option?.value;
-  let value: unknown = rawValue;
-  if (typeof rawValue === "string") {
-    try {
-      value = JSON.parse(rawValue);
-    } catch {
-      value = rawValue;
-    }
+  // value), JSON-parsed if it round-trips, otherwise the raw string. A
+  // multi_static_select reports `selected_options` (an array) → a `string[]`.
+  let value: unknown;
+  if (action.selected_options) {
+    value = action.selected_options.map((o) => parseValue(o.value));
+  } else {
+    value = parseValue(action.value ?? action.selected_option?.value);
   }
 
   const user = body.user?.id
@@ -116,6 +115,16 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     triggerId: body.trigger_id,
     eventId,
   };
+}
+
+/** JSON-parse a control value so non-string option values round-trip; else keep the raw string. */
+function parseValue(raw: string | undefined): unknown {
+  if (typeof raw !== "string") return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
 }
 
 interface SlackReactionEvent {

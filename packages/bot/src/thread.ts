@@ -74,15 +74,37 @@ export class Thread implements ThreadInterface {
     return this.deps.registry.bindRenderable(ui, this.deps.conversationKey);
   }
 
+  /**
+   * Wire a posted message's `onReaction` to its returned id: cache it for this
+   * process and, when it came from a component, persist a durable snapshot so a
+   * reaction after a restart re-derives it (parity with a component `onClick`).
+   */
+  private async bindReaction(
+    messageId: string,
+    bound: Awaited<ReturnType<Thread["bindForPost"]>>,
+  ): Promise<void> {
+    if (bound.onReaction) {
+      this.deps.registry.registerMessageReaction(messageId, bound.onReaction);
+    }
+    if (bound.reactionComponent) {
+      await this.deps.registry.persistMessageReaction(messageId, {
+        ...bound.reactionComponent,
+        conversationKey: this.deps.conversationKey,
+      });
+    }
+  }
+
   async post(ui: Renderable): Promise<MessageRef> {
-    return this.deps.adapter.post(
-      this.deps.replyTarget,
-      await this.bindForPost(ui),
-    );
+    const bound = await this.bindForPost(ui);
+    const ref = await this.deps.adapter.post(this.deps.replyTarget, bound.root);
+    await this.bindReaction(ref.id, bound);
+    return ref;
   }
 
   async update(ref: MessageRef, ui: Renderable): Promise<MessageRef> {
-    await this.deps.adapter.update(ref, await this.bindForPost(ui));
+    const bound = await this.bindForPost(ui);
+    await this.deps.adapter.update(ref, bound.root);
+    await this.bindReaction(ref.id, bound);
     return ref;
   }
 
@@ -190,12 +212,10 @@ export class Thread implements ThreadInterface {
         error: `${this.platform} does not support ephemeral messages`,
       };
     }
-    return adapter.postEphemeral(
-      this.deps.replyTarget,
-      user,
-      await this.bindForPost(ui),
-      opts,
-    );
+    // Ephemeral messages can't be reacted to, so any `onReaction` is dropped
+    // (stripped by bindForPost) rather than registered.
+    const { root } = await this.bindForPost(ui);
+    return adapter.postEphemeral(this.deps.replyTarget, user, root, opts);
   }
 
   // Subscription STORAGE lands here; subscription ROUTING (onSubscribedMessage) is deferred.
