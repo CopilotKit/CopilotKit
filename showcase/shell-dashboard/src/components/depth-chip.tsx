@@ -46,9 +46,20 @@ export interface DepthChipProps {
    * Pool RECLAIM-PENDING state (flap-band #70). When set, the job's lease
    * lapsed and the control-plane RE-QUEUED it (back in flight). The sweep
    * boundary cannot tell a real crash from an expected platform teardown, so
-   * this is NEUTRAL — a gray "⟳ pending" treatment, distinct from both the red
-   * `unreachable` overlay and a real probe colour, so a routine teardown never
-   * reads as a failure. `unreachable` takes precedence when both are set.
+   * this is NEUTRAL — never red — and stale-while-revalidate applies:
+   *
+   *   - PRIOR-GOOD (a real last-known result exists: `chipColor` is a real
+   *     colour, i.e. not "gray", OR `depth > 0`): keep rendering the
+   *     last-known-good COLOURED chip and overlay a NON-DESTRUCTIVE refreshing
+   *     affordance (a `⟳` corner badge + a subtle pulsing ring in the chip's
+   *     own colour). The colour does NOT change to grey — a re-run of a healthy
+   *     cell no longer flaps green → grey → green.
+   *   - NO-PRIOR (never-run / first load: `chipColor` is gray/undefined AND
+   *     `depth === 0`): render the honest grey `⟳` chip — there is nothing to
+   *     preserve yet.
+   *
+   * `unreachable` takes precedence when both are set (a known crash outranks an
+   * ambiguous reclaim).
    */
   pending?: boolean;
   /** Tooltip text for the unreachable / pending treatment (names the kind). */
@@ -133,17 +144,70 @@ export function DepthChip({
     );
   }
 
-  // Reclaim-pending overlay (flap-band #70): the job's lease lapsed and was
-  // re-queued (back in flight). NEUTRAL — a gray fill + ⟳ glyph, distinct from
-  // the red `unreachable` overlay above, so an expected platform teardown never
-  // flaps the service red. Resolved before unshipped/unsupported so it always
-  // shows, but AFTER `unreachable` (a known crash outranks an ambiguous reclaim).
+  // Reclaim-pending overlay (flap-band #70) — STALE-WHILE-REVALIDATE: the job's
+  // lease lapsed and was re-queued (back in flight). NEUTRAL — never red, never
+  // the indigo `unreachable` overlay above, so an expected platform teardown
+  // never flaps the service red. Resolved before unshipped/unsupported so it
+  // always shows, but AFTER `unreachable` (a known crash outranks an ambiguous
+  // reclaim).
   if (pending) {
+    // Prior-good: a real last-known result exists. A non-gray chipColor OR a
+    // depth above zero means the cell HAS data worth preserving while the
+    // re-run is in flight — keep its colour, add a non-destructive refreshing
+    // affordance. (Never-run / first load falls through to the grey ⟳ below.)
+    const hasPrior = (chipColor !== undefined && chipColor !== "gray") || depth > 0;
+
+    if (hasPrior) {
+      // Reuse the default branch's EXACT colour derivation, threading
+      // `regression` through so a regression-coloured cell that is also pending
+      // keeps its red treatment rather than mis-painting.
+      const colorClass = chipColor
+        ? chipColorToClass(chipColor, regression)
+        : depthColorClass(depth, regression, maxDepth);
+
+      return (
+        <span
+          data-testid="depth-chip"
+          data-status="pending"
+          data-surface-state="pending"
+          data-refreshing="true"
+          data-has-prior="true"
+          data-depth={String(depth)}
+          className={`relative inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums ${colorClass}`}
+          title={commTooltip ?? "re-queued — pending re-run"}
+        >
+          {/* Subtle pulsing ring in the chip's own colour. The ring is the
+              motion cue; it respects prefers-reduced-motion (motion-reduce
+              disables the pulse) so the static ⟳ glyph still carries the
+              "refreshing" meaning by SHAPE alone — never by colour. */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded ring-1 ring-inset ring-white/60 animate-pulse motion-reduce:animate-none"
+          />
+          <span className="relative inline-flex items-center">
+            D{depth}
+            {/* Corner refreshing glyph — a distinct SHAPE, not a colour shift,
+                so colour-blind operators still perceive "re-running". */}
+            <span
+              aria-hidden="true"
+              className="ml-0.5 text-[8px] leading-none animate-spin motion-reduce:animate-none"
+            >
+              ⟳
+            </span>
+          </span>
+        </span>
+      );
+    }
+
+    // No-prior (never-run / first load): nothing to preserve — keep today's
+    // honest grey ⟳ chip exactly as before.
     return (
       <span
         data-testid="depth-chip"
         data-status="pending"
         data-surface-state="pending"
+        data-refreshing="true"
+        data-has-prior="false"
         className="inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums border border-[var(--text-muted)]/40 bg-[var(--text-muted)]/20 text-[var(--text-muted)]"
         title={commTooltip ?? "re-queued — pending re-run"}
       >

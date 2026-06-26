@@ -250,12 +250,15 @@ describe("DepthChip", () => {
     expect(chip.className).toContain("emerald");
   });
 
-  // ── flap-band #70: pending (reclaimed) treatment ────────────────────
+  // ── flap-band #70 / stale-while-revalidate: pending (reclaimed) ──────
 
-  it("renders a NEUTRAL pending treatment when pending=true (not red, not the indigo unreachable overlay)", () => {
+  // STALE-WHILE-REVALIDATE: a pending re-run over a prior known-good GREEN cell
+  // must KEEP its green colour and add a non-destructive refreshing affordance —
+  // NOT flip to grey. This is the core green→grey→green flap fix.
+  it("pending over a prior-good GREEN cell keeps GREEN + adds a refreshing affordance (no grey flap)", () => {
     const { getByTestId } = render(
       <DepthChip
-        depth={5}
+        depth={6}
         status="wired"
         chipColor="green"
         pending
@@ -263,14 +266,51 @@ describe("DepthChip", () => {
       />,
     );
     const chip = getByTestId("depth-chip");
+    // Surface state hooks preserved for the matrix / e2e DOM inspection.
     expect(chip.getAttribute("data-status")).toBe("pending");
     expect(chip.getAttribute("data-surface-state")).toBe("pending");
     expect(chip.getAttribute("title")).toContain("worker-reclaimed-pending");
-    // NEUTRAL — never the red danger class, never the indigo "unreachable"
-    // overlay. A routine teardown must not read as a failure.
+    // Colour PRESERVED — the green coverage chip is NOT replaced by grey.
+    expect(chip.className).toContain("emerald");
     expect(chip.className).not.toContain("danger");
     expect(chip.className).not.toContain("indigo");
+    // Must NOT use the destructive grey "no-data" fill.
+    expect(chip.className).not.toContain("bg-[var(--text-muted)]/20");
+    // Non-destructive refreshing affordance: a ⟳ glyph (shape, not colour) and
+    // an explicit data hook for tests / e2e.
+    expect(chip.getAttribute("data-refreshing")).toBe("true");
+    expect(chip.getAttribute("data-has-prior")).toBe("true");
+    expect(chip.textContent).toContain("⟳");
+    // The depth label still reads (stale-but-valid), so D6 is still legible.
+    expect(chip.textContent).toContain("D6");
+  });
+
+  // CONTRACT PIN (never-run / first load): no prior known-good result
+  // (chipColor gray + depth 0) → keep today's honest grey ⟳ chip.
+  it("pending with NO prior-good (gray + depth=0) still renders the grey ⟳ chip", () => {
+    const { getByTestId } = render(
+      <DepthChip depth={0} status="wired" chipColor="gray" pending />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.getAttribute("data-status")).toBe("pending");
+    expect(chip.getAttribute("data-surface-state")).toBe("pending");
+    expect(chip.getAttribute("data-refreshing")).toBe("true");
+    expect(chip.getAttribute("data-has-prior")).toBe("false");
+    // Honest no-data grey — nothing to preserve.
+    expect(chip.className).toContain("text-muted");
     expect(chip.className).not.toContain("emerald");
+    expect(chip.textContent).toContain("⟳");
+  });
+
+  // A pending re-run must NEVER read as a failure — no red, no indigo overlay,
+  // regardless of whether there is a prior-good result.
+  it("pending never reads as a failure (no danger, no indigo overlay)", () => {
+    const { getByTestId } = render(
+      <DepthChip depth={6} status="wired" chipColor="green" pending />,
+    );
+    const chip = getByTestId("depth-chip");
+    expect(chip.className).not.toContain("danger");
+    expect(chip.className).not.toContain("indigo");
   });
 
   it("unreachable takes precedence over pending (a known crash outranks an ambiguous reclaim)", () => {
