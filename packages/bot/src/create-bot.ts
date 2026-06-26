@@ -155,7 +155,11 @@ export interface StoreConfig<
 export interface CreateBotOptions<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
 > {
-  adapters: PlatformAdapter[];
+  /**
+   * Adapters supplied at construction. Optional — adapters can also be attached
+   * before `start()` via {@link Bot.addAdapter} (the managed runtime uses this).
+   */
+  adapters?: PlatformAdapter[];
   agent?: AbstractAgent | ((threadId: string) => AbstractAgent);
   /** @deprecated Pass `store.adapter` instead. */
   actionStore?: ActionStore;
@@ -215,6 +219,8 @@ export interface Bot<TState = unknown> {
   /** Handle a modal dismissal for `callbackId` (Slack `view_closed`). */
   onModalClose(callbackId: string, handler: ModalCloseHandler): void;
   tool(t: BotTool): void;
+  /** Attach an adapter before `start()`. Throws if called after the bot has started. */
+  addAdapter(adapter: PlatformAdapter): void;
   start(): Promise<void>;
   stop(): Promise<void>;
   /** Cross-platform transcript store. Append, list, and delete entries per user. */
@@ -229,7 +235,33 @@ function msgFromTurn(turn: IncomingTurn): IncomingMessage {
     user: turn.user ?? { id: "" },
     ref: { id: "" },
     platform: turn.platform,
+    eventId: turn.eventId,
+    turnId: turn.turnId,
+    deliveryId: turn.deliveryId,
   };
+}
+
+/**
+ * Resolve the persistence backend at start(): an explicit `store.adapter` wins
+ * (silently); otherwise an adapter-provided `stateStore` is used (warning when
+ * more than one adapter provides one); otherwise an in-memory store.
+ */
+function resolveBackend(
+  explicit: StateStore | undefined,
+  adapters: PlatformAdapter[],
+): StateStore {
+  if (explicit) return explicit;
+  const providers = adapters.filter((a) => a.stateStore);
+  if (providers.length > 1) {
+    console.warn(
+      `[bot] multiple adapters provide a state store (${providers
+        .map((a) => a.platform)
+        .join(
+          ", ",
+        )}); using "${providers[0]!.platform}". Pass store.adapter to choose explicitly.`,
+    );
+  }
+  return providers[0]?.stateStore ?? new MemoryStore();
 }
 
 export function createBot<
@@ -245,21 +277,19 @@ export function createBot<
     );
   }
 
-  const backend: StateStore = cfg.adapter ?? new MemoryStore();
-  const transcripts = new Transcripts(backend, cfg.transcripts ?? {});
-  const registry = new ActionRegistry({
-    store: opts.actionStore ?? kvActionStore(backend),
-  });
+  // Adapters can be supplied up front or added later via `bot.addAdapter`
+  // (before `start()`). The runtime uses the latter to attach managed delivery.
+  const adapters: PlatformAdapter[] = [...(opts.adapters ?? [])];
+  let started = false;
 
-  for (const c of opts.components ?? []) {
-    if (!c.name) {
-      console.warn(
-        "[bot] createBot: skipping anonymous component — give it a name to enable durable actions after restart.",
-      );
-      continue;
-    }
-    registry.registerComponent(c.name, c as unknown as ComponentFn);
-  }
+  // Backend, transcripts, the action registry, and component registration are
+  // resolved in `start()` — not at construction — so an adapter added via
+  // `addAdapter` after `createBot` can still supply the persistence backend
+  // (see `resolveBackend`). Nothing reads these before the first event, which
+  // can only arrive after `start()`.
+  let backend: StateStore | undefined;
+  let transcripts: Transcripts | undefined;
+  let registry: ActionRegistry | undefined;
 
   const agentFactory: (threadId: string) => AbstractAgent = (() => {
     const a = opts.agent;
@@ -308,6 +338,11 @@ export function createBot<
     conversationKey: string,
     extras?: { userKey?: string; message?: IncomingMessage },
   ): Thread {
+    if (!backend || !registry) {
+      throw new Error(
+        "bot not started: call bot.start() before handling events",
+      );
+    }
     const deps: ThreadDeps = {
       adapter,
       replyTarget,
@@ -346,10 +381,13 @@ export function createBot<
   }
 
   function makeSink(adapter: PlatformAdapter): IngressSink {
+    // backend/registry are resolved in start() before any adapter.start() runs,
+    // so they are always set by the time the sink receives an event.
+    const store = backend!;
     return {
       async onTurn(turn: IncomingTurn) {
         const lockKey = `turn:${turn.conversationKey}`;
-        const acquired = await backend.lock.acquire(lockKey, {
+        const acquired = await store.lock.acquire(lockKey, {
           ttlMs: cfg.lockTtl ?? 60_000,
         });
 
@@ -374,7 +412,7 @@ export function createBot<
           if (turn.eventId) {
             const dupKey = `evt:${adapter.platform}:${turn.eventId}`;
             try {
-              if (await backend.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
+              if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
                 return;
             } catch (err) {
               console.warn(
@@ -420,7 +458,7 @@ export function createBot<
           for (const h of handlers) await h({ thread, message });
         } finally {
           // acquired is null on "force" — naturally skips release.
-          if (acquired) await backend.lock.release(lockKey, acquired.token);
+          if (acquired) await store.lock.release(lockKey, acquired.token);
         }
       },
       async onInteraction(evt: InteractionEvent) {
@@ -428,8 +466,7 @@ export function createBot<
         if (evt.eventId) {
           const dupKey = `evt:${adapter.platform}:${evt.eventId}`;
           try {
-            if (await backend.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
-              return;
+            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
           } catch (err) {
             console.warn(
               `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
@@ -473,7 +510,7 @@ export function createBot<
           if (explicit) {
             await explicit(ctx);
           } else {
-            dispatchedValue = await registry.dispatch(evt.id, ctx);
+            dispatchedValue = await registry!.dispatch(evt.id, ctx);
           }
         } catch (err) {
           // v1: swallow expired-action dispatches; surface anything else.
@@ -493,8 +530,7 @@ export function createBot<
         if (cmd.eventId) {
           const dupKey = `evt:${adapter.platform}:${cmd.eventId}`;
           try {
-            if (await backend.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000))
-              return;
+            if (await store.dedup.seen(dupKey, cfg.dedupTtl ?? 300_000)) return;
           } catch (err) {
             console.warn(
               `[bot] dedup check failed for ${adapter.platform}; processing without dedup`,
@@ -605,7 +641,18 @@ export function createBot<
   }
 
   const bot: Bot<ThreadStateOf<TStateSchema>> = {
-    transcripts,
+    get transcripts() {
+      if (!transcripts) {
+        throw new Error("bot.transcripts is available after bot.start()");
+      }
+      return transcripts;
+    },
+    addAdapter(adapter) {
+      if (started) {
+        throw new Error("bot.addAdapter must be called before bot.start()");
+      }
+      adapters.push(adapter);
+    },
     onMention(h) {
       // The public surface narrows `thread` to StatefulThread<TState>; the
       // internal arrays hold the loose `BotHandler` shape. A real Thread is
@@ -682,18 +729,37 @@ export function createBot<
       toolMap.set(t.name, t);
     },
     async start() {
+      started = true;
+      // Resolve persistence now that all adapters (including any attached via
+      // addAdapter) are known, then build the transcript store, action
+      // registry, and register components against it.
+      backend = resolveBackend(cfg.adapter, adapters);
+      transcripts = new Transcripts(backend, cfg.transcripts ?? {});
+      const registryInstance = new ActionRegistry({
+        store: opts.actionStore ?? kvActionStore(backend),
+      });
+      registry = registryInstance;
+      for (const c of opts.components ?? []) {
+        if (!c.name) {
+          console.warn(
+            "[bot] createBot: skipping anonymous component — give it a name to enable durable actions after restart.",
+          );
+          continue;
+        }
+        registryInstance.registerComponent(c.name, c as unknown as ComponentFn);
+      }
       toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
       // Isolate per-adapter startup failures: one adapter rejecting (e.g.
       // Telegram's setMyCommands rejecting a hyphenated command name, a revoked
       // token, a port already in use) must NOT crash the bot or prevent the
       // other adapters from starting. Log + degrade, never throw.
       const startResults = await Promise.allSettled(
-        opts.adapters.map((a) => a.start(makeSink(a))),
+        adapters.map((a) => a.start(makeSink(a))),
       );
       startResults.forEach((r, i) => {
         if (r.status === "rejected") {
           console.error(
-            `[bot] adapter "${opts.adapters[i]!.platform}" failed to start:`,
+            `[bot] adapter "${adapters[i]!.platform}" failed to start:`,
             r.reason,
           );
         }
@@ -704,12 +770,12 @@ export function createBot<
       const commandSpecs = [...commandHandlers.values()].map(toCommandSpec);
       if (commandSpecs.length > 0) {
         const registerResults = await Promise.allSettled(
-          opts.adapters.map((a) => a.registerCommands?.(commandSpecs)),
+          adapters.map((a) => a.registerCommands?.(commandSpecs)),
         );
         registerResults.forEach((r, i) => {
           if (r.status === "rejected") {
             console.error(
-              `[bot] adapter "${opts.adapters[i]!.platform}" failed to register commands:`,
+              `[bot] adapter "${adapters[i]!.platform}" failed to register commands:`,
               r.reason,
             );
           }
@@ -720,12 +786,12 @@ export function createBot<
       // Isolate per-adapter shutdown failures: one adapter's stop() rejecting
       // must not prevent the others from being stopped.
       const stopResults = await Promise.allSettled(
-        opts.adapters.map((a) => a.stop()),
+        adapters.map((a) => a.stop()),
       );
       stopResults.forEach((r, i) => {
         if (r.status === "rejected") {
           console.error(
-            `[bot] adapter "${opts.adapters[i]!.platform}" failed to stop:`,
+            `[bot] adapter "${adapters[i]!.platform}" failed to stop:`,
             r.reason,
           );
         }

@@ -9,6 +9,7 @@ import type {
   ThreadMessage,
 } from "@copilotkit/bot-ui";
 import type { CommandSpec } from "./commands.js";
+import type { StateStore } from "./state/state-store.js";
 
 /** Opaque to the bot core — created by an adapter during ingress and passed back to post/createRunRenderer. */
 export type ReplyTarget = unknown;
@@ -71,6 +72,10 @@ export interface IncomingTurn {
   user?: PlatformUser;
   /** Stable platform event id for idempotency; omit if the platform provides none. */
   eventId?: string;
+  /** Stable per-turn id (managed/Intelligence path); local adapters omit it. */
+  turnId?: string;
+  /** Lease/delivery id (managed/Intelligence path); local adapters omit it. */
+  deliveryId?: string;
   platform: string;
 }
 
@@ -82,6 +87,10 @@ export interface InteractionEvent {
   user?: PlatformUser;
   /** Stable platform event id for idempotency; omit if the platform provides none. */
   eventId?: string;
+  /** Stable per-turn id (managed/Intelligence path); local adapters omit it. */
+  turnId?: string;
+  /** Lease/delivery id (managed/Intelligence path); local adapters omit it. */
+  deliveryId?: string;
   /** The message the interaction occurred on (the picker), so handlers can update it in place. */
   messageRef?: MessageRef;
   /** Opaque platform trigger for opening a modal (Slack `trigger_id`; Discord interaction id). */
@@ -101,6 +110,10 @@ export interface IncomingCommand {
   user?: PlatformUser;
   /** Stable platform event id for idempotency; omit if the platform provides none. */
   eventId?: string;
+  /** Stable per-turn id (managed/Intelligence path); local adapters omit it. */
+  turnId?: string;
+  /** Lease/delivery id (managed/Intelligence path); local adapters omit it. */
+  deliveryId?: string;
   platform: string;
   /** Opaque platform trigger for opening a modal (Slack `trigger_id`; Discord interaction id). */
   triggerId?: string;
@@ -220,6 +233,13 @@ export interface PlatformAdapter {
   decodeInteraction(raw: unknown): InteractionEvent | undefined;
   lookupUser(q: UserQuery): Promise<PlatformUser | undefined>;
   readonly conversationStore: ConversationStore;
+  /**
+   * Optional persistence backend supplied by the adapter. `createBot` uses it
+   * only when no explicit `store.adapter` is configured; if more than one
+   * adapter provides one, `createBot` warns and uses the first. Distinct from
+   * {@link conversationStore}.
+   */
+  readonly stateStore?: StateStore;
   /**
    * Optional conversation-history read. Backs the capability-gated
    * `Thread.getMessages()`; adapters that can't read history simply omit this,
