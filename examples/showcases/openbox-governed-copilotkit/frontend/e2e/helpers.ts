@@ -172,3 +172,40 @@ export async function expectNoUnsafeOutput(page: Page): Promise<void> {
   expect(text).not.toContain("session_id:");
   expect(text).not.toContain("workflow_id:");
 }
+
+/** Assert the governance-feed side panel is mounted and visible. */
+export async function expectFeedVisible(page: Page): Promise<void> {
+  await expect(page.getByTestId("openbox-governance-feed")).toBeVisible({
+    timeout: OPENBOX_VISIBLE_TIMEOUT_MS,
+  });
+}
+
+/** Assert the feed shows at least `n` run groups (GitBranch rows). */
+export async function expectFeedRunCountAtLeast(
+  page: Page,
+  n: number,
+): Promise<void> {
+  const empty = page.getByTestId("openbox-feed-empty");
+  await expect
+    .poll(
+      async () => {
+        if ((await empty.count()) > 0 && (await empty.isVisible())) return 0;
+        return page
+          .getByTestId("openbox-governance-feed")
+          .locator(".openbox-feed-run")
+          .count();
+      },
+      { timeout: OPENBOX_VISIBLE_TIMEOUT_MS },
+    )
+    .toBeGreaterThanOrEqual(n);
+}
+
+/** Assert at least one node badge with the given verdict key is present. */
+export async function expectFeedNodeVerdict(
+  page: Page,
+  verdict: string,
+): Promise<void> {
+  await expect(
+    page.getByTestId(`openbox-feed-verdict-${verdict}`).first(),
+  ).toBeVisible({ timeout: OPENBOX_VISIBLE_TIMEOUT_MS });
+}
