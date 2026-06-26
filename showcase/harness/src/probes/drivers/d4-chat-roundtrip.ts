@@ -970,10 +970,30 @@ export function createE2eSmokeDriver(
           cvdiagBufferDir,
           cvdiagPbWriter,
           cvdiagDebugAllowList,
-          assertResponse: (text) => ({
-            ok: text.length > 0,
-            summary: text.length === 0 ? "empty assistant response" : "",
-          }),
+          assertResponse: ({ text, fromAssistantContainer }) => {
+            // Tightened L3 gate (BIA false-pass guard). A REAL turn renders
+            // its content INTO the assistant-message container — at the DOM
+            // layer that is the equivalent of "RUN_FINISHED + ≥1 non-empty
+            // TEXT_MESSAGE". The old `text.length > 0` check also accepted the
+            // <body>-scrape FALLBACK, where unrelated static page text trailing
+            // the sent message (nav links, footer copy, demo blurb) is non-empty
+            // — so a dead agent that emitted ZERO assistant content (the BIA
+            // outage) false-PASSED on that static text. Require BOTH non-empty
+            // content AND that it came from the assistant-message container, so
+            // the gate reflects a genuine assistant turn rather than incidental
+            // page chrome.
+            if (text.length === 0) {
+              return { ok: false, summary: "empty assistant response" };
+            }
+            if (!fromAssistantContainer) {
+              return {
+                ok: false,
+                summary:
+                  "no assistant message rendered (response text came only from a <body> fallback scrape, not the assistant-message container)",
+              };
+            }
+            return { ok: true, summary: "" };
+          },
         });
         if (ctx.writer) {
           try {
@@ -1073,9 +1093,18 @@ export function createE2eSmokeDriver(
             cvdiagBufferDir,
             cvdiagPbWriter,
             cvdiagDebugAllowList,
-            assertResponse: (text) => {
+            assertResponse: ({ text, fromAssistantContainer }) => {
               if (text.length === 0) {
                 return { ok: false, summary: "empty assistant response" };
+              }
+              // Same BIA false-pass guard as L3: weather content must come from
+              // a genuine assistant-message turn, not a <body> fallback scrape.
+              if (!fromAssistantContainer) {
+                return {
+                  ok: false,
+                  summary:
+                    "no assistant message rendered (response text came only from a <body> fallback scrape, not the assistant-message container)",
+                };
               }
               const lc = text.toLowerCase();
               const hit = WEATHER_VOCAB.some((v) => lc.includes(v));
@@ -1227,7 +1256,19 @@ async function runLevel(opts: {
    * to these slugs (per-slug match in `captureRawBytes`); empty → no capture.
    */
   cvdiagDebugAllowList: ReadonlySet<string>;
-  assertResponse: (text: string) => { ok: boolean; summary: string };
+  /**
+   * Apply the level's red/green assertion to the captured response. Receives
+   * BOTH the trimmed response text AND its provenance: `fromAssistantContainer`
+   * is true only when the text came from the `[data-testid=
+   * "copilot-assistant-message"]` container (a genuine assistant turn), and
+   * false when it came only from the `<body>` fallback scrape. The L3/L4 gates
+   * require container provenance so a dead agent whose static page text leaks
+   * through the body fallback (the BIA outage) does not false-PASS.
+   */
+  assertResponse: (response: {
+    text: string;
+    fromAssistantContainer: boolean;
+  }) => { ok: boolean; summary: string };
 }): Promise<{
   result: ProbeResult<E2eSmokeLevelSignal>;
   /**
@@ -1437,6 +1478,12 @@ async function runLevel(opts: {
     // showcases don't set the testid, so we fall back to scraping the
     // <body> for substantive text that appeared after our message.
     let responseText = "";
+    // Provenance of `responseText`: true once it is read from the
+    // assistant-message container (a genuine assistant turn), false while it is
+    // still empty or was salvaged from the `<body>` fallback scrape. The
+    // tightened L3/L4 gate requires container provenance so a dead agent whose
+    // static page text leaks through the fallback (BIA) does not false-PASS.
+    let fromAssistantContainer = false;
     try {
       await page.waitForSelector('[data-testid="copilot-assistant-message"]', {
         state: "visible",
@@ -1503,6 +1550,9 @@ async function runLevel(opts: {
       }
       responseText = raw.trim();
       if (responseText.length > 0) {
+        // Real content read from the assistant-message container → a genuine
+        // assistant turn (the gate's required provenance).
+        fromAssistantContainer = true;
         cvdiagResponseEmpty = false;
         // probe.dom.firsttoken — first non-empty assistant textContent.
         cvdiag?.firstToken(nowMonoMs(), responseText.length);
@@ -1608,7 +1658,10 @@ async function runLevel(opts: {
       }
     }
 
-    const assertion = assertResponse(responseText);
+    const assertion = assertResponse({
+      text: responseText,
+      fromAssistantContainer,
+    });
     // probe.exit (completion path). A missing-VOCAB response is still a clean
     // MECHANICAL run (real response present) → `terminal_outcome=ok`, reflecting
     // probe mechanics not the green/red vocab assertion. But a run that produced
