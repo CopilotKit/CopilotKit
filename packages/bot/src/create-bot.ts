@@ -30,6 +30,7 @@ import type {
   EmojiPlatform,
   ModalView,
   ComponentFn,
+  MessageRef,
 } from "@copilotkit/bot-ui";
 import {
   normalizeEmoji,
@@ -83,6 +84,8 @@ export interface ReactionEvent {
   /** The reacting user, when the platform reports one. */
   user?: PlatformUser;
   messageId: string;
+  /** Update-capable ref to the reacted message (`thread.update(messageRef, ui)`). */
+  messageRef: MessageRef;
   threadId?: string;
   thread: Thread;
   adapter: PlatformAdapter;
@@ -558,12 +561,15 @@ export function createBot<
           evt.replyTarget,
           evt.conversationKey,
         );
+        // Prefer the adapter's update-capable ref; fall back to the bare id.
+        const messageRef: MessageRef = evt.messageRef ?? { id: evt.messageId };
         const reactionEvt: ReactionEvent = {
           emoji: value,
           rawEmoji: evt.rawEmoji,
           added: evt.added,
           user: evt.user,
           messageId: evt.messageId,
+          messageRef,
           threadId: evt.threadId,
           thread,
           adapter,
@@ -572,6 +578,20 @@ export function createBot<
         for (const reg of reactionHandlers) {
           if (!reg.emojis || reg.emojis.has(value))
             await reg.handler(reactionEvt);
+        }
+        // Per-message handler set via `<Message onReaction>` on the posted
+        // message — hot cache, falling back to the durable snapshot after a restart.
+        const perMessage = await registry.resolveMessageReaction(evt.messageId);
+        if (perMessage) {
+          await perMessage(value, {
+            emoji: value,
+            rawEmoji: evt.rawEmoji,
+            added: evt.added,
+            user: evt.user,
+            messageId: evt.messageId,
+            thread,
+            messageRef,
+          });
         }
       },
       async onModalSubmit(evt: IncomingModalSubmit) {
