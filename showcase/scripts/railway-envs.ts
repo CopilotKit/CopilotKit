@@ -511,55 +511,54 @@ export const SERVICES: Record<
   // not `showcase-harness-worker`.
   "harness-workers": {
     serviceId: "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
-    // Pool-fleet worker. Workers now run in BOTH staging and prod: the
-    // prod worker is live on Railway (deployed 2026-06-19, HARNESS_ROLE=worker,
-    // pool count 2). This SSOT entry, however, still only models the STAGING
-    // instance — a `prod` env entry has NOT yet been backfilled here, so the
-    // entry currently declares staging only. Under the env-map schema we
-    // simply OMIT the prod key (no placeholder ID is needed). gateIgnore
-    // skips both gate directions; ciBuilt:false because the worker has no
-    // build slot of its own — but `imageOf: "harness"` (below) puts it in the
-    // staging redeploy scope whenever the shared showcase-harness image is
-    // rebuilt. To bring the live prod worker under this SSOT, add a `prod`
-    // env entry with its real serviceInstance ID, flip gateIgnore off, and
-    // set gateValidated: true (the imageOf expansion is env-aware and will
-    // start covering prod automatically once the prod env entry exists).
+    // Pool-fleet worker. Workers run in BOTH staging and prod: the prod worker
+    // is live on Railway (deployed 2026-06-19, HARNESS_ROLE=worker, pool
+    // count 2) and is now BACKFILLED as a `prod` env entry below (real
+    // serviceInstance ID `7c48ee43-…`). ciBuilt:false because the worker has
+    // no build slot of its own — but `imageOf: "harness"` (below) puts it in
+    // the redeploy scope of BOTH envs whenever the shared showcase-harness
+    // image is rebuilt. Before this backfill the entry modeled only staging,
+    // so the env-aware `imageOf` expansion (redeploy-env.ts:278) SILENTLY
+    // SKIPPED the prod worker on a `showcase-harness:latest` rebuild — the
+    // prod worker kept its stale 2026-06-19 image (a 1-demo `registry.json`
+    // for `ms-agent-harness-dotnet` → missing `UI` badge → D0). Declaring the
+    // prod env here closes that gap: a rebuild now bounces the prod worker too.
     ciBuilt: false,
-    // gateIgnore: deliberately-untracked for the image-ref gate. As modeled
-    // here the worker is single-env (staging only) and domainless (it pulls
-    // jobs from the control-plane queue rather than serving HTTP), so it does
-    // not fit the symmetric dual-env / public-domain shape the gate validates.
-    // (The live prod worker exists on Railway but is not yet an SSOT prod env
-    // — see the entry header above.) Listing
-    // it here (with gateIgnore) is what clears the "untracked Railway
-    // service" failure — findUntrackedServices treats any SSOT entry as
-    // known — WITHOUT triggering a false "missing from prod" failure from
-    // findMissingServices (which only checks gateValidated:true entries).
-    gateValidated: false,
-    gateIgnore: true,
+    // gateValidated: true — the worker is now a modeled dual-env service, so
+    // the image-ref gate validates its `showcase-harness` image refs in both
+    // envs (findMissingServices checks gateValidated:true entries; both env
+    // entries carry an explicit `repoName: "showcase-harness"`). gateIgnore is
+    // dropped: the SSOT now fully models the live Railway service in both envs,
+    // so neither the SSOT→Railway nor the Railway→SSOT gate direction needs an
+    // opt-out.
+    gateValidated: true,
     probeDriver: "harness",
-    // Tier-1 verification fleet. This SSOT entry declares no prod env below
-    // (only the staging instance is modeled, though a prod worker is live on
-    // Railway — see the entry header), so computePromoteClosure records it as
-    // skipped-with-reason rather than promoting it; the tier survives for when
-    // the prod worker is backfilled as a `prod` env entry here.
+    // Tier-1 verification fleet. With the prod env declared below,
+    // computePromoteClosure now promotes the prod worker alongside the
+    // harness control-plane (rather than recording it skipped-with-reason).
     promoteTier: 1,
     // The worker runs the SAME `showcase-harness` GHCR image that the
     // existing `harness` (control-plane) service runs — it is NOT a
     // separately-built image. The single `showcase-harness` build slot in
     // showcase_build.yml produces the image both services consume; there is
     // no `harness-workers` build slot. Hence ciBuilt:false, with the
-    // consumption modeled explicitly via imageOf so the staging redeploy
-    // after a successful `showcase-harness` build bounces the worker too
-    // (it used to be silently skipped, leaving it on the stale image). The
-    // repoName override points at `showcase-harness` so the image-ref shape
-    // resolves correctly if the gate ever validates it.
+    // consumption modeled explicitly via imageOf so the redeploy after a
+    // successful `showcase-harness` build bounces the worker in EVERY env it
+    // declares (it used to be silently skipped in prod, leaving it on the
+    // stale image). The per-env repoName override points at `showcase-harness`
+    // so the image-ref shape resolves correctly.
     imageOf: "harness",
     //
-    // No public domain (queue worker, not HTTP-exposed) and probe disabled:
-    // verify-deploy skips probe:false services, and the schema no longer
-    // requires a domain, so we OMIT it rather than point at a borrowed host.
+    // No public domain (queue worker, not HTTP-exposed) and probe disabled in
+    // both envs: verify-deploy skips probe:false services, and the schema does
+    // not require a domain, so we OMIT it rather than point at a borrowed host.
     environments: {
+      prod: {
+        instanceId: "7c48ee43-6df4-457b-b977-10f1f1ac1680",
+        healthcheckPath: "/health",
+        probe: false,
+        repoName: "showcase-harness",
+      },
       staging: {
         instanceId: "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
         healthcheckPath: "/health",
@@ -567,18 +566,17 @@ export const SERVICES: Record<
         repoName: "showcase-harness",
       },
     },
-    // Ruby/jq JSON-shape compat (see ServiceEntry.legacyJsonCompat). The
-    // emitter fills the absent prod env's prodInstanceId from serviceId and
-    // both domains from the legacy borrowed control-plane harness hosts so
-    // the generated JSON stays byte-identical. None of these are read by TS.
+    // Ruby/jq JSON-shape compat (see ServiceEntry.legacyJsonCompat). The prod
+    // env is now real, so its prodInstanceId/repoName come straight from the
+    // env map; the only remaining compat shim is the borrowed control-plane
+    // hosts for the domainless worker's `domains{}` block (probe:false in both
+    // envs, so these hosts are never dereferenced at runtime — they exist only
+    // to keep the generated JSON's `domains` shape byte-stable). Not read by TS.
     legacyJsonCompat: {
       domains: {
         prod: "showcase-harness-production.up.railway.app",
         staging: "harness-staging-2ee4.up.railway.app",
       },
-      // The absent prod env carried a placeholder repoName in the legacy
-      // JSON; restore it so repoNameOverride stays {prod, staging}.
-      repoNameOverride: { prod: "showcase-harness" },
     },
   },
   pocketbase: {

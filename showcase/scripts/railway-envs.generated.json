@@ -133,10 +133,10 @@
     {
       "name": "harness-workers",
       "serviceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
-      "prodInstanceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
+      "prodInstanceId": "7c48ee43-6df4-457b-b977-10f1f1ac1680",
       "stagingInstanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
       "ciBuilt": false,
-      "gateValidated": false,
+      "gateValidated": true,
       "repoNameOverride": {
         "prod": "showcase-harness",
         "staging": "showcase-harness"
@@ -152,6 +152,7 @@
       },
       "promoteTier": 1,
       "healthcheckPath": {
+        "prod": "/health",
         "staging": "/health"
       }
     },
@@ -1212,6 +1213,10 @@
         "tier": 1
       },
       {
+        "name": "harness-workers",
+        "tier": 1
+      },
+      {
         "name": "docs",
         "tier": 2,
         "standalone": true
@@ -1353,11 +1358,6 @@
         "tier": 2
       }
     ],
-    "skipped": [
-      {
-        "name": "harness-workers",
-        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
-      }
-    ]
+    "skipped": []
   }
 }
