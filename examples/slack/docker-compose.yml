@@ -1,9 +1,0 @@
-# UNCOMMITTED demo helper — local Redis for the durable-action restart test.
-#   docker compose up -d        # start Redis on localhost:6379
-#   docker compose down         # stop it
-services:
-  redis:
-    image: redis:7-alpine
-    container_name: slack-demo-redis
-    ports:
-      - "6379:6379"

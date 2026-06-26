@@ -25,13 +25,13 @@ icon: "lucide/MessageSquare"
 
     ```ts title="bot.ts"
     import { createBot } from "@copilotkit/bot";
-    import { createRedisStore } from "@copilotkit/bot-store-redis";
 
     const bot = createBot({
       adapters: [/* ... */],
       agent: (threadId) => /* ... */,
       store: {
-        adapter: createRedisStore({ url: process.env.REDIS_URL! }),
+        // Uses MemoryStore by default (entries lost on restart).
+        // Pass adapter: <your StateStore> for durable transcript history.
         // Map any platform's author object to a stable user key.
         // Return null to opt a user out of transcript tracking.
         identity: ({ author }) => author.email ?? null,
@@ -46,7 +46,7 @@ icon: "lucide/MessageSquare"
     The `author` object is provided by the platform adapter — on Slack it includes the user's Slack profile fields including `email` if your bot has the `users:read.email` scope. Use whatever field gives you a stable, cross-platform identifier — email is the most common choice.
 
     <Callout type="info" title="Transcripts require a durable store">
-      `MemoryStore` does support the transcripts API for local development, but entries are lost on restart. Use Redis or PostgreSQL in production so transcript history actually persists. See [Persistence](/bots/persistence) for backend setup.
+      `MemoryStore` does support the transcripts API for local development, but entries are lost on restart. Back the store with a durable `StateStore` implementation in production so transcript history actually persists. See [Persistence](/bots/persistence) for guidance.
     </Callout>
   </Step>
   <Step>
