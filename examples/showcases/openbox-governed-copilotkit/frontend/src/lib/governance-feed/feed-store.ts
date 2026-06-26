@@ -71,7 +71,10 @@ function toResultRecord(
   record: Record<string, unknown>,
 ): FeedResultRecord {
   const guardrails = asRecord(record.guardrailsResult);
-  const emittedAtMs = Date.parse(textValue(record.expiresAt)) || Date.now();
+  // Use ingest (arrival) time, not expiresAt: for approval_required results
+  // expiresAt is a future approval-expiry, which would future-date the record.
+  // emittedAtMs is only a tie-breaker after arrivalIndex; arrival time is correct.
+  const emittedAtMs = Date.now();
   return {
     kind: "result",
     id,
