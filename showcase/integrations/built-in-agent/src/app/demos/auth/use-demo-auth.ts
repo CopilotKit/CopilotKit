@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { DEMO_TOKEN } from "./demo-token";
 
 const STORAGE_KEY = "copilotkit:auth-demo:token";
 
