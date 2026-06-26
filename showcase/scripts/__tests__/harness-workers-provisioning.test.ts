@@ -1,21 +1,29 @@
 /**
  * harness-workers-provisioning.test.ts — CI drift gate for harness-workers
- * worker-fleet provisioning fields (`numReplicas`, `BROWSER_POOL_MAX_CONTEXTS`).
+ * worker-fleet provisioning fields (`effectiveReplicas`,
+ * `BROWSER_POOL_MAX_CONTEXTS`).
  *
  * Style note: mirrors `verify-railway-image-refs.test.ts` — pure validators
  * against synthesized or committed-snapshot inputs, NO live Railway API calls.
  *
- * The drift gate works by comparing SSOT `numReplicas` (declared in
- * `railway-envs.ts`) against the value committed to
- * `railway-envs.generated.json` (a static snapshot, NOT a live Railway API
- * response). When the SSOT and the snapshot agree, the gate passes. When they
- * diverge (someone edited the SSOT but forgot to re-run emit-railway-envs-json,
- * or forgot to update the SSOT to match reality), the gate fails.
+ * The drift gate works by comparing the SSOT EFFECTIVE replica count
+ * (`effectiveReplicas`, declared in `railway-envs.ts`) against the value
+ * committed to `railway-envs.generated.json` (a static snapshot, NOT a live
+ * Railway API response). When the SSOT and the snapshot agree, the gate passes.
+ * When they diverge (someone edited the SSOT but forgot to re-run
+ * emit-railway-envs-json, or forgot to update the SSOT to match reality), the
+ * gate fails.
+ *
+ * EFFECTIVE REPLICA COUNT: the gate watches `effectiveReplicas`, which models
+ * `multiRegionConfig.us-west2.numReplicas` — the field Railway actually honors
+ * to derive the live replica count for this single-region service. The
+ * top-level `numReplicas` is a documented mirror only; watching it would gate
+ * a field that does not drive reality.
  *
  * WORKER MODEL CONFIRMED: 1-worker-per-replica (NOT replicas × pool count).
  * `HARNESS_POOL_COUNT` is INFORMATIONAL ONLY — not a fork factor. The
- * authoritative worker count is `numReplicas`. The authoritative per-worker
- * concurrency is `BROWSER_POOL_MAX_CONTEXTS`.
+ * authoritative worker count is `effectiveReplicas`. The authoritative
+ * per-worker concurrency is `BROWSER_POOL_MAX_CONTEXTS`.
  */
 
 import { readFileSync } from "node:fs";
@@ -51,17 +59,28 @@ describe("harness-workers provisioning SSOT", () => {
     expect(stagingProv).not.toBeUndefined();
   });
 
-  it("prod numReplicas = 3 (current live reality, 2026-06-26)", () => {
+  it("prod effectiveReplicas = 6 (parity achieved — B-reconcile scaled prod 3 → 6, 2026-06-26)", () => {
+    // multiRegionConfig.us-west2.numReplicas is the field Railway honors.
+    // Verified live: deploy.multiRegionConfig = {"us-west2":{"numReplicas":6}}.
     const prov = workerProvisioningFor("harness-workers", "prod");
-    expect(prov?.numReplicas).toBe(3);
+    expect(prov?.effectiveReplicas).toBe(6);
   });
 
-  it("staging numReplicas = 6 (live reality — config-field read 2, but 6 instances live)", () => {
-    // STAGING CONFIG DRIFT: Railway staging replicas config field was 2 at
-    // audit time, but 6 instances were observed LIVE. This test asserts 6
-    // (live reality). Follow-up: align Railway staging config field to 6.
+  it("staging effectiveReplicas = 6 (multiRegionConfig.us-west2.numReplicas, verified live)", () => {
+    // Verified live: deploy.multiRegionConfig = {"us-west2":{"numReplicas":6}}.
     const prov = workerProvisioningFor("harness-workers", "staging");
-    expect(prov?.numReplicas).toBe(6);
+    expect(prov?.effectiveReplicas).toBe(6);
+  });
+
+  it("top-level numReplicas mirrors effectiveReplicas in both envs (6 / 6)", () => {
+    // Single-region service: the top-level numReplicas is a documented mirror of
+    // the effective per-region count, not an authoritative knob.
+    const prodProv = workerProvisioningFor("harness-workers", "prod");
+    const stagingProv = workerProvisioningFor("harness-workers", "staging");
+    expect(prodProv?.numReplicas).toBe(6);
+    expect(stagingProv?.numReplicas).toBe(6);
+    expect(prodProv?.numReplicas).toBe(prodProv?.effectiveReplicas);
+    expect(stagingProv?.numReplicas).toBe(stagingProv?.effectiveReplicas);
   });
 
   it("BROWSER_POOL_MAX_CONTEXTS = 40 for both envs (per-worker concurrency, not a fleet total)", () => {
@@ -108,7 +127,7 @@ describe("harness-workers provisioning drift gate (SSOT vs generated JSON snapsh
    * test (flaky, requires auth, slow). The snapshot is updated by running:
    *   npx tsx showcase/scripts/emit-railway-envs-json.ts
    */
-  it("SSOT prod numReplicas matches committed generated JSON snapshot", () => {
+  it("SSOT prod effectiveReplicas matches committed generated JSON snapshot", () => {
     const snapshot = loadGeneratedSnapshot();
     const snapshotEntry = snapshot.services.find(
       (s) => s.name === "harness-workers",
@@ -125,16 +144,16 @@ describe("harness-workers provisioning drift gate (SSOT vs generated JSON snapsh
     ).not.toBeUndefined();
 
     const snapshotProdReplicas =
-      snapshotEntry?.workerProvisioning?.prod?.numReplicas;
+      snapshotEntry?.workerProvisioning?.prod?.effectiveReplicas;
     expect(
       snapshotProdReplicas,
-      "workerProvisioning.prod.numReplicas missing from generated JSON snapshot",
+      "workerProvisioning.prod.effectiveReplicas missing from generated JSON snapshot",
     ).not.toBeUndefined();
 
-    expect(ssotProd?.numReplicas).toBe(snapshotProdReplicas);
+    expect(ssotProd?.effectiveReplicas).toBe(snapshotProdReplicas);
   });
 
-  it("SSOT staging numReplicas matches committed generated JSON snapshot", () => {
+  it("SSOT staging effectiveReplicas matches committed generated JSON snapshot", () => {
     const snapshot = loadGeneratedSnapshot();
     const snapshotEntry = snapshot.services.find(
       (s) => s.name === "harness-workers",
@@ -151,13 +170,13 @@ describe("harness-workers provisioning drift gate (SSOT vs generated JSON snapsh
     ).not.toBeUndefined();
 
     const snapshotStagingReplicas =
-      snapshotEntry?.workerProvisioning?.staging?.numReplicas;
+      snapshotEntry?.workerProvisioning?.staging?.effectiveReplicas;
     expect(
       snapshotStagingReplicas,
-      "workerProvisioning.staging.numReplicas missing from generated JSON snapshot",
+      "workerProvisioning.staging.effectiveReplicas missing from generated JSON snapshot",
     ).not.toBeUndefined();
 
-    expect(ssotStaging?.numReplicas).toBe(snapshotStagingReplicas);
+    expect(ssotStaging?.effectiveReplicas).toBe(snapshotStagingReplicas);
   });
 
   it("SSOT prod BROWSER_POOL_MAX_CONTEXTS matches committed generated JSON snapshot", () => {
@@ -195,8 +214,16 @@ describe("harness-workers provisioning with injected test data", () => {
     // returns the correct fields. Remove the injection in the finally block.
     const sentinel = "__test-workers-sentinel__";
     const mockProv = {
-      prod: { numReplicas: 5, BROWSER_POOL_MAX_CONTEXTS: 20 },
-      staging: { numReplicas: 10, BROWSER_POOL_MAX_CONTEXTS: 20 },
+      prod: {
+        effectiveReplicas: 5,
+        numReplicas: 5,
+        BROWSER_POOL_MAX_CONTEXTS: 20,
+      },
+      staging: {
+        effectiveReplicas: 10,
+        numReplicas: 10,
+        BROWSER_POOL_MAX_CONTEXTS: 20,
+      },
     };
     (
       SERVICES as Record<
@@ -233,8 +260,9 @@ describe("harness-workers provisioning with injected test data", () => {
     try {
       const prodProv = workerProvisioningFor(sentinel, "prod");
       const stagingProv = workerProvisioningFor(sentinel, "staging");
+      expect(prodProv?.effectiveReplicas).toBe(5);
+      expect(stagingProv?.effectiveReplicas).toBe(10);
       expect(prodProv?.numReplicas).toBe(5);
-      expect(stagingProv?.numReplicas).toBe(10);
       expect(prodProv?.BROWSER_POOL_MAX_CONTEXTS).toBe(20);
     } finally {
       delete (SERVICES as Record<string, unknown>)[sentinel];

@@ -270,31 +270,49 @@ captures these values for CI drift detection.
 ### Worker model (1-worker-per-replica)
 
 Railway runs **one worker process per replica container** (keyed on `HOSTNAME`).
-There is no per-process forking. The live worker count equals `numReplicas`
-strictly 1:1. `HARNESS_POOL_COUNT` is an **informational-only** control-plane
-hint — it does NOT fork additional workers. The authoritative per-worker
-concurrency knob is `BROWSER_POOL_MAX_CONTEXTS`.
+There is no per-process forking. The live worker count equals the **effective
+replica count** strictly 1:1. `HARNESS_POOL_COUNT` is an **informational-only**
+control-plane hint — it does NOT fork additional workers. The authoritative
+per-worker concurrency knob is `BROWSER_POOL_MAX_CONTEXTS`.
+
+### Effective replica count — `multiRegionConfig`, not top-level `numReplicas`
+
+`harness-workers` is a single-region service (`us-west2`). Railway derives the
+LIVE running replica count from the per-region
+`multiRegionConfig.us-west2.numReplicas` field — **this is the effective knob the
+deploy honors**. The top-level `numReplicas` is a legacy aggregate that Railway
+keeps in sync with the region sum, but it is NOT the field that drives reality.
+The SSOT therefore models the effective count as `effectiveReplicas`
+(= `multiRegionConfig.us-west2.numReplicas`) and keeps the top-level
+`numReplicas` only as a documented mirror. The CI drift gate asserts
+`effectiveReplicas`.
 
 ### Current declared values (live reality as of 2026-06-26)
 
-| Env     | `numReplicas` (live workers) | `BROWSER_POOL_MAX_CONTEXTS` |
-|---------|------------------------------|-----------------------------|
-| prod    | 3                            | 40                          |
-| staging | 6                            | 40                          |
+Verified live via the Railway GraphQL `environment.config` staged-config read —
+both envs carry `deploy.multiRegionConfig = {"us-west2":{"numReplicas":6}}`.
 
-**Staging config-field drift**: the Railway staging replicas config field was
-observed as `2` at audit time, but `6` instances were live. The SSOT records `6`
-(live reality). Follow-up: update the Railway staging replicas config field to 6.
+| Env     | `effectiveReplicas` (= `multiRegionConfig.us-west2.numReplicas`, live workers) | `numReplicas` (mirror) | `BROWSER_POOL_MAX_CONTEXTS` |
+| ------- | ------------------------------------------------------------------------------ | ---------------------- | --------------------------- |
+| prod    | 6                                                                              | 6                      | 40                          |
+| staging | 6                                                                              | 6                      | 40                          |
 
-**Prod/staging parity**: prod runs 3 replicas vs. staging's 6. Bringing prod
-to parity is a deliberate one-field change (`numReplicas: 3 → 6`) that is
-deferred to a follow-up operational item.
+**Prod/staging parity achieved**: B-reconcile scaled prod `harness-workers`
+from 3 → 6 replicas (updating BOTH the top-level `numReplicas` AND
+`multiRegionConfig.us-west2.numReplicas`) to match staging (6). Prod and staging
+are now at parity (6/6). The earlier prod=3 state and the prior staging
+config-field-vs-live drift (config field `2` / `6` live) are both resolved — the
+live staged config now reads `6` in both envs.
 
 ### SSOT fields
 
-- `workerProvisioning.{prod,staging}.numReplicas` — authoritative worker count
-  (= Railway replica count, 1:1). This is the ONLY field to update when
-  changing the replica count.
+- `workerProvisioning.{prod,staging}.effectiveReplicas` — AUTHORITATIVE worker
+  count (= `multiRegionConfig.us-west2.numReplicas`, the field Railway honors;
+  1:1 with live workers). This is the field the drift gate watches and the ONLY
+  field that drives the live replica count.
+- `workerProvisioning.{prod,staging}.numReplicas` — top-level Railway field,
+  retained as a DOCUMENTED MIRROR of `effectiveReplicas` (equal on a
+  single-region service). Not an authoritative knob.
 - `workerProvisioning.{prod,staging}.BROWSER_POOL_MAX_CONTEXTS` — per-worker
   Playwright context budget.
 - `workerProvisioning.{prod,staging}.HARNESS_POOL_COUNT` — INFORMATIONAL ONLY;
@@ -304,18 +322,21 @@ deferred to a follow-up operational item.
 ### Applying a replica count change (MANUAL)
 
 The `emit-railway-envs-json.ts` emitter and `bin/railway` tooling are
-**VERIFY-ONLY** with respect to `numReplicas` — they do not write replica counts
-to Railway. To change the replica count:
+**VERIFY-ONLY** with respect to the replica count — they do not write replica
+counts to Railway. To change the replica count:
 
-1. Change the `numReplicas` value in `railway-envs.ts` (SSOT).
+1. Change the `effectiveReplicas` value in `railway-envs.ts` (SSOT) — and the
+   `numReplicas` mirror alongside it (keep them equal for this single-region
+   service).
 2. Regenerate the snapshot: `npx tsx showcase/scripts/emit-railway-envs-json.ts`
 3. Commit both files (`railway-envs.ts` + `railway-envs.generated.json`).
 4. Apply the change to Railway manually via the Railway Dashboard (Service >
-   Settings > Replicas) or the Railway GraphQL API.
+   Settings > Replicas, which edits `multiRegionConfig.us-west2.numReplicas`) or
+   the Railway GraphQL API.
 
 The CI drift gate (`showcase/scripts/__tests__/harness-workers-provisioning.test.ts`)
 will fail if `railway-envs.ts` and `railway-envs.generated.json` disagree on
-`numReplicas`, catching a forgotten regeneration step.
+`effectiveReplicas`, catching a forgotten regeneration step.
 
 ## Environment IDs
 

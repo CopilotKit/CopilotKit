@@ -98,9 +98,13 @@ interface Emitted {
     // Worker-fleet provisioning record (ADDITIVE, SSOT). Only present for
     // `harness-workers`; omitted for all other services. The drift-gate test
     // (`harness-workers-provisioning.test.ts`) asserts that the SSOT
-    // numReplicas values match this committed snapshot — the authoritative
-    // worker-count source.
-    workerProvisioning?: { prod: WorkerProvisioning; staging: WorkerProvisioning };
+    // `effectiveReplicas` values (multiRegionConfig.us-west2.numReplicas — the
+    // field Railway honors) match this committed snapshot — the authoritative
+    // worker-count source. The top-level `numReplicas` mirror rides along.
+    workerProvisioning?: {
+      prod: WorkerProvisioning;
+      staging: WorkerProvisioning;
+    };
   }>;
   // --- Top-level promote-closure plan (ADDITIVE, U2). The tier-ordered
   // closure for the FULL fleet (`all`), computed via `computePromoteClosure`.
@@ -214,8 +218,8 @@ function projectServiceToLegacyJson(
     // Worker-fleet provisioning (ADDITIVE). Only emitted for `harness-workers`;
     // omitted for all other services so the frozen per-service shape is
     // preserved. The drift-gate test (`harness-workers-provisioning.test.ts`)
-    // asserts SSOT numReplicas matches this committed snapshot — compare SSOT
-    // vs. snapshot, never vs. a live Railway API call.
+    // asserts SSOT effectiveReplicas matches this committed snapshot — compare
+    // SSOT vs. snapshot, never vs. a live Railway API call.
     ...(entry.workerProvisioning !== undefined
       ? { workerProvisioning: entry.workerProvisioning }
       : {}),
