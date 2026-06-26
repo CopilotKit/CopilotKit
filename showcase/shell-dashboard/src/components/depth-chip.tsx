@@ -35,7 +35,7 @@ export interface DepthChipProps {
   chipColor?: "green" | "amber" | "red" | "gray";
   /**
    * Pool COMMUNICATION error (REQ-B). When set, the chip renders a DISTINCT
-   * "couldn't reach the pool" treatment — a purple/indigo fill with a "⚡"
+   * "couldn't reach the pool" treatment — an indigo fill with a "⚡"
    * glyph — that is visually unlike green/amber/red/gray, so an operator can
    * tell "the pool was unreachable" apart from "the test went red". The
    * underlying depth/colour is intentionally suppressed in favour of the
@@ -155,7 +155,8 @@ export function DepthChip({
     // depth above zero means the cell HAS data worth preserving while the
     // re-run is in flight — keep its colour, add a non-destructive refreshing
     // affordance. (Never-run / first load falls through to the grey ⟳ below.)
-    const hasPrior = (chipColor !== undefined && chipColor !== "gray") || depth > 0;
+    const hasPrior =
+      (chipColor !== undefined && chipColor !== "gray") || depth > 0;
 
     if (hasPrior) {
       // Reuse the default branch's EXACT colour derivation, threading
@@ -165,14 +166,40 @@ export function DepthChip({
         ? chipColorToClass(chipColor, regression)
         : depthColorClass(depth, regression, maxDepth);
 
+      // Decision-table guard: a failure-coloured cell (regression, or any path
+      // that resolves to the danger red) must NOT show the ⟳ spinner — it is
+      // colour-passthrough only ("failure → no spinner"). Today the data layer
+      // never marks a failure pending, so this is defensive; it keeps a red
+      // pending cell from reading as "re-running a failure".
+      const isFailureColor =
+        Boolean(regression) || colorClass.includes("--danger");
+
+      // Pulsing ring in the chip's OWN colour (a translucent emerald/amber/
+      // danger ring) rather than a generic white, so the motion cue matches the
+      // chip instead of washing it out. Falls back to white only for the gray
+      // tier where there is no strong own-colour to tint.
+      const ringClass = colorClass.includes("emerald")
+        ? "ring-emerald-300/70"
+        : colorClass.includes("--amber")
+          ? "ring-[var(--amber)]/70"
+          : colorClass.includes("--danger")
+            ? "ring-[var(--danger)]/70"
+            : "ring-white/60";
+
       return (
         <span
           data-testid="depth-chip"
           data-status="pending"
           data-surface-state="pending"
-          data-refreshing="true"
+          {...(isFailureColor ? {} : { "data-refreshing": "true" })}
           data-has-prior="true"
           data-depth={String(depth)}
+          role="status"
+          aria-label={
+            isFailureColor
+              ? `Depth ${depth} — regression`
+              : `Depth ${depth} — re-running`
+          }
           className={`relative inline-flex items-center justify-center min-w-[32px] h-5 px-1.5 rounded text-[10px] font-semibold tabular-nums ${colorClass}`}
           title={commTooltip ?? "re-queued — pending re-run"}
         >
@@ -182,18 +209,26 @@ export function DepthChip({
               "refreshing" meaning by SHAPE alone — never by colour. */}
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 rounded ring-1 ring-inset ring-white/60 animate-pulse motion-reduce:animate-none"
+            className={`pointer-events-none absolute inset-0 rounded ring-1 ring-inset ${ringClass} animate-pulse motion-reduce:animate-none`}
           />
+          {/* Visually-hidden status text so screen readers announce the
+              re-running affordance — the `title` alone is not reliably
+              surfaced by assistive tech. Suppressed for failure-coloured
+              cells (colour passthrough only — not "re-running"). */}
+          {!isFailureColor && <span className="sr-only">re-running</span>}
           <span className="relative inline-flex items-center">
             D{depth}
             {/* Corner refreshing glyph — a distinct SHAPE, not a colour shift,
-                so colour-blind operators still perceive "re-running". */}
-            <span
-              aria-hidden="true"
-              className="ml-0.5 text-[8px] leading-none animate-spin motion-reduce:animate-none"
-            >
-              ⟳
-            </span>
+                so colour-blind operators still perceive "re-running".
+                Suppressed for failure-coloured cells (colour passthrough only). */}
+            {!isFailureColor && (
+              <span
+                aria-hidden="true"
+                className="ml-0.5 text-[10px] leading-none animate-spin motion-reduce:animate-none"
+              >
+                ⟳
+              </span>
+            )}
           </span>
         </span>
       );

@@ -313,6 +313,28 @@ describe("DepthChip", () => {
     expect(chip.className).not.toContain("indigo");
   });
 
+  // DECISION-TABLE GUARD ("failure → no spinner"): a regression-coloured cell
+  // that is also pending must render the failure RED (colour passthrough) and
+  // must NOT show the ⟳ refreshing spinner — a failure is not "re-running".
+  it("regression + pending renders the failure red and NO ⟳ spinner / data-refreshing", () => {
+    const { getByTestId } = render(
+      <DepthChip
+        depth={5}
+        status="wired"
+        chipColor="green"
+        regression
+        pending
+      />,
+    );
+    const chip = getByTestId("depth-chip");
+    // Failure colour wins (regression overrides green → danger red).
+    expect(chip.className).toContain("danger");
+    expect(chip.className).not.toContain("emerald");
+    // No spinner glyph and no refreshing hook — colour passthrough only.
+    expect(chip.textContent).not.toContain("⟳");
+    expect(chip.getAttribute("data-refreshing")).not.toBe("true");
+  });
+
   it("unreachable takes precedence over pending (a known crash outranks an ambiguous reclaim)", () => {
     const { getByTestId } = render(
       <DepthChip
