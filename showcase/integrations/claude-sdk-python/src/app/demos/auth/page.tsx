@@ -13,14 +13,22 @@
 // inverts the historical unauth-first flow, which crashed the page on load
 // when `/info` returned 401 before `onError` handlers could attach.
 //
-// Error surfacing: <CopilotChat /> surfaces transport errors inconsistently
-// across states, so this page additionally captures errors via the
-// <CopilotKit onError> prop and renders a persistent error banner below the
-// chat. A local ErrorBoundary guards against any uncaught render-time error
-// from chat internals in the unauthenticated state so the page never white-
-// screens — instead, the user sees a clear in-page message.
+// Error surfacing: the post-sign-out 401 manifests as an AGENT-RUN error
+// (`agent_run_failed`), and that event is delivered to the AGENT-SCOPED
+// `<CopilotChat onError>` channel — NOT the provider-level `<CopilotKit
+// onError>`. The transport `/agent/<id>/run` POST returns 200; the auth
+// rejection rides inside the stream as an agent-run failure, so a demo that
+// listens only on `<CopilotKit onError>` never sees it and never renders the
+// banner. We therefore register the same handler on BOTH channels:
+// `<CopilotKit onError>` covers provider-level errors (e.g. the `/info`
+// handshake) and `<CopilotChat onError>` covers the agent-run rejection that
+// the sign-out path produces. The error surface is keyed off `lastError`
+// STATE and cleared on re-auth via an effect, so a rejection always renders
+// and signing back in always wipes it. A local ErrorBoundary still guards
+// against any uncaught render-time error from chat internals so the page
+// never white-screens.
 
-import { Component, useCallback, useMemo, useState } from "react";
+import { Component, useCallback, useEffect, useMemo, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 import { useDemoAuth } from "./use-demo-auth";
@@ -94,14 +102,24 @@ export default function AuthDemoPage() {
   const auth = useDemoAuth();
   const [lastError, setLastError] = useState<string | null>(null);
 
-  // Clear any stale error when auth state flips (authenticate OR sign out).
+  // Clear stale errors as soon as the user re-authenticates. This is the
+  // ONLY thing that gates the error surface on auth state — the render
+  // condition below keys off `lastError` alone. Clearing the error inside
+  // the sign-out handler (the obvious-but-wrong guard) created a race: the
+  // sign-out wipes `lastError`, then the post-sign-out rejection's `onError`
+  // sets it again — but if the order ever inverts, the banner flickers or
+  // never appears. Driving the surface off `lastError` and clearing it here
+  // only on re-auth removes that ordering dependency: a rejection always
+  // renders, and signing back in always wipes it.
+  useEffect(() => {
+    if (auth.authenticated) setLastError(null);
+  }, [auth.authenticated]);
+
   const authenticate = useCallback(() => {
-    setLastError(null);
     auth.authenticate();
   }, [auth]);
 
   const signOut = useCallback(() => {
-    setLastError(null);
     auth.signOut();
   }, [auth]);
 
@@ -116,9 +134,15 @@ export default function AuthDemoPage() {
     return h;
   }, [auth.authorizationHeader]);
 
+  // Shared handler wired to BOTH the provider-level `<CopilotKit onError>`
+  // and the agent-scoped `<CopilotChat onError>` (see the file header for why
+  // both are needed). The event shape is identical across both channels:
+  // `{ error: Error; code; context }`. Some transport errors decorate the
+  // `Error` with a numeric `status`/`statusCode`; we read those defensively
+  // and fall back to matching the 401 in the message text.
   const onError = useCallback(
     (errorEvent: {
-      error?: { message?: string; status?: number; statusCode?: number };
+      error: Error & { status?: number; statusCode?: number };
       context?: { response?: { status?: number } };
     }) => {
       const err = errorEvent?.error;
@@ -163,7 +187,11 @@ export default function AuthDemoPage() {
         </header>
         <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
           <ChatErrorBoundary authenticated={auth.authenticated}>
-            <CopilotChat agentId="auth-demo" className="h-full" />
+            <CopilotChat
+              agentId="auth-demo"
+              className="h-full"
+              onError={onError}
+            />
           </ChatErrorBoundary>
         </div>
         {lastError && (
