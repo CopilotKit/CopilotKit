@@ -117,6 +117,14 @@ export const AssistantMessage = (props: AssistantMessageProps) => {
 
 ### Advanced Headless UI Hook
 
+<Callout type="warning">
+  This section describes the historical `useCopilotChatHeadless_c` hook. That
+  hook is now deprecated. For new fully custom chat UIs, use
+  [`useAgent`](/reference/hooks/useAgent) with
+  `useCopilotKit().copilotkit.runAgent`. See the
+  [migration guide](/migration-guides/migrate-use-copilot-chat-headless-c).
+</Callout>
+
 New `useCopilotChatHeadless_c` hook provides complete control over chat UI:
 
 **Features:**
@@ -164,7 +172,7 @@ return (
 
 ## What about `useCopilotChat`?
 
-With the introduction of the new headless UI hook, we are starting the deprecation of `useCopilotChat`. While it will remain supported for several months in maintenance mode, all new headless UI features will be added to `useCopilotChatHeadless_c`. 
+At the time of the 1.10 release, `useCopilotChatHeadless_c` was introduced as the advanced headless UI path. That recommendation is now superseded by the v2 `useAgent` pattern.
 
 We recommend migrating to the new hook for new projects. However, please feel free to continue using `useCopilotChat` until you are ready to migrate.
 
@@ -175,7 +183,7 @@ We recommend migrating to the new hook for new projects. However, please feel fr
 - You don't need advanced headless features
 - You prefer gradual migration
 
-**Migrate to `useCopilotChatHeadless_c` if:**
+**Use the v2 `useAgent` pattern if:**
 - Starting a new project
 - Building new headless UI implementations
 - Need generative UI capabilities

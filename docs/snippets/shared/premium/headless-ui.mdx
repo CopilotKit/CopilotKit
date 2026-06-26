@@ -9,7 +9,15 @@ import {
 
 ## Overview
 
-CopilotKit offers *fully headless UI* through the `useCopilotChatHeadless_c` hook. By using this hook, you can build your own chat interfaces
+<Callout type="warning">
+  **Deprecated.** `useCopilotChatHeadless_c` is still supported during the
+  deprecation window, but new fully custom chat UIs should use
+  [`useAgent`](/reference/v2/hooks/useAgent) with
+  `useCopilotKit().copilotkit.runAgent` from the v2 API. See the
+  [migration guide](/migration-guides/migrate-use-copilot-chat-headless-c).
+</Callout>
+
+CopilotKit previously offered *fully headless UI* through the `useCopilotChatHeadless_c` hook. By using this hook, you can build your own chat interfaces
 from the ground up while still utilizing CopilotKit's core features and ease-of-use.
 
 ## Navigation

@@ -1,0 +1,5 @@
+{
+  "title": "Migration Guides",
+  "icon": "lucide/RefreshCw",
+  "pages": ["migrate-use-copilot-chat-headless-c"]
+}

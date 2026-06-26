@@ -7,6 +7,10 @@ description: "React hook for accessing AG-UI agent instances"
 
 `useAgent` is a React hook that returns an [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) instance. The hook subscribes to agent state changes and triggers re-renders when the agent's state, messages, or execution status changes.
 
+<Callout type="info">
+  Migrating from `useCopilotChatHeadless_c`? See the [migration guide](/migration-guides/migrate-use-copilot-chat-headless-c).
+</Callout>
+
 **Throws error** if no agent is configured with the specified `agentId`.
 
 ## Signature

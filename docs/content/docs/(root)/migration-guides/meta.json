@@ -3,6 +3,7 @@
   "icon": "lucide/RefreshCw",
   "pages": [
     "migrate-to-v2",
+    "migrate-use-copilot-chat-headless-c",
     "migrate-use-tool-rendering-resolver",
     "migrate-attachments",
     "migrate-to-1.10.X",
