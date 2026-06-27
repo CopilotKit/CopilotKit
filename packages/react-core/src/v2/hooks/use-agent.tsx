@@ -73,11 +73,27 @@ export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
     new Map(),
   );
 
+  // Cache resolved (real) agents by ID to maintain reference stability.
+  // Without this, the `agent` useMemo returns a new reference every time
+  // `copilotkit.agents` changes identity — even when the resolved agent for
+  // this agentId is the same object. That cascades into the subscription
+  // useEffect below, causing unsubscribe/resubscribe mid-stream and
+  // double-processing of TOOL_CALL_ARGS events (which corrupts tool arguments
+  // via duplicate concatenation, e.g. '{}' + '{}' = '{}{}').
+  const resolvedAgentCache = useRef<Map<string, AbstractAgent>>(new Map());
+
   const agent: AbstractAgent = useMemo(() => {
     const existing = copilotkit.getAgent(agentId);
     if (existing) {
-      // Real agent found — clear any cached provisional for this ID
+      // Real agent found — clear any cached provisional for this ID.
       provisionalAgentCache.current.delete(agentId);
+      // Return cached reference if the resolved agent is the same instance,
+      // keeping downstream useEffect deps stable during streaming.
+      const cached = resolvedAgentCache.current.get(agentId);
+      if (cached === existing) {
+        return cached;
+      }
+      resolvedAgentCache.current.set(agentId, existing);
       return existing;
     }
 
