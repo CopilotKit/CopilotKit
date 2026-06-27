@@ -39,6 +39,7 @@ import {
 import type { ɵPhoenixChannelSession } from "./utils/phoenix-observable";
 
 const THREADS_CHANNEL_EVENT = "thread_metadata";
+const THREAD_RUN_ACTIVITY_CHANNEL_EVENT = "thread_run_activity";
 const THREAD_SUBSCRIBE_PATH = "/threads/subscribe";
 const MAX_SOCKET_RETRIES = 5;
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -83,6 +84,32 @@ type ThreadMetadataEvent =
         id: string;
       };
     };
+
+/**
+ * Internal notification emitted when Intelligence observes new run activity
+ * for a thread without changing that thread's metadata row.
+ */
+export type ThreadRunActivityNotification = {
+  type: "thread_run_activity";
+  threadId: string;
+  agentId?: string;
+  runId?: string;
+  eventType: string;
+  latestEventId?: string;
+};
+
+type ThreadRunActivityGatewayPayload = {
+  threadId?: unknown;
+  thread_id?: unknown;
+  agentId?: unknown;
+  agent_id?: unknown;
+  runId?: unknown;
+  run_id?: unknown;
+  eventType?: unknown;
+  event_type?: unknown;
+  latestEventId?: unknown;
+  latest_event_id?: unknown;
+};
 
 interface ThreadListResponse {
   threads: ThreadRecord[];
@@ -205,6 +232,10 @@ const threadSocketEvents = createActionGroup("Thread Socket", {
     sessionId: number;
     payload: ThreadMetadataEvent;
   }>(),
+  runActivityReceived: props<{
+    sessionId: number;
+    notification: ThreadRunActivityNotification;
+  }>(),
 });
 
 const threadDomainEvents = createActionGroup("Thread Domain", {
@@ -235,6 +266,38 @@ function upsertThread(
   const next = [...threads];
   next[existingIndex] = thread;
   return sortThreadsByRecency(next);
+}
+
+/**
+ * Returns a non-empty string payload field or undefined for absent fields.
+ */
+function optionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+/**
+ * Converts gateway run-activity payloads into the internal TypeScript shape.
+ */
+function normalizeThreadRunActivityNotification(
+  payload: ThreadRunActivityGatewayPayload,
+): ThreadRunActivityNotification | null {
+  const threadId = optionalString(payload.threadId ?? payload.thread_id);
+  const eventType = optionalString(payload.eventType ?? payload.event_type);
+
+  if (!threadId || !eventType) {
+    return null;
+  }
+
+  return {
+    type: "thread_run_activity",
+    threadId,
+    agentId: optionalString(payload.agentId ?? payload.agent_id),
+    runId: optionalString(payload.runId ?? payload.run_id),
+    eventType,
+    latestEventId: optionalString(
+      payload.latestEventId ?? payload.latest_event_id,
+    ),
+  };
 }
 
 const threadReducer = createReducer(
@@ -618,6 +681,13 @@ interface ThreadStore {
   archiveThread(threadId: string): Promise<void>;
   unarchiveThread(threadId: string): Promise<void>;
   deleteThread(threadId: string): Promise<void>;
+  /**
+   * Subscribes to synthetic run-activity notifications without changing the
+   * thread metadata list.
+   */
+  subscribeToRunActivity?(
+    callback: (notification: ThreadRunActivityNotification) => void,
+  ): Subscription;
   getState(): ThreadState;
   /**
    * Returns a stable initial snapshot for server-side rendering.
@@ -992,6 +1062,25 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
                 }),
               ),
             );
+            const runActivity$ = channel$.pipe(
+              switchMap(({ channel }: ɵPhoenixChannelSession) =>
+                ɵobservePhoenixEvent$<ThreadRunActivityGatewayPayload>(
+                  channel,
+                  THREAD_RUN_ACTIVITY_CHANNEL_EVENT,
+                ),
+              ),
+              map((payload) => normalizeThreadRunActivityNotification(payload)),
+              filter(
+                (notification): notification is ThreadRunActivityNotification =>
+                  notification !== null,
+              ),
+              map((notification) =>
+                threadSocketEvents.runActivityReceived({
+                  sessionId: action.sessionId,
+                  notification,
+                }),
+              ),
+            );
             const joinOutcome$ = ɵobservePhoenixJoinOutcome$(channel$).pipe(
               filter((outcome) => outcome.type !== "joined"),
               map((outcome) =>
@@ -1005,9 +1094,12 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               ),
             );
 
-            return merge(socketLifecycle$, metadata$, joinOutcome$).pipe(
-              takeUntil(merge(shutdown$, fatalSocketShutdown$)),
-            );
+            return merge(
+              socketLifecycle$,
+              metadata$,
+              runActivity$,
+              joinOutcome$,
+            ).pipe(takeUntil(merge(shutdown$, fatalSocketShutdown$)));
           });
         }),
       ),
@@ -1384,6 +1476,17 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           threadId,
         }),
       );
+    },
+    subscribeToRunActivity(
+      callback: (notification: ThreadRunActivityNotification) => void,
+    ): Subscription {
+      return store.actions$
+        .pipe(
+          ofType(threadSocketEvents.runActivityReceived),
+          filter((action) => action.sessionId === store.getState().sessionId),
+          map((action) => action.notification),
+        )
+        .subscribe(callback);
     },
     getState(): ThreadState {
       return store.getState();

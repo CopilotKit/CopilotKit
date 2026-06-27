@@ -238,6 +238,70 @@ describe("thread store", () => {
     expect(ɵselectThreads(store.getState())).toHaveLength(1);
   });
 
+  it("notifies run-activity subscribers without mutating the thread list", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    const notifications: import("../threads").ThreadRunActivityNotification[] =
+      [];
+    const subscription = store.subscribeToRunActivity!((notification) => {
+      notifications.push(notification);
+    });
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+
+    const threadsBefore = ɵselectThreads(store.getState());
+    getChannel().serverPush("thread_run_activity", {
+      thread_id: "thread-1",
+      agent_id: "agent-1",
+      run_id: "run-1",
+      event_type: "text_message_content",
+      latest_event_id: "event-1",
+    });
+
+    await flushEffects();
+
+    expect(notifications).toEqual([
+      {
+        type: "thread_run_activity",
+        threadId: "thread-1",
+        agentId: "agent-1",
+        runId: "run-1",
+        eventType: "text_message_content",
+        latestEventId: "event-1",
+      },
+    ]);
+    expect(ɵselectThreads(store.getState())).toBe(threadsBefore);
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-2", "thread-1"],
+    );
+
+    subscription.unsubscribe();
+  });
+
   it("switches sessions when context changes and ignores stale results", async () => {
     let resolveFirstFetch: (value: unknown) => void = () => {};
     const fetchMock = vi
