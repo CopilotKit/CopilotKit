@@ -1501,6 +1501,89 @@ describe("startWorkerLoop", () => {
     expect(reportSpy).not.toHaveBeenCalled();
   });
 
+  it("drain lets an ALREADY-COMPLETING run finish and REPORTS it (not abandon)", async () => {
+    // LAYER (b) — graceful drain finish-and-report. A job that was SECONDS from
+    // done when SIGTERM landed must FINISH and have its terminal result
+    // REPORTED, not abandoned to the sweeper. This driver does NOT abort on the
+    // drain signal — it RESOLVES GREEN under its own steam shortly after drain
+    // fires (within the grace window), simulating a run that completes between
+    // SIGTERM and SIGKILL. On the CURRENT code the in-flight run is aborted
+    // (drainSignal IS the run's abortSignal) AND the abandon `break` is
+    // unconditional, so the completed green result is discarded and `report` is
+    // never called → this test is RED. After the B2 fix (decouple drain from
+    // run-abort + conditional abandon) the run finishes and falls through to
+    // the report path → GREEN.
+    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+    const reportSpy = vi.spyOn(queue, "report");
+
+    let markStarted!: () => void;
+    const started = new Promise<void>((res) => {
+      markStarted = res;
+    });
+    // The test releases the run to COMPLETE (green) — NOT via abort. The driver
+    // ignores the abort signal entirely (a run that is about to finish does not
+    // honor a late drain abort).
+    let releaseComplete!: () => void;
+    const completeGate = new Promise<void>((res) => {
+      releaseComplete = res;
+    });
+    const driver: ServiceJobDriver = {
+      async run(ctx, _input): Promise<ProbeResult> {
+        markStarted();
+        await completeGate;
+        const observedAt = ctx.now().toISOString();
+        await ctx.writer.write({
+          key: "d6:langgraph-python/shared-state",
+          state: "green",
+          signal: { featureType: "shared-state" },
+          observedAt,
+        });
+        await ctx.writer.write({
+          key: "d6:langgraph-python",
+          state: "green",
+          signal: { shape: "package", slug: "langgraph-python" },
+          observedAt,
+        });
+        return {
+          key: "d6:langgraph-python",
+          state: "green",
+          signal: { shape: "package", slug: "langgraph-python" },
+          observedAt,
+        };
+      },
+    };
+
+    const handle = startWorkerLoop({
+      workerId: "worker-test",
+      queue,
+      pool: budgetWith(5),
+      driver,
+      payloadToInput: passInput,
+      logger: silentLogger,
+      env: {},
+      now: () => new Date("2026-06-04T00:04:00.000Z"),
+      sleep: yieldingSleep(),
+      pollIntervalMs: 1,
+      leaseSeconds: 2000,
+      heartbeatMs: 1_000_000,
+    });
+
+    await started;
+    // SIGTERM lands: stop claiming new work. The in-flight run must NOT be
+    // aborted — it is about to finish.
+    handle.drain();
+    // The run completes green a moment later (well within the grace window).
+    releaseComplete();
+    await handle.done;
+
+    // The completed terminal result MUST be reported (finish-and-report), not
+    // discarded for the sweeper.
+    expect(reportSpy).toHaveBeenCalledTimes(1);
+    expect(queue.reports).toHaveLength(1);
+    expect(queue.reports[0]!.aggregateState).toBe("green");
+    expect(queue.reports[0]!.jobId).toBe("job-1");
+  });
+
   it("ctx.drainReason is undefined while the drain signal has NOT fired and becomes 'shutdown' after stop()", async () => {
     // `drainReason` means "the EXTERNAL drain signal FIRED", not "a drain
     // signal exists". In fleet production every ctx carries the worker's
