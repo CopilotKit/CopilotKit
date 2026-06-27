@@ -11,6 +11,7 @@ import { afterEach, expect, test, vi } from "vitest";
 import { AbstractAgent } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import type * as CopilotKitCoreModule from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type {
   ThreadRunActivityNotification,
@@ -21,7 +22,20 @@ import { EMPTY, Subscription } from "rxjs";
 import { CopilotKitContext, EMPTY_SET } from "../../../context";
 import { CopilotChat } from "../CopilotChat";
 
+const coreMocks = vi.hoisted(() => ({
+  createThreadStore: vi.fn(),
+}));
+
+vi.mock("@copilotkit/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof CopilotKitCoreModule>();
+  return {
+    ...actual,
+    ɵcreateThreadStore: coreMocks.createThreadStore,
+  };
+});
+
 afterEach(() => {
+  coreMocks.createThreadStore.mockReset();
   cleanup();
 });
 
@@ -59,10 +73,14 @@ type TestCoreOptions = {
   intelligence?: { wsUrl: string };
   threadEndpoints?: { realtimeMetadata?: boolean; list?: boolean };
   deferInitialConnect?: boolean;
+  registeredStore?: RunActivityStore | null;
 };
 
 type RunActivityStore = Pick<ɵThreadStore, "subscribeToRunActivity"> & {
   emit(notification: ThreadRunActivityNotification): void;
+  setContext: ReturnType<typeof vi.fn>;
+  start: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
 };
 
 class TestAgent extends AbstractAgent {
@@ -97,6 +115,9 @@ function createRunActivityStore(): RunActivityStore {
     (notification: ThreadRunActivityNotification) => void
   >();
   return {
+    setContext: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
     subscribeToRunActivity(callback) {
       callbacks.add(callback);
       return new Subscription(() => {
@@ -152,19 +173,25 @@ function createTestCore(
     ),
     clearSuggestions: vi.fn(),
     getSuggestions: vi.fn(() => ({ isLoading: false, suggestions: [] })),
-    getThreadStore: vi.fn(() => store),
+    getThreadStore: vi.fn(() =>
+      options.registeredStore === null
+        ? undefined
+        : (options.registeredStore ?? store),
+    ),
     headers: {},
     intelligence: options.intelligence,
+    registerThreadStore: vi.fn(),
     runtimeConnectionStatus:
       options.runtimeConnectionStatus ??
       CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeTransport: "auto",
-    runtimeUrl: undefined,
+    runtimeUrl: "https://runtime.example",
     subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
     subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe: vi.fn() })),
     reloadSuggestions: vi.fn(),
     runAgent,
     threadEndpoints: options.threadEndpoints ?? { realtimeMetadata: true },
+    unregisterThreadStore: vi.fn(),
   };
 
   return {
@@ -240,6 +267,25 @@ test("thread_run_activity for the current explicit Intelligence thread triggers 
     expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
   });
   expect(rendered.connectAgentCalls[0]?.agent).toBe(rendered.agent);
+});
+
+test("standalone explicit Intelligence chat subscribes to run activity without a registered useThreads store", async () => {
+  const standaloneStore = createRunActivityStore();
+  coreMocks.createThreadStore.mockReturnValue(standaloneStore);
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { list: true, realtimeMetadata: true },
+    registeredStore: null,
+  });
+  await settleInitialConnect(rendered);
+
+  emitRunActivity(standaloneStore);
+
+  await waitFor(() => {
+    expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+  });
+  expect(rendered.connectAgentCalls[0]?.agent).toBe(rendered.agent);
+  expect(rendered.core.registerThreadStore).not.toHaveBeenCalled();
 });
 
 test("thread_run_activity does not reconnect for non-Intelligence runtime info", async () => {

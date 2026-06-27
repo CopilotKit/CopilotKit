@@ -19,7 +19,9 @@ import type { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
   isRunCompletionAware,
+  ɵcreateThreadStore,
 } from "@copilotkit/core";
+import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import React, {
   useCallback,
   useEffect,
@@ -245,6 +247,11 @@ export function CopilotChat({
     runtimeStatus === "Connected" &&
     !!copilotkit.intelligence?.wsUrl &&
     copilotkit.threadEndpoints?.realtimeMetadata === true;
+  const [standaloneRunActivityStore] = useState<ɵThreadStore>(() =>
+    ɵcreateThreadStore({
+      fetch: globalThis.fetch,
+    }),
+  );
 
   // Tracks the threadId the connect effect last ran for, so it can tell a real
   // thread SWITCH from an incidental re-render (agent identity change, etc.).
@@ -407,8 +414,22 @@ export function CopilotChat({
   useEffect(() => {
     if (!hasNativeIntelligenceRunActivity) return;
 
-    const threadStore = copilotkit.getThreadStore(resolvedAgentId);
+    const registeredThreadStore = copilotkit.getThreadStore(resolvedAgentId);
+    const threadStore = registeredThreadStore ?? standaloneRunActivityStore;
     if (!threadStore?.subscribeToRunActivity) return;
+    const ownsStandaloneStore = registeredThreadStore === undefined;
+    if (ownsStandaloneStore) {
+      threadStore.start();
+      const context: ɵThreadRuntimeContext | null = copilotkit.runtimeUrl
+        ? {
+            runtimeUrl: copilotkit.runtimeUrl,
+            headers: { ...copilotkit.headers },
+            wsUrl: copilotkit.intelligence?.wsUrl,
+            agentId: resolvedAgentId,
+          }
+        : null;
+      threadStore.setContext(context);
+    }
 
     const generation = runActivityReconnectGenerationRef.current + 1;
     runActivityReconnectGenerationRef.current = generation;
@@ -490,6 +511,10 @@ export function CopilotChat({
         agent.detachActiveRun().catch(() => {});
       }
       subscription.unsubscribe();
+      if (ownsStandaloneStore) {
+        threadStore.setContext(null);
+        threadStore.stop();
+      }
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -500,8 +525,11 @@ export function CopilotChat({
     hasExplicitThreadId,
     hasNativeIntelligenceRunActivity,
     copilotkit.runtimeConnectionStatus,
+    copilotkit.runtimeUrl,
+    copilotkit.headers,
     copilotkit.intelligence?.wsUrl,
     copilotkit.threadEndpoints?.realtimeMetadata,
+    standaloneRunActivityStore,
     isLocalActiveRunActivity,
   ]);
 

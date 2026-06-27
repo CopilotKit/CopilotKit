@@ -985,16 +985,14 @@ describe("HITL Thread Reconnection Bug", () => {
       expect(screen.getByTestId("hitl-action").textContent).toBe("delete");
     });
 
-    // After reconnection, status should be 'executing' with respond available
-    // The tool handler is re-invoked for pending HITL tools that were never responded to.
+    // Passive /connect replay hydrates the historical tool call but does not
+    // re-invoke local frontend tool handlers.
     await waitFor(() => {
       expect(screen.getByTestId("hitl-status").textContent).toBe(
-        ToolCallStatus.Executing,
+        ToolCallStatus.InProgress,
       );
     });
-
-    // respond button should be present so user can interact
-    expect(screen.getByTestId("hitl-respond")).toBeDefined();
+    expect(screen.queryByTestId("hitl-respond")).toBeNull();
   });
 
   it("should handle tool call after connect (fresh run)", async () => {

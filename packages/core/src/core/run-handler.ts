@@ -307,7 +307,11 @@ export class RunHandler {
         this.createAgentErrorSubscriber(agent),
       );
 
-      return this.processAgentResult({ runAgentResult, agent });
+      return this.processAgentResult({
+        runAgentResult,
+        agent,
+        executeFrontendTools: false,
+      });
     } catch (error) {
       const connectError =
         error instanceof Error ? error : new Error(String(error));
@@ -448,9 +452,11 @@ export class RunHandler {
   private async processAgentResult({
     runAgentResult,
     agent,
+    executeFrontendTools = true,
   }: {
     runAgentResult: RunAgentResult;
     agent: AbstractAgent;
+    executeFrontendTools?: boolean;
   }): Promise<RunAgentResult> {
     const { newMessages } = runAgentResult;
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
@@ -458,38 +464,22 @@ export class RunHandler {
 
     let needsFollowUp = false;
 
-    for (const message of newMessages) {
-      if (message.role === "assistant") {
-        for (const toolCall of message.toolCalls || []) {
-          if (
-            newMessages.findIndex(
-              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            ) === -1
-          ) {
-            const tool = this.getTool({
-              toolName: toolCall.function.name,
-              agentId: agent.agentId,
-            });
-            if (tool) {
-              const followUp = await this.executeSpecificTool(
-                tool,
-                toolCall,
-                message,
-                agent,
-                agentId,
-              );
-              if (followUp) {
-                needsFollowUp = true;
-              }
-            } else {
-              // Wildcard fallback for undefined tools
-              const wildcardTool = this.getTool({
-                toolName: "*",
+    if (executeFrontendTools) {
+      for (const message of newMessages) {
+        if (message.role === "assistant") {
+          for (const toolCall of message.toolCalls || []) {
+            if (
+              newMessages.findIndex(
+                (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+              ) === -1
+            ) {
+              const tool = this.getTool({
+                toolName: toolCall.function.name,
                 agentId: agent.agentId,
               });
-              if (wildcardTool) {
-                const followUp = await this.executeWildcardTool(
-                  wildcardTool,
+              if (tool) {
+                const followUp = await this.executeSpecificTool(
+                  tool,
                   toolCall,
                   message,
                   agent,
@@ -497,6 +487,24 @@ export class RunHandler {
                 );
                 if (followUp) {
                   needsFollowUp = true;
+                }
+              } else {
+                // Wildcard fallback for undefined tools
+                const wildcardTool = this.getTool({
+                  toolName: "*",
+                  agentId: agent.agentId,
+                });
+                if (wildcardTool) {
+                  const followUp = await this.executeWildcardTool(
+                    wildcardTool,
+                    toolCall,
+                    message,
+                    agent,
+                    agentId,
+                  );
+                  if (followUp) {
+                    needsFollowUp = true;
+                  }
                 }
               }
             }
