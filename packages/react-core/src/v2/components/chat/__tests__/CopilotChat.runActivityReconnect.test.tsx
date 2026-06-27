@@ -297,7 +297,7 @@ test("thread_run_activity from the local active run does not reconnect the origi
   });
 });
 
-test("thread_run_activity from a same-agent different run reconnects while a local run is active", async () => {
+test("thread_run_activity from a same-agent different run waits for the local run to finish", async () => {
   const rendered = renderChatWithCore({
     intelligence: { wsUrl: "wss://intelligence.example/client" },
     threadEndpoints: { realtimeMetadata: true },
@@ -324,13 +324,16 @@ test("thread_run_activity from a same-agent different run reconnects while a loc
     });
   });
 
-  await waitFor(() => {
-    expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
-  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
 
   await act(async () => {
     activeRun.resolve();
     await activeRun.promise;
+  });
+
+  await waitFor(() => {
+    expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -351,8 +351,11 @@ export class IntelligenceAgent extends AbstractAgent {
   protected connect(input: RunAgentInput): Observable<BaseEvent> {
     this.threadId = input.threadId;
     this.canonicalRunId = null;
+    const replayCursor = this.getReconnectCursor(input);
 
-    return defer(() => this.requestJoinCredentials$("connect", input)).pipe(
+    return defer(() =>
+      this.requestJoinCredentials$("connect", input, replayCursor),
+    ).pipe(
       switchMap((credentials) => {
         if (credentials === null) {
           return EMPTY;
@@ -367,6 +370,7 @@ export class IntelligenceAgent extends AbstractAgent {
         return this.observeThread$(canonicalInput, credentials, {
           completeOnRunError: false,
           streamMode: "connect",
+          replayCursor,
         });
       }),
     );
@@ -403,6 +407,7 @@ export class IntelligenceAgent extends AbstractAgent {
   private requestJoinCredentials$(
     mode: "run" | "connect",
     input: RunAgentInput,
+    replayCursor?: string | null,
   ): Observable<ThreadJoinCredentials | null> {
     return defer(async () => {
       try {
@@ -421,7 +426,12 @@ export class IntelligenceAgent extends AbstractAgent {
             state: input.state,
             forwardedProps: input.forwardedProps,
             ...(mode === "connect"
-              ? { lastSeenEventId: this.getReconnectCursor(input) }
+              ? {
+                  lastSeenEventId:
+                    replayCursor === undefined
+                      ? this.getReconnectCursor(input)
+                      : replayCursor,
+                }
               : {}),
           }),
           ...(this.config.credentials
@@ -515,7 +525,12 @@ export class IntelligenceAgent extends AbstractAgent {
           return throwError(() => error);
         }
 
-        return this.requestJoinCredentials$("connect", input).pipe(
+        const replayCursor = this.getReconnectCursor(input);
+        return this.requestJoinCredentials$(
+          "connect",
+          input,
+          replayCursor,
+        ).pipe(
           switchMap((refreshedCredentials) =>
             refreshedCredentials === null
               ? EMPTY
@@ -527,7 +542,7 @@ export class IntelligenceAgent extends AbstractAgent {
                   {
                     ...options,
                     channelMode: "connect",
-                    replayCursor: this.getReconnectCursor(input),
+                    replayCursor,
                   },
                 ),
           ),

@@ -103,6 +103,21 @@ describe("CopilotKitCore.connectAgent — thread-switch detection", () => {
     expect(agentB.clearReplayCursorSpy).toHaveBeenCalledWith("thread-B");
   });
 
+  it("connecting two agents on the same thread treats each agent as a fresh restore", async () => {
+    const agentA = new StubAgent("agent-A", "thread-1");
+    const agentB = new StubAgent("agent-B", "thread-1");
+
+    await core.connectAgent({ agent: agentA as unknown as AbstractAgent });
+    await core.connectAgent({ agent: agentB as unknown as AbstractAgent });
+
+    expect(agentA.setMessagesSpy).toHaveBeenCalledTimes(1);
+    expect(agentA.setStateSpy).toHaveBeenCalledTimes(1);
+    expect(agentA.clearReplayCursorSpy).toHaveBeenCalledWith("thread-1");
+    expect(agentB.setMessagesSpy).toHaveBeenCalledTimes(1);
+    expect(agentB.setStateSpy).toHaveBeenCalledTimes(1);
+    expect(agentB.clearReplayCursorSpy).toHaveBeenCalledWith("thread-1");
+  });
+
   it("A → B → A switches reset state on every transition", async () => {
     const agentA = new StubAgent("test", "thread-A");
     const agentB = new StubAgent("test", "thread-B");

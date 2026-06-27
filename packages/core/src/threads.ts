@@ -344,6 +344,7 @@ const threadReducer = createReducer(
       if (sessionId !== state.sessionId) {
         return state;
       }
+      const joinCodeChanged = joinCode !== state.metadataJoinCode;
 
       return {
         ...state,
@@ -351,6 +352,9 @@ const threadReducer = createReducer(
         isLoading: false,
         error: null,
         metadataJoinCode: joinCode,
+        metadataCredentialsRequested: joinCodeChanged
+          ? false
+          : state.metadataCredentialsRequested,
         nextCursor,
       };
     },

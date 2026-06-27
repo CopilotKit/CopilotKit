@@ -1308,6 +1308,54 @@ describe("thread store", () => {
     warnSpy.mockRestore();
   });
 
+  it("refreshes realtime metadata credentials when a refetch rotates the join code", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-2" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-2" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    store.refetchThreads();
+    await flushEffects();
+
+    expect(
+      fetchMock.mock.calls
+        .map(([url]) => String(url))
+        .filter((url) => url.endsWith("/threads/subscribe")),
+    ).toEqual([
+      "https://runtime.example.com/threads/subscribe",
+      "https://runtime.example.com/threads/subscribe",
+    ]);
+    expect(phoenix.sockets).toHaveLength(2);
+    expect(phoenix.sockets[0]?.channels[0]?.topic).toBe("user_meta:jc-1");
+    expect(phoenix.sockets[1]?.channels[0]?.topic).toBe("user_meta:jc-2");
+  });
+
   it("exposes a stable empty server snapshot for SSR", () => {
     const fetchMock = vi.fn();
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));

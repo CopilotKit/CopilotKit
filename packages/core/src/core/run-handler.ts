@@ -117,7 +117,9 @@ export class RunHandler {
    * downstream churn into duplicate `cpki_event_id` rows in the
    * inspector and intermittent "Message not found" toasts.
    */
-  private _lastConnectedThreadId: string | null = null;
+  private _lastConnectedThreadIdsByAgent = new Map<string, string | null>();
+  private _anonymousAgentIds = new WeakMap<AbstractAgent, string>();
+  private _nextAnonymousAgentId = 0;
 
   constructor(private core: CopilotKitCore) {}
 
@@ -136,6 +138,27 @@ export class RunHandler {
    */
   private get _internal(): CopilotKitCoreFriendsAccess {
     return this.core as unknown as CopilotKitCoreFriendsAccess;
+  }
+
+  /**
+   * Return a stable restore-tracking key for the logical agent being
+   * connected. Named agents share their last-thread marker across proxy
+   * instances; anonymous agents fall back to object identity.
+   */
+  private getConnectRestoreKey(agent: AbstractAgent): string {
+    if (agent.agentId) {
+      return `agent:${agent.agentId}`;
+    }
+
+    const existing = this._anonymousAgentIds.get(agent);
+    if (existing) {
+      return existing;
+    }
+
+    const anonymousId = `anonymous:${this._nextAnonymousAgentId}`;
+    this._nextAnonymousAgentId += 1;
+    this._anonymousAgentIds.set(agent, anonymousId);
+    return anonymousId;
   }
 
   /**
@@ -224,8 +247,11 @@ export class RunHandler {
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
     try {
       const incomingThreadId = agent.threadId ?? null;
-      const isFreshRestore = incomingThreadId !== this._lastConnectedThreadId;
-      this._lastConnectedThreadId = incomingThreadId;
+      const restoreKey = this.getConnectRestoreKey(agent);
+      const isFreshRestore =
+        incomingThreadId !==
+        (this._lastConnectedThreadIdsByAgent.get(restoreKey) ?? null);
+      this._lastConnectedThreadIdsByAgent.set(restoreKey, incomingThreadId);
 
       // Detach any active run before connecting to avoid previous runs
       // interfering. This stays unconditional — both fresh restores and

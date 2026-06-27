@@ -1436,6 +1436,60 @@ describe("IntelligenceAgent", () => {
       });
     });
 
+    it("uses one captured replay cursor for REST refresh and Phoenix rejoin after socket exhaustion", async () => {
+      let resolveRefreshCredentials: (response: Response) => void = () => {};
+      const refreshCredentials = new Promise<Response>((resolve) => {
+        resolveRefreshCredentials = resolve;
+      });
+      mockFetch
+        .mockResolvedValueOnce(
+          await jsonResponse(runtimeCredentials({ joinToken: "jt-1" })),
+        )
+        .mockReturnValueOnce(refreshCredentials);
+
+      const agent = createAgent();
+      connectWithTestAccess(agent, defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+
+      const firstChannel = getChannel(agent)!;
+      firstChannel.triggerJoin("ok");
+      firstChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_event_id: "event-before-refresh",
+          cpki_event_seq: 1,
+        },
+      } as BaseEvent);
+
+      for (let index = 0; index < 5; index += 1) {
+        getSocket(agent)!.triggerError(new Error("network failure"));
+      }
+      await flushAsyncWork();
+
+      firstChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_event_id: "event-after-rest-request",
+          cpki_event_seq: 2,
+        },
+      } as BaseEvent);
+      resolveRefreshCredentials(
+        await jsonResponse(runtimeCredentials({ joinToken: "jt-2" })),
+      );
+      await waitForConnection(agent);
+
+      expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
+        lastSeenEventId: "event-before-refresh",
+      });
+      expect(getChannel(agent)!.params).toMatchObject({
+        stream_mode: "connect",
+        last_seen_event_id: "event-before-refresh",
+      });
+    });
+
     it("does not treat a synthetic connect run id as abortable run identity", async () => {
       mockFetch.mockResolvedValueOnce(
         await jsonResponse(runtimeCredentials({ runId: null })),

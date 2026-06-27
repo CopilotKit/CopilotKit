@@ -431,7 +431,10 @@ export function CopilotChat({
       ) {
         return;
       }
-      if (activeConnectCountRef.current > 0) {
+      if (
+        activeConnectCountRef.current > 0 ||
+        activeLocalRunIdsRef.current.size > 0
+      ) {
         pendingRunActivityReconnectRef.current = true;
         return;
       }
@@ -605,6 +608,17 @@ export function CopilotChat({
         if (localRunId) {
           activeLocalRunIdsRef.current.delete(localRunId);
         }
+        if (
+          pendingRunActivityReconnectRef.current &&
+          activeLocalRunIdsRef.current.size === 0 &&
+          activeConnectCountRef.current === 0
+        ) {
+          const startReconnect = startRunActivityReconnectRef.current;
+          if (startReconnect) {
+            pendingRunActivityReconnectRef.current = false;
+            startReconnect(runActivityReconnectGenerationRef.current);
+          }
+        }
       }
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
@@ -651,6 +665,17 @@ export function CopilotChat({
       } finally {
         if (localRunId) {
           activeLocalRunIdsRef.current.delete(localRunId);
+        }
+        if (
+          pendingRunActivityReconnectRef.current &&
+          activeLocalRunIdsRef.current.size === 0 &&
+          activeConnectCountRef.current === 0
+        ) {
+          const startReconnect = startRunActivityReconnectRef.current;
+          if (startReconnect) {
+            pendingRunActivityReconnectRef.current = false;
+            startReconnect(runActivityReconnectGenerationRef.current);
+          }
         }
       }
     },
