@@ -1801,6 +1801,104 @@ describe("startWorkerLoop", () => {
     expect(queue.reports[0]!.jobId).toBe("job-1");
   });
 
+  it("SAME-TURN race: a run that resolves green in the very flush the grace timer fires is REPORTED, not spuriously abandoned (TOCTOU regression pin)", async () => {
+    // CONTESTED TOCTOU (crb2 vs crb6), reconciled here empirically. The abandon
+    // discriminator `abortedWithoutResult = runAbort.signal.aborted` is read in
+    // the loop AFTER `runClaimedJob` returns; `runAbort.abort()` only fires in
+    // stop()'s `Promise.race` TIMEOUT leg. crb2 feared a finished run could be
+    // abandoned if its resolution and the grace `setTimeout` came due in the
+    // same flush; crb6 argued single-threaded Promise.race ordering keeps it
+    // safe (the run resolves `done` first, so the timeout leg never wins and
+    // runAbort never fires).
+    //
+    // This forces the exact contention: the driver completes via a timer with
+    // the SAME delay as the grace window, so ONE `advanceTimersByTimeAsync`
+    // makes BOTH the run-completion timer AND the grace timer due together.
+    // Observed outcome (crb6 correct): the loop's report path resolves `done`,
+    // Promise.race picks "done" over "timeout", runAbort never aborts, and the
+    // run is REPORTED. This pin guards that ordering against regression — if a
+    // future change flipped the race to abort a same-turn finisher, the report
+    // assertion below would go RED.
+    vi.useFakeTimers();
+    const prev = process.env.WORKER_DRAIN_GRACE_MS;
+    process.env.WORKER_DRAIN_GRACE_MS = "50";
+    try {
+      const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+      const reportSpy = vi.spyOn(queue, "report");
+
+      let markStarted!: () => void;
+      const started = new Promise<void>((res) => {
+        markStarted = res;
+      });
+      // The driver IGNORES its abort signal and completes green via its OWN
+      // timer pinned to the grace delay (50ms) — so the run-resolution and the
+      // grace-expiry timer fall due in the same fake-clock advance.
+      const driver: ServiceJobDriver = {
+        async run(ctx, _input): Promise<ProbeResult> {
+          markStarted();
+          await new Promise<void>((resolve) => setTimeout(resolve, 50));
+          const observedAt = ctx.now().toISOString();
+          await ctx.writer.write({
+            key: "d6:langgraph-python/shared-state",
+            state: "green",
+            signal: { featureType: "shared-state" },
+            observedAt,
+          });
+          return {
+            key: "d6:langgraph-python",
+            state: "green",
+            signal: { shape: "package", slug: "langgraph-python" },
+            observedAt,
+          };
+        },
+      };
+
+      const handle = startWorkerLoop({
+        workerId: "worker-test",
+        queue,
+        pool: budgetWith(5),
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        // Honor the ms so the 50ms run-completion timer is not collapsed to 0
+        // and the heartbeat (1e6 ms) stays quiet across the advance.
+        sleep: clockHonoringSleep,
+        pollIntervalMs: 1,
+        leaseSeconds: 2000,
+        heartbeatMs: 1_000_000,
+      });
+
+      // Let the loop claim + enter the driver (its completion timer is now
+      // armed at +50ms).
+      await vi.advanceTimersByTimeAsync(0);
+      await started;
+
+      // SIGTERM: stop claiming. stop() arms its OWN grace timer at +50ms — the
+      // same instant the run completes. Do NOT await stop() yet (it would block
+      // on the advance below).
+      handle.drain();
+      const stopped = handle.stop();
+
+      // ONE advance brings BOTH timers due in the same flush — the same-turn
+      // race crb2/crb6 disagreed on.
+      await vi.advanceTimersByTimeAsync(50);
+      await stopped;
+      await handle.done;
+
+      // VERDICT (crb6 correct): the finished run is REPORTED, never abandoned.
+      expect(reportSpy).toHaveBeenCalledTimes(1);
+      expect(queue.reports).toHaveLength(1);
+      expect(queue.reports[0]!.aggregateState).toBe("green");
+      expect(queue.reports[0]!.jobId).toBe("job-1");
+    } finally {
+      if (prev === undefined) delete process.env.WORKER_DRAIN_GRACE_MS;
+      else process.env.WORKER_DRAIN_GRACE_MS = prev;
+      vi.useRealTimers();
+    }
+  });
+
   it("ctx.drainReason is undefined while the drain signal has NOT fired and becomes 'shutdown' after stop()", async () => {
     // `drainReason` means "the EXTERNAL drain signal FIRED", not "a drain
     // signal exists". In fleet production every ctx carries the worker's

@@ -1167,10 +1167,13 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
 
   /**
    * Fire the drain signal exactly once: ABORT FIRST, then record the abandon
-   * decision. The abort is the load-bearing half — the loop's report-skip,
-   * the heartbeat stop, and the driver cancel all key on `stopAbort.signal`,
-   * NOT on `stop()` completing — so a hung run that "completes" after this
-   * point is still abandoned, never reported. The log line is forensics, and
+   * decision. The abort is the load-bearing half — `stopAbort.signal` stops the
+   * loop CLAIMING new work the instant it fires (not on `stop()` completing).
+   * Post-B2 the run-affecting halves are decoupled onto the GRACE-EXPIRY signal
+   * `runAbort.signal` (the loop's report-skip discriminator, the heartbeat stop,
+   * and the driver cancel `ctx.abortSignal`), so a graceful drain lets a
+   * FINISHING run complete and report; only a run that overruns the grace (when
+   * `runAbort` fires) is abandoned. The log line is forensics, and
    * `requestDrain()` sits at the head of `drainFleetWorker`'s SIGTERM
    * critical path: a throwing logger ahead of the abort would skip the abort
    * AND propagate out before the roster delete ever ran, so the log fires
@@ -1345,6 +1348,11 @@ export function startWorkerLoop(deps: WorkerLoopDeps): WorkerLoopHandle {
       // The worker still deregisters its registry row (orchestrator runWorker
       // stop path) so fleet-health doesn't reclaim the row red at its 180s stale
       // window before the 300s lease expiry.
+      // SAME-TURN SAFETY: even when the run resolves in the very flush the grace
+      // `setTimeout` comes due, `runAbort` does NOT fire here — `runAbort.abort()`
+      // lives only in stop()'s `Promise.race` TIMEOUT leg, and that leg loses the
+      // race once `done` is resolvable, so a finished run is reported, not
+      // spuriously abandoned (regression-pinned by the "SAME-TURN race" test).
       const abortedWithoutResult = runAbort.signal.aborted;
       if (abortedWithoutResult) {
         safeLog(logger, "info", "fleet.worker.drain-abandon", {
