@@ -779,6 +779,156 @@ describe("runClaimedJob", () => {
     // signal-keyed report-skip is what abandons it, not the job runner.
     expect(result.aggregateState).toBe("green");
   });
+
+  // ── B3: lease renewal must track the GRACE-EXPIRY signal, not drain-start ──
+  //
+  // Layer (b) decoupled "stop claiming" (drain) from "abort the run"
+  // (grace-expiry / `runAbort`). A run that is FINISHING after drain() must keep
+  // its lease RENEWING until it reports terminal, or the layer-(a) reaper could
+  // reclaim the row out from under the worker mid-finish (double-run /
+  // report-after-reclaim). Conversely a genuinely-abandoned run (aborted at
+  // grace-expiry, `runAbortSignal` fired) MUST stop renewing so its lease lapses
+  // and the reaper can reclaim it. These two tests pin both halves of that split
+  // by passing the drain and grace-expiry signals SEPARATELY.
+
+  it("B3: keeps renewing the lease for a FINISHING run after drain() (lease must NOT lapse so the reaper cannot steal it)", async () => {
+    // A run that was seconds from done when SIGTERM landed: drain() fires but the
+    // run is NOT aborted (its grace-expiry signal `runAbort` has NOT fired). The
+    // heartbeat must KEEP renewing across the whole finish window so the lease
+    // never lapses and the row stays un-reclaimable until the run reports.
+    const queue = makeQueue([]);
+    let markStarted!: () => void;
+    const started = new Promise<void>((res) => {
+      markStarted = res;
+    });
+    let releaseFn!: () => void;
+    const released = new Promise<void>((res) => {
+      releaseFn = res;
+    });
+    // Finishing driver: honors NOTHING until released (simulating a run that is
+    // mid-finish across the drain window). It does NOT observe runAbort because
+    // runAbort never fires in this scenario (it is finishing, not abandoned).
+    const driver: ServiceJobDriver = {
+      async run(ctx): Promise<ProbeResult> {
+        markStarted();
+        await released;
+        return {
+          key: "d6:langgraph-python",
+          state: "green",
+          signal: { shape: "package", slug: "langgraph-python" },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const drain = new AbortController();
+    const runAbort = new AbortController();
+    const resultPromise = runClaimedJob(
+      {
+        workerId: "worker-test",
+        queue,
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+      },
+      makeLease(),
+      // Short heartbeat so renews fire on every macrotask tick.
+      { leaseSeconds: 300, heartbeatMs: 1 },
+      drain.signal,
+      runAbort.signal,
+    );
+
+    await started;
+    await vi.waitFor(() => expect(queue.renewCalls).toBeGreaterThanOrEqual(1));
+
+    // DRAIN fires (SIGTERM) — but the run is FINISHING, so runAbort does NOT
+    // fire. Snapshot the renew count just after drain.
+    drain.abort();
+    await new Promise((r) => setTimeout(r, 0));
+    const renewsAtDrain = queue.renewCalls;
+
+    // Advance several macrotask ticks across the finish window. The heartbeat
+    // MUST keep renewing — the lease cannot lapse while the run is finishing.
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    expect(queue.renewCalls).toBeGreaterThan(renewsAtDrain);
+
+    // Let the run settle and report terminal.
+    releaseFn();
+    const result = await resultPromise;
+    expect(result.aggregateState).toBe("green");
+  });
+
+  it("B3 inverse: STOPS renewing the lease once the run is ABANDONED at grace-expiry (lease must lapse so the reaper reclaims it)", async () => {
+    // The over-budget abandon path: drain() fired AND the grace window expired,
+    // so stop() fires `runAbort`. A run that ignores its abort would otherwise
+    // hold the abandoned lease alive forever. The heartbeat MUST stop renewing
+    // the moment the grace-expiry (`runAbort`) signal fires so the lease lapses
+    // and the layer-(a) reaper can reclaim the orphaned row.
+    const queue = makeQueue([]);
+    let markStarted!: () => void;
+    const started = new Promise<void>((res) => {
+      markStarted = res;
+    });
+    let releaseFn!: () => void;
+    const released = new Promise<void>((res) => {
+      releaseFn = res;
+    });
+    // Wedged driver: IGNORES its abort signal, never settles until released.
+    const driver: ServiceJobDriver = {
+      async run(ctx): Promise<ProbeResult> {
+        markStarted();
+        await released;
+        return {
+          key: "d6:langgraph-python",
+          state: "green",
+          signal: { shape: "package", slug: "langgraph-python" },
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const drain = new AbortController();
+    const runAbort = new AbortController();
+    const resultPromise = runClaimedJob(
+      {
+        workerId: "worker-test",
+        queue,
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+      },
+      makeLease(),
+      { leaseSeconds: 300, heartbeatMs: 1 },
+      drain.signal,
+      runAbort.signal,
+    );
+
+    await started;
+    await vi.waitFor(() => expect(queue.renewCalls).toBeGreaterThanOrEqual(1));
+
+    // Grace expired: drain() fired earlier, now stop() hard-cancels via runAbort.
+    drain.abort();
+    runAbort.abort();
+    await new Promise((r) => setTimeout(r, 0));
+    const renewsAtAbort = queue.renewCalls;
+
+    // Advance several macrotask ticks: ZERO further renews may land after the
+    // grace-expiry abort — the abandoned lease must lapse for the sweeper.
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    expect(queue.renewCalls).toBe(renewsAtAbort);
+
+    releaseFn();
+    const result = await resultPromise;
+    expect(result.aggregateState).toBe("green");
+  });
 });
 
 // ── startWorkerLoop: full poll loop ────────────────────────────────────────

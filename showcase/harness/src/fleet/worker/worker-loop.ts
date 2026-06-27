@@ -838,22 +838,37 @@ export async function runClaimedJob(
   // that returns null (lease lost/stolen) stops the heartbeat but does not
   // abort the run — `report` is the final CAS arbiter.
   const heartbeatAbort = new AbortController();
-  // DRAIN STOPS RENEWAL: once the drain signal fires the in-flight job is
-  // ABANDONED — the loop will never report it, and the abandon design relies
-  // on the lease LAPSING so the sweeper re-queues the job neutral-gray. A
-  // wedged driver that ignores its abort would otherwise keep this heartbeat
-  // renewing indefinitely, holding the abandoned lease alive past every
-  // reclaim window. Abort the heartbeat the moment the drain fires (the
-  // listener is removed in the finally below so a long-lived drain signal
-  // doesn't accumulate listeners across jobs). A renewLease round-trip that
-  // was ALREADY dispatched when the drain fired may still land post-drain and
-  // extend the abandoned lease once — accepted (it only delays the sweeper's
-  // reclaim by one lease window) and untested by design.
-  const stopHeartbeatOnDrain = (): void => heartbeatAbort.abort();
-  if (drainSignal?.aborted) {
+  // GRACE-EXPIRY STOPS RENEWAL — NOT drain-start (layer (b), Task B3). Layer (b)
+  // decoupled "stop claiming new work" (the DRAIN signal) from "abort the
+  // in-flight run" (the GRACE-EXPIRY signal, `runAbortSignal` ← `runAbort` in
+  // startWorkerLoop). A run that was seconds from done when SIGTERM landed now
+  // FINISHES within the grace window and is reported — but that finish can span
+  // one or more heartbeat ticks, so the lease MUST keep renewing across it.
+  // Keying the heartbeat-abort on the DRAIN signal (as before B3) would stop
+  // renewal at drain-start → the lease lapses mid-finish → the layer-(a) reaper
+  // could reclaim the row out from under the worker (double-run /
+  // report-after-reclaim). So gate the heartbeat-abort on the SAME signal that
+  // marks the run genuinely ABANDONED: `runAbortSignal` (grace-expiry).
+  //   - FINISHING run: drain fired, runAbort has NOT → heartbeat keeps renewing
+  //     → lease stays alive until the run reports terminal (and the terminal
+  //     `done|failed` release resets layer-(a)'s `consecutive_orphan_count`).
+  //   - ABANDONED run: stop() fires `runAbort` at grace-expiry → heartbeat
+  //     aborts → the lease lapses → the sweeper re-queues neutral-gray (the
+  //     abandon design still relies on the lease LAPSING; a wedged driver that
+  //     ignores its abort would otherwise hold the lease alive indefinitely).
+  // The listener is removed in the finally below so a long-lived signal doesn't
+  // accumulate listeners across jobs. A renewLease round-trip ALREADY dispatched
+  // when the abort fires may still land once post-abort and extend the abandoned
+  // lease — accepted (it only delays the sweeper's reclaim by one lease window).
+  // `runAbortSignal` defaults to `drainSignal` (see runClaimedJob's signature)
+  // so the direct-call unit tests that pass a single signal keep their original
+  // drain-stops-renewal semantics.
+  const graceAbortSignal = runAbortSignal ?? drainSignal;
+  const stopHeartbeatOnGraceExpiry = (): void => heartbeatAbort.abort();
+  if (graceAbortSignal?.aborted) {
     heartbeatAbort.abort();
   } else {
-    drainSignal?.addEventListener("abort", stopHeartbeatOnDrain, {
+    graceAbortSignal?.addEventListener("abort", stopHeartbeatOnGraceExpiry, {
       once: true,
     });
   }
@@ -1004,7 +1019,10 @@ export async function runClaimedJob(
       finishedAt: now().toISOString(),
     });
   } finally {
-    drainSignal?.removeEventListener("abort", stopHeartbeatOnDrain);
+    graceAbortSignal?.removeEventListener(
+      "abort",
+      stopHeartbeatOnGraceExpiry,
+    );
     heartbeatAbort.abort();
     await heartbeat;
   }
