@@ -956,6 +956,9 @@ describe("IntelligenceAgent", () => {
           cpki_event_seq: 1,
         },
       } as BaseEvent);
+      firstThreadAChannel.serverPush("replay_complete", {
+        latestEventId: "event-a-1",
+      });
       firstThreadAChannel.serverPush("stream_idle", {
         latestEventId: "event-a-1",
       });
@@ -981,6 +984,9 @@ describe("IntelligenceAgent", () => {
           cpki_event_seq: 1,
         },
       } as BaseEvent);
+      threadBChannel.serverPush("replay_complete", {
+        latestEventId: "event-b-1",
+      });
       threadBChannel.serverPush("stream_idle", {
         latestEventId: "event-b-1",
       });
@@ -1025,6 +1031,9 @@ describe("IntelligenceAgent", () => {
           cpki_event_seq: 1,
         },
       } as BaseEvent);
+      secondThreadAChannel.serverPush("replay_complete", {
+        latestEventId: "event-a-1",
+      });
       secondThreadAChannel.serverPush("stream_idle", {
         latestEventId: "event-a-1",
       });
@@ -1036,11 +1045,15 @@ describe("IntelligenceAgent", () => {
       ]);
     });
 
-    it("completes on RUN_FINISHED from server", async () => {
+    it("does not complete passive connect on replayed RUN_FINISHED before replay_complete", async () => {
       mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
 
       const agent = createAgent();
-      const promise = connectAgent(agent);
+      let resolved = false;
+      const promise = connectAgent(agent).then((result) => {
+        resolved = true;
+        return result;
+      });
       await waitForConnection(agent);
 
       const channel = getChannel(agent)!;
@@ -1052,8 +1065,13 @@ describe("IntelligenceAgent", () => {
         threadId: "thread-1",
         runId: "run-1",
       } as BaseEvent);
-      channel.serverPush("stream_idle", { latestEventId: "event-1" });
       await flushAsyncWork();
+
+      expect(resolved).toBe(false);
+      expect(channel.left).toBe(false);
+
+      channel.serverPush("replay_complete", { latestEventId: "event-1" });
+      channel.serverPush("stream_idle", { latestEventId: "event-1" });
 
       const result = await promise;
       expect(result.completed).toBe(true);
@@ -1088,6 +1106,7 @@ describe("IntelligenceAgent", () => {
         type: EventType.RUN_ERROR,
         message: "something went wrong",
       } as BaseEvent);
+      channel.serverPush("replay_complete", { latestEventId: "event-1" });
       channel.serverPush("stream_idle", { latestEventId: "event-1" });
       await flushAsyncWork();
 
@@ -1150,6 +1169,97 @@ describe("IntelligenceAgent", () => {
       expect(channel.left).toBe(true);
     });
 
+    it("waits for replay_complete before completing connect on stream_idle", async () => {
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      let resolved = false;
+      const promise = agent.connectAgent({ runId: "run-1" }).then((result) => {
+        resolved = true;
+        return result;
+      });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("stream_idle", { latestEventId: "event-2" });
+      await flushAsyncWork();
+
+      expect(resolved).toBe(false);
+      expect(channel.left).toBe(false);
+
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        run_id: "backend-run-1",
+        input: {
+          messages: [
+            {
+              id: "msg-after-idle",
+              role: "user",
+              content: "replayed after idle",
+            },
+          ],
+        },
+      } as BaseEvent);
+      channel.serverPush("replay_complete", { latestEventId: "event-2" });
+
+      const result = await promise;
+
+      expect(result.newMessages).toEqual([
+        {
+          id: "msg-after-idle",
+          role: "user",
+          content: "replayed after idle",
+        },
+      ]);
+      expect(channel.left).toBe(true);
+    });
+
+    it("uses snake_case latest_event_id control cursors for subsequent reconnects", async () => {
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      const firstConnectPromise = agent.connectAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+
+      const firstChannel = getChannel(agent)!;
+      firstChannel.triggerJoin("ok");
+      firstChannel.serverPush("replay_complete", {
+        latest_event_id: "event-snake",
+      });
+      firstChannel.serverPush("stream_idle", {
+        latest_event_id: "event-snake",
+      });
+      await firstConnectPromise;
+
+      const secondConnectPromise = agent.connectAgent({ runId: "run-2" });
+      await waitForConnection(agent);
+
+      const secondChannel = getChannel(agent)!;
+      expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
+        lastSeenEventId: "event-snake",
+      });
+      expect(secondChannel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-snake",
+      });
+
+      secondChannel.triggerJoin("ok");
+      secondChannel.serverPush("replay_complete", {
+        latest_event_id: "event-snake",
+      });
+      secondChannel.serverPush("stream_idle", {
+        latest_event_id: "event-snake",
+      });
+      await secondConnectPromise;
+    });
+
     it("hydrates agent state from gateway replay events through connectAgent", async () => {
       const finalSnapshot = {
         todos: [
@@ -1190,6 +1300,7 @@ describe("IntelligenceAgent", () => {
       channel.serverPush("ag_ui_event", {
         type: EventType.RUN_FINISHED,
       } as BaseEvent);
+      channel.serverPush("replay_complete", { latestEventId: "event-4" });
       channel.serverPush("stream_idle", { latestEventId: "event-4" });
 
       await promise;
@@ -1349,6 +1460,9 @@ describe("IntelligenceAgent", () => {
       });
 
       getChannel(agent)!.triggerJoin("ok");
+      getChannel(agent)!.serverPush("replay_complete", {
+        latestEventId: "event-3",
+      });
       getChannel(agent)!.serverPush("stream_idle", {
         latestEventId: "event-3",
       });
@@ -1398,6 +1512,9 @@ describe("IntelligenceAgent", () => {
       });
 
       getChannel(agent)!.triggerJoin("ok");
+      getChannel(agent)!.serverPush("replay_complete", {
+        latestEventId: "cpki_ingested_00000000000000000002",
+      });
       getChannel(agent)!.serverPush("stream_idle", {
         latestEventId: "cpki_ingested_00000000000000000002",
       });
@@ -1426,6 +1543,7 @@ describe("IntelligenceAgent", () => {
           cpki_ingested: "cpki_ingested_00000000000000000011",
         },
       } as BaseEvent);
+      firstChannel.serverPush("replay_complete", {});
       firstChannel.serverPush("stream_idle", {});
       await expectConnectAgentToResolve(firstConnectPromise);
 
@@ -1441,6 +1559,9 @@ describe("IntelligenceAgent", () => {
       });
 
       getChannel(agent)!.triggerJoin("ok");
+      getChannel(agent)!.serverPush("replay_complete", {
+        latestEventId: "cpki_ingested_00000000000000000011",
+      });
       getChannel(agent)!.serverPush("stream_idle", {
         latestEventId: "cpki_ingested_00000000000000000011",
       });
@@ -1758,6 +1879,7 @@ describe("ProxiedCopilotRuntimeAgent (intelligence mode)", () => {
     channel.serverPush("ag_ui_event", {
       type: EventType.RUN_FINISHED,
     } as BaseEvent);
+    channel.serverPush("replay_complete", { latestEventId: "event-4" });
     channel.serverPush("stream_idle", { latestEventId: "event-4" });
 
     await promise;

@@ -17,6 +17,7 @@ import {
   EMPTY,
   Subject,
   Notification,
+  combineLatest,
   defer,
   dematerialize,
   lastValueFrom,
@@ -614,14 +615,19 @@ export class IntelligenceAgent extends AbstractAgent {
         input.threadId,
         channel$,
         REPLAY_COMPLETE_EVENT,
-      ).pipe(ignoreElements(), share());
+      ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdle$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         STREAM_IDLE_EVENT,
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdleCompletion$ =
-        options.streamMode === "connect" ? streamIdle$.pipe(take(1)) : EMPTY;
+        options.streamMode === "connect"
+          ? combineLatest([
+              replayComplete$.pipe(take(1)),
+              streamIdle$.pipe(take(1)),
+            ]).pipe(take(1))
+          : EMPTY;
       const threadCompleted$ = threadEvents$.pipe(
         ignoreElements(),
         endWith(null),
@@ -633,8 +639,11 @@ export class IntelligenceAgent extends AbstractAgent {
         this.joinThreadChannel$(channel$),
         this.observeSocketHealth$(socket$).pipe(takeUntil(terminal$)),
         threadEvents$.pipe(takeUntil(streamIdleCompletion$)),
-        replayComplete$.pipe(takeUntil(terminal$)),
-        streamIdleCompletion$.pipe(ignoreElements()),
+        replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
+        streamIdleCompletion$.pipe(
+          ignoreElements(),
+          takeUntil(threadCompleted$),
+        ),
       ).pipe(finalize(() => this.cleanupOwned(ownChannel, ownSocket)));
     });
   }
@@ -829,8 +838,12 @@ export class IntelligenceAgent extends AbstractAgent {
       return null;
     }
 
-    const latestEventId = (payload as { latestEventId?: unknown })
-      .latestEventId;
+    const controlPayload = payload as {
+      latestEventId?: unknown;
+      latest_event_id?: unknown;
+    };
+    const latestEventId =
+      controlPayload.latestEventId ?? controlPayload.latest_event_id;
     return typeof latestEventId === "string" ? latestEventId : null;
   }
 

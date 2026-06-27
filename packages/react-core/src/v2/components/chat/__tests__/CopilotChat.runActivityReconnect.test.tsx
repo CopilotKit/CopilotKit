@@ -427,6 +427,44 @@ test("thread_run_activity from a same-agent different run waits for the local ru
   });
 });
 
+test("thread_run_activity from a same-agent different run waits for an external active run to finish", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+  });
+  await settleInitialConnect(rendered);
+  const activeExternalRun = createDeferred();
+  rendered.runDeferrals.push(activeExternalRun);
+
+  const externalRunPromise = rendered.core.runAgent({
+    agent: rendered.agent,
+    runId: "external-run",
+  });
+  expect(rendered.agent.isRunning).toBe(true);
+
+  act(() => {
+    rendered.store.emit({
+      type: "thread_run_activity",
+      threadId: "thread-current",
+      agentId: DEFAULT_AGENT_ID,
+      runId: "run-remote",
+      eventType: "RUN_FINISHED",
+    });
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+
+  await act(async () => {
+    activeExternalRun.resolve();
+    await externalRunPromise;
+  });
+
+  await waitFor(() => {
+    expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+  });
+});
+
 test("thread_run_activity for another agent on the same thread does not reconnect", async () => {
   const rendered = renderChatWithCore({
     intelligence: { wsUrl: "wss://intelligence.example/client" },

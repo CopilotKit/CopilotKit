@@ -435,7 +435,28 @@ export function CopilotChat({
     runActivityReconnectGenerationRef.current = generation;
     let detached = false;
     let wakeReconnectActive = false;
+    let pendingAgentIdleDrain: ReturnType<typeof setTimeout> | null = null;
     const wakeReconnectAbortController = new AbortController();
+    const hasActiveAgentRun = () =>
+      activeLocalRunIdsRef.current.size > 0 || agent.isRunning;
+    const scheduleAgentIdleDrain = () => {
+      if (pendingAgentIdleDrain !== null) return;
+      pendingAgentIdleDrain = setTimeout(() => {
+        pendingAgentIdleDrain = null;
+        if (
+          detached ||
+          runActivityReconnectGenerationRef.current !== generation ||
+          !pendingRunActivityReconnectRef.current
+        ) {
+          return;
+        }
+        if (hasActiveAgentRun()) {
+          scheduleAgentIdleDrain();
+          return;
+        }
+        startRunActivityReconnectRef.current?.(generation);
+      }, 10);
+    };
 
     const connect = async () => {
       activeConnectCountRef.current += 1;
@@ -478,8 +499,9 @@ export function CopilotChat({
       ) {
         return;
       }
-      if (activeLocalRunIdsRef.current.size > 0) {
+      if (hasActiveAgentRun()) {
         pendingRunActivityReconnectRef.current = true;
+        scheduleAgentIdleDrain();
         return;
       }
       if (activeConnectCountRef.current > 0) {
@@ -488,6 +510,7 @@ export function CopilotChat({
         }
         return;
       }
+      pendingRunActivityReconnectRef.current = false;
       connect();
     };
 
@@ -503,6 +526,10 @@ export function CopilotChat({
     return () => {
       detached = true;
       pendingRunActivityReconnectRef.current = false;
+      if (pendingAgentIdleDrain !== null) {
+        clearTimeout(pendingAgentIdleDrain);
+        pendingAgentIdleDrain = null;
+      }
       if (startRunActivityReconnectRef.current) {
         startRunActivityReconnectRef.current = null;
       }
