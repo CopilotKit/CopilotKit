@@ -18,6 +18,11 @@ export interface CopilotKitCoreRunAgentParams {
   agent: AbstractAgent;
   forwardedProps?: Record<string, unknown>;
   /**
+   * Optional caller-supplied run identifier forwarded to the underlying AG-UI
+   * agent. When omitted, the agent creates one.
+   */
+  runId?: string;
+  /**
    * Per-interrupt responses addressing every open AG-UI interrupt from the
    * previous run. Forwarded to the agent as the standard `resume` array.
    */
@@ -303,6 +308,7 @@ export class RunHandler {
     agent,
     forwardedProps,
     resume,
+    runId,
   }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
@@ -375,6 +381,7 @@ export class RunHandler {
             ...forwardedProps,
           },
           ...(resume !== undefined ? { resume } : {}),
+          ...(runId !== undefined ? { runId } : {}),
           tools: this.buildFrontendTools(agent.agentId),
           context: this._internal.getContextForAgent(agent.agentId),
         },

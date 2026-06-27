@@ -228,9 +228,20 @@ export function CopilotChat({
   const activeConnectCountRef = useRef(0);
   const pendingRunActivityReconnectRef = useRef(false);
   const runActivityReconnectGenerationRef = useRef(0);
+  const activeLocalRunIdsRef = useRef<Set<string>>(new Set());
   const startRunActivityReconnectRef = useRef<
     ((generation: number) => void) | null
   >(null);
+  const runtimeStatus =
+    copilotkit.runtimeConnectionStatus ===
+    CopilotKitCoreRuntimeConnectionStatus.Connected
+      ? "Connected"
+      : copilotkit.runtimeConnectionStatus;
+  const hasNativeIntelligenceRunActivity =
+    hasExplicitThreadId &&
+    runtimeStatus === "Connected" &&
+    !!copilotkit.intelligence?.wsUrl &&
+    copilotkit.threadEndpoints?.realtimeMetadata === true;
 
   // Tracks the threadId the connect effect last ran for, so it can tell a real
   // thread SWITCH from an incidental re-render (agent identity change, etc.).
@@ -242,9 +253,14 @@ export function CopilotChat({
   hasExplicitThreadIdRef.current = hasExplicitThreadId;
 
   const isLocalActiveRunActivity = useCallback(
-    (notification: { agentId?: string; eventType: string }) => {
-      if (!agent.isRunning) return false;
+    (notification: { agentId?: string; runId?: string; eventType: string }) => {
       if (notification.agentId && notification.agentId !== resolvedAgentId) {
+        return false;
+      }
+      if (
+        !notification.runId ||
+        !activeLocalRunIdsRef.current.has(notification.runId)
+      ) {
         return false;
       }
 
@@ -363,18 +379,7 @@ export function CopilotChat({
   }, [resolvedThreadId, agent, resolvedAgentId, hasExplicitThreadId]);
 
   useEffect(() => {
-    const runtimeStatus =
-      copilotkit.runtimeConnectionStatus ===
-      CopilotKitCoreRuntimeConnectionStatus.Connected
-        ? "Connected"
-        : copilotkit.runtimeConnectionStatus;
-    const isNativeIntelligenceThread =
-      hasExplicitThreadId &&
-      runtimeStatus === "Connected" &&
-      !!copilotkit.intelligence?.wsUrl &&
-      copilotkit.threadEndpoints?.realtimeMetadata === true;
-
-    if (!isNativeIntelligenceThread) return;
+    if (!hasNativeIntelligenceRunActivity) return;
 
     const threadStore = copilotkit.getThreadStore(resolvedAgentId);
     if (!threadStore?.subscribeToRunActivity) return;
@@ -382,9 +387,15 @@ export function CopilotChat({
     const generation = runActivityReconnectGenerationRef.current + 1;
     runActivityReconnectGenerationRef.current = generation;
     let detached = false;
+    let wakeReconnectActive = false;
+    const wakeReconnectAbortController = new AbortController();
 
     const connect = async () => {
       activeConnectCountRef.current += 1;
+      wakeReconnectActive = true;
+      if (agent instanceof HttpAgent) {
+        agent.abortController = wakeReconnectAbortController;
+      }
       try {
         await copilotkit.connectAgent({ agent });
       } catch (error) {
@@ -396,6 +407,7 @@ export function CopilotChat({
           0,
           activeConnectCountRef.current - 1,
         );
+        wakeReconnectActive = false;
         const canDrainPendingReconnect =
           !detached &&
           runActivityReconnectGenerationRef.current === generation &&
@@ -428,6 +440,9 @@ export function CopilotChat({
 
     const subscription = threadStore.subscribeToRunActivity((notification) => {
       if (notification.threadId !== resolvedThreadId) return;
+      if (notification.agentId && notification.agentId !== resolvedAgentId) {
+        return;
+      }
       if (isLocalActiveRunActivity(notification)) return;
       startRunActivityReconnectRef.current?.(generation);
     });
@@ -438,6 +453,10 @@ export function CopilotChat({
       if (startRunActivityReconnectRef.current) {
         startRunActivityReconnectRef.current = null;
       }
+      if (wakeReconnectActive) {
+        wakeReconnectAbortController.abort();
+        agent.detachActiveRun().catch(() => {});
+      }
       subscription.unsubscribe();
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
@@ -447,6 +466,7 @@ export function CopilotChat({
     resolvedAgentId,
     resolvedThreadId,
     hasExplicitThreadId,
+    hasNativeIntelligenceRunActivity,
     copilotkit.runtimeConnectionStatus,
     copilotkit.intelligence?.wsUrl,
     copilotkit.threadEndpoints?.realtimeMetadata,
@@ -567,15 +587,34 @@ export function CopilotChat({
         });
       }
 
+      const localRunId = hasNativeIntelligenceRunActivity
+        ? randomUUID()
+        : undefined;
+      if (localRunId) {
+        activeLocalRunIdsRef.current.add(localRunId);
+      }
+
       try {
-        await copilotkit.runAgent({ agent });
+        await copilotkit.runAgent({
+          agent,
+          ...(localRunId !== undefined ? { runId: localRunId } : {}),
+        });
       } catch (error) {
         console.error("CopilotChat: runAgent failed", error);
+      } finally {
+        if (localRunId) {
+          activeLocalRunIdsRef.current.delete(localRunId);
+        }
       }
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, consumeAttachments, waitForActiveRunToSettle],
+    [
+      agent,
+      consumeAttachments,
+      waitForActiveRunToSettle,
+      hasNativeIntelligenceRunActivity,
+    ],
   );
 
   const handleSelectSuggestion = useCallback(
@@ -592,17 +631,31 @@ export function CopilotChat({
         content: suggestion.message,
       });
 
+      const localRunId = hasNativeIntelligenceRunActivity
+        ? randomUUID()
+        : undefined;
+      if (localRunId) {
+        activeLocalRunIdsRef.current.add(localRunId);
+      }
+
       try {
-        await copilotkit.runAgent({ agent });
+        await copilotkit.runAgent({
+          agent,
+          ...(localRunId !== undefined ? { runId: localRunId } : {}),
+        });
       } catch (error) {
         console.error(
           "CopilotChat: runAgent failed after selecting suggestion",
           error,
         );
+      } finally {
+        if (localRunId) {
+          activeLocalRunIdsRef.current.delete(localRunId);
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, waitForActiveRunToSettle],
+    [agent, waitForActiveRunToSettle, hasNativeIntelligenceRunActivity],
   );
 
   const stopCurrentRun = useCallback(() => {

@@ -1,6 +1,13 @@
 import React from "react";
-import { act, render, waitFor } from "@testing-library/react";
-import { expect, test, vi } from "vitest";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, expect, test, vi } from "vitest";
 import { AbstractAgent } from "@ag-ui/client";
 import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
@@ -14,8 +21,22 @@ import { EMPTY, Subscription } from "rxjs";
 import { CopilotKitContext, EMPTY_SET } from "../../../context";
 import { CopilotChat } from "../CopilotChat";
 
+afterEach(() => {
+  cleanup();
+});
+
 vi.mock("../CopilotChatView", () => {
-  const CopilotChatView = () => <div data-testid="mock-copilot-chat-view" />;
+  const CopilotChatView = (props: {
+    onSubmitMessage?: (value: string) => void;
+  }) => (
+    <button
+      data-testid="mock-copilot-chat-submit"
+      onClick={() => props.onSubmitMessage?.("hello")}
+      type="button"
+    >
+      submit
+    </button>
+  );
   return {
     CopilotChatView,
     default: CopilotChatView,
@@ -26,6 +47,11 @@ type ConnectCall = {
   agent: TestAgent;
   agentId?: string;
   threadId?: string;
+};
+
+type RunCall = {
+  agent: TestAgent;
+  runId?: string;
 };
 
 type TestCoreOptions = {
@@ -39,11 +65,15 @@ type RunActivityStore = Pick<ɵThreadStore, "subscribeToRunActivity"> & {
 };
 
 class TestAgent extends AbstractAgent {
+  detachActiveRunCalls = 0;
+
   connect(_input: RunAgentInput): Observable<BaseEvent> {
     return EMPTY;
   }
 
-  async detachActiveRun(): Promise<void> {}
+  async detachActiveRun(): Promise<void> {
+    this.detachActiveRunCalls += 1;
+  }
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return EMPTY;
@@ -88,6 +118,8 @@ function createTestCore(
   const agents = { [DEFAULT_AGENT_ID]: agent, secondary: secondaryAgent };
   const connectAgentCalls: ConnectCall[] = [];
   const connectDeferrals: Array<ReturnType<typeof createDeferred>> = [];
+  const runAgentCalls: RunCall[] = [];
+  const runDeferrals: Array<ReturnType<typeof createDeferred>> = [];
   const connectAgent = vi.fn((call: ConnectCall) => {
     connectAgentCalls.push({
       agent: call.agent,
@@ -96,6 +128,18 @@ function createTestCore(
     });
     const deferred = connectDeferrals.shift();
     return deferred ? deferred.promise : Promise.resolve();
+  });
+  const runAgent = vi.fn((call: RunCall) => {
+    runAgentCalls.push({
+      agent: call.agent,
+      runId: call.runId,
+    });
+    call.agent.isRunning = true;
+    const deferred = runDeferrals.shift();
+    const promise = deferred ? deferred.promise : Promise.resolve();
+    return promise.finally(() => {
+      call.agent.isRunning = false;
+    });
   });
   const core = {
     agents,
@@ -118,6 +162,7 @@ function createTestCore(
     subscribe: vi.fn(() => ({ unsubscribe: vi.fn() })),
     subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe: vi.fn() })),
     reloadSuggestions: vi.fn(),
+    runAgent,
     threadEndpoints: options.threadEndpoints ?? { realtimeMetadata: true },
   };
 
@@ -126,6 +171,9 @@ function createTestCore(
     connectAgentCalls,
     connectDeferrals,
     core,
+    runAgent,
+    runAgentCalls,
+    runDeferrals,
   };
 }
 
@@ -219,14 +267,86 @@ test("thread_run_activity from the local active run does not reconnect the origi
     threadEndpoints: { realtimeMetadata: true },
   });
   await settleInitialConnect(rendered);
-  rendered.agent.isRunning = true;
+  const activeRun = createDeferred();
+  rendered.runDeferrals.push(activeRun);
+  rendered.connectAgent.mockClear();
+  rendered.connectAgentCalls.length = 0;
+
+  fireEvent.click(screen.getByTestId("mock-copilot-chat-submit"));
+  await waitFor(() => {
+    expect(rendered.runAgent).toHaveBeenCalledTimes(1);
+  });
+  expect(typeof rendered.runAgentCalls[0]?.runId).toBe("string");
 
   act(() => {
     rendered.store.emit({
       type: "thread_run_activity",
       threadId: "thread-current",
       agentId: DEFAULT_AGENT_ID,
-      runId: "run-originating",
+      runId: rendered.runAgentCalls[0]?.runId,
+      eventType: "RUN_FINISHED",
+    });
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+
+  await act(async () => {
+    activeRun.resolve();
+    await activeRun.promise;
+  });
+});
+
+test("thread_run_activity from a same-agent different run reconnects while a local run is active", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+  });
+  await settleInitialConnect(rendered);
+  const activeRun = createDeferred();
+  rendered.runDeferrals.push(activeRun);
+  rendered.connectAgent.mockClear();
+  rendered.connectAgentCalls.length = 0;
+
+  fireEvent.click(screen.getByTestId("mock-copilot-chat-submit"));
+  await waitFor(() => {
+    expect(rendered.runAgent).toHaveBeenCalledTimes(1);
+  });
+  expect(typeof rendered.runAgentCalls[0]?.runId).toBe("string");
+
+  act(() => {
+    rendered.store.emit({
+      type: "thread_run_activity",
+      threadId: "thread-current",
+      agentId: DEFAULT_AGENT_ID,
+      runId: "run-remote",
+      eventType: "RUN_FINISHED",
+    });
+  });
+
+  await waitFor(() => {
+    expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+  });
+
+  await act(async () => {
+    activeRun.resolve();
+    await activeRun.promise;
+  });
+});
+
+test("thread_run_activity for another agent on the same thread does not reconnect", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+  });
+  await settleInitialConnect(rendered);
+
+  act(() => {
+    rendered.store.emit({
+      type: "thread_run_activity",
+      threadId: "thread-current",
+      agentId: "secondary",
+      runId: "run-secondary",
       eventType: "RUN_FINISHED",
     });
   });
@@ -310,6 +430,32 @@ test("queued thread_run_activity reconnect is discarded on unmount", async () =>
 
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+});
+
+test("in-flight thread_run_activity reconnect is detached on unmount", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+  });
+  await settleInitialConnect(rendered);
+  const detachCallsBeforeReconnect = rendered.agent.detachActiveRunCalls;
+  const activeConnect = createDeferred();
+  rendered.connectDeferrals.push(activeConnect);
+
+  emitRunActivity(rendered.store);
+  await waitFor(() => {
+    expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+  });
+  rendered.unmount();
+
+  expect(rendered.agent.detachActiveRunCalls).toBe(
+    detachCallsBeforeReconnect + 2,
+  );
+
+  await act(async () => {
+    activeConnect.resolve();
+    await activeConnect.promise;
+  });
 });
 
 test("queued thread_run_activity reconnect is discarded on thread change", async () => {
