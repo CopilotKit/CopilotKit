@@ -1,7 +1,6 @@
 import type { AbstractAgent, RunAgentInput } from "@ag-ui/client";
 import { RunAgentInputSchema } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
-import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { MCPMiddleware } from "@ag-ui/mcp-middleware";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 import {
@@ -14,6 +13,7 @@ import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client"
 import { extractForwardableHeaders } from "../header-utils";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { logger } from "@copilotkit/shared";
+import { MCPAppsMiddleware } from "./mcp-apps-middleware";
 
 type MiddlewareCapableAgent = AbstractAgent & {
   use?: (middleware: unknown) => void;

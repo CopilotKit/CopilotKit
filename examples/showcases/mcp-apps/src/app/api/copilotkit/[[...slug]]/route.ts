@@ -5,14 +5,13 @@
  * Reference: v2.x/apps/react/demo/src/app/api/copilotkit-mcp/[[...slug]]/route.ts
  */
 
+import { BuiltInAgent, MCPAppsMiddleware } from "@copilotkit/runtime/v2";
 import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { handle } from "hono/vercel";
-import { BuiltInAgent } from "@copilotkit/runtime/v2";
-import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 
 // Determine which LLM model to use based on available API keys
 const determineModel = () => {

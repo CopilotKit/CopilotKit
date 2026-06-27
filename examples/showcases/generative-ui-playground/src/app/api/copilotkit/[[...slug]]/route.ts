@@ -8,14 +8,13 @@
  * The frontend uses the `agent` prop on CopilotKitProvider to select which agent to use.
  */
 
+import { BasicAgent, MCPAppsMiddleware } from "@copilotkit/runtime/v2";
 import {
   CopilotRuntime,
   createCopilotEndpoint,
   InMemoryAgentRunner,
 } from "@copilotkit/runtime";
 import { handle } from "hono/vercel";
-import { BasicAgent } from "@copilotkit/runtime/v2";
-import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
 import { A2AAgent } from "@ag-ui/a2a";
 import { A2AClient } from "@a2a-js/sdk/client";
 

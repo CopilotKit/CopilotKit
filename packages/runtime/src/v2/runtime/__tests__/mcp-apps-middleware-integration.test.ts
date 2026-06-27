@@ -1,20 +1,27 @@
 import { describe, it, expect, afterEach, vi } from "vitest";
-import {
-  AbstractAgent,
-  RunAgentInput,
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type {
+  ActivitySnapshotEvent,
   BaseEvent,
-  EventType,
+  RunAgentInput,
 } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { LLMock, MCPMock } from "@copilotkit/aimock";
-import { MCPAppsMiddleware, getServerHash } from "@ag-ui/mcp-apps-middleware";
+import {
+  MCPAppsActivityType,
+  MCPAppsMiddleware,
+  getServerHash,
+} from "../handlers/shared/mcp-apps-middleware";
 
 /**
  * A minimal next-agent that emits RUN_STARTED and RUN_FINISHED.
  * Used as the downstream agent when the middleware should NOT delegate.
  */
 class MockNextAgent extends AbstractAgent {
+  public lastInput?: RunAgentInput;
+
   run(input: RunAgentInput): Observable<BaseEvent> {
+    this.lastInput = input;
     return new Observable((subscriber) => {
       subscriber.next({
         type: EventType.RUN_STARTED,
@@ -32,6 +39,33 @@ class MockNextAgent extends AbstractAgent {
 
   clone(): AbstractAgent {
     return new MockNextAgent();
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    throw new Error("not used");
+  }
+}
+
+class StreamingNextAgent extends AbstractAgent {
+  public lastInput?: RunAgentInput;
+
+  constructor(private readonly events: BaseEvent[]) {
+    super();
+  }
+
+  run(input: RunAgentInput): Observable<BaseEvent> {
+    this.lastInput = input;
+
+    return new Observable((subscriber) => {
+      for (const event of this.events) {
+        subscriber.next(event);
+      }
+      subscriber.complete();
+    });
+  }
+
+  clone(): AbstractAgent {
+    return new StreamingNextAgent(this.events);
   }
 
   protected connect(): ReturnType<AbstractAgent["connect"]> {
@@ -71,6 +105,8 @@ describe("MCPAppsMiddleware integration", () => {
   let mcpMock: MCPMock;
 
   afterEach(async () => {
+    vi.restoreAllMocks();
+
     if (llm) {
       await llm.stop().catch(() => {});
     }
@@ -103,6 +139,47 @@ describe("MCPAppsMiddleware integration", () => {
     llm.mount("/mcp", mcpMock);
     await llm.start();
     return `${llm.url}/mcp`;
+  }
+
+  async function startMcpServerWithUiTool(metaShape: "nested" | "flat") {
+    mcpMock = new MCPMock();
+    mcpMock.addTool({
+      name: "show_prefab",
+      description: "Show prefab UI",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ticket: { type: "string" },
+          severity: { type: "string" },
+        },
+        required: ["ticket", "severity"],
+      },
+      _meta:
+        metaShape === "nested"
+          ? {
+              ui: {
+                resourceUri: "ui://prefab/renderer.html",
+              },
+            }
+          : {
+              "ui/resourceUri": "ui://prefab/renderer.html",
+            },
+    });
+    mcpMock.onToolCall("show_prefab", () => `Rendered ${metaShape} prefab`);
+
+    llm = new LLMock({ port: 0 });
+    llm.mount("/mcp", mcpMock);
+    await llm.start();
+
+    return {
+      serverConfig: {
+        type: "http" as const,
+        url: `${llm.url}/mcp`,
+        serverId: `${metaShape}-server`,
+      },
+      resourceUri: "ui://prefab/renderer.html",
+      toolName: "show_prefab",
+    };
   }
 
   it("can be created with mcpServers config pointing at MCPMock URL", async () => {
@@ -271,5 +348,264 @@ describe("MCPAppsMiddleware integration", () => {
     expect(resource).toBeDefined();
     expect(resource.uri).toBe("app://dashboard");
     expect(resource.text).toContain("Dashboard content here");
+  });
+
+  it("prefers serverId over serverHash for proxied requests", async () => {
+    const mcpUrl = await startMcpServer();
+
+    const middleware = new MCPAppsMiddleware({
+      mcpServers: [
+        {
+          type: "http",
+          url: mcpUrl,
+          serverId: "stable-server",
+        },
+      ],
+    });
+
+    const input = createRunInput({
+      forwardedProps: {
+        __proxiedMCPRequest: {
+          serverId: "stable-server",
+          serverHash: "wrong-hash",
+          method: "resources/read",
+          params: { uri: "app://dashboard" },
+        },
+      },
+    });
+
+    const events = await collectEvents(
+      middleware.run(input, new MockNextAgent()),
+    );
+    const runFinished = events.find(
+      (event) => event.type === EventType.RUN_FINISHED,
+    ) as BaseEvent & { result?: unknown };
+
+    const result = runFinished.result as {
+      contents?: Array<{ uri: string; text?: string }>;
+    };
+    expect(result.contents?.[0]?.uri).toBe("app://dashboard");
+    expect(result.contents?.[0]?.text).toContain("Dashboard content here");
+  });
+
+  it("adds nested _meta.ui.resourceUri tools and emits MCP Apps activities for pending tool calls", async () => {
+    const { serverConfig, resourceUri, toolName } =
+      await startMcpServerWithUiTool("nested");
+
+    const serverHash = getServerHash(serverConfig);
+    const prefabStructuredContent = {
+      version: "1",
+      view: {
+        type: "panel",
+        children: [{ type: "text", text: "Nested UI" }],
+      },
+      state: { ticket: "BUG-5382", severity: "high" },
+      defs: { styleVars: { brand: "#111111" } },
+    };
+    const result = {
+      content: [{ type: "text", text: "Rendered nested prefab" }],
+      structuredContent: prefabStructuredContent,
+      isError: false,
+    };
+    const executeToolCall = vi
+      .spyOn(
+        MCPAppsMiddleware.prototype as unknown as {
+          executeToolCall: (
+            serverConfig: unknown,
+            name: string,
+            toolInput: Record<string, unknown>,
+          ) => Promise<unknown>;
+        },
+        "executeToolCall",
+      )
+      .mockResolvedValue(result);
+
+    const nextAgent = new StreamingNextAgent([
+      {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent,
+    ]);
+
+    const middleware = new MCPAppsMiddleware({
+      mcpServers: [serverConfig],
+    });
+
+    const input = createRunInput({
+      messages: [
+        {
+          id: "assistant-1",
+          role: "assistant",
+          content: "",
+          toolCalls: [
+            {
+              id: "call-1",
+              type: "function",
+              function: {
+                name: toolName,
+                arguments: JSON.stringify({
+                  ticket: "BUG-5382",
+                  severity: "high",
+                }),
+              },
+            },
+          ],
+        },
+      ] as RunAgentInput["messages"],
+    });
+
+    const events = await collectEvents(middleware.run(input, nextAgent));
+
+    expect(nextAgent.lastInput?.tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: toolName,
+          uiResourceUri: resourceUri,
+        }),
+      ]),
+    );
+
+    const snapshot = events.find(
+      (event): event is ActivitySnapshotEvent =>
+        event.type === EventType.ACTIVITY_SNAPSHOT,
+    );
+
+    expect(events.map((event) => event.type)).toEqual([
+      EventType.RUN_STARTED,
+      EventType.TOOL_CALL_RESULT,
+      EventType.ACTIVITY_SNAPSHOT,
+      EventType.RUN_FINISHED,
+    ]);
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.activityType).toBe(MCPAppsActivityType);
+    expect(snapshot!.content).toEqual({
+      result,
+      resourceUri,
+      serverHash,
+      serverId: serverConfig.serverId,
+      toolInput: {
+        ticket: "BUG-5382",
+        severity: "high",
+      },
+    });
+    expect(
+      (snapshot!.content as { result: { structuredContent: unknown } }).result
+        .structuredContent,
+    ).toEqual(prefabStructuredContent);
+    expect(executeToolCall).toHaveBeenCalledWith(serverConfig, toolName, {
+      ticket: "BUG-5382",
+      severity: "high",
+    });
+  });
+
+  it('keeps legacy flat _meta["ui/resourceUri"] discovery working', async () => {
+    const { serverConfig, resourceUri, toolName } =
+      await startMcpServerWithUiTool("flat");
+
+    const middleware = new MCPAppsMiddleware({
+      mcpServers: [serverConfig],
+    });
+    const flatStructuredContent = {
+      version: "1",
+      view: {
+        type: "panel",
+        children: [{ type: "text", text: "flat UI" }],
+      },
+      state: { ticket: "BUG-5382", severity: "low" },
+      defs: { styleVars: { brand: "#111111" } },
+    };
+    const result = {
+      content: [{ type: "text", text: "Rendered flat prefab" }],
+      structuredContent: flatStructuredContent,
+      isError: false,
+    };
+    const executeToolCall = vi
+      .spyOn(
+        MCPAppsMiddleware.prototype as unknown as {
+          executeToolCall: (
+            serverConfig: unknown,
+            name: string,
+            toolInput: Record<string, unknown>,
+          ) => Promise<unknown>;
+        },
+        "executeToolCall",
+      )
+      .mockResolvedValue(result);
+    const nextAgent = new StreamingNextAgent([
+      {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent,
+      {
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-1",
+      } as BaseEvent,
+    ]);
+
+    const events = await collectEvents(
+      middleware.run(
+        createRunInput({
+          messages: [
+            {
+              id: "assistant-flat",
+              role: "assistant",
+              content: "",
+              toolCalls: [
+                {
+                  id: "call-flat",
+                  type: "function",
+                  function: {
+                    name: toolName,
+                    arguments: JSON.stringify({
+                      ticket: "BUG-5382",
+                      severity: "low",
+                    }),
+                  },
+                },
+              ],
+            },
+          ] as RunAgentInput["messages"],
+        }),
+        nextAgent,
+      ),
+    );
+
+    expect(nextAgent.lastInput?.tools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: toolName,
+          uiResourceUri: resourceUri,
+        }),
+      ]),
+    );
+
+    const snapshot = events.find(
+      (event): event is ActivitySnapshotEvent =>
+        event.type === EventType.ACTIVITY_SNAPSHOT,
+    );
+    expect(snapshot).toBeDefined();
+    expect(snapshot!.activityType).toBe(MCPAppsActivityType);
+    expect(snapshot!.content).toEqual({
+      result,
+      resourceUri,
+      serverHash: getServerHash(serverConfig),
+      serverId: serverConfig.serverId,
+      toolInput: {
+        ticket: "BUG-5382",
+        severity: "low",
+      },
+    });
+    expect(executeToolCall).toHaveBeenCalledWith(serverConfig, toolName, {
+      ticket: "BUG-5382",
+      severity: "low",
+    });
   });
 });
