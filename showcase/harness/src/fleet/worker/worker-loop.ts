@@ -261,33 +261,75 @@ export const DEFAULT_POLL_INTERVAL_MS = 5_000;
  */
 export const DRAIN_DEREGISTER_TIMEOUT_MS = 3_000;
 /**
- * Upper bound on how long `stop()` waits for the in-flight run to drain before
- * detaching and resolving anyway.
+ * Platform SIGTERM→SIGKILL window the COMPOSED drain budget must fit under —
+ * i.e. the `terminationGracePeriodSeconds` layer-(c)/C3 MUST configure on the
+ * Railway `harness-workers` service so the worker drains cleanly before the
+ * platform hard-kills it.
  *
- * SERIAL BUDGET vs the platform kill: Railway SIGKILLs ~10s after SIGTERM
- * (live-verified 2026-06-10), and the drain sequence (`drainFleetWorker`)
- * spends its phases SERIALLY inside that window:
+ * This used to be Railway's ~10s default (live-verified 2026-06-10). Layer (b)
+ * turned the drain grace from a teardown budget into a FINISH-AND-REPORT budget
+ * that must BOUND a typical cell-job (see `DEFAULT_WORKER_DRAIN_GRACE_MS`), so
+ * a 10s default can no longer host it. The composed serial budget is now:
  *
- *     DRAIN_DEREGISTER_TIMEOUT_MS (cap; <1s normally)   — roster delete
- *   + DEFAULT_WORKER_DRAIN_GRACE_MS (this grace)        — best-effort teardown
- *   + health-server close + pool shutdown               — small remainder
- *   ≈ Railway's ~10s SIGTERM→SIGKILL window
+ *     DRAIN_DEREGISTER_TIMEOUT_MS (3s cap)          — roster delete
+ *   + DEFAULT_WORKER_DRAIN_GRACE_MS (90s grace)     — finish-and-report budget
+ *   + health-server close + pool shutdown           — small remainder
+ *   < PLATFORM_STOP_GRACE_MS (180s)                 — Railway terminationGracePeriod
  *
- * The COMPOSED worst case — a hung PocketBase consuming the full
- * `DRAIN_DEREGISTER_TIMEOUT_MS` cap AND a wedged driver consuming this full
- * grace — must fit under that window. The composed-budget test in
- * worker-loop.test.ts pins `DRAIN_DEREGISTER_TIMEOUT_MS +
- * DEFAULT_WORKER_DRAIN_GRACE_MS` against it and is the source of truth when
- * retuning either constant (both live in this file). Deregister-first
- * ordering makes the trade safe: only the roster delete is GUARANTEED to
- * beat the kill; the pool shutdown and clean `process.exit` behind this
- * grace are best-effort (a SIGKILL mid-teardown is harmless once the roster
- * row is gone). Env-overridable via `WORKER_DRAIN_GRACE_MS` for platforms
- * with longer stop-grace windows — but an override above ~7s forfeits the
- * composed <10s budget on Railway (the 3s deregister cap plus the override
- * would exceed the SIGTERM→SIGKILL window).
+ * **C3 REQUIREMENT (layer c):** set Railway
+ * `terminationGracePeriodSeconds = 180` (this value) on `harness-workers` so the
+ * 3s + 90s composed budget fits with ≥30s headroom for the serial teardown
+ * remainder. If the B5 grace is retuned (e.g. B-VAL measures a higher cell-job
+ * p95), C3 must raise this in lockstep. The composed-budget test in
+ * worker-loop.test.ts pins the relation `DRAIN_DEREGISTER_TIMEOUT_MS +
+ * DEFAULT_WORKER_DRAIN_GRACE_MS < PLATFORM_STOP_GRACE_MS` and is the source of
+ * truth when retuning any of the three constants.
  */
-export const DEFAULT_WORKER_DRAIN_GRACE_MS = 6_000;
+export const PLATFORM_STOP_GRACE_MS = 180_000;
+/**
+ * Upper bound on how long `stop()` waits for the in-flight run to
+ * FINISH-AND-REPORT (layer b) before firing `runAbort` (→ the driver's own
+ * abort fires → the run abandons → its lease lapses → layer-(a) reaper reclaims
+ * the row) and detaching so the process can exit before the platform SIGKILL.
+ *
+ * SIZED TO BOUND A CELL-JOB, NOT JUST TEARDOWN: layer (b) makes a graceful
+ * `drain()` let the in-flight run FINISH within this grace and report its real
+ * terminal result, instead of abandoning it. So this grace must be LONGER than
+ * a typical cell-job's wall-clock (so a normal in-flight job finishes within
+ * grace) and SHORTER than the platform stop window with headroom (so the
+ * process drains before SIGKILL).
+ *
+ * CELL-JOB SIGNAL (in-repo): a single-service cell-job runs ~15s (a light
+ * e2e-deep feature) up to ~200s (a heavy d6-all-pills service under concurrency
+ * contention); the per-job lease ceiling is `DEFAULT_LEASE_SECONDS` (300s),
+ * which a single job is expected to fit under. **90s** covers the bulk of
+ * single cell-jobs and stays well under the 300s lease so a finishing job's
+ * lease never lapses within grace. The long tail — a job that genuinely cannot
+ * finish in 90s — falls back to layer (a): abandon → reaper reclaim. The grace
+ * is DELIBERATELY FINITE; we do NOT try to guarantee every job finishes.
+ *
+ * ASSUMPTION FOR B-VAL: the exact numeric is to be CONFIRMED against staging
+ * p95/p99 cell-job duration (no per-cell-job p95 telemetry exists in-repo yet)
+ * and may be retuned toward the heavy ~200s case if validation shows it; this
+ * 90s is a defensible default, NOT a measured value. Env-overridable via
+ * `WORKER_DRAIN_GRACE_MS`.
+ *
+ * COMPOSED SERIAL BUDGET vs the platform kill: the drain sequence
+ * (`drainFleetWorker`) spends its phases SERIALLY inside the platform stop
+ * window (`PLATFORM_STOP_GRACE_MS`): `DRAIN_DEREGISTER_TIMEOUT_MS` (3s cap on a
+ * hung-PB roster delete) is consumed BEFORE this grace even starts, then the
+ * grace, then the health-server close + pool shutdown remainder. The COMPOSED
+ * worst case (hung PB AND a wedged driver) must fit under
+ * `PLATFORM_STOP_GRACE_MS` — see that constant's doc for the C3 requirement.
+ * Deregister-first ordering makes the trade safe: only the roster delete is
+ * GUARANTEED to beat the kill; the pool shutdown and clean `process.exit`
+ * behind this grace are best-effort (a SIGKILL mid-teardown is harmless once
+ * the roster row is gone). An override that pushes
+ * `DRAIN_DEREGISTER_TIMEOUT_MS + override` at or above `PLATFORM_STOP_GRACE_MS`
+ * forfeits the composed budget and risks SIGKILL mid-finish; raise
+ * `terminationGracePeriodSeconds` (C3) in lockstep with any such override.
+ */
+export const DEFAULT_WORKER_DRAIN_GRACE_MS = 90_000;
 
 /**
  * Guarded log: invoke `logger[level]` and SWALLOW any throw.

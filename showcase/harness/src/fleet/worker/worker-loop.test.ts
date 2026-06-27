@@ -9,6 +9,10 @@ import {
   // The deregister cap that precedes the drain grace in `drainFleetWorker`'s
   // SERIAL budget — used by the composed-budget pin below.
   DRAIN_DEREGISTER_TIMEOUT_MS,
+  // The platform SIGTERM→SIGKILL window the composed drain budget must fit
+  // under — the documented requirement layer-(c)/C3 must satisfy on Railway
+  // (`terminationGracePeriodSeconds`). B5 owns the relation T + deregister < this.
+  PLATFORM_STOP_GRACE_MS,
 } from "./worker-loop.js";
 import type {
   ServiceJobDriver,
@@ -71,6 +75,32 @@ function yieldingSleep(): (ms: number, signal?: AbortSignal) => Promise<void> {
         { once: true },
       );
     });
+}
+
+/**
+ * A sleep that HONORS its `ms` argument (vs `yieldingSleep`, which collapses
+ * every sleep to `setTimeout(0)`). Required by fake-clock tests that step a
+ * LARGE span (e.g. B5's 90s default grace): a 0ms-yielding heartbeat sleep
+ * would re-arm thousands of times inside that span and make
+ * `advanceTimersByTimeAsync` runaway, whereas honoring `heartbeatMs` keeps the
+ * heartbeat quiet across the window so only the bounded grace timer is crossed.
+ */
+function clockHonoringSleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve) => {
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(t);
+        resolve();
+      },
+      { once: true },
+    );
+  });
 }
 
 /** A budget source that always reports `available` headroom. */
@@ -2193,19 +2223,195 @@ describe("drain grace (WORKER_DRAIN_GRACE_MS)", () => {
     vi.unstubAllEnvs();
   });
 
-  it("defaults UNDER Railway's ~10s SIGTERM→SIGKILL window (6s) — COMPOSED with the deregister cap", () => {
-    // Railway hard-kills ~10s after SIGTERM (live-verified 2026-06-10), and
-    // the drain sequence spends its phases SERIALLY inside that window:
-    // DRAIN_DEREGISTER_TIMEOUT_MS (3s cap on a hung-PB roster delete) is
-    // consumed BEFORE this grace even starts. Pinning the bare constant under
-    // 10s is therefore not enough — the COMPOSED worst case (hung PB AND a
-    // wedged driver) must fit. Grace history: 25s at the 2026-06-10 live
-    // incident → an 8s interim (whose composed 3s + 8s still overshot the
-    // window) → the composed 6s default pinned here.
-    expect(DEFAULT_WORKER_DRAIN_GRACE_MS).toBe(6_000);
+  it("the drain grace T (90s) BOUNDS a typical cell-job AND its composed budget fits the platform stop window", () => {
+    // B5 — composed drain budget. The grace stopped being a bare TEARDOWN budget
+    // (the old 6s, which only ever covered roster-delete + pool shutdown) and is
+    // now the FINISH-AND-REPORT budget: `stop()` waits this long for the in-flight
+    // run to finish-and-report (layer b) before firing `runAbort` → abandon →
+    // layer-(a) reclaim. So T must BOUND a typical cell-job's wall-clock (so a
+    // normal in-flight job finishes within grace), yet stay SHORTER than the
+    // platform SIGTERM→SIGKILL window with headroom (so the process drains before
+    // the platform hard-kills it).
+    //
+    // SIZING (cell-job signal in repo): a single-service cell-job runs ~15s
+    // (light e2e-deep feature) up to ~200s (a heavy d6-all-pills service under
+    // concurrency contention); the per-job lease ceiling is 300s
+    // (DEFAULT_LEASE_SECONDS). 90s covers the bulk of single cell-jobs and stays
+    // well under the 300s lease so a finishing job's lease never lapses within
+    // grace. The long tail (a job that genuinely cannot finish in 90s) falls back
+    // to layer (a): abandon → reaper reclaim — grace is deliberately FINITE.
+    // The exact numeric is to be CONFIRMED against staging p95/p99 in B-VAL and
+    // may be retuned (env-overridable) toward the ~200s heavy-job case if needed.
+    expect(DEFAULT_WORKER_DRAIN_GRACE_MS).toBe(90_000);
+
+    // COMPOSED with the deregister cap, the drain sequence spends its phases
+    // SERIALLY: DRAIN_DEREGISTER_TIMEOUT_MS (3s cap on a hung-PB roster delete) is
+    // consumed BEFORE this grace even starts, so the COMPOSED worst case (hung PB
+    // AND a wedged driver) must fit under the platform stop window. The old 10s
+    // Railway default could NOT host a cell-job-bounding grace — so layer-(c)/C3
+    // MUST raise Railway's `terminationGracePeriodSeconds` to PLATFORM_STOP_GRACE_MS
+    // (180s) so this composed budget fits with headroom.
+    expect(DRAIN_DEREGISTER_TIMEOUT_MS + DEFAULT_WORKER_DRAIN_GRACE_MS).toBeLessThan(
+      PLATFORM_STOP_GRACE_MS,
+    );
+    // …with real headroom for the health-server close + pool shutdown that run
+    // SERIALLY behind the grace inside the same window (not a hairline fit).
     expect(
-      DRAIN_DEREGISTER_TIMEOUT_MS + DEFAULT_WORKER_DRAIN_GRACE_MS,
-    ).toBeLessThan(10_000);
+      PLATFORM_STOP_GRACE_MS -
+        (DRAIN_DEREGISTER_TIMEOUT_MS + DEFAULT_WORKER_DRAIN_GRACE_MS),
+    ).toBeGreaterThanOrEqual(30_000);
+    // C3 requirement, stated as the concrete numeric ordering: Railway
+    // terminationGracePeriodSeconds must be ≥ (deregister + grace + headroom).
+    expect(PLATFORM_STOP_GRACE_MS).toBe(180_000);
+  });
+
+  it("a run finishing WITHIN the grace T is REPORTED; a run still running AT T fires runAbort → abandon (composed-budget invariant)", async () => {
+    // B5 behavioral invariant on the REAL stop() surface: the SAME drain budget
+    // T (`DEFAULT_WORKER_DRAIN_GRACE_MS`) that the constant pins is what stop()
+    // actually waits.
+    //   Run A finishes WITHIN the grace → finish-and-report (layer b): the
+    //     run resolves under its own steam before grace-expiry, so `runAbort`
+    //     never fires and the terminal result is REPORTED.
+    //   Run B is still running AT grace-expiry → stop() fires `runAbort` →
+    //     the run aborts WITHOUT a usable result → abandon → lease lapses →
+    //     layer-(a) reclaim backstop, NOT reported.
+    // This is the exact budget the C3 terminationGracePeriod must host.
+
+    // ── A) finishes within T → REPORTED ────────────────────────────────────
+    {
+      const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+      const reportSpy = vi.spyOn(queue, "report");
+      let markStarted!: () => void;
+      const started = new Promise<void>((res) => {
+        markStarted = res;
+      });
+      let releaseComplete!: () => void;
+      const completeGate = new Promise<void>((res) => {
+        releaseComplete = res;
+      });
+      const runAbortObserved = { aborted: false };
+      const driver: ServiceJobDriver = {
+        async run(ctx, _input): Promise<ProbeResult> {
+          markStarted();
+          // Honor the abort only if it fires (it must NOT, within grace).
+          ctx.abortSignal?.addEventListener("abort", () => {
+            runAbortObserved.aborted = true;
+          });
+          // Resolve under its OWN steam (not via abort) — a run seconds from
+          // done when SIGTERM landed.
+          await completeGate;
+          return {
+            key: "d6:langgraph-python",
+            state: "green",
+            signal: { shape: "package", slug: "langgraph-python" },
+            observedAt: ctx.now().toISOString(),
+          };
+        },
+      };
+      const handle = startWorkerLoop({
+        workerId: "worker-test",
+        queue,
+        pool: budgetWith(5),
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+        pollIntervalMs: 1,
+        leaseSeconds: 2000,
+        heartbeatMs: 1_000_000,
+      });
+      await started;
+      handle.drain();
+      // The run finishes well within the grace window — finish-and-report, no
+      // abort. The loop breaks on the drain signal once the run reports, so the
+      // done-promise resolves on its own; no stop() race needed for this leg.
+      releaseComplete();
+      await handle.done;
+      expect(runAbortObserved.aborted).toBe(false);
+      expect(reportSpy).toHaveBeenCalledTimes(1);
+      expect(queue.reports[0]!.aggregateState).toBe("green");
+    }
+
+    // ── B) still running AT grace-expiry → runAbort fires → ABANDON ─────────
+    // The AT-grace abort behavior is grace-VALUE-independent (the constant-pin
+    // test above owns T=90s); here we exercise the SAME stop()→runAbort path
+    // with a short env-override grace so the deadline is crossed cheaply (no
+    // 90s wait, and no fake-timer cascade over a 90s span). The override is the
+    // documented env knob (`WORKER_DRAIN_GRACE_MS`) — proving the override path
+    // too.
+    {
+      const prev = process.env.WORKER_DRAIN_GRACE_MS;
+      process.env.WORKER_DRAIN_GRACE_MS = "50";
+      const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+      const reportSpy = vi.spyOn(queue, "report");
+      let markStarted!: () => void;
+      const started = new Promise<void>((res) => {
+        markStarted = res;
+      });
+      const runAbortObserved = { aborted: false };
+      const driver: ServiceJobDriver = {
+        async run(ctx, _input): Promise<ProbeResult> {
+          markStarted();
+          // Overruns the grace: only settles when its OWN abort (`runAbort`,
+          // wired as ctx.abortSignal at grace-expiry) fires.
+          await new Promise<void>((resolve) => {
+            if (ctx.abortSignal?.aborted) {
+              runAbortObserved.aborted = true;
+              resolve();
+              return;
+            }
+            ctx.abortSignal?.addEventListener(
+              "abort",
+              () => {
+                runAbortObserved.aborted = true;
+                resolve();
+              },
+              { once: true },
+            );
+          });
+          return {
+            key: "d6:langgraph-python",
+            state: "red",
+            signal: { shape: "package", slug: "langgraph-python" },
+            observedAt: ctx.now().toISOString(),
+          };
+        },
+      };
+      const handle = startWorkerLoop({
+        workerId: "worker-test",
+        queue,
+        pool: budgetWith(5),
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+        pollIntervalMs: 1,
+        leaseSeconds: 2000,
+        heartbeatMs: 1_000_000,
+      });
+      try {
+        await started;
+        handle.drain();
+        // stop() waits the (short) grace then fires runAbort at grace-expiry,
+        // hard-cancelling the overrunning run → it abandons WITHOUT a usable
+        // result. stop() detaches once the run unwinds.
+        await handle.stop();
+        await handle.done;
+        // The run observed its grace-expiry abort (runAbort), so the loop takes
+        // the `abortedWithoutResult` abandon branch — NOT the report path. The
+        // lease lapses → layer-(a) reaper reclaims it (the backstop).
+        expect(runAbortObserved.aborted).toBe(true);
+        expect(reportSpy).not.toHaveBeenCalled();
+        expect(queue.reports).toHaveLength(0);
+      } finally {
+        if (prev === undefined) delete process.env.WORKER_DRAIN_GRACE_MS;
+        else process.env.WORKER_DRAIN_GRACE_MS = prev;
+      }
+    }
   });
 
   it("warns and falls back to the default when WORKER_DRAIN_GRACE_MS is not a positive integer", async () => {
@@ -2275,7 +2481,13 @@ describe("drain grace (WORKER_DRAIN_GRACE_MS)", () => {
         logger: silentLogger,
         env: {},
         now: () => new Date("2026-06-04T00:04:00.000Z"),
-        sleep: yieldingSleep(),
+        // Clock-HONORING sleep: B5 raised the default grace to 90s, so this test
+        // steps the fake clock across a 90s span. A 0ms-yielding heartbeat sleep
+        // would re-arm thousands of times inside that span and make
+        // advanceTimersByTimeAsync runaway; honoring `heartbeatMs` (1_000_000)
+        // fires ZERO heartbeats inside the 90s window, so only stop()'s single
+        // grace timer is crossed.
+        sleep: clockHonoringSleep,
         pollIntervalMs: 1,
         leaseSeconds: 2000,
         heartbeatMs: 1_000_000,
