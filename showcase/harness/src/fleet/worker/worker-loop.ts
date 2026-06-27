@@ -1061,10 +1061,7 @@ export async function runClaimedJob(
       finishedAt: now().toISOString(),
     });
   } finally {
-    graceAbortSignal?.removeEventListener(
-      "abort",
-      stopHeartbeatOnGraceExpiry,
-    );
+    graceAbortSignal?.removeEventListener("abort", stopHeartbeatOnGraceExpiry);
     heartbeatAbort.abort();
     await heartbeat;
   }

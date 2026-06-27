@@ -523,8 +523,7 @@ describe("e2e-full driver", () => {
       // REPORTED, not drain-suppressed (its errorClass is the honest
       // failure class, not "abort").
       const featureRed = sideEmits.find(
-        (r) =>
-          r.key === "d6:test-slug/agentic-chat" && r.state === "red",
+        (r) => r.key === "d6:test-slug/agentic-chat" && r.state === "red",
       );
       expect(featureRed).toBeDefined();
       expect(

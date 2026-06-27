@@ -2349,9 +2349,9 @@ describe("drain grace (WORKER_DRAIN_GRACE_MS)", () => {
     // Railway default could NOT host a cell-job-bounding grace — so layer-(c)/C3
     // MUST raise Railway's `terminationGracePeriodSeconds` to PLATFORM_STOP_GRACE_MS
     // (180s) so this composed budget fits with headroom.
-    expect(DRAIN_DEREGISTER_TIMEOUT_MS + DEFAULT_WORKER_DRAIN_GRACE_MS).toBeLessThan(
-      PLATFORM_STOP_GRACE_MS,
-    );
+    expect(
+      DRAIN_DEREGISTER_TIMEOUT_MS + DEFAULT_WORKER_DRAIN_GRACE_MS,
+    ).toBeLessThan(PLATFORM_STOP_GRACE_MS);
     // …with real headroom for the health-server close + pool shutdown that run
     // SERIALLY behind the grace inside the same window (not a hairline fit).
     expect(
