@@ -141,6 +141,40 @@ describe("thread store", () => {
     expect(getChannel().topic).toBe("user_meta:jc-1");
   });
 
+  it("uses the thread environment fetch instead of global fetch", async () => {
+    const globalFetch = vi.fn(async () => {
+      throw new Error("global fetch should not be used");
+    });
+    const environmentFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        threads: [sampleThreads[0]],
+        joinCode: null,
+      }),
+    });
+    vi.stubGlobal("fetch", globalFetch);
+
+    const store = ɵcreateThreadStore(createEnvironment(environmentFetch));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+
+    expect(globalFetch).not.toHaveBeenCalled();
+    expect(environmentFetch).toHaveBeenCalledWith(
+      "https://runtime.example.com/threads?agentId=agent-1",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-1"],
+    );
+  });
+
   it("upserts realtime thread metadata without refetching", async () => {
     const fetchMock = vi
       .fn()
@@ -1093,11 +1127,8 @@ describe("thread store", () => {
   });
 
   it("isolates selector memo caches across concurrent stores", async () => {
-    // The list fetch goes through RxJS `fromFetch`, which uses the GLOBAL
-    // `fetch` (it ignores any `fetch` threaded through the environment — and
-    // both framework wrappers pass `globalThis.fetch` anyway). To give two
-    // concurrent stores distinct lists we therefore route a single global stub
-    // by request host rather than handing each store its own fetch mock.
+    // Route a single stub by request host so both concurrent stores share the
+    // same deterministic environment fetch while receiving distinct lists.
     const routedFetch = vi.fn(async (url: string | URL | Request) => {
       const href = String(url);
       const id = href.includes("a.example.com") ? "thread-a" : "thread-b";
@@ -1222,6 +1253,57 @@ describe("thread store", () => {
     expect(ɵselectThreads(store.getState()).length).toBeGreaterThan(0);
     expect(ɵselectThreadsError(store.getState())).toBeNull();
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("realtime"));
+
+    warnSpy.mockRestore();
+  });
+
+  it("retries realtime metadata credentials after a failed credential fetch", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-2" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    store.refetchThreads();
+    await flushEffects();
+
+    expect(
+      fetchMock.mock.calls
+        .map(([url]) => String(url))
+        .filter((url) => url.endsWith("/threads/subscribe")),
+    ).toEqual([
+      "https://runtime.example.com/threads/subscribe",
+      "https://runtime.example.com/threads/subscribe",
+    ]);
+    expect(phoenix.sockets).toHaveLength(1);
+    expect(getChannel().topic).toBe("user_meta:jc-1");
 
     warnSpy.mockRestore();
   });

@@ -1,7 +1,6 @@
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
-import type { Observable, Subscription } from "rxjs";
-import { defer, firstValueFrom, merge, of } from "rxjs";
-import { fromFetch } from "rxjs/fetch";
+import type { Subscription } from "rxjs";
+import { defer, firstValueFrom, merge, Observable, of } from "rxjs";
 import {
   catchError,
   filter,
@@ -417,8 +416,12 @@ const threadReducer = createReducer(
       // is still valid — so we do NOT write `state.error` (which would replace
       // the whole list with a "couldn't load" panel). The failure is surfaced
       // as a diagnostic warning instead (socketDiagnosticsEffect), mirroring the
-      // stay-stale handling of a realtime channel join failure.
-      return state;
+      // stay-stale handling of a realtime channel join failure. Clear the
+      // request latch so a later list refresh can retry realtime setup.
+      return {
+        ...state,
+        metadataCredentialsRequested: false,
+      };
     },
   ),
   on(
@@ -725,7 +728,35 @@ function threadFromFetch<T>(
     fetch: typeof fetch;
   },
 ): Observable<T> {
-  return fromFetch(input, init);
+  return new Observable<T>((subscriber) => {
+    const { fetch: fetchImpl, selector, signal, ...requestInit } = init;
+    const controller = new AbortController();
+    const abortRequest = () => controller.abort();
+
+    if (signal?.aborted) {
+      abortRequest();
+    } else {
+      signal?.addEventListener("abort", abortRequest, { once: true });
+    }
+
+    fetchImpl(input, { ...requestInit, signal: controller.signal })
+      .then((response) => selector(response))
+      .then((value) => {
+        if (subscriber.closed) return;
+        subscriber.next(value);
+        subscriber.complete();
+      })
+      .catch((error) => {
+        if (!subscriber.closed) {
+          subscriber.error(error);
+        }
+      });
+
+    return () => {
+      signal?.removeEventListener("abort", abortRequest);
+      abortRequest();
+    };
+  });
 }
 
 function createThreadFetchObservable(

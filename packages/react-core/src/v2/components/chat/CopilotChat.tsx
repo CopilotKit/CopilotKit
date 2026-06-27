@@ -241,6 +241,23 @@ export function CopilotChat({
   const hasExplicitThreadIdRef = useRef(hasExplicitThreadId);
   hasExplicitThreadIdRef.current = hasExplicitThreadId;
 
+  const isLocalActiveRunActivity = useCallback(
+    (notification: { agentId?: string; eventType: string }) => {
+      if (!agent.isRunning) return false;
+      if (notification.agentId && notification.agentId !== resolvedAgentId) {
+        return false;
+      }
+
+      const eventType = notification.eventType.toUpperCase();
+      return (
+        eventType === "RUN_STARTED" ||
+        eventType === "RUN_FINISHED" ||
+        eventType === "RUN_ERROR"
+      );
+    },
+    [agent, resolvedAgentId],
+  );
+
   useEffect(() => {
     const threadChanged = previousThreadIdRef.current !== resolvedThreadId;
     previousThreadIdRef.current = resolvedThreadId;
@@ -411,6 +428,7 @@ export function CopilotChat({
 
     const subscription = threadStore.subscribeToRunActivity((notification) => {
       if (notification.threadId !== resolvedThreadId) return;
+      if (isLocalActiveRunActivity(notification)) return;
       startRunActivityReconnectRef.current?.(generation);
     });
 
@@ -432,6 +450,7 @@ export function CopilotChat({
     copilotkit.runtimeConnectionStatus,
     copilotkit.intelligence?.wsUrl,
     copilotkit.threadEndpoints?.realtimeMetadata,
+    isLocalActiveRunActivity,
   ]);
 
   // Serializes consecutive sends: if a run is already in flight, let it finish
