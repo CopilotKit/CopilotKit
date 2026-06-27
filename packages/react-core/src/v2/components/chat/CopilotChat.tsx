@@ -457,11 +457,14 @@ export function CopilotChat({
       ) {
         return;
       }
-      if (
-        activeConnectCountRef.current > 0 ||
-        activeLocalRunIdsRef.current.size > 0
-      ) {
+      if (activeLocalRunIdsRef.current.size > 0) {
         pendingRunActivityReconnectRef.current = true;
+        return;
+      }
+      if (activeConnectCountRef.current > 0) {
+        if (!wakeReconnectActive) {
+          pendingRunActivityReconnectRef.current = true;
+        }
         return;
       }
       connect();

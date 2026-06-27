@@ -58,6 +58,7 @@ type TestCoreOptions = {
   runtimeConnectionStatus?: CopilotKitCoreRuntimeConnectionStatus;
   intelligence?: { wsUrl: string };
   threadEndpoints?: { realtimeMetadata?: boolean; list?: boolean };
+  deferInitialConnect?: boolean;
 };
 
 type RunActivityStore = Pick<ɵThreadStore, "subscribeToRunActivity"> & {
@@ -182,6 +183,12 @@ function renderChatWithCore(options: TestCoreOptions = {}) {
   agent.agentId = DEFAULT_AGENT_ID;
   const store = createRunActivityStore();
   const core = createTestCore(agent, store, options);
+  const initialConnect = options.deferInitialConnect
+    ? createDeferred()
+    : undefined;
+  if (initialConnect) {
+    core.connectDeferrals.push(initialConnect);
+  }
   const rendered = render(
     <CopilotKitContext.Provider
       value={{
@@ -193,7 +200,7 @@ function renderChatWithCore(options: TestCoreOptions = {}) {
     </CopilotKitContext.Provider>,
   );
 
-  return { agent, store, ...core, ...rendered };
+  return { agent, initialConnect, store, ...core, ...rendered };
 }
 
 async function settleInitialConnect(
@@ -417,14 +424,40 @@ test("thread_run_activity still reconnects a passive chat when another device ru
   });
 });
 
-test("multiple thread_run_activity notifications during an in-flight connect queue exactly one follow-up reconnect", async () => {
+test("multiple thread_run_activity notifications during initial connect queue exactly one follow-up reconnect", async () => {
+  const rendered = renderChatWithCore({
+    deferInitialConnect: true,
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+  });
+
+  await waitFor(() => {
+    expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+  });
+
+  emitRunActivity(rendered.store);
+  emitRunActivity(rendered.store);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+
+  await act(async () => {
+    rendered.initialConnect?.resolve();
+    await rendered.initialConnect?.promise;
+  });
+
+  await waitFor(() => {
+    expect(rendered.connectAgent).toHaveBeenCalledTimes(2);
+  });
+});
+
+test("thread_run_activity notifications during an in-flight wake reconnect do not trigger a redundant same-generation reconnect", async () => {
   const rendered = renderChatWithCore({
     intelligence: { wsUrl: "wss://intelligence.example/client" },
     threadEndpoints: { realtimeMetadata: true },
   });
   await settleInitialConnect(rendered);
-  const activeConnect = createDeferred();
-  rendered.connectDeferrals.push(activeConnect);
+  const activeWakeReconnect = createDeferred();
+  rendered.connectDeferrals.push(activeWakeReconnect);
 
   emitRunActivity(rendered.store);
 
@@ -438,13 +471,12 @@ test("multiple thread_run_activity notifications during an in-flight connect que
   expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
 
   await act(async () => {
-    activeConnect.resolve();
-    await activeConnect.promise;
+    activeWakeReconnect.resolve();
+    await activeWakeReconnect.promise;
   });
 
-  await waitFor(() => {
-    expect(rendered.connectAgent).toHaveBeenCalledTimes(2);
-  });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
 });
 
 test("queued thread_run_activity reconnect is discarded on unmount", async () => {
