@@ -1,8 +1,8 @@
 import type { App } from "@slack/bolt";
 import type { WebClient } from "@slack/web-api";
 import type { SlackConversationStore } from "./conversation-store.js";
-import type { IncomingTurn } from "./types.js";
-import { DM_SCOPE } from "./types.js";
+import type { IncomingTurn, ResolvedSlackRespondToOptions } from "./types.js";
+import { DEFAULT_SLACK_RESPOND_TO_OPTIONS, DM_SCOPE } from "./types.js";
 
 /**
  * Handler the listener calls when a Slack event maps to a usable turn.
@@ -22,6 +22,15 @@ export interface SlackCommand {
   conversation: { channelId: string; scope: string };
   replyTarget: { channel: string };
   senderUserId?: string;
+  /** Opaque platform trigger for opening a modal (Slack `trigger_id`). */
+  triggerId?: string;
+  /**
+   * Stable per-invocation id for inbound idempotency. Slash commands carry no
+   * Events API `event_id`, so this is derived from
+   * `${command}:${user_id}:${trigger_id}` — the closest stable-per-click value
+   * Slack provides.
+   */
+  eventId?: string;
 }
 
 export type CommandHandler = (
@@ -35,6 +44,8 @@ export interface ListenerConfig {
   store: SlackConversationStore;
   /** Bot user id, used to filter out our own messages (loop guard). */
   botUserId: string | undefined;
+  /** Resolved response-routing policy for Slack ingress. */
+  respondTo?: ResolvedSlackRespondToOptions;
   /** Where each accepted turn is dispatched. */
   onTurn: TurnHandler;
   /** Where each slash command is dispatched. */
@@ -54,14 +65,36 @@ const stripMentions = (text: string): string =>
   text.replace(MENTION_RE, "").replace(/\s+/g, " ").trim();
 
 /**
+ * Derive a stable per-delivery id for a message/event turn, used for inbound
+ * idempotency. Prefer the Events API envelope `event_id` (it is stable across
+ * Slack's automatic retries), then the message's own `client_msg_id`, then a
+ * synthesized `${channel}:${ts}`. Returns undefined only when none is
+ * available — never fabricate a random id (that would defeat dedup).
+ *
+ * TODO(dedup): wire eventId for Discord/Telegram (same pattern) — Discord
+ * message/interaction id; Telegram `update_id`.
+ */
+function deriveEventId(
+  body: unknown,
+  event: { client_msg_id?: string; ts?: string; channel?: string },
+  channel: string,
+): string | undefined {
+  const envelopeEventId = (body as { event_id?: string } | undefined)?.event_id;
+  if (envelopeEventId) return envelopeEventId;
+  if (event.client_msg_id) return event.client_msg_id;
+  if (event.ts) return `${channel}:${event.ts}`;
+  return undefined;
+}
+
+/**
  * Attach Slack event handlers to a Bolt app. After this returns, the listener
  * is the sole writer of IncomingTurn events — anything downstream sees a
  * stream of cleanly-normalised turns regardless of which Slack event fired.
  *
  * Triggers:
- *   1. @mention in a channel        →  start (or continue) the thread it lives in.
- *   2. Plain reply in a tracked thread → continue that thread.
- *   3. DM to the bot                →  reply flat in the DM.
+ *   1. @mention in a channel/thread → start or continue a conversation.
+ *   2. DM to the bot                → reply flat in the DM.
+ *   3. Plain reply in a tracked thread when explicitly configured.
  *
  * Filters out:
  *   - `subtype` events (edits, joins, channel_renames, …)
@@ -72,6 +105,7 @@ const stripMentions = (text: string): string =>
  */
 export function attachSlackListener(config: ListenerConfig): void {
   const { app, store, onTurn, onCommand } = config;
+  const respondTo = config.respondTo ?? DEFAULT_SLACK_RESPOND_TO_OPTIONS;
 
   // ── Slash commands ──────────────────────────────────────────────────
   // Forward EVERY registered slash command to the engine, which routes it
@@ -94,12 +128,20 @@ export function attachSlackListener(config: ListenerConfig): void {
         },
         replyTarget: { channel: command.channel_id },
         senderUserId: command.user_id,
+        triggerId: command.trigger_id,
+        // Slash commands carry no Events API event_id; trigger_id is the most
+        // stable per-invocation value Slack provides.
+        eventId: command.trigger_id
+          ? `${command.command}:${command.user_id}:${command.trigger_id}`
+          : undefined,
       },
       client,
     );
   });
 
-  app.event("app_mention", async ({ event, client }) => {
+  app.event("app_mention", async ({ event, body, client }) => {
+    if (respondTo.appMentions === false) return;
+
     const threadTs = event.thread_ts ?? event.ts;
     const userText = stripMentions(event.text ?? "");
     const hasFiles =
@@ -111,15 +153,23 @@ export function attachSlackListener(config: ListenerConfig): void {
     await onTurn(
       {
         conversation: { channelId: event.channel, scope: threadTs },
-        replyTarget: { channel: event.channel, threadTs },
+        replyTarget:
+          respondTo.appMentions.reply === "thread"
+            ? { channel: event.channel, threadTs }
+            : { channel: event.channel },
         userText,
         senderUserId: event.user,
+        eventId: deriveEventId(
+          body,
+          event as { client_msg_id?: string; ts?: string },
+          event.channel,
+        ),
       },
       client,
     );
   });
 
-  app.message(async ({ message, client }) => {
+  app.message(async ({ message, body, client }) => {
     if (!isPlainUserMessage(message, config.botUserId)) return;
 
     const text = (message.text ?? "").trim();
@@ -140,13 +190,18 @@ export function attachSlackListener(config: ListenerConfig): void {
     )
       return;
 
+    if (!respondTo.directMessages) return;
+
     if (isDM) {
       await onTurn(
         {
           conversation: { channelId: message.channel, scope: DM_SCOPE },
-          replyTarget: { channel: message.channel },
+          // Flat DM reply (no threadTs); carry the inbound ts so the renderer
+          // can anchor the native "is thinking…" status to a thread.
+          replyTarget: { channel: message.channel, statusTs: message.ts },
           userText: text,
           senderUserId: message.user,
+          eventId: deriveEventId(body, message, message.channel),
         },
         client,
       );
@@ -157,6 +212,8 @@ export function attachSlackListener(config: ListenerConfig): void {
 
     // app_mention runs separately for these; skip the duplicate.
     if (config.botUserId && text.includes(`<@${config.botUserId}>`)) return;
+
+    if (respondTo.threadReplies === "mentionsOnly") return;
 
     // Only continue threads we already own. `has` consults Slack itself,
     // so a restarted bridge naturally recognises threads it replied to
@@ -175,6 +232,7 @@ export function attachSlackListener(config: ListenerConfig): void {
         replyTarget: { channel: message.channel, threadTs: message.thread_ts },
         userText: stripMentions(text),
         senderUserId: message.user,
+        eventId: deriveEventId(body, message, message.channel),
       },
       client,
     );
@@ -189,6 +247,10 @@ interface PlainUserMessage {
   thread_ts?: string;
   channel_type?: string;
   files?: unknown[];
+  /** Slack's client-generated message id; a per-delivery dedup fallback. */
+  client_msg_id?: string;
+  /** Message ts; last-resort dedup key as `${channel}:${ts}`. */
+  ts?: string;
 }
 
 /**

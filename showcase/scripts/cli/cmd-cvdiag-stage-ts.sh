@@ -3,9 +3,9 @@
 # each TS integration's own build context.
 # Sourced by the main dispatcher; do not execute directly.
 #
-# The four TS-backed integrations (langgraph-typescript, claude-sdk-typescript,
-# mastra, built-in-agent) each build STANDALONE (their own Docker build context
-# is the integration dir). They have no path alias back to
+# The five TS-backed integrations (langgraph-typescript, claude-sdk-typescript,
+# mastra, built-in-agent, strands-typescript) each build STANDALONE (their own
+# Docker build context is the integration dir). They have no path alias back to
 # `showcase/harness/src/cvdiag` and no workspace import, so the canonical L0-A
 # CVDIAG sources cannot be reached across the monorepo at build time. This is
 # the TS analogue of L0-C's Python `_shared` COPY-staging: copy the canonical
@@ -32,12 +32,15 @@
 
 CMD_CVDIAG_STAGE_TS_DESC="Stage the shared CVDIAG TS emitter into each TS integration build context"
 
-# The four TS integrations that import the CVDIAG emitter in-process.
+# The five TS integrations that import the CVDIAG emitter (the first four
+# in-process via their Next route; strands-typescript agent-side in its Express
+# process — see integrations/strands-typescript/src/agent/cvdiag-backend-strands.ts).
 _CVDIAG_TS_INTEGRATIONS=(
   "langgraph-typescript"
   "claude-sdk-typescript"
   "mastra"
   "built-in-agent"
+  "strands-typescript"
 )
 
 # The canonical L0-A sources (relative to harness/src/cvdiag/). They are
@@ -54,6 +57,7 @@ _CVDIAG_L0A_SOURCES=(
   "schema.ts"
   "edge-headers.ts"
   "emit.ts"
+  "pb-writer-fetch.ts"
 )
 
 usage_cvdiag_stage_ts() {
@@ -69,8 +73,9 @@ Options:
              WITHOUT writing (exit non-zero on drift). Intended for CI.
 
 Staged into each of: langgraph-typescript, claude-sdk-typescript, mastra,
-built-in-agent (under src/cvdiag/):
-  schema.ts, edge-headers.ts, emit.ts   (verbatim from harness/src/cvdiag/)
+built-in-agent, strands-typescript (under src/cvdiag/):
+  scrub.ts, schema.ts, edge-headers.ts, emit.ts, pb-writer-fetch.ts
+                                        (verbatim from harness/src/cvdiag/)
   cvdiag-emitter.ts                     (flattened barrel: re-exports the
                                          co-located copies, not ../../../harness)
 HELP
@@ -91,9 +96,10 @@ _cvdiag_emit_flattened_barrel() {
  * This is the FLATTENED form of `showcase/integrations/_shared/ts/cvdiag-emitter.ts`:
  * the shared barrel re-exports from `../../../harness/src/cvdiag/*`, which has
  * no resolution inside a standalone integration's Docker build context. The
- * stage command copies the three L0-A sources (schema.ts, edge-headers.ts,
- * emit.ts) next to this file and rewrites the re-export specifiers to the
- * co-located `./*.js` copies so `next build` bundles a self-contained emitter.
+ * stage command copies the L0-A sources (scrub.ts, schema.ts, edge-headers.ts,
+ * emit.ts, pb-writer-fetch.ts) next to this file and rewrites the re-export
+ * specifiers to the co-located `./*.js` copies so `next build` bundles a
+ * self-contained emitter + concrete writer-role PB writer.
  */
 
 // ── Schema (types, enums, validators, UUIDv7 regex) ─────────────────────────
@@ -163,6 +169,17 @@ export type {
   CvdiagEmitterOptions,
   CvdiagEmitArgs,
 } from "./emit.js";
+
+// ── Concrete writer-role PB writer (plain fetch; auth-with-password→Bearer) ──
+export {
+  CvdiagFetchPbWriter,
+  createCvdiagFetchPbWriterFromEnv,
+} from "./pb-writer-fetch.js";
+
+export type {
+  FetchLike,
+  CvdiagFetchPbWriterOptions,
+} from "./pb-writer-fetch.js";
 BARREL
 }
 

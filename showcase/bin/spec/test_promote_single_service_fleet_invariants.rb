@@ -121,7 +121,10 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         {
             "name" => name, "service_id" => "svc-#{name}",
             "image" => "ghcr.io/copilotkit/#{name}:latest",
-            "env_keys" => [],
+            # All CRITICAL_ENV_KEYS present so the (now unconditional) critical
+            # env-key presence assertion does not fire — this spec isolates the
+            # fleet-shape invariants, not env-key parity.
+            "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
             "start_command" => "node server.js", "healthcheck_path" => "/health",
             "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
         }
@@ -131,7 +134,10 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         {
             "name" => name, "service_id" => "prod-#{name}",
             "image" => "ghcr.io/copilotkit/#{name}@sha256:OLD#{name.gsub(/[^a-z0-9]/i, '')}",
-            "env_keys" => [],
+            # All CRITICAL_ENV_KEYS present so the (now unconditional) critical
+            # env-key presence assertion does not fire — this spec isolates the
+            # fleet-shape invariants, not env-key parity.
+            "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
             "start_command" => "node server.js", "healthcheck_path" => "/health",
             "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
             "custom_domains" => custom_domains,
@@ -422,8 +428,8 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
     # ── Single-service promote must TOLERATE unrelated prod-only services.
     # This is the MIRROR of the staging-only tolerance test and the red-green
     # for the PROD-only arm of the target-scoping fix (#5324). A prod-only
-    # service (e.g. a deprecated "harness-legacy" still present in prod but
-    # removed from staging) has no bearing on a single-service promote of an
+    # service (e.g. a deprecated "deprecated-prod-only-svc" still present in
+    # prod but removed from staging) has no bearing on a single-service promote of an
     # unrelated healthy target.
     #
     # Red (before this PR's source change): the prod-only arm of
@@ -442,14 +448,14 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
         # Target "docs" is present in BOTH staging and prod. Inject an
         # unrelated prod-only sibling (no staging counterpart).
         install_fleet_fixture(cmd, gql, ghcr, prod_includes_target: true, target: "docs",
-                              prod_only_extras: %w[harness-legacy])
+                              prod_only_extras: %w[deprecated-prod-only-svc])
 
         rc = nil
         out, _ = with_fast_sleeper { capture_io { rc = cmd.run } }
 
         assert_equal 0, rc,
             "a single-service promote of a healthy target must NOT be refused " \
-            "because an UNRELATED prod-only service (harness-legacy) exists in " \
+            "because an UNRELATED prod-only service (deprecated-prod-only-svc) exists in " \
             "prod but not staging. Got rc=#{rc.inspect}; out=\n#{out}"
 
         refute_match(/REFUSE: services in prod not in staging/, out,

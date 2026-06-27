@@ -21,17 +21,19 @@ import type { ServiceEntry } from "../railway-envs";
 
 describe("ServiceEntry gateIgnore field", () => {
   it("is optional on the type and defaults to falsy when unset", () => {
-    // Every real SSOT entry has gateIgnore unset (undefined / falsy),
-    // EXCEPT two deliberately gateIgnore:true entries: the staging-only
-    // `harness-workers` pool-fleet worker (no public domain, does not
-    // fit the symmetric dual-env shape the gate validates) and the interim
-    // `harness-legacy` fleet-migration bridge (runs a pinned out-of-band
-    // digest, not the canonical :latest/@sha256 shape). See their SSOT
-    // entries in railway-envs.ts for the rationale.
-    // S2: the 12 starter-<slug> services are NO LONGER gate-ignored — they
-    // are fully gate-managed (gateValidated, no gateIgnore), so they fall
-    // into the default-falsy branch below exactly like every showcase-* agent.
-    const GATE_IGNORED = new Set(["harness-workers", "harness-legacy"]);
+    // Every real SSOT entry has gateIgnore unset (undefined / falsy). There is
+    // no longer ANY gateIgnore:true entry: the `harness-workers` pool-fleet
+    // worker, formerly the sole gate-ignored (staging-only) service, has been
+    // backfilled as a dual-env (prod + staging) gateValidated:true service —
+    // both env entries carry an explicit `repoName: "showcase-harness"`, so it
+    // now fits the gate's image-ref shape and the opt-out is dropped.
+    // See its SSOT entry in railway-envs.ts for the rationale.
+    // `showcase-strands-typescript` is now provisioned dual-env
+    // (gateValidated:true, no gateIgnore), so it falls into the default-falsy
+    // branch below. S2: the 12 starter-<slug> services are likewise NO LONGER
+    // gate-ignored — they are fully gate-managed (gateValidated, no
+    // gateIgnore), exactly like every showcase-* agent.
+    const GATE_IGNORED = new Set<string>([]);
     const isGateIgnored = (name: string): boolean => GATE_IGNORED.has(name);
     for (const [name, entry] of Object.entries(SERVICES)) {
       const gi = (entry as ServiceEntry).gateIgnore;
@@ -263,13 +265,13 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
   });
 
   it("marks every gate-managed service gateValidated (no Phase-2 holdouts)", () => {
-    // Intentional gateValidated:false entries: the staging-only
-    // `harness-workers` (gateIgnore:true — no public domain) and the interim
-    // `harness-legacy` fleet-migration bridge (gateIgnore:true — runs a
-    // pinned out-of-band digest). S2 brought the 12 starter-<slug> services
-    // UNDER the gate (gateValidated:true), so they are no longer holdouts —
-    // every OTHER service, starters included, must be gateValidated:true.
-    const GATE_IGNORED = new Set(["harness-workers", "harness-legacy"]);
+    // There is no longer ANY gateIgnore:true / gateValidated:false holdout: the
+    // `harness-workers` worker, formerly the sole exception, has been
+    // backfilled as a dual-env gateValidated:true service. S2 brought the 12
+    // starter-<slug> services UNDER the gate (gateValidated:true);
+    // `showcase-strands-typescript` is provisioned in prod and gateValidated
+    // too — so EVERY service must now be gateValidated:true.
+    const GATE_IGNORED = new Set<string>([]);
     const isGateIgnored = (name: string): boolean => GATE_IGNORED.has(name);
     const unvalidated = Object.entries(SERVICES)
       .filter(([name, entry]) => !entry.gateValidated && !isGateIgnored(name))
@@ -290,17 +292,19 @@ describe("WS-C: all gate-managed services gateValidated, with correct overrides"
     });
   }
 
-  it("findMissingServices treats all 39 gateValidated services as targets (27 showcase/infra + 12 starters)", () => {
+  it("findMissingServices treats all 41 gateValidated services as targets (29 showcase/infra + 12 starters)", () => {
     // With nothing "present", every gateValidated service should appear in
     // the missing set. After S2 brought the 12 starter-<slug> services under
-    // the gate (gateValidated:true, dual-env), that means all 39 — the 27
-    // showcase/infra gateValidated services plus the 12 starters. (The two
-    // gateIgnore entries, harness-workers + harness-legacy, are NOT
-    // gateValidated and so are not required here.)
+    // the gate (gateValidated:true, dual-env), showcase-strands-typescript
+    // was provisioned in prod (gateValidated:true), and the prod harness-workers
+    // backfill flipped that worker to gateValidated:true (dual-env), that means
+    // all 41 — the 29 showcase/infra gateValidated services plus the 12
+    // starters. (harness-workers is now gateValidated and dual-env, so it IS
+    // required in both envs here.)
     const missingProd = findMissingServices("prod", new Set<string>());
     const missingStaging = findMissingServices("staging", new Set<string>());
-    expect(missingProd).toHaveLength(39);
-    expect(missingStaging).toHaveLength(39);
+    expect(missingProd).toHaveLength(41);
+    expect(missingStaging).toHaveLength(41);
     // The 12 starters are now demanded in BOTH envs.
     expect(missingProd).toContain("starter-adk");
     expect(missingStaging).toContain("starter-mastra");

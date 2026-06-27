@@ -276,22 +276,40 @@ describe("e2eChatToolsDriver L3 (chat)", () => {
     expect(evaluateCalls).toBeGreaterThan(1);
   });
 
-  it("falls back to body scraping when the assistant selector never resolves", async () => {
-    // Reference helper's fallback path: slice <body> after the sent
-    // message, strip UI chrome, keep substantive text.
+  it("red when the assistant bubble never renders even though static page text trails the message (BIA false-pass guard)", async () => {
+    // Regression for the BIA outage: the agent run finished with ZERO
+    // assistant content (RUN_STARTED → RUN_FINISHED, no TEXT_MESSAGE), so
+    // the `[data-testid="copilot-assistant-message"]` bubble never produced
+    // text. The probe then fell back to scraping <body>, where unrelated
+    // STATIC page text trailing the sent message (nav links, footer copy,
+    // demo blurb) is long enough to pass the old `text.length > 0` gate —
+    // turning a dead agent into a false GREEN.
+    //
+    // The distinguishing signal is provenance: a REAL turn fills the
+    // assistant-message container; a body-scrape leak does not. With the
+    // container selector throwing AND no real assistant content, the gate
+    // must report RED. (Pre-fix this returned GREEN because the body tail
+    // was non-empty — the false-pass this test pins.)
     const { browser } = makeBrowser([
       {
         throwOnAssistantSelector: new Error("selector timeout"),
         bodyText:
-          "Hello, please respond with a brief greeting.\nAlright, here is a warm greeting for you from the assistant response.",
+          "Hello, please respond with a brief greeting.\n" +
+          "Documentation Pricing Blog GitHub Star us on GitHub. " +
+          "This demo shows an agentic chat experience built with CopilotKit.",
       },
     ]);
     const driver = createE2eSmokeDriver({ launcher: async () => browser });
-    const result = await driver.run(baseCtx(), {
+    const writer = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer }), {
       key: "e2e-smoke:foo",
       backendUrl: "https://x.example.com",
     });
-    expect(result.state).toBe("green");
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("red");
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
   });
 });
 
@@ -747,6 +765,7 @@ describe("e2eChatToolsDriver module export", () => {
 // specific boundaries.
 
 import { CvdiagEmitter } from "../../cvdiag/index.js";
+import { sanitizeJoinTestId } from "../../cvdiag/emit.js";
 import type { CvdiagEnvelope } from "../../cvdiag/index.js";
 import type { CvdiagPbWriter } from "../../cvdiag/pb-writer.js";
 import type {
@@ -939,6 +958,65 @@ describe("d4 CVDIAG probe instrumentation (L1-A)", () => {
     expect(alt[0]!.metadata.child_type_histogram).toEqual({ pre: 1, code: 2 });
   });
 
+  it("labels a failed run (empty SSE, no first-token) on probe.exit with outcome=err + failure_classifier=sse-missing", async () => {
+    // RED (pre-fix): a run that produces NO SSE events and NO first-token
+    // (empty assistant text) still emits `probe.exit` with `terminal_outcome=ok`
+    // and no failure classifier — so reds are indistinguishable from greens in
+    // cvdiag probe data. GREEN: the same run emits `outcome=err` AND a
+    // `failure_classifier=sse-missing` (no SSE => earliest-missing signal) in
+    // metadata, so the red is labeled at the probe.exit boundary.
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      // No `sseEvents`, empty assistant text => no probe.dom.firsttoken,
+      // sse_event_count=0 => the run actually failed.
+      { assistantText: "", alternateHistogram: { div: 1 } },
+      emitter,
+    );
+    const exit = byBoundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.outcome).toBe("err");
+    expect(exit[0]!.metadata.terminal_outcome).toBe("err");
+    expect(exit[0]!.metadata.failure_classifier).toBe("sse-missing");
+  });
+
+  it("keeps a passing run on probe.exit at outcome=ok with no failure_classifier", async () => {
+    // GREEN-CONTROL: a clean run (assistant text present, an SSE run-finished
+    // event) stays `terminal_outcome=ok` and carries NO failure classifier.
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hello there",
+        sseEvents: [{ eventType: "RUN_FINISHED", payloadSizeBytes: 10 }],
+      },
+      emitter,
+    );
+    const exit = byBoundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.outcome).toBe("ok");
+    expect(exit[0]!.metadata.terminal_outcome).toBe("ok");
+    expect(exit[0]!.metadata.failure_classifier).toBeUndefined();
+  });
+
+  it("classifies a run that streamed SSE but never rendered a DOM bubble as failure_classifier=dom-missing", async () => {
+    // RED (pre-fix): SSE arrived but no assistant bubble ever rendered (empty
+    // text, no first-token) — still `terminal_outcome=ok`. GREEN: `outcome=err`
+    // with `failure_classifier=dom-missing` (SSE present => not sse-missing;
+    // no first-token => DOM never produced a token).
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "",
+        alternateHistogram: { div: 1 },
+        sseEvents: [{ eventType: "RUN_FINISHED", payloadSizeBytes: 10 }],
+      },
+      emitter,
+    );
+    const exit = byBoundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.outcome).toBe("err");
+    expect(exit[0]!.metadata.failure_classifier).toBe("dom-missing");
+  });
+
   it("captures a browser console.error in probe.console.error", async () => {
     const { emitter, writer } = makeCvdiagEmitter();
     await runWith(
@@ -1106,14 +1184,21 @@ describe("d4 CVDIAG probe instrumentation (L1-A)", () => {
 
     // A raw-byte sample was captured.
     expect(rawByteSamples.length).toBeGreaterThan(0);
-    // Every emitted event for this level shares ONE test_id (the minted UUIDv7).
+    // Every emitted event for this level shares ONE stable session test_id.
     const eventIds = new Set(captured.map((e) => e.test_id));
     expect(eventIds.size).toBe(1);
     const eventTestId = [...eventIds][0]!;
-    // The raw-byte sample carries the SAME test_id → the join resolves.
+    // The raw-byte sample carries the SAME test_id → the intra-layer
+    // raw-byte ↔ events join resolves.
     expect(rawByteSamples[0]!.test_id).toBe(eventTestId);
-    // And it is NOT the raw d4-<slug>-<runId> X-Test-Id (the pre-fix value).
-    expect(rawByteSamples[0]!.test_id).not.toMatch(/^d4-/);
+    // leg-3: the shared session test_id is the backend-adopted/sanitized
+    // forwarded X-Test-Id — `sanitizeJoinTestId("d4-foo-<runId>")` — NOT a fresh
+    // random UUIDv7. This is the value the backend derives from the same inbound
+    // header, so the cross-layer probe↔backend join now also closes. The
+    // sanitizer preserves the `d4-` prefix (it is `[a-z0-9._-]`), so the
+    // resolved id is the forwarded id, lowercased.
+    expect(eventTestId).toMatch(/^d4-foo-/);
+    expect(eventTestId).toBe(sanitizeJoinTestId(eventTestId));
   });
 });
 
@@ -1766,5 +1851,75 @@ describe("d4 A/B internal routing (Phase 8)", () => {
     // RED (pre-fix): one lone edge orphan was collected. GREEN: nothing —
     // no internal sibling means no half-pair is emitted.
     expect(collected).toEqual([]);
+  });
+});
+
+describe("d4 CVDIAG cross-layer join: probe adopts the forwarded X-Test-Id", () => {
+  function bufDir(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-test-"));
+  }
+
+  // ── leg 3: probe records the SAME forwarded X-Test-Id the backend adopts ───
+  it("probe cvdiag test_id == sanitizeJoinTestId(forwarded X-Test-Id), NOT a fresh UUIDv7, so probe↔backend rows join", async () => {
+    // The probe forwards a per-run id (`d6-<slug>-<runId>` / `d4-<slug>-<runId>`)
+    // as the `X-Test-Id` request header. The backend (this branch) ADOPTS that
+    // inbound header verbatim, normalizing it via `sanitizeJoinTestId`, as its
+    // cvdiag `test_id` — the cross-layer join key (spec §5).
+    //
+    // RED (pre-fix): `CvdiagProbeSession` re-minted a RANDOM UUIDv7 for its own
+    // cvdiag `test_id` (the forwarded id is not a UUIDv7, so the constructor's
+    // `isValidTestId(opts.testId) ? opts.testId : mintTestId()` fell through to
+    // a fresh mint). Result: probe.* rows carried a UUIDv7 that NEVER equals the
+    // backend's adopted/sanitized id → the join did not close.
+    //
+    // GREEN (post-fix): the session records `sanitizeJoinTestId(forwardedId)` —
+    // the EXACT value the backend derives from the same inbound header — so both
+    // sides share one `test_id`.
+    const forwarded = "d6-built-in-agent-run-ABC";
+    // The value the BACKEND adopts from the same inbound header. Mirroring the
+    // backend's sanitize here makes the cross-layer match provable from the
+    // probe side alone.
+    const backendAdopted = sanitizeJoinTestId(forwarded);
+    expect(backendAdopted).not.toBeNull();
+
+    const writer = new CaptureWriter();
+    const emitter = new CvdiagEmitter({
+      verbose: true,
+      env: {},
+      layer: "probe",
+      pbWriter: writer,
+    });
+    const session = new CvdiagProbeSession({
+      emitter,
+      // The forwarded X-Test-Id — exactly what the driver passes to both the
+      // request header AND this session (see runLevel: testId is the per-level
+      // X-Test-Id, and the same value is set as the `X-Test-Id` request header).
+      testId: forwarded,
+      slug: "built-in",
+      demo: "agentic-chat",
+      bufferDir: bufDir(),
+      nowMs: 0,
+    });
+    // Drive an open/close pair so at least two probe.* rows are emitted.
+    session.start("https://x.example.com/demos/agentic-chat", {
+      width: 1280,
+      height: 720,
+    });
+    session.exit("ok", 1);
+    await emitter.flush();
+
+    const rows = writer.events;
+    expect(rows.length).toBeGreaterThan(0);
+    // EVERY probe.* row carries the SAME test_id (the session's resolved id).
+    const ids = new Set(rows.map((e) => e.test_id));
+    expect(ids.size).toBe(1);
+    const probeTestId = [...ids][0]!;
+    // The crux: the probe's cvdiag test_id is the backend-adopted/sanitized
+    // forwarded id — NOT a fresh random UUIDv7 — so the cross-layer join closes.
+    expect(probeTestId).toBe(backendAdopted);
+    // And the session's resolvedTestId (used by raw-byte samples) agrees, so the
+    // intra-layer raw-byte↔events join is preserved while the cross-layer join
+    // now also closes.
+    expect(session.resolvedTestId).toBe(backendAdopted);
   });
 });

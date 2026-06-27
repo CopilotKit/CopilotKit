@@ -79,23 +79,14 @@
       "repoName": "showcase-harness"
     }
   },
-  "harness-legacy": {
+  "harness-workers": {
     "prod": {
-      "instanceId": "3d125700-a08d-4a7f-904b-c13f3f7cc0fc",
+      "instanceId": "7c48ee43-6df4-457b-b977-10f1f1ac1680",
       "domain": null,
       "probe": false,
       "driver": "harness",
       "repoName": "showcase-harness"
     },
-    "staging": {
-      "instanceId": "ed184024-fdfa-4b6f-bb51-37d6648e0beb",
-      "domain": null,
-      "probe": false,
-      "driver": "harness",
-      "repoName": "showcase-harness"
-    }
-  },
-  "harness-workers": {
     "staging": {
       "instanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
       "domain": null,
@@ -440,6 +431,22 @@
       "repoName": "showcase-strands"
     }
   },
+  "showcase-strands-typescript": {
+    "prod": {
+      "instanceId": "8a50728e-6119-43c4-b59c-d9535b6717a4",
+      "domain": "showcase-strands-typescript-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-strands-typescript"
+    },
+    "staging": {
+      "instanceId": "3f917b9f-c3f0-4d8b-96ca-7f455e06b5ba",
+      "domain": "showcase-strands-typescript-staging.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-strands-typescript"
+    }
+  },
   "starter-adk": {
     "prod": {
       "instanceId": "cb23cae4-9555-4ddd-8a62-f1aa1ff72c67",
@@ -451,7 +458,7 @@
     "staging": {
       "instanceId": "208a160a-0d7d-44b2-a94d-39e13b24e21a",
       "domain": "starter-adk-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-adk"
     }
@@ -467,7 +474,7 @@
     "staging": {
       "instanceId": "9944eb97-7f58-47f8-a49d-65603e209609",
       "domain": "starter-agno-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-agno"
     }
@@ -483,7 +490,7 @@
     "staging": {
       "instanceId": "820895fb-f65c-4834-a07d-d454035d39c4",
       "domain": "starter-crewai-crews-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-crewai-crews"
     }
@@ -499,7 +506,7 @@
     "staging": {
       "instanceId": "5f10e976-e121-48a5-bc18-2619798f2f10",
       "domain": "starter-langgraph-fastapi-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-langgraph-fastapi"
     }
@@ -515,7 +522,7 @@
     "staging": {
       "instanceId": "43db83fe-fafb-445b-a19a-51bb086c71b9",
       "domain": "starter-langgraph-js-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-langgraph-js"
     }
@@ -531,7 +538,7 @@
     "staging": {
       "instanceId": "58105e79-4020-4692-8749-c1a63ab63f2c",
       "domain": "starter-langgraph-python-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-langgraph-python"
     }
@@ -547,7 +554,7 @@
     "staging": {
       "instanceId": "44446803-0505-456a-b0c4-01fe82fb3832",
       "domain": "starter-llamaindex-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-llamaindex"
     }
@@ -563,7 +570,7 @@
     "staging": {
       "instanceId": "b246e52d-52d8-4015-bb06-89bd09d54f8f",
       "domain": "starter-mastra-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-mastra"
     }
@@ -579,7 +586,7 @@
     "staging": {
       "instanceId": "6684c246-e8fd-45a7-86e4-c529a439976f",
       "domain": "starter-ms-agent-framework-dotnet-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-ms-agent-framework-dotnet"
     }
@@ -595,7 +602,7 @@
     "staging": {
       "instanceId": "a162348a-f768-4c3f-815c-f617819f64e6",
       "domain": "starter-ms-agent-framework-python-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-ms-agent-framework-python"
     }
@@ -611,7 +618,7 @@
     "staging": {
       "instanceId": "25f4eb93-501a-4e5e-b7cf-343eb08ea613",
       "domain": "starter-pydantic-ai-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-pydantic-ai"
     }
@@ -627,7 +634,7 @@
     "staging": {
       "instanceId": "adc24096-584a-4ef3-93de-0bc92d49235c",
       "domain": "starter-strands-python-staging.up.railway.app",
-      "probe": false,
+      "probe": true,
       "driver": "starter",
       "repoName": "starter-strands-python"
     }

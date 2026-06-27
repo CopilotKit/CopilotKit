@@ -1,6 +1,7 @@
 {
   "extends": "../tsconfig/react-library.json",
   "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "ES2023"],
     "types": ["vitest/globals"]
   },
   "include": ["src/**/*"],

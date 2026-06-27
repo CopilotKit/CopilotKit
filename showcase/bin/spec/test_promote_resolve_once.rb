@@ -123,7 +123,10 @@ class PromoteResolveOnceTest < Minitest::Test
         {
             "name" => name, "service_id" => "svc-stg-#{name}",
             "image" => image,
-            "env_keys" => [],
+            # All CRITICAL_ENV_KEYS present so the (now unconditional) critical
+            # env-key presence assertion does not fire — these tests isolate
+            # the resolve-once / pin behavior, not env-key parity.
+            "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
             "start_command" => "node server.js", "healthcheck_path" => "/health",
             "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
         }
@@ -133,7 +136,7 @@ class PromoteResolveOnceTest < Minitest::Test
         {
             "name" => name, "service_id" => "svc-prod-#{name}",
             "image" => "ghcr.io/copilotkit/#{name}@sha256:OLD",
-            "env_keys" => [],
+            "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
             "start_command" => "node server.js", "healthcheck_path" => "/health",
             "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
         }

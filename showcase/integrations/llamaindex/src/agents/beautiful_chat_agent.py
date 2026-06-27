@@ -22,9 +22,9 @@ import os
 from typing import Annotated
 
 from llama_index.llms.openai import OpenAI
-from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
-from tools import get_weather_impl
+from agents._request_tools import make_request_aware_router
+from tools import get_weather_impl, search_flights_impl
 
 
 async def get_weather(
@@ -34,6 +34,22 @@ async def get_weather(
     return json.dumps(get_weather_impl(location))
 
 
+async def search_flights(
+    flights: Annotated[
+        list,
+        "List of flight objects to search and display as rich cards. "
+        "Return exactly 2 flights.",
+    ],
+) -> str:
+    """Search for flights and display the results as rich A2UI cards.
+
+    Each flight must have: airline, airlineLogo, flightNumber, origin,
+    destination, date, departureTime, arrivalTime, duration, status,
+    statusColor, price, currency.
+    """
+    return json.dumps(search_flights_impl(flights))
+
+
 SYSTEM_PROMPT = """You are a polished, friendly demo assistant powering the
 "Beautiful Chat" showcase. You are deliberately concise — keep answers to
 1-2 sentences when possible.
@@ -41,19 +57,36 @@ SYSTEM_PROMPT = """You are a polished, friendly demo assistant powering the
 You can:
 - Chat naturally with the user
 - Get weather for a location via the get_weather tool
+- Search flights and display rich flight cards via the search_flights tool
+- Render charts the page provides (pieChart / barChart frontend components)
+- Toggle the app theme via the toggleTheme frontend tool
+- Schedule a meeting with the user via the scheduleTime frontend tool
+  (human-in-the-loop time picker)
 
-Be warm, pithy, and helpful. Avoid filler — let the chat surface itself
-do the talking."""
+When asked to search or show flights, always call search_flights with exactly
+two flights. Be warm, pithy, and helpful. Avoid filler — let the chat surface
+itself do the talking."""
 
 
 _openai_kwargs = {}
 if os.environ.get("OPENAI_BASE_URL"):
     _openai_kwargs["api_base"] = os.environ["OPENAI_BASE_URL"]
 
-beautiful_chat_router = get_ag_ui_workflow_router(
+# The page registers frontend tools/components at request time via React hooks
+# (toggleTheme, pieChart, barChart, scheduleTime — see
+# src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx). The
+# request-aware router forwards those injected tools to the LLM so the request
+# shape matches the recorded aimock fixture; without it the LLM never sees the
+# injected tools, the request 404s in aimock, and the run emits RUN_ERROR
+# (sse-missing) instead of RUN_FINISHED. See agents/_request_tools.py.
+beautiful_chat_router = make_request_aware_router(
     llm=OpenAI(model="gpt-4o-mini", **_openai_kwargs),
     frontend_tools=[],
-    backend_tools=[get_weather],
+    # search_flights is a backend tool the page's "Search Flights" pill exercises
+    # (mirrors langgraph-python/beautiful_chat.py). The page-injected frontend
+    # tools (toggleTheme, pieChart, barChart, scheduleTime) are forwarded at
+    # request time by make_request_aware_router. See agents/_request_tools.py.
+    backend_tools=[get_weather, search_flights],
     system_prompt=SYSTEM_PROMPT,
     initial_state={},
 )

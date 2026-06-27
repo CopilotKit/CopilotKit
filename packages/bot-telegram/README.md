@@ -16,13 +16,26 @@ pnpm add @copilotkit/bot-telegram @copilotkit/bot @copilotkit/bot-ui
 
 ## Quickstart
 
-```ts
+> **File must be `.tsx`** — JSX in TypeScript requires the JSX factory to be
+> configured. Point it at `@copilotkit/bot-ui` in your `tsconfig.json`:
+>
+> ```json
+> {
+>   "compilerOptions": {
+>     "jsx": "react-jsx",
+>     "jsxImportSource": "@copilotkit/bot-ui"
+>   }
+> }
+> ```
+
+```tsx
 import { createBot } from "@copilotkit/bot";
 import {
   telegram,
   defaultTelegramTools,
   defaultTelegramContext,
 } from "@copilotkit/bot-telegram";
+import { Message, Section } from "@copilotkit/bot-ui";
 
 const bot = createBot({
   adapters: [
@@ -39,7 +52,11 @@ bot.onMention(({ thread }) => thread.runAgent());
 
 // Optional: greet users when they start a DM
 bot.onThreadStarted(async ({ thread }) => {
-  await thread.post(<Message><Section>Hi! How can I help?</Section></Message>);
+  await thread.post(
+    <Message>
+      <Section>Hi! How can I help?</Section>
+    </Message>,
+  );
 });
 
 await bot.start();
@@ -143,11 +160,38 @@ command to the engine's `onCommand` handlers.
 | `webhook` | grammY webhook + minimal Node HTTP server. Requires `webhook.domain`.            |
 | `auto`    | Webhook when `VERCEL`/`AWS_LAMBDA_FUNCTION_NAME`/`NETLIFY` is set, else polling. |
 
+## Reactions
+
+`message_reaction` updates are enabled automatically. The adapter exports
+`TELEGRAM_ALLOWED_UPDATES` (the full update-type list it subscribes to) and
+passes it to grammY's long-polling `start()` call.
+
+**Group chats:** the bot must be an **administrator** to receive
+`message_reaction` events. Private chats and channels work without any
+extra permissions.
+
+**Webhook deployments:** pass the same list to `setWebhook`:
+
+```ts
+import { TELEGRAM_ALLOWED_UPDATES } from "@copilotkit/bot-telegram";
+
+await bot.api.setWebhook(url, {
+  allowed_updates: [...TELEGRAM_ALLOWED_UPDATES],
+});
+```
+
 ## What's NOT in v1
 
 - **Modals / native form submit** — Telegram has no modal surface; multi-step
-  forms must be conversation-driven.
-- **Reactions** — Telegram reaction support is not implemented.
+  forms must be conversation-driven. `openModal` resolves `{ ok: false }` on
+  this adapter — the engine gates the method off because `supportsModals` is
+  `false`.
+- **Native ephemeral messages** — Telegram has no per-user-visible messages;
+  `supportsEphemeral` is `false`. Use `thread.postEphemeral(user, ui, { fallbackToDM: true })`
+  to send a private DM as a fallback instead. **DMing requires the user to have
+  previously started a DM with the bot** (sent it at least one message directly);
+  if they have not, the DM `sendMessage` call will fail and `postEphemeral`
+  resolves `{ ok: false }` rather than throwing.
 - **Native streaming** — Telegram has no server-push streaming; streaming is
   approximated via throttled `editMessageText` calls.
 - **Durable (Redis/DB) conversation store** — `TelegramConversationStore` is

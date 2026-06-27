@@ -624,7 +624,7 @@ function canonicalizePythonName(name: string): string {
  */
 function isWorkspaceRef(spec: string): boolean {
   if (!spec) return false;
-  return /^workspace:/.test(spec.trim());
+  return spec.trim().startsWith("workspace:");
 }
 
 /**
@@ -1894,7 +1894,7 @@ function validateAll(): Report {
       // only (the @-prefixed scope is npm-native; Python copilotkit
       // packages, if any, fall through to the framework-exact-pin
       // check below).
-      if (!isPython && /^@copilotkit\//.test(displayName)) {
+      if (!isPython && displayName.startsWith("@copilotkit/")) {
         if (overrideSpec !== undefined) {
           // Override accepts the spec verbatim — does NOT require it
           // to be an exact pin (this is how the `pkg.pr.new` URL

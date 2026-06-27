@@ -73,6 +73,20 @@ describe("decodeInteraction", () => {
     expect(evt!.user).toBeUndefined();
   });
 
+  it("decodes a multi_static_select's selected_options into a string[] value", () => {
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C3", thread_ts: "200.0" },
+      actions: [
+        {
+          action_id: "ck:ms",
+          selected_options: [{ value: "core" }, { value: "infra" }],
+        },
+      ],
+    });
+    expect(evt!.value).toEqual(["core", "infra"]);
+  });
+
   it("returns undefined for non-block_actions or missing action_id", () => {
     expect(decodeInteraction({ type: "view_submission" })).toBeUndefined();
     expect(
@@ -92,6 +106,32 @@ describe("decodeInteraction", () => {
     ).toBeUndefined();
   });
 
+  it("carries a stable eventId from channel + message ts + action_ts (inbound dedup)", () => {
+    const payload = {
+      type: "block_actions",
+      trigger_id: "trig-123",
+      channel: { id: "C1" },
+      message: { ts: "111.1", thread_ts: "100.0" },
+      actions: [
+        { action_id: "ck:abc", value: "yes", action_ts: "1700000000.5" },
+      ],
+    };
+    const evt = decodeInteraction(payload);
+    expect(evt!.eventId).toBe("C1:111.1:1700000000.5");
+    // Stable: decoding the same payload yields the same eventId.
+    expect(decodeInteraction(payload)!.eventId).toBe(evt!.eventId);
+  });
+
+  it("falls back to trigger_id for eventId when message/action ts are absent", () => {
+    const evt = decodeInteraction({
+      type: "block_actions",
+      trigger_id: "trig-xyz",
+      container: { channel_id: "C3" },
+      actions: [{ action_id: "ck:c", value: "x" }],
+    });
+    expect(evt!.eventId).toBe("trig-xyz");
+  });
+
   it("does NOT require a resume field (opaque id only)", () => {
     const evt = decodeInteraction({
       type: "block_actions",
@@ -103,5 +143,17 @@ describe("decodeInteraction", () => {
     // value is undefined when the button carried none — fine; durability rides
     // on the ActionStore, not the payload.
     expect(evt!.value).toBeUndefined();
+  });
+
+  it("carries trigger_id from a block_actions payload", () => {
+    const evt = decodeInteraction({
+      type: "block_actions",
+      trigger_id: "T123.456",
+      user: { id: "U1" },
+      channel: { id: "C1" },
+      message: { ts: "1.0" },
+      actions: [{ action_id: "ck:x", value: "v" }],
+    });
+    expect(evt!.triggerId).toBe("T123.456");
   });
 });

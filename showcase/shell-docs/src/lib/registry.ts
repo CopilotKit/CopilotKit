@@ -76,6 +76,26 @@ export interface Integration {
    *   handler (ms-agent-python, ms-agent-dotnet).
    */
   interrupt_pattern?: "native" | "promise-based" | null;
+  /**
+   * Framework-specific pattern for aligning Enterprise Intelligence
+   * Platform threads with an external framework's own persistence/session
+   * identifiers.
+   *
+   * - `langgraph`: explicit CopilotKit thread IDs are forwarded as AG-UI
+   *   `threadId` and can be aligned with LangGraph checkpoint/thread IDs
+   *   when the backend accepts them.
+   * - `adk-session`: CopilotKit thread IDs may be mapped to ADK session
+   *   IDs; ADK durability still depends on the configured ADK session
+   *   service.
+   */
+  thread_persistence_pattern?: "langgraph" | "adk-session" | null;
+  agent_config_pattern?: "shared-state" | "runtime-properties" | null;
+  auth_pattern?:
+    | "langgraph"
+    | "ag2-context-variables"
+    | "microsoft-agent-framework"
+    | "runtime-onrequest"
+    | null;
   sort_order?: number;
   managed_platform?: { name: string; url: string };
   animated_preview_url?: string | null;
@@ -208,6 +228,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "google-adk": "adk",
   "crewai-crews": "crewai-flows",
   strands: "aws-strands",
+  "strands-typescript": "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",
   "ms-agent-python": "microsoft-agent-framework",
 };
@@ -239,6 +260,16 @@ const TAB_DEFAULTS_BY_SLUG: Record<string, Record<string, string>> = {
   "langgraph-fastapi": {
     language_langgraph_agent: "Python",
     deployment_method: "FastAPI",
+  },
+  // strands and strands-typescript share the aws-strands/ docs folder, whose
+  // pages carry Python/TypeScript language tabs (groupId
+  // "language_strands_agent"). Default each framework to its own language so
+  // the TS framework opens on the TS snippets (mirrors the langgraph split).
+  strands: {
+    language_strands_agent: "Python",
+  },
+  "strands-typescript": {
+    language_strands_agent: "TypeScript",
   },
   "ms-agent-dotnet": {
     "language_microsoft-agent-framework_agent": ".NET",

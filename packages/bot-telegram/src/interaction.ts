@@ -1,4 +1,4 @@
-import type { InteractionEvent } from "@copilotkit/bot";
+import type { InteractionEvent, IncomingReaction } from "@copilotkit/bot";
 import type { PlatformUser } from "@copilotkit/bot-ui";
 import { DM_SCOPE } from "./types.js";
 import type {
@@ -77,6 +77,75 @@ export function toPlatformUser(from: {
     name,
     handle: from.username,
   };
+}
+
+interface TgReactionType {
+  type?: string;
+  emoji?: string;
+}
+interface TgMessageReaction {
+  chat?: { id?: number | string; type?: string; is_forum?: boolean };
+  message_id?: number;
+  message_thread_id?: number;
+  user?: { id?: number; username?: string; first_name?: string };
+  old_reaction?: TgReactionType[];
+  new_reaction?: TgReactionType[];
+}
+
+const emojiSet = (list: TgReactionType[] | undefined): Set<string> =>
+  new Set(
+    (list ?? [])
+      .filter((r) => r.type === "emoji" && r.emoji)
+      .map((r) => r.emoji!),
+  );
+
+/**
+ * Decode a Telegram `message_reaction` update into zero or more
+ * {@link IncomingReaction} events — one per emoji that was added or removed.
+ * Only `type === "emoji"` entries are considered; custom_emoji are ignored.
+ */
+export function decodeReaction(update: unknown): IncomingReaction[] {
+  const mr = (update as { message_reaction?: TgMessageReaction })
+    .message_reaction;
+  if (!mr?.chat?.id || mr.message_id === undefined) return [];
+  const oldSet = emojiSet(mr.old_reaction);
+  const newSet = emojiSet(mr.new_reaction);
+  const chatId = mr.chat.id;
+  const message = {
+    chat: mr.chat as { id: number | string; type: string; is_forum?: boolean },
+    message_id: mr.message_id,
+    message_thread_id: mr.message_thread_id,
+  };
+  const ck = deriveConversationKey(message, mr.user?.id);
+  const conversationKey = conversationKeyOf(ck);
+  const replyTarget: ReplyTarget = {
+    chatId,
+    messageThreadId: mr.chat.is_forum ? mr.message_thread_id : undefined,
+    conversationKey,
+  };
+  const user = mr.user
+    ? {
+        id: String(mr.user.id),
+        name: mr.user.first_name,
+        handle: mr.user.username,
+      }
+    : undefined;
+  const base = {
+    user,
+    conversationKey,
+    replyTarget,
+    messageId: String(mr.message_id),
+    // Update-capable ref (chatId + numeric messageId) so an onReaction handler
+    // can edit the reacted message in place via thread.update.
+    messageRef: { id: String(mr.message_id), chatId, messageId: mr.message_id },
+    raw: update,
+  };
+  const out: IncomingReaction[] = [];
+  for (const e of newSet)
+    if (!oldSet.has(e)) out.push({ ...base, rawEmoji: e, added: true });
+  for (const e of oldSet)
+    if (!newSet.has(e)) out.push({ ...base, rawEmoji: e, added: false });
+  return out;
 }
 
 /**

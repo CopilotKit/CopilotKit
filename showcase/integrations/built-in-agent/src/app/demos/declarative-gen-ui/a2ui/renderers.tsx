@@ -168,6 +168,62 @@ const badgePalette: Record<
 
 // @region[renderers-react]
 export const myRenderers: CatalogRenderers<MyDefinitions> = {
+  // Gap-honouring Row/Column overrides — the basic catalog's versions ignore
+  // `gap`, which makes composed dashboards cramped. Children share width
+  // evenly in a Row (flex: 1 1 0) and stack in a Column.
+  Row: ({ props, children }) => {
+    const justifyMap: Record<string, string> = {
+      start: "flex-start",
+      center: "center",
+      end: "flex-end",
+      spaceBetween: "space-between",
+    };
+    const items = Array.isArray(props.children) ? props.children : [];
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "row",
+          gap: `${props.gap ?? 16}px`,
+          alignItems: props.align ?? "stretch",
+          justifyContent: justifyMap[props.justify ?? "start"] ?? "flex-start",
+          flexWrap: "wrap",
+          width: "100%",
+        }}
+      >
+        {items.map((id, i) => (
+          <div key={`${id}-${i}`} style={{ flex: "1 1 0", minWidth: 0 }}>
+            {children(id)}
+          </div>
+        ))}
+      </div>
+    );
+  },
+
+  Column: ({ props, children }) => {
+    const items = Array.isArray(props.children) ? props.children : [];
+    return (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: `${props.gap ?? 12}px`,
+          width: "100%",
+        }}
+      >
+        {items.map((id, i) => (
+          <React.Fragment key={`${id}-${i}`}>{children(id)}</React.Fragment>
+        ))}
+      </div>
+    );
+  },
+
+  Text: ({ props }) => (
+    <span style={{ fontSize: "0.85rem", color: "#010507", lineHeight: 1.5 }}>
+      {props.text}
+    </span>
+  ),
+
   Card: ({ props, children }) => (
     <div
       data-testid="declarative-card"
@@ -252,7 +308,16 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
           }}
         >
           <span>{props.value}</span>
-          {arrow && <span style={{ fontSize: "1rem" }}>{arrow}</span>}
+          {(arrow || props.trendValue) && (
+            <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>
+              {arrow}
+              {props.trendValue
+                ? arrow
+                  ? ` ${props.trendValue}`
+                  : props.trendValue
+                : ""}
+            </span>
+          )}
         </div>
       </div>
     );
@@ -260,6 +325,7 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
 
   InfoRow: ({ props }) => (
     <div
+      data-testid="declarative-info-row"
       style={{
         display: "flex",
         justifyContent: "space-between",
@@ -278,6 +344,72 @@ export const myRenderers: CatalogRenderers<MyDefinitions> = {
       </span>
     </div>
   ),
+
+  DataTable: ({ props }) => {
+    const cols = Array.isArray(props.columns) ? props.columns : [];
+    const rows = Array.isArray(props.rows) ? props.rows : [];
+    return (
+      <div
+        data-testid="declarative-data-table"
+        style={{ width: "100%", overflowX: "auto" }}
+      >
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: "0.85rem",
+          }}
+        >
+          <thead>
+            <tr>
+              {cols.map((col) => (
+                <th
+                  key={col.key}
+                  style={{
+                    borderBottom: "2px solid #DBDBE5",
+                    padding: "8px 12px",
+                    textAlign: "left",
+                    fontSize: "0.7rem",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    color: "#838389",
+                  }}
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              // Stable row key: prefer the first column's value (primary-key-ish),
+              // suffix with index in case values repeat, fall back to a JSON
+              // stringify of the row when columns is empty.
+              const pk = cols.length > 0 ? row[cols[0].key] : undefined;
+              const rowKey = pk !== undefined ? `${pk}-${i}` : `row-${i}`;
+              return (
+                <tr key={rowKey} style={{ borderBottom: "1px solid #E9E9EF" }}>
+                  {cols.map((col) => (
+                    <td
+                      key={col.key}
+                      style={{
+                        padding: "8px 12px",
+                        color: "#010507",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {String(row[col.key] ?? "")}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  },
 
   PrimaryButton: ({ props, dispatch }) => (
     <button

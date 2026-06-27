@@ -17,6 +17,8 @@ import type {
   RunErrorEvent,
   StateSnapshotEvent,
   StateDeltaEvent,
+  Interrupt,
+  ResumeEntry,
 } from "@ag-ui/client";
 import { AbstractAgent, EventType } from "@ag-ui/client";
 import type { AgentCapabilities } from "@ag-ui/core";
@@ -34,6 +36,7 @@ import type {
   FilePart,
   ToolChoice,
   ToolSet,
+  Schema,
 } from "ai";
 import { streamText, tool as createVercelAISDKTool, stepCountIs } from "ai";
 import { createMCPClient } from "@ai-sdk/mcp";
@@ -238,6 +241,18 @@ export function resolveModel(
 }
 
 /**
+ * Thrown by `AgentFactoryContext.interrupt()` on a fresh (non-resume) run to
+ * pause the factory. Caught in `runFactory` and translated into a RUN_FINISHED
+ * event carrying `outcome:{type:"interrupt",interrupts}`. Not a real error.
+ */
+export class InterruptSignal extends Error {
+  constructor(public readonly interrupts: Interrupt[]) {
+    super("CopilotKit interrupt: run paused awaiting human input");
+    this.name = "InterruptSignal";
+  }
+}
+
+/**
  * Tool definition for BuiltInAgent
  */
 export interface ToolDefinition<
@@ -246,7 +261,24 @@ export interface ToolDefinition<
   name: string;
   description: string;
   parameters: TParameters;
-  execute: (args: InferSchemaOutput<TParameters>) => Promise<unknown>;
+  /**
+   * Server-side executor. Optional ONLY for interrupt tools (`interrupt:true`),
+   * which pause the run instead of executing.
+   */
+  execute?: (args: InferSchemaOutput<TParameters>) => Promise<unknown>;
+  /**
+   * When true, calling this tool pauses the run and emits a standard AG-UI
+   * interrupt (RUN_FINISHED outcome:interrupt) keyed by the tool call's id.
+   * The human response (resume payload) is injected as this tool call's result
+   * on the resume run. Interrupt tools must NOT define `execute`, and require
+   * the default `maxSteps: 1` — with `maxSteps > 1` the AI SDK's agentic loop
+   * would try to continue past the unexecuted tool call instead of pausing.
+   */
+  interrupt?: boolean;
+  /** Optional categorical reason surfaced on the Interrupt (default: "tool_call"). */
+  interruptReason?: string;
+  /** Optional human-readable prompt surfaced on the Interrupt. */
+  interruptMessage?: string;
 }
 
 /**
@@ -261,13 +293,19 @@ export function defineTool<TParameters extends StandardSchemaV1>(config: {
   name: string;
   description: string;
   parameters: TParameters;
-  execute: (args: InferSchemaOutput<TParameters>) => Promise<unknown>;
+  execute?: (args: InferSchemaOutput<TParameters>) => Promise<unknown>;
+  interrupt?: boolean;
+  interruptReason?: string;
+  interruptMessage?: string;
 }): ToolDefinition<TParameters> {
   return {
     name: config.name,
     description: config.description,
     parameters: config.parameters,
     execute: config.execute,
+    interrupt: config.interrupt,
+    interruptReason: config.interruptReason,
+    interruptMessage: config.interruptMessage,
   };
 }
 
@@ -585,6 +623,22 @@ function isJsonSchema(obj: unknown): obj is JsonSchema {
   );
 }
 
+/**
+ * Type-only pass-through for handing a Zod schema to the AI SDK's `tool()`.
+ * The raw Zod schema is returned unchanged at runtime — the SDK's `asSchema()`
+ * converts and validates it internally exactly as before.
+ *
+ * The Zod type is erased through `unknown` deliberately: letting tsc relate
+ * Zod schema types to the AI SDK's `FlexibleSchema` union (conditional types
+ * spanning zod v3/v4) makes type instantiation explode (TS2589 / compiler
+ * OOM) under this package's `moduleResolution: node`.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toLanguageModelSchema(schema: z.ZodSchema): Schema<any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return schema as unknown as Schema<any>;
+}
+
 export function convertToolsToVercelAITools(
   tools: RunAgentInput["tools"],
 ): ToolSet {
@@ -598,7 +652,7 @@ export function convertToolsToVercelAITools(
     const zodSchema = convertJsonSchemaToZodSchema(tool.parameters, true);
     result[tool.name] = createVercelAISDKTool({
       description: tool.description,
-      inputSchema: zodSchema,
+      inputSchema: toLanguageModelSchema(zodSchema),
     });
   }
 
@@ -659,6 +713,15 @@ export interface AgentFactoryContext {
    */
   abortController: AbortController;
   abortSignal: AbortSignal;
+  /**
+   * Pause the run for human input (AG-UI standard interrupt). On a fresh run
+   * this throws an InterruptSignal (caught by the runtime) and the run finishes
+   * with `outcome:{type:"interrupt",interrupts}`. On the resume run (when
+   * `input.resume` covers these interrupts) it returns the matching ResumeEntry
+   * responses so the factory can continue. Each `interrupts[i].id` is matched to
+   * `input.resume[].interruptId`.
+   */
+  interrupt: (interrupts: Interrupt[]) => Promise<ResumeEntry[]>;
 }
 
 /**
@@ -862,9 +925,17 @@ export class BuiltInAgent extends AbstractAgent {
       transport: {
         streaming: true,
       },
+      humanInTheLoop: {
+        interrupts: true,
+      },
     };
 
-    if (!this.config.capabilities) {
+    // Factory-mode configs have no `capabilities` property.
+    const capabilities = isFactoryConfig(this.config)
+      ? undefined
+      : this.config.capabilities;
+
+    if (!capabilities) {
       return inferred;
     }
 
@@ -872,7 +943,7 @@ export class BuiltInAgent extends AbstractAgent {
     // entire categories when provided, inferred defaults fill the rest.
     return {
       ...inferred,
-      ...this.config.capabilities,
+      ...capabilities,
     };
   }
 
@@ -880,6 +951,10 @@ export class BuiltInAgent extends AbstractAgent {
     if (isFactoryConfig(this.config)) {
       return this.runFactory(input, this.config);
     }
+
+    // Capture the narrowed classic config — the narrowing of `this.config`
+    // above does not survive into the Observable/async closures below.
+    const config = this.config;
 
     if (this.abortController) {
       throw new Error(
@@ -901,7 +976,7 @@ export class BuiltInAgent extends AbstractAgent {
       subscriber.next(startEvent);
 
       // Resolve the model, passing API key if provided
-      const model = resolveModel(this.config.model, this.config.apiKey);
+      const model = resolveModel(config.model, config.apiKey);
 
       // Build prompt based on conditions
       let systemPrompt: string | undefined = undefined;
@@ -910,7 +985,7 @@ export class BuiltInAgent extends AbstractAgent {
       // - config.prompt is set, OR
       // - input.context is non-empty, OR
       // - input.state is non-empty and not an empty object
-      const hasPrompt = !!this.config.prompt;
+      const hasPrompt = !!config.prompt;
       const hasContext = input.context && input.context.length > 0;
       const hasState =
         input.state !== undefined &&
@@ -925,7 +1000,7 @@ export class BuiltInAgent extends AbstractAgent {
 
         // First: the prompt if any
         if (hasPrompt) {
-          parts.push(this.config.prompt!);
+          parts.push(config.prompt!);
         }
 
         // Second: context from the application
@@ -950,8 +1025,8 @@ export class BuiltInAgent extends AbstractAgent {
 
       // Convert messages and prepend system message if we have a prompt
       const messages = convertMessagesToVercelAISDKMessages(input.messages, {
-        forwardSystemMessages: this.config.forwardSystemMessages,
-        forwardDeveloperMessages: this.config.forwardDeveloperMessages,
+        forwardSystemMessages: config.forwardSystemMessages,
+        forwardDeveloperMessages: config.forwardDeveloperMessages,
       });
       if (systemPrompt) {
         messages.unshift({
@@ -960,12 +1035,61 @@ export class BuiltInAgent extends AbstractAgent {
         });
       }
 
+      // Resume injection: each ResumeEntry maps to the interrupt tool call it
+      // addresses (interruptId === toolCallId) and is appended as that call's
+      // tool-role result so the model can continue the agentic loop.
+      const resumeEntries: ResumeEntry[] = input.resume ?? [];
+      if (resumeEntries.length > 0) {
+        // Recover the originating tool name for each interrupt tool call so the
+        // injected tool-result carries the real name. Providers like Anthropic
+        // and Google reject a tool-result whose name doesn't match the prior
+        // tool-call; an empty name fails there (OpenAI tolerates it).
+        const toolNameById = new Map<string, string>();
+        for (const m of input.messages) {
+          if (m.role !== "assistant") continue;
+          for (const tc of m.toolCalls ?? []) {
+            if (tc.id && tc.function?.name) {
+              toolNameById.set(tc.id, tc.function.name);
+            }
+          }
+        }
+        // Idempotent: a client (useInterrupt) may already have appended the
+        // resolution as a tool message — converted into a tool-result above.
+        // Skip those so we don't answer the same tool call twice.
+        const alreadyAnswered = new Set<string>();
+        for (const m of messages) {
+          if (m.role !== "tool" || !Array.isArray(m.content)) continue;
+          for (const part of m.content) {
+            if (part && typeof part === "object" && "toolCallId" in part) {
+              alreadyAnswered.add((part as { toolCallId: string }).toolCallId);
+            }
+          }
+        }
+        for (const entry of resumeEntries) {
+          if (alreadyAnswered.has(entry.interruptId)) continue;
+          const value =
+            entry.status === "cancelled"
+              ? { status: "cancelled" }
+              : (entry.payload ?? { status: "resolved" });
+          const toolResultMessage: ToolModelMessage = {
+            role: "tool",
+            content: [
+              {
+                type: "tool-result",
+                toolCallId: entry.interruptId,
+                toolName: toolNameById.get(entry.interruptId) ?? "",
+                output: { type: "json", value },
+              },
+            ],
+          };
+          messages.push(toolResultMessage);
+        }
+      }
+
       // Merge tools from input and config
       let allTools: ToolSet = convertToolsToVercelAITools(input.tools);
-      if (this.config.tools && this.config.tools.length > 0) {
-        const configTools = convertToolDefinitionsToVercelAITools(
-          this.config.tools,
-        );
+      if (config.tools && config.tools.length > 0) {
+        const configTools = convertToolDefinitionsToVercelAITools(config.tools);
         allTools = { ...allTools, ...configTools };
       }
 
@@ -973,20 +1097,18 @@ export class BuiltInAgent extends AbstractAgent {
         model,
         messages,
         tools: allTools,
-        toolChoice: this.config.toolChoice,
-        stopWhen: this.config.maxSteps
-          ? stepCountIs(this.config.maxSteps)
-          : undefined,
-        maxOutputTokens: this.config.maxOutputTokens,
-        temperature: this.config.temperature,
-        topP: this.config.topP,
-        topK: this.config.topK,
-        presencePenalty: this.config.presencePenalty,
-        frequencyPenalty: this.config.frequencyPenalty,
-        stopSequences: this.config.stopSequences,
-        seed: this.config.seed,
-        providerOptions: this.config.providerOptions,
-        maxRetries: this.config.maxRetries,
+        toolChoice: config.toolChoice,
+        stopWhen: config.maxSteps ? stepCountIs(config.maxSteps) : undefined,
+        maxOutputTokens: config.maxOutputTokens,
+        temperature: config.temperature,
+        topP: config.topP,
+        topK: config.topK,
+        presencePenalty: config.presencePenalty,
+        frequencyPenalty: config.frequencyPenalty,
+        stopSequences: config.stopSequences,
+        seed: config.seed,
+        providerOptions: config.providerOptions,
+        maxRetries: config.maxRetries,
       };
 
       // Apply forwardedProps overrides (if allowed)
@@ -1003,7 +1125,7 @@ export class BuiltInAgent extends AbstractAgent {
             // Use the configured API key when resolving overridden models
             streamTextParams.model = resolveModel(
               props.model as string | LanguageModel,
-              this.config.apiKey,
+              config.apiKey,
             );
           }
         }
@@ -1129,45 +1251,57 @@ export class BuiltInAgent extends AbstractAgent {
             AGUISendStateSnapshot: createVercelAISDKTool({
               description:
                 "Replace the entire application state with a new snapshot",
-              inputSchema: z.object({
-                snapshot: z.any().describe("The complete new state object"),
-              }),
-              execute: async ({ snapshot }) => {
+              inputSchema: toLanguageModelSchema(
+                z.object({
+                  snapshot: z.any().describe("The complete new state object"),
+                }),
+              ),
+              execute: async ({ snapshot }: { snapshot?: unknown }) => {
                 return { success: true, snapshot };
               },
             }),
             AGUISendStateDelta: createVercelAISDKTool({
               description:
                 "Apply incremental updates to application state using JSON Patch operations",
-              inputSchema: z.object({
-                delta: z
-                  .array(
-                    z.object({
-                      op: z
-                        .enum(["add", "replace", "remove"])
-                        .describe("The operation to perform"),
-                      path: z
-                        .string()
-                        .describe("JSON Pointer path (e.g., '/foo/bar')"),
-                      value: z
-                        .any()
-                        .optional()
-                        .describe(
-                          "The value to set. Required for 'add' and 'replace' operations, ignored for 'remove'.",
-                        ),
-                    }),
-                  )
-                  .describe("Array of JSON Patch operations"),
-              }),
-              execute: async ({ delta }) => {
+              inputSchema: toLanguageModelSchema(
+                z.object({
+                  delta: z
+                    .array(
+                      z.object({
+                        op: z
+                          .enum(["add", "replace", "remove"])
+                          .describe("The operation to perform"),
+                        path: z
+                          .string()
+                          .describe("JSON Pointer path (e.g., '/foo/bar')"),
+                        value: z
+                          .any()
+                          .optional()
+                          .describe(
+                            "The value to set. Required for 'add' and 'replace' operations, ignored for 'remove'.",
+                          ),
+                      }),
+                    )
+                    .describe("Array of JSON Patch operations"),
+                }),
+              ),
+              execute: async ({
+                delta,
+              }: {
+                delta: {
+                  op: "add" | "replace" | "remove";
+                  path: string;
+                  value?: unknown;
+                }[];
+              }) => {
                 return { success: true, delta };
               },
             }),
           };
 
           // Merge tools from user-managed MCP clients (user controls lifecycle)
-          if (this.config.mcpClients && this.config.mcpClients.length > 0) {
-            for (const client of this.config.mcpClients) {
+          if (config.mcpClients && config.mcpClients.length > 0) {
+            for (const client of config.mcpClients) {
               const mcpTools = await client.tools();
               streamTextParams.tools = {
                 ...streamTextParams.tools,
@@ -1179,7 +1313,7 @@ export class BuiltInAgent extends AbstractAgent {
           // Initialize MCP clients and get their tools from
           // `config.mcpServers` — the user-supplied static array.
           const allMcpServers: MCPClientConfig[] = [
-            ...(this.config.mcpServers ?? []),
+            ...(config.mcpServers ?? []),
           ];
           if (allMcpServers.length > 0) {
             for (const serverConfig of allMcpServers) {
@@ -1237,6 +1371,25 @@ export class BuiltInAgent extends AbstractAgent {
             ...streamTextParams,
             abortSignal: abortController.signal,
           });
+
+          // Names of tools flagged as interrupt tools (classic config only).
+          const interruptToolNames = new Set(
+            (isFactoryConfig(this.config) ? [] : (this.config.tools ?? []))
+              .filter((t) => t.interrupt)
+              .map((t) => t.name),
+          );
+          const interruptToolMeta = new Map(
+            (isFactoryConfig(this.config) ? [] : (this.config.tools ?? []))
+              .filter((t) => t.interrupt)
+              .map((t) => [
+                t.name,
+                {
+                  reason: t.interruptReason ?? "tool_call",
+                  message: t.interruptMessage,
+                },
+              ]),
+          );
+          const pendingInterrupts: Interrupt[] = [];
 
           const toolCallStates = new Map<
             string,
@@ -1436,17 +1589,45 @@ export class BuiltInAgent extends AbstractAgent {
                   };
                   subscriber.next(endEvent);
                 }
+
+                if (state.toolName && interruptToolNames.has(state.toolName)) {
+                  const meta = interruptToolMeta.get(state.toolName);
+                  pendingInterrupts.push({
+                    id: toolCallId,
+                    toolCallId,
+                    reason: meta?.reason ?? "tool_call",
+                    ...(meta?.message ? { message: meta.message } : {}),
+                  });
+                }
                 break;
               }
 
               case "tool-result": {
+                // Prefer the accumulated tool name (some providers omit toolName
+                // on the result part); fall back to the tool-call state so
+                // interrupt-tool suppression below can't desync from detection.
+                const toolName =
+                  ("toolName" in part && part.toolName) ||
+                  toolCallStates.get(part.toolCallId)?.toolName ||
+                  "";
+                // Suppress result events for interrupt tools — they have no execute
+                // and the result is provided by the human on the resume run.
+                if (toolName && interruptToolNames.has(toolName)) {
+                  toolCallStates.delete(part.toolCallId);
+                  break;
+                }
+                // AI SDK tool-result uses "output"; older versions used
+                // "result" (which current typings no longer declare) — check both
+                const legacyPart = part as {
+                  output?: unknown;
+                  result?: unknown;
+                };
                 const toolResult =
                   "output" in part
                     ? part.output
-                    : "result" in part
-                      ? part.result
+                    : "result" in legacyPart
+                      ? legacyPart.result
                       : null;
-                const toolName = "toolName" in part ? part.toolName : "";
                 toolCallStates.delete(part.toolCallId);
 
                 // Check if this is a state update tool
@@ -1502,6 +1683,14 @@ export class BuiltInAgent extends AbstractAgent {
                   type: EventType.RUN_FINISHED,
                   threadId: input.threadId,
                   runId: input.runId,
+                  ...(pendingInterrupts.length > 0
+                    ? {
+                        outcome: {
+                          type: "interrupt",
+                          interrupts: pendingInterrupts,
+                        },
+                      }
+                    : {}),
                 };
                 subscriber.next(finishedEvent);
                 terminalEventEmitted = true;
@@ -1515,7 +1704,12 @@ export class BuiltInAgent extends AbstractAgent {
                 if (abortController.signal.aborted) {
                   break;
                 }
-                const err = part.error ?? part.message ?? part.cause;
+                // Current typings only declare `error`; older stream shapes
+                // also carried `message`/`cause`.
+                const err =
+                  part.error ??
+                  ("message" in part ? part.message : undefined) ??
+                  ("cause" in part ? part.cause : undefined);
                 const runErrorEvent: RunErrorEvent = {
                   type: EventType.RUN_ERROR,
                   message:
@@ -1553,6 +1747,14 @@ export class BuiltInAgent extends AbstractAgent {
                 type: EventType.RUN_FINISHED,
                 threadId: input.threadId,
                 runId: input.runId,
+                ...(pendingInterrupts.length > 0
+                  ? {
+                      outcome: {
+                        type: "interrupt",
+                        interrupts: pendingInterrupts,
+                      },
+                    }
+                  : {}),
               };
               subscriber.next(finishedEvent);
             }
@@ -1617,21 +1819,83 @@ export class BuiltInAgent extends AbstractAgent {
         input,
         abortController: controller,
         abortSignal: controller.signal,
+        interrupt: async (interrupts: Interrupt[]) => {
+          const resume = input.resume ?? [];
+          const ids = new Set(interrupts.map((i) => i.id));
+          const matching = resume.filter((r) => ids.has(r.interruptId));
+          // All requested interrupts addressed → resume: return responses.
+          if (interrupts.length > 0 && matching.length === interrupts.length) {
+            return matching;
+          }
+          // Fresh run (or not yet addressed) → pause.
+          throw new InterruptSignal(interrupts);
+        },
       };
+
+      // Resume injection (aisdk/tanstack): map each ResumeEntry to a tool-role
+      // message keyed by interruptId (=== the paused tool call's id) and append
+      // it to the messages the factory sees. Both SDK converters
+      // (convertMessagesToVercelAISDKMessages / convertInputToTanStackAI) turn a
+      // tool-role message into that SDK's native tool-result, so the model
+      // continues — no SDK-specific approval-response wiring needed. The `custom`
+      // factory reads input.resume itself via ctx.interrupt(), so leave it alone.
+      // Idempotent: skip entries the client already recorded as a tool-result
+      // message in the thread (useInterrupt persists resolutions so the
+      // conversation stays well-formed across turns). Only synthesize results
+      // for entries that aren't already answered, so we never double-answer a
+      // tool call.
+      const answeredToolCallIds = new Set(
+        input.messages
+          .filter((m) => m.role === "tool")
+          .map((m) => (m as { toolCallId?: string }).toolCallId)
+          .filter((id): id is string => typeof id === "string"),
+      );
+      const resumeToolMessages: Message[] = (input.resume ?? [])
+        .filter(
+          (entry: ResumeEntry) => !answeredToolCallIds.has(entry.interruptId),
+        )
+        .map(
+          (entry: ResumeEntry): Message => ({
+            id: randomUUID(),
+            role: "tool",
+            toolCallId: entry.interruptId,
+            content: JSON.stringify(
+              entry.status === "cancelled"
+                ? { status: "cancelled" }
+                : (entry.payload ?? { status: "resolved" }),
+            ),
+          }),
+        );
+      const factoryInput: RunAgentInput =
+        resumeToolMessages.length > 0 && config.type !== "custom"
+          ? { ...input, messages: [...input.messages, ...resumeToolMessages] }
+          : input;
+      const factoryCtx: AgentFactoryContext = { ...ctx, input: factoryInput };
 
       (async () => {
         try {
           let events: AsyncIterable<BaseEvent>;
+          // Filled by the converters with one Interrupt per native approval
+          // request; a non-empty array after the stream drains pauses the run.
+          const pendingInterrupts: Interrupt[] = [];
 
           switch (config.type) {
             case "aisdk": {
-              const result = await config.factory(ctx);
-              events = convertAISDKStream(result.fullStream, controller.signal);
+              const result = await config.factory(factoryCtx);
+              events = convertAISDKStream(
+                result.fullStream,
+                controller.signal,
+                pendingInterrupts,
+              );
               break;
             }
             case "tanstack": {
-              const stream = await config.factory(ctx);
-              events = convertTanStackStream(stream, controller.signal);
+              const stream = await config.factory(factoryCtx);
+              events = convertTanStackStream(
+                stream,
+                controller.signal,
+                pendingInterrupts,
+              );
               break;
             }
             case "custom": {
@@ -1650,6 +1914,13 @@ export class BuiltInAgent extends AbstractAgent {
             subscriber.next(event);
           }
 
+          // A native approval request pauses the run: reuse the same
+          // InterruptSignal path the `custom` factory's ctx.interrupt() uses,
+          // which the catch below turns into RUN_FINISHED outcome:interrupt.
+          if (pendingInterrupts.length > 0 && !controller.signal.aborted) {
+            throw new InterruptSignal(pendingInterrupts);
+          }
+
           if (!controller.signal.aborted) {
             const finishedEvent: RunFinishedEvent = {
               type: EventType.RUN_FINISHED,
@@ -1660,7 +1931,16 @@ export class BuiltInAgent extends AbstractAgent {
           }
           subscriber.complete();
         } catch (error) {
-          if (controller.signal.aborted) {
+          if (error instanceof InterruptSignal) {
+            const finishedEvent: RunFinishedEvent = {
+              type: EventType.RUN_FINISHED,
+              threadId: input.threadId,
+              runId: input.runId,
+              outcome: { type: "interrupt", interrupts: error.interrupts },
+            };
+            subscriber.next(finishedEvent);
+            subscriber.complete();
+          } else if (controller.signal.aborted) {
             subscriber.complete();
           } else {
             const runErrorEvent: RunErrorEvent = {

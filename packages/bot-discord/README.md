@@ -53,9 +53,8 @@ await bot.start();
 
 `discord(opts)` returns a `DiscordAdapter`. The adapter connects via the
 Discord Gateway (WebSocket) — no public URL required. The listener pre-filters
-ingress to the turns the bot should answer (@-mentions in guild channels,
-replies in threads it owns, and DMs), so a single `onMention` handler covers
-most use cases.
+ingress to the turns the bot should answer (@-mentions in guild channels and
+DMs), so a single `onMention` handler covers most use cases.
 
 ### Required env
 
@@ -82,6 +81,25 @@ rejected.
 > - **Server Members Intent** (`GuildMembers`) — backs member search, which
 >   powers `lookup_discord_user` / `thread.lookupUser`. Without it those
 >   lookups fail and login is rejected.
+
+### Reaction intent and partials
+
+The adapter also requests `GuildMessageReactions` and enables the
+`Partials.Message` and `Partials.Reaction` partials:
+
+> - **`GuildMessageReactions`** — a **non-privileged** gateway intent; no
+>   toggle is needed in the Discord Developer Portal (unlike `MessageContent`
+>   and `GuildMembers`). Required to receive reaction events in guild channels.
+> - **`DirectMessageReactions`** — also non-privileged; required to receive
+>   reaction events in DMs. Discord.js v14 treats guild and DM reactions as
+>   separate intents — both are needed if the bot operates in DMs.
+> - **`Partials.Message` + `Partials.Reaction`** — Discord only includes full
+>   message objects in the reaction event payload when the message is already
+>   in the client's in-memory cache. For any message that was sent before the
+>   bot started (or was evicted from cache), the payload arrives as a _partial_.
+>   Enabling these two partials lets the listener fetch the full object on
+>   demand via `reaction.fetch()` / `reaction.message.fetch()`, so reactions
+>   on older messages are not silently dropped.
 
 ## What it provides
 
@@ -147,6 +165,45 @@ block until a click resolves it; the resolved value is the clicked control's
 value. Agent interrupts (`on_interrupt`) are captured by the run renderer and
 dispatched to your `onInterrupt` handler, which posts a picker; the click
 resumes the agent via `thread.resume(value)`.
+
+### Modals
+
+`openModal(view)` opens a Discord modal in response to a button click or slash
+command. The call must happen **before any other response** (within Discord's
+3-second acknowledgement window) — open the modal first, then do long-running
+work in a follow-up message.
+
+> **Validation re-open is not supported on Discord.** When a user submits a
+> modal, a `bot.onModalSubmit` handler may return `{ errors }`, but Discord has
+> no API to re-open the same modal with per-field validation errors (unlike
+> Slack's `response_action: "errors"` mechanic). The `{ errors }` result is
+> ignored by the adapter — the modal is acknowledged with `deferUpdate`
+> regardless. Validate inputs before calling `openModal`, or post a follow-up
+> message to report any submission errors.
+>
+> Only `TextInput` fields are supported in Discord modals. `ModalSelect` and
+> `RadioButtons` elements are rejected at render time with a `ModalRenderError`
+> (which `openModal` surfaces as `{ ok: false, error }`).
+
+### Ephemeral messages
+
+Discord ephemeral messages are interaction-scoped — Discord only supports them
+as the initial response to a button click or slash command, and they cannot be
+sent outside that 3-second window. For this reason `supportsEphemeral` is
+advertised as `false`.
+
+`thread.postEphemeral(user, ui, { fallbackToDM: true })` works around this by
+sending the message as a **DM** to the target user when native ephemeral is
+unavailable. The result carries `{ ok: true, usedFallback: true }` so callers
+can detect that a DM was used instead of an in-channel ephemeral.
+
+With `{ fallbackToDM: false }` and no live interaction, `postEphemeral` returns
+`null` (the documented no-fallback sentinel).
+
+> **Future enhancement:** native interaction-ephemeral follow-up (calling
+> `interaction.followUp({ ephemeral: true, … })` within the ack window) is a
+> planned addition. Once plumbed, `supportsEphemeral` will be upgraded to `true`
+> for interaction contexts and `usedFallback` will return `false`.
 
 ### Typing indicator and reactions
 
@@ -224,12 +281,18 @@ in `ctx.text`.
 
 ## What's NOT in v1
 
-- Modals / true batched form submit (`supportsModals: false`; `<Input>` is
-  silently skipped with a console warning)
+- **Modal limitations** — text-input modals are supported (up to 5 fields).
+  `ModalSelect` and `RadioButtons` elements are rejected at render time.
+  Validation re-open (`response_action: "errors"`) is not supported — Discord
+  has no API for it; submit errors should be posted as a follow-up message
+  instead.
 - OAuth / multi-guild install (single bot token only)
 - Durable (Redis/DB) `ActionStore` — in-memory only; actions expire on restart
 - Proactive posting (bot replies only to turns it's part of)
 - Auto-sharding (single `Client` instance)
+- Native interaction-ephemeral (`supportsEphemeral` is `false`; use
+  `thread.postEphemeral(user, ui, { fallbackToDM: true })` for a DM-based
+  workaround)
 
 ## Exports
 

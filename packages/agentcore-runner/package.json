@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/agentcore-runner",
-  "version": "1.61.0",
+  "version": "1.61.2",
   "description": "AWS Bedrock AgentCore-compatible agent runner for CopilotKit2",
   "repository": {
     "type": "git",

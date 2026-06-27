@@ -10,21 +10,21 @@ v1 split React functionality across three packages:
 - `@copilotkit/react-ui` -- chat components (CopilotChat, CopilotPopup, CopilotSidebar)
 - `@copilotkit/react-textarea` -- CopilotTextarea component
 
-v2 consolidates everything into a single package:
+v2 consolidates the React surface under the **`/v2` subpath of the same `@copilotkit/react-core` package** (there is no `@copilotkit/react` package):
 
-- `@copilotkit/react` -- provider, hooks, types, chat components, AG-UI re-exports
+- `@copilotkit/react-core/v2` -- provider, hooks, types, chat components, and AG-UI re-exports (`@copilotkit/react-core/v2/styles.css` for styles)
 
-### New package scope
+### Same package names, new subpath
 
-The v2 API is exposed through the same `@copilotkit/*` packages. No package name changes are required when upgrading.
+The v2 API is exposed through the same `@copilotkit/*` packages -- no package name changes are required when upgrading. The v2 symbols live under the `/v2` subpath (`@copilotkit/react-core/v2`, `@copilotkit/runtime/v2`, `@copilotkit/runtime/v2/express`).
 
 ### Removed packages
 
-| Package                          | Status                                                             |
-| -------------------------------- | ------------------------------------------------------------------ |
-| `@copilotkit/react-textarea`     | Removed. No v2 equivalent.                                         |
-| `@copilotkit/runtime-client-gql` | Replaced by `@ag-ui/client` (re-exported from `@copilotkit/react`) |
-| `@copilotkit/sdk-js`             | Replaced by `@copilotkit/agent`                                    |
+| Package                          | Status                                                                                                    |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `@copilotkit/react-textarea`     | No v2 equivalent. The v1 package stays installable; remove it only after migrating off `CopilotTextarea`. |
+| `@copilotkit/runtime-client-gql` | Replaced by `@ag-ui/client` (re-exported from `@copilotkit/react-core/v2`)                                |
+| `@copilotkit/sdk-js`             | Removed. `BuiltInAgent` and agent definitions ship from `@copilotkit/runtime/v2`                          |
 
 ---
 
@@ -45,28 +45,28 @@ The most fundamental breaking change is the protocol layer. v1 used a GraphQL-ba
 
 ### Component import path change
 
-The provider keeps the name `CopilotKit`; the import path changes from the package root (`@copilotkit/react-core`, legacy v1) to the `/v2` subpath (`@copilotkit/react-core/v2`). The `/v2` subpath also exports a `CopilotKitProvider` component -- do **not** migrate to it. It is a functionality subset of `CopilotKit`, which is the compatibility bridge across v1 and v2 (its `CopilotKitProps` extends `CopilotKitProviderProps`, so every `CopilotKitProvider` prop works on it).
+The provider keeps the name `CopilotKit`; the import path changes from the package root (`@copilotkit/react-core`, legacy v1) to the `/v2` subpath (`@copilotkit/react-core/v2`). The `/v2` subpath also exports a `CopilotKitProvider` component -- do **not** migrate to it. It is a functionality subset of `CopilotKit`, which is the compatibility bridge across v1 and v2 (its `CopilotKitProps` extends `Omit<CopilotKitProviderProps, "children">` with a narrowed `children` type, so every non-`children` `CopilotKitProvider` prop works on it).
 
 ### Props changes
 
-| v1 Prop        | v2 Status                       | Notes                                                          |
-| -------------- | ------------------------------- | -------------------------------------------------------------- |
-| `runtimeUrl`   | Kept                            | Same behavior                                                  |
-| `headers`      | Kept                            | Same behavior                                                  |
-| `publicApiKey` | Kept (deprecated)               | `publicLicenseKey` is the canonical name                       |
-| `properties`   | Kept                            | Same behavior                                                  |
-| `agents`       | Removed                         | Use `selfManagedAgents` or `agents__unsafe_dev_only`           |
-| `guardrails_c` | Removed                         | --                                                             |
-| `children`     | Kept                            | Same behavior                                                  |
-| --             | Added: `credentials`            | `RequestCredentials` for fetch (e.g., `"include"` for cookies) |
-| --             | Added: `selfManagedAgents`      | `Record<string, AbstractAgent>` for client-side agents         |
-| --             | Added: `renderToolCalls`        | `ReactToolCallRenderer[]` for provider-level tool renderers    |
-| --             | Added: `renderActivityMessages` | `ReactActivityMessageRenderer[]` for activity renderers        |
-| --             | Added: `useSingleEndpoint`      | Boolean to use single-route endpoint mode                      |
+| v1 Prop        | v2 Status                       | Notes                                                                                                                                                                                            |
+| -------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `runtimeUrl`   | Kept                            | Same behavior                                                                                                                                                                                    |
+| `headers`      | Kept                            | Same behavior                                                                                                                                                                                    |
+| `publicApiKey` | Kept (deprecated)               | `publicLicenseKey` is the canonical name                                                                                                                                                         |
+| `properties`   | Kept                            | Same behavior                                                                                                                                                                                    |
+| `agents`       | Removed                         | Use `selfManagedAgents` or `agents__unsafe_dev_only`                                                                                                                                             |
+| `guardrails_c` | Kept (CopilotCloud only)        | Marked `@internal`/defunct in source, but still wired into the legacy CopilotCloud `restrictToTopic` config when a cloud key (`publicApiKey`) is set; has no effect on the v2 AG-UI runtime path |
+| `children`     | Kept                            | Same behavior                                                                                                                                                                                    |
+| --             | Added: `credentials`            | `RequestCredentials` for fetch (e.g., `"include"` for cookies)                                                                                                                                   |
+| --             | Added: `selfManagedAgents`      | `Record<string, AbstractAgent>` for client-side agents                                                                                                                                           |
+| --             | Added: `renderToolCalls`        | `ReactToolCallRenderer[]` for provider-level tool renderers                                                                                                                                      |
+| --             | Added: `renderActivityMessages` | `ReactActivityMessageRenderer[]` for activity renderers                                                                                                                                          |
+| --             | Added: `useSingleEndpoint`      | Boolean to use single-route endpoint mode                                                                                                                                                        |
 
 ### Context hook rename
 
-`useCopilotContext` is replaced by `useCopilotKit` which returns `{ copilotkit: CopilotKitCoreReact }`.
+`useCopilotContext` is replaced by `useCopilotKit` (imported from `@copilotkit/react-core/v2/context`), which returns `{ copilotkit: CopilotKitCoreReact, executingToolCallIds: ReadonlySet<string> }`.
 
 ---
 
@@ -103,21 +103,23 @@ handler: async (args) => { ... }  // args is typed from the Zod schema
 **Render props change:**
 
 ```ts
-// v1 render status: "inProgress" | "executing" | "complete"
+// v1 render status: the string literals "inProgress" | "executing" | "complete"
 // v1 uses `respond()` callback for interactive actions
 
-// v2 render status: ToolCallStatus.InProgress | ToolCallStatus.Executing | ToolCallStatus.Complete
-// v2 render props: { name, args, status, result }
+// v2 render status: the `ToolCallStatus` enum (ToolCallStatus.InProgress | .Executing | .Complete).
+// Its values ARE those same strings, so `status === "inProgress"` still works;
+// prefer comparing against the enum members.
+// v2 render props: { name, toolCallId, args, status, result }
 ```
 
 **Availability change:**
 
 ```ts
 // v1
-disabled: true; // or available: "disabled"
+disabled: true;
 
-// v2
-available: "disabled" | "enabled";
+// v2 — `available` is a boolean (defaults to true; set false to hide the tool)
+available: false;
 ```
 
 ### useCopilotReadable -> useAgentContext
@@ -162,7 +164,7 @@ AbstractAgent; // AG-UI agent instance with run(), stop(), etc.
 
 - `agentName` -> `agentId`
 - `nodeName` -> removed (use `enabled` predicate to filter)
-- `render` props change: receives `InterruptRenderProps<TValue, TResult>` instead of v1's `{ event, resolve }`
+- `render` props change: v2 receives `InterruptRenderProps<TValue, TResult>` = `{ event, resolve, result }` (still includes `event`/`resolve`, adds `result`)
 - New `renderInChat` prop (default `true`) controls whether interrupt renders inside CopilotChat
 - New `handler` prop for programmatic handling before rendering
 - New `enabled` predicate prop for filtering interrupts
@@ -197,14 +199,14 @@ All service adapters are removed from the runtime:
 
 | Removed Adapter             | v2 Alternative                                                      |
 | --------------------------- | ------------------------------------------------------------------- |
-| `OpenAIAdapter`             | Use `BuiltInAgent({ model: "openai:gpt-4o" })`                      |
-| `AnthropicAdapter`          | Use `BuiltInAgent({ model: "anthropic:claude-sonnet-4-20250514" })` |
-| `GoogleGenerativeAIAdapter` | Use `BuiltInAgent({ model: "google:gemini-pro" })`                  |
+| `OpenAIAdapter`             | Use `BuiltInAgent({ model: "openai/gpt-4o" })`                      |
+| `AnthropicAdapter`          | Use `BuiltInAgent({ model: "anthropic/claude-sonnet-4.5" })`        |
+| `GoogleGenerativeAIAdapter` | Use `BuiltInAgent({ model: "google/gemini-2.5-pro" })`              |
 | `LangChainAdapter`          | Use a custom `AbstractAgent` implementation                         |
-| `GroqAdapter`               | Use `BuiltInAgent` with Groq-compatible model string                |
+| `GroqAdapter`               | Use a custom `AbstractAgent` (pass a Groq `LanguageModel` instance) |
 | `UnifyAdapter`              | Use a custom `AbstractAgent` implementation                         |
 | `OpenAIAssistantAdapter`    | Use a custom `AbstractAgent` implementation                         |
-| `BedrockAdapter`            | Use `BuiltInAgent({ model: "vertex:..." })` or custom agent         |
+| `BedrockAdapter`            | Use a custom `AbstractAgent` implementation                         |
 | `OllamaAdapter`             | Use a custom `AbstractAgent` implementation                         |
 | `EmptyAdapter`              | Not needed                                                          |
 
@@ -239,13 +241,13 @@ new CopilotRuntime({
 
 v1 had built-in integrations for Next.js (App Router, Pages Router), Express, NestJS, and Node HTTP. v2 uses Hono as the standard HTTP layer:
 
-| v1 Integration                            | v2 Replacement                                     |
-| ----------------------------------------- | -------------------------------------------------- |
-| `copilotRuntimeNextJSAppRouterEndpoint`   | `createCopilotEndpoint` (Hono, works with Next.js) |
-| `copilotRuntimeNextJSPagesRouterEndpoint` | `createCopilotEndpoint` (Hono)                     |
-| `CopilotRuntimeNodeExpressEndpoint`       | `createCopilotEndpointExpress`                     |
-| `CopilotRuntimeNestEndpoint`              | Use Hono adapter or Express endpoint               |
-| `CopilotRuntimeNodeHttpEndpoint`          | Use Hono or Express endpoint                       |
+| v1 Integration                            | v2 Replacement                                                   |
+| ----------------------------------------- | ---------------------------------------------------------------- |
+| `copilotRuntimeNextJSAppRouterEndpoint`   | `createCopilotHonoHandler` (Hono, works with Next.js)            |
+| `copilotRuntimeNextJSPagesRouterEndpoint` | `createCopilotHonoHandler` (Hono)                                |
+| `CopilotRuntimeNodeExpressEndpoint`       | `createCopilotExpressHandler` (`@copilotkit/runtime/v2/express`) |
+| `CopilotRuntimeNestEndpoint`              | Use Hono adapter or Express endpoint                             |
+| `CopilotRuntimeNodeHttpEndpoint`          | Use Hono or Express endpoint                                     |
 
 ### Endpoint configuration
 
@@ -259,10 +261,10 @@ export const POST = copilotRuntimeNextJSAppRouterEndpoint({
   endpoint: "/api/copilotkit",
 });
 
-// v2
-import { createCopilotEndpoint } from "@copilotkit/runtime";
+// v2 -- use createCopilotHonoHandler (createCopilotEndpoint is a deprecated alias)
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2";
 
-const app = createCopilotEndpoint({
+const app = createCopilotHonoHandler({
   runtime,
   basePath: "/api/copilotkit",
   cors: {
@@ -290,12 +292,12 @@ new CopilotRuntime({
 });
 
 // v2 (direct agent instance)
-import { LangGraphAgent } from "@ag-ui/langgraph";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 new CopilotRuntime({
   agents: {
     myAgent: new LangGraphAgent({
-      url: "http://localhost:8000",
+      deploymentUrl: "http://localhost:8000",
       graphId: "my-graph",
     }),
   },

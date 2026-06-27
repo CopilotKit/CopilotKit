@@ -127,3 +127,14 @@ export type {
   CvdiagEmitterOptions,
   CvdiagEmitArgs,
 } from "../../../harness/src/cvdiag/emit.js";
+
+// ── Concrete writer-role PB writer (plain fetch; auth-with-password→Bearer) ──
+export {
+  CvdiagFetchPbWriter,
+  createCvdiagFetchPbWriterFromEnv,
+} from "../../../harness/src/cvdiag/pb-writer-fetch.js";
+
+export type {
+  FetchLike,
+  CvdiagFetchPbWriterOptions,
+} from "../../../harness/src/cvdiag/pb-writer-fetch.js";

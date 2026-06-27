@@ -20,7 +20,12 @@ import yaml from "yaml";
 import { fileURLToPath } from "url";
 import { RAILWAY_GRAPHQL_ENDPOINT } from "./lib/railway-graphql";
 import { RailwayTokenError, resolveRailwayToken } from "./lib/railway-token";
-import { PROJECT_ID, PRODUCTION_ENV_ID } from "./railway-envs";
+import {
+  PROJECT_ID,
+  PRODUCTION_ENV_ID,
+  healthcheckPathFor,
+  isTrackedService,
+} from "./railway-envs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -32,6 +37,41 @@ const SHOWCASE = {
   projectId: PROJECT_ID,
   environmentId: PRODUCTION_ENV_ID,
 };
+
+/**
+ * Resolve the healthcheck path to apply to a Railway service instance during
+ * provisioning, disambiguating the two reasons {@link healthcheckPathFor}
+ * returns undefined:
+ *
+ *   - `{ kind: "set", path }`     — a tracked service with an explicit SSOT
+ *                                   healthcheckPath (e.g. aimock → `/health`,
+ *                                   agents → `/api/health`). Apply that path.
+ *   - `{ kind: "omit" }`          — a TRACKED service that deliberately has a
+ *                                   null/omitted healthcheckPath (dashboard,
+ *                                   docs, dojo, webhooks, pocketbase). These
+ *                                   have no HTTP health endpoint; forcing
+ *                                   `/api/health` 404s and wedges the deploy.
+ *                                   Set NO healthcheck (Railway default).
+ *   - `{ kind: "set", path: "/api/health" }` for an UNTRACKED service — a
+ *                                   brand-new/unknown service this script is
+ *                                   onboarding takes the agent-class default.
+ *
+ * Pure (SSOT lookup only) so both createService and goLive share one source
+ * of truth and it is unit-testable without network I/O.
+ */
+export function resolveProvisionHealthcheck(
+  serviceName: string,
+): { kind: "set"; path: string } | { kind: "omit" } {
+  if (!isTrackedService(serviceName)) {
+    // Not in the SSOT at all — agent-class default for a new service.
+    return { kind: "set", path: "/api/health" };
+  }
+  const trackedPath = healthcheckPathFor(serviceName, "prod");
+  // Tracked-null → omit the healthcheck (no HTTP health endpoint).
+  return trackedPath === undefined
+    ? { kind: "omit" }
+    : { kind: "set", path: trackedPath };
+}
 
 /**
  * Resolve the Railway bearer token for this run. Wraps the shared
@@ -421,10 +461,21 @@ async function createService(slug: string): Promise<void> {
     );
   }
 
+  // Resolve the healthcheck path from the SSOT (railway-envs.ts) so this
+  // onboarding script does not become a SECOND untracked source of truth (the
+  // failure mode behind the aimock silent-null incident). `serviceName` is the
+  // canonical SSOT key (`showcase-<slug>`) and SHOWCASE.environmentId is
+  // PRODUCTION_ENV_ID, so we resolve the prod value. The shared resolver
+  // distinguishes a tracked-null service (omit the healthcheck) from an
+  // untracked new service (agent-class `/api/health` default) — forcing
+  // `/api/health` onto a tracked-null service 404s and wedges the deploy.
   const instanceInput: Record<string, unknown> = {
-    healthcheckPath: "/api/health",
     region: "us-west1",
   };
+  const hc = resolveProvisionHealthcheck(serviceName);
+  if (hc.kind === "set") {
+    instanceInput.healthcheckPath = hc.path;
+  }
   if (githubToken) {
     // GHCR registry username: read from env (GHCR_USERNAME preferred, then
     // GITHUB_ACTOR for CI contexts). Fail loud rather than baking a
@@ -678,19 +729,34 @@ async function goLive(slug: string): Promise<void> {
     throw e;
   }
 
-  // Health check
-  const healthUrl = `${backendUrl}/api/health`;
-  console.log(`Checking health: ${healthUrl}`);
-  try {
-    const res = await fetch(healthUrl, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) {
-      console.error(`Health check failed: ${res.status}`);
+  // Health check — resolve the path from the SSOT (railway-envs.ts) via the
+  // SAME shared resolver as createService so this does not become a SECOND
+  // source of truth. A tracked-null service (dashboard, docs, dojo, webhooks,
+  // pocketbase) has no HTTP health endpoint; probing `/api/health` would 404
+  // and (via process.exit below) wedge the deploy — so SKIP the HTTP check
+  // entirely for those.
+  const ssotKey = `showcase-${slug}`;
+  const hc = resolveProvisionHealthcheck(ssotKey);
+  if (hc.kind === "omit") {
+    console.log(
+      `  Skipping HTTP health check — ${ssotKey} has no healthcheckPath in the SSOT (tracked-null service).`,
+    );
+  } else {
+    const healthUrl = `${backendUrl}${hc.path}`;
+    console.log(`Checking health: ${healthUrl}`);
+    try {
+      const res = await fetch(healthUrl, {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!res.ok) {
+        console.error(`Health check failed: ${res.status}`);
+        process.exit(1);
+      }
+      console.log(`  Healthy!`);
+    } catch (e: unknown) {
+      console.error(`  Not reachable: ${(e as Error).message}`);
       process.exit(1);
     }
-    console.log(`  Healthy!`);
-  } catch (e: unknown) {
-    console.error(`  Not reachable: ${(e as Error).message}`);
-    process.exit(1);
   }
 
   // Update manifest: deployed: true

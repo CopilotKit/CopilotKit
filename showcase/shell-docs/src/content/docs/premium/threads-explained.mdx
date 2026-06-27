@@ -36,6 +36,8 @@ From a developer's perspective, threads involve three things:
 
 You interact with the first two. The runtime and platform handle persistence and sync behind the scenes.
 
+To wire these pieces into a chat UI, follow the [Threads implementation guide](/threads).
+
 ### Auto-naming
 
 When a new thread is created and the first run completes, the runtime automatically generates a short name (2–5 words) using the LLM. This runs asynchronously — it doesn't block thread creation or the agent's response. The generated name appears in `useThreads` via the realtime sync.
@@ -150,4 +152,3 @@ The trade-off is that replay is more complex than loading a message array. The p
 
 - **Step-by-step guide:** [Threads](/threads) — set up thread management in your app
 - **API reference:** [useThreads](/reference/hooks/useThreads) — parameters, return values, types
-- **Tutorial:** [Build a Multi-Conversation Chat App](/tutorials/multi-conversation-chat) — end-to-end walkthrough building a chat app with thread history

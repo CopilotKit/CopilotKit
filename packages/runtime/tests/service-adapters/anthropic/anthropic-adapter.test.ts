@@ -3,6 +3,7 @@ import {
   TextMessage,
   ActionExecutionMessage,
   ResultMessage,
+  Role,
 } from "../../../src/graphql/types/converted";
 
 // Mock only the Anthropic SDK, not our adapter
@@ -23,10 +24,10 @@ vi.mock("../../../src/graphql/types/converted", () => {
     role: string;
     id: string;
 
-    constructor(role: string, content: string) {
-      this.role = role;
-      this.content = content;
-      this.id = "mock-text-" + Math.random().toString(36).substring(7);
+    constructor(options: { role: string; content: string }) {
+      this.role = options.role;
+      this.content = options.content;
+      this.id = "mock-text-" + Math.random().toString(36).slice(7);
     }
 
     isTextMessage() {
@@ -76,7 +77,7 @@ vi.mock("../../../src/graphql/types/converted", () => {
     constructor(params: { actionExecutionId: string; result: string }) {
       this.actionExecutionId = params.actionExecutionId;
       this.result = params.result;
-      this.id = "mock-result-" + Math.random().toString(36).substring(7);
+      this.id = "mock-result-" + Math.random().toString(36).slice(7);
     }
 
     isTextMessage() {
@@ -97,6 +98,13 @@ vi.mock("../../../src/graphql/types/converted", () => {
     TextMessage: MockTextMessage,
     ActionExecutionMessage: MockActionExecutionMessage,
     ResultMessage: MockResultMessage,
+    Role: {
+      assistant: "assistant",
+      developer: "developer",
+      system: "system",
+      tool: "tool",
+      user: "user",
+    },
   };
 });
 
@@ -140,8 +148,14 @@ describe("AnthropicAdapter", () => {
 
   describe("Deduplication Logic", () => {
     it("should filter out duplicate result messages", async () => {
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "Set theme to orange");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "Set theme to orange",
+      });
 
       // Tool execution
       const toolExecution = new ActionExecutionMessage({
@@ -233,7 +247,10 @@ describe("AnthropicAdapter", () => {
     });
 
     it("should filter out invalid result messages without corresponding tool_use", async () => {
-      const systemMessage = new TextMessage("system", "System message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
 
       // Valid tool execution
       const validTool = new ActionExecutionMessage({
@@ -279,8 +296,14 @@ describe("AnthropicAdapter", () => {
 
   describe("Fallback Response Logic", () => {
     it("should generate contextual fallback when Anthropic returns no content", async () => {
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "Set theme to orange");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "Set theme to orange",
+      });
 
       const toolExecution = new ActionExecutionMessage({
         id: "tool-123",
@@ -330,7 +353,10 @@ describe("AnthropicAdapter", () => {
     });
 
     it("should use generic fallback when no tool result content available", async () => {
-      const systemMessage = new TextMessage("system", "System message");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
 
       const toolExecution = new ActionExecutionMessage({
         id: "tool-123",
@@ -377,8 +403,14 @@ describe("AnthropicAdapter", () => {
 
   describe("Unknown Tool Use Handling", () => {
     it("should skip unknown tool_use blocks without crashing", async () => {
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "Do something");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "Do something",
+      });
 
       // Mock Anthropic to return a stream with an unknown tool_use block
       mockAnthropicCreate.mockResolvedValue({
@@ -437,7 +469,6 @@ describe("AnthropicAdapter", () => {
           {
             name: "known_tool",
             description: "A known tool",
-            parameters: [],
             jsonSchema: '{"type":"object","properties":{}}',
           },
         ],
@@ -464,8 +495,14 @@ describe("AnthropicAdapter", () => {
     });
 
     it("should trigger fallback when only unknown tool_use blocks are returned", async () => {
-      const systemMessage = new TextMessage("system", "System message");
-      const userMessage = new TextMessage("user", "Do something");
+      const systemMessage = new TextMessage({
+        role: Role.system,
+        content: "System message",
+      });
+      const userMessage = new TextMessage({
+        role: Role.user,
+        content: "Do something",
+      });
 
       const toolExecution = new ActionExecutionMessage({
         id: "tool-prev",
@@ -520,7 +557,6 @@ describe("AnthropicAdapter", () => {
           {
             name: "known_tool",
             description: "A known tool",
-            parameters: [],
             jsonSchema: '{"type":"object","properties":{}}',
           },
         ],
@@ -583,8 +619,11 @@ describe("AnthropicAdapter max_tokens default", () => {
       }),
     };
 
-    const systemMessage = new TextMessage("system", "System message");
-    const userMessage = new TextMessage("user", "Hello");
+    const systemMessage = new TextMessage({
+      role: Role.system,
+      content: "System message",
+    });
+    const userMessage = new TextMessage({ role: Role.user, content: "Hello" });
 
     await adapter.process({
       threadId: "test-thread",
@@ -628,8 +667,11 @@ describe("AnthropicAdapter max_tokens default", () => {
       }),
     };
 
-    const systemMessage = new TextMessage("system", "System message");
-    const userMessage = new TextMessage("user", "Hello");
+    const systemMessage = new TextMessage({
+      role: Role.system,
+      content: "System message",
+    });
+    const userMessage = new TextMessage({ role: Role.user, content: "Hello" });
 
     await adapter.process({
       threadId: "test-thread",

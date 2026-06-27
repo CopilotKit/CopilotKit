@@ -200,7 +200,7 @@ export class SuggestionEngine {
           tools: [SUGGEST_TOOL],
         },
         {
-          onMessagesChanged: ({ messages }: { messages: Message[] }) => {
+          onMessagesChanged: ({ messages }) => {
             this.extractSuggestions(
               messages,
               suggestionId,
@@ -279,7 +279,7 @@ export class SuggestionEngine {
    * Extract suggestions from messages (called during streaming)
    */
   extractSuggestions(
-    messages: Message[],
+    messages: readonly Message[],
     suggestionId: string,
     consumerAgentId: string,
     isRunning: boolean,

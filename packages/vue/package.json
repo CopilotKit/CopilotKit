@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/vue",
-  "version": "1.61.0",
+  "version": "1.61.2",
   "private": false,
   "description": "Vue 3 components and composables for CopilotKit",
   "keywords": [

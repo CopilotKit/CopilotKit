@@ -147,10 +147,7 @@ function renderNode(node: BotNode, out: KnownBlock[]): void {
         type: "section",
         fields: items.map((f) => ({
           type: "mrkdwn",
-          text: truncateText(
-            markdownToMrkdwn(collectText(f)),
-            SLACK_LIMITS.fieldText,
-          ),
+          text: truncateText(fieldMrkdwn(f), SLACK_LIMITS.fieldText),
         })),
       } as KnownBlock);
       return;
@@ -162,10 +159,7 @@ function renderNode(node: BotNode, out: KnownBlock[]): void {
         fields: [
           {
             type: "mrkdwn",
-            text: truncateText(
-              markdownToMrkdwn(collectText(node)),
-              SLACK_LIMITS.fieldText,
-            ),
+            text: truncateText(fieldMrkdwn(node), SLACK_LIMITS.fieldText),
           },
         ],
       } as KnownBlock);
@@ -190,10 +184,28 @@ function renderNode(node: BotNode, out: KnownBlock[]): void {
         childNodes(node),
         SLACK_LIMITS.actionsElements,
       );
-      const elements = items
-        .map(renderActionElement)
-        .filter((e): e is object => e !== null);
-      out.push({ type: "actions", elements } as KnownBlock);
+      // A multi-select can't live in an `actions` block (Slack allows
+      // multi_static_select only in section/input blocks), so peel each one off
+      // into its own dispatching input block; the rest stay as action elements.
+      // Flush the pending actions block BEFORE each peeled-off input so blocks
+      // stay in source order (e.g. [Button, Select multi] → actions, then input).
+      let elements: object[] = [];
+      const flush = () => {
+        if (elements.length > 0) {
+          out.push({ type: "actions", elements } as KnownBlock);
+          elements = [];
+        }
+      };
+      for (const child of items) {
+        if (child.type === "select" && child.props.multi) {
+          flush();
+          out.push(multiSelectInput(child));
+          continue;
+        }
+        const el = renderActionElement(child);
+        if (el !== null) elements.push(el);
+      }
+      flush();
       return;
     }
     case "image": {
@@ -312,6 +324,11 @@ function renderActionElement(node: BotNode): object | null {
           text: truncateText(collectText(node), SLACK_LIMITS.buttonText),
         },
       };
+      // Link button: opens the URL natively. Slack still requires an action_id
+      // (kept above); clicks on a url button are not dispatched as actions.
+      if (typeof props.url === "string" && props.url.length > 0) {
+        el.url = props.url;
+      }
       if (props.value !== undefined) {
         el.value = truncateText(
           JSON.stringify(props.value),
@@ -351,6 +368,42 @@ function renderActionElement(node: BotNode): object | null {
   }
 }
 
+/**
+ * Render a `<Select multi>` as a dispatching input block holding a
+ * `multi_static_select` (which Slack forbids inside an `actions` block). The
+ * block_actions payload carries `selected_options`, decoded to a `string[]`.
+ */
+function multiSelectInput(node: BotNode): KnownBlock {
+  const props = node.props ?? {};
+  const action_id = truncateText(
+    idFromHandler(props.onSelect) ?? "select",
+    SLACK_LIMITS.actionId,
+  );
+  const options =
+    (props.options as { label: string; value: unknown }[] | undefined) ?? [];
+  const { items } = clampArray(options, SLACK_LIMITS.selectOptions);
+  return {
+    type: "input",
+    dispatch_action: true,
+    element: {
+      type: "multi_static_select",
+      action_id,
+      placeholder: {
+        type: "plain_text",
+        text: String(props.placeholder ?? " "),
+      },
+      options: items.map((o) => ({
+        text: { type: "plain_text", text: truncateText(o.label, 75) },
+        value: truncateText(String(o.value), 150),
+      })),
+    },
+    label: {
+      type: "plain_text",
+      text: truncateText(String(props.placeholder ?? " "), 150),
+    },
+  } as KnownBlock;
+}
+
 /** Derive a button's `action_id`: prefer the registry-stamped id, else a stable fallback. */
 function buttonActionId(props: Record<string, unknown>): string {
   const fromHandler = idFromHandler(props.onClick);
@@ -379,6 +432,15 @@ function childNodes(node: BotNode): BotNode[] {
     return [children as BotNode];
   }
   return [];
+}
+
+/** A field's mrkdwn text: a bold `label` line (when set) above the value. */
+function fieldMrkdwn(node: BotNode): string {
+  const value = markdownToMrkdwn(collectText(node));
+  const label = (node.props as { label?: unknown }).label;
+  return typeof label === "string" && label.length > 0
+    ? `*${label}*\n${value}`
+    : value;
 }
 
 /** Concatenate the `value` of all descendant `text` nodes (depth-first). */

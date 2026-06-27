@@ -27,13 +27,13 @@
  *      carried its own serviceId mirrored as a non-functional prod
  *      placeholder that was never dereferenced. The env-map schema simply
  *      omits the prod env.
- *   2. `harness-workers.staging`, `harness-legacy.{prod,staging}`
- *      `domain` — null (was a BORROWED control-plane host). These three
- *      envs are domainless workers with `probe:false`, so `domainFor` is
- *      never called for them at runtime; the old schema's `domains{}`
- *      invariant forced a borrowed host literal, which the env-map schema
- *      drops. Resolution via `domainFor` now throws (captured as null) —
- *      behavior-preserving because no runtime path probed these hosts.
+ *   2. `harness-workers.staging` `domain` — null (was a BORROWED
+ *      control-plane host). This domainless worker has `probe:false`, so
+ *      `domainFor` is never called for it at runtime; the old schema's
+ *      `domains{}` invariant forced a borrowed host literal, which the
+ *      env-map schema drops. Resolution via `domainFor` now throws
+ *      (captured as null) — behavior-preserving because no runtime path
+ *      probed this host.
  *
  * Every OTHER (service, env) pair resolves byte-identically.
  */

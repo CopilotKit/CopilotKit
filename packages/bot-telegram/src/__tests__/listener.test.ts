@@ -20,6 +20,9 @@ const sink = () => ({
   onInteraction: vi.fn(),
   onCommand: vi.fn(),
   onThreadStarted: vi.fn(),
+  onReaction: vi.fn(),
+  onModalSubmit: vi.fn(),
+  onModalClose: vi.fn(),
 });
 
 describe("attachTelegramListener", () => {
@@ -761,6 +764,60 @@ describe("attachTelegramListener", () => {
       chat: { id: 9, type: "group" },
     });
     expect(s.onCommand).not.toHaveBeenCalled();
+  });
+
+  // ── message_reaction loop guard ───────────────────────────────────────
+
+  it("message_reaction from the bot itself is NOT dispatched to onReaction", async () => {
+    const bot = fakeBot();
+    const s = sink();
+    attachTelegramListener({
+      bot,
+      store: new TelegramConversationStore(),
+      botUsername: "cpk_bot",
+      botUserId: 1,
+      sink: s,
+      botToken: "tok",
+      getFilePath: async () => "x",
+    });
+    await bot.handlers["message_reaction"]({
+      update: {
+        message_reaction: {
+          chat: { id: 42, type: "private" },
+          message_id: 7,
+          user: { id: 1, username: "cpk_bot" },
+          old_reaction: [],
+          new_reaction: [{ type: "emoji", emoji: "👍" }],
+        },
+      },
+    });
+    expect(s.onReaction).not.toHaveBeenCalled();
+  });
+
+  it("message_reaction from another user IS dispatched to onReaction", async () => {
+    const bot = fakeBot();
+    const s = sink();
+    attachTelegramListener({
+      bot,
+      store: new TelegramConversationStore(),
+      botUsername: "cpk_bot",
+      botUserId: 1,
+      sink: s,
+      botToken: "tok",
+      getFilePath: async () => "x",
+    });
+    await bot.handlers["message_reaction"]({
+      update: {
+        message_reaction: {
+          chat: { id: 42, type: "private" },
+          message_id: 7,
+          user: { id: 5, username: "ada" },
+          old_reaction: [],
+          new_reaction: [{ type: "emoji", emoji: "👍" }],
+        },
+      },
+    });
+    expect(s.onReaction).toHaveBeenCalledTimes(1);
   });
 
   // ── Bug 4: empty botUsername guard ────────────────────────────────────

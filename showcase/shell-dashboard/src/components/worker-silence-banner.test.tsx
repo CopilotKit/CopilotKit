@@ -23,6 +23,7 @@ import type {
   WorkerFamilySummary,
   WorkerRunBatch,
   WorkerRunsResponse,
+  WorkerView,
 } from "../lib/ops-api";
 
 const NOW = new Date("2026-06-10T12:00:00Z").getTime();
@@ -72,9 +73,24 @@ function makeFamily(
   };
 }
 
-function okStatus(families: WorkerFamilySummary[]): WorkerRunsStatus {
-  const data: WorkerRunsResponse = { families, workers: [] };
+function okStatus(
+  families: WorkerFamilySummary[],
+  workers: WorkerView[] = [],
+): WorkerRunsStatus {
+  const data: WorkerRunsResponse = { families, workers };
   return { status: "ok", data, fetchedAt: NOW };
+}
+
+/** A worker strip entry whose `registeredAt` is the bounce signal. */
+function makeWorker(registeredAtMs: number): WorkerView {
+  return {
+    workerId: "worker-railway-abc",
+    health: "online",
+    lastHeartbeatAt: new Date(registeredAtMs).toISOString(),
+    registeredAt: new Date(registeredAtMs).toISOString(),
+    currentJobId: null,
+    capacity: { inUse: 0, available: 24, max: 24 },
+  };
 }
 
 function renderBanner(value: WorkerRunsStatus | null) {
@@ -106,6 +122,41 @@ describe("WorkerSilenceBanner", () => {
     );
     expect(banner.textContent).toContain("see Ops tab.");
     expect(banner.textContent).not.toContain("E2E smoke");
+  });
+
+  it("suppresses the banner during the post-bounce drain window (recent worker registration)", () => {
+    // A NORMAL deploy bounced the pool (PR #5715): the worker re-registered
+    // 0.5 period ago, so although lastSuccessAt is 2.5 periods stale (the
+    // pre-bounce success), the family is legitimately mid-sweep and within
+    // the 2×period bounce grace — no banner.
+    const silent = makeFamily({
+      family: "d5",
+      label: "D5 e2e-deep",
+      lastSuccessAt: new Date(NOW - 2.5 * PERIOD_MS).toISOString(),
+    });
+    const { queryByTestId } = renderBanner(
+      okStatus([silent], [makeWorker(NOW - 0.5 * PERIOD_MS)]),
+    );
+    expect(queryByTestId("worker-silence-banner")).toBeNull();
+  });
+
+  it("still banners a genuinely silent family once the bounce grace has elapsed", () => {
+    // Same stale family, but the freshest worker registration is 3 periods
+    // old — well past the 2×period grace — so this is a real outage and the
+    // banner must still fire.
+    const silent = makeFamily({
+      family: "d5",
+      label: "D5 e2e-deep",
+      lastSuccessAt: new Date(NOW - 2.5 * PERIOD_MS).toISOString(),
+    });
+    const { getByTestId } = renderBanner(
+      okStatus([silent], [makeWorker(NOW - 3 * PERIOD_MS)]),
+    );
+    const banner = getByTestId("worker-silence-banner");
+    expect(banner.getAttribute("data-variant")).toBe("silence");
+    expect(banner.textContent).toContain(
+      "Worker family D5 e2e-deep has not completed successfully since",
+    );
   });
 
   it("uses the server periodMs verbatim — a longer period keeps the same age quiet", () => {

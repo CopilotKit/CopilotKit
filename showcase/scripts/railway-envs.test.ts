@@ -17,6 +17,7 @@ import {
   computePromoteClosure,
   domainFor,
   envsFor,
+  healthcheckPathFor,
   instanceIdFor,
   listServiceNames,
   probeEnabled,
@@ -129,6 +130,14 @@ describe("railway-envs SSOT", () => {
     }
   });
 
+  it("does NOT contain harness-legacy (fleet-migration bridge retired)", () => {
+    // The pool-fleet migration is complete: the control-plane + prod
+    // workers cover every probe dimension `harness-legacy` was bridging,
+    // so the interim service is dead config and removed from the SSOT.
+    const names = listServiceNames();
+    expect(names).not.toContain("harness-legacy");
+  });
+
   it("every service has a non-empty serviceId and per-env instance UUIDs", () => {
     const uuid = /^[0-9a-f-]{36}$/;
     for (const [name, entry] of Object.entries(SERVICES)) {
@@ -142,6 +151,41 @@ describe("railway-envs SSOT", () => {
         ).toMatch(uuid);
       }
     }
+  });
+
+  it("every declared healthcheckPath is a non-empty `/`-prefixed string", () => {
+    // A wrong healthcheckPath 404s and WEDGES the deploy forever, so the
+    // schema guards the shape: when present it MUST be a non-empty path
+    // starting with `/`. Absence is legal (live-null → omit / do not assert).
+    for (const [name, entry] of Object.entries(SERVICES)) {
+      for (const [env, cfg] of Object.entries(entry.environments)) {
+        if (cfg.healthcheckPath === undefined) continue;
+        expect(
+          cfg.healthcheckPath,
+          `${name}.environments.${env}.healthcheckPath`,
+        ).toMatch(/^\/\S*$/);
+      }
+    }
+  });
+
+  it("healthcheckPathFor returns the tracked value / undefined", () => {
+    // Tracked: aimock /health (the repaired incident service).
+    expect(healthcheckPathFor("aimock", "prod")).toBe("/health");
+    expect(healthcheckPathFor("aimock", "staging")).toBe("/health");
+    // Agent integration: /api/health.
+    expect(healthcheckPathFor("showcase-ag2", "prod")).toBe("/api/health");
+    // Next.js shell: `/`.
+    expect(healthcheckPathFor("shell", "prod")).toBe("/");
+    // Live-null service: undefined (do not assert).
+    expect(healthcheckPathFor("docs", "prod")).toBeUndefined();
+    expect(healthcheckPathFor("dashboard", "staging")).toBeUndefined();
+    // harness-workers is dual-env: /health in BOTH staging and prod (the prod
+    // worker was backfilled into the SSOT so a showcase-harness rebuild bounces
+    // it; both envs declare the shared probe path).
+    expect(healthcheckPathFor("harness-workers", "staging")).toBe("/health");
+    expect(healthcheckPathFor("harness-workers", "prod")).toBe("/health");
+    // Unknown service / undeclared env → undefined (never throws).
+    expect(healthcheckPathFor("nope", "prod")).toBeUndefined();
   });
 
   it("instance IDs differ across a service's envs", () => {
@@ -180,11 +224,12 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("CI_BUILT_SERVICES contains exactly 38 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
-    // 26 showcase/infra CI-built + 12 starter-<slug> (S2 brought them under
+  it("CI_BUILT_SERVICES contains exactly 39 services (incl. pocketbase + 12 starters) and excludes webhooks", () => {
+    // 27 showcase/infra CI-built (incl. the staging-only
+    // showcase-strands-typescript) + 12 starter-<slug> (S2 brought them under
     // the gate; they ARE built+pushed by showcase_build.yml's `build-starters`
     // job to ghcr.io/copilotkit/starter-<slug>:latest).
-    expect(CI_BUILT_SERVICES.size).toBe(38);
+    expect(CI_BUILT_SERVICES.size).toBe(39);
     // pocketbase is now CI-built (showcase_build.yml `pocketbase` slot,
     // gated to showcase/pocketbase/** changes).
     expect(CI_BUILT_SERVICES.has("pocketbase")).toBe(true);
@@ -258,14 +303,15 @@ describe("railway-envs SSOT", () => {
     );
   });
 
-  it("repoNameFor throws on a registered env the service does not declare", () => {
-    // harness-workers is staging-only and its GHCR repo everywhere is
-    // showcase-harness — echoing "harness-workers" for prod would be a
-    // silently wrong GHCR name (consistent with instanceIdFor/domainFor,
-    // which both throw on an undeclared env).
-    expect(() => repoNameFor("harness-workers", "prod")).toThrow(
-      /has no "prod" environment/,
-    );
+  it("repoNameFor resolves the per-env repoName override for a dual-env worker", () => {
+    // harness-workers is now dual-env (prod backfilled into the SSOT). Both
+    // env entries carry an explicit repoName override of "showcase-harness"
+    // (it runs the shared showcase-harness image, NOT a "harness-workers"
+    // image), so repoNameFor returns that override in BOTH envs rather than
+    // echoing the SSOT key. (The throw-on-an-undeclared-env path is covered by
+    // the prototype-key env-axis test below and the unknown-service test above.)
+    expect(repoNameFor("harness-workers", "prod")).toBe("showcase-harness");
+    expect(repoNameFor("harness-workers", "staging")).toBe("showcase-harness");
   });
 
   it("serviceForDispatchName round-trips through SSOT keys", () => {
@@ -865,39 +911,53 @@ describe("railway-envs SSOT — domains + probe", () => {
   });
 
   it("envsFor lists exactly the envs a service declares", () => {
-    // Dual-env services declare both; the staging-only worker declares one.
+    // Dual-env services declare both; harness-workers is now dual-env too
+    // (the prod worker was backfilled into the SSOT).
     expect(envsFor("aimock")).toEqual(["prod", "staging"]);
-    expect(envsFor("harness-workers")).toEqual(["staging"]);
-    expect(envsFor("harness-legacy")).toEqual(["prod", "staging"]);
+    expect(envsFor("harness-workers")).toEqual(["prod", "staging"]);
   });
 
-  it("harness-workers is a staging-only, domainless, probe-disabled worker", () => {
-    // The pool-fleet worker is the canonical single-env / domainless shape
-    // the env-map schema enables (the old schema forced a placeholder prod
-    // instanceId + a borrowed control-plane domain). Pin every facet:
+  it("harness-workers is a dual-env, domainless, probe-disabled worker", () => {
+    // The pool-fleet worker now runs in BOTH staging and prod: the prod worker
+    // was backfilled into the SSOT (real serviceInstance ID 7c48ee43-…) so an
+    // env-aware imageOf rebuild of showcase-harness bounces the prod worker too
+    // (it used to be staging-only, which silently skipped the prod worker on a
+    // rebuild and left it on a stale image). Pin every facet:
     const worker = SERVICES["harness-workers"];
-    // Staging-only: no prod env at all (no placeholder).
-    expect(worker.environments.prod).toBeUndefined();
+    // Dual-env: both envs declared (no placeholder — each carries a real
+    // serviceInstance ID).
+    expect(worker.environments.prod).toBeDefined();
     expect(worker.environments.staging).toBeDefined();
-    // Domainless: the staging env omits a public host entirely (it is a
-    // queue consumer, not HTTP-exposed). domainFor MUST throw rather than
-    // return a borrowed host.
+    // Domainless in BOTH envs: the worker is a queue consumer, not
+    // HTTP-exposed, so each env omits a public host entirely and domainFor
+    // MUST throw rather than return a borrowed control-plane host.
+    expect(worker.environments.prod.domain).toBeUndefined();
     expect(worker.environments.staging.domain).toBeUndefined();
+    expect(() => domainFor("harness-workers", "prod")).toThrow(
+      /malformed\/missing prod domain/,
+    );
     expect(() => domainFor("harness-workers", "staging")).toThrow(
       /malformed\/missing staging domain/,
     );
-    // Probe disabled (covered by the control-plane harness probe + the
-    // Railway-internal healthcheck).
+    // Probe disabled in both envs (covered by the control-plane harness probe +
+    // the Railway-internal healthcheck).
+    expect(probeEnabled("harness-workers", "prod")).toBe(false);
     expect(probeEnabled("harness-workers", "staging")).toBe(false);
-    // Runs the shared showcase-harness image; not separately CI-built; kept
-    // out of both gate directions via gateIgnore. The image consumption is
+    // Runs the shared showcase-harness image; not separately CI-built. As a
+    // fully-modeled dual-env service it is now gateValidated (gateIgnore is
+    // dropped — both gate directions validate it). The image consumption is
     // modeled explicitly via imageOf so a rebuilt showcase-harness:latest
-    // redeploys the worker alongside the scheduler.
+    // redeploys the worker alongside the scheduler in EVERY env it declares.
+    expect(worker.environments.prod.repoName).toBe("showcase-harness");
     expect(worker.environments.staging.repoName).toBe("showcase-harness");
     expect(worker.imageOf).toBe("harness");
     expect(worker.ciBuilt).toBe(false);
-    expect(worker.gateIgnore).toBe(true);
+    expect(worker.gateValidated).toBe(true);
+    expect(worker.gateIgnore).toBeUndefined();
     expect(worker.serviceId).toBe("c2aa8a0b-350e-4b76-8541-3012dfac41d0");
+    expect(worker.environments.prod.instanceId).toBe(
+      "7c48ee43-6df4-457b-b977-10f1f1ac1680",
+    );
     expect(worker.environments.staging.instanceId).toBe(
       "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
     );
@@ -1074,33 +1134,31 @@ describe("computePromoteClosure", () => {
   it("always includes the full Tier-1 verification set even for a tier-0-only request", () => {
     const plan = computePromoteClosure(["pocketbase"]);
     const names = plan.services.map((s) => s.name);
+    // harness-workers is now prod-promotable Tier-1 (the prod worker was
+    // backfilled into the SSOT), so it joins the always-included Tier-1 set
+    // alongside harness + dashboard — no longer filtered out.
     expect(names).toEqual(
-      expect.arrayContaining(
-        ["harness", "harness-workers", "dashboard"].filter(
-          (k) => k !== "harness-workers",
-        ),
-      ),
+      expect.arrayContaining(["harness", "harness-workers", "dashboard"]),
     );
-    // harness + dashboard are prod-promotable Tier-1 and present:
+    // harness + dashboard + the dual-env worker are prod-promotable Tier-1:
     expect(names).toContain("harness");
+    expect(names).toContain("harness-workers");
     expect(names).toContain("dashboard");
   });
 
-  it("skips a prod-less member (harness-workers) with an explicit reason, never silently", () => {
+  it("promotes the dual-env worker (harness-workers) at Tier-1, never skipping it", () => {
     const plan = computePromoteClosure(["langgraph-python"]);
     const promotableNames = plan.services.map((s) => s.name);
-    // harness-workers has no `prod` env today → excluded from the promotable
-    // list...
-    expect(promotableNames).not.toContain("harness-workers");
-    // ...but recorded with an explicit reason (never silent).
+    // harness-workers now declares a `prod` env (backfilled into the SSOT) and
+    // is promoteTier:1, so it is PROMOTED alongside the harness control-plane
+    // rather than recorded skipped-with-reason.
+    expect(promotableNames).toContain("harness-workers");
+    expect(plan.services.find((s) => s.name === "harness-workers")?.tier).toBe(
+      1,
+    );
+    // ...and it is NOT in the skipped list (it is no longer prod-less).
     const skipped = plan.skipped.find((s) => s.name === "harness-workers");
-    expect(skipped).toBeDefined();
-    expect(skipped?.reason).toMatch(/prod/i);
-  });
-
-  it("excludes harness-legacy (gateIgnore, pinned out-of-band)", () => {
-    const plan = computePromoteClosure(["langgraph-python"]);
-    expect(plan.services.map((s) => s.name)).not.toContain("harness-legacy");
+    expect(skipped).toBeUndefined();
   });
 
   it("throws on an unknown requested service (fail loud)", () => {
@@ -1115,6 +1173,37 @@ describe("computePromoteClosure", () => {
     const b = computePromoteClosure(["langgraph-python"]);
     expect(a).toEqual(b);
     expect(JSON.stringify(SERVICES)).toBe(before);
+  });
+
+  // --- Standalone services (no deps, never gated) -------------------------
+  it("a standalone-only request (docs) promotes ONLY itself — no Tier-1 control plane", () => {
+    const plan = computePromoteClosure(["docs"]);
+    const names = plan.services.map((s) => s.name);
+    // The whole point: requesting docs must NOT drag in harness/dashboard.
+    expect(names).toEqual(["docs"]);
+    expect(names).not.toContain("harness");
+    expect(names).not.toContain("dashboard");
+    expect(plan.services.find((s) => s.name === "docs")?.standalone).toBe(true);
+  });
+
+  it("resolves the standalone leaf via dispatch_name (shell-docs) too", () => {
+    const plan = computePromoteClosure(["shell-docs"]);
+    expect(plan.services.map((s) => s.name)).toEqual(["docs"]);
+  });
+
+  it("the full-fleet (all) closure marks docs standalone AND still pulls Tier-1 for the rest", () => {
+    const plan = computePromoteClosure(Object.keys(SERVICES));
+    expect(plan.services.find((s) => s.name === "docs")?.standalone).toBe(true);
+    // The non-standalone fleet still gets the Tier-1 control plane.
+    expect(plan.services.map((s) => s.name)).toContain("harness");
+  });
+
+  it("a mixed request (standalone + normal) still pulls in Tier-1", () => {
+    const plan = computePromoteClosure(["docs", "langgraph-python"]);
+    const names = plan.services.map((s) => s.name);
+    expect(names).toContain("harness"); // forced by the non-standalone member
+    expect(names).toContain("docs");
+    expect(plan.services.find((s) => s.name === "docs")?.standalone).toBe(true);
   });
 });
 
@@ -1199,20 +1288,20 @@ describe("starter-* fleet SSOT entries (S1: promote-closure inclusion)", () => {
     }
   });
 
-  it("every starter exists in BOTH envs with prod probe enabled", () => {
+  it("every starter exists in BOTH envs with prod AND staging probe enabled (always-on)", () => {
     for (const key of STARTER_KEYS) {
       const entry = SERVICES[key];
       expect(Object.keys(entry.environments).sort()).toEqual([
         "prod",
         "staging",
       ]);
-      // prod is probed (they ARE in prod); staging probe deferred to S3
-      // (the starter-smoke axis, not the verify-deploy matrix).
+      // Starters are always-on + staging-probed like every other managed
+      // showcase service: both envs are probed by the verify-deploy baseline
+      // driver (resolve-verify-matrix filters on probe.staging===true, so a
+      // probed starter now enters the staging matrix). The starter-smoke axis
+      // ALSO covers them — orthogonal to the baseline liveness probe here.
       expect(probeEnabled(key, "prod"), `${key} prod probe`).toBe(true);
-      // staging probe OFF — starters never enter the verify-deploy staging
-      // matrix (resolve-verify-matrix filters on probe.staging===true); the
-      // starter-smoke axis owns staging verification (S3).
-      expect(probeEnabled(key, "staging"), `${key} staging probe`).toBe(false);
+      expect(probeEnabled(key, "staging"), `${key} staging probe`).toBe(true);
     }
   });
 

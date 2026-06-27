@@ -37,12 +37,17 @@
  */
 
 import {
+  createCvdiagFetchPbWriterFromEnv,
   CvdiagEmitter,
   filterEdgeHeaders,
   mintTestId,
   scrubSecrets,
 } from "@/cvdiag/cvdiag-emitter";
-import type { CvdiagEnvelope, CvdiagOutcome } from "@/cvdiag/cvdiag-emitter";
+import type {
+  CvdiagEnvelope,
+  CvdiagOutcome,
+  CvdiagPbWriter,
+} from "@/cvdiag/cvdiag-emitter";
 
 /**
  * Web-standard route handler shape. Generic over the request type so a Next.js
@@ -99,6 +104,25 @@ function contentLength(headers: Headers): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Read the inbound probe `x-test-id` — the CROSS-LAYER JOIN KEY (spec §5). The
+ * probe mints a per-run id (`d4-/d6-<slug>-<runId>`) and prefix-forwards it on
+ * every request; the backend MUST adopt it as the envelope `test_id` so its
+ * rows JOIN the probe's rows. Returns the trimmed header value, or undefined
+ * when absent/blank (→ the emitter mints a fresh UUIDv7). The emitter
+ * sanitizes/validates the value, so we forward it as-is here.
+ */
+function inboundTestId(headers: Headers): string | undefined {
+  try {
+    const raw = headers.get("x-test-id");
+    if (raw === null) return undefined;
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Snapshot the allow-listed edge headers off a header bag. */
 function edgeHeadersFrom(
   headers: Headers,
@@ -129,10 +153,27 @@ export function withCvdiagBackend<Req extends Request>(
   const modelId = opts.modelId ?? "unknown";
   const heartbeatMs = opts.heartbeatMs ?? 10_000;
 
+  // Construct the concrete writer-role PB writer ONCE (env is read once at
+  // wrapper setup). Returns undefined when CVDIAG_PB_URL is unset — in which
+  // case the emitter is left writer-less (current stdout-only behavior). This
+  // is the fix for the type-only-seam defect: without an injected pbWriter the
+  // emitter's flush was a permanent no-op and ZERO backend events persisted.
+  // A test-injected emitter (opts.emitter) brings its own writer seam.
+  const pbWriter: CvdiagPbWriter | undefined =
+    opts.emitter !== undefined ? undefined : createCvdiagFetchPbWriterFromEnv();
+
   return async (req: Req): Promise<Response> => {
     const emitter =
-      opts.emitter ?? new CvdiagEmitter({ layer: "backend", autoFlush: true });
-    const testId = mintTestId();
+      opts.emitter ??
+      new CvdiagEmitter({ layer: "backend", autoFlush: true, pbWriter });
+    // CROSS-LAYER JOIN (spec §5): adopt the inbound probe `x-test-id` as the
+    // envelope `test_id` so backend rows join the probe's rows on the SAME run
+    // key. When the header is absent, the emitter mints a fresh UUIDv7. The
+    // backend's OWN per-request id is a freshly minted UUIDv7 passed as
+    // `traceId` — kept DISTINCT from an adopted (non-UUIDv7) `test_id` so
+    // trace/span stay per-request (NOT the shared run id).
+    const testId = inboundTestId(req.headers);
+    const traceId = mintTestId();
     const startedAt = Date.now();
     const path = requestPath(req);
     const edgeHeaders = safeEdgeHeaders(req);
@@ -150,6 +191,7 @@ export function withCvdiagBackend<Req extends Request>(
         demo: opts.slug,
         outcome,
         testId,
+        traceId,
         edgeHeaders,
         metadata,
         durationMs,
