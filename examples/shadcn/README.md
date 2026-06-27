@@ -1,4 +1,6 @@
-# CopilotKit ShadCN Chat
+# CopilotKit x ShadCN
+
+https://github.com/user-attachments/assets/f0059b04-ad68-4563-ad7a-e574c64e42d0
 
 A compact Next.js example showing how to build a custom CopilotKit chat UI with
 ShadCN-style primitives. It uses `useAgent` with a CopilotKit Built-in Agent at
