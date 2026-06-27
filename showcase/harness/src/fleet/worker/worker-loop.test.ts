@@ -1395,110 +1395,147 @@ describe("startWorkerLoop", () => {
     return { driver, seenCtx: () => captured, started, written };
   }
 
-  it("stop() during an in-flight job aborts the driver (ctx.abortSignal defined+fired) and resolves bounded", async () => {
-    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
-    const { driver, seenCtx, started } = makeBlockingDrainDriver();
-    const handle = startWorkerLoop({
-      workerId: "worker-test",
-      queue,
-      pool: budgetWith(5),
-      driver,
-      payloadToInput: passInput,
-      logger: silentLogger,
-      env: {},
-      now: () => new Date("2026-06-04T00:04:00.000Z"),
-      sleep: yieldingSleep(),
-      pollIntervalMs: 1,
-      leaseSeconds: 2000,
-      heartbeatMs: 1_000_000,
-    });
+  it("stop() aborts a WEDGED in-flight run at grace-expiry (ctx.abortSignal fires) and resolves bounded", async () => {
+    // Layer (b): the run's `ctx.abortSignal` is the GRACE-EXPIRY signal, not the
+    // drain signal — so a run that IGNORES the drain (this blocking driver waits
+    // on abortSignal, i.e. it never finishes on its own) is cut only when the
+    // grace window closes. Pin a SHORT grace so the test exercises the
+    // grace-expiry abort promptly. stop() must still resolve bounded.
+    const prev = process.env.WORKER_DRAIN_GRACE_MS;
+    process.env.WORKER_DRAIN_GRACE_MS = "50";
+    try {
+      const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+      const { driver, seenCtx, started } = makeBlockingDrainDriver();
+      const handle = startWorkerLoop({
+        workerId: "worker-test",
+        queue,
+        pool: budgetWith(5),
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+        pollIntervalMs: 1,
+        leaseSeconds: 2000,
+        heartbeatMs: 1_000_000,
+      });
 
-    // Wait until the driver is actually running (claimed + in run()).
-    await started;
-    const ctx = seenCtx();
-    expect(ctx).toBeDefined();
-    // The loop threads its stopAbort signal into ctx.abortSignal, un-fired
-    // until stop().
-    expect(ctx!.abortSignal).toBeDefined();
-    expect(ctx!.abortSignal!.aborted).toBe(false);
+      // Wait until the driver is actually running (claimed + in run()).
+      await started;
+      const ctx = seenCtx();
+      expect(ctx).toBeDefined();
+      // The loop threads the grace-expiry signal into ctx.abortSignal, un-fired
+      // until the grace window closes.
+      expect(ctx!.abortSignal).toBeDefined();
+      expect(ctx!.abortSignal!.aborted).toBe(false);
 
-    // stop() must abort the run and resolve promptly (bounded), not hang on the
-    // driver's full timeout. A 1s budget proves it doesn't block.
-    await expect(
-      Promise.race([
-        handle.stop(),
-        new Promise<never>((_res, rej) =>
-          setTimeout(
-            () => rej(new Error("stop() did not resolve bounded")),
-            1000,
+      // stop() must abort the wedged run at grace-expiry and resolve promptly
+      // (bounded), not hang on the driver's full timeout. A 1s budget proves it
+      // doesn't block.
+      await expect(
+        Promise.race([
+          handle.stop(),
+          new Promise<never>((_res, rej) =>
+            setTimeout(
+              () => rej(new Error("stop() did not resolve bounded")),
+              1000,
+            ),
           ),
-        ),
-      ]),
-    ).resolves.toBeUndefined();
-    expect(ctx!.abortSignal!.aborted).toBe(true);
-    expect(ctx!.drainReason).toBe("shutdown");
+        ]),
+      ).resolves.toBeUndefined();
+      expect(ctx!.abortSignal!.aborted).toBe(true);
+      expect(ctx!.drainReason).toBe("shutdown");
+    } finally {
+      if (prev === undefined) delete process.env.WORKER_DRAIN_GRACE_MS;
+      else process.env.WORKER_DRAIN_GRACE_MS = prev;
+    }
   });
 
   it("drain does NOT emit red cells for not-yet-run pills (drainReason suppresses)", async () => {
-    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
-    const { driver, started, written } = makeBlockingDrainDriver();
-    const handle = startWorkerLoop({
-      workerId: "worker-test",
-      queue,
-      pool: budgetWith(5),
-      driver,
-      payloadToInput: passInput,
-      logger: silentLogger,
-      env: {},
-      now: () => new Date("2026-06-04T00:04:00.000Z"),
-      sleep: yieldingSleep(),
-      pollIntervalMs: 1,
-      leaseSeconds: 2000,
-      heartbeatMs: 1_000_000,
-    });
+    // Layer (b): a run that ignores the drain is aborted only at grace-expiry,
+    // so pin a SHORT grace to exercise the abort promptly. On that abort the
+    // driver would emit a red `errorClass: "abort"` cell UNLESS drainReason is
+    // "shutdown" (the suppression this test pins). The aborted run produces no
+    // usable result → it abandons (no report). (B4 re-scopes suppression to
+    // aborted-only; this test's drain-abort surface stays valid under B2.)
+    const prev = process.env.WORKER_DRAIN_GRACE_MS;
+    process.env.WORKER_DRAIN_GRACE_MS = "50";
+    try {
+      const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+      const { driver, started, written } = makeBlockingDrainDriver();
+      const handle = startWorkerLoop({
+        workerId: "worker-test",
+        queue,
+        pool: budgetWith(5),
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+        pollIntervalMs: 1,
+        leaseSeconds: 2000,
+        heartbeatMs: 1_000_000,
+      });
 
-    await started;
-    await handle.stop();
-    // The suppression's REAL surface is the WRITE side: on a drain the driver
-    // must never WRITE a red `errorClass: "abort"` cell at all. (Asserting on
-    // `queue.reports` alone is vacuous here — drain skips the report entirely,
-    // so reports stay empty whether or not the red cell was written.)
-    const writtenRedAbort = written.filter(
-      (c) =>
-        c.state === "red" &&
-        (c.signal as { errorClass?: string })?.errorClass === "abort",
-    );
-    expect(writtenRedAbort).toEqual([]);
-    // The report-skip leg stays pinned alongside (see the next test for the
-    // dedicated assertion): nothing was reported either.
-    expect(queue.reports).toEqual([]);
+      await started;
+      await handle.stop();
+      // The suppression's REAL surface is the WRITE side: on a drain the driver
+      // must never WRITE a red `errorClass: "abort"` cell at all. (Asserting on
+      // `queue.reports` alone is vacuous here — the aborted run skips the report,
+      // so reports stay empty whether or not the red cell was written.)
+      const writtenRedAbort = written.filter(
+        (c) =>
+          c.state === "red" &&
+          (c.signal as { errorClass?: string })?.errorClass === "abort",
+      );
+      expect(writtenRedAbort).toEqual([]);
+      // The abort produced no usable result → abandoned, nothing reported.
+      expect(queue.reports).toEqual([]);
+    } finally {
+      if (prev === undefined) delete process.env.WORKER_DRAIN_GRACE_MS;
+      else process.env.WORKER_DRAIN_GRACE_MS = prev;
+    }
   });
 
-  it("drain does NOT report the in-flight job (lets the lease expire → sweeper re-queues neutral-gray)", async () => {
-    const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
-    const reportSpy = vi.spyOn(queue, "report");
-    const { driver, started } = makeBlockingDrainDriver();
-    const handle = startWorkerLoop({
-      workerId: "worker-test",
-      queue,
-      pool: budgetWith(5),
-      driver,
-      payloadToInput: passInput,
-      logger: silentLogger,
-      env: {},
-      now: () => new Date("2026-06-04T00:04:00.000Z"),
-      sleep: yieldingSleep(),
-      pollIntervalMs: 1,
-      leaseSeconds: 2000,
-      heartbeatMs: 1_000_000,
-    });
+  it("drain does NOT report an ABORTED in-flight job (no usable result → lease lapses → sweeper re-queues neutral-gray)", async () => {
+    // Layer (b): the abandon decision is `abortedWithoutResult`. This blocking
+    // driver IGNORES the drain and only unblocks on its abortSignal — i.e. it
+    // never produces a usable result on its own and is cut at grace-expiry
+    // (pin a SHORT grace to exercise it). With no usable result the loop
+    // abandons: no report; the lease lapses and `sweepExpired` re-queues it
+    // neutral-gray (a reported partial would paint red — terminalJobStatus maps
+    // any non-green aggregate to failed). A run that FINISHES within grace is
+    // the inverse case (reported) — see the finish-and-report tests.
+    const prev = process.env.WORKER_DRAIN_GRACE_MS;
+    process.env.WORKER_DRAIN_GRACE_MS = "50";
+    try {
+      const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
+      const reportSpy = vi.spyOn(queue, "report");
+      const { driver, started } = makeBlockingDrainDriver();
+      const handle = startWorkerLoop({
+        workerId: "worker-test",
+        queue,
+        pool: budgetWith(5),
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+        pollIntervalMs: 1,
+        leaseSeconds: 2000,
+        heartbeatMs: 1_000_000,
+      });
 
-    await started;
-    await handle.stop();
-    // The worker abandons the partial: no report for the drained job. The lease
-    // lapses and `sweepExpired` re-queues it neutral-gray (a reported partial
-    // would paint red — terminalJobStatus maps any non-green aggregate to failed).
-    expect(reportSpy).not.toHaveBeenCalled();
+      await started;
+      await handle.stop();
+      expect(reportSpy).not.toHaveBeenCalled();
+    } finally {
+      if (prev === undefined) delete process.env.WORKER_DRAIN_GRACE_MS;
+      else process.env.WORKER_DRAIN_GRACE_MS = prev;
+    }
   });
 
   it("drain lets an ALREADY-COMPLETING run finish and REPORTS it (not abandon)", async () => {
@@ -1620,28 +1657,39 @@ describe("startWorkerLoop", () => {
       },
     };
     const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
-    const handle = startWorkerLoop({
-      workerId: "worker-test",
-      queue,
-      pool: budgetWith(5),
-      driver,
-      payloadToInput: passInput,
-      logger: silentLogger,
-      env: {},
-      now: () => new Date("2026-06-04T00:04:00.000Z"),
-      sleep: yieldingSleep(),
-      pollIntervalMs: 1,
-      leaseSeconds: 2000,
-      heartbeatMs: 1_000_000,
-    });
+    // Layer (b): the run's abortSignal is the grace-expiry signal; this driver
+    // blocks on it, so pin a SHORT grace to unblock the run promptly. drainReason
+    // (a live getter on the separate drain signal) still flips to "shutdown" once
+    // drain fires — which is what this test pins.
+    const prev = process.env.WORKER_DRAIN_GRACE_MS;
+    process.env.WORKER_DRAIN_GRACE_MS = "50";
+    try {
+      const handle = startWorkerLoop({
+        workerId: "worker-test",
+        queue,
+        pool: budgetWith(5),
+        driver,
+        payloadToInput: passInput,
+        logger: silentLogger,
+        env: {},
+        now: () => new Date("2026-06-04T00:04:00.000Z"),
+        sleep: yieldingSleep(),
+        pollIntervalMs: 1,
+        leaseSeconds: 2000,
+        heartbeatMs: 1_000_000,
+      });
 
-    await started;
-    // Before stop(): the drain signal exists but has NOT fired — a timeout
-    // abort at this point is a genuine failure, so drainReason must be unset.
-    expect(reasonAtStart).toBeUndefined();
-    await handle.stop();
-    // After stop(): the drain signal fired — the abort IS a graceful drain.
-    expect(reasonAfterAbort).toBe("shutdown");
+      await started;
+      // Before stop(): the drain signal exists but has NOT fired — a timeout
+      // abort at this point is a genuine failure, so drainReason must be unset.
+      expect(reasonAtStart).toBeUndefined();
+      await handle.stop();
+      // After stop(): the drain signal fired — the abort IS a graceful drain.
+      expect(reasonAfterAbort).toBe("shutdown");
+    } finally {
+      if (prev === undefined) delete process.env.WORKER_DRAIN_GRACE_MS;
+      else process.env.WORKER_DRAIN_GRACE_MS = prev;
+    }
   });
 });
 
@@ -1724,7 +1772,7 @@ describe("WorkerLoopHandle.drain() — deregister-first drain request", () => {
     });
   }
 
-  it("drain() synchronously fires the in-flight run's abort signal WITHOUT awaiting teardown", async () => {
+  it("drain() synchronously records the drain WITHOUT aborting the in-flight run or awaiting teardown", async () => {
     const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
     const { driver, seenCtx, started, release } = makeWedgedDriver();
     const handle = startWedgedLoop({ queue, driver });
@@ -1732,10 +1780,13 @@ describe("WorkerLoopHandle.drain() — deregister-first drain request", () => {
     await started;
     expect(seenCtx()!.abortSignal!.aborted).toBe(false);
 
-    // SYNCHRONOUS: drain() returns void having already fired the signal — it
-    // must not await the (wedged) run.
+    // SYNCHRONOUS: drain() returns void immediately — it must not await the
+    // (wedged) run. Layer (b): drain() DECOUPLES "stop claiming" from "abort the
+    // run", so the in-flight run's `ctx.abortSignal` (the grace-expiry signal)
+    // is NOT fired on drain — only `drainReason` flips to "shutdown" so the
+    // driver LEARNS it is draining. The hard abort comes only at grace-expiry.
     handle.drain();
-    expect(seenCtx()!.abortSignal!.aborted).toBe(true);
+    expect(seenCtx()!.abortSignal!.aborted).toBe(false);
     expect(seenCtx()!.drainReason).toBe("shutdown");
 
     // The loop has NOT exited (the run is wedged) — done is still pending, so
@@ -1779,13 +1830,15 @@ describe("WorkerLoopHandle.drain() — deregister-first drain request", () => {
     await handle.stop();
   });
 
-  it("drain() fires the abort even when the drain-requested log THROWS (the throw never escapes)", async () => {
+  it("drain() fires the drain (stopAbort) even when the drain-requested log THROWS (the throw never escapes)", async () => {
     // drain() is the FIRST step of drainFleetWorker's SIGTERM critical path.
-    // The abort is the load-bearing half (report-skip, heartbeat stop, driver
-    // cancel key on the SIGNAL); the log line is forensics. A throwing logger
-    // must neither skip the abort nor propagate out of drain() — pre-fix the
-    // log preceded the abort unguarded, so a logger throw escaped
-    // drainFleetWorker BEFORE the roster delete ever ran.
+    // The drain abort (`stopAbort` — stop claiming + heartbeat stop +
+    // drainReason) is the load-bearing half; the log line is forensics. A
+    // throwing logger must neither skip the drain nor propagate out of drain() —
+    // pre-fix the log preceded the abort unguarded, so a logger throw escaped
+    // drainFleetWorker BEFORE the roster delete ever ran. (Layer (b): drain no
+    // longer fires the RUN's abortSignal — that is the grace-expiry signal — so
+    // the observable signal that drain still fired is `drainReason: "shutdown"`.)
     const logger: Logger = {
       ...silentLogger,
       info: (msg) => {
@@ -1799,15 +1852,24 @@ describe("WorkerLoopHandle.drain() — deregister-first drain request", () => {
     const handle = startWedgedLoop({ queue, driver, logger });
 
     await started;
-    expect(seenCtx()!.abortSignal!.aborted).toBe(false);
+    expect(seenCtx()!.drainReason).toBeUndefined();
     expect(() => handle.drain()).not.toThrow();
-    expect(seenCtx()!.abortSignal!.aborted).toBe(true);
+    // The drain fired despite the throwing log: drainReason is now "shutdown"
+    // (the run's own abortSignal stays un-fired until grace-expiry).
+    expect(seenCtx()!.drainReason).toBe("shutdown");
+    expect(seenCtx()!.abortSignal!.aborted).toBe(false);
 
     release();
     await handle.stop();
   });
 
-  it("an abandoned job is NEVER reported even when the wedged run later settles GREEN", async () => {
+  it("a run that SETTLES GREEN after drain (before grace-expiry) is REPORTED (finish-and-report)", async () => {
+    // LAYER (b): the report decision is keyed on `abortedWithoutResult`
+    // (`runAbort` fired at grace-expiry), NOT on the drain SIGNAL. A run that
+    // ignores the (now decoupled) drain and settles GREEN under its own steam
+    // before the grace window closes produces a usable terminal result, so the
+    // loop falls through to the report path. (Pre-(b) this was abandoned because
+    // the report-skip keyed on the drain signal alone.)
     const queue = makeQueue([{ claimed: true, lease: makeLease() }]);
     const reportSpy = vi.spyOn(queue, "report");
     const { driver, started, release } = makeWedgedDriver();
@@ -1815,11 +1877,12 @@ describe("WorkerLoopHandle.drain() — deregister-first drain request", () => {
 
     await started;
     handle.drain();
-    // Teardown later "completes" the run (green!) — the report-skip is keyed
-    // on the drain SIGNAL, not on stop() completion, so it is still abandoned.
+    // The run completes GREEN a moment later — well within the grace window, so
+    // `runAbort` never fires and the result is reported.
     release();
     await handle.done;
-    expect(reportSpy).not.toHaveBeenCalled();
+    expect(reportSpy).toHaveBeenCalledTimes(1);
+    expect(queue.reports[0]!.aggregateState).toBe("green");
   });
 
   it("drain() is idempotent and stop() keeps its bounded/second-caller contract", async () => {
