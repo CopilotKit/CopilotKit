@@ -786,7 +786,7 @@ export class IntelligenceAgent extends AbstractAgent {
       return;
     }
 
-    this.sharedState.lastSeenEventIds.set(threadId, eventId);
+    this.advanceLastSeenEventId(threadId, eventId);
   }
 
   private updateLastSeenEventIdFromControl(
@@ -798,7 +798,35 @@ export class IntelligenceAgent extends AbstractAgent {
       return;
     }
 
+    this.advanceLastSeenEventId(threadId, eventId);
+  }
+
+  private advanceLastSeenEventId(threadId: string, eventId: string): void {
+    const currentEventId = this.sharedState.lastSeenEventIds.get(threadId);
+    if (currentEventId && this.compareEventIds(eventId, currentEventId) < 0) {
+      return;
+    }
+
     this.sharedState.lastSeenEventIds.set(threadId, eventId);
+  }
+
+  private compareEventIds(left: string, right: string): number {
+    const leftSequence = this.readTrailingSequence(left);
+    const rightSequence = this.readTrailingSequence(right);
+    if (leftSequence !== null && rightSequence !== null) {
+      return leftSequence - rightSequence;
+    }
+
+    return left.localeCompare(right);
+  }
+
+  private readTrailingSequence(eventId: string): number | null {
+    const match = eventId.match(/(\d+)$/);
+    if (!match) {
+      return null;
+    }
+
+    return Number.parseInt(match[1]!, 10);
   }
 
   private readEventId(payload: BaseEvent): string | null {

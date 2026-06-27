@@ -297,6 +297,43 @@ test("thread_run_activity from the local active run does not reconnect the origi
   });
 });
 
+test("delayed terminal thread_run_activity from the settled local run does not reconnect the originating chat", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+  });
+  await settleInitialConnect(rendered);
+  const activeRun = createDeferred();
+  rendered.runDeferrals.push(activeRun);
+  rendered.connectAgent.mockClear();
+  rendered.connectAgentCalls.length = 0;
+
+  fireEvent.click(screen.getByTestId("mock-copilot-chat-submit"));
+  await waitFor(() => {
+    expect(rendered.runAgent).toHaveBeenCalledTimes(1);
+  });
+  const localRunId = rendered.runAgentCalls[0]?.runId;
+  expect(typeof localRunId).toBe("string");
+
+  await act(async () => {
+    activeRun.resolve();
+    await activeRun.promise;
+  });
+
+  act(() => {
+    rendered.store.emit({
+      type: "thread_run_activity",
+      threadId: "thread-current",
+      agentId: DEFAULT_AGENT_ID,
+      runId: localRunId,
+      eventType: "RUN_FINISHED",
+    });
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).not.toHaveBeenCalled();
+});
+
 test("thread_run_activity from a same-agent different run waits for the local run to finish", async () => {
   const rendered = renderChatWithCore({
     intelligence: { wsUrl: "wss://intelligence.example/client" },

@@ -229,6 +229,9 @@ export function CopilotChat({
   const pendingRunActivityReconnectRef = useRef(false);
   const runActivityReconnectGenerationRef = useRef(0);
   const activeLocalRunIdsRef = useRef<Set<string>>(new Set());
+  const recentlyLocalRunIdsRef = useRef<
+    Map<string, ReturnType<typeof setTimeout>>
+  >(new Map());
   const startRunActivityReconnectRef = useRef<
     ((generation: number) => void) | null
   >(null);
@@ -252,6 +255,18 @@ export function CopilotChat({
   const hasExplicitThreadIdRef = useRef(hasExplicitThreadId);
   hasExplicitThreadIdRef.current = hasExplicitThreadId;
 
+  const rememberRecentlyLocalRunId = useCallback((runId: string) => {
+    const existingTimeout = recentlyLocalRunIdsRef.current.get(runId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      recentlyLocalRunIdsRef.current.delete(runId);
+    }, 30_000);
+    recentlyLocalRunIdsRef.current.set(runId, timeout);
+  }, []);
+
   const isLocalActiveRunActivity = useCallback(
     (notification: { agentId?: string; runId?: string; eventType: string }) => {
       if (notification.agentId && notification.agentId !== resolvedAgentId) {
@@ -259,7 +274,8 @@ export function CopilotChat({
       }
       if (
         !notification.runId ||
-        !activeLocalRunIdsRef.current.has(notification.runId)
+        (!activeLocalRunIdsRef.current.has(notification.runId) &&
+          !recentlyLocalRunIdsRef.current.has(notification.runId))
       ) {
         return false;
       }
@@ -271,8 +287,18 @@ export function CopilotChat({
         eventType === "RUN_ERROR"
       );
     },
-    [agent, resolvedAgentId],
+    [resolvedAgentId],
   );
+
+  useEffect(() => {
+    const recentlyLocalRunIds = recentlyLocalRunIdsRef.current;
+    return () => {
+      recentlyLocalRunIds.forEach((timeout) => {
+        clearTimeout(timeout);
+      });
+      recentlyLocalRunIds.clear();
+    };
+  }, []);
 
   useEffect(() => {
     const threadChanged = previousThreadIdRef.current !== resolvedThreadId;
@@ -607,6 +633,7 @@ export function CopilotChat({
       } finally {
         if (localRunId) {
           activeLocalRunIdsRef.current.delete(localRunId);
+          rememberRecentlyLocalRunId(localRunId);
         }
         if (
           pendingRunActivityReconnectRef.current &&
@@ -628,6 +655,7 @@ export function CopilotChat({
       consumeAttachments,
       waitForActiveRunToSettle,
       hasNativeIntelligenceRunActivity,
+      rememberRecentlyLocalRunId,
     ],
   );
 
@@ -665,6 +693,7 @@ export function CopilotChat({
       } finally {
         if (localRunId) {
           activeLocalRunIdsRef.current.delete(localRunId);
+          rememberRecentlyLocalRunId(localRunId);
         }
         if (
           pendingRunActivityReconnectRef.current &&
@@ -680,7 +709,12 @@ export function CopilotChat({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, waitForActiveRunToSettle, hasNativeIntelligenceRunActivity],
+    [
+      agent,
+      waitForActiveRunToSettle,
+      hasNativeIntelligenceRunActivity,
+      rememberRecentlyLocalRunId,
+    ],
   );
 
   const stopCurrentRun = useCallback(() => {

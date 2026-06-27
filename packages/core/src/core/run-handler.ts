@@ -267,12 +267,17 @@ export class RunHandler {
       if (isFreshRestore) {
         agent.setMessages([]);
         agent.setState({});
-        const proxied = agent as { clearReplayCursor?: (id: string) => void };
-        if (
-          incomingThreadId &&
-          typeof proxied.clearReplayCursor === "function"
-        ) {
-          proxied.clearReplayCursor(incomingThreadId);
+        const cursorAware = agent as {
+          clearReconnectCursor?: (id: string) => void;
+          clearReplayCursor?: (id: string) => void;
+        };
+        if (incomingThreadId) {
+          if (typeof cursorAware.clearReplayCursor === "function") {
+            cursorAware.clearReplayCursor(incomingThreadId);
+          }
+          if (typeof cursorAware.clearReconnectCursor === "function") {
+            cursorAware.clearReconnectCursor(incomingThreadId);
+          }
         }
       }
 
