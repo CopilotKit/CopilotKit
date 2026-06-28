@@ -5373,10 +5373,10 @@ describe("buildProducerSchedules (fleet multi-schedule manifest)", () => {
     );
     expect(byId.get(FLEET_PRODUCER_DEMOS_SCHEDULE_ID)?.producer).toBe(demos);
 
-    // deep: :05/:20/:35/:50 (e2e-deep.yml).
+    // deep: :00/:30 (e2e-deep.yml).
     expect(FLEET_PRODUCER_DEEP_SCHEDULE_ID).toBe("fleet-producer-e2e-deep");
     expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
-      "5,20,35,50 * * * *",
+      "*/30 * * * *",
     );
     expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
       FLEET_PRODUCER_DEEP_CRON,
@@ -5409,7 +5409,7 @@ describe("buildProducerSchedules (fleet multi-schedule manifest)", () => {
     );
     expect(byId.get(FLEET_PRODUCER_DEMOS_SCHEDULE_ID)?.cron).toBe("10 * * * *");
     expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
-      "5,20,35,50 * * * *",
+      "*/30 * * * *",
     );
   });
 });
@@ -5686,7 +5686,7 @@ describe("runControlPlane registers 4 producer schedules on the scheduler", () =
       expect(byId.get("fleet-job-producer")).toBe("40 * * * *");
       expect(byId.get("fleet-producer-e2e-smoke")).toBe("*/15 * * * *");
       expect(byId.get("fleet-producer-e2e-demos")).toBe("10 * * * *");
-      expect(byId.get("fleet-producer-e2e-deep")).toBe("5,20,35,50 * * * *");
+      expect(byId.get("fleet-producer-e2e-deep")).toBe("*/30 * * * *");
 
       // The in-process HTTP probe families still register alongside (additive).
       const probeEntries = registered.filter((r) => r.id.startsWith("probe:"));

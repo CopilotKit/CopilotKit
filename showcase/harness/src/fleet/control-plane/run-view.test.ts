@@ -595,8 +595,8 @@ describe("projectRunBatch", () => {
 // ───────────────────────────────────────────────────────────────────────
 
 describe("periodMsFromCron", () => {
-  it('periodMs computed from the resolved cron: "5,20,35,50 * * * *" -> 900000', () => {
-    expect(periodMsFromCron("5,20,35,50 * * * *")).toBe(900_000);
+  it('periodMs computed from the resolved cron: "*/30 * * * *" -> 1800000', () => {
+    expect(periodMsFromCron("*/30 * * * *")).toBe(1_800_000);
     expect(periodMsFromCron("40 * * * *")).toBe(3_600_000);
     expect(periodMsFromCron("*/15 * * * *")).toBe(900_000);
   });
@@ -736,8 +736,8 @@ describe("createMemoizedFamilySummary", () => {
     expect(d6.periodMs).toBe(300_000);
     // The deep family resolves its own (non-overridden) cron.
     const d5 = familyEntry(summary, "d5");
-    expect(d5.schedule).toBe("5,20,35,50 * * * *");
-    expect(d5.periodMs).toBe(900_000);
+    expect(d5.schedule).toBe("*/30 * * * *");
+    expect(d5.periodMs).toBe(1_800_000);
   });
 
   it("serializes the scheduler's nextRunAt per family (null when unknown)", async () => {
