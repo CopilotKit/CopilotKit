@@ -825,6 +825,17 @@ module Railway
         # single-region services Railway honors the multiRegionConfig override,
         # and touching the mirror alone is exactly the partial-scale footgun that
         # produced the 6->1 drift.
+        #
+        # GraphQL-VALIDITY footgun (the A1 bug): the region key (REPLICA_REGION =
+        # "us-west2") is HYPHENATED and therefore CANNOT appear as a GraphQL
+        # field name in a query literal — `multiRegionConfig: { "us-west2": ... }`
+        # is INVALID GraphQL syntax (a quoted/hyphenated key inside a query
+        # document) and Railway's parser rejects the whole mutation. We pass
+        # multiRegionConfig as a typed GraphQL VARIABLE ($multiRegionConfig: JSON!)
+        # — Railway's serviceInstanceUpdate accepts multiRegionConfig as a JSON
+        # scalar — and build the `{ "us-west2" => { "numReplicas" => n } }` object
+        # in Ruby (returned via build_multi_region_config, carried in the vars
+        # hash). No hyphenated key ever appears as a GraphQL field name.
         def self.build_update_image_mutation(healthcheck_path: nil, replicas: nil)
             has_path     = !(healthcheck_path.nil? || healthcheck_path.to_s.empty?)
             has_replicas = !replicas.nil?
@@ -837,10 +848,11 @@ module Railway
                 input_parts << "healthcheckPath: $healthcheckPath"
             end
             if has_replicas
-                var_defs    << "$numReplicas: Int!"
-                # Set numReplicas under the region key WITHOUT touching sibling
-                # region config (only this one nested key is sent).
-                input_parts << %(multiRegionConfig: { "#{REPLICA_REGION}": { numReplicas: $numReplicas } })
+                # Pass the region object as a JSON scalar VARIABLE — the
+                # hyphenated region key travels in the variables, NEVER as a
+                # GraphQL field name (see GraphQL-VALIDITY footgun above).
+                var_defs    << "$multiRegionConfig: JSON!"
+                input_parts << "multiRegionConfig: $multiRegionConfig"
             end
 
             <<~GQL
@@ -852,6 +864,16 @@ module Railway
                     )
                 }
             GQL
+        end
+
+        # Build the multiRegionConfig JSON-scalar value for the update mutation:
+        # sets ONLY <REPLICA_REGION>.numReplicas, leaving any sibling region keys
+        # untouched (we cannot read-modify-write since multiRegionConfig is
+        # non-queryable, so we only ever set the one nested key the SSOT declares).
+        # Returned as a plain Ruby Hash and carried in the GraphQL variables hash
+        # so the hyphenated region key never appears in the query document.
+        def self.build_multi_region_config(replicas)
+            { REPLICA_REGION => { "numReplicas" => replicas } }
         end
 
         # serviceInstanceDeployV2 spawns a NEW deployment that pulls the current
@@ -1222,11 +1244,40 @@ module Railway
                 healthcheck_path: healthcheck_path, replicas: replicas)
             update_vars = { serviceId: service_id, envId: env_id, image: image }
             update_vars[:healthcheckPath] = healthcheck_path unless healthcheck_path.nil? || healthcheck_path.to_s.empty?
-            update_vars[:numReplicas] = replicas unless replicas.nil?
+            # Carry the region object as a JSON-scalar variable (NOT a GraphQL
+            # literal — the region key is hyphenated). See build_update_image_
+            # mutation's GraphQL-VALIDITY footgun.
+            update_vars[:multiRegionConfig] = RestoreCommand.build_multi_region_config(replicas) unless replicas.nil?
             updated = gql.query(mutation, update_vars)
             unless updated && updated["serviceInstanceUpdate"] == true
                 raise MutationError,
                     "P5: serviceInstanceUpdate returned #{updated.inspect} (expected true) for #{service_id} -> #{image}"
+            end
+
+            # A3 — replica-count APPLIED gate. serviceInstanceUpdate only returns
+            # a boolean and multiRegionConfig is INPUT-ONLY / non-queryable, so we
+            # cannot read the effective region count back to confirm it landed.
+            # The strongest available proof is therefore twofold: (1) assert the
+            # accepted mutation actually CARRIED the SSOT target under
+            # multiRegionConfig.<region>.numReplicas (a mutation that returned true
+            # but never carried the count would be asserted-but-unproven — the
+            # exact false-green this gate closes), and (2) fail loud if that
+            # carried structure is absent or mismatched. Verify only when the SSOT
+            # declared a count; for undeclared services multiRegionConfig is
+            # legitimately omitted (no count to assert).
+            unless replicas.nil?
+                carried = update_vars[:multiRegionConfig]
+                carried_count = carried.is_a?(Hash) &&
+                    carried[RestoreCommand::REPLICA_REGION].is_a?(Hash) ?
+                    carried[RestoreCommand::REPLICA_REGION]["numReplicas"] : nil
+                unless carried_count == replicas
+                    raise MutationError,
+                        "P5: replica re-assert for #{service_id} did not carry the SSOT count — " \
+                        "expected multiRegionConfig.#{RestoreCommand::REPLICA_REGION}.numReplicas=#{replicas.inspect}, " \
+                        "carried #{carried_count.inspect}. multiRegionConfig is non-queryable, so the " \
+                        "applied count cannot be confirmed post-deploy; refusing to declare the replica " \
+                        "self-heal successful without proof the mutation carried the target."
+                end
             end
 
             # Spawn a NEW deployment that PULLS the just-updated source.image.

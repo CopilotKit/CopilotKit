@@ -325,20 +325,27 @@ live staged config now reads `6` in both envs.
   (= Railway `serviceInstance.drainingSeconds`, env mirror
   `RAILWAY_DEPLOYMENT_DRAINING_SECONDS`). See **Deploy rollover** below.
 
-### Applying a replica count change (MANUAL)
+### Changing the replica count
 
-The `emit-railway-envs-json.ts` emitter and `bin/railway` tooling are
-**VERIFY-ONLY** with respect to the replica count — they do not write replica
-counts to Railway. To change the replica count:
+The `emit-railway-envs-json.ts` emitter is **VERIFY-ONLY** with respect to the
+replica count (it reads/reports it; it never writes it). `bin/railway promote`,
+however, **RE-ASSERTS** the SSOT-declared `effectiveReplicas` on every pin: when
+a service declares a count, the pin mutation sets
+`multiRegionConfig.us-west2.numReplicas` from the SSOT, so a service whose live
+override silently drifted (the 6->1 trap) self-heals to the tracked count on the
+next promote. (Services that declare no count are left untouched — promote never
+forces or null-clears their region config.) So to **change** the declared count:
 
 1. Change the `effectiveReplicas` value in `railway-envs.ts` (SSOT) — and the
    `numReplicas` mirror alongside it (keep them equal for this single-region
    service).
 2. Regenerate the snapshot: `npx tsx showcase/scripts/emit-railway-envs-json.ts`
 3. Commit both files (`railway-envs.ts` + `railway-envs.generated.json`).
-4. Apply the change to Railway manually via the Railway Dashboard (Service >
-   Settings > Replicas, which edits `multiRegionConfig.us-west2.numReplicas`) or
-   the Railway GraphQL API.
+4. The next `bin/railway promote` propagates the new count to Railway (it sets
+   `multiRegionConfig.us-west2.numReplicas` from the SSOT). To apply it out of
+   band before the next promote, edit it manually via the Railway Dashboard
+   (Service > Settings > Replicas, which edits
+   `multiRegionConfig.us-west2.numReplicas`) or the Railway GraphQL API.
 
 The CI drift gate (`showcase/scripts/__tests__/harness-workers-provisioning.test.ts`)
 will fail if `railway-envs.ts` and `railway-envs.generated.json` disagree on
@@ -392,8 +399,10 @@ guarded by the same drift gate as the replica count.
 - **Layer (c)** — this config: `overlapSeconds` removes the dip; `drainingSeconds`
   hosts the drain. No code — it is the two service settings alone.
 
-**Applying (MANUAL).** Like the replica count, the emitter/`bin/railway` tooling
-is **verify-only** for these fields. To apply or change them:
+**Applying (MANUAL).** Unlike the replica count (which `bin/railway promote` now
+re-asserts), the emitter/`bin/railway` tooling is **verify-only** for these
+fields — promote does not write `overlapSeconds`/`drainingSeconds`. To apply or
+change them:
 
 1. Edit `overlapSeconds` / `drainingSeconds` in `railway-envs.ts` (SSOT) for the
    env(s).
