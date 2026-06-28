@@ -395,7 +395,7 @@ function minEnqueuedAtMs(rows: readonly ProbeJobRecord[]): number {
 
 /**
  * Shortest interval between consecutive fires of `cron` (e.g.
- * `"5,20,35,50 * * * *"` → 900 000): croner walk over the next ~8 fires.
+ * `"40 * * * *"` → 3 600 000): croner walk over the next ~8 fires.
  * Every period-derived threshold (§5.2.1 stalled rules, §7.3/§7.4 windows,
  * §9 silence window) consumes this server-computed value — the dashboard
  * does no client-side cron parsing for thresholds.

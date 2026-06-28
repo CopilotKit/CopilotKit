@@ -1561,7 +1561,7 @@ export function assertHttpBrowserKindPartition(httpKinds: string[]): void {
  */
 export const FLEET_PRODUCER_SMOKE_CRON = "*/15 * * * *";
 export const FLEET_PRODUCER_DEMOS_CRON = "10 * * * *";
-export const FLEET_PRODUCER_DEEP_CRON = "5,20,35,50 * * * *";
+export const FLEET_PRODUCER_DEEP_CRON = "*/30 * * * *";
 
 /**
  * Scheduler entry ids for the three non-d6 browser-family producers. Homed in
@@ -1613,8 +1613,8 @@ export const FLEET_FAMILY_PERIODS_MS: Record<string, number> = {
   d6: 60 * 60 * 1000,
   /** d4 smoke — FLEET_PRODUCER_SMOKE_CRON (every 15min). */
   d4: 15 * 60 * 1000,
-  /** d5 deep — FLEET_PRODUCER_DEEP_CRON `5,20,35,50 * * * *` (every 15min). */
-  "d5-single-pill-e2e": 15 * 60 * 1000,
+  /** d5 deep — FLEET_PRODUCER_DEEP_CRON (every-30-min cron, on :00/:30). */
+  "d5-single-pill-e2e": 30 * 60 * 1000,
   /** demos — FLEET_PRODUCER_DEMOS_CRON `10 * * * *` (hourly). */
   "e2e-demos": 60 * 60 * 1000,
 };

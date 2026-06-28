@@ -27,8 +27,8 @@ import type {
 } from "../lib/ops-api";
 
 const NOW = new Date("2026-06-10T12:00:00Z").getTime();
-/** 15-minute resolved period (the d5/e2e-smoke default). */
-const PERIOD_MS = 900_000;
+/** 30-minute resolved period (the d5/e2e-smoke default). */
+const PERIOD_MS = 1_800_000;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -63,7 +63,7 @@ function makeFamily(
     family: "d5",
     label: "D5 e2e-deep",
     probeKeyPrefix: "d5-single-pill-e2e",
-    schedule: "5,20,35,50 * * * *",
+    schedule: "*/30 * * * *",
     periodMs: PERIOD_MS,
     nextRunAt: null,
     lastRun: null,
@@ -160,8 +160,8 @@ describe("WorkerSilenceBanner", () => {
   });
 
   it("uses the server periodMs verbatim — a longer period keeps the same age quiet", () => {
-    // Same 2.5x-of-15min age, but the family's resolved period is hourly:
-    // 37.5 min is well inside 2x60min, so no banner. Threshold math must
+    // Same 2.5x-of-30min age, but the family's resolved period is hourly:
+    // 75 min is well inside 2x60min, so no banner. Threshold math must
     // come from periodMs, never a hardcoded window.
     const family = makeFamily({
       family: "d6",
