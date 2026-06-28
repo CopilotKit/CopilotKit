@@ -60,7 +60,7 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
             @calls << [q, vars]
             sid = vars[:serviceId]
             if q.include?("serviceInstanceUpdate")
-                @pinned_by_service[sid] = vars[:image]
+                @pinned_by_service[sid] = vars.dig(:input, :source, :image)
                 { "serviceInstanceUpdate" => true }
             elsif q.include?("serviceInstanceDeployV2")
                 { "serviceInstanceDeployV2" => "dep-#{sid}" }
@@ -96,12 +96,12 @@ class PromoteSingleServiceFleetInvariantsTest < Minitest::Test
 
         def pinned_services
             @calls.select { |q, _| q.include?("serviceInstanceUpdate") }
-                  .map { |_, vars| [vars[:serviceId], vars[:image]] }
+                  .map { |_, vars| [vars[:serviceId], vars.dig(:input, :source, :image)] }
         end
 
         def pinned_image_for(service_id)
             row = @calls.find { |q, vars| q.include?("serviceInstanceUpdate") && vars[:serviceId] == service_id }
-            row && row[1][:image]
+            row && row[1].dig(:input, :source, :image)
         end
     end
 
