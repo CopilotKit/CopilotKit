@@ -59,6 +59,7 @@ touched.
 """
 
 import json
+import logging
 import os
 import uuid
 from typing import Annotated, Awaitable, Callable, List, Optional, Union
@@ -85,6 +86,9 @@ from llama_index.protocols.ag_ui.events import (
 from llama_index.protocols.ag_ui.router import AG_UI_EVENTS
 from llama_index.protocols.ag_ui.utils import timestamp, workflow_event_to_sse
 from llama_index.core.workflow.events import StopEvent
+
+
+logger = logging.getLogger(__name__)
 
 
 CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
@@ -183,12 +187,53 @@ class _A2UIRenderToolCallWorkflow(AGUIChatWorkflow):
         # inspect tool results or MESSAGES_SNAPSHOT). Frontend-tool results are
         # resolved on the client and must NOT be re-emitted here.
         for result in backend_tool_calls:
-            try:
-                render_args = json.loads(result.tool_output.content)
-            except (TypeError, ValueError):
-                render_args = None
+            content = result.tool_output.content
+            render_args = None
+            if isinstance(content, str):
+                try:
+                    render_args = json.loads(content)
+                except json.JSONDecodeError as exc:
+                    # A non-JSON backend result means the planner produced no
+                    # parseable surface; without this log a planner regression
+                    # presents as a blank UI with zero diagnostic trail.
+                    logger.warning(
+                        "a2ui_dynamic: backend tool %r returned non-JSON content "
+                        "(%s); no render_a2ui surface emitted. raw=%r",
+                        result.tool_name,
+                        exc,
+                        content,
+                    )
+            else:
+                logger.warning(
+                    "a2ui_dynamic: backend tool %r returned non-str content "
+                    "(type=%s); no render_a2ui surface emitted.",
+                    result.tool_name,
+                    type(content).__name__,
+                )
+
+            if isinstance(render_args, dict) and render_args.get("error"):
+                # `generate_a2ui` returns `{"error": ...}` when the planner LLM
+                # did not call the design tool. It parses as valid JSON but has
+                # no components, so it would otherwise be skipped silently.
+                logger.warning(
+                    "a2ui_dynamic: backend tool %r reported an error (%s); "
+                    "no render_a2ui surface emitted.",
+                    result.tool_name,
+                    render_args.get("error"),
+                )
+                continue
+
             if isinstance(render_args, dict) and render_args.get("components"):
                 _emit_render_a2ui_tool_call(ctx, render_args)
+            elif isinstance(render_args, dict):
+                # Valid JSON but no `components` — the middleware mounts nothing,
+                # so surface the empty/missing-components case for debugging.
+                logger.warning(
+                    "a2ui_dynamic: backend tool %r returned no components "
+                    "(keys=%s); no render_a2ui surface emitted.",
+                    result.tool_name,
+                    sorted(render_args.keys()),
+                )
 
         # --- upstream aggregate_tool_calls body (unchanged) ---
         new_tool_messages = [
