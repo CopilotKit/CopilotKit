@@ -162,12 +162,23 @@ export type ProbeDriver =
  * 2026-06-26 via the Railway GraphQL `environment.config` staged-config read:
  * BOTH envs carry `deploy.multiRegionConfig = {"us-west2":{"numReplicas":6}}`.
  *
- * This is a DECLARE-AND-VERIFY record. The tooling (`emit-railway-envs-json.ts`,
- * `bin/railway`) is VERIFY-ONLY with respect to the replica count — it does not
- * write replica counts to Railway. Applying a replica-count change is a MANUAL
- * operation (Railway Dashboard > Service > Settings > Replicas, which edits the
- * per-region `multiRegionConfig.us-west2.numReplicas`, or the Railway GraphQL
- * API). See `showcase/RAILWAY.md` for the manual procedure.
+ * This is a DECLARE-AND-RE-ASSERT record. `emit-railway-envs-json.ts` is
+ * VERIFY-ONLY (it reads/reports the replica count; it never writes it). But
+ * `bin/railway promote` now RE-ASSERTS this SSOT-declared `effectiveReplicas`
+ * count on every pin: when a service declares a count, the pin mutation sets
+ * `multiRegionConfig.us-west2.numReplicas` from `effectiveReplicas`, so a
+ * service whose live override silently drifted (the 6->1 trap) self-heals to the
+ * tracked count on the next promote. (This intentionally supersedes the earlier
+ * verify-only-for-promote contract; the verify-only guarantee now applies only
+ * to the emitter, not to promote.) The count is OMITTED entirely for services
+ * that declare none — promote NEVER forces a count on, or null-clears the region
+ * config of, a service it does not manage replicas for. CHANGING the declared
+ * count (vs. re-asserting the existing one) is still done by editing this SSOT
+ * value; the next promote propagates it. The manual Railway Dashboard / GraphQL
+ * path (Service > Settings > Replicas, which edits
+ * `multiRegionConfig.us-west2.numReplicas`) remains available as an out-of-band
+ * override but is no longer required for routine self-heal. See
+ * `showcase/RAILWAY.md` for the manual procedure.
  */
 export interface WorkerProvisioning {
   /**
