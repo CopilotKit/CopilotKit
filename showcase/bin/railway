@@ -802,27 +802,57 @@ module Railway
             }
         GQL
 
-        # Variant of UPDATE_IMAGE_MUTATION that ALSO re-asserts the SSOT
-        # healthcheckPath alongside source.image. Railway's
-        # ServiceInstanceUpdateInput accepts healthcheckPath next to source (see
-        # deploy-to-railway.ts / provision-starter-fleet.ts, which set it via the
-        # same mutation), and treats an absent input key as "leave as-is" — so a
-        # partial update of {source, healthcheckPath} is safe.
+        # Region key for the single-region us-west2 services whose effective
+        # replica count Railway honors via multiRegionConfig (NOT the top-level
+        # numReplicas mirror, which is non-authoritative for these services).
+        REPLICA_REGION = "us-west2"
+
+        # Build a serviceInstanceUpdate mutation + vars that re-asserts source
+        # .image and OPTIONALLY healthcheckPath and/or the SSOT replica count.
         #
-        # CRITICAL: this variant is used ONLY when the SSOT declares a path for
-        # the target service+env. When the SSOT has NO path (a live-null
-        # service), the caller uses the plain UPDATE_IMAGE_MUTATION above so the
-        # `healthcheckPath` key is OMITTED entirely — we MUST NOT send
-        # `healthcheckPath: null`, which would actively CLEAR it on Railway.
-        UPDATE_IMAGE_AND_HEALTHCHECK_MUTATION = <<~GQL
-            mutation UpdateImage($serviceId: String!, $envId: String!, $image: String!, $healthcheckPath: String!) {
-                serviceInstanceUpdate(
-                    serviceId: $serviceId
-                    environmentId: $envId
-                    input: { source: { image: $image }, healthcheckPath: $healthcheckPath }
-                )
-            }
-        GQL
+        # OMIT-DON'T-NULL discipline (same as healthcheckPath): a key is added to
+        # the input ONLY when its value is declared by the SSOT. serviceInstance
+        # Update is a partial PATCH — an absent key is left as-is, but a key sent
+        # as null actively CLEARS it.
+        #
+        # CRITICAL footgun (replicas): multiRegionConfig is input-only / non-
+        # queryable, so we CANNOT read-modify-write the live region object. We
+        # therefore set ONLY multiRegionConfig.<region>.numReplicas and add the
+        # region object ONLY for services the SSOT declares a count for — we
+        # NEVER send multiRegionConfig for other services (which could clobber
+        # their live region config), and we NEVER null any sibling region key.
+        # The top-level numReplicas mirror is deliberately NOT sent: for these
+        # single-region services Railway honors the multiRegionConfig override,
+        # and touching the mirror alone is exactly the partial-scale footgun that
+        # produced the 6->1 drift.
+        def self.build_update_image_mutation(healthcheck_path: nil, replicas: nil)
+            has_path     = !(healthcheck_path.nil? || healthcheck_path.to_s.empty?)
+            has_replicas = !replicas.nil?
+
+            var_defs    = ["$serviceId: String!", "$envId: String!", "$image: String!"]
+            input_parts = ["source: { image: $image }"]
+
+            if has_path
+                var_defs    << "$healthcheckPath: String!"
+                input_parts << "healthcheckPath: $healthcheckPath"
+            end
+            if has_replicas
+                var_defs    << "$numReplicas: Int!"
+                # Set numReplicas under the region key WITHOUT touching sibling
+                # region config (only this one nested key is sent).
+                input_parts << %(multiRegionConfig: { "#{REPLICA_REGION}": { numReplicas: $numReplicas } })
+            end
+
+            <<~GQL
+                mutation UpdateImage(#{var_defs.join(", ")}) {
+                    serviceInstanceUpdate(
+                        serviceId: $serviceId
+                        environmentId: $envId
+                        input: { #{input_parts.join(", ")} }
+                    )
+                }
+            GQL
+        end
 
         # serviceInstanceDeployV2 spawns a NEW deployment that pulls the current
         # source.image (just advanced by UPDATE_IMAGE_MUTATION) and returns the
@@ -1151,7 +1181,17 @@ module Railway
         # image-only mutation is used and the `healthcheckPath` key is OMITTED
         # entirely — we NEVER send `healthcheckPath: null` (which would actively
         # CLEAR it). This is the durable lever the SSOT-tracking change adds.
-        def self.pin_and_verify(gql, service_id:, env_id:, image:, healthcheck_path: nil, sleeper: ->(n) { sleep(n) })
+        #
+        # `replicas:` — the SSOT-declared effective replica count
+        # (workerProvisioning.<env>.effectiveReplicas) for this service+env, or
+        # nil when the SSOT declares NONE. When present, the pin mutation
+        # RE-ASSERTS multiRegionConfig.us-west2.numReplicas so a service whose
+        # effective override silently drifted (the 6->1 trap) self-heals to the
+        # tracked count on the next promote. When nil, multiRegionConfig is
+        # OMITTED entirely — we NEVER force a count on a service that doesn't
+        # declare one, and NEVER null sibling region config. Same self-heal
+        # discipline as healthcheck_path.
+        def self.pin_and_verify(gql, service_id:, env_id:, image:, healthcheck_path: nil, replicas: nil, sleeper: ->(n) { sleep(n) })
             # Upfront guard: this method's contract is to pin a DIGEST-form
             # image. Pre-fix, a stray tag ref would fall through to retries
             # (since expected_digest stayed nil and image_ok was always false)
@@ -1172,18 +1212,18 @@ module Railway
             pre_inst = pre_data && pre_data["serviceInstance"]
             pre_update_ts = pre_inst && pre_inst["updatedAt"]
 
-            # Re-assert the SSOT healthcheckPath alongside source.image ONLY when
-            # the SSOT declares one. A nil/empty path uses the image-only
-            # mutation so the healthcheckPath key is OMITTED (never sent as
-            # null, which would clear it) — a live-null service stays null.
-            if healthcheck_path.nil? || healthcheck_path.to_s.empty?
-                updated = gql.query(RestoreCommand::UPDATE_IMAGE_MUTATION,
-                    serviceId: service_id, envId: env_id, image: image)
-            else
-                updated = gql.query(RestoreCommand::UPDATE_IMAGE_AND_HEALTHCHECK_MUTATION,
-                    serviceId: service_id, envId: env_id, image: image,
-                    healthcheckPath: healthcheck_path)
-            end
+            # Re-assert the SSOT healthcheckPath and/or replica count alongside
+            # source.image ONLY when the SSOT declares them. Each undeclared key
+            # is OMITTED from the input (never sent as null, which would clear /
+            # clobber it). The mutation + vars are built dynamically so any
+            # combination of {image, healthcheckPath, replicas} is a faithful
+            # partial PATCH that touches only the declared keys.
+            mutation = RestoreCommand.build_update_image_mutation(
+                healthcheck_path: healthcheck_path, replicas: replicas)
+            update_vars = { serviceId: service_id, envId: env_id, image: image }
+            update_vars[:healthcheckPath] = healthcheck_path unless healthcheck_path.nil? || healthcheck_path.to_s.empty?
+            update_vars[:numReplicas] = replicas unless replicas.nil?
+            updated = gql.query(mutation, update_vars)
             unless updated && updated["serviceInstanceUpdate"] == true
                 raise MutationError,
                     "P5: serviceInstanceUpdate returned #{updated.inspect} (expected true) for #{service_id} -> #{image}"
@@ -1971,9 +2011,17 @@ module Railway
             # any other spawn-time failure should produce a clean REFUSE
             # rather than a raw stack trace bubbling up out of P3.
             begin
+                # --skip-ineligible: SKIP probe-ineligible services (probe.<env>
+                # =false, e.g. the domainless harness-workers queue worker)
+                # instead of hard-refusing them. This mirrors the merged CI fix
+                # (commit 160ba5a4aa, showcase_promote.yml passes the same flag);
+                # the local CLI path was missed. The flag does NOT relax green
+                # for eligible services, and an unknown/typo name is still a hard
+                # error inside verify-deploy.ts.
                 output = IO.popen(child_env, ["npx", "--yes", "tsx", probe_bin,
                     "--env", "staging",
                     "--services", services_arg,
+                    "--skip-ineligible",
                     err: [:child, :out]]) { |io| io.read }
             rescue Errno::ENOENT, StandardError => e
                 return { ok: false, summary: "staging probe failed to launch: #{e.class}: #{e.message}" }
@@ -2354,11 +2402,21 @@ module Railway
                     # pin_and_verify then OMITS the field rather than clearing it.
                     ssot_healthcheck = (ssot_service(svc["name"]) || {})
                         .dig("healthcheckPath", "prod")
+                    # Re-assert the SSOT-declared prod replica count on every
+                    # promote (Defect 1: the 6->1 trap). Read the effective count
+                    # (workerProvisioning.prod.effectiveReplicas, the value
+                    # Railway honors via multiRegionConfig.us-west2) from the
+                    # generated SSOT record; nil when the service declares none —
+                    # pin_and_verify then OMITS multiRegionConfig rather than
+                    # forcing a count on a service that doesn't declare one.
+                    ssot_replicas = (ssot_service(svc["name"]) || {})
+                        .dig("workerProvisioning", "prod", "effectiveReplicas")
                     PromoteCommand.pin_and_verify(gql,
                         service_id: pmatch["service_id"],
                         env_id: PRODUCTION_ENV_ID,
                         image: image,
-                        healthcheck_path: ssot_healthcheck)
+                        healthcheck_path: ssot_healthcheck,
+                        replicas: ssot_replicas)
                     puts "promoted #{svc['name']} -> #{image}"
                     already_pinned << svc["name"]
                 # Broadened rescue: a transient GraphQL or network error
