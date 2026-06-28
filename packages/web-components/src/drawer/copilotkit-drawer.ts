@@ -1,4 +1,5 @@
-import { LitElement, html, nothing, type PropertyValues } from "lit";
+import { LitElement, html, nothing } from "lit";
+import type { PropertyValues } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { classMap } from "lit/directives/class-map.js";
 import { drawerStyles } from "./styles";
@@ -36,6 +37,82 @@ function rowSlotName(id: string): string | null {
 }
 
 /**
+ * Inline row-action icons. The element is framework-agnostic Lit, so it cannot
+ * depend on a React icon library — these are the lucide `archive`,
+ * `archive-restore`, and `trash-2` glyphs inlined as SVG, drawn with
+ * `currentColor` so they inherit the button's themed color.
+ */
+const iconArchive = html`
+  <svg
+    class="row-action-icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <rect width="20" height="5" x="2" y="3" rx="1" />
+    <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+    <path d="M10 12h4" />
+  </svg>
+`;
+const iconUnarchive = html`
+  <svg
+    class="row-action-icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <rect width="20" height="5" x="2" y="3" rx="1" />
+    <path d="M4 8v11a2 2 0 0 0 2 2h2" />
+    <path d="M20 8v11a2 2 0 0 1-2 2h-2" />
+    <path d="m9 15 3-3 3 3" />
+    <path d="M12 12v9" />
+  </svg>
+`;
+const iconDelete = html`
+  <svg
+    class="row-action-icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M3 6h18" />
+    <path
+      d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+    />
+    <line x1="10" x2="10" y1="11" y2="17" />
+    <line x1="14" x2="14" y1="11" y2="17" />
+  </svg>
+`;
+const iconLauncher = html`
+  <svg
+    class="launcher-icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M9 3v18" />
+    <path d="m14 9 3 3-3 3" />
+  </svg>
+`;
+
+/**
  * `<copilotkit-drawer>` — a public, self-contained, controlled, framework-agnostic
  * threads drawer rendered into a shadow root.
  *
@@ -69,6 +146,7 @@ export class CopilotKitDrawer extends LitElement {
     _confirmingDeleteId: { state: true },
     _viewportIsMobile: { state: true },
     _hasMemories: { state: true },
+    _hasFooter: { state: true },
   };
 
   /** Inbound: thread records to render. The element re-orders/filters them. */
@@ -97,6 +175,7 @@ export class CopilotKitDrawer extends LitElement {
   private _confirmingDeleteId: string | null = null;
   private _viewportIsMobile = false;
   private _hasMemories = false;
+  private _hasFooter = false;
 
   private _mediaQuery: MediaQueryList | null = null;
   private readonly _onMediaChange = (event: MediaQueryListEvent) => {
@@ -204,6 +283,32 @@ export class CopilotKitDrawer extends LitElement {
     if (this._justRevealed.size > 0) {
       this._justRevealed = new Set<string>();
     }
+
+    this._syncNameClipping();
+  }
+
+  /**
+   * Marks each row whose name text is truncated with `name-clipped`, so the CSS
+   * shows the name tooltip ONLY when the full name isn't already visible (an
+   * always-on bubble over every row on hover would be noise). Measured after
+   * render because truncation depends on the laid-out width.
+   */
+  private _syncNameClipping(): void {
+    const names = this.renderRoot.querySelectorAll<HTMLElement>(".row-name");
+    names.forEach((name) => {
+      const text = name.querySelector<HTMLElement>(".row-name-text");
+      const clipped = !!text && text.scrollWidth > text.clientWidth;
+      name.classList.toggle("name-clipped", clipped);
+      // The z-index lift in styles.ts (`.row.name-clipped:hover`) targets the
+      // `.row` stacking context — each row creates its own via `transform`, so a
+      // tooltip anchored on `.row-name` is trapped inside it and paints under
+      // later rows unless the row itself is re-floated. Stamp the flag on the
+      // owning row too so that rule matches; the tooltip bubble stays scoped to
+      // `.row-name:hover`, so hovering a row-action never surfaces it.
+      name
+        .closest<HTMLElement>(".row")
+        ?.classList.toggle("name-clipped", clipped);
+    });
   }
 
   // --- View-state helpers ----------------------------------------------------
@@ -349,9 +454,28 @@ export class CopilotKitDrawer extends LitElement {
       collapsed: this.collapsed && !this._viewportIsMobile,
       mobile: this._viewportIsMobile,
       open: this.open,
+      // Suppresses row-action tooltips while the confirm dialog is open (the
+      // clicked trash button keeps :focus-visible/:hover otherwise).
+      confirming: this._confirmingDeleteId !== null,
     };
 
     return html`
+      ${
+        // Mobile open-affordance: when the drawer is a closed off-canvas modal,
+        // render its own floating launcher so there is always a way to open it
+        // on phones WITHOUT the host wiring a header button. Desktop (persistent
+        // sidebar) and the open state never show it.
+        this._viewportIsMobile && !this.open
+          ? html`<button
+            class="launcher"
+            part="launcher"
+            aria-label="Open threads"
+            @click=${() => this._setOpen(true)}
+          >
+            <slot name="launcher-icon">${iconLauncher}</slot>
+          </button>`
+          : nothing
+      }
       ${
         this._isMobileModalOpen()
           ? html`<button
@@ -428,7 +552,11 @@ export class CopilotKitDrawer extends LitElement {
     if (hasErrorMessage(this.error) && this.threads.length === 0) {
       return this._renderError();
     }
-    if (this.loading) return this._renderLoading();
+    // Full-panel loading only when there is nothing to show yet (initial fetch).
+    // A refetch (e.g. filter toggle Active<->All) keeps `loading` true while the
+    // list is already populated — keep showing the known threads rather than
+    // flashing the loading state over them.
+    if (this.loading && this.threads.length === 0) return this._renderLoading();
     return this._renderList();
   }
 
@@ -509,11 +637,21 @@ export class CopilotKitDrawer extends LitElement {
       revealed: justRevealed,
     };
     const slotName = rowSlotName(thread.id);
+    // A long thread name is clipped with an ellipsis. The full name is exposed
+    // via a tooltip styled to match the row-action tooltips (an instant primary
+    // bubble, NOT the native `title`), shown only when the name is actually
+    // truncated (`name-clipped`, toggled in `_syncNameClipping`). The name text
+    // lives in an inner span that owns the ellipsis, so the outer `.row-name`
+    // can host the tooltip pseudo-element without its own `overflow: hidden`
+    // clipping it.
     const nameSpan = html`<span
       class=${classMap(nameClasses)}
       part="row-name"
+      data-tooltip=${hasName ? thread.name : nothing}
     >
-      ${hasName ? thread.name : "New thread"}
+      <span class="row-name-text"
+        >${hasName ? thread.name : "New thread"}</span
+      >
     </span>`;
 
     return html`
@@ -542,36 +680,39 @@ export class CopilotKitDrawer extends LitElement {
             ? html`<button
               class="row-action"
               part="row-unarchive"
+              data-tooltip="Unarchive"
               aria-label=${`Unarchive thread ${thread.name ?? "New thread"}`}
               @click=${(e: Event) => {
                 e.stopPropagation();
                 this._emit("unarchive", { threadId: thread.id });
               }}
             >
-              Unarchive
+              ${iconUnarchive}
             </button>`
             : html`<button
               class="row-action"
               part="row-archive"
+              data-tooltip="Archive"
               aria-label=${`Archive thread ${thread.name ?? "New thread"}`}
               @click=${(e: Event) => {
                 e.stopPropagation();
                 this._emit("archive", { threadId: thread.id });
               }}
             >
-              Archive
+              ${iconArchive}
             </button>`
         }
         <button
           class="row-action danger"
           part="row-delete"
+          data-tooltip="Delete"
           aria-label=${`Delete thread ${thread.name ?? "New thread"}`}
           @click=${(e: Event) => {
             e.stopPropagation();
             this._confirmingDeleteId = thread.id;
           }}
         >
-          Delete
+          ${iconDelete}
         </button>
       </li>
     `;
@@ -618,9 +759,18 @@ export class CopilotKitDrawer extends LitElement {
   }
 
   private _renderFooter() {
+    // Reserved region — hidden until a consumer projects content into the
+    // `footer` slot. Without this gate the footer's top border + padding render
+    // as an empty box at the bottom of the drawer. Mirrors `_renderMemories`.
     return html`
-      <div class="footer" part="footer">
-        <slot name="footer"></slot>
+      <div class="footer" part="footer" ?hidden=${!this._hasFooter}>
+        <slot
+          name="footer"
+          @slotchange=${(e: Event) => {
+            const slot = e.target as HTMLSlotElement;
+            this._hasFooter = slot.assignedElements().length > 0;
+          }}
+        ></slot>
       </div>
     `;
   }
