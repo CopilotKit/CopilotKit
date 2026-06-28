@@ -103,6 +103,18 @@ module Railway
     # same SSOT as EXPECTED_DOMAINS so they cannot drift.
     STAGING_SERVICES = SSOT_DATA.fetch("services").map { |s| s.fetch("name") }.sort.freeze
 
+    # Names whose SSOT entry carries `probe.staging=false` — services that are
+    # promotable but INTENTIONALLY not live-probed on staging (e.g.
+    # harness-workers, a queue worker with no HTTP surface). P3 (the
+    # staging-live-green precondition) must treat these as N/A and skip them
+    # rather than handing them to verify-deploy.ts, which hard-errors on a
+    # `--services` entry that is not probe-eligible. Sourced from the same
+    # SSOT so eligibility cannot drift from the probe matrix the CI uses.
+    STAGING_PROBE_INELIGIBLE = SSOT_DATA.fetch("services").each_with_object([]) do |s, acc|
+        probe = s["probe"]
+        acc << s.fetch("name") if probe.is_a?(Hash) && probe["staging"] == false
+    end.sort.freeze
+
     # ── Token / Auth ───────────────────────────────────────────────────────────
 
     module Auth
@@ -1936,8 +1948,23 @@ module Railway
                 puts "P3 SKIPPED (--no-require-staging-green set; staging is NOT being live-re-probed)."
                 return []
             end
-            services = (staging["services"] || []).map { |s| s["name"] }.compact.uniq
+            all_services = (staging["services"] || []).map { |s| s["name"] }.compact.uniq
+            return [] if all_services.empty?
+
+            # Drop services the SSOT marks probe.staging=false. These are
+            # promotable but have no staging surface to live-probe (e.g.
+            # harness-workers); handing them to verify-deploy.ts would crash
+            # it ("not probe-eligible for env staging"), which previously
+            # REFUSEd the promote and gated every later tier. Skip them as N/A
+            # — eligibility for the services that DO carry a probe is
+            # unchanged, so P3 still gates real services.
+            ineligible = all_services & STAGING_PROBE_INELIGIBLE
+            ineligible.each do |name|
+                puts "P3 N/A (#{name}): not staging-probe-eligible (probe.staging=false in SSOT) — skipped."
+            end
+            services = all_services - ineligible
             return [] if services.empty?
+
             result = run_staging_probe(services: services)
             return [] if result[:ok]
             ["REFUSE: P3: staging is not green for #{services.join(', ')}: #{result[:summary]}"]
