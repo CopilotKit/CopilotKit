@@ -630,8 +630,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Summarize' button — narrowed from bare 'summarize' to 'Summarize the sales pipeline' (verbatim D4 toolbar probe), matching langgraph-python parity. The prior bare 'summarize' substring-matched the D6 gen-ui-agent pill 'Research our top competitor and summarize their strengths and weaknesses.' and returned this sales-pipeline text instead of the gen-ui-agent set_steps fixture, so the competitor pill produced no/duplicate steps. 'Summarize the sales pipeline' is unique to the D4 toolbar probe.",
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the sales pipeline",
         "context": "llamaindex"
       },
       "response": {
