@@ -266,8 +266,10 @@
       }
     },
     {
+      "_comment": "Chat-demo weather pill — emit get_weather. toolName gate added so the bare 'weather' substring only fires when the requesting agent actually registers get_weather. Without it, the tool-free voice agent's prompt 'What is the weather in Tokyo?' (substring 'weather') leaked into this fixture, emitting a get_weather call the voice agent could never resolve → the voice cell hung (done-signal-missing). Mirrors the toolName gate used by d6 tool-rendering.json's get_weather fixture.",
       "match": {
         "userMessage": "weather",
+        "toolName": "get_weather",
         "hasToolResult": false,
         "context": "llamaindex"
       },
