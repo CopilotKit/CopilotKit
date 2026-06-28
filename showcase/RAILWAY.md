@@ -318,6 +318,12 @@ live staged config now reads `6` in both envs.
 - `workerProvisioning.{prod,staging}.HARNESS_POOL_COUNT` — INFORMATIONAL ONLY;
   records what the `HARNESS_POOL_COUNT` env var is set to on Railway for audit
   visibility. Never use this as a worker count or fork factor.
+- `workerProvisioning.{prod,staging}.overlapSeconds` — deploy-rollover capacity
+  floor (= Railway `serviceInstance.overlapSeconds`, env mirror
+  `RAILWAY_DEPLOYMENT_OVERLAP_SECONDS`). See **Deploy rollover** below.
+- `workerProvisioning.{prod,staging}.drainingSeconds` — graceful-drain window
+  (= Railway `serviceInstance.drainingSeconds`, env mirror
+  `RAILWAY_DEPLOYMENT_DRAINING_SECONDS`). See **Deploy rollover** below.
 
 ### Applying a replica count change (MANUAL)
 
@@ -337,6 +343,72 @@ counts to Railway. To change the replica count:
 The CI drift gate (`showcase/scripts/__tests__/harness-workers-provisioning.test.ts`)
 will fail if `railway-envs.ts` and `railway-envs.generated.json` disagree on
 `effectiveReplicas`, catching a forgotten regeneration step.
+
+### Deploy rollover (overlap + draining)
+
+A `harness-workers` redeploy is the moment the staleness dip + cut-short worker
+drains used to happen. Two Railway service settings — **pure config, no custom
+rolling-restart code** — make a rollover non-lossy (no dip) and let the shipped
+graceful worker drain finish. Both are tracked in the SSOT
+(`workerProvisioning.{prod,staging}.overlapSeconds` / `.drainingSeconds`) and
+guarded by the same drift gate as the replica count.
+
+| Setting           | Railway field (env mirror)                                                | Value | What it does                                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `overlapSeconds`  | `serviceInstance.overlapSeconds` (`RAILWAY_DEPLOYMENT_OVERLAP_SECONDS`)   | `45`  | Capacity floor: keep the OLD deployment serving for 45s after the NEW one goes Active, so the live worker count never dips while new workers boot, register on the roster, and start claiming. |
+| `drainingSeconds` | `serviceInstance.drainingSeconds` (`RAILWAY_DEPLOYMENT_DRAINING_SECONDS`) | `180` | Graceful-drain window: the SIGTERM→SIGKILL budget the platform grants a draining worker before hard-killing it.                                                                                |
+
+**Rationale.**
+
+- **`overlapSeconds = 45`** holds the capacity floor: a new worker is not useful
+  the instant its container is Active — it must boot, register its roster row,
+  and start claiming. Overlapping the old deployment for 45s bridges that window
+  so there is no observable staleness dip during a rollover.
+- **`drainingSeconds = 180`** is set to `PLATFORM_STOP_GRACE_MS` (180s, defined
+  in `showcase/harness/src/fleet/worker/worker-loop.ts`) so the shipped composed
+  worker-drain budget fits under the platform kill: `DRAIN_DEREGISTER_TIMEOUT_MS`
+  (3s roster-delete cap) + `DEFAULT_WORKER_DRAIN_GRACE_MS` (90s finish-and-report
+  grace, layer b) + the small serial teardown remainder, all `< 180s`. The
+  Railway default is `0s` (the field is `null` → `0`, confirmed via the live
+  config read) — i.e. an effectively immediate SIGKILL after SIGTERM, which would
+  cut the 90s drain short and abandon the in-flight cell; at 180s the worker
+  finishes and reports its in-flight cell instead.
+  Keep this `≥ PLATFORM_STOP_GRACE_MS`; if the layer-(b) grace is retuned, raise
+  this in lockstep (the composed-budget test in `worker-loop.test.ts` is the
+  source of truth for the relation).
+
+**Composition with the drain layers** (full rationale in the
+`PLATFORM_STOP_GRACE_MS` / `DEFAULT_WORKER_DRAIN_GRACE_MS` docs in
+`worker-loop.ts`):
+
+- **Layer (a)** — reaper backstop: a worker that genuinely overruns the 90s grace
+  is abandoned; its lease lapses and the control-plane sweeper re-queues the cell
+  neutral-gray. `drainingSeconds` does not change this — it is the long-tail
+  fallback.
+- **Layer (b)** — graceful drain: on SIGTERM the worker STOPS CLAIMING, lets its
+  in-flight cell FINISH within the 90s grace, and REPORTS its real terminal
+  result. `drainingSeconds = 180` is the platform-side budget that lets layer (b)
+  actually complete.
+- **Layer (c)** — this config: `overlapSeconds` removes the dip; `drainingSeconds`
+  hosts the drain. No code — it is the two service settings alone.
+
+**Applying (MANUAL).** Like the replica count, the emitter/`bin/railway` tooling
+is **verify-only** for these fields. To apply or change them:
+
+1. Edit `overlapSeconds` / `drainingSeconds` in `railway-envs.ts` (SSOT) for the
+   env(s).
+2. Regenerate: `npx tsx showcase/scripts/emit-railway-envs-json.ts`, commit both
+   files.
+3. Apply to Railway manually, via EITHER:
+   - **GraphQL** — `serviceInstanceUpdate(serviceId, environmentId, input: { overlapSeconds: 45, drainingSeconds: 180 })`;
+     both fields are `Int` on `ServiceInstanceUpdateInput`.
+   - **Dashboard** — Service > Settings, the deploy **Teardown**/overlap card (or
+     set the `RAILWAY_DEPLOYMENT_OVERLAP_SECONDS` / `RAILWAY_DEPLOYMENT_DRAINING_SECONDS`
+     service variables).
+
+The CI drift gate also asserts `overlapSeconds` and `drainingSeconds` match
+between `railway-envs.ts` and `railway-envs.generated.json`, catching a forgotten
+regeneration.
 
 ## Environment IDs
 

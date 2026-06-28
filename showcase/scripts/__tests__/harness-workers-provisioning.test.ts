@@ -90,6 +90,27 @@ describe("harness-workers provisioning SSOT", () => {
     expect(stagingProv?.BROWSER_POOL_MAX_CONTEXTS).toBe(40);
   });
 
+  it("overlapSeconds = 45 for both envs (deploy-rollover capacity floor, layer c)", () => {
+    // RAILWAY_DEPLOYMENT_OVERLAP_SECONDS — keep the old deployment serving until
+    // the new one is Active so the capacity floor holds across a rollover (no
+    // staleness dip). See showcase/RAILWAY.md "Deploy rollover".
+    const prodProv = workerProvisioningFor("harness-workers", "prod");
+    const stagingProv = workerProvisioningFor("harness-workers", "staging");
+    expect(prodProv?.overlapSeconds).toBe(45);
+    expect(stagingProv?.overlapSeconds).toBe(45);
+  });
+
+  it("drainingSeconds = 180 for both envs (graceful-drain window, ≥ PLATFORM_STOP_GRACE_MS)", () => {
+    // RAILWAY_DEPLOYMENT_DRAINING_SECONDS — the SIGTERM→SIGKILL window. Sized to
+    // host the shipped composed worker-drain budget (layer b: 3s deregister cap +
+    // 90s finish-and-report grace + teardown remainder, all < PLATFORM_STOP_GRACE_MS
+    // = 180s). See showcase/RAILWAY.md "Deploy rollover".
+    const prodProv = workerProvisioningFor("harness-workers", "prod");
+    const stagingProv = workerProvisioningFor("harness-workers", "staging");
+    expect(prodProv?.drainingSeconds).toBe(180);
+    expect(stagingProv?.drainingSeconds).toBe(180);
+  });
+
   it("HARNESS_POOL_COUNT is recorded as informational only — NOT used as a fork factor", () => {
     // The worker boots 1 process per replica (keyed on HOSTNAME). HARNESS_POOL_COUNT
     // is forwarded to each worker as a control-plane hint but NEVER forks additional
@@ -198,6 +219,66 @@ describe("harness-workers provisioning drift gate (SSOT vs generated JSON snapsh
     const ssotStaging = workerProvisioningFor("harness-workers", "staging");
     expect(ssotStaging?.BROWSER_POOL_MAX_CONTEXTS).toBe(
       snapshotEntry?.workerProvisioning?.staging?.BROWSER_POOL_MAX_CONTEXTS,
+    );
+  });
+
+  it("SSOT prod overlapSeconds matches committed generated JSON snapshot", () => {
+    const snapshot = loadGeneratedSnapshot();
+    const snapshotEntry = snapshot.services.find(
+      (s) => s.name === "harness-workers",
+    );
+    const ssotProd = workerProvisioningFor("harness-workers", "prod");
+    expect(
+      snapshotEntry?.workerProvisioning?.prod?.overlapSeconds,
+      "workerProvisioning.prod.overlapSeconds missing from generated JSON snapshot",
+    ).not.toBeUndefined();
+    expect(ssotProd?.overlapSeconds).toBe(
+      snapshotEntry?.workerProvisioning?.prod?.overlapSeconds,
+    );
+  });
+
+  it("SSOT staging overlapSeconds matches committed generated JSON snapshot", () => {
+    const snapshot = loadGeneratedSnapshot();
+    const snapshotEntry = snapshot.services.find(
+      (s) => s.name === "harness-workers",
+    );
+    const ssotStaging = workerProvisioningFor("harness-workers", "staging");
+    expect(
+      snapshotEntry?.workerProvisioning?.staging?.overlapSeconds,
+      "workerProvisioning.staging.overlapSeconds missing from generated JSON snapshot",
+    ).not.toBeUndefined();
+    expect(ssotStaging?.overlapSeconds).toBe(
+      snapshotEntry?.workerProvisioning?.staging?.overlapSeconds,
+    );
+  });
+
+  it("SSOT prod drainingSeconds matches committed generated JSON snapshot", () => {
+    const snapshot = loadGeneratedSnapshot();
+    const snapshotEntry = snapshot.services.find(
+      (s) => s.name === "harness-workers",
+    );
+    const ssotProd = workerProvisioningFor("harness-workers", "prod");
+    expect(
+      snapshotEntry?.workerProvisioning?.prod?.drainingSeconds,
+      "workerProvisioning.prod.drainingSeconds missing from generated JSON snapshot",
+    ).not.toBeUndefined();
+    expect(ssotProd?.drainingSeconds).toBe(
+      snapshotEntry?.workerProvisioning?.prod?.drainingSeconds,
+    );
+  });
+
+  it("SSOT staging drainingSeconds matches committed generated JSON snapshot", () => {
+    const snapshot = loadGeneratedSnapshot();
+    const snapshotEntry = snapshot.services.find(
+      (s) => s.name === "harness-workers",
+    );
+    const ssotStaging = workerProvisioningFor("harness-workers", "staging");
+    expect(
+      snapshotEntry?.workerProvisioning?.staging?.drainingSeconds,
+      "workerProvisioning.staging.drainingSeconds missing from generated JSON snapshot",
+    ).not.toBeUndefined();
+    expect(ssotStaging?.drainingSeconds).toBe(
+      snapshotEntry?.workerProvisioning?.staging?.drainingSeconds,
     );
   });
 });

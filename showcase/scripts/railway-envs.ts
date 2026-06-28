@@ -208,6 +208,38 @@ export interface WorkerProvisioning {
    * operational visibility / config-audit purposes.
    */
   HARNESS_POOL_COUNT?: number;
+  /**
+   * DEPLOY-ROLLOVER CAPACITY FLOOR (seconds) — the Railway
+   * `serviceInstance.overlapSeconds` setting (env mirror
+   * `RAILWAY_DEPLOYMENT_OVERLAP_SECONDS`). Railway keeps the OLD deployment
+   * serving for this many seconds after the NEW deployment goes Active, so the
+   * live worker count never dips during a rollover (no staleness dip while new
+   * workers boot, register on the roster, and start claiming). This is PURE
+   * RAILWAY CONFIG — there is no custom rolling-restart code; the mechanism is
+   * the service setting alone. Composes with the layer-(b) graceful drain
+   * (`DEFAULT_WORKER_DRAIN_GRACE_MS`) and the layer-(a) reaper backstop. See
+   * `showcase/RAILWAY.md` "Deploy rollover" for the rationale and how to apply
+   * it (GraphQL `serviceInstanceUpdate` / dashboard). DECLARE-AND-VERIFY: the
+   * tooling is verify-only with respect to this field; applying it is a manual
+   * Railway operation.
+   */
+  overlapSeconds?: number;
+  /**
+   * GRACEFUL-DRAIN WINDOW (seconds) — the Railway
+   * `serviceInstance.drainingSeconds` setting (env mirror
+   * `RAILWAY_DEPLOYMENT_DRAINING_SECONDS`): the SIGTERM→SIGKILL window the
+   * platform grants a draining worker before hard-killing it. Sized to HOST the
+   * shipped composed worker-drain budget (layer b): the 3s deregister cap
+   * (`DRAIN_DEREGISTER_TIMEOUT_MS`) + the 90s finish-and-report grace
+   * (`DEFAULT_WORKER_DRAIN_GRACE_MS`) + the small serial teardown remainder, all
+   * of which must fit under `PLATFORM_STOP_GRACE_MS` (180s). Keeping this ≥
+   * `PLATFORM_STOP_GRACE_MS` lets a worker finish and report its in-flight cell
+   * before the kill instead of having the drain cut short. PURE RAILWAY CONFIG
+   * (no custom code). See `showcase/RAILWAY.md` "Deploy rollover" + the
+   * `PLATFORM_STOP_GRACE_MS` doc in `worker-loop.ts` (the C3 requirement). If the
+   * layer-(b) grace is retuned, raise this in lockstep.
+   */
+  drainingSeconds?: number;
 }
 
 /**
@@ -705,6 +737,13 @@ export const SERVICES: Record<
         BROWSER_POOL_MAX_CONTEXTS: 40,
         // INFORMATIONAL ONLY — not a fork factor.
         HARNESS_POOL_COUNT: 3,
+        // DEPLOY ROLLOVER (layer c) — pure Railway config, no rolling-restart code.
+        // overlap=45s holds the capacity floor (old deployment serves until new
+        // workers register+claim); draining=180s ≥ PLATFORM_STOP_GRACE_MS so the
+        // 3s+90s composed worker-drain (layer b) completes before SIGKILL. See
+        // showcase/RAILWAY.md "Deploy rollover".
+        overlapSeconds: 45,
+        drainingSeconds: 180,
       },
       staging: {
         // EFFECTIVE = multiRegionConfig.us-west2.numReplicas (Railway honors this).
@@ -715,6 +754,13 @@ export const SERVICES: Record<
         // INFORMATIONAL ONLY — not a fork factor. Live staging value is 2
         // (verified via the variables read); it does not gate the worker count.
         HARNESS_POOL_COUNT: 2,
+        // DEPLOY ROLLOVER (layer c) — pure Railway config, no rolling-restart code.
+        // overlap=45s holds the capacity floor (old deployment serves until new
+        // workers register+claim); draining=180s ≥ PLATFORM_STOP_GRACE_MS so the
+        // 3s+90s composed worker-drain (layer b) completes before SIGKILL. See
+        // showcase/RAILWAY.md "Deploy rollover".
+        overlapSeconds: 45,
+        drainingSeconds: 180,
       },
     },
   },
