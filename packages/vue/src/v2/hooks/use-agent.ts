@@ -341,5 +341,15 @@ export function useAgent(props: UseAgentProps = {}) {
     { immediate: true },
   );
 
-  return { agent };
+  const isReady = computed(() => {
+    const core = copilotkit.value;
+    const id = agentId.value;
+    return (
+      core.getAgent(id) !== undefined ||
+      core.runtimeConnectionStatus ===
+        CopilotKitCoreRuntimeConnectionStatus.Connected
+    );
+  });
+
+  return { agent, isReady };
 }
