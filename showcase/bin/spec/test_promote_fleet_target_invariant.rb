@@ -55,7 +55,7 @@ class PromoteFleetTargetInvariantTest < Minitest::Test
             @calls << [q, vars]
             sid = vars[:serviceId]
             if q.include?("serviceInstanceUpdate")
-                @pinned_by_service[sid] = vars[:image]
+                @pinned_by_service[sid] = vars.dig(:input, :source, :image)
                 { "serviceInstanceUpdate" => true }
             elsif q.include?("serviceInstanceDeployV2")
                 { "serviceInstanceDeployV2" => "dep-#{sid}" }
@@ -91,7 +91,7 @@ class PromoteFleetTargetInvariantTest < Minitest::Test
 
         def pinned_services
             @calls.select { |q, _| q.include?("serviceInstanceUpdate") }
-                  .map { |_, vars| [vars[:serviceId], vars[:image]] }
+                  .map { |_, vars| [vars[:serviceId], vars.dig(:input, :source, :image)] }
         end
     end
 
