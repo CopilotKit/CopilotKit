@@ -318,7 +318,11 @@ async def generate_a2ui(
                     "trend: up|down|neutral), InfoRow (label, value), "
                     "PrimaryButton (label, action?), PieChart (title, "
                     "description, data: [{label, value}]), BarChart (title, "
-                    "description, data: [{label, value}]). Basic primitives "
+                    "description, data: [{label, value}]), DataTable (columns: "
+                    "[{key, label}], rows: [{<key>: string|number}]; row keys "
+                    "must match columns[].key — ideal for rankings and "
+                    "per-person/per-item breakdowns like rep performance vs "
+                    "quota). Basic primitives "
                     "(Column, Row, Text, Image, Card, Button) are also "
                     "available. The root component id must be 'root'."
                 ),
