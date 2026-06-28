@@ -28,9 +28,11 @@ const mod = await import("@copilotkit/aimock");
 
 // Preferred path: load + validate the fixture file, then start a server bound to it.
 // The exact factory name is the main thing to confirm; we try the documented ones.
+// Confirmed exports in @copilotkit/aimock@1.19.1: LLMock, loadFixtureFile,
+// validateFixtures, createServer. LLMock is the OpenAI-shape mock server.
 const loadFixtureFile = mod.loadFixtureFile ?? mod.default?.loadFixtureFile;
 const validateFixtures = mod.validateFixtures ?? mod.default?.validateFixtures;
-const ServerCtor = mod.LLMock ?? mod.AIMock ?? mod.MockServer ?? mod.default?.LLMock;
+const ServerCtor = mod.LLMock ?? mod.default?.LLMock;
 
 if (!ServerCtor) {
   console.error(
