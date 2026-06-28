@@ -146,12 +146,16 @@ class _A2UIRenderToolCallWorkflow(AGUIChatWorkflow):
 
     Only ``aggregate_tool_calls`` is overridden. The override re-applies
     ``@step`` (a plain override drops the method from llama-index's step
-    registry) and reproduces the upstream body byte-for-byte — preserving the
-    ``MESSAGES_SNAPSHOT`` history update and the loop/stop control flow — with a
-    single addition: it parses each backend tool result (the planner's
-    ``render_a2ui`` args carrying ``components``) and streams a discrete
-    ``render_a2ui`` tool-CALL. This mirrors how google-adk drives the middleware
-    without altering any other adapter behaviour.
+    registry) and is functionally equivalent to upstream
+    llama-index-protocols-ag-ui 0.2.2 ``aggregate_tool_calls`` (verified; two
+    cosmetic differences — an ``Optional`` type hint and a list comprehension —
+    both behaviorally identical), with one additive step that re-emits backend
+    results as a streamed ``render_a2ui`` tool-CALL — preserving the
+    ``MESSAGES_SNAPSHOT`` history update and the loop/stop control flow. It
+    parses each backend tool result (the planner's ``render_a2ui`` args carrying
+    ``components``) and streams a discrete ``render_a2ui`` tool-CALL. This
+    mirrors how google-adk drives the middleware without altering any other
+    adapter behaviour.
     """
 
     @step
