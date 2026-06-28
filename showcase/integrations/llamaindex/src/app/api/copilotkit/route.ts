@@ -39,7 +39,6 @@ const sharedAgentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "frontend_tools",
-  "frontend_tools_async",
   "prebuilt_sidebar",
   "prebuilt_popup",
   "chat_slots",
@@ -51,7 +50,6 @@ const sharedAgentNames = [
   // Hyphenated aliases matching what the demo pages actually request
   // (mirrors langgraph-python's naming). The underscore names above are
   // kept as additive aliases.
-  "frontend-tools-async",
   "prebuilt-sidebar",
   "prebuilt-popup",
   "chat-slots",
@@ -76,6 +74,12 @@ const specializedAgents: Record<string, string> = {
   "shared-state-read-write": "/shared-state-read-write",
   "gen-ui-agent": "/gen-ui-agent",
   "gen-ui-tool-based": "/gen-ui-tool-based",
+  // frontend-tools-async injects an async `query_notes` useFrontendTool at
+  // request time; its dedicated router (make_request_aware_router) forwards
+  // injected tools, which the shared FixedAGUIChatWorkflow catch-all does not.
+  // Both the hyphenated (page-requested) and underscore (alias) ids route here.
+  "frontend-tools-async": "/frontend-tools-async",
+  frontend_tools_async: "/frontend-tools-async",
   "beautiful-chat": "/beautiful-chat",
   hitl_in_app: "/hitl-in-app",
   // Hyphenated names the hitl demo pages actually request. Both route to
