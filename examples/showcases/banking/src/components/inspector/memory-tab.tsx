@@ -133,7 +133,10 @@ export function MemoryTab() {
   }, [headers]);
 
   // Fetch on mount + a slow backstop poll for rare out-of-band changes.
+  // fetchList is async — it setStates only after `await fetch`, so there is no
+  // synchronous cascading render (what the rule guards against).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch; setState is post-await
     fetchList().catch(() => {});
     const handle = window.setInterval(() => fetchList().catch(() => {}), BACKSTOP_POLL_MS);
     return () => window.clearInterval(handle);
@@ -141,6 +144,7 @@ export function MemoryTab() {
 
   // Event-driven refresh: re-fetch the instant a memory tool-call streams in.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch; setState is post-await
     if (memoryEventCount > 0) fetchList().catch(() => {});
   }, [memoryEventCount, fetchList]);
 
