@@ -50,7 +50,7 @@ export const FRONTEND_OPTIONS: readonly FrontendOption[] = [
     id: "teams",
     name: "Teams",
     icon: "teams",
-    summary: "Microsoft Teams bot quickstart and local DevTools setup.",
+    summary: "Microsoft Teams bot quickstart with the M365 Agents Playground.",
   },
 ] as const;
 

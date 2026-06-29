@@ -341,14 +341,21 @@ describe("cookbook nav", () => {
 });
 
 describe("framework nav", () => {
-  it("loads early-access frontmatter for gated platform guides", () => {
+  it("leaves Slack and Teams platform guides ungated", () => {
     const slack = loadDoc("frontends/slack")?.fm;
     const teams = loadDoc("frontends/teams")?.fm;
 
-    expect(slack?.earlyAccess).toBe("slack");
+    expect(slack?.earlyAccess).toBeUndefined();
     expect(slack?.hideTOC).toBe(true);
-    expect(teams?.earlyAccess).toBe("teams");
+    expect(teams?.earlyAccess).toBeUndefined();
     expect(teams?.hideTOC).toBe(true);
+  });
+
+  it("loads early-access frontmatter for gated platform guides", () => {
+    const whatsapp = loadDoc("frontends/whatsapp")?.fm;
+
+    expect(whatsapp?.earlyAccess).toBe("whatsapp");
+    expect(whatsapp?.hideTOC).toBe(true);
   });
 
   it("keeps frontend platform guides out of generated framework nav", () => {

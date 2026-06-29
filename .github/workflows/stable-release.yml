@@ -13,6 +13,7 @@ on:
           - bot
           - bot-discord
           - bot-slack
+          - bot-teams
           - bot-telegram
           - bot-whatsapp
       bump:

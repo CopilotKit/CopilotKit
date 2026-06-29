@@ -65,6 +65,29 @@ _assert_stub_sentinel_logged() {
     || fail "sentinel 'docker version' invocation not logged — stub/DOCKER_LOG pipeline broken: $(cat "$DOCKER_LOG")"
 }
 
+# _seed_live_owner <slot-dir> [pid] — record a LIVE, start-time-VERIFIED owner
+# in <slot-dir>: write the pid file AND a matching pid.start (the new
+# anti-PID-reuse fingerprint). Under the post-Change-1 owner contract a bare
+# `pid` file with NO pid.start is "unverifiable" (treated as dead), so every
+# fixture that wants a slot to read `live` via its owning PID must seed BOTH
+# files — that is what this helper does. Defaults to $$ (the bats process,
+# definitely alive). The pid.start is produced by the SAME _pid_start_time
+# helper the classifier reads, so the recorded and current values match. The
+# pid file is written FIRST (preserving the claim-time write order the
+# classifier's "missing pid ⇒ owner gone" signal relies on).
+#
+# NB: this sources _common.sh into the CURRENT shell to reach _pid_start_time.
+# Tests that have already run load_common are unaffected; tests that have not
+# get a harmless extra source (the path vars are re-pointed by load_common).
+_seed_live_owner() {
+  local slotdir="${1:?slot dir required}"
+  local pid="${2:-$$}"
+  # shellcheck disable=SC1090
+  type _pid_start_time >/dev/null 2>&1 || source "$COMMON"
+  echo "$pid" > "$slotdir/pid"
+  _pid_start_time "$pid" > "$slotdir/pid.start"
+}
+
 setup() {
   COMMON="$BATS_TEST_DIRNAME/../cli/_common.sh"
 
@@ -254,6 +277,31 @@ load_common() {
   [ -d "$ISOLATE_TMPDIR" ] || fail "run dir not created: $ISOLATE_TMPDIR"
 }
 
+@test "apply_isolation stamps the com.copilotkit.showcase.isolate label on every service" {
+  # The forward-stack self-id label is what lets `showcase reap` identify a
+  # harness-owned isolated project even when its slot record + run dir are both
+  # gone (a user-supplied --isolate <name> orphan). Drive the REAL rewrite and
+  # assert the label landed on the (only) service, right under its rewritten
+  # container_name, as a compose-native labels: block.
+  require_python3
+  load_common
+  apply_isolation foo
+  local rewritten="$ISOLATE_TMPDIR/docker-compose.local.yml"
+  [ -f "$rewritten" ] || fail "rewritten compose not created: $rewritten"
+  grep -q 'com.copilotkit.showcase.isolate: "1"' "$rewritten" \
+    || fail "self-id label not stamped into the rewritten compose:
+$(cat "$rewritten")"
+  # The label must sit under a labels: block, not be orphaned at the wrong
+  # indent — assert the labels: key is present too.
+  grep -q '^    labels:$' "$rewritten" \
+    || fail "labels: block missing/mis-indented in the rewritten compose:
+$(cat "$rewritten")"
+  # And it never touched the source compose (originals stay pristine).
+  grep -q 'com.copilotkit.showcase.isolate' "$SHOWCASE_ROOT/docker-compose.local.yml" \
+    && fail "source compose was mutated with the label (must rewrite a COPY only)"
+  return 0
+}
+
 # ── Change 2: stale-slot reaping by compose-project liveness ─────────────────
 
 @test "claim reaps a slot whose project has no live containers and no live owning PID" {
@@ -315,7 +363,7 @@ load_common() {
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/0"
   echo "racer-proj" > "$slots/0/project"
-  echo "$$" > "$slots/0/pid"   # this bats process — definitely alive
+  _seed_live_owner "$slots/0"   # this bats process — definitely alive (pid + pid.start)
 
   export DOCKER_PS_OUTPUT=""   # no containers yet (still building)
   _claim_isolate_slot
@@ -867,6 +915,42 @@ load_common() {
   [ "$status" -ne 0 ] || fail "keep path composed the kept stack down: $output"
 }
 
+# The survival notice's human-readable hours must track ISOLATE_KEEP_TTL, not a
+# hardcoded "(4h)". SHOWCASE_ISOLATE_KEEP_TTL is read at source time, so it must
+# be exported BEFORE load_common sources _common.sh.
+@test "survival notice's human-readable hours track an overridden ISOLATE_KEEP_TTL (not a stale (4h))" {
+  require_python3
+  export SHOWCASE_ISOLATE_KEEP_TTL=7200   # 2h, not the 4h default
+  load_common
+  [ "$ISOLATE_KEEP_TTL" = 7200 ] || fail "precondition: TTL override not picked up, got '$ISOLATE_KEEP_TTL'"
+  apply_isolation keepttl
+
+  ISOLATE_KEEP=true
+  run restore_isolation
+  [ "$status" -eq 0 ] || fail "restore_isolation failed under keep: $output"
+
+  # The seconds value must reflect the override.
+  [[ "$output" == *"7200s"* ]] || fail "notice missing overridden TTL seconds: $output"
+  # And the parenthetical hours must NOT contradict it with a stale 4h.
+  [[ "$output" != *"(4h)"* ]] || fail "notice still says (4h) for a 2h TTL: $output"
+  # The computed hours should read sensibly (2h here).
+  [[ "$output" == *"(2h)"* ]] || fail "notice missing computed (2h): $output"
+}
+
+@test "survival notice reads sensibly at the default ISOLATE_KEEP_TTL (4h)" {
+  require_python3
+  load_common
+  [ "$ISOLATE_KEEP_TTL" = 14400 ] || fail "precondition: expected default TTL 14400, got '$ISOLATE_KEEP_TTL'"
+  apply_isolation keepdef
+
+  ISOLATE_KEEP=true
+  run restore_isolation
+  [ "$status" -eq 0 ] || fail "restore_isolation failed under keep: $output"
+
+  [[ "$output" == *"14400s"* ]] || fail "notice missing default TTL seconds: $output"
+  [[ "$output" == *"(4h)"* ]] || fail "notice missing default (4h): $output"
+}
+
 # ── Change 4: a FAILED apply_isolation must never down the default stack ─────
 #
 # cmd-test.sh registers `trap restore_isolation EXIT` BEFORE calling
@@ -1073,7 +1157,7 @@ load_common() {
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/0"
   echo "dupename" > "$slots/0/project"
-  echo "$$" > "$slots/0/pid"
+  _seed_live_owner "$slots/0"
 
   export DOCKER_PS_OUTPUT=""   # zero containers (still building) — PID protects
   run apply_isolation dupename
@@ -1117,7 +1201,7 @@ load_common() {
   # Winner: slot 0 already holds 'dup' (live owning PID) plus its run dir.
   mkdir -p "$slots/0"
   echo "dup" > "$slots/0/project"
-  echo "$$" > "$slots/0/pid"
+  _seed_live_owner "$slots/0"
   mkdir -p "$base/runs/dup"
   touch "$base/runs/dup/docker-compose.local.yml"
   export DOCKER_PS_OUTPUT=""   # zero containers (still building) — PID protects
@@ -1177,7 +1261,7 @@ load_common() {
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/0"
   echo "tiename" > "$slots/0/project"
-  echo "$$" > "$slots/0/pid"           # live owner — sweep must not reap it
+  _seed_live_owner "$slots/0"          # live owner — sweep must not reap it
   export DOCKER_PS_OUTPUT=""
 
   _file_mtime() { echo 1700000000; }   # our record and theirs: EQUAL mtimes
@@ -1434,7 +1518,7 @@ FIXTURE
   local n
   for n in 1 2 3; do
     mkdir -p "$slots/$n"
-    echo "$$" > "$slots/$n/pid"   # this bats process — definitely alive
+    _seed_live_owner "$slots/$n"   # this bats process — definitely alive (pid + pid.start)
   done
 
   export SHOWCASE_ISO_SLOT=9
@@ -1461,7 +1545,7 @@ FIXTURE
   load_common
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/9"
-  echo "$$" > "$slots/9/pid"   # this bats process — _slot_liveness → live
+  _seed_live_owner "$slots/9"   # this bats process — _slot_liveness → live
 
   export SHOWCASE_ISO_SLOT=9
   run _claim_isolate_slot
@@ -1621,7 +1705,7 @@ FIXTURE
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/8"
   echo "iso8-proj" > "$slots/8/project"
-  echo "$$" > "$slots/8/pid"   # _slot_liveness 8 → live (pid live, no containers needed)
+  _seed_live_owner "$slots/8"   # _slot_liveness 8 → live (pid live + pid.start, no containers needed)
 
   # Case A: docker listener on slot 8's dashboard port → filtered as own-project.
   export DOCKER_PS_OUTPUT=""   # no docker containers; pid-liveness still wins
@@ -1638,6 +1722,55 @@ FIXTURE
     || fail "_slot_ports_free 8 should treat Python listener on own port as held (foreign), got status=0 output=$output"
   [[ "$output" == *"Slot 8 port 5010 held by Python"* ]] \
     || fail "_slot_ports_free 8 did not emit the foreign-hold info line for Python: $output"
+}
+
+@test "_slot_ports_free fails LOUDLY for a bad slot instead of falsely reporting all-free" {
+  # Regression: _slot_ports_free fed its port list from
+  #   while read port; do ...; done < <(_slot_offset_ports "$slot")
+  # When _slot_offset_ports dies on a bad slot (out-of-range / non-numeric), the
+  # die only kills the process-substitution SUBSHELL — not _slot_ports_free. The
+  # while loop then read ZERO ports, any_held stayed 0, and the function returned
+  # 0 ("all ports free"), SILENTLY defeating the port-conflict guard for a bad
+  # slot. Both claim paths treat 0 as "free, go claim it", so a bad slot would
+  # have sailed past the guard. The fix captures the port list (and thus
+  # _slot_offset_ports's exit status) BEFORE the loop, so a bad slot fails LOUDLY.
+  load_common
+  export LSOF_HOLD_PORTS=""
+
+  # Out-of-range slot (ISOLATE_MAX_SLOT=45). _slot_offset_ports dies on this.
+  run _slot_ports_free 99
+  [ "$status" -ne 0 ] \
+    || fail "_slot_ports_free 99 (out-of-range) wrongly reported success; the bad slot defeated the guard. status=$status output=$output"
+  [[ "$output" == *"exceeds ISOLATE_MAX_SLOT"* ]] \
+    || fail "_slot_ports_free 99 did not surface the _slot_offset_ports die reason: $output"
+
+  # Non-numeric slot. _slot_offset_ports dies on this too.
+  run _slot_ports_free "bogus"
+  [ "$status" -ne 0 ] \
+    || fail "_slot_ports_free bogus (non-numeric) wrongly reported success. status=$status output=$output"
+  [[ "$output" == *"non-negative integer"* ]] \
+    || fail "_slot_ports_free bogus did not surface the _slot_offset_ports die reason: $output"
+}
+
+@test "_slot_ports_free still reports a valid slot correctly (free when free, held when held)" {
+  # Guard the fix: valid slots must NOT regress. Slot 8's dashboard port post-
+  # shift is 3210 + 1800 = 5010 (same arithmetic as the own-project test above).
+  load_common
+
+  # Free: nothing held → returns 0.
+  export LSOF_HOLD_PORTS=""
+  run _slot_ports_free 8
+  [ "$status" -eq 0 ] \
+    || fail "_slot_ports_free 8 should be free when no port is held, got status=$status output=$output"
+
+  # Held by a foreign (non-docker) process on slot 8's dashboard port → returns 1.
+  export LSOF_HOLD_PORTS="5010"
+  export LSOF_HOLD_COMMAND="Python"
+  run _slot_ports_free 8
+  [ "$status" -ne 0 ] \
+    || fail "_slot_ports_free 8 should be held when port 5010 is taken by Python, got status=0 output=$output"
+  [[ "$output" == *"Slot 8 port 5010 held by Python"* ]] \
+    || fail "_slot_ports_free 8 did not emit the foreign-hold info line: $output"
 }
 
 # ── Composite tests (MT3.2d): _slot_state axes, bin/showcase slots, concurrent claim ──
@@ -1663,7 +1796,7 @@ FIXTURE
   local slots="$XDG_STATE_HOME/copilotkit/showcase/slots"
   mkdir -p "$slots/5"
   echo "iso5-proj" > "$slots/5/project"
-  echo "$$" > "$slots/5/pid"   # this bats process — _slot_liveness → live
+  _seed_live_owner "$slots/5"   # this bats process — _slot_liveness → live (pid + pid.start)
 
   # No held ports → _slot_ports_free returns 0 → ports="free".
   export LSOF_HOLD_PORTS=""
@@ -1754,7 +1887,7 @@ FIXTURE
   local n
   for n in 1 2 3 4 5 6 7 8; do
     mkdir -p "$slots/$n"
-    echo "$$" > "$slots/$n/pid"   # this bats process — definitely alive
+    _seed_live_owner "$slots/$n"   # this bats process — definitely alive (pid + pid.start)
   done
 
   # No held ports for any slot's offset range → _slot_ports_free returns 0
@@ -1974,4 +2107,173 @@ FIXTURE
   [ "$status" -ne 0 ] || fail "--isolate=99 unexpectedly succeeded: $output"
   [[ "$output" == *"exceeds ISOLATE_MAX_SLOT=45"* ]] \
     || fail "--isolate=99 did not surface the out-of-range die: $output"
+}
+
+# ── --isolate <name> space-form arg-parser (cmd-test.sh) ─────────────────────
+#
+# The space-separated `--isolate <name>` form (vs the `--isolate=<name>` sugar)
+# is parsed entirely inside cmd-test.sh's option loop, which must bind the
+# explicit name to ISOLATE's name slot and the service to the positional slug
+# REGARDLESS of token order — `--isolate <name> <slug>` (name first) and
+# `<slug> --isolate <name>` (slug first) must both resolve correctly. The
+# auto-named form (`--isolate <slug>` with NO explicit name) must still treat
+# the lone trailing token as the slug. And a bare/empty `--isolate=` (or
+# `--isolate` with no value) must be REJECTED loudly, never silently auto-pick.
+#
+# These tests drive the REAL cmd_test parser end-to-end (the same source +
+# stub-after-parser pattern as the --isolate=<N> drift guard above): they stub
+# everything cmd_test invokes after parsing (apply_isolation, run-harness, etc.)
+# and snapshot the parsed slug + isolate_name so a parser regression fails
+# LOUDLY. apply_isolation receives ("$isolate_name" "$slug") in that order
+# (see _common.sh), so the snapshot records the two positional args it was
+# handed — exactly the contract downstream depends on.
+
+# _run_cmd_test_parse <args...> — source the real cmd-test.sh, stub the entire
+# post-parser body, and snapshot what the parser bound. Writes two files:
+#   $PARSE_SNAP.name  → the isolate name apply_isolation was handed ($1)
+#   $PARSE_SNAP.slug  → the slug apply_isolation was handed ($2)
+# When --isolate is NOT requested, apply_isolation never fires; the no-isolate
+# fallback stub records need_slug's argument as the slug and "<no-iso>" name.
+# Sets $status/$output via `run`.
+_run_cmd_test_parse() {
+  local cmd_test_sh="$BATS_TEST_DIRNAME/../cli/cmd-test.sh"
+  [ -f "$cmd_test_sh" ] || fail "cmd-test.sh not found: $cmd_test_sh"
+  PARSE_SNAP="$BATS_TEST_TMPDIR/parse-snap"
+  rm -f "$PARSE_SNAP".name "$PARSE_SNAP".slug
+  # apply_isolation snapshots (name, slug) then exits cleanly so the docker/
+  # python3-forking remainder of cmd_test never runs. need_slug snapshots the
+  # slug too (and preserves its real "slug required" die so the empty-slug
+  # contract is exercised). info/success/warn are silenced; the harness call is
+  # a no-op (it is never reached — apply_isolation exits first when isolating).
+  run bash -euo pipefail -c "
+    source '$COMMON'
+    source '$cmd_test_sh'
+    apply_isolation() {
+      printf '%s' \"\${1:-}\" > '$PARSE_SNAP.name'
+      printf '%s' \"\${2:-}\" > '$PARSE_SNAP.slug'
+      exit 0
+    }
+    need_slug() {
+      [ -n \"\${1:-}\" ] || die 'slug required'
+      printf '<no-iso>' > '$PARSE_SNAP.name'
+      printf '%s' \"\${1:-}\" > '$PARSE_SNAP.slug'
+    }
+    info() { :; }
+    success() { :; }
+    npx() { :; }
+    cmd_test $*
+  "
+}
+
+@test "cmd-test.sh --isolate <name> <slug> (name BEFORE slug) binds name and slug correctly" {
+  load_common
+  _run_cmd_test_parse --isolate myname mastra
+  [ "$status" -eq 0 ] || fail "cmd_test --isolate myname mastra failed: $output"
+  [ -f "$PARSE_SNAP.name" ] || fail "apply_isolation never fired (use_isolate wiring broken): $output"
+  run cat "$PARSE_SNAP.name"
+  [[ "$output" == "myname" ]] || fail "name-before-slug bound wrong isolate name: got '$output' (want myname)"
+  run cat "$PARSE_SNAP.slug"
+  [[ "$output" == "mastra" ]] || fail "name-before-slug bound wrong slug: got '$output' (want mastra)"
+}
+
+@test "cmd-test.sh <slug> --isolate <name> (slug BEFORE name) still binds name and slug correctly" {
+  load_common
+  _run_cmd_test_parse mastra --isolate myname
+  [ "$status" -eq 0 ] || fail "cmd_test mastra --isolate myname failed: $output"
+  run cat "$PARSE_SNAP.name"
+  [[ "$output" == "myname" ]] || fail "slug-before-name bound wrong isolate name: got '$output' (want myname)"
+  run cat "$PARSE_SNAP.slug"
+  [[ "$output" == "mastra" ]] || fail "slug-before-name bound wrong slug: got '$output' (want mastra)"
+}
+
+@test "cmd-test.sh --isolate <slug> (no explicit name) treats the lone token as the slug (auto-named)" {
+  load_common
+  _run_cmd_test_parse --isolate mastra
+  [ "$status" -eq 0 ] || fail "cmd_test --isolate mastra failed: $output"
+  run cat "$PARSE_SNAP.name"
+  [[ "$output" == "" ]] || fail "auto-named --isolate wrongly bound an explicit name: got '$output' (want empty)"
+  run cat "$PARSE_SNAP.slug"
+  [[ "$output" == "mastra" ]] || fail "auto-named --isolate bound wrong slug: got '$output' (want mastra)"
+}
+
+@test "cmd-test.sh --isolate <name> <slug> with surrounding flags binds name and slug correctly" {
+  load_common
+  _run_cmd_test_parse --d5 --isolate d5verify agno --verbose
+  [ "$status" -eq 0 ] || fail "cmd_test with flags around --isolate failed: $output"
+  run cat "$PARSE_SNAP.name"
+  [[ "$output" == "d5verify" ]] || fail "flagged name-before-slug bound wrong name: got '$output' (want d5verify)"
+  run cat "$PARSE_SNAP.slug"
+  [[ "$output" == "agno" ]] || fail "flagged name-before-slug bound wrong slug: got '$output' (want agno)"
+}
+
+@test "cmd-test.sh bare --isolate= (empty value) is rejected loudly, never silently auto-picks" {
+  load_common
+  _run_cmd_test_parse --isolate= mastra
+  [ "$status" -ne 0 ] || fail "bare --isolate= unexpectedly succeeded (silent auto-pick): $output"
+  # It must NOT have reached apply_isolation with an empty pin and proceeded.
+  [ ! -f "$PARSE_SNAP.slug" ] || fail "bare --isolate= fell through to apply_isolation instead of erroring: name='$(cat "$PARSE_SNAP.name" 2>/dev/null)' slug='$(cat "$PARSE_SNAP.slug" 2>/dev/null)'"
+  [[ "$output" == *"isolate"* ]] || fail "bare --isolate= error did not mention isolate: $output"
+}
+
+@test "cmd-test.sh --isolate=<name> (non-numeric sugar) binds the explicit name, not a slot" {
+  load_common
+  # The =<name> sugar is equivalent to the space form `--isolate <name>`: a
+  # non-numeric value is an explicit isolate name, NOT a slot pin (a slot pin
+  # would die in the picker on "must be a positive integer"). SHOWCASE_ISO_SLOT
+  # must remain unset so the picker auto-picks a slot for the named project.
+  local snap="$BATS_TEST_TMPDIR/iso-namesugar-snap"
+  local cmd_test_sh="$BATS_TEST_DIRNAME/../cli/cmd-test.sh"
+  run bash -euo pipefail -c "
+    source '$COMMON'
+    source '$cmd_test_sh'
+    apply_isolation() {
+      printf '%s' \"\${SHOWCASE_ISO_SLOT:-<unset>}\" > '$snap.slot'
+      printf '%s' \"\${1:-}\" > '$snap.name'
+      printf '%s' \"\${2:-}\" > '$snap.slug'
+      exit 0
+    }
+    need_slug() { :; }
+    info() { :; }
+    success() { :; }
+    npx() { :; }
+    cmd_test --isolate=d5verify agno
+  "
+  [ "$status" -eq 0 ] || fail "cmd_test --isolate=d5verify agno failed: $output"
+  run cat "$snap.slot"
+  [[ "$output" == "<unset>" ]] || fail "--isolate=d5verify wrongly pinned a slot: SHOWCASE_ISO_SLOT='$output'"
+  run cat "$snap.name"
+  [[ "$output" == "d5verify" ]] || fail "--isolate=d5verify bound wrong name: got '$output'"
+  run cat "$snap.slug"
+  [[ "$output" == "agno" ]] || fail "--isolate=d5verify bound wrong slug: got '$output'"
+}
+
+@test "cmd-test.sh --isolate=<N> numeric pinned path is unchanged (still exports the slot)" {
+  load_common
+  # Regression guard for the existing numeric sugar: --isolate=7 must still
+  # export SHOWCASE_ISO_SLOT=7 and reach apply_isolation with an EMPTY name and
+  # the real slug (the picker, not the parser, owns numeric validation).
+  local snap="$BATS_TEST_TMPDIR/iso-num-snap"
+  local cmd_test_sh="$BATS_TEST_DIRNAME/../cli/cmd-test.sh"
+  run bash -euo pipefail -c "
+    source '$COMMON'
+    source '$cmd_test_sh'
+    apply_isolation() {
+      printf '%s' \"\${SHOWCASE_ISO_SLOT:-<unset>}\" > '$snap.slot'
+      printf '%s' \"\${1:-}\" > '$snap.name'
+      printf '%s' \"\${2:-}\" > '$snap.slug'
+      exit 0
+    }
+    need_slug() { :; }
+    info() { :; }
+    success() { :; }
+    npx() { :; }
+    cmd_test --isolate=7 mastra
+  "
+  [ "$status" -eq 0 ] || fail "cmd_test --isolate=7 mastra failed: $output"
+  run cat "$snap.slot"
+  [[ "$output" == "7" ]] || fail "--isolate=7 did not export SHOWCASE_ISO_SLOT=7: got '$output'"
+  run cat "$snap.name"
+  [[ "$output" == "" ]] || fail "--isolate=7 wrongly bound a name: got '$output'"
+  run cat "$snap.slug"
+  [[ "$output" == "mastra" ]] || fail "--isolate=7 bound wrong slug: got '$output'"
 }

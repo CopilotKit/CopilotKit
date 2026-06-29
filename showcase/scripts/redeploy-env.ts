@@ -391,10 +391,21 @@ export async function runRedeploy(
   // Resolve the caller's scope, then pull in every `imageOf` consumer of a
   // service already in scope (env-aware) — a rebuilt image must redeploy
   // ALL the services that run it, not just its build slot.
-  const names = expandImageConsumers(
-    resolveTargetServices(services),
-    env,
-  ).sort();
+  //
+  // The DEFAULT scope (no explicit --services) is env-aware: a ciBuilt
+  // service that does not declare the target env — e.g. a staging-only
+  // integration whose prod instance is not yet provisioned
+  // (showcase-strands-typescript) — must NOT enter that env's default
+  // redeploy scope, exactly as a staging-only worker must not. Explicit
+  // --services stays UNFILTERED (the CONTRACT PIN: an operator can force a
+  // named service in an env it does not declare). imageOf expansion below
+  // is independently env-aware.
+  const base = resolveTargetServices(services);
+  const scoped =
+    services === undefined
+      ? base.filter((name) => Object.hasOwn(SERVICES[name].environments, env))
+      : base;
+  const names = expandImageConsumers(scoped, env).sort();
 
   const failures: Array<{ service: string; error: string }> = [];
   // Per-service structured records — cross-workstream contract consumed

@@ -80,6 +80,11 @@ const bot = createBot({
     slack({
       botToken: process.env.SLACK_BOT_TOKEN!,
       appToken: process.env.SLACK_APP_TOKEN!,
+      respondTo: {
+        directMessages: true,
+        appMentions: { reply: "thread" },
+        threadReplies: "mentionsOnly",
+      },
     }),
   ],
   // One AG-UI agent per conversation, pointed at the runtime.
@@ -96,7 +101,7 @@ const bot = createBot({
   context: [...defaultSlackContext, ...appContext],
 });
 
-// One handler covers @-mentions, replies in threads the bot owns, and DMs.
+// One handler covers explicit @-mentions and normal DMs.
 // senderContext names the requesting user so the agent acts "as" them.
 bot.onMention(async ({ thread, message }) => {
   await thread.runAgent({ context: senderContext(message.user) });
@@ -104,6 +109,11 @@ bot.onMention(async ({ thread, message }) => {
 
 await bot.start();
 ```
+
+The runnable Slack example keeps DMs and the assistant pane conversational, but
+channel/private-channel threads require `@Kite` on each follow-up by default.
+Set `respondTo.threadReplies: "afterBotReply"` to restore legacy behavior where
+plain replies in a thread can continue after the bot has posted there.
 
 ### Tools (`app/tools/index.ts`)
 
@@ -251,6 +261,10 @@ several from one process).
   bot token (`SLACK_BOT_TOKEN`).
 - _Basic Information → App-Level Tokens_ → generate one with
   `connections:write` → copy the `xapp-` app token (`SLACK_APP_TOKEN`).
+- The manifest is tuned for mention-only channel threads. If you enable
+  `respondTo.threadReplies: "afterBotReply"`, also subscribe to
+  `message.channels` and `message.groups` so Slack delivers plain thread
+  replies.
 
 ### 1b. Discord app (set `DISCORD_*` to enable Discord)
 
@@ -321,8 +335,9 @@ pnpm --filter slack-example dev       # tsx watch app/index.ts
 
 ### 6. Try it
 
-@mention the bot in a channel (Slack/Discord) or DM it / @mention it in a group
-(Telegram):
+@mention the bot in a channel (Slack/Discord) or DM it / @mention it in a
+group (Telegram). In Slack channel threads, mention Kite again for each
+follow-up unless you enabled legacy thread continuation:
 
 > @CopilotKit Triage what are the open CPK issues this cycle?
 
@@ -430,23 +445,9 @@ out as WhatsApp images via the media upload.
 
 ## Feature demos
 
-Three runnable demos extend the on-call triage bot to narrate per-platform degradation explicitly.
+Two runnable demos extend the on-call triage bot to narrate per-platform degradation explicitly.
 
-### 1. Reactions — "emoji triage"
-
-React to any message (best on a top-level message or a thread's root — Slack's reaction event carries no parent `thread_ts`, so a reaction on a deep reply is read from that reply onward):
-
-| Emoji | Action                                                                       |
-| ----- | ---------------------------------------------------------------------------- |
-| 🐛    | File the message as a bug (drafts a Linear issue via the usual confirm flow) |
-| 🔥    | Escalate — proposes a high-priority Linear issue                             |
-| ✅    | Mark as triaged — agent acknowledges and notes it handled                    |
-
-The bot acks with 👀 (picked up) then ✅ (turn complete) as reactions on the same message, so progress shows without chat noise. For 🐛 and 🔥 the ✅ means the agent finished its turn and proposed an issue — actual filing is still gated behind the usual `confirm_write` human-in-the-loop step. Reaction removals are ignored.
-
-**Source:** `app/reactions/index.ts` (`emojiTriage` handler), registered in `app/index.ts` as `bot.onReaction(["bug", "fire", "check"], emojiTriage)`.
-
-### 2. Ephemeral — `/preview <title>`
+### 1. Ephemeral — `/preview <title>`
 
 ```
 /preview Login button throws 500 on submit
@@ -458,7 +459,7 @@ Posts a private draft issue card visible only to you — a "here's what I'd file
 
 > **Slack setup:** `/preview` must be declared under **Slash Commands** in your Slack app manifest (already present in `slack-app-manifest.yaml`). Slack won't deliver an undeclared command even over Socket Mode.
 
-### 3. Modals — `/file-issue`
+### 2. Modals — `/file-issue`
 
 ```
 /file-issue
@@ -474,18 +475,17 @@ On submission (`bot.onModalSubmit("file_issue", …)` in `app/index.ts`), the bo
 
 ### Per-platform behavior
 
-| Demo                   | Slack                         | Discord                                         | Telegram                                                                                                        |
-| ---------------------- | ----------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| Reactions (🐛/🔥/✅)   | ✅                            | ✅                                              | ✅ triage runs; bot ack emoji (👀/✅/⚠️) subject to Telegram's allowed-reaction set — visual ack may not appear |
-| Ephemeral (`/preview`) | native only-you message       | DM fallback                                     | DM fallback                                                                                                     |
-| Modal (`/file-issue`)  | rich form (dropdowns + radio) | text-only (≤5 inputs; type/priority default in) | unsupported → conversational fallback                                                                           |
+| Demo                   | Slack                         | Discord                                         | Telegram                              |
+| ---------------------- | ----------------------------- | ----------------------------------------------- | ------------------------------------- |
+| Ephemeral (`/preview`) | native only-you message       | DM fallback                                     | DM fallback                           |
+| Modal (`/file-issue`)  | rich form (dropdowns + radio) | text-only (≤5 inputs; type/priority default in) | unsupported → conversational fallback |
 
 The degradation is always narrated, never silent: `/preview` reports whether it used the DM path; `/file-issue` says "modals aren't supported here" on Telegram and continues in chat.
 
 ## Tests
 
 ```bash
-pnpm --filter slack-example test     # unit tests (read_thread, render tools, components, confirm_write, reactions, modals, commands)
+pnpm --filter slack-example test     # unit tests (read_thread, render tools, components, confirm_write, modals, commands)
 ```
 
 > **Note:** the live-Slack e2e harness (`pnpm e2e` / `pnpm e2e:restart`) is

@@ -235,7 +235,7 @@ class PromoteCRFixesTest < Minitest::Test
             if q.include?("serviceInstanceUpdate")
                 call_count += 1
                 raise Railway::GraphQL::Error, "boom on update #2" if call_count == 2
-                pinned_ref = vars[:image]
+                pinned_ref = vars.dig(:input, :source, :image)
                 { "serviceInstanceUpdate" => true }
             elsif q.include?("serviceInstanceDeployV2")
                 { "serviceInstanceDeployV2" => "dep-new" }
@@ -369,7 +369,7 @@ class PromoteCRFixesTest < Minitest::Test
         pinned = nil
         gql.define_singleton_method(:query) do |q, vars = {}|
             if q.include?("serviceInstanceUpdate")
-                pinned = vars[:image]
+                pinned = vars.dig(:input, :source, :image)
                 { "serviceInstanceUpdate" => true }
             elsif q.include?("serviceInstanceDeployV2")
                 { "serviceInstanceDeployV2" => "dep-new" }

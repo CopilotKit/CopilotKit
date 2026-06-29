@@ -15,9 +15,23 @@
  * renderer, which React then throws on (error #31 "object with keys {path}").
  * This matches the canonical catalog's `DynString` helper:
  *   examples/integrations/langgraph-python/src/app/declarative-generative-ui/definitions.ts
+ *
+ * ZOD VERSION (load-bearing): these defs are authored with **Zod 3** (the
+ * `zod-v3` alias), NOT the package's root `zod@4`. `@a2ui/web_core@0.9.0`'s
+ * `GenericBinder.scrapeSchemaBehavior` classifies a field as DYNAMIC (and thus
+ * resolves its `{ path }` binding) by inspecting **Zod 3** schema internals
+ * (`_def.typeName === "ZodUnion"`, the union's `_def.options`, an option's
+ * `_def.shape().path`). A Zod-4 schema reports `_def.typeName === undefined`
+ * (Zod 4 moved to `_def.type === "union"`), so the binder MISCLASSIFIES the
+ * field STATIC and passes the raw `{ path: "/origin" }` object through to the
+ * renderer → React error #31 ("object with keys {path}") crashes the page.
+ * web_core bundles its own `zod@3.25.x`; authoring these defs with a matching
+ * Zod 3 makes the union recognizable so the binder resolves `{ path }` → "SFO".
+ * (`scrapeSchemaBehavior` compares `_def.typeName` by string, not `instanceof`,
+ * so a separate Zod-3 module instance is recognized identically.)
  */
 // @region[definitions-types]
-import { z } from "zod";
+import { z } from "zod-v3";
 import type { CatalogDefinitions } from "@copilotkit/a2ui-renderer";
 
 /**

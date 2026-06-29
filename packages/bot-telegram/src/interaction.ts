@@ -135,6 +135,9 @@ export function decodeReaction(update: unknown): IncomingReaction[] {
     conversationKey,
     replyTarget,
     messageId: String(mr.message_id),
+    // Update-capable ref (chatId + numeric messageId) so an onReaction handler
+    // can edit the reacted message in place via thread.update.
+    messageRef: { id: String(mr.message_id), chatId, messageId: mr.message_id },
     raw: update,
   };
   const out: IncomingReaction[] = [];
