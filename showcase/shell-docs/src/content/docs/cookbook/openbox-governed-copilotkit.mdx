@@ -36,9 +36,9 @@ CopilotKit (Next.js, V2) ──/api/copilotkit──▶ CopilotRuntime  ─┐
 | **CopilotKit** | Hosts the V2 runtime, streams the conversation, and renders each governance verdict as a generative UI card. | `frontend/` — `/api/copilotkit` route + the chat page |
 | **LangGraph** | Runs the agent: a routing system prompt classifies the request and calls exactly one governed tool (with `parallel_tool_calls: false`), whose generated business result is itself governed. | `agent/` — `openbox_copilotkit_agent` graph |
 
-## Try it live
+## Run it
 
-A **hosted demo** is live at **[app-production-5569.up.railway.app](https://app-production-5569.up.railway.app)** — open it and send any prompt from the [governance matrix](#try-it) to watch OpenBox govern each action in real time. To run and modify it yourself, follow the steps below (`agent/` on port 8123 and `frontend/` on port 3000).
+Run the demo yourself by following the steps below (`agent/` on port 8123 and `frontend/` on port 3000), then send any prompt from the [governance matrix](#try-it) to watch OpenBox govern each action in real time.
 
 ## Prerequisites
 
