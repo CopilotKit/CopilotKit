@@ -47,6 +47,10 @@ const MEMORIES_SUBSCRIBE_PATH = "/memories/subscribe";
 const REQUEST_TIMEOUT_MS = 15_000;
 /** Consecutive socket errors tolerated before the realtime stream gives up. */
 const MAX_SOCKET_RETRIES = 5;
+/** HTTP status codes that indicate memory routes are not configured (non-fatal). */
+const ROUTE_UNAVAILABLE_STATUSES = new Set([404, 501]);
+/** Thrown when a memory route returns a 404/501 — treated as "not configured". */
+class MemoryRouteUnavailableError extends Error {}
 
 /** Public, customer-facing memory kind vocabulary (single taxonomy, no mapping). */
 type MemoryKind = "topical" | "episodic" | "operational";
@@ -416,12 +420,16 @@ function createMemoryFetchObservable(
 ): Observable<
   | ReturnType<typeof memoryRestEvents.listSucceeded>
   | ReturnType<typeof memoryRestEvents.listFailed>
+  | ReturnType<typeof memoryRestEvents.listUnavailable>
 > {
   return defer(() => {
     const qs = context.includeInvalidated ? "?includeInvalidated=true" : "";
     return memoryFromFetch(`${context.runtimeUrl}${MEMORIES_PATH}${qs}`, {
       selector: (response) => {
         if (!response.ok) {
+          if (ROUTE_UNAVAILABLE_STATUSES.has(response.status)) {
+            throw new MemoryRouteUnavailableError(String(response.status));
+          }
           throw new Error(`Failed to fetch memories: ${response.status}`);
         }
 
@@ -443,14 +451,17 @@ function createMemoryFetchObservable(
           memories: data.memories.filter((memory) => memory.scope === "user"),
         }),
       ),
-      catchError((error) =>
-        of(
+      catchError((error) => {
+        if (error instanceof MemoryRouteUnavailableError) {
+          return of(memoryRestEvents.listUnavailable({ sessionId }));
+        }
+        return of(
           memoryRestEvents.listFailed({
             sessionId,
             error: error instanceof Error ? error : new Error(String(error)),
           }),
-        ),
-      ),
+        );
+      }),
     );
   });
 }
@@ -468,11 +479,15 @@ function createMemoryCredentialsFetchObservable(
 ): Observable<
   | ReturnType<typeof memoryRestEvents.credentialsSucceeded>
   | ReturnType<typeof memoryRestEvents.credentialsFailed>
+  | ReturnType<typeof memoryRestEvents.credentialsUnavailable>
 > {
   return defer(() =>
     memoryFromFetch(`${context.runtimeUrl}${MEMORIES_SUBSCRIBE_PATH}`, {
       selector: async (response) => {
         if (!response.ok) {
+          if (ROUTE_UNAVAILABLE_STATUSES.has(response.status)) {
+            throw new MemoryRouteUnavailableError(String(response.status));
+          }
           throw new Error(
             `Failed to fetch memory subscribe credentials: ${response.status}`,
           );
@@ -508,14 +523,17 @@ function createMemoryCredentialsFetchObservable(
           joinCode: data.joinCode,
         });
       }),
-      catchError((error) =>
-        of(
+      catchError((error) => {
+        if (error instanceof MemoryRouteUnavailableError) {
+          return of(memoryRestEvents.credentialsUnavailable({ sessionId }));
+        }
+        return of(
           memoryRestEvents.credentialsFailed({
             sessionId,
             error: error instanceof Error ? error : new Error(String(error)),
           }),
-        ),
-      ),
+        );
+      }),
     ),
   );
 }
