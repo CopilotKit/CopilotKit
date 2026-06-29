@@ -1,0 +1,208 @@
+/* CopilotKit brand fonts */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300..800&family=Spline+Sans+Mono:wght@400;500;600&display=swap");
+
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #010507;
+
+  /* Semantic tokens — CopilotKit brand */
+  --card: #ffffff;
+  --card-foreground: #010507;
+  --primary: #010507;
+  --primary-foreground: #ffffff;
+  --secondary: #ededf5;
+  --secondary-foreground: #010507;
+  --muted: #ededf5;
+  --muted-foreground: #57575b;
+  --accent: #eee6fe;
+  --accent-foreground: #010507;
+  --destructive: #fa5f67;
+  --destructive-foreground: #ffffff;
+  --border: #dbdbe5;
+  --input: #dbdbe5;
+  --ring: #bec2ff;
+
+  /* Chart tokens */
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #dbdbe5;
+  --chart-axis: #57575b;
+
+  --radius: 0.75rem;
+
+  /* Override CopilotKit font */
+  --cpk-default-font-family: var(--font-body);
+
+  /* Fonts */
+  --font-body: "Plus Jakarta Sans", "DM Sans", "Segoe UI", sans-serif;
+  --font-code:
+    "Spline Sans Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+
+  /* Brand accent colors */
+  --cpk-mint-400: #85ecce;
+  --cpk-mint-800: #189370;
+  --cpk-lilac-400: #bec2ff;
+  --cpk-orange-400: #ffac4d;
+  --cpk-yellow-400: #fff388;
+  --cpk-ambient-gradient: linear-gradient(
+    90deg,
+    #bec2ff 0%,
+    #85ecce 45.673%,
+    #ffac4d 100%
+  );
+}
+
+:root.dark,
+.dark {
+  --background: #010507;
+  --foreground: #ffffff;
+
+  --card: #191a1e;
+  --card-foreground: #ffffff;
+  --primary: #ffffff;
+  --primary-foreground: #010507;
+  --secondary: #242529;
+  --secondary-foreground: #ffffff;
+  --muted: #242529;
+  --muted-foreground: #adadb2;
+  --accent: #303136;
+  --accent-foreground: #ffffff;
+  --destructive: #fa5f67;
+  --destructive-foreground: #ffffff;
+  --border: #303136;
+  --input: #303136;
+  --ring: #bec2ff;
+
+  --chart-tooltip-bg: #191a1e;
+  --chart-tooltip-border: #303136;
+  --chart-axis: #adadb2;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+
+body,
+html {
+  height: 100%;
+}
+
+[data-copilotkit]
+  button[data-slot="suggestion-pill"].openbox-governed-suggestion {
+  border-color: #3b9af5;
+  background: color-mix(in srgb, #3b9af5 11%, var(--background));
+}
+
+.openbox-business-result {
+  margin-top: 1.25rem;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--card-foreground);
+  overflow: hidden;
+}
+
+.openbox-business-header {
+  padding: 1rem 1rem 0.875rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.openbox-business-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.openbox-business-header p {
+  margin: 0.5rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.openbox-business-section {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.openbox-business-section:last-child {
+  border-bottom: 0;
+}
+
+.openbox-business-section-title {
+  margin-bottom: 0.625rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.openbox-business-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.5rem;
+}
+
+.openbox-business-detail {
+  min-width: 0;
+}
+
+.openbox-business-detail span,
+.openbox-business-row dt {
+  display: block;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.openbox-business-detail strong,
+.openbox-business-row dd {
+  margin: 0.125rem 0 0;
+  color: var(--card-foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.openbox-business-rows {
+  display: grid;
+  gap: 0.625rem;
+}
+
+.openbox-business-row {
+  padding: 0 0 0.625rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.openbox-business-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.openbox-business-row-title {
+  margin-bottom: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.openbox-business-row dl {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.openbox-business-row dl > div {
+  min-width: 0;
+}

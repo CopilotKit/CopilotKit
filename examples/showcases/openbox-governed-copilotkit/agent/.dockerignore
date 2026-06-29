@@ -1,0 +1,6 @@
+# Adapted from A's docker/.dockerignore for B's split agent/ build context.
+node_modules
+.langgraph_api
+.env
+.env.*
+*.log

@@ -1,0 +1,8 @@
+# Adapted from A's docker/.dockerignore for B's split frontend/ build context.
+node_modules
+.next
+.env
+.env.*
+*.log
+e2e
+playwright.config.ts
