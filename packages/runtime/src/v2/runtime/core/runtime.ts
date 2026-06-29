@@ -190,10 +190,10 @@ export interface CopilotIntelligenceRuntimeOptions extends BaseCopilotRuntimeOpt
   lockHeartbeatIntervalSeconds?: number;
   /**
    * Managed bots (Intelligence-delivered) declared by this runtime. Each is a
-   * `createBot({ name })` instance; names are validated at construction
-   * (required, identifier-style, unique). Only available on the Intelligence
-   * runtime path. Delivery/egress transports are wired separately via
-   * `startManagedBots` from `@copilotkit/bot`.
+   * `createBot({ name })` instance. Only available on the Intelligence runtime
+   * path. Names are validated (required, identifier-style, unique) and wired to
+   * delivery/egress transports when activated via `startManagedBots` from
+   * `@copilotkit/bot` — not at construction.
    */
   bots?: Bot[];
 }
