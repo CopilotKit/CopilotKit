@@ -992,3 +992,24 @@ test("setting label updates root panel aria-label, listbox aria-label, and defau
 
   teardown();
 });
+
+// --- Scroll fix: :host height + .list min-height:0 -------------------------
+
+test("list is scrollable in a bounded container — CSS contract: :host has height:100% and .list has min-height:0", async () => {
+  // jsdom has no real layout engine, so scrollHeight/clientHeight are always 0.
+  // Instead we assert the CSS contract directly: the adopted stylesheet must
+  // declare `height: 100%` on `:host` (so the element fills a bounded host and
+  // doesn't grow to content height) and `min-height: 0` on `.list` (so the flex
+  // child can shrink below its content height and scroll rather than expand the
+  // panel).  This is the same approach used by the "exposes ::part hooks" test
+  // which reads CopilotKitDrawer.styles.cssText to verify declarations.
+  const sheets = (CopilotKitDrawer.styles as { cssText: string }).cssText;
+
+  // :host block must contain height: 100%
+  expect(sheets).toContain("height: 100%");
+
+  // .list block must contain min-height: 0
+  // We check both declarations are present; the ordering within the block is
+  // not significant for correctness.
+  expect(sheets).toContain("min-height: 0");
+});

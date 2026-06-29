@@ -34,6 +34,7 @@ export const drawerStyles = css`
        via inheritance, so we hard-set them at the root. */
     all: initial;
     display: block;
+    height: 100%;
     box-sizing: border-box;
     font-family:
       var(--cpk-drawer-font-family, ui-sans-serif, system-ui, sans-serif);
@@ -188,6 +189,7 @@ export const drawerStyles = css`
 
   .list {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 8px 12px;
     margin: 0;
