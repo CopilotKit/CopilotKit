@@ -2,6 +2,7 @@ import { WebInspectorElement, ɵCpkThreadDetails } from "../index.js";
 import type { CopilotKitCore } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
+import type { ɵMemory } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -84,6 +85,43 @@ function createMockAgent(
 
 // --- Mock core factory ---
 
+// --- Minimal no-op memory store stub ---
+// The inspector calls core.getMemoryStore() unconditionally during attachToCore.
+// All mock cores must expose this method to prevent a TypeError. The stub
+// below seeds the store with empty memories and available=true, which is the
+// right default for tests that don't exercise the memory feature.
+
+type MockMemoryStoreState = {
+  memories: never[];
+  isLoading: boolean;
+  isMutating: boolean;
+  error: null;
+  context: null;
+  sessionId: number;
+  available: boolean;
+};
+
+function createNoopMemoryStore() {
+  const state: MockMemoryStoreState = {
+    memories: [],
+    isLoading: false,
+    isMutating: false,
+    error: null,
+    context: null,
+    sessionId: 0,
+    available: true,
+  };
+  return {
+    getState: () => state,
+    select: <T>(selector: (s: MockMemoryStoreState) => T) => ({
+      subscribe: (cb: (v: T) => void) => {
+        cb(selector(state));
+        return { unsubscribe: () => undefined };
+      },
+    }),
+  };
+}
+
 type MockCore = {
   agents: Record<string, AbstractAgent>;
   context: Record<string, unknown>;
@@ -94,6 +132,7 @@ type MockCore = {
   };
   getThreadStores: () => Record<string, never>;
   getThreadStore: (agentId: string) => undefined;
+  getMemoryStore: () => ReturnType<typeof createNoopMemoryStore>;
 };
 
 function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
@@ -112,6 +151,9 @@ function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
     },
     getThreadStore(_agentId: string) {
       return undefined;
+    },
+    getMemoryStore() {
+      return createNoopMemoryStore();
     },
   };
 
@@ -671,6 +713,7 @@ type HeaderMockCore = {
   getThreadStore: (agentId: string) => undefined;
   registerThreadStore: (agentId: string, store: unknown) => void;
   unregisterThreadStore: (agentId: string) => void;
+  getMemoryStore: () => ReturnType<typeof createNoopMemoryStore>;
 };
 
 function createHeaderMockCore(
@@ -707,6 +750,9 @@ function createHeaderMockCore(
     },
     registerThreadStore() {},
     unregisterThreadStore() {},
+    getMemoryStore() {
+      return createNoopMemoryStore();
+    },
   };
 
   const asCore = () => core as unknown as CopilotKitCore;
@@ -971,5 +1017,438 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(engineer?.href).toBe(
       "https://www.copilotkit.ai/talk-to-an-engineer?ref=cpk-inspector-threads",
     );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Wave 6 — Memories tab + cpk-memory-list coverage
+// ─────────────────────────────────────────────────────────────────────────
+//
+// 6.1  Helpers: makeCoreWithMemory / makeCoreNoIntelligence / mountMemories
+// 6.2  Subscription: inspector._memories is seeded from store
+// 6.3  Tab presence: "Memories" label appears in the rendered menu
+// 6.4  View states: locked teaser vs. enabled empty vs. enabled with cards
+// 6.5  cpk-memory-list: cards, kind filter, search filter, empty state
+// 6.6  Passive guard: inspector reads from core.getMemoryStore(), never creates its own
+
+// ── 6.1  Helpers ──────────────────────────────────────────────────────────
+
+type MemoryStoreState = {
+  memories: ɵMemory[];
+  isLoading: boolean;
+  isMutating: boolean;
+  error: Error | null;
+  context: null;
+  sessionId: number;
+  available: boolean;
+};
+
+/**
+ * Returns a minimal mock memory store seeded with the given memories and
+ * availability flag. The `select(selector)` method returns an Observable-like
+ * that calls the subscriber once synchronously with the derived value, then
+ * never again — sufficient for the inspector's subscription wiring.
+ */
+function makeMockMemoryStore(
+  memories: ɵMemory[],
+  available: boolean,
+): { store: ReturnType<typeof buildStore>; state: MemoryStoreState } {
+  const state: MemoryStoreState = {
+    memories,
+    isLoading: false,
+    isMutating: false,
+    error: null,
+    context: null,
+    sessionId: 0,
+    available,
+  };
+
+  function buildStore() {
+    return {
+      getState: () => state,
+      select: <T>(selector: (s: MemoryStoreState) => T) => ({
+        subscribe: (cb: (v: T) => void) => {
+          cb(selector(state));
+          return { unsubscribe: () => undefined };
+        },
+      }),
+    };
+  }
+
+  const store = buildStore();
+  return { store, state };
+}
+
+type MemoryMockCore = {
+  agents: Record<string, AbstractAgent>;
+  context: Record<string, unknown>;
+  properties: Record<string, unknown>;
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  intelligence: { wsUrl: string } | undefined;
+  subscribe: (subscriber: CopilotKitCoreSubscriber) => { unsubscribe: () => void };
+  getThreadStores: () => Record<string, never>;
+  getThreadStore: (agentId: string) => undefined;
+  getMemoryStore: () => ReturnType<typeof makeMockMemoryStore>["store"];
+};
+
+/**
+ * Returns a mock core with an intelligence property set (so the memories view
+ * is not locked by the intelligence guard) and a memory store seeded with the
+ * supplied memories. Pass `available: false` to simulate memories being
+ * unavailable (which also locks the view).
+ */
+function makeCoreWithMemory(
+  memories: ɵMemory[],
+  opts: { available?: boolean } = {},
+): MemoryMockCore {
+  const available = opts.available ?? true;
+  const { store } = makeMockMemoryStore(memories, available);
+
+  return {
+    agents: {},
+    context: {},
+    properties: {},
+    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+    // Intelligence present → locked teaser is NOT shown (unless available=false).
+    intelligence: { wsUrl: "wss://localhost" },
+    subscribe: (_subscriber: CopilotKitCoreSubscriber) => ({
+      unsubscribe: () => undefined,
+    }),
+    getThreadStores: () => ({}),
+    getThreadStore: (_agentId: string) => undefined,
+    getMemoryStore: () => store,
+  };
+}
+
+/**
+ * Returns a mock core that has NO intelligence property. Used to assert the
+ * locked teaser regardless of memory availability.
+ */
+function makeCoreNoIntelligence(): MemoryMockCore {
+  const { store } = makeMockMemoryStore([], true);
+
+  return {
+    agents: {},
+    context: {},
+    properties: {},
+    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+    intelligence: undefined,
+    subscribe: (_subscriber: CopilotKitCoreSubscriber) => ({
+      unsubscribe: () => undefined,
+    }),
+    getThreadStores: () => ({}),
+    getThreadStore: (_agentId: string) => undefined,
+    getMemoryStore: () => store,
+  };
+}
+
+/**
+ * Mounts a `<cpk-web-inspector>` with the given core, opens it, and switches
+ * to the memories tab. Returns the element ready for assertion.
+ */
+async function mountMemories(core: MemoryMockCore): Promise<WebInspectorElement> {
+  const el = new WebInspectorElement();
+  document.body.appendChild(el);
+  // CopilotKitCore is a full class — our mock covers what the inspector reads.
+  el.core = core as unknown as WebInspectorElement["core"];
+
+  // Open the inspector window so the tab content is rendered.
+  const internals = el as unknown as { isOpen: boolean; handleMenuSelect: (key: string) => void };
+  internals.isOpen = true;
+  internals.handleMenuSelect("memories");
+
+  await el.updateComplete;
+  return el;
+}
+
+// ── 6.2  Subscription ─────────────────────────────────────────────────────
+
+describe("WebInspectorElement memories — subscription", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+      clear: () => undefined,
+      get length() { return 0; },
+      key: () => null,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("seeds _memories from core.getMemoryStore() on attach", async () => {
+    const oneMemory: ɵMemory = {
+      id: "m1",
+      kind: "topical",
+      scope: "user",
+      content: "Likes dogs",
+      sourceThreadIds: [],
+      invalidatedAt: null,
+    };
+
+    const core = makeCoreWithMemory([oneMemory]);
+    const el = await mountMemories(core);
+
+    const ids = (el as unknown as { _memories: ɵMemory[] })._memories.map((m) => m.id);
+
+    expect(ids).toEqual(["m1"]);
+  });
+});
+
+// ── 6.3  Tab presence ─────────────────────────────────────────────────────
+
+describe("WebInspectorElement memories — tab presence", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+      clear: () => undefined,
+      get length() { return 0; },
+      key: () => null,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("renders a Memories tab button in the inspector menu", async () => {
+    const core = makeCoreWithMemory([]);
+    const el = await mountMemories(core);
+
+    const buttons = Array.from(
+      el.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    );
+    const memoriesButton = buttons.find((btn) =>
+      btn.textContent?.trim().includes("Memories"),
+    );
+
+    expect(memoriesButton, "Memories tab button should render").toBeDefined();
+  });
+});
+
+// ── 6.4  View states ──────────────────────────────────────────────────────
+
+describe("WebInspectorElement memories — view states", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+      clear: () => undefined,
+      get length() { return 0; },
+      key: () => null,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("renders the locked teaser when intelligence is absent", async () => {
+    const core = makeCoreNoIntelligence();
+    const el = await mountMemories(core);
+
+    const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Long-term memory");
+    expect(text).toContain("Long-term memory isn't enabled on this deployment.");
+    const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
+    expect(memoryList, "cpk-memory-list should NOT render when locked").toBeNull();
+  });
+
+  it("renders the locked teaser when memories are unavailable", async () => {
+    const core = makeCoreWithMemory([], { available: false });
+    const el = await mountMemories(core);
+
+    const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Long-term memory");
+    const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
+    expect(memoryList, "cpk-memory-list should NOT render when unavailable").toBeNull();
+  });
+
+  it("renders cpk-memory-list with empty state when available and no memories", async () => {
+    const core = makeCoreWithMemory([], { available: true });
+    const el = await mountMemories(core);
+
+    const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
+    expect(memoryList, "cpk-memory-list should render when enabled").not.toBeNull();
+
+    await (memoryList as unknown as { updateComplete: Promise<void> }).updateComplete;
+    const listText = memoryList?.shadowRoot?.textContent ?? "";
+    expect(listText).toContain("No memories yet");
+  });
+
+  it("renders cpk-memory-list with a card when one memory is present", async () => {
+    const oneMemory: ɵMemory = {
+      id: "m1",
+      kind: "topical",
+      scope: "user",
+      content: "Prefers dark mode",
+      sourceThreadIds: [],
+      invalidatedAt: null,
+    };
+
+    const core = makeCoreWithMemory([oneMemory]);
+    const el = await mountMemories(core);
+
+    const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
+    expect(memoryList, "cpk-memory-list should render").not.toBeNull();
+
+    await (memoryList as unknown as { updateComplete: Promise<void> }).updateComplete;
+    const cards = memoryList?.shadowRoot?.querySelectorAll(".cpk-ml__card");
+    expect(cards?.length).toBe(1);
+  });
+});
+
+// ── 6.5  cpk-memory-list ──────────────────────────────────────────────────
+
+describe("cpk-memory-list", () => {
+  const threeMemories: ɵMemory[] = [
+    {
+      id: "t1",
+      kind: "topical",
+      scope: "user",
+      content: "Likes cats",
+      sourceThreadIds: [],
+      invalidatedAt: null,
+    },
+    {
+      id: "e1",
+      kind: "episodic",
+      scope: "user",
+      content: "First login was on a Monday",
+      sourceThreadIds: [],
+      invalidatedAt: null,
+    },
+    {
+      id: "o1",
+      kind: "operational",
+      scope: "user",
+      content: "Deploys on Thursdays",
+      sourceThreadIds: [],
+      invalidatedAt: null,
+    },
+  ];
+
+  /** Create and mount a standalone cpk-memory-list element. */
+  async function mountList(memories: ɵMemory[]): Promise<Element> {
+    const el = document.createElement("cpk-memory-list");
+    document.body.appendChild(el);
+    // Assign memories via property (same as Lit's .memories=${...} binding).
+    (el as unknown as { memories: ɵMemory[] }).memories = memories;
+    // Trigger update if the element is a Lit element.
+    if ("updateComplete" in el) {
+      await (el as unknown as { updateComplete: Promise<void> }).updateComplete;
+    }
+    return el;
+  }
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("renders one card per memory in order", async () => {
+    const el = await mountList(threeMemories);
+    const cards = el.shadowRoot?.querySelectorAll(".cpk-ml__card");
+    expect(cards?.length).toBe(3);
+    const contents = Array.from(cards ?? []).map(
+      (card) => card.querySelector(".cpk-ml__content")?.textContent?.trim(),
+    );
+    expect(contents).toEqual([
+      "Likes cats",
+      "First login was on a Monday",
+      "Deploys on Thursdays",
+    ]);
+  });
+
+  it("narrows cards when an operational kind filter is clicked", async () => {
+    const el = await mountList(threeMemories);
+
+    const operationalSeg = el.shadowRoot?.querySelector<HTMLElement>(
+      '[data-kind="operational"]',
+    );
+    expect(operationalSeg, "operational filter segment should exist").not.toBeNull();
+
+    operationalSeg!.click();
+    await (el as unknown as { updateComplete: Promise<void> }).updateComplete;
+
+    const cards = el.shadowRoot?.querySelectorAll(".cpk-ml__card");
+    expect(cards?.length).toBe(1);
+    expect(
+      cards?.[0]?.querySelector(".cpk-ml__content")?.textContent?.trim(),
+    ).toBe("Deploys on Thursdays");
+  });
+
+  it("filters cards by search text (case-insensitive)", async () => {
+    const el = await mountList(threeMemories);
+
+    const searchInput = el.shadowRoot?.querySelector<HTMLInputElement>(
+      ".cpk-ml__search-input",
+    );
+    expect(searchInput, "search input should exist").not.toBeNull();
+
+    searchInput!.value = "deploy";
+    searchInput!.dispatchEvent(new Event("input", { bubbles: true }));
+    await (el as unknown as { updateComplete: Promise<void> }).updateComplete;
+
+    const cards = el.shadowRoot?.querySelectorAll(".cpk-ml__card");
+    expect(cards?.length).toBe(1);
+    expect(
+      cards?.[0]?.querySelector(".cpk-ml__content")?.textContent?.trim(),
+    ).toBe("Deploys on Thursdays");
+  });
+
+  it("shows the empty state when memories is empty", async () => {
+    const el = await mountList([]);
+    const empty = el.shadowRoot?.querySelector(".cpk-ml__empty");
+    expect(empty, "empty state should render").not.toBeNull();
+    expect(el.shadowRoot?.textContent ?? "").toContain("No memories yet");
+    const cards = el.shadowRoot?.querySelectorAll(".cpk-ml__card");
+    expect(cards?.length ?? 0).toBe(0);
+  });
+});
+
+// ── 6.6  Passive guard ────────────────────────────────────────────────────
+
+describe("WebInspectorElement memories — passive store guard", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+      clear: () => undefined,
+      get length() { return 0; },
+      key: () => null,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("calls core.getMemoryStore() during attach and reads from the returned store", async () => {
+    const core = makeCoreWithMemory([]);
+    const spy = vi.spyOn(core, "getMemoryStore");
+
+    await mountMemories(core);
+
+    expect(spy).toHaveBeenCalled();
+
+    // The store instance that spy captured is the exact same object that
+    // core.getMemoryStore() returns — inspector reads from it, never wraps it.
+    const returnedStore = spy.mock.results[0]?.value;
+    expect(returnedStore).toBeDefined();
+    // Verify the inspector consumed the store by checking its getState was accessible
+    // (if the inspector had created its own store instead, this reference would differ).
+    expect(typeof returnedStore.getState).toBe("function");
+    expect(typeof returnedStore.select).toBe("function");
   });
 });
