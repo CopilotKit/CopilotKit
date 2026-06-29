@@ -2364,11 +2364,375 @@ ${unsafeHTML(highlightedJson(event.payload))}</pre
   }
 }
 
+// ─── cpk-memory-list ─────────────────────────────────────────────────────────
+
+/** Memory kind values including the "all" sentinel used by the filter UI. */
+type MemoryKindFilter = "all" | "topical" | "episodic" | "operational";
+
+class CpkMemoryList extends LitElement {
+  static properties = {
+    memories: { attribute: false },
+    search: { state: true },
+    kind: { state: true },
+  };
+
+  /** Ordered (newest-first) list of memories supplied by the parent. */
+  memories: ɵMemory[] = [];
+  private search = "";
+  private kind: MemoryKindFilter = "all";
+
+  static styles = css`
+    @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap");
+
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .cpk-ml {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      background: #f7f7f9;
+    }
+
+    /* ── Search ── */
+    .cpk-ml__search {
+      padding: 10px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+    }
+
+    .cpk-ml__search-input {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #ffffff;
+      color: #010507;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .cpk-ml__search-input:focus {
+      border-color: #bec2ff;
+    }
+
+    /* ── Kind filter ── */
+    .cpk-ml__filter {
+      display: flex;
+      gap: 4px;
+      padding: 8px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .cpk-ml__filter-seg {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 5px;
+      border: 1px solid #dbdbe5;
+      background: #ffffff;
+      color: #57575b;
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+      user-select: none;
+    }
+
+    .cpk-ml__filter-seg:hover {
+      background: #f0f0f5;
+    }
+
+    .cpk-ml__filter-seg--active {
+      background: #bec2ff1a;
+      border-color: #bec2ff;
+      color: #010507;
+    }
+
+    .cpk-ml__filter-count {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      margin-left: 4px;
+      color: #838389;
+    }
+
+    /* ── List ── */
+    .cpk-ml__list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── Card ── */
+    .cpk-ml__card {
+      background: #ffffff;
+      border: 1px solid #e9e9ef;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .cpk-ml__card-badges {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* Kind badge — color per kind */
+    .cpk-ml__kind-badge {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .cpk-ml__kind-badge--topical {
+      background: #eee6fe;
+      color: #57575b;
+    }
+
+    .cpk-ml__kind-badge--episodic {
+      background: #e6f4fe;
+      color: #2d5f80;
+    }
+
+    .cpk-ml__kind-badge--operational {
+      background: #e6feee;
+      color: #2d6645;
+    }
+
+    /* Scope badge */
+    .cpk-ml__scope-badge {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: nowrap;
+      background: #f0f0f5;
+      color: #838389;
+    }
+
+    /* Content */
+    .cpk-ml__content {
+      font-size: 12px;
+      color: #010507;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    /* Footer */
+    .cpk-ml__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .cpk-ml__footer-threads {
+      font-size: 10px;
+      color: #838389;
+    }
+
+    .cpk-ml__footer-id {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      color: #c0c0c8;
+    }
+
+    /* ── Empty state ── */
+    .cpk-ml__empty {
+      padding: 32px 16px;
+      text-align: center;
+      color: #838389;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cpk-ml__empty-icon {
+      color: #c0c0c8;
+    }
+  `;
+
+  /** Memories that pass the current text search (before kind filter). */
+  private get searchFiltered(): ɵMemory[] {
+    const q = this.search.trim().toLowerCase();
+    if (!q) return this.memories;
+    return this.memories.filter((m) =>
+      m.content.toLowerCase().includes(q),
+    );
+  }
+
+  /** Memories that pass both search and kind filter. */
+  private get filtered(): ɵMemory[] {
+    const searched = this.searchFiltered;
+    if (this.kind === "all") return searched;
+    return searched.filter((m) => m.kind === this.kind);
+  }
+
+  /** Count of search-filtered memories for a given kind (for segment labels). */
+  private countForKind(kind: Exclude<MemoryKindFilter, "all">): number {
+    return this.searchFiltered.filter((m) => m.kind === kind).length;
+  }
+
+  private onSearchInput = (event: Event): void => {
+    this.search = (event.target as HTMLInputElement).value;
+  };
+
+  private onKindClick = (event: Event): void => {
+    const seg = (event.target as HTMLElement).closest("[data-kind]");
+    if (!seg) return;
+    const k = (seg as HTMLElement).dataset["kind"] as MemoryKindFilter;
+    this.kind = k;
+  };
+
+  /** Truncate an id to first-4…last-4 characters. */
+  private shortId(id: string): string {
+    if (id.length <= 12) return id;
+    return `${id.slice(0, 4)}…${id.slice(-4)}`;
+  }
+
+  private renderKindBadge(kind: string): TemplateResult {
+    return html`<span class="cpk-ml__kind-badge cpk-ml__kind-badge--${kind}"
+      >${kind}</span
+    >`;
+  }
+
+  private renderEmpty(): TemplateResult {
+    const q = this.search.trim();
+    if (this.memories.length === 0) {
+      return html`
+        <div class="cpk-ml__empty">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="cpk-ml__empty-icon"
+          >
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+          </svg>
+          No memories yet — tell the agent a durable fact and watch it appear.
+        </div>
+      `;
+    }
+    if (q) {
+      return html`
+        <div class="cpk-ml__empty">
+          No memories match &ldquo;${q}&rdquo;.
+        </div>
+      `;
+    }
+    return html`
+      <div class="cpk-ml__empty">No ${this.kind} memories yet.</div>
+    `;
+  }
+
+  render() {
+    const filtered = this.filtered;
+    const kinds: Array<Exclude<MemoryKindFilter, "all">> = [
+      "topical",
+      "episodic",
+      "operational",
+    ];
+
+    return html`
+      <div class="cpk-ml">
+        <!-- Search -->
+        <div class="cpk-ml__search">
+          <input
+            type="text"
+            placeholder="Search memories…"
+            .value=${this.search}
+            @input=${this.onSearchInput}
+            class="cpk-ml__search-input"
+          />
+        </div>
+
+        <!-- Kind filter -->
+        <div class="cpk-ml__filter" @click=${this.onKindClick}>
+          <button
+            class="cpk-ml__filter-seg ${this.kind === "all" ? "cpk-ml__filter-seg--active" : ""}"
+            data-kind="all"
+          >
+            All<span class="cpk-ml__filter-count">${this.searchFiltered.length}</span>
+          </button>
+          ${kinds.map(
+            (k) => html`
+              <button
+                class="cpk-ml__filter-seg ${this.kind === k ? "cpk-ml__filter-seg--active" : ""}"
+                data-kind="${k}"
+              >
+                ${k}<span class="cpk-ml__filter-count">${this.countForKind(k)}</span>
+              </button>
+            `,
+          )}
+        </div>
+
+        <!-- Memory list -->
+        <div class="cpk-ml__list">
+          ${filtered.map(
+            (m) => html`
+              <div class="cpk-ml__card">
+                <div class="cpk-ml__card-badges">
+                  ${this.renderKindBadge(m.kind)}
+                  <span class="cpk-ml__scope-badge">${m.scope}</span>
+                </div>
+                <div class="cpk-ml__content">${m.content}</div>
+                <div class="cpk-ml__footer">
+                  <span class="cpk-ml__footer-threads"
+                    >${m.sourceThreadIds.length} source thread${m.sourceThreadIds.length === 1 ? "" : "s"}</span
+                  >
+                  <span class="cpk-ml__footer-id">${this.shortId(m.id)}</span>
+                </div>
+              </div>
+            `,
+          )}
+          ${filtered.length === 0 ? this.renderEmpty() : nothing}
+        </div>
+      </div>
+    `;
+  }
+}
+
 if (!customElements.get("cpk-thread-list")) {
   customElements.define("cpk-thread-list", CpkThreadList);
 }
 if (!customElements.get("cpk-thread-details")) {
   customElements.define("cpk-thread-details", ɵCpkThreadDetails);
+}
+if (!customElements.get("cpk-memory-list")) {
+  customElements.define("cpk-memory-list", CpkMemoryList);
 }
 
 export class WebInspectorElement extends LitElement {
