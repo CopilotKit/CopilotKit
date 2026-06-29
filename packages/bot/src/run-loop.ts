@@ -37,7 +37,9 @@ export interface RunLoopArgs {
  * and returns immediately ("ack-first") — `thread.resume` re-enters later
  * with `initialResume` set.
  */
-export async function runAgentLoop(args: RunLoopArgs): Promise<void> {
+export async function runAgentLoop(
+  args: RunLoopArgs,
+): Promise<{ iterations: number; interrupted: boolean }> {
   const {
     agent,
     renderer,
@@ -66,19 +68,20 @@ export async function runAgentLoop(args: RunLoopArgs): Promise<void> {
         renderer.subscriber,
       );
     }
-    if (isAborted?.()) return;
+    if (isAborted?.()) return { iterations: i + 1, interrupted: false };
 
     const pending = renderer.getPendingInterrupt();
     if (pending) {
       renderer.clearPendingInterrupt();
       if (handleInterrupt) await handleInterrupt(pending);
-      return; // ack-first: picker posted; thread.resume re-enters later
+      // ack-first: picker posted; thread.resume re-enters later
+      return { iterations: i + 1, interrupted: true };
     }
 
     const calls = renderer
       .getCapturedToolCalls()
       .filter((c) => tools.has(c.toolCallName) && !executed.has(c.toolCallId));
-    if (calls.length === 0) return;
+    if (calls.length === 0) return { iterations: i + 1, interrupted: false };
 
     ensureAssistantToolCallMessage(agent, calls);
     for (const call of calls) {
@@ -105,6 +108,7 @@ export async function runAgentLoop(args: RunLoopArgs): Promise<void> {
       executed.add(call.toolCallId);
     }
   }
+  return { iterations: maxIterations, interrupted: false };
 }
 
 /**

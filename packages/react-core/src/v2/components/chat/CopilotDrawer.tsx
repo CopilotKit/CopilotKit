@@ -10,16 +10,19 @@ import React, {
 import {
   defineCopilotKitDrawer,
   COPILOTKIT_DRAWER_TAG,
-  type CopilotKitDrawer as CopilotKitDrawerElement,
-  type DrawerThread,
-  type ThreadSelectedDetail,
-  type ArchiveDetail,
-  type UnarchiveDetail,
-  type DeleteDetail,
-  type OpenChangeDetail,
-  type RetryDetail,
 } from "@copilotkit/web-components/drawer";
-import { useThreads, type Thread } from "../../hooks/use-threads";
+import type {
+  CopilotKitDrawer as CopilotKitDrawerElement,
+  DrawerThread,
+  ThreadSelectedDetail,
+  ArchiveDetail,
+  UnarchiveDetail,
+  DeleteDetail,
+  OpenChangeDetail,
+  RetryDetail,
+} from "@copilotkit/web-components/drawer";
+import { useThreads } from "../../hooks/use-threads";
+import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
@@ -193,11 +196,20 @@ export function CopilotDrawer({
   // license is configured, so it cannot by itself detect the no-license case.
   // We therefore also require a positive license-present signal from the
   // runtime-reported status. Only a "valid" or "expiring" license is treated
-  // as present; null/"none"/"unknown" (no/indeterminate license) and
-  // "expired"/"invalid" all gate the drawer to the upsell.
+  // as present; a resolved "none"/"expired"/"invalid" status gates the drawer
+  // to the upsell.
   const licensePresent = status === "valid" || status === "expiring";
   const featureLicensed = checkFeature("threads");
   const licensed = licensePresent && featureLicensed;
+
+  // The runtime reports license status asynchronously: `status` is null until
+  // the first /info response lands. Treat that pending window as "not yet
+  // unlicensed" — show the loading state, never the upsell — so a licensed
+  // drawer doesn't flash the upgrade CTA before its license resolves (and never
+  // strands the CTA on screen when the status is slow or fails to arrive). Only
+  // a RESOLVED-negative status (`none`/`expired`/`invalid`, or a present license
+  // missing the `threads` feature) surfaces the upsell.
+  const licensePending = status === null;
 
   const resolvedAgentId = agentId ?? configuration?.agentId ?? "default";
   const activeThreadId = configuration?.threadId ?? null;
@@ -477,13 +489,18 @@ export function CopilotDrawer({
   useEffect(() => {
     const el = elementRef.current;
     if (!el) return;
-    el.loading = isLoading;
+    // While the license is still resolving, force the loading state so the
+    // element shows its spinner instead of an empty/unlicensed body.
+    el.loading = isLoading || licensePending;
     // Only genuine list-load/mutation errors reach the end user. Developer/
     // config errors (missing runtime URL, runtime without thread endpoints) are
     // excluded via `listError` so they never leak into the drawer's error UI.
     el.error = listError ? listError.message : null;
     el.activeThreadId = activeThreadId;
-    el.licensed = licensed;
+    // Pending counts as licensed for rendering: `_renderBody` shows the upsell
+    // only when `licensed` is false, so keeping it true until the status
+    // resolves prevents the upsell from flashing (or sticking) mid-resolution.
+    el.licensed = licensed || licensePending;
     el.hasMore = hasMoreThreads;
     el.fetchingMore = isFetchingMoreThreads;
   }, [
@@ -491,6 +508,7 @@ export function CopilotDrawer({
     listError,
     activeThreadId,
     licensed,
+    licensePending,
     hasMoreThreads,
     isFetchingMoreThreads,
     mounted,

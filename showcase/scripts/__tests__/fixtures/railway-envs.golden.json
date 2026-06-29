@@ -80,6 +80,13 @@
     }
   },
   "harness-workers": {
+    "prod": {
+      "instanceId": "7c48ee43-6df4-457b-b977-10f1f1ac1680",
+      "domain": null,
+      "probe": false,
+      "driver": "harness",
+      "repoName": "showcase-harness"
+    },
     "staging": {
       "instanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
       "domain": null,

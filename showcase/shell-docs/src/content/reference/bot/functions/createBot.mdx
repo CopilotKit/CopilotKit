@@ -42,7 +42,7 @@ function createBot<TStateSchema extends StandardSchemaV1 | undefined = undefined
     Persistence, per-thread state schema, transcript storage, and lock/dedup tuning grouped under one option. All fields are optional.
 
     <PropertyReference name="adapter" type="StateStore" default="new MemoryStore()">
-      The pluggable persistence backend — the [StateStore](/reference/bot/types/StateStore) that backs action snapshots, per-thread state, transcripts, turn locks, and dedup. Defaults to an in-memory `MemoryStore` that is lost on restart. Pass a `createRedisStore(…)` or `createPostgresStore(…)` for durability across restarts and processes.
+      The pluggable persistence backend — the [StateStore](/reference/bot/types/StateStore) that backs action snapshots, per-thread state, transcripts, turn locks, and dedup. Defaults to an in-memory `MemoryStore` that is lost on restart. Implement the [StateStore](/reference/bot/types/StateStore) interface to back it with a durable store.
     </PropertyReference>
 
     <PropertyReference name="state" type="StandardSchemaV1">
@@ -160,7 +160,6 @@ await bot.start();
 
 ```tsx
 import { createBot } from "@copilotkit/bot";
-import { createRedisStore } from "@copilotkit/bot-store-redis";
 import { z } from "zod";
 
 const WorkflowState = z.object({
@@ -172,7 +171,7 @@ const bot = createBot({
   adapters: [slack({ botToken, appToken })],
   agent: (threadId) => makeAgent(threadId),
   store: {
-    adapter: createRedisStore({ url: process.env.REDIS_URL }),
+    // add adapter: <your StateStore> for durability
     state: WorkflowState,
   },
 });
@@ -192,7 +191,8 @@ const bot = createBot({
   adapters: [slackAdapter, discordAdapter],
   agent: (threadId) => makeAgent(threadId),
   store: {
-    adapter: createRedisStore({ url: process.env.REDIS_URL }),
+    // Uses MemoryStore by default (lost on restart).
+    // Pass adapter: <your StateStore> for durable transcript history.
     identity: async ({ author }) => lookupEmailForUser(author.id),
     transcripts: { retention: "30d", maxPerUser: 500 },
   },
@@ -217,7 +217,7 @@ For a detailed guide on persistence and transcripts, see [Persistence](/bots/per
 ## Related
 
 - [Thread](/reference/bot/classes/Thread) — the per-conversation handle your handlers receive
-- [StateStore](/reference/bot/types/StateStore) — pluggable persistence backends (Memory, Redis, Postgres)
+- [StateStore](/reference/bot/types/StateStore) — pluggable persistence backends (in-memory default; bring your own durable backend)
 - [defineBotTool](/reference/bot/functions/defineBotTool) — tools the agent can call
 - [defineBotCommand](/reference/bot/functions/defineBotCommand) — slash commands
 - [ActionStore](/reference/bot/types/ActionStore) — action binding and durability

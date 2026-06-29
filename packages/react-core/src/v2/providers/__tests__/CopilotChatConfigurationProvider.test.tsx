@@ -758,6 +758,72 @@ describe("CopilotChatConfigurationProvider", () => {
       warn.mockRestore();
     });
 
+    it("v1 bridge seed: setActiveThreadId overrides a non-explicit threadId prop (no warn)", () => {
+      // The v1 <CopilotKit> bridge seeds `threadId` with hasExplicitThreadId=
+      // {false}. That seed must NOT count as controlled — imperative selection
+      // (<CopilotDrawer> picking a row) has to win, or thread switching is dead
+      // in every app wrapped in <CopilotKit>.
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      render(
+        <CopilotChatConfigurationProvider
+          threadId="auto-minted-seed"
+          hasExplicitThreadId={false}
+        >
+          <ThreadProbe />
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("probe-thread").textContent).toBe(
+        "auto-minted-seed",
+      );
+
+      act(() => {
+        fireEvent.click(screen.getByTestId("probe-select"));
+      });
+
+      expect(screen.getByTestId("probe-thread").textContent).toBe(
+        "picked-thread",
+      );
+      expect(screen.getByTestId("probe-explicit").textContent).toBe("true");
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("v1 bridge stack: a set from an uncontrolled child under a non-explicit seed parent switches the thread", () => {
+      // Mirrors the real tree: <CopilotKit> seeds a non-explicit threadId on its
+      // own provider, then the app nests an uncontrolled provider that the
+      // drawer + chat share. A set proxied up from the child must override the
+      // seed (this is exactly the langgraph-js de-fork case).
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      render(
+        <CopilotChatConfigurationProvider
+          threadId="auto-minted-seed"
+          hasExplicitThreadId={false}
+        >
+          <CopilotChatConfigurationProvider>
+            <ThreadProbe id="inner" />
+          </CopilotChatConfigurationProvider>
+        </CopilotChatConfigurationProvider>,
+      );
+
+      expect(screen.getByTestId("inner-thread").textContent).toBe(
+        "auto-minted-seed",
+      );
+
+      act(() => {
+        fireEvent.click(screen.getByTestId("inner-select"));
+      });
+
+      expect(screen.getByTestId("inner-thread").textContent).toBe(
+        "picked-thread",
+      );
+      expect(screen.getByTestId("inner-explicit").textContent).toBe("true");
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
     it("nested controlled guard: a set from inside a controlled NESTED provider no-ops + warns (uncontrolled top-most)", () => {
       // Top-most is uncontrolled; the NESTED provider pins the thread via its
       // own `threadId` prop. The guard must consult the nearest pinning

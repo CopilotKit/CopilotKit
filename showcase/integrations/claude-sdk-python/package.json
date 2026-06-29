@@ -26,6 +26,7 @@
     "lucide-react": "^1.14.0",
     "next": "^15.5.15",
     "openai": "^5.9.0",
+    "radix-ui": "^1.4.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^2.15.0",
