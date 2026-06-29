@@ -43,7 +43,7 @@ A **hosted demo** is live at **[app-production-5569.up.railway.app](https://app-
 ## Prerequisites
 
 - **Node.js ≥ 20** and npm
-- An **OpenAI-compatible API key** (`OPENAI_API_KEY`); the agent defaults to `gpt-4o`, override with `OPENAI_MODEL`. The governed business results are LLM-generated, so a working model key is required — not optional.
+- An **OpenAI-compatible API key** (`OPENAI_API_KEY`) and a chat model in `OPENAI_MODEL` — the demo uses `gpt-5.4-mini-2026-03-17`, and `OPENAI_MODEL` is required (the agent has no built-in default and throws if it is unset). The governed business results are LLM-generated, so a working model key is required — not optional.
 - An **OpenBox account with a test API key** — sign up at [openbox.ai](https://openbox.ai) to get the agent runtime key `OPENBOX_API_KEY` (starts with `obx_test_`), `OPENBOX_CORE_URL`, `OPENBOX_AGENT_ID`, `OPENBOX_AGENT_DID`, and `OPENBOX_AGENT_PRIVATE_KEY`
 - The **OpenBox Admin API**, required by the provisioning and verification scripts: `OPENBOX_API_URL` (the Admin API base URL, e.g. `https://api.openbox.ai`) and `OPENBOX_BACKEND_API_KEY` — the org/backend key that starts with `obx_key_`. This is a different key from the `obx_test_` runtime key above; keep it server-only and never prefix it with `NEXT_PUBLIC_`.
 
