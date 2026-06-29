@@ -65,10 +65,14 @@ import {
   trackThreadsEnabledViewed,
   trackThreadsIntelligenceSignupClicked,
   trackThreadsLockedViewed,
+  trackMemoriesTabClicked,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
 } from "./lib/telemetry.js";
-import type { InspectorThreadTelemetryProps } from "./lib/telemetry.js";
+import type {
+  InspectorMemoryTelemetryProps,
+  InspectorThreadTelemetryProps,
+} from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
 
@@ -82,6 +86,7 @@ type MenuKey =
   | "frontend-tools"
   | "agent-context"
   | "threads"
+  | "memories"
   | "settings";
 
 type MenuItem = {
@@ -2557,6 +2562,7 @@ export class WebInspectorElement extends LitElement {
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
       },
+      { key: "memories", label: "Memories", icon: "Brain" as LucideIconName },
     ];
   }
 
@@ -2595,6 +2601,17 @@ export class WebInspectorElement extends LitElement {
       runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
       telemetry_disabled: this.core?.telemetryDisabled ?? false,
       ...extra,
+    };
+  }
+
+  private getMemoriesTelemetryProps(): InspectorMemoryTelemetryProps {
+    const distinctId = !this.core?.telemetryDisabled
+      ? getTelemetryDistinctIdForUrl()
+      : null;
+    return {
+      posthog_distinct_id: distinctId ?? undefined,
+      memory_count: this._memories.length,
+      available: this._memoriesAvailable,
     };
   }
 
@@ -5842,6 +5859,10 @@ ${argsString}</pre
       return this.renderThreadsView();
     }
 
+    if (this.selectedMenu === "memories") {
+      return this.renderMemoriesView();
+    }
+
     if (this.selectedMenu === "settings") {
       return this.renderSettingsPanel();
     }
@@ -6284,6 +6305,11 @@ ${argsString}</pre
         </div>
       </div>
     `;
+  }
+
+  // Placeholder — fully implemented in a later wave (states + cpk-memory-list).
+  private renderMemoriesView() {
+    return html``;
   }
 
   private renderThreadsView() {
@@ -7093,6 +7119,10 @@ ${prettyEvent}</pre
         trackThreadsTabClicked(this.getThreadsTelemetryProps());
       }
       this.autoSelectLatestThread();
+    }
+
+    if (key === "memories") {
+      trackMemoriesTabClicked(this.getMemoriesTelemetryProps());
     }
 
     if (key === "ag-ui-events" || key === "agents") {
