@@ -748,6 +748,69 @@ it("fetches memory subscribe credentials when context is set", async () => {
   store.stop();
 });
 
+test("snapshot 404 → available: false, error: null, memories: []", async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce({ ok: false, status: 404 })
+    .mockResolvedValueOnce({ ok: false, status: 404 });
+  vi.stubGlobal("fetch", fetchMock);
+
+  const store = createMemoryStore(memoryEnvironment(fetchMock));
+  store.start();
+  store.setContext(sampleContext);
+  await flushEffects();
+
+  expect(store.getState().memories).toEqual([]);
+  expect(store.getState().isLoading).toBe(false);
+  expect(store.getState().error).toBeNull();
+  expect(store.getState().available).toBe(false);
+
+  store.stop();
+});
+
+test("snapshot 500 → error not null, available: true", async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce({ ok: false, status: 500 })
+    .mockResolvedValueOnce({ ok: false, status: 500 });
+  vi.stubGlobal("fetch", fetchMock);
+
+  const store = createMemoryStore(memoryEnvironment(fetchMock));
+  store.start();
+  store.setContext(sampleContext);
+  await flushEffects();
+
+  expect(store.getState().error).not.toBeNull();
+  expect(store.getState().available).toBe(true);
+
+  store.stop();
+});
+
+test("subscribe 404 → silent: error null, no console.warn", async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({ memories: [] }),
+    })
+    .mockResolvedValueOnce({ ok: false, status: 404 });
+  vi.stubGlobal("fetch", fetchMock);
+
+  const warnSpy = vi.spyOn(console, "warn");
+
+  const store = createMemoryStore(memoryEnvironment(fetchMock));
+  store.start();
+  store.setContext(sampleContext);
+  await flushEffects();
+
+  expect(store.getState().error).toBeNull();
+  expect(warnSpy).not.toHaveBeenCalled();
+
+  warnSpy.mockRestore();
+  store.stop();
+});
+
 it("setContext stores wsUrl alongside runtimeUrl", () => {
   const store = createMemoryStore(memoryEnvironment(vi.fn()));
   store.start();
