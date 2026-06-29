@@ -13,12 +13,17 @@ import {
   ɵselectThreads,
   ɵselectThreadsError,
   ɵcreateThreadStore,
+  ɵselectMemories,
+  ɵselectMemoriesIsLoading,
+  ɵselectMemoriesError,
+  ɵselectMemoriesAvailable,
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
   CopilotKitCoreErrorCode,
   ɵThreadStore,
   ɵThread,
+  ɵMemory,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -2370,6 +2375,11 @@ export class WebInspectorElement extends LitElement {
   private _core: CopilotKitCore | null = null;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
+  private _memories: ɵMemory[] = [];
+  private _memoriesLoading = false;
+  private _memoriesError: Error | null = null;
+  private _memoriesAvailable = true;
+  private _memoryUnsub: (() => void) | null = null;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
   private coreProperties: Readonly<Record<string, unknown>> = {};
   private lastCoreError: {
@@ -2805,6 +2815,21 @@ export class WebInspectorElement extends LitElement {
     if (core.context) {
       this.contextStore = this.normalizeContextStore(core.context);
     }
+
+    // Subscribe to the singleton memory store on core (passive — never creates one)
+    const memoryStore = core.getMemoryStore();
+    const ms = memoryStore.getState();
+    this._memories = ɵselectMemories(ms);
+    this._memoriesLoading = ɵselectMemoriesIsLoading(ms);
+    this._memoriesError = ɵselectMemoriesError(ms);
+    this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
+    const memSubs = [
+      memoryStore.select(ɵselectMemories).subscribe((v) => { this._memories = v; }),
+      memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => { this._memoriesLoading = v; }),
+      memoryStore.select(ɵselectMemoriesError).subscribe((v) => { this._memoriesError = v; }),
+      memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => { this._memoriesAvailable = v; }),
+    ];
+    this._memoryUnsub = () => memSubs.forEach((s) => s.unsubscribe());
   }
 
   private detachFromCore(): void {
@@ -2812,6 +2837,8 @@ export class WebInspectorElement extends LitElement {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
     }
+    this._memoryUnsub?.();
+    this._memoryUnsub = null;
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.lastCoreError = null;
