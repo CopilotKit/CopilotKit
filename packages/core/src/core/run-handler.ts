@@ -396,11 +396,22 @@ export class RunHandler {
     for (const message of newMessages) {
       if (message.role === "assistant") {
         for (const toolCall of message.toolCalls || []) {
-          if (
-            newMessages.findIndex(
+          // Skip tool calls that already have a result. We check both the
+          // current batch (`newMessages`) and the full conversation
+          // (`agent.messages`): when the backend re-emits an assistant
+          // tool-call message whose result is already in history (e.g. after a
+          // RunError retry, history replay, or input-processor reprocessing),
+          // re-executing the handler would duplicate the tool-result message
+          // and trigger another follow-up, producing an infinite loop (#2416,
+          // #3044).
+          const hasResult =
+            newMessages.some(
               (m) => m.role === "tool" && m.toolCallId === toolCall.id,
-            ) === -1
-          ) {
+            ) ||
+            agent.messages.some(
+              (m) => m.role === "tool" && m.toolCallId === toolCall.id,
+            );
+          if (!hasResult) {
             const tool = this.getTool({
               toolName: toolCall.function.name,
               agentId: agent.agentId,
