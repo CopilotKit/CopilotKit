@@ -10,6 +10,8 @@ import {
   initializeOpenBoxHaltState,
   onOpenBoxSessionHalted,
 } from "@/lib/openbox-halt-state";
+import { GovernanceFeedPanel } from "@/components/governance-feed/governance-feed-panel";
+import { resetFeed } from "@/lib/governance-feed/feed-store";
 
 import {
   CopilotChat,
@@ -66,6 +68,7 @@ export default function HomePage() {
     const params = new URLSearchParams(window.location.search);
     if (params.has("reset")) {
       clearOpenBoxHaltState();
+      resetFeed();
       setIsOpenBoxHalted(false);
     }
 
@@ -110,6 +113,7 @@ function OpenBoxDemoContent({ isOpenBoxHalted }: { isOpenBoxHalted: boolean }) {
         </div>
       }
       chatOverlay={<>{isOpenBoxHalted ? <OpenBoxHaltedOverlay /> : null}</>}
+      sidePanel={<GovernanceFeedPanel />}
     />
   );
 }

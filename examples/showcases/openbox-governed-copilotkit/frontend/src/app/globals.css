@@ -206,3 +206,122 @@ html {
 .openbox-business-row dl > div {
   min-width: 0;
 }
+
+/* ── OpenBox Governance Feed (execution-tree side panel) ─────────────── */
+:root {
+  --openbox-feed-reviewing: #64748b; /* slate */
+  --openbox-feed-allow: #16a34a; /* green */
+  --openbox-feed-constrain: #d97706; /* amber */
+  --openbox-feed-approval: #2563eb; /* blue */
+  --openbox-feed-block: #dc2626; /* red */
+  --openbox-feed-halt: #7f1d1d; /* dark red */
+}
+:root.dark,
+.dark {
+  --openbox-feed-reviewing: #94a3b8;
+  --openbox-feed-allow: #4ade80;
+  --openbox-feed-constrain: #fbbf24;
+  --openbox-feed-approval: #60a5fa;
+  --openbox-feed-block: #f87171;
+  --openbox-feed-halt: #b91c1c;
+}
+
+.openbox-feed-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  padding: 0.0625rem 0.5rem;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+.openbox-feed-badge--reviewing {
+  color: var(--openbox-feed-reviewing);
+  border-color: color-mix(
+    in srgb,
+    var(--openbox-feed-reviewing) 40%,
+    transparent
+  );
+  background: color-mix(
+    in srgb,
+    var(--openbox-feed-reviewing) 12%,
+    transparent
+  );
+}
+.openbox-feed-badge--allow {
+  color: var(--openbox-feed-allow);
+  border-color: color-mix(in srgb, var(--openbox-feed-allow) 40%, transparent);
+  background: color-mix(in srgb, var(--openbox-feed-allow) 12%, transparent);
+}
+.openbox-feed-badge--constrain {
+  color: var(--openbox-feed-constrain);
+  border-color: color-mix(
+    in srgb,
+    var(--openbox-feed-constrain) 40%,
+    transparent
+  );
+  background: color-mix(
+    in srgb,
+    var(--openbox-feed-constrain) 14%,
+    transparent
+  );
+}
+.openbox-feed-badge--approval {
+  color: var(--openbox-feed-approval);
+  border-color: color-mix(
+    in srgb,
+    var(--openbox-feed-approval) 40%,
+    transparent
+  );
+  background: color-mix(in srgb, var(--openbox-feed-approval) 12%, transparent);
+}
+.openbox-feed-badge--block {
+  color: var(--openbox-feed-block);
+  border-color: color-mix(in srgb, var(--openbox-feed-block) 45%, transparent);
+  background: color-mix(in srgb, var(--openbox-feed-block) 12%, transparent);
+}
+.openbox-feed-badge--halt {
+  color: #fff;
+  border-color: var(--openbox-feed-halt);
+  background: var(--openbox-feed-halt);
+}
+
+.openbox-feed-pillar {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  padding: 0.0625rem 0.375rem;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--muted-foreground) 8%, transparent);
+}
+
+.openbox-feed-json-node,
+.openbox-feed-json-leaf {
+  font-family: var(--font-code);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.openbox-feed-json-children {
+  padding-left: 0.75rem;
+  border-left: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+.openbox-feed-json-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--muted-foreground);
+}
+.openbox-feed-json-key {
+  color: var(--foreground);
+}
+.openbox-feed-json-value {
+  color: var(--openbox-feed-approval);
+}
+.openbox-feed-json-summary {
+  color: var(--muted-foreground);
+}
