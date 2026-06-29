@@ -7,6 +7,7 @@ import {
 } from "@copilotkit/runtime/v2";
 import type { IdentifyUserCallback } from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
+import { resolveUserId, resolveUserName } from "@/lib/intelligence/user-id";
 
 const bankingAgent = new BuiltInAgent({
   // Full gpt-5.4 (not -mini): the teach-flow's multi-step tool routing
@@ -168,16 +169,12 @@ const intelligenceEnabled = Boolean(
  * (e.g. a local Intelligence stack with seeded fixture users). For those, pin
  * the identity with INTELLIGENCE_USER_ID / INTELLIGENCE_USER_NAME instead of
  * the derived per-role id.
+ *
+ * The id/name derivation lives in `@/lib/intelligence/user-id` so the Memory
+ * panel proxy (api/memories) resolves the exact same per-user scope this
+ * runtime asserts — the inspector and the agent stay one source of truth.
  */
 const identifyUser: IdentifyUserCallback = async (request: Request) => {
-  const pinnedId = process.env.INTELLIGENCE_USER_ID;
-  if (pinnedId) {
-    return {
-      id: pinnedId,
-      name: process.env.INTELLIGENCE_USER_NAME ?? pinnedId,
-    };
-  }
-
   let role: string | undefined;
   try {
     const cloned = request.clone();
@@ -188,16 +185,7 @@ const identifyUser: IdentifyUserCallback = async (request: Request) => {
   } catch {
     // Non-JSON body (e.g. GET /info) — fall through to the default identity.
   }
-
-  const slug = (role ?? "demo-user")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-
-  return {
-    id: `northwind-${slug || "demo-user"}`,
-    name: role ? `Northwind ${role}` : "Northwind Demo User",
-  };
+  return { id: resolveUserId(role), name: resolveUserName(role) };
 };
 
 function createRuntime(): CopilotRuntime {
