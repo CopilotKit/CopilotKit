@@ -125,13 +125,35 @@ OPENBOX_API_KEY=obx_... OPENBOX_CORE_URL=https://core.openbox.ai npm run test:e2
 
 A `frontend/railway.json` is included for one-click Railway deployment of the
 Next.js frontend. Set the environment variables listed above in the Railway
-service settings before deploying. Hosting is a manual follow-up step — no live
-URL is published yet.
+service settings before deploying. A hosted instance is live at
+[app-production-5569.up.railway.app](https://app-production-5569.up.railway.app).
 
 ```bash
 # From the frontend directory, after linking your Railway project:
 railway up
 ```
+
+## Security
+
+This is a **public, single-instance demo with no user accounts**, and the
+OpenBox SDK's approval `decide()` accepts only an opaque, Core-issued
+`governanceEventId` — there is no session or owner to bind an approval to. So
+the approval endpoint (`/api/openbox/approvals/decide`) ships with pragmatic
+abuse controls rather than real auth (`frontend/src/lib/approval-guard.ts`):
+
+- **Same-origin guard** — cross-site POSTs are rejected (`403`), so another site
+  can't drive an approval from a visitor's browser.
+- **Per-IP rate limit** — best-effort, in-memory, per instance (`429` when
+  exceeded), to blunt scripted abuse of an endpoint that calls OpenBox Core.
+- **Optional operator token** — set `OPENBOX_APPROVAL_TOKEN` to require a
+  matching `x-openbox-approval-token` header. This intentionally locks out the
+  anonymous browser flow; use it when approvals should come only from operator
+  tooling.
+
+**For production, this is not enough.** Put the approval route behind real
+authentication, authorize the caller against the specific governance event
+(bind events to the session/user that created them), and move the rate limit to
+shared infrastructure. Treat the controls above as a demo-grade floor.
 
 ## Notes
 
