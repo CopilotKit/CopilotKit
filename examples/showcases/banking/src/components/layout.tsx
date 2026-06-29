@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CreditCard, HelpCircle, LayoutDashboard, Users } from "lucide-react";
+import { CreditCard, HelpCircle, LayoutDashboard, Telescope, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,7 @@ import {
 import type { Member } from "@/app/api/v1/data";
 import { MemberRole } from "@/app/api/v1/data";
 import { useAuthContext } from "@/components/auth-context";
+import { useGlassEngine } from "@/components/glass-engine-context";
 import { useRecording } from "@/components/recording-context";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAgentContext } from "@copilotkit/react-core/v2";
@@ -128,6 +129,8 @@ function UserNavigation({
 
 export function LayoutComponent({ children }: LayoutProps) {
   const { users, currentUser, setCurrentUser } = useAuthContext();
+  const { available: glassAvailable, active: glassActive, toggle: toggleGlass } =
+    useGlassEngine();
   const pathname = usePathname();
   useAgentContext({
     description: "The current page where the user is",
@@ -135,7 +138,12 @@ export function LayoutComponent({ children }: LayoutProps) {
   });
 
   return (
-    <div className="flex h-screen overflow-hidden bg-canvas">
+    <div
+      className={cn(
+        "flex h-screen overflow-hidden bg-canvas transition-[padding] duration-300",
+        glassActive && "md:pr-96",
+      )}
+    >
       {/* Floating icon rail. */}
       <div className="flex flex-shrink-0 flex-col py-4 pl-4">
         <aside className="glass-surface flex h-full w-[72px] flex-col items-center rounded-[28px] border border-white/60 px-2 py-5 shadow-lift dark:border-hairline">
@@ -169,6 +177,31 @@ export function LayoutComponent({ children }: LayoutProps) {
             ) : null}
           </nav>
           <div className="flex flex-col items-center gap-3">
+            {glassAvailable && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={toggleGlass}
+                      aria-pressed={glassActive}
+                      aria-label="Glass Engine"
+                      className={cn(
+                        "hidden h-10 w-10 items-center justify-center rounded-2xl transition-all md:flex",
+                        glassActive
+                          ? "brand-gradient text-surface shadow-[0_8px_18px_hsl(252_83%_60%/0.4)]"
+                          : "text-ink-muted hover:bg-brand-soft hover:text-brand-indigo",
+                      )}
+                    >
+                      <Telescope className="h-5 w-5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Glass Engine (advanced)</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             <ThemeToggle />
             <UserNavigation
               availableUsers={users}
