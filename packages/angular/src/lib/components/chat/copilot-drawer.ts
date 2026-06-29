@@ -141,6 +141,12 @@ export class CopilotDrawer {
   });
 
   /**
+   * Optional accessible/region + default-header label forwarded to the element's
+   * `label` property; defaults to the element's own `"Threads"` when unset.
+   */
+  readonly label = input<string | undefined>();
+
+  /**
    * Optional host override for the thread-select action.
    *
    * When provided, this callback is invoked instead of driving
@@ -237,6 +243,7 @@ export class CopilotDrawer {
       el.activeThreadId = this.activeThreadId();
       el.hasMore = this.threads.hasMoreThreads();
       el.fetchingMore = this.threads.isFetchingMoreThreads();
+      if (this.label() !== undefined) el.label = this.label() as string;
     });
   }
 

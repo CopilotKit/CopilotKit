@@ -471,3 +471,32 @@ test("copilotDrawerRow renders per-row slot content for each thread", () => {
   );
   expect(slotEl?.textContent?.trim()).toContain("ROW:Alpha");
 });
+
+// ---------------------------------------------------------------------------
+// label input forwarding
+// ---------------------------------------------------------------------------
+
+/** Host that passes a custom label to the drawer. */
+@Component({
+  selector: "test-host-label",
+  standalone: true,
+  imports: [CopilotDrawer],
+  template: `<copilot-drawer [label]="'Custom'" />`,
+})
+class HostWithLabelComponent {}
+
+test("label input is forwarded to the <copilotkit-drawer> element label property", () => {
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [HostWithLabelComponent],
+  });
+
+  const fixture = TestBed.createComponent(HostWithLabelComponent);
+  fixture.detectChanges();
+
+  const drawerEl = (fixture.nativeElement as HTMLElement).querySelector(
+    "copilotkit-drawer",
+  ) as HTMLElement & { label: string };
+
+  expect(drawerEl.label).toBe("Custom");
+});
