@@ -48,8 +48,8 @@ function toArrayBuffer(buffer: Buffer): ArrayBuffer {
   ) as ArrayBuffer;
 }
 
-function toDataUri(base64Payload: string, mimeType: string): string {
-  return `data:${mimeType};base64,${base64Payload.replace(/\s+/g, "")}`;
+function toDataUri(buffer: Buffer, mimeType: string): string {
+  return `data:${mimeType};base64,${buffer.toString("base64")}`;
 }
 
 function compactText(value: unknown): string {
@@ -77,9 +77,7 @@ const plusJakartaBold = toArrayBuffer(
   readPublicAsset("fonts/plus-jakarta-sans/PlusJakartaSans-Bold.ttf"),
 );
 const copilotKitLogo = toDataUri(
-  readPublicAsset("images/og/copilotkit-logo-lockup.png.base64").toString(
-    "utf8",
-  ),
+  readPublicAsset("images/og/copilotkit-logo-lockup.png"),
   "image/png",
 );
 
