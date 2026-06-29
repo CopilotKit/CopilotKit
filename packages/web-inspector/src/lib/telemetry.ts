@@ -38,6 +38,7 @@ export const TELEMETRY_EVENTS = {
   talkToEngineerClicked: "oss.inspector.talk_to_engineer_clicked",
   threadsEmptyEnabledViewed: "oss.inspector.threads_empty_enabled_viewed",
   threadsEnabledViewed: "oss.inspector.threads_enabled_viewed",
+  memoriesTabClicked: "oss.inspector.memories_tab_clicked",
 } as const;
 
 export type TelemetryEvent =
@@ -68,7 +69,8 @@ function isThreadsTelemetryEvent(event: TelemetryEvent): boolean {
     event === TELEMETRY_EVENTS.threadsTalkToEngineerClicked ||
     event === TELEMETRY_EVENTS.talkToEngineerClicked ||
     event === TELEMETRY_EVENTS.threadsEmptyEnabledViewed ||
-    event === TELEMETRY_EVENTS.threadsEnabledViewed
+    event === TELEMETRY_EVENTS.threadsEnabledViewed ||
+    event === TELEMETRY_EVENTS.memoriesTabClicked
   );
 }
 
@@ -243,6 +245,21 @@ export function trackThreadsEnabledViewed(
   props: InspectorThreadTelemetryProps,
 ): void {
   track(TELEMETRY_EVENTS.threadsEnabledViewed, props);
+}
+
+export type InspectorMemoryTelemetryProps = {
+  package_name?: typeof PACKAGE_NAME;
+  package_version?: string;
+  inspector_distinct_id?: string;
+  posthog_distinct_id?: string;
+  memory_count?: number;
+  available?: boolean;
+};
+
+export function trackMemoriesTabClicked(
+  props: InspectorMemoryTelemetryProps = {},
+): void {
+  track(TELEMETRY_EVENTS.memoriesTabClicked, props);
 }
 
 /**
