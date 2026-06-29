@@ -242,7 +242,13 @@ export function TransactionsList({
                                 <MoreHorizontal className="h-5 w-5" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent
+                              align="end"
+                              // The CopilotKit chat sidebar is z-index:1200; the
+                              // menu portals to <body> at z-50, so it renders
+                              // BEHIND the panel in the chat. Lift it above the panel.
+                              className="z-[1300]"
+                            >
                               <DropdownMenuItem
                                 onClick={() => {
                                   logStep("Opened the exception form");
