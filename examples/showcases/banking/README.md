@@ -144,6 +144,30 @@ follow-up (user-scope memory, periodic DB reset, or a dashboard control).
   via the manual walkthrough above + the aimock E2E. Run after editing the prompt or
   teach tools.
 
+### Advanced mode — Glass Engine
+
+Glass Engine is a docked inspector (desktop-only) that exposes the copilot's
+internals. It is gated twice:
+
+- **Availability (deployment):** set `GLASS_ENGINE_AVAILABLE=true` to expose the
+  left-rail telescope toggle. Leave it unset on public deployments — Glass Engine
+  is then absent entirely and the `/api/memories*` routes return 404. (FDE/sales/
+  conference deployments set it; one image, per-deployment env.)
+- **Activation (presenter):** when available, the telescope toggles the pane on/off
+  per session (persisted in localStorage), so you can reveal it case-by-case during
+  a talk.
+
+Tabs:
+
+- **Timeline** — every AG-UI protocol event of each run, live (works in any mode).
+- **Memory** — durable memory recall + semantic search (Intelligence mode only).
+  The "Recalled memories" list is top-k semantic recall, not a full enumeration.
+- **Learning** — the over-limit teach→save→recall procedure and live recall
+  activity (Intelligence mode only).
+
+In OSS mode (no `INTELLIGENCE_*`) the Memory and Learning tabs show a "Requires
+Intelligence mode" hint.
+
 ## Architecture at a glance
 
 ```

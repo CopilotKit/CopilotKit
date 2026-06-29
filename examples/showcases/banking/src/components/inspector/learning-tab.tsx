@@ -63,8 +63,10 @@ export function LearningTab() {
 
   const memoryEvents = cards.filter((c) => c.kind === "memory");
 
-  // Fetch on mount + slow backstop poll.
+  // Fetch on mount + slow backstop poll. fetchProcedures is async — it setStates
+  // only after `await fetch`, so there is no synchronous cascading render.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch; setState is post-await
     fetchProcedures().catch(() => {});
     const handle = window.setInterval(() => fetchProcedures().catch(() => {}), BACKSTOP_POLL_MS);
     return () => window.clearInterval(handle);
@@ -72,6 +74,7 @@ export function LearningTab() {
 
   // Event-driven: re-fetch the moment a memory tool-call streams in.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch; setState is post-await
     if (memoryEvents.length > 0) fetchProcedures().catch(() => {});
   }, [memoryEvents.length, fetchProcedures]);
 

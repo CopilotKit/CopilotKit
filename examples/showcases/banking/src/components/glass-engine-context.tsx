@@ -39,6 +39,10 @@ export function GlassEngineProvider({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Client-only hydration from localStorage (an external system): SSR renders
+    // the `false` default and the client syncs the persisted value post-mount. A
+    // lazy initializer would read window during SSR and cause a hydration mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional localStorage hydration
     setEnabledState(window.localStorage.getItem(STORAGE_KEY) === "true");
   }, []);
 
