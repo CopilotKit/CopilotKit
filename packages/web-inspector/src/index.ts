@@ -1903,10 +1903,10 @@ export class CpkThreadInspector extends LitElement {
     threadId: string,
     signal: AbortSignal,
   ): Promise<ThreadDebuggerMessage[]> {
-    const res = await fetch(
-      this.getThreadInspectionUrl(threadId, "messages"),
-      { headers: { ...this.headers }, signal },
-    );
+    const res = await fetch(this.getThreadInspectionUrl(threadId, "messages"), {
+      headers: { ...this.headers },
+      signal,
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = (await res.json()) as { messages: ThreadDebuggerMessage[] };
     return data.messages;
@@ -1916,10 +1916,10 @@ export class CpkThreadInspector extends LitElement {
     threadId: string,
     signal: AbortSignal,
   ): Promise<RuntimeEventsFetchResult> {
-    const res = await fetch(
-      this.getThreadInspectionUrl(threadId, "events"),
-      { headers: { ...this.headers }, signal },
-    );
+    const res = await fetch(this.getThreadInspectionUrl(threadId, "events"), {
+      headers: { ...this.headers },
+      signal,
+    });
     if (res.status === 501) {
       return { status: "not-available" };
     }
@@ -1934,10 +1934,10 @@ export class CpkThreadInspector extends LitElement {
     threadId: string,
     signal: AbortSignal,
   ): Promise<RuntimeStateFetchResult> {
-    const res = await fetch(
-      this.getThreadInspectionUrl(threadId, "state"),
-      { headers: { ...this.headers }, signal },
-    );
+    const res = await fetch(this.getThreadInspectionUrl(threadId, "state"), {
+      headers: { ...this.headers },
+      signal,
+    });
     if (res.status === 501) {
       return { status: "not-available" };
     }
