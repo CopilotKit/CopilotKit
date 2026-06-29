@@ -108,6 +108,7 @@ interface MemoryState {
   error: Error | null;
   context: MemoryRuntimeContext | null;
   sessionId: number;
+  available: boolean;
 }
 
 const initialMemoryState: MemoryState = {
@@ -117,6 +118,7 @@ const initialMemoryState: MemoryState = {
   error: null,
   context: null,
   sessionId: 0,
+  available: true,
 };
 
 const memoryAdapterEvents = createActionGroup("Memory Adapter", {
@@ -136,6 +138,7 @@ const memoryRestEvents = createActionGroup("Memory REST", {
   listRequested: props<{ sessionId: number }>(),
   listSucceeded: props<{ sessionId: number; memories: Memory[] }>(),
   listFailed: props<{ sessionId: number; error: Error }>(),
+  listUnavailable: props<{ sessionId: number }>(),
   mutationFinished: props<{ outcome: MemoryMutationOutcome }>(),
   credentialsRequested: props<{ sessionId: number }>(),
   credentialsSucceeded: props<{
@@ -144,6 +147,7 @@ const memoryRestEvents = createActionGroup("Memory REST", {
     joinCode: string;
   }>(),
   credentialsFailed: props<{ sessionId: number; error: Error }>(),
+  credentialsUnavailable: props<{ sessionId: number }>(),
 });
 
 const memoryDomainEvents = createActionGroup("Memory Domain", {
@@ -243,6 +247,7 @@ const memoryReducer = createReducer(
     memories: [],
     isLoading: Boolean(context),
     error: null,
+    available: true,
   })),
   on(memoryAdapterEvents.stopped, (state: MemoryState) => ({
     ...state,
@@ -259,6 +264,7 @@ const memoryReducer = createReducer(
       ...state,
       isLoading: true,
       error: null,
+      available: true,
     };
   }),
   on(
@@ -275,6 +281,19 @@ const memoryReducer = createReducer(
       };
     },
   ),
+  on(memoryRestEvents.listUnavailable, (state: MemoryState, { sessionId }) => {
+    if (sessionId !== state.sessionId) {
+      return state;
+    }
+
+    return {
+      ...state,
+      memories: [],
+      isLoading: false,
+      error: null,
+      available: false,
+    };
+  }),
   on(
     memoryAdapterEvents.addRequested,
     memoryAdapterEvents.updateRequested,
