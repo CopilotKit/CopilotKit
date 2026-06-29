@@ -152,8 +152,8 @@ describe("Catalog Generator", () => {
     // shape-stable. The 47 includes 2 byoc legacy IDs (`byoc-hashbrown`,
     // `byoc-json-render`) plus their renamed aliases (`declarative-*`)
     // that langgraph-python uses for the visible URL slugs, and the
-    // ADK-only `a2ui-recovery` feature (wired for google-adk, unshipped
-    // for every other integration).
+    // `a2ui-recovery` feature (wired for google-adk + langgraph-{python,
+    // fastapi,typescript} + strands{,-typescript}; unshipped elsewhere).
     expect(integrated.length).toBe(940);
     expect(starters.length).toBe(0);
     expect(catalog.cells.length).toBe(940);
@@ -162,7 +162,7 @@ describe("Catalog Generator", () => {
     expect(catalog.metadata.docs_only).toBe(20);
   });
 
-  it("LGP has 47 cells: 36 wired + 1 stub + 8 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
+  it("LGP has 47 cells: 37 wired + 1 stub + 7 unshipped + 2 unsupported (deprecated features included; dashboard hides them by default)", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -180,8 +180,9 @@ describe("Catalog Generator", () => {
     // since both are in the registry, and the LGP cells for the legacy
     // IDs are `unshipped` because LGP's manifest only declares the
     // renamed form) + 1 unshipped for `threadid-frontend-tool-roundtrip`
-    // (built-in-agent-only feature; LGP doesn't declare it) + 1 unshipped
-    // for `a2ui-recovery` (ADK-only feature; LGP doesn't declare it).
+    // (built-in-agent-only feature; LGP doesn't declare it). `a2ui-recovery`
+    // is now WIRED for LGP (the recovery demo shipped across langgraph +
+    // strands), so it no longer counts toward unshipped.
     // Dashboard's "Show deprecated" toggle hides deprecated rows by default.
     expect(lgpCells.length).toBe(47);
 
@@ -193,11 +194,12 @@ describe("Catalog Generator", () => {
     // The interrupt-pill quarantine moved gen-ui-interrupt / interrupt-headless
     // (both previously `wired`) into `not_supported_features`, so they now
     // surface as `unsupported`: wired drops 38 -> 36, unsupported rises 0 -> 2.
-    // unshipped rises 6 -> 7 with threadid-frontend-tool-roundtrip, then
-    // 7 -> 8 with the ADK-only `a2ui-recovery` feature (LGP doesn't declare it).
-    expect(wired.length).toBe(36);
+    // unshipped rises 6 -> 7 with threadid-frontend-tool-roundtrip. Then the
+    // a2ui-recovery demo shipped for LGP (wired), so wired rises 36 -> 37 and
+    // unshipped drops 8 -> 7.
+    expect(wired.length).toBe(37);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(8);
+    expect(unshipped.length).toBe(7);
     expect(unsupported.length).toBe(2);
   });
 

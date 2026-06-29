@@ -30,6 +30,7 @@ import type {
   EmojiPlatform,
   ModalView,
   ComponentFn,
+  MessageRef,
 } from "@copilotkit/bot-ui";
 import {
   normalizeEmoji,
@@ -39,6 +40,22 @@ import {
 import { Transcripts } from "./transcripts.js";
 import type { Identity, TranscriptsConfig } from "./transcripts.js";
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
+import { BotTelemetry } from "./telemetry/bot-telemetry.js";
+import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
+import { createRequire } from "node:module";
+
+const pkg = createRequire(import.meta.url)("../package.json") as {
+  name: string;
+  version: string;
+};
+
+function storeKind(s: StateStore): "memory" | "postgres" | "redis" | "custom" {
+  const n = s.constructor?.name;
+  if (n === "MemoryStore") return "memory";
+  if (n === "PostgresStore") return "postgres";
+  if (n === "RedisStore") return "redis";
+  return "custom";
+}
 
 /** Platforms whose tokens the emoji table can normalize. */
 const EMOJI_PLATFORMS: ReadonlySet<EmojiPlatform> = new Set([
@@ -83,6 +100,8 @@ export interface ReactionEvent {
   /** The reacting user, when the platform reports one. */
   user?: PlatformUser;
   messageId: string;
+  /** Update-capable ref to the reacted message (`thread.update(messageRef, ui)`). */
+  messageRef: MessageRef;
   threadId?: string;
   thread: Thread;
   adapter: PlatformAdapter;
@@ -246,6 +265,11 @@ export function createBot<
   }
 
   const backend: StateStore = cfg.adapter ?? new MemoryStore();
+  const telemetry = new BotTelemetry({
+    backend,
+    packageName: pkg.name,
+    packageVersion: pkg.version,
+  });
   const transcripts = new Transcripts(backend, cfg.transcripts ?? {});
   const registry = new ActionRegistry({
     store: opts.actionStore ?? kvActionStore(backend),
@@ -324,6 +348,7 @@ export function createBot<
       transcripts,
       userKey: extras?.userKey,
       message: extras?.message,
+      telemetry,
     };
     return new Thread(deps);
   }
@@ -558,12 +583,15 @@ export function createBot<
           evt.replyTarget,
           evt.conversationKey,
         );
+        // Prefer the adapter's update-capable ref; fall back to the bare id.
+        const messageRef: MessageRef = evt.messageRef ?? { id: evt.messageId };
         const reactionEvt: ReactionEvent = {
           emoji: value,
           rawEmoji: evt.rawEmoji,
           added: evt.added,
           user: evt.user,
           messageId: evt.messageId,
+          messageRef,
           threadId: evt.threadId,
           thread,
           adapter,
@@ -572,6 +600,20 @@ export function createBot<
         for (const reg of reactionHandlers) {
           if (!reg.emojis || reg.emojis.has(value))
             await reg.handler(reactionEvt);
+        }
+        // Per-message handler set via `<Message onReaction>` on the posted
+        // message — hot cache, falling back to the durable snapshot after a restart.
+        const perMessage = await registry.resolveMessageReaction(evt.messageId);
+        if (perMessage) {
+          await perMessage(value, {
+            emoji: value,
+            rawEmoji: evt.rawEmoji,
+            added: evt.added,
+            user: evt.user,
+            messageId: evt.messageId,
+            thread,
+            messageRef,
+          });
         }
       },
       async onModalSubmit(evt: IncomingModalSubmit) {
@@ -690,14 +732,38 @@ export function createBot<
       const startResults = await Promise.allSettled(
         opts.adapters.map((a) => a.start(makeSink(a))),
       );
+      const startedPlatforms: string[] = [];
+      const failedPlatforms: string[] = [];
       startResults.forEach((r, i) => {
+        const rawPlatform = opts.adapters[i]!.platform;
+        // Raw label for the human-facing log; normalized label for telemetry.
+        const platform = normalizePlatform(rawPlatform);
         if (r.status === "rejected") {
+          failedPlatforms.push(platform);
           console.error(
-            `[bot] adapter "${opts.adapters[i]!.platform}" failed to start:`,
+            `[bot] adapter "${rawPlatform}" failed to start:`,
             r.reason,
           );
+          telemetry.capture("oss.bot.start_failed", {
+            platform,
+            errorClass: errorClass(r.reason),
+          });
+        } else {
+          startedPlatforms.push(platform);
         }
       });
+      if (startedPlatforms.length > 0) {
+        telemetry.capture("oss.bot.started", {
+          platforms: startedPlatforms,
+          startedCount: startedPlatforms.length,
+          failedCount: failedPlatforms.length,
+          hasMentionHandler: mentionHandlers.length > 0,
+          hasMessageHandler: messageHandlers.length > 0,
+          interruptHandlers: interruptHandlers.size,
+          commandsCount: commandHandlers.size,
+          toolsCount: toolMap.size,
+        });
+      }
       // Hand declared commands to adapters that register them up front (e.g.
       // Discord); adapters without `registerCommands` are skipped. Per-adapter
       // failures are isolated the same way as start().
@@ -732,5 +798,17 @@ export function createBot<
       });
     },
   };
+  telemetry.capture("oss.bot.configured", {
+    platforms: opts.adapters.map((a) => normalizePlatform(a.platform)),
+    adapterCount: opts.adapters.length,
+    store: storeKind(backend),
+    hasComponents: (opts.components?.length ?? 0) > 0,
+    componentsCount: opts.components?.length ?? 0,
+    toolsCount: toolMap.size,
+    commandsCount: commandHandlers.size,
+    contextCount: context.length,
+    transcripts: !!cfg.transcripts,
+    identity: !!cfg.identity,
+  });
   return bot;
 }

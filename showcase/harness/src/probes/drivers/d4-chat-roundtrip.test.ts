@@ -276,22 +276,40 @@ describe("e2eChatToolsDriver L3 (chat)", () => {
     expect(evaluateCalls).toBeGreaterThan(1);
   });
 
-  it("falls back to body scraping when the assistant selector never resolves", async () => {
-    // Reference helper's fallback path: slice <body> after the sent
-    // message, strip UI chrome, keep substantive text.
+  it("red when the assistant bubble never renders even though static page text trails the message (BIA false-pass guard)", async () => {
+    // Regression for the BIA outage: the agent run finished with ZERO
+    // assistant content (RUN_STARTED → RUN_FINISHED, no TEXT_MESSAGE), so
+    // the `[data-testid="copilot-assistant-message"]` bubble never produced
+    // text. The probe then fell back to scraping <body>, where unrelated
+    // STATIC page text trailing the sent message (nav links, footer copy,
+    // demo blurb) is long enough to pass the old `text.length > 0` gate —
+    // turning a dead agent into a false GREEN.
+    //
+    // The distinguishing signal is provenance: a REAL turn fills the
+    // assistant-message container; a body-scrape leak does not. With the
+    // container selector throwing AND no real assistant content, the gate
+    // must report RED. (Pre-fix this returned GREEN because the body tail
+    // was non-empty — the false-pass this test pins.)
     const { browser } = makeBrowser([
       {
         throwOnAssistantSelector: new Error("selector timeout"),
         bodyText:
-          "Hello, please respond with a brief greeting.\nAlright, here is a warm greeting for you from the assistant response.",
+          "Hello, please respond with a brief greeting.\n" +
+          "Documentation Pricing Blog GitHub Star us on GitHub. " +
+          "This demo shows an agentic chat experience built with CopilotKit.",
       },
     ]);
     const driver = createE2eSmokeDriver({ launcher: async () => browser });
-    const result = await driver.run(baseCtx(), {
+    const writer = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer }), {
       key: "e2e-smoke:foo",
       backendUrl: "https://x.example.com",
     });
-    expect(result.state).toBe("green");
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("red");
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
   });
 });
 

@@ -83,7 +83,7 @@
     {
       "id": "t-2",
       "title": "AWS",
-      "amount": -10000,
+      "amount": -15000,
       "date": "2026-05-20",
       "policyId": "9a8b7c6d5e",
       "cardId": "fA5b7c6d5e",
@@ -92,7 +92,7 @@
     {
       "id": "t-3",
       "title": "Microsoft 365",
-      "amount": -1000,
+      "amount": -10000,
       "date": "2026-05-12",
       "policyId": "8r5c3m4n5o",
       "cardId": "5tf3rmlcyg3",
@@ -112,5 +112,6 @@
       },
       "status": "approved"
     }
-  ]
+  ],
+  "exceptions": []
 }

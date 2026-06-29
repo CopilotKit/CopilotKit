@@ -1,16 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MockInstance } from "vitest";
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import {
   TELEMETRY_DOCS_URL,
   TELEMETRY_EVENTS,
   TELEMETRY_INGEST_URL,
+  getRuntimeUrlType,
   getTelemetryDistinctIdForUrl,
   maybeShowDisclosure,
   track,
   trackBannerClicked,
   trackBannerViewed,
+  trackTalkToEngineerClicked,
+  trackThreadsEmptyEnabledViewed,
+  trackThreadsEnabledViewed,
+  trackThreadsIntelligenceSignupClicked,
+  trackThreadsLockedViewed,
   trackThreadsTabClicked,
+  trackThreadsTalkToEngineerClicked,
 } from "../telemetry.js";
 import {
   _resetTelemetryPersistenceForTesting,
@@ -26,6 +36,9 @@ import {
 // what would have been sent without making real HTTP requests.
 let fetchMock: MockInstance<typeof fetch>;
 let consoleInfoSpy: MockInstance<typeof console.info>;
+const webInspectorPackage = JSON.parse(
+  readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+) as { version: string };
 
 beforeEach(() => {
   // Each test starts from a clean localStorage so distinct-ID + opt-out
@@ -83,10 +96,12 @@ describe("track()", () => {
     // package is top-level object, not a string inside properties
     expect(body.package).toEqual({ name: "@copilotkit/web-inspector" });
     expect(body.properties).not.toHaveProperty("package");
+    expect(body.properties).not.toHaveProperty("package_name");
+    expect(body.properties).not.toHaveProperty("inspector_distinct_id");
     expect(typeof body.ts).toBe("number");
   });
 
-  it("sends regardless of localStorage opt-out — callers gate on core.telemetryDisabled", async () => {
+  it("short-circuits when localStorage opt-out is set", async () => {
     setTelemetryOptOut(true);
     expect(isTelemetryOptedOut()).toBe(true);
 
@@ -96,9 +111,20 @@ describe("track()", () => {
     });
     await Promise.resolve();
 
-    // track() no longer short-circuits on localStorage; opt-out is enforced
-    // at the call site via core.telemetryDisabled before track*() is invoked.
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("swallows unserializable properties before dispatching", async () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    expect(() => track(TELEMETRY_EVENTS.bannerClicked, circular)).not.toThrow();
+    expect(() =>
+      track(TELEMETRY_EVENTS.bannerClicked, { value: 1n }),
+    ).not.toThrow();
+    await Promise.resolve();
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("swallows fetch failures (telemetry is best-effort)", async () => {
@@ -170,17 +196,131 @@ describe("typed helpers", () => {
     expect(body.properties.cta).toBe("body");
   });
 
-  it("trackThreadsTabClicked sends no caller-supplied properties", async () => {
-    trackThreadsTabClicked();
+  it("trackThreadsTabClicked sends thread metadata without content", async () => {
+    trackThreadsTabClicked({
+      intelligence_status: "intelligence_not_enabled",
+      thread_service_status: "unavailable",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      license_status: "none",
+      telemetry_disabled: false,
+    });
     await Promise.resolve();
     const [, init] = fetchMock.mock.calls[0]!;
     const body = JSON.parse((init?.body as string) ?? "{}") as {
       event: string;
       properties: Record<string, unknown>;
+      package: { name: string; version?: string };
     };
     expect(body.event).toBe(TELEMETRY_EVENTS.threadsTabClicked);
-    // Only distinct_id should be in properties (no caller keys)
-    expect(Object.keys(body.properties)).toEqual(["distinct_id"]);
+    expect(body.properties).toMatchObject({
+      intelligence_status: "intelligence_not_enabled",
+      thread_service_status: "unavailable",
+      runtime_mode: "sse",
+      runtime_url_type: "localhost",
+      license_status: "none",
+      telemetry_disabled: false,
+      package_name: "@copilotkit/web-inspector",
+      package_version: webInspectorPackage.version,
+    });
+    expect(body.properties).toHaveProperty("inspector_distinct_id");
+    expect(body.properties.inspector_distinct_id).toBe(
+      body.properties.distinct_id,
+    );
+    expect(body.package).toEqual({
+      name: "@copilotkit/web-inspector",
+      version: webInspectorPackage.version,
+    });
+  });
+
+  it("sends required threads CTA and viewed events", async () => {
+    trackThreadsLockedViewed({
+      intelligence_status: "intelligence_not_enabled",
+      thread_service_status: "unavailable",
+    });
+    trackThreadsIntelligenceSignupClicked({
+      cta: "signup",
+      cta_surface: "threads_locked",
+      posthog_distinct_id: "abc-123",
+    });
+    trackThreadsTalkToEngineerClicked({
+      cta: "talk_to_engineer",
+      cta_surface: "threads_locked",
+      posthog_distinct_id: "abc-123",
+    });
+    trackTalkToEngineerClicked({
+      cta: "talk_to_engineer",
+      cta_surface: "threads_header",
+      posthog_distinct_id: "abc-123",
+    });
+    trackThreadsEmptyEnabledViewed({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      thread_count: 0,
+    });
+    trackThreadsEnabledViewed({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      thread_count: 2,
+    });
+
+    await Promise.resolve();
+
+    const payloads = fetchMock.mock.calls.map(([, init]) => {
+      return JSON.parse((init?.body as string) ?? "{}") as {
+        event: string;
+        properties: Record<string, unknown>;
+      };
+    });
+    const events = payloads.map((payload) => payload.event);
+    expect(events).toEqual([
+      TELEMETRY_EVENTS.threadsLockedViewed,
+      TELEMETRY_EVENTS.threadsIntelligenceSignupClicked,
+      TELEMETRY_EVENTS.threadsTalkToEngineerClicked,
+      TELEMETRY_EVENTS.talkToEngineerClicked,
+      TELEMETRY_EVENTS.threadsEmptyEnabledViewed,
+      TELEMETRY_EVENTS.threadsEnabledViewed,
+    ]);
+    expect(payloads[0]!.properties).toMatchObject({
+      intelligence_status: "intelligence_not_enabled",
+      thread_service_status: "unavailable",
+    });
+    expect(payloads[1]!.properties).toMatchObject({
+      cta: "signup",
+      cta_surface: "threads_locked",
+      posthog_distinct_id: "abc-123",
+    });
+    expect(payloads[2]!.properties).toMatchObject({
+      cta: "talk_to_engineer",
+      cta_surface: "threads_locked",
+      posthog_distinct_id: "abc-123",
+    });
+    expect(payloads[3]!.properties).toMatchObject({
+      cta: "talk_to_engineer",
+      cta_surface: "threads_header",
+      posthog_distinct_id: "abc-123",
+    });
+    expect(payloads[4]!.properties).toMatchObject({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      thread_count: 0,
+    });
+    expect(payloads[5]!.properties).toMatchObject({
+      intelligence_status: "intelligence_enabled",
+      thread_service_status: "available",
+      thread_count: 2,
+    });
+  });
+});
+
+// ─── Safe URL classification ────────────────────────────────────────────────
+
+describe("getRuntimeUrlType()", () => {
+  it("classifies runtime URLs without exposing origins", () => {
+    expect(getRuntimeUrlType(undefined)).toBe("missing");
+    expect(getRuntimeUrlType("/api/copilotkit")).toBe("relative");
+    expect(getRuntimeUrlType("http://localhost:4000")).toBe("localhost");
+    expect(getRuntimeUrlType("https://example.com/api")).toBe("remote");
   });
 });
 

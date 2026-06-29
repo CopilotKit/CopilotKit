@@ -1,10 +1,5 @@
-import {
-  Header,
-  Message,
-  Section,
-  renderToIR,
-  type BotNode,
-} from "@copilotkit/bot-ui";
+import { Header, Message, Section, renderToIR } from "@copilotkit/bot-ui";
+import type { BotNode } from "@copilotkit/bot-ui";
 import { describe, expect, it } from "vitest";
 import { renderBlockKit, renderSlackMessage } from "./block-kit.js";
 
@@ -181,6 +176,108 @@ describe("renderBlockKit", () => {
         },
       ]),
     ).toEqual([{ type: "section", text: { type: "mrkdwn", text: "native" } }]);
+  });
+
+  it("renders a link button with a url", () => {
+    const blocks = renderBlockKit([
+      {
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "button",
+              props: {
+                url: "https://dash/deploy/42",
+                children: [{ type: "text", props: { value: "Open" } }],
+              },
+            },
+          ],
+        },
+      },
+    ]);
+    const el = (blocks[0] as { elements: { url?: string }[] }).elements[0]!;
+    expect(el.url).toBe("https://dash/deploy/42");
+  });
+
+  it("renders a Field label as a bold mrkdwn line above the value", () => {
+    const blocks = renderBlockKit([
+      {
+        type: "field",
+        props: {
+          label: "Status",
+          children: [{ type: "text", props: { value: "Online" } }],
+        },
+      },
+    ]);
+    const text = (blocks[0] as { fields: { text: string }[] }).fields[0]!.text;
+    expect(text).toBe("*Status*\nOnline");
+  });
+
+  it("renders a multi-select as its own input block, not inside actions", () => {
+    const blocks = renderBlockKit([
+      {
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "select",
+              props: {
+                multi: true,
+                onSelect: { id: "ck:ms" },
+                placeholder: "Pick teams",
+                options: [
+                  { label: "Core", value: "core" },
+                  { label: "Infra", value: "infra" },
+                ],
+              },
+            },
+          ],
+        },
+      },
+    ]);
+    // No actions block is emitted (the only child was peeled into an input block).
+    expect(blocks).toHaveLength(1);
+    const block = blocks[0] as {
+      type: string;
+      dispatch_action: boolean;
+      element: { type: string; action_id: string };
+    };
+    expect(block.type).toBe("input");
+    expect(block.dispatch_action).toBe(true);
+    expect(block.element.type).toBe("multi_static_select");
+    expect(block.element.action_id).toBe("ck:ms");
+  });
+
+  it("keeps source order when a multi-select is mixed with a button", () => {
+    const blocks = renderBlockKit([
+      {
+        type: "actions",
+        props: {
+          children: [
+            {
+              type: "button",
+              props: {
+                onClick: { id: "ck:b" },
+                children: [{ type: "text", props: { value: "Go" } }],
+              },
+            },
+            {
+              type: "select",
+              props: {
+                multi: true,
+                onSelect: { id: "ck:ms" },
+                options: [{ label: "Core", value: "core" }],
+              },
+            },
+          ],
+        },
+      },
+    ]);
+    // The button's actions block comes first, then the multi-select input block.
+    expect(blocks.map((b) => (b as { type: string }).type)).toEqual([
+      "actions",
+      "input",
+    ]);
   });
 });
 

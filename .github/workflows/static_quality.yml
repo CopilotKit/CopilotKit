@@ -123,7 +123,18 @@ jobs:
           if [ -n "$py_files" ]; then
             echo "$py_files" | xargs ruff format || echo "::warning::ruff format exited with error"
           fi
-          if [ -n "$(git diff --name-only)" ]; then
+          # Trigger the auto-commit only when one of the SCOPED PR files
+          # actually changed. A whole-tree `git diff` here also trips on
+          # unrelated working-tree drift (e.g. an LFS smudge on a tracked
+          # `*.png filter=lfs` file), which would set format_fixed=true while
+          # the scoped `git add` below stages nothing — making `git commit`
+          # fail with "nothing to commit". Diffing only the scoped files keeps
+          # the trigger aligned with what the commit step can actually stage.
+          # shellcheck disable=SC2046 # intentional split: each path is a
+          # separate `git diff` pathspec arg; the `-s` guard rules out the
+          # empty-arg (whole-tree) case, and PR paths never contain spaces.
+          if [ -s .pr-format-files.existing.txt ] && \
+             ! git diff --quiet -- $(cat .pr-format-files.existing.txt); then
             echo "format_fixed=true" >> "$GITHUB_ENV"
           fi
           # Check mode: verify everything is formatted
@@ -161,6 +172,14 @@ jobs:
           # leaving formatting violations on the PR branch and (post-
           # merge) on main.
           xargs -a .pr-format-files.existing.txt git add --
+          # Guard against an empty staged set: if the scoped `git add` staged
+          # nothing (e.g. the whole-tree drift that set format_fixed=true lives
+          # entirely outside the scoped files), `git commit` would exit 1 and
+          # fail the job. Treat an empty index as a no-op instead.
+          if git diff --cached --quiet; then
+            echo "No scoped formatting changes to commit"
+            exit 0
+          fi
           git commit -m "style: auto-fix formatting"
           git push
 

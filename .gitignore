@@ -33,6 +33,10 @@ __pycache__/
 .venv
 .vercel
 
+# Host-specific deploy config — lives in your platform's dashboard, not the repo.
+# (e.g. a local `railway up` upload filter generated when deploying from a worktree)
+.railwayignore
+
 docs/next-env.d.ts
 showcase/shell-docs/next-env.d.ts
 

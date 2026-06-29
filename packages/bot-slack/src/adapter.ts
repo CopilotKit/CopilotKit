@@ -50,12 +50,13 @@ import { attachAssistant } from "./assistant.js";
 import type { AssistantHandle } from "./assistant.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
-import { DM_SCOPE } from "./types.js";
+import { DM_SCOPE, resolveSlackRespondToOptions } from "./types.js";
 import type {
   ConversationKey,
   ReplyTarget,
   SlackAssistantOptions,
   SlackFeedbackOptions,
+  SlackRespondToOptions,
 } from "./types.js";
 
 export interface SlackAdapterOptions {
@@ -82,6 +83,12 @@ export interface SlackAdapterOptions {
    * disable pane handling entirely.
    */
   assistant?: SlackAssistantOptions | false;
+  /**
+   * Controls which Slack message surfaces become bot turns. Defaults: DMs
+   * respond, app mentions respond in-thread, and plain channel thread replies
+   * require another app mention.
+   */
+  respondTo?: SlackRespondToOptions;
   /**
    * Reply-stream transport. "native" (default): `chat.startStream` wherever the
    * reply target is a thread; flat DMs and workspaces where the streaming API
@@ -190,6 +197,7 @@ export class SlackAdapter implements PlatformAdapter {
       app: this.app,
       store: this.store,
       botUserId: this.botUserId,
+      respondTo: resolveSlackRespondToOptions(this.opts.respondTo),
       isAssistantThread: this.assistantHandle?.isAssistantThread,
       onTurn: async (turn) => {
         await sink.onTurn({
@@ -552,9 +560,19 @@ export class SlackAdapter implements PlatformAdapter {
     const t = target as ReplyTarget;
     const assistantOpts: SlackAssistantOptions | undefined =
       this.opts.assistant === false ? undefined : (this.opts.assistant ?? {});
-    // Pane targets drive native status (setStatus) instead of placeholder +
-    // :wrench: rows.
     const isPane = this.isPaneTarget(t);
+    // Native `setStatus` ("is thinking…") works for any thread we can anchor it
+    // to — pane, channel @-mention, tracked channel thread, or (via the carried
+    // inbound ts) a flat DM. `assistant: false` opts out everywhere.
+    const statusThreadTs = t.threadTs ?? t.statusTs;
+    const status =
+      assistantOpts && statusThreadTs
+        ? {
+            threadTs: statusThreadTs,
+            isPane,
+            config: assistantOpts.status ?? {},
+          }
+        : undefined;
     // Native streaming wherever a thread exists (and the workspace supports it).
     const useNative =
       this.opts.streaming !== "legacy" &&
@@ -565,7 +583,7 @@ export class SlackAdapter implements PlatformAdapter {
       target: t,
       interruptEventNames: this.opts.interruptEventNames,
       showToolStatus: this.opts.showToolStatus,
-      assistantStatus: isPane ? (assistantOpts?.status ?? {}) : undefined,
+      status,
       nativeStreaming: useNative
         ? {
             transport: this.nativeTransport(t, () => {}),

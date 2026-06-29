@@ -1,8 +1,8 @@
 import type { App } from "@slack/bolt";
 import type { WebClient } from "@slack/web-api";
 import type { SlackConversationStore } from "./conversation-store.js";
-import type { IncomingTurn } from "./types.js";
-import { DM_SCOPE } from "./types.js";
+import type { IncomingTurn, ResolvedSlackRespondToOptions } from "./types.js";
+import { DEFAULT_SLACK_RESPOND_TO_OPTIONS, DM_SCOPE } from "./types.js";
 
 /**
  * Handler the listener calls when a Slack event maps to a usable turn.
@@ -44,6 +44,8 @@ export interface ListenerConfig {
   store: SlackConversationStore;
   /** Bot user id, used to filter out our own messages (loop guard). */
   botUserId: string | undefined;
+  /** Resolved response-routing policy for Slack ingress. */
+  respondTo?: ResolvedSlackRespondToOptions;
   /** Where each accepted turn is dispatched. */
   onTurn: TurnHandler;
   /** Where each slash command is dispatched. */
@@ -90,9 +92,9 @@ function deriveEventId(
  * stream of cleanly-normalised turns regardless of which Slack event fired.
  *
  * Triggers:
- *   1. @mention in a channel        →  start (or continue) the thread it lives in.
- *   2. Plain reply in a tracked thread → continue that thread.
- *   3. DM to the bot                →  reply flat in the DM.
+ *   1. @mention in a channel/thread → start or continue a conversation.
+ *   2. DM to the bot                → reply flat in the DM.
+ *   3. Plain reply in a tracked thread when explicitly configured.
  *
  * Filters out:
  *   - `subtype` events (edits, joins, channel_renames, …)
@@ -103,6 +105,7 @@ function deriveEventId(
  */
 export function attachSlackListener(config: ListenerConfig): void {
   const { app, store, onTurn, onCommand } = config;
+  const respondTo = config.respondTo ?? DEFAULT_SLACK_RESPOND_TO_OPTIONS;
 
   // ── Slash commands ──────────────────────────────────────────────────
   // Forward EVERY registered slash command to the engine, which routes it
@@ -137,6 +140,8 @@ export function attachSlackListener(config: ListenerConfig): void {
   });
 
   app.event("app_mention", async ({ event, body, client }) => {
+    if (respondTo.appMentions === false) return;
+
     const threadTs = event.thread_ts ?? event.ts;
     const userText = stripMentions(event.text ?? "");
     const hasFiles =
@@ -148,7 +153,10 @@ export function attachSlackListener(config: ListenerConfig): void {
     await onTurn(
       {
         conversation: { channelId: event.channel, scope: threadTs },
-        replyTarget: { channel: event.channel, threadTs },
+        replyTarget:
+          respondTo.appMentions.reply === "thread"
+            ? { channel: event.channel, threadTs }
+            : { channel: event.channel },
         userText,
         senderUserId: event.user,
         eventId: deriveEventId(
@@ -182,11 +190,15 @@ export function attachSlackListener(config: ListenerConfig): void {
     )
       return;
 
+    if (!respondTo.directMessages) return;
+
     if (isDM) {
       await onTurn(
         {
           conversation: { channelId: message.channel, scope: DM_SCOPE },
-          replyTarget: { channel: message.channel },
+          // Flat DM reply (no threadTs); carry the inbound ts so the renderer
+          // can anchor the native "is thinking…" status to a thread.
+          replyTarget: { channel: message.channel, statusTs: message.ts },
           userText: text,
           senderUserId: message.user,
           eventId: deriveEventId(body, message, message.channel),
@@ -200,6 +212,8 @@ export function attachSlackListener(config: ListenerConfig): void {
 
     // app_mention runs separately for these; skip the duplicate.
     if (config.botUserId && text.includes(`<@${config.botUserId}>`)) return;
+
+    if (respondTo.threadReplies === "mentionsOnly") return;
 
     // Only continue threads we already own. `has` consults Slack itself,
     // so a restarted bridge naturally recognises threads it replied to

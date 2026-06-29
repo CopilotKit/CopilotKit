@@ -71,6 +71,9 @@ export type D5FeatureType =
   | "readonly-state-context"
   // Generative-UI family — declarative, A2UI fixed-schema, open-shape, agent-driven.
   | "gen-ui-declarative"
+  // A2UI error recovery — the validate->retry recovery loop made
+  // visible (heal vs. exhaust). Drives `/demos/a2ui-recovery`.
+  | "a2ui-recovery"
   | "gen-ui-a2ui-fixed"
   | "gen-ui-open"
   | "gen-ui-open-advanced"
@@ -146,6 +149,7 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "shared-state-streaming",
   "readonly-state-context",
   "gen-ui-declarative",
+  "a2ui-recovery",
   "gen-ui-a2ui-fixed",
   "gen-ui-open",
   "gen-ui-open-advanced",
