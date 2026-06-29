@@ -89,7 +89,8 @@ export async function generateThreadNameForNewThread({
     userId,
     agentId,
     updates: {
-      name: generatedTitle ?? deriveFallbackTitleFromMessages(sourceInput.messages),
+      name:
+        generatedTitle ?? deriveFallbackTitleFromMessages(sourceInput.messages),
     },
   });
 }
