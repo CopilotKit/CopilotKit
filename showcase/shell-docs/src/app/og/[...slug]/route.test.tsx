@@ -74,7 +74,7 @@ describe("shell-docs OG route", () => {
     });
   });
 
-  it("constructs a PNG response with bundled Inter fonts", async () => {
+  it("constructs a PNG response with bundled Plus Jakarta fonts", async () => {
     const response = await callOgRoute(["quickstart", "og.png"]);
 
     expect(response.status).toBe(200);
@@ -82,10 +82,12 @@ describe("shell-docs OG route", () => {
     expect(imageResponseMock).toHaveBeenCalledOnce();
 
     const [, options] = imageResponseMock.mock.calls[0];
+    expect(options?.width).toBe(1200);
+    expect(options?.height).toBe(630);
     expect(options?.fonts).toHaveLength(2);
     expect(options?.fonts?.map((font) => font.name)).toEqual([
-      "Inter",
-      "Inter",
+      "Plus Jakarta Sans",
+      "Plus Jakarta Sans",
     ]);
     expect(options?.fonts?.map((font) => font.weight)).toEqual([500, 700]);
     expect(
