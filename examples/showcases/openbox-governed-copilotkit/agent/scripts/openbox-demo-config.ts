@@ -94,6 +94,8 @@ function toolGuardrailSettings(fields: string[], onFail: 0 | 1) {
 
 export const demoGoalAlignmentConfig = {
   alignment_threshold: 70,
+  // OpenBox validates this against its own supported LlamaFirewall models
+  // (not the demo's OPENAI_MODEL); gpt-5.4-* is rejected with 422 here.
   llama_firewall_model: "gpt-4o-mini",
   drift_detection_action: "alert_only",
   evaluation_frequency: "every_action",

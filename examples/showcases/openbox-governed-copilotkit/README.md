@@ -27,8 +27,9 @@ Reference app: [OpenBox-AI/openbox-x-copilotkit](https://github.com/OpenBox-AI/o
 ## Prerequisites
 
 - Node 20+
-- An OpenAI-compatible API key (`OPENAI_API_KEY`). The agent defaults to
-  `gpt-4o`; override with `OPENAI_MODEL`.
+- An OpenAI-compatible API key (`OPENAI_API_KEY`) and a chat model in
+  `OPENAI_MODEL` — the demo uses `gpt-5.4-mini-2026-03-17`. `OPENAI_MODEL` is
+  required; the agent has no built-in default and throws if it is unset.
 - An OpenBox account with a test API key. Sign up at
   [openbox.ai](https://openbox.ai) to get `OPENBOX_API_KEY`, `OPENBOX_CORE_URL`,
   `OPENBOX_AGENT_ID`, `OPENBOX_AGENT_DID`, and `OPENBOX_AGENT_PRIVATE_KEY`.
@@ -64,17 +65,17 @@ from the governance matrix below.
 
 ### Agent (`agent/.env`)
 
-| Variable                    | Description                                                   |
-| --------------------------- | ------------------------------------------------------------- |
-| `OPENAI_BASE_URL`           | OpenAI-compatible base URL (e.g. `https://api.openai.com/v1`) |
-| `OPENAI_MODEL`              | Model name (e.g. `gpt-4o`)                                    |
-| `OPENAI_API_KEY`            | API key for the model provider                                |
-| `OPENBOX_ENABLED`           | Set to `true` to activate governance (default `true`)         |
-| `OPENBOX_CORE_URL`          | OpenBox Core service URL (e.g. `https://core.openbox.ai`)     |
-| `OPENBOX_API_KEY`           | OpenBox API key (test key starts with `obx_test_`)            |
-| `OPENBOX_AGENT_ID`          | Your registered agent ID in OpenBox                           |
-| `OPENBOX_AGENT_DID`         | Agent DID for signing (e.g. `did:aip:example`)                |
-| `OPENBOX_AGENT_PRIVATE_KEY` | Base64-encoded raw Ed25519 private key                        |
+| Variable                    | Description                                                    |
+| --------------------------- | -------------------------------------------------------------- |
+| `OPENAI_BASE_URL`           | OpenAI-compatible base URL (e.g. `https://api.openai.com/v1`)  |
+| `OPENAI_MODEL`              | Model name, required (the demo uses `gpt-5.4-mini-2026-03-17`) |
+| `OPENAI_API_KEY`            | API key for the model provider                                 |
+| `OPENBOX_ENABLED`           | Set to `true` to activate governance (default `true`)          |
+| `OPENBOX_CORE_URL`          | OpenBox Core service URL (e.g. `https://core.openbox.ai`)      |
+| `OPENBOX_API_KEY`           | OpenBox API key (test key starts with `obx_test_`)             |
+| `OPENBOX_AGENT_ID`          | Your registered agent ID in OpenBox                            |
+| `OPENBOX_AGENT_DID`         | Agent DID for signing (e.g. `did:aip:example`)                 |
+| `OPENBOX_AGENT_PRIVATE_KEY` | Base64-encoded raw Ed25519 private key                         |
 
 ### Frontend (`frontend/.env.local`)
 
