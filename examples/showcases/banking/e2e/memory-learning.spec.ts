@@ -96,6 +96,11 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
   }) => {
     await page.goto("/");
 
+    // The docked chat starts closed (clean-dashboard first impression); open it
+    // before interacting. CopilotSidebar's launcher is labelled "Open chat".
+    const openChat = page.getByRole("button", { name: /open chat/i });
+    if (await openChat.count()) await openChat.first().click();
+
     // Fresh thread so there is NO in-thread context — recall is the only way the
     // agent can know the procedure.
     const newThread = page.getByRole("button", {
@@ -104,7 +109,7 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
     if (await newThread.count()) await newThread.first().click();
 
     // Send an over-limit approval request. "over-limit" matches the aimock fixtures.
-    const input = page.getByRole("textbox").last();
+    const input = page.getByPlaceholder(/type a message/i);
     await input.fill(`Please approve the over-limit charge ${TXN_ID}.`);
     await input.press("Enter");
 
@@ -171,8 +176,11 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
     await expect(page.getByText(/live protocol inspector/i)).toBeVisible();
     await expect(page.getByRole("tab", { name: /timeline/i })).toBeVisible();
 
-    // Drive a run so the Timeline receives AG-UI events.
-    const input = page.getByRole("textbox").last();
+    // Open the docked chat (starts closed) and drive a run so the Timeline
+    // receives AG-UI events.
+    const openChat = page.getByRole("button", { name: /open chat/i });
+    if (await openChat.count()) await openChat.first().click();
+    const input = page.getByPlaceholder(/type a message/i);
     await input.fill(`Please approve the over-limit charge ${TXN_ID}.`);
     await input.press("Enter");
 
