@@ -125,18 +125,71 @@ export class IntelligenceAdapter implements PlatformAdapter {
       turnId: env.turnId,
       deliveryId: env.deliveryId,
     };
-    // First slice: "turn" only.
-    // TODO(OSS-377): command / interaction / thread_started / reaction kinds.
-    await sink.onTurn({
-      conversationKey: env.conversationKey,
-      replyTarget,
-      userText: env.text ?? "",
-      user: env.user ? { id: env.user.id } : undefined,
-      eventId: env.eventId,
-      turnId: env.turnId,
-      deliveryId: env.deliveryId,
-      platform: env.platform,
-    });
+    const user = env.user ? { id: env.user.id } : undefined;
+
+    switch (env.kind) {
+      case "turn":
+        await sink.onTurn({
+          conversationKey: env.conversationKey,
+          replyTarget,
+          userText: env.text ?? "",
+          user,
+          eventId: env.eventId,
+          turnId: env.turnId,
+          deliveryId: env.deliveryId,
+          platform: env.platform,
+        });
+        return;
+      case "command":
+        await sink.onCommand({
+          command: env.command,
+          text: env.text ?? "",
+          rawOptions: env.rawOptions,
+          conversationKey: env.conversationKey,
+          replyTarget,
+          user,
+          eventId: env.eventId,
+          turnId: env.turnId,
+          deliveryId: env.deliveryId,
+          platform: env.platform,
+          triggerId: env.triggerId,
+        });
+        return;
+      case "interaction":
+        await sink.onInteraction({
+          id: env.actionId,
+          conversationKey: env.conversationKey,
+          replyTarget,
+          value: env.value,
+          user,
+          eventId: env.eventId,
+          turnId: env.turnId,
+          deliveryId: env.deliveryId,
+          messageRef: env.messageRef,
+          triggerId: env.triggerId,
+        });
+        return;
+      case "thread_started":
+        await sink.onThreadStarted({
+          conversationKey: env.conversationKey,
+          replyTarget,
+          user,
+          platform: env.platform,
+        });
+        return;
+      case "reaction":
+        await sink.onReaction({
+          rawEmoji: env.rawEmoji,
+          added: env.added,
+          user,
+          conversationKey: env.conversationKey,
+          replyTarget,
+          messageId: env.messageId,
+          threadId: env.threadId,
+          raw: env,
+        });
+        return;
+    }
   }
 
   private mintOp(target: ManagedReplyTarget, op: EgressOp): EgressOperation {

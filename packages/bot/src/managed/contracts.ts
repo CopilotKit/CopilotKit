@@ -5,7 +5,7 @@
 // event-kind set, bounded failure codes, health/read models — is intentionally
 // left out and noted inline so the swap later is a pure import change.
 
-import type { BotNode } from "@copilotkit/bot-ui";
+import type { BotNode, MessageRef } from "@copilotkit/bot-ui";
 
 /**
  * Opaque return address minted by Intelligence and echoed back on egress. The
@@ -13,14 +13,8 @@ import type { BotNode } from "@copilotkit/bot-ui";
  */
 export type EgressRoute = unknown;
 
-/**
- * One unit of leased work Intelligence delivers to the runtime.
- *
- * TODO(OSS-377): the frozen envelope will also carry `contentParts`, richer
- * `user` fields, and additional `kind`s ("command" | "interaction" |
- * "thread_started" | "reaction"). For the first slice only "turn" is handled.
- */
-export interface ManagedIngressEnvelope {
+/** Fields common to every managed ingress envelope. */
+export interface ManagedIngressBase {
   /** Unique per delivery attempt (lease). At-least-once: may be redelivered. */
   deliveryId: string;
   /** Stable platform event id (idempotency / dedup). */
@@ -32,13 +26,50 @@ export interface ManagedIngressEnvelope {
   /** Originating platform (e.g. "slack"). Stamped onto the handler-facing message. */
   platform: string;
   conversationKey: string;
-  /** First slice handles "turn" only. TODO(OSS-377): widen. */
-  kind: "turn";
-  text?: string;
   user?: { id: string; displayName?: string };
   /** Opaque egress route the sink needs to address the reply. No creds. */
   route: EgressRoute;
 }
+
+/**
+ * One unit of leased work Intelligence delivers to the runtime. Discriminated
+ * on `kind`; the bridge adapter routes each to the matching bot-core sink call.
+ *
+ * TODO(OSS-377): the frozen envelope will carry richer per-kind payloads
+ * (contentParts, structured command options, raw interaction values, etc.).
+ */
+export type ManagedIngressEnvelope =
+  | (ManagedIngressBase & { kind: "turn"; text?: string })
+  | (ManagedIngressBase & {
+      kind: "command";
+      /** Command name as invoked (leading slash / case normalized by core). */
+      command: string;
+      /** Raw argument string after the command name. */
+      text?: string;
+      /** Opaque platform trigger for opening a modal. */
+      triggerId?: string;
+      /** Structured, pre-parsed options when the surface delivers them. */
+      rawOptions?: Record<string, unknown>;
+    })
+  | (ManagedIngressBase & {
+      kind: "interaction";
+      /** Minted action id (ck:...) the rendered control carries. */
+      actionId: string;
+      value?: unknown;
+      /** The message the interaction occurred on (so handlers can update it). */
+      messageRef?: MessageRef;
+      triggerId?: string;
+    })
+  | (ManagedIngressBase & { kind: "thread_started" })
+  | (ManagedIngressBase & {
+      kind: "reaction";
+      /** Platform-native emoji token. */
+      rawEmoji: string;
+      /** true = added, false = removed. */
+      added: boolean;
+      messageId: string;
+      threadId?: string;
+    });
 
 /** A generic, platform-agnostic reply operation emitted by the bridge adapter. */
 export type EgressOp =

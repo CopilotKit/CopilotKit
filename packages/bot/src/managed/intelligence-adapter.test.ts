@@ -10,11 +10,13 @@ import {
   InMemoryDeliverySource,
   InMemoryEgressSink,
 } from "./in-memory-transports.js";
-import type { ManagedIngressEnvelope } from "./contracts.js";
+import type {
+  ManagedIngressEnvelope,
+  ManagedIngressBase,
+} from "./contracts.js";
 
-function envelope(
-  partial?: Partial<ManagedIngressEnvelope>,
-): ManagedIngressEnvelope {
+type TurnEnvelope = Extract<ManagedIngressEnvelope, { kind: "turn" }>;
+function envelope(partial?: Partial<TurnEnvelope>): ManagedIngressEnvelope {
   return {
     deliveryId: "d1",
     eventId: "e1",
@@ -136,6 +138,104 @@ describe("intelligenceAdapter — run renderer", () => {
 
     expect(egress.ops).toHaveLength(1);
     expect(egress.ops[0]!.op.kind).toBe("post");
+  });
+});
+
+describe("intelligenceAdapter — all ingress kinds route to bot core", () => {
+  const base: ManagedIngressBase = {
+    deliveryId: "d1",
+    eventId: "e1",
+    turnId: "t1",
+    botName: "support",
+    platform: "slack",
+    conversationKey: "c1",
+    route: { r: 1 },
+  };
+
+  it("routes a command to onCommand", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const bot = createBot({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let ran = "";
+    bot.onCommand("triage", async ({ thread, text }) => {
+      ran = text;
+      await thread.post(Section({ children: "ok" }));
+    });
+    await bot.start();
+    await source.deliver({
+      ...base,
+      kind: "command",
+      command: "triage",
+      text: "now",
+    });
+    expect(ran).toBe("now");
+    expect(egress.ops).toHaveLength(1);
+  });
+
+  it("routes an interaction to a registered onInteraction handler", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const bot = createBot({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let seenValue: unknown;
+    bot.onInteraction("ck:1", async ({ thread, action }) => {
+      seenValue = action.value;
+      await thread.post(Section({ children: "clicked" }));
+    });
+    await bot.start();
+    await source.deliver({
+      ...base,
+      kind: "interaction",
+      actionId: "ck:1",
+      value: { page: 2 },
+    });
+    expect(seenValue).toEqual({ page: 2 });
+    expect(egress.ops).toHaveLength(1);
+  });
+
+  it("routes a thread_started event to onThreadStarted", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const bot = createBot({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let ran = false;
+    bot.onThreadStarted(async ({ thread }) => {
+      ran = true;
+      await thread.post(Section({ children: "hi" }));
+    });
+    await bot.start();
+    await source.deliver({ ...base, kind: "thread_started" });
+    expect(ran).toBe(true);
+    expect(egress.ops).toHaveLength(1);
+  });
+
+  it("routes a reaction to onReaction", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const bot = createBot({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let seenEmoji = "";
+    bot.onReaction(async (evt) => {
+      seenEmoji = evt.rawEmoji;
+    });
+    await bot.start();
+    await source.deliver({
+      ...base,
+      kind: "reaction",
+      rawEmoji: "+1",
+      added: true,
+      messageId: "m1",
+    });
+    expect(seenEmoji).toBe("+1");
   });
 });
 
