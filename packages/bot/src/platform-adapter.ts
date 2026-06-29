@@ -60,37 +60,43 @@ export interface RunRenderer {
   finish?(): Promise<void>;
 }
 
-export interface IncomingTurn {
+/**
+ * Fields shared by every ingress event routed through the {@link IngressSink}:
+ * the conversation it belongs to, the opaque target to reply on, and the user
+ * who triggered it (when the platform reports one).
+ */
+export interface IngressEventBase {
   conversationKey: string;
   replyTarget: ReplyTarget;
+  user?: PlatformUser;
+}
+
+/**
+ * Idempotency ids carried by turn/command/interaction ingress. Set on the
+ * managed (Intelligence-delivered) path; local adapters omit them.
+ */
+export interface IngressIds {
+  /** Stable platform event id for idempotency; omit if the platform provides none. */
+  eventId?: string;
+  /** Stable per-turn id (managed/Intelligence path); local adapters omit it. */
+  turnId?: string;
+  /** Lease/delivery id (managed/Intelligence path); local adapters omit it. */
+  deliveryId?: string;
+}
+
+export interface IncomingTurn extends IngressEventBase, IngressIds {
   userText: string;
   /**
    * Optional multimodal content parts built by the adapter (e.g. inbound
    * image/file attachments). Carried through to `IncomingMessage.contentParts`.
    */
   contentParts?: AgentContentPart[];
-  user?: PlatformUser;
-  /** Stable platform event id for idempotency; omit if the platform provides none. */
-  eventId?: string;
-  /** Stable per-turn id (managed/Intelligence path); local adapters omit it. */
-  turnId?: string;
-  /** Lease/delivery id (managed/Intelligence path); local adapters omit it. */
-  deliveryId?: string;
   platform: string;
 }
 
-export interface InteractionEvent {
+export interface InteractionEvent extends IngressEventBase, IngressIds {
   id: string; // opaque minted action id (ck:...)
-  conversationKey: string;
-  replyTarget: ReplyTarget;
   value?: unknown;
-  user?: PlatformUser;
-  /** Stable platform event id for idempotency; omit if the platform provides none. */
-  eventId?: string;
-  /** Stable per-turn id (managed/Intelligence path); local adapters omit it. */
-  turnId?: string;
-  /** Lease/delivery id (managed/Intelligence path); local adapters omit it. */
-  deliveryId?: string;
   /** The message the interaction occurred on (the picker), so handlers can update it in place. */
   messageRef?: MessageRef;
   /** Opaque platform trigger for opening a modal (Slack `trigger_id`; Discord interaction id). */
@@ -98,22 +104,13 @@ export interface InteractionEvent {
 }
 
 /** A slash-command invocation normalized by an adapter. */
-export interface IncomingCommand {
+export interface IncomingCommand extends IngressEventBase, IngressIds {
   /** Command name as invoked (a leading slash and case are normalized by the engine). */
   command: string;
   /** Raw argument string after the command name (the form text-only surfaces deliver). */
   text: string;
   /** Structured, pre-parsed options when the surface delivers them (e.g. Discord). */
   rawOptions?: Record<string, unknown>;
-  conversationKey: string;
-  replyTarget: ReplyTarget;
-  user?: PlatformUser;
-  /** Stable platform event id for idempotency; omit if the platform provides none. */
-  eventId?: string;
-  /** Stable per-turn id (managed/Intelligence path); local adapters omit it. */
-  turnId?: string;
-  /** Lease/delivery id (managed/Intelligence path); local adapters omit it. */
-  deliveryId?: string;
   platform: string;
   /** Opaque platform trigger for opening a modal (Slack `trigger_id`; Discord interaction id). */
   triggerId?: string;
@@ -123,22 +120,16 @@ export interface IncomingCommand {
  * A "conversation opened" lifecycle event (Slack: `assistant_thread_started`).
  * Adapters without the concept never emit it.
  */
-export interface IncomingThreadStart {
-  conversationKey: string;
-  replyTarget: ReplyTarget;
-  user?: PlatformUser;
+export interface IncomingThreadStart extends IngressEventBase {
   platform: string;
 }
 
 /** A reaction added/removed on a message. Adapters that can't observe reactions never emit it. */
-export interface IncomingReaction {
+export interface IncomingReaction extends IngressEventBase {
   /** Platform-native emoji token (Slack shortcode, Unicode, Discord custom). */
   rawEmoji: string;
   /** true = added, false = removed. */
   added: boolean;
-  user?: PlatformUser;
-  conversationKey: string;
-  replyTarget: ReplyTarget;
   /** Id of the reacted-to message. */
   messageId: string;
   /**
