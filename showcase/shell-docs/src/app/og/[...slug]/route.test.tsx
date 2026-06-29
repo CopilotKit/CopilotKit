@@ -74,7 +74,7 @@ describe("shell-docs OG route", () => {
     });
   });
 
-  it("constructs a PNG response with bundled Plus Jakarta fonts", async () => {
+  it("constructs a PNG response with canonical Plus Jakarta fonts", async () => {
     const response = await callOgRoute(["quickstart", "og.png"]);
 
     expect(response.status).toBe(200);
@@ -93,6 +93,7 @@ describe("shell-docs OG route", () => {
     expect(
       options?.fonts?.every((font) => font.data instanceof ArrayBuffer),
     ).toBe(true);
+    expect(new Set(options?.fonts?.map((font) => font.data)).size).toBe(2);
   });
 
   it("keeps unknown slugs on the Next.js 404 path", async () => {
