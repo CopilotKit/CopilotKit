@@ -446,6 +446,8 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "readonly-state-agent-context": ["readonly-state-context"],
   "shared-state-read": ["shared-state-read"],
   "declarative-gen-ui": ["gen-ui-declarative"],
+  // A2UI error recovery — mirrors d5-feature-mapping.ts REGISTRY_TO_D5.
+  "a2ui-recovery": ["a2ui-recovery"],
   "a2ui-fixed-schema": ["gen-ui-a2ui-fixed"],
   "open-gen-ui": ["gen-ui-open"],
   "open-gen-ui-advanced": ["gen-ui-open-advanced"],
