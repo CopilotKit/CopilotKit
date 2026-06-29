@@ -1085,7 +1085,9 @@ type MemoryMockCore = {
   properties: Record<string, unknown>;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   intelligence: { wsUrl: string } | undefined;
-  subscribe: (subscriber: CopilotKitCoreSubscriber) => { unsubscribe: () => void };
+  subscribe: (subscriber: CopilotKitCoreSubscriber) => {
+    unsubscribe: () => void;
+  };
   getThreadStores: () => Record<string, never>;
   getThreadStore: (agentId: string) => undefined;
   getMemoryStore: () => ReturnType<typeof makeMockMemoryStore>["store"];
@@ -1146,14 +1148,19 @@ function makeCoreNoIntelligence(): MemoryMockCore {
  * Mounts a `<cpk-web-inspector>` with the given core, opens it, and switches
  * to the memories tab. Returns the element ready for assertion.
  */
-async function mountMemories(core: MemoryMockCore): Promise<WebInspectorElement> {
+async function mountMemories(
+  core: MemoryMockCore,
+): Promise<WebInspectorElement> {
   const el = new WebInspectorElement();
   document.body.appendChild(el);
   // CopilotKitCore is a full class — our mock covers what the inspector reads.
   el.core = core as unknown as WebInspectorElement["core"];
 
   // Open the inspector window so the tab content is rendered.
-  const internals = el as unknown as { isOpen: boolean; handleMenuSelect: (key: string) => void };
+  const internals = el as unknown as {
+    isOpen: boolean;
+    handleMenuSelect: (key: string) => void;
+  };
   internals.isOpen = true;
   internals.handleMenuSelect("memories");
 
@@ -1171,7 +1178,9 @@ describe("WebInspectorElement memories — subscription", () => {
       setItem: () => undefined,
       removeItem: () => undefined,
       clear: () => undefined,
-      get length() { return 0; },
+      get length() {
+        return 0;
+      },
       key: () => null,
     });
   });
@@ -1193,7 +1202,9 @@ describe("WebInspectorElement memories — subscription", () => {
     const core = makeCoreWithMemory([oneMemory]);
     const el = await mountMemories(core);
 
-    const ids = (el as unknown as { _memories: ɵMemory[] })._memories.map((m) => m.id);
+    const ids = (el as unknown as { _memories: ɵMemory[] })._memories.map(
+      (m) => m.id,
+    );
 
     expect(ids).toEqual(["m1"]);
   });
@@ -1209,7 +1220,9 @@ describe("WebInspectorElement memories — tab presence", () => {
       setItem: () => undefined,
       removeItem: () => undefined,
       clear: () => undefined,
-      get length() { return 0; },
+      get length() {
+        return 0;
+      },
       key: () => null,
     });
   });
@@ -1243,7 +1256,9 @@ describe("WebInspectorElement memories — view states", () => {
       setItem: () => undefined,
       removeItem: () => undefined,
       clear: () => undefined,
-      get length() { return 0; },
+      get length() {
+        return 0;
+      },
       key: () => null,
     });
   });
@@ -1258,9 +1273,14 @@ describe("WebInspectorElement memories — view states", () => {
 
     const text = el.shadowRoot?.textContent ?? "";
     expect(text).toContain("Long-term memory");
-    expect(text).toContain("Long-term memory isn't enabled on this deployment.");
+    expect(text).toContain(
+      "Long-term memory isn't enabled on this deployment.",
+    );
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
-    expect(memoryList, "cpk-memory-list should NOT render when locked").toBeNull();
+    expect(
+      memoryList,
+      "cpk-memory-list should NOT render when locked",
+    ).toBeNull();
   });
 
   it("renders the locked teaser when memories are unavailable", async () => {
@@ -1270,7 +1290,10 @@ describe("WebInspectorElement memories — view states", () => {
     const text = el.shadowRoot?.textContent ?? "";
     expect(text).toContain("Long-term memory");
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
-    expect(memoryList, "cpk-memory-list should NOT render when unavailable").toBeNull();
+    expect(
+      memoryList,
+      "cpk-memory-list should NOT render when unavailable",
+    ).toBeNull();
   });
 
   it("renders cpk-memory-list with empty state when available and no memories", async () => {
@@ -1278,9 +1301,13 @@ describe("WebInspectorElement memories — view states", () => {
     const el = await mountMemories(core);
 
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
-    expect(memoryList, "cpk-memory-list should render when enabled").not.toBeNull();
+    expect(
+      memoryList,
+      "cpk-memory-list should render when enabled",
+    ).not.toBeNull();
 
-    await (memoryList as unknown as { updateComplete: Promise<void> }).updateComplete;
+    await (memoryList as unknown as { updateComplete: Promise<void> })
+      .updateComplete;
     const listText = memoryList?.shadowRoot?.textContent ?? "";
     expect(listText).toContain("No memories yet");
   });
@@ -1301,7 +1328,8 @@ describe("WebInspectorElement memories — view states", () => {
     const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
     expect(memoryList, "cpk-memory-list should render").not.toBeNull();
 
-    await (memoryList as unknown as { updateComplete: Promise<void> }).updateComplete;
+    await (memoryList as unknown as { updateComplete: Promise<void> })
+      .updateComplete;
     const cards = memoryList?.shadowRoot?.querySelectorAll(".cpk-ml__card");
     expect(cards?.length).toBe(1);
   });
@@ -1358,8 +1386,8 @@ describe("cpk-memory-list", () => {
     const el = await mountList(threeMemories);
     const cards = el.shadowRoot?.querySelectorAll(".cpk-ml__card");
     expect(cards?.length).toBe(3);
-    const contents = Array.from(cards ?? []).map(
-      (card) => card.querySelector(".cpk-ml__content")?.textContent?.trim(),
+    const contents = Array.from(cards ?? []).map((card) =>
+      card.querySelector(".cpk-ml__content")?.textContent?.trim(),
     );
     expect(contents).toEqual([
       "Likes cats",
@@ -1374,7 +1402,10 @@ describe("cpk-memory-list", () => {
     const operationalSeg = el.shadowRoot?.querySelector<HTMLElement>(
       '[data-kind="operational"]',
     );
-    expect(operationalSeg, "operational filter segment should exist").not.toBeNull();
+    expect(
+      operationalSeg,
+      "operational filter segment should exist",
+    ).not.toBeNull();
 
     operationalSeg!.click();
     await (el as unknown as { updateComplete: Promise<void> }).updateComplete;
@@ -1425,7 +1456,9 @@ describe("WebInspectorElement memories — passive store guard", () => {
       setItem: () => undefined,
       removeItem: () => undefined,
       clear: () => undefined,
-      get length() { return 0; },
+      get length() {
+        return 0;
+      },
       key: () => null,
     });
   });
@@ -1469,7 +1502,9 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
       setItem: () => undefined,
       removeItem: () => undefined,
       clear: () => undefined,
-      get length() { return 0; },
+      get length() {
+        return 0;
+      },
       key: () => null,
     });
   });

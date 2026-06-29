@@ -2445,7 +2445,10 @@ class CpkMemoryList extends LitElement {
       background: #ffffff;
       color: #57575b;
       cursor: pointer;
-      transition: background 0.1s, border-color 0.1s, color 0.1s;
+      transition:
+        background 0.1s,
+        border-color 0.1s,
+        color 0.1s;
       user-select: none;
     }
 
@@ -2582,9 +2585,7 @@ class CpkMemoryList extends LitElement {
   private get searchFiltered(): ɵMemory[] {
     const q = this.search.trim().toLowerCase();
     if (!q) return this.memories;
-    return this.memories.filter((m) =>
-      m.content.toLowerCase().includes(q),
-    );
+    return this.memories.filter((m) => m.content.toLowerCase().includes(q));
   }
 
   /** Memories that pass both search and kind filter. */
@@ -3209,10 +3210,22 @@ export class WebInspectorElement extends LitElement {
       this._memoriesError = ɵselectMemoriesError(ms);
       this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
       const memSubs = [
-        memoryStore.select(ɵselectMemories).subscribe((v) => { this._memories = v; this.requestUpdate(); }),
-        memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => { this._memoriesLoading = v; this.requestUpdate(); }),
-        memoryStore.select(ɵselectMemoriesError).subscribe((v) => { this._memoriesError = v; this.requestUpdate(); }),
-        memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => { this._memoriesAvailable = v; this.requestUpdate(); }),
+        memoryStore.select(ɵselectMemories).subscribe((v) => {
+          this._memories = v;
+          this.requestUpdate();
+        }),
+        memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => {
+          this._memoriesLoading = v;
+          this.requestUpdate();
+        }),
+        memoryStore.select(ɵselectMemoriesError).subscribe((v) => {
+          this._memoriesError = v;
+          this.requestUpdate();
+        }),
+        memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => {
+          this._memoriesAvailable = v;
+          this.requestUpdate();
+        }),
       ];
       this._memoryUnsub = () => memSubs.forEach((s) => s.unsubscribe());
     } else {
@@ -6893,7 +6906,7 @@ ${argsString}</pre
           >
             <path d="M21 12a9 9 0 1 1-6.219-8.56" />
           </svg>
-          <span style="font-size: 13px;">Loading memories…</span>
+          <span style="font-size: 13px">Loading memories…</span>
         </div>
       `;
     }
