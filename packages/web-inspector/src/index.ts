@@ -2824,10 +2824,10 @@ export class WebInspectorElement extends LitElement {
     this._memoriesError = ɵselectMemoriesError(ms);
     this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
     const memSubs = [
-      memoryStore.select(ɵselectMemories).subscribe((v) => { this._memories = v; }),
-      memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => { this._memoriesLoading = v; }),
-      memoryStore.select(ɵselectMemoriesError).subscribe((v) => { this._memoriesError = v; }),
-      memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => { this._memoriesAvailable = v; }),
+      memoryStore.select(ɵselectMemories).subscribe((v) => { this._memories = v; this.requestUpdate(); }),
+      memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => { this._memoriesLoading = v; this.requestUpdate(); }),
+      memoryStore.select(ɵselectMemoriesError).subscribe((v) => { this._memoriesError = v; this.requestUpdate(); }),
+      memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => { this._memoriesAvailable = v; this.requestUpdate(); }),
     ];
     this._memoryUnsub = () => memSubs.forEach((s) => s.unsubscribe());
   }
