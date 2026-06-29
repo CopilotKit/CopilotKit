@@ -76,7 +76,8 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
     openPolicyException,
     finalizePolicyException,
   } = useCreditCards();
-  const { beginRecording, endRecording, getDemonstratedCode } = useRecording();
+  const { beginRecording, endRecording, getDemonstratedCode, isRecording } =
+    useRecording();
 
   // A readable of app wide authentication and authorization context.
   // The LLM will now know which user is it working against, when performing operations.
@@ -568,11 +569,24 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
         .string()
         .describe("The transaction whose approval was just declined."),
     }),
-    render: ({ respond, status }) => {
+    render: ({ args, respond, status }) => {
       if (status === "inProgress") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
             Loading…
+          </div>
+        );
+      }
+      // Once the user has chosen, collapse to a static line so the
+      // "Start recording" button doesn't linger (or get clicked twice) — the
+      // live "Recording your workflow" card (awaitDashboardDemonstration) takes
+      // over from here.
+      if (status === "complete") {
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            {isRecording
+              ? "Recording started — go ahead and demonstrate the fix on the dashboard."
+              : "Okay — not recording."}
           </div>
         );
       }
@@ -592,7 +606,14 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             denyLabel="Not now"
             onApprove={() => {
               beginRecording();
-              respond?.("started");
+              // Directive result. With a bare "started", gpt-5.4-mini tends to
+              // just SAY awaitDashboardDemonstration's "go ahead and I'll watch"
+              // line (from its description) instead of CALLING it — leaving this
+              // card frozen with no live recording card. Tell it explicitly to
+              // call the tool and not reply in prose (mirrors the save beat).
+              respond?.(
+                `Recording started. Now IMMEDIATELY call awaitDashboardDemonstration with transactionId "${args?.transactionId ?? ""}" — that tool renders the live "Recording your workflow" card and is how you watch. Do NOT reply in plain text; calling that tool is the only correct next step.`,
+              );
             }}
             onDeny={() => respond?.("declined")}
           />
