@@ -8,18 +8,27 @@ describe("eventToCard", () => {
   });
 
   it("maps a memory tool call to the memory kind", () => {
-    const card = eventToCard({ type: "TOOL_CALL_START", toolCallName: "recall_memory" });
+    const card = eventToCard({
+      type: "TOOL_CALL_START",
+      toolCallName: "recall_memory",
+    });
     expect(card?.kind).toBe("memory");
     expect(card?.title).toMatch(/recall/i);
   });
 
   it("maps a banking HITL tool call to the hitl-gate kind", () => {
-    const card = eventToCard({ type: "TOOL_CALL_START", toolCallName: "approveTransaction" });
+    const card = eventToCard({
+      type: "TOOL_CALL_START",
+      toolCallName: "approveTransaction",
+    });
     expect(card?.kind).toBe("hitl-gate");
   });
 
   it("maps an unknown tool call to a generic tool-call", () => {
-    const card = eventToCard({ type: "TOOL_CALL_START", toolCallName: "somethingElse" });
+    const card = eventToCard({
+      type: "TOOL_CALL_START",
+      toolCallName: "somethingElse",
+    });
     expect(card?.kind).toBe("tool-call");
   });
 

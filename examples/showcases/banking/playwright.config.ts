@@ -30,13 +30,17 @@ export default defineConfig({
         // points the agent at aimock and runs the runtime in Intelligence mode.
         OPENAI_API_KEY: process.env.OPENAI_API_KEY ?? "test",
         OPENAI_BASE_URL:
-          process.env.OPENAI_BASE_URL ?? `http://localhost:${process.env.AIMOCK_PORT ?? "7099"}/v1`,
-        INTELLIGENCE_API_URL: process.env.INTELLIGENCE_API_URL ?? "http://localhost:7050",
+          process.env.OPENAI_BASE_URL ??
+          `http://localhost:${process.env.AIMOCK_PORT ?? "7099"}/v1`,
+        INTELLIGENCE_API_URL:
+          process.env.INTELLIGENCE_API_URL ?? "http://localhost:7050",
         INTELLIGENCE_GATEWAY_WS_URL:
           process.env.INTELLIGENCE_GATEWAY_WS_URL ?? "ws://localhost:7053",
         INTELLIGENCE_API_KEY:
-          process.env.INTELLIGENCE_API_KEY ?? "cpk_sPRVSEED_seed0privat0longtoken00",
-        INTELLIGENCE_USER_ID: process.env.INTELLIGENCE_USER_ID ?? "jordan-beamson",
+          process.env.INTELLIGENCE_API_KEY ??
+          "cpk_sPRVSEED_seed0privat0longtoken00",
+        INTELLIGENCE_USER_ID:
+          process.env.INTELLIGENCE_USER_ID ?? "jordan-beamson",
         // Glass Engine must be available for the inspector test to render the
         // left-rail toggle (the deployment availability gate; see lib/glass-engine).
         GLASS_ENGINE_AVAILABLE: "true",

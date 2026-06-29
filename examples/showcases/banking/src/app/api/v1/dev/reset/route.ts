@@ -17,14 +17,14 @@ import * as store from "@/lib/store";
  */
 export const POST = async () => {
   if (process.env.NODE_ENV === "production") {
-    return new Response(
-      JSON.stringify({ error: "disabled in production" }),
-      { status: 403, headers: { "content-type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "disabled in production" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
   }
   store.reset();
-  return new Response(
-    JSON.stringify({ ok: true, reset: "store" }),
-    { status: 200, headers: { "content-type": "application/json" } },
-  );
+  return new Response(JSON.stringify({ ok: true, reset: "store" }), {
+    status: 200,
+    headers: { "content-type": "application/json" },
+  });
 };

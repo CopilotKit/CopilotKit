@@ -22,7 +22,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const PORT = Number(process.env.AIMOCK_PORT ?? 7099);
-const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "memory-learning.fixtures.json");
+const FIXTURES = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures",
+  "memory-learning.fixtures.json",
+);
 
 const mod = await import("@copilotkit/aimock");
 
@@ -45,12 +49,18 @@ if (!ServerCtor) {
   process.exit(2);
 }
 
-const file = loadFixtureFile ? loadFixtureFile(FIXTURES) : JSON.parse(await (await import("node:fs/promises")).readFile(FIXTURES, "utf8"));
+const file = loadFixtureFile
+  ? loadFixtureFile(FIXTURES)
+  : JSON.parse(
+      await (await import("node:fs/promises")).readFile(FIXTURES, "utf8"),
+    );
 if (validateFixtures) validateFixtures(file);
 
 const server = new ServerCtor({ port: PORT, fixtures: file.fixtures ?? file });
 await server.start();
-console.log(`[aimock-server] listening on :${PORT} with ${(file.fixtures ?? file).length} fixtures`);
+console.log(
+  `[aimock-server] listening on :${PORT} with ${(file.fixtures ?? file).length} fixtures`,
+);
 
 const shutdown = async () => {
   try {

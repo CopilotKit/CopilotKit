@@ -29,8 +29,8 @@ export type PanelMemory = {
 export function intelligenceEnabled(): boolean {
   return Boolean(
     process.env.INTELLIGENCE_API_URL &&
-      process.env.INTELLIGENCE_GATEWAY_WS_URL &&
-      process.env.INTELLIGENCE_API_KEY,
+    process.env.INTELLIGENCE_GATEWAY_WS_URL &&
+    process.env.INTELLIGENCE_API_KEY,
   );
 }
 
@@ -89,9 +89,12 @@ const listInflight = new Map<string, Promise<PanelMemory[]>>();
  * The "Recalled memories" view: merge user + project scopes, de-duped by id.
  * This is top-k recall, not an enumeration — see the file-level NOTE.
  */
-export async function listRecalledMemories(userId: string): Promise<PanelMemory[]> {
+export async function listRecalledMemories(
+  userId: string,
+): Promise<PanelMemory[]> {
   const cached = listCache.get(userId);
-  if (cached && Date.now() - cached.ts < LIST_CACHE_TTL_MS) return cached.memories;
+  if (cached && Date.now() - cached.ts < LIST_CACHE_TTL_MS)
+    return cached.memories;
 
   const inflight = listInflight.get(userId);
   if (inflight) return inflight;

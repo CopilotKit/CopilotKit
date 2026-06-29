@@ -36,15 +36,27 @@ export function InspectorPane() {
       style={{ right: chatOpen ? CHAT_WIDTH : 0 }}
     >
       <header className="flex items-center gap-2 border-b border-hairline px-3 py-2">
-        <h2 className="text-xs font-semibold text-ink">Glass Engine — live protocol inspector</h2>
-        <button onClick={clear} className="ml-auto text-[10px] text-ink-muted hover:text-ink">
+        <h2 className="text-xs font-semibold text-ink">
+          Glass Engine — live protocol inspector
+        </h2>
+        <button
+          onClick={clear}
+          className="ml-auto text-[10px] text-ink-muted hover:text-ink"
+        >
           clear
         </button>
-        <button onClick={() => setEnabled(false)} className="text-[10px] text-ink-muted hover:text-ink">
+        <button
+          onClick={() => setEnabled(false)}
+          className="text-[10px] text-ink-muted hover:text-ink"
+        >
           collapse →
         </button>
       </header>
-      <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
+      <Tabs
+        value={tab}
+        onValueChange={setTab}
+        className="flex min-h-0 flex-1 flex-col"
+      >
         <TabsList variant="underline" className="shrink-0 px-3 pt-2">
           <TabsTrigger value="timeline">Timeline</TabsTrigger>
           <TabsTrigger value="memory">Memory</TabsTrigger>

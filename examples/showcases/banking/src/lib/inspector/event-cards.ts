@@ -58,28 +58,68 @@ export const HITL_TOOLS = new Set([
 export function eventToCard(event: any): TimelineCard | null {
   switch (event?.type) {
     case "RUN_STARTED":
-      return card("lifecycle", "Run started", "Agent run initialized over AG-UI", event);
+      return card(
+        "lifecycle",
+        "Run started",
+        "Agent run initialized over AG-UI",
+        event,
+      );
     case "RUN_FINISHED":
       return card("lifecycle", "Run finished", "Agent run completed", event);
     case "RUN_ERROR":
-      return card("error", "Run error", String(event.message ?? "unknown"), event);
+      return card(
+        "error",
+        "Run error",
+        String(event.message ?? "unknown"),
+        event,
+      );
     case "STATE_SNAPSHOT":
     case "STATE_DELTA":
-      return card("state", "Shared state sync", "Agent state streamed to the UI", event);
+      return card(
+        "state",
+        "Shared state sync",
+        "Agent state streamed to the UI",
+        event,
+      );
     case "TOOL_CALL_START": {
       const name = String(event.toolCallName ?? "");
       if (MEMORY_TOOLS.has(name)) {
-        return card("memory", MEMORY_TOOL_LABEL[name] ?? name, "Durable-memory MCP tool invoked", event);
+        return card(
+          "memory",
+          MEMORY_TOOL_LABEL[name] ?? name,
+          "Durable-memory MCP tool invoked",
+          event,
+        );
       }
       if (HITL_TOOLS.has(name)) {
-        return card("hitl-gate", `HITL gate: ${name}`, "Agent paused for human approval", event);
+        return card(
+          "hitl-gate",
+          `HITL gate: ${name}`,
+          "Agent paused for human approval",
+          event,
+        );
       }
-      return card("tool-call", `Tool call: ${name}`, "Backend tool invoked", event);
+      return card(
+        "tool-call",
+        `Tool call: ${name}`,
+        "Backend tool invoked",
+        event,
+      );
     }
     case "TOOL_CALL_RESULT":
-      return card("tool-result", "Tool result", "Result returned to the agent", event);
+      return card(
+        "tool-result",
+        "Tool result",
+        "Result returned to the agent",
+        event,
+      );
     case "CUSTOM":
-      return card("custom", `Custom event: ${String(event.name ?? "?")}`, "", event);
+      return card(
+        "custom",
+        `Custom event: ${String(event.name ?? "?")}`,
+        "",
+        event,
+      );
     default:
       return null; // TEXT_MESSAGE_*, REASONING_*, TOOL_CALL_ARGS — too noisy
   }

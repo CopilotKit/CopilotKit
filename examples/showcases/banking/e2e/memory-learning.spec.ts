@@ -32,11 +32,17 @@ import { test, expect } from "@playwright/test";
  */
 
 const APP_API_URL = process.env.APP_API_URL ?? "http://localhost:7050";
-const KEY = process.env.INTELLIGENCE_API_KEY ?? "cpk_sPRVSEED_seed0privat0longtoken00";
+const KEY =
+  process.env.INTELLIGENCE_API_KEY ?? "cpk_sPRVSEED_seed0privat0longtoken00";
 const USER_ID = process.env.CPKI_USER_ID ?? "jordan-beamson";
 const TXN_ID = process.env.GATE_TXN_ID ?? "t-3";
 const SEED_CODE = "EXC-BOARD-APPROVED";
-const APPROVE_LABELS = [/^approve$/i, /^confirm$/i, /^yes$/i, /^approve transaction$/i];
+const APPROVE_LABELS = [
+  /^approve$/i,
+  /^confirm$/i,
+  /^yes$/i,
+  /^approve transaction$/i,
+];
 
 const memHeaders = {
   Authorization: `Bearer ${KEY}`,
@@ -48,7 +54,10 @@ async function recallProcedureIds(): Promise<string[]> {
   const res = await fetch(`${APP_API_URL}/api/memories/recall`, {
     method: "POST",
     headers: memHeaders,
-    body: JSON.stringify({ query: "over-limit approval procedure", scope: "project" }),
+    body: JSON.stringify({
+      query: "over-limit approval procedure",
+      scope: "project",
+    }),
   });
   if (!res.ok) return [];
   const body = (await res.json()) as { memories?: { id: string }[] };
@@ -58,7 +67,10 @@ async function recallProcedureIds(): Promise<string[]> {
 /** Arrange a clean slate, then seed exactly one project/operational procedure. */
 async function resetAndSeedProcedure(): Promise<void> {
   for (const id of await recallProcedureIds()) {
-    await fetch(`${APP_API_URL}/api/memories/${id}`, { method: "DELETE", headers: memHeaders });
+    await fetch(`${APP_API_URL}/api/memories/${id}`, {
+      method: "DELETE",
+      headers: memHeaders,
+    });
   }
   const res = await fetch(`${APP_API_URL}/api/memories`, {
     method: "POST",
@@ -86,7 +98,9 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
 
     // Fresh thread so there is NO in-thread context — recall is the only way the
     // agent can know the procedure.
-    const newThread = page.getByRole("button", { name: /new (thread|conversation|chat)/i });
+    const newThread = page.getByRole("button", {
+      name: /new (thread|conversation|chat)/i,
+    });
     if (await newThread.count()) await newThread.first().click();
 
     // Send an over-limit approval request. "over-limit" matches the aimock fixtures.
@@ -121,14 +135,21 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
     await expect
       .poll(
         async () => {
-          const res = await fetch(`http://localhost:3000/api/v1/transactions/${TXN_ID}`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "approved" }),
-          });
+          const res = await fetch(
+            `http://localhost:3000/api/v1/transactions/${TXN_ID}`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: "approved" }),
+            },
+          );
           return res.status;
         },
-        { timeout: 30_000, message: "over-limit charge should be approvable after recalled unlock" },
+        {
+          timeout: 30_000,
+          message:
+            "over-limit charge should be approvable after recalled unlock",
+        },
       )
       // 201 = approve succeeded (gate lifted); 409/200 = already approved by the run.
       .not.toBe(422);
@@ -141,7 +162,10 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
 
     // Open advanced mode from the left rail (availability gate is set in
     // playwright.config.ts via GLASS_ENGINE_AVAILABLE=true).
-    await page.getByRole("button", { name: /glass engine/i }).first().click();
+    await page
+      .getByRole("button", { name: /glass engine/i })
+      .first()
+      .click();
 
     // The inspector pane is visible with its three tabs.
     await expect(page.getByText(/live protocol inspector/i)).toBeVisible();
@@ -159,13 +183,17 @@ test.describe("durable cross-thread memory recall (FOR-149)", () => {
 
     // Learning tab reflects the seeded project procedure as "learned".
     await page.getByRole("tab", { name: /learning/i }).click();
-    await expect(page.getByText(/over-limit procedure — learned/i)).toBeVisible({
-      timeout: 30_000,
-    });
+    await expect(page.getByText(/over-limit procedure — learned/i)).toBeVisible(
+      {
+        timeout: 30_000,
+      },
+    );
 
     // Memory tab lists the seeded procedure content under "Recalled memories".
     await page.getByRole("tab", { name: /memory/i }).click();
-    await expect(page.getByText(/policy exception with code/i).first()).toBeVisible({
+    await expect(
+      page.getByText(/policy exception with code/i).first(),
+    ).toBeVisible({
       timeout: 30_000,
     });
   });

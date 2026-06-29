@@ -27,7 +27,9 @@
         "toolCalls": [
           {
             "name": "recall_memory",
-            "arguments": { "query": "how to approve an over-limit charge / policy exception procedure" }
+            "arguments": {
+              "query": "how to approve an over-limit charge / policy exception procedure"
+            }
           }
         ]
       }
@@ -38,7 +40,10 @@
         "toolCalls": [
           {
             "name": "openPolicyException",
-            "arguments": { "transactionId": "t-3", "code": "EXC-BOARD-APPROVED" }
+            "arguments": {
+              "transactionId": "t-3",
+              "code": "EXC-BOARD-APPROVED"
+            }
           }
         ]
       }
@@ -49,7 +54,10 @@
         "toolCalls": [
           {
             "name": "finalizePolicyException",
-            "arguments": { "transactionId": "t-3", "code": "EXC-BOARD-APPROVED" }
+            "arguments": {
+              "transactionId": "t-3",
+              "code": "EXC-BOARD-APPROVED"
+            }
           }
         ]
       }
@@ -57,7 +65,12 @@
     {
       "match": { "userMessage": "over-limit", "sequenceIndex": 3 },
       "response": {
-        "toolCalls": [{ "name": "approveTransaction", "arguments": { "transactionId": "t-3" } }]
+        "toolCalls": [
+          {
+            "name": "approveTransaction",
+            "arguments": { "transactionId": "t-3" }
+          }
+        ]
       }
     },
     {
