@@ -7,6 +7,8 @@ executes. Governance decisions (Allow / Constrain / Approval / Block / Halt) are
 streamed back to the browser and rendered as generative UI cards alongside the
 chat. An append-only audit trail is recorded by OpenBox Core for every decision.
 
+**Live demo:** [app-production-5569.up.railway.app](https://app-production-5569.up.railway.app) — open it and send any prompt from the governance matrix to watch OpenBox govern each action in real time.
+
 Reference app: [OpenBox-AI/openbox-x-copilotkit](https://github.com/OpenBox-AI/openbox-x-copilotkit)
 
 ## What's inside
