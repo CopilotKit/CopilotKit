@@ -353,6 +353,13 @@ const selectMemoriesIsLoading = createSelector(
   (state: MemoryState) => state.isLoading,
 );
 const selectMemoriesError = createSelector((state: MemoryState) => state.error);
+/**
+ * Reports whether the memory routes are available. Becomes `false` after a
+ * 404 or 501 response during an auto-activation read; defaults to `true`.
+ */
+const selectMemoriesAvailable = createSelector(
+  (state: MemoryState) => state.available,
+);
 
 /**
  * Dependencies injected into the memory store. The store opens its own
@@ -1064,4 +1071,5 @@ export const ɵmapMemoryMetadataEvent = mapMemoryMetadataEvent;
 export const ɵselectMemories = selectMemories;
 export const ɵselectMemoriesIsLoading = selectMemoriesIsLoading;
 export const ɵselectMemoriesError = selectMemoriesError;
+export const ɵselectMemoriesAvailable = selectMemoriesAvailable;
 export { createMemoryStore as ɵcreateMemoryStore };
