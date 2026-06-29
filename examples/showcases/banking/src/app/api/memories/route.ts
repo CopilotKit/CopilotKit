@@ -1,5 +1,8 @@
 import { glassEngineAvailable } from "@/lib/glass-engine";
-import { intelligenceEnabled, listRecalledMemories } from "@/lib/intelligence/memory";
+import {
+  intelligenceEnabled,
+  listRecalledMemories,
+} from "@/lib/intelligence/memory";
 import { resolveUserId } from "@/lib/intelligence/user-id";
 
 /** The active role the panel passes so the proxy resolves the same identity the
@@ -17,7 +20,9 @@ export async function GET(request: Request): Promise<Response> {
     return Response.json({ error: "intelligence_disabled" }, { status: 503 });
   }
   try {
-    const memories = await listRecalledMemories(resolveUserId(roleFrom(request)));
+    const memories = await listRecalledMemories(
+      resolveUserId(roleFrom(request)),
+    );
     return Response.json({ memories });
   } catch (err) {
     console.error("[api/memories] recall failed:", err);

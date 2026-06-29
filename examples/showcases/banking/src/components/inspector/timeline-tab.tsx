@@ -38,7 +38,9 @@ export function TimelineTab() {
       {cards.map((c) => (
         <li key={c.id} className="rounded-xl border border-hairline p-2">
           <div className="flex items-center gap-2">
-            <span className={`h-2 w-2 shrink-0 rounded-full ${KIND_DOT[c.kind]}`} />
+            <span
+              className={`h-2 w-2 shrink-0 rounded-full ${KIND_DOT[c.kind]}`}
+            />
             <span className="text-xs font-medium text-ink">{c.title}</span>
           </div>
           {c.summary && (

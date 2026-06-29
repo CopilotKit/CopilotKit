@@ -8,19 +8,27 @@ afterEach(() => window.localStorage.clear());
 
 function makeWrapper(available: boolean) {
   return function Wrapper({ children }: { children: React.ReactNode }) {
-    return <GlassEngineProvider available={available}>{children}</GlassEngineProvider>;
+    return (
+      <GlassEngineProvider available={available}>
+        {children}
+      </GlassEngineProvider>
+    );
   };
 }
 
 describe("useGlassEngine", () => {
   it("defaults to disabled when nothing is stored", () => {
-    const { result } = renderHook(() => useGlassEngine(), { wrapper: makeWrapper(true) });
+    const { result } = renderHook(() => useGlassEngine(), {
+      wrapper: makeWrapper(true),
+    });
     expect(result.current.enabled).toBe(false);
     expect(result.current.active).toBe(false);
   });
 
   it("toggle() flips enabled and persists to localStorage", () => {
-    const { result } = renderHook(() => useGlassEngine(), { wrapper: makeWrapper(true) });
+    const { result } = renderHook(() => useGlassEngine(), {
+      wrapper: makeWrapper(true),
+    });
     act(() => result.current.toggle());
     expect(result.current.enabled).toBe(true);
     expect(result.current.active).toBe(true); // available && enabled
@@ -29,7 +37,9 @@ describe("useGlassEngine", () => {
 
   it("reads the persisted value on mount", () => {
     window.localStorage.setItem(STORAGE_KEY, "true");
-    const { result } = renderHook(() => useGlassEngine(), { wrapper: makeWrapper(true) });
+    const { result } = renderHook(() => useGlassEngine(), {
+      wrapper: makeWrapper(true),
+    });
     expect(result.current.enabled).toBe(true);
   });
 
@@ -37,7 +47,9 @@ describe("useGlassEngine", () => {
     // The public-host safety property: a forced localStorage value cannot
     // activate the pane when the deployment has not opted in.
     window.localStorage.setItem(STORAGE_KEY, "true");
-    const { result } = renderHook(() => useGlassEngine(), { wrapper: makeWrapper(false) });
+    const { result } = renderHook(() => useGlassEngine(), {
+      wrapper: makeWrapper(false),
+    });
     expect(result.current.enabled).toBe(true);
     expect(result.current.available).toBe(false);
     expect(result.current.active).toBe(false);

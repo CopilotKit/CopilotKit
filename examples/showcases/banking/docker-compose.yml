@@ -44,7 +44,7 @@ services:
     ports:
       # Banking-specific host-port range (715x) so a bare `docker compose up`
       # coexists with a developer's Intelligence dev deps (which use 705x).
-      - '${POSTGRES_HOST_PORT:-7156}:5432'
+      - "${POSTGRES_HOST_PORT:-7156}:5432"
     environment:
       POSTGRES_USER: intelligence
       POSTGRES_PASSWORD: intelligence
@@ -55,7 +55,7 @@ services:
       # (the migrations oneshot and app-api connect to intelligence_app).
       - ./docker/app-postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U intelligence -d intelligence_app']
+      test: ["CMD-SHELL", "pg_isready -U intelligence -d intelligence_app"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -64,11 +64,11 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - '${REDIS_HOST_PORT:-7158}:6379'
+      - "${REDIS_HOST_PORT:-7158}:6379"
     volumes:
       - redis-data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -78,15 +78,15 @@ services:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
     ports:
-      - '${MINIO_HOST_PORT:-7160}:9000'
-      - '${MINIO_CONSOLE_HOST_PORT:-7161}:9001'
+      - "${MINIO_HOST_PORT:-7160}:9000"
+      - "${MINIO_CONSOLE_HOST_PORT:-7161}:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     volumes:
       - minio-data:/data
     healthcheck:
-      test: ['CMD', 'mc', 'ready', 'local']
+      test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -115,7 +115,7 @@ services:
         done
         mc mb --ignore-existing local/realtime-gateway-events
         echo 'minio bucket ready'
-    restart: 'no'
+    restart: "no"
 
   # OpenAI-compatible embeddings sidecar. The cpu-1.9.3 tag publishes a
   # linux/amd64 manifest ONLY (no arm64 build), so on Apple Silicon Docker
@@ -133,20 +133,20 @@ services:
     # right behavior for memory content (capped at 8192 chars upstream).
     command:
       [
-        '--model-id',
-        'Qwen/Qwen3-Embedding-0.6B',
-        '--port',
-        '80',
-        '--auto-truncate',
-        '--max-batch-tokens',
-        '${TEI_MAX_BATCH_TOKENS:-16384}',
+        "--model-id",
+        "Qwen/Qwen3-Embedding-0.6B",
+        "--port",
+        "80",
+        "--auto-truncate",
+        "--max-batch-tokens",
+        "${TEI_MAX_BATCH_TOKENS:-16384}",
       ]
     ports:
-      - '${TEI_HOST_PORT:-7167}:80'
+      - "${TEI_HOST_PORT:-7167}:80"
     volumes:
       - tei-model-cache:/data
     healthcheck:
-      test: ['CMD', 'curl', '-fsS', 'http://localhost:80/health']
+      test: ["CMD", "curl", "-fsS", "http://localhost:80/health"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -168,13 +168,13 @@ services:
       context: ${INTELLIGENCE_REPO:-../../../../Intelligence}
       dockerfile: Dockerfile.composite
     ports:
-      - '${APP_API_HOST_PORT:-7050}:4201'
-      - '${GATEWAY_HOST_PORT:-7053}:4401'
+      - "${APP_API_HOST_PORT:-7050}:4201"
+      - "${GATEWAY_HOST_PORT:-7053}:4401"
     environment:
       DATABASE_URL: postgresql://intelligence:intelligence@postgres:5432/intelligence_app
       REDIS_URL: redis://redis:6379
       MEMORY_ENABLED: "true"
-      SL_ENABLED: "true"                                  # REQUIRED — memory MCP tools attach by extending the SL /mcp server
+      SL_ENABLED: "true" # REQUIRED — memory MCP tools attach by extending the SL /mcp server
       # Embedder is pluggable. Default = the bundled `tei` container (self-contained,
       # correct on amd64/CI/deploy). On a RAM-constrained Apple-Silicon dev box the
       # emulated TEI can OOM (exit 137); override to a host/native embedder, e.g.
@@ -218,8 +218,8 @@ services:
       # app-api answers /api/health on 4201; gateway listens on 4401.
       test:
         [
-          'CMD-SHELL',
-          'curl -fsS http://127.0.0.1:4201/api/health && nc -z 127.0.0.1 4401',
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:4201/api/health && nc -z 127.0.0.1 4401",
         ]
       interval: 10s
       timeout: 5s

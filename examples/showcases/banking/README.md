@@ -85,6 +85,7 @@ on the `intelligence` service in `docker-compose.yml`.
 > **Apple Silicon / low Docker RAM:** the bundled `tei` image is amd64-only and can
 > be OOM-killed (exit 137) under emulation. Point the stack at a host/native TEI
 > instead (same model, `Qwen/Qwen3-Embedding-0.6B`) and skip the bundled one:
+>
 > ```bash
 > MEMORY_EMBEDDINGS_URL=http://host.docker.internal:7067 \
 >   docker compose up -d --wait --scale tei=0 \
@@ -139,7 +140,7 @@ follow-up (user-scope memory, periodic DB reset, or a dashboard control).
   `node scripts/memory-drift-smoke.mjs` seeds the procedure via REST, then drives a
   fresh-thread over-limit request against a real OpenAI key and asserts the live
   model still emits `recall_memory` (the autonomous recall-first moment). aimock
-  fixtures replay a fixed decision and cannot catch *behavioral drift* after a
+  fixtures replay a fixed decision and cannot catch _behavioral drift_ after a
   prompt edit — this can. The save half is HITL-gated (not headless), so verify it
   via the manual walkthrough above + the aimock E2E. Run after editing the prompt or
   teach tools.

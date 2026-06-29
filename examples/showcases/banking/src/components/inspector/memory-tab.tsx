@@ -31,20 +31,39 @@ function parseMemories(value: unknown): PanelMemory[] {
   return [];
 }
 
-function MemoryCard({ memory, relevance }: { memory: PanelMemory; relevance?: number }) {
-  const kindColor = KIND_COLORS[memory.kind] ?? "bg-surface-muted text-ink-muted";
-  const scopeColor = SCOPE_COLORS[memory.scope] ?? "bg-surface-muted text-ink-muted";
+function MemoryCard({
+  memory,
+  relevance,
+}: {
+  memory: PanelMemory;
+  relevance?: number;
+}) {
+  const kindColor =
+    KIND_COLORS[memory.kind] ?? "bg-surface-muted text-ink-muted";
+  const scopeColor =
+    SCOPE_COLORS[memory.scope] ?? "bg-surface-muted text-ink-muted";
   const threadCount = memory.sourceThreadIds.length;
   return (
     <li className="flex flex-col gap-1 rounded border border-hairline p-2 text-xs">
       <div className="flex flex-wrap items-center gap-1">
-        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${kindColor}`}>{memory.kind}</span>
-        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${scopeColor}`}>{memory.scope}</span>
+        <span
+          className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${kindColor}`}
+        >
+          {memory.kind}
+        </span>
+        <span
+          className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${scopeColor}`}
+        >
+          {memory.scope}
+        </span>
       </div>
       <p className="text-[11px] leading-relaxed text-ink">{memory.content}</p>
       {relevance !== undefined && (
         <div className="h-1 w-full overflow-hidden rounded-full bg-surface-muted">
-          <div className="h-full rounded-full bg-brand-indigo" style={{ width: `${Math.max(6, Math.round(relevance * 100))}%` }} />
+          <div
+            className="h-full rounded-full bg-brand-indigo"
+            style={{ width: `${Math.max(6, Math.round(relevance * 100))}%` }}
+          />
         </div>
       )}
       <div className="text-[10px] text-ink-muted">
@@ -60,7 +79,9 @@ function DisabledState() {
       <p className="font-medium text-ink">Requires Intelligence mode</p>
       <p className="mt-1">
         Durable memory lives in the Intelligence backend. Set the
-        <code className="mx-1 rounded bg-surface-muted px-1">INTELLIGENCE_*</code>
+        <code className="mx-1 rounded bg-surface-muted px-1">
+          INTELLIGENCE_*
+        </code>
         env vars (see the README) to enable the memory store and recall.
       </p>
     </div>
@@ -85,7 +106,9 @@ export function MemoryTab() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   const [recallQuery, setRecallQuery] = useState("");
-  const [recallResults, setRecallResults] = useState<PanelMemory[] | null>(null);
+  const [recallResults, setRecallResults] = useState<PanelMemory[] | null>(
+    null,
+  );
   const [recallError, setRecallError] = useState<string | null>(null);
   const [isRecalling, setIsRecalling] = useState(false);
 
@@ -138,7 +161,10 @@ export function MemoryTab() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async fetch; setState is post-await
     fetchList().catch(() => {});
-    const handle = window.setInterval(() => fetchList().catch(() => {}), BACKSTOP_POLL_MS);
+    const handle = window.setInterval(
+      () => fetchList().catch(() => {}),
+      BACKSTOP_POLL_MS,
+    );
     return () => window.clearInterval(handle);
   }, [fetchList]);
 
@@ -186,7 +212,9 @@ export function MemoryTab() {
     <div className="flex flex-col gap-4 p-3">
       <div>
         <h3 className="text-xs font-semibold text-ink">Memory store</h3>
-        <p className="text-[10px] text-ink-muted">Long-term memory. Updates as the agent saves and recalls.</p>
+        <p className="text-[10px] text-ink-muted">
+          Long-term memory. Updates as the agent saves and recalls.
+        </p>
       </div>
 
       <form
@@ -216,7 +244,9 @@ export function MemoryTab() {
       {recallResults !== null && (
         <section aria-label="Recall results">
           <div className="mb-1.5 flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-ink">Semantic recall ({recallResults.length})</h3>
+            <h3 className="text-xs font-semibold text-ink">
+              Semantic recall ({recallResults.length})
+            </h3>
             <button
               type="button"
               onClick={() => {
@@ -229,13 +259,23 @@ export function MemoryTab() {
             </button>
           </div>
           {recallError ? (
-            <p className="text-[11px] text-negative">Recall failed: {recallError}</p>
+            <p className="text-[11px] text-negative">
+              Recall failed: {recallError}
+            </p>
           ) : recallResults.length === 0 ? (
-            <p className="text-[11px] text-ink-muted">No memories matched that query.</p>
+            <p className="text-[11px] text-ink-muted">
+              No memories matched that query.
+            </p>
           ) : (
             <ul className="flex flex-col gap-1.5">
               {recallResults.map((m) => (
-                <MemoryCard key={m.id} memory={m} relevance={maxScore > 0 ? (m.score ?? 0) / maxScore : undefined} />
+                <MemoryCard
+                  key={m.id}
+                  memory={m}
+                  relevance={
+                    maxScore > 0 ? (m.score ?? 0) / maxScore : undefined
+                  }
+                />
               ))}
             </ul>
           )}
@@ -245,14 +285,19 @@ export function MemoryTab() {
       <section aria-label="Recalled memories">
         {/* "Recalled", NOT "All": this is top-k semantic recall, not a complete
             enumeration. No absolute count — the UI must not claim completeness. */}
-        <h3 className="mb-1.5 text-xs font-semibold text-ink">Recalled memories</h3>
+        <h3 className="mb-1.5 text-xs font-semibold text-ink">
+          Recalled memories
+        </h3>
         {listError ? (
-          <p className="text-[11px] text-negative">Unable to load memories: {listError}</p>
+          <p className="text-[11px] text-negative">
+            Unable to load memories: {listError}
+          </p>
         ) : !hasLoadedOnce ? (
           <p className="text-[11px] text-ink-muted">Loading…</p>
         ) : memories.length === 0 ? (
           <p className="text-[11px] text-ink-muted">
-            Nothing recalled yet. Teach the agent a durable procedure and watch it appear here.
+            Nothing recalled yet. Teach the agent a durable procedure and watch
+            it appear here.
           </p>
         ) : (
           <ul className="flex flex-col gap-1.5">

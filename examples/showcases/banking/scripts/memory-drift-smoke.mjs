@@ -45,7 +45,8 @@
 
 const DEMO_URL = process.env.DEMO_URL ?? "http://localhost:3000";
 const APP_API_URL = process.env.APP_API_URL ?? "http://localhost:7050";
-const KEY = process.env.INTELLIGENCE_API_KEY ?? "cpk_sPRVSEED_seed0privat0longtoken00";
+const KEY =
+  process.env.INTELLIGENCE_API_KEY ?? "cpk_sPRVSEED_seed0privat0longtoken00";
 const USER_ID = process.env.CPKI_USER_ID ?? "jordan-beamson";
 const TXN_ID = process.env.DRIFT_TXN_ID ?? "t-3";
 
@@ -72,7 +73,10 @@ async function seedProcedureMemory() {
       kind: "operational",
     }),
   });
-  if (!res.ok) throw new Error(`seed memory failed: HTTP ${res.status} ${await res.text()}`);
+  if (!res.ok)
+    throw new Error(
+      `seed memory failed: HTTP ${res.status} ${await res.text()}`,
+    );
   const body = await res.json().catch(() => ({}));
   return body;
 }
@@ -98,7 +102,10 @@ async function runOverLimitTurn() {
   };
   const res = await fetch(`${DEMO_URL}/api/copilotkit/agent/default/run`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+    },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -126,16 +133,24 @@ async function runOverLimitTurn() {
   return { recalled: false, sawSave: /save_memory/.test(buf) };
 }
 
-console.log(`memory drift smoke (REAL LLM) — demo ${DEMO_URL}, app-api ${APP_API_URL}, txn ${TXN_ID}\n`);
+console.log(
+  `memory drift smoke (REAL LLM) — demo ${DEMO_URL}, app-api ${APP_API_URL}, txn ${TXN_ID}\n`,
+);
 
 try {
   const seeded = await seedProcedureMemory();
-  log(true, `seeded project/operational procedure memory (${seeded.absorbed ? "absorbed" : "created"})`);
+  log(
+    true,
+    `seeded project/operational procedure memory (${seeded.absorbed ? "absorbed" : "created"})`,
+  );
 
   const { recalled } = await runOverLimitTurn();
-  log(recalled, recalled
-    ? "PASS: live model emitted recall_memory on a fresh-thread over-limit request"
-    : "DRIFT: live model did NOT emit recall_memory — the recall-first prompt may have regressed");
+  log(
+    recalled,
+    recalled
+      ? "PASS: live model emitted recall_memory on a fresh-thread over-limit request"
+      : "DRIFT: live model did NOT emit recall_memory — the recall-first prompt may have regressed",
+  );
 
   process.exit(recalled ? 0 : 1);
 } catch (err) {

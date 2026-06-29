@@ -39,7 +39,9 @@ export function InspectorStoreProvider({
     const id = String(++seq.current);
     setCards((prev) => {
       const next = [...prev, { ...card, id }];
-      return next.length > MAX_CARDS ? next.slice(next.length - MAX_CARDS) : next;
+      return next.length > MAX_CARDS
+        ? next.slice(next.length - MAX_CARDS)
+        : next;
     });
   }, []);
 
@@ -60,7 +62,9 @@ export function InspectorStoreProvider({
 export function useInspector(): InspectorStoreValue {
   const ctx = useContext(InspectorStoreContext);
   if (!ctx) {
-    throw new Error("useInspector must be used within an InspectorStoreProvider");
+    throw new Error(
+      "useInspector must be used within an InspectorStoreProvider",
+    );
   }
   return ctx;
 }

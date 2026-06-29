@@ -1,7 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { CreditCard, HelpCircle, LayoutDashboard, Telescope, Users } from "lucide-react";
+import {
+  CreditCard,
+  HelpCircle,
+  LayoutDashboard,
+  Telescope,
+  Users,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -129,8 +135,11 @@ function UserNavigation({
 
 export function LayoutComponent({ children }: LayoutProps) {
   const { users, currentUser, setCurrentUser } = useAuthContext();
-  const { available: glassAvailable, active: glassActive, toggle: toggleGlass } =
-    useGlassEngine();
+  const {
+    available: glassAvailable,
+    active: glassActive,
+    toggle: toggleGlass,
+  } = useGlassEngine();
   const pathname = usePathname();
   useAgentContext({
     description: "The current page where the user is",

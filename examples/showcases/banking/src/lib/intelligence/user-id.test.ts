@@ -13,7 +13,9 @@ describe("resolveUserId", () => {
 
   it("derives a stable per-role id when not pinned", () => {
     vi.stubEnv("INTELLIGENCE_USER_ID", "");
-    expect(resolveUserId("Marketing Assistant")).toBe("northwind-marketing-assistant");
+    expect(resolveUserId("Marketing Assistant")).toBe(
+      "northwind-marketing-assistant",
+    );
   });
 
   it("falls back to a single demo id when no role is given", () => {

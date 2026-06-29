@@ -5,7 +5,15 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe("parseRecallResponse", () => {
   it("extracts the memories array from a REST recall body", () => {
-    const mems = [{ id: "m1", kind: "operational", scope: "project", content: "x", sourceThreadIds: [] }];
+    const mems = [
+      {
+        id: "m1",
+        kind: "operational",
+        scope: "project",
+        content: "x",
+        sourceThreadIds: [],
+      },
+    ];
     expect(parseRecallResponse({ memories: mems })).toEqual(mems);
   });
 
