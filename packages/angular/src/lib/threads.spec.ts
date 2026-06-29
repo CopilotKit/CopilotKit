@@ -619,7 +619,9 @@ describe("injectThreads", () => {
     fixture.detectChanges();
 
     const result = fixture.componentInstance.threads;
-    expect(result.error()?.message).toMatch(/Thread endpoints are not available/);
+    expect(result.error()?.message).toMatch(
+      /Thread endpoints are not available/,
+    );
     expect(result.listError()).toBeNull();
   });
 

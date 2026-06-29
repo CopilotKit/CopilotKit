@@ -98,17 +98,30 @@ export class CopilotDrawerRow {
   changeDetection: ChangeDetectionStrategy.OnPush,
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   imports: [NgTemplateOutlet],
-  template: `<copilotkit-drawer
-    #drawer
-    [attr.data-testid]="dataTestId()"
-    (thread-selected)="onThreadSelected($event)"
-    (new-thread)="onNewThread()"
-    (archive)="onArchive($event)"
-    (unarchive)="onUnarchive($event)"
-    (delete)="onDelete($event)"
-    (filter-change)="onFilterChange()"
-    (retry)="onRetry($event)"
-  ><ng-content></ng-content>@if (rowDirective(); as row) { @for (t of threads.threads(); track t.id) { <div [attr.slot]="'row:' + t.id"><ng-container [ngTemplateOutlet]="row.template" [ngTemplateOutletContext]="{ $implicit: t }"></ng-container></div> } }</copilotkit-drawer>`,
+  template: `
+    <copilotkit-drawer
+      #drawer
+      [attr.data-testid]="dataTestId()"
+      (thread-selected)="onThreadSelected($event)"
+      (new-thread)="onNewThread()"
+      (archive)="onArchive($event)"
+      (unarchive)="onUnarchive($event)"
+      (delete)="onDelete($event)"
+      (filter-change)="onFilterChange()"
+      (retry)="onRetry($event)"
+      ><ng-content></ng-content>
+      @if (rowDirective(); as row) {
+        @for (t of threads.threads(); track t.id) {
+          <div [attr.slot]="'row:' + t.id">
+            <ng-container
+              [ngTemplateOutlet]="row.template"
+              [ngTemplateOutletContext]="{ $implicit: t }"
+            ></ng-container>
+          </div>
+        }
+      }
+    </copilotkit-drawer>
+  `,
 })
 export class CopilotDrawer {
   /**
@@ -133,7 +146,9 @@ export class CopilotDrawer {
    * When provided, this callback is invoked instead of driving
    * `config.setActiveThreadId`. Bound via `[onThreadSelect]="fn"`.
    */
-  readonly threadSelectHandler = input<((threadId: string) => void) | undefined>(undefined, {
+  readonly threadSelectHandler = input<
+    ((threadId: string) => void) | undefined
+  >(undefined, {
     alias: "onThreadSelect",
   });
 
@@ -152,7 +167,10 @@ export class CopilotDrawer {
     optional: true,
   });
 
-  private readonly drawerRef = viewChild<unknown, ElementRef<CopilotKitDrawerElement>>("drawer", {
+  private readonly drawerRef = viewChild<
+    unknown,
+    ElementRef<CopilotKitDrawerElement>
+  >("drawer", {
     read: ElementRef,
   });
 

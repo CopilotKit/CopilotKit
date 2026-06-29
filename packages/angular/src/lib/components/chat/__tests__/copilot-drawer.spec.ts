@@ -41,7 +41,9 @@ vi.mock("../../../threads", () => ({ injectThreads: () => threadsState }));
   selector: "test-host",
   standalone: true,
   imports: [CopilotDrawer],
-  template: `<copilot-drawer />`,
+  template: `
+    <copilot-drawer />
+  `,
 })
 class HostComponent {}
 
@@ -50,7 +52,9 @@ class HostComponent {}
   selector: "test-host-thread-select",
   standalone: true,
   imports: [CopilotDrawer],
-  template: `<copilot-drawer [onThreadSelect]="spy" />`,
+  template: `
+    <copilot-drawer [onThreadSelect]="spy" />
+  `,
 })
 class HostWithThreadSelectComponent {
   spy = vi.fn();
@@ -61,7 +65,9 @@ class HostWithThreadSelectComponent {
   selector: "test-host-new-thread",
   standalone: true,
   imports: [CopilotDrawer],
-  template: `<copilot-drawer [onNewThread]="spy" />`,
+  template: `
+    <copilot-drawer [onNewThread]="spy" />
+  `,
 })
 class HostWithNewThreadComponent {
   spy = vi.fn();
@@ -85,7 +91,16 @@ function setup() {
   fixture.detectChanges();
   const el = (fixture.nativeElement as HTMLElement).querySelector(
     "copilotkit-drawer",
-  ) as (HTMLElement & { threads: DrawerThread[]; loading: boolean; error: string | null; hasMore: boolean; fetchingMore: boolean; activeThreadId: string | null }) | null;
+  ) as
+    | (HTMLElement & {
+        threads: DrawerThread[];
+        loading: boolean;
+        error: string | null;
+        hasMore: boolean;
+        fetchingMore: boolean;
+        activeThreadId: string | null;
+      })
+    | null;
   return { fixture, el };
 }
 
@@ -202,7 +217,9 @@ test("thread-selected routes to setActiveThreadId with explicit:true", () => {
     }),
   );
 
-  expect(config.setActiveThreadId).toHaveBeenCalledWith("t9", { explicit: true });
+  expect(config.setActiveThreadId).toHaveBeenCalledWith("t9", {
+    explicit: true,
+  });
 });
 
 test("new-thread routes to both threadsState.startNewThread and config.startNewThread", () => {
@@ -391,7 +408,13 @@ test("genuine fetch error surfaces on element.error when listError() is non-null
   selector: "test-host-row",
   standalone: true,
   imports: [CopilotDrawer, CopilotDrawerRow],
-  template: `<copilot-drawer><ng-template copilotDrawerRow let-t>ROW:{{ t.name }}</ng-template></copilot-drawer>`,
+  template: `
+    <copilot-drawer
+      ><ng-template copilotDrawerRow let-t
+        >ROW:{{ t.name }}</ng-template
+      ></copilot-drawer
+    >
+  `,
 })
 class HostWithRowComponent {}
 
@@ -400,7 +423,9 @@ class HostWithRowComponent {}
   selector: "test-host-slot",
   standalone: true,
   imports: [CopilotDrawer],
-  template: `<copilot-drawer><span slot="launcher-icon">ICON-X</span></copilot-drawer>`,
+  template: `
+    <copilot-drawer><span slot="launcher-icon">ICON-X</span></copilot-drawer>
+  `,
 })
 class HostWithSlotComponent {}
 
@@ -413,7 +438,9 @@ test("slotted light-DOM children pass through to <copilotkit-drawer>", () => {
   const fixture = TestBed.createComponent(HostWithSlotComponent);
   fixture.detectChanges();
 
-  const drawerEl = (fixture.nativeElement as HTMLElement).querySelector("copilotkit-drawer");
+  const drawerEl = (fixture.nativeElement as HTMLElement).querySelector(
+    "copilotkit-drawer",
+  );
   const slotChild = drawerEl?.querySelector('[slot="launcher-icon"]');
   expect(slotChild).not.toBeNull();
   expect(slotChild?.textContent).toContain("ICON-X");
@@ -421,7 +448,14 @@ test("slotted light-DOM children pass through to <copilotkit-drawer>", () => {
 
 test("copilotDrawerRow renders per-row slot content for each thread", () => {
   threadsState.threads.set([
-    { id: "t1", name: "Alpha", archived: false, createdAt: "x", updatedAt: "x", agentId: "default" },
+    {
+      id: "t1",
+      name: "Alpha",
+      archived: false,
+      createdAt: "x",
+      updatedAt: "x",
+      agentId: "default",
+    },
   ]);
 
   TestBed.resetTestingModule();
@@ -432,6 +466,8 @@ test("copilotDrawerRow renders per-row slot content for each thread", () => {
   const fixture = TestBed.createComponent(HostWithRowComponent);
   fixture.detectChanges();
 
-  const slotEl = (fixture.nativeElement as HTMLElement).querySelector('[slot="row:t1"]');
+  const slotEl = (fixture.nativeElement as HTMLElement).querySelector(
+    '[slot="row:t1"]',
+  );
   expect(slotEl?.textContent?.trim()).toContain("ROW:Alpha");
 });
