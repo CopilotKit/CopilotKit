@@ -501,6 +501,26 @@ test("licensed drawer enables the thread fetch (enabled=true)", async () => {
   expect(lastInput.enabled).toBe(true);
 });
 
+test("pending license (status null) shows loading, never the upsell", async () => {
+  // Before the runtime reports a license, `status` is null. The drawer must NOT
+  // flash (or strand) the upsell during this window: it renders as licensed
+  // (so `_renderBody` skips the upsell) with loading forced on, and holds the
+  // fetch until the status resolves.
+  licenseMock.mockReturnValue({
+    status: null,
+    license: null,
+    checkFeature: () => true,
+    getLimit: () => null,
+  });
+
+  await renderDrawer();
+
+  expect(getElement().licensed).toBe(true);
+  expect(getElement().loading).toBe(true);
+  const lastInput = useThreadsMock.mock.calls.at(-1)?.[0] as UseThreadsInput;
+  expect(lastInput.enabled).toBe(false);
+});
+
 test('projects per-row content into slot="row:{id}" when renderRow is provided', async () => {
   await renderDrawer({
     renderRow: (thread) => <span data-row={thread.id}>{thread.name}</span>,

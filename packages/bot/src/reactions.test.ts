@@ -1,8 +1,9 @@
 // packages/bot/src/reactions.test.ts
 import { describe, it, expect } from "vitest";
-import { emoji } from "@copilotkit/bot-ui";
+import { emoji, Message } from "@copilotkit/bot-ui";
 import { createBot } from "./create-bot.js";
 import { FakeAdapter } from "./testing/fake-adapter.js";
+import { MemoryStore } from "./state/memory-store.js";
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
@@ -77,6 +78,126 @@ describe("bot.onReaction", () => {
     fake.emitReaction({ rawEmoji: "thumbsup", added: true }); // Slack alias
     await tick();
     expect(hits).toEqual(["thumbs_up"]);
+  });
+
+  it("routes a reaction on a posted message to its <Message onReaction>", async () => {
+    const fake = new FakeAdapter();
+    const bot = createBot({ adapters: [fake] });
+    const seen: { emoji: string; added: boolean }[] = [];
+    bot.onMessage(async ({ thread }) => {
+      await thread.post(
+        Message({
+          onReaction: (e, r) => {
+            seen.push({ emoji: e, added: r.added });
+          },
+          children: "hi",
+        }),
+      );
+    });
+    await bot.start();
+    fake.emitTurn({});
+    await tick();
+    // The handler is a closure, never serialized into the native payload.
+    expect(fake.posted[0]?.[0]?.props.onReaction).toBeUndefined();
+    // First post → "msg-1" (FakeAdapter counter).
+    fake.emitReaction({ rawEmoji: "🎉", added: true, messageId: "msg-1" });
+    fake.emitReaction({ rawEmoji: "🎉", added: false, messageId: "msg-1" });
+    await tick();
+    expect(seen).toEqual([
+      { emoji: "🎉", added: true },
+      { emoji: "🎉", added: false },
+    ]);
+  });
+
+  it("re-derives a registered component's onReaction from the store after a restart", async () => {
+    const backend = new MemoryStore(); // shared store survives the simulated restart
+    const seen: string[] = [];
+    // A named component so it can be re-registered + re-rendered after restart.
+    const Card = () =>
+      Message({
+        onReaction: (e) => {
+          seen.push(e);
+        },
+        children: "deploy done",
+      });
+
+    // Bot 1 posts the component message, persisting a reaction snapshot.
+    const fake1 = new FakeAdapter();
+    const bot1 = createBot({
+      adapters: [fake1],
+      store: { adapter: backend },
+      components: [Card],
+    });
+    bot1.onMessage(async ({ thread }) => {
+      // A component element ({ type: fn }) — the path that persists, unlike a
+      // pre-rendered Message() node.
+      await thread.post({ type: Card, props: {} });
+    });
+    await bot1.start();
+    fake1.emitTurn({});
+    await tick();
+
+    // "Restart": a fresh bot + registry sharing the same store, Card re-registered.
+    // Its reaction hot cache is empty, so it must resolve via the durable snapshot.
+    const fake2 = new FakeAdapter();
+    const bot2 = createBot({
+      adapters: [fake2],
+      store: { adapter: backend },
+      components: [Card],
+    });
+    await bot2.start();
+    fake2.emitReaction({ rawEmoji: "🎉", added: true, messageId: "msg-1" });
+    await tick();
+    expect(seen).toEqual(["🎉"]);
+  });
+
+  it("gives the handler a thread to post new UI and the reacted message's ref", async () => {
+    const fake = new FakeAdapter();
+    const bot = createBot({ adapters: [fake] });
+    let seenRefId: string | undefined;
+    bot.onMessage(async ({ thread }) => {
+      await thread.post(
+        Message({
+          onReaction: async (_e, r) => {
+            seenRefId = r.messageRef.id;
+            await r.thread.post("thanks for the reaction"); // post new UI like onClick can
+          },
+          children: "hi",
+        }),
+      );
+    });
+    await bot.start();
+    fake.emitTurn({});
+    await tick();
+    const before = fake.posted.length;
+    fake.emitReaction({ rawEmoji: "🎉", added: true, messageId: "msg-1" });
+    await tick();
+    // The handler posted a second message via its thread.
+    expect(fake.posted.length).toBe(before + 1);
+    // …and received an update-capable ref to the reacted message (fallback id here).
+    expect(seenRefId).toBe("msg-1");
+  });
+
+  it("does not fire a message handler for a reaction on a different message", async () => {
+    const fake = new FakeAdapter();
+    const bot = createBot({ adapters: [fake] });
+    let fired = false;
+    bot.onMessage(async ({ thread }) => {
+      await thread.post(
+        Message({
+          onReaction: () => {
+            fired = true;
+          },
+          children: "hi",
+        }),
+      );
+    });
+    await bot.start();
+    fake.emitTurn({});
+    await tick();
+    fake.emitReaction({ rawEmoji: "🎉", added: true, messageId: "other" });
+    await tick();
+    expect(fired).toBe(false);
   });
 
   it("normalizes a raw-token filter (unicode / slack alias) to canonical", async () => {

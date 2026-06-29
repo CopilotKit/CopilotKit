@@ -16,6 +16,7 @@ import express from "express";
 import cors from "cors";
 import { addStrandsExpressEndpoint, addPing } from "@ag-ui/aws-strands/server";
 import type { StrandsAgent } from "@ag-ui/aws-strands";
+import { strandsCvdiagMiddleware } from "./cvdiag-backend-strands.js";
 import {
   buildShowcaseAgent,
   buildVoiceAgent,
@@ -32,8 +33,26 @@ function mountAgent(
   path: string,
   agent: StrandsAgent,
 ): void {
+  // Mount the CVDIAG / header-forwarding middleware on the SAME path FIRST so
+  // Express runs it BEFORE the aws-strands POST handler. It seeds the
+  // header-forwarding ALS (so the outbound OpenAI call to aimock carries the
+  // inbound x-* incl. X-AIMock-Strict) and — when CVDIAG_BACKEND_EMITTER is on
+  // — emits the backend.* boundaries around the streamed response. It calls
+  // next() to fall through to the aws-strands handler, which then runs inside
+  // the ALS scope (AsyncLocalStorage propagates across the async generator
+  // iteration). @ag-ui/aws-strands@0.2.3 reads only req.body + accept and drops
+  // inbound x-*, so this re-introduces per-request forwarding without touching
+  // the third-party package.
+  const mw = strandsCvdiagMiddleware({
+    slug: "strands-typescript",
+    agentName: "strands_agent",
+    provider: "openai",
+    modelId: process.env.MODEL_ID ?? "gpt-4o",
+  });
+  app.post(path, mw);
   addStrandsExpressEndpoint(app, agent, { path });
   if (path !== "/") {
+    app.post(`${path}/`, mw);
     addStrandsExpressEndpoint(app, agent, { path: `${path}/` });
   }
 }
