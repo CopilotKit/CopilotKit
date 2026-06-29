@@ -161,7 +161,7 @@ export async function GET(
             height: 260,
             opacity: 0.2,
             background:
-              "linear-gradient(90deg, #BEC2FF 0%, #85ECCE 45%, #FFAC4D 100%)",
+              "linear-gradient(90deg, #BEC2FF 0%, #85ECCE 48%, #54A4F2 100%)",
             borderRadius: 999,
           }}
         />
@@ -244,7 +244,7 @@ export async function GET(
             style={{
               display: "flex",
               flexDirection: "column",
-              justifyContent: "space-between",
+              justifyContent: "center",
               width: "100%",
             }}
           >
@@ -292,36 +292,6 @@ export async function GET(
               >
                 {description}
               </p>
-            </div>
-
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 14,
-                marginTop: 28,
-              }}
-            >
-              {["Frontend", "Runtime", "Agents"].map((label) => (
-                <div
-                  key={label}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    height: 42,
-                    padding: "0 18px",
-                    borderRadius: 999,
-                    border: "1px solid #DBDBE5",
-                    background: "#FAFAFC",
-                    color: "#2B2B2B",
-                    fontSize: 18,
-                    fontWeight: 500,
-                  }}
-                >
-                  {label}
-                </div>
-              ))}
             </div>
           </div>
         </section>
