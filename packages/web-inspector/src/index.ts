@@ -6671,9 +6671,274 @@ ${argsString}</pre
     `;
   }
 
-  // Placeholder — fully implemented in a later wave (states + cpk-memory-list).
   private renderMemoriesView() {
-    return html``;
+    // 1. Locked teaser — intelligence not configured or memories not available.
+    if (!this.core?.intelligence || !this._memoriesAvailable) {
+      return html`
+        <div
+          style="
+            position: relative;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            overflow: hidden;
+            background: #ffffff;
+          "
+        >
+          ${this.renderThreadsLockedBackgroundMockup()}
+          <div
+            aria-hidden="true"
+            style="
+              position: absolute;
+              inset: 0;
+              pointer-events: none;
+              background:
+                radial-gradient(circle at center, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.78) 24%, rgba(255,255,255,0.34) 48%, rgba(255,255,255,0.56) 100%);
+            "
+          ></div>
+          <div
+            style="
+              position: relative;
+              z-index: 1;
+              max-width: 440px;
+              text-align: center;
+              color: #57575b;
+            "
+          >
+            <div
+              aria-hidden="true"
+              style="
+                margin: 0 auto 18px;
+                display: flex;
+                justify-content: center;
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  height: 44px;
+                  width: 44px;
+                  align-items: center;
+                  justify-content: center;
+                  border: 1px solid #dfd6fb;
+                  border-radius: 8px;
+                  background: #eee6fe;
+                  color: #57575b;
+                  box-shadow: 0 8px 18px rgba(87, 87, 91, 0.14);
+                "
+              >
+                ${this.renderIcon("Lock")}
+              </div>
+            </div>
+            <h2
+              style="
+                margin: 0 0 8px;
+                font-size: 16px;
+                line-height: 1.35;
+                font-weight: 600;
+                color: #010507;
+              "
+            >
+              Long-term memory
+            </h2>
+            <p
+              style="
+                margin: 0 auto 18px;
+                max-width: 380px;
+                font-size: 13px;
+                line-height: 1.55;
+                color: #57575b;
+              "
+            >
+              Long-term memory isn't enabled on this deployment.
+            </p>
+            <div
+              style="
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 8px;
+              "
+            >
+              <a
+                href=${this.getTalkToEngineerUrl()}
+                target="_blank"
+                rel="noopener"
+                style="
+                  display: inline-flex;
+                  min-height: 34px;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  border-radius: 6px;
+                  background: #010507;
+                  padding: 8px 12px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #ffffff;
+                  text-decoration: none;
+                "
+                @click=${this.handleThreadsTalkToEngineerClick}
+              >
+                Talk to an Engineer
+              </a>
+              <a
+                href=${this.getIntelligenceSignupUrl()}
+                target="_blank"
+                rel="noopener"
+                style="
+                  display: inline-flex;
+                  min-height: 34px;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  border-radius: 6px;
+                  border: 1px solid #dbdbe5;
+                  background: #ffffff;
+                  padding: 8px 12px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #57575b;
+                  text-decoration: none;
+                "
+                @click=${this.handleThreadsIntelligenceSignupClick}
+              >
+                Sign up for Intelligence
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 2. Error state.
+    if (this._memoriesError) {
+      return html`
+        <div
+          style="
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #838389;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#c0333a"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span style="font-size: 13px; color: #c0333a;">
+            Failed to load memories
+          </span>
+          <span
+            style="
+              max-width: 320px;
+              text-align: center;
+              font-size: 11px;
+              line-height: 1.5;
+              color: #c0333a;
+            "
+          >
+            ${this._memoriesError.message}
+          </span>
+        </div>
+      `;
+    }
+
+    // 3. Initial loading placeholder (no memories yet to show behind it).
+    if (this._memoriesLoading && this._memories.length === 0) {
+      return html`
+        <div
+          style="
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #838389;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#c0c0c8"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+          <span style="font-size: 13px;">Loading memories…</span>
+        </div>
+      `;
+    }
+
+    // 4. Content — header + memory list.
+    return html`
+      <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
+        <div class="cpk-section-header" style="display:flex;align-items:center;justify-content:space-between;">
+          <h4>Memory store</h4>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span
+              style="
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                font-size: 10px;
+                font-weight: 500;
+                color: #57575b;
+              "
+            >
+              <span
+                style="
+                  display: inline-block;
+                  width: 6px;
+                  height: 6px;
+                  border-radius: 50%;
+                  background: #22c55e;
+                "
+              ></span>
+              live
+            </span>
+            <span
+              style="
+                font-size: 11px;
+                font-weight: 500;
+                color: #57575b;
+                background: rgba(0,0,0,0.07);
+                border-radius: 9999px;
+                padding: 1px 7px;
+              "
+            >
+              ${this._memories.length}
+            </span>
+          </div>
+        </div>
+        <div style="flex:1;min-height:0;overflow:hidden;">
+          <cpk-memory-list
+            style="height:100%;"
+            .memories=${this._memories}
+          ></cpk-memory-list>
+        </div>
+      </div>
+    `;
   }
 
   private renderThreadsView() {
