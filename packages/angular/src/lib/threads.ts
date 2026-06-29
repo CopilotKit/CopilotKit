@@ -109,6 +109,13 @@ export interface InjectThreadsResult {
    */
   error: Signal<Error | null>;
   /**
+   * List/mutation errors only — excludes developer/config errors (missing
+   * runtime URL, runtime without thread endpoints) so consumer UIs do not
+   * surface dev strings to end users. Prefer this over `error` for
+   * user-facing error display.
+   */
+  listError: Signal<Error | null>;
+  /**
    * `true` when there are more threads available to fetch via
    * {@link InjectThreadsResult.fetchMoreThreads}. Only meaningful when `limit`
    * is set.
@@ -229,6 +236,7 @@ export class ThreadsStore implements InjectThreadsResult {
 
   readonly threads = this.#threads.asReadonly();
   readonly error: Signal<Error | null>;
+  readonly listError: Signal<Error | null>;
   readonly isLoading: Signal<boolean>;
   readonly hasMoreThreads = this.#hasMoreThreads.asReadonly();
   readonly isFetchingMoreThreads = this.#isFetchingMoreThreads.asReadonly();
@@ -291,6 +299,11 @@ export class ThreadsStore implements InjectThreadsResult {
     this.error = computed(
       () => runtimeError() ?? endpointsError() ?? this.#storeError(),
     );
+    // listError exposes only genuine fetch/mutation errors, excluding the
+    // dev/config errors (missing runtime URL, runtime without thread
+    // endpoints). Use this for user-facing error display so dev strings are
+    // never shown to end users.
+    this.listError = computed(() => this.#storeError());
     this.isLoading = computed(() =>
       runtimeError() || endpointsError()
         ? false
