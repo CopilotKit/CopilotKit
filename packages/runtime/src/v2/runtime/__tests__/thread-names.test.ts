@@ -1,12 +1,31 @@
-import { describe, expect, it } from "vitest";
-import type { Message } from "@ag-ui/client";
+import { describe, expect, it, vi } from "vitest";
+import type { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
 
 import {
   ɵnormalizeGeneratedTitle as normalizeGeneratedTitle,
   ɵselectGeneratedTitleFromMessages as selectGeneratedTitleFromMessages,
   ɵbuildThreadTitlePrompt as buildThreadTitlePrompt,
   ɵhasThreadName as hasThreadName,
+  ɵderiveFallbackTitleFromMessages as deriveFallbackTitleFromMessages,
 } from "../handlers/intelligence/thread-names";
+import { generateThreadNameForNewThread } from "../handlers/intelligence/thread-names";
+import type { CopilotIntelligenceRuntimeLike } from "../core/runtime";
+
+const MAX_TITLE_LENGTH = 80;
+const MAX_TITLE_WORDS = 8;
+
+// The mock LLM's catch-all reply — long enough to normalize to null because it
+// exceeds the title word limit, which is exactly why mock-mode threads used to
+// fall through to the generic "Untitled".
+const MOCK_CATCH_ALL_REPLY =
+  "👋 This is the demo's local mock LLM and I do not have a real model wired up, " +
+  "so I am replying with this canned message instead of answering your question.";
+
+const userMessage = (content: string): Message =>
+  ({ id: "msg-user", role: "user", content }) as Message;
+
+const systemMessage = (content: string): Message =>
+  ({ id: "msg-system", role: "system", content }) as Message;
 
 // ---------------------------------------------------------------------------
 // normalizeGeneratedTitle
@@ -229,5 +248,182 @@ describe("hasThreadName", () => {
   it("returns false for empty or whitespace-only strings", () => {
     expect(hasThreadName("")).toBe(false);
     expect(hasThreadName("   ")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// deriveFallbackTitleFromMessages
+// ---------------------------------------------------------------------------
+
+describe("deriveFallbackTitleFromMessages", () => {
+  it("derives a short cleaned title from the first user message", () => {
+    const result = deriveFallbackTitleFromMessages([
+      userMessage("Hello, can you help me plan a trip to Japan?"),
+    ]);
+
+    expect(result).not.toBe("Untitled");
+    expect(result.split(/\s+/).length).toBeLessThanOrEqual(MAX_TITLE_WORDS);
+    expect(result.length).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
+    // Bounded to 8 words (dropping the trailing "to Japan?"); the mid-title
+    // comma is preserved since only trailing punctuation is stripped.
+    expect(result).toBe("Hello, can you help me plan a trip");
+  });
+
+  it("returns Untitled when there is no user message", () => {
+    expect(
+      deriveFallbackTitleFromMessages([systemMessage("You are helpful.")]),
+    ).toBe("Untitled");
+  });
+
+  it("returns Untitled for undefined or empty messages", () => {
+    expect(deriveFallbackTitleFromMessages(undefined)).toBe("Untitled");
+    expect(deriveFallbackTitleFromMessages([])).toBe("Untitled");
+  });
+
+  it("returns Untitled when the user message has only empty content", () => {
+    expect(deriveFallbackTitleFromMessages([userMessage("   ")])).toBe(
+      "Untitled",
+    );
+  });
+
+  it("uses the FIRST user message, not later ones", () => {
+    const result = deriveFallbackTitleFromMessages([
+      systemMessage("You are helpful."),
+      userMessage("Track my fitness goals"),
+      userMessage("Something else entirely"),
+    ]);
+
+    expect(result).toBe("Track my fitness goals");
+  });
+
+  it("strips markdown and collapses whitespace", () => {
+    const result = deriveFallbackTitleFromMessages([
+      userMessage("**Budget**   _review_ please"),
+    ]);
+
+    expect(result).toBe("Budget review please");
+  });
+
+  it("bounds a long single-word message to the character limit", () => {
+    const result = deriveFallbackTitleFromMessages([
+      userMessage("A".repeat(120)),
+    ]);
+
+    expect(result.length).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateThreadNameForNewThread — fallback wiring
+// ---------------------------------------------------------------------------
+
+interface ThreadNameSetup {
+  updateThread: ReturnType<typeof vi.fn>;
+  runtime: CopilotIntelligenceRuntimeLike;
+  request: Request;
+}
+
+/**
+ * Builds a minimal runtime + agent stub for `generateThreadNameForNewThread`.
+ * `assistantReply` is the single assistant message the stubbed agent run
+ * returns; pass `null` to simulate an agent that produces no usable reply
+ * (forcing all attempts to yield no valid title).
+ */
+function setup(assistantReply: string | null): ThreadNameSetup {
+  const updateThread = vi.fn().mockResolvedValue({ id: "thread-1" });
+
+  const makeAgentStub = (): AbstractAgent => {
+    const stub: Record<string, unknown> = {
+      setMessages: vi.fn(),
+      setState: vi.fn(),
+      threadId: undefined,
+      headers: {},
+      runAgent: vi.fn().mockResolvedValue({
+        newMessages:
+          assistantReply === null
+            ? []
+            : [{ id: "reply", role: "assistant", content: assistantReply }],
+      }),
+    };
+    stub.clone = vi.fn(() => makeAgentStub());
+    return stub as unknown as AbstractAgent;
+  };
+
+  const runtime = {
+    agents: { "my-agent": makeAgentStub() },
+    a2ui: undefined,
+    mcpApps: undefined,
+    openGenerativeUI: undefined,
+    mode: "intelligence",
+    generateThreadNames: true,
+    intelligence: { updateThread },
+  } as unknown as CopilotIntelligenceRuntimeLike;
+
+  const request = new Request("https://example.com/agent/my-agent/run", {
+    method: "POST",
+  });
+
+  return { updateThread, runtime, request };
+}
+
+const runWith = async (
+  s: ThreadNameSetup,
+  messages: Message[],
+): Promise<string> => {
+  await generateThreadNameForNewThread({
+    runtime: s.runtime,
+    request: s.request,
+    agentId: "my-agent",
+    sourceInput: { messages } as unknown as RunAgentInput,
+    thread: { id: "thread-1", name: null } as never,
+    userId: "user-1",
+  });
+
+  expect(s.updateThread).toHaveBeenCalledTimes(1);
+  return s.updateThread.mock.calls[0][0].updates.name as string;
+};
+
+describe("generateThreadNameForNewThread — fallback title", () => {
+  it("derives the name from the first user message when generation never yields a valid title", async () => {
+    const s = setup(null);
+
+    const name = await runWith(s, [
+      userMessage("Hello, can you help me plan a trip to Japan?"),
+    ]);
+
+    expect(name).not.toBe("Untitled");
+    expect(name.split(/\s+/).length).toBeLessThanOrEqual(MAX_TITLE_WORDS);
+    expect(name.length).toBeLessThanOrEqual(MAX_TITLE_LENGTH);
+    expect(name).toBe("Hello, can you help me plan a trip");
+  });
+
+  it("falls back to Untitled when there is no user message", async () => {
+    const s = setup(null);
+
+    const name = await runWith(s, [systemMessage("You are helpful.")]);
+
+    expect(name).toBe("Untitled");
+  });
+
+  it("treats the mock catch-all reply as invalid and derives from the user message", async () => {
+    const s = setup(MOCK_CATCH_ALL_REPLY);
+
+    const name = await runWith(s, [
+      userMessage("Hello, can you help me plan a trip to Japan?"),
+    ]);
+
+    expect(name).not.toBe("Untitled");
+    expect(name).not.toContain("mock LLM");
+    expect(name).toBe("Hello, can you help me plan a trip");
+  });
+
+  it("uses a valid generated title when generation succeeds (regression)", async () => {
+    const s = setup('{"title":"Trip to Japan"}');
+
+    const name = await runWith(s, [
+      userMessage("Hello, can you help me plan a trip to Japan?"),
+    ]);
+
+    expect(name).toBe("Trip to Japan");
   });
 });

@@ -88,7 +88,9 @@ export async function generateThreadNameForNewThread({
     threadId: thread.id,
     userId,
     agentId,
-    updates: { name: generatedTitle ?? FALLBACK_THREAD_TITLE },
+    updates: {
+      name: generatedTitle ?? deriveFallbackTitleFromMessages(sourceInput.messages),
+    },
   });
 }
 
@@ -214,12 +216,7 @@ function normalizeGeneratedTitle(rawTitle: string): string | null {
     }
   }
 
-  candidate = candidate
-    .replace(/^["'`]+|["'`]+$/g, "")
-    .replace(/[*_#[\]()!~>|]+/g, "")
-    .replace(/[.!?,;:]+$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  candidate = cleanupTitleText(candidate);
 
   if (!candidate) {
     return null;
@@ -234,6 +231,71 @@ function normalizeGeneratedTitle(rawTitle: string): string | null {
   }
 
   return candidate;
+}
+
+/**
+ * Strips the markdown, surrounding quotes and trailing punctuation that an LLM
+ * tends to wrap a title in, then collapses internal whitespace. Shared by both
+ * the LLM-title normalizer and the first-user-message fallback so the two paths
+ * clean text identically.
+ *
+ * @param text - Raw candidate title text.
+ * @returns The cleaned text (may be empty if everything was stripped).
+ */
+function cleanupTitleText(text: string): string {
+  return text
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .replace(/[*_#[\]()!~>|]+/g, "")
+    .replace(/[.!?,;:]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Derives a short, human-readable thread title from the first user message when
+ * LLM title generation could not produce a valid title (for example when the
+ * runtime is pointed at a mock LLM whose catch-all reply is not a title). Reuses
+ * the same text cleanup as the LLM-title normalizer, then bounds the result to
+ * {@link MAX_TITLE_WORDS} words and {@link MAX_TITLE_LENGTH} characters so the
+ * fallback reads like a title rather than a sentence fragment.
+ *
+ * @param messages - The source conversation messages, if any.
+ * @returns A derived short title, or {@link FALLBACK_THREAD_TITLE} when there is
+ *   no usable user message.
+ */
+function deriveFallbackTitleFromMessages(
+  messages: Message[] | undefined,
+): string {
+  const firstUserMessage = (messages ?? []).find(
+    (message) =>
+      message.role === "user" &&
+      stringifyMessageContent(message.content).length > 0,
+  );
+
+  if (!firstUserMessage) {
+    return FALLBACK_THREAD_TITLE;
+  }
+
+  const cleaned = cleanupTitleText(
+    stringifyMessageContent(firstUserMessage.content),
+  );
+
+  if (!cleaned) {
+    return FALLBACK_THREAD_TITLE;
+  }
+
+  let title = cleaned;
+
+  const words = title.split(/\s+/);
+  if (words.length > MAX_TITLE_WORDS) {
+    title = words.slice(0, MAX_TITLE_WORDS).join(" ");
+  }
+
+  if (title.length > MAX_TITLE_LENGTH) {
+    title = title.slice(0, MAX_TITLE_LENGTH).trim();
+  }
+
+  return title || FALLBACK_THREAD_TITLE;
 }
 
 function selectGeneratedTitleFromMessages(messages: Message[]): string | null {
@@ -272,3 +334,5 @@ export const ɵselectGeneratedTitleFromMessages =
 export const ɵbuildThreadTitlePrompt = buildThreadTitlePrompt;
 /** @internal Exported for testing only. */
 export const ɵhasThreadName = hasThreadName;
+/** @internal Exported for testing only. */
+export const ɵderiveFallbackTitleFromMessages = deriveFallbackTitleFromMessages;
