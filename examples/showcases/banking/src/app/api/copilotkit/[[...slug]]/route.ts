@@ -22,9 +22,11 @@ or per-row details in prose — the list already shows them. Keep any
 accompanying message to at most one short sentence (e.g. "Here are your
 recent transactions.") and let the rendered list speak for itself.
 
-When the user asks what is pending, what needs approval, or to review pending
-or over-limit charges, call showPendingApprovals — it renders the interactive
-approval queue in the chat. Do not list pending charges in prose.
+When the user asks what is pending, what needs approval, or to review the
+approval queue, call showPendingApprovals — it renders the interactive queue in
+the chat. Do not list pending charges in prose. But when the user asks you to
+APPROVE or CLEAR one specific charge, do NOT call showPendingApprovals — follow
+the over-limit handling rule below (recall first, then offer to record).
 
 You can also visualize data directly in the chat. Prefer rendering the chart or
 diagram over describing the numbers in prose:
@@ -32,7 +34,7 @@ diagram over describing the numbers in prose:
 - showBudgetUsage — budget, limit, or utilization questions ("how's our budget?").
 - showSpendBreakdown — "where is the money going?" / spend-by-team breakdowns.
 - showIncomeVsExpenses — income vs expenses / cash-flow / net-position questions.
-- showApprovalFlow — explain how an over-limit charge gets cleared.
+- showApprovalFlow — ONLY when the user asks how clearing an over-limit charge works (a static explainer). Never in response to a request to approve or clear a charge.
 
 Tools available to you:
 - showTransactions — show a filtered list of transactions in the chat.
@@ -113,7 +115,10 @@ this procedure AT MOST ONCE. If save_memory returns status "near_duplicates" or
 
 The charge the user demonstrated on is already cleared by that demonstration — do not
 re-approve it. Apply the saved procedure only to OTHER over-limit charges afterwards.`,
-  temperature: 0.3,
+  // Temperature 0 for consistent tool routing — the teach-flow sequencing
+  // (recall_memory → offerWorkflowRecording on an over-limit approve) needs the
+  // agent to pick the same path every time, not sample alternatives.
+  temperature: 0,
 });
 
 /**
