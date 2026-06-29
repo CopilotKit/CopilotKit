@@ -109,10 +109,41 @@ jobs:
             rm -f "$resp"
           }
 
+          # Slack returns HTTP 200 with `{"ok":false,"error":"..."}` on LOGICAL
+          # failures (channel_not_found, not_in_channel, ...). slack_api only
+          # surfaces non-2xx HTTP, so a failure-ALERT that posts 200/ok:false
+          # would otherwise be silently dropped — pages nobody. This predicate
+          # checks the captured response and emits a `::warning::` (mirroring the
+          # slack_api non-2xx idiom above) when the post did NOT succeed.
+          #   $1 = label, $2 = captured Slack response body
+          slack_alert_posted_ok() {
+            local label="$1"
+            local resp="$2"
+            local ok
+            ok=$(printf '%s' "$resp" | jq -r '.ok // false' 2>/dev/null || echo false)
+            if [ "$ok" != "true" ]; then
+              local err
+              err=$(printf '%s' "$resp" | jq -r '.error // "unknown"' 2>/dev/null || echo unknown)
+              echo "::warning::Slack ${label} did NOT post (ok=${ok} error=${err}); failure alert may have been dropped" >&2
+              return 1
+            fi
+            return 0
+          }
+
           # ---------- read payload ----------
           R="$RESULTS_PATH"
 
           run_id=$(jq -r '.run_id' "$R")
+          # Validate the BLOB's run_id, not just the RUN_ID input. The decode
+          # step (separate step, no shared shell vars) checks the input; the
+          # CLI/hand-dispatch path renders THIS value into the run-name and the
+          # Slack messages, so it must satisfy the same ^[0-9a-f]{6}$ contract.
+          # Mirrors showcase_promote_notify.dry-run.sh. Hard-fail (exit 1) — a
+          # malformed run_id is a dispatcher-contract violation, not recoverable.
+          if ! printf '%s' "$run_id" | grep -Eq '^[0-9a-f]{6}$'; then
+            echo "::error::run_id '$run_id' does not match ^[0-9a-f]{6}$ (breaks CLI polling contract; see run-name)"
+            exit 1
+          fi
           trigger=$(jq -r '.trigger' "$R")
           operator_email=$(jq -r '.operator_email // ""' "$R")
           operator_git_name=$(jq -r '.operator_git_name // ""' "$R")
@@ -126,7 +157,6 @@ jobs:
           pre_staging=$(jq -r '.pre_staging // "skipped"' "$R")
           abort_reason=$(jq -r '.abort_reason // ""' "$R")
           succeeded_count=$(jq -r '.succeeded | length' "$R")
-          failed_count=$(jq -r '.failed | length' "$R")
 
           # Comma-separated list of the SUCCEEDED service names, for the ✅
           # success thread reply AND the ⚠️ partial reply's `Promoted:` line.
@@ -151,7 +181,6 @@ jobs:
           #   succeeded_count    = raw .succeeded length
           #   failed_real_count  = .failed length minus truncation-suffix sentinels
           #                        (rendered to operators on all display lines)
-          #   failed_count       = raw .failed length (internal logging only)
           failed_real_count=$(jq 'length' /tmp/failed-render.json)
 
           # Service total = succeeded + real failures (truncation entries
@@ -355,7 +384,7 @@ jobs:
               --arg text "$thread_text" \
               --arg ts "$init_ts" \
               '{channel:$channel, text:$text, thread_ts:$ts}')
-            slack_api chat.postMessage "$thread_body" >/dev/null
+            thread_resp=$(slack_api chat.postMessage "$thread_body")
           else
             # Initiation failed; post the thread text as a top-level
             # message so the operator still gets the summary.
@@ -363,8 +392,11 @@ jobs:
               --arg channel "$TEAM_SHOWCASE_CHANNEL" \
               --arg text "$thread_text" \
               '{channel:$channel, text:$text}')
-            slack_api chat.postMessage "$fallback_body" >/dev/null
+            thread_resp=$(slack_api chat.postMessage "$fallback_body")
           fi
+          # Surface a dropped summary post (200/ok:false). `|| true` keeps the
+          # ::warning:: visible without aborting the cross-post below.
+          slack_alert_posted_ok "thread reply" "$thread_resp" || true
 
           # ---------- cross-post to #oss-alerts on partial/total failure ----------
           if [ "$outcome" != "success" ]; then
@@ -374,8 +406,9 @@ jobs:
               link_suffix="thread: ${permalink}"
             else
               # No Slack permalink available; link to the GitHub Actions run
-              # instead. gha_url is hoisted in the decode-payload section so the
-              # success message and this fallback share the same URL.
+              # instead. gha_url is defined earlier in this render step (where
+              # the payload is read) so the success message and this fallback
+              # share the same URL.
               link_suffix="thread permalink unavailable; see ${gha_url}"
             fi
             case "$outcome" in
@@ -386,7 +419,15 @@ jobs:
               --arg channel "$OSS_ALERTS_CHANNEL" \
               --arg text "$oss_text" \
               '{channel:$channel, text:$text}')
-            slack_api chat.postMessage "$oss_body" >/dev/null
+            oss_resp=$(slack_api chat.postMessage "$oss_body")
+            # This is the page-the-humans alert. A 200/ok:false drop here means
+            # nobody is told the promote failed, so a silently-green renderer job
+            # would hide the dropped page. FAIL LOUD: the ::warning:: alone is
+            # easy to miss, so let the predicate's non-zero return abort this
+            # step (set -e) → the job goes red and the drop is visible. Unlike
+            # the thread reply (informational, in the promote channel), this
+            # alert MUST not be swallowed — so there is no `|| true` here.
+            slack_alert_posted_ok "#oss-alerts cross-post" "$oss_resp"
           fi
 
           echo "notify completed: outcome=${outcome} run_id=${run_id}"

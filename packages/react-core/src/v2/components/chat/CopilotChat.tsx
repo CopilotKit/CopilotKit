@@ -226,7 +226,19 @@ export function CopilotChat({
   const isConnecting =
     hasExplicitThreadId && lastConnectedThreadId !== resolvedThreadId;
 
+  // Tracks the threadId the connect effect last ran for, so it can tell a real
+  // thread SWITCH from an incidental re-render (agent identity change, etc.).
+  const previousThreadIdRef = useRef<string | null>(null);
+
+  // Latest explicitness, readable from an async connect that may resolve after
+  // the user has already switched threads (see the stale-connect guard below).
+  const hasExplicitThreadIdRef = useRef(hasExplicitThreadId);
+  hasExplicitThreadIdRef.current = hasExplicitThreadId;
+
   useEffect(() => {
+    const threadChanged = previousThreadIdRef.current !== resolvedThreadId;
+    previousThreadIdRef.current = resolvedThreadId;
+
     // Non-explicit threads skip /connect, but the first runAgent still has to
     // ship the same SDK-generated threadId that the chat UI is rendering.
     agent.threadId = resolvedThreadId;
@@ -236,7 +248,18 @@ export function CopilotChat({
     // ThreadsProvider). The backend has never seen it, so /connect would
     // always 404 — skip the call. A real thread is only created once the
     // user runs the agent for the first time.
-    if (!hasExplicitThreadId) return;
+    if (!hasExplicitThreadId) {
+      // Switching to a fresh, non-backend thread (e.g. startNewThread / the
+      // drawer's "+ New"): there are no messages to /connect for, so drop any
+      // messages carried over from the previously-viewed thread and fall back
+      // to the welcome screen. Guard on an actual threadId change so re-renders
+      // of the current thread (including its first run) never wipe an
+      // in-progress conversation.
+      if (threadChanged && agent.messages.length > 0) {
+        agent.setMessages([]);
+      }
+      return;
+    }
 
     let detached = false;
 
@@ -276,6 +299,14 @@ export function CopilotChat({
           raf(() => {
             if (!detached) setLastConnectedThreadId(resolvedThreadId);
           });
+        } else if (!hasExplicitThreadIdRef.current) {
+          // This connect was superseded (the user switched away while it was
+          // still loading). If the now-current thread is a fresh non-explicit
+          // one (e.g. the drawer's "+ New"), any snapshot this connect managed
+          // to apply is stale — clear it so the welcome screen shows instead of
+          // the abandoned thread's messages. A switch to ANOTHER explicit thread
+          // is left alone: that thread's own connect owns the message reset.
+          agentToConnect.setMessages([]);
         }
       }
     };

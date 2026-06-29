@@ -120,11 +120,15 @@ describe("emit-railway-envs-json closure block", () => {
     const docs = services.find((s) => s.name === "docs");
     expect(docs?.healthcheckPath).toBeUndefined();
 
-    // harness-workers is /health in staging, OMITTED in prod (per-env
-    // asymmetry — the staging-only worker declares no prod env).
+    // harness-workers is now dual-env: /health in BOTH prod and staging (the
+    // prod worker was backfilled into the SSOT, each env declaring the shared
+    // showcase-harness probe path).
     const workers = services.find((s) => s.name === "harness-workers");
-    expect(workers?.healthcheckPath).toEqual({ staging: "/health" });
-    expect(workers?.healthcheckPath?.prod).toBeUndefined();
+    expect(workers?.healthcheckPath).toEqual({
+      prod: "/health",
+      staging: "/health",
+    });
+    expect(workers?.healthcheckPath?.prod).toBe("/health");
   });
 });
 

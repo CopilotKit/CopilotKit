@@ -13,6 +13,7 @@ import {
   Cell,
   Image,
   Select,
+  Chart,
 } from "./components.js";
 
 /**
@@ -36,6 +37,10 @@ const __typeGuards = () => {
   <Image alt="x" />;
   // @ts-expect-error Select.options is required
   <Select placeholder="p" />;
+  // @ts-expect-error Chart.data is required
+  <Chart title="x" />;
+  // @ts-expect-error invalid Chart.type value
+  <Chart type="scatter" data={[]} />;
 
   // Valid usages — must type-check cleanly.
   <Section>hello {42}</Section>;
@@ -46,6 +51,13 @@ const __typeGuards = () => {
     Go
   </Button>;
   <Image url="https://example.com/x.png" alt="x" />;
+  <Chart
+    type="line"
+    title="Revenue"
+    xAxisTitle="Month"
+    yAxisTitle="USD"
+    data={[{ label: "Jan", value: 10 }]}
+  />;
 
   // Button.value flows into onClick: ctx.action.value is inferred, not unknown.
   <Button
@@ -111,5 +123,20 @@ describe("component vocabulary", () => {
     expect(cells[0]!.type).toBe("cell");
     const cellText = (cells[0]!.props.children as BotNode[])[0]!;
     expect(cellText).toMatchObject({ type: "text", props: { value: "Ana" } });
+  });
+  it("Chart carries type, title, axis titles, and data in props", () => {
+    const data = [
+      { label: "Jan", value: 10 },
+      { label: "Feb", value: 20 },
+    ];
+    const out = renderToIR(
+      <Chart type="line" title="Revenue" yAxisTitle="USD" data={data} />,
+    );
+    const chart = out[0]!;
+    expect(chart.type).toBe("chart");
+    expect(chart.props.type).toBe("line");
+    expect(chart.props.title).toBe("Revenue");
+    expect(chart.props.yAxisTitle).toBe("USD");
+    expect(chart.props.data).toEqual(data);
   });
 });
