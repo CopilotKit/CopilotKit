@@ -956,3 +956,39 @@ test("desktop does NOT render the mobile launcher", async () => {
   expect(q('[part="launcher"]')).toBeNull();
   teardown();
 });
+
+// ---------------------------------------------------------------------------
+// label property
+// ---------------------------------------------------------------------------
+
+test("label defaults to Threads: root panel aria-label, listbox aria-label, and default header text are all Threads", async () => {
+  const { element, q, teardown } = await setup();
+
+  const root = q("[part='root']") as HTMLElement;
+  const list = q("[role='listbox']") as HTMLElement;
+  const headerSpan = q("slot[name='header'] span") as HTMLElement;
+
+  expect(root.getAttribute("aria-label")).toBe("Threads");
+  expect(list.getAttribute("aria-label")).toBe("Threads");
+  expect(headerSpan.textContent?.trim()).toBe("Threads");
+  expect(element.label).toBe("Threads");
+
+  teardown();
+});
+
+test("setting label updates root panel aria-label, listbox aria-label, and default header text", async () => {
+  const { element, q, teardown } = await setup();
+
+  element.label = "My Conversations";
+  await flush(element);
+
+  const root = q("[part='root']") as HTMLElement;
+  const list = q("[role='listbox']") as HTMLElement;
+  const headerSpan = q("slot[name='header'] span") as HTMLElement;
+
+  expect(root.getAttribute("aria-label")).toBe("My Conversations");
+  expect(list.getAttribute("aria-label")).toBe("My Conversations");
+  expect(headerSpan.textContent?.trim()).toBe("My Conversations");
+
+  teardown();
+});

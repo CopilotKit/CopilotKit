@@ -138,6 +138,8 @@ export class CopilotKitDrawer extends LitElement {
     hasMore: { attribute: "has-more", type: Boolean },
     fetchingMore: { attribute: "fetching-more", type: Boolean },
     fetchMoreError: { attribute: "fetch-more-error", type: String },
+    // Inbound: configurable label for the drawer region and default header.
+    label: { type: String },
     // Externally-controllable VIEW state.
     open: { type: Boolean, reflect: true },
     collapsed: { type: Boolean, reflect: true },
@@ -148,6 +150,13 @@ export class CopilotKitDrawer extends LitElement {
     _hasMemories: { state: true },
     _hasFooter: { state: true },
   };
+
+  /**
+   * Inbound: accessible + default-header label for the drawer region (screen-reader
+   * region name + listbox name + the default header text). Override the visible
+   * header independently via the `header` slot. Defaults to `"Threads"`.
+   */
+  label = "Threads";
 
   /** Inbound: thread records to render. The element re-orders/filters them. */
   threads: DrawerThread[] = [];
@@ -491,7 +500,7 @@ export class CopilotKitDrawer extends LitElement {
         part="root"
         role=${this._isMobileModalOpen() ? "dialog" : "region"}
         aria-modal=${this._isMobileModalOpen() ? "true" : nothing}
-        aria-label="Threads"
+        aria-label=${this.label}
       >
         ${this._renderHeader()} ${this._renderBody()} ${this._renderMemories()}
         ${this._renderFooter()} ${this._renderConfirmDialog()}
@@ -502,7 +511,7 @@ export class CopilotKitDrawer extends LitElement {
   private _renderHeader() {
     return html`
       <div class="header" part="header">
-        <slot name="header"><span>Threads</span></slot>
+        <slot name="header"><span>${this.label}</span></slot>
         <button
           class="primary"
           part="new-thread-button"
@@ -610,7 +619,7 @@ export class CopilotKitDrawer extends LitElement {
       `;
     }
     return html`
-      <ul class="list" part="list" role="listbox" aria-label="Threads">
+      <ul class="list" part="list" role="listbox" aria-label=${this.label}>
         ${repeat(
           visible,
           (thread) => thread.id,
