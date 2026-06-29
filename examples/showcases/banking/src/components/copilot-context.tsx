@@ -667,11 +667,21 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
         .string()
         .describe("The transaction the user will demonstrate on."),
     }),
-    render: ({ respond, status }) => {
+    render: ({ respond, status, result }) => {
       if (status === "inProgress") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
             Loading…
+          </div>
+        );
+      }
+      // Once resolved, collapse so the "I'm done" button can't linger.
+      if (status === "complete") {
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            {result === "cancelled"
+              ? "Recording cancelled."
+              : "Recording finished — saving the workflow…"}
           </div>
         );
       }
@@ -743,11 +753,24 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
           "The exception code the user demonstrated, taken from awaitDashboardDemonstration's result.",
         ),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       if (status === "inProgress") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
             Loading…
+          </div>
+        );
+      }
+      // Once resolved, collapse so the "Save workflow" button can't linger or be
+      // re-clicked. `result` carries the value passed to respond() on complete.
+      if (status === "complete") {
+        const saved =
+          typeof result === "string" && result.includes("status: saved");
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            {saved
+              ? "Workflow saved — I’ll reuse it for future over-limit charges."
+              : "Discarded — not saved."}
           </div>
         );
       }
