@@ -1,57 +1,15 @@
 {
   "fixtures": [
     {
-      "match": { "userMessage": "Hello" },
-      "response": {
-        "content": "Hello! I'm your LangGraph-powered assistant. I can help you manage proverbs, get weather information, and more. What would you like to do?"
-      }
-    },
-    {
-      "match": { "userMessage": "pie chart of our revenue" },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "query_data",
-            "arguments": "{\"query\":\"revenue distribution by category for a pie chart\"}",
-            "id": "call_query_data_pie_001"
-          }
-        ]
-      }
-    },
-    {
       "match": { "toolCallId": "call_query_data_pie_001" },
       "response": {
         "content": "Here's your revenue distribution by category:\n\n- **Enterprise Subscriptions**: 38%\n- **Pro Tier Upgrades**: 24%\n- **API Usage Overages**: 14%\n- **Consulting Services**: 13%\n- **Marketplace Sales**: 11%\n\nEnterprise subscriptions are your largest revenue source. I've rendered this as a pie chart above."
       }
     },
     {
-      "match": { "userMessage": "bar chart of our expenses" },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "query_data",
-            "arguments": "{\"query\":\"expenses by category for a bar chart\"}",
-            "id": "call_query_data_bar_001"
-          }
-        ]
-      }
-    },
-    {
       "match": { "toolCallId": "call_query_data_bar_001" },
       "response": {
         "content": "Here are your expenses by category:\n\n- **Engineering Salaries**: $42,000\n- **Product Team**: $18,000\n- **Customer Success**: $15,000\n- **Marketing - Paid Ads**: $12,000\n- **AWS Infrastructure**: $8,200\n- **AI Model Costs**: $4,200\n\nEngineering salaries are your largest expense. I've rendered this as a bar chart above."
-      }
-    },
-    {
-      "match": { "userMessage": "sales dashboard with total revenue" },
-      "response": {
-        "toolCalls": [
-          {
-            "name": "query_data",
-            "arguments": "{\"query\":\"financial sales data for a dashboard\"}",
-            "id": "call_query_data_dashboard_001"
-          }
-        ]
       }
     },
     {
@@ -73,6 +31,66 @@
       }
     },
     {
+      "match": { "toolCallId": "call_search_flights_001" },
+      "response": {
+        "content": "I found 2 flights from SFO to JFK next Tuesday: United UA 523 (8:15 AM, $329) and JetBlue B6 1042 (11:40 AM, $298). The cards are shown above."
+      }
+    },
+    {
+      "match": { "toolCallId": "call_manage_todos_001" },
+      "response": {
+        "content": "I've added three todos about learning CopilotKit:\n\n1. **Read the CopilotKit docs** - Skim the quickstart and core concepts\n2. **Build a prototype** - Wire CopilotKit into a small demo app\n3. **Explore agent state** - Experiment with shared state and tools\n\nAll three are pending. Want to mark any as done or add more?"
+      }
+    },
+    {
+      "match": { "toolCallId": "call_get_weather_001" },
+      "response": {
+        "content": "The weather in New York is 70 degrees with clear skies, 45% humidity, 5 mph wind, and feels like 72 degrees. A great day to be outside!"
+      }
+    },
+    {
+      "match": { "userMessage": "Hello" },
+      "response": {
+        "content": "Hello! I'm your LangGraph-powered assistant. I can help you manage proverbs, get weather information, and more. What would you like to do?"
+      }
+    },
+    {
+      "match": { "userMessage": "pie chart of our revenue" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"revenue distribution by category for a pie chart\"}",
+            "id": "call_query_data_pie_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "bar chart of our expenses" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"expenses by category for a bar chart\"}",
+            "id": "call_query_data_bar_001"
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "sales dashboard with total revenue" },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"financial sales data for a dashboard\"}",
+            "id": "call_query_data_dashboard_001"
+          }
+        ]
+      }
+    },
+    {
       "match": { "userMessage": "flights from SFO to JFK" },
       "response": {
         "toolCalls": [
@@ -82,12 +100,6 @@
             "id": "call_search_flights_001"
           }
         ]
-      }
-    },
-    {
-      "match": { "toolCallId": "call_search_flights_001" },
-      "response": {
-        "content": "I found 2 flights from SFO to JFK next Tuesday: United UA 523 (8:15 AM, $329) and JetBlue B6 1042 (11:40 AM, $298). The cards are shown above."
       }
     },
     {
@@ -127,12 +139,6 @@
       }
     },
     {
-      "match": { "toolCallId": "call_manage_todos_001" },
-      "response": {
-        "content": "I've added three todos about learning CopilotKit:\n\n1. **Read the CopilotKit docs** - Skim the quickstart and core concepts\n2. **Build a prototype** - Wire CopilotKit into a small demo app\n3. **Explore agent state** - Experiment with shared state and tools\n\nAll three are pending. Want to mark any as done or add more?"
-      }
-    },
-    {
       "match": { "userMessage": "weather" },
       "response": {
         "toolCalls": [
@@ -142,12 +148,6 @@
             "id": "call_get_weather_001"
           }
         ]
-      }
-    },
-    {
-      "match": { "toolCallId": "call_get_weather_001" },
-      "response": {
-        "content": "The weather in New York is 70 degrees with clear skies, 45% humidity, 5 mph wind, and feels like 72 degrees. A great day to be outside!"
       }
     },
     {

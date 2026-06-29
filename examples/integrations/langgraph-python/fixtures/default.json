@@ -37,6 +37,24 @@
       }
     },
     {
+      "match": { "toolCallId": "call_pie_chart_001" },
+      "response": {
+        "content": "Here's the revenue distribution as a pie chart. Enterprise leads at $2.1M, followed by Mid-Market ($1.5M), SMB ($1.2M), and Self-Serve ($0.8M). Want me to break any segment down further?"
+      }
+    },
+    {
+      "match": { "toolCallId": "call_bar_chart_001" },
+      "response": {
+        "content": "Here's the expense breakdown as a bar chart. Salaries are the largest line at $1.8M, with Infrastructure ($0.64M), R&D ($0.52M), Marketing ($0.42M), and Operations ($0.31M) following. Want to compare this against revenue?"
+      }
+    },
+    {
+      "match": { "toolCallId": "call_query_data_dashboard_001" },
+      "response": {
+        "content": "Here's your sales dashboard:\n\n- **Total Revenue**: $6.6M (up 20% QoQ)\n- **New Customers**: 1,240\n- **Conversion Rate**: 3.8%\n\nRevenue is trending up steadily across all four quarters. Want me to drill into any of these metrics?"
+      }
+    },
+    {
       "match": { "toolCallId": "call_query_data_001" },
       "response": {
         "content": "Here's a summary of the financial data:\n\n- **Q1 Revenue**: $1.2M\n- **Q2 Revenue**: $1.5M\n- **Q3 Revenue**: $1.8M\n- **Q4 Revenue**: $2.1M\n\nTotal annual revenue: $6.6M, showing steady quarter-over-quarter growth of approximately 20%. Would you like me to visualize this data differently?"
