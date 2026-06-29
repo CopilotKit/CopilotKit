@@ -60,6 +60,52 @@ describe("renderComponents", () => {
     expect(btn.style).toBe(ButtonStyle.Primary);
   });
 
+  it("renders a url button as a Link-style button with no custom_id", () => {
+    const ir: BotNode[] = [
+      node("message", {
+        children: node("actions", {
+          children: node("button", {
+            children: text("Open"),
+            url: "https://dash/deploy/42",
+          }),
+        }),
+      }),
+    ];
+    const json = renderComponents(ir).toJSON();
+    const row = json.components.find(
+      (c: any) => c.type === ComponentType.ActionRow,
+    );
+    const btn = (row as any).components[0];
+    expect(btn.style).toBe(ButtonStyle.Link);
+    expect(btn.url).toBe("https://dash/deploy/42");
+    expect(btn.custom_id).toBeUndefined();
+  });
+
+  it("sets max_values on a multi-select so the decoder reads an array", () => {
+    const ir: BotNode[] = [
+      node("message", {
+        children: node("actions", {
+          children: node("select", {
+            multi: true,
+            onSelect: { id: "ck:ms" },
+            options: [
+              { label: "Core", value: "core" },
+              { label: "Infra", value: "infra" },
+            ],
+          }),
+        }),
+      }),
+    ];
+    const json = renderComponents(ir).toJSON();
+    const row = json.components.find(
+      (c: any) => c.type === ComponentType.ActionRow,
+    );
+    const select = (row as any).components[0];
+    expect(select.type).toBe(ComponentType.StringSelect);
+    expect(select.max_values).toBe(2);
+    expect(select.min_values).toBe(0);
+  });
+
   it("chunks more than 5 buttons into multiple action rows", () => {
     const buttons = Array.from({ length: 7 }, (_, i) =>
       node("button", { children: text(`b${i}`), onClick: { id: `ck:${i}` } }),

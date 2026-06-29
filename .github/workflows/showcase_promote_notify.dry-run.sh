@@ -19,6 +19,39 @@
 # (notify workflow aborts gracefully — we treat that as a non-fatal but
 # distinct exit so callers can assert on it).
 
+# ---------- alert post-and-verify predicate (shared with the workflow) ----------
+# Slack returns HTTP 200 with `{"ok":false,"error":"..."}` on LOGICAL failures
+# (channel_not_found, not_in_channel, ...). A failure-ALERT that is silently
+# dropped pages nobody, so the live workflow MUST surface it. This predicate is
+# the testable core of that surfacing logic: it inspects a captured Slack
+# response and, when the post did NOT succeed, emits a GitHub `::warning::`
+# (matching the workflow's existing `::warning::`/`>&2` idiom) and returns 1.
+#
+# Sourcing this script (e.g. from bats) defines this function without running
+# the dry-run body — see the EXECUTION GUARD just below the function.
+#   $1 = label for the warning (e.g. "thread reply", "#oss-alerts cross-post")
+#   $2 = captured Slack API response body (JSON, or "{}" on transport failure)
+slack_alert_posted_ok() {
+  local label="$1"
+  local resp="$2"
+  local ok
+  ok=$(printf '%s' "$resp" | jq -r '.ok // false' 2>/dev/null || echo false)
+  if [ "$ok" != "true" ]; then
+    local err
+    err=$(printf '%s' "$resp" | jq -r '.error // "unknown"' 2>/dev/null || echo unknown)
+    echo "::warning::Slack ${label} did NOT post (ok=${ok} error=${err}); failure alert may have been dropped" >&2
+    return 1
+  fi
+  return 0
+}
+
+# EXECUTION GUARD: define functions only when sourced. `return` outside a
+# function is legal only in a sourced script (it errors when executed), so the
+# subshell `(return 0 2>/dev/null)` succeeds iff we are being sourced — in which
+# case we `return 0` here and skip the dry-run body below. When executed
+# directly the subshell fails and execution falls through to `set -euo`.
+(return 0 2>/dev/null) && return 0
+
 set -euo pipefail
 
 if [ "${1:-}" = "" ]; then
@@ -79,8 +112,6 @@ elapsed=$(jq -r '(.elapsed_seconds // 0) | tonumber? // 0 | floor' "$R")
 pre_staging=$(jq -r '.pre_staging // "skipped"' "$R")
 abort_reason=$(jq -r '.abort_reason // ""' "$R")
 succeeded_count=$(jq -r '.succeeded | length' "$R")
-# shellcheck disable=SC2034  # retained for parity with workflow (internal logging only)
-failed_count=$(jq -r '.failed | length' "$R")
 
 jq '.failed | sort_by(.service)' "$R" > /tmp/dry-run-failed-sorted.json
 jq '[.[] | select(.category != "truncation-suffix")]' /tmp/dry-run-failed-sorted.json > /tmp/dry-run-failed-render.json
@@ -91,7 +122,6 @@ truncation_more=$(jq -r '[.[] | select(.category == "truncation-suffix") | .serv
 #   succeeded_count    = raw .succeeded length
 #   failed_real_count  = .failed length minus truncation-suffix sentinels
 #                        (rendered to operators on all display lines)
-#   failed_count       = raw .failed length (internal logging only)
 failed_real_count=$(jq 'length' /tmp/dry-run-failed-render.json)
 
 total_count=$((succeeded_count + failed_real_count))
@@ -252,12 +282,29 @@ emit() {
 emit "#team-showcase" "$init_text"
 emit "#team-showcase (thread_ts=<init_ts>)" "$thread_text"
 
+# Mirror the workflow's post-and-verify exit semantics so the dry-run exercises
+# the SAME fail-loud/warn-only distinction the live .yml does (see the matching
+# slack_alert_posted_ok calls there). No real Slack call happens here, so we
+# feed each predicate a simulated response: a successful post by default (the
+# dry-run convention — see the operator-mention block above), overridable via
+# DRY_RUN_THREAD_RESP / DRY_RUN_OSS_RESP so a test can inject a 200/ok:false
+# drop and assert on the exit code.
+sim_ok='{"ok":true,"ts":"<sim>"}'
+
+# Thread reply: informational, in the promote channel — warn-only (|| true),
+# mirroring the .yml. A dropped summary post must not red the job.
+slack_alert_posted_ok "thread reply" "${DRY_RUN_THREAD_RESP:-$sim_ok}" || true
+
 if [ "$outcome" != "success" ]; then
   case "$outcome" in
     partial) oss_text="⚠️ showcase promote: ${succeeded_count} ✓ · ${failed_real_count} ✗ — thread: <permalink>" ;;
     total)   oss_text="❌ showcase promote aborted: 0 ✓ · ${failed_real_count} ✗ — thread: <permalink>" ;;
   esac
   emit "#oss-alerts" "$oss_text"
+  # Page-the-humans alert: FAIL LOUD, mirroring the .yml. No `|| true` — a
+  # 200/ok:false drop here means nobody is told the promote failed, so the
+  # predicate's non-zero return must abort (set -e) and red the run.
+  slack_alert_posted_ok "#oss-alerts cross-post" "${DRY_RUN_OSS_RESP:-$sim_ok}"
 fi
 
 echo "outcome=${outcome} run_id=${run_id}"

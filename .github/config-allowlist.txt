@@ -5,6 +5,7 @@ examples/canvas/llamaindex/next.config.ts
 examples/canvas/mastra-pm/next.config.ts
 examples/canvas/mastra/next.config.ts
 examples/canvas/pydantic-ai/next.config.ts
+examples/shadcn/next.config.ts
 examples/integrations/a2a-a2ui/next.config.js
 examples/integrations/a2a-middleware/next.config.ts
 examples/integrations/adk/next.config.ts
@@ -89,6 +90,7 @@ packages/shared/tsdown.config.ts
 packages/sqlite-runner/tsdown.config.ts
 packages/voice/tsdown.config.ts
 packages/vue/vite.config.ts
+packages/web-components/tsdown.config.ts
 packages/web-inspector/tsdown.config.ts
 showcase/integrations/ag2/next.config.ts
 showcase/integrations/agno/next.config.ts

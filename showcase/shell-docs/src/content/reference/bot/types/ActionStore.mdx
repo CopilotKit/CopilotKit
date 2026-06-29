@@ -66,18 +66,18 @@ The default is `InMemoryActionStore` — a `Map` with optional TTL. **It is lost
 ## Durable action storage
 
 <Callout type="info">
-`ActionStore` and `InMemoryActionStore` are **deprecated**. Configure `store.adapter` on `createBot` instead — any [`StateStore`](/reference/bot/types/StateStore) backend (including `createRedisStore` and `createPostgresStore`) backs action snapshots automatically via the same pluggable interface. See the [Persistence guide](/bots/persistence) for a full walkthrough.
+`ActionStore` and `InMemoryActionStore` are **deprecated**. Configure `store.adapter` on `createBot` instead — any [`StateStore`](/reference/bot/types/StateStore) backend backs action snapshots automatically via the same pluggable interface. See the [Persistence guide](/bots/persistence) for a full walkthrough.
 </Callout>
 
-Action snapshots are now stored via `store.adapter` — the [StateStore](/reference/bot/types/StateStore) you pass to `createBot({ store: { adapter: … } })`. When `store.adapter` is a Redis or Postgres backend, actions survive process restarts and are shared across horizontally-scaled instances:
+Action snapshots are now stored via `store.adapter` — the [StateStore](/reference/bot/types/StateStore) you pass to `createBot({ store: { adapter: … } })`. When `store.adapter` is a durable backend, actions survive process restarts and are shared across horizontally-scaled instances:
 
 ```ts
-import { createRedisStore } from "@copilotkit/bot-store-redis";
+import type { StateStore } from "@copilotkit/bot";
 
 const bot = createBot({
   adapters: [slack({ botToken, appToken })],
   store: {
-    adapter: createRedisStore({ url: process.env.REDIS_URL }),
+    adapter: myStore, // any StateStore backend
   },
 });
 ```

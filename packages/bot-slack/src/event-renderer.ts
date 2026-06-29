@@ -81,11 +81,18 @@ export function createRunRenderer(args: {
    */
   showToolStatus?: boolean;
   /**
-   * Present only for assistant-pane targets. Drives Slack's native
-   * `assistant.threads.setStatus` ("is thinking…", "is using `tool`…")
-   * instead of posting a placeholder message and `:wrench:` rows.
+   * Present whenever the reply is anchored to a thread we can set native status
+   * on (pane, channel @-mention, channel thread, or a flat DM via its carried
+   * inbound ts). Drives Slack's native `assistant.threads.setStatus`
+   * ("is thinking…") instead of a placeholder message. `threadTs` is the thread
+   * the status attaches to; `isPane` selects how *tool* progress is surfaced
+   * (pane → composer "is using `tool`…"; non-pane → `task_update`/`:wrench:`).
    */
-  assistantStatus?: SlackAssistantOptions["status"];
+  status?: {
+    threadTs: string;
+    isPane: boolean;
+    config?: SlackAssistantOptions["status"];
+  };
   /**
    * When set, agent text replies stream via `chat.startStream` (native) using
    * this transport instead of `chat.update`. Falls back to the legacy
@@ -117,39 +124,43 @@ export function createRunRenderer(args: {
   const showToolStatus = args.showToolStatus ?? true;
   const nativeMode = args.nativeStreaming !== undefined;
 
-  // ── Assistant-pane status mode ──────────────────────────────────────
-  // In a pane thread the run lifecycle drives native status under the
-  // composer instead of placeholder/`:wrench:` messages.
-  const paneStatus = args.assistantStatus;
-  const paneMode = paneStatus !== undefined && target.threadTs !== undefined;
-  const paneToolStatus = paneStatus?.toolStatus ?? true;
+  // ── Native status mode ──────────────────────────────────────────────
+  // Whenever the reply is anchored to a thread, the run lifecycle drives
+  // Slack's native `assistant.threads.setStatus` ("is thinking…") instead of a
+  // placeholder message. `isPane` only selects how *tool* progress is shown.
+  const status = args.status;
+  const statusMode = status !== undefined;
+  const isPane = status?.isPane ?? false;
+  const paneToolStatus = status?.config?.toolStatus ?? true;
 
-  const setPaneStatus = async (status: string): Promise<void> => {
-    if (!paneMode || !target.threadTs) return;
+  const setStatus = async (text: string): Promise<void> => {
+    if (!status) return;
     try {
       await client.assistant.threads.setStatus({
         channel_id: target.channel,
-        thread_ts: target.threadTs,
-        status,
-        ...(status && paneStatus?.loadingMessages
-          ? { loading_messages: [...paneStatus.loadingMessages] }
+        thread_ts: status.threadTs,
+        status: text,
+        ...(text && status.config?.loadingMessages
+          ? { loading_messages: [...status.config.loadingMessages] }
           : {}),
       });
     } catch (err) {
       console.error("[slack-renderer] setStatus failed:", err);
     }
   };
-  /** Clear the composer status (best-effort). */
-  const clearPaneStatus = async (): Promise<void> => {
-    if (!paneMode) return;
-    await setPaneStatus("");
+  /** Clear the native status (best-effort). */
+  const clearStatus = async (): Promise<void> => {
+    if (!statusMode) return;
+    await setStatus("");
   };
   /** Whether this run has posted any visible reply yet (drives status clear). */
   let postedReply = false;
   const onFirstReply = async (): Promise<void> => {
     if (postedReply) return;
     postedReply = true;
-    await clearPaneStatus();
+    // Slack auto-clears status when the app replies; clear explicitly too so
+    // there's no lingering indicator on slow/edge paths.
+    await clearStatus();
   };
 
   // ── Legacy per-message streaming state ──────────────────────────────
@@ -203,96 +214,11 @@ export function createRunRenderer(args: {
    */
   let pendingInterrupt: CapturedInterrupt | undefined;
 
-  // ── "Thinking…" indicator ───────────────────────────────────────────
-  // Posted as soon as a run starts so there's no dead air while the agent
-  // reasons / calls MCP before its first token. The streamed text reply
-  // REUSES this message (the dots morph straight into the answer); if the
-  // first visible output is something else (a component, a HITL picker)
-  // the placeholder is removed instead. `runAgent` fires once per tool-loop
-  // iteration, so we (re)post on each RUN_STARTED and clear on each
-  // RUN_FINISHED — giving a "thinking" beat between steps.
-  let thinkingTs: string | undefined;
-  let thinkingTimer: ReturnType<typeof setInterval> | undefined;
-  let thinkingClaimed = false;
-
-  const stopThinkingTimer = () => {
-    if (thinkingTimer) {
-      clearInterval(thinkingTimer);
-      thinkingTimer = undefined;
-    }
-  };
-
-  const startThinking = async () => {
-    if (aborted || thinkingTs || thinkingClaimed) return;
-    try {
-      const posted = await client.chat.postMessage({
-        channel: target.channel,
-        thread_ts: target.threadTs,
-        text: ":hourglass_flowing_sand:  _thinking…_",
-      });
-      if (!posted.ts) return;
-      thinkingTs = posted.ts;
-      let frame = 0;
-      thinkingTimer = setInterval(() => {
-        if (thinkingClaimed || !thinkingTs) return;
-        frame = (frame + 1) % 3;
-        const dots = ".".repeat(frame + 1);
-        void client.chat
-          .update({
-            channel: target.channel,
-            ts: thinkingTs,
-            text: `:hourglass_flowing_sand:  _thinking${dots}_`,
-          })
-          .catch(() => {});
-      }, 1200);
-    } catch (err) {
-      console.error("[slack-renderer] thinking placeholder failed:", err);
-    }
-  };
-
-  // Hand the standing placeholder to the text stream so its dots become the
-  // reply. Returns the ts once; afterwards the message belongs to the stream.
-  const claimThinking = (): string | undefined => {
-    if (thinkingTs && !thinkingClaimed) {
-      thinkingClaimed = true;
-      stopThinkingTimer();
-      const ts = thinkingTs;
-      thinkingTs = undefined;
-      return ts;
-    }
-    return undefined;
-  };
-
-  // Remove the placeholder if it's still standing and wasn't claimed by text.
-  const clearThinking = async () => {
-    stopThinkingTimer();
-    const ts = thinkingTs;
-    thinkingTs = undefined;
-    if (ts && !thinkingClaimed) {
-      try {
-        await client.chat.delete({ channel: target.channel, ts });
-      } catch {
-        /* best-effort: the message may already be gone */
-      }
-    }
-  };
-
   // The shipped chat.update streamer (mrkdwn-translated). Also the automatic
-  // fallback for the native transport. Reuses the standing "thinking…" message
-  // when one exists so the dots morph straight into the reply.
+  // fallback for the native transport.
   const makeLegacyStream = (): TextStream =>
     new ChunkedMessageStream({
       postPlaceholder: async (text) => {
-        const claimed = claimThinking();
-        if (claimed) {
-          await client.chat.update({
-            channel: target.channel,
-            ts: claimed,
-            text,
-          });
-          await onFirstReply();
-          return claimed;
-        }
         const posted = await client.chat.postMessage({
           channel: target.channel,
           thread_ts: target.threadTs,
@@ -309,8 +235,7 @@ export function createRunRenderer(args: {
     });
 
   // The single native turn stream — raw markdown, no mrkdwn translation, with
-  // interleaved `task_update` chunks. Reuses the "thinking…" placeholder when
-  // present (drops it on first content).
+  // interleaved `task_update` chunks.
   const ensureTurnStream = (): NativeMessageStream => {
     if (turnStream) return turnStream;
     const ns = args.nativeStreaming!;
@@ -318,9 +243,8 @@ export function createRunRenderer(args: {
       transport: {
         startStream: async () => {
           const ts = await ns.transport.startStream();
-          // The native message owns the bubble now; drop the placeholder and
-          // clear any pane status (the reply is visible).
-          await clearThinking();
+          // The native message owns the bubble now; clear the native status
+          // (the reply is visible).
           await onFirstReply();
           return ts;
         },
@@ -373,7 +297,6 @@ export function createRunRenderer(args: {
     if (!showToolStatus) return;
     if (toolStatusTs.has(toolCallId)) return; // dedup
     try {
-      await clearThinking();
       const posted = await client.chat.postMessage({
         channel: target.channel,
         thread_ts: target.threadTs,
@@ -409,11 +332,11 @@ export function createRunRenderer(args: {
     // ── 0. Run lifecycle: thinking indicator ───────────────────────────
     async onRunStartedEvent() {
       if (aborted) return;
-      if (paneMode) {
-        // Native status under the composer instead of a placeholder message.
-        await setPaneStatus(paneStatus?.thinking || DEFAULT_THINKING_STATUS);
-      } else {
-        await startThinking();
+      // Native "is thinking…" status on the thread. `runAgent` fires once per
+      // tool-loop iteration, so we (re)set it on each RUN_STARTED — Slack also
+      // resets its 2-minute status timeout on each call.
+      if (statusMode) {
+        await setStatus(status?.config?.thinking || DEFAULT_THINKING_STATUS);
       }
     },
     async onRunFinishedEvent() {
@@ -432,12 +355,9 @@ export function createRunRenderer(args: {
         buffers.delete(id);
       }
       if (drains.length > 0) await Promise.all(drains);
-      // Tidy the per-iteration "thinking…" bubble (a streamed reply already
-      // claimed it; tool/component/HITL output or nothing leaves it standing).
-      await clearThinking();
-      // In a pane thread, a posted reply auto-clears Slack's status; clear it
-      // explicitly when the run produced no visible reply yet.
-      if (paneMode && !postedReply) await clearPaneStatus();
+      // A posted reply auto-clears Slack's status; clear it explicitly when the
+      // run produced no visible reply yet (tool/component/HITL output, or none).
+      if (statusMode && !postedReply) await clearStatus();
     },
 
     // ── 1. Text streaming ──────────────────────────────────────────────
@@ -491,9 +411,9 @@ export function createRunRenderer(args: {
       if (aborted) return;
       // Pane threads surface tool activity as live composer status, not rows.
       // Each setStatus also resets Slack's status timeout.
-      if (paneMode) {
+      if (isPane) {
         if (showToolStatus && paneToolStatus) {
-          await setPaneStatus(`is using \`${event.toolCallName}\`…`);
+          await setStatus(`is using \`${event.toolCallName}\`…`);
         }
         return;
       }
@@ -535,7 +455,7 @@ export function createRunRenderer(args: {
         (toolCallArgs ?? {}) as Record<string, unknown>,
       );
       // Pane threads use live status (set on START); no per-call rows to edit.
-      if (paneMode) return;
+      if (isPane) return;
       // Native path: complete the in-message `task_update`.
       if (nativeMode && taskChunksOk) {
         if (showToolStatus) {
@@ -577,8 +497,7 @@ export function createRunRenderer(args: {
       // Don't post a warning if we're the ones aborting the run; the
       // `_(interrupted)_` marker on the partial reply is the user-visible
       // signal in that case.
-      await clearThinking();
-      if (paneMode) await clearPaneStatus();
+      if (statusMode) await clearStatus();
       // Close any open native turn stream so the partial reply is committed.
       await finalizeTurnStream();
       if (aborted) return;
@@ -626,10 +545,9 @@ export function createRunRenderer(args: {
       // abort) see the flag and bail.
       if (aborted) return;
       aborted = true;
-      // Drop any standing "thinking…" bubble; the interrupted marker (or
-      // the next turn) is the user-visible signal now.
-      await clearThinking();
-      if (paneMode) await clearPaneStatus();
+      // Clear the native status; the interrupted marker (or the next turn) is
+      // the user-visible signal now.
+      if (statusMode) await clearStatus();
       // Native turn stream: append the interrupted marker to the partial reply
       // and finalize it.
       if (nativeMode) {

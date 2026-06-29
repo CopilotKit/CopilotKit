@@ -1,5 +1,5 @@
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
-import type { Observable } from "rxjs";
+import type { Observable, Subscription } from "rxjs";
 import { defer, firstValueFrom, merge, of } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
@@ -12,6 +12,7 @@ import {
   switchMap,
   take,
   takeUntil,
+  tap,
   timeout,
   withLatestFrom,
 } from "rxjs/operators";
@@ -95,17 +96,28 @@ interface ThreadMetadataCredentialsResponse {
 
 interface MutationRequest {
   requestId: string;
+  /** Session the mutation was dispatched in; stale results are dropped. */
+  sessionId: number;
   path: string;
   method: "PATCH" | "POST" | "DELETE";
   body: Record<string, unknown>;
 }
 
 type MutationOutcome =
-  | { requestId: string; ok: true }
-  | { requestId: string; ok: false; error: Error };
+  | { requestId: string; sessionId: number; ok: true }
+  | { requestId: string; sessionId: number; ok: false; error: Error };
 
 interface ThreadEnvironment {
   fetch: typeof fetch;
+  /**
+   * Optional callback invoked whenever a thread mutation (rename, archive,
+   * unarchive, delete) is rejected by the server. Lets framework wrappers
+   * surface a transient error toast without subscribing to the error
+   * selector. The error is also recorded in `state.error` regardless.
+   *
+   * Fired after any rollback (delete) has been applied to local state.
+   */
+  onError?: (error: Error) => void;
 }
 
 interface ThreadState {
@@ -118,6 +130,16 @@ interface ThreadState {
   metadataCredentialsRequested: boolean;
   metadataJoinCode: string | null;
   nextCursor: string | null;
+  /** Number of thread mutations currently awaiting a server response. */
+  inFlightMutationCount: number;
+  /**
+   * Rows optimistically removed by an in-flight `delete`, keyed by the
+   * originating request id. DELETE is the one mutation that rolls back on
+   * rejection, so the removed row is parked here and restored if the server
+   * rejects. Rename/archive/unarchive are optimistic no-rollback and do not
+   * populate this map.
+   */
+  pendingDeletes: Record<string, ThreadRecord>;
 }
 
 const initialThreadState: ThreadState = {
@@ -130,6 +152,8 @@ const initialThreadState: ThreadState = {
   metadataCredentialsRequested: false,
   metadataJoinCode: null,
   nextCursor: null,
+  inFlightMutationCount: 0,
+  pendingDeletes: {},
 };
 
 const threadAdapterEvents = createActionGroup("Thread Adapter", {
@@ -145,6 +169,7 @@ const threadAdapterEvents = createActionGroup("Thread Adapter", {
   archiveRequested: props<{ requestId: string; threadId: string }>(),
   unarchiveRequested: props<{ requestId: string; threadId: string }>(),
   deleteRequested: props<{ requestId: string; threadId: string }>(),
+  newThreadStarted: empty(),
 });
 
 const threadRestEvents = createActionGroup("Thread REST", {
@@ -225,6 +250,8 @@ const threadReducer = createReducer(
     metadataCredentialsRequested: false,
     metadataJoinCode: null,
     nextCursor: null,
+    inFlightMutationCount: 0,
+    pendingDeletes: {},
   })),
   on(threadAdapterEvents.stopped, (state: ThreadState) => ({
     ...state,
@@ -235,6 +262,8 @@ const threadReducer = createReducer(
     metadataCredentialsRequested: false,
     metadataJoinCode: null,
     nextCursor: null,
+    inFlightMutationCount: 0,
+    pendingDeletes: {},
   })),
   on(threadRestEvents.listRequested, (state: ThreadState, { sessionId }) => {
     if (sessionId !== state.sessionId || !state.context) {
@@ -314,15 +343,19 @@ const threadReducer = createReducer(
   ),
   on(
     threadRestEvents.metadataCredentialsFailed,
-    (state: ThreadState, { sessionId, error }) => {
+    (state: ThreadState, { sessionId }) => {
       if (sessionId !== state.sessionId) {
         return state;
       }
 
-      return {
-        ...state,
-        error,
-      };
+      // Non-fatal: the metadata-credentials (realtime join-token) fetch runs
+      // AFTER the thread list has already loaded and only powers the realtime
+      // channel. A failure means realtime won't connect, but the fetched list
+      // is still valid — so we do NOT write `state.error` (which would replace
+      // the whole list with a "couldn't load" panel). The failure is surfaced
+      // as a diagnostic warning instead (socketDiagnosticsEffect), mirroring the
+      // stay-stale handling of a realtime channel join failure.
+      return state;
     },
   ),
   on(
@@ -348,10 +381,134 @@ const threadReducer = createReducer(
       isFetchingNextPage: true,
     };
   }),
-  on(threadRestEvents.mutationFinished, (state: ThreadState, { outcome }) => ({
+  on(
+    threadAdapterEvents.renameRequested,
+    (state: ThreadState, { threadId, name }) => {
+      // Optimistic, no-rollback: reflect the new name immediately. A failure
+      // surfaces via `error`/`onError` but the local row is left as-is; a
+      // realtime metadata event or refetch reconciles the true server state.
+      const existing = state.threads.find((thread) => thread.id === threadId);
+      const inFlightMutationCount = state.inFlightMutationCount + 1;
+      if (!existing) {
+        return { ...state, inFlightMutationCount };
+      }
+
+      return {
+        ...state,
+        threads: upsertThread(state.threads, { ...existing, name }),
+        inFlightMutationCount,
+      };
+    },
+  ),
+  on(
+    threadAdapterEvents.archiveRequested,
+    (state: ThreadState, { threadId }) => {
+      // Optimistic, no-rollback. When archived threads are hidden, drop the
+      // row; otherwise flip the flag in place. Note: archiving the active
+      // thread is non-destructive — the wrapper keeps viewing it.
+      const existing = state.threads.find((thread) => thread.id === threadId);
+      const inFlightMutationCount = state.inFlightMutationCount + 1;
+      if (!existing) {
+        return { ...state, inFlightMutationCount };
+      }
+
+      if (!state.context?.includeArchived) {
+        return {
+          ...state,
+          threads: state.threads.filter((thread) => thread.id !== threadId),
+          inFlightMutationCount,
+        };
+      }
+
+      return {
+        ...state,
+        threads: upsertThread(state.threads, { ...existing, archived: true }),
+        inFlightMutationCount,
+      };
+    },
+  ),
+  on(
+    threadAdapterEvents.unarchiveRequested,
+    (state: ThreadState, { threadId }) => {
+      // Optimistic, no-rollback.
+      const existing = state.threads.find((thread) => thread.id === threadId);
+      const inFlightMutationCount = state.inFlightMutationCount + 1;
+      if (!existing) {
+        return { ...state, inFlightMutationCount };
+      }
+
+      return {
+        ...state,
+        threads: upsertThread(state.threads, { ...existing, archived: false }),
+        inFlightMutationCount,
+      };
+    },
+  ),
+  on(
+    threadAdapterEvents.deleteRequested,
+    (state: ThreadState, { requestId, threadId }) => {
+      // Optimistic WITH rollback: remove the row now, but park it under the
+      // request id so it can be restored if the server rejects the delete.
+      const existing = state.threads.find((thread) => thread.id === threadId);
+      const inFlightMutationCount = state.inFlightMutationCount + 1;
+      if (!existing) {
+        return { ...state, inFlightMutationCount };
+      }
+
+      return {
+        ...state,
+        threads: state.threads.filter((thread) => thread.id !== threadId),
+        pendingDeletes: { ...state.pendingDeletes, [requestId]: existing },
+        inFlightMutationCount,
+      };
+    },
+  ),
+  on(threadAdapterEvents.newThreadStarted, (state: ThreadState) => ({
+    // Lazy creation: a fresh client-side thread does NOT add a phantom row —
+    // it only materializes once its first run persists server-side. The
+    // store-side concern is purely to clear any stale error so the welcome
+    // screen renders cleanly; the wrapper owns the active/explicit threadId.
     ...state,
-    error: outcome.ok ? state.error : outcome.error,
+    error: null,
   })),
+  on(threadRestEvents.mutationFinished, (state: ThreadState, { outcome }) => {
+    // Drop results from a superseded session. `contextChanged`/`stopped` already
+    // reset `threads`, `pendingDeletes`, and `inFlightMutationCount`, so a
+    // mutation that resolves after the context switched must not write an error,
+    // fire onError (guarded in subscribeErrors), or roll a stale row back into
+    // the new list. Mirrors every other session-scoped handler.
+    if (outcome.sessionId !== state.sessionId) {
+      return state;
+    }
+
+    const inFlightMutationCount = Math.max(0, state.inFlightMutationCount - 1);
+
+    if (outcome.ok) {
+      // Success: drop any parked delete-rollback snapshot for this request.
+      if (state.pendingDeletes[outcome.requestId] === undefined) {
+        return { ...state, inFlightMutationCount };
+      }
+
+      const { [outcome.requestId]: _settled, ...rest } = state.pendingDeletes;
+      return { ...state, inFlightMutationCount, pendingDeletes: rest };
+    }
+
+    // Failure: surface the error. For a rejected delete, restore the row that
+    // was optimistically removed (rollback). Other mutations are no-rollback.
+    const rolledBack = state.pendingDeletes[outcome.requestId];
+    if (rolledBack === undefined) {
+      return { ...state, inFlightMutationCount, error: outcome.error };
+    }
+
+    const { [outcome.requestId]: _restored, ...rest } = state.pendingDeletes;
+    return {
+      ...state,
+      threads: upsertThread(state.threads, rolledBack),
+      pendingDeletes: rest,
+      inFlightMutationCount,
+      error: outcome.error,
+    };
+  }),
   on(
     threadDomainEvents.threadUpserted,
     (state: ThreadState, { sessionId, thread }) => {
@@ -380,17 +537,59 @@ const threadReducer = createReducer(
   ),
 ) as Reducer<ThreadState>;
 
-const selectThreads = createSelector((state: ThreadState) => state.threads);
-const selectThreadsIsLoading = createSelector(
-  (state: ThreadState) => state.isLoading,
-);
-const selectThreadsError = createSelector((state: ThreadState) => state.error);
-const selectHasNextPage = createSelector(
-  (state: ThreadState) => state.nextCursor != null,
-);
-const selectIsFetchingNextPage = createSelector(
-  (state: ThreadState) => state.isFetchingNextPage,
-);
+/**
+ * The set of memoized thread selectors bound to a single store instance.
+ *
+ * @see createThreadSelectors
+ */
+interface ThreadSelectors {
+  threads: (state: ThreadState) => ThreadRecord[];
+  isLoading: (state: ThreadState) => boolean;
+  error: (state: ThreadState) => Error | null;
+  hasNextPage: (state: ThreadState) => boolean;
+  isFetchingNextPage: (state: ThreadState) => boolean;
+  isMutating: (state: ThreadState) => boolean;
+}
+
+/**
+ * Builds a fresh set of memoized thread selectors.
+ *
+ * Each `createSelector` closure owns a private one-entry cache. Sharing a
+ * single module-level selector instance across multiple concurrent stores
+ * (e.g. a `<CopilotDrawer>` plus an independent `useThreads`) makes every
+ * cross-store emission a cache miss, defeating memoization and risking
+ * emission instability for any future selector that allocates a new
+ * object/array. Creating a per-store instance keeps each store's cache
+ * isolated so concurrent stores never thrash one another.
+ */
+function createThreadSelectors(): ThreadSelectors {
+  return {
+    threads: createSelector((state: ThreadState) => state.threads),
+    isLoading: createSelector((state: ThreadState) => state.isLoading),
+    error: createSelector((state: ThreadState) => state.error),
+    hasNextPage: createSelector(
+      (state: ThreadState) => state.nextCursor != null,
+    ),
+    isFetchingNextPage: createSelector(
+      (state: ThreadState) => state.isFetchingNextPage,
+    ),
+    isMutating: createSelector(
+      (state: ThreadState) => state.inFlightMutationCount > 0,
+    ),
+  };
+}
+
+// Standalone selector instances retained for callers that read a one-off
+// snapshot (e.g. `selectThreads(store.getState())`) where cross-store memo
+// isolation is irrelevant. Subscriptions through `store.select(...)` should
+// prefer the per-store `ThreadStore.selectors` bundle below.
+const standaloneSelectors = createThreadSelectors();
+const selectThreads = standaloneSelectors.threads;
+const selectThreadsIsLoading = standaloneSelectors.isLoading;
+const selectThreadsError = standaloneSelectors.error;
+const selectHasNextPage = standaloneSelectors.hasNextPage;
+const selectIsFetchingNextPage = standaloneSelectors.isFetchingNextPage;
+const selectIsMutating = standaloneSelectors.isMutating;
 
 interface ThreadStore {
   start(): void;
@@ -398,13 +597,48 @@ interface ThreadStore {
   setContext(context: ThreadRuntimeContext | null): void;
   /** Re-fetches the thread list without resetting the current list to empty. */
   refresh(): void;
+  /**
+   * Re-fetches the thread list without resetting the current list to empty.
+   *
+   * Public, design-named alias of {@link refresh} used by the drawer's
+   * error-state Retry affordance and the Active/All filter-change refetch.
+   */
+  refetchThreads(): void;
+  /**
+   * Resets to a fresh, client-side thread so the welcome screen can show.
+   *
+   * Lazy creation: no phantom row is added to the list — the new thread only
+   * materializes once its first run persists server-side. This is distinct
+   * from selecting an existing thread (which the wrapper marks *explicit*,
+   * suppressing the welcome screen): the thread produced here is NOT explicit.
+   */
+  startNewThread(): void;
   fetchNextPage(): void;
   renameThread(threadId: string, name: string): Promise<void>;
   archiveThread(threadId: string): Promise<void>;
   unarchiveThread(threadId: string): Promise<void>;
   deleteThread(threadId: string): Promise<void>;
   getState(): ThreadState;
+  /**
+   * Returns a stable initial snapshot for server-side rendering.
+   *
+   * `useSyncExternalStore` requires a `getServerSnapshot` during SSR/prerender
+   * (e.g. Next.js); without one React throws "Missing getServerSnapshot". The
+   * returned reference is stable across calls so React does not loop. There is
+   * no client-side thread data during prerender, so this is the empty initial
+   * state.
+   */
+  getServerState(): ThreadState;
   select: Store<ThreadState>["select"];
+  /**
+   * Memoized selectors bound to THIS store instance.
+   *
+   * Subscriptions should pass these to {@link select} (e.g.
+   * `store.select(store.selectors.threads)`) so each store keeps its own
+   * one-entry memo cache. Sharing the module-level singletons across
+   * concurrent stores defeats memoization and risks emission instability.
+   */
+  selectors: ThreadSelectors;
 }
 
 let threadRequestId = 0;
@@ -562,6 +796,7 @@ function createThreadMutationObservable(
         threadRestEvents.mutationFinished({
           outcome: {
             requestId: request.requestId,
+            sessionId: request.sessionId,
             ok: true,
           },
         }),
@@ -571,6 +806,7 @@ function createThreadMutationObservable(
           threadRestEvents.mutationFinished({
             outcome: {
               requestId: request.requestId,
+              sessionId: request.sessionId,
               ok: false,
               error: error instanceof Error ? error : new Error(String(error)),
             },
@@ -582,6 +818,10 @@ function createThreadMutationObservable(
 }
 
 function createThreadStore(environment: ThreadEnvironment): ThreadStore {
+  // Per-store selector instances keep this store's memo cache isolated from
+  // any other concurrent store (see createThreadSelectors).
+  const selectors = createThreadSelectors();
+
   const bootstrapEffect = createEffect(
     (
       actions$,
@@ -807,6 +1047,41 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       ),
   );
 
+  // Observability-only effect for realtime-join health. The socket effect
+  // dispatches `joinFailed`/`joinTimedOut`/`errored` but the reducer has no
+  // handler for them by design: a transient WS drop while the (already
+  // fetched) list is present must NOT become a hard list error — the user
+  // keeps the stale list. Previously these actions were silently swallowed,
+  // leaving a realtime-join failure with zero signal. This effect emits a
+  // non-fatal warning (mirroring the MAX_SOCKET_RETRIES warn) so the failure
+  // is diagnosable. Session-guarded so a superseded session stays quiet.
+  const socketDiagnosticsEffect = createEffect(
+    (actions$, state$: Observable<ThreadState>) =>
+      actions$.pipe(
+        ofType(
+          threadSocketEvents.joinFailed,
+          threadSocketEvents.joinTimedOut,
+          threadSocketEvents.errored,
+          threadRestEvents.metadataCredentialsFailed,
+        ),
+        withLatestFrom(state$),
+        filter(([action, state]) => action.sessionId === state.sessionId),
+        tap(([action]) => {
+          const reason = threadSocketEvents.joinTimedOut.match(action)
+            ? "channel join timed out"
+            : threadSocketEvents.joinFailed.match(action)
+              ? "channel join was rejected"
+              : threadRestEvents.metadataCredentialsFailed.match(action)
+                ? "metadata credentials fetch failed"
+                : "socket errored";
+          console.warn(
+            `[threads] realtime ${reason}; the thread list may be stale until reconnect`,
+          );
+        }),
+      ),
+    { dispatch: false },
+  );
+
   const fetchNextPageEffect = createEffect(
     (actions$, state$: Observable<ThreadState>) =>
       actions$.pipe(
@@ -887,6 +1162,11 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
         ),
         withLatestFrom(state$),
         mergeMap(([action, state]) => {
+          // Capture the dispatching session so a result that resolves after a
+          // `contextChanged` is dropped by the reducer instead of leaking an
+          // error/onError/rollback into the new session. The mergeMap is not
+          // cancelled on context change, so the session tag is the guard.
+          const sessionId = state.sessionId;
           const context = state.context;
           if (!context?.runtimeUrl) {
             const requestId = action.requestId;
@@ -894,6 +1174,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
               threadRestEvents.mutationFinished({
                 outcome: {
                   requestId,
+                  sessionId,
                   ok: false,
                   error: new Error("Runtime URL is not configured"),
                 },
@@ -908,6 +1189,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           if (threadAdapterEvents.renameRequested.match(action)) {
             return createThreadMutationObservable(environment, context, {
               requestId: action.requestId,
+              sessionId,
               method: "PATCH",
               path: `/threads/${encodeURIComponent(action.threadId)}`,
               body: {
@@ -920,6 +1202,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           if (threadAdapterEvents.archiveRequested.match(action)) {
             return createThreadMutationObservable(environment, context, {
               requestId: action.requestId,
+              sessionId,
               method: "POST",
               path: `/threads/${encodeURIComponent(action.threadId)}/archive`,
               body: commonBody,
@@ -929,6 +1212,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           if (threadAdapterEvents.unarchiveRequested.match(action)) {
             return createThreadMutationObservable(environment, context, {
               requestId: action.requestId,
+              sessionId,
               method: "PATCH",
               path: `/threads/${encodeURIComponent(action.threadId)}`,
               body: {
@@ -940,6 +1224,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
 
           return createThreadMutationObservable(environment, context, {
             requestId: action.requestId,
+            sessionId,
             method: "DELETE",
             path: `/threads/${encodeURIComponent(action.threadId)}`,
             body: commonBody,
@@ -957,6 +1242,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       metadataCredentialsFetchEffect,
       socketEffect,
       realtimeMappingEffect,
+      socketDiagnosticsEffect,
       fetchNextPageEffect,
       mutationEffect,
     ],
@@ -983,6 +1269,7 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
           () =>
             ({
               requestId: dispatchAction.requestId,
+              sessionId: store.getState().sessionId,
               ok: false,
               error: new Error(
                 "Thread store stopped before mutation completed",
@@ -1004,13 +1291,46 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     return resultPromise;
   }
 
+  // Surface mutation rejections to the optional environment callback. The
+  // reducer has already applied any delete rollback by the time this fires
+  // (the store reduces state before re-emitting the action), so consumers see
+  // a consistent list when they react to the error.
+  let errorSubscription: Subscription | null = null;
+  const subscribeErrors = (): void => {
+    if (!environment.onError || errorSubscription) {
+      return;
+    }
+
+    errorSubscription = store.actions$
+      .pipe(
+        ofType(threadRestEvents.mutationFinished),
+        // Drop stale-session failures: a mutation that rejects after a
+        // `contextChanged` belongs to a context the user already left, so
+        // surfacing it would fire onError for the wrong session. The reducer
+        // applies the same guard before writing `state.error`.
+        filter(
+          (action) =>
+            !action.outcome.ok &&
+            action.outcome.sessionId === store.getState().sessionId,
+        ),
+      )
+      .subscribe((action) => {
+        if (!action.outcome.ok) {
+          environment.onError?.(action.outcome.error);
+        }
+      });
+  };
+
   return {
     start(): void {
       store.init();
+      subscribeErrors();
       store.dispatch(threadAdapterEvents.started());
     },
     stop(): void {
       store.dispatch(threadAdapterEvents.stopped());
+      errorSubscription?.unsubscribe();
+      errorSubscription = null;
       store.stop();
     },
     setContext(context: ThreadRuntimeContext | null): void {
@@ -1020,6 +1340,14 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
       const { sessionId, context } = store.getState();
       if (!context) return;
       store.dispatch(threadRestEvents.listRequested({ sessionId }));
+    },
+    refetchThreads(): void {
+      const { sessionId, context } = store.getState();
+      if (!context) return;
+      store.dispatch(threadRestEvents.listRequested({ sessionId }));
+    },
+    startNewThread(): void {
+      store.dispatch(threadAdapterEvents.newThreadStarted());
     },
     fetchNextPage(): void {
       store.dispatch(threadAdapterEvents.fetchNextPageRequested());
@@ -1060,7 +1388,11 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     getState(): ThreadState {
       return store.getState();
     },
+    getServerState(): ThreadState {
+      return initialThreadState;
+    },
     select: store.select.bind(store),
+    selectors,
   };
 }
 
@@ -1069,12 +1401,15 @@ export type ɵThreadRuntimeContext = ThreadRuntimeContext;
 export type ɵThreadMetadataEvent = ThreadMetadataEvent;
 export type ɵThreadEnvironment = ThreadEnvironment;
 export type ɵThreadStore = ThreadStore;
+export type ɵThreadSelectors = ThreadSelectors;
 export const ɵthreadAdapterEvents = threadAdapterEvents;
+export const ɵcreateThreadSelectors = createThreadSelectors;
 export const ɵselectThreads = selectThreads;
 export const ɵselectThreadsIsLoading = selectThreadsIsLoading;
 export const ɵselectThreadsError = selectThreadsError;
 export const ɵselectHasNextPage = selectHasNextPage;
 export const ɵselectIsFetchingNextPage = selectIsFetchingNextPage;
+export const ɵselectIsMutating = selectIsMutating;
 export { createThreadStore as ɵcreateThreadStore };
 /**
  * Number of consecutive WebSocket connection failures after which the

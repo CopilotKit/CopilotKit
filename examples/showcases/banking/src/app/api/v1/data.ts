@@ -51,6 +51,14 @@ export interface TransactionNote {
   date: string;
 }
 
+export interface PolicyException {
+  id: string;
+  transactionId: string;
+  code: string;
+  status: "draft" | "approved";
+  createdAt: string;
+}
+
 export interface Transaction {
   id: string;
   title: string;
@@ -60,6 +68,7 @@ export interface Transaction {
   policyId: string;
   cardId: string;
   status: "pending" | "denied" | "approved";
+  activeExceptionId?: string | null;
 }
 
 export interface NewCardRequest {

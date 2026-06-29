@@ -629,6 +629,142 @@ function buildPageSideCounterScript(endpointPattern: string | RegExp): string {
 }
 
 /**
+ * Build the page-side init script that observes CopilotKit v2's
+ * `data-copilot-running` attribute and latches the run lifecycle into
+ * `window.__hk_copilotRunning` for `waitForTurnComplete`'s PRIMARY
+ * done-signal.
+ *
+ * Why a page-side MutationObserver rather than a per-poll
+ * `getAttribute` read: CopilotKit v2 renders
+ * `data-copilot-running="true|false"` on `[data-testid="copilot-chat"]`
+ * driven by the agent run lifecycle (RUN_STARTED → true, RUN_FINISHED →
+ * false). On fast aimock replays the `true` window can be shorter than
+ * `waitForTurnComplete`'s 100ms poll cadence, so a sampling read could
+ * miss the `true` entirely and never observe the true→false transition.
+ * A MutationObserver installed at document_start latches every
+ * transition the moment it happens, so the SUT reads an
+ * EDGE-ACCURATE summary regardless of poll timing:
+ *
+ *   - `attrPresent`     — true once the `[data-testid="copilot-chat"]`
+ *                         element bearing `data-copilot-running` has been
+ *                         seen in the DOM. Distinguishes the v2-chat case
+ *                         (attribute present → DOM signal is trustworthy)
+ *                         from the HEADLESS case (bring-your-own-UI demos
+ *                         like `headless-simple` never render
+ *                         `CopilotChatView`, so the attribute is absent
+ *                         and the gate must fall back to the SSE counter).
+ *   - `runningNow`      — the LIVE value of the attribute (true while a
+ *                         run is in flight). `null` when never observed.
+ *   - `sawRunningTrue`  — latched once the attribute has EVER gone "true".
+ *                         The PRIMARY done-signal gates on the TRANSITION
+ *                         (saw-true-then-stopped), NOT on a bare
+ *                         `=== "false"` — because "false" is also the
+ *                         never-started baseline state, which must not be
+ *                         mistaken for a completed turn.
+ *   - `runStartCount`   — count of false→true edges (RUN_STARTED). A
+ *                         multi-step turn toggles false→true→false→true→…
+ *                         between sub-runs, so the gate uses this to
+ *                         reject completion on an INTERMEDIATE false (a
+ *                         new run started after the last stop).
+ *   - `lastStoppedAtMs` — wall-clock ms of the most recent true→false
+ *                         edge (RUN_FINISHED). `0` when never stopped.
+ *                         The gate requires the stop to have STAYED
+ *                         stopped (no newer start) for the settle window.
+ *
+ * Idempotent (sentinel `__hk_runObserverInstalled`) and self-contained —
+ * same string-IIFE rationale as `buildPageSideCounterScript`: a
+ * function-form `addInitScript` payload can pick up tsx-injected helper
+ * symbols the page context cannot resolve, silently no-op'ing at
+ * document_start.
+ */
+function buildCopilotRunningObserverScript(): string {
+  return `
+    (function() {
+      var g = globalThis;
+      if (g.__hk_runObserverInstalled === true) return;
+      g.__hk_runObserverInstalled = true;
+      if (!g.__hk_copilotRunning) {
+        g.__hk_copilotRunning = {
+          attrPresent: false,
+          runningNow: null,
+          sawRunningTrue: false,
+          runStartCount: 0,
+          lastStoppedAtMs: 0
+        };
+      }
+      var SEL = '[data-testid="copilot-chat"]';
+      var ATTR = 'data-copilot-running';
+      function readAttr() {
+        try {
+          var doc = g.document;
+          if (!doc || typeof doc.querySelector !== 'function') return undefined;
+          var el = doc.querySelector(SEL);
+          if (!el || typeof el.getAttribute !== 'function') return undefined;
+          var raw = el.getAttribute(ATTR);
+          if (raw === null) return undefined;
+          return raw === 'true';
+        } catch (_) {
+          return undefined;
+        }
+      }
+      function record(val) {
+        // val: true | false | undefined (attribute absent)
+        var st = g.__hk_copilotRunning;
+        if (val === undefined) return; // attribute not present on this read
+        st.attrPresent = true;
+        var prev = st.runningNow;
+        if (val === true) {
+          // false/null -> true edge = a (sub-)run started.
+          if (prev !== true) {
+            st.runStartCount = (st.runStartCount | 0) + 1;
+          }
+          st.sawRunningTrue = true;
+          st.runningNow = true;
+        } else {
+          // -> false. Record a stop edge only when we were running (or
+          // had ever run) so the never-started baseline 'false' does not
+          // stamp a bogus lastStoppedAtMs.
+          if (prev === true) {
+            st.lastStoppedAtMs = Date.now();
+          }
+          st.runningNow = false;
+        }
+      }
+      function scan() {
+        record(readAttr());
+      }
+      // Prime once in case the element + attribute already exist at
+      // observer-install time (e.g. addInitScript ran but the chat view
+      // hydrated before our first mutation callback).
+      scan();
+      try {
+        var mo = new MutationObserver(function() { scan(); });
+        // Observe the whole subtree: the chat element may not exist yet
+        // at document_start (React mounts it later), and once it does we
+        // need attribute mutations on it. Observing document with
+        // subtree + attribute filter catches both the initial mount and
+        // every subsequent data-copilot-running flip.
+        var target = g.document && g.document.documentElement
+          ? g.document.documentElement
+          : g.document;
+        if (target && mo && typeof mo.observe === 'function') {
+          mo.observe(target, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            attributeFilter: [ATTR]
+          });
+        }
+      } catch (_) {
+        // MutationObserver unavailable (ancient/headless shell) — the
+        // primed scan above still seeds whatever was present at install,
+        // and waitForTurnComplete's per-poll read falls back gracefully.
+      }
+    })();
+  `;
+}
+
+/**
  * Attach a CDP-based SSE interceptor to a Playwright page.
  *
  * The handler returned by `stop()` detaches all CDP listeners, fetches
@@ -697,6 +833,17 @@ export async function attachSseInterceptor(
   // `SseCapture.raw_event_count` at `stop()`-time for the parity
   // engine, and stays the authoritative end-of-run count.
   await page.addInitScript(buildPageSideCounterScript(endpointPattern));
+
+  // Page-side run-lifecycle observer: latch CopilotKit v2's
+  // `data-copilot-running` attribute transitions into
+  // `window.__hk_copilotRunning` so `waitForTurnComplete` has a
+  // TRANSPORT-INDEPENDENT (no fetch-monkeypatch) PRIMARY done-signal.
+  // Rides the SAME page lifecycle as the SSE counter above so the two
+  // signals are always co-present (the gate prefers the DOM signal when
+  // `attrPresent` and falls back to the fetch counter when absent —
+  // headless bring-your-own-UI demos). Idempotent on the page side via
+  // its own `__hk_runObserverInstalled` sentinel.
+  await page.addInitScript(buildCopilotRunningObserverScript());
 
   // Newer Playwright versions expose `page.context().newCDPSession(page)`;
   // older ones only `browserContext.newCDPSession`. Both APIs return the

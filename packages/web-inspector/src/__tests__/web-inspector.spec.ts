@@ -321,6 +321,7 @@ type ThreadDetailsInternals = {
   _loadingState: boolean;
   _loadingEvents: boolean;
   _panelTplCache: Map<string, { key: readonly unknown[]; tpl: unknown }>;
+  fetchMessages: (threadId: string) => Promise<void>;
   fetchEvents: (threadId: string) => Promise<void>;
   fetchState: (threadId: string) => Promise<void>;
   renderConversation: () => unknown;
@@ -401,6 +402,43 @@ describe("ɵCpkThreadDetails caching", () => {
       await internals.fetchState("t1");
 
       expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("joins thread inspection URLs without double slashes when runtimeUrl has a trailing slash", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.endsWith("/messages")) {
+          return new Response(JSON.stringify({ messages: [] }), {
+            status: 200,
+          });
+        }
+        if (url.endsWith("/events")) {
+          return new Response(JSON.stringify({ events: [] }), { status: 200 });
+        }
+        return new Response(JSON.stringify({ state: null }), { status: 200 });
+      });
+    try {
+      const { el, internals } = createThreadDetails();
+      internals.runtimeUrl = "http://localhost:4000/api/";
+      internals.threadInspectionAvailable = true;
+      internals.threadId = "thread one";
+      await el.updateComplete;
+      fetchSpy.mockClear();
+
+      await internals.fetchMessages("thread one");
+      await internals.fetchEvents("thread one");
+      await internals.fetchState("thread one");
+
+      expect(fetchSpy.mock.calls.map((call) => String(call[0]))).toEqual([
+        "http://localhost:4000/api/threads/thread%20one/messages",
+        "http://localhost:4000/api/threads/thread%20one/events",
+        "http://localhost:4000/api/threads/thread%20one/state",
+      ]);
     } finally {
       fetchSpy.mockRestore();
     }
@@ -616,6 +654,7 @@ type HeaderMockCore = {
   agents: Record<string, AbstractAgent>;
   context: Record<string, unknown>;
   properties: Record<string, unknown>;
+  telemetryDisabled: boolean;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   runtimeUrl: string;
   headers: Record<string, string>;
@@ -637,12 +676,15 @@ type HeaderMockCore = {
 function createHeaderMockCore(
   agents: Record<string, AbstractAgent>,
   headers: Record<string, string>,
+  endpointOverrides: Partial<HeaderMockCore["threadEndpoints"]> = {},
+  telemetryDisabled = true,
 ) {
   const subscribers = new Set<CopilotKitCoreSubscriber>();
   const core: HeaderMockCore = {
     agents,
     context: {},
     properties: {},
+    telemetryDisabled,
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     runtimeUrl: "http://localhost/api",
     headers,
@@ -651,6 +693,7 @@ function createHeaderMockCore(
       inspect: true,
       mutations: true,
       realtimeMetadata: true,
+      ...endpointOverrides,
     },
     subscribe(subscriber: CopilotKitCoreSubscriber) {
       subscribers.add(subscriber);
@@ -693,6 +736,21 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     fetchMock.mock.calls.filter((call) =>
       String(call[0]).includes("/threads?"),
     );
+  const telemetryPosts = () =>
+    fetchMock.mock.calls
+      .filter(
+        (call) =>
+          String(call[0]) === "https://telemetry.copilotkit.ai/ingest" &&
+          (call[1] as RequestInit | undefined)?.method === "POST",
+      )
+      .map((call) => {
+        const body =
+          ((call[1] as RequestInit | undefined)?.body as string) ?? "{}";
+        return JSON.parse(body) as {
+          event: string;
+          properties: Record<string, unknown>;
+        };
+      });
 
   beforeEach(() => {
     document.body.innerHTML = "";
@@ -757,5 +815,161 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
     expect(headersOf(threadListCalls().at(-1)!)).toMatchObject({
       "X-CSRF": "2",
     });
+  });
+
+  it("shows the locked Intelligence state when thread listing is unavailable without fetching threads", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore(
+      { alpha: agent },
+      { "X-CSRF": "1" },
+      { list: false },
+      true,
+    );
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    const text = inspector.shadowRoot?.textContent ?? "";
+    expect(text).toMatch(/Enable Intelligence to inspect Threads\./);
+    expect(text).toContain("Talk to an Engineer");
+    expect(text).toContain("Sign up for Intelligence");
+    const ctaLabels = Array.from(
+      inspector.shadowRoot?.querySelectorAll<HTMLAnchorElement>("a") ?? [],
+    ).map((anchor) => anchor.textContent?.trim());
+    expect(ctaLabels).toEqual([
+      "Talk to an Engineer",
+      "Sign up for Intelligence",
+    ]);
+    expect(text).not.toContain("No threads yet");
+    expect(
+      fetchMock.mock.calls.some((call) => String(call[0]).includes("/threads")),
+    ).toBe(false);
+  });
+
+  it("adds ref and posthog distinct ID attribution to locked-state CTAs", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore(
+      { alpha: agent },
+      {},
+      { list: false },
+      false,
+    );
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    const signup = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href^="https://go.copilotkit.ai/intelligence-signup"]',
+    );
+    const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
+    );
+
+    expect(signup).not.toBeNull();
+    expect(engineer).not.toBeNull();
+
+    const signupUrl = new URL(signup!.href);
+    expect(signupUrl.searchParams.get("ref")).toBe("cpk-inspector");
+    const distinctId = signupUrl.searchParams.get("posthog_distinct_id");
+    expect(distinctId).toMatch(/^[0-9a-f-]{36}$/);
+
+    const engineerUrl = new URL(engineer!.href);
+    expect(engineerUrl.origin).toBe("https://www.copilotkit.ai");
+    expect(engineerUrl.pathname).toBe("/talk-to-an-engineer");
+    expect(engineerUrl.searchParams.get("ref")).toBe("cpk-inspector-threads");
+    expect(engineerUrl.searchParams.get("posthog_distinct_id")).toBe(
+      distinctId,
+    );
+  });
+
+  it("tracks Threads tab clicks through the rendered inspector menu", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore(
+      { alpha: agent },
+      {},
+      { list: false },
+      false,
+    );
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as { isOpen: boolean };
+    internals.isOpen = true;
+    inspector.requestUpdate();
+    await inspector.updateComplete;
+
+    const threadsButton = Array.from(
+      inspector.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+    ).find((button) => button.textContent?.trim() === "Threads");
+    expect(threadsButton, "Threads menu button should render").toBeDefined();
+
+    threadsButton!.click();
+    await inspector.updateComplete;
+    await Promise.resolve();
+
+    const threadsTabClick = telemetryPosts().find(
+      (post) => post.event === "oss.inspector.threads_tab_clicked",
+    );
+    expect(threadsTabClick).toBeDefined();
+    expect(threadsTabClick!.properties).toMatchObject({
+      intelligence_status: "intelligence_not_enabled",
+      thread_service_status: "unavailable",
+      telemetry_disabled: false,
+    });
+    expect(threadsTabClick!.properties.distinct_id).toMatch(/^[0-9a-f-]{36}$/);
+    if (threadsTabClick!.properties.posthog_distinct_id !== undefined) {
+      expect(threadsTabClick!.properties.posthog_distinct_id).toBe(
+        threadsTabClick!.properties.distinct_id,
+      );
+    }
+  });
+
+  it("keeps the enabled empty Threads state when thread listing is available", async () => {
+    const { agent } = createMockAgent("alpha");
+    const harness = createHeaderMockCore({ alpha: agent }, {}, {}, true);
+
+    const inspector = new WebInspectorElement();
+    document.body.appendChild(inspector);
+    inspector.core = harness.core as unknown as WebInspectorElement["core"];
+    harness.emitAgentsChanged();
+
+    const internals = inspector as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: "threads") => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("threads");
+    await inspector.updateComplete;
+
+    expect(inspector.shadowRoot?.textContent ?? "").toContain("No threads yet");
+    const engineer = inspector.shadowRoot?.querySelector<HTMLAnchorElement>(
+      'a[href^="https://www.copilotkit.ai/talk-to-an-engineer"]',
+    );
+    expect(engineer?.href).toBe(
+      "https://www.copilotkit.ai/talk-to-an-engineer?ref=cpk-inspector-threads",
+    );
   });
 });

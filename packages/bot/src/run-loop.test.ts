@@ -90,4 +90,57 @@ describe("runAgentLoop", () => {
     expect(agent.runAgentCalls).toBe(1);
     expect(agent.messages.some((m) => m.role === "tool")).toBe(false);
   });
+
+  it("returns interrupted=true and an iteration count when the agent interrupts", async () => {
+    const renderer = makeFakeRunRenderer();
+    const tools = new Map<string, BotTool>();
+    const handleInterrupt = vi.fn<(i: CapturedInterrupt) => void>();
+
+    const agent = new FakeAgent([
+      (sub: AgentSubscriber) => {
+        sub.onCustomEvent?.({
+          event: { name: "on_interrupt", value: { q: 1 } },
+        } as never);
+        sub.onRunFinishedEvent?.({ event: {} } as never);
+      },
+    ]);
+
+    const args = {
+      agent,
+      renderer,
+      tools,
+      toolDescriptors,
+      context,
+      makeToolCtx: () => ({ thread: {} as never, platform: "fake" }),
+      handleInterrupt,
+    };
+
+    const result = await runAgentLoop(args);
+    expect(result.interrupted).toBe(true);
+    expect(result.iterations).toBeGreaterThanOrEqual(1);
+  });
+
+  it("returns interrupted=false on a normal completion", async () => {
+    const renderer = makeFakeRunRenderer();
+    const tools = new Map<string, BotTool>();
+
+    const agent = new FakeAgent([
+      (sub: AgentSubscriber) => {
+        sub.onRunFinishedEvent?.({ event: {} } as never);
+      },
+    ]);
+
+    const args = {
+      agent,
+      renderer,
+      tools,
+      toolDescriptors,
+      context,
+      makeToolCtx: () => ({ thread: {} as never, platform: "fake" }),
+    };
+
+    const result = await runAgentLoop(args);
+    expect(result.interrupted).toBe(false);
+    expect(result.iterations).toBeGreaterThanOrEqual(1);
+  });
 });

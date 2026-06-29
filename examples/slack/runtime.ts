@@ -66,25 +66,65 @@ interface McpHttpTransport {
   headers: Record<string, string>;
 }
 
-function mcpTransports(): McpHttpTransport[] {
-  const transports: McpHttpTransport[] = [];
+/** A transport plus the human label we surface when it's up or down. */
+interface LabeledTransport {
+  name: string;
+  transport: McpHttpTransport;
+}
+
+function mcpTransports(): LabeledTransport[] {
+  const transports: LabeledTransport[] = [];
   if (process.env["LINEAR_API_KEY"]) {
     transports.push({
-      type: "http",
-      url: process.env["LINEAR_MCP_URL"] ?? "https://mcp.linear.app/mcp",
-      headers: { Authorization: `Bearer ${process.env["LINEAR_API_KEY"]}` },
+      name: "Linear",
+      transport: {
+        type: "http",
+        url: process.env["LINEAR_MCP_URL"] ?? "https://mcp.linear.app/mcp",
+        headers: { Authorization: `Bearer ${process.env["LINEAR_API_KEY"]}` },
+      },
     });
   }
   if (process.env["NOTION_MCP_AUTH_TOKEN"]) {
     transports.push({
-      type: "http",
-      url: process.env["NOTION_MCP_URL"] ?? "http://127.0.0.1:3001/mcp",
-      headers: {
-        Authorization: `Bearer ${process.env["NOTION_MCP_AUTH_TOKEN"]}`,
+      name: "Notion",
+      transport: {
+        type: "http",
+        url: process.env["NOTION_MCP_URL"] ?? "http://127.0.0.1:3001/mcp",
+        headers: {
+          Authorization: `Bearer ${process.env["NOTION_MCP_AUTH_TOKEN"]}`,
+        },
       },
     });
   }
   return transports;
+}
+
+/** Max time to wait for an MCP server to connect before giving up on it. */
+const MCP_CONNECT_TIMEOUT_MS = 8000;
+
+/**
+ * Connect one MCP client without ever taking the run down with it. A server
+ * that's misconfigured (bad key), down (sidecar not running), or hanging must
+ * NOT abort the turn — the agent should keep working with whatever else is
+ * available. We race the connect against a timeout and swallow a late failure
+ * so it can't surface as an unhandled rejection after we've moved on.
+ */
+async function connectMcp(transport: McpHttpTransport) {
+  const connecting = createMCPClient({ transport });
+  connecting.catch(() => {}); // late reject (post-timeout) must not crash the process
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`timed out after ${MCP_CONNECT_TIMEOUT_MS}ms`)),
+      MCP_CONNECT_TIMEOUT_MS,
+    );
+    timer.unref?.(); // don't keep the process alive on the timer alone
+  });
+  try {
+    return await Promise.race([connecting, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 if (mcpTransports().length === 0) {
@@ -220,13 +260,49 @@ const agent = new BuiltInAgent({
       systemPrompts,
       tools: clientTools,
     } = convertInputToTanStackAI(ctx.input);
-    const clients = await Promise.all(
-      mcpTransports().map((transport) => createMCPClient({ transport })),
+
+    // Connect each MCP server independently so one bad/unreachable server can't
+    // kill the turn. Failures are dropped (the agent runs with whatever else is
+    // up) and noted so the model only tells the user a source is down if they
+    // actually ask for it — see `availabilityNote` below.
+    const transports = mcpTransports();
+    const settled = await Promise.allSettled(
+      transports.map((t) => connectMcp(t.transport)),
     );
+    const clients: Array<Awaited<ReturnType<typeof connectMcp>>> = [];
+    const unavailable: string[] = [];
+    settled.forEach((result, i) => {
+      if (result.status === "fulfilled") {
+        clients.push(result.value);
+      } else {
+        unavailable.push(transports[i]!.name);
+        console.error(
+          `[slack-runtime] MCP "${transports[i]!.name}" unavailable this turn:`,
+          (result.reason as Error)?.message ?? result.reason,
+        );
+      }
+    });
+
+    // Tell the model which sources are down THIS turn so it degrades gracefully:
+    // keep answering with everything that works, and only surface the outage if
+    // the user's request needs the missing source (never invent data).
+    const isAre = unavailable.length > 1 ? "are" : "is";
+    const itsTheir = unavailable.length > 1 ? "their" : "its";
+    const availabilityNote =
+      unavailable.length > 0
+        ? `\n\nDATA SOURCE STATUS: ${unavailable.join(" and ")} ${isAre} ` +
+          `temporarily UNAVAILABLE this turn (connection failed), so ${itsTheir} ` +
+          `tools are not loaded. Everything else — web search, rendering cards/` +
+          `charts, reading the Slack thread — still works normally. ONLY if the ` +
+          `user asks for something that needs ${unavailable.join(" or ")}, tell ` +
+          `them that source is temporarily unreachable and to try again shortly; ` +
+          `never invent data or claim a write/read succeeded.`
+        : "";
+
     return chat({
       adapter: openaiText(model),
       messages,
-      systemPrompts: [SYSTEM_PROMPT, ...systemPrompts],
+      systemPrompts: [SYSTEM_PROMPT + availabilityNote, ...systemPrompts],
       // `web_search` is an OpenAI provider tool (run server-side by OpenAI);
       // `clientTools` are the bot's frontend tools (issue/page cards, charts,
       // confirm_write HITL) forwarded on every run — passed as client-side

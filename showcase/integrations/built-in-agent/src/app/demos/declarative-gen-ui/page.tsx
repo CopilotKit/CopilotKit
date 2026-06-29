@@ -30,6 +30,7 @@ import {
 } from "@copilotkit/react-core/v2";
 
 import { myCatalog } from "./a2ui/catalog";
+import { useSalesAnalystContext } from "./sales-context";
 
 export default function DeclarativeGenUIDemo() {
   return (
@@ -49,6 +50,13 @@ export default function DeclarativeGenUIDemo() {
 }
 
 function Chat() {
+  // Grounding data + composition rules for the sales-analyst persona. Flows
+  // to the secondary `generate_a2ui` planner LLM (the A2UI middleware
+  // serialises frontend context entries into the catalog context the tool
+  // reads), so prompts like "Show me my sales dashboard" produce grounded,
+  // composed surfaces instead of empty ones.
+  useSalesAnalystContext();
+
   useConfigureSuggestions({
     suggestions: [
       {

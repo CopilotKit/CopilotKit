@@ -66,14 +66,16 @@ class PromoteHealthcheckReassertTest < Minitest::Test
             healthcheck_path: "/health", sleeper: ->(_n) {})
 
         query, vars = update_call(gql)
-        # The mutation must DECLARE + USE $healthcheckPath in the input, and the
-        # vars must carry the SSOT value.
-        assert_match(/\$healthcheckPath:\s*String/, query,
-            "update mutation should declare a healthcheckPath variable")
-        assert_match(/healthcheckPath:\s*\$healthcheckPath/, query,
-            "update mutation input should set healthcheckPath")
-        assert_equal "/health", vars[:healthcheckPath],
-            "update vars should carry the SSOT healthcheckPath"
+        # The whole input rides as a single $input: ServiceInstanceUpdateInput!
+        # variable; healthcheckPath is a NESTED key of that input (Railway infers
+        # its type from the input schema). See deploy-to-railway.ts /
+        # provision-starter-fleet.ts, which set healthcheckPath the same way.
+        assert_match(/\$input:\s*ServiceInstanceUpdateInput!/, query,
+            "update mutation should pass a single $input: ServiceInstanceUpdateInput! variable")
+        assert_match(/input:\s*\$input/, query,
+            "serviceInstanceUpdate should receive the input via $input")
+        assert_equal "/health", vars.dig(:input, :healthcheckPath),
+            "input.healthcheckPath should carry the SSOT healthcheckPath"
     end
 
     def test_omits_healthcheck_path_when_ssot_has_none
@@ -88,8 +90,8 @@ class PromoteHealthcheckReassertTest < Minitest::Test
         # must NEVER send `healthcheckPath: null`, which would clear it.
         refute_match(/healthcheckPath/, query,
             "image-only mutation must not mention healthcheckPath")
-        refute vars.key?(:healthcheckPath),
-            "update vars must omit healthcheckPath for a live-null service"
+        refute vars.dig(:input)&.key?(:healthcheckPath),
+            "input must omit healthcheckPath for a live-null service"
     end
 
     def test_empty_string_path_is_treated_as_omitted
@@ -100,6 +102,6 @@ class PromoteHealthcheckReassertTest < Minitest::Test
 
         query, vars = update_call(gql)
         refute_match(/healthcheckPath/, query)
-        refute vars.key?(:healthcheckPath)
+        refute vars.dig(:input)&.key?(:healthcheckPath)
     end
 end

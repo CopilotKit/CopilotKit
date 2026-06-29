@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "@ag-ui/a2ui-toolkit": "0.0.4",
-    "@ag-ui/aws-strands": "0.2.2",
+    "@ag-ui/aws-strands": "0.2.3",
     "@ag-ui/client": "0.0.57",
     "@ag-ui/core": "0.0.57",
     "@ag-ui/encoder": "0.0.57",
