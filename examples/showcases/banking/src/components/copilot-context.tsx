@@ -77,8 +77,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
     openPolicyException,
     finalizePolicyException,
   } = useCreditCards();
-  const { beginRecording, endRecording, getDemonstratedCode, isRecording } =
-    useRecording();
+  const { beginRecording, endRecording, getDemonstratedCode } = useRecording();
 
   // A readable of app wide authentication and authorization context.
   // The LLM will now know which user is it working against, when performing operations.
@@ -596,7 +595,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
         .string()
         .describe("The transaction whose approval was just declined."),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       if (status === "inProgress") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
@@ -607,13 +606,16 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       // Once the user has chosen, collapse to a static line so the
       // "Start recording" button doesn't linger (or get clicked twice) — the
       // live "Recording your workflow" card (awaitDashboardDemonstration) takes
-      // over from here.
+      // over from here. Branch on the resolved `result` (fresh on complete) — NOT
+      // isRecording, whose value in this render closure can be stale and wrongly
+      // show "not recording" right after Start recording. onDeny resolves
+      // "declined"; onApprove resolves the (non-"declined") directive string.
       if (status === "complete") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
-            {isRecording
-              ? "Recording started — go ahead and demonstrate the fix on the dashboard."
-              : "Okay — not recording."}
+            {result === "declined"
+              ? "Okay — not recording."
+              : "Recording started — go ahead and demonstrate the fix on the dashboard."}
           </div>
         );
       }
