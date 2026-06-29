@@ -9,7 +9,11 @@ import type { IdentifyUserCallback } from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
 
 const bankingAgent = new BuiltInAgent({
-  model: "openai/gpt-5.4-mini-2026-03-17",
+  // Full gpt-5.4 (not -mini): the teach-flow's multi-step tool routing
+  // (recall_memory → offerWorkflowRecording → awaitDashboardDemonstration →
+  // saveLearnedWorkflow) is more reliable on the non-mini model. `openai/gpt-5.4`
+  // is the alias used across the repo.
+  model: "openai/gpt-5.4",
   prompt: `You are the Northwind Copilot, an assistant embedded in a corporate
 banking dashboard. You help users view transactions, manage credit cards,
 assign expense policies, and navigate the app. Use the provided tools. Respect
