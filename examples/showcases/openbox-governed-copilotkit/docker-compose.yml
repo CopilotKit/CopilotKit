@@ -3,6 +3,11 @@ services:
     build:
       context: ./agent
       dockerfile: Dockerfile
+    # Optional so `docker compose up` works before you create agent/.env from
+    # agent/.env.example. Without it the agent starts but errors on missing creds.
+    env_file:
+      - path: ./agent/.env
+        required: false
     ports:
       - "8123:8123"
 
@@ -10,9 +15,15 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    # Optional so `docker compose up` works before you create frontend/.env.local
+    # from frontend/.env.local.example.
+    env_file:
+      - path: ./frontend/.env.local
+        required: false
     ports:
       - "3000:3000"
     environment:
+      # Overrides AGENT_URL from .env.local so the frontend reaches the agent service.
       - AGENT_URL=http://agent:8123
     depends_on:
       - agent
