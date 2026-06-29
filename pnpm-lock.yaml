@@ -3188,6 +3188,9 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.57.0
         version: 0.57.0
+      '@copilotkit/bot':
+        specifier: workspace:*
+        version: link:../bot
       '@copilotkit/license-verifier':
         specifier: ~0.5.0
         version: 0.5.0
