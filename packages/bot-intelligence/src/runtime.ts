@@ -60,11 +60,13 @@ export interface ActivationMetadata extends ActivationEnv {
 export function resolveActivationEnv(
   overrides: Partial<ActivationEnv> = {},
 ): ActivationEnv {
-  const nodeEnv = process.env.NODE_ENV;
+  // Guard against non-Node hosts (browser/edge) where `process` is absent.
+  const env = typeof process !== "undefined" ? process.env : undefined;
+  const nodeEnv = env?.NODE_ENV;
   return {
-    runtimeEnv: process.env.COPILOTKIT_RUNTIME_ENV ?? nodeEnv ?? "development",
+    runtimeEnv: env?.COPILOTKIT_RUNTIME_ENV ?? nodeEnv ?? "development",
     nodeEnv,
-    nodeVersion: process.version,
+    nodeVersion: typeof process !== "undefined" ? process.version : undefined,
     ...overrides,
   };
 }
