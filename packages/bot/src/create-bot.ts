@@ -156,6 +156,13 @@ export interface CreateBotOptions<
   TStateSchema extends StandardSchemaV1 | undefined = undefined,
 > {
   /**
+   * Project-unique bot identifier. Required for managed (Intelligence-delivered)
+   * bots — it ties the runtime declaration to the Intelligence setup — and
+   * optional for local/custom adapters. Validated by the managed runtime
+   * (`startManagedBots`), not here.
+   */
+  name?: string;
+  /**
    * Adapters supplied at construction. Optional — adapters can also be attached
    * before `start()` via {@link Bot.addAdapter} (the managed runtime uses this).
    */
@@ -179,6 +186,8 @@ export interface CreateBotOptions<
 }
 
 export interface Bot<TState = unknown> {
+  /** Project-unique identifier from `createBot({ name })`; used by the managed runtime. */
+  readonly name?: string;
   onMention(h: BotHandler<TState>): void;
   onMessage(h: BotHandler<TState>): void;
   /**
@@ -658,6 +667,7 @@ export function createBot<
   }
 
   const bot: Bot<ThreadStateOf<TStateSchema>> = {
+    name: opts.name,
     get transcripts() {
       if (!transcripts) {
         throw new Error("bot.transcripts is available after bot.start()");

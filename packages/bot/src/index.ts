@@ -117,6 +117,18 @@ export {
   InMemoryDeliverySource,
   InMemoryEgressSink,
 } from "./managed/in-memory-transports.js";
+export {
+  startManagedBots,
+  assertValidBotNames,
+  buildActivationMetadata,
+} from "./managed/runtime.js";
+export type {
+  ManagedTransport,
+  ManagedBotsHandle,
+  StartManagedBotsOptions,
+  ActivationEnv,
+  ActivationMetadata,
+} from "./managed/runtime.js";
 
 // Re-export the bot-ui component vocabulary + types for convenience.
 export * from "@copilotkit/bot-ui";

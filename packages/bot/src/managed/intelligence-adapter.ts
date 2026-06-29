@@ -1,5 +1,6 @@
 import type { AgentSubscriber } from "@ag-ui/client";
 import type { BotNode, MessageRef, PlatformUser } from "@copilotkit/bot-ui";
+import type { StateStore } from "../state/state-store.js";
 import type {
   PlatformAdapter,
   SurfaceCapabilities,
@@ -45,6 +46,8 @@ const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
 export interface IntelligenceAdapterOptions {
   source: DeliverySource;
   egress: EgressSink;
+  /** Optional Intelligence-backed persistence the adapter exposes as `stateStore`. */
+  store?: StateStore;
 }
 
 /**
@@ -83,12 +86,18 @@ export class IntelligenceAdapter implements PlatformAdapter {
     },
   };
 
+  /** Persistence supplied by the managed transport (Intelligence-backed); picked
+   * up by createBot's `resolveBackend` when no explicit `store.adapter` is set. */
+  readonly stateStore?: StateStore;
+
   private sink?: IngressSink;
   /** Per-turn egress sequence; reset at the start of each turn's processing so
    * a redelivered turn reproduces the same operation id sequence. */
   private readonly seq = new Map<string, number>();
 
-  constructor(private readonly deps: IntelligenceAdapterOptions) {}
+  constructor(private readonly deps: IntelligenceAdapterOptions) {
+    this.stateStore = deps.store;
+  }
 
   async start(sink: IngressSink): Promise<void> {
     this.sink = sink;
