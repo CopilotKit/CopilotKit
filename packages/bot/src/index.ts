@@ -98,38 +98,14 @@ export { mintId, stableStringify } from "./mint-id.js";
 export { runAgentLoop } from "./run-loop.js";
 export type { RunLoopArgs } from "./run-loop.js";
 
-// Managed bots (Intelligence-delivered delivery). @internal — not a publicly
-// documented API; exported so the closed-source runtime can wire transports.
-export {
-  intelligenceAdapter,
-  IntelligenceAdapter,
-} from "./managed/intelligence-adapter.js";
-export type { IntelligenceAdapterOptions } from "./managed/intelligence-adapter.js";
-export type { DeliverySource, EgressSink } from "./managed/transports.js";
-export type {
-  ManagedIngressEnvelope,
-  EgressOperation,
-  EgressOp,
-  EgressResult,
-  EgressRoute,
-} from "./managed/contracts.js";
-export type { PlatformCodec } from "./managed/codec.js";
-export {
-  InMemoryDeliverySource,
-  InMemoryEgressSink,
-} from "./managed/in-memory-transports.js";
-export {
-  startManagedBots,
-  assertValidBotNames,
-  buildActivationMetadata,
-} from "./managed/runtime.js";
-export type {
-  ManagedTransport,
-  ManagedBotsHandle,
-  StartManagedBotsOptions,
-  ActivationEnv,
-  ActivationMetadata,
-} from "./managed/runtime.js";
+// Pure, per-platform codec seam (shared with the managed/Connector-Outbox path).
+// The Intelligence-delivered managed adapter itself lives in
+// `@copilotkit/bot-intelligence`.
+export type { PlatformCodec } from "./codec.js";
+
+// Test utilities (also surfaces them for downstream adapter packages' tests).
+export { FakeAdapter, makeFakeRunRenderer } from "./testing/fake-adapter.js";
+export { FakeAgent } from "./testing/fake-agent.js";
 
 // Re-export the bot-ui component vocabulary + types for convenience.
 export * from "@copilotkit/bot-ui";

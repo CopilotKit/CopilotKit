@@ -1,10 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { createBot } from "../create-bot.js";
-import { FakeAdapter } from "../testing/fake-adapter.js";
-import { FakeAgent } from "../testing/fake-agent.js";
+import { createBot, FakeAdapter, FakeAgent } from "@copilotkit/bot";
+import type { ReplyTarget } from "@copilotkit/bot";
 import { Section } from "@copilotkit/bot-ui";
 import type { IncomingMessage } from "@copilotkit/bot-ui";
-import type { ReplyTarget } from "../platform-adapter.js";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
 import {
   InMemoryDeliverySource,

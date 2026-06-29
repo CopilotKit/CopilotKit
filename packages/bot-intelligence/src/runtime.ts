@@ -1,5 +1,4 @@
-import type { Bot } from "../create-bot.js";
-import type { StateStore } from "../state/state-store.js";
+import type { Bot, StateStore } from "@copilotkit/bot";
 import type { DeliverySource, EgressSink } from "./transports.js";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
 

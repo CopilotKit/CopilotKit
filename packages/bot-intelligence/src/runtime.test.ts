@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createBot } from "../create-bot.js";
-import { FakeAgent } from "../testing/fake-agent.js";
+import { createBot, FakeAgent } from "@copilotkit/bot";
 import { Section } from "@copilotkit/bot-ui";
 import {
   InMemoryDeliverySource,

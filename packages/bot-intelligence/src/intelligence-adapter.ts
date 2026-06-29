@@ -1,7 +1,7 @@
 import type { AgentSubscriber } from "@ag-ui/client";
 import type { BotNode, MessageRef, PlatformUser } from "@copilotkit/bot-ui";
-import type { StateStore } from "../state/state-store.js";
 import type {
+  StateStore,
   PlatformAdapter,
   SurfaceCapabilities,
   IngressSink,
@@ -13,7 +13,7 @@ import type {
   ConversationStore,
   UserQuery,
   InteractionEvent,
-} from "../platform-adapter.js";
+} from "@copilotkit/bot";
 import type { DeliverySource, EgressSink } from "./transports.js";
 import type {
   ManagedIngressEnvelope,
