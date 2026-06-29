@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import logging
 from typing import Dict, Any, List, Optional, Union, AsyncGenerator
@@ -57,6 +58,41 @@ TextMessageEvents = Union[
 ToolCallEvents = Union[ToolCallStartEvent, ToolCallArgsEvent, ToolCallEndEvent]
 
 
+def _make_safe(obj, _seen=None):
+    """Recursively convert obj to a JSON-safe structure.
+
+    Replaces non-serializable values with placeholder strings like
+    "<non-serializable: ClassName>". Handles circular references by
+    returning "<circular: ClassName>" to prevent infinite loops.
+    """
+    if _seen is None:
+        _seen = set()
+    obj_id = id(obj)
+    if obj_id in _seen:
+        return f"<circular: {type(obj).__name__}>"
+    if obj is None or isinstance(obj, (bool, int, float, str)):
+        return obj
+    _seen.add(obj_id)
+    try:
+        if isinstance(obj, dict):
+            return {str(k): _make_safe(v, _seen) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [_make_safe(v, _seen) for v in obj]
+        if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+            return {k: _make_safe(v, _seen) for k, v in obj.__dict__.items()}
+        if hasattr(obj, "model_dump"):
+            try:
+                return _make_safe(obj.model_dump(), _seen)
+            except Exception:
+                return f"<non-serializable: {type(obj).__name__}>"
+        json.dumps(obj)
+        return obj
+    except (TypeError, ValueError, OverflowError):
+        return f"<non-serializable: {type(obj).__name__}>"
+    finally:
+        _seen.discard(obj_id)
+
+
 class LangGraphAGUIAgent(LangGraphAgent):
     def __init__(
         self,
@@ -69,6 +105,13 @@ class LangGraphAGUIAgent(LangGraphAgent):
         super().__init__(name=name, graph=graph, description=description, config=config)
         self.constant_schema_keys = self.constant_schema_keys + ["copilotkit"]
 
+    @staticmethod
+    def _safe_raw_event(raw_event):
+        """Produce a JSON-safe copy of raw_event, replacing non-serializable values."""
+        if raw_event is None:
+            return None
+        return _make_safe(raw_event)
+
     def _dispatch_event(self, event) -> str:
         """Override the dispatch event method to handle custom CopilotKit events and filtering.
 
@@ -76,6 +119,12 @@ class LangGraphAGUIAgent(LangGraphAgent):
         but the base class also violates it by returning event objects). The None values are
         filtered out in run() before reaching the encoder.
         """
+        # Sanitize raw_event to prevent deepcopy crashes on non-copyable objects (MCP tools, DB connections)
+        if hasattr(event, "raw_event") and event.raw_event is not None:
+            try:
+                event.raw_event = self._safe_raw_event(event.raw_event)
+            except Exception:
+                event.raw_event = None
 
         if event.type == EventType.CUSTOM:
             custom_event = event
