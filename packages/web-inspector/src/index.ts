@@ -3197,20 +3197,28 @@ export class WebInspectorElement extends LitElement {
       this.contextStore = this.normalizeContextStore(core.context);
     }
 
-    // Subscribe to the singleton memory store on core (passive — never creates one)
-    const memoryStore = core.getMemoryStore();
-    const ms = memoryStore.getState();
-    this._memories = ɵselectMemories(ms);
-    this._memoriesLoading = ɵselectMemoriesIsLoading(ms);
-    this._memoriesError = ɵselectMemoriesError(ms);
-    this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
-    const memSubs = [
-      memoryStore.select(ɵselectMemories).subscribe((v) => { this._memories = v; this.requestUpdate(); }),
-      memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => { this._memoriesLoading = v; this.requestUpdate(); }),
-      memoryStore.select(ɵselectMemoriesError).subscribe((v) => { this._memoriesError = v; this.requestUpdate(); }),
-      memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => { this._memoriesAvailable = v; this.requestUpdate(); }),
-    ];
-    this._memoryUnsub = () => memSubs.forEach((s) => s.unsubscribe());
+    // Guard like getThreadStores above: older @copilotkit/core has no getMemoryStore.
+    // When absent, force the unavailable/locked state so the teaser renders instead
+    // of throwing a TypeError mid-attach and breaking the entire inspector.
+    if (typeof core.getMemoryStore === "function") {
+      // Subscribe to the singleton memory store on core (passive — never creates one)
+      const memoryStore = core.getMemoryStore();
+      const ms = memoryStore.getState();
+      this._memories = ɵselectMemories(ms);
+      this._memoriesLoading = ɵselectMemoriesIsLoading(ms);
+      this._memoriesError = ɵselectMemoriesError(ms);
+      this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
+      const memSubs = [
+        memoryStore.select(ɵselectMemories).subscribe((v) => { this._memories = v; this.requestUpdate(); }),
+        memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => { this._memoriesLoading = v; this.requestUpdate(); }),
+        memoryStore.select(ɵselectMemoriesError).subscribe((v) => { this._memoriesError = v; this.requestUpdate(); }),
+        memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => { this._memoriesAvailable = v; this.requestUpdate(); }),
+      ];
+      this._memoryUnsub = () => memSubs.forEach((s) => s.unsubscribe());
+    } else {
+      // Older @copilotkit/core without getMemoryStore: render the locked teaser.
+      this._memoriesAvailable = false;
+    }
   }
 
   private detachFromCore(): void {

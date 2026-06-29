@@ -1452,3 +1452,75 @@ describe("WebInspectorElement memories — passive store guard", () => {
     expect(typeof returnedStore.select).toBe("function");
   });
 });
+
+// ── 6.7  Older-core compat: missing getMemoryStore ────────────────────────
+//
+// An inspector attached to an older @copilotkit/core that predates
+// getMemoryStore must not throw. The guard added in attachToCore must fall
+// through to the else branch, set _memoriesAvailable = false, and leave the
+// memories tab in the locked-teaser state — exactly like a core that defines
+// the method but returns available=false.
+
+describe("WebInspectorElement memories — older-core compat (no getMemoryStore)", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+      clear: () => undefined,
+      get length() { return 0; },
+      key: () => null,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("does not throw when core lacks getMemoryStore, and renders the locked teaser", async () => {
+    // Build a minimal core that does NOT define getMemoryStore — simulating an
+    // older @copilotkit/core package. We deliberately omit the method rather
+    // than setting it to undefined so the typeof guard fires correctly.
+    const olderCore = {
+      agents: {},
+      context: {},
+      properties: {},
+      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+      // intelligence present so the only lock-cause is the missing store method
+      intelligence: { wsUrl: "wss://localhost" },
+      subscribe: (_subscriber: CopilotKitCoreSubscriber) => ({
+        unsubscribe: () => undefined,
+      }),
+      getThreadStores: () => ({}),
+      getThreadStore: (_agentId: string) => undefined,
+      // getMemoryStore intentionally absent
+    };
+
+    const el = new WebInspectorElement();
+    document.body.appendChild(el);
+
+    // Assigning core must not throw even though getMemoryStore is missing.
+    expect(() => {
+      el.core = olderCore as unknown as WebInspectorElement["core"];
+    }).not.toThrow();
+
+    // Open and switch to the memories tab so the view state is rendered.
+    const internals = el as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: string) => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("memories");
+    await el.updateComplete;
+
+    // The locked teaser must render — cpk-memory-list must NOT appear.
+    const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Long-term memory");
+    const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
+    expect(
+      memoryList,
+      "cpk-memory-list must not render when getMemoryStore is absent",
+    ).toBeNull();
+  });
+});
