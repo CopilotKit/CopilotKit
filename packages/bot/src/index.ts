@@ -113,6 +113,7 @@ export type {
   EgressResult,
   EgressRoute,
 } from "./managed/contracts.js";
+export type { PlatformCodec } from "./managed/codec.js";
 export {
   InMemoryDeliverySource,
   InMemoryEgressSink,

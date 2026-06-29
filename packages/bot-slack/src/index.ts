@@ -1,6 +1,9 @@
 export { SlackConversationStore } from "./conversation-store.js";
 export type { AgentSession } from "./conversation-store.js";
 
+// Pure Slack codec (egress) shared with the managed/Connector-Outbox path.
+export { slackCodec } from "./codec.js";
+
 export type {
   ConversationKey,
   IncomingTurn,
