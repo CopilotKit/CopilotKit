@@ -246,7 +246,12 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
           );
         }
         return (
-          <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          // `pointer-events-auto`: this is a `useComponent` (display-only) render,
+          // which CopilotKit paints with `pointer-events: none` on the assistant
+          // message. But this table is interactive (Approve / Deny / File policy
+          // exception), so opt its subtree back into pointer events or the row
+          // actions (incl. the "More actions" menu) are unclickable in the chat.
+          <div className="pointer-events-auto space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
             <h3 className="text-lg font-semibold text-ink">
               Pending approvals
             </h3>
