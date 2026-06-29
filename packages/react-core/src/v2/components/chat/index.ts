@@ -78,6 +78,12 @@ export { CopilotSidebar, type CopilotSidebarProps } from "./CopilotSidebar";
 
 export { CopilotPopup, type CopilotPopupProps } from "./CopilotPopup";
 
+export {
+  CopilotDrawer,
+  type CopilotDrawerProps,
+  type CopilotDrawerRowRenderer,
+} from "./CopilotDrawer";
+
 export { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 export { CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer";
 

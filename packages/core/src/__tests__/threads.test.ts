@@ -23,6 +23,7 @@ const {
   ɵselectThreadsIsLoading,
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
+  ɵselectIsMutating,
 } = await import("../threads");
 
 type ThreadRecord = import("../threads").ɵThread;
@@ -367,6 +368,53 @@ describe("thread store", () => {
     });
   });
 
+  it("unarchives a thread via a PATCH with archived:false", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      })
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({}),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: { Authorization: "Bearer token" },
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+
+    await flushEffects();
+
+    await store.unarchiveThread("thread-2");
+
+    const unarchiveCall = getFetchCall(fetchMock, 2);
+    expect(unarchiveCall[0]).toBe(
+      "https://runtime.example.com/threads/thread-2",
+    );
+    expect(unarchiveCall[1]).toMatchObject({ method: "PATCH" });
+    expect(JSON.parse(unarchiveCall[1].body)).toMatchObject({
+      agentId: "agent-1",
+      archived: false,
+    });
+  });
+
   it("stores fetch failures in error state", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
@@ -678,5 +726,455 @@ describe("thread store", () => {
       "thread-recent-meta", // no lastRunAt, updatedAt 2026-04-20
       "thread-stale", // no lastRunAt, updatedAt 2026-01-01
     ]);
+  });
+
+  it("optimistically removes a thread on delete, before the server responds", async () => {
+    let resolveDelete: (value: unknown) => void = () => {};
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (resolveDelete = resolve)),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+
+    const deletePromise = store.deleteThread("thread-1");
+    await flushEffects();
+
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-2"],
+    );
+    expect(ɵselectIsMutating(store.getState())).toBe(true);
+
+    resolveDelete({ ok: true, json: async () => ({}) });
+    await deletePromise;
+    await flushEffects();
+
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-2"],
+    );
+    expect(ɵselectIsMutating(store.getState())).toBe(false);
+  });
+
+  it("rolls back an optimistically-deleted thread when the server rejects", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 500 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    await expect(store.deleteThread("thread-1")).rejects.toThrow();
+    await flushEffects();
+
+    // The optimistically-removed row is restored.
+    const ids = ɵselectThreads(store.getState())
+      .map((thread) => thread.id)
+      .sort();
+    expect(ids).toEqual(["thread-1", "thread-2"]);
+    expect(ɵselectThreadsError(store.getState())?.message).toContain("500");
+    expect(ɵselectIsMutating(store.getState())).toBe(false);
+  });
+
+  it("does NOT roll back a rejected rename (optimistic no-rollback)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 500 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    await expect(
+      store.renameThread("thread-1", "Optimistic"),
+    ).rejects.toThrow();
+    await flushEffects();
+
+    // Row stays renamed locally; only the error surfaces.
+    const renamed = ɵselectThreads(store.getState()).find(
+      (thread) => thread.id === "thread-1",
+    );
+    expect(renamed?.name).toBe("Optimistic");
+    expect(ɵselectThreadsError(store.getState())?.message).toContain("500");
+  });
+
+  it("invokes the onError environment callback on a rejected mutation", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 500 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onError = vi.fn();
+    const store = ɵcreateThreadStore({
+      fetch: fetchMock as unknown as typeof fetch,
+      onError,
+    });
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    await expect(store.deleteThread("thread-1")).rejects.toThrow();
+    await flushEffects();
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(Error);
+  });
+
+  it("startNewThread does not add a phantom row and clears any error", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 500 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    // The failed initial fetch leaves an error behind.
+    expect(ɵselectThreadsError(store.getState())).not.toBeNull();
+
+    store.startNewThread();
+
+    expect(ɵselectThreads(store.getState())).toHaveLength(0);
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+  });
+
+  it("refetchThreads re-fetches the list without clearing it", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: [sampleThreads[0]] }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+
+    store.refetchThreads();
+    await flushEffects();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://runtime.example.com/threads?agentId=agent-1",
+      expect.objectContaining({ method: "GET" }),
+    );
+    expect(ɵselectThreads(store.getState())).toHaveLength(1);
+  });
+
+  it("drops a mutation that rejects after the context changed (no stale-session error)", async () => {
+    let resolveDelete: (value: unknown) => void = () => {};
+    const fetchMock = vi
+      .fn()
+      // session 1: initial list + subscribe
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      // session 1: the DELETE — left pending until after the context switches
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (resolveDelete = resolve)),
+      )
+      // session 2 (after contextChanged): new list + subscribe
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: [
+            {
+              ...sampleThreads[0],
+              id: "thread-next",
+              agentId: "agent-2",
+              updatedAt: "2026-02-01T00:00:00Z",
+            },
+          ],
+          joinCode: "jc-2",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-2" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onError = vi.fn();
+    const store = ɵcreateThreadStore({
+      fetch: fetchMock as unknown as typeof fetch,
+      onError,
+    });
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    const deletePromise = store.deleteThread("thread-1");
+    await flushEffects();
+
+    // Switch context BEFORE the delete resolves — this opens session 2.
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-2",
+    });
+    await flushEffects();
+
+    // Now reject the session-1 delete.
+    resolveDelete({ ok: false, status: 500 });
+    await expect(deletePromise).rejects.toThrow();
+    await flushEffects();
+
+    // The new session is intact: no error leaked, onError never fired, and the
+    // stale deleted row is NOT rolled back into the new list.
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-next"],
+    );
+  });
+
+  it("isolates selector memo caches across concurrent stores", async () => {
+    // The list fetch goes through RxJS `fromFetch`, which uses the GLOBAL
+    // `fetch` (it ignores any `fetch` threaded through the environment — and
+    // both framework wrappers pass `globalThis.fetch` anyway). To give two
+    // concurrent stores distinct lists we therefore route a single global stub
+    // by request host rather than handing each store its own fetch mock.
+    const routedFetch = vi.fn(async (url: string | URL | Request) => {
+      const href = String(url);
+      const id = href.includes("a.example.com") ? "thread-a" : "thread-b";
+      return {
+        ok: true,
+        json: async () => ({
+          threads: [{ ...sampleThreads[0], id }],
+          joinCode: "jc",
+        }),
+      } as Response;
+    });
+    vi.stubGlobal("fetch", routedFetch);
+
+    const env = createEnvironment(routedFetch as unknown as Mock);
+    const storeA = ɵcreateThreadStore(env);
+    const storeB = ɵcreateThreadStore(env);
+    stores.push(storeA, storeB);
+
+    storeA.start();
+    storeB.start();
+    storeA.setContext({
+      runtimeUrl: "https://a.example.com",
+      headers: {},
+      agentId: "agent-1",
+    });
+    storeB.setContext({
+      runtimeUrl: "https://b.example.com",
+      headers: {},
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    // Each store exposes its own selector bundle, distinct from the other.
+    expect(storeA.selectors).not.toBe(storeB.selectors);
+    expect(storeA.selectors.threads).not.toBe(storeB.selectors.threads);
+
+    // A per-store selector returns the SAME reference on repeated reads of the
+    // same state (memo hit) and is not corrupted by the other store's state.
+    const aThreads1 = storeA.selectors.threads(storeA.getState());
+    const aThreads2 = storeA.selectors.threads(storeA.getState());
+    expect(aThreads1).toBe(aThreads2);
+    expect(aThreads1.map((thread) => thread.id)).toEqual(["thread-a"]);
+
+    // Reading store B through B's selector does not evict A's cache: A's
+    // selector still returns A's memoized reference afterwards.
+    storeB.selectors.threads(storeB.getState());
+    expect(storeA.selectors.threads(storeA.getState())).toBe(aThreads1);
+    expect(
+      storeB.selectors.threads(storeB.getState()).map((thread) => thread.id),
+    ).toEqual(["thread-b"]);
+  });
+
+  it("warns and keeps the list on a realtime channel join failure", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+
+    getChannel().triggerJoin("error", { reason: "unauthorized" });
+    await flushEffects();
+
+    // Non-fatal: the (already fetched) list survives, no hard list error, but a
+    // diagnostic warning is emitted so the failure is not silent.
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("realtime"));
+
+    warnSpy.mockRestore();
+  });
+
+  it("keeps the list and warns when the realtime metadata-credentials fetch fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      // The realtime join-token fetch (runs after the list) fails.
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    // Non-fatal: the realtime credential fetch ran after a successful list, so
+    // the already-loaded list survives, no hard list error is set, but the
+    // failure is surfaced as a diagnostic warning.
+    expect(ɵselectThreads(store.getState()).length).toBeGreaterThan(0);
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("realtime"));
+
+    warnSpy.mockRestore();
+  });
+
+  it("exposes a stable empty server snapshot for SSR", () => {
+    const fetchMock = vi.fn();
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+
+    const serverState = store.getServerState();
+
+    expect(ɵselectThreads(serverState)).toEqual([]);
+    expect(ɵselectThreadsIsLoading(serverState)).toBe(false);
+    expect(ɵselectThreadsError(serverState)).toBeNull();
+    // Stable reference across calls so useSyncExternalStore does not loop.
+    expect(store.getServerState()).toBe(serverState);
+    // fetch is never touched during prerender.
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

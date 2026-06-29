@@ -840,4 +840,50 @@ describe("CopilotKitProvider", () => {
       ).toBe(false);
     });
   });
+
+  describe("a2ui catalog auto-enable", () => {
+    it("forwards a2uiCatalogAvailable when a catalog is passed to the provider", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider a2ui={{ catalog: { components: new Map() } }}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.properties.a2uiCatalogAvailable).toBe(
+        true,
+      );
+    });
+
+    it("does not forward a2uiCatalogAvailable when no catalog is passed", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider a2ui={{}}>{children}</CopilotKitProvider>
+        ),
+      });
+
+      expect(
+        result.current.copilotkit.properties.a2uiCatalogAvailable,
+      ).toBeUndefined();
+    });
+
+    it("preserves user-provided properties alongside the catalog signal", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider
+            a2ui={{ catalog: { components: new Map() } }}
+            properties={{ tenant: "acme" }}
+          >
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.properties).toMatchObject({
+        tenant: "acme",
+        a2uiCatalogAvailable: true,
+      });
+    });
+  });
 });

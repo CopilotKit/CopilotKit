@@ -3,10 +3,18 @@ title: Slack
 description: Build an AI Slack bot with CopilotKit, Copilot Runtime, createBot, the Slack adapter over Socket Mode, and interactive JSX messages rendered as Block Kit.
 icon: "lucide/Slack"
 hideTOC: true
-earlyAccess: slack
 ---
 
 This guide takes you from zero to a Slack bot you can @-mention in a channel, then adds an interactive button card. You write handlers in TypeScript, Copilot Runtime hosts the agent, and rich messages are JSX that the adapter renders to Block Kit (Slack's message-UI format). No public URL needed.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Join the waitlist for managed Slack and Teams agents"
+  body="Want CopilotKit Intelligence to carry Slack and Teams setup, identity and permissions, durable state, approvals, and runtime operations for you?"
+  ctaLabel="Join the waitlist"
+  surface="docs_slack_managed_agents_waitlist"
+  href="https://www.copilotkit.ai/opentag-managed"
+/>
 
 ## Prerequisites
 
@@ -271,11 +279,44 @@ agent: (threadId) => {
 
 [`SanitizingHttpAgent`](/reference/bot/slack/SanitizingHttpAgent) is an `HttpAgent` that tolerates the event streams real agent backends emit — use it over the stock `HttpAgent` when connecting a Slack bot to Copilot Runtime.
 
-## Known limitations (v1)
+## Platform capability matrix
 
-- **Single workspace** — one bot token; no OAuth/multi-workspace install flow
+The three CopilotKit bot adapters — Slack, Discord, and Telegram — share the same `@copilotkit/bot` API surface but differ in what the underlying platform natively supports. The table below shows exactly what shipped in the current release.
+
+| Feature | Slack | Discord | Telegram |
+|---|---|---|---|
+| **Reactions** (observe + react) | ✅ — add `reactions:read` / `reactions:write` scopes and subscribe to `reaction_added` / `reaction_removed` events in the app manifest | ✅ — requires `GuildMessageReactions` + `DirectMessageReactions` intents and `Partials.Message` + `Partials.Reaction` partials | ✅ — `message_reaction` included in `TELEGRAM_ALLOWED_UPDATES`; bot must be an **admin** in group chats |
+| **Native ephemeral** | ✅ (`chat.postEphemeral`) | ❌ — interaction-scoped only; not wired yet | ❌ — not a Telegram concept |
+| **`postEphemeral` (with DM fallback)** | `usedFallback: false` (native) | `usedFallback: true` (falls back to DM) | `usedFallback: true` (falls back to DM); requires user to have previously messaged the bot |
+| **Modals** | ✅ full — text inputs, selects, radio buttons; validation errors via `response_action: "errors"`; `privateMetadata` round-trip | ✅ text inputs only — max 5 fields; no validation re-open; `ModalSelect` / `RadioButtons` rejected at render time | ❌ — `openModal` resolves `{ ok: false }`; no modal surface on Telegram |
+
+### Reactions — setup notes
+
+**Slack:** subscribe to `reaction_added` and `reaction_removed` events in the Slack app manifest (or in the **Event Subscriptions** UI). The `reactions:read` scope lets the bot read reactions; `reactions:write` lets it add or remove them. Without the event subscriptions, Slack won't deliver reaction events even if the scopes are present.
+
+**Discord:** the adapter automatically requests `GuildMessageReactions` and `DirectMessageReactions` intents (both non-privileged — no Developer Portal toggle required), and enables `Partials.Message` + `Partials.Reaction`. The partials are necessary because reaction events for messages that were sent before the bot started (or evicted from in-memory cache) arrive as _partial_ objects; without them, those reactions are silently dropped.
+
+**Telegram:** `message_reaction` is already included in `TELEGRAM_ALLOWED_UPDATES` — no manual configuration needed for long-polling. For webhook mode, pass the exported constant to `setWebhook`:
+
+```ts
+import { TELEGRAM_ALLOWED_UPDATES } from "@copilotkit/bot-telegram";
+await bot.api.setWebhook(url, { allowed_updates: [...TELEGRAM_ALLOWED_UPDATES] });
+```
+
+In ordinary group chats, the bot must be an **administrator** to receive `message_reaction` events. Private chats and channels work without extra permissions.
+
+### Emoji normalization
+
+All three adapters normalize platform-specific emoji representations into a common `emoji` string. Standard named emoji (`:thumbsup:`, `:white_check_mark:`, etc.) are surfaced as their short-name. Unknown or custom emoji that cannot be mapped pass through as `rawEmoji` on the reaction event, so your handler can inspect them without losing information.
+
+### Modals — Discord timing rule
+
+Discord requires the modal to be opened **before any other response** to a button click or slash command. Discord's acknowledgement window is **≈3 seconds** — call `openModal(view)` first, then do any long-running work in a follow-up message. Opening a modal after sending another response will fail silently.
+
+### Known limitations (v1)
+
+- **Single workspace / guild / bot** — one token per adapter instance; no OAuth multi-tenant install flow
 - **In-memory action store by default** — inline button handlers expire on restart unless you provide a durable `ActionStore`
-- **No modals or reactions** — the adapter doesn't open modals or add reactions yet
 - **Replies only** — the bot answers turns it's part of (mentions, its threads, DMs); it doesn't post proactively
 
 ## Next steps

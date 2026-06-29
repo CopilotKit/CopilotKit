@@ -31,24 +31,6 @@ export interface EarlyAccessGateConfig {
 }
 
 export const EARLY_ACCESS_GATES = {
-  slack: {
-    storageKey: "shell-docs-early-access:slack",
-    password: "earlyaccess",
-    eyebrow: "Early access",
-    title: "Slack is in early access",
-    description: [
-      "The Slack docs are behind a password while Slack support is in early access.",
-      "CopilotKit for Slack turns your agent into a Slack bot: streaming replies in threads, calling tools, and rendering interactive messages.",
-    ],
-    requestPrompt: "Don't have the password?",
-    requestLinkLabel: "Reach out to request early access to Slack",
-    requestUrl: "https://go.copilotkit.ai/beyond-the-web-form",
-    image: {
-      alt: "A Slack thread where a user asks the Kite bot for a chart and the bot replies with an interactive generative UI chart.",
-      lightSrc: "/images/slack-bot-generative-ui-light.png",
-      darkSrc: "/images/slack-bot-generative-ui-dark.png",
-    },
-  },
   whatsapp: {
     storageKey: "shell-docs-early-access:whatsapp",
     password: "earlyaccess",
@@ -61,24 +43,6 @@ export const EARLY_ACCESS_GATES = {
     requestPrompt: "Don't have the password?",
     requestLinkLabel: "Reach out to request early access to WhatsApp",
     requestUrl: "https://go.copilotkit.ai/beyond-the-web-form",
-  },
-  teams: {
-    storageKey: "shell-docs-early-access:microsoft-teams",
-    password: "earlyaccess",
-    eyebrow: "Early access",
-    title: "Microsoft Teams is in early access",
-    description: [
-      "The Microsoft Teams guide is behind a password while Teams support is in early access.",
-      "CopilotKit for Microsoft Teams turns your agent into a Teams bot: streamed Adaptive Cards, human approvals, and file-driven chart rendering.",
-    ],
-    requestPrompt: "Don't have the Microsoft Teams password?",
-    requestLinkLabel: "Reach out to request early access to Microsoft Teams",
-    requestUrl: "https://go.copilotkit.ai/beyond-the-web-form",
-    image: {
-      alt: "A Microsoft Teams bot conversation showing a CopilotKit assistant response rendered in Teams.",
-      lightSrc: "/images/teams-preview-light.png",
-      darkSrc: "/images/teams-preview-dark.png",
-    },
   },
 } as const satisfies Record<string, EarlyAccessGateConfig>;
 

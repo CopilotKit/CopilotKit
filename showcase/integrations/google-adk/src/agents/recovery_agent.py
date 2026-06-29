@@ -14,25 +14,22 @@ healing + recovery made *visible*. The aimock fixtures drive the inner
     (`@ag-ui/a2ui-middleware` >= 0.0.10) surfaces as a tasteful `failed` state
     (no broken surface).
 
-Backend-owned wiring (route sets `injectA2UITool: false`), mirroring
-declarative-gen-ui and the AWS Strands / ag2 convention. The recovery loop +
-hard-fail envelope live in the ADK middleware (`ag_ui_adk` >= 0.7.0); the
-runtime path langgraph-python uses has no equivalent loop, which is why this
-demo is ADK-only. Catalog is reused from declarative-gen-ui
+Backend-owned wiring (route sets `injectA2UITool: false`, agent owns
+`get_a2ui_tool`). This is deliberate and ADK-specific: only the backend-owned
+path surfaces the recovery loop + `a2ui_recovery_exhausted` hard-fail explicitly
+(the declarative-gen-ui demo, by contrast, uses runtime auto-injection). The
+recovery loop lives in the ADK middleware (`ag_ui_adk` >= 0.7.0); the runtime
+path langgraph-python uses has no equivalent loop, which is why this demo is
+ADK-only (OSS-375 tracks LP parity). Catalog is reused from declarative-gen-ui
 ("declarative-gen-ui-catalog") so no new components are introduced.
 
 Ported from ag-ui `integrations/adk-middleware/python/examples/server/api/
 a2ui_recovery.py`.
 
-Note (showcase aimock): the HEAL behavior above is real against Gemini and is
-covered by the OSS-158 toolkit gate, but it does NOT reproduce under the
-showcase aimock — that harness can't disambiguate the two pills' inner
-`render_a2ui` sub-agent calls (the middleware issues them with a generic render
-prompt + shared suggestion context), so both pills match the same inner fixture
-and the heal pill exhausts. The e2e `heal` test is kept failing on purpose to
-demonstrate this; see `tests/e2e/a2ui-recovery.spec.ts` and
-`qa/a2ui-recovery.md`. Tracked in Linear: OSS-374 (aimock disambiguation),
-OSS-375 (recovery-demo LP parity).
+The two pills are disambiguated per-pill by aimock: ag_ui_adk forwards the run's
+conversation into the inner `render_a2ui` call, so the last user turn aimock
+matches on is the pill prompt (the generic render guidance rides as the system
+prompt). Verified against the aimock journal — HEAL heals, EXHAUST exhausts.
 """
 
 from __future__ import annotations

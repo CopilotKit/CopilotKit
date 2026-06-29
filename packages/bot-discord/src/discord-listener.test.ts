@@ -1,16 +1,26 @@
-import { MessageFlags } from "discord.js";
 import { describe, it, expect, vi } from "vitest";
 import { attachDiscordListener } from "./discord-listener.js";
+import { PendingInteractions } from "./pending-interactions.js";
 
 function fakeClient() {
-  const handlers: Record<string, (arg: unknown) => void> = {};
+  const handlers: Record<string, (...args: unknown[]) => void> = {};
   return {
-    on(event: string, cb: (arg: unknown) => void) {
+    on(event: string, cb: (...args: unknown[]) => void) {
       handlers[event] = cb;
     },
-    emit(event: string, arg: unknown) {
-      handlers[event]?.(arg);
+    emit(event: string, ...args: unknown[]) {
+      handlers[event]?.(...args);
     },
+  };
+}
+
+/** A complete (non-partial) reaction with the fields decodeReaction needs. */
+function reaction(over: Record<string, unknown> = {}) {
+  return {
+    partial: false,
+    emoji: { name: "👍", id: null },
+    message: { id: "m1", channelId: "c1", guildId: "g1", partial: false },
+    ...over,
   };
 }
 
@@ -151,65 +161,156 @@ describe("attachDiscordListener", () => {
     );
   });
 
-  it("forwards a chat-input command via onCommand and acks the interaction", async () => {
+  it("forwards a chat-input command via onCommand with a triggerId, then settles (deferReply) when no modal opens", async () => {
     const client = fakeClient();
     const onCommand = vi.fn();
-    const reply = vi.fn().mockResolvedValue(undefined);
+    const deferReply = vi.fn().mockResolvedValue(undefined);
+    const commandPending = new PendingInteractions({
+      ackBufferMs: 2500,
+      defer: (i) =>
+        (i as unknown as { deferReply: typeof deferReply }).deferReply(),
+    });
     attachDiscordListener({
       client: client as any,
       botUserId: botId,
       onTurn: vi.fn(),
       onCommand,
+      commandPending,
     });
     client.emit("interactionCreate", {
       isChatInputCommand: () => true,
+      id: "int-1",
       commandName: "triage",
       channelId: "c1",
       guildId: "g1",
       user: { id: "u1", username: "ann", globalName: "Ann" },
       options: { data: [{ name: "priority", value: "high" }] },
-      reply,
+      deferReply,
     });
-    // The ack must happen synchronously within Discord's 3s window; let the
-    // async handler settle so the subsequent onCommand dispatch runs.
+    // Let the async command handler (dispatch + settle) run to completion.
     await Promise.resolve();
     await Promise.resolve();
-    expect(reply).toHaveBeenCalledTimes(1);
-    const ackArg = reply.mock.calls[0]![0];
-    expect(ackArg.flags).toBe(MessageFlags.Ephemeral);
-    expect(typeof ackArg.content).toBe("string");
-    expect(ackArg.content.length).toBeGreaterThan(0);
     expect(onCommand).toHaveBeenCalledWith(
       expect.objectContaining({
         command: "triage",
         conversationKey: "c1",
         rawOptions: { priority: "high" },
+        triggerId: "int-1",
       }),
     );
+    // No handler opened a modal, so `settle` acks via deferReply (the eager
+    // `i.reply(...)` is gone — the registry now owns the ack).
+    expect(deferReply).toHaveBeenCalledTimes(1);
   });
 
-  it("does not ack or dispatch a non-command interaction", async () => {
+  it("clears the dangling deferred ephemeral after a non-modal command settles", async () => {
     const client = fakeClient();
-    const onCommand = vi.fn();
-    const reply = vi.fn().mockResolvedValue(undefined);
+    const deferReply = vi.fn().mockResolvedValue(undefined);
+    const deleteReply = vi.fn().mockResolvedValue(undefined);
+    const commandPending = new PendingInteractions({
+      ackBufferMs: 2500,
+      // The settle ack defers the reply, marking the interaction `deferred`.
+      defer: async (i) => {
+        await (i as unknown as { deferReply: typeof deferReply }).deferReply();
+        (i as unknown as { deferred: boolean }).deferred = true;
+      },
+    });
     attachDiscordListener({
       client: client as any,
       botUserId: botId,
       onTurn: vi.fn(),
-      onCommand,
+      // No modal opened → the auto-defer ack leaves a dangling ephemeral
+      // "thinking…" spinner that must be cleared.
+      onCommand: vi.fn(),
+      commandPending,
     });
-    client.emit("interactionCreate", {
-      isChatInputCommand: () => false,
+    const interaction = {
+      isChatInputCommand: () => true,
+      id: "int-3",
       commandName: "triage",
       channelId: "c1",
       guildId: "g1",
       user: { id: "u1" },
       options: { data: [] },
-      reply,
+      deferred: false,
+      replied: false,
+      deferReply,
+      deleteReply,
+    };
+    client.emit("interactionCreate", interaction);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(deferReply).toHaveBeenCalledTimes(1);
+    expect(deleteReply).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not delete the reply when a command opened a modal (no defer)", async () => {
+    const client = fakeClient();
+    const deferReply = vi.fn().mockResolvedValue(undefined);
+    const deleteReply = vi.fn().mockResolvedValue(undefined);
+    const commandPending = new PendingInteractions({
+      ackBufferMs: 2500,
+      defer: (i) =>
+        (i as unknown as { deferReply: typeof deferReply }).deferReply(),
+    });
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn: vi.fn(),
+      // Simulate a handler that opened a modal: it marks the live interaction
+      // responded so `settle` never defers, and `deferred` stays false.
+      onCommand: async (cmd) => {
+        await commandPending.respondWith(cmd.triggerId!, async () => {});
+      },
+      commandPending,
+    });
+    const interaction = {
+      isChatInputCommand: () => true,
+      id: "int-4",
+      commandName: "open-modal",
+      channelId: "c1",
+      guildId: "g1",
+      user: { id: "u1" },
+      options: { data: [] },
+      deferred: false,
+      replied: false,
+      deferReply,
+      deleteReply,
+    };
+    client.emit("interactionCreate", interaction);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(deferReply).not.toHaveBeenCalled();
+    expect(deleteReply).not.toHaveBeenCalled();
+  });
+
+  it("does not ack or dispatch a non-command interaction", async () => {
+    const client = fakeClient();
+    const onCommand = vi.fn();
+    const deferReply = vi.fn().mockResolvedValue(undefined);
+    const commandPending = new PendingInteractions({
+      ackBufferMs: 2500,
+      defer: (i) =>
+        (i as unknown as { deferReply: typeof deferReply }).deferReply(),
+    });
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn: vi.fn(),
+      onCommand,
+      commandPending,
+    });
+    client.emit("interactionCreate", {
+      isChatInputCommand: () => false,
+      id: "int-2",
+      commandName: "triage",
+      channelId: "c1",
+      guildId: "g1",
+      user: { id: "u1" },
+      options: { data: [] },
+      deferReply,
     });
     await Promise.resolve();
     await Promise.resolve();
-    expect(reply).not.toHaveBeenCalled();
+    expect(deferReply).not.toHaveBeenCalled();
     expect(onCommand).not.toHaveBeenCalled();
   });
 
@@ -243,5 +344,76 @@ describe("attachDiscordListener", () => {
       expect.any(Error),
     );
     errSpy.mockRestore();
+  });
+
+  it("catches a rejecting onReaction handler instead of letting it escape", async () => {
+    const client = fakeClient();
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const onReaction = vi.fn().mockRejectedValue(new Error("boom"));
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn: vi.fn(),
+      onCommand: vi.fn(),
+      onReaction,
+    });
+    expect(() =>
+      client.emit("messageReactionAdd", reaction(), { id: "u1", bot: false }),
+    ).not.toThrow();
+    // Let the rejected promise settle so the .catch runs.
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onReaction).toHaveBeenCalledTimes(1);
+    expect(errSpy).toHaveBeenCalledWith(
+      "[bot-discord] onReaction handler failed:",
+      expect.any(Error),
+    );
+    errSpy.mockRestore();
+  });
+
+  it("skips the bot's own reaction by id even when the bot flag is undefined (partial user)", () => {
+    const client = fakeClient();
+    const onReaction = vi.fn();
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn: vi.fn(),
+      onCommand: vi.fn(),
+      onReaction,
+    });
+    // A PARTIAL user has no `bot` flag, so the old `u?.bot` guard would let the
+    // bot's own reaction leak through and echo. Guarding by id must skip it.
+    client.emit("messageReactionAdd", reaction(), { id: botId });
+    expect(onReaction).not.toHaveBeenCalled();
+  });
+
+  it("dispatches a normal user's reaction add", () => {
+    const client = fakeClient();
+    const onReaction = vi.fn();
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn: vi.fn(),
+      onCommand: vi.fn(),
+      onReaction,
+    });
+    client.emit("messageReactionAdd", reaction(), { id: "U1", bot: false });
+    expect(onReaction).toHaveBeenCalledWith(
+      expect.objectContaining({ added: true, conversationKey: "c1" }),
+    );
+  });
+
+  it("skips the bot's own reaction removal by id (partial user)", () => {
+    const client = fakeClient();
+    const onReaction = vi.fn();
+    attachDiscordListener({
+      client: client as any,
+      botUserId: botId,
+      onTurn: vi.fn(),
+      onCommand: vi.fn(),
+      onReaction,
+    });
+    client.emit("messageReactionRemove", reaction(), { id: botId });
+    expect(onReaction).not.toHaveBeenCalled();
   });
 });

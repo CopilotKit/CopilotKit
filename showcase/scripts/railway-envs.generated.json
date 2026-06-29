@@ -133,10 +133,10 @@
     {
       "name": "harness-workers",
       "serviceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
-      "prodInstanceId": "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
+      "prodInstanceId": "7c48ee43-6df4-457b-b977-10f1f1ac1680",
       "stagingInstanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
       "ciBuilt": false,
-      "gateValidated": false,
+      "gateValidated": true,
       "repoNameOverride": {
         "prod": "showcase-harness",
         "staging": "showcase-harness"
@@ -152,7 +152,26 @@
       },
       "promoteTier": 1,
       "healthcheckPath": {
+        "prod": "/health",
         "staging": "/health"
+      },
+      "workerProvisioning": {
+        "prod": {
+          "effectiveReplicas": 6,
+          "numReplicas": 6,
+          "BROWSER_POOL_MAX_CONTEXTS": 40,
+          "HARNESS_POOL_COUNT": 3,
+          "overlapSeconds": 45,
+          "drainingSeconds": 180
+        },
+        "staging": {
+          "effectiveReplicas": 6,
+          "numReplicas": 6,
+          "BROWSER_POOL_MAX_CONTEXTS": 40,
+          "HARNESS_POOL_COUNT": 2,
+          "overlapSeconds": 45,
+          "drainingSeconds": 180
+        }
       }
     },
     {
@@ -776,6 +795,36 @@
       }
     },
     {
+      "name": "showcase-strands-typescript",
+      "serviceId": "d6f47c8c-a0a1-4dbe-991c-50f8463fd68d",
+      "prodInstanceId": "8a50728e-6119-43c4-b59c-d9535b6717a4",
+      "stagingInstanceId": "3f917b9f-c3f0-4d8b-96ca-7f455e06b5ba",
+      "ciBuilt": true,
+      "gateValidated": true,
+      "dispatchName": "strands-typescript",
+      "domains": {
+        "staging": "showcase-strands-typescript-staging.up.railway.app",
+        "prod": "showcase-strands-typescript-production.up.railway.app"
+      },
+      "probe": {
+        "staging": true,
+        "prod": true,
+        "driver": "agent"
+      },
+      "promoteTier": 2,
+      "runtimeDeps": ["aimock"],
+      "serviceRefs": [
+        {
+          "key": "OPENAI_BASE_URL",
+          "target": "aimock"
+        }
+      ],
+      "healthcheckPath": {
+        "prod": "/api/health",
+        "staging": "/api/health"
+      }
+    },
+    {
       "name": "starter-adk",
       "serviceId": "37691009-c0b2-4af7-8960-9f0b3f0a6be3",
       "prodInstanceId": "cb23cae4-9555-4ddd-8a62-f1aa1ff72c67",
@@ -1182,6 +1231,10 @@
         "tier": 1
       },
       {
+        "name": "harness-workers",
+        "tier": 1
+      },
+      {
         "name": "docs",
         "tier": 2,
         "standalone": true
@@ -1271,6 +1324,10 @@
         "tier": 2
       },
       {
+        "name": "showcase-strands-typescript",
+        "tier": 2
+      },
+      {
         "name": "starter-adk",
         "tier": 2
       },
@@ -1319,11 +1376,6 @@
         "tier": 2
       }
     ],
-    "skipped": [
-      {
-        "name": "harness-workers",
-        "reason": "no \"prod\" environment in the SSOT — cannot be promoted (it exists in: staging)."
-      }
-    ]
+    "skipped": []
   }
 }

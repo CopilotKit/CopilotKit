@@ -104,6 +104,20 @@ describe("decodeInteraction", () => {
     expect(evt?.value).toBe("opt-a");
   });
 
+  it("decodes a multi-select (maxValues > 1) into a string[] of chosen values", () => {
+    const evt = decodeInteraction({
+      isButton: () => false,
+      isStringSelectMenu: () => true,
+      customId: "ck:ms",
+      component: { maxValues: 5 },
+      values: ["core", "infra"],
+      message: baseMsg,
+      channelId: "c1",
+      user: { id: "u1" },
+    });
+    expect(evt?.value).toEqual(["core", "infra"]);
+  });
+
   it("returns undefined for a non-component interaction", () => {
     expect(
       decodeInteraction({

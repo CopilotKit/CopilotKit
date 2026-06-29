@@ -76,6 +76,26 @@ export interface Integration {
    *   handler (ms-agent-python, ms-agent-dotnet).
    */
   interrupt_pattern?: "native" | "promise-based" | null;
+  /**
+   * Framework-specific pattern for aligning Enterprise Intelligence
+   * Platform threads with an external framework's own persistence/session
+   * identifiers.
+   *
+   * - `langgraph`: explicit CopilotKit thread IDs are forwarded as AG-UI
+   *   `threadId` and can be aligned with LangGraph checkpoint/thread IDs
+   *   when the backend accepts them.
+   * - `adk-session`: CopilotKit thread IDs may be mapped to ADK session
+   *   IDs; ADK durability still depends on the configured ADK session
+   *   service.
+   */
+  thread_persistence_pattern?: "langgraph" | "adk-session" | null;
+  agent_config_pattern?: "shared-state" | "runtime-properties" | null;
+  auth_pattern?:
+    | "langgraph"
+    | "ag2-context-variables"
+    | "microsoft-agent-framework"
+    | "runtime-onrequest"
+    | null;
   sort_order?: number;
   managed_platform?: { name: string; url: string };
   animated_preview_url?: string | null;

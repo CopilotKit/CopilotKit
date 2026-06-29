@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
 import { createBot } from "./create-bot.js";
 import { defineBotCommand } from "./commands.js";
@@ -1047,5 +1047,60 @@ describe("createBot slash commands", () => {
       "status",
       "triage",
     ]);
+  });
+
+  it("start() resolves and keeps healthy adapters when one adapter's start() rejects", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const bad = new FakeAdapter({ platform: "telegram", failStart: true });
+      const good = new FakeAdapter({ platform: "slack" });
+      const bot = createBot({ adapters: [bad, good] });
+      await expect(bot.start()).resolves.toBeUndefined();
+      expect(good.started).toBe(true);
+      expect(
+        errSpy.mock.calls.some((c) => String(c[0]).includes("telegram")),
+      ).toBe(true);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it("start() resolves and the healthy adapter still receives commands when another adapter's registerCommands() rejects", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const bad = new FakeAdapter({
+        platform: "telegram",
+        failRegisterCommands: true,
+      });
+      const good = new FakeAdapter({ platform: "slack" });
+      const bot = createBot({ adapters: [bad, good] });
+      bot.onCommand("triage", () => {});
+      await expect(bot.start()).resolves.toBeUndefined();
+      expect(good.started).toBe(true);
+      expect(good.registeredCommands?.map((c) => c.name)).toEqual(["triage"]);
+      expect(
+        errSpy.mock.calls.some((c) => String(c[0]).includes("telegram")),
+      ).toBe(true);
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
+  it("stop() resolves and stops healthy adapters when one adapter's stop() rejects", async () => {
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const bad = new FakeAdapter({ platform: "telegram", failStop: true });
+      const good = new FakeAdapter({ platform: "slack" });
+      const stopSpy = vi.spyOn(good, "stop");
+      const bot = createBot({ adapters: [bad, good] });
+      await bot.start();
+      await expect(bot.stop()).resolves.toBeUndefined();
+      expect(stopSpy).toHaveBeenCalled();
+      expect(
+        errSpy.mock.calls.some((c) => String(c[0]).includes("telegram")),
+      ).toBe(true);
+    } finally {
+      errSpy.mockRestore();
+    }
   });
 });

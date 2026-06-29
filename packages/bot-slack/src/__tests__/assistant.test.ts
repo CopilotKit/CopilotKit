@@ -35,6 +35,9 @@ function setup(opts: SlackAssistantOptions = {}) {
     onInteraction: vi.fn(),
     onCommand: vi.fn(),
     onThreadStarted,
+    onReaction: vi.fn(),
+    onModalSubmit: vi.fn(async () => {}),
+    onModalClose: vi.fn(),
   };
   const resolveUser = vi.fn(
     async (id: string): Promise<PlatformUser> => ({ id, name: `name-${id}` }),

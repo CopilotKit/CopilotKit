@@ -7,6 +7,7 @@ import {
   ɵselectThreadsIsLoading,
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
+  ɵselectIsMutating,
 } from "@copilotkit/core";
 import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import {
@@ -52,6 +53,16 @@ export interface UseThreadsInput {
   includeArchived?: boolean;
   /** Maximum number of threads to fetch per page. When set, enables cursor-based pagination. */
   limit?: number;
+  /**
+   * When `false`, the hook stays inert: no runtime context is dispatched, so
+   * NO thread-list fetch or realtime subscription is issued. Used by gated
+   * surfaces (e.g. an unlicensed `<CopilotDrawer>`) that must not touch the
+   * network until the gate opens. Defaults to `true`.
+   *
+   * Flipping `enabled` back to `true` resumes normal fetching on the next
+   * effect run; mutations are likewise short-circuited while disabled.
+   */
+  enabled?: boolean;
 }
 
 /**
@@ -77,8 +88,21 @@ export interface UseThreadsResult {
    * The most recent error from fetching threads or executing a mutation,
    * or `null` when there is no error. Reset to `null` on the next
    * successful fetch.
+   *
+   * This channel folds together developer/config errors (missing runtime URL,
+   * runtime without thread endpoints) and genuine list-load/mutation failures.
+   * End-user surfaces that must not leak config errors should prefer
+   * {@link listError}, which excludes the config/runtime-setup errors.
    */
   error: Error | null;
+  /**
+   * The most recent genuine list-load or mutation error from the platform, or
+   * `null`. Unlike {@link error}, this EXCLUDES developer/config errors (a
+   * missing runtime URL, or a runtime that does not advertise thread
+   * endpoints), so an end-user surface can render it directly without leaking
+   * a developer-facing configuration message into the UI.
+   */
+  listError: Error | null;
   /**
    * `true` when there are more threads available to fetch via
    * {@link fetchMoreThreads}. Only meaningful when `limit` is set.
@@ -89,10 +113,29 @@ export interface UseThreadsResult {
    */
   isFetchingMoreThreads: boolean;
   /**
+   * `true` while at least one thread mutation (rename, archive, unarchive,
+   * delete) is awaiting a server response. Mutations apply optimistically, so
+   * this is primarily useful for disabling controls or showing a subtle
+   * in-flight indicator.
+   */
+  isMutating: boolean;
+  /**
    * Fetch the next page of threads. No-op when {@link hasMoreThreads} is
    * `false` or a fetch is already in progress.
    */
   fetchMoreThreads: () => void;
+  /**
+   * Re-fetch the thread list from the platform without clearing the current
+   * list. Backs the drawer's error-state Retry and the Active/All filter
+   * refetch. No-op until the runtime is connected.
+   */
+  refetchThreads: () => void;
+  /**
+   * Reset to a fresh, non-explicit client-side thread so the welcome screen
+   * shows. Lazy creation: no row appears in {@link threads} until the new
+   * thread's first run persists server-side.
+   */
+  startNewThread: () => void;
   /**
    * Rename a thread on the platform.
    * Resolves when the server confirms the update; rejects on failure.
@@ -104,6 +147,12 @@ export interface UseThreadsResult {
    * Resolves when the server confirms the update; rejects on failure.
    */
   archiveThread: (threadId: string) => Promise<void>;
+  /**
+   * Restore a previously archived thread on the platform.
+   * The thread re-appears in default (non-archived) list results.
+   * Resolves when the server confirms the update; rejects on failure.
+   */
+  unarchiveThread: (threadId: string) => Promise<void>;
   /**
    * Permanently delete a thread from the platform.
    * This is irreversible. Resolves when the server confirms deletion;
@@ -125,6 +174,11 @@ function useThreadStoreSelector<T>(
       [store, selector],
     ),
     () => selector(store.getState()),
+    // getServerSnapshot: without this third argument React throws
+    // "Missing getServerSnapshot" during SSR/prerender (e.g. Next.js). The
+    // store has no client data while prerendering, so we project from its
+    // stable server state.
+    () => selector(store.getServerState()),
   );
 }
 
@@ -137,9 +191,9 @@ function useThreadStoreSelector<T>(
  * current without polling — thread creates, renames, archives, and deletes
  * from any client are reflected immediately.
  *
- * Mutation methods (`renameThread`, `archiveThread`, `deleteThread`) return
- * promises that resolve once the platform confirms the operation and reject
- * with an `Error` on failure.
+ * Mutation methods (`renameThread`, `archiveThread`, `unarchiveThread`,
+ * `deleteThread`) return promises that resolve once the platform confirms the
+ * operation and reject with an `Error` on failure.
  *
  * @param input - Agent identifier and optional list controls.
  * @returns Thread list state and stable mutation callbacks.
@@ -173,6 +227,7 @@ export function useThreads({
   agentId,
   includeArchived,
   limit,
+  enabled = true,
 }: UseThreadsInput): UseThreadsResult {
   const { copilotkit } = useCopilotKit();
 
@@ -205,6 +260,7 @@ export function useThreads({
     store,
     ɵselectIsFetchingNextPage,
   );
+  const isMutating = useThreadStoreSelector(store, ɵselectIsMutating);
   const headersKey = useMemo(() => {
     return JSON.stringify(
       Object.entries(copilotkit.headers ?? {}).sort(([left], [right]) =>
@@ -256,15 +312,37 @@ export function useThreads({
   // isLoading takes over).
   const [hasDispatchedContext, setHasDispatchedContext] = useState(false);
   const preConnectLoading =
+    enabled &&
     !!copilotkit.runtimeUrl &&
     !threadEndpointsUnavailable &&
     !hasDispatchedContext;
 
+  // `startNewThread` resets to a clean welcome surface, so it should clear any
+  // lingering error banner — including the config/runtime-setup errors that
+  // otherwise outrank the store's own (already-cleared) error. We cannot clear
+  // a derived `runtimeError`/`threadEndpointsError` directly (they reflect
+  // current config), so we suppress them with a dismissal flag that resets
+  // whenever the underlying config-error identity changes (a genuine new config
+  // problem re-surfaces).
+  const [configErrorDismissed, setConfigErrorDismissed] = useState(false);
+  useEffect(() => {
+    setConfigErrorDismissed(false);
+  }, [runtimeError, threadEndpointsError]);
+
+  const activeRuntimeError = configErrorDismissed ? null : runtimeError;
+  const activeThreadEndpointsError = configErrorDismissed
+    ? null
+    : threadEndpointsError;
+
   const isLoading =
-    runtimeError || threadEndpointsError
+    activeRuntimeError || activeThreadEndpointsError
       ? false
       : preConnectLoading || storeIsLoading;
-  const error = runtimeError ?? threadEndpointsError ?? storeError;
+  const error = activeRuntimeError ?? activeThreadEndpointsError ?? storeError;
+  // End-user-facing list/mutation error only: developer/config errors are
+  // excluded so a surface like <CopilotDrawer> does not show "Runtime URL is
+  // not configured" to an end user.
+  const listError = storeError;
 
   useEffect(() => {
     store.start();
@@ -285,13 +363,27 @@ export function useThreads({
   // realtime subscription or cached thread list stays usable while the
   // runtime recovers, and we don't re-trigger a fetch storm on transitions.
   useEffect(() => {
+    // A disabled (e.g. unlicensed) drawer must not claim the agentId slot. The
+    // registry is single-slot/last-writer-wins, so registering an inert store
+    // would evict — and on unmount tear down — a co-mounted live store for the
+    // same agent. Staying unregistered while disabled leaves the live store's
+    // registration intact.
+    if (!enabled) return;
     copilotkit.registerThreadStore(agentId, store);
     return () => {
       copilotkit.unregisterThreadStore(agentId);
     };
-  }, [copilotkit, agentId, store]);
+  }, [copilotkit, agentId, store, enabled]);
 
   useEffect(() => {
+    // Disabled: stay inert. Clear any previously-dispatched context so an
+    // in-flight subscription is torn down and no further fetch is issued.
+    if (!enabled) {
+      store.setContext(null);
+      setHasDispatchedContext(false);
+      return;
+    }
+
     if (!copilotkit.runtimeUrl) {
       store.setContext(null);
       setHasDispatchedContext(false);
@@ -323,6 +415,7 @@ export function useThreads({
     setHasDispatchedContext(true);
   }, [
     store,
+    enabled,
     copilotkit.runtimeUrl,
     runtimeStatus,
     headersKey,
@@ -360,22 +453,40 @@ export function useThreads({
     [store, guardMutation],
   );
 
+  const unarchiveThread = useMemo(
+    () => guardMutation((threadId: string) => store.unarchiveThread(threadId)),
+    [store, guardMutation],
+  );
+
   const deleteThread = useMemo(
     () => guardMutation((threadId: string) => store.deleteThread(threadId)),
     [store, guardMutation],
   );
 
   const fetchMoreThreads = useCallback(() => store.fetchNextPage(), [store]);
+  const refetchThreads = useCallback(() => store.refetchThreads(), [store]);
+  const startNewThread = useCallback(() => {
+    // The store's `newThreadStarted` reducer clears its own error; also dismiss
+    // the derived config/runtime-setup errors so the welcome surface renders
+    // with no stale error banner.
+    setConfigErrorDismissed(true);
+    store.startNewThread();
+  }, [store]);
 
   return {
     threads,
     isLoading,
     error,
+    listError,
     hasMoreThreads,
     isFetchingMoreThreads,
+    isMutating,
     fetchMoreThreads,
+    refetchThreads,
+    startNewThread,
     renameThread,
     archiveThread,
+    unarchiveThread,
     deleteThread,
   };
 }

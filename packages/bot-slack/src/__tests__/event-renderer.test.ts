@@ -423,9 +423,13 @@ describe("createRunRenderer", () => {
   });
 });
 
-describe("createRunRenderer — assistant pane status mode", () => {
+describe("createRunRenderer — native status mode", () => {
   function makePaneClient() {
-    const statuses: { status: string; loading_messages?: string[] }[] = [];
+    const statuses: {
+      status: string;
+      loading_messages?: string[];
+      thread_ts?: string;
+    }[] = [];
     const posts: { text: string; ts: string }[] = [];
     const updates: { ts: string; text: string }[] = [];
     let counter = 0;
@@ -445,10 +449,15 @@ describe("createRunRenderer — assistant pane status mode", () => {
     const assistant = {
       threads: {
         setStatus: vi.fn(
-          async (args: { status: string; loading_messages?: string[] }) => {
+          async (args: {
+            status: string;
+            loading_messages?: string[];
+            thread_ts?: string;
+          }) => {
             statuses.push({
               status: args.status,
               loading_messages: args.loading_messages,
+              thread_ts: args.thread_ts,
             });
             return { ok: true };
           },
@@ -464,13 +473,18 @@ describe("createRunRenderer — assistant pane status mode", () => {
     const { subscriber: sub } = createRunRenderer({
       client: f.client,
       target: { channel: "D1", threadTs: "100.0" },
-      assistantStatus: { thinking: "is pondering…", loadingMessages: ["a"] },
+      status: {
+        threadTs: "100.0",
+        isPane: true,
+        config: { thinking: "is pondering…", loadingMessages: ["a"] },
+      },
     });
     await sub.onRunStartedEvent!({} as never);
     expect(f.posts).toHaveLength(0);
     expect(f.statuses[0]).toEqual({
       status: "is pondering…",
       loading_messages: ["a"],
+      thread_ts: "100.0",
     });
   });
 
@@ -479,7 +493,7 @@ describe("createRunRenderer — assistant pane status mode", () => {
     const { subscriber: sub } = createRunRenderer({
       client: f.client,
       target: { channel: "D1", threadTs: "100.0" },
-      assistantStatus: {},
+      status: { threadTs: "100.0", isPane: true, config: {} },
     });
     await sub.onToolCallStartEvent!({
       event: { toolCallId: "t1", toolCallName: "search" },
@@ -493,7 +507,7 @@ describe("createRunRenderer — assistant pane status mode", () => {
     const { subscriber: sub } = createRunRenderer({
       client: f.client,
       target: { channel: "D1", threadTs: "100.0" },
-      assistantStatus: {},
+      status: { threadTs: "100.0", isPane: true, config: {} },
       showToolStatus: false,
     });
     await sub.onToolCallStartEvent!({
@@ -508,7 +522,7 @@ describe("createRunRenderer — assistant pane status mode", () => {
     const { subscriber: sub } = createRunRenderer({
       client: f.client,
       target: { channel: "D1", threadTs: "100.0" },
-      assistantStatus: {},
+      status: { threadTs: "100.0", isPane: true, config: {} },
     });
     await sub.onRunStartedEvent!({} as never);
     await sub.onTextMessageStartEvent!({
@@ -527,10 +541,53 @@ describe("createRunRenderer — assistant pane status mode", () => {
     const { subscriber: sub } = createRunRenderer({
       client: f.client,
       target: { channel: "D1", threadTs: "100.0" },
-      assistantStatus: { thinking: "t" },
+      status: { threadTs: "100.0", isPane: true, config: { thinking: "t" } },
     });
     await sub.onRunStartedEvent!({} as never);
     await sub.onRunFinishedEvent!({} as never);
     expect(f.statuses.at(-1)?.status).toBe("");
+  });
+
+  // ── Non-pane: a channel @-mention / thread (isPane:false) gets the native
+  // "is thinking…" status instead of the old :hourglass: placeholder, but tool
+  // progress still flows to :wrench: rows (not composer status). ──────────────
+  it("non-pane thread: sets native status on run start (no :hourglass: placeholder)", async () => {
+    const f = makePaneClient();
+    const { subscriber: sub } = createRunRenderer({
+      client: f.client,
+      target: { channel: "C1", threadTs: "100.0" },
+      status: { threadTs: "100.0", isPane: false, config: {} },
+    });
+    await sub.onRunStartedEvent!({} as never);
+    expect(f.posts).toHaveLength(0);
+    expect(f.statuses[0]?.status).toBe("is thinking…");
+  });
+
+  it("non-pane thread: tool calls still post :wrench: rows, not composer status", async () => {
+    const f = makePaneClient();
+    const { subscriber: sub } = createRunRenderer({
+      client: f.client,
+      target: { channel: "C1", threadTs: "100.0" },
+      status: { threadTs: "100.0", isPane: false, config: {} },
+    });
+    await sub.onToolCallStartEvent!({
+      event: { toolCallId: "t1", toolCallName: "search" },
+    } as never);
+    expect(f.posts.at(-1)?.text).toContain(":wrench:");
+    expect(f.statuses.some((s) => s.status.includes("is using"))).toBe(false);
+  });
+
+  it("uses the provided threadTs anchor (e.g. a DM's inbound ts) for setStatus", async () => {
+    const f = makePaneClient();
+    const { subscriber: sub } = createRunRenderer({
+      client: f.client,
+      // Flat DM: the channel target has no threadTs, but the adapter passes the
+      // inbound message ts as the status anchor.
+      target: { channel: "D1" },
+      status: { threadTs: "999.000", isPane: false, config: {} },
+    });
+    await sub.onRunStartedEvent!({} as never);
+    expect(f.statuses[0]?.status).toBe("is thinking…");
+    expect(f.statuses[0]?.thread_ts).toBe("999.000");
   });
 });

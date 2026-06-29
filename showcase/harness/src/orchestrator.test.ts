@@ -3207,7 +3207,7 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
     await worker.stop();
   });
 
-  it("deregisters BEFORE teardown completes, never reports the abandoned job, and latches out the post-deregister job-settle heartbeat", async () => {
+  it("deregisters BEFORE teardown completes, reports the run that settles within grace (finish-and-report), and latches out the post-deregister job-settle heartbeat", async () => {
     // Shrink the drain grace (like test A) so the assertion is insensitive to
     // the default's value and the grace detach stays fast under test.
     vi.stubEnv("WORKER_DRAIN_GRACE_MS", "200");
@@ -3260,17 +3260,24 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
     await vi.waitFor(() => expect(events).toContain("roster-delete"));
     expect(events).not.toContain("teardown-complete");
 
-    // …then the wedged teardown "completes" the run GREEN. The drain signal
-    // (not stop() completion) keys the report-skip, so it is still abandoned.
+    // …then the wedged teardown "completes" the run GREEN. This release lands
+    // BEFORE the 200ms drain grace expires, so the run FINISHES under its own
+    // steam — `runAbort` never fires (worker-loop.ts:1353) — and layer (b)
+    // falls through to the finish-and-report path. This is the intended
+    // finish-and-report behavior: a drained run that settles within grace
+    // produces a usable terminal result and IS reported; only a run that
+    // overruns past grace (genuinely abandoned — see sibling test A) is left
+    // unreported. The report decision keys on `abortedWithoutResult`
+    // (grace-expiry runAbort), NOT on the drain signal.
     //
     // GRACE-RACE NOTE: with the 200ms grace stubbed above, stop() either (a)
     // observes the released run settle first, or (b) detaches at grace expiry
-    // while the release's microtasks land moments later. BOTH outcomes are
-    // safe for the assertions below: the roster delete already happened (so
-    // the roster-delete < teardown-complete ordering holds either way), the
-    // report-skip keys on the drain SIGNAL (so the green settle is never
-    // reported in either branch), and `teardown-complete` is pushed by the
-    // driver's own settle, not by stop() resolving.
+    // while the release's microtasks land moments later. BOTH outcomes report
+    // the green terminal: the released run settled within grace so `runAbort`
+    // never fired in either branch. The roster delete already happened (so the
+    // roster-delete < teardown-complete ordering holds either way), and
+    // `teardown-complete` is pushed by the driver's own settle, not by stop()
+    // resolving.
     release();
     await drainPromise;
 
@@ -3287,7 +3294,12 @@ describe("drainFleetWorker — deregister-FIRST drain ordering", () => {
     expect(events.indexOf("roster-delete")).toBeLessThan(
       events.indexOf("teardown-complete"),
     );
-    expect(reportSpy).not.toHaveBeenCalled();
+    // The released run settled GREEN within the drain grace, so layer (b)
+    // reports the real terminal (finish-and-report), mirroring the canonical
+    // worker-loop.test.ts "settles green after drain (before grace-expiry) is
+    // REPORTED" assertion.
+    expect(reportSpy).toHaveBeenCalledTimes(1);
+    expect(reportSpy.mock.calls[0]![0].result.aggregateState).toBe("green");
     // The run-settle heartbeat fired AFTER deregister was latched out: the
     // delete is the LAST roster write — no resurrection upsert follows it.
     expect(settled[settled.length - 1]).toBe("delete");
@@ -5361,10 +5373,10 @@ describe("buildProducerSchedules (fleet multi-schedule manifest)", () => {
     );
     expect(byId.get(FLEET_PRODUCER_DEMOS_SCHEDULE_ID)?.producer).toBe(demos);
 
-    // deep: :05/:20/:35/:50 (e2e-deep.yml).
+    // deep: :00/:30 (e2e-deep.yml).
     expect(FLEET_PRODUCER_DEEP_SCHEDULE_ID).toBe("fleet-producer-e2e-deep");
     expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
-      "5,20,35,50 * * * *",
+      "*/30 * * * *",
     );
     expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
       FLEET_PRODUCER_DEEP_CRON,
@@ -5397,7 +5409,7 @@ describe("buildProducerSchedules (fleet multi-schedule manifest)", () => {
     );
     expect(byId.get(FLEET_PRODUCER_DEMOS_SCHEDULE_ID)?.cron).toBe("10 * * * *");
     expect(byId.get(FLEET_PRODUCER_DEEP_SCHEDULE_ID)?.cron).toBe(
-      "5,20,35,50 * * * *",
+      "*/30 * * * *",
     );
   });
 });
@@ -5674,7 +5686,7 @@ describe("runControlPlane registers 4 producer schedules on the scheduler", () =
       expect(byId.get("fleet-job-producer")).toBe("40 * * * *");
       expect(byId.get("fleet-producer-e2e-smoke")).toBe("*/15 * * * *");
       expect(byId.get("fleet-producer-e2e-demos")).toBe("10 * * * *");
-      expect(byId.get("fleet-producer-e2e-deep")).toBe("5,20,35,50 * * * *");
+      expect(byId.get("fleet-producer-e2e-deep")).toBe("*/30 * * * *");
 
       // The in-process HTTP probe families still register alongside (additive).
       const probeEntries = registered.filter((r) => r.id.startsWith("probe:"));
