@@ -1,5 +1,5 @@
 import type { BotNode } from "./ir.js";
-import type { ClickHandler } from "./types.js";
+import type { ClickHandler, MessageReactionHandler } from "./types.js";
 
 /**
  * Anything that can appear as a child in the component tree: nested elements,
@@ -27,12 +27,30 @@ interface WithChildren {
 export interface MessageProps extends WithChildren {
   /** Accent color (hex, e.g. `#27AE60`) for the message's colored rail. */
   accent?: string;
+  /**
+   * Called when a user reacts to this message (add or remove). The first arg is
+   * the emoji, e.g. `onReaction={(r) => r === "bug" ? triage() : ack()}`; the
+   * second carries `added`/`user`/`rawEmoji` plus a `thread` and the reacted
+   * message's `messageRef` — the same surface an `onClick` gets, so the handler
+   * can `thread.post(...)`, `thread.update(messageRef, ...)`, or run a HITL flow.
+   * Durable on the same terms as a component `onClick`: survives a restart when
+   * the `<Message>` comes from a registered component and a durable store is
+   * configured; inline handlers route in-process only.
+   */
+  onReaction?: MessageReactionHandler;
 }
 export interface HeaderProps extends WithChildren {}
 export interface SectionProps extends WithChildren {}
 export interface MarkdownProps extends WithChildren {}
 export interface FieldsProps extends WithChildren {}
-export interface FieldProps extends WithChildren {}
+export interface FieldProps extends WithChildren {
+  /**
+   * Bold label rendered before the value (e.g. `<Field label="Status">Online</Field>`).
+   * Rendered on Discord, Slack, and Telegram; surfaces without a field label
+   * concept fall back to the value text alone.
+   */
+  label?: string;
+}
 export interface ContextProps extends WithChildren {}
 export interface ActionsProps extends WithChildren {}
 
@@ -50,11 +68,17 @@ export interface ButtonProps<TValue = unknown> extends WithChildren {
   /**
    * Inline handler run when the button is clicked (bound by the action
    * registry). Its `ctx.action.value` is typed as `TValue`, inferred from
-   * `value`.
+   * `value`. Ignored when `url` is set (a link button doesn't dispatch).
    */
   onClick?: ClickHandler<TValue>;
   /** Value echoed back to `onClick`/`awaitChoice` on click; drives `TValue`. */
   value?: TValue;
+  /**
+   * Makes this a link button that opens `url` instead of dispatching a handler.
+   * Rendered natively on Slack, Discord, Teams, and Telegram; surfaces without
+   * link buttons skip it. When set, `onClick`/`value` are ignored.
+   */
+  url?: string;
   /** Slack button accent. */
   style?: "primary" | "danger";
 }
@@ -64,10 +88,21 @@ export interface SelectOption {
   value: string;
 }
 export interface SelectProps {
-  /** Handler run on selection; `ctx.action.value` is the chosen option's `value`. */
-  onSelect?: ClickHandler<string>;
+  /**
+   * Handler run on selection. `ctx.action.value` is the chosen option's `value`
+   * (a `string`), or a `string[]` of chosen values when `multi` is set.
+   */
+  onSelect?: ClickHandler<string | string[]>;
   placeholder?: string;
   options: SelectOption[];
+  /**
+   * Allow selecting multiple options. Rendered natively on Slack
+   * (`multi_static_select`), Discord (max-values), and Teams
+   * (`isMultiSelect`); surfaces that can only express a single choice
+   * (Telegram, WhatsApp) degrade to single-select. When set, `onSelect`
+   * receives a `string[]`.
+   */
+  multi?: boolean;
 }
 
 export interface InputProps {

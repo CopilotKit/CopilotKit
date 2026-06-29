@@ -336,13 +336,22 @@ function buildActionRows(
 
 function buildButton(node: BotNode): ButtonBuilder | undefined {
   const props = node.props ?? {};
+  const label = truncateText(
+    collectText(node) || " ",
+    DISCORD_LIMITS.buttonLabel,
+  );
+  // Link button: opens a URL natively, carries no custom_id, never dispatches.
+  if (typeof props.url === "string" && props.url.length > 0) {
+    return new ButtonBuilder()
+      .setStyle(ButtonStyle.Link)
+      .setLabel(label)
+      .setURL(props.url);
+  }
   const id = buttonCustomId(idFromHandler(props.onClick), props.value);
   if (!id) return undefined;
   const btn = new ButtonBuilder()
     .setCustomId(truncateText(id, DISCORD_LIMITS.customId))
-    .setLabel(
-      truncateText(collectText(node) || " ", DISCORD_LIMITS.buttonLabel),
-    )
+    .setLabel(label)
     .setStyle(buttonStyle(props.style));
   return btn;
 }
@@ -383,6 +392,11 @@ function buildSelect(node: BotNode): StringSelectMenuBuilder | undefined {
       ),
     )
     .addOptions(built);
+  // Multi-select: allow 0..N picks. maxValues > 1 is also the signal the decoder
+  // reads (interaction.component.maxValues) to return a string[] instead of one.
+  if (props.multi) {
+    select.setMinValues(0).setMaxValues(built.length);
+  }
   return select;
 }
 

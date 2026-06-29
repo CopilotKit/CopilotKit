@@ -242,6 +242,15 @@ describe("fixture collision detection", () => {
     // Disambiguated at runtime by feature route (tool-rendering vs custom-catchall
     // fixtureFile) plus the catchall's distinct first prompt ('check Tokyo weather
     // forecast') that gates the multi-pill session before the AAPL pill fires.
+    //
+    // NOTE: the a2ui-recovery demos (langgraph python/fastapi/typescript +
+    // strands python/typescript) deliberately use UNIQUE recovery prompts per
+    // framework. Inner render_a2ui fixtures cannot be context-scoped (the in-graph
+    // render sub-agent's model client does not forward x-aimock-context), and
+    // aimock loads every framework's d6 dir into one process, so identical prompts
+    // would let the first-loaded framework's fixture hijack another's render calls.
+    // Unique prompts keep each framework's inner fixtures distinct → no new
+    // shared-scope duplicates, so this ceiling stays at the pre-recovery baseline.
     const KNOWN_DUPLICATE_CEILING = 291;
 
     const collisions: string[] = [];

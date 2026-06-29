@@ -47,10 +47,37 @@ One per declared feature. Each demo must:
 - [ ] One agent per feature (names must match the `agent` prop in demo pages)
 - [ ] `langgraph.json` (Python) or equivalent config
 - [ ] **Pin framework versions** — see "Dependency Pinning" below
+- [ ] **Per-request `X-AIMock-Strict` forwarding** — the agent's outbound LLM
+      call to aimock MUST carry the inbound `X-AIMock-Strict` (+ `x-test-id`,
+      `x-aimock-context`, `x-diag-*`) headers so a fixture MISS hard-fails
+      instead of silently proxying to the real provider. Forward ONLY headers
+      PRESENT inbound (never hardcode strict on); demo traffic without the
+      header must still proxy. Missing this forwarding shows up as the **D3
+      column flapping** (intermittent amber/red e2e cells) because the rendered
+      answer is non-deterministic real-provider output. Precedent:
+      `integrations/built-in-agent/src/lib/header-forwarding.ts` (ALS +
+      `forwardingFetch`).
+- [ ] **Two-process integrations** (a Next proxy route in front of a separate
+      agent process): the header forwarder AND the CVDIAG emitter must live
+      **agent-side**, not on the Next route (the Next route is a bare proxy and
+      the transport may drop inbound `x-*` before the model call). The Next route
+      forwards inbound `x-*` onto the proxy POST; the agent process recovers them
+      via a middleware mounted before the framework handler. Worked example:
+      `integrations/strands-typescript/src/agent/{header-forwarding,cvdiag-backend-strands}.ts`.
 
 ### Infrastructure
 
 - [ ] `Dockerfile` — multi-stage, starts both agent backend and Next.js frontend
+- [ ] **Two-process integrations: `COPY src/cvdiag` into the runner stage** — if
+      the separate agent process imports the co-located emitter directly (e.g.
+      `../cvdiag/cvdiag-emitter.js`), the `Dockerfile` MUST stage it into the
+      image, e.g. `COPY --chown=app:app src/cvdiag ./src/cvdiag` right after the
+      `COPY --chown=app:app src/agent ./src/agent`. Single-process integrations
+      (`mastra`, `langgraph-typescript`, `claude-sdk-typescript`) get it via
+      Next's `.next` bundling and don't need this. Omitting it passes local d6
+      (where `bin/showcase cvdiag-stage-ts` materializes the emitter) but
+      **crashes at boot in Docker/staging with `ERR_MODULE_NOT_FOUND:
+.../src/cvdiag/cvdiag-emitter.js`**, so the D6 column never renders.
 - [ ] `entrypoint.sh` — starts agent server and Next.js, waits for both
 
 ### Testing & QA
@@ -58,6 +85,18 @@ One per declared feature. Each demo must:
 - [ ] `playwright.config.ts`
 - [ ] `tests/` — one E2E test per demo (basic: load → send message → get response)
 - [ ] `qa/` — manual QA checklist per demo
+- [ ] **CVDIAG instrumentation staged** — add the slug to
+      `_CVDIAG_TS_INTEGRATIONS` in `scripts/cli/cmd-cvdiag-stage-ts.sh`, run
+      `bin/showcase cvdiag-stage-ts`, and verify `bin/showcase cvdiag-stage-ts
+--check` exits 0 with zero drift (stages the co-located `src/cvdiag/`
+      emitter into the standalone build context).
+- [ ] **CVDIAG backend emitter wired** — the backend emits the 11 `backend.*`
+      boundaries and persists them to the `cvdiag_events` PocketBase collection
+      (`CVDIAG_BACKEND_EMITTER` / `CVDIAG_PB_URL` / `CVDIAG_WRITER_KEY` set on the
+      service env). The emitter adopts the inbound `x-test-id` as the cross-layer
+      JOIN key so its rows join the probe's. Verify with `bin/showcase cvdiag
+classify <test-id>` returning non-empty after a probe run. For two-process
+      integrations the emitter lives **agent-side** (see Agent Backend above).
 
 ### Assets
 

@@ -139,6 +139,110 @@ export type ProbeDriver =
   | "starter";
 
 /**
+ * Provisioning configuration for the `harness-workers` pool fleet. Carried on
+ * `ServiceEntry.workerProvisioning` and ONLY populated for `harness-workers`.
+ *
+ * The worker model is strictly 1-worker-per-replica: Railway runs ONE worker
+ * process per replica container (keyed on HOSTNAME), so the REAL live worker
+ * count equals the EFFECTIVE replica count. `HARNESS_POOL_COUNT` is the
+ * control-plane's informational "expected worker count" hint — it does NOT fork
+ * additional workers per replica and MUST NOT be treated as a multiplier or fork
+ * factor. The authoritative concurrency knob per worker is
+ * `BROWSER_POOL_MAX_CONTEXTS`.
+ *
+ * EFFECTIVE REPLICA COUNT — `multiRegionConfig.<region>.numReplicas`, NOT the
+ * top-level `numReplicas`. The harness-workers service is single-region
+ * (us-west2), and Railway derives the LIVE running replica count from the
+ * per-region `multiRegionConfig.us-west2.numReplicas` field. The top-level
+ * `numReplicas` is the legacy/aggregate knob; on a multiRegion service it is
+ * Railway-maintained to mirror the region sum but it is NOT the field the
+ * deploy honors. The SSOT therefore models `multiRegionConfig.us-west2.
+ * numReplicas` as the authoritative `effectiveReplicas` and keeps the
+ * top-level `numReplicas` only as a documented mirror. Verified live
+ * 2026-06-26 via the Railway GraphQL `environment.config` staged-config read:
+ * BOTH envs carry `deploy.multiRegionConfig = {"us-west2":{"numReplicas":6}}`.
+ *
+ * This is a DECLARE-AND-VERIFY record. The tooling (`emit-railway-envs-json.ts`,
+ * `bin/railway`) is VERIFY-ONLY with respect to the replica count — it does not
+ * write replica counts to Railway. Applying a replica-count change is a MANUAL
+ * operation (Railway Dashboard > Service > Settings > Replicas, which edits the
+ * per-region `multiRegionConfig.us-west2.numReplicas`, or the Railway GraphQL
+ * API). See `showcase/RAILWAY.md` for the manual procedure.
+ */
+export interface WorkerProvisioning {
+  /**
+   * EFFECTIVE replica count — the AUTHORITATIVE worker-count field. This is the
+   * `multiRegionConfig.us-west2.numReplicas` value Railway actually uses to
+   * derive the LIVE running replica count for this single-region (us-west2)
+   * service. The drift gate watches THIS field because it is the one that
+   * drives reality; the top-level `numReplicas` mirror below does NOT (Railway
+   * keeps it in sync as an aggregate, but the deploy honors the per-region
+   * config). Strictly 1:1 with live worker processes — each replica runs
+   * exactly ONE worker process (keyed on HOSTNAME). `HARNESS_POOL_COUNT` is
+   * informational only.
+   */
+  effectiveReplicas: number;
+  /**
+   * Top-level Railway `numReplicas` field for this env. Retained as a
+   * DOCUMENTED MIRROR of `effectiveReplicas` (Railway keeps it equal to the
+   * region sum on a multiRegion service), NOT as an authoritative knob — the
+   * deploy honors `multiRegionConfig.<region>.numReplicas` (`effectiveReplicas`).
+   * Kept here so the SSOT records both and makes the effective-vs-mirror
+   * distinction explicit. For harness-workers (single region) it always equals
+   * `effectiveReplicas`.
+   */
+  numReplicas: number;
+  /**
+   * Per-worker in-process concurrency budget: the `BROWSER_POOL_MAX_CONTEXTS`
+   * env var that caps how many Playwright browser contexts each worker may hold
+   * open simultaneously. NOT a per-fleet total; the fleet-wide budget is
+   * `effectiveReplicas × BROWSER_POOL_MAX_CONTEXTS`.
+   */
+  BROWSER_POOL_MAX_CONTEXTS: number;
+  /**
+   * INFORMATIONAL ONLY — the `HARNESS_POOL_COUNT` env var forwarded to each
+   * worker as a control-plane "expected worker count" hint. The worker code
+   * does NOT fork additional processes per pool count; it runs exactly one
+   * process per replica. The authoritative concurrency knob is
+   * `BROWSER_POOL_MAX_CONTEXTS`. This field is recorded here purely for
+   * operational visibility / config-audit purposes.
+   */
+  HARNESS_POOL_COUNT?: number;
+  /**
+   * DEPLOY-ROLLOVER CAPACITY FLOOR (seconds) — the Railway
+   * `serviceInstance.overlapSeconds` setting (env mirror
+   * `RAILWAY_DEPLOYMENT_OVERLAP_SECONDS`). Railway keeps the OLD deployment
+   * serving for this many seconds after the NEW deployment goes Active, so the
+   * live worker count never dips during a rollover (no staleness dip while new
+   * workers boot, register on the roster, and start claiming). This is PURE
+   * RAILWAY CONFIG — there is no custom rolling-restart code; the mechanism is
+   * the service setting alone. Composes with the layer-(b) graceful drain
+   * (`DEFAULT_WORKER_DRAIN_GRACE_MS`) and the layer-(a) reaper backstop. See
+   * `showcase/RAILWAY.md` "Deploy rollover" for the rationale and how to apply
+   * it (GraphQL `serviceInstanceUpdate` / dashboard). DECLARE-AND-VERIFY: the
+   * tooling is verify-only with respect to this field; applying it is a manual
+   * Railway operation.
+   */
+  overlapSeconds?: number;
+  /**
+   * GRACEFUL-DRAIN WINDOW (seconds) — the Railway
+   * `serviceInstance.drainingSeconds` setting (env mirror
+   * `RAILWAY_DEPLOYMENT_DRAINING_SECONDS`): the SIGTERM→SIGKILL window the
+   * platform grants a draining worker before hard-killing it. Sized to HOST the
+   * shipped composed worker-drain budget (layer b): the 3s deregister cap
+   * (`DRAIN_DEREGISTER_TIMEOUT_MS`) + the 90s finish-and-report grace
+   * (`DEFAULT_WORKER_DRAIN_GRACE_MS`) + the small serial teardown remainder, all
+   * of which must fit under `PLATFORM_STOP_GRACE_MS` (180s). Keeping this ≥
+   * `PLATFORM_STOP_GRACE_MS` lets a worker finish and report its in-flight cell
+   * before the kill instead of having the drain cut short. PURE RAILWAY CONFIG
+   * (no custom code). See `showcase/RAILWAY.md` "Deploy rollover" + the
+   * `PLATFORM_STOP_GRACE_MS` doc in `worker-loop.ts` (the C3 requirement). If the
+   * layer-(b) grace is retuned, raise this in lockstep.
+   */
+  drainingSeconds?: number;
+}
+
+/**
  * Per-env configuration for a service. One of these lives under each key of
  * `ServiceEntry.environments`. A service that exists in only one env has a
  * single key here (no placeholder for the missing env).
@@ -346,6 +450,36 @@ export interface ServiceEntry {
      */
     repoNameOverride?: { prod?: string; staging?: string };
   };
+  /**
+   * Harness-worker fleet provisioning record. ONLY populated on the
+   * `harness-workers` entry — all other services omit this field.
+   *
+   * These values match CURRENT LIVE REALITY as of 2026-06-26, VERIFIED via the
+   * Railway GraphQL `environment.config` staged-config read (both envs carry
+   * `deploy.multiRegionConfig = {"us-west2":{"numReplicas":6}}`):
+   *   prod:    effectiveReplicas=6, numReplicas(mirror)=6, BROWSER_POOL_MAX_CONTEXTS=40
+   *   staging: effectiveReplicas=6, numReplicas(mirror)=6, BROWSER_POOL_MAX_CONTEXTS=40
+   *
+   * EFFECTIVE FIELD: `effectiveReplicas` models `multiRegionConfig.us-west2.
+   * numReplicas` — the field Railway actually honors for this single-region
+   * service. The top-level `numReplicas` is a documented mirror only. The drift
+   * gate asserts `effectiveReplicas`.
+   *
+   * PROD/STAGING PARITY ACHIEVED: B-reconcile scaled prod harness-workers to 6
+   * replicas (both the top-level field AND `multiRegionConfig.us-west2.
+   * numReplicas`) to match staging (6). Prod and staging are now at parity
+   * (6/6). The earlier prod=3 state and the staging config-field-vs-live drift
+   * (config=2 / live=6) are both RESOLVED: the live staged config now reads 6
+   * in both envs, verified above.
+   *
+   * See the `WorkerProvisioning` interface (above) for the 1-worker-per-replica
+   * model, the effective-vs-mirror replica distinction, and HARNESS_POOL_COUNT
+   * informational semantics.
+   */
+  workerProvisioning?: {
+    prod: WorkerProvisioning;
+    staging: WorkerProvisioning;
+  };
 }
 
 /**
@@ -511,55 +645,54 @@ export const SERVICES: Record<
   // not `showcase-harness-worker`.
   "harness-workers": {
     serviceId: "c2aa8a0b-350e-4b76-8541-3012dfac41d0",
-    // Pool-fleet worker. Workers now run in BOTH staging and prod: the
-    // prod worker is live on Railway (deployed 2026-06-19, HARNESS_ROLE=worker,
-    // pool count 2). This SSOT entry, however, still only models the STAGING
-    // instance — a `prod` env entry has NOT yet been backfilled here, so the
-    // entry currently declares staging only. Under the env-map schema we
-    // simply OMIT the prod key (no placeholder ID is needed). gateIgnore
-    // skips both gate directions; ciBuilt:false because the worker has no
-    // build slot of its own — but `imageOf: "harness"` (below) puts it in the
-    // staging redeploy scope whenever the shared showcase-harness image is
-    // rebuilt. To bring the live prod worker under this SSOT, add a `prod`
-    // env entry with its real serviceInstance ID, flip gateIgnore off, and
-    // set gateValidated: true (the imageOf expansion is env-aware and will
-    // start covering prod automatically once the prod env entry exists).
+    // Pool-fleet worker. Workers run in BOTH staging and prod: the prod worker
+    // is live on Railway (deployed 2026-06-19, HARNESS_ROLE=worker, pool
+    // count 2) and is now BACKFILLED as a `prod` env entry below (real
+    // serviceInstance ID `7c48ee43-…`). ciBuilt:false because the worker has
+    // no build slot of its own — but `imageOf: "harness"` (below) puts it in
+    // the redeploy scope of BOTH envs whenever the shared showcase-harness
+    // image is rebuilt. Before this backfill the entry modeled only staging,
+    // so the env-aware `imageOf` expansion (redeploy-env.ts:278) SILENTLY
+    // SKIPPED the prod worker on a `showcase-harness:latest` rebuild — the
+    // prod worker kept its stale 2026-06-19 image (a 1-demo `registry.json`
+    // for `ms-agent-harness-dotnet` → missing `UI` badge → D0). Declaring the
+    // prod env here closes that gap: a rebuild now bounces the prod worker too.
     ciBuilt: false,
-    // gateIgnore: deliberately-untracked for the image-ref gate. As modeled
-    // here the worker is single-env (staging only) and domainless (it pulls
-    // jobs from the control-plane queue rather than serving HTTP), so it does
-    // not fit the symmetric dual-env / public-domain shape the gate validates.
-    // (The live prod worker exists on Railway but is not yet an SSOT prod env
-    // — see the entry header above.) Listing
-    // it here (with gateIgnore) is what clears the "untracked Railway
-    // service" failure — findUntrackedServices treats any SSOT entry as
-    // known — WITHOUT triggering a false "missing from prod" failure from
-    // findMissingServices (which only checks gateValidated:true entries).
-    gateValidated: false,
-    gateIgnore: true,
+    // gateValidated: true — the worker is now a modeled dual-env service, so
+    // the image-ref gate validates its `showcase-harness` image refs in both
+    // envs (findMissingServices checks gateValidated:true entries; both env
+    // entries carry an explicit `repoName: "showcase-harness"`). gateIgnore is
+    // dropped: the SSOT now fully models the live Railway service in both envs,
+    // so neither the SSOT→Railway nor the Railway→SSOT gate direction needs an
+    // opt-out.
+    gateValidated: true,
     probeDriver: "harness",
-    // Tier-1 verification fleet. This SSOT entry declares no prod env below
-    // (only the staging instance is modeled, though a prod worker is live on
-    // Railway — see the entry header), so computePromoteClosure records it as
-    // skipped-with-reason rather than promoting it; the tier survives for when
-    // the prod worker is backfilled as a `prod` env entry here.
+    // Tier-1 verification fleet. With the prod env declared below,
+    // computePromoteClosure now promotes the prod worker alongside the
+    // harness control-plane (rather than recording it skipped-with-reason).
     promoteTier: 1,
     // The worker runs the SAME `showcase-harness` GHCR image that the
     // existing `harness` (control-plane) service runs — it is NOT a
     // separately-built image. The single `showcase-harness` build slot in
     // showcase_build.yml produces the image both services consume; there is
     // no `harness-workers` build slot. Hence ciBuilt:false, with the
-    // consumption modeled explicitly via imageOf so the staging redeploy
-    // after a successful `showcase-harness` build bounces the worker too
-    // (it used to be silently skipped, leaving it on the stale image). The
-    // repoName override points at `showcase-harness` so the image-ref shape
-    // resolves correctly if the gate ever validates it.
+    // consumption modeled explicitly via imageOf so the redeploy after a
+    // successful `showcase-harness` build bounces the worker in EVERY env it
+    // declares (it used to be silently skipped in prod, leaving it on the
+    // stale image). The per-env repoName override points at `showcase-harness`
+    // so the image-ref shape resolves correctly.
     imageOf: "harness",
     //
-    // No public domain (queue worker, not HTTP-exposed) and probe disabled:
-    // verify-deploy skips probe:false services, and the schema no longer
-    // requires a domain, so we OMIT it rather than point at a borrowed host.
+    // No public domain (queue worker, not HTTP-exposed) and probe disabled in
+    // both envs: verify-deploy skips probe:false services, and the schema does
+    // not require a domain, so we OMIT it rather than point at a borrowed host.
     environments: {
+      prod: {
+        instanceId: "7c48ee43-6df4-457b-b977-10f1f1ac1680",
+        healthcheckPath: "/health",
+        probe: false,
+        repoName: "showcase-harness",
+      },
       staging: {
         instanceId: "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
         healthcheckPath: "/health",
@@ -567,18 +700,68 @@ export const SERVICES: Record<
         repoName: "showcase-harness",
       },
     },
-    // Ruby/jq JSON-shape compat (see ServiceEntry.legacyJsonCompat). The
-    // emitter fills the absent prod env's prodInstanceId from serviceId and
-    // both domains from the legacy borrowed control-plane harness hosts so
-    // the generated JSON stays byte-identical. None of these are read by TS.
+    // Ruby/jq JSON-shape compat (see ServiceEntry.legacyJsonCompat). The prod
+    // env is now real, so its prodInstanceId/repoName come straight from the
+    // env map; the only remaining compat shim is the borrowed control-plane
+    // hosts for the domainless worker's `domains{}` block (probe:false in both
+    // envs, so these hosts are never dereferenced at runtime — they exist only
+    // to keep the generated JSON's `domains` shape byte-stable). Not read by TS.
     legacyJsonCompat: {
       domains: {
         prod: "showcase-harness-production.up.railway.app",
         staging: "harness-staging-2ee4.up.railway.app",
       },
-      // The absent prod env carried a placeholder repoName in the legacy
-      // JSON; restore it so repoNameOverride stays {prod, staging}.
-      repoNameOverride: { prod: "showcase-harness" },
+    },
+    // Worker-fleet provisioning (SSOT). Values = CURRENT LIVE REALITY (2026-06-26),
+    // verified via the Railway GraphQL environment.config staged-config read.
+    // 1-worker-per-replica model: the EFFECTIVE replica count IS the worker count
+    // (strictly 1:1). The authoritative field is `effectiveReplicas` =
+    // multiRegionConfig.us-west2.numReplicas — the value Railway honors. The
+    // top-level `numReplicas` is a documented mirror only (always equal here,
+    // single-region). HARNESS_POOL_COUNT is INFORMATIONAL ONLY — it does NOT
+    // fork workers. Per-worker concurrency knob is BROWSER_POOL_MAX_CONTEXTS.
+    //
+    // PARITY ACHIEVED (B-reconcile): prod was scaled 3 → 6 to match staging, in
+    // BOTH the top-level numReplicas and multiRegionConfig.us-west2.numReplicas.
+    // Live staged config now reads {"us-west2":{"numReplicas":6}} in both envs.
+    //   prod:    effectiveReplicas=6 → 6 live workers.
+    //   staging: effectiveReplicas=6 → 6 live workers.
+    // The earlier staging config-field-vs-live drift (config=2 / live=6) is also
+    // resolved: the staged config field now reads 6.
+    workerProvisioning: {
+      prod: {
+        // EFFECTIVE = multiRegionConfig.us-west2.numReplicas (Railway honors this).
+        effectiveReplicas: 6,
+        // Top-level mirror (equal, single-region).
+        numReplicas: 6,
+        BROWSER_POOL_MAX_CONTEXTS: 40,
+        // INFORMATIONAL ONLY — not a fork factor.
+        HARNESS_POOL_COUNT: 3,
+        // DEPLOY ROLLOVER (layer c) — pure Railway config, no rolling-restart code.
+        // overlap=45s holds the capacity floor (old deployment serves until new
+        // workers register+claim); draining=180s ≥ PLATFORM_STOP_GRACE_MS so the
+        // 3s+90s composed worker-drain (layer b) completes before SIGKILL. See
+        // showcase/RAILWAY.md "Deploy rollover".
+        overlapSeconds: 45,
+        drainingSeconds: 180,
+      },
+      staging: {
+        // EFFECTIVE = multiRegionConfig.us-west2.numReplicas (Railway honors this).
+        effectiveReplicas: 6,
+        // Top-level mirror (equal, single-region).
+        numReplicas: 6,
+        BROWSER_POOL_MAX_CONTEXTS: 40,
+        // INFORMATIONAL ONLY — not a fork factor. Live staging value is 2
+        // (verified via the variables read); it does not gate the worker count.
+        HARNESS_POOL_COUNT: 2,
+        // DEPLOY ROLLOVER (layer c) — pure Railway config, no rolling-restart code.
+        // overlap=45s holds the capacity floor (old deployment serves until new
+        // workers register+claim); draining=180s ≥ PLATFORM_STOP_GRACE_MS so the
+        // 3s+90s composed worker-drain (layer b) completes before SIGKILL. See
+        // showcase/RAILWAY.md "Deploy rollover".
+        overlapSeconds: 45,
+        drainingSeconds: 180,
+      },
     },
   },
   pocketbase: {
@@ -1780,6 +1963,26 @@ export function healthcheckPathFor(
  */
 export function isTrackedService(serviceName: string): boolean {
   return findEntry(serviceName) !== undefined;
+}
+
+/**
+ * Resolve the `WorkerProvisioning` record for a (serviceName, env) pair, or
+ * `undefined` when the service declares no `workerProvisioning` or has no
+ * entry for the given env. Returns undefined (rather than throwing) on unknown
+ * service, missing field, or undeclared env — the caller decides whether absence
+ * is an error (the drift-gate test requires it to be non-null for
+ * `harness-workers`).
+ *
+ * Only `harness-workers` carries this field today. Use it to read the
+ * authoritative `numReplicas` and `BROWSER_POOL_MAX_CONTEXTS` for a given env.
+ */
+export function workerProvisioningFor(
+  serviceName: string,
+  env: "prod" | "staging",
+): WorkerProvisioning | undefined {
+  const entry = findEntry(serviceName);
+  if (entry === undefined) return undefined;
+  return entry.workerProvisioning?.[env];
 }
 
 /**

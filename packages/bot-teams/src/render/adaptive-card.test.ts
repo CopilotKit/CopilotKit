@@ -80,6 +80,31 @@ describe("renderAdaptiveCard", () => {
     ]);
   });
 
+  it("renders a url <Button> as an Action.OpenUrl", () => {
+    const card = renderAdaptiveCard([
+      el("actions", [
+        el("button", [text("Open")], { url: "https://dash/deploy/42" }),
+      ]),
+    ]);
+    expect(card.actions).toEqual([
+      { type: "Action.OpenUrl", title: "Open", url: "https://dash/deploy/42" },
+    ]);
+  });
+
+  it("marks a multi <Select> ChoiceSet as isMultiSelect", () => {
+    const card = renderAdaptiveCard([
+      el("select", [], {
+        multi: true,
+        onSelect: { id: "ck:pick" },
+        options: [{ label: "One", value: "1" }],
+      }),
+    ]);
+    expect(card.body[0]).toMatchObject({
+      type: "Input.ChoiceSet",
+      isMultiSelect: true,
+    });
+  });
+
   it("renders <Select>/<Input> as body inputs", () => {
     const card = renderAdaptiveCard([
       el("select", [], {

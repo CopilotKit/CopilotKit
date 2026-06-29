@@ -190,6 +190,9 @@ export const REGISTRY_TO_D5: Readonly<
   // does not — the advanced probe asserts iframe presence as its
   // distinguishing signal.
   "declarative-gen-ui": ["gen-ui-declarative"],
+  // A2UI error recovery — the validate->retry recovery loop demo
+  // (heal vs. exhaust). Registry id == D5 featureType == demo route.
+  "a2ui-recovery": ["a2ui-recovery"],
   "a2ui-fixed-schema": ["gen-ui-a2ui-fixed"],
   "open-gen-ui": ["gen-ui-open"],
   "open-gen-ui-advanced": ["gen-ui-open-advanced"],
