@@ -18,7 +18,7 @@ export type { UseInterruptConfig } from "./use-interrupt";
 export { useThreads } from "./use-threads";
 export type { Thread, UseThreadsInput, UseThreadsResult } from "./use-threads";
 export { useMemories } from "./use-memories";
-export type { UseMemoriesInput, UseMemoriesResult } from "./use-memories";
+export type { UseMemoriesResult } from "./use-memories";
 export { useLearnFromUserAction } from "./use-learn-from-user-action";
 export type {
   LearnFromUserActionInput,

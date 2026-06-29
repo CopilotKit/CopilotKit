@@ -1,8 +1,17 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import type { Mock } from "vitest";
 import { useCopilotKit } from "../../context";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import { ɵcreateMemoryStore } from "@copilotkit/core";
+import type { ɵMemoryStore } from "@copilotkit/core";
 import { useMemories } from "../use-memories";
 
 vi.mock("../../context", () => ({
@@ -11,7 +20,6 @@ vi.mock("../../context", () => ({
 
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 
-const AGENT_ID = "agent-1";
 const RUNTIME_URL = "https://runtime.example.com";
 
 type WireMemory = {
@@ -72,42 +80,74 @@ function makeFetchMock(
   });
 }
 
-let registeredStore: unknown;
-let fetchMock: Mock;
+// Stub the global fetch once for the entire module — RxJS's fromFetch always
+// calls globalThis.fetch, so injected fetch in ɵcreateMemoryStore is a
+// pass-through. vi.stubGlobal restores the original automatically on afterAll.
+const fetchMock = vi.fn();
+vi.stubGlobal("fetch", fetchMock);
 
-function setupCopilotKit(): void {
-  registeredStore = undefined;
+let store: ɵMemoryStore;
+
+function setupCopilotKit(mock: Mock): void {
+  store = ɵcreateMemoryStore({ fetch: mock });
+  store.start();
 
   mockUseCopilotKit.mockReturnValue({
     copilotkit: {
-      runtimeUrl: RUNTIME_URL,
-      headers: {},
-      intelligence: { wsUrl: "wss://gw.example.com/client" },
-      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
-      registerMemoryStore: vi.fn((_agentId: string, store: unknown) => {
-        registeredStore = store;
-      }),
-      unregisterMemoryStore: vi.fn(),
+      getMemoryStore: () => store,
     },
     executingToolCallIds: new Set(),
   });
 }
 
+/**
+ * Triggers the store's first context dispatch so the snapshot fetch fires.
+ * Must be called inside `act(...)` after `renderHook` so the hook is already
+ * subscribed when the async response arrives.
+ */
+function activateStore(): void {
+  store.setContext({
+    runtimeUrl: RUNTIME_URL,
+    wsUrl: "wss://gw.example.com/client",
+    headers: {},
+  });
+}
+
 describe("useMemories", () => {
   beforeEach(() => {
-    setupCopilotKit();
+    fetchMock.mockReset();
+    mockUseCopilotKit.mockReset();
+    // Default: empty snapshot with no mutations expected.
+    fetchMock.mockImplementation(makeFetchMock([]));
+    setupCopilotKit(fetchMock);
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
 
-  it("loads the snapshot on mount", async () => {
-    fetchMock = makeFetchMock([wireMemory("m1"), wireMemory("m2")]);
-    vi.stubGlobal("fetch", fetchMock);
+  afterAll(() => {
+    vi.unstubAllGlobals();
+  });
 
-    const { result } = renderHook(() => useMemories({ agentId: AGENT_ID }));
+  it("exposes empty memories and isAvailable true on initial render", () => {
+    const { result } = renderHook(() => useMemories());
+
+    expect(result.current.memories).toEqual([]);
+    expect(result.current.isAvailable).toBe(true);
+  });
+
+  it("loads the snapshot on mount", async () => {
+    fetchMock.mockImplementation(
+      makeFetchMock([wireMemory("m1"), wireMemory("m2")]),
+    );
+    setupCopilotKit(fetchMock);
+
+    const { result } = renderHook(() => useMemories());
+
+    act(() => {
+      activateStore();
+    });
 
     await waitFor(() => {
       expect(result.current.memories.map((m) => m.id)).toEqual(["m1", "m2"]);
@@ -118,17 +158,23 @@ describe("useMemories", () => {
       `${RUNTIME_URL}/memories`,
       expect.objectContaining({ method: "GET" }),
     );
-    expect(registeredStore).toBeDefined();
   });
 
   it("addMemory POSTs and resolves to the created memory, adding it to the list", async () => {
-    fetchMock = makeFetchMock([], () => ({
-      ...wireMemory("m1", "hi"),
-      absorbed: false,
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(
+      makeFetchMock([], () => ({
+        ...wireMemory("m1", "hi"),
+        absorbed: false,
+      })),
+    );
+    setupCopilotKit(fetchMock);
 
-    const { result } = renderHook(() => useMemories({ agentId: AGENT_ID }));
+    const { result } = renderHook(() => useMemories());
+
+    act(() => {
+      activateStore();
+    });
+
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     let created: { id: string } | undefined;
@@ -150,13 +196,20 @@ describe("useMemories", () => {
   });
 
   it("updateMemory supersedes: resolves to the new id and the list shows it (old id gone)", async () => {
-    fetchMock = makeFetchMock([wireMemory("m1", "old")], () => ({
-      ...wireMemory("m2", "new"),
-      retiredId: "m1",
-    }));
-    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(
+      makeFetchMock([wireMemory("m1", "old")], () => ({
+        ...wireMemory("m2", "new"),
+        retiredId: "m1",
+      })),
+    );
+    setupCopilotKit(fetchMock);
 
-    const { result } = renderHook(() => useMemories({ agentId: AGENT_ID }));
+    const { result } = renderHook(() => useMemories());
+
+    act(() => {
+      activateStore();
+    });
+
     await waitFor(() =>
       expect(result.current.memories.map((m) => m.id)).toEqual(["m1"]),
     );
@@ -180,10 +233,15 @@ describe("useMemories", () => {
   });
 
   it("removeMemory DELETEs and removes the memory from the list", async () => {
-    fetchMock = makeFetchMock([wireMemory("m1")]);
-    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(makeFetchMock([wireMemory("m1")]));
+    setupCopilotKit(fetchMock);
 
-    const { result } = renderHook(() => useMemories({ agentId: AGENT_ID }));
+    const { result } = renderHook(() => useMemories());
+
+    act(() => {
+      activateStore();
+    });
+
     await waitFor(() =>
       expect(result.current.memories.map((m) => m.id)).toEqual(["m1"]),
     );

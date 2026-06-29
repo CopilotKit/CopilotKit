@@ -1,50 +1,31 @@
 import { useCopilotKit } from "../context";
 import {
-  CopilotKitCoreRuntimeConnectionStatus,
-  ɵcreateMemoryStore,
   ɵselectMemories,
   ɵselectMemoriesError,
   ɵselectMemoriesIsLoading,
+  ɵselectMemoriesAvailable,
 } from "@copilotkit/core";
 import type {
   ɵMemory,
   ɵMemoryChanges,
-  ɵMemoryRuntimeContext,
   ɵMemoryStore,
   ɵNewMemory,
 } from "@copilotkit/core";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from "react";
-
-/**
- * Configuration for the {@link useMemories} hook.
- *
- * Memory operations are scoped to the runtime-authenticated user (v1 surfaces
- * user-scoped memories only) and the provided agent.
- */
-export interface UseMemoriesInput {
-  /** The ID of the agent whose memories to list and manage. */
-  agentId: string;
-}
+import { useCallback, useSyncExternalStore } from "react";
 
 /**
  * Return value of the {@link useMemories} hook.
  *
- * The `memories` array is the server-authoritative list for the current
- * user/agent pair. It is hydrated from a REST snapshot and kept current by
- * realtime `memory_metadata` deltas from the store's own channel. Mutations
- * resolve once the platform confirms the operation and reject with an `Error`
- * on failure.
+ * The `memories` array is the server-authoritative list for the current user.
+ * It is hydrated from a REST snapshot and kept current by realtime
+ * `memory_metadata` deltas from the store's own channel. Mutations resolve
+ * once the platform confirms the operation and reject with an `Error` on
+ * failure.
  */
 export interface UseMemoriesResult {
   /**
-   * Memories for the current user/agent pair, newest first. Updated in
-   * realtime when the platform pushes `memory_metadata` events.
+   * Memories for the current user, newest first. Updated in realtime when
+   * the platform pushes `memory_metadata` events.
    */
   memories: ɵMemory[];
   /**
@@ -58,6 +39,12 @@ export interface UseMemoriesResult {
    * fetch.
    */
   error: Error | null;
+  /**
+   * `true` when the platform memory routes are available. Set to `false`
+   * after a 404 or 501, indicating memory is not supported by the current
+   * runtime configuration.
+   */
+  isAvailable: boolean;
   /**
    * Re-fetch the memory snapshot from the platform. Resolves once the re-pull
    * settles; rejects if it fails or the store is torn down mid-flight.
@@ -100,20 +87,17 @@ function useMemoryStoreSelector<T>(
 /**
  * React hook for listing and managing platform memories.
  *
- * On mount the hook fetches the memory snapshot for the runtime-authenticated
- * user and the given `agentId`, then exposes the live list plus stable
- * `addMemory` / `updateMemory` / `removeMemory` / `refresh` callbacks. Mutations
- * are server-authoritative: each resolves once the platform confirms the
- * operation and rejects with an `Error` on failure.
+ * Reads the memory store owned and wired by `CopilotKitCore`. On mount the
+ * hook exposes the live list plus stable `addMemory` / `updateMemory` /
+ * `removeMemory` / `refresh` callbacks. Mutations are server-authoritative:
+ * each resolves once the platform confirms the operation and rejects with an
+ * `Error` on failure.
  *
- * Realtime updates are automatic: the memory store opens its own
+ * Realtime updates are automatic: the core's memory store opens its own
  * `user_meta:memories:<joinCode>` channel and applies `memory_metadata` deltas
- * to the list as soon as the runtime is connected (i.e. once `setContext` has
- * wired up the runtime URL and headers). No other feature needs to be mounted —
- * memory works standalone. You can still call `refresh()` to re-pull the REST
- * snapshot on demand.
+ * to the list. You can still call `refresh()` to re-pull the REST snapshot on
+ * demand.
  *
- * @param input - Agent identifier.
  * @returns Memory list state and stable mutation callbacks.
  *
  * @example
@@ -121,10 +105,10 @@ function useMemoryStoreSelector<T>(
  * import { useMemories } from "@copilotkit/react-core";
  *
  * function MemoryList() {
- *   const { memories, isLoading, addMemory, removeMemory } = useMemories({
- *     agentId: "agent-1",
- *   });
+ *   const { memories, isLoading, isAvailable, addMemory, removeMemory } =
+ *     useMemories();
  *
+ *   if (!isAvailable) return null;
  *   if (isLoading) return <p>Loading…</p>;
  *
  *   return (
@@ -140,73 +124,15 @@ function useMemoryStoreSelector<T>(
  * }
  * ```
  */
-export function useMemories({ agentId }: UseMemoriesInput): UseMemoriesResult {
+export function useMemories(): UseMemoriesResult {
   const { copilotkit } = useCopilotKit();
 
-  const [store] = useState(() =>
-    ɵcreateMemoryStore({ fetch: globalThis.fetch.bind(globalThis) }),
-  );
+  const store = copilotkit.getMemoryStore();
 
   const memories = useMemoryStoreSelector(store, ɵselectMemories);
   const isLoading = useMemoryStoreSelector(store, ɵselectMemoriesIsLoading);
   const error = useMemoryStoreSelector(store, ɵselectMemoriesError);
-
-  const headersKey = useMemo(() => {
-    return JSON.stringify(
-      Object.entries(copilotkit.headers ?? {}).sort(([left], [right]) =>
-        left.localeCompare(right),
-      ),
-    );
-  }, [copilotkit.headers]);
-  const runtimeStatus = copilotkit.runtimeConnectionStatus;
-
-  useEffect(() => {
-    store.start();
-    return () => {
-      store.stop();
-    };
-  }, [store]);
-
-  useEffect(() => {
-    copilotkit.registerMemoryStore(agentId, store);
-    return () => {
-      copilotkit.unregisterMemoryStore(agentId);
-    };
-  }, [copilotkit, agentId, store]);
-
-  const wsUrl = copilotkit.intelligence?.wsUrl;
-
-  // Mirror useThreads: defer setting the context until the runtime reports
-  // Connected, since the memory store is session-guarded and does nothing
-  // until `setContext` is called. The store opens its OWN realtime channel
-  // (`user_meta:memories:<joinCode>`) from this context, so it needs the
-  // gateway `wsUrl` alongside the runtime URL and headers. `wsUrl` only lands
-  // once `/info` resolves, so we wait for it to avoid dispatching a context
-  // with an undefined socket URL. When `runtimeUrl` is absent (or the runtime
-  // isn't Connected) we clear the context so a previous user's snapshot can't
-  // linger.
-  useEffect(() => {
-    if (
-      !copilotkit.runtimeUrl ||
-      runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected
-    ) {
-      store.setContext(null);
-      return;
-    }
-
-    // Wait for `/info` to land so the context carries a real gateway URL and
-    // we don't re-dispatch once it resolves.
-    if (!wsUrl) {
-      return;
-    }
-
-    const context: ɵMemoryRuntimeContext = {
-      runtimeUrl: copilotkit.runtimeUrl,
-      wsUrl,
-      headers: { ...copilotkit.headers },
-    };
-    store.setContext(context);
-  }, [store, copilotkit.runtimeUrl, runtimeStatus, headersKey, wsUrl, agentId]);
+  const isAvailable = useMemoryStoreSelector(store, ɵselectMemoriesAvailable);
 
   const refresh = useCallback(() => store.refresh(), [store]);
   const addMemory = useCallback(
@@ -226,6 +152,7 @@ export function useMemories({ agentId }: UseMemoriesInput): UseMemoriesResult {
     memories,
     isLoading,
     error,
+    isAvailable,
     refresh,
     addMemory,
     updateMemory,
