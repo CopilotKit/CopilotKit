@@ -8,6 +8,7 @@ import {
 import {
   assertValidBotNames,
   buildActivationMetadata,
+  resolveActivationEnv,
   startManagedBots,
 } from "./runtime.js";
 
@@ -48,6 +49,47 @@ describe("buildActivationMetadata", () => {
     expect(meta.runtimeEnv).toBe("production");
     expect(meta.nodeVersion).toBe("v20");
     expect(meta.runtimePackageVersion).toBe("1.2.3");
+  });
+
+  it("includes each bot's declared command names", () => {
+    const a = createBot({ name: "support", agent: () => new FakeAgent() });
+    a.onCommand("triage", async () => {});
+    const meta = buildActivationMetadata([a], { runtimeEnv: "test" });
+    expect(meta.declaredBots).toEqual([
+      { name: "support", commands: ["triage"] },
+    ]);
+  });
+});
+
+describe("resolveActivationEnv", () => {
+  it("prefers COPILOTKIT_RUNTIME_ENV, includes the node version, and lets overrides win", () => {
+    const prev = process.env.COPILOTKIT_RUNTIME_ENV;
+    process.env.COPILOTKIT_RUNTIME_ENV = "staging";
+    try {
+      const env = resolveActivationEnv({
+        runtimePackageVersion: "9.9.9",
+        runtimeInstanceId: "inst-1",
+      });
+      expect(env.runtimeEnv).toBe("staging");
+      expect(env.nodeVersion).toBe(process.version);
+      expect(env.runtimePackageVersion).toBe("9.9.9");
+      expect(env.runtimeInstanceId).toBe("inst-1");
+    } finally {
+      if (prev === undefined) delete process.env.COPILOTKIT_RUNTIME_ENV;
+      else process.env.COPILOTKIT_RUNTIME_ENV = prev;
+    }
+  });
+
+  it("falls back to NODE_ENV, then 'development'", () => {
+    const prev = process.env.COPILOTKIT_RUNTIME_ENV;
+    delete process.env.COPILOTKIT_RUNTIME_ENV;
+    try {
+      expect(resolveActivationEnv().runtimeEnv).toBe(
+        process.env.NODE_ENV ?? "development",
+      );
+    } finally {
+      if (prev !== undefined) process.env.COPILOTKIT_RUNTIME_ENV = prev;
+    }
   });
 });
 

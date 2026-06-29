@@ -47,22 +47,46 @@ export interface ActivationEnv {
 
 export interface ActivationMetadata extends ActivationEnv {
   declaredBotNames: string[];
+  /** Per-bot declarations: name + declared slash-command names. */
+  declaredBots: Array<{ name: string; commands: string[] }>;
 }
 
 /**
- * Build the activation metadata declared to Intelligence: the env/versions
- * (supplied by the caller, which knows the real runtime values) plus the
- * declared bot names. Pure.
+ * Gather the process-level runtime activation env — `COPILOTKIT_RUNTIME_ENV`
+ * (override) → `NODE_ENV` → "development", and the Node version. Caller
+ * `overrides` win and supply what only the runtime knows: package versions
+ * (`runtimePackageVersion`/`botPackageVersion`) and a stable `runtimeInstanceId`.
+ */
+export function resolveActivationEnv(
+  overrides: Partial<ActivationEnv> = {},
+): ActivationEnv {
+  const nodeEnv = process.env.NODE_ENV;
+  return {
+    runtimeEnv: process.env.COPILOTKIT_RUNTIME_ENV ?? nodeEnv ?? "development",
+    nodeEnv,
+    nodeVersion: process.version,
+    ...overrides,
+  };
+}
+
+/**
+ * Build the activation metadata declared to Intelligence: the resolved
+ * env/versions plus per-bot declarations (name + declared command names). Pure.
  *
- * TODO(OSS-377): include per-bot commands/capabilities once the bot exposes them.
+ * TODO(OSS-377): add richer per-bot capabilities once the bot exposes them.
  */
 export function buildActivationMetadata(
   bots: readonly Bot[],
   env: ActivationEnv,
 ): ActivationMetadata {
+  const named = bots.filter((b): b is Bot & { name: string } => !!b.name);
   return {
     ...env,
-    declaredBotNames: bots.map((b) => b.name).filter((n): n is string => !!n),
+    declaredBotNames: named.map((b) => b.name),
+    declaredBots: named.map((b) => ({
+      name: b.name,
+      commands: b.commandNames,
+    })),
   };
 }
 
@@ -77,7 +101,8 @@ export interface StartManagedBotsOptions {
   bots: Bot[];
   /** Resolve the inbound/outbound transport for a declared bot name. */
   resolveTransport: (botName: string) => ManagedTransport;
-  env: ActivationEnv;
+  /** Activation env overrides; omitted fields are gathered from the process. */
+  env?: Partial<ActivationEnv>;
 }
 
 export interface ManagedBotsHandle {
@@ -98,7 +123,10 @@ export async function startManagedBots(
   opts: StartManagedBotsOptions,
 ): Promise<ManagedBotsHandle> {
   assertValidBotNames(opts.bots);
-  const metadata = buildActivationMetadata(opts.bots, opts.env);
+  const metadata = buildActivationMetadata(
+    opts.bots,
+    resolveActivationEnv(opts.env),
+  );
   for (const bot of opts.bots) {
     const { source, egress, store } = opts.resolveTransport(bot.name!);
     bot.addAdapter(intelligenceAdapter({ source, egress, store }));

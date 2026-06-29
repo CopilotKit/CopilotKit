@@ -207,6 +207,8 @@ export interface CreateBotOptions<
 export interface Bot<TState = unknown> {
   /** Project-unique identifier from `createBot({ name })`; used by the managed runtime. */
   readonly name?: string;
+  /** Declared slash-command names (normalized). Surfaced for managed activation metadata. */
+  readonly commandNames: string[];
   onMention(h: BotHandler<TState>): void;
   onMessage(h: BotHandler<TState>): void;
   /**
@@ -708,6 +710,9 @@ export function createBot<
 
   const bot: Bot<ThreadStateOf<TStateSchema>> = {
     name: opts.name,
+    get commandNames() {
+      return [...commandHandlers.keys()];
+    },
     get transcripts() {
       if (!transcripts) {
         throw new Error("bot.transcripts is available after bot.start()");
