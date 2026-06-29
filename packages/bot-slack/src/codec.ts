@@ -1,5 +1,4 @@
 import type { PlatformCodec } from "@copilotkit/bot";
-import type { BotNode } from "@copilotkit/bot-ui";
 import { renderSlackMessage } from "./render/block-kit.js";
 import { normalizeSlackEvent } from "./ingress-normalize.js";
 import type { SlackNeutralEvent } from "./ingress-normalize.js";
@@ -22,6 +21,6 @@ export const slackCodec: PlatformCodec & {
   ) => SlackNeutralEvent | undefined;
 } = {
   platform: "slack",
-  renderEgress: (ir: BotNode[]) => renderSlackMessage(ir),
+  renderEgress: renderSlackMessage,
   normalizeIngress: normalizeSlackEvent,
 };
