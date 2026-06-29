@@ -324,7 +324,13 @@ interface ApiAgentEvent {
 
 type ThreadDetailsTab = "timeline" | "state" | "raw-events";
 
-type TimelineItemKind = "message" | "tool" | "state" | "run" | "warning";
+type TimelineItemKind =
+  | "message"
+  | "tool"
+  | "state"
+  | "run"
+  | "event"
+  | "warning";
 
 type TimelineItem = {
   id: string;
@@ -1818,7 +1824,11 @@ export class CpkThreadInspector extends LitElement {
       }
       const mappedEvents = this.mapApiEvents(result.events);
       this._fetchedEvents = mappedEvents;
-      if (mappedEvents.length === 0 && this.canFetchMessages()) {
+      if (
+        (mappedEvents.length === 0 ||
+          this.timelineItemsFromEvents(mappedEvents).length === 0) &&
+        this.canFetchMessages()
+      ) {
         void this.fetchMessages(threadId);
       }
     } catch (err) {
@@ -2024,7 +2034,10 @@ export class CpkThreadInspector extends LitElement {
   }
 
   private get activeTimelineItems(): TimelineItem[] {
-    const events = this.activeEvents;
+    return this.timelineItemsFromEvents(this.activeEvents);
+  }
+
+  private timelineItemsFromEvents(events: ApiAgentEvent[]): TimelineItem[] {
     if (events.length === 0) return [];
 
     const items: TimelineItem[] = [];
@@ -2257,7 +2270,17 @@ export class CpkThreadInspector extends LitElement {
           sourceIndex,
           details: payload,
         });
+        continue;
       }
+
+      items.push({
+        id: `event-${sourceIndex}`,
+        kind: "event",
+        title: type,
+        timestamp: event.timestamp,
+        sourceIndex,
+        details: payload,
+      });
     }
 
     return items;
@@ -2542,11 +2565,13 @@ export class CpkThreadInspector extends LitElement {
     }
     if (this._eventsNotAvailable) {
       if (this._conversation.length > 0) return this.renderConversation();
+      if (this._loadingMessages) return this.renderConversation();
       return html`
         <div class="cpk-td__empty-state">
           <span>Timeline event history not available</span>
           <span class="cpk-td__empty-hint"
-            >This runtime doesn't yet expose per-thread AG-UI events.</span
+            >This runtime doesn't yet expose per-thread AG-UI events. Check State for
+            the latest snapshot when available.</span
           >
         </div>
       `;
@@ -2555,11 +2580,13 @@ export class CpkThreadInspector extends LitElement {
     const timelineItems = this.activeTimelineItems;
     if (timelineItems.length === 0) {
       if (this._conversation.length > 0) return this.renderConversation();
+      if (this._loadingMessages) return this.renderConversation();
       return html`
         <div class="cpk-td__empty-state">
           <span>No timeline events captured</span>
           <span class="cpk-td__empty-hint"
-            >Timeline rows are normalized from AG-UI events.</span
+            >Timeline rows are normalized from AG-UI events. Open Raw AG-UI Events or
+            State to inspect the available thread data.</span
           >
         </div>
       `;

@@ -339,6 +339,7 @@ type ThreadDetailsInternals = {
   _loadingMessages: boolean;
   _loadingState: boolean;
   _loadingEvents: boolean;
+  activeTimelineItems: Array<Record<string, unknown>>;
   _panelTplCache: Map<string, { key: readonly unknown[]; tpl: unknown }>;
   fetchMessages: (threadId: string) => Promise<void>;
   fetchEvents: (threadId: string) => Promise<void>;
@@ -955,6 +956,68 @@ describe("CpkThreadInspector provider contract", () => {
 
     expect(el.shadowRoot?.textContent ?? "").toContain("Messages");
     expect(el.shadowRoot?.textContent ?? "").toContain("2");
+  });
+
+  it("renders unsupported raw events as timeline rows instead of leaving the first tab empty", async () => {
+    const provider: ThreadDebuggerProvider = {
+      getEvents: vi.fn().mockResolvedValue([
+        {
+          type: "THREAD_STATE_WRITTEN",
+          timestamp: "2026-06-25T10:00:00.000Z",
+          payload: { checkpointId: "state-1", status: "ok" },
+        },
+      ]),
+    };
+    const { el, internals } = createThreadInspector();
+
+    internals.provider = provider;
+    internals.threadId = "thread-raw-event-only";
+    await flushProviderWork(el);
+
+    expect(internals.activeTimelineItems).toHaveLength(1);
+    expect(el.shadowRoot?.textContent ?? "").toContain("THREAD_STATE_WRITTEN");
+    expect(el.shadowRoot?.textContent ?? "").toContain("checkpointId");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Source event #1");
+    expect(el.shadowRoot?.textContent ?? "").not.toContain(
+      "No timeline events captured",
+    );
+  });
+
+  it("keeps the first-visible timeline intentional while provider message fallback is loading", async () => {
+    const messages =
+      createDeferred<
+        Awaited<ReturnType<NonNullable<ThreadDebuggerProvider["getMessages"]>>>
+      >();
+    const provider: ThreadDebuggerProvider = {
+      getEvents: vi.fn().mockResolvedValue([]),
+      getMessages: vi.fn().mockReturnValue(messages.promise),
+    };
+    const { el, internals } = createThreadInspector();
+
+    internals.provider = provider;
+    internals.threadId = "thread-messages-only";
+    await flushProviderWork(el);
+
+    expect(provider.getMessages).toHaveBeenCalledWith(
+      "thread-messages-only",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(internals._loadingMessages).toBe(true);
+    expect(el.shadowRoot?.textContent ?? "").toContain("Loading messages");
+    expect(el.shadowRoot?.textContent ?? "").not.toContain(
+      "No timeline events captured",
+    );
+
+    messages.resolve([
+      { id: "u1", role: "user", content: "provider hello" },
+      { id: "a1", role: "assistant", content: "provider reply" },
+    ]);
+
+    await vi.waitFor(() => {
+      const text = el.shadowRoot?.textContent ?? "";
+      expect(text).toContain("provider hello");
+      expect(text).toContain("provider reply");
+    });
   });
 });
 
