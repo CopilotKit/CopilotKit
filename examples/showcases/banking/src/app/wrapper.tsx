@@ -12,6 +12,9 @@ import { ChatInboxProvider } from "@/components/chat/chat-inbox-context";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { RecordingProvider } from "@/components/recording-context";
 import { RecordingVignette } from "@/components/recording-vignette";
+import { GlassEngineProvider } from "@/components/glass-engine-context";
+import { InspectorStoreProvider } from "@/lib/inspector/store";
+import { InspectorPane } from "@/components/inspector/inspector-pane";
 
 // Static suggestion pills shown on the welcome screen / before-first-message.
 // In v2, suggestions are registered via `useConfigureSuggestions` rather than a
@@ -75,7 +78,13 @@ function BankingSuggestions() {
   return null;
 }
 
-export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
+export function CopilotKitWrapper({
+  children,
+  glassAvailable = false,
+}: {
+  children: React.ReactNode;
+  glassAvailable?: boolean;
+}) {
   const { currentUser } = useAuthContext();
   const { threadId, selectThread, createThread } = useThreadSelection();
 
@@ -134,13 +143,20 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
             call site (the transactions list approve/deny, the inline policy
             exception card) is inside it.
           */}
-          <RecordingProvider>
-            <LayoutComponent>
-              <CopilotContext>{children}</CopilotContext>
-            </LayoutComponent>
-            <ChatPanel threadId={threadId} />
-            <RecordingVignette />
-          </RecordingProvider>
+          <GlassEngineProvider available={glassAvailable}>
+            <InspectorStoreProvider>
+              <RecordingProvider>
+                <LayoutComponent>
+                  <CopilotContext>{children}</CopilotContext>
+                </LayoutComponent>
+                <ChatPanel threadId={threadId} />
+                {/* Mount the pane (and its AG-UI subscription) ONLY where the
+                    deployment opted in. Public hosts never subscribe. */}
+                {glassAvailable && <InspectorPane />}
+                <RecordingVignette />
+              </RecordingProvider>
+            </InspectorStoreProvider>
+          </GlassEngineProvider>
         </ChatInboxProvider>
       </CopilotChatConfigurationProvider>
     </CopilotKitProvider>
