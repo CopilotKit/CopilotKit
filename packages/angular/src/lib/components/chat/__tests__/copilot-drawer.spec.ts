@@ -481,7 +481,9 @@ test("copilotDrawerRow renders per-row slot content for each thread", () => {
   selector: "test-host-label",
   standalone: true,
   imports: [CopilotDrawer],
-  template: `<copilot-drawer [label]="'Custom'" />`,
+  template: `
+    <copilot-drawer [label]="'Custom'" />
+  `,
 })
 class HostWithLabelComponent {}
 
