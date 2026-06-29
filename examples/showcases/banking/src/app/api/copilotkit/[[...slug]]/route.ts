@@ -206,6 +206,13 @@ function createRuntime(): CopilotRuntime {
       apiUrl: intelligenceApiUrl!,
       wsUrl: intelligenceWsUrl!,
       apiKey: intelligenceApiKey!,
+      // Required for the durable-memory demo: the platform's recall_memory /
+      // save_memory tools live at `${apiUrl}/mcp` and are attached to the local
+      // BuiltInAgent run via MCP middleware ONLY when this opt-in flag is set
+      // (see attachIntelligenceEnterpriseLearning in
+      // packages/runtime/.../handlers/shared/agent-utils.ts). Without it the
+      // agent has no memory tools and re-offers to record every over-limit charge.
+      enableEnterpriseLearning: true,
     });
 
     return new CopilotRuntime({
