@@ -72,6 +72,7 @@ on:
           - starter-pydantic-ai
           - starter-strands-python
           - strands
+          - strands-typescript
           - webhooks
         # <<< END GENERATED service options
       digest:

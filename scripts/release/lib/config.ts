@@ -13,7 +13,9 @@ export type ReleaseScope =
   | "bot"
   | "bot-discord"
   | "bot-slack"
-  | "bot-telegram";
+  | "bot-teams"
+  | "bot-telegram"
+  | "bot-whatsapp";
 
 export interface ScopeConfig {
   packages: string[];

@@ -21,8 +21,10 @@ Railway — this file is the authoritative backup.
 ## 1. What this service is
 
 `showcase-aimock` is a shared mock LLM server that 14+ CopilotKit showcase
-services route to via `OPENAI_BASE_URL`. It runs the `@copilotkit/aimock`
-container in proxy-only mode and serves fixture-driven responses so demos work
+services route to via `OPENAI_BASE_URL`. It runs the `showcase-aimock` wrapper
+image (built from `showcase/aimock/Dockerfile`, `FROM
+ghcr.io/copilotkit/aimock:latest` with the fixture tree baked in — see §3) in
+proxy-only mode and serves fixture-driven responses so demos work
 deterministically without burning provider tokens. Unmatched requests fall
 through to real upstream providers (OpenAI, Anthropic, Gemini).
 
@@ -110,7 +112,9 @@ ghcr.io/copilotkit/aimock:latest` (the upstream aimock image published from
   image.
 - Base aimock version: tracks `ghcr.io/copilotkit/aimock:latest`. Pin the base
   tag in the Dockerfile if you need to freeze it for showcase stability.
-- Available platforms: `linux/amd64`, `linux/arm64` (Railway pulls amd64).
+- Published platform: `linux/amd64` only (`platforms: linux/amd64` in
+  `showcase_build.yml`; arm64 is intentionally not published — arm64-only builds
+  crash). Railway pulls amd64.
 
 ## 4. Fixture sources
 
@@ -124,8 +128,8 @@ into the image:
 - `d6/` → `/fixtures/d6/` — per-slug fixtures for the D6 demos. The
   `showcase/aimock/d6/<slug>/` tree is the source of truth for these.
 
-The container loads these baked-in directories at boot (see the `--fixtures`
-flags in section 5). There are no remote fixture URLs and no boot-time fetch —
+The container loads these baked-in directories at boot (see the
+`--fixtures /fixtures` flag in section 5). There are no remote fixture URLs and no boot-time fetch —
 the old `d5-all.json` / `feature-parity.json` / remote-`smoke.json` bundles
 no longer exist (`d5-all.json` was a one-time migration source that was split
 into the per-slug `d6/` tree).
@@ -137,12 +141,15 @@ image.
 
 > **showcase-harness browser-pool budget.** The harness runs
 > `BROWSER_POOL_BROWSERS=3` long-lived Chromium processes with a global
-> `BROWSER_POOL_MAX_CONTEXTS=40` context cap (D6 peak 32 + D5 peak 8). D5
-> e2e-deep alone runs up to 4 services x 2 features = 8 concurrent contexts
-> (~2.4 GB peak). The binding constraint is the PID ceiling of 1000, not
-> memory, so contexts (not processes) are the scaling knob — tune
-> `BROWSER_POOL_MAX_CONTEXTS` to bound contention, or reduce
-> `FEATURE_CONCURRENCY` in `e2e-deep.ts` / `max_concurrency` in
+> `BROWSER_POOL_MAX_CONTEXTS=24` context cap (lowered from 40). The D6 peak is
+> now 5×4=20 and the D5 e2e-deep peak is 16 (4 services × 4 features), so a
+> d6+d5 overlap (20+16=36) exceeds the 24 cap and serializes against it — that
+> back-pressure is intended. D5 e2e-deep alone runs up to 4 services × 4
+> features = 16 concurrent contexts (~4.8 GB peak). The binding constraint is
+> the PID ceiling of 1000, not memory, so contexts (not processes) are the
+> scaling knob — tune `BROWSER_POOL_MAX_CONTEXTS` to bound contention, or reduce
+> `FEATURE_CONCURRENCY_D6` in
+> `showcase/harness/src/probes/drivers/d6-all-pills.ts` / `max_concurrency` in
 > `e2e-deep.yml` if a single probe needs throttling.
 
 ## 5. Start command
@@ -157,37 +164,35 @@ image.
 ```sh
 node /app/dist/cli.js \
   --proxy-only \
+  --fixtures /fixtures \
   --provider-openai https://api.openai.com \
   --provider-anthropic https://api.anthropic.com \
   --provider-gemini https://generativelanguage.googleapis.com \
-  --fixtures /fixtures/shared \
-  --fixtures /fixtures/d4 \
-  --fixtures /fixtures/d6 \
   --validate-on-load \
   --host 0.0.0.0 \
   --port 4010
 ```
 
-> **The `--fixtures` flags must point at the three baked-in subdirectories,
-> not the `/fixtures` parent.** A single `--fixtures /fixtures` does NOT
-> recurse into the subdirectories — it loads nothing useful and every request
-> falls through to the proxy. Pass each of `/fixtures/shared`, `/fixtures/d4`,
-> and `/fixtures/d6` explicitly.
+> **A single `--fixtures /fixtures` loads the whole baked-in fixture tree.**
+> The live prod and staging `showcase-aimock` instances both run exactly this
+> startCommand — one `--fixtures /fixtures` flag that recurses into
+> `/fixtures/shared`, `/fixtures/d4`, and `/fixtures/d6` — and serve fixtures
+> correctly. (Confirmed via live Railway GraphQL on both environments.)
 
 Flag-by-flag:
 
-| Flag                    | Value                                       | Purpose                                                                                                                      |
-| ----------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `node /app/dist/cli.js` | —                                           | Explicit bin invocation — required because Railway's `startCommand` overrides ENTRYPOINT.                                    |
-| `--proxy-only`          | —                                           | Forward unmatched requests to upstream providers instead of failing.                                                         |
-| `--provider-openai`     | `https://api.openai.com`                    | Upstream URL for OpenAI passthrough.                                                                                         |
-| `--provider-anthropic`  | `https://api.anthropic.com`                 | Upstream URL for Anthropic passthrough.                                                                                      |
-| `--provider-gemini`     | `https://generativelanguage.googleapis.com` | Upstream URL for Gemini passthrough.                                                                                         |
-| `--fixtures` (×3 dirs)  | `/fixtures/{shared,d4,d6}`                  | Repeatable flag; each loads one baked-in fixture directory at boot. Point at the subdirectories, not the `/fixtures` parent. |
-| `--validate-on-load`    | —                                           | Fail-loud on schema errors at boot.                                                                                          |
-| `--host`                | `0.0.0.0`                                   | Bind all interfaces so Railway can route to the container.                                                                   |
-| `--port`                | `4010`                                      | Hardcoded listen port — matches the legacy wrapper container convention and the fixed                                        |
-|                         |                                             | Railway domain routing. Railway injects `$PORT` but the image defaults align with 4010.                                      |
+| Flag                    | Value                                       | Purpose                                                                                                                                                             |
+| ----------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node /app/dist/cli.js` | —                                           | Explicit bin invocation — required because Railway's `startCommand` overrides ENTRYPOINT.                                                                           |
+| `--proxy-only`          | —                                           | Forward unmatched requests to upstream providers instead of failing.                                                                                                |
+| `--provider-openai`     | `https://api.openai.com`                    | Upstream URL for OpenAI passthrough.                                                                                                                                |
+| `--provider-anthropic`  | `https://api.anthropic.com`                 | Upstream URL for Anthropic passthrough.                                                                                                                             |
+| `--provider-gemini`     | `https://generativelanguage.googleapis.com` | Upstream URL for Gemini passthrough.                                                                                                                                |
+| `--fixtures`            | `/fixtures`                                 | Loads the baked-in fixture tree at boot; recurses into `/fixtures/{shared,d4,d6}`. (The flag is repeatable if you ever need to point at individual subdirectories.) |
+| `--validate-on-load`    | —                                           | Fail-loud on schema errors at boot.                                                                                                                                 |
+| `--host`                | `0.0.0.0`                                   | Bind all interfaces so Railway can route to the container.                                                                                                          |
+| `--port`                | `4010`                                      | Hardcoded listen port — matches the legacy wrapper container convention and the fixed                                                                               |
+|                         |                                             | Railway domain routing. Railway injects `$PORT` but the image defaults align with 4010.                                                                             |
 
 If adopting `$PORT` interpolation in the future, both startCommand and any
 upstream `OPENAI_BASE_URL` env vars pointing at this service stay unchanged —
@@ -263,13 +268,14 @@ GraphQL directly.
    curl -sS -X POST https://<public-domain>/v1/chat/completions \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer test" \
-     -d '{"model":"gpt-4","messages":[{"role":"user","content":"ping"}]}'
+     -d '{"model":"gpt-4","messages":[{"role":"user","content":"Respond with exactly: OK"}]}'
    ```
 
-   Expect the smoke fixture's "OK" response. If proxy-fallthrough to OpenAI
-   fires instead, the smoke fixture did not load — confirm the deployed image
-   is the baked `showcase-aimock` image and that the `--fixtures` flags point
-   at `/fixtures/{shared,d4,d6}` (not the bare `/fixtures` parent).
+   The payload matches the `shared/smoke.json` fixture (`userMessage:
+"Respond with exactly: OK"`), so expect its `"OK"` response. If
+   proxy-fallthrough to OpenAI fires instead, the smoke fixture did not load —
+   confirm the deployed image is the baked `showcase-aimock` image and that
+   `startCommand` passes `--fixtures /fixtures` (the baked fixture tree).
 
 8. Update any showcase services whose `OPENAI_BASE_URL` points at the old
    URL, if the domain changed during reconstruction.

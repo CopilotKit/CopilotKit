@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Card } from "@/app/api/v1/data";
+import type { Card } from "@/app/api/v1/data";
 
 export function ChangePinDialog({
   onDialogOpenChange,
@@ -48,7 +48,10 @@ export function ChangePinDialog({
           <div className="grid grid-cols-4 items-center gap-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="col-span-4 justify-between">
+                <Button
+                  variant="outline"
+                  className="col-span-4 justify-between"
+                >
                   {cardId
                     ? (() => {
                         const c = cards.find((card) => card.id === cardId);

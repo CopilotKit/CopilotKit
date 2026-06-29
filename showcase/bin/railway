@@ -103,6 +103,18 @@ module Railway
     # same SSOT as EXPECTED_DOMAINS so they cannot drift.
     STAGING_SERVICES = SSOT_DATA.fetch("services").map { |s| s.fetch("name") }.sort.freeze
 
+    # Names whose SSOT entry carries `probe.staging=false` — services that are
+    # promotable but INTENTIONALLY not live-probed on staging (e.g.
+    # harness-workers, a queue worker with no HTTP surface). P3 (the
+    # staging-live-green precondition) must treat these as N/A and skip them
+    # rather than handing them to verify-deploy.ts, which hard-errors on a
+    # `--services` entry that is not probe-eligible. Sourced from the same
+    # SSOT so eligibility cannot drift from the probe matrix the CI uses.
+    STAGING_PROBE_INELIGIBLE = SSOT_DATA.fetch("services").each_with_object([]) do |s, acc|
+        probe = s["probe"]
+        acc << s.fetch("name") if probe.is_a?(Hash) && probe["staging"] == false
+    end.sort.freeze
+
     # ── Token / Auth ───────────────────────────────────────────────────────────
 
     module Auth
@@ -802,27 +814,15 @@ module Railway
             }
         GQL
 
-        # Variant of UPDATE_IMAGE_MUTATION that ALSO re-asserts the SSOT
-        # healthcheckPath alongside source.image. Railway's
-        # ServiceInstanceUpdateInput accepts healthcheckPath next to source (see
-        # deploy-to-railway.ts / provision-starter-fleet.ts, which set it via the
-        # same mutation), and treats an absent input key as "leave as-is" — so a
-        # partial update of {source, healthcheckPath} is safe.
-        #
-        # CRITICAL: this variant is used ONLY when the SSOT declares a path for
-        # the target service+env. When the SSOT has NO path (a live-null
-        # service), the caller uses the plain UPDATE_IMAGE_MUTATION above so the
-        # `healthcheckPath` key is OMITTED entirely — we MUST NOT send
-        # `healthcheckPath: null`, which would actively CLEAR it on Railway.
-        UPDATE_IMAGE_AND_HEALTHCHECK_MUTATION = <<~GQL
-            mutation UpdateImage($serviceId: String!, $envId: String!, $image: String!, $healthcheckPath: String!) {
-                serviceInstanceUpdate(
-                    serviceId: $serviceId
-                    environmentId: $envId
-                    input: { source: { image: $image }, healthcheckPath: $healthcheckPath }
-                )
-            }
-        GQL
+        # NOTE: the {source, healthcheckPath} variant that re-asserts the SSOT
+        # healthcheckPath alongside source.image is now produced dynamically by
+        # `build_update_image_mutation` (below), which composes source.image with
+        # any subset of the optional SSOT-tracked keys (healthcheckPath,
+        # multiRegionConfig). Railway's ServiceInstanceUpdateInput accepts those
+        # keys next to source (see deploy-to-railway.ts / provision-starter-fleet.ts,
+        # which set them via the same mutation) and treats an ABSENT input key as
+        # "leave as-is" — the builder omits any key whose SSOT value is absent so
+        # we NEVER send an explicit null (which would CLEAR the field on Railway).
 
         # serviceInstanceDeployV2 spawns a NEW deployment that pulls the current
         # source.image (just advanced by UPDATE_IMAGE_MUTATION) and returns the
@@ -835,6 +835,66 @@ module Railway
                 )
             }
         GQL
+
+        # Build a serviceInstanceUpdate mutation + vars that ALWAYS pins
+        # source.image and OPTIONALLY re-asserts SSOT-tracked fields alongside
+        # it. This replaces the old static {image} / {image,healthcheckPath}
+        # heredocs: adding a second optional dimension (multiRegionConfig) would
+        # otherwise explode into a 4-way matrix of constants. Each optional key
+        # is OMITTED entirely when its arg is absent — we NEVER send an explicit
+        # null (which Railway treats as "clear this field"), so a service that
+        # tracks none of these keeps its live config untouched.
+        #
+        #   healthcheck_path:  SSOT healthcheckPath (the aimock silent-null fix).
+        #                      nil/empty -> omitted (a live-null service stays null).
+        #   replica_config:    SSOT multiRegionConfig as { region => numReplicas },
+        #                      e.g. { "us-west2" => 6 } for harness-workers (the
+        #                      de-scale fix). nil/empty -> omitted. When present,
+        #                      sent as multiRegionConfig: { region => { numReplicas } }
+        #                      so the redeploy preserves the intended scale instead
+        #                      of falling back to Railway's default single region
+        #                      at 1 replica.
+        #
+        # Returns [mutation_string, vars_hash].
+        #
+        # SHAPE: the whole serviceInstanceUpdate input rides as ONE variable
+        # `$input: ServiceInstanceUpdateInput!` — exactly how the repo's working
+        # TS provisioners issue this mutation (showcase/scripts/deploy-to-railway.ts
+        # ~501-509 and provision-starter-fleet.ts ~594-602 both pass a single
+        # `$input: ServiceInstanceUpdateInput!` and put source/healthcheckPath/
+        # region/registryCredentials/etc as KEYS inside it). Railway resolves each
+        # nested field's type from the ServiceInstanceUpdateInput schema, so we do
+        # NOT name nested types ourselves. The earlier attempt declared a separate
+        # `$multiRegionConfig: ServiceMultiRegionConfigInput!` variable — that type
+        # DOES NOT EXIST in Railway's schema and made the live promote fail with
+        # `HTTP 400: Unknown type "ServiceMultiRegionConfigInput"`, de-scaling
+        # harness-workers to 1 replica. Passing it as a nested input key avoids
+        # ever naming the type.
+        def self.build_update_image_mutation(image:, healthcheck_path: nil, replica_config: nil)
+            input = { source: { image: image } }
+
+            unless healthcheck_path.nil? || healthcheck_path.to_s.empty?
+                input[:healthcheckPath] = healthcheck_path
+            end
+
+            unless replica_config.nil? || replica_config.empty?
+                # Railway's multiRegionConfig is { <region> => { numReplicas } }.
+                input[:multiRegionConfig] = replica_config.each_with_object({}) do |(region, n), acc|
+                    acc[region] = { numReplicas: n }
+                end
+            end
+
+            mutation = <<~GQL
+                mutation UpdateImage($serviceId: String!, $envId: String!, $input: ServiceInstanceUpdateInput!) {
+                    serviceInstanceUpdate(
+                        serviceId: $serviceId
+                        environmentId: $envId
+                        input: $input
+                    )
+                }
+            GQL
+            [mutation, { input: input }]
+        end
 
         # Helper used by RestoreCommand, PinCommand: pin then deploy a NEW
         # deployment that pulls the updated source.image.
@@ -1147,11 +1207,22 @@ module Railway
         # service+env, or nil when the SSOT tracks NONE. When present, the pin
         # mutation RE-ASSERTS it alongside source.image so a prod instance whose
         # healthcheckPath silently went null (the aimock incident) self-heals to
-        # the tracked value on the next promote. When nil, the plain
-        # image-only mutation is used and the `healthcheckPath` key is OMITTED
-        # entirely — we NEVER send `healthcheckPath: null` (which would actively
-        # CLEAR it). This is the durable lever the SSOT-tracking change adds.
-        def self.pin_and_verify(gql, service_id:, env_id:, image:, healthcheck_path: nil, sleeper: ->(n) { sleep(n) })
+        # the tracked value on the next promote. When nil, the `healthcheckPath`
+        # key is OMITTED entirely — we NEVER send `healthcheckPath: null` (which
+        # would actively CLEAR it). This is the durable lever the SSOT-tracking
+        # change adds.
+        #
+        # `replica_config:` — the SSOT-declared multiRegionConfig replica map for
+        # this service+env as { region => numReplicas } (e.g. { "us-west2" => 6 }
+        # for harness-workers), or nil when the SSOT tracks NO replica override.
+        # When present, the pin mutation RE-ASSERTS multiRegionConfig alongside
+        # source.image so the subsequent serviceInstanceDeployV2 preserves the
+        # intended scale. Without it, a promote that updates only source.image
+        # lets Railway fall back to its default single region (us-west1) at 1
+        # replica on redeploy — the confirmed harness-workers -> 1 de-scale
+        # incident. When nil/empty, the key is OMITTED (never sent as null), so a
+        # service without an override keeps its live config untouched.
+        def self.pin_and_verify(gql, service_id:, env_id:, image:, healthcheck_path: nil, replica_config: nil, sleeper: ->(n) { sleep(n) })
             # Upfront guard: this method's contract is to pin a DIGEST-form
             # image. Pre-fix, a stray tag ref would fall through to retries
             # (since expected_digest stayed nil and image_ok was always false)
@@ -1172,18 +1243,16 @@ module Railway
             pre_inst = pre_data && pre_data["serviceInstance"]
             pre_update_ts = pre_inst && pre_inst["updatedAt"]
 
-            # Re-assert the SSOT healthcheckPath alongside source.image ONLY when
-            # the SSOT declares one. A nil/empty path uses the image-only
-            # mutation so the healthcheckPath key is OMITTED (never sent as
-            # null, which would clear it) — a live-null service stays null.
-            if healthcheck_path.nil? || healthcheck_path.to_s.empty?
-                updated = gql.query(RestoreCommand::UPDATE_IMAGE_MUTATION,
-                    serviceId: service_id, envId: env_id, image: image)
-            else
-                updated = gql.query(RestoreCommand::UPDATE_IMAGE_AND_HEALTHCHECK_MUTATION,
-                    serviceId: service_id, envId: env_id, image: image,
-                    healthcheckPath: healthcheck_path)
-            end
+            # Re-assert the SSOT-tracked healthcheckPath AND multiRegionConfig
+            # replica count alongside source.image, each ONLY when the SSOT
+            # declares it. The builder omits any absent key entirely (never sends
+            # an explicit null, which Railway would treat as "clear this field"),
+            # so a service tracking neither keeps its live config untouched.
+            mutation, vars = RestoreCommand.build_update_image_mutation(
+                image: image, healthcheck_path: healthcheck_path,
+                replica_config: replica_config)
+            updated = gql.query(mutation,
+                { serviceId: service_id, envId: env_id }.merge(vars))
             unless updated && updated["serviceInstanceUpdate"] == true
                 raise MutationError,
                     "P5: serviceInstanceUpdate returned #{updated.inspect} (expected true) for #{service_id} -> #{image}"
@@ -1936,8 +2005,23 @@ module Railway
                 puts "P3 SKIPPED (--no-require-staging-green set; staging is NOT being live-re-probed)."
                 return []
             end
-            services = (staging["services"] || []).map { |s| s["name"] }.compact.uniq
+            all_services = (staging["services"] || []).map { |s| s["name"] }.compact.uniq
+            return [] if all_services.empty?
+
+            # Drop services the SSOT marks probe.staging=false. These are
+            # promotable but have no staging surface to live-probe (e.g.
+            # harness-workers); handing them to verify-deploy.ts would crash
+            # it ("not probe-eligible for env staging"), which previously
+            # REFUSEd the promote and gated every later tier. Skip them as N/A
+            # — eligibility for the services that DO carry a probe is
+            # unchanged, so P3 still gates real services.
+            ineligible = all_services & STAGING_PROBE_INELIGIBLE
+            ineligible.each do |name|
+                puts "P3 N/A (#{name}): not staging-probe-eligible (probe.staging=false in SSOT) — skipped."
+            end
+            services = all_services - ineligible
             return [] if services.empty?
+
             result = run_staging_probe(services: services)
             return [] if result[:ok]
             ["REFUSE: P3: staging is not green for #{services.join(', ')}: #{result[:summary]}"]
@@ -2111,6 +2195,29 @@ module Railway
         # Per-service SSOT entry (the generated.json closure record) by name.
         def ssot_service(name)
             (Railway::SSOT_DATA["services"] || []).find { |s| s["name"] == name }
+        end
+
+        # Region key the multiRegionConfig replica override is keyed on. The
+        # only service with a replica override (harness-workers) is single-region
+        # us-west2 — Railway derives its live replica count from
+        # `multiRegionConfig.us-west2.numReplicas`. See showcase/scripts/
+        # railway-envs.ts (WorkerProvisioning) and RAILWAY.md "Effective replica
+        # count". A fixed constant here (rather than an SSOT-emitted field)
+        # because the region is a stable platform invariant for this service.
+        REPLICA_REGION = "us-west2"
+
+        # SSOT-declared replica override for (service, env) as a
+        # { region => numReplicas } map, or nil when the service tracks NONE.
+        # Only `harness-workers` carries `workerProvisioning.<env>` today; every
+        # other service returns nil so pin_and_verify OMITS multiRegionConfig and
+        # leaves their live (single-replica) config untouched. The authoritative
+        # count is `effectiveReplicas` (= multiRegionConfig.<region>.numReplicas,
+        # the value Railway honors), NOT the top-level `numReplicas` mirror.
+        def ssot_replica_config(name, env)
+            replicas = (ssot_service(name) || {})
+                .dig("workerProvisioning", env, "effectiveReplicas")
+            return nil if replicas.nil?
+            { REPLICA_REGION => replicas }
         end
 
         # Union of per-service `replicateKeys` declared in the SSOT for the
@@ -2354,11 +2461,20 @@ module Railway
                     # pin_and_verify then OMITS the field rather than clearing it.
                     ssot_healthcheck = (ssot_service(svc["name"]) || {})
                         .dig("healthcheckPath", "prod")
+                    # Re-assert the SSOT-tracked prod replica count on every
+                    # promote (the durable fix for the harness-workers -> 1
+                    # de-scale: a promote that updates only source.image lets
+                    # Railway fall back to its default single region at 1
+                    # replica). nil for every service WITHOUT a replica override —
+                    # pin_and_verify then OMITS multiRegionConfig rather than
+                    # touching it.
+                    ssot_replicas = ssot_replica_config(svc["name"], "prod")
                     PromoteCommand.pin_and_verify(gql,
                         service_id: pmatch["service_id"],
                         env_id: PRODUCTION_ENV_ID,
                         image: image,
-                        healthcheck_path: ssot_healthcheck)
+                        healthcheck_path: ssot_healthcheck,
+                        replica_config: ssot_replicas)
                     puts "promoted #{svc['name']} -> #{image}"
                     already_pinned << svc["name"]
                 # Broadened rescue: a transient GraphQL or network error

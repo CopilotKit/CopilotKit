@@ -11,6 +11,12 @@ interface ComponentInteractionLike {
   isStringSelectMenu(): boolean;
   customId?: string;
   values?: string[];
+  /**
+   * The resolved select component. A multi-select is marked by `maxValues > 1`
+   * OR `minValues === 0` (the renderer sets `minValues(0)` on every multi, which
+   * also catches a one-option multi-select whose `maxValues` is 1).
+   */
+  component?: { maxValues?: number; minValues?: number };
   message?: { id: string };
   channelId?: string;
   guildId?: string | null;
@@ -38,14 +44,15 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
   let id = customId;
   let value: unknown;
   if (isSelect) {
-    value = i.values?.[0];
-    if (typeof value === "string") {
-      try {
-        value = JSON.parse(value);
-      } catch {
-        // Not JSON — keep the raw string.
-      }
-    }
+    // Discord sends `values: string[]` for both single and multi selects; the
+    // unambiguous signal is the component's value bounds (the renderer sets
+    // maxValues > 1 and minValues 0 for multi). Multi → a string[] of all chosen
+    // values; single → the one value (mirrors bot-slack).
+    const c = i.component;
+    const multi = (c?.maxValues ?? 1) > 1 || c?.minValues === 0;
+    value = multi
+      ? (i.values ?? []).map(parseSelectValue)
+      : parseSelectValue(i.values?.[0]);
   } else {
     const sep = customId.startsWith("ck:") ? customId.indexOf(";v:") : -1;
     if (sep !== -1) {
@@ -67,6 +74,16 @@ export function decodeInteraction(raw: unknown): InteractionEvent | undefined {
     // decode has no live trigger to attach.
     triggerId: undefined,
   };
+}
+
+/** JSON-parse a chosen select value so non-string option values round-trip; else keep the raw string. */
+function parseSelectValue(raw: string | undefined): unknown {
+  if (typeof raw !== "string") return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
 }
 
 /** A `v:<json>` custom_id carries a small bound value; anything else has none. */
@@ -168,6 +185,9 @@ export function decodeReaction(
       ...(r.message?.guildId ? { guildId: r.message.guildId } : {}),
     },
     messageId,
+    // Update-capable ref (channelId + message id) so an onReaction handler can
+    // edit the reacted message in place via thread.update.
+    messageRef: { id: messageId, channelId },
     raw: reaction,
   };
 }

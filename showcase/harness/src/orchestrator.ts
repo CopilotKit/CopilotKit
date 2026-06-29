@@ -1561,7 +1561,7 @@ export function assertHttpBrowserKindPartition(httpKinds: string[]): void {
  */
 export const FLEET_PRODUCER_SMOKE_CRON = "*/15 * * * *";
 export const FLEET_PRODUCER_DEMOS_CRON = "10 * * * *";
-export const FLEET_PRODUCER_DEEP_CRON = "5,20,35,50 * * * *";
+export const FLEET_PRODUCER_DEEP_CRON = "*/30 * * * *";
 
 /**
  * Scheduler entry ids for the three non-d6 browser-family producers. Homed in
@@ -1613,8 +1613,8 @@ export const FLEET_FAMILY_PERIODS_MS: Record<string, number> = {
   d6: 60 * 60 * 1000,
   /** d4 smoke — FLEET_PRODUCER_SMOKE_CRON (every 15min). */
   d4: 15 * 60 * 1000,
-  /** d5 deep — FLEET_PRODUCER_DEEP_CRON `5,20,35,50 * * * *` (every 15min). */
-  "d5-single-pill-e2e": 15 * 60 * 1000,
+  /** d5 deep — FLEET_PRODUCER_DEEP_CRON (every-30-min cron, on :00/:30). */
+  "d5-single-pill-e2e": 30 * 60 * 1000,
   /** demos — FLEET_PRODUCER_DEMOS_CRON `10 * * * *` (hourly). */
   "e2e-demos": 60 * 60 * 1000,
 };
@@ -3642,29 +3642,33 @@ export async function verifyWorkerRegistered(deps: {
  * GRACEFUL-DRAIN STOP SEQUENCE for the fleet worker role — deregister FIRST,
  * teardown best-effort AFTER (the platform-kill hardening).
  *
- * WHY THIS ORDER: live Railway redeploys showed the platform's stop grace
- * (~10s after SIGTERM) is SHORTER than the drain grace the worker shipped
- * with (WORKER_DRAIN_GRACE_MS — grace history: 25s at the 2026-06-10 live
- * incident → an 8s interim → the composed 6s default, so the SERIAL
- * deregister-cap + grace budget fits UNDER the platform window). The
- * previous sequence
- * (`await worker.stop()`
+ * WHY THIS ORDER: live Railway redeploys (2026-06-10) showed the platform's
+ * DEFAULT stop grace (~10s after SIGTERM) is far SHORTER than the drain grace
+ * the worker needs (WORKER_DRAIN_GRACE_MS, now a 90s FINISH-AND-REPORT budget —
+ * layer b). Layer (c) fixes the platform side by raising the Railway
+ * `drainingSeconds`/`terminationGracePeriodSeconds` to PLATFORM_STOP_GRACE_MS
+ * (180s) so the SERIAL deregister-cap + grace budget fits UNDER the platform
+ * window (see PLATFORM_STOP_GRACE_MS in worker-loop.ts + showcase/RAILWAY.md).
+ * Even so, the ORDER matters: the previous sequence (`await worker.stop()`
  * → deregister) gated the <1s roster delete on slow browser-context teardown:
  * workers stuck in teardown were HARD-KILLED before deregistering, stranding
  * stale roster rows that fleet-health reclaimed red at its 180s stale mark —
- * the exact deploy red-splash the drain was built to remove. Abandon +
- * deregister take <1s; teardown is best-effort on a process that is dying
- * anyway (a SIGKILL mid-teardown is harmless once the roster row is gone).
+ * the exact deploy red-splash the drain was built to remove. The deregister
+ * takes <1s; the in-flight run's finish-and-report (and the rest of teardown)
+ * is best-effort behind it, bounded by the drain grace (a SIGKILL
+ * mid-teardown is harmless once the roster row is gone).
  *
- *   1. `worker.drain()` — SYNCHRONOUS: fires the loop's drain signal, aborting
- *      the in-flight run and recording the abandon decision
- *      (`fleet.worker.drain-requested` with the abandoned jobId). The loop's
- *      report-skip keys on the SIGNAL — not on `stop()` completing — so a run
- *      that has not begun reporting can never be reported, even if a wedged
- *      teardown later "completes" the run; its lease lapses and the sweeper
- *      re-queues it neutral-gray (unchanged abandon semantics). (A report the
- *      loop already initiated before the signal is past the abandon point and
- *      may land — it is not recorded as abandoned.)
+ *   1. `worker.drain()` — SYNCHRONOUS: fires the loop's drain signal. Layer (b)
+ *      made this signal STOP-CLAIMING-only, NOT an abandon: an in-flight run is
+ *      left to FINISH within the drain grace (`DEFAULT_WORKER_DRAIN_GRACE_MS`,
+ *      90s) and is REPORTED with its real terminal result. The run is only
+ *      abandoned if it OVERRUNS that grace — at grace-expiry `stop()` fires the
+ *      separate `runAbort` signal (the `abortedWithoutResult` discriminator),
+ *      hard-cancelling the run; that case leaves the row claimed/running, lets
+ *      the lease lapse, and lets the sweeper re-queue it neutral-gray → layer
+ *      (a) reclaim is the backstop. So `drain()` returns immediately while the
+ *      finish-and-report (or, only on overrun, the abandon) plays out inside the
+ *      grace spent by `stop()` in step 4.
  *   2. `registration.stop()` — cancel the periodic heartbeat timer so no
  *      further periodic upsert can follow the delete.
  *   3. `await registration.deregister()` — latch the handle (every later
@@ -4112,13 +4116,15 @@ export async function runWorker(
     bus: worker.bus,
     async stop(): Promise<void> {
       // DEREGISTER-FIRST GRACEFUL DRAIN — see `drainFleetWorker` for the full
-      // ordering rationale (the platform kill grace is shorter than the drain
-      // grace, so the <1s abandon + roster delete must NOT gate on slow
-      // browser-context teardown). The no-re-upsert guarantee lives in the
-      // registration HANDLE (deregister latches synchronously, and the delete
-      // is the terminal link of its write-serialization chain), so the
-      // abandoned run's eventual fire-and-forget job-settle heartbeat —
-      // which now fires AFTER the delete — is latched into a logged no-op.
+      // ordering rationale. drain() (step 1) only STOPS CLAIMING — layer (b)
+      // lets the in-flight run finish-and-report within the drain grace; the
+      // FAST work that must beat the platform kill is the <1s deregister +
+      // roster delete (step 3), which must NOT gate on slow browser-context
+      // teardown. The no-re-upsert guarantee lives in the registration HANDLE
+      // (deregister latches synchronously, and the delete is the terminal link
+      // of its write-serialization chain), so the run's eventual fire-and-forget
+      // job-settle heartbeat — which now fires AFTER the delete — is latched
+      // into a logged no-op.
       // We injected BOTH budgetSource and drivers, so fleet runWorker did NOT
       // construct its own pool — WE own it and shut it down here (last).
       await drainFleetWorker({
@@ -4204,20 +4210,24 @@ export async function bootFleet(
       // worker process dies mid-job, leaving its claimed/running row to lapse so
       // the control-plane sweeper reclaims it as a comm error — a FALSE flap on
       // every routine teardown. The drain (worker.stop() in runWorker's stop
-      // path) does NOT report a terminal result for the in-flight job: a reported
-      // partial would paint RED (terminalJobStatus maps any non-green aggregate
-      // to "failed", and the result-consumer has no neutral aggregate state). So
-      // the drain instead ABANDONS the partial — the driver suppresses its red
-      // per-cell side-emits (ctx.drainReason === "shutdown"), the loop skips
-      // queue.report, and the worker DEREGISTERS its registry row. With no row,
-      // fleet-health can't reclaim a gracefully-drained worker red at its 180s
-      // stale window; the abandoned job's claimed/running row lapses at the 300s
-      // lease expiry where the sweeper re-queues it as the neutral
-      // `worker-reclaimed-pending` (gray), accepting an up-to-lease-window re-run
-      // delay for ZERO red paint on a routine redeploy. Deregistration is THE
-      // distinction the sweep boundary cannot make on its own (an expired lease
-      // looks the same for a crash and a SIGTERM teardown): a CRASH leaves the
-      // row (→ today's red reclaim, unchanged), a graceful drain deletes it.
+      // path) STOPS CLAIMING and, per layer (b), lets the in-flight job FINISH
+      // within the drain grace (`DEFAULT_WORKER_DRAIN_GRACE_MS`, 90s) and REPORTS
+      // its real terminal result — a run that was seconds from done is not thrown
+      // away. The driver still soft-winds-down its red per-cell side-emits while
+      // draining (ctx.drainReason === "shutdown") so a redeploy never paints those
+      // intermediate reds, and the worker DEREGISTERS its registry row. The ABANDON
+      // path is now only the long tail: a job that OVERRUNS the grace is hard-cut
+      // at grace-expiry (the separate `runAbort` signal) WITHOUT a terminal result
+      // (a reported partial would paint RED — terminalJobStatus maps any non-green
+      // aggregate to "failed", and the result-consumer has no neutral aggregate
+      // state), so its claimed/running row is left to lapse at the 300s lease
+      // expiry where the sweeper re-queues it neutral `worker-reclaimed-pending`
+      // (gray) → layer (a) reclaim. With the row deregistered, fleet-health can't
+      // reclaim a gracefully-drained worker red at its 180s stale window.
+      // Deregistration is THE distinction the sweep boundary cannot make on its
+      // own (an expired lease looks the same for a crash and a SIGTERM teardown):
+      // a CRASH leaves the row (→ today's red reclaim, unchanged), a graceful
+      // drain deletes it.
       let draining = false;
       const drainAndExit = (signal: NodeJS.Signals): void => {
         if (draining) return;

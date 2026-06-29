@@ -80,6 +80,13 @@
     }
   },
   "harness-workers": {
+    "prod": {
+      "instanceId": "7c48ee43-6df4-457b-b977-10f1f1ac1680",
+      "domain": null,
+      "probe": false,
+      "driver": "harness",
+      "repoName": "showcase-harness"
+    },
     "staging": {
       "instanceId": "362c1e37-5f40-45f2-ac7b-0e5adac565f8",
       "domain": null,
@@ -425,6 +432,13 @@
     }
   },
   "showcase-strands-typescript": {
+    "prod": {
+      "instanceId": "8a50728e-6119-43c4-b59c-d9535b6717a4",
+      "domain": "showcase-strands-typescript-production.up.railway.app",
+      "probe": true,
+      "driver": "agent",
+      "repoName": "showcase-strands-typescript"
+    },
     "staging": {
       "instanceId": "3f917b9f-c3f0-4d8b-96ca-7f455e06b5ba",
       "domain": "showcase-strands-typescript-staging.up.railway.app",

@@ -14,6 +14,13 @@ export interface ReplyTarget {
    * native streamer can read it off the target.
    */
   recipientUserId?: string;
+  /**
+   * Inbound message ts used as the thread anchor for
+   * `assistant.threads.setStatus` in flat DMs (which have no `threadTs`).
+   * Replies still post flat; this only gives the native "is thinking…"
+   * indicator a thread to attach to.
+   */
+  statusTs?: string;
 }
 
 /**

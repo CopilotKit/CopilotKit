@@ -73,6 +73,20 @@ describe("decodeInteraction", () => {
     expect(evt!.user).toBeUndefined();
   });
 
+  it("decodes a multi_static_select's selected_options into a string[] value", () => {
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C3", thread_ts: "200.0" },
+      actions: [
+        {
+          action_id: "ck:ms",
+          selected_options: [{ value: "core" }, { value: "infra" }],
+        },
+      ],
+    });
+    expect(evt!.value).toEqual(["core", "infra"]);
+  });
+
   it("returns undefined for non-block_actions or missing action_id", () => {
     expect(decodeInteraction({ type: "view_submission" })).toBeUndefined();
     expect(

@@ -128,6 +128,13 @@ export interface IncomingReaction {
   replyTarget: ReplyTarget;
   /** Id of the reacted-to message. */
   messageId: string;
+  /**
+   * Update-capable ref to the reacted message (the platform-specific shape the
+   * adapter's `update`/`delete` accept). Lets a `<Message onReaction>` handler
+   * swap the message's UI in place. Adapters that can edit messages should set
+   * this; the engine falls back to `{ id: messageId }` when omitted.
+   */
+  messageRef?: MessageRef;
   /** Containing thread/conversation id, when distinct from the message. */
   threadId?: string;
   /** Native payload. */

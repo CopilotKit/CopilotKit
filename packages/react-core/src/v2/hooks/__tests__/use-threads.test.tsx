@@ -335,6 +335,52 @@ describe("useThreads", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.error?.message).toBe("Runtime URL is not configured");
+    // The runtime/config error must NOT leak into the end-user list-error
+    // channel — only genuine list-load failures surface there.
+    expect(result.current.listError).toBeNull();
+  });
+
+  it("startNewThread clears the runtime-config error banner", async () => {
+    setupCopilotKit("");
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.error?.message).toBe(
+        "Runtime URL is not configured",
+      );
+    });
+
+    act(() => {
+      result.current.startNewThread();
+    });
+
+    // "New thread" presents a clean welcome surface: the config error is
+    // dismissed even though it outranks the store's own (cleared) error.
+    await waitFor(() => {
+      expect(result.current.error).toBeNull();
+    });
+  });
+
+  it("does not register the thread store when disabled (avoids evicting a live store for the same agent)", () => {
+    const registerThreadStore = vi.fn();
+    const unregisterThreadStore = vi.fn();
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: {},
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+        registerThreadStore,
+        unregisterThreadStore,
+      },
+    });
+
+    renderHook(() => useThreads({ ...defaultInput, enabled: false }));
+
+    expect(registerThreadStore).not.toHaveBeenCalled();
   });
 
   it("does not fetch when the runtime does not advertise thread endpoints", async () => {
