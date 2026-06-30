@@ -12,6 +12,7 @@ export type ReleaseScope =
   | "angular"
   | "bot"
   | "bot-discord"
+  | "bot-intelligence"
   | "bot-slack"
   | "bot-teams"
   | "bot-telegram"

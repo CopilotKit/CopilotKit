@@ -9,6 +9,7 @@ import type {
   ThreadMessage,
 } from "@copilotkit/bot-ui";
 import type { CommandSpec } from "./commands.js";
+import type { StateStore } from "./state/state-store.js";
 
 /** Opaque to the bot core — created by an adapter during ingress and passed back to post/createRunRenderer. */
 export type ReplyTarget = unknown;
@@ -59,29 +60,43 @@ export interface RunRenderer {
   finish?(): Promise<void>;
 }
 
-export interface IncomingTurn {
+/**
+ * Fields shared by every ingress event routed through the {@link IngressSink}:
+ * the conversation it belongs to, the opaque target to reply on, and the user
+ * who triggered it (when the platform reports one).
+ */
+export interface IngressEventBase {
   conversationKey: string;
   replyTarget: ReplyTarget;
+  user?: PlatformUser;
+}
+
+/**
+ * Idempotency ids carried by turn/command/interaction ingress. Set on the
+ * managed (Intelligence-delivered) path; local adapters omit them.
+ */
+export interface IngressIds {
+  /** Stable platform event id for idempotency; omit if the platform provides none. */
+  eventId?: string;
+  /** Stable per-turn id (managed/Intelligence path); local adapters omit it. */
+  turnId?: string;
+  /** Lease/delivery id (managed/Intelligence path); local adapters omit it. */
+  deliveryId?: string;
+}
+
+export interface IncomingTurn extends IngressEventBase, IngressIds {
   userText: string;
   /**
    * Optional multimodal content parts built by the adapter (e.g. inbound
    * image/file attachments). Carried through to `IncomingMessage.contentParts`.
    */
   contentParts?: AgentContentPart[];
-  user?: PlatformUser;
-  /** Stable platform event id for idempotency; omit if the platform provides none. */
-  eventId?: string;
   platform: string;
 }
 
-export interface InteractionEvent {
+export interface InteractionEvent extends IngressEventBase, IngressIds {
   id: string; // opaque minted action id (ck:...)
-  conversationKey: string;
-  replyTarget: ReplyTarget;
   value?: unknown;
-  user?: PlatformUser;
-  /** Stable platform event id for idempotency; omit if the platform provides none. */
-  eventId?: string;
   /** The message the interaction occurred on (the picker), so handlers can update it in place. */
   messageRef?: MessageRef;
   /** Opaque platform trigger for opening a modal (Slack `trigger_id`; Discord interaction id). */
@@ -89,18 +104,13 @@ export interface InteractionEvent {
 }
 
 /** A slash-command invocation normalized by an adapter. */
-export interface IncomingCommand {
+export interface IncomingCommand extends IngressEventBase, IngressIds {
   /** Command name as invoked (a leading slash and case are normalized by the engine). */
   command: string;
   /** Raw argument string after the command name (the form text-only surfaces deliver). */
   text: string;
   /** Structured, pre-parsed options when the surface delivers them (e.g. Discord). */
   rawOptions?: Record<string, unknown>;
-  conversationKey: string;
-  replyTarget: ReplyTarget;
-  user?: PlatformUser;
-  /** Stable platform event id for idempotency; omit if the platform provides none. */
-  eventId?: string;
   platform: string;
   /** Opaque platform trigger for opening a modal (Slack `trigger_id`; Discord interaction id). */
   triggerId?: string;
@@ -110,22 +120,16 @@ export interface IncomingCommand {
  * A "conversation opened" lifecycle event (Slack: `assistant_thread_started`).
  * Adapters without the concept never emit it.
  */
-export interface IncomingThreadStart {
-  conversationKey: string;
-  replyTarget: ReplyTarget;
-  user?: PlatformUser;
+export interface IncomingThreadStart extends IngressEventBase {
   platform: string;
 }
 
 /** A reaction added/removed on a message. Adapters that can't observe reactions never emit it. */
-export interface IncomingReaction {
+export interface IncomingReaction extends IngressEventBase {
   /** Platform-native emoji token (Slack shortcode, Unicode, Discord custom). */
   rawEmoji: string;
   /** true = added, false = removed. */
   added: boolean;
-  user?: PlatformUser;
-  conversationKey: string;
-  replyTarget: ReplyTarget;
   /** Id of the reacted-to message. */
   messageId: string;
   /**
@@ -209,11 +213,22 @@ export interface ConversationStore {
   ): Promise<AgentSession>;
 }
 
+/**
+ * Optional context bot core passes to {@link PlatformAdapter.start}. Carries
+ * the bot's declared identity so a transport that must announce itself (e.g.
+ * the managed Intelligence adapter's heartbeat) can do so without separate
+ * config. Local adapters ignore it.
+ */
+export interface AdapterStartContext {
+  /** The bot's declared name (`createBot({ name })`), when set. */
+  botName?: string;
+}
+
 export interface PlatformAdapter {
   readonly platform: string;
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs: number;
-  start(sink: IngressSink): Promise<void>;
+  start(sink: IngressSink, ctx?: AdapterStartContext): Promise<void>;
   stop(): Promise<void>;
   render(ir: BotNode[]): NativePayload;
   post(target: ReplyTarget, ir: BotNode[]): Promise<MessageRef>;
@@ -227,6 +242,22 @@ export interface PlatformAdapter {
   decodeInteraction(raw: unknown): InteractionEvent | undefined;
   lookupUser(q: UserQuery): Promise<PlatformUser | undefined>;
   readonly conversationStore: ConversationStore;
+  /**
+   * Optional persistence backend supplied by the adapter. `createBot` uses it
+   * only when no explicit `store.adapter` is configured; if more than one
+   * adapter provides one, `createBot` warns and uses the first. Distinct from
+   * {@link conversationStore}.
+   */
+  readonly stateStore?: StateStore;
+  /** @internal Marks the managed adapter; bot core uses it for the V1 exclusivity guard. */
+  readonly __managed?: boolean;
+  /**
+   * When true, bot core skips its ingress dedup for events from this adapter.
+   * Set by at-least-once transports (managed delivery) that enforce
+   * idempotency at egress instead — dropping a redelivery at ingress would lose
+   * a legitimate retry.
+   */
+  readonly skipIngressDedup?: boolean;
   /**
    * Optional conversation-history read. Backs the capability-gated
    * `Thread.getMessages()`; adapters that can't read history simply omit this,

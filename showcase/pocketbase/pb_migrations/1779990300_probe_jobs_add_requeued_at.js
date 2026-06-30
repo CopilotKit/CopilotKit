@@ -31,7 +31,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("probe_jobs");
-    } catch (e) {
+    } catch {
       // Base collection not present yet (S0 create runs first, lower prefix).
       // No-op rather than a hard failure.
       return;
@@ -51,7 +51,7 @@ migrate(
     let c;
     try {
       c = dao.findCollectionByNameOrId("probe_jobs");
-    } catch (e) {
+    } catch {
       return;
     }
     const f = c.schema.getFieldByName("requeued_at");

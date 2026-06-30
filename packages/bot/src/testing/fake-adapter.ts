@@ -26,6 +26,7 @@ import type {
   ModalSubmitResult,
 } from "../platform-adapter.js";
 import type { CommandSpec } from "../commands.js";
+import type { StateStore } from "../state/state-store.js";
 
 /** A RunRenderer whose subscriber captures tool-call-end and custom (interrupt) events — used by run-loop tests. */
 export function makeFakeRunRenderer(): RunRenderer {
@@ -181,6 +182,8 @@ export class FakeAdapter implements PlatformAdapter {
   messages: ThreadMessage[] = [];
   /** User returned by lookupUser(); override in tests. */
   user?: PlatformUser;
+  /** Optional persistence backend the adapter provides (test-only); exercises createBot's store resolution. */
+  stateStore?: StateStore;
   private sink?: IngressSink;
   private counter = 0;
 

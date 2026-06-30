@@ -26,6 +26,7 @@ export type { ThreadDeps } from "./thread.js";
 // Platform adapter boundary
 export type {
   PlatformAdapter,
+  AdapterStartContext,
   RunRenderer,
   IngressSink,
   IncomingTurn,
@@ -97,6 +98,15 @@ export { mintId, stableStringify } from "./mint-id.js";
 // Run loop
 export { runAgentLoop } from "./run-loop.js";
 export type { RunLoopArgs } from "./run-loop.js";
+
+// Pure, per-platform codec seam (shared with the managed/Connector-Outbox path).
+// The Intelligence-delivered managed adapter itself lives in
+// `@copilotkit/bot-intelligence`.
+export type { PlatformCodec } from "./codec.js";
+
+// Test utilities (also surfaces them for downstream adapter packages' tests).
+export { FakeAdapter, makeFakeRunRenderer } from "./testing/fake-adapter.js";
+export { FakeAgent } from "./testing/fake-agent.js";
 
 // Re-export the bot-ui component vocabulary + types for convenience.
 export * from "@copilotkit/bot-ui";

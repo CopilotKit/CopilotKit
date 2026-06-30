@@ -37,6 +37,11 @@
       "versionSource": "@copilotkit/bot-discord",
       "sharedVersion": false
     },
+    "bot-intelligence": {
+      "packages": ["@copilotkit/bot-intelligence"],
+      "versionSource": "@copilotkit/bot-intelligence",
+      "sharedVersion": false
+    },
     "bot-slack": {
       "packages": ["@copilotkit/bot-slack"],
       "versionSource": "@copilotkit/bot-slack",
