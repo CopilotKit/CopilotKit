@@ -84,8 +84,8 @@ export type MemoryChanges = NewMemory;
 
 /** Outcome of a mutation, tracked so the caller's promise resolves/rejects. */
 type MemoryMutationOutcome =
-  | { requestId: string; ok: true; memory: Memory | null }
-  | { requestId: string; ok: false; error: Error };
+  | { requestId: string; sessionId: number; ok: true; memory: Memory | null }
+  | { requestId: string; sessionId: number; ok: false; error: Error };
 
 /**
  * Runtime wiring for the memory store: where to reach the REST surface and the
@@ -108,7 +108,7 @@ interface MemoryRuntimeContext {
 interface MemoryState {
   memories: Memory[];
   isLoading: boolean;
-  isMutating: boolean;
+  inFlightMutationCount: number;
   error: Error | null;
   context: MemoryRuntimeContext | null;
   sessionId: number;
@@ -118,7 +118,7 @@ interface MemoryState {
 const initialMemoryState: MemoryState = {
   memories: [],
   isLoading: false,
-  isMutating: false,
+  inFlightMutationCount: 0,
   error: null,
   context: null,
   sessionId: 0,
@@ -250,6 +250,7 @@ const memoryReducer = createReducer(
     sessionId: state.sessionId + 1,
     memories: [],
     isLoading: Boolean(context),
+    inFlightMutationCount: 0,
     error: null,
     available: true,
   })),
@@ -257,6 +258,7 @@ const memoryReducer = createReducer(
     ...state,
     memories: [],
     isLoading: false,
+    inFlightMutationCount: 0,
     error: null,
   })),
   on(memoryRestEvents.listRequested, (state: MemoryState, { sessionId }) => {
@@ -302,13 +304,28 @@ const memoryReducer = createReducer(
     memoryAdapterEvents.addRequested,
     memoryAdapterEvents.updateRequested,
     memoryAdapterEvents.removeRequested,
-    (state: MemoryState) => ({ ...state, isMutating: true }),
+    (state: MemoryState) => ({
+      ...state,
+      inFlightMutationCount: state.inFlightMutationCount + 1,
+    }),
   ),
-  on(memoryRestEvents.mutationFinished, (state: MemoryState, { outcome }) => ({
-    ...state,
-    isMutating: false,
-    error: outcome.ok ? state.error : outcome.error,
-  })),
+  on(memoryRestEvents.mutationFinished, (state: MemoryState, { outcome }) => {
+    // Drop results from a superseded session. `contextChanged`/`stopped` already
+    // reset `inFlightMutationCount`, so a mutation that resolves after the
+    // context switched must not write a stale error into the new session.
+    // Mirrors every other session-scoped handler (and threads.ts).
+    if (outcome.sessionId !== state.sessionId) {
+      return state;
+    }
+
+    return {
+      ...state,
+      inFlightMutationCount: Math.max(0, state.inFlightMutationCount - 1),
+      // On success clear any previously surfaced mutation error so a later
+      // successful mutation does not leave a phantom sticky error banner.
+      error: outcome.ok ? null : outcome.error,
+    };
+  }),
   on(
     memoryRestEvents.listSucceeded,
     (state: MemoryState, { sessionId, memories }) => {
@@ -321,6 +338,34 @@ const memoryReducer = createReducer(
         memories,
         isLoading: false,
         error: null,
+        // A successful list proves the memory route is available.
+        available: true,
+      };
+    },
+  ),
+  on(
+    memoryRestEvents.credentialsFailed,
+    (state: MemoryState, { sessionId, error }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
+
+      return {
+        ...state,
+        error,
+      };
+    },
+  ),
+  on(
+    memoryRestEvents.credentialsUnavailable,
+    (state: MemoryState, { sessionId }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
+
+      return {
+        ...state,
+        available: false,
       };
     },
   ),
@@ -358,6 +403,14 @@ const selectMemoriesIsLoading = createSelector(
 );
 const selectMemoriesError = createSelector((state: MemoryState) => state.error);
 /**
+ * Reports whether at least one mutation is in flight. Derived from
+ * `inFlightMutationCount` so concurrent mutations stay correct: the boolean
+ * only clears once every in-flight mutation has settled.
+ */
+const selectMemoriesIsMutating = createSelector(
+  (state: MemoryState) => state.inFlightMutationCount > 0,
+);
+/**
  * Reports whether the memory routes are available. Becomes `false` after a
  * 404 or 501 response during an auto-activation read; defaults to `true`.
  */
@@ -392,6 +445,15 @@ interface MemoryStore {
   /** Retires a memory (non-lossy delete). */
   removeMemory(id: string): Promise<void>;
   getState(): MemoryState;
+  /**
+   * Stable, render-safe state for SSR/prerender. React's
+   * `useSyncExternalStore` requires a `getServerSnapshot` during SSR/prerender
+   * (e.g. Next.js); without one React throws "Missing getServerSnapshot". The
+   * returned reference is stable across calls so React does not loop. There is
+   * no client-side memory data during prerender, so this is the empty initial
+   * state (no memories, not loading, no error).
+   */
+  getServerState(): MemoryState;
   select: Store<MemoryState>["select"];
 }
 
@@ -609,7 +671,7 @@ function buildMutationSuccessActions(
     return [
       memoryDomainEvents.memoryInvalidated({ sessionId, memoryId: request.id }),
       memoryRestEvents.mutationFinished({
-        outcome: { requestId, ok: true, memory: null },
+        outcome: { requestId, sessionId, ok: true, memory: null },
       }),
     ];
   }
@@ -619,12 +681,30 @@ function buildMutationSuccessActions(
   );
 
   if (request.kind === "update") {
-    const retiredId = (data as { retiredId: string }).retiredId;
+    // `retiredId` is optional on the server type. Without it the
+    // `memoryInvalidated` would be a no-op (no id to remove), leaving the old
+    // memory as a duplicate next to the new one. Validate it like the
+    // credentials path validates joinToken/joinCode, and fail the mutation
+    // rather than apply a half-baked supersede.
+    const retiredId = (data as { retiredId?: string }).retiredId;
+    if (typeof retiredId !== "string" || retiredId.length === 0) {
+      return [
+        memoryRestEvents.mutationFinished({
+          outcome: {
+            requestId,
+            sessionId,
+            ok: false,
+            error: new Error("supersede response missing retiredId"),
+          },
+        }),
+      ];
+    }
+
     return [
       memoryDomainEvents.memoryInvalidated({ sessionId, memoryId: retiredId }),
       memoryDomainEvents.memoryUpserted({ sessionId, memory }),
       memoryRestEvents.mutationFinished({
-        outcome: { requestId, ok: true, memory },
+        outcome: { requestId, sessionId, ok: true, memory },
       }),
     ];
   }
@@ -632,7 +712,7 @@ function buildMutationSuccessActions(
   return [
     memoryDomainEvents.memoryUpserted({ sessionId, memory }),
     memoryRestEvents.mutationFinished({
-      outcome: { requestId, ok: true, memory },
+      outcome: { requestId, sessionId, ok: true, memory },
     }),
   ];
 }
@@ -683,6 +763,7 @@ function createMemoryMutationObservable(
           memoryRestEvents.mutationFinished({
             outcome: {
               requestId: request.requestId,
+              sessionId: request.sessionId,
               ok: false,
               error: error instanceof Error ? error : new Error(String(error)),
             },
@@ -806,11 +887,13 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
         withLatestFrom(state$),
         mergeMap(([action, state]) => {
           const context = state.context;
+          const sessionId = state.sessionId;
           if (!context?.runtimeUrl) {
             return of(
               memoryRestEvents.mutationFinished({
                 outcome: {
                   requestId: action.requestId,
+                  sessionId,
                   ok: false,
                   error: new Error("Runtime URL is not configured"),
                 },
@@ -818,7 +901,6 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
             );
           }
 
-          const sessionId = state.sessionId;
           if (memoryAdapterEvents.addRequested.match(action)) {
             return createMemoryMutationObservable(environment, context, {
               requestId: action.requestId,
@@ -968,6 +1050,7 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
           () =>
             ({
               requestId,
+              sessionId: store.getState().sessionId,
               ok: false,
               error: new Error(
                 "Memory store stopped before mutation completed",
@@ -1064,6 +1147,9 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
     getState(): MemoryState {
       return store.getState();
     },
+    getServerState(): MemoryState {
+      return initialMemoryState;
+    },
     select: store.select.bind(store),
   };
 }
@@ -1085,5 +1171,6 @@ export const ɵmapMemoryMetadataEvent = mapMemoryMetadataEvent;
 export const ɵselectMemories = selectMemories;
 export const ɵselectMemoriesIsLoading = selectMemoriesIsLoading;
 export const ɵselectMemoriesError = selectMemoriesError;
+export const ɵselectMemoriesIsMutating = selectMemoriesIsMutating;
 export const ɵselectMemoriesAvailable = selectMemoriesAvailable;
 export { createMemoryStore as ɵcreateMemoryStore };

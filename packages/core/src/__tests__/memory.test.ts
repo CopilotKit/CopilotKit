@@ -30,6 +30,8 @@ const {
   ɵselectMemories,
   ɵselectMemoriesIsLoading,
   ɵselectMemoriesError,
+  ɵselectMemoriesIsMutating,
+  ɵselectMemoriesAvailable,
 } = await import("../memory");
 import type {
   Memory,
@@ -846,4 +848,224 @@ describe("memory selectors", () => {
 
     expect(ɵselectMemoriesIsLoading(state)).toBe(true);
   });
+});
+
+describe("memory mutation session guard and error handling", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const userMemory = (id: string, content = `content-${id}`) => ({
+    id,
+    kind: "topical" as const,
+    scope: "user" as const,
+    content,
+    sourceThreadIds: [],
+    invalidatedAt: null,
+  });
+
+  // A1: a mutation failing AFTER a setContext bump must not write its stale
+  // error into the new session.
+  test("a mutation failing after a context switch does not error the new session", () => {
+    const requested = memoryReducer(
+      undefined,
+      memoryAdapterEvents.addRequested({
+        requestId: "r1",
+        input: { content: "x", kind: "topical" },
+      }),
+    );
+    expect(requested.sessionId).toBe(0);
+    expect(requested.inFlightMutationCount).toBe(1);
+
+    const switched = memoryReducer(
+      requested,
+      memoryAdapterEvents.contextChanged({ context: sampleContext }),
+    );
+    expect(switched.sessionId).toBe(1);
+    expect(switched.inFlightMutationCount).toBe(0);
+
+    const afterStaleFailure = memoryReducer(
+      switched,
+      memoryRestEvents.mutationFinished({
+        outcome: {
+          requestId: "r1",
+          sessionId: 0,
+          ok: false,
+          error: new Error("stale failure"),
+        },
+      }),
+    );
+
+    expect(afterStaleFailure.error).toBeNull();
+    expect(afterStaleFailure.inFlightMutationCount).toBe(0);
+  });
+
+  // RC2: a successful mutation clears a previously surfaced mutation error.
+  test("a successful mutation clears a prior sticky error", () => {
+    const withError = memoryReducer(
+      undefined,
+      memoryRestEvents.mutationFinished({
+        outcome: {
+          requestId: "r1",
+          sessionId: 0,
+          ok: false,
+          error: new Error("boom"),
+        },
+      }),
+    );
+    expect(withError.error).toBeInstanceOf(Error);
+
+    const cleared = memoryReducer(
+      withError,
+      memoryRestEvents.mutationFinished({
+        outcome: { requestId: "r2", sessionId: 0, ok: true, memory: null },
+      }),
+    );
+
+    expect(cleared.error).toBeNull();
+  });
+
+  // A2: credentials events flip availability / surface the error.
+  test("credentialsUnavailable sets available:false", () => {
+    const state = memoryReducer(
+      undefined,
+      memoryRestEvents.credentialsUnavailable({ sessionId: 0 }),
+    );
+
+    expect(ɵselectMemoriesAvailable(state)).toBe(false);
+  });
+
+  test("credentialsFailed surfaces the error without clearing it", () => {
+    const error = new Error("creds boom");
+    const state = memoryReducer(
+      undefined,
+      memoryRestEvents.credentialsFailed({ sessionId: 0, error }),
+    );
+
+    expect(ɵselectMemoriesError(state)).toBe(error);
+  });
+
+  test("credentials events from a stale session are ignored", () => {
+    const next = memoryReducer(
+      undefined,
+      memoryRestEvents.credentialsUnavailable({ sessionId: 99 }),
+    );
+
+    expect(next.available).toBe(true);
+  });
+
+  // A4: a successful list proves the route is available.
+  test("listSucceeded sets available:true", () => {
+    const unavailable = memoryReducer(
+      undefined,
+      memoryRestEvents.listUnavailable({ sessionId: 0 }),
+    );
+    expect(unavailable.available).toBe(false);
+
+    const next = memoryReducer(
+      unavailable,
+      memoryRestEvents.listSucceeded({
+        sessionId: 0,
+        memories: [memory("m1")],
+      }),
+    );
+
+    expect(ɵselectMemoriesAvailable(next)).toBe(true);
+  });
+
+  // A5: concurrent mutations — the count stays > 0 until both settle, and a
+  // context switch resets it.
+  test("inFlightMutationCount tracks concurrent mutations and resets on contextChanged", () => {
+    let state = memoryReducer(
+      undefined,
+      memoryAdapterEvents.addRequested({
+        requestId: "r1",
+        input: { content: "a", kind: "topical" },
+      }),
+    );
+    state = memoryReducer(
+      state,
+      memoryAdapterEvents.addRequested({
+        requestId: "r2",
+        input: { content: "b", kind: "topical" },
+      }),
+    );
+    expect(state.inFlightMutationCount).toBe(2);
+    expect(ɵselectMemoriesIsMutating(state)).toBe(true);
+
+    state = memoryReducer(
+      state,
+      memoryRestEvents.mutationFinished({
+        outcome: { requestId: "r1", sessionId: 0, ok: true, memory: null },
+      }),
+    );
+    expect(state.inFlightMutationCount).toBe(1);
+    expect(ɵselectMemoriesIsMutating(state)).toBe(true);
+
+    const reset = memoryReducer(
+      state,
+      memoryAdapterEvents.contextChanged({ context: sampleContext }),
+    );
+    expect(reset.inFlightMutationCount).toBe(0);
+    expect(ɵselectMemoriesIsMutating(reset)).toBe(false);
+  });
+
+  test("stopped resets inFlightMutationCount", () => {
+    const requested = memoryReducer(
+      undefined,
+      memoryAdapterEvents.removeRequested({ requestId: "r1", id: "m1" }),
+    );
+    expect(requested.inFlightMutationCount).toBe(1);
+
+    const stopped = memoryReducer(requested, memoryAdapterEvents.stopped());
+
+    expect(stopped.inFlightMutationCount).toBe(0);
+  });
+
+  // A3: a supersede response without retiredId must reject (no duplicate).
+  test("updateMemory rejects when the supersede response omits retiredId", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ memories: [userMemory("m1", "old")] }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        // No retiredId on the response.
+        json: async () => ({ ...userMemory("m2", "new") }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+
+    await expect(
+      store.updateMemory("m1", { content: "new", kind: "topical" }),
+    ).rejects.toThrow("missing retiredId");
+
+    // The old memory remains; the new one was NOT inserted as a duplicate.
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
+
+    store.stop();
+  });
+});
+
+// A11: getServerState returns an empty, stable, render-safe state for SSR.
+test("getServerState returns the empty initial state and is stable", () => {
+  const store = createMemoryStore(memoryEnvironment(vi.fn()));
+
+  const serverState = store.getServerState();
+
+  expect(serverState.memories).toEqual([]);
+  expect(serverState.isLoading).toBe(false);
+  expect(serverState.error).toBeNull();
+  expect(serverState.inFlightMutationCount).toBe(0);
+  // Stable reference across calls so React's useSyncExternalStore does not loop.
+  expect(store.getServerState()).toBe(serverState);
 });
