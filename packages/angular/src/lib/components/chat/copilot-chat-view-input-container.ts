@@ -35,9 +35,7 @@ import { CopilotChatAttachmentQueue } from "./copilot-chat-attachment-queue";
     <div [class]="computedClass">
       <!-- Input component -->
       @if ((chatState?.attachments() ?? []).length > 0) {
-        <div
-          class="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto"
-        >
+        <div class="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
           <copilot-chat-attachment-queue
             [attachments]="chatState?.attachments() ?? []"
             inputClass="cpk:px-4"
