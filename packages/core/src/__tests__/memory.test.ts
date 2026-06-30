@@ -348,6 +348,100 @@ describe("memory store realtime", () => {
     sub.unsubscribe();
     store.stop();
   });
+
+  it("starts realtimeStatus at 'connecting' before any join resolves", async () => {
+    const store = await connectedRealtimeStore();
+
+    // Credentials succeeded and the socket is subscribing/joining, but the join
+    // has not been acknowledged yet -> still "connecting".
+    expect(store.getState().realtimeStatus).toBe("connecting");
+
+    store.stop();
+  });
+
+  it("flips realtimeStatus to 'connected' on a successful channel join", async () => {
+    const store = await connectedRealtimeStore();
+
+    memoryChannel().triggerJoin("ok");
+    await flushEffects();
+
+    expect(store.getState().realtimeStatus).toBe("connected");
+
+    store.stop();
+  });
+
+  it("flips realtimeStatus to 'unavailable' when the socket exhausts its retries", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const store = await connectedRealtimeStore();
+    const socket = phoenix.sockets[0];
+    if (!socket) {
+      throw new Error("expected a phoenix socket to exist");
+    }
+
+    // Drive MAX_SOCKET_RETRIES (5) consecutive transport errors with no
+    // intervening `open`, exhausting `ɵobservePhoenixSocketHealth$` so the
+    // realtime stream gives up.
+    for (let i = 0; i < 5; i += 1) {
+      socket.triggerError();
+    }
+    await flushEffects();
+
+    expect(store.getState().realtimeStatus).toBe("unavailable");
+    // The give-up is still logged (silent-degrade for `available`/`error`).
+    expect(warn).toHaveBeenCalled();
+    // The realtime give-up must NOT touch the REST availability/error state.
+    expect(store.getState().available).toBe(true);
+    expect(store.getState().error).toBeNull();
+
+    warn.mockRestore();
+    store.stop();
+  });
+
+  it("flips realtimeStatus to 'unavailable' on a permanent join failure", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const store = await connectedRealtimeStore();
+
+    memoryChannel().triggerJoin("error", { reason: "unauthorized" });
+    await flushEffects();
+
+    expect(store.getState().realtimeStatus).toBe("unavailable");
+    expect(warn).toHaveBeenCalled();
+
+    warn.mockRestore();
+    store.stop();
+  });
+
+  it("resets realtimeStatus to 'connecting' on contextChanged", async () => {
+    const store = await connectedRealtimeStore();
+
+    memoryChannel().triggerJoin("ok");
+    await flushEffects();
+    expect(store.getState().realtimeStatus).toBe("connected");
+
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      wsUrl: "wss://gw.example.com/client",
+      headers: { Authorization: "Bearer token", "X-Cpki-User-Id": "u2" },
+    });
+    await flushEffects();
+
+    expect(store.getState().realtimeStatus).toBe("connecting");
+
+    store.stop();
+  });
+
+  it("resets realtimeStatus to 'connecting' on stop", async () => {
+    const store = await connectedRealtimeStore();
+
+    memoryChannel().triggerJoin("ok");
+    await flushEffects();
+    expect(store.getState().realtimeStatus).toBe("connected");
+
+    store.stop();
+    await flushEffects();
+
+    expect(store.getState().realtimeStatus).toBe("connecting");
+  });
 });
 
 const sampleContext = {

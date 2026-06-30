@@ -99,6 +99,7 @@ type MockMemoryStoreState = {
   context: null;
   sessionId: number;
   available: boolean;
+  realtimeStatus: "connecting" | "connected" | "unavailable";
 };
 
 function createNoopMemoryStore() {
@@ -110,6 +111,7 @@ function createNoopMemoryStore() {
     context: null,
     sessionId: 0,
     available: true,
+    realtimeStatus: "connecting",
   };
   return {
     getState: () => state,
@@ -1041,6 +1043,7 @@ type MemoryStoreState = {
   context: null;
   sessionId: number;
   available: boolean;
+  realtimeStatus: "connecting" | "connected" | "unavailable";
 };
 
 /**
@@ -1052,6 +1055,7 @@ type MemoryStoreState = {
 function makeMockMemoryStore(
   memories: Memory[],
   available: boolean,
+  realtimeStatus: MemoryStoreState["realtimeStatus"] = "connected",
 ): { store: ReturnType<typeof buildStore>; state: MemoryStoreState } {
   const state: MemoryStoreState = {
     memories,
@@ -1061,6 +1065,7 @@ function makeMockMemoryStore(
     context: null,
     sessionId: 0,
     available,
+    realtimeStatus,
   };
 
   function buildStore() {
@@ -1102,10 +1107,18 @@ type MemoryMockCore = {
  */
 function makeCoreWithMemory(
   memories: Memory[],
-  opts: { available?: boolean; telemetryDisabled?: boolean } = {},
+  opts: {
+    available?: boolean;
+    telemetryDisabled?: boolean;
+    realtimeStatus?: MemoryStoreState["realtimeStatus"];
+  } = {},
 ): MemoryMockCore {
   const available = opts.available ?? true;
-  const { store } = makeMockMemoryStore(memories, available);
+  const { store } = makeMockMemoryStore(
+    memories,
+    available,
+    opts.realtimeStatus ?? "connected",
+  );
 
   return {
     agents: {},
@@ -1313,6 +1326,45 @@ describe("WebInspectorElement memories — view states", () => {
       .updateComplete;
     const listText = memoryList?.shadowRoot?.textContent ?? "";
     expect(listText).toContain("No memories yet");
+  });
+
+  it("shows the 'live' indicator only when realtime is connected", async () => {
+    const core = makeCoreWithMemory([], {
+      available: true,
+      realtimeStatus: "connected",
+    });
+    const el = await mountMemories(core);
+
+    const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain("live");
+    expect(text).not.toContain("offline");
+    expect(text).not.toContain("reconnecting");
+  });
+
+  it("shows a muted 'reconnecting' indicator while realtime is connecting", async () => {
+    const core = makeCoreWithMemory([], {
+      available: true,
+      realtimeStatus: "connecting",
+    });
+    const el = await mountMemories(core);
+
+    const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain("reconnecting");
+    // It must NOT claim "live" while still connecting.
+    expect(text).not.toMatch(/>\s*live\s*</);
+  });
+
+  it("shows a muted 'offline' indicator when realtime has permanently given up", async () => {
+    const core = makeCoreWithMemory([], {
+      available: true,
+      realtimeStatus: "unavailable",
+    });
+    const el = await mountMemories(core);
+
+    const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain("offline");
+    // The frozen snapshot must NOT be labelled "live".
+    expect(text).not.toMatch(/>\s*live\s*</);
   });
 
   it("renders cpk-memory-list with a card when one memory is present", async () => {

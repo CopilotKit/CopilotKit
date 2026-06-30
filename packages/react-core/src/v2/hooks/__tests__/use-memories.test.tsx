@@ -155,6 +155,16 @@ describe("useMemories", () => {
     expect(result.current.isAvailable).toBe(true);
   });
 
+  it("exposes realtimeStatus, defaulting to 'connecting'", () => {
+    const { result } = renderHook(() => useMemories());
+
+    // The phoenix socket never connects under jsdom (see makeFetchMock note), so
+    // the status stays at its "connecting" default; core's memory.test.ts covers
+    // the connected/unavailable transitions. This asserts the hook surfaces the
+    // field at all and wires it through the store selector.
+    expect(result.current.realtimeStatus).toBe("connecting");
+  });
+
   it("loads the snapshot on mount", async () => {
     fetchMock.mockImplementation(
       makeFetchMock([wireMemory("m1"), wireMemory("m2")]),

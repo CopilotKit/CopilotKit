@@ -4,10 +4,12 @@ import {
   ɵselectMemoriesError,
   ɵselectMemoriesIsLoading,
   ɵselectMemoriesAvailable,
+  ɵselectMemoriesRealtimeStatus,
 } from "@copilotkit/core";
 import type {
   Memory,
   MemoryChanges,
+  MemoryRealtimeStatus,
   ɵMemoryStore,
   NewMemory,
 } from "@copilotkit/core";
@@ -46,6 +48,15 @@ export interface UseMemoriesResult {
    * runtime configuration.
    */
   isAvailable: boolean;
+  /**
+   * Health of the realtime connection that streams live `memory_metadata`
+   * deltas. Distinct from `isAvailable`/`error` (which describe the REST list
+   * route): `"connecting"` while the socket opens/joins, `"connected"` once
+   * live deltas are flowing, and `"unavailable"` once the socket permanently
+   * gives up — at which point the list is a frozen snapshot. Lets the UI drop a
+   * "live" indicator instead of showing it over stale data.
+   */
+  realtimeStatus: MemoryRealtimeStatus;
   /**
    * Re-fetch the memory snapshot from the platform. Resolves once the re-pull
    * settles; rejects if it fails or the store is torn down mid-flight.
@@ -144,6 +155,10 @@ export function useMemories(): UseMemoriesResult {
   const isLoading = useMemoryStoreSelector(store, ɵselectMemoriesIsLoading);
   const error = useMemoryStoreSelector(store, ɵselectMemoriesError);
   const isAvailable = useMemoryStoreSelector(store, ɵselectMemoriesAvailable);
+  const realtimeStatus = useMemoryStoreSelector(
+    store,
+    ɵselectMemoriesRealtimeStatus,
+  );
 
   const refresh = useCallback(() => store.refresh(), [store]);
   const addMemory = useCallback(
@@ -164,6 +179,7 @@ export function useMemories(): UseMemoriesResult {
     isLoading,
     error,
     isAvailable,
+    realtimeStatus,
     refresh,
     addMemory,
     updateMemory,

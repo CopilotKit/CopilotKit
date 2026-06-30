@@ -17,6 +17,7 @@ import {
   ɵselectMemoriesIsLoading,
   ɵselectMemoriesError,
   ɵselectMemoriesAvailable,
+  ɵselectMemoriesRealtimeStatus,
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
@@ -24,6 +25,7 @@ import type {
   ɵThreadStore,
   ɵThread,
   Memory,
+  MemoryRealtimeStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -2749,6 +2751,9 @@ export class WebInspectorElement extends LitElement {
   private _memoriesLoading = false;
   private _memoriesError: Error | null = null;
   private _memoriesAvailable = true;
+  // Realtime-connection health, independent of `_memoriesAvailable` (the REST
+  // list route). Drives the "live" indicator: only "connected" shows "live".
+  private _memoriesRealtimeStatus: MemoryRealtimeStatus = "connecting";
   private _memoryUnsub: (() => void) | null = null;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
   private coreProperties: Readonly<Record<string, unknown>> = {};
@@ -3209,6 +3214,7 @@ export class WebInspectorElement extends LitElement {
       this._memoriesLoading = ɵselectMemoriesIsLoading(ms);
       this._memoriesError = ɵselectMemoriesError(ms);
       this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
+      this._memoriesRealtimeStatus = ɵselectMemoriesRealtimeStatus(ms);
       const memSubs = [
         memoryStore.select(ɵselectMemories).subscribe((v) => {
           this._memories = v;
@@ -3224,6 +3230,10 @@ export class WebInspectorElement extends LitElement {
         }),
         memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => {
           this._memoriesAvailable = v;
+          this.requestUpdate();
+        }),
+        memoryStore.select(ɵselectMemoriesRealtimeStatus).subscribe((v) => {
+          this._memoriesRealtimeStatus = v;
           this.requestUpdate();
         }),
       ];
@@ -3245,6 +3255,7 @@ export class WebInspectorElement extends LitElement {
     this._memoriesLoading = false;
     this._memoriesError = null;
     this._memoriesAvailable = true;
+    this._memoriesRealtimeStatus = "connecting";
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.lastCoreError = null;
@@ -6696,6 +6707,52 @@ ${argsString}</pre
     `;
   }
 
+  /**
+   * Renders the realtime-connection indicator in the memory-store header.
+   * Only `"connected"` shows the live (green-dot) state; `"connecting"` shows a
+   * muted amber "reconnecting" and `"unavailable"` a muted grey "offline", so
+   * the indicator never claims "live" over a frozen snapshot once the realtime
+   * socket has permanently given up.
+   */
+  private renderMemoryRealtimeIndicator() {
+    const status = this._memoriesRealtimeStatus;
+    const connected = status === "connected";
+    const dotColor = connected
+      ? "#22c55e"
+      : status === "connecting"
+        ? "#f59e0b"
+        : "#9ca3af";
+    const label =
+      status === "connected"
+        ? "live"
+        : status === "connecting"
+          ? "reconnecting"
+          : "offline";
+    return html`
+      <span
+        style="
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 10px;
+          font-weight: 500;
+          color: ${connected ? "#57575b" : "#838389"};
+        "
+      >
+        <span
+          style="
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: ${dotColor};
+          "
+        ></span>
+        ${label}
+      </span>
+    `;
+  }
+
   private renderMemoriesView() {
     // 1. Locked teaser — intelligence not configured or memories not available.
     if (!this.core?.intelligence || !this._memoriesAvailable) {
@@ -6921,27 +6978,7 @@ ${argsString}</pre
         <div class="cpk-section-header" style="display:flex;align-items:center;justify-content:space-between;">
           <h4>Memory store</h4>
           <div style="display:flex;align-items:center;gap:6px;">
-            <span
-              style="
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-                font-size: 10px;
-                font-weight: 500;
-                color: #57575b;
-              "
-            >
-              <span
-                style="
-                  display: inline-block;
-                  width: 6px;
-                  height: 6px;
-                  border-radius: 50%;
-                  background: #22c55e;
-                "
-              ></span>
-              live
-            </span>
+            ${this.renderMemoryRealtimeIndicator()}
             <span
               style="
                 font-size: 11px;

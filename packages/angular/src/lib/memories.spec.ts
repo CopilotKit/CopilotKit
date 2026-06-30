@@ -176,6 +176,18 @@ describe("injectMemories", () => {
     );
   });
 
+  it("exposes realtimeStatus, defaulting to 'connecting'", async () => {
+    const { stub, fixture, controller } = setup(fetchMock);
+    stub.activate();
+    await flush(fixture);
+
+    // The phoenix socket never connects under the test harness, so the status
+    // stays at its "connecting" default; core's memory.test.ts covers the
+    // connected/unavailable transitions. This asserts the binding bridges the
+    // selector onto a signal.
+    expect(controller.realtimeStatus()).toBe("connecting");
+  });
+
   it("addMemory passes through the store, resolving to the created memory and adding it to the list", async () => {
     fetchMock = routedFetch({
       snapshot: { ok: true, json: async () => ({ memories: [] }) },

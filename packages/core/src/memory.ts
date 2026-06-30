@@ -1,9 +1,17 @@
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import type { Observable } from "rxjs";
-import { defer, EMPTY, firstValueFrom, merge, of } from "rxjs";
+import {
+  asapScheduler,
+  defer,
+  firstValueFrom,
+  merge,
+  observeOn,
+  of,
+} from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
   catchError,
+  concatWith,
   filter,
   finalize,
   map,
@@ -69,6 +77,24 @@ export type MemoryKind = "topical" | "episodic" | "operational";
 export type MemoryScope = "user" | "project";
 
 /**
+ * Health of the realtime (`user_meta:memories:<code>`) connection that streams
+ * live `memory_metadata` deltas. Distinct from `available`/`error`, which
+ * describe the REST list route: `realtimeStatus` reports ONLY whether the
+ * realtime socket/channel is live so the UI can stop showing a "live" indicator
+ * over a frozen snapshot once the socket permanently gives up.
+ *
+ * - `"connecting"` — fetching join credentials / opening the socket / joining
+ *   the channel (the default, and the state every `contextChanged`/`stopped`
+ *   resets to).
+ * - `"connected"` — the channel join succeeded; live deltas are flowing.
+ * - `"unavailable"` — the socket exhausted its retries or the join failed
+ *   permanently; the snapshot is frozen and no deltas will arrive. This is a
+ *   silent degrade for `available`/`error` (those stay untouched) — only this
+ *   signal flips.
+ */
+export type MemoryRealtimeStatus = "connecting" | "connected" | "unavailable";
+
+/**
  * A memory as projected across the public REST/realtime boundary — the minimal
  * shape the SDK surfaces. Mirrors the server's `PublicMemory` projection.
  */
@@ -131,6 +157,7 @@ interface MemoryState {
   context: MemoryRuntimeContext | null;
   sessionId: number;
   available: boolean;
+  realtimeStatus: MemoryRealtimeStatus;
 }
 
 // Deep-frozen so `getServerState()` (which returns this exact reference) cannot
@@ -149,6 +176,7 @@ const initialMemoryState: MemoryState = Object.freeze({
   context: null,
   sessionId: 0,
   available: true,
+  realtimeStatus: "connecting",
 });
 
 const memoryAdapterEvents = createActionGroup("Memory Adapter", {
@@ -187,6 +215,13 @@ const memoryRestEvents = createActionGroup("Memory REST", {
 const memoryDomainEvents = createActionGroup("Memory Domain", {
   memoryUpserted: props<{ sessionId: number; memory: Memory }>(),
   memoryInvalidated: props<{ sessionId: number; memoryId: string }>(),
+  // Realtime-connection health transitions, session-stamped like every other
+  // realtime delta so the reducer's session guard drops transitions left over
+  // from a superseded context. These flip ONLY `realtimeStatus`; they never
+  // touch `available`/`error` (the realtime path is a silent degrade for those).
+  realtimeConnecting: props<{ sessionId: number }>(),
+  realtimeConnected: props<{ sessionId: number }>(),
+  realtimeUnavailable: props<{ sessionId: number }>(),
 });
 
 /** Wire shape of a memory inside a `memory_metadata` payload (carries tenant ids). */
@@ -283,6 +318,9 @@ const memoryReducer = createReducer(
     inFlightMutationCount: 0,
     error: null,
     available: true,
+    // A new context re-opens the realtime socket from scratch, so the connection
+    // is "connecting" again until the new channel joins.
+    realtimeStatus: "connecting" as MemoryRealtimeStatus,
   })),
   on(memoryAdapterEvents.stopped, (state: MemoryState) => ({
     ...state,
@@ -294,6 +332,10 @@ const memoryReducer = createReducer(
     // `stop()` then `start()` WITHOUT a new `setContext` would retain a stale
     // `available: false` from a prior unconfigured session.
     available: true,
+    // Reset to the default ("connecting"), matching `contextChanged`. A later
+    // `start()` re-opens the socket; a stale "unavailable"/"connected" from the
+    // prior session must not leak into the next.
+    realtimeStatus: "connecting" as MemoryRealtimeStatus,
   })),
   on(memoryRestEvents.listRequested, (state: MemoryState, { sessionId }) => {
     if (sessionId !== state.sessionId || !state.context) {
@@ -413,6 +455,48 @@ const memoryReducer = createReducer(
       };
     },
   ),
+  // Realtime-connection health. Session-guarded so a transition from a
+  // superseded context is ignored. These flip ONLY `realtimeStatus`; `available`
+  // and `error` describe the REST list route and are intentionally untouched.
+  on(
+    memoryDomainEvents.realtimeConnecting,
+    (state: MemoryState, { sessionId }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
+
+      return {
+        ...state,
+        realtimeStatus: "connecting" as MemoryRealtimeStatus,
+      };
+    },
+  ),
+  on(
+    memoryDomainEvents.realtimeConnected,
+    (state: MemoryState, { sessionId }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
+
+      return {
+        ...state,
+        realtimeStatus: "connected" as MemoryRealtimeStatus,
+      };
+    },
+  ),
+  on(
+    memoryDomainEvents.realtimeUnavailable,
+    (state: MemoryState, { sessionId }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
+
+      return {
+        ...state,
+        realtimeStatus: "unavailable" as MemoryRealtimeStatus,
+      };
+    },
+  ),
 ) as Reducer<MemoryState>;
 
 const selectMemories = createSelector((state: MemoryState) => state.memories);
@@ -435,6 +519,15 @@ const selectMemoriesIsMutating = createSelector(
  */
 const selectMemoriesAvailable = createSelector(
   (state: MemoryState) => state.available,
+);
+/**
+ * Reports the realtime-connection health (see {@link MemoryRealtimeStatus}).
+ * Distinct from `available`/`error`: it reflects ONLY the live socket/channel,
+ * so the UI can suppress a "live" indicator once realtime permanently dies even
+ * while the REST list route stays healthy. Defaults to `"connecting"`.
+ */
+const selectMemoriesRealtimeStatus = createSelector(
+  (state: MemoryState) => state.realtimeStatus,
 );
 
 /**
@@ -1041,6 +1134,7 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
         switchMap(([action, state]) => {
           const context = state.context as MemoryRuntimeContext;
           const { joinToken, joinCode } = action;
+          const sessionId = action.sessionId;
           const shutdown$ = actions$.pipe(
             ofType(
               memoryAdapterEvents.contextChanged,
@@ -1063,6 +1157,12 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
             }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
             const socketSignals$ =
               ɵobservePhoenixSocketSignals$(socket$).pipe(share());
+            // The socket give-up signal: completes the realtime stream after the
+            // health check throws. ALSO surfaces the give-up as a status delta
+            // (`realtimeUnavailable`) so the UI can drop its "live" indicator —
+            // this is the permanent-death signal that was previously only a
+            // `console.warn`. `available`/`error` stay untouched by design (the
+            // realtime path is a silent degrade for the REST list route).
             const fatalSocketShutdown$ = ɵobservePhoenixSocketHealth$(
               socketSignals$,
               MAX_SOCKET_RETRIES,
@@ -1075,6 +1175,14 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
               }),
               share(),
             );
+            // The give-up mapped to a status delta. Emitted from the merged stream
+            // (not the `takeUntil` notifier) so the `realtimeUnavailable` action is
+            // dispatched BEFORE teardown: the merged stream is `takeUntil`'d by a
+            // microtask-deferred copy of the give-up signal, so this synchronous
+            // emission always wins the race and the action reaches the reducer.
+            const fatalStatus$ = fatalSocketShutdown$.pipe(
+              map(() => memoryDomainEvents.realtimeUnavailable({ sessionId })),
+            );
             const metadata$ = channel$.pipe(
               switchMap(({ channel }: ɵPhoenixChannelSession) =>
                 ɵobservePhoenixEvent$<MemoryMetadataEvent>(
@@ -1085,27 +1193,57 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
               map((event) => mapMemoryMetadataEvent(event, action.sessionId)),
             );
 
-            // Drives the actual `channel.join()`. `ɵphoenixChannel$` only creates
-            // the channel + a lazy join-outcome stream; the join is sent when that
-            // stream is subscribed. Observing channel events (`metadata$`) alone
-            // does NOT subscribe it, so without this the socket connects but never
-            // joins `user_meta:memories:<code>` and no realtime deltas arrive. The
-            // thread store joins for the same reason (its merged `joinOutcome$`).
-            // Resolves (EMPTY) on a successful join and swallows a failed/timed-out
-            // join so a transient rejection doesn't tear down the metadata stream;
-            // Phoenix re-attempts the join on socket reconnect.
+            // Drives the actual `channel.join()` AND maps the join outcome to a
+            // realtime-status delta. `ɵphoenixChannel$` only creates the channel +
+            // a lazy join-outcome stream; the join is sent when that stream is
+            // subscribed. Observing channel events (`metadata$`) alone does NOT
+            // subscribe it, so without this the socket connects but never joins
+            // `user_meta:memories:<code>` and no realtime deltas arrive. The thread
+            // store joins for the same reason (its merged `joinOutcome$`).
+            //
+            // On a successful join -> `realtimeConnected` (the "live" signal). On a
+            // failed/timed-out join we KEEP the `console.warn` and emit
+            // `realtimeUnavailable`, then swallow the error so a transient
+            // rejection doesn't tear down the metadata stream (Phoenix re-attempts
+            // the join on socket reconnect); the next successful join re-emits
+            // `realtimeConnected`.
             const join$ = ɵjoinPhoenixChannel$(channel$).pipe(
+              // `ɵjoinPhoenixChannel$` emits `never` (it completes on success), so
+              // this concat surfaces the connected status once the join resolves.
+              concatWith(
+                of(memoryDomainEvents.realtimeConnected({ sessionId })),
+              ),
               catchError((error) => {
                 console.warn(
                   `[memory] failed to join user_meta:memories:${joinCode}`,
                   error,
                 );
-                return EMPTY;
+                return of(
+                  memoryDomainEvents.realtimeUnavailable({ sessionId }),
+                );
               }),
             );
 
-            return merge(metadata$, join$).pipe(
-              takeUntil(merge(shutdown$, fatalSocketShutdown$)),
+            return merge(
+              // Surface "connecting" immediately when the realtime stream starts
+              // (credentials succeeded -> socket subscribing/joining). Reset to
+              // this on every (re)subscribe so a prior session's terminal status
+              // can't bleed through before the new join resolves.
+              of(memoryDomainEvents.realtimeConnecting({ sessionId })),
+              metadata$,
+              join$,
+              fatalStatus$,
+            ).pipe(
+              takeUntil(
+                merge(
+                  shutdown$,
+                  // Defer the give-up teardown by a microtask so `fatalStatus$`'s
+                  // synchronous `realtimeUnavailable` emission is dispatched before
+                  // the stream is torn down. `observeOn(asapScheduler)` schedules
+                  // the teardown after the current microtask drains.
+                  fatalSocketShutdown$.pipe(observeOn(asapScheduler)),
+                ),
+              ),
               finalize(() => {
                 // Socket/channel teardown is handled by the `finalize` operators
                 // inside `ɵphoenixSocket$`/`ɵphoenixChannel$`; this hook exists to
@@ -1319,4 +1457,5 @@ export const ɵselectMemoriesIsLoading = selectMemoriesIsLoading;
 export const ɵselectMemoriesError = selectMemoriesError;
 export const ɵselectMemoriesIsMutating = selectMemoriesIsMutating;
 export const ɵselectMemoriesAvailable = selectMemoriesAvailable;
+export const ɵselectMemoriesRealtimeStatus = selectMemoriesRealtimeStatus;
 export { createMemoryStore as ɵcreateMemoryStore };

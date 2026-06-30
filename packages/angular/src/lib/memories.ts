@@ -5,8 +5,14 @@ import {
   ɵselectMemoriesAvailable,
   ɵselectMemoriesError,
   ɵselectMemoriesIsLoading,
+  ɵselectMemoriesRealtimeStatus,
 } from "@copilotkit/core";
-import type { Memory, MemoryChanges, NewMemory } from "@copilotkit/core";
+import type {
+  Memory,
+  MemoryChanges,
+  MemoryRealtimeStatus,
+  NewMemory,
+} from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
 
 /**
@@ -42,6 +48,15 @@ export interface MemoriesController {
    * runtime configuration.
    */
   isAvailable: Signal<boolean>;
+  /**
+   * Health of the realtime connection that streams live `memory_metadata`
+   * deltas. Distinct from `isAvailable`/`error` (which describe the REST list
+   * route): `"connecting"` while the socket opens/joins, `"connected"` once
+   * live deltas are flowing, and `"unavailable"` once the socket permanently
+   * gives up — at which point the list is a frozen snapshot. Lets a template
+   * drop a "live" indicator instead of showing it over stale data.
+   */
+  realtimeStatus: Signal<MemoryRealtimeStatus>;
   /**
    * Re-fetch the memory snapshot from the platform. Resolves when the re-pull
    * succeeds; rejects if it fails or the store is torn down mid-flight.
@@ -122,12 +137,16 @@ export function injectMemories(): MemoriesController {
   const isAvailable = toSignal(store.select(ɵselectMemoriesAvailable), {
     initialValue: ɵselectMemoriesAvailable(initialState),
   });
+  const realtimeStatus = toSignal(store.select(ɵselectMemoriesRealtimeStatus), {
+    initialValue: ɵselectMemoriesRealtimeStatus(initialState),
+  });
 
   return {
     memories,
     isLoading,
     error,
     isAvailable,
+    realtimeStatus,
     refresh: () => store.refresh(),
     addMemory: (input: NewMemory) => store.addMemory(input),
     updateMemory: (id: string, changes: MemoryChanges) =>
