@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import html
 from contextlib import asynccontextmanager
 
 from ag_ui.core import EventType, RunAgentInput, RunErrorEvent
@@ -50,11 +51,70 @@ from langgraph.graph.message import REMOVE_ALL_MESSAGES  # noqa: E402
 import ag_ui_agentspec.runtimes.langgraph_runner as _lg_runner  # noqa: E402
 
 
+def _repair_dangling_tool_calls(messages: list[dict]) -> list[dict]:
+    """Synthesize a tool result for any assistant tool_call that has no response.
+
+    book_flight is a client-side HITL tool: calling it interrupts the run and emits
+    an assistant message with a tool_call, then waits for the UI to return a result
+    when the traveler clicks Confirm/Cancel. If they instead send another chat
+    message, that tool_call is left unanswered — and because we forward the client's
+    full history verbatim, OpenAI rejects the next turn (400: "tool_call_ids did not
+    have response messages"). This is the inverse of the duplicate-tool-block issue
+    the history replace already handles (see the comment above).
+
+    For each assistant tool_call with no real tool result, insert a synthetic
+    "not completed" tool result directly after the assistant message so the sequence
+    is valid and the model can answer the new question. In this app the only tool
+    that can dangle is the book_flight HITL — server tools resolve within the run —
+    so the synthetic content is phrased for that case.
+
+    Assumes CopilotKit's normal ordering, where a real tool result immediately
+    follows its assistant tool_calls message: this repairs *missing* results, not a
+    result that has been re-ordered away from its originating call.
+    """
+    # tool_call_ids that already have a REAL result somewhere in the history.
+    answered = {
+        m["tool_call_id"]
+        for m in messages
+        if m.get("role") == "tool" and m.get("tool_call_id")
+    }
+    repaired: list[dict] = []
+    for m in messages:
+        repaired.append(m)
+        if m.get("role") != "assistant" or not m.get("tool_calls"):
+            continue
+        # De-dupe within THIS message only — a second assistant message carrying the
+        # same unanswered id still needs its own result, so `answered` is never
+        # mutated here (mutating it was the original bug: it suppressed the repair the
+        # next occurrence needed).
+        synthesized: set[str] = set()
+        for tc in m["tool_calls"]:
+            tc_id = tc.get("id")
+            if not tc_id:
+                # Can't synthesize a result without an id; surface it rather than
+                # silently leave a dangling call that 400s on the next turn.
+                print("[history] warning: assistant tool_call has no id; cannot repair")
+                continue
+            if tc_id in answered or tc_id in synthesized:
+                continue
+            synthesized.add(tc_id)
+            name = (tc.get("function") or {}).get("name") or "the requested action"
+            repaired.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc_id,
+                    "content": f"{name} was not completed — the traveler continued without confirming.",
+                }
+            )
+    return repaired
+
+
 async def _replace_history_with_client(_agent, _thread_id, input_messages):
-    """Replace the checkpoint's messages with the client's full history each turn."""
+    """Replace the checkpoint's messages with the client's full history each turn,
+    repairing any dangling tool_call (e.g. an abandoned book_flight HITL) first."""
     if not input_messages:
         return input_messages
-    return [RemoveMessage(id=REMOVE_ALL_MESSAGES), *input_messages]
+    return [RemoveMessage(id=REMOVE_ALL_MESSAGES), *_repair_dangling_tool_calls(input_messages)]
 
 
 _lg_runner.filter_only_new_messages = _replace_history_with_client
@@ -134,6 +194,21 @@ def _last_user_message(messages: list) -> str:
         if getattr(message, "role", None) == "user":
             return getattr(message, "content", "") or ""
     return ""
+
+
+def _clean_assistant_text(parts: list[str]) -> str:
+    """Assemble the streamed assistant deltas into the text we persist to memory.
+
+    The agentspec exporter HTML-escapes every TEXT_MESSAGE_CHUNK delta for safe
+    transport to the browser (agentspec_tracing_exporter._escape_html: & < > ->
+    &amp; &lt; &gt;). We must reverse that before persisting, or Oracle Agent
+    Memory stores corrupted facts like "fares &lt; $700" and recall/extraction
+    operate on the mangled text. Join first, then unescape, so an entity split
+    across two delta boundaries (e.g. "&l" + "t;") is still decoded correctly.
+    The streamed copy yielded to the client is untouched — only the persisted
+    copy is unescaped here.
+    """
+    return html.unescape("".join(parts))
 
 
 # Background persistence tasks are tracked here so the event loop keeps a strong
@@ -258,6 +333,6 @@ async def run_endpoint(input_data: RunAgentInput, request: Request):
             # Persist off the critical path so the SSE stream closes at RUN_FINISHED
             # instead of blocking on memory extraction + reconciliation. The write
             # still lands shortly after, so the next session can recall it.
-            _spawn_persist(user_text, "".join(assistant_parts))
+            _spawn_persist(user_text, _clean_assistant_text(assistant_parts))
 
     return StreamingResponse(event_generator(), media_type=encoder.get_content_type())

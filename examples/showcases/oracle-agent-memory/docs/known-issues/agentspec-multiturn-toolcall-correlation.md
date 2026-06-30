@@ -63,6 +63,30 @@ the client's valid history. This restores multi-turn conversations **and** makes
 boarding pass all work). The adapter drives every turn — including HITL resume — through
 `astream({"messages": ...})`, so the replace covers that path too.
 
+### Inverse case: a dangling tool-call from an abandoned HITL booking
+
+The full-history replace handles the _duplicate/orphan_ direction above, but a second
+failure mode is its **inverse**. `book_flight` is a client-side HITL tool: calling it
+interrupts the run and emits an `assistant` message with a `tool_call`, then waits for the
+UI to return a result when the traveler clicks **Confirm & book** / **Cancel**. If the
+traveler instead sends another chat message, that `tool_call` is never answered, so the
+replayed history carries an `assistant(tool_calls)` with **no following `tool` result** →
+OpenAI 400:
+
+```
+An assistant message with 'tool_calls' must be followed by tool messages responding to
+each 'tool_call_id'. The following tool_call_ids did not have response messages: call_…
+(param: messages.[N].role)
+```
+
+`_repair_dangling_tool_calls` (`server.py`) fixes this: before handing the client's history
+to the graph, for any assistant `tool_call` with no following `tool` result it inserts a
+synthetic _"not completed"_ `tool` result right after the assistant message, so the sequence
+is valid and the model answers the new question gracefully. Reproduced + verified in-browser
+(book conversationally → Confirm card → ask something else → previously 400, now answers).
+Only the conversational booking path triggers it; the flight-card "Select this flight" path
+books client-side with no agent HITL.
+
 This is a workaround, not a fix: it lives in cookbook code and reaches into a private
 adapter function. Remove it once the upstream adapter records `ToolExecutionRequest`s so
 the emitted tool-call ids correlate (the "Suggested direction" above). Pin to a fixed
