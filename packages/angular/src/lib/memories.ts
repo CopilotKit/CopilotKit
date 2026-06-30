@@ -1,38 +1,26 @@
-import { DestroyRef, effect, inject, Signal } from "@angular/core";
+import { inject, Signal } from "@angular/core";
 import { toSignal } from "@angular/core/rxjs-interop";
 import {
-  ɵcreateMemoryStore,
   ɵselectMemories,
+  ɵselectMemoriesAvailable,
   ɵselectMemoriesError,
   ɵselectMemoriesIsLoading,
-  CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
 import type { ɵMemory, ɵMemoryChanges, ɵNewMemory } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
 
 /**
- * Configuration for the {@link injectMemories} function.
- *
- * Memory operations are scoped to the runtime-authenticated user and the
- * provided agent.
- */
-export interface InjectMemoriesParams {
-  /** The ID of the agent whose memories to list and manage. */
-  agentId: string;
-}
-
-/**
  * Return value of {@link injectMemories}.
  *
  * The `memories` signal is the server-authoritative list for the current
- * user/agent pair. It is hydrated from a REST snapshot and kept current by
- * realtime `memory_metadata` deltas pushed over the memory store's own
- * channel. Mutations resolve once the platform confirms the operation and
+ * runtime-authenticated user. It is hydrated from a REST snapshot and kept
+ * current by realtime `memory_metadata` deltas pushed over the memory store's
+ * own channel. Mutations resolve once the platform confirms the operation and
  * reject with an `Error` on failure.
  */
 export interface MemoriesController {
   /**
-   * Memories for the current user/agent pair. Updated in realtime when the
+   * Memories for the current user, newest first. Updated in realtime when the
    * platform pushes `memory_metadata` events over the memory store's channel.
    */
   memories: Signal<ɵMemory[]>;
@@ -43,9 +31,15 @@ export interface MemoriesController {
   isLoading: Signal<boolean>;
   /**
    * The most recent error from fetching memories or a mutation, or `null`
-   * when there is no error.
+   * when there is no error. Reset to `null` on the next successful fetch.
    */
   error: Signal<Error | null>;
+  /**
+   * `true` when the platform memory routes are available. Set to `false`
+   * after a 404 or 501, indicating memory is not supported by the current
+   * runtime configuration.
+   */
+  isAvailable: Signal<boolean>;
   /**
    * Re-fetch the memory snapshot from the platform.
    */
@@ -68,23 +62,23 @@ export interface MemoriesController {
 }
 
 /**
- * Angular injection function for listing and managing platform memories.
+ * Angular injection function for listing and managing platform memories — the
+ * signal-based counterpart to react-core's `useMemories`.
  *
- * On creation the binding fetches the memory snapshot for the
- * runtime-authenticated user and the given `agentId`, then exposes the live
- * list plus stable `addMemory` / `updateMemory` / `removeMemory` / `refresh`
- * callbacks. Mutations are server-authoritative: each resolves once the
- * platform confirms the operation and rejects with an `Error` on failure.
+ * Reads the user-scoped memory store owned and wired by `CopilotKitCore`. The
+ * binding does not create, register, start, or stop the store: core owns its
+ * lifecycle and opens its own `user_meta:memories:<joinCode>` channel, applying
+ * `memory_metadata` deltas to the list. The binding only bridges the store's
+ * selectors onto Angular signals and forwards the stable mutation callbacks.
  *
- * Realtime updates: the memory store opens its own channel and works
- * standalone — it does not depend on the thread feature being mounted.
- * Realtime `memory_metadata` deltas flow automatically once the binding's
- * `setContext` connects (i.e. the runtime is `Connected`).
+ * Mutations are server-authoritative: each resolves once the platform confirms
+ * the operation and rejects with an `Error` on failure. You can still call
+ * `refresh()` to re-pull the REST snapshot on demand.
  *
- * Must be called inside an injection context (component constructor, `inject`
- * callback, or `TestBed.runInInjectionContext`).
+ * Must be called inside an injection context (component constructor, field
+ * initializer, `inject` callback, or `TestBed.runInInjectionContext`) so the
+ * selector→signal bridges (`toSignal`) tear down with the host.
  *
- * @param params - Agent identifier.
  * @returns Signals for memory state and stable mutation callbacks.
  *
  * @example
@@ -93,59 +87,17 @@ export interface MemoriesController {
  *
  * @Component({ ... })
  * class MemoryList {
- *   readonly #m = injectMemories({ agentId: "agent-1" });
+ *   readonly #m = injectMemories();
  *   memories = this.#m.memories;
  *   isLoading = this.#m.isLoading;
+ *   isAvailable = this.#m.isAvailable;
  *
  *   remove(id: string) { this.#m.removeMemory(id); }
  * }
  * ```
  */
-export function injectMemories({
-  agentId,
-}: InjectMemoriesParams): MemoriesController {
-  const copilotkit = inject(CopilotKit);
-  const destroyRef = inject(DestroyRef);
-
-  const store = ɵcreateMemoryStore({
-    fetch: globalThis.fetch.bind(globalThis),
-  });
-
-  copilotkit.core.registerMemoryStore(agentId, store);
-  store.start();
-
-  // Mirror useThreads: defer setting the context until the runtime reports
-  // Connected, since the memory store is session-guarded and does nothing
-  // until `setContext` is called. Waiting for `Connected` also means `/info`
-  // has landed, so `intelligence.wsUrl` (the realtime gateway the memory store
-  // opens its own channel on) is populated. When `runtimeUrl` or `wsUrl` is
-  // absent (or the runtime is not Connected) we clear the context so a
-  // previous user's snapshot cannot linger.
-  effect(() => {
-    const runtimeUrl = copilotkit.runtimeUrl();
-    const runtimeStatus = copilotkit.runtimeConnectionStatus();
-    const wsUrl = copilotkit.core.intelligence?.wsUrl;
-
-    if (
-      !runtimeUrl ||
-      !wsUrl ||
-      runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected
-    ) {
-      store.setContext(null);
-      return;
-    }
-
-    store.setContext({
-      runtimeUrl,
-      wsUrl,
-      headers: { ...copilotkit.headers() },
-    });
-  });
-
-  destroyRef.onDestroy(() => {
-    store.stop();
-    copilotkit.core.unregisterMemoryStore(agentId);
-  });
+export function injectMemories(): MemoriesController {
+  const store = inject(CopilotKit).core.getMemoryStore();
 
   const initialState = store.getState();
 
@@ -158,11 +110,15 @@ export function injectMemories({
   const error = toSignal(store.select(ɵselectMemoriesError), {
     initialValue: ɵselectMemoriesError(initialState),
   });
+  const isAvailable = toSignal(store.select(ɵselectMemoriesAvailable), {
+    initialValue: ɵselectMemoriesAvailable(initialState),
+  });
 
   return {
     memories,
     isLoading,
     error,
+    isAvailable,
     refresh: () => store.refresh(),
     addMemory: (input: ɵNewMemory) => store.addMemory(input),
     updateMemory: (id: string, changes: ɵMemoryChanges) =>

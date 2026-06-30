@@ -1,12 +1,12 @@
-import { Component, signal } from "@angular/core";
+import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
-import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
+import { ɵcreateMemoryStore } from "@copilotkit/core";
+import type { ɵMemoryStore } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
 import { injectMemories, type MemoriesController } from "./memories";
 
-const AGENT_ID = "agent-1";
 const RUNTIME_URL = "https://runtime.example.com";
 const WS_URL = "wss://gw.example.com/client";
 
@@ -19,6 +19,7 @@ type WireMemory = {
   invalidatedAt: string | null;
 };
 
+/** Minimal wire memory matching the platform `/memories` list payload. */
 function wireMemory(id: string, content = `content-${id}`): WireMemory {
   return {
     id,
@@ -30,75 +31,6 @@ function wireMemory(id: string, content = `content-${id}`): WireMemory {
   };
 }
 
-/**
- * Stub of the Angular `CopilotKit` service exposing the surface
- * `injectMemories` touches: writable runtime signals (so the internal
- * `effect()` can be driven to `Connected`) and a `core` carrying the
- * memory-store registry plus the `intelligence` runtime info (its `wsUrl`
- * is required in the memory store's context).
- */
-class CopilotKitStub {
-  readonly #runtimeConnectionStatus =
-    signal<CopilotKitCoreRuntimeConnectionStatus>(
-      CopilotKitCoreRuntimeConnectionStatus.Connected,
-    );
-  readonly #runtimeUrl = signal<string | undefined>(RUNTIME_URL);
-  readonly #headers = signal<Record<string, string>>({});
-
-  runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
-  runtimeUrl = this.#runtimeUrl.asReadonly();
-  headers = this.#headers.asReadonly();
-
-  registeredStore: unknown;
-
-  core = {
-    intelligence: { wsUrl: WS_URL },
-    registerMemoryStore: vi.fn((_agentId: string, store: unknown) => {
-      this.registeredStore = store;
-    }),
-    unregisterMemoryStore: vi.fn(),
-  };
-
-  setRuntimeUrl(value: string | undefined) {
-    this.#runtimeUrl.set(value);
-  }
-
-  setRuntimeConnectionStatus(value: CopilotKitCoreRuntimeConnectionStatus) {
-    this.#runtimeConnectionStatus.set(value);
-  }
-}
-
-@Component({ standalone: true, template: "" })
-class MemoriesHost {
-  controller: MemoriesController = injectMemories({ agentId: AGENT_ID });
-}
-
-async function setup(): Promise<{
-  stub: CopilotKitStub;
-  fixture: ReturnType<typeof TestBed.createComponent<MemoriesHost>>;
-  controller: MemoriesController;
-}> {
-  const stub = new CopilotKitStub();
-  TestBed.resetTestingModule();
-  TestBed.configureTestingModule({
-    providers: [{ provide: CopilotKit, useValue: stub }],
-  });
-
-  const fixture = TestBed.createComponent(MemoriesHost);
-  fixture.detectChanges();
-  await fixture.whenStable();
-
-  return { stub, fixture, controller: fixture.componentInstance.controller };
-}
-
-/** Runs change detection then drains microtasks so signals settle. */
-async function flush(
-  fixture: ReturnType<typeof TestBed.createComponent<MemoriesHost>>,
-): Promise<void> {
-  fixture.detectChanges();
-  await fixture.whenStable();
-}
-
 type FetchResponse = {
   ok: boolean;
   status?: number;
@@ -106,13 +38,12 @@ type FetchResponse = {
 };
 
 /**
- * Routes the store's fetches by URL + method. Setting the context fires two
+ * Routes the store's fetches by URL + method. Activating the store fires two
  * concurrent calls — the REST snapshot `GET /memories` and the realtime
- * `POST /memories/subscribe` (for socket join credentials). Routing by
- * request (rather than `mockResolvedValueOnce` ordering) keeps the subscribe
- * call from perturbing the snapshot/mutation assertions. `subscribe` always
- * resolves to benign join credentials; the binding spec only exercises the
- * REST + selector-forwarding surface (channel realtime is covered by core's
+ * `POST /memories/subscribe` (socket join credentials). Routing by request
+ * (rather than call ordering) keeps the subscribe call from perturbing the
+ * snapshot/mutation assertions. `subscribe` always resolves to benign join
+ * credentials; the phoenix socket never connects under jsdom (covered by core's
  * `memory.test.ts`).
  */
 function routedFetch(handlers: {
@@ -135,37 +66,115 @@ function routedFetch(handlers: {
   });
 }
 
+/**
+ * Stub of the ambient {@link CopilotKit} service. The binding reads only
+ * `core.getMemoryStore()`, so the stub holds one REAL `ɵcreateMemoryStore`
+ * (started) and hands it back — core owns the store's lifecycle, the binding
+ * just bridges it.
+ */
+class CopilotKitStub {
+  readonly store: ɵMemoryStore;
+
+  constructor(fetchMock: Mock) {
+    // rxjs `fromFetch` ultimately calls `globalThis.fetch`, so stub it with the
+    // same routed mock that is injected into the store (mirrors the React test).
+    vi.stubGlobal("fetch", fetchMock);
+    this.store = ɵcreateMemoryStore({
+      fetch: fetchMock as unknown as typeof fetch,
+    });
+    this.store.start();
+  }
+
+  readonly core = {
+    getMemoryStore: (): ɵMemoryStore => this.store,
+  };
+
+  /**
+   * Activates the store the way core does once the runtime is connected:
+   * dispatches a real runtime context, which fires the snapshot fetch through
+   * the real reducer/effects/selectors.
+   */
+  activate(): void {
+    this.store.setContext({
+      runtimeUrl: RUNTIME_URL,
+      wsUrl: WS_URL,
+      headers: {},
+    });
+  }
+}
+
+@Component({ standalone: true, template: "" })
+class MemoriesHost {
+  controller: MemoriesController = injectMemories();
+}
+
+/**
+ * Sets up a TestBed with the stubbed CopilotKit service wrapping a real memory
+ * store driven by `fetchMock`, and mounts the host. Follows the SIFERS pattern.
+ */
+function setup(fetchMock: Mock): {
+  stub: CopilotKitStub;
+  fixture: ReturnType<typeof TestBed.createComponent<MemoriesHost>>;
+  controller: MemoriesController;
+} {
+  TestBed.resetTestingModule();
+  const stub = new CopilotKitStub(fetchMock);
+  TestBed.configureTestingModule({
+    providers: [{ provide: CopilotKit, useValue: stub }],
+  });
+
+  const fixture = TestBed.createComponent(MemoriesHost);
+  fixture.detectChanges();
+
+  return { stub, fixture, controller: fixture.componentInstance.controller };
+}
+
+/** Runs change detection then drains microtasks so the rxjs pipeline + signals settle. */
+async function flush(
+  fixture: ReturnType<typeof TestBed.createComponent<MemoriesHost>>,
+): Promise<void> {
+  for (let i = 0; i < 5; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  fixture.detectChanges();
+  await fixture.whenStable();
+}
+
 describe("injectMemories", () => {
   let fetchMock: Mock;
+
+  beforeEach(() => {
+    fetchMock = routedFetch({ snapshot: { ok: true, json: async () => ({ memories: [] }) } });
+  });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
 
-  it("loads the snapshot on mount", async () => {
+  it("loads the snapshot once the store is activated", async () => {
     fetchMock = routedFetch({
       snapshot: {
         ok: true,
         json: async () => ({ memories: [wireMemory("m1"), wireMemory("m2")] }),
       },
     });
-    vi.stubGlobal("fetch", fetchMock);
 
-    const { stub, fixture, controller } = await setup();
+    const { stub, fixture, controller } = setup(fetchMock);
+    stub.activate();
     await flush(fixture);
 
     expect(controller.memories().map((m) => m.id)).toEqual(["m1", "m2"]);
     expect(controller.isLoading()).toBe(false);
     expect(controller.error()).toBeNull();
+    expect(controller.isAvailable()).toBe(true);
     expect(fetchMock).toHaveBeenCalledWith(
       `${RUNTIME_URL}/memories`,
       expect.objectContaining({ method: "GET" }),
     );
-    expect(stub.registeredStore).toBeDefined();
   });
 
-  it("addMemory POSTs and resolves to the created memory, adding it to the list", async () => {
+  it("addMemory passes through the store, resolving to the created memory and adding it to the list", async () => {
     fetchMock = routedFetch({
       snapshot: { ok: true, json: async () => ({ memories: [] }) },
       mutation: {
@@ -173,16 +182,13 @@ describe("injectMemories", () => {
         json: async () => ({ ...wireMemory("m1", "hi"), absorbed: false }),
       },
     });
-    vi.stubGlobal("fetch", fetchMock);
 
-    const { fixture, controller } = await setup();
+    const { stub, fixture, controller } = setup(fetchMock);
+    stub.activate();
     await flush(fixture);
     expect(controller.isLoading()).toBe(false);
 
-    const created = await controller.addMemory({
-      content: "hi",
-      kind: "topical",
-    });
+    const created = await controller.addMemory({ content: "hi", kind: "topical" });
     await flush(fixture);
 
     expect(created.id).toBe("m1");
@@ -193,58 +199,18 @@ describe("injectMemories", () => {
     );
   });
 
-  it("updateMemory supersedes: resolves to the new id and the list shows it (old id gone)", async () => {
+  it("silently degrades to unavailable when the memory route is missing (404)", async () => {
     fetchMock = routedFetch({
-      snapshot: {
-        ok: true,
-        json: async () => ({ memories: [wireMemory("m1", "old")] }),
-      },
-      mutation: {
-        ok: true,
-        json: async () => ({ ...wireMemory("m2", "new"), retiredId: "m1" }),
-      },
+      snapshot: { ok: false, status: 404 },
     });
-    vi.stubGlobal("fetch", fetchMock);
 
-    const { fixture, controller } = await setup();
-    await flush(fixture);
-    expect(controller.memories().map((m) => m.id)).toEqual(["m1"]);
-
-    const updated = await controller.updateMemory("m1", {
-      content: "new",
-      kind: "topical",
-    });
+    const { stub, fixture, controller } = setup(fetchMock);
+    stub.activate();
     await flush(fixture);
 
-    expect(updated.id).toBe("m2");
-    expect(controller.memories().map((m) => m.id)).toEqual(["m2"]);
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${RUNTIME_URL}/memories/m1`,
-      expect.objectContaining({ method: "PATCH" }),
-    );
-  });
-
-  it("removeMemory DELETEs and removes the memory from the list", async () => {
-    fetchMock = routedFetch({
-      snapshot: {
-        ok: true,
-        json: async () => ({ memories: [wireMemory("m1")] }),
-      },
-      mutation: { ok: true },
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const { fixture, controller } = await setup();
-    await flush(fixture);
-    expect(controller.memories().map((m) => m.id)).toEqual(["m1"]);
-
-    await controller.removeMemory("m1");
-    await flush(fixture);
-
+    expect(controller.isAvailable()).toBe(false);
+    expect(controller.error()).toBeNull();
+    expect(controller.isLoading()).toBe(false);
     expect(controller.memories()).toEqual([]);
-    expect(fetchMock).toHaveBeenCalledWith(
-      `${RUNTIME_URL}/memories/m1`,
-      expect.objectContaining({ method: "DELETE" }),
-    );
   });
 });
