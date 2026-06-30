@@ -6,15 +6,17 @@ description: "Drop-in threads drawer that lists, switches, and manages conversat
 
 ## What is this?
 
-`<CopilotDrawer>` is a prebuilt thread switcher. Drop it next to your chat and
-users can list, switch, start, rename, archive, and delete conversations —
-with **no active-thread state to wire up**. It is a thin React wrapper around a
-framework-agnostic shadow-DOM web component (`copilotkit-drawer`), fed by the
-threads data layer ([`useThreads`](/reference/hooks/useThreads)) and the
-surrounding chat configuration.
+`<CopilotDrawer>` gives your app a ready-made conversation sidebar — users can
+list, switch, start, rename, archive, and delete their threads, and you wire up
+**no active-thread state** to make it work. Drop it next to your chat and it
+connects automatically.
 
-It replaces the hand-rolled thread sidebar you would otherwise build with the
-threads hook — see [Threads](/threads) for the headless approach.
+Under the hood it's a thin React wrapper around the self-contained
+`copilotkit-drawer` web component, fed by [`useThreads`](/reference/hooks/useThreads)
+and your chat configuration.
+
+Prefer to build your own thread UI? The same data and actions are available
+headlessly through the `useThreads` hook — see [Threads](/threads).
 
 ## When should I use this?
 
@@ -27,6 +29,13 @@ Use the drawer when you want:
 
 It requires the Enterprise Intelligence Platform (threads are stored and synced
 server-side). See [Threads](/threads) to set that up.
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Threads run on the Enterprise Intelligence Platform"
+  body="Get persistent threads and realtime sync on the free Developer tier."
+  surface="docs_drawer"
+/>
 
 ## Basic setup
 
