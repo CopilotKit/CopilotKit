@@ -77,6 +77,9 @@ export type NewThreadDetail = Record<string, never>;
 /** `detail` for the `upsell` event (CTA → pricing). */
 export type UpsellDetail = Record<string, never>;
 
+/** `detail` for the `load-more` event (advance pagination; no payload). */
+export type LoadMoreDetail = Record<string, never>;
+
 /**
  * Strongly-typed event map for `<copilotkit-drawer>`. Consumers can use this to
  * type `addEventListener` callbacks. All events bubble and are composed so they
@@ -92,4 +95,5 @@ export interface CopilotKitDrawerEventMap {
   "open-change": CustomEvent<OpenChangeDetail>;
   retry: CustomEvent<RetryDetail>;
   upsell: CustomEvent<UpsellDetail>;
+  "load-more": CustomEvent<LoadMoreDetail>;
 }

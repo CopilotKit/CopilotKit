@@ -219,6 +219,30 @@ test("leaves the element's default label when the label prop is omitted", async 
   expect(getElement().label).toBe("Threads");
 });
 
+test("forwards the limit prop to useThreads", async () => {
+  await renderDrawer({ limit: 20 });
+
+  expect(useThreadsMock).toHaveBeenCalledWith(
+    expect.objectContaining({ limit: 20 }),
+  );
+});
+
+test("omits limit from useThreads when the prop is not set", async () => {
+  await renderDrawer();
+
+  expect(useThreadsMock).not.toHaveBeenCalledWith(
+    expect.objectContaining({ limit: expect.anything() }),
+  );
+});
+
+test("routes the element's load-more event to fetchMoreThreads", async () => {
+  await renderDrawer();
+
+  dispatch("load-more");
+
+  expect(mutations.fetchMoreThreads).toHaveBeenCalled();
+});
+
 test("suppresses config/runtime-setup errors from the end-user error surface", async () => {
   // A licensed drawer with no runtime URL produces a developer/config error in
   // the hook's combined `error` channel, but `listError` is null — the drawer

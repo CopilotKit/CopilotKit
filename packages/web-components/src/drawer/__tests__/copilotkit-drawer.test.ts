@@ -76,6 +76,7 @@ async function setup(options: SetupOptions = {}) {
     "open-change",
     "retry",
     "upsell",
+    "load-more",
   ];
   for (const type of captureTypes) {
     element.addEventListener(type, (e) =>
@@ -435,6 +436,46 @@ test("fetchMore failure keeps the loaded list and offers an inline retry", async
     type: "retry",
     detail: { scope: "fetch-more" },
   });
+  teardown();
+});
+
+test("renders a Load more button when hasMore and emits load-more on click", async () => {
+  const { element, q, events, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+  element.hasMore = true;
+  await flush(element);
+
+  const btn = q('[part="load-more"]') as HTMLElement | null;
+  expect(btn).not.toBeNull();
+
+  btn!.click();
+
+  expect(events).toContainEqual({ type: "load-more", detail: {} });
+  teardown();
+});
+
+test("hides Load more when there is no next page", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+  element.hasMore = false;
+  await flush(element);
+
+  expect(q('[part="load-more"]')).toBeNull();
+  teardown();
+});
+
+test("shows the fetching-more spinner instead of Load more while a page is in flight", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+  element.hasMore = true;
+  element.fetchingMore = true;
+  await flush(element);
+
+  expect(q('[part="load-more"]')).toBeNull();
+  expect(q('[part="fetching-more"]')).not.toBeNull();
   teardown();
 });
 

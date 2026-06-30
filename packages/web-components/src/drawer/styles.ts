@@ -422,6 +422,24 @@ export const drawerStyles = css`
     font-size: 0.9em;
   }
 
+  .load-more {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    color: var(--_muted-fg);
+    font: inherit;
+    font-size: 0.9em;
+    cursor: pointer;
+  }
+
+  .load-more:hover,
+  .load-more:focus-visible {
+    color: var(--_surface-fg);
+    background: var(--_muted);
+  }
+
   .upsell {
     padding: 24px 16px;
     text-align: center;

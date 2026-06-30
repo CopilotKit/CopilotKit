@@ -83,6 +83,12 @@ export interface CopilotDrawerProps {
    */
   label?: string;
   /**
+   * Page size for thread pagination. When set, threads are fetched in pages of
+   * this size and the drawer shows a "Load more" control while more remain.
+   * When omitted, the full list loads at once and no pagination control shows.
+   */
+  limit?: number;
+  /**
    * `data-testid` set on the underlying custom element (handy in tests and for
    * targeting from a host page). Defaults to `"copilot-drawer"`.
    */
@@ -195,6 +201,7 @@ export function CopilotDrawer({
   onUpsell,
   renderRow,
   label,
+  limit,
   "data-testid": dataTestId = "copilot-drawer",
 }: CopilotDrawerProps): React.ReactElement | null {
   const configuration = useCopilotChatConfiguration();
@@ -240,6 +247,7 @@ export function CopilotDrawer({
     agentId: resolvedAgentId,
     includeArchived: true,
     enabled: licensed,
+    ...(limit !== undefined ? { limit } : {}),
   });
 
   const drawerThreads = useMemo(() => threads.map(toDrawerThread), [threads]);
@@ -399,6 +407,12 @@ export function CopilotDrawer({
     onUpsell?.();
   }, [onUpsell]);
 
+  const handleLoadMore = useCallback(() => {
+    // Advance pagination. No-op when there is no next page; the element only
+    // surfaces the "Load more" control while `hasMore` is true.
+    fetchMoreThreads();
+  }, [fetchMoreThreads]);
+
   // Keep a ref to the live handlers so the addEventListener effect can stay
   // stable (bind once) while still calling the freshest closures.
   const handlersRef = useRef({
@@ -411,6 +425,7 @@ export function CopilotDrawer({
     handleRetry,
     handleOpenChange,
     handleUpsell,
+    handleLoadMore,
   });
   handlersRef.current = {
     handleThreadSelected,
@@ -422,6 +437,7 @@ export function CopilotDrawer({
     handleRetry,
     handleOpenChange,
     handleUpsell,
+    handleLoadMore,
   };
 
   // Bind the nine outbound DOM events once the element exists. Listeners are
@@ -460,6 +476,7 @@ export function CopilotDrawer({
       handlersRef.current.handleRetry(detail.scope);
     };
     const onUpsellEvent = () => handlersRef.current.handleUpsell();
+    const onLoadMore = () => handlersRef.current.handleLoadMore();
 
     el.addEventListener("thread-selected", onThreadSelected);
     el.addEventListener("new-thread", onNewThreadEvent);
@@ -470,6 +487,7 @@ export function CopilotDrawer({
     el.addEventListener("open-change", onOpenChangeEvent);
     el.addEventListener("retry", onRetry);
     el.addEventListener("upsell", onUpsellEvent);
+    el.addEventListener("load-more", onLoadMore);
 
     return () => {
       el.removeEventListener("thread-selected", onThreadSelected);
@@ -481,6 +499,7 @@ export function CopilotDrawer({
       el.removeEventListener("open-change", onOpenChangeEvent);
       el.removeEventListener("retry", onRetry);
       el.removeEventListener("upsell", onUpsellEvent);
+      el.removeEventListener("load-more", onLoadMore);
     };
     // Re-bind only when the element identity changes (i.e. after first mount).
   }, [mounted]);

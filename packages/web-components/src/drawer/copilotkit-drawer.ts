@@ -747,6 +747,17 @@ export class CopilotKitDrawer extends LitElement {
         <div class="state" part="fetching-more" aria-busy="true">Loading more…</div>
       `;
     }
+    if (this.hasMore) {
+      return html`
+        <button
+          class="load-more"
+          part="load-more"
+          @click=${() => this._emit("load-more", {})}
+        >
+          Load more
+        </button>
+      `;
+    }
     return nothing;
   }
 

@@ -109,6 +109,7 @@ export class CopilotDrawerRow {
       (delete)="onDelete($event)"
       (filter-change)="onFilterChange()"
       (retry)="onRetry($event)"
+      (load-more)="onLoadMore()"
       ><ng-content></ng-content>
       @if (rowDirective(); as row) {
         @for (t of threads.threads(); track t.id) {
@@ -169,6 +170,13 @@ export class CopilotDrawer {
     alias: "onNewThread",
   });
 
+  /**
+   * Page size for thread pagination. When set, threads load in pages of this
+   * size and the element shows a "Load more" control while more remain. When
+   * unset, the full list loads at once and no pagination control shows.
+   */
+  readonly limit = input<number | undefined>();
+
   private readonly config = inject(COPILOT_CHAT_CONFIGURATION, {
     optional: true,
   });
@@ -202,6 +210,7 @@ export class CopilotDrawer {
   protected readonly threads = injectThreads({
     agentId: this.resolvedAgentId,
     includeArchived: true,
+    limit: this.limit,
   });
 
   /** Thread records mapped to the element's {@link DrawerThread} shape. */
@@ -372,5 +381,14 @@ export class CopilotDrawer {
     } else {
       this.threads.refetchThreads();
     }
+  }
+
+  /**
+   * Handles the `load-more` event from the drawer element — advances pagination
+   * by fetching the next page. No-op when there is no next page (the element
+   * only surfaces the "Load more" control while `hasMoreThreads` is true).
+   */
+  protected onLoadMore(): void {
+    this.threads.fetchMoreThreads();
   }
 }

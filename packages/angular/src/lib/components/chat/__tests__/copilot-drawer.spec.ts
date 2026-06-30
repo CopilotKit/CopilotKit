@@ -283,6 +283,15 @@ test("retry with scope fetch-more routes to threadsState.fetchMoreThreads", () =
   expect(threadsState.fetchMoreThreads).toHaveBeenCalled();
 });
 
+test("load-more routes to threadsState.fetchMoreThreads", () => {
+  threadsState.fetchMoreThreads.mockClear();
+  const { el } = setupWithConfig();
+
+  el.dispatchEvent(new CustomEvent("load-more", { bubbles: true }));
+
+  expect(threadsState.fetchMoreThreads).toHaveBeenCalled();
+});
+
 test("retry with scope initial routes to threadsState.refetchThreads", () => {
   threadsState.refetchThreads.mockClear();
   const { el } = setupWithConfig();

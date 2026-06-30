@@ -10,6 +10,7 @@ export type {
   DrawerFilter,
   DrawerThread,
   FilterChangeDetail,
+  LoadMoreDetail,
   NewThreadDetail,
   OpenChangeDetail,
   RetryDetail,
