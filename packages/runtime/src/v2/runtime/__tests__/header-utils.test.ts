@@ -2,7 +2,23 @@ import { describe, it, expect } from "vitest";
 import {
   shouldForwardHeader,
   extractForwardableHeaders,
+  mergeForwardableHeaders,
 } from "../handlers/header-utils";
+
+// No forwardable inbound headers, so a merge's result is driven purely by the
+// server-configured `serverHeaders`.
+function noForwardRequest(): Request {
+  return new Request("https://example.com/api/copilotkit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function authKeys(headers: Record<string, string>): string[] {
+  return Object.keys(headers).filter(
+    (k) => k.toLowerCase() === "authorization",
+  );
+}
 
 describe("header-utils", () => {
   describe("shouldForwardHeader", () => {
@@ -83,6 +99,60 @@ describe("header-utils", () => {
       expect(result["x-complex-value"]).toBe(
         "value with spaces and special=chars&more",
       );
+    });
+  });
+
+  describe("mergeForwardableHeaders — server-vs-server case collision", () => {
+    it("collapses a server-self authorization case-collision to a single first-occurrence-wins entry", () => {
+      // The agent itself is configured with BOTH case-variants of the same
+      // header. A plain `{ ...base }` spread keeps both keys, which undici
+      // comma-joins into an invalid "multiple JWTs" value.
+      const serverHeaders: Record<string, string> = {
+        Authorization: "Bearer FIRST",
+        authorization: "Bearer SECOND",
+      };
+
+      const merged = mergeForwardableHeaders(serverHeaders, noForwardRequest());
+
+      // Exactly one authorization-family key may survive...
+      expect(authKeys(merged)).toHaveLength(1);
+      // ...carrying the documented winner (first occurrence: canonical
+      // `Authorization` with value `Bearer FIRST`).
+      const key = authKeys(merged)[0];
+      expect(key).toBe("Authorization");
+      expect(merged[key]).toBe("Bearer FIRST");
+    });
+
+    it("collapses a server-self x-* case-collision to a single first-occurrence-wins entry", () => {
+      const serverHeaders: Record<string, string> = {
+        "X-Service-Key": "first",
+        "x-service-key": "second",
+      };
+
+      const merged = mergeForwardableHeaders(serverHeaders, noForwardRequest());
+
+      const keys = Object.keys(merged).filter(
+        (k) => k.toLowerCase() === "x-service-key",
+      );
+      expect(keys).toHaveLength(1);
+      expect(keys[0]).toBe("X-Service-Key");
+      expect(merged[keys[0]]).toBe("first");
+    });
+
+    it("still lets non-colliding inbound headers forward after server-self dedup", () => {
+      const serverHeaders: Record<string, string> = {
+        Authorization: "Bearer FIRST",
+        authorization: "Bearer SECOND",
+      };
+      const request = new Request("https://example.com/api/copilotkit", {
+        method: "POST",
+        headers: { "X-Request-Id": "req-123" },
+      });
+
+      const merged = mergeForwardableHeaders(serverHeaders, request);
+
+      expect(authKeys(merged)).toHaveLength(1);
+      expect(merged["x-request-id"]).toBe("req-123");
     });
   });
 });
