@@ -123,3 +123,106 @@ Use frontend tools when you need your agent to interact with client-side primiti
         <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
     </Step>
 </Steps>
+
+## Ensuring your agent reliably calls frontend tools
+
+For simple, low-stakes tools (like toggling a theme or enabling a UI mode), a clear `description` is usually enough for the agent to discover and call the tool at the right time. However, for tools where correct behavior is critical — such as fetching fresh data before answering, or updating UI state before replying — LangGraph agents may still answer from cached context or skip the tool call entirely.
+
+The root cause is that LLMs weigh tool descriptions against everything else in the context. If the agent has recent data in `useAgentContext`, it may decide that data is "close enough" and skip the fetch. Stale-data bugs are especially common for domain-specific data pipelines where the agent must call a frontend tool to get up-to-date values.
+
+**Recommended pattern:** supplement the tool `description` with an explicit instruction in the agent's `system_prompt`.
+
+<Callout type="info" title="Frontend tool descriptions vs. system_prompt guidance">
+The `description` field on `useFrontendTool` tells the model *what* the tool does. The agent's `system_prompt` is where you tell it *when* to call it — especially for mandatory steps like refreshing data before answering a question.
+
+If you find your LangGraph agent answering from stale context instead of calling the tool, add an explicit instruction to `system_prompt` as shown below.
+</Callout>
+
+The following example shows a data-fetch frontend tool paired with a matching `system_prompt` rule that ensures the agent always calls the tool before answering questions about live data.
+
+<Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+    <Tab value="Python">
+        ```python title="agent.py"
+        from langgraph.prebuilt import create_react_agent
+        from copilotkit import CopilotKitMiddleware, CopilotKitState
+
+        graph = create_react_agent(
+            model="openai:gpt-4o",
+            tools=[],  # backend tools go here
+            middleware=[CopilotKitMiddleware()],
+            state_schema=CopilotKitState,
+            # [!code highlight:7]
+            # Tell the agent WHEN it must call the frontend tool.
+            # A short description alone may not be enough — make the rule explicit.
+            prompt=(
+                "You are a helpful sales assistant.\n\n"
+                "IMPORTANT: When the user asks about sales data for a specific month or date range, "
+                "you MUST call the `fetch_sales_by_month_range` frontend tool first to retrieve "
+                "up-to-date figures. Never answer from memory or previously seen context values."
+            ),
+        )
+        ```
+    </Tab>
+    <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        import { createReactAgent } from "@langchain/langgraph/prebuilt";
+        import { copilotkitMiddleware, CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
+
+        export const graph = createReactAgent({
+          model: "openai:gpt-4o",
+          tools: [],  // backend tools go here
+          stateSchema: CopilotKitStateSchema,
+          checkpointSaver: undefined,
+          // [!code highlight:6]
+          // Tell the agent WHEN it must call the frontend tool.
+          // A short description alone may not be enough — make the rule explicit.
+          prompt:
+            "You are a helpful sales assistant.\n\n" +
+            "IMPORTANT: When the user asks about sales data for a specific month or date range, " +
+            "you MUST call the `fetch_sales_by_month_range` frontend tool first to retrieve " +
+            "up-to-date figures. Never answer from memory or previously seen context values.",
+        });
+        ```
+    </Tab>
+</Tabs>
+
+And register the matching frontend tool on the client:
+
+```tsx title="page.tsx"
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+
+useFrontendTool({
+  name: "fetch_sales_by_month_range",
+  // [!code highlight:3]
+  // Keep the description accurate so the model understands the tool's contract,
+  // but rely on system_prompt to enforce WHEN it is called.
+  description:
+    "Fetches sales overview data for the given month range from the live API and updates the dashboard. " +
+    "Returns a summary of revenue and order counts for the requested period.",
+  parameters: z.object({
+    start_month: z.string().describe("Start month in YYYY-MM format"),
+    end_month: z.string().describe("End month in YYYY-MM format"),
+  }),
+  handler: async ({ start_month, end_month }) => {
+    const data = await fetchSalesOverview({ start_month, end_month });
+    updateDashboard(data);
+    return `Fetched sales data from ${start_month} to ${end_month}: revenue=${data.revenue}, orders=${data.orders}`;
+  },
+});
+```
+
+### When to use description vs. system_prompt
+
+| Situation | Recommended approach |
+|---|---|
+| Optional UI shortcut (toggle theme, enable mode) | `description` alone is usually sufficient |
+| Mandatory data-fetch that must run before answering | Add an explicit rule to `system_prompt` |
+| Tool that must run in a specific order relative to other tools | Add ordering rules to `system_prompt` |
+| Tool that must NOT be skipped even when context looks stale | Add "never answer from memory" guard to `system_prompt` |
+
+## Imperatively emitting tool calls from agent code
+
+In addition to letting the LLM decide when to call a frontend tool, you can emit tool calls directly from your LangGraph node code using `copilotkit_emit_tool_call`. This fires the `useFrontendTool` handler immediately, without waiting for an LLM decision.
+
+See [Connecting Backend Emit APIs to Frontend Hooks](/langgraph/advanced/emit-api-hook-mapping) for an end-to-end guide covering `copilotkit_emit_tool_call`, `copilotkit_customize_config`, and how they relate to `useFrontendTool` and `useComponent`.
