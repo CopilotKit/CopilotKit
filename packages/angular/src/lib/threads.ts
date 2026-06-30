@@ -75,7 +75,7 @@ export interface InjectThreadsInput {
    * When `false`, the store stays inert: no runtime context is dispatched, so
    * NO thread-list fetch or realtime subscription is issued, and the
    * synthesized pre-connect loading state is suppressed. Used by gated
-   * surfaces (e.g. an unlicensed `<copilotkit-drawer>`) that must not touch
+   * surfaces (e.g. an unlicensed `<copilotkit-threads-drawer>`) that must not touch
    * the network until the gate opens. Defaults to `true`. Mirrors react-core's
    * `UseThreadsInput.enabled`.
    */

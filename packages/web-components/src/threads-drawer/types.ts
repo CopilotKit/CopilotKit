@@ -1,5 +1,5 @@
 /**
- * Public type surface for the `<copilotkit-drawer>` custom element.
+ * Public type surface for the `<copilotkit-threads-drawer>` custom element.
  *
  * The element is a pure VIEW: domain data flows IN as properties and user
  * intent flows OUT as DOM `CustomEvent`s. These types intentionally do NOT
@@ -81,11 +81,11 @@ export type LicensedDetail = Record<string, never>;
 export type LoadMoreDetail = Record<string, never>;
 
 /**
- * Strongly-typed event map for `<copilotkit-drawer>`. Consumers can use this to
+ * Strongly-typed event map for `<copilotkit-threads-drawer>`. Consumers can use this to
  * type `addEventListener` callbacks. All events bubble and are composed so they
  * cross the shadow boundary.
  */
-export interface CopilotKitDrawerEventMap {
+export interface CopilotKitThreadsDrawerEventMap {
   "thread-selected": CustomEvent<ThreadSelectedDetail>;
   archive: CustomEvent<ArchiveDetail>;
   unarchive: CustomEvent<UnarchiveDetail>;

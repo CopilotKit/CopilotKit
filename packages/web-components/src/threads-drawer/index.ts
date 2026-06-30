@@ -1,11 +1,14 @@
-export { COPILOTKIT_DRAWER_TAG, CopilotKitDrawer } from "./copilotkit-drawer";
-export { defineCopilotKitDrawer } from "./define";
+export {
+  COPILOTKIT_THREADS_DRAWER_TAG,
+  CopilotKitThreadsDrawer,
+} from "./copilotkit-threads-drawer";
+export { defineCopilotKitThreadsDrawer } from "./define";
 export { drawerStyles } from "./styles";
 export { GENERATED_DRAWER_TOKEN_DEFAULTS } from "./generated-tokens";
 export type { GeneratedDrawerTokenKey } from "./generated-tokens";
 export type {
   ArchiveDetail,
-  CopilotKitDrawerEventMap,
+  CopilotKitThreadsDrawerEventMap,
   DeleteDetail,
   DrawerFilter,
   DrawerThread,

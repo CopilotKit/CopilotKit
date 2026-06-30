@@ -2,8 +2,11 @@ import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { signal } from "@angular/core";
 import { test, expect, vi } from "vitest";
-import type { DrawerThread } from "@copilotkit/web-components/drawer";
-import { CopilotDrawer, CopilotDrawerRow } from "../copilot-drawer";
+import type { DrawerThread } from "@copilotkit/web-components/threads-drawer";
+import {
+  CopilotThreadsDrawer,
+  CopilotThreadsDrawerRow,
+} from "../copilot-threads-drawer";
 import type { Thread } from "../../../threads";
 import { COPILOT_CHAT_CONFIGURATION } from "../../../chat-configuration";
 
@@ -36,13 +39,13 @@ vi.mock("../../../threads", () => ({ injectThreads: () => threadsState }));
 // Host components
 // ---------------------------------------------------------------------------
 
-/** Host component that renders {@link CopilotDrawer} under test. */
+/** Host component that renders {@link CopilotThreadsDrawer} under test. */
 @Component({
   selector: "test-host",
   standalone: true,
-  imports: [CopilotDrawer],
+  imports: [CopilotThreadsDrawer],
   template: `
-    <copilot-drawer />
+    <copilot-threads-drawer />
   `,
 })
 class HostComponent {}
@@ -51,9 +54,9 @@ class HostComponent {}
 @Component({
   selector: "test-host-thread-select",
   standalone: true,
-  imports: [CopilotDrawer],
+  imports: [CopilotThreadsDrawer],
   template: `
-    <copilot-drawer [onThreadSelect]="spy" />
+    <copilot-threads-drawer [onThreadSelect]="spy" />
   `,
 })
 class HostWithThreadSelectComponent {
@@ -64,9 +67,9 @@ class HostWithThreadSelectComponent {
 @Component({
   selector: "test-host-new-thread",
   standalone: true,
-  imports: [CopilotDrawer],
+  imports: [CopilotThreadsDrawer],
   template: `
-    <copilot-drawer [onNewThread]="spy" />
+    <copilot-threads-drawer [onNewThread]="spy" />
   `,
 })
 class HostWithNewThreadComponent {
@@ -79,7 +82,7 @@ class HostWithNewThreadComponent {
 
 /**
  * Configures TestBed, creates the host fixture, runs change detection, and
- * returns the fixture together with the rendered `<copilotkit-drawer>` element.
+ * returns the fixture together with the rendered `<copilotkit-threads-drawer>` element.
  */
 function setup() {
   TestBed.resetTestingModule();
@@ -90,7 +93,7 @@ function setup() {
   const fixture = TestBed.createComponent(HostComponent);
   fixture.detectChanges();
   const el = (fixture.nativeElement as HTMLElement).querySelector(
-    "copilotkit-drawer",
+    "copilotkit-threads-drawer",
   ) as
     | (HTMLElement & {
         threads: DrawerThread[];
@@ -121,7 +124,7 @@ function fakeConfig() {
 /**
  * Configures TestBed with the fake config provided as the
  * `COPILOT_CHAT_CONFIGURATION` token value, creates the fixture, and returns
- * the fixture, the inner `<copilotkit-drawer>` element, and the config spy.
+ * the fixture, the inner `<copilotkit-threads-drawer>` element, and the config spy.
  */
 function setupWithConfig(config = fakeConfig()) {
   TestBed.resetTestingModule();
@@ -133,7 +136,7 @@ function setupWithConfig(config = fakeConfig()) {
   const fixture = TestBed.createComponent(HostComponent);
   fixture.detectChanges();
   const el = (fixture.nativeElement as HTMLElement).querySelector(
-    "copilotkit-drawer",
+    "copilotkit-threads-drawer",
   ) as HTMLElement | null;
   return { fixture, el: el!, config };
 }
@@ -142,12 +145,12 @@ function setupWithConfig(config = fakeConfig()) {
 // Tests
 // ---------------------------------------------------------------------------
 
-test("renders <copilotkit-drawer> with the default data-testid", () => {
+test("renders <copilotkit-threads-drawer> with the default data-testid", () => {
   const { el } = setup();
 
   expect(el).not.toBeNull();
-  expect(customElements.get("copilotkit-drawer")).toBeDefined();
-  expect(el!.getAttribute("data-testid")).toBe("copilot-drawer");
+  expect(customElements.get("copilotkit-threads-drawer")).toBeDefined();
+  expect(el!.getAttribute("data-testid")).toBe("copilot-threads-drawer");
 });
 
 test("binds threads list and load state onto the drawer element imperatively", async () => {
@@ -344,7 +347,7 @@ test("onThreadSelect override is called with threadId and config.setActiveThread
   const fixture = TestBed.createComponent(HostWithThreadSelectComponent);
   fixture.detectChanges();
   const el = (fixture.nativeElement as HTMLElement).querySelector(
-    "copilotkit-drawer",
+    "copilotkit-threads-drawer",
   ) as HTMLElement;
 
   el.dispatchEvent(
@@ -371,7 +374,7 @@ test("onNewThread override is called and threads.startNewThread is always called
   const fixture = TestBed.createComponent(HostWithNewThreadComponent);
   fixture.detectChanges();
   const el = (fixture.nativeElement as HTMLElement).querySelector(
-    "copilotkit-drawer",
+    "copilotkit-threads-drawer",
   ) as HTMLElement;
 
   el.dispatchEvent(new CustomEvent("new-thread", { bubbles: true }));
@@ -409,19 +412,19 @@ test("genuine fetch error surfaces on element.error when listError() is non-null
 });
 
 // ---------------------------------------------------------------------------
-// Per-row custom content projection (copilotDrawerRow directive)
+// Per-row custom content projection (copilotThreadsDrawerRow directive)
 // ---------------------------------------------------------------------------
 
-/** Host component that projects a copilotDrawerRow template into the drawer. */
+/** Host component that projects a copilotThreadsDrawerRow template into the drawer. */
 @Component({
   selector: "test-host-row",
   standalone: true,
-  imports: [CopilotDrawer, CopilotDrawerRow],
+  imports: [CopilotThreadsDrawer, CopilotThreadsDrawerRow],
   template: `
-    <copilot-drawer
-      ><ng-template copilotDrawerRow let-t
+    <copilot-threads-drawer
+      ><ng-template copilotThreadsDrawerRow let-t
         >ROW:{{ t.name }}</ng-template
-      ></copilot-drawer
+      ></copilot-threads-drawer
     >
   `,
 })
@@ -431,14 +434,16 @@ class HostWithRowComponent {}
 @Component({
   selector: "test-host-slot",
   standalone: true,
-  imports: [CopilotDrawer],
+  imports: [CopilotThreadsDrawer],
   template: `
-    <copilot-drawer><span slot="launcher-icon">ICON-X</span></copilot-drawer>
+    <copilot-threads-drawer
+      ><span slot="launcher-icon">ICON-X</span></copilot-threads-drawer
+    >
   `,
 })
 class HostWithSlotComponent {}
 
-test("slotted light-DOM children pass through to <copilotkit-drawer>", () => {
+test("slotted light-DOM children pass through to <copilotkit-threads-drawer>", () => {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostWithSlotComponent],
@@ -448,14 +453,14 @@ test("slotted light-DOM children pass through to <copilotkit-drawer>", () => {
   fixture.detectChanges();
 
   const drawerEl = (fixture.nativeElement as HTMLElement).querySelector(
-    "copilotkit-drawer",
+    "copilotkit-threads-drawer",
   );
   const slotChild = drawerEl?.querySelector('[slot="launcher-icon"]');
   expect(slotChild).not.toBeNull();
   expect(slotChild?.textContent).toContain("ICON-X");
 });
 
-test("copilotDrawerRow renders per-row slot content for each thread", () => {
+test("copilotThreadsDrawerRow renders per-row slot content for each thread", () => {
   threadsState.threads.set([
     {
       id: "t1",
@@ -489,14 +494,14 @@ test("copilotDrawerRow renders per-row slot content for each thread", () => {
 @Component({
   selector: "test-host-label",
   standalone: true,
-  imports: [CopilotDrawer],
+  imports: [CopilotThreadsDrawer],
   template: `
-    <copilot-drawer [label]="'Custom'" />
+    <copilot-threads-drawer [label]="'Custom'" />
   `,
 })
 class HostWithLabelComponent {}
 
-test("label input is forwarded to the <copilotkit-drawer> element label property", () => {
+test("label input is forwarded to the <copilotkit-threads-drawer> element label property", () => {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostWithLabelComponent],
@@ -506,7 +511,7 @@ test("label input is forwarded to the <copilotkit-drawer> element label property
   fixture.detectChanges();
 
   const drawerEl = (fixture.nativeElement as HTMLElement).querySelector(
-    "copilotkit-drawer",
+    "copilotkit-threads-drawer",
   ) as HTMLElement & { label: string };
 
   expect(drawerEl.label).toBe("Custom");

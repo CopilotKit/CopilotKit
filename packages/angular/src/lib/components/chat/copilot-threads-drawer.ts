@@ -15,9 +15,9 @@ import {
 import { NgTemplateOutlet } from "@angular/common";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import {
-  CopilotKitDrawer as CopilotKitDrawerElement,
-  defineCopilotKitDrawer,
-} from "@copilotkit/web-components/drawer";
+  CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
+  defineCopilotKitThreadsDrawer,
+} from "@copilotkit/web-components/threads-drawer";
 import type {
   ArchiveDetail,
   DeleteDetail,
@@ -25,13 +25,13 @@ import type {
   RetryDetail,
   ThreadSelectedDetail,
   UnarchiveDetail,
-} from "@copilotkit/web-components/drawer";
+} from "@copilotkit/web-components/threads-drawer";
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { injectThreads, type Thread } from "../../threads";
 
 /**
  * Maps a {@link Thread} from the platform store onto the minimal
- * {@link DrawerThread} shape the `<copilotkit-drawer>` element accepts.
+ * {@link DrawerThread} shape the `<copilotkit-threads-drawer>` element accepts.
  *
  * `lastRunAt` is spread conditionally so the key is absent (rather than
  * `undefined`) when the source thread has never been run — matching the
@@ -50,33 +50,33 @@ function toDrawerThread(thread: Thread): DrawerThread {
 
 /**
  * Structural directive that captures a per-row template for projection into
- * the `<copilotkit-drawer>` element as light-DOM children with
+ * the `<copilotkit-threads-drawer>` element as light-DOM children with
  * `slot="row:{id}"`.
  *
- * Apply it to an `<ng-template>` that is a direct child of `<copilot-drawer>`.
+ * Apply it to an `<ng-template>` that is a direct child of `<copilot-threads-drawer>`.
  * The implicit context variable (`let-t`) receives the full {@link Thread}
  * record for that row.
  *
  * @example
  * ```html
- * <copilot-drawer>
- *   <ng-template copilotDrawerRow let-t>
+ * <copilot-threads-drawer>
+ *   <ng-template copilotThreadsDrawerRow let-t>
  *     <span>{{ t.name }}</span>
  *   </ng-template>
- * </copilot-drawer>
+ * </copilot-threads-drawer>
  * ```
  */
-@Directive({ selector: "[copilotDrawerRow]", standalone: true })
-export class CopilotDrawerRow {
+@Directive({ selector: "[copilotThreadsDrawerRow]", standalone: true })
+export class CopilotThreadsDrawerRow {
   /** The captured template reference for the per-row content. */
   readonly template = inject(TemplateRef);
 }
 
 /**
- * Angular wrapper around the `<copilotkit-drawer>` Lit web component.
+ * Angular wrapper around the `<copilotkit-threads-drawer>` Lit web component.
  *
  * Registers the custom element on construction (idempotent; SSR-guarded
- * internally by {@link defineCopilotKitDrawer}) and projects it into the DOM
+ * internally by {@link defineCopilotKitThreadsDrawer}) and projects it into the DOM
  * via the `CUSTOM_ELEMENTS_SCHEMA`-enabled template.
  *
  * Thread list state is fetched from the Intelligence platform via
@@ -89,17 +89,17 @@ export class CopilotDrawerRow {
  *
  * @example
  * ```html
- * <copilot-drawer data-testid="my-drawer" />
+ * <copilot-threads-drawer data-testid="my-drawer" />
  * ```
  */
 @Component({
-  selector: "copilot-drawer",
+  selector: "copilot-threads-drawer",
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
   imports: [NgTemplateOutlet],
   template: `
-    <copilotkit-drawer
+    <copilotkit-threads-drawer
       #drawer
       [attr.data-testid]="dataTestId()"
       (thread-selected)="onThreadSelected($event)"
@@ -121,10 +121,10 @@ export class CopilotDrawerRow {
           </div>
         }
       }
-    </copilotkit-drawer>
+    </copilotkit-threads-drawer>
   `,
 })
-export class CopilotDrawer {
+export class CopilotThreadsDrawer {
   /**
    * Optional agent id whose threads this drawer lists/manages. Scopes the
    * {@link injectThreads} store (via the resolved-agent precedence: this input
@@ -135,9 +135,9 @@ export class CopilotDrawer {
 
   /**
    * Value applied as the `data-testid` attribute on the inner
-   * `<copilotkit-drawer>` element. Defaults to `"copilot-drawer"`.
+   * `<copilotkit-threads-drawer>` element. Defaults to `"copilot-threads-drawer"`.
    */
-  readonly dataTestId = input<string>("copilot-drawer", {
+  readonly dataTestId = input<string>("copilot-threads-drawer", {
     alias: "data-testid",
   });
 
@@ -183,7 +183,7 @@ export class CopilotDrawer {
 
   private readonly drawerRef = viewChild<
     unknown,
-    ElementRef<CopilotKitDrawerElement>
+    ElementRef<CopilotKitThreadsDrawerElement>
   >("drawer", {
     read: ElementRef,
   });
@@ -191,10 +191,10 @@ export class CopilotDrawer {
   /**
    * Optional per-row template directive projected as a direct child of this
    * component. When present, a `<div slot="row:{id}">` is rendered inside the
-   * `<copilotkit-drawer>` element for each thread, allowing the host to inject
+   * `<copilotkit-threads-drawer>` element for each thread, allowing the host to inject
    * custom light-DOM content into each row slot.
    */
-  protected readonly rowDirective = contentChild(CopilotDrawerRow);
+  protected readonly rowDirective = contentChild(CopilotThreadsDrawerRow);
 
   /**
    * The resolved agent id for the threads store. Precedence:
@@ -237,7 +237,7 @@ export class CopilotDrawer {
   );
 
   constructor() {
-    defineCopilotKitDrawer();
+    defineCopilotKitThreadsDrawer();
 
     // Push signal-derived values onto the element's JS properties every time
     // any reactive dependency changes. Using an effect (rather than template
@@ -261,7 +261,7 @@ export class CopilotDrawer {
    *
    * When a `threadSelectHandler` override is provided by the host, it is called
    * exclusively. Otherwise, the ambient chat configuration is driven directly so
-   * a bare `<copilot-drawer>` works without any host wiring.
+   * a bare `<copilot-threads-drawer>` works without any host wiring.
    *
    * @param event - The raw DOM event; cast to `CustomEvent<ThreadSelectedDetail>` to extract `threadId`.
    */
@@ -281,7 +281,7 @@ export class CopilotDrawer {
    * Always resets the core thread store to a fresh, non-explicit client-side
    * thread first. When a `newThreadHandler` override is provided by the host,
    * it is called exclusively. Otherwise, the ambient chat configuration is
-   * driven directly so a bare `<copilot-drawer>` works without any host wiring.
+   * driven directly so a bare `<copilot-threads-drawer>` works without any host wiring.
    */
   protected onNewThread(): void {
     this.threads.startNewThread();
@@ -303,7 +303,7 @@ export class CopilotDrawer {
   protected onArchive(event: Event): void {
     const { threadId } = (event as CustomEvent<ArchiveDetail>).detail;
     this.threads.archiveThread(threadId).catch((err) => {
-      console.error("CopilotDrawer: archiveThread failed", err);
+      console.error("CopilotThreadsDrawer: archiveThread failed", err);
     });
   }
 
@@ -317,7 +317,7 @@ export class CopilotDrawer {
   protected onUnarchive(event: Event): void {
     const { threadId } = (event as CustomEvent<UnarchiveDetail>).detail;
     this.threads.unarchiveThread(threadId).catch((err) => {
-      console.error("CopilotDrawer: unarchiveThread failed", err);
+      console.error("CopilotThreadsDrawer: unarchiveThread failed", err);
     });
   }
 
@@ -352,7 +352,7 @@ export class CopilotDrawer {
         }
       })
       .catch((err) => {
-        console.error("CopilotDrawer: deleteThread failed", err);
+        console.error("CopilotThreadsDrawer: deleteThread failed", err);
       });
   }
 

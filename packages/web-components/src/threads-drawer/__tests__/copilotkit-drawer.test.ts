@@ -1,14 +1,14 @@
 import { afterEach, expect, test, vi } from "vitest";
 import {
-  COPILOTKIT_DRAWER_TAG,
-  CopilotKitDrawer,
-  defineCopilotKitDrawer,
+  COPILOTKIT_THREADS_DRAWER_TAG,
+  CopilotKitThreadsDrawer,
+  defineCopilotKitThreadsDrawer,
 } from "../index";
 import type { DrawerThread } from "../index";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-async function flush(element: CopilotKitDrawer) {
+async function flush(element: CopilotKitThreadsDrawer) {
   await element.updateComplete;
   await tick();
   await element.updateComplete;
@@ -56,11 +56,11 @@ function setMatchMedia(matches: boolean) {
 }
 
 async function setup(options: SetupOptions = {}) {
-  defineCopilotKitDrawer();
+  defineCopilotKitThreadsDrawer();
   const mediaController = setMatchMedia(options.mobile ?? false);
   const element = document.createElement(
-    COPILOTKIT_DRAWER_TAG,
-  ) as CopilotKitDrawer;
+    COPILOTKIT_THREADS_DRAWER_TAG,
+  ) as CopilotKitThreadsDrawer;
   element.threads = options.threads ?? [makeThread()];
   document.body.appendChild(element);
   await flush(element);
@@ -103,10 +103,12 @@ afterEach(() => {
 });
 
 test("registers the custom element idempotently", () => {
-  defineCopilotKitDrawer();
-  defineCopilotKitDrawer();
+  defineCopilotKitThreadsDrawer();
+  defineCopilotKitThreadsDrawer();
 
-  expect(customElements.get(COPILOTKIT_DRAWER_TAG)).toBe(CopilotKitDrawer);
+  expect(customElements.get(COPILOTKIT_THREADS_DRAWER_TAG)).toBe(
+    CopilotKitThreadsDrawer,
+  );
 });
 
 test("renders a row per visible thread into the shadow root", async () => {
@@ -669,7 +671,8 @@ test("exposes ::part hooks and CSS-variable tokens for theming", async () => {
   expect(q('[part="list"]')).not.toBeNull();
   expect(q('[part~="row"]')).not.toBeNull();
 
-  const sheets = (CopilotKitDrawer.styles as { cssText: string }).cssText;
+  const sheets = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
   expect(sheets).toContain("--cpk-drawer-bg");
   expect(sheets).toContain("var(--cpk-drawer-accent");
   teardown();
@@ -1043,8 +1046,9 @@ test("list is scrollable in a bounded container — CSS contract: :host has heig
   // doesn't grow to content height) and `min-height: 0` on `.list` (so the flex
   // child can shrink below its content height and scroll rather than expand the
   // panel).  This is the same approach used by the "exposes ::part hooks" test
-  // which reads CopilotKitDrawer.styles.cssText to verify declarations.
-  const sheets = (CopilotKitDrawer.styles as { cssText: string }).cssText;
+  // which reads CopilotKitThreadsDrawer.styles.cssText to verify declarations.
+  const sheets = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
 
   // :host block must contain height: 100%
   expect(sheets).toContain("height: 100%");

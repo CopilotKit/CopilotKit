@@ -11,7 +11,7 @@ const tok = (value: string) => unsafeCSS(value);
 const T = GENERATED_DRAWER_TOKEN_DEFAULTS;
 
 /**
- * Self-contained shadow-DOM styles for `<copilotkit-drawer>`.
+ * Self-contained shadow-DOM styles for `<copilotkit-threads-drawer>`.
  *
  * Authoring rules baked in here:
  *  - Every visual value is a `var(--cpk-drawer-<token>, <built default>)`. The

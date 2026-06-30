@@ -13,15 +13,14 @@
  */
 import { afterEach, expect, test, vi } from "vitest";
 import {
-  COPILOTKIT_DRAWER_TAG,
-  CopilotKitDrawer,
-  defineCopilotKitDrawer,
+  COPILOTKIT_THREADS_DRAWER_TAG,
+  defineCopilotKitThreadsDrawer,
 } from "../index";
-import type { DrawerThread } from "../index";
+import type { DrawerThread, CopilotKitThreadsDrawer } from "../index";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-async function flush(element: CopilotKitDrawer) {
+async function flush(element: CopilotKitThreadsDrawer) {
   await element.updateComplete;
   await tick();
   await element.updateComplete;
@@ -42,7 +41,7 @@ afterEach(() => {
 });
 
 test("id-keyed per-row slot reconciliation survives a live reorder without remounting slotted content", async () => {
-  defineCopilotKitDrawer();
+  defineCopilotKitThreadsDrawer();
   window.matchMedia = vi.fn().mockReturnValue({
     matches: false,
     addEventListener: () => {},
@@ -52,8 +51,8 @@ test("id-keyed per-row slot reconciliation survives a live reorder without remou
   }) as unknown as typeof window.matchMedia;
 
   const element = document.createElement(
-    COPILOTKIT_DRAWER_TAG,
-  ) as CopilotKitDrawer;
+    COPILOTKIT_THREADS_DRAWER_TAG,
+  ) as CopilotKitThreadsDrawer;
 
   // Newest-first ordering by updatedAt → initial order is [a, b].
   element.threads = [

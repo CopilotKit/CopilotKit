@@ -6,7 +6,8 @@ import { drawerStyles } from "./styles";
 import type { DrawerFilter, DrawerThread } from "./types";
 
 /** Tag name the element registers under. */
-export const COPILOTKIT_DRAWER_TAG = "copilotkit-drawer" as const;
+export const COPILOTKIT_THREADS_DRAWER_TAG =
+  "copilotkit-threads-drawer" as const;
 
 /** Mobile breakpoint (px). At or below this width the drawer is a modal overlay. */
 const MOBILE_BREAKPOINT = 768;
@@ -113,7 +114,7 @@ const iconLauncher = html`
 `;
 
 /**
- * `<copilotkit-drawer>` — a public, self-contained, controlled, framework-agnostic
+ * `<copilotkit-threads-drawer>` — a public, self-contained, controlled, framework-agnostic
  * threads drawer rendered into a shadow root.
  *
  * Pure VIEW: domain data (threads/loading/error/etc.) comes IN as properties and
@@ -125,7 +126,7 @@ const iconLauncher = html`
  *
  * The element is AUTHORITATIVE over row order and the Active/All filter.
  */
-export class CopilotKitDrawer extends LitElement {
+export class CopilotKitThreadsDrawer extends LitElement {
   static styles = drawerStyles;
 
   static properties = {
@@ -274,7 +275,7 @@ export class CopilotKitDrawer extends LitElement {
     // Scroll-lock is a mobile-modal concern only.
     if (
       changed.has("open") ||
-      changed.has("_viewportIsMobile" as keyof CopilotKitDrawer)
+      changed.has("_viewportIsMobile" as keyof CopilotKitThreadsDrawer)
     ) {
       if (this._isMobileModalOpen()) {
         this._applyScrollLock();

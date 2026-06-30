@@ -8,11 +8,11 @@ import React, {
   useState,
 } from "react";
 import {
-  defineCopilotKitDrawer,
-  COPILOTKIT_DRAWER_TAG,
-} from "@copilotkit/web-components/drawer";
+  defineCopilotKitThreadsDrawer,
+  COPILOTKIT_THREADS_DRAWER_TAG,
+} from "@copilotkit/web-components/threads-drawer";
 import type {
-  CopilotKitDrawer as CopilotKitDrawerElement,
+  CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
   DrawerThread,
   ThreadSelectedDetail,
   ArchiveDetail,
@@ -20,7 +20,7 @@ import type {
   DeleteDetail,
   OpenChangeDetail,
   RetryDetail,
-} from "@copilotkit/web-components/drawer";
+} from "@copilotkit/web-components/threads-drawer";
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
@@ -31,18 +31,20 @@ import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigur
  * node to project into the element's `slot="row:{id}"`. Returning `null`
  * (or omitting the prop) falls back to the element's built-in row name.
  */
-export type CopilotDrawerRowRenderer = (thread: Thread) => React.ReactNode;
+export type CopilotThreadsDrawerRowRenderer = (
+  thread: Thread,
+) => React.ReactNode;
 
 /**
- * Props for {@link CopilotDrawer}.
+ * Props for {@link CopilotThreadsDrawer}.
  *
  * The drawer is a thin controller around the framework-agnostic
- * `<copilotkit-drawer>` custom element. It feeds the element domain data
+ * `<copilotkit-threads-drawer>` custom element. It feeds the element domain data
  * (threads/loading/error from {@link useThreads}, the active thread from the
  * chat configuration) and routes the element's outbound DOM events back into
  * core thread operations and chat-configuration changes.
  */
-export interface CopilotDrawerProps {
+export interface CopilotThreadsDrawerProps {
   /**
    * The agent whose threads to list and manage. Defaults to the agent of the
    * surrounding chat configuration, or the platform default when none is set.
@@ -52,7 +54,7 @@ export interface CopilotDrawerProps {
    * Optional escape-hatch called when the user picks a thread row. The wrapper
    * additionally focuses the chat input. When omitted, the wrapper drives the
    * surrounding chat configuration directly (`setActiveThreadId`), so a bare
-   * `<CopilotDrawer>` switches the rendered thread with no host wiring. Provide
+   * `<CopilotThreadsDrawer>` switches the rendered thread with no host wiring. Provide
    * this only to take control of the active thread yourself (e.g. a v1
    * `setThreadId`); when provided it is preferred over the provider.
    */
@@ -74,7 +76,7 @@ export interface CopilotDrawerProps {
    * `slot="row:{id}"` so the element projects them in place of the default
    * row name. Return `null` for a given row to keep the element's default.
    */
-  renderRow?: CopilotDrawerRowRenderer;
+  renderRow?: CopilotThreadsDrawerRowRenderer;
   /**
    * Accessible + default-header label for the drawer region. Sets the custom
    * element's `aria-label` and the default header text (shown when no
@@ -90,7 +92,7 @@ export interface CopilotDrawerProps {
   limit?: number;
   /**
    * `data-testid` set on the underlying custom element (handy in tests and for
-   * targeting from a host page). Defaults to `"copilot-drawer"`.
+   * targeting from a host page). Defaults to `"copilot-threads-drawer"`.
    */
   "data-testid"?: string;
 }
@@ -160,7 +162,7 @@ function findChatInput(origin: Element | null): HTMLElement | null {
 }
 
 /**
- * React wrapper for the shadow-DOM `<copilotkit-drawer>` threads drawer.
+ * React wrapper for the shadow-DOM `<copilotkit-threads-drawer>` threads drawer.
  *
  * Responsibilities:
  * - Registers the custom element on the client (SSR-safe; nothing renders
@@ -190,11 +192,11 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  * // Callback-free: the drawer drives the chat configuration itself.
  * <CopilotKitProvider runtimeUrl="/api/copilotkit" publicLicenseKey="ck_pub_...">
  *   <CopilotChat />
- *   <CopilotDrawer />
+ *   <CopilotThreadsDrawer />
  * </CopilotKitProvider>
  * ```
  */
-export function CopilotDrawer({
+export function CopilotThreadsDrawer({
   agentId,
   onThreadSelect,
   onNewThread,
@@ -202,8 +204,8 @@ export function CopilotDrawer({
   renderRow,
   label,
   limit,
-  "data-testid": dataTestId = "copilot-drawer",
-}: CopilotDrawerProps): React.ReactElement | null {
+  "data-testid": dataTestId = "copilot-threads-drawer",
+}: CopilotThreadsDrawerProps): React.ReactElement | null {
   const configuration = useCopilotChatConfiguration();
   const { status, checkFeature } = useLicenseContext();
 
@@ -252,14 +254,14 @@ export function CopilotDrawer({
 
   const drawerThreads = useMemo(() => threads.map(toDrawerThread), [threads]);
 
-  const elementRef = useRef<CopilotKitDrawerElement | null>(null);
+  const elementRef = useRef<CopilotKitThreadsDrawerElement | null>(null);
 
   // Register the custom element on the client only. `customElements` is absent
   // during SSR/prerender; gating the render below on `mounted` keeps the server
   // output empty so there is no hydration mismatch or layout shift.
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    defineCopilotKitDrawer();
+    defineCopilotKitThreadsDrawer();
     setMounted(true);
   }, []);
 
@@ -281,7 +283,7 @@ export function CopilotDrawer({
   // Provider-less fallback: without a surrounding chat configuration there is no
   // shared open-state to bind to, so the wrapper keeps its own local open-state.
   // It starts CLOSED — matching the provider's own `ownDrawerOpen` default of
-  // `false` — so a bare `<CopilotDrawer>` does not render stuck-open and the
+  // `false` — so a bare `<CopilotThreadsDrawer>` does not render stuck-open and the
   // element's open-change events still toggle it.
   const [localDrawerOpen, setLocalDrawerOpen] = useState(false);
   const drawerOpen = configuration ? configuration.drawerOpen : localDrawerOpen;
@@ -295,7 +297,7 @@ export function CopilotDrawer({
   // every render (which would churn on each thread/loading change).
 
   // Prefer the host callbacks when provided; otherwise drive the surrounding
-  // chat configuration directly so a bare `<CopilotDrawer>` works callback-free.
+  // chat configuration directly so a bare `<CopilotThreadsDrawer>` works callback-free.
   const setActiveThreadId = configuration?.setActiveThreadId;
   const startNewThreadConfig = configuration?.startNewThread;
 
@@ -331,7 +333,7 @@ export function CopilotDrawer({
   const handleArchive = useCallback(
     (threadId: string) => {
       void archiveThread(threadId).catch((err) => {
-        console.error("CopilotDrawer: archiveThread failed", err);
+        console.error("CopilotThreadsDrawer: archiveThread failed", err);
       });
     },
     [archiveThread],
@@ -340,7 +342,7 @@ export function CopilotDrawer({
   const handleUnarchive = useCallback(
     (threadId: string) => {
       void unarchiveThread(threadId).catch((err) => {
-        console.error("CopilotDrawer: unarchiveThread failed", err);
+        console.error("CopilotThreadsDrawer: unarchiveThread failed", err);
       });
     },
     [unarchiveThread],
@@ -367,7 +369,7 @@ export function CopilotDrawer({
           }
         })
         .catch((err) => {
-          console.error("CopilotDrawer: deleteThread failed", err);
+          console.error("CopilotThreadsDrawer: deleteThread failed", err);
         });
     },
     [
@@ -580,12 +582,12 @@ export function CopilotDrawer({
   if (!mounted) return null;
 
   return React.createElement(
-    COPILOTKIT_DRAWER_TAG,
+    COPILOTKIT_THREADS_DRAWER_TAG,
     { ref: elementRef, "data-testid": dataTestId },
     rowChildren,
   );
 }
 
-CopilotDrawer.displayName = "CopilotDrawer";
+CopilotThreadsDrawer.displayName = "CopilotThreadsDrawer";
 
-export default CopilotDrawer;
+export default CopilotThreadsDrawer;

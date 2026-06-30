@@ -2,9 +2,9 @@ import React from "react";
 import { render, screen, act, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { test, expect, vi, beforeEach } from "vitest";
-import { COPILOTKIT_DRAWER_TAG } from "@copilotkit/web-components/drawer";
-import type { CopilotKitDrawer as CopilotKitDrawerElement } from "@copilotkit/web-components/drawer";
-import { CopilotDrawer } from "../CopilotDrawer";
+import { COPILOTKIT_THREADS_DRAWER_TAG } from "@copilotkit/web-components/threads-drawer";
+import type { CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement } from "@copilotkit/web-components/threads-drawer";
+import { CopilotThreadsDrawer } from "../CopilotThreadsDrawer";
 import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
@@ -125,10 +125,10 @@ function OpenToggle() {
   );
 }
 
-function getElement(): CopilotKitDrawerElement {
-  const el = document.querySelector(COPILOTKIT_DRAWER_TAG);
+function getElement(): CopilotKitThreadsDrawerElement {
+  const el = document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG);
   if (!el) throw new Error("drawer element not found");
-  return el as CopilotKitDrawerElement;
+  return el as CopilotKitThreadsDrawerElement;
 }
 
 function dispatch(type: string, detail: unknown = {}) {
@@ -139,17 +139,21 @@ function dispatch(type: string, detail: unknown = {}) {
   });
 }
 
-async function renderDrawer(props: Parameters<typeof CopilotDrawer>[0] = {}) {
+async function renderDrawer(
+  props: Parameters<typeof CopilotThreadsDrawer>[0] = {},
+) {
   const result = render(
     <CopilotChatConfigurationProvider threadId="t1">
       <ConfigProbe />
       <OpenToggle />
-      <CopilotDrawer {...props} />
+      <CopilotThreadsDrawer {...props} />
     </CopilotChatConfigurationProvider>,
   );
   // The element registers + renders only after the client-mount effect.
   await waitFor(() =>
-    expect(document.querySelector(COPILOTKIT_DRAWER_TAG)).not.toBeNull(),
+    expect(
+      document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG),
+    ).not.toBeNull(),
   );
   return result;
 }
@@ -160,16 +164,18 @@ async function renderDrawer(props: Parameters<typeof CopilotDrawer>[0] = {}) {
  * callback-free topology where the drawer drives the chat configuration itself.
  */
 async function renderUncontrolledDrawer(
-  props: Parameters<typeof CopilotDrawer>[0] = {},
+  props: Parameters<typeof CopilotThreadsDrawer>[0] = {},
 ) {
   const result = render(
     <CopilotChatConfigurationProvider>
       <ConfigProbe />
-      <CopilotDrawer {...props} />
+      <CopilotThreadsDrawer {...props} />
     </CopilotChatConfigurationProvider>,
   );
   await waitFor(() =>
-    expect(document.querySelector(COPILOTKIT_DRAWER_TAG)).not.toBeNull(),
+    expect(
+      document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG),
+    ).not.toBeNull(),
   );
   return result;
 }
@@ -288,12 +294,14 @@ test("thread-selected focuses the chat input scoped to this drawer's own chat", 
       </div>
       <div data-testid="copilot-chat">
         <textarea data-testid="copilot-chat-textarea" id="second" />
-        <CopilotDrawer onThreadSelect={onThreadSelect} />
+        <CopilotThreadsDrawer onThreadSelect={onThreadSelect} />
       </div>
     </>,
   );
   await waitFor(() =>
-    expect(document.querySelector(COPILOTKIT_DRAWER_TAG)).not.toBeNull(),
+    expect(
+      document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG),
+    ).not.toBeNull(),
   );
 
   dispatch("thread-selected", { threadId: "t2" });
@@ -571,9 +579,11 @@ test("provider-less drawer starts CLOSED (does not render stuck-open)", async ()
   // No surrounding CopilotChatConfigurationProvider: the wrapper falls back to
   // its own local open-state, which starts closed (matching the provider's own
   // `false` default) rather than being forced permanently open.
-  render(<CopilotDrawer />);
+  render(<CopilotThreadsDrawer />);
   await waitFor(() =>
-    expect(document.querySelector(COPILOTKIT_DRAWER_TAG)).not.toBeNull(),
+    expect(
+      document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG),
+    ).not.toBeNull(),
   );
 
   expect(getElement().open).toBe(false);
@@ -583,9 +593,11 @@ test("provider-less drawer can be opened and then closed via open-change", async
   // The element's open-change event must drive the wrapper's local open-state in
   // both directions even with no provider — previously the change was a silent
   // no-op and the drawer could never close.
-  render(<CopilotDrawer />);
+  render(<CopilotThreadsDrawer />);
   await waitFor(() =>
-    expect(document.querySelector(COPILOTKIT_DRAWER_TAG)).not.toBeNull(),
+    expect(
+      document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG),
+    ).not.toBeNull(),
   );
 
   dispatch("open-change", { open: true });
@@ -601,9 +613,9 @@ test("renders nothing during SSR (no element, no hydration mismatch)", () => {
   // render and avoiding a hydration mismatch / layout shift.
   const html = renderToString(
     <CopilotChatConfigurationProvider threadId="t1">
-      <CopilotDrawer />
+      <CopilotThreadsDrawer />
     </CopilotChatConfigurationProvider>,
   );
 
-  expect(html).not.toContain(COPILOTKIT_DRAWER_TAG);
+  expect(html).not.toContain(COPILOTKIT_THREADS_DRAWER_TAG);
 });
