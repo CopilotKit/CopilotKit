@@ -119,7 +119,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
    * a redelivered turn reproduces the same operation id sequence. */
   private readonly seq = new Map<string, number>();
 
-  constructor(private readonly opts: IntelligenceAdapterOptions) {
+  constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.source = opts.source;
     this.egress = opts.egress;
     this.stateStore = opts.store;
@@ -422,7 +422,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
  * standalone runs inject in-memory ones. Must be the only adapter on a bot (V1).
  */
 export function intelligenceAdapter(
-  opts: IntelligenceAdapterOptions,
+  opts: IntelligenceAdapterOptions = {},
 ): IntelligenceAdapter {
   return new IntelligenceAdapter(opts);
 }

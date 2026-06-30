@@ -251,6 +251,13 @@ describe("HttpDeliverySource", () => {
 });
 
 describe("intelligenceAdapter() — config-free default transports", () => {
+  it("is callable with zero arguments (config-free)", () => {
+    // Compile-time + runtime guard: intelligenceAdapter() must take no required
+    // args so consumers can write createBot({ adapters: [intelligenceAdapter()] }).
+    const adapter = intelligenceAdapter();
+    expect(adapter.platform).toBe("intelligence");
+  });
+
   it("builds HTTP transports and takes botName from createBot({ name })", async () => {
     const { fetch, calls } = fakeFetch((c) =>
       c.url.endsWith("/heartbeat")
