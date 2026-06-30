@@ -58,6 +58,13 @@ import "@copilotkit/react-core/v2/styles.css";
   no `header` slot content is projected). Sets the element's `aria-label`.
 </PropertyReference>
 
+<PropertyReference name="limit" type="number">
+  Page size for thread pagination. When set, threads load in pages of this size
+  and a "Load more" control appears at the bottom of the list while more remain
+  (the element emits a `load-more` event the wrapper routes to
+  `fetchMoreThreads`). Omit to load the full list at once with no control.
+</PropertyReference>
+
 <PropertyReference name="data-testid" type="string" default="copilot-drawer">
   `data-testid` set on the underlying custom element, for tests and for
   targeting from a host page.
