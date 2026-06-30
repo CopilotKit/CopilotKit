@@ -3,12 +3,25 @@ import { TestBed } from "@angular/core/testing";
 import { signal } from "@angular/core";
 import { test, expect, vi } from "vitest";
 import type { DrawerThread } from "@copilotkit/web-components/threads-drawer";
+import type { RuntimeLicenseStatus } from "@copilotkit/core";
 import {
   CopilotThreadsDrawer,
   CopilotThreadsDrawerRow,
 } from "../copilot-threads-drawer";
 import type { Thread } from "../../../threads";
 import { COPILOT_CHAT_CONFIGURATION } from "../../../chat-configuration";
+import { CopilotKit } from "../../../copilotkit";
+
+// ---------------------------------------------------------------------------
+// Mock the `CopilotKit` service so the component's `inject(CopilotKit)` resolves
+// to a minimal fake exposing only the `licenseStatus` signal the drawer reads.
+// A module-level signal lets tests drive the license gate. Defaults to "valid"
+// (fully licensed) so non-license tests render the list path unchanged.
+// ---------------------------------------------------------------------------
+
+const licenseStatusSignal = signal<RuntimeLicenseStatus | undefined>("valid");
+const fakeCopilotKit = { licenseStatus: licenseStatusSignal };
+const copilotkitProvider = { provide: CopilotKit, useValue: fakeCopilotKit };
 
 // ---------------------------------------------------------------------------
 // Mock `injectThreads` so the component never tries to connect to a real
@@ -85,9 +98,11 @@ class HostWithNewThreadComponent {
  * returns the fixture together with the rendered `<copilotkit-threads-drawer>` element.
  */
 function setup() {
+  licenseStatusSignal.set("valid");
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostComponent],
+    providers: [copilotkitProvider],
   });
 
   const fixture = TestBed.createComponent(HostComponent);
@@ -127,10 +142,14 @@ function fakeConfig() {
  * the fixture, the inner `<copilotkit-threads-drawer>` element, and the config spy.
  */
 function setupWithConfig(config = fakeConfig()) {
+  licenseStatusSignal.set("valid");
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostComponent],
-    providers: [{ provide: COPILOT_CHAT_CONFIGURATION, useValue: config }],
+    providers: [
+      { provide: COPILOT_CHAT_CONFIGURATION, useValue: config },
+      copilotkitProvider,
+    ],
   });
 
   const fixture = TestBed.createComponent(HostComponent);
@@ -341,7 +360,10 @@ test("onThreadSelect override is called with threadId and config.setActiveThread
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostWithThreadSelectComponent],
-    providers: [{ provide: COPILOT_CHAT_CONFIGURATION, useValue: config }],
+    providers: [
+      { provide: COPILOT_CHAT_CONFIGURATION, useValue: config },
+      copilotkitProvider,
+    ],
   });
 
   const fixture = TestBed.createComponent(HostWithThreadSelectComponent);
@@ -368,7 +390,10 @@ test("onNewThread override is called and threads.startNewThread is always called
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostWithNewThreadComponent],
-    providers: [{ provide: COPILOT_CHAT_CONFIGURATION, useValue: config }],
+    providers: [
+      { provide: COPILOT_CHAT_CONFIGURATION, useValue: config },
+      copilotkitProvider,
+    ],
   });
 
   const fixture = TestBed.createComponent(HostWithNewThreadComponent);
@@ -447,6 +472,7 @@ test("slotted light-DOM children pass through to <copilotkit-threads-drawer>", (
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostWithSlotComponent],
+    providers: [copilotkitProvider],
   });
 
   const fixture = TestBed.createComponent(HostWithSlotComponent);
@@ -475,6 +501,7 @@ test("copilotThreadsDrawerRow renders per-row slot content for each thread", () 
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostWithRowComponent],
+    providers: [copilotkitProvider],
   });
 
   const fixture = TestBed.createComponent(HostWithRowComponent);
@@ -505,6 +532,7 @@ test("label input is forwarded to the <copilotkit-threads-drawer> element label 
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostWithLabelComponent],
+    providers: [copilotkitProvider],
   });
 
   const fixture = TestBed.createComponent(HostWithLabelComponent);
@@ -515,4 +543,123 @@ test("label input is forwarded to the <copilotkit-threads-drawer> element label 
   ) as HTMLElement & { label: string };
 
   expect(drawerEl.label).toBe("Custom");
+});
+
+// ---------------------------------------------------------------------------
+// License gate
+// ---------------------------------------------------------------------------
+
+/** Casts the drawer element to expose the license-related JS properties. */
+type LicensedEl = HTMLElement & {
+  licensed: boolean;
+  loading: boolean;
+  licenseUrl: string;
+};
+
+test("a resolved-unlicensed status gates the element to the locked view", async () => {
+  const { fixture, el } = setup();
+
+  licenseStatusSignal.set("none");
+  fixture.detectChanges();
+  await fixture.whenStable();
+
+  expect((el as LicensedEl).licensed).toBe(false);
+});
+
+test("an expired status gates the element to the locked view", async () => {
+  const { fixture, el } = setup();
+
+  licenseStatusSignal.set("expired");
+  fixture.detectChanges();
+  await fixture.whenStable();
+
+  expect((el as LicensedEl).licensed).toBe(false);
+});
+
+test("a valid license keeps the element in the licensed (list) state", async () => {
+  const { fixture, el } = setup();
+
+  licenseStatusSignal.set("valid");
+  fixture.detectChanges();
+  await fixture.whenStable();
+
+  expect((el as LicensedEl).licensed).toBe(true);
+});
+
+test("a pending (unresolved) status renders licensed-and-loading, never the locked view", async () => {
+  threadsState.isLoading.set(false);
+  const { fixture, el } = setup();
+
+  licenseStatusSignal.set(undefined);
+  fixture.detectChanges();
+  await fixture.whenStable();
+
+  expect((el as LicensedEl).licensed).toBe(true);
+  expect((el as LicensedEl).loading).toBe(true);
+});
+
+/** Host that passes a custom licenseUrl to the drawer. */
+@Component({
+  selector: "test-host-license-url",
+  standalone: true,
+  imports: [CopilotThreadsDrawer],
+  template: `
+    <copilot-threads-drawer [licenseUrl]="'https://example.com/upgrade'" />
+  `,
+})
+class HostWithLicenseUrlComponent {}
+
+test("licenseUrl input is forwarded to the element's licenseUrl property", () => {
+  licenseStatusSignal.set("valid");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [HostWithLicenseUrlComponent],
+    providers: [copilotkitProvider],
+  });
+
+  const fixture = TestBed.createComponent(HostWithLicenseUrlComponent);
+  fixture.detectChanges();
+
+  const drawerEl = (fixture.nativeElement as HTMLElement).querySelector(
+    "copilotkit-threads-drawer",
+  ) as LicensedEl;
+
+  expect(drawerEl.licenseUrl).toBe("https://example.com/upgrade");
+});
+
+/** Host that binds an onLicensed override callback. */
+@Component({
+  selector: "test-host-licensed",
+  standalone: true,
+  imports: [CopilotThreadsDrawer],
+  template: `
+    <copilot-threads-drawer [onLicensed]="spy" />
+  `,
+})
+class HostWithLicensedComponent {
+  spy = vi.fn();
+}
+
+test("onLicensed handler is invoked when the element emits the `licensed` event", () => {
+  licenseStatusSignal.set("valid");
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({
+    imports: [HostWithLicensedComponent],
+    providers: [copilotkitProvider],
+  });
+
+  const fixture = TestBed.createComponent(HostWithLicensedComponent);
+  fixture.detectChanges();
+  const el = (fixture.nativeElement as HTMLElement).querySelector(
+    "copilotkit-threads-drawer",
+  ) as HTMLElement;
+
+  el.dispatchEvent(
+    new CustomEvent("licensed", {
+      detail: { licenseUrl: "https://example.com" },
+      bubbles: true,
+    }),
+  );
+
+  expect(fixture.componentInstance.spy).toHaveBeenCalled();
 });

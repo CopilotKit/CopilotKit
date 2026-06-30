@@ -3,7 +3,7 @@ import type { PropertyValues } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { classMap } from "lit/directives/class-map.js";
 import { drawerStyles } from "./styles";
-import type { DrawerFilter, DrawerThread } from "./types";
+import type { DrawerFilter, DrawerThread, LicensedDetail } from "./types";
 
 /** Tag name the element registers under. */
 export const COPILOTKIT_THREADS_DRAWER_TAG =
@@ -136,6 +136,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
     error: { type: String },
     activeThreadId: { attribute: "active-thread-id", type: String },
     licensed: { type: Boolean },
+    licenseUrl: { attribute: "license-url", type: String },
     hasMore: { attribute: "has-more", type: Boolean },
     fetchingMore: { attribute: "fetching-more", type: Boolean },
     fetchMoreError: { attribute: "fetch-more-error", type: String },
@@ -169,6 +170,13 @@ export class CopilotKitThreadsDrawer extends LitElement {
   activeThreadId: string | null = null;
   /** Inbound: whether the org is licensed for threads; `false` shows the locked view. */
   licensed = true;
+  /**
+   * Inbound: destination the Upgrade CTA opens (new tab) when the locked view's
+   * default button is clicked. Defaults to the CopilotKit Intelligence docs.
+   * Set to an empty string to suppress the default navigation and rely solely
+   * on the `licensed` event.
+   */
+  licenseUrl = "https://docs.copilotkit.ai/intelligence";
   /** Inbound: whether more pages are available. */
   hasMore = false;
   /** Inbound: whether a fetch-more is in flight. */
@@ -570,6 +578,26 @@ export class CopilotKitThreadsDrawer extends LitElement {
     return this._renderList();
   }
 
+  /**
+   * Handles the Upgrade CTA click in the locked view. Dispatches a cancelable
+   * `licensed` event carrying the resolved `licenseUrl`; unless a host calls
+   * `preventDefault()`, opens that URL in a new tab. A blank `licenseUrl`
+   * suppresses navigation so the event alone drives host behavior.
+   */
+  private _onLicensedCta(): void {
+    const proceed = this.dispatchEvent(
+      new CustomEvent("licensed", {
+        detail: { licenseUrl: this.licenseUrl } satisfies LicensedDetail,
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      }),
+    );
+    if (proceed && this.licenseUrl && typeof window !== "undefined") {
+      window.open(this.licenseUrl, "_blank", "noopener,noreferrer");
+    }
+  }
+
   private _renderLicensed() {
     return html`
       <div class="licensed" part="licensed" data-testid="drawer-licensed">
@@ -578,7 +606,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
           <button
             class="primary"
             part="licensed-cta"
-            @click=${() => this._emit("licensed", {})}
+            @click=${() => this._onLicensedCta()}
           >
             Upgrade
           </button>

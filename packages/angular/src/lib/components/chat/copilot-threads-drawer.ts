@@ -13,7 +13,10 @@ import {
   viewChild,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
-import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
+import {
+  DEFAULT_AGENT_ID,
+  createLicenseContextValue,
+} from "@copilotkit/shared";
 import {
   CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
   defineCopilotKitThreadsDrawer,
@@ -27,6 +30,7 @@ import type {
   UnarchiveDetail,
 } from "@copilotkit/web-components/threads-drawer";
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
+import { CopilotKit } from "../../copilotkit";
 import { injectThreads, type Thread } from "../../threads";
 
 /**
@@ -110,6 +114,7 @@ export class CopilotThreadsDrawerRow {
       (filter-change)="onFilterChange()"
       (retry)="onRetry($event)"
       (load-more)="onLoadMore()"
+      (licensed)="onLicensed()"
       ><ng-content></ng-content>
       @if (rowDirective(); as row) {
         @for (t of threads.threads(); track t.id) {
@@ -177,9 +182,29 @@ export class CopilotThreadsDrawer {
    */
   readonly limit = input<number | undefined>();
 
+  /**
+   * Destination the locked view's Upgrade CTA opens in a new tab. Forwarded to
+   * the element's `licenseUrl` property; defaults to the element's built-in
+   * CopilotKit Intelligence docs URL when unset. Set to an empty string to
+   * suppress the default navigation and handle the click via `onLicensed`.
+   */
+  readonly licenseUrl = input<string | undefined>();
+
+  /**
+   * Optional host hook fired when the locked view's Upgrade CTA is clicked. The
+   * element still performs its default navigation unless `licenseUrl` is blank;
+   * use this for telemetry or to drive your own upgrade flow. Bound via
+   * `[onLicensed]="fn"`.
+   */
+  readonly licensedHandler = input<(() => void) | undefined>(undefined, {
+    alias: "onLicensed",
+  });
+
   private readonly config = inject(COPILOT_CHAT_CONFIGURATION, {
     optional: true,
   });
+
+  private readonly copilotkit = inject(CopilotKit);
 
   private readonly drawerRef = viewChild<
     unknown,
@@ -206,11 +231,46 @@ export class CopilotThreadsDrawer {
     () => this.agentId() ?? this.config?.agentId() ?? DEFAULT_AGENT_ID,
   );
 
+  /**
+   * Normalized license context derived from the core's runtime-reported status,
+   * via the same `@copilotkit/shared` helper the React provider uses.
+   */
+  private readonly licenseContext = computed(() =>
+    createLicenseContextValue(this.copilotkit.licenseStatus()),
+  );
+
+  /**
+   * Two-pronged license gate, mirroring the React wrapper. `checkFeature` fails
+   * OPEN (returns true) when no license is configured, so it cannot by itself
+   * detect the no-license case; we therefore also require a positive
+   * license-present signal. Only a resolved `valid`/`expiring` status counts as
+   * present — a resolved `none`/`expired`/`invalid` gates the drawer to the
+   * locked view.
+   */
+  protected readonly licensed = computed(() => {
+    const ctx = this.licenseContext();
+    const licensePresent = ctx.status === "valid" || ctx.status === "expiring";
+    return licensePresent && ctx.checkFeature("threads");
+  });
+
+  /**
+   * Whether the runtime has not yet reported a license status. The status is
+   * `null` until the first `/info` response lands; treat that window as
+   * "not yet unlicensed" — show the loading state, never the locked view — so a
+   * licensed drawer never flashes (or strands) the Upgrade CTA mid-resolution.
+   */
+  protected readonly licensePending = computed(
+    () => this.licenseContext().status === null,
+  );
+
   /** Live thread list from the Intelligence platform for the resolved agent. */
   protected readonly threads = injectThreads({
     agentId: this.resolvedAgentId,
     includeArchived: true,
     limit: this.limit,
+    // While unlicensed, skip the thread fetch entirely: the element shows only
+    // its locked view and no `/threads` request is issued.
+    enabled: this.licensed,
   });
 
   /** Thread records mapped to the element's {@link DrawerThread} shape. */
@@ -247,12 +307,20 @@ export class CopilotThreadsDrawer {
       const el = this.drawerRef()?.nativeElement;
       if (!el) return;
       el.threads = this.drawerThreads();
-      el.loading = this.threads.isLoading();
+      // While the license is still resolving, force the loading state so the
+      // element shows its spinner instead of an empty/locked body.
+      el.loading = this.threads.isLoading() || this.licensePending();
       el.error = this.errorMessage();
       el.activeThreadId = this.activeThreadId();
       el.hasMore = this.threads.hasMoreThreads();
       el.fetchingMore = this.threads.isFetchingMoreThreads();
+      // Pending counts as licensed for rendering: the element shows the locked
+      // view only when `licensed` is false, so keeping it true until the status
+      // resolves prevents the locked view from flashing mid-resolution.
+      el.licensed = this.licensed() || this.licensePending();
       if (this.label() !== undefined) el.label = this.label() as string;
+      const licenseUrl = this.licenseUrl();
+      if (licenseUrl !== undefined) el.licenseUrl = licenseUrl;
     });
   }
 
@@ -390,5 +458,16 @@ export class CopilotThreadsDrawer {
    */
   protected onLoadMore(): void {
     this.threads.fetchMoreThreads();
+  }
+
+  /**
+   * Handles the `licensed` event from the drawer element (Upgrade CTA click).
+   *
+   * The element performs its own default navigation to `licenseUrl`; this hook
+   * lets the host observe the click (e.g. for telemetry) or drive a custom
+   * upgrade flow when provided via `[onLicensed]`.
+   */
+  protected onLicensed(): void {
+    this.licensedHandler()?.();
   }
 }

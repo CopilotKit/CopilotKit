@@ -225,6 +225,20 @@ test("leaves the element's default label when the label prop is omitted", async 
   expect(getElement().label).toBe("Threads");
 });
 
+test("sets the element's licenseUrl when the licenseUrl prop is provided", async () => {
+  await renderDrawer({ licenseUrl: "https://example.com/upgrade" });
+
+  expect(getElement().licenseUrl).toBe("https://example.com/upgrade");
+});
+
+test("leaves the element's default licenseUrl when the prop is omitted", async () => {
+  await renderDrawer();
+
+  expect(getElement().licenseUrl).toBe(
+    "https://docs.copilotkit.ai/intelligence",
+  );
+});
+
 test("forwards the limit prop to useThreads", async () => {
   await renderDrawer({ limit: 20 });
 

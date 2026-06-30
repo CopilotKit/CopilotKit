@@ -72,6 +72,13 @@ export interface CopilotThreadsDrawerProps {
   /** Called when the Upgrade CTA is clicked. */
   onLicensed?: () => void;
   /**
+   * Destination the locked view's Upgrade CTA opens in a new tab. Defaults to
+   * the element's built-in CopilotKit Intelligence docs URL when omitted. Set
+   * to an empty string to suppress the default navigation and handle the click
+   * yourself via `onLicensed`.
+   */
+  licenseUrl?: string;
+  /**
    * Optional per-row content. Rendered as light-DOM children with
    * `slot="row:{id}"` so the element projects them in place of the default
    * row name. Return `null` for a given row to keep the element's default.
@@ -201,6 +208,7 @@ export function CopilotThreadsDrawer({
   onThreadSelect,
   onNewThread,
   onLicensed,
+  licenseUrl,
   renderRow,
   label,
   limit,
@@ -559,6 +567,15 @@ export function CopilotThreadsDrawer({
     if (!el) return;
     if (label !== undefined) el.label = label;
   }, [label, mounted]);
+
+  // Mirror the optional `licenseUrl` onto the element (the locked view's
+  // Upgrade CTA destination). Leave the element's built-in default in place
+  // when the prop is omitted, rather than clobbering it with undefined.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    if (licenseUrl !== undefined) el.licenseUrl = licenseUrl;
+  }, [licenseUrl, mounted]);
 
   // Per-row light-DOM children projected via `slot="row:{id}"`.
   const rowChildren = useMemo(() => {

@@ -369,7 +369,10 @@ test("initial-fetch error is actionable — Retry emits retry{initial}", async (
   teardown();
 });
 
-test("locked view replaces the list and the CTA emits the `licensed` event", async () => {
+test("locked view replaces the list and the CTA emits `licensed` + opens the default licenseUrl", async () => {
+  const open = vi
+    .spyOn(window, "open")
+    .mockReturnValue(null as unknown as Window);
   const { element, q, events, teardown } = await setup({
     threads: [makeThread()],
   });
@@ -381,7 +384,70 @@ test("locked view replaces the list and the CTA emits the `licensed` event", asy
 
   (q('[part="licensed-cta"]') as HTMLElement).click();
 
+  const licensedEvent = events.find((e) => e.type === "licensed");
+  expect(licensedEvent).toBeDefined();
+  expect(licensedEvent?.detail).toEqual({
+    licenseUrl: "https://docs.copilotkit.ai/intelligence",
+  });
+  expect(open).toHaveBeenCalledWith(
+    "https://docs.copilotkit.ai/intelligence",
+    "_blank",
+    "noopener,noreferrer",
+  );
+  open.mockRestore();
+  teardown();
+});
+
+test("the Upgrade CTA opens a host-provided licenseUrl", async () => {
+  const open = vi
+    .spyOn(window, "open")
+    .mockReturnValue(null as unknown as Window);
+  const { element, q, teardown } = await setup({ threads: [] });
+  element.licensed = false;
+  element.licenseUrl = "https://example.com/upgrade";
+  await flush(element);
+
+  (q('[part="licensed-cta"]') as HTMLElement).click();
+
+  expect(open).toHaveBeenCalledWith(
+    "https://example.com/upgrade",
+    "_blank",
+    "noopener,noreferrer",
+  );
+  open.mockRestore();
+  teardown();
+});
+
+test("calling preventDefault on the `licensed` event suppresses the default navigation", async () => {
+  const open = vi
+    .spyOn(window, "open")
+    .mockReturnValue(null as unknown as Window);
+  const { element, q, teardown } = await setup({ threads: [] });
+  element.licensed = false;
+  await flush(element);
+  element.addEventListener("licensed", (e) => e.preventDefault());
+
+  (q('[part="licensed-cta"]') as HTMLElement).click();
+
+  expect(open).not.toHaveBeenCalled();
+  open.mockRestore();
+  teardown();
+});
+
+test("a blank licenseUrl emits the event but performs no navigation", async () => {
+  const open = vi
+    .spyOn(window, "open")
+    .mockReturnValue(null as unknown as Window);
+  const { element, q, events, teardown } = await setup({ threads: [] });
+  element.licensed = false;
+  element.licenseUrl = "";
+  await flush(element);
+
+  (q('[part="licensed-cta"]') as HTMLElement).click();
+
   expect(events.some((e) => e.type === "licensed")).toBe(true);
+  expect(open).not.toHaveBeenCalled();
+  open.mockRestore();
   teardown();
 });
 

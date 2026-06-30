@@ -74,8 +74,15 @@ export interface RetryDetail {
 /** `detail` for the `new-thread` event. */
 export type NewThreadDetail = Record<string, never>;
 
-/** `detail` for the `licensed` event (Upgrade CTA click). */
-export type LicensedDetail = Record<string, never>;
+/**
+ * `detail` for the `licensed` event (Upgrade CTA click). Carries the
+ * `licenseUrl` the element will open in a new tab. The event is cancelable:
+ * a host that calls `preventDefault()` suppresses the default navigation and
+ * takes over (e.g. to route in-app or fire its own telemetry).
+ */
+export interface LicensedDetail {
+  readonly licenseUrl: string | null;
+}
 
 /** `detail` for the `load-more` event (advance pagination; no payload). */
 export type LoadMoreDetail = Record<string, never>;
