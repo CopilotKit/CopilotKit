@@ -16,7 +16,6 @@ describe("header-utils", () => {
       expect(shouldForwardHeader("x-custom")).toBe(true);
       expect(shouldForwardHeader("X-Custom")).toBe(true);
       expect(shouldForwardHeader("x-request-id")).toBe(true);
-      expect(shouldForwardHeader("X-Forwarded-For")).toBe(true);
     });
 
     it("blocks standard headers", () => {
@@ -27,6 +26,16 @@ describe("header-utils", () => {
       expect(shouldForwardHeader("accept")).toBe(false);
       expect(shouldForwardHeader("cookie")).toBe(false);
       expect(shouldForwardHeader("host")).toBe(false);
+    });
+
+    it("blocks hop-by-hop and platform headers from the inbound hop", () => {
+      expect(shouldForwardHeader("x-forwarded-for")).toBe(false);
+      expect(shouldForwardHeader("X-Forwarded-For")).toBe(false);
+      expect(shouldForwardHeader("x-forwarded-proto")).toBe(false);
+      expect(shouldForwardHeader("x-real-ip")).toBe(false);
+      expect(shouldForwardHeader("x-cloud-trace-context")).toBe(false);
+      expect(shouldForwardHeader("X-Serverless-Authorization")).toBe(false);
+      expect(shouldForwardHeader("x-vercel-id")).toBe(false);
     });
   });
 
@@ -49,6 +58,26 @@ describe("header-utils", () => {
         "x-custom": "custom-value",
         "x-request-id": "req-123",
         authorization: "Bearer token",
+      });
+    });
+
+    it("drops platform headers so they don't reach the upstream agent", () => {
+      const request = new Request("https://example.com", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer service-token",
+          "X-Serverless-Authorization": "Bearer platform-token",
+          "X-Forwarded-For": "203.0.113.1",
+          "X-Cloud-Trace-Context": "trace/span",
+          "X-Custom": "keep-me",
+        },
+      });
+
+      const result = extractForwardableHeaders(request);
+
+      expect(result).toEqual({
+        authorization: "Bearer service-token",
+        "x-custom": "keep-me",
       });
     });
 
