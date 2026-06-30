@@ -1,14 +1,13 @@
-#!/usr/bin/env node
-// @ts-check
 /**
  * Deterministic correctness grader for the copilotkit-setup skill eval.
  *
  * CONTRACT: prints a single JSON object to stdout:
  *   {"score": 0-1, "details": "...", "checks": [{"name","passed","message"}, ...]}
  *
- * Runs in the post-agent container (node:20-slim) via `node /eval-tools/check.mjs`,
- * grading /workspace. Plain Node on purpose — no jq/awk/bc: JSON is native,
- * score math is JS. (This replaces the old bash graders/check.sh.)
+ * Runs in the post-agent container (node:20-slim) via `tsx /eval-tools/check.ts`,
+ * grading /workspace. TypeScript on purpose — it shares the same `tsx` runner the
+ * host harness (lift/run.ts) uses, so the whole eval is one language with no
+ * jq/awk/bc shelling. Score math is plain JS; JSON is native.
  *
  * WHAT THIS GRADES: the agent was asked to add CopilotKit to an existing
  * Vite+React app at /workspace — frontend @copilotkit/react-core, a backend
@@ -38,6 +37,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import type { Dirent } from "node:fs";
 import path from "node:path";
 
 const WORKSPACE = process.env.WORKSPACE || "/workspace";
@@ -65,30 +65,35 @@ const SOURCE_EXTS = new Set([
   ".cjs",
 ]);
 
-/** @type {{name: string, passed: boolean, message: string}[]} */
-const checks = [];
+interface Check {
+  name: string;
+  passed: boolean;
+  message: string;
+}
+
+const checks: Check[] = [];
 let stringPass = 0;
 let stringTotal = 0;
 
 /** Record a check that does NOT count toward the string fraction (e.g. the gate). */
-function addCheck(name, passed, message) {
+function addCheck(name: string, passed: boolean, message: string): void {
   checks.push({ name, passed, message });
 }
 
 /** Record one of the 7 weighted string checks. */
-function addStringCheck(name, passed, message) {
+function addStringCheck(name: string, passed: boolean, message: string): void {
   stringTotal++;
   if (passed) stringPass++;
   checks.push({ name, passed, message });
 }
 
-function truncate(s, n = 400) {
+function truncate(s: string, n = 400): string {
   return s.length > n ? `${s.slice(0, n)}…(truncated)` : s;
 }
 
 /** Walk WORKSPACE, applying `visit(absPath)` to every file, skipping EXCLUDE_DIRS. */
-function walk(dir, visit) {
-  let entries;
+function walk(dir: string, visit: (file: string) => void): void {
+  let entries: Dirent[];
   try {
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {
@@ -106,12 +111,9 @@ function walk(dir, visit) {
 
 // --- gather: package.json dirs, dependency names, source file contents --------
 
-/** @type {string[]} */
-const pkgFiles = [];
-/** @type {Set<string>} */
-const depNames = new Set();
-/** @type {string[]} */
-const sourceFiles = [];
+const pkgFiles: string[] = [];
+const depNames = new Set<string>();
+const sourceFiles: string[] = [];
 
 walk(WORKSPACE, (file) => {
   const base = path.basename(file);
@@ -135,7 +137,7 @@ walk(WORKSPACE, (file) => {
 });
 
 /** True if ANY source file matches `re`. */
-function srcMatch(re) {
+function srcMatch(re: RegExp): boolean {
   return sourceFiles.some((f) => {
     try {
       return re.test(readFileSync(f, "utf8"));
@@ -191,7 +193,8 @@ if (pkgFiles.length === 0) {
       gatePass++;
       addCheck(`type-check: ${rel}`, true, "Type-check passed.");
     } catch (err) {
-      const out = `${err.stdout || ""}${err.stderr || ""}`.toString();
+      const e = err as { stdout?: Buffer | string; stderr?: Buffer | string };
+      const out = `${e.stdout || ""}${e.stderr || ""}`.toString();
       addCheck(
         `type-check: ${rel}`,
         false,

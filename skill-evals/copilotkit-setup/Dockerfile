@@ -10,11 +10,12 @@
 # so the agent never sees them and a source scan can never pick them up.
 FROM node:20-slim
 
-# git: some installs / tooling expect it. The agent CLI is Claude Code.
+# git: some installs / tooling expect it. The agent CLI is Claude Code. tsx runs
+# the TypeScript grader (graders/check.ts) — the same runner the host harness uses.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends git ca-certificates \
   && rm -rf /var/lib/apt/lists/* \
-  && npm install -g @anthropic-ai/claude-code
+  && npm install -g @anthropic-ai/claude-code tsx
 
 WORKDIR /workspace
 
@@ -25,5 +26,5 @@ COPY workspace/vite-react/ /workspace/
 RUN npm install
 
 # Grader + instruction live outside the workspace the agent works in.
-COPY graders/check.mjs /eval-tools/check.mjs
+COPY graders/check.ts /eval-tools/check.ts
 COPY instruction.md /eval-tools/instruction.md

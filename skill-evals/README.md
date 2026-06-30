@@ -25,7 +25,7 @@ the skill mounted and once without, and diff the results.
   **real** values read off `claude -p --output-format stream-json`'s result event,
   not estimates.
 - **Gate — correctness.** The project must actually build / type-check. The
-  deterministic grader _runs the project_ (`graders/check.mjs`), it does not grep
+  deterministic grader _runs the project_ (`graders/check.ts`), it does not grep
   for API names as the gate: a capable agent reaches the right APIs either way, so
   grepping measures the agent.
 - **Judge — did the skill help (optional).** When a judge key is present, an LLM
@@ -45,10 +45,10 @@ image.
 
 ```
 skill-evals/<skill>/
-  Dockerfile          # node:20-slim + claude-code; bakes the fixture at /workspace
+  Dockerfile          # node:20-slim + claude-code + tsx; bakes the fixture at /workspace
   instruction.md      # the task handed to the agent (baked at /eval-tools)
   workspace/<name>/   # the STARTING fixture the agent is dropped into
-  graders/check.mjs   # deterministic correctness grader (plain Node)
+  graders/check.ts    # deterministic correctness grader (TypeScript, run via tsx)
   rubric.md           # optional trace-judge rubric
   lift/run.ts         # runs the with/without comparison and reports lift
   results/            # gitignored run outputs (ephemeral today; see "Tracking")
@@ -56,7 +56,7 @@ skill-evals/<skill>/
 
 ## The grader contract
 
-`graders/check.mjs` prints a single JSON object to stdout:
+`graders/check.ts` prints a single JSON object to stdout:
 
 ```json
 {
@@ -67,7 +67,7 @@ skill-evals/<skill>/
 ```
 
 `score` is in `[0, 1]`. It runs in the post-agent container via
-`node /eval-tools/check.mjs` (outside `/workspace`, so it is never graded as the
+`tsx /eval-tools/check.ts` (outside `/workspace`, so it is never graded as the
 agent's own output). The WITH-skill arm mounts the skill into
 `/workspace/.claude/skills`, so every source scan excludes `.claude` / `.agents` /
 `node_modules` or a no-op agent would score points off the skill's own examples.
@@ -115,9 +115,15 @@ agent's own output). The WITH-skill arm mounts the skill into
 ## Running
 
 ```bash
-pnpm eval:skill:setup              # full with/without lift comparison (needs Docker)
-pnpm eval:skill:setup --trials=3   # fewer trials per arm (default 5)
+pnpm eval:skill:setup                 # full with/without lift comparison (needs Docker)
+pnpm eval:skill:setup --trials=3      # fewer trials per arm (default 5)
+pnpm eval:skill:setup --concurrency=2 # fewer containers/agent sessions at once (default 4)
 ```
+
+Trials run in a bounded-concurrency pool (each is an independent container), so
+the wall-clock is roughly the slowest wave, not the sum of all trials. Lower
+`--concurrency` (or `SKILL_EVAL_CONCURRENCY`) if you hit the agent's API rate
+limit on a subscription token or run low on RAM.
 
 Auth — put a `.env` next to the eval (gitignored):
 

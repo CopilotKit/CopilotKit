@@ -6,10 +6,13 @@ files end up correct." Your job is to read the agent's **session transcript**
 (the task instruction, every command the agent ran, every file it edited, and
 the final result) and judge **how cleanly and directly the agent got there**.
 
-The task the agent was given: add CopilotKit to an existing Vite + React project
-with a chat sidebar and a `BuiltInAgent` backend (frontend package, an
-Express/Hono runtime server, the provider wired to the backend URL, a
-`CopilotSidebar`, and the stylesheet imported).
+The task the agent was given was a single sentence, with NO spec or API hints:
+"Add CopilotKit to this existing Vite+React project with a chat sidebar and a
+BuiltInAgent backend." Everything below — which packages, which provider, which
+handler factory, the stylesheet — is knowledge the agent had to supply itself
+(from the skill, when mounted, or from memory / trial-and-error when not). That
+the instruction does NOT enumerate the surface is deliberate: it is what lets
+this judge see whether the agent already knew the canonical path.
 
 This same rubric runs on runs **with** the skill mounted and runs **without** it.
 Judge both by the same standard, so the score reflects how much the trace looks

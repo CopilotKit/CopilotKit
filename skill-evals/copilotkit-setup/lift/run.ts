@@ -3,7 +3,7 @@
  * Skill-lift comparison harness for the copilotkit-setup skill.
  *
  * WHAT THIS DOES
- *   Runs the same task TWICE against a fresh container each trial:
+ *   Runs the same task in N trials per arm, each in its own fresh container:
  *     1. WITH the skill mounted at /workspace/.claude/skills/copilotkit-setup
  *     2. WITHOUT it (the dir is simply absent)
  *   then diffs the two arms. The agent is real Claude Code (`claude -p`), invoked
@@ -12,12 +12,17 @@
  *   of estimates. The with/without difference is literally "is the skill dir
  *   present", a `docker cp` toggle, not a hack.
  *
+ *   Trials run in a bounded-concurrency pool (--concurrency, default 4): each is
+ *   independent, so several containers run at once and the wall-clock collapses
+ *   from sum-of-trials to roughly slowest-wave. Lower concurrency if you hit the
+ *   agent's API rate limit or run low on RAM.
+ *
  *   lift.* = withSkill - withoutSkill, so:
  *     - NEGATIVE turns / tokens / durationMs / costUsd is GOOD (skill = leaner);
  *     - POSITIVE passRate is GOOD (skill = more correct).
  *
  * SCORING (per trial)
- *   - GATE (always): graders/check.mjs builds / type-checks the agent's output in
+ *   - GATE (always): graders/check.ts builds / type-checks the agent's output in
  *     the container and returns a deterministic [0,1] score. This is THE score.
  *   - JUDGE (optional): when an OpenAI or Anthropic key is present, an LLM reads
  *     the agent's stream-json transcript and scores "how directly did it reach the
@@ -36,10 +41,10 @@
  * PREREQS: Docker installed and its daemon reachable.
  */
 
-import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -94,6 +99,26 @@ function resolveTrials(): number {
   const n = Number.parseInt(raw, 10);
   if (!Number.isInteger(n) || n < 1) {
     die(`invalid trial count "${raw}" (must be a positive integer)`);
+  }
+  return n;
+}
+
+/**
+ * Resolve max concurrent trials: --concurrency=N > SKILL_EVAL_CONCURRENCY > 4.
+ * Trials are independent, so this is purely a throttle on simultaneous
+ * containers + simultaneous agent API sessions. Lower it (e.g. =2) if you hit
+ * the agent's rate limit on a subscription token or run low on RAM; raise it on
+ * a beefy host with generous limits.
+ */
+function resolveConcurrency(): number {
+  const flag = process.argv
+    .slice(2)
+    .find((a) => a.startsWith("--concurrency="));
+  const raw = flag ? flag.split("=")[1] : process.env.SKILL_EVAL_CONCURRENCY;
+  if (raw === undefined) return 4;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isInteger(n) || n < 1) {
+    die(`invalid concurrency "${raw}" (must be a positive integer)`);
   }
   return n;
 }
@@ -247,23 +272,51 @@ function buildImage(): void {
   if (res.status !== 0) die("docker build failed (see output above).");
 }
 
-/** Run a docker subcommand, capturing stdout. Returns {status, stdout, stderr}. */
+interface DockerResult {
+  status: number | null;
+  stdout: string;
+  stderr: string;
+  timedOut: boolean;
+}
+
+/**
+ * Run a docker subcommand ASYNCHRONOUSLY, capturing stdout/stderr. Async (not
+ * spawnSync) is what makes parallel trials possible: spawnSync blocks the single
+ * Node thread, so N "concurrent" trials would still serialize. With async spawn,
+ * the concurrency pool can have several containers in flight at once.
+ */
 function docker(
   args: string[],
   opts: { timeoutMs?: number; env?: Record<string, string> } = {},
-) {
-  const res = spawnSync("docker", args, {
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-    timeout: opts.timeoutMs,
-    env: opts.env ? { ...process.env, ...opts.env } : process.env,
+): Promise<DockerResult> {
+  return new Promise((resolve) => {
+    const child = spawn("docker", args, {
+      env: opts.env ? { ...process.env, ...opts.env } : process.env,
+    });
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    const timer = opts.timeoutMs
+      ? setTimeout(() => {
+          timedOut = true;
+          child.kill("SIGTERM");
+        }, opts.timeoutMs)
+      : null;
+    child.stdout.on("data", (d) => {
+      stdout += d.toString();
+    });
+    child.stderr.on("data", (d) => {
+      stderr += d.toString();
+    });
+    child.on("error", (err) => {
+      if (timer) clearTimeout(timer);
+      resolve({ status: 1, stdout, stderr: `${stderr}${err}`, timedOut });
+    });
+    child.on("close", (code) => {
+      if (timer) clearTimeout(timer);
+      resolve({ status: code, stdout, stderr, timedOut });
+    });
   });
-  return {
-    status: res.status,
-    stdout: res.stdout || "",
-    stderr: res.stderr || "",
-    timedOut: res.signal === "SIGTERM" && Boolean(opts.timeoutMs),
-  };
 }
 
 interface AgentRun {
@@ -323,12 +376,20 @@ function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n)}…` : s;
 }
 
+// The task instruction (instruction.md) is one human sentence on purpose. This
+// operational guard is a HARNESS concern, not part of the task, so it is appended
+// here at invocation rather than polluting the human-readable instruction file:
+// without it a stray `npm run dev` would block a trial until AGENT_TIMEOUT_MS.
+const OPERATIONAL_GUARD =
+  "Just write the files. Do not start dev servers or leave any long-running " +
+  "processes; the result is graded from the files on disk and a build.";
+
 /** Run one trial in a fresh container. Returns its parsed agent run + gate score. */
-function runTrial(
+async function runTrial(
   withSkill: boolean,
   auth: Auth,
-): { run: AgentRun; gate: { score: number } | null } {
-  const created = docker([
+): Promise<{ run: AgentRun; gate: { score: number } | null }> {
+  const created = await docker([
     "run",
     "-d",
     "-w",
@@ -343,8 +404,8 @@ function runTrial(
   const cid = created.stdout.trim();
   try {
     if (withSkill) {
-      docker(["exec", cid, "mkdir", "-p", CONTAINER_SKILL_DIR]);
-      const cp = docker([
+      await docker(["exec", cid, "mkdir", "-p", CONTAINER_SKILL_DIR]);
+      const cp = await docker([
         "cp",
         `${SKILL_DIR}/.`,
         `${cid}:${CONTAINER_SKILL_DIR}`,
@@ -355,19 +416,20 @@ function runTrial(
     }
 
     // Run the agent. IS_SANDBOX=1 lets --dangerously-skip-permissions run as root
-    // (the container IS the sandbox). The instruction is baked at /eval-tools.
+    // (the container IS the sandbox). The instruction is baked at /eval-tools; the
+    // operational guard is appended inside the same double-quoted prompt.
     const envFlags: string[] = ["-e", "IS_SANDBOX=1"];
     for (const [k, v] of Object.entries(auth.agentEnv)) {
       envFlags.push("-e", `${k}=${v}`);
     }
-    const agent = docker(
+    const agent = await docker(
       [
         "exec",
         ...envFlags,
         cid,
         "bash",
         "-lc",
-        'claude -p "$(cat /eval-tools/instruction.md)" ' +
+        `claude -p "$(cat /eval-tools/instruction.md)\n\n${OPERATIONAL_GUARD}" ` +
           "--output-format stream-json --verbose --dangerously-skip-permissions",
       ],
       { timeoutMs: AGENT_TIMEOUT_MS },
@@ -377,8 +439,8 @@ function runTrial(
       run.result = run.result ?? { is_error: true, subtype: "timeout" };
     }
 
-    // Gate: build / type-check the agent's output.
-    const graded = docker(["exec", cid, "node", "/eval-tools/check.mjs"], {
+    // Gate: build / type-check the agent's output via the TypeScript grader.
+    const graded = await docker(["exec", cid, "tsx", "/eval-tools/check.ts"], {
       timeoutMs: GATE_TIMEOUT_MS,
     });
     let gate: { score: number } | null = null;
@@ -392,7 +454,7 @@ function runTrial(
     }
     return { run, gate };
   } finally {
-    docker(["rm", "-f", cid]);
+    await docker(["rm", "-f", cid]);
   }
 }
 
@@ -580,69 +642,123 @@ function printTable(
   );
 }
 
-async function runArm(
-  label: ArmLabel,
-  withSkill: boolean,
+interface TrialTask {
+  arm: ArmLabel;
+  withSkill: boolean;
+  index: number;
+}
+
+/**
+ * Bounded-concurrency map: run `worker` over every item, at most `limit` in
+ * flight at once, preserving input order in the result array. This is what
+ * parallelizes the trials — each trial is fully independent (its own fresh
+ * container, no shared state), so the only ceiling is host resources and the
+ * agent API rate limit, both bounded by `limit`.
+ */
+async function pool<I, O>(
+  items: I[],
+  limit: number,
+  worker: (item: I) => Promise<O>,
+): Promise<O[]> {
+  // Each lane writes results[task.index], so order is preserved without presizing.
+  const results: O[] = [];
+  let cursor = 0;
+  async function lane(): Promise<void> {
+    while (true) {
+      const i = cursor++;
+      if (i >= items.length) return;
+      results[i] = await worker(items[i]);
+    }
+  }
+  const lanes = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: lanes }, () => lane()));
+  return results;
+}
+
+/** Run one trial end-to-end (container → agent → gate → judge) into a Trial. */
+async function runOneTrial(
+  task: TrialTask,
   trials: number,
   auth: Auth,
   rubric: string,
-): Promise<Trial[]> {
-  console.log(`\n[lift] ===== ${label} arm (${trials} trials) =====`);
-  const out: Trial[] = [];
-  for (let i = 0; i < trials; i++) {
-    process.stdout.write(`[lift] ${label} trial ${i + 1}/${trials}... `);
-    const { run, gate } = runTrial(withSkill, auth);
-    const ok = agentOk(run.result);
-    const r = run.result || {};
-    const usage = r.usage || {};
-    const gateScore = gate ? Number(gate.score) || 0 : 0;
+): Promise<Trial> {
+  const { run, gate } = await runTrial(task.withSkill, auth);
+  const ok = agentOk(run.result);
+  const r = run.result || {};
+  const usage = r.usage || {};
+  const gateScore = gate ? Number(gate.score) || 0 : 0;
 
-    let judgeScore: number | null = null;
-    if (ok && auth.judge) {
-      judgeScore = await judgeTranscript(run.transcript, auth.judge, rubric);
-    }
-    const reward =
-      judgeScore !== null ? 0.6 * gateScore + 0.4 * judgeScore : gateScore;
+  let judgeScore: number | null = null;
+  if (ok && auth.judge) {
+    judgeScore = await judgeTranscript(run.transcript, auth.judge, rubric);
+  }
+  const reward =
+    judgeScore !== null ? 0.6 * gateScore + 0.4 * judgeScore : gateScore;
 
-    const trial: Trial = {
-      ok,
-      gateScore: round4(gateScore),
-      judgeScore: judgeScore !== null ? round4(judgeScore) : null,
-      reward: round4(reward),
-      durationMs: Number(r.duration_ms) || 0,
-      numTurns: Number(r.num_turns) || 0,
-      inputTokens: Number(usage.input_tokens) || 0,
-      outputTokens: Number(usage.output_tokens) || 0,
-      cacheReadTokens: Number(usage.cache_read_input_tokens) || 0,
-      costUsd: Number(r.total_cost_usd) || 0,
-    };
-    if (!ok) {
-      trial.error = String(
-        r.api_error_status || r.subtype || "agent did not reach a result event",
-      );
-    }
-    out.push(trial);
-    console.log(
-      ok
-        ? `reward=${trial.reward.toFixed(2)} gate=${trial.gateScore.toFixed(2)}` +
-            (judgeScore !== null ? ` judge=${judgeScore.toFixed(2)}` : "") +
-            ` turns=${trial.numTurns} ${fmtMs(trial.durationMs)}`
-        : `AGENT FAILED (${trial.error})`,
+  const trial: Trial = {
+    ok,
+    gateScore: round4(gateScore),
+    judgeScore: judgeScore !== null ? round4(judgeScore) : null,
+    reward: round4(reward),
+    durationMs: Number(r.duration_ms) || 0,
+    numTurns: Number(r.num_turns) || 0,
+    inputTokens: Number(usage.input_tokens) || 0,
+    outputTokens: Number(usage.output_tokens) || 0,
+    cacheReadTokens: Number(usage.cache_read_input_tokens) || 0,
+    costUsd: Number(r.total_cost_usd) || 0,
+  };
+  if (!ok) {
+    trial.error = String(
+      r.api_error_status || r.subtype || "agent did not reach a result event",
     );
   }
-  return out;
+
+  // One standalone line per trial — trials finish out of order under concurrency,
+  // so the label carries the arm + index instead of relying on print order.
+  console.log(
+    `[lift] ${task.arm} trial ${task.index + 1}/${trials} — ` +
+      (ok
+        ? `reward=${trial.reward.toFixed(2)} gate=${trial.gateScore.toFixed(2)}` +
+          (judgeScore !== null ? ` judge=${judgeScore.toFixed(2)}` : "") +
+          ` turns=${trial.numTurns} ${fmtMs(trial.durationMs)}`
+        : `AGENT FAILED (${trial.error})`),
+  );
+  return trial;
 }
 
 async function main(): Promise<void> {
   const trials = resolveTrials();
+  const concurrency = resolveConcurrency();
   preflightDocker();
   const auth = preflightAuth();
   const rubric = readFileSync(path.join(EVAL_DIR, "rubric.md"), "utf8");
 
   buildImage();
 
-  const withArm = await runArm("WITH-skill", true, trials, auth, rubric);
-  const withoutArm = await runArm("WITHOUT-skill", false, trials, auth, rubric);
+  // Both arms are one flat pool of independent trials (WITH first, WITHOUT
+  // second). Running them together keeps every concurrency lane busy instead of
+  // draining one arm before starting the next.
+  const tasks: TrialTask[] = [
+    ...Array.from({ length: trials }, (_, index) => ({
+      arm: "WITH-skill" as const,
+      withSkill: true,
+      index,
+    })),
+    ...Array.from({ length: trials }, (_, index) => ({
+      arm: "WITHOUT-skill" as const,
+      withSkill: false,
+      index,
+    })),
+  ];
+  console.log(
+    `\n[lift] running ${tasks.length} trials (${trials}/arm) at concurrency ` +
+      `${concurrency}...`,
+  );
+  const all = await pool(tasks, concurrency, (task) =>
+    runOneTrial(task, trials, auth, rubric),
+  );
+  const withArm = all.slice(0, trials);
+  const withoutArm = all.slice(trials);
 
   // Fail loud if an entire arm's agent never ran — grading an untouched fixture
   // would make a broken agent look like "no lift" rather than an error.
