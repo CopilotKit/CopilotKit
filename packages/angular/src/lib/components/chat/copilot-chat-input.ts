@@ -539,6 +539,12 @@ export class CopilotChatInput implements AfterViewInit, OnDestroy {
   }
 
   handleKeyDown(event: KeyboardEvent): void {
+    // Skip key handling during IME composition (e.g. CJK input).
+    // The compositionend event will fire separately when composition ends.
+    if (event.isComposing || event.keyCode === 229) {
+      return;
+    }
+
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       this.send();
