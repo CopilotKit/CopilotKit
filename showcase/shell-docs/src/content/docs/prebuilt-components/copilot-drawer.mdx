@@ -76,7 +76,6 @@ That's the whole integration — no `threadId` state, no `onSelect` plumbing.
 | `label` | Accessible label + default header text. Defaults to `"Threads"`. |
 | `onThreadSelect` | Escape hatch to take over thread selection yourself. |
 | `onNewThread` | Escape hatch to handle "+ New" yourself. |
-| `onUnlicensed` | Called when the unlicensed upgrade CTA is clicked (React only). |
 | `renderRow` | Render custom content per row (keeps the row chrome around it). |
 | `limit` | Page size for pagination — shows a "Load more" control while more threads remain. Omit to load all at once. |
 
@@ -88,7 +87,7 @@ The drawer renders in a shadow root with self-contained, theme-inheriting
 styles, so it looks correct in any app (including dark mode) with no config.
 Three bounded escape hatches pierce the boundary:
 
-- **Slots** — project children with a `slot` attribute (`header`, `empty`, `footer`, `unlicensed`, `memories`, `launcher-icon`):
+- **Slots** — project children with a `slot` attribute (`header`, `empty`, `footer`, `memories`, `launcher-icon`):
 
   ```tsx
   <CopilotDrawer>
@@ -101,10 +100,8 @@ Three bounded escape hatches pierce the boundary:
 
 ## License
 
-Threads run on the Enterprise Intelligence Platform. While unlicensed (or with
-no license configured) the drawer shows an unlicensed view instead of the list
-and issues no thread requests. Wire the `onUnlicensed` callback to send users
-somewhere (e.g. your pricing or docs).
+Threads require CopilotKit Intelligence. Without a license key, the drawer shows
+a locked view in place of the list.
 
 ## Related
 
