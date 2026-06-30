@@ -1,18 +1,18 @@
 ---
-title: "CopilotDrawer"
+title: "CopilotThreadsDrawer"
 icon: "lucide/PanelLeft"
 description: "Drop-in threads drawer that lists, switches, and manages conversations next to your chat."
 ---
 
 ## What is this?
 
-`<CopilotDrawer>` gives your app a ready-made conversation sidebar — users can
+`<CopilotThreadsDrawer>` gives your app a ready-made conversation sidebar — users can
 list, switch, start, rename, archive, and delete their threads, and you wire up
 **no active-thread state** to make it work. Drop it next to your chat and it
 connects automatically.
 
 Under the hood it's a thin React wrapper around the self-contained
-`copilotkit-drawer` web component, fed by [`useThreads`](/reference/hooks/useThreads)
+`copilotkit-threads-drawer` web component, fed by [`useThreads`](/reference/hooks/useThreads)
 and your chat configuration.
 
 Prefer to build your own thread UI? The same data and actions are available
@@ -39,7 +39,7 @@ server-side). See [Threads](/threads) to set that up.
 
 ## Basic setup
 
-Drop `<CopilotDrawer>` next to `<CopilotChat>` under your `CopilotKitProvider`.
+Drop `<CopilotThreadsDrawer>` next to `<CopilotChat>` under your `CopilotKitProvider`.
 With no callbacks, the drawer drives the active thread itself: selecting a row
 connects the chat to that thread and replays its history; "+ New" resets the
 chat to a fresh welcome screen.
@@ -48,7 +48,7 @@ chat to a fresh welcome screen.
 import {
   CopilotKitProvider,
   CopilotChat,
-  CopilotDrawer,
+  CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 
@@ -56,7 +56,7 @@ export default function Page() {
   return (
     <CopilotKitProvider runtimeUrl="/api/copilotkit" publicLicenseKey="ck_pub_...">
       <div style={{ display: "flex", height: "100dvh" }}>
-        <CopilotDrawer />
+        <CopilotThreadsDrawer />
         <CopilotChat />
       </div>
     </CopilotKitProvider>
@@ -68,7 +68,7 @@ That's the whole integration — no `threadId` state, no `onSelect` plumbing.
 
 ## Configuring the drawer
 
-`<CopilotDrawer>` works with zero props. The optional ones:
+`<CopilotThreadsDrawer>` works with zero props. The optional ones:
 
 | Prop | Description |
 |------|-------------|
@@ -79,7 +79,7 @@ That's the whole integration — no `threadId` state, no `onSelect` plumbing.
 | `renderRow` | Render custom content per row (keeps the row chrome around it). |
 | `limit` | Page size for pagination — shows a "Load more" control while more threads remain. Omit to load all at once. |
 
-See the [CopilotDrawer reference](/reference/components/CopilotDrawer) for the full prop and type list.
+See the [CopilotThreadsDrawer reference](/reference/components/CopilotThreadsDrawer) for the full prop and type list.
 
 ## Customization
 
@@ -90,13 +90,13 @@ Three bounded escape hatches pierce the boundary:
 - **Slots** — project children with a `slot` attribute (`header`, `empty`, `footer`, `memories`, `launcher-icon`):
 
   ```tsx
-  <CopilotDrawer>
+  <CopilotThreadsDrawer>
     <span slot="header">My conversations</span>
-  </CopilotDrawer>
+  </CopilotThreadsDrawer>
   ```
 
 - **Per-row content** — the `renderRow` prop projects custom content into each row while the element keeps selection, archived styling, and the action buttons.
-- **CSS parts + variable tokens** — restyle structural `::part()`s or override `--cpk-drawer-*` tokens. The full list is in the [reference](/reference/components/CopilotDrawer#customization).
+- **CSS parts + variable tokens** — restyle structural `::part()`s or override `--cpk-drawer-*` tokens. The full list is in the [reference](/reference/components/CopilotThreadsDrawer#customization).
 
 ## License
 
@@ -106,5 +106,5 @@ a locked view in place of the list.
 ## Related
 
 - [Threads](/threads) — set up the platform and the headless `useThreads` data layer
-- [CopilotDrawer reference (React)](/reference/components/CopilotDrawer)
+- [CopilotThreadsDrawer reference (React)](/reference/components/CopilotThreadsDrawer)
 - [CopilotChat](/prebuilt-components/chat) — the chat the drawer connects to
