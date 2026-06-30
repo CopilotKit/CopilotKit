@@ -233,6 +233,8 @@ vi.mock("@copilotkit/shared", () => ({
     checkFeature: () => true,
     getLimit: () => null,
   }),
+  // Required by @copilotkit/core (transitively imported via Markdown.tsx)
+  RUNTIME_MODE_SSE: "sse",
 }));
 
 // Import after mocks

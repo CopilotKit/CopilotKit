@@ -13,6 +13,7 @@
     "@copilotkit/react-core": "workspace:*",
     "@copilotkit/runtime": "workspace:*",
     "@react-router/node": "^7.11.0",
+    "streamdown": "^1.3.0",
     "@tanstack/ai": "latest",
     "@tanstack/ai-openai": "latest",
     "ai": "latest",

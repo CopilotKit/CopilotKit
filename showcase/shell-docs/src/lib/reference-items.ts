@@ -43,6 +43,7 @@ const ROOT_VERSION: ReferenceVersion = "v2";
 export const REFERENCE_CATEGORIES = [
   "Components",
   "Hooks",
+  "Packages",
   "Functions",
   "Services",
   "Directives",
@@ -58,6 +59,7 @@ export type ReferenceCategory = (typeof REFERENCE_CATEGORIES)[number];
 type ReferenceSubdir =
   | "components"
   | "hooks"
+  | "packages"
   | "functions"
   | "services"
   | "directives"
@@ -69,7 +71,7 @@ type ReferenceSubdir =
   | "discord";
 
 const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
-  v2: ["components", "hooks"],
+  v2: ["components", "hooks", "packages"],
   v1: ["components", "hooks", "classes", "sdk"],
   "react-native": ["components", "hooks"],
   vue: ["components", "hooks"],
@@ -81,6 +83,7 @@ const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
 const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
   components: "Components",
   hooks: "Hooks",
+  packages: "Packages",
   functions: "Functions",
   services: "Services",
   directives: "Directives",

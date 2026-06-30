@@ -32,8 +32,6 @@ export default defineConfig({
         "@copilotkit/shared",
         "@copilotkit/web-inspector",
         "@jetbrains/websandbox",
-        "streamdown-vue",
-        "katex",
         "lucide-vue-next",
         "zod",
         "zod-to-json-schema",

@@ -132,7 +132,6 @@ export default defineConfig([
         "@copilotkit/web-inspector": "CopilotKitWebInspector",
         "@copilotkit/a2ui-renderer": "CopilotKitA2UIRenderer",
         "@ag-ui/client": "AgUIClient",
-        "react-markdown": "ReactMarkdown",
         zod: "Zod",
       };
       return options;
@@ -172,7 +171,6 @@ export default defineConfig([
         "@copilotkit/a2ui-renderer": "CopilotKitA2UIRenderer",
         "@ag-ui/client": "AgUIClient",
         "@ag-ui/core": "AgUICore",
-        "react-markdown": "ReactMarkdown",
         zod: "Zod",
         "tailwind-merge": "tailwindMerge",
         "lucide-react": "lucideReact",
@@ -181,8 +179,6 @@ export default defineConfig([
         clsx: "clsx",
         "@radix-ui/react-tooltip": "RadixReactTooltip",
         "@radix-ui/react-dropdown-menu": "RadixReactDropdownMenu",
-        "katex/dist/katex.min.css": "katexCss",
-        streamdown: "streamdown",
         "@lit-labs/react": "LitLabsReact",
         "use-stick-to-bottom": "useStickToBottom",
         "ts-deepmerge": "tsDeepmerge",

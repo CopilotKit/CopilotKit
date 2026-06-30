@@ -1,5 +1,5 @@
 import type { AssistantMessage, Message } from "@ag-ui/core";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Copy,
   Check,
@@ -19,10 +19,19 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "../../components/ui/tooltip";
-import { useKatexStyles } from "../../hooks/useKatexStyles";
 import type { WithSlots } from "../../lib/slots";
-import { renderSlot } from "../../lib/slots";
-import { Streamdown } from "streamdown";
+import {
+  renderSlot,
+  isReactComponentType,
+  useShallowStableRef,
+} from "../../lib/slots";
+import { StreamingMarkdownDefaultRenderer } from "./StreamingMarkdownDefaultRenderer";
+import { useMarkdownRenderer } from "../../providers/MarkdownRendererContext";
+import type {
+  MarkdownRendererProps,
+  DefaultMarkdownRendererProps,
+  MarkdownRenderer as MarkdownRendererValue,
+} from "../../providers/MarkdownRendererContext";
 import { copyToClipboard } from "@copilotkit/shared";
 import CopilotChatToolCallsView from "./CopilotChatToolCallsView";
 
@@ -50,6 +59,33 @@ export type CopilotChatAssistantMessageProps = WithSlots<
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
+function resolveMarkdownRenderer(
+  value: MarkdownRendererValue | undefined,
+): React.FC<MarkdownRendererProps & DefaultMarkdownRendererProps> {
+  if (!value) return CopilotChatAssistantMessage.MarkdownRenderer;
+  if (isReactComponentType(value)) {
+    // A provider-supplied component (escape hatch) renders with the bound
+    // { content, isStreaming } props; wrap it so the resolved type matches the
+    // slot's component type. createElement accepts function or class components.
+    const ProvidedRenderer = value;
+    const ProvidedMarkdownRenderer: React.FC<
+      MarkdownRendererProps & DefaultMarkdownRendererProps
+    > = (props) => React.createElement(ProvidedRenderer, props);
+    return ProvidedMarkdownRenderer;
+  }
+  const config = value as DefaultMarkdownRendererProps;
+  const ConfiguredRenderer: React.FC<
+    MarkdownRendererProps & DefaultMarkdownRendererProps
+  > = (props) => (
+    // Provider config is the base; props (bound content/isStreaming plus any
+    // per-message slot config merged in by renderSlot) override it, so a
+    // per-message markdownRenderer wins over the provider per the documented
+    // slot -> provider -> built-in resolution order.
+    <CopilotChatAssistantMessage.MarkdownRenderer {...config} {...props} />
+  );
+  return ConfiguredRenderer;
+}
+
 export function CopilotChatAssistantMessage({
   message,
   messages,
@@ -72,13 +108,33 @@ export function CopilotChatAssistantMessage({
   className,
   ...props
 }: CopilotChatAssistantMessageProps) {
-  useKatexStyles();
+  // Stabilize the provider value so a shallow-equal inline config object (e.g.
+  // `markdownRenderer={{ caret: true }}`) with a fresh identity on each provider
+  // render doesn't churn resolveMarkdownRenderer's output and remount the
+  // markdown subtree (which would throw away streaming parser state). This is a
+  // shallow, key-by-key compare — configs whose values are themselves new
+  // objects each render (e.g. an inline `nodeRenderers`) or an inline component
+  // renderer still change identity, so define those outside render / memoize
+  // them, exactly as you would any component prop. Mirrors how slot props are
+  // stabilized via the same helper.
+  const providerRenderer = useShallowStableRef(useMarkdownRenderer());
+  const DefaultMarkdownRenderer = useMemo(
+    () => resolveMarkdownRenderer(providerRenderer),
+    [providerRenderer],
+  );
+
+  // Don't show toolbar if message has no content (only tool calls)
+  const hasContent = !!(message.content && message.content.trim().length > 0);
+  const isLatestAssistantMessage =
+    message.role === "assistant" &&
+    messages?.[messages.length - 1]?.id === message.id;
 
   const boundMarkdownRenderer = renderSlot(
     markdownRenderer,
-    CopilotChatAssistantMessage.MarkdownRenderer,
+    DefaultMarkdownRenderer,
     {
       content: message.content || "",
+      isStreaming: !!(isRunning && isLatestAssistantMessage),
     },
   );
 
@@ -153,11 +209,6 @@ export function CopilotChatAssistantMessage({
     },
   );
 
-  // Don't show toolbar if message has no content (only tool calls)
-  const hasContent = !!(message.content && message.content.trim().length > 0);
-  const isLatestAssistantMessage =
-    message.role === "assistant" &&
-    messages?.[messages.length - 1]?.id === message.id;
   const shouldShowToolbar =
     toolbarVisible && hasContent && !(isRunning && isLatestAssistantMessage);
 
@@ -210,13 +261,14 @@ export function CopilotChatAssistantMessage({
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CopilotChatAssistantMessage {
   export const MarkdownRenderer: React.FC<
-    Omit<React.ComponentProps<typeof Streamdown>, "children"> & {
-      content: string;
-    }
-  > = ({ content, className, ...props }) => (
-    <Streamdown className={className} {...props}>
-      {content ?? ""}
-    </Streamdown>
+    MarkdownRendererProps & DefaultMarkdownRendererProps
+  > = ({ content, isStreaming, className, ...config }) => (
+    <StreamingMarkdownDefaultRenderer
+      content={content ?? ""}
+      isStreaming={isStreaming}
+      className={className}
+      {...config}
+    />
   );
 
   export const Toolbar: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({

@@ -3,9 +3,9 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import {
   CopilotSidebar,
-  type CopilotSidebarProps,
   useCopilotChatConfiguration,
 } from "@copilotkit/react-core/v2";
+import type { CopilotSidebarProps } from "@copilotkit/react-core/v2";
 
 import { IDENTITY } from "@/lib/identity";
 import { ChatPanelHeader } from "./chat-panel-header";

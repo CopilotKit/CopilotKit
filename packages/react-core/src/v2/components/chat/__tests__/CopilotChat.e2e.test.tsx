@@ -50,11 +50,12 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.complete();
 
       // Assistant message should accumulate
+      // Use textContent check because the streaming renderer splits text across
+      // per-segment <span>s — getByText can't match the full string in one element.
       await waitFor(() => {
-        const assistantMessage = screen.getByText(
+        expect(document.body.textContent).toContain(
           "Hello! How can I help you today?",
         );
-        expect(assistantMessage).toBeDefined();
       });
     });
 
@@ -76,24 +77,26 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.emit(runStartedEvent());
 
       // Stream text progressively
+      // Use textContent checks because the streaming renderer splits text across
+      // per-segment <span>s — getByText can't match the full string in one element.
       agent.emit(textChunkEvent(messageId, "Once upon"));
 
       await waitFor(() => {
-        expect(screen.getByText(/Once upon/)).toBeDefined();
+        expect(document.body.textContent).toContain("Once upon");
       });
 
       agent.emit(textChunkEvent(messageId, " a time"));
 
       await waitFor(() => {
-        expect(screen.getByText(/Once upon a time/)).toBeDefined();
+        expect(document.body.textContent).toContain("Once upon a time");
       });
 
       agent.emit(textChunkEvent(messageId, " there was a robot."));
 
       await waitFor(() => {
-        expect(
-          screen.getByText(/Once upon a time there was a robot\./),
-        ).toBeDefined();
+        expect(document.body.textContent).toContain(
+          "Once upon a time there was a robot.",
+        );
       });
 
       agent.emit(runFinishedEvent());
@@ -485,11 +488,12 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       );
 
       // Toolbar SHOULD be visible now for the message with content
+      // Use textContent check because the streaming renderer splits text across
+      // per-segment <span>s — getByText can't match the full string in one element.
       await waitFor(() => {
-        const allMessages = screen.getAllByText(
-          /Here is some actual text content/,
+        expect(document.body.textContent).toContain(
+          "Here is some actual text content",
         );
-        expect(allMessages.length).toBeGreaterThan(0);
 
         // Should now have copy button
         const toolbarButtons = screen.getAllByRole("button");
@@ -667,8 +671,10 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       consumerAgent.complete();
 
       // Wait for assistant message
+      // Use textContent check because the streaming renderer splits text across
+      // per-segment <span>s — getByText can't match the full string in one element.
       await waitFor(() => {
-        expect(screen.getByText(/I can help with that/)).toBeDefined();
+        expect(document.body.textContent).toContain("I can help with that");
       });
 
       // Verify suggestions appear (provider agent's run() method will be called automatically)
@@ -871,8 +877,10 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       consumerAgent.emit(runFinishedEvent());
       consumerAgent.complete();
 
+      // Use textContent check because the streaming renderer splits text across
+      // per-segment <span>s — getByText can't match the full string in one element.
       await waitFor(() => {
-        expect(screen.getByText(/I can help with that/)).toBeDefined();
+        expect(document.body.textContent).toContain("I can help with that");
       });
 
       await waitFor(
@@ -1014,8 +1022,10 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.emit(reasoningEndEvent(reasoningId));
 
       // The accumulated content should be present
+      // Use textContent check because the streaming renderer splits text across
+      // per-segment <span>s — getByText can't match the full string in one element.
       await waitFor(() => {
-        expect(screen.getByText(/Part 1 Part 2 Part 3/)).toBeDefined();
+        expect(document.body.textContent).toContain("Part 1 Part 2 Part 3");
       });
 
       agent.emit(runFinishedEvent());
@@ -1044,18 +1054,26 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.complete();
 
       // Both should appear
+      // Use textContent check for assistant message content because the streaming
+      // renderer splits text across per-segment <span>s — getByText can't match
+      // the full string in one element.
       await waitFor(() => {
         expect(screen.getByText(/Thought for/)).toBeDefined();
-        expect(screen.getByText("The answer is 42.")).toBeDefined();
+        expect(document.body.textContent).toContain("The answer is 42.");
       });
 
       // Reasoning should come before text in the DOM
       const reasoningEl = screen
         .getByText(/Thought for/)
         .closest("[data-message-id]");
-      const textEl = screen
-        .getByText("The answer is 42.")
-        .closest("[data-message-id]");
+      // Find the assistant message container by testid (the text message container)
+      const assistantMsgContainers = screen.getAllByTestId(
+        "copilot-assistant-message",
+      );
+      const textEl =
+        assistantMsgContainers.find((el) =>
+          el.textContent?.includes("The answer is 42."),
+        ) ?? null;
 
       if (reasoningEl && textEl) {
         // Use compareDocumentPosition to verify ordering
@@ -1154,8 +1172,10 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       // Now start streaming text - text is now the last message, cursor should show
       agent.emit(textChunkEvent(textId, "Starting answer..."));
 
+      // Use textContent check because the streaming renderer splits text across
+      // per-segment <span>s — getByText can't match the full string in one element.
       await waitFor(() => {
-        expect(screen.getByText(/Starting answer/)).toBeDefined();
+        expect(document.body.textContent).toContain("Starting answer");
       });
 
       // Chat-level cursor should now be visible since last message is text (not reasoning)

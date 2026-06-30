@@ -1,124 +1,86 @@
-import React, { useMemo } from "react";
-import { StreamdownText } from "react-native-streamdown";
+import React from "react";
+import {
+  StreamingMarkdownRenderer,
+  defaultMarkdownStyles as _streamingDefaultStyles,
+} from "@copilotkit/markdown-renderer/react-native";
+import type { MarkdownStyle as StreamingMarkdownStyle } from "@copilotkit/markdown-renderer/react-native";
+import { warnUnsupportedRichSyntaxOnce } from "@copilotkit/markdown-renderer";
 
 /**
- * Style object accepted by `react-native-enriched-markdown` (and therefore
- * `react-native-streamdown`).  Each key targets a markdown element; the
- * available properties vary per element — see the enriched-markdown style
- * reference for the full list.
+ * Style map for CopilotMarkdown. Each key maps a node type to a React Native
+ * style object. Extends the streaming renderer's style keys with a `code`
+ * shorthand kept for backward compatibility (`list` already exists on the
+ * base style and needs no alias).
+ *
+ * @public
  */
-export type MarkdownStyle = Record<string, Record<string, unknown>>;
+export type MarkdownStyle = StreamingMarkdownStyle & {
+  /** Alias for `inlineCode`; kept for backward compatibility. */
+  code?: Record<string, unknown>;
+};
 
 /**
- * Props for the CopilotMarkdown component.
+ * Default styles that ship with CopilotMarkdown.
+ *
+ * @public
  */
+export const defaultMarkdownStyles: MarkdownStyle = {
+  ..._streamingDefaultStyles,
+  // Back-compat alias: `code` = same as `inlineCode`
+  code: _streamingDefaultStyles.inlineCode,
+};
+
 export interface CopilotMarkdownProps {
-  /** Markdown string to render. */
   content: string;
-  /** Optional style overrides merged on top of the defaults. */
   style?: MarkdownStyle;
-  /** Whether to enable the streaming fade-in animation (default: true). */
+  /**
+   * Toggles `Intl.Segmenter`-based token segmentation in the parser. Defaults
+   * to `false` (Hermes-safe: no Segmenter needed). Note: the React Native
+   * renderer renders text directly and does not perform per-token fade-in
+   * animation, so this currently has no visual effect — it is accepted for
+   * backward compatibility.
+   */
   streamingAnimation?: boolean;
 }
 
 /**
- * Default markdown styles tuned for chat bubble display.
+ * GFM markdown renderer for React Native. Delegates to the shared
+ * `StreamingMarkdownRenderer` from `@copilotkit/markdown-renderer/react-native`.
  *
- * Exported so consumers can spread and extend:
- * ```ts
- * import { defaultMarkdownStyles } from "@copilotkit/react-native";
- * const custom = { ...defaultMarkdownStyles, h1: { fontSize: 28 } };
- * ```
- */
-export const defaultMarkdownStyles: MarkdownStyle = {
-  paragraph: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#1a1a1a",
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  h1: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginTop: 12,
-    marginBottom: 8,
-    color: "#111111",
-  },
-  h2: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginTop: 10,
-    marginBottom: 6,
-    color: "#111111",
-  },
-  h3: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginTop: 8,
-    marginBottom: 4,
-    color: "#222222",
-  },
-  strong: {
-    fontWeight: "bold",
-  },
-  em: {
-    fontStyle: "italic",
-  },
-  link: {
-    color: "#0066cc",
-    underline: true,
-  },
-  blockquote: {
-    backgroundColor: "#f5f5f5",
-    borderWidth: 4,
-    borderColor: "#cccccc",
-    gapWidth: 12,
-  },
-  code: {
-    backgroundColor: "#f0f0f0",
-    fontFamily: "monospace",
-    fontSize: 14,
-  },
-  codeBlock: {
-    backgroundColor: "#f0f0f0",
-    borderRadius: 8,
-    padding: 12,
-    fontFamily: "monospace",
-    fontSize: 14,
-  },
-  list: {
-    marginTop: 4,
-    marginBottom: 4,
-  },
-};
-
-/**
- * Renders markdown content using `react-native-streamdown` with
- * pre-configured styles suited for CopilotKit chat bubbles.
+ * Public API is backward-compatible with the previous basic renderer:
+ * - `CopilotMarkdownProps` — same shape.
+ * - `MarkdownStyle` / `defaultMarkdownStyles` — same exports.
+ * - `streamingAnimation` maps to `animate` (defaults `false` = Hermes-safe).
  *
- * `react-native-streamdown` processes incomplete streaming markdown in the
- * background, rendering incrementally without visual glitches — ideal for
- * displaying LLM output as it arrives.
- *
- * Custom styles are merged on top of the defaults so callers only need
- * to override what they want to change.
+ * @public
  */
 export function CopilotMarkdown({
   content,
   style,
-  streamingAnimation = true,
-}: CopilotMarkdownProps) {
-  const mergedStyles = useMemo(() => {
-    if (!style) return defaultMarkdownStyles;
-    return { ...defaultMarkdownStyles, ...style };
-  }, [style]);
+  streamingAnimation = false,
+}: CopilotMarkdownProps): React.ReactElement | null {
+  // Translate the back-compat `code` alias onto `inlineCode` — the key the
+  // streaming renderer actually reads. Without this, a caller migrating from
+  // the previous renderer who passes `style={{ code: ... }}` would silently
+  // lose inline-code styling. An explicit `inlineCode` wins over the alias.
+  // Dev-only: nudge upgraders from the bundled Streamdown default when their
+  // content needs math/syntax highlighting the built-in renderer doesn't do.
+  warnUnsupportedRichSyntaxOnce(content);
 
+  let resolvedStyle = style as StreamingMarkdownStyle | undefined;
+  if (style?.code !== undefined) {
+    const { code, ...rest } = style;
+    resolvedStyle = {
+      ...(rest as StreamingMarkdownStyle),
+      inlineCode: (rest as StreamingMarkdownStyle).inlineCode ?? code,
+    };
+  }
   return (
-    <StreamdownText
-      markdown={content}
-      markdownStyle={mergedStyles}
-      streamingAnimation={streamingAnimation}
+    <StreamingMarkdownRenderer
+      content={content}
+      isComplete={true}
+      style={resolvedStyle}
+      animate={streamingAnimation}
     />
   );
 }

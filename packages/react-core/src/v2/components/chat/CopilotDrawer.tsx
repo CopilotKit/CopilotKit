@@ -10,16 +10,19 @@ import React, {
 import {
   defineCopilotKitDrawer,
   COPILOTKIT_DRAWER_TAG,
-  type CopilotKitDrawer as CopilotKitDrawerElement,
-  type DrawerThread,
-  type ThreadSelectedDetail,
-  type ArchiveDetail,
-  type UnarchiveDetail,
-  type DeleteDetail,
-  type OpenChangeDetail,
-  type RetryDetail,
 } from "@copilotkit/web-components/drawer";
-import { useThreads, type Thread } from "../../hooks/use-threads";
+import type {
+  CopilotKitDrawer as CopilotKitDrawerElement,
+  DrawerThread,
+  ThreadSelectedDetail,
+  ArchiveDetail,
+  UnarchiveDetail,
+  DeleteDetail,
+  OpenChangeDetail,
+  RetryDetail,
+} from "@copilotkit/web-components/drawer";
+import { useThreads } from "../../hooks/use-threads";
+import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 

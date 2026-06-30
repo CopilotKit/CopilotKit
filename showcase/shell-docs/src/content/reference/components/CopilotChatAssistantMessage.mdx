@@ -5,7 +5,11 @@ description: "Component for displaying assistant messages with Markdown, tool ca
 
 ## Overview
 
-`CopilotChatAssistantMessage` displays assistant messages with Markdown support, tool call rendering, and an action toolbar. The Markdown renderer uses `remark-gfm`, `remark-math`, syntax highlighting via `rehype-pretty-code`, and KaTeX support for mathematical expressions. The toolbar provides copy, rating (thumbs up/down), read aloud, and regenerate buttons with localized tooltips sourced from `CopilotChatConfigurationProvider`.
+`CopilotChatAssistantMessage` displays assistant messages with Markdown support, tool call rendering, and an action toolbar. By default the Markdown renderer is CopilotKit's **streaming markdown renderer** ([`@copilotkit/markdown-renderer`](/reference/packages/markdown-renderer)) — a zero-dependency, streaming-safe renderer with incremental rendering, per-token fade-in animation, GFM, tables, autolinks, and citations. It does **not** do syntax highlighting, math, or diagrams by default. To add those, plug in your own renderer: globally via `CopilotKitProvider`'s `markdownRenderer` prop, or per-message via the `markdownRenderer` slot below. `BasicMarkdownRenderer` (marked-based) remains available as a lighter alternative. The toolbar provides copy, rating (thumbs up/down), read aloud, and regenerate buttons with localized tooltips sourced from `CopilotChatConfigurationProvider`.
+
+<Callout type="info">
+  Upgrading from a version that bundled Streamdown? See [Migrate the Markdown Renderer](/migrate/markdown-renderer) to restore rich rendering.
+</Callout>
 
 ## Import
 
@@ -75,18 +79,28 @@ import "@copilotkit/react-core/v2/styles.css";
 All slot props follow the CopilotKit slot system: each accepts a replacement React component, a `className` string that is merged into the default component's classes, or a partial props object that extends the default component.
 
 <PropertyReference name="markdownRenderer" type="SlotProp<typeof CopilotChatAssistantMessage.MarkdownRenderer>">
-  Slot for the Markdown rendering engine. Defaults to `CopilotChatAssistantMessage.MarkdownRenderer`, which supports GFM tables, math expressions via KaTeX, and syntax-highlighted code blocks via `rehype-pretty-code`.
+  Slot for the Markdown rendering engine. Defaults to the built-in streaming renderer (`StreamingMarkdownDefaultRenderer` from `@copilotkit/react-core/v2`, a thin adapter over [`@copilotkit/markdown-renderer`](/reference/packages/markdown-renderer)'s `StreamingMarkdownRenderer`) — streaming-safe incremental rendering with per-token animation, GFM, tables, autolinks, and citations, with **no** syntax highlighting or math. A renderer is any component that accepts `MarkdownRendererProps` (`{ content: string; isStreaming?: boolean; className?: string }`, exported from `@copilotkit/react-core/v2`). `BasicMarkdownRenderer` (marked-based) is available as a lighter alternative. This per-message slot takes precedence over a `markdownRenderer` set on `CopilotKitProvider`. `markdownRenderer` also accepts a config object (`DefaultMarkdownRendererProps`) to configure the built-in renderer without writing a wrapper — e.g. `markdownRenderer={{ nodeRenderers: { codeBlock: Shiki } }}`.
 
-**As a replacement component:**
+  **As a replacement component** (here, restoring Streamdown — install `streamdown` first):
+  ```tsx
+  import { Streamdown } from "streamdown";
 
-```tsx
-<CopilotChatAssistantMessage
-  message={msg}
-  markdownRenderer={({ content }) => (
-    <div dangerouslySetInnerHTML={{ __html: content }} />
-  )}
-/>
-```
+  <CopilotChatAssistantMessage
+    message={msg}
+    markdownRenderer={({ content }) => <Streamdown>{content}</Streamdown>}
+  />
+  ```
+
+  To apply a renderer to every message at once, set it on the provider instead (define it outside render so its identity is stable):
+  ```tsx
+  import { StreamdownRenderer } from "./markdown-renderer";
+
+  <CopilotKitProvider markdownRenderer={StreamdownRenderer}>
+    {/* ... */}
+  </CopilotKitProvider>
+  ```
+
+  For a full walkthrough of all three approaches (keep the default, configure it, or replace it) across React, Vue, and React Native, see the [Markdown Rendering](/markdown-rendering) guide.
 
 </PropertyReference>
 
@@ -255,7 +269,7 @@ function ToolCallsList({ message, allMessages }) {
 
 ## Behavior
 
-- **Markdown Support**: The default Markdown renderer supports GitHub Flavored Markdown (tables, strikethrough, task lists), math expressions rendered with KaTeX, and syntax-highlighted code blocks via `rehype-pretty-code`.
+- **Markdown Support**: The built-in renderer is [`@copilotkit/markdown-renderer`](/reference/packages/markdown-renderer) — a zero-dependency streaming renderer that supports GFM (headings, bold/italic/strikethrough, lists, links, inline and fenced code, tables, blockquotes, images), autolinks, citations, and per-token fade-in animation. It escapes raw HTML and sanitizes link/image URLs. Syntax highlighting, math (KaTeX), and diagrams are **not** included by default; plug in a custom `markdownRenderer` to add them (see [Migrate the Markdown Renderer](/migrate/markdown-renderer)).
 - **Toolbar Visibility**: The toolbar appears on hover or focus by default. Individual buttons are only rendered when their corresponding callback prop (`onThumbsUp`, `onThumbsDown`, `onReadAloud`, `onRegenerate`) is provided. The copy button is always visible when the toolbar is shown.
 - **Localized Labels**: All toolbar button tooltips are sourced from the nearest `CopilotChatConfigurationProvider`. See [`useCopilotChatConfiguration`](/reference/hooks/useCopilotChatConfiguration) for the full list of label keys.
 - **Tool Call Rendering**: Tool calls embedded in the assistant message are rendered by the `toolCallsView` slot. Each tool call is resolved using the `useRenderToolCall` hook, which looks up registered renderers by tool name.

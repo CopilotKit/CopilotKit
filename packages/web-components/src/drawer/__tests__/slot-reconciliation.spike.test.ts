@@ -12,12 +12,8 @@
  *     so projection is preserved rather than torn down and re-established.
  */
 import { afterEach, expect, test, vi } from "vitest";
-import {
-  COPILOTKIT_DRAWER_TAG,
-  CopilotKitDrawer,
-  defineCopilotKitDrawer,
-} from "../index";
-import type { DrawerThread } from "../index";
+import { COPILOTKIT_DRAWER_TAG, defineCopilotKitDrawer } from "../index";
+import type { DrawerThread, CopilotKitDrawer } from "../index";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
