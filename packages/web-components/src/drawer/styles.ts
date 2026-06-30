@@ -440,7 +440,7 @@ export const drawerStyles = css`
     background: var(--_muted);
   }
 
-  .upsell {
+  .unlicensed {
     padding: 24px 16px;
     text-align: center;
     display: flex;
