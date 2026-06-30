@@ -64,7 +64,7 @@ Tools available to you:
 - awaitDashboardDemonstration — wait while the user demonstrates the fix on the dashboard so you can learn it. Requires human approval.
 - saveLearnedWorkflow — summarize the demonstrated procedure and ask the user to save it. Requires human approval.
 - recall_memory — search durable long-term memory for a saved procedure or fact. Call before handling an over-limit charge.
-- save_memory — persist a learned procedure/fact to durable memory (use scope "project", kind "operational" for the over-limit procedure).
+- save_memory — persist a learned procedure/fact to durable memory (use scope "project", kind "procedural" for the over-limit procedure).
 
 When you need the user to choose which card to act on (for example before
 assigning a policy or changing a PIN), call selectCard to render a visual card
@@ -111,7 +111,7 @@ call saveLearnedWorkflow with that transaction id and the exact code to ask the
 user to save it. Once saveLearnedWorkflow returns a result whose status is "saved",
 call save_memory with:
   scope: "project",
-  kind: "operational",
+  kind: "procedural",
   content: "To approve an over-limit charge, open a policy exception with code <CODE>
             against the charge and finalize it, then approve the transaction."
 (substitute the exact demonstrated code from the saveLearnedWorkflow result). Save

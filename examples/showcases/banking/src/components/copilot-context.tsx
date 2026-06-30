@@ -807,7 +807,7 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
               // agent tends to re-run the just-saved procedure on that same charge —
               // opening a redundant exception on an approved transaction.
               respond?.(
-                `(status: saved) ${canonicalProcedure(code)} Now persist this durably: call save_memory with scope "project", kind "operational", and content describing this over-limit procedure using code "${code}". You learned this by watching the user clear transaction ${transactionId}, which is already approved now — do NOT apply the procedure to ${transactionId} again or re-approve it. The original request is complete; wait for the user's next instruction before acting.`,
+                `(status: saved) ${canonicalProcedure(code)} Now persist this durably: call save_memory with scope "project", kind "procedural", and content describing this over-limit procedure using code "${code}". You learned this by watching the user clear transaction ${transactionId}, which is already approved now — do NOT apply the procedure to ${transactionId} again or re-approve it. The original request is complete; wait for the user's next instruction before acting.`,
               );
             }}
             onDeny={() => {
