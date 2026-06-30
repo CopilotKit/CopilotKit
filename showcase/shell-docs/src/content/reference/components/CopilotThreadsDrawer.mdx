@@ -1,20 +1,20 @@
 ---
-title: "CopilotDrawer"
+title: "CopilotThreadsDrawer"
 description: "Prebuilt threads drawer that lists, switches, and manages conversations next to CopilotChat"
 ---
 
 ## Overview
 
-`CopilotDrawer` is a prebuilt thread switcher. Dropped in next to [`CopilotChat`](/reference/components/CopilotChat), it lists the user's conversations and lets them switch, start, rename, archive, and delete threads — with **no active-thread state to wire up**. It is a thin React wrapper around the framework-agnostic `<copilotkit-drawer>` shadow-DOM web component, fed by the [`useThreads`](/reference/hooks/useThreads) hook and the surrounding chat configuration.
+`CopilotThreadsDrawer` is a prebuilt thread switcher. Dropped in next to [`CopilotChat`](/reference/components/CopilotChat), it lists the user's conversations and lets them switch, start, rename, archive, and delete threads — with **no active-thread state to wire up**. It is a thin React wrapper around the framework-agnostic `<copilotkit-threads-drawer>` shadow-DOM web component, fed by the [`useThreads`](/reference/hooks/useThreads) hook and the surrounding chat configuration.
 
 When `onThreadSelect` / `onNewThread` are omitted, the drawer drives the surrounding chat configuration directly: selecting a row connects the chat to that thread (and replays its history); "+ New" resets the chat to a fresh welcome screen. Pass the callbacks only to take control of the active thread yourself.
 
-See the [CopilotDrawer guide](/prebuilt-components/copilot-drawer) for a walkthrough, and [`useThreads`](/reference/hooks/useThreads) for the headless data layer underneath.
+See the [CopilotThreadsDrawer guide](/prebuilt-components/copilot-threads-drawer) for a walkthrough, and [`useThreads`](/reference/hooks/useThreads) for the headless data layer underneath.
 
 ## Import
 
 ```tsx
-import { CopilotDrawer } from "@copilotkit/react-core/v2";
+import { CopilotThreadsDrawer } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
 ```
 
@@ -28,7 +28,7 @@ import "@copilotkit/react-core/v2/styles.css";
 <PropertyReference name="onThreadSelect" type="(threadId: string) => void">
   Optional escape hatch called when the user picks a thread row. When omitted,
   the drawer drives the surrounding chat configuration directly
-  (`setActiveThreadId`), so a bare `<CopilotDrawer>` switches the rendered
+  (`setActiveThreadId`), so a bare `<CopilotThreadsDrawer>` switches the rendered
   thread with no host wiring. Provide this only to take control of the active
   thread yourself.
 </PropertyReference>
@@ -59,7 +59,7 @@ import "@copilotkit/react-core/v2/styles.css";
   `fetchMoreThreads`). Omit to load the full list at once with no control.
 </PropertyReference>
 
-<PropertyReference name="data-testid" type="string" default="copilot-drawer">
+<PropertyReference name="data-testid" type="string" default="copilot-threads-drawer">
   `data-testid` set on the underlying custom element, for tests and for
   targeting from a host page.
 </PropertyReference>
@@ -84,9 +84,9 @@ Project light-DOM children with a `slot` attribute to replace a region:
 | `row:{id}` | Per-row content — prefer the `renderRow` prop, which manages this. |
 
 ```tsx
-<CopilotDrawer>
+<CopilotThreadsDrawer>
   <span slot="header">My conversations</span>
-</CopilotDrawer>
+</CopilotThreadsDrawer>
 ```
 
 ### CSS parts
@@ -117,7 +117,7 @@ Tokens override the bundled defaults and fall back to the host theme's vars
 function App() {
   return (
     <div style={{ display: "flex", height: "100%" }}>
-      <CopilotDrawer />
+      <CopilotThreadsDrawer />
       <CopilotChat />
     </div>
   );
@@ -129,7 +129,7 @@ function App() {
 ```tsx
 function App() {
   return (
-    <CopilotDrawer
+    <CopilotThreadsDrawer
       label="History"
       renderRow={(thread) => <em>{thread.name ?? "New conversation"}</em>}
     />
@@ -148,6 +148,6 @@ function App() {
 
 ## Related
 
-- [CopilotDrawer guide](/prebuilt-components/copilot-drawer) — walkthrough and setup
+- [CopilotThreadsDrawer guide](/prebuilt-components/copilot-threads-drawer) — walkthrough and setup
 - [`useThreads`](/reference/hooks/useThreads) — the headless thread data + mutations
 - [`CopilotChat`](/reference/components/CopilotChat) — the chat the drawer connects to
