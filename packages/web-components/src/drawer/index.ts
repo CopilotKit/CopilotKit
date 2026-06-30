@@ -16,5 +16,5 @@ export type {
   RetryDetail,
   ThreadSelectedDetail,
   UnarchiveDetail,
-  UnlicensedDetail,
+  LicensedDetail,
 } from "./types";

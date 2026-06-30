@@ -75,7 +75,7 @@ async function setup(options: SetupOptions = {}) {
     "filter-change",
     "open-change",
     "retry",
-    "unlicensed",
+    "licensed",
     "load-more",
   ];
   for (const type of captureTypes) {
@@ -367,29 +367,29 @@ test("initial-fetch error is actionable — Retry emits retry{initial}", async (
   teardown();
 });
 
-test("unlicensed view replaces the list and the CTA emits the unlicensed event", async () => {
+test("locked view replaces the list and the CTA emits the `licensed` event", async () => {
   const { element, q, events, teardown } = await setup({
     threads: [makeThread()],
   });
   element.licensed = false;
   await flush(element);
 
-  expect(q('[data-testid="drawer-unlicensed"]')).not.toBeNull();
+  expect(q('[data-testid="drawer-licensed"]')).not.toBeNull();
   expect(q("li.row")).toBeNull();
 
-  (q('[part="unlicensed-cta"]') as HTMLElement).click();
+  (q('[part="licensed-cta"]') as HTMLElement).click();
 
-  expect(events.some((e) => e.type === "unlicensed")).toBe(true);
+  expect(events.some((e) => e.type === "licensed")).toBe(true);
   teardown();
 });
 
-test("unlicensed view beats error — an unlicensed org sees the prompt, not the error state", async () => {
+test("locked view beats error — an unlicensed org sees the prompt, not the error state", async () => {
   const { element, q, teardown } = await setup({ threads: [] });
   element.licensed = false;
   element.error = "Some fetch error";
   await flush(element);
 
-  expect(q('[data-testid="drawer-unlicensed"]')).not.toBeNull();
+  expect(q('[data-testid="drawer-licensed"]')).not.toBeNull();
   expect(q('[data-testid="drawer-error"]')).toBeNull();
   teardown();
 });

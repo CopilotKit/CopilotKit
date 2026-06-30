@@ -468,13 +468,13 @@ test("retry (initial) refetches; retry (fetch-more) fetches more", async () => {
   expect(mutations.fetchMoreThreads).toHaveBeenCalledTimes(1);
 });
 
-test("unlicensed routes to onUnlicensed", async () => {
-  const onUnlicensed = vi.fn();
-  await renderDrawer({ onUnlicensed });
+test("licensed event routes to onLicensed", async () => {
+  const onLicensed = vi.fn();
+  await renderDrawer({ onLicensed });
 
-  dispatch("unlicensed", {});
+  dispatch("licensed", {});
 
-  expect(onUnlicensed).toHaveBeenCalledTimes(1);
+  expect(onLicensed).toHaveBeenCalledTimes(1);
 });
 
 test("open-change drives the chat configuration drawerOpen", async () => {
@@ -501,7 +501,7 @@ test("drawerOpen reflects onto the element's open property", async () => {
   await waitFor(() => expect(getElement().open).toBe(true));
 });
 
-test("two-pronged license: no license configured shows unlicensed (licensed=false)", async () => {
+test("two-pronged license: no license configured shows the locked view (licensed=false)", async () => {
   setLicensed(false); // status "none"
   await renderDrawer();
 
@@ -537,10 +537,10 @@ test("licensed drawer enables the thread fetch (enabled=true)", async () => {
   expect(lastInput.enabled).toBe(true);
 });
 
-test("pending license (status null) shows loading, never the unlicensed view", async () => {
+test("pending license (status null) shows loading, never the locked view", async () => {
   // Before the runtime reports a license, `status` is null. The drawer must NOT
-  // flash (or strand) the unlicensed during this window: it renders as licensed
-  // (so `_renderBody` skips the unlicensed) with loading forced on, and holds the
+  // flash (or strand) the locked view during this window: it renders as licensed
+  // (so `_renderBody` skips the locked view) with loading forced on, and holds the
   // fetch until the status resolves.
   licenseMock.mockReturnValue({
     status: null,

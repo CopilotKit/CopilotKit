@@ -166,7 +166,7 @@ export class CopilotKitDrawer extends LitElement {
   error: string | null = null;
   /** Inbound: currently-open thread id (drives row selection highlight). */
   activeThreadId: string | null = null;
-  /** Inbound: whether the org is licensed for threads; `false` shows unlicensed. */
+  /** Inbound: whether the org is licensed for threads; `false` shows the locked view. */
   licensed = true;
   /** Inbound: whether more pages are available. */
   hasMore = false;
@@ -550,9 +550,9 @@ export class CopilotKitDrawer extends LitElement {
   }
 
   private _renderBody() {
-    // Unlicensed beats error: an unlicensed org always sees the unlicensed, never the
+    // The locked view beats error: an unlicensed org always sees it, never the
     // initial-fetch error.
-    if (!this.licensed) return this._renderUnlicensed();
+    if (!this.licensed) return this._renderLicensed();
     // The full-panel error replaces the list ONLY when there is nothing to show
     // (a failed initial fetch). The bound `error` reflects the core store error,
     // which a failed mutation (delete/rename/archive) also sets — a delete
@@ -569,15 +569,15 @@ export class CopilotKitDrawer extends LitElement {
     return this._renderList();
   }
 
-  private _renderUnlicensed() {
+  private _renderLicensed() {
     return html`
-      <div class="unlicensed" part="unlicensed" data-testid="drawer-unlicensed">
-        <slot name="unlicensed">
+      <div class="licensed" part="licensed" data-testid="drawer-licensed">
+        <slot name="licensed">
           <p>Threads are a CopilotKit Intelligence feature.</p>
           <button
             class="primary"
-            part="unlicensed-cta"
-            @click=${() => this._emit("unlicensed", {})}
+            part="licensed-cta"
+            @click=${() => this._emit("licensed", {})}
           >
             Upgrade
           </button>

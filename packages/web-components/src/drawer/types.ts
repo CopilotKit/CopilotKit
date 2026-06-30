@@ -74,8 +74,8 @@ export interface RetryDetail {
 /** `detail` for the `new-thread` event. */
 export type NewThreadDetail = Record<string, never>;
 
-/** `detail` for the `unlicensed` event (CTA → pricing). */
-export type UnlicensedDetail = Record<string, never>;
+/** `detail` for the `licensed` event (Upgrade CTA click). */
+export type LicensedDetail = Record<string, never>;
 
 /** `detail` for the `load-more` event (advance pagination; no payload). */
 export type LoadMoreDetail = Record<string, never>;
@@ -94,6 +94,6 @@ export interface CopilotKitDrawerEventMap {
   "filter-change": CustomEvent<FilterChangeDetail>;
   "open-change": CustomEvent<OpenChangeDetail>;
   retry: CustomEvent<RetryDetail>;
-  unlicensed: CustomEvent<UnlicensedDetail>;
+  licensed: CustomEvent<LicensedDetail>;
   "load-more": CustomEvent<LoadMoreDetail>;
 }

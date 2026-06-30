@@ -68,7 +68,7 @@ export interface CopilotDrawerProps {
    */
   onNewThread?: () => void;
   /** Called when the Upgrade CTA is clicked. */
-  onUnlicensed?: () => void;
+  onLicensed?: () => void;
   /**
    * Optional per-row content. Rendered as light-DOM children with
    * `slot="row:{id}"` so the element projects them in place of the default
@@ -173,7 +173,7 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  *   thread-list launcher appears, and binds the element `open` state to the
  *   configuration's `drawerOpen`.
  *
- * License gating is two-pronged: the unlicensed shows when no license is configured
+ * License gating is two-pronged: the locked view shows when no license is configured
  * (the runtime reported no license status) OR the `threads` feature is
  * explicitly unlicensed. While unlicensed, the thread fetch is skipped entirely
  * so an unlicensed drawer issues no network requests.
@@ -198,7 +198,7 @@ export function CopilotDrawer({
   agentId,
   onThreadSelect,
   onNewThread,
-  onUnlicensed,
+  onLicensed,
   renderRow,
   label,
   limit,
@@ -212,25 +212,25 @@ export function CopilotDrawer({
   // We therefore also require a positive license-present signal from the
   // runtime-reported status. Only a "valid" or "expiring" license is treated
   // as present; a resolved "none"/"expired"/"invalid" status gates the drawer
-  // to the unlicensed.
+  // to the locked view.
   const licensePresent = status === "valid" || status === "expiring";
   const featureLicensed = checkFeature("threads");
   const licensed = licensePresent && featureLicensed;
 
   // The runtime reports license status asynchronously: `status` is null until
   // the first /info response lands. Treat that pending window as "not yet
-  // unlicensed" — show the loading state, never the unlicensed — so a licensed
+  // unlicensed" — show the loading state, never the locked view — so a licensed
   // drawer doesn't flash the upgrade CTA before its license resolves (and never
   // strands the CTA on screen when the status is slow or fails to arrive). Only
   // a RESOLVED-negative status (`none`/`expired`/`invalid`, or a present license
-  // missing the `threads` feature) surfaces the unlicensed.
+  // missing the `threads` feature) surfaces the locked view.
   const licensePending = status === null;
 
   const resolvedAgentId = agentId ?? configuration?.agentId ?? "default";
   const activeThreadId = configuration?.threadId ?? null;
 
   // While unlicensed, skip the thread fetch entirely: the element shows only
-  // its unlicensed and no `/threads` request is issued.
+  // its locked view and no `/threads` request is issued.
   const {
     threads,
     isLoading,
@@ -403,9 +403,9 @@ export function CopilotDrawer({
     [setDrawerOpen],
   );
 
-  const handleUnlicensed = useCallback(() => {
-    onUnlicensed?.();
-  }, [onUnlicensed]);
+  const handleLicensed = useCallback(() => {
+    onLicensed?.();
+  }, [onLicensed]);
 
   const handleLoadMore = useCallback(() => {
     // Advance pagination. No-op when there is no next page; the element only
@@ -424,7 +424,7 @@ export function CopilotDrawer({
     handleFilterChange,
     handleRetry,
     handleOpenChange,
-    handleUnlicensed,
+    handleLicensed,
     handleLoadMore,
   });
   handlersRef.current = {
@@ -436,7 +436,7 @@ export function CopilotDrawer({
     handleFilterChange,
     handleRetry,
     handleOpenChange,
-    handleUnlicensed,
+    handleLicensed,
     handleLoadMore,
   };
 
@@ -475,7 +475,7 @@ export function CopilotDrawer({
       const detail = (event as CustomEvent<RetryDetail>).detail;
       handlersRef.current.handleRetry(detail.scope);
     };
-    const onUnlicensedEvent = () => handlersRef.current.handleUnlicensed();
+    const onLicensedEvent = () => handlersRef.current.handleLicensed();
     const onLoadMore = () => handlersRef.current.handleLoadMore();
 
     el.addEventListener("thread-selected", onThreadSelected);
@@ -486,7 +486,7 @@ export function CopilotDrawer({
     el.addEventListener("filter-change", onFilterChange);
     el.addEventListener("open-change", onOpenChangeEvent);
     el.addEventListener("retry", onRetry);
-    el.addEventListener("unlicensed", onUnlicensedEvent);
+    el.addEventListener("licensed", onLicensedEvent);
     el.addEventListener("load-more", onLoadMore);
 
     return () => {
@@ -498,7 +498,7 @@ export function CopilotDrawer({
       el.removeEventListener("filter-change", onFilterChange);
       el.removeEventListener("open-change", onOpenChangeEvent);
       el.removeEventListener("retry", onRetry);
-      el.removeEventListener("unlicensed", onUnlicensedEvent);
+      el.removeEventListener("licensed", onLicensedEvent);
       el.removeEventListener("load-more", onLoadMore);
     };
     // Re-bind only when the element identity changes (i.e. after first mount).
@@ -524,9 +524,9 @@ export function CopilotDrawer({
     // excluded via `listError` so they never leak into the drawer's error UI.
     el.error = listError ? listError.message : null;
     el.activeThreadId = activeThreadId;
-    // Pending counts as licensed for rendering: `_renderBody` shows the unlicensed
+    // Pending counts as licensed for rendering: `_renderBody` shows the locked view
     // only when `licensed` is false, so keeping it true until the status
-    // resolves prevents the unlicensed from flashing (or sticking) mid-resolution.
+    // resolves prevents the locked view from flashing (or sticking) mid-resolution.
     el.licensed = licensed || licensePending;
     el.hasMore = hasMoreThreads;
     el.fetchingMore = isFetchingMoreThreads;
