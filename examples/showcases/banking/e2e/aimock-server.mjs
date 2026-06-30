@@ -49,17 +49,27 @@ if (!ServerCtor) {
   process.exit(2);
 }
 
-const file = loadFixtureFile
+// loadFixtureFile returns a ready-to-use array of converted Fixture objects
+// (it parses the {fixtures:[...]} file and applies entryToFixture).
+const loadedFixtures = loadFixtureFile
   ? loadFixtureFile(FIXTURES)
-  : JSON.parse(
-      await (await import("node:fs/promises")).readFile(FIXTURES, "utf8"),
+  : (
+      JSON.parse(
+        await (await import("node:fs/promises")).readFile(FIXTURES, "utf8"),
+      ).fixtures ?? []
     );
-if (validateFixtures) validateFixtures(file);
+if (validateFixtures) validateFixtures(loadedFixtures);
 
-const server = new ServerCtor({ port: PORT, fixtures: file.fixtures ?? file });
+// NOTE: LLMock's constructor does NOT read `options.fixtures` — fixtures passed
+// that way are silently dropped and the server starts with zero fixtures (so
+// every LLM turn 404s "No fixture matched" and the agent never advances). They
+// MUST be registered via addFixtures()/addFixture(). (Verified against
+// @copilotkit/aimock@1.19.1: `new LLMock({fixtures}).getFixtures().length === 0`.)
+const server = new ServerCtor({ port: PORT });
+server.addFixtures(loadedFixtures);
 await server.start();
 console.log(
-  `[aimock-server] listening on :${PORT} with ${(file.fixtures ?? file).length} fixtures`,
+  `[aimock-server] listening on :${PORT} with ${server.getFixtures().length} fixtures`,
 );
 
 const shutdown = async () => {
