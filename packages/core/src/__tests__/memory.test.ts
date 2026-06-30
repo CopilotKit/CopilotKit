@@ -842,6 +842,59 @@ test("refresh() against a 404 route resolves (does not hang) and leaves availabl
   store.stop();
 });
 
+// H1: a `contextChanged` after refresh()'s `listRequested` but before the fetch
+// settles tears down the list fetch (its `takeUntil(contextChanged)`) with no
+// terminal list action for the captured session — refresh() must still SETTLE
+// (resolve, as a superseded refresh), not hang forever.
+test("refresh() resolves when a new setContext supersedes it before the fetch settles", async () => {
+  let resolveSecondList: ((value: unknown) => void) | undefined;
+  const fetchMock = vi
+    .fn()
+    // initial bootstrap: list + credentials
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+    })
+    // refresh's re-pulled list: never settles on its own — we drive the
+    // supersede before it resolves.
+    .mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSecondList = resolve;
+      }),
+    )
+    // the new context's bootstrap (list + credentials)
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+    .mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ joinToken: "jt-2", joinCode: "jc-2" }),
+    });
+  vi.stubGlobal("fetch", fetchMock);
+
+  const store = createMemoryStore(memoryEnvironment(fetchMock));
+  store.start();
+  store.setContext(sampleContext);
+  await flushEffects();
+
+  const pending = store.refresh();
+  // Supersede with a new context before the refresh's list fetch settles.
+  store.setContext({ ...sampleContext, headers: { "X-Cpki-User-Id": "u2" } });
+  await flushEffects();
+
+  await expect(
+    Promise.race([
+      pending,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("refresh() hung")), 1000),
+      ),
+    ]),
+  ).resolves.toBeUndefined();
+
+  // Tidy up the dangling first-refresh fetch promise.
+  resolveSecondList?.({ ok: true, json: async () => ({ memories: [] }) });
+  store.stop();
+});
+
 test("subscribe 404 → silent: error null, no console.warn", async () => {
   const fetchMock = vi
     .fn()
@@ -1147,6 +1200,77 @@ describe("memory mutation session guard and error handling", () => {
 
     // The old memory remains; the new one was NOT inserted as a duplicate.
     expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
+
+    store.stop();
+  });
+
+  // H2: a create whose 200 body omits `id` must reject and must not upsert a
+  // corrupt Memory with undefined fields into state.
+  test("addMemory rejects when the create response omits id (no corrupt memory)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        // No `id` on the response.
+        json: async () => ({
+          kind: "topical",
+          scope: "user",
+          content: "hi",
+          sourceThreadIds: [],
+          invalidatedAt: null,
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+
+    await expect(
+      store.addMemory({ content: "hi", kind: "topical" }),
+    ).rejects.toThrow("missing/invalid id");
+
+    expect(store.getState().memories).toEqual([]);
+
+    store.stop();
+  });
+
+  // H2: an invalid `kind` is rejected the same way.
+  test("addMemory rejects when the create response has an invalid kind", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "m1",
+          kind: "bogus",
+          scope: "user",
+          content: "hi",
+          sourceThreadIds: [],
+          invalidatedAt: null,
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+
+    await expect(
+      store.addMemory({ content: "hi", kind: "topical" }),
+    ).rejects.toThrow("missing/invalid kind");
+
+    expect(store.getState().memories).toEqual([]);
 
     store.stop();
   });

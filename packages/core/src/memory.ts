@@ -55,7 +55,10 @@ const MAX_SOCKET_RETRIES = 5;
  * the graceful "not available" locked-teaser path, not a hard error.
  */
 const ROUTE_UNAVAILABLE_STATUSES = new Set([404, 422, 501]);
-/** Thrown when a memory route returns a 404/501 — treated as "not configured". */
+/**
+ * Thrown when a memory route returns a 404/422/501 — treated as "not
+ * configured" (422 is the runtime's MISSING_INTELLIGENCE signal).
+ */
 class MemoryRouteUnavailableError extends Error {}
 
 /** Public, customer-facing memory kind vocabulary (single taxonomy, no mapping). */
@@ -121,7 +124,11 @@ interface MemoryState {
   available: boolean;
 }
 
-const initialMemoryState: MemoryState = {
+// Frozen so `getServerState()` (which returns this exact reference) cannot be
+// mutated in place by any caller; a single in-place write would otherwise
+// corrupt every SSR snapshot process-wide. The reducers are already immutable,
+// so freezing the seed is purely defensive and changes no runtime behavior.
+const initialMemoryState: MemoryState = Object.freeze({
   memories: [],
   isLoading: false,
   inFlightMutationCount: 0,
@@ -129,7 +136,7 @@ const initialMemoryState: MemoryState = {
   context: null,
   sessionId: 0,
   available: true,
-};
+});
 
 const memoryAdapterEvents = createActionGroup("Memory Adapter", {
   started: empty(),
@@ -406,7 +413,8 @@ const selectMemoriesIsMutating = createSelector(
 );
 /**
  * Reports whether the memory routes are available. Becomes `false` after a
- * 404 or 501 response during an auto-activation read; defaults to `true`.
+ * 404, 422 (the runtime's MISSING_INTELLIGENCE signal), or 501 response during
+ * an auto-activation read; defaults to `true`.
  */
 const selectMemoriesAvailable = createSelector(
   (state: MemoryState) => state.available,
@@ -634,6 +642,40 @@ function responseToMemory(data: {
   };
 }
 
+const MEMORY_KINDS: ReadonlySet<string> = new Set([
+  "topical",
+  "episodic",
+  "operational",
+]);
+const MEMORY_SCOPES: ReadonlySet<string> = new Set(["user", "project"]);
+
+/**
+ * Validates the required fields of a create/supersede REST response before it is
+ * projected to a {@link Memory}. Returns an `Error` describing the first
+ * missing/invalid field, or `null` when the body is well-formed. Without this a
+ * malformed 200 body yields a Memory with undefined fields that gets upserted.
+ */
+function validateMutationResponse(
+  data: Record<string, unknown> | null,
+): Error | null {
+  if (!data || typeof data !== "object") {
+    return new Error("memory mutation response missing/invalid body");
+  }
+  if (typeof data.id !== "string" || data.id.length === 0) {
+    return new Error("memory mutation response missing/invalid id");
+  }
+  if (typeof data.kind !== "string" || !MEMORY_KINDS.has(data.kind)) {
+    return new Error("memory mutation response missing/invalid kind");
+  }
+  if (typeof data.scope !== "string" || !MEMORY_SCOPES.has(data.scope)) {
+    return new Error("memory mutation response missing/invalid scope");
+  }
+  if (typeof data.content !== "string") {
+    return new Error("memory mutation response missing/invalid content");
+  }
+  return null;
+}
+
 /**
  * Request body for create/supersede. `scope` is forwarded only when the caller
  * supplies it: the platform owns the default (`scope` defaults to `"user"` in
@@ -666,6 +708,19 @@ function buildMutationSuccessActions(
       memoryDomainEvents.memoryInvalidated({ sessionId, memoryId: request.id }),
       memoryRestEvents.mutationFinished({
         outcome: { requestId, sessionId, ok: true, memory: null },
+      }),
+    ];
+  }
+
+  // Validate the required fields before projecting. A malformed 200 body would
+  // otherwise yield a Memory with undefined fields that gets upserted into
+  // state. Fail the mutation instead, mirroring the `retiredId` validation
+  // below and the credentials path's joinToken/joinCode validation.
+  const validationError = validateMutationResponse(data);
+  if (validationError) {
+    return [
+      memoryRestEvents.mutationFinished({
+        outcome: { requestId, sessionId, ok: false, error: validationError },
       }),
     ];
   }
@@ -1098,6 +1153,11 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
           filter((action) => action.sessionId === sessionId),
         ),
         store.actions$.pipe(ofType(memoryAdapterEvents.stopped)),
+        // The list `fetchEffect` has `takeUntil(contextChanged, stopped)`, so a
+        // `contextChanged` fired after this `listRequested` but before the fetch
+        // settles tears down the fetch with NO terminal list action for our
+        // session — `await refresh()` would hang forever. Settle on it too.
+        store.actions$.pipe(ofType(memoryAdapterEvents.contextChanged)),
       ).pipe(take(1));
 
       // `await refresh()` resolving must mean the snapshot actually refreshed,
@@ -1113,6 +1173,12 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
         if (memoryAdapterEvents.stopped.match(action)) {
           throw new Error("Memory store stopped before refresh completed");
         }
+        // A `contextChanged` superseded this refresh: a new context is loading
+        // its own snapshot, so this refresh is moot. RESOLVE (do not reject) —
+        // resolving is the least-surprising outcome for a superseded refresh.
+        if (memoryAdapterEvents.contextChanged.match(action)) {
+          return;
+        }
         // `listSucceeded` and `listUnavailable` both RESOLVE: an unavailable
         // (not-configured) route is a non-fatal terminal state, consistent with
         // the auto-load path which leaves `available: false` without erroring.
@@ -1126,7 +1192,12 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
           requestId: createMemoryRequestId(),
           input,
         }),
-        (outcome) => outcome.memory as Memory,
+        (outcome) => {
+          if (outcome.memory == null) {
+            throw new Error("add resolved without a memory");
+          }
+          return outcome.memory;
+        },
       );
     },
     updateMemory(id: string, changes: MemoryChanges): Promise<Memory> {
@@ -1136,7 +1207,12 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
           id,
           changes,
         }),
-        (outcome) => outcome.memory as Memory,
+        (outcome) => {
+          if (outcome.memory == null) {
+            throw new Error("update resolved without a memory");
+          }
+          return outcome.memory;
+        },
       );
     },
     removeMemory(id: string): Promise<void> {
