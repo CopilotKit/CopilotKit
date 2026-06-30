@@ -78,3 +78,11 @@ export type {
   Suggestion,
   SuggestionsConfig,
 } from "@copilotkit/core";
+
+export type {
+  Memory,
+  NewMemory,
+  MemoryChanges,
+  MemoryKind,
+  MemoryScope,
+} from "@copilotkit/core";

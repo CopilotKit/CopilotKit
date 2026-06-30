@@ -35,8 +35,9 @@ export interface UseMemoriesResult {
   isLoading: boolean;
   /**
    * The most recent error from fetching memories or executing a mutation, or
-   * `null` when there is no error. Reset to `null` on the next successful
-   * fetch.
+   * `null` when there is no error. Cleared on the next fetch attempt, on a
+   * successful fetch, when the runtime context changes, and on a successful
+   * mutation (a failed mutation replaces it with that mutation's error).
    */
   error: Error | null;
   /**
@@ -59,6 +60,11 @@ export interface UseMemoriesResult {
    * Supersede a memory: the old memory is retired and a new one is created.
    * Resolves to the new memory (its `id` differs from `id`); rejects on
    * failure.
+   *
+   * Supersede is a FULL replacement, not a partial patch: `changes` is the
+   * complete definition of the new memory. You must re-supply `content` and
+   * `kind`, and an omitted `sourceThreadIds` resets the new memory's source
+   * threads to empty — it does not preserve the prior memory's value.
    */
   updateMemory: (id: string, changes: MemoryChanges) => Promise<Memory>;
   /**

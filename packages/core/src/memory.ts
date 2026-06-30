@@ -88,7 +88,15 @@ export interface NewMemory {
   sourceThreadIds?: readonly string[];
 }
 
-/** New values for superseding (updating) a memory — same shape as create. */
+/**
+ * New values for superseding (updating) a memory — same shape as create.
+ *
+ * Supersede is a FULL replacement, not a partial patch: this is the complete
+ * definition of the new memory that replaces the old one. `content` and `kind`
+ * are required and must be re-supplied, and an omitted `sourceThreadIds` resets
+ * the new memory's source threads to `[]` — it does NOT preserve the prior
+ * memory's value.
+ */
 export type MemoryChanges = NewMemory;
 
 /** Outcome of a mutation, tracked so the caller's promise resolves/rejects. */
