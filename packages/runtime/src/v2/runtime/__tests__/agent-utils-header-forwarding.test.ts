@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { configureAgentForRequest } from "../handlers/shared/agent-utils";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CopilotRuntimeLike } from "../core/runtime";
 
@@ -18,6 +19,10 @@ function createMockAgent(headers?: Record<string, string>): AbstractAgent {
 function createMockRuntime(): CopilotRuntimeLike {
   return {
     agents: Promise.resolve({}),
+    // The /run call site reads the resolved policy off the runtime; default
+    // (built-in denylist on) is fine here since these tests use non-denylisted
+    // custom headers.
+    forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
   } as unknown as CopilotRuntimeLike;
 }
 
@@ -192,6 +197,68 @@ describe("configureAgentForRequest – header forwarding", () => {
     const headers = (agent as any).headers as Record<string, string>;
     expect(headers["authorization"]).toBe("Bearer secret-token");
     expect(headers["content-type"]).toBeUndefined();
+  });
+
+  it("strips denylisted infra/platform headers while forwarding custom x-* (#5712 breadth)", () => {
+    const agent = createMockAgent();
+    const request = createRequest({
+      "Content-Type": "application/json",
+      // Denylisted infra/platform headers — the leak we're closing.
+      "X-Forwarded-For": "203.0.113.7",
+      "X-Real-IP": "203.0.113.7",
+      "X-Vercel-Id": "iad1::abc",
+      "X-Copilotcloud-Public-Api-Key": "ck_pub_secret",
+      // Legitimate custom headers — must still forward.
+      "X-Tenant-Id": "tenant-123",
+      Authorization: "Bearer user-token",
+    });
+
+    configureAgentForRequest({
+      runtime: createMockRuntime(),
+      request,
+      agentId: "test-agent",
+      agent,
+    });
+
+    const headers = (agent as any).headers as Record<string, string>;
+
+    // Denylisted headers must NOT reach the outgoing agent call.
+    expect(headers["x-forwarded-for"]).toBeUndefined();
+    expect(headers["x-real-ip"]).toBeUndefined();
+    expect(headers["x-vercel-id"]).toBeUndefined();
+    expect(headers["x-copilotcloud-public-api-key"]).toBeUndefined();
+    // Custom application headers + authorization still forward.
+    expect(headers["x-tenant-id"]).toBe("tenant-123");
+    expect(headers["authorization"]).toBe("Bearer user-token");
+  });
+
+  it("applies a custom forwardHeaders policy from the runtime (plumb-through)", () => {
+    const agent = createMockAgent();
+    const request = createRequest({
+      "X-Forwarded-For": "203.0.113.7",
+      "X-Tenant-Id": "tenant-123",
+    });
+
+    // useDefaultDenylist:false restores the old wide-open behavior.
+    const runtime = {
+      agents: Promise.resolve({}),
+      forwardHeadersPolicy: resolveForwardHeadersPolicy({
+        useDefaultDenylist: false,
+      }),
+    } as unknown as CopilotRuntimeLike;
+
+    configureAgentForRequest({
+      runtime,
+      request,
+      agentId: "test-agent",
+      agent,
+    });
+
+    const headers = (agent as any).headers as Record<string, string>;
+    // With the denylist disabled, the infra header forwards again — proving the
+    // runtime-resolved policy is actually applied on the /run path.
+    expect(headers["x-forwarded-for"]).toBe("203.0.113.7");
+    expect(headers["x-tenant-id"]).toBe("tenant-123");
   });
 
   it("results in empty headers object when request has no forwardable headers and agent.headers is undefined", () => {
