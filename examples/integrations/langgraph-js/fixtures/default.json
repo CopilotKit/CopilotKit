@@ -49,6 +49,12 @@
       }
     },
     {
+      "match": { "toolCallId": "call_schedule_time_001" },
+      "response": {
+        "content": "Your 30-minute meeting to learn about CopilotKit is scheduled. I've added it to your calendar — let me know if you'd like to change the time."
+      }
+    },
+    {
       "match": { "userMessage": "Hello" },
       "response": {
         "content": "Hello! I'm your LangGraph-powered assistant. I can help you manage proverbs, get weather information, and more. What would you like to do?"
@@ -105,7 +111,13 @@
     {
       "match": { "userMessage": "schedule a 30-minute meeting" },
       "response": {
-        "content": "Great! I'd love to help you learn about CopilotKit. In a live run I'd open the scheduleTime picker so you can choose a slot for a 30-minute meeting. (This is a scripted mock reply -- add your OPENAI_API_KEY to .env for the full interactive scheduler.)"
+        "toolCalls": [
+          {
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Learn about CopilotKit\",\"meetingDuration\":30}",
+            "id": "call_schedule_time_001"
+          }
+        ]
       }
     },
     {

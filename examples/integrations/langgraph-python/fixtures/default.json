@@ -61,6 +61,12 @@
       }
     },
     {
+      "match": { "toolCallId": "call_schedule_time_001" },
+      "response": {
+        "content": "Your 30-minute meeting to learn about CopilotKit is scheduled. I've added it to your calendar — let me know if you'd like to change the time."
+      }
+    },
+    {
       "match": { "userMessage": "pie chart of our revenue" },
       "response": {
         "toolCalls": [
