@@ -196,7 +196,9 @@ export function attachSlackListener(config: ListenerConfig): void {
       await onTurn(
         {
           conversation: { channelId: message.channel, scope: DM_SCOPE },
-          replyTarget: { channel: message.channel },
+          // Flat DM reply (no threadTs); carry the inbound ts so the renderer
+          // can anchor the native "is thinking…" status to a thread.
+          replyTarget: { channel: message.channel, statusTs: message.ts },
           userText: text,
           senderUserId: message.user,
           eventId: deriveEventId(body, message, message.channel),

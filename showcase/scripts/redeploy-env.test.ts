@@ -68,17 +68,17 @@ describe("runRedeploy", () => {
     });
 
     expect(result.exitCode).toBe(0);
-    // 39 CI-built (27 showcase/infra incl. the staging-only
-    // showcase-strands-typescript, + 12 starters) + harness-workers
-    // (imageOf consumer of showcase-harness) = 40. All 39 declare staging,
-    // so the env-aware default scope keeps every one of them.
+    // 39 CI-built (27 showcase/infra incl. showcase-strands-typescript,
+    // now dual-env, + 12 starters) + harness-workers (imageOf consumer of
+    // showcase-harness) = 40. All 39 declare staging, so the env-aware
+    // default scope keeps every one of them.
     expect(result.attempted).toBe(40);
     expect(result.succeeded).toBe(40);
     expect(redeploy).toHaveBeenCalledTimes(40);
     // pocketbase is now CI-built, so it IS in the default redeploy scope.
     expect(seenNames).toContain("pocketbase");
-    // The staging-only TypeScript Strands integration declares staging, so
-    // it IS in the staging default scope (but NOT prod — see below).
+    // The TypeScript Strands integration declares staging, so it IS in the
+    // staging default scope (and now prod too — see below).
     expect(seenNames).toContain("showcase-strands-typescript");
     // S2: starters are CI-built, so they JOIN the default redeploy scope.
     expect(seenNames).toContain("starter-adk");
@@ -142,14 +142,14 @@ describe("runRedeploy", () => {
     ]);
   });
 
-  it("default prod scope excludes staging-only services (harness-workers + showcase-strands-typescript)", async () => {
-    // The default scope is env-aware: a service with no prod env never joins
-    // the prod scope. harness-workers (imageOf consumer, staging-only) is
-    // excluded by the env-aware imageOf expansion; showcase-strands-typescript
-    // (ciBuilt, staging-only — prod not yet provisioned) is excluded by the
-    // env-aware base-scope filter. The prod default = the 38 CI-built services
-    // that declare prod (26 showcase/infra + 12 starters), neither staging-only
-    // service.
+  it("default prod scope includes the dual-env worker (harness-workers) and dual-env showcase-strands-typescript", async () => {
+    // The default scope is env-aware: a service joins the prod scope when it
+    // declares a prod env. harness-workers is now dual-env (the prod worker was
+    // backfilled into the SSOT), so the env-aware imageOf expansion pulls it
+    // into the prod scope as a showcase-harness consumer. showcase-strands-typescript
+    // is also dual-env and joins. The prod default = the 40 services that
+    // declare prod (27 CI-built showcase/infra incl. showcase-strands-typescript
+    // + 12 starters + the imageOf-consumer harness-workers).
     const seenNames: string[] = [];
     const redeploy = vi.fn(async (serviceId: string) => {
       const name = Object.entries(SERVICES).find(
@@ -163,9 +163,12 @@ describe("runRedeploy", () => {
       redeploy,
       appendSummary,
     });
-    expect(result.attempted).toBe(38);
-    expect(seenNames).not.toContain("harness-workers");
-    expect(seenNames).not.toContain("showcase-strands-typescript");
+    expect(result.attempted).toBe(40);
+    // harness-workers is now dual-env, so a prod redeploy of its showcase-harness
+    // image bounces the prod worker too (it used to be silently skipped).
+    expect(seenNames).toContain("harness-workers");
+    // showcase-strands-typescript is dual-env, so it joins the prod scope.
+    expect(seenNames).toContain("showcase-strands-typescript");
     // S2: starters ARE in the default prod scope (CI-built, dual-env).
     expect(seenNames).toContain("starter-adk");
   });
@@ -704,10 +707,18 @@ describe("expandImageConsumers", () => {
     ]);
   });
 
-  it("excludes consumers that do not declare the target env (prod)", () => {
-    // harness-workers is staging-only; a prod redeploy of harness must not
-    // attempt the worker.
-    expect(expandImageConsumers(["harness"], "prod")).toEqual(["harness"]);
+  it("includes a dual-env consumer (harness-workers) in the prod expansion", () => {
+    // harness-workers is now dual-env (the prod worker was backfilled into the
+    // SSOT), so a prod redeploy of its showcase-harness image MUST also bounce
+    // the prod worker — the env-aware expansion pulls it in for prod just like
+    // staging. (The env-aware EXCLUSION branch — skipping a consumer that does
+    // not declare the target env — is exercised by expandImageConsumers' own
+    // Object.hasOwn(entry.environments, env) guard; there is no longer a
+    // single-env imageOf consumer in the SSOT to demonstrate it end-to-end.)
+    expect(expandImageConsumers(["harness"], "prod")).toEqual([
+      "harness",
+      "harness-workers",
+    ]);
   });
 
   it("returns the input unchanged for services without consumers", () => {

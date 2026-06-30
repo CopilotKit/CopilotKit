@@ -14,10 +14,10 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
   // Dedicated backend agent mounted at /declarative-gen-ui (see
-  // src/agent/server.ts). It wires NO generate_a2ui tool — the runtime's
-  // `injectA2UITool: true` below makes the Strands adapter auto-inject it and
-  // GENERATE the surface layout. Trailing slash so the sub-application's root
-  // route resolves.
+  // src/agent/server.ts). It wires NO generate_a2ui tool — the catalog the page
+  // passes to the provider auto-enables A2UI tool injection, so the Strands
+  // adapter auto-injects it and GENERATEs the surface layout. Trailing slash so
+  // the sub-application's root route resolves.
   return new HttpAgent({ url: `${AGENT_URL}/declarative-gen-ui/` });
 }
 
@@ -35,17 +35,11 @@ export const POST = async (req: NextRequest) => {
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
-        // Enable A2UI tool injection: the runtime injects a `generate_a2ui`
-        // tool and drives a secondary render planner to emit the surface ops,
-        // then the A2UIMiddleware paints them. The Strands adapter auto-injects
-        // the tool when it sees this forwarded flag. Pin the catalog the page
-        // registers so the planner doesn't fall back to the unregistered spec
-        // basic catalog ("Catalog not found"). Mirrors the langgraph-python
-        // declarative-gen-ui route.
-        a2ui: {
-          injectA2UITool: true,
-          defaultCatalogId: "declarative-gen-ui-catalog",
-        },
+        // No runtime `a2ui` config: the page passes a catalog to the provider
+        // (`<CopilotKit a2ui={{ catalog }}>`), which auto-enables A2UI and
+        // defaults tool injection on (CopilotKit >= 1.61.2, PR #5611). The
+        // Strands adapter then auto-injects `generate_a2ui` from the forwarded
+        // flag and drives the render planner the A2UIMiddleware paints.
       }),
     });
     return await handleRequest(req);

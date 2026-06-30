@@ -132,6 +132,7 @@ from agents.byoc_json_render import build_byoc_json_render_agent  # noqa: E402  
 from agents.voice_agent import build_voice_agent  # noqa: E402  (must follow instrumentor patch)
 from agents.a2ui_fixed import build_a2ui_fixed_schema_agent  # noqa: E402  (must follow instrumentor patch)
 from agents.a2ui_dynamic import build_a2ui_dynamic_agent  # noqa: E402  (must follow instrumentor patch)
+from agents.recovery_agent import build_a2ui_recovery_agent  # noqa: E402  (must follow instrumentor patch)
 
 load_dotenv()
 
@@ -175,6 +176,15 @@ a2ui_fixed_schema_app = create_strands_app(a2ui_fixed_schema_agui_agent, "/")
 a2ui_dynamic_agui_agent = build_a2ui_dynamic_agent()
 a2ui_dynamic_app = create_strands_app(a2ui_dynamic_agui_agent, "/")
 
+# A2UI error-recovery agent: same auto-inject dynamic-schema setup, but the
+# aimock fixtures force the inner render_a2ui to emit free-form/sloppy args (heal
+# pill) or a structurally-invalid surface on every attempt (exhaust pill); the
+# Strands adapter runs the toolkit validate->retry recovery loop on the
+# auto-inject path. Mounted as a dedicated agent so the Next.js route can proxy
+# to AGENT_URL/a2ui-recovery/.
+a2ui_recovery_agui_agent = build_a2ui_recovery_agent()
+a2ui_recovery_app = create_strands_app(a2ui_recovery_agui_agent, "/")
+
 # Create the FastAPI app from the AG-UI Strands integration
 agent_path = os.getenv("AGENT_PATH", "/")
 app = create_strands_app(agui_agent, agent_path)
@@ -196,6 +206,9 @@ app.mount("/a2ui-fixed-schema", a2ui_fixed_schema_app)
 # A2UI dynamic-schema: the Next.js route proxies to AGENT_URL/declarative-gen-ui/
 # (trailing slash) so the sub-application's root route resolves.
 app.mount("/declarative-gen-ui", a2ui_dynamic_app)
+# A2UI error-recovery: the Next.js route proxies to AGENT_URL/a2ui-recovery/
+# (trailing slash) so the sub-application's root route resolves.
+app.mount("/a2ui-recovery", a2ui_recovery_app)
 
 
 # Serve /health via middleware so it short-circuits BEFORE route resolution.

@@ -8,6 +8,8 @@ import {
 } from "@/lib/registry";
 import type { Integration, Demo, FeatureCategory } from "@/lib/registry";
 import { CodeBlock } from "@/components/code-block";
+import { resolveBackendUrl } from "@/lib/backend-url";
+import { getRuntimeConfig } from "@/lib/runtime-config.client";
 import demoContentData from "@/data/demo-content.json";
 
 type ViewMode = "preview" | "code";
@@ -160,6 +162,18 @@ export default function DojoPage() {
   const [codeViewMode, setCodeViewMode] = useState<"core" | "all">("core");
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  // Client-readiness gate for the preview iframe. The registry loads
+  // synchronously (getIntegrations() above), so `integration` is
+  // populated on the very first render — including SSR and the
+  // hydration render. The runtime backend host pattern, however, only
+  // exists post-hydration (the client reader returns an
+  // `.ssr-placeholder.invalid` sentinel until window.__SHOWCASE_CONFIG__
+  // is readable). Gating previewUrl on `mounted` ensures we never render
+  // the iframe with the sentinel host — which would fire a real request
+  // at a `.invalid` domain and flash before the real URL swaps in.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const integration = useMemo(
     () => integrations.find((i) => i.slug === selectedSlug),
     [integrations, selectedSlug],
@@ -284,9 +298,18 @@ export default function DojoPage() {
     window.history.replaceState(null, "", `${window.location.pathname}${next}`);
   }, [integrations, selectedSlug, selectedDemoId]);
 
+  // Derive the preview backend at REQUEST time from the runtime host
+  // pattern — never the registry's `backend_url`, which is baked at
+  // Docker build and froze prod hostnames into every image (so the
+  // staging dojo iframed prod integrations). Gated on `mounted` so the
+  // SSR-phase sentinel pattern never reaches an iframe src (see the
+  // `mounted` declaration above and lib/runtime-config.client.ts).
   const previewUrl =
-    integration && selectedDemo
-      ? `${integration.backend_url}${selectedDemo.route}`
+    mounted && integration && selectedDemo
+      ? `${resolveBackendUrl(
+          integration.slug,
+          getRuntimeConfig().backendHostPattern,
+        )}${selectedDemo.route}`
       : null;
 
   return (

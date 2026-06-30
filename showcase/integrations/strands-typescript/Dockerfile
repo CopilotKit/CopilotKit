@@ -40,6 +40,7 @@ COPY --chown=app:app --from=frontend /app/public ./public
 # Agent code + prod-only deps (installed in agent-deps stage, not at runtime)
 COPY --chown=app:app --from=agent-deps /agent/node_modules ./src/agent/node_modules
 COPY --chown=app:app src/agent ./src/agent
+COPY --chown=app:app src/cvdiag ./src/cvdiag
 
 # Entrypoint
 COPY --chown=app:app entrypoint.sh ./

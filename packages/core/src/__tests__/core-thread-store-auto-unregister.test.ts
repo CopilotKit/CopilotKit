@@ -28,7 +28,18 @@ function makeStore(id = "store"): ɵThreadStore & { __testId: string } {
     unarchiveThread: vi.fn(),
     deleteThread: vi.fn(),
     getState: vi.fn(),
+    getServerState: vi.fn(),
     select: vi.fn(),
+    refetchThreads: vi.fn(),
+    startNewThread: vi.fn(),
+    selectors: {
+      threads: vi.fn(),
+      isLoading: vi.fn(),
+      error: vi.fn(),
+      hasNextPage: vi.fn(),
+      isFetchingNextPage: vi.fn(),
+      isMutating: vi.fn(),
+    },
   };
   return Object.assign(store, { __testId: id });
 }
