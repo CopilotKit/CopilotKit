@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { configureAgentForRequest } from "../handlers/shared/agent-utils";
+import {
+  cloneAgentForRequest,
+  configureAgentForRequest,
+} from "../handlers/shared/agent-utils";
 import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CopilotRuntimeLike } from "../core/runtime";
@@ -314,5 +317,96 @@ describe("configureAgentForRequest – header forwarding", () => {
     // Even with no forwardable headers, agent.headers should be set (not undefined)
     expect((agent as any).headers).toBeDefined();
     expect((agent as any).headers).toEqual({});
+  });
+});
+
+describe("clone isolation – registered agent is never mutated by a request (#5712)", () => {
+  /**
+   * Builds a registered agent whose `clone()` returns a SEPARATE object with a
+   * fresh copy of `headers`, mirroring the real per-request clone the run/connect
+   * paths take via `cloneAgentForRequest`. The registered instance must stay
+   * untouched so a bearer token forwarded for one request can never leak into
+   * the shared registration and onto a subsequent, different request.
+   */
+  function createRegisteredAgent(
+    headers?: Record<string, string>,
+  ): AbstractAgent {
+    const agent = {
+      headers,
+      use: () => {},
+      clone() {
+        return {
+          // Alias the same headers object — the registration is protected only
+          // if the merge does NOT mutate its `base` in place. This deliberately
+          // does NOT deep-copy so the test also guards against an in-place
+          // mutation regression in mergeForwardableHeaders (a reassignment-style
+          // merge leaves the aliased registration untouched; an in-place merge
+          // would leak the inbound keys into it).
+          headers: this.headers,
+          use: () => {},
+        } as unknown as AbstractAgent;
+      },
+    };
+    return agent as unknown as AbstractAgent;
+  }
+
+  function createRuntimeWith(agent: AbstractAgent): CopilotRuntimeLike {
+    return {
+      agents: Promise.resolve({ "test-agent": agent }),
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
+    } as unknown as CopilotRuntimeLike;
+  }
+
+  it("merges inbound headers onto the clone WITHOUT touching the registered agent's headers", async () => {
+    const registered = createRegisteredAgent({
+      authorization: "Bearer SERVER-TOKEN",
+      "x-existing": "keep-me",
+    });
+    const runtime = createRuntimeWith(registered);
+
+    // Snapshot of the registered agent's headers BEFORE the request is handled.
+    const before = {
+      ...((registered as any).headers as Record<string, string>),
+    };
+
+    const request = createRequest({
+      "x-aimock-context": "langgraph-python",
+      "x-tenant-id": "tenant-123",
+    });
+
+    const clone = (await cloneAgentForRequest(
+      runtime,
+      "test-agent",
+      request,
+    )) as AbstractAgent;
+
+    configureAgentForRequest({
+      runtime,
+      request,
+      agentId: "test-agent",
+      agent: clone,
+    });
+
+    const cloneHeaders = (clone as any).headers as Record<string, string>;
+    const registeredHeaders = (registered as any).headers as Record<
+      string,
+      string
+    >;
+
+    // The clone carries the server headers PLUS the merged inbound set...
+    expect(cloneHeaders["authorization"]).toBe("Bearer SERVER-TOKEN");
+    expect(cloneHeaders["x-existing"]).toBe("keep-me");
+    expect(cloneHeaders["x-aimock-context"]).toBe("langgraph-python");
+    expect(cloneHeaders["x-tenant-id"]).toBe("tenant-123");
+
+    // ...while the SHARED registered agent is byte-for-byte unchanged. If the
+    // impl mutated the registration in place (e.g. assigned merged headers back
+    // onto the shared object, or the clone aliased the same headers reference),
+    // these inbound keys would have leaked in and this would fail.
+    expect(registeredHeaders).toEqual(before);
+    expect(registeredHeaders["x-aimock-context"]).toBeUndefined();
+    expect(registeredHeaders["x-tenant-id"]).toBeUndefined();
+    // The clone must be a DISTINCT object from the registration (no aliasing).
+    expect(cloneHeaders).not.toBe(registeredHeaders);
   });
 });

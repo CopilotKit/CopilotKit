@@ -160,6 +160,33 @@ describe("header-utils", () => {
       expect(shouldForwardHeader("x-forwarded-for", policy)).toBe(false);
     });
 
+    it("handles the bare 'x' name and the empty-string name under both policies", () => {
+      // Default (denylist) policy: base eligibility is `authorization` or any
+      // `x-*`. A header literally named "x" is NOT `x-`-prefixed, and the
+      // empty-string name is neither — both are ineligible, so neither forwards.
+      expect(shouldForwardHeader("x", defaultPolicy)).toBe(false);
+      expect(shouldForwardHeader("", defaultPolicy)).toBe(false);
+
+      // Allowlist mode short-circuits the usual eligibility entirely: forward
+      // iff the (lowercased) name is explicitly listed. Neither "x" nor "" is in
+      // this allowlist, so both are dropped...
+      const allowPolicy = resolveForwardHeadersPolicy({
+        allow: ["authorization", "x-tenant-id"],
+      });
+      expect(shouldForwardHeader("x", allowPolicy)).toBe(false);
+      expect(shouldForwardHeader("", allowPolicy)).toBe(false);
+
+      // ...but allowlist mode is purely membership-driven, so explicitly listing
+      // these otherwise-ineligible names DOES make them forward (the allowlist
+      // overrides the `x-*`/`authorization` eligibility rule entirely).
+      const explicitPolicy = resolveForwardHeadersPolicy({ allow: ["x", ""] });
+      expect(shouldForwardHeader("x", explicitPolicy)).toBe(true);
+      expect(shouldForwardHeader("", explicitPolicy)).toBe(true);
+      // And a normally-eligible header is now dropped, confirming allowlist mode
+      // is active and exclusive.
+      expect(shouldForwardHeader("authorization", explicitPolicy)).toBe(false);
+    });
+
     it("allow is case-insensitive", () => {
       const policy = resolveForwardHeadersPolicy({ allow: ["X-Tenant-Id"] });
       expect(shouldForwardHeader("x-tenant-id", policy)).toBe(true);
@@ -312,6 +339,38 @@ describe("header-utils", () => {
 
       expect(authKeys(merged)).toHaveLength(1);
       expect(merged["Authorization"]).toBe("Bearer SERVER-TOKEN");
+    });
+
+    it("server Authorization wins over inbound lowercase authorization with a DIFFERENT value (case-insensitive #5712)", () => {
+      // The core #5712 scenario at the lowest layer: the server configured the
+      // canonical-cased `Authorization`, the inbound request sends the
+      // lowercased `authorization` (as the `Headers` iterator yields it) with a
+      // DIFFERENT value. Exactly one authorization-family key may survive, and
+      // it must carry the SERVER value — the inbound token must not win, and the
+      // two case-variants must not both survive (which undici would comma-join
+      // into an invalid "multiple JWTs" value).
+      const serverHeaders: Record<string, string> = {
+        Authorization: "Bearer SERVER-TOKEN",
+      };
+      const request = new Request("https://example.com/api/copilotkit", {
+        method: "POST",
+        headers: { authorization: "Bearer INBOUND-TOKEN" },
+      });
+
+      const merged = mergeForwardableHeaders(
+        serverHeaders,
+        request,
+        defaultPolicy,
+      );
+
+      // Exactly one authorization-family key, carrying the SERVER value under
+      // the server's original (canonical) casing.
+      expect(authKeys(merged)).toHaveLength(1);
+      const key = authKeys(merged)[0];
+      expect(key).toBe("Authorization");
+      expect(merged[key]).toBe("Bearer SERVER-TOKEN");
+      // Belt-and-suspenders: the inbound value never appears anywhere.
+      expect(Object.values(merged)).not.toContain("Bearer INBOUND-TOKEN");
     });
 
     it("a denylisted header never reaches the merge, so it cannot collide with a server header", () => {
