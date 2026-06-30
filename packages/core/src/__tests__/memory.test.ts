@@ -1171,6 +1171,22 @@ describe("memory mutation session guard and error handling", () => {
     expect(stopped.inFlightMutationCount).toBe(0);
   });
 
+  // CORE-6a: `stopped` must reset `available` back to its default (`true`),
+  // matching `contextChanged`. Otherwise a `stop()` then `start()` WITHOUT a new
+  // `setContext` retains a stale `available: false` from a prior unconfigured
+  // session.
+  test("stopped resets available back to true", () => {
+    const unavailable = memoryReducer(
+      undefined,
+      memoryRestEvents.listUnavailable({ sessionId: 0 }),
+    );
+    expect(unavailable.available).toBe(false);
+
+    const stopped = memoryReducer(unavailable, memoryAdapterEvents.stopped());
+
+    expect(ɵselectMemoriesAvailable(stopped)).toBe(true);
+  });
+
   // A3: a supersede response without retiredId must reject (no duplicate).
   test("updateMemory rejects when the supersede response omits retiredId", async () => {
     const fetchMock = vi

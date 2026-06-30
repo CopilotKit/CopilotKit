@@ -132,12 +132,16 @@ interface MemoryState {
   available: boolean;
 }
 
-// Frozen so `getServerState()` (which returns this exact reference) cannot be
-// mutated in place by any caller; a single in-place write would otherwise
-// corrupt every SSR snapshot process-wide. The reducers are already immutable,
-// so freezing the seed is purely defensive and changes no runtime behavior.
+// Deep-frozen so `getServerState()` (which returns this exact reference) cannot
+// be mutated by any caller; a single in-place write would otherwise corrupt
+// every SSR snapshot process-wide. The freeze covers the nested `memories`
+// array too — a shallow `Object.freeze` would leave `getServerState().memories`
+// mutable (`.push(...)` would silently succeed), so the empty array is frozen
+// before being sealed into the state. The reducers always build NEW state
+// objects/arrays (they spread, never mutate in place), so they are unaffected
+// and runtime behavior is unchanged.
 const initialMemoryState: MemoryState = Object.freeze({
-  memories: [],
+  memories: Object.freeze([]) as unknown as Memory[],
   isLoading: false,
   inFlightMutationCount: 0,
   error: null,
@@ -285,6 +289,10 @@ const memoryReducer = createReducer(
     isLoading: false,
     inFlightMutationCount: 0,
     error: null,
+    // Reset to the default (`true`), matching `contextChanged`. Otherwise a
+    // `stop()` then `start()` WITHOUT a new `setContext` would retain a stale
+    // `available: false` from a prior unconfigured session.
+    available: true,
   })),
   on(memoryRestEvents.listRequested, (state: MemoryState, { sessionId }) => {
     if (sessionId !== state.sessionId || !state.context) {
@@ -854,13 +862,6 @@ function createMemoryMutationObservable(
   );
 }
 
-let memoryRequestId = 0;
-
-function createMemoryRequestId(): string {
-  memoryRequestId += 1;
-  return `memory-request-${memoryRequestId}`;
-}
-
 /**
  * Creates the framework-agnostic memory store: a REST snapshot on `setContext`,
  * server-authoritative add/update/remove mutations, and realtime
@@ -868,6 +869,16 @@ function createMemoryRequestId(): string {
  * reduced into observable state.
  */
 function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
+  // Per-store request-id counter. Kept as a closure variable (not a
+  // module-level global) so each store instance has its own monotonic sequence:
+  // sharing one global across instances is a latent cross-instance/SSR hazard
+  // and makes request ids non-reproducible in tests that reset a single store.
+  let memoryRequestId = 0;
+  const createMemoryRequestId = (): string => {
+    memoryRequestId += 1;
+    return `memory-request-${memoryRequestId}`;
+  };
+
   const bootstrapEffect = createEffect(
     (actions$, state$: Observable<MemoryState>) =>
       actions$.pipe(
