@@ -1,10 +1,10 @@
-.copilotKitActivityDot1 {
+:where(.copilotKitActivityDot1) {
   animation: copilotKitActivityDotsAnimation 1.05s infinite;
 }
-.copilotKitActivityDot2 {
+:where(.copilotKitActivityDot2) {
   animation-delay: 0.1s;
 }
-.copilotKitActivityDot3 {
+:where(.copilotKitActivityDot3) {
   animation-delay: 0.2s;
 }
 @keyframes copilotKitActivityDotsAnimation {

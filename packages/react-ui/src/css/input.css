@@ -1,4 +1,4 @@
-.copilotKitInput {
+:where(.copilotKitInput) {
   cursor: text;
   position: relative;
   background-color: var(--copilot-kit-input-background-color);
@@ -10,7 +10,7 @@
   width: 95%;
 }
 
-.copilotKitInputContainer {
+:where(.copilotKitInputContainer) {
   width: 100%;
   padding: 0;
   padding-bottom: 15px;
@@ -19,12 +19,12 @@
   border-bottom-right-radius: 0.75rem;
 }
 
-.copilotKitSidebar .copilotKitInputContainer {
+:where(.copilotKitSidebar) :where(.copilotKitInputContainer) {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
 
-.copilotKitInputControlButton {
+:where(.copilotKitInputControlButton) {
   padding: 0;
   cursor: pointer;
   transition-property: transform;
@@ -51,26 +51,26 @@
   height: 24px;
 }
 
-.copilotKitInputControlButton:not([disabled]) {
+:where(.copilotKitInputControlButton):not([disabled]) {
   color: var(--copilot-kit-primary-color);
 }
 
-.copilotKitInputControlButton:not([disabled]):hover {
+:where(.copilotKitInputControlButton):not([disabled]):hover {
   color: color-mix(in srgb, var(--copilot-kit-primary-color) 80%, black);
   transform: scale(1.05);
 }
 
-.copilotKitInputControlButton[disabled] {
+:where(.copilotKitInputControlButton)[disabled] {
   color: var(--copilot-kit-muted-color);
   cursor: default;
 }
 
-.copilotKitInputControls {
+:where(.copilotKitInputControls) {
   display: flex;
   gap: 3px;
 }
 
-.copilotKitInput > textarea {
+:where(.copilotKitInput) > textarea {
   flex: 1; /* Allow textarea to take up remaining space */
   outline: 2px solid transparent;
   outline-offset: 2px;
@@ -92,12 +92,12 @@
   width: 100%;
 }
 
-.copilotKitInput > textarea::placeholder {
+:where(.copilotKitInput) > textarea::placeholder {
   color: #808080;
   opacity: 1;
 }
 
-.copilotKitInputControlButton.copilotKitPushToTalkRecording {
+:where(.copilotKitInputControlButton.copilotKitPushToTalkRecording) {
   background-color: #ec0000;
   color: white;
   border-radius: 50%;
@@ -105,15 +105,15 @@
 }
 
 /* Scrollbar styles */
-.copilotKitInput textarea::-webkit-scrollbar {
+:where(.copilotKitInput) textarea::-webkit-scrollbar {
   width: 9px; /* Width of the entire scrollbar */
 }
 
-.copilotKitInput textarea::-webkit-scrollbar-track {
+:where(.copilotKitInput) textarea::-webkit-scrollbar-track {
   background: transparent; /* Color of the tracking area */
 }
 
-.copilotKitInput textarea::-webkit-scrollbar-thumb {
+:where(.copilotKitInput) textarea::-webkit-scrollbar-thumb {
   background-color: rgb(200 200 200); /* Color of the scroll thumb */
   border-radius: 10px; /* Roundness of the scroll thumb */
   border: 2px solid transparent; /* Creates padding around scroll thumb */
@@ -121,7 +121,7 @@
   cursor: pointer;
 }
 
-.copilotKitInput textarea::-webkit-scrollbar-thumb:hover {
+:where(.copilotKitInput) textarea::-webkit-scrollbar-thumb:hover {
   background-color: color-mix(
     in srgb,
     rgb(200 200 200) 80%,

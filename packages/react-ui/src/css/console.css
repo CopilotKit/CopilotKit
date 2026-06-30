@@ -1,15 +1,15 @@
-.copilotKitDevConsole {
+:where(.copilotKitDevConsole) {
   display: flex;
   align-items: center;
   gap: 5px;
   margin: 0 15px;
 }
 
-.copilotKitDevConsole.copilotKitDevConsoleWarnOutdated {
+:where(.copilotKitDevConsole.copilotKitDevConsoleWarnOutdated) {
   background-color: var(--copilot-kit-dev-console-bg);
 }
 
-.copilotKitDevConsole .copilotKitVersionInfo {
+:where(.copilotKitDevConsole) :where(.copilotKitVersionInfo) {
   display: flex;
   position: absolute;
   bottom: -25px;
@@ -23,7 +23,7 @@
   background: #ebb305;
 }
 
-.copilotKitDevConsole .copilotKitVersionInfo button {
+:where(.copilotKitDevConsole) :where(.copilotKitVersionInfo) button {
   font-size: 11px;
   font-weight: normal;
   font-family: monospace;
@@ -40,19 +40,19 @@
   text-overflow: ellipsis;
 }
 
-.copilotKitDevConsole .copilotKitVersionInfo aside {
+:where(.copilotKitDevConsole) :where(.copilotKitVersionInfo) aside {
   display: inline;
   font-weight: normal;
   color: #7f7a7a;
   margin-left: 5px;
 }
 
-.copilotKitDevConsole .copilotKitVersionInfo svg {
+:where(.copilotKitDevConsole) :where(.copilotKitVersionInfo) svg {
   margin-left: 3px;
   margin-top: -3px;
 }
 
-.copilotKitDevConsole .copilotKitDebugMenuTriggerButton {
+:where(.copilotKitDevConsole) :where(.copilotKitDebugMenuTriggerButton) {
   font-size: 11px;
   font-weight: bold;
   display: flex;
@@ -66,7 +66,7 @@
   outline: none;
 }
 
-.copilotKitDebugMenuTriggerButton.compact {
+:where(.copilotKitDebugMenuTriggerButton.compact) {
   width: 35px;
   color: var(--copilot-kit-dev-console-bg);
   justify-content: center;
@@ -74,7 +74,7 @@
   font-size: 8px;
 }
 
-.copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover {
+:where(.copilotKitDevConsole) :where(.copilotKitDebugMenuTriggerButton):hover {
   background-color: color-mix(
     in srgb,
     var(--copilot-kit-dev-console-bg) 85%,
@@ -83,31 +83,31 @@
   color: var(--copilot-kit-dev-console-text);
 }
 
-.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton,
-html.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton,
-body.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton,
-[data-theme="dark"] .copilotKitDevConsole .copilotKitDebugMenuTriggerButton,
+.dark :where(.copilotKitDevConsole) :where(.copilotKitDebugMenuTriggerButton),
+html.dark :where(.copilotKitDevConsole) :where(.copilotKitDebugMenuTriggerButton),
+body.dark :where(.copilotKitDevConsole) :where(.copilotKitDebugMenuTriggerButton),
+[data-theme="dark"] :where(.copilotKitDevConsole) :where(.copilotKitDebugMenuTriggerButton),
 html[style*="color-scheme: dark"]
-  .copilotKitDevConsole
-  .copilotKitDebugMenuTriggerButton,
+  :where(.copilotKitDevConsole)
+  :where(.copilotKitDebugMenuTriggerButton),
 body[style*="color-scheme: dark"]
-  .copilotKitDevConsole
-  .copilotKitDebugMenuTriggerButton {
+  :where(.copilotKitDevConsole)
+  :where(.copilotKitDebugMenuTriggerButton) {
   color: white;
 }
 
-.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover,
-html.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover,
-body.dark .copilotKitDevConsole .copilotKitDebugMenuTriggerButton:hover,
+.dark :where(.copilotKitDevConsole) :where(.copilotKitDebugMenuTriggerButton):hover,
+html.dark :where(.copilotKitDevConsole) :where(.copilotKitDebugMenuTriggerButton):hover,
+body.dark :where(.copilotKitDevConsole) :where(.copilotKitDebugMenuTriggerButton):hover,
 [data-theme="dark"]
-  .copilotKitDevConsole
-  .copilotKitDebugMenuTriggerButton:hover,
+  :where(.copilotKitDevConsole)
+  :where(.copilotKitDebugMenuTriggerButton):hover,
 html[style*="color-scheme: dark"]
-  .copilotKitDevConsole
-  .copilotKitDebugMenuTriggerButton:hover,
+  :where(.copilotKitDevConsole)
+  :where(.copilotKitDebugMenuTriggerButton):hover,
 body[style*="color-scheme: dark"]
-  .copilotKitDevConsole
-  .copilotKitDebugMenuTriggerButton:hover {
+  :where(.copilotKitDevConsole)
+  :where(.copilotKitDebugMenuTriggerButton):hover {
   background-color: color-mix(
     in srgb,
     var(--copilot-kit-dev-console-bg) 20%,
@@ -115,11 +115,11 @@ body[style*="color-scheme: dark"]
   );
 }
 
-.copilotKitDevConsole .copilotKitDebugMenuTriggerButton > svg {
+:where(.copilotKitDevConsole) :where(.copilotKitDebugMenuTriggerButton) > svg {
   margin-left: 10px;
 }
 
-.copilotKitDebugMenu {
+:where(.copilotKitDebugMenu) {
   --copilot-kit-dev-console-border: color-mix(
     in srgb,
     var(--copilot-kit-dev-console-bg) 80%,
@@ -134,7 +134,7 @@ body[style*="color-scheme: dark"]
   font-size: 13px;
 }
 
-.copilotKitDebugMenuItem {
+:where(.copilotKitDebugMenuItem) {
   padding-top: 3px;
   padding-bottom: 3px;
   padding-left: 10px;
@@ -148,7 +148,7 @@ body[style*="color-scheme: dark"]
   color: var(--copilot-kit-dev-console-text);
 }
 
-.copilotKitDebugMenuItem:hover {
+:where(.copilotKitDebugMenuItem):hover {
   background-color: color-mix(
     in srgb,
     var(--copilot-kit-dev-console-bg) 95%,
@@ -157,24 +157,24 @@ body[style*="color-scheme: dark"]
   border-radius: 4px;
 }
 
-.copilotKitDebugMenu[data-closed] {
+:where(.copilotKitDebugMenu)[data-closed] {
   transform: scale(0.95); /* data-[closed]:scale-95 */
   opacity: 0; /* data-[closed]:opacity-0 */
 }
 
-.copilotKitDebugMenu hr {
+:where(.copilotKitDebugMenu) hr {
   height: 1px;
   border: none; /* Remove 3D look */
   background-color: var(--copilot-kit-dev-console-border);
   margin: 0.25rem;
 }
 
-.copilotKitHelpModal {
+:where(.copilotKitHelpModal) {
   background-color: var(--copilot-kit-dev-console-bg);
   color: var(--copilot-kit-dev-console-text);
 }
 
-.copilotKitHelpItemButton {
+:where(.copilotKitHelpItemButton) {
   display: block;
   text-align: center;
   width: 100%;
@@ -188,7 +188,7 @@ body[style*="color-scheme: dark"]
     0 2px 3px 0px rgba(0, 0, 0, 0.02);
   background-color: var(--copilot-kit-dev-console-bg);
 }
-.copilotKitHelpItemButton:hover {
+:where(.copilotKitHelpItemButton):hover {
   background-color: color-mix(
     in srgb,
     var(--copilot-kit-dev-console-bg) 95%,

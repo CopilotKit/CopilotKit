@@ -1,68 +1,68 @@
-h1.copilotKitMarkdownElement,
-h2.copilotKitMarkdownElement,
-h3.copilotKitMarkdownElement,
-h4.copilotKitMarkdownElement,
-h5.copilotKitMarkdownElement,
-h6.copilotKitMarkdownElement {
+h1:where(.copilotKitMarkdownElement),
+h2:where(.copilotKitMarkdownElement),
+h3:where(.copilotKitMarkdownElement),
+h4:where(.copilotKitMarkdownElement),
+h5:where(.copilotKitMarkdownElement),
+h6:where(.copilotKitMarkdownElement) {
   font-weight: bold;
   line-height: 1.2;
 }
 
-h1.copilotKitMarkdownElement:not(:last-child),
-h2.copilotKitMarkdownElement:not(:last-child),
-h3.copilotKitMarkdownElement:not(:last-child),
-h4.copilotKitMarkdownElement:not(:last-child),
-h5.copilotKitMarkdownElement:not(:last-child),
-h6.copilotKitMarkdownElement:not(:last-child) {
+h1:where(.copilotKitMarkdownElement):not(:last-child),
+h2:where(.copilotKitMarkdownElement):not(:last-child),
+h3:where(.copilotKitMarkdownElement):not(:last-child),
+h4:where(.copilotKitMarkdownElement):not(:last-child),
+h5:where(.copilotKitMarkdownElement):not(:last-child),
+h6:where(.copilotKitMarkdownElement):not(:last-child) {
   margin-bottom: 1rem;
 }
 
-h1.copilotKitMarkdownElement {
+h1:where(.copilotKitMarkdownElement) {
   font-size: 1.5em;
 }
 
-h2.copilotKitMarkdownElement {
+h2:where(.copilotKitMarkdownElement) {
   font-size: 1.25em;
   font-weight: 600;
 }
 
-h3.copilotKitMarkdownElement {
+h3:where(.copilotKitMarkdownElement) {
   font-size: 1.1em;
 }
 
-h4.copilotKitMarkdownElement {
+h4:where(.copilotKitMarkdownElement) {
   font-size: 1em;
 }
 
-h5.copilotKitMarkdownElement {
+h5:where(.copilotKitMarkdownElement) {
   font-size: 0.9em;
 }
 
-h6.copilotKitMarkdownElement {
+h6:where(.copilotKitMarkdownElement) {
   font-size: 0.8em;
 }
 
-a.copilotKitMarkdownElement {
+a:where(.copilotKitMarkdownElement) {
   color: blue;
   text-decoration: underline;
 }
 
-.copilotKitParagraph {
+:where(.copilotKitParagraph) {
   padding: 0px;
   margin: 0px;
   line-height: 1.75;
   font-size: 1rem;
 }
 
-.copilotKitParagraph:not(:last-child),
-pre.copilotKitMarkdownElement:not(:last-child),
-ol.copilotKitMarkdownElement:not(:last-child),
-ul.copilotKitMarkdownElement:not(:last-child),
-blockquote.copilotKitMarkdownElement:not(:last-child) {
+:where(.copilotKitParagraph):not(:last-child),
+pre:where(.copilotKitMarkdownElement):not(:last-child),
+ol:where(.copilotKitMarkdownElement):not(:last-child),
+ul:where(.copilotKitMarkdownElement):not(:last-child),
+blockquote:where(.copilotKitMarkdownElement):not(:last-child) {
   margin-bottom: 1.25em;
 }
 
-blockquote.copilotKitMarkdownElement {
+blockquote:where(.copilotKitMarkdownElement) {
   border-color: rgb(142, 142, 160);
   border-left-width: 2px;
   border-left-style: solid;
@@ -70,17 +70,17 @@ blockquote.copilotKitMarkdownElement {
   padding-left: 10px;
 }
 
-blockquote.copilotKitMarkdownElement .copilotKitParagraph {
+blockquote:where(.copilotKitMarkdownElement) :where(.copilotKitParagraph) {
   padding: 0.7em 0;
 }
 
-ul.copilotKitMarkdownElement {
+ul:where(.copilotKitMarkdownElement) {
   list-style-type: disc;
   padding-left: 20px;
   overflow: visible;
 }
 
-li.copilotKitMarkdownElement {
+li:where(.copilotKitMarkdownElement) {
   list-style-type: inherit;
   list-style-position: outside;
   margin-left: 0;
@@ -89,14 +89,14 @@ li.copilotKitMarkdownElement {
   overflow: visible;
 }
 
-.copilotKitCodeBlock {
+:where(.copilotKitCodeBlock) {
   position: relative;
   width: 100%;
   background-color: rgb(9 9 11);
   border-radius: 0.375rem;
 }
 
-.copilotKitCodeBlockToolbar {
+:where(.copilotKitCodeBlockToolbar) {
   display: flex;
   width: 100%;
   align-items: center;
@@ -111,20 +111,20 @@ li.copilotKitMarkdownElement {
   font-family: sans-serif;
 }
 
-.copilotKitCodeBlockToolbarLanguage {
+:where(.copilotKitCodeBlockToolbarLanguage) {
   font-size: 0.75rem;
   line-height: 1rem;
   text-transform: lowercase;
 }
 
-.copilotKitCodeBlockToolbarButtons {
+:where(.copilotKitCodeBlockToolbarButtons) {
   display: flex;
   align-items: center;
   margin-right: 0.25rem;
   margin-left: 0.25rem;
 }
 
-.copilotKitCodeBlockToolbarButton {
+:where(.copilotKitCodeBlockToolbarButton) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -137,11 +137,11 @@ li.copilotKitMarkdownElement {
   margin: 2px;
 }
 
-.copilotKitCodeBlockToolbarButton:hover {
+:where(.copilotKitCodeBlockToolbarButton):hover {
   background-color: rgb(55, 55, 58);
 }
 
-.copilotKitInlineCode {
+:where(.copilotKitInlineCode) {
   background-color: var(--copilot-kit-input-background-color);
   border: 1px solid var(--copilot-kit-separator-color);
   border-radius: 0.375rem;

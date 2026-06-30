@@ -1,4 +1,4 @@
-.copilotKitChat {
+:where(.copilotKitChat) {
   z-index: 30;
   line-height: 1.5;
   -webkit-text-size-adjust: 100%;
@@ -29,11 +29,11 @@
   /* height: 100%; */
 }
 
-.copilotKitChat svg {
+:where(.copilotKitChat) svg {
   display: inline-block;
   vertical-align: middle;
 }
 
-.copilotKitChat .copilotKitMessages {
+:where(.copilotKitChat) :where(.copilotKitMessages) {
   flex-grow: 1;
 }

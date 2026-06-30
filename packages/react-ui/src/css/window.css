@@ -1,4 +1,4 @@
-.copilotKitWindow {
+:where(.copilotKitWindow) {
   position: fixed;
   inset: 0px;
   transform-origin: bottom;
@@ -16,23 +16,23 @@
   pointer-events: none;
 }
 
-.copilotKitSidebar .copilotKitWindow {
+:where(.copilotKitSidebar) :where(.copilotKitWindow) {
   border-radius: 0;
   opacity: 1;
   transform: translateX(100%);
 }
 
-.copilotKitWindow.open {
+:where(.copilotKitWindow.open) {
   opacity: 1;
   transform: scale(1) translateY(0);
   pointer-events: auto;
 }
 
-.copilotKitSidebar .copilotKitWindow.open {
+:where(.copilotKitSidebar) :where(.copilotKitWindow.open) {
   transform: translateX(0);
 }
 
-.copilotKitChatBody {
+:where(.copilotKitChatBody) {
   flex: 1 1 0%;
   display: flex;
   flex-direction: column;
@@ -40,7 +40,7 @@
 }
 
 @media (min-width: 640px) {
-  .copilotKitWindow {
+  :where(.copilotKitWindow) {
     transform-origin: bottom right;
     bottom: 5rem;
     right: 1rem;
@@ -54,7 +54,7 @@
     max-height: calc(100% - 6rem);
   }
 
-  .copilotKitSidebar .copilotKitWindow {
+  :where(.copilotKitSidebar) :where(.copilotKitWindow) {
     bottom: 0;
     right: 0;
     top: auto;

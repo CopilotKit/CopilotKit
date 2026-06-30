@@ -1,4 +1,4 @@
-.copilotKitSidebar {
+:where(.copilotKitSidebar) {
   position: fixed;
   bottom: 1rem;
   right: 1rem;
@@ -28,19 +28,19 @@
   touch-action: manipulation;
 }
 
-.copilotKitSidebar svg {
+:where(.copilotKitSidebar) svg {
   display: inline-block;
   vertical-align: middle;
 }
 
-.copilotKitSidebarContentWrapper {
+:where(.copilotKitSidebarContentWrapper) {
   overflow: visible;
   margin-right: 0px;
   transition: margin-right 0.3s ease;
 }
 
 @media (min-width: 640px) {
-  .copilotKitSidebarContentWrapper.sidebarExpanded {
+  :where(.copilotKitSidebarContentWrapper.sidebarExpanded) {
     margin-right: 28rem;
   }
 }
