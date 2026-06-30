@@ -8,9 +8,10 @@
 // CopilotKit#5611 (a provider catalog otherwise defaults injectA2UITool to true).
 //
 // The demo reuses the declarative-gen-ui catalog. The aimock fixtures force the
-// inner render_a2ui sub-agent to emit an invalid surface first (heal) or always
-// (exhaust); @ag-ui/a2ui-middleware >= 0.0.10 renders the building -> retrying
-// (N/M) -> painted / failed lifecycle.
+// inner render_a2ui sub-agent to emit free-form/sloppy args the middleware heals
+// (heal pill) or a structurally-invalid surface on every attempt (exhaust pill);
+// @ag-ui/a2ui-middleware >= 0.0.10 renders the building -> retrying (N/M) ->
+// painted / failed lifecycle.
 
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";

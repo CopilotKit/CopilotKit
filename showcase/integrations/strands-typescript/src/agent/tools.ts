@@ -15,6 +15,7 @@ import { z } from "zod";
 import { AIMOCK_CONTEXT } from "./model-factory";
 // @doc-as
 // @doc-end
+import { forwardingFetch } from "./header-forwarding.js";
 import { SUBAGENT_FAILURE_MARKER } from "./state";
 import {
   getWeatherImpl,
@@ -171,7 +172,7 @@ const SUBAGENT_SYSTEM_PROMPTS: Record<string, string> = {
 const SUBAGENT_EMPTY_RESULT = "(sub-agent returned no content)";
 
 let _openaiClient: OpenAI | null = null;
-function openaiClient(): OpenAI {
+export function openaiClient(): OpenAI {
   if (!_openaiClient) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -185,6 +186,15 @@ function openaiClient(): OpenAI {
       // @doc-replace
       // Match the shared agent so sub-agent calls hit the right aimock fixtures.
       defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
+      // Per-request inbound x-* forwarding (incl. X-AIMock-Strict / x-test-id /
+      // x-diag-*), mirroring model-factory.ts. The sub-agent client is built
+      // ONCE (memoized), but forwardingFetch reads an AsyncLocalStorage
+      // snapshot per outbound call (seeded by the Express cvdiag/forwarding
+      // middleware around agent.run()), so per-request headers flow correctly.
+      // It never clobbers the static x-aimock-context above, and is
+      // byte-identical to a plain fetch when no x-* are in scope (demo traffic
+      // unaffected).
+      fetch: forwardingFetch,
       // @doc-as
       // @doc-end
     });

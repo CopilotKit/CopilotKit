@@ -304,7 +304,12 @@ export async function DocsPageView({
                         WhenFrameworkHas: (props: Record<string, unknown>) => (
                           <WhenFrameworkHas
                             {...(props as {
-                              flag: "a2ui_pattern" | "interrupt_pattern";
+                              flag:
+                                | "a2ui_pattern"
+                                | "interrupt_pattern"
+                                | "thread_persistence_pattern"
+                                | "agent_config_pattern"
+                                | "auth_pattern";
                               equals?: string;
                               absent?: boolean;
                               framework?: string;

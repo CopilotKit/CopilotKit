@@ -5,6 +5,10 @@ import type {
   InteractionEvent,
   IncomingCommand,
   IncomingThreadStart,
+  IncomingReaction,
+  IncomingModalSubmit,
+  IncomingModalClose,
+  ModalSubmitResult,
 } from "./platform-adapter.js";
 import { ActionRegistry, ActionExpiredError } from "./action-registry.js";
 import type { ActionStore } from "./action-store.js";
@@ -22,11 +26,46 @@ import type {
   InteractionContext,
   IncomingMessage,
   PlatformUser,
+  EmojiValue,
+  EmojiPlatform,
+  ModalView,
   ComponentFn,
+  MessageRef,
+} from "@copilotkit/bot-ui";
+import {
+  normalizeEmoji,
+  toCanonicalEmoji,
+  renderToIR,
 } from "@copilotkit/bot-ui";
 import { Transcripts } from "./transcripts.js";
 import type { Identity, TranscriptsConfig } from "./transcripts.js";
 import type { StandardSchemaV1, InferSchemaOutput } from "./standard-schema.js";
+import { BotTelemetry } from "./telemetry/bot-telemetry.js";
+import { errorClass, normalizePlatform } from "./telemetry/sanitize-error.js";
+import { createRequire } from "node:module";
+
+const pkg = createRequire(import.meta.url)("../package.json") as {
+  name: string;
+  version: string;
+};
+
+function storeKind(s: StateStore): "memory" | "postgres" | "redis" | "custom" {
+  const n = s.constructor?.name;
+  if (n === "MemoryStore") return "memory";
+  if (n === "PostgresStore") return "postgres";
+  if (n === "RedisStore") return "redis";
+  return "custom";
+}
+
+/** Platforms whose tokens the emoji table can normalize. */
+const EMOJI_PLATFORMS: ReadonlySet<EmojiPlatform> = new Set([
+  "slack",
+  "discord",
+  "telegram",
+]);
+function isEmojiPlatform(platform: string): platform is EmojiPlatform {
+  return EMOJI_PLATFORMS.has(platform as EmojiPlatform);
+}
 
 export type LockConflictDecision = "drop" | "force";
 
@@ -49,6 +88,49 @@ export type ThreadStartHandler<TState = unknown> = (ctx: {
   thread: StatefulThread<TState>;
   user?: PlatformUser;
 }) => void | Promise<void>;
+
+/** Event passed to an `onReaction` handler. */
+export interface ReactionEvent {
+  /** Normalized name when recognized, else the raw platform token. */
+  emoji: EmojiValue;
+  /** Platform-native token. */
+  rawEmoji: string;
+  /** true = added, false = removed. */
+  added: boolean;
+  /** The reacting user, when the platform reports one. */
+  user?: PlatformUser;
+  messageId: string;
+  /** Update-capable ref to the reacted message (`thread.update(messageRef, ui)`). */
+  messageRef: MessageRef;
+  threadId?: string;
+  thread: Thread;
+  adapter: PlatformAdapter;
+  raw: unknown;
+}
+export type ReactionHandler = (evt: ReactionEvent) => void | Promise<void>;
+
+/** Event passed to an `onModalSubmit` handler. */
+export interface ModalSubmitEvent {
+  callbackId: string;
+  values: Record<string, unknown>;
+  user?: PlatformUser;
+  /** Present when the submission carried a conversation context. */
+  thread?: Thread;
+  privateMetadata?: string;
+  raw: unknown;
+}
+export type ModalSubmitHandler = (
+  evt: ModalSubmitEvent,
+) => ModalSubmitResult | void | Promise<ModalSubmitResult | void>;
+
+/** Event passed to an `onModalClose` handler. */
+export interface ModalCloseEvent {
+  callbackId: string;
+  user?: PlatformUser;
+  privateMetadata?: string;
+  raw: unknown;
+}
+export type ModalCloseHandler = (evt: ModalCloseEvent) => void | Promise<void>;
 
 /** The per-thread state type implied by the configured `store.state` schema. */
 type ThreadStateOf<TSchema extends StandardSchemaV1 | undefined> =
@@ -144,6 +226,13 @@ export interface Bot<TState = unknown> {
     name: string,
     handler: (ctx: CommandContext) => void | Promise<void>,
   ): void;
+  /** React to emoji reactions. Pass emoji name(s) for a specific match, or omit for a catch-all. */
+  onReaction(handler: ReactionHandler): void;
+  onReaction(emoji: EmojiValue | EmojiValue[], handler: ReactionHandler): void;
+  /** Handle a modal submission for `callbackId`. Return `{ errors }` to keep it open. */
+  onModalSubmit(callbackId: string, handler: ModalSubmitHandler): void;
+  /** Handle a modal dismissal for `callbackId` (Slack `view_closed`). */
+  onModalClose(callbackId: string, handler: ModalCloseHandler): void;
   tool(t: BotTool): void;
   start(): Promise<void>;
   stop(): Promise<void>;
@@ -176,6 +265,11 @@ export function createBot<
   }
 
   const backend: StateStore = cfg.adapter ?? new MemoryStore();
+  const telemetry = new BotTelemetry({
+    backend,
+    packageName: pkg.name,
+    packageVersion: pkg.version,
+  });
   const transcripts = new Transcripts(backend, cfg.transcripts ?? {});
   const registry = new ActionRegistry({
     store: opts.actionStore ?? kvActionStore(backend),
@@ -221,6 +315,12 @@ export function createBot<
   const commandHandlers = new Map<string, BotCommand>();
   for (const c of opts.commands ?? [])
     commandHandlers.set(normalizeCommandName(c.name), c);
+  const reactionHandlers: {
+    emojis?: Set<EmojiValue>;
+    handler: ReactionHandler;
+  }[] = [];
+  const modalSubmitHandlers = new Map<string, ModalSubmitHandler>();
+  const modalCloseHandlers = new Map<string, ModalCloseHandler>();
   const waiters = new Map<string, (value: unknown) => void>();
 
   // Recomputed on start() so tools added via bot.tool() before start are picked up.
@@ -248,8 +348,26 @@ export function createBot<
       transcripts,
       userKey: extras?.userKey,
       message: extras?.message,
+      telemetry,
     };
     return new Thread(deps);
+  }
+
+  /**
+   * Build the context-level `openModal` closure, or `undefined` when the surface
+   * can't open one. Requires both `adapter.openModal` and a platform `triggerId`;
+   * otherwise the context omits `openModal` (callers guard `ctx.openModal?.(view)`).
+   */
+  function makeOpenModal(
+    adapter: PlatformAdapter,
+    replyTarget: unknown,
+    triggerId: string | undefined,
+  ):
+    | ((view: ModalView) => Promise<{ ok: boolean; error?: string }>)
+    | undefined {
+    if (!adapter.openModal || !triggerId) return undefined;
+    return (view: ModalView) =>
+      adapter.openModal!(replyTarget, triggerId, renderToIR(view));
   }
 
   function makeSink(adapter: PlatformAdapter): IngressSink {
@@ -364,6 +482,12 @@ export function createBot<
           user,
           platform: adapter.platform,
         };
+        const openModal = makeOpenModal(
+          adapter,
+          evt.replyTarget,
+          evt.triggerId,
+        );
+        if (openModal) ctx.openModal = openModal;
         // The clicked element's `value`, recovered by the registry when it
         // re-renders to find the handler. Used to resolve a HITL waiter on
         // platforms whose callback payload can't carry the value (Telegram),
@@ -427,6 +551,12 @@ export function createBot<
           user: cmd.user,
           platform: cmd.platform,
         };
+        const openModal = makeOpenModal(
+          adapter,
+          cmd.replyTarget,
+          cmd.triggerId,
+        );
+        if (openModal) ctx.openModal = openModal;
         await command.handler(ctx);
       },
       async onThreadStarted(evt: IncomingThreadStart) {
@@ -440,6 +570,78 @@ export function createBot<
         );
         for (const h of threadStartedHandlers)
           await h({ thread, user: evt.user });
+      },
+      async onReaction(evt: IncomingReaction) {
+        // Only normalize when the adapter's platform is one the emoji table
+        // knows; otherwise the raw token passes through unchanged.
+        const normalized = isEmojiPlatform(adapter.platform)
+          ? normalizeEmoji(evt.rawEmoji, adapter.platform)
+          : undefined;
+        const value: EmojiValue = normalized ?? evt.rawEmoji;
+        const thread = makeThread(
+          adapter,
+          evt.replyTarget,
+          evt.conversationKey,
+        );
+        // Prefer the adapter's update-capable ref; fall back to the bare id.
+        const messageRef: MessageRef = evt.messageRef ?? { id: evt.messageId };
+        const reactionEvt: ReactionEvent = {
+          emoji: value,
+          rawEmoji: evt.rawEmoji,
+          added: evt.added,
+          user: evt.user,
+          messageId: evt.messageId,
+          messageRef,
+          threadId: evt.threadId,
+          thread,
+          adapter,
+          raw: evt.raw,
+        };
+        for (const reg of reactionHandlers) {
+          if (!reg.emojis || reg.emojis.has(value))
+            await reg.handler(reactionEvt);
+        }
+        // Per-message handler set via `<Message onReaction>` on the posted
+        // message — hot cache, falling back to the durable snapshot after a restart.
+        const perMessage = await registry.resolveMessageReaction(evt.messageId);
+        if (perMessage) {
+          await perMessage(value, {
+            emoji: value,
+            rawEmoji: evt.rawEmoji,
+            added: evt.added,
+            user: evt.user,
+            messageId: evt.messageId,
+            thread,
+            messageRef,
+          });
+        }
+      },
+      async onModalSubmit(evt: IncomingModalSubmit) {
+        const handler = modalSubmitHandlers.get(evt.callbackId);
+        if (!handler) return; // unregistered → closes
+        const thread =
+          evt.conversationKey !== undefined && evt.replyTarget !== undefined
+            ? makeThread(adapter, evt.replyTarget, evt.conversationKey)
+            : undefined;
+        const result = await handler({
+          callbackId: evt.callbackId,
+          values: evt.values,
+          user: evt.user,
+          thread,
+          privateMetadata: evt.privateMetadata,
+          raw: evt.raw,
+        });
+        return result ?? undefined;
+      },
+      async onModalClose(evt: IncomingModalClose) {
+        const handler = modalCloseHandlers.get(evt.callbackId);
+        if (!handler) return;
+        await handler({
+          callbackId: evt.callbackId,
+          user: evt.user,
+          privateMetadata: evt.privateMetadata,
+          raw: evt.raw,
+        });
       },
     };
   }
@@ -493,24 +695,120 @@ export function createBot<
           : commandOrName;
       commandHandlers.set(normalizeCommandName(command.name), command);
     },
+    onReaction(
+      emojiOrHandler: EmojiValue | EmojiValue[] | ReactionHandler,
+      maybeHandler?: ReactionHandler,
+    ) {
+      if (typeof emojiOrHandler === "function") {
+        reactionHandlers.push({ handler: emojiOrHandler });
+        return;
+      }
+      const list = Array.isArray(emojiOrHandler)
+        ? emojiOrHandler
+        : [emojiOrHandler];
+      // Ingress normalizes inbound reactions to their canonical name, so
+      // normalize the caller's filter tokens too — otherwise a raw unicode
+      // ("👍") or Slack alias ("thumbsup") filter would never match the
+      // canonical "thumbs_up" the engine compares against. Unknown/custom
+      // tokens pass through unchanged.
+      const emojis = new Set(list.map((e) => toCanonicalEmoji(e)));
+      reactionHandlers.push({ emojis, handler: maybeHandler! });
+    },
+    onModalSubmit(callbackId, handler) {
+      modalSubmitHandlers.set(callbackId, handler);
+    },
+    onModalClose(callbackId, handler) {
+      modalCloseHandlers.set(callbackId, handler);
+    },
     tool(t) {
       toolMap.set(t.name, t);
     },
     async start() {
       toolDescriptors = toAgentToolDescriptors([...toolMap.values()]);
-      await Promise.all(opts.adapters.map((a) => a.start(makeSink(a))));
+      // Isolate per-adapter startup failures: one adapter rejecting (e.g.
+      // Telegram's setMyCommands rejecting a hyphenated command name, a revoked
+      // token, a port already in use) must NOT crash the bot or prevent the
+      // other adapters from starting. Log + degrade, never throw.
+      const startResults = await Promise.allSettled(
+        opts.adapters.map((a) => a.start(makeSink(a))),
+      );
+      const startedPlatforms: string[] = [];
+      const failedPlatforms: string[] = [];
+      startResults.forEach((r, i) => {
+        const rawPlatform = opts.adapters[i]!.platform;
+        // Raw label for the human-facing log; normalized label for telemetry.
+        const platform = normalizePlatform(rawPlatform);
+        if (r.status === "rejected") {
+          failedPlatforms.push(platform);
+          console.error(
+            `[bot] adapter "${rawPlatform}" failed to start:`,
+            r.reason,
+          );
+          telemetry.capture("oss.bot.start_failed", {
+            platform,
+            errorClass: errorClass(r.reason),
+          });
+        } else {
+          startedPlatforms.push(platform);
+        }
+      });
+      if (startedPlatforms.length > 0) {
+        telemetry.capture("oss.bot.started", {
+          platforms: startedPlatforms,
+          startedCount: startedPlatforms.length,
+          failedCount: failedPlatforms.length,
+          hasMentionHandler: mentionHandlers.length > 0,
+          hasMessageHandler: messageHandlers.length > 0,
+          interruptHandlers: interruptHandlers.size,
+          commandsCount: commandHandlers.size,
+          toolsCount: toolMap.size,
+        });
+      }
       // Hand declared commands to adapters that register them up front (e.g.
-      // Discord); adapters without `registerCommands` are skipped.
+      // Discord); adapters without `registerCommands` are skipped. Per-adapter
+      // failures are isolated the same way as start().
       const commandSpecs = [...commandHandlers.values()].map(toCommandSpec);
       if (commandSpecs.length > 0) {
-        await Promise.all(
+        const registerResults = await Promise.allSettled(
           opts.adapters.map((a) => a.registerCommands?.(commandSpecs)),
         );
+        registerResults.forEach((r, i) => {
+          if (r.status === "rejected") {
+            console.error(
+              `[bot] adapter "${opts.adapters[i]!.platform}" failed to register commands:`,
+              r.reason,
+            );
+          }
+        });
       }
     },
     async stop() {
-      await Promise.all(opts.adapters.map((a) => a.stop()));
+      // Isolate per-adapter shutdown failures: one adapter's stop() rejecting
+      // must not prevent the others from being stopped.
+      const stopResults = await Promise.allSettled(
+        opts.adapters.map((a) => a.stop()),
+      );
+      stopResults.forEach((r, i) => {
+        if (r.status === "rejected") {
+          console.error(
+            `[bot] adapter "${opts.adapters[i]!.platform}" failed to stop:`,
+            r.reason,
+          );
+        }
+      });
     },
   };
+  telemetry.capture("oss.bot.configured", {
+    platforms: opts.adapters.map((a) => normalizePlatform(a.platform)),
+    adapterCount: opts.adapters.length,
+    store: storeKind(backend),
+    hasComponents: (opts.components?.length ?? 0) > 0,
+    componentsCount: opts.components?.length ?? 0,
+    toolsCount: toolMap.size,
+    commandsCount: commandHandlers.size,
+    contextCount: context.length,
+    transcripts: !!cfg.transcripts,
+    identity: !!cfg.identity,
+  });
   return bot;
 }

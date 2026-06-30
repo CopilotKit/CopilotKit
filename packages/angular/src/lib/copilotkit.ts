@@ -5,7 +5,9 @@ import {
   CopilotKitCoreRuntimeConnectionStatus,
   CopilotRuntimeTransport,
   type CopilotKitCoreGetSuggestionsResult,
+  type IntelligenceRuntimeInfo,
   type SuggestionsConfig,
+  type ThreadEndpointRuntimeInfo,
 } from "@copilotkit/core";
 import {
   Injectable,
@@ -78,6 +80,27 @@ export class CopilotKit {
   readonly runtimeTransport = this.#runtimeTransport.asReadonly();
   readonly #headers = signal<Record<string, string>>({});
   readonly headers = this.#headers.asReadonly();
+  readonly #threadEndpoints = signal<ThreadEndpointRuntimeInfo | undefined>(
+    undefined,
+  );
+  /**
+   * Thread-endpoint capability advertised by the connected runtime's `/info`
+   * response, or `undefined` before the runtime reports `Connected`. Exposed
+   * as a signal (rather than a plain `core.threadEndpoints` read) so reactive
+   * consumers re-run when `/info` lands.
+   */
+  readonly threadEndpoints = this.#threadEndpoints.asReadonly();
+  readonly #intelligence = signal<IntelligenceRuntimeInfo | undefined>(
+    undefined,
+  );
+  /**
+   * Intelligence runtime info advertised by the connected runtime's `/info`
+   * response, or `undefined` before the runtime reports `Connected`. Carries
+   * the realtime `wsUrl`. Exposed as a signal so reactive consumers re-run
+   * when `/info` populates it — even if the connection status does not
+   * transition in the same turn.
+   */
+  readonly intelligence = this.#intelligence.asReadonly();
   readonly #suggestionsByAgent = signal<
     Record<string, CopilotKitCoreGetSuggestionsResult>
   >({});
@@ -146,6 +169,8 @@ export class CopilotKit {
     this.#runtimeUrl.set(this.core.runtimeUrl);
     this.#runtimeTransport.set(this.core.runtimeTransport);
     this.#headers.set(this.core.headers);
+    this.#threadEndpoints.set(this.core.threadEndpoints);
+    this.#intelligence.set(this.core.intelligence);
     this.#config.renderToolCalls?.forEach((renderConfig) => {
       this.addRenderToolCall(renderConfig);
     });
@@ -177,7 +202,14 @@ export class CopilotKit {
         this.#agents.set(this.core.agents);
       },
       onRuntimeConnectionStatusChanged: ({ status }) => {
+        // Core assigns `threadEndpoints`/`intelligence` synchronously before it
+        // notifies this callback (see agent-registry `ensureRuntimeMode`), so
+        // mirroring them here keeps the signals in lockstep with the status
+        // signal and lets reactive consumers observe `intelligence.wsUrl` once
+        // `/info` resolves.
         this.#runtimeConnectionStatus.set(status);
+        this.#threadEndpoints.set(this.core.threadEndpoints);
+        this.#intelligence.set(this.core.intelligence);
         this.#syncBuiltInActivityMessageRenderers();
         this.#syncBuiltInOpenGenerativeUI();
       },

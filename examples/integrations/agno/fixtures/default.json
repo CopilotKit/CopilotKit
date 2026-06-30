@@ -7,6 +7,30 @@
       }
     },
     {
+      "match": { "userMessage": "weather in San Francisco" },
+      "response": {
+        "content": "The weather in San Francisco is: 70 degrees and Sunny."
+      }
+    },
+    {
+      "match": { "userMessage": "theme to green" },
+      "response": {
+        "content": "Done! I've changed the theme color to green (#22c55e). The page background and accent colors should now reflect the new theme."
+      }
+    },
+    {
+      "match": { "userMessage": "price of Apple stock" },
+      "response": {
+        "content": "Here is the latest price information for Apple Inc. (AAPL):\n\n| Symbol | Price   | Change  | Change % |\n|--------|---------|---------|----------|\n| AAPL   | $213.49 | +1.24   | +0.58%   |\n\n*Note: you are running against aimock — this is a scripted fixture value, not a live quote.*"
+      }
+    },
+    {
+      "match": { "userMessage": "proverb about AI" },
+      "response": {
+        "content": "Added a new proverb: *\"An AI that learns from its mistakes is wiser than a human who repeats them.\"*\n\nYou should see it appear in the Proverbs panel on the left."
+      }
+    },
+    {
       "match": {},
       "response": {
         "content": "You're currently running against aimock (a mock LLM server). This response is a catch-all for requests that don't match any test fixture. To use a real LLM: (1) Add your OPENAI_API_KEY to .env, (2) Remove or unset OPENAI_BASE_URL from your environment so requests go to OpenAI instead of aimock, (3) Restart with `pnpm dev`."

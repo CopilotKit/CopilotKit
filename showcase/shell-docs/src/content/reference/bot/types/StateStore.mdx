@@ -1,13 +1,13 @@
 ---
 title: "StateStore"
-description: "The pluggable persistence interface — five primitive groups, three shipped backends, and a conformance suite for custom implementations."
+description: "The pluggable persistence interface — five primitive groups, the built-in MemoryStore default, and a conformance suite for custom implementations."
 ---
 
 ## Overview
 
 `StateStore` is the persistence contract that backs the entire bot runtime: action snapshots, per-thread state, cross-platform transcripts, turn locks, inbound-event deduplication, and optional queuing. You choose a backend by passing it as `store.adapter` to [`createBot`](/reference/bot/functions/createBot).
 
-The default is `MemoryStore` — built-in, zero-config, but lost on restart. Swap in `createRedisStore` or `createPostgresStore` for durability across restarts and horizontal scale.
+The default is `MemoryStore` — built-in, zero-config, but lost on restart. Implement the `StateStore` interface yourself to back it with a durable store (Redis, Postgres, etc.) for persistence across restarts and horizontal scale.
 
 For a full guide on configuring persistence, see [Persistence](/bots/persistence). For cross-platform transcript storage built on top of StateStore, see [Transcripts](/bots/transcripts).
 
@@ -41,7 +41,7 @@ interface StateStore {
 }
 ```
 
-**JSON-serialization contract**: all values round-trip through `JSON.stringify` / `JSON.parse` on remote backends (Redis, Postgres), so `T` must be JSON-serializable. Non-JSON values (`Date`, `Map`, class instances) will not survive on those backends. `MemoryStore` preserves them by reference — a backend divergence to be aware of when writing tests that run against both.
+**JSON-serialization contract**: all values round-trip through `JSON.stringify` / `JSON.parse` on remote/custom backends, so `T` must be JSON-serializable. Non-JSON values (`Date`, `Map`, class instances) will not survive on those backends. `MemoryStore` preserves them by reference — a backend divergence to be aware of when writing tests that run against both.
 
 ## Primitive Groups
 
@@ -130,72 +130,11 @@ const store = new MemoryStore();
 
 Zero-config in-memory implementation. All data is lost on process restart. Suitable for development, demos, or stateless deployments where no cross-turn state is needed.
 
-### Redis (`@copilotkit/bot-store-redis`)
+### Custom backends
 
-```ts
-import { createRedisStore } from "@copilotkit/bot-store-redis";
+To use a durable store (Redis, Postgres, or any other persistence layer), implement the `StateStore` interface and pass your instance as `store.adapter`. This gives you full control over the persistence strategy without depending on a specific adapter package.
 
-const store = createRedisStore({ url: process.env.REDIS_URL });
-
-const bot = createBot({
-  adapters: [slack({ botToken, appToken })],
-  store: { adapter: store },
-});
-```
-
-Durable, multi-process. Uses a `node-redis` client; locks and bounded-enqueue use Lua scripts for atomicity. All values are JSON-encoded.
-
-<PropertyReference name="url" type="string">
-  Redis connection URL, e.g. `redis://localhost:6379`. Ignored when `client` is supplied.
-</PropertyReference>
-
-<PropertyReference name="client" type="RedisClientType">
-  Pre-configured `node-redis` client. Pass this instead of `url` when you need custom connection options (TLS, auth, cluster).
-</PropertyReference>
-
-<PropertyReference name="keyPrefix" type="string" default='"cpk:"'>
-  Prefix prepended to every key. Change this to namespace multiple bots on the same Redis instance.
-</PropertyReference>
-
-### Postgres (`@copilotkit/bot-store-postgres`)
-
-```ts
-import { createPostgresStore } from "@copilotkit/bot-store-postgres";
-
-const store = createPostgresStore({
-  connectionString: process.env.DATABASE_URL,
-  autoMigrate: true,
-});
-
-const bot = createBot({
-  adapters: [slack({ botToken, appToken })],
-  store: { adapter: store },
-});
-```
-
-Durable, multi-process. Uses a `node-postgres` pool; backs `kv`/`list`/`lock`/`dedup`/`queue` on three tables (`cpk_state_kv`, `cpk_state_list`, `cpk_state_queue`). All values stored as JSONB. Locks are TTL'd rows (not pg advisory locks) so token/TTL fencing matches the Redis backend.
-
-<PropertyReference name="connectionString" type="string">
-  Postgres connection string, e.g. `postgres://user:pw@localhost:5432/db`. Ignored when `pool` is supplied.
-</PropertyReference>
-
-<PropertyReference name="pool" type="Pool">
-  Pre-configured `node-postgres` pool. Pass this instead of `connectionString` when you need custom pool settings.
-</PropertyReference>
-
-<PropertyReference name="autoMigrate" type="boolean" default="false">
-  Run the schema migration on first use. The migration is idempotent (`CREATE TABLE IF NOT EXISTS`). Enable for zero-friction setup; disable in production if you prefer to run migrations explicitly via `migrate(pool)`.
-</PropertyReference>
-
-<PropertyReference name="keyPrefix" type="string" default='"cpk:"'>
-  Prefix prepended to every logical key. Useful for multi-tenant deployments sharing one database.
-</PropertyReference>
-
-<PropertyReference name="schema" type="string">
-  Reserved for future schema namespacing of the underlying tables. Currently unused.
-</PropertyReference>
-
-## Custom Backends
+## Custom Backend Conformance
 
 Implement all five primitive groups of the `StateStore` interface and pass your instance as `store.adapter`. Run the conformance suite to verify correctness:
 
@@ -215,6 +154,6 @@ runStateStoreConformance(
 
 - [createBot](/reference/bot/functions/createBot) — the `store.adapter` option
 - [Thread](/reference/bot/classes/Thread) — `setState`, `state`, `subscribe`, `unsubscribe`, `isSubscribed`
-- [Persistence guide](/bots/persistence) — choosing and configuring a backend
+- [Persistence guide](/bots/persistence) — configuring a backend (in-memory default; bring your own durable backend)
 - [Transcripts guide](/bots/transcripts) — cross-platform conversation history built on StateStore
 - [ActionStore](/reference/bot/types/ActionStore) — the older action-snapshot interface (deprecated)

@@ -17,6 +17,7 @@
  */
 
 import type { Model } from "@strands-agents/sdk";
+import { forwardingFetch } from "./header-forwarding.js";
 
 // @doc-replace
 /**
@@ -76,6 +77,14 @@ export async function createModel(
         ...(baseURL ? { baseURL } : {}),
         // Identify this integration to aimock so it matches the right fixtures.
         defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
+        // Per-request inbound x-* forwarding (incl. X-AIMock-Strict / x-test-id
+        // / x-diag-*). The OpenAI client is built ONCE at startup, but
+        // forwardingFetch reads an AsyncLocalStorage snapshot per outbound call
+        // (seeded by the Express cvdiag/forwarding middleware around
+        // agent.run()), so per-request headers flow correctly. It never
+        // clobbers the static x-aimock-context above, and is byte-identical to
+        // a plain fetch when no x-* are in scope (demo traffic unaffected).
+        fetch: forwardingFetch,
       },
       // @doc-as
       // clientConfig: {

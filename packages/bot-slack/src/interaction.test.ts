@@ -73,6 +73,20 @@ describe("decodeInteraction", () => {
     expect(evt!.user).toBeUndefined();
   });
 
+  it("decodes a multi_static_select's selected_options into a string[] value", () => {
+    const evt = decodeInteraction({
+      type: "block_actions",
+      container: { channel_id: "C3", thread_ts: "200.0" },
+      actions: [
+        {
+          action_id: "ck:ms",
+          selected_options: [{ value: "core" }, { value: "infra" }],
+        },
+      ],
+    });
+    expect(evt!.value).toEqual(["core", "infra"]);
+  });
+
   it("returns undefined for non-block_actions or missing action_id", () => {
     expect(decodeInteraction({ type: "view_submission" })).toBeUndefined();
     expect(
@@ -129,5 +143,17 @@ describe("decodeInteraction", () => {
     // value is undefined when the button carried none — fine; durability rides
     // on the ActionStore, not the payload.
     expect(evt!.value).toBeUndefined();
+  });
+
+  it("carries trigger_id from a block_actions payload", () => {
+    const evt = decodeInteraction({
+      type: "block_actions",
+      trigger_id: "T123.456",
+      user: { id: "U1" },
+      channel: { id: "C1" },
+      message: { ts: "1.0" },
+      actions: [{ action_id: "ck:x", value: "v" }],
+    });
+    expect(evt!.triggerId).toBe("T123.456");
   });
 });

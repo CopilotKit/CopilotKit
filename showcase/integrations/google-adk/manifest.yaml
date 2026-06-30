@@ -71,8 +71,8 @@ not_supported_features:
   - interrupt-headless
   - reasoning-default-render
   - agentic-chat-reasoning
-  - tool-rendering-reasoning-chain
 a2ui_pattern: schema-loading
+thread_persistence_pattern: adk-session
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
 demos:
@@ -363,7 +363,7 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: declarative-gen-ui
     name: Declarative Generative UI (A2UI)
-    description: Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider; the ADK agent owns generate_a2ui via the ag_ui_adk middleware (forced render_a2ui sub-agent + toolkit recovery), injectA2UITool=false
+    description: Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider; the runtime injects the render_a2ui tool automatically (injectA2UITool=true) and the ag_ui_adk adapter auto-injects generate_a2ui
     tags:
       - generative-ui
     route: /demos/declarative-gen-ui
@@ -393,7 +393,7 @@ demos:
       - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
   - id: a2ui-recovery
     name: A2UI Error Recovery
-    description: Makes the A2UI validate->retry recovery loop visible — an invalid first render heals to a valid one, and an always-invalid render shows a graceful recovery-exhausted fallback. ADK-only (the recovery loop + hard-fail live in the ag_ui_adk middleware; the langgraph-python runtime path has no equivalent). Backend-owned via get_a2ui_tool (injectA2UITool=false); reuses the declarative-gen-ui catalog.
+    description: Makes the A2UI validate->retry recovery loop visible — an invalid first render heals to a valid one, and an always-invalid render shows a graceful recovery-exhausted fallback. Backend-owned via get_a2ui_tool (injectA2UITool=false); reuses the declarative-gen-ui catalog. Also shipped for langgraph (python/fastapi/typescript) and strands (python/typescript).
     tags:
       - generative-ui
     route: /demos/a2ui-recovery

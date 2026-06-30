@@ -468,6 +468,68 @@ describe("e2e-full driver", () => {
       );
       expect(redAbortCells.length).toBeGreaterThan(0);
     }, 20_000);
+
+    // B4 (finish-and-report): post-B2/B3 a run can FINISH-AND-REPORT after a
+    // graceful drain (the drain signal is no longer the run's hard-cancel; the
+    // run keeps going until grace-expiry fires the SEPARATE `runAbort`, which
+    // becomes `ctx.abortSignal`). So a feature that RUNS TO COMPLETION while
+    // the worker is draining — and returns a LEGITIMATE red (a genuine test
+    // failure, errorClass `goto-error`, NOT `abort`) — MUST report that real
+    // terminal red. Suppression is scoped to ABORTED runs only (the
+    // `ctx.abortSignal.aborted` + `errorClass === "abort"` conjuncts), so the
+    // mere presence of `drainReason: "shutdown"` must NOT swallow a finished
+    // run's honest red. This pins the aborted-only contract: a draining worker
+    // that finishes its in-flight cell paints the real result, red or green.
+    it("B4: a FINISHED run's legitimate red is REPORTED (not suppressed) while drainReason=shutdown and the abort signal has NOT fired", async () => {
+      registerD5Script(makeScript(["agentic-chat"]));
+
+      const sideEmits: ProbeResult<unknown>[] = [];
+      const writer: ProbeResultWriter = {
+        write: async (r) => {
+          sideEmits.push(r);
+        },
+      };
+
+      // The feature runs to completion and FAILS with a genuine goto-error
+      // (errorClass != "abort"). It is finished, not aborted.
+      const driver = createE2eFullDriver({
+        launcher: async () =>
+          makeBrowser({ pageScript: { throwOnGoto: new Error("nav boom") } }),
+        scriptLoader: noopScriptLoader(),
+      });
+
+      // Fleet-shaped ctx: the worker stamps `drainReason: "shutdown"` (the
+      // drain signal FIRED) but the run's hard-cancel signal (`ctx.abortSignal`
+      // = runAbort, the grace-expiry abort) has NOT fired — the run finished
+      // within grace. This is exactly the finish-and-report surface.
+      const runAbort = new AbortController(); // never aborted: run finished in grace
+
+      const result = await driver.run(
+        makeCtx({
+          writer,
+          abortSignal: runAbort.signal,
+          drainReason: "shutdown",
+        }),
+        {
+          key: "e2e_d6:showcase-test-slug",
+          backendUrl: "https://test.example.com",
+          features: ["agentic-chat"],
+        },
+      );
+
+      // The finished run's REAL terminal result must surface: aggregate red…
+      expect(result.state).toBe("red");
+      // …and the per-cell side-emit for the finished-red feature must be
+      // REPORTED, not drain-suppressed (its errorClass is the honest
+      // failure class, not "abort").
+      const featureRed = sideEmits.find(
+        (r) => r.key === "d6:test-slug/agentic-chat" && r.state === "red",
+      );
+      expect(featureRed).toBeDefined();
+      expect(
+        (featureRed!.signal as { errorClass?: string }).errorClass,
+      ).not.toBe("abort");
+    });
   });
 
   // Regression guard: the dashboard reads the integration-scoped aggregate

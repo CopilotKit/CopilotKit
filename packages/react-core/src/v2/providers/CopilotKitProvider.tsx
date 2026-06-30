@@ -297,6 +297,11 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
   const [runtimeOpenGenUIEnabled, setRuntimeOpenGenUIEnabled] = useState(false);
   const openGenUIActive = runtimeOpenGenUIEnabled || !!openGenerativeUI;
+  // A catalog passed to the provider is enough to turn A2UI on: render the
+  // surfaces locally and forward the catalog signal so the runtime injects the
+  // render tool — no runtime-side `a2ui` config required.
+  const a2uiCatalogProvided = !!a2ui?.catalog;
+  const a2uiActive = runtimeA2UIEnabled || a2uiCatalogProvided;
   const [runtimeLicenseStatus, setRuntimeLicenseStatus] = useState<
     RuntimeLicenseStatus | undefined
   >(undefined);
@@ -372,7 +377,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       });
     }
 
-    if (runtimeA2UIEnabled) {
+    if (a2uiActive) {
       // The a2ui-surface renderer owns the WHOLE generative-UI lifecycle (OSS-162):
       // building skeleton → retrying → hard-failure → painted surface, all on one
       // activity, swapped in place. `recovery` tunes the pre-paint UX (timing +
@@ -388,7 +393,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     }
 
     return renderers;
-  }, [runtimeA2UIEnabled, openGenUIActive, a2ui]);
+  }, [a2uiActive, openGenUIActive, a2ui]);
 
   // Combine user-provided activity renderers with built-in ones
   // User-provided renderers take precedence (come first) so they can override built-ins
@@ -696,7 +701,14 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     );
     copilotkit.setHeaders(mergedHeaders);
     copilotkit.setCredentials(credentials);
-    copilotkit.setProperties(properties);
+    // Forward a per-run signal when the provider has an A2UI catalog so the
+    // runtime can turn A2UI on (and inject the render tool) without a separate
+    // `a2ui.injectA2UITool` flag on the runtime.
+    copilotkit.setProperties(
+      a2uiCatalogProvided
+        ? { ...properties, a2uiCatalogAvailable: true }
+        : properties,
+    );
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
     copilotkit.setDebug(debug);
   }, [
@@ -705,6 +717,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     mergedHeaders,
     credentials,
     properties,
+    a2uiCatalogProvided,
     mergedAgents,
     useSingleEndpoint,
     debug,
@@ -811,8 +824,8 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     <SandboxFunctionsContext.Provider value={sandboxFunctionsList}>
       <CopilotKitContext.Provider value={contextValue}>
         <LicenseContext.Provider value={licenseContextValue}>
-          {runtimeA2UIEnabled && <A2UIBuiltInToolCallRenderer />}
-          {runtimeA2UIEnabled && (
+          {a2uiActive && <A2UIBuiltInToolCallRenderer />}
+          {a2uiActive && (
             <A2UICatalogContext
               catalog={a2ui?.catalog}
               includeSchema={a2ui?.includeSchema}

@@ -12,6 +12,9 @@ describe("FakeAdapter", () => {
       onInteraction: () => {},
       onCommand: () => {},
       onThreadStarted: () => {},
+      onReaction: () => {},
+      onModalSubmit: async () => {},
+      onModalClose: () => {},
     });
     a.emitTurn({ userText: "hi" });
     expect(got).toBe("hi");
@@ -29,6 +32,9 @@ describe("FakeAdapter", () => {
       },
       onCommand: () => {},
       onThreadStarted: () => {},
+      onReaction: () => {},
+      onModalSubmit: async () => {},
+      onModalClose: () => {},
     });
     a.emitInteraction({ id: "ck:abc" });
     expect(id).toBe("ck:abc");

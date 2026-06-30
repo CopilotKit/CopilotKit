@@ -335,6 +335,52 @@ describe("useThreads", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result.current.error?.message).toBe("Runtime URL is not configured");
+    // The runtime/config error must NOT leak into the end-user list-error
+    // channel — only genuine list-load failures surface there.
+    expect(result.current.listError).toBeNull();
+  });
+
+  it("startNewThread clears the runtime-config error banner", async () => {
+    setupCopilotKit("");
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.error?.message).toBe(
+        "Runtime URL is not configured",
+      );
+    });
+
+    act(() => {
+      result.current.startNewThread();
+    });
+
+    // "New thread" presents a clean welcome surface: the config error is
+    // dismissed even though it outranks the store's own (cleared) error.
+    await waitFor(() => {
+      expect(result.current.error).toBeNull();
+    });
+  });
+
+  it("does not register the thread store when disabled (avoids evicting a live store for the same agent)", () => {
+    const registerThreadStore = vi.fn();
+    const unregisterThreadStore = vi.fn();
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: {},
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+        registerThreadStore,
+        unregisterThreadStore,
+      },
+    });
+
+    renderHook(() => useThreads({ ...defaultInput, enabled: false }));
+
+    expect(registerThreadStore).not.toHaveBeenCalled();
   });
 
   it("does not fetch when the runtime does not advertise thread endpoints", async () => {
@@ -590,6 +636,36 @@ describe("useThreads", () => {
     expect(JSON.parse((deleteCall![1] as { body: string }).body)).toMatchObject(
       { agentId: "agent-1" },
     );
+  });
+
+  it("unarchives a thread through the runtime contract", async () => {
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
+      .mockReturnValueOnce(jsonResponse({}));
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    await act(async () => {
+      await result.current.unarchiveThread("t-2");
+    });
+
+    const unarchiveCall = fetchMock.mock.calls.find(
+      (args: unknown[]) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).includes("/threads/t-2") &&
+        (args[1] as { method?: string } | undefined)?.method === "PATCH",
+    );
+    expect(unarchiveCall).toBeDefined();
+    expect(
+      JSON.parse((unarchiveCall![1] as { body: string }).body),
+    ).toMatchObject({ agentId: "agent-1", archived: false });
   });
 
   it("exposes thread-scoped pagination properties", async () => {
