@@ -14,7 +14,9 @@ describe("forgetAllMemories", () => {
       // bare list returns every scope; include a duplicate id to prove dedup
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ memories: [{ id: "a" }, { id: "b" }, { id: "b" }, { id: "c" }] }),
+          JSON.stringify({
+            memories: [{ id: "a" }, { id: "b" }, { id: "b" }, { id: "c" }],
+          }),
           { status: 200 },
         ),
       )
@@ -49,7 +51,9 @@ describe("forgetAllMemories", () => {
   });
 
   it("throws when listing fails", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(new Response("nope", { status: 401 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("nope", { status: 401 }));
     vi.stubGlobal("fetch", fetchMock);
     await expect(
       forgetAllMemories({ apiUrl: "http://x:7050", apiKey: "k", userId: "u" }),
@@ -59,7 +63,11 @@ describe("forgetAllMemories", () => {
   it("throws when a delete fails", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ memories: [{ id: "a" }] }), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ memories: [{ id: "a" }] }), {
+          status: 200,
+        }),
+      )
       .mockResolvedValueOnce(new Response("boom", { status: 500 }));
     vi.stubGlobal("fetch", fetchMock);
     await expect(
@@ -70,18 +78,34 @@ describe("forgetAllMemories", () => {
   it("strips a trailing slash from apiUrl", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ memories: [] }), { status: 200 }));
+      .mockResolvedValue(
+        new Response(JSON.stringify({ memories: [] }), { status: 200 }),
+      );
     vi.stubGlobal("fetch", fetchMock);
-    await forgetAllMemories({ apiUrl: "http://x:7050/", apiKey: "k", userId: "u" });
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://x:7050/api/memories", expect.anything());
+    await forgetAllMemories({
+      apiUrl: "http://x:7050/",
+      apiKey: "k",
+      userId: "u",
+    });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "http://x:7050/api/memories",
+      expect.anything(),
+    );
   });
 
   it("returns 0 and issues no deletes when memory is already empty", async () => {
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ memories: [] }), { status: 200 }));
+      .mockResolvedValue(
+        new Response(JSON.stringify({ memories: [] }), { status: 200 }),
+      );
     vi.stubGlobal("fetch", fetchMock);
-    const forgot = await forgetAllMemories({ apiUrl: "http://x:7050", apiKey: "k", userId: "u" });
+    const forgot = await forgetAllMemories({
+      apiUrl: "http://x:7050",
+      apiKey: "k",
+      userId: "u",
+    });
     expect(forgot).toBe(0);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

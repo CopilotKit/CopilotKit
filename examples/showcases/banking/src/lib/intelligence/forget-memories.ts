@@ -24,15 +24,22 @@ interface MemoriesListResponse {
   memories: Array<{ id: string }>;
 }
 
-export async function forgetAllMemories(params: ForgetMemoriesParams): Promise<number> {
+export async function forgetAllMemories(
+  params: ForgetMemoriesParams,
+): Promise<number> {
   const { apiUrl, apiKey, userId } = params;
   const base = apiUrl.replace(/\/$/, "");
-  const headers = { Authorization: `Bearer ${apiKey}`, "x-cpki-user-id": userId };
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    "x-cpki-user-id": userId,
+  };
 
   // Enumerate every scope in one shot (bare GET — no query string allowed).
   const listRes = await fetch(`${base}/api/memories`, { headers });
   if (!listRes.ok) {
-    throw new Error(`list memories failed: ${listRes.status} ${await listRes.text()}`);
+    throw new Error(
+      `list memories failed: ${listRes.status} ${await listRes.text()}`,
+    );
   }
   const { memories } = (await listRes.json()) as MemoriesListResponse;
 
@@ -42,13 +49,18 @@ export async function forgetAllMemories(params: ForgetMemoriesParams): Promise<n
 
   let forgot = 0;
   for (const id of ids) {
-    const delRes = await fetch(`${base}/api/memories/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      headers,
-    });
+    const delRes = await fetch(
+      `${base}/api/memories/${encodeURIComponent(id)}`,
+      {
+        method: "DELETE",
+        headers,
+      },
+    );
     // DELETE returns 204 No Content on success; response.ok covers 204.
     if (!delRes.ok) {
-      throw new Error(`delete memory ${id} failed: ${delRes.status} ${await delRes.text()}`);
+      throw new Error(
+        `delete memory ${id} failed: ${delRes.status} ${await delRes.text()}`,
+      );
     }
     forgot += 1;
   }

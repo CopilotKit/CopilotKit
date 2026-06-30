@@ -28,10 +28,13 @@ export const POST = async () => {
   const userId = process.env.INTELLIGENCE_USER_ID ?? "jordan-beamson";
   try {
     const forgot = await forgetAllMemories({ apiUrl, apiKey, userId });
-    return new Response(JSON.stringify({ ok: true, reset: ["store", "memory"], forgot }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: true, reset: ["store", "memory"], forgot }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
   } catch (err) {
     return new Response(
       JSON.stringify({
