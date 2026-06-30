@@ -86,10 +86,11 @@ function createMockAgent(
 // --- Mock core factory ---
 
 // --- Minimal no-op memory store stub ---
-// The inspector calls core.getMemoryStore() unconditionally during attachToCore.
-// All mock cores must expose this method to prevent a TypeError. The stub
-// below seeds the store with empty memories and available=true, which is the
-// right default for tests that don't exercise the memory feature.
+// The inspector calls core.getMemoryStore() lazily, on first Memories-tab
+// activation (NOT on attach). All mock cores still expose this method so that
+// tests which do activate the tab don't hit a TypeError. The stub below seeds
+// the store with empty memories and available=true, which is the right default
+// for tests that don't exercise the memory feature.
 
 type MockMemoryStoreState = {
   memories: never[];
@@ -1205,7 +1206,7 @@ describe("WebInspectorElement memories — subscription", () => {
     vi.unstubAllGlobals();
   });
 
-  it("seeds _memories from core.getMemoryStore() on attach", async () => {
+  it("seeds _memories from core.getMemoryStore() on Memories-tab activation", async () => {
     const oneMemory: Memory = {
       id: "m1",
       kind: "topical",
@@ -1326,6 +1327,61 @@ describe("WebInspectorElement memories — view states", () => {
       .updateComplete;
     const listText = memoryList?.shadowRoot?.textContent ?? "";
     expect(listText).toContain("No memories yet");
+  });
+
+  it("keeps the list rendered (not the full-screen error) when a mutation error arrives with memories present", async () => {
+    // INSP-2: a failed remove/update sets the store error while a valid list is
+    // already on screen. That must NOT blank the list with the full-screen
+    // "Failed to load memories" state — the error is surfaced inline instead.
+    const oneMemory: Memory = {
+      id: "m1",
+      kind: "topical",
+      scope: "user",
+      content: "Likes dogs",
+      sourceThreadIds: [],
+      invalidatedAt: null,
+    };
+
+    const core = makeCoreWithMemory([oneMemory]);
+    const el = await mountMemories(core);
+
+    // Simulate a mutation failure landing after the list is rendered.
+    (el as unknown as { _memoriesError: Error | null })._memoriesError =
+      new Error("could not delete memory");
+    el.requestUpdate();
+    await el.updateComplete;
+
+    // The list survives.
+    const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
+    expect(
+      memoryList,
+      "cpk-memory-list must remain rendered on a mutation error",
+    ).not.toBeNull();
+
+    const text = el.shadowRoot?.textContent ?? "";
+    // Inline, non-blocking error with distinct copy.
+    expect(text).toContain("Action failed: could not delete memory");
+    // The full-screen load-failure copy must NOT appear.
+    expect(text).not.toContain("Failed to load memories");
+  });
+
+  it("shows the full-screen load error only when no memories are loaded", async () => {
+    // INSP-2 counterpart: a snapshot-load failure (empty list) still shows the
+    // full-screen "Failed to load memories" state.
+    const core = makeCoreWithMemory([]);
+    const el = await mountMemories(core);
+
+    (el as unknown as { _memoriesError: Error | null })._memoriesError =
+      new Error("network down");
+    el.requestUpdate();
+    await el.updateComplete;
+
+    const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Failed to load memories");
+    expect(text).toContain("network down");
+    expect(text).not.toContain("Action failed:");
+    const memoryList = el.shadowRoot?.querySelector("cpk-memory-list");
+    expect(memoryList).toBeNull();
   });
 
   it("shows the 'live' indicator only when realtime is connected", async () => {
@@ -1522,7 +1578,7 @@ describe("WebInspectorElement memories — passive store guard", () => {
     vi.unstubAllGlobals();
   });
 
-  it("calls core.getMemoryStore() during attach and reads from the returned store", async () => {
+  it("calls core.getMemoryStore() on tab activation and reads from the returned store", async () => {
     const core = makeCoreWithMemory([]);
     const spy = vi.spyOn(core, "getMemoryStore");
 
@@ -1538,6 +1594,69 @@ describe("WebInspectorElement memories — passive store guard", () => {
     // (if the inspector had created its own store instead, this reference would differ).
     expect(typeof returnedStore.getState).toBe("function");
     expect(typeof returnedStore.select).toBe("function");
+  });
+
+  it("does NOT call core.getMemoryStore() merely by attaching the inspector", async () => {
+    // INSP-1: getMemoryStore() lazily creates + starts the store and opens
+    // realtime, so attaching the inspector must touch nothing. The store is
+    // only created when the user activates the Memories tab.
+    const core = makeCoreWithMemory([]);
+    const spy = vi.spyOn(core, "getMemoryStore");
+
+    const el = new WebInspectorElement();
+    document.body.appendChild(el);
+    el.core = core as unknown as WebInspectorElement["core"];
+    (el as unknown as { isOpen: boolean }).isOpen = true;
+    await el.updateComplete;
+
+    expect(spy).not.toHaveBeenCalled();
+
+    // Activating the Memories tab is what creates + subscribes to the store.
+    (
+      el as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("memories");
+    await el.updateComplete;
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not double-subscribe when the Memories tab is re-activated", async () => {
+    const core = makeCoreWithMemory([]);
+    const spy = vi.spyOn(core, "getMemoryStore");
+
+    const el = await mountMemories(core);
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    // Re-activate the Memories tab — the guard must prevent a second
+    // getMemoryStore() call (which would create a second store/realtime).
+    (
+      el as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("memories");
+    await el.updateComplete;
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("re-subscribes after detach when the Memories tab is activated again", async () => {
+    const core = makeCoreWithMemory([]);
+    const spy = vi.spyOn(core, "getMemoryStore");
+
+    const el = await mountMemories(core);
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    // Detach (core = null) must reset the lazy-subscription guard.
+    el.core = null;
+    await el.updateComplete;
+
+    // Re-attach + re-activate the tab → a fresh subscription is created.
+    el.core = core as unknown as WebInspectorElement["core"];
+    (el as unknown as { isOpen: boolean }).isOpen = true;
+    (
+      el as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("memories");
+    await el.updateComplete;
+
+    expect(spy).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -1612,6 +1731,57 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
       memoryList,
       "cpk-memory-list must not render when getMemoryStore is absent",
     ).toBeNull();
+  });
+
+  it("shows the SDK-upgrade teaser (distinct from the not-enabled teaser) when getMemoryStore is absent", async () => {
+    // INSP-3: an older @copilotkit/core (no getMemoryStore) must guide an SDK
+    // upgrade, with copy distinct from the genuine "not enabled on this
+    // deployment" teaser shown by a current SDK against a memory-less backend.
+    const olderCore = {
+      agents: {},
+      context: {},
+      properties: {},
+      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
+      intelligence: { wsUrl: "wss://localhost" },
+      subscribe: (_subscriber: CopilotKitCoreSubscriber) => ({
+        unsubscribe: () => undefined,
+      }),
+      getThreadStores: () => ({}),
+      getThreadStore: (_agentId: string) => undefined,
+      // getMemoryStore intentionally absent
+    };
+
+    const el = new WebInspectorElement();
+    document.body.appendChild(el);
+    el.core = olderCore as unknown as WebInspectorElement["core"];
+    const internals = el as unknown as {
+      isOpen: boolean;
+      handleMenuSelect: (key: string) => void;
+    };
+    internals.isOpen = true;
+    internals.handleMenuSelect("memories");
+    await el.updateComplete;
+
+    const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain("@copilotkit SDK");
+    expect(text).toContain("Upgrade");
+    // Must NOT show the deployment-not-enabled copy in this case.
+    expect(text).not.toContain(
+      "Long-term memory isn't enabled on this deployment.",
+    );
+  });
+
+  it("shows the not-enabled teaser (distinct from the upgrade teaser) when the current SDK reports memory unavailable", async () => {
+    // INSP-3 counterpart: a current SDK (getMemoryStore present) whose store
+    // reports available=false shows the deployment teaser, NOT upgrade copy.
+    const core = makeCoreWithMemory([], { available: false });
+    const el = await mountMemories(core);
+
+    const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain(
+      "Long-term memory isn't enabled on this deployment.",
+    );
+    expect(text).not.toContain("@copilotkit SDK");
   });
 });
 

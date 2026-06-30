@@ -2755,6 +2755,17 @@ export class WebInspectorElement extends LitElement {
   // list route). Drives the "live" indicator: only "connected" shows "live".
   private _memoriesRealtimeStatus: MemoryRealtimeStatus = "connecting";
   private _memoryUnsub: (() => void) | null = null;
+  // Lazy-subscription guard. The memory store is created + started + opens
+  // realtime the first time `core.getMemoryStore()` is called, so we defer
+  // that call until the user actually activates the Memories tab (see
+  // `ensureMemorySubscription`). This flag prevents a repeated tab click from
+  // double-subscribing; `detachFromCore` resets it so a later attach + tab
+  // activation re-subscribes cleanly.
+  private _memorySubscribed = false;
+  // True when the attached core predates `getMemoryStore` (older @copilotkit
+  // SDK). Distinct from `_memoriesAvailable` (memory not enabled on an
+  // otherwise-current deployment) so the teaser can show upgrade-the-SDK copy.
+  private _memoryStoreUnsupported = false;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
   private coreProperties: Readonly<Record<string, unknown>> = {};
   private lastCoreError: {
@@ -3203,45 +3214,79 @@ export class WebInspectorElement extends LitElement {
       this.contextStore = this.normalizeContextStore(core.context);
     }
 
-    // Guard like getThreadStores above: older @copilotkit/core has no getMemoryStore.
-    // When absent, force the unavailable/locked state so the teaser renders instead
-    // of throwing a TypeError mid-attach and breaking the entire inspector.
-    if (typeof core.getMemoryStore === "function") {
-      // Subscribe to the singleton memory store on core (passive — never creates one)
-      const memoryStore = core.getMemoryStore();
-      const ms = memoryStore.getState();
-      this._memories = ɵselectMemories(ms);
-      this._memoriesLoading = ɵselectMemoriesIsLoading(ms);
-      this._memoriesError = ɵselectMemoriesError(ms);
-      this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
-      this._memoriesRealtimeStatus = ɵselectMemoriesRealtimeStatus(ms);
-      const memSubs = [
-        memoryStore.select(ɵselectMemories).subscribe((v) => {
-          this._memories = v;
-          this.requestUpdate();
-        }),
-        memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => {
-          this._memoriesLoading = v;
-          this.requestUpdate();
-        }),
-        memoryStore.select(ɵselectMemoriesError).subscribe((v) => {
-          this._memoriesError = v;
-          this.requestUpdate();
-        }),
-        memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => {
-          this._memoriesAvailable = v;
-          this.requestUpdate();
-        }),
-        memoryStore.select(ɵselectMemoriesRealtimeStatus).subscribe((v) => {
-          this._memoriesRealtimeStatus = v;
-          this.requestUpdate();
-        }),
-      ];
-      this._memoryUnsub = () => memSubs.forEach((s) => s.unsubscribe());
-    } else {
-      // Older @copilotkit/core without getMemoryStore: render the locked teaser.
-      this._memoriesAvailable = false;
+    // NOTE: the memory store is intentionally NOT touched here. Calling
+    // `core.getMemoryStore()` lazily creates + `.start()`s the store and opens
+    // a realtime connection, so merely attaching the inspector would spin up a
+    // memory store + realtime even in apps that never use memory. Instead, the
+    // store is created + subscribed on first Memories-tab activation via
+    // `ensureMemorySubscription` (user-initiated, acceptable). Attaching the
+    // inspector creates nothing.
+  }
+
+  /**
+   * Lazily subscribes to the singleton memory store the first time the user
+   * activates the Memories tab. This is deferred out of `attachToCore` because
+   * `core.getMemoryStore()` is what creates + starts the store and opens
+   * realtime — doing it on attach would start memory for apps that never use
+   * it. Idempotent: repeated tab activations are guarded by
+   * `_memorySubscribed`. On an older @copilotkit/core without `getMemoryStore`,
+   * records the unsupported state so the teaser can guide an SDK upgrade.
+   */
+  private ensureMemorySubscription(): void {
+    if (this._memorySubscribed) {
+      return;
     }
+    const core = this._core;
+    if (!core) {
+      return;
+    }
+
+    // Guard like getThreadStores: older @copilotkit/core has no getMemoryStore.
+    // When absent, flag the unsupported state so the teaser shows upgrade copy
+    // instead of throwing a TypeError that would break the entire inspector.
+    if (typeof core.getMemoryStore !== "function") {
+      this._memoryStoreUnsupported = true;
+      this._memoriesAvailable = false;
+      this.requestUpdate();
+      return;
+    }
+
+    this._memorySubscribed = true;
+    this._memoryStoreUnsupported = false;
+
+    // First touch of getMemoryStore() — creates + starts the store, opens realtime.
+    const memoryStore = core.getMemoryStore();
+    const ms = memoryStore.getState();
+    this._memories = ɵselectMemories(ms);
+    this._memoriesLoading = ɵselectMemoriesIsLoading(ms);
+    this._memoriesError = ɵselectMemoriesError(ms);
+    this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
+    this._memoriesRealtimeStatus = ɵselectMemoriesRealtimeStatus(ms);
+    const memSubs = [
+      memoryStore.select(ɵselectMemories).subscribe((v) => {
+        this._memories = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => {
+        this._memoriesLoading = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesError).subscribe((v) => {
+        this._memoriesError = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => {
+        this._memoriesAvailable = v;
+        this.requestUpdate();
+      }),
+      // Group E — realtime connection health.
+      memoryStore.select(ɵselectMemoriesRealtimeStatus).subscribe((v) => {
+        this._memoriesRealtimeStatus = v;
+        this.requestUpdate();
+      }),
+    ];
+    this._memoryUnsub = () => memSubs.forEach((s) => s.unsubscribe());
+    this.requestUpdate();
   }
 
   private detachFromCore(): void {
@@ -3256,6 +3301,10 @@ export class WebInspectorElement extends LitElement {
     this._memoriesError = null;
     this._memoriesAvailable = true;
     this._memoriesRealtimeStatus = "connecting";
+    // Reset the lazy-subscription guards so a later attach + Memories-tab
+    // activation re-subscribes (and re-evaluates SDK support) cleanly.
+    this._memorySubscribed = false;
+    this._memoryStoreUnsupported = false;
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.lastCoreError = null;
@@ -6834,7 +6883,11 @@ ${argsString}</pre
                 color: #57575b;
               "
             >
-              Long-term memory isn't enabled on this deployment.
+              ${
+                this._memoryStoreUnsupported
+                  ? "Long-term memory isn't available in this version of the @copilotkit SDK. Upgrade @copilotkit/core (and @copilotkit/react) to a version that supports memory."
+                  : "Long-term memory isn't enabled on this deployment."
+              }
             </p>
             <div
               style="
@@ -6895,8 +6948,10 @@ ${argsString}</pre
       `;
     }
 
-    // 2. Error state.
-    if (this._memoriesError) {
+    // 2. Full-screen error — only for a snapshot-LOAD failure (no memories
+    // loaded). A mutation failure that arrives while memories are already on
+    // screen must NOT blank the list; it is surfaced inline below (step 4).
+    if (this._memoriesError && this._memories.length === 0) {
       return html`
         <div
           style="
@@ -6993,6 +7048,44 @@ ${argsString}</pre
             </span>
           </div>
         </div>
+        ${
+          this._memoriesError
+            ? html`
+                <div
+                  role="alert"
+                  style="
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 8px;
+                    flex-shrink: 0;
+                    border-bottom: 1px solid #f1c7c9;
+                    background: #fdf3f3;
+                    padding: 8px 12px;
+                    color: #c0333a;
+                    font-size: 12px;
+                    line-height: 1.45;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#c0333a"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    style="flex-shrink:0;margin-top:1px;"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span>Action failed: ${this._memoriesError.message}</span>
+                </div>
+              `
+            : nothing
+        }
         <div style="flex:1;min-height:0;overflow:hidden;">
           <cpk-memory-list
             style="height:100%;"
@@ -7813,6 +7906,10 @@ ${prettyEvent}</pre
     }
 
     if (key === "memories") {
+      // Lazily create + subscribe to the memory store on first activation. This
+      // is the only place that touches getMemoryStore(), so the store/realtime
+      // are never started just by attaching the inspector.
+      this.ensureMemorySubscription();
       if (previousMenu !== "memories" && !this.core?.telemetryDisabled) {
         trackMemoriesTabClicked(this.getMemoriesTelemetryProps());
       }
