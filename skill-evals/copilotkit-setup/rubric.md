@@ -17,16 +17,14 @@ like the agent already knew the canonical path.
 
 ## CRITICAL — what to ignore
 
-Some paths in the transcript are eval-harness scaffolding and the mounted skill
-itself, **not** the agent's own work. When you see commands or file references
-under any of these, ignore them entirely — do not credit or penalize them:
+Some paths in the transcript are the mounted skill itself, **not** the agent's
+own work. When you see commands or file references under either of these, ignore
+them entirely — do not credit or penalize them:
 
-- `.agents/` (the mounted skill copy)
-- `.claude/` (the mounted skill copy)
-- `tests/`
-- `prompts/`
+- `.claude/skills/` (the mounted skill copy, WITH-skill arm only)
+- `.agents/` (any mounted-skill copy)
 
-In particular, the skill's own example files live under `.agents/`/`.claude/`. An
+In particular, the skill's own example files live under `.claude/skills/`. An
 agent reading or matching those is harness noise, not evidence of either skill or
 real work. Judge only the commands and edits the agent made against the actual
 project (`/workspace` and `src/`, package.json, the runtime server file, etc.).

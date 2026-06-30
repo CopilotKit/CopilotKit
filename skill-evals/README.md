@@ -1,138 +1,149 @@
 # Skill evals
 
-Automated evaluations for the skills under `skills/`, run with
-[skillgrade](https://github.com/mgechev/skillgrade) (pinned `0.1.5`).
+Automated evaluations for the skills under `skills/`. Each skill that has an eval
+gets its own directory here: `skill-evals/<skill-name>/`. Config, fixtures, the
+grader, and the rubric live here, **not** inside `skills/<name>/`, because
+`npx copilotkit skills install` copies entire skill directories into user
+projects — harness files must never ship to users.
 
-Each skill that has an eval gets its own directory here:
-`skill-evals/<skill-name>/`. Eval config and fixtures live here, **not** inside
-`skills/<name>/`, because `npx copilotkit skills install` copies entire skill
-directories into user projects. Harness files must never ship to users; the
-`skill:` field in each `eval.yaml` points skillgrade back at the skill under test.
+The harness is self-contained: a small TypeScript runner driving the `docker` CLI
+and real Claude Code (`claude -p`). There is no third-party eval framework.
 
 ## What an eval measures: skill _lift_
 
 A capable agent usually reaches a correct answer eventually, with or without the
 skill. So absolute "did it end correct" mostly measures the _agent_, not the
 _skill_. What we actually want is **lift**: does the skill get the agent there
-_better_ — faster, fewer commands, fewer tokens, fewer dead-ends — and does the
-agent actually _use_ the skill's guidance?
+_leaner_ — fewer turns, fewer tokens, less wall-clock, lower cost — at equal
+success, and does it reach the canonical surface more directly?
 
 That makes the real experiment **comparative**: run the same task twice, once with
-the skill mounted and once without, and diff the results. Two signals matter:
+the skill mounted and once without, and diff the results.
 
-1. **Headline — efficiency lift.** Δ in wall-clock `duration`, command count, and
-   tokens between the with-skill and without-skill runs, at equal success.
-2. **Gate — correctness.** The project must actually build / type-check. The
-   deterministic grader _runs the project_, it does not grep for API names: a
-   capable agent reaches the right APIs either way, so grepping measures the agent.
-3. **Judge — did the skill help.** An `llm_rubric` grader reads the agent's session
-   transcript (instruction + every command + result) and judges whether the agent
-   leaned on the skill or floundered. This is the closest automatable proxy for
-   "did the skill's information help its reasoning."
+- **Headline — efficiency lift.** Δ in `num_turns`, `usage` tokens, `duration_ms`,
+  and `total_cost_usd` between the with-skill and without-skill arms. These are
+  **real** values read off `claude -p --output-format stream-json`'s result event,
+  not estimates.
+- **Gate — correctness.** The project must actually build / type-check. The
+  deterministic grader _runs the project_ (`graders/check.mjs`), it does not grep
+  for API names as the gate: a capable agent reaches the right APIs either way, so
+  grepping measures the agent.
+- **Judge — did the skill help (optional).** When a judge key is present, an LLM
+  reads the agent's stream-json transcript and scores how _directly_ it reached the
+  canonical v2 surface (`rubric.md`). Trial-and-error success scores lower on
+  directness — the "did the skill actually help" contrast.
+
+## How with/without works
+
+The single difference between the two arms is whether the skill directory exists
+at `/workspace/.claude/skills/copilotkit-setup` inside the container — the path
+Claude Code discovers project skills from in headless mode. The WITH arm
+`docker cp`s the skill in; the WITHOUT arm does not. No flags, no hacks, no second
+image.
 
 ## Layout of a skill eval
 
 ```
 skill-evals/<skill>/
-  eval.yaml          # skillgrade config: agent, docker, task(s), graders
-  workspace/<name>/  # the STARTING fixture the agent is dropped into
-  graders/check.sh   # deterministic correctness grader (referenced by eval.yaml)
-  rubric.md          # trace-judge rubric (referenced by eval.yaml)
-  lift/run.mjs       # runs the with/without-skill comparison and reports lift
-  results/           # gitignored run outputs (ephemeral today; see "Tracking")
+  Dockerfile          # node:20-slim + claude-code; bakes the fixture at /workspace
+  instruction.md      # the task handed to the agent (baked at /eval-tools)
+  workspace/<name>/   # the STARTING fixture the agent is dropped into
+  graders/check.mjs   # deterministic correctness grader (plain Node)
+  rubric.md           # optional trace-judge rubric
+  lift/run.ts         # runs the with/without comparison and reports lift
+  results/            # gitignored run outputs (ephemeral today; see "Tracking")
 ```
-
-`eval.yaml` uses skillgrade's **file-reference** feature: when a `run:` or
-`rubric:` value is a path, skillgrade reads that file's contents. That keeps the
-grader scripts and rubric as real, lintable, diffable files instead of inline YAML
-blobs — and it is the seam we will factor a shared grader harness through when a
-second skill eval lands (do not pre-abstract from one example).
 
 ## The grader contract
 
-Every deterministic grader prints a single JSON object to stdout:
+`graders/check.mjs` prints a single JSON object to stdout:
 
 ```json
 {
   "score": 0.0,
   "details": "human-readable summary",
-  "checks": [{ "name": "build succeeds", "passed": true, "message": "..." }]
+  "checks": [{ "name": "type-check: (root)", "passed": true, "message": "..." }]
 }
 ```
 
-`score` is in `[0, 1]`. Graders run in the post-agent container (`node:20-slim`
-plus whatever `docker.setup` installs — currently `git` and `jq`; there is **no
-`bc`**, so use `awk` for score math). The skill itself is mounted into the
-container at `/workspace/.agents/skills` and `/workspace/.claude/skills`, so any
-source scan MUST exclude those paths (`--exclude-dir=.agents --exclude-dir=.claude`)
-or a no-op agent scores points by matching the skill's own example files.
+`score` is in `[0, 1]`. It runs in the post-agent container via
+`node /eval-tools/check.mjs` (outside `/workspace`, so it is never graded as the
+agent's own output). The WITH-skill arm mounts the skill into
+`/workspace/.claude/skills`, so every source scan excludes `.claude` / `.agents` /
+`node_modules` or a no-op agent would score points off the skill's own examples.
 
 ## The lift results contract
 
-`lift/run.mjs` writes one JSON file per run into `results/` shaped like:
+`lift/run.ts` writes one JSON file per run into `results/` shaped like:
 
 ```json
 {
   "timestamp": "ISO-8601",
   "skill": "copilotkit-setup",
   "trials": 5,
+  "rubricRan": false,
   "withSkill": {
     "passRate": 0.0,
     "meanReward": 0.0,
     "medianDurationMs": 0,
-    "medianCommands": 0,
-    "medianTokens": 0
+    "medianTurns": 0,
+    "medianTokens": 0,
+    "medianCostUsd": 0.0
   },
   "withoutSkill": {
     "passRate": 0.0,
     "meanReward": 0.0,
     "medianDurationMs": 0,
-    "medianCommands": 0,
-    "medianTokens": 0
+    "medianTurns": 0,
+    "medianTokens": 0,
+    "medianCostUsd": 0.0
   },
-  "lift": { "passRate": 0.0, "durationMs": 0, "commands": 0, "tokens": 0 }
+  "lift": {
+    "passRate": 0.0,
+    "durationMs": 0,
+    "turns": 0,
+    "tokens": 0,
+    "costUsd": 0.0
+  }
 }
 ```
 
-`lift.*` is `withSkill - withoutSkill` (so a _negative_ `durationMs`/`commands`/
-`tokens` lift is good — the skill made the agent faster/leaner; a _positive_
+`lift.*` is `withSkill - withoutSkill` (so a _negative_ `durationMs` / `turns` /
+`tokens` / `costUsd` lift is good — the skill made the agent leaner; a _positive_
 `passRate` lift is good). The script also prints a human-readable table.
 
 ## Running
 
 ```bash
-# Full lift comparison (Docker + an LLM key for the rubric grader):
-pnpm eval:skill:setup
-
-# Quick single raw run while iterating on graders/fixtures:
-cd skill-evals/copilotkit-setup && pnpm exec skillgrade --trials=1
+pnpm eval:skill:setup              # full with/without lift comparison (needs Docker)
+pnpm eval:skill:setup --trials=3   # fewer trials per arm (default 5)
 ```
 
-Auth: put a `.env` next to the skill's `eval.yaml` (gitignored). The **agent**
-(Claude Code) runs key-free on your subscription via `CLAUDE_CODE_OAUTH_TOKEN`,
-or on `ANTHROPIC_API_KEY` (Console billing).
+Auth — put a `.env` next to the eval (gitignored):
+
+- **Agent (required).** `CLAUDE_CODE_OAUTH_TOKEN` (subscription, key-free) or
+  `ANTHROPIC_API_KEY` (Console). Either runs Claude Code.
+- **Judge (optional).** `OPENAI_API_KEY` (preferred when set) or
+  `ANTHROPIC_API_KEY`. Absent → the run is deterministic-only and the trace judge
+  is skipped. Defaults: OpenAI → `gpt-5.5`, Anthropic → `claude-haiku-4-5`. Override
+  with `OPENAI_MODEL` / `ANTHROPIC_GRADER_MODEL`, or force a provider with
+  `JUDGE_PROVIDER=openai|anthropic`. An OAuth subscription
+  token alone **cannot** drive the judge (it can't call the messages/completions
+  API), which is why the judge is optional.
 
 > **Capture the OAuth token carefully.** `claude setup-token` is an interactive
 > TUI. Run it on its own, then **copy the printed `sk-ant-oat...` value** into the
 > `.env`. Do **NOT** do `CLAUDE_CODE_OAUTH_TOKEN=$(claude setup-token)` — command
-> substitution captures the TUI's terminal escape codes instead of the token,
-> producing an opaque in-container `API Error 400`. (`lift/run.mjs` now preflights
-> the token shape and rejects this, but it is still the easiest way to footgun it.)
+> substitution captures the TUI's escape codes instead of the token, producing an
+> opaque in-container `API Error 400`. (`lift/run.ts` preflights the token shape
+> and rejects this, but it is still the easiest way to footgun it.)
 >
 > ```bash
 > claude setup-token   # complete the browser flow, copy the sk-ant-oat... value
 > echo 'CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat...' > skill-evals/copilotkit-setup/.env
+> # optional judge:
+> echo 'OPENAI_API_KEY=sk-...' >> skill-evals/copilotkit-setup/.env
 > ```
-
-The two grader paths:
-
-- **Subscription / OAuth only** — fully key-free. `lift/run.mjs` detects this and
-  runs **deterministic-only** automatically (`--grader=deterministic` on both
-  arms): you keep the build/type-check gate and the duration/commands/tokens lift,
-  and the `llm_rubric` trace judge is skipped. (The rubric grader calls the
-  messages API directly, which OAuth tokens cannot do — so it can't run on a
-  subscription.)
-- **`ANTHROPIC_API_KEY` present** — the trace judge runs too, for the full signal.
 
 ## Tracking (today vs. later)
 
@@ -142,3 +153,10 @@ shape above is deliberately stable so that "flip to committed history" (commit
 `results/` for a `git log` trend line) and eventually a cron/nightly job are
 additive, not rewrites. No CI gate yet — each run spins containers and burns agent
 tokens.
+
+## Adding a second skill eval
+
+The grader, Dockerfile, and runner are deliberately self-contained for the first
+skill. When a second eval lands, factor the shared pieces (the `docker` driver in
+`run.ts`, the grader contract) into a small `skill-evals/_harness/` — do not
+pre-abstract from one example.
