@@ -261,6 +261,42 @@ describe("configureAgentForRequest – header forwarding", () => {
     expect(headers["x-tenant-id"]).toBe("tenant-123");
   });
 
+  it("does NOT throw and applies the default denylist when the runtime omits forwardHeadersPolicy (non-breaking interface)", () => {
+    const agent = createMockAgent();
+    const request = createRequest({
+      "Content-Type": "application/json",
+      // Denylisted infra header — must be stripped by the default policy.
+      "X-Forwarded-For": "203.0.113.7",
+      // Legitimate custom + authorization — must still forward.
+      "X-Tenant-Id": "tenant-123",
+      Authorization: "Bearer user-token",
+    });
+
+    // A policy-less external `CopilotRuntimeLike` implementor: `forwardHeadersPolicy`
+    // is OMITTED entirely (optional on the published interface). Before the fix the
+    // /run call site passed `undefined` straight into the merge, which dereffed
+    // `policy.allow` and threw. After the fix it coalesces to the default resolved
+    // policy (default-on denylist).
+    const policylessRuntime = {
+      agents: Promise.resolve({}),
+    } as unknown as CopilotRuntimeLike;
+
+    expect(() =>
+      configureAgentForRequest({
+        runtime: policylessRuntime,
+        request,
+        agentId: "test-agent",
+        agent,
+      }),
+    ).not.toThrow();
+
+    const headers = (agent as any).headers as Record<string, string>;
+    // Default denylist applied: infra header dropped, custom x-* + authorization forwarded.
+    expect(headers["x-forwarded-for"]).toBeUndefined();
+    expect(headers["x-tenant-id"]).toBe("tenant-123");
+    expect(headers["authorization"]).toBe("Bearer user-token");
+  });
+
   it("results in empty headers object when request has no forwardable headers and agent.headers is undefined", () => {
     const agent = createMockAgent();
     const request = createRequest({

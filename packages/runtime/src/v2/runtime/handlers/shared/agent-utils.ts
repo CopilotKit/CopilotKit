@@ -11,7 +11,10 @@ import {
 } from "../../core/runtime";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
 import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client";
-import { mergeForwardableHeaders } from "../header-utils";
+import {
+  mergeForwardableHeaders,
+  resolveForwardHeadersPolicy,
+} from "../header-utils";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { logger } from "@copilotkit/shared";
 
@@ -149,7 +152,12 @@ export function configureAgentForRequest(params: {
   agent.headers = mergeForwardableHeaders(
     agent.headers,
     request,
-    runtime.forwardHeadersPolicy,
+    // `forwardHeadersPolicy` is optional on the published `CopilotRuntimeLike`
+    // interface (non-breaking minor release). Concrete runtimes always set it;
+    // a policy-less external implementor falls back to the default resolved
+    // policy (default-on denylist) so behavior stays identical and never derefs
+    // undefined.
+    runtime.forwardHeadersPolicy ?? resolveForwardHeadersPolicy(undefined),
   );
 }
 

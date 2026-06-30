@@ -217,8 +217,15 @@ export interface CopilotRuntimeLike {
   debugEventBus?: DebugEventBus;
   debug: ResolvedDebugConfig;
   debugLogger?: CopilotRuntimeLogger;
-  /** Resolved inbound-header forwarding policy read by the /run and /connect call sites. */
-  forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
+  /**
+   * Resolved inbound-header forwarding policy read by the /run and /connect call
+   * sites. Optional on the published interface so an external `CopilotRuntimeLike`
+   * implementor predating this field stays source-compatible (non-breaking minor
+   * release). Concrete runtimes (`BaseCopilotRuntime`) always resolve and set it;
+   * the call sites coalesce a missing value to the default resolved policy
+   * (`resolveForwardHeadersPolicy(undefined)` — default-on denylist).
+   */
+  forwardHeadersPolicy?: ResolvedForwardHeadersPolicy;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
