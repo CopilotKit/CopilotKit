@@ -10,16 +10,19 @@ import React, {
 import {
   defineCopilotKitDrawer,
   COPILOTKIT_DRAWER_TAG,
-  type CopilotKitDrawer as CopilotKitDrawerElement,
-  type DrawerThread,
-  type ThreadSelectedDetail,
-  type ArchiveDetail,
-  type UnarchiveDetail,
-  type DeleteDetail,
-  type OpenChangeDetail,
-  type RetryDetail,
 } from "@copilotkit/web-components/drawer";
-import { useThreads, type Thread } from "../../hooks/use-threads";
+import type {
+  CopilotKitDrawer as CopilotKitDrawerElement,
+  DrawerThread,
+  ThreadSelectedDetail,
+  ArchiveDetail,
+  UnarchiveDetail,
+  DeleteDetail,
+  OpenChangeDetail,
+  RetryDetail,
+} from "@copilotkit/web-components/drawer";
+import { useThreads } from "../../hooks/use-threads";
+import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
@@ -72,6 +75,13 @@ export interface CopilotDrawerProps {
    * row name. Return `null` for a given row to keep the element's default.
    */
   renderRow?: CopilotDrawerRowRenderer;
+  /**
+   * Accessible + default-header label for the drawer region. Sets the custom
+   * element's `aria-label` and the default header text (shown when no
+   * `slot="header"` content is projected). Defaults to the element's built-in
+   * `"Threads"` when omitted.
+   */
+  label?: string;
   /**
    * `data-testid` set on the underlying custom element (handy in tests and for
    * targeting from a host page). Defaults to `"copilot-drawer"`.
@@ -184,6 +194,7 @@ export function CopilotDrawer({
   onNewThread,
   onUpsell,
   renderRow,
+  label,
   "data-testid": dataTestId = "copilot-drawer",
 }: CopilotDrawerProps): React.ReactElement | null {
   const configuration = useCopilotChatConfiguration();
@@ -518,6 +529,15 @@ export function CopilotDrawer({
     if (!el) return;
     el.open = drawerOpen;
   }, [drawerOpen, mounted]);
+
+  // Mirror the optional `label` onto the element (its accessible + default
+  // header text). Leave the element's built-in default ("Threads") in place
+  // when the prop is omitted, rather than clobbering it with undefined.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    if (label !== undefined) el.label = label;
+  }, [label, mounted]);
 
   // Per-row light-DOM children projected via `slot="row:{id}"`.
   const rowChildren = useMemo(() => {

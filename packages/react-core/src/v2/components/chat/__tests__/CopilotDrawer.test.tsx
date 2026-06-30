@@ -207,6 +207,18 @@ test("maps a genuine list-load error to the element's error string", async () =>
   expect(getElement().error).toBe("boom");
 });
 
+test("sets the element's label when the label prop is provided", async () => {
+  await renderDrawer({ label: "History" });
+
+  expect(getElement().label).toBe("History");
+});
+
+test("leaves the element's default label when the label prop is omitted", async () => {
+  await renderDrawer();
+
+  expect(getElement().label).toBe("Threads");
+});
+
 test("suppresses config/runtime-setup errors from the end-user error surface", async () => {
   // A licensed drawer with no runtime URL produces a developer/config error in
   // the hook's combined `error` channel, but `listError` is null — the drawer
