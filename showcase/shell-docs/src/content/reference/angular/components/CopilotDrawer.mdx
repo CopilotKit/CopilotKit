@@ -58,6 +58,10 @@ Remember to import the stylesheet once in your global styles:
   Optional escape-hatch callback called when the user starts a new thread (the "+ New" button). When omitted, the drawer resets the chat configuration to a fresh, non-explicit thread so the welcome screen shows with no host wiring.
 </PropertyReference>
 
+<PropertyReference name="limit" type="number">
+  Page size for thread pagination. When set, threads load in pages of this size and a "Load more" control appears at the bottom of the list while more remain. Omit to load the full list at once with no control.
+</PropertyReference>
+
 <PropertyReference name="data-testid" type="string" default="copilot-drawer">
   `data-testid` set on the underlying custom element, for tests and for targeting from a host page.
 </PropertyReference>
