@@ -191,9 +191,6 @@ export type OpenBoxSessionState =
       activityId?: string;
     };
 
-const WORKFLOW_TYPE = "CopilotKitGovernedAction";
-const TASK_QUEUE = "langgraph";
-const CORE_TIMEOUT_MS = 180_000;
 const TOOL_NAME = "openbox_governed_action";
 const TOOL_DESCRIPTION =
   "Execute a realistic business action for the OpenBox governance demo.";
@@ -433,12 +430,7 @@ function normalizeHandoffChoice(
   ) {
     return "sensitive";
   }
-  if (
-    input.sensitivity === "confidential" ||
-    validFields.some((field) =>
-      ["usage_tier", "health_score", "expansion_signal"].includes(field),
-    )
-  ) {
+  if (input.sensitivity === "confidential") {
     return "growth";
   }
   return "minimal";

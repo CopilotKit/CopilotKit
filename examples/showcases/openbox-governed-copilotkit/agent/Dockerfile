@@ -1,4 +1,4 @@
-# Adapted from A's docker/Dockerfile.agent for B's split agent/ build context.
+# LangGraph agent (TypeScript) — runs the langgraph dev server on port 8123.
 FROM node:22-alpine
 
 WORKDIR /app
