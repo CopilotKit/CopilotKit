@@ -123,7 +123,9 @@
     {
       "match": { "userMessage": "Toggle the app theme" },
       "response": {
-        "content": "I've toggled the app theme for you using the toggleTheme tool. The interface should now be in the alternate color scheme -- let me know if you'd like to switch back."
+        "toolCalls": [
+          { "name": "toggleTheme", "arguments": "{}", "id": "call_toggle_theme_001" }
+        ]
       }
     },
     {
