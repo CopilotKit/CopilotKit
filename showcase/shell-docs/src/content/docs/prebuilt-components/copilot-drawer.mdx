@@ -1,0 +1,133 @@
+---
+title: "CopilotDrawer"
+icon: "lucide/PanelLeft"
+description: "Drop-in threads drawer that lists, switches, and manages conversations next to your chat."
+---
+
+## What is this?
+
+`<CopilotDrawer>` is a prebuilt thread switcher. Drop it next to your chat and
+users can list, switch, start, rename, archive, and delete conversations —
+with **no active-thread state to wire up**. It is one framework-agnostic
+shadow-DOM web component (`copilotkit-drawer`) with thin React and Angular
+wrappers, fed by the threads data layer ([`useThreads`](/reference/hooks/useThreads)
+in React, `injectThreads` in Angular) and the surrounding chat configuration.
+
+It replaces the hand-rolled thread sidebar you would otherwise build with the
+threads hook — see [Threads](/threads) for the headless approach.
+
+## When should I use this?
+
+Use the drawer when you want:
+
+- A persistent thread switcher beside your chat (chat-history sidebar)
+- Thread switching, "+ New", rename, archive, and delete with zero wiring
+- A self-contained, themeable UI that follows your app's light/dark theme
+- A mobile-ready off-canvas drawer with its own launcher
+
+It requires the Enterprise Intelligence Platform (threads are stored and synced
+server-side). See [Threads](/threads) to set that up.
+
+## Basic setup
+
+Drop `<CopilotDrawer>` next to `<CopilotChat>` under your `CopilotKitProvider`.
+With no callbacks, the drawer drives the active thread itself: selecting a row
+connects the chat to that thread and replays its history; "+ New" resets the
+chat to a fresh welcome screen.
+
+```tsx title="app/page.tsx"
+import {
+  CopilotKitProvider,
+  CopilotChat,
+  CopilotDrawer,
+} from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export default function Page() {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" publicLicenseKey="ck_pub_...">
+      <div style={{ display: "flex", height: "100dvh" }}>
+        <CopilotDrawer />
+        <CopilotChat />
+      </div>
+    </CopilotKitProvider>
+  );
+}
+```
+
+That's the whole integration — no `threadId` state, no `onSelect` plumbing.
+
+## Configuring the drawer
+
+`<CopilotDrawer>` works with zero props. The optional ones:
+
+| Prop | Description |
+|------|-------------|
+| `agentId` | Agent whose threads to list (defaults to the chat configuration's agent). |
+| `label` | Accessible label + default header text. Defaults to `"Threads"`. |
+| `onThreadSelect` | Escape hatch to take over thread selection yourself. |
+| `onNewThread` | Escape hatch to handle "+ New" yourself. |
+| `onUpsell` | Called when the unlicensed upgrade CTA is clicked (React only). |
+| `renderRow` | Render custom content per row (keeps the row chrome around it). |
+
+See the [CopilotDrawer reference](/reference/components/CopilotDrawer) for the full prop and type list.
+
+## Customization
+
+The drawer renders in a shadow root with self-contained, theme-inheriting
+styles, so it looks correct in any app (including dark mode) with no config.
+Three bounded escape hatches pierce the boundary:
+
+- **Slots** — project children with a `slot` attribute (`header`, `empty`, `footer`, `upsell`, `memories`, `launcher-icon`):
+
+  ```tsx
+  <CopilotDrawer>
+    <span slot="header">My conversations</span>
+  </CopilotDrawer>
+  ```
+
+- **Per-row content** — the `renderRow` prop projects custom content into each row while the element keeps selection, archived styling, and the action buttons.
+- **CSS parts + variable tokens** — restyle structural `::part()`s or override `--cpk-drawer-*` tokens. The full list is in the [reference](/reference/components/CopilotDrawer#customization).
+
+## Angular
+
+The Angular drawer is the same component with an idiomatic wrapper. Provide the
+chat configuration so the drawer and chat share an active thread:
+
+```ts title="src/app/drawer-page.component.ts"
+import { Component } from "@angular/core";
+import {
+  CopilotChat,
+  CopilotDrawer,
+  provideCopilotChatConfiguration,
+} from "@copilotkit/angular";
+
+@Component({
+  selector: "drawer-page",
+  standalone: true,
+  imports: [CopilotChat, CopilotDrawer],
+  providers: [provideCopilotChatConfiguration()],
+  template: `
+    <copilot-drawer />
+    <copilot-chat />
+  `,
+})
+export class DrawerPageComponent {}
+```
+
+Custom row content uses the `copilotDrawerRow` template directive; see the
+[Angular CopilotDrawer reference](/reference/angular/components/CopilotDrawer).
+
+## License
+
+Threads run on the Enterprise Intelligence Platform. While unlicensed (or with
+no license configured) the drawer shows an upgrade upsell instead of the list
+and issues no thread requests. In React, wire the `onUpsell` callback to send
+users somewhere (e.g. your pricing or docs). The Angular drawer is ungated.
+
+## Related
+
+- [Threads](/threads) — set up the platform and the headless `useThreads` / `injectThreads` data layer
+- [CopilotDrawer reference (React)](/reference/components/CopilotDrawer)
+- [CopilotDrawer reference (Angular)](/reference/angular/components/CopilotDrawer)
+- [CopilotChat](/prebuilt-components/chat) — the chat the drawer connects to
