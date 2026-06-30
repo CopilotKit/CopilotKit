@@ -177,6 +177,37 @@ describe("memory reducer", () => {
 
     expect(next.memories.map((m) => m.id)).toEqual(["m2"]);
   });
+
+  // Realtime session guard: a `memory_metadata` delta whose sessionId is stale
+  // (a `contextChanged` bumped the live session after this event was mapped)
+  // must be IGNORED — it must not be applied to the new session's state. This is
+  // the reducer half of the realtime effect's `mapMemoryMetadataEvent(event,
+  // sessionId)` projection.
+  it("ignores a realtime memoryUpserted carrying a stale session", () => {
+    const listed = memoryReducer(
+      undefined,
+      memoryRestEvents.listSucceeded({
+        sessionId: 0,
+        memories: [memory("m1")],
+      }),
+    );
+
+    // A contextChanged bumps the live session to 1.
+    const bumped = memoryReducer(
+      listed,
+      memoryAdapterEvents.contextChanged({ context: sampleContext }),
+    );
+    expect(bumped.sessionId).toBe(1);
+
+    // A stale realtime delta (mapped against the OLD session 0) arrives late.
+    const next = memoryReducer(
+      bumped,
+      memoryDomainEvents.memoryUpserted({ sessionId: 0, memory: memory("m2") }),
+    );
+
+    // The stale delta is dropped: no "m2" leaks into the new session.
+    expect(next.memories.map((m) => m.id)).not.toContain("m2");
+  });
 });
 
 describe("memory_metadata realtime mapping", () => {
@@ -349,6 +380,51 @@ describe("memory store realtime", () => {
     store.stop();
   });
 
+  // Upsert-by-id idempotency across transports: a memory created over REST
+  // (addMemory's POST response is applied locally) followed by the realtime
+  // `created` echo for the SAME id must NOT produce a duplicate row. The store's
+  // reducer upserts by id, so the realtime delta replaces in place.
+  it("does not duplicate a REST-created memory when its realtime echo arrives", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: "m1",
+          kind: "topical",
+          scope: "user",
+          content: "content-m1",
+          sourceThreadIds: [],
+          invalidatedAt: null,
+          absorbed: false,
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(realtimeContext);
+    await flushEffects();
+
+    // REST create: applied locally from the POST response.
+    await store.addMemory({ content: "content-m1", kind: "topical" });
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
+
+    // The realtime `created` echo for the SAME id arrives over the channel.
+    memoryChannel().serverPush("memory_metadata", createdEvent("m1"));
+    await flushEffects();
+
+    // Upsert-by-id: still exactly one row, no duplicate.
+    expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
+
+    store.stop();
+  });
+
   it("starts realtimeStatus at 'connecting' before any join resolves", async () => {
     const store = await connectedRealtimeStore();
 
@@ -492,6 +568,26 @@ describe("memory store REST snapshot", () => {
     );
     expect(store.getState().memories.map((m) => m.id)).toEqual(["m1"]);
     expect(store.getState().isLoading).toBe(false);
+
+    store.stop();
+  });
+
+  it("appends ?includeInvalidated=true to the list URL when the context opts in", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ memories: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext({ ...sampleContext, includeInvalidated: true });
+    await flushEffects();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://runtime.example.com/memories?includeInvalidated=true",
+      expect.objectContaining({ method: "GET" }),
+    );
 
     store.stop();
   });
@@ -867,6 +963,32 @@ describe("memory store mutations", () => {
     store.stop();
   });
 
+  // CORE: a mutation dispatched while no runtime context is configured must
+  // REJECT via the "Runtime URL is not configured" failure path — it must not
+  // hang waiting for a fetch that never fires (no context => no runtimeUrl).
+  it("rejects a mutation with 'Runtime URL is not configured' when no context is set", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    // Deliberately NO setContext: there is no runtimeUrl.
+
+    await expect(
+      Promise.race([
+        store.addMemory({ content: "x", kind: "topical" }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("mutation hung")), 1000),
+        ),
+      ]),
+    ).rejects.toThrow("Runtime URL is not configured");
+
+    // No fetch should have been attempted, and the error lands in state.
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(store.getState().error).toBeInstanceOf(Error);
+
+    store.stop();
+  });
+
   it("surfaces a mutation failure as a MemoryError carrying a stable code", async () => {
     const fetchMock = vi
       .fn()
@@ -901,7 +1023,6 @@ describe("memory store mutations", () => {
 it("fetches memory subscribe credentials when context is set", async () => {
   const fetchMock = vi
     .fn()
-    .mockResolvedValue({ ok: true, json: async () => ({ memories: [] }) })
     .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
     .mockResolvedValueOnce({
       ok: true,
@@ -967,6 +1088,29 @@ test("snapshot 422 → available: false, error: null, memories: []", async () =>
     .fn()
     .mockResolvedValueOnce({ ok: false, status: 422 })
     .mockResolvedValueOnce({ ok: false, status: 422 });
+  vi.stubGlobal("fetch", fetchMock);
+
+  const store = createMemoryStore(memoryEnvironment(fetchMock));
+  store.start();
+  store.setContext(sampleContext);
+  await flushEffects();
+
+  expect(store.getState().memories).toEqual([]);
+  expect(store.getState().isLoading).toBe(false);
+  expect(store.getState().error).toBeNull();
+  expect(store.getState().available).toBe(false);
+
+  store.stop();
+});
+
+// 501 (route unimplemented) joins 404/422 in ROUTE_UNAVAILABLE_STATUSES — it
+// must take the graceful listUnavailable path (available:false, error:null), not
+// a hard listFailed/error.
+test("snapshot 501 → available: false, error: null, memories: []", async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce({ ok: false, status: 501 })
+    .mockResolvedValueOnce({ ok: false, status: 501 });
   vi.stubGlobal("fetch", fetchMock);
 
   const store = createMemoryStore(memoryEnvironment(fetchMock));
@@ -1066,7 +1210,13 @@ test("refresh() resolves when a new setContext supersedes it before the fetch se
   store.stop();
 });
 
-test("subscribe 404 → silent: error null, no console.warn", async () => {
+// A credentials (subscribe) 404 is a SILENT degrade: the list route succeeded,
+// so the only correct observable effect is that realtime simply never connects.
+// It must NOT flip `available`/`error` (those are list-driven), must NOT advance
+// `realtimeStatus` past its "connecting" default (the socket effect runs only on
+// credentials SUCCESS), and must NOT log a console.warn. Asserting all three
+// pins the silent-degrade contract so the test can't pass for the wrong reason.
+test("subscribe 404 → silent degrade: list-driven state intact, realtimeStatus default, no warn", async () => {
   const fetchMock = vi
     .fn()
     .mockResolvedValueOnce({
@@ -1084,7 +1234,13 @@ test("subscribe 404 → silent: error null, no console.warn", async () => {
   store.setContext(sampleContext);
   await flushEffects();
 
+  // The successful list still drives availability — credentials failure is silent.
+  expect(store.getState().available).toBe(true);
   expect(store.getState().error).toBeNull();
+  // The socket effect only runs on credentials SUCCESS, so realtimeStatus must
+  // stay at its "connecting" default — it never reaches connected/unavailable.
+  expect(store.getState().realtimeStatus).toBe("connecting");
+  // And nothing is logged.
   expect(warnSpy).not.toHaveBeenCalled();
 
   warnSpy.mockRestore();

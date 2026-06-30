@@ -141,6 +141,9 @@ describe("useMemories", () => {
   });
 
   afterEach(() => {
+    // Tear down the store started in setupCopilotKit so its rxjs effects /
+    // pending fetches don't leak across tests.
+    store?.stop();
     vi.clearAllMocks();
   });
 

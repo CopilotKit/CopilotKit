@@ -116,6 +116,7 @@ function setup(fetchMock: Mock): {
   stub: CopilotKitStub;
   fixture: ReturnType<typeof TestBed.createComponent<MemoriesHost>>;
   controller: MemoriesController;
+  teardown: () => void;
 } {
   TestBed.resetTestingModule();
   const stub = new CopilotKitStub(fetchMock);
@@ -126,7 +127,19 @@ function setup(fetchMock: Mock): {
   const fixture = TestBed.createComponent(MemoriesHost);
   fixture.detectChanges();
 
-  return { stub, fixture, controller: fixture.componentInstance.controller };
+  // SIFERS teardown: stop the started store (frees its rxjs effects / pending
+  // fetches) and tear down the TestBed so nothing leaks across tests.
+  const teardown = (): void => {
+    stub.store.stop();
+    TestBed.resetTestingModule();
+  };
+
+  return {
+    stub,
+    fixture,
+    controller: fixture.componentInstance.controller,
+    teardown,
+  };
 }
 
 /** Runs change detection then drains microtasks so the rxjs pipeline + signals settle. */
@@ -162,7 +175,7 @@ describe("injectMemories", () => {
       },
     });
 
-    const { stub, fixture, controller } = setup(fetchMock);
+    const { stub, fixture, controller, teardown } = setup(fetchMock);
     stub.activate();
     await flush(fixture);
 
@@ -174,10 +187,12 @@ describe("injectMemories", () => {
       `${RUNTIME_URL}/memories`,
       expect.objectContaining({ method: "GET" }),
     );
+
+    teardown();
   });
 
   it("exposes realtimeStatus, defaulting to 'connecting'", async () => {
-    const { stub, fixture, controller } = setup(fetchMock);
+    const { stub, fixture, controller, teardown } = setup(fetchMock);
     stub.activate();
     await flush(fixture);
 
@@ -186,6 +201,8 @@ describe("injectMemories", () => {
     // connected/unavailable transitions. This asserts the binding bridges the
     // selector onto a signal.
     expect(controller.realtimeStatus()).toBe("connecting");
+
+    teardown();
   });
 
   it("addMemory passes through the store, resolving to the created memory and adding it to the list", async () => {
@@ -197,7 +214,7 @@ describe("injectMemories", () => {
       },
     });
 
-    const { stub, fixture, controller } = setup(fetchMock);
+    const { stub, fixture, controller, teardown } = setup(fetchMock);
     stub.activate();
     await flush(fixture);
     expect(controller.isLoading()).toBe(false);
@@ -214,6 +231,86 @@ describe("injectMemories", () => {
       `${RUNTIME_URL}/memories`,
       expect.objectContaining({ method: "POST" }),
     );
+
+    teardown();
+  });
+
+  it("updateMemory supersedes: resolves to the new id, old id gone from the list", async () => {
+    fetchMock = routedFetch({
+      snapshot: {
+        ok: true,
+        json: async () => ({ memories: [wireMemory("m1", "old")] }),
+      },
+      mutation: {
+        ok: true,
+        json: async () => ({ ...wireMemory("m2", "new"), retiredId: "m1" }),
+      },
+    });
+
+    const { stub, fixture, controller, teardown } = setup(fetchMock);
+    stub.activate();
+    await flush(fixture);
+    expect(controller.memories().map((m) => m.id)).toEqual(["m1"]);
+
+    const updated = await controller.updateMemory("m1", {
+      content: "new",
+      kind: "topical",
+    });
+    await flush(fixture);
+
+    expect(updated.id).toBe("m2");
+    expect(controller.memories().map((m) => m.id)).toEqual(["m2"]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${RUNTIME_URL}/memories/m1`,
+      expect.objectContaining({ method: "PATCH" }),
+    );
+
+    teardown();
+  });
+
+  it("removeMemory DELETEs and removes the memory from the list", async () => {
+    fetchMock = routedFetch({
+      snapshot: {
+        ok: true,
+        json: async () => ({ memories: [wireMemory("m1")] }),
+      },
+    });
+
+    const { stub, fixture, controller, teardown } = setup(fetchMock);
+    stub.activate();
+    await flush(fixture);
+    expect(controller.memories().map((m) => m.id)).toEqual(["m1"]);
+
+    await controller.removeMemory("m1");
+    await flush(fixture);
+
+    expect(controller.memories()).toEqual([]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${RUNTIME_URL}/memories/m1`,
+      expect.objectContaining({ method: "DELETE" }),
+    );
+
+    teardown();
+  });
+
+  it("surfaces a mutation failure via the error signal and rejects the promise", async () => {
+    fetchMock = routedFetch({
+      snapshot: { ok: true, json: async () => ({ memories: [] }) },
+      mutation: { ok: false, status: 500 },
+    });
+
+    const { stub, fixture, controller, teardown } = setup(fetchMock);
+    stub.activate();
+    await flush(fixture);
+
+    await expect(
+      controller.addMemory({ content: "x", kind: "topical" }),
+    ).rejects.toThrow();
+    await flush(fixture);
+
+    expect(controller.error()).toBeInstanceOf(Error);
+
+    teardown();
   });
 
   it("silently degrades to unavailable when the memory route is missing (404)", async () => {
@@ -221,7 +318,7 @@ describe("injectMemories", () => {
       snapshot: { ok: false, status: 404 },
     });
 
-    const { stub, fixture, controller } = setup(fetchMock);
+    const { stub, fixture, controller, teardown } = setup(fetchMock);
     stub.activate();
     await flush(fixture);
 
@@ -229,5 +326,7 @@ describe("injectMemories", () => {
     expect(controller.error()).toBeNull();
     expect(controller.isLoading()).toBe(false);
     expect(controller.memories()).toEqual([]);
+
+    teardown();
   });
 });
