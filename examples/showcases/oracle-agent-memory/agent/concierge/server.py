@@ -119,16 +119,55 @@ async def _replace_history_with_client(_agent, _thread_id, input_messages):
 
 _lg_runner.filter_only_new_messages = _replace_history_with_client
 
+# ── Oracle checkpointer injection (Plan §3, Option A) ─────────────────────────
+# ag_ui_agentspec's load_agent_spec hardcodes checkpointer=MemorySaver(); we
+# replace it so the LangGraph graph is compiled with our flag-gated checkpointer
+# (AsyncOracleSaver when LANGGRAPH_CHECKPOINTER=oracle, else MemorySaver). The
+# underlying pyagentspec AgentSpecLoader already accepts a checkpointer; only the
+# convenience wrapper needed patching. Drop this once the upstream adapter takes a
+# checkpointer param (Plan §3, Option B). AgentSpecAgent.__init__ resolves the name
+# from ag_ui_agentspec.agent, so we rebind both module namespaces.
+import ag_ui_agentspec.agent as _agent_mod  # noqa: E402
+import ag_ui_agentspec.agentspecloader as _asl_mod  # noqa: E402
+from pyagentspec.adapters.langgraph import AgentSpecLoader as _LGLoader  # noqa: E402
+
+from .checkpointer import resolve_checkpointer, init_checkpointer, close_checkpointer  # noqa: E402
+
+_orig_load_agent_spec = _agent_mod.load_agent_spec
+
+
+def _load_agent_spec_with_checkpointer(
+    runtime, agent_spec_json, tool_registry=None, components_registry=None
+):
+    if runtime != "langgraph":
+        return _orig_load_agent_spec(
+            runtime, agent_spec_json, tool_registry, components_registry
+        )
+    return _LGLoader(
+        tool_registry=tool_registry, checkpointer=resolve_checkpointer()
+    ).load_json(agent_spec_json, components_registry)
+
+
+_agent_mod.load_agent_spec = _load_agent_spec_with_checkpointer
+_asl_mod.load_agent_spec = _load_agent_spec_with_checkpointer
+
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
-    yield
-    # Drain in-flight background persists on shutdown so a graceful stop doesn't
-    # drop the last turn's memory write. Loop rather than a single gather: a
-    # request finishing during the drain can add a task after the snapshot, so
-    # re-check until the set is empty. Persists are serialized (one at a time).
-    while _PERSIST_TASKS:
-        await asyncio.gather(*list(_PERSIST_TASKS), return_exceptions=True)
+    # Build the Oracle checkpointer (if LANGGRAPH_CHECKPOINTER=oracle) before the
+    # lazy agent build so resolve_checkpointer() sees an initialised saver. No-op
+    # under the default `memory` flag.
+    await init_checkpointer()
+    try:
+        yield
+    finally:
+        # Drain in-flight background persists on shutdown so a graceful stop doesn't
+        # drop the last turn's memory write. Loop rather than a single gather: a
+        # request finishing during the drain can add a task after the snapshot, so
+        # re-check until the set is empty. Persists are serialized (one at a time).
+        while _PERSIST_TASKS:
+            await asyncio.gather(*list(_PERSIST_TASKS), return_exceptions=True)
+        await close_checkpointer()
 
 
 app = FastAPI(title="Oracle Concierge Agent", lifespan=_lifespan)

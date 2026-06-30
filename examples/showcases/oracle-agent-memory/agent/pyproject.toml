@@ -10,7 +10,8 @@ dependencies = [
     "ag-ui-agent-spec[langgraph] @ git+https://github.com/ag-ui-protocol/ag-ui.git#subdirectory=integrations/agent-spec/python",
     # Persistent agent memory on Oracle AI Database, and the DB driver it talks to.
     "oracleagentmemory==26.4.0",
-    "oracledb>=2.0",
+    "oracledb>=2.2.0",
+    "langgraph-oracledb>=1.0.1",
     # HTTP server + env loading.
     "uvicorn[standard]>=0.30",
     "python-dotenv>=1.0",
@@ -19,3 +20,12 @@ dependencies = [
 # Runnable app, not a distributable library.
 [tool.uv]
 package = false
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
