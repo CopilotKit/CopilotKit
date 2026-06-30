@@ -32,7 +32,7 @@ const {
   ɵselectMemoriesError,
 } = await import("../memory");
 import type {
-  ɵMemory as Memory,
+  Memory,
   ɵMemoryMetadataEvent as MemoryMetadataEvent,
   ɵMemoryEnvironment as MemoryEnvironment,
 } from "../memory";

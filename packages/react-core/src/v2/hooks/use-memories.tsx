@@ -6,10 +6,10 @@ import {
   ɵselectMemoriesAvailable,
 } from "@copilotkit/core";
 import type {
-  ɵMemory,
-  ɵMemoryChanges,
+  Memory,
+  MemoryChanges,
   ɵMemoryStore,
-  ɵNewMemory,
+  NewMemory,
 } from "@copilotkit/core";
 import { useCallback, useSyncExternalStore } from "react";
 
@@ -27,7 +27,7 @@ export interface UseMemoriesResult {
    * Memories for the current user, newest first. Updated in realtime when
    * the platform pushes `memory_metadata` events.
    */
-  memories: ɵMemory[];
+  memories: Memory[];
   /**
    * `true` while the initial memory snapshot is being fetched. Subsequent
    * realtime updates do not re-enter the loading state.
@@ -54,13 +54,13 @@ export interface UseMemoriesResult {
    * Create a memory. Resolves to the stored memory (server-authoritative);
    * rejects on failure.
    */
-  addMemory: (input: ɵNewMemory) => Promise<ɵMemory>;
+  addMemory: (input: NewMemory) => Promise<Memory>;
   /**
    * Supersede a memory: the old memory is retired and a new one is created.
    * Resolves to the new memory (its `id` differs from `id`); rejects on
    * failure.
    */
-  updateMemory: (id: string, changes: ɵMemoryChanges) => Promise<ɵMemory>;
+  updateMemory: (id: string, changes: MemoryChanges) => Promise<Memory>;
   /**
    * Retire a memory (non-lossy delete). Resolves when the server confirms;
    * rejects on failure.
@@ -136,11 +136,11 @@ export function useMemories(): UseMemoriesResult {
 
   const refresh = useCallback(() => store.refresh(), [store]);
   const addMemory = useCallback(
-    (input: ɵNewMemory) => store.addMemory(input),
+    (input: NewMemory) => store.addMemory(input),
     [store],
   );
   const updateMemory = useCallback(
-    (id: string, changes: ɵMemoryChanges) => store.updateMemory(id, changes),
+    (id: string, changes: MemoryChanges) => store.updateMemory(id, changes),
     [store],
   );
   const removeMemory = useCallback(

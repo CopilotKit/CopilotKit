@@ -6,7 +6,7 @@ import {
   ɵselectMemoriesError,
   ɵselectMemoriesIsLoading,
 } from "@copilotkit/core";
-import type { ɵMemory, ɵMemoryChanges, ɵNewMemory } from "@copilotkit/core";
+import type { Memory, MemoryChanges, NewMemory } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
 
 /**
@@ -23,7 +23,7 @@ export interface MemoriesController {
    * Memories for the current user, newest first. Updated in realtime when the
    * platform pushes `memory_metadata` events over the memory store's channel.
    */
-  memories: Signal<ɵMemory[]>;
+  memories: Signal<Memory[]>;
   /**
    * `true` while the initial memory snapshot is being fetched. Subsequent
    * realtime updates do not re-enter the loading state.
@@ -47,13 +47,13 @@ export interface MemoriesController {
   /**
    * Create a memory. Resolves to the stored memory; rejects on failure.
    */
-  addMemory: (input: ɵNewMemory) => Promise<ɵMemory>;
+  addMemory: (input: NewMemory) => Promise<Memory>;
   /**
    * Supersede a memory: the old memory is retired and a new one is created.
    * Resolves to the new memory (its `id` differs from the supplied `id`);
    * rejects on failure.
    */
-  updateMemory: (id: string, changes: ɵMemoryChanges) => Promise<ɵMemory>;
+  updateMemory: (id: string, changes: MemoryChanges) => Promise<Memory>;
   /**
    * Retire a memory (non-lossy delete). Resolves when the server confirms;
    * rejects on failure.
@@ -120,8 +120,8 @@ export function injectMemories(): MemoriesController {
     error,
     isAvailable,
     refresh: () => store.refresh(),
-    addMemory: (input: ɵNewMemory) => store.addMemory(input),
-    updateMemory: (id: string, changes: ɵMemoryChanges) =>
+    addMemory: (input: NewMemory) => store.addMemory(input),
+    updateMemory: (id: string, changes: MemoryChanges) =>
       store.updateMemory(id, changes),
     removeMemory: (id: string) => store.removeMemory(id),
   };

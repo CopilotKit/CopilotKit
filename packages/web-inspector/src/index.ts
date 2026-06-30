@@ -23,7 +23,7 @@ import type {
   CopilotKitCoreErrorCode,
   ɵThreadStore,
   ɵThread,
-  ɵMemory,
+  Memory,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -2377,7 +2377,7 @@ class CpkMemoryList extends LitElement {
   };
 
   /** Ordered (newest-first) list of memories supplied by the parent. */
-  memories: ɵMemory[] = [];
+  memories: Memory[] = [];
   private search = "";
   private kind: MemoryKindFilter = "all";
 
@@ -2582,14 +2582,14 @@ class CpkMemoryList extends LitElement {
   `;
 
   /** Memories that pass the current text search (before kind filter). */
-  private get searchFiltered(): ɵMemory[] {
+  private get searchFiltered(): Memory[] {
     const q = this.search.trim().toLowerCase();
     if (!q) return this.memories;
     return this.memories.filter((m) => m.content.toLowerCase().includes(q));
   }
 
   /** Memories that pass both search and kind filter. */
-  private get filtered(): ɵMemory[] {
+  private get filtered(): Memory[] {
     const searched = this.searchFiltered;
     if (this.kind === "all") return searched;
     return searched.filter((m) => m.kind === this.kind);
@@ -2745,7 +2745,7 @@ export class WebInspectorElement extends LitElement {
   private _core: CopilotKitCore | null = null;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
-  private _memories: ɵMemory[] = [];
+  private _memories: Memory[] = [];
   private _memoriesLoading = false;
   private _memoriesError: Error | null = null;
   private _memoriesAvailable = true;

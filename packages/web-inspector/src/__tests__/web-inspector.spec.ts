@@ -2,7 +2,7 @@ import { WebInspectorElement, ɵCpkThreadDetails } from "../index.js";
 import type { CopilotKitCore } from "@copilotkit/core";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import type { CopilotKitCoreSubscriber } from "@copilotkit/core";
-import type { ɵMemory } from "@copilotkit/core";
+import type { Memory } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -1034,7 +1034,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 // ── 6.1  Helpers ──────────────────────────────────────────────────────────
 
 type MemoryStoreState = {
-  memories: ɵMemory[];
+  memories: Memory[];
   isLoading: boolean;
   isMutating: boolean;
   error: Error | null;
@@ -1050,7 +1050,7 @@ type MemoryStoreState = {
  * never again — sufficient for the inspector's subscription wiring.
  */
 function makeMockMemoryStore(
-  memories: ɵMemory[],
+  memories: Memory[],
   available: boolean,
 ): { store: ReturnType<typeof buildStore>; state: MemoryStoreState } {
   const state: MemoryStoreState = {
@@ -1100,7 +1100,7 @@ type MemoryMockCore = {
  * unavailable (which also locks the view).
  */
 function makeCoreWithMemory(
-  memories: ɵMemory[],
+  memories: Memory[],
   opts: { available?: boolean } = {},
 ): MemoryMockCore {
   const available = opts.available ?? true;
@@ -1190,7 +1190,7 @@ describe("WebInspectorElement memories — subscription", () => {
   });
 
   it("seeds _memories from core.getMemoryStore() on attach", async () => {
-    const oneMemory: ɵMemory = {
+    const oneMemory: Memory = {
       id: "m1",
       kind: "topical",
       scope: "user",
@@ -1202,7 +1202,7 @@ describe("WebInspectorElement memories — subscription", () => {
     const core = makeCoreWithMemory([oneMemory]);
     const el = await mountMemories(core);
 
-    const ids = (el as unknown as { _memories: ɵMemory[] })._memories.map(
+    const ids = (el as unknown as { _memories: Memory[] })._memories.map(
       (m) => m.id,
     );
 
@@ -1313,7 +1313,7 @@ describe("WebInspectorElement memories — view states", () => {
   });
 
   it("renders cpk-memory-list with a card when one memory is present", async () => {
-    const oneMemory: ɵMemory = {
+    const oneMemory: Memory = {
       id: "m1",
       kind: "topical",
       scope: "user",
@@ -1338,7 +1338,7 @@ describe("WebInspectorElement memories — view states", () => {
 // ── 6.5  cpk-memory-list ──────────────────────────────────────────────────
 
 describe("cpk-memory-list", () => {
-  const threeMemories: ɵMemory[] = [
+  const threeMemories: Memory[] = [
     {
       id: "t1",
       kind: "topical",
@@ -1366,11 +1366,11 @@ describe("cpk-memory-list", () => {
   ];
 
   /** Create and mount a standalone cpk-memory-list element. */
-  async function mountList(memories: ɵMemory[]): Promise<Element> {
+  async function mountList(memories: Memory[]): Promise<Element> {
     const el = document.createElement("cpk-memory-list");
     document.body.appendChild(el);
     // Assign memories via property (same as Lit's .memories=${...} binding).
-    (el as unknown as { memories: ɵMemory[] }).memories = memories;
+    (el as unknown as { memories: Memory[] }).memories = memories;
     // Trigger update if the element is a Lit element.
     if ("updateComplete" in el) {
       await (el as unknown as { updateComplete: Promise<void> }).updateComplete;

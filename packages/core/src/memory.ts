@@ -53,16 +53,16 @@ const ROUTE_UNAVAILABLE_STATUSES = new Set([404, 501]);
 class MemoryRouteUnavailableError extends Error {}
 
 /** Public, customer-facing memory kind vocabulary (single taxonomy, no mapping). */
-type MemoryKind = "topical" | "episodic" | "operational";
+export type MemoryKind = "topical" | "episodic" | "operational";
 
 /** Visibility scope of a memory. */
-type MemoryScope = "user" | "project";
+export type MemoryScope = "user" | "project";
 
 /**
  * A memory as projected across the public REST/realtime boundary — the minimal
  * shape the SDK surfaces. Mirrors the server's `PublicMemory` projection.
  */
-interface Memory {
+export interface Memory {
   id: string;
   kind: MemoryKind;
   scope: MemoryScope;
@@ -72,7 +72,7 @@ interface Memory {
 }
 
 /** Input for creating a memory; `scope` defaults to `"user"` (v1 is user-scoped). */
-interface NewMemory {
+export interface NewMemory {
   content: string;
   kind: MemoryKind;
   scope?: MemoryScope;
@@ -80,7 +80,7 @@ interface NewMemory {
 }
 
 /** New values for superseding (updating) a memory — same shape as create. */
-type MemoryChanges = NewMemory;
+export type MemoryChanges = NewMemory;
 
 /** Outcome of a mutation, tracked so the caller's promise resolves/rejects. */
 type MemoryMutationOutcome =
@@ -1068,14 +1068,10 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
   };
 }
 
-export type ɵMemory = Memory;
-export type ɵMemoryKind = MemoryKind;
-export type ɵMemoryScope = MemoryScope;
-// Mutation input types: exported so framework bindings can name the arguments
-// of `ɵMemoryStore.addMemory(input)` / `updateMemory(id, changes)` when wrapping
-// them (e.g. `useMemories` / `injectMemories`).
-export type ɵNewMemory = NewMemory;
-export type ɵMemoryChanges = MemoryChanges;
+// `Memory`, `MemoryKind`, `MemoryScope`, `NewMemory`, and `MemoryChanges` are
+// the consumer-facing memory types surfaced by the framework hooks
+// (`useMemories` / `injectMemories`); they are exported unprefixed from their
+// declarations above. The remaining memory internals keep the `ɵ` prefix.
 export type ɵMemoryState = MemoryState;
 export type ɵMemoryRuntimeContext = MemoryRuntimeContext;
 export type ɵMemoryMetadataEvent = MemoryMetadataEvent;
