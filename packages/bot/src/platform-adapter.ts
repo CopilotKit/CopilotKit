@@ -213,11 +213,22 @@ export interface ConversationStore {
   ): Promise<AgentSession>;
 }
 
+/**
+ * Optional context bot core passes to {@link PlatformAdapter.start}. Carries
+ * the bot's declared identity so a transport that must announce itself (e.g.
+ * the managed Intelligence adapter's heartbeat) can do so without separate
+ * config. Local adapters ignore it.
+ */
+export interface AdapterStartContext {
+  /** The bot's declared name (`createBot({ name })`), when set. */
+  botName?: string;
+}
+
 export interface PlatformAdapter {
   readonly platform: string;
   readonly capabilities: SurfaceCapabilities;
   readonly ackDeadlineMs: number;
-  start(sink: IngressSink): Promise<void>;
+  start(sink: IngressSink, ctx?: AdapterStartContext): Promise<void>;
   stop(): Promise<void>;
   render(ir: BotNode[]): NativePayload;
   post(target: ReplyTarget, ir: BotNode[]): Promise<MessageRef>;

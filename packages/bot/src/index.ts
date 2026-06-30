@@ -26,6 +26,7 @@ export type { ThreadDeps } from "./thread.js";
 // Platform adapter boundary
 export type {
   PlatformAdapter,
+  AdapterStartContext,
   RunRenderer,
   IngressSink,
   IncomingTurn,

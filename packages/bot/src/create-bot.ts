@@ -846,7 +846,7 @@ export function createBot<
       // token, a port already in use) must NOT crash the bot or prevent the
       // other adapters from starting. Log + degrade, never throw.
       const startResults = await Promise.allSettled(
-        adapters.map((a) => a.start(makeSink(a))),
+        adapters.map((a) => a.start(makeSink(a), { botName: opts.name })),
       );
       const startedPlatforms: string[] = [];
       const failedPlatforms: string[] = [];

@@ -20,6 +20,12 @@ import type {
   EgressOp,
   EgressOperation,
 } from "./contracts.js";
+import {
+  HttpDeliverySource,
+  HttpEgressSink,
+  resolveTransportConfig,
+} from "./http-transports.js";
+import type { IntelligenceTransportConfig } from "./http-transports.js";
 
 /** Reply target the adapter mints during ingress and threads back to egress. */
 interface ManagedReplyTarget {
@@ -44,10 +50,24 @@ const textNode = (value: string): BotNode[] => [
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
 
 export interface IntelligenceAdapterOptions {
-  source: DeliverySource;
-  egress: EgressSink;
+  /**
+   * Inbound transport. Omit to use the default {@link HttpDeliverySource}
+   * (built at `start()` from env/`config`); inject in-memory for tests.
+   */
+  source?: DeliverySource;
+  /**
+   * Outbound transport. Omit to use the default {@link HttpEgressSink}
+   * (built at `start()` from env/`config`); inject in-memory for tests.
+   */
+  egress?: EgressSink;
   /** Optional Intelligence-backed persistence the adapter exposes as `stateStore`. */
   store?: StateStore;
+  /**
+   * Overrides for the default-transport config (baseUrl/apiKey/botName/…).
+   * Anything omitted is resolved from env. Ignored when both `source` and
+   * `egress` are injected.
+   */
+  config?: Partial<IntelligenceTransportConfig>;
 }
 
 /**
@@ -91,21 +111,49 @@ export class IntelligenceAdapter implements PlatformAdapter {
   readonly stateStore?: StateStore;
 
   private sink?: IngressSink;
+  /** Inbound transport — injected via opts, or the default HTTP source built at `start()`. */
+  private source?: DeliverySource;
+  /** Outbound transport — injected via opts, or the default HTTP sink built at `start()`. */
+  private egress?: EgressSink;
   /** Per-turn egress sequence; reset at the start of each turn's processing so
    * a redelivered turn reproduces the same operation id sequence. */
   private readonly seq = new Map<string, number>();
 
-  constructor(private readonly deps: IntelligenceAdapterOptions) {
-    this.stateStore = deps.store;
+  constructor(private readonly opts: IntelligenceAdapterOptions) {
+    this.source = opts.source;
+    this.egress = opts.egress;
+    this.stateStore = opts.store;
   }
 
-  async start(sink: IngressSink): Promise<void> {
+  private requireSource(): DeliverySource {
+    if (!this.source)
+      throw new Error("IntelligenceAdapter: transport not started");
+    return this.source;
+  }
+
+  private requireEgress(): EgressSink {
+    if (!this.egress)
+      throw new Error("IntelligenceAdapter: transport not started");
+    return this.egress;
+  }
+
+  async start(sink: IngressSink, ctx?: { botName?: string }): Promise<void> {
     this.sink = sink;
-    await this.deps.source.start((env) => this.dispatch(env));
+    // Config-free default: build the HTTP transports from env (+ the bot's
+    // name from createBot, passed by bot core) when none were injected.
+    if (!this.source || !this.egress) {
+      const cfg = resolveTransportConfig({
+        ...this.opts.config,
+        botName: this.opts.config?.botName ?? ctx?.botName,
+      });
+      this.source ??= new HttpDeliverySource(cfg);
+      this.egress ??= new HttpEgressSink(cfg);
+    }
+    await this.requireSource().start((env) => this.dispatch(env));
   }
 
   async stop(): Promise<void> {
-    await this.deps.source.stop();
+    await this.source?.stop();
   }
 
   private async dispatch(env: ManagedIngressEnvelope): Promise<void> {
@@ -117,9 +165,9 @@ export class IntelligenceAdapter implements PlatformAdapter {
     this.seq.set(env.turnId, 0);
     try {
       await this.dispatchTo(env);
-      await this.deps.source.ack(env.deliveryId);
+      await this.requireSource().ack(env.deliveryId);
     } catch (err) {
-      await this.deps.source.nack(
+      await this.requireSource().nack(
         env.deliveryId,
         err instanceof Error ? err.message : String(err),
       );
@@ -218,7 +266,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
     op: EgressOp,
   ): Promise<MessageRef> {
     const operation = this.mintOp(target, op);
-    const res = await this.deps.egress.emit(operation);
+    const res = await this.requireEgress().emit(operation);
     // The minted ref carries routing so a later update/delete can re-address
     // the same operation; the Outbox maps operationId -> real platform message.
     return {

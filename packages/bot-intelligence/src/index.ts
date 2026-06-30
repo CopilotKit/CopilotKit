@@ -26,6 +26,21 @@ export {
   InMemoryEgressSink,
 } from "./in-memory-transports.js";
 
+// Undocumented fallbacks: the default HTTP transports + config resolver that
+// `intelligenceAdapter()` builds when no transports are injected. Not a public
+// API (the whole package is `@internal`); exported so consumers and tests can
+// reach them directly.
+export {
+  HttpDeliverySource,
+  HttpEgressSink,
+  resolveTransportConfig,
+} from "./http-transports.js";
+export type {
+  IntelligenceTransportConfig,
+  FetchLike,
+} from "./http-transports.js";
+export { irToText } from "./ir-to-text.js";
+
 export {
   startManagedBots,
   assertValidBotNames,
