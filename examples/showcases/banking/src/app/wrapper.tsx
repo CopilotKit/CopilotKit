@@ -73,6 +73,27 @@ function BankingSuggestions() {
         title: "Add an expense card",
         message: "Add a new expense card",
       },
+      // Generative-UI charts — each message echoes the matching show* tool's
+      // description (copilot-context.tsx) so the agent renders the chart in chat
+      // instead of answering in plain text.
+      {
+        title: "Show our spending trend",
+        message: "How has our spending changed over time? Show it as a chart.",
+      },
+      {
+        title: "Budget usage by team",
+        message:
+          "Which teams are close to or over their budget limit? Show budget usage.",
+      },
+      {
+        title: "Break down spend by team",
+        message: "Where is the money going? Break our spend down by team.",
+      },
+      {
+        title: "Income vs expenses",
+        message:
+          "How does our income compare to expenses, and what's our net position?",
+      },
     ],
   });
   return null;
