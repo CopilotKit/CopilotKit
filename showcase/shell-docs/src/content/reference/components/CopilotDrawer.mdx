@@ -1,0 +1,154 @@
+---
+title: "CopilotDrawer"
+description: "Prebuilt threads drawer that lists, switches, and manages conversations next to CopilotChat"
+---
+
+## Overview
+
+`CopilotDrawer` is a prebuilt thread switcher. Dropped in next to [`CopilotChat`](/reference/components/CopilotChat), it lists the user's conversations and lets them switch, start, rename, archive, and delete threads — with **no active-thread state to wire up**. It is a thin React wrapper around the framework-agnostic `<copilotkit-drawer>` shadow-DOM web component, fed by the [`useThreads`](/reference/hooks/useThreads) hook and the surrounding chat configuration.
+
+When `onThreadSelect` / `onNewThread` are omitted, the drawer drives the surrounding chat configuration directly: selecting a row connects the chat to that thread (and replays its history); "+ New" resets the chat to a fresh welcome screen. Pass the callbacks only to take control of the active thread yourself.
+
+See the [CopilotDrawer guide](/prebuilt-components/copilot-drawer) for a walkthrough, and [`useThreads`](/reference/hooks/useThreads) for the headless data layer underneath.
+
+## Import
+
+```tsx
+import { CopilotDrawer } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+```
+
+## Props
+
+<PropertyReference name="agentId" type="string">
+  The agent whose threads to list and manage. Defaults to the agent of the
+  surrounding chat configuration, or the platform default when none is set.
+</PropertyReference>
+
+<PropertyReference name="onThreadSelect" type="(threadId: string) => void">
+  Optional escape hatch called when the user picks a thread row. When omitted,
+  the drawer drives the surrounding chat configuration directly
+  (`setActiveThreadId`), so a bare `<CopilotDrawer>` switches the rendered
+  thread with no host wiring. Provide this only to take control of the active
+  thread yourself.
+</PropertyReference>
+
+<PropertyReference name="onNewThread" type="() => void">
+  Optional escape hatch called when the user starts a new thread (the "+ New"
+  button). The wrapper always resets the core thread store to a fresh,
+  non-explicit thread; when this is omitted it also resets the surrounding chat
+  configuration so the welcome screen shows with no host wiring.
+</PropertyReference>
+
+<PropertyReference name="onUpsell" type="() => void">
+  Called when the unlicensed upsell CTA is clicked. The upsell shows when no
+  license is configured or the `threads` feature is unlicensed; with no handler
+  the CTA is inert (there is no built-in pricing navigation).
+</PropertyReference>
+
+<PropertyReference name="renderRow" type="(thread: Thread) => React.ReactNode">
+  Optional per-row content. Rendered as light-DOM children projected into the
+  element's `slot="row:{id}"`, so the element keeps the row chrome (selection,
+  archived styling, entry animation, actions) around your content. Return
+  `null` for a given row to keep the element's default row name.
+</PropertyReference>
+
+<PropertyReference name="label" type="string" default="Threads">
+  Accessible label for the drawer region and the default header text (shown when
+  no `header` slot content is projected). Sets the element's `aria-label`.
+</PropertyReference>
+
+<PropertyReference name="data-testid" type="string" default="copilot-drawer">
+  `data-testid` set on the underlying custom element, for tests and for
+  targeting from a host page.
+</PropertyReference>
+
+## Customization
+
+The drawer renders inside a shadow root and ships its own self-contained,
+theme-inheriting styles, so it looks correct in any host (including dark mode)
+with zero config. Three bounded escape hatches pierce the boundary.
+
+### Slots
+
+Project light-DOM children with a `slot` attribute to replace a region:
+
+| Slot | Replaces |
+| --- | --- |
+| `header` | The drawer header (defaults to the `label` text). |
+| `empty` | The empty-state body shown when there are no threads. |
+| `footer` | A footer region (hidden until you project content). |
+| `upsell` | The unlicensed upsell block. |
+| `memories` | A reserved region for a future memories surface. |
+| `launcher-icon` | The icon inside the floating mobile launcher. |
+| `row:{id}` | Per-row content — prefer the `renderRow` prop, which manages this. |
+
+```tsx
+<CopilotDrawer>
+  <span slot="header">My conversations</span>
+</CopilotDrawer>
+```
+
+### CSS parts
+
+Style structural elements with `::part()`: `root`, `header`, `filters`,
+`filter-active`, `filter-all`, `new-thread-button`, `list`, `row-name`,
+`row-archive`, `row-unarchive`, `row-delete`, `loading`, `empty`, `error`,
+`retry-button`, `upsell`, `upsell-cta`, `footer`, `memories`, `launcher`,
+`confirm-dialog`, `confirm-delete`, `confirm-cancel`.
+
+### CSS variable tokens
+
+Tokens override the bundled defaults and fall back to the host theme's vars
+(so the drawer follows light/dark automatically): `--cpk-drawer-bg`,
+`--cpk-drawer-fg`, `--cpk-drawer-border`, `--cpk-drawer-surface`,
+`--cpk-drawer-surface-fg`, `--cpk-drawer-muted`, `--cpk-drawer-muted-fg`,
+`--cpk-drawer-accent`, `--cpk-drawer-accent-fg`, `--cpk-drawer-primary`,
+`--cpk-drawer-primary-fg`, `--cpk-drawer-danger`, `--cpk-drawer-ring`,
+`--cpk-drawer-radius`, `--cpk-drawer-width`, `--cpk-drawer-rail-width`,
+`--cpk-drawer-font-family`, `--cpk-drawer-font-size`, `--cpk-drawer-line-height`,
+`--cpk-drawer-launcher-top`, `--cpk-drawer-launcher-left`.
+
+## Usage
+
+### Basic usage
+
+```tsx
+function App() {
+  return (
+    <div style={{ display: "flex", height: "100%" }}>
+      <CopilotDrawer />
+      <CopilotChat />
+    </div>
+  );
+}
+```
+
+### Custom row content + label
+
+```tsx
+function App() {
+  return (
+    <CopilotDrawer
+      label="History"
+      renderRow={(thread) => <em>{thread.name ?? "New conversation"}</em>}
+    />
+  );
+}
+```
+
+## Behavior
+
+- **Self-connecting**: without `onThreadSelect`/`onNewThread`, the drawer drives the chat configuration — select connects + replays; "+ New" shows the welcome screen.
+- **Optimistic mutations**: archive/unarchive/rename/delete are optimistic in the core thread store; delete rolls back if the server rejects.
+- **Deleting the active thread** resets to a fresh thread; **archiving** the active thread keeps you viewing it.
+- **Filter**: the element owns the Active/All filter; toggling it refetches server-side.
+- **Mobile**: below 768px the drawer is an off-canvas overlay with its own floating launcher; the launcher icon (`launcher-icon` slot) and position (`--cpk-drawer-launcher-*`) are customizable.
+- **License**: while unlicensed (or no license configured) the drawer shows the upsell instead of the list and issues no `/threads` request.
+
+## Related
+
+- [CopilotDrawer guide](/prebuilt-components/copilot-drawer) — walkthrough and setup
+- [`useThreads`](/reference/hooks/useThreads) — the headless thread data + mutations
+- [`CopilotChat`](/reference/components/CopilotChat) — the chat the drawer connects to
+- [CopilotDrawer (Angular)](/reference/angular/components/CopilotDrawer) — the Angular wrapper
