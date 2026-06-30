@@ -1660,6 +1660,107 @@ describe("WebInspectorElement memories — passive store guard", () => {
   });
 });
 
+// ── 6.6.1  Active-on-boot subscription ─────────────────────────────────────
+//
+// The memory subscription is normally created on a Memories-tab CLICK
+// (handleMenuSelect → ensureMemorySubscription). But when the inspector boots
+// with the Memories tab ALREADY active — e.g. a persisted
+// `selectedMenu: "memories"` restored by hydrateStateFromStorageEarly — no
+// click ever fires, so historically no subscription was created: the realtime
+// indicator stayed stuck on the default "connecting" (rendered "reconnecting")
+// and the list was empty until the user toggled tabs. The fix subscribes when
+// the Memories tab is the active tab on boot, gated on the active tab so it
+// still does not subscribe in apps not viewing memory (INSP-1).
+
+describe("WebInspectorElement memories — active-on-boot subscription", () => {
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    // Persist `selectedMenu: "memories"` so hydrateStateFromStorageEarly (run in
+    // connectedCallback, before any user interaction) restores the Memories tab
+    // as the active tab — reproducing the stuck-indicator boot scenario.
+    const store: Record<string, string> = {
+      "cpk:inspector:state": JSON.stringify({ selectedMenu: "memories" }),
+    };
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => {
+        store[key] = value;
+      },
+      removeItem: (key: string) => {
+        delete store[key];
+      },
+      clear: () => {
+        for (const key of Object.keys(store)) delete store[key];
+      },
+      get length() {
+        return Object.keys(store).length;
+      },
+      key: (index: number) => Object.keys(store)[index] ?? null,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("subscribes to the memory store on boot when the Memories tab is already active (no click)", async () => {
+    // The store reports a live realtime status. If the inspector subscribes on
+    // boot, _memoriesRealtimeStatus reflects "connected"; if it does NOT (the
+    // bug), it stays on the default "connecting".
+    const core = makeCoreWithMemory([], { realtimeStatus: "connected" });
+    const spy = vi.spyOn(core, "getMemoryStore");
+
+    const el = new WebInspectorElement();
+    document.body.appendChild(el);
+    // connectedCallback has already restored selectedMenu = "memories".
+    // Assigning core (the realistic boot path) must trigger the subscription
+    // without any handleMenuSelect click.
+    el.core = core as unknown as WebInspectorElement["core"];
+    (el as unknown as { isOpen: boolean }).isOpen = true;
+    await el.updateComplete;
+
+    expect(
+      (el as unknown as { selectedMenu: string }).selectedMenu,
+      "persisted Memories tab should be the active tab on boot",
+    ).toBe("memories");
+
+    // The store was created + subscribed WITHOUT a tab click.
+    expect(
+      spy,
+      "core.getMemoryStore() must be called on boot when Memories is active",
+    ).toHaveBeenCalled();
+
+    // The live status from the store is reflected — not the stuck default.
+    expect(
+      (el as unknown as { _memoriesRealtimeStatus: string })
+        ._memoriesRealtimeStatus,
+      "realtime status must reflect the store, not the default 'connecting'",
+    ).toBe("connected");
+  });
+
+  it("does not double-subscribe when boot subscription is followed by a Memories-tab click", async () => {
+    // The boot subscription must be idempotent: a later explicit click must not
+    // create a second store/realtime connection.
+    const core = makeCoreWithMemory([], { realtimeStatus: "connected" });
+    const spy = vi.spyOn(core, "getMemoryStore");
+
+    const el = new WebInspectorElement();
+    document.body.appendChild(el);
+    el.core = core as unknown as WebInspectorElement["core"];
+    (el as unknown as { isOpen: boolean }).isOpen = true;
+    await el.updateComplete;
+
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    (
+      el as unknown as { handleMenuSelect: (k: string) => void }
+    ).handleMenuSelect("memories");
+    await el.updateComplete;
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ── 6.7  Older-core compat: missing getMemoryStore ────────────────────────
 //
 // An inspector attached to an older @copilotkit/core that predates

@@ -3221,6 +3221,17 @@ export class WebInspectorElement extends LitElement {
     // store is created + subscribed on first Memories-tab activation via
     // `ensureMemorySubscription` (user-initiated, acceptable). Attaching the
     // inspector creates nothing.
+    //
+    // Exception: if the Memories tab is ALREADY the active tab when core is
+    // wired (e.g. core attaches after `firstUpdated` restored a persisted
+    // `selectedMenu: "memories"`), subscribe now so the live store + realtime
+    // status paint instead of the stuck defaults. This preserves INSP-1 (no
+    // unconditional subscribe on attach) because it is gated on the active tab,
+    // and is safe to call when already subscribed — `ensureMemorySubscription`
+    // early-returns on `_memorySubscribed`.
+    if (this.selectedMenu === "memories") {
+      this.ensureMemorySubscription();
+    }
   }
 
   /**
@@ -4850,6 +4861,18 @@ ${argsString}</pre
     this.contextState.window.anchorOffset = { x: EDGE_MARGIN, y: EDGE_MARGIN };
 
     this.hydrateStateFromStorage();
+
+    // `hydrateStateFromStorage` may have restored `selectedMenu: "memories"`.
+    // The memory subscription is normally created on a Memories-tab CLICK via
+    // `handleMenuSelect`, which never fires when the tab boots already active —
+    // leaving the realtime indicator stuck on the default "connecting" and the
+    // list empty until the user toggles tabs. Subscribe now when the Memories
+    // tab is the active tab. Gated on the active tab to preserve INSP-1 (no
+    // unconditional subscribe), and safe if core is not yet attached or already
+    // subscribed — `ensureMemorySubscription` early-returns in both cases.
+    if (this.selectedMenu === "memories") {
+      this.ensureMemorySubscription();
+    }
 
     // Apply docking styles if open and docked (skip transition on initial load)
     if (this.isOpen && this.dockMode !== "floating") {
