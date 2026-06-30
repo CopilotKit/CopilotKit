@@ -1083,6 +1083,7 @@ type MemoryMockCore = {
   agents: Record<string, AbstractAgent>;
   context: Record<string, unknown>;
   properties: Record<string, unknown>;
+  telemetryDisabled: boolean;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
   intelligence: { wsUrl: string } | undefined;
   subscribe: (subscriber: CopilotKitCoreSubscriber) => {
@@ -1101,7 +1102,7 @@ type MemoryMockCore = {
  */
 function makeCoreWithMemory(
   memories: Memory[],
-  opts: { available?: boolean } = {},
+  opts: { available?: boolean; telemetryDisabled?: boolean } = {},
 ): MemoryMockCore {
   const available = opts.available ?? true;
   const { store } = makeMockMemoryStore(memories, available);
@@ -1110,6 +1111,7 @@ function makeCoreWithMemory(
     agents: {},
     context: {},
     properties: {},
+    telemetryDisabled: opts.telemetryDisabled ?? false,
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     // Intelligence present → locked teaser is NOT shown (unless available=false).
     intelligence: { wsUrl: "wss://localhost" },
@@ -1133,6 +1135,7 @@ function makeCoreNoIntelligence(): MemoryMockCore {
     agents: {},
     context: {},
     properties: {},
+    telemetryDisabled: false,
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
     intelligence: undefined,
     subscribe: (_subscriber: CopilotKitCoreSubscriber) => ({
@@ -1557,5 +1560,147 @@ describe("WebInspectorElement memories — older-core compat (no getMemoryStore)
       memoryList,
       "cpk-memory-list must not render when getMemoryStore is absent",
     ).toBeNull();
+  });
+});
+
+// ── 6.8  Memories tab telemetry gating (A7) + detach reset (A8) ────────────
+//
+// The memories tab is the only telemetry call site that must honor the host
+// `core.telemetryDisabled` opt-out and must not re-fire on every click. These
+// tests mirror the Threads tab-click telemetry test. They also cover that
+// detachFromCore resets the memory view state so a later attach to an older
+// core never leaks stale memory counts into telemetry.
+
+describe("WebInspectorElement memories — tab telemetry + detach reset", () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  const telemetryPosts = () =>
+    fetchMock.mock.calls
+      .filter(
+        (call) =>
+          String(call[0]) === "https://telemetry.copilotkit.ai/ingest" &&
+          (call[1] as RequestInit | undefined)?.method === "POST",
+      )
+      .map((call) => {
+        const body =
+          ((call[1] as RequestInit | undefined)?.body as string) ?? "{}";
+        return JSON.parse(body) as {
+          event: string;
+          properties: Record<string, unknown>;
+        };
+      });
+
+  const memoriesTabClicks = () =>
+    telemetryPosts().filter(
+      (post) => post.event === "oss.inspector.memories_tab_clicked",
+    );
+
+  beforeEach(() => {
+    document.body.innerHTML = "";
+    // localStorage not opted out → track() proceeds to the fetch sink.
+    vi.stubGlobal("localStorage", {
+      getItem: () => null,
+      setItem: () => undefined,
+      removeItem: () => undefined,
+      clear: () => undefined,
+      get length() {
+        return 0;
+      },
+      key: () => null,
+    });
+    fetchMock = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({}),
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("posts memories_tab_clicked when the Memories tab is selected", async () => {
+    const oneMemory: Memory = {
+      id: "m1",
+      kind: "topical",
+      scope: "user",
+      content: "Likes dogs",
+      sourceThreadIds: [],
+      invalidatedAt: null,
+    };
+
+    const core = makeCoreWithMemory([oneMemory]);
+    await mountMemories(core);
+    await Promise.resolve();
+
+    const clicks = memoriesTabClicks();
+    expect(clicks).toHaveLength(1);
+    expect(clicks[0]!.properties).toMatchObject({
+      memory_count: 1,
+      available: true,
+    });
+  });
+
+  it("does NOT post memories_tab_clicked when core.telemetryDisabled is true", async () => {
+    const core = makeCoreWithMemory([], { telemetryDisabled: true });
+    await mountMemories(core);
+    await Promise.resolve();
+
+    expect(memoriesTabClicks()).toHaveLength(0);
+  });
+
+  it("does not double-fire when the already-active Memories tab is re-selected", async () => {
+    const core = makeCoreWithMemory([]);
+    const el = await mountMemories(core);
+    await Promise.resolve();
+
+    // Re-select the already-active Memories tab.
+    const internals = el as unknown as {
+      handleMenuSelect: (key: string) => void;
+    };
+    internals.handleMenuSelect("memories");
+    await el.updateComplete;
+    await Promise.resolve();
+
+    expect(memoriesTabClicks()).toHaveLength(1);
+  });
+
+  it("resets memory view state on detachFromCore (memories empty, count 0)", async () => {
+    const oneMemory: Memory = {
+      id: "m1",
+      kind: "topical",
+      scope: "user",
+      content: "Likes dogs",
+      sourceThreadIds: [],
+      invalidatedAt: null,
+    };
+
+    const core = makeCoreWithMemory([oneMemory]);
+    const el = await mountMemories(core);
+    await Promise.resolve();
+
+    // Sanity: the seeded memory is present before detach.
+    expect(
+      (el as unknown as { _memories: Memory[] })._memories.map((m) => m.id),
+    ).toEqual(["m1"]);
+
+    // Reassigning core triggers detachFromCore(); null means no re-attach.
+    el.core = null;
+    await el.updateComplete;
+
+    const state = el as unknown as {
+      _memories: Memory[];
+      _memoriesLoading: boolean;
+      _memoriesError: Error | null;
+      _memoriesAvailable: boolean;
+    };
+    expect(state._memories).toEqual([]);
+    expect(state._memories).toHaveLength(0);
+    expect(state._memoriesLoading).toBe(false);
+    expect(state._memoriesError).toBeNull();
+    expect(state._memoriesAvailable).toBe(true);
   });
 });

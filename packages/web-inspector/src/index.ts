@@ -3241,6 +3241,10 @@ export class WebInspectorElement extends LitElement {
     }
     this._memoryUnsub?.();
     this._memoryUnsub = null;
+    this._memories = [];
+    this._memoriesLoading = false;
+    this._memoriesError = null;
+    this._memoriesAvailable = true;
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.lastCoreError = null;
@@ -7772,7 +7776,9 @@ ${prettyEvent}</pre
     }
 
     if (key === "memories") {
-      trackMemoriesTabClicked(this.getMemoriesTelemetryProps());
+      if (previousMenu !== "memories" && !this.core?.telemetryDisabled) {
+        trackMemoriesTabClicked(this.getMemoriesTelemetryProps());
+      }
     }
 
     if (key === "ag-ui-events" || key === "agents") {
