@@ -18,7 +18,7 @@ import { defineConfig } from "tsdown";
  */
 export default defineConfig([
   {
-    entry: ["src/index.ts", "src/drawer/index.ts"],
+    entry: ["src/index.ts", "src/threads-drawer/index.ts"],
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,

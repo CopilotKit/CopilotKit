@@ -556,7 +556,7 @@ interface ThreadSelectors {
  *
  * Each `createSelector` closure owns a private one-entry cache. Sharing a
  * single module-level selector instance across multiple concurrent stores
- * (e.g. a `<CopilotDrawer>` plus an independent `useThreads`) makes every
+ * (e.g. a `<CopilotThreadsDrawer>` plus an independent `useThreads`) makes every
  * cross-store emission a cache miss, defeating memoization and risking
  * emission instability for any future selector that allocates a new
  * object/array. Creating a per-store instance keeps each store's cache

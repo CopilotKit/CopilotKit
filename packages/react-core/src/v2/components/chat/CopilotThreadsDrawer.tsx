@@ -8,18 +8,21 @@ import React, {
   useState,
 } from "react";
 import {
-  defineCopilotKitDrawer,
-  COPILOTKIT_DRAWER_TAG,
-  type CopilotKitDrawer as CopilotKitDrawerElement,
-  type DrawerThread,
-  type ThreadSelectedDetail,
-  type ArchiveDetail,
-  type UnarchiveDetail,
-  type DeleteDetail,
-  type OpenChangeDetail,
-  type RetryDetail,
-} from "@copilotkit/web-components/drawer";
-import { useThreads, type Thread } from "../../hooks/use-threads";
+  defineCopilotKitThreadsDrawer,
+  COPILOTKIT_THREADS_DRAWER_TAG,
+} from "@copilotkit/web-components/threads-drawer";
+import type {
+  CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
+  DrawerThread,
+  ThreadSelectedDetail,
+  ArchiveDetail,
+  UnarchiveDetail,
+  DeleteDetail,
+  OpenChangeDetail,
+  RetryDetail,
+} from "@copilotkit/web-components/threads-drawer";
+import { useThreads } from "../../hooks/use-threads";
+import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
 import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigurationProvider";
 
@@ -28,18 +31,20 @@ import { useCopilotChatConfiguration } from "../../providers/CopilotChatConfigur
  * node to project into the element's `slot="row:{id}"`. Returning `null`
  * (or omitting the prop) falls back to the element's built-in row name.
  */
-export type CopilotDrawerRowRenderer = (thread: Thread) => React.ReactNode;
+export type CopilotThreadsDrawerRowRenderer = (
+  thread: Thread,
+) => React.ReactNode;
 
 /**
- * Props for {@link CopilotDrawer}.
+ * Props for {@link CopilotThreadsDrawer}.
  *
  * The drawer is a thin controller around the framework-agnostic
- * `<copilotkit-drawer>` custom element. It feeds the element domain data
+ * `<copilotkit-threads-drawer>` custom element. It feeds the element domain data
  * (threads/loading/error from {@link useThreads}, the active thread from the
  * chat configuration) and routes the element's outbound DOM events back into
  * core thread operations and chat-configuration changes.
  */
-export interface CopilotDrawerProps {
+export interface CopilotThreadsDrawerProps {
   /**
    * The agent whose threads to list and manage. Defaults to the agent of the
    * surrounding chat configuration, or the platform default when none is set.
@@ -49,7 +54,7 @@ export interface CopilotDrawerProps {
    * Optional escape-hatch called when the user picks a thread row. The wrapper
    * additionally focuses the chat input. When omitted, the wrapper drives the
    * surrounding chat configuration directly (`setActiveThreadId`), so a bare
-   * `<CopilotDrawer>` switches the rendered thread with no host wiring. Provide
+   * `<CopilotThreadsDrawer>` switches the rendered thread with no host wiring. Provide
    * this only to take control of the active thread yourself (e.g. a v1
    * `setThreadId`); when provided it is preferred over the provider.
    */
@@ -64,17 +69,37 @@ export interface CopilotDrawerProps {
    * when provided it is preferred over the provider.
    */
   onNewThread?: () => void;
-  /** Called when the unlicensed upsell CTA is clicked. */
-  onUpsell?: () => void;
+  /** Called when the Upgrade CTA is clicked. */
+  onLicensed?: () => void;
+  /**
+   * Destination the locked view's Upgrade CTA opens in a new tab. Defaults to
+   * the element's built-in CopilotKit Intelligence docs URL when omitted. Set
+   * to an empty string to suppress the default navigation and handle the click
+   * yourself via `onLicensed`.
+   */
+  licenseUrl?: string;
   /**
    * Optional per-row content. Rendered as light-DOM children with
    * `slot="row:{id}"` so the element projects them in place of the default
    * row name. Return `null` for a given row to keep the element's default.
    */
-  renderRow?: CopilotDrawerRowRenderer;
+  renderRow?: CopilotThreadsDrawerRowRenderer;
+  /**
+   * Accessible + default-header label for the drawer region. Sets the custom
+   * element's `aria-label` and the default header text (shown when no
+   * `slot="header"` content is projected). Defaults to the element's built-in
+   * `"Threads"` when omitted.
+   */
+  label?: string;
+  /**
+   * Page size for thread pagination. When set, threads are fetched in pages of
+   * this size and the drawer shows a "Load more" control while more remain.
+   * When omitted, the full list loads at once and no pagination control shows.
+   */
+  limit?: number;
   /**
    * `data-testid` set on the underlying custom element (handy in tests and for
-   * targeting from a host page). Defaults to `"copilot-drawer"`.
+   * targeting from a host page). Defaults to `"copilot-threads-drawer"`.
    */
   "data-testid"?: string;
 }
@@ -144,7 +169,7 @@ function findChatInput(origin: Element | null): HTMLElement | null {
 }
 
 /**
- * React wrapper for the shadow-DOM `<copilotkit-drawer>` threads drawer.
+ * React wrapper for the shadow-DOM `<copilotkit-threads-drawer>` threads drawer.
  *
  * Responsibilities:
  * - Registers the custom element on the client (SSR-safe; nothing renders
@@ -157,7 +182,7 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  *   thread-list launcher appears, and binds the element `open` state to the
  *   configuration's `drawerOpen`.
  *
- * License gating is two-pronged: the upsell shows when no license is configured
+ * License gating is two-pronged: the locked view shows when no license is configured
  * (the runtime reported no license status) OR the `threads` feature is
  * explicitly unlicensed. While unlicensed, the thread fetch is skipped entirely
  * so an unlicensed drawer issues no network requests.
@@ -174,18 +199,21 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  * // Callback-free: the drawer drives the chat configuration itself.
  * <CopilotKitProvider runtimeUrl="/api/copilotkit" publicLicenseKey="ck_pub_...">
  *   <CopilotChat />
- *   <CopilotDrawer />
+ *   <CopilotThreadsDrawer />
  * </CopilotKitProvider>
  * ```
  */
-export function CopilotDrawer({
+export function CopilotThreadsDrawer({
   agentId,
   onThreadSelect,
   onNewThread,
-  onUpsell,
+  onLicensed,
+  licenseUrl,
   renderRow,
-  "data-testid": dataTestId = "copilot-drawer",
-}: CopilotDrawerProps): React.ReactElement | null {
+  label,
+  limit,
+  "data-testid": dataTestId = "copilot-threads-drawer",
+}: CopilotThreadsDrawerProps): React.ReactElement | null {
   const configuration = useCopilotChatConfiguration();
   const { status, checkFeature } = useLicenseContext();
 
@@ -194,25 +222,25 @@ export function CopilotDrawer({
   // We therefore also require a positive license-present signal from the
   // runtime-reported status. Only a "valid" or "expiring" license is treated
   // as present; a resolved "none"/"expired"/"invalid" status gates the drawer
-  // to the upsell.
+  // to the locked view.
   const licensePresent = status === "valid" || status === "expiring";
   const featureLicensed = checkFeature("threads");
   const licensed = licensePresent && featureLicensed;
 
   // The runtime reports license status asynchronously: `status` is null until
   // the first /info response lands. Treat that pending window as "not yet
-  // unlicensed" — show the loading state, never the upsell — so a licensed
+  // unlicensed" — show the loading state, never the locked view — so a licensed
   // drawer doesn't flash the upgrade CTA before its license resolves (and never
   // strands the CTA on screen when the status is slow or fails to arrive). Only
   // a RESOLVED-negative status (`none`/`expired`/`invalid`, or a present license
-  // missing the `threads` feature) surfaces the upsell.
+  // missing the `threads` feature) surfaces the locked view.
   const licensePending = status === null;
 
   const resolvedAgentId = agentId ?? configuration?.agentId ?? "default";
   const activeThreadId = configuration?.threadId ?? null;
 
   // While unlicensed, skip the thread fetch entirely: the element shows only
-  // its upsell and no `/threads` request is issued.
+  // its locked view and no `/threads` request is issued.
   const {
     threads,
     isLoading,
@@ -229,18 +257,19 @@ export function CopilotDrawer({
     agentId: resolvedAgentId,
     includeArchived: true,
     enabled: licensed,
+    ...(limit !== undefined ? { limit } : {}),
   });
 
   const drawerThreads = useMemo(() => threads.map(toDrawerThread), [threads]);
 
-  const elementRef = useRef<CopilotKitDrawerElement | null>(null);
+  const elementRef = useRef<CopilotKitThreadsDrawerElement | null>(null);
 
   // Register the custom element on the client only. `customElements` is absent
   // during SSR/prerender; gating the render below on `mounted` keeps the server
   // output empty so there is no hydration mismatch or layout shift.
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    defineCopilotKitDrawer();
+    defineCopilotKitThreadsDrawer();
     setMounted(true);
   }, []);
 
@@ -262,7 +291,7 @@ export function CopilotDrawer({
   // Provider-less fallback: without a surrounding chat configuration there is no
   // shared open-state to bind to, so the wrapper keeps its own local open-state.
   // It starts CLOSED — matching the provider's own `ownDrawerOpen` default of
-  // `false` — so a bare `<CopilotDrawer>` does not render stuck-open and the
+  // `false` — so a bare `<CopilotThreadsDrawer>` does not render stuck-open and the
   // element's open-change events still toggle it.
   const [localDrawerOpen, setLocalDrawerOpen] = useState(false);
   const drawerOpen = configuration ? configuration.drawerOpen : localDrawerOpen;
@@ -276,7 +305,7 @@ export function CopilotDrawer({
   // every render (which would churn on each thread/loading change).
 
   // Prefer the host callbacks when provided; otherwise drive the surrounding
-  // chat configuration directly so a bare `<CopilotDrawer>` works callback-free.
+  // chat configuration directly so a bare `<CopilotThreadsDrawer>` works callback-free.
   const setActiveThreadId = configuration?.setActiveThreadId;
   const startNewThreadConfig = configuration?.startNewThread;
 
@@ -312,7 +341,7 @@ export function CopilotDrawer({
   const handleArchive = useCallback(
     (threadId: string) => {
       void archiveThread(threadId).catch((err) => {
-        console.error("CopilotDrawer: archiveThread failed", err);
+        console.error("CopilotThreadsDrawer: archiveThread failed", err);
       });
     },
     [archiveThread],
@@ -321,7 +350,7 @@ export function CopilotDrawer({
   const handleUnarchive = useCallback(
     (threadId: string) => {
       void unarchiveThread(threadId).catch((err) => {
-        console.error("CopilotDrawer: unarchiveThread failed", err);
+        console.error("CopilotThreadsDrawer: unarchiveThread failed", err);
       });
     },
     [unarchiveThread],
@@ -348,7 +377,7 @@ export function CopilotDrawer({
           }
         })
         .catch((err) => {
-          console.error("CopilotDrawer: deleteThread failed", err);
+          console.error("CopilotThreadsDrawer: deleteThread failed", err);
         });
     },
     [
@@ -384,9 +413,15 @@ export function CopilotDrawer({
     [setDrawerOpen],
   );
 
-  const handleUpsell = useCallback(() => {
-    onUpsell?.();
-  }, [onUpsell]);
+  const handleLicensed = useCallback(() => {
+    onLicensed?.();
+  }, [onLicensed]);
+
+  const handleLoadMore = useCallback(() => {
+    // Advance pagination. No-op when there is no next page; the element only
+    // surfaces the "Load more" control while `hasMore` is true.
+    fetchMoreThreads();
+  }, [fetchMoreThreads]);
 
   // Keep a ref to the live handlers so the addEventListener effect can stay
   // stable (bind once) while still calling the freshest closures.
@@ -399,7 +434,8 @@ export function CopilotDrawer({
     handleFilterChange,
     handleRetry,
     handleOpenChange,
-    handleUpsell,
+    handleLicensed,
+    handleLoadMore,
   });
   handlersRef.current = {
     handleThreadSelected,
@@ -410,7 +446,8 @@ export function CopilotDrawer({
     handleFilterChange,
     handleRetry,
     handleOpenChange,
-    handleUpsell,
+    handleLicensed,
+    handleLoadMore,
   };
 
   // Bind the nine outbound DOM events once the element exists. Listeners are
@@ -448,7 +485,8 @@ export function CopilotDrawer({
       const detail = (event as CustomEvent<RetryDetail>).detail;
       handlersRef.current.handleRetry(detail.scope);
     };
-    const onUpsellEvent = () => handlersRef.current.handleUpsell();
+    const onLicensedEvent = () => handlersRef.current.handleLicensed();
+    const onLoadMore = () => handlersRef.current.handleLoadMore();
 
     el.addEventListener("thread-selected", onThreadSelected);
     el.addEventListener("new-thread", onNewThreadEvent);
@@ -458,7 +496,8 @@ export function CopilotDrawer({
     el.addEventListener("filter-change", onFilterChange);
     el.addEventListener("open-change", onOpenChangeEvent);
     el.addEventListener("retry", onRetry);
-    el.addEventListener("upsell", onUpsellEvent);
+    el.addEventListener("licensed", onLicensedEvent);
+    el.addEventListener("load-more", onLoadMore);
 
     return () => {
       el.removeEventListener("thread-selected", onThreadSelected);
@@ -469,7 +508,8 @@ export function CopilotDrawer({
       el.removeEventListener("filter-change", onFilterChange);
       el.removeEventListener("open-change", onOpenChangeEvent);
       el.removeEventListener("retry", onRetry);
-      el.removeEventListener("upsell", onUpsellEvent);
+      el.removeEventListener("licensed", onLicensedEvent);
+      el.removeEventListener("load-more", onLoadMore);
     };
     // Re-bind only when the element identity changes (i.e. after first mount).
   }, [mounted]);
@@ -494,9 +534,9 @@ export function CopilotDrawer({
     // excluded via `listError` so they never leak into the drawer's error UI.
     el.error = listError ? listError.message : null;
     el.activeThreadId = activeThreadId;
-    // Pending counts as licensed for rendering: `_renderBody` shows the upsell
+    // Pending counts as licensed for rendering: `_renderBody` shows the locked view
     // only when `licensed` is false, so keeping it true until the status
-    // resolves prevents the upsell from flashing (or sticking) mid-resolution.
+    // resolves prevents the locked view from flashing (or sticking) mid-resolution.
     el.licensed = licensed || licensePending;
     el.hasMore = hasMoreThreads;
     el.fetchingMore = isFetchingMoreThreads;
@@ -518,6 +558,24 @@ export function CopilotDrawer({
     if (!el) return;
     el.open = drawerOpen;
   }, [drawerOpen, mounted]);
+
+  // Mirror the optional `label` onto the element (its accessible + default
+  // header text). Leave the element's built-in default ("Threads") in place
+  // when the prop is omitted, rather than clobbering it with undefined.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    if (label !== undefined) el.label = label;
+  }, [label, mounted]);
+
+  // Mirror the optional `licenseUrl` onto the element (the locked view's
+  // Upgrade CTA destination). Leave the element's built-in default in place
+  // when the prop is omitted, rather than clobbering it with undefined.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    if (licenseUrl !== undefined) el.licenseUrl = licenseUrl;
+  }, [licenseUrl, mounted]);
 
   // Per-row light-DOM children projected via `slot="row:{id}"`.
   const rowChildren = useMemo(() => {
@@ -541,12 +599,12 @@ export function CopilotDrawer({
   if (!mounted) return null;
 
   return React.createElement(
-    COPILOTKIT_DRAWER_TAG,
+    COPILOTKIT_THREADS_DRAWER_TAG,
     { ref: elementRef, "data-testid": dataTestId },
     rowChildren,
   );
 }
 
-CopilotDrawer.displayName = "CopilotDrawer";
+CopilotThreadsDrawer.displayName = "CopilotThreadsDrawer";
 
-export default CopilotDrawer;
+export default CopilotThreadsDrawer;
