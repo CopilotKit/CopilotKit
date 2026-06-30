@@ -95,12 +95,12 @@ describe("configureAgentForRequest – header forwarding", () => {
     expect(headers["x-test-id"]).toBe("run-99");
   });
 
-  it("request forwardable headers override matching pre-existing agent headers", () => {
+  it("server-configured agent headers WIN over a colliding forwarded header (#5712)", () => {
     const agent = createMockAgent({
-      "x-aimock-context": "old-context",
+      "x-aimock-context": "server-context",
     });
     const request = createRequest({
-      "x-aimock-context": "new-context",
+      "x-aimock-context": "inbound-context",
     });
 
     configureAgentForRequest({
@@ -110,8 +110,35 @@ describe("configureAgentForRequest – header forwarding", () => {
       agent,
     });
 
-    // The spread order is { ...agent.headers, ...extracted } so request wins
-    expect((agent as any).headers["x-aimock-context"]).toBe("new-context");
+    // Headers the server explicitly configured on the agent are authoritative:
+    // an inbound request header must not silently override them (#5712).
+    expect((agent as any).headers["x-aimock-context"]).toBe("server-context");
+  });
+
+  it("drops a forwarded header that collides case-insensitively with a server header (#5712)", () => {
+    // Server uses canonical casing; inbound is normalized to lowercase. Without
+    // a case-insensitive match both keys would survive and undici would
+    // comma-join them into an invalid "multiple JWTs" value.
+    const agent = createMockAgent({
+      Authorization: "Bearer SERVER-TOKEN",
+    });
+    const request = createRequest({
+      Authorization: "Bearer INBOUND-TOKEN",
+    });
+
+    configureAgentForRequest({
+      runtime: createMockRuntime(),
+      request,
+      agentId: "test-agent",
+      agent,
+    });
+
+    const headers = (agent as any).headers as Record<string, string>;
+    const authKeys = Object.keys(headers).filter(
+      (k) => k.toLowerCase() === "authorization",
+    );
+    expect(authKeys).toHaveLength(1);
+    expect(headers[authKeys[0]!]).toBe("Bearer SERVER-TOKEN");
   });
 
   it("does NOT forward non-forwardable headers like content-type or origin", () => {
