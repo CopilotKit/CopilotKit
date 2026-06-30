@@ -17,6 +17,15 @@ interface MemoryMutationParams extends MemoriesHandlerParams {
 const MISSING_INTELLIGENCE_MESSAGE =
   "Missing CopilotKitIntelligence configuration. Memory operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.";
 
+/** Allowed `kind` vocabulary the platform's memory endpoints accept. */
+const MEMORY_KINDS: ReadonlySet<string> = new Set([
+  "topical",
+  "episodic",
+  "operational",
+]);
+/** Allowed `scope` vocabulary the platform's memory endpoints accept. */
+const MEMORY_SCOPES: ReadonlySet<string> = new Set(["user", "project"]);
+
 /**
  * Maps a thrown error to a `Response`.
  *
@@ -67,10 +76,22 @@ function parseMemoryBody(body: Record<string, unknown>):
   if (typeof content !== "string" || typeof kind !== "string") {
     return errorResponse("Memory requires string `content` and `kind`", 400);
   }
+  // `kind` must be one of the platform's known kinds. Reject an out-of-vocabulary
+  // value here rather than forwarding it for the platform to reject.
+  if (!MEMORY_KINDS.has(kind)) {
+    return errorResponse(
+      "Memory `kind` must be one of: topical, episodic, operational",
+      400,
+    );
+  }
   // `scope` is optional: when omitted the platform applies its default
   // (`"user"`). Only reject a present-but-wrong-typed scope.
   if (scope !== undefined && typeof scope !== "string") {
     return errorResponse("Memory `scope` must be a string when provided", 400);
+  }
+  // When `scope` is present, it must be one of the known scopes.
+  if (typeof scope === "string" && !MEMORY_SCOPES.has(scope)) {
+    return errorResponse("Memory `scope` must be one of: user, project", 400);
   }
   // `sourceThreadIds` is optional, but when present it must be a string array.
   // Validate every element so non-string ids are not forwarded to the platform.
@@ -123,6 +144,26 @@ export async function handleListMemories({
         userId: user.id,
         ...(includeInvalidated ? { includeInvalidated: true } : {}),
       });
+
+      // The client memory store consumes the `{ memories: [...] }` envelope
+      // directly. Assert the shape before forwarding so a platform contract
+      // violation surfaces as a clear 502 (the runtime is healthy but its
+      // dependency returned the wrong shape) instead of a 200 the client will
+      // choke on.
+      if (
+        data == null ||
+        typeof data !== "object" ||
+        !Array.isArray((data as { memories?: unknown }).memories)
+      ) {
+        logger.error(
+          { data },
+          "listMemories: platform returned a response without a `memories` array",
+        );
+        return errorResponse(
+          "Memory platform returned an invalid list response",
+          502,
+        );
+      }
 
       return Response.json(data);
     } catch (error) {

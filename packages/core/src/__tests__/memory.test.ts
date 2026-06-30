@@ -1240,6 +1240,43 @@ describe("memory mutation session guard and error handling", () => {
     store.stop();
   });
 
+  // CORE-2: a create whose 200 body carries a non-array `sourceThreadIds` must
+  // reject — `Memory.sourceThreadIds` is `readonly string[]`, so a non-array
+  // would otherwise corrupt state with a Memory whose field is undefined/wrong.
+  test("addMemory rejects when the create response has a non-array sourceThreadIds (no corrupt memory)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        // `sourceThreadIds` is missing (effectively non-array / undefined).
+        json: async () => ({
+          id: "m1",
+          kind: "topical",
+          scope: "user",
+          content: "hi",
+          invalidatedAt: null,
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+
+    await expect(
+      store.addMemory({ content: "hi", kind: "topical" }),
+    ).rejects.toThrow("missing/invalid sourceThreadIds");
+
+    expect(store.getState().memories).toEqual([]);
+
+    store.stop();
+  });
+
   // H2: an invalid `kind` is rejected the same way.
   test("addMemory rejects when the create response has an invalid kind", async () => {
     const fetchMock = vi

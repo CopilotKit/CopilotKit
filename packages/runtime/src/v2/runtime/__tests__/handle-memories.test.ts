@@ -263,6 +263,55 @@ describe("memory handlers", () => {
     expect(intelligence.updateMemory).not.toHaveBeenCalled();
   });
 
+  it("returns 400 and does not call createMemory for an out-of-vocabulary kind", async () => {
+    const intelligence = { createMemory: vi.fn() };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleCreateMemory({
+      runtime,
+      request: jsonRequest("/memories", "POST", {
+        content: "x",
+        kind: "bogus",
+        scope: "user",
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(intelligence.createMemory).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 and does not call createMemory for an out-of-vocabulary scope", async () => {
+    const intelligence = { createMemory: vi.fn() };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleCreateMemory({
+      runtime,
+      request: jsonRequest("/memories", "POST", {
+        content: "x",
+        kind: "topical",
+        scope: "global",
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(intelligence.createMemory).not.toHaveBeenCalled();
+  });
+
+  it("returns 502 when the platform list response has no memories array", async () => {
+    const intelligence = {
+      // Platform contract violation: no `memories` array.
+      listMemories: vi.fn().mockResolvedValue({ items: [] }),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleListMemories({
+      runtime,
+      request: new Request("https://example.com/memories"),
+    });
+
+    expect(response.status).toBe(502);
+  });
+
   it("omits scope when the create body has none (platform applies its default)", async () => {
     const intelligence = {
       createMemory: vi.fn().mockResolvedValue({

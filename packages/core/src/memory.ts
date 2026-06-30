@@ -681,6 +681,23 @@ function validateMutationResponse(
   if (typeof data.content !== "string") {
     return new Error("memory mutation response missing/invalid content");
   }
+  // `sourceThreadIds` is `readonly string[]` on the public Memory; a malformed
+  // 200 that omits it (or sends a non-array) would otherwise yield a Memory
+  // whose `sourceThreadIds` is `undefined`, violating the type for every
+  // consumer that maps over it.
+  if (
+    !Array.isArray(data.sourceThreadIds) ||
+    !data.sourceThreadIds.every((id) => typeof id === "string")
+  ) {
+    return new Error(
+      "memory mutation response missing/invalid sourceThreadIds",
+    );
+  }
+  // `invalidatedAt` is `string | null`; reject any other type so it is not
+  // copied through as `undefined`.
+  if (data.invalidatedAt !== null && typeof data.invalidatedAt !== "string") {
+    return new Error("memory mutation response missing/invalid invalidatedAt");
+  }
   return null;
 }
 
@@ -712,6 +729,12 @@ function buildMutationSuccessActions(
   const { requestId, sessionId } = request;
 
   if (request.kind === "remove") {
+    // The platform's DELETE returns a bare 204 with NO body (the runtime
+    // handler responds `new Response(null, { status: 204 })` and the client's
+    // `removeMemory` is `Promise<void>`), so there is no confirmation field to
+    // validate here — removal is status-code-confirmed. We optimistically remove
+    // the row locally on any 2xx; the realtime `memory_metadata` `invalidated`
+    // event (and the next REST refresh) reconcile idempotently.
     return [
       memoryDomainEvents.memoryInvalidated({ sessionId, memoryId: request.id }),
       memoryRestEvents.mutationFinished({
