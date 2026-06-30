@@ -81,6 +81,11 @@ function useMemoryStoreSelector<T>(
       [store, selector],
     ),
     () => selector(store.getState()),
+    // getServerSnapshot: without this third argument React throws
+    // "Missing getServerSnapshot" during SSR/prerender (e.g. Next.js). The
+    // store has no client data while prerendering, so we project from its
+    // stable server state.
+    () => selector(store.getServerState()),
   );
 }
 

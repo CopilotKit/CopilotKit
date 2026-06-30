@@ -1,3 +1,5 @@
+import * as React from "react";
+import { renderToString } from "react-dom/server";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   afterAll,
@@ -49,6 +51,14 @@ function jsonResponse(body: unknown): Response {
   } as unknown as Response;
 }
 
+function errorResponse(status: number): Response {
+  return {
+    ok: false,
+    status,
+    json: async () => ({}),
+  } as unknown as Response;
+}
+
 /**
  * Builds a fetch mock that routes by URL + method. The store always POSTs
  * `/memories/subscribe` for realtime join credentials on `setContext`, so the
@@ -56,16 +66,24 @@ function jsonResponse(body: unknown): Response {
  * call. The phoenix socket never connects under jsdom; that path is covered by
  * core's `memory.test.ts`. `onMutation` returns the body for the create /
  * supersede / retire request (or `undefined` for a bodyless DELETE).
+ *
+ * Pass `snapshotStatus` (default `200`) to make the snapshot GET return a
+ * non-ok response — e.g. `500` to exercise the error path or `404` to exercise
+ * the "memory not configured" (isAvailable=false) branch.
  */
 function makeFetchMock(
   snapshot: WireMemory[],
   onMutation?: (url: string, method: string) => unknown,
+  snapshotStatus = 200,
 ): Mock {
   return vi.fn((input: string, init?: RequestInit) => {
     const url = typeof input === "string" ? input : String(input);
     const method = (init?.method ?? "GET").toUpperCase();
 
     if (url === `${RUNTIME_URL}/memories` && method === "GET") {
+      if (snapshotStatus !== 200) {
+        return Promise.resolve(errorResponse(snapshotStatus));
+      }
       return Promise.resolve(jsonResponse({ memories: snapshot }));
     }
     if (url === `${RUNTIME_URL}/memories/subscribe` && method === "POST") {
@@ -255,5 +273,111 @@ describe("useMemories", () => {
       `${RUNTIME_URL}/memories/m1`,
       expect.objectContaining({ method: "DELETE" }),
     );
+  });
+
+  // A11: useMemories must not crash under SSR/Next.js prerender. Before the fix
+  // (useSyncExternalStore called with only 2 args) renderToString throws
+  // "Missing getServerSnapshot"; after the fix it renders the empty server
+  // snapshot. This test is red before the third-arg fix and green after.
+  it("server-renders without throwing 'Missing getServerSnapshot' (SSR smoke)", () => {
+    function MemoryProbe(): React.ReactElement {
+      const { memories, isLoading, isAvailable } = useMemories();
+      // Single text child so SSR doesn't interleave comment markers, keeping
+      // the sanity assertion below a simple substring check.
+      return <div>{`${isLoading}:${isAvailable}:${memories.length}`}</div>;
+    }
+
+    expect(() => renderToString(<MemoryProbe />)).not.toThrow();
+    // Sanity: the server snapshot is the empty initial state.
+    expect(renderToString(<MemoryProbe />)).toContain("false:true:0");
+  });
+
+  it("surfaces a non-null Error when the snapshot GET fails (500)", async () => {
+    fetchMock.mockImplementation(makeFetchMock([], undefined, 500));
+    setupCopilotKit(fetchMock);
+
+    const { result } = renderHook(() => useMemories());
+
+    act(() => {
+      activateStore();
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBeInstanceOf(Error);
+    });
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.isAvailable).toBe(true);
+  });
+
+  it("flips isAvailable to false (error stays null) when the snapshot GET 404s", async () => {
+    fetchMock.mockImplementation(makeFetchMock([], undefined, 404));
+    setupCopilotKit(fetchMock);
+
+    const { result } = renderHook(() => useMemories());
+
+    act(() => {
+      activateStore();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isAvailable).toBe(false);
+    });
+    expect(result.current.error).toBeNull();
+    expect(result.current.isLoading).toBe(false);
+  });
+
+  it("refresh() re-pulls the snapshot and resolves", async () => {
+    fetchMock.mockImplementation(makeFetchMock([wireMemory("m1")]));
+    setupCopilotKit(fetchMock);
+
+    const { result } = renderHook(() => useMemories());
+
+    act(() => {
+      activateStore();
+    });
+
+    await waitFor(() =>
+      expect(result.current.memories.map((m) => m.id)).toEqual(["m1"]),
+    );
+
+    const callsBefore = fetchMock.mock.calls.filter(
+      ([url, init]) =>
+        url === `${RUNTIME_URL}/memories` &&
+        (init?.method ?? "GET").toUpperCase() === "GET",
+    ).length;
+
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    const callsAfter = fetchMock.mock.calls.filter(
+      ([url, init]) =>
+        url === `${RUNTIME_URL}/memories` &&
+        (init?.method ?? "GET").toUpperCase() === "GET",
+    ).length;
+    expect(callsAfter).toBeGreaterThan(callsBefore);
+  });
+
+  it("refresh() rejects when the re-pull fails", async () => {
+    fetchMock.mockImplementation(makeFetchMock([wireMemory("m1")]));
+    setupCopilotKit(fetchMock);
+
+    const { result } = renderHook(() => useMemories());
+
+    act(() => {
+      activateStore();
+    });
+
+    await waitFor(() =>
+      expect(result.current.memories.map((m) => m.id)).toEqual(["m1"]),
+    );
+
+    fetchMock.mockImplementation(makeFetchMock([], undefined, 500));
+
+    await expect(
+      act(async () => {
+        await result.current.refresh();
+      }),
+    ).rejects.toBeInstanceOf(Error);
   });
 });
