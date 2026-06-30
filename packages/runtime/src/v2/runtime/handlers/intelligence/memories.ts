@@ -72,6 +72,18 @@ function parseMemoryBody(body: Record<string, unknown>):
   if (scope !== undefined && typeof scope !== "string") {
     return errorResponse("Memory `scope` must be a string when provided", 400);
   }
+  // `sourceThreadIds` is optional, but when present it must be a string array.
+  // Validate every element so non-string ids are not forwarded to the platform.
+  if (
+    sourceThreadIds !== undefined &&
+    (!Array.isArray(sourceThreadIds) ||
+      !sourceThreadIds.every((id) => typeof id === "string"))
+  ) {
+    return errorResponse(
+      "Memory `sourceThreadIds` must be an array of strings when provided",
+      400,
+    );
+  }
   return {
     content,
     kind,
@@ -79,6 +91,7 @@ function parseMemoryBody(body: Record<string, unknown>):
     ...(Array.isArray(sourceThreadIds)
       ? { sourceThreadIds: sourceThreadIds as string[] }
       : {}),
+    // `sourceThreadIds` elements are validated as strings above; the cast is safe.
   };
 }
 

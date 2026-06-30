@@ -193,6 +193,76 @@ describe("memory handlers", () => {
     });
   });
 
+  it("forwards a valid sourceThreadIds string array to createMemory", async () => {
+    const intelligence = {
+      createMemory: vi.fn().mockResolvedValue({
+        id: "m-new",
+        kind: "topical",
+        scope: "user",
+        content: "User plays bass.",
+        sourceThreadIds: ["t1", "t2"],
+        invalidatedAt: null,
+      }),
+    };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleCreateMemory({
+      runtime,
+      request: jsonRequest("/memories", "POST", {
+        content: "User plays bass.",
+        kind: "topical",
+        scope: "user",
+        sourceThreadIds: ["t1", "t2"],
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(intelligence.createMemory).toHaveBeenCalledWith({
+      userId: "user-1",
+      content: "User plays bass.",
+      kind: "topical",
+      scope: "user",
+      sourceThreadIds: ["t1", "t2"],
+    });
+  });
+
+  it("returns 400 and does not call createMemory for a non-string sourceThreadIds element", async () => {
+    const intelligence = { createMemory: vi.fn() };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleCreateMemory({
+      runtime,
+      request: jsonRequest("/memories", "POST", {
+        content: "User plays bass.",
+        kind: "topical",
+        scope: "user",
+        sourceThreadIds: [1, 2],
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(intelligence.createMemory).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 and does not call updateMemory for a non-string sourceThreadIds element on supersede", async () => {
+    const intelligence = { updateMemory: vi.fn() };
+    const runtime = createIntelligenceRuntime({ intelligence });
+
+    const response = await handleUpdateMemory({
+      runtime,
+      request: jsonRequest("/memories/m-1", "PATCH", {
+        content: "updated",
+        kind: "topical",
+        scope: "user",
+        sourceThreadIds: ["t1", 3],
+      }),
+      memoryId: "m-1",
+    });
+
+    expect(response.status).toBe(400);
+    expect(intelligence.updateMemory).not.toHaveBeenCalled();
+  });
+
   it("omits scope when the create body has none (platform applies its default)", async () => {
     const intelligence = {
       createMemory: vi.fn().mockResolvedValue({
