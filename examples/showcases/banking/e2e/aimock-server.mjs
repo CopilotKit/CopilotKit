@@ -53,11 +53,9 @@ if (!ServerCtor) {
 // (it parses the {fixtures:[...]} file and applies entryToFixture).
 const loadedFixtures = loadFixtureFile
   ? loadFixtureFile(FIXTURES)
-  : (
-      JSON.parse(
-        await (await import("node:fs/promises")).readFile(FIXTURES, "utf8"),
-      ).fixtures ?? []
-    );
+  : (JSON.parse(
+      await (await import("node:fs/promises")).readFile(FIXTURES, "utf8"),
+    ).fixtures ?? []);
 if (validateFixtures) validateFixtures(loadedFixtures);
 
 // NOTE: LLMock's constructor does NOT read `options.fixtures` — fixtures passed
