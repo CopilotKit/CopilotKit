@@ -60,6 +60,24 @@ const CONTAINER_SKILL_DIR = `/workspace/.claude/skills/${SKILL_NAME}`;
 const AGENT_TIMEOUT_MS = 15 * 60 * 1000; // 900s, matches the old task timeout.
 const GATE_TIMEOUT_MS = 5 * 60 * 1000;
 
+// --- output styling -----------------------------------------------------------
+// Color only on a real TTY (and honor NO_COLOR), so piping to a log file or CI
+// stays clean plain text instead of ANSI escape soup.
+const USE_COLOR =
+  Boolean(process.stdout.isTTY) && process.env.NO_COLOR === undefined;
+const paint =
+  (code: string) =>
+  (s: string | number): string =>
+    USE_COLOR ? `\x1b[${code}m${s}\x1b[0m` : String(s);
+const clr = {
+  bold: paint("1"),
+  dim: paint("2"),
+  red: paint("31"),
+  green: paint("32"),
+  yellow: paint("33"),
+  cyan: paint("36"),
+};
+
 type ArmLabel = "WITH-skill" | "WITHOUT-skill";
 
 interface Trial {
@@ -245,31 +263,41 @@ function preflightAuth(): Auth {
     };
   }
 
-  if (!judge) {
-    console.warn(
-      "[lift] no judge-capable key (OPENAI_API_KEY or ANTHROPIC_API_KEY) — running " +
-        "DETERMINISTIC-ONLY: the build/type-check gate and the real " +
-        "turns/tokens/duration/cost lift still apply; the trace judge is skipped. " +
-        "Add OPENAI_API_KEY (or ANTHROPIC_API_KEY) to include it.",
-    );
-  } else {
-    console.warn(`[lift] judge: ${judge.provider} (${judge.model}).`);
-  }
   return { agentEnv, judge };
 }
 
-/** Build the eval image once. Fail loud on build error. */
+/**
+ * Build the eval image once. Quiet on success (`-q` collapses the ~200-line
+ * apt/npm build log to nothing); on failure the captured output is printed so
+ * the error is still actionable.
+ */
 function buildImage(): void {
   if (!existsSync(SKILL_DIR)) {
     die(`skill under test not found at ${SKILL_DIR}.`);
   }
-  console.log(`\n[lift] building image ${IMAGE} (once)...`);
+  process.stdout.write(` ${clr.dim("Building eval image…")} `);
+  const t0 = Date.now();
   const res = spawnSync(
     "docker",
-    ["build", "-t", IMAGE, "-f", path.join(EVAL_DIR, "Dockerfile"), EVAL_DIR],
-    { stdio: "inherit" },
+    [
+      "build",
+      "-q",
+      "-t",
+      IMAGE,
+      "-f",
+      path.join(EVAL_DIR, "Dockerfile"),
+      EVAL_DIR,
+    ],
+    { encoding: "utf8" },
   );
-  if (res.status !== 0) die("docker build failed (see output above).");
+  if (res.status !== 0) {
+    process.stdout.write("\n");
+    console.error(`${res.stdout || ""}${res.stderr || ""}`);
+    die("docker build failed (see output above).");
+  }
+  console.log(
+    `${clr.green("done")} ${clr.dim(`(${Math.round((Date.now() - t0) / 1000)}s)`)}`,
+  );
 }
 
 interface DockerResult {
@@ -570,76 +598,170 @@ function summarize(trials: Trial[]): ArmSummary {
 function fmtMs(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
-
-/** Format a signed lift number with a leading +/-. */
-function signed(x: number, suffix = ""): string {
-  return `${x >= 0 ? "+" : ""}${x}${suffix}`;
+function pct(x: number): string {
+  return `${(x * 100).toFixed(1)}%`;
+}
+/** Signed number with a real minus glyph: -1.2 -> "−1.2". */
+function signNum(x: number, dp: number, suffix = ""): string {
+  return `${x < 0 ? "−" : "+"}${Math.abs(x).toFixed(dp)}${suffix}`;
+}
+function signMoney(x: number): string {
+  return `${x < 0 ? "−" : "+"}$${Math.abs(x).toFixed(2)}`;
+}
+function signMs(ms: number): string {
+  return `${ms < 0 ? "−" : "+"}${fmtMs(Math.abs(ms))}`;
 }
 
+const BAR = "━".repeat(56);
+
+/** Wrap a string to lines of at most `width` chars, breaking on spaces. */
+function wrapText(s: string, width: number): string[] {
+  const lines: string[] = [];
+  let cur = "";
+  for (const word of s.trim().split(/\s+/)) {
+    if (cur && cur.length + 1 + word.length > width) {
+      lines.push(cur);
+      cur = word;
+    } else {
+      cur = cur ? `${cur} ${word}` : word;
+    }
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
+/** Title + the verbatim task + run config, printed before any work starts. */
+function printHeader(
+  task: string,
+  trials: number,
+  concurrency: number,
+  judge: JudgeConfig | null,
+): void {
+  console.log(`\n${clr.cyan(BAR)}`);
+  console.log(` ${clr.bold(`Skill-lift eval · ${SKILL_NAME}`)}`);
+  console.log(`${clr.cyan(BAR)}\n`);
+
+  console.log(` ${clr.bold("Task given to the agent")}`);
+  const wrapped = wrapText(task, 60);
+  wrapped.forEach((line, i) => {
+    const open = i === 0 ? "“" : " ";
+    const close = i === wrapped.length - 1 ? "”" : "";
+    console.log(`   ${clr.cyan(`${open}${line}${close}`)}`);
+  });
+
+  const judgeStr = judge
+    ? `${judge.provider} (${judge.model})`
+    : "off (deterministic-only)";
+  console.log(
+    `\n ${clr.dim(`${trials} trials/arm · concurrency ${concurrency} · judge: ${judgeStr}`)}`,
+  );
+}
+
+interface LiftRow {
+  label: string;
+  withVal: string;
+  withoutVal: string;
+  lift: string;
+  good: boolean;
+  negligible: boolean;
+}
+
+/** The results block: aligned with/without/lift columns + a ✔ where it helped. */
 function printTable(
   withSkill: ArmSummary,
   withoutSkill: ArmSummary,
   lift: Record<string, number>,
-  trials: number,
-  rubricRan: boolean,
 ): void {
-  const rows = [
-    ["metric", "with skill", "without skill", "lift (with - without)"],
-    [
-      "pass rate",
-      `${(withSkill.passRate * 100).toFixed(1)}%`,
-      `${(withoutSkill.passRate * 100).toFixed(1)}%`,
-      signed(round4(lift.passRate * 100), "pp"),
-    ],
-    [
-      "mean reward",
-      withSkill.meanReward.toFixed(3),
-      withoutSkill.meanReward.toFixed(3),
-      signed(round4(lift.meanReward)),
-    ],
-    [
-      "median duration",
-      fmtMs(withSkill.medianDurationMs),
-      fmtMs(withoutSkill.medianDurationMs),
-      `${lift.durationMs <= 0 ? "" : "+"}${fmtMs(lift.durationMs)}`,
-    ],
-    [
-      "median turns",
-      String(withSkill.medianTurns),
-      String(withoutSkill.medianTurns),
-      signed(round4(lift.turns)),
-    ],
-    [
-      "median tokens",
-      String(withSkill.medianTokens),
-      String(withoutSkill.medianTokens),
-      signed(lift.tokens),
-    ],
-    [
-      "median cost",
-      `$${withSkill.medianCostUsd.toFixed(4)}`,
-      `$${withoutSkill.medianCostUsd.toFixed(4)}`,
-      signed(round4(lift.costUsd)),
-    ],
+  const rows: LiftRow[] = [
+    {
+      label: "pass rate",
+      withVal: pct(withSkill.passRate),
+      withoutVal: pct(withoutSkill.passRate),
+      lift: signNum(lift.passRate * 100, 1, "pp"),
+      good: lift.passRate > 0,
+      negligible: Math.abs(lift.passRate) < 0.001,
+    },
+    {
+      label: "mean reward",
+      withVal: withSkill.meanReward.toFixed(2),
+      withoutVal: withoutSkill.meanReward.toFixed(2),
+      lift: signNum(lift.meanReward, 2),
+      good: lift.meanReward > 0,
+      negligible: Math.abs(lift.meanReward) < 0.005,
+    },
+    {
+      label: "median cost",
+      withVal: `$${withSkill.medianCostUsd.toFixed(2)}`,
+      withoutVal: `$${withoutSkill.medianCostUsd.toFixed(2)}`,
+      lift: signMoney(lift.costUsd),
+      good: lift.costUsd < 0,
+      negligible: Math.abs(lift.costUsd) < 0.005,
+    },
+    {
+      label: "median turns",
+      withVal: String(withSkill.medianTurns),
+      withoutVal: String(withoutSkill.medianTurns),
+      lift: signNum(lift.turns, 0),
+      good: lift.turns < 0,
+      negligible: Math.abs(lift.turns) < 0.5,
+    },
+    {
+      label: "median tokens",
+      withVal: String(withSkill.medianTokens),
+      withoutVal: String(withoutSkill.medianTokens),
+      lift: signNum(lift.tokens, 0),
+      good: lift.tokens < 0,
+      negligible: Math.abs(lift.tokens) < 50,
+    },
+    {
+      label: "median duration",
+      withVal: fmtMs(withSkill.medianDurationMs),
+      withoutVal: fmtMs(withoutSkill.medianDurationMs),
+      lift: signMs(lift.durationMs),
+      good: lift.durationMs < 0,
+      negligible: Math.abs(lift.durationMs) < 2000,
+    },
   ];
-  const widths = rows[0].map((_, c) =>
-    Math.max(...rows.map((r) => String(r[c]).length)),
+
+  const headers = { label: "", w: "with", wo: "without", f: "lift" };
+  const lw = Math.max(headers.label.length, ...rows.map((r) => r.label.length));
+  const ww = Math.max(headers.w.length, ...rows.map((r) => r.withVal.length));
+  const ow = Math.max(
+    headers.wo.length,
+    ...rows.map((r) => r.withoutVal.length),
   );
-  const sep = widths.map((w) => "-".repeat(w)).join("-+-");
+  const fw = Math.max(headers.f.length, ...rows.map((r) => r.lift.length));
+
+  console.log(`\n${clr.cyan("━━ Results ")}${clr.cyan("━".repeat(45))}\n`);
   console.log(
-    `\n[lift] skill: ${SKILL_NAME}   trials/arm: ${trials}   ` +
-      `judge: ${rubricRan ? "on" : "off (deterministic-only)"}\n`,
+    clr.dim(
+      `   ${headers.label.padEnd(lw)}   ${headers.w.padStart(ww)}   ` +
+        `${headers.wo.padStart(ow)}   ${headers.f.padStart(fw)}`,
+    ),
   );
-  rows.forEach((row, i) => {
+  for (const r of rows) {
+    const liftCell = r.lift.padStart(fw);
+    const mark = r.negligible
+      ? clr.dim("·")
+      : r.good
+        ? clr.green("✔")
+        : clr.dim("–");
+    const liftOut = r.negligible
+      ? clr.dim(liftCell)
+      : r.good
+        ? clr.green(liftCell)
+        : liftCell;
     console.log(
-      row.map((cell, c) => String(cell).padEnd(widths[c])).join(" | "),
+      `   ${r.label.padEnd(lw)}   ${r.withVal.padStart(ww)}   ` +
+        `${r.withoutVal.padStart(ow)}   ${liftOut}   ${mark}`,
     );
-    if (i === 0) console.log(sep);
-  });
+  }
   console.log(
-    "\n[lift] reading the lift column: NEGATIVE turns/tokens/duration/cost is GOOD " +
-      "(skill made the agent leaner); POSITIVE pass rate / mean reward is GOOD.",
+    `\n   ${clr.green("✔")} ${clr.dim(
+      "= skill helped. Lower turns/tokens/cost/duration is better;",
+    )}`,
   );
+  console.log(`     ${clr.dim("higher pass rate / reward is better.")}`);
 }
 
 interface TrialTask {
@@ -715,14 +837,29 @@ async function runOneTrial(
 
   // One standalone line per trial — trials finish out of order under concurrency,
   // so the label carries the arm + index instead of relying on print order.
-  console.log(
-    `[lift] ${task.arm} trial ${task.index + 1}/${trials} — ` +
-      (ok
-        ? `reward=${trial.reward.toFixed(2)} gate=${trial.gateScore.toFixed(2)}` +
-          (judgeScore !== null ? ` judge=${judgeScore.toFixed(2)}` : "") +
-          ` turns=${trial.numTurns} ${fmtMs(trial.durationMs)}`
-        : `AGENT FAILED (${trial.error})`),
-  );
+  const label = task.arm.padEnd("WITHOUT-skill".length);
+  const id = `#${task.index + 1}`;
+  if (ok) {
+    // Color the reward by band so good/bad reads at a glance.
+    const rw = trial.reward;
+    const rewardStr =
+      rw >= 0.8
+        ? clr.green(rw.toFixed(2))
+        : rw >= 0.5
+          ? clr.yellow(rw.toFixed(2))
+          : clr.red(rw.toFixed(2));
+    const judgePart =
+      judgeScore !== null ? `  judge ${judgeScore.toFixed(2)}` : "";
+    console.log(
+      `   ${label} ${id}  ${clr.green("✔")}  reward ${rewardStr}  ` +
+        `gate ${trial.gateScore.toFixed(2)}${judgePart}  ` +
+        clr.dim(`  ${trial.numTurns} turns · ${fmtMs(trial.durationMs)}`),
+    );
+  } else {
+    console.log(
+      `   ${label} ${id}  ${clr.red("✗")}  ${clr.red(`agent failed (${trial.error})`)}`,
+    );
+  }
   return trial;
 }
 
@@ -732,7 +869,13 @@ async function main(): Promise<void> {
   preflightDocker();
   const auth = preflightAuth();
   const rubric = readFileSync(path.join(EVAL_DIR, "rubric.md"), "utf8");
+  const instruction = readFileSync(
+    path.join(EVAL_DIR, "instruction.md"),
+    "utf8",
+  ).trim();
 
+  printHeader(instruction, trials, concurrency, auth.judge);
+  console.log("");
   buildImage();
 
   // Both arms are one flat pool of independent trials (WITH first, WITHOUT
@@ -751,8 +894,7 @@ async function main(): Promise<void> {
     })),
   ];
   console.log(
-    `\n[lift] running ${tasks.length} trials (${trials}/arm) at concurrency ` +
-      `${concurrency}...`,
+    `\n ${clr.bold("Trials")} ${clr.dim(`(running ${tasks.length}, ✔ = agent completed)`)}`,
   );
   const all = await pool(tasks, concurrency, (task) =>
     runOneTrial(task, trials, auth, rubric),
@@ -776,9 +918,10 @@ async function main(): Promise<void> {
       );
     }
     if (failed > 0) {
-      console.warn(
-        `[lift] WARNING: ${label} arm had ${failed}/${arm.length} agent failures; ` +
-          "they are excluded from the efficiency medians.",
+      console.log(
+        clr.yellow(
+          `   ! ${label}: ${failed}/${arm.length} agent failures (excluded from medians)`,
+        ),
       );
     }
   }
@@ -795,7 +938,7 @@ async function main(): Promise<void> {
   };
 
   const rubricRan = Boolean(auth.judge);
-  printTable(withSkill, withoutSkill, lift, trials, rubricRan);
+  printTable(withSkill, withoutSkill, lift);
 
   const result = {
     timestamp: new Date().toISOString(),
@@ -819,7 +962,8 @@ async function main(): Promise<void> {
     `${result.timestamp.replace(/[:.]/g, "-")}.json`,
   );
   writeFileSync(outFile, `${JSON.stringify(result, null, 2)}\n`);
-  console.log(`\n[lift] wrote results: ${outFile}\n`);
+  const relOut = path.relative(process.cwd(), outFile);
+  console.log(`\n ${clr.dim("Results →")} ${relOut}\n`);
 }
 
 main().catch((err) => die(err.stack || String(err)));
