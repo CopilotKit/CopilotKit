@@ -344,9 +344,13 @@ type ThreadDetailsInternals = {
   fetchMessages: (threadId: string) => Promise<void>;
   fetchEvents: (threadId: string) => Promise<void>;
   fetchState: (threadId: string) => Promise<void>;
+  renderTimeline: () => unknown;
   renderConversation: () => unknown;
   renderState: () => unknown;
   renderEvents: () => unknown;
+  timelineItemsFromEvents: (
+    events: Array<Record<string, unknown>>,
+  ) => Array<Record<string, unknown>>;
 };
 
 function createThreadDetails(): {
@@ -512,7 +516,7 @@ describe("ɵCpkThreadDetails caching", () => {
     ];
 
     const tplA = internals.renderConversation();
-    expect(internals._panelTplCache.get("timeline")?.tpl).toBe(tplA);
+    expect(internals._panelTplCache.get("timeline-fallback")?.tpl).toBe(tplA);
 
     // Cache hit: same array reference, same expand sets — same TemplateResult.
     expect(internals.renderConversation()).toBe(tplA);
@@ -527,7 +531,7 @@ describe("ɵCpkThreadDetails caching", () => {
 
     const tplB = internals.renderConversation();
     expect(tplB).not.toBe(tplA);
-    expect(internals._panelTplCache.get("timeline")?.tpl).toBe(tplB);
+    expect(internals._panelTplCache.get("timeline-fallback")?.tpl).toBe(tplB);
   });
 
   it("conversation cache invalidates when expand state changes", async () => {
@@ -564,6 +568,60 @@ describe("ɵCpkThreadDetails caching", () => {
     internals._expandedMessages = new Set(["m1"]);
 
     expect(internals.renderConversation()).not.toBe(expanded);
+  });
+
+  it("keeps timeline and message fallback template caches separate", async () => {
+    const { el, internals } = createThreadDetails();
+    await settleThread(el, internals, "t1");
+
+    const events = [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-06-25T10:00:00.000Z",
+        payload: {},
+        sourceIndex: 1,
+      },
+    ];
+    internals._fetchedEvents = events;
+
+    const timelineTpl = internals.renderTimeline();
+    expect(internals._panelTplCache.get("timeline")?.tpl).toBe(timelineTpl);
+
+    internals._fetchedEvents = [];
+    internals._conversation = [
+      { id: "m1", type: "user", content: "fallback", createdAt: "" },
+    ];
+
+    const fallbackTpl = internals.renderTimeline();
+    expect(fallbackTpl).not.toBe(timelineTpl);
+    expect(internals._panelTplCache.get("timeline")?.tpl).toBe(timelineTpl);
+    expect(internals._panelTplCache.get("timeline-fallback")?.tpl).toBe(
+      fallbackTpl,
+    );
+
+    internals._fetchedEvents = events;
+    expect(internals.renderTimeline()).toBe(timelineTpl);
+  });
+
+  it("does not recompute timeline items when renderTimeline returns a cached template", async () => {
+    const { el, internals } = createThreadDetails();
+    await settleThread(el, internals, "t1");
+
+    internals._fetchedEvents = [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-06-25T10:00:00.000Z",
+        payload: {},
+        sourceIndex: 1,
+      },
+    ];
+
+    const normalizeSpy = vi.spyOn(internals, "timelineItemsFromEvents");
+
+    const timelineTpl = internals.renderTimeline();
+
+    expect(internals.renderTimeline()).toBe(timelineTpl);
+    expect(normalizeSpy).toHaveBeenCalledTimes(1);
   });
 
   it("state and events caches invalidate when their fetched data is reassigned", async () => {

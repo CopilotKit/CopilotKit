@@ -335,6 +335,7 @@ interface ApiAgentEvent {
 }
 
 type ThreadDetailsTab = "timeline" | "state" | "raw-events";
+type ThreadDetailsPanelCacheSlot = ThreadDetailsTab | "timeline-fallback";
 
 type TimelineItemKind =
   | "message"
@@ -850,9 +851,13 @@ export class CpkThreadInspector extends LitElement {
    * reference; if any element flips, the cache misses and rebuilds.
    */
   private _panelTplCache: Map<
-    ThreadDetailsTab,
+    ThreadDetailsPanelCacheSlot,
     { key: readonly unknown[]; tpl: TemplateResult }
   > = new Map();
+  private _timelineItemsCache: {
+    events: ApiAgentEvent[];
+    items: TimelineItem[];
+  } | null = null;
   /**
    * Tracks whether we've fetched events for the current thread yet. Events
    * fetch lazily on first sub-tab click so a large response's JSON.parse
@@ -1837,11 +1842,7 @@ export class CpkThreadInspector extends LitElement {
       }
       const mappedEvents = this.mapApiEvents(result.events);
       this._fetchedEvents = mappedEvents;
-      if (
-        (mappedEvents.length === 0 ||
-          this.timelineItemsFromEvents(mappedEvents).length === 0) &&
-        this.canFetchMessages()
-      ) {
+      if (mappedEvents.length === 0 && this.canFetchMessages()) {
         void this.fetchMessages(threadId);
       }
     } catch (err) {
@@ -2054,7 +2055,16 @@ export class CpkThreadInspector extends LitElement {
   }
 
   private get activeTimelineItems(): TimelineItem[] {
-    return this.timelineItemsFromEvents(this.activeEvents);
+    return this.timelineItemsForEvents(this.activeEvents);
+  }
+
+  private timelineItemsForEvents(events: ApiAgentEvent[]): TimelineItem[] {
+    if (this._timelineItemsCache?.events === events) {
+      return this._timelineItemsCache.items;
+    }
+    const items = this.timelineItemsFromEvents(events);
+    this._timelineItemsCache = { events, items };
+    return items;
   }
 
   private timelineItemsFromEvents(events: ApiAgentEvent[]): TimelineItem[] {
@@ -2597,7 +2607,11 @@ export class CpkThreadInspector extends LitElement {
       `;
     }
 
-    const timelineItems = this.activeTimelineItems;
+    const events = this.activeEvents;
+    const cachedTimeline = this.getCachedPanelTpl("timeline", [events]);
+    if (cachedTimeline) return cachedTimeline;
+
+    const timelineItems = this.timelineItemsForEvents(events);
     if (timelineItems.length === 0) {
       if (this._conversation.length > 0) return this.renderConversation();
       if (this._loadingMessages) return this.renderConversation();
@@ -2612,7 +2626,7 @@ export class CpkThreadInspector extends LitElement {
       `;
     }
 
-    return this.cachedPanelTpl("timeline", [this.activeEvents], () => {
+    return this.cachedPanelTpl("timeline", [events], () => {
       return html`${timelineItems.map((item) => this.renderTimelineItem(item))}`;
     });
   }
@@ -2690,7 +2704,7 @@ ${unsafeHTML(highlightedJson(item.details))}</pre
     // `_conversation` — without those keys the cache returns the
     // pre-toggle template and the disclosure appears broken.
     return this.cachedPanelTpl(
-      "timeline",
+      "timeline-fallback",
       [this._conversation, this._expandedTools, this._expandedMessages],
       () => {
         const items = this.renderItems;
@@ -2709,10 +2723,21 @@ ${unsafeHTML(highlightedJson(item.details))}</pre
    * change without the listed key flipping.
    */
   private cachedPanelTpl(
-    slot: ThreadDetailsTab,
+    slot: ThreadDetailsPanelCacheSlot,
     key: readonly unknown[],
     build: () => TemplateResult,
   ): TemplateResult {
+    const cached = this.getCachedPanelTpl(slot, key);
+    if (cached) return cached;
+    const tpl = build();
+    this._panelTplCache.set(slot, { key, tpl });
+    return tpl;
+  }
+
+  private getCachedPanelTpl(
+    slot: ThreadDetailsPanelCacheSlot,
+    key: readonly unknown[],
+  ): TemplateResult | null {
     const cached = this._panelTplCache.get(slot);
     if (
       cached &&
@@ -2721,9 +2746,7 @@ ${unsafeHTML(highlightedJson(item.details))}</pre
     ) {
       return cached.tpl;
     }
-    const tpl = build();
-    this._panelTplCache.set(slot, { key, tpl });
-    return tpl;
+    return null;
   }
 
   private renderRenderItem(item: RenderItem) {

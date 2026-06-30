@@ -13,8 +13,15 @@ export default defineConfig({
       enforce: "pre",
       transform(code, id) {
         if (!id.endsWith("/src/index.ts")) return null;
+        const cssImport =
+          'import tailwindStyles from "./styles/generated.css";';
+        if (!code.includes(cssImport)) {
+          throw new Error(
+            "web-inspector dev CSS transform expected src/index.ts to include the generated.css import",
+          );
+        }
         return code.replace(
-          'import tailwindStyles from "./styles/generated.css";',
+          cssImport,
           'import tailwindStyles from "./styles/generated.css?raw";',
         );
       },
