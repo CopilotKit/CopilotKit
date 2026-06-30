@@ -144,7 +144,9 @@ describe("injectMemories", () => {
   let fetchMock: Mock;
 
   beforeEach(() => {
-    fetchMock = routedFetch({ snapshot: { ok: true, json: async () => ({ memories: [] }) } });
+    fetchMock = routedFetch({
+      snapshot: { ok: true, json: async () => ({ memories: [] }) },
+    });
   });
 
   afterEach(() => {
@@ -188,7 +190,10 @@ describe("injectMemories", () => {
     await flush(fixture);
     expect(controller.isLoading()).toBe(false);
 
-    const created = await controller.addMemory({ content: "hi", kind: "topical" });
+    const created = await controller.addMemory({
+      content: "hi",
+      kind: "topical",
+    });
     await flush(fixture);
 
     expect(created.id).toBe("m1");
