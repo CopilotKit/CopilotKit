@@ -1,4 +1,3 @@
-import { Analytics } from "@segment/analytics-node";
 import type { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
@@ -23,7 +22,8 @@ export function isTelemetryDisabled(): boolean {
 }
 
 export class TelemetryClient {
-  segment: Analytics | undefined;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  segment: any | undefined;
   globalProperties: Record<string, any> = {};
   cloudConfiguration: { publicApiKey: string; baseUrl: string } | null = null;
   // EIP / Intelligence license token (Ed25519-signed JWT). The lambda
@@ -73,9 +73,18 @@ export class TelemetryClient {
       process.env.COPILOTKIT_SEGMENT_WRITE_KEY ||
       "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja";
 
-    this.segment = new Analytics({
-      writeKey,
-    });
+    // Lazy dynamic import so that @segment/analytics-node (which pulls in
+    // Node.js built-ins like stream, http, url, https, zlib) is never
+    // evaluated at module parse time in browser / Vite builds. If the
+    // import fails (e.g. in a browser context), Segment is silently skipped.
+    import("@segment/analytics-node")
+      .then(({ Analytics }) => {
+        this.segment = new Analytics({ writeKey });
+      })
+      .catch(() => {
+        // Browser environment or missing package — telemetry will use
+        // the lambda sink only; Segment track() calls are no-ops.
+      });
 
     this.setGlobalProperties({
       "copilotkit.package.name": packageName,
