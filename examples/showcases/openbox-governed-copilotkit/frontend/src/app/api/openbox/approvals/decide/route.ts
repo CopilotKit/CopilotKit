@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createOpenBoxApprovalRoute } from "@openbox-ai/openbox-sdk/copilotkit";
 import { z } from "zod";
+import { enforceApprovalGuards } from "@/lib/approval-guard";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,16 @@ export async function POST(request: Request) {
   console.info(
     "[openbox-governed-copilotkit] /api/openbox/approvals/decide started",
   );
+
+  // Abuse controls before any work: same-origin guard, optional operator
+  // token, and a per-IP rate limit. See src/lib/approval-guard.ts.
+  const blocked = enforceApprovalGuards(request);
+  if (blocked) {
+    console.info(
+      `[openbox-governed-copilotkit] /api/openbox/approvals/decide rejected by guard in ${Date.now() - startedAt}ms`,
+    );
+    return blocked;
+  }
 
   const parsed = DecisionSchema.safeParse(
     await request.json().catch(() => null),

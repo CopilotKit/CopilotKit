@@ -16,6 +16,8 @@ type DemoConfig = {
 };
 
 const BACKEND_API_KEY_PATTERN = /^obx_key_/;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 loadDotEnv();
 main().catch((error) => {
@@ -25,6 +27,7 @@ main().catch((error) => {
 
 async function main() {
   const config = readConfig();
+  config.agentId = await resolveAgentId(config);
   const client = new OpenBoxClient({
     apiUrl: config.apiUrl,
     apiKey: config.apiKey,
@@ -78,6 +81,43 @@ function readConfig(): DemoConfig {
     apiKey,
     agentId,
   };
+}
+
+// The OpenBox Admin API addresses agents by their internal UUID. OPENBOX_AGENT_ID
+// is often set to the human-readable agent name (e.g. "openbox-copilotkit"), which
+// the Admin API cannot resolve. When the configured id is not a UUID, look it up by
+// name (or id) via /agent/list and return the canonical UUID.
+async function resolveAgentId(config: DemoConfig): Promise<string> {
+  if (UUID_PATTERN.test(config.agentId)) return config.agentId;
+
+  const response = await fetch(`${config.apiUrl}/agent/list`, {
+    headers: { "X-API-Key": config.apiKey },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to list agents while resolving OPENBOX_AGENT_ID "${config.agentId}" (HTTP ${response.status}).`,
+    );
+  }
+
+  const body = (await response.json()) as {
+    data?: { data?: Array<{ id: string; agent_name?: string }> };
+  };
+  const agents = body.data?.data ?? [];
+  const match = agents.find(
+    (agent) =>
+      agent.id === config.agentId || agent.agent_name === config.agentId,
+  );
+  if (!match?.id) {
+    throw new Error(
+      `No OpenBox agent found matching OPENBOX_AGENT_ID "${config.agentId}". ` +
+        "Set it to the agent's UUID or its exact name.",
+    );
+  }
+
+  if (match.id !== config.agentId) {
+    console.log(`resolved agent "${config.agentId}" -> ${match.id}`);
+  }
+  return match.id;
 }
 
 async function ensureGuardrails(client: OpenBoxClient, agentId: string) {

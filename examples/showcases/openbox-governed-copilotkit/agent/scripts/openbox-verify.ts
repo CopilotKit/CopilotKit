@@ -55,6 +55,8 @@ type LifecycleShape = "completed" | "blocked" | "halted" | "pending";
 
 const RUNTIME_KEY_PATTERN = /^obx_(live|test)_/;
 const BACKEND_API_KEY_PATTERN = /^obx_key_/;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CORE_TIMEOUT_MS = 180_000;
 
 const checks: Check[] = [];
@@ -89,10 +91,46 @@ main().catch((error) => {
   process.exit(1);
 });
 
+// The OpenBox Admin API addresses agents by their internal UUID. When
+// OPENBOX_AGENT_ID is a human-readable name, resolve it to the UUID via
+// /agent/list. The Core runtime identity uses the signed DID, not this id,
+// so resolving here only affects Admin-API paths.
+async function resolveAgentId(): Promise<string> {
+  if (UUID_PATTERN.test(config.agentId)) return config.agentId;
+
+  const response = await fetch(`${config.apiUrl}/agent/list`, {
+    headers: { "X-API-Key": config.backendApiKey },
+  });
+  if (!response.ok) {
+    throw new Error(
+      `Failed to list agents while resolving OPENBOX_AGENT_ID "${config.agentId}" (HTTP ${response.status}).`,
+    );
+  }
+
+  const body = (await response.json()) as {
+    data?: { data?: Array<{ id: string; agent_name?: string }> };
+  };
+  const agents = body.data?.data ?? [];
+  const match = agents.find(
+    (agent) =>
+      agent.id === config.agentId || agent.agent_name === config.agentId,
+  );
+  if (!match?.id) {
+    throw new Error(
+      `No OpenBox agent found matching OPENBOX_AGENT_ID "${config.agentId}". ` +
+        "Set it to the agent's UUID or its exact name.",
+    );
+  }
+
+  return match.id;
+}
+
 async function main() {
   await runCheck("configuration", () => verifyConfiguration(config));
   await runCheck("backend dns/tls", () => verifyDnsAndTls(config.apiUrl));
   await runCheck("core dns/tls", () => verifyDnsAndTls(config.coreUrl));
+  // Admin API addresses agents by UUID; resolve a name in OPENBOX_AGENT_ID.
+  config.agentId = await resolveAgentId();
   await runCheck("local LangGraph agent health", () =>
     verifyHttp(`${config.agentUrl}/ok`),
   );

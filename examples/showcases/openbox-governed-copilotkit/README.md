@@ -7,6 +7,8 @@ executes. Governance decisions (Allow / Constrain / Approval / Block / Halt) are
 streamed back to the browser and rendered as generative UI cards alongside the
 chat. An append-only audit trail is recorded by OpenBox Core for every decision.
 
+**Live demo:** [app-production-5569.up.railway.app](https://app-production-5569.up.railway.app) — open it and send any prompt from the governance matrix to watch OpenBox govern each action in real time.
+
 Reference app: [OpenBox-AI/openbox-x-copilotkit](https://github.com/OpenBox-AI/openbox-x-copilotkit)
 
 ## What's inside
@@ -26,8 +28,8 @@ Reference app: [OpenBox-AI/openbox-x-copilotkit](https://github.com/OpenBox-AI/o
 
 - Node 20+
 - An OpenAI-compatible API key (`OPENAI_API_KEY`) and a chat model in
-  `OPENAI_MODEL` — **required**: the agent has no built-in default and throws if
-  it is unset. The demo uses `gpt-5.4-mini-2026-03-17`.
+  `OPENAI_MODEL` — the demo uses `gpt-5.4-mini-2026-03-17`. `OPENAI_MODEL` is
+  required; the agent has no built-in default and throws if it is unset.
 - An OpenBox account with a test API key. Sign up at
   [openbox.ai](https://openbox.ai) to get `OPENBOX_API_KEY`, `OPENBOX_CORE_URL`,
   `OPENBOX_AGENT_ID`, `OPENBOX_AGENT_DID`, and `OPENBOX_AGENT_PRIVATE_KEY`.
@@ -63,17 +65,17 @@ from the governance matrix below.
 
 ### Agent (`agent/.env`)
 
-| Variable                    | Description                                                        |
-| --------------------------- | ------------------------------------------------------------------ |
-| `OPENAI_BASE_URL`           | OpenAI-compatible base URL (e.g. `https://api.openai.com/v1`)      |
-| `OPENAI_MODEL`              | Model name — required, no default (e.g. `gpt-5.4-mini-2026-03-17`) |
-| `OPENAI_API_KEY`            | API key for the model provider                                     |
-| `OPENBOX_ENABLED`           | Set to `true` to activate governance (default `true`)              |
-| `OPENBOX_CORE_URL`          | OpenBox Core service URL (e.g. `https://core.openbox.ai`)          |
-| `OPENBOX_API_KEY`           | OpenBox API key (test key starts with `obx_test_`)                 |
-| `OPENBOX_AGENT_ID`          | Your registered agent ID in OpenBox                                |
-| `OPENBOX_AGENT_DID`         | Agent DID for signing (e.g. `did:aip:example`)                     |
-| `OPENBOX_AGENT_PRIVATE_KEY` | Base64-encoded raw Ed25519 private key                             |
+| Variable                    | Description                                                    |
+| --------------------------- | -------------------------------------------------------------- |
+| `OPENAI_BASE_URL`           | OpenAI-compatible base URL (e.g. `https://api.openai.com/v1`)  |
+| `OPENAI_MODEL`              | Model name, required (the demo uses `gpt-5.4-mini-2026-03-17`) |
+| `OPENAI_API_KEY`            | API key for the model provider                                 |
+| `OPENBOX_ENABLED`           | Set to `true` to activate governance (default `true`)          |
+| `OPENBOX_CORE_URL`          | OpenBox Core service URL (e.g. `https://core.openbox.ai`)      |
+| `OPENBOX_API_KEY`           | OpenBox API key (test key starts with `obx_test_`)             |
+| `OPENBOX_AGENT_ID`          | Your registered agent ID in OpenBox                            |
+| `OPENBOX_AGENT_DID`         | Agent DID for signing (e.g. `did:aip:example`)                 |
+| `OPENBOX_AGENT_PRIVATE_KEY` | Base64-encoded raw Ed25519 private key                         |
 
 ### Frontend (`frontend/.env.local`)
 
@@ -124,13 +126,35 @@ OPENBOX_API_KEY=obx_... OPENBOX_CORE_URL=https://core.openbox.ai npm run test:e2
 
 A `frontend/railway.json` is included for one-click Railway deployment of the
 Next.js frontend. Set the environment variables listed above in the Railway
-service settings before deploying. Hosting is a manual follow-up step — no live
-URL is published yet.
+service settings before deploying. A hosted instance is live at
+[app-production-5569.up.railway.app](https://app-production-5569.up.railway.app).
 
 ```bash
 # From the frontend directory, after linking your Railway project:
 railway up
 ```
+
+## Security
+
+This is a **public, single-instance demo with no user accounts**, and the
+OpenBox SDK's approval `decide()` accepts only an opaque, Core-issued
+`governanceEventId` — there is no session or owner to bind an approval to. So
+the approval endpoint (`/api/openbox/approvals/decide`) ships with pragmatic
+abuse controls rather than real auth (`frontend/src/lib/approval-guard.ts`):
+
+- **Same-origin guard** — cross-site POSTs are rejected (`403`), so another site
+  can't drive an approval from a visitor's browser.
+- **Per-IP rate limit** — best-effort, in-memory, per instance (`429` when
+  exceeded), to blunt scripted abuse of an endpoint that calls OpenBox Core.
+- **Optional operator token** — set `OPENBOX_APPROVAL_TOKEN` to require a
+  matching `x-openbox-approval-token` header. This intentionally locks out the
+  anonymous browser flow; use it when approvals should come only from operator
+  tooling.
+
+**For production, this is not enough.** Put the approval route behind real
+authentication, authorize the caller against the specific governance event
+(bind events to the session/user that created them), and move the rate limit to
+shared infrastructure. Treat the controls above as a demo-grade floor.
 
 ## Notes
 
