@@ -8,7 +8,7 @@ import type { PanelMemory } from "@/lib/intelligence/memory";
 // Backstop only; the real trigger is a memory-kind event in the store.
 const BACKSTOP_POLL_MS = 15_000;
 
-/** The over-limit unlock is saved as project-scope, operational. */
+/** The over-limit unlock is saved as project-scope, procedural (legacy: operational). */
 function isOverLimitProcedure(m: PanelMemory): boolean {
   return (
     m.scope === "project" &&

@@ -64,7 +64,7 @@ async function recallProcedureIds(): Promise<string[]> {
   return (body.memories ?? []).map((m) => m.id);
 }
 
-/** Arrange a clean slate, then seed exactly one project/operational procedure. */
+/** Arrange a clean slate, then seed exactly one project/procedural procedure. */
 async function resetAndSeedProcedure(): Promise<void> {
   for (const id of await recallProcedureIds()) {
     await fetch(`${APP_API_URL}/api/memories/${id}`, {
@@ -80,7 +80,7 @@ async function resetAndSeedProcedure(): Promise<void> {
         `To approve an over-limit charge, open a policy exception with code ${SEED_CODE} ` +
         `against the charge and finalize it, then approve the transaction.`,
       scope: "project",
-      kind: "operational",
+      kind: "procedural",
     }),
   });
   expect(res.status, "seed procedure memory").toBe(201);
