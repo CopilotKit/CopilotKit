@@ -563,6 +563,48 @@ test("thread_run_activity notifications during an in-flight wake reconnect do no
   expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
 });
 
+test("terminal thread_run_activity for a run already covered by a wake reconnect does not reconnect again", async () => {
+  const rendered = renderChatWithCore({
+    intelligence: { wsUrl: "wss://intelligence.example/client" },
+    threadEndpoints: { realtimeMetadata: true },
+  });
+  await settleInitialConnect(rendered);
+  const activeWakeReconnect = createDeferred();
+  rendered.connectDeferrals.push(activeWakeReconnect);
+
+  act(() => {
+    rendered.store.emit({
+      type: "thread_run_activity",
+      threadId: "thread-current",
+      agentId: DEFAULT_AGENT_ID,
+      runId: "run-remote",
+      eventType: "RUN_STARTED",
+    });
+  });
+
+  await waitFor(() => {
+    expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+  });
+
+  await act(async () => {
+    activeWakeReconnect.resolve();
+    await activeWakeReconnect.promise;
+  });
+
+  act(() => {
+    rendered.store.emit({
+      type: "thread_run_activity",
+      threadId: "thread-current",
+      agentId: DEFAULT_AGENT_ID,
+      runId: "run-remote",
+      eventType: "RUN_FINISHED",
+    });
+  });
+
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(rendered.connectAgent).toHaveBeenCalledTimes(1);
+});
+
 test("queued thread_run_activity reconnect is discarded on unmount", async () => {
   const rendered = renderChatWithCore({
     intelligence: { wsUrl: "wss://intelligence.example/client" },

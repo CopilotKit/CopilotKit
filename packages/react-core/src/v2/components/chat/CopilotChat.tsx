@@ -234,6 +234,11 @@ export function CopilotChat({
   const recentlyLocalRunIdsRef = useRef<
     Map<string, ReturnType<typeof setTimeout>>
   >(new Map());
+  const activeWakeRunIdsRef = useRef<Set<string>>(new Set());
+  const recentlyWakeRunIdsRef = useRef<
+    Map<string, ReturnType<typeof setTimeout>>
+  >(new Map());
+  const pendingWakeRunIdRef = useRef<string | undefined>(undefined);
   const startRunActivityReconnectRef = useRef<
     ((generation: number) => void) | null
   >(null);
@@ -274,6 +279,18 @@ export function CopilotChat({
     recentlyLocalRunIdsRef.current.set(runId, timeout);
   }, []);
 
+  const rememberRecentlyWakeRunId = useCallback((runId: string) => {
+    const existingTimeout = recentlyWakeRunIdsRef.current.get(runId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      recentlyWakeRunIdsRef.current.delete(runId);
+    }, 30_000);
+    recentlyWakeRunIdsRef.current.set(runId, timeout);
+  }, []);
+
   const isLocalActiveRunActivity = useCallback(
     (notification: { agentId?: string; runId?: string; eventType: string }) => {
       if (notification.agentId && notification.agentId !== resolvedAgentId) {
@@ -299,11 +316,16 @@ export function CopilotChat({
 
   useEffect(() => {
     const recentlyLocalRunIds = recentlyLocalRunIdsRef.current;
+    const recentlyWakeRunIds = recentlyWakeRunIdsRef.current;
     return () => {
       recentlyLocalRunIds.forEach((timeout) => {
         clearTimeout(timeout);
       });
       recentlyLocalRunIds.clear();
+      recentlyWakeRunIds.forEach((timeout) => {
+        clearTimeout(timeout);
+      });
+      recentlyWakeRunIds.clear();
     };
   }, []);
 
@@ -461,16 +483,29 @@ export function CopilotChat({
     const connect = async () => {
       activeConnectCountRef.current += 1;
       wakeReconnectActive = true;
+      const wakeRunId = pendingWakeRunIdRef.current;
+      pendingWakeRunIdRef.current = undefined;
+      if (wakeRunId) {
+        activeWakeRunIdsRef.current.add(wakeRunId);
+      }
+      let didConnect = false;
       if (agent instanceof HttpAgent) {
         agent.abortController = wakeReconnectAbortController;
       }
       try {
         await copilotkit.connectAgent({ agent });
+        didConnect = true;
       } catch (error) {
         if (!detached) {
           console.error("CopilotChat: run activity reconnect failed", error);
         }
       } finally {
+        if (wakeRunId) {
+          activeWakeRunIdsRef.current.delete(wakeRunId);
+          if (didConnect) {
+            rememberRecentlyWakeRunId(wakeRunId);
+          }
+        }
         activeConnectCountRef.current = Math.max(
           0,
           activeConnectCountRef.current - 1,
@@ -520,12 +555,21 @@ export function CopilotChat({
         return;
       }
       if (isLocalActiveRunActivity(notification)) return;
+      if (
+        notification.runId &&
+        (activeWakeRunIdsRef.current.has(notification.runId) ||
+          recentlyWakeRunIdsRef.current.has(notification.runId))
+      ) {
+        return;
+      }
+      pendingWakeRunIdRef.current = notification.runId;
       startRunActivityReconnectRef.current?.(generation);
     });
 
     return () => {
       detached = true;
       pendingRunActivityReconnectRef.current = false;
+      pendingWakeRunIdRef.current = undefined;
       if (pendingAgentIdleDrain !== null) {
         clearTimeout(pendingAgentIdleDrain);
         pendingAgentIdleDrain = null;
@@ -537,6 +581,7 @@ export function CopilotChat({
         wakeReconnectAbortController.abort();
         agent.detachActiveRun().catch(() => {});
       }
+      activeWakeRunIdsRef.current.clear();
       subscription.unsubscribe();
       if (ownsStandaloneStore) {
         threadStore.setContext(null);
@@ -558,6 +603,7 @@ export function CopilotChat({
     copilotkit.threadEndpoints?.realtimeMetadata,
     standaloneRunActivityStore,
     isLocalActiveRunActivity,
+    rememberRecentlyWakeRunId,
   ]);
 
   // Serializes consecutive sends: if a run is already in flight, let it finish
