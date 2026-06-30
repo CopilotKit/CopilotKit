@@ -47,8 +47,14 @@ const MEMORIES_SUBSCRIBE_PATH = "/memories/subscribe";
 const REQUEST_TIMEOUT_MS = 15_000;
 /** Consecutive socket errors tolerated before the realtime stream gives up. */
 const MAX_SOCKET_RETRIES = 5;
-/** HTTP status codes that indicate memory routes are not configured (non-fatal). */
-const ROUTE_UNAVAILABLE_STATUSES = new Set([404, 501]);
+/**
+ * HTTP status codes that indicate memory routes are not configured (non-fatal).
+ * 404/501 mean the route is absent/unimplemented; 422 is the runtime's
+ * MISSING_INTELLIGENCE signal (intelligence not configured on the deployment —
+ * see packages/runtime/.../handlers/intelligence/memories.ts). All three map to
+ * the graceful "not available" locked-teaser path, not a hard error.
+ */
+const ROUTE_UNAVAILABLE_STATUSES = new Set([404, 422, 501]);
 /** Thrown when a memory route returns a 404/501 — treated as "not configured". */
 class MemoryRouteUnavailableError extends Error {}
 
@@ -150,6 +156,10 @@ const memoryRestEvents = createActionGroup("Memory REST", {
     joinToken: string;
     joinCode: string;
   }>(),
+  // Credentials outcomes are a SILENT degrade: they feed only the realtime
+  // socket effect and deliberately do NOT touch the reducer's `available`/
+  // `error`, which describe the REST list route. See the reducer note near the
+  // list handlers.
   credentialsFailed: props<{ sessionId: number; error: Error }>(),
   credentialsUnavailable: props<{ sessionId: number }>(),
 });
@@ -343,32 +353,16 @@ const memoryReducer = createReducer(
       };
     },
   ),
-  on(
-    memoryRestEvents.credentialsFailed,
-    (state: MemoryState, { sessionId, error }) => {
-      if (sessionId !== state.sessionId) {
-        return state;
-      }
-
-      return {
-        ...state,
-        error,
-      };
-    },
-  ),
-  on(
-    memoryRestEvents.credentialsUnavailable,
-    (state: MemoryState, { sessionId }) => {
-      if (sessionId !== state.sessionId) {
-        return state;
-      }
-
-      return {
-        ...state,
-        available: false,
-      };
-    },
-  ),
+  // NOTE: `credentialsFailed` and `credentialsUnavailable` intentionally have NO
+  // reducer cases. `available`/`error` describe the REST list route only and are
+  // driven exclusively by the list events above. The credentials/realtime path
+  // is a silent degrade by design: a missing/unconfigured `/memories/subscribe`
+  // route (404/501/422) or a credentials error must not flip `available` or
+  // surface an `error`, because the list route can still be perfectly healthy.
+  // Otherwise `available` would be order-dependent on whichever of the two
+  // concurrent `contextChanged` bootstraps responds last. Realtime failures are
+  // handled where they occur (the socket effect retries and gives up via
+  // console.warn); they do not belong in the REST availability state.
   on(
     memoryDomainEvents.memoryUpserted,
     (state: MemoryState, { sessionId, memory }) => {
@@ -1093,7 +1087,14 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
       // trackMutation.
       const completion$ = merge(
         store.actions$.pipe(
-          ofType(memoryRestEvents.listSucceeded, memoryRestEvents.listFailed),
+          ofType(
+            memoryRestEvents.listSucceeded,
+            memoryRestEvents.listFailed,
+            // `listUnavailable` (404/501/422) is the third terminal outcome of
+            // the list fetch. Without it `await refresh()` would hang forever
+            // against an unconfigured route.
+            memoryRestEvents.listUnavailable,
+          ),
           filter((action) => action.sessionId === sessionId),
         ),
         store.actions$.pipe(ofType(memoryAdapterEvents.stopped)),
@@ -1112,6 +1113,9 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
         if (memoryAdapterEvents.stopped.match(action)) {
           throw new Error("Memory store stopped before refresh completed");
         }
+        // `listSucceeded` and `listUnavailable` both RESOLVE: an unavailable
+        // (not-configured) route is a non-fatal terminal state, consistent with
+        // the auto-load path which leaves `available: false` without erroring.
       });
       store.dispatch(memoryRestEvents.listRequested({ sessionId }));
       return done;

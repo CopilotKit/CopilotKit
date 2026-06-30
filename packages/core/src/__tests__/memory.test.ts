@@ -788,6 +788,60 @@ test("snapshot 500 → error not null, available: true", async () => {
   store.stop();
 });
 
+// CF3: 422 is the runtime's MISSING_INTELLIGENCE (not-configured) signal — it
+// must take the graceful "not available" path (listUnavailable), not a hard
+// listFailed/error.
+test("snapshot 422 → available: false, error: null, memories: []", async () => {
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce({ ok: false, status: 422 })
+    .mockResolvedValueOnce({ ok: false, status: 422 });
+  vi.stubGlobal("fetch", fetchMock);
+
+  const store = createMemoryStore(memoryEnvironment(fetchMock));
+  store.start();
+  store.setContext(sampleContext);
+  await flushEffects();
+
+  expect(store.getState().memories).toEqual([]);
+  expect(store.getState().isLoading).toBe(false);
+  expect(store.getState().error).toBeNull();
+  expect(store.getState().available).toBe(false);
+
+  store.stop();
+});
+
+// CF2: refresh() against an unavailable (404/501) route must SETTLE rather than
+// hang — `listUnavailable` is the third terminal outcome of the list fetch.
+test("refresh() against a 404 route resolves (does not hang) and leaves available:false", async () => {
+  const fetchMock = vi
+    .fn()
+    // initial bootstrap: list + credentials both unavailable
+    .mockResolvedValueOnce({ ok: false, status: 404 })
+    .mockResolvedValueOnce({ ok: false, status: 404 })
+    // refresh's re-pulled list: also unavailable
+    .mockResolvedValueOnce({ ok: false, status: 404 });
+  vi.stubGlobal("fetch", fetchMock);
+
+  const store = createMemoryStore(memoryEnvironment(fetchMock));
+  store.start();
+  store.setContext(sampleContext);
+  await flushEffects();
+
+  await expect(
+    Promise.race([
+      store.refresh(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("refresh() hung")), 1000),
+      ),
+    ]),
+  ).resolves.toBeUndefined();
+
+  expect(store.getState().available).toBe(false);
+
+  store.stop();
+});
+
 test("subscribe 404 → silent: error null, no console.warn", async () => {
   const fetchMock = vi
     .fn()
@@ -925,33 +979,75 @@ describe("memory mutation session guard and error handling", () => {
     expect(cleared.error).toBeNull();
   });
 
-  // A2: credentials events flip availability / surface the error.
-  test("credentialsUnavailable sets available:false", () => {
-    const state = memoryReducer(
+  // A2: credentials outcomes are a SILENT degrade — `available`/`error` are
+  // driven only by the REST list route, so credentials events must NOT touch
+  // them. Otherwise `available` would be order-dependent on which concurrent
+  // bootstrap (list vs credentials) responds last.
+  test("credentialsUnavailable does not change available (stays list-driven)", () => {
+    const listed = memoryReducer(
       undefined,
+      memoryRestEvents.listSucceeded({
+        sessionId: 0,
+        memories: [memory("m1")],
+      }),
+    );
+    expect(ɵselectMemoriesAvailable(listed)).toBe(true);
+
+    const next = memoryReducer(
+      listed,
       memoryRestEvents.credentialsUnavailable({ sessionId: 0 }),
     );
 
-    expect(ɵselectMemoriesAvailable(state)).toBe(false);
+    expect(ɵselectMemoriesAvailable(next)).toBe(true);
   });
 
-  test("credentialsFailed surfaces the error without clearing it", () => {
-    const error = new Error("creds boom");
-    const state = memoryReducer(
+  test("credentialsFailed does not surface an error (stays list-driven)", () => {
+    const listed = memoryReducer(
       undefined,
-      memoryRestEvents.credentialsFailed({ sessionId: 0, error }),
+      memoryRestEvents.listSucceeded({
+        sessionId: 0,
+        memories: [memory("m1")],
+      }),
     );
+    expect(ɵselectMemoriesError(listed)).toBeNull();
 
-    expect(ɵselectMemoriesError(state)).toBe(error);
-  });
-
-  test("credentials events from a stale session are ignored", () => {
     const next = memoryReducer(
-      undefined,
-      memoryRestEvents.credentialsUnavailable({ sessionId: 99 }),
+      listed,
+      memoryRestEvents.credentialsFailed({
+        sessionId: 0,
+        error: new Error("creds boom"),
+      }),
     );
 
-    expect(next.available).toBe(true);
+    expect(ɵselectMemoriesError(next)).toBeNull();
+    expect(ɵselectMemoriesAvailable(next)).toBe(true);
+  });
+
+  // CF1: list succeeds but credentials route is unavailable (404/501) — the
+  // final `available` must not depend on response arrival order. It stays
+  // driven by the list route, so `available` remains true regardless.
+  test("list-succeeds + credentials-unavailable leaves available:true", () => {
+    const listed = memoryReducer(
+      undefined,
+      memoryRestEvents.listSucceeded({
+        sessionId: 0,
+        memories: [memory("m1")],
+      }),
+    );
+
+    const credsThenList = memoryReducer(
+      memoryReducer(
+        listed,
+        memoryRestEvents.credentialsUnavailable({ sessionId: 0 }),
+      ),
+      memoryRestEvents.listSucceeded({
+        sessionId: 0,
+        memories: [memory("m1")],
+      }),
+    );
+
+    expect(ɵselectMemoriesAvailable(credsThenList)).toBe(true);
+    expect(ɵselectMemoriesError(credsThenList)).toBeNull();
   });
 
   // A4: a successful list proves the route is available.
