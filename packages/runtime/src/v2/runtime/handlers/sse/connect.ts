@@ -55,7 +55,11 @@ export function handleSseConnect({
         // runner can pick the merged headers up without a route change; the
         // collision precedence noted here is purely about that merge, not about
         // middleware/mutation parity with /run.
-        headers: mergeForwardableHeaders(agent?.headers, request),
+        headers: mergeForwardableHeaders(
+          agent?.headers,
+          request,
+          runtime.forwardHeadersPolicy,
+        ),
       }),
   });
 }

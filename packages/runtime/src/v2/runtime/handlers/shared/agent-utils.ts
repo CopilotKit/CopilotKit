@@ -138,13 +138,19 @@ export function configureAgentForRequest(params: {
     }
   }
 
-  // Forward inbound `authorization` / `x-*` headers onto the outgoing agent
-  // call, but let headers the server explicitly configured on the agent WIN on
-  // collision (case-insensitively) — a server-set service-to-service token
+  // Forward eligible inbound headers onto the outgoing agent call under the
+  // runtime's resolved forwarding policy (`authorization` / custom `x-*`, with
+  // known infra/proxy/platform headers stripped by the default denylist —
+  // #5712), but let headers the server explicitly configured on the agent WIN
+  // on collision (case-insensitively): a server-set service-to-service token
   // (e.g. an IAM bearer) must never be silently overridden by a
-  // browser/edge/platform-injected inbound header (#5712). See
-  // `mergeForwardableHeaders` for the casing/duplicate-key rationale.
-  agent.headers = mergeForwardableHeaders(agent.headers, request);
+  // browser/edge/platform-injected inbound header. See `mergeForwardableHeaders`
+  // for the casing/duplicate-key rationale and `shouldForwardHeader` for breadth.
+  agent.headers = mergeForwardableHeaders(
+    agent.headers,
+    request,
+    runtime.forwardHeadersPolicy,
+  );
 }
 
 /**
