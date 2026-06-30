@@ -38,6 +38,7 @@ import type {
   ɵMemoryMetadataEvent as MemoryMetadataEvent,
   ɵMemoryEnvironment as MemoryEnvironment,
 } from "../memory";
+import { MemoryError } from "../memory-errors";
 
 function memoryEnvironment(fetchImpl: Mock): MemoryEnvironment {
   return {
@@ -421,6 +422,52 @@ describe("memory store REST snapshot", () => {
     store.stop();
   });
 
+  it("surfaces a list failure as a MemoryError carrying a stable code", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({}),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+
+    const error = store.getState().error;
+    expect(error).toBeInstanceOf(Error);
+    expect(error).toBeInstanceOf(MemoryError);
+    expect((error as MemoryError).code).toBe("MEMORY_LIST_FAILED");
+    expect((error as MemoryError).category).toBe("dependency");
+    // 500 is transient, so retryable.
+    expect((error as MemoryError).retryable).toBe(true);
+    // The human-readable message (with status) is preserved.
+    expect(error?.message).toBe("Failed to fetch memories: 500");
+
+    store.stop();
+  });
+
+  it("marks a 4xx list failure as non-retryable", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 400,
+      json: async () => ({}),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext(sampleContext);
+    await flushEffects();
+
+    const error = store.getState().error as MemoryError;
+    expect(error.code).toBe("MEMORY_LIST_FAILED");
+    expect(error.retryable).toBe(false);
+
+    store.stop();
+  });
+
   it("refresh() re-pulls the snapshot and resolves once it settles", async () => {
     const fetchMock = vi
       .fn()
@@ -722,6 +769,36 @@ describe("memory store mutations", () => {
       store.addMemory({ content: "x", kind: "topical" }),
     ).rejects.toThrow();
     expect(store.getState().error).toBeInstanceOf(Error);
+
+    store.stop();
+  });
+
+  it("surfaces a mutation failure as a MemoryError carrying a stable code", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 500 });
+    const store = await connectedStore(fetchMock);
+
+    const rejection = await store
+      .addMemory({ content: "x", kind: "topical" })
+      .catch((error: unknown) => error);
+
+    expect(rejection).toBeInstanceOf(Error);
+    expect(rejection).toBeInstanceOf(MemoryError);
+    expect((rejection as MemoryError).code).toBe("MEMORY_MUTATION_FAILED");
+    expect((rejection as MemoryError).category).toBe("dependency");
+    expect((rejection as MemoryError).retryable).toBe(true);
+    expect((rejection as MemoryError).message).toBe("Request failed: 500");
+
+    // The same error lands in the `error` selector for the UI.
+    const stateError = store.getState().error;
+    expect(stateError).toBeInstanceOf(MemoryError);
+    expect((stateError as MemoryError).code).toBe("MEMORY_MUTATION_FAILED");
 
     store.stop();
   });

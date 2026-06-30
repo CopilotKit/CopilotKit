@@ -28,6 +28,7 @@ import {
   props,
 } from "./utils/micro-redux";
 import type { Reducer, Store } from "./utils/micro-redux";
+import { MemoryError, isRetryableStatus } from "./memory-errors";
 import {
   ɵphoenixChannel$,
   ɵphoenixSocket$,
@@ -510,7 +511,10 @@ function createMemoryFetchObservable(
           if (ROUTE_UNAVAILABLE_STATUSES.has(response.status)) {
             throw new MemoryRouteUnavailableError(String(response.status));
           }
-          throw new Error(`Failed to fetch memories: ${response.status}`);
+          throw new MemoryError("MEMORY_LIST_FAILED", {
+            message: `Failed to fetch memories: ${response.status}`,
+            retryable: isRetryableStatus(response.status),
+          });
         }
 
         return response.json() as Promise<{ memories: Memory[] }>;
@@ -522,7 +526,7 @@ function createMemoryFetchObservable(
       timeout({
         first: REQUEST_TIMEOUT_MS,
         with: () => {
-          throw new Error("Request timed out");
+          throw new MemoryError("MEMORY_REQUEST_TIMEOUT");
         },
       }),
       map((data) =>
@@ -568,9 +572,10 @@ function createMemoryCredentialsFetchObservable(
           if (ROUTE_UNAVAILABLE_STATUSES.has(response.status)) {
             throw new MemoryRouteUnavailableError(String(response.status));
           }
-          throw new Error(
-            `Failed to fetch memory subscribe credentials: ${response.status}`,
-          );
+          throw new MemoryError("MEMORY_CREDENTIALS_FAILED", {
+            message: `Failed to fetch memory subscribe credentials: ${response.status}`,
+            retryable: isRetryableStatus(response.status),
+          });
         }
 
         return response.json() as Promise<{
@@ -586,7 +591,7 @@ function createMemoryCredentialsFetchObservable(
       timeout({
         first: REQUEST_TIMEOUT_MS,
         with: () => {
-          throw new Error("Request timed out");
+          throw new MemoryError("MEMORY_REQUEST_TIMEOUT");
         },
       }),
       map((data) => {
@@ -826,7 +831,10 @@ function createMemoryMutationObservable(
     memoryFromFetch(`${context.runtimeUrl}${path}`, {
       selector: async (response) => {
         if (!response.ok) {
-          throw new Error(`Request failed: ${response.status}`);
+          throw new MemoryError("MEMORY_MUTATION_FAILED", {
+            message: `Request failed: ${response.status}`,
+            retryable: isRetryableStatus(response.status),
+          });
         }
 
         return request.kind === "remove"
@@ -842,7 +850,7 @@ function createMemoryMutationObservable(
       timeout({
         first: REQUEST_TIMEOUT_MS,
         with: () => {
-          throw new Error("Request timed out");
+          throw new MemoryError("MEMORY_REQUEST_TIMEOUT");
         },
       }),
       mergeMap((data) => of(...buildMutationSuccessActions(request, data))),
@@ -1280,6 +1288,22 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
 // the consumer-facing memory types surfaced by the framework hooks
 // (`useMemories` / `injectMemories`); they are exported unprefixed from their
 // declarations above. The remaining memory internals keep the `ɵ` prefix.
+// The memory error registry surface is consumer-facing: `MemoryError` is what
+// `MemoryState.error` (and the `error: Error | null` from `useMemories` /
+// `injectMemories`) carries on a failure, and consumers branch on its
+// `code`/`category`/`retryable`. Re-exported unprefixed here so it ships through
+// `index.ts` (`export * from "./memory"`) alongside the memory types.
+export {
+  MemoryError,
+  MEMORY_ERROR_REGISTRY,
+  isRetryableStatus as ɵisRetryableMemoryStatus,
+} from "./memory-errors";
+export type {
+  MemoryErrorCode,
+  MemoryErrorCategory,
+  MemoryErrorRegistryEntry,
+} from "./memory-errors";
+
 export type ɵMemoryState = MemoryState;
 export type ɵMemoryRuntimeContext = MemoryRuntimeContext;
 export type ɵMemoryMetadataEvent = MemoryMetadataEvent;
