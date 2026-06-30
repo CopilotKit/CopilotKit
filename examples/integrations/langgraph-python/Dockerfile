@@ -45,8 +45,8 @@ WORKDIR /app
 # Instead serve via ag-ui-langgraph + copilotkit (same protocol, no Docker needed)
 COPY agent/ ./agent/
 # Install ag-ui-langgraph FIRST at pinned version (before copilotkit can override it)
-RUN uv pip install --system "ag-ui-langgraph[fastapi]==0.0.22" && \
-    uv pip install --system --no-deps "copilotkit==0.1.78" && \
+RUN uv pip install --system "ag-ui-langgraph[fastapi]==0.0.37" && \
+    uv pip install --system --no-deps "copilotkit==0.1.93" && \
     uv pip install --system "partialjson>=0.0.8,<0.0.9" "toml>=0.10.2,<0.11.0" && \
     uv pip install --system \
     "langchain==1.0.1" \

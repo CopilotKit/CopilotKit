@@ -2,6 +2,11 @@ import { BuiltInAgent, convertInputToTanStackAI } from "@copilotkit/runtime/v2";
 import { chat, toolDefinition } from "@tanstack/ai";
 import { openaiText } from "@tanstack/ai-openai";
 import { z } from "zod";
+// Custom fetch that injects ALS-bound inbound x-* headers (e.g.
+// x-aimock-context) onto every outbound OpenAI call. Required so aimock
+// can match fixtures by integration context. See ../header-forwarding.ts
+// for the full rationale; mirrors the Mastra precedent.
+import { forwardingFetch } from "../header-forwarding";
 
 const CATALOG_ID = "copilotkit://flight-fixed-catalog";
 const SURFACE_ID = "flight-fixed-schema";
@@ -134,7 +139,7 @@ export function createA2UIFixedSchemaAgent() {
     factory: ({ input, abortController }) => {
       const { messages, systemPrompts } = convertInputToTanStackAI(input);
       return chat({
-        adapter: openaiText("gpt-4o-mini"),
+        adapter: openaiText("gpt-4o-mini", { fetch: forwardingFetch }),
         messages,
         systemPrompts: [A2UI_FIXED_SCHEMA_SYSTEM_PROMPT, ...systemPrompts],
         tools: [displayFlightTool],

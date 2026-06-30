@@ -1,11 +1,10 @@
-LangGraph — wired via `@ag-ui/langgraph`. Supports LangGraph Platform deployments and
-self-hosted LangGraph servers.
+LangGraph — wired via `@copilotkit/runtime/langgraph`. Supports LangGraph Platform
+deployments and self-hosted LangGraph servers.
 
 ## Install
 
-```bash
-pnpm add @ag-ui/langgraph
-```
+`LangGraphAgent` (and `LangGraphHttpAgent` for self-hosted AG-UI LangGraph servers)
+ship with `@copilotkit/runtime` — no separate install needed.
 
 ## Minimal wire-up
 
@@ -14,7 +13,7 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
-import { LangGraphAgent } from "@ag-ui/langgraph";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
 const runtime = new CopilotRuntime({
   agents: {

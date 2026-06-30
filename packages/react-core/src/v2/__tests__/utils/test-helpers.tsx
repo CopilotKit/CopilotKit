@@ -4,25 +4,40 @@ import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { CopilotChat } from "../../components/chat/CopilotChat";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import {
-  AbstractAgent,
-  EventType,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
-import { Observable, Subject, from, delay } from "rxjs";
-import {
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { Subject, from, delay } from "rxjs";
+import type {
   ReactActivityMessageRenderer,
   ReactToolCallRenderer,
 } from "../../types";
-import { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
+import type { ReactCustomMessageRenderer } from "../../types/react-custom-message-renderer";
 
 /**
  * A controllable mock agent for deterministic E2E testing.
  * Exposes emit() and complete() methods to drive agent events step-by-step.
+ *
+ * Provides {@link setActiveRunCompletionPromise} so tests can open the
+ * send-serialization await window (`onSubmitInput`/`handleSelectSuggestion`
+ * await the `RunCompletionAware` promise before dispatching) by assigning a
+ * controllable completion promise. The property is private on the base
+ * `AbstractAgent`, so it is assigned through a narrow runtime cast.
  */
 export class MockStepwiseAgent extends AbstractAgent {
   private subject = new Subject<BaseEvent>();
+
+  /**
+   * Sets the promise that resolves when the active run's pipeline finalizes;
+   * `undefined` between runs. Tests set this to a controllable promise to
+   * exercise the await-then-send serialization path. Mirrors the real
+   * `IntelligenceAgent` contract.
+   */
+  setActiveRunCompletionPromise(promise: Promise<void> | undefined) {
+    (
+      this as unknown as { activeRunCompletionPromise?: Promise<void> }
+    ).activeRunCompletionPromise = promise;
+  }
 
   /**
    * Emit a single agent event
@@ -526,14 +541,17 @@ export function emitSuggestionToolCall(
   }
 }
 
+type SharedSuggestions = {
+  suggestions: Array<{ title: string; message: string }>;
+};
+
 /**
  * A MockStepwiseAgent that emits suggestion events when run() is called
  */
 export class SuggestionsProviderAgent extends MockStepwiseAgent {
   // Shared via a container so clone() and original see the same value even
   // when setSuggestions() is called after the clone is created.
-  private _shared: { suggestions: Array<{ title: string; message: string }> } =
-    { suggestions: [] };
+  private _shared: SharedSuggestions = { suggestions: [] };
 
   setSuggestions(suggestions: Array<{ title: string; message: string }>) {
     this._shared.suggestions = suggestions;
@@ -541,7 +559,7 @@ export class SuggestionsProviderAgent extends MockStepwiseAgent {
 
   clone(): this {
     const cloned = super.clone();
-    (cloned as unknown as { _shared: typeof this._shared })._shared =
+    (cloned as unknown as { _shared: SharedSuggestions })._shared =
       this._shared;
     return cloned;
   }

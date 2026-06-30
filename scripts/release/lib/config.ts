@@ -7,7 +7,15 @@ export const ROOT = path.resolve(
   "../../..",
 );
 
-export type ReleaseScope = "monorepo" | "angular";
+export type ReleaseScope =
+  | "monorepo"
+  | "angular"
+  | "bot"
+  | "bot-discord"
+  | "bot-slack"
+  | "bot-teams"
+  | "bot-telegram"
+  | "bot-whatsapp";
 
 export interface ScopeConfig {
   packages: string[];

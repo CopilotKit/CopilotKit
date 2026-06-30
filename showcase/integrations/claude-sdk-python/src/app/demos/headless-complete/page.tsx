@@ -30,6 +30,21 @@ import { useHeadlessCompleteToolRenderers } from "./tool-renderers";
 
 const AGENT_ID = "headless-complete";
 
+// `crypto.randomUUID()` is only exposed in secure contexts in browsers
+// (HTTPS or localhost). The D6 probe loads this page over plain http://
+// against an internal hostname, which makes `randomUUID` undefined and
+// crashes the page. Fall back to a Math.random-based UUIDv4 when the
+// native API isn't available.
+function generateUUID(): string {
+  const g = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (g?.randomUUID) return g.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export default function HeadlessCompleteDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
@@ -51,7 +66,7 @@ export default function HeadlessCompleteDemo() {
 }
 
 function Chat() {
-  const threadId = useMemo(() => crypto.randomUUID(), []);
+  const threadId = useMemo(() => generateUUID(), []);
   const { agent } = useAgent({ agentId: AGENT_ID, threadId });
   const { copilotkit } = useCopilotKit();
 
@@ -82,7 +97,7 @@ function Chat() {
       if (!text || isRunning) return;
       setInput("");
       agent.addMessage({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         role: "user",
         content: text,
       });

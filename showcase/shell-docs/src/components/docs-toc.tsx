@@ -33,8 +33,8 @@ const useIsoLayoutEffect =
 // of every item's vertical line segment, so the violet pill paints
 // only along the line path of the active heading.
 //
-// Color tokens kept literal to match canonical's `--color-fd-primary`
-// (#7076D5). Inactive line uses `currentColor/10` via class names.
+// The active line follows the shell accent token while inactive
+// connectors use the shared border token so the TOC tracks theme changes.
 function getItemOffset(depth: number): number {
   if (depth <= 2) return 14;
   if (depth === 3) return 26;
@@ -198,12 +198,11 @@ export function DocsToc({ headings }: DocsTocProps) {
             }}
           >
             <span
-              className="absolute w-full"
+              className="absolute w-full bg-[var(--accent)]"
               style={{
                 top: thumb.top,
                 height: thumb.height,
                 opacity: thumb.visible ? 1 : 0,
-                background: "#7076D5",
                 transition:
                   "top 220ms cubic-bezier(0.4,0,0.2,1), height 220ms cubic-bezier(0.4,0,0.2,1), opacity 120ms ease",
               }}
@@ -235,10 +234,11 @@ export function DocsToc({ headings }: DocsTocProps) {
                 href={`#${h.slug}`}
                 data-active={isActive}
                 onClick={() => setActiveSlug(h.slug)}
-                className="relative py-1.5 transition-colors"
+                className={`relative py-1.5 transition-colors ${
+                  isActive ? "text-[var(--accent)]" : "text-[var(--text-muted)]"
+                }`}
                 style={{
                   paddingInlineStart: padStart,
-                  color: isActive ? "#7076D5" : "var(--text-muted)",
                 }}
               >
                 {/* Diagonal connector when this item's depth differs
@@ -255,7 +255,7 @@ export function DocsToc({ headings }: DocsTocProps) {
                       y1="0"
                       x2={offset}
                       y2="12"
-                      className="stroke-black/10 dark:stroke-white/10"
+                      className="stroke-[var(--border)]"
                       strokeWidth="1"
                     />
                   </svg>
@@ -265,7 +265,7 @@ export function DocsToc({ headings }: DocsTocProps) {
                  * meets it cleanly. */}
                 <span
                   aria-hidden="true"
-                  className="absolute w-px bg-black/10 dark:bg-white/10"
+                  className="absolute w-px bg-[var(--border)]"
                   style={{
                     insetInlineStart: offset,
                     top: lineTopAdjust ? 6 : 0,

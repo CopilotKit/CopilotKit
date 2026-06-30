@@ -17,6 +17,14 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 
+  <!-- Needed so the header-propagation tests can use DefaultHttpContext /
+       HttpContextAccessor (Microsoft.AspNetCore.Http types). The production
+       project is a Web SDK app, but a project reference does not flow the
+       ASP.NET shared framework, so reference it explicitly here. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\ProverbsAgent.csproj" />
   </ItemGroup>

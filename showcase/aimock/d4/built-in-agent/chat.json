@@ -266,8 +266,9 @@
       }
     },
     {
+      "_comment": "Disabled: prior matcher 'weather' load-order-shadowed D6 pills like 'What's the weather in San Francisco?' (custom-catchall) and 'Chain a few tools ... weather in Tokyo' (default-catchall). Mirrors the LGP d4 disabled-weather pattern (_d4_unused_weather_probe_sf) — userMessage renamed to a non-matching sentinel so this entry is effectively dead; downstream D6 fixtures own the get_weather flow.",
       "match": {
-        "userMessage": "weather",
+        "userMessage": "_d4_unused_weather_probe_sf",
         "hasToolResult": false,
         "context": "built-in-agent"
       },
@@ -473,8 +474,9 @@
       }
     },
     {
+      "_comment": "Disabled: 'flights from SFO to JFK' was the exact pill prompt for the D6 beautiful-chat 'Search Flights' demo, so this d4 fixture load-order-shadowed the d6 beautiful-chat fixture (d4 loads before d6). The d4 chat-roundtrip probe does not exercise the flights tool, so this entry is dead. Mirrors the LGP _d4_unused_flights_probe_sfo_jfk pattern.",
       "match": {
-        "userMessage": "flights from SFO to JFK",
+        "userMessage": "_d4_unused_flights_probe_sfo_jfk",
         "hasToolResult": false,
         "context": "built-in-agent"
       },
@@ -514,11 +516,12 @@
       }
     },
     {
-      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError.",
+      "_comment": "Large chunkSize keeps the manage_todos args (with 4-byte UTF-8 emoji) as a single SSE chunk. aimock chunks via JavaScript .slice() which operates on UTF-16 code units; emoji surrogate pairs split mid-codepoint produce unpaired surrogates that strict pydantic deserializers (e.g. agent_framework_ag_ui) reject with PydanticSerializationError. chunkSize MUST live at the fixture root (alongside match/response) — server.ts:681 reads `fixture.chunkSize`, NOT `response.chunkSize`.",
       "match": {
         "toolCallId": "call_fp_beautiful_chat_enable_app_mode_001",
         "context": "built-in-agent"
       },
+      "chunkSize": 9999,
       "response": {
         "toolCalls": [
           {
@@ -630,8 +633,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Summarize' button — narrowed from bare 'summarize' to 'Summarize the sales pipeline' (verbatim D4 toolbar probe) so it doesn't shadow D6 subagents pills like 'Summarize the current state of reusable rockets...' whose response is wildly off-topic for a subagents probe. Mirrors the LGP d4 narrowing.",
       "match": {
-        "userMessage": "summarize",
+        "userMessage": "Summarize the sales pipeline",
         "context": "built-in-agent"
       },
       "response": {
@@ -657,8 +661,9 @@
       }
     },
     {
+      "_comment": "D4 toolbar 'Detailed' button — tightened from bare 'detailed' so it doesn't shadow D6 agent-config 'responseLength:detailed — describe agent context per your config'. Anchored on the longer phrase the d4 button actually sends. Mirrors the LGP d4 narrowing.",
       "match": {
-        "userMessage": "detailed",
+        "userMessage": "Make this more detailed",
         "context": "built-in-agent"
       },
       "response": {
@@ -876,8 +881,9 @@
       }
     },
     {
+      "_comment": "Narrowed from bare 'Roll a 20-sided die' to 'Roll a 20-sided die for me' so it no longer shadows the D6 tool-rendering pill 'Roll a 20-sided die.' (which chains 5 roll_d20 calls). Mirrors the LGP d4 narrowing.",
       "match": {
-        "userMessage": "Roll a 20-sided die",
+        "userMessage": "Roll a 20-sided die for me",
         "hasToolResult": false,
         "context": "built-in-agent"
       },
@@ -931,9 +937,9 @@
       }
     },
     {
-      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar)",
+      "_comment": "Pilot cell suggestion — 'Give me a fun fact.' (prebuilt-sidebar). Narrowed userMessage from bare 'fun fact' to 'fun fact for the prebuilt sidebar' so it ONLY matches a hypothetical sidebar-specific probe (none currently exists; this entry is preserved as a structural placeholder). The narrow gate prevents this from shadowing the D6 headless-simple pill 'Give me a fun fact.' which expects a DIFFERENT leading phrase ('A fun fact: Honey never spoils!') and is tested by tests/e2e/headless-simple.spec.ts. Substring matching is forward-only — no current pill prompt contains 'fun fact for the prebuilt sidebar' so this is effectively disabled. Mirrors the ms-agent-dotnet d4 precedent.",
       "match": {
-        "userMessage": "fun fact",
+        "userMessage": "fun fact for the prebuilt sidebar",
         "context": "built-in-agent"
       },
       "response": {

@@ -12,6 +12,10 @@ import {
 } from "@copilotkit/runtime/v2";
 import { createBuiltInAgent } from "@/lib/factory/tanstack-factory";
 import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
+// Wrap handlers so inbound x-* headers (e.g. x-aimock-context) are bound
+// into ALS for the factory's `forwardingFetch` to re-attach on outbound
+// LLM calls. See @/lib/header-forwarding for the full rationale.
+import { withForwardedHeaders } from "@/lib/header-forwarding";
 
 const runtime = new CopilotRuntime({
   agents: { default: createBuiltInAgent() },
@@ -45,8 +49,13 @@ const handler = createCopilotRuntimeHandler({
   },
 });
 
-export const POST = (req: NextRequest) => handler(req);
-export const GET = (req: NextRequest) => handler(req);
-export const PUT = (req: NextRequest) => handler(req);
-export const DELETE = (req: NextRequest) => handler(req);
-export const OPTIONS = (req: NextRequest) => handler(req);
+export const POST = (req: NextRequest) =>
+  withForwardedHeaders(req, () => handler(req));
+export const GET = (req: NextRequest) =>
+  withForwardedHeaders(req, () => handler(req));
+export const PUT = (req: NextRequest) =>
+  withForwardedHeaders(req, () => handler(req));
+export const DELETE = (req: NextRequest) =>
+  withForwardedHeaders(req, () => handler(req));
+export const OPTIONS = (req: NextRequest) =>
+  withForwardedHeaders(req, () => handler(req));

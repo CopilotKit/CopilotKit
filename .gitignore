@@ -33,6 +33,10 @@ __pycache__/
 .venv
 .vercel
 
+# Host-specific deploy config — lives in your platform's dashboard, not the repo.
+# (e.g. a local `railway up` upload filter generated when deploying from a worktree)
+.railwayignore
+
 docs/next-env.d.ts
 showcase/shell-docs/next-env.d.ts
 
@@ -49,6 +53,8 @@ build
 debug-storybook.log
 storybook-static
 coverage
+output/
+packages/angular/src/styles/generated.css
 .turbo
 .langgraph_api
 lefthook-local.yml
@@ -74,3 +80,7 @@ release-notes-notion.json
 *.lib
 *.wasm
 tasks/
+
+# Transient session artifacts
+.playwright-mcp/
+.claude/scheduled_tasks.lock

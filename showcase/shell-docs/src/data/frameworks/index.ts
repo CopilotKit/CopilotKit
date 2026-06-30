@@ -41,6 +41,10 @@ export const frameworkOverviews: Record<string, FrameworkOverviewData> = {
   "ms-agent-python": msAgentDotnet,
   "pydantic-ai": pydanticAi,
   strands,
+  // strands-typescript shares the aws-strands/ content folder with the
+  // Python strands integration; intro content is framework-agnostic
+  // (mirrors how langgraph-typescript reuses langgraphPython above).
+  "strands-typescript": strands,
 };
 
 export type FrameworkOverviewSlug = keyof typeof frameworkOverviews;

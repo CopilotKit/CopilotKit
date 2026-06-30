@@ -6,6 +6,7 @@ import {
   runVerify,
 } from "../verify-deploy";
 import type { ProbeRunner } from "../verify-deploy";
+import { SERVICES, probeEnabled } from "../railway-envs";
 
 describe("verify-deploy argv parsing", () => {
   it("requires --env", () => {
@@ -40,6 +41,33 @@ describe("verify-deploy argv parsing", () => {
     expect(() => parseArgs(["--env=staging", "--services", ",,"])).toThrow(
       /--services requires a CSV value/,
     );
+  });
+
+  it("defaults skipIneligible to true (skip-by-default — known-but-ineligible names are a legitimate state)", () => {
+    const parsed = parseArgs(["--env", "staging"]);
+    expect(parsed.skipIneligible).toBe(true);
+  });
+
+  it("accepts --skip-ineligible as an explicit no-op (now the default; back-compat with the staging precondition caller)", () => {
+    const parsed = parseArgs([
+      "--env",
+      "staging",
+      "--services",
+      "docs",
+      "--skip-ineligible",
+    ]);
+    expect(parsed.skipIneligible).toBe(true);
+  });
+
+  it("accepts --strict-eligibility to opt OUT of skip-by-default (restore hard-refuse)", () => {
+    const parsed = parseArgs([
+      "--env",
+      "prod",
+      "--services",
+      "harness-workers",
+      "--strict-eligibility",
+    ]);
+    expect(parsed.skipIneligible).toBe(false);
   });
 
   it("rejects bare trailing --env (no following value)", () => {
@@ -105,6 +133,53 @@ describe("resolveProbeTargets", () => {
     // than "not probe-eligible". The two paths must be distinguished.
     expect(() =>
       resolveProbeTargets({ env: "staging", services: ["totally-fake"] }),
+    ).toThrow(/unknown service/i);
+  });
+
+  it("REFUSES a non-probe-eligible service when skipIneligible is unset (function-level strict; CLI passes skipIneligible=true)", () => {
+    // The resolveProbeTargets PRIMITIVE stays strict when skipIneligible is
+    // not passed — an explicit caller that wants the hard refusal (or the
+    // CLI's `--strict-eligibility` opt-out) gets the distinct "not
+    // probe-eligible" error. The CLI itself now defaults skipIneligible=true
+    // (see parseArgs), so the verify-prod gate composes; this test pins the
+    // primitive's unset-flag contract, not the CLI default.
+    const ineligible = Object.keys(SERVICES).find(
+      (n) => SERVICES[n] !== undefined && !probeEnabled(n, "staging"),
+    );
+    expect(ineligible).toBeDefined();
+    expect(() =>
+      resolveProbeTargets({ env: "staging", services: [ineligible as string] }),
+    ).toThrow(/not probe-eligible/i);
+  });
+
+  it("SKIPS non-probe-eligible services (skipIneligible) instead of crashing, keeping eligible ones", () => {
+    // The promote precondition probes the FULL promote set (service=all),
+    // which legitimately includes non-probe-eligible starters
+    // (probe.staging=false). Those must be SKIPPED, not crash the run.
+    const ineligible = Object.keys(SERVICES).find(
+      (n) => SERVICES[n] !== undefined && !probeEnabled(n, "staging"),
+    );
+    expect(ineligible).toBeDefined();
+    // "docs" is probe.staging=true — must survive the skip filter.
+    const targets = resolveProbeTargets({
+      env: "staging",
+      services: ["docs", ineligible as string],
+      skipIneligible: true,
+    });
+    const names = targets.map((t) => t.name);
+    expect(names).toContain("docs");
+    expect(names).not.toContain(ineligible);
+  });
+
+  it("still REFUSES an unknown service even with skipIneligible (typo is a real error, not a skip)", () => {
+    // skipIneligible only relaxes the probe.staging=false case; a name
+    // that is not in the SSOT at all is still a hard error.
+    expect(() =>
+      resolveProbeTargets({
+        env: "staging",
+        services: ["docs", "totally-fake"],
+        skipIneligible: true,
+      }),
     ).toThrow(/unknown service/i);
   });
 
@@ -245,6 +320,57 @@ describe("runVerify driver dispatch", () => {
       runner: async () => ({ ok: true }),
     });
     expect(summary.exitCode).toBe(0);
+  });
+
+  it("with skipIneligible, exits 0 probing only eligible services when the set mixes in non-eligible ones", async () => {
+    // Mirrors the promote precondition `service=all` shape: a
+    // probe-eligible service (docs) mixed with a probe.staging=false
+    // service (a starter-*). The eligible one is probed normally; the
+    // ineligible one is skipped — no crash, exit 0 when greens pass.
+    const ineligible = Object.keys(SERVICES).find(
+      (n) => SERVICES[n] !== undefined && !probeEnabled(n, "staging"),
+    );
+    expect(ineligible).toBeDefined();
+    const calls: string[] = [];
+    const runner: ProbeRunner = async (target) => {
+      calls.push(target.name);
+      return { ok: true };
+    };
+    const summary = await runVerify({
+      env: "staging",
+      services: ["docs", ineligible as string],
+      skipIneligible: true,
+      runner,
+    });
+    expect(calls).toContain("docs");
+    expect(calls).not.toContain(ineligible);
+    expect(summary.exitCode).toBe(0);
+  });
+
+  it("exits 0 (nothing to probe) when EVERY requested service is known-but-ineligible (verify-prod prod-only case)", async () => {
+    // The verify-prod gate calls verify-deploy directly with the promoted
+    // set, which can be entirely probe-ineligible services (e.g. just
+    // `harness-workers`, probe.prod=false). All are skipped → zero targets,
+    // but this is an EXPECTED no-op, NOT the vacuous-green fault: exit 0 with
+    // a clear "nothing to probe" note. Distinct from the empty-filter FAIL
+    // case below (length 0 there; here length>0 + all-ineligible).
+    const ineligible = Object.keys(SERVICES).find(
+      (n) => SERVICES[n] !== undefined && !probeEnabled(n, "prod"),
+    );
+    expect(ineligible).toBeDefined();
+    let probed = false;
+    const summary = await runVerify({
+      env: "prod",
+      services: [ineligible as string],
+      skipIneligible: true,
+      runner: async () => {
+        probed = true;
+        return { ok: true };
+      },
+    });
+    expect(probed).toBe(false);
+    expect(summary.exitCode).toBe(0);
+    expect(summary.failed.length).toBe(0);
   });
 
   it("FAILS LOUD on zero resolved targets (never silently exit 0)", async () => {

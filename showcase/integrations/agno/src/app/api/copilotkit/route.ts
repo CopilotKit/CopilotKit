@@ -86,6 +86,8 @@ const reasoningAgentNames = [
   "agentic-chat-reasoning",
   "reasoning-default-render",
   "tool-rendering-reasoning-chain",
+  "reasoning-default",
+  "reasoning-custom",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
@@ -126,7 +128,7 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
-        // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
+        // @ts-expect-error -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
       }),
     });

@@ -1,0 +1,99 @@
+{
+ "_meta": {
+  "description": "D6 fixtures for google-adk / a2ui-recovery (A2UI error recovery, ADK-only)",
+  "_note": "Backend-owned A2UI (recovery_agent.py, get_a2ui_tool, injectA2UITool=false) with the toolkit recovery/healing made visible. Two pills, each a two-stage flow: outer generate_a2ui (no args, matched by userMessage+context); inner render_a2ui (matched by userMessage+toolName=render_a2ui); outer narration (matched by toolCallId). HEAL pill: the inner render returns FREE-FORM args (components/data as JSON strings) \u2014 the sloppy shape a model emits \u2014 which the middleware heals via parse_and_fix into a valid surface in a SINGLE pass. EXHAUST pill: the inner render is structurally invalid (root references a missing child) on EVERY attempt, so the validate->retry loop hits the cap and returns the a2ui_recovery_exhausted hard-fail envelope (renderer shows a 'failed' state). Per-pill selection: ag_ui_adk>=0.7.0 forwards the run's conversation into the inner render_a2ui call, so the LAST user turn aimock keys on IS the pill prompt (the generic A2UI guidance rides as the system prompt) \u2014 the two pills therefore match their own inner fixtures by userMessage. Verified against the aimock journal: HEAL inner -> call_d6_recover_heal_design, EXHAUST inner -> call_d6_recover_exhaust_design (3x, the retry loop). Requires ag_ui_adk>=0.7.0 (heal/recovery) and @ag-ui/a2ui-middleware>=0.0.10 (lifecycle render).",
+  "created": "2026-06-24"
+ },
+ "fixtures": [
+  {
+   "_comment": "HEAL pill - inner render_a2ui: FREE-FORM args (components/data as JSON strings); middleware heals via parse_and_fix into a valid surface in one pass.",
+   "match": {
+    "userMessage": "Render my Q2 sales dashboard, recovering if the first attempt is malformed.",
+    "toolName": "render_a2ui"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_recover_heal_design",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\": \"recovery-demo\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": \"[{\\\"id\\\": \\\"root\\\", \\\"component\\\": \\\"Column\\\", \\\"gap\\\": 16, \\\"children\\\": [\\\"m1\\\", \\\"m2\\\"]}, {\\\"id\\\": \\\"m1\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Quarterly Revenue\\\", \\\"value\\\": \\\"$4.2M\\\", \\\"trend\\\": \\\"up\\\", \\\"trendValue\\\": \\\"+12% QoQ\\\"}, {\\\"id\\\": \\\"m2\\\", \\\"component\\\": \\\"Metric\\\", \\\"label\\\": \\\"Win Rate\\\", \\\"value\\\": \\\"31%\\\", \\\"trend\\\": \\\"down\\\", \\\"trendValue\\\": \\\"-2 pts\\\"}]\", \"data\": \"{}\"}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "HEAL pill - outer narration after generate_a2ui returns the healed surface.",
+   "match": {
+    "context": "google-adk",
+    "toolCallId": "call_d6_recover_heal_outer_001"
+   },
+   "response": {
+    "content": "The render came back malformed - I healed it and painted your Q2 dashboard."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "HEAL pill - outer agent emits generate_a2ui (no args).",
+   "match": {
+    "userMessage": "Render my Q2 sales dashboard, recovering if the first attempt is malformed.",
+    "context": "google-adk"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_recover_heal_outer_001",
+      "name": "generate_a2ui",
+      "arguments": "{}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "EXHAUST pill - inner render_a2ui: structurally INVALID on every attempt (unresolved child) -> recovery exhausts.",
+   "match": {
+    "userMessage": "Render a dashboard that keeps failing validation so I can see the fallback.",
+    "toolName": "render_a2ui"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_recover_exhaust_design",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\": \"recovery-demo-fail\", \"catalogId\": \"declarative-gen-ui-catalog\", \"components\": [{\"id\": \"root\", \"component\": \"Column\", \"gap\": 16, \"children\": [\"never-defined\"]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "EXHAUST pill - outer narration after generate_a2ui returns the recovery-exhausted envelope.",
+   "match": {
+    "context": "google-adk",
+    "toolCallId": "call_d6_recover_exhaust_outer_001"
+   },
+   "response": {
+    "content": "I couldn't produce a valid surface after several attempts - showing a graceful fallback instead."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "EXHAUST pill - outer agent emits generate_a2ui (no args).",
+   "match": {
+    "userMessage": "Render a dashboard that keeps failing validation so I can see the fallback.",
+    "context": "google-adk"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_recover_exhaust_outer_001",
+      "name": "generate_a2ui",
+      "arguments": "{}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  }
+ ]
+}

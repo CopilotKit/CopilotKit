@@ -10,6 +10,7 @@ import { ShellSearchProvider } from "@/components/search-trigger";
 import { PostHogProvider } from "@/lib/providers/posthog-provider";
 import { ScarfPixel } from "@/lib/providers/scarf-pixel";
 import { getIntegrations } from "@/lib/registry";
+import { RESERVED_ROUTE_SLUGS } from "@/lib/reserved-route-slugs";
 import { getRuntimeConfig } from "@/lib/runtime-config";
 import { serializeRuntimeConfig } from "@/lib/runtime-config-serialize";
 import "./globals.css";
@@ -18,17 +19,6 @@ import "./globals.css";
 // so it can be unit-tested for the OWASP escape behavior (XSS via
 // `</script>`, U+2028/U+2029 line-terminator injection) without
 // importing the layout into the test runner.
-
-// Top-level route segments in src/app/ that must not be mistaken for
-// framework slugs by FrameworkProvider.urlFramework. If an integration
-// registry entry ever ships a slug colliding with one of these, the
-// framework URL-resolver would otherwise hijack the route.
-export const RESERVED_ROUTE_SLUGS = [
-  "docs",
-  "ag-ui",
-  "reference",
-  "api",
-] as const;
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -206,27 +196,14 @@ export default function RootLayout({
                  * (margin: 0 4px; xl: 0 8px 8px 8px). */}
                 <Banners />
                 <BrandNav />
-                <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-[15px] mb-2 md:mb-3">
+                <main className="flex flex-1 min-h-0 overflow-hidden mx-1 md:mx-[22px] mt-2 md:mt-3 mb-2 md:mb-3">
                   {children}
                 </main>
               </ShellSearchProvider>
             </RootProvider>
           </FrameworkProvider>
         </PostHogProvider>
-        <div
-          aria-hidden="true"
-          style={{
-            position: "fixed",
-            bottom: "8px",
-            right: "12px",
-            fontSize: "10px",
-            fontFamily: "monospace",
-            color: "rgba(0,0,0,0.15)",
-            pointerEvents: "none",
-            zIndex: 9999,
-            userSelect: "none",
-          }}
-        >
+        <div aria-hidden="true" className="shell-docs-commit-label">
           {commitLabel}
         </div>
         <ScarfPixel />

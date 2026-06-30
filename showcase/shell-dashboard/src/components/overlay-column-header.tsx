@@ -18,7 +18,20 @@ import type { Overlay } from "@/lib/overlay-types";
 
 export interface OverlayColumnHeaderProps {
   integration: Integration;
-  tally?: { green: number; amber: number; red: number; unknown: boolean };
+  tally?: {
+    green: number;
+    amber: number;
+    red: number;
+    unknown: boolean;
+    // REQUIRED (not optional): the producers — `computeColumnTally` /
+    // `computeColumnTallyDetail` — ALWAYS return a concrete `loading` boolean,
+    // and `FeatureGrid` always passes it. Keeping it optional was a latent gap:
+    // a future caller omitting `loading` would render authoritative ✓0/~0/✗0
+    // during an error/loading window (the exact "stale-green lie" this header
+    // prevents). The `tally` object itself stays optional; `loading` within it
+    // is mandatory once a tally is supplied.
+    loading: boolean;
+  };
   tallyDetail?: TallyDetail;
   overlays: Set<Overlay>;
   parityTier?: ParityTier;
@@ -37,12 +50,22 @@ export function OverlayColumnHeader({
   const showHealth = overlays.has("health");
   const showParity = overlays.has("parity");
 
+  // `stale` rides on `tallyDetail` (the TallyDetail producer) -- an
+  // authoritative result whose feed is mid-reconnect (counts are real but may
+  // be behind the live state). Threaded exactly like `loading`, but rendered
+  // as a MUTED treatment on the real counts instead of hiding them.
+  const stale = tallyDetail?.stale ?? false;
+
   const total = tally ? tally.green + tally.amber + tally.red : 0;
-  const tallyTitle = tally?.unknown
-    ? "dashboard offline -- live signal unavailable"
-    : total
-      ? `${tally?.green ?? 0} green \u00b7 ${tally?.amber ?? 0} amber \u00b7 ${tally?.red ?? 0} red of ${total} signals`
-      : "no countable signals for this column";
+  const tallyTitle = tally?.loading
+    ? "loading -- waiting for the first live signal"
+    : tally?.unknown
+      ? "dashboard offline -- live signal unavailable"
+      : stale
+        ? "reconnecting -- counts may be stale"
+        : total
+          ? `${tally?.green ?? 0} green \u00b7 ${tally?.amber ?? 0} amber \u00b7 ${tally?.red ?? 0} red of ${total} signals`
+          : "no countable signals for this column";
 
   return (
     <th
@@ -69,10 +92,25 @@ export function OverlayColumnHeader({
       {/* Health overlay: tally line */}
       {showHealth && tally && (
         <div
-          className="mt-1 text-[9px] tabular-nums text-[var(--text-muted)]"
+          // A.3 muted treatment: when the counts are authoritative-but-stale
+          // (mid-reconnect), dim them (`opacity-60 italic`) so they read as
+          // "real, but possibly behind" — distinct from the `loading` pulse
+          // and the `offline` affordance. `data-stale` exposes the state for
+          // tests and downstream styling. Stale only applies to the
+          // authoritative count branch, never to loading/offline.
+          data-stale={stale && !tally.loading && !tally.unknown}
+          className={`mt-1 text-[9px] tabular-nums text-[var(--text-muted)]${
+            stale && !tally.loading && !tally.unknown
+              ? " opacity-60 italic"
+              : ""
+          }`}
           title={tallyTitle}
         >
-          {tally.unknown ? (
+          {tally.loading ? (
+            <span className="text-[var(--text-muted)] animate-pulse">
+              {"…"} loading
+            </span>
+          ) : tally.unknown ? (
             <span className="text-[var(--text-muted)]">? offline</span>
           ) : (
             <>

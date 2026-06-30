@@ -13,5 +13,5 @@ collapsible Arguments / Result).
 
 Reuses the default route at `src/app/api/copilotkit/route.ts`, wired to
 `createBuiltInAgent` in `src/lib/factory/tanstack-factory.ts`. The mock
-tools (`get_weather`, `search_flights`, `get_stock_price`, `roll_dice`)
+tools (`get_weather`, `search_flights`, `get_stock_price`, `roll_d20`)
 live in `src/lib/factory/server-tools.ts`.

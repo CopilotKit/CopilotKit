@@ -4,13 +4,11 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - "docs/**"
       - "README.md"
       - "examples/**"
   pull_request:
     branches: [main]
     paths-ignore:
-      - "docs/**"
       - "README.md"
       - "examples/**"
 
@@ -29,6 +27,7 @@ permissions:
 
 jobs:
   format:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -40,6 +39,12 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+          # Check the head branch out from the head repo, not the base repo.
+          # For fork PRs the head branch only exists on the fork, so defaulting
+          # to the base repo makes checkout fail with "a branch or tag with the
+          # name '<branch>' could not be found". Same-repo PRs resolve to the
+          # base repo unchanged, so the auto-format push-back below still works.
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
           token: ${{ secrets.GITHUB_TOKEN }}
           # Full history so we can diff HEAD against the current base branch
           # tip to scope the formatter to PR-changed files.
@@ -103,33 +108,39 @@ jobs:
           echo "PR-changed format candidates: $count"
           cat .pr-format-files.existing.txt
 
-      - name: Run formatter (check on push, fix on PR)
+      - name: Run formatter (fix on PR)
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if [ "${{ steps.changed.outputs.count }}" = "0" ]; then
-              echo "No formattable files changed in this PR — skipping."
-              exit 0
-            fi
-            # oxfmt: auto-fix JS/TS/JSON/MD/CSS/YAML/HTML/Vue
-            if ! xargs -a .pr-format-files.existing.txt oxfmt --no-error-on-unmatched-pattern --write; then
-              echo "::warning::oxfmt exited with error — auto-fix may be incomplete"
-            fi
-            # ruff: auto-fix Python
-            py_files=$(grep -E '\.py$' .pr-format-files.existing.txt || true)
-            if [ -n "$py_files" ]; then
-              echo "$py_files" | xargs ruff format || echo "::warning::ruff format exited with error"
-            fi
-            if [ -n "$(git diff --name-only)" ]; then
-              echo "format_fixed=true" >> $GITHUB_ENV
-            fi
-            # Check mode: verify everything is formatted
-            xargs -a .pr-format-files.existing.txt oxfmt --no-error-on-unmatched-pattern --check
-            if [ -n "$py_files" ]; then
-              echo "$py_files" | xargs ruff format --check
-            fi
-          else
-            oxfmt --check .
-            ruff format --check .
+          if [ "${{ steps.changed.outputs.count }}" = "0" ]; then
+            echo "No formattable files changed in this PR — skipping."
+            exit 0
+          fi
+          # oxfmt: auto-fix JS/TS/JSON/MD/CSS/YAML/HTML/Vue
+          if ! xargs -a .pr-format-files.existing.txt oxfmt --no-error-on-unmatched-pattern --write; then
+            echo "::warning::oxfmt exited with error — auto-fix may be incomplete"
+          fi
+          # ruff: auto-fix Python
+          py_files=$(grep -E '\.py$' .pr-format-files.existing.txt || true)
+          if [ -n "$py_files" ]; then
+            echo "$py_files" | xargs ruff format || echo "::warning::ruff format exited with error"
+          fi
+          # Trigger the auto-commit only when one of the SCOPED PR files
+          # actually changed. A whole-tree `git diff` here also trips on
+          # unrelated working-tree drift (e.g. an LFS smudge on a tracked
+          # `*.png filter=lfs` file), which would set format_fixed=true while
+          # the scoped `git add` below stages nothing — making `git commit`
+          # fail with "nothing to commit". Diffing only the scoped files keeps
+          # the trigger aligned with what the commit step can actually stage.
+          # shellcheck disable=SC2046 # intentional split: each path is a
+          # separate `git diff` pathspec arg; the `-s` guard rules out the
+          # empty-arg (whole-tree) case, and PR paths never contain spaces.
+          if [ -s .pr-format-files.existing.txt ] && \
+             ! git diff --quiet -- $(cat .pr-format-files.existing.txt); then
+            echo "format_fixed=true" >> "$GITHUB_ENV"
+          fi
+          # Check mode: verify everything is formatted
+          xargs -a .pr-format-files.existing.txt oxfmt --no-error-on-unmatched-pattern --check
+          if [ -n "$py_files" ]; then
+            echo "$py_files" | xargs ruff format --check
           fi
 
       - name: Configure git for push
@@ -161,6 +172,14 @@ jobs:
           # leaving formatting violations on the PR branch and (post-
           # merge) on main.
           xargs -a .pr-format-files.existing.txt git add --
+          # Guard against an empty staged set: if the scoped `git add` staged
+          # nothing (e.g. the whole-tree drift that set format_fixed=true lives
+          # entirely outside the scoped files), `git commit` would exit 1 and
+          # fail the job. Treat an empty index as a no-op instead.
+          if git diff --cached --quiet; then
+            echo "No scoped formatting changes to commit"
+            exit 0
+          fi
           git commit -m "style: auto-fix formatting"
           git push
 
@@ -223,13 +242,68 @@ jobs:
 
       - name: Configure Nx Cloud environment
         run: |
-          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-packages" >> $GITHUB_ENV
-          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
-          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
-          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
+          {
+            echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-packages"
+            echo "NX_CLOUD_NO_TIMEOUTS=true"
+            echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false"
+            echo "NX_NO_CLOUD=true"
+          } >> "$GITHUB_ENV"
 
       - name: Run publint and attw
         run: pnpm run check:packages
+
+  check-types:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      # tsc on @copilotkit/runtime needs ~10 GB: the AI SDK v6 tool()
+      # generics explode against zod 3 schemas (~40M type instantiations,
+      # ~5 min check time). Bounding the worst inline schemas helps but the
+      # cost is systemic to the ai x zod type interaction, so this job gets
+      # a 12 GB heap instead of the workflow-level 4 GB default.
+      NODE_OPTIONS: "--max-old-space-size=12288"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        # Omit `version:` so pnpm/action-setup inherits from the repo's
+        # `packageManager` field in package.json (via corepack).
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20.x
+          # setup-node built-in cache is fork-safe (fork PRs can't write to base repo cache)
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          {
+            echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-quality-check-types"
+            echo "NX_CLOUD_NO_TIMEOUTS=true"
+            echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false"
+            echo "NX_NO_CLOUD=true"
+          } >> "$GITHUB_ENV"
+
+      - name: Generate GraphQL codegen files
+        run: npx nx run @copilotkit/runtime-client-gql:graphql-codegen
+
+      - name: Run check-types
+        # Invoke nx directly: `pnpm run check-types -- --parallel=1` makes
+        # nx forward --parallel=1 to each package's tsc command instead of
+        # consuming it. --parallel=1 keeps tsc within the runner's 16 GB
+        # RAM: the @copilotkit/runtime check alone peaks near 10 GB.
+        run: npx nx run-many -t check-types --parallel=1
 
   commitlint:
     runs-on: ubuntu-latest

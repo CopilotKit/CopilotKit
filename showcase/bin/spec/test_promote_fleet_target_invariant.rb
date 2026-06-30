@@ -55,10 +55,10 @@ class PromoteFleetTargetInvariantTest < Minitest::Test
             @calls << [q, vars]
             sid = vars[:serviceId]
             if q.include?("serviceInstanceUpdate")
-                @pinned_by_service[sid] = vars[:image]
+                @pinned_by_service[sid] = vars.dig(:input, :source, :image)
                 { "serviceInstanceUpdate" => true }
-            elsif q.include?("serviceInstanceRedeploy")
-                { "serviceInstanceRedeploy" => true }
+            elsif q.include?("serviceInstanceDeployV2")
+                { "serviceInstanceDeployV2" => "dep-#{sid}" }
             elsif q.include?("ServiceInstanceRecheck")
                 pinned = @pinned_by_service[sid]
                 if pinned.nil?
@@ -71,11 +71,16 @@ class PromoteFleetTargetInvariantTest < Minitest::Test
                     }
                 else
                     @ts_counter += 1
+                    pinned_digest = pinned.include?("@") ? pinned.split("@", 2).last : nil
                     {
                         "serviceInstance" => {
                             "id" => "i",
                             "source" => { "image" => pinned },
                             "updatedAt" => "2026-05-29T00:00:#{format('%02d', @ts_counter)}Z",
+                            "latestDeployment" => {
+                                "id" => "dep-#{sid}", "status" => "SUCCESS",
+                                "meta" => { "imageDigest" => pinned_digest },
+                            },
                         },
                     }
                 end
@@ -86,7 +91,7 @@ class PromoteFleetTargetInvariantTest < Minitest::Test
 
         def pinned_services
             @calls.select { |q, _| q.include?("serviceInstanceUpdate") }
-                  .map { |_, vars| [vars[:serviceId], vars[:image]] }
+                  .map { |_, vars| [vars[:serviceId], vars.dig(:input, :source, :image)] }
         end
     end
 
@@ -106,7 +111,10 @@ class PromoteFleetTargetInvariantTest < Minitest::Test
         {
             "name" => name, "service_id" => "svc-#{name}",
             "image" => "ghcr.io/copilotkit/#{name}:latest",
-            "env_keys" => [],
+            # All CRITICAL_ENV_KEYS present so the (now unconditional) critical
+            # env-key presence assertion does not fire — this spec isolates the
+            # fleet/target accessor invariant, not env-key parity.
+            "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
             "start_command" => "node server.js", "healthcheck_path" => "/health",
             "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
         }
@@ -116,7 +124,7 @@ class PromoteFleetTargetInvariantTest < Minitest::Test
         {
             "name" => name, "service_id" => "prod-#{name}",
             "image" => "ghcr.io/copilotkit/#{name}@sha256:OLD#{name.gsub(/[^a-z0-9]/i, '')}",
-            "env_keys" => [],
+            "env_keys" => Railway::CRITICAL_ENV_KEYS.dup,
             "start_command" => "node server.js", "healthcheck_path" => "/health",
             "region" => "us-west", "replicas" => 1, "restart_policy" => "ON_FAILURE",
             "custom_domains" => custom_domains,
@@ -200,7 +208,7 @@ class PromoteFleetTargetInvariantTest < Minitest::Test
     # simulate that flip by monkey-patching fleet_prod on the instance
     # to return target_prod (the wrong view), then assert the WARN
     # reappears. This makes the accessor distinction load-bearing.
-    def test_swapping_fleet_prod_to_target_prod_recreates_spurious_domain_warn
+    def test_swapping_fleet_prod_to_target_prod_recreates_spurious_domain_finding
         gql  = FakeGQLBenign.new
         ghcr = FakeGHCR.new(resolve_map: { "ghcr.io/copilotkit/aimock:latest" => "sha256:NEW_AIMOCK" })
         cmd = build_cmd(["aimock"])
@@ -213,7 +221,7 @@ class PromoteFleetTargetInvariantTest < Minitest::Test
         # We also flip fleet_staging in lockstep so the SET-PARITY
         # check stays clean (full-fleet staging vs narrowed prod would
         # mismatch on every other service name and surface as a REFUSE
-        # that short-circuits the WARN). Isolating the BUG #1 symptom
+        # that short-circuits the finding). Isolating the BUG #1 symptom
         # requires both reads to be uniformly broken — which is exactly
         # the regression we're pinning against (a sweeping refactor
         # that rewires both accessors at once).
@@ -223,17 +231,24 @@ class PromoteFleetTargetInvariantTest < Minitest::Test
         rc = nil
         out, _ = with_fast_sleeper { capture_io { rc = cmd.run } }
 
-        assert_match(/WARN: production missing expected custom domains/, out,
+        # Per the 2026-06-22 prod↔staging comparison policy, missing expected
+        # prod domains is now an ADVISORY (report-only) finding, not a blocking
+        # WARN. The accessor distinction is STILL load-bearing: reading the
+        # narrowed view surfaces the spurious "missing domains" finding that the
+        # full-fleet view would not. We pin that the finding REAPPEARS (proving
+        # the accessor wiring matters) — but because it is advisory it no longer
+        # blocks the promote.
+        assert_match(/ADVISORY: production missing expected custom domains/, out,
             "swapping fleet_prod to target_prod must reproduce the original " \
-            "BUG #1 symptom (spurious 'missing fleet domains' WARN on a " \
+            "BUG #1 symptom (spurious 'missing fleet domains' finding on a " \
             "healthy fleet narrowed to a domain-less service). If this " \
             "assertion fails, the accessor distinction is no longer " \
             "load-bearing — check_expected_prod_domains may have been " \
             "moved or its argument source changed."
         )
-        refute_equal 0, rc,
-            "without --confirm-divergence, the spurious WARN must refuse " \
-            "the promote (matches the historic workflow regression)"
+        assert_equal 0, rc,
+            "the spurious domain finding is now ADVISORY, so it must NOT " \
+            "block the promote (the historic blocking WARN was demoted)"
     end
 
     # ── Symmetric gate: if a future refactor flips

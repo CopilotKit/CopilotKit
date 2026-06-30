@@ -1,9 +1,10 @@
-Agno — wired via `@ag-ui/agno`. Requires an `/agui` URL suffix.
+Agno — wired via the generic `HttpAgent` from `@ag-ui/client`. Requires an `/agui` URL
+suffix.
 
 ## Install
 
 ```bash
-pnpm add @ag-ui/agno
+pnpm add @ag-ui/client
 ```
 
 ## Minimal wire-up
@@ -13,11 +14,11 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
-import { AgnoAgent } from "@ag-ui/agno";
+import { HttpAgent } from "@ag-ui/client";
 
 const runtime = new CopilotRuntime({
   agents: {
-    default: new AgnoAgent({
+    default: new HttpAgent({
       url: process.env.AGNO_URL ?? "http://localhost:8000/agui",
     }),
   },

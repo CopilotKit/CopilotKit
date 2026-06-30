@@ -1,8 +1,8 @@
 ---
 name: react-core
 description: >
-  @copilotkit/react-core — mount CopilotKitProvider in a Next.js App Router / React Router
-  v7 / TanStack Start / SPA app, drop in CopilotChat/CopilotPopup/CopilotSidebar (v2 chat
+  @copilotkit/react-core — mount the CopilotKit provider (from @copilotkit/react-core/v2)
+  in a Next.js App Router / React Router v7 / TanStack Start / SPA app, drop in CopilotChat/CopilotPopup/CopilotSidebar (v2 chat
   components ship from react-core/v2 — NOT react-ui, which is CSS-only in v2), access and
   subscribe to agents with useAgent / useAgentContext / useCapabilities, switch between
   multiple agents, manage durable Intelligence threads with useThreads, register
@@ -48,7 +48,7 @@ sources:
 # CopilotKit React Core
 
 `@copilotkit/react-core` is the React frontend half of CopilotKit: it mounts a provider,
-speaks AG-UI over SSE to a runtime (or directly to CopilotKit Cloud in SPA mode), and
+speaks AG-UI over SSE to a runtime (or directly to CopilotKit Intelligence in SPA mode), and
 exposes hooks for every interaction surface.
 
 This SKILL.md is the **index**. Read the reference under `references/` that matches
@@ -56,7 +56,7 @@ your task — do not try to absorb the whole package from this file.
 
 ## Mental model — three shells you compose
 
-1. **Provider shell** — `CopilotKitProvider` at or near the root (inside `"use client"` for
+1. **Provider shell** — the `CopilotKit` provider (from `@copilotkit/react-core/v2`) at or near the root (inside `"use client"` for
    Next.js App Router). Carries `runtimeUrl` (or `publicLicenseKey` for SPA), `headers`,
    `credentials`, `properties`, `onError`, `debug`, `showDevConsole`.
 2. **Chat shell** — `CopilotChat` / `CopilotPopup` / `CopilotSidebar` or a composed
@@ -71,7 +71,7 @@ your task — do not try to absorb the whole package from this file.
 
 | Task                                                                                                      | Reference                                                                               |
 | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Mount `CopilotKitProvider`, pick `runtimeUrl` vs `publicLicenseKey`, RSC boundary rules                   | `references/provider-setup.md`                                                          |
+| Mount the `CopilotKit` provider, pick `runtimeUrl` vs `publicLicenseKey`, RSC boundary rules              | `references/provider-setup.md`                                                          |
 | Drop in `CopilotChat` / `CopilotPopup` / `CopilotSidebar`, compose `CopilotChatView` with slot primitives | `references/chat-components.md`                                                         |
 | File / image attachments via `useAttachments` — drag-drop, click, paste, custom upload                    | `references/attachments.md`                                                             |
 | Client-side debug tooling — `showDevConsole`, `debug` prop, lazy-loaded web inspector                     | `references/debug-mode.md`                                                              |

@@ -195,11 +195,11 @@ export function LandingSampleTabs() {
               key={tab.id}
               href={tab.href}
               data-mobile-sample-card={tab.id}
-              className="group flex min-w-0 items-start gap-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-3.5 no-underline shadow-[0_10px_28px_-24px_rgba(1,5,7,0.26)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
+              className="shell-docs-radius-surface group flex min-w-0 items-start gap-3 border border-[var(--border)] bg-[var(--bg-surface)] p-3.5 no-underline shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)]"
             >
               <span
                 aria-hidden="true"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
+                className="shell-docs-radius-icon flex h-9 w-9 shrink-0 items-center justify-center border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
               >
                 <Icon className="h-4 w-4" />
               </span>
@@ -216,12 +216,12 @@ export function LandingSampleTabs() {
         })}
       </div>
 
-      <div className="hidden min-w-0 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-[0_18px_44px_-32px_rgba(1,5,7,0.22)] sm:block sm:rounded-xl">
+      <div className="shell-docs-radius-surface hidden min-w-0 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-control)] sm:block">
         <div className="flex h-10 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-elevated)] px-4">
           <div className="flex items-center gap-2" aria-hidden="true">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
-            <span className="h-2.5 w-2.5 rounded-full bg-[#ffbd2e]" />
-            <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[var(--window-control-close)]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[var(--window-control-minimize)]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-[var(--window-control-zoom)]" />
           </div>
           <div className="hidden font-mono text-xs text-[var(--text-muted)] sm:block">
             Preview
@@ -249,9 +249,9 @@ export function LandingSampleTabs() {
                     aria-controls={`landing-sample-panel-${tab.id}`}
                     aria-selected={selected}
                     className={cn(
-                      "group flex min-h-11 min-w-[9.75rem] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition-colors sm:min-h-14 sm:min-w-0 sm:gap-3 sm:px-3 sm:py-2.5",
+                      "shell-docs-radius-control group flex min-h-11 min-w-[9.75rem] items-center gap-2 border px-2.5 py-2 text-left transition-colors sm:min-h-14 sm:min-w-0 sm:gap-3 sm:px-3 sm:py-2.5",
                       selected
-                        ? "border-[var(--accent)] bg-[var(--bg-surface)] text-[var(--text)] shadow-[0_1px_2px_rgba(1,5,7,0.05)]"
+                        ? "border-[var(--accent)] bg-[var(--bg-surface)] text-[var(--text)] shadow-[var(--shadow-control)]"
                         : "border-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-surface)]/70 hover:text-[var(--text)]",
                     )}
                     role="tab"
@@ -259,7 +259,7 @@ export function LandingSampleTabs() {
                   >
                     <span
                       className={cn(
-                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-colors sm:h-8 sm:w-8",
+                        "shell-docs-radius-icon flex h-7 w-7 shrink-0 items-center justify-center border transition-colors sm:h-8 sm:w-8",
                         selected
                           ? "border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]"
                           : "border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] group-hover:text-[var(--accent)]",
@@ -293,12 +293,12 @@ export function LandingSampleTabs() {
               </p>
             </div>
 
-            <div className="min-h-0 min-w-0 flex-1 overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
+            <div className="shell-docs-radius-surface min-h-0 min-w-0 flex-1 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)]">
               <div className="flex h-9 items-center justify-between border-b border-[var(--border)] bg-[var(--bg-elevated)] px-3">
                 <span className="font-mono text-xs text-[var(--text-muted)]">
                   example.tsx
                 </span>
-                <span className="rounded-full bg-[var(--bg-surface)] px-2 py-0.5 font-mono text-[11px] text-[var(--text-muted)]">
+                <span className="shell-docs-radius-control bg-[var(--bg-surface)] px-2 py-0.5 font-mono text-[11px] text-[var(--text-muted)]">
                   tsx
                 </span>
               </div>
@@ -310,7 +310,7 @@ export function LandingSampleTabs() {
             <div className="flex justify-stretch sm:justify-end">
               <Link
                 href={activeTab.href}
-                className="inline-flex h-9 w-full shrink-0 items-center justify-center rounded-lg border border-[var(--accent)] bg-[var(--accent-dim)] px-3 text-sm font-semibold text-[var(--accent)] no-underline transition-colors hover:bg-[var(--accent-light)] sm:w-auto"
+                className="shell-docs-radius-control inline-flex h-9 w-full shrink-0 items-center justify-center border border-[var(--accent)] bg-[var(--accent-dim)] px-3 text-sm font-semibold text-[var(--accent)] no-underline transition-colors hover:bg-[var(--accent-light)] sm:w-auto"
               >
                 {activeTab.hrefLabel}
               </Link>

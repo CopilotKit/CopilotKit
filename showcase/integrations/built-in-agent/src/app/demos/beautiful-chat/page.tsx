@@ -1,15 +1,20 @@
 "use client";
 
 /**
- * Beautiful Chat (built-in-agent flavor) — a polished starter chat that
- * showcases CopilotChat dropped into a clean two-pane layout, with a side
- * canvas, theme variables, and pre-wired suggestions.
+ * Beautiful Chat (built-in-agent flavor) — a polished two-pane chat that
+ * showcases CopilotChat plus the three controlled generative-UI surfaces
+ * the dashboard probes exercise:
+ *   - `pieChart` / `barChart`  → recharts/SVG charts (useComponent)
+ *   - `scheduleTime`           → meeting time picker (useHumanInTheLoop)
+ *   - `toggleTheme`            → frontend theme toggle (already green)
  *
- * The langgraph-python flagship version uses an extensive 4084 component tree
- * (A2UI catalog, todo canvas, declarative generative UI). This integration
- * keeps the same conceptual layout (chat on the right, content on the left)
- * but stays minimal — the built-in-agent runner is intentionally bare, and
- * this cell is the polished starter showcase.
+ * The renderers are ported from the langgraph-python flagship and wired to
+ * the same tool names the agent emits. The in-process CopilotKit runtime
+ * (TanStack AI) forwards the frontend tool definitions to the LLM, so a
+ * tool call by name paints the matching renderer inline.
+ *
+ * The A2UI fixed-schema / dynamic-dashboard surfaces remain out of scope —
+ * only the controlled-gen-UI + HITL pills are ported here.
  */
 
 import React from "react";
@@ -19,21 +24,38 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
+import { ThemeProvider } from "./hooks/use-theme";
+import { useGenerativeUIExamples } from "./hooks/use-generative-ui-examples";
+import "./lib/theme.css";
+
 export default function BeautifulChatPage() {
   return (
-    <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_420px] h-screen w-full bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-slate-950 dark:to-indigo-950">
-        <Canvas />
-        <aside className="border-l border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur flex flex-col">
-          <Suggestions />
-          <CopilotChat
-            agentId="default"
-            className="flex-1"
-            input={{ disclaimer: () => null, className: "pb-6" }}
-          />
-        </aside>
-      </div>
-    </CopilotKitProvider>
+    <ThemeProvider>
+      <CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
+        <ChatSurface />
+      </CopilotKitProvider>
+    </ThemeProvider>
+  );
+}
+
+function ChatSurface() {
+  // Register the controlled-gen-UI + HITL renderers (pieChart, barChart,
+  // scheduleTime) and the toggleTheme frontend tool. Must run inside the
+  // provider so the tool definitions are forwarded to the agent.
+  useGenerativeUIExamples();
+
+  return (
+    <div className="beautiful-chat-root grid grid-cols-1 md:grid-cols-[1fr_420px] h-screen w-full bg-gradient-to-br from-slate-50 to-indigo-50 dark:from-slate-950 dark:to-indigo-950">
+      <Canvas />
+      <aside className="border-l border-slate-200 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 backdrop-blur flex flex-col">
+        <Suggestions />
+        <CopilotChat
+          agentId="default"
+          className="flex-1"
+          input={{ disclaimer: () => null, className: "pb-6" }}
+        />
+      </aside>
+    </div>
   );
 }
 

@@ -1,42 +1,95 @@
 // Shared helpers for walking and resolving the `src/content/reference/`
 // tree. The v2 reference lives at the root for backwards-compatible
 // `/reference/<slug>` URLs and is also exposed as `/reference/v2/<slug>`.
-// The v1 reference is nested under `src/content/reference/v1`.
+// Every other SDK is nested under its own folder: the v1 React reference
+// under `src/content/reference/v1`, the `@copilotkit/core` TypeScript
+// reference under `src/content/reference/core`, and so on. Adding a new
+// SDK is a matter of appending a version id below + a content folder.
 
 import fs from "fs";
 import path from "path";
+import React from "react";
 import matter from "gray-matter";
+import { BookOpen, Slack, MessageCircle } from "lucide-react";
 import type * as PageTree from "fumadocs-core/page-tree";
-import { safeExistsSync, safeReadFileSync } from "@/lib/safe-fs";
+import { CopilotKitMark } from "@/components/copilotkit-mark";
+import { resolveWithinDir, safeExistsSync } from "@/lib/safe-fs";
 
 export const REFERENCE_CONTENT_DIR = path.join(
   process.cwd(),
   "src/content/reference",
 );
 
-export const REFERENCE_VERSIONS = ["v2", "v1"] as const;
+// `v2` is the root SDK (React, latest). Every other id nests under a
+// folder of the same name. To add a new SDK: append an id here, add a
+// `VERSION_SUBDIRS` entry, add a `VERSION_LABELS` entry in
+// `reference-version-selector.tsx` (a `Record<ReferenceVersion, string>`,
+// so a missing label is a compile error), and create a
+// `src/content/reference/<id>/` folder.
+export const REFERENCE_VERSIONS = [
+  "v2",
+  "v1",
+  "react-native",
+  "vue",
+  "angular",
+  "core",
+  "bot",
+] as const;
 export type ReferenceVersion = (typeof REFERENCE_VERSIONS)[number];
+
+/** The root SDK whose content lives directly under `reference/`. */
+const ROOT_VERSION: ReferenceVersion = "v2";
 
 export const REFERENCE_CATEGORIES = [
   "Components",
   "Hooks",
+  "Functions",
+  "Services",
+  "Directives",
   "Classes",
+  "Types",
+  "Enums",
   "SDKs",
+  "Slack",
+  "Discord",
 ] as const;
 export type ReferenceCategory = (typeof REFERENCE_CATEGORIES)[number];
 
-type ReferenceSubdir = "components" | "hooks" | "classes" | "sdk";
+type ReferenceSubdir =
+  | "components"
+  | "hooks"
+  | "functions"
+  | "services"
+  | "directives"
+  | "classes"
+  | "types"
+  | "enums"
+  | "sdk"
+  | "slack"
+  | "discord";
 
 const VERSION_SUBDIRS: Record<ReferenceVersion, ReferenceSubdir[]> = {
-  v2: ["components", "hooks", "sdk"],
+  v2: ["components", "hooks"],
   v1: ["components", "hooks", "classes", "sdk"],
+  "react-native": ["components", "hooks"],
+  vue: ["components", "hooks"],
+  angular: ["components", "functions", "services", "directives"],
+  core: ["classes", "types", "enums"],
+  bot: ["components", "functions", "classes", "types", "slack", "discord"],
 };
 
 const CATEGORY_BY_SUBDIR: Record<ReferenceSubdir, ReferenceCategory> = {
   components: "Components",
   hooks: "Hooks",
+  functions: "Functions",
+  services: "Services",
+  directives: "Directives",
   classes: "Classes",
+  types: "Types",
+  enums: "Enums",
   sdk: "SDKs",
+  slack: "Slack",
+  discord: "Discord",
 };
 
 export type ReferenceItem = {
@@ -53,6 +106,7 @@ export type ResolvedReferencePage = {
   version: ReferenceVersion;
   pageSlug: string;
   contentSlug: string;
+  filePath: string;
   raw: string;
 };
 
@@ -61,13 +115,13 @@ function isProd(): boolean {
 }
 
 function versionDir(version: ReferenceVersion): string {
-  return version === "v1"
-    ? path.join(REFERENCE_CONTENT_DIR, "v1")
-    : REFERENCE_CONTENT_DIR;
+  return version === ROOT_VERSION
+    ? REFERENCE_CONTENT_DIR
+    : path.join(REFERENCE_CONTENT_DIR, version);
 }
 
 function versionRelativePrefix(version: ReferenceVersion): string {
-  return version === "v1" ? "v1/" : "";
+  return version === ROOT_VERSION ? "" : `${version}/`;
 }
 
 export function referenceHref(
@@ -222,12 +276,157 @@ export function loadReferenceVersionItems(
   );
 }
 
+function itemToPage(item: ReferenceItem): PageTree.Item {
+  return { type: "page", name: item.title, url: item.url };
+}
+
+function withInlineIcon(icon: React.ReactNode, label: string): React.ReactNode {
+  return React.createElement(
+    React.Fragment,
+    null,
+    React.isValidElement(icon)
+      ? React.cloneElement(icon, { key: "icon" })
+      : icon,
+    React.createElement("span", { key: "label" }, label),
+  );
+}
+
+function referenceRootName(): React.ReactNode {
+  return withInlineIcon(
+    React.createElement(BookOpen, { size: 16 }),
+    "Reference",
+  );
+}
+
+// Package separators carry the package's mark. Merge icon + label into
+// the separator's `name` (fumadocs renders `[item.icon, item.name]` as
+// a keyless child array, so the split `icon` prop triggers React's key
+// warning).
+function packageSeparator(
+  icon: React.ReactNode,
+  label: string,
+): PageTree.Separator {
+  return {
+    type: "separator",
+    name: withInlineIcon(icon, label),
+  };
+}
+
+/**
+ * The Bots tab groups the sidebar by package, not by category: a
+ * `@copilotkit/bot` section with collapsed kind-folders (Components /
+ * Functions / Classes / Types), then a flat `@copilotkit/bot-slack`
+ * section listing the adapter's own exports (the `slack/` subdir).
+ */
+function buildBotPageTree(): PageTree.Root {
+  const kindFolder = (
+    name: string,
+    subdir: ReferenceSubdir,
+  ): PageTree.Folder[] => {
+    const items = loadReferenceItems("bot", subdir);
+    if (items.length === 0) return [];
+    return [
+      {
+        type: "folder",
+        name,
+        defaultOpen: false,
+        children: items.map(itemToPage),
+      },
+    ];
+  };
+
+  // Explicit order: the adapter factory first, then rendering, then the
+  // supporting exports. Anything new lands after, in filesystem order.
+  const SLACK_ORDER = [
+    "slack",
+    "slack/renderBlockKit",
+    "slack/markdownToMrkdwn",
+    "slack/defaultSlackTools",
+    "slack/defaultSlackContext",
+    "slack/SanitizingHttpAgent",
+  ];
+  const slackItems = [...loadReferenceItems("bot", "slack")].sort((a, b) => {
+    const ai = SLACK_ORDER.indexOf(a.slug);
+    const bi = SLACK_ORDER.indexOf(b.slug);
+    return (
+      (ai === -1 ? SLACK_ORDER.length : ai) -
+      (bi === -1 ? SLACK_ORDER.length : bi)
+    );
+  });
+
+  const slackCoreFolder: PageTree.Folder[] =
+    slackItems.length === 0
+      ? []
+      : [
+          {
+            type: "folder",
+            name: "Core",
+            defaultOpen: false,
+            children: slackItems.map(itemToPage),
+          },
+        ];
+
+  // Explicit order: adapter factory first, then rendering, then supporting
+  // exports. Anything new lands after, in filesystem order.
+  const DISCORD_ORDER = [
+    "discord",
+    "discord/renderComponents",
+    "discord/defaultDiscordTools",
+    "discord/defaultDiscordContext",
+    "discord/DISCORD_LIMITS",
+  ];
+  const discordItems = [...loadReferenceItems("bot", "discord")].sort(
+    (a, b) => {
+      const ai = DISCORD_ORDER.indexOf(a.slug);
+      const bi = DISCORD_ORDER.indexOf(b.slug);
+      return (
+        (ai === -1 ? DISCORD_ORDER.length : ai) -
+        (bi === -1 ? DISCORD_ORDER.length : bi)
+      );
+    },
+  );
+
+  const discordCoreFolder: PageTree.Folder[] =
+    discordItems.length === 0
+      ? []
+      : [
+          {
+            type: "folder",
+            name: "Core",
+            defaultOpen: false,
+            children: discordItems.map(itemToPage),
+          },
+        ];
+
+  return {
+    name: referenceRootName(),
+    children: [
+      packageSeparator(React.createElement(CopilotKitMark), "@copilotkit/bot"),
+      ...kindFolder("Components", "components"),
+      ...kindFolder("Functions", "functions"),
+      ...kindFolder("Classes", "classes"),
+      ...kindFolder("Types", "types"),
+      packageSeparator(
+        React.createElement(Slack, { size: 16 }),
+        "@copilotkit/bot-slack",
+      ),
+      ...slackCoreFolder,
+      packageSeparator(
+        React.createElement(MessageCircle, { size: 16 }),
+        "@copilotkit/bot-discord",
+      ),
+      ...discordCoreFolder,
+    ],
+  };
+}
+
 export function buildReferencePageTree(
   version: ReferenceVersion,
 ): PageTree.Root {
+  if (version === "bot") return buildBotPageTree();
   const allItems = loadReferenceVersionItems(version);
   return {
-    name: "Reference",
+    name: referenceRootName(),
     children: REFERENCE_CATEGORIES.flatMap((category) => {
       const categoryItems = allItems.filter(
         (item) => item.category === category,
@@ -235,13 +434,7 @@ export function buildReferencePageTree(
       if (categoryItems.length === 0) return [];
       return [
         { type: "separator" as const, name: category },
-        ...categoryItems.map(
-          (item): PageTree.Item => ({
-            type: "page",
-            name: item.title,
-            url: item.url,
-          }),
-        ),
+        ...categoryItems.map(itemToPage),
       ];
     }),
   };
@@ -251,13 +444,20 @@ function splitVersionedSlug(slugPath: string): {
   version: ReferenceVersion;
   pageSlug: string;
 } {
-  if (slugPath === "v1" || slugPath.startsWith("v1/")) {
-    return { version: "v1", pageSlug: slugPath.replace(/^v1\/?/, "") };
+  for (const version of REFERENCE_VERSIONS) {
+    if (slugPath === version || slugPath.startsWith(`${version}/`)) {
+      // Strip the version id by length (slice), not a RegExp built from the
+      // id, so a future id with a regex-special char can't corrupt the match.
+      // The trailing `replace(/^\//, "")` is a fixed pattern just trimming the
+      // separator, so it's safe.
+      return {
+        version,
+        pageSlug: slugPath.slice(version.length).replace(/^\//, ""),
+      };
+    }
   }
-  if (slugPath === "v2" || slugPath.startsWith("v2/")) {
-    return { version: "v2", pageSlug: slugPath.replace(/^v2\/?/, "") };
-  }
-  return { version: "v2", pageSlug: slugPath };
+  // Unprefixed slugs (`/reference/<slug>`) resolve against the root SDK.
+  return { version: ROOT_VERSION, pageSlug: slugPath };
 }
 
 export function resolveReferencePage(
@@ -266,57 +466,38 @@ export function resolveReferencePage(
   const slugPath = slug.join("/");
   const { version, pageSlug } = splitVersionedSlug(slugPath);
   const contentSlug = contentSlugForPage(version, pageSlug);
-  const raw =
-    safeReadFileSync(REFERENCE_CONTENT_DIR, `${contentSlug}.mdx`) ??
-    safeReadFileSync(REFERENCE_CONTENT_DIR, `${contentSlug}/index.mdx`);
+  const filePath = [`${contentSlug}.mdx`, `${contentSlug}/index.mdx`]
+    .map((candidate) => resolveWithinDir(REFERENCE_CONTENT_DIR, candidate))
+    .find((candidate) => candidate !== null && fs.existsSync(candidate));
 
-  if (raw === null) return null;
+  if (!filePath) return null;
+
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch (err) {
+    console.error(`[reference-items] Failed to read ${filePath}:`, err);
+    return null;
+  }
+
   return {
     version,
     pageSlug,
     contentSlug,
+    filePath,
     raw,
   };
-}
-
-export function readReferenceIndexDescription(
-  version: ReferenceVersion,
-): string {
-  const fallback =
-    version === "v1"
-      ? "API Reference for CopilotKit's components, classes and hooks."
-      : "API Reference for the next-generation CopilotKit React API.";
-  const raw = safeReadFileSync(
-    REFERENCE_CONTENT_DIR,
-    `${versionRelativePrefix(version)}index.mdx`,
-  );
-  if (raw === null) return fallback;
-
-  try {
-    const { data } = matter(raw);
-    return typeof data.description === "string" && data.description.length > 0
-      ? data.description
-      : fallback;
-  } catch (err) {
-    console.error(
-      `[reference] Failed to parse ${version} index frontmatter:`,
-      err,
-    );
-    return fallback;
-  }
 }
 
 export function referenceStaticParams(): { slug: string[] }[] {
   const params = new Map<string, string[]>();
   const add = (slug: string[]) => params.set(slug.join("/"), slug);
 
-  add(["v1"]);
-  add(["v2"]);
-
   for (const version of REFERENCE_VERSIONS) {
+    add([version]);
     for (const item of loadReferenceVersionItems(version)) {
       add([version, ...item.slug.split("/")]);
-      if (version === "v2") {
+      if (version === ROOT_VERSION) {
         add(item.slug.split("/"));
       }
     }

@@ -38,8 +38,9 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
 ## Quickstart
 
 <Callout type="info" title="AWS CLI required">
-  Both paths below require AWS credentials configured locally. If you haven't done this yet,
-  follow the [AWS CLI getting started guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
+  Both paths below require AWS credentials configured locally. If you haven't
+  done this yet, follow the [AWS CLI getting started
+  guide](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)
   before continuing.
 </Callout>
 
@@ -65,7 +66,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         ### Run the CLI
 
         <AgentCoreCommandTabs
-          framework={props.framework}
+          framework={framework}
           lgCommand="npx copilotkit@latest create -f agentcore-langgraph"
           stCommand="npx copilotkit@latest create -f agentcore-strands"
         />
@@ -90,7 +91,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         One command deploys everything — CDK infrastructure, AgentCore Runtime, and the frontend:
 
         <AgentCoreCommandTabs
-          framework={props.framework}
+          framework={framework}
           lgCommand="./deploy-langgraph.sh"
           stCommand="./deploy-strands.sh"
         />
@@ -335,6 +336,7 @@ Browser → CopilotKit Runtime → AgentCore Runtime → your agent
         the `/api/copilotkit` route forwards each call to the invocation URL using your token.
       </Step>
     </TailoredContentOption>
+
   </TailoredContent>
 </Steps>
 

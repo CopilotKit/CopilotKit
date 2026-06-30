@@ -55,7 +55,7 @@ In order to use CopilotKit, we'll need to configure the CopilotKit provider.
 
 import { EmailThread } from "@/components/EmailThread";
 import { EmailsProvider } from "@/lib/hooks/use-emails";
-import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+import { CopilotKit } from "@copilotkit/react-core/v2"; // [!code highlight]
 import "@copilotkit/react-textarea/styles.css"; // [!code highlight]
 
 export default function Home() {
@@ -79,7 +79,7 @@ export default function Home() {
 
 Let's break this down:
 
-- First, we imported the `CopilotKit` provider from `@copilotkit/react-core`.
+- First, we imported the `CopilotKit` provider from `@copilotkit/react-core/v2`.
 - Then, we wrapped the page with the `<CopilotKit>` provider.
 - We imported the built-in styles from `@copilotkit/react-textarea`.
 

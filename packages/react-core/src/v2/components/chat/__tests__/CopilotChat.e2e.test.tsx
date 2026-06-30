@@ -1,7 +1,8 @@
 import React, { useEffect } from "react";
 import { screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { z } from "zod";
-import { defineToolCallRenderer, ReactToolCallRenderer } from "../../../types";
+import type { ReactToolCallRenderer } from "../../../types";
+import { defineToolCallRenderer } from "../../../types";
 import {
   MockStepwiseAgent,
   SuggestionsProviderAgent,
@@ -815,6 +816,116 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         { timeout: 5000 },
       );
     });
+
+    // Regression for the suggestion-path in-flight gap (deferred from PR #5195).
+    // `onSubmitInput` awaits an in-flight run before dispatching, but selecting
+    // a suggestion mid-run used to call runAgent() directly, pre-empting/aborting
+    // the active run — the same consecutive-interrupt bug #5195 fixed for the
+    // typed-Enter path. Selecting a suggestion while a run is in flight must
+    // NOT abort it; the suggestion send must be QUEUED until the run settles.
+    it("queues a selected suggestion until the in-flight run settles (does not abort it)", async () => {
+      const consumerAgent = new MockStepwiseAgent();
+      const providerAgent = new SuggestionsProviderAgent();
+
+      providerAgent.setSuggestions([
+        { title: "Option A", message: "Take action A" },
+        { title: "Option B", message: "Take action B" },
+      ]);
+
+      let suggestionsReady = false;
+
+      renderWithCopilotKit({
+        agents: {
+          default: consumerAgent,
+          "suggestions-provider": providerAgent,
+        },
+        agentId: "default",
+        children: (
+          <div style={{ height: 400 }}>
+            <ChatWithSuggestions
+              consumerAgentId="default"
+              providerAgentId="suggestions-provider"
+              onReady={() => {
+                suggestionsReady = true;
+              }}
+            />
+          </div>
+        ),
+      });
+
+      await waitFor(() => {
+        expect(suggestionsReady).toBe(true);
+      });
+
+      // Prime a turn so suggestions surface.
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Help me" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(screen.getByText("Help me")).toBeDefined();
+      });
+
+      const messageId = testId("msg");
+      consumerAgent.emit(runStartedEvent());
+      consumerAgent.emit(textChunkEvent(messageId, "I can help with that."));
+      consumerAgent.emit(runFinishedEvent());
+      consumerAgent.complete();
+
+      await waitFor(() => {
+        expect(screen.getByText(/I can help with that/)).toBeDefined();
+      });
+
+      await waitFor(
+        () => {
+          expect(screen.getByText("Option A")).toBeDefined();
+        },
+        { timeout: 5000 },
+      );
+
+      // A new run goes in flight on the consumer agent (e.g. an interrupt
+      // RESUME still streaming). Attach a controllable completion promise so
+      // the suggestion send must park on it — exactly the typed-Enter contract.
+      const stopSpy = vi.spyOn(consumerAgent, "abortRun");
+      const addMessageSpy = vi.spyOn(consumerAgent, "addMessage");
+      consumerAgent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(consumerAgent.isRunning).toBe(true);
+      });
+      let resolveInFlight: () => void = () => {};
+      const inFlight = new Promise<void>((resolve) => {
+        resolveInFlight = resolve;
+      });
+      consumerAgent.setActiveRunCompletionPromise(inFlight);
+
+      addMessageSpy.mockClear();
+
+      // Select a suggestion while the run is in flight.
+      fireEvent.click(screen.getByText("Option A"));
+
+      // The in-flight run was NOT aborted by selecting the suggestion.
+      expect(stopSpy).not.toHaveBeenCalled();
+
+      // The suggestion send is PARKED on the in-flight promise: not dispatched
+      // and not in the transcript while the promise is unresolved. Goes RED if
+      // handleSelectSuggestion dispatches immediately (the pre-fix behavior).
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(addMessageSpy).not.toHaveBeenCalled();
+      expect(screen.queryByText("Take action A")).toBeNull();
+
+      // Release the in-flight run — only now does the queued suggestion dispatch.
+      await act(async () => {
+        resolveInFlight();
+        await Promise.resolve();
+      });
+      consumerAgent.emit(runFinishedEvent());
+      consumerAgent.complete();
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalled();
+        expect(screen.getByText("Take action A")).toBeDefined();
+      });
+    });
   });
 
   describe("Reasoning Message Flow", () => {
@@ -1233,6 +1344,125 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
           .getByText(/Thought for/)
           .closest("button");
         expect(expandedButton?.getAttribute("aria-expanded")).toBe("true");
+      });
+    });
+  });
+
+  describe("Enter routing while a background run is in flight", () => {
+    // Repro for the consecutive-interrupt bug: in gen-ui-interrupt, the
+    // user picks turn-1's time slot, which flips the card to "Booked"
+    // immediately, then resolves the interrupt ~500ms later — kicking off
+    // a resume run that streams the confirmation. While that resume run is
+    // still in flight (`agent.isRunning === true`), the user types a brand
+    // new message (turn-2's pill) and presses Enter. Enter MUST send the
+    // new message, not be hijacked into stopping the in-flight run — the
+    // composer has sendable text, so the user's clear intent is "send".
+    it("routes Enter to send (not stop) while a run is in flight, queuing the new message until the run settles", async () => {
+      const agent = new MockStepwiseAgent();
+      const stopSpy = vi.spyOn(agent, "abortRun");
+      const addMessageSpy = vi.spyOn(agent, "addMessage");
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+
+      // Turn 1: send a message, agent starts running.
+      fireEvent.change(input, { target: { value: "Book a sales call" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(screen.getByText("Book a sales call")).toBeDefined();
+      });
+
+      // The (resume) run is in flight: RUN_STARTED but NOT yet finished —
+      // `agent.isRunning` is true (exactly the turn-2-Enter window).
+      agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(agent.isRunning).toBe(true);
+      });
+
+      // Open the await window: attach a controllable completion promise to the
+      // in-flight run. `onSubmitInput` awaits THIS before dispatching the new
+      // message, so the queued send must NOT land until we resolve it. Without
+      // this the await-branch is skipped entirely and the test would pass even
+      // if the whole await-block were deleted (false confidence). Attached
+      // AFTER the run is in flight so the run setup does not overwrite it.
+      let resolveInFlight: () => void = () => {};
+      const inFlight = new Promise<void>((resolve) => {
+        resolveInFlight = resolve;
+      });
+      agent.setActiveRunCompletionPromise(inFlight);
+
+      addMessageSpy.mockClear();
+
+      // Turn 2: the user composes a brand-new message and presses Enter while
+      // the run is still active. A non-empty composer is unambiguous "send"
+      // intent — Enter must NOT route to onStop (the pre-fix bug aborted the
+      // run and swallowed the message). Instead the new message is QUEUED:
+      // CopilotChat awaits the in-flight run's completion before sending, so
+      // an interrupt RESUME finishes (graph completes) before the new turn
+      // starts a fresh run — the fix for the 2nd interrupt's card never
+      // mounting.
+      fireEvent.change(input, {
+        target: { value: "Schedule a 1:1 with Alice" },
+      });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      // The in-flight run was NOT stopped/aborted by the Enter press.
+      expect(stopSpy).not.toHaveBeenCalled();
+      // The composer cleared immediately (the send was accepted, not routed
+      // to stop), even though the actual dispatch is deferred until the run
+      // settles.
+      await waitFor(() => {
+        expect((input as HTMLTextAreaElement).value).toBe("");
+      });
+
+      // The queued message is PARKED on the in-flight promise: it has NOT been
+      // dispatched (addMessage not called) and is NOT in the transcript while
+      // the promise is unresolved. This is the actual await-path assertion —
+      // it goes RED if onSubmitInput's await-block is removed (the message
+      // would dispatch immediately).
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(addMessageSpy).not.toHaveBeenCalled();
+      expect(screen.queryByText("Schedule a 1:1 with Alice")).toBeNull();
+
+      // Release the in-flight run — only now does the queued message dispatch.
+      await act(async () => {
+        resolveInFlight();
+        await Promise.resolve();
+      });
+      agent.emit(runFinishedEvent());
+      agent.complete();
+      await waitFor(() => {
+        expect(addMessageSpy).toHaveBeenCalled();
+        expect(screen.getByText("Schedule a 1:1 with Alice")).toBeDefined();
+      });
+    });
+
+    it("still routes Enter to stop when the composer is empty during a run", async () => {
+      const agent = new MockStepwiseAgent();
+      const stopSpy = vi.spyOn(agent, "abortRun");
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+
+      // Send a message; agent starts running.
+      fireEvent.change(input, { target: { value: "Tell me a story" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      await waitFor(() => {
+        expect(screen.getByText("Tell me a story")).toBeDefined();
+      });
+
+      agent.emit(runStartedEvent());
+      await waitFor(() => {
+        expect(agent.isRunning).toBe(true);
+      });
+
+      // Composer is empty — Enter should stop the genuinely-running agent.
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(stopSpy).toHaveBeenCalled();
       });
     });
   });

@@ -1,0 +1,433 @@
+name: "Showcase: Promote Notify"
+
+# HARD CONTRACT (spec N2): the CLI polls `gh run list` for a run whose
+# display_title matches `promote-<run_id>`. Without this `run-name`
+# directive, that polling lookup will always time out.
+run-name: promote-${{ inputs.run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      results:
+        description: "Base64-encoded results JSON (schema_version=1)"
+        required: true
+        type: string
+      trigger:
+        description: "Dispatch source"
+        required: true
+        type: choice
+        options:
+          - cli
+          - workflow
+      run_id:
+        description: "6-char lowercase hex run id"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    name: Post aggregated Slack notification
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      RESULTS_B64: ${{ inputs.results }}
+      TRIGGER: ${{ inputs.trigger }}
+      RUN_ID: ${{ inputs.run_id }}
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      TEAM_SHOWCASE_CHANNEL: "#team-showcase"
+      OSS_ALERTS_CHANNEL: "#oss-alerts"
+    steps:
+      - name: Decode and validate results
+        id: decode
+        run: |
+          set -euo pipefail
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "::error::jq is required"
+            exit 1
+          fi
+          # Decode the base64 results blob into a JSON file. The blob may
+          # contain newlines from `base64` line-wrapping; -d handles that.
+          if ! printf '%s' "$RESULTS_B64" | base64 -d > /tmp/results.json 2>/tmp/results.err; then
+            echo "::error::base64 decode failed: $(cat /tmp/results.err)"
+            exit 1
+          fi
+          if ! jq -e . /tmp/results.json >/dev/null 2>&1; then
+            echo "::error::decoded payload is not valid JSON"
+            exit 1
+          fi
+          schema_version=$(jq -r '.schema_version // empty' /tmp/results.json)
+          if [ "$schema_version" != "1" ]; then
+            echo "::warning::schema_version mismatch — expected 1, got '${schema_version}'; aborting Slack post gracefully"
+            echo "abort=1" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Enforce the run_id contract — required for the CLI's gh run list polling.
+          # See HARD CONTRACT comment + run-name directive at top of file. A malformed
+          # run_id is a dispatcher-contract violation, not a recoverable runtime
+          # condition, so hard-fail (exit 1) rather than warn-and-abort.
+          if ! printf '%s' "$RUN_ID" | grep -Eq '^[0-9a-f]{6}$'; then
+            echo "::error::run_id '$RUN_ID' does not match ^[0-9a-f]{6}$ (breaks CLI polling contract; see run-name)"
+            exit 1
+          fi
+          echo "abort=0" >> "$GITHUB_OUTPUT"
+
+      - name: Render Slack messages and post
+        if: steps.decode.outputs.abort == '0'
+        env:
+          # Re-export for the script step
+          RESULTS_PATH: /tmp/results.json
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SLACK_BOT_TOKEN:-}" ]; then
+            echo "::error::SLACK_BOT_TOKEN is not set"
+            exit 1
+          fi
+
+          # ---------- helpers ----------
+          slack_api() {
+            # $1 = method, $2 = JSON body
+            local method="$1"
+            local body="$2"
+            local resp http
+            resp=$(mktemp)
+            http=$(curl -sS -o "$resp" -w '%{http_code}' \
+              -X POST "https://slack.com/api/${method}" \
+              -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+              -H "Content-type: application/json; charset=utf-8" \
+              --data "$body" || echo "000")
+            if [ "$http" != "200" ]; then
+              echo "::warning::Slack ${method} non-2xx http=${http} body=$(head -c 500 "$resp")" >&2
+              echo "{}"
+              rm -f "$resp"
+              return 0
+            fi
+            cat "$resp"
+            rm -f "$resp"
+          }
+
+          # Slack returns HTTP 200 with `{"ok":false,"error":"..."}` on LOGICAL
+          # failures (channel_not_found, not_in_channel, ...). slack_api only
+          # surfaces non-2xx HTTP, so a failure-ALERT that posts 200/ok:false
+          # would otherwise be silently dropped — pages nobody. This predicate
+          # checks the captured response and emits a `::warning::` (mirroring the
+          # slack_api non-2xx idiom above) when the post did NOT succeed.
+          #   $1 = label, $2 = captured Slack response body
+          slack_alert_posted_ok() {
+            local label="$1"
+            local resp="$2"
+            local ok
+            ok=$(printf '%s' "$resp" | jq -r '.ok // false' 2>/dev/null || echo false)
+            if [ "$ok" != "true" ]; then
+              local err
+              err=$(printf '%s' "$resp" | jq -r '.error // "unknown"' 2>/dev/null || echo unknown)
+              echo "::warning::Slack ${label} did NOT post (ok=${ok} error=${err}); failure alert may have been dropped" >&2
+              return 1
+            fi
+            return 0
+          }
+
+          # ---------- read payload ----------
+          R="$RESULTS_PATH"
+
+          run_id=$(jq -r '.run_id' "$R")
+          # Validate the BLOB's run_id, not just the RUN_ID input. The decode
+          # step (separate step, no shared shell vars) checks the input; the
+          # CLI/hand-dispatch path renders THIS value into the run-name and the
+          # Slack messages, so it must satisfy the same ^[0-9a-f]{6}$ contract.
+          # Mirrors showcase_promote_notify.dry-run.sh. Hard-fail (exit 1) — a
+          # malformed run_id is a dispatcher-contract violation, not recoverable.
+          if ! printf '%s' "$run_id" | grep -Eq '^[0-9a-f]{6}$'; then
+            echo "::error::run_id '$run_id' does not match ^[0-9a-f]{6}$ (breaks CLI polling contract; see run-name)"
+            exit 1
+          fi
+          trigger=$(jq -r '.trigger' "$R")
+          operator_email=$(jq -r '.operator_email // ""' "$R")
+          operator_git_name=$(jq -r '.operator_git_name // ""' "$R")
+          # Coerce to an integer up front: elapsed_seconds may arrive as a float
+          # (e.g. 5.2) OR as a JSON STRING (e.g. "5.2"). `floor` on a string
+          # raises jq error 5 ("number required") which, under `set -euo
+          # pipefail`, aborts the whole render step so NO Slack message posts.
+          # `tonumber?` parses numeric strings and swallows non-numeric input
+          # (-> 0); `floor` then yields the integer Bash `[ -gt ]`/`$(( ))` need.
+          elapsed=$(jq -r '(.elapsed_seconds // 0) | tonumber? // 0 | floor' "$R")
+          pre_staging=$(jq -r '.pre_staging // "skipped"' "$R")
+          abort_reason=$(jq -r '.abort_reason // ""' "$R")
+          succeeded_count=$(jq -r '.succeeded | length' "$R")
+
+          # Comma-separated list of the SUCCEEDED service names, for the ✅
+          # success thread reply AND the ⚠️ partial reply's `Promoted:` line.
+          # The runtime blob emits .succeeded[] as {service} objects (see
+          # promote-fleet.sh); tolerate bare strings too.
+          succeeded_csv=$(jq -r '[.succeeded[] | if type == "object" then .service else . end] | join(", ")' "$R")
+
+          # GitHub Actions run URL — used by the success message's inline
+          # "View run" link AND by the cross-post branch's permalink fallback.
+          # Computed once here so both render the SAME url.
+          gha_url="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          # Sort failed alphabetically by service and split off the
+          # truncation-suffix sentinel (if any) so it renders as a
+          # trailing "+ K more" line instead of a bullet.
+          jq '.failed | sort_by(.service)' "$R" > /tmp/failed-sorted.json
+          jq '[.[] | select(.category != "truncation-suffix")]' /tmp/failed-sorted.json > /tmp/failed-render.json
+          truncation_more=$(jq -r '[.[] | select(.category == "truncation-suffix") | .service] | .[0] // ""' /tmp/failed-sorted.json)
+
+          # Counts:
+          #   total_count        = succeeded_count + failed_real_count
+          #   succeeded_count    = raw .succeeded length
+          #   failed_real_count  = .failed length minus truncation-suffix sentinels
+          #                        (rendered to operators on all display lines)
+          failed_real_count=$(jq 'length' /tmp/failed-render.json)
+
+          # Service total = succeeded + real failures (truncation entries
+          # are not real services).
+          total_count=$((succeeded_count + failed_real_count))
+
+          # Names of every ATTEMPTED service (succeeded + real failures), for
+          # the init post. For `service=all` this is the drifted subset
+          # resolve-targets selected; for a scoped/single-service dispatch it is
+          # exactly what was requested. Either way it is the set we ATTEMPTED —
+          # we do not claim the rest was already current. Sorted for a stable,
+          # legible list; the truncation-suffix sentinel (not a real service) is
+          # excluded via /tmp/failed-render.json.
+          attempted_csv=$(jq -rs '
+            (.[0] | [.succeeded[] | if type == "object" then .service else . end])
+            + (.[1] | [.[].service])
+            | sort | join(", ")
+          ' "$R" /tmp/failed-render.json)
+
+          # ---------- format elapsed seconds ----------
+          # elapsed is the real wall-clock seconds the dispatcher measured
+          # (showcase_promote.yml computes now - run.created_at). When it is a
+          # positive value we render " in Nm SSs"; when it is 0 (dispatcher
+          # could not measure it, or a hand-dispatch passed nothing) we OMIT the
+          # phrase entirely rather than print a meaningless "in 0m 00s".
+          fmt_elapsed() {
+            local total="$1"
+            local m=$((total / 60))
+            local s=$((total % 60))
+            printf '%dm %02ds' "$m" "$s"
+          }
+          if [ "$elapsed" -gt 0 ] 2>/dev/null; then
+            elapsed_phrase=" in $(fmt_elapsed "$elapsed")"
+          else
+            elapsed_phrase=""
+          fi
+
+          # ---------- resolve operator mention ----------
+          operator_mention=""
+          if [ -n "$operator_email" ]; then
+            # users.lookupByEmail requires GET (Slack Web API).
+            lookup_resp=$(curl -sS \
+              -G "https://slack.com/api/users.lookupByEmail" \
+              -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+              --data-urlencode "email=${operator_email}" || echo '{}')
+            ok=$(echo "$lookup_resp" | jq -r '.ok // false')
+            if [ "$ok" = "true" ]; then
+              uid=$(echo "$lookup_resp" | jq -r '.user.id // ""')
+              if [ -n "$uid" ]; then
+                operator_mention="<@${uid}>"
+              fi
+            fi
+          fi
+          if [ -z "$operator_mention" ]; then
+            if [ -n "$operator_git_name" ]; then
+              operator_mention="$operator_git_name"
+            elif [ -n "$operator_email" ]; then
+              operator_mention="$operator_email"
+            else
+              operator_mention="unknown"
+            fi
+          fi
+
+          # ---------- pre_staging glyph ----------
+          case "$pre_staging" in
+            green)   pre_staging_line="pre_staging: ✓ green" ;;
+            amber)   pre_staging_line="pre_staging: ⚠ amber" ;;
+            red)     pre_staging_line="pre_staging: ✗ red" ;;
+            skipped) pre_staging_line="pre_staging: — skipped" ;;
+            *)       pre_staging_line="pre_staging: ${pre_staging}" ;;
+          esac
+
+          # ---------- trigger label ----------
+          if [ "$trigger" = "cli" ]; then
+            trigger_label='`bin/railway --notify`'
+          else
+            trigger_label='`showcase_promote.yml`'
+          fi
+
+          # ---------- initiation post ----------
+          # Name the services being promoted this run. We name only what was
+          # ATTEMPTED — accurate whether the dispatch was `service=all` (the
+          # drifted subset) or a single service. We do NOT claim the rest of
+          # the fleet was "already current": for a scoped/single-service
+          # dispatch that is false (it conflates "attempted" with "drifted").
+          # Fall back to a bare count when the attempted set is empty (e.g. a
+          # fleet-preflight abort that touched zero services).
+          if [ -n "$attempted_csv" ]; then
+            init_headline="🚂 *Promoting showcase → prod* (${total_count}): ${attempted_csv}"
+          else
+            init_headline="🚂 *Promoting showcase → prod* (${total_count})"
+          fi
+          init_text="${init_headline}
+          operator ${operator_mention} · trigger ${trigger_label} · run \`${run_id}\`
+          ${pre_staging_line}"
+          # Strip leading whitespace introduced by the heredoc-style indent above.
+          init_text=$(printf '%s\n' "$init_text" | sed 's/^[[:space:]]\{10\}//')
+
+          init_body=$(jq -nc \
+            --arg channel "$TEAM_SHOWCASE_CHANNEL" \
+            --arg text "$init_text" \
+            '{channel:$channel, text:$text}')
+
+          init_resp=$(slack_api chat.postMessage "$init_body")
+          init_ok=$(echo "$init_resp" | jq -r '.ok // false')
+          init_ts=$(echo "$init_resp" | jq -r '.ts // ""')
+          init_channel_id=$(echo "$init_resp" | jq -r '.channel // ""')
+
+          if [ "$init_ok" != "true" ] || [ -z "$init_ts" ]; then
+            echo "::warning::initiation post failed; continuing without threading"
+          fi
+
+          # ---------- permalink (for #oss-alerts cross-post) ----------
+          permalink=""
+          if [ -n "$init_ts" ] && [ -n "$init_channel_id" ]; then
+            perm_resp=$(curl -sS \
+              -G "https://slack.com/api/chat.getPermalink" \
+              -H "Authorization: Bearer ${SLACK_BOT_TOKEN}" \
+              --data-urlencode "channel=${init_channel_id}" \
+              --data-urlencode "message_ts=${init_ts}" || echo '{}')
+            if [ "$(echo "$perm_resp" | jq -r '.ok // false')" = "true" ]; then
+              permalink=$(echo "$perm_resp" | jq -r '.permalink // ""')
+            fi
+          fi
+
+          # ---------- build failure bullets ----------
+          fail_bullets=$(jq -r '.[] | "• `\(.service)` — exit \(.exit) (\(.category))"' /tmp/failed-render.json)
+          if [ -n "$truncation_more" ]; then
+            if [ -n "$fail_bullets" ]; then
+              fail_bullets="${fail_bullets}
+          ${truncation_more}"
+            else
+              fail_bullets="${truncation_more}"
+            fi
+          fi
+
+          # ---------- determine outcome & build thread reply ----------
+          # Branching uses failed_real_count (excludes truncation sentinel)
+          # so a sentinel-only failed[] does not get mis-classified as
+          # partial and spuriously cross-posted to #oss-alerts.
+          #
+          # An abort_reason combined with zero successes is ALWAYS a total
+          # abort, regardless of failed_real_count — fleet-preflight
+          # refusals abort the whole run BEFORE any service is attempted
+          # (succeeded=[], failed=[] or sentinel-only). Without this guard,
+          # the failed_real_count==0 branch would fire first and
+          # mis-announce the run as a clean success.
+          if [ -n "$abort_reason" ] && [ "$succeeded_count" -eq 0 ]; then
+            outcome="total"
+            case "$abort_reason" in
+              fleet-preflight) reason_line="*Reason:* fleet-wide preflight refused" ;;
+              per-service)     reason_line="*Reason:* all services individually refused" ;;
+              *)               reason_line="*Reason:* aborted" ;;
+            esac
+            if [ "$failed_real_count" -eq 0 ]; then
+              # Fleet-preflight abort with zero services touched: no
+              # bullets to render, so omit the *Failed:* heading entirely.
+              thread_text="❌ *Aborted${elapsed_phrase}* — 0 ✓ · 0 ✗
+          ${pre_staging_line}
+          ${reason_line}"
+            else
+              thread_text="❌ *Aborted${elapsed_phrase}* — 0 ✓ · ${failed_real_count} ✗
+          ${pre_staging_line}
+          ${reason_line}
+          *Failed:*
+          ${fail_bullets}"
+            fi
+          elif [ "$failed_real_count" -eq 0 ]; then
+            outcome="success"
+            thread_text="✅ *Showcase Promoted to Prod* — ${succeeded_count} ✓  ·  <${gha_url}|View run>
+          Services: ${succeeded_csv}"
+          elif [ "$succeeded_count" -gt 0 ] && [ "$failed_real_count" -gt 0 ]; then
+            outcome="partial"
+            thread_text="⚠️ *Done${elapsed_phrase}* — ${succeeded_count} ✓ · ${failed_real_count} ✗
+          *Promoted:* ${succeeded_csv}
+          *Failed:*
+          ${fail_bullets}"
+          else
+            # succeeded_count == 0 && failed_real_count > 0 — per-service
+            # refusals without an abort_reason set (defensive fallback).
+            outcome="total"
+            case "$abort_reason" in
+              fleet-preflight) reason_line="*Reason:* fleet-wide preflight refused" ;;
+              per-service)     reason_line="*Reason:* all services individually refused" ;;
+              *)               reason_line="*Reason:* aborted" ;;
+            esac
+            thread_text="❌ *Aborted${elapsed_phrase}* — 0 ✓ · ${failed_real_count} ✗
+          ${pre_staging_line}
+          ${reason_line}
+          *Failed:*
+          ${fail_bullets}"
+          fi
+
+          # Strip the 10-space indent the heredoc-style strings carry.
+          thread_text=$(printf '%s\n' "$thread_text" | sed 's/^[[:space:]]\{10\}//')
+
+          # ---------- post thread reply ----------
+          if [ -n "$init_ts" ]; then
+            thread_body=$(jq -nc \
+              --arg channel "$TEAM_SHOWCASE_CHANNEL" \
+              --arg text "$thread_text" \
+              --arg ts "$init_ts" \
+              '{channel:$channel, text:$text, thread_ts:$ts}')
+            thread_resp=$(slack_api chat.postMessage "$thread_body")
+          else
+            # Initiation failed; post the thread text as a top-level
+            # message so the operator still gets the summary.
+            fallback_body=$(jq -nc \
+              --arg channel "$TEAM_SHOWCASE_CHANNEL" \
+              --arg text "$thread_text" \
+              '{channel:$channel, text:$text}')
+            thread_resp=$(slack_api chat.postMessage "$fallback_body")
+          fi
+          # Surface a dropped summary post (200/ok:false). `|| true` keeps the
+          # ::warning:: visible without aborting the cross-post below.
+          slack_alert_posted_ok "thread reply" "$thread_resp" || true
+
+          # ---------- cross-post to #oss-alerts on partial/total failure ----------
+          if [ "$outcome" != "success" ]; then
+            # Build the trailing link suffix once so both branches share it
+            # without relying on a trailing-space suffix-strip.
+            if [ -n "$permalink" ]; then
+              link_suffix="thread: ${permalink}"
+            else
+              # No Slack permalink available; link to the GitHub Actions run
+              # instead. gha_url is defined earlier in this render step (where
+              # the payload is read) so the success message and this fallback
+              # share the same URL.
+              link_suffix="thread permalink unavailable; see ${gha_url}"
+            fi
+            case "$outcome" in
+              partial) oss_text="⚠️ showcase promote: ${succeeded_count} ✓ · ${failed_real_count} ✗ — ${link_suffix}" ;;
+              total)   oss_text="❌ showcase promote aborted: 0 ✓ · ${failed_real_count} ✗ — ${link_suffix}" ;;
+            esac
+            oss_body=$(jq -nc \
+              --arg channel "$OSS_ALERTS_CHANNEL" \
+              --arg text "$oss_text" \
+              '{channel:$channel, text:$text}')
+            oss_resp=$(slack_api chat.postMessage "$oss_body")
+            # This is the page-the-humans alert. A 200/ok:false drop here means
+            # nobody is told the promote failed, so a silently-green renderer job
+            # would hide the dropped page. FAIL LOUD: the ::warning:: alone is
+            # easy to miss, so let the predicate's non-zero return abort this
+            # step (set -e) → the job goes red and the drop is visible. Unlike
+            # the thread reply (informational, in the promote channel), this
+            # alert MUST not be swallowed — so there is no `|| true` here.
+            slack_alert_posted_ok "#oss-alerts cross-post" "$oss_resp"
+          fi
+
+          echo "notify completed: outcome=${outcome} run_id=${run_id}"

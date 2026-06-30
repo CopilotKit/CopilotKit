@@ -16,6 +16,7 @@ import {
 } from "@copilotkit/shared";
 import type { AttachmentsConfig, InputContent } from "@copilotkit/shared";
 import type { Suggestion, CopilotKitCoreErrorCode } from "@copilotkit/core";
+import { isRunCompletionAware } from "@copilotkit/core";
 import React, {
   useCallback,
   useEffect,
@@ -191,6 +192,15 @@ export function CopilotChat({
     consumeAttachments,
   } = useAttachments({ config: attachmentsConfig });
 
+  // onSubmitInput awaits an in-flight run before sending the new message, so
+  // it must re-check the "uploading" guard against FRESH state AFTER the await
+  // — the closure-captured `selectedAttachments` is stale across the await
+  // (an upload can start during the wait).
+  const selectedAttachmentsRef = useRef(selectedAttachments);
+  useEffect(() => {
+    selectedAttachmentsRef.current = selectedAttachments;
+  }, [selectedAttachments]);
+
   // Check if transcription is enabled
   const isTranscriptionEnabled = copilotkit.audioFileTranscriptionEnabled;
 
@@ -216,7 +226,19 @@ export function CopilotChat({
   const isConnecting =
     hasExplicitThreadId && lastConnectedThreadId !== resolvedThreadId;
 
+  // Tracks the threadId the connect effect last ran for, so it can tell a real
+  // thread SWITCH from an incidental re-render (agent identity change, etc.).
+  const previousThreadIdRef = useRef<string | null>(null);
+
+  // Latest explicitness, readable from an async connect that may resolve after
+  // the user has already switched threads (see the stale-connect guard below).
+  const hasExplicitThreadIdRef = useRef(hasExplicitThreadId);
+  hasExplicitThreadIdRef.current = hasExplicitThreadId;
+
   useEffect(() => {
+    const threadChanged = previousThreadIdRef.current !== resolvedThreadId;
+    previousThreadIdRef.current = resolvedThreadId;
+
     // Non-explicit threads skip /connect, but the first runAgent still has to
     // ship the same SDK-generated threadId that the chat UI is rendering.
     agent.threadId = resolvedThreadId;
@@ -226,7 +248,18 @@ export function CopilotChat({
     // ThreadsProvider). The backend has never seen it, so /connect would
     // always 404 — skip the call. A real thread is only created once the
     // user runs the agent for the first time.
-    if (!hasExplicitThreadId) return;
+    if (!hasExplicitThreadId) {
+      // Switching to a fresh, non-backend thread (e.g. startNewThread / the
+      // drawer's "+ New"): there are no messages to /connect for, so drop any
+      // messages carried over from the previously-viewed thread and fall back
+      // to the welcome screen. Guard on an actual threadId change so re-renders
+      // of the current thread (including its first run) never wipe an
+      // in-progress conversation.
+      if (threadChanged && agent.messages.length > 0) {
+        agent.setMessages([]);
+      }
+      return;
+    }
 
     let detached = false;
 
@@ -266,6 +299,14 @@ export function CopilotChat({
           raf(() => {
             if (!detached) setLastConnectedThreadId(resolvedThreadId);
           });
+        } else if (!hasExplicitThreadIdRef.current) {
+          // This connect was superseded (the user switched away while it was
+          // still loading). If the now-current thread is a fresh non-explicit
+          // one (e.g. the drawer's "+ New"), any snapshot this connect managed
+          // to apply is stale — clear it so the welcome screen shows instead of
+          // the abandoned thread's messages. A switch to ANOTHER explicit thread
+          // is left alone: that thread's own connect owns the message reset.
+          agentToConnect.setMessages([]);
         }
       }
     };
@@ -286,16 +327,87 @@ export function CopilotChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedThreadId, agent, resolvedAgentId, hasExplicitThreadId]);
 
+  // Serializes consecutive sends: if a run is already in flight, let it finish
+  // before dispatching the next message instead of pre-empting it.
+  // `copilotkit.runAgent` would otherwise call `agent.detachActiveRun()` and
+  // ABORT the in-flight run. That abort is harmful when the in-flight run is an
+  // interrupt RESUME: the resume re-enters and completes the paused agent
+  // graph, and aborting it mid-flight leaves the graph paused — so the new
+  // message lands as another resume of the SAME paused graph (re-interrupting
+  // with no fresh payload) instead of starting a clean new turn. This is the
+  // consecutive-interrupt regression: pick turn-1's slot (kicks off the
+  // resume), then immediately send turn-2's message — without waiting, turn-2
+  // aborts the resume and the 2nd interrupt's card never mounts. Awaiting the
+  // active run's completion serializes the two turns so the resume finishes
+  // (graph completes) before the new message starts a fresh run.
+  //
+  // The completion promise lives only on `IntelligenceAgent` (via the
+  // `RunCompletionAware` contract), not on the `AbstractAgent` type held here —
+  // so it is reached through a type guard, not a cast. Agents that don't
+  // implement the contract degrade safely (the await is skipped).
+  const waitForActiveRunToSettle = useCallback(async () => {
+    // Widen to `unknown` before the guard: narrowing `AbstractAgent` directly
+    // would intersect with its PRIVATE `activeRunCompletionPromise` declaration
+    // and collapse the narrowed type to `never`.
+    const maybeAware: unknown = agent;
+    const activeRunCompletionPromise = isRunCompletionAware(maybeAware)
+      ? maybeAware.activeRunCompletionPromise
+      : undefined;
+    if (agent.isRunning && activeRunCompletionPromise) {
+      try {
+        await activeRunCompletionPromise;
+      } catch (error) {
+        // The in-flight run rejected — proceed with the new send anyway,
+        // but log so a chronically-failing in-flight run is observable.
+        console.error(
+          "CopilotChat: in-flight run rejected while queuing send",
+          error,
+        );
+      }
+    }
+  }, [agent]);
+
   const onSubmitInput = useCallback(
     async (value: string) => {
-      // Block if uploads in progress
-      const hasUploading = selectedAttachments.some(
-        (a) => a.status === "uploading",
-      );
-      if (hasUploading) {
+      // Block if uploads in progress (fast fail against current state before
+      // the value is committed — re-checked against live state after the
+      // await below, since an upload can start during the wait).
+      if (
+        selectedAttachmentsRef.current.some((a) => a.status === "uploading")
+      ) {
         console.error(
-          "[CopilotKit] Cannot send while attachments are uploading",
+          "[CopilotKit] Cannot send while attachments are uploading (pre-await guard)",
         );
+        setTranscriptionError("Cannot send while attachments are uploading.");
+        return;
+      }
+
+      // Clear the input immediately so the composer reflects the accepted send
+      // even though the actual dispatch may be deferred behind the in-flight
+      // run. If the post-await guard later BLOCKS the send (e.g. an upload
+      // starts during the await), the typed text is RESTORED to the composer
+      // below so it is never silently lost.
+      setInputValue("");
+
+      // If a run is already in flight, let it finish before sending the new
+      // message instead of pre-empting it (see waitForActiveRunToSettle).
+      await waitForActiveRunToSettle();
+
+      // Re-check the uploading guard against LIVE attachment state: an upload
+      // can start (or stay in flight) during the await above, so a snapshot
+      // taken before the await could consume an attachment with an incomplete
+      // source. On block, RESTORE the typed text to the composer (it was
+      // optimistically cleared on accept) so the user's input is not silently
+      // lost, and surface a user-visible banner — console.error alone is
+      // invisible to the user.
+      if (
+        selectedAttachmentsRef.current.some((a) => a.status === "uploading")
+      ) {
+        console.error(
+          "[CopilotKit] Cannot send while attachments are uploading (post-await re-check)",
+        );
+        setTranscriptionError("Cannot send while attachments are uploading.");
+        setInputValue(value);
         return;
       }
 
@@ -329,8 +441,6 @@ export function CopilotChat({
         });
       }
 
-      // Clear input after submitting
-      setInputValue("");
       try {
         await copilotkit.runAgent({ agent });
       } catch (error) {
@@ -339,11 +449,17 @@ export function CopilotChat({
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, selectedAttachments, consumeAttachments],
+    [agent, consumeAttachments, waitForActiveRunToSettle],
   );
 
   const handleSelectSuggestion = useCallback(
     async (suggestion: Suggestion) => {
+      // Mirror onSubmitInput's send-serialization: if a run is in flight, wait
+      // for it to settle before dispatching, so selecting a suggestion mid-run
+      // does NOT pre-empt/abort the active run (the same #5195 fix the
+      // typed-Enter path got — here for the suggestion path).
+      await waitForActiveRunToSettle();
+
       agent.addMessage({
         id: randomUUID(),
         role: "user",
@@ -360,7 +476,7 @@ export function CopilotChat({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent],
+    [agent, waitForActiveRunToSettle],
   );
 
   const stopCurrentRun = useCallback(() => {

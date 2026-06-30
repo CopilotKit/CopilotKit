@@ -1,7 +1,8 @@
 /**
  * D5 — script registry.
  *
- * The D5 driver (`drivers/e2e-deep.ts`) discovers per-feature scripts at
+ * The D5 path (the D6 driver `drivers/d6-all-pills.ts`, run as "D6
+ * take-one") discovers per-feature scripts at
  * runtime by scanning `src/probes/scripts/d5-*.{js,ts}` and invoking each
  * file's top-level `registerD5Script(...)` call. The registry maps a
  * `D5FeatureType` to the script that owns it.
@@ -70,6 +71,9 @@ export type D5FeatureType =
   | "readonly-state-context"
   // Generative-UI family — declarative, A2UI fixed-schema, open-shape, agent-driven.
   | "gen-ui-declarative"
+  // A2UI error recovery — the validate->retry recovery loop made
+  // visible (heal vs. exhaust). Drives `/demos/a2ui-recovery`.
+  | "a2ui-recovery"
   | "gen-ui-a2ui-fixed"
   | "gen-ui-open"
   | "gen-ui-open-advanced"
@@ -145,6 +149,7 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "shared-state-streaming",
   "readonly-state-context",
   "gen-ui-declarative",
+  "a2ui-recovery",
   "gen-ui-a2ui-fixed",
   "gen-ui-open",
   "gen-ui-open-advanced",

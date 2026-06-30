@@ -30,6 +30,11 @@ const getSendButton = (container: HTMLElement) =>
     .querySelector("svg.lucide-arrow-up")
     ?.closest("button") as HTMLButtonElement | null;
 
+const getStopButton = (container: HTMLElement) =>
+  container
+    .querySelector("svg.lucide-square")
+    ?.closest("button") as HTMLButtonElement | null;
+
 const getAddMenuButton = (container: HTMLElement) =>
   container
     .querySelector("svg.lucide-plus")
@@ -1022,6 +1027,50 @@ describe("CopilotChatInput", () => {
 
       expect(mockOnSubmitMessage).toHaveBeenCalledWith("hello world");
       expect(mockOnChange).toHaveBeenCalledWith("");
+    });
+  });
+
+  // Pins the intentional Enter-vs-button divergence while a run is in flight.
+  // These two routes diverge on purpose (today only a comment binds them):
+  //   - Enter with sendable text => SEND a new message (not stop). This is what
+  //     unblocks consecutive interrupt pills (#5195): a non-empty composer is
+  //     unambiguous "send" intent even mid-run.
+  //   - The send/stop button while running => ALWAYS STOP, regardless of
+  //     composer contents (it renders as a Stop/Square affordance).
+  // Asserting BOTH together means a future refactor can't silently re-converge
+  // them (e.g. making the button also send, or Enter also stop) without a RED.
+  describe("Enter-vs-button routing while running (contract)", () => {
+    it("routes Enter to SEND but the button to STOP when a run is in flight with sendable text", () => {
+      const onSubmitMessage = vi.fn();
+      const onStop = vi.fn();
+
+      const { container } = renderWithProvider(
+        <CopilotChatInput
+          value="a brand new message"
+          onChange={vi.fn()}
+          onSubmitMessage={onSubmitMessage}
+          onStop={onStop}
+          isRunning
+        />,
+      );
+
+      // While running, the send/stop button renders as a Stop (Square) control.
+      const stopButton = getStopButton(container);
+      expect(stopButton).not.toBeNull();
+
+      // Enter with sendable text during a run => SEND (not stop).
+      const input = screen.getByRole("textbox");
+      fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+      expect(onSubmitMessage).toHaveBeenCalledWith("a brand new message");
+      expect(onStop).not.toHaveBeenCalled();
+
+      onSubmitMessage.mockClear();
+
+      // The button during a run => STOP, even though the composer holds
+      // sendable text (the divergence from Enter).
+      fireEvent.click(stopButton!);
+      expect(onStop).toHaveBeenCalledTimes(1);
+      expect(onSubmitMessage).not.toHaveBeenCalled();
     });
   });
 

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { CopilotKitIntelligence } from "../client";
 
 const fetchMock = vi.fn();
-globalThis.fetch = fetchMock;
+globalThis.fetch = fetchMock as unknown as typeof fetch;
 const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
 function jsonResponse(body: unknown, status = 200) {
@@ -245,11 +245,14 @@ describe("CopilotKitIntelligence", () => {
       };
       fetchMock.mockReturnValue(jsonResponse({ thread }));
 
-      const result = await client.getThread({ threadId: "t-1" });
+      const result = await client.getThread({
+        threadId: "t-1",
+        userId: "user-1",
+      });
 
       expect(result).toEqual(thread);
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/api/threads/t-1");
+      expect(url).toBe("https://api.example.com/api/threads/t-1?userId=user-1");
       expect(opts.method).toBe("GET");
     });
   });
@@ -267,11 +270,16 @@ describe("CopilotKitIntelligence", () => {
       };
       fetchMock.mockReturnValue(jsonResponse(payload));
 
-      const result = await client.getThreadMessages({ threadId: "t-1" });
+      const result = await client.getThreadMessages({
+        threadId: "t-1",
+        userId: "user-1",
+      });
 
       expect(result).toEqual(payload);
       const [url, opts] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.example.com/api/threads/t-1/messages");
+      expect(url).toBe(
+        "https://api.example.com/api/threads/t-1/messages?userId=user-1",
+      );
       expect(opts.method).toBe("GET");
     });
   });
@@ -335,6 +343,8 @@ describe("CopilotKitIntelligence", () => {
       expect(url).toBe("https://api.example.com/api/threads/t-1");
       expect(opts.method).toBe("DELETE");
       expect(JSON.parse(opts.body)).toEqual({
+        userId: "user-1",
+        agentId: "agent-1",
         reason:
           "Deleted via CopilotKit runtime (userId=user-1, agentId=agent-1)",
       });
@@ -596,6 +606,153 @@ describe("CopilotKitIntelligence", () => {
       });
 
       expect(result).toEqual(payload);
+    });
+  });
+
+  describe("annotate", () => {
+    const validParams = {
+      userId: "user-1",
+      threadId: "thread-1",
+      type: "user_action",
+      payload: {
+        title: "Renamed project",
+        data: { previous: { name: "Foo" }, next: { name: "Bar" } },
+      },
+      clientEventId: "0190a1b2-c3d4-7890-abcd-ef1234567890",
+    };
+
+    it("uses PUT (idempotent) and URL-encodes the clientEventId in the path", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "42", duplicate: false }));
+
+      const result = await client.annotate(validParams);
+
+      expect(result).toEqual({ id: "42", duplicate: false });
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe(
+        "https://api.example.com/connector/annotate/0190a1b2-c3d4-7890-abcd-ef1234567890",
+      );
+      expect(opts.method).toBe("PUT");
+    });
+
+    it("auto-generates a clientEventId (UUID) when omitted and includes it in the path", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      const { clientEventId: _omit, ...paramsWithoutId } = validParams;
+      await client.annotate(paramsWithoutId);
+
+      const [url] = fetchMock.mock.calls[0];
+      // Path must end with /connector/annotate/<uuid>
+      expect(url).toMatch(
+        /^https:\/\/api\.example\.com\/connector\/annotate\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+      );
+    });
+
+    it("sends type, payload, userId, threadId in the body", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body)).toMatchObject({
+        type: "user_action",
+        payload: {
+          title: "Renamed project",
+          data: { previous: { name: "Foo" }, next: { name: "Bar" } },
+        },
+        userId: "user-1",
+        threadId: "thread-1",
+      });
+    });
+
+    it("does not send clientEventId in the body", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      const body = JSON.parse(opts.body);
+      expect(body.clientEventId).toBeUndefined();
+    });
+
+    it("forwards occurredAt in the body when provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate({
+        ...validParams,
+        occurredAt: "2026-01-01T00:00:00.000Z",
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).occurredAt).toBe("2026-01-01T00:00:00.000Z");
+    });
+
+    it("omits occurredAt from the body when not provided", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body).occurredAt).toBeUndefined();
+    });
+
+    it("sends Authorization Bearer with the configured apiKey", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate(validParams);
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(opts.headers.Authorization).toBe("Bearer test-key");
+      expect(opts.headers["Content-Type"]).toBe("application/json");
+    });
+
+    it("encodes special characters in clientEventId path segments", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ id: "1", duplicate: false }));
+
+      await client.annotate({
+        ...validParams,
+        clientEventId: "id/with?special&chars",
+      });
+
+      const [url] = fetchMock.mock.calls[0];
+      expect(url).toBe(
+        "https://api.example.com/connector/annotate/id%2Fwith%3Fspecial%26chars",
+      );
+    });
+
+    it("throws PlatformRequestError on non-2xx with the platform's status", async () => {
+      fetchMock.mockReturnValue(jsonResponse({ error: "bad" }, 400));
+
+      await expect(client.annotate(validParams)).rejects.toMatchObject({
+        status: 400,
+      });
+    });
+
+    it("throws PlatformRequestError 502 when the platform returns an empty body", async () => {
+      fetchMock.mockReturnValue(emptyResponse(200));
+
+      await expect(client.annotate(validParams)).rejects.toMatchObject({
+        status: 502,
+      });
+    });
+
+    it("throws PlatformRequestError 502 when the platform returns JSON null", async () => {
+      // `JSON.parse("null")` returns `null` (not `undefined`), so the
+      // empty-body guard must use `== null` (loose) to catch both
+      // shapes. A `=== undefined` guard would let `null` slip past
+      // and surface as a TypeError in caller code.
+      fetchMock.mockReturnValue(
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          json: () => Promise.resolve(null),
+          text: () => Promise.resolve("null"),
+        } as Response),
+      );
+
+      await expect(client.annotate(validParams)).rejects.toMatchObject({
+        status: 502,
+      });
     });
   });
 });

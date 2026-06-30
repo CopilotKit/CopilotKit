@@ -38,7 +38,7 @@ export interface DocMetadataInput {
   title: string;
   /** One-line description; used in `<meta description>`, OG, Twitter. */
   description?: string;
-  /** Absolute URL path of the canonical page (e.g. `/built-in-agent/quickstart`). */
+  /** Absolute URL path of the canonical page (e.g. `/quickstart`). */
   canonicalPath: string;
   /**
    * Absolute URL path of the OG image route for this page. Optional;

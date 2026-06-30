@@ -1,11 +1,13 @@
-import {
-  AbstractAgent,
+import type {
   RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
   AgentSubscriber,
-  EventType,
   BaseEvent,
+} from "@ag-ui/client";
+import {
+  AbstractAgent,
+  EventType,
   randomUUID,
   transformChunks,
   structuredClone_,
@@ -15,7 +17,6 @@ import {
   EMPTY,
   Subject,
   Notification,
-  Observable,
   defer,
   dematerialize,
   lastValueFrom,
@@ -23,7 +24,7 @@ import {
   switchMap,
   throwError,
 } from "rxjs";
-import type { ObservableNotification } from "rxjs";
+import type { ObservableNotification, Observable } from "rxjs";
 import {
   catchError,
   endWith,
@@ -37,18 +38,32 @@ import {
   takeUntil,
   tap,
 } from "rxjs/operators";
-import type { Socket, Channel } from "phoenix";
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import {
   ɵphoenixChannel$,
   ɵphoenixSocket$,
-  type ɵPhoenixChannelSession,
-  type ɵPhoenixSocketSession,
   ɵjoinPhoenixChannel$,
   ɵobservePhoenixSocketSignals$,
   ɵobservePhoenixSocketHealth$,
   ɵobservePhoenixEvent$,
 } from "./utils/phoenix-observable";
+import type {
+  ɵPhoenixChannelLike,
+  ɵPhoenixChannelSession,
+  ɵPhoenixPushLike,
+  ɵPhoenixSocketLike,
+  ɵPhoenixSocketSession,
+} from "./utils/phoenix-observable";
+
+/**
+ * Structural Phoenix socket/channel contracts used by this agent, derived from
+ * the minimal `*Like` interfaces in {@link ./utils/phoenix-observable}.
+ */
+type Socket = ɵPhoenixSocketLike;
+
+interface Channel extends ɵPhoenixChannelLike {
+  push(event: string, payload: unknown): ɵPhoenixPushLike;
+}
 
 const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const REPLAY_COMPLETE_EVENT = "replay_complete";
@@ -76,6 +91,45 @@ export class AgentThreadLockedError extends Error {
     super(threadId ? `Thread ${threadId} is locked` : "Thread is locked");
     this.name = "AgentThreadLockedError";
   }
+}
+
+/**
+ * Typed contract for agents that expose the completion promise of their
+ * currently in-flight run.
+ *
+ * `IntelligenceAgent` resolves this promise once a run's observable pipeline
+ * finalizes (see {@link IntelligenceAgent.connectAgent}). Consumers (e.g. the
+ * v2 `CopilotChat` send-serialization path) await it to let an in-flight run —
+ * notably an interrupt RESUME — finish before dispatching a new run, instead
+ * of pre-empting it.
+ *
+ * The base `AbstractAgent` from `@ag-ui/client` only declares this property
+ * privately, so it is reachable only through this contract plus the
+ * {@link isRunCompletionAware} type guard. This keeps callers off `as unknown`
+ * casts while still degrading safely for agents that don't implement it.
+ */
+export interface RunCompletionAware {
+  /**
+   * Resolves when the active run's pipeline finalizes (completes, errors, or is
+   * detached). `undefined` when no run is in flight.
+   */
+  readonly activeRunCompletionPromise?: Promise<void>;
+}
+
+/**
+ * Type guard for {@link RunCompletionAware}. Returns true when `agent` exposes
+ * an `activeRunCompletionPromise` property, so callers can await an in-flight
+ * run without an `as unknown as` cast. Returns false for agents that don't
+ * implement the contract, letting the caller skip the await and degrade safely.
+ */
+export function isRunCompletionAware(
+  agent: unknown,
+): agent is RunCompletionAware {
+  return (
+    typeof agent === "object" &&
+    agent !== null &&
+    "activeRunCompletionPromise" in agent
+  );
 }
 
 export interface IntelligenceAgentConfig {
@@ -166,7 +220,9 @@ export class IntelligenceAgent extends AbstractAgent {
       const subscribers: AgentSubscriber[] = [
         {
           onRunFinishedEvent: (event) => {
-            result = event.result;
+            if (event.outcome === "success") {
+              result = event.result;
+            }
           },
         },
         ...this.subscribers,
@@ -183,7 +239,7 @@ export class IntelligenceAgent extends AbstractAgent {
 
       const source$ = defer(() => this.connect(input)).pipe(
         // transformChunks reassembles partial/streamed messages — still needed.
-        transformChunks(this.debug),
+        transformChunks(this.debugLogger),
         // NOTE: verifyEvents is intentionally omitted here. See JSDoc above.
         takeUntil(self.activeRunDetach$),
       );
@@ -623,7 +679,7 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   private observeChannelEvent$<T>(
-    channel: Channel,
+    channel: ɵPhoenixChannelLike,
     eventName: string,
   ): Observable<T> {
     return ɵobservePhoenixEvent$<T>(channel, eventName);

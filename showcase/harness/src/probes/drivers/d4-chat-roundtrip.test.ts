@@ -1,9 +1,16 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   e2eChatToolsDriver,
   createE2eSmokeDriver,
   createPooledE2eSmokeLauncher,
+  runInternalAbArm,
+  buildEdgeAbRecord,
+  CvdiagProbeSession,
+  wirePlaywrightPage,
 } from "./d4-chat-roundtrip.js";
+import { filterEdgeHeaders } from "../../cvdiag/index.js";
+import { computeAbReport } from "../../cvdiag/ab-report.js";
+import type { AbOutcomeRecord } from "../../cvdiag/ab-report.js";
 import type {
   E2eBrowser,
   E2eBrowserContext,
@@ -269,22 +276,40 @@ describe("e2eChatToolsDriver L3 (chat)", () => {
     expect(evaluateCalls).toBeGreaterThan(1);
   });
 
-  it("falls back to body scraping when the assistant selector never resolves", async () => {
-    // Reference helper's fallback path: slice <body> after the sent
-    // message, strip UI chrome, keep substantive text.
+  it("red when the assistant bubble never renders even though static page text trails the message (BIA false-pass guard)", async () => {
+    // Regression for the BIA outage: the agent run finished with ZERO
+    // assistant content (RUN_STARTED → RUN_FINISHED, no TEXT_MESSAGE), so
+    // the `[data-testid="copilot-assistant-message"]` bubble never produced
+    // text. The probe then fell back to scraping <body>, where unrelated
+    // STATIC page text trailing the sent message (nav links, footer copy,
+    // demo blurb) is long enough to pass the old `text.length > 0` gate —
+    // turning a dead agent into a false GREEN.
+    //
+    // The distinguishing signal is provenance: a REAL turn fills the
+    // assistant-message container; a body-scrape leak does not. With the
+    // container selector throwing AND no real assistant content, the gate
+    // must report RED. (Pre-fix this returned GREEN because the body tail
+    // was non-empty — the false-pass this test pins.)
     const { browser } = makeBrowser([
       {
         throwOnAssistantSelector: new Error("selector timeout"),
         bodyText:
-          "Hello, please respond with a brief greeting.\nAlright, here is a warm greeting for you from the assistant response.",
+          "Hello, please respond with a brief greeting.\n" +
+          "Documentation Pricing Blog GitHub Star us on GitHub. " +
+          "This demo shows an agentic chat experience built with CopilotKit.",
       },
     ]);
     const driver = createE2eSmokeDriver({ launcher: async () => browser });
-    const result = await driver.run(baseCtx(), {
+    const writer = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer }), {
       key: "e2e-smoke:foo",
       backendUrl: "https://x.example.com",
     });
-    expect(result.state).toBe("green");
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("red");
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
   });
 });
 
@@ -582,16 +607,20 @@ describe("createPooledE2eSmokeLauncher context checkout + abort release", () => 
       pool as unknown as BrowserPool,
     );
     const browser = await launcher();
+    // Sample header reflects the real per-run X-Test-Id shape the driver now
+    // emits: `d4-<slug>-<runId>` (the per-run runId suffix is FIX 1). This is a
+    // value-agnostic passthrough test — the launcher forwards whatever headers
+    // it is handed — so the value here is illustrative, not asserted-by-shape.
     await browser.newContext({
       extraHTTPHeaders: {
         "X-AIMock-Context": "slug-d4",
-        "X-Test-Id": "d4-slug-d4",
+        "X-Test-Id": "d4-slug-d4-run1",
       },
     });
     expect(pool._acquireOptions[0]).toEqual({
       extraHTTPHeaders: {
         "X-AIMock-Context": "slug-d4",
-        "X-Test-Id": "d4-slug-d4",
+        "X-Test-Id": "d4-slug-d4-run1",
       },
     });
   });
@@ -722,5 +751,1175 @@ describe("e2eChatToolsDriver module export", () => {
   it("module-level e2eChatToolsDriver has kind === 'e2e_smoke'", () => {
     expect(e2eChatToolsDriver.kind).toBe("e2e_smoke");
     expect(typeof e2eChatToolsDriver.run).toBe("function");
+  });
+});
+
+// --- CVDIAG flap-observability instrumentation (L1-A) --------------------
+//
+// These tests exercise the 12 probe-layer CVDIAG boundaries wired into the
+// driver. The CvdiagEmitter is constructed at VERBOSE tier (so the
+// `probe.start` / `probe.navigate.complete` / `probe.sse.event` boundaries
+// that are off at default tier are observable) with a captured PB-writer seam
+// so emitted envelopes are asserted directly. A CVDIAG-instrumented fake page
+// invokes the registered network/console/SSE handlers synthetically to drive
+// specific boundaries.
+
+import { CvdiagEmitter } from "../../cvdiag/index.js";
+import { sanitizeJoinTestId } from "../../cvdiag/emit.js";
+import type { CvdiagEnvelope } from "../../cvdiag/index.js";
+import type { CvdiagPbWriter } from "../../cvdiag/pb-writer.js";
+import type {
+  CvdiagResponseEvent,
+  CvdiagConsoleEvent,
+  CvdiagSseEvent,
+  E2eBrowser as CvE2eBrowser,
+  E2eBrowserContext as CvE2eBrowserContext,
+  E2ePage as CvE2ePage,
+} from "./d4-chat-roundtrip.js";
+import { tmpdir } from "node:os";
+import { mkdtempSync } from "node:fs";
+import { join } from "node:path";
+
+/** Capturing PB writer: records every flushed envelope for assertion. */
+class CaptureWriter {
+  events: CvdiagEnvelope[] = [];
+  async writeBatch(events: CvdiagEnvelope[]): Promise<void> {
+    this.events.push(...events);
+  }
+}
+
+/** Build a VERBOSE-tier emitter wired to a capturing PB writer. */
+function makeCvdiagEmitter(): {
+  emitter: CvdiagEmitter;
+  writer: CaptureWriter;
+} {
+  const writer = new CaptureWriter();
+  const emitter = new CvdiagEmitter({
+    verbose: true,
+    env: {},
+    layer: "probe",
+    pbWriter: writer,
+  });
+  return { emitter, writer };
+}
+
+/** Per-test scripted hooks a CVDIAG-instrumented fake page should drive. */
+interface CvPageScript {
+  assistantText?: string;
+  /** Child-tag histogram returned by the alternate-content evaluate read. */
+  alternateHistogram?: Record<string, number>;
+  /** Responses delivered synchronously after `goto` to the onResponse seam. */
+  responses?: CvdiagResponseEvent[];
+  /**
+   * Responses delivered on the FIRST assistant-text read (the `evaluate` poll),
+   * which runs AFTER `press("Enter")` returns — models PRODUCTION ordering,
+   * where the agent-message POST response (and thus its edge headers) arrives
+   * asynchronously AFTER the user submits, strictly later than any synchronous
+   * press-time work. The pre-fix code emitted `probe.message.send` synchronously
+   * right after press, so this response (and its edge headers) was not yet
+   * observed → empty `edge_headers`.
+   */
+  responsesAfterSubmit?: CvdiagResponseEvent[];
+  /** Console messages delivered to the onConsole seam after goto. */
+  consoleMessages?: CvdiagConsoleEvent[];
+  /** SSE events delivered to the onSseEvent seam after goto. */
+  sseEvents?: CvdiagSseEvent[];
+}
+
+/**
+ * A fake browser whose page exposes the CVDIAG event-source seams and drives
+ * them from the script on `goto`. The assistant-message read returns
+ * `assistantText`; the alternate-content read returns `alternateHistogram`.
+ */
+function makeCvBrowser(script: CvPageScript): CvE2eBrowser {
+  let respHandler: ((r: CvdiagResponseEvent) => void) | undefined;
+  let consoleHandler: ((c: CvdiagConsoleEvent) => void) | undefined;
+  let sseHandler: ((e: CvdiagSseEvent) => void) | undefined;
+  let evaluateCall = 0;
+  const page: CvE2ePage = {
+    async goto() {
+      // Drive the registered seams synchronously so the driver observes them
+      // before reading the assistant response.
+      for (const r of script.responses ?? []) respHandler?.(r);
+      for (const c of script.consoleMessages ?? []) consoleHandler?.(c);
+      for (const e of script.sseEvents ?? []) sseHandler?.(e);
+      return null;
+    },
+    async type() {},
+    async press() {},
+    async waitForSelector() {},
+    async textContent() {
+      return "";
+    },
+    async evaluate<R>(): Promise<R> {
+      evaluateCall += 1;
+      // PRODUCTION ordering: the message-POST response arrives ASYNC, after
+      // press("Enter") returns — model it by driving it on the first
+      // assistant-text read (which the driver runs post-submit).
+      if (evaluateCall === 1) {
+        for (const r of script.responsesAfterSubmit ?? []) respHandler?.(r);
+      }
+      // First evaluate call(s): assistant-message text read. The
+      // alternate-content read happens AFTER the poll loop, on empty exit.
+      if (script.assistantText && script.assistantText.length > 0) {
+        return script.assistantText as unknown as R;
+      }
+      // Empty assistant text → the later evaluate is the histogram read.
+      if (evaluateCall > 1) {
+        return (script.alternateHistogram ?? {}) as unknown as R;
+      }
+      return "" as unknown as R;
+    },
+    async close() {},
+    onResponse(h) {
+      respHandler = h;
+    },
+    onConsole(h) {
+      consoleHandler = h;
+    },
+    onSseEvent(h) {
+      sseHandler = h;
+    },
+  };
+  const ctx: CvE2eBrowserContext = {
+    async newPage() {
+      return page;
+    },
+    async close() {},
+  };
+  return {
+    async newContext() {
+      return ctx;
+    },
+    async close() {},
+  };
+}
+
+/** Collect emitted envelopes for one boundary. */
+function byBoundary(writer: CaptureWriter, boundary: string): CvdiagEnvelope[] {
+  return writer.events.filter((e) => e.boundary === boundary);
+}
+
+describe("d4 CVDIAG probe instrumentation (L1-A)", () => {
+  function bufDir(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-test-"));
+  }
+
+  async function runWith(
+    script: CvPageScript,
+    emitter: CvdiagEmitter,
+  ): Promise<void> {
+    const browser = makeCvBrowser(script);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+    });
+    await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    await emitter.flush();
+  }
+
+  it("captures cf-mitigated in probe.network.response edge_headers", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hi there",
+        responses: [
+          {
+            url: "https://x.example.com/api/copilotkit",
+            status: 200,
+            headers: { "cf-mitigated": "challenge", "content-length": "12" },
+            contentLength: 12,
+            durationMs: 5,
+            isMessagePost: true,
+          },
+        ],
+      },
+      emitter,
+    );
+    const resp = byBoundary(writer, "probe.network.response");
+    expect(resp.length).toBeGreaterThan(0);
+    expect(resp[0]!.edge_headers["cf-mitigated"]).toBe("challenge");
+  });
+
+  it("fires probe.dom.alternate_content on forced empty-textContent exit", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      { assistantText: "", alternateHistogram: { pre: 1, code: 2 } },
+      emitter,
+    );
+    const alt = byBoundary(writer, "probe.dom.alternate_content");
+    expect(alt.length).toBe(1);
+    expect(alt[0]!.metadata.child_type_histogram).toEqual({ pre: 1, code: 2 });
+  });
+
+  it("labels a failed run (empty SSE, no first-token) on probe.exit with outcome=err + failure_classifier=sse-missing", async () => {
+    // RED (pre-fix): a run that produces NO SSE events and NO first-token
+    // (empty assistant text) still emits `probe.exit` with `terminal_outcome=ok`
+    // and no failure classifier — so reds are indistinguishable from greens in
+    // cvdiag probe data. GREEN: the same run emits `outcome=err` AND a
+    // `failure_classifier=sse-missing` (no SSE => earliest-missing signal) in
+    // metadata, so the red is labeled at the probe.exit boundary.
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      // No `sseEvents`, empty assistant text => no probe.dom.firsttoken,
+      // sse_event_count=0 => the run actually failed.
+      { assistantText: "", alternateHistogram: { div: 1 } },
+      emitter,
+    );
+    const exit = byBoundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.outcome).toBe("err");
+    expect(exit[0]!.metadata.terminal_outcome).toBe("err");
+    expect(exit[0]!.metadata.failure_classifier).toBe("sse-missing");
+  });
+
+  it("keeps a passing run on probe.exit at outcome=ok with no failure_classifier", async () => {
+    // GREEN-CONTROL: a clean run (assistant text present, an SSE run-finished
+    // event) stays `terminal_outcome=ok` and carries NO failure classifier.
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hello there",
+        sseEvents: [{ eventType: "RUN_FINISHED", payloadSizeBytes: 10 }],
+      },
+      emitter,
+    );
+    const exit = byBoundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.outcome).toBe("ok");
+    expect(exit[0]!.metadata.terminal_outcome).toBe("ok");
+    expect(exit[0]!.metadata.failure_classifier).toBeUndefined();
+  });
+
+  it("classifies a run that streamed SSE but never rendered a DOM bubble as failure_classifier=dom-missing", async () => {
+    // RED (pre-fix): SSE arrived but no assistant bubble ever rendered (empty
+    // text, no first-token) — still `terminal_outcome=ok`. GREEN: `outcome=err`
+    // with `failure_classifier=dom-missing` (SSE present => not sse-missing;
+    // no first-token => DOM never produced a token).
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "",
+        alternateHistogram: { div: 1 },
+        sseEvents: [{ eventType: "RUN_FINISHED", payloadSizeBytes: 10 }],
+      },
+      emitter,
+    );
+    const exit = byBoundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.outcome).toBe("err");
+    expect(exit[0]!.metadata.failure_classifier).toBe("dom-missing");
+  });
+
+  it("captures a browser console.error in probe.console.error", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hi",
+        consoleMessages: [
+          {
+            level: "error",
+            text: "Uncaught TypeError: x is not a function",
+            sourceFile: "https://x.example.com/app.js",
+            lineCol: "42:7",
+          },
+        ],
+      },
+      emitter,
+    );
+    const ce = byBoundary(writer, "probe.console.error");
+    expect(ce.length).toBe(1);
+    expect(ce[0]!.metadata.message_scrubbed).toMatch(/Uncaught TypeError/);
+  });
+
+  it("scrubs Bearer/sk- secrets from probe.console.error message", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hi",
+        consoleMessages: [
+          {
+            level: "error",
+            text: "request failed Authorization: Bearer sk-test-abcdefghijklmnop fired",
+            sourceFile: null,
+            lineCol: null,
+          },
+        ],
+      },
+      emitter,
+    );
+    const ce = byBoundary(writer, "probe.console.error");
+    expect(ce.length).toBe(1);
+    const msg = ce[0]!.metadata.message_scrubbed as string;
+    expect(msg).not.toMatch(/Bearer\s+sk-/);
+    expect(msg).not.toMatch(/sk-test-abcdefghijklmnop/);
+    // And no other emitted event retains the secret.
+    const all = JSON.stringify(writer.events);
+    expect(all).not.toContain("sk-test-abcdefghijklmnop");
+  });
+
+  it("denies forbidden cf-ipcountry edge header (never captured)", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hi",
+        responses: [
+          {
+            url: "https://x.example.com/api/copilotkit",
+            status: 200,
+            headers: { "cf-ipcountry": "US", "cf-ray": "abc123" },
+            contentLength: null,
+            durationMs: 3,
+            isMessagePost: true,
+          },
+        ],
+      },
+      emitter,
+    );
+    const resp = byBoundary(writer, "probe.network.response");
+    expect(resp.length).toBeGreaterThan(0);
+    // cf-ray is allow-listed and present; cf-ipcountry is deny-listed and must
+    // appear nowhere in any emitted envelope.
+    expect(resp[0]!.edge_headers["cf-ray"]).toBe("abc123");
+    const all = JSON.stringify(writer.events);
+    expect(all).not.toContain("cf-ipcountry");
+    expect(all).not.toContain('"US"');
+  });
+
+  it("resets probe.sse.event sequence_num per (test_id, boundary-family)", async () => {
+    const { emitter, writer } = makeCvdiagEmitter();
+    await runWith(
+      {
+        assistantText: "Hi",
+        sseEvents: [
+          { eventType: "RUN_STARTED", payloadSizeBytes: 20 },
+          { eventType: "TEXT_MESSAGE_CHUNK", payloadSizeBytes: 40 },
+          { eventType: "RUN_FINISHED", payloadSizeBytes: 10 },
+        ],
+      },
+      emitter,
+    );
+    const sse = byBoundary(writer, "probe.sse.event");
+    expect(sse.length).toBe(3);
+    // sequence_num starts at 0 for this (test_id, sse) family and increments.
+    expect(sse.map((e) => e.metadata.sequence_num)).toEqual([0, 1, 2]);
+    // All three share the same test_id (one level → one test_id).
+    const ids = new Set(sse.map((e) => e.test_id));
+    expect(ids.size).toBe(1);
+  });
+
+  it("raw-byte sample test_id MATCHES the emitted events' test_id so the cvdiag_raw_byte_samples ↔ cvdiag_events join works (FIX 4)", async () => {
+    // RED (pre-fix): the raw-byte sample was written with the un-normalized
+    // `d4-<slug>-<runId>` X-Test-Id while events carried the emitter's minted
+    // UUIDv7 → the documented correlation join returned nothing. GREEN: both
+    // sides carry the ONE stable session test_id.
+    //
+    // A DEBUG-tier emitter (env allow-list scoped to the slug) + a body-bearing
+    // message-POST response + an EMPTY assistant text (the class-(d) flap
+    // trigger) drives the raw-byte capture path.
+    const captured: CvdiagEnvelope[] = [];
+    const rawByteSamples: Array<{ test_id: string; slug: string }> = [];
+    const combinedWriter = {
+      async writeBatch(events: CvdiagEnvelope[]): Promise<void> {
+        captured.push(...events);
+      },
+      async writeRawByteSample(record: {
+        test_id: string;
+        slug: string;
+      }): Promise<void> {
+        rawByteSamples.push({ test_id: record.test_id, slug: record.slug });
+      },
+    };
+    const emitter = new CvdiagEmitter({
+      debug: true,
+      env: {
+        NODE_ENV: "test",
+        SHOWCASE_ENV: "test",
+        CVDIAG_DEBUG: "1",
+        CVDIAG_DEBUG_ALLOW_LIST: "foo",
+      },
+      layer: "probe",
+      pbWriter: combinedWriter as unknown as CvdiagPbWriter,
+    });
+    const browser = makeCvBrowser({
+      // Empty assistant text → class-(d) empty-response flap → raw-byte capture.
+      assistantText: "",
+      responses: [
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "content-type": "text/event-stream" },
+          contentLength: 0,
+          durationMs: 4,
+          isMessagePost: true,
+          // A non-empty body so captureRawBytes produces a sample.
+          body: async () => Buffer.from("data: {}\n\n", "utf8"),
+        },
+      ],
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: mkdtempSync(join(tmpdir(), "cvdiag-test-")),
+      cvdiagPbWriter: combinedWriter as unknown as CvdiagPbWriter,
+    });
+    await driver.run(
+      // The per-slug DEBUG allow-list is parsed from ctx.env, NOT the emitter
+      // env — scope it to the slug under test so captureRawBytes is armed.
+      baseCtx({ env: { CVDIAG_DEBUG_ALLOW_LIST: "foo" } }),
+      {
+        key: "e2e-smoke:foo",
+        backendUrl: "https://x.example.com",
+        demos: ["agentic-chat"],
+      },
+    );
+    await emitter.flush();
+
+    // A raw-byte sample was captured.
+    expect(rawByteSamples.length).toBeGreaterThan(0);
+    // Every emitted event for this level shares ONE stable session test_id.
+    const eventIds = new Set(captured.map((e) => e.test_id));
+    expect(eventIds.size).toBe(1);
+    const eventTestId = [...eventIds][0]!;
+    // The raw-byte sample carries the SAME test_id → the intra-layer
+    // raw-byte ↔ events join resolves.
+    expect(rawByteSamples[0]!.test_id).toBe(eventTestId);
+    // leg-3: the shared session test_id is the backend-adopted/sanitized
+    // forwarded X-Test-Id — `sanitizeJoinTestId("d4-foo-<runId>")` — NOT a fresh
+    // random UUIDv7. This is the value the backend derives from the same inbound
+    // header, so the cross-layer probe↔backend join now also closes. The
+    // sanitizer preserves the `d4-` prefix (it is `[a-z0-9._-]`), so the
+    // resolved id is the forwarded id, lowercased.
+    expect(eventTestId).toMatch(/^d4-foo-/);
+    expect(eventTestId).toBe(sanitizeJoinTestId(eventTestId));
+  });
+});
+
+// ── M3 CR R1: d4 probe data-correctness fixes ───────────────────────────────
+
+describe("d4 CVDIAG data-correctness (M3 CR R1)", () => {
+  function bufDir(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-test-"));
+  }
+
+  // ── FIX 1: per-request timing key (no same-URL duration collision) ─────────
+  it("FIX 1: repeated same-URL POSTs each get their own non-zero duration_ms", () => {
+    // RED (pre-fix): `requestStartByUrl` keyed by URL ONLY — the 2nd request
+    // overwrote the 1st's start time, and the 1st response DELETED the entry,
+    // so the 2nd same-URL response saw `startedAt === undefined` → duration 0.
+    // GREEN: a per-URL FIFO pairs each response with its own request start.
+    const handlers = new Map<string, (arg: unknown) => void>();
+    const fakePage = {
+      goto: async () => null,
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => null,
+      evaluate: async <R>() => "" as unknown as R,
+      close: async () => {},
+      on(event: string, handler: (arg: unknown) => void) {
+        handlers.set(event, handler);
+      },
+    };
+    const adapted = wirePlaywrightPage(fakePage);
+    const durations: number[] = [];
+    adapted.onResponse?.((r) => durations.push(r.durationMs));
+
+    const reqHandler = handlers.get("request")!;
+    const respHandler = handlers.get("response")!;
+    const URL = "https://x.example.com/api/copilotkit";
+    const mkReq = () => ({ url: () => URL });
+    const mkResp = () => ({
+      url: () => URL,
+      status: () => 200,
+      headers: () => ({}),
+      request: () => ({ method: () => "POST" }),
+    });
+
+    // Two same-URL requests issued back-to-back BEFORE either response — the
+    // exact concurrent/repeat pattern that collided to 0 pre-fix.
+    reqHandler(mkReq());
+    reqHandler(mkReq());
+    // A short spin so the wall-clock delta is measurably > 0.
+    const spinUntil = performance.now() + 2;
+    while (performance.now() < spinUntil) {
+      /* burn a couple ms so durations are non-zero */
+    }
+    respHandler(mkResp());
+    respHandler(mkResp());
+
+    expect(durations.length).toBe(2);
+    // BOTH responses get a real, non-zero duration (pre-fix the 2nd was 0).
+    expect(durations[0]).toBeGreaterThan(0);
+    expect(durations[1]).toBeGreaterThan(0);
+  });
+
+  // ── FIX 2: SSE timeout carve-out does not double-emit live events ──────────
+  it("FIX 2: timeout carve-out re-emits ONLY events not already emitted live", async () => {
+    // RED (pre-fix): every observed SSE event is buffered AND (under the rate)
+    // emitted live; on a timeout the FULL buffer is flushed again, duplicating
+    // the already-live-emitted rows and DOUBLING `sse_event_count`. GREEN: the
+    // carve-out flushes only events the §7 sampling stride dropped.
+    const writer = new CaptureWriter();
+    const emitter = new CvdiagEmitter({
+      verbose: true, // probe.sse.event is verbose+; default tier suppresses it.
+      env: {},
+      layer: "probe",
+      pbWriter: writer,
+    });
+    const session = new CvdiagProbeSession({
+      emitter,
+      testId: "017f22e2-79b0-7cc3-98c4-dc0c0c07398f",
+      slug: "foo",
+      demo: "agentic-chat",
+      bufferDir: bufDir(),
+      nowMs: 0,
+    });
+
+    // Three SSE events, all under the rate target → all emitted LIVE.
+    session.sseEvent({ eventType: "RUN_STARTED", payloadSizeBytes: 20 }, 0);
+    session.sseEvent({ eventType: "TEXT_CHUNK", payloadSizeBytes: 40 }, 1);
+    session.sseEvent({ eventType: "RUN_FINISHED", payloadSizeBytes: 10 }, 2);
+    // Terminal timeout — the carve-out path.
+    session.exit("timeout", 999);
+    await emitter.flush();
+
+    const sse = byBoundary(writer, "probe.sse.event");
+    // Exactly 3 rows — NOT 6 (pre-fix doubled them on the timeout flush).
+    expect(sse.length).toBe(3);
+    // sequence_num is a clean 0,1,2 — no duplicates/re-emits.
+    expect(sse.map((e) => e.metadata.sequence_num)).toEqual([0, 1, 2]);
+    // probe.exit.sse_event_count matches the real emitted count (3, not 6).
+    const exit = byBoundary(writer, "probe.exit");
+    expect(exit.length).toBe(1);
+    expect(exit[0]!.metadata.sse_event_count).toBe(3);
+  });
+
+  // ── FIX 3: probe.message.send edge_headers read AFTER the response ─────────
+  it("FIX 3: message.send carries edge_headers when the POST response lands after submit (prod ordering)", async () => {
+    // RED (pre-fix): `messageSend` was emitted right after press("Enter"),
+    // BEFORE the message-POST response arrived, so `messageSendEdge` was still
+    // undefined → empty `edge_headers` in production. GREEN: the emit is driven
+    // off the onResponse seam (after the response lands), so it carries the
+    // real edge headers even when the response arrives AFTER submit.
+    const writer = new CaptureWriter();
+    const emitter = new CvdiagEmitter({
+      verbose: true,
+      env: {},
+      layer: "probe",
+      pbWriter: writer,
+    });
+    const browser = makeCvBrowser({
+      assistantText: "Hi there",
+      // Deliver the message-POST response AFTER submit (on the assistant-text
+      // poll), not during goto — models production, where the response (and
+      // edge headers) post-dates the user's Enter keypress.
+      responsesAfterSubmit: [
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "cf-mitigated": "challenge", "content-length": "12" },
+          contentLength: 12,
+          durationMs: 5,
+          isMessagePost: true,
+        },
+      ],
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+    });
+    await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    const send = byBoundary(writer, "probe.message.send");
+    // Emitted exactly once.
+    expect(send.length).toBe(1);
+    // It carries the REAL edge headers from the post-submit response (pre-fix
+    // this was empty because the emit happened before the response landed).
+    expect(send[0]!.edge_headers["cf-mitigated"]).toBe("challenge");
+  });
+});
+
+describe("d4 CVDIAG observability fixes (M3 CR R3)", () => {
+  function bufDir(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-test-"));
+  }
+
+  // ── FIX A: timing queue evicts on requestfailed / abort (no leak/stale) ────
+  it("FIX A: a responseless request that ABORTS does not leak a queue entry that mis-pairs a later same-URL response", () => {
+    // RED (pre-fix): the per-URL FIFO start-time queue only dequeued on a
+    // `response`. A request that ABORTED / FAILED (e.g. a persistent SSE
+    // stream, or a cancelled nav) left its start in the queue forever, so a
+    // LATER same-URL response shifted that STALE start → its `duration_ms`
+    // measured from the WRONG (much-earlier, abandoned) request. GREEN: the
+    // `requestfailed` seam evicts the oldest outstanding start, so the later
+    // response pairs with ITS OWN recent start, not the abandoned one.
+    //
+    // The fake registers MULTIPLE handlers per event (real Playwright fires
+    // every `page.on(event,...)` listener) so the eviction listener that
+    // `onResponse` wires for `requestfailed` co-exists with the emission
+    // listener that `onRequestFailed` wires — both must fire on a fail.
+    const handlers = new Map<string, ((arg: unknown) => void)[]>();
+    const fire = (event: string, arg: unknown): void => {
+      for (const h of handlers.get(event) ?? []) h(arg);
+    };
+    const fakePage = {
+      goto: async () => null,
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => null,
+      evaluate: async <R>() => "" as unknown as R,
+      close: async () => {},
+      on(event: string, handler: (arg: unknown) => void) {
+        const list = handlers.get(event) ?? [];
+        list.push(handler);
+        handlers.set(event, list);
+      },
+    };
+    const adapted = wirePlaywrightPage(fakePage);
+    const durations: number[] = [];
+    adapted.onResponse?.((r) => durations.push(r.durationMs));
+    // Also wire the emission seam so the production listener topology (two
+    // `requestfailed` listeners) is faithfully reproduced.
+    adapted.onRequestFailed?.(() => {});
+
+    const reqHandler = (a: unknown) => fire("request", a);
+    const failHandler = (a: unknown) => fire("requestfailed", a);
+    const respHandler = (a: unknown) => fire("response", a);
+    const URL = "https://x.example.com/api/copilotkit";
+    const mkReq = () => ({ url: () => URL });
+    // The `requestfailed` event arg also exposes failure()/response() for the
+    // emission seam (onRequestFailed); the eviction listener only reads url().
+    const mkFail = () => ({
+      url: () => URL,
+      failure: () => ({ errorText: "net::ERR_ABORTED" }),
+      response: () => null,
+    });
+    const mkResp = () => ({
+      url: () => URL,
+      status: () => 200,
+      headers: () => ({}),
+      request: () => ({ method: () => "POST" }),
+    });
+
+    // First request issued, then ABORTS (no response ever arrives for it).
+    reqHandler(mkReq());
+    failHandler(mkFail());
+    // Burn a measurable gap so a stale-pairing would yield a LARGE duration,
+    // while a correct pairing (to the SECOND request below) stays tiny.
+    const gapUntil = performance.now() + 15;
+    while (performance.now() < gapUntil) {
+      /* spin */
+    }
+    // A SECOND same-URL request issued, then responds quickly.
+    reqHandler(mkReq());
+    const respUntil = performance.now() + 1;
+    while (performance.now() < respUntil) {
+      /* tiny spin */
+    }
+    respHandler(mkResp());
+
+    // Exactly one response observed.
+    expect(durations.length).toBe(1);
+    // GREEN: duration reflects the SECOND request (a few ms), NOT the aborted
+    // first request (~15 ms+ pre-fix). The aborted start was evicted, so the
+    // response paired with its own recent start. Pre-fix the stale first start
+    // was shifted → duration ≥ the 15 ms gap.
+    expect(durations[0]).toBeLessThan(10);
+  });
+
+  // ── FIX C: isMessagePost matches the AGENT-MESSAGE POST, not any POST ───────
+  it("FIX C: an unrelated POST AFTER the agent-message POST does not get flagged isMessagePost (no overwrite of the captured agent-message response)", () => {
+    // RED (pre-fix): `isMessagePost` was `method === "POST"` for ANY POST, so a
+    // telemetry/analytics POST issued AFTER the real agent-message POST was ALSO
+    // flagged isMessagePost. The driver's onResponse seam keeps the LAST such
+    // response in `messageSendEdge` / `lastMessagePostResp`, so the unrelated
+    // POST's edge headers / raw bytes silently overwrote the real agent-message
+    // ones — mis-attributing probe.message.send + edge_interference_signal.
+    // GREEN: only the POST under the CopilotKit runtime path (`/api/copilotkit`)
+    // is flagged, so the unrelated trailing POST is ignored and the captured
+    // response stays pinned to the actual agent-message round-trip.
+    const handlers = new Map<string, (arg: unknown) => void>();
+    const fakePage = {
+      goto: async () => null,
+      type: async () => {},
+      press: async () => {},
+      waitForSelector: async () => {},
+      textContent: async () => null,
+      evaluate: async <R>() => "" as unknown as R,
+      close: async () => {},
+      on(event: string, handler: (arg: unknown) => void) {
+        handlers.set(event, handler);
+      },
+    };
+    const adapted = wirePlaywrightPage(fakePage);
+    // Simulate the driver's capture: keep the edge header of the LAST response
+    // flagged isMessagePost, exactly like `messageSendEdge`/`lastMessagePostResp`.
+    let capturedMitigated: string | null | undefined;
+    let capturedUrl: string | undefined;
+    adapted.onResponse?.((r) => {
+      if (r.isMessagePost) {
+        capturedMitigated = r.headers["cf-mitigated"];
+        capturedUrl = r.url;
+      }
+    });
+
+    const respHandler = handlers.get("response")!;
+    const mkPost = (url: string, headers: Record<string, string>) => ({
+      url: () => url,
+      status: () => 200,
+      headers: () => headers,
+      request: () => ({ method: () => "POST" }),
+    });
+
+    // 1) The REAL agent-message POST (CopilotKit runtime path) — carries the
+    //    edge header we must attribute to probe.message.send.
+    respHandler(
+      mkPost("https://x.example.com/api/copilotkit", {
+        "cf-mitigated": "challenge",
+      }),
+    );
+    // 2) An UNRELATED telemetry POST issued AFTER it — different path. Pre-fix
+    //    this overwrote the captured agent-message response (any POST matched).
+    respHandler(
+      mkPost("https://x.example.com/api/telemetry", {
+        "cf-mitigated": "FROM-UNRELATED-POST",
+      }),
+    );
+
+    // The unrelated POST is NOT flagged → capture stays pinned to the
+    // agent-message response (pre-fix `capturedMitigated` was the telemetry
+    // value because the trailing POST was also flagged isMessagePost).
+    expect(capturedUrl).toBe("https://x.example.com/api/copilotkit");
+    expect(capturedMitigated).toBe("challenge");
+  });
+
+  // ── FIX B: SSE backfill preserves ORIGINAL chronological sequence_num ──────
+  it("FIX B: timeout carve-out backfills dropped SSE events in original chronological seq order, not after the live events", async () => {
+    // RED (pre-fix): a backfilled (sampling-DROPPED) SSE event got a FRESH
+    // sequence_num minted at flush time, so it sorted AFTER the lower-seq live
+    // events — defeating the reorder/drop detection the carve-out exists for.
+    // GREEN: each event reserves its seq at OBSERVE time, so the backfilled
+    // events keep their original (lower) seq and sort chronologically.
+    const writer = new CaptureWriter();
+    const emitter = new CvdiagEmitter({
+      verbose: true,
+      env: {},
+      layer: "probe",
+      pbWriter: writer,
+    });
+    const session = new CvdiagProbeSession({
+      emitter,
+      testId: "017f22e2-79b0-7cc3-98c4-dc0c0c07398f",
+      slug: "foo",
+      demo: "agentic-chat",
+      bufferDir: bufDir(),
+      nowMs: 0,
+    });
+
+    // Drive the rate OVER target within one 1s window so the §7 stride DROPS
+    // some events live and the carve-out must backfill them on timeout.
+    // 90 events in window 0 → target 30 → stride 3 → events 3,6,9,... emit live
+    // (seq 2,5,8,...), the rest are dropped (seq 0,1,3,4,...) and backfilled.
+    const N = 90;
+    for (let i = 0; i < N; i++) {
+      session.sseEvent({ eventType: `E${i}`, payloadSizeBytes: 1 }, 0);
+    }
+    // Terminal timeout — the carve-out flushes the dropped events.
+    session.exit("timeout", 999);
+    await emitter.flush();
+
+    const sse = byBoundary(writer, "probe.sse.event");
+    // All N events surface exactly once (live + backfilled, no dupes).
+    expect(sse.length).toBe(N);
+    const seqs = sse.map((e) => e.metadata.sequence_num as number);
+    // Every observed event's seq surfaces exactly once: the full 0..N-1 set.
+    expect([...seqs].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: N }, (_, i) => i),
+    );
+    // GREEN: when re-sorted by seq, the rows reconstruct the ORIGINAL arrival
+    // order (event_type E0..E89). Pre-fix the backfilled events carried fresh
+    // (HIGHER) seqs minted at flush time, so sorting by seq put the dropped
+    // (chronologically-earlier) events AFTER the live ones — a chronological
+    // scramble. Build seq→event_type and confirm it is the identity ordering.
+    const bySeq = new Map<number, string>();
+    for (const e of sse) {
+      bySeq.set(
+        e.metadata.sequence_num as number,
+        e.metadata.event_type as string,
+      );
+    }
+    const reconstructed = Array.from({ length: N }, (_, i) => bySeq.get(i));
+    expect(reconstructed).toEqual(Array.from({ length: N }, (_, i) => `E${i}`));
+  });
+
+  // ── FIX C: probe.exit fires on the abort-before-start early-return path ────
+  it("FIX C: an abort-before-start level still emits probe.start + probe.exit (balanced session)", async () => {
+    // RED (pre-fix): the abort-before-start early return constructed the
+    // CVDIAG session (opening it) but returned BEFORE emitting probe.start or
+    // probe.exit — violating the documented "probe.exit fires on every path"
+    // invariant and leaving a test_id with NO boundary rows (an unbalanced,
+    // never-closed session). GREEN: the abort path emits probe.start (open)
+    // and probe.exit (close, timeout outcome) so the session is balanced.
+    const { emitter, writer } = makeCvdiagEmitter();
+    const browser = makeCvBrowser({ assistantText: "Hi there" });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      textPollTimeoutMs: 50,
+      cvdiagEmitter: emitter,
+      cvdiagBufferDir: bufDir(),
+    });
+    // Pre-aborted external signal → the driver aborts before the level runs,
+    // hitting the abort-before-start early return in runLevel.
+    const ac = new AbortController();
+    ac.abort();
+    await driver.run(baseCtx({ abortSignal: ac.signal }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    await emitter.flush();
+
+    const starts = byBoundary(writer, "probe.start");
+    const exits = byBoundary(writer, "probe.exit");
+    // GREEN: the abort path emitted exactly one open and one close. Pre-fix
+    // BOTH were zero (the early return skipped them entirely).
+    expect(starts.length).toBe(1);
+    expect(exits.length).toBe(1);
+    // The exit's terminal outcome is `timeout` (aborted before it could run).
+    expect(exits[0]!.metadata.terminal_outcome).toBe("timeout");
+    // Open and close carry the SAME test_id (one balanced session).
+    expect(starts[0]!.test_id).toBe(exits[0]!.test_id);
+  });
+});
+
+// ── CVDIAG Railway-internal routing A/B (spec Phase 8) ──────────────────────
+
+describe("d4 A/B internal routing (Phase 8)", () => {
+  const SLUG = "langgraph-python";
+  const VALID_UUIDV7 = "017f22e2-79b0-7cc3-98c4-dc0c0c07398f";
+  const HMAC_ENV = { CVDIAG_AB_HMAC_SECRET: "test-secret-not-real" };
+
+  it("buildEdgeAbRecord maps green→ok / red→err and flags cf-mitigated", () => {
+    const green = buildEdgeAbRecord({
+      abPairId: "p1",
+      testId: VALID_UUIDV7,
+      slug: SLUG,
+      demo: "agentic-chat",
+      edgeState: "green",
+    });
+    expect(green.arm).toBe("edge");
+    expect(green.outcome).toBe("ok");
+    expect(green.edge_interference_signal).toBe(false);
+
+    const red = buildEdgeAbRecord({
+      abPairId: "p1",
+      testId: VALID_UUIDV7,
+      slug: SLUG,
+      demo: "agentic-chat",
+      edgeState: "red",
+      edgeHeaders: filterEdgeHeaders({ "cf-mitigated": "challenge" }),
+    });
+    expect(red.outcome).toBe("err");
+    expect(red.edge_interference_signal).toBe(true);
+  });
+
+  it("runInternalAbArm SKIPS gracefully when the IPv4 target is unreachable", async () => {
+    const fetchSpy = vi.fn();
+    const rec = await runInternalAbArm({
+      internalUrl: "http://langgraph-python.railway.internal:8123/ok",
+      abPairId: "p1",
+      testId: VALID_UUIDV7,
+      slug: SLUG,
+      demo: "agentic-chat",
+      env: HMAC_ENV,
+      fetchImpl: fetchSpy as unknown as typeof fetch,
+      reachabilityCheck: async () => false, // unreachable
+      now: () => new Date(),
+      logger,
+    });
+    expect(rec).toBeNull();
+    // Unreachable → never issues the actual internal request.
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("runInternalAbArm SKIPS when the HMAC secret is unset (no row)", async () => {
+    const rec = await runInternalAbArm({
+      internalUrl: "http://langgraph-python.railway.internal:8123/ok",
+      abPairId: "p1",
+      testId: VALID_UUIDV7,
+      slug: SLUG,
+      demo: "agentic-chat",
+      env: {}, // secret unset
+      fetchImpl: (async () =>
+        new Response("", { status: 200 })) as unknown as typeof fetch,
+      reachabilityCheck: async () => true,
+      now: () => new Date(),
+      logger,
+    });
+    expect(rec).toBeNull();
+  });
+
+  it("runInternalAbArm SKIPS when the test_id is malformed (fail-closed)", async () => {
+    const rec = await runInternalAbArm({
+      internalUrl: "http://langgraph-python.railway.internal:8123/ok",
+      abPairId: "p1",
+      testId: "not-a-uuid",
+      slug: SLUG,
+      demo: "agentic-chat",
+      env: HMAC_ENV,
+      fetchImpl: (async () =>
+        new Response("", { status: 200 })) as unknown as typeof fetch,
+      reachabilityCheck: async () => true,
+      now: () => new Date(),
+      logger,
+    });
+    expect(rec).toBeNull();
+  });
+
+  it("runInternalAbArm produces an ok internal record when reachable + 200", async () => {
+    let sentHeaders: Record<string, string> | undefined;
+    const fetchImpl = (async (_url: string, init?: RequestInit) => {
+      sentHeaders = init?.headers as Record<string, string>;
+      return new Response("", { status: 200 });
+    }) as unknown as typeof fetch;
+    const rec = await runInternalAbArm({
+      internalUrl: "http://langgraph-python.railway.internal:8123/ok",
+      abPairId: "pair-x",
+      testId: VALID_UUIDV7,
+      slug: SLUG,
+      demo: "agentic-chat",
+      env: HMAC_ENV,
+      fetchImpl,
+      reachabilityCheck: async () => true,
+      now: () => new Date(),
+      logger,
+    });
+    expect(rec).not.toBeNull();
+    expect(rec!.arm).toBe("internal");
+    expect(rec!.outcome).toBe("ok");
+    expect(rec!.ab_pair_id).toBe("pair-x");
+    // The signed request carries the HMAC + correlation headers.
+    expect(sentHeaders?.["X-Cvdiag-Ab-Hmac"]).toBeTruthy();
+    expect(sentHeaders?.["X-Cvdiag-Ab-Pair"]).toBe("pair-x");
+    expect(sentHeaders?.["X-Test-Id"]).toBe(VALID_UUIDV7);
+  });
+
+  it("driver collects NOTHING when CVDIAG_AB_INTERNAL_URL is unset (default OFF)", async () => {
+    const collected: AbOutcomeRecord[] = [];
+    const { browser } = makeBrowser([{ assistantText: "Hi!" }]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      abCollector: { collect: (r) => collected.push(r) },
+    });
+    await driver.run(baseCtx({ env: HMAC_ENV }), {
+      key: "e2e-smoke:langgraph-python",
+      backendUrl: "https://showcase-lgp.example.com",
+    });
+    expect(collected).toEqual([]);
+  });
+
+  it("driver collects BOTH arms when gated ON + reachable; report diffs them", async () => {
+    const collected: AbOutcomeRecord[] = [];
+    const { browser } = makeBrowser([{ assistantText: "Hi!" }]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      abCollector: { collect: (r) => collected.push(r) },
+      abReachabilityCheck: async () => true,
+    });
+    const ctx = baseCtx({
+      env: {
+        ...HMAC_ENV,
+        CVDIAG_AB_INTERNAL_URL:
+          "http://langgraph-python.railway.internal:8123/ok",
+      },
+      // Internal arm returns 200 → ok.
+      fetchImpl: (async () =>
+        new Response("", { status: 200 })) as unknown as typeof fetch,
+    });
+    const result = await driver.run(ctx, {
+      key: "e2e-smoke:langgraph-python",
+      backendUrl: "https://showcase-lgp.example.com",
+    });
+    // The probe's own outcome is unaffected by the A/B.
+    expect(result.state).toBe("green");
+    // Both arms collected, sharing one ab_pair_id.
+    expect(collected).toHaveLength(2);
+    const pairIds = new Set(collected.map((r) => r.ab_pair_id));
+    expect(pairIds.size).toBe(1);
+    const arms = new Set(collected.map((r) => r.arm));
+    expect(arms).toEqual(new Set(["edge", "internal"]));
+    // Feed the report engine: edge green + internal ok → agree.
+    const report = computeAbReport(collected);
+    expect(report.total_pairs).toBe(1);
+    expect(report.pairs[0]!.divergence).toBe("agree");
+  });
+
+  // FIX 1 (M7c): the edge A/B record must compute edge_interference_signal from
+  // the REAL L3-captured edge response headers, NOT an empty bag. Pre-fix the
+  // driver passed `filterEdgeHeaders({})`, structurally pinning the signal to
+  // `false` so edge interference could NEVER be detected. This drives an
+  // interference-carrying (cf-mitigated) message-POST edge response through the
+  // real probe with the A/B arm gated ON and asserts the collected edge
+  // record's signal is computed from those headers (true).
+  it("edge A/B record computes edge_interference_signal from REAL captured edge headers (FIX 1)", async () => {
+    const collected: AbOutcomeRecord[] = [];
+    const browser = makeCvBrowser({
+      assistantText: "Hi!",
+      // PRODUCTION ordering: the message-POST response (carrying the
+      // cf-mitigated edge header) arrives AFTER press("Enter") returns.
+      responsesAfterSubmit: [
+        {
+          url: "https://x.example.com/api/copilotkit",
+          status: 200,
+          headers: { "cf-mitigated": "challenge", "content-length": "3" },
+          contentLength: 3,
+          durationMs: 5,
+          isMessagePost: true,
+        },
+      ],
+    });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser as unknown as E2eBrowser,
+      abCollector: { collect: (r) => collected.push(r) },
+      abReachabilityCheck: async () => true,
+    });
+    const ctx = baseCtx({
+      env: {
+        ...HMAC_ENV,
+        CVDIAG_AB_INTERNAL_URL:
+          "http://langgraph-python.railway.internal:8123/ok",
+      },
+      fetchImpl: (async () =>
+        new Response("", { status: 200 })) as unknown as typeof fetch,
+    });
+    await driver.run(ctx, {
+      key: "e2e-smoke:langgraph-python",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    const edge = collected.find((r) => r.arm === "edge");
+    expect(edge).toBeDefined();
+    // RED (pre-fix, empty-headers bag): false. GREEN (real cf-mitigated
+    // header surfaced from L3): true.
+    expect(edge!.edge_interference_signal).toBe(true);
+  });
+
+  // FIX 2 (M7c): when the internal arm returns null (the documented common
+  // case off-platform / CI / unreachable / unset-secret / verify-fail), the
+  // driver must NOT emit a lone edge A/B record — an orphan half-pair the
+  // report cannot diff against any internal sibling. Pre-fix the edge record
+  // was collected BEFORE the internal arm ran, so a null internal arm left an
+  // orphan edge half-pair behind.
+  it("driver emits NO orphan edge half-pair when the internal arm is absent (FIX 2)", async () => {
+    const collected: AbOutcomeRecord[] = [];
+    const { browser } = makeBrowser([{ assistantText: "Hi!" }]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      abCollector: { collect: (r) => collected.push(r) },
+      // Internal arm is UNREACHABLE → runInternalAbArm returns null.
+      abReachabilityCheck: async () => false,
+    });
+    const ctx = baseCtx({
+      env: {
+        ...HMAC_ENV,
+        CVDIAG_AB_INTERNAL_URL:
+          "http://langgraph-python.railway.internal:8123/ok",
+      },
+    });
+    const result = await driver.run(ctx, {
+      key: "e2e-smoke:langgraph-python",
+      backendUrl: "https://showcase-lgp.example.com",
+    });
+    // The probe's own outcome is unaffected by the A/B.
+    expect(result.state).toBe("green");
+    // RED (pre-fix): one lone edge orphan was collected. GREEN: nothing —
+    // no internal sibling means no half-pair is emitted.
+    expect(collected).toEqual([]);
+  });
+});
+
+describe("d4 CVDIAG cross-layer join: probe adopts the forwarded X-Test-Id", () => {
+  function bufDir(): string {
+    return mkdtempSync(join(tmpdir(), "cvdiag-test-"));
+  }
+
+  // ── leg 3: probe records the SAME forwarded X-Test-Id the backend adopts ───
+  it("probe cvdiag test_id == sanitizeJoinTestId(forwarded X-Test-Id), NOT a fresh UUIDv7, so probe↔backend rows join", async () => {
+    // The probe forwards a per-run id (`d6-<slug>-<runId>` / `d4-<slug>-<runId>`)
+    // as the `X-Test-Id` request header. The backend (this branch) ADOPTS that
+    // inbound header verbatim, normalizing it via `sanitizeJoinTestId`, as its
+    // cvdiag `test_id` — the cross-layer join key (spec §5).
+    //
+    // RED (pre-fix): `CvdiagProbeSession` re-minted a RANDOM UUIDv7 for its own
+    // cvdiag `test_id` (the forwarded id is not a UUIDv7, so the constructor's
+    // `isValidTestId(opts.testId) ? opts.testId : mintTestId()` fell through to
+    // a fresh mint). Result: probe.* rows carried a UUIDv7 that NEVER equals the
+    // backend's adopted/sanitized id → the join did not close.
+    //
+    // GREEN (post-fix): the session records `sanitizeJoinTestId(forwardedId)` —
+    // the EXACT value the backend derives from the same inbound header — so both
+    // sides share one `test_id`.
+    const forwarded = "d6-built-in-agent-run-ABC";
+    // The value the BACKEND adopts from the same inbound header. Mirroring the
+    // backend's sanitize here makes the cross-layer match provable from the
+    // probe side alone.
+    const backendAdopted = sanitizeJoinTestId(forwarded);
+    expect(backendAdopted).not.toBeNull();
+
+    const writer = new CaptureWriter();
+    const emitter = new CvdiagEmitter({
+      verbose: true,
+      env: {},
+      layer: "probe",
+      pbWriter: writer,
+    });
+    const session = new CvdiagProbeSession({
+      emitter,
+      // The forwarded X-Test-Id — exactly what the driver passes to both the
+      // request header AND this session (see runLevel: testId is the per-level
+      // X-Test-Id, and the same value is set as the `X-Test-Id` request header).
+      testId: forwarded,
+      slug: "built-in",
+      demo: "agentic-chat",
+      bufferDir: bufDir(),
+      nowMs: 0,
+    });
+    // Drive an open/close pair so at least two probe.* rows are emitted.
+    session.start("https://x.example.com/demos/agentic-chat", {
+      width: 1280,
+      height: 720,
+    });
+    session.exit("ok", 1);
+    await emitter.flush();
+
+    const rows = writer.events;
+    expect(rows.length).toBeGreaterThan(0);
+    // EVERY probe.* row carries the SAME test_id (the session's resolved id).
+    const ids = new Set(rows.map((e) => e.test_id));
+    expect(ids.size).toBe(1);
+    const probeTestId = [...ids][0]!;
+    // The crux: the probe's cvdiag test_id is the backend-adopted/sanitized
+    // forwarded id — NOT a fresh random UUIDv7 — so the cross-layer join closes.
+    expect(probeTestId).toBe(backendAdopted);
+    // And the session's resolvedTestId (used by raw-byte samples) agrees, so the
+    // intra-layer raw-byte↔events join is preserved while the cross-layer join
+    // now also closes.
+    expect(session.resolvedTestId).toBe(backendAdopted);
   });
 });

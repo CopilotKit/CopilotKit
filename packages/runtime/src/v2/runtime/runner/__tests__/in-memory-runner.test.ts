@@ -5,6 +5,7 @@ import type {
   BaseEvent,
   Message,
   RunAgentInput,
+  RunAgentResult,
   RunErrorEvent,
   RunStartedEvent,
   TextMessageContentEvent,
@@ -38,7 +39,7 @@ class TestAgent extends AbstractAgent {
       onNewMessage?: (args: { message: Message }) => void;
       onRunStartedEvent?: () => void;
     },
-  ): Promise<void> {
+  ): Promise<RunAgentResult> {
     if (this.emitDefaultRunStarted) {
       const runStarted: RunStartedEvent = {
         type: EventType.RUN_STARTED,
@@ -52,13 +53,14 @@ class TestAgent extends AbstractAgent {
     for (const event of this.events) {
       options.onEvent({ event });
     }
+    return { result: undefined, newMessages: [] };
   }
 
   clone(): AbstractAgent {
     return new TestAgent(this.events, this.emitDefaultRunStarted);
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -72,7 +74,7 @@ class ThrowingAgent extends AbstractAgent {
     super();
   }
 
-  async runAgent(): Promise<void> {
+  async runAgent(): Promise<RunAgentResult> {
     throw this.error;
   }
 
@@ -80,7 +82,7 @@ class ThrowingAgent extends AbstractAgent {
     return new ThrowingAgent(this.error);
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
@@ -122,7 +124,14 @@ describe("InMemoryAgentRunner", () => {
           .run({
             threadId,
             agent,
-            input: { threadId, runId: "run-1", messages: [], state: {} },
+            input: {
+              threadId,
+              runId: "run-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
           })
           .pipe(toArray()),
       );
@@ -155,6 +164,8 @@ describe("InMemoryAgentRunner", () => {
               runId: "run-0",
               messages: [existing],
               state: {},
+              tools: [],
+              context: [],
             },
           })
           .pipe(toArray()),
@@ -176,6 +187,8 @@ describe("InMemoryAgentRunner", () => {
               runId: "run-1",
               messages: [existing, newMessage],
               state: { counter: 1 },
+              tools: [],
+              context: [],
             },
           })
           .pipe(toArray()),
@@ -206,6 +219,8 @@ describe("InMemoryAgentRunner", () => {
         runId: "run-preserve",
         messages: [],
         state: { fromAgent: true },
+        tools: [],
+        context: [],
       };
 
       const agent = new TestAgent(
@@ -230,6 +245,8 @@ describe("InMemoryAgentRunner", () => {
               runId: "run-preserve",
               messages: [{ id: "extra", role: "user", content: "hi" }],
               state: {},
+              tools: [],
+              context: [],
             },
           })
           .pipe(toArray()),
@@ -267,7 +284,14 @@ describe("InMemoryAgentRunner", () => {
           .run({
             threadId,
             agent,
-            input: { threadId, runId: "run-1", messages: [], state: {} },
+            input: {
+              threadId,
+              runId: "run-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
           })
           .pipe(toArray()),
       );
@@ -303,7 +327,14 @@ describe("InMemoryAgentRunner", () => {
           .run({
             threadId,
             agent,
-            input: { threadId, runId: "run-1", messages: [], state: {} },
+            input: {
+              threadId,
+              runId: "run-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
           })
           .pipe(toArray()),
       );
@@ -326,7 +357,14 @@ describe("InMemoryAgentRunner", () => {
           .run({
             threadId,
             agent,
-            input: { threadId, runId: "run-err", messages: [], state: {} },
+            input: {
+              threadId,
+              runId: "run-err",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
           })
           .pipe(toArray()),
       );
@@ -354,7 +392,14 @@ describe("InMemoryAgentRunner", () => {
           .run({
             threadId,
             agent,
-            input: { threadId, runId: "run-err-2", messages: [], state: {} },
+            input: {
+              threadId,
+              runId: "run-err-2",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
           })
           .pipe(toArray()),
       );
@@ -443,7 +488,7 @@ class MessagePopulatingTestAgent extends AbstractAgent {
     );
   }
 
-  protected run(): ReturnType<AbstractAgent["run"]> {
+  run(): ReturnType<AbstractAgent["run"]> {
     return EMPTY;
   }
 
