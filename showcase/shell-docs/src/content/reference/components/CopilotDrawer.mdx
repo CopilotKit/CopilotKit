@@ -40,8 +40,8 @@ import "@copilotkit/react-core/v2/styles.css";
   configuration so the welcome screen shows with no host wiring.
 </PropertyReference>
 
-<PropertyReference name="onUpsell" type="() => void">
-  Called when the unlicensed upsell CTA is clicked. The upsell shows when no
+<PropertyReference name="onUnlicensed" type="() => void">
+  Called when the Upgrade CTA is clicked. The unlicensed view shows when no
   license is configured or the `threads` feature is unlicensed; with no handler
   the CTA is inert (there is no built-in pricing navigation).
 </PropertyReference>
@@ -85,7 +85,7 @@ Project light-DOM children with a `slot` attribute to replace a region:
 | `header` | The drawer header (defaults to the `label` text). |
 | `empty` | The empty-state body shown when there are no threads. |
 | `footer` | A footer region (hidden until you project content). |
-| `upsell` | The unlicensed upsell block. |
+| `unlicensed` | The unlicensed block. |
 | `memories` | A reserved region for a future memories surface. |
 | `launcher-icon` | The icon inside the floating mobile launcher. |
 | `row:{id}` | Per-row content — prefer the `renderRow` prop, which manages this. |
@@ -101,7 +101,7 @@ Project light-DOM children with a `slot` attribute to replace a region:
 Style structural elements with `::part()`: `root`, `header`, `filters`,
 `filter-active`, `filter-all`, `new-thread-button`, `list`, `row-name`,
 `row-archive`, `row-unarchive`, `row-delete`, `loading`, `empty`, `error`,
-`retry-button`, `upsell`, `upsell-cta`, `footer`, `memories`, `launcher`,
+`retry-button`, `unlicensed`, `unlicensed-cta`, `footer`, `memories`, `launcher`,
 `confirm-dialog`, `confirm-delete`, `confirm-cancel`.
 
 ### CSS variable tokens
@@ -151,7 +151,7 @@ function App() {
 - **Deleting the active thread** resets to a fresh thread; **archiving** the active thread keeps you viewing it.
 - **Filter**: the element owns the Active/All filter; toggling it refetches server-side.
 - **Mobile**: below 768px the drawer is an off-canvas overlay with its own floating launcher; the launcher icon (`launcher-icon` slot) and position (`--cpk-drawer-launcher-*`) are customizable.
-- **License**: while unlicensed (or no license configured) the drawer shows the upsell instead of the list and issues no `/threads` request.
+- **License**: while unlicensed (or no license configured) the drawer shows the unlicensed view instead of the list and issues no `/threads` request.
 
 ## Related
 
