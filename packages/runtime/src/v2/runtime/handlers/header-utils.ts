@@ -82,10 +82,18 @@ export interface ForwardHeadersConfig {
   /** Additional header-name prefixes to strip (case-insensitive). */
   denyPrefixes?: string[];
   /**
-   * If set, switch to allowlist mode: ONLY these headers are candidates to
-   * forward, overriding the default `x-*` / `authorization` eligibility
-   * (case-insensitive). `deny` / `denyPrefixes` still apply and subtract from
-   * this set — a header listed in both `allow` and `deny` is NOT forwarded.
+   * If set (with at least one non-empty entry), switch to allowlist mode: ONLY
+   * these headers are candidates to forward, overriding the default `x-*` /
+   * `authorization` eligibility (case-insensitive). `deny` / `denyPrefixes`
+   * still apply and subtract from this set — a header listed in both `allow` and
+   * `deny` is NOT forwarded.
+   *
+   * Footgun: in allowlist mode the built-in DEFAULT denylist (and
+   * `useDefaultDenylist`) is BYPASSED — only your `allow` set, minus your own
+   * `deny` / `denyPrefixes`, is forwarded. Do NOT allow-list protected/platform
+   * headers (e.g. `x-copilotcloud-public-api-key`, `x-forwarded-*`) unless you
+   * truly intend to forward them, since the default protection does not apply
+   * here.
    */
   allow?: string[];
 }
@@ -97,16 +105,19 @@ export interface ForwardHeadersConfig {
  * - `useDefaultDenylist` defaults to `true` (the built-in denylist is active
  *   on upgrade); pass `false` to restore the previous wide-open behavior.
  * - `deny` / `denyPrefixes` extend (do not replace) the defaults.
- * - `allow`, if non-empty, switches to allowlist mode.
+ * - `allow` activates allowlist mode only when it has at least one non-empty
+ *   entry after normalization.
  *
  * All names/prefixes are trimmed, lowercased, and stripped of empty/
  * whitespace-only entries before use. Trimming/lowercasing keeps matching a
  * plain set/prefix check against the lowercased inbound keys; dropping empties
  * is a safety guard: a stray `denyPrefixes: [""]` would make `startsWith("")`
- * true for every header (silently denying ALL forwarding), and an
- * `allow: [""]` / `allow: [" "]` would seed the allowlist with an entry that
- * can never match a real header while still switching on the exclusive
- * allowlist mode — both are integrator typos, not intent, so we filter them.
+ * true for every header (silently denying ALL forwarding). Because empties are
+ * dropped BEFORE the allowlist-mode decision, an `allow: [""]` / `allow: [" "]`
+ * normalizes to an empty set and does NOT switch on allowlist mode — the runtime
+ * stays in denylist mode. Allowlist mode activates only when `allow` has at
+ * least one non-empty entry; these empty/whitespace-only entries are integrator
+ * typos, not intent, so we filter them.
  */
 function normalizeHeaderEntries(entries: string[] | undefined): string[] {
   return (entries ?? [])
