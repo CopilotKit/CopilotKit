@@ -24,6 +24,20 @@ const parentConfig = inject<ComputedRef<CopilotChatConfigurationValue> | null>(
   null,
 );
 const parentConfigValue = computed(() => parentConfig?.value ?? null);
+
+// Caller-authoritative when a threadId prop is supplied AND not explicitly
+// flagged non-explicit. A <CopilotKit>-seeded non-explicit id
+// (threadId + hasExplicitThreadId=false) stays overridable — the round-2 fix.
+const propIsAuthoritative = computed(
+  () => props.threadId !== undefined && props.hasExplicitThreadId !== false,
+);
+
+// Imperative active-thread override (a picked row or a fresh startNewThread).
+const activeThreadOverride = ref<{
+  threadId: string;
+  explicit: boolean;
+} | null>(null);
+
 const stableLabels = useShallowStableRef(computed(() => props.labels));
 
 const mergedLabels = computed<CopilotChatLabels>(() => ({
@@ -38,6 +52,8 @@ const resolvedAgentId = computed(
 
 const fallbackThreadId = randomUUID();
 const resolvedThreadId = computed(() => {
+  if (propIsAuthoritative.value) return props.threadId as string;
+  if (activeThreadOverride.value) return activeThreadOverride.value.threadId;
   if (props.threadId) return props.threadId;
   if (parentConfigValue.value?.threadId)
     return parentConfigValue.value.threadId;
@@ -45,11 +61,13 @@ const resolvedThreadId = computed(() => {
 });
 
 const resolvedHasExplicitThreadId = computed(() => {
-  const ownExplicit =
-    props.hasExplicitThreadId !== undefined
+  if (propIsAuthoritative.value) return true;
+  const own = activeThreadOverride.value
+    ? activeThreadOverride.value.explicit
+    : props.hasExplicitThreadId !== undefined
       ? props.hasExplicitThreadId
       : !!props.threadId;
-  return ownExplicit || !!parentConfigValue.value?.hasExplicitThreadId;
+  return own || !!parentConfigValue.value?.hasExplicitThreadId;
 });
 
 const shouldCreateModalState = computed(
@@ -76,6 +94,31 @@ const resolvedSetModalOpen = computed(() =>
     : parentConfigValue.value?.setModalOpen,
 );
 
+function setActiveThreadId(threadId: string, options?: { explicit?: boolean }) {
+  if (propIsAuthoritative.value) {
+    console.warn(
+      "[CopilotKit] Ignoring setActiveThreadId(): threadId is controlled " +
+        "via the `threadId` prop on CopilotChatConfigurationProvider.",
+    );
+    return;
+  }
+  activeThreadOverride.value = {
+    threadId,
+    explicit: options?.explicit ?? true,
+  };
+}
+
+function startNewThread() {
+  if (propIsAuthoritative.value) {
+    console.warn(
+      "[CopilotKit] Ignoring startNewThread(): threadId is controlled via " +
+        "the `threadId` prop on CopilotChatConfigurationProvider.",
+    );
+    return;
+  }
+  activeThreadOverride.value = { threadId: randomUUID(), explicit: false };
+}
+
 const configurationValue = computed<CopilotChatConfigurationValue>(() => ({
   labels: mergedLabels.value,
   agentId: resolvedAgentId.value,
@@ -83,6 +126,8 @@ const configurationValue = computed<CopilotChatConfigurationValue>(() => ({
   hasExplicitThreadId: resolvedHasExplicitThreadId.value,
   isModalOpen: resolvedIsModalOpen.value,
   setModalOpen: resolvedSetModalOpen.value,
+  setActiveThreadId,
+  startNewThread,
 }));
 
 provide(CopilotChatConfigurationKey, configurationValue);
