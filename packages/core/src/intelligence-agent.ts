@@ -17,6 +17,7 @@ import {
   EMPTY,
   Subject,
   Notification,
+  combineLatest,
   defer,
   dematerialize,
   lastValueFrom,
@@ -27,7 +28,9 @@ import {
 import type { ObservableNotification, Observable } from "rxjs";
 import {
   catchError,
+  delay,
   endWith,
+  filter,
   finalize,
   ignoreElements,
   mergeMap,
@@ -69,6 +72,7 @@ const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const REPLAY_COMPLETE_EVENT = "replay_complete";
 const STREAM_IDLE_EVENT = "stream_idle";
 const STOP_RUN_EVENT = "stop_run";
+const CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS = 100;
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
@@ -351,8 +355,11 @@ export class IntelligenceAgent extends AbstractAgent {
   protected connect(input: RunAgentInput): Observable<BaseEvent> {
     this.threadId = input.threadId;
     this.canonicalRunId = null;
+    const replayCursor = this.getReconnectCursor(input);
 
-    return defer(() => this.requestJoinCredentials$("connect", input)).pipe(
+    return defer(() =>
+      this.requestJoinCredentials$("connect", input, replayCursor),
+    ).pipe(
       switchMap((credentials) => {
         if (credentials === null) {
           return EMPTY;
@@ -367,6 +374,7 @@ export class IntelligenceAgent extends AbstractAgent {
         return this.observeThread$(canonicalInput, credentials, {
           completeOnRunError: false,
           streamMode: "connect",
+          replayCursor,
         });
       }),
     );
@@ -403,6 +411,7 @@ export class IntelligenceAgent extends AbstractAgent {
   private requestJoinCredentials$(
     mode: "run" | "connect",
     input: RunAgentInput,
+    replayCursor?: string | null,
   ): Observable<ThreadJoinCredentials | null> {
     return defer(async () => {
       try {
@@ -421,7 +430,12 @@ export class IntelligenceAgent extends AbstractAgent {
             state: input.state,
             forwardedProps: input.forwardedProps,
             ...(mode === "connect"
-              ? { lastSeenEventId: this.getReconnectCursor(input) }
+              ? {
+                  lastSeenEventId:
+                    replayCursor === undefined
+                      ? this.getReconnectCursor(input)
+                      : replayCursor,
+                }
               : {}),
           }),
           ...(this.config.credentials
@@ -515,7 +529,12 @@ export class IntelligenceAgent extends AbstractAgent {
           return throwError(() => error);
         }
 
-        return this.requestJoinCredentials$("connect", input).pipe(
+        const replayCursor = this.getReconnectCursor(input);
+        return this.requestJoinCredentials$(
+          "connect",
+          input,
+          replayCursor,
+        ).pipe(
           switchMap((refreshedCredentials) =>
             refreshedCredentials === null
               ? EMPTY
@@ -527,7 +546,7 @@ export class IntelligenceAgent extends AbstractAgent {
                   {
                     ...options,
                     channelMode: "connect",
-                    replayCursor: this.getReconnectCursor(input),
+                    replayCursor,
                   },
                 ),
           ),
@@ -590,23 +609,51 @@ export class IntelligenceAgent extends AbstractAgent {
         }),
         shareReplay({ bufferSize: 1, refCount: true }),
       );
+      const reconnectCursor = this.readDurableEventId(
+        options.replayCursor ?? this.getReconnectCursor(input),
+      );
+      let latestObservedReplayCursor: string | null = null;
       const threadEvents$ = this.observeThreadEvents$(
         input.threadId,
         channel$,
         options,
-      ).pipe(share());
+      ).pipe(
+        tap((payload) => {
+          latestObservedReplayCursor =
+            this.readEventId(payload) ?? latestObservedReplayCursor;
+        }),
+        share(),
+      );
       const replayComplete$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         REPLAY_COMPLETE_EVENT,
-      ).pipe(ignoreElements(), share());
+      ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdle$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         STREAM_IDLE_EVENT,
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdleCompletion$ =
-        options.streamMode === "connect" ? streamIdle$.pipe(take(1)) : EMPTY;
+        options.streamMode === "connect"
+          ? merge(
+              combineLatest([
+                replayComplete$.pipe(take(1)),
+                streamIdle$.pipe(take(1)),
+              ]),
+              streamIdle$.pipe(
+                take(1),
+                filter((payload) =>
+                  this.canFallbackCompleteConnect(
+                    payload,
+                    reconnectCursor,
+                    latestObservedReplayCursor,
+                  ),
+                ),
+                delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
+              ),
+            ).pipe(take(1))
+          : EMPTY;
       const threadCompleted$ = threadEvents$.pipe(
         ignoreElements(),
         endWith(null),
@@ -618,8 +665,11 @@ export class IntelligenceAgent extends AbstractAgent {
         this.joinThreadChannel$(channel$),
         this.observeSocketHealth$(socket$).pipe(takeUntil(terminal$)),
         threadEvents$.pipe(takeUntil(streamIdleCompletion$)),
-        replayComplete$.pipe(takeUntil(terminal$)),
-        streamIdleCompletion$.pipe(ignoreElements()),
+        replayComplete$.pipe(ignoreElements(), takeUntil(terminal$)),
+        streamIdleCompletion$.pipe(
+          ignoreElements(),
+          takeUntil(threadCompleted$),
+        ),
       ).pipe(finalize(() => this.cleanupOwned(ownChannel, ownSocket)));
     });
   }
@@ -771,7 +821,7 @@ export class IntelligenceAgent extends AbstractAgent {
       return;
     }
 
-    this.sharedState.lastSeenEventIds.set(threadId, eventId);
+    this.advanceLastSeenEventId(threadId, eventId);
   }
 
   private updateLastSeenEventIdFromControl(
@@ -783,6 +833,10 @@ export class IntelligenceAgent extends AbstractAgent {
       return;
     }
 
+    this.advanceLastSeenEventId(threadId, eventId);
+  }
+
+  private advanceLastSeenEventId(threadId: string, eventId: string): void {
     this.sharedState.lastSeenEventIds.set(threadId, eventId);
   }
 
@@ -792,9 +846,8 @@ export class IntelligenceAgent extends AbstractAgent {
       return null;
     }
 
-    const runnerEventId = (metadata as { cpki_event_id?: unknown })
-      .cpki_event_id;
-    return typeof runnerEventId === "string" ? runnerEventId : null;
+    const eventMetadata = metadata as { cpki_event_id?: unknown };
+    return this.readDurableEventId(eventMetadata.cpki_event_id);
   }
 
   private readControlEventId(payload: unknown): string | null {
@@ -802,9 +855,37 @@ export class IntelligenceAgent extends AbstractAgent {
       return null;
     }
 
-    const latestEventId = (payload as { latestEventId?: unknown })
-      .latestEventId;
-    return typeof latestEventId === "string" ? latestEventId : null;
+    const controlPayload = payload as {
+      latestEventId?: unknown;
+      latest_event_id?: unknown;
+    };
+    const latestEventId =
+      controlPayload.latestEventId ?? controlPayload.latest_event_id;
+    return this.readDurableEventId(latestEventId);
+  }
+
+  private readDurableEventId(eventId: unknown): string | null {
+    if (typeof eventId !== "string" || eventId.trim() === "") {
+      return null;
+    }
+
+    return eventId.startsWith("cpki_ingested") ? null : eventId;
+  }
+
+  private canFallbackCompleteConnect(
+    streamIdlePayload: unknown,
+    reconnectCursor: string | null,
+    latestObservedReplayCursor: string | null,
+  ): boolean {
+    const idleCursor = this.readControlEventId(streamIdlePayload);
+    if (!idleCursor) {
+      return true;
+    }
+
+    return (
+      idleCursor === reconnectCursor ||
+      idleCursor === latestObservedReplayCursor
+    );
   }
 
   private applyCanonicalRunIdentity(
