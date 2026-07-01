@@ -1,6 +1,6 @@
 import { describe, test, expect, vi } from "vitest";
 import * as gql from "../client";
-import * as agui from "@copilotkit/shared";
+import type * as agui from "@copilotkit/shared";
 import { aguiToGQL } from "./agui-to-gql";
 import { gqlToAGUI } from "./gql-to-agui";
 
@@ -557,5 +557,49 @@ describe("roundtrip message conversion", () => {
       const callArgs = mockRender.mock.calls[0][0];
       expect(callArgs).toHaveProperty("name", "unknownAction");
     }
+  });
+
+  test("agent state GQL -> AGUI -> GQL preserves runtime identity fields", () => {
+    const agentStateMsg = new gql.AgentStateMessage({
+      id: "agent-state-runtime-identity",
+      agentName: "researchAgent",
+      state: { topic: "runtime-boundary" },
+      role: gql.Role.Assistant,
+      threadId: "thread-123",
+      runId: "run-456",
+      nodeName: "planner",
+      active: true,
+    });
+
+    const aguiMsgs = gqlToAGUI([agentStateMsg]);
+    const gqlMsgs2 = aguiToGQL(aguiMsgs);
+
+    expect(gqlMsgs2).toHaveLength(1);
+    expect(gqlMsgs2[0]).toBeInstanceOf(gql.AgentStateMessage);
+    expect((gqlMsgs2[0] as any).id).toBe("agent-state-runtime-identity");
+    expect((gqlMsgs2[0] as any).agentName).toBe("researchAgent");
+    expect((gqlMsgs2[0] as any).state).toEqual({ topic: "runtime-boundary" });
+    expect((gqlMsgs2[0] as any).threadId).toBe("thread-123");
+    expect((gqlMsgs2[0] as any).runId).toBe("run-456");
+    expect((gqlMsgs2[0] as any).nodeName).toBe("planner");
+    expect((gqlMsgs2[0] as any).active).toBe(true);
+  });
+
+  test("agent state AGUI -> GQL -> AGUI preserves run id for recovery", () => {
+    const aguiMsg: agui.Message = {
+      id: "agent-state-agui-runtime",
+      role: "assistant",
+      agentName: "researchAgent",
+      state: { phase: "audit" },
+      runId: "run-agui-789",
+    } as agui.Message;
+
+    const gqlMsgs = aguiToGQL(aguiMsg);
+    const aguiMsgs2 = gqlToAGUI(gqlMsgs);
+
+    expect(gqlMsgs).toHaveLength(1);
+    expect(gqlMsgs[0]).toBeInstanceOf(gql.AgentStateMessage);
+    expect((gqlMsgs[0] as any).runId).toBe("run-agui-789");
+    expect(stripFunctions(aguiMsgs2[0])).toEqual(stripFunctions(aguiMsg));
   });
 });

@@ -71,6 +71,10 @@ export function aguiToGQL(
           agentName,
           state,
           role: gql.Role.Assistant,
+          threadId: (message as any).threadId,
+          runId: (message as any).runId,
+          nodeName: (message as any).nodeName,
+          active: (message as any).active,
         }),
       );
       // Optionally preserve render function
@@ -309,6 +313,10 @@ export function aguiMessageWithRenderToGQL(
         agentName: "unknown",
         state: {},
         role: gql.Role.Assistant,
+        threadId: (message as any).threadId,
+        runId: (message as any).runId,
+        nodeName: (message as any).nodeName,
+        active: (message as any).active,
       }),
     );
     if (coAgentStateRenders) {
