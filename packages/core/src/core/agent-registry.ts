@@ -11,7 +11,6 @@ import type {
 import {
   logger,
   RUNTIME_MODE_SSE,
-  RUNTIME_MODE_INTELLIGENCE,
   resolveDebugConfig,
 } from "@copilotkit/shared";
 import { ProxiedCopilotRuntimeAgent } from "../agent";

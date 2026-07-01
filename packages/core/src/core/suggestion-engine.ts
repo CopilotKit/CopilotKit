@@ -4,7 +4,6 @@ import type {
   RunAgentInput,
   Tool,
 } from "@ag-ui/client";
-import { Context } from "@ag-ui/client";
 import { randomUUID, partialJSONParse } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
 import type { CopilotKitCoreGetSuggestionsResult } from "./core";
@@ -157,12 +156,13 @@ export class SuggestionEngine {
     let runHandle: AbortableSuggestionRun | undefined = undefined;
     try {
       const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+      const resolvedProviderAgentId = config.providerAgentId ?? "default";
       const suggestionsProviderAgent = friends.getAgent(
-        config.providerAgentId ?? "default",
+        resolvedProviderAgentId,
       );
       if (!suggestionsProviderAgent) {
         throw new Error(
-          `Suggestions provider agent not found: ${config.providerAgentId}`,
+          `Suggestions provider agent not found: ${resolvedProviderAgentId}`,
         );
       }
       const suggestionsConsumerAgent = friends.getAgent(consumerAgentId);
@@ -187,11 +187,20 @@ export class SuggestionEngine {
         [suggestionId]: [],
       };
 
-      if (this.core.suggestions === true) {
+      if (
+        this.core.suggestions === true &&
+        this.core.runtimeTransport !== "single"
+      ) {
         // Stateless path: the runtime advertises a dedicated `/suggest`
         // endpoint that runs the provider agent directly (no thread, no client
         // clone). POST the consumer's messages plus the instruction and read
         // back the generated messages.
+        //
+        // Gated to non-`single` transports: a single-route runtime has no
+        // `/agent/:id/suggest` path (it expects a `{method,params,body}`
+        // envelope at one endpoint), so those deployments fall through to the
+        // clone+`runAgent` fallback below. Single-route deployments are not the
+        // persisting-thread/Intelligence case, so the clone fallback is correct.
         const controller = new AbortController();
         runHandle = { abortRun: () => controller.abort() };
         this._runningSuggestions[consumerAgentId] = [
@@ -199,7 +208,7 @@ export class SuggestionEngine {
           runHandle,
         ];
 
-        const providerAgentId = config.providerAgentId ?? "default";
+        const providerAgentId = resolvedProviderAgentId;
         const input: RunAgentInput = {
           threadId: suggestionId,
           runId: randomUUID(),
@@ -239,15 +248,39 @@ export class SuggestionEngine {
           },
         );
         if (!res.ok) {
-          throw new Error(`suggest failed: ${res.status}`);
+          // Surface the handler's error body when present. The body may not be
+          // JSON (or may lack a `message`), so guard the parse and fall back to
+          // the bare status.
+          const detail = await res
+            .json()
+            .then((body: unknown) =>
+              body !== null &&
+              typeof body === "object" &&
+              "message" in body &&
+              typeof (body as { message?: unknown }).message === "string"
+                ? (body as { message: string }).message
+                : undefined,
+            )
+            .catch(() => undefined);
+          throw new Error(
+            `suggest failed: ${res.status}${detail ? `: ${detail}` : ""}`,
+          );
         }
-        const { messages } = (await res.json()) as { messages: Message[] };
+        // Parse defensively: a malformed 200 body (missing/non-array
+        // `messages`) must not throw inside `extractSuggestions.findIndex`.
+        // Treat a bad body as "no messages" so loading finalizes cleanly.
+        const data: unknown = await res.json();
+        const messages: Message[] =
+          data !== null &&
+          typeof data === "object" &&
+          Array.isArray((data as { messages?: unknown }).messages)
+            ? (data as { messages: Message[] }).messages
+            : [];
         this.extractSuggestions(messages, suggestionId, consumerAgentId, false);
       } else {
         // Fallback path: clone the provider agent and run it client-side.
         const clonedAgent: AbstractAgent = suggestionsProviderAgent.clone();
         runHandle = clonedAgent;
-        //clonedAgent.agentId = suggestionId;
         clonedAgent.threadId = suggestionId;
         clonedAgent.messages = JSON.parse(
           JSON.stringify(suggestionsConsumerAgent.messages),
@@ -301,17 +334,21 @@ export class SuggestionEngine {
       // Finalize suggestions by marking them as no longer loading
       this.finalizeSuggestions(suggestionId, consumerAgentId);
 
-      // Remove this run from running suggestions
+      // Remove this run from the running set. `runHandle` may be undefined when
+      // generation threw before it was assigned (e.g. provider/consumer agent
+      // lookup failed); still perform cleanup so the loading balance holds. If
+      // no runs remain for this consumer, emit finished-loading — otherwise a
+      // subscriber that saw `started` would hang in the loading state.
       const runningAgents = this._runningSuggestions[consumerAgentId];
-      if (runHandle && runningAgents) {
-        const filteredAgents = runningAgents.filter((a) => a !== runHandle);
-        this._runningSuggestions[consumerAgentId] = filteredAgents;
+      const remaining = runHandle
+        ? (runningAgents ?? []).filter((a) => a !== runHandle)
+        : (runningAgents ?? []);
 
-        // If no more suggestions are running, emit loading end event
-        if (filteredAgents.length === 0) {
-          delete this._runningSuggestions[consumerAgentId];
-          await this.notifySuggestionsFinishedLoading(consumerAgentId);
-        }
+      if (remaining.length === 0) {
+        delete this._runningSuggestions[consumerAgentId];
+        await this.notifySuggestionsFinishedLoading(consumerAgentId);
+      } else {
+        this._runningSuggestions[consumerAgentId] = remaining;
       }
     }
   }
@@ -574,11 +611,15 @@ export class SuggestionEngine {
  * Detects an `AbortController`-driven cancellation so the stateless path can
  * treat it as an expected (non-error) outcome on clear/reload.
  */
-function isAbortError(error: unknown): boolean {
+export function isAbortError(error: unknown): boolean {
+  // Detect purely by name: a `DOMException` is NOT `instanceof Error` in Safari
+  // and older engines, so gating on `instanceof Error` would misclassify a real
+  // user abort as a failure in the browser (this package runs client-side).
   return (
-    error instanceof Error &&
-    (error.name === "AbortError" ||
-      (error instanceof DOMException && error.name === "AbortError"))
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    (error as { name?: unknown }).name === "AbortError"
   );
 }
 
