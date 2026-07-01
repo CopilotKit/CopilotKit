@@ -4,7 +4,7 @@ import {
   useComponent,
   useHumanInTheLoop,
 } from "@copilotkit/react-core/v2";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { z } from "zod";
 import useCreditCards from "@/app/actions";
 import { useAuthContext } from "@/components/auth-context";
@@ -68,6 +68,7 @@ const canonicalProcedure = (code: string): string =>
 const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   const { currentUser } = useAuthContext();
   const pathname = usePathname();
+  const router = useRouter();
   const {
     cards,
     policies,
@@ -182,9 +183,17 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             size="icon"
             onClick={() => {
               const operationParams = `?operation=${operation}`;
-              window.location.href = `${page!.toLowerCase()}${
-                operationAvailable ? operationParams : ""
-              }`;
+              // `/cards` mirrors the dashboard; the card tools/operations
+              // (add card, change PIN) are registered on the home route, so
+              // card requests must land on `/` or the operation dies on
+              // arrival.
+              const target = page === "/cards" ? "/" : page!.toLowerCase();
+              // Client-side navigation: a full reload (window.location) tears
+              // down the chat panel mid-run, so the conversation — and the
+              // in-flight operation — is lost the moment we navigate.
+              router.push(
+                `${target}${operationAvailable ? operationParams : ""}`,
+              );
               respond?.(page!);
             }}
             aria-label="Confirm Navigation"
