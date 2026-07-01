@@ -91,6 +91,40 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
   );
   const resolvedLimit = computed(() => toValue(input.limit));
   const resolvedEnabled = computed(() => toValue(input.enabled) ?? true);
+
+  // Thread-endpoint capability, derived from the runtime's `/info` payload.
+  // `threadEndpoints` is `undefined` on legacy runtimes that don't advertise
+  // the capability, so we treat "not explicitly false" as supported (matching
+  // React's `!== false` semantics) to preserve legacy thread behavior.
+  const threadListEndpointSupported = computed(
+    () => copilotkit.value.threadEndpoints?.list !== false,
+  );
+  const threadMutationsSupported = computed(
+    () => copilotkit.value.threadEndpoints?.mutations !== false,
+  );
+  // Connected, but the runtime explicitly does not serve the list endpoint.
+  const threadEndpointsUnavailable = computed(
+    () =>
+      !!copilotkit.value.runtimeUrl &&
+      copilotkit.value.runtimeConnectionStatus ===
+        CopilotKitCoreRuntimeConnectionStatus.Connected &&
+      !threadListEndpointSupported.value,
+  );
+  const threadEndpointsError = computed<Error | null>(() =>
+    threadEndpointsUnavailable.value
+      ? new Error(
+          "Thread endpoints are not available on this CopilotKit runtime",
+        )
+      : null,
+  );
+  const threadMutationsError = computed<Error | null>(() =>
+    threadMutationsSupported.value
+      ? null
+      : new Error(
+          "Thread mutations are not available on this CopilotKit runtime",
+        ),
+  );
+
   const headersKey = computed(() =>
     JSON.stringify(
       Object.entries(copilotkit.value.headers ?? {}).sort(([left], [right]) =>
@@ -122,6 +156,26 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     store.stop();
   });
 
+  // Register this store in core's single-slot thread-store registry so other
+  // surfaces (e.g. the chat view) can resolve the same store for the agent.
+  //
+  // Gated on `resolvedEnabled`: a disabled (e.g. unlicensed) drawer must not
+  // claim the agentId slot. The registry is single-slot/last-writer-wins, so
+  // registering an inert store would evict — and on unmount tear down — a
+  // co-mounted live store for the same agent. Staying unregistered while
+  // disabled leaves the live store's registration intact.
+  watch(
+    [resolvedEnabled, resolvedAgentId],
+    ([enabled, agentId], _prev, onCleanup) => {
+      if (!enabled) return;
+      copilotkit.value.registerThreadStore(agentId, store);
+      onCleanup(() => {
+        copilotkit.value.unregisterThreadStore(agentId);
+      });
+    },
+    { immediate: true },
+  );
+
   // Tracks whether we've dispatched the first real context to the store.
   // The store itself starts with `isLoading: false`, so before we dispatch
   // consumers would otherwise see an empty, non-loading state (empty-list
@@ -152,6 +206,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
       resolvedIncludeArchived,
       resolvedLimit,
       resolvedEnabled,
+      threadListEndpointSupported,
     ],
     ([
       runtimeUrl,
@@ -162,6 +217,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
       includeArchived,
       limit,
       enabled,
+      listEndpointSupported,
     ]) => {
       if (!runtimeUrl || !enabled) {
         store.setContext(null);
@@ -170,6 +226,15 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
       }
 
       if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
+        return;
+      }
+
+      // Connected, but the runtime explicitly does not serve the list
+      // endpoint: stay inert so no `/threads` fetch fires. The
+      // `threadEndpointsError` surfaces via `error` instead.
+      if (!listEndpointSupported) {
+        store.setContext(null);
+        hasDispatchedContext.value = false;
         return;
       }
 
@@ -198,22 +263,40 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     () =>
       !!copilotkit.value.runtimeUrl &&
       resolvedEnabled.value &&
+      !threadEndpointsUnavailable.value &&
       !hasDispatchedContext.value,
   );
 
   const isLoading = computed(() =>
-    runtimeError.value
+    runtimeError.value || threadEndpointsError.value
       ? false
       : preConnectLoading.value || storeIsLoading.value,
   );
 
+  // Folds developer/config errors (missing runtime URL, runtime without
+  // thread endpoints) together with genuine store errors. `listError` below
+  // deliberately excludes the config errors.
   const error = computed<Error | null>(
-    () => runtimeError.value ?? storeError.value,
+    () => runtimeError.value ?? threadEndpointsError.value ?? storeError.value,
   );
 
   // Genuine store errors only. Unlike `error`, this omits the dev/config
-  // `runtimeError` string so it is never shown in user-facing error UI.
+  // `runtimeError`/`threadEndpointsError` strings so they are never shown in
+  // user-facing error UI.
   const listError = computed<Error | null>(() => storeError.value);
+
+  // Reject mutations locally (before touching the network) when the runtime
+  // reports mutations are unsupported, matching React's `guardMutation`.
+  function guardMutation<TArgs extends unknown[]>(
+    mutation: (...args: TArgs) => Promise<void>,
+  ): (...args: TArgs) => Promise<void> {
+    return (...args: TArgs) => {
+      if (threadMutationsError.value) {
+        return Promise.reject(threadMutationsError.value);
+      }
+      return mutation(...args);
+    };
+  }
 
   return {
     threads: computed(() =>
@@ -238,10 +321,17 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     fetchMoreThreads: () => store.fetchNextPage(),
     refetchThreads: () => store.refetchThreads(),
     startNewThread: () => store.startNewThread(),
-    renameThread: (threadId: string, name: string) =>
+    renameThread: guardMutation((threadId: string, name: string) =>
       store.renameThread(threadId, name),
-    archiveThread: (threadId: string) => store.archiveThread(threadId),
-    unarchiveThread: (threadId: string) => store.unarchiveThread(threadId),
-    deleteThread: (threadId: string) => store.deleteThread(threadId),
+    ),
+    archiveThread: guardMutation((threadId: string) =>
+      store.archiveThread(threadId),
+    ),
+    unarchiveThread: guardMutation((threadId: string) =>
+      store.unarchiveThread(threadId),
+    ),
+    deleteThread: guardMutation((threadId: string) =>
+      store.deleteThread(threadId),
+    ),
   };
 }

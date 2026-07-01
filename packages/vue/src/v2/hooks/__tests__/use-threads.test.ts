@@ -361,22 +361,48 @@ function getDispatchedContexts(): Array<ThreadState["context"]> {
   return threadMocks.dispatchedContexts;
 }
 
+type ThreadEndpointRuntimeInfo = {
+  list: boolean;
+  inspect: boolean;
+  mutations: boolean;
+  realtimeMetadata: boolean;
+};
+
+const supportedThreadEndpoints: ThreadEndpointRuntimeInfo = {
+  list: true,
+  inspect: true,
+  mutations: true,
+  realtimeMetadata: true,
+};
+
+type MockCopilotKit = {
+  runtimeUrl: string | undefined;
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+  headers: Record<string, string>;
+  intelligence: { wsUrl?: string } | undefined;
+  threadEndpoints: ThreadEndpointRuntimeInfo | undefined;
+  registerThreadStore: ReturnType<typeof vi.fn>;
+  unregisterThreadStore: ReturnType<typeof vi.fn>;
+};
+
 function setupCopilotKit(
   runtimeUrl: string | undefined = "http://localhost:4000",
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Connected,
+  overrides: Partial<
+    Pick<MockCopilotKit, "threadEndpoints" | "intelligence">
+  > = {},
 ) {
-  const copilotkit = ref<{
-    runtimeUrl: string | undefined;
-    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
-    headers: Record<string, string>;
-    intelligence: { wsUrl?: string } | undefined;
-  }>({
+  const copilotkit = ref<MockCopilotKit>({
     runtimeUrl,
     runtimeConnectionStatus,
     headers: { Authorization: "Bearer test-token" },
     intelligence: {
       wsUrl: "ws://localhost:4000/client",
     },
+    threadEndpoints: supportedThreadEndpoints,
+    registerThreadStore: vi.fn(),
+    unregisterThreadStore: vi.fn(),
+    ...overrides,
   });
   mockUseCopilotKit.mockReturnValue({ copilotkit });
   return copilotkit;
@@ -1181,6 +1207,132 @@ describe("useThreads", () => {
         (context) => context !== null,
       );
       expect(nonNullContexts).toHaveLength(1);
+    });
+  });
+
+  describe("thread store registration (core registry)", () => {
+    it("registers the thread store with core when enabled", async () => {
+      const copilotkit = setupCopilotKit();
+
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      mountHook();
+
+      await vi.waitFor(() => {
+        expect(copilotkit.value.registerThreadStore).toHaveBeenCalledWith(
+          "agent-1",
+          expect.objectContaining({ select: expect.any(Function) }),
+        );
+      });
+    });
+
+    it("does not register the thread store when disabled (avoids evicting a live store for the same agent)", async () => {
+      const copilotkit = setupCopilotKit();
+
+      mountHook({ ...defaultInput, enabled: false });
+
+      await nextTick();
+
+      expect(copilotkit.value.registerThreadStore).not.toHaveBeenCalled();
+    });
+
+    it("unregisters the thread store with core on unmount", async () => {
+      const copilotkit = setupCopilotKit();
+
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      const { wrapper } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(copilotkit.value.registerThreadStore).toHaveBeenCalled();
+      });
+
+      wrapper.unmount();
+
+      expect(copilotkit.value.unregisterThreadStore).toHaveBeenCalledWith(
+        "agent-1",
+      );
+    });
+  });
+
+  describe("threadEndpoints gating", () => {
+    it("does not fetch when the runtime does not advertise the list endpoint and surfaces the endpoints-unavailable error", async () => {
+      setupCopilotKit(
+        "http://localhost:4000",
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+        {
+          threadEndpoints: {
+            list: false,
+            inspect: false,
+            mutations: false,
+            realtimeMetadata: false,
+          },
+          intelligence: undefined,
+        },
+      );
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(getResult().threads.value).toEqual([]);
+      const lastDispatched = getDispatchedContexts().at(-1);
+      expect(lastDispatched).toBeNull();
+      expect(getResult().error.value?.message).toBe(
+        "Thread endpoints are not available on this CopilotKit runtime",
+      );
+      // The config error must NOT leak into the user-facing list error.
+      expect(getResult().listError.value).toBeNull();
+    });
+
+    it("rejects mutations locally when the runtime reports mutations are unsupported", async () => {
+      setupCopilotKit(
+        "http://localhost:4000",
+        CopilotKitCoreRuntimeConnectionStatus.Connected,
+        {
+          threadEndpoints: {
+            list: true,
+            inspect: true,
+            mutations: false,
+            realtimeMetadata: false,
+          },
+          intelligence: undefined,
+        },
+      );
+      fetchMock.mockReturnValueOnce(jsonResponse({ threads: sampleThreads }));
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      fetchMock.mockClear();
+
+      await expect(getResult().renameThread("t-1", "Renamed")).rejects.toThrow(
+        "Thread mutations are not available on this CopilotKit runtime",
+      );
+      await expect(getResult().archiveThread("t-1")).rejects.toThrow(
+        "Thread mutations are not available on this CopilotKit runtime",
+      );
+      await expect(getResult().unarchiveThread("t-1")).rejects.toThrow(
+        "Thread mutations are not available on this CopilotKit runtime",
+      );
+      await expect(getResult().deleteThread("t-1")).rejects.toThrow(
+        "Thread mutations are not available on this CopilotKit runtime",
+      );
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });
