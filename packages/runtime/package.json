@@ -70,7 +70,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check-types": "tsc --noEmit",
-    "generate-graphql-schema": "rm -rf __snapshots__ && ts-node --transpile-only ./scripts/generate-gql-schema.ts",
+    "generate-graphql-schema": "node -e \"const fs=require('fs');fs.rmSync('__snapshots__',{recursive:true,force:true})\" && ts-node --transpile-only ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
