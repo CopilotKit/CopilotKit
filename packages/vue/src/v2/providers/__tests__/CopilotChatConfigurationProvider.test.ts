@@ -307,3 +307,46 @@ describe("CopilotChatConfigurationProvider", () => {
     expect(wrapper.find("[data-testid=child-modal]").text()).toBe("false");
   });
 });
+
+function harness(providerProps: Record<string, unknown>) {
+  let cfg!: ReturnType<typeof useCopilotChatConfiguration>;
+  const Probe = defineComponent({
+    setup() {
+      cfg = useCopilotChatConfiguration();
+      return () => h("div", cfg.value?.threadId ?? "none");
+    },
+  });
+  mount(CopilotChatConfigurationProvider, {
+    props: providerProps,
+    slots: { default: () => h(Probe) },
+  });
+  return () => cfg.value!;
+}
+
+describe("CopilotChatConfiguration active-thread setters", () => {
+  it("setActiveThreadId overrides a non-explicit seed and flags it explicit", async () => {
+    // A <CopilotKit>-style non-explicit seed: threadId prop + hasExplicitThreadId=false.
+    const cfg = harness({ threadId: "seed-uuid", hasExplicitThreadId: false });
+    cfg().setActiveThreadId("picked-thread");
+    await nextTick();
+    expect(cfg().threadId).toBe("picked-thread");
+    expect(cfg().hasExplicitThreadId).toBe(true);
+  });
+
+  it("startNewThread mints a fresh non-explicit thread", async () => {
+    const cfg = harness({ threadId: "seed-uuid", hasExplicitThreadId: false });
+    cfg().setActiveThreadId("picked-thread");
+    await nextTick();
+    cfg().startNewThread();
+    await nextTick();
+    expect(cfg().threadId).not.toBe("picked-thread");
+    expect(cfg().hasExplicitThreadId).toBe(false);
+  });
+
+  it("a caller-authoritative threadId prop is NOT overridable", async () => {
+    const cfg = harness({ threadId: "controlled" }); // no hasExplicitThreadId => authoritative
+    cfg().setActiveThreadId("ignored");
+    await nextTick();
+    expect(cfg().threadId).toBe("controlled");
+  });
+});
