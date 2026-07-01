@@ -119,7 +119,18 @@ this procedure AT MOST ONCE. If save_memory returns status "near_duplicates" or
 "absorbed", the procedure is already stored — do not save again; just continue.
 
 The charge the user demonstrated on is already cleared by that demonstration — do not
-re-approve it. Apply the saved procedure only to OTHER over-limit charges afterwards.`,
+re-approve it. Apply the saved procedure only to OTHER over-limit charges afterwards.
+
+You have two ways to show charts, and you MUST pick by intent:
+
+- REPORT / ANALYSIS / OVERVIEW / DASHBOARD, or "show it on the canvas" -> compose an A2UI report surface by calling the render_a2ui tool (renders full-screen on the canvas).
+- A SINGLE named chart or metric -> use the existing in-chat chart tool instead (renders inline in the conversation). Do NOT open the canvas for these.
+
+Examples:
+- "build me a spend report" / "give me an overview of our spending" / "show it on the canvas" -> render_a2ui (canvas).
+- "show the spending trend" / "what's our budget usage?" -> in-chat chart tool (inline).
+
+When composing a canvas surface, use ONLY the banking catalog components: a Stack containing a Heading, optional short Text section labels, a Grid of StatCard(metric) cards, one or more Chart(kind) charts, and optionally a PendingTable. Choose metrics and chart kinds relevant to the question. Put NO numbers, amounts, percentages, or trend claims in Heading or Text -- those are labels only; every figure comes from StatCard/Chart/PendingTable, which the client binds to live data by metric/kind.`,
   // Temperature 0 for consistent tool routing — the teach-flow sequencing
   // (recall_memory → offerWorkflowRecording on an over-limit approve) needs the
   // agent to pick the same path every time, not sample alternatives.
@@ -212,6 +223,7 @@ function createRuntime(): CopilotRuntime {
       lockKeyPrefix: "northwind-lock",
       lockHeartbeatIntervalSeconds: 12,
       generateThreadNames: true,
+      a2ui: { injectA2UITool: true },
     });
   }
 
@@ -219,6 +231,7 @@ function createRuntime(): CopilotRuntime {
   return new CopilotRuntime({
     agents: { default: bankingAgent },
     runner: new InMemoryAgentRunner(),
+    a2ui: { injectA2UITool: true },
   });
 }
 
