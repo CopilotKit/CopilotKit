@@ -1,9 +1,27 @@
 /**
+ * Hop-by-hop and platform/proxy headers that describe the inbound
+ * client→runtime hop and must not leak to the upstream agent. They match the
+ * `x-*` allowlist but shouldn't cross the trust boundary — e.g. Cloud Run
+ * validates `x-serverless-authorization` in preference to `authorization`, so
+ * forwarding it lets a platform-injected token shadow the service-to-service
+ * token the server set on the agent (see #5712).
+ */
+const NON_FORWARDABLE_HEADERS = new Set(["x-real-ip", "x-cloud-trace-context"]);
+const NON_FORWARDABLE_PREFIXES = ["x-forwarded-", "x-serverless-", "x-vercel-"];
+
+/**
  * Determines if a header should be forwarded based on the allowlist.
- * Forwards: authorization header and all x-* custom headers.
+ * Forwards the authorization header and x-* custom headers, except hop-by-hop
+ * and platform/proxy headers that belong to the inbound hop.
  */
 export function shouldForwardHeader(headerName: string): boolean {
   const lower = headerName.toLowerCase();
+  if (
+    NON_FORWARDABLE_HEADERS.has(lower) ||
+    NON_FORWARDABLE_PREFIXES.some((prefix) => lower.startsWith(prefix))
+  ) {
+    return false;
+  }
   return lower === "authorization" || lower.startsWith("x-");
 }
 
