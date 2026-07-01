@@ -7,6 +7,7 @@ import { CopilotChatDefaultLabels } from "./types";
 import type { CopilotChatConfigurationValue, CopilotChatLabels } from "./types";
 import type { CopilotChatConfigurationProviderProps } from "./CopilotChatConfigurationProvider.types";
 import { useShallowStableRef } from "../lib/shallow-stable";
+import { isMobileViewport } from "../lib/is-mobile-viewport";
 
 // Vue normalizes optional Boolean props to `false` when not supplied; declare
 // `undefined` defaults so we can faithfully distinguish "caller passed false"
@@ -119,13 +120,70 @@ function startNewThread() {
   activeThreadOverride.value = { threadId: randomUUID(), explicit: false };
 }
 
+// Drawer presence + open state. The top-most provider owns the state; a nested
+// provider proxies its parent so the whole chain shares one drawer.
+const ownDrawerOpen = ref(false);
+const ownDrawerCount = ref(0);
+
+function ownSetDrawerOpen(open: boolean) {
+  ownDrawerOpen.value = open;
+  // Mobile mutual-exclusion: opening the drawer closes the chat modal.
+  if (open && isMobileViewport()) {
+    resolvedSetModalOpen.value?.(false);
+  }
+}
+
+function ownRegisterDrawer(): () => void {
+  ownDrawerCount.value += 1;
+  return () => {
+    ownDrawerCount.value = Math.max(0, ownDrawerCount.value - 1);
+  };
+}
+
+const resolvedDrawerOpen = computed(() =>
+  parentConfigValue.value
+    ? parentConfigValue.value.drawerOpen
+    : ownDrawerOpen.value,
+);
+const resolvedSetDrawerOpen = computed(() =>
+  parentConfigValue.value
+    ? parentConfigValue.value.setDrawerOpen
+    : ownSetDrawerOpen,
+);
+const resolvedDrawerRegistered = computed(() =>
+  parentConfigValue.value
+    ? parentConfigValue.value.drawerRegistered
+    : ownDrawerCount.value > 0,
+);
+const resolvedRegisterDrawer = computed(() =>
+  parentConfigValue.value
+    ? parentConfigValue.value.registerDrawer
+    : ownRegisterDrawer,
+);
+
+// Mobile mutual-exclusion (other direction): opening the chat modal closes the
+// drawer. Delegates to the previously-resolved modal setter so the existing
+// parent/child modal-sync contract is preserved untouched.
+function setModalOpenWithDrawerExclusion(open: boolean) {
+  if (open && isMobileViewport()) {
+    resolvedSetDrawerOpen.value?.(false);
+  }
+  (shouldCreateModalState.value
+    ? setInternalModalOpen
+    : parentConfigValue.value?.setModalOpen)?.(open);
+}
+
 const configurationValue = computed<CopilotChatConfigurationValue>(() => ({
   labels: mergedLabels.value,
   agentId: resolvedAgentId.value,
   threadId: resolvedThreadId.value,
   hasExplicitThreadId: resolvedHasExplicitThreadId.value,
   isModalOpen: resolvedIsModalOpen.value,
-  setModalOpen: resolvedSetModalOpen.value,
+  setModalOpen: setModalOpenWithDrawerExclusion,
+  drawerOpen: resolvedDrawerOpen.value,
+  setDrawerOpen: resolvedSetDrawerOpen.value,
+  drawerRegistered: resolvedDrawerRegistered.value,
+  registerDrawer: resolvedRegisterDrawer.value,
   setActiveThreadId,
   startNewThread,
 }));
