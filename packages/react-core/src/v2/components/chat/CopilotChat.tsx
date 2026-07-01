@@ -458,7 +458,6 @@ export function CopilotChat({
     let detached = false;
     let wakeReconnectActive = false;
     let pendingAgentIdleDrain: ReturnType<typeof setTimeout> | null = null;
-    const wakeReconnectAbortController = new AbortController();
     const hasActiveAgentRun = () =>
       activeLocalRunIdsRef.current.size > 0 || agent.isRunning;
     const scheduleAgentIdleDrain = () => {
@@ -489,9 +488,6 @@ export function CopilotChat({
         activeWakeRunIdsRef.current.add(wakeRunId);
       }
       let didConnect = false;
-      if (agent instanceof HttpAgent) {
-        agent.abortController = wakeReconnectAbortController;
-      }
       try {
         await copilotkit.connectAgent({ agent });
         didConnect = true;
@@ -578,7 +574,6 @@ export function CopilotChat({
         startRunActivityReconnectRef.current = null;
       }
       if (wakeReconnectActive) {
-        wakeReconnectAbortController.abort();
         agent.detachActiveRun().catch(() => {});
       }
       activeWakeRunIdsRef.current.clear();

@@ -1185,6 +1185,7 @@ describe("IntelligenceAgent", () => {
       const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
       channel.serverPush("stream_idle", { latestEventId: "event-2" });
+      await new Promise((resolve) => setTimeout(resolve, 150));
       await flushAsyncWork();
 
       expect(resolved).toBe(false);
@@ -1230,7 +1231,7 @@ describe("IntelligenceAgent", () => {
       const channel = getChannel(agent)!;
       const socket = getSocket(agent)!;
       channel.triggerJoin("ok");
-      channel.serverPush("stream_idle", { latestEventId: "event-2" });
+      channel.serverPush("stream_idle", {});
       await flushAsyncWork();
 
       expect(channel.left).toBe(false);
