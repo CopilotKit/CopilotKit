@@ -59,6 +59,10 @@ const TOKEN_MAP: ReadonlyArray<
   ["radius", "radius"],
 ];
 
+function formatObjectKey(key: string): string {
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : JSON.stringify(key);
+}
+
 function main(): void {
   const css = readFileSync(GLOBALS_CSS, "utf8");
   const block = extractLightThemeBlock(css, GLOBALS_CSS);
@@ -73,7 +77,9 @@ function main(): void {
           `react-core globals.css changed shape — update TOKEN_MAP in generate-tokens.ts.`,
       );
     }
-    entries.push(`  "${drawerToken}": ${JSON.stringify(value)},`);
+    entries.push(
+      `  ${formatObjectKey(drawerToken)}: ${JSON.stringify(value)},`,
+    );
   }
 
   const file = `/**
@@ -91,7 +97,8 @@ export const GENERATED_DRAWER_TOKEN_DEFAULTS = {
 ${entries.join("\n")}
 } as const satisfies Record<string, string>;
 
-export type GeneratedDrawerTokenKey = keyof typeof GENERATED_DRAWER_TOKEN_DEFAULTS;
+export type GeneratedDrawerTokenKey =
+  keyof typeof GENERATED_DRAWER_TOKEN_DEFAULTS;
 `;
 
   writeFileSync(OUTPUT, file, "utf8");
