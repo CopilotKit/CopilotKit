@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, useAttrs } from "vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
+import { MOBILE_MAX_WIDTH_QUERY } from "../../lib/is-mobile-viewport";
 import CopilotModalHeaderCloseButton from "./CopilotModalHeaderCloseButton";
 import CopilotModalHeaderTitle from "./CopilotModalHeaderTitle";
 import { IconPanelLeftOpen } from "../icons";
@@ -45,7 +46,7 @@ function handleClose() {
   config.value?.setModalOpen?.(false);
 }
 
-// Tracks whether the viewport is in the mobile range (<=767px) — the same
+// Tracks whether the viewport is in the mobile range (MOBILE_MAX_WIDTH_QUERY) — the same
 // breakpoint the drawer + chat coordination use. SSR-safe: starts `false`
 // (desktop) so the server render and first client render agree, then syncs
 // on mount and on viewport changes.
@@ -65,7 +66,7 @@ onMounted(() => {
   ) {
     return;
   }
-  mobileMediaQuery = window.matchMedia("(max-width: 767px)");
+  mobileMediaQuery = window.matchMedia(MOBILE_MAX_WIDTH_QUERY);
   mobileMediaQuery.addEventListener("change", syncIsMobile);
   syncIsMobile();
 });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onScopeDispose, ref, watch } from "vue";
+import { computed, onMounted, onScopeDispose, ref, watchEffect } from "vue";
 // NOTE: the `<copilotkit-threads-drawer>` element is a Lit custom element whose
 // module evaluates `class ... extends HTMLElement` at import time, which throws
 // under SSR (Node has no DOM). It is therefore imported LAZILY (client-only,
@@ -93,9 +93,7 @@ const drawerThreads = computed(() =>
 // dynamic import resolves on the client.
 const mounted = ref(false);
 const elementTag = ref<string | null>(null);
-const elRef = ref<
-  (CopilotKitThreadsDrawerElement & Record<string, unknown>) | null
->(null);
+const elRef = ref<CopilotKitThreadsDrawerElement | null>(null);
 onMounted(async () => {
   const mod = await import("@copilotkit/web-components/threads-drawer");
   mod.defineCopilotKitThreadsDrawer();
@@ -104,23 +102,9 @@ onMounted(async () => {
 });
 
 // Imperatively push object/array/boolean PROPERTIES (v-bind on a custom element
-// would set string attributes for these). Runs whenever the element or any
-// source changes.
-watch(
-  [
-    elRef,
-    drawerThreads,
-    () => threadsApi.isLoading.value,
-    () => threadsApi.listError.value,
-    activeThreadId,
-    licensed,
-    licensePending,
-    () => threadsApi.hasMoreThreads.value,
-    () => threadsApi.isFetchingMoreThreads.value,
-    drawerOpen,
-    () => props.label,
-    () => props.licenseUrl,
-  ],
+// would set string attributes for these). Re-runs whenever the element or any
+// reactive value read in the body changes (auto-tracked by watchEffect).
+watchEffect(
   () => {
     const el = elRef.value;
     if (!el) return;
@@ -135,7 +119,7 @@ watch(
     if (props.label !== undefined) el.label = props.label;
     if (props.licenseUrl !== undefined) el.licenseUrl = props.licenseUrl;
   },
-  { flush: "post", immediate: true },
+  { flush: "post" },
 );
 
 // Announce drawer presence so the mobile header launcher renders. Register

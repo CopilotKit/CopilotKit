@@ -54,7 +54,7 @@ export interface CopilotChatConfigurationValue {
   /** Whether the mobile off-canvas drawer overlay is open. */
   drawerOpen: boolean;
   /**
-   * Toggles the drawer. On mobile (`<768px`) opening the drawer closes the
+   * Toggles the drawer. On mobile (`<=767px`) opening the drawer closes the
    * chat modal (mutual-exclusion). Desktop imposes no constraint.
    */
   setDrawerOpen: (open: boolean) => void;
