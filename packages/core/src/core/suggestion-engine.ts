@@ -1,4 +1,9 @@
-import type { AbstractAgent, Message, Tool } from "@ag-ui/client";
+import type {
+  AbstractAgent,
+  Message,
+  RunAgentInput,
+  Tool,
+} from "@ag-ui/client";
 import { Context } from "@ag-ui/client";
 import { randomUUID, partialJSONParse } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
@@ -12,13 +17,23 @@ import type {
 } from "../types";
 
 /**
+ * The minimal cancellation surface a running suggestion generation exposes.
+ * Both a cloned `AbstractAgent` (via `abortRun`) and the stateless fetch shim
+ * (which aborts an `AbortController`) satisfy this, so `clearSuggestions` can
+ * cancel either uniformly.
+ */
+interface AbortableSuggestionRun {
+  abortRun(): void;
+}
+
+/**
  * Manages suggestion generation, streaming, and lifecycle for CopilotKitCore.
  * Handles both dynamic (AI-generated) and static suggestions.
  */
 export class SuggestionEngine {
   private _suggestionsConfig: Record<string, SuggestionsConfig> = {};
   private _suggestions: Record<string, Record<string, Suggestion[]>> = {};
-  private _runningSuggestions: Record<string, AbstractAgent[]> = {};
+  private _runningSuggestions: Record<string, AbortableSuggestionRun[]> = {};
 
   constructor(private core: CopilotKitCore) {}
 
@@ -136,90 +151,160 @@ export class SuggestionEngine {
     config: DynamicSuggestionsConfig,
     consumerAgentId: string,
   ): Promise<void> {
-    let agent: AbstractAgent | undefined = undefined;
+    // Tracks the cancellable handle for this generation (a cloned agent in the
+    // fallback path, or a fetch-abort shim in the stateless path) so the
+    // `finally` block can remove exactly this run from the running set.
+    let runHandle: AbortableSuggestionRun | undefined = undefined;
     try {
-      const suggestionsProviderAgent = (
-        this.core as unknown as CopilotKitCoreFriendsAccess
-      ).getAgent(config.providerAgentId ?? "default");
+      const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+      const suggestionsProviderAgent = friends.getAgent(
+        config.providerAgentId ?? "default",
+      );
       if (!suggestionsProviderAgent) {
         throw new Error(
           `Suggestions provider agent not found: ${config.providerAgentId}`,
         );
       }
-      const suggestionsConsumerAgent = (
-        this.core as unknown as CopilotKitCoreFriendsAccess
-      ).getAgent(consumerAgentId);
+      const suggestionsConsumerAgent = friends.getAgent(consumerAgentId);
       if (!suggestionsConsumerAgent) {
         throw new Error(
           `Suggestions consumer agent not found: ${consumerAgentId}`,
         );
       }
 
-      const clonedAgent: AbstractAgent = suggestionsProviderAgent.clone();
-      agent = clonedAgent;
-      //agent.agentId = suggestionId;
-      agent.threadId = suggestionId;
-      agent.messages = JSON.parse(
-        JSON.stringify(suggestionsConsumerAgent.messages),
-      );
-      agent.state = JSON.parse(JSON.stringify(suggestionsConsumerAgent.state));
+      // The instruction prompt is identical for both the stateless and
+      // fallback paths, so build it once here.
+      const instructionContent = [
+        `Suggest what the user could say next. Provide clear, highly relevant suggestions by calling the \`copilotkitSuggest\` tool.`,
+        `Provide at least ${config.minSuggestions ?? 1} and at most ${config.maxSuggestions ?? 3} suggestions.`,
+        `The user has the following tools available: ${JSON.stringify(friends.buildFrontendTools(consumerAgentId))}.`,
+        ` ${config.instructions}`,
+      ].join("\n");
 
       // Initialize suggestion storage for this agent/suggestion combo
       this._suggestions[consumerAgentId] = {
         ...this._suggestions[consumerAgentId],
         [suggestionId]: [],
       };
-      this._runningSuggestions[consumerAgentId] = [
-        ...(this._runningSuggestions[consumerAgentId] ?? []),
-        agent,
-      ];
 
-      agent.addMessage({
-        id: suggestionId,
-        role: "user",
-        content: [
-          `Suggest what the user could say next. Provide clear, highly relevant suggestions by calling the \`copilotkitSuggest\` tool.`,
-          `Provide at least ${config.minSuggestions ?? 1} and at most ${config.maxSuggestions ?? 3} suggestions.`,
-          `The user has the following tools available: ${JSON.stringify((this.core as unknown as CopilotKitCoreFriendsAccess).buildFrontendTools(consumerAgentId))}.`,
-          ` ${config.instructions}`,
-        ].join("\n"),
-      });
+      if (this.core.suggestions === true) {
+        // Stateless path: the runtime advertises a dedicated `/suggest`
+        // endpoint that runs the provider agent directly (no thread, no client
+        // clone). POST the consumer's messages plus the instruction and read
+        // back the generated messages.
+        const controller = new AbortController();
+        runHandle = { abortRun: () => controller.abort() };
+        this._runningSuggestions[consumerAgentId] = [
+          ...(this._runningSuggestions[consumerAgentId] ?? []),
+          runHandle,
+        ];
 
-      await agent.runAgent(
-        {
-          context: (
-            this.core as unknown as CopilotKitCoreFriendsAccess
-          ).getContextForAgent(consumerAgentId),
+        const providerAgentId = config.providerAgentId ?? "default";
+        const input: RunAgentInput = {
+          threadId: suggestionId,
+          runId: randomUUID(),
+          state: {},
+          messages: [
+            ...suggestionsConsumerAgent.messages,
+            {
+              id: suggestionId,
+              role: "user",
+              content: instructionContent,
+            },
+          ],
+          tools: [SUGGEST_TOOL],
+          context: friends.getContextForAgent(consumerAgentId),
           forwardedProps: {
-            ...(this.core as unknown as CopilotKitCoreFriendsAccess).properties,
+            ...friends.properties,
             toolChoice: {
               type: "function",
               function: { name: "copilotkitSuggest" },
             },
           },
-          tools: [SUGGEST_TOOL],
-        },
-        {
-          onMessagesChanged: ({ messages }) => {
-            this.extractSuggestions(
-              messages,
-              suggestionId,
-              consumerAgentId,
-              true,
-            );
+        };
+
+        const res = await fetch(
+          `${this.core.runtimeUrl}/agent/${encodeURIComponent(providerAgentId)}/suggest`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...this.core.headers,
+            },
+            body: JSON.stringify(input),
+            signal: controller.signal,
+            ...(this.core.credentials
+              ? { credentials: this.core.credentials }
+              : {}),
           },
-        },
-      );
+        );
+        if (!res.ok) {
+          throw new Error(`suggest failed: ${res.status}`);
+        }
+        const { messages } = (await res.json()) as { messages: Message[] };
+        this.extractSuggestions(messages, suggestionId, consumerAgentId, false);
+      } else {
+        // Fallback path: clone the provider agent and run it client-side.
+        const clonedAgent: AbstractAgent = suggestionsProviderAgent.clone();
+        runHandle = clonedAgent;
+        //clonedAgent.agentId = suggestionId;
+        clonedAgent.threadId = suggestionId;
+        clonedAgent.messages = JSON.parse(
+          JSON.stringify(suggestionsConsumerAgent.messages),
+        );
+        clonedAgent.state = JSON.parse(
+          JSON.stringify(suggestionsConsumerAgent.state),
+        );
+
+        this._runningSuggestions[consumerAgentId] = [
+          ...(this._runningSuggestions[consumerAgentId] ?? []),
+          clonedAgent,
+        ];
+
+        clonedAgent.addMessage({
+          id: suggestionId,
+          role: "user",
+          content: instructionContent,
+        });
+
+        await clonedAgent.runAgent(
+          {
+            context: friends.getContextForAgent(consumerAgentId),
+            forwardedProps: {
+              ...friends.properties,
+              toolChoice: {
+                type: "function",
+                function: { name: "copilotkitSuggest" },
+              },
+            },
+            tools: [SUGGEST_TOOL],
+          },
+          {
+            onMessagesChanged: ({ messages }) => {
+              this.extractSuggestions(
+                messages,
+                suggestionId,
+                consumerAgentId,
+                true,
+              );
+            },
+          },
+        );
+      }
     } catch (error) {
-      console.warn("Error generating suggestions:", error);
+      // AbortError is expected when suggestions are cleared/reloaded mid-flight;
+      // swallow it quietly rather than surfacing it as a failure.
+      if (!isAbortError(error)) {
+        console.warn("Error generating suggestions:", error);
+      }
     } finally {
       // Finalize suggestions by marking them as no longer loading
       this.finalizeSuggestions(suggestionId, consumerAgentId);
 
-      // Remove this agent from running suggestions
+      // Remove this run from running suggestions
       const runningAgents = this._runningSuggestions[consumerAgentId];
-      if (agent && runningAgents) {
-        const filteredAgents = runningAgents.filter((a) => a !== agent);
+      if (runHandle && runningAgents) {
+        const filteredAgents = runningAgents.filter((a) => a !== runHandle);
         this._runningSuggestions[consumerAgentId] = filteredAgents;
 
         // If no more suggestions are running, emit loading end event
@@ -483,6 +568,18 @@ export class SuggestionEngine {
       "static suggestions added",
     );
   }
+}
+
+/**
+ * Detects an `AbortController`-driven cancellation so the stateless path can
+ * treat it as an expected (non-error) outcome on clear/reload.
+ */
+function isAbortError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" ||
+      (error instanceof DOMException && error.name === "AbortError"))
+  );
 }
 
 /**
