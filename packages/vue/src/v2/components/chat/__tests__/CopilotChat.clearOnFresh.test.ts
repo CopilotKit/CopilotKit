@@ -69,6 +69,9 @@ describe("CopilotChat clear-on-fresh", () => {
       | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
       | undefined;
     let startNewThread: (() => void) | undefined;
+    let setActiveThreadId:
+      | ((threadId: string, options?: { explicit?: boolean }) => void)
+      | undefined;
     let currentThreadId: string | undefined;
 
     const Probe = defineComponent({
@@ -77,6 +80,8 @@ describe("CopilotChat clear-on-fresh", () => {
         const chatConfig = useCopilotChatConfiguration();
         core = copilotkit.value;
         startNewThread = () => chatConfig.value?.startNewThread?.();
+        setActiveThreadId = (threadId, options) =>
+          chatConfig.value?.setActiveThreadId?.(threadId, options);
         return () => {
           currentThreadId = chatConfig.value?.threadId;
           return null;
@@ -109,15 +114,6 @@ describe("CopilotChat clear-on-fresh", () => {
     expect(seedAgent).toBeDefined();
     expect(currentThreadId).toBe("seed");
 
-    // Spy on the shared prototype method (rather than the seed instance)
-    // because the clear-on-fresh watch acts on the *newly resolved* clone
-    // that is created as part of the same transition triggered by
-    // `startNewThread()` — the seed clone itself is not touched.
-    const setMessagesProtoSpy = vi.spyOn(
-      Object.getPrototypeOf(seedAgent),
-      "setMessages",
-    );
-
     expect(startNewThread).toBeDefined();
     startNewThread!();
     await flushPromises();
@@ -125,23 +121,40 @@ describe("CopilotChat clear-on-fresh", () => {
 
     expect(currentThreadId).toBeDefined();
     expect(currentThreadId).not.toBe("seed");
-    const newAgent = getThreadClone(registryAgent, currentThreadId);
+    const newAgentThreadId = currentThreadId!;
+    const newAgent = getThreadClone(registryAgent, newAgentThreadId);
     expect(newAgent).toBeDefined();
     expect(newAgent).not.toBe(seedAgent);
 
-    // `cloneForThread` itself calls `setMessages([])` exactly once during
-    // construction of the new clone (an unconditional reset, unrelated to
-    // the clear-on-fresh watch). The watch fires a *second*, independent
-    // `setMessages([])` call against that same resolved agent. Distinguish
-    // the two via `mock.contexts` (the `this` receiver of each call).
-    const callsOnNewAgent = setMessagesProtoSpy.mock.calls.filter(
-      (_call, index) => setMessagesProtoSpy.mock.contexts[index] === newAgent,
-    );
-    const emptyCallsOnNewAgent = callsOnNewAgent.filter(
-      ([messages]) => Array.isArray(messages) && messages.length === 0,
-    );
+    // Primary, behavioral assertion: the new agent ends with no messages
+    // after the fresh switch (this alone doesn't distinguish the watch from
+    // clone construction, since `cloneForThread` also resets to `[]`).
+    expect(newAgent!.messages).toEqual([]);
 
-    expect(emptyCallsOnNewAgent.length).toBeGreaterThanOrEqual(2);
+    // Move to a third, unrelated non-explicit thread so `newAgent` is no
+    // longer the active agent, then dirty it directly (bypassing
+    // `cloneForThread`'s construction reset entirely, since the clone
+    // already exists in the cache).
+    expect(setActiveThreadId).toBeDefined();
+    setActiveThreadId!("elsewhere", { explicit: false });
+    await flushPromises();
+    await nextTick();
+    expect(currentThreadId).toBe("elsewhere");
+
+    newAgent!.setMessages([{ id: "m1", role: "user", content: "hi" } as never]);
+    expect(newAgent!.messages.length).toBe(1);
+
+    // Switch back to `newAgent`'s thread id, non-explicitly. Because the
+    // clone already exists in the cache, `getOrCreateThreadClone` returns it
+    // without reconstructing it — so any `setMessages([])` observed here
+    // must come from the clear-on-fresh watch, not from clone construction.
+    // This fails (messages stay dirty) if the watch's
+    // `currentAgent.setMessages([])` call is removed.
+    setActiveThreadId!(newAgentThreadId, { explicit: false });
+    await flushPromises();
+    await nextTick();
+
+    expect(currentThreadId).toBe(newAgentThreadId);
     expect(newAgent!.messages).toEqual([]);
   });
 });

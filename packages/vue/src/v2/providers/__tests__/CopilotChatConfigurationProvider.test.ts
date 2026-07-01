@@ -375,4 +375,24 @@ describe("CopilotChatConfiguration drawer-awareness", () => {
     expect(cfg().isModalOpen).toBe(false);
     vi.restoreAllMocks();
   });
+
+  it("opening the modal on mobile closes the drawer", async () => {
+    vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: true,
+    } as MediaQueryList);
+    const cfg = harness({ isModalDefaultOpen: true });
+
+    // First open the drawer (closing the modal via the existing exclusion).
+    cfg().setDrawerOpen(true);
+    await nextTick();
+    expect(cfg().drawerOpen).toBe(true);
+    expect(cfg().isModalOpen).toBe(false);
+
+    // Now open the modal and confirm the reverse exclusion closes the drawer.
+    cfg().setModalOpen(true);
+    await nextTick();
+    expect(cfg().isModalOpen).toBe(true);
+    expect(cfg().drawerOpen).toBe(false);
+    vi.restoreAllMocks();
+  });
 });
