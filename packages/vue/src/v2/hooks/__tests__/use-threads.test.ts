@@ -1136,6 +1136,51 @@ describe("useThreads", () => {
       expect(getResult().threads.value).toEqual([]);
       const lastDispatched = getDispatchedContexts().at(-1);
       expect(lastDispatched).toBeNull();
+      // A disabled consumer must not be stuck in a permanent loading state:
+      // preConnectLoading must factor in `enabled`, otherwise isLoading would
+      // stay true forever since hasDispatchedContext never gets set.
+      expect(getResult().isLoading.value).toBe(false);
+    });
+
+    it("re-arms the pre-connect loading indicator when enabled toggles false -> true", async () => {
+      const enabled = ref(false);
+
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      const { getResult } = mountHook({ ...defaultInput, enabled });
+
+      await nextTick();
+
+      // Disabled: inert, not loading, no fetch.
+      expect(getResult().isLoading.value).toBe(false);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(getDispatchedContexts().at(-1)).toBeNull();
+
+      // Re-enable: the pre-connect loading indicator must re-arm (i.e.
+      // hasDispatchedContext was reset to false on disable) so consumers see
+      // isLoading=true again rather than a stale empty-list flash while the
+      // new context dispatch/fetch is in flight.
+      enabled.value = true;
+      await nextTick();
+
+      expect(getResult().isLoading.value).toBe(true);
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/threads?agentId=agent-1"),
+        expect.objectContaining({ method: "GET" }),
+      );
+      const nonNullContexts = getDispatchedContexts().filter(
+        (context) => context !== null,
+      );
+      expect(nonNullContexts).toHaveLength(1);
     });
   });
 });

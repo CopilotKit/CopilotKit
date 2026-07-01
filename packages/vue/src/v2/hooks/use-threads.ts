@@ -165,6 +165,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     ]) => {
       if (!runtimeUrl || !enabled) {
         store.setContext(null);
+        hasDispatchedContext.value = false;
         return;
       }
 
@@ -194,7 +195,10 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
   );
 
   const preConnectLoading = computed(
-    () => !!copilotkit.value.runtimeUrl && !hasDispatchedContext.value,
+    () =>
+      !!copilotkit.value.runtimeUrl &&
+      resolvedEnabled.value &&
+      !hasDispatchedContext.value,
   );
 
   const isLoading = computed(() =>
