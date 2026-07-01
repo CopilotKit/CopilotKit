@@ -10,6 +10,7 @@ import {
   COPILOTKIT_THREADS_DRAWER_TAG,
   defineCopilotKitThreadsDrawer,
 } from "@copilotkit/web-components/threads-drawer";
+import type { CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement } from "@copilotkit/web-components/threads-drawer";
 // The package name `@copilotkit/vue` does not resolve from within its own
 // test suite (no build output / self-referencing node_modules symlink in
 // this workspace), so the package entry barrel is imported by relative
@@ -18,6 +19,7 @@ import {
 // root entry.
 import * as vue from "../../../../index";
 import type { LicenseContextValue } from "../../../providers/license-context";
+import type { Thread } from "../../../hooks/use-threads";
 
 const ThreadIdProbe = {
   setup() {
@@ -71,13 +73,16 @@ const useThreadsMocks = vi.hoisted(() => ({
   listError: { value: null as Error | null },
   error: { value: null as Error | null },
   useThreadsInput: null as Record<string, unknown> | null,
+  // Mutable so individual tests (e.g. row-slot projection) can seed threads;
+  // reset to empty in `beforeEach`.
+  threads: { value: [] as Thread[] },
 }));
 
 vi.mock("../../../hooks/use-threads", () => ({
   useThreads: (input: Record<string, unknown>) => {
     useThreadsMocks.useThreadsInput = input;
     return {
-      threads: { value: [] },
+      threads: useThreadsMocks.threads,
       isLoading: { value: false },
       error: useThreadsMocks.error,
       listError: useThreadsMocks.listError,
@@ -94,6 +99,17 @@ vi.mock("../../../hooks/use-threads", () => ({
     };
   },
 }));
+
+function makeThread(id: string): Thread {
+  return {
+    id,
+    agentId: "test-agent",
+    name: `Thread ${id}`,
+    archived: false,
+    createdAt: "2024-01-01T00:00:00.000Z",
+    updatedAt: "2024-01-01T00:00:00.000Z",
+  };
+}
 
 // Controllable stand-in for the license context so resolved-licensed and
 // resolved-unlicensed states can be driven directly, without routing a real
@@ -171,6 +187,7 @@ describe("CopilotThreadsDrawer", () => {
     useThreadsMocks.listError.value = null;
     useThreadsMocks.error.value = null;
     useThreadsMocks.useThreadsInput = null;
+    useThreadsMocks.threads.value = [];
     licenseContextMock.value = {
       status: null,
       license: null,
@@ -183,7 +200,7 @@ describe("CopilotThreadsDrawer", () => {
     const wrapper = await mountDrawer({ label: "Chats" });
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
-      .element as HTMLElement & Record<string, unknown>;
+      .element as unknown as CopilotKitThreadsDrawerElement;
 
     expect(el).toBeTruthy();
     expect(Array.isArray(el.threads)).toBe(true);
@@ -350,7 +367,7 @@ describe("CopilotThreadsDrawer", () => {
     await nextTick();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
-      .element as HTMLElement & Record<string, unknown>;
+      .element as unknown as CopilotKitThreadsDrawerElement;
 
     expect(el.open).toBe(false);
 
@@ -602,7 +619,7 @@ describe("CopilotThreadsDrawer", () => {
     const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
-      .element as HTMLElement & Record<string, unknown>;
+      .element as unknown as CopilotKitThreadsDrawerElement;
 
     expect(el.licensed).toBe(false);
     expect(
@@ -625,7 +642,7 @@ describe("CopilotThreadsDrawer", () => {
     const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
-      .element as HTMLElement & Record<string, unknown>;
+      .element as unknown as CopilotKitThreadsDrawerElement;
 
     expect(el.licensed).toBe(false);
 
@@ -640,7 +657,7 @@ describe("CopilotThreadsDrawer", () => {
     const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
-      .element as HTMLElement & Record<string, unknown>;
+      .element as unknown as CopilotKitThreadsDrawerElement;
 
     expect(el.error).toBe(listError.message);
 
@@ -657,7 +674,7 @@ describe("CopilotThreadsDrawer", () => {
     const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
-      .element as HTMLElement & Record<string, unknown>;
+      .element as unknown as CopilotKitThreadsDrawerElement;
 
     expect(el.error).toBeNull();
 
@@ -682,7 +699,7 @@ describe("CopilotThreadsDrawer", () => {
     });
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
-      .element as HTMLElement & Record<string, unknown>;
+      .element as unknown as CopilotKitThreadsDrawerElement;
 
     expect(el.licenseUrl).toBe("https://example.com/upgrade");
 
@@ -693,11 +710,121 @@ describe("CopilotThreadsDrawer", () => {
     const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
-      .element as HTMLElement & Record<string, unknown>;
+      .element as unknown as CopilotKitThreadsDrawerElement;
 
     expect(el.licenseUrl).toBe("https://docs.copilotkit.ai/intelligence");
 
     wrapper.unmount();
+  });
+
+  it('projects the row slot as a light-DOM child per thread with slot="row:<id>"', async () => {
+    useThreadsMocks.threads.value = [
+      makeThread("t-1"),
+      makeThread("t-2"),
+      makeThread("t-3"),
+    ];
+
+    // mountDrawer doesn't accept slots directly, so mount explicitly with
+    // the `row` scoped slot wired through.
+    const withRowSlot = mount(CopilotKitProvider, {
+      props: { runtimeUrl: "/api/copilotkit" },
+      slots: {
+        default: () =>
+          h(
+            CopilotChatConfigurationProvider,
+            { isModalDefaultOpen: true },
+            {
+              default: () =>
+                h(
+                  CopilotThreadsDrawer,
+                  {},
+                  {
+                    row: ({ thread }: { thread: Thread }) =>
+                      h("span", { class: "custom-row" }, `custom:${thread.id}`),
+                  },
+                ),
+            },
+          ),
+      },
+      attachTo: document.body,
+    });
+    await flushPromises();
+    await nextTick();
+
+    const el = withRowSlot.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    const projected = Array.from(
+      el.querySelectorAll<HTMLElement>("[slot^='row:']"),
+    );
+
+    expect(projected).toHaveLength(3);
+    const bySlot = new Map(
+      projected.map((node) => [node.getAttribute("slot"), node]),
+    );
+    for (const t of ["t-1", "t-2", "t-3"]) {
+      const node = bySlot.get(`row:${t}`);
+      expect(node).toBeTruthy();
+      expect(node?.querySelector(".custom-row")?.textContent).toBe(
+        `custom:${t}`,
+      );
+    }
+
+    withRowSlot.unmount();
+  });
+
+  it("returns focus to the chat input WITHIN the drawer's own chat-view container on a multi-chat page", async () => {
+    // Two independent chat-view containers, each with its own input, to
+    // prove `findChatInput` scopes to the drawer's ANCESTOR container rather
+    // than grabbing whichever input is first in document order.
+    const containerA = document.createElement("div");
+    containerA.setAttribute("data-testid", "copilot-chat-view");
+    const inputA = document.createElement("textarea");
+    inputA.setAttribute("data-testid", "copilot-chat-input-textarea");
+    containerA.appendChild(inputA);
+
+    const containerB = document.createElement("div");
+    containerB.setAttribute("data-testid", "copilot-chat-view");
+    const inputB = document.createElement("textarea");
+    inputB.setAttribute("data-testid", "copilot-chat-input-textarea");
+    containerB.appendChild(inputB);
+
+    document.body.appendChild(containerA);
+    document.body.appendChild(containerB);
+
+    // Mount the drawer directly into containerB, so the correct scoped
+    // target is inputB, NOT inputA (which appears first in DOM order).
+    const wrapper = mount(CopilotKitProvider, {
+      props: { runtimeUrl: "/api/copilotkit" },
+      slots: {
+        default: () =>
+          h(
+            CopilotChatConfigurationProvider,
+            { isModalDefaultOpen: true },
+            {
+              default: () => h(CopilotThreadsDrawer, {}),
+            },
+          ),
+      },
+      attachTo: containerB,
+    });
+    await flushPromises();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    el.dispatchEvent(
+      new CustomEvent("thread-selected", {
+        detail: { threadId: "t-42" },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+
+    expect(document.activeElement).toBe(inputB);
+    expect(document.activeElement).not.toBe(inputA);
+
+    wrapper.unmount();
+    containerA.remove();
+    containerB.remove();
   });
 });
 
