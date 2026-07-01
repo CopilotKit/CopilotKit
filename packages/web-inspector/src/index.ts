@@ -2943,7 +2943,7 @@ export class WebInspectorElement extends LitElement {
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
       },
-      { key: "memories", label: "Memories", icon: "Brain" as LucideIconName },
+      { key: "memories", label: "Learning", icon: "Brain" as LucideIconName },
     ];
   }
 
@@ -7054,7 +7054,7 @@ ${argsString}</pre
     return html`
       <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
         <div class="cpk-section-header" style="display:flex;align-items:center;justify-content:space-between;">
-          <h4>Memory store</h4>
+          <h4>Learning</h4>
           <div style="display:flex;align-items:center;gap:6px;">
             ${this.renderMemoryRealtimeIndicator()}
             <span
