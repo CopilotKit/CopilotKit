@@ -251,7 +251,14 @@ describe("fixture collision detection", () => {
     // would let the first-loaded framework's fixture hijack another's render calls.
     // Unique prompts keep each framework's inner fixtures distinct → no new
     // shared-scope duplicates, so this ceiling stays at the pre-recovery baseline.
-    const KNOWN_DUPLICATE_CEILING = 291;
+    //
+    // Bumped 291 → 297 (+6) for the Claude SDK demo parity port after
+    // de-duplicating avoidable no-context beautiful-chat fallbacks. The
+    // remaining new overlaps are context-scoped cross-demo fixture aliases
+    // (interrupt/gen-ui-interrupt, declarative/render_a2ui, and copied
+    // LangGraph headless/feature-parity routes) that are disambiguated by
+    // fixtureFile/demo route like the existing integration parity copies above.
+    const KNOWN_DUPLICATE_CEILING = 297;
 
     const collisions: string[] = [];
 
@@ -322,10 +329,13 @@ describe("fixture collision detection", () => {
     // (its per-integration fixtures mirror the Python strands sibling —
     // calculator + tool-rendering pill variants), runtime-disambiguated by
     // toolCallId / toolName / turnIndex like the other per-integration copies.
-    // Bumped 137→139: +2 existing ag2 D6 shadows counted after this PR rebased
-    // against current main ("project planning" and "build a modern calculator"),
-    // both tracked as baseline cleanup debt rather than changed routing here.
-    const KNOWN_SHADOW_CEILING = 139;
+    // Bumped 139→142 after this PR rebased against current main. The remaining
+    // counted shadows are pre-existing D4/D6 baseline overlaps (for example
+    // weather/AAPL/project-planning/calculator prompt variants), not Claude SDK
+    // local fallback aliases. Browser-local Claude demos now get an AIMock
+    // context header from server-side HttpAgent defaults instead of relying on
+    // context-less prompt aliases.
+    const KNOWN_SHADOW_CEILING = 142;
 
     const shadows: string[] = [];
 

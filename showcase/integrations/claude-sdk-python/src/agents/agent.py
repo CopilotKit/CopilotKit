@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import traceback
 from collections.abc import AsyncIterator
 from textwrap import dedent
@@ -39,6 +40,11 @@ from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
+from agents.claude_agent_sdk_adapter import (
+    run_with_claude_agent_sdk,
+    should_use_claude_agent_sdk,
+)
+
 
 # Serve /health via middleware so it short-circuits BEFORE route resolution.
 # Any later catch-all mount at "/" (whether added here or by a downstream
@@ -52,6 +58,8 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 
 load_dotenv()
+
+DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4.6"
 
 # Import shared tool implementations (via tools symlink -> ../../shared/python/tools)
 from tools import (
@@ -280,6 +288,284 @@ TOOLS: list[dict[str, Any]] = [
     },
 ]
 
+MANAGE_TODOS_TOOL_SCHEMA: dict[str, Any] = {
+    "name": "manage_todos",
+    "description": (
+        "Replace the beautiful-chat task manager todo list. Always include every "
+        "todo that should remain visible."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "todos": {
+                "type": "array",
+                "description": "The complete task-manager todo list.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "title": {"type": "string"},
+                        "description": {"type": "string"},
+                        "emoji": {"type": "string"},
+                        "status": {
+                            "type": "string",
+                            "enum": ["pending", "completed"],
+                        },
+                    },
+                    "required": ["title", "description", "emoji", "status"],
+                },
+            },
+        },
+        "required": ["todos"],
+    },
+}
+
+GET_TODOS_TOOL_SCHEMA: dict[str, Any] = {
+    "name": "get_todos",
+    "description": "Get the current beautiful-chat task manager todo list.",
+    "input_schema": {
+        "type": "object",
+        "properties": {},
+    },
+}
+
+BEAUTIFUL_CHAT_TOOLS = [
+    *TOOLS,
+    MANAGE_TODOS_TOOL_SCHEMA,
+    GET_TODOS_TOOL_SCHEMA,
+]
+
+# @region[backend-demo-tool-sets]
+# Dedicated demo tool sets. These demos register render-only frontend
+# surfaces, so their executable tools must stay backend-owned.
+HEADLESS_GET_WEATHER_TOOL_SCHEMA = TOOLS[0]
+
+HEADLESS_GET_STOCK_PRICE_TOOL_SCHEMA: dict[str, Any] = {
+    "name": "get_stock_price",
+    "description": (
+        "Get a mock current price for a stock ticker. Returns ticker, "
+        "price_usd, and change_pct."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "ticker": {
+                "type": "string",
+                "description": "Stock ticker symbol, e.g. AAPL.",
+            },
+        },
+        "required": ["ticker"],
+    },
+}
+
+SEARCH_FLIGHTS_SIMPLE_TOOL_SCHEMA: dict[str, Any] = {
+    "name": "search_flights",
+    "description": (
+        "Search for mock flights between two airports. Returns origin, "
+        "destination, and a list of flights."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "origin": {"type": "string", "description": "Origin airport code."},
+            "destination": {
+                "type": "string",
+                "description": "Destination airport code.",
+            },
+        },
+        "required": ["origin", "destination"],
+    },
+}
+
+ROLL_D20_TOOL_SCHEMA: dict[str, Any] = {
+    "name": "roll_d20",
+    "description": (
+        "Roll a 20-sided die. Accepts an optional value for deterministic demos."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "value": {
+                "type": "number",
+                "description": "Optional fixed result.",
+            },
+        },
+    },
+}
+
+SET_STEPS_TOOL_SCHEMA: dict[str, Any] = {
+    "name": "set_steps",
+    "description": (
+        "Publish the current plan and step statuses. The provided list replaces "
+        "the previous state."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "steps": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string"},
+                        "title": {"type": "string"},
+                        "status": {
+                            "type": "string",
+                            "enum": ["pending", "in_progress", "completed"],
+                        },
+                    },
+                    "required": ["id", "title", "status"],
+                },
+            },
+        },
+        "required": ["steps"],
+    },
+}
+
+# @region[state-streaming-middleware]
+WRITE_DOCUMENT_TOOL_SCHEMA: dict[str, Any] = {
+    "name": "write_document",
+    "description": (
+        "Write a document into shared agent state. Use for poems, emails, "
+        "summaries, explainers, and other drafted text."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "document": {
+                "type": "string",
+                "description": "The full document text to render in shared state.",
+            },
+        },
+        "required": ["document"],
+    },
+}
+
+SHARED_STATE_STREAMING_TOOLS = [WRITE_DOCUMENT_TOOL_SCHEMA]
+
+SHARED_STATE_STREAMING_SYSTEM_PROMPT = dedent("""
+    You are a collaborative writing assistant. Whenever the user asks you to
+    write, draft, or revise text, call `write_document` with the full content
+    in the `document` argument. Do not paste the document into the chat message
+    directly; the UI renders shared state.
+""").strip()
+
+
+def _decode_partial_json_string(raw: str) -> str | None:
+    """Decode the largest safe prefix of a streamed JSON string literal body."""
+    while raw.endswith("\\"):
+        raw = raw[:-1]
+    unicode_start = raw.rfind("\\u")
+    if unicode_start != -1:
+        hex_digits = raw[unicode_start + 2 :]
+        if len(hex_digits) < 4 or any(
+            c not in "0123456789abcdefABCDEF" for c in hex_digits
+        ):
+            raw = raw[:unicode_start]
+    try:
+        return json.loads(f'"{raw}"')
+    except json.JSONDecodeError:
+        return None
+
+
+def _partial_json_string_property(source: str, key: str) -> str | None:
+    key_literal = json.dumps(key)
+    key_pos = source.find(key_literal)
+    if key_pos < 0:
+        return None
+    colon_pos = source.find(":", key_pos + len(key_literal))
+    if colon_pos < 0:
+        return None
+
+    value_start = colon_pos + 1
+    while value_start < len(source) and source[value_start].isspace():
+        value_start += 1
+    if value_start >= len(source) or source[value_start] != '"':
+        return None
+
+    raw_chars: list[str] = []
+    escaped = False
+    for char in source[value_start + 1 :]:
+        if escaped:
+            raw_chars.append("\\" + char)
+            escaped = False
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if char == '"':
+            break
+        raw_chars.append(char)
+    if escaped:
+        raw_chars.append("\\")
+
+    return _decode_partial_json_string("".join(raw_chars))
+
+
+# @endregion[state-streaming-middleware]
+
+HEADLESS_COMPLETE_TOOLS = [
+    HEADLESS_GET_WEATHER_TOOL_SCHEMA,
+    HEADLESS_GET_STOCK_PRICE_TOOL_SCHEMA,
+]
+
+TOOL_RENDERING_TOOLS = [
+    HEADLESS_GET_WEATHER_TOOL_SCHEMA,
+    HEADLESS_GET_STOCK_PRICE_TOOL_SCHEMA,
+    SEARCH_FLIGHTS_SIMPLE_TOOL_SCHEMA,
+    ROLL_D20_TOOL_SCHEMA,
+]
+
+GEN_UI_AGENT_TOOLS = [SET_STEPS_TOOL_SCHEMA]
+
+HEADLESS_COMPLETE_SYSTEM_PROMPT = dedent("""
+    You are a helpful, concise assistant wired into a headless chat surface.
+
+    Routing rules:
+    - If the user asks about weather, call `get_weather`.
+    - If the user asks about a stock or ticker, call `get_stock_price`.
+    - If the user asks you to highlight, flag, or mark a note, call the
+      frontend `highlight_note` tool with text and a color.
+    - Otherwise, reply in plain text.
+
+    After a tool returns, write one short sentence summarizing the result.
+    Never fabricate data a tool could provide.
+""").strip()
+
+TOOL_RENDERING_SYSTEM_PROMPT = dedent("""
+    You are a helpful, concise assistant in a demo that renders every tool
+    call as a branded card. Pick the right backend tool for each user question.
+
+    Routing rules:
+    - Weather questions: call `get_weather`.
+    - Flight searches: call `search_flights` with origin and destination codes.
+    - Stock/ticker questions: call `get_stock_price`.
+    - A d20 roll: call `roll_d20`. If the user asks for several rolls, call it
+      once per roll.
+    - "Chain a few tools": call get_weather, search_flights, and roll_d20.
+
+    After the tools return, write one short sentence summarizing the results.
+    Never fabricate data a tool could provide.
+""").strip()
+
+GEN_UI_AGENT_SYSTEM_PROMPT = dedent("""
+    You are an agentic planner. For each user request, follow this exact
+    sequence:
+    1. Plan exactly 3 concrete steps and call `set_steps` once with all three
+       steps at status "pending".
+    2. Move step 1 to "in_progress", then "completed", calling `set_steps`
+       after each transition.
+    3. Move step 2 to "in_progress", then "completed", calling `set_steps`
+       after each transition.
+    4. Move step 3 to "in_progress", then "completed", calling `set_steps`
+       after each transition.
+    5. Send one final conversational assistant message summarizing the plan.
+
+    Never call set_steps in parallel. Always pass the full step list.
+""").strip()
+
+# @endregion[backend-demo-tool-sets]
+
 SYSTEM_PROMPT = dedent("""
     You are a helpful sales assistant that manages a sales pipeline, discusses weather,
     queries financial data, schedules meetings, and helps with planning.
@@ -306,6 +592,24 @@ SYSTEM_PROMPT = dedent("""
     Keep responses concise and friendly.
 """).strip()
 
+BEAUTIFUL_CHAT_SYSTEM_PROMPT = dedent("""
+    You are a helpful CopilotKit demo assistant. Use tools to render rich UI
+    instead of describing UI in prose.
+
+    Routing rules:
+    - Charts: call `query_data` first when the user asks for financial data,
+      then use the frontend chart tool requested by the user.
+    - Flights: call `search_flights` with exactly two complete flight objects
+      so the A2UI flight cards can render.
+    - Dashboards: call `query_data`, then `generate_a2ui`.
+    - Todos: call `enableAppMode` first, then `manage_todos` with the full
+      todo list.
+    - Meetings and theme changes are frontend tools; call the matching
+      frontend tool when requested.
+
+    After tools complete, summarize the result in one short sentence.
+""").strip()
+
 
 # ===========
 # AG-UI runner
@@ -314,8 +618,71 @@ SYSTEM_PROMPT = dedent("""
 
 class AgentState(BaseModel):
     todos: list[dict] = []
+    steps: list[dict] = []
+    document: str = ""
 
 
+def _coerce_beautiful_chat_todos(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+
+    todos: list[dict[str, Any]] = []
+    for raw_todo in value:
+        if not isinstance(raw_todo, dict):
+            continue
+        todos.append(
+            {
+                "id": str(raw_todo.get("id") or f"todo-{random.randint(1000, 9999)}"),
+                "title": str(raw_todo.get("title") or ""),
+                "description": str(raw_todo.get("description") or ""),
+                "emoji": str(raw_todo.get("emoji") or "*"),
+                "status": (
+                    "completed" if raw_todo.get("status") == "completed" else "pending"
+                ),
+            }
+        )
+    return todos
+
+
+def _get_stock_price_impl(ticker: str) -> dict[str, Any]:
+    return {
+        "ticker": ticker.upper(),
+        "price_usd": 189.42,
+        "change_pct": 1.27,
+    }
+
+
+def _search_flights_by_route_impl(origin: str, destination: str) -> dict[str, Any]:
+    return {
+        "origin": origin,
+        "destination": destination,
+        "flights": [
+            {
+                "airline": "United",
+                "flight": "UA231",
+                "depart": "08:15",
+                "arrive": "16:45",
+                "price_usd": 348,
+            },
+            {
+                "airline": "Delta",
+                "flight": "DL412",
+                "depart": "11:20",
+                "arrive": "19:50",
+                "price_usd": 312,
+            },
+            {
+                "airline": "JetBlue",
+                "flight": "B6722",
+                "depart": "17:05",
+                "arrive": "01:35",
+                "price_usd": 289,
+            },
+        ],
+    }
+
+
+# @region[backend-tool-execution]
 def _execute_tool(
     name: str,
     tool_input: dict[str, Any],
@@ -323,11 +690,20 @@ def _execute_tool(
     conversation_messages: list[dict[str, Any]] | None = None,
 ) -> tuple[str, AgentState | None]:
     """Execute backend tools and return (result_text, new_state_or_None)."""
+    # @region[weather-tool-backend]
     if name == "get_weather":
         return json.dumps(get_weather_impl(tool_input["location"])), None
+    # @endregion[weather-tool-backend]
 
     if name == "query_data":
         return json.dumps(query_data_impl(tool_input["query"])), None
+
+    if name == "manage_todos":
+        state.todos = _coerce_beautiful_chat_todos(tool_input.get("todos"))
+        return json.dumps({"status": "updated", "count": len(state.todos)}), state
+
+    if name == "get_todos":
+        return json.dumps(_coerce_beautiful_chat_todos(state.todos)), None
 
     if name == "manage_sales_todos":
         result = manage_sales_todos_impl(tool_input["todos"])
@@ -352,19 +728,52 @@ def _execute_tool(
         return f"Background change requested: {tool_input.get('background', '')}", None
 
     if name == "search_flights":
-        flights_data = tool_input.get("flights", [])
-        typed_flights = [Flight(**f) for f in flights_data]
-        result = search_flights_impl(typed_flights)
-        return json.dumps(result), None
+        if "flights" in tool_input:
+            flights_data = tool_input.get("flights", [])
+            typed_flights = [Flight(**f) for f in flights_data]
+            result = search_flights_impl(typed_flights)
+            return json.dumps(result), None
+        return json.dumps(
+            _search_flights_by_route_impl(
+                str(tool_input.get("origin", "")),
+                str(tool_input.get("destination", "")),
+            )
+        ), None
+
+    if name == "get_stock_price":
+        return json.dumps(
+            _get_stock_price_impl(str(tool_input.get("ticker", "")))
+        ), None
+
+    if name == "roll_d20":
+        value = tool_input.get("value")
+        return json.dumps(
+            {
+                "value": int(value)
+                if isinstance(value, (int, float))
+                else random.randint(1, 20)
+            }
+        ), None
+
+    if name == "set_steps":
+        steps = tool_input.get("steps", [])
+        state.steps = [dict(step) for step in steps if isinstance(step, dict)]
+        return json.dumps({"status": "updated", "count": len(state.steps)}), state
+
+    if name == "write_document":
+        document = str(tool_input.get("document", ""))
+        state.document = document
+        return json.dumps({"status": "updated", "length": len(document)}), state
 
     if name == "generate_a2ui":
         context = tool_input.get("context", "")
-        import openai
-
-        client = openai.OpenAI()
-        llm_messages: list[dict[str, Any]] = [
-            {"role": "system", "content": context or "Generate a useful dashboard UI."},
-        ]
+        client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+        render_tool_schema = {
+            "name": RENDER_A2UI_TOOL_SCHEMA["name"],
+            "description": RENDER_A2UI_TOOL_SCHEMA["description"],
+            "input_schema": RENDER_A2UI_TOOL_SCHEMA["parameters"],
+        }
+        llm_messages: list[dict[str, Any]] = []
         # Pass conversation messages to the secondary LLM for context
         if conversation_messages:
             llm_messages.extend(conversation_messages)
@@ -375,22 +784,30 @@ def _execute_tool(
                     "content": "Generate a dynamic A2UI dashboard based on the conversation.",
                 }
             )
-        response = client.chat.completions.create(
-            model="gpt-4.1",
+        response = client.messages.create(
+            model=os.getenv("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL),
+            max_tokens=4096,
+            system=context or "Generate a useful dashboard UI.",
             messages=llm_messages,
-            tools=[{"type": "function", "function": RENDER_A2UI_TOOL_SCHEMA}],
-            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+            tools=[render_tool_schema],
+            tool_choice={"type": "tool", "name": "render_a2ui"},
         )
-        choice = response.choices[0]
-        if choice.message.tool_calls:
-            args = json.loads(choice.message.tool_calls[0].function.arguments)
-            a2ui_result = build_a2ui_operations_from_tool_call(args)
-            return json.dumps(a2ui_result), None
+        for block in response.content:
+            if (
+                getattr(block, "type", None) == "tool_use"
+                and block.name == "render_a2ui"
+            ):
+                a2ui_result = build_a2ui_operations_from_tool_call(dict(block.input))
+                return json.dumps(a2ui_result), None
         return json.dumps({"error": "LLM did not call render_a2ui"}), None
 
     return f"Unknown tool: {name}", None
 
 
+# @endregion[backend-tool-execution]
+
+
+# @region[frontend-tools-setup]
 def _build_frontend_tools(input_data: RunAgentInput) -> list[dict[str, Any]]:
     """Extract frontend-defined tools from the AG-UI request.
 
@@ -423,12 +840,18 @@ def _build_frontend_tools(input_data: RunAgentInput) -> list[dict[str, Any]]:
     return out
 
 
+# @endregion[frontend-tools-setup]
+
+
 async def run_agent(
     input_data: RunAgentInput,
     *,
     system_prompt_override: str | None = None,
     disable_tools: bool = False,
     preprocess_user_parts: Any = None,
+    tools_override: list[dict[str, Any]] | None = None,
+    frontend_tool_names_allowlist: set[str] | None = None,
+    latest_user_message_only: bool = False,
 ) -> AsyncIterator[str]:
     """Run the Claude agent and yield AG-UI SSE events.
 
@@ -619,6 +1042,13 @@ async def run_agent(
         if content:
             messages.append({"role": role, "content": content})
 
+    if latest_user_message_only:
+        latest_user_message = next(
+            (m for m in reversed(messages) if m.get("role") == "user"),
+            None,
+        )
+        messages = [latest_user_message] if latest_user_message else []
+
     # Inject sales pipeline state into system prompt if state exists
     if system_prompt_override is not None:
         system = system_prompt_override
@@ -627,6 +1057,54 @@ async def run_agent(
         if state.todos:
             todos_json = json.dumps(state.todos, indent=2)
             system = f"{SYSTEM_PROMPT}\n\nCurrent sales pipeline:\n{todos_json}"
+
+    # @region[agent-context-setup]
+    context_entries = getattr(input_data, "context", None) or []
+    if context_entries:
+        context_lines: list[str] = []
+        for entry in context_entries:
+            if isinstance(entry, dict):
+                description = entry.get("description")
+                value = entry.get("value")
+            else:
+                description = getattr(entry, "description", None)
+                value = getattr(entry, "value", None)
+            if description:
+                context_lines.append(f"{description}: {value}")
+        if context_lines:
+            system = f"{system}\n\nContext:\n" + "\n".join(context_lines)
+    # @endregion[agent-context-setup]
+
+    sdk_backend_tools = (
+        []
+        if disable_tools
+        else (tools_override if tools_override is not None else TOOLS)
+    )
+    sdk_frontend_tools = [] if disable_tools else _build_frontend_tools(input_data)
+    if frontend_tool_names_allowlist is not None:
+        sdk_frontend_tools = [
+            t for t in sdk_frontend_tools if t["name"] in frontend_tool_names_allowlist
+        ]
+    sdk_backend_tool_names = {t["name"] for t in sdk_backend_tools}
+    sdk_frontend_only_tool_names = {
+        t["name"] for t in sdk_frontend_tools if t["name"] not in sdk_backend_tool_names
+    }
+    if should_use_claude_agent_sdk(
+        input_data=input_data,
+        backend_tools=sdk_backend_tools,
+        frontend_tool_names=sdk_frontend_only_tool_names,
+        preprocess_user_parts=preprocess_user_parts,
+    ):
+        async for chunk in run_with_claude_agent_sdk(
+            input_data,
+            system_prompt=system,
+            tools=sdk_backend_tools,
+            state=state,
+            model=os.getenv("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL),
+            execute_tool=_execute_tool,
+        ):
+            yield chunk
+        return
 
     thread_id = input_data.thread_id or "default"
     run_id = input_data.run_id or "run-1"
@@ -655,20 +1133,25 @@ async def run_agent(
         # useHumanInTheLoop, etc.) are included so the LLM can call them;
         # the runtime intercepts the resulting events and routes them to
         # the frontend for resolution. Backend tools are executed locally.
-        backend_tool_names = {t["name"] for t in TOOLS}
+        backend_tools = tools_override if tools_override is not None else TOOLS
+        backend_tool_names = {t["name"] for t in backend_tools}
         frontend_tools = _build_frontend_tools(input_data)
+        if frontend_tool_names_allowlist is not None:
+            frontend_tools = [
+                t for t in frontend_tools if t["name"] in frontend_tool_names_allowlist
+            ]
         # Merge: backend tools first, then frontend tools that don't
         # shadow a backend tool (frontend wins when names collide, because
         # the frontend registration means the runtime should intercept).
         frontend_tool_names = {t["name"] for t in frontend_tools}
         combined_tools: list[dict[str, Any]] = []
-        for t in TOOLS:
+        for t in backend_tools:
             if t["name"] not in frontend_tool_names:
                 combined_tools.append(t)
         combined_tools.extend(frontend_tools)
 
         stream_kwargs: dict[str, Any] = {
-            "model": os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
+            "model": os.getenv("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL),
             "max_tokens": 4096,
             "system": system,
             "messages": messages,
@@ -681,6 +1164,7 @@ async def run_agent(
                 current_tool_id: str | None = None
                 current_tool_name: str | None = None
                 current_tool_args = ""
+                last_streamed_document = state.document
 
                 async for event in stream:
                     etype = type(event).__name__
@@ -722,6 +1206,23 @@ async def run_agent(
                                     delta=delta.partial_json,
                                 )
                             )
+                            if current_tool_name == "write_document":
+                                streamed_document = _partial_json_string_property(
+                                    current_tool_args,
+                                    "document",
+                                )
+                                if (
+                                    streamed_document is not None
+                                    and streamed_document != last_streamed_document
+                                ):
+                                    state.document = streamed_document
+                                    last_streamed_document = streamed_document
+                                    yield encoder.encode(
+                                        StateSnapshotEvent(
+                                            type=EventType.STATE_SNAPSHOT,
+                                            snapshot=state.model_dump(),
+                                        )
+                                    )
 
                     elif etype in (
                         "RawContentBlockStopEvent",

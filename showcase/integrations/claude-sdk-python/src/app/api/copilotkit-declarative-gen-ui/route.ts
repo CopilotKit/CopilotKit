@@ -15,14 +15,15 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { HttpAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const declarativeGenUiAgent = new HttpAgent({
-  url: `${AGENT_URL}/declarative-gen-ui`,
-});
+const declarativeGenUiAgent = createClaudeHttpAgent(
+  `${AGENT_URL}/declarative-gen-ui`,
+);
 
+// @region[a2ui-runtime-setup]
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: { "declarative-gen-ui": declarativeGenUiAgent },
@@ -41,6 +42,7 @@ const runtime = new CopilotRuntime({
     defaultCatalogId: "declarative-gen-ui-catalog",
   },
 });
+// @endregion[a2ui-runtime-setup]
 
 export const POST = async (req: NextRequest) => {
   try {

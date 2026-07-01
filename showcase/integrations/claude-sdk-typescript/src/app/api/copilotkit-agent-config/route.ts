@@ -20,11 +20,12 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const agentConfigAgent = new HttpAgent({ url: `${AGENT_URL}/agent-config` });
+const agentConfigAgent = createClaudeHttpAgent(`${AGENT_URL}/agent-config`);
 
 const agents: Record<string, AbstractAgent> = {
   "agent-config-demo": agentConfigAgent,

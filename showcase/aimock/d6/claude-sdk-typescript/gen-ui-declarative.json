@@ -8,7 +8,26 @@
   },
   "fixtures": [
     {
-      "_comment": "gen-ui-declarative kpi-dashboard pill — render_a2ui with root Card > Column > Metrics. Must mount declarative-card + declarative-metric testids.",
+      "_comment": "gen-ui-declarative kpi-dashboard pill — primary Claude call emits backend-owned generate_a2ui.",
+      "match": {
+        "userMessage": "Show me a quick KPI dashboard",
+        "context": "claude-sdk-typescript",
+        "toolName": "generate_a2ui",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_generate_kpi_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "gen-ui-declarative kpi-dashboard pill — secondary Claude call emits render_a2ui with root Card > Column > Metrics. Must mount declarative-card + declarative-metric testids.",
       "match": {
         "userMessage": "Show me a quick KPI dashboard",
         "context": "claude-sdk-typescript",
@@ -27,7 +46,7 @@
     },
     {
       "match": {
-        "toolCallId": "call_d6_declarative_kpi_001",
+        "toolCallId": "call_d6_declarative_generate_kpi_001",
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -36,7 +55,26 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "gen-ui-declarative pie-chart pill — render_a2ui with root PieChart (description is a required prop in this catalog). Must mount declarative-pie-chart testid.",
+      "_comment": "gen-ui-declarative pie-chart pill — primary Claude call emits backend-owned generate_a2ui.",
+      "match": {
+        "userMessage": "pie chart of sales by region",
+        "context": "claude-sdk-typescript",
+        "toolName": "generate_a2ui",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_generate_pie_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"Show a pie chart of sales by region.\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "gen-ui-declarative pie-chart pill — secondary Claude call emits render_a2ui with root PieChart (description is a required prop in this catalog). Must mount declarative-pie-chart testid.",
       "match": {
         "userMessage": "pie chart of sales by region",
         "context": "claude-sdk-typescript",
@@ -55,7 +93,7 @@
     },
     {
       "match": {
-        "toolCallId": "call_d6_declarative_pie_001",
+        "toolCallId": "call_d6_declarative_generate_pie_001",
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -64,7 +102,26 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "gen-ui-declarative bar-chart pill — render_a2ui with root BarChart (description required). Must mount declarative-bar-chart testid.",
+      "_comment": "gen-ui-declarative bar-chart pill — primary Claude call emits backend-owned generate_a2ui.",
+      "match": {
+        "userMessage": "bar chart of quarterly revenue",
+        "context": "claude-sdk-typescript",
+        "toolName": "generate_a2ui",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_generate_bar_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"Show a bar chart of quarterly revenue.\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "gen-ui-declarative bar-chart pill — secondary Claude call emits render_a2ui with root BarChart (description required). Must mount declarative-bar-chart testid.",
       "match": {
         "userMessage": "bar chart of quarterly revenue",
         "context": "claude-sdk-typescript",
@@ -83,7 +140,7 @@
     },
     {
       "match": {
-        "toolCallId": "call_d6_declarative_bar_001",
+        "toolCallId": "call_d6_declarative_generate_bar_001",
         "context": "claude-sdk-typescript"
       },
       "response": {
@@ -92,7 +149,26 @@
       "chunkSize": 9999
     },
     {
-      "_comment": "gen-ui-declarative status-report pill — render_a2ui with root Card > Column > StatusBadges (StatusBadge props are text+variant in this catalog). Must mount declarative-status-badge testid.",
+      "_comment": "gen-ui-declarative status-report pill — primary Claude call emits backend-owned generate_a2ui.",
+      "match": {
+        "userMessage": "status report on system health",
+        "context": "claude-sdk-typescript",
+        "toolName": "generate_a2ui",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_declarative_generate_status_001",
+            "name": "generate_a2ui",
+            "arguments": "{\"context\":\"Show a status report on system health.\"}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "gen-ui-declarative status-report pill — secondary Claude call emits render_a2ui with root Card > Column > StatusBadges (StatusBadge props are text+variant in this catalog). Must mount declarative-status-badge testid.",
       "match": {
         "userMessage": "status report on system health",
         "context": "claude-sdk-typescript",
@@ -111,7 +187,7 @@
     },
     {
       "match": {
-        "toolCallId": "call_d6_declarative_status_001",
+        "toolCallId": "call_d6_declarative_generate_status_001",
         "context": "claude-sdk-typescript"
       },
       "response": {

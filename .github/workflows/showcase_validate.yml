@@ -646,13 +646,15 @@ jobs:
             # (not matrix exclusion) so the rest of the packages continue
             # to exercise the 3.10 typing_extensions fallback path.
             #
+            # claude-sdk-python: ag-ui-claude-sdk declares `requires-python >=3.11`;
+            # the package Dockerfile and production runner use Python 3.12.
             # strands: ag_ui_strands==0.1.0 declares `requires-python >=3.12,<3.14`,
             # so `pip install` fails on 3.10 before pytest even runs.
             # langroid: tests import `typing.Self` (3.11+); on 3.10 the import fails
             # at collection time. typing_extensions.Self would fix it but the tests
             # are tightly coupled to the modern typing module.
             # Revisit when ag_ui_strands relaxes its floor or when 3.10 is dropped.
-            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
+            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "claude-sdk-python" ] || [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
               echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (requires >=3.11/3.12)"
               continue
             fi

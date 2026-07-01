@@ -21,7 +21,9 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+import { claudeHttpAgentConfig } from "@/app/api/_shared/claude-http-agent";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -136,9 +138,9 @@ function createAgent(): AbstractAgent {
   // the other routes in this package silence the same symptom with
   // `@ts-ignore` on the CopilotRuntime `agents` property (see
   // src/app/api/copilotkit/route.ts).
-  return new AgentConfigHttpAgent({
-    url: `${AGENT_URL}/agent-config`,
-  });
+  return new AgentConfigHttpAgent(
+    claudeHttpAgentConfig(`${AGENT_URL}/agent-config`),
+  );
 }
 
 const agents: Record<string, AbstractAgent> = {

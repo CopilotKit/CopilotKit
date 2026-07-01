@@ -14,18 +14,20 @@
 // legacy rewrite that langgraph-python needs is entirely a
 // @ag-ui/langgraph converter concern and is not required here.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/multimodal` });
+  return createClaudeHttpAgent(`${AGENT_URL}/multimodal`);
 }
 
 const agents: Record<string, AbstractAgent> = {

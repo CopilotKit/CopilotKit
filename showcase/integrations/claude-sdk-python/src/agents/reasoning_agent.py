@@ -177,7 +177,7 @@ async def run_reasoning_agent(
     # the fixture's `reasoning` field regardless of the model name.
     reasoning_model = os.getenv(
         "ANTHROPIC_REASONING_MODEL",
-        os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
+        os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6"),
     )
 
     try:
