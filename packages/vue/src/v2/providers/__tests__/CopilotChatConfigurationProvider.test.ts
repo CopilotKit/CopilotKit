@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { defineComponent, h, nextTick } from "vue";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
@@ -348,5 +348,31 @@ describe("CopilotChatConfiguration active-thread setters", () => {
     cfg().setActiveThreadId("ignored");
     await nextTick();
     expect(cfg().threadId).toBe("controlled");
+  });
+});
+
+describe("CopilotChatConfiguration drawer-awareness", () => {
+  it("registerDrawer flips drawerRegistered and cleans up", async () => {
+    const cfg = harness({ isModalDefaultOpen: true });
+    expect(cfg().drawerRegistered).toBe(false);
+    const unregister = cfg().registerDrawer();
+    await nextTick();
+    expect(cfg().drawerRegistered).toBe(true);
+    unregister();
+    await nextTick();
+    expect(cfg().drawerRegistered).toBe(false);
+  });
+
+  it("opening the drawer on mobile closes the modal", async () => {
+    vi.spyOn(window, "matchMedia").mockReturnValue({
+      matches: true,
+    } as MediaQueryList);
+    const cfg = harness({ isModalDefaultOpen: true });
+    expect(cfg().isModalOpen).toBe(true);
+    cfg().setDrawerOpen(true);
+    await nextTick();
+    expect(cfg().drawerOpen).toBe(true);
+    expect(cfg().isModalOpen).toBe(false);
+    vi.restoreAllMocks();
   });
 });
