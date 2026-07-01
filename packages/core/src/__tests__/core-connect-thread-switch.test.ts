@@ -22,6 +22,7 @@ class StubAgent {
   public detachActiveRunSpy = vi.fn();
   public connectAgentSpy = vi.fn();
   public clearReplayCursorSpy = vi.fn();
+  public clearReconnectCursorSpy = vi.fn();
 
   constructor(agentId: string, threadId?: string) {
     this.agentId = agentId;
@@ -45,6 +46,9 @@ class StubAgent {
   }
   clearReplayCursor(threadId: string) {
     this.clearReplayCursorSpy(threadId);
+  }
+  clearReconnectCursor(threadId: string) {
+    this.clearReconnectCursorSpy(threadId);
   }
   // Surfaces consumed by core.connectAgent / processAgentResult.
   subscribe() {
@@ -70,6 +74,7 @@ describe("CopilotKitCore.connectAgent — thread-switch detection", () => {
     expect(agent.setMessagesSpy).toHaveBeenCalledTimes(1);
     expect(agent.setStateSpy).toHaveBeenCalledTimes(1);
     expect(agent.clearReplayCursorSpy).toHaveBeenCalledTimes(1);
+    expect(agent.clearReconnectCursorSpy).toHaveBeenCalledTimes(1);
 
     // Pretend the chat re-fired its connect effect on the same thread
     // (effect-dep churn — agent.threadId hasn't changed). Reset mocks
@@ -77,11 +82,13 @@ describe("CopilotKitCore.connectAgent — thread-switch detection", () => {
     agent.setMessagesSpy.mockClear();
     agent.setStateSpy.mockClear();
     agent.clearReplayCursorSpy.mockClear();
+    agent.clearReconnectCursorSpy.mockClear();
     await core.connectAgent({ agent: agent as unknown as AbstractAgent });
 
     expect(agent.setMessagesSpy).not.toHaveBeenCalled();
     expect(agent.setStateSpy).not.toHaveBeenCalled();
     expect(agent.clearReplayCursorSpy).not.toHaveBeenCalled();
+    expect(agent.clearReconnectCursorSpy).not.toHaveBeenCalled();
 
     // The connect itself still fires every time — we always tear down
     // and re-establish the socket so the runtime can recover from
@@ -97,10 +104,29 @@ describe("CopilotKitCore.connectAgent — thread-switch detection", () => {
     await core.connectAgent({ agent: agentA as unknown as AbstractAgent });
     expect(agentA.setMessagesSpy).toHaveBeenCalledTimes(1);
     expect(agentA.clearReplayCursorSpy).toHaveBeenCalledWith("thread-A");
+    expect(agentA.clearReconnectCursorSpy).toHaveBeenCalledWith("thread-A");
 
     await core.connectAgent({ agent: agentB as unknown as AbstractAgent });
     expect(agentB.setMessagesSpy).toHaveBeenCalledTimes(1);
     expect(agentB.clearReplayCursorSpy).toHaveBeenCalledWith("thread-B");
+    expect(agentB.clearReconnectCursorSpy).toHaveBeenCalledWith("thread-B");
+  });
+
+  it("connecting two agents on the same thread treats each agent as a fresh restore", async () => {
+    const agentA = new StubAgent("agent-A", "thread-1");
+    const agentB = new StubAgent("agent-B", "thread-1");
+
+    await core.connectAgent({ agent: agentA as unknown as AbstractAgent });
+    await core.connectAgent({ agent: agentB as unknown as AbstractAgent });
+
+    expect(agentA.setMessagesSpy).toHaveBeenCalledTimes(1);
+    expect(agentA.setStateSpy).toHaveBeenCalledTimes(1);
+    expect(agentA.clearReplayCursorSpy).toHaveBeenCalledWith("thread-1");
+    expect(agentA.clearReconnectCursorSpy).toHaveBeenCalledWith("thread-1");
+    expect(agentB.setMessagesSpy).toHaveBeenCalledTimes(1);
+    expect(agentB.setStateSpy).toHaveBeenCalledTimes(1);
+    expect(agentB.clearReplayCursorSpy).toHaveBeenCalledWith("thread-1");
+    expect(agentB.clearReconnectCursorSpy).toHaveBeenCalledWith("thread-1");
   });
 
   it("A → B → A switches reset state on every transition", async () => {
@@ -115,22 +141,32 @@ describe("CopilotKitCore.connectAgent — thread-switch detection", () => {
     agentA.setMessagesSpy.mockClear();
     agentA.setStateSpy.mockClear();
     agentA.clearReplayCursorSpy.mockClear();
+    agentA.clearReconnectCursorSpy.mockClear();
     await core.connectAgent({ agent: agentA as unknown as AbstractAgent });
 
     expect(agentA.setMessagesSpy).toHaveBeenCalledTimes(1);
     expect(agentA.setStateSpy).toHaveBeenCalledTimes(1);
     expect(agentA.clearReplayCursorSpy).toHaveBeenCalledWith("thread-A");
+    expect(agentA.clearReconnectCursorSpy).toHaveBeenCalledWith("thread-A");
   });
 
   it("agents without a clearReplayCursor method (non-Intelligence runtimes) are still handled cleanly on switch", async () => {
     const agent = new StubAgent("test", "thread-A");
     // Simulate an HttpAgent-style runtime that doesn't expose clearReplayCursor.
-    delete (agent as unknown as { clearReplayCursor?: unknown })
-      .clearReplayCursor;
+    Object.defineProperty(agent, "clearReplayCursor", {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(agent, "clearReconnectCursor", {
+      configurable: true,
+      value: undefined,
+    });
 
     await expect(
       core.connectAgent({ agent: agent as unknown as AbstractAgent }),
     ).resolves.toBeDefined();
     expect(agent.setMessagesSpy).toHaveBeenCalledTimes(1);
+    expect(agent.clearReplayCursorSpy).not.toHaveBeenCalled();
+    expect(agent.clearReconnectCursorSpy).not.toHaveBeenCalled();
   });
 });

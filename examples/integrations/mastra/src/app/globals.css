@@ -11,7 +11,8 @@
      exact neutral-gray palette, charcoal "primary" (NOT a brand accent — the
      sidebar's primary buttons are near-black), and 0.625rem radius scale.
      This keeps the threads panel reading as one product with the chat.
-     See ./../components/threads-drawer/THEME.md for the full token contract. */
+     The SDK <CopilotThreadsDrawer> inherits these tokens by CSS custom-property
+     inheritance from the `.threadsLayout` wrapper. */
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);

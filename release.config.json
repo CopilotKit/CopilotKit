@@ -17,6 +17,7 @@
         "@copilotkit/sqlite-runner",
         "@copilotkit/voice",
         "@copilotkit/vue",
+        "@copilotkit/web-components",
         "@copilotkit/web-inspector"
       ],
       "versionSource": "@copilotkit/react-core",
