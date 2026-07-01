@@ -36,7 +36,6 @@ on:
         options:
           - monorepo
           - angular
-          - web-components
           - bot
           - bot-discord
           - bot-slack

@@ -10,7 +10,6 @@ export const ROOT = path.resolve(
 export type ReleaseScope =
   | "monorepo"
   | "angular"
-  | "web-components"
   | "bot"
   | "bot-discord"
   | "bot-slack"

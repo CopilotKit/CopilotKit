@@ -17,6 +17,7 @@
         "@copilotkit/sqlite-runner",
         "@copilotkit/voice",
         "@copilotkit/vue",
+        "@copilotkit/web-components",
         "@copilotkit/web-inspector"
       ],
       "versionSource": "@copilotkit/react-core",
@@ -25,11 +26,6 @@
     "angular": {
       "packages": ["@copilotkit/angular"],
       "versionSource": "@copilotkit/angular",
-      "sharedVersion": false
-    },
-    "web-components": {
-      "packages": ["@copilotkit/web-components"],
-      "versionSource": "@copilotkit/web-components",
       "sharedVersion": false
     },
     "bot": {

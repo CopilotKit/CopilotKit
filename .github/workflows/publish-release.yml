@@ -39,7 +39,6 @@ on:
         options:
           - monorepo
           - angular
-          - web-components
           - bot
           - bot-discord
           - bot-slack
@@ -772,9 +771,6 @@ jobs:
           case "$SCOPE" in
             angular)
               NPM_URL="https://www.npmjs.com/package/@copilotkit/angular"
-              ;;
-            web-components)
-              NPM_URL="https://www.npmjs.com/package/@copilotkit/web-components"
               ;;
             *)
               NPM_URL="https://www.npmjs.com/org/copilotkit"
