@@ -85,6 +85,27 @@ describe("run renderer — render-event streaming (OSS-402)", () => {
     ]);
   });
 
+  it("routes a discrete post through a post render frame (rich IR preserved) when a renderSink is wired", async () => {
+    const renderSink = new InMemoryRenderEventSink();
+    const adapter = intelligenceAdapter({
+      source: new InMemoryDeliverySource(),
+      egress: new InMemoryEgressSink(),
+      renderSink,
+    });
+    const card = [
+      { type: "section", props: { children: "card" } },
+    ] as unknown as Parameters<typeof adapter.post>[1];
+
+    await adapter.post(target, card);
+
+    const postFrame = renderSink.frames.find((f) => f.event.kind === "post");
+    expect(postFrame).toBeDefined();
+    expect(postFrame?.slot).toBe("main");
+    expect(
+      (postFrame?.event as { kind: "post"; content: unknown }).content,
+    ).toEqual(card);
+  });
+
   it("falls back to a single post op on the EgressSink when no renderSink is wired", async () => {
     const egress = new InMemoryEgressSink();
     const adapter = intelligenceAdapter({

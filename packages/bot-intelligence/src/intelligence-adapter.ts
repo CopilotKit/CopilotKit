@@ -157,6 +157,12 @@ export class IntelligenceAdapter implements PlatformAdapter {
     return this.egress;
   }
 
+  private requireRenderSink(): RenderEventSink {
+    if (!this.renderSink)
+      throw new Error("IntelligenceAdapter: render sink not started");
+    return this.renderSink;
+  }
+
   async start(sink: IngressSink, ctx?: { botName?: string }): Promise<void> {
     this.sink = sink;
     // Config-free default: build the HTTP transports from env (+ the bot's
@@ -276,15 +282,49 @@ export class IntelligenceAdapter implements PlatformAdapter {
     }
   }
 
+  /** Allocate the next monotonic frame/op seq for a turn. Shared by the run
+   * renderer and discrete post/update so all of a turn's render frames land on
+   * one ordered `(turnId, "main")` lane. Reset per delivery in {@link dispatch}. */
+  private nextFrameSeq(turnId: string): number {
+    const seq = this.seq.get(turnId) ?? 0;
+    this.seq.set(turnId, seq + 1);
+    return seq;
+  }
+
   private mintOp(target: ManagedReplyTarget, op: EgressOp): EgressOperation {
-    const seq = this.seq.get(target.turnId) ?? 0;
-    this.seq.set(target.turnId, seq + 1);
+    const seq = this.nextFrameSeq(target.turnId);
     return {
       operationId: `${target.turnId}:${seq}`,
       turnId: target.turnId,
       deliveryId: target.deliveryId,
       route: target.route,
       op,
+    };
+  }
+
+  /**
+   * Push a discrete render frame (post/update) through the realtime render sink
+   * so the Connector Outbox renders it as Block Kit — preserving rich JSX/IR
+   * instead of flattening to text. Returns a {@link MessageRef} keyed to the
+   * frame so a later update/delete can re-address it.
+   */
+  private async postRenderFrame(
+    target: ManagedReplyTarget,
+    event: HostedBotRenderEvent,
+  ): Promise<MessageRef> {
+    const seq = this.nextFrameSeq(target.turnId);
+    const receipt = await this.requireRenderSink().push({
+      deliveryId: target.deliveryId,
+      turnId: target.turnId,
+      slot: "main",
+      seq,
+      event,
+    });
+    return {
+      id: receipt.egressOperationId ?? `${target.turnId}:main:${seq}`,
+      __route: target.route,
+      __turnId: target.turnId,
+      __deliveryId: target.deliveryId,
     };
   }
 
@@ -311,10 +351,27 @@ export class IntelligenceAdapter implements PlatformAdapter {
   }
 
   async post(target: ReplyTarget, ir: BotNode[]): Promise<MessageRef> {
+    // Realtime path: stream a `post` render frame carrying the IR so the
+    // Connector Outbox renders full Block Kit (rich JSX preserved). Fallback
+    // (no render sink wired — e.g. in-memory tests): the egress op path.
+    if (this.renderSink) {
+      return this.postRenderFrame(target as ManagedReplyTarget, {
+        kind: "post",
+        content: ir,
+      });
+    }
     return this.emit(target as ManagedReplyTarget, { kind: "post", ir });
   }
 
   async update(ref: MessageRef, ir: BotNode[]): Promise<void> {
+    if (this.renderSink) {
+      await this.postRenderFrame(targetFromRef(ref), {
+        kind: "update",
+        ref: ref.id,
+        content: ir,
+      });
+      return;
+    }
     await this.emit(targetFromRef(ref), { kind: "update", ref: ref.id, ir });
   }
 
@@ -322,13 +379,17 @@ export class IntelligenceAdapter implements PlatformAdapter {
     _target: ReplyTarget,
     chunks: AsyncIterable<string>,
   ): Promise<MessageRef> {
-    // Non-streaming surface: accumulate the full reply and emit one post op.
+    // Non-streaming surface: accumulate the full reply and emit one post.
     let acc = "";
     for await (const c of chunks) acc += c;
-    return this.emit(_target as ManagedReplyTarget, {
-      kind: "post",
-      ir: textNode(acc),
-    });
+    const target = _target as ManagedReplyTarget;
+    if (this.renderSink) {
+      return this.postRenderFrame(target, {
+        kind: "post",
+        content: textNode(acc),
+      });
+    }
+    return this.emit(target, { kind: "post", ir: textNode(acc) });
   }
 
   async delete(ref: MessageRef): Promise<void> {
@@ -409,7 +470,6 @@ export class IntelligenceAdapter implements PlatformAdapter {
     let pendingInterrupt: CapturedInterrupt | undefined;
     let aborted = false;
     let runStarted = false;
-    let seq = 0;
 
     // ponytail: serial promise chain — AG-UI does not guarantee it awaits
     // subscriber callbacks in order, so `seq` is assigned synchronously at
@@ -426,7 +486,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
         deliveryId: t.deliveryId,
         turnId: t.turnId,
         slot: "main",
-        seq: seq++,
+        seq: this.nextFrameSeq(t.turnId),
         event,
       };
       chain = chain.then(async () => {
