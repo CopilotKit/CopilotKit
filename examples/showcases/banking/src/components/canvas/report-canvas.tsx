@@ -66,7 +66,7 @@ function CanvasInner() {
   if (!surfaceId) return null;
   return (
     <div className="h-full overflow-y-auto">
-      <div className="a2ui-surface p-6 md:p-8">
+      <div className="a2ui-surface p-6 md:p-8" data-testid="a2ui-surface">
         <A2UIRenderer surfaceId={surfaceId} />
       </div>
     </div>
