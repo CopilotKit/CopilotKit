@@ -71,7 +71,7 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
           Fill the state panel's own width. The previous `lg:w-[66.666vw]` was
           viewport-relative, so with a reserved drawer column it overflowed this
           container (clipped by overflow-hidden) and pushed centered content
-          (e.g. the empty-state) right of the visible box's center.
+          right of the visible box's center.
         */}
         <div className="w-full h-full">{appContent}</div>
       </div>
