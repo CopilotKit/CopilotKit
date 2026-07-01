@@ -43,6 +43,7 @@ import {
   FEEDBACK_ACTION_ID,
 } from "./render/block-kit.js";
 import { renderSlackModal } from "./render/modal.js";
+import type { SlackRenderTransport } from "./render/transport.js";
 import { ChunkedMessageStream } from "./chunked-message-stream.js";
 import { NativeMessageStream } from "./native-stream.js";
 import type { TextStream, NativeStreamTransport } from "./native-stream.js";
@@ -494,6 +495,29 @@ export class SlackAdapter implements PlatformAdapter {
   }
 
   /**
+   * The credentialed {@link SlackRenderTransport} the run renderer calls
+   * (setStatus / postMessage / update), wrapping this adapter's `WebClient`.
+   * Extracted so `createRunRenderer` stays Bolt-free and the managed Connector
+   * Outbox can drive the identical renderer with its own sender.
+   */
+  private renderTransport(): SlackRenderTransport {
+    return {
+      setStatus: async (a) => {
+        await this.client.assistant.threads.setStatus(a);
+      },
+      postMessage: async (a) => {
+        const res = await this.client.chat.postMessage(
+          a as ChatPostMessageArguments,
+        );
+        return { ts: res.ts };
+      },
+      updateMessage: async (a) => {
+        await this.client.chat.update(a as ChatUpdateArguments);
+      },
+    };
+  }
+
+  /**
    * Route a `feedback_buttons` click to the configured feedback callback.
    * Returns `true` if this was a feedback click (so the caller skips the
    * engine's interaction dispatch). Best-effort: payload-shape or handler
@@ -579,7 +603,7 @@ export class SlackAdapter implements PlatformAdapter {
       !!t.threadTs &&
       this.nativeStreamingOk;
     return createRunRenderer({
-      client: this.client,
+      transport: this.renderTransport(),
       target: t,
       interruptEventNames: this.opts.interruptEventNames,
       showToolStatus: this.opts.showToolStatus,
