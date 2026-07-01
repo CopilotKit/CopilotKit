@@ -249,6 +249,19 @@ export class RunHandler {
       // late header update is picked up without clobbering per-agent headers.
       this._internal.applyHeadersToAgent(agent);
 
+      // Notify subscribers (e.g. the inspector) about the agent that is about
+      // to run. Per-thread clones are not in the agent registry, so
+      // onAgentsChanged never fires for them and they would otherwise be
+      // invisible to subscribers.
+      await this._internal.notifySubscribers(
+        (subscriber) =>
+          subscriber.onAgentRunStarted?.({
+            copilotkit: this.core,
+            agent,
+          }),
+        "Subscriber onAgentRunStarted error:",
+      );
+
       const runAgentResult = await agent.connectAgent(
         {
           forwardedProps: this._internal.properties,
@@ -336,6 +349,20 @@ export class RunHandler {
         controller.abort();
         originalAbortRun!();
       };
+
+      // Notify subscribers (e.g. the inspector) about the agent that is about
+      // to run. Per-thread clones are not in the agent registry, so
+      // onAgentsChanged never fires for them and they would otherwise be
+      // invisible to subscribers. Fired once per top-level run; recursive
+      // follow-up runs reuse the same instance and need no re-notification.
+      await this._internal.notifySubscribers(
+        (subscriber) =>
+          subscriber.onAgentRunStarted?.({
+            copilotkit: this.core,
+            agent,
+          }),
+        "Subscriber onAgentRunStarted error:",
+      );
     }
 
     this._runDepth++;
