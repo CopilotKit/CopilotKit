@@ -14,11 +14,18 @@ import type {
   UserQuery,
   InteractionEvent,
 } from "@copilotkit/bot";
-import type { DeliverySource, EgressSink } from "./transports.js";
+import type {
+  DeliverySource,
+  EgressSink,
+  RenderEventSink,
+} from "./transports.js";
 import type {
   ManagedIngressEnvelope,
   EgressOp,
   EgressOperation,
+  HostedBotRenderEvent,
+  RenderFrame,
+  RenderAccepted,
 } from "./contracts.js";
 import {
   HttpDeliverySource,
@@ -60,6 +67,14 @@ export interface IntelligenceAdapterOptions {
    * (built at `start()` from env/`config`); inject in-memory for tests.
    */
   egress?: EgressSink;
+  /**
+   * Streaming render transport (OSS-402). When set, the run renderer streams
+   * semantic render frames to it and awaits durable acceptance receipts (the
+   * realtime-gateway path). When omitted, the renderer falls back to
+   * translating frames into `post` operations on {@link egress} so plain-text
+   * replies still flow without a Connector Outbox.
+   */
+  renderSink?: RenderEventSink;
   /** Optional Intelligence-backed persistence the adapter exposes as `stateStore`. */
   store?: StateStore;
   /**
@@ -115,6 +130,9 @@ export class IntelligenceAdapter implements PlatformAdapter {
   private source?: DeliverySource;
   /** Outbound transport — injected via opts, or the default HTTP sink built at `start()`. */
   private egress?: EgressSink;
+  /** Streaming render transport — injected via opts (realtime path). When unset,
+   * the run renderer translates frames to `post` ops on {@link egress}. */
+  private renderSink?: RenderEventSink;
   /** Per-turn egress sequence; reset at the start of each turn's processing so
    * a redelivered turn reproduces the same operation id sequence. */
   private readonly seq = new Map<string, number>();
@@ -122,6 +140,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
   constructor(private readonly opts: IntelligenceAdapterOptions = {}) {
     this.source = opts.source;
     this.egress = opts.egress;
+    this.renderSink = opts.renderSink;
     this.stateStore = opts.store;
   }
 
@@ -317,16 +336,114 @@ export class IntelligenceAdapter implements PlatformAdapter {
     return undefined;
   }
 
+  /**
+   * The render transport the run renderer streams frames to. Uses the injected
+   * realtime {@link RenderEventSink} when present; otherwise translates frames
+   * back to `post` operations on the {@link EgressSink} so plain-text replies
+   * still flow on the HTTP-fallback path (no Connector Outbox required). The
+   * fallback accumulates text per message and posts on `text_end`, and flushes
+   * any un-ended text on `finalize` (the interrupt path) with the interrupted
+   * marker.
+   */
+  private renderSinkFor(t: ManagedReplyTarget): RenderEventSink {
+    if (this.renderSink) return this.renderSink;
+    const emit = (op: EgressOp) => this.emit(t, op);
+    const acc = new Map<string, string>();
+    const order: string[] = [];
+    let interrupted = false;
+    return {
+      push: async (frame: RenderFrame): Promise<RenderAccepted> => {
+        const e = frame.event;
+        if (e.kind === "text_delta") {
+          if (!acc.has(e.messageId)) order.push(e.messageId);
+          acc.set(e.messageId, (acc.get(e.messageId) ?? "") + e.delta);
+        } else if (e.kind === "text_end") {
+          const txt = acc.get(e.messageId) ?? "";
+          acc.delete(e.messageId);
+          const i = order.indexOf(e.messageId);
+          if (i >= 0) order.splice(i, 1);
+          if (txt.length > 0) await emit({ kind: "post", ir: textNode(txt) });
+        } else if (e.kind === "interrupt") {
+          interrupted = true;
+        } else if (e.kind === "post") {
+          await emit({ kind: "post", ir: e.content });
+        } else if (e.kind === "update") {
+          await emit({ kind: "update", ref: e.ref, ir: e.content });
+        } else if (e.kind === "finalize") {
+          // Flush any message that never received a text_end (interrupt path).
+          for (const id of order) {
+            const txt = acc.get(id) ?? "";
+            if (txt.length > 0) {
+              await emit({
+                kind: "post",
+                ir: textNode(interrupted ? txt + INTERRUPTED_SUFFIX : txt),
+              });
+            }
+          }
+          acc.clear();
+          order.length = 0;
+        }
+        // run_started / tool_start / tool_end / run_error: no provider-visible
+        // effect in the plain-text fallback (the Outbox renders those live).
+        return {
+          idempotencyKey: `${frame.turnId}:${frame.slot}:${frame.seq}`,
+          acceptance: "accepted",
+        };
+      },
+    };
+  }
+
   createRunRenderer(target: ReplyTarget): RunRenderer {
     const t = target as ManagedReplyTarget;
+    const sink = this.renderSinkFor(t);
     const interruptEventNames = new Set<string>(["on_interrupt"]);
-    const buffers = new Map<string, string>();
     const capturedToolCalls: CapturedToolCall[] = [];
     let pendingInterrupt: CapturedInterrupt | undefined;
     let aborted = false;
+    let runStarted = false;
+    let seq = 0;
 
-    const emitText = (text: string): Promise<MessageRef> =>
-      this.emit(t, { kind: "post", ir: textNode(text) });
+    // ponytail: serial promise chain — AG-UI does not guarantee it awaits
+    // subscriber callbacks in order, so `seq` is assigned synchronously at
+    // enqueue time (preserving event order) and frames are pushed one at a
+    // time, awaiting each durable-acceptance receipt before the next. `finish`/
+    // `markInterrupted` await the drained chain. A rejected push is recorded
+    // and surfaced at drain (so it nacks the delivery) without wedging the
+    // chain. Upgrade path: batch text_delta frames if per-token RTT matters.
+    let chain: Promise<void> = Promise.resolve();
+    let pushError: unknown;
+
+    const enqueue = (event: HostedBotRenderEvent): void => {
+      const frame: RenderFrame = {
+        deliveryId: t.deliveryId,
+        turnId: t.turnId,
+        slot: "main",
+        seq: seq++,
+        event,
+      };
+      chain = chain.then(async () => {
+        if (pushError !== undefined) return;
+        try {
+          await sink.push(frame);
+        } catch (err) {
+          pushError = err;
+        }
+      });
+    };
+
+    const drain = async (): Promise<void> => {
+      await chain;
+      if (pushError !== undefined) {
+        const err = pushError;
+        throw err instanceof Error ? err : new Error(String(err));
+      }
+    };
+
+    const ensureRunStarted = (): void => {
+      if (runStarted) return;
+      runStarted = true;
+      enqueue({ kind: "run_started" });
+    };
 
     const captureToolCall = (
       toolCallId: string,
@@ -345,22 +462,27 @@ export class IntelligenceAdapter implements PlatformAdapter {
     };
 
     const subscriber: AgentSubscriber = {
-      onTextMessageStartEvent({ event }) {
-        if (aborted) return;
-        buffers.set(event.messageId, "");
-      },
       onTextMessageContentEvent({ event }) {
         if (aborted) return;
-        buffers.set(
-          event.messageId,
-          (buffers.get(event.messageId) ?? "") + (event.delta ?? ""),
-        );
+        ensureRunStarted();
+        enqueue({
+          kind: "text_delta",
+          messageId: event.messageId,
+          delta: event.delta ?? "",
+        });
       },
-      async onTextMessageEndEvent({ event }) {
+      onTextMessageEndEvent({ event }) {
         if (aborted) return;
-        const text = buffers.get(event.messageId) ?? "";
-        buffers.delete(event.messageId);
-        if (text.length > 0) await emitText(text);
+        enqueue({ kind: "text_end", messageId: event.messageId });
+      },
+      onToolCallStartEvent({ event }) {
+        if (aborted) return;
+        ensureRunStarted();
+        enqueue({
+          kind: "tool_start",
+          toolCallId: event.toolCallId,
+          toolName: event.toolCallName,
+        });
       },
       onToolCallArgsEvent({ event, toolCallName, partialToolCallArgs }) {
         if (aborted) return;
@@ -377,6 +499,18 @@ export class IntelligenceAdapter implements PlatformAdapter {
           toolCallName,
           (toolCallArgs ?? {}) as Record<string, unknown>,
         );
+        enqueue({
+          kind: "tool_end",
+          toolCallId: event.toolCallId,
+          toolName: toolCallName,
+        });
+      },
+      onRunErrorEvent({ event }) {
+        if (aborted) return;
+        enqueue({
+          kind: "run_error",
+          message: event.message ?? "unknown error",
+        });
       },
       onCustomEvent({ event }) {
         if (aborted) return;
@@ -401,16 +535,17 @@ export class IntelligenceAdapter implements PlatformAdapter {
       clearPendingInterrupt: () => {
         pendingInterrupt = undefined;
       },
+      async finish() {
+        if (aborted) return;
+        enqueue({ kind: "finalize" });
+        await drain();
+      },
       async markInterrupted() {
         if (aborted) return;
         aborted = true;
-        // Flush any partial text with an interrupted marker.
-        const tasks: Promise<MessageRef>[] = [];
-        for (const [id, buf] of Array.from(buffers.entries())) {
-          if (buf.length > 0) tasks.push(emitText(buf + INTERRUPTED_SUFFIX));
-          buffers.delete(id);
-        }
-        await Promise.all(tasks);
+        enqueue({ kind: "interrupt" });
+        enqueue({ kind: "finalize" });
+        await drain();
       },
     };
   }

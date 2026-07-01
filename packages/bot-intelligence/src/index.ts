@@ -10,7 +10,11 @@ export {
 } from "./intelligence-adapter.js";
 export type { IntelligenceAdapterOptions } from "./intelligence-adapter.js";
 
-export type { DeliverySource, EgressSink } from "./transports.js";
+export type {
+  DeliverySource,
+  EgressSink,
+  RenderEventSink,
+} from "./transports.js";
 
 export type {
   ManagedIngressBase,
@@ -19,12 +23,27 @@ export type {
   EgressOp,
   EgressResult,
   EgressRoute,
+  HostedBotRenderEvent,
+  HostedBotRenderEventKind,
+  RenderFrame,
+  RenderAccepted,
 } from "./contracts.js";
 
 export {
   InMemoryDeliverySource,
   InMemoryEgressSink,
+  InMemoryRenderEventSink,
 } from "./in-memory-transports.js";
+
+// Realtime-gateway (Phoenix) transport — the production render/delivery path
+// (OSS-402). Undocumented like the rest of the package; exported for the
+// managed-listener bootstrap and tests.
+export { PhoenixRealtimeTransport } from "./phoenix-transport.js";
+export type {
+  PhoenixTransportConfig,
+  HostedBotChannel,
+  HostedBotRealtimeScope,
+} from "./phoenix-transport.js";
 
 // Undocumented fallbacks: the default HTTP transports + config resolver that
 // `intelligenceAdapter()` builds when no transports are injected. Not a public
