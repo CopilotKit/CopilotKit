@@ -63,7 +63,10 @@ export interface ResolvedForwardHeadersPolicy {
   denyNames: ReadonlySet<string>;
   /** Extra prefixes to strip (lowercased). */
   denyPrefixes: readonly string[];
-  /** If set, allowlist mode: ONLY these (lowercased) names forward. */
+  /**
+   * If set, allowlist mode: ONLY these (lowercased) names are candidates to
+   * forward — and `denyNames` / `denyPrefixes` still subtract from them.
+   */
   allow?: ReadonlySet<string>;
 }
 
@@ -79,8 +82,10 @@ export interface ForwardHeadersConfig {
   /** Additional header-name prefixes to strip (case-insensitive). */
   denyPrefixes?: string[];
   /**
-   * If set, switch to allowlist mode: ONLY these headers forward, overriding
-   * the default `x-*` / `authorization` eligibility (case-insensitive).
+   * If set, switch to allowlist mode: ONLY these headers are candidates to
+   * forward, overriding the default `x-*` / `authorization` eligibility
+   * (case-insensitive). `deny` / `denyPrefixes` still apply and subtract from
+   * this set — a header listed in both `allow` and `deny` is NOT forwarded.
    */
   allow?: string[];
 }
@@ -94,23 +99,29 @@ export interface ForwardHeadersConfig {
  * - `deny` / `denyPrefixes` extend (do not replace) the defaults.
  * - `allow`, if non-empty, switches to allowlist mode.
  *
- * All names/prefixes are lowercased so matching against the lowercased inbound
- * keys is a plain set/prefix check.
+ * All names/prefixes are trimmed, lowercased, and stripped of empty/
+ * whitespace-only entries before use. Trimming/lowercasing keeps matching a
+ * plain set/prefix check against the lowercased inbound keys; dropping empties
+ * is a safety guard: a stray `denyPrefixes: [""]` would make `startsWith("")`
+ * true for every header (silently denying ALL forwarding), and an
+ * `allow: [""]` / `allow: [" "]` would seed the allowlist with an entry that
+ * can never match a real header while still switching on the exclusive
+ * allowlist mode — both are integrator typos, not intent, so we filter them.
  */
+function normalizeHeaderEntries(entries: string[] | undefined): string[] {
+  return (entries ?? [])
+    .map((entry) => entry.trim().toLowerCase())
+    .filter((entry) => entry.length > 0);
+}
+
 export function resolveForwardHeadersPolicy(
   config: ForwardHeadersConfig | undefined,
 ): ResolvedForwardHeadersPolicy {
-  const denyNames = new Set<string>(
-    (config?.deny ?? []).map((name) => name.toLowerCase()),
-  );
-  const denyPrefixes = (config?.denyPrefixes ?? []).map((prefix) =>
-    prefix.toLowerCase(),
-  );
-  const allowList = config?.allow;
+  const denyNames = new Set<string>(normalizeHeaderEntries(config?.deny));
+  const denyPrefixes = normalizeHeaderEntries(config?.denyPrefixes);
+  const allowEntries = normalizeHeaderEntries(config?.allow);
   const allow =
-    allowList && allowList.length > 0
-      ? new Set<string>(allowList.map((name) => name.toLowerCase()))
-      : undefined;
+    allowEntries.length > 0 ? new Set<string>(allowEntries) : undefined;
 
   return {
     useDefaultDenylist: config?.useDefaultDenylist ?? true,
@@ -121,13 +132,42 @@ export function resolveForwardHeadersPolicy(
 }
 
 /**
+ * True iff the (already-lowercased) header name matches the integrator's OWN
+ * `deny` / `denyPrefixes`. This is the authoritative subtractive check: it is
+ * consulted in BOTH allowlist and denylist mode. It deliberately does NOT
+ * include the built-in {@link DEFAULT_DENY_HEADER_NAMES} /
+ * {@link DEFAULT_DENY_HEADER_PREFIXES} — an explicit `allow` opts the integrator
+ * back into a default-denied header on purpose, so only their own `deny`
+ * subtracts from an allowlist.
+ */
+function matchesIntegratorDeny(
+  lower: string,
+  policy: ResolvedForwardHeadersPolicy,
+): boolean {
+  if (policy.denyNames.has(lower)) return true;
+  return policy.denyPrefixes.some((prefix) => lower.startsWith(prefix));
+}
+
+/**
  * Determines if a header should be forwarded under the given resolved policy.
  *
+ * The integrator's `deny` / `denyPrefixes` ALWAYS strip, including in allowlist
+ * mode: `allow` selects the candidate set, `deny` removes from it. A header the
+ * integrator lists in BOTH `allow` and `deny` is NOT forwarded — deny is
+ * authoritative so a security-motivated `deny` can never be silently defeated
+ * by an overlapping `allow` (the footgun this hardens against).
+ *
  * Modes:
- * - Allowlist (`policy.allow` set): forward iff the name is explicitly allowed.
+ * - Allowlist (`policy.allow` set): forward iff the name is in `allow` AND is
+ *   NOT matched by the integrator's `deny` / `denyPrefixes`. Nothing else
+ *   forwards — not even the usual `authorization` / `x-*` eligibility.
  * - Denylist (default): base eligibility is `authorization` or any `x-*`, then
- *   the built-in denylist (when enabled) and any integrator-supplied
+ *   the built-in denylist (when enabled) and the integrator's own
  *   names/prefixes strip from that set.
+ *
+ * Note: the built-in default denylist applies ONLY in denylist mode; an
+ * explicit `allow` is treated as the integrator deliberately opting back into
+ * those headers, so only their OWN `deny` subtracts in allowlist mode.
  */
 export function shouldForwardHeader(
   headerName: string,
@@ -135,10 +175,11 @@ export function shouldForwardHeader(
 ): boolean {
   const lower = headerName.toLowerCase();
 
-  // Allowlist mode: forward iff explicitly allowed; nothing else, not even the
+  // Allowlist mode: forward iff explicitly allowed AND not subtracted by the
+  // integrator's own deny/denyPrefixes. Nothing else forwards — not even the
   // usual `authorization` / `x-*` eligibility.
   if (policy.allow) {
-    return policy.allow.has(lower);
+    return policy.allow.has(lower) && !matchesIntegratorDeny(lower, policy);
   }
 
   // Base eligibility (unchanged): authorization + any x-*.
@@ -156,10 +197,7 @@ export function shouldForwardHeader(
   }
 
   // Integrator-supplied additions extend the denylist regardless of the default.
-  if (policy.denyNames.has(lower)) return false;
-  if (policy.denyPrefixes.some((prefix) => lower.startsWith(prefix))) {
-    return false;
-  }
+  if (matchesIntegratorDeny(lower, policy)) return false;
 
   return true;
 }

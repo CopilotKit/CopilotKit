@@ -177,12 +177,15 @@ describe("header-utils", () => {
       expect(shouldForwardHeader("", allowPolicy)).toBe(false);
 
       // ...but allowlist mode is purely membership-driven, so explicitly listing
-      // these otherwise-ineligible names DOES make them forward (the allowlist
-      // overrides the `x-*`/`authorization` eligibility rule entirely).
+      // a NON-EMPTY otherwise-ineligible name (`x`) DOES make it forward (the
+      // allowlist overrides the `x-*`/`authorization` eligibility rule entirely).
+      // The empty-string entry is filtered out during resolution (see the
+      // empty-string validation tests), so `""` never forwards — and because a
+      // non-empty entry remains, allowlist mode is still active and exclusive.
       const explicitPolicy = resolveForwardHeadersPolicy({ allow: ["x", ""] });
       expect(shouldForwardHeader("x", explicitPolicy)).toBe(true);
-      expect(shouldForwardHeader("", explicitPolicy)).toBe(true);
-      // And a normally-eligible header is now dropped, confirming allowlist mode
+      expect(shouldForwardHeader("", explicitPolicy)).toBe(false);
+      // And a normally-eligible header is dropped, confirming allowlist mode
       // is active and exclusive.
       expect(shouldForwardHeader("authorization", explicitPolicy)).toBe(false);
     });
@@ -191,6 +194,103 @@ describe("header-utils", () => {
       const policy = resolveForwardHeadersPolicy({ allow: ["X-Tenant-Id"] });
       expect(shouldForwardHeader("x-tenant-id", policy)).toBe(true);
       expect(shouldForwardHeader("X-TENANT-ID", policy)).toBe(true);
+      expect(shouldForwardHeader("authorization", policy)).toBe(false);
+    });
+  });
+
+  describe("shouldForwardHeader — deny wins in allowlist mode", () => {
+    it("deny subtracts an exact name from allow (a header in BOTH is NOT forwarded)", () => {
+      // The footgun: an integrator lists a header in allow AND explicitly denies
+      // it. deny is authoritative — the denied header must not forward, even
+      // though it is also allowed, while the other allowed header still does.
+      const policy = resolveForwardHeadersPolicy({
+        allow: ["x-keep", "x-secret"],
+        deny: ["x-secret"],
+      });
+      expect(shouldForwardHeader("x-secret", policy)).toBe(false);
+      expect(shouldForwardHeader("x-keep", policy)).toBe(true);
+    });
+
+    it("deny in allow mode is case-insensitive", () => {
+      const policy = resolveForwardHeadersPolicy({
+        allow: ["X-Keep", "X-Secret"],
+        deny: ["X-SECRET"],
+      });
+      expect(shouldForwardHeader("x-secret", policy)).toBe(false);
+      expect(shouldForwardHeader("X-Secret", policy)).toBe(false);
+      expect(shouldForwardHeader("x-keep", policy)).toBe(true);
+    });
+
+    it("denyPrefixes subtracts a matching allowed header in allowlist mode", () => {
+      // A header allowed by exact name but matched by an integrator denyPrefix
+      // is still stripped — deny (prefix form) is authoritative in allow mode.
+      const policy = resolveForwardHeadersPolicy({
+        allow: ["x-internal-token", "x-tenant-id"],
+        denyPrefixes: ["x-internal-"],
+      });
+      expect(shouldForwardHeader("x-internal-token", policy)).toBe(false);
+      expect(shouldForwardHeader("x-tenant-id", policy)).toBe(true);
+    });
+
+    it("the DEFAULT denylist does NOT subtract in allow mode — explicit allow opts back in", () => {
+      // Only the integrator's OWN deny subtracts from an allowlist. A header on
+      // the built-in default denylist that the integrator explicitly allows is
+      // forwarded — the allow is a deliberate opt-in, not a footgun.
+      const policy = resolveForwardHeadersPolicy({
+        allow: ["x-forwarded-for", "x-request-id"],
+      });
+      expect(shouldForwardHeader("x-forwarded-for", policy)).toBe(true);
+      expect(shouldForwardHeader("x-request-id", policy)).toBe(true);
+    });
+  });
+
+  describe("resolveForwardHeadersPolicy — empty/whitespace entry validation", () => {
+    it("filters an empty-string denyPrefix so it cannot deny ALL forwarding", () => {
+      // `denyPrefixes: [""]` would make `startsWith("")` true for every header,
+      // silently denying ALL forwarding. The empty entry must be filtered so
+      // normal headers still forward under the default policy.
+      const policy = resolveForwardHeadersPolicy({ denyPrefixes: [""] });
+      expect(shouldForwardHeader("x-tenant-id", policy)).toBe(true);
+      expect(shouldForwardHeader("authorization", policy)).toBe(true);
+      // The default denylist is still intact.
+      expect(shouldForwardHeader("x-forwarded-for", policy)).toBe(false);
+    });
+
+    it("filters whitespace-only denyPrefix and deny entries", () => {
+      const policy = resolveForwardHeadersPolicy({
+        denyPrefixes: ["   "],
+        deny: [" \t"],
+      });
+      expect(shouldForwardHeader("x-tenant-id", policy)).toBe(true);
+      expect(shouldForwardHeader("authorization", policy)).toBe(true);
+    });
+
+    it("filters whitespace-only allow entries so allowlist mode is not silently seeded", () => {
+      // `allow: [" "]` would (pre-fix) switch on the exclusive allowlist with an
+      // entry that can never match a real header — forwarding nothing. After the
+      // fix the whitespace entry is filtered, leaving no allowlist, so the
+      // default denylist behavior applies and normal headers forward.
+      const policy = resolveForwardHeadersPolicy({ allow: [" "] });
+      expect(shouldForwardHeader("x-tenant-id", policy)).toBe(true);
+      expect(shouldForwardHeader("authorization", policy)).toBe(true);
+    });
+
+    it("trims surrounding whitespace on entries before matching", () => {
+      const policy = resolveForwardHeadersPolicy({
+        deny: ["  x-secret  "],
+        denyPrefixes: [" x-internal- "],
+        allow: undefined,
+      });
+      expect(shouldForwardHeader("x-secret", policy)).toBe(false);
+      expect(shouldForwardHeader("x-internal-token", policy)).toBe(false);
+      expect(shouldForwardHeader("x-tenant-id", policy)).toBe(true);
+    });
+
+    it("trims and lowercases allow entries", () => {
+      const policy = resolveForwardHeadersPolicy({
+        allow: ["  X-Tenant-Id  "],
+      });
+      expect(shouldForwardHeader("x-tenant-id", policy)).toBe(true);
       expect(shouldForwardHeader("authorization", policy)).toBe(false);
     });
   });
