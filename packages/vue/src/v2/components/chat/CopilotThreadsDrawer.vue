@@ -49,6 +49,20 @@ const resolvedAgentId = computed(
 );
 const activeThreadId = computed(() => config.value?.threadId ?? null);
 
+// Provider-less fallback: without a surrounding chat configuration there is
+// no shared open-state to bind to, so the wrapper keeps its own local
+// open-state. It starts CLOSED — matching the provider's own default — so a
+// bare `<CopilotThreadsDrawer>` does not render stuck-open and the element's
+// open-change events still toggle it.
+const localDrawerOpen = ref(false);
+const drawerOpen = computed(() =>
+  config.value ? config.value.drawerOpen : localDrawerOpen.value,
+);
+function setDrawerOpen(open: boolean) {
+  if (config.value) config.value.setDrawerOpen?.(open);
+  else localDrawerOpen.value = open;
+}
+
 const threadsApi = useThreads({
   agentId: resolvedAgentId,
   includeArchived: true,
@@ -94,7 +108,7 @@ watch(
     licensePending,
     () => threadsApi.hasMoreThreads.value,
     () => threadsApi.isFetchingMoreThreads.value,
-    () => config.value?.drawerOpen ?? false,
+    drawerOpen,
     () => props.label,
     () => props.licenseUrl,
   ],
@@ -108,7 +122,7 @@ watch(
     el.licensed = licensed.value || licensePending.value;
     el.hasMore = threadsApi.hasMoreThreads.value;
     el.fetchingMore = threadsApi.isFetchingMoreThreads.value;
-    el.open = config.value?.drawerOpen ?? false;
+    el.open = drawerOpen.value;
     if (props.label !== undefined) el.label = props.label;
     if (props.licenseUrl !== undefined) el.licenseUrl = props.licenseUrl;
   },
@@ -123,11 +137,42 @@ const unregisterDrawer = config.value?.registerDrawer?.();
 if (unregisterDrawer) onScopeDispose(unregisterDrawer);
 
 // --- Outbound event handlers ------------------------------------------------
-function focusChatInput() {
-  const input = document.querySelector<HTMLTextAreaElement>(
-    '[data-testid="copilot-chat-textarea"]',
+/** The chat input textarea's documented `data-testid`. */
+const CHAT_INPUT_TESTID = "copilot-chat-input-textarea";
+/** The chat view container's documented `data-testid`. */
+const CHAT_CONTAINER_TESTID = "copilot-chat-view";
+
+/**
+ * Returns the chat input element for focus-return after a thread is selected.
+ *
+ * Best-effort and SCOPED: walks up from the drawer's custom element looking
+ * for an ancestor that contains a chat-view container
+ * (`data-testid="copilot-chat-view"`), then returns the chat input within
+ * that subtree. This avoids focusing the wrong composer on a page hosting
+ * more than one chat (multi-chat dashboards), where a document-global lookup
+ * would grab whichever input appears first in DOM order rather than the one
+ * this drawer drives.
+ *
+ * Falls back to a document-global lookup when no scoping ancestor is found
+ * (e.g. the drawer and chat share no common container, or headless usage).
+ */
+function findChatInput(origin: Element | null): HTMLElement | null {
+  const container = origin?.closest?.(
+    `[data-testid="${CHAT_CONTAINER_TESTID}"]`,
   );
-  input?.focus();
+  if (container) {
+    const scoped = container.querySelector<HTMLElement>(
+      `[data-testid="${CHAT_INPUT_TESTID}"]`,
+    );
+    if (scoped) return scoped;
+  }
+  return document.querySelector<HTMLElement>(
+    `[data-testid="${CHAT_INPUT_TESTID}"]`,
+  );
+}
+
+function focusChatInput() {
+  findChatInput(elRef.value)?.focus();
 }
 
 function onThreadSelected(event: Event) {
@@ -186,7 +231,7 @@ function onLoadMore() {
 }
 function onOpenChange(event: Event) {
   const { open } = (event as CustomEvent<OpenChangeDetail>).detail;
-  config.value?.setDrawerOpen?.(open);
+  setDrawerOpen(open);
 }
 function onLicensed() {
   props.onLicensed?.();
@@ -194,6 +239,20 @@ function onLicensed() {
 
 defineSlots<{
   default(): unknown;
+  /**
+   * Optional per-row content. When provided, this slot is rendered as
+   * light-DOM children with `slot="row:{id}"` for EVERY thread in the list,
+   * so the element projects it in place of the default row for all rows.
+   *
+   * Unlike React's `renderRow` (which returns `ReactNode | null` and can
+   * fall back to the element's built-in row on a per-thread basis by
+   * returning `null`), Vue's scoped slot is all-or-nothing: there is no
+   * per-row escape hatch back to the element default once the slot is
+   * defined. This is an intentional Vue-idiom divergence, not a bug — if a
+   * consumer needs per-row fallback, they should replicate the default row
+   * markup themselves inside the slot for the threads they don't want to
+   * customize.
+   */
   row(props: { thread: Thread }): unknown;
 }>();
 </script>
@@ -216,6 +275,11 @@ defineSlots<{
     @licensed="onLicensed"
   >
     <slot />
+    <!--
+      When the `row` slot is defined, it is projected for EVERY thread (no
+      per-row fallback to the element default) — see the JSDoc on the `row`
+      slot above for the React `renderRow` comparison.
+    -->
     <template v-if="$slots.row">
       <div
         v-for="t in threadsApi.threads.value"
