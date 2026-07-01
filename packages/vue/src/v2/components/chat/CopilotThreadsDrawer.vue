@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onScopeDispose, ref, watch } from "vue";
-import {
-  defineCopilotKitThreadsDrawer,
-  COPILOTKIT_THREADS_DRAWER_TAG,
-} from "@copilotkit/web-components/threads-drawer";
+// NOTE: the `<copilotkit-threads-drawer>` element is a Lit custom element whose
+// module evaluates `class ... extends HTMLElement` at import time, which throws
+// under SSR (Node has no DOM). It is therefore imported LAZILY (client-only,
+// inside onMounted) rather than statically, so that importing `@copilotkit/vue`
+// stays SSR-safe for every consumer (e.g. Nuxt). Only the erased `import type`
+// below is kept at module scope.
 import type {
   CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
   DrawerThread,
@@ -84,13 +86,20 @@ const drawerThreads = computed(() =>
   threadsApi.threads.value.map(toDrawerThread),
 );
 
-// Client-only element registration (SSR-safe). `mounted` gates the render.
+// Client-only element registration (SSR-safe). The element module is imported
+// lazily here (never at module scope — see the import note above) so SSR never
+// evaluates its `extends HTMLElement`. `elementTag` holds the resolved custom-
+// element tag and `mounted` gates the render; both are set only after the
+// dynamic import resolves on the client.
 const mounted = ref(false);
+const elementTag = ref<string | null>(null);
 const elRef = ref<
   (CopilotKitThreadsDrawerElement & Record<string, unknown>) | null
 >(null);
-onMounted(() => {
-  defineCopilotKitThreadsDrawer();
+onMounted(async () => {
+  const mod = await import("@copilotkit/web-components/threads-drawer");
+  mod.defineCopilotKitThreadsDrawer();
+  elementTag.value = mod.COPILOTKIT_THREADS_DRAWER_TAG;
   mounted.value = true;
 });
 
@@ -258,7 +267,7 @@ defineSlots<{
 
 <template>
   <component
-    :is="COPILOTKIT_THREADS_DRAWER_TAG"
+    :is="elementTag"
     v-if="mounted"
     ref="elRef"
     :data-testid="dataTestId"

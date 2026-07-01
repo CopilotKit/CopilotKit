@@ -117,11 +117,19 @@ vi.mock("../../../providers/useLicenseContext", () => ({
   }),
 }));
 
-function mountDrawer(
+// Mounts the drawer and waits for it to settle before returning. The wrapper
+// registers the `<copilotkit-threads-drawer>` element ASYNCHRONOUSLY (a
+// dynamic `import()` inside `onMounted`, kept lazy so `@copilotkit/vue` stays
+// SSR-safe — see CopilotThreadsDrawer.vue). `flushPromises()` resolves that
+// dynamic import (already cached via the static import + `beforeAll` register
+// below, so it settles on a microtask) which flips `mounted` and sets
+// `elementTag`; the trailing `nextTick()` flushes the resulting render plus
+// the `flush: "post"` property-push watcher. Callers must `await` this.
+async function mountDrawer(
   props: Record<string, unknown> = {},
   extraSlotChildren: unknown[] = [],
 ) {
-  return mount(CopilotKitProvider, {
+  const wrapper = mount(CopilotKitProvider, {
     props: { runtimeUrl: "/api/copilotkit" },
     slots: {
       default: () =>
@@ -138,6 +146,9 @@ function mountDrawer(
     },
     attachTo: document.body,
   });
+  await flushPromises();
+  await nextTick();
+  return wrapper;
 }
 
 describe("CopilotThreadsDrawer", () => {
@@ -169,9 +180,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("renders the custom element and sets domain properties", async () => {
-    const wrapper = mountDrawer({ label: "Chats" });
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer({ label: "Chats" });
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
       .element as HTMLElement & Record<string, unknown>;
@@ -188,9 +197,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("routes thread-selected to the config's setActiveThreadId", async () => {
-    const wrapper = mountDrawer({}, [h(ThreadIdProbe)]);
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer({}, [h(ThreadIdProbe)]);
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
     el.dispatchEvent(
@@ -209,9 +216,7 @@ describe("CopilotThreadsDrawer", () => {
 
   it("invokes onLicensed when the element emits licensed", async () => {
     const onLicensed = vi.fn();
-    const wrapper = mountDrawer({ onLicensed });
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer({ onLicensed });
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
     el.dispatchEvent(
@@ -238,9 +243,7 @@ describe("CopilotThreadsDrawer", () => {
     input.setAttribute("data-testid", "copilot-chat-input-textarea");
     document.body.appendChild(input);
 
-    const wrapper = mountDrawer({}, [h(ThreadIdProbe)]);
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer({}, [h(ThreadIdProbe)]);
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
     el.dispatchEvent(
@@ -259,12 +262,10 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("resets the active thread when the ACTIVE thread is deleted", async () => {
-    const wrapper = mountDrawer({}, [
+    const wrapper = await mountDrawer({}, [
       h(ThreadIdProbe),
       h(HasExplicitThreadIdProbe),
     ]);
-    await nextTick();
-    await nextTick();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
 
@@ -306,9 +307,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("leaves the active thread intact when a NON-active thread is deleted", async () => {
-    const wrapper = mountDrawer({}, [h(ThreadIdProbe)]);
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer({}, [h(ThreadIdProbe)]);
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
 
@@ -347,7 +346,7 @@ describe("CopilotThreadsDrawer", () => {
       },
       attachTo: document.body,
     });
-    await nextTick();
+    await flushPromises();
     await nextTick();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
@@ -370,9 +369,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("routes archive to threadsApi.archiveThread", async () => {
-    const wrapper = mountDrawer();
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
     el.dispatchEvent(
@@ -390,9 +387,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("routes unarchive to threadsApi.unarchiveThread", async () => {
-    const wrapper = mountDrawer();
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
     el.dispatchEvent(
@@ -410,9 +405,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("routes filter-change to threadsApi.refetchThreads", async () => {
-    const wrapper = mountDrawer();
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
     el.dispatchEvent(
@@ -430,12 +423,10 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("routes new-thread to threadsApi.startNewThread AND the config's startNewThread", async () => {
-    const wrapper = mountDrawer({}, [
+    const wrapper = await mountDrawer({}, [
       h(ThreadIdProbe),
       h(HasExplicitThreadIdProbe),
     ]);
-    await nextTick();
-    await nextTick();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
 
@@ -476,9 +467,7 @@ describe("CopilotThreadsDrawer", () => {
 
   it("new-thread prefers onNewThread over the config's startNewThread when provided", async () => {
     const onNewThread = vi.fn();
-    const wrapper = mountDrawer({ onNewThread }, [h(ThreadIdProbe)]);
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer({ onNewThread }, [h(ThreadIdProbe)]);
 
     // Seed an explicit active thread so a config-driven reset would be
     // observable if it (incorrectly) fired.
@@ -512,9 +501,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("routes retry(scope: fetch-more) to threadsApi.fetchMoreThreads", async () => {
-    const wrapper = mountDrawer();
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
     el.dispatchEvent(
@@ -533,9 +520,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("routes retry(scope: initial) to threadsApi.refetchThreads", async () => {
-    const wrapper = mountDrawer();
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
     el.dispatchEvent(
@@ -554,9 +539,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("routes load-more to threadsApi.fetchMoreThreads", async () => {
-    const wrapper = mountDrawer();
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
     el.dispatchEvent(
@@ -574,9 +557,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("routes open-change to the config's setDrawerOpen under a surrounding provider", async () => {
-    const wrapper = mountDrawer({}, [h(DrawerOpenProbe)]);
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer({}, [h(DrawerOpenProbe)]);
 
     // The provider's drawerOpen always starts closed, regardless of
     // `isModalDefaultOpen` (that prop only seeds the chat modal).
@@ -618,9 +599,7 @@ describe("CopilotThreadsDrawer", () => {
       getLimit: () => null,
     };
 
-    const wrapper = mountDrawer();
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
       .element as HTMLElement & Record<string, unknown>;
@@ -643,9 +622,7 @@ describe("CopilotThreadsDrawer", () => {
       getLimit: () => null,
     };
 
-    const wrapper = mountDrawer();
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
       .element as HTMLElement & Record<string, unknown>;
@@ -660,9 +637,7 @@ describe("CopilotThreadsDrawer", () => {
     useThreadsMocks.listError.value = listError;
     useThreadsMocks.error.value = listError;
 
-    const wrapper = mountDrawer();
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
       .element as HTMLElement & Record<string, unknown>;
@@ -679,9 +654,7 @@ describe("CopilotThreadsDrawer", () => {
     useThreadsMocks.error.value = new Error("Runtime URL is not configured");
     useThreadsMocks.listError.value = null;
 
-    const wrapper = mountDrawer();
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
       .element as HTMLElement & Record<string, unknown>;
@@ -692,9 +665,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("forwards the limit prop to useThreads", async () => {
-    const wrapper = mountDrawer({ limit: 20 });
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer({ limit: 20 });
 
     expect(
       toValue(
@@ -706,9 +677,9 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("sets the element's licenseUrl when the prop is provided", async () => {
-    const wrapper = mountDrawer({ licenseUrl: "https://example.com/upgrade" });
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer({
+      licenseUrl: "https://example.com/upgrade",
+    });
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
       .element as HTMLElement & Record<string, unknown>;
@@ -719,9 +690,7 @@ describe("CopilotThreadsDrawer", () => {
   });
 
   it("leaves the element's default licenseUrl when the prop is omitted", async () => {
-    const wrapper = mountDrawer();
-    await nextTick();
-    await nextTick();
+    const wrapper = await mountDrawer();
 
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
       .element as HTMLElement & Record<string, unknown>;
