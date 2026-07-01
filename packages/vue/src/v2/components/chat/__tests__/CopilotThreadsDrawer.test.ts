@@ -9,6 +9,13 @@ import {
   COPILOTKIT_THREADS_DRAWER_TAG,
   defineCopilotKitThreadsDrawer,
 } from "@copilotkit/web-components/threads-drawer";
+// The package name `@copilotkit/vue` does not resolve from within its own
+// test suite (no build output / self-referencing node_modules symlink in
+// this workspace), so the package entry barrel is imported by relative
+// path here. This still verifies the full re-export chain from the chat
+// barrel up through components/index.ts and v2/index.ts to the package
+// root entry.
+import * as vue from "../../../../index";
 
 const ThreadIdProbe = {
   setup() {
@@ -106,5 +113,11 @@ describe("CopilotThreadsDrawer", () => {
     expect(onLicensed).toHaveBeenCalledTimes(1);
 
     wrapper.unmount();
+  });
+});
+
+describe("CopilotThreadsDrawer package export", () => {
+  it("is exported from the package entry", () => {
+    expect((vue as Record<string, unknown>).CopilotThreadsDrawer).toBeDefined();
   });
 });
