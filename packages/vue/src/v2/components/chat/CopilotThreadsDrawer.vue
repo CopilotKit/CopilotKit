@@ -157,6 +157,7 @@ const CHAT_CONTAINER_TESTID = "copilot-chat-view";
  * (e.g. the drawer and chat share no common container, or headless usage).
  */
 function findChatInput(origin: Element | null): HTMLElement | null {
+  if (typeof document === "undefined") return null;
   const container = origin?.closest?.(
     `[data-testid="${CHAT_CONTAINER_TESTID}"]`,
   );

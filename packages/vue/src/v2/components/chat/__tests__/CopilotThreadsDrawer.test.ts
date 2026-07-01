@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { h, nextTick } from "vue";
-import { mount } from "@vue/test-utils";
+import { h, nextTick, toValue } from "vue";
+import type { MaybeRefOrGetter } from "vue";
+import { flushPromises, mount } from "@vue/test-utils";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotChatConfiguration } from "../../../providers/useCopilotChatConfiguration";
@@ -16,6 +17,7 @@ import {
 // barrel up through components/index.ts and v2/index.ts to the package
 // root entry.
 import * as vue from "../../../../index";
+import type { LicenseContextValue } from "../../../providers/license-context";
 
 const ThreadIdProbe = {
   setup() {
@@ -37,30 +39,81 @@ const HasExplicitThreadIdProbe = {
   },
 };
 
+/** Reads the config-backed `drawerOpen` so `open-change` routing can be
+ * asserted without reaching into the element's own `open` property (which
+ * is itself derived FROM this same config value, so a separate probe keeps
+ * the assertion honest about which layer actually changed). */
+const DrawerOpenProbe = {
+  setup() {
+    const config = useCopilotChatConfiguration();
+    return () =>
+      h(
+        "span",
+        { "data-testid": "drawer-open" },
+        String(config.value?.drawerOpen),
+      );
+  },
+};
+
 // Deterministic, controllable stand-in for the real `useThreads` composable so
 // delete/active-thread behavior can be asserted without a live runtime. Reset
-// per-test in `beforeEach`.
+// per-test in `beforeEach`. `useThreadsInput` captures the input passed by the
+// wrapper on the most recent call so tests can assert on `limit`/`enabled`
+// forwarding (both are `MaybeRefOrGetter`, so callers must unwrap with
+// `toValue`).
 const useThreadsMocks = vi.hoisted(() => ({
   deleteThread: vi.fn().mockResolvedValue(undefined),
   startNewThread: vi.fn(),
+  archiveThread: vi.fn().mockResolvedValue(undefined),
+  unarchiveThread: vi.fn().mockResolvedValue(undefined),
+  fetchMoreThreads: vi.fn(),
+  refetchThreads: vi.fn(),
+  listError: { value: null as Error | null },
+  error: { value: null as Error | null },
+  useThreadsInput: null as Record<string, unknown> | null,
 }));
 
 vi.mock("../../../hooks/use-threads", () => ({
-  useThreads: () => ({
-    threads: { value: [] },
-    isLoading: { value: false },
-    error: { value: null },
-    listError: { value: null },
-    hasMoreThreads: { value: false },
-    isFetchingMoreThreads: { value: false },
-    isMutating: { value: false },
-    fetchMoreThreads: vi.fn(),
-    refetchThreads: vi.fn(),
-    startNewThread: useThreadsMocks.startNewThread,
-    renameThread: vi.fn().mockResolvedValue(undefined),
-    archiveThread: vi.fn().mockResolvedValue(undefined),
-    unarchiveThread: vi.fn().mockResolvedValue(undefined),
-    deleteThread: useThreadsMocks.deleteThread,
+  useThreads: (input: Record<string, unknown>) => {
+    useThreadsMocks.useThreadsInput = input;
+    return {
+      threads: { value: [] },
+      isLoading: { value: false },
+      error: useThreadsMocks.error,
+      listError: useThreadsMocks.listError,
+      hasMoreThreads: { value: false },
+      isFetchingMoreThreads: { value: false },
+      isMutating: { value: false },
+      fetchMoreThreads: useThreadsMocks.fetchMoreThreads,
+      refetchThreads: useThreadsMocks.refetchThreads,
+      startNewThread: useThreadsMocks.startNewThread,
+      renameThread: vi.fn().mockResolvedValue(undefined),
+      archiveThread: useThreadsMocks.archiveThread,
+      unarchiveThread: useThreadsMocks.unarchiveThread,
+      deleteThread: useThreadsMocks.deleteThread,
+    };
+  },
+}));
+
+// Controllable stand-in for the license context so resolved-licensed and
+// resolved-unlicensed states can be driven directly, without routing a real
+// runtime connection through `CopilotKitProvider`. Defaults to a permissive
+// "pending" (status null) context, matching the provider's own default
+// before a runtime responds, and is reset per-test in `beforeEach`.
+const licenseContextMock = vi.hoisted(() => ({
+  value: {
+    status: null,
+    license: null,
+    checkFeature: () => true,
+    getLimit: () => null,
+  } as LicenseContextValue,
+}));
+
+vi.mock("../../../providers/useLicenseContext", () => ({
+  useLicenseContext: () => ({
+    get value() {
+      return licenseContextMock.value;
+    },
   }),
 }));
 
@@ -98,6 +151,21 @@ describe("CopilotThreadsDrawer", () => {
     useThreadsMocks.deleteThread.mockClear();
     useThreadsMocks.deleteThread.mockResolvedValue(undefined);
     useThreadsMocks.startNewThread.mockClear();
+    useThreadsMocks.archiveThread.mockClear();
+    useThreadsMocks.archiveThread.mockResolvedValue(undefined);
+    useThreadsMocks.unarchiveThread.mockClear();
+    useThreadsMocks.unarchiveThread.mockResolvedValue(undefined);
+    useThreadsMocks.fetchMoreThreads.mockClear();
+    useThreadsMocks.refetchThreads.mockClear();
+    useThreadsMocks.listError.value = null;
+    useThreadsMocks.error.value = null;
+    useThreadsMocks.useThreadsInput = null;
+    licenseContextMock.value = {
+      status: null,
+      license: null,
+      checkFeature: () => true,
+      getLimit: () => null,
+    };
   });
 
   it("renders the custom element and sets domain properties", async () => {
@@ -222,8 +290,7 @@ describe("CopilotThreadsDrawer", () => {
       }),
     );
     // Let the deleteThread() promise resolve and its .then() run.
-    await nextTick();
-    await nextTick();
+    await flushPromises();
     await nextTick();
 
     expect(useThreadsMocks.deleteThread).toHaveBeenCalledWith("t-active");
@@ -262,8 +329,7 @@ describe("CopilotThreadsDrawer", () => {
         composed: true,
       }),
     );
-    await nextTick();
-    await nextTick();
+    await flushPromises();
     await nextTick();
 
     expect(useThreadsMocks.deleteThread).toHaveBeenCalledWith("t-other");
@@ -299,6 +365,368 @@ describe("CopilotThreadsDrawer", () => {
     await nextTick();
 
     expect(el.open).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it("routes archive to threadsApi.archiveThread", async () => {
+    const wrapper = mountDrawer();
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    el.dispatchEvent(
+      new CustomEvent("archive", {
+        detail: { threadId: "t-archive" },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await flushPromises();
+
+    expect(useThreadsMocks.archiveThread).toHaveBeenCalledWith("t-archive");
+
+    wrapper.unmount();
+  });
+
+  it("routes unarchive to threadsApi.unarchiveThread", async () => {
+    const wrapper = mountDrawer();
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    el.dispatchEvent(
+      new CustomEvent("unarchive", {
+        detail: { threadId: "t-unarchive" },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await flushPromises();
+
+    expect(useThreadsMocks.unarchiveThread).toHaveBeenCalledWith("t-unarchive");
+
+    wrapper.unmount();
+  });
+
+  it("routes filter-change to threadsApi.refetchThreads", async () => {
+    const wrapper = mountDrawer();
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    el.dispatchEvent(
+      new CustomEvent("filter-change", {
+        detail: { filter: "all" },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+
+    expect(useThreadsMocks.refetchThreads).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
+
+  it("routes new-thread to threadsApi.startNewThread AND the config's startNewThread", async () => {
+    const wrapper = mountDrawer({}, [
+      h(ThreadIdProbe),
+      h(HasExplicitThreadIdProbe),
+    ]);
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+
+    // Seed an explicit active thread first so the config-backed reset is
+    // observable (it flips the thread id and marks it non-explicit again).
+    el.dispatchEvent(
+      new CustomEvent("thread-selected", {
+        detail: { threadId: "t-active" },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+    expect(wrapper.get("[data-testid='thread-id']").text()).toBe("t-active");
+
+    el.dispatchEvent(
+      new CustomEvent("new-thread", {
+        detail: {},
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+
+    // threadsApi.startNewThread (the store-level reset) always fires.
+    expect(useThreadsMocks.startNewThread).toHaveBeenCalledTimes(1);
+    // The config's startNewThread also fired: the active thread id changed
+    // away from the explicitly-selected one and is no longer explicit.
+    expect(wrapper.get("[data-testid='thread-id']").text()).not.toBe(
+      "t-active",
+    );
+    expect(wrapper.get("[data-testid='has-explicit-thread-id']").text()).toBe(
+      "false",
+    );
+
+    wrapper.unmount();
+  });
+
+  it("new-thread prefers onNewThread over the config's startNewThread when provided", async () => {
+    const onNewThread = vi.fn();
+    const wrapper = mountDrawer({ onNewThread }, [h(ThreadIdProbe)]);
+    await nextTick();
+    await nextTick();
+
+    // Seed an explicit active thread so a config-driven reset would be
+    // observable if it (incorrectly) fired.
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    el.dispatchEvent(
+      new CustomEvent("thread-selected", {
+        detail: { threadId: "t-active" },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+    expect(wrapper.get("[data-testid='thread-id']").text()).toBe("t-active");
+
+    el.dispatchEvent(
+      new CustomEvent("new-thread", {
+        detail: {},
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+
+    expect(useThreadsMocks.startNewThread).toHaveBeenCalledTimes(1);
+    expect(onNewThread).toHaveBeenCalledTimes(1);
+    // Config-backed startNewThread was NOT used: the active thread the
+    // provider tracks is unchanged (a config-driven reset would clear it).
+    expect(wrapper.get("[data-testid='thread-id']").text()).toBe("t-active");
+
+    wrapper.unmount();
+  });
+
+  it("routes retry(scope: fetch-more) to threadsApi.fetchMoreThreads", async () => {
+    const wrapper = mountDrawer();
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    el.dispatchEvent(
+      new CustomEvent("retry", {
+        detail: { scope: "fetch-more" },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+
+    expect(useThreadsMocks.fetchMoreThreads).toHaveBeenCalledTimes(1);
+    expect(useThreadsMocks.refetchThreads).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it("routes retry(scope: initial) to threadsApi.refetchThreads", async () => {
+    const wrapper = mountDrawer();
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    el.dispatchEvent(
+      new CustomEvent("retry", {
+        detail: { scope: "initial" },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+
+    expect(useThreadsMocks.refetchThreads).toHaveBeenCalledTimes(1);
+    expect(useThreadsMocks.fetchMoreThreads).not.toHaveBeenCalled();
+
+    wrapper.unmount();
+  });
+
+  it("routes load-more to threadsApi.fetchMoreThreads", async () => {
+    const wrapper = mountDrawer();
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    el.dispatchEvent(
+      new CustomEvent("load-more", {
+        detail: {},
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+
+    expect(useThreadsMocks.fetchMoreThreads).toHaveBeenCalledTimes(1);
+
+    wrapper.unmount();
+  });
+
+  it("routes open-change to the config's setDrawerOpen under a surrounding provider", async () => {
+    const wrapper = mountDrawer({}, [h(DrawerOpenProbe)]);
+    await nextTick();
+    await nextTick();
+
+    // The provider's drawerOpen always starts closed, regardless of
+    // `isModalDefaultOpen` (that prop only seeds the chat modal).
+    expect(wrapper.get("[data-testid='drawer-open']").text()).toBe("false");
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    el.dispatchEvent(
+      new CustomEvent("open-change", {
+        detail: { open: true },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+
+    // The config-backed value flips — proving the event routed through
+    // config.setDrawerOpen rather than only updating the element locally.
+    expect(wrapper.get("[data-testid='drawer-open']").text()).toBe("true");
+
+    el.dispatchEvent(
+      new CustomEvent("open-change", {
+        detail: { open: false },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+
+    expect(wrapper.get("[data-testid='drawer-open']").text()).toBe("false");
+
+    wrapper.unmount();
+  });
+
+  it("resolved-unlicensed status ('none') shows the locked view and skips the thread fetch", async () => {
+    licenseContextMock.value = {
+      status: "none",
+      license: null,
+      checkFeature: () => true,
+      getLimit: () => null,
+    };
+
+    const wrapper = mountDrawer();
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as HTMLElement & Record<string, unknown>;
+
+    expect(el.licensed).toBe(false);
+    expect(
+      toValue(
+        useThreadsMocks.useThreadsInput?.enabled as MaybeRefOrGetter<boolean>,
+      ),
+    ).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("resolved-unlicensed status ('invalid') shows the locked view", async () => {
+    licenseContextMock.value = {
+      status: "invalid",
+      license: null,
+      checkFeature: () => false,
+      getLimit: () => null,
+    };
+
+    const wrapper = mountDrawer();
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as HTMLElement & Record<string, unknown>;
+
+    expect(el.licensed).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("surfaces a genuine listError to the element's error string", async () => {
+    const listError = new Error("boom");
+    useThreadsMocks.listError.value = listError;
+    useThreadsMocks.error.value = listError;
+
+    const wrapper = mountDrawer();
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as HTMLElement & Record<string, unknown>;
+
+    expect(el.error).toBe(listError.message);
+
+    wrapper.unmount();
+  });
+
+  it("suppresses a config/runtime error that is not a listError from the element's error string", async () => {
+    // Only the combined `error` channel carries a dev/config error; `listError`
+    // stays null because no genuine list-load failure occurred. The element
+    // must not leak the developer-facing message into the end-user error UI.
+    useThreadsMocks.error.value = new Error("Runtime URL is not configured");
+    useThreadsMocks.listError.value = null;
+
+    const wrapper = mountDrawer();
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as HTMLElement & Record<string, unknown>;
+
+    expect(el.error).toBeNull();
+
+    wrapper.unmount();
+  });
+
+  it("forwards the limit prop to useThreads", async () => {
+    const wrapper = mountDrawer({ limit: 20 });
+    await nextTick();
+    await nextTick();
+
+    expect(
+      toValue(
+        useThreadsMocks.useThreadsInput?.limit as MaybeRefOrGetter<number>,
+      ),
+    ).toBe(20);
+
+    wrapper.unmount();
+  });
+
+  it("sets the element's licenseUrl when the prop is provided", async () => {
+    const wrapper = mountDrawer({ licenseUrl: "https://example.com/upgrade" });
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as HTMLElement & Record<string, unknown>;
+
+    expect(el.licenseUrl).toBe("https://example.com/upgrade");
+
+    wrapper.unmount();
+  });
+
+  it("leaves the element's default licenseUrl when the prop is omitted", async () => {
+    const wrapper = mountDrawer();
+    await nextTick();
+    await nextTick();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as HTMLElement & Record<string, unknown>;
+
+    expect(el.licenseUrl).toBe("https://docs.copilotkit.ai/intelligence");
 
     wrapper.unmount();
   });
