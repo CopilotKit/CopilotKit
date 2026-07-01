@@ -403,7 +403,6 @@ describe("framework nav", () => {
       "Self-Hosting Enterprise Intelligence",
       "Enterprise Intelligence Architecture",
       "Threads & Persistence Architecture",
-      "Threads",
     ]);
   });
 });
