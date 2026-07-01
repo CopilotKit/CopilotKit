@@ -858,6 +858,10 @@ export class CpkThreadInspector extends LitElement {
     events: ApiAgentEvent[];
     items: TimelineItem[];
   } | null = null;
+  private _liveEventsWithSourceIndexCache: {
+    events: ApiAgentEvent[];
+    indexedEvents: ApiAgentEvent[];
+  } | null = null;
   /**
    * Tracks whether we've fetched events for the current thread yet. Events
    * fetch lazily on first sub-tab click so a large response's JSON.parse
@@ -1712,6 +1716,8 @@ export class CpkThreadInspector extends LitElement {
     this._tab = "timeline";
     this._activatedTabs = new Set(["timeline"]);
     this._panelTplCache = new Map();
+    this._timelineItemsCache = null;
+    this._liveEventsWithSourceIndexCache = null;
     this._expandedTools = new Set();
     this._expandedMessages = new Set();
     this._metadataAbort?.abort();
@@ -2393,9 +2399,14 @@ export class CpkThreadInspector extends LitElement {
     if (this._eventsNotAvailable) return [];
     const events = this._fetchedEvents ?? this.agentEventsInput ?? [];
     if (events.every((event) => event.sourceIndex != null)) return events;
-    return events.map((event, index) =>
+    if (this._liveEventsWithSourceIndexCache?.events === events) {
+      return this._liveEventsWithSourceIndexCache.indexedEvents;
+    }
+    const indexedEvents = events.map((event, index) =>
       event.sourceIndex == null ? { ...event, sourceIndex: index + 1 } : event,
     );
+    this._liveEventsWithSourceIndexCache = { events, indexedEvents };
+    return indexedEvents;
   }
 
   private get activeState(): Record<string, unknown> | null {

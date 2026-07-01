@@ -330,8 +330,13 @@ type ThreadDetailsInternals = {
   provider: ThreadDebuggerProvider | null;
   _fetchedMetadata: Record<string, unknown> | null;
   _conversation: Array<Record<string, unknown>>;
+  agentEventsInput: Array<Record<string, unknown>>;
   _fetchedState: Record<string, unknown> | null;
   _fetchedEvents: Array<Record<string, unknown>> | null;
+  _timelineItemsCache: {
+    events: Array<Record<string, unknown>>;
+    items: Array<Record<string, unknown>>;
+  } | null;
   _expandedTools: Set<string>;
   _expandedMessages: Set<string>;
   _stateNotAvailable: boolean;
@@ -417,7 +422,7 @@ describe("ɵCpkThreadDetails caching", () => {
     await el.updateComplete;
   }
 
-  it("threadId change drops all three template caches", async () => {
+  it("threadId change drops template and timeline item caches", async () => {
     const { el, internals } = createThreadDetails();
     await settleThread(el, internals, "t1");
 
@@ -427,6 +432,15 @@ describe("ɵCpkThreadDetails caching", () => {
     internals._panelTplCache.set("timeline", { key: [], tpl: "c" });
     internals._panelTplCache.set("state", { key: [], tpl: "s" });
     internals._panelTplCache.set("raw-events", { key: [], tpl: "e" });
+    internals.agentEventsInput = [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-06-25T10:00:00.000Z",
+        payload: {},
+      },
+    ];
+    internals.renderTimeline();
+    expect(internals._timelineItemsCache).not.toBeNull();
 
     // Switch to thread t2 — the threadId branch in `updated()` should
     // empty the cache map.
@@ -434,6 +448,7 @@ describe("ɵCpkThreadDetails caching", () => {
     await el.updateComplete;
 
     expect(internals._panelTplCache.size).toBe(0);
+    expect(internals._timelineItemsCache).toBeNull();
   });
 
   it("does not fetch messages, events, or state when threadInspectionAvailable is omitted", async () => {
@@ -621,6 +636,28 @@ describe("ɵCpkThreadDetails caching", () => {
     const timelineTpl = internals.renderTimeline();
 
     expect(internals.renderTimeline()).toBe(timelineTpl);
+    expect(normalizeSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps live fallback event references stable for timeline and raw event caches", async () => {
+    const { el, internals } = createThreadDetails();
+    await settleThread(el, internals, "t1");
+
+    internals.agentEventsInput = [
+      {
+        type: "RUN_STARTED",
+        timestamp: "2026-06-25T10:00:00.000Z",
+        payload: {},
+      },
+    ];
+
+    const normalizeSpy = vi.spyOn(internals, "timelineItemsFromEvents");
+
+    const timelineTpl = internals.renderTimeline();
+    const eventsTpl = internals.renderEvents();
+
+    expect(internals.renderTimeline()).toBe(timelineTpl);
+    expect(internals.renderEvents()).toBe(eventsTpl);
     expect(normalizeSpy).toHaveBeenCalledTimes(1);
   });
 
