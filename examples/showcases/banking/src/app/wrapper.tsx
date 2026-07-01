@@ -15,7 +15,9 @@ import { RecordingVignette } from "@/components/recording-vignette";
 import { ProactiveNotice } from "@/components/wow/proactive-notice";
 import { ReportCopilotTools } from "@/components/wow/report-tool";
 
-// Static suggestion pills shown on the welcome screen / before-first-message.
+// Static suggestion pills — the demo's full use-case catalog, available at
+// ALL times (`available: "always"`), not just the welcome screen: the demo
+// must stay fully click-drivable after every exchange, with zero typing.
 // In v2, suggestions are registered via `useConfigureSuggestions` rather than a
 // prop on the chat component (the v1 `suggestions` prop does not exist on the
 // v2 component — it's omitted from `CopilotChatProps` and supplied via the hook
@@ -35,9 +37,16 @@ import { ReportCopilotTools } from "@/components/wow/report-tool";
 //      learned procedure to a DIFFERENT over-limit charge it was never taught.
 // Titles stay symptom-only: they must NOT hint at the exception path the agent
 // is meant to learn on its own.
+//
+// The remaining pills cover every other use case the demo ships: gen-UI
+// charts, the approvals explainer, report artifacts, and the cross-page
+// operations (PIN change, team invite) that ride navigateToPageAndPerform.
+// Page-scoped fire-and-forget tools (spend alert, card replacement, flag for
+// review) are deliberately NOT pilled: they only exist on the home route, so
+// a global pill for them would be a broken promise on every other page.
 function BankingSuggestions() {
   useConfigureSuggestions({
-    available: "before-first-message",
+    available: "always",
     suggestions: [
       {
         // BEAT 1 — the teachable ask. Seed t-1: Google Ads, -$5,000, Marketing
@@ -71,6 +80,43 @@ function BankingSuggestions() {
         // Breadth — a clean non-arc capability (the generative-UI card flow).
         title: "Add an expense card",
         message: "Add a new expense card",
+      },
+      // ── Gen-UI charts ────────────────────────────────────────────────────
+      {
+        title: "Show the spending trend",
+        message: "Show me the spending trend over time.",
+      },
+      {
+        title: "Budgets near their limit?",
+        message:
+          "Show me budget usage by policy — which ones are close to or over their limit?",
+      },
+      {
+        title: "Where is the money going?",
+        message: "Where is the money going? Break down spend by team.",
+      },
+      {
+        title: "How's our cash flow?",
+        message: "Compare our income vs expenses — how is our cash flow?",
+      },
+      {
+        title: "How do approvals work?",
+        message: "Explain how an over-limit charge gets cleared and approved.",
+      },
+      // ── Work product ─────────────────────────────────────────────────────
+      {
+        title: "Prep the Q2 spend report",
+        message:
+          "Prepare a Q2 spend report for the board: summarize spend against budgets, call out anything over limit or pending, and file it as a report.",
+      },
+      // ── Cross-page operations (navigateToPageAndPerform fallbacks) ──────
+      {
+        title: "Change my card PIN",
+        message: "I want to change the PIN on my Visa card.",
+      },
+      {
+        title: "Invite a team member",
+        message: "Invite a new member to my team.",
       },
     ],
   });
