@@ -1,4 +1,9 @@
 import type * as gql from "../client";
+import type * as agui from "@copilotkit/shared";
+
+type AgentStateRuntimeIdentityCarrier =
+  | gql.AgentStateMessage
+  | (agui.Message & Partial<AgentStateRuntimeIdentity>);
 
 type AgentStateRuntimeIdentityKey =
   | "threadId"
@@ -12,7 +17,7 @@ export type AgentStateRuntimeIdentity = Pick<
 >;
 
 export function getAgentStateRuntimeIdentity(
-  message: Partial<AgentStateRuntimeIdentity>,
+  message: AgentStateRuntimeIdentityCarrier,
 ): Partial<AgentStateRuntimeIdentity> {
   const identity: Partial<AgentStateRuntimeIdentity> = {};
 
