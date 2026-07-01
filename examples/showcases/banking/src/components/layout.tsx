@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import {
   CreditCard,
@@ -32,6 +33,8 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useAgentContext } from "@copilotkit/react-core/v2";
 import { usePathname } from "next/navigation";
 import { IDENTITY } from "@/lib/identity";
+import { useCanvas } from "@/components/canvas/canvas-context";
+import { ReportCanvas } from "@/components/canvas/report-canvas";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -145,6 +148,13 @@ export function LayoutComponent({ children }: LayoutProps) {
     description: "The current page where the user is",
     value: pathname.split("/")[1] === "" ? "cards" : pathname.split("/")[1],
   });
+  const { activeSurfaceId, clear } = useCanvas();
+
+  // Navigating via the rail dismisses any stale surface.
+  useEffect(() => {
+    clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
 
   return (
     <div
@@ -249,7 +259,24 @@ export function LayoutComponent({ children }: LayoutProps) {
           </div>
         </header>
         <main className="flex-1 overflow-y-auto px-2 pb-6 md:px-6">
-          {children}
+          {activeSurfaceId ? (
+            <div className="flex h-full flex-1 flex-col">
+              <div className="flex items-center gap-2 p-4">
+                <button
+                  type="button"
+                  onClick={clear}
+                  className="inline-flex items-center gap-1 rounded-xl border border-hairline bg-surface px-3 py-1.5 text-sm text-ink shadow-soft"
+                >
+                  ← Back to {pathname.split("/")[1] || "dashboard"}
+                </button>
+              </div>
+              <div className="min-h-0 flex-1">
+                <ReportCanvas />
+              </div>
+            </div>
+          ) : (
+            children
+          )}
         </main>
       </div>
     </div>
