@@ -10,9 +10,10 @@ import { useAskCopilot } from "./use-ask-copilot";
 // reads as a static banner, arriving late reads as an agent observation.
 const APPEAR_DELAY_MS = 1200;
 
-// Session-scoped so a dismiss doesn't nag on every navigation, but a fresh
-// browser context (each booth visitor / each Playwright run) sees it again.
-const DISMISSED_KEY = "banking-proactive-notice-dismissed";
+// Dismissal is per page load (component state), NOT persisted: the notice is
+// the demo's opening beat, so every fresh load must fire it again. Within a
+// load it never re-nags — the wrapper stays mounted across client-side route
+// changes, so the `engaged` flag survives navigation until a hard reload.
 
 /**
  * Proactive copilot opener: on load, when pending charges have breached their
@@ -51,7 +52,6 @@ export function ProactiveNotice() {
 
   useEffect(() => {
     if (engaged || breachedCount === 0) return;
-    if (sessionStorage.getItem(DISMISSED_KEY)) return;
     const timer = setTimeout(() => setVisible(true), APPEAR_DELAY_MS);
     return () => clearTimeout(timer);
   }, [breachedCount, engaged]);
@@ -59,14 +59,11 @@ export function ProactiveNotice() {
   if (!visible || engaged || breachedCount === 0) return null;
 
   const dismiss = () => {
-    sessionStorage.setItem(DISMISSED_KEY, "1");
+    setEngaged(true);
     setVisible(false);
   };
 
   const review = () => {
-    // Mark the session either way: once the user has engaged, the observation
-    // is delivered — re-surfacing it on the next navigation reads as nagging.
-    sessionStorage.setItem(DISMISSED_KEY, "1");
     setEngaged(true);
     setVisible(false);
     void askCopilot(
