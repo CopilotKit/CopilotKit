@@ -6,6 +6,7 @@ import {
   CopilotRuntimeTransport,
   type CopilotKitCoreGetSuggestionsResult,
   type IntelligenceRuntimeInfo,
+  type RuntimeLicenseStatus,
   type SuggestionsConfig,
   type ThreadEndpointRuntimeInfo,
 } from "@copilotkit/core";
@@ -101,6 +102,14 @@ export class CopilotKit {
    * transition in the same turn.
    */
   readonly intelligence = this.#intelligence.asReadonly();
+  readonly #licenseStatus = signal<RuntimeLicenseStatus | undefined>(undefined);
+  /**
+   * Server-reported license status from the connected runtime's `/info`
+   * response, or `undefined` before the runtime reports it. Exposed as a signal
+   * (rather than a plain `core.licenseStatus` read) so reactive consumers — e.g.
+   * the threads drawer's license gate — re-run once the status resolves.
+   */
+  readonly licenseStatus = this.#licenseStatus.asReadonly();
   readonly #suggestionsByAgent = signal<
     Record<string, CopilotKitCoreGetSuggestionsResult>
   >({});
@@ -171,6 +180,7 @@ export class CopilotKit {
     this.#headers.set(this.core.headers);
     this.#threadEndpoints.set(this.core.threadEndpoints);
     this.#intelligence.set(this.core.intelligence);
+    this.#licenseStatus.set(this.core.licenseStatus);
     this.#config.renderToolCalls?.forEach((renderConfig) => {
       this.addRenderToolCall(renderConfig);
     });
@@ -210,6 +220,7 @@ export class CopilotKit {
         this.#runtimeConnectionStatus.set(status);
         this.#threadEndpoints.set(this.core.threadEndpoints);
         this.#intelligence.set(this.core.intelligence);
+        this.#licenseStatus.set(this.core.licenseStatus);
         this.#syncBuiltInActivityMessageRenderers();
         this.#syncBuiltInOpenGenerativeUI();
       },

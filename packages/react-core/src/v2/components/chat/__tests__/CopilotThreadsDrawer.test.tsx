@@ -2,9 +2,9 @@ import React from "react";
 import { render, screen, act, waitFor } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import { test, expect, vi, beforeEach } from "vitest";
-import { COPILOTKIT_DRAWER_TAG } from "@copilotkit/web-components/drawer";
-import type { CopilotKitDrawer as CopilotKitDrawerElement } from "@copilotkit/web-components/drawer";
-import { CopilotDrawer } from "../CopilotDrawer";
+import { COPILOTKIT_THREADS_DRAWER_TAG } from "@copilotkit/web-components/threads-drawer";
+import type { CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement } from "@copilotkit/web-components/threads-drawer";
+import { CopilotThreadsDrawer } from "../CopilotThreadsDrawer";
 import {
   CopilotChatConfigurationProvider,
   useCopilotChatConfiguration,
@@ -125,10 +125,10 @@ function OpenToggle() {
   );
 }
 
-function getElement(): CopilotKitDrawerElement {
-  const el = document.querySelector(COPILOTKIT_DRAWER_TAG);
+function getElement(): CopilotKitThreadsDrawerElement {
+  const el = document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG);
   if (!el) throw new Error("drawer element not found");
-  return el as CopilotKitDrawerElement;
+  return el as CopilotKitThreadsDrawerElement;
 }
 
 function dispatch(type: string, detail: unknown = {}) {
@@ -139,17 +139,21 @@ function dispatch(type: string, detail: unknown = {}) {
   });
 }
 
-async function renderDrawer(props: Parameters<typeof CopilotDrawer>[0] = {}) {
+async function renderDrawer(
+  props: Parameters<typeof CopilotThreadsDrawer>[0] = {},
+) {
   const result = render(
     <CopilotChatConfigurationProvider threadId="t1">
       <ConfigProbe />
       <OpenToggle />
-      <CopilotDrawer {...props} />
+      <CopilotThreadsDrawer {...props} />
     </CopilotChatConfigurationProvider>,
   );
   // The element registers + renders only after the client-mount effect.
   await waitFor(() =>
-    expect(document.querySelector(COPILOTKIT_DRAWER_TAG)).not.toBeNull(),
+    expect(
+      document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG),
+    ).not.toBeNull(),
   );
   return result;
 }
@@ -160,16 +164,18 @@ async function renderDrawer(props: Parameters<typeof CopilotDrawer>[0] = {}) {
  * callback-free topology where the drawer drives the chat configuration itself.
  */
 async function renderUncontrolledDrawer(
-  props: Parameters<typeof CopilotDrawer>[0] = {},
+  props: Parameters<typeof CopilotThreadsDrawer>[0] = {},
 ) {
   const result = render(
     <CopilotChatConfigurationProvider>
       <ConfigProbe />
-      <CopilotDrawer {...props} />
+      <CopilotThreadsDrawer {...props} />
     </CopilotChatConfigurationProvider>,
   );
   await waitFor(() =>
-    expect(document.querySelector(COPILOTKIT_DRAWER_TAG)).not.toBeNull(),
+    expect(
+      document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG),
+    ).not.toBeNull(),
   );
   return result;
 }
@@ -205,6 +211,56 @@ test("maps a genuine list-load error to the element's error string", async () =>
   await renderDrawer();
 
   expect(getElement().error).toBe("boom");
+});
+
+test("sets the element's label when the label prop is provided", async () => {
+  await renderDrawer({ label: "History" });
+
+  expect(getElement().label).toBe("History");
+});
+
+test("leaves the element's default label when the label prop is omitted", async () => {
+  await renderDrawer();
+
+  expect(getElement().label).toBe("Threads");
+});
+
+test("sets the element's licenseUrl when the licenseUrl prop is provided", async () => {
+  await renderDrawer({ licenseUrl: "https://example.com/upgrade" });
+
+  expect(getElement().licenseUrl).toBe("https://example.com/upgrade");
+});
+
+test("leaves the element's default licenseUrl when the prop is omitted", async () => {
+  await renderDrawer();
+
+  expect(getElement().licenseUrl).toBe(
+    "https://docs.copilotkit.ai/intelligence",
+  );
+});
+
+test("forwards the limit prop to useThreads", async () => {
+  await renderDrawer({ limit: 20 });
+
+  expect(useThreadsMock).toHaveBeenCalledWith(
+    expect.objectContaining({ limit: 20 }),
+  );
+});
+
+test("omits limit from useThreads when the prop is not set", async () => {
+  await renderDrawer();
+
+  expect(useThreadsMock).not.toHaveBeenCalledWith(
+    expect.objectContaining({ limit: expect.anything() }),
+  );
+});
+
+test("routes the element's load-more event to fetchMoreThreads", async () => {
+  await renderDrawer();
+
+  dispatch("load-more");
+
+  expect(mutations.fetchMoreThreads).toHaveBeenCalled();
 });
 
 test("suppresses config/runtime-setup errors from the end-user error surface", async () => {
@@ -252,12 +308,14 @@ test("thread-selected focuses the chat input scoped to this drawer's own chat", 
       </div>
       <div data-testid="copilot-chat">
         <textarea data-testid="copilot-chat-textarea" id="second" />
-        <CopilotDrawer onThreadSelect={onThreadSelect} />
+        <CopilotThreadsDrawer onThreadSelect={onThreadSelect} />
       </div>
     </>,
   );
   await waitFor(() =>
-    expect(document.querySelector(COPILOTKIT_DRAWER_TAG)).not.toBeNull(),
+    expect(
+      document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG),
+    ).not.toBeNull(),
   );
 
   dispatch("thread-selected", { threadId: "t2" });
@@ -432,13 +490,13 @@ test("retry (initial) refetches; retry (fetch-more) fetches more", async () => {
   expect(mutations.fetchMoreThreads).toHaveBeenCalledTimes(1);
 });
 
-test("upsell routes to onUpsell", async () => {
-  const onUpsell = vi.fn();
-  await renderDrawer({ onUpsell });
+test("licensed event routes to onLicensed", async () => {
+  const onLicensed = vi.fn();
+  await renderDrawer({ onLicensed });
 
-  dispatch("upsell", {});
+  dispatch("licensed", {});
 
-  expect(onUpsell).toHaveBeenCalledTimes(1);
+  expect(onLicensed).toHaveBeenCalledTimes(1);
 });
 
 test("open-change drives the chat configuration drawerOpen", async () => {
@@ -465,7 +523,7 @@ test("drawerOpen reflects onto the element's open property", async () => {
   await waitFor(() => expect(getElement().open).toBe(true));
 });
 
-test("two-pronged license: no license configured shows upsell (licensed=false)", async () => {
+test("two-pronged license: no license configured shows the locked view (licensed=false)", async () => {
   setLicensed(false); // status "none"
   await renderDrawer();
 
@@ -501,10 +559,10 @@ test("licensed drawer enables the thread fetch (enabled=true)", async () => {
   expect(lastInput.enabled).toBe(true);
 });
 
-test("pending license (status null) shows loading, never the upsell", async () => {
+test("pending license (status null) shows loading, never the locked view", async () => {
   // Before the runtime reports a license, `status` is null. The drawer must NOT
-  // flash (or strand) the upsell during this window: it renders as licensed
-  // (so `_renderBody` skips the upsell) with loading forced on, and holds the
+  // flash (or strand) the locked view during this window: it renders as licensed
+  // (so `_renderBody` skips the locked view) with loading forced on, and holds the
   // fetch until the status resolves.
   licenseMock.mockReturnValue({
     status: null,
@@ -535,9 +593,11 @@ test("provider-less drawer starts CLOSED (does not render stuck-open)", async ()
   // No surrounding CopilotChatConfigurationProvider: the wrapper falls back to
   // its own local open-state, which starts closed (matching the provider's own
   // `false` default) rather than being forced permanently open.
-  render(<CopilotDrawer />);
+  render(<CopilotThreadsDrawer />);
   await waitFor(() =>
-    expect(document.querySelector(COPILOTKIT_DRAWER_TAG)).not.toBeNull(),
+    expect(
+      document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG),
+    ).not.toBeNull(),
   );
 
   expect(getElement().open).toBe(false);
@@ -547,9 +607,11 @@ test("provider-less drawer can be opened and then closed via open-change", async
   // The element's open-change event must drive the wrapper's local open-state in
   // both directions even with no provider — previously the change was a silent
   // no-op and the drawer could never close.
-  render(<CopilotDrawer />);
+  render(<CopilotThreadsDrawer />);
   await waitFor(() =>
-    expect(document.querySelector(COPILOTKIT_DRAWER_TAG)).not.toBeNull(),
+    expect(
+      document.querySelector(COPILOTKIT_THREADS_DRAWER_TAG),
+    ).not.toBeNull(),
   );
 
   dispatch("open-change", { open: true });
@@ -565,9 +627,9 @@ test("renders nothing during SSR (no element, no hydration mismatch)", () => {
   // render and avoiding a hydration mismatch / layout shift.
   const html = renderToString(
     <CopilotChatConfigurationProvider threadId="t1">
-      <CopilotDrawer />
+      <CopilotThreadsDrawer />
     </CopilotChatConfigurationProvider>,
   );
 
-  expect(html).not.toContain(COPILOTKIT_DRAWER_TAG);
+  expect(html).not.toContain(COPILOTKIT_THREADS_DRAWER_TAG);
 });

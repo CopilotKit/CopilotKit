@@ -3,10 +3,11 @@ import type { PropertyValues } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { classMap } from "lit/directives/class-map.js";
 import { drawerStyles } from "./styles";
-import type { DrawerFilter, DrawerThread } from "./types";
+import type { DrawerFilter, DrawerThread, LicensedDetail } from "./types";
 
 /** Tag name the element registers under. */
-export const COPILOTKIT_DRAWER_TAG = "copilotkit-drawer" as const;
+export const COPILOTKIT_THREADS_DRAWER_TAG =
+  "copilotkit-threads-drawer" as const;
 
 /** Mobile breakpoint (px). At or below this width the drawer is a modal overlay. */
 const MOBILE_BREAKPOINT = 768;
@@ -113,7 +114,7 @@ const iconLauncher = html`
 `;
 
 /**
- * `<copilotkit-drawer>` — a public, self-contained, controlled, framework-agnostic
+ * `<copilotkit-threads-drawer>` — a public, self-contained, controlled, framework-agnostic
  * threads drawer rendered into a shadow root.
  *
  * Pure VIEW: domain data (threads/loading/error/etc.) comes IN as properties and
@@ -125,7 +126,7 @@ const iconLauncher = html`
  *
  * The element is AUTHORITATIVE over row order and the Active/All filter.
  */
-export class CopilotKitDrawer extends LitElement {
+export class CopilotKitThreadsDrawer extends LitElement {
   static styles = drawerStyles;
 
   static properties = {
@@ -135,9 +136,12 @@ export class CopilotKitDrawer extends LitElement {
     error: { type: String },
     activeThreadId: { attribute: "active-thread-id", type: String },
     licensed: { type: Boolean },
+    licenseUrl: { attribute: "license-url", type: String },
     hasMore: { attribute: "has-more", type: Boolean },
     fetchingMore: { attribute: "fetching-more", type: Boolean },
     fetchMoreError: { attribute: "fetch-more-error", type: String },
+    // Inbound: configurable label for the drawer region and default header.
+    label: { type: String },
     // Externally-controllable VIEW state.
     open: { type: Boolean, reflect: true },
     collapsed: { type: Boolean, reflect: true },
@@ -149,6 +153,13 @@ export class CopilotKitDrawer extends LitElement {
     _hasFooter: { state: true },
   };
 
+  /**
+   * Inbound: accessible + default-header label for the drawer region (screen-reader
+   * region name + listbox name + the default header text). Override the visible
+   * header independently via the `header` slot. Defaults to `"Threads"`.
+   */
+  label = "Threads";
+
   /** Inbound: thread records to render. The element re-orders/filters them. */
   threads: DrawerThread[] = [];
   /** Inbound: initial-fetch loading flag. */
@@ -157,8 +168,15 @@ export class CopilotKitDrawer extends LitElement {
   error: string | null = null;
   /** Inbound: currently-open thread id (drives row selection highlight). */
   activeThreadId: string | null = null;
-  /** Inbound: whether the org is licensed for threads; `false` shows upsell. */
+  /** Inbound: whether the org is licensed for threads; `false` shows the locked view. */
   licensed = true;
+  /**
+   * Inbound: destination the Upgrade CTA opens (new tab) when the locked view's
+   * default button is clicked. Defaults to the CopilotKit Intelligence docs.
+   * Set to an empty string to suppress the default navigation and rely solely
+   * on the `licensed` event.
+   */
+  licenseUrl = "https://docs.copilotkit.ai/intelligence";
   /** Inbound: whether more pages are available. */
   hasMore = false;
   /** Inbound: whether a fetch-more is in flight. */
@@ -265,7 +283,7 @@ export class CopilotKitDrawer extends LitElement {
     // Scroll-lock is a mobile-modal concern only.
     if (
       changed.has("open") ||
-      changed.has("_viewportIsMobile" as keyof CopilotKitDrawer)
+      changed.has("_viewportIsMobile" as keyof CopilotKitThreadsDrawer)
     ) {
       if (this._isMobileModalOpen()) {
         this._applyScrollLock();
@@ -491,7 +509,7 @@ export class CopilotKitDrawer extends LitElement {
         part="root"
         role=${this._isMobileModalOpen() ? "dialog" : "region"}
         aria-modal=${this._isMobileModalOpen() ? "true" : nothing}
-        aria-label="Threads"
+        aria-label=${this.label}
       >
         ${this._renderHeader()} ${this._renderBody()} ${this._renderMemories()}
         ${this._renderFooter()} ${this._renderConfirmDialog()}
@@ -502,7 +520,7 @@ export class CopilotKitDrawer extends LitElement {
   private _renderHeader() {
     return html`
       <div class="header" part="header">
-        <slot name="header"><span>Threads</span></slot>
+        <slot name="header"><span>${this.label}</span></slot>
         <button
           class="primary"
           part="new-thread-button"
@@ -541,9 +559,9 @@ export class CopilotKitDrawer extends LitElement {
   }
 
   private _renderBody() {
-    // Upsell beats error: an unlicensed org always sees the upsell, never the
+    // The locked view beats error: an unlicensed org always sees it, never the
     // initial-fetch error.
-    if (!this.licensed) return this._renderUpsell();
+    if (!this.licensed) return this._renderLicensed();
     // The full-panel error replaces the list ONLY when there is nothing to show
     // (a failed initial fetch). The bound `error` reflects the core store error,
     // which a failed mutation (delete/rename/archive) also sets — a delete
@@ -560,15 +578,35 @@ export class CopilotKitDrawer extends LitElement {
     return this._renderList();
   }
 
-  private _renderUpsell() {
+  /**
+   * Handles the Upgrade CTA click in the locked view. Dispatches a cancelable
+   * `licensed` event carrying the resolved `licenseUrl`; unless a host calls
+   * `preventDefault()`, opens that URL in a new tab. A blank `licenseUrl`
+   * suppresses navigation so the event alone drives host behavior.
+   */
+  private _onLicensedCta(): void {
+    const proceed = this.dispatchEvent(
+      new CustomEvent("licensed", {
+        detail: { licenseUrl: this.licenseUrl } satisfies LicensedDetail,
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      }),
+    );
+    if (proceed && this.licenseUrl && typeof window !== "undefined") {
+      window.open(this.licenseUrl, "_blank", "noopener,noreferrer");
+    }
+  }
+
+  private _renderLicensed() {
     return html`
-      <div class="upsell" part="upsell" data-testid="drawer-upsell">
-        <slot name="upsell">
+      <div class="licensed" part="licensed" data-testid="drawer-licensed">
+        <slot name="licensed">
           <p>Threads are a CopilotKit Intelligence feature.</p>
           <button
             class="primary"
-            part="upsell-cta"
-            @click=${() => this._emit("upsell", {})}
+            part="licensed-cta"
+            @click=${() => this._onLicensedCta()}
           >
             Upgrade
           </button>
@@ -610,7 +648,7 @@ export class CopilotKitDrawer extends LitElement {
       `;
     }
     return html`
-      <ul class="list" part="list" role="listbox" aria-label="Threads">
+      <ul class="list" part="list" role="listbox" aria-label=${this.label}>
         ${repeat(
           visible,
           (thread) => thread.id,
@@ -736,6 +774,17 @@ export class CopilotKitDrawer extends LitElement {
     if (this.fetchingMore) {
       return html`
         <div class="state" part="fetching-more" aria-busy="true">Loading more…</div>
+      `;
+    }
+    if (this.hasMore) {
+      return html`
+        <button
+          class="load-more"
+          part="load-more"
+          @click=${() => this._emit("load-more", {})}
+        >
+          Load more
+        </button>
       `;
     }
     return nothing;

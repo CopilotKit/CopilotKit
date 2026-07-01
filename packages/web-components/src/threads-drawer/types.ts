@@ -1,5 +1,5 @@
 /**
- * Public type surface for the `<copilotkit-drawer>` custom element.
+ * Public type surface for the `<copilotkit-threads-drawer>` custom element.
  *
  * The element is a pure VIEW: domain data flows IN as properties and user
  * intent flows OUT as DOM `CustomEvent`s. These types intentionally do NOT
@@ -74,15 +74,25 @@ export interface RetryDetail {
 /** `detail` for the `new-thread` event. */
 export type NewThreadDetail = Record<string, never>;
 
-/** `detail` for the `upsell` event (CTA → pricing). */
-export type UpsellDetail = Record<string, never>;
+/**
+ * `detail` for the `licensed` event (Upgrade CTA click). Carries the
+ * `licenseUrl` the element will open in a new tab. The event is cancelable:
+ * a host that calls `preventDefault()` suppresses the default navigation and
+ * takes over (e.g. to route in-app or fire its own telemetry).
+ */
+export interface LicensedDetail {
+  readonly licenseUrl: string | null;
+}
+
+/** `detail` for the `load-more` event (advance pagination; no payload). */
+export type LoadMoreDetail = Record<string, never>;
 
 /**
- * Strongly-typed event map for `<copilotkit-drawer>`. Consumers can use this to
+ * Strongly-typed event map for `<copilotkit-threads-drawer>`. Consumers can use this to
  * type `addEventListener` callbacks. All events bubble and are composed so they
  * cross the shadow boundary.
  */
-export interface CopilotKitDrawerEventMap {
+export interface CopilotKitThreadsDrawerEventMap {
   "thread-selected": CustomEvent<ThreadSelectedDetail>;
   archive: CustomEvent<ArchiveDetail>;
   unarchive: CustomEvent<UnarchiveDetail>;
@@ -91,5 +101,6 @@ export interface CopilotKitDrawerEventMap {
   "filter-change": CustomEvent<FilterChangeDetail>;
   "open-change": CustomEvent<OpenChangeDetail>;
   retry: CustomEvent<RetryDetail>;
-  upsell: CustomEvent<UpsellDetail>;
+  licensed: CustomEvent<LicensedDetail>;
+  "load-more": CustomEvent<LoadMoreDetail>;
 }

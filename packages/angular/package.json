@@ -41,6 +41,7 @@
     "@copilotkit/a2ui-renderer": "workspace:*",
     "@copilotkit/core": "workspace:*",
     "@copilotkit/shared": "workspace:*",
+    "@copilotkit/web-components": "workspace:*",
     "@jetbrains/websandbox": "^1.1.3",
     "clsx": "^2.1.1",
     "highlight.js": "^11.11.1",

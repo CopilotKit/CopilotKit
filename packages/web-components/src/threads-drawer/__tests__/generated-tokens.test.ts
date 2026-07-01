@@ -12,10 +12,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
-import {
-  GENERATED_DRAWER_TOKEN_DEFAULTS,
-  type GeneratedDrawerTokenKey,
-} from "../generated-tokens";
+import { GENERATED_DRAWER_TOKEN_DEFAULTS } from "../generated-tokens";
+import type { GeneratedDrawerTokenKey } from "../generated-tokens";
 import {
   extractLightThemeBlock,
   parseCustomProperties,

@@ -761,7 +761,7 @@ describe("CopilotChatConfigurationProvider", () => {
     it("v1 bridge seed: setActiveThreadId overrides a non-explicit threadId prop (no warn)", () => {
       // The v1 <CopilotKit> bridge seeds `threadId` with hasExplicitThreadId=
       // {false}. That seed must NOT count as controlled — imperative selection
-      // (<CopilotDrawer> picking a row) has to win, or thread switching is dead
+      // (<CopilotThreadsDrawer> picking a row) has to win, or thread switching is dead
       // in every app wrapped in <CopilotKit>.
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 

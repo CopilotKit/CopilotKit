@@ -56,7 +56,7 @@ export interface UseThreadsInput {
   /**
    * When `false`, the hook stays inert: no runtime context is dispatched, so
    * NO thread-list fetch or realtime subscription is issued. Used by gated
-   * surfaces (e.g. an unlicensed `<CopilotDrawer>`) that must not touch the
+   * surfaces (e.g. an unlicensed `<CopilotThreadsDrawer>`) that must not touch the
    * network until the gate opens. Defaults to `true`.
    *
    * Flipping `enabled` back to `true` resumes normal fetching on the next
@@ -340,7 +340,7 @@ export function useThreads({
       : preConnectLoading || storeIsLoading;
   const error = activeRuntimeError ?? activeThreadEndpointsError ?? storeError;
   // End-user-facing list/mutation error only: developer/config errors are
-  // excluded so a surface like <CopilotDrawer> does not show "Runtime URL is
+  // excluded so a surface like <CopilotThreadsDrawer> does not show "Runtime URL is
   // not configured" to an end user.
   const listError = storeError;
 

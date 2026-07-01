@@ -1,14 +1,14 @@
 import { afterEach, expect, test, vi } from "vitest";
 import {
-  COPILOTKIT_DRAWER_TAG,
-  CopilotKitDrawer,
-  defineCopilotKitDrawer,
+  COPILOTKIT_THREADS_DRAWER_TAG,
+  CopilotKitThreadsDrawer,
+  defineCopilotKitThreadsDrawer,
 } from "../index";
 import type { DrawerThread } from "../index";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-async function flush(element: CopilotKitDrawer) {
+async function flush(element: CopilotKitThreadsDrawer) {
   await element.updateComplete;
   await tick();
   await element.updateComplete;
@@ -56,11 +56,11 @@ function setMatchMedia(matches: boolean) {
 }
 
 async function setup(options: SetupOptions = {}) {
-  defineCopilotKitDrawer();
+  defineCopilotKitThreadsDrawer();
   const mediaController = setMatchMedia(options.mobile ?? false);
   const element = document.createElement(
-    COPILOTKIT_DRAWER_TAG,
-  ) as CopilotKitDrawer;
+    COPILOTKIT_THREADS_DRAWER_TAG,
+  ) as CopilotKitThreadsDrawer;
   element.threads = options.threads ?? [makeThread()];
   document.body.appendChild(element);
   await flush(element);
@@ -75,7 +75,8 @@ async function setup(options: SetupOptions = {}) {
     "filter-change",
     "open-change",
     "retry",
-    "upsell",
+    "licensed",
+    "load-more",
   ];
   for (const type of captureTypes) {
     element.addEventListener(type, (e) =>
@@ -102,10 +103,12 @@ afterEach(() => {
 });
 
 test("registers the custom element idempotently", () => {
-  defineCopilotKitDrawer();
-  defineCopilotKitDrawer();
+  defineCopilotKitThreadsDrawer();
+  defineCopilotKitThreadsDrawer();
 
-  expect(customElements.get(COPILOTKIT_DRAWER_TAG)).toBe(CopilotKitDrawer);
+  expect(customElements.get(COPILOTKIT_THREADS_DRAWER_TAG)).toBe(
+    CopilotKitThreadsDrawer,
+  );
 });
 
 test("renders a row per visible thread into the shadow root", async () => {
@@ -366,29 +369,95 @@ test("initial-fetch error is actionable — Retry emits retry{initial}", async (
   teardown();
 });
 
-test("upsell replaces the list and CTA emits upsell", async () => {
+test("locked view replaces the list and the CTA emits `licensed` + opens the default licenseUrl", async () => {
+  const open = vi
+    .spyOn(window, "open")
+    .mockReturnValue(null as unknown as Window);
   const { element, q, events, teardown } = await setup({
     threads: [makeThread()],
   });
   element.licensed = false;
   await flush(element);
 
-  expect(q('[data-testid="drawer-upsell"]')).not.toBeNull();
+  expect(q('[data-testid="drawer-licensed"]')).not.toBeNull();
   expect(q("li.row")).toBeNull();
 
-  (q('[part="upsell-cta"]') as HTMLElement).click();
+  (q('[part="licensed-cta"]') as HTMLElement).click();
 
-  expect(events.some((e) => e.type === "upsell")).toBe(true);
+  const licensedEvent = events.find((e) => e.type === "licensed");
+  expect(licensedEvent).toBeDefined();
+  expect(licensedEvent?.detail).toEqual({
+    licenseUrl: "https://docs.copilotkit.ai/intelligence",
+  });
+  expect(open).toHaveBeenCalledWith(
+    "https://docs.copilotkit.ai/intelligence",
+    "_blank",
+    "noopener,noreferrer",
+  );
+  open.mockRestore();
   teardown();
 });
 
-test("upsell beats error — unlicensed shows upsell, not the error state", async () => {
+test("the Upgrade CTA opens a host-provided licenseUrl", async () => {
+  const open = vi
+    .spyOn(window, "open")
+    .mockReturnValue(null as unknown as Window);
+  const { element, q, teardown } = await setup({ threads: [] });
+  element.licensed = false;
+  element.licenseUrl = "https://example.com/upgrade";
+  await flush(element);
+
+  (q('[part="licensed-cta"]') as HTMLElement).click();
+
+  expect(open).toHaveBeenCalledWith(
+    "https://example.com/upgrade",
+    "_blank",
+    "noopener,noreferrer",
+  );
+  open.mockRestore();
+  teardown();
+});
+
+test("calling preventDefault on the `licensed` event suppresses the default navigation", async () => {
+  const open = vi
+    .spyOn(window, "open")
+    .mockReturnValue(null as unknown as Window);
+  const { element, q, teardown } = await setup({ threads: [] });
+  element.licensed = false;
+  await flush(element);
+  element.addEventListener("licensed", (e) => e.preventDefault());
+
+  (q('[part="licensed-cta"]') as HTMLElement).click();
+
+  expect(open).not.toHaveBeenCalled();
+  open.mockRestore();
+  teardown();
+});
+
+test("a blank licenseUrl emits the event but performs no navigation", async () => {
+  const open = vi
+    .spyOn(window, "open")
+    .mockReturnValue(null as unknown as Window);
+  const { element, q, events, teardown } = await setup({ threads: [] });
+  element.licensed = false;
+  element.licenseUrl = "";
+  await flush(element);
+
+  (q('[part="licensed-cta"]') as HTMLElement).click();
+
+  expect(events.some((e) => e.type === "licensed")).toBe(true);
+  expect(open).not.toHaveBeenCalled();
+  open.mockRestore();
+  teardown();
+});
+
+test("locked view beats error — an unlicensed org sees the prompt, not the error state", async () => {
   const { element, q, teardown } = await setup({ threads: [] });
   element.licensed = false;
   element.error = "Some fetch error";
   await flush(element);
 
-  expect(q('[data-testid="drawer-upsell"]')).not.toBeNull();
+  expect(q('[data-testid="drawer-licensed"]')).not.toBeNull();
   expect(q('[data-testid="drawer-error"]')).toBeNull();
   teardown();
 });
@@ -435,6 +504,46 @@ test("fetchMore failure keeps the loaded list and offers an inline retry", async
     type: "retry",
     detail: { scope: "fetch-more" },
   });
+  teardown();
+});
+
+test("renders a Load more button when hasMore and emits load-more on click", async () => {
+  const { element, q, events, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+  element.hasMore = true;
+  await flush(element);
+
+  const btn = q('[part="load-more"]') as HTMLElement | null;
+  expect(btn).not.toBeNull();
+
+  btn!.click();
+
+  expect(events).toContainEqual({ type: "load-more", detail: {} });
+  teardown();
+});
+
+test("hides Load more when there is no next page", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+  element.hasMore = false;
+  await flush(element);
+
+  expect(q('[part="load-more"]')).toBeNull();
+  teardown();
+});
+
+test("shows the fetching-more spinner instead of Load more while a page is in flight", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+  element.hasMore = true;
+  element.fetchingMore = true;
+  await flush(element);
+
+  expect(q('[part="load-more"]')).toBeNull();
+  expect(q('[part="fetching-more"]')).not.toBeNull();
   teardown();
 });
 
@@ -628,7 +737,8 @@ test("exposes ::part hooks and CSS-variable tokens for theming", async () => {
   expect(q('[part="list"]')).not.toBeNull();
   expect(q('[part~="row"]')).not.toBeNull();
 
-  const sheets = (CopilotKitDrawer.styles as { cssText: string }).cssText;
+  const sheets = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
   expect(sheets).toContain("--cpk-drawer-bg");
   expect(sheets).toContain("var(--cpk-drawer-accent");
   teardown();
@@ -955,4 +1065,62 @@ test("desktop does NOT render the mobile launcher", async () => {
 
   expect(q('[part="launcher"]')).toBeNull();
   teardown();
+});
+
+// ---------------------------------------------------------------------------
+// label property
+// ---------------------------------------------------------------------------
+
+test("label defaults to Threads: root panel aria-label, listbox aria-label, and default header text are all Threads", async () => {
+  const { element, q, teardown } = await setup();
+
+  const root = q("[part='root']") as HTMLElement;
+  const list = q("[role='listbox']") as HTMLElement;
+  const headerSpan = q("slot[name='header'] span") as HTMLElement;
+
+  expect(root.getAttribute("aria-label")).toBe("Threads");
+  expect(list.getAttribute("aria-label")).toBe("Threads");
+  expect(headerSpan.textContent?.trim()).toBe("Threads");
+  expect(element.label).toBe("Threads");
+
+  teardown();
+});
+
+test("setting label updates root panel aria-label, listbox aria-label, and default header text", async () => {
+  const { element, q, teardown } = await setup();
+
+  element.label = "My Conversations";
+  await flush(element);
+
+  const root = q("[part='root']") as HTMLElement;
+  const list = q("[role='listbox']") as HTMLElement;
+  const headerSpan = q("slot[name='header'] span") as HTMLElement;
+
+  expect(root.getAttribute("aria-label")).toBe("My Conversations");
+  expect(list.getAttribute("aria-label")).toBe("My Conversations");
+  expect(headerSpan.textContent?.trim()).toBe("My Conversations");
+
+  teardown();
+});
+
+// --- Scroll fix: :host height + .list min-height:0 -------------------------
+
+test("list is scrollable in a bounded container — CSS contract: :host has height:100% and .list has min-height:0", async () => {
+  // jsdom has no real layout engine, so scrollHeight/clientHeight are always 0.
+  // Instead we assert the CSS contract directly: the adopted stylesheet must
+  // declare `height: 100%` on `:host` (so the element fills a bounded host and
+  // doesn't grow to content height) and `min-height: 0` on `.list` (so the flex
+  // child can shrink below its content height and scroll rather than expand the
+  // panel).  This is the same approach used by the "exposes ::part hooks" test
+  // which reads CopilotKitThreadsDrawer.styles.cssText to verify declarations.
+  const sheets = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
+
+  // :host block must contain height: 100%
+  expect(sheets).toContain("height: 100%");
+
+  // .list block must contain min-height: 0
+  // We check both declarations are present; the ordering within the block is
+  // not significant for correctness.
+  expect(sheets).toContain("min-height: 0");
 });

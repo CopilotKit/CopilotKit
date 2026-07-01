@@ -11,7 +11,7 @@ const tok = (value: string) => unsafeCSS(value);
 const T = GENERATED_DRAWER_TOKEN_DEFAULTS;
 
 /**
- * Self-contained shadow-DOM styles for `<copilotkit-drawer>`.
+ * Self-contained shadow-DOM styles for `<copilotkit-threads-drawer>`.
  *
  * Authoring rules baked in here:
  *  - Every visual value is a `var(--cpk-drawer-<token>, <built default>)`. The
@@ -34,6 +34,7 @@ export const drawerStyles = css`
        via inheritance, so we hard-set them at the root. */
     all: initial;
     display: block;
+    height: 100%;
     box-sizing: border-box;
     font-family:
       var(--cpk-drawer-font-family, ui-sans-serif, system-ui, sans-serif);
@@ -188,6 +189,7 @@ export const drawerStyles = css`
 
   .list {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 8px 12px;
     margin: 0;
@@ -420,7 +422,25 @@ export const drawerStyles = css`
     font-size: 0.9em;
   }
 
-  .upsell {
+  .load-more {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    color: var(--_muted-fg);
+    font: inherit;
+    font-size: 0.9em;
+    cursor: pointer;
+  }
+
+  .load-more:hover,
+  .load-more:focus-visible {
+    color: var(--_surface-fg);
+    background: var(--_muted);
+  }
+
+  .licensed {
     padding: 24px 16px;
     text-align: center;
     display: flex;
