@@ -3,16 +3,18 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import {
   CopilotSidebar,
-  type CopilotSidebarProps,
   useCopilotChatConfiguration,
 } from "@copilotkit/react-core/v2";
+import type { CopilotSidebarProps } from "@copilotkit/react-core/v2";
 
 import { IDENTITY } from "@/lib/identity";
 import { ChatPanelHeader } from "./chat-panel-header";
 import { ChatInbox } from "./chat-inbox";
 
-/** Docked panel width on desktop (px). Mobile falls back to full width. */
-const PANEL_WIDTH = 440;
+/** Docked panel width on desktop (px). Mobile falls back to full width.
+ * Sized so the always-on suggestion pills flow two-per-row instead of
+ * stacking into a single tall column. */
+const PANEL_WIDTH = 560;
 
 /**
  * The docked chat experience: a right-side `CopilotSidebar` that pushes page
