@@ -161,4 +161,69 @@ describe("handleSuggestAgent", () => {
     expect(parseRunRequest).not.toHaveBeenCalled();
     expect(runnerRun).not.toHaveBeenCalled();
   });
+
+  it("behaves identically under an Intelligence-configured runtime, still never touching the runner", async () => {
+    const runnerRun = vi.fn();
+    const runnerConnect = vi.fn();
+    const fakeAgent = {
+      agentId: "default",
+      messages: [],
+      setMessages: vi.fn(),
+      setState: vi.fn(),
+      threadId: undefined as string | undefined,
+      runAgent: vi.fn(async (_input: unknown, sub?: any) => {
+        sub?.onMessagesChanged?.({
+          messages: [{ id: "m0", role: "user", content: "hi" }, suggestMsg],
+        });
+        return { newMessages: [suggestMsg] };
+      }),
+    };
+
+    cloneAgentForRequest.mockResolvedValue(fakeAgent);
+    parseRunRequest.mockResolvedValue({
+      threadId: "s1",
+      runId: "r1",
+      messages: [{ id: "m0", role: "user", content: "hi" }],
+      state: {},
+      tools: [],
+      context: [],
+      forwardedProps: {},
+    });
+
+    // Intelligence-mode runtime shaped like the ones the thread/run handler
+    // tests construct: `mode: "intelligence"` plus an `intelligence` platform
+    // handle. The suggest handler must remain mode-agnostic — it runs the
+    // provider agent directly and never consults `intelligence` or the runner
+    // (whose `run`/`connect` would acquire a lock / hit the gateway and leak a
+    // thread). Spying on both proves the direct-run path is taken regardless
+    // of mode.
+    const runtime = {
+      mode: "intelligence",
+      intelligence: { getOrCreateThread: vi.fn(), listThreads: vi.fn() },
+      runner: { run: runnerRun, connect: runnerConnect },
+    } as any;
+
+    const res = await handleSuggestAgent({
+      runtime,
+      request: new Request("http://x/agent/default/suggest", {
+        method: "POST",
+        body: JSON.stringify({
+          threadId: "s1",
+          messages: [],
+          forwardedProps: {},
+          tools: [],
+        }),
+      }),
+      agentId: "default",
+    });
+
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.messages).toContainEqual(suggestMsg);
+    expect(fakeAgent.runAgent).toHaveBeenCalledTimes(1);
+    expect(runnerRun).not.toHaveBeenCalled();
+    expect(runnerConnect).not.toHaveBeenCalled();
+    expect(runtime.intelligence.getOrCreateThread).not.toHaveBeenCalled();
+  });
 });
