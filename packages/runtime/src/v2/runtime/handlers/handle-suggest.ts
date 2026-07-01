@@ -1,4 +1,5 @@
 import type { AbstractAgent, Message } from "@ag-ui/client";
+import { logger } from "@copilotkit/shared";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { extractForwardableHeaders } from "./header-utils";
 import { cloneAgentForRequest, parseRunRequest } from "./shared/agent-utils";
@@ -29,9 +30,12 @@ interface SuggestAgentParameters {
  * The only per-request configuration it applies is forwarding the request's
  * allowlisted headers (`authorization` + `x-*`) onto the agent clone. It does
  * **not** attach any request middleware — no A2UI, no MCPApps, no
- * OpenGenerativeUI, no Intelligence enterprise-learning tools. The suggest run
- * forces `toolChoice: copilotkitSuggest`, so those middleware-injected tools
- * are dead weight, and MCPApps setup in particular can incur a `listTools`
+ * OpenGenerativeUI, no Intelligence enterprise-learning tools. The **client**
+ * (the core suggestion engine) forces `toolChoice: copilotkitSuggest` in the
+ * request body; this handler does not set tool choice itself and relies on it
+ * being present in the incoming `input`. Given that forced tool choice, any
+ * middleware-injected tools are dead weight, and MCPApps setup can incur a
+ * `listTools`
  * network round-trip per suggestion under `available: "always"` — a side effect
  * this path must never pay.
  *
@@ -103,9 +107,11 @@ export async function handleSuggestAgent({
     );
   }
 
-  // Seed with the request messages so a run that emits nothing still returns a
-  // coherent transcript; `onMessagesChanged` overwrites this with the running
-  // set (which carries the `copilotkitSuggest` tool call the client parses).
+  // Seed with the request messages — which include the client's
+  // instruction/marker message (id === threadId === suggestionId) as the last
+  // entry — so a run that emits nothing still returns a coherent transcript;
+  // `onMessagesChanged` overwrites this with the running set (which carries the
+  // `copilotkitSuggest` tool call the client parses after the marker).
   let messages: Message[] = input.messages ?? [];
 
   try {
@@ -115,6 +121,9 @@ export async function handleSuggestAgent({
       },
     });
   } catch (error) {
+    // Log server-side before returning the 502 — like every sibling handler —
+    // so an operator debugging "suggestions never work in prod" has a trace.
+    logger.error({ err: error, agentId }, "Suggestion run failed");
     return Response.json(
       {
         error: "Suggestion run failed",

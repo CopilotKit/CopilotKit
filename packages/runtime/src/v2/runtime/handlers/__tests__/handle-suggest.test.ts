@@ -248,9 +248,10 @@ describe("handleSuggestAgent", () => {
     await pending;
   });
 
-  it("returns 502 when the agent run throws, still without touching the runner", async () => {
+  it("returns 502 and logs the failure server-side when the agent run throws, still without touching the runner", async () => {
     const fakeAgent = createFakeAgent();
-    fakeAgent.runAgent.mockRejectedValue(new Error("provider exploded"));
+    const runError = new Error("provider exploded");
+    fakeAgent.runAgent.mockRejectedValue(runError);
 
     cloneAgentForRequest.mockResolvedValue(fakeAgent);
     parseRunRequest.mockResolvedValue({
@@ -265,17 +266,30 @@ describe("handleSuggestAgent", () => {
 
     const runtime: FakeRuntime = { runner: { run: vi.fn() } };
 
+    // The handler logs via `logger` from `@copilotkit/shared`, which is
+    // `console`. Spy on `console.error` and swallow output so the failure
+    // trace is asserted without polluting test output.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
     const res = await handleSuggestAgent({
       runtime: asRuntime(runtime),
-      request: new Request("http://x/agent/default/suggest", {
+      request: new Request("http://x/agent/failing/suggest", {
         method: "POST",
         body: JSON.stringify({ threadId: "s1", messages: [] }),
       }),
-      agentId: "default",
+      agentId: "failing",
     });
 
     expect(res.status).toBe(502);
     expect(runtime.runner.run).not.toHaveBeenCalled();
+
+    // Operator trace: the error and the agentId must be logged server-side.
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ err: runError, agentId: "failing" }),
+      expect.stringContaining("Suggestion run failed"),
+    );
+
+    errorSpy.mockRestore();
   });
 
   it("returns the Response from cloneAgentForRequest when agent resolution fails", async () => {
@@ -342,5 +356,72 @@ describe("handleSuggestAgent", () => {
     expect(runtime.runner.run).not.toHaveBeenCalled();
     expect(runtime.runner.connect).not.toHaveBeenCalled();
     expect(runtime.intelligence?.getOrCreateThread).not.toHaveBeenCalled();
+  });
+
+  it("preserves the client instruction marker before the copilotkitSuggest tool call in the returned transcript", async () => {
+    // The fragile client/server seam: the client sends an instruction message
+    // (id === threadId === suggestionId) as the LAST input message, then reads
+    // suggestions from the response's `messages` AFTER that marker. A realistic
+    // full-transcript agent echoes the input messages plus the new tool call,
+    // so the marker must survive the round trip AND stay before the tool call.
+    const markerMessage = {
+      id: "sugg-marker",
+      role: "user",
+      content: "Generate suggestions for the conversation above.",
+    };
+    const priorUserMessage = { id: "m0", role: "user", content: "hi" };
+
+    const fakeAgent = createFakeAgent();
+    fakeAgent.runAgent.mockImplementation(
+      async (input: RunAgentInput, sub?: RunAgentSubscriber) => {
+        // Realistic transcript: the full input messages (including the trailing
+        // marker) plus the new assistant tool-call message.
+        sub?.onMessagesChanged?.({
+          messages: [...input.messages, suggestMsg],
+        });
+        return { newMessages: [suggestMsg] };
+      },
+    );
+
+    cloneAgentForRequest.mockResolvedValue(fakeAgent);
+    parseRunRequest.mockResolvedValue({
+      threadId: "sugg-marker",
+      runId: "r1",
+      messages: [priorUserMessage, markerMessage],
+      state: {},
+      tools: [],
+      context: [],
+      forwardedProps: {},
+    });
+
+    const runtime: FakeRuntime = { runner: { run: vi.fn() } };
+
+    const res = await handleSuggestAgent({
+      runtime: asRuntime(runtime),
+      request: new Request("http://x/agent/default/suggest", {
+        method: "POST",
+        body: JSON.stringify({
+          threadId: "sugg-marker",
+          messages: [priorUserMessage, markerMessage],
+        }),
+      }),
+      agentId: "default",
+    });
+
+    const body = (await res.json()) as { messages: Array<{ id: string }> };
+
+    expect(res.status).toBe(200);
+
+    // (a) The marker survives the round trip.
+    expect(body.messages).toContainEqual(markerMessage);
+
+    // (b) The copilotkitSuggest tool-call message appears AFTER the marker —
+    // the exact ordering `extractSuggestions` depends on.
+    const markerIndex = body.messages.findIndex(
+      (m) => m.id === markerMessage.id,
+    );
+    const suggestIndex = body.messages.findIndex((m) => m.id === suggestMsg.id);
+    expect(markerIndex).toBeGreaterThanOrEqual(0);
+    expect(suggestIndex).toBeGreaterThan(markerIndex);
   });
 });

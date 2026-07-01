@@ -382,6 +382,16 @@ function dispatchRoute(
       return handleAnnotate({ runtime, request });
     case "cpk-debug-events":
       return Promise.resolve(handleDebugEvents({ runtime, request }));
+    default: {
+      // Exhaustiveness guard: a new `RouteInfo` variant added without a case
+      // above becomes a compile error here instead of silently returning
+      // `undefined` at runtime.
+      const _exhaustive: never = route;
+      throw jsonResponse(
+        { error: "Not found", method: (_exhaustive as RouteInfo).method },
+        404,
+      );
+    }
   }
 }
 
@@ -444,6 +454,13 @@ async function resolveSingleRoute(
     case "transcribe":
       route = { method: "transcribe" };
       break;
+    default: {
+      // Exhaustiveness guard: a new `METHOD_NAMES`/`EndpointMethod` variant
+      // added without a case above becomes a compile error here instead of
+      // leaving `route` unassigned at runtime.
+      const _exhaustive: never = methodCall.method;
+      throw jsonResponse({ error: "Not found", method: _exhaustive }, 404);
+    }
   }
 
   return { route, methodCall };
