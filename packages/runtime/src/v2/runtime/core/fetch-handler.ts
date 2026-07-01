@@ -42,6 +42,7 @@ import {
   callAfterRequestMiddleware,
 } from "./middleware";
 import { handleRunAgent } from "../handlers/handle-run";
+import { handleSuggestAgent } from "../handlers/handle-suggest";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
@@ -181,6 +182,7 @@ export function createCopilotRuntimeHandler(
         // 6. Wrap body for methods that need it, then dispatch
         if (
           route.method === "agent/run" ||
+          route.method === "agent/suggest" ||
           route.method === "agent/connect" ||
           route.method === "transcribe"
         ) {
@@ -310,6 +312,12 @@ function dispatchRoute(
         request,
         agentId: route.agentId,
       });
+    case "agent/suggest":
+      return handleSuggestAgent({
+        runtime,
+        request,
+        agentId: route.agentId,
+      });
     case "agent/connect":
       return handleConnectAgent({
         runtime,
@@ -408,6 +416,12 @@ async function resolveSingleRoute(
     case "agent/run":
       route = {
         method: "agent/run",
+        agentId: expectString(methodCall.params, "agentId"),
+      };
+      break;
+    case "agent/suggest":
+      route = {
+        method: "agent/suggest",
         agentId: expectString(methodCall.params, "agentId"),
       };
       break;

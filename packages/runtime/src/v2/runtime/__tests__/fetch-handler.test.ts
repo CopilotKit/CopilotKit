@@ -180,6 +180,17 @@ describe("createCopilotRuntimeHandler — multi-route without basePath", () => {
     expect(response.status).not.toBe(404);
   });
 
+  it("matches /agent/:id/suggest suffix", async () => {
+    const response = await handler(
+      post("http://localhost/some/prefix/agent/default/suggest", {
+        threadId: "t1",
+        runId: "r1",
+      }),
+    );
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
   it("returns 404 for no known suffix", async () => {
     const response = await handler(get("http://localhost/some/prefix/unknown"));
     expect(response.status).toBe(404);
@@ -271,6 +282,18 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
     );
     // Route matched — not a 404/405 routing error. May return 400 due to
     // incomplete RunAgentInput schema fields, which is handler-level validation.
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("dispatches agent/suggest method", async () => {
+    const response = await handler(
+      post("http://localhost/api/copilotkit", {
+        method: "agent/suggest",
+        params: { agentId: "default" },
+        body: { threadId: "t1", runId: "r1" },
+      }),
+    );
     expect(response.status).not.toBe(404);
     expect(response.status).not.toBe(405);
   });

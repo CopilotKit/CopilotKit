@@ -28,6 +28,14 @@ describe("fetch-router", () => {
       expect(result).toEqual({ method: "agent/connect", agentId: "myAgent" });
     });
 
+    it("matches POST /agent/:agentId/suggest", () => {
+      const result = matchRoute(
+        "/api/copilotkit/agent/myAgent/suggest",
+        basePath,
+      );
+      expect(result).toEqual({ method: "agent/suggest", agentId: "myAgent" });
+    });
+
     it("matches POST /agent/:agentId/stop/:threadId", () => {
       const result = matchRoute(
         "/api/copilotkit/agent/myAgent/stop/thread-123",
@@ -214,6 +222,18 @@ describe("fetch-router", () => {
       expect(result).toEqual({
         method: "agent/connect",
         agentId: "myAgent",
+      });
+    });
+
+    it("matches /agent/:agentId/suggest suffix", () => {
+      const result = matchRoute("/anything/agent/myAgent/suggest");
+      expect(result).toEqual({ method: "agent/suggest", agentId: "myAgent" });
+    });
+
+    it("matches /agent/:agentId/suggest", () => {
+      expect(matchRoute("/agent/default/suggest", "")).toEqual({
+        method: "agent/suggest",
+        agentId: "default",
       });
     });
 
