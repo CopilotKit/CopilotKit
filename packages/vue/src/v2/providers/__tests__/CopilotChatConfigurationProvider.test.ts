@@ -396,3 +396,18 @@ describe("CopilotChatConfiguration drawer-awareness", () => {
     vi.restoreAllMocks();
   });
 });
+
+describe("CopilotChatConfiguration modal-setter presence contract", () => {
+  it("bare provider (no isModalDefaultOpen, no parent) exposes setModalOpen as undefined", () => {
+    const cfg = harness({ threadId: "thread-1" });
+    expect(cfg().setModalOpen).toBeUndefined();
+  });
+
+  it("provider with isModalDefaultOpen exposes a working setModalOpen", async () => {
+    const cfg = harness({ isModalDefaultOpen: true });
+    expect(typeof cfg().setModalOpen).toBe("function");
+    cfg().setModalOpen(false);
+    await nextTick();
+    expect(cfg().isModalOpen).toBe(false);
+  });
+});

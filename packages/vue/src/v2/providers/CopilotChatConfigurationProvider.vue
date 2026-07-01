@@ -161,17 +161,30 @@ const resolvedRegisterDrawer = computed(() =>
     : ownRegisterDrawer,
 );
 
-// Mobile mutual-exclusion (other direction): opening the chat modal closes the
-// drawer. Delegates to the previously-resolved modal setter so the existing
-// parent/child modal-sync contract is preserved untouched.
-function setModalOpenWithDrawerExclusion(open: boolean) {
-  if (open && isMobileViewport()) {
-    resolvedSetDrawerOpen.value?.(false);
-  }
-  (shouldCreateModalState.value
-    ? setInternalModalOpen
-    : parentConfigValue.value?.setModalOpen)?.(open);
-}
+// Public modal setter (mobile mutual-exclusion, other direction: opening the
+// chat modal closes the drawer). Preserve the contract that it is `undefined`
+// when this provider owns no modal state AND no parent provides one —
+// CopilotChatToggleButton relies on that absence to fall back to its own
+// local open-state. When a real modal setter exists (own `isModalDefaultOpen`
+// state or an inherited parent setter), wrap it so opening the modal on
+// mobile also closes the drawer.
+//
+// Note: this diverges from the React reference (CopilotChatConfigurationProvider.tsx),
+// which keeps `setModalOpen` always-defined and always backed by internal state. We
+// intentionally take the minimal Vue-local fix here — preserving the `undefined`
+// contract CopilotChatToggleButton depends on — rather than also reworking
+// `resolvedIsModalOpen`'s backing, to avoid changing bare-provider modal-open
+// semantics.
+const publicSetModalOpen = computed(() => {
+  const base = resolvedSetModalOpen.value; // undefined when no modal state + no parent
+  if (!base) return undefined;
+  return (open: boolean) => {
+    if (open && isMobileViewport()) {
+      resolvedSetDrawerOpen.value?.(false);
+    }
+    base(open);
+  };
+});
 
 const configurationValue = computed<CopilotChatConfigurationValue>(() => ({
   labels: mergedLabels.value,
@@ -179,7 +192,7 @@ const configurationValue = computed<CopilotChatConfigurationValue>(() => ({
   threadId: resolvedThreadId.value,
   hasExplicitThreadId: resolvedHasExplicitThreadId.value,
   isModalOpen: resolvedIsModalOpen.value,
-  setModalOpen: setModalOpenWithDrawerExclusion,
+  setModalOpen: publicSetModalOpen.value,
   drawerOpen: resolvedDrawerOpen.value,
   setDrawerOpen: resolvedSetDrawerOpen.value,
   drawerRegistered: resolvedDrawerRegistered.value,
