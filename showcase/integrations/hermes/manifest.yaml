@@ -1,0 +1,40 @@
+name: Hermes
+slug: hermes
+category: agent-framework
+language: python
+logo: /logos/hermes.svg
+description: >-
+  CopilotKit integration with the Hermes agent by Nous Research, wired through
+  the Hermes AG-UI adapter. A self-improving agent exposed over the AG-UI
+  protocol and driven by CopilotKit's React UI.
+partner_docs: https://hermes-agent.nousresearch.com/docs/
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/hermes
+copilotkit_version: 2.0.0
+deployed: false
+docs_mode: authored
+sort_order: 60
+interaction_modalities:
+  - sidebar
+  - chat
+features:
+  - agentic-chat
+  - frontend-tools
+demos:
+  - id: agentic-chat
+    name: Agentic Chat
+    description: Natural conversation with the real Hermes agent over AG-UI
+    tags:
+      - chat-ui
+    route: /demos/agentic-chat
+    highlight:
+      - src/app/demos/agentic-chat/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: frontend-tools
+    name: Frontend Tools (In-App Actions)
+    description: Hermes invokes a client-side handler registered with useFrontendTool
+    tags:
+      - interactivity
+    route: /demos/frontend-tools
+    highlight:
+      - src/app/demos/frontend-tools/page.tsx
+      - src/app/api/copilotkit/route.ts
