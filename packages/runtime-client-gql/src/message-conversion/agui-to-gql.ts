@@ -1,22 +1,7 @@
 import * as gql from "../client";
 import type { MessageRole } from "../graphql/@generated/graphql";
 import type * as agui from "@copilotkit/shared"; // named agui for clarity, but this only includes agui message types
-
-type AgentStateRuntimeIdentity = Pick<
-  gql.AgentStateMessage,
-  "threadId" | "runId" | "nodeName" | "active"
->;
-
-function getAgentStateRuntimeIdentity(
-  message: agui.Message & Partial<AgentStateRuntimeIdentity>,
-): Partial<AgentStateRuntimeIdentity> {
-  return {
-    threadId: message.threadId,
-    runId: message.runId,
-    nodeName: message.nodeName,
-    active: message.active,
-  };
-}
+import { getAgentStateRuntimeIdentity } from "./agent-state-runtime-identity";
 
 // Helper function to extract agent name from message
 function extractAgentName(message: agui.Message): string {

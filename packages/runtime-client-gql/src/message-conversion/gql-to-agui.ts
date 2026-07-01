@@ -1,4 +1,5 @@
 import * as gql from "../client";
+import { getAgentStateRuntimeIdentity } from "./agent-state-runtime-identity";
 import type * as agui from "@copilotkit/shared";
 import { MessageStatusCode } from "../graphql/@generated/graphql";
 
@@ -191,10 +192,7 @@ function gqlAgentStateMessageToAGUIMessage(
       generativeUI: createRenderWrapper(render.render),
       agentName: message.agentName,
       state: message.state,
-      threadId: message.threadId,
-      runId: message.runId,
-      nodeName: message.nodeName,
-      active: message.active,
+      ...getAgentStateRuntimeIdentity(message),
     };
   }
 
@@ -203,10 +201,7 @@ function gqlAgentStateMessageToAGUIMessage(
     role: "assistant",
     agentName: message.agentName,
     state: message.state,
-    threadId: message.threadId,
-    runId: message.runId,
-    nodeName: message.nodeName,
-    active: message.active,
+    ...getAgentStateRuntimeIdentity(message),
   };
 }
 

@@ -568,7 +568,7 @@ describe("roundtrip message conversion", () => {
       threadId: "thread-123",
       runId: "run-456",
       nodeName: "planner",
-      active: true,
+      active: false,
     });
 
     const aguiMsgs = gqlToAGUI([agentStateMsg]);
@@ -582,7 +582,7 @@ describe("roundtrip message conversion", () => {
     expect((gqlMsgs2[0] as any).threadId).toBe("thread-123");
     expect((gqlMsgs2[0] as any).runId).toBe("run-456");
     expect((gqlMsgs2[0] as any).nodeName).toBe("planner");
-    expect((gqlMsgs2[0] as any).active).toBe(true);
+    expect((gqlMsgs2[0] as any).active).toBe(false);
   });
 
   test("agent state AGUI -> GQL -> AGUI preserves run id for recovery", () => {
@@ -601,5 +601,27 @@ describe("roundtrip message conversion", () => {
     expect(gqlMsgs[0]).toBeInstanceOf(gql.AgentStateMessage);
     expect((gqlMsgs[0] as any).runId).toBe("run-agui-789");
     expect(stripFunctions(aguiMsgs2[0])).toEqual(stripFunctions(aguiMsg));
+  });
+
+  test("agent state conversion omits absent runtime identity fields", () => {
+    const aguiMsg: agui.Message = {
+      id: "agent-state-without-runtime-identity",
+      role: "assistant",
+      agentName: "researchAgent",
+      state: { phase: "audit" },
+    } as agui.Message;
+
+    const gqlMsgs = aguiToGQL(aguiMsg);
+    const aguiMsgs2 = gqlToAGUI(gqlMsgs);
+
+    expect(gqlMsgs).toHaveLength(1);
+    expect(gqlMsgs[0]).not.toHaveProperty("threadId");
+    expect(gqlMsgs[0]).not.toHaveProperty("runId");
+    expect(gqlMsgs[0]).not.toHaveProperty("nodeName");
+    expect(gqlMsgs[0]).not.toHaveProperty("active");
+    expect(aguiMsgs2[0]).not.toHaveProperty("threadId");
+    expect(aguiMsgs2[0]).not.toHaveProperty("runId");
+    expect(aguiMsgs2[0]).not.toHaveProperty("nodeName");
+    expect(aguiMsgs2[0]).not.toHaveProperty("active");
   });
 });
