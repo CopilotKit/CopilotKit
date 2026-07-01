@@ -1,9 +1,9 @@
 # release / publish
 #
 # Single npm OIDC entry point for both stable releases and prerelease canaries.
-# npm trusted publisher records for the 15 @copilotkit/* monorepo packages plus
-# @copilotkit/angular are registered against THIS workflow file. Matching
-# happens on the OIDC token's `workflow_ref` claim, which is always
+# npm trusted publisher records for the monorepo packages plus independently
+# scoped @copilotkit packages are registered against THIS workflow file.
+# Matching happens on the OIDC token's `workflow_ref` claim, which is always
 # publish-release.yml when this workflow is the entry point.
 #
 # Triggers:
@@ -39,6 +39,7 @@ on:
         options:
           - monorepo
           - angular
+          - web-components
           - bot
           - bot-discord
           - bot-slack
@@ -761,7 +762,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # Compute the scope-correct npm URL: the monorepo packages live under the
-      # @copilotkit org page, but the angular release is a single package.
+      # @copilotkit org page, while single-package scopes link to their package.
       - name: Resolve npm URL for scope
         id: npmurl
         env:
@@ -771,6 +772,9 @@ jobs:
           case "$SCOPE" in
             angular)
               NPM_URL="https://www.npmjs.com/package/@copilotkit/angular"
+              ;;
+            web-components)
+              NPM_URL="https://www.npmjs.com/package/@copilotkit/web-components"
               ;;
             *)
               NPM_URL="https://www.npmjs.com/org/copilotkit"

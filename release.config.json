@@ -27,6 +27,11 @@
       "versionSource": "@copilotkit/angular",
       "sharedVersion": false
     },
+    "web-components": {
+      "packages": ["@copilotkit/web-components"],
+      "versionSource": "@copilotkit/web-components",
+      "sharedVersion": false
+    },
     "bot": {
       "packages": ["@copilotkit/bot", "@copilotkit/bot-ui"],
       "versionSource": "@copilotkit/bot",
