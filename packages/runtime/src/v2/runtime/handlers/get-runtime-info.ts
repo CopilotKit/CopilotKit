@@ -82,6 +82,9 @@ export async function handleGetRuntimeInfo({
         runtime,
         threadEndpointsEnabled,
       ),
+      // Unconditional: the stateless POST /agent/:agentId/suggest endpoint ships
+      // with the runtime in every mode, so clients can always detect it here.
+      suggestions: true,
       ...(isIntelligenceRuntime(runtime)
         ? {
             intelligence: {
