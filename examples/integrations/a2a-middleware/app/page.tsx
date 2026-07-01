@@ -4,7 +4,7 @@ import { useState } from "react";
 import Chat from "@/components/chat";
 import {
   CopilotChatConfigurationProvider,
-  CopilotDrawer,
+  CopilotThreadsDrawer,
   CopilotKitProvider,
 } from "@copilotkit/react-core/v2";
 import styles from "./page.module.css";
@@ -208,7 +208,7 @@ export default function Home() {
     >
       {/*
         One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop)
-        owns the active thread for the whole surface. The SDK <CopilotDrawer>
+        owns the active thread for the whole surface. The SDK <CopilotThreadsDrawer>
         drives it directly — picking a row sets the active thread, "+ New"
         resets to a fresh thread — with no host thread-state. The chat (inside
         ResearchAssistant) reads the same active thread from the provider. A
@@ -217,19 +217,8 @@ export default function Home() {
       */}
       <CopilotChatConfigurationProvider agentId="a2a_chat">
         <div className={`${styles.layout} threadsLayout`}>
-          {/* SDK threads drawer (replaces the hand-rolled fork). License-gated
-              with its own upsell; onUpsell opens the Intelligence docs for
-              parity with the fork's "Learn more" CTA. */}
-          <CopilotDrawer
-            agentId="a2a_chat"
-            onUpsell={() =>
-              window.open(
-                "https://docs.copilotkit.ai/intelligence",
-                "_blank",
-                "noopener,noreferrer",
-              )
-            }
-          />
+          {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+          <CopilotThreadsDrawer agentId="a2a_chat" />
           <div className={styles.mainPanel}>
             <ResearchAssistant />
           </div>

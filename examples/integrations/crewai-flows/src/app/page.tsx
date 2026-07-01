@@ -6,7 +6,7 @@ import {
   useRenderTool,
   CopilotSidebar,
   CopilotChatConfigurationProvider,
-  CopilotDrawer,
+  CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
 import { CSSProperties, useEffect, useState } from "react";
 import { z } from "zod";
@@ -36,7 +36,7 @@ export default function CopilotKitPage() {
   return (
     /*
       One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop) owns
-      the active thread for the whole surface. The SDK <CopilotDrawer> drives it
+      the active thread for the whole surface. The SDK <CopilotThreadsDrawer> drives it
       directly — selecting a row sets the active thread, "+ New" resets to a
       fresh thread — with no host thread-state. The content and the
       CopilotSidebar read the same active thread from the provider (the content's
@@ -47,18 +47,9 @@ export default function CopilotKitPage() {
     */
     <CopilotChatConfigurationProvider agentId={AGENT_ID}>
       <div className={`${styles.layout} threadsLayout`}>
-        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated
-            with its own upsell; onUpsell opens the Intelligence docs for parity
-            with the fork's "Learn more" CTA. */}
-        <CopilotDrawer
+        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+        <CopilotThreadsDrawer
           agentId={AGENT_ID}
-          onUpsell={() =>
-            window.open(
-              "https://docs.copilotkit.ai/intelligence",
-              "_blank",
-              "noopener,noreferrer",
-            )
-          }
         />
         <div className={styles.mainPanel}>
           <main

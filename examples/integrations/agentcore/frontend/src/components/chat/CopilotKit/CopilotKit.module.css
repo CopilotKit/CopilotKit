@@ -13,7 +13,7 @@
 
   /*
     Align the drawer's mobile launcher with this app's header controls. These
-    custom properties inherit into <copilotkit-drawer> and pierce its shadow
+    custom properties inherit into <copilotkit-threads-drawer> and pierce its shadow
     root; tuned to match the example header's top-left inset.
   */
   --cpk-drawer-launcher-top: 7px;
@@ -23,7 +23,7 @@
 .mainPanel {
   /*
     Pin the content to the SECOND grid track explicitly. The client-only
-    <CopilotDrawer> renders nothing during the drawer's mount gate, so without
+    <CopilotThreadsDrawer> renders nothing during the drawer's mount gate, so without
     an explicit placement the panel would flow into the reserved first track
     and then jump once the drawer mounts. Forcing column 2 keeps it put.
   */

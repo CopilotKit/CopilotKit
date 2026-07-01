@@ -5,7 +5,7 @@
  *
  * The CopilotKit v2 chat renders LIGHT regardless of OS dark mode (neutral
  * zinc/gray surfaces on white, ~1rem bubble radius, system-ui sans). To read as
- * native to that chat, the SDK <CopilotDrawer> is held light by token
+ * native to that chat, the SDK <CopilotThreadsDrawer> is held light by token
  * inheritance: we drop agno's old `prefers-color-scheme: dark` override of
  * --background/--foreground so the panel never goes dark while the chat beside
  * it stays light. agno's own demo content sets all of its colors locally

@@ -2,7 +2,7 @@
   display: grid;
   /*
     Reserve the desktop drawer's width (its default 320px) as a fixed first
-    column so the layout doesn't shift when the client-only <CopilotDrawer>
+    column so the layout doesn't shift when the client-only <CopilotThreadsDrawer>
     mounts after hydration. On mobile the drawer is an off-canvas overlay (out
     of flow), so the column collapses and the content fills the width.
   */

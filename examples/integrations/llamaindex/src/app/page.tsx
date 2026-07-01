@@ -9,7 +9,7 @@ import {
   useFrontendTool,
   CopilotChatConfigurationProvider,
   CopilotSidebar,
-  CopilotDrawer,
+  CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
 
 import styles from "./page.module.css";
@@ -34,16 +34,7 @@ export default function CopilotKitPage() {
   return (
     <CopilotChatConfigurationProvider agentId="default">
       <div className={`${styles.layout} threadsLayout`}>
-        <CopilotDrawer
-          agentId="default"
-          onUpsell={() =>
-            window.open(
-              "https://docs.copilotkit.ai/intelligence",
-              "_blank",
-              "noopener,noreferrer",
-            )
-          }
-        />
+        <CopilotThreadsDrawer agentId="default" />
         <div className={styles.mainPanel}>
           <main
             style={

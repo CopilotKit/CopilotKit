@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CopilotChat,
   CopilotChatConfigurationProvider,
-  CopilotDrawer,
+  CopilotThreadsDrawer,
   CopilotKitProvider,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
@@ -51,7 +51,7 @@ function CopilotChatContent() {
   return (
     /*
       One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop) owns
-      the active thread for the whole surface. The SDK <CopilotDrawer> drives it
+      the active thread for the whole surface. The SDK <CopilotThreadsDrawer> drives it
       directly — picking a row sets the active thread, "+ New" resets to a fresh
       thread — with no host thread-state. The drawer inherits `runtimeUrl` and
       the Cognito auth `headers` from the surrounding <CopilotKitProvider> (via
@@ -61,18 +61,9 @@ function CopilotChatContent() {
     */
     <CopilotChatConfigurationProvider agentId={COPILOTKIT_AGENT_ID}>
       <div className={styles.layout}>
-        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated
-            with its own upsell; onUpsell opens the Intelligence docs for parity
-            with the fork's "Learn more" CTA. */}
-        <CopilotDrawer
+        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+        <CopilotThreadsDrawer
           agentId={COPILOTKIT_AGENT_ID}
-          onUpsell={() =>
-            window.open(
-              "https://docs.copilotkit.ai/intelligence",
-              "_blank",
-              "noopener,noreferrer",
-            )
-          }
         />
         <div className={styles.mainPanel}>
           <div className="h-full flex flex-row">

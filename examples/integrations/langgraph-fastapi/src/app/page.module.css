@@ -15,7 +15,7 @@
 
   /*
     Align the drawer's mobile launcher with this app's header controls. These
-    custom properties inherit into <copilotkit-drawer> and pierce its shadow
+    custom properties inherit into <copilotkit-threads-drawer> and pierce its shadow
     root; tuned to match the example header's top-left inset.
   */
   --cpk-drawer-launcher-top: 7px;
@@ -25,7 +25,7 @@
 .mainPanel {
   /*
     Pin the content to the SECOND grid track explicitly. The client-only
-    <CopilotDrawer> renders NOTHING during SSR/prerender (mounted-gated), so at
+    <CopilotThreadsDrawer> renders NOTHING during SSR/prerender (mounted-gated), so at
     first paint the grid has a single child — this panel. Without an explicit
     placement it would flow into the reserved first track and then jump once the
     drawer mounts. Forcing column 2 keeps it put from first paint.

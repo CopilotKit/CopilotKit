@@ -7,7 +7,7 @@ import { useGenerativeUIExamples, useExampleSuggestions } from "@/hooks";
 import {
   CopilotChat,
   CopilotChatConfigurationProvider,
-  CopilotDrawer,
+  CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
 
 import styles from "./page.module.css";
@@ -19,7 +19,7 @@ export default function HomePage() {
   return (
     /*
       One CopilotChatConfigurationProvider owns the active thread for the whole
-      surface. It is UNCONTROLLED (no `threadId` prop): the SDK <CopilotDrawer>
+      surface. It is UNCONTROLLED (no `threadId` prop): the SDK <CopilotThreadsDrawer>
       drives it directly — picking a row sets the active thread, "+ New" resets
       to a fresh thread (clearing the chat), all with no host wiring. The chat
       and the canvas read the same active thread from the provider (the canvas's
@@ -34,10 +34,10 @@ export default function HomePage() {
       <div className={styles.layout}>
         {/*
           SDK threads drawer (replaces the former hand-rolled fork). SSR-safe and
-          license-gated (shows its own upsell when threads aren't licensed), so it
+          license-gated (shows its own locked view when threads aren't licensed), so it
           needs no example-level gate.
         */}
-        <CopilotDrawer agentId="default" />
+        <CopilotThreadsDrawer agentId="default" />
         <div className={styles.mainPanel}>
           <ExampleLayout
             chatContent={

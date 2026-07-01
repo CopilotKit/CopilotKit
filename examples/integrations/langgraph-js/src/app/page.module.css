@@ -20,7 +20,7 @@
     group (the Chat/App control sits at y=13, height 28 → center 27). The 40px
     launcher therefore needs top = 27 - 20 = 7px; left mirrors the toggle
     group's ~16px inset on the right for symmetry. These custom properties
-    inherit into the <copilotkit-drawer> element and pierce its shadow root.
+    inherit into the <copilotkit-threads-drawer> element and pierce its shadow root.
   */
   --cpk-drawer-launcher-top: 7px;
   --cpk-drawer-launcher-left: 16px;
@@ -29,7 +29,7 @@
 .mainPanel {
   /*
     Pin the chat to the SECOND grid track explicitly. The client-only
-    <CopilotDrawer> renders NOTHING during SSR/prerender (it is mounted-gated),
+    <CopilotThreadsDrawer> renders NOTHING during SSR/prerender (it is mounted-gated),
     so at first paint the grid has a single child — this panel. Without an
     explicit placement it would flow into the FIRST (reserved 320px) track,
     cramming the chat at x:0, then jump to the second track once the drawer
