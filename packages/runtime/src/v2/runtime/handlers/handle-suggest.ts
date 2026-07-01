@@ -1,10 +1,7 @@
-import type { Message } from "@ag-ui/client";
+import type { AbstractAgent, Message } from "@ag-ui/client";
 import type { CopilotRuntimeLike } from "../core/runtime";
-import {
-  cloneAgentForRequest,
-  configureAgentForRequest,
-  parseRunRequest,
-} from "./shared/agent-utils";
+import { extractForwardableHeaders } from "./header-utils";
+import { cloneAgentForRequest, parseRunRequest } from "./shared/agent-utils";
 
 /**
  * Parameters for {@link handleSuggestAgent}.
@@ -26,9 +23,21 @@ interface SuggestAgentParameters {
  * through `runtime.runner`: `InMemoryAgentRunner.run()` writes to a
  * module-level store keyed by threadId (backing the SSE runtime's local thread
  * endpoints), which would leak the throwaway suggestion thread. Nor does it
- * create/persist a thread, take a lock, hit the gateway, or attach Intelligence
- * enterprise-learning tools — dynamic suggestions must be side-effect-free in
- * every runtime mode.
+ * create/persist a thread, take a lock, or hit the gateway — dynamic
+ * suggestions must be side-effect-free in every runtime mode.
+ *
+ * The only per-request configuration it applies is forwarding the request's
+ * allowlisted headers (`authorization` + `x-*`) onto the agent clone. It does
+ * **not** attach any request middleware — no A2UI, no MCPApps, no
+ * OpenGenerativeUI, no Intelligence enterprise-learning tools. The suggest run
+ * forces `toolChoice: copilotkitSuggest`, so those middleware-injected tools
+ * are dead weight, and MCPApps setup in particular can incur a `listTools`
+ * network round-trip per suggestion under `available: "always"` — a side effect
+ * this path must never pay.
+ *
+ * When the client aborts the HTTP request (via its `AbortController`), the
+ * server-side run is cancelled best-effort so an aborted suggestion does not
+ * keep running a provider call to completion.
  *
  * @param params - The runtime, request, and resolved agent id.
  * @returns A JSON `Response` of shape `{ messages }` on success, the resolution
@@ -54,11 +63,45 @@ export async function handleSuggestAgent({
     return input;
   }
 
-  configureAgentForRequest({ runtime, request, agentId, agent });
+  // Forward only the allowlisted request headers onto the clone. Unlike a full
+  // agent run, the suggest path intentionally attaches no middleware (see the
+  // handler docblock): the forced `copilotkitSuggest` tool choice makes any
+  // middleware-injected tools dead weight, and MCPApps setup can trigger a
+  // `listTools` network round-trip we must never incur per suggestion.
+  //
+  // `AbstractAgent` doesn't declare `headers` on its base type (concrete
+  // framework agents add it), so narrow to the header-carrying shape rather
+  // than casting to `any`.
+  const headerCarryingAgent = agent as AbstractAgent & {
+    headers?: Record<string, string>;
+  };
+  headerCarryingAgent.headers = {
+    ...headerCarryingAgent.headers,
+    ...extractForwardableHeaders(request),
+  };
 
   agent.setMessages(input.messages);
   agent.setState(input.state);
   agent.threadId = input.threadId;
+
+  // Cancel the server-side run when the client aborts the request, so an
+  // aborted suggestion does not keep running a provider call to completion.
+  // Best-effort: the listener must never throw. Read `request.signal` once —
+  // the accessor can return a fresh reference per read.
+  const signal = request.signal;
+  if (signal && typeof agent.abortRun === "function") {
+    signal.addEventListener(
+      "abort",
+      () => {
+        try {
+          agent.abortRun();
+        } catch {
+          // best-effort — nothing actionable if aborting the run fails.
+        }
+      },
+      { once: true },
+    );
+  }
 
   // Seed with the request messages so a run that emits nothing still returns a
   // coherent transcript; `onMessagesChanged` overwrites this with the running

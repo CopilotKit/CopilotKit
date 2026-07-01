@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import type { RunAgentInput } from "@ag-ui/client";
 
 vi.mock("pino", () => ({
   default: vi.fn(() => ({
@@ -13,16 +14,56 @@ vi.mock("../../telemetry", () => ({
 
 const cloneAgentForRequest = vi.fn();
 const parseRunRequest = vi.fn();
-const configureAgentForRequest = vi.fn();
 
 vi.mock("../shared/agent-utils", () => ({
   cloneAgentForRequest: (...args: unknown[]) => cloneAgentForRequest(...args),
   parseRunRequest: (...args: unknown[]) => parseRunRequest(...args),
-  configureAgentForRequest: (...args: unknown[]) =>
-    configureAgentForRequest(...args),
 }));
 
 import { handleSuggestAgent } from "../handle-suggest";
+import type { CopilotRuntimeLike } from "../../core/runtime";
+
+/**
+ * A minimal `AgentSubscriber`-shaped callback bag the handler passes to
+ * `runAgent`. Only `onMessagesChanged` is exercised, matching the real
+ * subscriber surface without pulling in the full type.
+ */
+interface RunAgentSubscriber {
+  onMessagesChanged?: (event: { messages: unknown[] }) => void;
+}
+
+/**
+ * The subset of `AbstractAgent` the suggest handler touches on the clone
+ * returned by `cloneAgentForRequest`. Typed so the tests avoid `as any` while
+ * exposing the spies the assertions inspect (`use`, `abortRun`, `runAgent`).
+ */
+interface FakeAgent {
+  agentId: string;
+  headers?: Record<string, string>;
+  messages: unknown[];
+  setMessages: ReturnType<typeof vi.fn>;
+  setState: ReturnType<typeof vi.fn>;
+  threadId: string | undefined;
+  /** Middleware registration — must never be called by the suggest path. */
+  use: ReturnType<typeof vi.fn>;
+  /** Server-side run cancellation — wired to the request's abort signal. */
+  abortRun: ReturnType<typeof vi.fn>;
+  runAgent: ReturnType<typeof vi.fn>;
+}
+
+/**
+ * The runtime surface the tests construct. `runner.run`/`runner.connect` are
+ * typed `vi.fn()`s so the "never routes through the runner" assertions are
+ * checked without casting the runtime to `any`.
+ */
+interface FakeRuntime {
+  mode?: string;
+  runner: { run: ReturnType<typeof vi.fn>; connect?: ReturnType<typeof vi.fn> };
+  intelligence?: {
+    getOrCreateThread: ReturnType<typeof vi.fn>;
+    listThreads: ReturnType<typeof vi.fn>;
+  };
+}
 
 const suggestMsg = {
   id: "a1",
@@ -41,6 +82,51 @@ const suggestMsg = {
 };
 
 /**
+ * Builds a fully typed fake agent whose `runAgent` echoes the running message
+ * set (including the `copilotkitSuggest` tool call) via `onMessagesChanged`.
+ */
+function createFakeAgent(): FakeAgent {
+  return {
+    agentId: "default",
+    messages: [],
+    setMessages: vi.fn(),
+    setState: vi.fn(),
+    threadId: undefined,
+    use: vi.fn(),
+    abortRun: vi.fn(),
+    runAgent: vi.fn(async (_input: RunAgentInput, sub?: RunAgentSubscriber) => {
+      sub?.onMessagesChanged?.({
+        messages: [{ id: "m0", role: "user", content: "hi" }, suggestMsg],
+      });
+      return { newMessages: [suggestMsg] };
+    }),
+  };
+}
+
+/** Standard parsed run input used across the happy-path tests. */
+function stubParsedInput() {
+  parseRunRequest.mockResolvedValue({
+    threadId: "s1",
+    runId: "r1",
+    messages: [{ id: "m0", role: "user", content: "hi" }],
+    state: {},
+    tools: [],
+    context: [],
+    forwardedProps: {},
+  });
+}
+
+/**
+ * Bridges a typed fake runtime to the `CopilotRuntimeLike` the handler's
+ * signature requires. The fake only carries the members the tests assert on
+ * (typed `vi.fn()` runner spies); the single test-double cast is isolated here
+ * rather than sprinkled at each call site, and no `any` is introduced.
+ */
+function asRuntime(runtime: FakeRuntime): CopilotRuntimeLike {
+  return runtime as unknown as CopilotRuntimeLike;
+}
+
+/**
  * `handleSuggestAgent` must run the provider agent directly and return the
  * resulting messages. Crucially it must never touch `runtime.runner`, whose
  * `InMemoryAgentRunner.run()` writes to a module-level store keyed by threadId
@@ -48,36 +134,14 @@ const suggestMsg = {
  */
 describe("handleSuggestAgent", () => {
   it("runs the agent directly and returns its messages as JSON, never touching the runner", async () => {
-    const runnerRun = vi.fn();
-    const fakeAgent = {
-      agentId: "default",
-      messages: [],
-      setMessages: vi.fn(),
-      setState: vi.fn(),
-      threadId: undefined as string | undefined,
-      runAgent: vi.fn(async (_input: unknown, sub?: any) => {
-        sub?.onMessagesChanged?.({
-          messages: [{ id: "m0", role: "user", content: "hi" }, suggestMsg],
-        });
-        return { newMessages: [suggestMsg] };
-      }),
-    };
-
+    const fakeAgent = createFakeAgent();
     cloneAgentForRequest.mockResolvedValue(fakeAgent);
-    parseRunRequest.mockResolvedValue({
-      threadId: "s1",
-      runId: "r1",
-      messages: [{ id: "m0", role: "user", content: "hi" }],
-      state: {},
-      tools: [],
-      context: [],
-      forwardedProps: {},
-    });
+    stubParsedInput();
 
-    const runtime = { runner: { run: runnerRun } } as any;
+    const runtime: FakeRuntime = { runner: { run: vi.fn() } };
 
     const res = await handleSuggestAgent({
-      runtime,
+      runtime: asRuntime(runtime),
       request: new Request("http://x/agent/default/suggest", {
         method: "POST",
         body: JSON.stringify({
@@ -95,21 +159,98 @@ describe("handleSuggestAgent", () => {
     expect(res.status).toBe(200);
     expect(body.messages).toContainEqual(suggestMsg);
     expect(fakeAgent.runAgent).toHaveBeenCalledTimes(1);
-    expect(runnerRun).not.toHaveBeenCalled();
+    expect(runtime.runner.run).not.toHaveBeenCalled();
+  });
+
+  it("forwards allowlisted request headers onto the agent but attaches no middleware", async () => {
+    const fakeAgent = createFakeAgent();
+    cloneAgentForRequest.mockResolvedValue(fakeAgent);
+    stubParsedInput();
+
+    const runtime: FakeRuntime = { runner: { run: vi.fn() } };
+
+    await handleSuggestAgent({
+      runtime: asRuntime(runtime),
+      request: new Request("http://x/agent/default/suggest", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer secret",
+          "x-custom-header": "custom-value",
+          // A non-allowlisted header must be dropped, not forwarded.
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ threadId: "s1", messages: [] }),
+      }),
+      agentId: "default",
+    });
+
+    // The forced `copilotkitSuggest` tool choice makes middleware dead weight,
+    // and MCPApps setup can incur a `listTools` network round-trip — so the
+    // suggest path must register no middleware at all.
+    expect(fakeAgent.use).not.toHaveBeenCalled();
+
+    // Allowlisted headers land on the agent; other headers do not.
+    expect(fakeAgent.headers).toMatchObject({
+      authorization: "Bearer secret",
+      "x-custom-header": "custom-value",
+    });
+    expect(fakeAgent.headers?.["content-type"]).toBeUndefined();
+  });
+
+  it("cancels the server-side run by calling agent.abortRun when the request signal aborts", async () => {
+    const controller = new AbortController();
+    const fakeAgent = createFakeAgent();
+
+    // Hold the run open until the signal aborts, so the abort listener fires
+    // while runAgent is still in flight (the real cancellation scenario).
+    let resolveRun: (result: { newMessages: unknown[] }) => void = () => {};
+    fakeAgent.runAgent.mockImplementation(
+      () =>
+        new Promise<{ newMessages: unknown[] }>((resolve) => {
+          resolveRun = resolve;
+        }),
+    );
+
+    cloneAgentForRequest.mockResolvedValue(fakeAgent);
+    stubParsedInput();
+
+    const runtime: FakeRuntime = { runner: { run: vi.fn() } };
+
+    const request = new Request("http://x/agent/default/suggest", {
+      method: "POST",
+      body: JSON.stringify({ threadId: "s1", messages: [] }),
+      signal: controller.signal,
+    });
+    const signalSpy = vi.spyOn(request.signal, "addEventListener");
+
+    const pending = handleSuggestAgent({
+      runtime: asRuntime(runtime),
+      request,
+      agentId: "default",
+    });
+
+    // Flush the handler's `await cloneAgentForRequest` + `await parseRunRequest`
+    // microtasks so it reaches the abort-listener registration before we assert.
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(signalSpy).toHaveBeenCalledWith(
+      "abort",
+      expect.any(Function),
+      expect.objectContaining({ once: true }),
+    );
+
+    controller.abort();
+
+    expect(fakeAgent.abortRun).toHaveBeenCalledTimes(1);
+
+    // Let the (now-aborted) run settle so the handler can respond.
+    resolveRun({ newMessages: [suggestMsg] });
+    await pending;
   });
 
   it("returns 502 when the agent run throws, still without touching the runner", async () => {
-    const runnerRun = vi.fn();
-    const fakeAgent = {
-      agentId: "default",
-      messages: [],
-      setMessages: vi.fn(),
-      setState: vi.fn(),
-      threadId: undefined as string | undefined,
-      runAgent: vi.fn(async () => {
-        throw new Error("provider exploded");
-      }),
-    };
+    const fakeAgent = createFakeAgent();
+    fakeAgent.runAgent.mockRejectedValue(new Error("provider exploded"));
 
     cloneAgentForRequest.mockResolvedValue(fakeAgent);
     parseRunRequest.mockResolvedValue({
@@ -122,10 +263,10 @@ describe("handleSuggestAgent", () => {
       forwardedProps: {},
     });
 
-    const runtime = { runner: { run: runnerRun } } as any;
+    const runtime: FakeRuntime = { runner: { run: vi.fn() } };
 
     const res = await handleSuggestAgent({
-      runtime,
+      runtime: asRuntime(runtime),
       request: new Request("http://x/agent/default/suggest", {
         method: "POST",
         body: JSON.stringify({ threadId: "s1", messages: [] }),
@@ -134,22 +275,21 @@ describe("handleSuggestAgent", () => {
     });
 
     expect(res.status).toBe(502);
-    expect(runnerRun).not.toHaveBeenCalled();
+    expect(runtime.runner.run).not.toHaveBeenCalled();
   });
 
   it("returns the Response from cloneAgentForRequest when agent resolution fails", async () => {
     parseRunRequest.mockClear();
-    const runnerRun = vi.fn();
     cloneAgentForRequest.mockResolvedValue(
       new Response(JSON.stringify({ error: "Agent not found" }), {
         status: 404,
       }),
     );
 
-    const runtime = { runner: { run: runnerRun } } as any;
+    const runtime: FakeRuntime = { runner: { run: vi.fn() } };
 
     const res = await handleSuggestAgent({
-      runtime,
+      runtime: asRuntime(runtime),
       request: new Request("http://x/agent/missing/suggest", {
         method: "POST",
         body: "{}",
@@ -159,36 +299,13 @@ describe("handleSuggestAgent", () => {
 
     expect(res.status).toBe(404);
     expect(parseRunRequest).not.toHaveBeenCalled();
-    expect(runnerRun).not.toHaveBeenCalled();
+    expect(runtime.runner.run).not.toHaveBeenCalled();
   });
 
   it("behaves identically under an Intelligence-configured runtime, still never touching the runner", async () => {
-    const runnerRun = vi.fn();
-    const runnerConnect = vi.fn();
-    const fakeAgent = {
-      agentId: "default",
-      messages: [],
-      setMessages: vi.fn(),
-      setState: vi.fn(),
-      threadId: undefined as string | undefined,
-      runAgent: vi.fn(async (_input: unknown, sub?: any) => {
-        sub?.onMessagesChanged?.({
-          messages: [{ id: "m0", role: "user", content: "hi" }, suggestMsg],
-        });
-        return { newMessages: [suggestMsg] };
-      }),
-    };
-
+    const fakeAgent = createFakeAgent();
     cloneAgentForRequest.mockResolvedValue(fakeAgent);
-    parseRunRequest.mockResolvedValue({
-      threadId: "s1",
-      runId: "r1",
-      messages: [{ id: "m0", role: "user", content: "hi" }],
-      state: {},
-      tools: [],
-      context: [],
-      forwardedProps: {},
-    });
+    stubParsedInput();
 
     // Intelligence-mode runtime shaped like the ones the thread/run handler
     // tests construct: `mode: "intelligence"` plus an `intelligence` platform
@@ -197,14 +314,14 @@ describe("handleSuggestAgent", () => {
     // (whose `run`/`connect` would acquire a lock / hit the gateway and leak a
     // thread). Spying on both proves the direct-run path is taken regardless
     // of mode.
-    const runtime = {
+    const runtime: FakeRuntime = {
       mode: "intelligence",
       intelligence: { getOrCreateThread: vi.fn(), listThreads: vi.fn() },
-      runner: { run: runnerRun, connect: runnerConnect },
-    } as any;
+      runner: { run: vi.fn(), connect: vi.fn() },
+    };
 
     const res = await handleSuggestAgent({
-      runtime,
+      runtime: asRuntime(runtime),
       request: new Request("http://x/agent/default/suggest", {
         method: "POST",
         body: JSON.stringify({
@@ -222,8 +339,8 @@ describe("handleSuggestAgent", () => {
     expect(res.status).toBe(200);
     expect(body.messages).toContainEqual(suggestMsg);
     expect(fakeAgent.runAgent).toHaveBeenCalledTimes(1);
-    expect(runnerRun).not.toHaveBeenCalled();
-    expect(runnerConnect).not.toHaveBeenCalled();
-    expect(runtime.intelligence.getOrCreateThread).not.toHaveBeenCalled();
+    expect(runtime.runner.run).not.toHaveBeenCalled();
+    expect(runtime.runner.connect).not.toHaveBeenCalled();
+    expect(runtime.intelligence?.getOrCreateThread).not.toHaveBeenCalled();
   });
 });
