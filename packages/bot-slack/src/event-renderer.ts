@@ -415,15 +415,16 @@ export function createRunRenderer(args: {
     // ── 2. Tool-call surfacing + capture ──────────────────────────────
     async onToolCallStartEvent({ event }) {
       if (aborted) return;
-      // Pane threads surface tool activity as live composer status, not rows.
-      // Each setStatus also resets Slack's status timeout.
-      if (isPane) {
-        if (showToolStatus && paneToolStatus) {
-          await setStatus(`is using \`${event.toolCallName}\`…`);
-        }
-        return;
+      // Composer "is using `tool`…" status on ANY thread anchor (not just
+      // panes) — the native status API works on every surface. Each setStatus
+      // also resets Slack's status timeout. The pane's `toolStatus` config knob
+      // still gates panes; every other surface shows it when tool status is on.
+      if (statusMode && showToolStatus && (isPane ? paneToolStatus : true)) {
+        await setStatus(`is using \`${event.toolCallName}\`…`);
       }
-      // Native path: surface the call as an in-message `task_update` chunk.
+      // Panes surface tool activity ONLY as composer status — no in-thread rows.
+      if (isPane) return;
+      // Native path: also surface the call as an in-message `task_update` chunk.
       if (nativeMode && taskChunksOk) {
         if (showToolStatus) {
           ensureTurnStream().appendChunk({

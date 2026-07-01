@@ -251,6 +251,29 @@ describe("HttpDeliverySource", () => {
       retryable: true,
     });
   });
+
+  it("times out a hung turn, nacks it, and keeps the loop alive", async () => {
+    const { fetch, calls } = fakeFetch((c) =>
+      c.url.endsWith("/claim")
+        ? { body: { claimed: true, delivery: claimedDelivery() } }
+        : { body: { failed: true, status: "retry_wait" } },
+    );
+    const src = new HttpDeliverySource(cfg({ fetch, turnTimeoutMs: 20 }));
+    let started = 0;
+    // A turn that never resolves (e.g. a HITL approval that never arrives) must
+    // not wedge the single-delivery loop: it times out, gets nacked, loop continues.
+    await src.start(async () => {
+      started += 1;
+      await new Promise<void>(() => {});
+    });
+    await new Promise((r) => setTimeout(r, 80));
+    await src.stop();
+
+    expect(started).toBeGreaterThanOrEqual(1);
+    const fail = calls.find((c) => c.url.includes("/deliveries/dlv_9/fail"));
+    expect(fail).toBeDefined();
+    expect(fail!.body["error"]).toMatchObject({ code: "runtime_error" });
+  });
 });
 
 describe("HttpRenderEventSink", () => {

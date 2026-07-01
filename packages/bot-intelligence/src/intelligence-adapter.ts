@@ -533,10 +533,15 @@ export class IntelligenceAdapter implements PlatformAdapter {
       onTextMessageContentEvent({ event }) {
         if (aborted) return;
         ensureRunStarted();
+        // Skip empty deltas (e.g. the leading role-announcement chunk): they
+        // carry no content and violate the render contract's min-1 text
+        // constraint, which would reject the frame and abort the whole run.
+        const delta = event.delta ?? "";
+        if (delta.length === 0) return;
         enqueue({
           kind: "text_delta",
           messageId: event.messageId,
-          delta: event.delta ?? "",
+          delta,
         });
       },
       onTextMessageEndEvent({ event }) {
