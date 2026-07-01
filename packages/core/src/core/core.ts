@@ -660,6 +660,10 @@ export class CopilotKitCore {
     return this.agentRegistry.threadEndpoints;
   }
 
+  get suggestions(): boolean | undefined {
+    return this.agentRegistry.suggestions;
+  }
+
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
   }

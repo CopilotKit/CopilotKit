@@ -74,6 +74,7 @@ export class AgentRegistry {
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
   private _threadEndpoints?: ThreadEndpointRuntimeInfo;
+  private _suggestions?: boolean;
   private _a2uiEnabled: boolean = false;
   private _a2uiAgents?: string[];
   private _openGenerativeUIEnabled: boolean = false;
@@ -131,6 +132,10 @@ export class AgentRegistry {
 
   get threadEndpoints(): ThreadEndpointRuntimeInfo | undefined {
     return this._threadEndpoints;
+  }
+
+  get suggestions(): boolean | undefined {
+    return this._suggestions;
   }
 
   get a2uiEnabled(): boolean {
@@ -392,6 +397,7 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._threadEndpoints = undefined;
+      this._suggestions = undefined;
       this._a2uiEnabled = false;
       this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
@@ -422,6 +428,7 @@ export class AgentRegistry {
         mode?: RuntimeMode;
         intelligence?: IntelligenceRuntimeInfo;
         threadEndpoints?: ThreadEndpointRuntimeInfo;
+        suggestions?: boolean;
       } = runtimeInfoResponse;
 
       const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess)
@@ -482,6 +489,7 @@ export class AgentRegistry {
       this._runtimeMode = runtimeInfoResponse.mode ?? RUNTIME_MODE_SSE;
       this._intelligence = runtimeInfoResponse.intelligence;
       this._threadEndpoints = runtimeInfoResponse.threadEndpoints;
+      this._suggestions = runtimeInfoResponse.suggestions;
       const a2uiInfo = runtimeInfoResponse.a2ui;
       this._a2uiEnabled =
         a2uiInfo?.enabled ?? runtimeInfoResponse.a2uiEnabled ?? false;
@@ -503,6 +511,7 @@ export class AgentRegistry {
       this._runtimeMode = RUNTIME_MODE_SSE;
       this._intelligence = undefined;
       this._threadEndpoints = undefined;
+      this._suggestions = undefined;
       this._a2uiEnabled = false;
       this._a2uiAgents = undefined;
       this._openGenerativeUIEnabled = false;
