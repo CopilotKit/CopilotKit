@@ -51,4 +51,15 @@ export interface CopilotChatConfigurationValue {
    * No-op when the provider's `threadId` prop is caller-authoritative.
    */
   startNewThread: () => void;
+  /** Whether the mobile off-canvas drawer overlay is open. */
+  drawerOpen: boolean;
+  /**
+   * Toggles the drawer. On mobile (`<768px`) opening the drawer closes the
+   * chat modal (mutual-exclusion). Desktop imposes no constraint.
+   */
+  setDrawerOpen: (open: boolean) => void;
+  /** True when at least one drawer has registered (gates the header launcher). */
+  drawerRegistered: boolean;
+  /** Announces drawer presence; returns a cleanup that de-registers it. */
+  registerDrawer: () => () => void;
 }
