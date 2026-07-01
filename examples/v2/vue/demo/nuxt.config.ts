@@ -26,4 +26,9 @@ export default defineNuxtConfig({
   typescript: {
     strict: true,
   },
+  vue: {
+    compilerOptions: {
+      isCustomElement: (tag) => tag === "copilotkit-threads-drawer",
+    },
+  },
 });
