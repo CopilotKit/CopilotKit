@@ -820,3 +820,130 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
     });
   });
 });
+
+describe("InMemoryAgentRunner onConcurrentRun", () => {
+  class HangingAgent extends AbstractAgent {
+    async runAgent(): Promise<RunAgentResult> {
+      // Never resolves — models a wedged / suspended (e.g. HITL) run.
+      return new Promise<RunAgentResult>(() => {});
+    }
+    clone(): AbstractAgent {
+      return new HangingAgent();
+    }
+  }
+
+  // Emits its own RUN_STARTED then hangs until aborted, at which point its run
+  // rejects — modeling a real agent wired to an AbortController (unlike
+  // HangingAgent, this exercises the abort→teardown path).
+  class AbortableAgent extends AbstractAgent {
+    private rejectRun?: (err: Error) => void;
+    async runAgent(
+      input: RunAgentInput,
+      options: {
+        onEvent: (e: { event: BaseEvent }) => void;
+        onRunStartedEvent?: () => void;
+      },
+    ): Promise<RunAgentResult> {
+      options.onEvent({
+        event: {
+          type: EventType.RUN_STARTED,
+          threadId: input.threadId,
+          runId: input.runId,
+        } as RunStartedEvent,
+      });
+      options.onRunStartedEvent?.();
+      return new Promise<RunAgentResult>((_resolve, reject) => {
+        this.rejectRun = reject;
+      });
+    }
+    abortRun(): void {
+      this.rejectRun?.(new Error("aborted by supersede"));
+    }
+    clone(): AbstractAgent {
+      return new AbortableAgent();
+    }
+  }
+
+  const makeInput = (threadId: string, runId: string): RunAgentInput => ({
+    threadId,
+    runId,
+    messages: [],
+    state: {},
+    tools: [],
+    context: [],
+  });
+
+  it("throws 'Thread already running' by default when a run is in flight", () => {
+    const runner = new InMemoryAgentRunner();
+    const threadId = "concurrent-throw";
+    runner.run({
+      threadId,
+      agent: new HangingAgent(),
+      input: makeInput(threadId, "run-1"),
+    });
+    expect(() =>
+      runner.run({
+        threadId,
+        agent: new HangingAgent(),
+        input: makeInput(threadId, "run-2"),
+      }),
+    ).toThrow("Thread already running");
+  });
+
+  it("supersedes an in-flight run when configured, and the new run streams", async () => {
+    const runner = new InMemoryAgentRunner({ onConcurrentRun: "supersede" });
+    const threadId = "concurrent-supersede";
+    // Wedge the thread with a run that never resolves (isRunning stays true).
+    runner.run({
+      threadId,
+      agent: new HangingAgent(),
+      input: makeInput(threadId, "run-1"),
+    });
+    // A new turn on the same thread must NOT throw — it supersedes and streams.
+    const events = await firstValueFrom(
+      runner
+        .run({
+          threadId,
+          agent: new TestAgent(),
+          input: makeInput(threadId, "run-2"),
+        })
+        .pipe(toArray()),
+    );
+    expect(events.some((e) => e.type === EventType.RUN_STARTED)).toBe(true);
+  });
+
+  it("a superseded run does not persist history under the new run's id", async () => {
+    const runner = new InMemoryAgentRunner({ onConcurrentRun: "supersede" });
+    const threadId = "concurrent-supersede-history";
+    // run-1 emits its own RUN_STARTED (runId "run-1"), then hangs until aborted.
+    runner.run({
+      threadId,
+      agent: new AbortableAgent(),
+      input: makeInput(threadId, "run-1"),
+    });
+    // run-2 supersedes → run-1 is aborted → its async teardown runs.
+    await firstValueFrom(
+      runner
+        .run({
+          threadId,
+          agent: new TestAgent(),
+          input: makeInput(threadId, "run-2"),
+        })
+        .pipe(toArray()),
+    );
+    await new Promise((r) => setTimeout(r, 20)); // let run-1's abort teardown settle
+
+    const events = runner.getThreadEvents(threadId);
+    // The superseded run must NOT persist its events — and never under run-2's id.
+    expect(
+      events.some((e) => (e as { runId?: string }).runId === "run-1"),
+    ).toBe(false);
+    expect(
+      events.some(
+        (e) =>
+          e.type === EventType.RUN_STARTED &&
+          (e as { runId?: string }).runId === "run-2",
+      ),
+    ).toBe(true);
+  });
+});

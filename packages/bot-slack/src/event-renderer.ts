@@ -1,4 +1,3 @@
-import type { WebClient } from "@slack/web-api";
 import type { KnownBlock } from "@slack/types";
 import type { AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -11,6 +10,7 @@ import { markdownToMrkdwn } from "./markdown-to-mrkdwn.js";
 import { autoCloseOpenMarkdown } from "./auto-close-streaming.js";
 import { NativeMessageStream } from "./native-stream.js";
 import type { TextStream, NativeStreamTransport } from "./native-stream.js";
+import type { SlackRenderTransport } from "./render/transport.js";
 import type { SlackAssistantOptions } from "./types.js";
 
 const DEFAULT_THINKING_STATUS = "is thinking…";
@@ -57,7 +57,13 @@ const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
  * text message, plus separate `:wrench:` tool-status rows.
  */
 export function createRunRenderer(args: {
-  client: WebClient;
+  /**
+   * The credentialed Slack side-effects (setStatus / postMessage / update),
+   * injected so this renderer never imports `@slack/web-api`. The native
+   * adapter wraps a `WebClient`; the managed Connector Outbox wraps its own
+   * sender.
+   */
+  transport: SlackRenderTransport;
   target: { channel: string; threadTs?: string };
   /**
    * Custom-event names that should be treated as interrupts — captured
@@ -118,7 +124,7 @@ export function createRunRenderer(args: {
    */
   feedbackBlocks?: KnownBlock[];
 }): RunRenderer {
-  const { client, target } = args;
+  const { transport, target } = args;
   const interruptEventNames =
     args.interruptEventNames ?? new Set<string>(["on_interrupt"]);
   const showToolStatus = args.showToolStatus ?? true;
@@ -136,7 +142,7 @@ export function createRunRenderer(args: {
   const setStatus = async (text: string): Promise<void> => {
     if (!status) return;
     try {
-      await client.assistant.threads.setStatus({
+      await transport.setStatus({
         channel_id: target.channel,
         thread_ts: status.threadTs,
         status: text,
@@ -219,7 +225,7 @@ export function createRunRenderer(args: {
   const makeLegacyStream = (): TextStream =>
     new ChunkedMessageStream({
       postPlaceholder: async (text) => {
-        const posted = await client.chat.postMessage({
+        const posted = await transport.postMessage({
           channel: target.channel,
           thread_ts: target.threadTs,
           text,
@@ -229,7 +235,7 @@ export function createRunRenderer(args: {
         return posted.ts;
       },
       updateAt: async (ts, text) => {
-        await client.chat.update({ channel: target.channel, ts, text });
+        await transport.updateMessage({ channel: target.channel, ts, text });
       },
       transform: displayTransform,
     });
@@ -297,7 +303,7 @@ export function createRunRenderer(args: {
     if (!showToolStatus) return;
     if (toolStatusTs.has(toolCallId)) return; // dedup
     try {
-      const posted = await client.chat.postMessage({
+      const posted = await transport.postMessage({
         channel: target.channel,
         thread_ts: target.threadTs,
         text: `:wrench: Calling \`${toolCallName}\`…`,
@@ -317,7 +323,7 @@ export function createRunRenderer(args: {
     const ts = toolStatusTs.get(toolCallId);
     if (!ts) return;
     try {
-      await client.chat.update({
+      await transport.updateMessage({
         channel: target.channel,
         ts,
         text: `:white_check_mark: \`${toolCallName}\``,
@@ -409,15 +415,16 @@ export function createRunRenderer(args: {
     // ── 2. Tool-call surfacing + capture ──────────────────────────────
     async onToolCallStartEvent({ event }) {
       if (aborted) return;
-      // Pane threads surface tool activity as live composer status, not rows.
-      // Each setStatus also resets Slack's status timeout.
-      if (isPane) {
-        if (showToolStatus && paneToolStatus) {
-          await setStatus(`is using \`${event.toolCallName}\`…`);
-        }
-        return;
+      // Composer "is using `tool`…" status on ANY thread anchor (not just
+      // panes) — the native status API works on every surface. Each setStatus
+      // also resets Slack's status timeout. The pane's `toolStatus` config knob
+      // still gates panes; every other surface shows it when tool status is on.
+      if (statusMode && showToolStatus && (isPane ? paneToolStatus : true)) {
+        await setStatus(`is using \`${event.toolCallName}\`…`);
       }
-      // Native path: surface the call as an in-message `task_update` chunk.
+      // Panes surface tool activity ONLY as composer status — no in-thread rows.
+      if (isPane) return;
+      // Native path: also surface the call as an in-message `task_update` chunk.
       if (nativeMode && taskChunksOk) {
         if (showToolStatus) {
           ensureTurnStream().appendChunk({
@@ -502,7 +509,7 @@ export function createRunRenderer(args: {
       await finalizeTurnStream();
       if (aborted) return;
       try {
-        await client.chat.postMessage({
+        await transport.postMessage({
           channel: target.channel,
           thread_ts: target.threadTs,
           text: `:warning: Agent error: ${event.message ?? "unknown error"}`,

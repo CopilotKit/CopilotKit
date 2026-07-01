@@ -133,6 +133,8 @@ describe("intelligenceAdapter — run renderer", () => {
       event: { messageId: "m1", delta: "world" },
     });
     await sub.onTextMessageEndEvent?.({ event: { messageId: "m1" } });
+    // Render frames stream through a serial chain; the turn-end hook drains it.
+    await renderer.finish?.();
 
     expect(egress.ops).toHaveLength(1);
     expect(egress.ops[0]!.op.kind).toBe("post");

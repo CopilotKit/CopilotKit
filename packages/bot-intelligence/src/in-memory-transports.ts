@@ -1,8 +1,14 @@
-import type { DeliverySource, EgressSink } from "./transports.js";
+import type {
+  DeliverySource,
+  EgressSink,
+  RenderEventSink,
+} from "./transports.js";
 import type {
   ManagedIngressEnvelope,
   EgressOperation,
   EgressResult,
+  RenderFrame,
+  RenderAccepted,
 } from "./contracts.js";
 
 /**
@@ -15,6 +21,27 @@ export class InMemoryEgressSink implements EgressSink {
   async emit(op: EgressOperation): Promise<EgressResult> {
     this.ops.push(op);
     return { ok: true, ref: op.operationId };
+  }
+}
+
+/**
+ * In-memory {@link RenderEventSink} that records every pushed frame in order and
+ * returns an `accepted` receipt (with a deterministic `egressOperationId` on
+ * `finalize`). Used to assert render-frame ordering / idempotency keys in tests;
+ * the production sink is the Realtime Gateway client.
+ */
+export class InMemoryRenderEventSink implements RenderEventSink {
+  readonly frames: RenderFrame[] = [];
+  async push(frame: RenderFrame): Promise<RenderAccepted> {
+    this.frames.push(frame);
+    const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
+    return {
+      idempotencyKey,
+      acceptance: "accepted",
+      ...(frame.event.kind === "finalize"
+        ? { egressOperationId: `eop_${frame.turnId}_${frame.seq}` }
+        : {}),
+    };
   }
 }
 

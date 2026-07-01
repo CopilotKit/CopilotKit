@@ -93,3 +93,54 @@ export type EgressResult =
   | { ok: true; ref: string }
   // TODO(OSS-377): `code` becomes a bounded failure-code enum.
   | { ok: false; code: string };
+
+// ── Realtime render events (OSS-402) ──────────────────────────────────────
+// Mirrors the frozen `hosted_bot.render_event.v1` contract on the Intelligence
+// side (libs/app-api-contracts/src/hosted-bots.ts). The SDK streams these
+// semantic frames to the realtime-gateway; the gateway-side Connector Outbox
+// (OSS-404) renders them to the provider (Slack Block Kit, etc.).
+// TODO(OSS-377): replace with the shared `@copilotkit/managed-bot-contracts`
+// package; `post`/`update` content is `BotNode[]` (SDK IR) here — the frozen
+// contract types it as opaque `HostedBotRenderContent`.
+
+/** One semantic render frame the agent run emits. Matches the frozen kinds. */
+export type HostedBotRenderEvent =
+  | { kind: "run_started" }
+  | { kind: "text_delta"; messageId: string; delta: string }
+  | { kind: "text_end"; messageId: string }
+  | { kind: "tool_start"; toolCallId: string; toolName: string }
+  | { kind: "tool_end"; toolCallId: string; toolName: string }
+  | { kind: "interrupt" }
+  | { kind: "run_error"; message: string }
+  | { kind: "post"; content: BotNode[] }
+  | { kind: "update"; ref: string; content: BotNode[] }
+  | { kind: "finalize" };
+
+/** All render-event kinds, for exhaustive/ordering checks. */
+export type HostedBotRenderEventKind = HostedBotRenderEvent["kind"];
+
+/**
+ * The adapter-facing render frame. The {@link RenderEventSink} fills in the
+ * org/project/bot scope, the `idempotencyKey` (`turnId:slot:seq`), the
+ * `runtimeInstanceId`, and `sentAt` before it hits the wire — the adapter only
+ * supplies the delivery/turn identity, the render lane (`slot`), the monotonic
+ * per-`(turn, slot)` `seq`, and the semantic `event`.
+ */
+export interface RenderFrame {
+  deliveryId: string;
+  turnId: string;
+  /** Render lane; a single turn uses `"main"` for V1. */
+  slot: string;
+  /** Zero-based, monotonic within `(turnId, slot)`. */
+  seq: number;
+  event: HostedBotRenderEvent;
+}
+
+/** Durable-acceptance receipt echoed back for each pushed {@link RenderFrame}. */
+export interface RenderAccepted {
+  /** `${turnId}:${slot}:${seq}` — the frame's idempotency key. */
+  idempotencyKey: string;
+  acceptance: "accepted" | "duplicate_accepted" | "duplicate_skipped";
+  /** Present only on an accepted `finalize` frame — links to the egress op. */
+  egressOperationId?: string;
+}
