@@ -11,6 +11,14 @@ list, switch, start, rename, archive, and delete their threads, and you wire up
 **no active-thread state** to make it work. Drop it next to your chat and it
 connects automatically.
 
+<Frame description="CopilotThreadsDrawer beside a CopilotChat — selecting a thread replays its conversation, with no active-thread wiring.">
+  <img
+    src="/images/copilot-threads-drawer-preview.png"
+    alt="CopilotThreadsDrawer listing conversations next to an active CopilotChat conversation"
+    className="w-full rounded-lg"
+  />
+</Frame>
+
 Under the hood it's a thin React wrapper around the self-contained
 `copilotkit-threads-drawer` web component, fed by [`useThreads`](/reference/hooks/useThreads)
 and your chat configuration.
