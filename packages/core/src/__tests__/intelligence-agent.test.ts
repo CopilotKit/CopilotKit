@@ -1218,6 +1218,31 @@ describe("IntelligenceAgent", () => {
       expect(channel.left).toBe(true);
     });
 
+    it("falls back and completes connect when stream_idle arrives without replay_complete", async () => {
+      mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      const promise = agent.connectAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      const socket = getSocket(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("stream_idle", { latestEventId: "event-2" });
+      await flushAsyncWork();
+
+      expect(channel.left).toBe(false);
+      expect(socket.disconnected).toBe(false);
+
+      const result = await expectConnectAgentToResolve(promise);
+
+      expect(result.newMessages).toEqual([]);
+      expect(channel.left).toBe(true);
+      expect(socket.disconnected).toBe(true);
+    });
+
     it("uses snake_case latest_event_id control cursors for subsequent reconnects", async () => {
       mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
       mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
@@ -1469,7 +1494,7 @@ describe("IntelligenceAgent", () => {
       await expectConnectAgentToResolve(secondConnectPromise);
     });
 
-    it("advances reconnect cursors using last observed opaque id instead of ordering ids", async () => {
+    it("keeps the durable event cursor when control events only carry ingestion ids", async () => {
       mockFetch
         .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()))
         .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
@@ -1504,24 +1529,24 @@ describe("IntelligenceAgent", () => {
       await waitForConnection(agent);
 
       expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
-        lastSeenEventId: "cpki_ingested_00000000000000000002",
+        lastSeenEventId: "zzzz-runner-event",
       });
       expect(getChannel(agent)!.params).toEqual({
         stream_mode: "connect",
-        last_seen_event_id: "cpki_ingested_00000000000000000002",
+        last_seen_event_id: "zzzz-runner-event",
       });
 
       getChannel(agent)!.triggerJoin("ok");
       getChannel(agent)!.serverPush("replay_complete", {
-        latestEventId: "cpki_ingested_00000000000000000002",
+        latestEventId: "zzzz-runner-event",
       });
       getChannel(agent)!.serverPush("stream_idle", {
-        latestEventId: "cpki_ingested_00000000000000000002",
+        latestEventId: "zzzz-runner-event",
       });
       await expectConnectAgentToResolve(secondConnectPromise);
     });
 
-    it("uses metadata cpki_ingested as a live event reconnect cursor when cpki_event_id is absent", async () => {
+    it("does not use metadata cpki_ingested as a durable reconnect cursor", async () => {
       mockFetch
         .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()))
         .mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
@@ -1551,20 +1576,16 @@ describe("IntelligenceAgent", () => {
       await waitForConnection(agent);
 
       expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
-        lastSeenEventId: "cpki_ingested_00000000000000000011",
+        lastSeenEventId: null,
       });
       expect(getChannel(agent)!.params).toEqual({
         stream_mode: "connect",
-        last_seen_event_id: "cpki_ingested_00000000000000000011",
+        last_seen_event_id: null,
       });
 
       getChannel(agent)!.triggerJoin("ok");
-      getChannel(agent)!.serverPush("replay_complete", {
-        latestEventId: "cpki_ingested_00000000000000000011",
-      });
-      getChannel(agent)!.serverPush("stream_idle", {
-        latestEventId: "cpki_ingested_00000000000000000011",
-      });
+      getChannel(agent)!.serverPush("replay_complete", {});
+      getChannel(agent)!.serverPush("stream_idle", {});
       await expectConnectAgentToResolve(secondConnectPromise);
     });
 

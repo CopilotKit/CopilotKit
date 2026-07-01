@@ -28,6 +28,7 @@ import {
 import type { ObservableNotification, Observable } from "rxjs";
 import {
   catchError,
+  delay,
   endWith,
   finalize,
   ignoreElements,
@@ -70,6 +71,7 @@ const CLIENT_AG_UI_EVENT = "ag_ui_event";
 const REPLAY_COMPLETE_EVENT = "replay_complete";
 const STREAM_IDLE_EVENT = "stream_idle";
 const STOP_RUN_EVENT = "stop_run";
+const CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS = 100;
 
 interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
@@ -623,10 +625,16 @@ export class IntelligenceAgent extends AbstractAgent {
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdleCompletion$ =
         options.streamMode === "connect"
-          ? combineLatest([
-              replayComplete$.pipe(take(1)),
-              streamIdle$.pipe(take(1)),
-            ]).pipe(take(1))
+          ? merge(
+              combineLatest([
+                replayComplete$.pipe(take(1)),
+                streamIdle$.pipe(take(1)),
+              ]),
+              streamIdle$.pipe(
+                take(1),
+                delay(CONNECT_STREAM_IDLE_REPLAY_FALLBACK_MS),
+              ),
+            ).pipe(take(1))
           : EMPTY;
       const threadCompleted$ = threadEvents$.pipe(
         ignoreElements(),
@@ -820,17 +828,8 @@ export class IntelligenceAgent extends AbstractAgent {
       return null;
     }
 
-    const eventMetadata = metadata as {
-      cpki_event_id?: unknown;
-      cpki_ingested?: unknown;
-    };
-    if (typeof eventMetadata.cpki_event_id === "string") {
-      return eventMetadata.cpki_event_id;
-    }
-
-    return typeof eventMetadata.cpki_ingested === "string"
-      ? eventMetadata.cpki_ingested
-      : null;
+    const eventMetadata = metadata as { cpki_event_id?: unknown };
+    return this.readDurableEventId(eventMetadata.cpki_event_id);
   }
 
   private readControlEventId(payload: unknown): string | null {
@@ -844,7 +843,15 @@ export class IntelligenceAgent extends AbstractAgent {
     };
     const latestEventId =
       controlPayload.latestEventId ?? controlPayload.latest_event_id;
-    return typeof latestEventId === "string" ? latestEventId : null;
+    return this.readDurableEventId(latestEventId);
+  }
+
+  private readDurableEventId(eventId: unknown): string | null {
+    if (typeof eventId !== "string" || eventId.trim() === "") {
+      return null;
+    }
+
+    return eventId.startsWith("cpki_ingested") ? null : eventId;
   }
 
   private applyCanonicalRunIdentity(
