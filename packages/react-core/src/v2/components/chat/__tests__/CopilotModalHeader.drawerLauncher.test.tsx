@@ -27,7 +27,7 @@ function mockViewport(isMobile: boolean) {
 
 /**
  * Registers a drawer on mount so the header launcher's presence gate is
- * satisfied. Mirrors what the future <CopilotDrawer> wrapper does.
+ * satisfied. Mirrors what the future <CopilotThreadsDrawer> wrapper does.
  */
 function DrawerRegistrar() {
   const config = useCopilotChatConfiguration();
@@ -59,7 +59,7 @@ describe("CopilotModalHeader drawer launcher", () => {
       </CopilotChatConfigurationProvider>,
     );
 
-    expect(screen.queryByTestId("copilot-drawer-launcher")).toBeNull();
+    expect(screen.queryByTestId("copilot-threads-drawer-launcher")).toBeNull();
   });
 
   it("does NOT render the launcher when no drawer is registered", () => {
@@ -69,7 +69,7 @@ describe("CopilotModalHeader drawer launcher", () => {
       </CopilotChatConfigurationProvider>,
     );
 
-    expect(screen.queryByTestId("copilot-drawer-launcher")).toBeNull();
+    expect(screen.queryByTestId("copilot-threads-drawer-launcher")).toBeNull();
   });
 
   it("renders the launcher once a drawer registers", () => {
@@ -80,7 +80,9 @@ describe("CopilotModalHeader drawer launcher", () => {
       </CopilotChatConfigurationProvider>,
     );
 
-    expect(screen.queryByTestId("copilot-drawer-launcher")).not.toBeNull();
+    expect(
+      screen.queryByTestId("copilot-threads-drawer-launcher"),
+    ).not.toBeNull();
   });
 
   it("toggles drawerOpen when the launcher is clicked", () => {
@@ -95,12 +97,12 @@ describe("CopilotModalHeader drawer launcher", () => {
     expect(screen.getByTestId("drawer-state").textContent).toBe("false");
 
     act(() => {
-      fireEvent.click(screen.getByTestId("copilot-drawer-launcher"));
+      fireEvent.click(screen.getByTestId("copilot-threads-drawer-launcher"));
     });
     expect(screen.getByTestId("drawer-state").textContent).toBe("true");
 
     act(() => {
-      fireEvent.click(screen.getByTestId("copilot-drawer-launcher"));
+      fireEvent.click(screen.getByTestId("copilot-threads-drawer-launcher"));
     });
     expect(screen.getByTestId("drawer-state").textContent).toBe("false");
   });
@@ -113,7 +115,7 @@ describe("CopilotModalHeader drawer launcher", () => {
       </CopilotChatConfigurationProvider>,
     );
 
-    const launcher = screen.getByTestId("copilot-drawer-launcher");
+    const launcher = screen.getByTestId("copilot-threads-drawer-launcher");
     expect(launcher.getAttribute("aria-expanded")).toBe("false");
 
     act(() => {
@@ -130,7 +132,7 @@ describe("CopilotModalHeader drawer launcher", () => {
       </CopilotChatConfigurationProvider>,
     );
 
-    const launcher = screen.getByTestId("copilot-drawer-launcher");
+    const launcher = screen.getByTestId("copilot-threads-drawer-launcher");
     act(() => {
       (launcher as HTMLButtonElement).focus();
     });
@@ -146,7 +148,7 @@ describe("CopilotModalHeader drawer launcher", () => {
 
     expect(screen.getByText("My Chat Header")).toBeDefined();
     expect(document.querySelector('button[aria-label="Close"]')).not.toBeNull();
-    expect(screen.queryByTestId("copilot-drawer-launcher")).toBeNull();
+    expect(screen.queryByTestId("copilot-threads-drawer-launcher")).toBeNull();
   });
 
   it("passes the nullable drawerLauncher to the children render function", () => {

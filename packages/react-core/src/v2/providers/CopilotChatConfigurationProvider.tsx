@@ -1,8 +1,8 @@
+import type { ReactNode } from "react";
 import React, {
   createContext,
   useCallback,
   useContext,
-  ReactNode,
   useEffect,
   useMemo,
   useRef,
@@ -84,7 +84,7 @@ export interface CopilotChatConfigurationValue {
    */
   setDrawerOpen: (open: boolean) => void;
   /**
-   * True once a `<CopilotDrawer>` wrapper has registered itself with this chat
+   * True once a `<CopilotThreadsDrawer>` wrapper has registered itself with this chat
    * configuration. The header thread-list launcher renders ONLY when this is
    * set, so chats with no drawer stay byte-for-byte unchanged.
    */
@@ -117,7 +117,7 @@ export interface CopilotChatConfigurationValue {
    * Imperatively sets the active thread for this chat configuration.
    *
    * Use this to drive the rendered thread without a host callback — e.g. a
-   * `<CopilotDrawer>` selecting a thread row sets it explicitly so the chat
+   * `<CopilotThreadsDrawer>` selecting a thread row sets it explicitly so the chat
    * connects to that backend thread.
    *
    * Guarded like the top-level `<CopilotKit>` provider's `setThreadId`: when
@@ -198,7 +198,7 @@ export const CopilotChatConfigurationProvider: React.FC<
   // AND not explicitly flagged non-explicit. The v1 `<CopilotKit>` bridge pipes
   // an auto-minted UUID through as `threadId` with `hasExplicitThreadId={false}`
   // to SEED the thread without claiming the caller picked it; that seed must
-  // stay overridable so imperative callers (e.g. `<CopilotDrawer>` selecting a
+  // stay overridable so imperative callers (e.g. `<CopilotThreadsDrawer>` selecting a
   // row, or `startNewThread`) can switch threads. A bare `threadId` prop (no
   // `hasExplicitThreadId`) is still treated as a caller choice.
   const threadIdPropIsAuthoritative =
