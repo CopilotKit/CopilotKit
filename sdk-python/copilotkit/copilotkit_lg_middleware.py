@@ -204,6 +204,7 @@ _RESERVED_STATE_KEYS = frozenset(
         # the LLM prompt — neither via App Context nor via expose_state.
         "copilotkit_forwarded_headers",
         "ag-ui",
+        "ag_ui",
         "tools",
         "structured_response",
         "thread_id",
@@ -362,7 +363,7 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         BYOC custom catalogs render their own components, not the basic one).
         """
         # AG-UI native path.
-        ag_ui = state.get("ag-ui") or {}
+        ag_ui = state.get("ag-ui") or state.get("ag_ui") or {}
         a2ui_schema = ag_ui.get("a2ui_schema")
         if a2ui_schema:
             catalog_id = None
@@ -376,9 +377,10 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                     catalog_id = parsed.get("catalogId")
             except (TypeError, ValueError):
                 pass
-            # Native path: the toolkit reads ``a2ui_schema`` from state itself,
-            # so no composition_guide is needed — just surface the catalog id.
-            return None, catalog_id
+            # Return the full schema as component_schema so the subagent
+            # has component definitions even when build_context_prompt
+            # cannot read from state (e.g., when ag-ui key is filtered).
+            return a2ui_schema, catalog_id
 
         # CopilotKit runtime-proxy path: the catalog arrives as a context entry.
         context = (state.get("copilotkit") or {}).get("context") or []
@@ -408,7 +410,8 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
         means no signal at all (off, or no A2UI middleware in the pipeline), in
         which case we do not auto-inject.
         """
-        return (state.get("ag-ui") or {}).get("inject_a2ui_tool")
+        ag_ui = state.get("ag-ui") or state.get("ag_ui") or {}
+        return ag_ui.get("inject_a2ui_tool")
 
     def _maybe_build_a2ui_tool(self, request: ModelRequest) -> Any | None:
         """Build a ``generate_a2ui`` tool bound to the agent's own model when
@@ -461,6 +464,24 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
             guidelines = dict(params.get("guidelines") or {})
             guidelines.setdefault("composition_guide", component_schema)
             params["guidelines"] = guidelines
+
+        # Pass catalog for component validation and recovery for auto-retry.
+        # This ensures invalid component names are caught and the subagent
+        # can retry generation instead of propagating errors to the frontend.
+        ag_ui_state = state.get("ag-ui") or state.get("ag_ui") or {}
+        a2ui_schema_raw = ag_ui_state.get("a2ui_schema")
+        if a2ui_schema_raw:
+            try:
+                parsed_schema = (
+                    json.loads(a2ui_schema_raw)
+                    if isinstance(a2ui_schema_raw, str)
+                    else a2ui_schema_raw
+                )
+                if isinstance(parsed_schema, dict):
+                    params["catalog"] = parsed_schema
+                    params["recovery"] = {"maxAttempts": 3}
+            except (TypeError, ValueError):
+                pass
 
         tool = get_a2ui_tools(params)
 

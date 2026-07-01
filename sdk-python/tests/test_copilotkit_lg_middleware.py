@@ -1351,8 +1351,10 @@ class TestAutoA2UI:
                 }
             }
         )
-        # Native path: toolkit reads a2ui_schema from state, so no guide needed.
-        assert schema is None
+        # Native path: return full schema as component_schema so subagent
+        # has component definitions even when build_context_prompt
+        # cannot read from state (e.g., when ag-ui key is filtered).
+        assert schema == json.dumps({"catalogId": "cat-x", "components": []})
         assert catalog_id == "cat-x"
 
     def test_resolve_catalog_none_when_absent(self):
