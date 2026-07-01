@@ -5,6 +5,9 @@ import {
   CopilotKitProvider,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
+import { createMirrorActivityRenderer } from "@/a2ui/mirror-renderer";
+import { catalog } from "@/a2ui/catalog";
+import { CanvasProvider } from "@/components/canvas/canvas-context";
 import CopilotContext from "@/components/copilot-context";
 import { useAuthContext } from "@/components/auth-context";
 import { useThreadSelection } from "@/components/threads/use-thread-selection";
@@ -15,6 +18,12 @@ import { RecordingVignette } from "@/components/recording-vignette";
 import { GlassEngineProvider } from "@/components/glass-engine-context";
 import { InspectorStoreProvider } from "@/lib/inspector/store";
 import { InspectorPane } from "@/components/inspector/inspector-pane";
+
+// A2UI report surfaces are mirrored onto the full-screen canvas (channel
+// "default", matching CanvasProvider/ReportCanvas) instead of rendering inline
+// in the chat. Module-level so the array reference stays stable across renders
+// (CopilotKitProvider requires a stable `renderActivityMessages` array).
+const A2UI_RENDERERS = [createMirrorActivityRenderer("default")];
 
 // Static suggestion pills shown on the welcome screen / before-first-message.
 // In v2, suggestions are registered via `useConfigureSuggestions` rather than a
@@ -73,6 +82,11 @@ function BankingSuggestions() {
         title: "Add an expense card",
         message: "Add a new expense card",
       },
+      {
+        title: "Build a spend report on the canvas",
+        message:
+          "Build a full spend report on the canvas: KPIs, the spending trend, budget usage, and a spend breakdown by team.",
+      },
       // Generative-UI charts — each message echoes the matching show* tool's
       // description (copilot-context.tsx) so the agent renders the chart in chat
       // instead of answering in plain text.
@@ -119,6 +133,13 @@ export function CopilotKitWrapper({
       // (multi-route) mode.
       useSingleEndpoint={false}
       properties={{ userRole: currentUser?.role }}
+      // A2UI report canvas. The runtime injects the render_a2ui tool
+      // (a2ui.injectA2UITool on both runtimes); passing the banking catalog here
+      // sends its component schemas to the agent and wires the client renderer.
+      // `renderActivityMessages` overrides the built-in inline a2ui-surface
+      // renderer with a mirror that pushes surfaces onto the full-screen canvas.
+      a2ui={{ catalog, includeSchema: true }}
+      renderActivityMessages={A2UI_RENDERERS}
       // Use the v2-native CopilotKitProvider, NOT the v1 `CopilotKit`
       // compatibility bridge. The bridge wraps the chat in a heavier stack (its
       // own ThreadsProvider + a second CopilotChatConfigurationProvider +
@@ -167,10 +188,20 @@ export function CopilotKitWrapper({
           <GlassEngineProvider available={glassAvailable}>
             <InspectorStoreProvider>
               <RecordingProvider>
-                <LayoutComponent>
-                  <CopilotContext>{children}</CopilotContext>
-                </LayoutComponent>
-                <ChatPanel threadId={threadId} />
+                {/*
+                  CanvasProvider owns the full-screen A2UI report canvas state
+                  (open/close + the mirrored surface, channel "default"). It must
+                  be an ancestor of LayoutComponent, which calls useCanvas() to
+                  render <ReportCanvas/>, and it also wraps the chat panel so the
+                  mirror renderer (which runs inside the chat message stream) and
+                  the canvas share one context.
+                */}
+                <CanvasProvider>
+                  <LayoutComponent>
+                    <CopilotContext>{children}</CopilotContext>
+                  </LayoutComponent>
+                  <ChatPanel threadId={threadId} />
+                </CanvasProvider>
                 {/* Mount the pane (and its AG-UI subscription) ONLY where the
                     deployment opted in. Public hosts never subscribe. */}
                 {glassAvailable && <InspectorPane />}
