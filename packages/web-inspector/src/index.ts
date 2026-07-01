@@ -2760,6 +2760,14 @@ export class WebInspectorElement extends LitElement {
       onAgentsChanged: ({ agents }) => {
         this.processAgentsChanged(agents);
       },
+      onAgentRunStarted: ({ agent }) => {
+        // Per-thread clones (from useAgent) are not in the agent registry, so
+        // onAgentsChanged never fires for them. Subscribe to the running
+        // instance here so its AG-UI events reach the event timeline.
+        if (agent?.agentId) {
+          this.subscribeToAgent(agent);
+        }
+      },
       onContextChanged: ({ context }) => {
         this.contextStore = this.normalizeContextStore(context);
         this.requestUpdate();
