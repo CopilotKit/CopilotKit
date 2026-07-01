@@ -232,7 +232,12 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
           );
         }
         return (
-          <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
+          // `pointer-events-auto`: this is a `useComponent` (display-only) render,
+          // which CopilotKit paints with `pointer-events: none` on the assistant
+          // message. But this table is interactive (Approve / Deny / File policy
+          // exception), so opt its subtree back into pointer events or the row
+          // actions (incl. the "More actions" menu) are unclickable in the chat.
+          <div className="pointer-events-auto space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
             <h3 className="text-lg font-semibold text-ink">
               Pending approvals
             </h3>
@@ -563,11 +568,27 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
         .string()
         .describe("The transaction whose approval was just declined."),
     }),
-    render: ({ respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       if (status === "inProgress") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
             Loading…
+          </div>
+        );
+      }
+      // Once the user has chosen, collapse to a static line so the
+      // "Start recording" button doesn't linger (or get clicked twice) — the
+      // live "Recording your workflow" card (awaitDashboardDemonstration) takes
+      // over from here. Branch on the resolved `result` (fresh on complete) — NOT
+      // isRecording, whose value in this render closure can be stale and wrongly
+      // show "not recording" right after Start recording. onDeny resolves
+      // "declined"; onApprove resolves the (non-"declined") directive string.
+      if (status === "complete") {
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            {result === "declined"
+              ? "Okay — not recording."
+              : "Recording started — go ahead and demonstrate the fix on the dashboard."}
           </div>
         );
       }
@@ -587,7 +608,14 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             denyLabel="Not now"
             onApprove={() => {
               beginRecording();
-              respond?.("started");
+              // Directive result. With a bare "started", gpt-5.4-mini tends to
+              // just SAY awaitDashboardDemonstration's "go ahead and I'll watch"
+              // line (from its description) instead of CALLING it — leaving this
+              // card frozen with no live recording card. Tell it explicitly to
+              // call the tool and not reply in prose (mirrors the save beat).
+              respond?.(
+                `Recording started. Now IMMEDIATELY call awaitDashboardDemonstration with transactionId "${args?.transactionId ?? ""}" — that tool renders the live "Recording your workflow" card and is how you watch. Do NOT reply in plain text; calling that tool is the only correct next step.`,
+              );
             }}
             onDeny={() => respond?.("declined")}
           />
@@ -614,11 +642,21 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
         .string()
         .describe("The transaction the user will demonstrate on."),
     }),
-    render: ({ respond, status }) => {
+    render: ({ respond, status, result }) => {
       if (status === "inProgress") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
             Loading…
+          </div>
+        );
+      }
+      // Once resolved, collapse so the "I'm done" button can't linger.
+      if (status === "complete") {
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            {result === "cancelled"
+              ? "Recording cancelled."
+              : "Recording finished — saving the workflow…"}
           </div>
         );
       }
@@ -690,11 +728,24 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
           "The exception code the user demonstrated, taken from awaitDashboardDemonstration's result.",
         ),
     }),
-    render: ({ args, respond, status }) => {
+    render: ({ args, respond, status, result }) => {
       if (status === "inProgress") {
         return (
           <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
             Loading…
+          </div>
+        );
+      }
+      // Once resolved, collapse so the "Save workflow" button can't linger or be
+      // re-clicked. `result` carries the value passed to respond() on complete.
+      if (status === "complete") {
+        const saved =
+          typeof result === "string" && result.includes("status: saved");
+        return (
+          <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted shadow-soft">
+            {saved
+              ? "Workflow saved — I’ll reuse it for future over-limit charges."
+              : "Discarded — not saved."}
           </div>
         );
       }
@@ -722,13 +773,14 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             denyLabel="Discard"
             onApprove={() => {
               endRecording();
-              // The charge the user demonstrated on was cleared BY that
-              // demonstration, so it is already approved. Tell the agent
-              // explicitly, or it tends to immediately re-run the just-saved
-              // procedure on that same charge — opening a redundant exception
-              // on an approved transaction and tangling the next request.
+              // Resolve a result the agent recognizes as "saved" and that drives it
+              // to persist the procedure durably via save_memory (Option A — see the
+              // TEACH & RECALL prompt). The demonstrated charge was cleared BY the
+              // demonstration, so it is already approved; say so explicitly or the
+              // agent tends to re-run the just-saved procedure on that same charge —
+              // opening a redundant exception on an approved transaction.
               respond?.(
-                `${canonicalProcedure(code)} You learned this by watching the user clear transaction ${transactionId}, which is already approved now — do NOT apply the procedure to ${transactionId} again or re-approve it. The original request is complete; wait for the user's next instruction before acting.`,
+                `(status: saved) ${canonicalProcedure(code)} Now persist this durably: call save_memory with scope "project", kind "procedural", and content describing this over-limit procedure using code "${code}". You learned this by watching the user clear transaction ${transactionId}, which is already approved now — do NOT apply the procedure to ${transactionId} again or re-approve it. The original request is complete; wait for the user's next instruction before acting.`,
               );
             }}
             onDeny={() => {

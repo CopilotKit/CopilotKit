@@ -12,6 +12,9 @@ import { ChatInboxProvider } from "@/components/chat/chat-inbox-context";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { RecordingProvider } from "@/components/recording-context";
 import { RecordingVignette } from "@/components/recording-vignette";
+import { GlassEngineProvider } from "@/components/glass-engine-context";
+import { InspectorStoreProvider } from "@/lib/inspector/store";
+import { InspectorPane } from "@/components/inspector/inspector-pane";
 
 // Static suggestion pills shown on the welcome screen / before-first-message.
 // In v2, suggestions are registered via `useConfigureSuggestions` rather than a
@@ -70,12 +73,39 @@ function BankingSuggestions() {
         title: "Add an expense card",
         message: "Add a new expense card",
       },
+      // Generative-UI charts — each message echoes the matching show* tool's
+      // description (copilot-context.tsx) so the agent renders the chart in chat
+      // instead of answering in plain text.
+      {
+        title: "Show our spending trend",
+        message: "How has our spending changed over time? Show it as a chart.",
+      },
+      {
+        title: "Budget usage by team",
+        message:
+          "Which teams are close to or over their budget limit? Show budget usage.",
+      },
+      {
+        title: "Break down spend by team",
+        message: "Where is the money going? Break our spend down by team.",
+      },
+      {
+        title: "Income vs expenses",
+        message:
+          "How does our income compare to expenses, and what's our net position?",
+      },
     ],
   });
   return null;
 }
 
-export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
+export function CopilotKitWrapper({
+  children,
+  glassAvailable = false,
+}: {
+  children: React.ReactNode;
+  glassAvailable?: boolean;
+}) {
   const { currentUser } = useAuthContext();
   const { threadId, selectThread, createThread } = useThreadSelection();
 
@@ -130,17 +160,24 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
             RecordingProvider exposes the teach-mode `isRecording` flag; the
             <RecordingVignette/> reads it to pulse a soft violet glow around the
             canvas while an officer demonstration is being recorded. It wraps
-            BOTH the page content and the chat panel so every `recordUserAction`
+            BOTH the page content and the chat panel so every demonstration
             call site (the transactions list approve/deny, the inline policy
             exception card) is inside it.
           */}
-          <RecordingProvider>
-            <LayoutComponent>
-              <CopilotContext>{children}</CopilotContext>
-            </LayoutComponent>
-            <ChatPanel threadId={threadId} />
-            <RecordingVignette />
-          </RecordingProvider>
+          <GlassEngineProvider available={glassAvailable}>
+            <InspectorStoreProvider>
+              <RecordingProvider>
+                <LayoutComponent>
+                  <CopilotContext>{children}</CopilotContext>
+                </LayoutComponent>
+                <ChatPanel threadId={threadId} />
+                {/* Mount the pane (and its AG-UI subscription) ONLY where the
+                    deployment opted in. Public hosts never subscribe. */}
+                {glassAvailable && <InspectorPane />}
+                <RecordingVignette />
+              </RecordingProvider>
+            </InspectorStoreProvider>
+          </GlassEngineProvider>
         </ChatInboxProvider>
       </CopilotChatConfigurationProvider>
     </CopilotKitProvider>

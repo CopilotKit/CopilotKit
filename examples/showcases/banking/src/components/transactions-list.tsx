@@ -25,7 +25,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useRecordUserActionInCurrentThread } from "@/lib/record-user-action";
 import { useRecording } from "@/components/recording-context";
 import { PolicyExceptionInline } from "@/components/policy-exception-inline";
 
@@ -36,9 +35,9 @@ type ExceptionResult = {
 };
 
 interface ApprovalInterfaceProps {
-  // Return true iff the server mutation succeeded, so the caller only records
+  // Return true iff the server mutation succeeded, so the caller only narrates
   // the human action when it actually took effect (a blocked over-limit
-  // approval must not be recorded as an approval).
+  // approval must not be narrated as an approval).
   onApprove?: (transactionId: string) => Promise<boolean> | boolean;
   onDeny?: (transactionId: string) => Promise<boolean> | boolean;
 }
@@ -72,50 +71,28 @@ export function TransactionsList({
   openPolicyException,
   finalizePolicyException,
 }: TransactionsListProps) {
-  // Called unconditionally at the top so hook order is stable. When this
-  // component is rendered compact / read-only (without showApprovalInterface)
-  // the recorder is simply never invoked.
-  const recordUserAction = useRecordUserActionInCurrentThread();
-  // Bracket each record so the canvas recording vignette pulses while a
-  // demonstrated action is captured (true even against the no-op shim).
-  // `logStep` narrates each click into the recorder feed while recording.
+  // Bracket each demonstrated action so the canvas recording vignette pulses
+  // while it is captured. `logStep` narrates each click into the recorder feed
+  // while recording.
   const { beginRecording, endRecording, logStep } = useRecording();
   const [exceptionTxnId, setExceptionTxnId] = useState<string | null>(null);
 
-  // Approve a charge from the queue. Only records the human action when the
-  // server mutation actually took effect (a blocked over-limit approve is a
-  // no-op and must never be recorded as an approval).
+  // Approve a charge from the queue. Only narrates the action when the server
+  // mutation actually took effect (a blocked over-limit approve is a no-op and
+  // must never be narrated as an approval).
   const handleApprove = async (id: string): Promise<void> => {
     const ok = (await approvalInterfaceProps?.onApprove?.(id)) ?? false;
     if (!ok) return;
     logStep("Approved the charge");
     beginRecording();
-    recordUserAction({
-      title: "transaction.approved",
-      description:
-        "User approved a pending transaction from the transactions view.",
-      previousData: { status: "pending" },
-      newData: { status: "approved" },
-      metadata: { transactionId: id },
-    })
-      .catch(console.error)
-      .finally(() => endRecording());
+    endRecording();
   };
 
   const handleDeny = async (id: string): Promise<void> => {
     const ok = (await approvalInterfaceProps?.onDeny?.(id)) ?? false;
     if (!ok) return;
     beginRecording();
-    recordUserAction({
-      title: "transaction.denied",
-      description:
-        "User denied a pending transaction from the transactions view.",
-      previousData: { status: "pending" },
-      newData: { status: "denied" },
-      metadata: { transactionId: id },
-    })
-      .catch(console.error)
-      .finally(() => endRecording());
+    endRecording();
   };
 
   // Derive a row's policy status from already-loaded data (no server import):
@@ -265,7 +242,13 @@ export function TransactionsList({
                                 <MoreHorizontal className="h-5 w-5" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent
+                              align="end"
+                              // The CopilotKit chat sidebar is z-index:1200; the
+                              // menu portals to <body> at z-50, so it renders
+                              // BEHIND the panel in the chat. Lift it above the panel.
+                              className="z-[1300]"
+                            >
                               <DropdownMenuItem
                                 onClick={() => {
                                   logStep("Opened the exception form");
