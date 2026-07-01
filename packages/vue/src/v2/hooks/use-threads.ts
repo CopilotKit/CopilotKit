@@ -5,6 +5,7 @@ import {
   ɵcreateThreadStore,
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
+  ɵselectIsMutating,
   ɵselectThreads,
   ɵselectThreadsError,
   ɵselectThreadsIsLoading,
@@ -32,17 +33,29 @@ export interface UseThreadsInput {
   agentId: MaybeRefOrGetter<string>;
   includeArchived?: MaybeRefOrGetter<boolean | undefined>;
   limit?: MaybeRefOrGetter<number | undefined>;
+  /**
+   * When `false`, the hook clears the store context and issues no `/threads`
+   * request — used by the drawer to skip fetching while unlicensed. Defaults
+   * to `true`.
+   */
+  enabled?: MaybeRefOrGetter<boolean | undefined>;
 }
 
 export interface UseThreadsResult {
   threads: Ref<Thread[]>;
   isLoading: Ref<boolean>;
   error: Ref<Error | null>;
+  /** Genuine list-load/mutation errors only — excludes dev/config errors. */
+  listError: Ref<Error | null>;
   hasMoreThreads: Ref<boolean>;
   isFetchingMoreThreads: Ref<boolean>;
+  isMutating: Ref<boolean>;
   fetchMoreThreads: () => void;
+  refetchThreads: () => void;
+  startNewThread: () => void;
   renameThread: (threadId: string, name: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
+  unarchiveThread: (threadId: string) => Promise<void>;
   deleteThread: (threadId: string) => Promise<void>;
 }
 
@@ -77,6 +90,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     toValue(input.includeArchived),
   );
   const resolvedLimit = computed(() => toValue(input.limit));
+  const resolvedEnabled = computed(() => toValue(input.enabled) ?? true);
   const headersKey = computed(() =>
     JSON.stringify(
       Object.entries(copilotkit.value.headers ?? {}).sort(([left], [right]) =>
@@ -90,6 +104,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
   const storeError = ref<Error | null>(null);
   const hasMoreThreads = ref(false);
   const isFetchingMoreThreads = ref(false);
+  const isMutating = ref(false);
 
   bindThreadStoreSelector(store, ɵselectThreads, threads as Ref<Thread[]>);
   bindThreadStoreSelector(store, ɵselectThreadsIsLoading, storeIsLoading);
@@ -100,6 +115,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     ɵselectIsFetchingNextPage,
     isFetchingMoreThreads,
   );
+  bindThreadStoreSelector(store, ɵselectIsMutating, isMutating);
 
   store.start();
   onScopeDispose(() => {
@@ -135,9 +151,19 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
       resolvedAgentId,
       resolvedIncludeArchived,
       resolvedLimit,
+      resolvedEnabled,
     ],
-    ([runtimeUrl, runtimeStatus, , wsUrl, agentId, includeArchived, limit]) => {
-      if (!runtimeUrl) {
+    ([
+      runtimeUrl,
+      runtimeStatus,
+      ,
+      wsUrl,
+      agentId,
+      includeArchived,
+      limit,
+      enabled,
+    ]) => {
+      if (!runtimeUrl || !enabled) {
         store.setContext(null);
         return;
       }
@@ -181,6 +207,10 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     () => runtimeError.value ?? storeError.value,
   );
 
+  // Genuine store errors only. Unlike `error`, this omits the dev/config
+  // `runtimeError` string so it is never shown in user-facing error UI.
+  const listError = computed<Error | null>(() => storeError.value);
+
   return {
     threads: computed(() =>
       threads.value.map(
@@ -197,12 +227,17 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     ),
     isLoading,
     error,
+    listError,
     hasMoreThreads,
     isFetchingMoreThreads,
+    isMutating,
     fetchMoreThreads: () => store.fetchNextPage(),
+    refetchThreads: () => store.refetchThreads(),
+    startNewThread: () => store.startNewThread(),
     renameThread: (threadId: string, name: string) =>
       store.renameThread(threadId, name),
     archiveThread: (threadId: string) => store.archiveThread(threadId),
+    unarchiveThread: (threadId: string) => store.unarchiveThread(threadId),
     deleteThread: (threadId: string) => store.deleteThread(threadId),
   };
 }

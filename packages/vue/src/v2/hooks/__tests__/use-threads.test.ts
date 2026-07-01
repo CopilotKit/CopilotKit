@@ -22,6 +22,7 @@ type ThreadState = {
   error: Error | null;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
+  isMutating: boolean;
   context: {
     runtimeUrl: string;
     headers: Record<string, string>;
@@ -107,6 +108,7 @@ vi.mock("@copilotkit/core", () => {
       error: null,
       hasNextPage: false,
       isFetchingNextPage: false,
+      isMutating: false,
       context: null,
     };
     private listeners = new Set<() => void>();
@@ -121,6 +123,7 @@ vi.mock("@copilotkit/core", () => {
         error: null,
         hasNextPage: false,
         isFetchingNextPage: false,
+        isMutating: false,
         context: null,
       };
       if (this.socket) {
@@ -266,6 +269,27 @@ vi.mock("@copilotkit/core", () => {
       });
     }
 
+    async unarchiveThread(threadId: string): Promise<void> {
+      const context = this.requireContext();
+      await fetchMock(`${context.runtimeUrl}/threads/${threadId}/unarchive`, {
+        method: "POST",
+        headers: context.headers,
+        body: JSON.stringify({
+          agentId: context.agentId,
+        }),
+      });
+    }
+
+    refetchThreads(): void {
+      if (!this.state.context) return;
+      void this.fetchThreads(this.state.context);
+    }
+
+    startNewThread(): void {
+      // Test double: mirrors the real store's "reset to a fresh thread" no-op
+      // shape closely enough for surface-presence assertions.
+    }
+
     fetchNextPage(): void {
       this.state.isFetchingNextPage = true;
       this.notify();
@@ -319,6 +343,7 @@ vi.mock("@copilotkit/core", () => {
     ɵselectThreadsError: select((state) => state.error),
     ɵselectHasNextPage: select((state) => state.hasNextPage),
     ɵselectIsFetchingNextPage: select((state) => state.isFetchingNextPage),
+    ɵselectIsMutating: select((state) => state.isMutating),
   };
 });
 
@@ -399,6 +424,7 @@ function mountHook(
     agentId: string | Ref<string>;
     includeArchived?: boolean | Ref<boolean | undefined>;
     limit?: number | Ref<number | undefined>;
+    enabled?: boolean | Ref<boolean | undefined>;
   } = defaultInput,
 ) {
   let result: UseThreadsResult | undefined;
@@ -1036,6 +1062,80 @@ describe("useThreads", () => {
         "u-only",
         "c-only",
       ]);
+    });
+  });
+
+  describe("useThreads augmented surface", () => {
+    it("exposes listError, isMutating, and the missing mutations/actions", async () => {
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      expect(getResult().listError).toBeDefined();
+      expect(getResult().listError.value).toBeNull();
+      expect(getResult().isMutating).toBeDefined();
+      expect(getResult().isMutating.value).toBe(false);
+      expect(typeof getResult().unarchiveThread).toBe("function");
+      expect(typeof getResult().refetchThreads).toBe("function");
+      expect(typeof getResult().startNewThread).toBe("function");
+    });
+
+    it("listError excludes the dev 'Runtime URL is not configured' error", async () => {
+      // No runtimeUrl -> `error` is the dev string, but `listError` stays null.
+      setupCopilotKit("");
+
+      const { getResult } = mountHook();
+
+      await nextTick();
+
+      expect(getResult().error.value).toBeInstanceOf(Error);
+      expect(getResult().error.value?.message).toBe(
+        "Runtime URL is not configured",
+      );
+      expect(getResult().listError.value).toBeNull();
+    });
+
+    it("unarchiveThread calls through to the store's unarchive contract", async () => {
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
+        .mockReturnValueOnce(jsonResponse({}));
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      await getResult().unarchiveThread("t-1");
+
+      const [url, options] = fetchMock.mock.calls[2];
+      expect(url).toContain("/threads/t-1/unarchive");
+      expect(options.method).toBe("POST");
+      expect(JSON.parse(options.body)).toMatchObject({
+        agentId: "agent-1",
+      });
+    });
+
+    it("does not dispatch a context (or fetch) when enabled is false", async () => {
+      const { getResult } = mountHook({ ...defaultInput, enabled: false });
+
+      await nextTick();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(getResult().threads.value).toEqual([]);
+      const lastDispatched = getDispatchedContexts().at(-1);
+      expect(lastDispatched).toBeNull();
     });
   });
 });
