@@ -181,7 +181,7 @@ function onThreadSelected(event: Event) {
   else config.value?.setActiveThreadId?.(threadId, { explicit: true });
   focusChatInput();
 }
-function onNewThread() {
+function handleNewThread() {
   threadsApi.startNewThread();
   if (props.onNewThread) props.onNewThread();
   else config.value?.startNewThread?.();
@@ -209,9 +209,7 @@ function onDelete(event: Event) {
     .deleteThread(threadId)
     .then(() => {
       if (wasActive) {
-        threadsApi.startNewThread();
-        if (props.onNewThread) props.onNewThread();
-        else config.value?.startNewThread?.();
+        handleNewThread();
       }
     })
     .catch((e) =>
@@ -233,7 +231,7 @@ function onOpenChange(event: Event) {
   const { open } = (event as CustomEvent<OpenChangeDetail>).detail;
   setDrawerOpen(open);
 }
-function onLicensed() {
+function handleLicensed() {
   props.onLicensed?.();
 }
 
@@ -264,7 +262,7 @@ defineSlots<{
     ref="elRef"
     :data-testid="dataTestId"
     @thread-selected="onThreadSelected"
-    @new-thread="onNewThread"
+    @new-thread="handleNewThread"
     @archive="onArchive"
     @unarchive="onUnarchive"
     @delete="onDelete"
@@ -272,7 +270,7 @@ defineSlots<{
     @retry="onRetry"
     @load-more="onLoadMore"
     @open-change="onOpenChange"
-    @licensed="onLicensed"
+    @licensed="handleLicensed"
   >
     <slot />
     <!--
@@ -284,7 +282,7 @@ defineSlots<{
       <div
         v-for="t in threadsApi.threads.value"
         :key="t.id"
-        :slot="`row:${t.id}`"
+        v-bind="{ slot: `row:${t.id}` }"
       >
         <slot name="row" :thread="t" />
       </div>
