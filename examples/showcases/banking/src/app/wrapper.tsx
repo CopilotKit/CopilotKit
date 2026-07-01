@@ -12,6 +12,8 @@ import { ChatInboxProvider } from "@/components/chat/chat-inbox-context";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { RecordingProvider } from "@/components/recording-context";
 import { RecordingVignette } from "@/components/recording-vignette";
+import { ProactiveNotice } from "@/components/wow/proactive-notice";
+import { ReportCopilotTools } from "@/components/wow/report-tool";
 
 // Static suggestion pills shown on the welcome screen / before-first-message.
 // In v2, suggestions are registered via `useConfigureSuggestions` rather than a
@@ -139,6 +141,8 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
               <CopilotContext>{children}</CopilotContext>
             </LayoutComponent>
             <ChatPanel threadId={threadId} />
+            <ProactiveNotice />
+            <ReportCopilotTools />
             <RecordingVignette />
           </RecordingProvider>
         </ChatInboxProvider>
