@@ -44,6 +44,11 @@ export type {
   HostedBotChannel,
   HostedBotRealtimeScope,
 } from "./phoenix-transport.js";
+export { connectPhoenixHostedBotChannel } from "./phoenix-channel.js";
+export type {
+  PhoenixConnectConfig,
+  ConnectedHostedBotChannel,
+} from "./phoenix-channel.js";
 
 // Undocumented fallbacks: the default HTTP transports + config resolver that
 // `intelligenceAdapter()` builds when no transports are injected. Not a public

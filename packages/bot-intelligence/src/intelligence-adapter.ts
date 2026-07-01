@@ -30,6 +30,7 @@ import type {
 import {
   HttpDeliverySource,
   HttpEgressSink,
+  HttpRenderEventSink,
   resolveTransportConfig,
 } from "./http-transports.js";
 import type { IntelligenceTransportConfig } from "./http-transports.js";
@@ -165,8 +166,15 @@ export class IntelligenceAdapter implements PlatformAdapter {
         ...this.opts.config,
         botName: this.opts.config?.botName ?? ctx?.botName,
       });
-      this.source ??= new HttpDeliverySource(cfg);
+      const source = (this.source ??= new HttpDeliverySource(cfg));
       this.egress ??= new HttpEgressSink(cfg);
+      // Default the realtime render path to the HTTP render-accept route,
+      // sharing the HttpDeliverySource's per-delivery scope. Only when we built
+      // (or were given) an HttpDeliverySource — injected in-memory sources fall
+      // back to the egress-backed render sink in createRunRenderer.
+      if (!this.renderSink && source instanceof HttpDeliverySource) {
+        this.renderSink = new HttpRenderEventSink(cfg, source);
+      }
     }
     await this.requireSource().start((env) => this.dispatch(env));
   }
