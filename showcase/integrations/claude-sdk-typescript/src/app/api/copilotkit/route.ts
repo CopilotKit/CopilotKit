@@ -6,7 +6,7 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
-import { HttpAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 // CVDIAG backend instrumentation (L1-E). No-op pass-through unless
 // CVDIAG_BACKEND_EMITTER is set truthy (default OFF).
 import { withCvdiagBackend } from "@/cvdiag-backend";
@@ -19,7 +19,7 @@ console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+  return createClaudeHttpAgent(`${AGENT_URL}/`);
 }
 
 // Register the same agent under all names used by demo pages.
@@ -49,7 +49,7 @@ const agentNames = [
   "gen-ui-agent", // overridden -> /gen-ui-agent (NOT pass-through)
   "shared-state-read",
   "shared-state-write",
-  "shared-state-streaming",
+  "shared-state-streaming", // overridden -> /shared-state-streaming
   "subagents", // overridden -> /subagents (NOT pass-through)
   "shared-state-read-write", // overridden -> /shared-state-read-write (NOT pass-through)
   "headless-complete", // overridden -> /headless-complete (NOT pass-through)
@@ -60,6 +60,7 @@ const agentNames = [
   "chat-customization-css",
   "headless-simple",
   "frontend_tools",
+  "threadid-frontend-tool-roundtrip",
   "frontend-tools-async",
   "hitl-in-chat",
   "hitl-in-chat-booking",
@@ -93,9 +94,7 @@ const agentNames = [
   "tool-rendering-default-catchall", // overridden -> /tool-rendering
   "tool-rendering-custom-catchall", // overridden -> /tool-rendering
   "tool-rendering-reasoning-chain", // overridden -> /tool-rendering-reasoning-chain
-  // Reasoning variants — both share the same pass-through agent; differ
-  // only in whether the frontend overrides the `messageView.reasoningMessage`
-  // slot. Mirrors the canonical LGP topology.
+  // Reasoning variants — overridden -> /reasoning (NOT pass-through).
   "reasoning-default",
   "reasoning-custom",
 ];
@@ -112,7 +111,7 @@ agents["default"] = createAgent();
 // endpoint — on the pass-through root the model's set_steps calls were
 // forwarded to the frontend (which registers no such tool) and the
 // multi-leg tool loop never completed.
-agents["gen-ui-agent"] = new HttpAgent({ url: `${AGENT_URL}/gen-ui-agent` });
+agents["gen-ui-agent"] = createClaudeHttpAgent(`${AGENT_URL}/gen-ui-agent`);
 
 // Tool Rendering family is likewise NOT pass-through: the pages register
 // render-only hooks (no handlers), so frontend execution never returns a
@@ -121,18 +120,16 @@ agents["gen-ui-agent"] = new HttpAgent({ url: `${AGENT_URL}/gen-ui-agent` });
 // `/tool-rendering` (see `src/agent_server.ts`), and the reasoning-chain
 // variant adds extended thinking + roll_dice at
 // `/tool-rendering-reasoning-chain`.
-agents["tool-rendering"] = new HttpAgent({
-  url: `${AGENT_URL}/tool-rendering`,
-});
-agents["tool-rendering-default-catchall"] = new HttpAgent({
-  url: `${AGENT_URL}/tool-rendering`,
-});
-agents["tool-rendering-custom-catchall"] = new HttpAgent({
-  url: `${AGENT_URL}/tool-rendering`,
-});
-agents["tool-rendering-reasoning-chain"] = new HttpAgent({
-  url: `${AGENT_URL}/tool-rendering-reasoning-chain`,
-});
+agents["tool-rendering"] = createClaudeHttpAgent(`${AGENT_URL}/tool-rendering`);
+agents["tool-rendering-default-catchall"] = createClaudeHttpAgent(
+  `${AGENT_URL}/tool-rendering`,
+);
+agents["tool-rendering-custom-catchall"] = createClaudeHttpAgent(
+  `${AGENT_URL}/tool-rendering`,
+);
+agents["tool-rendering-reasoning-chain"] = createClaudeHttpAgent(
+  `${AGENT_URL}/tool-rendering-reasoning-chain`,
+);
 
 // Sub-Agents is NOT pass-through: the backend owns the
 // research / writing / critique sub-agent tools and emits delegation
@@ -142,7 +139,7 @@ agents["tool-rendering-reasoning-chain"] = new HttpAgent({
 // too — otherwise the pass-through root forwards the supervisor's
 // sub-agent tool calls to the frontend (which registers nothing) and the
 // multi-leg loop stalls. Mirrors the gen-ui-agent treatment above.
-agents["subagents"] = new HttpAgent({ url: `${AGENT_URL}/subagents` });
+agents["subagents"] = createClaudeHttpAgent(`${AGENT_URL}/subagents`);
 
 // Shared State (Read + Write) is NOT pass-through: the backend reads
 // `input.state.preferences` into the system prompt every turn and owns
@@ -151,9 +148,13 @@ agents["subagents"] = new HttpAgent({ url: `${AGENT_URL}/subagents` });
 // targets `/api/copilotkit-shared-state-read-write` directly; this
 // override keeps shared-runtime probes resolving against the same
 // backend endpoint so a probe never silently exercises the pass-through.
-agents["shared-state-read-write"] = new HttpAgent({
-  url: `${AGENT_URL}/shared-state-read-write`,
-});
+agents["shared-state-read-write"] = createClaudeHttpAgent(
+  `${AGENT_URL}/shared-state-read-write`,
+);
+
+agents["shared-state-streaming"] = createClaudeHttpAgent(
+  `${AGENT_URL}/shared-state-streaming`,
+);
 
 // Headless Chat (Complete) is NOT pass-through: the backend owns
 // `get_weather` and `get_stock_price` (see `src/agent_server.ts`
@@ -162,9 +163,14 @@ agents["shared-state-read-write"] = new HttpAgent({
 // here with the same backend URL keeps shared-runtime probes 200-resolving
 // against the real handler (matching the file's probe-resolution
 // convention for dedicated-runtime demos).
-agents["headless-complete"] = new HttpAgent({
-  url: `${AGENT_URL}/headless-complete`,
-});
+agents["headless-complete"] = createClaudeHttpAgent(
+  `${AGENT_URL}/headless-complete`,
+);
+
+// Reasoning variants share the same backend endpoint; the frontend decides
+// whether to render the default or custom reasoning slot.
+agents["reasoning-default"] = createClaudeHttpAgent(`${AGENT_URL}/reasoning`);
+agents["reasoning-custom"] = createClaudeHttpAgent(`${AGENT_URL}/reasoning`);
 
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,

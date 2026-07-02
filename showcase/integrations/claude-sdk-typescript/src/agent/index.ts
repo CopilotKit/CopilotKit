@@ -5,10 +5,12 @@
  * The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
  */
 
-import express, { Request, Response } from "express";
+import type { Request, Response } from "express";
+import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
-import { BaseEvent, EventType, RunAgentInput, Message } from "@ag-ui/core";
+import type { BaseEvent, RunAgentInput, Message } from "@ag-ui/core";
+import { EventType } from "@ag-ui/core";
 import * as dotenv from "dotenv";
 import { randomUUID } from "crypto";
 
@@ -20,7 +22,10 @@ app.use(express.json({ limit: "2mb" }));
 
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
 const PORT = parseInt(process.env.AGENT_PORT || "8123", 10);
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-haiku-20241022";
+const CLAUDE_MODEL =
+  process.env.CLAUDE_MODEL ||
+  process.env.ANTHROPIC_MODEL ||
+  "claude-sonnet-4.6";
 
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("[agent_server] FATAL: ANTHROPIC_API_KEY is not set");

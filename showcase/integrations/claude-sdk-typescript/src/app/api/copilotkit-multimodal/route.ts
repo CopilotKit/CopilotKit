@@ -7,17 +7,19 @@
  * pypdf flattening is needed on the Claude side.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const multimodalAgent = new HttpAgent({ url: `${AGENT_URL}/multimodal` });
+const multimodalAgent = createClaudeHttpAgent(`${AGENT_URL}/multimodal`);
 
 const agents: Record<string, AbstractAgent> = {
   "multimodal-demo": multimodalAgent,

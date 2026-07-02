@@ -9,18 +9,21 @@
 // Reference:
 // https://docs.copilotkit.ai/generative-ui/mcp-apps
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const agents: Record<string, AbstractAgent> = {
-  "mcp-apps": new HttpAgent({ url: `${AGENT_URL}/` }),
+  "mcp-apps": createClaudeHttpAgent(`${AGENT_URL}/`),
+  "headless-complete": createClaudeHttpAgent(`${AGENT_URL}/headless-complete`),
 };
 
 // @region[runtime-mcpapps-config]

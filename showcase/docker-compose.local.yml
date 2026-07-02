@@ -7,11 +7,11 @@ x-integration-defaults: &integration-defaults
     - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-mock}
     - OPENAI_BASE_URL=http://aimock:4010/v1
     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-sk-mock-anthropic}
-    - ANTHROPIC_BASE_URL=http://aimock:4010
+    - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-http://aimock:4010}
     - GOOGLE_API_KEY=${GOOGLE_API_KEY:-fake-gemini-key}
     - GOOGLE_GEMINI_BASE_URL=${GOOGLE_GEMINI_BASE_URL-http://aimock:4010}
     - SPRING_AI_OPENAI_BASE_URL=http://aimock:4010
-    - AIMOCK_URL=http://aimock:4010
+    - AIMOCK_URL=${AIMOCK_URL:-http://aimock:4010}
     - GitHubToken=${GitHubToken:-gh-mock-local-dev}
     - LANGGRAPH_HTTP={"configurable_headers":{"include":["x-*"]}}
   depends_on:

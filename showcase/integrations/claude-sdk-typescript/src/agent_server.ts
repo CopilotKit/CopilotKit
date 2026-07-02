@@ -13,12 +13,18 @@
 // listening but /health probes never succeed.
 console.log(`[agent_server] module loaded ${new Date().toISOString()}`);
 
-// @region[weather-tool-backend]
-import express, { Request, Response } from "express";
+import type { Request, Response } from "express";
+import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
-import { EventType, RunAgentInput, Message } from "@ag-ui/core";
+import type { RunAgentInput, Message } from "@ag-ui/core";
+import { EventType } from "@ag-ui/core";
+import {
+  A2UI_DEFAULT_DESIGN_GUIDELINES,
+  A2UI_DEFAULT_GENERATION_GUIDELINES,
+} from "@copilotkit/shared";
 import * as dotenv from "dotenv";
+import * as PartialJSON from "partial-json";
 import { randomUUID } from "crypto";
 import { BYOC_JSON_RENDER_SYSTEM_PROMPT } from "./agent/byoc-json-render-prompt";
 import { BYOC_HASHBROWN_SYSTEM_PROMPT } from "./agent/byoc-hashbrown-prompt";
@@ -35,13 +41,17 @@ import {
   SUBAGENT_SYSTEM_BY_NAME,
   SUBAGENT_TOOL_SCHEMAS,
   SUPERVISOR_SYSTEM_PROMPT,
-  type SubAgentName,
 } from "./agent/subagents-prompts";
+import type { SubAgentName } from "./agent/subagents-prompts";
 import {
   A2UI_FIXED_SYSTEM_PROMPT,
   DISPLAY_FLIGHT_TOOL_SCHEMA,
   buildDisplayFlightOperations,
 } from "./agent/a2ui-fixed-prompt";
+import {
+  A2UI_DYNAMIC_SYSTEM_PROMPT,
+  GENERATE_A2UI_TOOL_SCHEMA,
+} from "./agent/a2ui-dynamic-prompt";
 import {
   HEADLESS_COMPLETE_SYSTEM_PROMPT,
   HEADLESS_GET_STOCK_PRICE_TOOL_SCHEMA,
@@ -61,8 +71,14 @@ import {
   TOOL_RENDERING_SYSTEM_PROMPT,
   rollD20Impl,
   rollDiceImpl,
-  searchFlightsImpl,
+  searchFlightsImpl as searchFlightsByRouteImpl,
 } from "./agent/tool-rendering-prompts";
+import {
+  runWithClaudeAgentSdk,
+  shouldUseClaudeAgentSdk,
+} from "./claude-agent-sdk-adapter";
+import { queryDataImpl, renderFlightsImpl } from "./agent/beautiful-chat-tools";
+import type { Flight } from "./agent/beautiful-chat-tools";
 
 dotenv.config({ path: ".env.local" });
 dotenv.config();
@@ -74,11 +90,14 @@ app.use(express.json({ limit: "20mb" }));
 
 const HOST = process.env.AGENT_HOST || "0.0.0.0";
 const PORT = parseInt(process.env.AGENT_PORT || "8000", 10);
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-haiku-20241022";
-// Vision-capable model used by the multimodal demo only. Anthropic's
-// Haiku 3.5 has no vision; Sonnet 3.5 supports image + document parts.
+const CLAUDE_MODEL =
+  process.env.CLAUDE_MODEL ||
+  process.env.ANTHROPIC_MODEL ||
+  "claude-sonnet-4.6";
 const CLAUDE_VISION_MODEL =
-  process.env.CLAUDE_VISION_MODEL || "claude-3-5-sonnet-20241022";
+  process.env.CLAUDE_VISION_MODEL ||
+  process.env.ANTHROPIC_VISION_MODEL ||
+  CLAUDE_MODEL;
 
 console.log(`[agent_server] pre-Anthropic ${new Date().toISOString()}`);
 const anthropic = new Anthropic({
@@ -354,6 +373,46 @@ function buildAnthropicMessages(messages: Message[]): Anthropic.MessageParam[] {
   return result;
 }
 
+function latestUserMessageOnly(messages: Message[]): Message[] {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    if (messages[index]?.role === "user") {
+      return [messages[index]!];
+    }
+  }
+  return [];
+}
+
+function buildAgentContextString(context: unknown): string {
+  if (!Array.isArray(context) || context.length === 0) return "";
+
+  return context
+    .map((entry): string => {
+      if (!entry || typeof entry !== "object") return "";
+      const record = entry as Record<string, unknown>;
+      const description =
+        typeof record.description === "string" ? record.description : "";
+      const value =
+        typeof record.value === "string"
+          ? record.value
+          : record.value == null
+            ? ""
+            : JSON.stringify(record.value);
+      if (!description && !value) return "";
+      return description ? `${description}: ${value}` : value;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function appendContextToSystemPrompt(
+  systemPrompt: string,
+  contextString: string,
+): string {
+  if (!contextString) return systemPrompt;
+  return `${systemPrompt}\n\nContext:\n${contextString}`;
+}
+
+// @region[frontend-tools-setup]
 function buildTools(tools: RunAgentInput["tools"]): Anthropic.Tool[] {
   if (!tools || tools.length === 0) return [];
 
@@ -388,6 +447,7 @@ function buildTools(tools: RunAgentInput["tools"]): Anthropic.Tool[] {
     };
   });
 }
+// @endregion[frontend-tools-setup]
 
 /**
  * Does the user messages contain any binary parts? Used to route the run
@@ -432,6 +492,421 @@ interface DemoConfig {
 const DEFAULT_SYSTEM_PROMPT =
   "You are a helpful AI assistant powered by Anthropic's Claude.";
 
+const BEAUTIFUL_CHAT_SYSTEM_PROMPT =
+  "You are a helpful CopilotKit demo assistant. Use the available tools " +
+  "to render rich UI instead of describing UI in prose.\n\n" +
+  "Routing rules:\n" +
+  "- Charts: call `query_data` first when the user asks for financial data, " +
+  "then use the frontend chart tool requested by the user.\n" +
+  "- Flights: call `search_flights` with exactly two complete flight objects " +
+  "so the A2UI flight cards can render.\n" +
+  "- Dashboards: call `query_data`, then `generate_a2ui`.\n" +
+  "- Todos: call `enableAppMode` first, then `manage_todos` with the full " +
+  "todo list.\n" +
+  "- Meetings and theme changes are frontend tools; call the matching " +
+  "frontend tool when requested.\n\n" +
+  "After tools complete, summarize the result in one short sentence.";
+
+const QUERY_DATA_TOOL_SCHEMA: Anthropic.Tool = {
+  name: "query_data",
+  description:
+    "Query the financial database for chart and dashboard data. Always call " +
+    "before showing financial charts or dashboards.",
+  input_schema: {
+    type: "object",
+    properties: {
+      query: {
+        type: "string",
+        description: "Natural language query for financial data.",
+      },
+    },
+    required: ["query"],
+  },
+};
+
+const MANAGE_TODOS_TOOL_SCHEMA: Anthropic.Tool = {
+  name: "manage_todos",
+  description:
+    "Replace the beautiful-chat task manager todo list. Always include every " +
+    "todo that should remain visible.",
+  input_schema: {
+    type: "object",
+    properties: {
+      todos: {
+        type: "array",
+        description: "The complete task-manager todo list.",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            title: { type: "string" },
+            description: { type: "string" },
+            emoji: { type: "string" },
+            status: {
+              type: "string",
+              enum: ["pending", "completed"],
+            },
+          },
+          required: ["title", "description", "emoji", "status"],
+        },
+      },
+    },
+    required: ["todos"],
+  },
+};
+
+const GET_TODOS_TOOL_SCHEMA: Anthropic.Tool = {
+  name: "get_todos",
+  description: "Get the current beautiful-chat task manager todo list.",
+  input_schema: {
+    type: "object",
+    properties: {},
+  },
+};
+
+const BEAUTIFUL_CHAT_SEARCH_FLIGHTS_TOOL_SCHEMA: Anthropic.Tool = {
+  name: "search_flights",
+  description:
+    "Render A2UI flight cards. Provide exactly two complete flights with " +
+    "airline, logo, flight number, route, date, times, duration, status, " +
+    "price, and currency.",
+  input_schema: {
+    type: "object",
+    properties: {
+      flights: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            airline: { type: "string" },
+            airlineLogo: { type: "string" },
+            flightNumber: { type: "string" },
+            origin: { type: "string" },
+            destination: { type: "string" },
+            date: { type: "string" },
+            departureTime: { type: "string" },
+            arrivalTime: { type: "string" },
+            duration: { type: "string" },
+            status: { type: "string" },
+            statusColor: { type: "string" },
+            price: { type: "string" },
+            currency: { type: "string" },
+          },
+          required: [
+            "airline",
+            "airlineLogo",
+            "flightNumber",
+            "origin",
+            "destination",
+            "date",
+            "departureTime",
+            "arrivalTime",
+            "duration",
+            "status",
+            "statusColor",
+            "price",
+            "currency",
+          ],
+        },
+      },
+    },
+    required: ["flights"],
+  },
+};
+
+const DECLARATIVE_GEN_UI_CATALOG_ID = "declarative-gen-ui-catalog";
+
+const DECLARATIVE_GEN_UI_CATALOG_GUIDE = `\
+Registered catalog fallback:
+- ${DECLARATIVE_GEN_UI_CATALOG_ID}
+  Extends the basic A2UI catalog. Custom components:
+  - Card: { title: string, subtitle?: string, child?: string }
+  - StatusBadge: { text: string, variant?: "success" | "warning" | "error" | "info" }
+  - Metric: { label: string, value: string, trend?: "up" | "down" | "neutral" }
+  - InfoRow: { label: string, value: string }
+  - PrimaryButton: { label: string, action?: object }
+  - PieChart: { title: string, description: string, data: Array<{ label: string, value: number }> }
+  - BarChart: { title: string, description: string, data: Array<{ label: string, value: number }> }
+Use Column or Row from the basic catalog to group multiple Metrics or badges.`;
+
+const DECLARATIVE_GEN_UI_SECONDARY_PROMPT = `\
+You are an A2UI v0.9 component designer for the Declarative Generative UI demo.
+Call render_a2ui exactly once. Emit only valid tool arguments.
+Use catalogId "${DECLARATIVE_GEN_UI_CATALOG_ID}".
+Every component must include a unique "id" and a "component" name.
+Exactly one component must have id "root"; the renderer starts there.
+Props go beside "id" and "component" on each flat component object.
+For static composition, use "child": "component-id" or
+"children": ["component-id", ...].`;
+
+const RENDER_A2UI_TOOL_SCHEMA: Anthropic.Tool = {
+  name: "render_a2ui",
+  description: "Render a dynamic A2UI v0.9 surface.",
+  input_schema: {
+    type: "object",
+    properties: {
+      surfaceId: {
+        type: "string",
+        description: "Unique surface identifier.",
+      },
+      catalogId: {
+        type: "string",
+        description:
+          "The catalog ID. This demo registers declarative-gen-ui-catalog.",
+      },
+      components: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            component: { type: "string" },
+          },
+          required: ["id", "component"],
+          additionalProperties: true,
+        },
+        description:
+          "A2UI component array in flat { id, component, ...props } format. " +
+          "Exactly one component must have id 'root'.",
+      },
+      data: {
+        type: "object",
+        description: "Optional initial data model for the surface.",
+      },
+    },
+    required: ["surfaceId", "catalogId", "components"],
+  },
+};
+
+function maybeParseJsonField(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return value;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
+function sanitizeA2uiComponent(
+  component: unknown,
+): Record<string, unknown> | null {
+  if (!component || typeof component !== "object") return null;
+  const record = component as Record<string, unknown>;
+  const id = typeof record.id === "string" ? record.id : "";
+  const componentName =
+    typeof record.component === "string"
+      ? record.component
+      : typeof record.type === "string"
+        ? record.type
+        : "";
+  if (!id || !componentName) return null;
+
+  const sanitized: Record<string, unknown> = {
+    ...record,
+    id,
+    component: componentName,
+  };
+  delete sanitized.type;
+
+  for (const field of ["data", "value", "children"] as const) {
+    sanitized[field] = maybeParseJsonField(sanitized[field]);
+  }
+
+  return sanitized;
+}
+
+function collectChildRefs(component: Record<string, unknown>): Set<string> {
+  const refs = new Set<string>();
+  const visit = (value: unknown) => {
+    if (typeof value === "string") {
+      refs.add(value);
+      return;
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item);
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    const record = value as Record<string, unknown>;
+    if (typeof record.id === "string") refs.add(record.id);
+    if (typeof record.componentId === "string") refs.add(record.componentId);
+  };
+
+  visit(component.child);
+  visit(component.children);
+  return refs;
+}
+
+function replaceChildRef(value: unknown, from: string, to: string): unknown {
+  if (value === from) return to;
+  if (Array.isArray(value)) {
+    return value.map((item) => replaceChildRef(item, from, to));
+  }
+  if (!value || typeof value !== "object") return value;
+
+  const record = value as Record<string, unknown>;
+  const next = { ...record };
+  if (next.id === from) next.id = to;
+  if (next.componentId === from) next.componentId = to;
+  return next;
+}
+
+function normalizeA2uiComponents(
+  rawComponents: unknown,
+): Record<string, unknown>[] {
+  const sanitized = Array.isArray(rawComponents)
+    ? rawComponents
+        .map(sanitizeA2uiComponent)
+        .filter(
+          (component): component is Record<string, unknown> =>
+            component !== null,
+        )
+    : [];
+
+  const uniqueComponents: Record<string, unknown>[] = [];
+  const seenIds = new Set<string>();
+  for (const component of sanitized) {
+    const id = component.id as string;
+    if (seenIds.has(id)) {
+      console.warn(`[agent_server] dropping duplicate A2UI component id=${id}`);
+      continue;
+    }
+    seenIds.add(id);
+    uniqueComponents.push(component);
+  }
+
+  const rootIndex = uniqueComponents.findIndex(
+    (component) => component.id === "root",
+  );
+  if (rootIndex >= 0) return uniqueComponents;
+  if (uniqueComponents.length === 0) return [];
+
+  const referencedIds = new Set<string>();
+  for (const component of uniqueComponents) {
+    for (const ref of collectChildRefs(component)) {
+      referencedIds.add(ref);
+    }
+  }
+
+  const topLevelComponents = uniqueComponents.filter(
+    (component) => !referencedIds.has(component.id as string),
+  );
+
+  if (topLevelComponents.length === 1) {
+    const rootCandidate = topLevelComponents[0]!;
+    const priorId = rootCandidate.id as string;
+    console.warn(`[agent_server] normalizing A2UI root id ${priorId} -> root`);
+    return uniqueComponents.map((component) => ({
+      ...component,
+      id: component.id === priorId ? "root" : component.id,
+      child: replaceChildRef(component.child, priorId, "root"),
+      children: replaceChildRef(component.children, priorId, "root"),
+    }));
+  }
+
+  console.warn(
+    "[agent_server] inserting A2UI root Column for generated components",
+  );
+  return [
+    {
+      id: "root",
+      component: "Column",
+      children: topLevelComponents.length
+        ? topLevelComponents.map((component) => component.id)
+        : uniqueComponents.map((component) => component.id),
+    },
+    ...uniqueComponents,
+  ];
+}
+
+function buildDeclarativeA2uiSystemPrompt(agentContext: string): string {
+  return [
+    DECLARATIVE_GEN_UI_SECONDARY_PROMPT,
+    A2UI_DEFAULT_GENERATION_GUIDELINES,
+    A2UI_DEFAULT_DESIGN_GUIDELINES,
+    "Registered catalog/context:",
+    agentContext || DECLARATIVE_GEN_UI_CATALOG_GUIDE,
+  ].join("\n\n");
+}
+
+function buildA2uiOperationsFromRenderArgs(args: Record<string, unknown>) {
+  const surfaceId =
+    typeof args.surfaceId === "string" && args.surfaceId
+      ? args.surfaceId
+      : "dynamic-surface";
+  // The page registers exactly one catalog. LangGraph gets the same
+  // guarantee from the A2UI runtime's defaultCatalogId; this backend builds
+  // A2UI operations itself, so normalize the model output here instead of
+  // trusting a generated catalogId such as "default".
+  const catalogId = DECLARATIVE_GEN_UI_CATALOG_ID;
+  const components = normalizeA2uiComponents(args.components);
+  const data =
+    args.data && typeof args.data === "object"
+      ? (args.data as Record<string, unknown>)
+      : undefined;
+
+  // A2UI middleware expects the v0.9 nested operation shape. The legacy
+  // flat `{ type: "create_surface" }` form looks reasonable but is not
+  // recognized by `@ag-ui/a2ui-middleware`, so the renderer never sees
+  // the surface schema.
+  const a2ui_operations: Array<Record<string, unknown>> = [
+    {
+      version: "v0.9",
+      createSurface: { surfaceId, catalogId },
+    },
+    {
+      version: "v0.9",
+      updateComponents: { surfaceId, components },
+    },
+  ];
+  if (data) {
+    a2ui_operations.push({
+      version: "v0.9",
+      updateDataModel: {
+        surfaceId,
+        path: "/",
+        value: data,
+      },
+    });
+  }
+  return { a2ui_operations };
+}
+
+// @region[a2ui-backend-tool]
+async function generateDeclarativeA2uiOperations(
+  context: string,
+  forwardedHeaders: Record<string, string>,
+  agentContext: string = "",
+): Promise<string> {
+  const prompt = context || "Generate a useful dashboard UI.";
+  const response = await anthropic.messages.create(
+    {
+      model: CLAUDE_MODEL,
+      max_tokens: 4096,
+      system: buildDeclarativeA2uiSystemPrompt(agentContext),
+      messages: [{ role: "user", content: prompt }],
+      tools: [RENDER_A2UI_TOOL_SCHEMA],
+      tool_choice: { type: "tool", name: "render_a2ui" },
+    },
+    { headers: diagOutboundHeaders(forwardedHeaders) },
+  );
+
+  for (const block of response.content) {
+    if (block.type === "tool_use" && block.name === "render_a2ui") {
+      return JSON.stringify(
+        buildA2uiOperationsFromRenderArgs(
+          (block.input ?? {}) as Record<string, unknown>,
+        ),
+      );
+    }
+  }
+
+  return JSON.stringify({ error: "secondary Claude call did not render A2UI" });
+}
+// @endregion[a2ui-backend-tool]
+
 // ---------------------------------------------------------------------------
 // AG-UI streaming endpoint factory
 // ---------------------------------------------------------------------------
@@ -460,8 +935,6 @@ function makeAgentHandler(config: DemoConfig = {}) {
     };
 
     try {
-      emit({ type: EventType.RUN_STARTED, runId, threadId });
-
       const userMessages = input.messages ?? [];
       const messages = buildAnthropicMessages(userMessages);
       const tools = buildTools(input.tools);
@@ -479,12 +952,14 @@ function makeAgentHandler(config: DemoConfig = {}) {
         systemPrompt = config.systemPrompt;
       }
 
+      // @region[agent-context-setup]
       if (input.context && input.context.length > 0) {
         const contextStr = input.context
           .map((c: any) => `${c.description}: ${c.value}`)
           .join("\n");
         systemPrompt += `\n\nContext:\n${contextStr}`;
       }
+      // @endregion[agent-context-setup]
 
       const useVision =
         config.forceVisionModel || messagesHaveAttachments(userMessages);
@@ -492,6 +967,38 @@ function makeAgentHandler(config: DemoConfig = {}) {
       if (config.enableThinking && config.thinkingModel) {
         model = config.thinkingModel;
       }
+
+      if (
+        shouldUseClaudeAgentSdk({
+          input,
+          forwardedHeaders,
+          runtimeToolCount: tools.length,
+          enableThinking: config.enableThinking,
+        })
+      ) {
+        await runWithClaudeAgentSdk({
+          input,
+          emit,
+          runId,
+          threadId,
+          systemPrompt,
+          toolSchemas: [],
+          initialState: {},
+          model,
+          forwardedHeaders,
+          executeTool: async () => ({
+            resultText: JSON.stringify({
+              status: "error",
+              error: "unknown_tool",
+            }),
+            state: null,
+          }),
+        });
+        res.end();
+        return;
+      }
+
+      emit({ type: EventType.RUN_STARTED, runId, threadId });
 
       const claudeRequest: Anthropic.MessageCreateParamsStreaming = {
         model,
@@ -715,6 +1222,44 @@ interface Delegation {
   result: string;
 }
 
+// @region[state-streaming-middleware]
+function partialJsonStringProperty(source: string, key: string): string | null {
+  try {
+    const parsed = PartialJSON.parse(source);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return null;
+    }
+    const value = (parsed as Record<string, unknown>)[key];
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+const SHARED_STATE_STREAMING_SYSTEM_PROMPT =
+  "You are a collaborative writing assistant. Whenever the user asks " +
+  "you to write, draft, or revise text, call `write_document` with the " +
+  "full content in the `document` argument. Do not paste the document " +
+  "into the chat message directly; the UI renders shared state.";
+
+const WRITE_DOCUMENT_TOOL_SCHEMA: Anthropic.Tool = {
+  name: "write_document",
+  description:
+    "Write a document into shared agent state. Use for poems, emails, " +
+    "summaries, explainers, and other drafted text.",
+  input_schema: {
+    type: "object",
+    properties: {
+      document: {
+        type: "string",
+        description: "The full document text to render in shared state.",
+      },
+    },
+    required: ["document"],
+  },
+};
+// @endregion[state-streaming-middleware]
+
 /**
  * Run a single Anthropic Messages API call for a sub-agent. No tools,
  * no streaming — we just want the final text back so the supervisor can
@@ -750,6 +1295,30 @@ interface ExecuteToolResult {
   state: Record<string, unknown> | null;
 }
 
+interface BeautifulChatTodo {
+  id: string;
+  title: string;
+  description: string;
+  emoji: string;
+  status: "pending" | "completed";
+}
+
+function coerceBeautifulChatTodos(value: unknown): BeautifulChatTodo[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (todo): todo is Record<string, unknown> =>
+        !!todo && typeof todo === "object",
+    )
+    .map((todo) => ({
+      id: typeof todo.id === "string" && todo.id ? todo.id : randomUUID(),
+      title: typeof todo.title === "string" ? todo.title : "",
+      description: typeof todo.description === "string" ? todo.description : "",
+      emoji: typeof todo.emoji === "string" && todo.emoji ? todo.emoji : "*",
+      status: todo.status === "completed" ? "completed" : "pending",
+    }));
+}
+
 /**
  * Execute a backend-implemented tool. Returns the JSON-encoded result
  * the supervisor will receive AND the new state snapshot to emit to
@@ -762,13 +1331,38 @@ interface ExecuteToolResult {
  * The first STATE_SNAPSHOT is emitted by the caller via `onRunningEntry`;
  * we return the final state from this function.
  */
+// @region[backend-tool-execution]
 async function executeBackendTool(
   toolName: string,
   toolInput: Record<string, unknown>,
   state: Record<string, unknown>,
   emit: (event: object) => void,
   forwardedHeaders: Record<string, string> = {},
+  agentContext: string = "",
 ): Promise<ExecuteToolResult> {
+  if (toolName === "query_data") {
+    const query = typeof toolInput.query === "string" ? toolInput.query : "";
+    return {
+      resultText: JSON.stringify(queryDataImpl(query)),
+      state: null,
+    };
+  }
+
+  if (toolName === "manage_todos") {
+    const todos = coerceBeautifulChatTodos(toolInput.todos);
+    return {
+      resultText: JSON.stringify({ status: "updated", count: todos.length }),
+      state: { ...state, todos },
+    };
+  }
+
+  if (toolName === "get_todos") {
+    return {
+      resultText: JSON.stringify(coerceBeautifulChatTodos(state.todos)),
+      state: null,
+    };
+  }
+
   if (toolName === "display_flight") {
     const origin = typeof toolInput.origin === "string" ? toolInput.origin : "";
     const destination =
@@ -788,6 +1382,20 @@ async function executeBackendTool(
     };
   }
 
+  if (toolName === "generate_a2ui") {
+    const context =
+      typeof toolInput.context === "string" ? toolInput.context : "";
+    return {
+      resultText: await generateDeclarativeA2uiOperations(
+        context,
+        forwardedHeaders,
+        agentContext,
+      ),
+      state: null,
+    };
+  }
+
+  // @region[weather-tool-backend]
   if (toolName === "get_weather") {
     const location =
       typeof toolInput.location === "string" ? toolInput.location : "";
@@ -820,11 +1428,19 @@ async function executeBackendTool(
   }
 
   if (toolName === "search_flights") {
+    if (Array.isArray(toolInput.flights)) {
+      return {
+        resultText: JSON.stringify(
+          renderFlightsImpl(toolInput.flights as Flight[]),
+        ),
+        state: null,
+      };
+    }
     const origin = typeof toolInput.origin === "string" ? toolInput.origin : "";
     const destination =
       typeof toolInput.destination === "string" ? toolInput.destination : "";
     return {
-      resultText: JSON.stringify(searchFlightsImpl(origin, destination)),
+      resultText: JSON.stringify(searchFlightsByRouteImpl(origin, destination)),
       state: null,
     };
   }
@@ -871,6 +1487,16 @@ async function executeBackendTool(
     const next = { ...state, notes };
     return {
       resultText: JSON.stringify({ status: "ok", count: notes.length }),
+      state: next,
+    };
+  }
+
+  if (toolName === "write_document") {
+    const document =
+      typeof toolInput.document === "string" ? toolInput.document : "";
+    const next = { ...state, document };
+    return {
+      resultText: JSON.stringify({ status: "ok", length: document.length }),
       state: next,
     };
   }
@@ -956,6 +1582,7 @@ async function executeBackendTool(
     state: null,
   };
 }
+// @endregion[backend-tool-execution]
 
 interface AgenticLoopConfig {
   systemPrompt: string;
@@ -974,6 +1601,12 @@ interface AgenticLoopConfig {
    * replaying the signed thinking blocks.
    */
   enableThinking?: boolean;
+  /**
+   * Start each request from the newest user message only. This is required for
+   * extended-thinking demos because AG-UI conversation history cannot replay
+   * Anthropic's signed thinking blocks on a later HTTP request.
+   */
+  latestUserMessageOnly?: boolean;
 }
 
 /**
@@ -1014,18 +1647,60 @@ async function runAgenticLoop(
   };
 
   let state = { ...config.initialState };
+  const backendToolNames = new Set(config.toolSchemas.map((t) => t.name));
+  const runtimeTools = buildTools(input.tools).filter(
+    (tool) => !backendToolNames.has(tool.name),
+  );
+  const contextString = buildAgentContextString((input as any).context);
+  const systemPrompt = appendContextToSystemPrompt(
+    config.systemPrompt,
+    contextString,
+  );
+
+  if (
+    shouldUseClaudeAgentSdk({
+      input,
+      forwardedHeaders,
+      runtimeToolCount: runtimeTools.length,
+      enableThinking: config.enableThinking,
+    })
+  ) {
+    await runWithClaudeAgentSdk({
+      input,
+      emit,
+      runId,
+      threadId,
+      systemPrompt,
+      toolSchemas: config.toolSchemas,
+      initialState: state,
+      model: config.model ?? CLAUDE_MODEL,
+      forwardedHeaders,
+      executeTool: (toolName, toolInput, currentState, toolEmit) =>
+        executeBackendTool(
+          toolName,
+          toolInput,
+          currentState,
+          toolEmit,
+          forwardedHeaders,
+          contextString,
+        ),
+    });
+    res.end();
+    return;
+  }
 
   try {
     emit({ type: EventType.RUN_STARTED, runId, threadId });
 
-    const messages = buildAnthropicMessages(input.messages ?? []);
+    const sourceMessages = config.latestUserMessageOnly
+      ? latestUserMessageOnly(input.messages ?? [])
+      : (input.messages ?? []);
+    const messages = buildAnthropicMessages(sourceMessages);
     // Merge runtime tools (frontend-registered via useFrontendTool /
     // useRenderTool) with the demo's backend tools. The supervisor / RW
     // agent therefore still works alongside any frontend tool the demo
     // page chooses to register.
-    const runtimeTools = buildTools(input.tools);
     const tools: Anthropic.Tool[] = [...config.toolSchemas, ...runtimeTools];
-    const backendToolNames = new Set(config.toolSchemas.map((t) => t.name));
 
     // Maximum tool iterations per run. The supervisor demo can fan out
     // to research -> write -> critique, but we cap turns to prevent a
@@ -1042,6 +1717,10 @@ async function runAgenticLoop(
       let activeToolCallId: string | null = null;
       let activeToolCallName: string | null = null;
       let activeToolArgs = "";
+      let lastStreamedDocument =
+        typeof (state as Record<string, unknown>).document === "string"
+          ? ((state as Record<string, unknown>).document as string)
+          : "";
       let reasoningMsgId: string | null = null;
       let reasoningStarted = false;
       // Per-content-block ordered array (R3-A8): Claude's canonical
@@ -1077,7 +1756,7 @@ async function runAgenticLoop(
           {
             model: config.model ?? CLAUDE_MODEL,
             max_tokens: config.enableThinking ? 8192 : 4096,
-            system: config.systemPrompt,
+            system: systemPrompt,
             messages,
             stream: true,
             ...(tools.length > 0 ? { tools } : {}),
@@ -1164,6 +1843,20 @@ async function runAgenticLoop(
                   toolCallId: activeToolCallId,
                   delta: event.delta.partial_json,
                 });
+                if (activeToolCallName === "write_document") {
+                  const streamedDocument = partialJsonStringProperty(
+                    activeToolArgs,
+                    "document",
+                  );
+                  if (
+                    streamedDocument !== null &&
+                    streamedDocument !== lastStreamedDocument
+                  ) {
+                    state = { ...state, document: streamedDocument };
+                    lastStreamedDocument = streamedDocument;
+                    emit({ type: EventType.STATE_SNAPSHOT, snapshot: state });
+                  }
+                }
               }
             } else if (
               (event.delta as any).type === "thinking_delta" &&
@@ -1421,6 +2114,7 @@ async function runAgenticLoop(
           state,
           emit,
           forwardedHeaders,
+          contextString,
         );
         if (exec.state) {
           state = exec.state;
@@ -1509,11 +2203,37 @@ app.post(
 // Auth and voice reuse the default pass-through — the gate / transcription
 // service lives on the Next.js route, not the agent itself.
 
+// Beautiful Chat — flagship combined runtime. This cell mixes backend-owned
+// tools (query_data, search_flights, generate_a2ui, manage_todos) with
+// frontend tools (charts, scheduleTime, toggleTheme, enableAppMode) and MCP
+// apps. Run it through the agentic loop so backend tools produce tool results
+// and state snapshots instead of being left as unresolved frontend calls.
+app.post(
+  "/beautiful-chat",
+  async (req: Request, res: Response): Promise<void> => {
+    const input = req.body as RunAgentInput;
+    const incomingState =
+      ((input as any).state as Record<string, unknown> | undefined) ?? {};
+    await runAgenticLoop(req, res, {
+      systemPrompt: BEAUTIFUL_CHAT_SYSTEM_PROMPT,
+      toolSchemas: [
+        QUERY_DATA_TOOL_SCHEMA,
+        MANAGE_TODOS_TOOL_SCHEMA,
+        GET_TODOS_TOOL_SCHEMA,
+        BEAUTIFUL_CHAT_SEARCH_FLIGHTS_TOOL_SCHEMA,
+        GENERATE_A2UI_TOOL_SCHEMA,
+      ] as Anthropic.Tool[],
+      initialState: {
+        todos: coerceBeautifulChatTodos(incomingState.todos),
+      },
+    });
+  },
+);
+
 // Reasoning demos — enable Anthropic extended-thinking and forward
 // `thinking_delta` events as AG-UI REASONING_MESSAGE_* events. The
-// claude-3-7-sonnet family supports extended thinking.
 const CLAUDE_REASONING_MODEL =
-  process.env.CLAUDE_REASONING_MODEL || "claude-3-7-sonnet-20250219";
+  process.env.CLAUDE_REASONING_MODEL || CLAUDE_MODEL;
 const REASONING_SYSTEM_PROMPT =
   "You are a helpful assistant. For each user question, first think " +
   "step-by-step about the approach, then give a concise answer.";
@@ -1550,6 +2270,30 @@ app.post(
     });
   },
 );
+
+// @region[shared-state-streaming-route]
+// Shared State Streaming — mirror LangGraph's state-streaming middleware by
+// copying Claude's streamed write_document argument into shared state on each
+// input_json_delta, then emitting the final snapshot when the tool completes.
+app.post(
+  "/shared-state-streaming",
+  async (req: Request, res: Response): Promise<void> => {
+    const input = req.body as RunAgentInput;
+    const incomingState =
+      ((input as any).state as Record<string, unknown> | undefined) ?? {};
+    await runAgenticLoop(req, res, {
+      systemPrompt: SHARED_STATE_STREAMING_SYSTEM_PROMPT,
+      toolSchemas: [WRITE_DOCUMENT_TOOL_SCHEMA] as Anthropic.Tool[],
+      initialState: {
+        document:
+          typeof incomingState.document === "string"
+            ? incomingState.document
+            : "",
+      },
+    });
+  },
+);
+// @endregion[shared-state-streaming-route]
 
 // Sub-Agents — supervisor with three sub-agent-as-tool delegations,
 // each a single secondary Anthropic Messages call. Every delegation is
@@ -1605,6 +2349,20 @@ app.post(
     await runAgenticLoop(req, res, {
       systemPrompt: A2UI_FIXED_SYSTEM_PROMPT,
       toolSchemas: [DISPLAY_FLIGHT_TOOL_SCHEMA] as Anthropic.Tool[],
+      initialState: {},
+    });
+  },
+);
+
+// Declarative Generative UI (A2UI Dynamic Schema) - backend owns
+// generate_a2ui, then uses a secondary Claude call to produce render_a2ui
+// args and returns them as an a2ui_operations container.
+app.post(
+  "/declarative-gen-ui",
+  async (req: Request, res: Response): Promise<void> => {
+    await runAgenticLoop(req, res, {
+      systemPrompt: A2UI_DYNAMIC_SYSTEM_PROMPT,
+      toolSchemas: [GENERATE_A2UI_TOOL_SCHEMA] as Anthropic.Tool[],
       initialState: {},
     });
   },
@@ -1669,6 +2427,7 @@ app.post(
       initialState: {},
       model: CLAUDE_REASONING_MODEL,
       enableThinking: true,
+      latestUserMessageOnly: true,
     });
   },
 );

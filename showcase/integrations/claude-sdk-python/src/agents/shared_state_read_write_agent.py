@@ -47,12 +47,12 @@ from ag_ui.encoder import EventEncoder
 
 logger = logging.getLogger(__name__)
 
-# Default Anthropic model. Pinned to a dated identifier rather than an alias
-# so the demo doesn't break when Anthropic rotates aliases. Override with the
+# Default Anthropic model for this showcase. Override with the
 # ANTHROPIC_MODEL env var.
-DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
+DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4.6"
 
 
+# @region[shared-state-setup]
 SYSTEM_PROMPT = dedent("""
     You are a helpful, concise assistant.
 
@@ -125,6 +125,9 @@ def _state_dict(state: dict[str, Any]) -> dict[str, Any]:
         "preferences": state.get("preferences") or {},
         "notes": list(state.get("notes") or []),
     }
+
+
+# @endregion[shared-state-setup]
 
 
 def _convert_messages(input_data: RunAgentInput) -> list[dict[str, Any]]:

@@ -19,8 +19,6 @@ Every delegation appends an entry to ``state["delegations"]`` with shape
 sub-agent returns, so the UI's delegation log animates in real time.
 """
 
-# @region[subagent-setup]
-# @region[supervisor-delegation-tools]
 from __future__ import annotations
 
 import json
@@ -50,12 +48,12 @@ from ag_ui.encoder import EventEncoder
 
 logger = logging.getLogger(__name__)
 
-# Default Anthropic model. Pinned to a dated identifier rather than an alias
-# so the demo doesn't break when Anthropic rotates aliases. Override with the
+# Default Anthropic model for this showcase. Override with the
 # ANTHROPIC_MODEL or ANTHROPIC_SUBAGENT_MODEL env vars.
-DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
+DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-4.6"
 
 
+# @region[subagent-setup]
 # Each sub-agent is defined by its own system prompt; `_invoke_sub_agent`
 # (below) issues a single-shot Anthropic call as that sub-agent. They
 # don't share memory or tools with the supervisor — the supervisor only
@@ -102,6 +100,7 @@ SUPERVISOR_SYSTEM_PROMPT = (
 # synchronously, records the delegation into shared agent state, and
 # returns the sub-agent's output as a tool_result the supervisor can
 # read on its next step.
+# @region[supervisor-delegation-tools]
 def _delegation_tool_schema(name: str, description: str) -> dict[str, Any]:
     return {
         "name": name,
