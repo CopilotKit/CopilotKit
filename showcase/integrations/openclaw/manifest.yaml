@@ -2,6 +2,7 @@ name: OpenClaw
 slug: openclaw
 category: emerging
 language: typescript
+logo: /logos/openclaw.svg
 description: >-
   CopilotKit integration with OpenClaw — a self-hosted multi-channel AI gateway.
   Connects via the clawg-ui AG-UI adapter (operator-auth route), so a CopilotKit
