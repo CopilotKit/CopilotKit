@@ -339,6 +339,7 @@ type ThreadDetailsInternals = {
   } | null;
   _expandedTools: Set<string>;
   _expandedMessages: Set<string>;
+  _expandedTimelineDetails: Set<string>;
   _stateNotAvailable: boolean;
   _eventsNotAvailable: boolean;
   _loadingMessages: boolean;
@@ -934,7 +935,22 @@ describe("CpkThreadInspector provider contract", () => {
       ?.click();
     await flushProviderWork(el);
 
+    const rawEvent = el.shadowRoot?.querySelector<HTMLElement>(
+      '.cpk-td__event[data-source-index="1"]',
+    );
+    expect(rawEvent?.textContent ?? "").toContain("Show details");
+    expect(rawEvent?.textContent ?? "").not.toContain("top-level-run");
+    expect(rawEvent?.textContent ?? "").not.toContain("sequence");
+    expect(rawEvent?.textContent ?? "").not.toContain("messageId");
+    expect(rawEvent?.textContent ?? "").not.toContain("hello");
+
+    rawEvent
+      ?.querySelector<HTMLButtonElement>(".cpk-td__timeline-details-toggle")
+      ?.click();
+    await el.updateComplete;
+
     const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Hide details");
     expect(text).toContain("top-level-run");
     expect(text).toContain("sequence");
     expect(text).toContain("messageId");
@@ -1118,11 +1134,90 @@ describe("CpkThreadInspector provider contract", () => {
 
     expect(internals.activeTimelineItems).toHaveLength(1);
     expect(el.shadowRoot?.textContent ?? "").toContain("THREAD_STATE_WRITTEN");
-    expect(el.shadowRoot?.textContent ?? "").toContain("checkpointId");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Show details");
+    expect(el.shadowRoot?.textContent ?? "").not.toContain("checkpointId");
     expect(el.shadowRoot?.textContent ?? "").toContain("Source event #1");
     expect(el.shadowRoot?.textContent ?? "").not.toContain(
       "No timeline events captured",
     );
+    el.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".cpk-td__timeline-details-toggle")
+      ?.click();
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.textContent ?? "").toContain("checkpointId");
+  });
+
+  it("collapses structured timeline event details by default", async () => {
+    const provider: ThreadDebuggerProvider = {
+      getEvents: vi.fn().mockResolvedValue([
+        {
+          type: "RUN_STARTED",
+          timestamp: "2026-06-25T10:00:00.000Z",
+          payload: {
+            input: {
+              tools: [
+                {
+                  name: "generateSandboxedUi",
+                  description: "very chonky run-started payload",
+                },
+              ],
+            },
+          },
+        },
+      ]),
+    };
+    const { el, internals } = createThreadInspector();
+
+    internals.provider = provider;
+    internals.threadId = "thread-chonky-run-started";
+    await flushProviderWork(el);
+
+    expect(el.shadowRoot?.textContent ?? "").toContain("Run started");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Show details");
+    expect(el.shadowRoot?.textContent ?? "").not.toContain(
+      "very chonky run-started payload",
+    );
+    el.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".cpk-td__timeline-details-toggle")
+      ?.click();
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.textContent ?? "").toContain("Hide details");
+    expect(el.shadowRoot?.textContent ?? "").toContain(
+      "very chonky run-started payload",
+    );
+  });
+
+  it("shows expanded timeline details when an event also has a summary body", async () => {
+    const provider: ThreadDebuggerProvider = {
+      getEvents: vi.fn().mockResolvedValue([
+        {
+          type: "RUN_ERROR",
+          timestamp: "2026-06-25T10:00:00.000Z",
+          payload: {
+            message: "Tool failed",
+            errorCode: "ERR_TOOL_TIMEOUT",
+          },
+        },
+      ]),
+    };
+    const { el, internals } = createThreadInspector();
+
+    internals.provider = provider;
+    internals.threadId = "thread-error-details";
+    await flushProviderWork(el);
+
+    expect(el.shadowRoot?.textContent ?? "").toContain("Tool failed");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Show details");
+    expect(el.shadowRoot?.textContent ?? "").not.toContain("ERR_TOOL_TIMEOUT");
+    el.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".cpk-td__timeline-details-toggle")
+      ?.click();
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.textContent ?? "").toContain("Hide details");
+    expect(el.shadowRoot?.textContent ?? "").toContain("ERR_TOOL_TIMEOUT");
   });
 
   it("keeps the first-visible timeline intentional while provider message fallback is loading", async () => {
