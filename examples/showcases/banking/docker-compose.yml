@@ -5,11 +5,11 @@
 # repo (docker-compose.deps.yml + docker-compose.yml + run-demo.sh). It stands
 # up everything the durable cross-thread memory feature needs:
 #
-#   postgres (pgvector)  :7056   app DB + halfvec memory store
-#   redis                :7058   session / realtime fan-out
-#   minio                :7060   realtime-gateway event archive (S3 API)
-#   minio console        :7061
-#   tei                  :7067   Qwen3-Embedding-0.6B embeddings sidecar
+#   postgres (pgvector)  :7156   app DB + halfvec memory store
+#   redis                :7158   session / realtime fan-out
+#   minio                :7160   realtime-gateway event archive (S3 API)
+#   minio console        :7161
+#   tei                  :7167   Qwen3-Embedding-0.6B embeddings sidecar
 #   intelligence         :7050   app-api  (REST /api/memories + gated /mcp)
 #                        :7053   realtime-gateway (thread/conversation state)
 #
