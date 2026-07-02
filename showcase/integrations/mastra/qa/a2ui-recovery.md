@@ -4,7 +4,7 @@
 
 - Demo deployed at `/demos/a2ui-recovery` on the dashboard host
 - Agent backend healthy; `OPENAI_API_KEY` set (or aimock routing for replay)
-- Requires `@ag-ui/mastra` ≥ 1.1.0-alpha.0 (exports `getA2UITools` via the
+- Requires `@ag-ui/mastra` ≥ 1.1.0 (exports `getA2UITools` via the
   `@ag-ui/mastra/a2ui` subpath) + the `@copilotkit` A2UI renderer (the
   `building`/`retrying`/`failed` lifecycle rendering)
 - Wiring: the backend `a2uiRecoveryAgent` OWNS `generate_a2ui` via
