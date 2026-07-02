@@ -1,5 +1,9 @@
-import type { AbstractAgent, Message, Tool } from "@ag-ui/client";
-import { Context } from "@ag-ui/client";
+import type {
+  AbstractAgent,
+  Message,
+  RunAgentInput,
+  Tool,
+} from "@ag-ui/client";
 import { randomUUID, partialJSONParse } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
 import type { CopilotKitCoreGetSuggestionsResult } from "./core";
@@ -12,13 +16,23 @@ import type {
 } from "../types";
 
 /**
+ * The minimal cancellation surface a running suggestion generation exposes.
+ * Both a cloned `AbstractAgent` (via `abortRun`) and the stateless fetch shim
+ * (which aborts an `AbortController`) satisfy this, so `clearSuggestions` can
+ * cancel either uniformly.
+ */
+interface AbortableSuggestionRun {
+  abortRun(): void;
+}
+
+/**
  * Manages suggestion generation, streaming, and lifecycle for CopilotKitCore.
  * Handles both dynamic (AI-generated) and static suggestions.
  */
 export class SuggestionEngine {
   private _suggestionsConfig: Record<string, SuggestionsConfig> = {};
   private _suggestions: Record<string, Record<string, Suggestion[]>> = {};
-  private _runningSuggestions: Record<string, AbstractAgent[]> = {};
+  private _runningSuggestions: Record<string, AbortableSuggestionRun[]> = {};
 
   constructor(private core: CopilotKitCore) {}
 
@@ -136,97 +150,219 @@ export class SuggestionEngine {
     config: DynamicSuggestionsConfig,
     consumerAgentId: string,
   ): Promise<void> {
-    let agent: AbstractAgent | undefined = undefined;
+    // Tracks the cancellable handle for this generation (a cloned agent in the
+    // fallback path, or a fetch-abort shim in the stateless path) so the
+    // `finally` block can remove exactly this run from the running set.
+    let runHandle: AbortableSuggestionRun | undefined = undefined;
+    // Lifted to function scope so the `catch` can consult the aborted signal
+    // directly. Some runtimes/polyfills (undici, some React Native engines)
+    // reject an aborted `fetch` with a non-"AbortError"-named error (or a
+    // `TypeError`), which `isAbortError` alone would misclassify as a real
+    // failure — checking the controller's signal recovers those cases.
+    let statelessController: AbortController | undefined = undefined;
     try {
-      const suggestionsProviderAgent = (
-        this.core as unknown as CopilotKitCoreFriendsAccess
-      ).getAgent(config.providerAgentId ?? "default");
+      const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+      const resolvedProviderAgentId = config.providerAgentId ?? "default";
+      const suggestionsProviderAgent = friends.getAgent(
+        resolvedProviderAgentId,
+      );
       if (!suggestionsProviderAgent) {
         throw new Error(
-          `Suggestions provider agent not found: ${config.providerAgentId}`,
+          `Suggestions provider agent not found: ${resolvedProviderAgentId}`,
         );
       }
-      const suggestionsConsumerAgent = (
-        this.core as unknown as CopilotKitCoreFriendsAccess
-      ).getAgent(consumerAgentId);
+      const suggestionsConsumerAgent = friends.getAgent(consumerAgentId);
       if (!suggestionsConsumerAgent) {
         throw new Error(
           `Suggestions consumer agent not found: ${consumerAgentId}`,
         );
       }
 
-      const clonedAgent: AbstractAgent = suggestionsProviderAgent.clone();
-      agent = clonedAgent;
-      //agent.agentId = suggestionId;
-      agent.threadId = suggestionId;
-      agent.messages = JSON.parse(
-        JSON.stringify(suggestionsConsumerAgent.messages),
-      );
-      agent.state = JSON.parse(JSON.stringify(suggestionsConsumerAgent.state));
+      // The instruction prompt is identical for both the stateless and
+      // fallback paths, so build it once here.
+      const instructionContent = [
+        `Suggest what the user could say next. Provide clear, highly relevant suggestions by calling the \`copilotkitSuggest\` tool.`,
+        `Provide at least ${config.minSuggestions ?? 1} and at most ${config.maxSuggestions ?? 3} suggestions.`,
+        `The user has the following tools available: ${JSON.stringify(friends.buildFrontendTools(consumerAgentId))}.`,
+        ` ${config.instructions}`,
+      ].join("\n");
 
       // Initialize suggestion storage for this agent/suggestion combo
       this._suggestions[consumerAgentId] = {
         ...this._suggestions[consumerAgentId],
         [suggestionId]: [],
       };
-      this._runningSuggestions[consumerAgentId] = [
-        ...(this._runningSuggestions[consumerAgentId] ?? []),
-        agent,
-      ];
 
-      agent.addMessage({
-        id: suggestionId,
-        role: "user",
-        content: [
-          `Suggest what the user could say next. Provide clear, highly relevant suggestions by calling the \`copilotkitSuggest\` tool.`,
-          `Provide at least ${config.minSuggestions ?? 1} and at most ${config.maxSuggestions ?? 3} suggestions.`,
-          `The user has the following tools available: ${JSON.stringify((this.core as unknown as CopilotKitCoreFriendsAccess).buildFrontendTools(consumerAgentId))}.`,
-          ` ${config.instructions}`,
-        ].join("\n"),
-      });
+      if (
+        this.core.suggestions === true &&
+        this.core.runtimeTransport !== "single"
+      ) {
+        // Stateless path: the runtime advertises a dedicated `/suggest`
+        // endpoint that runs the provider agent directly (no thread, no client
+        // clone). POST the consumer's messages plus the instruction and read
+        // back the generated messages.
+        //
+        // Gated to non-`single` transports: this client only builds the
+        // multi-route `/agent/:id/suggest` URL and does not construct the
+        // single-route envelope for suggest, so single-route deployments fall
+        // through to the clone+`runAgent` fallback below. (The single-route
+        // runtime does route `agent/suggest`; the client just doesn't call it.)
+        // Single-route deployments are not the persisting-thread/Intelligence
+        // case, so the clone fallback is correct.
+        const controller = new AbortController();
+        statelessController = controller;
+        runHandle = { abortRun: () => controller.abort() };
+        this._runningSuggestions[consumerAgentId] = [
+          ...(this._runningSuggestions[consumerAgentId] ?? []),
+          runHandle,
+        ];
 
-      await agent.runAgent(
-        {
-          context: (
-            this.core as unknown as CopilotKitCoreFriendsAccess
-          ).getContextForAgent(consumerAgentId),
+        const providerAgentId = resolvedProviderAgentId;
+        const input: RunAgentInput = {
+          threadId: suggestionId,
+          runId: randomUUID(),
+          state: {},
+          messages: [
+            ...suggestionsConsumerAgent.messages,
+            {
+              id: suggestionId,
+              role: "user",
+              content: instructionContent,
+            },
+          ],
+          tools: [SUGGEST_TOOL],
+          context: friends.getContextForAgent(consumerAgentId),
           forwardedProps: {
-            ...(this.core as unknown as CopilotKitCoreFriendsAccess).properties,
+            ...friends.properties,
             toolChoice: {
               type: "function",
               function: { name: "copilotkitSuggest" },
             },
           },
-          tools: [SUGGEST_TOOL],
-        },
-        {
-          onMessagesChanged: ({ messages }) => {
-            this.extractSuggestions(
-              messages,
-              suggestionId,
-              consumerAgentId,
-              true,
-            );
+        };
+
+        const res = await fetch(
+          `${this.core.runtimeUrl}/agent/${encodeURIComponent(providerAgentId)}/suggest`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...this.core.headers,
+            },
+            body: JSON.stringify(input),
+            signal: controller.signal,
+            ...(this.core.credentials
+              ? { credentials: this.core.credentials }
+              : {}),
           },
-        },
-      );
+        );
+        if (!res.ok) {
+          // Surface the handler's error body when present. The body may not be
+          // JSON (or may lack a `message`), so guard the parse and fall back to
+          // the bare status.
+          const detail = await res
+            .json()
+            .then((body: unknown) =>
+              body !== null &&
+              typeof body === "object" &&
+              "message" in body &&
+              typeof (body as { message?: unknown }).message === "string"
+                ? (body as { message: string }).message
+                : undefined,
+            )
+            .catch(() => undefined);
+          throw new Error(
+            `suggest failed: ${res.status}${detail ? `: ${detail}` : ""}`,
+          );
+        }
+        // Parse defensively: a malformed 200 body (missing/non-array
+        // `messages`) must not throw inside `extractSuggestions.findIndex`.
+        // Treat a bad body as "no messages" so loading finalizes cleanly.
+        const data: unknown = await res.json();
+        const messages: Message[] =
+          data !== null &&
+          typeof data === "object" &&
+          Array.isArray((data as { messages?: unknown }).messages)
+            ? (data as { messages: Message[] }).messages
+            : [];
+        this.extractSuggestions(messages, suggestionId, consumerAgentId, false);
+      } else {
+        // Fallback path: clone the provider agent and run it client-side.
+        const clonedAgent: AbstractAgent = suggestionsProviderAgent.clone();
+        runHandle = clonedAgent;
+        clonedAgent.threadId = suggestionId;
+        clonedAgent.messages = JSON.parse(
+          JSON.stringify(suggestionsConsumerAgent.messages),
+        );
+        clonedAgent.state = JSON.parse(
+          JSON.stringify(suggestionsConsumerAgent.state),
+        );
+
+        this._runningSuggestions[consumerAgentId] = [
+          ...(this._runningSuggestions[consumerAgentId] ?? []),
+          clonedAgent,
+        ];
+
+        clonedAgent.addMessage({
+          id: suggestionId,
+          role: "user",
+          content: instructionContent,
+        });
+
+        await clonedAgent.runAgent(
+          {
+            context: friends.getContextForAgent(consumerAgentId),
+            forwardedProps: {
+              ...friends.properties,
+              toolChoice: {
+                type: "function",
+                function: { name: "copilotkitSuggest" },
+              },
+            },
+            tools: [SUGGEST_TOOL],
+          },
+          {
+            onMessagesChanged: ({ messages }) => {
+              this.extractSuggestions(
+                messages,
+                suggestionId,
+                consumerAgentId,
+                true,
+              );
+            },
+          },
+        );
+      }
     } catch (error) {
-      console.warn("Error generating suggestions:", error);
+      // An abort is expected when suggestions are cleared/reloaded mid-flight;
+      // swallow it quietly rather than surfacing it as a failure. `isAbortError`
+      // is the primary (name-based) check, but an aborted controller is also
+      // treated as expected because some runtimes reject an aborted `fetch`
+      // with a differently-named error (or a `TypeError`).
+      const aborted =
+        isAbortError(error) || statelessController?.signal.aborted === true;
+      if (!aborted) {
+        console.warn("Error generating suggestions:", error);
+      }
     } finally {
       // Finalize suggestions by marking them as no longer loading
       this.finalizeSuggestions(suggestionId, consumerAgentId);
 
-      // Remove this agent from running suggestions
+      // Remove this run from the running set. `runHandle` may be undefined when
+      // generation threw before it was assigned (e.g. provider/consumer agent
+      // lookup failed); still perform cleanup so the loading balance holds. If
+      // no runs remain for this consumer, emit finished-loading — otherwise a
+      // subscriber that saw `started` would hang in the loading state.
       const runningAgents = this._runningSuggestions[consumerAgentId];
-      if (agent && runningAgents) {
-        const filteredAgents = runningAgents.filter((a) => a !== agent);
-        this._runningSuggestions[consumerAgentId] = filteredAgents;
+      const remaining = runHandle
+        ? (runningAgents ?? []).filter((a) => a !== runHandle)
+        : (runningAgents ?? []);
 
-        // If no more suggestions are running, emit loading end event
-        if (filteredAgents.length === 0) {
-          delete this._runningSuggestions[consumerAgentId];
-          await this.notifySuggestionsFinishedLoading(consumerAgentId);
-        }
+      if (remaining.length === 0) {
+        delete this._runningSuggestions[consumerAgentId];
+        await this.notifySuggestionsFinishedLoading(consumerAgentId);
+      } else {
+        this._runningSuggestions[consumerAgentId] = remaining;
       }
     }
   }
@@ -314,7 +450,9 @@ export class SuggestionEngine {
                     suggestions.push({
                       title: item.title ?? "",
                       message: item.message ?? "",
-                      isLoading: false, // Will be set correctly below
+                      // Defaults to false; only the trailing item is flipped to
+                      // true below, and only while a streaming run is in flight.
+                      isLoading: false,
                     });
                   }
                 }
@@ -483,6 +621,22 @@ export class SuggestionEngine {
       "static suggestions added",
     );
   }
+}
+
+/**
+ * Detects an `AbortController`-driven cancellation so the stateless path can
+ * treat it as an expected (non-error) outcome on clear/reload.
+ */
+export function isAbortError(error: unknown): boolean {
+  // Detect purely by name: a `DOMException` is NOT `instanceof Error` in Safari
+  // and older engines, so gating on `instanceof Error` would misclassify a real
+  // user abort as a failure in the browser (this package runs client-side).
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    (error as { name?: unknown }).name === "AbortError"
+  );
 }
 
 /**

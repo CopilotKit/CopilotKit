@@ -15,6 +15,51 @@ const createMockAgent = () => {
   return agent as AbstractAgent;
 };
 
+/**
+ * A suggest-capable mock agent. Unlike `createMockAgent`, its clone exposes the
+ * surface `handleSuggestAgent` touches (`setMessages`/`setState`/`threadId`)
+ * and a `runAgent` that emits a `copilotkitSuggest` tool-call message via
+ * `onMessagesChanged`, so the suggest route resolves to a real 200 transcript
+ * instead of the handler's 502 error path.
+ */
+const createSuggestAgent = () => {
+  const suggestMsg = {
+    id: "suggest-1",
+    role: "assistant",
+    toolCalls: [
+      {
+        id: "tc-1",
+        function: {
+          name: "copilotkitSuggest",
+          arguments: JSON.stringify({
+            suggestions: [{ title: "Hi", message: "Say hi" }],
+          }),
+        },
+      },
+    ],
+  };
+  const agent: unknown = {
+    agentId: "default",
+    headers: {},
+    threadId: undefined,
+    setMessages: vi.fn(),
+    setState: vi.fn(),
+    runAgent: vi.fn(
+      async (
+        input: { messages?: unknown[] },
+        sub?: { onMessagesChanged?: (event: { messages: unknown[] }) => void },
+      ) => {
+        sub?.onMessagesChanged?.({
+          messages: [...(input.messages ?? []), suggestMsg],
+        });
+        return { newMessages: [suggestMsg] };
+      },
+    ),
+  };
+  (agent as { clone: () => unknown }).clone = () => createSuggestAgent();
+  return agent as AbstractAgent;
+};
+
 const createRuntime = (
   agents: Record<string, AbstractAgent> = { default: createMockAgent() },
 ) => new CopilotRuntime({ agents });
@@ -76,6 +121,13 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
   it("returns 405 for GET on a POST-only route", async () => {
     const response = await handler(
       get("http://localhost/api/copilotkit/agent/myAgent/run"),
+    );
+    expect(response.status).toBe(405);
+  });
+
+  it("returns 405 for GET on /agent/:agentId/suggest (POST-only)", async () => {
+    const response = await handler(
+      get("http://localhost/api/copilotkit/agent/myAgent/suggest"),
     );
     expect(response.status).toBe(405);
   });
@@ -180,6 +232,44 @@ describe("createCopilotRuntimeHandler — multi-route without basePath", () => {
     expect(response.status).not.toBe(404);
   });
 
+  it("matches /agent/:id/suggest suffix", async () => {
+    const response = await handler(
+      post("http://localhost/some/prefix/agent/default/suggest", {
+        threadId: "t1",
+        runId: "r1",
+      }),
+    );
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("routes POST /agent/:id/suggest to handleSuggestAgent and returns 200 with messages", async () => {
+    // Mirrors the single-route end-to-end assertion: a suggest-capable agent
+    // whose `runAgent` emits a `copilotkitSuggest` tool-call message proves the
+    // multi-route dispatch reaches `handleSuggestAgent` and returns a real 200
+    // transcript, not just a non-404/405 routing match.
+    const suggestHandler = createCopilotRuntimeHandler({
+      runtime: createRuntime({ default: createSuggestAgent() }),
+      mode: "multi-route",
+    });
+    const response = await suggestHandler(
+      post("http://localhost/some/prefix/agent/default/suggest", {
+        threadId: "t1",
+        runId: "r1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      messages: Array<{ id: string }>;
+    };
+    expect(body.messages.some((m) => m.id === "suggest-1")).toBe(true);
+  });
+
   it("returns 404 for no known suffix", async () => {
     const response = await handler(get("http://localhost/some/prefix/unknown"));
     expect(response.status).toBe(404);
@@ -273,6 +363,41 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
     // incomplete RunAgentInput schema fields, which is handler-level validation.
     expect(response.status).not.toBe(404);
     expect(response.status).not.toBe(405);
+  });
+
+  it("dispatches agent/suggest method to handleSuggestAgent and returns 200 with messages", async () => {
+    // The shared `createMockAgent` has no `runAgent`, so the suggest handler
+    // would hit its error path (502) and a `not.toBe(404/405)` assertion would
+    // pass without proving the route actually reaches `handleSuggestAgent`.
+    // Use a suggest-specific agent whose `runAgent` emits a tool-call message,
+    // so a 200 + `messages` body proves the route ran the handler end to end.
+    const suggestRuntime = createRuntime({ default: createSuggestAgent() });
+    const suggestHandler = createCopilotRuntimeHandler({
+      runtime: suggestRuntime,
+      basePath: "/api/copilotkit",
+      mode: "single-route",
+    });
+
+    const response = await suggestHandler(
+      post("http://localhost/api/copilotkit", {
+        method: "agent/suggest",
+        params: { agentId: "default" },
+        body: {
+          threadId: "t1",
+          runId: "r1",
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+        },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as {
+      messages: Array<{ id: string }>;
+    };
+    expect(body.messages.some((m) => m.id === "suggest-1")).toBe(true);
   });
 
   it("returns 404 when basePath doesn't match in single-route", async () => {

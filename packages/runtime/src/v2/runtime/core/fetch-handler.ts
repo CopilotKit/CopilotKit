@@ -42,6 +42,7 @@ import {
   callAfterRequestMiddleware,
 } from "./middleware";
 import { handleRunAgent } from "../handlers/handle-run";
+import { handleSuggestAgent } from "../handlers/handle-suggest";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
@@ -181,6 +182,7 @@ export function createCopilotRuntimeHandler(
         // 6. Wrap body for methods that need it, then dispatch
         if (
           route.method === "agent/run" ||
+          route.method === "agent/suggest" ||
           route.method === "agent/connect" ||
           route.method === "transcribe"
         ) {
@@ -310,6 +312,12 @@ function dispatchRoute(
         request,
         agentId: route.agentId,
       });
+    case "agent/suggest":
+      return handleSuggestAgent({
+        runtime,
+        request,
+        agentId: route.agentId,
+      });
     case "agent/connect":
       return handleConnectAgent({
         runtime,
@@ -374,6 +382,16 @@ function dispatchRoute(
       return handleAnnotate({ runtime, request });
     case "cpk-debug-events":
       return Promise.resolve(handleDebugEvents({ runtime, request }));
+    default: {
+      // Exhaustiveness guard: a new `RouteInfo` variant added without a case
+      // above becomes a compile error here instead of silently returning
+      // `undefined` at runtime.
+      const _exhaustive: never = route;
+      throw jsonResponse(
+        { error: "Not found", method: (_exhaustive as RouteInfo).method },
+        404,
+      );
+    }
   }
 }
 
@@ -411,6 +429,12 @@ async function resolveSingleRoute(
         agentId: expectString(methodCall.params, "agentId"),
       };
       break;
+    case "agent/suggest":
+      route = {
+        method: "agent/suggest",
+        agentId: expectString(methodCall.params, "agentId"),
+      };
+      break;
     case "agent/connect":
       route = {
         method: "agent/connect",
@@ -430,6 +454,13 @@ async function resolveSingleRoute(
     case "transcribe":
       route = { method: "transcribe" };
       break;
+    default: {
+      // Exhaustiveness guard: a new `METHOD_NAMES`/`EndpointMethod` variant
+      // added without a case above becomes a compile error here instead of
+      // leaving `route` unassigned at runtime.
+      const _exhaustive: never = methodCall.method;
+      throw jsonResponse({ error: "Not found", method: _exhaustive }, 404);
+    }
   }
 
   return { route, methodCall };

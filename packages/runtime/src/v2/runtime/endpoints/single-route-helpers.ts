@@ -1,5 +1,6 @@
 const METHOD_NAMES = [
   "agent/run",
+  "agent/suggest",
   "agent/connect",
   "agent/stop",
   "info",
