@@ -28,7 +28,6 @@ function CanvasInner() {
   const actions = useA2UIActions();
   const seenRef = useRef(0);
   const createdRef = useRef<Set<string>>(new Set());
-  const surfaceIdRef = useRef<string | null>(null);
 
   function applyOps(ops: Array<Record<string, unknown>>) {
     if (!ops.length) return;
@@ -52,12 +51,10 @@ function CanvasInner() {
     const initial = surfaceBus.snapshot(CHANNEL);
     if (initial.ops.length) applyOps(initial.ops);
     seenRef.current = initial.ops.length;
-    surfaceIdRef.current = initial.surfaceId;
     return surfaceBus.subscribe(CHANNEL, (snap) => {
       const tail = snap.ops.slice(seenRef.current);
       if (tail.length) applyOps(tail);
       seenRef.current = snap.ops.length;
-      surfaceIdRef.current = snap.surfaceId;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actions]);
