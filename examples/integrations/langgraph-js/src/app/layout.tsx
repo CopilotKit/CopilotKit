@@ -12,13 +12,26 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <title>CopilotKit</title>
         <link
           rel="icon"
           type="image/svg+xml"
           href="/copilotkit-logo-mark.svg"
+        />
+        {/*
+          Set the theme class BEFORE first paint to avoid a white→dark flash.
+          ThemeProvider applies the theme in a useEffect (post-hydration), so
+          without this the page paints unthemed (light) first, then flips. This
+          blocking inline script matches ThemeProvider's "system" default so
+          there's no flash and no class mismatch when the provider re-applies.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var d=window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.classList.add(d?'dark':'light');}catch(e){}})();",
+          }}
         />
       </head>
       {/*

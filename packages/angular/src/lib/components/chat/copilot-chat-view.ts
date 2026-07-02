@@ -306,7 +306,9 @@ export class CopilotChatView
 
   // Computed signals
   protected computedClass = computed(() =>
-    cn("copilotKitChat cpk:relative cpk:h-full cpk:flex cpk:flex-col"),
+    cn(
+      "copilotKitChat cpk:@container cpk:relative cpk:h-full cpk:flex cpk:flex-col",
+    ),
   );
   protected dropOverlayClass = computed(() =>
     cn(

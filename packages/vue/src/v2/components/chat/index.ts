@@ -13,6 +13,7 @@ export { default as CopilotChatSuggestionView } from "./CopilotChatSuggestionVie
 export { default as CopilotChatToolCallsView } from "./CopilotChatToolCallsView.vue";
 export { default as CopilotChatUserMessage } from "./CopilotChatUserMessage.vue";
 export { default as CopilotChatView } from "./CopilotChatView.vue";
+export { default as CopilotThreadsDrawer } from "./CopilotThreadsDrawer.vue";
 import _CopilotChatToggleButton from "./CopilotChatToggleButton.vue";
 import CopilotChatToggleButtonCloseIcon from "./CopilotChatToggleButtonCloseIcon";
 import CopilotChatToggleButtonOpenIcon from "./CopilotChatToggleButtonOpenIcon";
