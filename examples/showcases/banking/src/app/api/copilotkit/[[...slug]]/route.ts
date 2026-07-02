@@ -38,7 +38,10 @@ const renderReportTool = defineTool({
   execute: async (spec) => ({
     // Unique surfaceId per report so dismissing one report never suppresses a
     // later one (the canvas tracks the dismissed surfaceId).
-    [A2UI_OPERATIONS_KEY]: buildReportOps(spec, `${SURFACE_ID}-${Date.now().toString(36)}`),
+    [A2UI_OPERATIONS_KEY]: buildReportOps(
+      spec,
+      `${SURFACE_ID}-${Date.now().toString(36)}`,
+    ),
   }),
 });
 

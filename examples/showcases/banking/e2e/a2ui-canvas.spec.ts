@@ -63,41 +63,40 @@ const REPORT_PROMPT =
   "Build a spend report on the canvas: show the spending trend.";
 
 test.describe("A2UI report canvas", () => {
-  test.fixme(
-    "a report prompt renders the A2UI surface on the canvas with a handoff pill",
-    async ({ page }) => {
-      await page.goto("/");
+  test.fixme("a report prompt renders the A2UI surface on the canvas with a handoff pill", async ({
+    page,
+  }) => {
+    await page.goto("/");
 
-      // The dashboard body (credit-cards page) is visible before any surface is
-      // active — this is the "before" state we assert disappears.
-      await expect(
-        page.getByRole("heading", { name: "Credit Cards", level: 1 }),
-      ).toBeVisible();
+    // The dashboard body (credit-cards page) is visible before any surface is
+    // active — this is the "before" state we assert disappears.
+    await expect(
+      page.getByRole("heading", { name: "Credit Cards", level: 1 }),
+    ).toBeVisible();
 
-      // Open the docked chat (starts closed; v2 launcher has this testid).
-      await page.getByTestId("copilot-chat-toggle").click();
+    // Open the docked chat (starts closed; v2 launcher has this testid).
+    await page.getByTestId("copilot-chat-toggle").click();
 
-      // Send a report prompt. "spend report on the canvas" is the aimock match key.
-      const input = page.getByPlaceholder(/type a message/i);
-      await input.fill(REPORT_PROMPT);
-      await input.press("Enter");
+    // Send a report prompt. "spend report on the canvas" is the aimock match key.
+    const input = page.getByPlaceholder(/type a message/i);
+    await input.fill(REPORT_PROMPT);
+    await input.press("Enter");
 
-      // The chat shows the handoff pill (status-only a2ui-surface renderer in
-      // wrapper.tsx).
-      await expect(page.getByText(/rendered on the canvas/i)).toBeVisible({
-        timeout: 30_000,
-      });
+    // The chat shows the handoff pill (status-only a2ui-surface renderer in
+    // wrapper.tsx).
+    await expect(page.getByText(/rendered on the canvas/i)).toBeVisible({
+      timeout: 30_000,
+    });
 
-      // The surface renders on the full-screen canvas (report-canvas.tsx).
-      await expect(page.getByTestId("a2ui-surface")).toBeVisible({
-        timeout: 30_000,
-      });
+    // The surface renders on the full-screen canvas (report-canvas.tsx).
+    await expect(page.getByTestId("a2ui-surface")).toBeVisible({
+      timeout: 30_000,
+    });
 
-      // While the surface is active the normal dashboard body is swapped out for
-      // <ReportCanvas/> (layout.tsx: activeSurfaceId ? <ReportCanvas/> : children).
-      await expect(
-        page.getByRole("heading", { name: "Credit Cards", level: 1 }),
-      ).toHaveCount(0);
-    },
-  );
+    // While the surface is active the normal dashboard body is swapped out for
+    // <ReportCanvas/> (layout.tsx: activeSurfaceId ? <ReportCanvas/> : children).
+    await expect(
+      page.getByRole("heading", { name: "Credit Cards", level: 1 }),
+    ).toHaveCount(0);
+  });
 });

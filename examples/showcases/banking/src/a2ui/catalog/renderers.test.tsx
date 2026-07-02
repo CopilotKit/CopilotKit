@@ -68,6 +68,9 @@ function renderStatCard(metric: string, label: string) {
     <ReportDataProvider value={data}>
       <StatCard
         props={{ metric, label }}
+        // `children` here is the RendererProps render-callback (a function),
+        // not React children — passing it as a prop is intentional.
+        // eslint-disable-next-line react/no-children-prop
         children={() => null as unknown as React.ReactNode}
       />
     </ReportDataProvider>,
