@@ -2,17 +2,13 @@
 import useCreditCards from "@/app/actions";
 import { useMemo, useState } from "react";
 import type { Transaction } from "@/app/api/v1/data";
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Eye,
-  Plus,
-  ArrowRight,
-} from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Plus, ArrowRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TransactionsList } from "@/components/transactions-list";
 import { GradientCreditCard } from "@/components/card-visual";
 import { StatisticsChart } from "@/components/statistics-chart";
+import { AnalyticsView } from "@/components/wow/analytics-view";
+import { ReportsView } from "@/components/wow/reports-view";
 import { useAuthContext } from "@/components/auth-context";
 import { useRecording } from "@/components/recording-context";
 import { formatCurrency } from "@/lib/utils";
@@ -400,18 +396,10 @@ export default function HomePage() {
         </TabsContent>
 
         <TabsContent value="analytics">
-          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-hairline bg-surface/60 p-12 text-center">
-            <Eye className="h-8 w-8 text-ink-muted" />
-            <p className="text-sm text-ink-muted">
-              Analytics view coming soon.
-            </p>
-          </div>
+          <AnalyticsView />
         </TabsContent>
         <TabsContent value="reports">
-          <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-hairline bg-surface/60 p-12 text-center">
-            <Eye className="h-8 w-8 text-ink-muted" />
-            <p className="text-sm text-ink-muted">Reports view coming soon.</p>
-          </div>
+          <ReportsView />
         </TabsContent>
       </Tabs>
     </div>
