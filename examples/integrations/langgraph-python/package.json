@@ -13,8 +13,9 @@
     "postinstall": "npm run install:agent"
   },
   "dependencies": {
-    "@copilotkit/a2ui-renderer": "1.62.1",
-    "@copilotkit/react-core": "1.62.1",
+    "@copilotkit/a2ui-renderer": "1.63.0",
+    "@copilotkit/web-components": "1.63.0",
+    "@copilotkit/react-core": "1.63.0",
     "@copilotkit/runtime": "npm:@copilotkit/runtime@1.62.1",
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-label": "^2.1.8",

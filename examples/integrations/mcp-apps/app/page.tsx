@@ -6,6 +6,7 @@ import {
   CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
 
+import "@copilotkit/web-components/threads-drawer/layout.css";
 import styles from "./page.module.css";
 
 const agentId = "default";
@@ -21,14 +22,17 @@ export default function CopilotKitPage() {
       "+ New" from resetting, so uncontrolled-inside-provider is required.
     */
     <CopilotChatConfigurationProvider agentId={agentId}>
-      <div className={`${styles.layout} threadsLayout`}>
+      <div
+        className={`copilotkit-threads-layout ${styles.layout} threadsLayout`}
+      >
         {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
-        <CopilotThreadsDrawer
-          agentId={agentId}
-        />
-        <div className={styles.mainPanel}>
+        <CopilotThreadsDrawer agentId={agentId} />
+        <div className={`copilotkit-threads-main ${styles.mainPanel}`}>
           <main className="h-full w-full flex justify-center items-center">
-            <CopilotChat agentId={agentId} className="w-full max-w-3xl h-full" />
+            <CopilotChat
+              agentId={agentId}
+              className="w-full max-w-3xl h-full"
+            />
           </main>
         </div>
       </div>

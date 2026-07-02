@@ -8,9 +8,11 @@ import {
   CopilotChatConfigurationProvider,
   CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
-import { CSSProperties, useEffect, useState } from "react";
+import type { CSSProperties } from "react";
+import { useEffect, useState } from "react";
 import { z } from "zod";
 
+import "@copilotkit/web-components/threads-drawer/layout.css";
 import styles from "./page.module.css";
 
 // The agent key registered in the runtime route (`agents: { default: ... }`).
@@ -46,12 +48,12 @@ export default function CopilotKitPage() {
       sidebar inherit; the SDK drawer follows them by token inheritance.
     */
     <CopilotChatConfigurationProvider agentId={AGENT_ID}>
-      <div className={`${styles.layout} threadsLayout`}>
+      <div
+        className={`copilotkit-threads-layout ${styles.layout} threadsLayout`}
+      >
         {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
-        <CopilotThreadsDrawer
-          agentId={AGENT_ID}
-        />
-        <div className={styles.mainPanel}>
+        <CopilotThreadsDrawer agentId={AGENT_ID} />
+        <div className={`copilotkit-threads-main ${styles.mainPanel}`}>
           <main
             style={
               { "--copilot-kit-primary-color": themeColor } as CSSProperties

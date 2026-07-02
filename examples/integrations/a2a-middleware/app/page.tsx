@@ -7,6 +7,7 @@ import {
   CopilotThreadsDrawer,
   CopilotKitProvider,
 } from "@copilotkit/react-core/v2";
+import "@copilotkit/web-components/threads-drawer/layout.css";
 import styles from "./page.module.css";
 
 export type ResearchData = {
@@ -216,10 +217,12 @@ export default function Home() {
         uncontrolled-inside-provider is required, not optional.
       */}
       <CopilotChatConfigurationProvider agentId="a2a_chat">
-        <div className={`${styles.layout} threadsLayout`}>
+        <div
+          className={`copilotkit-threads-layout ${styles.layout} threadsLayout`}
+        >
           {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
           <CopilotThreadsDrawer agentId="a2a_chat" />
-          <div className={styles.mainPanel}>
+          <div className={`copilotkit-threads-main ${styles.mainPanel}`}>
             <ResearchAssistant />
           </div>
         </div>

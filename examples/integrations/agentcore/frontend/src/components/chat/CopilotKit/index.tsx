@@ -19,6 +19,7 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import { TodoCanvas } from "@/components/canvas/TodoCanvas";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 
+import "@copilotkit/web-components/threads-drawer/layout.css";
 import styles from "./CopilotKit.module.css";
 
 const COPILOTKIT_AGENT_ID = "default";
@@ -60,12 +61,10 @@ function CopilotChatContent() {
       resetting, so uncontrolled-inside-provider is required, not optional.
     */
     <CopilotChatConfigurationProvider agentId={COPILOTKIT_AGENT_ID}>
-      <div className={styles.layout}>
+      <div className={`copilotkit-threads-layout ${styles.layout}`}>
         {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
-        <CopilotThreadsDrawer
-          agentId={COPILOTKIT_AGENT_ID}
-        />
-        <div className={styles.mainPanel}>
+        <CopilotThreadsDrawer agentId={COPILOTKIT_AGENT_ID} />
+        <div className={`copilotkit-threads-main ${styles.mainPanel}`}>
           <div className="h-full flex flex-row">
             <ModeToggle mode={mode} onModeChange={setMode} />
             <div
