@@ -232,7 +232,9 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
         "Show the queue of transactions awaiting approval (including over-limit " +
         "charges) as an interactive list in the chat. Call this whenever the " +
         "user asks what is pending, what needs approval, or to review pending or " +
-        "over-limit charges — do NOT answer those in plain text.",
+        "over-limit charges — do NOT list the transactions in plain text. After " +
+        "the list renders, add one short sentence pointing at what needs " +
+        "attention (e.g. how many are over their policy limit).",
       parameters: z.object({}),
       render: () => {
         const pending = transactions.filter((t) => t.status === "pending");
@@ -272,12 +274,24 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   // `useComponent`, so they persist in the transcript like showTransactions).
   // All hand-rolled SVG/CSS in the brand style — no charting dependency. Each
   // re-registers when the data it reads changes.
+  //
+  // Every chart description carries the same "chart + answer" rule: the chart
+  // replaces restating the raw numbers, NOT the answer itself. Without it the
+  // model renders the right chart and never addresses the user's actual
+  // question ("which policy is closest to its limit?" → chart, silence).
+  const CHART_ANSWER_RULE =
+    " After the chart renders, ALSO answer the user's specific question in " +
+    "one or two sentences grounded in the data — the chart replaces listing " +
+    "the raw numbers, not your answer. If the user asked no specific " +
+    "question, one short takeaway sentence is enough.";
+
   useComponent(
     {
       name: "showSpendingTrend",
       description:
         "Render a chart of spending over time in the chat. Call this for any " +
-        "question about spend trends, history, or how spending has changed.",
+        "question about spend trends, history, or how spending has changed." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
@@ -295,7 +309,8 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       description:
         "Render a chart of budget usage per expense policy (spent vs limit) in " +
         "the chat. Call this for questions about budgets, limits, utilization, " +
-        "or which teams are close to or over their limit.",
+        "or which teams are close to or over their limit." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
@@ -315,7 +330,8 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       description:
         "Render a donut chart breaking spend down by team/policy in the chat. " +
         "Call this for 'where is the money going', spend distribution, or " +
-        "breakdown-by-team questions.",
+        "breakdown-by-team questions." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
@@ -333,7 +349,8 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       description:
         "Render a chart comparing total income vs expenses (and the net) in " +
         "the chat. Call this for cash-flow, income-vs-spend, or net-position " +
-        "questions.",
+        "questions." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
