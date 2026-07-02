@@ -23,19 +23,26 @@ import {
 } from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
+// @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 export const POST = async (req: NextRequest) => {
   try {
-    // Per-request build so inbound `x-aimock-context` reaches the Python
-    // agent_server. See `src/lib/header-forwarding.ts`.
+    // @doc-replace
     const headers = extractForwardedHeaders(req);
     const beautifulChatAgent: AbstractAgent = new HttpAgent({
       url: `${AGENT_URL}/beautiful_chat`,
       headers,
     });
+    // @doc-as
+    // const beautifulChatAgent: AbstractAgent = new HttpAgent({
+    //   url: `${AGENT_URL}/beautiful_chat`,
+    // });
+    // @doc-end
 
     const agents: Record<string, AbstractAgent> = {
       // The page's <CopilotKit agent="beautiful-chat"> resolves here.

@@ -15,7 +15,7 @@
  * system prompt teaches the LLM the sandbox-function calling contract.
  */
 
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { SystemMessage } from "@langchain/core/messages";
 import {
   MemorySaver,
@@ -25,7 +25,10 @@ import {
   Annotation,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 
 import {
   convertActionsToDynamicStructuredTools,
@@ -85,10 +88,17 @@ const AgentStateAnnotation = Annotation.Root({
 type AgentState = typeof AgentStateAnnotation.State;
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     model: "gpt-4.1",
     modelKwargs: { parallel_tool_calls: false },
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //     model: "gpt-4.1",
+  //     modelKwargs: { parallel_tool_calls: false },
+  //   });
+  // @doc-end
 
   const frontendTools = convertActionsToDynamicStructuredTools(
     state.copilotkit?.actions ?? [],

@@ -7,7 +7,10 @@ import {
 } from "@copilotkit/runtime";
 import type { AbstractAgent } from "@ag-ui/client";
 import { HttpAgent } from "@ag-ui/client";
+// @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 // The agent backend runs as a separate process on port 8000.
 // agent_server.py mounts ONE ADKAgent middleware per demo at /<agent_name>;
@@ -78,6 +81,7 @@ const agentNames = [
   "default",
 ];
 
+// @doc-replace
 // Build agents per-request so we can inject inbound x-* headers (e.g.
 // x-aimock-context) into the outbound HTTP call to the Python agent_server.
 // HttpAgent's `requestInit` spreads `this.headers` into the outbound fetch,
@@ -95,15 +99,34 @@ function buildAgents(
   }
   return agents;
 }
+// @doc-as
+// // Map each agent name to an HttpAgent pointed at its backend path.
+// function buildAgents(): Record<string, AbstractAgent> {
+//   const agents: Record<string, AbstractAgent> = {};
+//   for (const name of agentNames) {
+//     agents[name] = new HttpAgent({ url: `${AGENT_URL}/${name}` });
+//   }
+//   return agents;
+// }
+// @doc-end
 
+// @doc-replace
 // Module-load cache used only for the agent_count health probe — never
 // receives request headers, so it is not used for actual POST traffic.
 const healthProbeAgents = buildAgents({});
+// @doc-as
+// // Module-load cache used only for the agent_count health probe.
+// const healthProbeAgents = buildAgents();
+// @doc-end
 
 export const POST = async (req: NextRequest) => {
   try {
+    // @doc-replace
     const forwardedHeaders = extractForwardedHeaders(req);
     const agents = buildAgents(forwardedHeaders);
+    // @doc-as
+    // const agents = buildAgents();
+    // @doc-end
 
     const runtime = new CopilotRuntime({
       agents,

@@ -2,22 +2,27 @@
 // Both demos share this endpoint but differ on the agent name they pass via
 // `<CopilotKit agent="...">`. Mirrors langgraph-python's /api/copilotkit-ogui.
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
+// @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 export const POST = async (req: NextRequest) => {
   try {
-    // Per-request build conveys inbound `x-aimock-context` to the Python
-    // agent_server. See `src/lib/header-forwarding.ts`.
+    // @doc-replace
     const headers = extractForwardedHeaders(req);
+    // @doc-as
+    // @doc-end
 
     // @region[minimal-runtime-flag]
     // @region[advanced-runtime-config]
@@ -25,11 +30,17 @@ export const POST = async (req: NextRequest) => {
       agents: {
         "open-gen-ui": new HttpAgent({
           url: `${AGENT_URL}/open_gen_ui`,
+          // @doc-replace
           headers,
+          // @doc-as
+          // @doc-end
         }),
         "open-gen-ui-advanced": new HttpAgent({
           url: `${AGENT_URL}/open_gen_ui_advanced`,
+          // @doc-replace
           headers,
+          // @doc-as
+          // @doc-end
         }),
       },
       // The runtime's OpenGenerativeUIMiddleware turns each agent's streamed

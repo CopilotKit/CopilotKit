@@ -21,12 +21,16 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
+// @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 export const POST = async (req: NextRequest) => {
   try {
+    // @doc-replace
     // Per-request build conveys inbound `x-aimock-context` to the Python
     // agent_server. See `src/lib/header-forwarding.ts`.
     const headers = extractForwardedHeaders(req);
@@ -34,6 +38,11 @@ export const POST = async (req: NextRequest) => {
       url: `${AGENT_URL}/a2ui_recovery`,
       headers,
     });
+    // @doc-as
+    // const recoveryAgent = new HttpAgent({
+    //   url: `${AGENT_URL}/a2ui_recovery`,
+    // });
+    // @doc-end
 
     const runtime = new CopilotRuntime({
       agents: { "a2ui-recovery": recoveryAgent },

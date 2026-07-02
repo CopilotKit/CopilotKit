@@ -11,7 +11,10 @@
 import { tool } from "@strands-agents/sdk";
 import OpenAI from "openai";
 import { z } from "zod";
+// @doc-replace
 import { AIMOCK_CONTEXT } from "./model-factory";
+// @doc-as
+// @doc-end
 import { forwardingFetch } from "./header-forwarding.js";
 import { SUBAGENT_FAILURE_MARKER } from "./state";
 import {
@@ -180,6 +183,7 @@ export function openaiClient(): OpenAI {
       ...(process.env.OPENAI_BASE_URL
         ? { baseURL: process.env.OPENAI_BASE_URL }
         : {}),
+      // @doc-replace
       // Match the shared agent so sub-agent calls hit the right aimock fixtures.
       defaultHeaders: { "x-aimock-context": AIMOCK_CONTEXT },
       // Per-request inbound x-* forwarding (incl. X-AIMock-Strict / x-test-id /
@@ -191,6 +195,8 @@ export function openaiClient(): OpenAI {
       // byte-identical to a plain fetch when no x-* are in scope (demo traffic
       // unaffected).
       fetch: forwardingFetch,
+      // @doc-as
+      // @doc-end
     });
   }
   return _openaiClient;

@@ -23,12 +23,12 @@
 // @region[subagent-setup]
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import type { ToolRunnableConfig } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
+import type { AIMessage } from "@langchain/core/messages";
 import {
-  AIMessage,
   HumanMessage,
   SystemMessage,
   ToolMessage,
@@ -41,7 +41,10 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
+// @doc-replace
 import { makeChatOpenAI } from "./openai-headers";
+// @doc-as
+// @doc-end
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -106,10 +109,17 @@ async function invokeSubAgent(
   task: string,
   config?: RunnableConfig,
 ): Promise<string> {
+  // @doc-replace
   const subModel = makeChatOpenAI(config, {
     temperature: 0,
     model: "gpt-4o-mini",
   });
+  // @doc-as
+  // const subModel = new ChatOpenAI({
+  //     temperature: 0,
+  //     model: "gpt-4o-mini",
+  //   });
+  // @doc-end
   const result = await subModel.invoke([
     new SystemMessage({ content: SUB_AGENT_PROMPTS[agent] }),
     new HumanMessage({ content: task }),
@@ -321,10 +331,17 @@ const SUPERVISOR_SYSTEM_PROMPT =
   "of every sub-agent delegation.";
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
+  // @doc-replace
   const model = makeChatOpenAI(config, {
     temperature: 0,
     model: "gpt-4o-mini",
   });
+  // @doc-as
+  // const model = new ChatOpenAI({
+  //     temperature: 0,
+  //     model: "gpt-4o-mini",
+  //   });
+  // @doc-end
 
   const modelWithTools = model.bindTools!([
     ...convertActionsToDynamicStructuredTools(state.copilotkit?.actions ?? []),

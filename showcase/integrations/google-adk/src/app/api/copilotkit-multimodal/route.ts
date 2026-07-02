@@ -10,26 +10,34 @@
 // ADK's HttpAgent + AGENT_URL backend pattern (see copilotkit-byoc-hashbrown
 // for the same pattern).
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { HttpAgent } from "@ag-ui/client";
+// @doc-replace
 import { extractForwardedHeaders } from "@/lib/header-forwarding";
+// @doc-as
+// @doc-end
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-// Build per-request so inbound `x-aimock-context` is conveyed to the
-// Python agent_server. See `src/lib/header-forwarding.ts`.
 export const POST = async (req: NextRequest) => {
   try {
+    // @doc-replace
     const headers = extractForwardedHeaders(req);
     const multimodalAgent = new HttpAgent({
       url: `${AGENT_URL}/multimodal`,
       headers,
     });
+    // @doc-as
+    // const multimodalAgent = new HttpAgent({
+    //   url: `${AGENT_URL}/multimodal`,
+    // });
+    // @doc-end
 
     const runtime = new CopilotRuntime({
       agents: {
