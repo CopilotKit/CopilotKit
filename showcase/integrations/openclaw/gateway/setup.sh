@@ -17,9 +17,50 @@ echo "[setup] bake gateway token + port; reasoningDefault=stream (streams answer
 openclaw config patch --stdin >/dev/null <<JSON
 {
   gateway: { auth: { mode: "token", token: "$TOKEN" }, port: $PORT, bind: "loopback" },
-  agents: { defaults: { reasoningDefault: "stream" } }
+  agents: { defaults: { reasoningDefault: "stream", skipBootstrap: true } }
 }
 JSON
+
+# The stock "fresh workspace" flow seeds a BOOTSTRAP.md that makes the agent open
+# every session with an identity-establishing monologue ("who am I? what's my
+# vibe? signature emoji?") instead of doing the task — and our stateless
+# client-tool runs use a fresh session each turn, so it fired every time.
+# `skipBootstrap` above stops OpenClaw from RE-creating it; here we remove the
+# one `openclaw setup` just wrote and seed a fixed identity + tool-forward
+# guidance so the agent is stable and calls provided tools promptly. All
+# gateway-config/workspace seeding — no OpenClaw source or adapter changes.
+echo "[setup] seed stable agent identity + tool-forward guidance (suppress bootstrap chatter)"
+WS="${HOME:-/root}/.openclaw/workspace"
+mkdir -p "$WS"
+rm -f "$WS/BOOTSTRAP.md"
+cat > "$WS/IDENTITY.md" <<'MD'
+# IDENTITY.md
+- **Name:** Claw
+- **Creature:** AI assistant
+- **Vibe:** calm, direct, task-focused
+- **Emoji:** 🦞
+MD
+cat > "$WS/AGENTS.md" <<'MD'
+# AGENTS.md
+
+You are Claw, a task-oriented assistant embedded in a CopilotKit demo. Your
+identity is already established — never ask the user who you are, what to call
+you, your vibe, or a signature emoji, and never run a first-run/bootstrap ritual.
+
+## How to work
+- On any actionable request, act in the current turn. Prefer calling an available
+  tool over describing what could be done.
+- When a provided tool matches the user's request, you MUST call it with your best
+  arguments — do not reply with a prose plan when a tool can perform or advance the
+  action.
+- If the user asks you to approve, confirm, decide, schedule, or otherwise get a
+  human's input, and a matching tool is available (e.g. an approval, confirmation,
+  or scheduling tool), you MUST call that tool to surface the request to the user.
+  The tool IS your mechanism to obtain the decision — never decline or claim you
+  "lack access to a system" when such a tool is provided. Treat the tool's returned
+  value as the authoritative decision and continue accordingly.
+- Keep replies concise. No greeting-only or identity-establishing messages.
+MD
 
 echo "[setup] configure OpenAI model from env key"
 printf '%s\n' "${OPENAI_API_KEY:?OPENAI_API_KEY must be set}" \

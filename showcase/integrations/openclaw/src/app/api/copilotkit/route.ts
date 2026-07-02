@@ -39,6 +39,8 @@ const agents: Record<string, AbstractAgent> = {
   "agentic-chat-reasoning": createAgent(),
   "tool-rendering": createAgent(),
   "frontend-tools": createAgent(),
+  "hitl-in-chat": createAgent(),
+  "hitl-in-app": createAgent(),
   "prebuilt-sidebar": createAgent(),
   "prebuilt-popup": createAgent(),
   "chat-customization-css": createAgent(),
