@@ -35,12 +35,6 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --filter @copilotkit/issue-triage...
-      - name: Parse command
-        id: cmd
-        env: { BODY: ${{ github.event.comment.body }} }
-        run: |
-          if [[ "$BODY" == /fix* ]]; then echo "command=fix" >> "$GITHUB_OUTPUT"; else echo "command=triage" >> "$GITHUB_OUTPUT"; fi
-          if [[ "$BODY" == *"--deep"* ]]; then echo "deep=true" >> "$GITHUB_OUTPUT"; else echo "deep=false" >> "$GITHUB_OUTPUT"; fi
       - name: React 👀
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
@@ -49,7 +43,7 @@ jobs:
             await github.rest.reactions.createForIssueComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: context.payload.comment.id, content: 'eyes' })
       - name: Gather prior comments (for /fix)
         id: prior
-        if: steps.cmd.outputs.command == 'fix'
+        if: startsWith(github.event.comment.body, '/fix')
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           github-token: ${{ steps.token.outputs.token }}
@@ -59,8 +53,7 @@ jobs:
             return cs.filter(c => /root cause|triage/i.test(c.body || '')).map(c => c.body).join('\n\n---\n\n').slice(0, 20000)
       - name: Run bot
         env:
-          COMMAND: ${{ steps.cmd.outputs.command }}
-          DEEP: ${{ steps.cmd.outputs.deep }}
+          BODY: ${{ github.event.comment.body }}
           REPO: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
