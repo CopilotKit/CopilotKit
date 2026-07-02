@@ -780,6 +780,7 @@ export class CpkThreadInspector extends LitElement {
     _expandedTools: { state: true },
     _expandedMessages: { state: true },
     _expandedTimelineDetails: { state: true },
+    _expandedRawEvents: { state: true },
     _showDetailPanel: { state: true },
     _detailPanelWidth: { state: true },
     _eventsNotAvailable: { state: true },
@@ -818,6 +819,7 @@ export class CpkThreadInspector extends LitElement {
   private _expandedTools = new Set<string>();
   private _expandedMessages = new Set<string>();
   private _expandedTimelineDetails = new Set<string>();
+  private _expandedRawEvents = new Set<string>();
   private _showDetailPanel = false;
   private _detailPanelWidth = 250;
   /** True when the /events endpoint returned 501 — don't fall back to live data. */
@@ -1104,12 +1106,21 @@ export class CpkThreadInspector extends LitElement {
 
     .cpk-td__metadata-strip {
       display: flex;
+      align-items: center;
       gap: 6px;
       flex-wrap: wrap;
       padding: 10px 16px;
       border-bottom: 1px solid #e9e9ef;
       background: #fbfbfd;
       flex-shrink: 0;
+    }
+
+    .cpk-td__metadata-pills {
+      display: flex;
+      gap: 6px;
+      flex: 1;
+      flex-wrap: wrap;
+      min-width: 0;
     }
 
     .cpk-td__metadata-pill {
@@ -1406,13 +1417,44 @@ export class CpkThreadInspector extends LitElement {
     }
 
     .cpk-td__timeline-body {
-      padding: 9px 10px;
+      margin: 0;
+      padding: 0 10px 9px;
       font-size: 12px;
       line-height: 1.55;
       color: #57575b;
       white-space: pre-wrap;
       word-break: break-word;
-      border-top: 1px solid #e9e9ef;
+    }
+
+    .cpk-td__timeline-toolbar {
+      display: flex;
+      gap: 6px;
+      margin-left: auto;
+    }
+
+    .cpk-td__timeline-bulk-toggle {
+      margin: 0;
+      padding: 4px 8px;
+      border: 1px solid #dcdce8;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #36363a;
+      cursor: pointer;
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .cpk-td__timeline-bulk-toggle:hover {
+      border-color: rgba(85, 88, 178, 0.38);
+      background: #f7f7ff;
+      color: #010507;
+    }
+
+    .cpk-td__timeline-bulk-toggle:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
     }
 
     .cpk-td__source-link {
@@ -1435,26 +1477,23 @@ export class CpkThreadInspector extends LitElement {
 
     .cpk-td__timeline-details-toggle {
       margin: 0;
-      padding: 4px 8px;
-      border: 1px solid rgba(85, 88, 178, 0.24);
-      border-radius: 999px;
+      padding: 5px 10px;
+      border: none;
       background: #ffffff;
-      color: #30337f;
+      color: #5558b2;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       font-family: "Inter", sans-serif;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
-      line-height: 1;
-      flex-shrink: 0;
-      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+      line-height: 1.2;
+      width: 100%;
     }
 
     .cpk-td__timeline-details-toggle:hover {
-      border-color: rgba(85, 88, 178, 0.44);
-      background: #f3f3ff;
+      background: #f7f7ff;
       color: #010507;
     }
 
@@ -1754,6 +1793,7 @@ export class CpkThreadInspector extends LitElement {
     this._expandedTools = new Set();
     this._expandedMessages = new Set();
     this._expandedTimelineDetails = new Set();
+    this._expandedRawEvents = new Set();
     this._metadataAbort?.abort();
     this._metadataAbort = null;
     this._messagesAbort?.abort();
@@ -2432,6 +2472,40 @@ export class CpkThreadInspector extends LitElement {
     this._expandedTimelineDetails = next;
   }
 
+  private expandTimelineDetails(ids: string[]): void {
+    this._expandedTimelineDetails = new Set([
+      ...this._expandedTimelineDetails,
+      ...ids,
+    ]);
+  }
+
+  private collapseTimelineDetails(ids: string[]): void {
+    const next = new Set(this._expandedTimelineDetails);
+    for (const id of ids) next.delete(id);
+    this._expandedTimelineDetails = next;
+  }
+
+  private toggleRawEventDetails(id: string): void {
+    const next = new Set(this._expandedRawEvents);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expandedRawEvents = next;
+  }
+
+  private expandRawEventDetails(ids: string[]): void {
+    this._expandedRawEvents = new Set([...this._expandedRawEvents, ...ids]);
+  }
+
+  private collapseRawEventDetails(ids: string[]): void {
+    const next = new Set(this._expandedRawEvents);
+    for (const id of ids) next.delete(id);
+    this._expandedRawEvents = next;
+  }
+
+  private rawEventId(event: ApiAgentEvent): string {
+    return `raw-event-${event.sourceIndex ?? event.timestamp ?? event.type}`;
+  }
+
   private get activeEvents(): ApiAgentEvent[] {
     // When the endpoint explicitly returned 501 we report no events rather
     // than leaking the parent's agent-keyed live events across historical
@@ -2603,23 +2677,93 @@ export class CpkThreadInspector extends LitElement {
       },
       { label: "Status", value: metadata?.status },
     ].filter((pill) => pill.value != null && pill.value !== "");
+    const bulkControls = this.renderActiveBulkControls();
 
-    if (pills.length === 0) return nothing;
+    if (pills.length === 0 && bulkControls === nothing) return nothing;
 
     return html`
       <div class="cpk-td__metadata-strip" aria-label="Thread metadata">
-        ${pills.map(
-          (pill) => html`
-            <span class="cpk-td__metadata-pill" title=${pill.value ?? ""}>
-              <span class="cpk-td__metadata-label">${pill.label}</span>
-              <span class="cpk-td__metadata-value"
-                >${this.shortId(pill.value)}</span
-              >
-            </span>
-          `,
-        )}
+        <div class="cpk-td__metadata-pills">
+          ${pills.map(
+            (pill) => html`
+              <span class="cpk-td__metadata-pill" title=${pill.value ?? ""}>
+                <span class="cpk-td__metadata-label">${pill.label}</span>
+                <span class="cpk-td__metadata-value"
+                  >${this.shortId(pill.value)}</span
+                >
+              </span>
+            `,
+          )}
+        </div>
+        ${bulkControls}
       </div>
     `;
+  }
+
+  private renderActiveBulkControls() {
+    if (this._eventsNotAvailable) return nothing;
+    if (this._tab === "raw-events") return this.renderRawEventBulkControls();
+    if (this._tab !== "timeline") return nothing;
+
+    const detailIds = this.timelineItemsForEvents(this.activeEvents)
+      .filter((item) => item.details)
+      .map((item) => item.id);
+    if (detailIds.length <= 1) return nothing;
+
+    const allExpanded = detailIds.every((id) =>
+      this._expandedTimelineDetails.has(id),
+    );
+    const allCollapsed = detailIds.every(
+      (id) => !this._expandedTimelineDetails.has(id),
+    );
+
+    return html`<div class="cpk-td__timeline-toolbar">
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allExpanded}
+        @click=${() => this.expandTimelineDetails(detailIds)}
+      >
+        Expand all
+      </button>
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allCollapsed}
+        @click=${() => this.collapseTimelineDetails(detailIds)}
+      >
+        Collapse all
+      </button>
+    </div>`;
+  }
+
+  private renderRawEventBulkControls() {
+    const eventIds = this.activeEvents.map((event) => this.rawEventId(event));
+    if (eventIds.length <= 1) return nothing;
+
+    const allExpanded = eventIds.every((id) => this._expandedRawEvents.has(id));
+    const allCollapsed = eventIds.every(
+      (id) => !this._expandedRawEvents.has(id),
+    );
+
+    return html`<div class="cpk-td__timeline-toolbar">
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allExpanded}
+        @click=${() => this.expandRawEventDetails(eventIds)}
+      >
+        Expand all
+      </button>
+      <button
+        type="button"
+        class="cpk-td__timeline-bulk-toggle"
+        ?disabled=${allCollapsed}
+        @click=${() => this.collapseRawEventDetails(eventIds)}
+      >
+        Collapse all
+      </button>
+    </div>`;
   }
 
   private revealSourceEvent(sourceIndex: number): void {
@@ -2709,62 +2853,57 @@ export class CpkThreadInspector extends LitElement {
           >
             Source event #${item.sourceIndex}
           </button>
-          ${
-            item.details
-              ? html`<button
-                  type="button"
-                  class="cpk-td__timeline-details-toggle"
-                  aria-expanded=${detailsExpanded ? "true" : "false"}
-                  aria-label=${
-                    detailsExpanded
-                      ? "Hide event details"
-                      : "Show event details"
-                  }
-                  @click=${() => this.toggleTimelineDetails(item.id)}
-                >
-                  ${
-                    detailsExpanded
-                      ? html`
-                          <svg
-                            aria-hidden="true"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <path d="m6 9 6 6 6-6" />
-                          </svg>
-                        `
-                      : html`
-                          <svg
-                            aria-hidden="true"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                          >
-                            <path d="m9 18 6-6-6-6" />
-                          </svg>
-                        `
-                  }
-                  <span>${detailsExpanded ? "Hide details" : "Details"}</span>
-                </button>`
-              : nothing
-          }
           <span class="cpk-td__timeline-time"
             >${formatTimestamp(item.timestamp)}</span
           >
         </div>
         ${
+          item.details
+            ? html`<button
+                type="button"
+                class="cpk-td__timeline-details-toggle"
+                aria-expanded=${detailsExpanded ? "true" : "false"}
+                @click=${() => this.toggleTimelineDetails(item.id)}
+              >
+                ${
+                  detailsExpanded
+                    ? html`
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="m6 9 6 6 6-6" />
+                        </svg>
+                      `
+                    : html`
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        >
+                          <path d="m9 18 6-6-6-6" />
+                        </svg>
+                      `
+                }
+                <span>${detailsExpanded ? "Hide details" : "Show details"}</span>
+              </button>`
+            : nothing
+        }
+        ${
           item.body
             ? html`<div class="cpk-td__timeline-body">${item.body}</div>`
             : item.details
               ? detailsExpanded
-                ? html`<pre class="cpk-td__timeline-body">
-${unsafeHTML(highlightedJson(item.details))}</pre
-                >`
+                ? html`<pre class="cpk-td__timeline-body">${unsafeHTML(
+                    highlightedJson(item.details),
+                  )}</pre>`
                 : nothing
               : nothing
         }
@@ -3104,10 +3243,15 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
         </div>
       `;
     }
-    return this.cachedPanelTpl("raw-events", [events], () => {
-      return html`${events.map((event) => {
-        const { bg, fg } = eventColors(event.type);
-        return html`
+    return this.cachedPanelTpl(
+      "raw-events",
+      [events, this._expandedRawEvents],
+      () => {
+        return html`${events.map((event) => {
+          const { bg, fg } = eventColors(event.type);
+          const eventId = this.rawEventId(event);
+          const detailsExpanded = this._expandedRawEvents.has(eventId);
+          return html`
           <div class="cpk-td__event" data-source-index=${event.sourceIndex}>
             <div class="cpk-td__event-header" style="background:${bg}">
               <span class="cpk-td__event-type" style="color:${fg}"
@@ -3117,13 +3261,53 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
                 >${formatTimestamp(event.timestamp)}</span
               >
             </div>
-            <pre class="cpk-td__event-payload">
-${unsafeHTML(highlightedJson(event.rawEvent ?? event))}</pre
+            <button
+              type="button"
+              class="cpk-td__timeline-details-toggle"
+              aria-expanded=${detailsExpanded ? "true" : "false"}
+              @click=${() => this.toggleRawEventDetails(eventId)}
             >
+              ${
+                detailsExpanded
+                  ? html`
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    `
+                  : html`
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
+                    `
+              }
+              <span>${detailsExpanded ? "Hide details" : "Show details"}</span>
+            </button>
+            ${
+              detailsExpanded
+                ? html`<pre class="cpk-td__event-payload">${unsafeHTML(
+                    highlightedJson(event.rawEvent ?? event),
+                  )}</pre>`
+                : nothing
+            }
           </div>
         `;
-      })}`;
-    });
+        })}`;
+      },
+    );
   }
 
   private renderPanelToggle() {

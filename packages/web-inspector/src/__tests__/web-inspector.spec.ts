@@ -935,7 +935,22 @@ describe("CpkThreadInspector provider contract", () => {
       ?.click();
     await flushProviderWork(el);
 
+    const rawEvent = el.shadowRoot?.querySelector<HTMLElement>(
+      '.cpk-td__event[data-source-index="1"]',
+    );
+    expect(rawEvent?.textContent ?? "").toContain("Show details");
+    expect(rawEvent?.textContent ?? "").not.toContain("top-level-run");
+    expect(rawEvent?.textContent ?? "").not.toContain("sequence");
+    expect(rawEvent?.textContent ?? "").not.toContain("messageId");
+    expect(rawEvent?.textContent ?? "").not.toContain("hello");
+
+    rawEvent
+      ?.querySelector<HTMLButtonElement>(".cpk-td__timeline-details-toggle")
+      ?.click();
+    await el.updateComplete;
+
     const text = el.shadowRoot?.textContent ?? "";
+    expect(text).toContain("Hide details");
     expect(text).toContain("top-level-run");
     expect(text).toContain("sequence");
     expect(text).toContain("messageId");
@@ -1119,18 +1134,12 @@ describe("CpkThreadInspector provider contract", () => {
 
     expect(internals.activeTimelineItems).toHaveLength(1);
     expect(el.shadowRoot?.textContent ?? "").toContain("THREAD_STATE_WRITTEN");
-    expect(el.shadowRoot?.textContent ?? "").toContain("Details");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Show details");
     expect(el.shadowRoot?.textContent ?? "").not.toContain("checkpointId");
     expect(el.shadowRoot?.textContent ?? "").toContain("Source event #1");
     expect(el.shadowRoot?.textContent ?? "").not.toContain(
       "No timeline events captured",
     );
-    expect(
-      el.shadowRoot
-        ?.querySelector<HTMLButtonElement>(".cpk-td__timeline-details-toggle")
-        ?.getAttribute("aria-label"),
-    ).toBe("Show event details");
-
     el.shadowRoot
       ?.querySelector<HTMLButtonElement>(".cpk-td__timeline-details-toggle")
       ?.click();
@@ -1165,16 +1174,10 @@ describe("CpkThreadInspector provider contract", () => {
     await flushProviderWork(el);
 
     expect(el.shadowRoot?.textContent ?? "").toContain("Run started");
-    expect(el.shadowRoot?.textContent ?? "").toContain("Details");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Show details");
     expect(el.shadowRoot?.textContent ?? "").not.toContain(
       "very chonky run-started payload",
     );
-    expect(
-      el.shadowRoot
-        ?.querySelector<HTMLButtonElement>(".cpk-td__timeline-details-toggle")
-        ?.getAttribute("aria-label"),
-    ).toBe("Show event details");
-
     el.shadowRoot
       ?.querySelector<HTMLButtonElement>(".cpk-td__timeline-details-toggle")
       ?.click();
