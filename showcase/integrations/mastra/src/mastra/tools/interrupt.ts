@@ -90,11 +90,15 @@ export const scheduleMeetingInterruptTool = createTool({
     cancelled: z.boolean().optional(),
   }),
   // Mastra createTool execute signature is `(inputData, executionContext)`:
-  // the validated INPUT is the first arg; `suspend` / `resumeData` live on the
-  // SECOND arg (the ToolExecutionContext). Destructuring them off the first arg
-  // yields `undefined` and `suspend(...)` throws — the tool never pauses.
+  // the validated INPUT is the first arg; the ToolExecutionContext is the
+  // second. `suspend` / `resumeData` live under `executionContext.agent`
+  // (the `AgentToolExecutionContext` sub-object), NOT at the top level.
+  // Destructuring them off `executionContext` directly yields `undefined`, so
+  // `return suspend(...)` throws `suspend is not a function`; the model gets a
+  // tool-error, re-calls, and the loop spins to the step cap with no
+  // `tool-call-suspended` chunk. Mirrors the proven @ag-ui/mastra dojo tool.
   execute: async (inputData, executionContext) => {
-    const { suspend, resumeData } = executionContext;
+    const { suspend, resumeData } = executionContext?.agent ?? {};
     // Second pass: the user resolved the interrupt — the run resumes here with
     // their selection. Return a short confirmation the agent narrates.
     if (resumeData) {
@@ -107,7 +111,7 @@ export const scheduleMeetingInterruptTool = createTool({
     }
     // First pass: suspend with the picker payload. Returned directly so the
     // agentic loop pauses here instead of continuing.
-    return suspend({
+    return suspend?.({
       topic: inputData.topic,
       attendee: inputData.attendee,
       slots: generateCandidateSlots(),
