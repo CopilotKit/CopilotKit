@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
@@ -63,6 +64,8 @@ for (const name of agentNames) {
 agents["tool-rendering"] = createAgent("tool_rendering");
 agents["tool-rendering-default-catchall"] = createAgent("tool_rendering");
 agents["tool-rendering-custom-catchall"] = createAgent("tool_rendering");
+agents["tool-rendering-suppress-catchall"] = createAgent("tool_rendering");
+agents["tool-rendering-named-override"] = createAgent("tool_rendering");
 agents["tool-rendering-reasoning-chain"] = createAgent(
   "tool_rendering_reasoning_chain",
 );

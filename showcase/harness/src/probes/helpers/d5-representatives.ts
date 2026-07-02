@@ -57,6 +57,8 @@ export const D5_REPRESENTATIVES: Readonly<
   "tool-rendering": "tool-rendering.json",
   "tool-rendering-custom-catchall": "tool-rendering.json",
   "tool-rendering-default-catchall": "tool-rendering-default-catchall.json",
+  "tool-rendering-suppress-catchall": "tool-rendering-suppress-catchall.json",
+  "tool-rendering-named-override": "tool-rendering-named-override.json",
   "tool-rendering-reasoning-chain": "tool-rendering-reasoning-chain.json",
   voice: "voice.json",
 };

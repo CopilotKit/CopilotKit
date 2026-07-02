@@ -1,0 +1,51 @@
+## Customize the catch-all
+
+Once you want on-brand chrome, pass a `render` function to
+`useDefaultRenderTool`. It's a convenience wrapper around
+`useRenderTool({ name: "*", ... })`: one wildcard renderer handles every tool
+call not claimed by a named renderer.
+
+The catch-all receives the tool `name`, parsed `parameters`, current `status`,
+and final `result`:
+
+<Snippet
+  cell="tool-rendering-custom-catchall"
+  region="use-default-render-tool-wildcard"
+  fallbackFramework="langgraph-python"
+  highlightLines="4-16"
+  title="page.tsx"
+/>
+
+## Render nothing from the catch-all
+
+The catch-all can also be a deliberate opt-out. Return `null` when you want
+otherwise-unhandled tool calls to run without painting UI in the chat.
+
+Create a small hook, then call it from any component rendered under
+`CopilotKit`. Keep the full renderer signature in place when the renderer may
+later become conditional:
+
+<Snippet
+  cell="tool-rendering-suppress-catchall"
+  region="suppress-catchall-renderer"
+  fallbackFramework="langgraph-python"
+  highlightLines="1,4-6"
+  title="use-suppress-catch-all-tool-rendering.ts"
+/>
+
+You can make the opt-out conditional too. For example, return `null` while
+`status` is in progress, then render a result card when the call completes.
+
+## Suppress one named tool
+
+For one specific tool, return `null` from a named renderer. A named renderer
+takes priority over the catch-all, even when that named renderer returns
+nothing.
+
+<Snippet
+  cell="tool-rendering-named-override"
+  region="suppress-named-tool-renderer"
+  fallbackFramework="langgraph-python"
+  highlightLines="1,9"
+  title="use-suppress-weather-tool-rendering.ts"
+/>

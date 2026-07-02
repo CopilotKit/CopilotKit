@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import {
   D5_REGISTRY,
   __clearD5RegistryForTesting,
@@ -6,8 +6,57 @@ import {
 } from "../helpers/d5-registry.js";
 import type { D5BuildContext } from "../helpers/d5-registry.js";
 import type { Page } from "../helpers/conversation-runner.js";
+import type * as DefaultCatchallScript from "./d5-tool-rendering-default-catchall.js";
 
-let scriptModule: typeof import("./d5-tool-rendering-default-catchall.js");
+let scriptModule: typeof DefaultCatchallScript;
+
+type MockNode = {
+  getAttribute: (name: string) => string | null;
+  querySelector: (selector: string) => unknown;
+  textContent?: string | null;
+};
+
+function makeNode({
+  attributes = {},
+  statusPill = false,
+  textContent = null,
+}: {
+  attributes?: Record<string, string>;
+  statusPill?: boolean;
+  textContent?: string | null;
+}): MockNode {
+  return {
+    getAttribute: (name: string) => attributes[name] ?? null,
+    querySelector: (selector: string) =>
+      selector === '[data-testid="copilot-tool-render-status"]' && statusPill
+        ? {}
+        : null,
+    textContent,
+  };
+}
+
+function makePageWithDocument(documentMock: {
+  querySelectorAll: (selector: string) => MockNode[];
+}): Page {
+  return {
+    waitForSelector: async () => undefined,
+    fill: async () => undefined,
+    press: async () => undefined,
+    evaluate: async <R>(fn: () => R): Promise<R> => {
+      (globalThis as { document?: unknown }).document = documentMock;
+      return fn();
+    },
+  };
+}
+
+function makePageReturning(snap: unknown): Page {
+  return {
+    waitForSelector: async () => undefined,
+    fill: async () => undefined,
+    press: async () => undefined,
+    evaluate: async <R>(_fn: () => R): Promise<R> => snap as R,
+  };
+}
 
 describe("D5 tool-rendering-default-catchall — registration", () => {
   beforeAll(async () => {
@@ -22,7 +71,7 @@ describe("D5 tool-rendering-default-catchall — registration", () => {
     expect(D5_REGISTRY.size).toBe(1);
   });
 
-  it("references the tool-rendering fixture", () => {
+  it("references the dedicated default catchall fixture", () => {
     const script = getD5Script("tool-rendering-default-catchall");
     expect(script?.fixtureFile).toBe("tool-rendering-default-catchall.json");
   });
@@ -64,7 +113,9 @@ describe("D5 tool-rendering-default-catchall — validateDefaultCatchall", () =>
       mod.validateDefaultCatchall({
         containerWithToolName: true,
         statusPillPresent: true,
+        statusAttributePresent: true,
         observedToolNames: ["get_weather"],
+        observedStatuses: ["complete"],
       }),
     ).toBeNull();
   });
@@ -74,7 +125,9 @@ describe("D5 tool-rendering-default-catchall — validateDefaultCatchall", () =>
     const err = mod.validateDefaultCatchall({
       containerWithToolName: false,
       statusPillPresent: true,
+      statusAttributePresent: true,
       observedToolNames: ["other_tool"],
+      observedStatuses: ["complete"],
     });
     expect(err).toMatch(/data-tool-name="get_weather"/);
     expect(err).toMatch(/other_tool/);
@@ -85,9 +138,25 @@ describe("D5 tool-rendering-default-catchall — validateDefaultCatchall", () =>
     const err = mod.validateDefaultCatchall({
       containerWithToolName: true,
       statusPillPresent: false,
+      statusAttributePresent: true,
       observedToolNames: ["get_weather"],
+      observedStatuses: ["complete"],
+      customLeakPhrasePresent: false,
     });
     expect(err).toMatch(/no status pill/);
+  });
+
+  it("fails when the matching container has no data-status attribute", async () => {
+    const mod = await import("./d5-tool-rendering-default-catchall.js");
+    const err = mod.validateDefaultCatchall({
+      containerWithToolName: true,
+      statusPillPresent: true,
+      statusAttributePresent: false,
+      observedToolNames: ["get_weather"],
+      observedStatuses: [],
+    });
+    expect(err).toMatch(/no data-status attribute/);
+    expect(err).toMatch(/\(none\)/);
   });
 
   it("reports '(none)' when no tool names observed", async () => {
@@ -95,28 +164,82 @@ describe("D5 tool-rendering-default-catchall — validateDefaultCatchall", () =>
     const err = mod.validateDefaultCatchall({
       containerWithToolName: false,
       statusPillPresent: false,
+      statusAttributePresent: false,
       observedToolNames: [],
+      observedStatuses: [],
+      customLeakPhrasePresent: false,
     });
     expect(err).toMatch(/\(none\)/);
   });
 });
 
-describe("D5 tool-rendering-default-catchall — assertDefaultCatchall", () => {
-  function makePageReturning(snap: unknown): Page {
-    return {
-      waitForSelector: async () => undefined,
-      fill: async () => undefined,
-      press: async () => undefined,
-      evaluate: async <R>(_fn: () => R): Promise<R> => snap as R,
-    };
-  }
+describe("D5 tool-rendering-default-catchall — probeDefaultCatchall", () => {
+  const originalDocument = (globalThis as { document?: unknown }).document;
 
+  afterEach(() => {
+    if (originalDocument === undefined) {
+      delete (globalThis as { document?: unknown }).document;
+    } else {
+      (globalThis as { document?: unknown }).document = originalDocument;
+    }
+  });
+
+  it("reads the strict default renderer wrapper contract", async () => {
+    const mod = await import("./d5-tool-rendering-default-catchall.js");
+    const page = makePageWithDocument({
+      querySelectorAll: (selector: string) =>
+        selector === '[data-testid="copilot-tool-render"]'
+          ? [
+              makeNode({
+                attributes: {
+                  "data-tool-name": "get_weather",
+                  "data-status": "complete",
+                },
+                statusPill: true,
+              }),
+            ]
+          : [],
+    });
+
+    await expect(mod.probeDefaultCatchall(page)).resolves.toEqual({
+      containerWithToolName: true,
+      statusPillPresent: true,
+      statusAttributePresent: true,
+      observedToolNames: ["get_weather"],
+      observedStatuses: ["complete"],
+      customLeakPhrasePresent: false,
+    });
+  });
+
+  it("does not accept assistant transcript text as renderer proof", async () => {
+    const mod = await import("./d5-tool-rendering-default-catchall.js");
+    const page = makePageWithDocument({
+      querySelectorAll: (selector: string) =>
+        selector === '[data-testid="copilot-assistant-message"]'
+          ? [makeNode({ textContent: "get_weather Done" })]
+          : [],
+    });
+
+    await expect(mod.probeDefaultCatchall(page)).resolves.toEqual({
+      containerWithToolName: false,
+      statusPillPresent: false,
+      statusAttributePresent: false,
+      observedToolNames: [],
+      observedStatuses: [],
+      customLeakPhrasePresent: false,
+    });
+  });
+});
+
+describe("D5 tool-rendering-default-catchall — assertDefaultCatchall", () => {
   it("passes when the snapshot is complete", async () => {
     const mod = await import("./d5-tool-rendering-default-catchall.js");
     const page = makePageReturning({
       containerWithToolName: true,
       statusPillPresent: true,
+      statusAttributePresent: true,
       observedToolNames: ["get_weather"],
+      observedStatuses: ["complete"],
     });
     await expect(mod.assertDefaultCatchall(page, 50)).resolves.toBeUndefined();
   });
@@ -126,7 +249,9 @@ describe("D5 tool-rendering-default-catchall — assertDefaultCatchall", () => {
     const page = makePageReturning({
       containerWithToolName: false,
       statusPillPresent: false,
+      statusAttributePresent: false,
       observedToolNames: [],
+      observedStatuses: [],
     });
     await expect(mod.assertDefaultCatchall(page, 30)).rejects.toThrow(
       /data-tool-name="get_weather"/,
@@ -195,7 +320,9 @@ describe("D5 tool-rendering-default-catchall — customLeakPhrasePresent branch 
     const err = mod.validateDefaultCatchall({
       containerWithToolName: true,
       statusPillPresent: true,
+      statusAttributePresent: true,
       observedToolNames: ["get_weather"],
+      observedStatuses: ["complete"],
       customLeakPhrasePresent: true,
     });
     expect(err).not.toBeNull();
@@ -210,7 +337,9 @@ describe("D5 tool-rendering-default-catchall — customLeakPhrasePresent branch 
       mod.validateDefaultCatchall({
         containerWithToolName: true,
         statusPillPresent: true,
+        statusAttributePresent: true,
         observedToolNames: ["get_weather"],
+        observedStatuses: ["complete"],
         customLeakPhrasePresent: false,
       }),
     ).toBeNull();
@@ -222,7 +351,9 @@ describe("D5 tool-rendering-default-catchall — customLeakPhrasePresent branch 
       mod.validateDefaultCatchall({
         containerWithToolName: true,
         statusPillPresent: true,
+        statusAttributePresent: true,
         observedToolNames: ["get_weather"],
+        observedStatuses: ["complete"],
         // customLeakPhrasePresent omitted — treated as false.
       }),
     ).toBeNull();

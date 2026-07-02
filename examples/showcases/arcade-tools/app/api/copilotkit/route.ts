@@ -5,8 +5,11 @@ import {
   defineTool,
 } from "@copilotkit/runtime/v2";
 import { z } from "zod";
-import { getArcadeUserId, runArcadeTool } from "@/lib/arcade";
-import type { ArcadeToolResult } from "@/lib/arcade";
+import {
+  getArcadeUserId,
+  runArcadeTool,
+  type ArcadeToolResult,
+} from "@/lib/arcade";
 
 /**
  * Keep the model-facing payload small. The agent re-sends every tool result on

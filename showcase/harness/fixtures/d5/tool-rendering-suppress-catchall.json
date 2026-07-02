@@ -1,0 +1,38 @@
+{
+  "_comment": "D5 fixture for /demos/tool-rendering-suppress-catchall. Emits get_weather for the weather prompt, then a final narration. The page registers useDefaultRenderTool({ render: ({ name, parameters, status, result }) => null }), so the probe asserts final text appears but no tool-rendering DOM paints.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "suppress catch-all weather case",
+        "toolCallId": "call_d5_suppress_weather_001"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "suppress catch-all weather case",
+        "toolName": "get_weather"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_suppress_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "suppress catch-all weather case",
+        "turnIndex": 0
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    }
+  ]
+}

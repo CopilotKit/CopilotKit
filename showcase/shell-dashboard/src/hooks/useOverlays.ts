@@ -172,6 +172,7 @@ export function useOverlays(): UseOverlaysReturn {
   const [selectedProbeId, setSelectedProbeIdRaw] = useState<string | null>(
     null,
   );
+  const [hydrated, setHydrated] = useState(false);
 
   // Sync from URL hash / localStorage after hydration
   useEffect(() => {
@@ -183,16 +184,18 @@ export function useOverlays(): UseOverlaysReturn {
     setOverlays(resolved);
     setActiveTabRaw(tab);
     setSelectedProbeIdRaw(probeId);
+    setHydrated(true);
   }, []);
 
   // On mount, write hash to reflect actual state (handles legacy redirects
   // and fallback from localStorage where the URL had no hash).
   useEffect(() => {
+    if (!hydrated) return;
     if (!initialized.current) {
       initialized.current = true;
       writeHash(activeTab, overlays, selectedProbeId, false);
     }
-  }, [activeTab, overlays, selectedProbeId]);
+  }, [activeTab, hydrated, overlays, selectedProbeId]);
 
   // Listen for browser back/forward navigation
   useEffect(() => {

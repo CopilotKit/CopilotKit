@@ -1028,7 +1028,7 @@ export const SNIPPET_MAP: Record<string, string> = {
   Threads: "shared/threads/threads.mdx",
   ToolRenderer: "shared/generative-ui/tool-rendering.mdx", // alias of ToolRendering
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
-  DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
+  CatchAllToolRendering: "shared/guides/catch-all-tool-rendering.mdx",
   // Versionless aliases retained for backward compat with older MDX that
   // emits `<MigrateTo />` / `<MigrateToV />`; both resolve to v2.
   MigrateTo: "shared/troubleshooting/migrate-to-v2.mdx",
@@ -1063,6 +1063,7 @@ export const SUBPATH_TO_COMPONENT: Record<string, string> = {
   "generative-ui/a2ui": "A2UI",
   "generative-ui/mcp-apps": "MCPApps",
   "generative-ui/tool-rendering": "ToolRendering",
+  "generative-ui/tool-rendering/custom": "ToolRendering",
   "generative-ui/your-components/display-only": "DisplayOnly",
   "generative-ui/your-components/interactive": "Interactive",
   inspector: "Inspector",

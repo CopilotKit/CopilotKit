@@ -1,4 +1,4 @@
-# Tool Rendering — Default Catch-all
+# Tool Rendering — Built-in Catch-all
 
 The simplest tool-rendering setup: the frontend calls
 `useDefaultRenderTool()` with **no config** so every tool call falls

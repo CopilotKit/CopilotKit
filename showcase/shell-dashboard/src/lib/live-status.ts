@@ -401,6 +401,8 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "tool-rendering": ["tool-rendering"],
   "tool-rendering-default-catchall": ["tool-rendering-default-catchall"],
   "tool-rendering-custom-catchall": ["tool-rendering-custom-catchall"],
+  "tool-rendering-suppress-catchall": ["tool-rendering-suppress-catchall"],
+  "tool-rendering-named-override": ["tool-rendering-named-override"],
   "tool-rendering-reasoning-chain": ["tool-rendering-reasoning-chain"],
   "headless-simple": ["headless-simple"],
   "headless-complete": ["gen-ui-headless-complete"],

@@ -4,8 +4,8 @@
 //
 // This cell is the simplest point in the three-way progression. The
 // backend exposes a handful of mock tools (get_weather, search_flights,
-// get_stock_price, roll_dice) and the frontend ONLY opts into
-// CopilotKit's built-in default tool-call card — no per-tool renderers,
+// get_stock_price, roll_d20) and the frontend ONLY opts into
+// CopilotKit's built-in catch-all tool-call card — no per-tool renderers,
 // no custom wildcard UI.
 //
 // `useDefaultRenderTool()` (called with no config) registers the built-
@@ -41,7 +41,7 @@ export default function ToolRenderingDefaultCatchallDemo() {
 
 function Chat() {
   // @region[default-catchall-zero-config]
-  // Opt in to CopilotKit's built-in default tool-call card. Called with
+  // Opt in to CopilotKit's built-in catch-all tool-call card. Called with
   // no config so the package-provided `DefaultToolCallRenderer` is used
   // as the wildcard renderer — this is the "out-of-the-box" UI the cell
   // is meant to showcase.

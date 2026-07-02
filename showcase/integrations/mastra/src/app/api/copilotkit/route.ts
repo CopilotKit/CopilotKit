@@ -72,6 +72,8 @@ export const demoAgentNames = [
   "hitl-in-app",
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
+  "tool-rendering-suppress-catchall",
+  "tool-rendering-named-override",
   "agentic-chat-reasoning",
   "reasoning-default-render",
   "readonly-state-agent-context",

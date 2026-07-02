@@ -39,6 +39,8 @@ features:
   - tool-rendering
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
+  - tool-rendering-suppress-catchall
+  - tool-rendering-named-override
   - gen-ui-agent
   - readonly-state-agent-context
   - prebuilt-sidebar
@@ -134,9 +136,8 @@ demos:
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-default-catchall
-    name: Tool Rendering (Default Catch-all)
-    description: Out-of-the-box tool rendering — backend defines tools; frontend
-      adds zero custom renderers
+    name: "Generative UI: Tool Rendering (Built-in catch-all)"
+    description: Built-in catch-all tool-call card via useDefaultRenderTool()
     tags:
       - generative-ui
     route: /demos/tool-rendering-default-catchall
@@ -146,8 +147,8 @@ demos:
       - src/app/demos/tool-rendering-default-catchall/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-custom-catchall
-    name: Tool Rendering (Custom Catch-all)
-    description: Single branded wildcard renderer via useDefaultRenderTool
+    name: "Generative UI: Tool Rendering (Custom catch-all)"
+    description: Replace the catch-all with a branded wildcard renderer via useDefaultRenderTool
     tags:
       - generative-ui
     route: /demos/tool-rendering-custom-catchall
@@ -156,6 +157,28 @@ demos:
       - src/mastra/tools/index.ts
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-suppress-catchall
+    name: "Generative UI: Tool Rendering (Suppress catch-all)"
+    description: Return null from the catch-all renderer so otherwise-unhandled tool calls run without painting UI in chat
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-suppress-catchall
+    animated_preview_url:
+    highlight:
+      - src/app/demos/tool-rendering-suppress-catchall/page.tsx
+      - src/app/demos/tool-rendering-suppress-catchall/use-suppress-catch-all-tool-rendering.ts
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-named-override
+    name: "Generative UI: Tool Rendering (Named override)"
+    description: A named renderer suppresses one specific tool while the built-in catch-all still renders other tools
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-named-override
+    animated_preview_url:
+    highlight:
+      - src/app/demos/tool-rendering-named-override/page.tsx
+      - src/app/demos/tool-rendering-named-override/use-suppress-weather-tool-rendering.ts
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI

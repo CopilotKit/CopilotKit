@@ -750,6 +750,8 @@ agents["reasoning-custom"] = createReasoningAgent("/reasoning");
 agents["tool-rendering"] = createAgent("/tool-rendering");
 agents["tool-rendering-default-catchall"] = createAgent("/tool-rendering");
 agents["tool-rendering-custom-catchall"] = createAgent("/tool-rendering");
+agents["tool-rendering-suppress-catchall"] = createAgent("/tool-rendering");
+agents["tool-rendering-named-override"] = createAgent("/tool-rendering");
 agents["tool-rendering-reasoning-chain"] = createReasoningAgent(
   "/tool-rendering-reasoning-chain",
 );

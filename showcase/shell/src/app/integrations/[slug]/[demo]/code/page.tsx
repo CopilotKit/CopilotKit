@@ -188,6 +188,22 @@ export default function StandaloneCodePage() {
     () => parseLineRange(searchParams.get("lines")),
     [searchParams],
   );
+  const firstHighlightedLine = useMemo(
+    () => Math.min(...Array.from(highlightedLines)),
+    [highlightedLines],
+  );
+
+  useEffect(() => {
+    if (!Number.isFinite(firstHighlightedLine)) return;
+    const id = window.setTimeout(() => {
+      document
+        .querySelector<HTMLElement>(
+          `[data-tour-line="${firstHighlightedLine}"]`,
+        )
+        ?.scrollIntoView({ block: "center", inline: "nearest" });
+    }, 100);
+    return () => window.clearTimeout(id);
+  }, [activeFile?.filename, firstHighlightedLine]);
 
   if (!integration) {
     return (
@@ -305,12 +321,13 @@ export default function StandaloneCodePage() {
             lineProps={(lineNumber) =>
               highlightedLines.has(lineNumber)
                 ? {
+                    "data-tour-line": lineNumber,
                     style: {
                       display: "block",
                       background: "rgba(250, 204, 21, 0.18)",
                     },
                   }
-                : {}
+                : { "data-tour-line": lineNumber }
             }
           >
             {activeFile.content}

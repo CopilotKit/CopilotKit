@@ -8,6 +8,8 @@
     "verify-shell-docs:fast": "tsx verify-shell-docs.ts --skip-build",
     "probe-docs": "tsx probe-docs.ts",
     "validate-manifests": "tsx generate-registry.ts --validate-only",
+    "pr-tour": "tsx pr-tour-report.ts",
+    "pr-tour-videos": "tsx pr-tour-videos.ts",
     "showcase:audit": "tsx audit.ts",
     "create-integration": "tsx create-integration/index.ts",
     "bundle-content": "tsx bundle-demo-content.ts",

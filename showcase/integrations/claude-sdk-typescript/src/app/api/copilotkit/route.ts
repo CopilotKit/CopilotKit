@@ -91,7 +91,9 @@ const agentNames = [
   // See override block below; entries here only seed Object.keys(agents)
   // for probe enumeration.
   "tool-rendering-default-catchall", // overridden -> /tool-rendering
-  "tool-rendering-custom-catchall", // overridden -> /tool-rendering
+  "tool-rendering-custom-catchall",
+  "tool-rendering-suppress-catchall",
+  "tool-rendering-named-override", // overridden -> /tool-rendering
   "tool-rendering-reasoning-chain", // overridden -> /tool-rendering-reasoning-chain
   // Reasoning variants — both share the same pass-through agent; differ
   // only in whether the frontend overrides the `messageView.reasoningMessage`
@@ -128,6 +130,12 @@ agents["tool-rendering-default-catchall"] = new HttpAgent({
   url: `${AGENT_URL}/tool-rendering`,
 });
 agents["tool-rendering-custom-catchall"] = new HttpAgent({
+  url: `${AGENT_URL}/tool-rendering`,
+});
+agents["tool-rendering-suppress-catchall"] = new HttpAgent({
+  url: `${AGENT_URL}/tool-rendering`,
+});
+agents["tool-rendering-named-override"] = new HttpAgent({
   url: `${AGENT_URL}/tool-rendering`,
 });
 agents["tool-rendering-reasoning-chain"] = new HttpAgent({

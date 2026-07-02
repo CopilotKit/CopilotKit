@@ -22,7 +22,7 @@ import { useRenderTool } from "@copilotkit/react-core/v2";
 useRenderTool(
   {
     name: "*",
-    render: (props) => React.ReactElement,
+    render: (props) => React.ReactNode,
     agentId?: string,
   },
   deps?: ReadonlyArray<unknown>,
@@ -39,7 +39,7 @@ useRenderTool(
   {
     name: string,
     parameters: z.ZodTypeAny,
-    render: (props) => React.ReactElement,
+    render: (props) => React.ReactNode,
     agentId?: string,
   },
   deps?: ReadonlyArray<unknown>,

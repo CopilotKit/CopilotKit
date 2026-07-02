@@ -38,7 +38,7 @@
 import React from "react";
 import demoContent from "../data/demo-content.json";
 import catalogData from "../data/catalog.json";
-import { DynamicCodeBlock } from "fumadocs-ui/components/dynamic-codeblock";
+import { SnippetCodeBlock } from "./snippet-code-block";
 
 interface Region {
   file: string;
@@ -112,6 +112,12 @@ interface SnippetProps {
    */
   framework?: string;
   /**
+   * Optional fallback integration slug. Used by shared docs pages that should
+   * prefer framework-local showcase source but still render a useful example
+   * for docs-only or unshipped frameworks with no bundled demo cell.
+   */
+  fallbackFramework?: string;
+  /**
    * Cell id — e.g. `agentic-chat`, `tool-rendering`. When omitted we infer
    * it from `defaultCell` (passed by the page) or error with a warning.
    */
@@ -126,6 +132,8 @@ interface SnippetProps {
   title?: string;
   /** Hide the file-path caption. */
   noCaption?: boolean;
+  /** Highlight one or more lines in the rendered snippet, e.g. "4-16" or "1,4-6". */
+  highlightLines?: string;
 }
 
 function WarningBox({ children }: { children: React.ReactNode }) {
@@ -292,6 +300,7 @@ export function Snippet({
   file,
   lines,
   framework,
+  fallbackFramework,
   cell,
   defaultFramework,
   defaultCell,
@@ -301,9 +310,23 @@ export function Snippet({
   // path that's already implied by surrounding doc context.
   title: _title,
   noCaption,
+  highlightLines,
 }: SnippetProps) {
   const resolvedFramework = framework ?? defaultFramework;
   const resolvedCell = cell ?? defaultCell;
+  const fallbackSnippet = () =>
+    fallbackFramework && fallbackFramework !== resolvedFramework ? (
+      <Snippet
+        region={region}
+        file={file}
+        lines={lines}
+        framework={fallbackFramework}
+        cell={cell}
+        defaultCell={defaultCell}
+        noCaption={noCaption}
+        highlightLines={highlightLines}
+      />
+    ) : null;
 
   if (!region && !file) {
     return (
@@ -317,6 +340,9 @@ export function Snippet({
   }
 
   if (!resolvedFramework) {
+    const fallback = fallbackSnippet();
+    if (fallback) return fallback;
+
     return (
       <div className="shell-docs-radius-surface my-4 border border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 text-sm text-[var(--text-muted)] shadow-[var(--shadow-control)]">
         Select an AI backend above to see this code example.
@@ -344,7 +370,14 @@ export function Snippet({
   // implies a docs gap that needs filling; the former is an intentional
   // statement that the framework doesn't implement this feature.
   const catalogEntry = catalogByKey.get(key);
-  if (catalogEntry?.status === "unsupported") {
+  if (
+    catalogEntry &&
+    catalogEntry.status !== "wired" &&
+    catalogEntry.status !== "ready"
+  ) {
+    const fallback = fallbackSnippet();
+    if (fallback) return fallback;
+
     return (
       <UnsupportedBox
         integrationName={catalogEntry.integration_name ?? resolvedFramework}
@@ -355,6 +388,9 @@ export function Snippet({
 
   const demo = demos[key];
   if (!demo) {
+    const fallback = fallbackSnippet();
+    if (fallback) return fallback;
+
     return (
       <WarningBox>
         No demo found for <code>{key}</code>. Known demos are bundled from
@@ -368,6 +404,9 @@ export function Snippet({
   if (region) {
     const found = demo.regions?.[region];
     if (!found) {
+      const fallback = fallbackSnippet();
+      if (fallback) return fallback;
+
       const available = Object.keys(demo.regions ?? {});
       return (
         <WarningBox>
@@ -387,6 +426,9 @@ export function Snippet({
     // file+lines mode
     const demoFile = demo.files?.find((f) => f.filename === file);
     if (!demoFile) {
+      const fallback = fallbackSnippet();
+      if (fallback) return fallback;
+
       const available = (demo.files ?? []).map((f) => f.filename);
       return (
         <WarningBox>
@@ -433,10 +475,11 @@ export function Snippet({
   const caption = noCaption ? undefined : basename;
 
   return (
-    <DynamicCodeBlock
+    <SnippetCodeBlock
       lang={resolveShikiLanguage(reg.language)}
       code={reg.code}
-      codeblock={caption ? { title: caption } : undefined}
+      caption={caption}
+      highlightLines={highlightLines}
     />
   );
 }
