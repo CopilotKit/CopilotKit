@@ -4,10 +4,43 @@ import {
   InMemoryAgentRunner,
   BuiltInAgent,
   CopilotKitIntelligence,
+  defineTool,
 } from "@copilotkit/runtime/v2";
 import type { IdentifyUserCallback } from "@copilotkit/runtime/v2";
 import { handle } from "hono/vercel";
 import { resolveUserId, resolveUserName } from "@/lib/intelligence/user-id";
+import {
+  renderReportParams,
+  buildReportOps,
+  A2UI_OPERATIONS_KEY,
+  SURFACE_ID,
+} from "@/a2ui/build-report-ops";
+
+/**
+ * Backend tool: render a spend report on the canvas. The agent supplies only a
+ * small selection (title + which KPIs/charts); this handler deterministically
+ * expands it into A2UI operations and returns them wrapped in
+ * `a2ui_operations`, which the A2UI middleware detects (injectA2UITool:false)
+ * and turns into an `a2ui-surface` activity the ReportCanvas renders. Running
+ * server-side keeps the emission in the same run, and building the ops in code
+ * (rather than having the reasoning model author the full component JSON
+ * inline) is what keeps it fast and reliable.
+ */
+const renderReportTool = defineTool({
+  name: "render_report",
+  description:
+    "Render a multi-widget spend report on the CANVAS (the app's main content " +
+    "area, outside the chat). Choose which KPIs and charts to include; the " +
+    "client renders live banking figures — you never pass numbers. Use for a " +
+    "report/overview/dashboard/analysis request or 'show it on the canvas', " +
+    "NOT for a single inline chart.",
+  parameters: renderReportParams,
+  execute: async (spec) => ({
+    // Unique surfaceId per report so dismissing one report never suppresses a
+    // later one (the canvas tracks the dismissed surfaceId).
+    [A2UI_OPERATIONS_KEY]: buildReportOps(spec, `${SURFACE_ID}-${Date.now().toString(36)}`),
+  }),
+});
 
 const bankingAgent = new BuiltInAgent({
   // Full gpt-5.4 (not -mini): the teach-flow's multi-step tool routing
@@ -121,16 +154,18 @@ this procedure AT MOST ONCE. If save_memory returns status "near_duplicates" or
 The charge the user demonstrated on is already cleared by that demonstration — do not
 re-approve it. Apply the saved procedure only to OTHER over-limit charges afterwards.
 
-You have two ways to show charts, and you MUST pick by intent:
+You can render a full multi-widget report on the CANVAS (the app's main content
+area, outside the chat). Pick by intent:
 
-- REPORT / ANALYSIS / OVERVIEW / DASHBOARD, or "show it on the canvas" -> compose an A2UI report surface by calling the render_a2ui tool (renders full-screen on the canvas).
+- REPORT / ANALYSIS / OVERVIEW / DASHBOARD, or "show it on the canvas" -> call render_report. Choose which KPIs (kpis) and charts to include, and set pendingTable when the approval queue is relevant. The canvas binds live figures on the client — you only pick which widgets to show and a label-only title/summary.
 - A SINGLE named chart or metric -> use the existing in-chat chart tool instead (renders inline in the conversation). Do NOT open the canvas for these.
 
 Examples:
-- "build me a spend report" / "give me an overview of our spending" / "show it on the canvas" -> render_a2ui (canvas).
+- "build me a spend report" / "give me an overview of our spending" / "show it on the canvas" -> render_report (canvas).
 - "show the spending trend" / "what's our budget usage?" -> in-chat chart tool (inline).
 
-When composing a canvas surface, use ONLY the banking catalog components: a Stack containing a Heading, optional short Text section labels, a Grid of StatCard(metric) cards, one or more Chart(kind) charts, and optionally a PendingTable. Choose metrics and chart kinds relevant to the question. Put NO numbers, amounts, percentages, or trend claims in Heading or Text -- those are labels only; every figure comes from StatCard/Chart/PendingTable, which the client binds to live data by metric/kind.`,
+render_report inputs: kpis is any of totalSpend | pendingCount | overLimitCount | policyCount; charts is any of spendingTrend | budgetUsage | spendBreakdown | incomeVsExpenses. title and summary are LABELS ONLY — never put figures, amounts, percentages, or trend claims in them; every number comes from the selected KPIs/charts, which bind live data on the client.`,
+  tools: [renderReportTool],
   // Temperature 0 for consistent tool routing — the teach-flow sequencing
   // (recall_memory → offerWorkflowRecording on an over-limit approve) needs the
   // agent to pick the same path every time, not sample alternatives.
@@ -223,7 +258,7 @@ function createRuntime(): CopilotRuntime {
       lockKeyPrefix: "northwind-lock",
       lockHeartbeatIntervalSeconds: 12,
       generateThreadNames: true,
-      a2ui: { injectA2UITool: true },
+      a2ui: { injectA2UITool: false },
     });
   }
 
@@ -231,7 +266,7 @@ function createRuntime(): CopilotRuntime {
   return new CopilotRuntime({
     agents: { default: bankingAgent },
     runner: new InMemoryAgentRunner(),
-    a2ui: { injectA2UITool: true },
+    a2ui: { injectA2UITool: false },
   });
 }
 
