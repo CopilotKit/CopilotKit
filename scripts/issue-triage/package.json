@@ -1,0 +1,19 @@
+{
+  "name": "@copilotkit/issue-triage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "triage": "tsx src/index.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/ai": "0.39.0",
+    "@tanstack/ai-claude-code": "0.2.0",
+    "@tanstack/ai-sandbox": "0.2.0",
+    "@tanstack/ai-sandbox-local-process": "0.2.0",
+    "@octokit/rest": "21.1.1"
+  },
+  "devDependencies": { "tsx": "4.19.2", "typescript": "5.7.3", "vitest": "2.1.8" }
+}
