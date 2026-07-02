@@ -52,6 +52,7 @@ features:
   - agent-config
   - declarative-gen-ui
   - a2ui-fixed-schema
+  - a2ui-recovery
   - headless-complete
   - auth
   - shared-state-read-write
@@ -300,6 +301,22 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/mastra/tools/index.ts
       - src/app/api/copilotkit/route.ts
+  - id: a2ui-recovery
+    name: A2UI Error Recovery
+    description:
+      Dynamic A2UI where the toolkit's validate→retry recovery loop is made
+      visible — a malformed first render self-heals into a valid surface; an
+      always-invalid render exhausts the attempt cap and shows a tasteful
+      fallback instead of a broken surface. Backend-owned via getA2UITools.
+    tags:
+      - generative-ui
+    route: /demos/a2ui-recovery
+    highlight:
+      - src/app/demos/a2ui-recovery/page.tsx
+      - src/app/demos/a2ui-recovery/chat.tsx
+      - src/app/demos/a2ui-recovery/suggestions.ts
+      - src/mastra/agents/index.ts
+      - src/app/api/copilotkit-a2ui-recovery/route.ts
   - id: a2ui-fixed-schema
     name: A2UI Fixed Schema
     description: Frontend-owned component tree; agent streams data into the data

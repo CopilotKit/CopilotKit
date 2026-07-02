@@ -25,6 +25,10 @@ import {
 import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
+// Backend-owned A2UI with the toolkit validate->retry recovery loop (OSS-422).
+// `@ag-ui/mastra/a2ui` is a bridge-free subpath (avoids the Mastra bundler vs
+// @ag-ui/client→uuid clash); mirrors langgraph's get_a2ui_tools.
+import { getA2UITools } from "@ag-ui/mastra/a2ui";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
@@ -532,6 +536,44 @@ Keep responses short and friendly. After you finish executing tools, always send
 });
 // @endregion[interrupt-agent]
 // @endregion[backend-interrupt-tool]
+
+// A2UI Error Recovery agent (OSS-422). Backend-owned `generate_a2ui` via
+// getA2UITools, which runs the forced render_a2ui subagent + the toolkit
+// validate->retry recovery loop + the recovery-exhausted hard-fail envelope
+// INSIDE the tool. The dedicated route (/api/copilotkit-a2ui-recovery) sets
+// a2ui.injectA2UITool=false so the runtime does not inject a second copy.
+// Reuses the declarative-gen-ui catalog ("declarative-gen-ui-catalog"); mirrors
+// langgraph-python recovery_agent.py + the strands recovery cell.
+export const a2uiRecoveryAgent = new Agent({
+  id: "a2ui-recovery",
+  name: "A2UI Recovery Agent",
+  model: openai("gpt-4.1"),
+  instructions:
+    "You are the embedded sales analyst for Vantage Threads, a fictional B2B " +
+    "apparel company. Answer every business question by calling `generate_a2ui` " +
+    "to draw a rich visual surface, and keep the chat reply to one short " +
+    "sentence. `generate_a2ui` handles the rendering — and its automatic " +
+    "recovery — for you.",
+  tools: {
+    generate_a2ui: getA2UITools({
+      model: openai("gpt-4.1"),
+      defaultCatalogId: "declarative-gen-ui-catalog",
+      recovery: { maxAttempts: 3 },
+    }),
+  },
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "a2ui-recovery-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
 
 export const multimodalAgent = new Agent({
   id: "multimodal-demo",
