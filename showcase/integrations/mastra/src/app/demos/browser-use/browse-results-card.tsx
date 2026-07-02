@@ -36,7 +36,11 @@ export function BrowseResultsCard({
   error,
 }: BrowseResultsCardProps) {
   const heading =
-    mode === "page" ? "Page read" : mode === "hackernews" ? "Top stories" : "Browsing";
+    mode === "page"
+      ? "Page read"
+      : mode === "hackernews"
+        ? "Top stories"
+        : "Browsing";
 
   return (
     <div

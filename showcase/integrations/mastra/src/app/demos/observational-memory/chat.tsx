@@ -6,6 +6,9 @@ import { useObservationalMemorySuggestions } from "./suggestions";
 export function Chat() {
   useObservationalMemorySuggestions();
   return (
-    <CopilotChat agentId="observational-memory" className="h-full rounded-2xl" />
+    <CopilotChat
+      agentId="observational-memory"
+      className="h-full rounded-2xl"
+    />
   );
 }

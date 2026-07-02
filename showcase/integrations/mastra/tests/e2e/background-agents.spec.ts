@@ -71,7 +71,10 @@ test.describe("Background Agents (Mastra background task → activity card)", ()
     ).toHaveText(/Working/i, { timeout: 60_000 });
 
     // The card carries the running status attribute.
-    await expect(card.first()).toHaveAttribute("data-status", /running|resumed/);
+    await expect(card.first()).toHaveAttribute(
+      "data-status",
+      /running|resumed/,
+    );
   });
 
   test("typed research prompt also shows a working activity card", async ({

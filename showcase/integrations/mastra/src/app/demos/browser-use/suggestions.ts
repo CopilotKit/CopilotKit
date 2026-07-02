@@ -11,7 +11,8 @@ export function useSuggestions() {
       },
       {
         title: "Summarize the CopilotKit homepage",
-        message: "Read https://www.copilotkit.ai and summarize what it's about.",
+        message:
+          "Read https://www.copilotkit.ai and summarize what it's about.",
       },
     ],
     available: "always",

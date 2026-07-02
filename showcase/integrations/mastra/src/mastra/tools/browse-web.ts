@@ -44,7 +44,10 @@ const HN_URL = "https://news.ycombinator.com/";
  * a mention of hacker news / HN routes to the HN scraper; otherwise we
  * default to HN so a bare "what's trending" still does something useful.
  */
-function planBrowse(task: string): { mode: "hackernews" | "page"; url: string } {
+function planBrowse(task: string): {
+  mode: "hackernews" | "page";
+  url: string;
+} {
   const urlMatch = task.match(/https?:\/\/[^\s"'<>)]+/i);
   if (urlMatch) {
     return { mode: "page", url: urlMatch[0] };
@@ -83,7 +86,9 @@ async function scrapeHackerNews(browser: Browser): Promise<BrowseResult[]> {
       let points: number | undefined;
       try {
         const sub = row.locator("xpath=following-sibling::tr[1]");
-        const scoreText = (await sub.locator(".score").first().textContent({ timeout: 1_000 }))?.trim();
+        const scoreText = (
+          await sub.locator(".score").first().textContent({ timeout: 1_000 })
+        )?.trim();
         const n = scoreText ? parseInt(scoreText, 10) : NaN;
         points = Number.isNaN(n) ? undefined : n;
       } catch {
@@ -97,14 +102,21 @@ async function scrapeHackerNews(browser: Browser): Promise<BrowseResult[]> {
   }
 }
 
-async function readPage(browser: Browser, url: string): Promise<{ results: BrowseResult[]; text: string }> {
+async function readPage(
+  browser: Browser,
+  url: string,
+): Promise<{ results: BrowseResult[]; text: string }> {
   const page = await browser.newPage();
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
     const title = (await page.title())?.trim() || url;
     // Pull a bounded chunk of visible body text so the agent can summarize
     // it without us shipping the whole DOM back through the model.
-    const bodyText = (await page.locator("body").innerText({ timeout: 10_000 }).catch(() => "")) || "";
+    const bodyText =
+      (await page
+        .locator("body")
+        .innerText({ timeout: 10_000 })
+        .catch(() => "")) || "";
     const text = bodyText.replace(/\s+/g, " ").trim().slice(0, 4_000);
     return {
       results: [{ title, url, source: new URL(url).hostname }],

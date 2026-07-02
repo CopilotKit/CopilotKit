@@ -46,7 +46,5 @@ export function Chat() {
 
   useSuggestions();
 
-  return (
-    <CopilotChat agentId="browser-use" className="h-full rounded-2xl" />
-  );
+  return <CopilotChat agentId="browser-use" className="h-full rounded-2xl" />;
 }

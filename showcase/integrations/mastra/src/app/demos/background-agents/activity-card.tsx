@@ -78,7 +78,10 @@ function BackgroundTaskCard({ content }: { content: BackgroundTaskContent }) {
               aria-hidden
             />
           ) : (
-            <span className="inline-block h-4 w-4 rounded-full bg-muted-foreground" aria-hidden />
+            <span
+              className="inline-block h-4 w-4 rounded-full bg-muted-foreground"
+              aria-hidden
+            />
           )}
           <div className="flex flex-col">
             <span className="text-sm font-medium">Deep research</span>

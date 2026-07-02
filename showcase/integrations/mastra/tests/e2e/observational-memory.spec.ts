@@ -41,7 +41,9 @@ test.describe("Observational Memory (Mastra)", () => {
     );
   });
 
-  test("both suggestion pills render with verbatim titles", async ({ page }) => {
+  test("both suggestion pills render with verbatim titles", async ({
+    page,
+  }) => {
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
     await expect(
       suggestions.filter({ hasText: "Brief my analytics project" }).first(),
@@ -71,6 +73,8 @@ test.describe("Observational Memory (Mastra)", () => {
     // We do NOT assert on it — it is timing/LLM dependent (see scope note).
     const omCard = page.locator('[data-testid="om-activity-card"]');
     const omCount = await omCard.count();
-    console.log(`[observational-memory] OM activity cards rendered: ${omCount}`);
+    console.log(
+      `[observational-memory] OM activity cards rendered: ${omCount}`,
+    );
   });
 });

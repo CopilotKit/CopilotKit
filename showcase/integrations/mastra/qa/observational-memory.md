@@ -37,7 +37,7 @@ renderer paints them inline in the chat.
       advancing in place):
   - "Compressing memory · Working" (buffering start)
   - then "Compressing memory · Compressed" and/or
-        "Activating observations · Activated" as the cycle completes
+    "Activating observations · Activated" as the cycle completes
 - [ ] Note: the card frequently reads "Working" within the turn — OM completion
       and activation are timing-adjacent and can trail the streamed response.
       Send a second sizable message (or click the other pill) to see the card
