@@ -3,39 +3,36 @@
 import {
   CopilotChat,
   CopilotChatConfigurationProvider,
+  CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
-import { useState } from "react";
 
-import { ThreadsDrawer } from "./components/threads-drawer";
-import { ThreadsPanelGate } from "./components/threads-drawer/locked-state";
-import styles from "./components/threads-drawer/threads-drawer.module.css";
+import styles from "./page.module.css";
 
 const agentId = "default";
 
 export default function CopilotKitPage() {
-  const [threadId, setThreadId] = useState<string | undefined>(undefined);
-
   return (
-    <div className={`${styles.layout} threadsLayout`}>
-      <ThreadsPanelGate>
-        <ThreadsDrawer
-          agentId={agentId}
-          threadId={threadId}
-          onThreadChange={setThreadId}
-        />
-      </ThreadsPanelGate>
-      <div className={styles.mainPanel}>
-        <CopilotChatConfigurationProvider agentId={agentId} threadId={threadId}>
-          <main className="h-screen w-screen flex justify-center items-center">
+    /*
+      One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop) owns
+      the active thread for the whole surface. The SDK <CopilotThreadsDrawer> drives it
+      directly — picking a row sets the active thread, "+ New" resets to a fresh
+      thread (clearing the chat) — with no host thread-state. The chat reads the
+      same active thread from the provider. A *controlled* provider would block
+      "+ New" from resetting, so uncontrolled-inside-provider is required.
+    */
+    <CopilotChatConfigurationProvider agentId={agentId}>
+      <div className={`${styles.layout} threadsLayout`}>
+        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+        <CopilotThreadsDrawer agentId={agentId} />
+        <div className={styles.mainPanel}>
+          <main className="h-full w-full flex justify-center items-center">
             <CopilotChat
-              key={threadId ?? "new-thread"}
               agentId={agentId}
-              threadId={threadId}
-              className="w-1/2 h-full"
+              className="w-full max-w-3xl h-full"
             />
           </main>
-        </CopilotChatConfigurationProvider>
+        </div>
       </div>
-    </div>
+    </CopilotChatConfigurationProvider>
   );
 }

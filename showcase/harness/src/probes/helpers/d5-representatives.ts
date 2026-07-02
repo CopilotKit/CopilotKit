@@ -35,6 +35,7 @@ export const D5_REPRESENTATIVES: Readonly<
   "gen-ui-agent": "gen-ui-agent.json",
   "gen-ui-custom": "render-a2ui.json", // pie chart fixtures shared with render-a2ui
   "gen-ui-declarative": "gen-ui-tool-based.json",
+  "a2ui-recovery": "a2ui-recovery.json",
   "gen-ui-headless-complete": "headless-complete.json",
   "gen-ui-interrupt": "hitl-in-chat.json", // schedule_meeting fixtures shared with hitl
   "gen-ui-open": "gen-ui-custom.json",

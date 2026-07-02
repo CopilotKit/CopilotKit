@@ -77,6 +77,17 @@ export interface NewCardRequest {
   pin: string;
 }
 
+// A copilot-generated report artifact, filed in the dashboard's Reports tab.
+// Narrative fields come from the agent; id/createdAt are server-set.
+export interface Report {
+  id: string;
+  title: string;
+  summary: string;
+  highlights: string[];
+  createdAt: string;
+  createdBy: string;
+}
+
 export function generateUniqueId() {
   return Math.random().toString(36).slice(2, 15);
 }

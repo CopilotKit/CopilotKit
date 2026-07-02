@@ -12,6 +12,19 @@
   }
 }
 
+/* adk's CopilotSidebar (CopilotKit's V2 chat) stays LIGHT regardless of the OS
+   color scheme, so the threads layout is held light too — otherwise it would
+   clash with the sidebar it sits beside. The SDK <CopilotThreadsDrawer> reads
+   --foreground/--background by token inheritance; re-pinning them here keeps the
+   panel readable without affecting the demo content. The confirm dialog renders
+   in a portal on <body>, so re-pin there as well. Values mirror the V2 light
+   theme (oklch(0.145 0 0) / oklch(1 0 0)). */
+.threadsLayout,
+body > [role="presentation"] {
+  --foreground: oklch(0.145 0 0);
+  --background: oklch(1 0 0);
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
@@ -21,67 +34,4 @@ body {
 body,
 html {
   height: 100%;
-}
-
-/*
- * Threads panel theme — matched to adk's CopilotKit chat (CopilotSidebar /
- * CopilotChat v2). That chat renders in the framework's default LIGHT look:
- * white surfaces, soft gray-200 borders, gray-500/600 muted text, a system
- * sans typeface, and a ~1rem rounded panel with smaller radii on controls.
- *
- * The threads panel is FORCED LIGHT on this `.threads-theme` wrapper so it
- * reads as part of the same kit as the chat even when the OS is in dark mode
- * (adk's chat is always light). These tokens drive the themeable drawer base
- * + ui/card + ui/button (see threads-drawer/THEME.md) — never edit the drawer
- * files; theme them here.
- */
-.threads-theme {
-  color-scheme: light;
-
-  /* Surfaces — white chat-panel surface on a faint gray rail */
-  --background: #ffffff;
-  --foreground: #171717;
-  --card: #ffffff;
-  --card-foreground: #171717;
-
-  /* Borders / dividers — Tailwind gray-200, the chat's hairline color */
-  --border: #e5e7eb;
-  --input: #e5e7eb;
-
-  /* Primary action (New thread / dialog confirm) — neutral ink, like the
-     chat's send affordance, so the panel doesn't fight the page theme color */
-  --primary: #171717;
-  --primary-foreground: #ffffff;
-
-  /* Hover / track / skeleton — Tailwind gray-100 */
-  --secondary: #f3f4f6;
-  --secondary-foreground: #171717;
-  --muted: #f3f4f6;
-
-  /* Muted text — Tailwind gray-500 */
-  --muted-foreground: #6b7280;
-
-  /* Selected thread row — faint gray-50 wash */
-  --accent: #f9fafb;
-  --accent-foreground: #171717;
-
-  /* Focus ring — soft neutral, matching the chat's understated focus */
-  --ring: #9ca3af;
-
-  /* Destructive (delete) */
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-
-  /* Radius — chat panel uses 1rem; controls inside the drawer derive smaller
-     radii from this token */
-  --radius: 0.75rem;
-
-  /* Typography — match the chat's system sans stack */
-  --font-body:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
-    Arial, sans-serif;
-
-  /* Drawer-specific visuals: keep the surface flat to match the chat's quiet
-     panel rather than the north-star's pronounced drop shadow */
-  --threads-drawer-shadow: 1px 0 0 var(--border);
 }

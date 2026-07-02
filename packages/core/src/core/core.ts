@@ -143,6 +143,16 @@ export interface CopilotKitCoreSubscriber {
     copilotkit: CopilotKitCore;
     agents: Readonly<Record<string, AbstractAgent>>;
   }) => void | Promise<void>;
+  /**
+   * Fired when an agent run or connect begins. The `agent` may be a per-thread
+   * clone that is not present in `core.agents`, so `onAgentsChanged` never fires
+   * for it. Subscribers (e.g. the inspector) can use this to subscribe to the
+   * running instance's AG-UI events.
+   */
+  onAgentRunStarted?: (event: {
+    copilotkit: CopilotKitCore;
+    agent: AbstractAgent;
+  }) => void | Promise<void>;
   onContextChanged?: (event: {
     copilotkit: CopilotKitCore;
     context: Readonly<Record<string, Context>>;

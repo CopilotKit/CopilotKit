@@ -1,46 +1,38 @@
 "use client";
 
-import { useState } from "react";
-
 import { ExampleLayout } from "@/components/example-layout";
 import { ExampleCanvas } from "@/components/example-canvas";
-import { ThreadsDrawer } from "@/components/threads-drawer";
-import { ThreadsPanelGate } from "@/components/threads-drawer/locked-state";
 import { useGenerativeUIExamples, useExampleSuggestions } from "@/hooks";
 
 import {
   CopilotChat,
   CopilotChatConfigurationProvider,
+  CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
 
-import styles from "@/components/threads-drawer/threads-drawer.module.css";
+import styles from "./page.module.css";
 
 export default function HomePage() {
   useGenerativeUIExamples();
   useExampleSuggestions();
 
-  const [threadId, setThreadId] = useState<string | undefined>(undefined);
-
   return (
-    <div className={styles.layout}>
-      <ThreadsPanelGate>
-        <ThreadsDrawer
-          agentId="default"
-          threadId={threadId}
-          onThreadChange={setThreadId}
-        />
-      </ThreadsPanelGate>
-      <div className={styles.mainPanel}>
-        {/*
-          Wrap both the chat and the canvas in one CopilotChatConfigurationProvider
-          so they share the active threadId. `useAgent()` falls back to the
-          provider's threadId when called without an explicit one, which makes
-          the canvas read from the same per-thread agent clone that the chat's
-          /connect replay populates. Without this wrapper, the canvas resolves
-          to the registry agent and never receives STATE_SNAPSHOT events on
-          thread resume.
-        */}
-        <CopilotChatConfigurationProvider agentId="default" threadId={threadId}>
+    /*
+      One UNCONTROLLED CopilotChatConfigurationProvider (no `threadId` prop) owns
+      the active thread for the whole surface. The SDK <CopilotThreadsDrawer> drives it
+      directly — picking a row sets the active thread, "+ New" resets to a fresh
+      thread (clearing the chat) — with no host thread-state. The chat and the
+      canvas read the same active thread from the provider (the canvas's
+      `useAgent()` falls back to it), so they stay on the same per-thread agent
+      clone the chat's /connect replay populates. A *controlled* provider would
+      block "+ New" from resetting the chat, so uncontrolled-inside-provider is
+      required, not optional.
+    */
+    <CopilotChatConfigurationProvider agentId="default">
+      <div className={styles.layout}>
+        {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
+        <CopilotThreadsDrawer agentId="default" />
+        <div className={styles.mainPanel}>
           <ExampleLayout
             chatContent={
               <CopilotChat
@@ -50,8 +42,8 @@ export default function HomePage() {
             }
             appContent={<ExampleCanvas />}
           />
-        </CopilotChatConfigurationProvider>
+        </div>
       </div>
-    </div>
+    </CopilotChatConfigurationProvider>
   );
 }

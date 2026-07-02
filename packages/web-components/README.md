@@ -2,7 +2,7 @@
 
 Framework-agnostic, shadow-DOM [Lit](https://lit.dev) custom elements for CopilotKit.
 
-This package currently ships **`<copilotkit-drawer>`** — a public, self-contained,
+This package currently ships **`<copilotkit-threads-drawer>`** — a public, self-contained,
 controlled threads drawer. It is a pure **VIEW**: domain data flows in as
 properties and user intent flows out as DOM `CustomEvent`s. It imports no React,
 Angular, or `@copilotkit/core` code and renders correctly in any host page,
@@ -19,15 +19,15 @@ npm install @copilotkit/web-components lit
 ## Usage
 
 ```ts
-import { defineCopilotKitDrawer } from "@copilotkit/web-components/drawer";
+import { defineCopilotKitThreadsDrawer } from "@copilotkit/web-components/threads-drawer";
 
-defineCopilotKitDrawer(); // registers <copilotkit-drawer> (idempotent)
+defineCopilotKitThreadsDrawer(); // registers <copilotkit-threads-drawer> (idempotent)
 ```
 
 ```html
-<copilotkit-drawer active-thread-id="t-123"></copilotkit-drawer>
+<copilotkit-threads-drawer active-thread-id="t-123"></copilotkit-threads-drawer>
 <script>
-  const drawer = document.querySelector("copilotkit-drawer");
+  const drawer = document.querySelector("copilotkit-threads-drawer");
   drawer.threads = [
     {
       id: "t-123",
@@ -78,7 +78,7 @@ confirm-delete dialog, and per-row entry/reveal animations.
 The built-in default skin's token values are **derived at build time** from
 react-core's canonical theme (`packages/react-core/src/v2/styles/globals.css`)
 by `scripts/generate-tokens.ts`, which writes the checked-in
-`src/drawer/generated-tokens.ts`. Run `pnpm run gen:tokens` to regenerate;
+`src/threads-drawer/generated-tokens.ts`. Run `pnpm run gen:tokens` to regenerate;
 `generated-tokens.test.ts` fails if the checked-in values drift from react-core.
 
 ## Mobile + a11y
