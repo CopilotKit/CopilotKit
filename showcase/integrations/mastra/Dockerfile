@@ -40,6 +40,17 @@ COPY --chown=app:app --from=frontend /app/public ./public
 # separate process, so no build step beyond Next.js bundling.
 COPY --chown=app:app --from=frontend /app/src/mastra ./src/mastra
 
+# NOTE (Browser Use demo — /demos/browser-use, OSS-91):
+# That demo drives a real LOCAL headless Chromium via Playwright's `browse_web`
+# tool. The browser binary is NOT installed here on purpose — it would add
+# several hundred MB + system libraries to every deploy for a single
+# non-deterministic, real-LLM cell. The `browse_web` tool degrades gracefully
+# (returns a structured error the agent relays) when the binary is missing, so
+# the rest of the image works unchanged. To enable a live browse in this image,
+# install the browser + its OS deps in the runner stage, e.g.:
+#   RUN npx playwright install --with-deps chromium
+# (see qa/browser-use.md for the full runtime requirements).
+
 # Entrypoint
 COPY --chown=app:app entrypoint.sh ./
 RUN chmod +x entrypoint.sh

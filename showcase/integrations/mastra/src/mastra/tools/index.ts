@@ -23,6 +23,8 @@ import {
 export { setNotesTool } from "./shared-state-read-write";
 export { setStepsTool } from "./gen-ui-agent";
 export { scheduleMeetingInterruptTool } from "./interrupt";
+export { browseWebTool } from "./browse-web";
+export { runDeepResearchTool } from "./background-research";
 export {
   researchAgentTool,
   writingAgentTool,

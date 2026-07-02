@@ -11,6 +11,9 @@ import {
   multimodalAgent,
   mcpAppsAgent,
   byocHashbrownAgent,
+  browserUseAgent,
+  backgroundAgentsAgent,
+  observationalMemoryAgent,
 } from "./agents";
 import { ConsoleLogger, LogLevel } from "@mastra/core/logger";
 
@@ -28,11 +31,23 @@ export const mastra = new Mastra({
     multimodalAgent,
     mcpAppsAgent,
     byocHashbrownAgent,
+    browserUseAgent,
+    backgroundAgentsAgent,
+    observationalMemoryAgent,
   },
   storage: new LibSQLStore({
     id: "mastra-storage",
     url: ":memory:",
   }),
+  // Enables Mastra's BackgroundTaskManager so tools flagged
+  // `background: { enabled: true }` (e.g. `run_deep_research`, used by the
+  // Background Agents demo) are dispatched to run in the background instead
+  // of inline in the agentic loop. Without this the manager is off and the
+  // tool would run synchronously, never emitting a `background-task-started`
+  // lifecycle chunk.
+  backgroundTasks: {
+    enabled: true,
+  },
   logger: new ConsoleLogger({
     level: LOG_LEVEL,
   }),

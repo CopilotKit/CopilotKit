@@ -75,6 +75,9 @@ features:
   - tool-rendering-reasoning-chain
   - gen-ui-interrupt
   - interrupt-headless
+  - background-agents
+  - browser-use
+  - observational-memory
 a2ui_pattern: llm-driven
 interrupt_pattern: native
 agent_config_pattern: shared-state
@@ -576,3 +579,50 @@ demos:
       - src/mastra/agents/index.ts
       - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
+  - id: background-agents
+    name: Background Agents
+    description: A long-running deep-research tool dispatched as a Mastra
+      background task, surfaced inline as a live "working" activity card
+    tags:
+      - agent-capabilities
+    route: /demos/background-agents
+    animated_preview_url:
+    highlight:
+      - src/mastra/tools/background-research.ts
+      - src/mastra/agents/index.ts
+      - src/app/demos/background-agents/page.tsx
+      - src/app/demos/background-agents/activity-card.tsx
+      - src/app/api/copilotkit-background-agents/route.ts
+  - id: browser-use
+    name: Browser Use (Local Browser)
+    description:
+      Mastra-only, real-LLM demo — the agent drives a real LOCAL headless
+      browser (Playwright Chromium, no hosted-browser API key) to fetch top
+      Hacker News stories or read a page, and renders the results inline in
+      chat. Non-deterministic, so no aimock replay — requires
+      `npx playwright install chromium` at runtime.
+    tags:
+      - agent-capabilities
+    route: /demos/browser-use
+    animated_preview_url:
+    highlight:
+      - src/mastra/agents/index.ts
+      - src/mastra/tools/browse-web.ts
+      - src/app/demos/browser-use/page.tsx
+      - src/app/demos/browser-use/chat.tsx
+      - src/app/demos/browser-use/browse-results-card.tsx
+      - src/app/api/copilotkit-browser-use/route.ts
+  - id: observational-memory
+    name: Observational Memory
+    description: Mastra Observational Memory compresses and activates
+      conversation context out of band; the background work surfaces inline as
+      activity cards via the runtime's observationalMemory surfacing toggle
+    tags:
+      - agent-state
+    route: /demos/observational-memory
+    animated_preview_url:
+    highlight:
+      - src/mastra/agents/index.ts
+      - src/app/demos/observational-memory/page.tsx
+      - src/app/demos/observational-memory/activity-renderer.tsx
+      - src/app/api/copilotkit-observational-memory/route.ts
