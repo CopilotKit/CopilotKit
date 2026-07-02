@@ -1,5 +1,9 @@
 import type { Bot, StateStore } from "@copilotkit/bot";
-import type { DeliverySource, EgressSink } from "./transports.js";
+import type {
+  DeliverySource,
+  EgressSink,
+  RenderEventSink,
+} from "./transports.js";
 import { intelligenceAdapter } from "./intelligence-adapter.js";
 
 /** Project/code identifier: starts with a letter, then letters/digits/underscore. */
@@ -96,6 +100,7 @@ export function buildActivationMetadata(
 export interface ManagedTransport {
   source: DeliverySource;
   egress: EgressSink;
+  renderSink?: RenderEventSink;
   store?: StateStore;
 }
 
@@ -130,8 +135,10 @@ export async function startManagedBots(
     resolveActivationEnv(opts.env),
   );
   for (const bot of opts.bots) {
-    const { source, egress, store } = opts.resolveTransport(bot.name!);
-    bot.addAdapter(intelligenceAdapter({ source, egress, store }));
+    const { source, egress, renderSink, store } = opts.resolveTransport(
+      bot.name!,
+    );
+    bot.addAdapter(intelligenceAdapter({ source, egress, renderSink, store }));
     await bot.start();
   }
   return {

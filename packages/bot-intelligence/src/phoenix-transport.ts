@@ -68,6 +68,8 @@ const DELIVERY_FAIL = "hosted_bot.delivery.fail.v1";
 /** Per-delivery state the transport needs to build completion/fail intents. */
 interface DeliveryState {
   turnId: string;
+  leaseToken: string;
+  scope: HostedBotRealtimeScope;
   /** Highest accepted `seq` per render slot (the completion high-water mark). */
   accepted: Map<string, number>;
 }
@@ -105,10 +107,13 @@ export class PhoenixRealtimeTransport
   }
 
   private async handleDeliveryAvailable(payload: unknown): Promise<void> {
-    const env = this.toIngressEnvelope(payload);
-    if (!env) return;
+    const claimed = this.toIngressEnvelope(payload);
+    if (!claimed) return;
+    const { env, scope, leaseToken } = claimed;
     this.deliveries.set(env.deliveryId, {
       turnId: env.turnId,
+      leaseToken,
+      scope,
       accepted: new Map(),
     });
     await this.onDelivery?.(env);
@@ -119,9 +124,13 @@ export class PhoenixRealtimeTransport
    * envelope. Only the text-turn shape is handled in V1; other input kinds are
    * ignored (dropped) until they are modeled.
    */
-  private toIngressEnvelope(
-    payload: unknown,
-  ): ManagedIngressEnvelope | undefined {
+  private toIngressEnvelope(payload: unknown):
+    | {
+        env: ManagedIngressEnvelope;
+        scope: HostedBotRealtimeScope;
+        leaseToken: string;
+      }
+    | undefined {
     const p = payload as
       | { payload?: { delivery?: Record<string, unknown> } }
       | { delivery?: Record<string, unknown> }
@@ -138,28 +147,45 @@ export class PhoenixRealtimeTransport
           input?: { kind?: string; text?: string };
         }
       | undefined;
-    if (!turn?.id || !turn.eventId) return undefined;
-    const bot = delivery.bot as { name?: string } | undefined;
-    return {
-      kind: "turn",
-      deliveryId: String(delivery.id),
-      eventId: String(turn.eventId),
-      turnId: String(turn.id),
+    const leaseToken = String(delivery.leaseToken ?? "");
+    if (!turn?.id || !turn.eventId || !leaseToken) return undefined;
+    const bot = delivery.bot as { id?: string; name?: string } | undefined;
+    const scope = {
+      organizationId: String(
+        delivery.organizationId ?? this.scope.organizationId,
+      ),
+      projectId:
+        typeof delivery.projectId === "number"
+          ? delivery.projectId
+          : this.scope.projectId,
+      botId: String(bot?.id ?? this.scope.botId),
       botName: String(bot?.name ?? this.scope.botName),
-      platform: String(delivery.adapter ?? "slack"),
-      conversationKey: String(turn.id),
-      route: turn.replyTarget,
-      text: turn.input?.text ?? "",
+    };
+    return {
+      scope,
+      leaseToken,
+      env: {
+        kind: "turn",
+        deliveryId: String(delivery.id),
+        eventId: String(turn.eventId),
+        turnId: String(turn.id),
+        botName: scope.botName,
+        platform: String(delivery.adapter ?? "slack"),
+        conversationKey: String(turn.id),
+        route: turn.replyTarget,
+        text: turn.input?.text ?? "",
+      },
     };
   }
 
   async push(frame: RenderFrame): Promise<RenderAccepted> {
+    const state = this.deliveries.get(frame.deliveryId);
     const idempotencyKey = `${frame.turnId}:${frame.slot}:${frame.seq}`;
     const envelope = {
       type: RENDER_EVENT,
       occurredAt: this.now(),
       payload: {
-        ...this.scope,
+        ...(state?.scope ?? this.scope),
         deliveryId: frame.deliveryId,
         turnId: frame.turnId,
         runtimeInstanceId: this.runtimeInstanceId,
@@ -173,7 +199,6 @@ export class PhoenixRealtimeTransport
     const reply = await this.channel.push(RENDER_EVENT, envelope);
     const receipt = this.parseAccepted(reply, idempotencyKey);
     // Record the completion high-water mark for this delivery/slot.
-    const state = this.deliveries.get(frame.deliveryId);
     if (state) {
       const prev = state.accepted.get(frame.slot);
       if (prev === undefined || frame.seq > prev) {
@@ -234,7 +259,7 @@ export class PhoenixRealtimeTransport
       type: COMPLETE_REQUESTED,
       occurredAt: this.now(),
       payload: {
-        ...this.scope,
+        ...state.scope,
         deliveryId,
         turnId: state.turnId,
         runtimeInstanceId: this.runtimeInstanceId,
@@ -247,22 +272,24 @@ export class PhoenixRealtimeTransport
 
   async nack(deliveryId: string, reason: string): Promise<void> {
     const state = this.deliveries.get(deliveryId);
-    const accepted = state
-      ? Array.from(state.accepted.entries()).map(([slot, seq]) => ({
-          turnId: state.turnId,
-          slot,
-          seq,
-        }))
-      : [];
+    if (!state) return;
+    const accepted = Array.from(state.accepted.entries()).map(
+      ([slot, seq]) => ({
+        turnId: state.turnId,
+        slot,
+        seq,
+      }),
+    );
     const lastAccepted = accepted[accepted.length - 1];
     await this.channel.push(DELIVERY_FAIL, {
       type: DELIVERY_FAIL,
       occurredAt: this.now(),
       payload: {
-        ...this.scope,
+        ...state.scope,
         deliveryId,
-        turnId: state?.turnId ?? deliveryId,
+        turnId: state.turnId,
         runtimeInstanceId: this.runtimeInstanceId,
+        leaseToken: state.leaseToken,
         deliveryStatus: "retry_wait",
         ...(lastAccepted ? { lastAccepted } : {}),
         failedAt: this.now(),
