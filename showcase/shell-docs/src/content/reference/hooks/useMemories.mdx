@@ -1,0 +1,131 @@
+---
+title: "useMemories"
+description: "React hook for listing and managing a user's long-term memories with useMemories — create, supersede, and retire memories with realtime updates via WebSocket."
+doc_type: reference
+---
+
+<OpsPlatformCTA
+  variant="card"
+  title="useMemories needs an Enterprise Intelligence Platform project"
+  body="Create a cloud-hosted project or connect a self-hosted deployment to start syncing memories."
+  ctaLabel="Create a free account"
+  surface="docs_reference_use_memories"
+/>
+
+## Overview
+
+`useMemories` is a React hook for reading and managing a user's long-term [memories](/premium/memory) on the Enterprise Intelligence Platform. It fetches the memory list, keeps it synchronized in realtime via WebSocket, and exposes mutation methods to create, supersede, and retire memories.
+
+Memories are sorted newest first. The hook consumes the memory store owned by `CopilotKitCore` — it does not create or configure the store. Memory must be enabled on the runtime ([`enableEnterpriseLearning`](/premium/memory#enable-memory-on-the-runtime)) and the platform for the list to populate.
+
+## Signature
+
+```tsx
+import { useMemories } from "@copilotkit/react-core/v2";
+
+function useMemories(): UseMemoriesResult
+```
+
+## Parameters
+
+This hook takes no parameters.
+
+## Return Value
+
+<PropertyReference name="result" type="UseMemoriesResult">
+
+  ### State
+
+  <PropertyReference name="memories" type="Memory[]">
+    The current user's memories, newest first, kept current by realtime updates. Each `Memory` contains:
+    - `id: string` — unique memory identifier (superseding produces a new `id`)
+    - `kind: "topical" | "episodic" | "operational"` — the memory type
+    - `scope: "user"` — the memory's visibility; the SDK surfaces user-scoped memories
+    - `content: string` — the memory text
+    - `sourceThreadIds: readonly string[]` — ids of the threads this memory was learned from
+    - `invalidatedAt: string | null` — ISO 8601 timestamp set when the memory is retired, or `null` while live
+  </PropertyReference>
+
+  <PropertyReference name="isLoading" type="boolean">
+    `true` while the initial memory snapshot is being fetched. Subsequent realtime updates do not re-enter the loading state.
+  </PropertyReference>
+
+  <PropertyReference name="error" type="Error | null">
+    The most recent error from fetching memories or running a mutation, or `null`. Resets to `null` on the next successful fetch.
+  </PropertyReference>
+
+  <PropertyReference name="isAvailable" type="boolean">
+    `true` when the runtime's memory routes are reachable. `false` after a 404 or 501, indicating memory is not enabled on the current runtime — use it to hide memory UI rather than show an error.
+  </PropertyReference>
+
+  ### Methods
+
+  <PropertyReference name="refresh" type="() => Promise<void>">
+    Re-fetch the memory snapshot from the platform without clearing the current list. Resolves once the re-pull settles; rejects if it fails or the store is torn down mid-flight.
+  </PropertyReference>
+
+  <PropertyReference name="addMemory" type="(input: NewMemory) => Promise<Memory>">
+    Create a memory. Resolves to the stored memory (server-authoritative); rejects on failure. `NewMemory` is `{ content: string; kind: "topical" | "episodic" | "operational"; scope?: "user"; sourceThreadIds?: readonly string[] }`.
+  </PropertyReference>
+
+  <PropertyReference name="updateMemory" type="(id: string, changes: NewMemory) => Promise<Memory>">
+    Supersede a memory: the old memory is retired and a new one is created. Resolves to the **new** memory — its `id` differs from the supplied `id`. Rejects on failure.
+  </PropertyReference>
+
+  <PropertyReference name="removeMemory" type="(id: string) => Promise<void>">
+    Retire a memory — a non-lossy delete that excludes the memory from future recall without hard-deleting it. Resolves when the platform confirms; rejects on failure.
+  </PropertyReference>
+</PropertyReference>
+
+## Usage
+
+```tsx title="MemoryList.tsx"
+import { useMemories } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+function MemoryList() {
+  const { memories, isLoading, isAvailable, removeMemory } = useMemories(); // [!code highlight]
+
+  if (!isAvailable) return null;
+  if (isLoading) return <div>Loading memories…</div>;
+
+  return (
+    <ul>
+      {memories.map((memory) => (
+        <li key={memory.id}>
+          <strong>{memory.kind}</strong> {memory.content}
+          <button onClick={() => removeMemory(memory.id)}>Forget</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+Create a memory, and correct one by superseding it:
+
+```tsx title="EditMemory.tsx"
+const { addMemory, updateMemory } = useMemories();
+
+// create
+await addMemory({ kind: "topical", content: "Prefers metric units" });
+
+// correct — supersedes the old memory and resolves to a new one
+const updated = await updateMemory(existingId, {
+  kind: "topical",
+  content: "Prefers imperial units",
+});
+```
+
+## Behavior
+
+- On mount, fetches the memory snapshot and establishes a realtime WebSocket subscription.
+- If the runtime does not advertise memory endpoints, `isAvailable` becomes `false` and no error is surfaced.
+- Memory creates, supersedes, and retirements from any client (including the agent during a run) are reflected without polling.
+- Mutations are **server-authoritative** — `addMemory`, `updateMemory`, and `removeMemory` resolve only after the platform confirms, and reject on failure.
+- `updateMemory` never edits in place. It retires the target and creates a successor with a new `id`; the returned memory is the successor.
+- The `error` state updates with the most recent error and resets to `null` on the next successful fetch.
+
+## Next steps
+
+- **How memory works:** [Memory](/premium/memory) — types, recall, enabling memory, and the Angular equivalent
+- **Platform architecture:** [Enterprise Intelligence Architecture](/premium/intelligence-platform) — the platform behind memory and realtime sync

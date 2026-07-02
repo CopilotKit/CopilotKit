@@ -1,0 +1,243 @@
+---
+title: "Memory"
+description: "How CopilotKit memory works — the topical, episodic, and operational memory types, the agent's recall_memory/save_memory/forget_memory tools, embeddings-based hybrid recall, deduplication, non-lossy supersession, enabling memory on the runtime with enableEnterpriseLearning, and reading memories in your app with useMemories (React) and injectMemories (Angular)."
+icon: "lucide/Brain"
+doc_type: how-to
+---
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Want long-term memory in your own app?"
+  body="Memory ships with the Enterprise Intelligence Platform on the free Developer tier."
+  surface="docs_memory"
+/>
+
+## What is memory?
+
+Memory is durable, long-term knowledge that an agent accumulates across conversations and recalls later. Where a [thread](/premium/threads-explained) stores the full event history of a single conversation, a memory captures a distilled fact, preference, or procedure that should outlive any one conversation — so the agent can answer "based on what you told me last week" instead of starting cold every time.
+
+The agent writes and reads memories itself during a run, using built-in `recall_memory`, `save_memory`, and `forget_memory` tools. Your app can also list and manage a user's memories with the `useMemories` hook (React) or the `injectMemories` injectable (Angular). Memory is a platform-level capability: it works the same regardless of which agent framework runs your backend.
+
+## The three memory types
+
+Every memory has a **kind** — one of three types, used with the same names across the agent's tools, the SDK, and the platform:
+
+| Kind | What it holds | Recency behavior |
+|------|---------------|------------------|
+| `topical` | Durable facts and preferences — "what is true." A user's role, their preferred units, a naming convention. | Timeless. Ranked purely on relevance. |
+| `episodic` | Things that happened during interactions — "what occurred." That the user shipped a release on a date, or hit a particular error. | Decays with age. Recent episodes get a recency boost during recall. |
+| `operational` | Procedures and workflows — "how it's done." A trigger plus the steps and parameter values that worked. | Timeless. Ranked purely on relevance. |
+
+## How memory works
+
+### The agent's memory tools
+
+When memory is [enabled on your runtime](#enable-memory-on-the-runtime), every agent run gets three tools:
+
+- **`recall_memory`** — search long-term memory before answering, so responses are grounded in what was learned earlier instead of guessed.
+- **`save_memory`** — store a durable fact, preference, or procedure, tagged with the right `kind`.
+- **`forget_memory`** — retire a memory that is no longer true.
+
+The agent decides when to call these as part of its normal reasoning — there is no separate background process. You steer that behavior through the agent's system prompt (see [enabling](#enable-memory-on-the-runtime) below).
+
+### How recall ranks results
+
+Recall is a hybrid search, not a single similarity score. The platform embeds each memory's content into a vector, and ranks candidates for a query by combining three signals:
+
+- **Semantic similarity** — vector search over meaning, so a recalled memory doesn't have to share the query's exact words.
+- **Keyword match** — full-text search, so exact terms and identifiers still score when phrasing differs.
+- **Recency** — applied to `episodic` memories only, so a recent episode is boosted. `topical` and `operational` facts are timeless and rank on relevance alone.
+
+The recency boost is bounded — a recent episode is nudged up, never allowed to bury a far stronger match. The embedding model is configured on the platform; see [enabling memory](/premium/self-hosting#memory) for self-hosted deployments.
+
+### Deduplication
+
+The platform avoids piling up near-identical memories. When the agent saves content that closely restates an existing memory of the same kind, the save is merged into that existing memory rather than creating a duplicate. Only genuine restatements of the same fact merge; merely-related content is kept distinct.
+
+### Supersession and retirement
+
+Memory is non-lossy — there is no in-place edit and no destructive delete:
+
+- **Supersede** — correcting a memory retires the old one and creates a new memory with the corrected content. The new memory has its own id; the old one leaves the live list but is preserved. The agent supersedes whenever the user contradicts or corrects something it remembered.
+- **Retire** — `forget_memory` (and the SDK's `removeMemory`) marks a memory invalid and excludes it from all future recall, but never hard-deletes it.
+
+This keeps an auditable trail of what the agent used to believe and what replaced it.
+
+### Realtime sync
+
+Memory changes are pushed to connected clients over a WebSocket. When a memory is created, superseded, or retired — whether by the agent during a run or by your own app — the change appears in `useMemories` / `injectMemories` automatically, across tabs and devices, without polling.
+
+## Enable memory on the runtime
+
+Memory has two enable surfaces, and you need both:
+
+1. **The platform** must have memory turned on (the feature gate plus an embeddings provider). For self-hosted clusters, see [Enabling memory](/premium/self-hosting#memory).
+2. **Your runtime** must opt in, so the agent receives the memory tools.
+
+To opt in on the runtime, construct `CopilotKitIntelligence` with `enableEnterpriseLearning: true` and pass it to your `CopilotRuntime`.
+
+<Steps>
+  <Step>
+    ### Enable enterprise learning on the Intelligence client
+
+    `enableEnterpriseLearning` is opt-in and defaults to `false`. Turning it on attaches the `recall_memory`, `save_memory`, and `forget_memory` tools to every agent run.
+
+    ```ts title="server.ts"
+    import {
+      CopilotRuntime,
+      CopilotKitIntelligence,
+    } from "@copilotkit/runtime/v2";
+
+    const intelligence = new CopilotKitIntelligence({
+      apiKey: process.env.INTELLIGENCE_API_KEY,
+      apiUrl: process.env.INTELLIGENCE_API_URL,
+      wsUrl: process.env.INTELLIGENCE_GATEWAY_WS_URL,
+      enableEnterpriseLearning: true, // [!code highlight]
+    });
+    ```
+  </Step>
+  <Step>
+    ### Resolve the end user on the runtime
+
+    Memory is scoped per end user, so the runtime needs to know who is making the request. Provide `identifyUser` to return the authenticated user for each request.
+
+    ```ts title="server.ts"
+    const runtime = new CopilotRuntime({
+      intelligence,
+      identifyUser: (request) => resolveUser(request), // [!code highlight]
+      agents,
+    });
+    ```
+
+    The memory tools attach only when `identifyUser` resolves a user and the agent framework supports middleware. If it can't attach, the run proceeds without the tools.
+  </Step>
+  <Step>
+    ### Tell the agent when to remember
+
+    The tools are available, but the agent needs guidance on when to use them. Add instructions to its system prompt.
+
+    ```text title="agent system prompt"
+    You have long-term memory tools: recall_memory, save_memory, forget_memory.
+
+    - Before answering anything that could depend on prior conversations or
+      stated preferences, call recall_memory first.
+    - When the user states a durable fact or preference, or teaches you a
+      procedure, call save_memory with the right kind (topical, episodic, or
+      operational).
+    - If save_memory returns near-duplicates: same fact → don't re-save;
+      updated fact → save with `supersedes` set to the old memory's id.
+    - When the user corrects something you remembered, save the correction
+      and supersede the old memory.
+    - Never store secrets or verbatim PII; reference threads by id.
+    - Speak about memories naturally ("earlier you mentioned…"); never name
+      the tools or ids to the user.
+    ```
+  </Step>
+</Steps>
+
+## Read and manage memories in your app
+
+Beyond what the agent does on its own, you can surface and manage a user's memories directly. The `useMemories` hook (React) and `injectMemories` injectable (Angular) expose the live list plus `addMemory`, `updateMemory`, and `removeMemory`.
+
+The list is the current user's memories, newest first, and stays current via realtime sync. Mutations are server-authoritative: each returns a promise that resolves once the platform confirms the operation and rejects on failure. `updateMemory` supersedes (it resolves to a **new** memory), and `removeMemory` retires (a non-lossy delete).
+
+<Tabs items={["React", "Angular"]}>
+  <Tab value="React">
+    ```tsx title="MemoryList.tsx"
+    import { useMemories } from "@copilotkit/react-core/v2";
+
+    function MemoryList() {
+      const { memories, isLoading, isAvailable, removeMemory } = useMemories();
+
+      if (!isAvailable) return null; // memory not enabled on this runtime
+      if (isLoading) return <p>Loading memories…</p>;
+
+      return (
+        <ul>
+          {memories.map((memory) => (
+            <li key={memory.id}>
+              <strong>{memory.kind}</strong> {memory.content}
+              <button onClick={() => removeMemory(memory.id)}>Forget</button>
+            </li>
+          ))}
+        </ul>
+      );
+    }
+    ```
+
+    Create and correct memories from your app:
+
+    ```tsx title="Adding and superseding"
+    const { addMemory, updateMemory } = useMemories();
+
+    // create a new memory
+    await addMemory({ kind: "topical", content: "Prefers metric units" });
+
+    // correcting a memory supersedes it — this resolves to a new memory
+    await updateMemory(existingId, {
+      kind: "topical",
+      content: "Prefers imperial units",
+    });
+    ```
+  </Tab>
+  <Tab value="Angular">
+    `injectMemories` returns Angular signals, so read `memories()`, `isLoading()`, and `isAvailable()` as signal calls.
+
+    ```ts title="memories.component.ts"
+    import { Component } from "@angular/core";
+    import { injectMemories } from "@copilotkit/angular";
+
+    @Component({
+      selector: "app-memories",
+      template: `
+        @if (memory.isAvailable()) {
+          @if (memory.isLoading()) {
+            <p>Loading memories…</p>
+          } @else {
+            <ul>
+              @for (m of memory.memories(); track m.id) {
+                <li>
+                  <strong>{{ m.kind }}</strong> {{ m.content }}
+                  <button (click)="memory.removeMemory(m.id)">Forget</button>
+                </li>
+              }
+            </ul>
+          }
+        }
+      `,
+    })
+    export class MemoriesComponent {
+      readonly memory = injectMemories();
+
+      async addPreference() {
+        await this.memory.addMemory({
+          kind: "topical",
+          content: "Prefers metric units",
+        });
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Error handling
+
+### Availability
+
+Memory is an opt-in capability. When it isn't enabled for the connected runtime, the memory routes are unavailable and `isAvailable` is `false` — your UI can hide memory affordances rather than show errors. `isAvailable` stays `true` while memory is reachable and the snapshot loads normally.
+
+### Mutation failures
+
+`addMemory`, `updateMemory`, and `removeMemory` return promises that reject with an `Error` when the platform can't complete the operation — a network failure, a memory that was already retired or superseded by another client, or content that failed validation. The `error` field always reflects the most recent failure and resets to `null` on the next successful fetch.
+
+### WebSocket disconnection
+
+If the WebSocket connection drops (network change, server restart, laptop sleep), the memory list stops receiving live updates and becomes stale until the connection is re-established. Reconnection is automatic with backoff; you can also call `refresh()` to re-pull the snapshot immediately.
+
+## Next steps
+
+- **React API reference:** [useMemories](/reference/hooks/useMemories) — parameters, return values, and types
+- **Angular API reference:** [injectMemories](/reference/angular/functions/injectMemories) — the signals-based equivalent
+- **Enable memory on a self-hosted cluster:** [Self-Hosting Enterprise Intelligence](/premium/self-hosting#memory) — the `memory.enabled` gate and embeddings configuration
+- **Platform architecture:** [Enterprise Intelligence Architecture](/premium/intelligence-platform) — how runtimes connect to platform projects, durable history, and realtime sync
+- **Related capability:** [Threads & Persistence Architecture](/premium/threads-explained) — durable per-conversation history, the companion to long-term memory
