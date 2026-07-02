@@ -8,7 +8,7 @@
     {
       "_comment": "gen-ui-interrupt sales-call pill \u2014 first leg: schedule_meeting tool call. The Mastra adapter translates this into a tool-call-suspended event, surfacing the time-picker UI inline via useInterrupt.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolName": "schedule_meeting",
         "context": "mastra"
       },
@@ -39,7 +39,7 @@
     {
       "_comment": "gen-ui-interrupt sales-call pill \u2014 cancelled leg (user denied).",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolCallId": "call_d5_schedule_sales_001__cancelled",
         "context": "mastra"
       },
@@ -50,7 +50,7 @@
     {
       "_comment": "gen-ui-interrupt sales-call pill \u2014 second leg: confirmation after user picks a slot and resume fires.",
       "match": {
-        "userMessage": "introductory sales team call",
+        "userMessage": "intro call with the sales team",
         "toolCallId": "call_d5_schedule_sales_001",
         "context": "mastra"
       },
@@ -61,7 +61,7 @@
     {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 first leg: schedule_meeting tool call.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolName": "schedule_meeting",
         "context": "mastra"
       },
@@ -92,7 +92,7 @@
     {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 cancelled leg.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolCallId": "call_d5_schedule_alice_001__cancelled",
         "context": "mastra"
       },
@@ -103,7 +103,7 @@
     {
       "_comment": "gen-ui-interrupt alice-1on1 pill \u2014 second leg: confirmation after slot picked.",
       "match": {
-        "userMessage": "one-on-one with Alice",
+        "userMessage": "1:1 with Alice",
         "toolCallId": "call_d5_schedule_alice_001",
         "context": "mastra"
       },

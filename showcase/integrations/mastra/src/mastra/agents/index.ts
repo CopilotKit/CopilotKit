@@ -13,6 +13,7 @@ import {
   manageSalesTodosTool,
   getSalesTodosTool,
   scheduleMeetingTool,
+  scheduleMeetingInterruptTool,
   searchFlightsTool,
   generateA2uiTool,
   setNotesTool,
@@ -20,10 +21,16 @@ import {
   researchAgentTool,
   writingAgentTool,
   critiqueAgentTool,
+  browseWebTool,
+  runDeepResearchTool,
 } from "@/mastra/tools";
 import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";
+// Backend-owned A2UI with the toolkit validate->retry recovery loop (OSS-422).
+// `@ag-ui/mastra/a2ui` is a bridge-free subpath (avoids the Mastra bundler vs
+// @ag-ui/client→uuid clash); mirrors langgraph's get_a2ui_tools.
+import { getA2UITools } from "@ag-ui/mastra/a2ui";
 
 export const AgentState = z.object({
   proverbs: z.array(z.string()).default([]),
@@ -493,25 +500,27 @@ Example response (sales dashboard):
  * Scheduling agent for the interrupt-adapted demos (gen-ui-interrupt,
  * interrupt-headless).
  *
- * This agent powers the "Strategy B" adaptation of the LangGraph interrupt
- * demos. LangGraph has a native `interrupt()` primitive with
- * checkpoint/resume; Mastra does not. Instead, we register a frontend tool
- * (`schedule_meeting`) via `useFrontendTool` with an async handler. The
- * handler returns a Promise that only resolves once the user picks a time
- * slot (or cancels), producing the same UX as `interrupt()`.
+ * This agent powers the NATIVE interrupt path (OSS-383). The backend
+ * `schedule_meeting` tool `suspend()`s with a time-picker payload; the
+ * @ag-ui/mastra v1 bridge maps that to an AG-UI interrupt (legacy
+ * `on_interrupt` CUSTOM event + the standard `RUN_FINISHED` interrupt-outcome,
+ * on by default). The frontend `useInterrupt` (gen-ui-interrupt, in-chat) /
+ * hand-rolled headless subscription (interrupt-headless, app-surface) renders
+ * the picker and resolves it, which resumes the run — re-invoking the tool's
+ * `execute` with `resumeData`. Replaces the prior `useHumanInTheLoop`
+ * frontend-tool workaround.
  *
- * The agent defines NO backend tools — `schedule_meeting` is satisfied
- * entirely by the frontend. The system prompt directs the model to always
- * call `schedule_meeting` when asked to book/schedule.
+ * Resume requires instance `storage` (see src/mastra/index.ts) so the
+ * suspended agentic-loop snapshot can be reloaded.
  */
 export const interruptAgent = new Agent({
   id: "interrupt-agent",
   name: "Interrupt Agent",
-  tools: {},
+  tools: { schedule_meeting: scheduleMeetingInterruptTool },
   model: openai("gpt-4o-mini"),
   instructions: `You are a scheduling assistant. Whenever the user asks you to book a call or schedule a meeting, you MUST call the \`schedule_meeting\` tool. Pass a short \`topic\` describing the purpose of the meeting and, if known, an \`attendee\` describing who the meeting is with.
 
-The \`schedule_meeting\` tool is implemented on the client: it surfaces a time-picker UI to the user and returns the user's selection. After the tool returns, briefly confirm whether the meeting was scheduled and at what time, or note that the user cancelled. Do NOT ask for approval yourself — always call the tool and let the picker handle the decision.
+The \`schedule_meeting\` tool surfaces an interactive time-picker to the user and pauses until they pick a slot (or cancel), then returns their selection to you. After it returns, briefly confirm whether the meeting was scheduled and at what time, or note that the user cancelled. Do NOT ask for approval yourself — always call the tool and let the picker handle the decision.
 
 Keep responses short and friendly. After you finish executing tools, always send a brief final assistant message summarizing what happened so the message persists.`,
   memory: new Memory({
@@ -529,6 +538,44 @@ Keep responses short and friendly. After you finish executing tools, always send
 });
 // @endregion[interrupt-agent]
 // @endregion[backend-interrupt-tool]
+
+// A2UI Error Recovery agent (OSS-422). Backend-owned `generate_a2ui` via
+// getA2UITools, which runs the forced render_a2ui subagent + the toolkit
+// validate->retry recovery loop + the recovery-exhausted hard-fail envelope
+// INSIDE the tool. The dedicated route (/api/copilotkit-a2ui-recovery) sets
+// a2ui.injectA2UITool=false so the runtime does not inject a second copy.
+// Reuses the declarative-gen-ui catalog ("declarative-gen-ui-catalog"); mirrors
+// langgraph-python recovery_agent.py + the strands recovery cell.
+export const a2uiRecoveryAgent = new Agent({
+  id: "a2ui-recovery",
+  name: "A2UI Recovery Agent",
+  model: openai("gpt-4.1"),
+  instructions:
+    "You are the embedded sales analyst for Vantage Threads, a fictional B2B " +
+    "apparel company. Answer every business question by calling `generate_a2ui` " +
+    "to draw a rich visual surface, and keep the chat reply to one short " +
+    "sentence. `generate_a2ui` handles the rendering — and its automatic " +
+    "recovery — for you.",
+  tools: {
+    generate_a2ui: getA2UITools({
+      model: openai("gpt-4.1"),
+      defaultCatalogId: "declarative-gen-ui-catalog",
+      recovery: { maxAttempts: 3 },
+    }),
+  },
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "a2ui-recovery-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
 
 export const multimodalAgent = new Agent({
   id: "multimodal-demo",
@@ -549,3 +596,135 @@ export const multimodalAgent = new Agent({
     },
   }),
 });
+
+// @region[browser-use-agent]
+/**
+ * Mastra agent backing the Browser Use demo (OSS-91).
+ *
+ * Modeled on Mastra's HackerNews browser example: the agent drives a real,
+ * LOCAL headless browser (Playwright Chromium — no hosted-browser API key)
+ * via the `browse_web` tool, then summarizes what it found back into the
+ * CopilotKit chat. The frontend renders the structured results as cards via
+ * a custom `useRenderTool` renderer.
+ *
+ * This is a Mastra-only, real-LLM demo: browser navigation is
+ * non-deterministic (live pages change every request) and therefore does
+ * NOT replay under aimock. There is no D6 aimock fixture for this cell — see
+ * `qa/browser-use.md` and `tests/e2e/browser-use.spec.ts` for the rationale.
+ *
+ * Failure handling lives in the tool: `browse_web` returns a structured
+ * `{ error }` payload if the local Chromium binary is missing or a launch
+ * fails, so the run always completes rather than crashing.
+ */
+export const browserUseAgent = new Agent({
+  id: "browser-use-agent",
+  name: "Browser Use Agent",
+  tools: { browse_web: browseWebTool },
+  model: openai("gpt-4o-mini"),
+  instructions: `You are a web-browsing assistant with access to a REAL local browser via the \`browse_web\` tool.
+
+When the user asks you to look something up on the web, read a page, or check what's trending:
+1. Call \`browse_web\` with a clear \`task\` describing what to fetch. Pass an explicit http(s) URL when the user names a site (e.g. "read https://www.copilotkit.ai"); otherwise describe the goal (e.g. "top Hacker News stories").
+2. The tool returns JSON with a \`results\` array (and, for page reads, a \`text\` excerpt). Base your answer ONLY on what the tool returns — never invent stories, links, scores, or page contents.
+3. Write a short, useful summary in chat: for Hacker News, mention a few of the top stories with their points; for a page read, summarize what the page is about in 2-3 sentences.
+
+If the tool returns an \`error\` field, tell the user plainly that the browser could not run and relay the error message (it usually means the local Chromium binary is not installed). Do not retry more than once.
+
+Keep responses concise and always end with a brief final assistant message so the summary persists.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "browser-use-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[browser-use-agent]
+
+// @region[background-agents-agent]
+/**
+ * Background Agents demo agent (OSS-426).
+ *
+ * Wires the backgroundable `run_deep_research` tool. When the user asks to
+ * research a topic, the agent calls the tool once; Mastra dispatches it as a
+ * background task (the instance enables the BackgroundTaskManager in
+ * `src/mastra/index.ts`) and MastraAgent surfaces it as a live "working"
+ * activity card instead of a normal tool pill. Completion is out of band —
+ * see `src/mastra/tools/background-research.ts`.
+ */
+export const backgroundAgentsAgent = new Agent({
+  id: "background-agents",
+  name: "Background Agents Agent",
+  tools: { runDeepResearchTool },
+  model: openai("gpt-4.1"),
+  instructions: `You are a research assistant that dispatches long-running work to the background.
+
+When the user asks you to research, investigate, look into, or dig into a topic, you MUST call the \`run_deep_research\` tool ONCE with a concise \`topic\` describing what to research. That kicks the work off in the background so the conversation can continue.
+
+After you call the tool, send ONE short assistant message telling the user the deep-research task is now running in the background and that you'll surface the findings when it completes. Do not call the tool more than once per request, and do not wait for results before replying.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "background-agents-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[background-agents-agent]
+
+// @region[observational-memory-agent]
+/**
+ * Mastra agent backing the Observational Memory demo (OSS-427).
+ *
+ * Observational Memory (OM) is a Mastra `Memory` feature: as the conversation
+ * grows, Mastra runs an Observer agent OUT OF BAND that reads the unobserved
+ * messages, compresses them into structured observations, and activates those
+ * observations into the working context. OM surfaces this background work on
+ * the agent's `fullStream` as typed `data-om-*` chunks, which MastraAgent maps
+ * to AG-UI activity events (activityType `mastra-observational-memory`).
+ *
+ * TWO independent opt-ins: (1) HERE — enable OM on the agent's `Memory` via
+ * `options.observationalMemory`; (2) in the route — the surfacing toggle
+ * `getLocalAgents({ mastra, observationalMemory: true })`.
+ *
+ * Config notes (verified vs @mastra/memory 1.22): `scope:'thread'` is required
+ * for the async buffering path (`'resource'` throws); the trigger is UNOBSERVED
+ * message-token SIZE (not turn count) with a reliable 600/300 floor (200/100
+ * no-ops) — the demo pills send SIZABLE messages to trip it; a config object
+ * requires an explicit model (default google/gemini-2.5-flash), pinned to the
+ * forwarding `openai` so the Observer call routes through the header shim.
+ */
+export const observationalMemoryAgent = new Agent({
+  id: "observational-memory-agent",
+  name: "Observational Memory Agent",
+  model: openai("gpt-4.1"),
+  instructions: `You are a helpful assistant with a long memory. The user will share large amounts of context about their work, projects, and preferences across the conversation. Read what they share carefully, answer their questions directly and concisely, and lean on everything they've told you so far. Keep replies focused — a few short paragraphs at most.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "observational-memory-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+      observationalMemory: {
+        scope: "thread",
+        observation: { messageTokens: 600, bufferTokens: 300 },
+        model: openai("gpt-4.1"),
+      },
+    },
+  }),
+});
+// @endregion[observational-memory-agent]
