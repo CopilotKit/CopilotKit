@@ -90,9 +90,7 @@ test.describe("Interrupt (headless, app-surface picker)", () => {
     page,
   }) => {
     const input = page.getByPlaceholder("Type a message");
-    await input.fill(
-      "Schedule a 1:1 with Alice next week to review Q2 goals.",
-    );
+    await input.fill("Schedule a 1:1 with Alice next week to review Q2 goals.");
     await page.locator('[data-testid="copilot-send-button"]').first().click();
 
     const popup = page.locator('[data-testid="interrupt-headless-popup"]');
