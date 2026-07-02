@@ -2,7 +2,7 @@
 set -e
 
 cleanup() {
-  kill $AGENT_PID $REASONING_AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
+  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -40,7 +40,7 @@ export OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://aimock:4010/v1}
 export OPENAI_API_KEY=${OPENAI_API_KEY:-sk-aimock}
 export HERMES_AGUI_BASE_URL=${HERMES_AGUI_BASE_URL:-$OPENAI_BASE_URL}
 export HERMES_AGUI_API_KEY=${HERMES_AGUI_API_KEY:-$OPENAI_API_KEY}
-export HERMES_AGUI_MODEL=${HERMES_AGUI_MODEL:-gpt-4o}
+export HERMES_AGUI_MODEL=${HERMES_AGUI_MODEL:-gpt-5-mini}
 export HERMES_AGUI_PROVIDER=${HERMES_AGUI_PROVIDER:-custom}
 export HERMES_AGUI_API_MODE=${HERMES_AGUI_API_MODE:-chat_completions}
 
@@ -52,22 +52,6 @@ echo "[entrypoint] HERMES_AGUI_MODEL=${HERMES_AGUI_MODEL} PROVIDER=${HERMES_AGUI
 echo "[entrypoint] Starting Python Hermes AG-UI adapter on port 8000..."
 python -u -m agui_adapter &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
-
-# Second Hermes AG-UI backend on :8001 dedicated to the reasoning demos.
-# Mirrors langgraph-python's dedicated reasoning graph: aimock only streams
-# `reasoning_content` deltas for reasoning-capable model families (gpt-4o is in
-# aimock's NONREASONING_FAMILIES and gets suppressed), so the reasoning demos
-# need a reasoning model. gpt-5-mini makes aimock emit reasoning. The main :8000
-# backend stays on gpt-4o (unchanged for the 15 green demos); this backend only
-# overrides HERMES_AGUI_MODEL + HERMES_AGUI_PORT, inheriting the same aimock
-# base_url / api_mode via the exported env above. The reasoning route
-# (src/app/api/copilotkit-reasoning/route.ts) proxies to http://localhost:8001/.
-export HERMES_REASONING_PORT=${HERMES_REASONING_PORT:-8001}
-export HERMES_REASONING_MODEL=${HERMES_REASONING_MODEL:-gpt-5-mini}
-echo "[entrypoint] Starting Python Hermes AG-UI reasoning adapter on port ${HERMES_REASONING_PORT} (model=${HERMES_REASONING_MODEL})..."
-env HERMES_AGUI_PORT="${HERMES_REASONING_PORT}" HERMES_AGUI_MODEL="${HERMES_REASONING_MODEL}" \
-  python -u -m agui_adapter &> >(awk '{print "[reasoning-agent] " $0; fflush()}') &
-REASONING_AGENT_PID=$!
 
 # Health-probe the agent's /health before starting Next.js (mirror the
 # pydantic-ai entrypoint contract). Give it up to ~30s to import
@@ -91,26 +75,6 @@ if [ "$AGENT_READY" -ne 1 ]; then
   exit 1
 fi
 
-# Health-probe the reasoning backend's /health on :8001 the same way.
-echo "[entrypoint] Waiting for reasoning agent /health on :${HERMES_REASONING_PORT}..."
-REASONING_READY=0
-for i in $(seq 1 30); do
-  if ! kill -0 $REASONING_AGENT_PID 2>/dev/null; then
-    echo "[entrypoint] ERROR: Reasoning agent process died during startup — exiting"
-    exit 1
-  fi
-  if curl -fsS --max-time 3 "http://127.0.0.1:${HERMES_REASONING_PORT}/health" > /dev/null 2>&1; then
-    REASONING_READY=1
-    echo "[entrypoint] Reasoning agent healthy after ~${i}s (PID: $REASONING_AGENT_PID)"
-    break
-  fi
-  sleep 1
-done
-if [ "$REASONING_READY" -ne 1 ]; then
-  echo "[entrypoint] ERROR: Reasoning agent did not become healthy within 30s — exiting"
-  exit 1
-fi
-
 echo "========================================="
 echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
 echo "========================================="
@@ -129,18 +93,17 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 (
   FAILS=0
   while sleep 30; do
-    if ! kill -0 $AGENT_PID 2>/dev/null || ! kill -0 $REASONING_AGENT_PID 2>/dev/null; then
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
       break
     fi
-    if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1 \
-      && curl -fsS --max-time 5 "http://127.0.0.1:${HERMES_REASONING_PORT}/health" > /dev/null 2>&1; then
+    if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1; then
       FAILS=0
     else
       FAILS=$((FAILS + 1))
       echo "[watchdog] Agent health probe failed (count=$FAILS)"
       if [ $FAILS -ge 3 ]; then
-        echo "[watchdog] An agent unresponsive for ~90s — killing PIDs $AGENT_PID/$REASONING_AGENT_PID to trigger container restart"
-        kill -9 $AGENT_PID $REASONING_AGENT_PID 2>/dev/null || true
+        echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
+        kill -9 $AGENT_PID 2>/dev/null || true
         break
       fi
     fi

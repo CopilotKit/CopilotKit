@@ -37,17 +37,18 @@ server).
 `get_weather` etc. via `HERMES_AGUI_TOOLSETS`) so these run backend-side, 1:1
 with langgraph at the mechanism level.
 
-## Reasoning: dedicated second backend
+## Reasoning: single reasoning-capable backend
 
 `reasoning-default` / `reasoning-custom` / `tool-rendering-reasoning-chain` route
-to a **second Hermes AG-UI backend on `:8001` running `gpt-5-mini`**
-(`api/copilotkit-reasoning/route.ts`). Reason: Hermes surfaces reasoning only
-from separate `reasoning_content` provider deltas, and **aimock suppresses those
-for non-reasoning models** — `gpt-4o` (the main `:8000` backend, which the other
-33 demos are fixtured against) is on aimock's non-reasoning list. The dedicated
-reasoning-capable backend isolates that behavior. This is a **test-determinism
-artifact**: with a single reasoning-capable provider in production, one backend
-suffices.
+to `api/copilotkit-reasoning/route.ts`, which now points at the **single Hermes
+AG-UI backend on `:8000` running `gpt-5-mini`** — the same backend every other
+demo uses. Reason: Hermes surfaces reasoning only from separate
+`reasoning_content` provider deltas, which **aimock emits only for
+reasoning-capable model families AND only when the fixture declares a `reasoning`
+channel**. `gpt-5-mini` is a reasoning family, so the reasoning demos get
+REASONING_MESSAGE_* events; the non-reasoning demos share the same backend
+without spurious reasoning because their fixtures declare no `reasoning` channel.
+The dedicated route survives only for its distinct endpoint + agent names.
 
 ## Internal state-writer tools emit no chat chip
 
@@ -84,11 +85,16 @@ prompt text is). The D5 image path is unaffected.
 - `gen-ui-interrupt`, `interrupt-headless` — **quarantined upstream**;
   langgraph-python itself marks these not-supported (a `@copilotkit/react-core/v2`
   interrupt RESUME-PATH hook bug).
+- `tool-rendering-reasoning-chain` — aimock drops the `reasoning` payload on
+  tool-call turns, so the interleaved reasoning-block never mounts under replay
+  (tool cards + narration render fine). **pydantic-ai marks this same demo
+  not-supported** for the same aimock limitation; closing it needs an upstream
+  aimock change (emit reasoning alongside tool calls).
 
 ## Operational (planned follow-ups)
 
 - **Not wired for deploy/CI.** `deployed: false`; no `showcase_deploy.yml` entry,
   Railway service, or GHCR image yet. Verified **local-D5-only**.
-- `npm run dev` starts Next **and** the main `:8000` Hermes backend
-  (`concurrently`); it does not start the `:8001` reasoning backend or aimock —
-  use `bin/showcase up aimock hermes` for the full fixture-backed stack.
+- `npm run dev` starts Next **and** the single `:8000` Hermes backend
+  (`concurrently`); it does not start aimock — use `bin/showcase up aimock hermes`
+  for the full fixture-backed stack.

@@ -6,7 +6,7 @@
   },
   "fixtures": [
     {
-      "_comment": "reasoning-default e2e pill prompt + reasoning-custom pill prompt. Substring 'sky appears blue' matches 'Explain step by step why the sky appears blue during the day but red at sunset.' The `reasoning` field makes aimock emit REASONING_MESSAGE_* events (role='reasoning') — but only because the reasoning backend requests a reasoning-capable model (gpt-5-mini); gpt-4o is in aimock's NONREASONING_FAMILIES and would suppress it. Without the reasoning stream the built-in CopilotChatReasoningMessage 'Thinking…/Thought for…' label and the custom <ReasoningBlock> never mount.",
+      "_comment": "reasoning-default e2e pill prompt + reasoning-custom pill prompt. Substring 'sky appears blue' matches 'Explain step by step why the sky appears blue during the day but red at sunset.' The `reasoning` field makes aimock emit REASONING_MESSAGE_* events (role='reasoning') — the single Hermes backend runs gpt-5-mini, a reasoning-capable family, so aimock does not suppress the stream (it would for a NONREASONING family like gpt-4o). Without the reasoning stream the built-in CopilotChatReasoningMessage 'Thinking…/Thought for…' label and the custom <ReasoningBlock> never mount.",
       "match": {
         "userMessage": "sky appears blue",
         "turnIndex": 0,
