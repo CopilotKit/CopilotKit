@@ -8,10 +8,9 @@ import {
 } from "@copilotkit/a2ui-renderer";
 import useCreditCards from "@/app/actions";
 import { catalog } from "@/a2ui/catalog";
-import { surfaceBus } from "@/a2ui/surface-bus";
 import { ReportDataProvider } from "@/a2ui/report-data";
-
-const CHANNEL = "default";
+import type { A2UIOp } from "@/a2ui/build-report-ops";
+import { useReportSurface } from "./use-report-surface";
 
 export function ReportCanvas() {
   const { transactions, policies } = useCreditCards();
@@ -25,47 +24,59 @@ export function ReportCanvas() {
 }
 
 function CanvasInner() {
-  const actions = useA2UIActions();
-  const seenRef = useRef(0);
-  const createdRef = useRef<Set<string>>(new Set());
+  const { operations, surfaceId } = useReportSurface();
+  const hasContent = operations.length > 0 && !!surfaceId;
 
-  function applyOps(ops: Array<Record<string, unknown>>) {
+  return (
+    <>
+      {surfaceId ? (
+        <SurfaceMessageProcessor operations={operations} surfaceId={surfaceId} />
+      ) : null}
+      {hasContent ? (
+        <div className="h-full overflow-y-auto">
+          <div className="a2ui-surface p-6 md:p-8" data-testid="a2ui-surface">
+            <A2UIRenderer surfaceId={surfaceId} />
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * Feeds the surface's operations into the A2UI provider. The activity content
+ * carries the FULL operation list on each snapshot, so we strip a duplicate
+ * createSurface once the surface exists (the MessageProcessor throws on it) and
+ * skip re-processing identical op lists. Mirrors the framework's built-in
+ * SurfaceMessageProcessor.
+ */
+function SurfaceMessageProcessor({
+  operations,
+  surfaceId,
+}: {
+  operations: A2UIOp[];
+  surfaceId: string;
+}) {
+  const { processMessages, getSurface } = useA2UIActions();
+  const lastHashRef = useRef("");
+
+  useEffect(() => {
+    if (!operations.length) return;
+    const hash = JSON.stringify(operations);
+    if (hash === lastHashRef.current) return;
+    lastHashRef.current = hash;
+
+    const isExisting = !!getSurface(surfaceId);
+    const ops = isExisting
+      ? operations.filter((op) => !("createSurface" in op))
+      : operations;
     if (!ops.length) return;
-    // MessageProcessor throws on duplicate createSurface — strip dupes.
-    const out = ops.filter((op) => {
-      const cs = op.createSurface as { surfaceId?: string } | undefined;
-      if (cs?.surfaceId) {
-        if (createdRef.current.has(cs.surfaceId)) return false;
-        createdRef.current.add(cs.surfaceId);
-      }
-      return true;
-    });
     try {
-      actions.processMessages(out);
+      processMessages(ops as Array<Record<string, unknown>>);
     } catch (err) {
       console.warn("[report-canvas] processMessages threw:", err);
     }
-  }
+  }, [operations, processMessages, getSurface, surfaceId]);
 
-  useEffect(() => {
-    const initial = surfaceBus.snapshot(CHANNEL);
-    if (initial.ops.length) applyOps(initial.ops);
-    seenRef.current = initial.ops.length;
-    return surfaceBus.subscribe(CHANNEL, (snap) => {
-      const tail = snap.ops.slice(seenRef.current);
-      if (tail.length) applyOps(tail);
-      seenRef.current = snap.ops.length;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actions]);
-
-  const surfaceId = surfaceBus.snapshot(CHANNEL).surfaceId;
-  if (!surfaceId) return null;
-  return (
-    <div className="h-full overflow-y-auto">
-      <div className="a2ui-surface p-6 md:p-8" data-testid="a2ui-surface">
-        <A2UIRenderer surfaceId={surfaceId} />
-      </div>
-    </div>
-  );
+  return null;
 }

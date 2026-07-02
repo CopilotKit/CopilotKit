@@ -1,9 +1,7 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { surfaceBus } from "@/a2ui/surface-bus";
-
-const CHANNEL = "default";
+import { createContext, useContext, useState } from "react";
+import { useReportSurface } from "./use-report-surface";
 
 interface CanvasValue {
   activeSurfaceId: string | null;
@@ -15,17 +13,22 @@ const CanvasContext = createContext<CanvasValue>({
   clear: () => {},
 });
 
+/**
+ * Tracks whether a report surface should currently occupy the content region.
+ *
+ * The surface itself lives in the agent's message stream (see useReportSurface);
+ * this provider derives "is a surface active" from the latest one and layers a
+ * local dismiss on top so the "← Back" control can hide it. Because each report
+ * gets a unique surfaceId, dismissing one never suppresses a later report.
+ */
 export function CanvasProvider({ children }: { children: React.ReactNode }) {
-  const [activeSurfaceId, setActiveSurfaceId] = useState<string | null>(null);
+  const { surfaceId } = useReportSurface();
+  const [dismissedId, setDismissedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    setActiveSurfaceId(surfaceBus.snapshot(CHANNEL).surfaceId);
-    return surfaceBus.subscribe(CHANNEL, (snap) =>
-      setActiveSurfaceId(snap.surfaceId),
-    );
-  }, []);
+  const activeSurfaceId =
+    surfaceId && surfaceId !== dismissedId ? surfaceId : null;
 
-  const clear = () => surfaceBus.reset(CHANNEL);
+  const clear = () => setDismissedId(surfaceId);
 
   return (
     <CanvasContext.Provider value={{ activeSurfaceId, clear }}>

@@ -4,8 +4,9 @@ import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
   useConfigureSuggestions,
+  type ReactActivityMessageRenderer,
 } from "@copilotkit/react-core/v2";
-import { createMirrorActivityRenderer } from "@/a2ui/mirror-renderer";
+import { z } from "zod";
 import { catalog } from "@/a2ui/catalog";
 import { CanvasProvider } from "@/components/canvas/canvas-context";
 import CopilotContext from "@/components/copilot-context";
@@ -19,11 +20,28 @@ import { GlassEngineProvider } from "@/components/glass-engine-context";
 import { InspectorStoreProvider } from "@/lib/inspector/store";
 import { InspectorPane } from "@/components/inspector/inspector-pane";
 
-// A2UI report surfaces are mirrored onto the full-screen canvas (channel
-// "default", matching CanvasProvider/ReportCanvas) instead of rendering inline
-// in the chat. Module-level so the array reference stays stable across renders
-// (CopilotKitProvider requires a stable `renderActivityMessages` array).
-const A2UI_RENDERERS = [createMirrorActivityRenderer("default")];
+// The agent's render_report tool result becomes an `a2ui-surface` activity that
+// <ReportCanvas/> renders full-screen (it reads the ops from the agent message
+// stream). In the chat we leave only a small handoff pill in place of the
+// built-in inline surface renderer. Module-level so the array reference stays
+// stable across renders (CopilotKitProvider requires a stable
+// `renderActivityMessages` array).
+function ReportHandoffPill() {
+  return (
+    <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-medium text-ink">
+      <span className="h-2 w-2 rounded-full bg-brand" />
+      <span className="uppercase tracking-wide text-ink-muted">report</span>
+      <span aria-hidden className="text-ink-muted">
+        →
+      </span>
+      <span>rendered on the canvas</span>
+    </div>
+  );
+}
+
+const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
+  { activityType: "a2ui-surface", content: z.any(), render: ReportHandoffPill },
+];
 
 // Static suggestion pills shown on the welcome screen / before-first-message.
 // In v2, suggestions are registered via `useConfigureSuggestions` rather than a
@@ -133,12 +151,14 @@ export function CopilotKitWrapper({
       // (multi-route) mode.
       useSingleEndpoint={false}
       properties={{ userRole: currentUser?.role }}
-      // A2UI report canvas. The runtime injects the render_a2ui tool
-      // (a2ui.injectA2UITool on both runtimes); passing the banking catalog here
-      // sends its component schemas to the agent and wires the client renderer.
-      // `renderActivityMessages` overrides the built-in inline a2ui-surface
-      // renderer with a mirror that pushes surfaces onto the full-screen canvas.
-      a2ui={{ catalog, includeSchema: true }}
+      // A2UI report canvas. The agent calls the backend render_report tool,
+      // whose ops the A2UI middleware turns into an `a2ui-surface` activity; the
+      // banking catalog here lets the client render those ops. The agent selects
+      // widgets via render_report's typed params, so it does NOT need the raw
+      // A2UI component schema (no includeSchema). `renderActivityMessages`
+      // replaces the built-in inline surface renderer with a small handoff pill —
+      // the surface itself renders full-screen in <ReportCanvas/>.
+      a2ui={{ catalog }}
       renderActivityMessages={A2UI_RENDERERS}
       // Use the v2-native CopilotKitProvider, NOT the v1 `CopilotKit`
       // compatibility bridge. The bridge wraps the chat in a heavier stack (its
@@ -189,12 +209,10 @@ export function CopilotKitWrapper({
             <InspectorStoreProvider>
               <RecordingProvider>
                 {/*
-                  CanvasProvider owns the full-screen A2UI report canvas state
-                  (open/close + the mirrored surface, channel "default"). It must
-                  be an ancestor of LayoutComponent, which calls useCanvas() to
-                  render <ReportCanvas/>, and it also wraps the chat panel so the
-                  mirror renderer (which runs inside the chat message stream) and
-                  the canvas share one context.
+                  CanvasProvider derives whether a report surface is active from
+                  the agent message stream (+ a local dismiss for the "← Back"
+                  control). It must be an ancestor of LayoutComponent, which calls
+                  useCanvas() to render <ReportCanvas/> in place of the page body.
                 */}
                 <CanvasProvider>
                   <LayoutComponent>
