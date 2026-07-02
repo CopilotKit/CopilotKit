@@ -1435,20 +1435,33 @@ export class CpkThreadInspector extends LitElement {
 
     .cpk-td__timeline-details-toggle {
       margin: 0;
-      padding: 0;
-      border: none;
-      background: transparent;
-      color: #5558b2;
+      padding: 4px 8px;
+      border: 1px solid rgba(85, 88, 178, 0.24);
+      border-radius: 999px;
+      background: #ffffff;
+      color: #30337f;
       cursor: pointer;
-      font-family: "Spline Sans Mono", monospace;
-      font-size: 9px;
-      text-decoration: underline;
-      text-underline-offset: 2px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: "Inter", sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1;
       flex-shrink: 0;
+      box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
     }
 
     .cpk-td__timeline-details-toggle:hover {
+      border-color: rgba(85, 88, 178, 0.44);
+      background: #f3f3ff;
       color: #010507;
+    }
+
+    .cpk-td__timeline-details-toggle svg {
+      width: 12px;
+      height: 12px;
+      stroke-width: 2;
     }
 
     /* ── Generative UI ──────────────────────────────────────────────── */
@@ -2702,9 +2715,41 @@ export class CpkThreadInspector extends LitElement {
                   type="button"
                   class="cpk-td__timeline-details-toggle"
                   aria-expanded=${detailsExpanded ? "true" : "false"}
+                  aria-label=${
+                    detailsExpanded
+                      ? "Hide event details"
+                      : "Show event details"
+                  }
                   @click=${() => this.toggleTimelineDetails(item.id)}
                 >
-                  ${detailsExpanded ? "Hide details" : "Show details"}
+                  ${
+                    detailsExpanded
+                      ? html`
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path d="m6 9 6 6 6-6" />
+                          </svg>
+                        `
+                      : html`
+                          <svg
+                            aria-hidden="true"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                          >
+                            <path d="m9 18 6-6-6-6" />
+                          </svg>
+                        `
+                  }
+                  <span>${detailsExpanded ? "Hide details" : "Details"}</span>
                 </button>`
               : nothing
           }
