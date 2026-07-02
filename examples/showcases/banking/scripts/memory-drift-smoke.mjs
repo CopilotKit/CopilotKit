@@ -11,7 +11,7 @@
  * gap with a REAL OpenAI call.
  *
  * WHAT IT CHECKS (headless half)
- * It seeds the over-limit procedure as a project/operational memory via REST, then
+ * It seeds the over-limit procedure as a project/procedural memory via REST, then
  * drives a FRESH-THREAD over-limit approval request through the live runtime and
  * asserts the run's event stream contains a `recall_memory` tool call — i.e. the
  * live model still RECALLS-FIRST (the autonomous, load-bearing moment).
@@ -70,7 +70,7 @@ async function seedProcedureMemory() {
     body: JSON.stringify({
       content: PROCEDURE(SEED_CODE),
       scope: "project",
-      kind: "operational",
+      kind: "procedural",
     }),
   });
   if (!res.ok)
@@ -141,7 +141,7 @@ try {
   const seeded = await seedProcedureMemory();
   log(
     true,
-    `seeded project/operational procedure memory (${seeded.absorbed ? "absorbed" : "created"})`,
+    `seeded project/procedural procedure memory (${seeded.absorbed ? "absorbed" : "created"})`,
   );
 
   const { recalled } = await runOverLimitTurn();

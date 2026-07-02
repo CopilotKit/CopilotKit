@@ -56,7 +56,7 @@ is unset, the demo falls back to the exact OSS path above.
   procedure; nothing persists across threads or restarts. (Expected — it's the
   signal that durable recall needs Intelligence mode.)
 - **Intelligence:** the agent saves the demonstrated over-limit procedure as a
-  `project`-scoped, `operational` memory via `save_memory`, and `recall_memory`s it
+  `project`-scoped, `procedural` memory via `save_memory`, and `recall_memory`s it
   at the start of any later over-limit request. A **brand-new thread — or a
   different user on the same team** — recalls the procedure and completes the
   approval unaided. This is the durable cross-thread + cross-user proof (FOR-149).
@@ -115,7 +115,7 @@ With the stack up and project memory empty:
 1. **Thread A — teach.** Ask to approve an over-limit charge. The agent calls
    `recall_memory`, finds nothing, and offers to record. Demonstrate the policy
    exception on the dashboard, then click **Save workflow** — the agent calls
-   `save_memory` (`scope:"project"`, `kind:"operational"`).
+   `save_memory` (`scope:"project"`, `kind:"procedural"`).
 2. **Thread B — recall.** Open a **new** thread and ask to approve a _different_
    over-limit charge. The agent calls `recall_memory`, gets the procedure, files
    the exception with the learned code, and approves — **with no recording offer.**
