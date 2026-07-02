@@ -522,7 +522,8 @@ demos:
       - src/mastra/agents/index.ts
   - id: reasoning-custom
     name: "Reasoning: Custom"
-    description: Visible reasoning/thinking chain alongside the final answer via a
+    description:
+      Visible reasoning/thinking chain alongside the final answer via a
       custom reasoningMessage slot.
     tags:
       - chat-ui
