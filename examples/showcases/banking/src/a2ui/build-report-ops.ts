@@ -53,7 +53,9 @@ export const renderReportParams = z.object({
     ),
   kpis: z
     .array(z.enum(REPORT_METRICS))
-    .describe("Which KPI stat cards to show, in order. Pick those relevant to the question."),
+    .describe(
+      "Which KPI stat cards to show, in order. Pick those relevant to the question.",
+    ),
   charts: z
     .array(z.enum(REPORT_CHARTS))
     .describe("Which charts to show, in order."),
@@ -154,9 +156,9 @@ export function buildReportOps(
 /** Read the surfaceId out of an A2UI operation list (any op kind). */
 export function extractSurfaceId(ops: A2UIOp[]): string | null {
   for (const op of ops) {
-    const target = (op.createSurface ?? op.updateComponents ?? op.updateDataModel) as
-      | { surfaceId?: string }
-      | undefined;
+    const target = (op.createSurface ??
+      op.updateComponents ??
+      op.updateDataModel) as { surfaceId?: string } | undefined;
     if (target?.surfaceId) return target.surfaceId;
   }
   return null;

@@ -30,7 +30,10 @@ function CanvasInner() {
   return (
     <>
       {surfaceId ? (
-        <SurfaceMessageProcessor operations={operations} surfaceId={surfaceId} />
+        <SurfaceMessageProcessor
+          operations={operations}
+          surfaceId={surfaceId}
+        />
       ) : null}
       {hasContent ? (
         <div className="h-full overflow-y-auto">

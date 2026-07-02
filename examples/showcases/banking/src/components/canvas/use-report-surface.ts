@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useAgent } from "@copilotkit/react-core/v2";
 import {
   A2UI_OPERATIONS_KEY,
@@ -23,21 +22,31 @@ type MaybeActivityMessage = {
  * directly from `agent.messages` (the pattern the framework's own renderer and
  * the reference apps use) rather than relaying through a side channel.
  */
-export function useReportSurface(): { operations: A2UIOp[]; surfaceId: string | null } {
+export function useReportSurface(): {
+  operations: A2UIOp[];
+  surfaceId: string | null;
+} {
   const { agent } = useAgent();
-  return useMemo(() => {
-    const messages = agent?.messages as MaybeActivityMessage[] | undefined;
-    if (!messages) return { operations: [], surfaceId: null };
+  // No manual useMemo: downstream consumers guard on values (SurfaceMessageProcessor
+  // hashes the ops; CanvasProvider compares the string surfaceId), and the React
+  // Compiler memoizes this derivation from agent.messages — a manual memo here
+  // can't be preserved by the compiler (react-hooks/preserve-manual-memoization).
+  const messages = agent?.messages as MaybeActivityMessage[] | undefined;
+  if (messages) {
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i];
-      if (message?.role === "activity" && message?.activityType === "a2ui-surface") {
-        const operations = (message.content?.[A2UI_OPERATIONS_KEY] as A2UIOp[]) ?? [];
+      if (
+        message?.role === "activity" &&
+        message?.activityType === "a2ui-surface"
+      ) {
+        const operations =
+          (message.content?.[A2UI_OPERATIONS_KEY] as A2UIOp[]) ?? [];
         return {
           operations,
           surfaceId: operations.length ? extractSurfaceId(operations) : null,
         };
       }
     }
-    return { operations: [], surfaceId: null };
-  }, [agent?.messages]);
+  }
+  return { operations: [], surfaceId: null };
 }
