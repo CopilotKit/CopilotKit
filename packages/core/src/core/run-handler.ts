@@ -682,13 +682,24 @@ export class RunHandler {
         // do not request a follow-up to avoid mutating the wrong thread.
         return false;
       }
+      // Find the correct insertion point: after the parent assistant message
+      // and any tool-result messages already inserted for earlier tool calls
+      // in the same batch. This preserves tool-result ordering relative to
+      // the toolCalls array, which some providers (OpenAI) require.
+      let insertAt = messageIndex + 1;
+      while (
+        insertAt < agent.messages.length &&
+        agent.messages[insertAt].role === "tool"
+      ) {
+        insertAt++;
+      }
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: handlerResult.result,
       };
-      agent.messages.splice(messageIndex + 1, 0, toolMessage);
+      agent.messages.splice(insertAt, 0, toolMessage);
 
       if (!handlerResult.error && tool?.followUp !== false) {
         return true; // Needs follow-up
@@ -820,13 +831,24 @@ export class RunHandler {
         // do not request a follow-up to avoid mutating the wrong thread.
         return false;
       }
+      // Find the correct insertion point: after the parent assistant message
+      // and any tool-result messages already inserted for earlier tool calls
+      // in the same batch. This preserves tool-result ordering relative to
+      // the toolCalls array, which some providers (OpenAI) require.
+      let insertAt = messageIndex + 1;
+      while (
+        insertAt < agent.messages.length &&
+        agent.messages[insertAt].role === "tool"
+      ) {
+        insertAt++;
+      }
       const toolMessage = {
         id: randomUUID(),
         role: "tool" as const,
         toolCallId: toolCall.id,
         content: toolCallResult,
       };
-      agent.messages.splice(messageIndex + 1, 0, toolMessage);
+      agent.messages.splice(insertAt, 0, toolMessage);
 
       if (!errorMessage && wildcardTool?.followUp !== false) {
         return true; // Needs follow-up
