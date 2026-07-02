@@ -42,7 +42,13 @@
  */
 
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -666,13 +672,13 @@ interface LiftRow {
   negligible: boolean;
 }
 
-/** The results block: aligned with/without/lift columns + a ✔ where it helped. */
-function printTable(
+/** The with/without/lift rows, shared by the terminal table and the CI summary. */
+function buildLiftRows(
   withSkill: ArmSummary,
   withoutSkill: ArmSummary,
   lift: Record<string, number>,
-): void {
-  const rows: LiftRow[] = [
+): LiftRow[] {
+  return [
     {
       label: "pass rate",
       withVal: pct(withSkill.passRate),
@@ -722,6 +728,15 @@ function printTable(
       negligible: Math.abs(lift.durationMs) < 2000,
     },
   ];
+}
+
+/** The results block: aligned with/without/lift columns + a ✔ where it helped. */
+function printTable(
+  withSkill: ArmSummary,
+  withoutSkill: ArmSummary,
+  lift: Record<string, number>,
+): void {
+  const rows = buildLiftRows(withSkill, withoutSkill, lift);
 
   const headers = { label: "", w: "with", wo: "without", f: "lift" };
   const lw = Math.max(headers.label.length, ...rows.map((r) => r.label.length));
@@ -762,6 +777,50 @@ function printTable(
     )}`,
   );
   console.log(`     ${clr.dim("higher pass rate / reward is better.")}`);
+}
+
+/** The lift cell for the CI summary: sign + a mark for helped / neutral / hurt. */
+function summaryLiftCell(r: LiftRow): string {
+  return r.negligible
+    ? `${r.lift} ·`
+    : r.good
+      ? `${r.lift} ✅`
+      : `${r.lift} ⚠️`;
+}
+
+/**
+ * When running under GitHub Actions, append a markdown lift table to the job's
+ * Step Summary so a scheduled run is readable at a glance from the Actions tab —
+ * no artifact download. No-op locally (GITHUB_STEP_SUMMARY unset). Same numbers
+ * as the terminal table, via the shared buildLiftRows().
+ */
+function writeStepSummary(
+  withSkill: ArmSummary,
+  withoutSkill: ArmSummary,
+  lift: Record<string, number>,
+  trials: number,
+  rubricRan: boolean,
+): void {
+  const file = process.env.GITHUB_STEP_SUMMARY;
+  if (!file) return;
+
+  const rows = buildLiftRows(withSkill, withoutSkill, lift);
+  const md = [
+    `## Skill-lift eval · ${SKILL_NAME}`,
+    "",
+    `${trials} trials/arm · trace judge: ${rubricRan ? "ran" : "skipped"}`,
+    "",
+    "| metric | with skill | without skill | lift |",
+    "| --- | ---: | ---: | ---: |",
+    ...rows.map(
+      (r) =>
+        `| ${r.label} | ${r.withVal} | ${r.withoutVal} | ${summaryLiftCell(r)} |`,
+    ),
+    "",
+    "✅ = skill helped. Lower turns/tokens/cost/duration is better; higher pass rate / reward is better.",
+    "",
+  ].join("\n");
+  appendFileSync(file, `${md}\n`);
 }
 
 interface TrialTask {
@@ -939,6 +998,7 @@ async function main(): Promise<void> {
 
   const rubricRan = Boolean(auth.judge);
   printTable(withSkill, withoutSkill, lift);
+  writeStepSummary(withSkill, withoutSkill, lift, trials, rubricRan);
 
   const result = {
     timestamp: new Date().toISOString(),

@@ -151,14 +151,34 @@ Auth — put a `.env` next to the eval (gitignored):
 > echo 'OPENAI_API_KEY=sk-...' >> skill-evals/copilotkit-setup/.env
 > ```
 
+## Scheduled runs (CI)
+
+A daily GitHub Actions cron runs the with/without comparison and posts the lift
+table to the run's **Step Summary**, so you can skim the trend from the Actions
+tab without downloading anything. See `.github/workflows/skill_eval-lift.yml`.
+
+- **When.** `0 14 * * *` (daily 14:00 UTC), plus `workflow_dispatch` for ad-hoc
+  runs. It does **not** run on pull requests — each run spins Docker containers
+  and burns agent tokens, so it is scheduled/manual only.
+- **Trials.** Defaults to `--trials=3` (6 agent sessions/arm-pair) to keep the
+  daily token cost and noise down; the manual-dispatch form takes a `trials`
+  input to override.
+- **Auth.** Uses the repo secrets `ANTHROPIC_API_KEY` (agent) and
+  `OPENAI_API_KEY` (judge) — no OAuth token in CI, which also sidesteps the
+  `setup-token` escape-code footgun below.
+- **Output.** When `GITHUB_STEP_SUMMARY` is set, `lift/run.ts` appends a markdown
+  lift table there (same numbers as the terminal table). Scheduled Step Summaries
+  live as long as the run's logs are retained.
+- **Trying it before merge.** Scheduled workflows only fire from the default
+  branch. To exercise the workflow on a feature branch, dispatch it explicitly:
+  `gh workflow run skill_eval-lift.yml --ref <branch>`.
+
 ## Tracking (today vs. later)
 
-Today the eval is **on-demand and ephemeral**: you run it when you suspect a
-regression and read the lift numbers; `results/` is gitignored. The results JSON
-shape above is deliberately stable so that "flip to committed history" (commit
-`results/` for a `git log` trend line) and eventually a cron/nightly job are
-additive, not rewrites. No CI gate yet — each run spins containers and burns agent
-tokens.
+Beyond the daily Step Summary, per-run JSON still lands in `results/` (gitignored,
+ephemeral). The results JSON shape above is deliberately stable so that "flip to
+committed history" (commit `results/` for a `git log` trend line), artifact
+upload, or a regression Slack ping are additive, not rewrites.
 
 ## Adding a second skill eval
 
