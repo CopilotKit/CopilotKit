@@ -40,6 +40,17 @@ COPY --chown=app:app --from=frontend /app/public ./public
 # separate process, so no build step beyond Next.js bundling.
 COPY --chown=app:app --from=frontend /app/src/mastra ./src/mastra
 
+# Dev-mode (`showcase up mastra --dev`) support: the dev overlay bind-mounts
+# only ./src and runs `next dev`, which RE-COMPILES from source at request
+# time and therefore must resolve the tsconfig path aliases itself — `@/*`
+# (-> ./src/*) and `@copilotkit/showcase-shared-tools` (-> ./shared-tools).
+# `next start` (prod) doesn't need these (they're baked into .next), but
+# without them `next dev` fails with "Module not found: Can't resolve
+# '@/mastra'" and every agent route 500s. Mirrors langgraph-typescript's
+# runner stage, which likewise bakes shared-tools/ for dev.
+COPY --chown=app:app --from=frontend /app/tsconfig.json ./
+COPY --chown=app:app shared-tools/ ./shared-tools/
+
 # NOTE (Browser Use demo — /demos/browser-use, OSS-91):
 # That demo drives a real LOCAL headless Chromium via Playwright's `browse_web`
 # tool. The browser binary is NOT installed here on purpose — it would add
