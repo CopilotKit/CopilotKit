@@ -1,0 +1,12 @@
+{
+  "id": "clawg-ui",
+  "channels": ["clawg-ui"],
+  "contracts": {
+    "tools": ["cron_report"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

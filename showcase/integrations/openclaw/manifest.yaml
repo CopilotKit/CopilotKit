@@ -1,0 +1,95 @@
+name: OpenClaw
+slug: openclaw
+category: emerging
+language: typescript
+description: >-
+  CopilotKit integration with OpenClaw — a self-hosted multi-channel AI gateway.
+  Connects via the clawg-ui AG-UI adapter (operator-auth route), so a CopilotKit
+  frontend drives an OpenClaw agent with streaming responses and server-side
+  tool rendering.
+partner_docs: null
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/openclaw
+copilotkit_version: 2.0.0
+deployed: false
+sort_order: 145
+interaction_modalities:
+  - sidebar
+  - embedded
+  - chat
+features:
+  - agentic-chat
+  - agentic-chat-reasoning
+  - tool-rendering
+  - frontend-tools
+  - prebuilt-sidebar
+  - prebuilt-popup
+  - chat-customization-css
+demos:
+  - id: agentic-chat
+    name: Agentic Chat
+    description: >-
+      Streaming chat with an OpenClaw agent through the clawg-ui AG-UI adapter.
+    tags:
+      - chat-ui
+    route: /demos/agentic-chat
+    highlight:
+      - src/app/demos/agentic-chat/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: agentic-chat-reasoning
+    name: Agentic Chat (Reasoning)
+    description: >-
+      The OpenClaw agent in reasoning "stream" mode — REASONING_* events render
+      as a live reasoning panel alongside the streamed answer.
+    tags:
+      - chat-ui
+    route: /demos/agentic-chat-reasoning
+    highlight:
+      - src/app/demos/agentic-chat-reasoning/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering
+    name: Tool Rendering
+    description: >-
+      Renders the OpenClaw agent's server-side tool calls (e.g. shell/read)
+      inline in the conversation as tool-call cards.
+    tags:
+      - agent-capabilities
+    route: /demos/tool-rendering
+    highlight:
+      - src/app/demos/tool-rendering/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: frontend-tools
+    name: Frontend Tools
+    description: >-
+      A tool defined in React, executed in the browser, and invoked by the
+      OpenClaw agent — forwarded over AG-UI as an OpenClaw client tool.
+    tags:
+      - interactivity
+    route: /demos/frontend-tools
+    highlight:
+      - src/app/demos/frontend-tools/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: prebuilt-sidebar
+    name: Prebuilt Sidebar
+    description: The OpenClaw agent in CopilotKit's prebuilt docked sidebar.
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-sidebar
+    highlight:
+      - src/app/demos/prebuilt-sidebar/page.tsx
+  - id: prebuilt-popup
+    name: Prebuilt Popup
+    description: The OpenClaw agent in CopilotKit's floating popup widget.
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-popup
+    highlight:
+      - src/app/demos/prebuilt-popup/page.tsx
+  - id: chat-customization-css
+    name: Chat Customization (CSS)
+    description: The built-in chat, fully restyled via scoped CSS variables.
+    tags:
+      - chat-ui
+    route: /demos/chat-customization-css
+    highlight:
+      - src/app/demos/chat-customization-css/page.tsx
+      - src/app/demos/chat-customization-css/theme.css
