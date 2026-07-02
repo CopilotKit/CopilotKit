@@ -220,6 +220,20 @@ describe("roundtrip message conversion", () => {
     expect((aguiUserMsgs2[0] as any).image.bytes).toBe("userbase64data");
   });
 
+  test("image message GQL -> AGUI using URL", () => {
+    const gqlMsg = new gql.ImageMessage({
+      id: "img-url-1",
+      url: "https://example.com/image.png",
+      role: gql.Role.user,
+    });
+    const aguiMsgs = gqlToAGUI(gqlMsg);
+    expect(aguiMsgs[0].id).toBe("img-url-1");
+    expect(aguiMsgs[0].role).toBe("user");
+    expect((aguiMsgs[0] as any).image.url).toBe(
+      "https://example.com/image.png",
+    );
+  });
+
   test("wild card action roundtrip conversion", () => {
     const mockRender = vi.fn(
       (props) => `Wildcard rendered: ${props.args.test}`,
