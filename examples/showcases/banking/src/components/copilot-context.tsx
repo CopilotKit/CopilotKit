@@ -4,14 +4,14 @@ import {
   useComponent,
   useHumanInTheLoop,
 } from "@copilotkit/react-core/v2";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { z } from "zod";
 import useCreditCards from "@/app/actions";
 import { useAuthContext } from "@/components/auth-context";
 import { useRecording } from "@/components/recording-context";
 import { ApprovalButtons } from "@/components/approval-buttons";
 import { RecordingSteps } from "@/components/recording-feed";
-import { TransactionsList } from "@/components/transactions-list";
+import { PendingApprovalsChat } from "@/components/wow/pending-approvals-chat";
 import {
   SpendingTrendChart,
   BudgetUsageChart,
@@ -68,6 +68,7 @@ const canonicalProcedure = (code: string): string =>
 const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   const { currentUser } = useAuthContext();
   const pathname = usePathname();
+  const router = useRouter();
   const {
     cards,
     policies,
@@ -182,9 +183,17 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             size="icon"
             onClick={() => {
               const operationParams = `?operation=${operation}`;
-              window.location.href = `${page!.toLowerCase()}${
-                operationAvailable ? operationParams : ""
-              }`;
+              // `/cards` mirrors the dashboard; the card tools/operations
+              // (add card, change PIN) are registered on the home route, so
+              // card requests must land on `/` or the operation dies on
+              // arrival.
+              const target = page === "/cards" ? "/" : page!.toLowerCase();
+              // Client-side navigation: a full reload (window.location) tears
+              // down the chat panel mid-run, so the conversation — and the
+              // in-flight operation — is lost the moment we navigate.
+              router.push(
+                `${target}${operationAvailable ? operationParams : ""}`,
+              );
               respond?.(page!);
             }}
             aria-label="Confirm Navigation"
@@ -207,20 +216,25 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   });
 
   // Generative-UI: the pending-approval queue, rendered IN the chat. Mirrors the
-  // dashboard's "Pending approval" tab (TransactionsList in approval mode) so the
-  // officer can triage and clear over-limit charges without leaving the
-  // conversation — over-limit rows keep Approve gated and offer "File policy
-  // exception", exactly like the dashboard. Display-only `useComponent` (not
-  // useFrontendTool) so the table persists in the transcript after the call;
+  // dashboard's "Pending approval" tab behaviors (identical over-limit gating,
+  // exception filing, and teach-mode recording payloads) so the officer can
+  // triage and clear over-limit charges without leaving the conversation.
+  // Rendered via PendingApprovalsChat — the dashboard's 4-column table is
+  // ~550px wide and its Actions column lands past the ~375px chat card's edge
+  // (buttons render but cannot be clicked), so the chat uses a stacked layout
+  // with labeled actions instead. Display-only `useComponent` (not
+  // useFrontendTool) so the card persists in the transcript after the call;
   // re-registers when the data changes, or the closure captures empty arrays.
   useComponent(
     {
       name: "showPendingApprovals",
       description:
         "Show the queue of transactions awaiting approval (including over-limit " +
-        "charges) as an interactive table in the chat. Call this whenever the " +
+        "charges) as an interactive list in the chat. Call this whenever the " +
         "user asks what is pending, what needs approval, or to review pending or " +
-        "over-limit charges — do NOT answer those in plain text.",
+        "over-limit charges — do NOT list the transactions in plain text. After " +
+        "the list renders, add one short sentence pointing at what needs " +
+        "attention (e.g. how many are over their policy limit).",
       parameters: z.object({}),
       render: () => {
         const pending = transactions.filter((t) => t.status === "pending");
@@ -236,19 +250,17 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
             <h3 className="text-lg font-semibold text-ink">
               Pending approvals
             </h3>
-            <TransactionsList
+            <PendingApprovalsChat
               transactions={pending}
               policies={policies}
               openPolicyException={openPolicyException}
               finalizePolicyException={finalizePolicyException}
-              showApprovalInterface
-              approvalInterfaceProps={{
-                onApprove: async (id) =>
-                  (await changeTransactionStatus({ id, status: "approved" }))
-                    .ok,
-                onDeny: async (id) =>
-                  (await changeTransactionStatus({ id, status: "denied" })).ok,
-              }}
+              onApprove={async (id) =>
+                (await changeTransactionStatus({ id, status: "approved" })).ok
+              }
+              onDeny={async (id) =>
+                (await changeTransactionStatus({ id, status: "denied" })).ok
+              }
             />
           </div>
         );
@@ -262,12 +274,24 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
   // `useComponent`, so they persist in the transcript like showTransactions).
   // All hand-rolled SVG/CSS in the brand style — no charting dependency. Each
   // re-registers when the data it reads changes.
+  //
+  // Every chart description carries the same "chart + answer" rule: the chart
+  // replaces restating the raw numbers, NOT the answer itself. Without it the
+  // model renders the right chart and never addresses the user's actual
+  // question ("which policy is closest to its limit?" → chart, silence).
+  const CHART_ANSWER_RULE =
+    " After the chart renders, ALSO answer the user's specific question in " +
+    "one or two sentences grounded in the data — the chart replaces listing " +
+    "the raw numbers, not your answer. If the user asked no specific " +
+    "question, one short takeaway sentence is enough.";
+
   useComponent(
     {
       name: "showSpendingTrend",
       description:
         "Render a chart of spending over time in the chat. Call this for any " +
-        "question about spend trends, history, or how spending has changed.",
+        "question about spend trends, history, or how spending has changed." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
@@ -285,7 +309,8 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       description:
         "Render a chart of budget usage per expense policy (spent vs limit) in " +
         "the chat. Call this for questions about budgets, limits, utilization, " +
-        "or which teams are close to or over their limit.",
+        "or which teams are close to or over their limit." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
@@ -305,7 +330,8 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       description:
         "Render a donut chart breaking spend down by team/policy in the chat. " +
         "Call this for 'where is the money going', spend distribution, or " +
-        "breakdown-by-team questions.",
+        "breakdown-by-team questions." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">
@@ -323,7 +349,8 @@ const CopilotContext = ({ children }: { children: React.ReactNode }) => {
       description:
         "Render a chart comparing total income vs expenses (and the net) in " +
         "the chat. Call this for cash-flow, income-vs-spend, or net-position " +
-        "questions.",
+        "questions." +
+        CHART_ANSWER_RULE,
       parameters: z.object({}),
       render: () => (
         <div className="space-y-3 rounded-2xl border border-hairline bg-surface p-4 text-ink shadow-soft">

@@ -3,7 +3,7 @@ import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CopilotChat } from "../CopilotChat";
 import { useAgent } from "../../../hooks/use-agent";
-import { useCopilotKit } from "../../../providers/CopilotKitProvider";
+import { useCopilotKit } from "../../../context";
 import { MockStepwiseAgent } from "../../../__tests__/utils/test-helpers";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 
@@ -14,7 +14,7 @@ vi.mock("../../../hooks/use-agent", () => ({
   })),
 }));
 
-vi.mock("../../../providers/CopilotKitProvider", () => ({
+vi.mock("../../../context", () => ({
   useCopilotKit: vi.fn(),
   useLicenseContext: vi.fn(() => ({
     checkFeature: () => true,
