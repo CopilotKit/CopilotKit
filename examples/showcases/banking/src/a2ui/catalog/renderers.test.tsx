@@ -98,3 +98,34 @@ describe("banking catalog StatCard renderer", () => {
     expect(screen.getByText(formatCurrency(300))).toBeDefined();
   });
 });
+
+const Transactions = renderers.Transactions as (
+  props: RendererProps<{ status?: string }>,
+) => React.ReactElement;
+
+function renderTransactions(status: string) {
+  return render(
+    <ReportDataProvider value={data}>
+      <Transactions
+        props={{ status }}
+        // `children` is the RendererProps render-callback, not React children.
+        // eslint-disable-next-line react/no-children-prop
+        children={() => null as unknown as React.ReactNode}
+      />
+    </ReportDataProvider>,
+  );
+}
+
+describe("banking catalog Transactions renderer", () => {
+  it("shows an empty state for a status with no matching rows", () => {
+    // The fixture has no denied transactions.
+    renderTransactions("denied");
+    expect(screen.getByText("No denied transactions.")).toBeDefined();
+  });
+
+  it("renders the table (not the empty state) when rows match the status", () => {
+    // t1 is approved, so the table renders instead of the empty state.
+    renderTransactions("approved");
+    expect(screen.queryByText("No approved transactions.")).toBeNull();
+  });
+});

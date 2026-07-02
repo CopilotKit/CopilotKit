@@ -29,7 +29,9 @@ const Stack = ({
   children,
 }: RendererProps<{ children: string[]; gap?: keyof typeof GAP }>) => (
   <div className={cn("flex flex-col", GAP[props.gap ?? "md"])}>
-    {props.children?.map((id) => <Slot key={id} render={children(id)} />)}
+    {props.children?.map((id) => (
+      <Slot key={id} render={children(id)} />
+    ))}
   </div>
 );
 
@@ -38,7 +40,9 @@ const Row = ({
   children,
 }: RendererProps<{ children: string[]; gap?: "sm" | "md" | "lg" }>) => (
   <div className={cn("flex flex-wrap", GAP[props.gap ?? "md"])}>
-    {props.children?.map((id) => <Slot key={id} render={children(id)} />)}
+    {props.children?.map((id) => (
+      <Slot key={id} render={children(id)} />
+    ))}
   </div>
 );
 
@@ -52,7 +56,9 @@ const Grid = ({
       gridTemplateColumns: `repeat(${props.columns ?? 3}, minmax(0, 1fr))`,
     }}
   >
-    {props.children?.map((id) => <Slot key={id} render={children(id)} />)}
+    {props.children?.map((id) => (
+      <Slot key={id} render={children(id)} />
+    ))}
   </div>
 );
 
@@ -162,19 +168,25 @@ const Chart = ({
   );
 };
 
-const PendingTable = () => {
+const Transactions = ({
+  props,
+}: RendererProps<{ status?: "all" | "pending" | "approved" | "denied" }>) => {
   const { transactions, policies } = useReportData();
-  const pending = transactions.filter((t) => t.status === "pending");
-  if (!pending.length) {
+  const status = props.status ?? "all";
+  const rows =
+    status === "all"
+      ? transactions
+      : transactions.filter((t) => t.status === status);
+  if (!rows.length) {
     return (
       <div className="rounded-2xl border border-hairline bg-surface p-4 text-sm text-ink-muted">
-        Nothing pending approval.
+        {status === "all" ? "No transactions." : `No ${status} transactions.`}
       </div>
     );
   }
   return (
     <div className="rounded-2xl border border-hairline bg-surface p-4">
-      <TransactionsList transactions={pending} policies={policies} />
+      <TransactionsList transactions={rows} policies={policies} />
     </div>
   );
 };
@@ -188,5 +200,5 @@ export const renderers = {
   Text,
   StatCard,
   Chart,
-  PendingTable,
+  Transactions,
 };

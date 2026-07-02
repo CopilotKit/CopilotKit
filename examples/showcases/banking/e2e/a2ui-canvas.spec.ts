@@ -35,7 +35,7 @@ import { test, expect } from "@playwright/test";
  *         "title": "Spend report",
  *         "kpis": ["totalSpend", "pendingCount"],
  *         "charts": ["spendingTrend"],
- *         "pendingTable": false
+ *         "transactions": "pending"
  *       }
  *     }] }
  *   },

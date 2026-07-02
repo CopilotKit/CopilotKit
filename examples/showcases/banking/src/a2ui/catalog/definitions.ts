@@ -48,7 +48,7 @@ export const definitions = {
       "A short NEUTRAL caption or section label (e.g. 'Spend overview', " +
       "'This quarter'). Label-only: do NOT state figures, amounts, percentages, " +
       "deltas, or trend claims — every quantitative claim must come from " +
-      "StatCard/Chart/PendingTable, which bind live client data. Use " +
+      "StatCard/Chart/Transactions, which bind live client data. Use " +
       "tone='muted' for secondary captions.",
     props: z.object({
       text: stringOrPath,
@@ -86,10 +86,14 @@ export const definitions = {
       ]),
     }),
   },
-  PendingTable: {
+  Transactions: {
     description:
-      "A table of transactions currently awaiting approval (live). No props.",
-    props: z.object({}),
+      "A live table of transactions. `status` filters which rows show: 'all', " +
+      "'pending' (awaiting approval), 'approved', or 'denied' (defaults to " +
+      "'all'). Data is bound on the client — do NOT pass numbers or rows.",
+    props: z.object({
+      status: z.enum(["all", "pending", "approved", "denied"]).optional(),
+    }),
   },
 };
 

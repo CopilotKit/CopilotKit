@@ -60,20 +60,23 @@ describe("buildReportOps", () => {
     expect(comps.some((c) => c.component === "Grid")).toBe(true);
   });
 
-  it("maps each chart kind to a Chart node and includes the pending table when asked", () => {
+  it("maps each chart kind to a Chart node and includes a filtered Transactions table when asked", () => {
     const comps = componentsOf(
       buildReportOps({
         title: "R",
         kpis: [],
         charts: ["budgetUsage"],
-        pendingTable: true,
+        transactions: "approved",
       }),
     );
     expect(comps.find((c) => c.id === "chart-budgetUsage")).toMatchObject({
       component: "Chart",
       kind: "budgetUsage",
     });
-    expect(comps.find((c) => c.component === "PendingTable")).toBeDefined();
+    expect(comps.find((c) => c.component === "Transactions")).toMatchObject({
+      component: "Transactions",
+      status: "approved",
+    });
   });
 
   it("omits summary when not provided and includes it (muted) when provided", () => {

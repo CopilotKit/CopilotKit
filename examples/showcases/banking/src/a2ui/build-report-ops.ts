@@ -10,7 +10,7 @@ import { CATALOG_ID } from "./catalog/definitions";
  * component JSON inline) is what keeps generation fast and reliable — the
  * model only emits the tiny selection below.
  *
- * Data is NOT carried in the ops: StatCard/Chart/PendingTable bind live client
+ * Data is NOT carried in the ops: StatCard/Chart/Transactions bind live client
  * data via useReportData() in the catalog renderers. The agent supplies only
  * metric/kind selections + label-only text.
  */
@@ -36,6 +36,14 @@ export const REPORT_CHARTS = [
 ] as const;
 export type ReportChart = (typeof REPORT_CHARTS)[number];
 
+export const REPORT_TX_STATUSES = [
+  "all",
+  "pending",
+  "approved",
+  "denied",
+] as const;
+export type ReportTxStatus = (typeof REPORT_TX_STATUSES)[number];
+
 /** Human captions for each KPI — assigned here so the agent needn't supply them. */
 const METRIC_LABELS: Record<ReportMetric, string> = {
   totalSpend: "Total approved spend",
@@ -59,10 +67,12 @@ export const renderReportParams = z.object({
   charts: z
     .array(z.enum(REPORT_CHARTS))
     .describe("Which charts to show, in order."),
-  pendingTable: z
-    .boolean()
+  transactions: z
+    .enum(REPORT_TX_STATUSES)
     .optional()
-    .describe("Include the live pending-approvals table at the bottom."),
+    .describe(
+      "Include a live transactions table filtered by status: 'all', 'pending', 'approved', or 'denied'. Omit to leave it out.",
+    ),
   summary: z
     .string()
     .optional()
@@ -135,9 +145,13 @@ export function buildReportOps(
     rootChildren.push("chart-grid");
   }
 
-  if (spec.pendingTable) {
-    components.push({ id: "pending", component: "PendingTable" });
-    rootChildren.push("pending");
+  if (spec.transactions) {
+    components.push({
+      id: "transactions",
+      component: "Transactions",
+      status: spec.transactions,
+    });
+    rootChildren.push("transactions");
   }
 
   components.unshift({

@@ -160,14 +160,14 @@ re-approve it. Apply the saved procedure only to OTHER over-limit charges afterw
 You can render a full multi-widget report on the CANVAS (the app's main content
 area, outside the chat). Pick by intent:
 
-- REPORT / ANALYSIS / OVERVIEW / DASHBOARD, or "show it on the canvas" -> call render_report. Choose which KPIs (kpis) and charts to include, and set pendingTable when the approval queue is relevant. The canvas binds live figures on the client — you only pick which widgets to show and a label-only title/summary.
+- REPORT / ANALYSIS / OVERVIEW / DASHBOARD, or "show it on the canvas" -> call render_report. Choose which KPIs (kpis) and charts to include, and set transactions to a status when a transactions table is relevant. The canvas binds live figures on the client — you only pick which widgets to show and a label-only title/summary.
 - A SINGLE named chart or metric -> use the existing in-chat chart tool instead (renders inline in the conversation). Do NOT open the canvas for these.
 
 Examples:
 - "build me a spend report" / "give me an overview of our spending" / "show it on the canvas" -> render_report (canvas).
 - "show the spending trend" / "what's our budget usage?" -> in-chat chart tool (inline).
 
-render_report inputs: kpis is any of totalSpend | pendingCount | overLimitCount | policyCount; charts is any of spendingTrend | budgetUsage | spendBreakdown | incomeVsExpenses. title and summary are LABELS ONLY — never put figures, amounts, percentages, or trend claims in them; every number comes from the selected KPIs/charts, which bind live data on the client.`,
+render_report inputs: kpis is any of totalSpend | pendingCount | overLimitCount | policyCount; charts is any of spendingTrend | budgetUsage | spendBreakdown | incomeVsExpenses; transactions (optional) is one of all | pending | approved | denied. title and summary are LABELS ONLY — never put figures, amounts, percentages, or trend claims in them; every number comes from the selected KPIs/charts, which bind live data on the client.`,
   tools: [renderReportTool],
   // Temperature 0 for consistent tool routing — the teach-flow sequencing
   // (recall_memory → offerWorkflowRecording on an over-limit approve) needs the
