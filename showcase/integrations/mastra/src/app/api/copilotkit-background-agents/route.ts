@@ -8,15 +8,22 @@
 // lifecycle chunks. MastraAgent maps those to AG-UI activity events → a live
 // activity card in the chat.
 //
-// `untilIdle: true` is the key: per Mastra's background-tasks docs, it keeps the
-// run open and pipes the manager pubsub chunks — including
-// `background-task-completed` (whose `payload.result` is the eventual tool
-// result) — into the SAME run `fullStream`. Without it, the run closes after
-// `background-task-started` and completion is out of band (the card would stay
-// "working"). With it, the bridge forwards the full running→completed lifecycle
-// so the activity card animates to done in-turn. The toggle lives on
-// `getLocalAgents` (PLURAL) — `getLocalAgent` (singular) does not expose it — so
-// we build the agent set with `untilIdle: true` and pick our agent out.
+// Completion is OUT OF BAND by design. Mastra's `untilIdle: true` is documented
+// to hold the run open and pipe the manager pubsub chunks (including
+// `background-task-completed`) into the same `fullStream` so the card could flip
+// to "Completed" in-turn — and the bridge DOES map every lifecycle chunk. But
+// that only works when the dispatched task actually EXECUTES before the idle
+// window closes, which requires a background worker/queue picking the task up.
+// In this single-process Next.js demo there is no such worker: empirically the
+// tool's `execute` never fires within the run, so no `background-task-completed`
+// chunk is ever produced — `untilIdle` just holds the stream open for the full
+// idle timeout (many wasted re-entry LLM calls, a flaky/slow card render) while
+// the card stays "working" regardless. So we DON'T use it: the plain
+// `getLocalAgent` path lets the run close right after `background-task-started`,
+// the "working" activity card paints fast and deterministically, and completion
+// is delivered out of band (a later turn / the task manager) exactly as the
+// demo's tool, renderer, and e2e document. See
+// `src/mastra/tools/background-research.ts` and `tests/e2e/background-agents.spec.ts`.
 
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -24,22 +31,19 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { getLocalAgents } from "@ag-ui/mastra";
+import { getLocalAgent } from "@ag-ui/mastra";
 import { mastra } from "@/mastra";
 import { withForwardedHeaders } from "@/mastra/_header_forwarding";
 
-const localAgents = getLocalAgents({
+const backgroundAgentsAgent = getLocalAgent({
   mastra,
+  agentId: "backgroundAgentsAgent",
   resourceId: "mastra-background-agents",
-  // Pipe the background-task lifecycle (started → running → completed + result)
-  // into the run's fullStream so the activity card can complete in-turn.
-  untilIdle: true,
 });
 
-const backgroundAgentsAgent = localAgents["backgroundAgentsAgent"];
 if (!backgroundAgentsAgent) {
   throw new Error(
-    "getLocalAgents did not return backgroundAgentsAgent — required for /demos/background-agents",
+    "getLocalAgent returned null for backgroundAgentsAgent — required for /demos/background-agents",
   );
 }
 
