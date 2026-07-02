@@ -25,12 +25,18 @@ managed_platform:
   name: Mastra Cloud
   url: https://mastra.ai/cloud
 not_supported_features:
-  - shared-state-streaming
+  # QUARANTINED pending a @copilotkit/react-core release — parity with the
+  # langgraph-python gold standard, which quarantines the same two cells.
+  # gen-ui-interrupt / interrupt-headless fail turn-2 on a
+  # useInterrupt/useHeadlessInterrupt RESUME-PATH hook bug in
+  # @copilotkit/react-core v2: the backend resumes + streams (HTTP 200) but the
+  # frontend never appends the confirmation assistant bubble, so the harness DOM
+  # settle-check times out. Fix is a published-package change (out of scope).
+  # The v1 bridge (@ag-ui/mastra 1.1.0-alpha.0) DOES ship the native interrupt +
+  # standard RUN_FINISHED interrupt-outcome path; the showcase cell is blocked by
+  # the same upstream react-core bug as gold, not by the bridge. Demos remain wired.
   - gen-ui-interrupt
   - interrupt-headless
-  - agentic-chat-reasoning
-  - reasoning-default-render
-  - tool-rendering-reasoning-chain
 features:
   - cli-start
   - agentic-chat
@@ -67,6 +73,10 @@ features:
   - hitl-in-chat-booking
   - mcp-apps
   - shared-state-read
+  - shared-state-streaming
+  - agentic-chat-reasoning
+  - reasoning-default-render
+  - tool-rendering-reasoning-chain
 a2ui_pattern: llm-driven
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
@@ -497,6 +507,30 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-default
+    name: "Reasoning: Default"
+    description: Built-in CopilotChatReasoningMessage rendering with no slot
+      override — the v1 bridge emits reasoning start/content/end events straight
+      into the default renderer.
+    tags:
+      - chat-ui
+    route: /demos/reasoning-default
+    highlight:
+      - src/app/demos/reasoning-default/page.tsx
+      - src/app/demos/reasoning-default/suggestions.ts
+      - src/mastra/agents/index.ts
+  - id: reasoning-custom
+    name: "Reasoning: Custom"
+    description: Visible reasoning/thinking chain alongside the final answer via a
+      custom reasoningMessage slot.
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    highlight:
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/mastra/agents/index.ts
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-interrupt
     name: Gen UI Interrupt (Frontend Tool)
