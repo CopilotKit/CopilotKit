@@ -24,19 +24,14 @@ interaction_modalities:
 managed_platform:
   name: Mastra Cloud
   url: https://mastra.ai/cloud
-not_supported_features:
-  # QUARANTINED pending a @copilotkit/react-core release — parity with the
-  # langgraph-python gold standard, which quarantines the same two cells.
-  # gen-ui-interrupt / interrupt-headless fail turn-2 on a
-  # useInterrupt/useHeadlessInterrupt RESUME-PATH hook bug in
-  # @copilotkit/react-core v2: the backend resumes + streams (HTTP 200) but the
-  # frontend never appends the confirmation assistant bubble, so the harness DOM
-  # settle-check times out. Fix is a published-package change (out of scope).
-  # The v1 bridge (@ag-ui/mastra 1.1.0-alpha.0) DOES ship the native interrupt +
-  # standard RUN_FINISHED interrupt-outcome path; the showcase cell is blocked by
-  # the same upstream react-core bug as gold, not by the bridge. Demos remain wired.
-  - gen-ui-interrupt
-  - interrupt-headless
+# Full langgraph-python parity: every demo backed by demo + aimock e2e + doc.
+# The prior gen-ui-interrupt / interrupt-headless quarantine (an upstream
+# @copilotkit/react-core v2 resume-path hook bug) is resolved as of
+# @copilotkit/* 1.62.1 — both cells now run the native useInterrupt path and are
+# supported. Genuine architectural gaps (predictive-state, step-lifecycle,
+# durable-across-disconnect) are Mastra-SDK limitations, not showcase gaps, and
+# are tracked on the umbrella (OSS-381) rather than claimed here.
+not_supported_features: []
 features:
   - cli-start
   - agentic-chat
@@ -77,7 +72,10 @@ features:
   - agentic-chat-reasoning
   - reasoning-default-render
   - tool-rendering-reasoning-chain
+  - gen-ui-interrupt
+  - interrupt-headless
 a2ui_pattern: llm-driven
+interrupt_pattern: native
 agent_config_pattern: shared-state
 auth_pattern: runtime-onrequest
 demos:
