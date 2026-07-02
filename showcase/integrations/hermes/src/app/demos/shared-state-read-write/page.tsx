@@ -5,9 +5,7 @@ import {
   CopilotKit,
   useAgent,
   UseAgentUpdate,
-  useRenderTool,
 } from "@copilotkit/react-core/v2";
-import { z } from "zod";
 
 import { Preferences } from "./preferences-card";
 import { DemoLayout } from "./demo-layout";
@@ -96,33 +94,10 @@ function DemoContent() {
 
   // `set_notes` is an internal state-writer tool (declared to the hermes
   // adapter via forwarded_props). Its authoritative surface is the Agent
-  // Scratch Pad card (rendered from the emitted state snapshot). In the chat
-  // transcript we render a compact inline confirmation that echoes the notes
-  // the agent just wrote, rather than the default raw tool-call chip. (The
-  // hermes adapter derives tool-call events from the returned messages after
-  // the run, so the tool bubble trails the assistant's text bubble — echoing
-  // the note content here keeps that trailing bubble meaningful.)
-  useRenderTool(
-    {
-      name: "set_notes",
-      parameters: z.object({ notes: z.array(z.string()).optional() }),
-      render: ({ args }) => {
-        const list = Array.isArray(args?.notes) ? args.notes : [];
-        if (list.length === 0) return <></>;
-        return (
-          <div
-            data-testid="set-notes-confirmation"
-            className="my-2 rounded-lg border border-[#E9E9EF] bg-[#FAFAFC] px-3 py-2 text-xs text-[#57575B]"
-          >
-            <span className="font-medium text-[#010507]">Noted:</span>{" "}
-            {list.join("; ")}
-          </div>
-        );
-      },
-    },
-    [],
-  );
-
+  // Scratch Pad card, rendered from the emitted state snapshot — the adapter
+  // suppresses the raw tool-call chip for it, so no per-tool renderer is
+  // needed here (matching langgraph-python, where the state card is the sole
+  // surface).
   const agentState = agent.state as RWAgentState | undefined;
   const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;
   const notes = agentState?.notes ?? [];

@@ -18,7 +18,15 @@ Run framing:
     RUN_STARTED
       -> (live)  TEXT_MESSAGE_* / REASONING_MESSAGE_*
       -> (post)  TOOL_CALL_* [+ TOOL_CALL_RESULT for server tools]
+      -> (post)  STATE_SNAPSHOT for state-writer tools
     RUN_FINISHED   (or RUN_ERROR on failure)
+
+State-writer tools (declared via ``forwarded_props``) are INTERNAL: their
+authoritative UI is the state card driven by ``StateSnapshotEvent``, not a
+chatty tool chip. The adapter therefore SUPPRESSES the visible ``TOOL_CALL_*``
+/ ``TOOL_CALL_RESULT`` events for them (which would otherwise trail the
+streamed text as a raw chip, since tool events are derived post-run) and emits
+only the snapshot the call produced, in message order.
 """
 
 from __future__ import annotations
@@ -201,11 +209,18 @@ async def _event_stream(run_input: RunAgentInput, encoder: EventEncoder,
                 if name in frontend_names:
                     deferred_frontend.append((tcid, name, args))
                     continue
-                emit(ToolCallStartEvent(tool_call_id=tcid, tool_call_name=name))
-                emit(ToolCallArgsEvent(tool_call_id=tcid, delta=args if isinstance(args, str) else json.dumps(args)))
-                emit(ToolCallEndEvent(tool_call_id=tcid))
-                if tcid in results:
-                    emit(ToolCallResultEvent(message_id=f"res-{tcid}", tool_call_id=tcid, content=results[tcid]))
+                # State-writer tools are INTERNAL: their authoritative UI is the
+                # state card driven by the StateSnapshotEvent below, not a chatty
+                # tool chip. Suppress the visible TOOL_CALL_* / TOOL_CALL_RESULT
+                # events for them (they would otherwise trail the streamed text
+                # as a raw chip, since tool events are derived post-run) but STILL
+                # emit the snapshot the call produced, in message order.
+                if name not in state_writer_names:
+                    emit(ToolCallStartEvent(tool_call_id=tcid, tool_call_name=name))
+                    emit(ToolCallArgsEvent(tool_call_id=tcid, delta=args if isinstance(args, str) else json.dumps(args)))
+                    emit(ToolCallEndEvent(tool_call_id=tcid))
+                    if tcid in results:
+                        emit(ToolCallResultEvent(message_id=f"res-{tcid}", tool_call_id=tcid, content=results[tcid]))
                 # After a state-writer tool call, emit the snapshot it produced
                 # so the frontend re-renders with the new full shared state.
                 if name in state_writer_names and snap_idx < len(snapshots):

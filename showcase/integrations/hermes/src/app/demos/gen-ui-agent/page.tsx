@@ -6,9 +6,7 @@ import {
   CopilotKit,
   useAgent,
   UseAgentUpdate,
-  useRenderTool,
 } from "@copilotkit/react-core/v2";
-import { z } from "zod";
 import type { Step } from "./InlineAgentStateCard";
 import { MessageListWithState } from "./message-list-with-state";
 import { useSuggestions } from "./suggestions";
@@ -102,44 +100,11 @@ function Chat() {
   useSuggestions();
 
   // `set_steps` is an internal state-writer tool (declared to the hermes
-  // adapter via forwarded_props). The steps' authoritative surface is the
-  // inline InlineAgentStateCard (rendered from the emitted state snapshots).
-  // In the transcript we render a compact one-line progress confirmation
-  // instead of the default raw tool-call chip. (The hermes adapter derives
-  // tool-call events from the returned messages after the run, so the
-  // set_steps bubbles trail the assistant's text; keeping them non-empty
-  // lets the transcript settle while the live card shows the real steps.)
-  useRenderTool(
-    {
-      name: "set_steps",
-      parameters: z.object({
-        steps: z
-          .array(
-            z.object({
-              id: z.string().optional(),
-              title: z.string().optional(),
-              status: z.string().optional(),
-            }),
-          )
-          .optional(),
-      }),
-      render: ({ args }) => {
-        const steps = Array.isArray(args?.steps) ? args.steps : [];
-        if (steps.length === 0) return <></>;
-        const done = steps.filter((s) => s?.status === "completed").length;
-        return (
-          <div
-            data-testid="set-steps-confirmation"
-            className="my-1 text-[11px] text-[#838389]"
-          >
-            Updated plan — {done}/{steps.length} steps complete
-          </div>
-        );
-      },
-    },
-    [],
-  );
-
+  // adapter via forwarded_props). Its authoritative surface is the inline
+  // InlineAgentStateCard rendered from the emitted state snapshots — the
+  // adapter suppresses the raw tool-call chip for it, so no per-tool renderer
+  // is needed here (matching langgraph-python, where the state card is the
+  // sole surface).
   const steps = (agent.state as AgentState | undefined)?.steps ?? [];
   const status = agent.isRunning ? "inProgress" : "complete";
 
