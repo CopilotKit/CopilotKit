@@ -779,6 +779,7 @@ export class CpkThreadInspector extends LitElement {
     _stateError: { state: true },
     _expandedTools: { state: true },
     _expandedMessages: { state: true },
+    _expandedTimelineDetails: { state: true },
     _showDetailPanel: { state: true },
     _detailPanelWidth: { state: true },
     _eventsNotAvailable: { state: true },
@@ -816,6 +817,7 @@ export class CpkThreadInspector extends LitElement {
   private _stateError: string | null = null;
   private _expandedTools = new Set<string>();
   private _expandedMessages = new Set<string>();
+  private _expandedTimelineDetails = new Set<string>();
   private _showDetailPanel = false;
   private _detailPanelWidth = 250;
   /** True when the /events endpoint returned 501 — don't fall back to live data. */
@@ -1431,6 +1433,24 @@ export class CpkThreadInspector extends LitElement {
       color: #010507;
     }
 
+    .cpk-td__timeline-details-toggle {
+      margin: 0;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: #5558b2;
+      cursor: pointer;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      flex-shrink: 0;
+    }
+
+    .cpk-td__timeline-details-toggle:hover {
+      color: #010507;
+    }
+
     /* ── Generative UI ──────────────────────────────────────────────── */
     @keyframes cpk-genui-enter {
       from {
@@ -1720,6 +1740,7 @@ export class CpkThreadInspector extends LitElement {
     this._liveEventsWithSourceIndexCache = null;
     this._expandedTools = new Set();
     this._expandedMessages = new Set();
+    this._expandedTimelineDetails = new Set();
     this._metadataAbort?.abort();
     this._metadataAbort = null;
     this._messagesAbort?.abort();
@@ -2391,6 +2412,13 @@ export class CpkThreadInspector extends LitElement {
     this._expandedMessages = next;
   }
 
+  private toggleTimelineDetails(id: string): void {
+    const next = new Set(this._expandedTimelineDetails);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expandedTimelineDetails = next;
+  }
+
   private get activeEvents(): ApiAgentEvent[] {
     // When the endpoint explicitly returned 501 we report no events rather
     // than leaking the parent's agent-keyed live events across historical
@@ -2619,7 +2647,10 @@ export class CpkThreadInspector extends LitElement {
     }
 
     const events = this.activeEvents;
-    const cachedTimeline = this.getCachedPanelTpl("timeline", [events]);
+    const cachedTimeline = this.getCachedPanelTpl("timeline", [
+      events,
+      this._expandedTimelineDetails,
+    ]);
     if (cachedTimeline) return cachedTimeline;
 
     const timelineItems = this.timelineItemsForEvents(events);
@@ -2637,13 +2668,16 @@ export class CpkThreadInspector extends LitElement {
       `;
     }
 
-    return this.cachedPanelTpl("timeline", [events], () => {
-      return html`${timelineItems.map((item) => this.renderTimelineItem(item))}`;
-    });
+    return this.cachedPanelTpl(
+      "timeline",
+      [events, this._expandedTimelineDetails],
+      () => html`${timelineItems.map((item) => this.renderTimelineItem(item))}`,
+    );
   }
 
   private renderTimelineItem(item: TimelineItem) {
     const isWarning = item.kind === "warning";
+    const detailsExpanded = this._expandedTimelineDetails.has(item.id);
     return html`
       <div
         class="cpk-td__timeline-item ${
@@ -2662,6 +2696,18 @@ export class CpkThreadInspector extends LitElement {
           >
             Source event #${item.sourceIndex}
           </button>
+          ${
+            item.details
+              ? html`<button
+                  type="button"
+                  class="cpk-td__timeline-details-toggle"
+                  aria-expanded=${detailsExpanded ? "true" : "false"}
+                  @click=${() => this.toggleTimelineDetails(item.id)}
+                >
+                  ${detailsExpanded ? "Hide details" : "Show details"}
+                </button>`
+              : nothing
+          }
           <span class="cpk-td__timeline-time"
             >${formatTimestamp(item.timestamp)}</span
           >
@@ -2670,9 +2716,11 @@ export class CpkThreadInspector extends LitElement {
           item.body
             ? html`<div class="cpk-td__timeline-body">${item.body}</div>`
             : item.details
-              ? html`<pre class="cpk-td__timeline-body">
+              ? detailsExpanded
+                ? html`<pre class="cpk-td__timeline-body">
 ${unsafeHTML(highlightedJson(item.details))}</pre
-              >`
+                >`
+                : nothing
               : nothing
         }
       </div>
