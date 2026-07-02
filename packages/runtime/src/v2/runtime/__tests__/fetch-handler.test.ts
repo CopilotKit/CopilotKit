@@ -120,6 +120,56 @@ describe("createCopilotRuntimeHandler — multi-route with basePath", () => {
     expect(response.status).not.toBe(405);
   });
 
+  it("routes GET /memories (not 404/405)", async () => {
+    const response = await handler(
+      get("http://localhost/api/copilotkit/memories"),
+    );
+    // No intelligence configured here → 422, but the route + GET method match.
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("routes POST /memories (create) — not 404/405", async () => {
+    const response = await handler(
+      post("http://localhost/api/copilotkit/memories", {
+        content: "c",
+        kind: "topical",
+        scope: "user",
+      }),
+    );
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("routes PATCH /memories/:id (supersede) — not 404/405", async () => {
+    const response = await handler(
+      new Request("http://localhost/api/copilotkit/memories/m-1", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: "c", kind: "topical", scope: "user" }),
+      }),
+    );
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("routes DELETE /memories/:id (retire) — not 404/405", async () => {
+    const response = await handler(
+      new Request("http://localhost/api/copilotkit/memories/m-1", {
+        method: "DELETE",
+      }),
+    );
+    expect(response.status).not.toBe(404);
+    expect(response.status).not.toBe(405);
+  });
+
+  it("returns 405 for GET /memories/:id (PATCH/DELETE-only)", async () => {
+    const response = await handler(
+      get("http://localhost/api/copilotkit/memories/m-1"),
+    );
+    expect(response.status).toBe(405);
+  });
+
   it("basePath with trailing slash still works", async () => {
     const trailingSlashHandler = createCopilotRuntimeHandler({
       runtime: createRuntime(),
