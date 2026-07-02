@@ -153,16 +153,20 @@ Auth — put a `.env` next to the eval (gitignored):
 
 ## Scheduled runs (CI)
 
-A daily GitHub Actions cron runs the with/without comparison and posts the lift
+A GitHub Actions workflow runs the with/without comparison and posts the lift
 table to the run's **Step Summary**, so you can skim the trend from the Actions
 tab without downloading anything. See `.github/workflows/skill_eval-lift.yml`.
 
-- **When.** `0 14 * * *` (daily 14:00 UTC), plus `workflow_dispatch` for ad-hoc
-  runs. It does **not** run on pull requests — each run spins Docker containers
-  and burns agent tokens, so it is scheduled/manual only.
-- **Trials.** Defaults to `--trials=3` (6 agent sessions/arm-pair) to keep the
-  daily token cost and noise down; the manual-dispatch form takes a `trials`
-  input to override.
+- **When.** Three triggers: a daily cron `0 14 * * *` (trials=3) for the trend
+  line; a **pull_request** smoke run (trials=1) that fires **only** on PRs which
+  touch `skill-evals/**`, `skills/copilotkit-setup/**`, or the workflow itself —
+  it is a merge-blocking check for eval-relevant PRs, not a token tax on every
+  PR; and `workflow_dispatch` for ad-hoc runs. Each run spins Docker containers
+  and burns agent tokens, which is why the PR trigger is path-filtered.
+- **Trials.** `--trials=3` on the daily run (6 agent sessions/arm-pair) balances
+  noise vs. cost; PR smoke runs use `--trials=1` (validates the harness + agent
+  completion + build, not statistical lift); the manual-dispatch form takes a
+  `trials` input to override.
 - **Auth.** Uses the repo secrets `ANTHROPIC_API_KEY` (agent) and
   `OPENAI_API_KEY` (judge) — no OAuth token in CI, which also sidesteps the
   `setup-token` escape-code footgun below.
