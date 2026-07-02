@@ -66,4 +66,16 @@ describe("suggestions runtime info capability", () => {
 
     expect(core.suggestions).toBeUndefined();
   });
+
+  it("surfaces an explicit suggestions:false from /info", async () => {
+    // A runtime that explicitly advertises `false` must NOT enable the
+    // stateless path. This pins the strict `=== true` gate in
+    // `generateSuggestions` against a future truthy-check regression that would
+    // treat `false` (or any non-`true` value) as capable.
+    mockRuntimeInfo({ suggestions: false });
+
+    const core = await connectedCore();
+
+    expect(core.suggestions).toBe(false);
+  });
 });

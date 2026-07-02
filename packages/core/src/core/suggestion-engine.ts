@@ -202,11 +202,13 @@ export class SuggestionEngine {
         // clone). POST the consumer's messages plus the instruction and read
         // back the generated messages.
         //
-        // Gated to non-`single` transports: a single-route runtime has no
-        // `/agent/:id/suggest` path (it expects a `{method,params,body}`
-        // envelope at one endpoint), so those deployments fall through to the
-        // clone+`runAgent` fallback below. Single-route deployments are not the
-        // persisting-thread/Intelligence case, so the clone fallback is correct.
+        // Gated to non-`single` transports: this client only builds the
+        // multi-route `/agent/:id/suggest` URL and does not construct the
+        // single-route envelope for suggest, so single-route deployments fall
+        // through to the clone+`runAgent` fallback below. (The single-route
+        // runtime does route `agent/suggest`; the client just doesn't call it.)
+        // Single-route deployments are not the persisting-thread/Intelligence
+        // case, so the clone fallback is correct.
         const controller = new AbortController();
         statelessController = controller;
         runHandle = { abortRun: () => controller.abort() };

@@ -25,6 +25,8 @@ interface CapturedRequest {
   method: string;
   body: SuggestRequestBody | undefined;
   signal: AbortSignal | undefined;
+  headers: Record<string, string> | undefined;
+  credentials: RequestCredentials | undefined;
 }
 
 /**
@@ -64,6 +66,27 @@ interface FetchStubOptions {
 }
 
 /**
+ * Normalizes a `fetch` `HeadersInit` into a plain string record so tests can
+ * assert on individual header values without `as any`. The engine passes a
+ * plain object literal for `/suggest`, but this also handles `Headers` and the
+ * tuple-array form for completeness.
+ */
+function toHeaderRecord(
+  headers: HeadersInit | undefined,
+): Record<string, string> | undefined {
+  if (!headers) {
+    return undefined;
+  }
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+  if (Array.isArray(headers)) {
+    return Object.fromEntries(headers);
+  }
+  return { ...headers };
+}
+
+/**
  * Builds a typed `fetch` stub that routes `/info` (advertising
  * `suggestions: true`) and `/suggest`, recording every `/suggest` request so
  * tests can assert on it. The `/suggest` response echoes the marker message id
@@ -89,6 +112,8 @@ function setupRoutedFetch(options: FetchStubOptions = {}): {
           method: init?.method ?? "GET",
           body,
           signal: init?.signal ?? undefined,
+          headers: toHeaderRecord(init?.headers),
+          credentials: init?.credentials ?? undefined,
         });
         const status = options.suggestStatus ?? 200;
         const markerId = body?.messages.at(-1)?.id ?? "marker";
@@ -205,6 +230,45 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     expect(core.getSuggestions("consumer").suggestions).toEqual([
       { title: "Hi", message: "Say hi", isLoading: false },
     ]);
+  });
+
+  it("forwards custom headers and credentials onto the /suggest request", async () => {
+    // Pins the cookie/self-hosted auth critical path: core-level `headers` and
+    // `credentials` must ride along on the stateless `/suggest` fetch so a
+    // self-hosted backend behind auth can authenticate the request.
+    const { fetchMock, suggestRequests } = setupRoutedFetch({
+      suggestAssistantMessages: [
+        createSuggestionToolCall([{ title: "Hi", message: "Say hi" }], {
+          id: "a1",
+        }),
+      ],
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const core = new CopilotKitCore({
+      runtimeUrl: "https://runtime.example",
+      headers: { authorization: "Bearer x" },
+      credentials: "include",
+    });
+    await waitForCondition(() => core.suggestions === true);
+    registerAgents(core, [createMessage({ content: "hello" })]);
+    core.addSuggestionsConfig(
+      createSuggestionsConfig({
+        providerAgentId: "default",
+        consumerAgentId: "consumer",
+      }),
+    );
+
+    core.reloadSuggestions("consumer");
+
+    await vi.waitFor(() => {
+      expect(suggestRequests).toHaveLength(1);
+    });
+    expect(suggestRequests[0]!.headers?.authorization).toBe("Bearer x");
+    expect(suggestRequests[0]!.headers?.["Content-Type"]).toBe(
+      "application/json",
+    );
+    expect(suggestRequests[0]!.credentials).toBe("include");
   });
 
   it("appends the instruction message with the marker id and forces toolChoice", async () => {
@@ -329,6 +393,8 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
             method: init?.method ?? "GET",
             body: undefined,
             signal: init?.signal ?? undefined,
+            headers: toHeaderRecord(init?.headers),
+            credentials: init?.credentials ?? undefined,
           });
           return new Promise<MockResponse>((_resolve, reject) => {
             init?.signal?.addEventListener("abort", () => {
@@ -485,6 +551,8 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
             method: init?.method ?? "GET",
             body: undefined,
             signal: init?.signal ?? undefined,
+            headers: toHeaderRecord(init?.headers),
+            credentials: init?.credentials ?? undefined,
           });
           return new Promise<MockResponse>((_resolve, reject) => {
             init?.signal?.addEventListener("abort", () => {
@@ -579,6 +647,8 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
             method: init?.method ?? "GET",
             body: undefined,
             signal: init?.signal ?? undefined,
+            headers: toHeaderRecord(init?.headers),
+            credentials: init?.credentials ?? undefined,
           });
           return new Promise<MockResponse>((_resolve, reject) => {
             init?.signal?.addEventListener("abort", () => {

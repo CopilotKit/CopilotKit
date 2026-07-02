@@ -82,8 +82,10 @@ export async function handleGetRuntimeInfo({
         runtime,
         threadEndpointsEnabled,
       ),
-      // Unconditional: the stateless POST /agent/:agentId/suggest endpoint ships
-      // with the runtime in every mode, so clients can always detect it here.
+      // Advertised unconditionally. Multi-route runtimes expose the dedicated
+      // POST /agent/:agentId/suggest path; single-route clients fall back to a
+      // client-side run (they don't construct the single-route envelope for
+      // suggest). The flag lets multi-route clients detect the stateless path.
       suggestions: true,
       ...(isIntelligenceRuntime(runtime)
         ? {
