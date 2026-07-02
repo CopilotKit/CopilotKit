@@ -241,6 +241,22 @@
     @apply cpk:overflow-x-auto;
   }
 
+  /*
+   * Table action controls row + buttons. Streamdown renders these with raw
+   * (unprefixed) Tailwind utilities and no data-streamdown attribute, so they
+   * are unstyled when the host app only ships CopilotKit's packaged CSS. Scope
+   * to the first child of the wrapper, but only when a table container also
+   * follows (:not(:last-child)) so a controls-disabled table (single child) is
+   * never treated as a controls row. Buttons mirror the code-block controls.
+   */
+  [data-copilotkit] [data-streamdown="table-wrapper"] > div:first-child:not(:last-child) {
+    @apply cpk:flex cpk:items-center cpk:justify-end cpk:gap-1;
+  }
+
+  [data-copilotkit] [data-streamdown="table-wrapper"] > div:first-child:not(:last-child) button {
+    @apply cpk:cursor-pointer cpk:p-1 cpk:text-muted-foreground cpk:transition-all cpk:hover:text-foreground cpk:disabled:cursor-not-allowed cpk:disabled:opacity-50;
+  }
+
   [data-copilotkit] [data-streamdown="table"] {
     @apply cpk:w-full cpk:border-collapse cpk:border cpk:border-border;
   }
