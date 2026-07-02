@@ -1,6 +1,7 @@
 import * as gql from "../client";
 import type { MessageRole } from "../graphql/@generated/graphql";
 import type * as agui from "@copilotkit/shared"; // named agui for clarity, but this only includes agui message types
+import { getAgentStateRuntimeIdentity } from "./agent-state-runtime-identity";
 
 // Helper function to extract agent name from message
 function extractAgentName(message: agui.Message): string {
@@ -71,6 +72,7 @@ export function aguiToGQL(
           agentName,
           state,
           role: gql.Role.Assistant,
+          ...getAgentStateRuntimeIdentity(message),
         }),
       );
       // Optionally preserve render function
@@ -309,6 +311,7 @@ export function aguiMessageWithRenderToGQL(
         agentName: "unknown",
         state: {},
         role: gql.Role.Assistant,
+        ...getAgentStateRuntimeIdentity(message),
       }),
     );
     if (coAgentStateRenders) {
