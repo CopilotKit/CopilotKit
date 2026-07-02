@@ -10,30 +10,27 @@ import CopilotRuntime from "@/snippets/copilot-runtime.mdx";
 
 ## Execution tracing
 
-The Mastra bridge forwards Mastra's own tracing through, so runs show up in your
-Mastra observability backend with no extra wiring.
+When you embed a Mastra agent in Copilot Runtime, its tracing is carried through
+AG-UI end to end, so runs show up in your Mastra observability backend with no
+extra wiring.
 
-- **Inbound** — pass `tracingOptions` on your agent config to anchor each run
-  under a caller-chosen trace. The shape is structural (no `@mastra/core`
-  import): `{ traceId?: string; metadata?: Record<string, unknown> }`. It is
-  threaded into `agent.stream()` / `resumeStream()` on the local, remote, and
-  resume paths.
+- **Inbound** — pass `tracingOptions` alongside `mastra` in
+  `MastraAgent.getLocalAgents` to anchor each run under a caller-chosen trace.
+  The shape is `{ traceId?: string; metadata?: Record<string, unknown> }`:
 
   ```ts
-  getLocalAgents({
-    // ...your agents
-    tracingOptions: {
-      traceId: myTraceId,
-      metadata: { feature: "support-chat", tenant: tenantId },
-    },
+  const runtime = new CopilotRuntime({
+    agents: MastraAgent.getLocalAgents({
+      mastra,
+      tracingOptions: {
+        traceId: myTraceId,
+        metadata: { feature: "support-chat", tenant: tenantId },
+      },
+    }),
   });
   ```
 
 - **Outbound** — the execution `traceId` Mastra assigns to a run is surfaced on
-  the `RUN_FINISHED` event's `result` field as `{ traceId }`. That lets you anchor
-  feedback or scores back to the exact run (e.g. `createFeedback({ traceId })`)
-  without a protocol change.
-
-Tracing is inert on Mastra cores that predate observability support, so enabling
-it never breaks an older setup.
+  the `RUN_FINISHED` event's `result` field as `{ traceId }`, so you can anchor
+  feedback or scores back to the exact run (e.g. `createFeedback({ traceId })`).
 
