@@ -89,7 +89,12 @@ export const scheduleMeetingInterruptTool = createTool({
     chosen_label: z.string().optional(),
     cancelled: z.boolean().optional(),
   }),
-  execute: async ({ context, resumeData, suspend }) => {
+  // Mastra createTool execute signature is `(inputData, executionContext)`:
+  // the validated INPUT is the first arg; `suspend` / `resumeData` live on the
+  // SECOND arg (the ToolExecutionContext). Destructuring them off the first arg
+  // yields `undefined` and `suspend(...)` throws — the tool never pauses.
+  execute: async (inputData, executionContext) => {
+    const { suspend, resumeData } = executionContext;
     // Second pass: the user resolved the interrupt — the run resumes here with
     // their selection. Return a short confirmation the agent narrates.
     if (resumeData) {
@@ -98,13 +103,13 @@ export const scheduleMeetingInterruptTool = createTool({
       }
       const when =
         resumeData.chosen_label ?? resumeData.chosen_time ?? "the chosen time";
-      return `Scheduled "${context.topic}" for ${when}.`;
+      return `Scheduled "${inputData.topic}" for ${when}.`;
     }
     // First pass: suspend with the picker payload. Returned directly so the
     // agentic loop pauses here instead of continuing.
     return suspend({
-      topic: context.topic,
-      attendee: context.attendee,
+      topic: inputData.topic,
+      attendee: inputData.attendee,
       slots: generateCandidateSlots(),
     });
   },
