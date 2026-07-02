@@ -1,10 +1,15 @@
 /**
- * Media query for the mobile breakpoint, shared so the string literal isn't
- * duplicated across call sites within this package (e.g. `CopilotModalHeader`,
- * which needs a live `matchMedia` change-listener and so can't call
- * `isMobileViewport()` directly).
+ * Media query for the mobile breakpoint, re-exported from the shared
+ * `@copilotkit/web-components` source of truth so Vue's coordination layer, the
+ * React coordination layer, and the `<copilotkit-threads-drawer>` element all
+ * key their mobile split off the same boundary. Re-exported (rather than
+ * imported at each call site) so the string isn't duplicated across this
+ * package's call sites (e.g. `CopilotModalHeader`, which needs a live
+ * `matchMedia` change-listener and so can't call `isMobileViewport()` directly).
  */
-export const MOBILE_MAX_WIDTH_QUERY = "(max-width: 767px)";
+import { MOBILE_MAX_WIDTH_QUERY } from "@copilotkit/web-components/threads-drawer/layout-constants";
+
+export { MOBILE_MAX_WIDTH_QUERY };
 
 /**
  * Reports whether the viewport is in the mobile range (`<768px`), where the

@@ -13,8 +13,9 @@ import {
 } from "@copilotkit/react-core/v2";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 
+import "@copilotkit/web-components/threads-drawer/layout.css";
 import styles from "./page.module.css";
 
 export default function CopilotKitPage() {
@@ -48,10 +49,12 @@ export default function CopilotKitPage() {
       sidebar inherit; the SDK drawer follows them by token inheritance.
     */
     <CopilotChatConfigurationProvider agentId="default">
-      <div className={`${styles.layout} threadsLayout`}>
+      <div
+        className={`copilotkit-threads-layout ${styles.layout} threadsLayout`}
+      >
         {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
         <CopilotThreadsDrawer agentId="default" />
-        <div className={styles.mainPanel}>
+        <div className={`copilotkit-threads-main ${styles.mainPanel}`}>
           <main
             style={
               {

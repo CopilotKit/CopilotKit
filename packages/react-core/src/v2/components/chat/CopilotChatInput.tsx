@@ -11,6 +11,7 @@ import React, {
 } from "react";
 import { twMerge } from "tailwind-merge";
 import { Plus, Mic, ArrowUp, X, Check, Square, Loader2 } from "lucide-react";
+import { MOBILE_MAX_WIDTH_QUERY } from "@copilotkit/web-components/threads-drawer/layout-constants";
 
 import type { CopilotChatLabels } from "../../providers/CopilotChatConfigurationProvider";
 import {
@@ -768,7 +769,9 @@ export function CopilotChatInput({
       typeof window !== "undefined" &&
       typeof window.matchMedia === "function"
     ) {
-      const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
+      const isMobileViewport = window.matchMedia(
+        MOBILE_MAX_WIDTH_QUERY,
+      ).matches;
       if (isMobileViewport) {
         ensureMeasurements();
         adjustTextareaHeight();

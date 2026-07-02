@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 
+import { MOBILE_MAX_WIDTH_QUERY } from "@copilotkit/web-components/threads-drawer/layout-constants";
 import { cn } from "../../lib/utils";
 import {
   useCopilotChatConfiguration,
@@ -54,7 +55,7 @@ function useIsMobileViewport(): boolean {
     ) {
       return;
     }
-    const mql = window.matchMedia("(max-width: 767px)");
+    const mql = window.matchMedia(MOBILE_MAX_WIDTH_QUERY);
     const update = () => setIsMobile(mql.matches);
     update();
     mql.addEventListener("change", update);

@@ -1,12 +1,12 @@
+/*
+  The drawer-column grid and its mobile collapse come from the shared
+  `@copilotkit/web-components/threads-drawer/layout.css` helper classes
+  (`copilotkit-threads-layout` on the container, `copilotkit-threads-main` on
+  the content), keyed off the drawer's own `--cpk-drawer-width` and mobile
+  breakpoint so this example no longer hardcodes `320px` / `768px`. This file
+  keeps only the app-specific sizing layered on top.
+*/
 .layout {
-  display: grid;
-  /*
-    Reserve the desktop drawer's width (its default `--cpk-drawer-width`, 320px)
-    as a fixed first column so the layout does NOT shift when the client-only
-    drawer mounts after hydration. On mobile the drawer is an off-canvas overlay
-    (out of flow), so the column collapses and the chat fills the width.
-  */
-  grid-template-columns: 320px minmax(0, 1fr);
   min-height: 100vh;
   min-height: 100svh;
   height: 100dvh;
@@ -15,39 +15,16 @@
 
   /*
     Align the drawer's mobile launcher with this app's header controls. These
-    custom properties inherit into <copilotkit-threads-drawer> and pierce its shadow
-    root; tuned to match the example header's top-left inset.
+    custom properties inherit into <copilotkit-threads-drawer> and pierce its
+    shadow root; tuned to match the example header's top-left inset.
   */
   --cpk-drawer-launcher-top: 7px;
   --cpk-drawer-launcher-left: 16px;
 }
 
 .mainPanel {
-  /*
-    Pin the content to the SECOND grid track explicitly. The client-only
-    <CopilotThreadsDrawer> renders NOTHING during SSR/prerender (mounted-gated), so at
-    first paint the grid has a single child — this panel. Without an explicit
-    placement it would flow into the reserved first track and then jump once the
-    drawer mounts. Forcing column 2 keeps it put from first paint.
-  */
-  grid-column: 2;
-  min-width: 0;
   min-height: 100vh;
   min-height: 100svh;
   height: 100dvh;
   overflow: auto;
-}
-
-/*
-  Mobile (≤768px): the drawer is an off-canvas overlay — collapse to a single
-  track. MUST come after the base rules (media queries add no specificity, so a
-  later same-specificity base rule would otherwise leak the desktop layout).
-*/
-@media (max-width: 768px) {
-  .layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .mainPanel {
-    grid-column: auto;
-  }
 }

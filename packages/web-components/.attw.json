@@ -1,0 +1,3 @@
+{
+  "excludeEntrypoints": ["./threads-drawer/layout.css"]
+}

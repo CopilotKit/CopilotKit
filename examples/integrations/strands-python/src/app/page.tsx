@@ -10,6 +10,7 @@ import {
   CopilotThreadsDrawer,
 } from "@copilotkit/react-core/v2";
 
+import "@copilotkit/web-components/threads-drawer/layout.css";
 import styles from "./page.module.css";
 
 export default function HomePage() {
@@ -29,10 +30,10 @@ export default function HomePage() {
       required, not optional.
     */
     <CopilotChatConfigurationProvider agentId="default">
-      <div className={styles.layout}>
+      <div className={`copilotkit-threads-layout ${styles.layout}`}>
         {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
         <CopilotThreadsDrawer agentId="default" />
-        <div className={styles.mainPanel}>
+        <div className={`copilotkit-threads-main ${styles.mainPanel}`}>
           <ExampleLayout
             chatContent={
               <CopilotChat

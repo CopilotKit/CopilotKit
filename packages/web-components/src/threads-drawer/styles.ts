@@ -1,5 +1,6 @@
 import { css, unsafeCSS } from "lit";
 import { GENERATED_DRAWER_TOKEN_DEFAULTS } from "./generated-tokens";
+import { DRAWER_DEFAULT_WIDTH } from "./layout-constants";
 
 /**
  * Wraps a generated token default value so it can be safely interpolated into a
@@ -74,7 +75,7 @@ export const drawerStyles = css`
     --_border: var(--cpk-drawer-border, var(--border, ${tok(T.border)}));
     --_ring: var(--cpk-drawer-ring, var(--ring, ${tok(T.ring)}));
     --_radius: var(--cpk-drawer-radius, var(--radius, ${tok(T.radius)}));
-    --_width: var(--cpk-drawer-width, 320px);
+    --_width: var(--cpk-drawer-width, ${tok(DRAWER_DEFAULT_WIDTH)});
     --_rail-width: var(--cpk-drawer-rail-width, 56px);
   }
 
