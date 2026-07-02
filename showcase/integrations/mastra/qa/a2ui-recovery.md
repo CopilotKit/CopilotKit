@@ -12,10 +12,10 @@
   forced `render_a2ui` sub-agent + the toolkit validate→retry loop +
   `a2ui_recovery_exhausted` hard-fail envelope. The dedicated route
   (`src/app/api/copilotkit-a2ui-recovery/route.ts`) sets `a2ui.injectA2UITool =
-  false` so the runtime does not double-inject (mirrors the langgraph/ADK
+false` so the runtime does not double-inject (mirrors the langgraph/ADK
   backend-owned siblings, not the strands auto-inject path)
 - Reuses the **declarative-gen-ui** catalog (`catalogId:
-  "declarative-gen-ui-catalog"`) — no new components
+"declarative-gen-ui-catalog"`) — no new components
 
 ## Test Steps
 
