@@ -422,7 +422,7 @@ const OPERATIONAL_GUARD =
 async function runTrial(
   withSkill: boolean,
   auth: Auth,
-): Promise<{ run: AgentRun; gate: { score: number } | null }> {
+): Promise<{ run: AgentRun; gate: { score: number } | null; stderr: string }> {
   const created = await docker([
     "run",
     "-d",
@@ -486,7 +486,7 @@ async function runTrial(
         gate = null;
       }
     }
-    return { run, gate };
+    return { run, gate, stderr: agent.stderr };
   } finally {
     await docker(["rm", "-f", cid]);
   }
@@ -863,7 +863,7 @@ async function runOneTrial(
   auth: Auth,
   rubric: string,
 ): Promise<Trial> {
-  const { run, gate } = await runTrial(task.withSkill, auth);
+  const { run, gate, stderr } = await runTrial(task.withSkill, auth);
   const ok = agentOk(run.result);
   const r = run.result || {};
   const usage = r.usage || {};
@@ -889,9 +889,17 @@ async function runOneTrial(
     costUsd: Number(r.total_cost_usd) || 0,
   };
   if (!ok) {
-    trial.error = String(
-      r.api_error_status || r.subtype || "agent did not reach a result event",
-    );
+    // Surface the ACTUAL failure, not just a bare status code. Claude Code puts
+    // the API error text in the result event's `result`/`error` field; anything
+    // that killed the CLI before a result event lands only in stderr. Both were
+    // being discarded, which is why a 400 read as an opaque "400" in CI.
+    const status = r.api_error_status || r.subtype;
+    const detail = String(r.result || r.error || "").trim();
+    const errTail = stderr.trim().split("\n").slice(-4).join(" | ");
+    trial.error =
+      [status, detail].filter(Boolean).join(": ") ||
+      errTail ||
+      "agent did not reach a result event";
   }
 
   // One standalone line per trial — trials finish out of order under concurrency,
