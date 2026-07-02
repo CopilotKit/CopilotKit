@@ -1,6 +1,5 @@
 "use client";
 
-import { clsx } from "clsx";
 import type { RendererProps } from "@copilotkit/a2ui-renderer";
 import {
   SpendingTrendChart,
@@ -9,7 +8,7 @@ import {
   IncomeExpenseChart,
 } from "@/components/analytics-charts";
 import { TransactionsList } from "@/components/transactions-list";
-import { formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { useReportData } from "../report-data";
 
 const GAP = { sm: "gap-2", md: "gap-4", lg: "gap-6", xl: "gap-10" } as const;
@@ -29,7 +28,7 @@ const Stack = ({
   props,
   children,
 }: RendererProps<{ children: string[]; gap?: keyof typeof GAP }>) => (
-  <div className={clsx("flex flex-col", GAP[props.gap ?? "md"])}>
+  <div className={cn("flex flex-col", GAP[props.gap ?? "md"])}>
     {props.children?.map((id) => <Slot key={id} render={children(id)} />)}
   </div>
 );
@@ -38,7 +37,7 @@ const Row = ({
   props,
   children,
 }: RendererProps<{ children: string[]; gap?: "sm" | "md" | "lg" }>) => (
-  <div className={clsx("flex flex-wrap", GAP[props.gap ?? "md"])}>
+  <div className={cn("flex flex-wrap", GAP[props.gap ?? "md"])}>
     {props.children?.map((id) => <Slot key={id} render={children(id)} />)}
   </div>
 );
@@ -77,7 +76,7 @@ const Text = ({
   props,
 }: RendererProps<{ text: TextRef; tone?: "default" | "muted" }>) => (
   <p
-    className={clsx(
+    className={cn(
       "text-sm",
       props.tone === "muted" ? "text-ink-muted" : "text-ink",
     )}
