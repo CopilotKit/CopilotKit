@@ -91,6 +91,7 @@ export const demoAgentNames = [
 const demoAgentIdOverrides: Partial<Record<DemoAgentName, string>> = {
   "headless-complete": "headlessCompleteAgent",
   "shared-state-read-write": "sharedStateReadWriteAgent",
+  "shared-state-streaming": "sharedStateStreamingAgent",
   "gen-ui-agent": "genUiAgent",
   subagents: "subagentsSupervisorAgent",
   "gen-ui-interrupt": "interruptAgent",
@@ -112,6 +113,7 @@ export type LocalMastraAgentName =
   | "weatherAgent"
   | "headlessCompleteAgent"
   | "sharedStateReadWriteAgent"
+  | "sharedStateStreamingAgent"
   | "genUiAgent"
   | "subagentsSupervisorAgent"
   | "interruptAgent"
@@ -165,6 +167,11 @@ export function buildAgents(
       "sharedStateReadWriteAgent missing from Mastra config — required for shared-state-read-write demo alias",
     );
   }
+  if (!baseLocalAgents.sharedStateStreamingAgent) {
+    throw new Error(
+      "sharedStateStreamingAgent missing from Mastra config — required for shared-state-streaming demo alias",
+    );
+  }
   if (!baseLocalAgents.genUiAgent) {
     throw new Error(
       "genUiAgent missing from Mastra config — required for gen-ui-agent demo alias",
@@ -211,6 +218,16 @@ export function buildAgents(
   if (!sharedStateRWAgentInstance) {
     throw new Error(
       "getLocalAgent returned null for sharedStateReadWriteAgent",
+    );
+  }
+  const sharedStateStreamingAgentInstance = getLocalAgent({
+    mastra: mastraInstance,
+    agentId: "sharedStateStreamingAgent",
+    resourceId: "mastra-sharedStateStreamingAgent",
+  });
+  if (!sharedStateStreamingAgentInstance) {
+    throw new Error(
+      "getLocalAgent returned null for sharedStateStreamingAgent",
     );
   }
   const genUiAgentInstance = getLocalAgent({
@@ -265,6 +282,7 @@ export function buildAgents(
     weatherAgent: baseLocalAgents.weatherAgent,
     headlessCompleteAgent: headlessCompleteAgentInstance,
     sharedStateReadWriteAgent: sharedStateRWAgentInstance,
+    sharedStateStreamingAgent: sharedStateStreamingAgentInstance,
     genUiAgent: genUiAgentInstance,
     subagentsSupervisorAgent: subagentsSupervisorAgentInstance,
     interruptAgent: interruptAgentInstance,
@@ -309,6 +327,10 @@ export function buildAgents(
   resourceIdByAgent.set(
     "sharedStateReadWriteAgent",
     "mastra-sharedStateReadWriteAgent",
+  );
+  resourceIdByAgent.set(
+    "sharedStateStreamingAgent",
+    "mastra-sharedStateStreamingAgent",
   );
   resourceIdByAgent.set("genUiAgent", "mastra-genUiAgent");
   resourceIdByAgent.set(

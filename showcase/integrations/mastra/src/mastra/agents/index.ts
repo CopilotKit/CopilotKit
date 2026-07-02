@@ -135,6 +135,25 @@ export const GenUiAgentState = z.object({
 });
 // @endregion[gen-ui-agent-state-schema]
 
+// @region[shared-state-streaming-state-schema]
+/**
+ * Shared-state schema for the Shared State (Streaming) demo.
+ *
+ * `document` is streamed token-by-token into shared state as the agent
+ * writes. Mastra parity for the LangGraph `StateStreamingMiddleware` /
+ * predictive-state pattern: instead of a `write_document` tool whose arg is
+ * forwarded per-token, this agent calls Mastra's built-in
+ * `updateWorkingMemory` tool with the growing document. The AG-UI Mastra
+ * adapter intercepts that tool call's STREAMING args (OSS-414) and emits a
+ * leading `STATE_SNAPSHOT` followed by incremental `STATE_DELTA`s on the
+ * `document` key, so `useAgent({ updates:[OnStateChanged] })` sees
+ * `state.document` grow live.
+ */
+export const SharedStateStreamingAgentState = z.object({
+  document: z.string().default(""),
+});
+// @endregion[shared-state-streaming-state-schema]
+
 export const weatherAgent = new Agent({
   id: "weather-agent",
   name: "Weather Agent",
@@ -308,6 +327,54 @@ The \`set_steps\` tool persists the steps to working memory itself — you do NO
   }),
 });
 // @endregion[gen-ui-agent]
+
+// @region[shared-state-streaming-agent]
+/**
+ * Mastra agent backing the Shared State (Streaming) demo.
+ *
+ * Per-token state streaming. When asked to write, draft, or revise text the
+ * agent calls the built-in `updateWorkingMemory` tool with the FULL document
+ * text under the `document` key. Because working memory is enabled with the
+ * `SharedStateStreamingAgentState` schema, Mastra streams that tool call's
+ * args as `tool-call-delta` frames; the AG-UI Mastra adapter accumulates
+ * them, re-parses the growing prefix, and emits a leading `STATE_SNAPSHOT`
+ * plus incremental `STATE_DELTA`s on `/document` (OSS-414). The frontend
+ * renders `state.document` live as it fills in.
+ *
+ * NOTE: unlike `sharedStateReadWriteAgent`/`genUiAgent` (which use a custom
+ * `set_*` tool that yields a single end-of-run `STATE_SNAPSHOT`), this demo
+ * deliberately drives the built-in `updateWorkingMemory` tool — that is the
+ * only path that streams progressive per-token deltas rather than one blob
+ * at run end. So the prompt tells the model to write the document straight
+ * into working memory instead of via a bespoke tool.
+ */
+export const sharedStateStreamingAgent = new Agent({
+  id: "shared-state-streaming",
+  name: "Shared State Streaming Agent",
+  tools: {},
+  model: openai("gpt-4o"),
+  instructions: `You are a collaborative writing assistant wired to a live Document panel.
+
+Whenever the user asks you to write, draft, revise, or explain anything of any length (a poem, an email, an essay, a summary, an explanation, etc.), you MUST call the \`updateWorkingMemory\` tool with the FULL content as a single string under the \`document\` field, e.g. { "document": "<the full text>" }.
+
+Rules:
+  - NEVER paste the document body into a chat message. The document belongs in shared state — the UI renders it live from working memory as you stream it.
+  - Always send the ENTIRE document in one \`updateWorkingMemory\` call (not a diff, not chunks across multiple calls).
+  - After the document is written, reply with ONE short chat sentence confirming what you wrote (e.g. "Done — I've drafted your poem in the document panel."). Keep the document text itself out of that message.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "shared-state-streaming-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: SharedStateStreamingAgentState,
+      },
+    },
+  }),
+});
+// @endregion[shared-state-streaming-agent]
 
 // @region[subagents-supervisor]
 /**
