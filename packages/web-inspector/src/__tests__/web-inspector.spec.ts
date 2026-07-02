@@ -1189,6 +1189,37 @@ describe("CpkThreadInspector provider contract", () => {
     );
   });
 
+  it("shows expanded timeline details when an event also has a summary body", async () => {
+    const provider: ThreadDebuggerProvider = {
+      getEvents: vi.fn().mockResolvedValue([
+        {
+          type: "RUN_ERROR",
+          timestamp: "2026-06-25T10:00:00.000Z",
+          payload: {
+            message: "Tool failed",
+            errorCode: "ERR_TOOL_TIMEOUT",
+          },
+        },
+      ]),
+    };
+    const { el, internals } = createThreadInspector();
+
+    internals.provider = provider;
+    internals.threadId = "thread-error-details";
+    await flushProviderWork(el);
+
+    expect(el.shadowRoot?.textContent ?? "").toContain("Tool failed");
+    expect(el.shadowRoot?.textContent ?? "").toContain("Show details");
+    expect(el.shadowRoot?.textContent ?? "").not.toContain("ERR_TOOL_TIMEOUT");
+    el.shadowRoot
+      ?.querySelector<HTMLButtonElement>(".cpk-td__timeline-details-toggle")
+      ?.click();
+    await el.updateComplete;
+
+    expect(el.shadowRoot?.textContent ?? "").toContain("Hide details");
+    expect(el.shadowRoot?.textContent ?? "").toContain("ERR_TOOL_TIMEOUT");
+  });
+
   it("keeps the first-visible timeline intentional while provider message fallback is loading", async () => {
     const messages =
       createDeferred<

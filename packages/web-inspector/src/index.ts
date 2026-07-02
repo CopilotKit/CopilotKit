@@ -2899,13 +2899,14 @@ export class CpkThreadInspector extends LitElement {
         ${
           item.body
             ? html`<div class="cpk-td__timeline-body">${item.body}</div>`
-            : item.details
-              ? detailsExpanded
-                ? html`<pre class="cpk-td__timeline-body">${unsafeHTML(
-                    highlightedJson(item.details),
-                  )}</pre>`
-                : nothing
-              : nothing
+            : nothing
+        }
+        ${
+          item.details && detailsExpanded
+            ? html`<pre class="cpk-td__timeline-body">${unsafeHTML(
+                highlightedJson(item.details),
+              )}</pre>`
+            : nothing
         }
       </div>
     `;
