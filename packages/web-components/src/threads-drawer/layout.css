@@ -1,0 +1,67 @@
+/*
+ * Host-layout helpers for `<copilotkit-threads-drawer>`.
+ *
+ * Import this once (`import "@copilotkit/web-components/threads-drawer/layout.css"`)
+ * to reserve the drawer's column and collapse it on mobile WITHOUT hand-copying
+ * the drawer's width (`320px`) or mobile breakpoint (`768px`) into every page's
+ * own CSS. The width and breakpoint here are the SAME values the element itself
+ * uses (see `layout-constants.ts`); a unit test keeps them in sync.
+ *
+ * Usage:
+ *   <div class="copilotkit-threads-layout">
+ *     <CopilotThreadsDrawer />           // in-flow desktop column / mobile overlay
+ *     <div class="copilotkit-threads-main">…your chat + content…</div>
+ *   </div>
+ *
+ * Both helper classes compose with your own layout classes — apply them
+ * alongside app-specific rules (heights, background, launcher offsets, …).
+ */
+
+:root {
+  /*
+   * Default desktop width of the drawer. This is the ONE place a host sets the
+   * default; overriding it here (or on any ancestor) resizes BOTH the drawer
+   * element AND the reserved column together, because the element reads the same
+   * `--cpk-drawer-width` custom property through its shadow boundary.
+   */
+  --cpk-drawer-width: 320px;
+}
+
+/*
+ * Grid container: reserve the drawer's fixed first column, content fills the
+ * rest. The fixed track (rather than `auto`) prevents a layout shift when the
+ * client-only drawer mounts after hydration — during SSR it renders nothing, so
+ * an `auto` track would be 0px until the drawer boots and the content would
+ * "slide over" once it appears.
+ */
+.copilotkit-threads-layout {
+  display: grid;
+  grid-template-columns: var(--cpk-drawer-width) minmax(0, 1fr);
+}
+
+/*
+ * Pin the content to the SECOND track explicitly. The client-only drawer is the
+ * grid's first child only AFTER it mounts; before then the content is the sole
+ * child and would otherwise flow into the reserved first track and then jump.
+ */
+.copilotkit-threads-layout > .copilotkit-threads-main {
+  grid-column: 2;
+  min-width: 0;
+}
+
+/*
+ * Mobile: the drawer becomes an off-canvas overlay (out of flow), so don't
+ * reserve a column — collapse to a single track and let the content fill the
+ * width. Keyed off the SAME breakpoint the element switches on. This block MUST
+ * come after the base rules: media queries add no specificity, so a
+ * same-specificity base rule placed later would otherwise leak the two-column
+ * desktop layout onto mobile.
+ */
+@media (max-width: 767px) {
+  .copilotkit-threads-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .copilotkit-threads-layout > .copilotkit-threads-main {
+    grid-column: auto;
+  }
+}

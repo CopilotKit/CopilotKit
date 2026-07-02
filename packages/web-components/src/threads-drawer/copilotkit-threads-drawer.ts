@@ -3,14 +3,12 @@ import type { PropertyValues } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { classMap } from "lit/directives/class-map.js";
 import { drawerStyles } from "./styles";
+import { MOBILE_MAX_WIDTH_QUERY } from "./layout-constants";
 import type { DrawerFilter, DrawerThread, LicensedDetail } from "./types";
 
 /** Tag name the element registers under. */
 export const COPILOTKIT_THREADS_DRAWER_TAG =
   "copilotkit-threads-drawer" as const;
-
-/** Mobile breakpoint (px). At or below this width the drawer is a modal overlay. */
-const MOBILE_BREAKPOINT = 768;
 
 /**
  * Whether an inbound error message should surface an error state. Only a
@@ -230,9 +228,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
   override connectedCallback(): void {
     super.connectedCallback();
     if (typeof window !== "undefined" && window.matchMedia) {
-      this._mediaQuery = window.matchMedia(
-        `(max-width: ${MOBILE_BREAKPOINT}px)`,
-      );
+      this._mediaQuery = window.matchMedia(MOBILE_MAX_WIDTH_QUERY);
       this._viewportIsMobile = this._mediaQuery.matches;
       this._mediaQuery.addEventListener("change", this._onMediaChange);
     }

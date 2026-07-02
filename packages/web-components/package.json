@@ -50,13 +50,25 @@
         "default": "./dist/threads-drawer/index.cjs"
       }
     },
+    "./threads-drawer/layout-constants": {
+      "import": {
+        "types": "./dist/threads-drawer/layout-constants.d.mts",
+        "default": "./dist/threads-drawer/layout-constants.mjs"
+      },
+      "require": {
+        "types": "./dist/threads-drawer/layout-constants.d.cts",
+        "default": "./dist/threads-drawer/layout-constants.cjs"
+      }
+    },
+    "./threads-drawer/layout.css": "./dist/threads-drawer/layout.css",
     "./package.json": "./package.json"
   },
   "publishConfig": {
     "access": "public"
   },
   "scripts": {
-    "build": "pnpm run gen:tokens && tsdown",
+    "build": "pnpm run gen:tokens && tsdown && pnpm run build:css",
+    "build:css": "node -e \"const fs=require('fs');fs.mkdirSync('./dist/threads-drawer',{recursive:true});fs.cpSync('./src/threads-drawer/layout.css','./dist/threads-drawer/layout.css')\"",
     "gen:tokens": "tsx scripts/generate-tokens.ts",
     "compat-check": "es-check es2022 --module 'dist/**/!(*.umd).{mjs,cjs,js}' && es-check es2018 'dist/**/*.umd.js'",
     "check-types": "tsc --noEmit -p tsconfig.json",

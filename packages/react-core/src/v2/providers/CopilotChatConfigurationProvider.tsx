@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
+import { MOBILE_MAX_WIDTH_QUERY } from "@copilotkit/web-components/threads-drawer/layout-constants";
 import { useShallowStableRef } from "../lib/slots";
 
 // Default labels
@@ -39,16 +40,10 @@ export const CopilotChatDefaultLabels = {
 export type CopilotChatLabels = typeof CopilotChatDefaultLabels;
 
 /**
- * Mobile breakpoint below which the chat modal and the thread-list drawer are
- * mutually exclusive. At or above this width both surfaces may coexist. This
- * mirrors the `(max-width: 767px)` / `(min-width: 768px)` split already used by
- * CopilotChatInput and CopilotSidebarView.
- */
-const MOBILE_MAX_WIDTH_PX = 767;
-
-/**
  * Reports whether the current viewport is in the mobile range (`<768px`), where
- * the chat modal and drawer must not be open simultaneously. SSR-safe and
+ * the chat modal and drawer must not be open simultaneously. Keyed off the
+ * shared {@link MOBILE_MAX_WIDTH_QUERY} so the coordination layer and the
+ * `<copilotkit-threads-drawer>` element agree on the boundary. SSR-safe and
  * defensive against environments without `matchMedia` (treated as desktop, so
  * no mutual-exclusion constraint is applied).
  *
@@ -61,7 +56,7 @@ function isMobileViewport(): boolean {
   ) {
     return false;
   }
-  return window.matchMedia(`(max-width: ${MOBILE_MAX_WIDTH_PX}px)`).matches;
+  return window.matchMedia(MOBILE_MAX_WIDTH_QUERY).matches;
 }
 
 // Define the full configuration interface

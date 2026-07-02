@@ -81,10 +81,48 @@ by `scripts/generate-tokens.ts`, which writes the checked-in
 `src/threads-drawer/generated-tokens.ts`. Run `pnpm run gen:tokens` to regenerate;
 `generated-tokens.test.ts` fails if the checked-in values drift from react-core.
 
+## Host layout (reserving the drawer column)
+
+On desktop the drawer is an in-flow column (its default width is `320px`, set via
+`--cpk-drawer-width`); below the mobile breakpoint it becomes an off-canvas
+overlay. Host pages that place the drawer beside their content need to reserve
+that column and collapse it on mobile — off the SAME width and breakpoint the
+element itself uses, not hand-copied literals.
+
+Two surfaces expose these values:
+
+- **`@copilotkit/web-components/threads-drawer/layout.css`** — an optional,
+  importable stylesheet. It sets a default `:root { --cpk-drawer-width: 320px }`
+  and ships two helper classes:
+
+  ```tsx
+  import "@copilotkit/web-components/threads-drawer/layout.css";
+
+  <div className="copilotkit-threads-layout">
+    <CopilotThreadsDrawer />
+    <div className="copilotkit-threads-main">…your chat + content…</div>
+  </div>;
+  ```
+
+  `copilotkit-threads-layout` reserves the `--cpk-drawer-width` column and
+  collapses to a single track on mobile; `copilotkit-threads-main` pins the
+  content to the second track (so the client-only drawer mounting after
+  hydration causes no layout shift). Both compose with your own classes.
+
+- **`@copilotkit/web-components/threads-drawer/layout-constants`** — the same
+  values as JS constants (`DRAWER_DEFAULT_WIDTH`, `DRAWER_DEFAULT_WIDTH_PX`,
+  `MOBILE_BREAKPOINT_PX`, `MOBILE_MAX_WIDTH_PX`, `MOBILE_MAX_WIDTH_QUERY`) for
+  framework coordination layers that need the breakpoint in JS
+  (`matchMedia(MOBILE_MAX_WIDTH_QUERY)`). This subpath is **pure** — importing it
+  does not evaluate the Lit element, so it is SSR-safe.
+
+Override `--cpk-drawer-width` (on `:root` or any ancestor) to resize the drawer
+and its reserved column together.
+
 ## Mobile + a11y
 
-At/below `768px` the drawer is an off-canvas modal overlay with backdrop,
-`Escape` close, scroll-lock, and a focus trap (mobile only) that operates over
-the composed/flattened tree so slotted rows are included. On desktop it is an
-in-flow region with collapse-to-rail — **not** a modal (no focus trap, no
-scroll-lock).
+Below `768px` (i.e. at/below `767px` — `MOBILE_MAX_WIDTH_QUERY`) the drawer is an
+off-canvas modal overlay with backdrop, `Escape` close, scroll-lock, and a focus
+trap (mobile only) that operates over the composed/flattened tree so slotted
+rows are included. On desktop it is an in-flow region with collapse-to-rail —
+**not** a modal (no focus trap, no scroll-lock).

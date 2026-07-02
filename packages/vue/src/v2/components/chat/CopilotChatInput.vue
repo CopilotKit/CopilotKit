@@ -24,6 +24,7 @@ import {
 import CopilotChatAudioRecorder from "./CopilotChatAudioRecorder.vue";
 import type { CopilotChatAudioRecorderRef } from "./audioRecorder";
 import type { CopilotChatInputMode, ToolsMenuItem } from "./types";
+import { MOBILE_MAX_WIDTH_QUERY } from "../../lib/is-mobile-viewport";
 
 defineOptions({ inheritAttrs: false });
 
@@ -653,7 +654,7 @@ function evaluateLayout() {
 
   if (
     typeof window.matchMedia === "function" &&
-    window.matchMedia("(max-width: 767px)").matches
+    window.matchMedia(MOBILE_MAX_WIDTH_QUERY).matches
   ) {
     ensureMeasurements();
     adjustTextareaHeight();
