@@ -72,8 +72,15 @@ export const demoAgentNames = [
   "hitl-in-app",
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
+  // Reasoning cells. The demo pages request these agent names verbatim
+  // (`agent="reasoning-default"` / `agent="reasoning-custom"`); they must be
+  // registered here or the runtime returns agent-not-found and the chat never
+  // starts (no reasoning stream renders). These are the agent-name equivalents
+  // of the `reasoning-default-render` / `agentic-chat-reasoning` manifest
+  // feature keys — see tests/vitest/demoAgentNames.parity.test.ts, which
+  // enforces that every page `agent="…"` literal appears in this list.
+  "reasoning-default",
+  "reasoning-custom",
   "readonly-state-agent-context",
   "agent-config",
   "declarative-gen-ui",
@@ -96,6 +103,17 @@ const demoAgentIdOverrides: Partial<Record<DemoAgentName, string>> = {
   subagents: "subagentsSupervisorAgent",
   "gen-ui-interrupt": "interruptAgent",
   "interrupt-headless": "interruptAgent",
+  // Reasoning cells use a dedicated reasoning-capable agent (Responses API +
+  // reasoning-summary streaming). Mapping them to the default weatherAgent
+  // (gpt-4o) meant no reasoning items were ever emitted and the reasoning slot
+  // stayed dark. See src/mastra/agents/index.ts (reasoningAgent).
+  "reasoning-default": "reasoningAgent",
+  "reasoning-custom": "reasoningAgent",
+  // Reasoning + backend tool-rendering chain: dedicated agent registers the
+  // four chain tools (weather/flights/stock/dice) under the fixture tool-call
+  // names so Mastra executes each leg and the multi-turn chain reaches its
+  // closing narration.
+  "tool-rendering-reasoning-chain": "reasoningChainAgent",
 };
 
 export type DemoAgentName = (typeof demoAgentNames)[number];

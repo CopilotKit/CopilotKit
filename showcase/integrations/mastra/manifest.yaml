@@ -70,8 +70,8 @@ features:
   - mcp-apps
   - shared-state-read
   - shared-state-streaming
-  - agentic-chat-reasoning
-  - reasoning-default-render
+  - reasoning-default
+  - reasoning-custom
   - tool-rendering-reasoning-chain
   - gen-ui-interrupt
   - interrupt-headless

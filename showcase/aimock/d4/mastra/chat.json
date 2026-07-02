@@ -268,7 +268,7 @@
     },
     {
       "match": {
-        "userMessage": "weather",
+        "userMessage": "_d4_unused_weather_probe_sf",
         "hasToolResult": false,
         "context": "mastra"
       },
@@ -475,7 +475,7 @@
     },
     {
       "match": {
-        "userMessage": "flights from SFO to JFK",
+        "userMessage": "_d4_unused_flights_probe_sfo_jfk",
         "hasToolResult": false,
         "context": "mastra"
       },

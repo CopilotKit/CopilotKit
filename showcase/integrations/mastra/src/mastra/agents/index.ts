@@ -15,6 +15,7 @@ import {
   scheduleMeetingTool,
   scheduleMeetingInterruptTool,
   searchFlightsTool,
+  rollDiceTool,
   generateA2uiTool,
   setNotesTool,
   setStepsTool,
@@ -327,6 +328,122 @@ The \`set_steps\` tool persists the steps to working memory itself — you do NO
   }),
 });
 // @endregion[gen-ui-agent]
+
+// @region[reasoning-agent]
+/**
+ * Reasoning-capable model for the reasoning demos.
+ *
+ * Why a reasoning model (parity with langgraph-python's `reasoning_agent.py`):
+ * the OpenAI Responses API streams `response.reasoning_summary_text.delta`
+ * items only for native reasoning models (gpt-5, o3, o4-mini, ...). The
+ * @ag-ui/mastra bridge translates those into AG-UI REASONING_MESSAGE_* events
+ * (`role: "reasoning"`), which the frontend renders via the built-in
+ * `CopilotChatReasoningMessage` (reasoning-default) or a custom
+ * `reasoningMessage` slot (reasoning-custom). gpt-4o / gpt-4o-mini emit no
+ * reasoning items, so mapping these demos to the default weatherAgent (gpt-4o)
+ * meant the reasoning slot never lit up. Override via `OPENAI_REASONING_MODEL`.
+ */
+export const REASONING_MODEL =
+  process.env.OPENAI_REASONING_MODEL ?? "gpt-5-mini";
+
+/**
+ * Provider options that force the OpenAI Responses API to emit a reasoning
+ * summary on every turn. `summary: "detailed"` is what makes the model stream
+ * its chain of thought as `reasoning_summary_text.delta` items (mirrors the
+ * gold `reasoning={"effort":"medium","summary":"detailed"}` config). Passed as
+ * the agent's default `.stream()` options so the @ag-ui/mastra bridge (which
+ * calls `agent.stream()`) picks them up on every run.
+ */
+const REASONING_PROVIDER_OPTIONS = {
+  openai: {
+    reasoningEffort: "medium",
+    reasoningSummary: "detailed",
+  },
+} as const;
+
+/**
+ * Mastra agent backing the Reasoning: Default and Reasoning: Custom demos.
+ *
+ * Shared by both cells (the only difference is frontend-side: whether the
+ * `messageView.reasoningMessage` slot is overridden). No tools — these demos
+ * exercise pure reasoning-summary streaming, matching gold's `reasoning_agent`.
+ */
+export const reasoningAgent = new Agent({
+  id: "reasoning-agent",
+  name: "Reasoning Agent",
+  tools: {},
+  model: openai(REASONING_MODEL),
+  defaultOptions: {
+    providerOptions: REASONING_PROVIDER_OPTIONS,
+  },
+  instructions: `You are a helpful assistant. Think through problems step by step before answering. When a question benefits from reasoning, work through the intermediate steps, then give a clear, concise final answer.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "reasoning-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[reasoning-agent]
+
+// @region[reasoning-chain-agent]
+/**
+ * Mastra agent backing the Tool Rendering + Reasoning Chain demo.
+ *
+ * Combines reasoning-summary streaming (same reasoning model + provider
+ * options as `reasoningAgent`) with backend tool rendering. Registers the
+ * four chain tools the aimock fixtures script (weather, flights, stock,
+ * dice) under the exact tool-call names the fixtures emit (`get_weather`,
+ * `search_flights`, `get_stock_price`, `roll_dice`) so Mastra can EXECUTE
+ * each leg and advance the multi-turn chain to its final narration. Mapping
+ * this demo to the default weatherAgent left `get_stock_price`/`roll_dice`
+ * unregistered, so the stock/dice chains never reached the closing message.
+ *
+ * Mirrors langgraph-python's `tool_rendering_reasoning_chain_agent.py`
+ * (system prompt + toolset + reasoning model).
+ */
+export const reasoningChainAgent = new Agent({
+  id: "reasoning-chain-agent",
+  name: "Reasoning Chain Agent",
+  tools: {
+    get_weather: weatherTool,
+    search_flights: searchFlightsTool,
+    get_stock_price: stockPriceTool,
+    roll_dice: rollDiceTool,
+  },
+  model: openai(REASONING_MODEL),
+  defaultOptions: {
+    providerOptions: REASONING_PROVIDER_OPTIONS,
+  },
+  instructions: `You are a helpful travel & lifestyle concierge with mock tools for weather, flights, stock prices, and dice rolls — they all return mock data, so always call them rather than guessing.
+
+Your habit is to CHAIN tools when one answer naturally invites another. For a single user question, call at least TWO tools in sequence when it makes sense:
+  - "What's the weather in <city>?" -> call get_weather(<city>), then call search_flights(origin='SFO', destination=<city>) so the user can act on it.
+  - "How is <ticker> doing?" -> call get_stock_price(<ticker>), then call get_stock_price on a comparable ticker (e.g. 'MSFT' or 'AAPL') to compare.
+  - "Roll a 20-sided die" -> call roll_dice(sides=20), then call roll_dice again with a different number of sides so the user sees a contrast.
+  - "Find flights from <a> to <b>" -> call search_flights(a, b), then call get_weather(<b>) for the destination.
+
+Only skip the second tool call when the question is truly atomic and more tool calls would feel intrusive. Never fabricate data that a tool could provide. After the tools return, write one short narration summarizing the results.`,
+  memory: new Memory({
+    storage: new LibSQLStore({
+      id: "reasoning-chain-agent-memory",
+      url: WORKING_MEMORY_DB_URL,
+    }),
+    options: {
+      workingMemory: {
+        enabled: true,
+        schema: AgentState,
+      },
+    },
+  }),
+});
+// @endregion[reasoning-chain-agent]
 
 // @region[shared-state-streaming-agent]
 /**

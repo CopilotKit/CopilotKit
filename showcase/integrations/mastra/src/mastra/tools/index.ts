@@ -61,6 +61,27 @@ export const stockPriceTool = createTool({
   },
 });
 
+// Mock dice-roll tool used by the tool-rendering-reasoning-chain demo. Mirrors
+// the langgraph-python `roll_dice` tool so the shared aimock fixtures can
+// script a deterministic d20 → d6 chain. Rendered by the catch-all renderer.
+export const rollDiceTool = createTool({
+  id: "roll-dice",
+  description: "Roll a single die with the given number of sides",
+  inputSchema: z.object({
+    sides: z
+      .number()
+      .optional()
+      .describe("Number of sides on the die (default 6)"),
+  }),
+  execute: async ({ sides }) => {
+    const s = typeof sides === "number" && sides > 1 ? Math.floor(sides) : 6;
+    return JSON.stringify({
+      sides: s,
+      result: Math.floor(Math.random() * s) + 1,
+    });
+  },
+});
+
 export const queryDataTool = createTool({
   id: "query-data",
   description: "Query financial database for chart data",
