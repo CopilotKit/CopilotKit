@@ -1733,7 +1733,7 @@ describe("WebInspectorElement owned thread store headers (#5581)", () => {
 //
 // 6.1  Helpers: makeCoreWithMemory / makeCoreNoIntelligence / mountMemories
 // 6.2  Subscription: inspector._memories is seeded from store
-// 6.3  Tab presence: "Memories" label appears in the rendered menu
+// 6.3  Tab presence: "Learning" label appears in the rendered menu
 // 6.4  View states: locked teaser vs. enabled empty vs. enabled with cards
 // 6.5  cpk-memory-list: cards, kind filter, search filter, empty state
 // 6.6  Passive guard: inspector reads from core.getMemoryStore(), never creates its own
@@ -1952,7 +1952,7 @@ describe("WebInspectorElement memories — tab presence", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders a Memories tab button in the inspector menu", async () => {
+  it("renders a Learning tab button in the inspector menu", async () => {
     const core = makeCoreWithMemory([]);
     const el = await mountMemories(core);
 
@@ -1960,10 +1960,10 @@ describe("WebInspectorElement memories — tab presence", () => {
       el.shadowRoot?.querySelectorAll<HTMLButtonElement>("button") ?? [],
     );
     const memoriesButton = buttons.find((btn) =>
-      btn.textContent?.trim().includes("Memories"),
+      btn.textContent?.trim().includes("Learning"),
     );
 
-    expect(memoriesButton, "Memories tab button should render").toBeDefined();
+    expect(memoriesButton, "Learning tab button should render").toBeDefined();
   });
 });
 
