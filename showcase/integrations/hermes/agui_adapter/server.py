@@ -2,31 +2,38 @@
 
 Exposes a single POST endpoint that accepts an AG-UI ``RunAgentInput`` and
 streams AG-UI protocol events (SSE). It runs the synchronous Hermes
-``AIAgent`` on a worker thread; assistant text and reasoning stream live via
-``AGUIEventBridge``, while tool-call events are derived from the resulting
-message list (so they carry the model's real tool-call ids).
+``AIAgent`` on a worker thread; assistant text, reasoning, AND server-tool
+calls stream live via ``AGUIEventBridge`` (Hermes' ``stream_delta_callback`` /
+``reasoning_callback`` / ``tool_progress_callback`` / ``step_callback``).
+
+Because server-tool events stream live, a server tool card renders IN ORDER —
+after any preamble text, before the model's follow-up narration — without
+buffering text (live token streaming is preserved). The live callbacks do not
+carry the model's real tool_call_id, so live server-tool events use generated
+ids; that is fine because server tools self-correlate (no client round-trip).
 
 Frontend (client-executed) tools use Hermes' interrupt mechanism — see
 ``agui_adapter/session.py``. When the model calls one, the run unwinds; the
 adapter emits the frontend tool call WITHOUT a result and finishes the run.
 Any server-side tools called in the same turn ran first (the batch is
-sequential) and their results are emitted normally. The client executes the
-frontend tool and starts a new run with the result appended to ``messages``.
+sequential) and streamed their results live. The client executes the frontend
+tool and starts a new run with the result appended to ``messages``. Frontend
+tools need the model's REAL id (for resume correlation), so they are emitted
+POST-run from the message list — the bridge skips them in the live path.
 
 Run framing:
 
     RUN_STARTED
-      -> (live)  TEXT_MESSAGE_* / REASONING_MESSAGE_*
-      -> (post)  TOOL_CALL_* [+ TOOL_CALL_RESULT for server tools]
-      -> (post)  STATE_SNAPSHOT for state-writer tools
+      -> (live)  TEXT_MESSAGE_* / REASONING_MESSAGE_* / TOOL_CALL_* (server)
+      -> (post)  STATE_SNAPSHOT for state-writer tools (message order)
+      -> (post)  TOOL_CALL_* for frontend tools (real ids, no result)
     RUN_FINISHED   (or RUN_ERROR on failure)
 
 State-writer tools (declared via ``forwarded_props``) are INTERNAL: their
 authoritative UI is the state card driven by ``StateSnapshotEvent``, not a
-chatty tool chip. The adapter therefore SUPPRESSES the visible ``TOOL_CALL_*``
-/ ``TOOL_CALL_RESULT`` events for them (which would otherwise trail the
-streamed text as a raw chip, since tool events are derived post-run) and emits
-only the snapshot the call produced, in message order.
+chatty tool chip. The bridge therefore SUPPRESSES their live ``TOOL_CALL_*`` /
+``TOOL_CALL_RESULT`` events; the server emits only the snapshot the call
+produced, post-run, in message order.
 """
 
 from __future__ import annotations
@@ -35,7 +42,8 @@ import asyncio
 import json
 import logging
 import threading
-from typing import Any, Dict, List, Optional, Set
+from collections import deque
+from typing import Any, Deque, Dict, List, Optional, Set
 
 from ag_ui.core import (
     RunAgentInput,
@@ -45,7 +53,6 @@ from ag_ui.core import (
     StateSnapshotEvent,
     ToolCallArgsEvent,
     ToolCallEndEvent,
-    ToolCallResultEvent,
     ToolCallStartEvent,
 )
 from ag_ui.encoder import EventEncoder
@@ -96,16 +103,6 @@ def _input_tool_call_ids(messages) -> Set[str]:
     return ids
 
 
-def _results_by_id(hermes_messages: List[dict]) -> Dict[str, str]:
-    out: Dict[str, str] = {}
-    for m in hermes_messages:
-        if isinstance(m, dict) and m.get("role") == "tool":
-            tcid = m.get("tool_call_id")
-            if tcid:
-                out[tcid] = m.get("content", "")
-    return out
-
-
 def _new_tool_calls(hermes_messages: List[dict], known_ids: Set[str]):
     """Yield (id, name, arguments) for assistant tool calls not already known."""
     for m in hermes_messages:
@@ -115,6 +112,31 @@ def _new_tool_calls(hermes_messages: List[dict], known_ids: Set[str]):
                 if tcid and tcid not in known_ids:
                     fn = tc.get("function") or {}
                     yield tcid, fn.get("name", ""), fn.get("arguments", "{}")
+
+
+def _server_tool_results_by_name(
+    messages: List[dict], known_ids: Set[str], skip_names: Set[str]
+) -> Dict[str, Deque[str]]:
+    """Build ``{server_tool_name: FIFO of result strings}`` from a run's messages.
+
+    Used to close any live server-tool card whose ``step_callback`` never fired
+    (the run unwound via interrupt before the next iteration). Walks NEW tool
+    calls in message order, pairs each with its ``role:"tool"`` result, and
+    groups the results by name so the bridge's per-name FIFO pairs them with the
+    dangling starts. ``skip_names`` excludes frontend + state-writer tools (they
+    are not emitted live)."""
+    results_by_id: Dict[str, str] = {}
+    for m in messages:
+        if isinstance(m, dict) and m.get("role") == "tool":
+            tcid = m.get("tool_call_id")
+            if tcid:
+                results_by_id[tcid] = m.get("content", "")
+    out: Dict[str, Deque[str]] = {}
+    for tcid, name, _args in _new_tool_calls(messages, known_ids):
+        if not name or name in skip_names:
+            continue
+        out.setdefault(name, deque()).append(results_by_id.get(tcid, ""))
+    return out
 
 
 def _run_turn(run_input: RunAgentInput, config: AgentConfig, bridge: AGUIEventBridge,
@@ -148,10 +170,17 @@ def _run_turn(run_input: RunAgentInput, config: AgentConfig, bridge: AGUIEventBr
         state_writer_schemas=state_schemas or None,
         default_headers=fwd_headers or None,
     )
-    # Text + reasoning stream live; tool events are derived from messages after
-    # the run (real ids). tool_progress/step are intentionally left unset.
+    # Text, reasoning, AND server-tool calls stream live. Classify the tools so
+    # the bridge emits live TOOL_CALL_* only for server tools: frontend tools
+    # are emitted post-run (real ids), state-writer tools via a snapshot.
+    bridge.set_tool_classes(
+        frontend_names=frontend_names,
+        state_writer_names=set(state_specs),
+    )
     agent.stream_delta_callback = bridge.on_text_delta
     agent.reasoning_callback = bridge.on_reasoning_delta
+    agent.tool_progress_callback = bridge.on_tool_progress
+    agent.step_callback = bridge.on_step
     agent.thinking_callback = None
 
     token = set_current_agent(agent)
@@ -192,7 +221,6 @@ async def _event_stream(run_input: RunAgentInput, encoder: EventEncoder,
             state_writer_names = out["state_writer_names"]
             run_state: RunState = out["run_state"]
             messages = result.get("messages") or []
-            results = _results_by_id(messages)
 
             # Snapshots recorded (in call order) by the state-writer handlers.
             # Consumed FIFO as we walk the state-writer tool calls in message
@@ -201,28 +229,36 @@ async def _event_stream(run_input: RunAgentInput, encoder: EventEncoder,
             snapshots = list(run_state.snapshots)
             snap_idx = 0
 
+            # Server-tool TOOL_CALL_* / TOOL_CALL_RESULT events already streamed
+            # LIVE (in order) via the bridge's tool_progress/step callbacks, so
+            # we do NOT re-emit them here (that would double the cards). The
+            # post-run pass owns only what the live path deliberately skips:
+            #   * state-writer tools -> the StateSnapshotEvent (chip suppressed),
+            #   * frontend tools      -> the client handoff (real model ids).
+            # Close any assistant text still streaming before these post-run
+            # events so a snapshot/handoff never lands inside an open message.
+            bridge.finish()
+
+            # Close any live server-tool card whose completion never arrived via
+            # step_callback because the run unwound via interrupt right after the
+            # tool batch (the mixed server+frontend case). Pairs dangling starts
+            # with their message results by name/FIFO; no-op on a normal finish
+            # (step_callback already emitted every END/RESULT).
+            bridge.flush_pending_server_tools(
+                _server_tool_results_by_name(
+                    messages, known_ids, frontend_names | state_writer_names
+                )
+            )
+
             handed_off = False
-            # Emit server-tool events (with results) first, then frontend tool
-            # calls (no result — the client produces it).
             deferred_frontend = []
             for tcid, name, args in _new_tool_calls(messages, known_ids):
                 if name in frontend_names:
                     deferred_frontend.append((tcid, name, args))
                     continue
-                # State-writer tools are INTERNAL: their authoritative UI is the
-                # state card driven by the StateSnapshotEvent below, not a chatty
-                # tool chip. Suppress the visible TOOL_CALL_* / TOOL_CALL_RESULT
-                # events for them (they would otherwise trail the streamed text
-                # as a raw chip, since tool events are derived post-run) but STILL
-                # emit the snapshot the call produced, in message order.
-                if name not in state_writer_names:
-                    emit(ToolCallStartEvent(tool_call_id=tcid, tool_call_name=name))
-                    emit(ToolCallArgsEvent(tool_call_id=tcid, delta=args if isinstance(args, str) else json.dumps(args)))
-                    emit(ToolCallEndEvent(tool_call_id=tcid))
-                    if tcid in results:
-                        emit(ToolCallResultEvent(message_id=f"res-{tcid}", tool_call_id=tcid, content=results[tcid]))
                 # After a state-writer tool call, emit the snapshot it produced
-                # so the frontend re-renders with the new full shared state.
+                # so the frontend re-renders with the new full shared state. The
+                # visible chip was already suppressed in the live path.
                 if name in state_writer_names and snap_idx < len(snapshots):
                     emit(StateSnapshotEvent(snapshot=snapshots[snap_idx]))
                     snap_idx += 1

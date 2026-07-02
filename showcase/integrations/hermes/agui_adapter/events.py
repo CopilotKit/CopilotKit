@@ -28,6 +28,28 @@ Key differences from the ACP bridge:
   ``prev_tools`` of the *next* iteration), exactly as in ACP. A FIFO queue of
   tool-call ids per tool name matches a completion to the right start, so
   parallel/repeated same-name calls stay correctly paired.
+
+Server-tool events stream LIVE and IN ORDER: ``tool.started`` fires while the
+tool executes (same iteration the model requested it), so the TOOL_CALL_START/
+ARGS land right after any preamble text and BEFORE the model's next-iteration
+follow-up narration. That interleaving is the whole point — it keeps live token
+streaming (text is never buffered) while putting the tool card ahead of the
+narration that comments on its result, matching the north-star DOM order.
+
+The live path is gated to SERVER tools only (:meth:`set_tool_classes`):
+
+* **Frontend/client tools** carry no result on this run — the model call
+  unwinds via interrupt and the client executes them. The server's post-run
+  handoff owns them (real model-issued ids, ``parent_message_id``), so the
+  bridge SKIPS them entirely in the live path.
+* **State-writer tools** are INTERNAL: their authoritative UI is the state
+  card driven by a ``StateSnapshotEvent``, not a chatty chip. The bridge
+  SUPPRESSES their live TOOL_CALL_* events; the server emits the snapshot.
+
+Live server-tool events use GENERATED ids (Hermes' live callbacks do not carry
+the model's real tool_call_id). That is fine for server tools: START/ARGS/END/
+RESULT self-correlate via the per-name FIFO and there is no client round-trip
+that would need id matching.
 """
 
 from __future__ import annotations
@@ -36,7 +58,7 @@ import json
 import logging
 import uuid
 from collections import deque
-from typing import Any, Callable, Deque, Dict, Optional
+from typing import Any, Callable, Deque, Dict, Optional, Set
 
 from ag_ui.core import (
     BaseEvent,
@@ -77,6 +99,14 @@ class AGUIEventBridge:
         # server decide if it must emit a final-response fallback message when
         # a provider path produced no text deltas).
         self.emitted_any_text: bool = False
+        # Tool names whose live TOOL_CALL_* events the bridge must NOT emit.
+        # Frontend/client tools are owned by the server's post-run handoff
+        # (real model ids); state-writer tools are represented by a state card
+        # (StateSnapshotEvent), not a chip. Both are suppressed in the live path.
+        # Populated per run via ``set_tool_classes``; empty means "every tool is
+        # a server tool" (the smoke-script / default case).
+        self._frontend_names: Set[str] = set()
+        self._state_writer_names: Set[str] = set()
         # Assistant text message currently streaming (None when closed).
         self._text_message_id: Optional[str] = None
         # Thinking message currently streaming (None when closed).
@@ -88,6 +118,27 @@ class AGUIEventBridge:
         # client-side tools whose id must match the assistant message so the
         # returned ToolMessage correlates. See server-side client-tool path.
         self._id_overrides: Dict[str, Deque[str]] = {}
+
+    # -- per-run tool classification ---------------------------------------
+
+    def set_tool_classes(
+        self,
+        *,
+        frontend_names: Optional[Set[str]] = None,
+        state_writer_names: Optional[Set[str]] = None,
+    ) -> None:
+        """Declare which tool names are frontend (client-executed) and which are
+        state-writers, so the live ``on_tool_progress`` / ``on_step`` path emits
+        TOOL_CALL_* events ONLY for server tools (names that are neither). See
+        the module docstring for why each class is skipped or suppressed."""
+        self._frontend_names = set(frontend_names or ())
+        self._state_writer_names = set(state_writer_names or ())
+
+    def _is_live_server_tool(self, name: Optional[str]) -> bool:
+        """True when *name* is a plain server tool — the only class whose
+        TOOL_CALL_* events stream live. Frontend and state-writer tools are
+        handled elsewhere (post-run handoff / state snapshot)."""
+        return bool(name) and name not in self._frontend_names and name not in self._state_writer_names
 
     # -- public callback surface (assign these onto the AIAgent) -----------
 
@@ -143,8 +194,14 @@ class AGUIEventBridge:
     ) -> None:
         """``tool_progress_callback``. Only ``tool.started`` is bridged here;
         completion + results come through ``on_step`` where the result payload
-        is available (matching the ACP bridge's split)."""
+        is available (matching the ACP bridge's split).
+
+        Live emission is gated to SERVER tools: frontend tools are owned by the
+        server's post-run handoff and state-writer tools by a StateSnapshotEvent,
+        so their live chips are skipped (see ``set_tool_classes``)."""
         if event_type != "tool.started" or not name:
+            return
+        if not self._is_live_server_tool(name):
             return
         args_dict = _coerce_args(args)
         # Close any open assistant/thinking message before a tool call block.
@@ -159,7 +216,11 @@ class AGUIEventBridge:
 
     def on_step(self, api_call_count: int, prev_tools: Any = None) -> None:
         """``step_callback``. ``prev_tools`` lists the tools completed in the
-        previous iteration, each carrying its result."""
+        previous iteration, each carrying its result.
+
+        Only server tools that ``on_tool_progress`` emitted a START for have a
+        FIFO queue entry, so frontend / state-writer tools appearing here find
+        no queue and are skipped — the END/RESULT gating falls out of that."""
         if not isinstance(prev_tools, list):
             return
         for info in prev_tools:
@@ -178,6 +239,39 @@ class AGUIEventBridge:
             )
             if not queue:
                 self._tool_ids.pop(name, None)
+
+    def flush_pending_server_tools(self, results_by_name: Dict[str, Deque[str]]) -> None:
+        """Emit END + RESULT for any live server-tool START still unpaired.
+
+        ``on_step`` pairs a completion when the NEXT iteration begins, but a run
+        that unwinds via interrupt right after a tool batch (the mixed
+        server+frontend case: the frontend tool interrupts, so there is no next
+        iteration) never fires that ``step_callback``. This closes those dangling
+        server-tool cards from the post-run message results.
+
+        ``results_by_name`` maps a server-tool name to a FIFO of ALL that name's
+        result strings in call order (built by the server from the run's
+        messages). Only the still-open starts are closed here; because a start is
+        removed from its per-name queue as soon as ``on_step`` pairs it, the ``k``
+        pending ids for a name are the LAST ``k`` calls of that name — so we align
+        against the TAIL of the results FIFO. Missing entries fall back to an
+        empty result so a card is always closed (never left open on the client)."""
+        for name, queue in list(self._tool_ids.items()):
+            all_results = list(results_by_name.get(name) or ())
+            # Pending ids correspond to the last len(queue) calls of this name.
+            results = deque(all_results[-len(queue):]) if queue else deque()
+            while queue:
+                tc_id = queue.popleft()
+                result = results.popleft() if results else None
+                self._emit(ToolCallEndEvent(tool_call_id=tc_id))
+                self._emit(
+                    ToolCallResultEvent(
+                        message_id=self._id("res"),
+                        tool_call_id=tc_id,
+                        content="" if result is None else str(result),
+                    )
+                )
+            self._tool_ids.pop(name, None)
 
     def finish(self) -> None:
         """Close any messages left open when the run ends."""

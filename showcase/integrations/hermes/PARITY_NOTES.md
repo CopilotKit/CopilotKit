@@ -6,7 +6,7 @@ Hermes is **born-in-showcase** (no `examples/integrations/` Dojo counterpart) an
 is unusual among integrations: it is not a framework you author per-demo agents
 in, it is a **complete agent** (Nous Research's Hermes) reached over the AG-UI
 protocol. Every demo langgraph-python ships is ported and D5-green **except** the
-three listed under "Not supported" below. This document records where the
+ones listed under "Not supported" below. This document records where the
 Hermes integration deliberately diverges from the canonical pattern and why.
 
 ## Backend model (structural divergence)
@@ -72,6 +72,27 @@ REASONING_MESSAGE_* events; the non-reasoning demos share the same backend
 without spurious reasoning because their fixtures declare no `reasoning` channel.
 The dedicated route survives only for its distinct endpoint + agent names.
 
+`tool-rendering-reasoning-chain` composes this reasoning path with the
+**server-side** showcase tools (`get_weather`/`search_flights`/`get_stock_price`/
+`roll_dice` in the `hermes-showcase` toolset) across three chained pills. It is
+**D5-green**. aimock emits `reasoning_content` deltas **on the same
+tool-call turn** — verified directly against the running aimock
+(`@copilotkit/aimock`, `ghcr.io/copilotkit/aimock:latest`): a fixture leg that
+carries BOTH a `reasoning` field AND `content` routes through the
+content-with-tool-calls response type (`isContentWithToolCallsResponse` →
+`buildContentWithToolCallsChunks` in `dist/helpers.js`), which streams
+`{delta:{reasoning_content}}` chunks BEFORE the `content` and `tool_calls`
+deltas for any reasoning-capable model (`gpt-5` family; see
+`isReasoningModel` in `dist/model-utils.js`). Curling
+`/v1/chat/completions` with `model:"gpt-5-mini"`, `x-aimock-context: hermes`,
+and the pill-1 prompt returns `reasoning_content` deltas then `tool_calls` in
+one streamed response. The one load-bearing requirement, already met by the
+fixture, is that each tool-emitting leg carry non-empty `content` alongside its
+`reasoning` — a `reasoning` + `toolCalls` leg with EMPTY `content` would route to
+`isToolCallResponse` (`buildToolCallChunks`), which for a reasoning model still
+emits `reasoning_content` — so the earlier "aimock drops reasoning on tool-call
+turns" claim was **incorrect** and is retracted.
+
 ## Internal state-writer tools emit no chat chip
 
 Shared-state demos (`gen-ui-agent`, `shared-state-read-write`) declare
@@ -107,11 +128,6 @@ prompt text is). The D5 image path is unaffected.
 - `gen-ui-interrupt`, `interrupt-headless` — **quarantined upstream**;
   langgraph-python itself marks these not-supported (a `@copilotkit/react-core/v2`
   interrupt RESUME-PATH hook bug).
-- `tool-rendering-reasoning-chain` — aimock drops the `reasoning` payload on
-  tool-call turns, so the interleaved reasoning-block never mounts under replay
-  (tool cards + narration render fine). **pydantic-ai marks this same demo
-  not-supported** for the same aimock limitation; closing it needs an upstream
-  aimock change (emit reasoning alongside tool calls).
 
 ## Operational (planned follow-ups)
 

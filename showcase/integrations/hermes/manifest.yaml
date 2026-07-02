@@ -39,14 +39,6 @@ not_supported_features:
   # bubble). The fix is a published-package change, out of scope for this integration.
   - gen-ui-interrupt
   - interrupt-headless
-  # tool-rendering-reasoning-chain: aimock drops the `reasoning` payload on
-  # tool-call turns, so the reasoning-block slot never mounts when reasoning and
-  # tool calls interleave — the D5 reasoning-block assertion can't be satisfied
-  # deterministically under replay. The tool cards + narration render correctly;
-  # only the interleaved reasoning display is unreachable. pydantic-ai marks this
-  # same demo not-supported for the same aimock limitation. Closing it needs an
-  # upstream aimock change (emit reasoning alongside tool calls).
-  - tool-rendering-reasoning-chain
 features:
   - cli-start
   - beautiful-chat
@@ -65,6 +57,7 @@ features:
   - tool-rendering
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
+  - tool-rendering-reasoning-chain
   - readonly-state-agent-context
   - shared-state-read
   - shared-state-read-write
@@ -194,7 +187,7 @@ demos:
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
     name: "Generative UI: Tool calls + reasoning"
-    description: "Per-tool renderers (WeatherCard, FlightListCard, custom catchall) interleaved with a reasoningMessage slot rendering the agent's reasoning tokens — combines reasoning-display + tool-rendering in one chat surface. Routes to the gpt-5-mini backend so the adapter emits REASONING_MESSAGE_* events; the tools are client-executed via useFrontendTool with deterministic fake-data handlers."
+    description: "Per-tool renderers (WeatherCard, FlightListCard, custom catchall) interleaved with a reasoningMessage slot rendering the agent's reasoning tokens — combines reasoning-display + tool-rendering in one chat surface. Routes to the gpt-5-mini backend so the adapter emits REASONING_MESSAGE_* events; the tools (get_weather/search_flights/get_stock_price/roll_dice) run SERVER-SIDE in the hermes-showcase toolset, 1:1 with langgraph-python's backend tools."
     tags:
       - generative-ui
     route: /demos/tool-rendering-reasoning-chain
