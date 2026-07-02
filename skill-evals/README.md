@@ -167,9 +167,13 @@ tab without downloading anything. See `.github/workflows/skill_eval-lift.yml`.
   noise vs. cost; PR smoke runs use `--trials=1` (validates the harness + agent
   completion + build, not statistical lift); the manual-dispatch form takes a
   `trials` input to override.
-- **Auth.** Uses the repo secrets `ANTHROPIC_API_KEY` (agent) and
-  `OPENAI_API_KEY` (judge) — no OAuth token in CI, which also sidesteps the
-  `setup-token` escape-code footgun below.
+- **Auth.** The agent prefers the `CLAUDE_CODE_OAUTH_TOKEN` repo secret (a
+  subscription seat, no per-call Console credits) and falls back to
+  `ANTHROPIC_API_KEY` (a Console key, which draws on the org's prepaid credit
+  balance — a depleted balance surfaces as `400: Credit balance is too low`). The
+  judge uses `OPENAI_API_KEY` (an OAuth token cannot drive the judge API). If the
+  OAuth secret ever expires, rotate it with a fresh `claude setup-token` value
+  (see the footgun note below on capturing it cleanly).
 - **Output.** When `GITHUB_STEP_SUMMARY` is set, `lift/run.ts` appends a markdown
   lift table there (same numbers as the terminal table). Scheduled Step Summaries
   live as long as the run's logs are retained.

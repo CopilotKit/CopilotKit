@@ -80,8 +80,16 @@ jobs:
         # Trials by trigger: dispatch input if given, else 1 on a PR smoke run,
         # else 3 (schedule). Passed via env, not inline ${{ }} in the run script,
         # to avoid template injection.
+        #
+        # Agent auth: run.ts prefers CLAUDE_CODE_OAUTH_TOKEN (a subscription seat,
+        # no per-call Console credits) and falls back to ANTHROPIC_API_KEY (a
+        # Console key, which draws on the org's prepaid credit balance). Both are
+        # wired; if the OAuth secret is unset it renders empty and run.ts ignores
+        # it. The judge always uses OPENAI_API_KEY (an OAuth token can't drive the
+        # judge API).
         env:
           TRIALS: ${{ github.event.inputs.trials || (github.event_name == 'pull_request' && '1' || '3') }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: pnpm eval:skill:setup --trials="$TRIALS"
