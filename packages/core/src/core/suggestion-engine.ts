@@ -154,6 +154,12 @@ export class SuggestionEngine {
     // fallback path, or a fetch-abort shim in the stateless path) so the
     // `finally` block can remove exactly this run from the running set.
     let runHandle: AbortableSuggestionRun | undefined = undefined;
+    // Lifted to function scope so the `catch` can consult the aborted signal
+    // directly. Some runtimes/polyfills (undici, some React Native engines)
+    // reject an aborted `fetch` with a non-"AbortError"-named error (or a
+    // `TypeError`), which `isAbortError` alone would misclassify as a real
+    // failure — checking the controller's signal recovers those cases.
+    let statelessController: AbortController | undefined = undefined;
     try {
       const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
       const resolvedProviderAgentId = config.providerAgentId ?? "default";
@@ -202,6 +208,7 @@ export class SuggestionEngine {
         // clone+`runAgent` fallback below. Single-route deployments are not the
         // persisting-thread/Intelligence case, so the clone fallback is correct.
         const controller = new AbortController();
+        statelessController = controller;
         runHandle = { abortRun: () => controller.abort() };
         this._runningSuggestions[consumerAgentId] = [
           ...(this._runningSuggestions[consumerAgentId] ?? []),
@@ -325,9 +332,14 @@ export class SuggestionEngine {
         );
       }
     } catch (error) {
-      // AbortError is expected when suggestions are cleared/reloaded mid-flight;
-      // swallow it quietly rather than surfacing it as a failure.
-      if (!isAbortError(error)) {
+      // An abort is expected when suggestions are cleared/reloaded mid-flight;
+      // swallow it quietly rather than surfacing it as a failure. `isAbortError`
+      // is the primary (name-based) check, but an aborted controller is also
+      // treated as expected because some runtimes reject an aborted `fetch`
+      // with a differently-named error (or a `TypeError`).
+      const aborted =
+        isAbortError(error) || statelessController?.signal.aborted === true;
+      if (!aborted) {
         console.warn("Error generating suggestions:", error);
       }
     } finally {
@@ -436,7 +448,9 @@ export class SuggestionEngine {
                     suggestions.push({
                       title: item.title ?? "",
                       message: item.message ?? "",
-                      isLoading: false, // Will be set correctly below
+                      // Defaults to false; only the trailing item is flipped to
+                      // true below, and only while a streaming run is in flight.
+                      isLoading: false,
                     });
                   }
                 }

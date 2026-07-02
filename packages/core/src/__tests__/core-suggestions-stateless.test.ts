@@ -563,6 +563,158 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     expect(core.getSuggestions("consumer").suggestions).toEqual([]);
   });
 
+  it("does not warn when an aborted /suggest fetch rejects with a non-AbortError", async () => {
+    // Some runtimes/polyfills (undici, some React Native engines) reject an
+    // aborted `fetch` with a differently-named error (here a `TypeError`)
+    // rather than a DOMException named "AbortError". The engine must still
+    // recognize the abort via `controller.signal.aborted` and stay quiet.
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const suggestRequests: CapturedRequest[] = [];
+    const fetchMock = vi.fn(
+      (input: unknown, init?: RequestInit): Promise<MockResponse> => {
+        const url = String(input);
+        if (url.includes("/suggest")) {
+          suggestRequests.push({
+            url,
+            method: init?.method ?? "GET",
+            body: undefined,
+            signal: init?.signal ?? undefined,
+          });
+          return new Promise<MockResponse>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => {
+              // Reject with a NON-"AbortError" error while the signal is
+              // aborted, mimicking undici's behavior.
+              reject(new TypeError("network error"));
+            });
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            version: "1.0.0",
+            mode: "sse",
+            agents: {},
+            suggestions: true,
+          }),
+        });
+      },
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const core = new CopilotKitCore({ runtimeUrl: "https://runtime.example" });
+    await waitForCondition(() => core.suggestions === true);
+    registerAgents(core, [createMessage({ content: "hello" })]);
+    core.addSuggestionsConfig(
+      createSuggestionsConfig({ consumerAgentId: "consumer" }),
+    );
+
+    core.reloadSuggestions("consumer");
+    await vi.waitFor(() => {
+      expect(suggestRequests).toHaveLength(1);
+    });
+
+    core.clearSuggestions("consumer");
+
+    await vi.waitFor(() => {
+      expect(core.getSuggestions("consumer").isLoading).toBe(false);
+    });
+    expect(suggestRequests[0]!.signal?.aborted).toBe(true);
+    const suggestionWarnings = warnSpy.mock.calls.filter((call) =>
+      String(call[0]).includes("Error generating suggestions"),
+    );
+    expect(suggestionWarnings).toHaveLength(0);
+  });
+
+  it("finalizes empty without an unhandled rejection when /suggest fails with a JSON error body", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi.fn(async (input: unknown): Promise<MockResponse> => {
+      const url = String(input);
+      if (url.includes("/suggest")) {
+        // Non-2xx with a JSON body carrying a `message` the error path reads.
+        return {
+          ok: false,
+          status: 502,
+          json: async () => ({ message: "boom" }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          version: "1.0.0",
+          mode: "sse",
+          agents: {},
+          suggestions: true,
+        }),
+      };
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const core = new CopilotKitCore({ runtimeUrl: "https://runtime.example" });
+    await waitForCondition(() => core.suggestions === true);
+    registerAgents(core, [createMessage({ content: "hello" })]);
+    core.addSuggestionsConfig(
+      createSuggestionsConfig({ consumerAgentId: "consumer" }),
+    );
+
+    core.reloadSuggestions("consumer");
+
+    await vi.waitFor(() => {
+      expect(core.getSuggestions("consumer").isLoading).toBe(false);
+    });
+    expect(core.getSuggestions("consumer").suggestions).toEqual([]);
+    // The parsed `message` is surfaced in the swallowed warning.
+    const warned = warnSpy.mock.calls.some(
+      (call) =>
+        String(call[0]).includes("Error generating suggestions") &&
+        String(call[1]).includes("boom"),
+    );
+    expect(warned).toBe(true);
+  });
+
+  it("finalizes empty when /suggest fails and its error body is not JSON", async () => {
+    // The `!res.ok` path calls `res.json()`; when that rejects (non-JSON body),
+    // the `.catch(() => undefined)` guard must hold so no throw escapes.
+    const fetchMock = vi.fn(async (input: unknown): Promise<MockResponse> => {
+      const url = String(input);
+      if (url.includes("/suggest")) {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => {
+            throw new SyntaxError("Unexpected token < in JSON");
+          },
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          version: "1.0.0",
+          mode: "sse",
+          agents: {},
+          suggestions: true,
+        }),
+      };
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const core = new CopilotKitCore({ runtimeUrl: "https://runtime.example" });
+    await waitForCondition(() => core.suggestions === true);
+    registerAgents(core, [createMessage({ content: "hello" })]);
+    core.addSuggestionsConfig(
+      createSuggestionsConfig({ consumerAgentId: "consumer" }),
+    );
+
+    core.reloadSuggestions("consumer");
+
+    await vi.waitFor(() => {
+      expect(core.getSuggestions("consumer").isLoading).toBe(false);
+    });
+    expect(core.getSuggestions("consumer").suggestions).toEqual([]);
+  });
+
   it("isAbortError detects a plain object with name AbortError", () => {
     expect(isAbortError({ name: "AbortError" })).toBe(true);
     expect(isAbortError(new DOMException("Aborted", "AbortError"))).toBe(true);
