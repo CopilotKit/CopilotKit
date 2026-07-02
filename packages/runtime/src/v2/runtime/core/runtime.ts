@@ -11,6 +11,11 @@ import { createLicenseChecker } from "@copilotkit/license-verifier";
 import type { LicenseChecker } from "@copilotkit/license-verifier";
 import { resolveDebugConfig } from "@copilotkit/shared";
 import type { ResolvedDebugConfig, DebugConfig } from "@copilotkit/shared";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
+import type {
+  ForwardHeadersConfig,
+  ResolvedForwardHeadersPolicy,
+} from "../handlers/header-utils";
 import type { AbstractAgent } from "@ag-ui/client";
 import type { MCPClientConfig } from "@ag-ui/mcp-apps-middleware";
 import type { A2UIMiddlewareConfig } from "@ag-ui/a2ui-middleware";
@@ -146,6 +151,15 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
   licenseToken?: string;
   /** Enable debug logging for the event pipeline. */
   debug?: DebugConfig;
+  /**
+   * Policy controlling which inbound HTTP headers are forwarded onto the
+   * outgoing agent call. By default a built-in denylist strips known
+   * infrastructure/proxy/platform headers (`x-forwarded-*`, `x-real-ip`,
+   * `x-vercel-*`, `x-copilotcloud-*`, etc.) while `authorization` and custom
+   * `x-*` application headers continue to forward (#5712). Set
+   * `{ useDefaultDenylist: false }` to restore the previous wide-open behavior.
+   */
+  forwardHeaders?: ForwardHeadersConfig;
 }
 
 export interface CopilotRuntimeUser {
@@ -203,6 +217,15 @@ export interface CopilotRuntimeLike {
   debugEventBus?: DebugEventBus;
   debug: ResolvedDebugConfig;
   debugLogger?: CopilotRuntimeLogger;
+  /**
+   * Resolved inbound-header forwarding policy read by the /run and /connect call
+   * sites. Optional on the published interface so an external `CopilotRuntimeLike`
+   * implementor predating this field stays source-compatible (non-breaking minor
+   * release). Concrete runtimes (`BaseCopilotRuntime`) always resolve and set it;
+   * the call sites coalesce a missing value to the default resolved policy
+   * (`resolveForwardHeadersPolicy(undefined)` — default-on denylist).
+   */
+  forwardHeadersPolicy?: ResolvedForwardHeadersPolicy;
 }
 
 export interface CopilotSseRuntimeLike extends CopilotRuntimeLike {
@@ -233,6 +256,7 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
   public readonly debugEventBus?: DebugEventBus;
   public debug: ResolvedDebugConfig;
   public debugLogger?: CopilotRuntimeLogger;
+  public readonly forwardHeadersPolicy: ResolvedForwardHeadersPolicy;
 
   /**
    * License token resolved once with the env fallback, so telemetry
@@ -285,6 +309,13 @@ abstract class BaseCopilotRuntime implements CopilotRuntimeLike {
     if (process.env.NODE_ENV !== "production") {
       this.debugEventBus = new DebugEventBus();
     }
+    // Resolve the inbound-header forwarding policy once (mirroring the
+    // `debug` → `ResolvedDebugConfig` resolve-once above) so both the /run and
+    // /connect call sites read the exact same resolved policy off the runtime
+    // and can never diverge.
+    this.forwardHeadersPolicy = resolveForwardHeadersPolicy(
+      options.forwardHeaders,
+    );
     this.debug = resolveDebugConfig(options.debug);
     if (this.debug.enabled) {
       this.debugLogger = createLogger({
@@ -478,5 +509,9 @@ export class CopilotRuntime implements CopilotRuntimeLike {
 
   get debugLogger(): CopilotRuntimeLogger | undefined {
     return this.delegate.debugLogger;
+  }
+
+  get forwardHeadersPolicy(): ResolvedForwardHeadersPolicy {
+    return this.delegate.forwardHeadersPolicy;
   }
 }
