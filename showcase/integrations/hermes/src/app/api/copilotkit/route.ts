@@ -25,7 +25,26 @@ function createAgent() {
 // endpoint; each name is registered so per-cell frontend-tool registrations
 // scope correctly. Keep these in lockstep with the `agent`/`agentId` props in
 // src/app/demos/*/page.tsx.
-const agentNames = ["agentic_chat", "frontend-tools"];
+const agentNames = [
+  "agentic_chat",
+  "frontend-tools",
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "frontend-tools-async",
+  "hitl-in-chat",
+  "hitl-in-app",
+  "gen-ui-tool-based",
+  "tool-rendering",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  "readonly-state-agent-context",
+  "shared-state-read",
+  "shared-state-read-write",
+  "gen-ui-agent",
+];
 
 const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {

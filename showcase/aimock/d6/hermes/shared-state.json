@@ -1,0 +1,93 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / shared-state-read-write (D5 featureType shared-state-write)",
+    "sourceFile": "langgraph-python/shared-state-read-write.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "shared-state-write turn 1 — 2nd leg (post set_notes exec): matches only when THIS tool call's result is in the request (toolCallId gate). Ordered ABOVE the 1st-leg fixture so it wins once the set_notes result is present. Mirrors the green frontend-tools two-leg pattern; keyed on the specific toolCallId (not a bare hasToolResult) so a later turn's tool result can't misfire it.",
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "toolCallId": "call_d5_set_notes_blue",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Got it — I have noted that your favorite color is blue."
+      }
+    },
+    {
+      "_comment": "shared-state-write turn 1 — 1st leg: emit the set_notes state-writer tool call only. The hermes adapter merges {notes} into shared-state key `notes` and emits a StateSnapshotEvent, then feeds the tool result back so the model produces the 2nd-leg text. Do NOT include content here (an assistant message with both content and tool_calls can be split into two history entries and re-match by substring).",
+      "match": {
+        "userMessage": "remember that my favorite color is blue",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_notes_blue",
+            "name": "set_notes",
+            "arguments": "{\"notes\":[\"Favorite color: blue\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "shared-state-write turn 2 — recall. The prior set_notes wrote `notes` into shared state; on turn 2 the adapter renders that state back into a read-only system message, so the agent recalls blue. No turnIndex gate: substring `favorite color` matches turn 2's question.",
+      "match": {
+        "userMessage": "favorite color",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Your favorite color is blue — I noted it earlier."
+      }
+    },
+    {
+      "_comment": "Greet pill — shared-state-aware greeting (mirrors langgraph). Matches on userMessage only.",
+      "match": {
+        "userMessage": "Say hi and introduce yourself",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Hi — I'm your shared-state co-pilot. Your Preferences panel (name, tone, language, interests) is fed to me on every turn, and I jot notes back into the Agent Scratch Pad via set_notes so the UI re-renders. Try setting your name or asking me to remember something."
+      }
+    },
+    {
+      "_comment": "Plan-a-weekend pill — interests-aware plan (mirrors langgraph).",
+      "match": {
+        "userMessage": "weekend plan based on my interests",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "A weekend tailored to your interests panel: if you haven't picked any yet, try Cooking + Travel for a market-and-day-trip combo, or Tech + Books for a maker session and a long reading afternoon. Add interests in the Preferences panel and re-ask for a more specific plan."
+      }
+    },
+    {
+      "_comment": "Remember-something pill (from suggestions.ts) — 2nd leg gated by toolCallId.",
+      "match": {
+        "userMessage": "prefer morning meetings",
+        "toolCallId": "call_d5_set_notes_prefs",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Noted — you prefer morning meetings and you don't eat dairy. I've written those to your scratch pad."
+      }
+    },
+    {
+      "_comment": "Remember-something pill — 1st leg: set_notes with the two observations.",
+      "match": {
+        "userMessage": "prefer morning meetings",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_notes_prefs",
+            "name": "set_notes",
+            "arguments": "{\"notes\":[\"Prefers morning meetings\",\"Does not eat dairy\"]}"
+          }
+        ]
+      }
+    }
+  ]
+}

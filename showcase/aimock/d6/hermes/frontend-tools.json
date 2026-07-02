@@ -1,0 +1,96 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / frontend-tools",
+    "sourceFile": "langgraph-python/frontend-tools.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "Sunset — 2nd leg (post tool exec): matches only when THIS tool call's result is in the request (toolCallId gate). Ordered ABOVE the 1st-leg plain-substring fixture so it wins once the sunset tool result is present. NB: the D5 probe runs all 3 pills in ONE thread, so by pill 2/3 a prior tool result already exists in history — a bare hasToolResult gate would misfire, so we key on the specific toolCallId instead.",
+      "match": {
+        "userMessage": "sunset gradient",
+        "toolCallId": "call_d5_change_background_sunset",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Done — the sunset gradient is live."
+      }
+    },
+    {
+      "_comment": "Sunset — 1st leg: emit change_background tool call only. Do NOT include content here (an assistant message with both content and tool_calls can get split into two history entries and re-match by substring → loop).",
+      "match": {
+        "userMessage": "sunset gradient",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_sunset",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #ff7e5f 0%, #feb47b 50%, #ff6b6b 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Forest — 2nd leg.",
+      "match": {
+        "userMessage": "deep green forest gradient",
+        "toolCallId": "call_d5_change_background_forest",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Done — the forest gradient is live."
+      }
+    },
+    {
+      "_comment": "Forest — 1st leg.",
+      "match": {
+        "userMessage": "deep green forest gradient",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_forest",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #0a3d2e 0%, #166534 50%, #059669 100%)"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Cosmic — 2nd leg.",
+      "match": {
+        "userMessage": "navy → magenta cosmic gradient",
+        "toolCallId": "call_d5_change_background_cosmic",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Done — the cosmic gradient is live."
+      }
+    },
+    {
+      "_comment": "Cosmic — 1st leg.",
+      "match": {
+        "userMessage": "navy → magenta cosmic gradient",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_change_background_cosmic",
+            "name": "change_background",
+            "arguments": {
+              "background": "linear-gradient(135deg, #1e3a8a 0%, #6b21a8 50%, #9333ea 100%)"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

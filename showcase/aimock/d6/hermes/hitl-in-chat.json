@@ -1,0 +1,90 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / hitl-in-chat",
+    "sourceFile": "langgraph-python/hitl-in-chat.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "D5 probe pill (\"Book a 30-minute onboarding call for Alice\") — 2nd leg: keyed on the book_call tool id so it wins once the picker returns a slot. Ordered ABOVE the 1st-leg. Assertion token: \"Alice\".",
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "toolCallId": "call_d5_book_call_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
+      }
+    },
+    {
+      "_comment": "D5 probe pill — 1st leg: emit book_call tool call only (TimePickerCard renders inline via useHumanInTheLoop).",
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Onboarding call\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Sales suggestion pill — 2nd leg.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "toolCallId": "call_d5_book_call_sales_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Booked: intro call with the sales team confirmed for the slot you picked."
+      }
+    },
+    {
+      "_comment": "Sales suggestion pill — 1st leg.",
+      "match": {
+        "userMessage": "intro call with the sales team",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_sales_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Intro call to discuss pricing\",\"attendee\":\"Sales team\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Alice 1:1 suggestion pill — 2nd leg.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "toolCallId": "call_d5_book_call_alice_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Booked Alice's 1:1 for the slot you picked — Q2 goals review is on the calendar."
+      }
+    },
+    {
+      "_comment": "Alice 1:1 suggestion pill — 1st leg.",
+      "match": {
+        "userMessage": "1:1 with Alice",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_alice_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"1:1 to review Q2 goals\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

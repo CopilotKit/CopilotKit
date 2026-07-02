@@ -1,0 +1,5 @@
+hermes-agent==0.17.0
+ag-ui-protocol==0.1.19
+fastapi==0.121.2
+uvicorn==0.34.0
+python-dotenv

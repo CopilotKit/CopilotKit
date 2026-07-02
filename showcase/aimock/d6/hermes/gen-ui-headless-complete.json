@@ -1,0 +1,122 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / headless-complete (probe featureType gen-ui-headless-complete, route /demos/headless-complete). Full hand-rolled headless surface. Three client-executed frontend tools via useFrontendTool with deterministic fake-data handlers that mirror the langgraph-python headless_complete backend return shapes 1:1 (get_weather → WeatherCard, get_stock_price → StockCard, get_revenue_chart → ChartCard) + a useComponent frontend tool (highlight_note → HighlightNote). The fixture makes the agent EMIT each tool call; the client handler produces the result; the per-tool renderer paints the card. Two-leg pattern per tool: first leg gated on toolName emits the tool call (fires whenever the tool is registered, independent of prior thread history); second leg gated on toolCallId narrates AFTER the tool result lands. Second (narration) leg placed BEFORE the first (emit) leg in the array — aimock is first-match-wins, and the toolCallId key is uniquely satisfied only once the tool has run. highlight_note is a useComponent (UI-only) tool so its render IS the result; it still uses the same two-leg pattern. D5 probe prompts (verbatim SuggestionBar `.message` from use-headless-suggestions.ts): \"What's the weather in Tokyo?\", \"What's the price of AAPL right now?\", \"Highlight this note for me: 'ship the demo on Friday'.\", \"Show me a chart of revenue over the last six months.\" Narration strings kept 1:1 with langgraph-python's headless-complete e2e assertions where applicable.",
+    "sourceFile": "langgraph-python headless-complete backend tools + d5-gen-ui-headless-complete probe",
+    "created": "2026-07-02"
+  },
+  "fixtures": [
+    {
+      "_comment": "Weather in Tokyo — narration leg. Fires after get_weather ran (keyed on the emitted toolCallId). MUST precede the emit leg below (first-match-wins).",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolCallId": "call_d5_hc_get_weather_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy. The headless WeatherCard above shows the snapshot from the tool."
+      }
+    },
+    {
+      "_comment": "Weather in Tokyo — emit leg: emit get_weather(Tokyo). Gated on toolName so it fires whenever the tool is registered, regardless of prior tool results in a multi-pill thread.",
+      "match": {
+        "userMessage": "weather in Tokyo",
+        "toolName": "get_weather",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hc_get_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "AAPL price — narration leg. Fires after get_stock_price ran.",
+      "match": {
+        "userMessage": "AAPL",
+        "toolCallId": "call_d5_hc_get_stock_price_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day. The card above shows the live ticker and the percentage change."
+      }
+    },
+    {
+      "_comment": "AAPL price — emit leg: emit get_stock_price(AAPL). Gated on toolName.",
+      "match": {
+        "userMessage": "AAPL",
+        "toolName": "get_stock_price",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hc_get_stock_price_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Highlight note — narration leg. Fires after the highlight_note useComponent tool call landed.",
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "toolCallId": "call_d5_hc_highlight_note_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Highlighted 'ship the demo on Friday' in yellow above. Let me know if you want a different color or a longer note."
+      }
+    },
+    {
+      "_comment": "Highlight note — emit leg: emit highlight_note (useComponent frontend tool; its render IS the result). Gated on toolName.",
+      "match": {
+        "userMessage": "ship the demo on Friday",
+        "toolName": "highlight_note",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_hc_highlight_note_001",
+            "name": "highlight_note",
+            "arguments": "{\"text\":\"ship the demo on Friday\",\"color\":\"yellow\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Revenue chart — narration leg. Fires after get_revenue_chart ran.",
+      "match": {
+        "userMessage": "revenue over the last six months",
+        "toolCallId": "call_d5_hc_get_revenue_chart_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Here is the chart of revenue over the last six months — quarterly revenue grew from $38K in January to $71K in June, with one dip in April."
+      }
+    },
+    {
+      "_comment": "Revenue chart — emit leg: emit get_revenue_chart (no args). Gated on toolName. Includes a short leading `content` snippet so the word 'revenue' lands in the assistant bubble synchronously with the tool-call emission — without it the chart card title falls back to 'Chart' during the `executing` render phase (result still undefined) and the D5 probe's 'revenue' token can miss on the first settle window before the narration follow-up arrives (mirrors langgraph-python's fixture).",
+      "match": {
+        "userMessage": "revenue over the last six months",
+        "toolName": "get_revenue_chart",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Pulling the revenue chart for the last six months...",
+        "toolCalls": [
+          {
+            "id": "call_d5_hc_get_revenue_chart_001",
+            "name": "get_revenue_chart",
+            "arguments": "{}"
+          }
+        ]
+      }
+    }
+  ]
+}

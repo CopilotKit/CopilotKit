@@ -1,0 +1,151 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / beautiful-chat (the flagship combined cell). Covers the five D5 probe pills: bar chart + pie chart (useComponent controlled gen-UI), schedule meeting (useHumanInTheLoop MeetingTimePicker), toggle theme (useFrontendTool), and search flights (A2UI fixed-schema FlightCard). Two divergences from langgraph-python's beautiful-chat.json, both mandated by the hermes AG-UI transport: (1) search_flights is a langgraph BACKEND tool that calls a2ui.render() and emits an a2ui_operations container; hermes has no A2UI backend and a generic aimock agent cannot emit an agent-side tool RESULT the middleware would detect, so the agent EMITS the middleware-injected render_a2ui directly with a flat FlightCard Row (identical to langgraph's _build_flight_components output) into the copilotkit://app-dashboard-catalog the page registers. (2) The chart legs match langgraph's D5 fixture 1:1 (barChart/pieChart useComponent, no query_data leg). Every entry carries context:hermes so it never collides with the langgraph-python beautiful-chat fixtures.",
+    "sourceFile": "langgraph-python/beautiful-chat.json",
+    "created": "2026-07-02"
+  },
+  "fixtures": [
+    {
+      "_comment": "Bar Chart pill — 1st leg: emit the barChart useComponent tool call. Matches langgraph's D5 barChart fixture (data + title/description). Gated on hasToolResult:false so it fires on the tool-call turn.",
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_bar_chart_001",
+            "name": "barChart",
+            "arguments": "{\"title\":\"Expenses by Category\",\"description\":\"Monthly expense breakdown\",\"data\":[{\"label\":\"Rent\",\"value\":15000},{\"label\":\"Salaries\",\"value\":80000},{\"label\":\"Marketing\",\"value\":12000},{\"label\":\"Travel\",\"value\":5000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Bar Chart pill — 2nd leg: one-sentence narration after the barChart component renders (gated on the barChart tool result being present).",
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: bar chart of expenses by category",
+        "hasToolResult": true,
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Bar chart rendered above — Salaries dominate at $80k, with Rent at $15k as the next-largest category."
+      }
+    },
+    {
+      "_comment": "Pie Chart pill — 1st leg: emit the pieChart useComponent tool call. Fixture supplies 4 slices so the DonutChart renders 1 background + 4 slice circles (probe asserts >= 3 svg circles).",
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_pie_chart_001",
+            "name": "pieChart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Breakdown of revenue across product categories\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Pie Chart pill — 2nd leg: narration after the pieChart renders.",
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: pie chart of revenue distribution by category",
+        "hasToolResult": true,
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics leads at $42k, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "_comment": "Schedule Meeting pill — 1st leg: emit the scheduleTime useHumanInTheLoop tool call. The frontend renders MeetingTimePicker and PAUSES the agent until the user clicks a slot; the probe clicks the default 'Tomorrow' slot which resolves the HITL via respond().",
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_schedule_time_001",
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Learn about CopilotKit\",\"meetingDuration\":30}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Schedule Meeting pill — 2nd leg: after the user picks a slot the HITL resolves and feeds the choice back; emit a closing confirmation (gated on the scheduleTime result being present).",
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: schedule a 30-minute meeting to learn about CopilotKit",
+        "hasToolResult": true,
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Meeting scheduled — calendar invite is on its way."
+      }
+    },
+    {
+      "_comment": "Toggle Theme pill — 1st leg: emit the toggleTheme useFrontendTool call (empty args). The client handler flips document.documentElement between 'dark'/'light'.",
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_bc_toggle_theme_001",
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Toggle Theme pill — 2nd leg: narration after the frontend tool runs. The probe passes on EITHER the html.dark class flip OR this 'Theme toggled' text landing (see _beautiful-chat-shared.assertToggleTheme two-track signal).",
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: toggle the theme",
+        "hasToolResult": true,
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Theme toggled."
+      }
+    },
+    {
+      "_comment": "Search Flights pill — 1st leg. langgraph's search_flights is a backend tool emitting an a2ui_operations container; hermes emits the middleware-injected render_a2ui directly with a flat FlightCard Row (identical shape to langgraph's _build_flight_components: a root Row whose children are per-flight FlightCard components with literal values). Two flights: United $349 / Delta $289 (the probe asserts United, Delta, $349, $289 are visible). airline is rendered verbatim by the FlightCard, so we use the short brand labels the probe expects. Catalog pinned by the route's defaultCatalogId (copilotkit://app-dashboard-catalog). Gated on hasToolResult:false; chunkSize:9999 emits the (large) args in one chunk so the A2UI binder sees the complete tree.",
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_bc_search_flights_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"flight-search-results\",\"catalogId\":\"copilotkit://app-dashboard-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Row\",\"gap\":16,\"children\":[\"flight-card-0\",\"flight-card-1\"]},{\"id\":\"flight-card-0\",\"component\":\"FlightCard\",\"airline\":\"United\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA231\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, May 6\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\"},{\"id\":\"flight-card-1\",\"component\":\"FlightCard\",\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL412\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, May 6\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\"}]}"
+          }
+        ]
+      },
+      "chunkSize": 9999
+    },
+    {
+      "_comment": "Search Flights pill — 2nd leg: one-sentence confirmation after the flight cards render. Gated on userMessage + hasToolResult:true rather than the render_a2ui toolCallId: the combined runtime's A2UI middleware feeds the render_a2ui result back to the model under a RUNTIME-generated tool_call_id (not the fixture's `call_d6_bc_search_flights_001`), so a toolCallId gate misses and the follow-up 404s (the demo then shows 'No fixture matched' and the surface never paints). hasToolResult:true is the stateless match for 'a tool result is now present', which flips this leg on for the follow-up while leg 1 (hasToolResult:false) only fires on the initial turn. Ordered ABOVE leg 1 so it wins once the render result is present.",
+      "match": {
+        "userMessage": "d5 beautiful-chat probe: search flights from SFO to JFK",
+        "hasToolResult": true,
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Two flights shown above — United at $349 (08:00) and Delta at $289 (10:15), both on time."
+      },
+      "chunkSize": 9999
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / gen-ui-tool-based",
+    "sourceFile": "langgraph-python/gen-ui-tool-based.json + harness/fixtures/d5/gen-ui-custom.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "D5 probe pill (\"Show me a pie chart of revenue by category\") — 2nd leg: keyed on the render_pie_chart tool id. Ordered ABOVE the 1st-leg. Follow-up MUST contain tokens \"pie\" and \"chart\" (d5-gen-ui-custom PIE_CHART_FOLLOWUP_TOKENS).",
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "toolCallId": "call_d5_render_pie_chart_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "_comment": "D5 probe pill — 1st leg: emit render_pie_chart tool call (frontend useComponent renders the SVG donut).",
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_001",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category (Q4)\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "e2e-typed bar chart (\"Show me a bar chart of monthly expenses\") — 2nd leg.",
+      "match": {
+        "userMessage": "bar chart of monthly expenses",
+        "toolCallId": "call_d5_render_bar_chart_expenses",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Bar chart rendered above — monthly expenses across the period. Values are illustrative samples."
+      }
+    },
+    {
+      "_comment": "e2e-typed bar chart — 1st leg.",
+      "match": {
+        "userMessage": "bar chart of monthly expenses",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_bar_chart_expenses",
+            "name": "render_bar_chart",
+            "arguments": "{\"title\":\"Monthly Expenses\",\"description\":\"Illustrative monthly expense figures\",\"data\":[{\"label\":\"Jan\",\"value\":4200},{\"label\":\"Feb\",\"value\":3800},{\"label\":\"Mar\",\"value\":5100},{\"label\":\"Apr\",\"value\":4600}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Sales bar chart suggestion pill — 2nd leg.",
+      "match": {
+        "userMessage": "bar chart of quarterly sales for Q1, Q2, Q3, Q4",
+        "toolCallId": "call_d5_render_bar_chart_sales",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Bar chart rendered above — sales grew quarter over quarter, with Q4 the strongest. Values are illustrative samples."
+      }
+    },
+    {
+      "_comment": "Sales bar chart suggestion pill — 1st leg.",
+      "match": {
+        "userMessage": "bar chart of quarterly sales for Q1, Q2, Q3, Q4",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_bar_chart_sales",
+            "name": "render_bar_chart",
+            "arguments": "{\"title\":\"Quarterly Sales\",\"description\":\"Illustrative quarterly sales figures\",\"data\":[{\"label\":\"Q1\",\"value\":120000},{\"label\":\"Q2\",\"value\":150000},{\"label\":\"Q3\",\"value\":175000},{\"label\":\"Q4\",\"value\":210000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Traffic pie chart suggestion pill — 2nd leg.",
+      "match": {
+        "userMessage": "pie chart of website traffic by source",
+        "toolCallId": "call_d5_render_pie_chart_traffic",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Organic Search drives most traffic, with Direct and Referral following. Values are illustrative samples."
+      }
+    },
+    {
+      "_comment": "Traffic pie chart suggestion pill — 1st leg.",
+      "match": {
+        "userMessage": "pie chart of website traffic by source",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_traffic",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Website Traffic by Source\",\"description\":\"Illustrative traffic breakdown by acquisition channel\",\"data\":[{\"label\":\"Organic Search\",\"value\":45},{\"label\":\"Direct\",\"value\":22},{\"label\":\"Referral\",\"value\":15},{\"label\":\"Social\",\"value\":12},{\"label\":\"Paid\",\"value\":6}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Market share suggestion pill — 2nd leg.",
+      "match": {
+        "userMessage": "pie chart of smartphone market share by brand",
+        "toolCallId": "call_d5_render_pie_chart_market_share",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Pie chart rendered above — Apple and Samsung lead, with Xiaomi and Oppo close behind. Values are illustrative samples."
+      }
+    },
+    {
+      "_comment": "Market share suggestion pill — 1st leg.",
+      "match": {
+        "userMessage": "pie chart of smartphone market share by brand",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_market_share",
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Smartphone Market Share\",\"description\":\"Illustrative global market share by brand\",\"data\":[{\"label\":\"Apple\",\"value\":28},{\"label\":\"Samsung\",\"value\":22},{\"label\":\"Xiaomi\",\"value\":14},{\"label\":\"Oppo\",\"value\":9},{\"label\":\"Other\",\"value\":27}]}"
+          }
+        ]
+      }
+    }
+  ]
+}

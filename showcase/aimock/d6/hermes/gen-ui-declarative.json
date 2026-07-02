@@ -1,0 +1,129 @@
+{
+ "_meta": {
+  "description": "D6 fixtures for hermes / declarative-gen-ui (A2UI Dynamic Schema). The demo routes to /api/copilotkit-declarative-gen-ui, a dedicated hermes runtime whose page registers a catalog via `<CopilotKit a2ui={{ catalog }}>`. That auto-enables the runtime A2UI middleware with injectA2UITool defaulting on, so the middleware injects a `render_a2ui` tool into the (aimock-driven) agent's toolset and the agent EMITS it directly with the flat A2UI components payload; the middleware converts the streamed tool call into an A2UI surface the frontend renders from the registered `declarative-gen-ui-catalog`. Single-emit per pill (no secondary LLM: unlike langgraph's two-stage outer generate_a2ui + inner render_a2ui, a generic hermes agent IS the emitter). Payloads copied verbatim from langgraph-python/gen-ui-declarative.json so the same catalog testids paint (declarative-metric x4 + pie + bar for the hero, DataTable for team, StatusBadge x3 for at-risk, InfoRow for top-account). Tool-emit legs gate on hasToolResult:false; the narration leg gates on toolCallId.",
+  "sourceFile": "langgraph-python/gen-ui-declarative.json",
+  "created": "2026-07-02"
+ },
+ "fixtures": [
+  {
+   "_comment": "pill sales-dashboard — agent emits render_a2ui (middleware-injected) with the flat A2UI components.",
+   "match": {
+    "userMessage": "Show me my sales dashboard for this quarter.",
+    "hasToolResult": false,
+    "context": "hermes"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_hermes_decl_sales_dashboard_001",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\":\"sales-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"kpi-row\",\"charts-row\"]},{\"id\":\"kpi-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"metric-revenue\",\"metric-new-customers\",\"metric-win-rate\",\"metric-deal-size\"]},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Quarterly Revenue\",\"value\":\"$4.2M\",\"trend\":\"up\",\"trendValue\":\"+12% QoQ\"},{\"id\":\"metric-new-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"186\",\"trend\":\"up\",\"trendValue\":\"+8%\"},{\"id\":\"metric-win-rate\",\"component\":\"Metric\",\"label\":\"Win Rate\",\"value\":\"31%\",\"trend\":\"down\",\"trendValue\":\"-2 pts\"},{\"id\":\"metric-deal-size\",\"component\":\"Metric\",\"label\":\"Avg Deal Size\",\"value\":\"$22.6k\",\"trend\":\"up\",\"trendValue\":\"+5%\"},{\"id\":\"charts-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"region-pie\",\"monthly-bar\"]},{\"id\":\"region-pie\",\"component\":\"PieChart\",\"title\":\"Revenue by Region\",\"description\":\"Quarter revenue split across North America, EMEA, APAC, and LATAM.\",\"data\":[{\"label\":\"North America\",\"value\":1900000},{\"label\":\"EMEA\",\"value\":1300000},{\"label\":\"APAC\",\"value\":720000},{\"label\":\"LATAM\",\"value\":280000}]},{\"id\":\"monthly-bar\",\"component\":\"BarChart\",\"title\":\"Monthly Revenue\",\"description\":\"Revenue trend from Jan through Jun.\",\"data\":[{\"label\":\"Jan\",\"value\":1210000},{\"label\":\"Feb\",\"value\":1340000},{\"label\":\"Mar\",\"value\":1650000},{\"label\":\"Apr\",\"value\":1380000},{\"label\":\"May\",\"value\":1420000},{\"label\":\"Jun\",\"value\":1400000}]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill sales-dashboard — one-sentence narration after render_a2ui.",
+   "match": {
+    "userMessage": "Show me my sales dashboard for this quarter.",
+    "toolCallId": "call_d6_hermes_decl_sales_dashboard_001",
+    "context": "hermes"
+   },
+   "response": {
+    "content": "Here's your Q2 sales dashboard."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill team-performance — agent emits render_a2ui (middleware-injected) with the flat A2UI components.",
+   "match": {
+    "userMessage": "How are our sales reps performing against quota?",
+    "hasToolResult": false,
+    "context": "hermes"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_hermes_decl_team_performance_001",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\":\"rep-quota-performance\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"title\",\"summary\",\"content\"]},{\"id\":\"title\",\"component\":\"Text\",\"text\":\"Sales rep performance vs quota\"},{\"id\":\"summary\",\"component\":\"Text\",\"text\":\"2 of 5 reps are above quota, 1 is near plan, and 2 are below target in Q2.\"},{\"id\":\"content\",\"component\":\"Row\",\"gap\":16,\"children\":[\"table-card\",\"attainment-chart\"]},{\"id\":\"table-card\",\"component\":\"Card\",\"title\":\"Rep attainment table\",\"child\":\"rep-table\"},{\"id\":\"rep-table\",\"component\":\"DataTable\",\"columns\":[{\"key\":\"rep\",\"label\":\"Rep\"},{\"key\":\"attainment\",\"label\":\"Attainment\"},{\"key\":\"pipeline\",\"label\":\"Pipeline\"}],\"rows\":[{\"rep\":\"Dana Whitfield\",\"attainment\":\"124%\",\"pipeline\":\"Leading team; biggest account Meridian Apparel Group has 4 open opps worth $210k\"},{\"rep\":\"Marcus Lee\",\"attainment\":\"108%\",\"pipeline\":\"Above plan\"},{\"rep\":\"Priya Sharma\",\"attainment\":\"97%\",\"pipeline\":\"Near quota\"},{\"rep\":\"Tom Okafor\",\"attainment\":\"88%\",\"pipeline\":\"Below plan\"},{\"rep\":\"Elena Vasquez\",\"attainment\":\"71%\",\"pipeline\":\"Furthest from quota\"}]},{\"id\":\"attainment-chart\",\"component\":\"BarChart\",\"title\":\"Quota attainment by rep\",\"description\":\"Q2 quota attainment percentages for all sales reps.\",\"data\":[{\"label\":\"Dana Whitfield\",\"value\":124},{\"label\":\"Marcus Lee\",\"value\":108},{\"label\":\"Priya Sharma\",\"value\":97},{\"label\":\"Tom Okafor\",\"value\":88},{\"label\":\"Elena Vasquez\",\"value\":71}]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill team-performance — one-sentence narration after render_a2ui.",
+   "match": {
+    "userMessage": "How are our sales reps performing against quota?",
+    "toolCallId": "call_d6_hermes_decl_team_performance_001",
+    "context": "hermes"
+   },
+   "response": {
+    "content": "Here's how the team is tracking against quota."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill at-risk — agent emits render_a2ui (middleware-injected) with the flat A2UI components.",
+   "match": {
+    "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+    "hasToolResult": false,
+    "context": "hermes"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_hermes_decl_at_risk_001",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\":\"risk-dashboard\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"gap\":16,\"children\":[\"metrics-row\",\"accounts-row\"]},{\"id\":\"metrics-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"metric-arr\",\"metric-accounts\",\"metric-biggest\"]},{\"id\":\"metric-arr\",\"component\":\"Metric\",\"label\":\"ARR at risk\",\"value\":\"$615k\",\"trend\":\"down\",\"trendValue\":\"3 accounts\"},{\"id\":\"metric-accounts\",\"component\":\"Metric\",\"label\":\"Accounts at risk\",\"value\":\"3\",\"trend\":\"neutral\",\"trendValue\":\"This quarter\"},{\"id\":\"metric-biggest\",\"component\":\"Metric\",\"label\":\"Biggest exposure\",\"value\":\"Northwind Retail\",\"trend\":\"down\",\"trendValue\":\"$340k renewal\"},{\"id\":\"accounts-row\",\"component\":\"Row\",\"gap\":16,\"children\":[\"card-northwind\",\"card-cascadia\",\"card-atlas\"]},{\"id\":\"card-northwind\",\"component\":\"Card\",\"title\":\"Northwind Retail\",\"subtitle\":\"$340k ARR at stake\",\"child\":\"northwind-content\"},{\"id\":\"northwind-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"northwind-badge\",\"northwind-text\"]},{\"id\":\"northwind-badge\",\"component\":\"StatusBadge\",\"text\":\"High severity\",\"variant\":\"error\"},{\"id\":\"northwind-text\",\"component\":\"Text\",\"text\":\"No contact in 6 weeks; next action: exec outreach this week to protect the renewal.\"},{\"id\":\"card-cascadia\",\"component\":\"Card\",\"title\":\"Cascadia Outfitters\",\"subtitle\":\"$180k ARR at stake\",\"child\":\"cascadia-content\"},{\"id\":\"cascadia-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"cascadia-badge\",\"cascadia-text\"]},{\"id\":\"cascadia-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium severity\",\"variant\":\"warning\"},{\"id\":\"cascadia-text\",\"component\":\"Text\",\"text\":\"Champion left; next action: rebuild stakeholder map and secure a new sponsor.\"},{\"id\":\"card-atlas\",\"component\":\"Card\",\"title\":\"Atlas Goods\",\"subtitle\":\"$95k ARR at stake\",\"child\":\"atlas-content\"},{\"id\":\"atlas-content\",\"component\":\"Column\",\"gap\":8,\"children\":[\"atlas-badge\",\"atlas-text\"]},{\"id\":\"atlas-badge\",\"component\":\"StatusBadge\",\"text\":\"Medium severity\",\"variant\":\"warning\"},{\"id\":\"atlas-text\",\"component\":\"Text\",\"text\":\"Legal review is stalled; next action: align procurement and legal on open terms.\"}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill at-risk — one-sentence narration after render_a2ui.",
+   "match": {
+    "userMessage": "Are any accounts or pipeline deals at risk this quarter?",
+    "toolCallId": "call_d6_hermes_decl_at_risk_001",
+    "context": "hermes"
+   },
+   "response": {
+    "content": "Here are the accounts at risk this quarter."
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill top-account — agent emits render_a2ui (middleware-injected) with the flat A2UI components.",
+   "match": {
+    "userMessage": "Pull up the details on our biggest account.",
+    "hasToolResult": false,
+    "context": "hermes"
+   },
+   "response": {
+    "toolCalls": [
+     {
+      "id": "call_d6_hermes_decl_top_account_001",
+      "name": "render_a2ui",
+      "arguments": "{\"surfaceId\":\"biggest-account-details\",\"catalogId\":\"declarative-gen-ui-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Row\",\"gap\":16,\"children\":[\"account-card\",\"revenue-pie\"]},{\"id\":\"account-card\",\"component\":\"Card\",\"title\":\"Meridian Apparel Group\",\"subtitle\":\"Biggest account\",\"child\":\"account-facts\"},{\"id\":\"account-facts\",\"component\":\"Column\",\"gap\":8,\"children\":[\"fact1\",\"fact2\",\"fact3\",\"fact4\",\"fact5\",\"fact6\",\"fact7\"]},{\"id\":\"fact1\",\"component\":\"InfoRow\",\"label\":\"Owner\",\"value\":\"Dana Whitfield\"},{\"id\":\"fact2\",\"component\":\"InfoRow\",\"label\":\"Region\",\"value\":\"North America\"},{\"id\":\"fact3\",\"component\":\"InfoRow\",\"label\":\"ARR\",\"value\":\"$612k\"},{\"id\":\"fact4\",\"component\":\"InfoRow\",\"label\":\"Renewal date\",\"value\":\"Sep 30\"},{\"id\":\"fact5\",\"component\":\"InfoRow\",\"label\":\"Last contact\",\"value\":\"3 days ago\"},{\"id\":\"fact6\",\"component\":\"InfoRow\",\"label\":\"Health\",\"value\":\"Green\"},{\"id\":\"fact7\",\"component\":\"InfoRow\",\"label\":\"Open opportunities\",\"value\":\"4 opportunities worth $210k\"},{\"id\":\"revenue-pie\",\"component\":\"PieChart\",\"title\":\"Revenue by product line\",\"description\":\"Meridian Apparel Group revenue mix across product lines.\",\"data\":[{\"label\":\"Outerwear\",\"value\":260000},{\"label\":\"Footwear\",\"value\":180000},{\"label\":\"Accessories\",\"value\":112000},{\"label\":\"Custom\",\"value\":60000}]}]}"
+     }
+    ]
+   },
+   "chunkSize": 9999
+  },
+  {
+   "_comment": "pill top-account — one-sentence narration after render_a2ui.",
+   "match": {
+    "userMessage": "Pull up the details on our biggest account.",
+    "toolCallId": "call_d6_hermes_decl_top_account_001",
+    "context": "hermes"
+   },
+   "response": {
+    "content": "Here are the details on your biggest account."
+   },
+   "chunkSize": 9999
+  }
+ ]
+}

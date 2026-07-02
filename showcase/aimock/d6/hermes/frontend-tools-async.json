@@ -1,0 +1,90 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / frontend-tools-async",
+    "sourceFile": "langgraph-python/frontend-tools-async.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "project-planning pill — 2nd leg (post async query_notes exec): keyed on THIS tool call's id so it wins once the tool result is present. Ordered ABOVE the 1st-leg fixture. NB: the multi-pill e2e (frontend-tools-async.spec.ts) clicks earlier pills first, leaving prior tool results in history — a bare hasToolResult gate would misfire, so we key on the specific toolCallId.",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "toolCallId": "call_d5_query_notes_project_planning_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "You have notes on project planning: \"Q2 project planning kickoff\" and \"Project planning retrospective notes\". Let me know if you want a summary of either."
+      }
+    },
+    {
+      "_comment": "project-planning pill — 1st leg: emit query_notes tool call only. Do NOT include content (an assistant message with both content and tool_calls can split into two history entries and re-match by substring → loop).",
+      "match": {
+        "userMessage": "Find my notes about project planning",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_project_planning_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"project planning\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "auth pill — 2nd leg.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "toolCallId": "call_d5_query_notes_auth_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "You have one note related to auth: \"Planning: migrate auth to passkeys\" — it covers WebAuthn library options and a fallback for unsupported browsers."
+      }
+    },
+    {
+      "_comment": "auth pill — 1st leg.",
+      "match": {
+        "userMessage": "Search my notes for anything related to auth",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_auth_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"auth\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "reading pill — 2nd leg. Locked narration leading phrase per spec test #4 assertion.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "toolCallId": "call_d5_query_notes_reading_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "You have a note titled \"Book recommendations\" that is tagged with \"reading.\" It includes the following books: Thinking Fast and Slow by Daniel Kahneman, The Design of Everyday Things by Don Norman."
+      }
+    },
+    {
+      "_comment": "reading pill — 1st leg.",
+      "match": {
+        "userMessage": "Do I have any notes tagged reading",
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_query_notes_reading_001",
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"reading\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

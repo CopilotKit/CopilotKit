@@ -1,0 +1,180 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for hermes / open-gen-ui + open-gen-ui-advanced. The demos route to /api/copilotkit-ogui (a dedicated hermes runtime with `openGenerativeUI: { agents: [...] }`), so the frontend auto-registers a `generateSandboxedUi` tool, the agent EMITS it (driven by these fixtures), and the runtime OpenGenerativeUIMiddleware converts the streamed tool call into open-generative-ui activity events that the built-in OpenGenerativeUIActivityRenderer mounts inside a sandboxed iframe. Basic pills render iframe[srcdoc] (D5 probe: '3D axis visualization (model airplane)'); advanced pills render iframe[sandbox*=allow-scripts] whose jsFunctions call host sandboxFunctions via Websandbox (D5 probe: 'Inline expression evaluator'). Sandboxed-UI jsFunctions copied verbatim from langgraph-python so the calculator keypad += , inline-eval, and host-ping bridge round-trips wire identically. Tool-emitting fixtures are gated on `hasToolResult:false` so the follow-up content leg (gated on toolCallId) fires on iteration 2.",
+    "sourceFile": "langgraph-python/gen-ui-open.json + gen-ui-open-advanced.json",
+    "created": "2026-07-01"
+  },
+  "fixtures": [
+    {
+      "_comment": "open-gen-ui — 3D axis visualization pill (also the D5 gen-ui-open probe prompt). The agent calls generateSandboxedUi which renders an iframe[srcdoc] with a non-trivial HTML payload (>= 100 chars).",
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_3d_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":400,\"placeholderMessages\":[\"Rendering 3D axis visualization…\"],\"css\":\"body{margin:0;background:#0f172a;display:flex;justify-content:center;align-items:center;height:100vh;font-family:system-ui}canvas{border-radius:8px;box-shadow:0 4px 24px rgba(0,0,0,.4)}#info{position:absolute;top:12px;left:12px;color:#94a3b8;font-size:12px}\",\"html\":\"<div id=\\\"info\\\">3D Axis — Model Airplane</div><canvas id=\\\"c\\\" width=\\\"400\\\" height=\\\"300\\\"></canvas>\",\"jsFunctions\":\"(function(){var c=document.getElementById('c');var ctx=c.getContext('2d');var cx=200,cy=150;function draw(t){ctx.clearRect(0,0,400,300);ctx.strokeStyle='#ef4444';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(t)*80,cy-Math.sin(t)*40);ctx.stroke();ctx.strokeStyle='#22c55e';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx,cy-80);ctx.stroke();ctx.strokeStyle='#3b82f6';ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx-Math.sin(t)*60,cy-Math.cos(t)*30);ctx.stroke();ctx.fillStyle='#e2e8f0';ctx.font='10px system-ui';ctx.fillText('X',cx+Math.cos(t)*85,cy-Math.sin(t)*40);ctx.fillText('Y',cx-6,cy-85);ctx.fillText('Z',cx-Math.sin(t)*65,cy-Math.cos(t)*30);requestAnimationFrame(function(){draw(t+0.01);});}draw(0);})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "open-gen-ui — follow-up content after generateSandboxedUi returns.",
+      "match": {
+        "userMessage": "3D axis visualization (model airplane)",
+        "toolCallId": "call_d6_open_genui_3d_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "3D axis visualization rendered above — the canvas shows rotating X (red), Y (green), and Z (blue) axes representing the model airplane's orientation."
+      }
+    },
+    {
+      "_comment": "open-gen-ui — 'How a neural network works' e2e pill.",
+      "match": {
+        "userMessage": "How a neural network works",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_nn_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Sketching the network…\",\"Labelling layers…\",\"Animating the forward pass…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#ffffff;color:#0f172a}.card{padding:20px;border:1px solid #e2e8f0;border-radius:12px;margin:16px}.t{font-size:16px;font-weight:600}.s{font-size:12px;color:#64748b;margin-bottom:8px}circle{transition:fill .4s}line{stroke:#64748b;stroke-width:1}.pulse{animation:p 1.2s ease-in-out infinite}@keyframes p{0%,100%{opacity:.3}50%{opacity:1}}\",\"html\":\"<div class=\\\"card\\\"><div class=\\\"t\\\">How a neural network works</div><div class=\\\"s\\\">Activations flow left to right through the layers.</div><svg viewBox=\\\"0 0 400 240\\\" width=\\\"100%\\\"><line x1=\\\"70\\\" y1=\\\"60\\\" x2=\\\"200\\\" y2=\\\"120\\\"/><line x1=\\\"70\\\" y1=\\\"180\\\" x2=\\\"200\\\" y2=\\\"120\\\"/><line x1=\\\"200\\\" y1=\\\"120\\\" x2=\\\"330\\\" y2=\\\"120\\\"/><circle class=\\\"pulse\\\" cx=\\\"70\\\" cy=\\\"60\\\" r=\\\"16\\\" fill=\\\"#6366f1\\\"/><circle class=\\\"pulse\\\" cx=\\\"70\\\" cy=\\\"180\\\" r=\\\"16\\\" fill=\\\"#6366f1\\\"/><circle class=\\\"pulse\\\" cx=\\\"200\\\" cy=\\\"120\\\" r=\\\"16\\\" fill=\\\"#10b981\\\"/><circle class=\\\"pulse\\\" cx=\\\"330\\\" cy=\\\"120\\\" r=\\\"16\\\" fill=\\\"#f59e0b\\\"/><text x=\\\"40\\\" y=\\\"215\\\" font-size=\\\"11\\\" fill=\\\"#64748b\\\">Input</text><text x=\\\"175\\\" y=\\\"215\\\" font-size=\\\"11\\\" fill=\\\"#64748b\\\">Hidden</text><text x=\\\"310\\\" y=\\\"215\\\" font-size=\\\"11\\\" fill=\\\"#64748b\\\">Output</text></svg></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "How a neural network works",
+        "toolCallId": "call_d6_open_genui_nn_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Neural-network diagram rendered above — the input nodes (indigo) feed the hidden node (emerald), which feeds the output (amber), pulsing to show the forward pass."
+      }
+    },
+    {
+      "_comment": "open-gen-ui — 'Quicksort visualization' e2e pill.",
+      "match": {
+        "userMessage": "Quicksort visualization",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_qs_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":460,\"placeholderMessages\":[\"Laying out the array…\",\"Choosing a pivot…\",\"Animating partitions…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#ffffff;color:#0f172a}.card{padding:20px;border:1px solid #e2e8f0;border-radius:12px;margin:16px}.t{font-size:16px;font-weight:600}.s{font-size:12px;color:#64748b;margin-bottom:12px}.bars{display:flex;align-items:flex-end;gap:6px;height:180px}.bar{flex:1;background:#6366f1;border-radius:4px 4px 0 0;animation:g 1.6s ease-in-out infinite alternate}.pivot{background:#f59e0b}@keyframes g{from{opacity:.6}to{opacity:1}}\",\"html\":\"<div class=\\\"card\\\"><div class=\\\"t\\\">Quicksort visualization</div><div class=\\\"s\\\">The amber bar is the pivot; blue bars partition around it.</div><div class=\\\"bars\\\"><div class=\\\"bar\\\" style=\\\"height:40%\\\"></div><div class=\\\"bar\\\" style=\\\"height:75%\\\"></div><div class=\\\"bar pivot\\\" style=\\\"height:60%\\\"></div><div class=\\\"bar\\\" style=\\\"height:25%\\\"></div><div class=\\\"bar\\\" style=\\\"height:90%\\\"></div><div class=\\\"bar\\\" style=\\\"height:55%\\\"></div></div></div>\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Quicksort visualization",
+        "toolCallId": "call_d6_open_genui_qs_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Quicksort visualization rendered above — the amber pivot partitions the blue bars into smaller and larger halves."
+      }
+    },
+    {
+      "_comment": "open-gen-ui — 'Fourier: square wave from sines' e2e pill.",
+      "match": {
+        "userMessage": "Fourier: square wave from sines",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_fourier_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":460,\"placeholderMessages\":[\"Drawing the axes…\",\"Summing sine harmonics…\",\"Animating convergence…\"],\"css\":\"body{margin:0;background:#0f172a;font-family:system-ui}canvas{display:block;margin:16px auto;border-radius:8px;background:#1e293b}#t{color:#e2e8f0;font-size:14px;padding:12px 16px 0}\",\"html\":\"<div id=\\\"t\\\">Fourier: square wave from sines</div><canvas id=\\\"c\\\" width=\\\"420\\\" height=\\\"280\\\"></canvas>\",\"jsFunctions\":\"(function(){var c=document.getElementById('c');var ctx=c.getContext('2d');function draw(ph){ctx.clearRect(0,0,420,280);ctx.strokeStyle='#6366f1';ctx.beginPath();for(var x=0;x<420;x++){var y=140;for(var k=1;k<=9;k+=2){y-=(70/k)*Math.sin((k*(x/40))+ph);}if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();requestAnimationFrame(function(){draw(ph+0.03);});}draw(0);})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Fourier: square wave from sines",
+        "toolCallId": "call_d6_open_genui_fourier_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Fourier visualization rendered above — the animated curve sums odd sine harmonics to approximate a square wave."
+      }
+    },
+    {
+      "_comment": "open-gen-ui-advanced — 'Inline expression evaluator' pill (also the D5 gen-ui-open-advanced probe prompt). generateSandboxedUi whose jsFunctions calls the host evaluateExpression sandbox function via Websandbox.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_genui_advanced_eval_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing expression evaluator…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:16px;background:#1e293b;border-radius:12px;margin:16px}input{width:100%;padding:8px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;border-radius:6px;box-sizing:border-box}button{margin-top:8px;padding:8px 16px;background:#6366f1;border:0;color:#fff;border-radius:6px;cursor:pointer}.out{margin-top:8px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-inline-eval\\\"><h2>Inline expression evaluator</h2><input id=\\\"in\\\" placeholder=\\\"e.g. 2 + 2\\\"/><button id=\\\"go\\\">Evaluate</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting input…</div></div>\",\"jsFunctions\":\"(function(){var input=document.getElementById('in');var out=document.getElementById('out');var go=document.getElementById('go');async function run(){var expr=input.value;out.textContent='evaluating…';var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});out.textContent=res&&res.ok?'= '+res.value:'error: '+res.error;}go.addEventListener('click',run);input.addEventListener('keydown',function(e){if(e.key==='Enter')run();});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "open-gen-ui-advanced — follow-up content after generateSandboxedUi returns.",
+      "match": {
+        "userMessage": "Inline expression evaluator",
+        "toolCallId": "call_d6_open_genui_advanced_eval_001",
+        "context": "hermes"
+      },
+      "response": {
+        "content": "Expression evaluator rendered — type any math expression and it evaluates in real time via the sandbox bridge."
+      }
+    },
+    {
+      "_comment": "open-gen-ui-advanced: Calculator pill — generateSandboxedUi with jsFunctions wiring for the evaluateExpression host callback.",
+      "match": {
+        "userMessage": "Calculator (calls evaluateExpression)",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_gen_ui_calc_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":480,\"placeholderMessages\":[\"Composing calculator UI…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.wrap{padding:16px;max-width:240px}.display{background:#1e293b;padding:8px;border-radius:8px;margin-bottom:8px;font-family:monospace;text-align:right}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}button{padding:10px;background:#334155;border:0;color:#e2e8f0;border-radius:6px;font-size:14px}\",\"html\":\"<div class=\\\"wrap\\\" data-testid=\\\"ogui-calculator\\\"><div class=\\\"display\\\" id=\\\"d\\\">0</div><div class=\\\"grid\\\"><button>7</button><button>8</button><button>9</button><button>+</button><button>4</button><button>5</button><button>6</button><button>-</button><button>1</button><button>2</button><button>3</button><button>*</button><button>0</button><button>.</button><button id=\\\"eq\\\">=</button><button>/</button></div></div>\",\"jsFunctions\":\"(function(){var expr='';var display=document.getElementById('d');document.querySelectorAll('.grid button').forEach(function(btn){btn.addEventListener('click',async function(){if(btn.id==='eq'){var res=await Websandbox.connection.remote.evaluateExpression({expression:expr});if(res&&res.ok){display.textContent=String(res.value);expr=String(res.value);}else{display.textContent='err';expr='';}}else{expr+=btn.textContent;display.textContent=expr;}});});})();\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "open-gen-ui-advanced: Ping the host pill — generateSandboxedUi with the notifyHost callback.",
+      "match": {
+        "userMessage": "Ping the host (calls notifyHost)",
+        "hasToolResult": false,
+        "context": "hermes"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d6_open_gen_ui_ping_001",
+            "name": "generateSandboxedUi",
+            "arguments": "{\"initialHeight\":320,\"placeholderMessages\":[\"Composing host-ping card…\"],\"css\":\"body{margin:0;font-family:system-ui;background:#0f172a;color:#e2e8f0}.card{padding:24px;background:#1e293b;border-radius:12px;margin:16px;text-align:center}button{padding:10px 20px;background:#6366f1;border:0;color:#fff;border-radius:8px;font-size:14px;cursor:pointer}.out{margin-top:12px;font-size:12px;color:#94a3b8}\",\"html\":\"<div class=\\\"card\\\" data-testid=\\\"ogui-ping\\\"><h2>Notify the host</h2><button id=\\\"hi\\\">Say hi to the host</button><div class=\\\"out\\\" id=\\\"out\\\">awaiting click…</div></div>\",\"jsFunctions\":\"document.getElementById('hi').addEventListener('click',async function(){var out=document.getElementById('out');out.textContent='sending…';var res=await Websandbox.connection.remote.notifyHost({message:'Hello from sandbox'});out.textContent=res&&res.ok?'host replied at '+res.receivedAt:'failed';});\"}"
+          }
+        ]
+      }
+    }
+  ]
+}
