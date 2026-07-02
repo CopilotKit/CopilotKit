@@ -83,8 +83,8 @@ export function TransactionsList({
   const handleApprove = async (id: string): Promise<void> => {
     const ok = (await approvalInterfaceProps?.onApprove?.(id)) ?? false;
     if (!ok) return;
-    logStep("Approved the charge");
     beginRecording();
+    logStep("Approved the charge");
     endRecording();
   };
 

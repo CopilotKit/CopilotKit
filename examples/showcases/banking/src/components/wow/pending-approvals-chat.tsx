@@ -81,8 +81,8 @@ export function PendingApprovalsChat({
   const handleApprove = async (id: string): Promise<void> => {
     const ok = await onApprove(id);
     if (!ok) return;
-    logStep("Approved the charge");
     beginRecording();
+    logStep("Approved the charge");
     endRecording();
   };
 
