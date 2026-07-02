@@ -1,5 +1,10 @@
 import type { AgentSubscriber } from "@ag-ui/client";
-import type { BotNode, MessageRef, PlatformUser } from "@copilotkit/bot-ui";
+import type {
+  AgentContentPart,
+  BotNode,
+  MessageRef,
+  PlatformUser,
+} from "@copilotkit/bot-ui";
 import type {
   StateStore,
   PlatformAdapter,
@@ -21,6 +26,7 @@ import type {
 } from "./transports.js";
 import type {
   ManagedIngressEnvelope,
+  ManagedFileRef,
   EgressOp,
   EgressOperation,
   HostedBotRenderEvent,
@@ -54,6 +60,17 @@ function targetFromRef(ref: MessageRef): ManagedReplyTarget {
 const textNode = (value: string): BotNode[] => [
   { type: "text", props: { value } },
 ];
+
+/** Map a MIME type to its `AgentContentPart` media kind, or null for non-media. */
+function mediaKindForMime(
+  mime: string,
+): "image" | "audio" | "video" | "document" | null {
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("audio/")) return "audio";
+  if (mime.startsWith("video/")) return "video";
+  if (mime === "application/pdf") return "document";
+  return null;
+}
 
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
 
@@ -207,6 +224,50 @@ export class IntelligenceAdapter implements PlatformAdapter {
     }
   }
 
+  /**
+   * Hydrate turn-input file refs into `AgentContentPart`s: fetch each file's
+   * bytes via the delivery source and base64-encode them. Best-effort per
+   * file — a fetch failure is logged and skipped, never fails the turn. Media
+   * (image/audio/video/pdf) becomes a `data` part; `text/*` is decoded inline;
+   * anything else degrades to a short text note so the model still sees it.
+   */
+  private async buildContentParts(
+    files?: ManagedFileRef[],
+  ): Promise<AgentContentPart[]> {
+    const fetchFile = this.source?.fetchFile?.bind(this.source);
+    if (!files?.length || !fetchFile) return [];
+    const parts: AgentContentPart[] = [];
+    for (const ref of files) {
+      try {
+        const { bytes, mimeType } = await fetchFile(ref.handle);
+        // The typed ref's mime is authoritative — the file-serve route coerces
+        // its Content-Type to a safe allowlist, so the header can be lossy.
+        const mime = ref.mimeType ?? mimeType ?? "application/octet-stream";
+        const kind = mediaKindForMime(mime);
+        if (kind) {
+          const value = Buffer.from(bytes).toString("base64");
+          parts.push({
+            type: kind,
+            source: { type: "data", value, mimeType: mime },
+          });
+        } else if (mime.startsWith("text/")) {
+          parts.push({
+            type: "text",
+            text: Buffer.from(bytes).toString("utf8"),
+          });
+        } else {
+          parts.push({
+            type: "text",
+            text: `[attached file: ${ref.filename} (${mime})]`,
+          });
+        }
+      } catch (err) {
+        this.opts.config?.log?.("intelligence inbound file fetch failed", err);
+      }
+    }
+    return parts;
+  }
+
   private async dispatchTo(env: ManagedIngressEnvelope): Promise<void> {
     const sink = this.sink;
     if (!sink) throw new Error("IntelligenceAdapter: not started");
@@ -218,11 +279,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
     const user = env.user ? { id: env.user.id } : undefined;
 
     switch (env.kind) {
-      case "turn":
+      case "turn": {
+        const contentParts = await this.buildContentParts(env.files);
         await sink.onTurn({
           conversationKey: env.conversationKey,
           replyTarget,
           userText: env.text ?? "",
+          ...(contentParts.length ? { contentParts } : {}),
           user,
           eventId: env.eventId,
           turnId: env.turnId,
@@ -230,6 +293,7 @@ export class IntelligenceAdapter implements PlatformAdapter {
           platform: env.platform,
         });
         return;
+      }
       case "command":
         await sink.onCommand({
           command: env.command,
@@ -373,6 +437,43 @@ export class IntelligenceAdapter implements PlatformAdapter {
       return;
     }
     await this.emit(targetFromRef(ref), { kind: "update", ref: ref.id, ir });
+  }
+
+  async postFile(
+    target: ReplyTarget,
+    args: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
+  ): Promise<{ ok: boolean; fileId?: string; error?: string }> {
+    const mt = target as ManagedReplyTarget;
+    const uploadFile = this.source?.uploadFile?.bind(this.source);
+    if (!uploadFile || !this.renderSink) {
+      return {
+        ok: false,
+        error: "managed adapter: outbound file upload is not available",
+      };
+    }
+    try {
+      // Stream bytes to app-api first (durable in S3), then emit a `file` frame
+      // referencing the handle; the Connector Outbox does the Slack uploadV2.
+      const { handle } = await uploadFile(mt.deliveryId, args);
+      await this.postRenderFrame(mt, {
+        kind: "file",
+        handle,
+        filename: args.filename,
+        ...(args.title ? { title: args.title } : {}),
+        ...(args.altText ? { altText: args.altText } : {}),
+      });
+      return { ok: true };
+    } catch (err) {
+      return {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
   }
 
   async stream(

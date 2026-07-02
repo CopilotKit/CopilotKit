@@ -6,6 +6,7 @@ import type {
 } from "./transports.js";
 import type {
   ManagedIngressEnvelope,
+  ManagedFileRef,
   EgressOperation,
   EgressResult,
   RenderFrame,
@@ -161,7 +162,7 @@ interface ClaimedDelivery {
     id: string;
     eventId: string;
     replyTarget: SlackReplyTarget;
-    input?: { kind: string; text: string };
+    input?: { kind: string; text: string; files?: ManagedFileRef[] };
   };
 }
 
@@ -233,6 +234,7 @@ function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
     conversationKey: conversationKeyFromReplyTarget(d.turn.replyTarget),
     route: d.turn.replyTarget,
     text: d.turn.input?.text ?? "",
+    ...(d.turn.input?.files?.length ? { files: d.turn.input.files } : {}),
   };
 }
 
@@ -395,6 +397,83 @@ export class HttpDeliverySource implements DeliverySource {
       },
     );
     this.leases.delete(deliveryId);
+  }
+
+  /**
+   * Download an inbound file's raw bytes by handle from app-api's file-serve
+   * route. Bypasses {@link IntelligenceHttp} on purpose — that helper is
+   * JSON/POST-only and decodes bodies as text, which corrupts binary; the
+   * global `fetch` gives us `arrayBuffer()`. Auth is the same runtime bearer.
+   */
+  async fetchFile(
+    handle: string,
+  ): Promise<{ bytes: Uint8Array; mimeType?: string }> {
+    const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    if (!gfetch) {
+      throw new Error(
+        "intelligenceAdapter: no global fetch available for file download",
+      );
+    }
+    const url = `${this.cfg.baseUrl}/api/bots/files/${encodeURIComponent(handle)}`;
+    const res = await gfetch(url, {
+      method: "GET",
+      headers: { authorization: `Bearer ${this.cfg.apiKey}` },
+    });
+    if (!res.ok) {
+      throw new Error(`intelligence file ${handle} -> ${res.status}`);
+    }
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    const mimeType = res.headers.get("content-type") ?? undefined;
+    return { bytes, mimeType };
+  }
+
+  /**
+   * Stream an outbound file's bytes to app-api's per-delivery upload route
+   * (lease-scoped) ahead of a `file` render frame. Returns the storage handle
+   * the frame references. Bytes go as the raw request body; display metadata
+   * rides query params.
+   */
+  async uploadFile(
+    deliveryId: string,
+    args: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
+  ): Promise<{ handle: string }> {
+    const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    if (!gfetch) {
+      throw new Error(
+        "intelligenceAdapter: no global fetch available for file upload",
+      );
+    }
+    const qs = new URLSearchParams({ filename: args.filename });
+    if (args.title) qs.set("title", args.title);
+    if (args.altText) qs.set("altText", args.altText);
+    const url = `${this.cfg.baseUrl}/api/bots/deliveries/${encodeURIComponent(
+      deliveryId,
+    )}/files?${qs.toString()}`;
+    const res = await gfetch(url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${this.cfg.apiKey}`,
+        "content-type": "application/octet-stream",
+      },
+      // The runtime (undici) sends the Uint8Array bytes verbatim; the static
+      // `fetch` body type differs across this package's dom vs node-only lib
+      // configs, so bridge with a portable cast (`string` is a valid body in
+      // both). The value is never actually a string at runtime.
+      body: args.bytes as unknown as string,
+    });
+    if (!res.ok) {
+      throw new Error(`intelligence file upload -> ${res.status}`);
+    }
+    const json = (await res.json()) as { handle?: string };
+    if (!json.handle) {
+      throw new Error("intelligence file upload: response missing handle");
+    }
+    return { handle: json.handle };
   }
 
   async stop(): Promise<void> {

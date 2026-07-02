@@ -85,6 +85,74 @@ describe("intelligenceAdapter — ingress dispatch", () => {
   });
 });
 
+describe("intelligenceAdapter — inbound file content parts", () => {
+  it("hydrates turn file refs into contentParts via the source's fetchFile", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    const png = new Uint8Array([1, 2, 3, 4]);
+    source.files.set("fileref_abc", { bytes: png, mimeType: "image/png" });
+    const bot = createBot({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let seen: IncomingMessage | undefined;
+    bot.onMessage(async ({ message }) => {
+      seen = message;
+    });
+    await bot.start();
+    await source.deliver(
+      envelope({
+        text: "what is this?",
+        files: [
+          {
+            handle: "fileref_abc",
+            filename: "shot.png",
+            mimeType: "image/png",
+          },
+        ],
+      }),
+    );
+
+    expect(seen?.contentParts).toEqual([
+      {
+        type: "image",
+        source: {
+          type: "data",
+          value: Buffer.from(png).toString("base64"),
+          mimeType: "image/png",
+        },
+      },
+    ]);
+  });
+
+  it("skips a file that fails to fetch without failing the turn", async () => {
+    const source = new InMemoryDeliverySource();
+    const egress = new InMemoryEgressSink();
+    // No file seeded → fetchFile throws → part is dropped, turn still dispatches.
+    const bot = createBot({
+      adapters: [intelligenceAdapter({ source, egress })],
+      agent: () => new FakeAgent(),
+    });
+    let seen: IncomingMessage | undefined;
+    bot.onMessage(async ({ message }) => {
+      seen = message;
+    });
+    await bot.start();
+    await source.deliver(
+      envelope({
+        text: "hi",
+        files: [
+          { handle: "missing", filename: "x.png", mimeType: "image/png" },
+        ],
+      }),
+    );
+
+    expect(seen?.text).toBe("hi");
+    expect(seen?.contentParts ?? []).toEqual([]);
+    expect(source.acked).toEqual(["d1"]);
+  });
+});
+
 describe("intelligenceAdapter — deterministic egress ids", () => {
   it("mints turnId:seq op ids and reproduces them on redelivery", async () => {
     const source = new InMemoryDeliverySource();

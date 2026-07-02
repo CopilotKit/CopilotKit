@@ -53,6 +53,8 @@ export class InMemoryRenderEventSink implements RenderEventSink {
 export class InMemoryDeliverySource implements DeliverySource {
   readonly acked: string[] = [];
   readonly nacked: { deliveryId: string; reason: string }[] = [];
+  /** Seed by handle so a turn's file refs hydrate into content parts. */
+  readonly files = new Map<string, { bytes: Uint8Array; mimeType?: string }>();
   private onDelivery?: (env: ManagedIngressEnvelope) => Promise<void>;
 
   async start(
@@ -79,6 +81,13 @@ export class InMemoryDeliverySource implements DeliverySource {
   }
   async nack(deliveryId: string, reason: string): Promise<void> {
     this.nacked.push({ deliveryId, reason });
+  }
+  async fetchFile(
+    handle: string,
+  ): Promise<{ bytes: Uint8Array; mimeType?: string }> {
+    const f = this.files.get(handle);
+    if (!f) throw new Error(`InMemoryDeliverySource: no file for ${handle}`);
+    return f;
   }
   async stop(): Promise<void> {}
 }

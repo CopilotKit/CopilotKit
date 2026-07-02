@@ -38,8 +38,25 @@ export interface ManagedIngressBase {
  * TODO(OSS-377): the frozen envelope will carry richer per-kind payloads
  * (contentParts, structured command options, raw interaction values, etc.).
  */
+/**
+ * A turn-input file reference: an opaque handle plus display metadata (no
+ * bytes). The adapter fetches the bytes lazily via
+ * {@link DeliverySource.fetchFile} and builds `AgentContentPart`s from them.
+ */
+export interface ManagedFileRef {
+  handle: string;
+  filename: string;
+  mimeType?: string;
+  byteSize?: number;
+}
+
 export type ManagedIngressEnvelope =
-  | (ManagedIngressBase & { kind: "turn"; text?: string })
+  | (ManagedIngressBase & {
+      kind: "turn";
+      text?: string;
+      /** Inbound files attached to this turn (images, docs, …), in order. */
+      files?: ManagedFileRef[];
+    })
   | (ManagedIngressBase & {
       kind: "command";
       /** Command name as invoked (leading slash / case normalized by core). */
@@ -114,6 +131,18 @@ export type HostedBotRenderEvent =
   | { kind: "run_error"; message: string }
   | { kind: "post"; content: BotNode[] }
   | { kind: "update"; ref: string; content: BotNode[] }
+  | {
+      /**
+       * Outbound file post (`thread.postFile`). Bytes were streamed to app-api
+       * ahead of this frame and stored in object storage under `handle`; the
+       * Connector Outbox fetches them and calls Slack `files.uploadV2`.
+       */
+      kind: "file";
+      handle: string;
+      filename: string;
+      title?: string;
+      altText?: string;
+    }
   | { kind: "finalize" };
 
 /** All render-event kinds, for exhaustive/ordering checks. */

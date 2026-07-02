@@ -21,6 +21,26 @@ export interface DeliverySource {
   ack(deliveryId: string): Promise<void>;
   /** Negatively acknowledge — the work will be redelivered (at-least-once). */
   nack(deliveryId: string, reason: string): Promise<void>;
+  /**
+   * Fetch an inbound file's bytes by handle (managed multimodal content).
+   * Optional: sources without a file-serve backing omit it and the adapter
+   * skips content-part hydration (text-only turn).
+   */
+  fetchFile?(handle: string): Promise<{ bytes: Uint8Array; mimeType?: string }>;
+  /**
+   * Upload an outbound file's bytes to app-api ahead of a `file` render frame
+   * (`thread.postFile`). Returns the storage handle the frame carries. Optional:
+   * sources without an upload backing omit it and `postFile` reports failure.
+   */
+  uploadFile?(
+    deliveryId: string,
+    args: {
+      bytes: Uint8Array;
+      filename: string;
+      title?: string;
+      altText?: string;
+    },
+  ): Promise<{ handle: string }>;
   stop(): Promise<void>;
 }
 
