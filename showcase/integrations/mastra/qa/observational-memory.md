@@ -8,10 +8,16 @@ working context. Mastra streams that background work on the run's `fullStream` a
 `mastra-observational-memory` activity events, and the demo's custom activity
 renderer paints them inline in the chat.
 
+This QA pass covers the OBSERVATION CONTENT quality with a real LLM. The
+activity-card LIFECYCLE STRUCTURE (a `buffering / running` card in-turn, settling
+to `activation / activated`) is already asserted deterministically under aimock by
+`tests/e2e/observational-memory.spec.ts` — see the determinism note at the bottom.
+
 ## Prerequisites
 
 - Demo is deployed and accessible with a REAL LLM key (OM's Observer makes its
-  own out-of-band LLM call — see the determinism note below).
+  own out-of-band LLM call; a real key is what produces meaningful observation
+  text — see the determinism note below).
 - `observationalMemoryAgent` has OM enabled on its Memory
   (`options.observationalMemory`, scope `thread`, floor `600/300`).
 - The route surfaces it: `getLocalAgents({ observationalMemory: true })`.
@@ -27,7 +33,7 @@ renderer paints them inline in the chat.
   - "Brief my analytics project"
   - "Plan a two-week trip"
 
-### 2. Observational Memory activity (REAL LLM only)
+### 2. Observational Memory activity + observation content (REAL LLM)
 
 - [ ] Click "Brief my analytics project" (sends a large multi-paragraph message
       sized to cross the OM token threshold)
@@ -42,6 +48,11 @@ renderer paints them inline in the chat.
       and activation are timing-adjacent and can trail the streamed response.
       Send a second sizable message (or click the other pill) to see the card
       settle to completed/activated.
+- [ ] REAL-LLM-ONLY check: expand the card and verify the observation text
+      (`data-testid="om-observations"`) is a MEANINGFUL compression of the
+      conversation (e.g. names the project / trip specifics). Under aimock this
+      text is a stand-in, so this semantic check is the reason a real key is
+      required here.
 - [ ] Click "Plan a two-week trip" and verify the same OM activity behavior on a
       fresh cycle.
 
@@ -58,15 +69,27 @@ renderer paints them inline in the chat.
   `mastra-observational-memory` activity card.
 - The response text is never blocked by OM work (OM is out of band).
 
-## Determinism note (why the e2e is scoped)
+## Determinism note (what the e2e asserts vs. what needs a real LLM)
 
-The OM activity card is NOT deterministically reproducible under aimock. The
-`data-om-*` chunks come from `@mastra/memory`'s OM processor on the run's
-`fullStream` (driven by runtime token accounting plus an out-of-band Observer
-LLM call), NOT from the mocked chat-completion response — aimock has no lever to
-force them, and completion/activation is timing-adjacent. The Playwright spec
-(`tests/e2e/observational-memory.spec.ts`) therefore asserts only the
-deterministic subset (page loads, both pills present, a pill click produces a
-completing assistant turn) and probes the OM card best-effort without failing on
-it. Full OM-card verification is this manual real-LLM pass plus the adapter's own
-upstream unit tests.
+Corrected 2026-07-02 after direct measurement against the sanctioned aimock rig
+(`showcase up mastra --dev`, per-integration Playwright against :3104).
+
+The OM activity-card LIFECYCLE STRUCTURE **is** deterministic under aimock, so the
+Playwright spec (`tests/e2e/observational-memory.spec.ts`) asserts it:
+
+- A single sizable pill click always trips OM's token threshold and paints
+  exactly one card in `buffering / running` in-turn. This is driven by runtime
+  token accounting over the fixed-size pill message and does NOT depend on the
+  Observer LLM response, so it is stable (measured 11/11).
+- The Observer's out-of-band LLM call goes through aimock too, so the cycle DOES
+  complete and activate — that delta lands just after the turn, surfacing on the
+  NEXT run. After a second sizable turn the first cycle's card reads
+  `activation / activated` and the new turn opens a fresh `buffering / running`
+  card (measured 5/5). The spec's fourth test asserts this.
+
+What aimock does NOT reproduce is the observation SEMANTIC CONTENT: aimock returns
+a stand-in for the Observer call rather than a genuine compression of the
+conversation, so the `om-observations` text is not meaningful under replay. That
+content quality is what THIS real-LLM QA pass (§2) plus the adapter's own upstream
+unit tests cover. In short: structure → e2e (aimock, deterministic); content →
+real-LLM QA.

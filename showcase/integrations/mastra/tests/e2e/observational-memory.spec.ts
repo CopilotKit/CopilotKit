@@ -14,20 +14,26 @@ import { test, expect } from "@playwright/test";
 // chunks; the adapter maps them to `mastra-observational-memory` activity
 // events, which the custom `observationalMemoryActivityRenderer` paints inline.
 //
-// DETERMINISM SCOPE (important — read before adding assertions):
-// The OM activity card is NOT deterministically reproducible under aimock.
-// The `data-om-*` chunks are produced by @mastra/memory's OM processor on the
-// run's fullStream (driven by runtime token accounting + an out-of-band
-// Observer LLM call), NOT by the mocked chat-completion response. aimock has
-// no lever to force those chunks, and OM completion/activation is timing-
-// adjacent (the in-turn card often reads "Working"). So this spec asserts the
-// DETERMINISTIC subset only: the page loads, both sizable pills render, and a
-// pill click produces a completing assistant turn. The OM card itself is
-// covered by a best-effort (non-failing) probe and by a real-LLM QA pass
-// (qa/observational-memory.md), plus the adapter's own unit tests upstream.
+// DETERMINISM SCOPE (important — read before changing assertions):
+// The OM activity LIFECYCLE is deterministic under aimock, but only its
+// STRUCTURE, not its semantic content:
+//   * A single sizable pill click always trips the token threshold and paints
+//     exactly one card in the `buffering / running` phase in-turn (token
+//     accounting is deterministic given the fixed pill size; this does NOT
+//     depend on the Observer LLM response).
+//   * The Observer's out-of-band LLM call goes through aimock too, so the cycle
+//     DOES complete and activate — but that delta lands just AFTER the turn, so
+//     it surfaces on the NEXT run: after a second sizable turn the first cycle's
+//     card reads `activation / activated` and a fresh `buffering / running`
+//     card appears for the new turn.
+// What aimock does NOT reproduce is the real OBSERVATION TEXT (aimock returns a
+// stand-in for the Observer call, not a genuine compression), so the observed-
+// content quality is covered by the real-LLM QA pass (qa/observational-memory.md)
+// and the adapter's own unit tests upstream. These specs assert the lifecycle
+// structure only.
 
 test.describe("Observational Memory (Mastra)", () => {
-  test.setTimeout(90_000);
+  test.setTimeout(120_000);
 
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/observational-memory");
@@ -53,7 +59,7 @@ test.describe("Observational Memory (Mastra)", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("clicking the analytics pill produces an assistant response", async ({
+  test("clicking the analytics pill produces an assistant response and an OM cycle", async ({
     page,
   }) => {
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
@@ -68,13 +74,52 @@ test.describe("Observational Memory (Mastra)", () => {
       page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 45_000 });
 
-    // Best-effort (non-failing) OM probe: if the OM processor fired and the
-    // bridge surfaced the activity within the turn, the card will be present.
-    // We do NOT assert on it — it is timing/LLM dependent (see scope note).
+    // Deterministic: the sizable pill trips OM's token threshold, so exactly
+    // one Observational Memory activity card surfaces in-turn, in the
+    // `buffering / running` phase. (Completion/activation trails out of band —
+    // see the interleaved test below and the determinism note above.)
     const omCard = page.locator('[data-testid="om-activity-card"]');
-    const omCount = await omCard.count();
-    console.log(
-      `[observational-memory] OM activity cards rendered: ${omCount}`,
-    );
+    await expect(omCard).toHaveCount(1, { timeout: 15_000 });
+    await expect(omCard.first()).toHaveAttribute("data-om-phase", "buffering");
+    await expect(omCard.first()).toHaveAttribute("data-om-status", "running");
+  });
+
+  test("a second sizable turn settles the first OM cycle to activated", async ({
+    page,
+  }) => {
+    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
+    const omCard = page.locator('[data-testid="om-activity-card"]');
+
+    // Turn 1 — analytics brief.
+    await suggestions
+      .filter({ hasText: "Brief my analytics project" })
+      .first()
+      .click();
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 45_000 });
+    await expect(omCard).toHaveCount(1, { timeout: 15_000 });
+
+    // Turn 2 — trip brief in the SAME session. By the time this run streams,
+    // the Observer has completed the first cycle out of band, so its card
+    // advances to `activation / activated`; the new turn opens a fresh
+    // `buffering / running` cycle. (Deterministic under aimock: 5/5 local.)
+    await suggestions
+      .filter({ hasText: "Plan a two-week trip" })
+      .first()
+      .click();
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').nth(1),
+    ).toBeVisible({ timeout: 45_000 });
+
+    await expect(omCard).toHaveCount(2, { timeout: 20_000 });
+    // At least one card has progressed past `running` — its cycle completed and
+    // activated out of band. Accept either terminal status (`completed` and
+    // `activated` can race on the delta); locally this is `activated` (5/5).
+    await expect(
+      page.locator(
+        '[data-testid="om-activity-card"][data-om-status="activated"], [data-testid="om-activity-card"][data-om-status="completed"]',
+      ),
+    ).toHaveCount(1, { timeout: 20_000 });
   });
 });
