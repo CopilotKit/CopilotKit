@@ -184,6 +184,7 @@ describe("PhoenixRealtimeTransport — completion intent, never self-ack", () =>
       payload: {
         delivery: {
           id: "dlv_d1",
+          leaseToken: "lease_l1",
           adapter: "slack",
           bot: { id: "bot_1", name: "support" },
           turn: {
@@ -266,6 +267,7 @@ describe("PhoenixRealtimeTransport — completion intent, never self-ack", () =>
       payload: {
         delivery: {
           id: "dlv_d1",
+          leaseToken: "lease_l1",
           adapter: "slack",
           bot: { id: "bot_1", name: "support" },
           turn: {
@@ -281,5 +283,12 @@ describe("PhoenixRealtimeTransport — completion intent, never self-ack", () =>
     const events = fake.pushes.map((p) => p.event);
     expect(events).toContain("hosted_bot.delivery.fail.v1");
     expect(events).not.toContain("hosted_bot.delivery.ack.v1");
+    const fail = fake.pushes.find(
+      (p) => p.event === "hosted_bot.delivery.fail.v1",
+    );
+    expect(
+      (fail?.payload as { payload?: { leaseToken?: string } }).payload
+        ?.leaseToken,
+    ).toBe("lease_l1");
   });
 });
