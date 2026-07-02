@@ -12,7 +12,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@ag-ui/mastra": "0.2.1-beta.2",
+    "@ag-ui/mastra": "1.1.0-alpha.0",
     "@ai-sdk/openai": "^2.0.42",
     "@copilotkit/a2ui-renderer": "1.61.2",
     "@copilotkit/react-core": "1.61.2",
