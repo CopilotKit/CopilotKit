@@ -55,12 +55,16 @@ if (!db.exceptions) db.exceptions = [];
  * return the live `db.*` references, so callers see the fresh data).
  */
 export const reset = (): void => {
-  const fresh = structuredClone(seed) as DB;
+  // Reports are copilot-generated at runtime and never seeded (same seam as
+  // module-init above), so the cast covers only the seeded collections and
+  // reports re-seed to empty.
+  const fresh = structuredClone(seed) as Omit<DB, "reports">;
   db.cards = fresh.cards;
   db.team = fresh.team;
   db.policies = fresh.policies;
   db.transactions = fresh.transactions;
   db.exceptions = fresh.exceptions ?? [];
+  db.reports = [];
 };
 
 // ---- Reads --------------------------------------------------------------
