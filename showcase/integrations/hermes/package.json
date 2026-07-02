@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "concurrently -n next,agent \"next dev --turbopack\" \"PYTHONPATH=. python -m agui_adapter\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

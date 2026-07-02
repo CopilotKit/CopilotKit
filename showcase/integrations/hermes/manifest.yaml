@@ -13,9 +13,32 @@ copilotkit_version: 2.0.0
 deployed: false
 docs_mode: authored
 sort_order: 60
+generative_ui:
+  - constrained-explicit
+  - a2ui-fixed-schema
+  - a2ui-dynamic-schema
 interaction_modalities:
   - sidebar
   - chat
+managed_platform:
+  name: Nous Portal
+  url: https://portal.nousresearch.com
+not_supported_features:
+  # a2ui-recovery: the EXHAUST hard-fail end-state requires an AGENT-emitted
+  # tool result carrying the `a2ui_recovery_exhausted` envelope, which the
+  # langgraph variants produce in-graph via `ag_ui_langgraph.get_a2ui_tools`.
+  # Hermes has no A2UI backend, and its aimock transport cannot emit an
+  # agent-side tool result the A2UI middleware would parse for that envelope,
+  # so the demo cannot go fully green. HEAL works; EXHAUST does not. Same
+  # omission as pydantic-ai (which also lacks this demo entirely).
+  - a2ui-recovery
+  # gen-ui-interrupt / interrupt-headless: QUARANTINED upstream. langgraph-python
+  # ITSELF marks these not-supported — a @copilotkit/react-core/v2
+  # useInterrupt/useHeadlessInterrupt RESUME-PATH hook bug (backend resumes and
+  # streams HTTP 200, but the frontend never appends the confirmation assistant
+  # bubble). The fix is a published-package change, out of scope for this integration.
+  - gen-ui-interrupt
+  - interrupt-headless
 features:
   - cli-start
   - beautiful-chat
