@@ -130,7 +130,7 @@ follow-up (user-scope memory, periodic DB reset, or a dashboard control).
 ### Testing
 
 - **Deterministic E2E (CI gate):** `pnpm --filter demo-saas-copilot test:self-learning`
-  runs `tests/e2e/memory-learning.spec.ts`. The agent's LLM is served by
+  runs `e2e/memory-learning.spec.ts`. The agent's LLM is served by
   [`@copilotkit/aimock`](https://github.com/CopilotKit/aimock) (fixtured
   `save_memory`/`recall_memory` tool calls) while the **real** local memory backend
   persists + recalls — so the full teach→save→fresh-thread-recall→unlock flow is

@@ -3,7 +3,7 @@
  * Real-LLM memory drift smoke — NON-GATING, run manually.
  *
  * WHY THIS EXISTS
- * The deterministic CI gate (tests/e2e/memory-learning.spec.ts) serves the agent's
+ * The deterministic CI gate (e2e/memory-learning.spec.ts) serves the agent's
  * LLM from aimock fixtures, so it proves the WIRING (prompt -> tool call -> memory
  * backend -> cross-thread recall -> unlock) but is BLIND to behavioral drift: a
  * fixture replays a fixed decision, so if a prompt edit makes the real model stop
