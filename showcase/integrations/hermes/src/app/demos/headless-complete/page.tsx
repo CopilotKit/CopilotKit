@@ -6,7 +6,7 @@
  * Mirror of `headless-simple` plus, layered in via focused hook modules,
  * every render surface CopilotKit exposes:
  *
- *   useToolRenderers       — useFrontendTool (weather, stock, revenue) + useDefaultRenderTool
+ *   useToolRenderers       — useRenderTool (weather, stock, revenue; server-side) + useDefaultRenderTool
  *   useFrontendComponents  — useComponent (highlight_note frontend tool)
  *   useHeadlessSuggestions — useConfigureSuggestions (4 prompts)
  *   useAttachmentsConfig   — useAttachments (image + PDF, base64 inline)

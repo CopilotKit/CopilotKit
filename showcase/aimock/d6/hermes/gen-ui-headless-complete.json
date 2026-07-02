@@ -1,14 +1,14 @@
 {
   "_meta": {
-    "description": "D6 fixtures for hermes / headless-complete (probe featureType gen-ui-headless-complete, route /demos/headless-complete). Full hand-rolled headless surface. Three client-executed frontend tools via useFrontendTool with deterministic fake-data handlers that mirror the langgraph-python headless_complete backend return shapes 1:1 (get_weather → WeatherCard, get_stock_price → StockCard, get_revenue_chart → ChartCard) + a useComponent frontend tool (highlight_note → HighlightNote). The fixture makes the agent EMIT each tool call; the client handler produces the result; the per-tool renderer paints the card. Two-leg pattern per tool: first leg gated on toolName emits the tool call (fires whenever the tool is registered, independent of prior thread history); second leg gated on toolCallId narrates AFTER the tool result lands. Second (narration) leg placed BEFORE the first (emit) leg in the array — aimock is first-match-wins, and the toolCallId key is uniquely satisfied only once the tool has run. highlight_note is a useComponent (UI-only) tool so its render IS the result; it still uses the same two-leg pattern. D5 probe prompts (verbatim SuggestionBar `.message` from use-headless-suggestions.ts): \"What's the weather in Tokyo?\", \"What's the price of AAPL right now?\", \"Highlight this note for me: 'ship the demo on Friday'.\", \"Show me a chart of revenue over the last six months.\" Narration strings kept 1:1 with langgraph-python's headless-complete e2e assertions where applicable.",
+    "description": "D6 fixtures for hermes / headless-complete (probe featureType gen-ui-headless-complete, route /demos/headless-complete). Full hand-rolled headless surface. Three SERVER-SIDE backend tools (Hermes `hermes-showcase` toolset, integrations/hermes/showcase_tools.py), 1:1 with the langgraph-python headless_complete backend tools (get_weather → WeatherCard, get_stock_price → StockCard, get_revenue_chart → ChartCard), registered client-side RENDER-ONLY via useRenderTool + a useComponent frontend tool (highlight_note → HighlightNote, which stays a CLIENT UI tool — it is UI, not data). The fixture only makes the agent EMIT each tool call (leg 1, gated on toolName); Hermes runs the REAL handler in-loop and returns the result via TOOL_CALL_RESULT (the tool RESULT comes from the server handler, NOT the fixture); the second leg (gated on toolCallId) narrates AFTER the tool result lands. Second (narration) leg placed BEFORE the first (emit) leg in the array — aimock is first-match-wins, and the toolCallId key is uniquely satisfied only once the tool has run. highlight_note is a useComponent (UI-only) client tool so its render IS the result; it still uses the same two-leg pattern. D5 probe prompts (verbatim SuggestionBar `.message` from use-headless-suggestions.ts): \"What's the weather in Tokyo?\", \"What's the price of AAPL right now?\", \"Highlight this note for me: 'ship the demo on Friday'.\", \"Show me a chart of revenue over the last six months.\" Narration strings kept 1:1 with langgraph-python's headless-complete e2e assertions where applicable.",
     "sourceFile": "langgraph-python headless-complete backend tools + d5-gen-ui-headless-complete probe",
     "created": "2026-07-02"
   },
   "fixtures": [
     {
-      "_comment": "Weather in Tokyo — narration leg. Fires after get_weather ran (keyed on the emitted toolCallId). MUST precede the emit leg below (first-match-wins).",
+      "_comment": "Weather in Tokyo — narration leg. Fires after get_weather ran (keyed on the emitted toolCallId). MUST precede the emit leg below (first-match-wins). userMessage matcher 'the weather in Tokyo' (present in the headless probe prompt \"What's the weather in Tokyo?\") NOT bare 'weather in Tokyo', so it stays DISJOINT from the tool-rendering D5 probe prompt 'weather in Tokyo' — both share context 'hermes' (LGP-gold disjoint-prompts pattern).",
       "match": {
-        "userMessage": "weather in Tokyo",
+        "userMessage": "the weather in Tokyo",
         "toolCallId": "call_d5_hc_get_weather_001",
         "context": "hermes"
       },
@@ -17,9 +17,9 @@
       }
     },
     {
-      "_comment": "Weather in Tokyo — emit leg: emit get_weather(Tokyo). Gated on toolName so it fires whenever the tool is registered, regardless of prior tool results in a multi-pill thread.",
+      "_comment": "Weather in Tokyo — emit leg: emit get_weather(Tokyo). Gated on toolName so it fires whenever the tool is registered, regardless of prior tool results in a multi-pill thread. userMessage 'the weather in Tokyo' (not bare 'weather in Tokyo') keeps it disjoint from the tool-rendering probe prompt (see the narration-leg comment above).",
       "match": {
-        "userMessage": "weather in Tokyo",
+        "userMessage": "the weather in Tokyo",
         "toolName": "get_weather",
         "context": "hermes"
       },
@@ -34,9 +34,9 @@
       }
     },
     {
-      "_comment": "AAPL price — narration leg. Fires after get_stock_price ran.",
+      "_comment": "AAPL price — narration leg. Fires after get_stock_price ran. userMessage matcher is 'price of AAPL' (present in the headless probe prompt \"What's the price of AAPL right now?\") NOT bare 'AAPL', so it stays DISJOINT from the tool-rendering-custom-catchall probe prompt 'Quote AAPL through the wildcard renderer' — both share context 'hermes', and aimock's substring matcher would otherwise let this leg cross-route into that prompt (LGP-gold disjoint-prompts pattern).",
       "match": {
-        "userMessage": "AAPL",
+        "userMessage": "price of AAPL",
         "toolCallId": "call_d5_hc_get_stock_price_001",
         "context": "hermes"
       },
@@ -45,9 +45,9 @@
       }
     },
     {
-      "_comment": "AAPL price — emit leg: emit get_stock_price(AAPL). Gated on toolName.",
+      "_comment": "AAPL price — emit leg: emit get_stock_price(AAPL). Gated on toolName. userMessage 'price of AAPL' (not bare 'AAPL') keeps it disjoint from the custom-catchall 'Quote AAPL through the wildcard renderer' prompt (see the narration-leg comment above).",
       "match": {
-        "userMessage": "AAPL",
+        "userMessage": "price of AAPL",
         "toolName": "get_stock_price",
         "context": "hermes"
       },

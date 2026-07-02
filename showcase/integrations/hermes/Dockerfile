@@ -59,12 +59,21 @@ COPY --chown=app:app --from=frontend /app/public ./public
 # hermes-agent==0.17.0 in /opt/venv.
 COPY --chown=app:app agui_adapter/ ./agui_adapter/
 
+# Server-side showcase demo tools + launcher (vendored in this integration; no
+# Hermes-core edits). run_backend.py imports showcase_tools (which registers
+# get_weather / search_flights / get_stock_price / roll_d20 / get_revenue_chart
+# into the `hermes-showcase` toolset) then starts the AG-UI adapter. Both land
+# at /app, which is already on PYTHONPATH.
+COPY --chown=app:app showcase_tools.py ./showcase_tools.py
+COPY --chown=app:app run_backend.py ./run_backend.py
+
 # Shared CVDIAG bootstrap module (single source: showcase/integrations/_shared;
 # symlinked in source, dereferenced into this build context by the harness
 # stage_shared step). Lands at /app/_shared; /app is already on PYTHONPATH.
 COPY --chown=app:app _shared/ ./_shared/
 
-# /app on PYTHONPATH so `python -m agui_adapter` resolves the vendored package.
+# /app on PYTHONPATH so `run_backend.py` / `agui_adapter` / `showcase_tools`
+# resolve as the vendored modules (hermes-agent itself resolves from /opt/venv).
 ENV PYTHONPATH=/app
 
 # Entrypoint

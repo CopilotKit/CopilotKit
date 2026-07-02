@@ -23,19 +23,41 @@ Hermes integration deliberately diverges from the canonical pattern and why.
 - **Generic AG-UI `HttpAgent`** wiring (like `pydantic-ai` / `crewai-crews` /
   `agno`), with dedicated `api/copilotkit-<feature>/route.ts` per feature family.
 
-## Tool execution: client-side vs backend (behavioral divergence)
+## Tool execution: server-side (1:1 with langgraph)
 
-The `tool-rendering*` and `headless-complete` demos use tools (`get_weather`,
-`search_flights`, `get_stock_price`, `roll_d20`, chart tools). langgraph-python
-implements these as **backend** tools. Hermes currently implements them as
-**client-executed `useFrontendTool` handlers returning deterministic fake data**
-(the same proven path as `frontend-tools`/`gen-ui-tool-based`). The rendered
-result is 1:1 with langgraph, but the **execution locus differs** (client vs
-server).
+The `tool-rendering`, `tool-rendering-default-catchall`,
+`tool-rendering-custom-catchall`, and `headless-complete` demos use tools
+(`get_weather`, `search_flights`, `get_stock_price`, `roll_d20`,
+`get_revenue_chart`). langgraph-python implements these as **backend** tools, and
+Hermes now does too — they run **SERVER-SIDE** in the Hermes agent loop, 1:1 with
+langgraph at the mechanism level.
 
-**Planned follow-up:** ship a real Hermes "showcase demo" toolset (server-side
-`get_weather` etc. via `HERMES_AGUI_TOOLSETS`) so these run backend-side, 1:1
-with langgraph at the mechanism level.
+**Mechanism (vendored in this integration; no Hermes-core edits):**
+
+- `integrations/hermes/showcase_tools.py` defines the real, deterministic tool
+  handlers and registers them into Hermes' `tools.registry` on import, under a
+  `hermes-showcase` toolset (`check_fn=lambda: True`). Return shapes are the exact
+  deterministic shapes the demo cards + D5 assertions expect.
+- `integrations/hermes/run_backend.py` is the launcher: it `import`s
+  `showcase_tools` (registering the tools) then starts the AG-UI adapter
+  (`agui_adapter.entry.main`). `entrypoint.sh` (and the `dev` script) run
+  `python run_backend.py`, and set `HERMES_AGUI_TOOLSETS=hermes-acp,hermes-showcase`
+  so the per-run agent enables the demo tools via its normal toolset path
+  (`resolve_toolset` merges registry-provided toolsets; see hermes-agent
+  `toolsets.py` / `model_tools._compute_tool_definitions`).
+- The frontend registers these as **render-only** tools: `useRenderTool` (per-tool
+  renderers in `tool-rendering` / `headless-complete`) or plain
+  `useDefaultRenderTool` (the two catch-all demos). No client `handler` — the agent
+  calls the tool, Hermes runs the real handler in-loop, and the result reaches the
+  renderer via AG-UI's `TOOL_CALL_RESULT`. The D5 aimock fixtures only make the
+  model EMIT the tool call and narrate; the tool RESULT comes from the server
+  handler, not the fixture.
+
+**Still legitimately client-executed** (unchanged): `frontend-tools`,
+`frontend-tools-async`, `hitl-*`, and `gen-ui-tool-based` use `useFrontendTool` /
+frontend components because those tools genuinely execute in the browser.
+`headless-complete`'s `highlight_note` also stays a client `useComponent` tool —
+it is client UI, not data.
 
 ## Reasoning: single reasoning-capable backend
 

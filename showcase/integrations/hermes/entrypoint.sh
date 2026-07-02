@@ -43,14 +43,21 @@ export HERMES_AGUI_API_KEY=${HERMES_AGUI_API_KEY:-$OPENAI_API_KEY}
 export HERMES_AGUI_MODEL=${HERMES_AGUI_MODEL:-gpt-5-mini}
 export HERMES_AGUI_PROVIDER=${HERMES_AGUI_PROVIDER:-custom}
 export HERMES_AGUI_API_MODE=${HERMES_AGUI_API_MODE:-chat_completions}
+# Enable the vendored showcase demo tools (server-side, registered by
+# run_backend.py -> showcase_tools). hermes-acp is the base coding toolset; the
+# showcase demo tools (get_weather / search_flights / get_stock_price /
+# roll_d20 / get_revenue_chart) live in the `hermes-showcase` toolset and run
+# SERVER-SIDE, 1:1 with langgraph-python's backend tools.
+export HERMES_AGUI_TOOLSETS=${HERMES_AGUI_TOOLSETS:-hermes-acp,hermes-showcase}
 
 echo "[entrypoint] HERMES_AGUI_BASE_URL=${HERMES_AGUI_BASE_URL}"
+echo "[entrypoint] HERMES_AGUI_TOOLSETS=${HERMES_AGUI_TOOLSETS}"
 echo "[entrypoint] HERMES_AGUI_MODEL=${HERMES_AGUI_MODEL} PROVIDER=${HERMES_AGUI_PROVIDER} API_MODE=${HERMES_AGUI_API_MODE}"
 
 # Start agent backend on :8000 with log prefixing so its output is
 # distinguishable from Next.js in the log stream.
-echo "[entrypoint] Starting Python Hermes AG-UI adapter on port 8000..."
-python -u -m agui_adapter &> >(awk '{print "[agent] " $0; fflush()}') &
+echo "[entrypoint] Starting Python Hermes AG-UI adapter (run_backend.py, showcase tools registered) on port 8000..."
+python -u run_backend.py &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 
 # Health-probe the agent's /health before starting Next.js (mirror the

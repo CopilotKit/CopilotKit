@@ -3,7 +3,7 @@
 // Tool Rendering — PRIMARY (per-tool + catch-all) variant.
 //
 // The most sophisticated point in the three-way progression: every
-// "interesting" tool gets its own dedicated, branded UI, and a
+// "interesting" backend tool gets its own dedicated, branded UI, and a
 // catch-all paints anything that slips through.
 //
 //   get_weather     → <WeatherCard />       (per-tool renderer)
@@ -12,14 +12,12 @@
 //   roll_d20        → <D20Card />           (per-tool renderer)
 //   *               → <CustomCatchallRenderer /> (wildcard fallback)
 //
-// Hermes has no backend get_weather/search_flights/… tools, and the D5
-// aimock harness does not execute real tools. So — exactly like the
-// green frontend-tools / gen-ui-tool-based demos — each tool is a
-// CLIENT-EXECUTED frontend tool: `useFrontendTool` registers the tool
-// name + schema + a deterministic fake-data handler, AND a per-tool
-// `render` that paints the branded card. The aimock fixture makes the
-// agent EMIT the tool call; the client handler returns deterministic
-// data via the AG-UI round-trip; the renderer paints the card.
+// These tools execute SERVER-SIDE in Hermes (registered under the
+// `hermes-showcase` toolset — see integrations/hermes/showcase_tools.py),
+// 1:1 with langgraph-python's backend-tool model. The client only registers
+// RENDER-ONLY tool renderers via `useRenderTool` (no handler): the agent
+// calls the tool, Hermes runs the real handler and returns the result via
+// AG-UI's TOOL_CALL_RESULT, and the per-tool `render` paints the branded card.
 
 // @region[render-flight-tool]
 // @region[render-weather-tool]
@@ -27,7 +25,7 @@ import React from "react";
 import {
   CopilotKit,
   CopilotChat,
-  useFrontendTool,
+  useRenderTool,
   useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
@@ -68,68 +66,6 @@ interface D20Result {
   sides?: number;
 }
 
-// Deterministic fake-data handlers. Mirror the langgraph backend tool
-// return shapes 1:1 so the shared cards + e2e assertions hold.
-function weatherData(location: string): WeatherResult {
-  return {
-    city: location,
-    temperature: 68,
-    humidity: 55,
-    wind_speed: 10,
-    conditions: "Sunny",
-  };
-}
-
-function flightsData(origin: string, destination: string): FlightSearchResult {
-  return {
-    origin,
-    destination,
-    flights: [
-      {
-        airline: "United",
-        flight: "UA231",
-        depart: "08:15",
-        arrive: "16:45",
-        price_usd: 348,
-      },
-      {
-        airline: "Delta",
-        flight: "DL412",
-        depart: "11:20",
-        arrive: "19:55",
-        price_usd: 312,
-      },
-      {
-        airline: "JetBlue",
-        flight: "B6722",
-        depart: "17:05",
-        arrive: "01:30",
-        price_usd: 289,
-      },
-    ],
-  };
-}
-
-function stockData(
-  ticker: string,
-  price_usd?: number,
-  change_pct?: number,
-): StockResult {
-  return {
-    ticker: (ticker || "").toUpperCase(),
-    price_usd:
-      price_usd !== undefined ? Math.round(price_usd * 100) / 100 : 189.42,
-    change_pct:
-      change_pct !== undefined ? Math.round(change_pct * 100) / 100 : 1.27,
-  };
-}
-
-function d20Data(value?: number): D20Result {
-  const rolled =
-    typeof value === "number" && value >= 1 && value <= 20 ? value : 11;
-  return { sides: 20, value: rolled, result: rolled };
-}
-
 export default function ToolRenderingDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">
@@ -144,22 +80,21 @@ export default function ToolRenderingDemo() {
 
 function Chat() {
   // Per-tool renderer #1: get_weather → branded WeatherCard.
-  useFrontendTool(
+  // Render-only (`useRenderTool`, no handler): the tool executes SERVER-SIDE
+  // in Hermes and returns the result via AG-UI's TOOL_CALL_RESULT.
+  useRenderTool(
     {
       name: "get_weather",
-      description: "Get the current weather for a given location.",
       parameters: z.object({
         location: z.string(),
       }),
-      handler: async ({ location }: { location: string }) =>
-        weatherData(location),
-      render: ({ args, result, status }) => {
+      render: ({ parameters, result, status }) => {
         const loading = status !== "complete";
         const parsed = parseJsonResult<WeatherResult>(result);
         return (
           <WeatherCard
             loading={loading}
-            location={args?.location ?? parsed.city ?? ""}
+            location={parameters?.location ?? parsed.city ?? ""}
             temperature={parsed.temperature}
             humidity={parsed.humidity}
             windSpeed={parsed.wind_speed}
@@ -173,30 +108,21 @@ function Chat() {
   // @endregion[render-weather-tool]
 
   // Per-tool renderer #2: search_flights → branded FlightListCard.
-  useFrontendTool(
+  useRenderTool(
     {
       name: "search_flights",
-      description:
-        "Search mock flights from an origin airport to a destination airport.",
       parameters: z.object({
         origin: z.string(),
         destination: z.string(),
       }),
-      handler: async ({
-        origin,
-        destination,
-      }: {
-        origin: string;
-        destination: string;
-      }) => flightsData(origin, destination),
-      render: ({ args, result, status }) => {
+      render: ({ parameters, result, status }) => {
         const loading = status !== "complete";
         const parsed = parseJsonResult<FlightSearchResult>(result);
         return (
           <FlightListCard
             loading={loading}
-            origin={args?.origin ?? parsed.origin ?? ""}
-            destination={args?.destination ?? parsed.destination ?? ""}
+            origin={parameters?.origin ?? parsed.origin ?? ""}
+            destination={parameters?.destination ?? parsed.destination ?? ""}
             flights={parsed.flights ?? []}
           />
         );
@@ -207,31 +133,21 @@ function Chat() {
   // @endregion[render-flight-tool]
 
   // Per-tool renderer #3: get_stock_price → branded StockCard.
-  useFrontendTool(
+  useRenderTool(
     {
       name: "get_stock_price",
-      description: "Get a mock current price for a stock ticker.",
       parameters: z.object({
         ticker: z.string(),
         price_usd: z.number().optional(),
         change_pct: z.number().optional(),
       }),
-      handler: async ({
-        ticker,
-        price_usd,
-        change_pct,
-      }: {
-        ticker: string;
-        price_usd?: number;
-        change_pct?: number;
-      }) => stockData(ticker, price_usd, change_pct),
-      render: ({ args, result, status }) => {
+      render: ({ parameters, result, status }) => {
         const loading = status !== "complete";
         const parsed = parseJsonResult<StockResult>(result);
         return (
           <StockCard
             loading={loading}
-            ticker={args?.ticker ?? parsed.ticker ?? ""}
+            ticker={parameters?.ticker ?? parsed.ticker ?? ""}
             priceUsd={parsed.price_usd}
             changePct={parsed.change_pct}
           />
@@ -243,14 +159,12 @@ function Chat() {
 
   // Per-tool renderer #4: roll_d20 → branded D20Card. Each tool call
   // mounts its own card so e2e tests can count them.
-  useFrontendTool(
+  useRenderTool(
     {
       name: "roll_d20",
-      description: "Roll a 20-sided die.",
       parameters: z.object({
         value: z.number().optional(),
       }),
-      handler: async ({ value }: { value?: number }) => d20Data(value),
       render: ({ result, status }) => {
         const loading = status !== "complete";
         const parsed = parseJsonResult<D20Result>(result);

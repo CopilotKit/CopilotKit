@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently -n next,agent \"next dev --turbopack\" \"PYTHONPATH=. python -m agui_adapter\"",
+    "dev": "concurrently -n next,agent \"next dev --turbopack\" \"PYTHONPATH=. HERMES_AGUI_TOOLSETS=${HERMES_AGUI_TOOLSETS:-hermes-acp,hermes-showcase} python run_backend.py\"",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
