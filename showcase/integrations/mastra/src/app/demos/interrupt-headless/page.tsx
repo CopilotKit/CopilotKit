@@ -75,7 +75,8 @@ function Layout() {
           payload={payload}
           onPick={(slot) =>
             setTimeout(
-              () => resolve({ chosen_time: slot.iso, chosen_label: slot.label }),
+              () =>
+                resolve({ chosen_time: slot.iso, chosen_label: slot.label }),
               500,
             )
           }
@@ -96,7 +97,11 @@ function Layout() {
 }
 // @endregion[headless-useinterrupt-primitives]
 
-function AppSurface({ interruptEl }: { interruptEl: React.ReactElement | null }) {
+function AppSurface({
+  interruptEl,
+}: {
+  interruptEl: React.ReactElement | null;
+}) {
   return (
     <div
       data-testid="interrupt-headless-app-surface"

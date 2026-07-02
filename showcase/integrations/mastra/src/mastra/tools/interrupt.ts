@@ -46,7 +46,9 @@ function nextMonday(from: Date): Date {
   return next;
 }
 
-export function generateCandidateSlots(now: Date = new Date()): InterruptTimeSlot[] {
+export function generateCandidateSlots(
+  now: Date = new Date(),
+): InterruptTimeSlot[] {
   const tomorrow = new Date(now);
   tomorrow.setDate(now.getDate() + 1);
   const monday = nextMonday(now);
@@ -56,7 +58,10 @@ export function generateCandidateSlots(now: Date = new Date()): InterruptTimeSlo
     ["Monday 9:00 AM", atLocal(monday, 9)],
     ["Monday 3:30 PM", atLocal(monday, 15, 30)],
   ];
-  return candidates.map(([label, date]) => ({ label, iso: date.toISOString() }));
+  return candidates.map(([label, date]) => ({
+    label,
+    iso: date.toISOString(),
+  }));
 }
 
 export const scheduleMeetingInterruptTool = createTool({
@@ -77,9 +82,7 @@ export const scheduleMeetingInterruptTool = createTool({
   suspendSchema: z.object({
     topic: z.string(),
     attendee: z.string().optional(),
-    slots: z.array(
-      z.object({ label: z.string(), iso: z.string() }),
-    ),
+    slots: z.array(z.object({ label: z.string(), iso: z.string() })),
   }),
   resumeSchema: z.object({
     chosen_time: z.string().optional(),
@@ -93,7 +96,8 @@ export const scheduleMeetingInterruptTool = createTool({
       if (resumeData.cancelled) {
         return "The user cancelled — no meeting was scheduled.";
       }
-      const when = resumeData.chosen_label ?? resumeData.chosen_time ?? "the chosen time";
+      const when =
+        resumeData.chosen_label ?? resumeData.chosen_time ?? "the chosen time";
       return `Scheduled "${context.topic}" for ${when}.`;
     }
     // First pass: suspend with the picker payload. Returned directly so the
