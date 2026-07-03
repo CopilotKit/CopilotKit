@@ -17,7 +17,7 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { HttpAgent } from "@ag-ui/client";
+import { HermesAgent } from "@ag-ui/hermes";
 
 // The single Hermes backend runs in the same container on :8000 (see
 // entrypoint.sh) — same URL as the main copilotkit route.
@@ -27,14 +27,14 @@ const REASONING_AGENT_URL =
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: {
-    "reasoning-default": new HttpAgent({ url: `${REASONING_AGENT_URL}/` }),
-    "reasoning-custom": new HttpAgent({ url: `${REASONING_AGENT_URL}/` }),
+    "reasoning-default": new HermesAgent({ url: `${REASONING_AGENT_URL}/` }),
+    "reasoning-custom": new HermesAgent({ url: `${REASONING_AGENT_URL}/` }),
     // tool-rendering-reasoning-chain composes reasoning (from the single
     // gpt-5-mini backend) with client-executed frontend tools. It routes
     // here so aimock streams reasoning_content and the adapter emits
     // REASONING_MESSAGE_* events; the tools are executed client-side, so
     // this backend just needs to loop the tool calls the fixture emits.
-    "tool-rendering-reasoning-chain": new HttpAgent({
+    "tool-rendering-reasoning-chain": new HermesAgent({
       url: `${REASONING_AGENT_URL}/`,
     }),
   },

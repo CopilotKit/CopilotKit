@@ -30,12 +30,13 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import { AbstractAgent } from "@ag-ui/client";
+import { HermesAgent } from "@ag-ui/hermes";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+  return new HermesAgent({ url: `${AGENT_URL}/` });
 }
 
 const agents: Record<string, AbstractAgent> = {

@@ -16,7 +16,7 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { HttpAgent } from "@ag-ui/client";
+import { HermesAgent } from "@ag-ui/hermes";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -24,7 +24,7 @@ const runtime = new CopilotRuntime({
   // @ts-ignore -- same-shape mismatch as the main route in this package; the
   // HttpAgent satisfies the runtime's agent interface at runtime but the
   // generics don't line up across the v1/v2 boundary.
-  agents: { byoc_json_render: new HttpAgent({ url: `${AGENT_URL}/` }) },
+  agents: { byoc_json_render: new HermesAgent({ url: `${AGENT_URL}/` }) },
 });
 
 export const POST = async (req: NextRequest) => {

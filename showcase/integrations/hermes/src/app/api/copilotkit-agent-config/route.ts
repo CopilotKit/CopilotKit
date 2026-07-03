@@ -17,14 +17,14 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { HttpAgent } from "@ag-ui/client";
+import { HermesAgent } from "@ag-ui/hermes";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts
   agents: {
-    "agent-config-demo": new HttpAgent({ url: `${AGENT_URL}/` }),
+    "agent-config-demo": new HermesAgent({ url: `${AGENT_URL}/` }),
   },
 });
 

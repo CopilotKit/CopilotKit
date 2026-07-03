@@ -35,13 +35,13 @@ import {
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
 import type { TranscribeFileOptions } from "@copilotkit/runtime/v2";
-import { HttpAgent } from "@ag-ui/client";
+import { HermesAgent } from "@ag-ui/hermes";
 import { TranscriptionServiceOpenAI } from "@copilotkit/voice";
 import OpenAI from "openai";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/` });
+const voiceDemoAgent = new HermesAgent({ url: `${AGENT_URL}/` });
 
 /**
  * Transcription service wrapper that reports a clean, typed auth error when

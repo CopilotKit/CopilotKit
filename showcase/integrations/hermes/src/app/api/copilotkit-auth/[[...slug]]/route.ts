@@ -28,14 +28,14 @@ import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
 } from "@copilotkit/runtime/v2";
-import { HttpAgent } from "@ag-ui/client";
+import { HermesAgent } from "@ag-ui/hermes";
 import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 // Reuse the neutral hermes agent for the authenticated path. Authenticated
 // users get the same behavior as any other neutral demo.
-const authDemoAgent = new HttpAgent({ url: `${AGENT_URL}/` });
+const authDemoAgent = new HermesAgent({ url: `${AGENT_URL}/` });
 
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts

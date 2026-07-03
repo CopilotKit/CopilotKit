@@ -4,7 +4,8 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import { AbstractAgent } from "@ag-ui/client";
+import { HermesAgent } from "@ag-ui/hermes";
 import crypto from "node:crypto";
 
 // The Hermes agent runs as a separate process (the AG-UI adapter shipped in
@@ -18,7 +19,7 @@ console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
 function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+  return new HermesAgent({ url: `${AGENT_URL}/` });
 }
 
 // Agent names used by the demo pages. Hermes is a single agent behind one
