@@ -13,12 +13,19 @@ import {
   ɵselectThreads,
   ɵselectThreadsError,
   ɵcreateThreadStore,
+  ɵselectMemories,
+  ɵselectMemoriesIsLoading,
+  ɵselectMemoriesError,
+  ɵselectMemoriesAvailable,
+  ɵselectMemoriesRealtimeStatus,
 } from "@copilotkit/core";
 import type {
   CopilotKitCoreSubscriber,
   CopilotKitCoreErrorCode,
   ɵThreadStore,
   ɵThread,
+  Memory,
+  MemoryRealtimeStatus,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -60,10 +67,14 @@ import {
   trackThreadsEnabledViewed,
   trackThreadsIntelligenceSignupClicked,
   trackThreadsLockedViewed,
+  trackMemoriesTabClicked,
   trackThreadsTabClicked,
   trackThreadsTalkToEngineerClicked,
 } from "./lib/telemetry.js";
-import type { InspectorThreadTelemetryProps } from "./lib/telemetry.js";
+import type {
+  InspectorMemoryTelemetryProps,
+  InspectorThreadTelemetryProps,
+} from "./lib/telemetry.js";
 
 export type { Anchor } from "./lib/types.js";
 
@@ -78,6 +89,7 @@ type MenuKey =
   | "frontend-tools"
   | "agent-context"
   | "threads"
+  | "memories"
   | "settings";
 
 type MenuItem = {
@@ -3418,6 +3430,368 @@ ${unsafeHTML(highlightedJson(stateValue))}</pre
   }
 }
 
+// ─── cpk-memory-list ─────────────────────────────────────────────────────────
+
+/** Memory kind values including the "all" sentinel used by the filter UI. */
+type MemoryKindFilter = "all" | "topical" | "episodic" | "operational";
+
+class CpkMemoryList extends LitElement {
+  static properties = {
+    memories: { attribute: false },
+    search: { state: true },
+    kind: { state: true },
+  };
+
+  /** Ordered (newest-first) list of memories supplied by the parent. */
+  memories: Memory[] = [];
+  private search = "";
+  private kind: MemoryKindFilter = "all";
+
+  static styles = css`
+    @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap");
+
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .cpk-ml {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      background: #f7f7f9;
+    }
+
+    /* ── Search ── */
+    .cpk-ml__search {
+      padding: 10px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+    }
+
+    .cpk-ml__search-input {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #ffffff;
+      color: #010507;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .cpk-ml__search-input:focus {
+      border-color: #bec2ff;
+    }
+
+    /* ── Kind filter ── */
+    .cpk-ml__filter {
+      display: flex;
+      gap: 4px;
+      padding: 8px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .cpk-ml__filter-seg {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 5px;
+      border: 1px solid #dbdbe5;
+      background: #ffffff;
+      color: #57575b;
+      cursor: pointer;
+      transition:
+        background 0.1s,
+        border-color 0.1s,
+        color 0.1s;
+      user-select: none;
+    }
+
+    .cpk-ml__filter-seg:hover {
+      background: #f0f0f5;
+    }
+
+    .cpk-ml__filter-seg--active {
+      background: #bec2ff1a;
+      border-color: #bec2ff;
+      color: #010507;
+    }
+
+    .cpk-ml__filter-count {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      margin-left: 4px;
+      color: #838389;
+    }
+
+    /* ── List ── */
+    .cpk-ml__list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* ── Card ── */
+    .cpk-ml__card {
+      background: #ffffff;
+      border: 1px solid #e9e9ef;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .cpk-ml__card-badges {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    /* Kind badge — color per kind */
+    .cpk-ml__kind-badge {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .cpk-ml__kind-badge--topical {
+      background: #eee6fe;
+      color: #57575b;
+    }
+
+    .cpk-ml__kind-badge--episodic {
+      background: #e6f4fe;
+      color: #2d5f80;
+    }
+
+    .cpk-ml__kind-badge--operational {
+      background: #e6feee;
+      color: #2d6645;
+    }
+
+    /* Scope badge */
+    .cpk-ml__scope-badge {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: nowrap;
+      background: #f0f0f5;
+      color: #838389;
+    }
+
+    /* Content */
+    .cpk-ml__content {
+      font-size: 12px;
+      color: #010507;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
+    /* Footer */
+    .cpk-ml__footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .cpk-ml__footer-threads {
+      font-size: 10px;
+      color: #838389;
+    }
+
+    .cpk-ml__footer-id {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      color: #c0c0c8;
+    }
+
+    /* ── Empty state ── */
+    .cpk-ml__empty {
+      padding: 32px 16px;
+      text-align: center;
+      color: #838389;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cpk-ml__empty-icon {
+      color: #c0c0c8;
+    }
+  `;
+
+  /** Memories that pass the current text search (before kind filter). */
+  private get searchFiltered(): Memory[] {
+    const q = this.search.trim().toLowerCase();
+    if (!q) return this.memories;
+    return this.memories.filter((m) => m.content.toLowerCase().includes(q));
+  }
+
+  /** Memories that pass both search and kind filter. */
+  private get filtered(): Memory[] {
+    const searched = this.searchFiltered;
+    if (this.kind === "all") return searched;
+    return searched.filter((m) => m.kind === this.kind);
+  }
+
+  /** Count of search-filtered memories for a given kind (for segment labels). */
+  private countForKind(kind: Exclude<MemoryKindFilter, "all">): number {
+    return this.searchFiltered.filter((m) => m.kind === kind).length;
+  }
+
+  private onSearchInput = (event: Event): void => {
+    this.search = (event.target as HTMLInputElement).value;
+  };
+
+  private onKindClick = (event: Event): void => {
+    const seg = (event.target as HTMLElement).closest("[data-kind]");
+    if (!seg) return;
+    const k = (seg as HTMLElement).dataset["kind"] as MemoryKindFilter;
+    this.kind = k;
+  };
+
+  /** Truncate an id to first-4…last-4 characters. */
+  private shortId(id: string): string {
+    if (id.length <= 12) return id;
+    return `${id.slice(0, 4)}…${id.slice(-4)}`;
+  }
+
+  private renderKindBadge(kind: string): TemplateResult {
+    return html`<span class="cpk-ml__kind-badge cpk-ml__kind-badge--${kind}"
+      >${kind}</span
+    >`;
+  }
+
+  private renderEmpty(): TemplateResult {
+    const q = this.search.trim();
+    if (this.memories.length === 0) {
+      return html`
+        <div class="cpk-ml__empty">
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="cpk-ml__empty-icon"
+          >
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+          </svg>
+          No memories yet — tell the agent a durable fact and watch it appear.
+        </div>
+      `;
+    }
+    if (q) {
+      return html`
+        <div class="cpk-ml__empty">
+          No memories match &ldquo;${q}&rdquo;.
+        </div>
+      `;
+    }
+    return html`
+      <div class="cpk-ml__empty">No ${this.kind} memories yet.</div>
+    `;
+  }
+
+  render() {
+    const filtered = this.filtered;
+    const kinds: Array<Exclude<MemoryKindFilter, "all">> = [
+      "topical",
+      "episodic",
+      "operational",
+    ];
+
+    return html`
+      <div class="cpk-ml">
+        <!-- Search -->
+        <div class="cpk-ml__search">
+          <input
+            type="text"
+            placeholder="Search memories…"
+            .value=${this.search}
+            @input=${this.onSearchInput}
+            class="cpk-ml__search-input"
+          />
+        </div>
+
+        <!-- Kind filter -->
+        <div class="cpk-ml__filter" @click=${this.onKindClick}>
+          <button
+            class="cpk-ml__filter-seg ${this.kind === "all" ? "cpk-ml__filter-seg--active" : ""}"
+            data-kind="all"
+          >
+            All<span class="cpk-ml__filter-count">${this.searchFiltered.length}</span>
+          </button>
+          ${kinds.map(
+            (k) => html`
+              <button
+                class="cpk-ml__filter-seg ${this.kind === k ? "cpk-ml__filter-seg--active" : ""}"
+                data-kind="${k}"
+              >
+                ${k}<span class="cpk-ml__filter-count">${this.countForKind(k)}</span>
+              </button>
+            `,
+          )}
+        </div>
+
+        <!-- Memory list -->
+        <div class="cpk-ml__list">
+          ${filtered.map(
+            (m) => html`
+              <div class="cpk-ml__card">
+                <div class="cpk-ml__card-badges">
+                  ${this.renderKindBadge(m.kind)}
+                  <span class="cpk-ml__scope-badge">${m.scope}</span>
+                </div>
+                <div class="cpk-ml__content">${m.content}</div>
+                <div class="cpk-ml__footer">
+                  <span class="cpk-ml__footer-threads"
+                    >${m.sourceThreadIds.length} source thread${m.sourceThreadIds.length === 1 ? "" : "s"}</span
+                  >
+                  <span class="cpk-ml__footer-id">${this.shortId(m.id)}</span>
+                </div>
+              </div>
+            `,
+          )}
+          ${filtered.length === 0 ? this.renderEmpty() : nothing}
+        </div>
+      </div>
+    `;
+  }
+}
+
 // Backwards-compatible internal element name used by the full CopilotKit
 // Inspector shell. Keep this class thin so the public body remains the single
 // implementation.
@@ -3432,6 +3806,9 @@ if (!customElements.get(THREAD_INSPECTOR_TAG)) {
 if (!customElements.get("cpk-thread-details")) {
   customElements.define("cpk-thread-details", ɵCpkThreadDetails);
 }
+if (!customElements.get("cpk-memory-list")) {
+  customElements.define("cpk-memory-list", CpkMemoryList);
+}
 
 export class WebInspectorElement extends LitElement {
   static properties = {
@@ -3442,6 +3819,25 @@ export class WebInspectorElement extends LitElement {
   private _core: CopilotKitCore | null = null;
   private coreSubscriber: CopilotKitCoreSubscriber | null = null;
   private coreUnsubscribe: (() => void) | null = null;
+  private _memories: Memory[] = [];
+  private _memoriesLoading = false;
+  private _memoriesError: Error | null = null;
+  private _memoriesAvailable = true;
+  // Realtime-connection health, independent of `_memoriesAvailable` (the REST
+  // list route). Drives the "live" indicator: only "connected" shows "live".
+  private _memoriesRealtimeStatus: MemoryRealtimeStatus = "connecting";
+  private _memoryUnsub: (() => void) | null = null;
+  // Lazy-subscription guard. The memory store is created + started + opens
+  // realtime the first time `core.getMemoryStore()` is called, so we defer
+  // that call until the user actually activates the Memories tab (see
+  // `ensureMemorySubscription`). This flag prevents a repeated tab click from
+  // double-subscribing; `detachFromCore` resets it so a later attach + tab
+  // activation re-subscribes cleanly.
+  private _memorySubscribed = false;
+  // True when the attached core predates `getMemoryStore` (older @copilotkit
+  // SDK). Distinct from `_memoriesAvailable` (memory not enabled on an
+  // otherwise-current deployment) so the teaser can show upgrade-the-SDK copy.
+  private _memoryStoreUnsupported = false;
   private runtimeStatus: CopilotKitCoreRuntimeConnectionStatus | null = null;
   private coreProperties: Readonly<Record<string, unknown>> = {};
   private lastCoreError: {
@@ -3619,6 +4015,7 @@ export class WebInspectorElement extends LitElement {
         label: "Threads",
         icon: "MessageSquare" as LucideIconName,
       },
+      { key: "memories", label: "Learning", icon: "Brain" as LucideIconName },
     ];
   }
 
@@ -3657,6 +4054,17 @@ export class WebInspectorElement extends LitElement {
       runtime_url_type: getRuntimeUrlType(this.core?.runtimeUrl),
       telemetry_disabled: this.core?.telemetryDisabled ?? false,
       ...extra,
+    };
+  }
+
+  private getMemoriesTelemetryProps(): InspectorMemoryTelemetryProps {
+    const distinctId = !this.core?.telemetryDisabled
+      ? getTelemetryDistinctIdForUrl()
+      : null;
+    return {
+      posthog_distinct_id: distinctId ?? undefined,
+      memory_count: this._memories.length,
+      available: this._memoriesAvailable,
     };
   }
 
@@ -3886,6 +4294,91 @@ export class WebInspectorElement extends LitElement {
     if (core.context) {
       this.contextStore = this.normalizeContextStore(core.context);
     }
+
+    // NOTE: the memory store is intentionally NOT touched here. Calling
+    // `core.getMemoryStore()` lazily creates + `.start()`s the store and opens
+    // a realtime connection, so merely attaching the inspector would spin up a
+    // memory store + realtime even in apps that never use memory. Instead, the
+    // store is created + subscribed on first Memories-tab activation via
+    // `ensureMemorySubscription` (user-initiated, acceptable). Attaching the
+    // inspector creates nothing.
+    //
+    // Exception: if the Memories tab is ALREADY the active tab when core is
+    // wired (e.g. core attaches after `firstUpdated` restored a persisted
+    // `selectedMenu: "memories"`), subscribe now so the live store + realtime
+    // status paint instead of the stuck defaults. This preserves INSP-1 (no
+    // unconditional subscribe on attach) because it is gated on the active tab,
+    // and is safe to call when already subscribed — `ensureMemorySubscription`
+    // early-returns on `_memorySubscribed`.
+    if (this.selectedMenu === "memories") {
+      this.ensureMemorySubscription();
+    }
+  }
+
+  /**
+   * Lazily subscribes to the singleton memory store the first time the user
+   * activates the Memories tab. This is deferred out of `attachToCore` because
+   * `core.getMemoryStore()` is what creates + starts the store and opens
+   * realtime — doing it on attach would start memory for apps that never use
+   * it. Idempotent: repeated tab activations are guarded by
+   * `_memorySubscribed`. On an older @copilotkit/core without `getMemoryStore`,
+   * records the unsupported state so the teaser can guide an SDK upgrade.
+   */
+  private ensureMemorySubscription(): void {
+    if (this._memorySubscribed) {
+      return;
+    }
+    const core = this._core;
+    if (!core) {
+      return;
+    }
+
+    // Guard like getThreadStores: older @copilotkit/core has no getMemoryStore.
+    // When absent, flag the unsupported state so the teaser shows upgrade copy
+    // instead of throwing a TypeError that would break the entire inspector.
+    if (typeof core.getMemoryStore !== "function") {
+      this._memoryStoreUnsupported = true;
+      this._memoriesAvailable = false;
+      this.requestUpdate();
+      return;
+    }
+
+    this._memorySubscribed = true;
+    this._memoryStoreUnsupported = false;
+
+    // First touch of getMemoryStore() — creates + starts the store, opens realtime.
+    const memoryStore = core.getMemoryStore();
+    const ms = memoryStore.getState();
+    this._memories = ɵselectMemories(ms);
+    this._memoriesLoading = ɵselectMemoriesIsLoading(ms);
+    this._memoriesError = ɵselectMemoriesError(ms);
+    this._memoriesAvailable = ɵselectMemoriesAvailable(ms);
+    this._memoriesRealtimeStatus = ɵselectMemoriesRealtimeStatus(ms);
+    const memSubs = [
+      memoryStore.select(ɵselectMemories).subscribe((v) => {
+        this._memories = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesIsLoading).subscribe((v) => {
+        this._memoriesLoading = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesError).subscribe((v) => {
+        this._memoriesError = v;
+        this.requestUpdate();
+      }),
+      memoryStore.select(ɵselectMemoriesAvailable).subscribe((v) => {
+        this._memoriesAvailable = v;
+        this.requestUpdate();
+      }),
+      // Group E — realtime connection health.
+      memoryStore.select(ɵselectMemoriesRealtimeStatus).subscribe((v) => {
+        this._memoriesRealtimeStatus = v;
+        this.requestUpdate();
+      }),
+    ];
+    this._memoryUnsub = () => memSubs.forEach((s) => s.unsubscribe());
+    this.requestUpdate();
   }
 
   private detachFromCore(): void {
@@ -3893,6 +4386,17 @@ export class WebInspectorElement extends LitElement {
       this.coreUnsubscribe();
       this.coreUnsubscribe = null;
     }
+    this._memoryUnsub?.();
+    this._memoryUnsub = null;
+    this._memories = [];
+    this._memoriesLoading = false;
+    this._memoriesError = null;
+    this._memoriesAvailable = true;
+    this._memoriesRealtimeStatus = "connecting";
+    // Reset the lazy-subscription guards so a later attach + Memories-tab
+    // activation re-subscribes (and re-evaluates SDK support) cleanly.
+    this._memorySubscribed = false;
+    this._memoryStoreUnsupported = false;
     this.coreSubscriber = null;
     this.runtimeStatus = null;
     this.lastCoreError = null;
@@ -5439,6 +5943,18 @@ ${argsString}</pre
 
     this.hydrateStateFromStorage();
 
+    // `hydrateStateFromStorage` may have restored `selectedMenu: "memories"`.
+    // The memory subscription is normally created on a Memories-tab CLICK via
+    // `handleMenuSelect`, which never fires when the tab boots already active —
+    // leaving the realtime indicator stuck on the default "connecting" and the
+    // list empty until the user toggles tabs. Subscribe now when the Memories
+    // tab is the active tab. Gated on the active tab to preserve INSP-1 (no
+    // unconditional subscribe), and safe if core is not yet attached or already
+    // subscribed — `ensureMemorySubscription` early-returns in both cases.
+    if (this.selectedMenu === "memories") {
+      this.ensureMemorySubscription();
+    }
+
     // Apply docking styles if open and docked (skip transition on initial load)
     if (this.isOpen && this.dockMode !== "floating") {
       this.applyDockStyles(true);
@@ -6896,6 +7412,10 @@ ${argsString}</pre
       return this.renderThreadsView();
     }
 
+    if (this.selectedMenu === "memories") {
+      return this.renderMemoriesView();
+    }
+
     if (this.selectedMenu === "settings") {
       return this.renderSettingsPanel();
     }
@@ -7338,6 +7858,346 @@ ${argsString}</pre
               Sign up for Intelligence
             </a>
           </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Renders the realtime-connection indicator in the memory-store header.
+   * Only `"connected"` shows the live (green-dot) state; `"connecting"` shows a
+   * muted amber "reconnecting" and `"unavailable"` a muted grey "offline", so
+   * the indicator never claims "live" over a frozen snapshot once the realtime
+   * socket has permanently given up.
+   */
+  private renderMemoryRealtimeIndicator() {
+    const status = this._memoriesRealtimeStatus;
+    const connected = status === "connected";
+    const dotColor = connected
+      ? "#22c55e"
+      : status === "connecting"
+        ? "#f59e0b"
+        : "#9ca3af";
+    const label =
+      status === "connected"
+        ? "live"
+        : status === "connecting"
+          ? "reconnecting"
+          : "offline";
+    return html`
+      <span
+        style="
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-size: 10px;
+          font-weight: 500;
+          color: ${connected ? "#57575b" : "#838389"};
+        "
+      >
+        <span
+          style="
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: ${dotColor};
+          "
+        ></span>
+        ${label}
+      </span>
+    `;
+  }
+
+  private renderMemoriesView() {
+    // 1. Locked teaser — intelligence not configured or memories not available.
+    if (!this.core?.intelligence || !this._memoriesAvailable) {
+      return html`
+        <div
+          style="
+            position: relative;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            overflow: hidden;
+            background: #ffffff;
+          "
+        >
+          ${this.renderThreadsLockedBackgroundMockup()}
+          <div
+            aria-hidden="true"
+            style="
+              position: absolute;
+              inset: 0;
+              pointer-events: none;
+              background:
+                radial-gradient(circle at center, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.78) 24%, rgba(255,255,255,0.34) 48%, rgba(255,255,255,0.56) 100%);
+            "
+          ></div>
+          <div
+            style="
+              position: relative;
+              z-index: 1;
+              max-width: 440px;
+              text-align: center;
+              color: #57575b;
+            "
+          >
+            <div
+              aria-hidden="true"
+              style="
+                margin: 0 auto 18px;
+                display: flex;
+                justify-content: center;
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  height: 44px;
+                  width: 44px;
+                  align-items: center;
+                  justify-content: center;
+                  border: 1px solid #dfd6fb;
+                  border-radius: 8px;
+                  background: #eee6fe;
+                  color: #57575b;
+                  box-shadow: 0 8px 18px rgba(87, 87, 91, 0.14);
+                "
+              >
+                ${this.renderIcon("Lock")}
+              </div>
+            </div>
+            <h2
+              style="
+                margin: 0 0 8px;
+                font-size: 16px;
+                line-height: 1.35;
+                font-weight: 600;
+                color: #010507;
+              "
+            >
+              Long-term memory
+            </h2>
+            <p
+              style="
+                margin: 0 auto 18px;
+                max-width: 380px;
+                font-size: 13px;
+                line-height: 1.55;
+                color: #57575b;
+              "
+            >
+              ${
+                this._memoryStoreUnsupported
+                  ? "Long-term memory isn't available in this version of the @copilotkit SDK. Upgrade @copilotkit/core (and @copilotkit/react) to a version that supports memory."
+                  : "Long-term memory isn't enabled on this deployment."
+              }
+            </p>
+            <div
+              style="
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 8px;
+              "
+            >
+              <a
+                href=${this.getTalkToEngineerUrl()}
+                target="_blank"
+                rel="noopener"
+                style="
+                  display: inline-flex;
+                  min-height: 34px;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  border-radius: 6px;
+                  background: #010507;
+                  padding: 8px 12px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #ffffff;
+                  text-decoration: none;
+                "
+                @click=${this.handleThreadsTalkToEngineerClick}
+              >
+                Talk to an Engineer
+              </a>
+              <a
+                href=${this.getIntelligenceSignupUrl()}
+                target="_blank"
+                rel="noopener"
+                style="
+                  display: inline-flex;
+                  min-height: 34px;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                  border-radius: 6px;
+                  border: 1px solid #dbdbe5;
+                  background: #ffffff;
+                  padding: 8px 12px;
+                  font-size: 12px;
+                  font-weight: 600;
+                  color: #57575b;
+                  text-decoration: none;
+                "
+                @click=${this.handleThreadsIntelligenceSignupClick}
+              >
+                Sign up for Intelligence
+              </a>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // 2. Full-screen error — only for a snapshot-LOAD failure (no memories
+    // loaded). A mutation failure that arrives while memories are already on
+    // screen must NOT blank the list; it is surfaced inline below (step 4).
+    if (this._memoriesError && this._memories.length === 0) {
+      return html`
+        <div
+          style="
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #838389;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#c0333a"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span style="font-size: 13px; color: #c0333a;">
+            Failed to load memories
+          </span>
+          <span
+            style="
+              max-width: 320px;
+              text-align: center;
+              font-size: 11px;
+              line-height: 1.5;
+              color: #c0333a;
+            "
+          >
+            ${this._memoriesError.message}
+          </span>
+        </div>
+      `;
+    }
+
+    // 3. Initial loading placeholder (no memories yet to show behind it).
+    if (this._memoriesLoading && this._memories.length === 0) {
+      return html`
+        <div
+          style="
+            display: flex;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: #838389;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#c0c0c8"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+          <span style="font-size: 13px">Loading memories…</span>
+        </div>
+      `;
+    }
+
+    // 4. Content — header + memory list.
+    return html`
+      <div style="display:flex;height:100%;overflow:hidden;flex-direction:column;">
+        <div class="cpk-section-header" style="display:flex;align-items:center;justify-content:space-between;">
+          <h4>Learning</h4>
+          <div style="display:flex;align-items:center;gap:6px;">
+            ${this.renderMemoryRealtimeIndicator()}
+            <span
+              style="
+                font-size: 11px;
+                font-weight: 500;
+                color: #57575b;
+                background: rgba(0,0,0,0.07);
+                border-radius: 9999px;
+                padding: 1px 7px;
+              "
+            >
+              ${this._memories.length}
+            </span>
+          </div>
+        </div>
+        ${
+          this._memoriesError
+            ? html`
+                <div
+                  role="alert"
+                  style="
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 8px;
+                    flex-shrink: 0;
+                    border-bottom: 1px solid #f1c7c9;
+                    background: #fdf3f3;
+                    padding: 8px 12px;
+                    color: #c0333a;
+                    font-size: 12px;
+                    line-height: 1.45;
+                  "
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="#c0333a"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    style="flex-shrink:0;margin-top:1px;"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span>Action failed: ${this._memoriesError.message}</span>
+                </div>
+              `
+            : nothing
+        }
+        <div style="flex:1;min-height:0;overflow:hidden;">
+          <cpk-memory-list
+            style="height:100%;"
+            .memories=${this._memories}
+          ></cpk-memory-list>
         </div>
       </div>
     `;
@@ -8160,6 +9020,16 @@ ${prettyEvent}</pre
         trackThreadsTabClicked(this.getThreadsTelemetryProps());
       }
       this.autoSelectLatestThread();
+    }
+
+    if (key === "memories") {
+      // Lazily create + subscribe to the memory store on first activation. This
+      // is the only place that touches getMemoryStore(), so the store/realtime
+      // are never started just by attaching the inspector.
+      this.ensureMemorySubscription();
+      if (previousMenu !== "memories" && !this.core?.telemetryDisabled) {
+        trackMemoriesTabClicked(this.getMemoriesTelemetryProps());
+      }
     }
 
     if (key === "ag-ui-events" || key === "agents") {

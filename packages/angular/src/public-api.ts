@@ -14,6 +14,7 @@ export * from "./lib/scroll-position";
 export * from "./lib/resize-observer";
 export * from "./lib/utils";
 export * from "./lib/agent-context";
+export * from "./lib/memories";
 export type {
   Attachment,
   AttachmentModality,
@@ -78,4 +79,12 @@ export type {
   StaticSuggestionsConfig,
   Suggestion,
   SuggestionsConfig,
+} from "@copilotkit/core";
+
+export type {
+  Memory,
+  NewMemory,
+  MemoryChanges,
+  MemoryKind,
+  MemoryScope,
 } from "@copilotkit/core";
