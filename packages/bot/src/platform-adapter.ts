@@ -142,6 +142,15 @@ export interface IncomingReaction extends IngressEventBase {
   /** Id of the reacted-to message. */
   messageId: string;
   /**
+   * Key under which a `<Message onReaction>` handler was persisted for this
+   * message, when it differs from {@link messageId}. Needed on adapters where
+   * the reaction arrives keyed by a provider id (e.g. a Slack `ts`) while the
+   * handler was registered under the SDK post-time ref — the engine resolves
+   * the per-message handler by `postedMessageId ?? messageId`. Omit when the
+   * reacted-message id already equals the post ref (the common case).
+   */
+  postedMessageId?: string;
+  /**
    * Update-capable ref to the reacted message (the platform-specific shape the
    * adapter's `update`/`delete` accept). Lets a `<Message onReaction>` handler
    * swap the message's UI in place. Adapters that can edit messages should set

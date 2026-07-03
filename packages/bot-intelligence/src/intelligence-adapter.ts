@@ -386,6 +386,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
           conversationKey: env.conversationKey,
           replyTarget,
           messageId: env.messageId,
+          // The reaction arrives keyed by the provider ts; app-api reverse-maps
+          // it to the SDK post-time ref so a `<Message onReaction>` handler
+          // (persisted under that ref) resolves. `messageId` stays the ts.
+          ...(env.postedRef ? { postedMessageId: env.postedRef } : {}),
           threadId: env.threadId,
           raw: env,
         });

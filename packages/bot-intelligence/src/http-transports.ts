@@ -178,6 +178,9 @@ interface ClaimedDelivery {
           added: boolean;
           messageId: string;
           threadId?: string;
+          /** SDK post-time ref the reacted message maps to (reverse-resolved by
+           * app-api), so a `<Message onReaction>` handler can be found. */
+          postedRef?: string;
         }
       | {
           kind: "interaction";
@@ -281,6 +284,7 @@ function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
       added: input.added,
       messageId: input.messageId,
       ...(input.threadId ? { threadId: input.threadId } : {}),
+      ...(input.postedRef ? { postedRef: input.postedRef } : {}),
     };
   }
 
