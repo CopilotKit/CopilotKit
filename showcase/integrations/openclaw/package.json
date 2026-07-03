@@ -18,6 +18,7 @@
     "next": "^15.5.15",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "yaml": "^2.8.4",
     "zod": "^3.24.0"
   },
   "devDependencies": {
@@ -29,5 +30,15 @@
     "postcss": "^8.5.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.7.0"
+  },
+  "overrides": {
+    "@copilotkit/web-inspector": {
+      "@copilotkit/core": "1.59.4"
+    }
+  },
+  "pnpm": {
+    "overrides": {
+      "@copilotkit/web-inspector>@copilotkit/core": "1.59.4"
+    }
   }
 }
