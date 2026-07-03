@@ -135,10 +135,26 @@ prompt text is). The D5 image path is unaffected.
   langgraph-python itself marks these not-supported (a `@copilotkit/react-core/v2`
   interrupt RESUME-PATH hook bug).
 
-## Operational (planned follow-ups)
+## Operational (CI wiring + planned follow-ups)
 
-- **Not wired for deploy/CI.** `deployed: false`; no `showcase_deploy.yml` entry,
-  Railway service, or GHCR image yet. Verified **local-D5-only**.
+- **PR build-check: WIRED.** `showcase_build_check.yml` carries a `hermes` slot,
+  so every PR touching `showcase/integrations/hermes/**` builds the image
+  (`push: false`) — exercising the fork git-install (clone + source-build of
+  `hermes-agent[agui]`) and catching Dockerfile / requirements / fork-SHA
+  breakage pre-merge. No Railway needed.
+- **On-demand aimock E2E: WIRED.** `test_e2e-showcase-on-demand.yml` accepts
+  `hermes` (comment `/test-aimock hermes` or `workflow_dispatch`). A dedicated
+  `hermes` agent_type (detected by `run_backend.py`) boots the adapter against
+  aimock with the `HERMES_AGUI_*` env from `entrypoint.sh`, then runs the
+  Playwright specs in `tests/e2e/`. Acceptance = a `workflow_dispatch` run
+  (GH-Actions-only; not locally executable).
+- **Deploy: intentionally NOT wired.** `deployed: false`; no
+  `showcase_build.yml`/`showcase_deploy.yml` entry, no Railway service /
+  `railway-envs.ts` SSOT entry, no pushed GHCR image. Blocked on the adapter
+  landing upstream + a provisioned Railway service (do not fabricate a
+  `railway_id`). Dashboard D5 in CI is deploy-coupled, so it follows deploy.
+  Until then, D5 coverage is **local-only** (`bin/showcase test hermes:<demo>
+  --d5 --direct`).
 - `npm run dev` starts Next **and** the single `:8000` Hermes backend
   (`concurrently`); it does not start aimock — use `bin/showcase up aimock hermes`
   for the full fixture-backed stack.
