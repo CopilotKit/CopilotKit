@@ -112,12 +112,31 @@ the snapshot is emitted after the tool completes (end-state is identical). Same
 
 ## Shared harness / cross-integration edits
 
-To settle A2UI surfaces that render **without a trailing text bubble**, two
-**shared** D5 probes gained an additive `completeOnMount` conjunct
-(`d5-gen-ui-a2ui-fixed.ts`, `d5-beautiful-chat-search-flights.ts`), and
-langgraph-python's FlightCard renderer gained a `data-testid="beautiful-chat-flight-card"`
-(strict superset — langgraph still mounts it). Both langgraph guards
-(`a2ui-fixed-schema`, `beautiful-chat`) verified green after the change.
+Two **shared** D5 probes gained a `completeOnMount` conjunct so an A2UI
+surface that mounts progressively (its bubble text never stabilises for the
+settle window → `reason=text-unstable`) completes on "surface mounted" instead
+of "text settled". The two cases differ in blast radius, and that distinction
+is load-bearing:
+
+- **`d5-gen-ui-a2ui-fixed.ts` — unconditional (all integrations).** The
+  a2ui-fixed-schema demo renders via A2UI in **every** integration, so its
+  `a2ui-fixed-card` testid is universal (present in all 21 integration
+  renderers, pre-existing on `main`). Applying `completeOnMount` to every slug
+  is a strict superset — verified.
+- **`d5-beautiful-chat-search-flights.ts` — scoped to hermes ONLY.**
+  beautiful-chat's FlightCard is A2UI-rendered (`render_a2ui`) **only on
+  hermes**; every other integration renders it **natively** and settles on
+  text as it always has, and does **not** emit the `beautiful-chat-flight-card`
+  testid. So `completeOnMount` here is gated on `ctx.integrationSlug ===
+  "hermes"` — applying it unconditionally would require a surface the 17 peers
+  never mount and would red their previously-green turn. hermes's renderer is
+  the only one carrying the `beautiful-chat-flight-card` testid; no peer
+  renderer was modified (an earlier revision added it to langgraph-python and
+  swapped the probe unconditionally — reverted, because langgraph renders
+  beautiful-chat natively and stays green on text-settle).
+
+Verified: hermes `a2ui-fixed-schema` + `beautiful-chat` D5-green; peer
+renderers byte-identical to `main` (no cross-integration regression).
 
 ## multimodal — no PDF flatten
 

@@ -447,7 +447,6 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
 
       return (
         <div
-          data-testid="beautiful-chat-flight-card"
           style={{
             border: `1px solid ${c.border}`,
             borderRadius: "16px",
