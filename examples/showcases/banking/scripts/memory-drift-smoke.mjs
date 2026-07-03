@@ -122,8 +122,13 @@ async function runOverLimitTurn() {
         "path/body shape matches this runtime version (see header NOTE).",
     );
   }
-  // Stream the SSE response and scan for a recall_memory tool call. We stop as soon
-  // as we see it (the agent then proceeds to HITL cards we can't answer headlessly).
+  // Drain the FULL turn's SSE (until the run ends or the deadline) before scanning.
+  // We must not early-return on the first recall_memory frame: because RECALL FIRST
+  // makes recall stream before anything else, a spurious general save_memory (rule 9
+  // leak) streams AFTER it — cancelling the reader on recall would cut that frame off
+  // and make the negative-save assertion a false negative. The turn ends after the
+  // agent emits its tool calls (the HITL cards are answered on the NEXT turn, which
+  // we never send), so draining terminates naturally; the deadline is a backstop.
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
@@ -132,12 +137,12 @@ async function runOverLimitTurn() {
     const { value, done } = await reader.read();
     if (done) break;
     buf += decoder.decode(value, { stream: true });
-    if (/recall_memory/.test(buf)) {
-      reader.cancel().catch(() => {});
-      return { recalled: true, sawSave: /save_memory/.test(buf) };
-    }
   }
-  return { recalled: false, sawSave: /save_memory/.test(buf) };
+  reader.cancel().catch(() => {});
+  return {
+    recalled: /recall_memory/.test(buf),
+    sawSave: /save_memory/.test(buf),
+  };
 }
 
 console.log(
