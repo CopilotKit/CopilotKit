@@ -10,7 +10,11 @@ export default function AgenticChatReasoningDemo() {
   return (
     // @region[provider-setup]
     <CopilotKit runtimeUrl="/api/copilotkit" agent="agentic-chat-reasoning">
-      <Chat />
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
+      </div>
     </CopilotKit>
     // @endregion[provider-setup]
   );
@@ -20,7 +24,9 @@ export default function AgenticChatReasoningDemo() {
 function Chat() {
   useAgenticChatReasoningSuggestions();
   // @region[render-chat]
-  return <CopilotChat agentId="agentic-chat-reasoning" />;
+  return (
+    <CopilotChat agentId="agentic-chat-reasoning" className="h-full rounded-2xl" />
+  );
   // @endregion[render-chat]
 }
 // @endregion[chat-component]
