@@ -37,6 +37,10 @@ RUN npm install -g openclaw@2026.6.11
 COPY --chown=app:app --from=frontend /app/.next ./.next
 COPY --from=frontend /app/node_modules ./node_modules
 COPY --from=frontend /app/package.json ./
+# demos/layout.tsx reads manifest.yaml at request time (per-demo <title>), so it
+# must exist at the runtime cwd or every demo page throws a Server Components
+# render error (ENOENT). The home page is prerendered so it embeds the data.
+COPY --from=frontend /app/manifest.yaml ./manifest.yaml
 
 # Gateway setup script + vendored forked clawg-ui plugin, and the entrypoint
 COPY gateway/ ./gateway/
