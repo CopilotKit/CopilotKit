@@ -25,7 +25,9 @@ else
   echo "[entrypoint] OPENAI_API_KEY: set (${#OPENAI_API_KEY} chars)"
 fi
 
-# The Hermes AG-UI adapter (vendored under /app/agui_adapter). With
+# The Hermes AG-UI adapter is NOT vendored — it installs as part of
+# `hermes-agent[agui]` from the fork pinned in requirements.txt into
+# /opt/venv, and `run_backend.py` (at /app) imports it from there. With
 # HERMES_AGUI_BASE_URL set, the adapter bypasses the hermes provider resolver
 # and talks to the given OpenAI-compatible endpoint directly (aimock in the D5
 # harness) — deterministic, no real provider tokens. api_mode=chat_completions
@@ -56,8 +58,16 @@ echo "[entrypoint] HERMES_AGUI_MODEL=${HERMES_AGUI_MODEL} PROVIDER=${HERMES_AGUI
 
 # Start agent backend on :8000 with log prefixing so its output is
 # distinguishable from Next.js in the log stream.
+#
+# `env -u PORT`: the adapter's entry.py resolves its bind port as
+# `PORT or HERMES_AGUI_PORT or 8000` — i.e. a generic `PORT` (a common PaaS
+# convention, e.g. Railway) takes precedence. In THIS container `PORT` is the
+# Next.js port (default 10000), so we strip it from the adapter's environment
+# to force the fall-through to HERMES_AGUI_PORT=8000; otherwise the adapter
+# would bind Next's port and the two would collide. Next.js still sees PORT
+# (it is launched separately below with PORT scoped to its invocation).
 echo "[entrypoint] Starting Python Hermes AG-UI adapter (run_backend.py, showcase tools registered) on port 8000..."
-python -u run_backend.py &> >(awk '{print "[agent] " $0; fflush()}') &
+env -u PORT python -u run_backend.py &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 
 # Health-probe the agent's /health before starting Next.js (mirror the
