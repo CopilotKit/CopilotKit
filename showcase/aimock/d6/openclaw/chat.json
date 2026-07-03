@@ -1,0 +1,7 @@
+{
+  "_meta": {
+    "description": "D6 chat fixtures for openclaw. Placeholder — agentic-chat fixtures live in d4; per-demo D6 fixtures are added as demos gain behavioral e2e coverage.",
+    "created": "2026-07-03"
+  },
+  "fixtures": []
+}

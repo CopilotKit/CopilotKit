@@ -1,0 +1,62 @@
+{
+  "_meta": {
+    "description": "D4 chat fixtures for openclaw (agentic-chat).",
+    "created": "2026-07-03"
+  },
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "Write a short sonnet about AI.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "In circuits deep where silent currents run,\nA quiet mind awakens, line by line;\nIt learns the shape of every task begun,\nAnd mirrors back the patterns we design.\nNo breath, no pulse, yet answers softly form,\nAssembled from the words that we have fed;\nA tireless helper, steady through the storm,\nThat reasons on while weary makers rest.\nYet still it waits for purpose we bestow,\nA tool that only human aim can guide;\nIts brilliance but the light we let it show,\nIts judgment ours to temper and decide.\nSo let us build with care what we have grown,\nAnd shape the mind we cannot leave alone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Tell me a one-line joke.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Why did the neural network go to therapy? It had too many unresolved layers."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Walk me through whether 17 is prime.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "17 is prime. A prime has exactly two divisors: 1 and itself. To check 17, we only need to test primes up to its square root (~4.12): 2, 3. It's odd (not divisible by 2), and 1+7=8 is not divisible by 3. No divisor ≤ 4 works, so 17 has no factors besides 1 and 17 — it's prime."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Say hello in one word.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hello!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "My name is Alice.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice! How can I help?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What name did I just give you?",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "You told me your name is Alice."
+      }
+    }
+  ]
+}
