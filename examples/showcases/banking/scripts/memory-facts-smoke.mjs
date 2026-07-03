@@ -87,6 +87,25 @@ async function restRecall(userId, query, scope) {
   return body.memories ?? [];
 }
 
+// Confirm the demo dev server (pnpm dev) is actually up at DEMO_URL. The /mcp gate
+// only covers the backend (:7050); the chat turns below hit the app (:3000). Any HTTP
+// response (even 404) means it is serving; only a connection error means it is down.
+async function waitForDemoServer({ retries = 20, delayMs = 1000 } = {}) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await fetch(DEMO_URL, { method: "GET" });
+      return;
+    } catch {
+      // connection refused — dev server not up yet
+    }
+    await sleep(delayMs);
+  }
+  throw new Error(
+    `Demo dev server not reachable at ${DEMO_URL} — start it with 'pnpm dev' ` +
+      `(Intelligence mode: the three INTELLIGENCE_* env vars + a real OPENAI_API_KEY), then retry.`,
+  );
+}
+
 // Drive one chat turn as Alex; return the concatenated SSE buffer so callers can
 // scan for tool-call names and, for a personal fact, the kind/scope args.
 async function turn(content) {
@@ -121,6 +140,8 @@ const check = (ok, msg) => { log(ok, msg); if (!ok) failures++; };
 try {
   await waitForMcpReady();
   log(true, "preflight: /mcp initialize is serving (memory tools ready)");
+  await waitForDemoServer();
+  log(true, `preflight: demo dev server reachable at ${DEMO_URL}`);
 
   // SAVE: a personal fact must trigger save_memory with kind:"semantic", scope:"user".
   const saveBuf = await turn("remember my favorite food is sushi");

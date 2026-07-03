@@ -119,6 +119,25 @@ async function waitForMcpReady({ retries = 30, delayMs = 1000 } = {}) {
   );
 }
 
+// Confirm the demo dev server (pnpm dev) is up at DEMO_URL. The /mcp gate only covers
+// the backend (:7050); the over-limit run below hits the app (:3000). Any HTTP response
+// means it is serving; only a connection error means it is down.
+async function waitForDemoServer({ retries = 20, delayMs = 1000 } = {}) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await fetch(DEMO_URL, { method: "GET" });
+      return;
+    } catch {
+      // connection refused — dev server not up yet
+    }
+    await sleep(delayMs);
+  }
+  throw new Error(
+    `Demo dev server not reachable at ${DEMO_URL} — start it with 'pnpm dev' ` +
+      `(Intelligence mode: the three INTELLIGENCE_* env vars + a real OPENAI_API_KEY), then retry.`,
+  );
+}
+
 async function seedProcedureMemory() {
   const res = await fetch(`${APP_API_URL}/api/memories`, {
     method: "POST",
@@ -208,6 +227,8 @@ console.log(
 try {
   await waitForMcpReady();
   log(true, "preflight: /mcp initialize is serving (memory tools ready)");
+  await waitForDemoServer();
+  log(true, `preflight: demo dev server reachable at ${DEMO_URL}`);
 
   const seeded = await seedProcedureMemory();
   log(
