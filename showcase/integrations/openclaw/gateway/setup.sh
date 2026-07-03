@@ -68,10 +68,15 @@ printf '%s\n' "${OPENAI_API_KEY:?OPENAI_API_KEY must be set}" \
 
 # Route model calls through an OpenAI-compatible endpoint (e.g. aimock) when set,
 # for deterministic showcase demos. Unset => real OpenAI.
+# When routed at aimock, also inject the static X-AIMock-Context header on every
+# outbound LLM request: unlike the in-process peers, OpenClaw's model call happens
+# in this separate gateway process, so the browser's per-request header never
+# reaches it — but the container serves exactly one slug, so the context is
+# constant and can be baked as a provider header here.
 if [ -n "${OPENAI_BASE_URL:-}" ]; then
-  echo "[setup] routing openai provider at OPENAI_BASE_URL=$OPENAI_BASE_URL"
+  echo "[setup] routing openai provider at OPENAI_BASE_URL=$OPENAI_BASE_URL (+ X-AIMock-Context: openclaw)"
   openclaw config patch --stdin >/dev/null <<JSON
-{ models: { providers: { openai: { baseUrl: "$OPENAI_BASE_URL" } } } }
+{ models: { providers: { openai: { baseUrl: "$OPENAI_BASE_URL", headers: { "X-AIMock-Context": "openclaw" } } } } }
 JSON
 fi
 
