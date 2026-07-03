@@ -95,6 +95,15 @@ export const drawerStyles = css`
     border-right: 1px solid var(--_border);
     overflow: hidden;
     transition: width 0.2s ease;
+    /* Positioning context for the confirm-delete dialog's absolutely-positioned
+       backdrop (see .dialog-backdrop). Without this the backdrop's inset:0
+       resolves against the initial containing block (the viewport) and its
+       low z-index competes in the light-DOM root stacking context, so on
+       desktop the dialog escapes the drawer column and paints UNDER the chat
+       input (which sits in a sibling column). Anchoring here confines the
+       modal to the drawer, where its z-index only needs to beat the rows.
+       The mobile path already establishes its own context via position:fixed. */
+    position: relative;
   }
 
   .root.collapsed {
