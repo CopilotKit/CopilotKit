@@ -32,6 +32,13 @@
  *   - The demo dev server is running in Intelligence mode (the three INTELLIGENCE_*
  *     env vars set) with a real OPENAI_API_KEY.
  *
+ * READINESS GATE
+ *   The Intelligence sl-mcp worker can throw an UnhandledPromiseRejection during boot
+ *   and briefly drop /mcp connections even after `docker compose up --wait` reports the
+ *   container healthy. This smoke first polls `POST /mcp initialize` until it returns 200,
+ *   so it only runs once memory is actually serving — a booting/down backend fails fast
+ *   with a clear message instead of masquerading as recall drift.
+ *
  * USAGE
  *   node scripts/memory-drift-smoke.mjs
  * ENV (optional)
@@ -61,6 +68,55 @@ const SEED_CODE = "EXC-BOARD-APPROVED";
 
 function log(ok, msg) {
   console.log(`${ok ? "✓" : "✗"} ${msg}`);
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Poll POST /mcp `initialize` until the sl-mcp worker answers 200 and the SSE body
+// completes without a reset. Guards against the Intelligence backend's boot window,
+// where the worker throws an UnhandledPromiseRejection and drops /mcp connections even
+// though the container reports healthy — running against that window makes the agent
+// lose recall_memory mid-run and looks like drift. Fails fast so a booting backend
+// never masquerades as a prompt regression.
+async function waitForMcpReady({ retries = 30, delayMs = 1000 } = {}) {
+  const body = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: {
+      protocolVersion: "2025-11-25",
+      capabilities: {},
+      clientInfo: { name: "smoke-preflight", version: "1" },
+    },
+  });
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(`${APP_API_URL}/mcp`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${KEY}`,
+          "X-Cpki-User-Id": USER_ID,
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          "mcp-protocol-version": "2025-11-25",
+        },
+        body,
+      });
+      if (res.ok) {
+        await res.text(); // reading the body catches a mid-stream reset
+        return;
+      }
+    } catch {
+      // connection refused / reset during boot — keep polling
+    }
+    await sleep(delayMs);
+  }
+  throw new Error(
+    `MCP not ready after ${retries * delayMs}ms — the Intelligence sl-mcp worker never ` +
+      `stabilized at POST ${APP_API_URL}/mcp (initialize). Bring up / restart the stack ` +
+      `(docker compose up -d --wait) and confirm 'docker logs' shows no boot-time ` +
+      `UnhandledPromiseRejection, then retry.`,
+  );
 }
 
 async function seedProcedureMemory() {
@@ -150,6 +206,9 @@ console.log(
 );
 
 try {
+  await waitForMcpReady();
+  log(true, "preflight: /mcp initialize is serving (memory tools ready)");
+
   const seeded = await seedProcedureMemory();
   log(
     true,

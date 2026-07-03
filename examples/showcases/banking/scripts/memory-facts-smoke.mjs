@@ -11,6 +11,14 @@
  * REQUIREMENTS: the memory stack is up and the demo runs in Intelligence mode
  * with a real OPENAI_API_KEY (see README). Uses two seeded users:
  *   ALEX_ID -> jordan-beamson, MAYA_ID -> morgan-fluxx.
+ *
+ * READINESS GATE: the Intelligence sl-mcp worker can throw an UnhandledPromiseRejection
+ * during boot and briefly drop /mcp connections even after `docker compose up --wait`
+ * reports the container healthy. Running against that window makes the agent lose its
+ * memory tools mid-run and surfaces as unrelated failures. This smoke first polls
+ * `POST /mcp initialize` until it returns 200, so it only runs once memory is actually
+ * serving. If you see connection resets or "no fixture matched" style flakes, it is the
+ * backend startup window, not this script.
  */
 const DEMO_URL = process.env.DEMO_URL ?? "http://localhost:3000";
 const APP_API_URL = process.env.APP_API_URL ?? "http://localhost:7050";
@@ -19,6 +27,44 @@ const ALEX = { memberId: "9g5h2j1k4l", role: "Admin", userId: "jordan-beamson" }
 const MAYA = { userId: "morgan-fluxx" };
 
 function log(ok, msg) { console.log(`${ok ? "✓" : "✗"} ${msg}`); }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Poll POST /mcp `initialize` until the sl-mcp worker answers 200 and the SSE body
+// completes without a reset. Guards against the Intelligence backend's boot window,
+// where the worker throws an UnhandledPromiseRejection and drops /mcp connections
+// even though the container reports healthy. Fails fast with a clear message so a
+// down/booting backend never masquerades as a feature regression.
+async function waitForMcpReady({ retries = 30, delayMs = 1000 } = {}) {
+  const body = JSON.stringify({
+    jsonrpc: "2.0", id: 1, method: "initialize",
+    params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "smoke-preflight", version: "1" } },
+  });
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch(`${APP_API_URL}/mcp`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${KEY}`,
+          "X-Cpki-User-Id": ALEX.userId,
+          "Content-Type": "application/json",
+          Accept: "application/json, text/event-stream",
+          "mcp-protocol-version": "2025-11-25",
+        },
+        body,
+      });
+      if (res.ok) { await res.text(); return; } // reading the body catches a mid-stream reset
+    } catch {
+      // connection refused / reset during boot — keep polling
+    }
+    await sleep(delayMs);
+  }
+  throw new Error(
+    `MCP not ready after ${retries * delayMs}ms — the Intelligence sl-mcp worker never ` +
+      `stabilized at POST ${APP_API_URL}/mcp (initialize). Bring up / restart the stack ` +
+      `(docker compose up -d --wait) and confirm 'docker logs' shows no boot-time ` +
+      `UnhandledPromiseRejection, then retry.`,
+  );
+}
 
 async function restSave(userId, content, kind, scope) {
   const res = await fetch(`${APP_API_URL}/api/memories`, {
@@ -73,6 +119,9 @@ let failures = 0;
 const check = (ok, msg) => { log(ok, msg); if (!ok) failures++; };
 
 try {
+  await waitForMcpReady();
+  log(true, "preflight: /mcp initialize is serving (memory tools ready)");
+
   // SAVE: a personal fact must trigger save_memory with kind:"semantic", scope:"user".
   const saveBuf = await turn("remember my favorite food is sushi");
   const saved = /save_memory/.test(saveBuf);
