@@ -234,6 +234,117 @@ describe("ProxiedCopilotRuntimeAgent capabilities", () => {
   });
 });
 
+// Regression test for CopilotKit/CopilotKit#5813: a direct `agent.runAgent()`
+// call (bypassing `CopilotKitCore.runAgent`) must still forward frontend tools
+// supplied by `toolsProvider` in `RunAgentInput.tools`.
+describe("ProxiedCopilotRuntimeAgent frontend tools forwarding (#5813)", () => {
+  const originalFetch = global.fetch;
+  const runtimeUrl = "https://runtime.example/tools";
+
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn(() => Promise.resolve(createSseResponse()));
+    global.fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    global.fetch = originalFetch;
+  });
+
+  const frontendTool = {
+    name: "confirmSkillMd",
+    description: "Confirm the generated SKILL.md",
+    parameters: {
+      type: "object" as const,
+      properties: {},
+    },
+  };
+
+  it("merges toolsProvider tools into a direct run() request", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "skill-agent",
+      transport: "rest",
+      toolsProvider: () => [frontendTool],
+    });
+
+    await agent.runAgent({});
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.tools).toEqual([frontendTool]);
+  });
+
+  it("merges toolsProvider tools into a direct connect() request", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "skill-agent",
+      transport: "rest",
+      toolsProvider: () => [frontendTool],
+    });
+
+    await agent.connectAgent({});
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.tools).toEqual([frontendTool]);
+  });
+
+  it("does not duplicate a tool already present on the input (input wins)", async () => {
+    const inputTool = {
+      name: "confirmSkillMd",
+      description: "input-provided version",
+      parameters: { type: "object" as const, properties: {} },
+    };
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "skill-agent",
+      transport: "rest",
+      toolsProvider: () => [frontendTool],
+    });
+
+    await agent.runAgent({ tools: [inputTool] });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.tools).toEqual([inputTool]);
+  });
+
+  it("is a no-op when toolsProvider is not set", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "skill-agent",
+      transport: "rest",
+    });
+
+    await agent.runAgent({});
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.tools ?? []).toEqual([]);
+  });
+
+  it("clone() preserves toolsProvider", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl,
+      agentId: "skill-agent",
+      transport: "rest",
+      toolsProvider: () => [frontendTool],
+    });
+
+    const cloned = agent.clone();
+    await cloned.runAgent({});
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string);
+    expect(body.tools).toEqual([frontendTool]);
+  });
+});
+
 describe("ProxiedCopilotRuntimeAgent cloning", () => {
   const originalFetch = global.fetch;
   const runtimeUrl = "https://runtime.example/single";

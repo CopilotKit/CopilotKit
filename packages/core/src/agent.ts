@@ -7,6 +7,7 @@ import type {
   RunAgentInput,
   RunAgentParameters,
   RunAgentResult,
+  Tool,
 } from "@ag-ui/client";
 import {
   HttpAgent,
@@ -95,6 +96,16 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
    * bookkeeping; only outbound routing is overridden.
    */
   runtimeAgentId?: string;
+  /**
+   * Supplies CopilotKit frontend tools (registered via `useFrontendTool`) for
+   * a given agent id. When present, `run()`/`connect()` merge these into
+   * `input.tools` so a DIRECT `agent.runAgent()` call still forwards frontend
+   * tools — matching the behaviour of `CopilotKitCore.runAgent({ agent })`,
+   * which is the only path that calls `buildFrontendTools()`. Without this,
+   * runs started via the raw agent (e.g. a custom starter chip) reach the
+   * backend with `tools: []`. See CopilotKit/CopilotKit#5813.
+   */
+  toolsProvider?: (agentId?: string) => Tool[];
 }
 
 export class ProxiedCopilotRuntimeAgent extends HttpAgent {
@@ -112,6 +123,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private _capabilities?: AgentCapabilities;
   private delegate?: AbstractAgent;
   private runtimeInfoPromise?: Promise<void>;
+  private toolsProvider?: (agentId?: string) => Tool[];
 
   constructor(config: ProxiedCopilotRuntimeAgentConfig) {
     const normalizedRuntimeUrl = config.runtimeUrl
@@ -141,6 +153,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.runtimeMode = config.runtimeMode ?? RUNTIME_MODE_SSE;
     this.intelligence = config.intelligence;
     this._capabilities = config.capabilities;
+    this.toolsProvider = config.toolsProvider;
     if (config.debug) {
       this.debug = config.debug;
     }
@@ -336,18 +349,48 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     }
   }
 
-  connect(input: RunAgentInput): Observable<BaseEvent> {
-    if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) {
-      return this.#connectViaDelegate(input);
+  /**
+   * Merge CopilotKit frontend tools (from `toolsProvider`) into the run input
+   * so a DIRECT `agent.runAgent()` call forwards them just like
+   * `CopilotKitCore.runAgent({ agent })` does. Tools already present on the
+   * input take precedence on a name collision, so callers that go through the
+   * core (which pre-populates `input.tools`) are never overwritten.
+   * See CopilotKit/CopilotKit#5813.
+   */
+  #withFrontendTools(input: RunAgentInput): RunAgentInput {
+    if (!this.toolsProvider) {
+      return input;
     }
-    return this.#connectViaHttp(input);
+    const frontendTools = this.toolsProvider(this.routedAgentId());
+    if (!frontendTools || frontendTools.length === 0) {
+      return input;
+    }
+    const existing = input.tools ?? [];
+    const existingNames = new Set(existing.map((t) => t.name));
+    const merged = [
+      ...existing,
+      ...frontendTools.filter((t) => !existingNames.has(t.name)),
+    ];
+    if (merged.length === existing.length) {
+      return input;
+    }
+    return { ...input, tools: merged };
+  }
+
+  connect(input: RunAgentInput): Observable<BaseEvent> {
+    const withTools = this.#withFrontendTools(input);
+    if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) {
+      return this.#connectViaDelegate(withTools);
+    }
+    return this.#connectViaHttp(withTools);
   }
 
   public run(input: RunAgentInput): Observable<BaseEvent> {
+    const withTools = this.#withFrontendTools(input);
     if (this.runtimeMode === RUNTIME_MODE_INTELLIGENCE) {
-      return this.#runViaDelegate(input);
+      return this.#runViaDelegate(withTools);
     }
-    return this.#runViaHttp(input);
+    return this.#runViaHttp(withTools);
   }
 
   #connectViaDelegate(input: RunAgentInput): Observable<BaseEvent> {
@@ -425,6 +468,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       intelligence: this.intelligence,
       capabilities: this._capabilities,
       debug: this.debug,
+      toolsProvider: this.toolsProvider,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);

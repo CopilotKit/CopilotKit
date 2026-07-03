@@ -279,6 +279,9 @@ export class AgentRegistry {
         : RUNTIME_MODE_SSE,
       intelligence: this._intelligence,
       debug: debug ? resolveDebugConfig(debug) : undefined,
+      // Forward frontend tools on direct agent.runAgent()/connectAgent() calls
+      // (CopilotKit/CopilotKit#5813).
+      toolsProvider: (id) => friends.buildFrontendTools(id),
     });
     this.applyHeadersToAgent(agent);
 
@@ -424,10 +427,9 @@ export class AgentRegistry {
         threadEndpoints?: ThreadEndpointRuntimeInfo;
       } = runtimeInfoResponse;
 
-      const credentials = (this.core as unknown as CopilotKitCoreFriendsAccess)
-        .credentials;
-      const rawDebug = (this.core as unknown as CopilotKitCoreFriendsAccess)
-        .debug;
+      const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
+      const credentials = friends.credentials;
+      const rawDebug = friends.debug;
       const agents: Record<string, AbstractAgent> = Object.fromEntries(
         Object.entries(runtimeInfo.agents).map(
           ([id, { description, capabilities }]) => {
@@ -462,6 +464,9 @@ export class AgentRegistry {
               intelligence: runtimeInfoResponse.intelligence,
               capabilities,
               debug: rawDebug ? resolveDebugConfig(rawDebug) : undefined,
+              // Forward frontend tools on direct agent.runAgent()/connectAgent()
+              // calls (CopilotKit/CopilotKit#5813).
+              toolsProvider: (aid) => friends.buildFrontendTools(aid),
             });
             this.applyHeadersToAgent(agent);
             return [id, agent];
