@@ -1847,6 +1847,74 @@ describe("IntelligenceAgent", () => {
 });
 
 describe("ProxiedCopilotRuntimeAgent (intelligence mode)", () => {
+  it("runs proxied MCP requests over HTTP instead of the intelligence delegate", async () => {
+    const sseBody = [
+      `data: ${JSON.stringify({
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        runId: "run-1",
+      })}`,
+      "",
+      `data: ${JSON.stringify({
+        type: EventType.RUN_FINISHED,
+        threadId: "thread-1",
+        runId: "run-1",
+      })}`,
+      "",
+    ].join("\n");
+
+    mockFetch.mockResolvedValueOnce(
+      new Response(sseBody, {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      }),
+    );
+
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost:4000/api/copilotkit",
+      agentId: "default",
+      runtimeMode: RUNTIME_MODE_INTELLIGENCE,
+      intelligence: { wsUrl: "ws://localhost:4401/client" },
+    });
+
+    const events: BaseEvent[] = [];
+    await new Promise<void>((resolve, reject) => {
+      agent
+        .run({
+          ...defaultInput,
+          forwardedProps: {
+            __proxiedMCPRequest: {
+              method: "resources/read",
+              serverId: "example_mcp_app",
+              serverHash: "server-hash",
+              params: { uri: "ui://excalidraw/mcp-app.html" },
+            },
+          },
+        })
+        .subscribe({
+          next: (event) => events.push(event),
+          complete: resolve,
+          error: reject,
+        });
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [url, init] = mockFetch.mock.calls[0]!;
+    expect(url).toBe("http://localhost:4000/api/copilotkit/agent/default/run");
+    expect(JSON.parse(init.body)).toMatchObject({
+      forwardedProps: {
+        __proxiedMCPRequest: {
+          method: "resources/read",
+          serverId: "example_mcp_app",
+        },
+      },
+    });
+    expect(events.map((event) => event.type)).toEqual([
+      EventType.RUN_STARTED,
+      EventType.RUN_FINISHED,
+    ]);
+  });
+
   // Mirrors the real demo wiring: Vite app → BFF runtime that exposes a
   // ProxiedCopilotRuntimeAgent in intelligence mode → IntelligenceAgent delegate
   // talking to the realtime gateway. On thread resume, gateway replay emits

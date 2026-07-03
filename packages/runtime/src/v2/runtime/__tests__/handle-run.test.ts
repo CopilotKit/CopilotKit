@@ -1,12 +1,60 @@
 import { EMPTY, Observable } from "rxjs";
 import { describe, it, expect, vi } from "vitest";
-import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
+import type {
+  BaseEvent,
+  Message,
+  RunAgentInput,
+  RunAgentResult,
+} from "@ag-ui/client";
 import { AbstractAgent, EventType, HttpAgent } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { handleRunAgent } from "../handlers/handle-run";
 import { CopilotRuntime } from "../core/runtime";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 import { InMemoryAgentRunner } from "../runner/in-memory";
+
+type RunCallbacks = {
+  onEvent: (event: { event: BaseEvent }) => void | Promise<void>;
+  onNewMessage?: (args: { message: Message }) => void | Promise<void>;
+  onRunStartedEvent?: () => void | Promise<void>;
+};
+
+class ProxiedMCPTestAgent extends AbstractAgent {
+  async runAgent(
+    input: RunAgentInput,
+    callbacks: RunCallbacks,
+  ): Promise<RunAgentResult> {
+    await callbacks.onEvent({
+      event: {
+        type: EventType.RUN_STARTED,
+        threadId: input.threadId,
+        runId: input.runId,
+      },
+    });
+    await callbacks.onRunStartedEvent?.();
+    await callbacks.onEvent({
+      event: {
+        type: EventType.RUN_FINISHED,
+        threadId: input.threadId,
+        runId: input.runId,
+      },
+    });
+
+    return { result: undefined, newMessages: [] };
+  }
+
+  run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    return EMPTY;
+  }
+
+  clone(): AbstractAgent {
+    return new ProxiedMCPTestAgent();
+  }
+}
 
 describe("handleRunAgent", () => {
   const createMockRuntime = (
@@ -161,6 +209,69 @@ describe("handleRunAgent", () => {
     });
     expect(recordedHeaders[0]).not.toHaveProperty("origin");
     expect(recordedHeaders[0]).not.toHaveProperty("content-type");
+  });
+
+  it("serves proxied MCP resource runs over SSE for intelligence runtimes", async () => {
+    const runtime = {
+      mode: "intelligence",
+      intelligence: {},
+      agents: Promise.resolve({ "test-agent": new ProxiedMCPTestAgent() }),
+      transcriptionService: undefined,
+      beforeRequestMiddleware: undefined,
+      afterRequestMiddleware: undefined,
+      runner: new IntelligenceAgentRunner({
+        url: "ws://localhost:4000/runner",
+      }),
+      a2ui: undefined,
+      mcpApps: undefined,
+      openGenerativeUI: undefined,
+      debug: false,
+    } as unknown as CopilotRuntime;
+
+    const request = new Request("https://example.com/agent/test-agent/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        threadId: "thread-1",
+        runId: "run-1",
+        state: {},
+        messages: [],
+        tools: [],
+        context: [],
+        forwardedProps: {
+          __proxiedMCPRequest: {
+            method: "resources/read",
+            serverId: "example_mcp_app",
+            serverHash: "server-hash",
+            params: { uri: "ui://excalidraw/mcp-app.html" },
+          },
+        },
+      }),
+    });
+
+    const response = await handleRunAgent({
+      runtime,
+      request,
+      agentId: "test-agent",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("text/event-stream");
+
+    const reader = response.body!.getReader();
+    const chunks: string[] = [];
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      chunks.push(
+        typeof value === "string" ? value : new TextDecoder().decode(value),
+      );
+    }
+    const body = chunks.join("");
+
+    expect(body).toContain('data: {"type":"RUN_STARTED"');
+    expect(body).toContain('data: {"type":"RUN_FINISHED"');
+    expect(() => JSON.parse(body)).toThrow();
   });
 
   const createMockAgentWithUse = () => {

@@ -1,4 +1,5 @@
 import { isIntelligenceRuntime } from "../core/runtime";
+import { InMemoryAgentRunner } from "../runner/in-memory";
 import { telemetry } from "../telemetry";
 import type { RunAgentParameters } from "./shared/agent-utils";
 import {
@@ -9,6 +10,12 @@ import {
 } from "./shared/agent-utils";
 import { handleIntelligenceRun } from "./intelligence/run";
 import { handleSseRun } from "./sse/run";
+
+function isProxiedMCPRequest(input: {
+  forwardedProps?: Record<string, unknown>;
+}): boolean {
+  return input.forwardedProps?.__proxiedMCPRequest !== undefined;
+}
 
 export async function handleRunAgent({
   runtime,
@@ -76,7 +83,7 @@ export async function handleRunAgent({
       );
     }
 
-    if (isIntelligenceRuntime(runtime)) {
+    if (isIntelligenceRuntime(runtime) && !isProxiedMCPRequest(input)) {
       return handleIntelligenceRun({
         runtime,
         request,
@@ -87,7 +94,9 @@ export async function handleRunAgent({
     }
 
     return handleSseRun({
-      runtime,
+      runtime: isProxiedMCPRequest(input)
+        ? { ...runtime, runner: new InMemoryAgentRunner() }
+        : runtime,
       request,
       agent,
       input,
