@@ -71,7 +71,7 @@ export function LearningTab() {
     } catch {
       if (isMountedRef.current) setLoaded(true);
     }
-  }, [role]);
+  }, [role, memberId]);
 
   const memoryEvents = cards.filter((c) => c.kind === "memory");
 
