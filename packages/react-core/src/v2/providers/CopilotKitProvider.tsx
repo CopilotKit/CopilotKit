@@ -737,16 +737,25 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   ]);
 
   // Sync render/tool arrays to the stable instance via setters.
-  // On mount, the constructor already receives the correct initial values,
-  // so we skip the first invocation. This is critical because child hooks
-  // (e.g., useFrontendTool, useHumanInTheLoop) register tools dynamically
-  // via addTool()/setRenderToolCalls() in their own effects, which fire
-  // BEFORE parent effects (React fires effects bottom-up). If the parent
-  // setter effects ran on mount, they would overwrite the children's tools.
+  //
+  // setTools — runs on every change including the first render cycle.
+  // This is intentional: when useFrontendTool hooks register via addTool()
+  // (child effects, which fire BEFORE parent effects in React), allTools
+  // updates on the same render cycle. We must call setTools() to replace
+  // the initial empty _tools array that was set during construction with the
+  // fully-populated list. Skipping the first invocation (as the guards below
+  // do for render/activity/custom arrays) would leave backends that receive
+  // RunAgentInput.tools (e.g. HttpAgent via CopilotRuntime) with an empty
+  // tools array on the first run. See: https://github.com/CopilotKit/CopilotKit/issues/5813
+  //
+  // setRenderToolCalls / setRenderActivityMessages / setRenderCustomMessages —
+  // skip the first invocation via didMountRef. This is still critical for
+  // these arrays because their child hooks register via addHookRenderToolCall()
+  // which bypasses setRenderToolCalls entirely, so running the setter on mount
+  // would overwrite already-registered child renderers.
   const didMountRef = useRef(false);
 
   useEffect(() => {
-    if (!didMountRef.current) return;
     copilotkit.setTools(allTools);
   }, [copilotkit, allTools]);
 
