@@ -109,12 +109,15 @@ async function waitForDemoServer({ retries = 20, delayMs = 1000 } = {}) {
 // Drive one chat turn as Alex; return the concatenated SSE buffer so callers can
 // scan for tool-call names and, for a personal fact, the kind/scope args.
 async function turn(content) {
-  const threadId = `facts-${content.length}-${Math.round(process.hrtime()[1])}`;
+  // A fresh UUID thread per turn: the Intelligence backend validates thread ids as
+  // UUIDs (a custom "facts-..." id 400s), and a new thread guarantees no in-thread
+  // context so cross-thread recall is the only way the agent can know a prior fact.
+  const threadId = crypto.randomUUID();
   const res = await fetch(`${DEMO_URL}/api/copilotkit/agent/default/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
     body: JSON.stringify({
-      threadId, runId: `${threadId}-run`, state: {},
+      threadId, runId: crypto.randomUUID(), state: {},
       properties: { userId: ALEX.memberId, userRole: ALEX.role },
       messages: [{ id: "m1", role: "user", content }],
       tools: [], context: [], forwardedProps: {},

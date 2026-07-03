@@ -161,12 +161,13 @@ async function seedProcedureMemory() {
 }
 
 async function runOverLimitTurn() {
-  // Minimal AG-UI RunAgentInput. A fresh threadId guarantees no in-thread context —
-  // the only way the agent can know the procedure is by calling recall_memory.
-  const threadId = `drift-${Date.now()}`;
+  // Minimal AG-UI RunAgentInput. A fresh UUID threadId guarantees no in-thread context
+  // (the only way the agent can know the procedure is by calling recall_memory) and
+  // satisfies the Intelligence backend's UUID validation (a custom "drift-..." id 400s).
+  const threadId = crypto.randomUUID();
   const body = {
     threadId,
-    runId: `${threadId}-run`,
+    runId: crypto.randomUUID(),
     state: {},
     // Alex -> jordan-beamson (the id we seed the procedure under). Makes the
     // smoke identity-self-sufficient so it passes against the unpinned live demo.
