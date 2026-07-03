@@ -1,0 +1,62 @@
+{
+  "_comment": "D5 fixture for /demos/tool-rendering-named-override. First prompt proves get_weather is suppressed by a named renderer returning null. Second prompt proves get_stock_price still falls through to the built-in catch-all renderer.",
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "named override weather suppression case",
+        "toolCallId": "call_d5_named_weather_001"
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "named override weather suppression case",
+        "toolName": "get_weather"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_named_weather_001",
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "named override weather suppression case",
+        "turnIndex": 0
+      },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "named override stock fallthrough case",
+        "toolCallId": "call_d5_named_stock_001"
+      },
+      "response": {
+        "content": "AAPL is trading at $189.42, up 1.27% on the day."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "named override stock fallthrough case",
+        "toolName": "get_stock_price"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_named_stock_001",
+            "name": "get_stock_price",
+            "arguments": "{\"ticker\":\"AAPL\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

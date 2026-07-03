@@ -10,8 +10,9 @@ import {
   GenericToolCard,
   LoadingCard,
   NewsCard,
+  type Email,
+  type NewsStory,
 } from "@/components/tool-cards";
-import type { Email, NewsStory } from "@/components/tool-cards";
 
 export const metadata: Metadata = {
   title: "Mock preview · Arcade × CopilotKit",

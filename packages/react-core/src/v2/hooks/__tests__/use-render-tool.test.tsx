@@ -1,5 +1,6 @@
 import React from "react";
 import { render } from "@testing-library/react";
+import { ToolCallStatus } from "@copilotkit/core";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { z } from "zod";
 import { useRenderTool } from "../use-render-tool";
@@ -117,6 +118,75 @@ describe("useRenderTool", () => {
       throw new Error("expected wildcard args to default to a zod schema");
     }
     expect(args.safeParse({ arbitrary: true }).success).toBe(true);
+  });
+
+  it("supports null renderers that destructure status", () => {
+    const core = createMockCore();
+    mockUseCopilotKit.mockReturnValue({ copilotkit: core });
+
+    const schema = z.object({ query: z.string() });
+
+    const Harness: React.FC = () => {
+      useRenderTool(
+        {
+          name: "searchDocs",
+          parameters: schema,
+          render: ({ status }) => {
+            expect(status).toBe(ToolCallStatus.Executing);
+            return null;
+          },
+        },
+        [],
+      );
+      useRenderTool(
+        {
+          name: "*",
+          render: ({ status }) => {
+            expect(status).toBe(ToolCallStatus.InProgress);
+            return null;
+          },
+        },
+        [],
+      );
+      return null;
+    };
+
+    render(<Harness />);
+
+    const namedRenderer = core.renderToolCalls.find(
+      (item) => item.name === "searchDocs",
+    );
+    const wildcardRenderer = core.renderToolCalls.find(
+      (item) => item.name === "*",
+    );
+
+    expect(namedRenderer).toBeDefined();
+    expect(wildcardRenderer).toBeDefined();
+
+    const NamedRender = namedRenderer!.render;
+    const WildcardRender = wildcardRenderer!.render;
+
+    const { container: namedContainer } = render(
+      <NamedRender
+        name="searchDocs"
+        toolCallId="tc-search"
+        args={{ query: "copilot" }}
+        status={ToolCallStatus.Executing}
+        result={undefined}
+      />,
+    );
+    const { container: wildcardContainer } = render(
+      <WildcardRender
+        name="unknownTool"
+        toolCallId="tc-wildcard"
+        args={{}}
+        status={ToolCallStatus.InProgress}
+        result={undefined}
+      />,
+    );
+
+    expect(namedContainer.childElementCount).toBe(0);
+    expect(wildcardContainer.childElementCount).toBe(0);
   });
 
   it("deduplicates by agentId:name and keeps unrelated entries", () => {

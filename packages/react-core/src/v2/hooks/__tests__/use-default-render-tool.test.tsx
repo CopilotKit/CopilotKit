@@ -1,5 +1,6 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { ToolCallStatus } from "@copilotkit/core";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   useDefaultRenderTool,
@@ -136,6 +137,54 @@ describe("useDefaultRenderTool", () => {
     });
     expect(customRender).toHaveBeenCalledTimes(1);
     expect(forwardedDeps).toBe(deps);
+  });
+
+  it("allows a custom catch-all renderer to render nothing while receiving status", () => {
+    const customRender = vi.fn(({ status }: DefaultRenderProps) => {
+      expect(status).toBe("inProgress");
+      return null;
+    });
+
+    const Harness: React.FC = () => {
+      useDefaultRenderTool({
+        render: customRender,
+      });
+      return null;
+    };
+
+    render(<Harness />);
+
+    expect(mockUseRenderTool).toHaveBeenCalledTimes(1);
+    const [config] = mockUseRenderTool.mock.calls[0] as [
+      {
+        name: string;
+        render: (props: {
+          name: string;
+          toolCallId: string;
+          args: unknown;
+          status: ToolCallStatus;
+          result: string | undefined;
+        }) => React.ReactNode;
+      },
+    ];
+
+    const rendered = config.render({
+      name: "searchDocs",
+      toolCallId: "tc-null-catchall",
+      args: { query: "copilot" },
+      status: ToolCallStatus.InProgress,
+      result: undefined,
+    });
+
+    expect(rendered).toBeNull();
+    expect(customRender).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "searchDocs",
+        toolCallId: "tc-null-catchall",
+        parameters: { query: "copilot" },
+        status: "inProgress",
+      }),
+    );
   });
 
   it("default renderer shows status and expands to show parameters/result", () => {

@@ -79,12 +79,13 @@ export type D5FeatureType =
   | "gen-ui-open-advanced"
   | "gen-ui-agent"
   // Tool-rendering catchall family — split from the shared `tool-rendering`
-  // literal so the default catchall (built-in renderer) and the custom
-  // catchall (user-supplied wildcard renderer) get their own probes that
-  // assert distinct testid contracts. See Phase-2A in
-  // `.claude/specs/lgp-test-genuine-pass.md`.
+  // literal so the built-in catchall, custom catchall, suppressed catchall,
+  // and named-override rows get their own probes that assert distinct
+  // renderer contracts. See Phase-2A in `.claude/specs/lgp-test-genuine-pass.md`.
   | "tool-rendering-default-catchall"
   | "tool-rendering-custom-catchall"
+  | "tool-rendering-suppress-catchall"
+  | "tool-rendering-named-override"
   // Interrupt family — LangGraph-interrupt-driven HITL (distinct from
   // useHumanInTheLoop hook patterns).
   | "gen-ui-interrupt"
@@ -156,6 +157,8 @@ const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
   "gen-ui-agent",
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
+  "tool-rendering-suppress-catchall",
+  "tool-rendering-named-override",
   "gen-ui-interrupt",
   "interrupt-headless",
   "tool-rendering-reasoning-chain",

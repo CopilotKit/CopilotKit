@@ -14,10 +14,8 @@ import {
   CopilotChat,
   useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
-import {
-  CustomCatchallRenderer,
-  type CatchallToolStatus,
-} from "./custom-catchall-renderer";
+import { CustomCatchallRenderer } from "./custom-catchall-renderer";
+import type { CatchallToolStatus } from "./custom-catchall-renderer";
 import { useSuggestions } from "./suggestions";
 
 export default function ToolRenderingCustomCatchallDemo() {

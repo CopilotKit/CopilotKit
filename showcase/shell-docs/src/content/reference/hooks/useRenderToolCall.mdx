@@ -90,6 +90,9 @@ function CustomChatMessage({ message }) {
 Tool call renderers are typically registered through `useFrontendTool` or directly via the `renderToolCalls` prop on the provider. The `useRenderToolCall` hook resolves these registrations at render time.
 
 ```tsx
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
 function App() {
   // Register a tool with a render component
   useFrontendTool(
@@ -166,12 +169,64 @@ function App() {
 }
 ```
 
+### Opting Out of Rendering
+
+Because the hook falls back to the built-in `DefaultToolCallRenderer` when no renderer matches, tool calls paint UI out-of-the-box. To suppress that -- render nothing for a tool call -- register a renderer whose `render` returns `null`. A registered renderer (even one returning `null`) takes priority over the built-in fallback, so no fallback UI is shown.
+
+Opt out of a single tool by name:
+
+```tsx
+function App() {
+  // Run the tool, but render nothing for it.
+  useFrontendTool(
+    {
+      name: "searchDatabase",
+      parameters: z.object({ query: z.string() }),
+      handler: async ({ query }) => {
+        /* ... */
+      },
+      render: ({ name, parameters, status, result }) => null,
+    },
+    [],
+  );
+
+  return <ChatInterface />;
+}
+```
+
+Opt out of all otherwise-unhandled tools with a wildcard catch-all renderer. This replaces the built-in fallback globally while still letting any tool with its own named renderer paint:
+
+```tsx
+import {
+  CopilotKit,
+  defineToolCallRenderer,
+} from "@copilotkit/react-core/v2";
+
+const suppressUnhandledToolCalls = defineToolCallRenderer({
+  name: "*",
+  render: ({ name, parameters, status, result }) => null,
+});
+
+function App() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      renderToolCalls={[suppressUnhandledToolCalls]}
+    >
+      <YourApp />
+    </CopilotKit>
+  );
+}
+```
+
+You can also opt out conditionally -- return `null` only for certain statuses (for example, render nothing while `InProgress` but show a result on `Complete`), since the `render` function receives the current `status`.
+
 ## Behavior
 
-- **Name-based lookup with agent scoping**: The renderer searches registered render configurations for an exact tool name match first. When multiple match the same name, it prefers the one scoped to the active `agentId`, then an unscoped renderer, then the first match. If no exact match exists, it falls back to a wildcard (`"*"`) renderer, and finally to the framework's built-in `DefaultToolCallRenderer`.
+- **Name-based lookup with agent scoping**: The renderer searches registered render configurations for an exact tool name match first. When multiple match the same name, it prefers the one scoped to the active `agentId`, then an unscoped renderer, then the first match. If no exact match exists, it falls back to a wildcard (`"*"`) catch-all renderer, and finally to the framework's built-in `DefaultToolCallRenderer`.
 - **Partial JSON parsing**: The tool call's `arguments` string is parsed with `partialJSONParse` before being passed to the render component, so partially-streamed arguments can render incrementally while the tool call is still `InProgress`.
 - **Status inference**: Status is determined from the presence of the `toolMessage` prop and whether the tool call id is in the provider's executing set. The render component always receives a consistent shape with `name`, `toolCallId`, `args`, `status`, and `result`.
-- **Default renderer for unmatched tools**: If no renderer is registered for the tool name and no wildcard renderer exists, the function falls back to the built-in `DefaultToolCallRenderer` rather than returning `null`, so unhandled tool calls still paint out-of-the-box.
+- **Built-in fallback for unmatched tools**: If no renderer is registered for the tool name and no wildcard renderer exists, the function falls back to the built-in `DefaultToolCallRenderer` rather than returning `null`, so unhandled tool calls still paint out-of-the-box.
 - **Used internally by chat components**: The built-in `CopilotChat`, `CopilotPopup`, and `CopilotSidebar` components use this hook to render tool calls. You only need to call it directly when building custom chat UIs.
 
 ### Disable default tool rendering

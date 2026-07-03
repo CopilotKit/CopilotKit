@@ -29,7 +29,7 @@ from copilotkit import CopilotKitMiddleware
 # a rigid recipe: we describe the *habit*, not a chain.
 SYSTEM_PROMPT = (
     "You are a helpful travel & lifestyle concierge. You have mock tools "
-    "for weather, flights, stock prices, and dice rolls - they all return "
+    "for weather, flights, stock prices, and d20 rolls - they all return "
     "fake data, so call them liberally.\n\n"
     "Your habit is to CHAIN tools when one answer naturally invites another. "
     "For a single user question, call at least TWO tools in succession when "
@@ -41,8 +41,8 @@ SYSTEM_PROMPT = (
     "  - 'How is AAPL doing?' -> call get_stock_price('AAPL'), then call "
     "get_stock_price on a related ticker (e.g. 'MSFT' or 'GOOGL') for "
     "comparison.\n"
-    "  - 'Roll a d20' -> call roll_dice(20), then call roll_dice again with "
-    "a different number of sides so the user sees a contrast.\n"
+    "  - 'Roll a d20' -> call roll_d20(value=20), then call roll_d20 again "
+    "with a different value so the user sees a contrast.\n"
     "  - 'Find flights from SFO to JFK' -> call search_flights, then call "
     "get_weather on the destination city.\n\n"
     "Only skip chaining when the user has clearly asked for a single, "
@@ -111,36 +111,52 @@ def search_flights(origin: str, destination: str) -> dict:
 
 
 @tool
-def get_stock_price(ticker: str) -> dict:
+def get_stock_price(
+    ticker: str,
+    price_usd: float | None = None,
+    change_pct: float | None = None,
+) -> dict:
     """Get a mock current price for a stock ticker.
 
-    When the user asks about a single ticker, consider also pulling a
-    related ticker for context (e.g. if they ask about 'AAPL', also
-    fetch 'MSFT' or 'GOOGL' so the reply can compare).
+    The optional `price_usd` and `change_pct` arguments let the LLM (or
+    aimock fixture) script a deterministic ticker quote for testing -
+    when supplied, the tool echoes them back verbatim. When omitted (or
+    `None`), the tool returns mock random values. Mirrors the
+    deterministic-`value` pattern on `roll_d20`.
     """
     return {
         "ticker": ticker.upper(),
-        "price_usd": round(100 + randint(0, 400) + randint(0, 99) / 100, 2),
-        "change_pct": round(choice([-1, 1]) * (randint(0, 300) / 100), 2),
+        "price_usd": (
+            round(float(price_usd), 2)
+            if price_usd is not None
+            else round(100 + randint(0, 400) + randint(0, 99) / 100, 2)
+        ),
+        "change_pct": (
+            round(float(change_pct), 2)
+            if change_pct is not None
+            else round(choice([-1, 1]) * (randint(0, 300) / 100), 2)
+        ),
     }
 
 
 @tool
-def roll_dice(sides: int = 6) -> dict:
-    """Roll a single die with the given number of sides.
+def roll_d20(value: int = 0) -> dict:
+    """Roll a 20-sided die.
 
-    When the user asks for a roll, consider rolling twice with different
-    numbers of sides so the reply can show a contrast (e.g. a d6 AND a
-    d20).
+    The `value` argument lets the LLM (or aimock fixture) script a
+    deterministic roll for testing - the tool simply echoes it back as
+    the result. When called without `value` (or with 0), the tool
+    returns a random natural d20 roll.
     """
-    return {"sides": sides, "result": randint(1, max(2, sides))}
+    rolled = value if isinstance(value, int) and 1 <= value <= 20 else randint(1, 20)
+    return {"sides": 20, "value": rolled, "result": rolled}
 
 
 model = ChatOpenAI(model="gpt-4o-mini")
 
 graph = create_agent(
     model=model,
-    tools=[get_weather, search_flights, get_stock_price, roll_dice],
+    tools=[get_weather, search_flights, get_stock_price, roll_d20],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
 )

@@ -22,6 +22,7 @@ import { useWorkerRunsPoll } from "@/hooks/use-worker-runs";
 import { WorkerRunsProvider } from "@/lib/worker-runs-context";
 import { WorkerRunsSection } from "@/components/worker-runs-section";
 import { WorkerSilenceBanner } from "@/components/worker-silence-banner";
+import { useDashboardRowFilter } from "@/hooks/use-dashboard-row-filter";
 import { mergeRowsToMap } from "@/lib/live-status";
 import { useOverlays } from "@/hooks/useOverlays";
 import { OverlayToggleBar } from "@/components/overlay-toggle-bar";
@@ -39,6 +40,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { BaselineTab } from "@/components/baseline-tab";
 import { DiscoveryAuthBanner } from "@/components/discovery-auth-banner";
 import { getDocsStatus } from "@/lib/docs-status";
+import { filterCatalogDataByRows } from "@/lib/dashboard-row-filter";
 import catalog from "@/data/catalog.json";
 import type { CatalogData } from "@/data/catalog-types";
 
@@ -126,18 +128,27 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
     selectProbe,
   } = useOverlays();
 
+  const rowFilter = useDashboardRowFilter();
+  const visibleCatalogData = useMemo(
+    () => filterCatalogDataByRows(catalogData, rowFilter),
+    [rowFilter],
+  );
+
   // Compute health stats using buildCellModel — single source of truth for
   // chip color, so the stats bar matches what's visually displayed in the
   // table. A gray chip (no data yet) is tracked as `noData`, NOT folded into
   // green, so the bar agrees with the matrix it summarizes.
   const healthStats = useMemo(
-    () => computeHealthStats(catalogData.cells, liveStatus, now),
-    [liveStatus, now],
+    () => computeHealthStats(visibleCatalogData.cells, liveStatus, now),
+    [liveStatus, now, visibleCatalogData],
   );
 
   // Compute parity tier counts (validates tier before indexing — fail-loud
   // on unknown tiers rather than producing NaN).
-  const parityStats = useMemo(() => computeParityStats(catalogData.cells), []);
+  const parityStats = useMemo(
+    () => computeParityStats(visibleCatalogData.cells),
+    [visibleCatalogData],
+  );
 
   // Compute docs reachability stats from unique feature IDs
   const docsStats = useMemo(() => {
@@ -146,7 +157,7 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
     let notFound = 0;
     let error = 0;
     const seen = new Set<string>();
-    for (const cell of catalogData.cells) {
+    for (const cell of visibleCatalogData.cells) {
       if (cell.feature !== null && !seen.has(cell.feature)) {
         seen.add(cell.feature);
         const status = getDocsStatus(cell.feature);
@@ -157,22 +168,22 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
       }
     }
     return { ok, missing, notFound, error };
-  }, []);
+  }, [visibleCatalogData]);
 
   // Compute depth distribution across all wired cells — re-derives whenever
   // live-status changes since depth is a function of probe states. Uses an
   // exhaustive achievedDepth→key map so D6-achieved cells land in the `d6`
   // bucket (the old string cast dropped them).
   const depthDistribution = useMemo(
-    () => computeDepthDistribution(catalogData.cells, liveStatus, now),
-    [liveStatus, now],
+    () => computeDepthDistribution(visibleCatalogData.cells, liveStatus, now),
+    [liveStatus, now, visibleCatalogData],
   );
 
   // Compute D6 (parity-vs-reference) rollup counts across wired cells —
   // degraded/stale D6 surfaces distinctly instead of folding into gray.
   const d6Stats = useMemo(
-    () => computeD6Stats(catalogData.cells, liveStatus, now),
-    [liveStatus, now],
+    () => computeD6Stats(visibleCatalogData.cells, liveStatus, now),
+    [liveStatus, now, visibleCatalogData],
   );
 
   // renderCell callback wrapping UnifiedCell + buildCellModel.
@@ -268,7 +279,7 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
               <div className="px-8 py-3 border-b border-[var(--border)]">
                 <AdaptiveStatsBar
                   overlays={overlays}
-                  catalog={catalogData}
+                  catalog={visibleCatalogData}
                   healthStats={healthStats}
                   parityStats={parityStats}
                   docsStats={docsStats}
@@ -285,8 +296,9 @@ export function DashboardPage({ shellUrl }: DashboardPageProps) {
                 degraded={allStatus.degraded}
                 now={now}
                 overlays={overlays}
-                catalog={catalogData}
+                catalog={visibleCatalogData}
                 shellUrl={shellUrl}
+                rowFilter={rowFilter}
               />
               <AdaptiveLegend overlays={overlays} />
             </div>

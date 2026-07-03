@@ -10,8 +10,8 @@ import {
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import { ArcadeWordmark } from "@/components/arcade-wordmark";
-import type { ArcadeResult } from "@/components/tool-cards";
 import {
+  ArcadeResult,
   AuthorizationCard,
   EmailListCard,
   EmailSentCard,

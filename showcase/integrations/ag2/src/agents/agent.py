@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+from random import choice, randint
 from typing import Annotated, Any
 
 import openai
@@ -107,22 +108,54 @@ async def schedule_meeting(
 
 
 async def search_flights(
+    origin: Annotated[str | None, "Origin airport code, e.g. 'SFO'"] = None,
+    destination: Annotated[str | None, "Destination airport code, e.g. 'JFK'"] = None,
     flights: Annotated[
         list[dict[str, Any]], "List of flight objects to display as rich A2UI cards"
-    ],
+    ]
+    | None = None,
 ) -> str:
-    """Search for flights and display the results as rich cards. Return exactly 2 flights.
+    """Search for flights and display the results as rich cards.
 
-    Each flight must have: airline, airlineLogo, flightNumber, origin, destination,
-    date (short readable format like "Tue, Mar 18" -- use near-future dates),
-    departureTime, arrivalTime, duration (e.g. "4h 25m"),
-    status (e.g. "On Time" or "Delayed"),
-    statusColor (hex color for status dot),
-    price (e.g. "$289"), and currency (e.g. "USD").
+    Tool-rendering demos call this with origin/destination. Beautiful-chat
+    A2UI fixtures call the same tool with a complete `flights` list. Support
+    both shapes because AG2 exposes one shared showcase agent for those demos.
 
-    For airlineLogo use Google favicon API:
-    https://www.google.com/s2/favicons?domain={airline_domain}&sz=128
+    When passing `flights`, each flight must have: airline, airlineLogo,
+    flightNumber, origin, destination, date, departureTime, arrivalTime,
+    duration, status, statusColor, price, and currency.
     """
+    if flights is None:
+        return json.dumps(
+            {
+                "origin": origin or "SFO",
+                "destination": destination or "JFK",
+                "flights": [
+                    {
+                        "airline": "United",
+                        "flight": "UA231",
+                        "depart": "08:15",
+                        "arrive": "16:45",
+                        "price_usd": 348,
+                    },
+                    {
+                        "airline": "Delta",
+                        "flight": "DL412",
+                        "depart": "11:20",
+                        "arrive": "19:55",
+                        "price_usd": 312,
+                    },
+                    {
+                        "airline": "JetBlue",
+                        "flight": "B6722",
+                        "depart": "17:05",
+                        "arrive": "01:30",
+                        "price_usd": 289,
+                    },
+                ],
+            }
+        )
+
     try:
         typed_flights: list[Flight] = [Flight(**f) for f in flights]
     except ValidationError as exc:
@@ -135,6 +168,39 @@ async def search_flights(
         return json.dumps({"error": f"invalid flight shape: {exc}"})
     result = search_flights_impl(typed_flights)
     return json.dumps(result)
+
+
+async def get_stock_price(
+    ticker: Annotated[str, "Stock ticker symbol, e.g. 'AAPL'"],
+    price_usd: Annotated[float | None, "Deterministic price for tests"] = None,
+    change_pct: Annotated[
+        float | None, "Deterministic percent change for tests"
+    ] = None,
+) -> str:
+    """Get a mock current price for a stock ticker."""
+    return json.dumps(
+        {
+            "ticker": ticker.upper(),
+            "price_usd": (
+                round(float(price_usd), 2)
+                if price_usd is not None
+                else round(100 + randint(0, 400) + randint(0, 99) / 100, 2)
+            ),
+            "change_pct": (
+                round(float(change_pct), 2)
+                if change_pct is not None
+                else round(choice([-1, 1]) * (randint(0, 300) / 100), 2)
+            ),
+        }
+    )
+
+
+async def roll_d20(
+    value: Annotated[int, "Deterministic d20 value for tests"] = 0,
+) -> str:
+    """Roll a 20-sided die."""
+    rolled = value if isinstance(value, int) and 1 <= value <= 20 else randint(1, 20)
+    return json.dumps({"sides": 20, "value": rolled, "result": rolled})
 
 
 async def generate_a2ui(
@@ -230,6 +296,8 @@ agent = ConversableAgent(
         "query_data, manage the sales pipeline with manage_sales_todos and "
         "get_sales_todos, schedule meetings with schedule_meeting, search "
         "flights and display rich A2UI cards with search_flights, and "
+        "look up stock prices with get_stock_price or roll a 20-sided die "
+        "with roll_d20. "
         "generate dynamic A2UI dashboards with generate_a2ui. "
         "When asked about the weather, always use the tool rather than guessing. "
         "Be concise and friendly in your responses."
@@ -249,6 +317,8 @@ agent = ConversableAgent(
         get_sales_todos,
         schedule_meeting,
         search_flights,
+        get_stock_price,
+        roll_d20,
         generate_a2ui,
     ],
 )

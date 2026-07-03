@@ -11,14 +11,12 @@
 import React from "react";
 import {
   CopilotChat,
-  useDefaultRenderTool,
   useConfigureSuggestions,
+  useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
 import { CopilotKit } from "@copilotkit/react-core";
-import {
-  CustomCatchallRenderer,
-  type CatchallToolStatus,
-} from "./custom-catchall-renderer";
+import { CustomCatchallRenderer } from "./custom-catchall-renderer";
+import type { CatchallToolStatus } from "./custom-catchall-renderer";
 
 export default function ToolRenderingCustomCatchallDemo() {
   return (

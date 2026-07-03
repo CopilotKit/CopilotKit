@@ -8,15 +8,13 @@
 // branded card now paints every tool call — no per-tool renderers yet.
 
 import {
-  CopilotKitProvider,
   CopilotChat,
-  useDefaultRenderTool,
+  CopilotKitProvider,
   useConfigureSuggestions,
+  useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
-import {
-  CustomCatchallRenderer,
-  type CatchallToolStatus,
-} from "./custom-catchall-renderer";
+import { CustomCatchallRenderer } from "./custom-catchall-renderer";
+import type { CatchallToolStatus } from "./custom-catchall-renderer";
 
 export default function ToolRenderingCustomCatchallDemo() {
   return (
@@ -33,8 +31,7 @@ function Demo() {
   // that handles every tool call not claimed by a named renderer.
   useDefaultRenderTool(
     {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      render: ({ name, parameters, status, result }: any) => (
+      render: ({ name, parameters, status, result }) => (
         <CustomCatchallRenderer
           name={name}
           parameters={parameters}

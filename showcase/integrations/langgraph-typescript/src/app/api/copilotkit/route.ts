@@ -82,6 +82,8 @@ const demoAgents: Record<string, string> = {
   "tool-rendering": "tool_rendering",
   "tool-rendering-default-catchall": "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall": "tool-rendering-custom-catchall",
+  "tool-rendering-suppress-catchall": "tool_rendering",
+  "tool-rendering-named-override": "tool_rendering",
   "tool-rendering-reasoning-chain": "tool-rendering-reasoning-chain",
 };
 for (const [agentName, graphId] of Object.entries(demoAgents)) {
