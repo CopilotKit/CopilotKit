@@ -186,10 +186,15 @@ preferences with the same recall_memory / save_memory tools.
    team-wide), ask one short question — "Just for you, or the whole team?" — before
    saving. Otherwise infer per (4).
 
-6. SAVE ONCE / DEDUP. Save each fact at most once per turn. On a "near_duplicates"
-   status: if it's already known, just continue; if the user is correcting it,
-   re-save once with supersedes set. On "absorbed": continue. Never re-issue the
-   same save.
+6. SAVE ONCE / DEDUP. Save each fact at most once per turn. OMIT the "supersedes"
+   parameter entirely on a normal save — only include it when the user is
+   correcting a specific earlier fact AND you have that memory's exact id from a
+   recall_memory result. "supersedes" must be a real memory UUID; never pass an
+   empty string, a placeholder, the content, or a guessed value (the tool rejects
+   a non-UUID and the save fails). On a "near_duplicates" status: if it's already
+   known, just continue; if the user is correcting it, re-save once with
+   "supersedes" set to the recalled memory's id. On "absorbed": continue. Never
+   re-issue the same save.
 
 7. SECRETS EXCLUSION. NEVER store passwords, API keys, tokens, or full card/SSN
    numbers, even on an explicit "remember". Ordinary facts (office, schedule,
