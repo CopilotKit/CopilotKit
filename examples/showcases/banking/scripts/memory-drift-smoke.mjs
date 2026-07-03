@@ -14,7 +14,11 @@
  * It seeds the over-limit procedure as a project/procedural memory via REST, then
  * drives a FRESH-THREAD over-limit approval request through the live runtime and
  * asserts the run's event stream contains a `recall_memory` tool call — i.e. the
- * live model still RECALLS-FIRST (the autonomous, load-bearing moment).
+ * live model still RECALLS-FIRST (the autonomous, load-bearing moment). It also
+ * asserts that NO `save_memory` fires on that over-limit request turn (rule 9:
+ * GENERAL MEMORY must defer during a procedure). The mid-demonstration turns are
+ * HITL/headless-unreachable, so that coverage lives in the aimock e2e + the manual
+ * walkthrough.
  *
  * WHAT IT DOES NOT CHECK
  * The SAVE half (the agent emitting `save_memory` after the teach arc) is gated
@@ -89,6 +93,9 @@ async function runOverLimitTurn() {
     threadId,
     runId: `${threadId}-run`,
     state: {},
+    // Alex -> jordan-beamson (the id we seed the procedure under). Makes the
+    // smoke identity-self-sufficient so it passes against the unpinned live demo.
+    properties: { userId: "9g5h2j1k4l", userRole: "Admin" },
     messages: [
       {
         id: "m1",
@@ -144,15 +151,23 @@ try {
     `seeded project/procedural procedure memory (${seeded.absorbed ? "absorbed" : "created"})`,
   );
 
-  const { recalled } = await runOverLimitTurn();
+  const { recalled, sawSave } = await runOverLimitTurn();
   log(
     recalled,
     recalled
       ? "PASS: live model emitted recall_memory on a fresh-thread over-limit request"
       : "DRIFT: live model did NOT emit recall_memory — the recall-first prompt may have regressed",
   );
-
-  process.exit(recalled ? 0 : 1);
+  // Rule 9 (DEFER DURING PROCEDURES): the over-limit request turn must NOT emit a
+  // general save. A spurious save_memory here means the GENERAL MEMORY block is
+  // firing inside the teach flow.
+  log(
+    !sawSave,
+    sawSave
+      ? "DRIFT: a save_memory fired on the over-limit request turn — GENERAL MEMORY leaked into the procedure (rule 9)"
+      : "PASS: no spurious save_memory on the over-limit request turn",
+  );
+  process.exit(recalled && !sawSave ? 0 : 1);
 } catch (err) {
   log(false, `error: ${String(err).slice(0, 400)}`);
   process.exit(2);
