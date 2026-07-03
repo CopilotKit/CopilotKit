@@ -178,7 +178,7 @@ export function CopilotKitWrapper({
       // POSTs to /api/copilotkit and 404s against this handler, so stay in REST
       // (multi-route) mode.
       useSingleEndpoint={false}
-      properties={{ userRole: currentUser?.role }}
+      properties={{ userRole: currentUser?.role, userId: currentUser?.id }}
       // A2UI report canvas. The agent calls the backend render_report tool,
       // whose ops the A2UI middleware turns into an `a2ui-surface` activity; the
       // banking catalog here lets the client render those ops. The agent selects

@@ -91,6 +91,7 @@ function DisabledState() {
 export function MemoryTab() {
   const { currentUser } = useAuthContext();
   const role = currentUser?.role;
+  const memberId = currentUser?.id;
 
   // The store's memory-kind cards are our change signal: memory only changes
   // when the agent saves/recalls, which is exactly when these events fire.
@@ -124,9 +125,10 @@ export function MemoryTab() {
     (extra?: Record<string, string>) => ({
       Accept: "application/json",
       ...(role ? { "x-northwind-role": role } : {}),
+      ...(memberId ? { "x-northwind-user-id": memberId } : {}),
       ...extra,
     }),
-    [role],
+    [role, memberId],
   );
 
   const fetchList = useCallback(async () => {

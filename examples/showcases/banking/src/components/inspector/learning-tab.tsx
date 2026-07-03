@@ -30,6 +30,7 @@ function parseMemories(value: unknown): PanelMemory[] {
 export function LearningTab() {
   const { currentUser } = useAuthContext();
   const role = currentUser?.role;
+  const memberId = currentUser?.id;
   const { cards } = useInspector();
 
   const [procedures, setProcedures] = useState<PanelMemory[]>([]);
@@ -50,6 +51,7 @@ export function LearningTab() {
         headers: {
           Accept: "application/json",
           ...(role ? { "x-northwind-role": role } : {}),
+          ...(memberId ? { "x-northwind-user-id": memberId } : {}),
         },
       });
       if (res.status === 503) {
