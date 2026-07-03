@@ -5,6 +5,16 @@
   },
   "fixtures": [
     {
+      "_comment": "TERMINATOR: clawg-ui flattens the whole AG-UI conversation into one user prompt for OpenClaw's model call, so a tool result arrives as the text 'Tool <name> returned: ...' rather than a role:tool message. aimock's hasToolResult (role:tool) discriminator therefore never fires and the tool-call fixtures below would loop forever. This fixture matches the 'returned:' marker that DOES appear in the flattened prompt and closes the turn with a completion message. Must stay FIRST so it intercepts every tool follow-up before the tool-call fixtures.",
+      "match": {
+        "context": "openclaw",
+        "userMessage": "returned:"
+      },
+      "response": {
+        "content": "Done — I've completed that for you."
+      }
+    },
+    {
       "match": {
         "userMessage": "Write a short sonnet about AI.",
         "context": "openclaw"

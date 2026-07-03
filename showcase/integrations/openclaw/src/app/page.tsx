@@ -1,13 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
-import Link from "next/link";
 
 type Demo = {
   id: string;
   name: string;
   description?: string;
   route?: string;
+  command?: string;
   tags?: string[];
 };
 
@@ -44,16 +44,18 @@ const TAG_LABELS: Record<string, string> = {
 };
 
 function loadManifest(): Manifest {
-  const raw = fs.readFileSync(path.join(process.cwd(), "manifest.yaml"), "utf8");
-  return parse(raw) as Manifest;
+  const manifestPath = path.join(process.cwd(), "manifest.yaml");
+  return parse(fs.readFileSync(manifestPath, "utf8")) as Manifest;
 }
 
-// Group demos by their first tag; order demos within a tag by manifest.features
-// (the curated first-impression arc), and order tags by TAG_ORDER.
 function groupByTag(
   demos: Demo[],
   features: string[],
 ): { tag: string; demos: Demo[] }[] {
+  // Demos within each tag follow `manifest.features` ordering — that's
+  // the team's curated "first-impression" arc (polished flagship →
+  // simplest start → variants). Demos missing from the features list
+  // fall to the end of their tag.
   const featureIndex = new Map(features.map((id, i) => [id, i]));
   const orderOf = (id: string) =>
     featureIndex.get(id) ?? Number.MAX_SAFE_INTEGER;
@@ -81,52 +83,174 @@ export default function Home() {
   const groups = groupByTag(runnable, manifest.features ?? []);
 
   return (
-    <main className="max-w-3xl mx-auto p-8">
-      <div className="text-xs font-semibold tracking-wider uppercase text-[var(--muted-foreground)] mb-2">
-        CopilotKit Showcase
-      </div>
-      <h1 className="text-3xl font-bold tracking-tight mb-3">{manifest.name}</h1>
-      <p className="text-[var(--muted-foreground)] leading-relaxed mb-6 max-w-[62ch]">
-        {manifest.description ??
-          "Browse runnable demos for this integration."}
-      </p>
-      <div className="text-sm text-[var(--muted-foreground)] mb-8">
-        <strong className="text-[var(--foreground)]">{runnable.length}</strong>{" "}
-        demos · {groups.length} categories · integration{" "}
-        <code className="bg-[var(--muted)] px-1.5 py-0.5 rounded text-xs">
-          {manifest.slug}
-        </code>
-      </div>
-
-      {groups.map(({ tag, demos }) => (
-        <section key={tag} className="mb-10">
-          <h2 className="text-xs font-semibold tracking-wider uppercase text-[var(--muted-foreground)] mb-3">
-            {TAG_LABELS[tag] ?? tag.replace(/-/g, " ")}
-            <span className="ml-2 font-normal opacity-60">{demos.length}</span>
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {demos.map((demo) => (
-              <Link
-                key={demo.id}
-                href={demo.route!}
-                className="block rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 no-underline transition-colors hover:border-[var(--ring)]"
-              >
-                <h3 className="text-base font-semibold mb-1 text-[var(--foreground)]">
-                  {demo.name}
-                </h3>
-                {demo.description && (
-                  <p className="text-sm leading-snug text-[var(--muted-foreground)] m-0 line-clamp-3">
-                    {demo.description}
-                  </p>
-                )}
-                <div className="mt-3 font-mono text-xs text-[var(--muted-foreground)] opacity-70">
-                  {demo.route}
-                </div>
-              </Link>
-            ))}
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        overflowY: "auto",
+        background: "var(--background)",
+        color: "var(--foreground)",
+      }}
+    >
+      <main
+        style={{
+          maxWidth: "980px",
+          margin: "0 auto",
+          padding: "3rem 1.5rem 4rem",
+        }}
+      >
+        <header
+          style={{
+            paddingBottom: "1.5rem",
+            borderBottom: "1px solid var(--border)",
+            marginBottom: "2rem",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--muted-foreground)",
+              marginBottom: "0.5rem",
+            }}
+          >
+            CopilotKit Showcase
           </div>
-        </section>
-      ))}
-    </main>
+          <h1
+            style={{
+              fontSize: "2.25rem",
+              fontWeight: 700,
+              letterSpacing: "-0.02em",
+              margin: 0,
+            }}
+          >
+            {manifest.name}
+          </h1>
+          <p
+            style={{
+              color: "var(--muted-foreground)",
+              fontSize: "1rem",
+              lineHeight: 1.6,
+              marginTop: "0.75rem",
+              maxWidth: "62ch",
+            }}
+          >
+            {manifest.description ??
+              "Browse runnable demos for this integration."}
+          </p>
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              marginTop: "1rem",
+              fontSize: "0.8125rem",
+              color: "var(--muted-foreground)",
+            }}
+          >
+            <span>
+              <strong style={{ color: "var(--foreground)" }}>
+                {runnable.length}
+              </strong>{" "}
+              demos
+            </span>
+            <span>·</span>
+            <span>{groups.length} categories</span>
+            <span>·</span>
+            <span>
+              integration{" "}
+              <code
+                style={{
+                  background: "var(--muted)",
+                  padding: "0.125rem 0.4rem",
+                  borderRadius: "0.375rem",
+                  fontSize: "0.8125rem",
+                }}
+              >
+                {manifest.slug}
+              </code>
+            </span>
+          </div>
+        </header>
+
+        {groups.map(({ tag, demos }) => (
+          <section key={tag} style={{ marginBottom: "2.5rem" }}>
+            <h2
+              style={{
+                fontSize: "0.8125rem",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.08em",
+                color: "var(--muted-foreground)",
+                margin: "0 0 0.875rem",
+              }}
+            >
+              {TAG_LABELS[tag] ?? tag.replace(/-/g, " ")}
+              <span
+                style={{
+                  marginLeft: "0.5rem",
+                  fontWeight: 400,
+                  color: "var(--muted-foreground)",
+                  opacity: 0.6,
+                }}
+              >
+                {demos.length}
+              </span>
+            </h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                gap: "0.75rem",
+              }}
+            >
+              {demos.map((demo) => (
+                <a key={demo.id} href={demo.route} className="demo-card">
+                  <h3
+                    style={{
+                      fontSize: "1rem",
+                      fontWeight: 600,
+                      letterSpacing: "-0.01em",
+                      margin: "0 0 0.375rem",
+                      color: "var(--foreground)",
+                    }}
+                  >
+                    {demo.name}
+                  </h3>
+                  {demo.description && (
+                    <p
+                      style={{
+                        fontSize: "0.8125rem",
+                        lineHeight: 1.5,
+                        color: "var(--muted-foreground)",
+                        margin: 0,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                      }}
+                    >
+                      {demo.description}
+                    </p>
+                  )}
+                  <div
+                    style={{
+                      marginTop: "0.75rem",
+                      fontFamily: "ui-monospace, monospace",
+                      fontSize: "0.75rem",
+                      color: "var(--muted-foreground)",
+                      opacity: 0.7,
+                    }}
+                  >
+                    {demo.route}
+                  </div>
+                </a>
+              ))}
+            </div>
+          </section>
+        ))}
+      </main>
+    </div>
   );
 }
