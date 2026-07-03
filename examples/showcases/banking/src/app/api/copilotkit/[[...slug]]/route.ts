@@ -225,16 +225,21 @@ const intelligenceEnabled = Boolean(
  */
 const identifyUser: IdentifyUserCallback = async (request: Request) => {
   let role: string | undefined;
+  let memberId: string | undefined;
   try {
     const cloned = request.clone();
     const body = (await cloned.json()) as {
-      properties?: { userRole?: string };
+      properties?: { userRole?: string; userId?: string };
     } | null;
     role = body?.properties?.userRole;
+    memberId = body?.properties?.userId;
   } catch {
     // Non-JSON body (e.g. GET /info) — fall through to the default identity.
   }
-  return { id: resolveUserId(role), name: resolveUserName(role) };
+  return {
+    id: resolveUserId({ memberId, role }),
+    name: resolveUserName({ memberId, role }),
+  };
 };
 
 function createRuntime(): CopilotRuntime {

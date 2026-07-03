@@ -18,9 +18,12 @@ export async function POST(request: Request): Promise<Response> {
   const query = typeof body.query === "string" ? body.query.trim() : "";
   if (!query) return Response.json({ memories: [] });
   const scope = typeof body.scope === "string" ? body.scope : undefined;
-  const role = request.headers.get("x-northwind-role") ?? undefined;
+  const identity = {
+    memberId: request.headers.get("x-northwind-user-id") ?? undefined,
+    role: request.headers.get("x-northwind-role") ?? undefined,
+  };
   try {
-    const memories = await recallMemories(resolveUserId(role), query, scope);
+    const memories = await recallMemories(resolveUserId(identity), query, scope);
     return Response.json({ memories });
   } catch (err) {
     console.error("[api/memories/recall] failed:", err);

@@ -5,10 +5,13 @@ import {
 } from "@/lib/intelligence/memory";
 import { resolveUserId } from "@/lib/intelligence/user-id";
 
-/** The active role the panel passes so the proxy resolves the same identity the
- * runtime asserts (ignored when INTELLIGENCE_USER_ID is pinned). */
-function roleFrom(request: Request): string | undefined {
-  return request.headers.get("x-northwind-role") ?? undefined;
+/** The active member the panel passes so the proxy resolves the same identity
+ * the runtime asserts (ignored when INTELLIGENCE_USER_ID is pinned). */
+function identityFrom(request: Request) {
+  return {
+    memberId: request.headers.get("x-northwind-user-id") ?? undefined,
+    role: request.headers.get("x-northwind-role") ?? undefined,
+  };
 }
 
 export async function GET(request: Request): Promise<Response> {
@@ -21,7 +24,7 @@ export async function GET(request: Request): Promise<Response> {
   }
   try {
     const memories = await listRecalledMemories(
-      resolveUserId(roleFrom(request)),
+      resolveUserId(identityFrom(request)),
     );
     return Response.json({ memories });
   } catch (err) {
