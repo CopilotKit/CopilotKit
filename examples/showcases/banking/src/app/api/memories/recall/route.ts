@@ -23,7 +23,11 @@ export async function POST(request: Request): Promise<Response> {
     role: request.headers.get("x-northwind-role") ?? undefined,
   };
   try {
-    const memories = await recallMemories(resolveUserId(identity), query, scope);
+    const memories = await recallMemories(
+      resolveUserId(identity),
+      query,
+      scope,
+    );
     return Response.json({ memories });
   } catch (err) {
     console.error("[api/memories/recall] failed:", err);

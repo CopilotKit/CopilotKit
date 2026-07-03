@@ -43,7 +43,10 @@ export function resolveUserId({ memberId, role }: IdentityInput = {}): string {
 }
 
 /** The display name to pair with `resolveUserId`. */
-export function resolveUserName({ memberId, role }: IdentityInput = {}): string {
+export function resolveUserName({
+  memberId,
+  role,
+}: IdentityInput = {}): string {
   const pinnedId = process.env.INTELLIGENCE_USER_ID;
   if (pinnedId) return process.env.INTELLIGENCE_USER_NAME ?? pinnedId;
 
