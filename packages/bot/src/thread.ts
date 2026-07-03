@@ -70,11 +70,15 @@ export class Thread implements ThreadInterface {
   readonly platform: string;
   /** Stable key identifying this conversation (used by transcript bridging). */
   readonly conversationKey: string;
+  /** Mirrors the adapter's `supportsBlockingChoice` capability (see SurfaceCapabilities). */
+  readonly supportsBlockingChoice?: boolean;
   private readonly store: StateStore;
 
   constructor(private deps: ThreadDeps) {
     this.platform = deps.adapter.platform;
     this.conversationKey = deps.conversationKey;
+    this.supportsBlockingChoice =
+      deps.adapter.capabilities.supportsBlockingChoice;
     this.store = deps.state;
   }
 

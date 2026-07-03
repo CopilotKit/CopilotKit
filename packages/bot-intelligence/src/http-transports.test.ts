@@ -297,6 +297,52 @@ describe("HttpDeliverySource", () => {
     expect(r.env.conversationKey).toBe("slack:T1:C1:thread:1.2");
   });
 
+  it("claimOnce maps a claimed interaction delivery to an interaction envelope", async () => {
+    const { fetch } = fakeFetch(() => ({
+      body: {
+        claimed: true,
+        delivery: claimedDelivery({
+          turn: {
+            id: "turn_9",
+            eventId: "evt_interaction",
+            receivedAt: "2026-06-30T00:00:00.000Z",
+            replyTarget: {
+              adapter: "slack",
+              teamId: "T1",
+              channel: "C1",
+              threadTs: "1.2",
+            },
+            input: {
+              kind: "interaction",
+              actionId: "ck:confirm_write:approve",
+              value: { confirmed: true },
+              messageRef: { id: "1.2" },
+              triggerId: "13345224609.738474920.8088930838d88f008e0",
+            },
+          },
+        }),
+      },
+    }));
+    const src = new HttpDeliverySource(cfg({ fetch }));
+    const r = await src.claimOnce();
+    expect("env" in r).toBe(true);
+    if (!("env" in r)) throw new Error("expected env");
+    expect(r.env).toMatchObject({
+      kind: "interaction",
+      deliveryId: "dlv_9",
+      turnId: "turn_9",
+      eventId: "evt_interaction",
+      botName: "opentagbot",
+      platform: "slack",
+      actionId: "ck:confirm_write:approve",
+      value: { confirmed: true },
+      messageRef: { id: "1.2" },
+      triggerId: "13345224609.738474920.8088930838d88f008e0",
+      route: { teamId: "T1", channel: "C1", threadTs: "1.2" },
+    });
+    expect(r.env.conversationKey).toBe("slack:T1:C1:thread:1.2");
+  });
+
   it("claimOnce returns pollAfterMs when idle", async () => {
     const { fetch } = fakeFetch(() => ({
       body: { claimed: false, pollAfterMs: 500 },

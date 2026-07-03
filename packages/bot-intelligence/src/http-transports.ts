@@ -12,6 +12,7 @@ import type {
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
+import type { MessageRef } from "@copilotkit/bot-ui";
 import { irToText } from "./ir-to-text.js";
 
 /**
@@ -177,6 +178,17 @@ interface ClaimedDelivery {
           added: boolean;
           messageId: string;
           threadId?: string;
+        }
+      | {
+          kind: "interaction";
+          /** Minted action id (ck:...) the clicked control carried. */
+          actionId: string;
+          /** The clicked control's value (block_actions value / selected options). */
+          value?: unknown;
+          /** The message the interaction occurred on (so a handler can update it). */
+          messageRef?: MessageRef;
+          /** Slack trigger id (for opening a modal off the interaction). */
+          triggerId?: string;
         };
   };
 }
@@ -269,6 +281,17 @@ function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
       added: input.added,
       messageId: input.messageId,
       ...(input.threadId ? { threadId: input.threadId } : {}),
+    };
+  }
+
+  if (input?.kind === "interaction") {
+    return {
+      ...base,
+      kind: "interaction",
+      actionId: input.actionId,
+      ...(input.value !== undefined ? { value: input.value } : {}),
+      ...(input.messageRef ? { messageRef: input.messageRef } : {}),
+      ...(input.triggerId ? { triggerId: input.triggerId } : {}),
     };
   }
 

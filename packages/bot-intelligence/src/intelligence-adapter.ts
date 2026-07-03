@@ -131,6 +131,10 @@ export class IntelligenceAdapter implements PlatformAdapter {
     // than editing a native streaming message in place.
     supportsStreaming: false,
     supportsEphemeral: false,
+    // The claim loop processes one lease-bounded delivery at a time, so a
+    // blocking `awaitChoice` would deadlock (the click lands as a separate
+    // delivery). HITL uses the ack-first post-then-resume flow instead.
+    supportsBlockingChoice: false,
   };
 
   readonly conversationStore: ConversationStore = {
