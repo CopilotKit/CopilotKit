@@ -6,7 +6,8 @@
     "dev": "concurrently -n next,agent \"next dev --turbopack\" \"PYTHONPATH=. HERMES_AGUI_TOOLSETS=${HERMES_AGUI_TOOLSETS:-hermes-acp,hermes-showcase} python run_backend.py\"",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.57",

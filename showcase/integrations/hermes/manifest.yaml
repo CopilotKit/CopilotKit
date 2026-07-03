@@ -11,7 +11,12 @@ partner_docs: https://hermes-agent.nousresearch.com/docs/
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/hermes
 copilotkit_version: 2.0.0
 deployed: false
-docs_mode: authored
+# `generated` (the default, as used by langgraph-python): shell-docs renders a
+# data-driven FrameworkOverview — no per-framework MDX tree required. Hermes
+# ships no authored tree under shell-docs/src/content/docs/integrations/hermes,
+# so `authored` here would have rendered an empty page. Flip to `authored`
+# (and add the tree) if/when hermes gets hand-written docs.
+docs_mode: generated
 sort_order: 60
 generative_ui:
   - constrained-explicit
@@ -75,6 +80,18 @@ features:
   - declarative-gen-ui
   - a2ui-fixed-schema
   - mcp-apps
+# Framework-pattern flags consumed by shell-docs (<WhenFrameworkHas>). Hermes
+# is the generic-AG-UI analog of pydantic-ai (same copilotRuntimeNextJSAppRouter
+# + HttpAgent + ExperimentalEmptyAdapter wiring), so its patterns match:
+#   a2ui: fixed schema loaded via the middleware-injected render_a2ui path.
+#   interrupt: CopilotKit promise-based frontend interrupt (no native backend
+#     interrupt — hermes has no graph); HITL demos use the render-and-wait path.
+#   agent_config: typed config forwarded as shared state (forwarded_props).
+#   auth: CopilotKit runtime onRequest hook (see api/copilotkit-auth/route.ts).
+a2ui_pattern: schema-loading
+interrupt_pattern: promise-based
+agent_config_pattern: shared-state
+auth_pattern: runtime-onrequest
 demos:
   - id: cli-start
     name: CLI Start Command
