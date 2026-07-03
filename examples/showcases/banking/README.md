@@ -55,11 +55,21 @@ is unset, the demo falls back to the exact OSS path above.
   conversation_. Start a **new** thread and the agent no longer knows the
   procedure; nothing persists across threads or restarts. (Expected — it's the
   signal that durable recall needs Intelligence mode.)
-- **Intelligence:** the agent saves the demonstrated over-limit procedure as a
-  `project`-scoped, `procedural` memory via `save_memory`, and `recall_memory`s it
-  at the start of any later over-limit request. A **brand-new thread — or a
-  different user on the same team** — recalls the procedure and completes the
-  approval unaided. This is the durable cross-thread + cross-user proof (FOR-149).
+- **Intelligence:** durable long-term memory across three flavours, all via
+  `save_memory` / `recall_memory`:
+  - **Demonstrated over-limit procedure** — saved as a `project`-scoped,
+    `procedural` memory and recalled at the start of any later over-limit
+    request. A **brand-new thread — or a different user on the same team** —
+    recalls the procedure and completes the approval unaided. This is the
+    durable cross-thread + cross-user proof (FOR-149).
+  - **General facts / preferences (`user` scope)** — arbitrary personal facts
+    persist cross-thread but stay per-person. Try _"remember my favorite food
+    is sushi"_, then ask _"what's my favorite food?"_ in a **new** thread and
+    the copilot recalls it.
+  - **Team-shared facts (`project` scope)** — facts flagged for the whole team
+    persist cross-user, so a teammate recalls them in their own threads.
+  - **Secrets are never stored.** Passwords, API keys, tokens, and full card or
+    SSN numbers are never written to memory.
 
 ### 1. Start the memory-enabled stack (one command)
 
@@ -78,7 +88,11 @@ Host ports: app-api **7050**, gateway **7053**, postgres 7156, redis 7158, minio
 7160/7161, tei 7167. (The deps use a `715x` range so a bare `docker compose up`
 coexists with a developer's own Intelligence dev stack on `705x`.) Seeded org
 `casa-de-erlang`, key `cpk_sPRVSEED_seed0privat0longtoken00`, users
-`jordan-beamson` / `morgan-fluxx`. `SL_ENABLED=true` + a reachable embedder are
+`jordan-beamson` / `morgan-fluxx`. The team is exactly two members, each mapped
+1:1 to a seeded backend identity — **Alex Morgan (Admin) → `jordan-beamson`** and
+**Maya Chen (Assistant) → `morgan-fluxx`** (see `src/lib/intelligence/user-id.ts`).
+That 1:1 mapping is what makes cross-user memory scope demonstrable through the
+sidebar user switcher. `SL_ENABLED=true` + a reachable embedder are
 required for the `save_memory`/`recall_memory` MCP tools to attach — both are set
 on the `intelligence` service in `docker-compose.yml`.
 
@@ -100,13 +114,18 @@ cp .env.example .env       # fill OPENAI_API_KEY; run `copilotkit license -n ban
 #   INTELLIGENCE_API_URL=http://localhost:7050
 #   INTELLIGENCE_GATEWAY_WS_URL=ws://localhost:7053
 #   INTELLIGENCE_API_KEY=cpk_sPRVSEED_seed0privat0longtoken00
-#   INTELLIGENCE_USER_ID=jordan-beamson
+#   # INTELLIGENCE_USER_ID  — leave UNPINNED for the interactive demo (see below)
 pnpm --filter demo-saas-copilot dev
 ```
 
 The Next.js app needs only the three `INTELLIGENCE_*` vars (+ identity). The memory
 backend flags (`MEMORY_ENABLED`, `SL_ENABLED`, `MEMORY_EMBEDDINGS_URL`,
 `MEMORY_EMBEDDING_MODEL`) live on the `intelligence` service in `docker-compose.yml`.
+
+Leave `INTELLIGENCE_USER_ID` **unpinned** for the interactive demo: with it unset,
+the sidebar user switcher drives which backend identity (and therefore which memory
+scope) is active, so you can walk through cross-user isolation live. It is pinned to
+a single identity only for CI/e2e (see `playwright.config.ts`).
 
 ### 3. The cross-thread payoff (FOR-149)
 
@@ -121,6 +140,26 @@ With the stack up and project memory empty:
    the exception with the learned code, and approves — **with no recording offer.**
 3. **Different persona.** Switch user (sidebar avatar) in a fresh thread and repeat
    — same unaided success, proving `project`-scope cross-user recall.
+
+### 4. The memory-scope isolation demo (two personas)
+
+The team is exactly **Alex Morgan (Admin)** and **Maya Chen (Assistant)**, mapped
+1:1 to the seeded `jordan-beamson` / `morgan-fluxx` backend identities. With
+`INTELLIGENCE_USER_ID` unpinned, the sidebar user switcher (bottom-left avatar)
+selects which identity is live, so scope isolation is visible end-to-end:
+
+1. **Personal fact — save (as Alex).** Ask _"remember my favorite food is
+   sushi."_ The copilot confirms it saved (`user` scope).
+2. **Personal fact — recall (as Alex, new thread).** Open a **new** thread and
+   ask _"what's my favorite food?"_ — the copilot recalls **sushi** (cross-thread,
+   same person).
+3. **Personal fact — isolated (switch to Maya, fresh thread).** Switch the sidebar
+   user to Maya, open a fresh thread, and ask _"what's my favorite food?"_ — the
+   copilot **does NOT know it.** `user`-scope memory is per-person.
+4. **Team fact — crosses users.** Back as Alex, say _"keep in mind, for the whole
+   team: our fiscal year ends in March."_ Switch to Maya and ask _"when does our
+   fiscal year end?"_ — the copilot recalls **March.** `project`-scope memory
+   crosses users on the same team.
 
 To replay the "fails first" beat, forget the saved procedure between runs
 (`DELETE http://localhost:7050/api/memories/:id`, or via the agent's
