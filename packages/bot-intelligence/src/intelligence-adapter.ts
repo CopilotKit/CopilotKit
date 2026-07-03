@@ -40,6 +40,7 @@ import {
   resolveTransportConfig,
 } from "./http-transports.js";
 import type { IntelligenceTransportConfig } from "./http-transports.js";
+import { IntelligenceStateStore } from "./intelligence-state-store.js";
 
 /** Reply target the adapter mints during ingress and threads back to egress. */
 interface ManagedReplyTarget {
@@ -163,7 +164,32 @@ export class IntelligenceAdapter implements PlatformAdapter {
     this.source = opts.source;
     this.egress = opts.egress;
     this.renderSink = opts.renderSink;
-    this.stateStore = opts.store;
+    // Default to the Intelligence-backed durable KV store so managed bots
+    // persist action-registry snapshots + thread state across restarts (HITL
+    // cards survive). Skipped when a store is passed explicitly or when
+    // in-memory transports are injected (tests) — a durable store hitting HTTP
+    // would be wrong there. Falls back to createBot's MemoryStore if baseUrl /
+    // apiKey can't be resolved.
+    this.stateStore = opts.store ?? this.buildDefaultStore();
+  }
+
+  /** Build the default Intelligence-backed durable store, or undefined. */
+  private buildDefaultStore(): StateStore | undefined {
+    if (this.opts.source || this.opts.egress) return undefined;
+    const env =
+      typeof process !== "undefined"
+        ? process.env
+        : ({} as Record<string, string | undefined>);
+    const baseUrl = (
+      this.opts.config?.baseUrl ?? env["COPILOTKIT_INTELLIGENCE_URL"]
+    )?.replace(/\/+$/, "");
+    const apiKey = this.opts.config?.apiKey ?? env["COPILOTKIT_API_KEY"];
+    if (!baseUrl || !apiKey) return undefined;
+    return new IntelligenceStateStore({
+      baseUrl,
+      apiKey,
+      fetch: this.opts.config?.fetch,
+    });
   }
 
   private requireSource(): DeliverySource {
@@ -313,7 +339,23 @@ export class IntelligenceAdapter implements PlatformAdapter {
           triggerId: env.triggerId,
         });
         return;
-      case "interaction":
+      case "interaction": {
+        // The clicked card was posted in a PRIOR delivery, so its messageRef
+        // (minted by app-api as { id: <slackTs>, channel, ts }) carries no SDK
+        // render routing. Stamp THIS interaction delivery's route/turnId/
+        // deliveryId onto it so `thread.update(ref)` emits a valid `update`
+        // frame (routed under this live delivery) whose `ref` is the original
+        // card's ts — the Connector Outbox then `chat.update`s that card in
+        // place. Without this, `targetFromRef` yields `deliveryId:"undefined"`,
+        // the frame is rejected, and the interaction delivery dead-letters.
+        const messageRef = env.messageRef
+          ? {
+              ...env.messageRef,
+              __route: replyTarget.route,
+              __turnId: replyTarget.turnId,
+              __deliveryId: replyTarget.deliveryId,
+            }
+          : undefined;
         await sink.onInteraction({
           id: env.actionId,
           conversationKey: env.conversationKey,
@@ -323,10 +365,11 @@ export class IntelligenceAdapter implements PlatformAdapter {
           eventId: env.eventId,
           turnId: env.turnId,
           deliveryId: env.deliveryId,
-          messageRef: env.messageRef,
+          messageRef,
           triggerId: env.triggerId,
         });
         return;
+      }
       case "thread_started":
         await sink.onThreadStarted({
           conversationKey: env.conversationKey,
