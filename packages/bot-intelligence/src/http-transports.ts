@@ -162,7 +162,22 @@ interface ClaimedDelivery {
     id: string;
     eventId: string;
     replyTarget: SlackReplyTarget;
-    input?: { kind: string; text: string; files?: ManagedFileRef[] };
+    input?:
+      | { kind: "text"; text?: string; files?: ManagedFileRef[] }
+      | {
+          kind: "command";
+          command: string;
+          text?: string;
+          triggerId?: string;
+          rawOptions?: Record<string, unknown>;
+        }
+      | {
+          kind: "reaction";
+          rawEmoji: string;
+          added: boolean;
+          messageId: string;
+          threadId?: string;
+        };
   };
 }
 
@@ -224,8 +239,7 @@ function conversationKeyFromReplyTarget(rt: SlackReplyTarget): string {
 }
 
 function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
-  return {
-    kind: "turn",
+  const base = {
     deliveryId: d.id,
     eventId: d.turn.eventId,
     turnId: d.turn.id,
@@ -233,8 +247,36 @@ function mapDeliveryToEnvelope(d: ClaimedDelivery): ManagedIngressEnvelope {
     platform: d.adapter,
     conversationKey: conversationKeyFromReplyTarget(d.turn.replyTarget),
     route: d.turn.replyTarget,
-    text: d.turn.input?.text ?? "",
-    ...(d.turn.input?.files?.length ? { files: d.turn.input.files } : {}),
+  };
+  const input = d.turn.input;
+
+  if (input?.kind === "command") {
+    return {
+      ...base,
+      kind: "command",
+      command: input.command,
+      text: input.text ?? "",
+      ...(input.triggerId ? { triggerId: input.triggerId } : {}),
+      ...(input.rawOptions ? { rawOptions: input.rawOptions } : {}),
+    };
+  }
+
+  if (input?.kind === "reaction") {
+    return {
+      ...base,
+      kind: "reaction",
+      rawEmoji: input.rawEmoji,
+      added: input.added,
+      messageId: input.messageId,
+      ...(input.threadId ? { threadId: input.threadId } : {}),
+    };
+  }
+
+  return {
+    ...base,
+    kind: "turn",
+    text: input?.text ?? "",
+    ...(input?.files?.length ? { files: input.files } : {}),
   };
 }
 
