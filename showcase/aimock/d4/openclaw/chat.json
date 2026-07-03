@@ -57,6 +57,295 @@
       "response": {
         "content": "You told me your name is Alice."
       }
+    },
+
+    {
+      "match": {
+        "userMessage": "Explain step by step why the sky appears blue",
+        "context": "openclaw"
+      },
+      "response": {
+        "reasoning": "The user is asking about atmospheric optics. I should reason through Rayleigh scattering: shorter wavelengths scatter more, so blue dominates the daytime sky; at sunset the light travels a longer path so most blue is scattered away, leaving reds and oranges.",
+        "content": "The sky looks blue because sunlight is scattered by air molecules. Shorter (blue) wavelengths scatter far more strongly than longer (red) ones — this is Rayleigh scattering — so blue light reaches your eyes from every direction during the day. At sunset the sun's light travels a much longer path through the atmosphere; almost all the blue has already been scattered out of that path, so what remains reaching you is dominated by the longer red and orange wavelengths."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Plan a 3-day trip to Tokyo",
+        "context": "openclaw"
+      },
+      "response": {
+        "reasoning": "I'll reason through a 3-day Tokyo itinerary, weighing trade-offs at each step: minimize transit time by grouping neighborhoods, balance culture vs. modern sights, and leave buffer for jet lag.",
+        "content": "Day 1 (east/old Tokyo): Asakusa & Senso-ji in the morning, then Ueno museums — grouped to minimize transit. Day 2 (central/modern): Shibuya crossing and Harajuku, then Meiji Shrine as a calm counterweight. Day 3 (bay/flex): teamLab and Odaiba, kept flexible in case jet lag pushes things later. Trade-off at each step: I clustered nearby districts per day so you spend time seeing things rather than riding trains."
+      }
+    },
+
+    {
+      "match": {
+        "userMessage": "Say hi!",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hi there! I'm the sidebar assistant — ask me anything."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Give me a fun fact.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Fun fact: honey never spoils — archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Hello",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hello! How can I help you today?"
+      }
+    },
+
+    {
+      "match": {
+        "userMessage": "Say hi from the popup!",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hi from the popup! What can I do for you?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Write me a quick limerick.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "There once was a bot in a popup,\nWhose answers would never quite stop up;\nIt rhymed with delight,\nBoth morning and night,\nAnd politely refused to just shut up."
+      }
+    },
+
+    {
+      "match": {
+        "userMessage": "Say hello in one short sentence",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Hello — lovely to see you here."
+      }
+    },
+
+    {
+      "match": {
+        "userMessage": "Make the background a sunset gradient.",
+        "context": "openclaw",
+        "toolName": "change_background",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_cb_sunset",
+            "name": "change_background",
+            "arguments": "{\"background\":\"linear-gradient(135deg, #ff9966 0%, #ff5e62 50%, #6a3093 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Switch to a deep green forest gradient.",
+        "context": "openclaw",
+        "toolName": "change_background",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_cb_forest",
+            "name": "change_background",
+            "arguments": "{\"background\":\"linear-gradient(160deg, #0b3d2e 0%, #145a32 55%, #1e8449 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Make it a navy → magenta cosmic gradient.",
+        "context": "openclaw",
+        "toolName": "change_background",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_cb_cosmic",
+            "name": "change_background",
+            "arguments": "{\"background\":\"linear-gradient(135deg, #0f2027 0%, #2c1a4d 45%, #c31432 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "context": "openclaw",
+        "toolName": "change_background",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Done — I've updated the page background for you."
+      }
+    },
+
+    {
+      "match": {
+        "userMessage": "Please approve a $50 refund to Jordan Rivera on ticket #12345",
+        "context": "openclaw",
+        "toolName": "request_user_approval",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_approval_refund",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Approve a $50 refund to Jordan Rivera on ticket #12345 for the duplicate charge?\",\"context\":\"Ticket #12345 — duplicate charge, $50.00\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please escalate ticket #12347",
+        "context": "openclaw",
+        "toolName": "request_user_approval",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_approval_escalate",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Escalate ticket #12347 to the payments team — Morgan Lee's payment is stuck?\",\"context\":\"Ticket #12347 — payment stuck in pending\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please downgrade Priya Shah (#12346)",
+        "context": "openclaw",
+        "toolName": "request_user_approval",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_approval_downgrade",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Downgrade Priya Shah (#12346) to the Starter plan effective next billing cycle?\",\"context\":\"Ticket #12346 — plan downgrade\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "context": "openclaw",
+        "toolName": "request_user_approval",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Thanks — I've recorded your decision and acted on it accordingly."
+      }
+    },
+
+    {
+      "match": {
+        "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        "context": "openclaw",
+        "toolName": "book_call",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_book_alice",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"1:1 to review Q2 goals\",\"attendee\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please book an intro call with the sales team to discuss pricing.",
+        "context": "openclaw",
+        "toolName": "book_call",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_book_sales",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Intro call to discuss pricing\",\"attendee\":\"Sales team\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "context": "openclaw",
+        "toolName": "book_call",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Booked! I've locked in the time slot you picked and sent the invite."
+      }
+    },
+
+    {
+      "match": {
+        "userMessage": "Show me the contents of package.json.",
+        "context": "openclaw",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_read_pkg",
+            "name": "read",
+            "arguments": "{\"path\":\"package.json\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "List the files in the current directory.",
+        "context": "openclaw",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_exec_ls",
+            "name": "exec",
+            "arguments": "{\"command\":\"ls -la\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "context": "openclaw",
+        "hasToolResult": true
+      },
+      "response": {
+        "content": "Here's what I found from running that tool."
+      }
     }
   ]
 }
