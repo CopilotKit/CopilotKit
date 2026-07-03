@@ -136,7 +136,7 @@ Six packages exist only in showcase and have no `examples/integrations/<name>/` 
 - `claude-sdk-typescript`
 - `langroid`
 - `spring-ai`
-- `hermes` — the Hermes agent (Nous Research) is not a framework you author per-demo agents in; it's a complete agent reached over AG-UI. The backend is the published `hermes-agent` PyPI package plus a vendored `agui_adapter/` bridge (no `src/agents/`). See `integrations/hermes/PARITY_NOTES.md` for its divergences.
+- `hermes` — the Hermes agent (Nous Research) is not a framework you author per-demo agents in; it's a complete agent reached over AG-UI. The backend is installed from the Hermes fork that carries AG-UI support (`hermes-agent[agui] @ git+…mme/hermes-agent@<sha>`, pinned by SHA in `requirements.txt`) — core + `agui_adapter/` bridge, not vendored (no `src/agents/`). Migrates to a plain PyPI pin once the adapter is upstreamed. See `integrations/hermes/PARITY_NOTES.md`.
 
 These are authored directly in `showcase/integrations/<slug>/` and are **exempt from the pin-to-Dojo rule** — there is no Dojo to pin to. They still must pin exact versions (see "Dependency Pinning"), but the reference is whatever the framework's own examples or release notes recommend, not a sibling `examples/integrations/` directory.
 

@@ -52,12 +52,11 @@ COPY --chown=app:app --from=frontend /app/node_modules ./node_modules
 COPY --chown=app:app --from=frontend /app/package.json ./
 COPY --chown=app:app --from=frontend /app/public ./public
 
-# Hermes AG-UI adapter (vendored from the hermes-agent repo). This is the
-# resolver-based adapter; with HERMES_AGUI_BASE_URL set (see entrypoint.sh)
-# it bypasses the hermes provider resolver and talks directly to aimock. It
-# imports run_agent / hermes_cli / tools from the pip-installed
-# hermes-agent==0.17.0 in /opt/venv.
-COPY --chown=app:app agui_adapter/ ./agui_adapter/
+# NOTE: the Hermes AG-UI adapter (`agui_adapter`) is NOT vendored — it is
+# installed as part of `hermes-agent[agui]` from the fork pinned in
+# requirements.txt (see the git URL there), so it lives in /opt/venv alongside
+# the hermes core. Only the showcase-specific demo tools + launcher below are
+# carried in this integration.
 
 # Server-side showcase demo tools + launcher (vendored in this integration; no
 # Hermes-core edits). run_backend.py imports showcase_tools (which registers
@@ -72,8 +71,9 @@ COPY --chown=app:app run_backend.py ./run_backend.py
 # stage_shared step). Lands at /app/_shared; /app is already on PYTHONPATH.
 COPY --chown=app:app _shared/ ./_shared/
 
-# /app on PYTHONPATH so `run_backend.py` / `agui_adapter` / `showcase_tools`
-# resolve as the vendored modules (hermes-agent itself resolves from /opt/venv).
+# /app on PYTHONPATH so `run_backend.py` / `showcase_tools` resolve; the
+# `agui_adapter` package and hermes core both resolve from /opt/venv (installed
+# from the fork via requirements.txt).
 ENV PYTHONPATH=/app
 
 # Entrypoint

@@ -11,15 +11,21 @@ Hermes integration deliberately diverges from the canonical pattern and why.
 
 ## Backend model (structural divergence)
 
-- **No `src/agents/`.** The backend is the published **`hermes-agent==0.17.0`**
-  PyPI package plus a **vendored `agui_adapter/`** bridge (the Hermes AG-UI
-  adapter), run as `python -m agui_adapter`. Canonical integrations put small
-  per-demo agent code in `src/agents/`; Hermes has none — demo behavior comes
-  from the single Hermes agent + fixtures (aimock) + client-registered tools.
-- **Vendored adapter (planned follow-up).** `agui_adapter/` is vendored because
-  the adapter is not yet part of a published `hermes-agent` release. The clean
-  end-state is to publish the adapter in a Hermes release and `pip install` it,
-  dropping the vendored copy. Tracked as a follow-up.
+- **No `src/agents/`.** The backend is the Hermes agent itself, installed from
+  the **fork** that carries AG-UI support (`hermes-agent[agui] @
+  git+https://github.com/mme/hermes-agent.git@<sha>` in `requirements.txt`,
+  pinned to a commit SHA). The fork ships the Hermes core AND the
+  `agui_adapter/` bridge, so the adapter is **NOT vendored** here — single
+  source of truth. Run via `run_backend.py` → `python -m agui_adapter`.
+  Canonical integrations put small per-demo agent code in `src/agents/`; Hermes
+  has none — demo behavior comes from the single Hermes agent + fixtures
+  (aimock) + server-side/client tools.
+- **Why the fork, not PyPI (interim).** The AG-UI adapter is not yet merged
+  into `NousResearch/hermes-agent` / published. Until it is, we pin the public
+  fork by SHA (the fork branch is the upstream-PR vehicle). Clean end-state:
+  when the adapter lands upstream and is published, switch `requirements.txt`
+  to a plain `hermes-agent[agui]==<version>` PyPI pin and drop the git URL —
+  no other change needed.
 - **Generic AG-UI `HttpAgent`** wiring (like `pydantic-ai` / `crewai-crews` /
   `agno`), with dedicated `api/copilotkit-<feature>/route.ts` per feature family.
 
