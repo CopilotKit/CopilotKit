@@ -34,10 +34,20 @@
     },
     {
       "match": {
+        "userMessage": "Tell me a short joke.",
+        "context": "openclaw"
+      },
+      "response": {
+        "content": "Why do programmers prefer dark mode? Because light attracts bugs — and they'd rather debug than get swarmed."
+      }
+    },
+    {
+      "match": {
         "userMessage": "Walk me through whether 17 is prime.",
         "context": "openclaw"
       },
       "response": {
+        "reasoning": "To decide if 17 is prime I only need to test prime divisors up to its square root (~4.12): that's 2 and 3. 17 is odd, so not divisible by 2; its digit sum 1+7=8 isn't divisible by 3. No divisor <= 4 works, so it must be prime.",
         "content": "17 is prime. A prime has exactly two divisors: 1 and itself. To check 17, we only need to test primes up to its square root (~4.12): 2, 3. It's odd (not divisible by 2), and 1+7=8 is not divisible by 3. No divisor ≤ 4 works, so 17 has no factors besides 1 and 17 — it's prime."
       }
     },
@@ -313,6 +323,40 @@
       },
       "response": {
         "content": "Booked! I've locked in the time slot you picked and sent the invite."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please plan a trip to Mars in 5 steps.",
+        "context": "openclaw",
+        "toolName": "generate_task_steps",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_plan_mars",
+            "name": "generate_task_steps",
+            "arguments": "{\"steps\":[{\"description\":\"Assemble the mission crew and define roles\",\"status\":\"enabled\"},{\"description\":\"Design and build the spacecraft\",\"status\":\"enabled\"},{\"description\":\"Launch and escape Earth's orbit\",\"status\":\"enabled\"},{\"description\":\"Cruise to Mars and perform course corrections\",\"status\":\"enabled\"},{\"description\":\"Land on the Martian surface\",\"status\":\"enabled\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Please plan a pasta dish in 10 steps.",
+        "context": "openclaw",
+        "toolName": "generate_task_steps",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_plan_pasta",
+            "name": "generate_task_steps",
+            "arguments": "{\"steps\":[{\"description\":\"Bring a large pot of salted water to a boil\",\"status\":\"enabled\"},{\"description\":\"Chop the garlic and fresh herbs\",\"status\":\"enabled\"},{\"description\":\"Heat olive oil in a pan\",\"status\":\"enabled\"},{\"description\":\"Saute the garlic until fragrant\",\"status\":\"enabled\"},{\"description\":\"Add the tomatoes and simmer the sauce\",\"status\":\"enabled\"},{\"description\":\"Cook the pasta until al dente\",\"status\":\"enabled\"},{\"description\":\"Reserve a cup of pasta water\",\"status\":\"enabled\"},{\"description\":\"Drain the pasta\",\"status\":\"enabled\"},{\"description\":\"Toss the pasta with the sauce\",\"status\":\"enabled\"},{\"description\":\"Plate and garnish with cheese and herbs\",\"status\":\"enabled\"}]}"
+          }
+        ]
       }
     },
 

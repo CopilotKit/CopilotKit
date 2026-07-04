@@ -28,6 +28,9 @@ features:
   - prebuilt-sidebar
   - prebuilt-popup
   - chat-customization-css
+  - chat-slots
+  - reasoning-custom
+  - hitl
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -122,3 +125,38 @@ demos:
     highlight:
       - src/app/demos/chat-customization-css/page.tsx
       - src/app/demos/chat-customization-css/theme.css
+  - id: chat-slots
+    name: "Chat Customization: Slots"
+    description: Customize CopilotChat via its slot system.
+    tags:
+      - chat-ui
+    route: /demos/chat-slots
+    highlight:
+      - src/app/demos/chat-slots/page.tsx
+      - src/app/demos/chat-slots/slot-wrappers.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-custom
+    name: "Reasoning: Custom"
+    description: >-
+      The OpenClaw agent's REASONING_* events rendered through a custom
+      reasoningMessage slot (ReasoningBlock) alongside the streamed answer.
+    tags:
+      - chat-ui
+    route: /demos/reasoning-custom
+    highlight:
+      - src/app/demos/reasoning-custom/page.tsx
+      - src/app/demos/reasoning-custom/reasoning-block.tsx
+      - src/app/demos/reasoning-custom/suggestions.ts
+  - id: hitl
+    name: Human in the Loop
+    description: >-
+      The agent proposes a list of task steps via the useHumanInTheLoop hook;
+      an inline review card lets the user enable/disable steps and confirm or
+      reject, returning the decision as the tool result.
+    tags:
+      - interactivity
+    route: /demos/hitl
+    highlight:
+      - src/app/demos/hitl/page.tsx
+      - src/app/demos/hitl/steps-feedback.tsx
+      - src/app/api/copilotkit/route.ts

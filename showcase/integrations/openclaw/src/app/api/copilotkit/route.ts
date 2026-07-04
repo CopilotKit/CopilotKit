@@ -44,6 +44,9 @@ const agents: Record<string, AbstractAgent> = {
   "prebuilt-sidebar": createAgent(),
   "prebuilt-popup": createAgent(),
   "chat-customization-css": createAgent(),
+  "chat-slots": createAgent(),
+  "reasoning-custom": createAgent(),
+  hitl: createAgent(),
   default: createAgent(),
 };
 
