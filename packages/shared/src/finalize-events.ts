@@ -85,8 +85,15 @@ export function finalizeRunEvents(
   const hasRunError = events.some(
     (event) => event.type === EventType.RUN_ERROR,
   );
-  const hasTerminalEvent = hasRunFinished || hasRunError;
-  const terminalEventMissing = !hasTerminalEvent;
+
+  // A terminal event (RUN_FINISHED / RUN_ERROR) was already emitted for this
+  // run — e.g. the agent errored on abort before closing an open message.
+  // Appending structural cleanup now would place TEXT_MESSAGE_END / TOOL_CALL_END
+  // after the terminal, which the AG-UI client rejects ("the run has already
+  // errored"). Leave the stream as-is once it has terminated.
+  if (hasRunFinished || hasRunError) {
+    return appended;
+  }
 
   for (const messageId of openMessageIds) {
     const endEvent = {
@@ -107,7 +114,7 @@ export function finalizeRunEvents(
       appended.push(endEvent);
     }
 
-    if (terminalEventMissing && !info.hasResult) {
+    if (!info.hasResult) {
       const resultEvent = {
         type: EventType.TOOL_CALL_RESULT,
         toolCallId,
@@ -132,22 +139,20 @@ export function finalizeRunEvents(
     }
   }
 
-  if (terminalEventMissing) {
-    if (stopRequested) {
-      const finishedEvent = {
-        type: EventType.RUN_FINISHED,
-      } as BaseEvent;
-      events.push(finishedEvent);
-      appended.push(finishedEvent);
-    } else {
-      const errorEvent: RunErrorEvent = {
-        type: EventType.RUN_ERROR,
-        message: resolvedAbruptMessage,
-        code: "INCOMPLETE_STREAM",
-      };
-      events.push(errorEvent);
-      appended.push(errorEvent);
-    }
+  if (stopRequested) {
+    const finishedEvent = {
+      type: EventType.RUN_FINISHED,
+    } as BaseEvent;
+    events.push(finishedEvent);
+    appended.push(finishedEvent);
+  } else {
+    const errorEvent: RunErrorEvent = {
+      type: EventType.RUN_ERROR,
+      message: resolvedAbruptMessage,
+      code: "INCOMPLETE_STREAM",
+    };
+    events.push(errorEvent);
+    appended.push(errorEvent);
   }
 
   return appended;
