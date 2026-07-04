@@ -496,11 +496,11 @@ describe("IntelligenceAgentRunner", () => {
       });
     });
 
-    it("finalizes open message streams before completing", async () => {
+    it("does not append cleanup after the agent's own terminal event", async () => {
       const threadId = "t-finalize";
       const input = createRunInput({ threadId, runId: "r-fin" });
 
-      // Emit an unclosed text message, then RUN_FINISHED.
+      // Agent leaves a text message open and then emits RUN_FINISHED itself.
       const agentEvents: BaseEvent[] = [
         {
           type: EventType.TEXT_MESSAGE_START,
@@ -519,14 +519,16 @@ describe("IntelligenceAgentRunner", () => {
 
       await eventsPromise;
 
-      // finalizeRunEvents appends TEXT_MESSAGE_END for the unclosed message.
-      // Verify the channel received both agent and finalization events.
+      // The terminal was already emitted, so finalize must not push a synthetic
+      // TEXT_MESSAGE_END afterwards — that would violate the AG-UI ordering
+      // invariant and the client rejects events sent after the terminal.
       const chPayloadTypes = ch.pushLog.map((p) => p.payload.type);
       expect(chPayloadTypes).toContain(EventType.RUN_STARTED);
       expect(chPayloadTypes).toContain(EventType.TEXT_MESSAGE_START);
-      expect(chPayloadTypes).toContain(EventType.TEXT_MESSAGE_END);
+      expect(chPayloadTypes).not.toContain(EventType.TEXT_MESSAGE_END);
+      expect(chPayloadTypes.at(-1)).toBe(EventType.RUN_FINISHED);
       expect(ch.pushLog.map((p) => p.payload.metadata.cpki_event_seq)).toEqual([
-        1, 2, 3, 4,
+        1, 2, 3,
       ]);
     });
 

@@ -82,7 +82,7 @@ describe("finalizeRunEvents", () => {
     expect(errorEvent?.message).toContain("terminal event");
   });
 
-  it("only appends structural fixes when a terminal event already exists", () => {
+  it("appends nothing once a terminal event already exists", () => {
     const events: BaseEvent[] = [
       createTextStart("msg-1"),
       createToolStart("tool-1"),
@@ -91,19 +91,27 @@ describe("finalizeRunEvents", () => {
 
     const appended = finalizeRunEvents(events);
 
-    expect(appended.map((event) => event.type)).toEqual([
-      EventType.TEXT_MESSAGE_END,
-      EventType.TOOL_CALL_END,
-    ]);
+    // The terminal event was already emitted, so any cleanup would land after
+    // it and break the AG-UI ordering invariant. Nothing may be appended.
+    expect(appended).toEqual([]);
+    expect(events.at(-1)?.type).toBe(EventType.RUN_FINISHED);
+  });
 
+  it("does not append TEXT_MESSAGE_END after a RUN_ERROR when stopped mid-message", () => {
+    // Repro for the stop-button crash: an agent errors on abort with a text
+    // message still open. Emitting a synthetic TEXT_MESSAGE_END afterwards made
+    // the AG-UI client throw "the run has already errored".
+    const events: BaseEvent[] = [
+      createTextStart("msg-1"),
+      { type: EventType.RUN_ERROR, message: "aborted" } as BaseEvent,
+    ];
+
+    const appended = finalizeRunEvents(events, { stopRequested: true });
+
+    expect(appended).toEqual([]);
     expect(
-      appended.some((event) => event.type === EventType.TOOL_CALL_RESULT),
+      events.some((event) => event.type === EventType.TEXT_MESSAGE_END),
     ).toBe(false);
-    expect(appended.some((event) => event.type === EventType.RUN_ERROR)).toBe(
-      false,
-    );
-    expect(
-      appended.some((event) => event.type === EventType.RUN_FINISHED),
-    ).toBe(false);
+    expect(events.at(-1)?.type).toBe(EventType.RUN_ERROR);
   });
 });
