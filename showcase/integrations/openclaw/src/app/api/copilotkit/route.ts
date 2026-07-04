@@ -49,6 +49,7 @@ const agents: Record<string, AbstractAgent> = {
   hitl: createAgent(),
   "agent-config": createAgent(),
   "frontend-tools-async": createAgent(),
+  "readonly-state-agent-context": createAgent(),
   "gen-ui-agent": createAgent(),
   "gen-ui-tool-based": createAgent(),
   "tool-rendering-default-catchall": createAgent(),

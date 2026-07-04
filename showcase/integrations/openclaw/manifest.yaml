@@ -33,6 +33,7 @@ features:
   - hitl
   - agent-config
   - frontend-tools-async
+  - readonly-state-agent-context
   - gen-ui-agent
   - gen-ui-tool-based
   - tool-rendering-default-catchall
@@ -190,6 +191,18 @@ demos:
     route: /demos/frontend-tools-async
     highlight:
       - src/app/demos/frontend-tools-async/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: readonly-state-agent-context
+    name: "Shared State: Frontend Context"
+    description: >-
+      The frontend publishes read-only UI state (name, timezone, recent
+      activity) to the OpenClaw agent via useAgentContext — the agent can read
+      it but cannot modify it.
+    tags:
+      - agent-state
+    route: /demos/readonly-state-agent-context
+    highlight:
+      - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
