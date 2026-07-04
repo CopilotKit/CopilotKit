@@ -15,6 +15,50 @@
       }
     },
     {
+      "match": { "userMessage": "Explain what an API is.", "context": "openclaw" },
+      "response": { "content": "An API (Application Programming Interface) is a defined set of rules that lets one piece of software talk to another. It exposes specific operations — like \"get a user\" or \"create an order\" — behind stable endpoints, so callers can use a service without knowing how it works inside. Think of it as a contract: you send a request in an agreed format, and you get back a predictable response." }
+    },
+    {
+      "match": { "userMessage": "Introduce yourself.", "context": "openclaw" },
+      "response": { "content": "Hi! I'm an OpenClaw-powered assistant, and I'm genuinely excited to help you out! Ask me anything — whether it's a quick question or something you want explained from the ground up, I've got you covered!" }
+    },
+    {
+      "match": { "userMessage": "Make the background a sunset gradient.", "context": "openclaw", "toolName": "change_background_async", "hasToolResult": false },
+      "response": { "toolCalls": [ { "id": "call_cba_sunset", "name": "change_background_async", "arguments": "{\"background\":\"linear-gradient(135deg, #ff9966 0%, #ff5e62 50%, #6a3093 100%)\"}" } ] }
+    },
+    {
+      "match": { "userMessage": "Switch to a deep green forest gradient.", "context": "openclaw", "toolName": "change_background_async", "hasToolResult": false },
+      "response": { "toolCalls": [ { "id": "call_cba_forest", "name": "change_background_async", "arguments": "{\"background\":\"linear-gradient(160deg, #0b3d2e 0%, #145a32 55%, #1e8449 100%)\"}" } ] }
+    },
+    {
+      "match": { "userMessage": "Make it a navy → magenta cosmic gradient.", "context": "openclaw", "toolName": "change_background_async", "hasToolResult": false },
+      "response": { "toolCalls": [ { "id": "call_cba_cosmic", "name": "change_background_async", "arguments": "{\"background\":\"linear-gradient(135deg, #0f2027 0%, #2c1a4d 45%, #c31432 100%)\"}" } ] }
+    },
+    {
+      "match": { "userMessage": "Generate a quick weeknight pasta recipe.", "context": "openclaw", "toolName": "generate_recipe", "hasToolResult": false },
+      "response": { "toolCalls": [ { "id": "call_recipe_pasta", "name": "generate_recipe", "arguments": "{\"title\":\"Garlic Butter Weeknight Pasta\",\"description\":\"A fast, one-pan pasta ready in under 25 minutes.\",\"servings\":4,\"prep_minutes\":10,\"cook_minutes\":15,\"ingredients\":[\"12 oz spaghetti\",\"4 cloves garlic, minced\",\"3 tbsp butter\",\"2 tbsp olive oil\",\"1/2 cup grated parmesan\",\"1/4 cup fresh parsley, chopped\",\"Salt and black pepper to taste\"],\"steps\":[\"Bring a large pot of salted water to a boil and cook the spaghetti until al dente.\",\"Reserve 1 cup of pasta water, then drain.\",\"Melt the butter with olive oil in a pan over medium heat.\",\"Add the garlic and saute until fragrant, about 1 minute.\",\"Toss in the drained pasta with a splash of reserved pasta water.\",\"Stir in the parmesan until glossy, then season with salt and pepper.\",\"Garnish with parsley and serve immediately.\"]}" } ] }
+    },
+    {
+      "match": { "userMessage": "Generate a hearty vegan breakfast recipe.", "context": "openclaw", "toolName": "generate_recipe", "hasToolResult": false },
+      "response": { "toolCalls": [ { "id": "call_recipe_vegan_breakfast", "name": "generate_recipe", "arguments": "{\"title\":\"Savory Tofu Scramble Bowl\",\"description\":\"A protein-packed vegan breakfast with crispy potatoes and greens.\",\"servings\":2,\"prep_minutes\":10,\"cook_minutes\":20,\"ingredients\":[\"1 block firm tofu, crumbled\",\"2 medium potatoes, diced\",\"1 tsp turmeric\",\"1/2 tsp smoked paprika\",\"2 cups baby spinach\",\"1 avocado, sliced\",\"2 tbsp nutritional yeast\",\"Salt and pepper to taste\"],\"steps\":[\"Roast or pan-fry the diced potatoes until golden and crisp.\",\"Heat a pan and add the crumbled tofu.\",\"Stir in turmeric, smoked paprika, and nutritional yeast.\",\"Cook until the tofu is warmed through and lightly browned.\",\"Fold in the spinach and cook until wilted.\",\"Season with salt and pepper.\",\"Plate with the potatoes and top with sliced avocado.\"]}" } ] }
+    },
+    {
+      "match": { "userMessage": "Generate a simple chocolate dessert recipe.", "context": "openclaw", "toolName": "generate_recipe", "hasToolResult": false },
+      "response": { "toolCalls": [ { "id": "call_recipe_choc_dessert", "name": "generate_recipe", "arguments": "{\"title\":\"5-Minute Chocolate Mug Cake\",\"description\":\"A rich single-serving chocolate cake made in the microwave.\",\"servings\":1,\"prep_minutes\":3,\"cook_minutes\":2,\"ingredients\":[\"4 tbsp all-purpose flour\",\"3 tbsp sugar\",\"2 tbsp cocoa powder\",\"1/4 tsp baking powder\",\"3 tbsp milk\",\"2 tbsp vegetable oil\",\"1 tbsp chocolate chips\"],\"steps\":[\"Whisk the flour, sugar, cocoa powder, and baking powder in a microwave-safe mug.\",\"Stir in the milk and oil until the batter is smooth.\",\"Fold in the chocolate chips.\",\"Microwave on high for about 90 seconds until risen and set.\",\"Let cool for a minute before eating.\"]}" } ] }
+    },
+    {
+      "match": { "userMessage": "Show me a bar chart of quarterly sales for Q1, Q2, Q3, Q4.", "context": "openclaw", "toolName": "render_chart", "hasToolResult": false },
+      "response": { "toolCalls": [ { "id": "call_chart_sales", "name": "render_chart", "arguments": "{\"chartType\":\"bar\",\"title\":\"Quarterly Sales\",\"description\":\"Revenue by quarter\",\"data\":[{\"label\":\"Q1\",\"value\":120},{\"label\":\"Q2\",\"value\":175},{\"label\":\"Q3\",\"value\":140},{\"label\":\"Q4\",\"value\":210}]}" } ] }
+    },
+    {
+      "match": { "userMessage": "Show me a pie chart of website traffic by source.", "context": "openclaw", "toolName": "render_chart", "hasToolResult": false },
+      "response": { "toolCalls": [ { "id": "call_chart_traffic", "name": "render_chart", "arguments": "{\"chartType\":\"pie\",\"title\":\"Website Traffic by Source\",\"description\":\"Share of sessions\",\"data\":[{\"label\":\"Organic\",\"value\":48},{\"label\":\"Direct\",\"value\":22},{\"label\":\"Referral\",\"value\":18},{\"label\":\"Social\",\"value\":12}]}" } ] }
+    },
+    {
+      "match": { "userMessage": "Show a pie chart of smartphone market share by brand.", "context": "openclaw", "toolName": "render_chart", "hasToolResult": false },
+      "response": { "toolCalls": [ { "id": "call_chart_market", "name": "render_chart", "arguments": "{\"chartType\":\"pie\",\"title\":\"Smartphone Market Share\",\"description\":\"By brand\",\"data\":[{\"label\":\"Apple\",\"value\":28},{\"label\":\"Samsung\",\"value\":22},{\"label\":\"Xiaomi\",\"value\":13},{\"label\":\"Oppo\",\"value\":9},{\"label\":\"Other\",\"value\":28}]}" } ] }
+    },
+    {
       "match": {
         "userMessage": "Write a short sonnet about AI.",
         "context": "openclaw"

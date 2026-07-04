@@ -31,6 +31,12 @@ features:
   - chat-slots
   - reasoning-custom
   - hitl
+  - agent-config
+  - frontend-tools-async
+  - gen-ui-agent
+  - gen-ui-tool-based
+  - tool-rendering-default-catchall
+  - tool-rendering-custom-catchall
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -159,4 +165,78 @@ demos:
     highlight:
       - src/app/demos/hitl/page.tsx
       - src/app/demos/hitl/steps-feedback.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: agent-config
+    name: Agent Config Object
+    description: >-
+      Forward a typed config object (tone / expertise / response length) from
+      the provider to the OpenClaw agent via useAgentContext — clawg-ui appends
+      it to the prompt so the agent adapts every reply.
+    tags:
+      - platform
+    route: /demos/agent-config
+    highlight:
+      - src/app/demos/agent-config/page.tsx
+      - src/app/demos/agent-config/config-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: frontend-tools-async
+    name: Frontend Tools (Async)
+    description: >-
+      A tool defined in React with an ASYNC handler, executed in the browser and
+      invoked by the OpenClaw agent — the handler awaits a client-side round-trip
+      before applying the result.
+    tags:
+      - interactivity
+    route: /demos/frontend-tools-async
+    highlight:
+      - src/app/demos/frontend-tools-async/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: gen-ui-agent
+    name: Agentic Generative UI
+    description: >-
+      The OpenClaw agent calls a structured generate_recipe tool; the frontend
+      renders its arguments as a rich recipe card via useRenderTool.
+    tags:
+      - generative-ui
+    route: /demos/gen-ui-agent
+    highlight:
+      - src/app/demos/gen-ui-agent/page.tsx
+      - src/app/demos/gen-ui-agent/recipe-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: gen-ui-tool-based
+    name: Tool-Based Generative UI
+    description: >-
+      A frontend tool with a render function — the OpenClaw agent calls
+      render_chart and the tool's render function draws a bar or pie chart inline
+      from the arguments.
+    tags:
+      - generative-ui
+    route: /demos/gen-ui-tool-based
+    highlight:
+      - src/app/demos/gen-ui-tool-based/page.tsx
+      - src/app/demos/gen-ui-tool-based/chart-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-default-catchall
+    name: Tool Rendering (Default)
+    description: >-
+      Renders the OpenClaw agent's server-side tool calls (e.g. shell/read)
+      inline using CopilotKit's built-in default tool-call card — zero custom
+      renderers.
+    tags:
+      - agent-capabilities
+    route: /demos/tool-rendering-default-catchall
+    highlight:
+      - src/app/demos/tool-rendering-default-catchall/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-custom-catchall
+    name: Tool Rendering (Custom Catch-all)
+    description: >-
+      A single branded wildcard renderer via useDefaultRenderTool — the same
+      app-designed card paints every OpenClaw server-side tool call.
+    tags:
+      - agent-capabilities
+    route: /demos/tool-rendering-custom-catchall
+    highlight:
+      - src/app/demos/tool-rendering-custom-catchall/page.tsx
+      - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts

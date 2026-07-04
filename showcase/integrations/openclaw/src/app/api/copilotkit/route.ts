@@ -47,6 +47,12 @@ const agents: Record<string, AbstractAgent> = {
   "chat-slots": createAgent(),
   "reasoning-custom": createAgent(),
   hitl: createAgent(),
+  "agent-config": createAgent(),
+  "frontend-tools-async": createAgent(),
+  "gen-ui-agent": createAgent(),
+  "gen-ui-tool-based": createAgent(),
+  "tool-rendering-default-catchall": createAgent(),
+  "tool-rendering-custom-catchall": createAgent(),
   default: createAgent(),
 };
 
