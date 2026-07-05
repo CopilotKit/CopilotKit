@@ -49,20 +49,3 @@ const YourApp = ({ setThreadId }) => {
   )
 }
 ```
-
-## Using setThreadId
-
-CopilotKit will also return the current `threadId` and a `setThreadId` function from the `useCopilotContext` hook. You can use `setThreadId` to change the `threadId`.
-
-```tsx
-
-const ChangeThreadButton = () => {
-  const { threadId, setThreadId } = useCopilotContext(); // [!code highlight]
-  return (
-    {/* [!code highlight:1] */}
-    <Button onClick={() => setThreadId("d73c22f3-1f8e-4a93-99db-5c986068d64f")}>
-      Change Thread
-    </Button>
-  )
-}
-```
