@@ -183,14 +183,24 @@ services:
       # (omits the bundled tei — its dependency below is required:false).
       MEMORY_EMBEDDINGS_URL: ${MEMORY_EMBEDDINGS_URL:-http://tei:80}
       MEMORY_EMBEDDING_MODEL: Qwen/Qwen3-Embedding-0.6B
-      DEFAULT_ORGANIZATION_ID: casa-de-erlang
+      # NOTE (main migration): main dropped the legacy DEFAULT_ORGANIZATION_ID.
+      # Org is resolved from the authenticated cpk key (seeded to casa-de-erlang);
+      # the header default falls back to 'self_hosted' when unset.
       COPILOTKIT_LICENSE_TOKEN: "${COPILOTKIT_LICENSE_TOKEN:-}"
+      # main migration: self-hosted memory is gated behind a signed offline
+      # license carrying the `memory` feature (MEMORY_NOT_ENTITLED otherwise).
+      # BAKED_LICENSE_KEYS_JSON bakes the public key the verifier trusts, so a
+      # locally-minted dev enterprise license (scripts/mint-dev-license) unlocks
+      # memory without any master-key attestation. Dev-only local values.
+      BAKED_LICENSE_KEYS_JSON: "${BAKED_LICENSE_KEYS_JSON:-}"
       # Auth / runtime secrets (exactly as in the reference run-demo.sh; the
       # AUTH_SECRET must be >= 32 chars per auth-server's env schema). These
       # are dev-only local values.
       AUTH_SECRET: "local-dev-auth-secret-at-least-32-bytes-long-000"
       AUTH_TRUST_HOST: "true"
-      DEPLOYMENT_MODE: self-hosted
+      # main renamed the deployment-mode env and uses an underscore value;
+      # the legacy `DEPLOYMENT_MODE=self-hosted` is rejected (crash-loop).
+      INTELLIGENCE_DEPLOYMENT_MODE: self_hosted
       RUNNER_AUTH_SECRET: dev-runner-secret
       SECRET_KEY_BASE: local-realtime-gateway-secret-key-base-at-least-64-bytes-long
       PHX_HOST: localhost
