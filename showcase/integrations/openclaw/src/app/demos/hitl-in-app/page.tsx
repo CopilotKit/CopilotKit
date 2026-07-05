@@ -6,7 +6,6 @@ import { useState } from "react";
 import {
   CopilotKit,
   CopilotPopup,
-  useAgentContext,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
@@ -35,23 +34,6 @@ function Layout() {
   const [dialog, setDialog] = useState<DialogState>({ open: false });
 
   useHitlInAppSuggestions();
-
-  // @region[agent-steering]
-  // Per-demo steering delivered to the agent as AG-UI context (the clawg-ui
-  // adapter appends context entries to the OpenClaw agent prompt). One shared
-  // agent; the instruction lives with the demo that needs it.
-  useAgentContext({
-    description: "Operating instructions for this demo",
-    value:
-      "You are a support-operations copilot working alongside a human operator. " +
-      "Before approving, processing, or otherwise acting on any consequential " +
-      "request (refunds, credits, closing tickets, deletions), you MUST call the " +
-      "request_user_approval tool to obtain the operator's decision. Treat the " +
-      "returned { approved, reason } as authoritative: if approved, confirm " +
-      "concisely; if not, stop. Never decline by claiming you lack access to a " +
-      "system — the approval tool is your mechanism to act.",
-  });
-  // @endregion[agent-steering]
 
   useFrontendTool({
     name: "request_user_approval",

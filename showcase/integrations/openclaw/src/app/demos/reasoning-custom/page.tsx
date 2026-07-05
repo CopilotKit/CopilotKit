@@ -2,17 +2,19 @@
 
 // Reasoning — Custom
 //
-// Pairs with `agentic-chat-reasoning` so users can compare default vs custom
-// reasoning rendering side by side. The OpenClaw agent emits AG-UI REASONING_*
-// events; the default demo renders them via the built-in reasoning panel, while
-// this cell overrides the `reasoningMessage` slot on the `messageView` slot with
-// `ReasoningBlock` — a tagged amber banner that emphasizes the agent's thinking
-// chain.
+// Pairs with `reasoning-default` so users can compare default vs custom
+// reasoning rendering side by side. Both demos share the same backend
+// (`reasoning_agent` graph) and runtime URL (/api/copilotkit). This cell
+// overrides the `reasoningMessage` slot on the `messageView` slot with
+// `ReasoningBlock` — a tagged amber banner that emphasizes the agent's
+// thinking chain.
 //
-// Reasoning is a first-class message type in v2: CopilotChatMessageView
-// discriminates messages by `message.role === "reasoning"` and renders them via
-// the `reasoningMessage` slot (default component: `CopilotChatReasoningMessage`).
-// The slot override below is the public, stable way to customize that output.
+// Reasoning is a first-class message type in v2: see
+// packages/react-core/src/v2/components/chat/CopilotChatMessageView.tsx,
+// which discriminates messages by `message.role === "reasoning"` and
+// renders them via the `reasoningMessage` slot (default component:
+// `CopilotChatReasoningMessage`). The slot override below is the public,
+// stable way to customize that output.
 
 import type { CopilotChatReasoningMessage } from "@copilotkit/react-core/v2";
 import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
@@ -24,7 +26,7 @@ const AGENT_ID = "reasoning-custom";
 
 export default function ReasoningCustomDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <CopilotKit runtimeUrl="/api/copilotkit-reasoning" agent={AGENT_ID}>
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

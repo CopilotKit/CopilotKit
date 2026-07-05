@@ -1,14 +1,5 @@
 "use client";
 
-// Frontend Tools demo (OpenClaw).
-//
-// Shows `useFrontendTool` — a tool DEFINED in the React tree, EXECUTED in the
-// browser, and INVOKED by the OpenClaw agent. The tool schema is forwarded over
-// AG-UI in RunAgentInput.tools; the clawg-ui adapter hands it to OpenClaw as a
-// caller-provided `clientTool`, so the model can call it. When it does, the run
-// stops with a pending tool call, clawg-ui emits TOOL_CALL_* events, and this
-// page's handler runs locally to change the background.
-
 // @region[frontend-tool-registration]
 import React, { useState } from "react";
 import {
@@ -35,10 +26,7 @@ function Chat() {
     // @region[frontend-tool-handler]
     handler: async ({ background }) => {
       setBackground(background);
-      return {
-        status: "success",
-        message: `Background changed to ${background}`,
-      };
+      return { status: "success" };
     },
     // @endregion[frontend-tool-handler]
   });
@@ -48,14 +36,14 @@ function Chat() {
 
   return (
     <Background background={background}>
-      <CopilotSidebar agentId="frontend-tools" defaultOpen />
+      <CopilotSidebar agentId="frontend_tools" defaultOpen />
     </Background>
   );
 }
 
 export default function FrontendToolsDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend-tools">
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend_tools">
       <Chat />
     </CopilotKit>
   );

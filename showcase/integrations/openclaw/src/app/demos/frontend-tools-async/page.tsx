@@ -1,74 +1,106 @@
 "use client";
 
-// Frontend Tools (Async) demo (OpenClaw).
-//
-// Same `useFrontendTool` story as the frontend-tools demo — a tool DEFINED in
-// the React tree, EXECUTED in the browser, and INVOKED by the OpenClaw agent —
-// but the handler is ASYNC. The tool schema is forwarded over AG-UI in
-// RunAgentInput.tools; the clawg-ui adapter hands it to OpenClaw as a
-// caller-provided `clientTool`, so the model can call it. When it does, the run
-// stops with a pending tool call, clawg-ui emits TOOL_CALL_* events, and this
-// page's async handler awaits a simulated client-side round-trip before
-// applying the new background — exercising the full async frontend-tool path.
-
-// @region[frontend-tool-async-registration]
-import React, { useState } from "react";
+import React from "react";
 import {
+  CopilotChat,
   CopilotKit,
-  CopilotSidebar,
+  useConfigureSuggestions,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { Background, DEFAULT_BACKGROUND } from "./background";
-import { useFrontendToolsAsyncSuggestions } from "./suggestions";
-
-// Simulates a client-side async round-trip (persisting a theme preference,
-// reading from IndexedDB, etc.) so the async-handler path is exercised
-// end-to-end.
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function Chat() {
-  const [background, setBackground] = useState<string>(DEFAULT_BACKGROUND);
-
-  useFrontendTool({
-    name: "change_background_async",
-    description:
-      "Change the page background. Accepts any valid CSS background value — colors, linear or radial gradients, etc.",
-    parameters: z.object({
-      background: z
-        .string()
-        .describe("The CSS background value. Prefer gradients."),
-    }),
-    // @region[frontend-tool-async-handler]
-    // Async handler: awaits a simulated client-side round-trip (500ms) before
-    // applying the new background and returning a result.
-    handler: async ({ background }) => {
-      await sleep(500);
-      setBackground(background);
-      return {
-        status: "success",
-        message: `Background changed to ${background}`,
-      };
-    },
-    // @endregion[frontend-tool-async-handler]
-  });
-  // @endregion[frontend-tool-async-registration]
-
-  useFrontendToolsAsyncSuggestions();
-
-  return (
-    <Background background={background}>
-      <CopilotSidebar agentId="frontend-tools-async" defaultOpen />
-    </Background>
-  );
-}
+import { NotesCard, type Note } from "./notes-card";
+import { NOTES_DB, sleep } from "./fake-notes-db";
+import { parseJsonResult } from "../_shared/parse-json-result";
 
 export default function FrontendToolsAsyncDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend-tools-async">
-      <Chat />
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
+      </div>
     </CopilotKit>
+  );
+}
+
+function Chat() {
+  // @region[frontend-tool-async]
+  // @region[frontend-tool-async-registration]
+  useFrontendTool({
+    name: "query_notes",
+    description:
+      "Search the user's local notes database for notes whose title, " +
+      "excerpt, or tags contain the given keyword (case-insensitive). " +
+      "Returns up to 5 matching notes.",
+    parameters: z.object({
+      keyword: z
+        .string()
+        .describe("Keyword or phrase to search notes for (case-insensitive)."),
+    }),
+    // @region[frontend-tool-async-handler]
+    // Async handler: awaits a simulated client-side DB round-trip (500ms)
+    // and returns the matching notes. The agent then uses the returned
+    // result to summarize what it found — exercising the full async
+    // frontend-tool path end-to-end.
+    handler: async ({ keyword }: { keyword: string }) => {
+      await sleep(500);
+      const q = keyword.toLowerCase();
+      const matches = NOTES_DB.filter((n) => {
+        return (
+          n.title.toLowerCase().includes(q) ||
+          n.excerpt.toLowerCase().includes(q) ||
+          (n.tags ?? []).some((t) => t.toLowerCase().includes(q))
+        );
+      }).slice(0, 5);
+      return {
+        keyword,
+        count: matches.length,
+        notes: matches,
+      };
+    },
+    // @endregion[frontend-tool-async-handler]
+    render: ({ args, result, status }) => {
+      const loading = status !== "complete";
+      const parsed = parseJsonResult<{
+        keyword?: string;
+        count?: number;
+        notes?: Note[];
+      }>(result);
+      return (
+        <NotesCard
+          loading={loading}
+          keyword={args?.keyword ?? parsed.keyword ?? ""}
+          notes={parsed.notes}
+        />
+      );
+    },
+  });
+  // @endregion[frontend-tool-async-registration]
+  // @endregion[frontend-tool-async]
+
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Find project-planning notes",
+        message: "Find my notes about project planning.",
+      },
+      {
+        title: "Search for 'auth'",
+        message: "Search my notes for anything related to auth.",
+      },
+      {
+        title: "What do I have about reading?",
+        message: "Do I have any notes tagged reading?",
+      },
+    ],
+    available: "always",
+  });
+
+  return (
+    <CopilotChat
+      agentId="frontend-tools-async"
+      className="h-full rounded-2xl"
+    />
   );
 }

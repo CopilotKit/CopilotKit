@@ -6,21 +6,25 @@ export function useSuggestions() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "List files",
-        message: "List the files in the current directory.",
+        title: "Weather in SF",
+        message: "What's the weather in San Francisco?",
       },
       {
-        title: "Read a file",
-        message: "Show me the contents of package.json.",
+        title: "Find flights",
+        message: "Find flights from SFO to JFK.",
       },
       {
-        title: "System info",
-        message: "What operating system are you running on?",
+        title: "Stock price",
+        message: "What's the current price of AAPL?",
+      },
+      {
+        title: "Roll a d20",
+        message: "Roll a 20-sided die.",
       },
       {
         title: "Chain tools",
         message:
-          "Chain a few tools in this single turn: list the files here, then read the first one you find.",
+          "Chain a few tools in this single turn: get the weather in Tokyo, search flights from SFO to Tokyo, and roll a d20.",
       },
     ],
     available: "always",

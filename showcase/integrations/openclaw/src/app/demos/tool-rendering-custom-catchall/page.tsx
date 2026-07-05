@@ -1,18 +1,13 @@
 "use client";
 
-// Tool Rendering — CUSTOM CATCH-ALL variant (OpenClaw).
+// Tool Rendering — CUSTOM CATCH-ALL variant (middle of the progression).
 //
-// The OpenClaw agent exposes generic server tools (shell exec, read, etc.)
-// rather than a fixed, known set. Instead of registering a branded per-tool
-// renderer for each one, this cell opts out of CopilotKit's built-in default
-// tool-call UI by registering a SINGLE custom wildcard renderer via
-// `useDefaultRenderTool`. The same app-designed, on-brand card now paints
-// EVERY tool call — showing the tool name, its arguments (as JSON), and its
-// result. clawg-ui streams TOOL_CALL_START/ARGS/RESULT/END over AG-UI, and
-// CopilotChat drives the card through its inProgress → executing → complete
-// lifecycle.
+// Same backend tools as `tool-rendering-default-catchall`, but this
+// cell opts out of CopilotKit's built-in default tool-call UI by
+// registering a SINGLE custom wildcard renderer via
+// `useDefaultRenderTool`. The same branded card now paints every tool
+// call — no per-tool renderers yet.
 
-// @region[catchall-renderer]
 import React from "react";
 import {
   CopilotKit,
@@ -41,9 +36,10 @@ export default function ToolRenderingCustomCatchallDemo() {
 }
 
 function Chat() {
+  // @region[use-default-render-tool-wildcard]
   // `useDefaultRenderTool` is a convenience wrapper around
-  // `useRenderTool({ name: "*", ... })` — a single wildcard renderer that
-  // handles every tool call the agent makes as a branded card.
+  // `useRenderTool({ name: "*", ... })` — a single wildcard renderer
+  // that handles every tool call not claimed by a named renderer.
   useDefaultRenderTool(
     {
       render: ({ name, parameters, status, result }) => (
@@ -57,7 +53,7 @@ function Chat() {
     },
     [],
   );
-  // @endregion[catchall-renderer]
+  // @endregion[use-default-render-tool-wildcard]
 
   useSuggestions();
 

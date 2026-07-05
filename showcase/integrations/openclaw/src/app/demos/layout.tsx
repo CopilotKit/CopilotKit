@@ -20,6 +20,9 @@ function loadDemoIndex(): Map<string, string> {
   for (const demo of manifest.demos ?? []) {
     if (demo.route) {
       const slug = demo.route.replace(/^\/demos\//, "");
+      // Last writer wins; manifest has duplicate routes (e.g., hitl-in-chat
+      // shared by hitl-in-chat and hitl-in-chat-booking). Prefer the first
+      // entry to keep titles stable.
       if (!map.has(slug)) map.set(slug, demo.name);
     }
   }
@@ -36,11 +39,11 @@ export async function generateMetadata(): Promise<Metadata> {
   const pathname = h.get("x-pathname") ?? "";
   const match = pathname.match(/^\/demos\/([^/]+)/);
   const slug = match?.[1];
-  if (!slug) return { title: "OpenClaw" };
+  if (!slug) return { title: "LangChain - Python" };
 
   const index = loadDemoIndex();
   const demoName = index.get(slug) ?? titleCase(slug);
-  return { title: `OpenClaw - ${demoName}` };
+  return { title: `LangChain - Python - ${demoName}` };
 }
 
 export default function DemosLayout({

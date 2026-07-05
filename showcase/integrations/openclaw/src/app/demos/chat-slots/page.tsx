@@ -1,6 +1,6 @@
 "use client";
 
-import React, { type ComponentType } from "react";
+import React from "react";
 import {
   CopilotKit,
   CopilotChat,
@@ -25,27 +25,12 @@ import {
   CustomScrollToBottomButton,
   CustomFeather,
 } from "./slot-wrappers";
+import { makeSlotOverride } from "../_shared/slot-override";
 import { useChatSlotsSuggestions } from "./suggestions";
-
-// Helper for the CopilotChat slot overrides. The slot prop types in
-// `@copilotkit/react-core` are nominally typed against the *exact* default
-// component identity, but a custom wrapper that returns a structurally
-// compatible ReactElement is functionally a drop-in. This helper names that
-// fact and centralizes the type assertion in one place — readers see
-// `makeSlotOverride` and know it's about the slot contract, not arbitrary
-// type-system gymnastics.
-function makeSlotOverride<TDefault>(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  component: ComponentType<any>,
-): TDefault {
-  return component as unknown as TDefault;
-}
 
 // "Slot Atlas" — every overrideable slot on CopilotChat is wrapped in a
 // dashed, color-coded marker so a developer can see at a glance what is
 // customizable and where it lives. Hover any region to reveal its slot path.
-// This demo drives the same OpenClaw agent as agentic-chat via the clawg-ui
-// AG-UI adapter; only the frontend presentation is customized.
 export default function ChatSlotsDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="chat-slots">
@@ -63,6 +48,9 @@ export default function ChatSlotsDemo() {
 function Chat() {
   useChatSlotsSuggestions();
 
+  // Slot overrides go through `makeSlotOverride<TDefault>(component)` so
+  // the cast is centralized in one named helper instead of sprinkled
+  // through this file. See `../_shared/slot-override.ts` for the why.
   const welcomeScreen =
     makeSlotOverride<typeof CopilotChatView.WelcomeScreen>(CustomWelcomeScreen);
 

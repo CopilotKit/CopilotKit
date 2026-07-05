@@ -13,7 +13,10 @@ import { useReadonlyStateAgentContextSuggestions } from "./suggestions";
 
 export default function ReadonlyStateAgentContextDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="readonly-state-agent-context">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="readonly-state-agent-context"
+    >
       <DemoContent />
       <CopilotPopup
         agentId="readonly-state-agent-context"
@@ -33,19 +36,6 @@ function DemoContent() {
   ]);
   // @endregion[context-provider-sketch]
 
-  // @region[agent-steering]
-  // Per-demo steering via AG-UI context (clawg-ui appends context entries to
-  // the OpenClaw agent's prompt). This keeps the "you may read this context"
-  // instruction scoped to this demo.
-  useAgentContext({
-    description: "Operating instructions for this demo",
-    value:
-      "You are an assistant that can read the user's read-only profile context " +
-      "below. When asked who the user is, what timezone they're in, or about " +
-      "their recent activity, answer from that context. You cannot modify it.",
-  });
-  // @endregion[agent-steering]
-
   // @region[use-agent-context-call]
   useAgentContext({
     description: "The currently logged-in user's display name",
@@ -57,10 +47,7 @@ function DemoContent() {
   });
   useAgentContext({
     description: "The user's recent activity in the app, newest first",
-    // useAgentContext value must be a string — join the activity array so the
-    // RunAgentInput.context entry serializes correctly (an array value breaks
-    // the /api/copilotkit request, so the run never reaches the agent).
-    value: recentActivity.join("; "),
+    value: recentActivity,
   });
   // @endregion[use-agent-context-call]
 

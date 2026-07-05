@@ -7,15 +7,16 @@ export function useReadonlyStateAgentContextSuggestions() {
     suggestions: [
       {
         title: "Who am I?",
-        message: "What is my name according to my context?",
+        message: "What do you know about me from my context?",
       },
       {
-        title: "What timezone am I in?",
-        message: "What timezone am I in?",
+        title: "Suggest next steps",
+        message: "Based on my recent activity, what should I try next?",
       },
       {
-        title: "Summarize my activity",
-        message: "Summarize my recent activity.",
+        title: "Plan my morning",
+        message:
+          "What time is it in my timezone and what should I do for the next hour?",
       },
     ],
     available: "always",

@@ -1,30 +1,34 @@
 "use client";
 
-// Agentic Generative UI — Tool-Call-Driven Rendering (OpenClaw).
-//
-// The OpenClaw agent calls a single structured tool, `generate_recipe`. Its
-// output — title, meta, ingredients, and steps — is rendered as a rich recipe
-// card via `useRenderTool` (a per-tool renderer keyed by name), NOT as a
-// generic tool-call card. This is the "generative UI from a tool call's
-// output" pattern: the agent decides WHAT to render by choosing which tool to
-// call and with what arguments; the frontend owns HOW it looks.
-//
-// clawg-ui streams TOOL_CALL_START/ARGS/END over AG-UI, and CopilotChat drives
-// the card through its inProgress → executing → complete lifecycle. The card
-// paints from the tool ARGUMENTS as they stream, so the rich UI appears on the
-// first tool call (there is no separate tool result needed to render).
-
-// @region[render-recipe-tool]
 import React from "react";
 import {
-  CopilotKit,
   CopilotChat,
-  useFrontendTool,
+  CopilotKit,
+  useAgent,
+  UseAgentUpdate,
 } from "@copilotkit/react-core/v2";
-import { z } from "zod";
-import { RecipeCard, type Recipe } from "./recipe-card";
+import type { Step } from "./InlineAgentStateCard";
+import { MessageListWithState } from "./message-list-with-state";
 import { useSuggestions } from "./suggestions";
 
+/**
+ * Agentic Generative UI — In-Chat State Rendering
+ *
+ * The deep agent on the backend defines its own state schema
+ * (`steps: list[Step]`) and exposes a custom `set_steps` tool that the model
+ * calls to mutate that state. Every `set_steps` call streams the updated
+ * `steps` to the client.
+ *
+ * On the client we subscribe to that live state via `useAgent` (v2) and
+ * render a single `InlineAgentStateCard` inside the chat transcript via
+ * `messageView.children`. The card re-renders in place as state arrives —
+ * no per-message claims, no duplicate cards.
+ *
+ * This mirrors the pattern used by every other integration's gen-ui-agent
+ * demo (mastra, strands, ag2, agno, crewai-crews, langgraph-typescript,
+ * pydantic-ai, ...) and replaces the earlier `useCoAgentStateRender`
+ * approach which produced one card per state-changing message.
+ */
 export default function GenUiAgentDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-agent">
@@ -37,36 +41,35 @@ export default function GenUiAgentDemo() {
   );
 }
 
+type AgentState = {
+  steps?: Step[];
+};
+
 function Chat() {
-  // Frontend tool: `generate_recipe` is DEFINED here so it's forwarded to the
-  // OpenClaw agent over AG-UI (RunAgentInput.tools → clawg-ui clientTools).
-  // When the agent calls it, its `render` paints the branded RecipeCard
-  // directly from the streamed tool arguments — the rich UI appears on the
-  // first tool call, no tool result round-trip. (No `handler`: render-only.)
-  useFrontendTool({
-    name: "generate_recipe",
-    description:
-      "Generate a structured recipe. Call this to answer any recipe request " +
-      "with a rich recipe card instead of a plain-text reply.",
-    parameters: z.object({
-      title: z.string(),
-      description: z.string().optional(),
-      servings: z.number().optional(),
-      prep_minutes: z.number().optional(),
-      cook_minutes: z.number().optional(),
-      ingredients: z.array(z.string()).optional(),
-      steps: z.array(z.string()).optional(),
-    }),
-    render: ({ args, status }) => {
-      const loading = status !== "complete";
-      return <RecipeCard loading={loading} recipe={(args ?? {}) as Recipe} />;
-    },
+  const { agent } = useAgent({
+    agentId: "gen-ui-agent",
+    updates: [UseAgentUpdate.OnStateChanged],
   });
-  // @endregion[render-recipe-tool]
 
   useSuggestions();
 
+  const steps = (agent.state as AgentState | undefined)?.steps ?? [];
+  const status = agent.isRunning ? "inProgress" : "complete";
+
   return (
-    <CopilotChat agentId="gen-ui-agent" className="h-full rounded-2xl" />
+    <CopilotChat
+      agentId="gen-ui-agent"
+      className="h-full rounded-2xl"
+      messageView={{
+        children: ({ messageElements, interruptElement }) => (
+          <MessageListWithState
+            messageElements={messageElements}
+            interruptElement={interruptElement}
+            steps={steps}
+            status={status}
+          />
+        ),
+      }}
+    />
   );
 }

@@ -6,16 +6,17 @@ export function useSuggestions() {
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weeknight pasta",
-        message: "Generate a quick weeknight pasta recipe.",
+        title: "Plan a product launch",
+        message: "Plan a product launch for a new mobile app.",
       },
       {
-        title: "Vegan breakfast",
-        message: "Generate a hearty vegan breakfast recipe.",
+        title: "Organize a team offsite",
+        message: "Organize a three-day engineering team offsite.",
       },
       {
-        title: "Chocolate dessert",
-        message: "Generate a simple chocolate dessert recipe.",
+        title: "Research a competitor",
+        message:
+          "Research our top competitor and summarize their strengths and weaknesses.",
       },
     ],
     available: "always",

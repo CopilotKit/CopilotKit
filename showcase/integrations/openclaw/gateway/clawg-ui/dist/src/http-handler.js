@@ -256,6 +256,52 @@ function formatContextEntries(context) {
     return `\n\n## Context provided by the UI\n\n${parts.join("\n\n")}`;
 }
 // ---------------------------------------------------------------------------
+// Bidirectional shared state (AG-UI STATE_SNAPSHOT)
+// ---------------------------------------------------------------------------
+/**
+ * Name of the state-write tool clawg-ui injects when the UI shares state.
+ *
+ * OpenClaw exposes only its own built-in tools to the reply-path model, so a
+ * plugin-registered tool would never be offered. The one tool list that
+ * reaches the model is the caller-provided `clientTools` path — so we inject
+ * `set_state` there and intercept the call ourselves (emitting STATE_SNAPSHOT)
+ * instead of round-tripping it to the browser. This makes read-write shared
+ * state a gateway capability that works for any AG-UI frontend unchanged.
+ */
+const SET_STATE_TOOL_NAME = "set_state";
+const SET_STATE_TOOL_DESCRIPTION = "Update the shared application state that the UI displays. Call this whenever " +
+    "the user asks you to change, add to, or remove from that state. Pass the " +
+    "COMPLETE new state object (include unchanged fields verbatim). Do not " +
+    "describe the update in prose — just call the tool.";
+function isSharedState(state) {
+    return (!!state &&
+        typeof state === "object" &&
+        !Array.isArray(state) &&
+        Object.keys(state).length > 0);
+}
+/**
+ * Render `RunAgentInput.state` into a prompt block so the model can read the
+ * UI's live state and knows it can mutate it via `set_state`.
+ */
+function formatSharedState(state) {
+    if (!isSharedState(state))
+        return undefined;
+    let json;
+    try {
+        json = JSON.stringify(state, null, 2);
+    }
+    catch {
+        return undefined;
+    }
+    return (`\n\n## Shared application state\n\n` +
+        `The UI shares this live state with you (JSON):\n\n` +
+        "```json\n" +
+        `${json}\n` +
+        "```\n\n" +
+        `To change it, call the \`${SET_STATE_TOOL_NAME}\` tool with the complete ` +
+        `updated state object.`);
+}
+// ---------------------------------------------------------------------------
 // HTTP handler factory
 // ---------------------------------------------------------------------------
 export function createAguiHttpHandler(api) {
@@ -458,6 +504,11 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     const contextSuffix = Array.isArray(input.context) && input.context.length > 0
         ? formatContextEntries(input.context)
         : undefined;
+    // Bidirectional shared state: inject `input.state` into the prompt (inbound)
+    // and, in the client-tool run below, a `set_state` tool the model can call
+    // to mutate it (outbound → STATE_SNAPSHOT).
+    const sharedStateSuffix = formatSharedState(input.state);
+    const hasSharedState = sharedStateSuffix !== undefined;
     if (!messageBody.trim()) {
         console.log(`[clawg-ui] 400: empty extracted body, roles=[${messages.map((m) => m.role).join(",")}], contents=[${messages.map((m) => JSON.stringify(m.content)).join(",")}]`);
         sendJson(res, 400, {
@@ -577,7 +628,7 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         sessionKey += `:user:${userKey}`;
     if (threadId)
         sessionKey += `:thread:${threadId.toLowerCase()}`;
-    const hasClientTools = Array.isArray(input.tools) && input.tools.length > 0;
+    const hasClientTools = (Array.isArray(input.tools) && input.tools.length > 0) || hasSharedState;
     // Register the SSE writer so the plugin's before/after_tool_call hooks can
     // render SERVER-side tool calls as AG-UI events. Client/frontend-tool runs
     // are driven directly via runEmbeddedAgent below and emit their own
@@ -735,6 +786,30 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         reasoningStarted = false;
         reasoningMessageId = null;
     };
+    // Shared-state write: the model called `set_state`. Parse the returned
+    // state, shallow-merge it over the inbound `input.state` (so the model
+    // dropping an unchanged top-level key doesn't wipe the UI panel), and emit
+    // a STATE_SNAPSHOT. No browser round-trip — the state panel is the feedback,
+    // so the caller suppresses the TOOL_CALL_* card for this tool.
+    const emitSharedStateSnapshot = (rawArgs) => {
+        let parsed;
+        try {
+            parsed = JSON.parse(rawArgs || "{}");
+        }
+        catch {
+            return;
+        }
+        // The tool schema wraps state under `{ state: {...} }`; tolerate a model
+        // that returns the bare object too.
+        const returned = parsed && typeof parsed === "object" && "state" in parsed
+            ? parsed.state
+            : parsed;
+        const base = isSharedState(input.state) ? input.state : {};
+        const snapshot = returned && typeof returned === "object" && !Array.isArray(returned)
+            ? { ...base, ...returned }
+            : returned;
+        writeEvent({ type: EventType.STATE_SNAPSHOT, snapshot });
+    };
     const dispatcher = {
         sendToolResult: (_payload) => {
             // Tool call events are emitted by before/after_tool_call hooks
@@ -839,8 +914,33 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
                 parameters: (t.parameters ?? {}),
             },
         }));
+        // Inject the state-write tool when the UI shares state. We intercept the
+        // call (emitSharedStateSnapshot) rather than round-tripping it, so the
+        // frontend needs no `set_state` registration of its own.
+        if (hasSharedState) {
+            clientTools.push({
+                type: "function",
+                function: {
+                    name: SET_STATE_TOOL_NAME,
+                    description: SET_STATE_TOOL_DESCRIPTION,
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            state: {
+                                type: "object",
+                                description: "The complete updated shared state object.",
+                            },
+                        },
+                        required: ["state"],
+                    },
+                },
+            });
+        }
+        const promptSuffix = [contextSuffix, sharedStateSuffix]
+            .filter(Boolean)
+            .join("");
         const { prompt: historyPrompt, systemPrompt } = buildToolRunHistory(messages);
-        const prompt = contextSuffix ? historyPrompt + contextSuffix : historyPrompt;
+        const prompt = promptSuffix ? historyPrompt + promptSuffix : historyPrompt;
         // Stateless per-request session: CopilotKit re-sends the full history each
         // turn (rendered into `prompt`), so continuity does not depend on a
         // persisted server-side transcript of the client-tool round-trip.
@@ -915,6 +1015,12 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
                 });
             }
             for (const call of pending) {
+                // Shared-state writes are handled server-side: emit STATE_SNAPSHOT and
+                // skip the browser round-trip (no TOOL_CALL_* card for set_state).
+                if (call.name === SET_STATE_TOOL_NAME) {
+                    emitSharedStateSnapshot(call.arguments);
+                    continue;
+                }
                 writeEvent({
                     type: EventType.TOOL_CALL_START,
                     toolCallId: call.id,

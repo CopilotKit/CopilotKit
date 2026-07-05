@@ -1,73 +1,49 @@
 "use client";
 
-// Open-Ended Generative UI demo (OpenClaw).
-//
-// OpenClaw's agent has no arbitrary backend tools, so the frontend must OWN the
-// generative-UI tool. The tool `render_insight` is DEFINED in the React tree
-// via `useFrontendTool` and its schema is FORWARDED over AG-UI in
-// RunAgentInput.tools; the clawg-ui adapter hands it to OpenClaw as a
-// caller-provided client tool. When the agent decides to call `render_insight`,
-// CopilotChat drives the tool's `render` function through its
-// inProgress -> executing -> complete lifecycle, and the render function paints
-// an open-ended "insight" visualisation from the tool arguments — no plain-text
-// reply needed.
-//
-// This is the OpenClaw analogue of the langgraph-python `open-gen-ui` demo: the
-// agent turns a free-form request into a rich, self-contained visual. Because
-// OpenClaw cannot host a backend tool, we use `useFrontendTool` (which forwards
-// the tool) WITH a `render` function and NO `handler` — NOT `useRenderTool`
-// (which would only render a tool the agent already has, and never fire here).
-//
-// Reference: https://docs.copilotkit.ai/generative-ui
+/**
+ * Open-Ended Generative UI — minimal setup.
+ * -----------------------------------------
+ * The simplest possible example. Enabling `openGenerativeUI` in the
+ * runtime (see `src/app/api/copilotkit-ogui/route.ts`) is all that's
+ * needed — the runtime middleware streams agent-authored HTML + CSS to
+ * the built-in `OpenGenerativeUIActivityRenderer`, which mounts it
+ * inside a sandboxed iframe. No custom sandbox functions, no custom
+ * tools — just chat.
+ *
+ * This page customises the LLM's visual-authoring prompt via
+ * `openGenerativeUI.designSkill` on the provider (see
+ * `VISUALIZATION_DESIGN_SKILL` in `./design-skill.ts`) so the cell
+ * showcases rich educational visualisations (3D axes, neural nets,
+ * algorithms).
+ *
+ * Reference: https://docs.copilotkit.ai/generative-ui/open-generative-ui
+ */
 
-// @region[frontend-tool-render]
 import React from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useFrontendTool,
-} from "@copilotkit/react-core/v2";
-import { InsightCard, insightPropsSchema } from "./insight-card";
-import { useOpenGenUiSuggestions } from "./suggestions";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 
-function Chat() {
-  useFrontendTool({
-    name: "render_insight",
-    description:
-      "Render a rich 'insight' visualisation for any topic the user asks " +
-      "about: a titled card with a one-line summary and a grid of labelled " +
-      "numeric metrics drawn as comparison bars. Use this to VISUALISE data " +
-      "instead of replying with plain text.",
-    parameters: insightPropsSchema,
-    // No handler: this frontend tool only paints UI. The render function is
-    // invoked with the tool-call args and its live status.
-    render: ({ args, status }) => (
-      <InsightCard
-        title={args.title}
-        summary={args.summary}
-        accent={args.accent}
-        metrics={args.metrics}
-        status={status}
-      />
-    ),
-  });
-  // @endregion[frontend-tool-render]
-
-  useOpenGenUiSuggestions();
-
-  return (
-    <div className="flex h-screen w-full items-center justify-center">
-      <div className="h-full w-full max-w-4xl">
-        <CopilotChat agentId="open-gen-ui" className="h-full rounded-2xl" />
-      </div>
-    </div>
-  );
-}
+import { VISUALIZATION_DESIGN_SKILL } from "./design-skill";
+import { Chat } from "./chat";
 
 export default function OpenGenUiDemo() {
+  // @region[minimal-provider-setup]
+  // Minimal Open Generative UI frontend: the built-in activity renderer is
+  // registered by CopilotKitProvider, so a plain <CopilotChat /> is enough —
+  // no custom tool renderers, no activity-renderer registration.
+  // We DO pass `openGenerativeUI.designSkill` to swap in visualisation-tuned
+  // guidance in place of the default shadcn design skill.
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="open-gen-ui">
-      <Chat />
+    <CopilotKit
+      runtimeUrl="/api/copilotkit-ogui"
+      agent="open-gen-ui"
+      openGenerativeUI={{ designSkill: VISUALIZATION_DESIGN_SKILL }}
+    >
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl flex flex-col p-3">
+          <Chat />
+        </div>
+      </div>
     </CopilotKit>
   );
+  // @endregion[minimal-provider-setup]
 }

@@ -1,32 +1,31 @@
-# Frontend Tools
+# Frontend Tools (In-App Actions)
 
 ## What This Demo Shows
 
-A tool that is DEFINED in the React tree, EXECUTED in the browser, and INVOKED
-by the OpenClaw agent. Here the `change_background` tool restyles the page's
-background from chat.
-
-- **Browser-Side Execution**: The tool handler runs locally in the page, not on
-  the server
-- **Agent-Invoked**: The model decides when to call it, based on the user's
-  request
-- **Live Effect**: Calling the tool immediately transitions the page background
+Frontend tools (a.k.a. "in-app actions") let the agent call functions that live in your React app. The agent reasons about when to invoke them based on natural conversation.
 
 ## How to Interact
 
-Open the sidebar chat and ask the agent to change the background:
+Try asking:
 
-- "Make the background a warm sunset gradient"
-- "Set the background to solid teal"
+- "Change the background to a blue-to-purple gradient"
+- "Make the background a sunset theme"
+- "Set the background to black"
 
 ## Technical Details
 
-**Provider** — `CopilotKit` with `runtimeUrl="/api/copilotkit"` (proxying via an
-`HttpAgent` to the clawg-ui AG-UI operator route on the OpenClaw gateway) and
-`agent="frontend-tools"`. The chat is a `CopilotSidebar`.
+A frontend tool is registered with `useFrontendTool`:
 
-**Frontend tool** — `useFrontendTool` registers `change_background` with a Zod
-schema. The schema is forwarded over AG-UI in `RunAgentInput.tools`; the clawg-ui
-adapter hands it to OpenClaw as a caller-provided `clientTool`. When the model
-calls it, the run stops with a pending tool call, clawg-ui emits `TOOL_CALL_*`
-events, and the page's `handler` runs locally to update React state.
+```tsx
+useFrontendTool({
+  name: "change_background",
+  description: "...",
+  parameters: z.object({ background: z.string() }),
+  handler: async ({ background }) => {
+    setBackground(background);
+    return { status: "success" };
+  },
+});
+```
+
+CopilotKit automatically advertises the tool to the agent. The agent decides when to call it based on the conversation, and the handler runs client-side.

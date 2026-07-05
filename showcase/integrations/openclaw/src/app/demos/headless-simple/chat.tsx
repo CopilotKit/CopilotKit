@@ -1,17 +1,13 @@
 "use client";
 
 /**
- * The whole demo, in one screenful: two hooks turn a plain shell into a
+ * The whole demo, in one screenful: two hooks turn a shadcn shell into a
  * working chat. `useAgent` exposes the message log + run state for one
- * agent; `useCopilotKit` runs it. No prebuilt CopilotChat.
+ * agent; `useCopilotKit` runs it.
  */
 
 import { useState } from "react";
-import {
-  useAgent,
-  useCopilotKit,
-  UseAgentUpdate,
-} from "@copilotkit/react-core/v2";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 import { Sparkles } from "lucide-react";
 
 import {
@@ -20,7 +16,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "./_components/card";
+} from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 import { AssistantBubble, UserBubble } from "./message-bubble";
 import { Composer } from "./composer";
@@ -29,14 +27,7 @@ import { TypingIndicator } from "./typing-indicator";
 
 export function Chat() {
   // @region[use-agent-simple]
-  // Subscribe to the two updates this UI reacts to: the message log (new
-  // user/assistant text) and the run status (drives the typing indicator +
-  // disabled composer). agentId MUST be registered in the runtime or useAgent
-  // hard-fails with a blank page.
-  const { agent } = useAgent({
-    agentId: "headless-simple",
-    updates: [UseAgentUpdate.OnMessagesChanged, UseAgentUpdate.OnRunStatusChanged],
-  });
+  const { agent } = useAgent({ agentId: "headless-simple" });
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
 
@@ -50,11 +41,12 @@ export function Chat() {
     });
     setInput("");
     void copilotkit.runAgent({ agent }).catch((err) => {
-      // The Headless Simple demo is the canonical "two hooks, your design
-      // system" example users copy-paste as a starting point. Silently
-      // swallowing errors here would model broken practice; log so a network
-      // failure / runtime error / transport disconnect surfaces in the console.
-      console.error("[openclaw:headless-simple] runAgent failed", err);
+      // The Headless Simple demo is the canonical "two hooks, your
+      // design system" example users copy-paste as a starting point.
+      // Silently swallowing errors here would model broken practice;
+      // log so a network failure / runtime error / transport disconnect
+      // surfaces in the console for the developer.
+      console.error("[langgraph-python:headless-simple] runAgent failed", err);
     });
   };
   // @endregion[use-agent-simple]
@@ -72,11 +64,11 @@ export function Chat() {
   const hasMessages = visible.length > 0;
 
   return (
-    <div className="flex h-screen w-full justify-center bg-neutral-50 p-4 sm:p-6">
-      <Card className="flex h-full w-full max-w-3xl flex-col gap-0 overflow-hidden p-0 shadow-2xl shadow-black/10">
-        <CardHeader className="border-b border-neutral-200 p-4">
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+    <div className="flex h-screen w-full justify-center bg-background p-4 sm:p-6">
+      <Card className="flex h-full w-full max-w-3xl flex-col gap-0 overflow-hidden border-border py-0 shadow-2xl shadow-black/10">
+        <CardHeader className="border-b border-border/60 py-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
             Headless Chat
           </CardTitle>
           <CardDescription>
@@ -86,14 +78,15 @@ export function Chat() {
 
         <CardContent className="flex min-h-0 flex-1 flex-col p-0">
           {!hasMessages ? (
+            // Render empty state OUTSIDE ScrollArea so flex-1 + justify-
+            // center can vertically center it. Radix ScrollArea wraps
+            // content in a `display: table` div that breaks `h-full`
+            // propagation, so a centered child inside it hugs the top.
             <div className="flex min-h-0 flex-1 flex-col">
               <EmptyState onPick={send} />
             </div>
           ) : (
-            <div
-              data-testid="headless-messages"
-              className="min-h-0 flex-1 overflow-y-auto"
-            >
+            <ScrollArea className="min-h-0 flex-1">
               <div className="flex flex-col gap-4 px-4 py-4 sm:px-6">
                 {/* @region[message-list-simple] */}
                 {visible.map((m) =>
@@ -106,10 +99,10 @@ export function Chat() {
                 {/* @endregion[message-list-simple] */}
                 {showTyping && <TypingIndicator />}
               </div>
-            </div>
+            </ScrollArea>
           )}
 
-          <div className="border-t border-neutral-200" />
+          <Separator className="bg-border/60" />
 
           <Composer
             value={input}

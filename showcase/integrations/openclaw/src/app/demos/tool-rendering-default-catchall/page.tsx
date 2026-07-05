@@ -1,19 +1,20 @@
 "use client";
 
-// Tool Rendering — DEFAULT CATCH-ALL variant (OpenClaw).
+// Tool Rendering — DEFAULT CATCH-ALL variant (simplest).
 //
-// This is the simplest point in the tool-rendering progression. The OpenClaw
-// agent exposes generic server tools (shell exec, file read, etc.) that stream
-// over AG-UI as TOOL_CALL_START/ARGS/RESULT/END. Rather than register a branded
-// per-tool renderer (see the sibling `tool-rendering` cell for the CUSTOM
-// catch-all), this cell opts into CopilotKit's BUILT-IN default tool-call card.
+// This cell is the simplest point in the three-way progression. The
+// backend exposes a handful of mock tools (get_weather, search_flights,
+// get_stock_price, roll_dice) and the frontend ONLY opts into
+// CopilotKit's built-in default tool-call card — no per-tool renderers,
+// no custom wildcard UI.
 //
-// `useDefaultRenderTool()` (called with no config) registers the package-
-// provided `DefaultToolCallRenderer` under the `*` wildcard. That renderer
-// shows the tool name, a live status pill (Running → Done), and a collapsible
-// Arguments / Result section that fills in as the call progresses — all with
-// zero custom UI. Without this hook the runtime has NO `*` renderer, so tool
-// calls are invisible and the user only sees the assistant's final summary.
+// `useDefaultRenderTool()` (called with no config) registers the built-
+// in `DefaultToolCallRenderer` under the `*` wildcard. That renderer
+// shows the tool name, a live status pill (Running → Done), and a
+// collapsible "Arguments / Result" section that fills in as the call
+// progresses. Without this hook the runtime has NO `*` renderer, so
+// `useRenderToolCall` falls through to `null` and tool calls are
+// invisible — the user only sees the assistant's final text summary.
 
 import React from "react";
 import {
@@ -40,9 +41,10 @@ export default function ToolRenderingDefaultCatchallDemo() {
 
 function Chat() {
   // @region[default-catchall-zero-config]
-  // Opt in to CopilotKit's built-in default tool-call card. Called with no
-  // config so the package-provided `DefaultToolCallRenderer` is used as the
-  // wildcard renderer — this is the "out-of-the-box" UI the cell showcases.
+  // Opt in to CopilotKit's built-in default tool-call card. Called with
+  // no config so the package-provided `DefaultToolCallRenderer` is used
+  // as the wildcard renderer — this is the "out-of-the-box" UI the cell
+  // is meant to showcase.
   useDefaultRenderTool();
   // @endregion[default-catchall-zero-config]
 
