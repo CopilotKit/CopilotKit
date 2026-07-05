@@ -27,11 +27,45 @@ interface RWAgentState {
   notes: string[];
 }
 
+// State-writer declaration (fleet convention — same shape the Hermes
+// integration uses). langgraph/claude-sdk wire `set_notes` as a backend tool
+// that mutates shared state. OpenClaw's gateway has no first-class state store,
+// so the clawg-ui adapter provides one per run: the frontend DECLARES which
+// tools write which state key via `forwardedProps.stateWriterTools`, and the
+// adapter injects them into the model's tools, applies each call, and emits a
+// `STATE_SNAPSHOT` (which `useAgent` renders). The v2 `<CopilotKit properties>`
+// prop is forwarded verbatim into `RunAgentInput.forwardedProps`, so declaring
+// the tool here is all that's needed — no per-tool handler, no route injection.
+// `set_notes({notes})` -> stateKey `notes` (replace with the full list).
+const STATE_WRITER_TOOLS = [
+  {
+    name: "set_notes",
+    stateKey: "notes",
+    arg: "notes",
+    mode: "replace",
+    description:
+      "Save short notes/observations about the user into shared state. " +
+      "Pass the FULL updated list of notes as `notes` (an array of strings).",
+    parameters: {
+      type: "object",
+      properties: {
+        notes: {
+          type: "array",
+          items: { type: "string" },
+          description: "The full updated list of note strings.",
+        },
+      },
+      required: ["notes"],
+    },
+  },
+];
+
 export default function SharedStateReadWriteDemo() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit-shared-state-read-write"
       agent="shared-state-read-write"
+      properties={{ stateWriterTools: STATE_WRITER_TOOLS }}
     >
       <DemoContent />
     </CopilotKit>

@@ -259,20 +259,23 @@ function formatContextEntries(context) {
 // Bidirectional shared state (AG-UI STATE_SNAPSHOT)
 // ---------------------------------------------------------------------------
 /**
- * Name of the state-write tool clawg-ui injects when the UI shares state.
+ * State-writer tools follow the fleet convention (claude-sdk, langgraph, the
+ * Hermes AG-UI adapter): the frontend DECLARES which tools write which piece of
+ * shared state via `RunAgentInput.forwardedProps.stateWriterTools`, and the
+ * adapter turns each call into a STATE_SNAPSHOT. On OpenClaw the declared tools
+ * are injected into the model's `clientTools` list (the only tool list that
+ * reaches the model) and intercepted server-side, so the frontend needs only
+ * the declaration — no per-tool handler and no browser round-trip.
  *
- * OpenClaw exposes only its own built-in tools to the reply-path model, so a
- * plugin-registered tool would never be offered. The one tool list that
- * reaches the model is the caller-provided `clientTools` path — so we inject
- * `set_state` there and intercept the call ourselves (emitting STATE_SNAPSHOT)
- * instead of round-tripping it to the browser. This makes read-write shared
- * state a gateway capability that works for any AG-UI frontend unchanged.
+ * Declaration shape (per entry):
+ *   { name, stateKey?, arg?, mode?: "replace"|"append", description?, parameters? }
+ * - stateKey: the top-level state key the tool writes (omit -> merge the whole
+ *   args object into the top-level state).
+ * - arg: which tool argument carries the value (omit -> the whole args object).
+ * - mode: "replace" (default) sets state[stateKey] = value; "append" pushes the
+ *   value onto state[stateKey] as a list.
  */
-const SET_STATE_TOOL_NAME = "set_state";
-const SET_STATE_TOOL_DESCRIPTION = "Update the shared application state that the UI displays. Call this whenever " +
-    "the user asks you to change, add to, or remove from that state. Pass the " +
-    "COMPLETE new state object (include unchanged fields verbatim). Do not " +
-    "describe the update in prose — just call the tool.";
+const STATE_WRITER_PROPS_KEY = "stateWriterTools";
 function isSharedState(state) {
     return (!!state &&
         typeof state === "object" &&
@@ -280,10 +283,80 @@ function isSharedState(state) {
         Object.keys(state).length > 0);
 }
 /**
- * Render `RunAgentInput.state` into a prompt block so the model can read the
- * UI's live state and knows it can mutate it via `set_state`.
+ * Parse `forwardedProps.stateWriterTools` into (specs, schemas). Accepts a list
+ * of decl objects (each carrying its own `name`) or a name->decl map. Returns
+ * empty when nothing is declared.
  */
-function formatSharedState(state) {
+function parseStateWriterTools(forwardedProps) {
+    const specs = new Map();
+    const schemas = [];
+    const props = forwardedProps && typeof forwardedProps === "object"
+        ? forwardedProps
+        : undefined;
+    const raw = props?.[STATE_WRITER_PROPS_KEY];
+    if (!raw)
+        return { specs, schemas };
+    const decls = [];
+    if (Array.isArray(raw)) {
+        for (const d of raw)
+            if (d && typeof d === "object")
+                decls.push(d);
+    }
+    else if (typeof raw === "object") {
+        for (const [name, d] of Object.entries(raw)) {
+            const entry = (d && typeof d === "object" ? { ...d } : {});
+            if (entry.name == null)
+                entry.name = name;
+            decls.push(entry);
+        }
+    }
+    for (const decl of decls) {
+        const name = typeof decl.name === "string" ? decl.name : undefined;
+        if (!name)
+            continue;
+        specs.set(name, {
+            stateKey: typeof decl.stateKey === "string" ? decl.stateKey : "",
+            arg: typeof decl.arg === "string" ? decl.arg : undefined,
+            mode: decl.mode === "append" ? "append" : "replace",
+        });
+        schemas.push({
+            type: "function",
+            function: {
+                name,
+                description: typeof decl.description === "string"
+                    ? decl.description
+                    : "Update shared UI state.",
+                parameters: decl.parameters && typeof decl.parameters === "object"
+                    ? decl.parameters
+                    : { type: "object", properties: {} },
+            },
+        });
+    }
+    return { specs, schemas };
+}
+/** Merge a state-writer call's args into `state` per its spec (mutates state). */
+function applyStateWriter(state, spec, args) {
+    const value = spec.arg === undefined ? args : args[spec.arg];
+    if (spec.stateKey) {
+        if (spec.mode === "append") {
+            const current = state[spec.stateKey];
+            const list = Array.isArray(current) ? [...current] : [];
+            list.push(value);
+            state[spec.stateKey] = list;
+        }
+        else {
+            state[spec.stateKey] = value;
+        }
+    }
+    else if (value && typeof value === "object" && !Array.isArray(value)) {
+        Object.assign(state, value);
+    }
+}
+/**
+ * Render `RunAgentInput.state` into a prompt block so the model can read the
+ * UI's live state, listing the declared writer tools it can call to change it.
+ */
+function formatSharedState(state, writerNames) {
     if (!isSharedState(state))
         return undefined;
     let json;
@@ -293,13 +366,17 @@ function formatSharedState(state) {
     catch {
         return undefined;
     }
+    const howToChange = writerNames.length
+        ? `\n\nTo change it, call the appropriate tool (${writerNames
+            .map((n) => `\`${n}\``)
+            .join(", ")}).`
+        : "";
     return (`\n\n## Shared application state\n\n` +
         `The UI shares this live state with you (JSON):\n\n` +
         "```json\n" +
         `${json}\n` +
-        "```\n\n" +
-        `To change it, call the \`${SET_STATE_TOOL_NAME}\` tool with the complete ` +
-        `updated state object.`);
+        "```" +
+        howToChange);
 }
 // ---------------------------------------------------------------------------
 // HTTP handler factory
@@ -504,11 +581,20 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     const contextSuffix = Array.isArray(input.context) && input.context.length > 0
         ? formatContextEntries(input.context)
         : undefined;
-    // Bidirectional shared state: inject `input.state` into the prompt (inbound)
-    // and, in the client-tool run below, a `set_state` tool the model can call
-    // to mutate it (outbound → STATE_SNAPSHOT).
-    const sharedStateSuffix = formatSharedState(input.state);
+    // Bidirectional shared state: the frontend declares its state-writer tools
+    // via forwardedProps.stateWriterTools; we inject them into clientTools below
+    // and intercept the calls into STATE_SNAPSHOTs. Inbound state is rendered
+    // into the prompt so the model can read (and knows how to change) it.
+    const { specs: stateWriterSpecs, schemas: stateWriterSchemas } = parseStateWriterTools(input.forwardedProps);
+    const stateWriterNames = [...stateWriterSpecs.keys()];
+    const sharedStateSuffix = formatSharedState(input.state, stateWriterNames);
     const hasSharedState = sharedStateSuffix !== undefined;
+    const hasStateWriters = stateWriterSpecs.size > 0;
+    // Run-scoped shared-state store, seeded from inbound state so snapshots
+    // carry UI-set keys (e.g. preferences) alongside agent-written keys.
+    const runSharedState = isSharedState(input.state)
+        ? { ...input.state }
+        : {};
     if (!messageBody.trim()) {
         console.log(`[clawg-ui] 400: empty extracted body, roles=[${messages.map((m) => m.role).join(",")}], contents=[${messages.map((m) => JSON.stringify(m.content)).join(",")}]`);
         sendJson(res, 400, {
@@ -628,7 +714,9 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         sessionKey += `:user:${userKey}`;
     if (threadId)
         sessionKey += `:thread:${threadId.toLowerCase()}`;
-    const hasClientTools = (Array.isArray(input.tools) && input.tools.length > 0) || hasSharedState;
+    const hasClientTools = (Array.isArray(input.tools) && input.tools.length > 0) ||
+        hasSharedState ||
+        hasStateWriters;
     // Register the SSE writer so the plugin's before/after_tool_call hooks can
     // render SERVER-side tool calls as AG-UI events. Client/frontend-tool runs
     // are driven directly via runEmbeddedAgent below and emit their own
@@ -786,29 +874,30 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         reasoningStarted = false;
         reasoningMessageId = null;
     };
-    // Shared-state write: the model called `set_state`. Parse the returned
-    // state, shallow-merge it over the inbound `input.state` (so the model
-    // dropping an unchanged top-level key doesn't wipe the UI panel), and emit
-    // a STATE_SNAPSHOT. No browser round-trip — the state panel is the feedback,
-    // so the caller suppresses the TOOL_CALL_* card for this tool.
-    const emitSharedStateSnapshot = (rawArgs) => {
-        let parsed;
+    // Shared-state write: the model called a declared state-writer tool. Apply
+    // its args to the run-scoped state per the tool's spec (stateKey / arg /
+    // replace|append) and emit a full STATE_SNAPSHOT. No browser round-trip —
+    // the state panel is the feedback, so the caller suppresses the TOOL_CALL_*
+    // card for these tools.
+    const emitStateWriterSnapshot = (name, rawArgs) => {
+        const spec = stateWriterSpecs.get(name);
+        if (!spec)
+            return;
+        let args = {};
         try {
-            parsed = JSON.parse(rawArgs || "{}");
+            const parsed = JSON.parse(rawArgs || "{}");
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+                args = parsed;
+            }
         }
         catch {
-            return;
+            // Malformed args — emit the current (unchanged) snapshot rather than throw.
         }
-        // The tool schema wraps state under `{ state: {...} }`; tolerate a model
-        // that returns the bare object too.
-        const returned = parsed && typeof parsed === "object" && "state" in parsed
-            ? parsed.state
-            : parsed;
-        const base = isSharedState(input.state) ? input.state : {};
-        const snapshot = returned && typeof returned === "object" && !Array.isArray(returned)
-            ? { ...base, ...returned }
-            : returned;
-        writeEvent({ type: EventType.STATE_SNAPSHOT, snapshot });
+        applyStateWriter(runSharedState, spec, args);
+        writeEvent({
+            type: EventType.STATE_SNAPSHOT,
+            snapshot: JSON.parse(JSON.stringify(runSharedState)),
+        });
     };
     const dispatcher = {
         sendToolResult: (_payload) => {
@@ -914,25 +1003,16 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
                 parameters: (t.parameters ?? {}),
             },
         }));
-        // Inject the state-write tool when the UI shares state. We intercept the
-        // call (emitSharedStateSnapshot) rather than round-tripping it, so the
-        // frontend needs no `set_state` registration of its own.
-        if (hasSharedState) {
+        // Inject the frontend-declared state-writer tools so the model can call
+        // them; we intercept the calls (emitStateWriterSnapshot) rather than
+        // round-tripping them, so the frontend needs only the declaration.
+        for (const schema of stateWriterSchemas) {
             clientTools.push({
                 type: "function",
                 function: {
-                    name: SET_STATE_TOOL_NAME,
-                    description: SET_STATE_TOOL_DESCRIPTION,
-                    parameters: {
-                        type: "object",
-                        properties: {
-                            state: {
-                                type: "object",
-                                description: "The complete updated shared state object.",
-                            },
-                        },
-                        required: ["state"],
-                    },
+                    name: schema.function.name,
+                    description: schema.function.description,
+                    parameters: schema.function.parameters,
                 },
             });
         }
@@ -940,72 +1020,15 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
             .filter(Boolean)
             .join("");
         const { prompt: historyPrompt, systemPrompt } = buildToolRunHistory(messages);
-        const prompt = promptSuffix ? historyPrompt + promptSuffix : historyPrompt;
-        // Stateless per-request session: CopilotKit re-sends the full history each
-        // turn (rendered into `prompt`), so continuity does not depend on a
-        // persisted server-side transcript of the client-tool round-trip.
-        const result = await runtime.agent.runEmbeddedAgent({
-            sessionId: `clawg-ui-tools-${randomUUID()}`,
-            sessionKey,
-            agentId,
-            workspaceDir,
-            agentDir,
-            config: cfg,
-            prompt,
-            ...(systemPrompt ? { extraSystemPrompt: systemPrompt } : {}),
-            clientTools,
-            runId: currentRunId,
-            timeoutMs,
-            abortSignal: abortController.signal,
-            messageChannel: "clawg-ui",
-            chatType: "direct",
-            trigger: "user",
-            onAssistantMessageStart: handleAssistantMessageStart,
-            onPartialReply: handlePartialReply,
-            ...(surfaceReasoning
-                ? {
-                    onReasoningStream: handleReasoningStream,
-                    onReasoningEnd: handleReasoningEnd,
-                }
-                : {}),
-        });
-        if (closed)
-            return;
-        const meta = result?.meta;
-        const pending = meta?.pendingToolCalls;
-        // If partial-reply streaming didn't fire (e.g. the model produced only a
-        // tool call, or streaming was suppressed), surface any assistant text from
-        // the final payloads so it isn't lost.
-        const emitFallbackText = () => {
-            if (streamedText)
-                return;
-            const text = (result?.payloads ?? [])
-                .map((p) => (typeof p.text === "string" ? p.text : ""))
-                .filter(Boolean)
-                .join("\n\n")
-                .trim();
-            if (!text)
-                return;
-            if (!messageStarted) {
-                messageStarted = true;
-                writeEvent({
-                    type: EventType.TEXT_MESSAGE_START,
-                    messageId: currentMessageId,
-                    runId: currentRunId,
-                    role: "assistant",
-                });
-            }
-            writeEvent({
-                type: EventType.TEXT_MESSAGE_CONTENT,
-                messageId: currentMessageId,
-                runId: currentRunId,
-                delta: text,
-            });
-        };
-        if (meta?.stopReason === "tool_calls" && pending && pending.length > 0) {
-            // Emit any assistant commentary, close the text message, then hand the
-            // tool calls to the browser (CopilotKit) to execute.
-            emitFallbackText();
+        // Server-side continuation transcript. After we handle a state-writer
+        // call ourselves (apply + STATE_SNAPSHOT), we re-run the model with the
+        // call and a synthetic result appended so it NARRATES a confirmation
+        // instead of stopping silently — OpenClaw stops at a tool call rather than
+        // executing our injected tool in-loop the way Hermes does. Bounded by
+        // MAX_TURNS; real (browser) frontend tools end the run immediately.
+        let continuation = "";
+        const MAX_TURNS = 6;
+        const closeRun = () => {
             closeReasoningIfOpen();
             if (messageStarted) {
                 writeEvent({
@@ -1014,58 +1037,143 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
                     runId: currentRunId,
                 });
             }
-            for (const call of pending) {
-                // Shared-state writes are handled server-side: emit STATE_SNAPSHOT and
-                // skip the browser round-trip (no TOOL_CALL_* card for set_state).
-                if (call.name === SET_STATE_TOOL_NAME) {
-                    emitSharedStateSnapshot(call.arguments);
-                    continue;
-                }
-                writeEvent({
-                    type: EventType.TOOL_CALL_START,
-                    toolCallId: call.id,
-                    toolCallName: call.name,
-                    parentMessageId: currentMessageId,
-                });
-                if (call.arguments) {
+            writeEvent({ type: EventType.RUN_FINISHED, threadId, runId: currentRunId });
+            closed = true;
+            res.end();
+        };
+        for (let turn = 0; turn < MAX_TURNS; turn++) {
+            // Fresh text/reasoning message lifecycle for this turn so a narration
+            // turn streams as its own assistant message.
+            messageStarted = false;
+            currentMessageId = `msg-${randomUUID()}`;
+            streamedText = false;
+            streamedTextLen = 0;
+            // Stateless per-request session: CopilotKit re-sends the full history
+            // (rendered into `historyPrompt`); `continuation` carries any
+            // state-writer results from earlier turns of THIS request.
+            const prompt = historyPrompt + promptSuffix + continuation;
+            const result = await runtime.agent.runEmbeddedAgent({
+                sessionId: `clawg-ui-tools-${randomUUID()}`,
+                sessionKey,
+                agentId,
+                workspaceDir,
+                agentDir,
+                config: cfg,
+                prompt,
+                ...(systemPrompt ? { extraSystemPrompt: systemPrompt } : {}),
+                clientTools,
+                runId: currentRunId,
+                timeoutMs,
+                abortSignal: abortController.signal,
+                messageChannel: "clawg-ui",
+                chatType: "direct",
+                trigger: "user",
+                onAssistantMessageStart: handleAssistantMessageStart,
+                onPartialReply: handlePartialReply,
+                ...(surfaceReasoning
+                    ? {
+                        onReasoningStream: handleReasoningStream,
+                        onReasoningEnd: handleReasoningEnd,
+                    }
+                    : {}),
+            });
+            if (closed)
+                return;
+            const meta = result?.meta;
+            const pending = meta?.pendingToolCalls ?? [];
+            // If partial-reply streaming didn't fire (e.g. the model produced only a
+            // tool call), surface any assistant text from the final payloads.
+            const emitFallbackText = () => {
+                if (streamedText)
+                    return;
+                const text = (result?.payloads ?? [])
+                    .map((p) => (typeof p.text === "string" ? p.text : ""))
+                    .filter(Boolean)
+                    .join("\n\n")
+                    .trim();
+                if (!text)
+                    return;
+                if (!messageStarted) {
+                    messageStarted = true;
                     writeEvent({
-                        type: EventType.TOOL_CALL_ARGS,
-                        toolCallId: call.id,
-                        delta: call.arguments,
+                        type: EventType.TEXT_MESSAGE_START,
+                        messageId: currentMessageId,
+                        runId: currentRunId,
+                        role: "assistant",
                     });
                 }
                 writeEvent({
-                    type: EventType.TOOL_CALL_END,
-                    toolCallId: call.id,
+                    type: EventType.TEXT_MESSAGE_CONTENT,
+                    messageId: currentMessageId,
+                    runId: currentRunId,
+                    delta: text,
                 });
+            };
+            if (meta?.stopReason === "tool_calls" && pending.length > 0) {
+                const writerCalls = pending.filter((c) => stateWriterSpecs.has(c.name));
+                const otherCalls = pending.filter((c) => !stateWriterSpecs.has(c.name));
+                // Flush any preamble text + close the message before snapshots/cards.
+                emitFallbackText();
+                closeReasoningIfOpen();
+                if (messageStarted) {
+                    writeEvent({
+                        type: EventType.TEXT_MESSAGE_END,
+                        messageId: currentMessageId,
+                        runId: currentRunId,
+                    });
+                    messageStarted = false;
+                }
+                // State-writer calls: apply + emit STATE_SNAPSHOT, and record the call
+                // + a synthetic result so the next turn's model narrates.
+                for (const call of writerCalls) {
+                    emitStateWriterSnapshot(call.name, call.arguments);
+                    continuation +=
+                        `\nAssistant called tool ${call.name}(${call.arguments ?? "{}"})` +
+                            `\nTool ${call.name} returned: State updated.`;
+                }
+                // Real frontend tools must round-trip to the browser; emit them and
+                // finish (we cannot continue the run server-side past a client tool).
+                if (otherCalls.length > 0) {
+                    for (const call of otherCalls) {
+                        writeEvent({
+                            type: EventType.TOOL_CALL_START,
+                            toolCallId: call.id,
+                            toolCallName: call.name,
+                            parentMessageId: currentMessageId,
+                        });
+                        if (call.arguments) {
+                            writeEvent({
+                                type: EventType.TOOL_CALL_ARGS,
+                                toolCallId: call.id,
+                                delta: call.arguments,
+                            });
+                        }
+                        writeEvent({ type: EventType.TOOL_CALL_END, toolCallId: call.id });
+                    }
+                    writeEvent({
+                        type: EventType.RUN_FINISHED,
+                        threadId,
+                        runId: currentRunId,
+                    });
+                    closed = true;
+                    res.end();
+                    return;
+                }
+                // Only state-writers were called → loop so the model narrates.
+                if (writerCalls.length > 0)
+                    continue;
+                // tool_calls but nothing matched (defensive) — finish.
+                closeRun();
+                return;
             }
-            writeEvent({
-                type: EventType.RUN_FINISHED,
-                threadId,
-                runId: currentRunId,
-            });
-            closed = true;
-            res.end();
+            // No tool calls → the model produced its final text (an answer, or the
+            // post-write narration). Emit any non-streamed fallback and finish.
+            emitFallbackText();
+            closeRun();
             return;
         }
-        // No client tool was called — emit final assistant text (if not streamed)
-        // and close the run normally.
-        emitFallbackText();
-        closeReasoningIfOpen();
-        if (messageStarted) {
-            writeEvent({
-                type: EventType.TEXT_MESSAGE_END,
-                messageId: currentMessageId,
-                runId: currentRunId,
-            });
-        }
-        writeEvent({
-            type: EventType.RUN_FINISHED,
-            threadId,
-            runId: currentRunId,
-        });
-        closed = true;
-        res.end();
+        // Exhausted MAX_TURNS (model kept calling state-writers) — finish cleanly.
+        closeRun();
     };
     // Dispatch the inbound message — this triggers the agent run
     try {
