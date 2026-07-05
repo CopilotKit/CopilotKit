@@ -38,6 +38,8 @@ features:
   - gen-ui-tool-based
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
+  - open-gen-ui
+  - headless-simple
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -252,4 +254,29 @@ demos:
     highlight:
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: open-gen-ui
+    name: Open-Ended Generative UI
+    description: >-
+      A frontend tool with a render function — the OpenClaw agent turns a
+      free-form request into a render_insight call, and the tool's render
+      function paints a rich insight card inline from the arguments.
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui
+    highlight:
+      - src/app/demos/open-gen-ui/page.tsx
+      - src/app/demos/open-gen-ui/insight-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: headless-simple
+    name: "Headless UI: Simple"
+    description: >-
+      Minimum viable headless chat for the OpenClaw agent — useAgent wired into
+      self-contained, hand-rolled UI primitives (no prebuilt CopilotChat).
+    tags:
+      - chat-ui
+    route: /demos/headless-simple
+    highlight:
+      - src/app/demos/headless-simple/page.tsx
+      - src/app/demos/headless-simple/chat.tsx
       - src/app/api/copilotkit/route.ts

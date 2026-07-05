@@ -54,6 +54,8 @@ const agents: Record<string, AbstractAgent> = {
   "gen-ui-tool-based": createAgent(),
   "tool-rendering-default-catchall": createAgent(),
   "tool-rendering-custom-catchall": createAgent(),
+  "open-gen-ui": createAgent(),
+  "headless-simple": createAgent(),
   default: createAgent(),
 };
 
