@@ -115,25 +115,10 @@ const iconLauncher = html`
 
 /**
  * Header / control icons for the redesigned drawer chrome (ENT-1051). Inlined
- * lucide glyphs (`panel-left`, `square-plus`, `filter`, `ellipsis-vertical`)
- * drawn with `currentColor` so they inherit the button's themed color — the
- * element cannot depend on a React icon library.
+ * lucide glyphs (`square-plus`, `filter`, `ellipsis-vertical`) drawn with
+ * `currentColor` so they inherit the button's themed color — the element cannot
+ * depend on a React icon library.
  */
-const iconSidebar = html`
-  <svg
-    class="icon"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-  >
-    <rect width="18" height="18" x="3" y="3" rx="2" />
-    <path d="M9 3v18" />
-  </svg>
-`;
 const iconPlusSquare = html`
   <svg
     class="icon"
@@ -180,7 +165,7 @@ const iconKebab = html`
  *
  * Pure VIEW: domain data (threads/loading/error/etc.) comes IN as properties and
  * user intent goes OUT as bubbling+composed DOM `CustomEvent`s. The element owns
- * VIEW state (open/collapsed, Active/All filter, confirm-delete dialog, per-row
+ * VIEW state (open, Active/All filter, confirm-delete dialog, per-row
  * animations) while the consumer owns DOMAIN state. `open` is additionally
  * externally controllable via the `open` property + `open-change` event so a
  * host can coordinate mobile open/close.
@@ -197,7 +182,6 @@ export class CopilotKitThreadsDrawer extends LitElement {
     error: { type: String },
     activeThreadId: { attribute: "active-thread-id", type: String },
     licensed: { type: Boolean },
-    collapsible: { type: Boolean },
     licenseUrl: { attribute: "license-url", type: String },
     hasMore: { attribute: "has-more", type: Boolean },
     fetchingMore: { attribute: "fetching-more", type: Boolean },
@@ -208,11 +192,11 @@ export class CopilotKitThreadsDrawer extends LitElement {
     recentLabel: { attribute: "recent-label", type: String },
     // Externally-controllable VIEW state.
     open: { type: Boolean, reflect: true },
-    collapsed: { type: Boolean, reflect: true },
     // Internal VIEW state.
     _filter: { state: true },
     _confirmingDeleteId: { state: true },
     _viewportIsMobile: { state: true },
+    _hasHeader: { state: true },
     _hasMemories: { state: true },
     _hasFooter: { state: true },
     _filterOpen: { state: true },
@@ -265,19 +249,11 @@ export class CopilotKitThreadsDrawer extends LitElement {
    * `.root.mobile.open` / `_isMobileModalOpen()` consume `open`.
    */
   open = false;
-  /** Externally-controllable: whether the drawer is collapsed to a rail (desktop). */
-  collapsed = false;
-  /**
-   * Inbound: whether the user may collapse the drawer to a rail. Defaults to
-   * `true`. When `false` the header omits the collapse toggle and the drawer
-   * NEVER renders the collapsed cluster (it stays expanded even if `collapsed`
-   * is set) — mobile off-canvas open/close is independent and unaffected.
-   */
-  collapsible = true;
 
   private _filter: DrawerFilter = "active";
   private _confirmingDeleteId: string | null = null;
   private _viewportIsMobile = false;
+  private _hasHeader = false;
   private _hasMemories = false;
   private _hasFooter = false;
   /** Whether the funnel filter popover (Active/All) is open. */
@@ -590,14 +566,8 @@ export class CopilotKitThreadsDrawer extends LitElement {
   // --- Render ----------------------------------------------------------------
 
   override render() {
-    // The collapsed rail is only ever shown on desktop AND when collapsing is
-    // permitted. With `collapsible=false` the drawer stays expanded regardless
-    // of the `collapsed` property.
-    const showCollapsed =
-      this.collapsible && this.collapsed && !this._viewportIsMobile;
     const rootClasses = {
       root: true,
-      collapsed: showCollapsed,
       mobile: this._viewportIsMobile,
       open: this.open,
     };
@@ -636,70 +606,34 @@ export class CopilotKitThreadsDrawer extends LitElement {
         aria-modal=${this._isMobileModalOpen() ? "true" : nothing}
         aria-label=${this.label}
       >
-        ${
-          // Collapsed desktop rail: replace the full body with a compact
-          // floating cluster (expand + new-conversation). Mobile keeps the
-          // modal/launcher path and never collapses to a cluster; `collapsible`
-          // gating means the cluster never renders when collapsing is disabled.
-          showCollapsed
-            ? html`<div class="collapsed-cluster" part="collapsed-cluster">
-                <button
-                  class="icon-btn"
-                  aria-label="Expand threads"
-                  @click=${() => this._toggleCollapsed()}
-                >
-                  ${iconSidebar}
-                </button>
-                <button
-                  class="icon-btn"
-                  aria-label="New thread"
-                  @click=${() => this._emit("new-thread", {})}
-                >
-                  ${iconPlusSquare}
-                </button>
-              </div>`
-            : html`${this._renderHeader()} ${this._renderBody()}
-              ${this._renderMemories()} ${this._renderFooter()}
-              ${this._renderConfirmDialog()}`
-        }
+        ${this._renderHeader()} ${this._renderBody()} ${this._renderMemories()}
+        ${this._renderFooter()} ${this._renderConfirmDialog()}
       </div>
     `;
   }
 
   private _renderHeader() {
-    // The locked/unlicensed view renders only the Upgrade panel, so the feature
-    // chrome (the "New Conversation" row) is suppressed here — mirroring the
-    // section-heading gating. The collapse toggle stays because it's pure
-    // view-state (rail vs. panel), unrelated to the licensed feature set.
+    // The header is a reserved consumer-projection surface with no built-in
+    // controls (search and the desktop collapse toggle were both removed), so
+    // it stays hidden until a consumer projects `slot="header"` content — a
+    // `slotchange` listener drives `_hasHeader`, mirroring the memories/footer
+    // gating. Without this gate the empty padded header bar would render above
+    // the "New Conversation" row. The "New Conversation" row is suppressed in
+    // the locked/unlicensed view (only the Upgrade panel shows), mirroring the
+    // section-heading gating.
     return html`
-      <div class="header" part="header">
-        <slot name="header"></slot>
-        ${
-          this.collapsible
-            ? html`<button
-              class="icon-btn"
-              part="collapse-toggle"
-              aria-label="Collapse threads"
-              @click=${() => this._toggleCollapsed()}
-            >
-              ${iconSidebar}
-            </button>`
-            : nothing
-        }
+      <div class="header" part="header" ?hidden=${!this._hasHeader}>
+        <slot
+          name="header"
+          @slotchange=${(e: Event) => {
+            const slot = e.target as HTMLSlotElement;
+            this._hasHeader = slot.assignedElements().length > 0;
+          }}
+        ></slot>
       </div>
       ${this.licensed ? this._renderNewConversation() : nothing}
       ${this._renderSectionHeading()}
     `;
-  }
-
-  /**
-   * Flips the collapsed rail state on a user-driven toggle and notifies the
-   * consumer via `collapse-change`. Mirrors the `_setOpen`/`open-change`
-   * pattern; external `collapsed` property changes do NOT emit.
-   */
-  private _toggleCollapsed(): void {
-    this.collapsed = !this.collapsed;
-    this._emit("collapse-change", { collapsed: this.collapsed });
   }
 
   /**

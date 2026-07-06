@@ -795,8 +795,7 @@ test("reveal class is dropped on the next unrelated re-render (fires once)", asy
   ).toBe(true);
 
   // An unrelated re-render (no threads change) must NOT re-apply `revealed`.
-  // (Uses a label change rather than a collapse toggle: on desktop collapsing
-  // now swaps the body for the floating cluster, which would remove the row.)
+  // (Uses a label change to trigger a re-render without touching `threads`.)
   element.label = "Renamed";
   await flush(element);
 
@@ -1106,27 +1105,21 @@ test("list is scrollable in a bounded container — CSS contract: :host has heig
   expect(sheets).toMatch(/\.list\s*\{[^}]*min-height:\s*0[^}]*\}/);
 });
 
-// --- ENT-1051 Task 1: icon-row header -------------------------------------
+// --- ENT-1051 Task 1: header gating ---------------------------------------
 
-test("header renders the collapse icon button, no title text or + New pill", async () => {
+test("header stays hidden until slot=header content is projected", async () => {
   const { element } = await setup({ threads: [makeThread()] });
-  const collapse = element.shadowRoot!.querySelector(
-    '[part="collapse-toggle"]',
-  );
-  expect(collapse).toBeTruthy();
-  // The old "+ New" pill no longer lives in the header.
+  // With no built-in header controls (search + desktop collapse both removed)
+  // the header bar is hidden by default so no empty padded bar renders above
+  // the "New Conversation" row.
   const header = element.shadowRoot!.querySelector('[part="header"]')!;
-  expect(header.textContent).not.toContain("+ New");
-});
+  expect((header as HTMLElement).hidden).toBe(true);
 
-test("clicking collapse toggle flips the collapsed property", async () => {
-  const { element } = await setup({ threads: [makeThread()] });
-  expect(element.collapsed).toBe(false);
-  element
-    .shadowRoot!.querySelector<HTMLButtonElement>('[part="collapse-toggle"]')!
-    .click();
+  const headerContent = document.createElement("div");
+  headerContent.slot = "header";
+  element.appendChild(headerContent);
   await flush(element);
-  expect(element.collapsed).toBe(true);
+  expect((header as HTMLElement).hidden).toBe(false);
 });
 
 // --- ENT-1051 Task 2: New Conversation row --------------------------------
@@ -1231,23 +1224,7 @@ test("row kebab Delete routes through the confirm dialog (no immediate delete)",
   ).toBeTruthy();
 });
 
-// --- ENT-1051 Task 6: archived italic + collapsed floating cluster --------
-
-test("collapsed desktop shows a floating cluster with expand + new-conversation", async () => {
-  const { element } = await setup({ threads: [makeThread()] });
-  element.collapsed = true;
-  await flush(element);
-  const cluster = element.shadowRoot!.querySelector(
-    '[part="collapsed-cluster"]',
-  )!;
-  expect(cluster).toBeTruthy();
-  const onNew = vi.fn();
-  element.addEventListener("new-thread", onNew);
-  cluster
-    .querySelectorAll("button")[1]!
-    .dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  expect(onNew).toHaveBeenCalledTimes(1);
-});
+// --- ENT-1051 Task 6: archived italic -------------------------------------
 
 test("archived row name renders italic-muted in All view", async () => {
   const { element } = await setup({
@@ -1446,49 +1423,5 @@ test("unarchive aria-label falls back to 'New thread' for an empty-string name",
   expect(
     (q('[part="row-unarchive"]') as HTMLElement).getAttribute("aria-label"),
   ).toBe("Unarchive thread New thread");
-  teardown();
-});
-
-// --- ENT-1051 ref: collapsible property + collapse-change event -------------
-
-test("collapse-change fires {collapsed:true} then {collapsed:false} as the toggle is used", async () => {
-  const { element, q, teardown } = await setup({ threads: [makeThread()] });
-
-  const collapseEvents: unknown[] = [];
-  element.addEventListener("collapse-change", (e) =>
-    collapseEvents.push((e as CustomEvent).detail),
-  );
-
-  // Collapse via the header toggle.
-  (q('[part="collapse-toggle"]') as HTMLElement).click();
-  await flush(element);
-  expect(collapseEvents).toEqual([{ collapsed: true }]);
-
-  // Expand via the collapsed cluster's first (expand) button.
-  const cluster = q('[part="collapsed-cluster"]') as HTMLElement;
-  (cluster.querySelector("button") as HTMLElement).click();
-  await flush(element);
-  expect(collapseEvents).toEqual([{ collapsed: true }, { collapsed: false }]);
-  teardown();
-});
-
-test("collapsible=false hides the collapse toggle and never renders the collapsed cluster", async () => {
-  const { element, q, teardown } = await setup({ threads: [makeThread()] });
-  element.collapsible = false;
-  element.collapsed = true;
-  await flush(element);
-
-  // No collapse affordance, and the body stays expanded despite collapsed=true.
-  expect(q('[part="collapse-toggle"]')).toBeNull();
-  expect(q('[part="collapsed-cluster"]')).toBeNull();
-  expect(q('[part="new-thread-button"]')).not.toBeNull();
-  teardown();
-});
-
-test("collapsible defaults to true (collapse toggle present)", async () => {
-  const { element, q, teardown } = await setup({ threads: [makeThread()] });
-
-  expect(element.collapsible).toBe(true);
-  expect(q('[part="collapse-toggle"]')).not.toBeNull();
   teardown();
 });

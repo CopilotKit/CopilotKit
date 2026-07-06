@@ -110,24 +110,6 @@ export const drawerStyles = css`
     position: relative;
   }
 
-  .root.collapsed {
-    width: auto;
-    border-right: 0;
-    background: transparent;
-  }
-
-  .collapsed-cluster {
-    display: inline-flex;
-    gap: 4px;
-    padding: 8px;
-    margin: 8px;
-    background: var(--_surface);
-    border: 1px solid var(--_border);
-    border-radius: var(--_radius);
-    box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
-    width: max-content;
-  }
-
   /* Mobile: off-canvas overlay (modal pattern). */
   .root.mobile {
     position: fixed;
@@ -185,15 +167,19 @@ export const drawerStyles = css`
   .header {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
     gap: 8px;
     padding: 12px;
   }
 
-  /* Optional consumer projection surface. Empty by default (the redesign has no
-     visible title), so the flex:1 box collapses to zero content and the two
-     icon buttons stay right-aligned exactly as with justify-content:flex-end.
-     When a consumer projects into slot="header" it fills the left of the row. */
+  /* The header is hidden until a consumer projects slot="header" content
+     (the redesign has no built-in header controls). Mirrors the memories/footer
+     gating so an empty padded header bar never renders above the list. */
+  .header[hidden] {
+    display: none;
+  }
+
+  /* Optional consumer projection surface. When a consumer projects into
+     slot="header" it fills the header row. */
   .header slot[name="header"] {
     display: flex;
     align-items: center;
