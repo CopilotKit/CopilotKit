@@ -7,7 +7,7 @@ import {
 import { JsonRenderAssistantMessage } from "./json-render-renderer";
 import { useByocJsonRenderSuggestions } from "./suggestions";
 
-export const AGENT_ID = "byoc_json_render";
+export const AGENT_ID = "declarative_json_render";
 
 export function Chat() {
   useByocJsonRenderSuggestions();
