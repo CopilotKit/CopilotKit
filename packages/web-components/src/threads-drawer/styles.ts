@@ -167,10 +167,41 @@ export const drawerStyles = css`
   .header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     gap: 8px;
     padding: 12px;
-    border-bottom: 1px solid var(--_border);
+  }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+    border: 0;
+    border-radius: var(--_radius);
+    background: transparent;
+    color: var(--_muted-fg);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .icon-btn:hover,
+  .icon-btn:focus-visible {
+    background: var(--_muted);
+    color: inherit;
+  }
+
+  .icon-btn[aria-pressed="true"] {
+    background: var(--_muted);
+    color: inherit;
+  }
+
+  .icon {
+    width: 20px;
+    height: 20px;
+    display: block;
   }
 
   .filters {

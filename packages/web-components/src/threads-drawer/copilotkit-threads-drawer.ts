@@ -114,6 +114,80 @@ const iconLauncher = html`
 `;
 
 /**
+ * Header / control icons for the redesigned drawer chrome (ENT-1051). Inlined
+ * lucide glyphs (`search`, `panel-left`, `square-plus`, `filter`,
+ * `ellipsis-vertical`) drawn with `currentColor` so they inherit the button's
+ * themed color — the element cannot depend on a React icon library.
+ */
+const iconSearch = html`
+  <svg
+    class="icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.3-4.3" />
+  </svg>
+`;
+const iconSidebar = html`
+  <svg
+    class="icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M9 3v18" />
+  </svg>
+`;
+const iconPlusSquare = html`
+  <svg
+    class="icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M8 12h8" />
+    <path d="M12 8v8" />
+  </svg>
+`;
+const iconFunnel = html`
+  <svg
+    class="icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M3 4h18l-7 8v6l-4 2v-8Z" />
+  </svg>
+`;
+const iconKebab = html`
+  <svg class="icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <circle cx="12" cy="5" r="1.6" />
+    <circle cx="12" cy="12" r="1.6" />
+    <circle cx="12" cy="19" r="1.6" />
+  </svg>
+`;
+
+/**
  * `<copilotkit-threads-drawer>` — a public, self-contained, controlled, framework-agnostic
  * threads drawer rendered into a shadow root.
  *
@@ -151,6 +225,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
     _viewportIsMobile: { state: true },
     _hasMemories: { state: true },
     _hasFooter: { state: true },
+    _searchOpen: { state: true },
   };
 
   /**
@@ -194,6 +269,8 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _viewportIsMobile = false;
   private _hasMemories = false;
   private _hasFooter = false;
+  /** Whether the search input is revealed (Task 1 toggle; filtering in Task 4). */
+  private _searchOpen = false;
 
   private _mediaQuery: MediaQueryList | null = null;
   private readonly _onMediaChange = (event: MediaQueryListEvent) => {
@@ -520,41 +597,79 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _renderHeader() {
     return html`
       <div class="header" part="header">
-        <slot name="header"><span>${this.label}</span></slot>
         <button
-          class="primary"
-          part="new-thread-button"
-          aria-label="New thread"
-          @click=${() => this._emit("new-thread", {})}
+          class="icon-btn"
+          part="search-toggle"
+          aria-label="Search threads"
+          aria-pressed=${this._searchOpen}
+          @click=${() => this._toggleSearch()}
         >
-          + New
+          ${iconSearch}
+        </button>
+        <button
+          class="icon-btn"
+          part="collapse-toggle"
+          aria-label="Collapse threads"
+          @click=${() => (this.collapsed = !this.collapsed)}
+        >
+          ${iconSidebar}
         </button>
       </div>
-      ${
-        this.licensed &&
-        (!hasErrorMessage(this.error) || this.threads.length > 0)
-          ? html`
-            <div class="filters" part="filters" role="group" aria-label="Filter threads">
-              <button
-                class="filter-btn"
-                part="filter-active"
-                aria-pressed=${this._filter === "active"}
-                @click=${() => this._setFilter("active")}
-              >
-                Active
-              </button>
-              <button
-                class="filter-btn"
-                part="filter-all"
-                aria-pressed=${this._filter === "all"}
-                @click=${() => this._setFilter("all")}
-              >
-                All
-              </button>
-            </div>
-          `
-          : nothing
-      }
+      ${this._renderSearch()} ${this._renderNewConversation()}
+      ${this._renderSectionHeading()}
+    `;
+  }
+
+  /** Toggles the search input open/closed (client-side filtering lands in Task 4). */
+  private _toggleSearch() {
+    this._searchOpen = !this._searchOpen;
+  }
+
+  /** Search input — implemented in Task 4. */
+  private _renderSearch() {
+    return nothing;
+  }
+
+  /** Dedicated "New Conversation" row — implemented in Task 2. */
+  private _renderNewConversation() {
+    return nothing;
+  }
+
+  /** "Recent Conversations" heading + funnel filter — implemented in Task 3. */
+  private _renderSectionHeading() {
+    return this._renderFilters();
+  }
+
+  /**
+   * Temporary carry-over of the Active/All filter markup, moved out of the header
+   * verbatim. Task 3 replaces this with the section heading + funnel popover.
+   */
+  private _renderFilters() {
+    if (
+      !this.licensed ||
+      (hasErrorMessage(this.error) && this.threads.length === 0)
+    ) {
+      return nothing;
+    }
+    return html`
+      <div class="filters" part="filters" role="group" aria-label="Filter threads">
+        <button
+          class="filter-btn"
+          part="filter-active"
+          aria-pressed=${this._filter === "active"}
+          @click=${() => this._setFilter("active")}
+        >
+          Active
+        </button>
+        <button
+          class="filter-btn"
+          part="filter-all"
+          aria-pressed=${this._filter === "all"}
+          @click=${() => this._setFilter("all")}
+        >
+          All
+        </button>
+      </div>
     `;
   }
 

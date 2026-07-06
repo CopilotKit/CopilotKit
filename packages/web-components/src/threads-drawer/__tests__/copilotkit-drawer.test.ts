@@ -1124,3 +1124,28 @@ test("list is scrollable in a bounded container — CSS contract: :host has heig
   // not significant for correctness.
   expect(sheets).toContain("min-height: 0");
 });
+
+// --- ENT-1051 Task 1: icon-row header -------------------------------------
+
+test("header renders search and collapse icon buttons, no title text or + New pill", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  const search = element.shadowRoot!.querySelector('[part="search-toggle"]');
+  const collapse = element.shadowRoot!.querySelector(
+    '[part="collapse-toggle"]',
+  );
+  expect(search).toBeTruthy();
+  expect(collapse).toBeTruthy();
+  // The old "+ New" pill no longer lives in the header.
+  const header = element.shadowRoot!.querySelector('[part="header"]')!;
+  expect(header.textContent).not.toContain("+ New");
+});
+
+test("clicking collapse toggle flips the collapsed property", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  expect(element.collapsed).toBe(false);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="collapse-toggle"]')!
+    .click();
+  await flush(element);
+  expect(element.collapsed).toBe(true);
+});
