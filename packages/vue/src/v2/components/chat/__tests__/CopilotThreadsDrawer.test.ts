@@ -724,23 +724,11 @@ describe("CopilotThreadsDrawer", () => {
     wrapper.unmount();
   });
 
-  it("binds recent-label and re-emits the element's search event as search(query)", async () => {
+  it("binds recent-label to the element", async () => {
     const wrapper = await mountDrawer({ recentLabel: "History" });
 
-    const drawer = wrapper.findComponent(CopilotThreadsDrawer);
     const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
     expect(el.getAttribute("recent-label")).toBe("History");
-
-    el.dispatchEvent(
-      new CustomEvent("search", {
-        detail: { query: "q" },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-    await nextTick();
-
-    expect(drawer.emitted("search")?.[0]).toEqual(["q"]);
 
     wrapper.unmount();
   });

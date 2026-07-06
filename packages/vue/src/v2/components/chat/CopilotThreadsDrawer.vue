@@ -15,7 +15,6 @@ import type {
   DeleteDetail,
   RetryDetail,
   OpenChangeDetail,
-  SearchDetail,
 } from "@copilotkit/web-components/threads-drawer";
 // TODO(ENT-1051): import `CollapseChangeDetail` from
 // "@copilotkit/web-components/threads-drawer" once the parallel element PR that
@@ -57,8 +56,6 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
-  /** Emitted when the in-drawer client-side search query changes. */
-  search: [query: string];
   /**
    * Emitted when the drawer's collapsed state changes (mirrors the element's
    * `collapse-change` event), carrying the new collapsed state.
@@ -255,10 +252,6 @@ function onDelete(event: Event) {
 function onFilterChange() {
   threadsApi.refetchThreads();
 }
-function onSearch(event: Event) {
-  const { query } = (event as CustomEvent<SearchDetail>).detail;
-  emit("search", query);
-}
 function onCollapseChange(event: Event) {
   const { collapsed } = (event as CustomEvent<CollapseChangeDetail>).detail;
   emit("collapse-change", collapsed);
@@ -312,7 +305,6 @@ defineSlots<{
     @unarchive="onUnarchive"
     @delete="onDelete"
     @filter-change="onFilterChange"
-    @search="onSearch"
     @collapse-change="onCollapseChange"
     @retry="onRetry"
     @load-more="onLoadMore"

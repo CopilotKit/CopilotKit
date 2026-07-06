@@ -20,7 +20,6 @@ import type {
   DeleteDetail,
   OpenChangeDetail,
   RetryDetail,
-  SearchDetail,
 } from "@copilotkit/web-components/threads-drawer";
 // TODO(ENT-1051): import `CollapseChangeDetail` from
 // "@copilotkit/web-components/threads-drawer" once the parallel element PR that
@@ -105,12 +104,6 @@ export interface CopilotThreadsDrawerProps {
    * built-in `"Recent Conversations"` when omitted.
    */
   recentLabel?: string;
-  /**
-   * Called when the user types in the drawer's client-side search box, with the
-   * current query string. The element already filters the visible rows itself;
-   * this is a read-only notification hook (e.g. to fetch server-side matches).
-   */
-  onSearch?: (query: string) => void;
   /**
    * Whether the drawer offers a collapse toggle. Sets the custom element's
    * `collapsible` PROPERTY. When `false`, the drawer has no collapse toggle and
@@ -208,7 +201,7 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  *   during prerender to avoid hydration mismatch).
  * - Feeds the element domain data: `threads`, `loading`, `error`,
  *   `activeThreadId`, `licensed`, fetch-more state.
- * - Routes the element's twelve outbound events to core thread operations
+ * - Routes the element's outbound events to core thread operations
  *   ({@link useThreads}) and chat-configuration changes.
  * - Registers with the surrounding chat configuration so the header
  *   thread-list launcher appears, and binds the element `open` state to the
@@ -244,7 +237,6 @@ export function CopilotThreadsDrawer({
   renderRow,
   label,
   recentLabel,
-  onSearch,
   collapsible,
   onCollapseChange,
   limit,
@@ -460,13 +452,6 @@ export function CopilotThreadsDrawer({
     fetchMoreThreads();
   }, [fetchMoreThreads]);
 
-  const handleSearch = useCallback(
-    (query: string) => {
-      onSearch?.(query);
-    },
-    [onSearch],
-  );
-
   const handleCollapseChange = useCallback(
     (collapsed: boolean) => {
       onCollapseChange?.(collapsed);
@@ -487,7 +472,6 @@ export function CopilotThreadsDrawer({
     handleOpenChange,
     handleLicensed,
     handleLoadMore,
-    handleSearch,
     handleCollapseChange,
   });
   handlersRef.current = {
@@ -501,11 +485,10 @@ export function CopilotThreadsDrawer({
     handleOpenChange,
     handleLicensed,
     handleLoadMore,
-    handleSearch,
     handleCollapseChange,
   };
 
-  // Bind the twelve outbound DOM events once the element exists. Listeners are
+  // Bind the outbound DOM events once the element exists. Listeners are
   // bound a single time and cleaned up on unmount; they dispatch through the
   // handlers ref so they always invoke the latest closures.
   useEffect(() => {
@@ -542,10 +525,6 @@ export function CopilotThreadsDrawer({
     };
     const onLicensedEvent = () => handlersRef.current.handleLicensed();
     const onLoadMore = () => handlersRef.current.handleLoadMore();
-    const onSearchEvent = (event: Event) => {
-      const detail = (event as CustomEvent<SearchDetail>).detail;
-      handlersRef.current.handleSearch(detail.query);
-    };
     const onCollapseChangeEvent = (event: Event) => {
       const detail = (event as CustomEvent<CollapseChangeDetail>).detail;
       handlersRef.current.handleCollapseChange(detail.collapsed);
@@ -561,7 +540,6 @@ export function CopilotThreadsDrawer({
     el.addEventListener("retry", onRetry);
     el.addEventListener("licensed", onLicensedEvent);
     el.addEventListener("load-more", onLoadMore);
-    el.addEventListener("search", onSearchEvent);
     el.addEventListener("collapse-change", onCollapseChangeEvent);
 
     return () => {
@@ -575,7 +553,6 @@ export function CopilotThreadsDrawer({
       el.removeEventListener("retry", onRetry);
       el.removeEventListener("licensed", onLicensedEvent);
       el.removeEventListener("load-more", onLoadMore);
-      el.removeEventListener("search", onSearchEvent);
       el.removeEventListener("collapse-change", onCollapseChangeEvent);
     };
     // Re-bind only after the first client mount (deps: [mounted]); the element

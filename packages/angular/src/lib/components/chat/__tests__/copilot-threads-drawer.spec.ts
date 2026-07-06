@@ -687,7 +687,7 @@ test("label input is forwarded to the <copilotkit-threads-drawer> element label 
 });
 
 // ---------------------------------------------------------------------------
-// recentLabel input forwarding + search output (ENT-1051 UX redesign parity)
+// recentLabel input forwarding (ENT-1051 UX redesign parity)
 // ---------------------------------------------------------------------------
 
 /** Host that passes a custom recentLabel to the drawer. */
@@ -717,44 +717,6 @@ test("recentLabel input is forwarded to the element's recent-label attribute", (
   ) as HTMLElement;
 
   expect(el.getAttribute("recent-label")).toBe("History");
-});
-
-/** Host that binds the `search` output to a spy. */
-@Component({
-  selector: "test-host-search",
-  standalone: true,
-  imports: [CopilotThreadsDrawer],
-  template: `
-    <copilot-threads-drawer (search)="spy($event)" />
-  `,
-})
-class HostWithSearchComponent {
-  spy = vi.fn();
-}
-
-test("search output emits the query when the element fires a `search` event", () => {
-  licenseStatusSignal.set("valid");
-  TestBed.resetTestingModule();
-  TestBed.configureTestingModule({
-    imports: [HostWithSearchComponent],
-    providers: [copilotkitProvider],
-  });
-
-  const fixture = TestBed.createComponent(HostWithSearchComponent);
-  fixture.detectChanges();
-  const el = (fixture.nativeElement as HTMLElement).querySelector(
-    "copilotkit-threads-drawer",
-  ) as HTMLElement;
-
-  el.dispatchEvent(
-    new CustomEvent("search", {
-      detail: { query: "z" },
-      bubbles: true,
-      composed: true,
-    }),
-  );
-
-  expect(fixture.componentInstance.spy).toHaveBeenCalledWith("z");
 });
 
 // ---------------------------------------------------------------------------

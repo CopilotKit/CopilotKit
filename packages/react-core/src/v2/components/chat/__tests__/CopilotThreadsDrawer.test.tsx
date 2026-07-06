@@ -646,15 +646,6 @@ test("omits the recent-label attribute when the prop is not set", async () => {
   expect(getElement().hasAttribute("recent-label")).toBe(false);
 });
 
-test("surfaces the element's search event to onSearch with the query", async () => {
-  const onSearch = vi.fn();
-  await renderDrawer({ onSearch });
-
-  dispatch("search", { query: "abc" });
-
-  expect(onSearch).toHaveBeenCalledWith("abc");
-});
-
 test("sets the element's collapsible property to false when collapsible={false}", async () => {
   await renderDrawer({ collapsible: false });
 
@@ -667,11 +658,10 @@ test("leaves the element's collapsible property untouched when the prop is omitt
   await renderDrawer();
 
   // The wrapper never assigns the property, so the element keeps its own
-  // built-in default (the property is `undefined` on the bare element in jsdom
-  // until the element itself initializes it).
+  // built-in default of `true` (mirrors the default-true `licensed` field).
   expect(
     (getElement() as unknown as { collapsible?: boolean }).collapsible,
-  ).toBeUndefined();
+  ).toBe(true);
 });
 
 test("surfaces the element's collapse-change event to onCollapseChange with the collapsed state", async () => {
