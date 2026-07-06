@@ -240,7 +240,14 @@ test("delete is gated behind a confirm dialog and only fires on confirm", async 
   (q('[part="row-delete"]') as HTMLElement).click();
   await flush(element);
 
-  expect(q('[data-testid="drawer-confirm-delete"]')).not.toBeNull();
+  // The <dialog> is always in the DOM now; the confirm state is its OPEN state.
+  // jsdom lacks showModal(), so the element falls back to the `open` attribute,
+  // which `HTMLDialogElement.open` reflects.
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog).not.toBeNull();
+  expect(dialog.open).toBe(true);
   expect(events.some((e) => e.type === "delete")).toBe(false);
 
   (q('[part="confirm-delete"]') as HTMLElement).click();
@@ -250,7 +257,7 @@ test("delete is gated behind a confirm dialog and only fires on confirm", async 
     type: "delete",
     detail: { threadId: "del" },
   });
-  expect(q('[data-testid="drawer-confirm-delete"]')).toBeNull();
+  expect(dialog.open).toBe(false);
   teardown();
 });
 
@@ -263,10 +270,37 @@ test("confirm dialog can be cancelled without emitting delete", async () => {
   await flush(element);
   (q('[part="row-delete"]') as HTMLElement).click();
   await flush(element);
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog.open).toBe(true);
   (q('[part="confirm-cancel"]') as HTMLElement).click();
   await flush(element);
 
-  expect(q('[data-testid="drawer-confirm-delete"]')).toBeNull();
+  expect(dialog.open).toBe(false);
+  expect(events.some((e) => e.type === "delete")).toBe(false);
+  teardown();
+});
+
+test("native dialog cancel (Escape) resets the confirm state without deleting", async () => {
+  const { q, events, element, teardown } = await setup({
+    threads: [makeThread({ id: "del", name: "Delete me" })],
+  });
+
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+  (q('[part="row-delete"]') as HTMLElement).click();
+  await flush(element);
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog.open).toBe(true);
+
+  // Simulate the browser's native Escape dismissal, which fires `cancel`.
+  dialog.dispatchEvent(new Event("cancel", { cancelable: true }));
+  await flush(element);
+
+  expect(dialog.open).toBe(false);
   expect(events.some((e) => e.type === "delete")).toBe(false);
   teardown();
 });
@@ -842,13 +876,16 @@ test("pending confirm-delete auto-dismisses when its thread leaves the list", as
     q('li.row[data-thread-id="del"] [part="row-delete"]') as HTMLElement
   ).click();
   await flush(element);
-  expect(q('[data-testid="drawer-confirm-delete"]')).not.toBeNull();
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog.open).toBe(true);
 
   // consumer removes the thread under confirmation
   element.threads = [makeThread({ id: "keep", name: "Keep" })];
   await flush(element);
 
-  expect(q('[data-testid="drawer-confirm-delete"]')).toBeNull();
+  expect(dialog.open).toBe(false);
   teardown();
 });
 
@@ -865,7 +902,9 @@ test("confirm-delete survives an unrelated thread change (same id still present)
   // unrelated change: the same id is still present
   element.threads = [makeThread({ id: "del", name: "Renamed" })];
   await flush(element);
-  expect(q('[data-testid="drawer-confirm-delete"]')).not.toBeNull();
+  expect(
+    (q('[data-testid="drawer-confirm-delete"]') as HTMLDialogElement).open,
+  ).toBe(true);
 
   (q('[part="confirm-delete"]') as HTMLElement).click();
   await flush(element);
@@ -1220,8 +1259,10 @@ test("row kebab Delete routes through the confirm dialog (no immediate delete)",
   await flush(element);
   expect(onDelete).not.toHaveBeenCalled();
   expect(
-    element.shadowRoot!.querySelector('[data-testid="drawer-confirm-delete"]'),
-  ).toBeTruthy();
+    element.shadowRoot!.querySelector<HTMLDialogElement>(
+      '[data-testid="drawer-confirm-delete"]',
+    )!.open,
+  ).toBe(true);
 });
 
 // --- ENT-1051 Task 6: archived italic -------------------------------------

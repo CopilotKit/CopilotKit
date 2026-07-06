@@ -99,15 +99,13 @@ export const drawerStyles = css`
     border-right: 1px solid var(--_border);
     overflow: hidden;
     transition: width 0.2s ease;
-    /* Positioning context for the confirm-delete dialog's absolutely-positioned
-       backdrop (see .dialog-backdrop). Without this the backdrop's inset:0
-       resolves against the initial containing block (the viewport) and its
-       low z-index competes in the light-DOM root stacking context, so on
-       desktop the dialog escapes the drawer column and paints UNDER the chat
-       input (which sits in a sibling column). Anchoring here confines the
-       modal to the drawer, where its z-index only needs to beat the rows.
-       The mobile path already establishes its own context via position:fixed. */
-    position: relative;
+    /* The confirm-delete dialog no longer needs a positioning context here: it
+       is a native <dialog> opened with showModal(), which renders in the
+       browser top layer independent of any stacking context (ENT-1051). No
+       other direct child of .root is absolutely positioned (the filter and
+       row-action popovers anchor to their own positioned ancestors), so .root
+       stays static. The mobile path establishes its own context via
+       position:fixed. */
   }
 
   /* Mobile: off-canvas overlay (modal pattern). */
@@ -597,30 +595,33 @@ export const drawerStyles = css`
     display: none;
   }
 
-  .dialog-backdrop {
-    /* Viewport-fixed (not absolute-in-.root): a persistent sidebar's .root is as
-       tall as its content when the host doesn't bound its height, so centering
-       in .root drops the dialog far below the fold. Fixed keeps the confirm
-       centered in the visible viewport regardless of host layout / scroll
-       position. z-index sits above the mobile off-canvas drawer (1000). */
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1001;
-  }
-
+  /* Confirm-delete dialog — a native <dialog> opened with showModal(). It lives
+     in the browser TOP LAYER, so it can never be painted under other UI (the
+     old CSS-positioned overlay was trapped in the drawer host's stacking
+     context and appeared under the chat's welcome view — ENT-1051). The UA
+     centers it in the viewport via margin:auto; we reset the UA chrome and
+     apply the drawer's surface-card look. */
   .dialog {
+    margin: auto;
+    border: 0;
+    padding: 16px;
+    max-width: 80%;
     background: var(--_surface);
     color: var(--_surface-fg);
     border-radius: var(--_radius);
-    padding: 16px;
-    max-width: 80%;
+  }
+
+  /* Only lay out the card contents when open. A closed <dialog> is display:none
+     via the UA stylesheet, and author display rules must not override that (or
+     an empty box would leak), so the flex layout is scoped to [open]. */
+  .dialog[open] {
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .dialog::backdrop {
+    background: rgba(0, 0, 0, 0.3);
   }
 
   .dialog-actions {

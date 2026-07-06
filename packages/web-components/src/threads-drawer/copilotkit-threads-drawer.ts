@@ -277,11 +277,9 @@ export class CopilotKitThreadsDrawer extends LitElement {
         event.stopPropagation();
         return;
       }
-      if (this._confirmingDeleteId !== null) {
-        this._confirmingDeleteId = null;
-        event.stopPropagation();
-        return;
-      }
+      // The confirm-delete <dialog> is opened with showModal(), so the browser
+      // handles Escape natively (via the dialog's `cancel` event) — no branch
+      // needed here.
       if (this._viewportIsMobile && this.open) {
         this._setOpen(false);
         event.stopPropagation();
@@ -415,6 +413,25 @@ export class CopilotKitThreadsDrawer extends LitElement {
         this._focusFirstFocusable();
       } else {
         this._releaseScrollLock();
+      }
+    }
+
+    // Drive the native top-layer <dialog> from the confirm state. Opening with
+    // showModal() places it in the browser top layer (above every stacking
+    // context), which is the whole point of ENT-1051. Feature-detect
+    // showModal/close because jsdom implements neither — fall back to toggling
+    // the `open` attribute so unit tests still observe the open/closed state.
+    const dialog = this.renderRoot.querySelector("dialog");
+    if (dialog) {
+      const id = this._confirmingDeleteId;
+      if (id !== null && !dialog.open) {
+        typeof dialog.showModal === "function"
+          ? dialog.showModal()
+          : dialog.setAttribute("open", "");
+      } else if (id === null && dialog.open) {
+        typeof dialog.close === "function"
+          ? dialog.close()
+          : dialog.removeAttribute("open");
       }
     }
 
@@ -1033,41 +1050,69 @@ export class CopilotKitThreadsDrawer extends LitElement {
     `;
   }
 
+  /**
+   * Confirm-delete dialog, rendered as a native `<dialog>` that is ALWAYS
+   * present in the shadow DOM so `updated()` can drive `showModal()`/`close()`
+   * against it. Opening with `showModal()` puts it in the browser TOP LAYER, so
+   * it can never be painted under other UI — the previous CSS-positioned overlay
+   * was trapped in the drawer host's stacking context and appeared under the
+   * chat's welcome view (ENT-1051). The `::backdrop` pseudo-element (styled in
+   * styles.ts) provides the scrim natively.
+   *
+   * The actionable content (message + Cancel/Delete, bound to the captured id)
+   * renders only while confirming, so a closed dialog holds nothing stale.
+   * Native dismissal is wired via `@cancel` (Escape) and a backdrop-click check.
+   */
   private _renderConfirmDialog() {
-    if (this._confirmingDeleteId === null) return nothing;
     const id = this._confirmingDeleteId;
     return html`
-      <div class="dialog-backdrop" part="dialog-backdrop">
-        <div
-          class="dialog"
-          part="confirm-dialog"
-          role="alertdialog"
-          aria-modal="true"
-          aria-label="Confirm delete"
-          data-testid="drawer-confirm-delete"
-        >
-          <p>Delete this thread? This cannot be undone.</p>
-          <div class="dialog-actions">
-            <button
-              class="row-action"
-              part="confirm-cancel"
-              @click=${() => (this._confirmingDeleteId = null)}
-            >
-              Cancel
-            </button>
-            <button
-              class="primary"
-              part="confirm-delete"
-              @click=${() => {
-                this._confirmingDeleteId = null;
-                this._emit("delete", { threadId: id });
-              }}
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
+      <dialog
+        class="dialog"
+        part="confirm-dialog"
+        role="alertdialog"
+        aria-label="Confirm delete"
+        data-testid="drawer-confirm-delete"
+        @cancel=${(event: Event) => {
+          // Native Escape dismissal: prevent the default close (we drive open
+          // state from `_confirmingDeleteId` in `updated()`) and reset it.
+          event.preventDefault();
+          this._confirmingDeleteId = null;
+        }}
+        @click=${(event: MouseEvent) => {
+          // A click whose target is the <dialog> itself (not the inner card)
+          // landed on the ::backdrop — dismiss, mirroring a scrim click.
+          if (event.target === event.currentTarget) {
+            this._confirmingDeleteId = null;
+          }
+        }}
+      >
+        ${
+          id !== null
+            ? html`
+                <p>Delete this thread? This cannot be undone.</p>
+                <div class="dialog-actions">
+                  <button
+                    class="row-action"
+                    part="confirm-cancel"
+                    @click=${() => (this._confirmingDeleteId = null)}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    class="primary"
+                    part="confirm-delete"
+                    @click=${() => {
+                      this._confirmingDeleteId = null;
+                      this._emit("delete", { threadId: id });
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              `
+            : nothing
+        }
+      </dialog>
     `;
   }
 }
