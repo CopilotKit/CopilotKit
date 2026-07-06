@@ -99,15 +99,26 @@ def build_a2ui_operations_from_tool_call(args: dict[str, Any]) -> dict[str, Any]
         )
     data = args.get("data")
 
-    ops = [
-        {"type": "create_surface", "surfaceId": surface_id, "catalogId": catalog_id},
+    ops: list[dict[str, Any]] = [
         {
-            "type": "update_components",
-            "surfaceId": surface_id,
-            "components": components,
+            "version": "v0.9",
+            "createSurface": {"surfaceId": surface_id, "catalogId": catalog_id},
+        },
+        {
+            "version": "v0.9",
+            "updateComponents": {"surfaceId": surface_id, "components": components},
         },
     ]
     if data:
-        ops.append({"type": "update_data_model", "surfaceId": surface_id, "data": data})
+        ops.append(
+            {
+                "version": "v0.9",
+                "updateDataModel": {
+                    "surfaceId": surface_id,
+                    "path": "/",
+                    "value": data,
+                },
+            }
+        )
 
     return {"a2ui_operations": ops}
