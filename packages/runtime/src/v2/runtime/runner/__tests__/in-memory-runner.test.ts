@@ -527,6 +527,149 @@ describe("InMemoryAgentRunner", () => {
       expect(messageIds).toContain("b");
     });
   });
+
+  describe("Bounding (integration + regression)", () => {
+    it("stays bounded in thread count under a small maxThreads", async () => {
+      const boundedRunner = new InMemoryAgentRunner({ maxThreads: 5 });
+      boundedRunner.clearThreads();
+      for (let i = 0; i < 50; i++) {
+        const agent = new TestAgent([
+          {
+            type: EventType.TEXT_MESSAGE_START,
+            messageId: `m${i}`,
+            role: "assistant",
+          } as TextMessageStartEvent,
+          {
+            type: EventType.TEXT_MESSAGE_END,
+            messageId: `m${i}`,
+          } as TextMessageEndEvent,
+        ]);
+        await firstValueFrom(
+          boundedRunner
+            .run({
+              threadId: `t${i}`,
+              agent,
+              input: {
+                threadId: `t${i}`,
+                runId: `r${i}`,
+                messages: [],
+                state: {},
+                tools: [],
+                context: [],
+              },
+            })
+            .pipe(toArray()),
+        );
+      }
+      expect(boundedRunner.listThreads().length).toBeLessThanOrEqual(5);
+      // Reset limits back to defaults for later tests (last-constructed wins).
+      new InMemoryAgentRunner();
+    });
+
+    it("stays bounded in runs-per-thread under a small maxRunsPerThread", async () => {
+      const boundedRunner = new InMemoryAgentRunner({ maxRunsPerThread: 3 });
+      boundedRunner.clearThreads();
+      for (let i = 0; i < 20; i++) {
+        const agent = new TestAgent([
+          {
+            type: EventType.TEXT_MESSAGE_START,
+            messageId: `m${i}`,
+            role: "assistant",
+          } as TextMessageStartEvent,
+          {
+            type: EventType.TEXT_MESSAGE_END,
+            messageId: `m${i}`,
+          } as TextMessageEndEvent,
+        ]);
+        await firstValueFrom(
+          boundedRunner
+            .run({
+              threadId: "single",
+              agent,
+              input: {
+                threadId: "single",
+                runId: `r${i}`,
+                messages: [],
+                state: {},
+                tools: [],
+                context: [],
+              },
+            })
+            .pipe(toArray()),
+        );
+      }
+      // getThreadEvents replays only retained runs — bounded, not 20 runs'
+      // worth. Each run contributes one TEXT_MESSAGE_START, so counting starts
+      // proves the thread did not accumulate all 20 runs.
+      const events = boundedRunner.getThreadEvents("single");
+      const starts = events.filter(
+        (e) => e.type === EventType.TEXT_MESSAGE_START,
+      ).length;
+      expect(starts).toBeLessThanOrEqual(3);
+      // Reset limits back to defaults for later tests (last-constructed wins).
+      new InMemoryAgentRunner();
+    });
+
+    it.skipIf(typeof (globalThis as { gc?: unknown }).gc !== "function")(
+      "heap plateaus rather than growing monotonically (real OOM guard)",
+      async () => {
+        const gc = (globalThis as { gc: () => void }).gc;
+        const heapRunner = new InMemoryAgentRunner(); // defaults
+        heapRunner.clearThreads();
+
+        const drive = async (n: number) => {
+          for (let i = 0; i < n; i++) {
+            const tid = `t${i % 200}`; // spread across many threads
+            const agent = new TestAgent([
+              {
+                type: EventType.TEXT_MESSAGE_START,
+                messageId: `${tid}-${i}`,
+                role: "assistant",
+              } as TextMessageStartEvent,
+              {
+                type: EventType.TEXT_MESSAGE_CONTENT,
+                messageId: `${tid}-${i}`,
+                delta: "x".repeat(200),
+              } as TextMessageContentEvent,
+              {
+                type: EventType.TEXT_MESSAGE_END,
+                messageId: `${tid}-${i}`,
+              } as TextMessageEndEvent,
+            ]);
+            await firstValueFrom(
+              heapRunner
+                .run({
+                  threadId: tid,
+                  agent,
+                  input: {
+                    threadId: tid,
+                    runId: `${tid}-${i}`,
+                    messages: [],
+                    state: {},
+                    tools: [],
+                    context: [],
+                  },
+                })
+                .pipe(toArray()),
+            );
+          }
+        };
+
+        await drive(2000);
+        gc();
+        const mid = process.memoryUsage().heapUsed;
+        await drive(4000);
+        gc();
+        const end = process.memoryUsage().heapUsed;
+
+        // After bounding, driving 2x more runs must NOT ~2x the heap. Allow
+        // generous tolerance to avoid flake; the point is "plateau, not linear".
+        expect(end).toBeLessThan(mid * 1.6);
+        // Reset limits back to defaults for later tests (last-constructed wins).
+        new InMemoryAgentRunner();
+      },
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
