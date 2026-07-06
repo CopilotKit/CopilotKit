@@ -265,7 +265,6 @@ demos:
     animated_preview_url: null
     highlight:
       - src/lib/openclaw-agent.ts
-      - src/agent/shared-state-read-write-prompt.ts
       - src/app/demos/shared-state-read-write/page.tsx
       - src/app/demos/shared-state-read-write/preferences-card.tsx
       - src/app/demos/shared-state-read-write/notes-card.tsx
@@ -281,7 +280,6 @@ demos:
     animated_preview_url: null
     highlight:
       - src/lib/openclaw-agent.ts
-      - src/agent/subagents-prompts.ts
       - src/app/demos/subagents/page.tsx
       - src/app/demos/subagents/delegation-log.tsx
       - src/app/api/copilotkit-subagents/route.ts
@@ -331,7 +329,6 @@ demos:
     animated_preview_url: null
     highlight:
       - src/lib/openclaw-agent.ts
-      - src/agent/byoc-json-render-prompt.ts
       - src/app/demos/declarative-json-render/page.tsx
       - src/app/demos/declarative-json-render/json-render-renderer.tsx
       - src/app/demos/declarative-json-render/catalog.ts
@@ -347,7 +344,6 @@ demos:
     animated_preview_url: null
     highlight:
       - src/lib/openclaw-agent.ts
-      - src/agent/byoc-hashbrown-prompt.ts
       - src/app/demos/declarative-hashbrown/page.tsx
       - src/app/demos/declarative-hashbrown/hashbrown-renderer.tsx
       - src/app/api/copilotkit-declarative-hashbrown/route.ts
@@ -397,7 +393,6 @@ demos:
     animated_preview_url: null
     highlight:
       - src/lib/openclaw-agent.ts
-      - src/agent/agent-config-prompt.ts
       - src/app/demos/agent-config/page.tsx
       - src/app/demos/agent-config/config-card.tsx
       - src/app/demos/agent-config/use-agent-config.ts
@@ -551,7 +546,6 @@ demos:
     route: /demos/headless-complete
     animated_preview_url: null
     highlight:
-      - src/agent/headless-complete-prompt.ts
       - src/app/demos/headless-complete/page.tsx
       - src/app/demos/headless-complete/chat/chat.tsx
       - src/app/demos/headless-complete/hooks/use-tool-renderers.tsx
@@ -566,8 +560,6 @@ demos:
     route: /demos/a2ui-fixed-schema
     animated_preview_url: null
     highlight:
-      - src/agent/a2ui-fixed-prompt.ts
-      - src/agent/a2ui_schemas/flight_schema.json
       - src/app/demos/a2ui-fixed-schema/page.tsx
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
