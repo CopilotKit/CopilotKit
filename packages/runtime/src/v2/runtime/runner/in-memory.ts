@@ -151,7 +151,10 @@ export class ɵBoundedThreadStore {
     return store;
   }
 
-  get(threadId: string, opts: { touch: boolean }): InMemoryEventStore | undefined {
+  get(
+    threadId: string,
+    opts: { touch: boolean },
+  ): InMemoryEventStore | undefined {
     const store = this.map.get(threadId);
     if (store && opts.touch) this.touchOrder(threadId, store);
     return store;
@@ -206,7 +209,8 @@ export class ɵBoundedThreadStore {
     if (!cap || cap === Infinity) return; // 0 or Infinity → disabled
     while (store.historicRuns.length > cap) {
       const dropped = store.historicRuns.shift()!;
-      this.totalBytes -= (dropped.approxEventBytes ?? 0) + (dropped.approxMessageBytes ?? 0);
+      this.totalBytes -=
+        (dropped.approxEventBytes ?? 0) + (dropped.approxMessageBytes ?? 0);
     }
   }
 
@@ -223,7 +227,8 @@ export class ɵBoundedThreadStore {
 
   private removeThread(threadId: string, store: InMemoryEventStore): void {
     for (const run of store.historicRuns) {
-      this.totalBytes -= (run.approxEventBytes ?? 0) + (run.approxMessageBytes ?? 0);
+      this.totalBytes -=
+        (run.approxEventBytes ?? 0) + (run.approxMessageBytes ?? 0);
     }
     this.map.delete(threadId);
   }
@@ -262,7 +267,8 @@ export class ɵBoundedThreadStore {
       });
     }
     return threads.sort(
-      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
   }
 
