@@ -34,6 +34,25 @@ describe("ɵINMEMORY_DEFAULTS", () => {
   });
 });
 
+import type { BaseEvent, Message } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+
+// Build a HistoricRun whose event/message payloads are sized by `pad` chars.
+const makeRun = (
+  threadId: string,
+  runId: string,
+  { eventPad = 0, msgPad = 0 }: { eventPad?: number; msgPad?: number } = {},
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any => ({
+  threadId,
+  runId,
+  agentId: "a1",
+  parentRunId: null,
+  events: [{ type: EventType.CUSTOM, value: "e".repeat(eventPad) } as unknown as BaseEvent],
+  messages: [{ id: `${runId}-m`, role: "assistant", content: "m".repeat(msgPad) } as unknown as Message],
+  createdAt: 1,
+});
+
 describe("ɵBoundedThreadStore — threads & LRU", () => {
   it("getOrCreate creates once and reuses", () => {
     const store = new ɵBoundedThreadStore(limits());
@@ -100,5 +119,74 @@ describe("ɵBoundedThreadStore — threads & LRU", () => {
     store.clear();
     expect(store.size).toBe(0);
     expect(store.peek("t1")).toBeUndefined();
+  });
+});
+
+describe("ɵBoundedThreadStore — appendRun", () => {
+  it("enforces maxRunsPerThread FIFO (drops oldest)", () => {
+    const store = new ɵBoundedThreadStore(limits({ maxRunsPerThread: 2 }));
+    store.getOrCreate("t1");
+    store.appendRun("t1", makeRun("t1", "r1"));
+    store.appendRun("t1", makeRun("t1", "r2"));
+    store.appendRun("t1", makeRun("t1", "r3"));
+    const runs = store.peek("t1")!.historicRuns;
+    expect(runs.map((r) => r.runId)).toEqual(["r2", "r3"]);
+  });
+
+  it("maxRunsPerThread = Infinity disables the run cap", () => {
+    const store = new ɵBoundedThreadStore(limits({ maxRunsPerThread: Infinity }));
+    store.getOrCreate("t1");
+    for (let i = 0; i < 500; i++) store.appendRun("t1", makeRun("t1", `r${i}`));
+    expect(store.peek("t1")!.historicRuns.length).toBe(500);
+  });
+
+  it("maxRunsPerThread = 0 disables the run cap", () => {
+    const store = new ɵBoundedThreadStore(limits({ maxRunsPerThread: 0 }));
+    store.getOrCreate("t1");
+    for (let i = 0; i < 300; i++) store.appendRun("t1", makeRun("t1", `r${i}`));
+    expect(store.peek("t1")!.historicRuns.length).toBe(300);
+  });
+
+  it("dedups the previous run's message snapshot but keeps the latest", () => {
+    const store = new ɵBoundedThreadStore(limits());
+    store.getOrCreate("t1");
+    store.appendRun("t1", makeRun("t1", "r1", { msgPad: 100 }));
+    store.appendRun("t1", makeRun("t1", "r2", { msgPad: 100 }));
+    const runs = store.peek("t1")!.historicRuns;
+    expect(runs[0]!.messages).toEqual([]); // older snapshot dropped
+    expect(runs[1]!.messages.length).toBe(1); // latest retained
+  });
+
+  it("tracks byteTotal and decrements it on run-cap eviction and dedup", () => {
+    const store = new ɵBoundedThreadStore(limits({ maxRunsPerThread: 1 }));
+    store.getOrCreate("t1");
+    store.appendRun("t1", makeRun("t1", "r1", { eventPad: 1000, msgPad: 1000 }));
+    const afterFirst = store.byteTotal;
+    expect(afterFirst).toBeGreaterThan(2000);
+    store.appendRun("t1", makeRun("t1", "r2", { eventPad: 1000, msgPad: 1000 }));
+    // r1 evicted (cap 1); r2's messages retained, its events retained.
+    expect(store.peek("t1")!.historicRuns.map((r) => r.runId)).toEqual(["r2"]);
+    // Total should be roughly one run's worth, not two.
+    expect(store.byteTotal).toBeLessThan(afterFirst + 500);
+  });
+
+  it("evicts OTHER LRU threads under the byte ceiling, not the just-appended one", () => {
+    // maxBytes small enough that two fat runs cannot coexist.
+    const store = new ɵBoundedThreadStore(limits({ maxBytes: 3000, maxThreads: 100 }));
+    store.getOrCreate("old");
+    store.appendRun("old", makeRun("old", "r1", { eventPad: 2000 }));
+    store.getOrCreate("new");
+    store.appendRun("new", makeRun("new", "r1", { eventPad: 2000 })); // over ceiling → evict LRU "old"
+    expect(store.peek("new")).toBeDefined();
+    expect(store.peek("old")).toBeUndefined();
+    expect(store.byteTotal).toBeLessThanOrEqual(3000 + 2100); // within one fat run of the ceiling
+  });
+
+  it("clear resets byteTotal", () => {
+    const store = new ɵBoundedThreadStore(limits());
+    store.getOrCreate("t1");
+    store.appendRun("t1", makeRun("t1", "r1", { eventPad: 500 }));
+    store.clear();
+    expect(store.byteTotal).toBe(0);
   });
 });

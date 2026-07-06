@@ -111,8 +111,13 @@ class InMemoryEventStore {
 
 export class ɵBoundedThreadStore {
   private readonly map = new Map<string, InMemoryEventStore>();
+  private totalBytes = 0;
 
   constructor(private limits: Required<InMemoryLimits>) {}
+
+  get byteTotal(): number {
+    return this.totalBytes;
+  }
 
   setLimits(limits: Required<InMemoryLimits>): void {
     this.limits = limits;
@@ -167,8 +172,53 @@ export class ɵBoundedThreadStore {
     return false;
   }
 
-  private removeThread(threadId: string, _store: InMemoryEventStore): void {
-    // Byte-total bookkeeping is added in Task 3.
+  appendRun(threadId: string, run: HistoricRun): void {
+    const store = this.map.get(threadId);
+    if (!store) return; // best-effort: nothing to append to
+
+    // Snapshot dedup: only the newest run needs its full messages snapshot.
+    const prev = store.historicRuns[store.historicRuns.length - 1];
+    if (prev && prev.messages.length > 0) {
+      this.totalBytes -= prev.approxMessageBytes ?? 0;
+      prev.messages = [];
+      prev.approxMessageBytes = 0;
+    }
+
+    // Compute this run's approximate size once, at append time.
+    run.approxEventBytes = ɵestimateBytes(run.events);
+    run.approxMessageBytes = ɵestimateBytes(run.messages);
+    store.historicRuns.push(run);
+    this.totalBytes += run.approxEventBytes + run.approxMessageBytes;
+    this.touchOrder(threadId, store);
+
+    this.enforceRunCap(store);
+    this.evictByBytesIfNeeded(threadId);
+  }
+
+  private enforceRunCap(store: InMemoryEventStore): void {
+    const cap = this.limits.maxRunsPerThread;
+    if (!cap || cap === Infinity) return; // 0 or Infinity → disabled
+    while (store.historicRuns.length > cap) {
+      const dropped = store.historicRuns.shift()!;
+      this.totalBytes -= (dropped.approxEventBytes ?? 0) + (dropped.approxMessageBytes ?? 0);
+    }
+  }
+
+  /**
+   * Trim the store back under the byte ceiling by evicting LRU non-running
+   * threads. `protect` (the just-appended thread) is never self-evicted, so a
+   * fresh run pushes OTHER threads out rather than dropping itself.
+   */
+  private evictByBytesIfNeeded(protect?: string): void {
+    while (this.totalBytes > this.limits.maxBytes) {
+      if (!this.evictOneLru(protect)) break; // only protected/running threads left → accept overage
+    }
+  }
+
+  private removeThread(threadId: string, store: InMemoryEventStore): void {
+    for (const run of store.historicRuns) {
+      this.totalBytes -= (run.approxEventBytes ?? 0) + (run.approxMessageBytes ?? 0);
+    }
     this.map.delete(threadId);
   }
 
@@ -206,6 +256,7 @@ export class ɵBoundedThreadStore {
 
   clear(): void {
     this.map.clear();
+    this.totalBytes = 0;
   }
 }
 
