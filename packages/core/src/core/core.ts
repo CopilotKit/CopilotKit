@@ -972,7 +972,17 @@ export class CopilotKitCore {
       // so the give-up path cannot double-dispose.
       this._metadataSocketFatalSub = handle.socket.socketFatal$.subscribe(
         () => {
-          this.disposeMetadataSocket();
+          // Defer teardown one microtask so the synchronous socketFatal$
+          // fan-out reaches every store subscriber (memory's
+          // fatal$ -> realtimeUnavailable) BEFORE dispose() completes the
+          // shared subject and preempts them. Without the defer, this
+          // callback — subscribed at socket-creation time, ahead of any
+          // store's own fatal$ subscriber — would synchronously
+          // `teardown$.complete()` the shared `socketFatal$`, so later
+          // subscribers receive `complete()` instead of their mapped value
+          // and never dispatch `realtimeUnavailable`. The socket lives one
+          // microtask longer, which is harmless.
+          queueMicrotask(() => this.disposeMetadataSocket());
         },
       );
     }
