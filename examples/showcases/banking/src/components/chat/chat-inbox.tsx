@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { Archive, ArrowLeft, Inbox, Plus, Trash2 } from "lucide-react";
 import { useThreads } from "@copilotkit/react-core/v2";
 
@@ -74,7 +75,7 @@ export function ChatInbox({
       data-testid="chat-inbox"
       aria-label="Conversations"
       aria-hidden={!visible}
-      style={{ "--inbox-width": `${width}px` } as React.CSSProperties}
+      style={{ "--inbox-width": `${width}px` } as CSSProperties}
       className={cn(
         "fixed top-0 right-0 z-[1300] flex h-[100dvh] max-h-screen w-full flex-col",
         "w-full md:w-[var(--inbox-width)]",
