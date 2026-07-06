@@ -543,7 +543,8 @@ export function CopilotThreadsDrawer({
       el.removeEventListener("load-more", onLoadMore);
       el.removeEventListener("search", onSearchEvent);
     };
-    // Re-bind only when the element identity changes (i.e. after first mount).
+    // Re-bind only after the first client mount (deps: [mounted]); the element
+    // ref is stable thereafter.
   }, [mounted]);
 
   // Assign object/array/boolean PROPERTIES imperatively. React would otherwise

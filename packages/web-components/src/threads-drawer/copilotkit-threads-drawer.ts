@@ -273,8 +273,14 @@ export class CopilotKitThreadsDrawer extends LitElement {
   /** Inbound: fetch-more error message (inline, list preserved). */
   fetchMoreError: string | null = null;
 
-  /** Externally-controllable: whether the drawer is open (mobile coordination). */
-  open = true;
+  /**
+   * Externally-controllable: whether the drawer is open (mobile coordination).
+   * Defaults to `false` so a mobile-width first render does NOT paint the open
+   * modal (backdrop + body scroll-lock + focus steal) for one frame before a
+   * wrapper's post-mount effect can close it. Desktop is unaffected — only
+   * `.root.mobile.open` / `_isMobileModalOpen()` consume `open`.
+   */
+  open = false;
   /** Externally-controllable: whether the drawer is collapsed to a rail (desktop). */
   collapsed = false;
 
@@ -642,9 +648,6 @@ export class CopilotKitThreadsDrawer extends LitElement {
       collapsed: this.collapsed && !this._viewportIsMobile,
       mobile: this._viewportIsMobile,
       open: this.open,
-      // Suppresses row-action tooltips while the confirm dialog is open (the
-      // clicked trash button keeps :focus-visible/:hover otherwise).
-      confirming: this._confirmingDeleteId !== null,
     };
 
     return html`
@@ -1031,9 +1034,9 @@ export class CopilotKitThreadsDrawer extends LitElement {
     };
     const slotName = rowSlotName(thread.id);
     // A long thread name is clipped with an ellipsis. The full name is exposed
-    // via a tooltip styled to match the row-action tooltips (an instant primary
-    // bubble, NOT the native `title`), shown only when the name is actually
-    // truncated (`name-clipped`, toggled in `_syncNameClipping`). The name text
+    // via an instant primary bubble tooltip (NOT the native `title`), shown only
+    // when the name is actually truncated (`name-clipped`, toggled in
+    // `_syncNameClipping`). The name text
     // lives in an inner span that owns the ellipsis, so the outer `.row-name`
     // can host the tooltip pseudo-element without its own `overflow: hidden`
     // clipping it.

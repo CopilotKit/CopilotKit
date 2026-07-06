@@ -274,11 +274,15 @@ vi.mock("@copilotkit/core", () => {
 
     async unarchiveThread(threadId: string): Promise<void> {
       const context = this.requireContext();
-      await fetchMock(`${context.runtimeUrl}/threads/${threadId}/unarchive`, {
-        method: "POST",
+      // Mirrors the real core store: unarchive is a PATCH to the thread with
+      // `{ archived: false }`, NOT a dedicated /unarchive sub-route (see
+      // core/src/__tests__/threads.test.ts).
+      await fetchMock(`${context.runtimeUrl}/threads/${threadId}`, {
+        method: "PATCH",
         headers: context.headers,
         body: JSON.stringify({
           agentId: context.agentId,
+          archived: false,
         }),
       });
     }
@@ -1150,10 +1154,14 @@ describe("useThreads", () => {
       await getResult().unarchiveThread("t-1");
 
       const [url, options] = fetchMock.mock.calls[2];
-      expect(url).toContain("/threads/t-1/unarchive");
-      expect(options.method).toBe("POST");
+      // Unarchive is a PATCH to the thread with `{ archived: false }` (matching
+      // the real core store), not a dedicated /unarchive sub-route.
+      expect(url).toContain("/threads/t-1");
+      expect(url).not.toContain("/unarchive");
+      expect(options.method).toBe("PATCH");
       expect(JSON.parse(options.body)).toMatchObject({
         agentId: "agent-1",
+        archived: false,
       });
     });
 

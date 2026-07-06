@@ -28,6 +28,12 @@ function makeThread(overrides: Partial<DrawerThread> = {}): DrawerThread {
 type SetupOptions = {
   threads?: DrawerThread[];
   mobile?: boolean;
+  /**
+   * Initial `open` state. The element defaults `open` to `false` (so a mobile
+   * first render never flashes the modal), so mobile-modal tests that want the
+   * drawer open at mount must opt in explicitly.
+   */
+  open?: boolean;
 };
 
 function setMatchMedia(matches: boolean) {
@@ -62,6 +68,7 @@ async function setup(options: SetupOptions = {}) {
     COPILOTKIT_THREADS_DRAWER_TAG,
   ) as CopilotKitThreadsDrawer;
   element.threads = options.threads ?? [makeThread()];
+  if (options.open !== undefined) element.open = options.open;
   document.body.appendChild(element);
   await flush(element);
 
@@ -330,28 +337,6 @@ test("confirm dialog can be cancelled without emitting delete", async () => {
   teardown();
 });
 
-test("opening the confirm dialog marks the root `confirming` so row-action tooltips are suppressed", async () => {
-  const { q, element, teardown } = await setup({
-    threads: [makeThread({ id: "del", name: "Delete me" })],
-  });
-
-  const root = () => q('[part="root"]') as HTMLElement;
-  expect(root().classList.contains("confirming")).toBe(false);
-
-  (q('[part="row-menu"]') as HTMLElement).click();
-  await flush(element);
-  (q('[part="row-delete"]') as HTMLElement).click();
-  await flush(element);
-  // While the dialog is open the clicked trash button keeps :focus-visible; the
-  // `confirming` class is what hides its lingering "Delete" tooltip via CSS.
-  expect(root().classList.contains("confirming")).toBe(true);
-
-  (q('[part="confirm-cancel"]') as HTMLElement).click();
-  await flush(element);
-  expect(root().classList.contains("confirming")).toBe(false);
-  teardown();
-});
-
 test("loading state renders while loading", async () => {
   const { element, q, teardown } = await setup({ threads: [] });
   element.loading = true;
@@ -593,7 +578,10 @@ test("async name arrival marks the row name as revealed", async () => {
 });
 
 test("open is externally controllable and emits open-change when changed via backdrop", async () => {
-  const { element, q, events, teardown } = await setup({ mobile: true });
+  const { element, q, events, teardown } = await setup({
+    mobile: true,
+    open: true,
+  });
 
   expect(element.open).toBe(true);
   (q(".backdrop") as HTMLElement).click();
@@ -608,7 +596,7 @@ test("open is externally controllable and emits open-change when changed via bac
 });
 
 test("mobile overlay applies scroll-lock when open and releases it when closed", async () => {
-  const { element, teardown } = await setup({ mobile: true });
+  const { element, teardown } = await setup({ mobile: true, open: true });
 
   expect(document.body.style.overflow).toBe("hidden");
 
@@ -626,8 +614,26 @@ test("desktop does NOT apply scroll-lock (not a modal)", async () => {
   teardown();
 });
 
+test("defaults to closed on a mobile first render — no backdrop, no scroll-lock until opened", async () => {
+  // Regression guard for the mobile open-flash: a freshly-created element must
+  // default `open` to false so a mobile-width first render does NOT paint the
+  // modal (backdrop + body scroll-lock) before a wrapper can close it.
+  const { element, q, teardown } = await setup({ mobile: true });
+
+  expect(element.open).toBe(false);
+  expect(q(".backdrop")).toBeNull();
+  expect(document.body.style.overflow).not.toBe("hidden");
+
+  // Opening it explicitly now applies the mobile-modal treatment.
+  element.open = true;
+  await flush(element);
+  expect(q(".backdrop")).not.toBeNull();
+  expect(document.body.style.overflow).toBe("hidden");
+  teardown();
+});
+
 test("Escape closes the mobile overlay", async () => {
-  const { element, teardown } = await setup({ mobile: true });
+  const { element, teardown } = await setup({ mobile: true, open: true });
 
   element.dispatchEvent(
     new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
@@ -639,7 +645,7 @@ test("Escape closes the mobile overlay", async () => {
 });
 
 test("Escape on desktop does NOT close the drawer (no modal behavior)", async () => {
-  const { element, teardown } = await setup({ mobile: false });
+  const { element, teardown } = await setup({ mobile: false, open: true });
 
   element.dispatchEvent(
     new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
@@ -653,6 +659,7 @@ test("Escape on desktop does NOT close the drawer (no modal behavior)", async ()
 test("mobile modal traps Tab at both boundaries, including the out-of-root backdrop", async () => {
   const { element, teardown } = await setup({
     mobile: true,
+    open: true,
     threads: [makeThread({ id: "a", name: "A" })],
   });
   await flush(element);
@@ -702,6 +709,7 @@ test("mobile modal traps Tab at both boundaries, including the out-of-root backd
 test("mobile root carries dialog role + aria-modal; desktop is a region", async () => {
   const { element, q, mediaController, teardown } = await setup({
     mobile: true,
+    open: true,
   });
 
   let root = q('[part="root"]') as HTMLElement;

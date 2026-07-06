@@ -1,7 +1,7 @@
 import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { signal } from "@angular/core";
-import { test, expect, vi } from "vitest";
+import { test, expect, vi, beforeEach } from "vitest";
 import type { DrawerThread } from "@copilotkit/web-components/threads-drawer";
 import type { RuntimeLicenseStatus } from "@copilotkit/core";
 import {
@@ -168,6 +168,29 @@ function setupWithConfig(config = fakeConfig()) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+// The `threadsState` mock is module-level, so reset every signal to its default
+// and clear the mock fns' call history before each test. Without this, a test
+// that flips a signal (e.g. isLoading/hasMoreThreads/error) leaks that state
+// into whichever test runs next — the same order-coupling guard the
+// react-core/vue suites establish with their own beforeEach.
+beforeEach(() => {
+  threadsState.threads.set([]);
+  threadsState.isLoading.set(false);
+  threadsState.error.set(null);
+  threadsState.listError.set(null);
+  threadsState.fetchMoreError.set(null);
+  threadsState.hasMoreThreads.set(false);
+  threadsState.isFetchingMoreThreads.set(false);
+  threadsState.isMutating.set(false);
+  threadsState.fetchMoreThreads.mockClear();
+  threadsState.refetchThreads.mockClear();
+  threadsState.startNewThread.mockClear();
+  threadsState.renameThread.mockClear();
+  threadsState.archiveThread.mockClear();
+  threadsState.unarchiveThread.mockClear();
+  threadsState.deleteThread.mockClear();
+});
 
 test("renders <copilotkit-threads-drawer> with the default data-testid", () => {
   const { el } = setup();
