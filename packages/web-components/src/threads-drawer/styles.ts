@@ -349,6 +349,15 @@ export const drawerStyles = css`
     z-index: 2;
   }
 
+  /* Lift the interacted row above later rows so its kebab popover (which paints
+     inside the row's own transform stacking context) is not clipped by / drawn
+     under the rows below it. */
+  .row:hover,
+  .row:focus-within,
+  .row.menu-open {
+    z-index: 3;
+  }
+
   @keyframes cpk-drawer-row-in {
     to {
       opacity: 1;
@@ -518,6 +527,89 @@ export const drawerStyles = css`
     width: 15px;
     height: 15px;
     display: block;
+  }
+
+  /* Per-row kebab trigger: hidden at rest, revealed when the row is hovered,
+     focused (keyboard), active (selected), or its menu is open. */
+  .row-menu {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 4px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--_muted-fg);
+    cursor: pointer;
+    font: inherit;
+    opacity: 0;
+  }
+
+  .row:hover .row-menu,
+  .row:focus-within .row-menu,
+  .row.active .row-menu,
+  .row-menu[aria-expanded="true"] {
+    opacity: 1;
+  }
+
+  .row-menu:hover,
+  .row-menu:focus-visible {
+    background: var(--_muted);
+    color: inherit;
+  }
+
+  .row-menu .icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .row-menu-popover {
+    position: absolute;
+    right: 8px;
+    top: calc(100% - 4px);
+    z-index: 16;
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+    padding: 4px;
+    background: var(--_surface);
+    color: var(--_surface-fg);
+    border: 1px solid var(--_border);
+    border-radius: var(--_radius);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
+  }
+
+  .row-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    padding: 6px 8px;
+    border-radius: 6px;
+  }
+
+  .row-menu-item:hover,
+  .row-menu-item:focus-visible {
+    background: var(--_muted);
+  }
+
+  .row-menu-item.danger:hover,
+  .row-menu-item.danger:focus-visible {
+    color: var(--_danger);
+  }
+
+  .row-menu-item .row-action-icon,
+  .row-menu-item .icon {
+    width: 15px;
+    height: 15px;
   }
 
   button.primary {

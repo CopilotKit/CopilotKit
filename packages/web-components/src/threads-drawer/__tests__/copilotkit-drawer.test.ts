@@ -265,6 +265,9 @@ test("emits archive for an active row and unarchive for an archived row", async 
     threads: [makeThread({ id: "a", name: "A", archived: false })],
   });
 
+  // Row actions live in the per-row kebab menu — open it before acting.
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="row-archive"]') as HTMLElement).click();
   expect(events).toContainEqual({ type: "archive", detail: { threadId: "a" } });
 
@@ -274,6 +277,8 @@ test("emits archive for an active row and unarchive for an archived row", async 
   (q('[part="filter-toggle"]') as HTMLElement).click();
   await flush(element);
   (q('[part="filter-all"]') as HTMLElement).click();
+  await flush(element);
+  (q('[part="row-menu"]') as HTMLElement).click();
   await flush(element);
   (q('[part="row-unarchive"]') as HTMLElement).click();
 
@@ -289,6 +294,8 @@ test("delete is gated behind a confirm dialog and only fires on confirm", async 
     threads: [makeThread({ id: "del", name: "Delete me" })],
   });
 
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="row-delete"]') as HTMLElement).click();
   await flush(element);
 
@@ -311,6 +318,8 @@ test("confirm dialog can be cancelled without emitting delete", async () => {
     threads: [makeThread({ id: "del", name: "Delete me" })],
   });
 
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="row-delete"]') as HTMLElement).click();
   await flush(element);
   (q('[part="confirm-cancel"]') as HTMLElement).click();
@@ -329,6 +338,8 @@ test("opening the confirm dialog marks the root `confirming` so row-action toolt
   const root = () => q('[part="root"]') as HTMLElement;
   expect(root().classList.contains("confirming")).toBe(false);
 
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="row-delete"]') as HTMLElement).click();
   await flush(element);
   // While the dialog is open the clicked trash button keeps :focus-visible; the
@@ -766,7 +777,10 @@ test("per-row slot projects wrapper row content while keeping selection chrome",
   const slot = q('slot[name="row:row-a"]') as HTMLSlotElement;
   expect(slot).not.toBeNull();
   expect(slot.assignedElements().map((el) => el.id)).toContain("custom-row-a");
-  // chrome (archive + delete affordances) still rendered around the slot
+  // chrome (archive + delete affordances) still rendered around the slot —
+  // they now live in the per-row kebab menu, so open it first.
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   expect(q('[part="row-archive"]')).not.toBeNull();
   expect(q('[part="row-delete"]')).not.toBeNull();
   teardown();
@@ -879,6 +893,8 @@ test("pending confirm-delete auto-dismisses when its thread leaves the list", as
     ],
   });
 
+  (q('li.row[data-thread-id="del"] [part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (
     q('li.row[data-thread-id="del"] [part="row-delete"]') as HTMLElement
   ).click();
@@ -898,6 +914,8 @@ test("confirm-delete survives an unrelated thread change (same id still present)
     threads: [makeThread({ id: "del", name: "Delete me" })],
   });
 
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="row-delete"]') as HTMLElement).click();
   await flush(element);
 
@@ -987,19 +1005,23 @@ test("a safe thread id still emits its row slot for projection", async () => {
   teardown();
 });
 
-test("row actions render icons (not text) with instant tooltips", async () => {
-  const { q, teardown } = await setup({
+test("kebab menu items render icons with visible text labels", async () => {
+  const { q, element, teardown } = await setup({
     threads: [makeThread({ id: "a", name: "A", archived: false })],
   });
+
+  // The archive/delete actions now live in the per-row kebab menu.
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
 
   const archive = q('[part="row-archive"]') as HTMLElement;
   const del = q('[part="row-delete"]') as HTMLElement;
 
   expect(archive.querySelector("svg.row-action-icon")).not.toBeNull();
   expect(del.querySelector("svg.row-action-icon")).not.toBeNull();
-  // tooltip carried on a data attribute (CSS instant tooltip), NOT native title
-  expect(archive.getAttribute("data-tooltip")).toBe("Archive");
-  expect(del.getAttribute("data-tooltip")).toBe("Delete");
+  // Menu items carry a visible text label (not a hover tooltip / native title).
+  expect(archive.textContent).toContain("Archive");
+  expect(del.textContent).toContain("Delete");
   expect(archive.hasAttribute("title")).toBe(false);
   teardown();
 });
@@ -1231,4 +1253,43 @@ test("typing in search filters the visible rows by name and emits search", async
   expect(onSearch).toHaveBeenCalledWith(
     expect.objectContaining({ detail: { query: "alph" } }),
   );
+});
+
+// --- ENT-1051 Task 5: per-row kebab menu ----------------------------------
+
+test("row kebab opens a menu; Archive fires archive with the row id", async () => {
+  const { element } = await setup({
+    threads: [makeThread({ id: "x", name: "X" })],
+  });
+  const kebab =
+    element.shadowRoot!.querySelector<HTMLButtonElement>('[part="row-menu"]')!;
+  kebab.click();
+  await flush(element);
+  const onArchive = vi.fn();
+  element.addEventListener("archive", onArchive);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="row-archive"]')!
+    .click();
+  await flush(element);
+  expect(onArchive).toHaveBeenCalledWith(
+    expect.objectContaining({ detail: { threadId: "x" } }),
+  );
+});
+
+test("row kebab Delete routes through the confirm dialog (no immediate delete)", async () => {
+  const { element } = await setup({ threads: [makeThread({ id: "x" })] });
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="row-menu"]')!
+    .click();
+  await flush(element);
+  const onDelete = vi.fn();
+  element.addEventListener("delete", onDelete);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="row-delete"]')!
+    .click();
+  await flush(element);
+  expect(onDelete).not.toHaveBeenCalled();
+  expect(
+    element.shadowRoot!.querySelector('[data-testid="drawer-confirm-delete"]'),
+  ).toBeTruthy();
 });

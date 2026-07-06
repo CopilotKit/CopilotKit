@@ -230,6 +230,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
     _searchOpen: { state: true },
     _searchQuery: { state: true },
     _filterOpen: { state: true },
+    _openMenuId: { state: true },
   };
 
   /**
@@ -285,6 +286,8 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _searchQuery = "";
   /** Whether the funnel filter popover (Active/All) is open. */
   private _filterOpen = false;
+  /** Id of the row whose kebab actions menu is open (only one at a time). */
+  private _openMenuId: string | null = null;
 
   private _mediaQuery: MediaQueryList | null = null;
   private readonly _onMediaChange = (event: MediaQueryListEvent) => {
@@ -292,6 +295,11 @@ export class CopilotKitThreadsDrawer extends LitElement {
   };
   private readonly _onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Escape") {
+      if (this._openMenuId !== null) {
+        this._openMenuId = null;
+        event.stopPropagation();
+        return;
+      }
       if (this._filterOpen) {
         this._filterOpen = false;
         event.stopPropagation();
@@ -377,6 +385,16 @@ export class CopilotKitThreadsDrawer extends LitElement {
           (t) => t.id === this._confirmingDeleteId,
         );
         if (!stillVisible) this._confirmingDeleteId = null;
+      }
+
+      // Same reconciliation for an open row-actions menu: if the row whose
+      // kebab menu is open is no longer visible (removed/archived/filtered
+      // away), close the menu so it cannot linger detached from any row.
+      if (this._openMenuId !== null) {
+        const stillVisible = this._visibleThreads().some(
+          (t) => t.id === this._openMenuId,
+        );
+        if (!stillVisible) this._openMenuId = null;
       }
     }
   }
@@ -874,10 +892,13 @@ export class CopilotKitThreadsDrawer extends LitElement {
     const hasName = thread.name !== null && thread.name !== "";
     const justRevealed = this._justRevealed.has(thread.id);
 
+    const menuOpen = this._openMenuId === thread.id;
+
     const rowClasses = {
       row: true,
       active: isActive,
       archived: thread.archived,
+      "menu-open": menuOpen,
     };
     const nameClasses = {
       "row-name": true,
@@ -923,45 +944,71 @@ export class CopilotKitThreadsDrawer extends LitElement {
             ? html`<slot name=${slotName}>${nameSpan}</slot>`
             : nameSpan
         }
-        ${
-          thread.archived
-            ? html`<button
-              class="row-action"
-              part="row-unarchive"
-              data-tooltip="Unarchive"
-              aria-label=${`Unarchive thread ${thread.name ?? "New thread"}`}
-              @click=${(e: Event) => {
-                e.stopPropagation();
-                this._emit("unarchive", { threadId: thread.id });
-              }}
-            >
-              ${iconUnarchive}
-            </button>`
-            : html`<button
-              class="row-action"
-              part="row-archive"
-              data-tooltip="Archive"
-              aria-label=${`Archive thread ${thread.name ?? "New thread"}`}
-              @click=${(e: Event) => {
-                e.stopPropagation();
-                this._emit("archive", { threadId: thread.id });
-              }}
-            >
-              ${iconArchive}
-            </button>`
-        }
         <button
-          class="row-action danger"
-          part="row-delete"
-          data-tooltip="Delete"
-          aria-label=${`Delete thread ${thread.name ?? "New thread"}`}
+          class="row-menu"
+          part="row-menu"
+          aria-label=${`Actions for ${thread.name ?? "New thread"}`}
+          aria-haspopup="menu"
+          aria-expanded=${menuOpen}
           @click=${(e: Event) => {
             e.stopPropagation();
-            this._confirmingDeleteId = thread.id;
+            this._openMenuId = menuOpen ? null : thread.id;
           }}
         >
-          ${iconDelete}
+          ${iconKebab}
         </button>
+        ${
+          menuOpen
+            ? html`<div
+              class="row-menu-popover"
+              part="row-menu-popover"
+              role="menu"
+            >
+              ${
+                thread.archived
+                  ? html`<button
+                    class="row-menu-item"
+                    part="row-unarchive"
+                    role="menuitem"
+                    aria-label=${`Unarchive thread ${thread.name ?? "New thread"}`}
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      this._openMenuId = null;
+                      this._emit("unarchive", { threadId: thread.id });
+                    }}
+                  >
+                    ${iconUnarchive}<span>Unarchive</span>
+                  </button>`
+                  : html`<button
+                    class="row-menu-item"
+                    part="row-archive"
+                    role="menuitem"
+                    aria-label=${`Archive thread ${thread.name ?? "New thread"}`}
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      this._openMenuId = null;
+                      this._emit("archive", { threadId: thread.id });
+                    }}
+                  >
+                    ${iconArchive}<span>Archive</span>
+                  </button>`
+              }
+              <button
+                class="row-menu-item danger"
+                part="row-delete"
+                role="menuitem"
+                aria-label=${`Delete thread ${thread.name ?? "New thread"}`}
+                @click=${(e: Event) => {
+                  e.stopPropagation();
+                  this._openMenuId = null;
+                  this._confirmingDeleteId = thread.id;
+                }}
+              >
+                ${iconDelete}<span>Delete</span>
+              </button>
+            </div>`
+            : nothing
+        }
       </li>
     `;
   }
