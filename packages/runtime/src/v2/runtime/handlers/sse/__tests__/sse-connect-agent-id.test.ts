@@ -16,6 +16,12 @@ vi.mock("../../../telemetry", () => ({
 
 import { handleSseConnect } from "../connect";
 import { DebugEventBus } from "../../../core/debug-event-bus";
+import { resolveForwardHeadersPolicy } from "../../header-utils";
+import type { ResolvedForwardHeadersPolicy } from "../../header-utils";
+
+// Default resolved policy (built-in denylist on), shared across the fake
+// runtimes below so the /connect call site has a policy to read.
+const defaultPolicy = resolveForwardHeadersPolicy(undefined);
 
 /**
  * Regression guard for the agentId forwarding fix. `handleSseConnect` used
@@ -41,6 +47,7 @@ describe("handleSseConnect → debug envelope agentId", () => {
 
     const fakeRuntime = {
       debugEventBus: bus,
+      forwardHeadersPolicy: defaultPolicy,
       runner: {
         connect: () => of(event),
       },
@@ -106,6 +113,7 @@ describe("handleSseConnect → header precedence (#5712)", () => {
     );
     const fakeRuntime = {
       debugEventBus: new DebugEventBus(),
+      forwardHeadersPolicy: defaultPolicy,
       runner: { connect: connectSpy },
     } as any;
 
@@ -116,8 +124,11 @@ describe("handleSseConnect → header precedence (#5712)", () => {
         headers: {
           // Inbound headers that collide (canonical-cased server vs lowercased
           // inbound) — must lose — and one that doesn't — must still forward.
+          // Use a non-denylisted custom header so the default forwarding policy
+          // (which strips `x-request-id`) doesn't drop it for an unrelated
+          // reason; this test is about precedence, not breadth.
           Authorization: "Bearer inbound-user-token",
-          "x-request-id": "req-123",
+          "x-tenant-id": "tenant-123",
         },
       }),
       agentId: "weather-agent",
@@ -145,7 +156,7 @@ describe("handleSseConnect → header precedence (#5712)", () => {
     );
     expect(authKeys).toHaveLength(1);
     // ...and a non-colliding forwarded header still passes through.
-    expect(getHeader(headers, "x-request-id")).toBe("req-123");
+    expect(getHeader(headers, "x-tenant-id")).toBe("tenant-123");
   });
 
   it("forwards inbound allowlisted headers when no server agent.headers exist", async () => {
@@ -165,6 +176,7 @@ describe("handleSseConnect → header precedence (#5712)", () => {
     );
     const fakeRuntime = {
       debugEventBus: new DebugEventBus(),
+      forwardHeadersPolicy: defaultPolicy,
       runner: { connect: connectSpy },
     } as any;
 
@@ -173,10 +185,10 @@ describe("handleSseConnect → header precedence (#5712)", () => {
       request: new Request("http://localhost/agent/weather-agent/connect", {
         method: "POST",
         headers: {
-          // Allowlisted inbound headers (lowercased on extraction)...
+          // Forwardable inbound headers (lowercased on extraction)...
           Authorization: "Bearer inbound-user-token",
-          "x-request-id": "req-123",
-          // ...and a non-allowlisted one that must NOT forward.
+          "x-tenant-id": "tenant-123",
+          // ...and a non-forwardable one that must NOT forward.
           "content-type": "application/json",
         },
       }),
@@ -194,13 +206,88 @@ describe("handleSseConnect → header precedence (#5712)", () => {
     expect(connectSpy).toHaveBeenCalledTimes(1);
     const headers = connectSpy.mock.calls[0][0].headers;
 
-    // With no server headers to win, the inbound allowlisted headers forward
+    // With no server headers to win, the inbound forwardable headers forward
     // through unchanged...
     expect(getHeader(headers, "authorization")).toBe(
       "Bearer inbound-user-token",
     );
-    expect(getHeader(headers, "x-request-id")).toBe("req-123");
-    // ...and a non-allowlisted header is dropped (no crash, no over-forwarding).
+    expect(getHeader(headers, "x-tenant-id")).toBe("tenant-123");
+    // ...and a non-forwardable header is dropped (no crash, no over-forwarding).
     expect(getHeader(headers, "content-type")).toBeUndefined();
+  });
+});
+
+/**
+ * Regression guard for #5712 breadth on the /connect path: the default
+ * forwarding policy must strip known infra/proxy/platform headers, mirroring
+ * the /run path so the two never diverge.
+ */
+describe("handleSseConnect → forwarding-policy breadth (#5712)", () => {
+  function drainAndGetHeaders(
+    connectSpy: ReturnType<typeof vi.fn>,
+    policy: ResolvedForwardHeadersPolicy,
+    requestHeaders: Record<string, string>,
+  ): Promise<Record<string, string>> {
+    const event: BaseEvent = {
+      type: EventType.RUN_STARTED,
+      threadId: "t-1",
+      runId: "r-1",
+    } as BaseEvent;
+    connectSpy.mockImplementation(() => of(event));
+
+    const fakeRuntime = {
+      debugEventBus: new DebugEventBus(),
+      forwardHeadersPolicy: policy,
+      runner: { connect: connectSpy },
+    } as any;
+
+    const response = handleSseConnect({
+      runtime: fakeRuntime,
+      request: new Request("http://localhost/agent/weather-agent/connect", {
+        method: "POST",
+        headers: requestHeaders,
+      }),
+      agentId: "weather-agent",
+      threadId: "t-1",
+    });
+
+    return (async () => {
+      const reader = response.body!.getReader();
+      while (true) {
+        const { done } = await reader.read();
+        if (done) break;
+      }
+      return connectSpy.mock.calls[0][0].headers as Record<string, string>;
+    })();
+  }
+
+  it("strips denylisted infra/platform headers while forwarding custom x-*", async () => {
+    const connectSpy = vi.fn();
+    const headers = await drainAndGetHeaders(connectSpy, defaultPolicy, {
+      "X-Forwarded-For": "203.0.113.7",
+      "X-Vercel-Id": "iad1::abc",
+      "X-Copilotcloud-Public-Api-Key": "ck_pub_secret",
+      "X-Tenant-Id": "tenant-123",
+      Authorization: "Bearer user-token",
+    });
+
+    expect(getHeader(headers, "x-forwarded-for")).toBeUndefined();
+    expect(getHeader(headers, "x-vercel-id")).toBeUndefined();
+    expect(getHeader(headers, "x-copilotcloud-public-api-key")).toBeUndefined();
+    expect(getHeader(headers, "x-tenant-id")).toBe("tenant-123");
+    expect(getHeader(headers, "authorization")).toBe("Bearer user-token");
+  });
+
+  it("applies a custom forwardHeaders policy from the runtime (plumb-through)", async () => {
+    const connectSpy = vi.fn();
+    const headers = await drainAndGetHeaders(
+      connectSpy,
+      resolveForwardHeadersPolicy({ useDefaultDenylist: false }),
+      { "X-Forwarded-For": "203.0.113.7", "X-Tenant-Id": "tenant-123" },
+    );
+
+    // Denylist disabled → infra header forwards again, proving plumb-through.
+    expect(getHeader(headers, "x-forwarded-for")).toBe("203.0.113.7");
+    expect(getHeader(headers, "x-tenant-id")).toBe("tenant-123");
   });
 });

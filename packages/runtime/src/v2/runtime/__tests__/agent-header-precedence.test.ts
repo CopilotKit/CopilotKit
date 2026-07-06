@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { HttpAgent } from "@ag-ui/client";
 import { configureAgentForRequest } from "../handlers/shared/agent-utils";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type { CopilotRuntimeLike } from "../core/runtime";
 
 /**
@@ -22,6 +23,8 @@ const runtime = {
   a2ui: undefined,
   mcpApps: undefined,
   openGenerativeUI: undefined,
+  // The /run call site reads the resolved forwarding policy off the runtime.
+  forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
 } as unknown as CopilotRuntimeLike;
 
 function makeRequest(headers: Record<string, string>): Request {
@@ -58,7 +61,7 @@ describe("configureAgentForRequest — header precedence (#5712)", () => {
     const request = makeRequest({
       Authorization: "Bearer INBOUND-CLIENT-TOKEN",
       "X-Service-Key": "inbound-key",
-      "X-Request-Id": "req-123",
+      "X-Tenant-Id": "tenant-123",
     });
 
     configureAgentForRequest({ runtime, request, agentId: "a", agent });
@@ -101,7 +104,10 @@ describe("configureAgentForRequest — header precedence (#5712)", () => {
 
     const request = makeRequest({
       Authorization: "Bearer INBOUND-CLIENT-TOKEN",
-      "X-Request-Id": "req-123",
+      // A non-denylisted custom header — the default forwarding policy strips
+      // `x-request-id`, so use `x-tenant-id` to exercise the no-regression
+      // forward path without colliding with the breadth change.
+      "X-Tenant-Id": "tenant-123",
     });
 
     configureAgentForRequest({ runtime, request, agentId: "a", agent });
@@ -114,6 +120,6 @@ describe("configureAgentForRequest — header precedence (#5712)", () => {
       "Bearer SERVER-SERVICE-TOKEN",
     );
     // ...and a header the server did NOT set still forwards through.
-    expect(getHeader(headers, "x-request-id")).toBe("req-123");
+    expect(getHeader(headers, "x-tenant-id")).toBe("tenant-123");
   });
 });
