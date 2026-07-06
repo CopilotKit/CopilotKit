@@ -128,23 +128,24 @@ def _build_a2ui_operations(
     return {
         "a2ui_operations": [
             {
-                "type": "create_surface",
-                "surfaceId": SURFACE_ID,
-                "catalogId": CATALOG_ID,
+                "version": "v0.9",
+                "createSurface": {"surfaceId": SURFACE_ID, "catalogId": CATALOG_ID},
             },
             {
-                "type": "update_components",
-                "surfaceId": SURFACE_ID,
-                "components": FLIGHT_SCHEMA,
+                "version": "v0.9",
+                "updateComponents": {"surfaceId": SURFACE_ID, "components": FLIGHT_SCHEMA},
             },
             {
-                "type": "update_data_model",
-                "surfaceId": SURFACE_ID,
-                "data": {
-                    "origin": origin,
-                    "destination": destination,
-                    "airline": airline,
-                    "price": price,
+                "version": "v0.9",
+                "updateDataModel": {
+                    "surfaceId": SURFACE_ID,
+                    "path": "/",
+                    "value": {
+                        "origin": origin,
+                        "destination": destination,
+                        "airline": airline,
+                        "price": price,
+                    },
                 },
             },
         ]
