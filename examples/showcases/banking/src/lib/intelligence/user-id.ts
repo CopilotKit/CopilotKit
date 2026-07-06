@@ -22,6 +22,13 @@ const MEMBER_IDENTITY: Record<string, { userId: string; userName: string }> = {
   "2b3c4d5e6f": { userId: "morgan-fluxx", userName: "Maya Chen" }, // Assistant
 };
 
+/** The seeded backend user ids (derived from MEMBER_IDENTITY). A full demo
+ *  reset clears every seeded persona's memory scope, so callers enumerate this
+ *  list rather than resolveUserId() (which returns only the pinned/active one). */
+export const SEEDED_USER_IDS: readonly string[] = Object.values(
+  MEMBER_IDENTITY,
+).map((m) => m.userId);
+
 export type IdentityInput = { memberId?: string; role?: string };
 
 function roleSlug(role?: string): string {

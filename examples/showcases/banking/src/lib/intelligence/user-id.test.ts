@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { resolveUserId, resolveUserName } from "./user-id";
+import { resolveUserId, resolveUserName, SEEDED_USER_IDS } from "./user-id";
 
 // The two surviving seeded members (see seed.json).
 const ALEX = "9g5h2j1k4l"; // Alex Morgan, Admin  -> jordan-beamson
@@ -46,5 +46,13 @@ describe("resolveUserName", () => {
     vi.stubEnv("INTELLIGENCE_USER_ID", "jordan-beamson");
     vi.stubEnv("INTELLIGENCE_USER_NAME", "Jordan Beamson");
     expect(resolveUserName({ memberId: MAYA })).toBe("Jordan Beamson");
+  });
+});
+
+describe("SEEDED_USER_IDS", () => {
+  it("lists exactly the two seeded backend personas", () => {
+    expect([...SEEDED_USER_IDS].sort()).toEqual(
+      ["jordan-beamson", "morgan-fluxx"].sort(),
+    );
   });
 });
