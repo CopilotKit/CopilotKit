@@ -1225,6 +1225,26 @@ test("section heading text is configurable via recentLabel", async () => {
   ).toContain("History");
 });
 
+test("filter-applied indicator dot shows only when a non-default filter is active", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  // Default filter ("active") → no indicator.
+  expect(
+    element.shadowRoot!.querySelector('[part="filter-indicator"]'),
+  ).toBeNull();
+  // Switch to "All" via the funnel popover → indicator appears on the toggle.
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="filter-toggle"]')!
+    .click();
+  await flush(element);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="filter-all"]')!
+    .click();
+  await flush(element);
+  expect(
+    element.shadowRoot!.querySelector('[part="filter-indicator"]'),
+  ).not.toBeNull();
+});
+
 // --- ENT-1051 Task 4: Client-side search ----------------------------------
 
 test("typing in search filters the visible rows by name and emits search", async () => {

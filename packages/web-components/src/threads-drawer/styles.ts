@@ -73,6 +73,7 @@ export const drawerStyles = css`
     --_danger: var(--cpk-drawer-danger, var(--destructive, ${tok(T.danger)}));
     --_border: var(--cpk-drawer-border, var(--border, ${tok(T.border)}));
     --_ring: var(--cpk-drawer-ring, var(--ring, ${tok(T.ring)}));
+    --_indicator: var(--cpk-drawer-indicator, #5b94e4);
     --_radius: var(--cpk-drawer-radius, var(--radius, ${tok(T.radius)}));
     --_width: var(--cpk-drawer-width, 320px);
   }
@@ -197,6 +198,7 @@ export const drawerStyles = css`
   }
 
   .icon-btn {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -209,6 +211,19 @@ export const drawerStyles = css`
     color: var(--_muted-fg);
     cursor: pointer;
     font: inherit;
+  }
+
+  /* "Filter applied" indicator dot at the funnel's bottom-right (Figma archived
+     view). Shown only when a non-default filter is active. */
+  .filter-dot {
+    position: absolute;
+    right: 3px;
+    bottom: 4px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--_indicator);
+    pointer-events: none;
   }
 
   .icon-btn:hover,

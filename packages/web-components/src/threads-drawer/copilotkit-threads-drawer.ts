@@ -775,6 +775,15 @@ export class CopilotKitThreadsDrawer extends LitElement {
           @click=${() => (this._filterOpen = !this._filterOpen)}
         >
           ${iconFunnel}
+          ${
+            // "Filter applied" indicator dot — shown whenever the active filter
+            // is not the default ("active"), matching the Figma's archived view.
+            this._filter !== "active"
+              ? html`
+                  <span class="filter-dot" part="filter-indicator"></span>
+                `
+              : nothing
+          }
         </button>
         ${
           this._filterOpen
