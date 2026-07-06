@@ -320,12 +320,10 @@ describe("memory store realtime", () => {
    * `user_meta:memories:<joinCode>` channel. Returns the connected store.
    */
   async function connectedRealtimeStore() {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ memories: [] }),
-      });
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ memories: [] }),
+    });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = createMemoryStore(memoryEnvironment(fetchMock));
@@ -530,6 +528,46 @@ describe("memory store realtime", () => {
     await flushEffects();
 
     expect(store.getState().realtimeStatus).toBe("connecting");
+  });
+
+  it("subscribe failure -> silent degrade (store stays alive, realtimeStatus 'unavailable')", async () => {
+    // The shared metadata connection's `fetchSubscription` rejects (a transient
+    // non-2xx on `/threads/subscribe`), which errors `joinCode$`. Micro-redux is
+    // fail-fast, so without the socket effect's `catchError` this would kill the
+    // whole store — `getState()` would throw and the REST list/mutations would
+    // break. It must instead degrade silently: the store stays alive, the REST
+    // list & `available`/`error` are untouched, and only `realtimeStatus` flips.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ memories: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext({
+      ...realtimeContext,
+      metadata: ɵcreateMetadataRealtimeConnection({
+        wsUrl: "wss://gw/client",
+        fetchSubscription: async () => {
+          throw new Error("boom");
+        },
+      }),
+    });
+    await flushEffects();
+
+    // The store did NOT crash: getState()/select still work.
+    expect(() => store.getState()).not.toThrow();
+    // The REST-backed list settled from its own fetch, unaffected by realtime.
+    expect(store.getState().memories).toEqual([]);
+    expect(store.getState().available).toBe(true);
+    expect(store.getState().error).toBeNull();
+    // Realtime degraded to unavailable rather than getting stuck "connecting".
+    expect(store.getState().realtimeStatus).toBe("unavailable");
+
+    warn.mockRestore();
+    store.stop();
   });
 });
 

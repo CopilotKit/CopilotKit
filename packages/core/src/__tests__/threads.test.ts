@@ -141,6 +141,47 @@ describe("thread store", () => {
     expect(getChannel().topic).toBe("user_meta:jc-1");
   });
 
+  it("subscribe failure does not crash the store", async () => {
+    // The shared metadata connection's `fetchSubscription` rejects (a transient
+    // non-2xx on `/threads/subscribe`), which errors `joinCode$`. Micro-redux is
+    // fail-fast, so without the socket effect's `catchError` this would kill the
+    // whole store — `getState()` would throw and the REST list/pagination would
+    // break. Threads has no realtime-status signal, so it must degrade silently:
+    // the store stays alive and the list is intact.
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ threads: [sampleThreads[0]], joinCode: "jc-1" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: { Authorization: "Bearer token" },
+      agentId: "agent-1",
+      metadata: ɵcreateMetadataRealtimeConnection({
+        wsUrl: "wss://gw/client",
+        fetchSubscription: async () => {
+          throw new Error("boom");
+        },
+      }),
+    });
+
+    await flushEffects();
+
+    // The store did NOT crash: getState()/selectors still work and the
+    // REST-backed list settled from its own fetch, unaffected by the realtime
+    // subscribe failure.
+    expect(() => store.getState()).not.toThrow();
+    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
+      ["thread-1"],
+    );
+    expect(ɵselectThreadsIsLoading(store.getState())).toBe(false);
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+  });
+
   it("uses the thread environment fetch instead of global fetch", async () => {
     const globalFetch = vi.fn(async () => {
       throw new Error("global fetch should not be used");

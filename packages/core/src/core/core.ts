@@ -969,6 +969,14 @@ export class CopilotKitCore {
       throw new Error(`metadata subscribe failed: ${res.status}`);
     }
     const { joinToken, joinCode } = await res.json();
+    if (
+      typeof joinToken !== "string" ||
+      joinToken.length === 0 ||
+      typeof joinCode !== "string" ||
+      joinCode.length === 0
+    ) {
+      throw new Error("metadata subscribe: malformed response");
+    }
     return { joinToken, joinCode };
   }
 

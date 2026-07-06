@@ -1,5 +1,5 @@
 import type { Subscription } from "rxjs";
-import { defer, firstValueFrom, merge, Observable, of } from "rxjs";
+import { defer, EMPTY, firstValueFrom, merge, Observable, of } from "rxjs";
 import {
   catchError,
   filter,
@@ -938,6 +938,15 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
                 takeUntil(shutdown$),
               );
             }),
+            // A subscribe-credentials fetch failure errors `joinCode$` (it
+            // derives from the shared connection's `fetchSubscription`, which
+            // THROWS on a non-2xx `/threads/subscribe`). Micro-redux is
+            // fail-fast, so an unhandled error here would kill the whole store
+            // (`getState()` would then throw), taking down the REST-backed
+            // list and pagination. Threads deliberately has no realtime-status
+            // signal, so degrade SILENTLY: swallow the error to EMPTY, keeping
+            // the store alive and the list intact.
+            catchError(() => EMPTY),
             takeUntil(shutdown$),
           );
         }),

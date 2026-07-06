@@ -1075,6 +1075,17 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
                 fatal$,
               ).pipe(takeUntil(shutdown$));
             }),
+            // A subscribe-credentials fetch failure errors `joinCode$` (it
+            // derives from the shared connection's `fetchSubscription`, which
+            // THROWS on a non-2xx `/threads/subscribe`). Micro-redux is
+            // fail-fast, so an unhandled error here would kill the whole store
+            // (`getState()` would then throw), taking down the REST-backed
+            // list and mutations. Realtime is a silent degrade: map the error
+            // to `realtimeUnavailable` (flip only `realtimeStatus`) so the
+            // store stays alive and `available`/`error`/the list are untouched.
+            catchError(() =>
+              of(memoryDomainEvents.realtimeUnavailable({ sessionId })),
+            ),
             takeUntil(shutdown$),
           );
         }),
