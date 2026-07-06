@@ -17,6 +17,35 @@ import type {
 import { EventType, compactEvents } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkit/shared";
 
+export interface InMemoryLimits {
+  /** LRU cap on distinct threads. */
+  maxThreads?: number;
+  /** FIFO cap on runs kept per thread. `Infinity` or `0` disables the cap. */
+  maxRunsPerThread?: number;
+  /** Total-store byte backstop (approximate). The primary guard. */
+  maxBytes?: number;
+}
+
+export const ɵINMEMORY_DEFAULTS: Required<InMemoryLimits> = {
+  maxThreads: 1000,
+  maxRunsPerThread: 100,
+  maxBytes: 512 * 1024 ** 2,
+};
+
+/**
+ * Best-effort approximate byte size of a value, via serialized length.
+ * Never throws — returns 0 when the value cannot be serialized. This is an
+ * approximation (UTF-16 length, not exact heap bytes), used only for relative
+ * accounting against `maxBytes`.
+ */
+export function ɵestimateBytes(value: unknown): number {
+  try {
+    return JSON.stringify(value)?.length ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 interface HistoricRun {
   threadId: string;
   runId: string;
@@ -30,6 +59,10 @@ interface HistoricRun {
    */
   messages: Message[];
   createdAt: number;
+  /** Approximate retained byte size of `events`; set by BoundedThreadStore at append. */
+  approxEventBytes?: number;
+  /** Approximate retained byte size of `messages`; set by BoundedThreadStore at append, zeroed on snapshot dedup. */
+  approxMessageBytes?: number;
 }
 
 /**
