@@ -2,7 +2,7 @@
 /**
  * Real-LLM general-memory smoke — NON-GATING, run manually.
  * Mirrors memory-drift-smoke.mjs. Asserts the GENERAL MEMORY prompt behavior:
- *   SAVE      — a personal fact triggers save_memory(kind:"semantic", scope:"user")
+ *   SAVE      — a personal fact triggers save_memory(kind:"topical", scope:"user")
  *   NO-SAVE   — a secret is NOT saved
  *   RECALL    — a seeded user-scoped fact is recalled on a fresh thread
  *   ISOLATION — a user-scoped fact does NOT cross to a different seeded user;
@@ -187,16 +187,16 @@ try {
   await waitForDemoServer();
   log(true, `preflight: demo dev server reachable at ${DEMO_URL}`);
 
-  // SAVE: a personal fact must trigger save_memory with kind:"semantic", scope:"user".
+  // SAVE: a personal fact must trigger save_memory with kind:"topical", scope:"user".
   const saveBuf = await turn("remember my favorite food is sushi");
   const saved = /save_memory/.test(saveBuf);
-  const semanticUser =
-    /"kind"\s*:\s*"semantic"/.test(saveBuf) &&
+  const topicalUser =
+    /"kind"\s*:\s*"topical"/.test(saveBuf) &&
     /"scope"\s*:\s*"user"/.test(saveBuf);
   check(saved, "SAVE: save_memory fired for a personal fact");
   check(
-    semanticUser,
-    "SAVE: save carried kind:semantic scope:user (cross-thread recallable)",
+    topicalUser,
+    "SAVE: save carried kind:topical scope:user (cross-thread recallable)",
   );
 
   // NO-SAVE: a secret must NOT be saved.
@@ -207,7 +207,7 @@ try {
   await restSave(
     ALEX.userId,
     "office is in the Berlin branch",
-    "semantic",
+    "topical",
     "user",
   );
   const recallBuf = await turn("where is my office?");
@@ -218,11 +218,11 @@ try {
 
   // ISOLATION (REST-level, deterministic): seed user + project facts under Alex,
   // recall as Maya. Project crosses; user does not.
-  await restSave(ALEX.userId, "favorite food is sushi", "semantic", "user");
+  await restSave(ALEX.userId, "favorite food is sushi", "topical", "user");
   await restSave(
     ALEX.userId,
     "our fiscal year ends in March",
-    "semantic",
+    "topical",
     "project",
   );
   const mayaProject = await restRecall(

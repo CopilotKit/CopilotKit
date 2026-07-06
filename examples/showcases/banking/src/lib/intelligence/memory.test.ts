@@ -8,7 +8,7 @@ describe("parseRecallResponse", () => {
     const mems = [
       {
         id: "m1",
-        kind: "procedural",
+        kind: "operational",
         scope: "project",
         content: "x",
         sourceThreadIds: [],

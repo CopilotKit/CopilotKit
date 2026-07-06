@@ -5,7 +5,7 @@
     "backend (recall ranking + tenant scoping) without LLM nondeterminism.",
     "",
     "STRATEGY (recall-half determinism, per the plan's Task 7 option 2): the spec SEEDS the",
-    "over-limit procedure as a project/procedural memory via REST, then drives a FRESH",
+    "over-limit procedure as a project/operational memory via REST, then drives a FRESH",
     "thread. With the procedure already in memory, the agent must (1) recall_memory, then",
     "apply the recalled code by (2) openPolicyException -> (3) finalizePolicyException ->",
     "(4) approveTransaction, and never offer to record. Each step is one fixture, matched in",

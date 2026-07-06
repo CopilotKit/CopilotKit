@@ -10,9 +10,8 @@ import type { PanelMemory } from "@/lib/intelligence/memory";
 const BACKSTOP_POLL_MS = 15_000;
 
 const KIND_COLORS: Record<string, string> = {
-  semantic: "bg-brand-soft text-brand-indigo",
+  topical: "bg-brand-soft text-brand-indigo",
   episodic: "bg-brand-soft text-brand-violet",
-  procedural: "bg-positive-soft text-positive",
   operational: "bg-positive-soft text-positive",
 };
 const SCOPE_COLORS: Record<string, string> = {
