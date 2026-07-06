@@ -1,4 +1,3 @@
-import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
   afterAll,
@@ -13,8 +12,12 @@ import { useCopilotKit } from "../../context";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
   ɵcreateMetadataRealtimeConnection,
+  ɵcreateMemoryStore,
 } from "@copilotkit/core";
-import type { ɵMetadataRealtimeConnection } from "@copilotkit/core";
+import type {
+  ɵMetadataRealtimeConnection,
+  ɵMemoryStore,
+} from "@copilotkit/core";
 
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
@@ -964,5 +967,92 @@ describe("useThreads", () => {
     await waitFor(() => {
       expect(result.current.isLoading).toBe(false);
     });
+  });
+
+  it("threads + memory share a single core-owned socket (one socket, two channels)", async () => {
+    // Both feeds must derive their connection from the SAME memoized factory
+    // call the real `CopilotKitCore.ɵgetMetadataRealtime()` would produce —
+    // mirrors `core.ts`'s own `_metadataRealtime` memoization so the thread
+    // store (via the hook) and the memory store (via `getMemoryStore()`) are
+    // wired to one shared `ɵMetadataRealtimeConnection`, exactly like
+    // production `syncMemoryContext()` does off the same core instance.
+    const wsUrl = "ws://localhost:4000/client";
+    const runtimeUrl = "http://localhost:4000";
+    const headers = { Authorization: "Bearer test-token" };
+    const metadataFactory = createMetadataRealtimeFactory(wsUrl);
+
+    let memoryStore: ɵMemoryStore | undefined;
+    function getMemoryStore(): ɵMemoryStore {
+      if (!memoryStore) {
+        memoryStore = ɵcreateMemoryStore({
+          fetch: fetchMock as unknown as typeof fetch,
+        });
+        memoryStore.start();
+        memoryStore.setContext({
+          runtimeUrl,
+          headers,
+          // Calling the SAME factory instance returns the memoized shared
+          // connection created by the hook below (or creates it here first —
+          // either way there is exactly one instance to go around).
+          metadata: metadataFactory(),
+        });
+      }
+      return memoryStore;
+    }
+
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl,
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers,
+        threadEndpoints: supportedThreadEndpoints,
+        intelligence: { wsUrl },
+        ɵgetMetadataRealtime: metadataFactory,
+        registerThreadStore: vi.fn(),
+        unregisterThreadStore: vi.fn(),
+      },
+    });
+
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes("/threads")) {
+        return jsonResponse({ threads: sampleThreads, joinCode: "jc-1" });
+      }
+      if (url.includes("/memories")) {
+        return jsonResponse({ memories: [] });
+      }
+      return jsonResponse({}, 404);
+    });
+
+    // 1. Mount `useThreads` — joins `user_meta:jc-1` off the shared connection.
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    // 2. Pull the core-owned memory store — joins `user_meta:memories:jc-1`
+    // off the SAME shared connection.
+    const store = getMemoryStore();
+
+    // Headline assertion: exactly ONE phoenix socket was ever constructed,
+    // even though two independent stores each opened their own channel. If
+    // the lift-websocket-creation refactor were reverted (each store minting
+    // its own socket instead of riding the core-owned one), this would fail
+    // with `phoenix.sockets.length === 2`.
+    await waitFor(() => {
+      expect(phoenix.sockets.length).toBe(1);
+    });
+
+    const socket = phoenix.sockets[0];
+    await waitFor(() => {
+      expect(socket.channels.length).toBe(2);
+    });
+
+    const topics = socket.channels.map((channel) => channel.topic);
+    expect(topics).toContain("user_meta:jc-1");
+    expect(topics).toContain("user_meta:memories:jc-1");
+
+    store.stop();
   });
 });
