@@ -204,6 +204,31 @@ export const drawerStyles = css`
     display: block;
   }
 
+  .new-conversation {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 8px;
+    padding: 8px 12px 8px 8px;
+    border: 0;
+    border-radius: var(--_radius);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+  }
+
+  .new-conversation:hover,
+  .new-conversation:focus-visible {
+    background: var(--_muted);
+  }
+
+  .new-conversation .icon {
+    width: 16px;
+    height: 16px;
+  }
+
   .filters {
     display: flex;
     gap: 4px;

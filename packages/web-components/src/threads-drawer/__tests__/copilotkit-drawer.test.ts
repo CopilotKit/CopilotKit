@@ -1149,3 +1149,17 @@ test("clicking collapse toggle flips the collapsed property", async () => {
   await flush(element);
   expect(element.collapsed).toBe(true);
 });
+
+// --- ENT-1051 Task 2: New Conversation row --------------------------------
+
+test("New Conversation row fires new-thread and keeps part=new-thread-button", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  const btn = element.shadowRoot!.querySelector<HTMLButtonElement>(
+    '[part="new-thread-button"]',
+  )!;
+  expect(btn.textContent).toContain("New Conversation");
+  const onNew = vi.fn();
+  element.addEventListener("new-thread", onNew);
+  btn.click();
+  expect(onNew).toHaveBeenCalledTimes(1);
+});

@@ -630,9 +630,22 @@ export class CopilotKitThreadsDrawer extends LitElement {
     return nothing;
   }
 
-  /** Dedicated "New Conversation" row — implemented in Task 2. */
+  /**
+   * Dedicated full-width "New Conversation" row. Keeps `part="new-thread-button"`
+   * and fires the existing `new-thread` event, so wrappers/themes that hook the
+   * old header pill are unaffected.
+   */
   private _renderNewConversation() {
-    return nothing;
+    return html`
+      <button
+        class="new-conversation"
+        part="new-thread-button"
+        @click=${() => this._emit("new-thread", {})}
+      >
+        ${iconPlusSquare}
+        <span>New Conversation</span>
+      </button>
+    `;
   }
 
   /** "Recent Conversations" heading + funnel filter — implemented in Task 3. */
