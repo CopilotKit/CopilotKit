@@ -2,12 +2,10 @@ import type { Observable } from "rxjs";
 import {
   Subject,
   catchError,
-  defer,
   map,
   of,
   share,
   shareReplay,
-  switchMap,
   takeUntil,
 } from "rxjs";
 import { phoenixExponentialBackoff } from "@copilotkit/shared";
@@ -21,54 +19,53 @@ import type { ɵPhoenixSocketSession } from "../utils/phoenix-observable";
 export const ɵMETADATA_MAX_SOCKET_RETRIES = 5;
 
 /**
- * The shared per-user metadata realtime connection. Threads and memory each
- * join their own channel off the same `socket$`, so both feeds share one
- * lazily-created, kept-open Phoenix socket instead of opening their own.
+ * Consumer-facing view of the shared metadata socket handed to stores.
+ *
+ * Credential-agnostic: the module never fetches anything. The consumer
+ * (CopilotKitCore) supplies the `joinToken`; threads and memory each join
+ * their own channel off the same `socket$`, so both feeds share one
+ * kept-open Phoenix socket instead of opening their own.
+ *
+ * Intentionally has NO `dispose` — stores must not be able to tear down the
+ * shared socket. Only the owner (CopilotKitCore) can, via the handle.
  */
-export interface ɵMetadataRealtimeConnection {
-  /** Hot, shared, lazily-connected Phoenix socket. refCount:false — stays open
-   *  across channel churn; only dispose() (or a fatal give-up) tears it down. */
+export interface ɵMetadataSocket {
+  /** Hot, shared, kept-open Phoenix socket. refCount:false — stays open
+   *  across channel churn; only the owner's dispose() tears it down. */
   socket$: Observable<ɵPhoenixSocketSession>;
-  /** The per-user metadata join code `R`, replayed to late subscribers. */
-  joinCode$: Observable<string>;
-  /** Fatal socket give-up (after MAX_SOCKET_RETRIES). Shared by all channels;
-   *  emits once then completes. Never throws. */
+  /** Fatal give-up after {@link ɵMETADATA_MAX_SOCKET_RETRIES} consecutive
+   *  socket errors. Latched (replayed to late subscribers), emits at most
+   *  once, never throws. */
   socketFatal$: Observable<void>;
+}
+
+/**
+ * Owner handle for the shared metadata socket, held ONLY by CopilotKitCore.
+ * Exposes the consumer view plus the sole teardown entry point.
+ */
+export interface ɵMetadataSocketHandle {
+  readonly socket: ɵMetadataSocket;
   /** Idempotent teardown: disconnects the socket and completes all streams. */
   dispose(): void;
 }
 
-export function ɵcreateMetadataRealtimeConnection(deps: {
+export function ɵcreateMetadataSocket(deps: {
   wsUrl: string;
-  fetchSubscription: () => Promise<{ joinToken: string; joinCode: string }>;
-}): ɵMetadataRealtimeConnection {
+  joinToken: string;
+}): ɵMetadataSocketHandle {
   const teardown$ = new Subject<void>();
 
-  // One-shot metadata subscription (join token + code R), shared by all
-  // subscribers. Matches today's behavior: fetched once per connection.
-  const subscription$ = defer(() => deps.fetchSubscription()).pipe(
-    shareReplay(1),
-  );
-
-  const joinCode$ = subscription$.pipe(
-    map((s) => s.joinCode),
-    shareReplay(1),
-  );
-
-  const socket$ = subscription$.pipe(
-    switchMap(({ joinToken }) =>
-      ɵphoenixSocket$({
-        url: deps.wsUrl,
-        options: {
-          params: { join_token: joinToken },
-          reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
-          rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
-        },
-      }),
-    ),
+  const socket$ = ɵphoenixSocket$({
+    url: deps.wsUrl,
+    options: {
+      params: { join_token: deps.joinToken },
+      reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
+      rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
+    },
+  }).pipe(
     takeUntil(teardown$),
-    // Lazy + hot + no per-subscriber refcount: connects on first subscribe,
-    // stays open across channel churn, closed only by dispose()/fatal.
+    // Hot + no per-subscriber refcount: connects on first subscribe, stays
+    // open across channel churn, closed only by dispose().
     shareReplay({ bufferSize: 1, refCount: false }),
   );
 
@@ -85,17 +82,26 @@ export function ɵcreateMetadataRealtimeConnection(deps: {
     }),
     map(() => undefined),
     takeUntil(teardown$),
-    share(),
+    // shareReplay (not share) so a late subscriber — a store re-subscribing
+    // after a prior give-up — immediately observes the terminal give-up.
+    shareReplay({ bufferSize: 1, refCount: false }),
   );
 
+  // Eagerly subscribe the health chain so socket-health monitoring and the
+  // give-up warn run regardless of which/whether stores subscribe. This also
+  // opens the socket immediately, which is correct: the module is only
+  // constructed once a consumer has decided to connect.
+  const healthSub = socketFatal$.subscribe();
+
+  const socket: ɵMetadataSocket = { socket$, socketFatal$ };
+
   return {
-    socket$,
-    joinCode$,
-    socketFatal$,
+    socket,
     dispose: () => {
       if (!teardown$.closed) {
         teardown$.next();
         teardown$.complete();
+        healthSub.unsubscribe();
       }
     },
   };

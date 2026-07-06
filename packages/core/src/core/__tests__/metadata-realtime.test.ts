@@ -1,11 +1,11 @@
 import { firstValueFrom } from "rxjs";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MockSocket } from "../../__tests__/test-utils";
 
-// Phoenix mock harness: `ɵcreateMetadataRealtimeConnection` opens a real
-// Phoenix socket via `ɵphoenixSocket$`, so the `phoenix` module is mocked
-// here (mirrors `memory.test.ts` / `threads.test.ts`). `phoenix.sockets`
-// captures every socket constructed so tests could inspect it if needed.
+// Phoenix mock harness: `ɵcreateMetadataSocket` opens a real Phoenix socket
+// via `ɵphoenixSocket$`, so the `phoenix` module is mocked here (mirrors
+// `memory.test.ts` / `threads.test.ts`). `phoenix.sockets` captures every
+// socket constructed so tests can inspect it.
 const phoenix = vi.hoisted(() => ({
   sockets: [] as MockSocket[],
 }));
@@ -20,53 +20,110 @@ vi.mock("phoenix", () => ({
 }));
 
 // Must come after vi.mock so phoenix is mocked when the module is loaded.
-const { ɵcreateMetadataRealtimeConnection } =
+const { ɵcreateMetadataSocket, ɵMETADATA_MAX_SOCKET_RETRIES } =
   await import("../metadata-realtime");
 
-describe("ɵcreateMetadataRealtimeConnection", () => {
-  it("does not fetch the subscription or connect until socket$ is subscribed", () => {
-    const fetchSubscription = vi
-      .fn()
-      .mockResolvedValue({ joinToken: "t", joinCode: "R" });
-    const conn = ɵcreateMetadataRealtimeConnection({
-      wsUrl: "wss://gw/client",
-      fetchSubscription,
-    });
-
-    expect(fetchSubscription).not.toHaveBeenCalled(); // lazy
-
-    conn.dispose();
+describe("ɵcreateMetadataSocket", () => {
+  beforeEach(() => {
+    phoenix.sockets.length = 0;
   });
 
-  it("fetches the subscription exactly once across multiple socket$ subscribers", async () => {
-    const fetchSubscription = vi
-      .fn()
-      .mockResolvedValue({ joinToken: "t", joinCode: "R" });
-    const conn = ɵcreateMetadataRealtimeConnection({
+  it("opens exactly one socket with the given join_token and yields the session", async () => {
+    const handle = ɵcreateMetadataSocket({
       wsUrl: "wss://gw/client",
-      fetchSubscription,
+      joinToken: "tok-123",
     });
 
-    const s1 = conn.socket$.subscribe();
-    const s2 = conn.socket$.subscribe();
+    const session = await firstValueFrom(handle.socket.socket$);
+
+    expect(phoenix.sockets).toHaveLength(1);
+    expect(phoenix.sockets[0]!.opts.params).toEqual({ join_token: "tok-123" });
+    expect(session.socket).toBe(phoenix.sockets[0]);
+
+    handle.dispose();
+  });
+
+  it("shares ONE socket across multiple socket$ subscribers", async () => {
+    const handle = ɵcreateMetadataSocket({
+      wsUrl: "wss://gw/client",
+      joinToken: "tok-123",
+    });
+
+    const s1 = handle.socket.socket$.subscribe();
+    const s2 = handle.socket.socket$.subscribe();
     await Promise.resolve();
 
-    expect(fetchSubscription).toHaveBeenCalledTimes(1); // shared, refCount:false
+    expect(phoenix.sockets).toHaveLength(1); // shared, refCount:false
 
     s1.unsubscribe();
     s2.unsubscribe();
-    conn.dispose();
+    handle.dispose();
   });
 
-  it("replays joinCode R to late subscribers", async () => {
-    const conn = ɵcreateMetadataRealtimeConnection({
+  it("dispose() disconnects the socket and is idempotent", () => {
+    const handle = ɵcreateMetadataSocket({
       wsUrl: "wss://gw/client",
-      fetchSubscription: async () => ({ joinToken: "t", joinCode: "R" }),
+      joinToken: "tok-123",
     });
 
-    await firstValueFrom(conn.socket$); // trigger the fetch
-    await expect(firstValueFrom(conn.joinCode$)).resolves.toBe("R");
+    // Eager health subscribe opens the socket at creation.
+    expect(phoenix.sockets).toHaveLength(1);
+    expect(phoenix.sockets[0]!.disconnected).toBe(false);
 
-    conn.dispose();
+    handle.dispose();
+    expect(phoenix.sockets[0]!.disconnected).toBe(true);
+
+    // Idempotent: a second call must not throw.
+    expect(() => handle.dispose()).not.toThrow();
+  });
+
+  it("socketFatal$ emits once after MAX consecutive errors and replays to late subscribers", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const handle = ɵcreateMetadataSocket({
+      wsUrl: "wss://gw/client",
+      joinToken: "tok-123",
+    });
+
+    let earlyEmissions = 0;
+    const early = handle.socket.socketFatal$.subscribe(() => {
+      earlyEmissions += 1;
+    });
+
+    const socket = phoenix.sockets[0];
+    if (!socket) {
+      throw new Error("expected a phoenix socket to exist");
+    }
+
+    // Drive MAX consecutive transport errors with no intervening `open`.
+    for (let i = 0; i < ɵMETADATA_MAX_SOCKET_RETRIES; i += 1) {
+      socket.triggerError();
+    }
+
+    expect(earlyEmissions).toBe(1);
+    expect(warn).toHaveBeenCalled();
+
+    // A LATE subscriber (after the give-up) still receives it via the latch.
+    await expect(
+      firstValueFrom(handle.socket.socketFatal$),
+    ).resolves.toBeUndefined();
+
+    early.unsubscribe();
+    warn.mockRestore();
+    handle.dispose();
+  });
+
+  it("hands out a consumer view with no dispose (only socket$ and socketFatal$)", () => {
+    const handle = ɵcreateMetadataSocket({
+      wsUrl: "wss://gw/client",
+      joinToken: "tok-123",
+    });
+
+    expect(Object.keys(handle.socket).sort()).toEqual([
+      "socket$",
+      "socketFatal$",
+    ]);
+    expect("dispose" in handle.socket).toBe(false);
+
+    handle.dispose();
   });
 });
