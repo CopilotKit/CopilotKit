@@ -341,8 +341,11 @@ export class ThreadsStore implements InjectThreadsResult {
     });
 
     // Sync the runtime context. Defer until the runtime reports Connected so
-    // the initial context carries `intelligence.wsUrl` and avoids a redundant
-    // second list fetch + subscribe round-trip (mirrors react-core).
+    // the context's `getMetadataSocket` provider can resolve the shared socket
+    // on the first dispatch — otherwise an early dispatch fetches the list with
+    // realtime silently absent and then re-dispatches (a new session, so a
+    // second list fetch + subscribe) once Connected. Waiting collapses it to a
+    // single list + subscribe (mirrors react-core).
     //
     // The store dispatches `setContext` onto an `asapScheduler` queue, and its
     // bootstrap effect issues a list fetch for every queued `contextChanged`
@@ -359,8 +362,10 @@ export class ThreadsStore implements InjectThreadsResult {
     effect(() => {
       // Track every reactive input the dispatched context depends on, so the
       // effect re-runs when any of them changes — including `wsUrl`, which
-      // arrives with `/info` and (via the dedup signature below) triggers a
-      // single re-dispatch carrying the realtime URL.
+      // arrives with `/info`. Once it lands the shared metadata socket becomes
+      // resolvable, so (via the dedup signature below) a single re-dispatch
+      // re-runs `setContext` and the context's `getMetadataSocket` provider now
+      // resolves a socket.
       const active = isEnabled();
       const url = runtimeUrl();
       const status = runtimeStatus();

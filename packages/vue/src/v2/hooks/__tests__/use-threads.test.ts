@@ -26,7 +26,6 @@ type ThreadState = {
   context: {
     runtimeUrl: string;
     headers: Record<string, string>;
-    metadata?: unknown;
     agentId: string;
     includeArchived?: boolean;
     limit?: number;
