@@ -11,13 +11,10 @@ import {
 import { useCopilotKit } from "../../context";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
-  ɵcreateMetadataRealtimeConnection,
+  ɵcreateMetadataSocket,
   ɵcreateMemoryStore,
 } from "@copilotkit/core";
-import type {
-  ɵMetadataRealtimeConnection,
-  ɵMemoryStore,
-} from "@copilotkit/core";
+import type { ɵMetadataSocket, ɵMemoryStore } from "@copilotkit/core";
 
 vi.mock("../../context", () => ({
   useCopilotKit: vi.fn(),
@@ -210,33 +207,27 @@ const supportedThreadEndpoints = {
 };
 
 /**
- * Builds a `ɵgetMetadataRealtime` stand-in that mirrors `CopilotKitCore`'s
- * real lazy-memoized behavior: the shared connection is created on first
- * call (via the real `ɵcreateMetadataRealtimeConnection`) and the same
- * instance is returned on subsequent calls, so the mocked `phoenix` module
- * exercises the same code path production wiring does.
+ * Builds a `ɵgetMetadataSocket(joinToken)` stand-in that mirrors
+ * `CopilotKitCore`'s real lazy-memoized behavior: the ONE shared,
+ * credential-agnostic metadata socket is created on first call (via the real
+ * `ɵcreateMetadataSocket`) and the same instance is returned on subsequent
+ * calls regardless of `joinToken`, so the mocked `phoenix` module exercises the
+ * same code path production wiring does. Mirrors `makeGetMetadataSocket` in
+ * `@copilotkit/core`'s `threads.test.ts`/`memory.test.ts`.
  *
- * `fetchSubscription` resolves synthetically (mirrors `fakeMetadataConnection`
- * in `@copilotkit/core`'s `threads.test.ts`/`memory.test.ts`) rather than
- * going through the shared `fetchMock`: minting the join token/code is
- * `CopilotKitCore.fetchMetadataSubscription`'s concern (covered by core's own
- * tests), and it runs on its own schedule relative to the unrelated
- * `/threads` list fetch this store issues — routing it through the same
- * `fetchMock` queue would race the two and make call order nondeterministic.
+ * The store fetches its OWN realtime credentials (join token via
+ * `/threads/subscribe`, join code from the list response) through the shared
+ * `fetchMock`, then hands the token here to resolve the shared socket.
  */
-function createMetadataRealtimeFactory(
+function createMetadataSocketFactory(
   wsUrl: string,
-  joinCode = "jc-1",
-): () => ɵMetadataRealtimeConnection {
-  let connection: ɵMetadataRealtimeConnection | undefined;
-  return () => {
-    if (!connection) {
-      connection = ɵcreateMetadataRealtimeConnection({
-        wsUrl,
-        fetchSubscription: async () => ({ joinToken: "jt-1", joinCode }),
-      });
+): (joinToken: string) => ɵMetadataSocket {
+  let socket: ɵMetadataSocket | undefined;
+  return (joinToken: string) => {
+    if (!socket) {
+      socket = ɵcreateMetadataSocket({ wsUrl, joinToken }).socket;
     }
-    return connection;
+    return socket;
   };
 }
 
@@ -250,7 +241,7 @@ function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
       headers,
       threadEndpoints: supportedThreadEndpoints,
       intelligence: { wsUrl },
-      ɵgetMetadataRealtime: createMetadataRealtimeFactory(wsUrl),
+      ɵgetMetadataSocket: createMetadataSocketFactory(wsUrl),
       registerThreadStore: vi.fn(),
       unregisterThreadStore: vi.fn(),
     },
@@ -263,6 +254,28 @@ function jsonResponse(body: unknown, status = 200) {
     status,
     json: () => Promise.resolve(body),
     text: () => Promise.resolve(JSON.stringify(body)),
+  });
+}
+
+/**
+ * Primes `fetchMock` for the store's two initial requests: the `/threads` list
+ * GET (carries the realtime `joinCode`) and the `/threads/subscribe` POST (mints
+ * the realtime `joinToken`). The store now fetches its OWN realtime credentials,
+ * so realtime-asserting tests must answer both — routing by URL keeps the two
+ * responses independent of call order.
+ */
+function primeThreadFetches(
+  threads: unknown = sampleThreads,
+  joinCode = "jc-1",
+) {
+  fetchMock.mockImplementation((url: string) => {
+    if (typeof url === "string" && url.includes("/threads/subscribe")) {
+      return jsonResponse({ joinToken: "jt-1" });
+    }
+    if (typeof url === "string" && url.includes("/threads")) {
+      return jsonResponse({ threads, joinCode });
+    }
+    return jsonResponse({}, 404);
   });
 }
 
@@ -316,9 +329,7 @@ describe("useThreads", () => {
   });
 
   it("fetches threads and subscribes to the user metadata channel", async () => {
-    fetchMock.mockReturnValueOnce(
-      jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-    );
+    primeThreadFetches();
 
     const { result } = renderHook(() => useThreads(defaultInput));
 
@@ -335,11 +346,13 @@ describe("useThreads", () => {
       expect.stringContaining("/threads?agentId=agent-1"),
       expect.objectContaining({ method: "GET" }),
     );
-    // Minting the join token/code (`POST /threads/subscribe`) is
-    // `CopilotKitCore.ɵgetMetadataRealtime()`'s concern now, not this store's
-    // — it's exercised via the mocked `ɵgetMetadataRealtime`, not `fetchMock`.
-    // This hook only owns joining the `user_meta:<joinCode>` channel off the
-    // resulting shared socket, asserted below.
+    // The store fetches its OWN realtime join-token via `POST /threads/subscribe`
+    // (join code comes from the list response), then joins the
+    // `user_meta:<joinCode>` channel off the shared core-owned socket resolved
+    // via `getMetadataSocket(joinToken)`.
+    await waitFor(() => {
+      expect(getMockSockets()[0]?.channels[0]?.topic).toBe("user_meta:jc-1");
+    });
     const socket = getMockSockets()[0];
     expect(socket.connected).toBe(true);
     expect(socket.channels[0].topic).toBe("user_meta:jc-1");
@@ -407,7 +420,7 @@ describe("useThreads", () => {
         headers: {},
         threadEndpoints: supportedThreadEndpoints,
         intelligence: { wsUrl: "ws://localhost:4000/client" },
-        ɵgetMetadataRealtime: createMetadataRealtimeFactory(
+        ɵgetMetadataSocket: createMetadataSocketFactory(
           "ws://localhost:4000/client",
         ),
         registerThreadStore,
@@ -434,7 +447,7 @@ describe("useThreads", () => {
           realtimeMetadata: false,
         },
         intelligence: undefined,
-        ɵgetMetadataRealtime: () => undefined,
+        ɵgetMetadataSocket: () => undefined,
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
       },
@@ -462,7 +475,7 @@ describe("useThreads", () => {
         headers: { Authorization: "Bearer test-token" },
         threadEndpoints: undefined,
         intelligence: undefined,
-        ɵgetMetadataRealtime: () => undefined,
+        ɵgetMetadataSocket: () => undefined,
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
       },
@@ -500,7 +513,7 @@ describe("useThreads", () => {
           realtimeMetadata: false,
         },
         intelligence: undefined,
-        ɵgetMetadataRealtime: () => undefined,
+        ɵgetMetadataSocket: () => undefined,
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
       },
@@ -528,9 +541,7 @@ describe("useThreads", () => {
   });
 
   it("updates local state directly from realtime metadata events", async () => {
-    fetchMock.mockReturnValueOnce(
-      jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-    );
+    primeThreadFetches();
 
     const { result } = renderHook(() => useThreads(defaultInput));
 
@@ -538,6 +549,9 @@ describe("useThreads", () => {
       expect(result.current.isLoading).toBe(false);
     });
 
+    await waitFor(() => {
+      expect(getMockSockets()[0]?.channels[0]).toBeDefined();
+    });
     const channel = getMockSockets()[0].channels[0];
 
     act(() => {
@@ -560,14 +574,13 @@ describe("useThreads", () => {
     });
 
     // The realtime metadata push updates the store directly — it must NOT
-    // trigger an extra REST refetch beyond the initial list call.
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // trigger an extra REST refetch beyond the two initial calls (the list GET
+    // plus the `/threads/subscribe` credentials POST).
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("applies realtime metadata without client-side user filtering", async () => {
-    fetchMock.mockReturnValueOnce(
-      jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-    );
+    primeThreadFetches();
 
     const { result } = renderHook(() => useThreads(defaultInput));
 
@@ -575,6 +588,9 @@ describe("useThreads", () => {
       expect(result.current.isLoading).toBe(false);
     });
 
+    await waitFor(() => {
+      expect(getMockSockets()[0]?.channels[0]).toBeDefined();
+    });
     act(() => {
       getMockSockets()[0].channels[0].serverPush("thread_metadata", {
         operation: "deleted",
@@ -595,11 +611,9 @@ describe("useThreads", () => {
   });
 
   it("renames a thread through the runtime contract", async () => {
-    fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-      )
-      .mockReturnValueOnce(jsonResponse({}));
+    // URL-routed so the store's own `/threads/subscribe` POST resolves cleanly
+    // without consuming the mutation's response (mutations only check `ok`).
+    primeThreadFetches();
 
     const { result } = renderHook(() => useThreads(defaultInput));
 
@@ -629,12 +643,7 @@ describe("useThreads", () => {
   });
 
   it("archives and deletes threads through the runtime contract", async () => {
-    fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-      )
-      .mockReturnValueOnce(jsonResponse({}))
-      .mockReturnValueOnce(jsonResponse({}));
+    primeThreadFetches();
 
     const { result } = renderHook(() => useThreads(defaultInput));
 
@@ -675,11 +684,7 @@ describe("useThreads", () => {
   });
 
   it("unarchives a thread through the runtime contract", async () => {
-    fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-      )
-      .mockReturnValueOnce(jsonResponse({}));
+    primeThreadFetches();
 
     const { result } = renderHook(() => useThreads(defaultInput));
 
@@ -744,17 +749,25 @@ describe("useThreads", () => {
       },
     ];
 
-    fetchMock
-      .mockReturnValueOnce(
-        jsonResponse({
+    // URL-routed so the store's own `/threads/subscribe` POST doesn't consume
+    // the next-page response: the first list GET (no cursor) carries the
+    // nextCursor, the cursor GET returns the next page.
+    fetchMock.mockImplementation((url: string) => {
+      if (typeof url === "string" && url.includes("/threads/subscribe")) {
+        return jsonResponse({ joinToken: "jt-1" });
+      }
+      if (typeof url === "string" && url.includes("cursor=cursor-abc")) {
+        return jsonResponse({ threads: nextPageThreads, joinCode: "jc-1" });
+      }
+      if (typeof url === "string" && url.includes("/threads")) {
+        return jsonResponse({
           threads: sampleThreads,
           joinCode: "jc-1",
           nextCursor: "cursor-abc",
-        }),
-      )
-      .mockReturnValueOnce(
-        jsonResponse({ threads: nextPageThreads, joinCode: "jc-1" }),
-      );
+        });
+      }
+      return jsonResponse({}, 404);
+    });
 
     const { result } = renderHook(() => useThreads(defaultInput));
 
@@ -812,8 +825,8 @@ describe("useThreads", () => {
   // NOTE: a "tears down sockets after repeated connection failures" test
   // previously lived here, asserting that the thread store itself gave up
   // and disconnected its socket after `ɵMAX_SOCKET_RETRIES` consecutive
-  // errors. That behavior has moved: the shared metadata realtime connection
-  // (`ɵcreateMetadataRealtimeConnection` in `@copilotkit/core`) now owns
+  // errors. That behavior has moved: the shared metadata socket
+  // (`ɵcreateMetadataSocket` in `@copilotkit/core`) now owns
   // socket retry/give-up, and `threads.ts` no longer references
   // `ɵMETADATA_MAX_SOCKET_RETRIES`, `dispose()`, or the socket's `error`
   // signal at all — it only joins a channel off the shared `socket$`. The
@@ -821,14 +834,15 @@ describe("useThreads", () => {
   // and `memory.test.ts` in `@copilotkit/core`.
 
   it("leaves the channel on unmount but keeps the shared socket alive for other consumers", async () => {
-    fetchMock.mockReturnValueOnce(
-      jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
-    );
+    primeThreadFetches();
 
     const { unmount } = renderHook(() => useThreads(defaultInput));
 
     await waitFor(() => {
       expect(getMockSockets().length).toBe(1);
+    });
+    await waitFor(() => {
+      expect(getMockSockets()[0]?.channels[0]).toBeDefined();
     });
 
     const socket = getMockSockets()[0];
@@ -838,10 +852,10 @@ describe("useThreads", () => {
 
     // The store leaves ITS channel on unmount...
     expect(channel.left).toBe(true);
-    // ...but the underlying socket is owned by the shared connection
-    // (`CopilotKitCore.ɵgetMetadataRealtime()`, refCount:false), not by this
-    // one hook instance, so a single consumer unmounting must not disconnect
-    // it out from under other consumers (e.g. the memory store) sharing it.
+    // ...but the underlying socket is owned by the shared core-owned socket
+    // (`CopilotKitCore.ɵgetMetadataSocket()`, refCount:false), not by this one
+    // hook instance, so a single consumer unmounting must not disconnect it out
+    // from under other consumers (e.g. the memory store) sharing it.
     expect(socket.disconnected).toBe(false);
   });
 
@@ -862,7 +876,7 @@ describe("useThreads", () => {
         headers: { Authorization: "Bearer test-token" },
         threadEndpoints: supportedThreadEndpoints,
         intelligence: { wsUrl: "ws://localhost:4000/client" },
-        ɵgetMetadataRealtime: createMetadataRealtimeFactory(
+        ɵgetMetadataSocket: createMetadataSocketFactory(
           "ws://localhost:4000/client",
         ),
         registerThreadStore,
@@ -900,7 +914,7 @@ describe("useThreads", () => {
         headers: { Authorization: "Bearer test-token" },
         threadEndpoints: supportedThreadEndpoints,
         intelligence: undefined,
-        ɵgetMetadataRealtime: () => undefined,
+        ɵgetMetadataSocket: () => undefined,
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
       },
@@ -940,7 +954,7 @@ describe("useThreads", () => {
         headers: { Authorization: "Bearer test-token" },
         threadEndpoints: supportedThreadEndpoints,
         intelligence: { wsUrl: "ws://localhost:4000/client" },
-        ɵgetMetadataRealtime: createMetadataRealtimeFactory(
+        ɵgetMetadataSocket: createMetadataSocketFactory(
           "ws://localhost:4000/client",
         ),
         registerThreadStore: vi.fn(),
@@ -970,16 +984,17 @@ describe("useThreads", () => {
   });
 
   it("threads + memory share a single core-owned socket (one socket, two channels)", async () => {
-    // Both feeds must derive their connection from the SAME memoized factory
-    // call the real `CopilotKitCore.ɵgetMetadataRealtime()` would produce —
-    // mirrors `core.ts`'s own `_metadataRealtime` memoization so the thread
-    // store (via the hook) and the memory store (via `getMemoryStore()`) are
-    // wired to one shared `ɵMetadataRealtimeConnection`, exactly like
-    // production `syncMemoryContext()` does off the same core instance.
+    // Both feeds must resolve their socket from the SAME memoized factory the
+    // real `CopilotKitCore.ɵgetMetadataSocket()` would produce — mirrors
+    // `core.ts`'s own `_metadataSocket` memoization so the thread store (via the
+    // hook) and the memory store (via `getMemoryStore()`) ride one shared
+    // `ɵMetadataSocket`, exactly like production `syncMemoryContext()` does off
+    // the same core instance. Each store fetches its own realtime credentials
+    // and joins its own channel off that ONE socket.
     const wsUrl = "ws://localhost:4000/client";
     const runtimeUrl = "http://localhost:4000";
     const headers = { Authorization: "Bearer test-token" };
-    const metadataFactory = createMetadataRealtimeFactory(wsUrl);
+    const metadataSocketFactory = createMetadataSocketFactory(wsUrl);
 
     let memoryStore: ɵMemoryStore | undefined;
     function getMemoryStore(): ɵMemoryStore {
@@ -991,10 +1006,11 @@ describe("useThreads", () => {
         memoryStore.setContext({
           runtimeUrl,
           headers,
-          // Calling the SAME factory instance returns the memoized shared
-          // connection created by the hook below (or creates it here first —
-          // either way there is exactly one instance to go around).
-          metadata: metadataFactory(),
+          // The SAME factory instance the hook's core mock uses: the first
+          // caller creates the ONE shared socket, every later call returns it —
+          // so both stores ride a single socket regardless of who resolves it
+          // first.
+          getMetadataSocket: metadataSocketFactory,
         });
       }
       return memoryStore;
@@ -1008,13 +1024,22 @@ describe("useThreads", () => {
         headers,
         threadEndpoints: supportedThreadEndpoints,
         intelligence: { wsUrl },
-        ɵgetMetadataRealtime: metadataFactory,
+        ɵgetMetadataSocket: metadataSocketFactory,
         registerThreadStore: vi.fn(),
         unregisterThreadStore: vi.fn(),
       },
     });
 
     fetchMock.mockImplementation((url: string) => {
+      // Each store fetches its OWN realtime credentials before joining its
+      // channel off the shared socket — route the subscribe endpoints first so
+      // the broader `/threads`/`/memories` matches don't swallow them.
+      if (url.includes("/threads/subscribe")) {
+        return jsonResponse({ joinToken: "jt-1" });
+      }
+      if (url.includes("/memories/subscribe")) {
+        return jsonResponse({ joinToken: "jt-1", joinCode: "jc-1" });
+      }
       if (url.includes("/threads")) {
         return jsonResponse({ threads: sampleThreads, joinCode: "jc-1" });
       }

@@ -4144,7 +4144,8 @@ export class WebInspectorElement extends LitElement {
     store.setContext({
       runtimeUrl: core.runtimeUrl,
       headers: { ...core.headers },
-      metadata: core.ɵgetMetadataRealtime() ?? null,
+      getMetadataSocket: (joinToken) =>
+        core.ɵgetMetadataSocket(joinToken) ?? null,
       agentId,
     });
     this._ownedThreadStores.set(agentId, store);
@@ -4176,7 +4177,8 @@ export class WebInspectorElement extends LitElement {
       store.setContext({
         runtimeUrl: core.runtimeUrl,
         headers: { ...headers },
-        metadata: core.ɵgetMetadataRealtime() ?? null,
+        getMetadataSocket: (joinToken) =>
+          core.ɵgetMetadataSocket(joinToken) ?? null,
         agentId,
       });
     }
@@ -4213,9 +4215,12 @@ export class WebInspectorElement extends LitElement {
           }
           this.flushPendingBannerViewed();
           if (this.areThreadEndpointsAvailable()) {
-            for (const agentId of this._ownedThreadStores.keys()) {
-              this.refreshOwnedThreadStore(agentId);
-            }
+            // Core disposes the shared metadata socket on disconnect, so a plain
+            // refresh() (REST-only) would leave owned stores stranded on a dead
+            // socket. Re-dispatch setContext for each owned store so they
+            // re-fetch creds and re-resolve a fresh socket; this also refreshes
+            // the REST list.
+            this.updateOwnedThreadStoreHeaders(core.headers);
           } else {
             this.teardownOwnedThreadStores();
           }

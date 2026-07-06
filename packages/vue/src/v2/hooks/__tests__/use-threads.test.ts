@@ -375,11 +375,12 @@ const supportedThreadEndpoints: ThreadEndpointRuntimeInfo = {
   realtimeMetadata: true,
 };
 
-// Stand-in for the shared realtime connection returned by
-// `ɵgetMetadataRealtime()`. The mocked `@copilotkit/core` thread store never
-// consumes the connection (it opens its own MockSocket), so an opaque marker
-// is enough to prove the hook threaded `metadata` into the dispatched context.
-const metadataConnectionStub = { ɵmetadataConnectionStub: true } as const;
+// Stand-in for the shared, credential-agnostic socket returned by
+// `ɵgetMetadataSocket(joinToken)`. The mocked `@copilotkit/core` thread store
+// never consumes the socket (it opens its own MockSocket), so an opaque marker
+// is enough to prove the hook threaded `getMetadataSocket` into the dispatched
+// context.
+const metadataSocketStub = { ɵmetadataSocketStub: true } as const;
 
 type MockCopilotKit = {
   runtimeUrl: string | undefined;
@@ -389,9 +390,11 @@ type MockCopilotKit = {
   threadEndpoints: ThreadEndpointRuntimeInfo | undefined;
   registerThreadStore: ReturnType<typeof vi.fn>;
   unregisterThreadStore: ReturnType<typeof vi.fn>;
-  // Mirrors `CopilotKitCore.ɵgetMetadataRealtime()`: returns the shared
-  // connection while a realtime `wsUrl` is known, else `undefined`.
-  ɵgetMetadataRealtime: () => typeof metadataConnectionStub | undefined;
+  // Mirrors `CopilotKitCore.ɵgetMetadataSocket(joinToken)`: returns the shared
+  // socket while a realtime `wsUrl` is known, else `undefined`.
+  ɵgetMetadataSocket: (
+    joinToken: string,
+  ) => typeof metadataSocketStub | undefined;
 };
 
 function setupCopilotKit(
@@ -411,8 +414,8 @@ function setupCopilotKit(
     threadEndpoints: supportedThreadEndpoints,
     registerThreadStore: vi.fn(),
     unregisterThreadStore: vi.fn(),
-    ɵgetMetadataRealtime: function (this: MockCopilotKit) {
-      return this.intelligence?.wsUrl ? metadataConnectionStub : undefined;
+    ɵgetMetadataSocket: function (this: MockCopilotKit, _joinToken: string) {
+      return this.intelligence?.wsUrl ? metadataSocketStub : undefined;
     },
     ...overrides,
   });
@@ -942,18 +945,25 @@ describe("useThreads", () => {
       );
       expect(listCalls).toHaveLength(1);
 
-      // The dispatched context must carry the shared realtime `metadata`
-      // connection, otherwise the store would re-fetch once /info eventually
-      // populates it.
+      // The dispatched context must carry the shared realtime socket provider,
+      // otherwise the store would re-fetch once /info eventually populates it.
       const nonNullContexts = getDispatchedContexts().filter(
         (context) => context !== null,
       );
       expect(nonNullContexts).toHaveLength(1);
       expect(nonNullContexts[0]).toMatchObject({
         runtimeUrl: "http://localhost:4000",
-        metadata: metadataConnectionStub,
+        getMetadataSocket: expect.any(Function),
         agentId: "agent-1",
       });
+      // The provider resolves to the shared socket for any join token.
+      expect(
+        (
+          nonNullContexts[0] as {
+            getMetadataSocket: (joinToken: string) => unknown;
+          }
+        ).getMetadataSocket("jt-1"),
+      ).toBe(metadataSocketStub);
 
       await vi.waitFor(() => {
         expect(getResult().isLoading.value).toBe(false);

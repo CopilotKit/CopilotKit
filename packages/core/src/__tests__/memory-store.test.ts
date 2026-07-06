@@ -162,6 +162,8 @@ test("B6: disposes the shared socket when the runtime disconnects", async () => 
   expect(s).toBeDefined();
   expect(phoenix.sockets.length).toBe(1);
   const underlying = phoenix.sockets[0];
+  expect(underlying).toBeDefined();
+  if (!underlying) throw new Error("expected a seeded phoenix socket");
 
   // Real disconnect: dropping the runtime URL moves the connection status to
   // Disconnected and fires `onRuntimeConnectionStatusChanged`, which disposes
@@ -215,7 +217,9 @@ test("B7: setHeaders tears down the socket and the next consumer re-seeds a fres
   expect(second).not.toBe(first);
   expect(phoenix.sockets.length).toBe(2);
   // The first underlying socket was disconnected on the header change.
-  expect(phoenix.sockets[0].disconnected).toBe(true);
+  const firstUnderlying = phoenix.sockets[0];
+  expect(firstUnderlying).toBeDefined();
+  expect(firstUnderlying?.disconnected).toBe(true);
 });
 
 test("context null without intelligence / not connected: getState().context is null when no intelligence is present", async () => {

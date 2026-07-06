@@ -3,8 +3,8 @@ import { TestBed } from "@angular/core/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
-  ɵcreateMetadataRealtimeConnection,
-  type ɵMetadataRealtimeConnection,
+  ɵcreateMetadataSocket,
+  type ɵMetadataSocket,
   type ɵThreadStore,
 } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
@@ -76,11 +76,11 @@ class CopilotKitStub {
     undefined,
   );
   readonly #intelligence = signal<{ wsUrl: string } | undefined>(undefined);
-  // Lazily-created shared realtime connection, memoized to mirror
-  // `CopilotKitCore.ɵgetMetadataRealtime()` (which returns one stable instance
-  // per connection). The phoenix socket never connects under jsdom, so this is
-  // just a well-formed connection object the thread store can subscribe to.
-  #metadataConnection: ɵMetadataRealtimeConnection | undefined;
+  // Lazily-created shared, credential-agnostic socket, memoized to mirror
+  // `CopilotKitCore.ɵgetMetadataSocket()` (which returns one stable instance
+  // once seeded). The phoenix socket never connects under jsdom, so this is
+  // just a well-formed socket the thread store can subscribe to.
+  #metadataSocket: ɵMetadataSocket | undefined;
 
   readonly runtimeConnectionStatus = this.#runtimeConnectionStatus.asReadonly();
   readonly runtimeUrl = this.#runtimeUrl.asReadonly();
@@ -101,17 +101,14 @@ class CopilotKitStub {
     get threadEndpoints() {
       return stub.threadEndpoints();
     },
-    ɵgetMetadataRealtime: (): ɵMetadataRealtimeConnection | undefined => {
+    ɵgetMetadataSocket: (joinToken: string): ɵMetadataSocket | undefined => {
       const wsUrl = stub.intelligence()?.wsUrl;
       if (!wsUrl) return undefined;
-      stub.#metadataConnection ??= ɵcreateMetadataRealtimeConnection({
+      stub.#metadataSocket ??= ɵcreateMetadataSocket({
         wsUrl,
-        fetchSubscription: async () => ({
-          joinToken: "jt-1",
-          joinCode: "jc-1",
-        }),
-      });
-      return stub.#metadataConnection;
+        joinToken,
+      }).socket;
+      return stub.#metadataSocket;
     },
   };
 

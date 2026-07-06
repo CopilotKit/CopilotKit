@@ -241,7 +241,8 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
       const context: ɵThreadRuntimeContext = {
         runtimeUrl,
         headers: { ...copilotkit.value.headers },
-        metadata: copilotkit.value.ɵgetMetadataRealtime() ?? null,
+        getMetadataSocket: (joinToken) =>
+          copilotkit.value.ɵgetMetadataSocket(joinToken) ?? null,
         agentId,
         includeArchived,
         limit,

@@ -393,6 +393,13 @@ export class ThreadsStore implements InjectThreadsResult {
         }
 
         if (status !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
+          // Core disposes the shared metadata socket whenever the runtime
+          // leaves Connected. Reset the dedup signature so the next return to
+          // Connected ALWAYS re-dispatches `setContext` — otherwise a status
+          // blip that leaves the primitives unchanged would not re-dispatch,
+          // stranding the store on a disposed socket. On reconnect the store
+          // re-fetches creds and re-resolves a fresh socket.
+          lastDispatchedContext = null;
           return;
         }
 
@@ -404,7 +411,8 @@ export class ThreadsStore implements InjectThreadsResult {
         const context: ɵThreadRuntimeContext = {
           runtimeUrl: url,
           headers: { ...headers },
-          metadata: this.#copilotkit.core.ɵgetMetadataRealtime() ?? null,
+          getMetadataSocket: (joinToken) =>
+            this.#copilotkit.core.ɵgetMetadataSocket(joinToken) ?? null,
           agentId: id,
           includeArchived: archived,
           limit: pageLimit,
@@ -414,9 +422,10 @@ export class ThreadsStore implements InjectThreadsResult {
         // same-content header map with a different key order does not trigger
         // a redundant setContext (and the refetch + resubscribe it causes).
         // Mirrors react-core's `headersKey`. The dispatched context keeps its
-        // original header order; only the signature is normalized. `metadata`
-        // is a live connection object (not serializable), so the signature
-        // keys off the source `wsUrl` — its identity/URL — instead.
+        // original header order; only the signature is normalized. The
+        // `getMetadataSocket` provider is a live closure (not serializable), so
+        // the signature keys off the source `wsUrl` — its identity/URL —
+        // instead.
         const signature = JSON.stringify({
           runtimeUrl: url,
           headers: Object.entries(headers).sort(([left], [right]) =>
