@@ -1,8 +1,8 @@
 ## What is this?
 
-The CopilotKit CLI helps you create CopilotKit apps and connect them to Cloud-Hosted Enterprise Intelligence. It handles browser sign-in, project selection, project-scoped runtime API keys, and local project configuration so your app can use durable threads and hosted conversation history.
+The CopilotKit CLI helps you create CopilotKit apps and connect them to Cloud-Hosted Enterprise Intelligence. It handles browser sign-in, project selection, project-scoped runtime API keys, historical thread import, and local project configuration so your app can use durable threads and hosted conversation history.
 
-Use the CLI when you want to start a new app, connect an existing app to a cloud-hosted project, or install CopilotKit agent skills for your coding agent.
+Use the CLI when you want to start a new app, connect an existing app to a cloud-hosted project, import historical ADK or LangGraph conversations, or install CopilotKit agent skills for your coding agent.
 
 <OpsPlatformCTA
   variant="inline"
@@ -96,6 +96,46 @@ npx copilotkit@latest project select
 
 `project select` requires a CLI session. If you are signed out, run `npx copilotkit@latest login` first.
 
+## Import historical conversations
+
+Use `import` to bring historical Google ADK or LangGraph conversation threads into the Enterprise Intelligence project selected for your app.
+
+```bash title="Terminal"
+npx copilotkit@latest import --source adk
+```
+
+```bash title="Terminal"
+npx copilotkit@latest import --source langgraph
+```
+
+The command runs interactively by default. It discovers source agent keys and conversation counts, previews the import, asks you to map source agents, and confirms before writing to Enterprise Intelligence.
+
+For scripted runs, pass flags for the prompts:
+
+```bash title="Terminal"
+npx copilotkit@latest import \
+  --source langgraph \
+  --api-url "$INTELLIGENCE_API_URL" \
+  --api-key "$INTELLIGENCE_API_KEY" \
+  --agent-map ./agent-map.json \
+  --user-source configurable.user_id \
+  --yes
+```
+
+For ADK imports, configure the source backend and scopes with flags or environment variables:
+
+```bash title="Terminal"
+npx copilotkit@latest import \
+  --source adk \
+  --adk-source-backend database \
+  --adk-import-scopes "support:user-123" \
+  --agent-map ./agent-map.json
+```
+
+`import` reads source credentials from framework-native environment variables instead of raw CLI flags. ADK uses `ADK_SOURCE_BACKEND`, `ADK_IMPORT_SCOPES`, `ADK_DATABASE_CONNECTION_STRING`, or `ADK_VERTEX_*`. LangGraph uses `LANGGRAPH_API_URL` plus `LANGGRAPH_API_KEY` or `LANGSMITH_API_KEY`.
+
+Run a side-effect-free preview with `--dry-run`. Use `--replace` when you need to refresh threads that were already imported.
+
 ## Auth commands
 
 | Command | What it does |
@@ -109,6 +149,8 @@ npx copilotkit@latest project select
 | Command | What it does |
 |---|---|
 | `npx copilotkit@latest project select` | Selects or creates a cloud-hosted Enterprise Intelligence project for the current directory. |
+| `npx copilotkit@latest import --source adk` | Imports historical Google ADK conversation threads into Enterprise Intelligence. |
+| `npx copilotkit@latest import --source langgraph` | Imports historical LangGraph conversation threads into Enterprise Intelligence. |
 | `npx copilotkit@latest license create` | Issues a CopilotKit license token for flows that require one. |
 | `npx copilotkit@latest license list` | Lists license metadata for the current user or organization. |
 
