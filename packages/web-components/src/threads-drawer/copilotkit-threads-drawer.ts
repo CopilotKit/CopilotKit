@@ -109,11 +109,13 @@ const iconLauncher = html`
   >
     <rect width="18" height="18" x="3" y="3" rx="2" />
     <path d="M9 3v18" />
-    <path d="m14 9 3 3-3 3" />
   </svg>
 `;
-// Close (X) glyph for the mobile off-canvas drawer's header dismiss button.
-const iconClose = html`
+// Sidebar/panel glyph (the Figma toggle icon). Used for BOTH the mobile launcher
+// (open) and the mobile header dismiss (close) so the toggle icon is the same in
+// either state — matching the Figma, where the closed-cluster "open" icon and the
+// expanded-header "close" icon are the same sidebar glyph.
+const iconSidebar = html`
   <svg
     class="icon"
     viewBox="0 0 24 24"
@@ -124,8 +126,8 @@ const iconClose = html`
     stroke-linejoin="round"
     aria-hidden="true"
   >
-    <path d="M18 6 6 18" />
-    <path d="m6 6 12 12" />
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M9 3v18" />
   </svg>
 `;
 
@@ -680,7 +682,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
               aria-label="Close threads"
               @click=${() => this._setOpen(false)}
             >
-              ${iconClose}
+              ${iconSidebar}
             </button>`
             : nothing
         }
