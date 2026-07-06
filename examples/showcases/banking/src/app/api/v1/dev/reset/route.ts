@@ -31,8 +31,11 @@ export const POST = async () => {
     });
   }
 
+  // Declared outside the try so the catch can report partial progress: a
+  // mid-loop failure can leave the store reset AND some personas already
+  // forgotten, so the error body must not read as "memory untouched".
+  let forgot = 0;
   try {
-    let forgot = 0;
     for (const userId of SEEDED_USER_IDS) {
       forgot += await forgetAllMemories({ apiUrl, apiKey, userId });
     }
@@ -44,7 +47,8 @@ export const POST = async () => {
     return new Response(
       JSON.stringify({
         ok: false,
-        reset: ["store"],
+        reset: forgot > 0 ? ["store", "memory"] : ["store"],
+        forgot,
         memoryError: err instanceof Error ? err.message : String(err),
       }),
       { status: 502, headers: { "content-type": "application/json" } },

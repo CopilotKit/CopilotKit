@@ -53,4 +53,23 @@ describe("POST /api/v1/dev/reset", () => {
       forgot: 4,
     });
   });
+
+  it("reports partial progress on a mid-loop memory failure", async () => {
+    vi.stubEnv("PRESENTER_RESET_ENABLED", "true");
+    vi.stubEnv("INTELLIGENCE_API_URL", "http://localhost:7050");
+    vi.stubEnv("INTELLIGENCE_API_KEY", "cpk_test");
+    // First persona succeeds (2 forgotten), second persona throws.
+    vi.mocked(forgetAllMemories)
+      .mockResolvedValueOnce(2)
+      .mockRejectedValueOnce(new Error("boom"));
+    const res = await POST();
+    expect(res.status).toBe(502);
+    expect(await res.json()).toMatchObject({
+      ok: false,
+      reset: ["store", "memory"],
+      forgot: 2,
+      memoryError: "boom",
+    });
+    expect(store.reset).toHaveBeenCalledTimes(1);
+  });
 });
