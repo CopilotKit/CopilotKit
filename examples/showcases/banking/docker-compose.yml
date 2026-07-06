@@ -118,15 +118,22 @@ services:
     restart: "no"
 
   # OpenAI-compatible embeddings sidecar. The cpu-1.9.3 tag publishes a
-  # linux/amd64 manifest ONLY (no arm64 build), so on Apple Silicon Docker
-  # runs it under emulation — correct but slow (~9s/embed vs ~0.04-0.3s
-  # native). On amd64/CI this is native. For fast local dev on Apple Silicon
-  # you can instead run a native Metal TEI on the host and point app-api at
-  # it by overriding MEMORY_EMBEDDINGS_URL=http://host.docker.internal:7067
-  # (same version 1.9.3, same model, byte-identical embeddings). See the
-  # decision record under docs/superpowers/specs.
+  # linux/amd64 manifest ONLY (no arm64 build), so on Apple Silicon Docker runs
+  # it under emulation, where the Candle/safetensors backend is unavailable and
+  # TEI falls back to the ONNX/ORT backend — which needs onnx/model.onnx files
+  # that Qwen3-Embedding-0.6B does not publish (404), so it crash-loops. On
+  # amd64/CI this is native and works.
+  #
+  # Therefore this service is gated behind the `cpu-fallback` profile: a bare
+  # `docker compose up` does NOT start it. Apple Silicon runs a native Metal TEI
+  # on the host instead (see run-demo.sh / README), pointing app-api at it via
+  # MEMORY_EMBEDDINGS_URL=http://host.docker.internal:7067 (same version 1.9.3,
+  # same model, byte-identical embeddings). On amd64/CI, opt back in with
+  # `docker compose --profile cpu-fallback up -d --wait`. `intelligence`'s
+  # dependency on tei is `required: false`, so it starts fine without it.
   tei:
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.3
+    profiles: ["cpu-fallback"]
     platform: linux/amd64
     # --auto-truncate is empirically required for the cpu-1.9.x image to serve
     # Qwen3-Embedding-0.6B (max_input_length 32768) cleanly; truncation is the
