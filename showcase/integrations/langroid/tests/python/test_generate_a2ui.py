@@ -345,7 +345,9 @@ def test_generate_a2ui_happy_path_returns_operations():
     assert ops[0]["createSurface"]["catalogId"] == "copilotkit://app-dashboard-catalog"
 
     assert ops[1]["version"] == "v0.9"
-    assert ops[1]["updateComponents"]["components"] == [{"id": "root", "type": "Container"}]
+    assert ops[1]["updateComponents"]["components"] == [
+        {"id": "root", "type": "Container"}
+    ]
 
     assert ops[2]["version"] == "v0.9"
     assert ops[2]["updateDataModel"]["value"] == {"greeting": "hi"}
@@ -406,7 +408,9 @@ def test_generate_a2ui_legacy_function_call_path():
     with patch("agents.agent._get_a2ui_llm", return_value=fake_llm):
         result = generate_a2ui_via_llm(context="")
     assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["createSurface"]["surfaceId"] == "legacy-surface"
+    assert (
+        result["a2ui_operations"][0]["createSurface"]["surfaceId"] == "legacy-surface"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1164,7 +1168,10 @@ def test_tool_call_missing_function_attr_falls_through_to_legacy_path(caplog):
         with caplog.at_level(logging.WARNING, logger="agents.agent"):
             result = generate_a2ui_via_llm(context="")
     assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["createSurface"]["surfaceId"] == "legacy-via-fallthrough"
+    assert (
+        result["a2ui_operations"][0]["createSurface"]["surfaceId"]
+        == "legacy-via-fallthrough"
+    )
     assert any(
         rec.levelno == logging.WARNING
         and rec.name == "agents.agent"
@@ -1209,7 +1216,9 @@ def test_tool_call_with_function_arguments_none_falls_through_to_legacy_path(cap
         with caplog.at_level(logging.WARNING, logger="agents.agent"):
             result = generate_a2ui_via_llm(context="")
     assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["createSurface"]["surfaceId"] == "legacy-surface"
+    assert (
+        result["a2ui_operations"][0]["createSurface"]["surfaceId"] == "legacy-surface"
+    )
     # Tight substring: pin the MODERN-slot warning specifically. The legacy-
     # slot warning ("function_call present but .arguments is None") also
     # contains ".arguments is None" — a regression that swaps which warning
