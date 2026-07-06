@@ -17,6 +17,7 @@ export type {
   NewThreadDetail,
   OpenChangeDetail,
   RetryDetail,
+  SearchDetail,
   ThreadSelectedDetail,
   UnarchiveDetail,
   LicensedDetail,

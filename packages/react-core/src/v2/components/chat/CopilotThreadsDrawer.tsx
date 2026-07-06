@@ -20,6 +20,7 @@ import type {
   DeleteDetail,
   OpenChangeDetail,
   RetryDetail,
+  SearchDetail,
 } from "@copilotkit/web-components/threads-drawer";
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
@@ -91,6 +92,18 @@ export interface CopilotThreadsDrawerProps {
    * `"Threads"` when omitted.
    */
   label?: string;
+  /**
+   * Heading for the "Recent Conversations" section above the thread list. Sets
+   * the custom element's `recent-label` attribute. Defaults to the element's
+   * built-in `"Recent Conversations"` when omitted.
+   */
+  recentLabel?: string;
+  /**
+   * Called when the user types in the drawer's client-side search box, with the
+   * current query string. The element already filters the visible rows itself;
+   * this is a read-only notification hook (e.g. to fetch server-side matches).
+   */
+  onSearch?: (query: string) => void;
   /**
    * Page size for thread pagination. When set, threads are fetched in pages of
    * this size and the drawer shows a "Load more" control while more remain.
@@ -211,6 +224,8 @@ export function CopilotThreadsDrawer({
   licenseUrl,
   renderRow,
   label,
+  recentLabel,
+  onSearch,
   limit,
   "data-testid": dataTestId = "copilot-threads-drawer",
 }: CopilotThreadsDrawerProps): React.ReactElement | null {
@@ -423,6 +438,13 @@ export function CopilotThreadsDrawer({
     fetchMoreThreads();
   }, [fetchMoreThreads]);
 
+  const handleSearch = useCallback(
+    (query: string) => {
+      onSearch?.(query);
+    },
+    [onSearch],
+  );
+
   // Keep a ref to the live handlers so the addEventListener effect can stay
   // stable (bind once) while still calling the freshest closures.
   const handlersRef = useRef({
@@ -436,6 +458,7 @@ export function CopilotThreadsDrawer({
     handleOpenChange,
     handleLicensed,
     handleLoadMore,
+    handleSearch,
   });
   handlersRef.current = {
     handleThreadSelected,
@@ -448,6 +471,7 @@ export function CopilotThreadsDrawer({
     handleOpenChange,
     handleLicensed,
     handleLoadMore,
+    handleSearch,
   };
 
   // Bind the nine outbound DOM events once the element exists. Listeners are
@@ -487,6 +511,10 @@ export function CopilotThreadsDrawer({
     };
     const onLicensedEvent = () => handlersRef.current.handleLicensed();
     const onLoadMore = () => handlersRef.current.handleLoadMore();
+    const onSearchEvent = (event: Event) => {
+      const detail = (event as CustomEvent<SearchDetail>).detail;
+      handlersRef.current.handleSearch(detail.query);
+    };
 
     el.addEventListener("thread-selected", onThreadSelected);
     el.addEventListener("new-thread", onNewThreadEvent);
@@ -498,6 +526,7 @@ export function CopilotThreadsDrawer({
     el.addEventListener("retry", onRetry);
     el.addEventListener("licensed", onLicensedEvent);
     el.addEventListener("load-more", onLoadMore);
+    el.addEventListener("search", onSearchEvent);
 
     return () => {
       el.removeEventListener("thread-selected", onThreadSelected);
@@ -510,6 +539,7 @@ export function CopilotThreadsDrawer({
       el.removeEventListener("retry", onRetry);
       el.removeEventListener("licensed", onLicensedEvent);
       el.removeEventListener("load-more", onLoadMore);
+      el.removeEventListener("search", onSearchEvent);
     };
     // Re-bind only when the element identity changes (i.e. after first mount).
   }, [mounted]);
@@ -600,7 +630,14 @@ export function CopilotThreadsDrawer({
 
   return React.createElement(
     COPILOTKIT_THREADS_DRAWER_TAG,
-    { ref: elementRef, "data-testid": dataTestId },
+    {
+      ref: elementRef,
+      "data-testid": dataTestId,
+      // Pass the section heading label as an attribute; omit it entirely when
+      // unset so the element keeps its built-in default rather than receiving
+      // an `undefined` that would clobber it.
+      ...(recentLabel !== undefined ? { "recent-label": recentLabel } : {}),
+    },
     rowChildren,
   );
 }

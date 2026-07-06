@@ -621,6 +621,27 @@ test("provider-less drawer can be opened and then closed via open-change", async
   await waitFor(() => expect(getElement().open).toBe(false));
 });
 
+test("forwards recentLabel to the element as recent-label", async () => {
+  await renderDrawer({ recentLabel: "History" });
+
+  expect(getElement().getAttribute("recent-label")).toBe("History");
+});
+
+test("omits the recent-label attribute when the prop is not set", async () => {
+  await renderDrawer();
+
+  expect(getElement().hasAttribute("recent-label")).toBe(false);
+});
+
+test("surfaces the element's search event to onSearch with the query", async () => {
+  const onSearch = vi.fn();
+  await renderDrawer({ onSearch });
+
+  dispatch("search", { query: "abc" });
+
+  expect(onSearch).toHaveBeenCalledWith("abc");
+});
+
 test("renders nothing during SSR (no element, no hydration mismatch)", () => {
   // Server render runs no effects, so the client-only mount flag stays false
   // and the element is never emitted — matching the empty initial client
