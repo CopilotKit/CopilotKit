@@ -9,14 +9,6 @@
     flow), so the column collapses to `auto` (≈0) and the chat fills the width.
   */
   grid-template-columns: 320px minmax(0, 1fr);
-  /*
-    Bound the single grid row to the viewport (minmax(0,1fr) lets it shrink
-    below content) so BOTH tracks are 100dvh tall, not content-tall. Without
-    this the row sizes to the tallest item; a long thread list makes the drawer
-    grow past the viewport (page scrolls, header scrolls away) instead of the
-    drawer's own list scrolling internally with the header pinned.
-  */
-  grid-template-rows: minmax(0, 1fr);
   min-height: 100vh;
   min-height: 100svh;
   height: 100dvh;

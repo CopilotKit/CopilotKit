@@ -7,13 +7,6 @@
     of flow), so the column collapses and the content fills the width.
   */
   grid-template-columns: 320px minmax(0, 1fr);
-  /*
-    Bound the single grid row to the viewport (minmax(0,1fr) lets it shrink
-    below content) so a long thread list scrolls INTERNALLY in the drawer with
-    the header pinned, instead of the drawer growing past the viewport and the
-    page scrolling the header away.
-  */
-  grid-template-rows: minmax(0, 1fr);
   height: 100dvh;
   width: 100%;
   overflow: hidden;
