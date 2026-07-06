@@ -1,7 +1,7 @@
 """Claude Agent SDK backend for the Declarative Generative UI (A2UI Dynamic) demo.
 
 The agent exposes a single `generate_a2ui(context: str)` tool. When called,
-it invokes a secondary OpenAI client bound to the `render_a2ui` tool schema
+it invokes a secondary Claude call bound to the `render_a2ui` tool schema
 (forced via `tool_choice`) and returns an `a2ui_operations` container which
 the runtime's A2UI middleware detects and forwards to the frontend renderer.
 
@@ -24,7 +24,6 @@ from textwrap import dedent
 from typing import Any
 
 import anthropic
-import openai
 from ag_ui.core import (
     EventType,
     RunAgentInput,
@@ -44,6 +43,8 @@ from tools import (
     RENDER_A2UI_TOOL_SCHEMA,
     build_a2ui_operations_from_tool_call,
 )
+from agents._anthropic_message_safety import sanitize_unresolved_tool_uses
+from agents.claude_agent_sdk_adapter import normalize_claude_model
 
 
 SYSTEM_PROMPT = dedent("""
@@ -62,6 +63,7 @@ SYSTEM_PROMPT = dedent("""
 """).strip()
 
 
+# @region[a2ui-backend-tool]
 GENERATE_A2UI_TOOL = {
     "name": "generate_a2ui",
     "description": (
@@ -85,30 +87,37 @@ def _generate_a2ui(
     context: str, conversation_messages: list[dict[str, Any]] | None = None
 ) -> dict[str, Any]:
     """Invoke a secondary LLM bound to render_a2ui and return an operations container."""
-    client = openai.OpenAI()
-    llm_messages: list[dict[str, Any]] = [
-        {"role": "system", "content": context or "Generate a useful dashboard UI."},
-    ]
-    if conversation_messages:
-        llm_messages.extend(conversation_messages)
-    else:
-        llm_messages.append(
+    client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+    render_tool_schema = {
+        "name": RENDER_A2UI_TOOL_SCHEMA["name"],
+        "description": RENDER_A2UI_TOOL_SCHEMA["description"],
+        "input_schema": RENDER_A2UI_TOOL_SCHEMA["parameters"],
+    }
+    llm_messages = (
+        sanitize_unresolved_tool_uses(conversation_messages)
+        if conversation_messages
+        else [
             {
                 "role": "user",
                 "content": "Generate a dynamic A2UI dashboard based on the conversation.",
             }
-        )
-    response = client.chat.completions.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-4.1"),
-        messages=llm_messages,
-        tools=[{"type": "function", "function": RENDER_A2UI_TOOL_SCHEMA}],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        ]
     )
-    choice = response.choices[0]
-    if choice.message.tool_calls:
-        args = json.loads(choice.message.tool_calls[0].function.arguments)
-        return build_a2ui_operations_from_tool_call(args)
+    response = client.messages.create(
+        model=normalize_claude_model(os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6")),
+        max_tokens=4096,
+        system=context or "Generate a useful dashboard UI.",
+        messages=llm_messages,
+        tools=[render_tool_schema],
+        tool_choice={"type": "tool", "name": "render_a2ui"},
+    )
+    for block in response.content:
+        if getattr(block, "type", None) == "tool_use" and block.name == "render_a2ui":
+            return build_a2ui_operations_from_tool_call(dict(block.input))
     return {"error": "LLM did not call render_a2ui"}
+
+
+# @endregion[a2ui-backend-tool]
 
 
 async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
@@ -157,7 +166,9 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
         tool_calls: list[dict[str, Any]] = []
         try:
             async with client.messages.stream(
-                model=os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
+                model=normalize_claude_model(
+                    os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6")
+                ),
                 max_tokens=2048,
                 system=SYSTEM_PROMPT,
                 messages=messages,
@@ -272,8 +283,16 @@ async def run_a2ui_dynamic_agent(input_data: RunAgentInput) -> AsyncIterator[str
         for tc in tool_calls:
             if tc["name"] == "generate_a2ui":
                 ctx = tc["input"].get("context", "")
-                result_obj = _generate_a2ui(ctx, conversation_messages=messages)
-                result_text = json.dumps(result_obj)
+                try:
+                    result_obj = _generate_a2ui(ctx, conversation_messages=messages)
+                    result_text = json.dumps(result_obj)
+                except Exception as exc:  # noqa: BLE001 - surface as tool result
+                    result_text = json.dumps(
+                        {
+                            "error": "generate_a2ui failed",
+                            "detail": exc.__class__.__name__,
+                        }
+                    )
             else:
                 result_text = json.dumps({"error": f"unknown tool {tc['name']}"})
             yield encoder.encode(
