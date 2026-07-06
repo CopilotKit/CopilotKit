@@ -15,6 +15,7 @@ import type {
   DeleteDetail,
   RetryDetail,
   OpenChangeDetail,
+  SearchDetail,
 } from "@copilotkit/web-components/threads-drawer";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useThreads } from "../../hooks/use-threads";
@@ -30,11 +31,22 @@ const props = withDefaults(
     onLicensed?: () => void;
     licenseUrl?: string;
     label?: string;
+    /**
+     * Heading rendered above the thread list (element attribute
+     * `recent-label`). Defaults to the element's own `"Recent Conversations"`
+     * when omitted.
+     */
+    recentLabel?: string;
     limit?: number;
     dataTestId?: string;
   }>(),
   { dataTestId: "copilot-threads-drawer" },
 );
+
+const emit = defineEmits<{
+  /** Emitted when the in-drawer client-side search query changes. */
+  search: [query: string];
+}>();
 
 const config = useCopilotChatConfiguration();
 const license = useLicenseContext();
@@ -213,6 +225,10 @@ function onDelete(event: Event) {
 function onFilterChange() {
   threadsApi.refetchThreads();
 }
+function onSearch(event: Event) {
+  const { query } = (event as CustomEvent<SearchDetail>).detail;
+  emit("search", query);
+}
 function onRetry(event: Event) {
   const { scope } = (event as CustomEvent<RetryDetail>).detail;
   if (scope === "fetch-more") threadsApi.fetchMoreThreads();
@@ -255,12 +271,14 @@ defineSlots<{
     v-if="mounted"
     ref="elRef"
     :data-testid="dataTestId"
+    :recent-label="recentLabel"
     @thread-selected="onThreadSelected"
     @new-thread="handleNewThread"
     @archive="onArchive"
     @unarchive="onUnarchive"
     @delete="onDelete"
     @filter-change="onFilterChange"
+    @search="onSearch"
     @retry="onRetry"
     @load-more="onLoadMore"
     @open-change="onOpenChange"
