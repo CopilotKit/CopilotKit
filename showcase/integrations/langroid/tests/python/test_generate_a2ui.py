@@ -147,6 +147,47 @@ def _function_call(*, arguments) -> _FakeFunctionCall:
     return _FakeFunctionCall(name="render_a2ui", arguments=arguments)
 
 
+def _assert_v09_a2ui_operations(
+    result: dict[str, Any],
+    *,
+    surface_id: str,
+    catalog_id: str,
+    components: list[dict[str, Any]],
+    data: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    """Assert the A2UI v0.9 nested operation envelope."""
+    assert "a2ui_operations" in result, f"unexpected shape: {result!r}"
+    ops = result["a2ui_operations"]
+    expected_len = 3 if data is not None else 2
+    assert len(ops) == expected_len
+
+    create = ops[0]
+    assert create.get("version") == "v0.9"
+    assert "createSurface" in create
+    assert create["createSurface"]["surfaceId"] == surface_id
+    assert create["createSurface"]["catalogId"] == catalog_id
+    assert "type" not in create
+    assert "surfaceId" not in create
+
+    update = ops[1]
+    assert update.get("version") == "v0.9"
+    assert "updateComponents" in update
+    assert update["updateComponents"]["surfaceId"] == surface_id
+    assert update["updateComponents"]["components"] == components
+
+    if data is not None:
+        update_data = ops[2]
+        assert update_data.get("version") == "v0.9"
+        assert "updateDataModel" in update_data
+        assert update_data["updateDataModel"] == {
+            "surfaceId": surface_id,
+            "path": "/",
+            "value": data,
+        }
+
+    return ops
+
+
 @pytest.fixture(autouse=True)
 def _reset_llm_cache():
     """Clear the memoized A2UI LLM between tests so patched factories are
@@ -335,20 +376,13 @@ def test_generate_a2ui_happy_path_returns_operations():
         f"{messages[0].content!r}"
     )
 
-    # Op shape
-    assert "a2ui_operations" in result, f"unexpected shape: {result!r}"
-    ops = result["a2ui_operations"]
-    assert len(ops) == 3
-
-    assert ops[0]["type"] == "create_surface"
-    assert ops[0]["surfaceId"] == "dynamic-surface"
-    assert ops[0]["catalogId"] == "copilotkit://app-dashboard-catalog"
-
-    assert ops[1]["type"] == "update_components"
-    assert ops[1]["components"] == [{"id": "root", "type": "Container"}]
-
-    assert ops[2]["type"] == "update_data_model"
-    assert ops[2]["data"] == {"greeting": "hi"}
+    _assert_v09_a2ui_operations(
+        result,
+        surface_id="dynamic-surface",
+        catalog_id="copilotkit://app-dashboard-catalog",
+        components=[{"id": "root", "type": "Container"}],
+        data={"greeting": "hi"},
+    )
 
 
 def test_generate_a2ui_happy_path_json_string_arguments_also_work():
@@ -370,12 +404,11 @@ def test_generate_a2ui_happy_path_json_string_arguments_also_work():
     )
     with patch("agents.agent._get_a2ui_llm", return_value=fake_llm):
         result = generate_a2ui_via_llm(context="")
-    assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["surfaceId"] == "s1"
-    # No ``data`` in args → no update_data_model op → exactly 2 ops.
-    assert len(result["a2ui_operations"]) == 2, (
-        f"expected 2 ops when args has no 'data' key; got "
-        f"{len(result['a2ui_operations'])}"
+    _assert_v09_a2ui_operations(
+        result,
+        surface_id="s1",
+        catalog_id="copilotkit://app-dashboard-catalog",
+        components=[{"id": "root", "type": "Container"}],
     )
     # Default system prompt must kick in when context is empty.
     call_kwargs = fake_llm.chat.call_args.kwargs
@@ -405,8 +438,12 @@ def test_generate_a2ui_legacy_function_call_path():
     )
     with patch("agents.agent._get_a2ui_llm", return_value=fake_llm):
         result = generate_a2ui_via_llm(context="")
-    assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["surfaceId"] == "legacy-surface"
+    _assert_v09_a2ui_operations(
+        result,
+        surface_id="legacy-surface",
+        catalog_id="copilotkit://app-dashboard-catalog",
+        components=[{"id": "root", "type": "Container"}],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -956,7 +993,17 @@ def test_generate_a2ui_tool_handle_returns_json_str_of_operations():
     """``GenerateA2UITool.handle`` is what langroid invokes server-side. It
     must return a JSON string of whatever ``generate_a2ui_via_llm`` returned
     (a2ui_operations dict on success, or an error dict on failure)."""
-    happy_result = {"a2ui_operations": [{"type": "create_surface"}]}
+    happy_result = {
+        "a2ui_operations": [
+            {
+                "version": "v0.9",
+                "createSurface": {
+                    "surfaceId": "s1",
+                    "catalogId": "copilotkit://app-dashboard-catalog",
+                },
+            }
+        ]
+    }
     with patch("agents.agent.generate_a2ui_via_llm", return_value=happy_result) as stub:
         tool = GenerateA2UITool(context="whatever")
         out = tool.handle()
@@ -1117,17 +1164,11 @@ def test_multi_tool_call_picks_first_and_warns(caplog):
         with caplog.at_level(logging.WARNING, logger="agents.agent"):
             result = generate_a2ui_via_llm(context="")
 
-    assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["surfaceId"] == "first", (
-        "must pick tool_calls[0] when multiple are present"
-    )
-    # The FIRST call's args lack ``data``, so the op list should be exactly
-    # 2 (surface + components) — NOT 4 (which would indicate both calls
-    # were processed and concatenated). Pinning the count catches a
-    # regression that silently processes all calls.
-    assert len(result["a2ui_operations"]) == 2, (
-        f"expected 2 ops from first tool_call's args only; got "
-        f"{len(result['a2ui_operations'])}"
+    _assert_v09_a2ui_operations(
+        result,
+        surface_id="first",
+        catalog_id="copilotkit://app-dashboard-catalog",
+        components=[{"id": "root", "type": "Container"}],
     )
     assert any(
         rec.levelno == logging.WARNING
@@ -1163,8 +1204,12 @@ def test_tool_call_missing_function_attr_falls_through_to_legacy_path(caplog):
     with patch("agents.agent._get_a2ui_llm", return_value=fake_llm):
         with caplog.at_level(logging.WARNING, logger="agents.agent"):
             result = generate_a2ui_via_llm(context="")
-    assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["surfaceId"] == "legacy-via-fallthrough"
+    _assert_v09_a2ui_operations(
+        result,
+        surface_id="legacy-via-fallthrough",
+        catalog_id="copilotkit://app-dashboard-catalog",
+        components=[{"id": "root", "type": "Container"}],
+    )
     assert any(
         rec.levelno == logging.WARNING
         and rec.name == "agents.agent"
@@ -1208,8 +1253,12 @@ def test_tool_call_with_function_arguments_none_falls_through_to_legacy_path(cap
     with patch("agents.agent._get_a2ui_llm", return_value=fake_llm):
         with caplog.at_level(logging.WARNING, logger="agents.agent"):
             result = generate_a2ui_via_llm(context="")
-    assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["surfaceId"] == "legacy-surface"
+    _assert_v09_a2ui_operations(
+        result,
+        surface_id="legacy-surface",
+        catalog_id="copilotkit://app-dashboard-catalog",
+        components=[{"id": "root", "type": "Container"}],
+    )
     # Tight substring: pin the MODERN-slot warning specifically. The legacy-
     # slot warning ("function_call present but .arguments is None") also
     # contains ".arguments is None" — a regression that swaps which warning
