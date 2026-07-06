@@ -6,6 +6,7 @@ import {
   CreditCard,
   HelpCircle,
   LayoutDashboard,
+  RotateCcw,
   Telescope,
   Users,
 } from "lucide-react";
@@ -151,6 +152,30 @@ export function LayoutComponent({ children, resetEnabled = false }: LayoutProps)
   });
   const { activeSurfaceId, clear } = useCanvas();
 
+  const handleReset = async () => {
+    // Native confirm keeps the booth tool dependency-free and reliable; a stray
+    // click can't nuke the demo mid-show.
+    if (
+      !window.confirm(
+        "Reset demo state? This clears all learned memories and restores pending charges.",
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/v1/dev/reset", { method: "POST" });
+      if (res.ok) {
+        // Full reload -> pristine client slate (fresh transactions, cleared
+        // canvas, new thread on next message).
+        window.location.reload();
+      } else {
+        window.alert(`Reset failed (HTTP ${res.status}). See the server logs.`);
+      }
+    } catch (err) {
+      window.alert(`Reset failed: ${err instanceof Error ? err.message : err}`);
+    }
+  };
+
   // Navigating via the rail dismisses any stale surface.
   useEffect(() => {
     clear();
@@ -197,6 +222,25 @@ export function LayoutComponent({ children, resetEnabled = false }: LayoutProps)
             ) : null}
           </nav>
           <div className="flex flex-col items-center gap-3">
+            {resetEnabled && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleReset}
+                      aria-label="Reset demo state"
+                      className="flex h-10 w-10 items-center justify-center rounded-2xl text-ink-muted transition-colors hover:bg-brand-soft hover:text-brand-indigo focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                    >
+                      <RotateCcw className="h-5 w-5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Reset demo state</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
             {glassAvailable && (
               <TooltipProvider>
                 <Tooltip>
