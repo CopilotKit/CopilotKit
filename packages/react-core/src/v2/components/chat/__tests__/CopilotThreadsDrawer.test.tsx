@@ -66,6 +66,7 @@ type ThreadsOverrides = Partial<{
   isLoading: boolean;
   error: Error | null;
   listError: Error | null;
+  fetchMoreError: Error | null;
   hasMoreThreads: boolean;
   isFetchingMoreThreads: boolean;
   isMutating: boolean;
@@ -84,6 +85,7 @@ function setupThreads(overrides: ThreadsOverrides = {}) {
     isLoading: overrides.isLoading ?? false,
     error: overrides.error ?? listError,
     listError,
+    fetchMoreError: overrides.fetchMoreError ?? null,
     hasMoreThreads: overrides.hasMoreThreads ?? false,
     isFetchingMoreThreads: overrides.isFetchingMoreThreads ?? false,
     isMutating: overrides.isMutating ?? false,
@@ -211,6 +213,17 @@ test("maps a genuine list-load error to the element's error string", async () =>
   await renderDrawer();
 
   expect(getElement().error).toBe("boom");
+});
+
+test("forwards fetchMoreError to the element's fetchMoreError property without touching error", async () => {
+  setupThreads({ fetchMoreError: new Error("couldn't load more") });
+
+  await renderDrawer();
+  const el = getElement();
+
+  expect(el.fetchMoreError).toBe("couldn't load more");
+  // The dedicated fetch-more channel must NOT bleed into the initial-list error.
+  expect(el.error).toBeNull();
 });
 
 test("sets the element's label when the label prop is provided", async () => {

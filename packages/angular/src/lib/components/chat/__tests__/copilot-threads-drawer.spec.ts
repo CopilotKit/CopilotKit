@@ -34,6 +34,7 @@ const threadsState = {
   isLoading: signal(false),
   error: signal<Error | null>(null),
   listError: signal<Error | null>(null),
+  fetchMoreError: signal<Error | null>(null),
   hasMoreThreads: signal(false),
   isFetchingMoreThreads: signal(false),
   isMutating: signal(false),
@@ -133,6 +134,10 @@ function fakeConfig() {
     hasExplicitThreadId: signal(true),
     setActiveThreadId: vi.fn(),
     startNewThread: vi.fn(),
+    // Drawer open-state coordination consumed by the wrapper.
+    drawerOpen: signal(false),
+    setDrawerOpen: vi.fn(),
+    registerDrawer: vi.fn(() => vi.fn()),
   };
 }
 
@@ -437,6 +442,116 @@ test("genuine fetch error surfaces on element.error when listError() is non-null
 });
 
 // ---------------------------------------------------------------------------
+// D2: fetchMoreError forwarding
+// ---------------------------------------------------------------------------
+
+test("fetchMoreError is forwarded to the element's fetchMoreError property; error stays null", async () => {
+  threadsState.error.set(null);
+  threadsState.listError.set(null);
+  threadsState.fetchMoreError.set(new Error("couldn't load more"));
+
+  const { fixture, el } = setup();
+  fixture.detectChanges();
+  await fixture.whenStable();
+
+  expect(
+    (el as unknown as { fetchMoreError: string | null }).fetchMoreError,
+  ).toBe("couldn't load more");
+  // The dedicated fetch-more channel must NOT bleed into the initial-list error.
+  expect(el!.error).toBeNull();
+
+  // Clearing the fetch-more error clears the element property.
+  threadsState.fetchMoreError.set(null);
+  fixture.detectChanges();
+  await fixture.whenStable();
+  expect(
+    (el as unknown as { fetchMoreError: string | null }).fetchMoreError,
+  ).toBeNull();
+});
+
+// ---------------------------------------------------------------------------
+// D1: open-state coordination
+// ---------------------------------------------------------------------------
+
+test("drawer starts CLOSED (el.open === false) with a provider present", async () => {
+  const { fixture, el } = setupWithConfig();
+  await fixture.whenStable();
+
+  expect((el as unknown as { open: boolean }).open).toBe(false);
+});
+
+test("drawer starts CLOSED (el.open === false) with no provider (local fallback)", async () => {
+  const { fixture, el } = setup();
+  await fixture.whenStable();
+
+  expect((el as unknown as { open: boolean }).open).toBe(false);
+});
+
+test("open-change routes to config.setDrawerOpen when a provider is present", () => {
+  const { el, config } = setupWithConfig();
+
+  el.dispatchEvent(
+    new CustomEvent("open-change", {
+      detail: { open: true },
+      bubbles: true,
+    }),
+  );
+
+  expect(config.setDrawerOpen).toHaveBeenCalledWith(true);
+});
+
+test("open-change drives the local fallback (el.open flips) when no provider is present", async () => {
+  const { fixture, el } = setup();
+  await fixture.whenStable();
+  expect((el as unknown as { open: boolean }).open).toBe(false);
+
+  el!.dispatchEvent(
+    new CustomEvent("open-change", {
+      detail: { open: true },
+      bubbles: true,
+    }),
+  );
+  fixture.detectChanges();
+  await fixture.whenStable();
+
+  expect((el as unknown as { open: boolean }).open).toBe(true);
+});
+
+test("registerDrawer is called once when a provider is present", () => {
+  const { config } = setupWithConfig();
+  expect(config.registerDrawer).toHaveBeenCalledTimes(1);
+});
+
+// ---------------------------------------------------------------------------
+// D3: focus-return to the chat input on thread select
+// ---------------------------------------------------------------------------
+
+test("thread-selected returns focus to the chat input (document-global fallback)", () => {
+  const { el } = setupWithConfig();
+
+  // No `copilot-chat-view` ancestor in the test DOM, so findChatInput uses the
+  // document-global fallback: a `<textarea copilotChatTextarea>` on the page.
+  const textarea = document.createElement("textarea");
+  textarea.setAttribute("copilotChatTextarea", "");
+  document.body.appendChild(textarea);
+  const focusSpy = vi.spyOn(textarea, "focus");
+
+  try {
+    el.dispatchEvent(
+      new CustomEvent("thread-selected", {
+        detail: { threadId: "t-focus" },
+        bubbles: true,
+      }),
+    );
+
+    expect(focusSpy).toHaveBeenCalled();
+  } finally {
+    focusSpy.mockRestore();
+    document.body.removeChild(textarea);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Per-row custom content projection (copilotThreadsDrawerRow directive)
 // ---------------------------------------------------------------------------
 
@@ -469,6 +584,7 @@ class HostWithRowComponent {}
 class HostWithSlotComponent {}
 
 test("slotted light-DOM children pass through to <copilotkit-threads-drawer>", () => {
+  licenseStatusSignal.set("valid");
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostWithSlotComponent],
@@ -487,6 +603,7 @@ test("slotted light-DOM children pass through to <copilotkit-threads-drawer>", (
 });
 
 test("copilotThreadsDrawerRow renders per-row slot content for each thread", () => {
+  licenseStatusSignal.set("valid");
   threadsState.threads.set([
     {
       id: "t1",
@@ -529,6 +646,7 @@ test("copilotThreadsDrawerRow renders per-row slot content for each thread", () 
 class HostWithLabelComponent {}
 
 test("label input is forwarded to the <copilotkit-threads-drawer> element label property", () => {
+  licenseStatusSignal.set("valid");
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [HostWithLabelComponent],

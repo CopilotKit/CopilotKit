@@ -20,6 +20,7 @@ type ThreadState = {
   threads: ThreadRecord[];
   isLoading: boolean;
   error: Error | null;
+  fetchMoreError: Error | null;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   isMutating: boolean;
@@ -106,6 +107,7 @@ vi.mock("@copilotkit/core", () => {
       threads: [],
       isLoading: false,
       error: null,
+      fetchMoreError: null,
       hasNextPage: false,
       isFetchingNextPage: false,
       isMutating: false,
@@ -121,6 +123,7 @@ vi.mock("@copilotkit/core", () => {
         threads: [],
         isLoading: false,
         error: null,
+        fetchMoreError: null,
         hasNextPage: false,
         isFetchingNextPage: false,
         isMutating: false,
@@ -341,6 +344,7 @@ vi.mock("@copilotkit/core", () => {
     ɵselectThreads: select((state) => state.threads),
     ɵselectThreadsIsLoading: select((state) => state.isLoading),
     ɵselectThreadsError: select((state) => state.error),
+    ɵselectFetchMoreError: select((state) => state.fetchMoreError),
     ɵselectHasNextPage: select((state) => state.hasNextPage),
     ɵselectIsFetchingNextPage: select((state) => state.isFetchingNextPage),
     ɵselectIsMutating: select((state) => state.isMutating),

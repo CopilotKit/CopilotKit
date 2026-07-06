@@ -22,6 +22,7 @@ import type {
   RetryDetail,
   SearchDetail,
 } from "@copilotkit/web-components/threads-drawer";
+import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
 import { useLicenseContext } from "../../providers/CopilotKitProvider";
@@ -189,7 +190,7 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  *   during prerender to avoid hydration mismatch).
  * - Feeds the element domain data: `threads`, `loading`, `error`,
  *   `activeThreadId`, `licensed`, fetch-more state.
- * - Routes the element's nine outbound events to core thread operations
+ * - Routes the element's eleven outbound events to core thread operations
  *   ({@link useThreads}) and chat-configuration changes.
  * - Registers with the surrounding chat configuration so the header
  *   thread-list launcher appears, and binds the element `open` state to the
@@ -251,7 +252,7 @@ export function CopilotThreadsDrawer({
   // missing the `threads` feature) surfaces the locked view.
   const licensePending = status === null;
 
-  const resolvedAgentId = agentId ?? configuration?.agentId ?? "default";
+  const resolvedAgentId = agentId ?? configuration?.agentId ?? DEFAULT_AGENT_ID;
   const activeThreadId = configuration?.threadId ?? null;
 
   // While unlicensed, skip the thread fetch entirely: the element shows only
@@ -260,6 +261,7 @@ export function CopilotThreadsDrawer({
     threads,
     isLoading,
     listError,
+    fetchMoreError,
     hasMoreThreads,
     isFetchingMoreThreads,
     archiveThread,
@@ -474,7 +476,7 @@ export function CopilotThreadsDrawer({
     handleSearch,
   };
 
-  // Bind the nine outbound DOM events once the element exists. Listeners are
+  // Bind the eleven outbound DOM events once the element exists. Listeners are
   // bound a single time and cleaned up on unmount; they dispatch through the
   // handlers ref so they always invoke the latest closures.
   useEffect(() => {
@@ -570,9 +572,15 @@ export function CopilotThreadsDrawer({
     el.licensed = licensed || licensePending;
     el.hasMore = hasMoreThreads;
     el.fetchingMore = isFetchingMoreThreads;
+    // Dedicated fetch-more error channel: drives the element's inline
+    // "couldn't load more — retry" panel without disturbing the loaded list or
+    // the initial-list `error`. The `retry{scope:"fetch-more"}` handler
+    // becomes reachable once this panel renders.
+    el.fetchMoreError = fetchMoreError ? fetchMoreError.message : null;
   }, [
     isLoading,
     listError,
+    fetchMoreError,
     activeThreadId,
     licensed,
     licensePending,

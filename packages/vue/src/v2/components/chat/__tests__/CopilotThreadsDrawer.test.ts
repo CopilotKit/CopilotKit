@@ -71,6 +71,7 @@ const useThreadsMocks = vi.hoisted(() => ({
   fetchMoreThreads: vi.fn(),
   refetchThreads: vi.fn(),
   listError: { value: null as Error | null },
+  fetchMoreError: { value: null as Error | null },
   error: { value: null as Error | null },
   useThreadsInput: null as Record<string, unknown> | null,
   // Mutable so individual tests (e.g. row-slot projection) can seed threads;
@@ -86,6 +87,7 @@ vi.mock("../../../hooks/use-threads", () => ({
       isLoading: { value: false },
       error: useThreadsMocks.error,
       listError: useThreadsMocks.listError,
+      fetchMoreError: useThreadsMocks.fetchMoreError,
       hasMoreThreads: { value: false },
       isFetchingMoreThreads: { value: false },
       isMutating: { value: false },
@@ -185,6 +187,7 @@ describe("CopilotThreadsDrawer", () => {
     useThreadsMocks.fetchMoreThreads.mockClear();
     useThreadsMocks.refetchThreads.mockClear();
     useThreadsMocks.listError.value = null;
+    useThreadsMocks.fetchMoreError.value = null;
     useThreadsMocks.error.value = null;
     useThreadsMocks.useThreadsInput = null;
     useThreadsMocks.threads.value = [];
@@ -660,6 +663,21 @@ describe("CopilotThreadsDrawer", () => {
       .element as unknown as CopilotKitThreadsDrawerElement;
 
     expect(el.error).toBe(listError.message);
+
+    wrapper.unmount();
+  });
+
+  it("forwards fetchMoreError to the element's fetchMoreError property without touching error", async () => {
+    useThreadsMocks.fetchMoreError.value = new Error("couldn't load more");
+
+    const wrapper = await mountDrawer();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as unknown as CopilotKitThreadsDrawerElement;
+
+    expect(el.fetchMoreError).toBe("couldn't load more");
+    // The dedicated fetch-more channel must NOT bleed into the initial-list error.
+    expect(el.error).toBeNull();
 
     wrapper.unmount();
   });

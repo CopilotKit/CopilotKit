@@ -127,6 +127,9 @@ watchEffect(
     el.licensed = licensed.value || licensePending.value;
     el.hasMore = threadsApi.hasMoreThreads.value;
     el.fetchingMore = threadsApi.isFetchingMoreThreads.value;
+    // Dedicated fetch-more error channel: drives the element's inline
+    // "couldn't load more — retry" panel without disturbing the loaded list.
+    el.fetchMoreError = threadsApi.fetchMoreError.value?.message ?? null;
     el.open = drawerOpen.value;
     if (props.label !== undefined) el.label = props.label;
     if (props.licenseUrl !== undefined) el.licenseUrl = props.licenseUrl;

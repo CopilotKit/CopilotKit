@@ -2,6 +2,7 @@ import {
   CUSTOM_ELEMENTS_SCHEMA,
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   Directive,
   ElementRef,
   EventEmitter,
@@ -12,6 +13,7 @@ import {
   effect,
   inject,
   input,
+  signal,
   viewChild,
 } from "@angular/core";
 import { NgTemplateOutlet } from "@angular/common";
@@ -24,6 +26,7 @@ import type {
   ArchiveDetail,
   DeleteDetail,
   DrawerThread,
+  OpenChangeDetail,
   RetryDetail,
   SearchDetail,
   ThreadSelectedDetail,
@@ -52,6 +55,45 @@ function toDrawerThread(thread: Thread): DrawerThread {
     updatedAt: thread.updatedAt,
     ...(thread.lastRunAt !== undefined ? { lastRunAt: thread.lastRunAt } : {}),
   };
+}
+
+/**
+ * The Angular chat view container's element selector. Used to scope the
+ * focus-return lookup so a multi-chat page focuses THIS drawer's composer.
+ */
+const CHAT_CONTAINER_SELECTOR = "copilot-chat-view";
+/**
+ * The Angular chat input's element selector (`<textarea copilotChatTextarea>`).
+ * Note: this is the Angular chat input, NOT React's `copilot-chat-textarea` or
+ * Vue's `copilot-chat-input-textarea` `data-testid` — the Angular chat
+ * components identify by element/attribute selector rather than `data-testid`.
+ */
+const CHAT_INPUT_SELECTOR = "textarea[copilotChatTextarea]";
+
+/**
+ * Returns the chat input element for focus-return after a thread is selected.
+ *
+ * Best-effort and SCOPED: walks up from the drawer element looking for an
+ * ancestor chat-view container ({@link CHAT_CONTAINER_SELECTOR}), then returns
+ * the chat input ({@link CHAT_INPUT_SELECTOR}) within that subtree. This avoids
+ * focusing the wrong composer on a page hosting more than one chat, where a
+ * document-global lookup would grab whichever input appears first in DOM order.
+ *
+ * Falls back to a document-global lookup when no scoping ancestor is found
+ * (e.g. the drawer and chat share no common container, or headless usage), and
+ * returns `null` when there is no chat input at all. Mirrors the React and Vue
+ * wrappers' `findChatInput`, scoped to the Angular chat selectors.
+ *
+ * @param origin - The drawer element to scope the search from.
+ */
+function findChatInput(origin: Element | null): HTMLElement | null {
+  if (typeof document === "undefined") return null;
+  const container = origin?.closest?.(CHAT_CONTAINER_SELECTOR);
+  if (container) {
+    const scoped = container.querySelector<HTMLElement>(CHAT_INPUT_SELECTOR);
+    if (scoped) return scoped;
+  }
+  return document.querySelector<HTMLElement>(CHAT_INPUT_SELECTOR);
 }
 
 /**
@@ -118,6 +160,7 @@ export class CopilotThreadsDrawerRow {
       (search)="onSearch($event)"
       (retry)="onRetry($event)"
       (load-more)="onLoadMore()"
+      (open-change)="onOpenChange($event)"
       (licensed)="onLicensed()"
       ><ng-content></ng-content>
       @if (rowDirective(); as row) {
@@ -315,8 +358,45 @@ export class CopilotThreadsDrawer {
     () => this.config?.threadId() ?? null,
   );
 
+  /**
+   * User-facing fetch-more error message from the dedicated fetch-more error
+   * signal, or `null`. Drives the element's inline "couldn't load more — retry"
+   * panel without disturbing the loaded list or the initial-list `error`.
+   */
+  protected readonly fetchMoreErrorMessage = computed(
+    () => this.threads.fetchMoreError()?.message ?? null,
+  );
+
+  private readonly destroyRef = inject(DestroyRef);
+
+  /**
+   * Provider-less fallback open-state. Without a surrounding chat configuration
+   * there is no shared open-state to bind to, so the wrapper keeps its own
+   * local state. Starts CLOSED — matching the configuration's own default — so
+   * the element does not spring open (and scroll-lock the page on mobile) on
+   * load, and the element's `open-change` events still toggle it.
+   */
+  private readonly localDrawerOpen = signal(false);
+
+  /**
+   * The effective drawer open-state: the ambient chat configuration's
+   * `drawerOpen` when present, else the provider-less {@link localDrawerOpen}.
+   * Pushed onto the element's controlled `open` property in the effect below.
+   */
+  protected readonly drawerOpen = computed(() =>
+    this.config ? this.config.drawerOpen() : this.localDrawerOpen(),
+  );
+
   constructor() {
     defineCopilotKitThreadsDrawer();
+
+    // Announce drawer presence to the surrounding chat configuration so a
+    // future header launcher can render, and de-register on destroy. Mirrors
+    // the React (`registerDrawer()` effect) and Vue (`onScopeDispose`) wrappers.
+    const unregisterDrawer = this.config?.registerDrawer();
+    if (unregisterDrawer) {
+      this.destroyRef.onDestroy(unregisterDrawer);
+    }
 
     // Push signal-derived values onto the element's JS properties every time
     // any reactive dependency changes. Using an effect (rather than template
@@ -330,9 +410,13 @@ export class CopilotThreadsDrawer {
       // element shows its spinner instead of an empty/locked body.
       el.loading = this.threads.isLoading() || this.licensePending();
       el.error = this.errorMessage();
+      el.fetchMoreError = this.fetchMoreErrorMessage();
       el.activeThreadId = this.activeThreadId();
       el.hasMore = this.threads.hasMoreThreads();
       el.fetchingMore = this.threads.isFetchingMoreThreads();
+      // Drive the element's controlled `open` from the (config-backed or local)
+      // open-state so the element does not default open=true on load.
+      el.open = this.drawerOpen();
       // Pending counts as licensed for rendering: the element shows the locked
       // view only when `licensed` is false, so keeping it true until the status
       // resolves prevents the locked view from flashing mid-resolution.
@@ -359,6 +443,29 @@ export class CopilotThreadsDrawer {
       handler(threadId);
     } else {
       this.config?.setActiveThreadId(threadId, { explicit: true });
+    }
+    // Return focus to the chat input so keyboard users land in the composer.
+    // Scope the lookup to this drawer's own chat (not document-global). Mirrors
+    // the React (`findChatInput(...).focus()`) and Vue (`focusChatInput()`)
+    // wrappers.
+    findChatInput(this.drawerRef()?.nativeElement ?? null)?.focus();
+  }
+
+  /**
+   * Handles the `open-change` event from the drawer element.
+   *
+   * Drives the ambient chat configuration's `setDrawerOpen` when present, else
+   * the provider-less {@link localDrawerOpen} fallback — mirroring the React
+   * and Vue wrappers so the element's open-state stays coordinated.
+   *
+   * @param event - The raw DOM event; cast to `CustomEvent<OpenChangeDetail>` to extract `open`.
+   */
+  protected onOpenChange(event: Event): void {
+    const { open } = (event as CustomEvent<OpenChangeDetail>).detail;
+    if (this.config) {
+      this.config.setDrawerOpen(open);
+    } else {
+      this.localDrawerOpen.set(open);
     }
   }
 
