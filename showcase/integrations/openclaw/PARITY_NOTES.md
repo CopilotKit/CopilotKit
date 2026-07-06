@@ -41,7 +41,9 @@ The showcase ships the full demo set. Support by category:
 - **Chat / presentation** — agentic-chat, prebuilt-sidebar, prebuilt-popup,
   chat-slots, chat-customization-css, beautiful-chat, headless-simple.
 - **Reasoning** — reasoning-default, reasoning-custom (clawg-ui emits
-  `REASONING_*` in stream mode; renders in the built-in reasoning panel).
+  `REASONING_*` in stream mode; renders in the built-in reasoning panel, above
+  the answer). Note the reasoning panel appears only when the model actually
+  produces a summary — see "reasoning is intermittent" under Known gaps.
 - **Tools & generative UI** — frontend-tools, frontend-tools-async,
   gen-ui-agent, gen-ui-tool-based, tool-rendering (+ default/custom catch-all),
   open-gen-ui, open-gen-ui-advanced. Demo tools are frontend-forwarded.
@@ -77,6 +79,24 @@ the same proven mechanisms but have not each been individually e2e-checked.
   `instructions` or gateway prompt injection). Not yet wired.
 - **subagents** — the supervisor → sub-agent orchestration + live delegation
   state has no backing on the thin gateway yet.
+- **Reasoning is intermittent (vs langgraph's always-on)** — the reasoning
+  panel lights up for prompts the model deems worth summarizing (e.g. "write a
+  sonnet") but stays hidden for simple factual ones (e.g. "why is the sky
+  blue"). Root cause is upstream of clawg-ui: OpenClaw's `openai-responses`
+  provider requests the reasoning summary with `summary: "auto"` (hardcoded —
+  it resolves `reasoningEffort` but never sets `reasoningSummary`, so
+  `applyCommonResponsesParams` falls through to `|| "auto"`; see OpenClaw
+  `src/llm/providers/openai-responses.ts` + `openai-responses-shared.ts`). With
+  `"auto"` the model itself decides whether to emit a summary. The
+  langgraph-python reference instead forces `reasoning={"effort":"medium",
+  "summary":"detailed"}` in its agent (`src/agents/reasoning_agent.py`), so its
+  panel appears on every turn. Matching that would mean changing the summary
+  mode **inside OpenClaw core** — the decision is made before clawg-ui sees any
+  event, and we edit only clawg-ui here, so it's out of scope. `"auto"` is a
+  defensible default (reasoning surfaces when it's substantive rather than
+  padding every answer); it is simply less eager than the LangGraph reference.
+  A clean upstream fix would be for OpenClaw to expose `reasoningSummary` as a
+  per-model config knob.
 
 ## Not supported (intentional, fleet-normal)
 

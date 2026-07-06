@@ -13,6 +13,12 @@ echo "[setup] baseline config + workspace"
 # setup exits non-zero on its post-setup gateway health probe (no gateway yet); side effects already applied.
 openclaw setup --non-interactive --accept-risk >/dev/null 2>&1 || true
 
+# reasoningDefault=stream surfaces reasoning as REASONING_* events, but OpenClaw's
+# openai-responses provider requests the summary with summary:"auto" (hardcoded
+# upstream — no config knob), so the panel appears only when the model emits a
+# summary (complex prompts), not on every turn like langgraph's summary:"detailed".
+# See PARITY_NOTES.md "Reasoning is intermittent". Not tunable from here without
+# editing OpenClaw core.
 echo "[setup] bake gateway token + port; reasoningDefault=stream (streams answer tokens AND surfaces reasoning as REASONING_* events; frontend @ag-ui/client >=0.0.52 parses them, CopilotKit renders the reasoning panel)"
 openclaw config patch --stdin >/dev/null <<JSON
 {

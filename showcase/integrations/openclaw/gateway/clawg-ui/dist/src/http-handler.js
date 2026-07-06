@@ -763,6 +763,13 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     // Reasoning state
     let reasoningMessageId = null;
     let reasoningStarted = false;
+    // OpenClaw delivers CUMULATIVE reasoning snapshots (each callback carries the
+    // full thinking text so far — see btw.ts `reasoningText += delta`). Track how
+    // much we've already forwarded so we emit only the newly-appended suffix as a
+    // REASONING_MESSAGE_CONTENT delta, exactly like the assistant-text path.
+    // Without this the frontend stacks every snapshot into an exploding wall of
+    // repeated text. Reset to 0 whenever a reasoning block closes.
+    let streamedReasoningLen = 0;
     // Step reporting state
     const activeSteps = new Set();
     // Close any open reasoning block (called before RUN_FINISHED)
@@ -778,6 +785,7 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
             });
             reasoningStarted = false;
             reasoningMessageId = null;
+            streamedReasoningLen = 0;
         }
     };
     const writeEvent = (event) => {
@@ -876,20 +884,14 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     // reply pipeline (tool-less turns) and runEmbeddedAgent (client-tool
     // turns). runEmbeddedAgent exposes the exact same callback surface, so the
     // AG-UI event mapping lives in one place.
-    const handleAssistantMessageStart = () => {
-        if (closed || wasClientToolCalled(sessionKey))
-            return;
-        closeReasoningIfOpen();
-        if (!messageStarted) {
-            messageStarted = true;
-            writeEvent({
-                type: EventType.TEXT_MESSAGE_START,
-                messageId: currentMessageId,
-                runId: currentRunId,
-                role: "assistant",
-            });
-        }
-    };
+    // No eager assistant-message-start hook. OpenClaw fires onAssistantMessageStart
+    // at TURN START — before any reasoning streams — so opening the TEXT message
+    // there would register it ahead of the reasoning message, and CopilotKit
+    // (which lays messages out in announce order) would render the reasoning panel
+    // BELOW the answer. Instead the text message opens lazily on the first actual
+    // text delta (handlePartialReply / sendBlockReply / emitFallbackText), which
+    // arrives AFTER reasoning closes — so reasoning renders above the answer, as in
+    // the reference integrations. An answer with no text emits no empty bubble.
     // OpenClaw emits CUMULATIVE partial-reply snapshots (no delta field). We
     // forward only the newly-appended suffix as a TEXT_MESSAGE_CONTENT delta;
     // `replace` (a rare full rewrite) resets the cursor.
@@ -936,8 +938,29 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     const handleReasoningStream = (payload) => {
         if (closed)
             return;
-        const text = payload.text;
-        if (!text)
+        // OpenClaw sends cumulative reasoning snapshots (payload.text = the full
+        // thinking so far). Forward only the newly-appended suffix as the delta —
+        // the same treatment handlePartialReply gives assistant text — so the
+        // frontend appends instead of stacking every growing snapshot.
+        const full = typeof payload.text === "string" ? payload.text : "";
+        let delta;
+        if (typeof payload.delta === "string" && payload.delta) {
+            delta = payload.delta;
+            streamedReasoningLen += delta.length;
+        }
+        else if (full.length > streamedReasoningLen) {
+            delta = full.slice(streamedReasoningLen);
+            streamedReasoningLen = full.length;
+        }
+        else if (full && full.length < streamedReasoningLen) {
+            // Snapshot shrank → a new reasoning block; reset and emit it whole.
+            delta = full;
+            streamedReasoningLen = full.length;
+        }
+        else {
+            return; // nothing new
+        }
+        if (!delta)
             return;
         if (!reasoningStarted) {
             reasoningStarted = true;
@@ -955,7 +978,7 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         writeEvent({
             type: EventType.REASONING_MESSAGE_CONTENT,
             messageId: reasoningMessageId,
-            delta: text,
+            delta,
         });
     };
     const handleReasoningEnd = () => {
@@ -971,6 +994,7 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         });
         reasoningStarted = false;
         reasoningMessageId = null;
+        streamedReasoningLen = 0;
     };
     // Shared-state write: the model called a declared state-writer tool. Apply
     // its args to the run-scoped state per the tool's spec (stateKey / arg /
@@ -1172,7 +1196,6 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
                 messageChannel: "clawg-ui",
                 chatType: "direct",
                 trigger: "user",
-                onAssistantMessageStart: handleAssistantMessageStart,
                 onPartialReply: handlePartialReply,
                 ...(surfaceReasoning
                     ? {
@@ -1295,7 +1318,6 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
                     disableBlockStreaming: false,
                     ...(surfaceReasoning ? { streamReasoning: true } : {}),
                     onAgentRunStart: () => { },
-                    onAssistantMessageStart: handleAssistantMessageStart,
                     onPartialReply: handlePartialReply,
                     ...(surfaceReasoning
                         ? {
