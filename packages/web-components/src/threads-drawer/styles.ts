@@ -237,8 +237,13 @@ export const drawerStyles = css`
     display: flex;
     align-items: center;
     gap: 12px;
-    margin: 0 8px;
-    padding: 8px 12px 8px 8px;
+    /* Top margin gives the row breathing room from the drawer top (the header
+       icon row is gone). Horizontal geometry matches the list rows: the hover
+       background insets 12px (like a row's highlight) and, with 10px inner
+       padding, the icon's left edge lands at 22px — the same x as the thread
+       names below (list padding 12 + row padding 10). */
+    margin: 12px 12px 0;
+    padding: 8px 10px;
     border: 0;
     border-radius: var(--_radius);
     background: transparent;
@@ -263,8 +268,11 @@ export const drawerStyles = css`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px;
-    margin: 0 8px;
+    /* Match the list rows' content edge: "Recent Conversations" lands at 22px
+       (margin 12 + padding 10), aligned with the thread names and the New
+       Conversation icon; the funnel sits 22px from the right, over the kebabs. */
+    padding: 8px 10px;
+    margin: 0 12px;
   }
 
   .section-title {
