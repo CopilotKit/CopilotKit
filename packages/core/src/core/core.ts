@@ -34,8 +34,11 @@ import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
 import type { ɵMemoryStore } from "../memory";
-import { ɵcreateMetadataRealtimeConnection } from "./metadata-realtime";
-import type { ɵMetadataRealtimeConnection } from "./metadata-realtime";
+import { ɵcreateMetadataSocket } from "./metadata-realtime";
+import type {
+  ɵMetadataSocket,
+  ɵMetadataSocketHandle,
+} from "./metadata-realtime";
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -389,12 +392,13 @@ export class CopilotKitCore {
    */
   private _memoryStore?: ɵMemoryStore;
   /**
-   * The shared per-user metadata realtime connection (threads + memory ride the
-   * same socket). Lazily created by `ɵgetMetadataRealtime()` while the runtime
-   * is connected and a ws URL is known; disposed when the runtime disconnects or
-   * the headers change. `undefined` when no live connection exists.
+   * The ONE shared metadata socket (threads + memory ride the same socket).
+   * Lazily seeded by `ɵgetMetadataSocket(joinToken)` from the FIRST consumer's
+   * joinToken while the runtime is connected and a ws URL is known; disposed
+   * when the runtime disconnects or the headers change. `undefined` when no
+   * live socket exists.
    */
-  private _metadataRealtime?: ɵMetadataRealtimeConnection;
+  private _metadataSocket?: ɵMetadataSocketHandle;
   /**
    * Tracks the agent IDs from the most recent `onAgentsChanged` notification.
    * Used to gate thread-store auto-unregister so the FIRST empty-agents
@@ -453,16 +457,15 @@ export class CopilotKitCore {
       // so this single hook covers both connection and intelligence changes.
       // Guarded so we never instantiate the store just to sync it.
       onRuntimeConnectionStatusChanged: () => {
-        // Tear down the shared metadata connection whenever we are no longer in
-        // the connected+wsUrl state; the next `ɵgetMetadataRealtime()` /
-        // `syncMemoryContext()` lazily rebuilds it once we are live again.
+        // Tear down the shared metadata socket whenever we are no longer in the
+        // connected+wsUrl state; the next consumer re-seeds a fresh socket via
+        // `ɵgetMetadataSocket(joinToken)` once we are live again.
         if (
           this.runtimeConnectionStatus !==
             CopilotKitCoreRuntimeConnectionStatus.Connected ||
-          !this.intelligence?.wsUrl ||
-          !this.runtimeUrl
+          !this.intelligence?.wsUrl
         ) {
-          this.disposeMetadataRealtime();
+          this.disposeMetadataSocket();
         }
         if (this._memoryStore) this.syncMemoryContext();
       },
@@ -755,10 +758,12 @@ export class CopilotKitCore {
    */
   setHeaders(headers: Record<string, string | null | undefined>): void {
     this._headers = normalizeHeaders(headers);
-    // Headers changed — the metadata subscription token is minted from them, so
-    // re-mint the shared connection with the new headers (accepting the socket
-    // teardown/reconnect cost). `syncMemoryContext()` lazily rebuilds it.
-    this.disposeMetadataRealtime();
+    // Headers changed — the metadata join token is minted (by the consumer)
+    // from them, so tear down the shared socket (accepting the socket
+    // teardown/reconnect cost). The next consumer (memory re-fetching its
+    // credentials with the new headers) re-seeds a fresh socket with a fresh
+    // token via `ɵgetMetadataSocket`. `syncMemoryContext()` re-pushes context.
+    this.disposeMetadataSocket();
     if (this._memoryStore) this.syncMemoryContext();
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
@@ -923,84 +928,59 @@ export class CopilotKitCore {
   }
 
   /**
-   * The shared per-user metadata realtime connection (threads + memory ride the
-   * same socket). Lazily created when the runtime is connected and a ws URL is
-   * known; `undefined` otherwise. Consumers (the memory store via
-   * `syncMemoryContext`, the thread store via the `useThreads` hook) join their
-   * own channel off `socket$`.
+   * Lazily creates (seeds) the ONE shared metadata socket from the first
+   * consumer's `joinToken`, memoizes it, and hands back the consumer view
+   * (threads + memory ride the same socket, each joining its own channel off
+   * `socket$`). Returns `undefined` until the runtime is connected with a ws
+   * URL. Subsequent calls return the SAME socket — the `joinToken` argument is
+   * used only to seed the first time, since the socket is already authenticated
+   * after that.
    */
-  ɵgetMetadataRealtime(): ɵMetadataRealtimeConnection | undefined {
+  ɵgetMetadataSocket(joinToken: string): ɵMetadataSocket | undefined {
     if (
       this.runtimeConnectionStatus !==
         CopilotKitCoreRuntimeConnectionStatus.Connected ||
-      !this.intelligence?.wsUrl ||
-      !this.runtimeUrl
+      !this.intelligence?.wsUrl
     ) {
       return undefined;
     }
-    if (!this._metadataRealtime) {
-      const runtimeUrl = this.runtimeUrl;
-      const headers = { ...this.headers };
-      this._metadataRealtime = ɵcreateMetadataRealtimeConnection({
+    if (!this._metadataSocket) {
+      this._metadataSocket = ɵcreateMetadataSocket({
         wsUrl: this.intelligence.wsUrl,
-        fetchSubscription: () =>
-          this.fetchMetadataSubscription(runtimeUrl, headers),
+        joinToken,
       });
     }
-    return this._metadataRealtime;
+    return this._metadataSocket.socket;
+  }
+
+  /** Idempotent teardown of the shared metadata socket. */
+  private disposeMetadataSocket(): void {
+    this._metadataSocket?.dispose();
+    this._metadataSocket = undefined;
   }
 
   /**
-   * Mints the metadata subscription (join token + per-user join code `R`).
-   * Hidden behind one function so swapping `/threads/subscribe` for a future
-   * generic `/metadata/subscribe` is a one-line change. Both existing routes
-   * return the same per-user metadata join code + a metadata-scoped token.
-   */
-  private async fetchMetadataSubscription(
-    runtimeUrl: string,
-    headers: Record<string, string>,
-  ): Promise<{ joinToken: string; joinCode: string }> {
-    const res = await globalThis.fetch(`${runtimeUrl}/threads/subscribe`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...headers },
-      body: "{}",
-    });
-    if (!res.ok) {
-      throw new Error(`metadata subscribe failed: ${res.status}`);
-    }
-    const { joinToken, joinCode } = await res.json();
-    if (
-      typeof joinToken !== "string" ||
-      joinToken.length === 0 ||
-      typeof joinCode !== "string" ||
-      joinCode.length === 0
-    ) {
-      throw new Error("metadata subscribe: malformed response");
-    }
-    return { joinToken, joinCode };
-  }
-
-  /** Idempotent teardown of the shared metadata connection. */
-  private disposeMetadataRealtime(): void {
-    this._metadataRealtime?.dispose();
-    this._metadataRealtime = undefined;
-  }
-
-  /**
-   * Pushes the current runtime wiring into the memory store. When a shared
-   * metadata realtime connection is available (runtime connected + ws URL
-   * known) and a runtime URL is set, the store receives a context (runtime URL,
-   * a copy of the current headers, and the shared connection); otherwise its
-   * context is cleared. No-op when the store has not been created yet.
+   * Pushes the current runtime wiring into the memory store. When the runtime
+   * is connected with a ws URL and a runtime URL is set, the store receives a
+   * context (runtime URL, a copy of the current headers, and a provider that
+   * lazily seeds/returns the shared metadata socket); otherwise its context is
+   * cleared. The provider closes over `this`, so it always reflects the current
+   * socket — including after a re-mint. No-op when the store has not been
+   * created yet.
    */
   private syncMemoryContext(): void {
     if (!this._memoryStore) return;
-    const metadata = this.ɵgetMetadataRealtime();
-    if (metadata && this.runtimeUrl) {
+    if (
+      this.runtimeConnectionStatus ===
+        CopilotKitCoreRuntimeConnectionStatus.Connected &&
+      this.intelligence?.wsUrl &&
+      this.runtimeUrl
+    ) {
       this._memoryStore.setContext({
         runtimeUrl: this.runtimeUrl,
         headers: { ...this.headers },
-        metadata,
+        getMetadataSocket: (joinToken) =>
+          this.ɵgetMetadataSocket(joinToken) ?? null,
       });
     } else {
       this._memoryStore.setContext(null);
