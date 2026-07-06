@@ -176,7 +176,9 @@ const iconFunnel = html`
     stroke-linejoin="round"
     aria-hidden="true"
   >
-    <path d="M3 4h18l-7 8v6l-4 2v-8Z" />
+    <line x1="3" y1="5" x2="21" y2="5" />
+    <line x1="6" y1="12" x2="18" y2="12" />
+    <line x1="10" y1="19" x2="14" y2="19" />
   </svg>
 `;
 const iconKebab = html`
