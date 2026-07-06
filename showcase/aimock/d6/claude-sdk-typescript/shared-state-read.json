@@ -21,7 +21,6 @@
       "_comment": "D5 fixture for /demos/shared-state-read (recipe-editor) turn 2. Reply mentions recipe-context tokens so the probe's soft assertion lands.",
       "match": {
         "userMessage": "healthier with more vegetables",
-        "turnIndex": 0,
         "context": "claude-sdk-typescript"
       },
       "response": {

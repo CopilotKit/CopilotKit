@@ -285,12 +285,13 @@ export function mintTestId(nowMs: number = Date.now()): string {
   const bytes = crypto.randomBytes(16);
   // 48-bit big-endian timestamp in bytes 0..5.
   const ts = BigInt(nowMs);
-  bytes[0] = Number((ts >> 40n) & 0xffn);
-  bytes[1] = Number((ts >> 32n) & 0xffn);
-  bytes[2] = Number((ts >> 24n) & 0xffn);
-  bytes[3] = Number((ts >> 16n) & 0xffn);
-  bytes[4] = Number((ts >> 8n) & 0xffn);
-  bytes[5] = Number(ts & 0xffn);
+  const byteMask = BigInt(0xff);
+  bytes[0] = Number((ts >> BigInt(40)) & byteMask);
+  bytes[1] = Number((ts >> BigInt(32)) & byteMask);
+  bytes[2] = Number((ts >> BigInt(24)) & byteMask);
+  bytes[3] = Number((ts >> BigInt(16)) & byteMask);
+  bytes[4] = Number((ts >> BigInt(8)) & byteMask);
+  bytes[5] = Number(ts & byteMask);
   // Version 7 in the high nibble of byte 6.
   bytes[6] = (bytes[6] & 0x0f) | 0x70;
   // Variant 10 in the high bits of byte 8.

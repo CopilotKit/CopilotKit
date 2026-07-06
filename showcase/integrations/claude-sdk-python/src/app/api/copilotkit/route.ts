@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
 import crypto from "node:crypto";
 
 // The agent backend runs as a separate process on port 8000.
@@ -23,13 +25,16 @@ const ROUTE_DEBUG =
   process.env.SHOWCASE_ROUTE_DEBUG === "true";
 
 function createAgent(path = "/") {
-  return new HttpAgent({ url: `${AGENT_URL}${path}` });
+  return createClaudeHttpAgent(`${AGENT_URL}${path}`);
 }
 
-// Register the same agent under all names used by demo pages.
+// Register the same agent under all names used by demo pages. Entries that
+// need backend-owned tools/state are re-pointed by `dedicatedAgentPaths`.
 const agentNames = [
   "agentic_chat",
+  "agentic-chat",
   "human_in_the_loop",
+  "hitl",
   "tool-rendering",
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
@@ -43,27 +48,50 @@ const agentNames = [
   "chat-slots",
   "chat-customization-css",
   "headless-simple",
+  "frontend_tools",
   "frontend-tools",
+  "threadid-frontend-tool-roundtrip",
   "frontend-tools-async",
+  "hitl-in-chat",
   "hitl-in-app",
   "readonly-state-agent-context",
   "headless-complete",
   "beautiful-chat",
+  "declarative-gen-ui",
+  "open-gen-ui",
+  "open-gen-ui-advanced",
+  "mcp-apps",
+  "declarative_json_render",
+  "declarative-hashbrown-demo",
+  "multimodal-demo",
+  "voice-demo",
+  "agent-config-demo",
+  "auth-demo",
+  "gen-ui-interrupt",
+  "interrupt-headless",
+  "reasoning-default",
+  "reasoning-custom",
 ];
 
 // Demos with dedicated FastAPI endpoints (their own state schema, tool
 // set, or prompt). The Python backend mounts each at /<name>; mapping
 // the agent name to that path keeps the runtime config flat.
 const dedicatedAgentPaths: Record<string, string> = {
+  "gen-ui-agent": "/gen-ui-agent",
+  "tool-rendering": "/tool-rendering",
+  "tool-rendering-default-catchall": "/tool-rendering",
+  "tool-rendering-custom-catchall": "/tool-rendering",
   "shared-state-read-write": "/shared-state-read-write",
+  "shared-state-streaming": "/shared-state-streaming",
   subagents: "/subagents",
   // Reasoning demos share a single backend that emits AG-UI
   // REASONING_MESSAGE_* events (parsed out of <reasoning>...</reasoning>
   // blocks the model emits). The two demo cells differ only on the
   // frontend slot configuration.
-  "agentic-chat-reasoning": "/reasoning",
-  "reasoning-default-render": "/reasoning",
+  "reasoning-default": "/reasoning",
+  "reasoning-custom": "/reasoning",
   "tool-rendering-reasoning-chain": "/tool-rendering-reasoning-chain",
+  "headless-complete": "/headless-complete",
   "hitl-in-chat": "/hitl-in-chat",
   "hitl-in-chat-booking": "/hitl-in-chat",
   "gen-ui-interrupt": "/interrupt-adapted",
