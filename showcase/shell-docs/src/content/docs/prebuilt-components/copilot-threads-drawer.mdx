@@ -85,7 +85,8 @@ That's the whole integration — no `threadId` state, no `onSelect` plumbing.
 | `recentLabel` | Section heading shown above the thread list. Defaults to `"Recent Conversations"`. |
 | `onThreadSelect` | Escape hatch to take over thread selection yourself. |
 | `onNewThread` | Escape hatch to handle the "New Conversation" row yourself. |
-| `onSearch` | Called as the user types in the drawer's search box (`(query: string) => void`). |
+| `collapsible` | Whether the drawer shows a collapse toggle. Defaults to `true`; set `false` to keep it always expanded. |
+| `onCollapseChange` | Called when the user collapses or expands the drawer (`(collapsed: boolean) => void`) — use it to reclaim the drawer's reserved layout space. |
 | `renderRow` | Render custom content per row (keeps the row chrome around it). |
 | `limit` | Page size for pagination — shows a "Load more" control while more threads remain. Omit to load all at once. |
 
