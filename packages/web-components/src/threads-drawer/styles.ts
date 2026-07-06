@@ -229,6 +229,25 @@ export const drawerStyles = css`
     height: 16px;
   }
 
+  .search {
+    padding: 0 8px;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 8px 10px;
+    font: inherit;
+    border: 1px solid var(--_border);
+    border-radius: var(--_radius);
+    background: var(--_bg);
+    color: inherit;
+  }
+
+  .search-input:focus-visible {
+    outline: none;
+    border-color: var(--_ring);
+  }
+
   .section-heading {
     position: relative;
     display: flex;

@@ -228,6 +228,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
     _hasMemories: { state: true },
     _hasFooter: { state: true },
     _searchOpen: { state: true },
+    _searchQuery: { state: true },
     _filterOpen: { state: true },
   };
 
@@ -278,8 +279,10 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _viewportIsMobile = false;
   private _hasMemories = false;
   private _hasFooter = false;
-  /** Whether the search input is revealed (Task 1 toggle; filtering in Task 4). */
+  /** Whether the search input is revealed. */
   private _searchOpen = false;
+  /** Current client-side search query (case-insensitive name substring). */
+  private _searchQuery = "";
   /** Whether the funnel filter popover (Active/All) is open. */
   private _filterOpen = false;
 
@@ -296,6 +299,12 @@ export class CopilotKitThreadsDrawer extends LitElement {
       }
       if (this._confirmingDeleteId !== null) {
         this._confirmingDeleteId = null;
+        event.stopPropagation();
+        return;
+      }
+      if (this._searchOpen) {
+        this._searchQuery = "";
+        this._searchOpen = false;
         event.stopPropagation();
         return;
       }
@@ -449,6 +458,15 @@ export class CopilotKitThreadsDrawer extends LitElement {
       this._filter === "active"
         ? this.threads.filter((t) => !t.archived)
         : this.threads;
+    // Client-side search: additionally filter the archived-filtered set by a
+    // case-insensitive substring of the thread name, BEFORE sorting. A
+    // null-named (placeholder) thread has no searchable text, so it matches only
+    // the empty query.
+    const q = this._searchQuery.trim().toLowerCase();
+    const searched =
+      q === ""
+        ? filtered
+        : filtered.filter((t) => (t.name ?? "").toLowerCase().includes(q));
     // Parse to a timestamp; a malformed/absent value yields `null` (NOT epoch 0)
     // so bad data is never silently treated as 1970. Threads with a valid
     // timestamp sort most-recent-first; threads with no parseable timestamp
@@ -458,7 +476,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
       const parsed = Date.parse(raw);
       return Number.isNaN(parsed) ? null : parsed;
     };
-    return [...filtered]
+    return [...searched]
       .map((thread, index) => ({ thread, index, ts: ts(thread) }))
       .sort((a, b) => {
         if (a.ts === null && b.ts === null) return a.index - b.index;
@@ -636,14 +654,37 @@ export class CopilotKitThreadsDrawer extends LitElement {
     `;
   }
 
-  /** Toggles the search input open/closed (client-side filtering lands in Task 4). */
+  /** Toggles the search input open/closed. */
   private _toggleSearch() {
     this._searchOpen = !this._searchOpen;
   }
 
-  /** Search input — implemented in Task 4. */
+  /**
+   * Client-side search input, revealed by the header search toggle. Filtering is
+   * applied in `_visibleThreads()`; each keystroke also emits the `search` event
+   * so a consumer can observe the query (e.g. for server-side augmentation).
+   */
   private _renderSearch() {
-    return nothing;
+    if (!this._searchOpen) return nothing;
+    return html`
+      <div class="search">
+        <input
+          class="search-input"
+          part="search-input"
+          type="search"
+          placeholder="Search conversations"
+          .value=${this._searchQuery}
+          aria-label="Search conversations"
+          @input=${(e: Event) =>
+            this._onSearchInput((e.target as HTMLInputElement).value)}
+        />
+      </div>
+    `;
+  }
+
+  private _onSearchInput(next: string) {
+    this._searchQuery = next;
+    this._emit("search", { query: next });
   }
 
   /**

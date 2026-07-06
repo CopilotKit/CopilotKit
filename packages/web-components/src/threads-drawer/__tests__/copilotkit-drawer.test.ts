@@ -1202,3 +1202,33 @@ test("section heading text is configurable via recentLabel", async () => {
     element.shadowRoot!.querySelector('[part="section-heading"]')!.textContent,
   ).toContain("History");
 });
+
+// --- ENT-1051 Task 4: Client-side search ----------------------------------
+
+test("typing in search filters the visible rows by name and emits search", async () => {
+  const { element } = await setup({
+    threads: [
+      makeThread({ id: "a", name: "Alpha" }),
+      makeThread({ id: "b", name: "Beta" }),
+    ],
+  });
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="search-toggle"]')!
+    .click();
+  await flush(element);
+  const input = element.shadowRoot!.querySelector<HTMLInputElement>(
+    '[part="search-input"]',
+  )!;
+  const onSearch = vi.fn();
+  element.addEventListener("search", onSearch);
+  input.value = "alph";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await flush(element);
+  const names = [...element.shadowRoot!.querySelectorAll(".row-name-text")].map(
+    (n) => n.textContent,
+  );
+  expect(names).toEqual(["Alpha"]);
+  expect(onSearch).toHaveBeenCalledWith(
+    expect.objectContaining({ detail: { query: "alph" } }),
+  );
+});
