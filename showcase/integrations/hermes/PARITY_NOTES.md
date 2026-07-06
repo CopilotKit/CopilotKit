@@ -13,7 +13,7 @@ Hermes integration deliberately diverges from the canonical pattern and why.
 
 - **No `src/agents/`.** The backend is the Hermes agent itself, installed from
   the **fork** that carries AG-UI support (`hermes-agent[agui] @
-  git+https://github.com/mme/hermes-agent.git@<sha>` in `requirements.txt`,
+git+https://github.com/mme/hermes-agent.git@<sha>` in `requirements.txt`,
   pinned to a commit SHA). The fork ships the Hermes core AND the
   `agui_adapter/` bridge, so the adapter is **NOT vendored** here — single
   source of truth. Run via `run_backend.py` → `python -m agui_adapter`.
@@ -74,7 +74,7 @@ demo uses. Reason: Hermes surfaces reasoning only from separate
 `reasoning_content` provider deltas, which **aimock emits only for
 reasoning-capable model families AND only when the fixture declares a `reasoning`
 channel**. `gpt-5-mini` is a reasoning family, so the reasoning demos get
-REASONING_MESSAGE_* events; the non-reasoning demos share the same backend
+REASONING*MESSAGE*\* events; the non-reasoning demos share the same backend
 without spurious reasoning because their fixtures declare no `reasoning` channel.
 The dedicated route survives only for its distinct endpoint + agent names.
 
@@ -106,7 +106,7 @@ state-writer tools (`set_steps`/`set_notes`) via `forwarded_props`. The adapter
 **suppresses the visible `TOOL_CALL_*` chip** for these internal tools and emits
 only the `StateSnapshotEvent` that drives the state card (the authoritative
 surface) — matching langgraph's "state card is the sole surface" UX. Per-token
-state *streaming* (langgraph's `StateStreamingMiddleware`) is **not** replicated;
+state _streaming_ (langgraph's `StateStreamingMiddleware`) is **not** replicated;
 the snapshot is emitted after the tool completes (end-state is identical). Same
 `shared-state-streaming` limitation pydantic-ai documents.
 
@@ -128,7 +128,7 @@ is load-bearing:
   hermes**; every other integration renders it **natively** and settles on
   text as it always has, and does **not** emit the `beautiful-chat-flight-card`
   testid. So `completeOnMount` here is gated on `ctx.integrationSlug ===
-  "hermes"` — applying it unconditionally would require a surface the 17 peers
+"hermes"` — applying it unconditionally would require a surface the 17 peers
   never mount and would red their previously-green turn. hermes's renderer is
   the only one carrying the `beautiful-chat-flight-card` testid; no peer
   renderer was modified (an earlier revision added it to langgraph-python and
@@ -141,7 +141,7 @@ renderers byte-identical to `main` (no cross-integration regression).
 ## multimodal — no PDF flatten
 
 Images pass through to the vision model natively. langgraph's `_PdfFlattenMiddleware`
-(pypdf → text) has no Hermes equivalent; a PDF's *contents* are not read (the
+(pypdf → text) has no Hermes equivalent; a PDF's _contents_ are not read (the
 prompt text is). The D5 image path is unaffected.
 
 ## Not supported (declared in `manifest.yaml`)
@@ -163,9 +163,9 @@ prompt text is). The D5 image path is unaffected.
   breakage pre-merge. No Railway needed.
 - **On-demand aimock E2E: WIRED.** `test_e2e-showcase-on-demand.yml` accepts
   `hermes` (comment `/test-aimock hermes` or `workflow_dispatch`). A dedicated
-  `hermes` agent_type (detected by `run_backend.py`) boots the adapter against
-  aimock with the `HERMES_AGUI_*` env from `entrypoint.sh`, then runs the
-  Playwright specs in `tests/e2e/`. Acceptance = a `workflow_dispatch` run
+  `hermes` agent*type (detected by `run_backend.py`) boots the adapter against
+  aimock with the `HERMES_AGUI*\*`env from`entrypoint.sh`, then runs the
+Playwright specs in `tests/e2e/`. Acceptance = a `workflow_dispatch` run
   (GH-Actions-only; not locally executable).
 - **Deploy: intentionally NOT wired.** `deployed: false`; no
   `showcase_build.yml`/`showcase_deploy.yml` entry, no Railway service /
@@ -173,7 +173,7 @@ prompt text is). The D5 image path is unaffected.
   landing upstream + a provisioned Railway service (do not fabricate a
   `railway_id`). Dashboard D5 in CI is deploy-coupled, so it follows deploy.
   Until then, D5 coverage is **local-only** (`bin/showcase test hermes:<demo>
-  --d5 --direct`).
+--d5 --direct`).
 - `npm run dev` starts Next **and** the single `:8000` Hermes backend
   (`concurrently`); it does not start aimock — use `bin/showcase up aimock hermes`
   for the full fixture-backed stack.

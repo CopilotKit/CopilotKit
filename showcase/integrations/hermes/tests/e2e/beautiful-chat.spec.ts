@@ -160,9 +160,9 @@ test.describe("Beautiful Chat", () => {
 
     // scheduleTime is registered via useHumanInTheLoop → renders
     // MeetingTimePicker and pauses the agent until the user picks a slot.
-    await expect(
-      page.getByText("Pick a time that works for you"),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText("Pick a time that works for you")).toBeVisible({
+      timeout: 60_000,
+    });
 
     // Click the default "Tomorrow" slot to resolve the HITL; respond() fires,
     // the agent resumes, and the picker transitions to its confirmed state.

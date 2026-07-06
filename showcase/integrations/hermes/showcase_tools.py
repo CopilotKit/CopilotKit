@@ -84,7 +84,9 @@ def _flights_data(origin: str, destination: str) -> Dict[str, Any]:
     }
 
 
-def _stock_data(ticker: str, price_usd: Any = None, change_pct: Any = None) -> Dict[str, Any]:
+def _stock_data(
+    ticker: str, price_usd: Any = None, change_pct: Any = None
+) -> Dict[str, Any]:
     return {
         "ticker": (ticker or "").upper(),
         "price_usd": round(float(price_usd), 2) if price_usd is not None else 189.42,
@@ -125,7 +127,10 @@ def _get_weather(args: Dict[str, Any], **_kwargs: Any) -> str:
 
 def _search_flights(args: Dict[str, Any], **_kwargs: Any) -> str:
     a = args or {}
-    return json.dumps(_flights_data(a.get("origin") or "", a.get("destination") or ""), ensure_ascii=False)
+    return json.dumps(
+        _flights_data(a.get("origin") or "", a.get("destination") or ""),
+        ensure_ascii=False,
+    )
 
 
 def _get_stock_price(args: Dict[str, Any], **_kwargs: Any) -> str:

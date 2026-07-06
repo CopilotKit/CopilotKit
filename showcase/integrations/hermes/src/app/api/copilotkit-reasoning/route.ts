@@ -22,7 +22,9 @@ import { HermesAgent } from "@ag-ui/hermes";
 // The single Hermes backend runs in the same container on :8000 (see
 // entrypoint.sh) — same URL as the main copilotkit route.
 const REASONING_AGENT_URL =
-  process.env.REASONING_AGENT_URL || process.env.AGENT_URL || "http://localhost:8000";
+  process.env.REASONING_AGENT_URL ||
+  process.env.AGENT_URL ||
+  "http://localhost:8000";
 
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts

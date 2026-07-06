@@ -36,7 +36,12 @@ export function buildTurns(ctx: D5BuildContext): ConversationTurn[] {
   // superset for hermes.
   const completeOnMount =
     ctx.integrationSlug === "hermes"
-      ? { completeOnMount: { testIds: ["beautiful-chat-flight-card"], minNewMounts: 1 } }
+      ? {
+          completeOnMount: {
+            testIds: ["beautiful-chat-flight-card"],
+            minNewMounts: 1,
+          },
+        }
       : {};
   return [
     {

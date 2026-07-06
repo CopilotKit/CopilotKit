@@ -72,4 +72,7 @@
 - Toggle Theme flips `html.dark` within 30s; Pie/Bar charts render within 45s; the HITL picker mounts within 60s and confirms on slot select; the FlightCard surface renders (United $349 / Delta $289) within 60s
 - No A2UI render-error banners, no `{path}` leak, no uncaught console errors
 - The four pills excluded from the deterministic aimock D5/e2e suite (Sales Dashboard, Excalidraw, Calculator, Task Manager) work against a live LLM / live MCP server per the notes above; their sub-mechanisms are each covered deterministically by a dedicated hermes cell (`declarative-gen-ui`, `mcp-apps`, `open-gen-ui`, `shared-state-read-write` / `gen-ui-agent`)
+
+```
+
 ```
