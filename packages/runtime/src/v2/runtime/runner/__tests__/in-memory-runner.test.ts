@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { InMemoryAgentRunner } from "../in-memory";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { InMemoryAgentRunner, ɵINMEMORY_DEFAULTS } from "../in-memory";
 import type { InMemoryThread } from "../in-memory";
 import type {
   BaseEvent,
@@ -529,6 +529,15 @@ describe("InMemoryAgentRunner", () => {
   });
 
   describe("Bounding (integration + regression)", () => {
+    // Each test in this block sets tighter limits on the process-global store.
+    // A no-arg `new InMemoryAgentRunner()` is inert (the constructor only calls
+    // setLimits when limits are passed), so restoring defaults requires passing
+    // ɵINMEMORY_DEFAULTS explicitly. Do it after every test so no leaked limit
+    // can poison a later/reordered sibling that assumes defaults.
+    afterEach(() => {
+      new InMemoryAgentRunner(ɵINMEMORY_DEFAULTS);
+    });
+
     it("stays bounded in thread count under a small maxThreads", async () => {
       const boundedRunner = new InMemoryAgentRunner({ maxThreads: 5 });
       boundedRunner.clearThreads();
@@ -562,8 +571,6 @@ describe("InMemoryAgentRunner", () => {
         );
       }
       expect(boundedRunner.listThreads().length).toBeLessThanOrEqual(5);
-      // Reset limits back to defaults for later tests (last-constructed wins).
-      new InMemoryAgentRunner();
     });
 
     it("stays bounded in runs-per-thread under a small maxRunsPerThread", async () => {
@@ -606,15 +613,16 @@ describe("InMemoryAgentRunner", () => {
         (e) => e.type === EventType.TEXT_MESSAGE_START,
       ).length;
       expect(starts).toBeLessThanOrEqual(3);
-      // Reset limits back to defaults for later tests (last-constructed wins).
-      new InMemoryAgentRunner();
     });
 
     it.skipIf(typeof (globalThis as { gc?: unknown }).gc !== "function")(
       "heap plateaus rather than growing monotonically (real OOM guard)",
       async () => {
         const gc = (globalThis as { gc: () => void }).gc;
-        const heapRunner = new InMemoryAgentRunner(); // defaults
+        // Construct WITH explicit defaults so the process-global store is
+        // actually reset to defaults for this test — a no-arg constructor is
+        // inert and would leave any leaked tighter limits in place.
+        const heapRunner = new InMemoryAgentRunner(ɵINMEMORY_DEFAULTS);
         heapRunner.clearThreads();
 
         const drive = async (n: number) => {
@@ -665,8 +673,6 @@ describe("InMemoryAgentRunner", () => {
         // After bounding, driving 2x more runs must NOT ~2x the heap. Allow
         // generous tolerance to avoid flake; the point is "plateau, not linear".
         expect(end).toBeLessThan(mid * 1.6);
-        // Reset limits back to defaults for later tests (last-constructed wins).
-        new InMemoryAgentRunner();
       },
     );
   });
