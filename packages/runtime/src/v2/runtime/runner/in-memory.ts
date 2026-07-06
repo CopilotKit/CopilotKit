@@ -109,6 +109,106 @@ class InMemoryEventStore {
   currentEvents: BaseEvent[] | null = null;
 }
 
+export class ɵBoundedThreadStore {
+  private readonly map = new Map<string, InMemoryEventStore>();
+
+  constructor(private limits: Required<InMemoryLimits>) {}
+
+  setLimits(limits: Required<InMemoryLimits>): void {
+    this.limits = limits;
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+
+  /** Re-insert at the tail so Map iteration order stays LRU-first. */
+  private touchOrder(threadId: string, store: InMemoryEventStore): void {
+    this.map.delete(threadId);
+    this.map.set(threadId, store);
+  }
+
+  getOrCreate(threadId: string): InMemoryEventStore {
+    const existing = this.map.get(threadId);
+    if (existing) {
+      this.touchOrder(threadId, existing);
+      return existing;
+    }
+    const store = new InMemoryEventStore(threadId);
+    this.map.set(threadId, store);
+    this.evictThreadsIfNeeded(threadId);
+    return store;
+  }
+
+  get(threadId: string, opts: { touch: boolean }): InMemoryEventStore | undefined {
+    const store = this.map.get(threadId);
+    if (store && opts.touch) this.touchOrder(threadId, store);
+    return store;
+  }
+
+  peek(threadId: string): InMemoryEventStore | undefined {
+    return this.map.get(threadId);
+  }
+
+  /**
+   * Evict the least-recently-used NON-running thread. Returns false if none
+   * evictable. The `protect` thread (typically the one just created) is never
+   * evicted, so a fresh thread is not immediately dropped when it is the only
+   * non-running candidate.
+   */
+  private evictOneLru(protect?: string): boolean {
+    for (const [threadId, store] of this.map) {
+      if (threadId === protect) continue; // never evict the just-created thread
+      if (store.isRunning) continue; // never evict a running thread
+      this.removeThread(threadId, store);
+      this.noteEviction();
+      return true;
+    }
+    return false;
+  }
+
+  private removeThread(threadId: string, _store: InMemoryEventStore): void {
+    // Byte-total bookkeeping is added in Task 3.
+    this.map.delete(threadId);
+  }
+
+  private evictThreadsIfNeeded(protect?: string): void {
+    while (this.map.size > this.limits.maxThreads) {
+      if (!this.evictOneLru(protect)) break; // everything evictable is running → accept overage
+    }
+  }
+
+  private noteEviction(): void {
+    // Guidance log is added in Task 4.
+  }
+
+  listThreads(): InMemoryThread[] {
+    const threads: InMemoryThread[] = [];
+    for (const [threadId, store] of this.map) {
+      if (store.historicRuns.length === 0) continue;
+      const firstRun = store.historicRuns[0]!;
+      const lastRun = store.historicRuns[store.historicRuns.length - 1]!;
+      threads.push({
+        id: threadId,
+        name: null,
+        agentId: lastRun.agentId,
+        organizationId: "",
+        createdById: "",
+        archived: false,
+        createdAt: new Date(firstRun.createdAt).toISOString(),
+        updatedAt: new Date(lastRun.createdAt).toISOString(),
+      });
+    }
+    return threads.sort(
+      (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }
+
+  clear(): void {
+    this.map.clear();
+  }
+}
+
 const GLOBAL_STORE = new Map<string, InMemoryEventStore>();
 
 export class InMemoryAgentRunner extends AgentRunner {
