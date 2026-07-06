@@ -563,6 +563,28 @@ test("open is externally controllable and emits open-change when changed via bac
   teardown();
 });
 
+test("mobile open drawer shows a header close button that closes it (open-change); desktop has none", async () => {
+  const { element, q, events, teardown } = await setup({
+    mobile: true,
+    open: true,
+  });
+  const close = q('[part="close-toggle"]') as HTMLElement | null;
+  expect(close).not.toBeNull();
+  close!.click();
+  await flush(element);
+  expect(element.open).toBe(false);
+  expect(events).toContainEqual({
+    type: "open-change",
+    detail: { open: false },
+  });
+  teardown();
+
+  // Desktop is a persistent sidebar — no close affordance.
+  const desktop = await setup({ mobile: false });
+  expect(desktop.q('[part="close-toggle"]')).toBeNull();
+  desktop.teardown();
+});
+
 test("mobile overlay applies scroll-lock when open and releases it when closed", async () => {
   const { element, teardown } = await setup({ mobile: true, open: true });
 

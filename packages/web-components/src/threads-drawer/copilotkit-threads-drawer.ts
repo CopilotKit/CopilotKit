@@ -112,6 +112,22 @@ const iconLauncher = html`
     <path d="m14 9 3 3-3 3" />
   </svg>
 `;
+// Close (X) glyph for the mobile off-canvas drawer's header dismiss button.
+const iconClose = html`
+  <svg
+    class="icon"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="2"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </svg>
+`;
 
 /**
  * Header / control icons for the redesigned drawer chrome (ENT-1051). Inlined
@@ -638,8 +654,17 @@ export class CopilotKitThreadsDrawer extends LitElement {
     // the "New Conversation" row. The "New Conversation" row is suppressed in
     // the locked/unlicensed view (only the Upgrade panel shows), mirroring the
     // section-heading gating.
+    // On mobile the drawer is an off-canvas modal, so it needs an in-header
+    // close affordance (desktop is a persistent sidebar — nothing to close).
+    // The header therefore also renders when the mobile modal is open, even
+    // with no projected `slot="header"` content.
+    const showMobileClose = this._viewportIsMobile && this.open;
     return html`
-      <div class="header" part="header" ?hidden=${!this._hasHeader}>
+      <div
+        class="header"
+        part="header"
+        ?hidden=${!this._hasHeader && !showMobileClose}
+      >
         <slot
           name="header"
           @slotchange=${(e: Event) => {
@@ -647,6 +672,18 @@ export class CopilotKitThreadsDrawer extends LitElement {
             this._hasHeader = slot.assignedElements().length > 0;
           }}
         ></slot>
+        ${
+          showMobileClose
+            ? html`<button
+              class="icon-btn"
+              part="close-toggle"
+              aria-label="Close threads"
+              @click=${() => this._setOpen(false)}
+            >
+              ${iconClose}
+            </button>`
+            : nothing
+        }
       </div>
       ${this.licensed ? this._renderNewConversation() : nothing}
       ${this._renderSectionHeading()}
