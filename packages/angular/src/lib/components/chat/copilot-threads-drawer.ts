@@ -4,6 +4,8 @@ import {
   Component,
   Directive,
   ElementRef,
+  EventEmitter,
+  Output,
   TemplateRef,
   computed,
   contentChild,
@@ -17,21 +19,21 @@ import {
   DEFAULT_AGENT_ID,
   createLicenseContextValue,
 } from "@copilotkit/shared";
-import {
-  CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
-  defineCopilotKitThreadsDrawer,
-} from "@copilotkit/web-components/threads-drawer";
+import { defineCopilotKitThreadsDrawer } from "@copilotkit/web-components/threads-drawer";
 import type {
   ArchiveDetail,
   DeleteDetail,
   DrawerThread,
   RetryDetail,
+  SearchDetail,
   ThreadSelectedDetail,
   UnarchiveDetail,
+  CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
 } from "@copilotkit/web-components/threads-drawer";
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { CopilotKit } from "../../copilotkit";
-import { injectThreads, type Thread } from "../../threads";
+import { injectThreads } from "../../threads";
+import type { Thread } from "../../threads";
 
 /**
  * Maps a {@link Thread} from the platform store onto the minimal
@@ -106,12 +108,14 @@ export class CopilotThreadsDrawerRow {
     <copilotkit-threads-drawer
       #drawer
       [attr.data-testid]="dataTestId()"
+      [attr.recent-label]="recentLabel() ?? null"
       (thread-selected)="onThreadSelected($event)"
       (new-thread)="onNewThread()"
       (archive)="onArchive($event)"
       (unarchive)="onUnarchive($event)"
       (delete)="onDelete($event)"
       (filter-change)="onFilterChange()"
+      (search)="onSearch($event)"
       (retry)="onRetry($event)"
       (load-more)="onLoadMore()"
       (licensed)="onLicensed()"
@@ -151,6 +155,21 @@ export class CopilotThreadsDrawer {
    * `label` property; defaults to the element's own `"Threads"` when unset.
    */
   readonly label = input<string | undefined>();
+
+  /**
+   * Optional heading for the "Recent Conversations" section, forwarded to the
+   * element's `recent-label` attribute; defaults to the element's own
+   * `"Recent Conversations"` when unset.
+   */
+  readonly recentLabel = input<string | undefined>();
+
+  /**
+   * Emits the current client-side search query whenever the user types in the
+   * drawer's search box (mirrors the element's `search` event). Purely
+   * observational — the element performs the filtering itself; use this for
+   * telemetry or to react to the query.
+   */
+  @Output() readonly search = new EventEmitter<string>();
 
   /**
    * Optional host override for the thread-select action.
@@ -432,6 +451,18 @@ export class CopilotThreadsDrawer {
    */
   protected onFilterChange(): void {
     this.threads.refetchThreads();
+  }
+
+  /**
+   * Handles the `search` event from the drawer element — re-emits the query
+   * through the component's `search` output so hosts can observe it. The
+   * element owns the client-side filtering; this is purely a passthrough.
+   *
+   * @param event - The raw DOM event; cast to `CustomEvent<SearchDetail>` to extract `query`.
+   */
+  protected onSearch(event: Event): void {
+    const { query } = (event as CustomEvent<SearchDetail>).detail;
+    this.search.emit(query);
   }
 
   /**
