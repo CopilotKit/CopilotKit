@@ -11,7 +11,7 @@ import {
 } from "../../core/runtime";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
 import { INTELLIGENCE_USER_ID_HEADER } from "../../intelligence-platform/client";
-import { extractForwardableHeaders } from "../header-utils";
+import { mergeForwardableHeaders } from "../header-utils";
 import { resolveIntelligenceUser } from "./resolve-intelligence-user";
 import { logger } from "@copilotkit/shared";
 
@@ -30,6 +30,22 @@ export interface ConnectRequestBody extends RunAgentInput {
   lastSeenEventId?: string | null;
 }
 
+/**
+ * Resolve `agentId` against the runtime's agents and return a per-request
+ * clone of the matching agent.
+ *
+ * Dual return contract — both callers (`handle-run.ts`, `handle-connect.ts`)
+ * depend on it:
+ * - Returns a cloned `AbstractAgent` when the agent exists.
+ * - Returns a 404 `Response` (`{ error: "Agent not found", ... }`) when the
+ *   agent is unknown. Callers MUST `instanceof Response`-check the result and
+ *   return it directly; this doubles as the connect/run path's agent-existence
+ *   guard, so skipping the check would let unknown agent ids slip through.
+ *
+ * The clone is what subsequent per-request mutation (middleware attach,
+ * `agent.headers` merge) operates on, leaving the shared agent registration
+ * untouched.
+ */
 export async function cloneAgentForRequest(
   runtime: CopilotRuntimeLike,
   agentId: string,
@@ -122,10 +138,13 @@ export function configureAgentForRequest(params: {
     }
   }
 
-  agent.headers = {
-    ...agent.headers,
-    ...extractForwardableHeaders(request),
-  };
+  // Forward inbound `authorization` / `x-*` headers onto the outgoing agent
+  // call, but let headers the server explicitly configured on the agent WIN on
+  // collision (case-insensitively) — a server-set service-to-service token
+  // (e.g. an IAM bearer) must never be silently overridden by a
+  // browser/edge/platform-injected inbound header (#5712). See
+  // `mergeForwardableHeaders` for the casing/duplicate-key rationale.
+  agent.headers = mergeForwardableHeaders(agent.headers, request);
 }
 
 /**
