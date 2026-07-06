@@ -107,7 +107,21 @@ export const drawerStyles = css`
   }
 
   .root.collapsed {
-    width: var(--_rail-width);
+    width: auto;
+    border-right: 0;
+    background: transparent;
+  }
+
+  .collapsed-cluster {
+    display: inline-flex;
+    gap: 4px;
+    padding: 8px;
+    margin: 8px;
+    background: var(--_surface);
+    border: 1px solid var(--_border);
+    border-radius: var(--_radius);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+    width: max-content;
   }
 
   /* Mobile: off-canvas overlay (modal pattern). */
@@ -373,6 +387,7 @@ export const drawerStyles = css`
 
   .row.archived .row-name {
     color: var(--_muted-fg);
+    font-style: italic;
   }
 
   .row-name {

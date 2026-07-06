@@ -640,8 +640,31 @@ export class CopilotKitThreadsDrawer extends LitElement {
         aria-modal=${this._isMobileModalOpen() ? "true" : nothing}
         aria-label=${this.label}
       >
-        ${this._renderHeader()} ${this._renderBody()} ${this._renderMemories()}
-        ${this._renderFooter()} ${this._renderConfirmDialog()}
+        ${
+          // Collapsed desktop rail: replace the full body with a compact
+          // floating cluster (expand + new-conversation). Mobile keeps the
+          // modal/launcher path and never collapses to a cluster.
+          this.collapsed && !this._viewportIsMobile
+            ? html`<div class="collapsed-cluster" part="collapsed-cluster">
+                <button
+                  class="icon-btn"
+                  aria-label="Expand threads"
+                  @click=${() => (this.collapsed = false)}
+                >
+                  ${iconSidebar}
+                </button>
+                <button
+                  class="icon-btn"
+                  aria-label="New thread"
+                  @click=${() => this._emit("new-thread", {})}
+                >
+                  ${iconPlusSquare}
+                </button>
+              </div>`
+            : html`${this._renderHeader()} ${this._renderBody()}
+              ${this._renderMemories()} ${this._renderFooter()}
+              ${this._renderConfirmDialog()}`
+        }
       </div>
     `;
   }

@@ -853,7 +853,9 @@ test("reveal class is dropped on the next unrelated re-render (fires once)", asy
   ).toBe(true);
 
   // An unrelated re-render (no threads change) must NOT re-apply `revealed`.
-  element.collapsed = !element.collapsed;
+  // (Uses a label change rather than a collapse toggle: on desktop collapsing
+  // now swaps the body for the floating cluster, which would remove the row.)
+  element.label = "Renamed";
   await flush(element);
 
   expect(
@@ -1292,4 +1294,48 @@ test("row kebab Delete routes through the confirm dialog (no immediate delete)",
   expect(
     element.shadowRoot!.querySelector('[data-testid="drawer-confirm-delete"]'),
   ).toBeTruthy();
+});
+
+// --- ENT-1051 Task 6: archived italic + collapsed floating cluster --------
+
+test("collapsed desktop shows a floating cluster with expand + new-conversation", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  element.collapsed = true;
+  await flush(element);
+  const cluster = element.shadowRoot!.querySelector(
+    '[part="collapsed-cluster"]',
+  )!;
+  expect(cluster).toBeTruthy();
+  const onNew = vi.fn();
+  element.addEventListener("new-thread", onNew);
+  cluster
+    .querySelectorAll("button")[1]!
+    .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  expect(onNew).toHaveBeenCalledTimes(1);
+});
+
+test("archived row name renders italic-muted in All view", async () => {
+  const { element } = await setup({
+    threads: [makeThread({ id: "a", name: "Archived one", archived: true })],
+  });
+  // switch to All via the funnel popover
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="filter-toggle"]')!
+    .click();
+  await flush(element);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="filter-all"]')!
+    .click();
+  await flush(element);
+  const row = element.shadowRoot!.querySelector(".row.archived .row-name")!;
+  expect(row).not.toBeNull();
+  // jsdom has no real cascade engine, so getComputedStyle never resolves an
+  // adopted-stylesheet rule (the "muted, not struck through" test above only
+  // passes because "" trivially lacks "line-through"). Assert the CSS contract
+  // directly against the adopted stylesheet — the same approach the
+  // ":host height" / "::part hooks" tests use.
+  const cssText = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
+  expect(cssText).toContain(".row.archived .row-name");
+  expect(cssText).toContain("font-style: italic");
 });
