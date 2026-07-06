@@ -235,11 +235,12 @@ export const drawerStyles = css`
     display: flex;
     align-items: center;
     gap: 12px;
-    /* Top margin gives the row breathing room from the drawer top (the header
-       icon row is gone). Horizontal geometry matches the list rows: the hover
-       background insets 12px (like a row's highlight) and, with 10px inner
-       padding, the icon's left edge lands at 22px — the same x as the thread
-       names below (list padding 12 + row padding 10). */
+    /* Top margin gives the row breathing room from the drawer top on DESKTOP,
+       where the header bar is hidden and this row is the first element.
+       Horizontal geometry matches the list rows: the hover background insets
+       12px (like a row's highlight) and, with 10px inner padding, the icon's
+       left edge lands at 22px — the same x as the thread names below (list
+       padding 12 + row padding 10). */
     margin: 12px 12px 0;
     padding: 8px 10px;
     border: 0;
@@ -249,6 +250,13 @@ export const drawerStyles = css`
     cursor: pointer;
     font: inherit;
     text-align: left;
+  }
+
+  /* On mobile the header bar (with the close button) renders above this row and
+     already supplies the top spacing, so drop the extra margin to avoid doubling
+     it up. */
+  .root.mobile .new-conversation {
+    margin-top: 0;
   }
 
   .new-conversation:hover,
