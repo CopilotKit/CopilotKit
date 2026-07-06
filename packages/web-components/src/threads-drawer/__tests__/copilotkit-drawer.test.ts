@@ -1105,22 +1105,21 @@ test("desktop does NOT render the mobile launcher", async () => {
 // label property
 // ---------------------------------------------------------------------------
 
-test("label defaults to Threads: root panel aria-label, listbox aria-label, and default header text are all Threads", async () => {
+test("label defaults to Threads: root panel aria-label and listbox aria-label are both Threads", async () => {
   const { element, q, teardown } = await setup();
 
   const root = q("[part='root']") as HTMLElement;
   const list = q("[role='listbox']") as HTMLElement;
-  const headerSpan = q("slot[name='header'] span") as HTMLElement;
 
+  // The redesign has no visible title — `label` drives accessible names only.
   expect(root.getAttribute("aria-label")).toBe("Threads");
   expect(list.getAttribute("aria-label")).toBe("Threads");
-  expect(headerSpan.textContent?.trim()).toBe("Threads");
   expect(element.label).toBe("Threads");
 
   teardown();
 });
 
-test("setting label updates root panel aria-label, listbox aria-label, and default header text", async () => {
+test("setting label updates root panel aria-label and listbox aria-label", async () => {
   const { element, q, teardown } = await setup();
 
   element.label = "My Conversations";
@@ -1128,11 +1127,10 @@ test("setting label updates root panel aria-label, listbox aria-label, and defau
 
   const root = q("[part='root']") as HTMLElement;
   const list = q("[role='listbox']") as HTMLElement;
-  const headerSpan = q("slot[name='header'] span") as HTMLElement;
 
+  // `label` is accessible-name only; there is no visible title span to update.
   expect(root.getAttribute("aria-label")).toBe("My Conversations");
   expect(list.getAttribute("aria-label")).toBe("My Conversations");
-  expect(headerSpan.textContent?.trim()).toBe("My Conversations");
 
   teardown();
 });

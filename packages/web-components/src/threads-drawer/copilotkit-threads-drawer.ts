@@ -234,9 +234,10 @@ export class CopilotKitThreadsDrawer extends LitElement {
   };
 
   /**
-   * Inbound: accessible + default-header label for the drawer region (screen-reader
-   * region name + listbox name + the default header text). Override the visible
-   * header independently via the `header` slot. Defaults to `"Threads"`.
+   * Inbound: accessible label for the drawer region — drives the screen-reader
+   * region name (on `.root`) and the listbox name (on `.list`) ONLY. The
+   * redesign has no visible title; project visible header chrome via the
+   * optional `header` slot instead. Defaults to `"Threads"`.
    */
   label = "Threads";
 
@@ -672,6 +673,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _renderHeader() {
     return html`
       <div class="header" part="header">
+        <slot name="header"></slot>
         <button
           class="icon-btn"
           part="search-toggle"

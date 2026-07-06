@@ -75,7 +75,6 @@ export const drawerStyles = css`
     --_ring: var(--cpk-drawer-ring, var(--ring, ${tok(T.ring)}));
     --_radius: var(--cpk-drawer-radius, var(--radius, ${tok(T.radius)}));
     --_width: var(--cpk-drawer-width, 320px);
-    --_rail-width: var(--cpk-drawer-rail-width, 56px);
   }
 
   :host([hidden]) {
@@ -184,6 +183,17 @@ export const drawerStyles = css`
     justify-content: flex-end;
     gap: 8px;
     padding: 12px;
+  }
+
+  /* Optional consumer projection surface. Empty by default (the redesign has no
+     visible title), so the flex:1 box collapses to zero content and the two
+     icon buttons stay right-aligned exactly as with justify-content:flex-end.
+     When a consumer projects into slot="header" it fills the left of the row. */
+  .header slot[name="header"] {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
   }
 
   .icon-btn {
@@ -531,11 +541,6 @@ export const drawerStyles = css`
   .row-action:focus-visible {
     background: var(--_muted);
     color: inherit;
-  }
-
-  .row-action.danger:hover,
-  .row-action.danger:focus-visible {
-    color: var(--_danger);
   }
 
   .row-action-icon {
