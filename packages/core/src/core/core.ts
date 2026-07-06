@@ -34,6 +34,7 @@ import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
 import type { ɵMemoryStore } from "../memory";
+import type { Subscription } from "rxjs";
 import { ɵcreateMetadataSocket } from "./metadata-realtime";
 import type {
   ɵMetadataSocket,
@@ -399,6 +400,12 @@ export class CopilotKitCore {
    * live socket exists.
    */
   private _metadataSocket?: ɵMetadataSocketHandle;
+  /**
+   * Subscription to the shared socket's `socketFatal$`, held so a health
+   * give-up disposes the socket (see `ɵgetMetadataSocket`). Torn down alongside
+   * the socket in `disposeMetadataSocket`.
+   */
+  private _metadataSocketFatalSub?: Subscription;
   /**
    * Tracks the agent IDs from the most recent `onAgentsChanged` notification.
    * Used to gate thread-store auto-unregister so the FIRST empty-agents
@@ -935,8 +942,13 @@ export class CopilotKitCore {
    * URL. Subsequent calls return the SAME socket — the `joinToken` argument is
    * used only to seed the first time, since the socket is already authenticated
    * after that.
+   *
+   * The `seedJoinToken` seeds the socket on the FIRST call only; later calls
+   * return the already-authenticated socket and ignore the argument. (Both
+   * stores' tokens are scoped to the same per-user meta_join_code, so the first
+   * consumer's token authorizes every channel joined off the shared socket.)
    */
-  ɵgetMetadataSocket(joinToken: string): ɵMetadataSocket | undefined {
+  ɵgetMetadataSocket(seedJoinToken: string): ɵMetadataSocket | undefined {
     if (
       this.runtimeConnectionStatus !==
         CopilotKitCoreRuntimeConnectionStatus.Connected ||
@@ -945,16 +957,32 @@ export class CopilotKitCore {
       return undefined;
     }
     if (!this._metadataSocket) {
-      this._metadataSocket = ɵcreateMetadataSocket({
+      const handle = ɵcreateMetadataSocket({
         wsUrl: this.intelligence.wsUrl,
-        joinToken,
+        joinToken: seedJoinToken,
       });
+      this._metadataSocket = handle;
+      // Give-up must be terminal. When the shared socket's health chain gives
+      // up (`socketFatal$` fires after ɵMETADATA_MAX_SOCKET_RETRIES consecutive
+      // errors), dispose the socket so it stops reconnecting forever; the next
+      // consumer access re-seeds a fresh socket (matching "give up now; a later
+      // reconnect starts over"). `socketFatal$` completes on teardown and this
+      // subscription is torn down in `disposeMetadataSocket`, so it cannot leak;
+      // both `disposeMetadataSocket` and the handle's `dispose` are idempotent,
+      // so the give-up path cannot double-dispose.
+      this._metadataSocketFatalSub = handle.socket.socketFatal$.subscribe(
+        () => {
+          this.disposeMetadataSocket();
+        },
+      );
     }
     return this._metadataSocket.socket;
   }
 
   /** Idempotent teardown of the shared metadata socket. */
   private disposeMetadataSocket(): void {
+    this._metadataSocketFatalSub?.unsubscribe();
+    this._metadataSocketFatalSub = undefined;
     this._metadataSocket?.dispose();
     this._metadataSocket = undefined;
   }

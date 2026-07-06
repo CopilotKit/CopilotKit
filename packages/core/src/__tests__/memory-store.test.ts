@@ -25,6 +25,8 @@ vi.mock("phoenix", () => ({
 // `vi.mock("phoenix", ...)` factory's captured variables are initialized.
 const { CopilotKitCore, CopilotKitCoreRuntimeConnectionStatus } =
   await import("../core");
+const { ɵMETADATA_MAX_SOCKET_RETRIES } =
+  await import("../core/metadata-realtime");
 
 const originalWindow = (globalThis as { window?: unknown }).window;
 
@@ -220,6 +222,61 @@ test("B7: setHeaders tears down the socket and the next consumer re-seeds a fres
   const firstUnderlying = phoenix.sockets[0];
   expect(firstUnderlying).toBeDefined();
   expect(firstUnderlying?.disconnected).toBe(true);
+});
+
+test("FIX-C: a health give-up disposes the shared socket and the next consumer re-seeds a fresh one", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  const runtimeUrl = "https://runtime.example.com";
+
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(infoResponseWithIntelligence), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  );
+  global.fetch = fetchMock;
+
+  const core = new CopilotKitCore({
+    runtimeUrl,
+    runtimeTransport: "rest",
+  });
+
+  await vi.waitFor(() => {
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+  });
+
+  // Seed the shared socket.
+  const first = core.ɵgetMetadataSocket("jt");
+  expect(first).toBeDefined();
+  expect(phoenix.sockets.length).toBe(1);
+  const underlying = phoenix.sockets[0];
+  if (!underlying) throw new Error("expected a seeded phoenix socket");
+  expect(underlying.disconnected).toBe(false);
+
+  // Drive ɵMETADATA_MAX_SOCKET_RETRIES consecutive transport errors with no
+  // intervening `open`, exhausting the shared socket's health monitor so its
+  // `socketFatal$` fires. The give-up must be TERMINAL: core disposes the
+  // socket (stops the Phoenix reconnect loop) rather than latching forever.
+  for (let i = 0; i < ɵMETADATA_MAX_SOCKET_RETRIES; i += 1) {
+    underlying.triggerError();
+  }
+
+  // The give-up tore down the underlying socket.
+  expect(underlying.disconnected).toBe(true);
+  expect(warn).toHaveBeenCalled();
+
+  // The runtime is still connected, so the next consumer access re-seeds a
+  // FRESH socket (`_metadataSocket` was nulled by the give-up dispose).
+  const second = core.ɵgetMetadataSocket("jt");
+  expect(second).toBeDefined();
+  expect(second).not.toBe(first);
+  expect(phoenix.sockets.length).toBe(2);
+  expect(phoenix.sockets[1]?.disconnected).toBe(false);
+
+  warn.mockRestore();
+  core.setRuntimeUrl(undefined);
 });
 
 test("context null without intelligence / not connected: getState().context is null when no intelligence is present", async () => {
