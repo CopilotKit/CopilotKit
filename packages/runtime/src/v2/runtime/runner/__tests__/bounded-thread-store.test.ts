@@ -190,3 +190,26 @@ describe("ɵBoundedThreadStore — appendRun", () => {
     expect(store.byteTotal).toBe(0);
   });
 });
+
+import { vi } from "vitest";
+
+describe("ɵBoundedThreadStore — guidance log", () => {
+  it("warns exactly once across many evictions, and again after clear", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const store = new ɵBoundedThreadStore(limits({ maxThreads: 1 }));
+      store.getOrCreate("t1");
+      store.getOrCreate("t2"); // evict t1 → warn #1
+      store.getOrCreate("t3"); // evict t2 → no warn
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toContain("Intelligence backend");
+
+      store.clear();
+      store.getOrCreate("a");
+      store.getOrCreate("b"); // evict a → warn again after reset
+      expect(warn).toHaveBeenCalledTimes(2);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});

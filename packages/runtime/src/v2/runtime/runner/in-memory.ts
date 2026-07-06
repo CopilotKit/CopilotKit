@@ -32,6 +32,11 @@ export const ɵINMEMORY_DEFAULTS: Required<InMemoryLimits> = {
   maxBytes: 512 * 1024 ** 2,
 };
 
+const EVICTION_GUIDANCE =
+  "[CopilotKit] InMemoryAgentRunner evicted in-memory thread history to stay " +
+  "under memory limits. This runner is bounded and non-durable by design. For " +
+  "durable or production threads, configure an Intelligence backend.";
+
 /**
  * Best-effort approximate byte size of a value, via serialized length.
  * Never throws — returns 0 when the value cannot be serialized. This is an
@@ -112,6 +117,7 @@ class InMemoryEventStore {
 export class ɵBoundedThreadStore {
   private readonly map = new Map<string, InMemoryEventStore>();
   private totalBytes = 0;
+  private warned = false;
 
   constructor(private limits: Required<InMemoryLimits>) {}
 
@@ -229,7 +235,13 @@ export class ɵBoundedThreadStore {
   }
 
   private noteEviction(): void {
-    // Guidance log is added in Task 4.
+    if (this.warned) return;
+    this.warned = true;
+    try {
+      console.warn(EVICTION_GUIDANCE);
+    } catch {
+      // best-effort: logging must never break a run
+    }
   }
 
   listThreads(): InMemoryThread[] {
@@ -257,6 +269,7 @@ export class ɵBoundedThreadStore {
   clear(): void {
     this.map.clear();
     this.totalBytes = 0;
+    this.warned = false;
   }
 }
 
