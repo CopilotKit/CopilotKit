@@ -1308,6 +1308,51 @@ describe("thread store", () => {
     warnSpy.mockRestore();
   });
 
+  // SF1: the list loads and `/threads/subscribe` SUCCEEDS, but
+  // `getMetadataSocket` returns null (the runtime is connected without a ws URL;
+  // the threads context is not gated on wsUrl). Because this null is reached
+  // AFTER a successful subscribe, silently dropping live updates would leave no
+  // signal — so the socket effect must warn. The (already fetched) list survives
+  // intact, no socket is opened, and the store does not crash.
+  it("warns and keeps the list when getMetadataSocket returns null after a successful subscribe", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      // Connected (subscribe succeeds) but no shared socket available.
+      getMetadataSocket: () => null,
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    // The list is intact, the store did not crash, and no socket was opened.
+    expect(() => store.getState()).not.toThrow();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+    expect(phoenix.sockets).toHaveLength(0);
+    // SF1: the missing shared socket is surfaced (not silently dropped).
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[threads] realtime unavailable: no shared metadata socket (runtime connected without a ws URL?); the thread list will not receive live updates",
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it("retries realtime metadata credentials after a failed credential fetch", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const fetchMock = vi

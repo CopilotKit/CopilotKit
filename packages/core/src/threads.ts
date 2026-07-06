@@ -65,6 +65,12 @@ interface ThreadRuntimeContext {
    * when no shared socket is available yet (e.g. the runtime is not connected) —
    * the store then simply never joins its channel and realtime silently stays
    * absent.
+   *
+   * Resolves the shared metadata socket for the given joinToken (seed-once; see
+   * core.ɵgetMetadataSocket). Core DISPOSES the shared socket on disconnect,
+   * header change, and health give-up — so a binding MUST re-dispatch setContext
+   * on return-to-Connected (and header change) to re-resolve a fresh socket,
+   * else the store is stranded on a disposed socket.
    */
   getMetadataSocket: (joinToken: string) => ɵMetadataSocket | null;
 }
@@ -1069,11 +1075,20 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
             ),
           );
 
-          // Resolve the SHARED socket for this joinToken. `null` means no shared
-          // socket is available (e.g. the runtime is not connected yet):
-          // realtime silently stays absent and the REST list is unaffected.
+          // Resolve the SHARED socket for this joinToken. `null` here is reached
+          // AFTER a successful `/threads/subscribe`, so the runtime is connected
+          // but has no shared metadata socket (e.g. connected without a ws URL;
+          // the threads context is not gated on wsUrl). Rather than silently
+          // dropping live updates with no signal, warn so operators can see that
+          // the list will not receive live updates. The (already fetched) REST
+          // list is unaffected. This branch only runs after a successful
+          // subscribe, so it can't false-positive on the normal not-connected
+          // path.
           const socket = context.getMetadataSocket(joinToken);
           if (!socket) {
+            console.warn(
+              "[threads] realtime unavailable: no shared metadata socket (runtime connected without a ws URL?); the thread list will not receive live updates",
+            );
             return EMPTY;
           }
 

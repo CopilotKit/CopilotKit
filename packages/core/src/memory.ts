@@ -1,5 +1,5 @@
 import type { Observable } from "rxjs";
-import { EMPTY, defer, firstValueFrom, merge, of } from "rxjs";
+import { defer, firstValueFrom, merge, of } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
   catchError,
@@ -136,6 +136,12 @@ interface MemoryRuntimeContext {
    * opening one of its own. Returns `null` when no shared socket is available
    * yet (e.g. the runtime is not connected) — the store then simply never
    * joins its channel and realtime silently stays absent.
+   *
+   * Resolves the shared metadata socket for the given joinToken (seed-once; see
+   * core.ɵgetMetadataSocket). Core DISPOSES the shared socket on disconnect,
+   * header change, and health give-up — so a binding MUST re-dispatch setContext
+   * on return-to-Connected (and header change) to re-resolve a fresh socket,
+   * else the store is stranded on a disposed socket.
    */
   getMetadataSocket: (joinToken: string) => ɵMetadataSocket | null;
 }
@@ -200,10 +206,11 @@ const memoryRestEvents = createActionGroup("Memory REST", {
     joinToken: string;
     joinCode: string;
   }>(),
-  // Credentials outcomes are a SILENT degrade: they feed only the realtime
-  // socket effect and deliberately do NOT touch the reducer's `available`/
-  // `error`, which describe the REST list route. See the reducer note near the
-  // list handlers.
+  // Credentials outcomes are a SILENT degrade for the LIST: they deliberately
+  // do NOT touch the reducer's `available`/`error`, which describe the REST list
+  // route. They DO resolve `realtimeStatus` to "unavailable" so the live
+  // indicator doesn't hang at "connecting" when credentials never succeed. See
+  // the reducer note near the list handlers.
   credentialsFailed: props<{ sessionId: number; error: Error }>(),
   credentialsUnavailable: props<{ sessionId: number }>(),
 });
@@ -415,17 +422,49 @@ const memoryReducer = createReducer(
       };
     },
   ),
-  // NOTE: `credentialsFailed` and `credentialsUnavailable` intentionally have NO
-  // reducer cases. `available`/`error` describe the REST list route only and are
-  // driven exclusively by the list events above. The credentials/realtime path
-  // is a silent degrade by design: a missing/unconfigured `/memories/subscribe`
-  // route (404/501/422) or a credentials error must not flip `available` or
-  // surface an `error`, because the list route can still be perfectly healthy.
-  // Otherwise `available` would be order-dependent on whichever of the two
-  // concurrent `contextChanged` bootstraps responds last. Realtime failures are
-  // handled where they occur (the credentials fetch warns on failure; the
-  // socket effect surfaces the give-up via console.warn); they do not belong in
-  // the REST availability state.
+  // NOTE: `credentialsFailed` and `credentialsUnavailable` deliberately leave
+  // `available`/`error`/`memories` UNTOUCHED. Those describe the REST list route
+  // only and are driven exclusively by the list events above. The
+  // credentials/realtime path is a silent degrade for the LIST by design: a
+  // missing/unconfigured `/memories/subscribe` route (404/501/422) or a
+  // credentials error must not flip `available` or surface an `error`, because
+  // the list route can still be perfectly healthy. Otherwise `available` would
+  // be order-dependent on whichever of the two concurrent `contextChanged`
+  // bootstraps responds last.
+  //
+  // What they DO resolve is `realtimeStatus`: both terminal credential outcomes
+  // flip it to "unavailable" so the live indicator does not hang at "connecting"
+  // forever when credentials never succeed (the socket effect — which is what
+  // otherwise transitions `realtimeStatus` — only runs on credentials SUCCESS).
+  // `credentialsFailed` (genuine failure) warns at the fetch site (B5);
+  // `credentialsUnavailable` (404 "not configured") stays warn-silent but still
+  // resolves the status here.
+  on(
+    memoryRestEvents.credentialsFailed,
+    (state: MemoryState, { sessionId }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
+
+      return {
+        ...state,
+        realtimeStatus: "unavailable" as MemoryRealtimeStatus,
+      };
+    },
+  ),
+  on(
+    memoryRestEvents.credentialsUnavailable,
+    (state: MemoryState, { sessionId }) => {
+      if (sessionId !== state.sessionId) {
+        return state;
+      }
+
+      return {
+        ...state,
+        realtimeStatus: "unavailable" as MemoryRealtimeStatus,
+      };
+    },
+  ),
   on(
     memoryDomainEvents.memoryUpserted,
     (state: MemoryState, { sessionId, memory }) => {
@@ -976,8 +1015,9 @@ function createMemoryMutationObservable(
 /**
  * Creates the framework-agnostic memory store: a REST snapshot on `setContext`,
  * server-authoritative add/update/remove mutations, and realtime
- * `memory_metadata` deltas off the injected `user_meta` event source — all
- * reduced into observable state.
+ * `memory_metadata` deltas from the `user_meta:memories:<joinCode>` channel
+ * joined off the shared metadata socket (resolved via
+ * `context.getMetadataSocket`) — all reduced into observable state.
  */
 function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
   // Per-store request-id counter. Kept as a closure variable (not a
@@ -1158,12 +1198,21 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
             ),
           );
 
-          // Resolve the SHARED socket for this joinToken. `null` means no shared
-          // socket is available (e.g. the runtime is not connected yet): realtime
-          // silently stays absent and the REST list is unaffected.
+          // Resolve the SHARED socket for this joinToken. `null` here is reached
+          // AFTER a successful credentials fetch, so it means the runtime is
+          // connected but has no shared metadata socket (e.g. connected without a
+          // ws URL). Rather than silently dropping live updates with no signal,
+          // warn AND resolve `realtimeStatus` to "unavailable" so the live
+          // indicator doesn't hang at "connecting" forever. The REST list is
+          // unaffected (this is a realtime-only degrade).
           const socket = context.getMetadataSocket(joinToken);
           if (!socket) {
-            return EMPTY;
+            console.warn(
+              "[memory] realtime unavailable: no shared metadata socket; memories will not receive live updates",
+            );
+            return of(memoryDomainEvents.realtimeUnavailable({ sessionId })).pipe(
+              takeUntil(shutdown$),
+            );
           }
 
           const channel$ = ɵphoenixChannel$({
@@ -1187,8 +1236,17 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
               try {
                 return mapMemoryMetadataEvent(event, sessionId);
               } catch (error) {
+                // Include the offending event's `operation` and id (memoryId /
+                // invalidated.id when present) so a malformed-payload report is
+                // actionable, not just the bare error.
+                const offending = event as Partial<MemoryMetadataEvent>;
+                const memoryId =
+                  offending?.memoryId ??
+                  (offending as { invalidated?: { id?: string } })?.invalidated
+                    ?.id;
                 console.warn(
                   "[memory] dropping malformed memory_metadata event",
+                  { operation: offending?.operation, memoryId },
                   error,
                 );
                 return null;

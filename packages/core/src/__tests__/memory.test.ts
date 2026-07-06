@@ -429,9 +429,11 @@ describe("memory store realtime", () => {
     });
     await flushEffects();
 
-    // Dropped + warned, and the store state is untouched by the bad event.
+    // Dropped + warned (with the offending event's operation + id so the report
+    // is actionable), and the store state is untouched by the bad event.
     expect(warn).toHaveBeenCalledWith(
       "[memory] dropping malformed memory_metadata event",
+      { operation: "created", memoryId: "bad" },
       expect.anything(),
     );
     expect(store.getState().memories).toEqual([]);
@@ -555,8 +557,70 @@ describe("memory store realtime", () => {
     store.stop();
   });
 
+  // SF1: credentials SUCCEED but `getMetadataSocket` returns null (the runtime
+  // is connected without a ws URL, so no shared metadata socket exists). Rather
+  // than silently dropping live updates, the socket effect must warn AND resolve
+  // `realtimeStatus` to "unavailable" so the live indicator doesn't hang at
+  // "connecting". The REST list is unaffected.
+  it("warns and flips realtimeStatus to 'unavailable' when the shared socket is null after credentials succeed", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext({
+      ...realtimeContext,
+      // Connected (credentials succeed) but no shared socket available.
+      getMetadataSocket: () => null,
+    });
+    await flushEffects();
+
+    expect(store.getState().realtimeStatus).toBe("unavailable");
+    expect(warn).toHaveBeenCalledWith(
+      "[memory] realtime unavailable: no shared metadata socket; memories will not receive live updates",
+    );
+    // No socket was opened, and the REST list is intact.
+    expect(phoenix.sockets).toHaveLength(0);
+    expect(store.getState().memories).toEqual([]);
+    expect(store.getState().available).toBe(true);
+    expect(store.getState().error).toBeNull();
+
+    warn.mockRestore();
+    store.stop();
+  });
+
   it("resets realtimeStatus to 'connecting' on contextChanged", async () => {
-    const store = await connectedRealtimeStore();
+    // URL-routed fetch so BOTH the initial and the re-context bootstraps get a
+    // valid list + credentials response. (A sequenced mock would exhaust after
+    // the first context and the re-context's credentials fetch would fail, which
+    // now — per SF2 — resolves realtimeStatus to "unavailable", masking the
+    // contextChanged reset this test is asserting.)
+    const fetchMock = vi.fn(async (url: string | URL | Request) => {
+      const href = String(url);
+      if (href.endsWith("/memories/subscribe")) {
+        return {
+          ok: true,
+          json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+        } as Response;
+      }
+      return { ok: true, json: async () => ({ memories: [] }) } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = createMemoryStore(memoryEnvironment(fetchMock));
+    store.start();
+    store.setContext({
+      ...realtimeContext,
+      getMetadataSocket: makeGetMetadataSocket(),
+    });
+    await flushEffects();
 
     memoryChannel().triggerJoin("ok");
     await flushEffects();
@@ -1281,14 +1345,14 @@ test("refresh() resolves when a new setContext supersedes it before the fetch se
   store.stop();
 });
 
-// A credentials (subscribe) 404 is a SILENT degrade: the list route succeeded,
-// so the only correct observable effect is that realtime simply never connects.
-// It must NOT flip `available`/`error` (those are list-driven), must NOT advance
-// `realtimeStatus` past its "connecting" default (the socket effect runs only on
-// credentials SUCCESS), and must NOT log a console.warn (404 is the expected
-// "not configured" case, distinct from a genuine failure). Asserting all three
-// pins the silent-degrade contract so the test can't pass for the wrong reason.
-test("subscribe 404 → silent degrade: list-driven state intact, realtimeStatus default, no warn", async () => {
+// A credentials (subscribe) 404 is a SILENT degrade for the LIST: the list route
+// succeeded, so it must NOT flip `available`/`error` (those are list-driven) and
+// must NOT log a console.warn (404 is the expected "not configured" case,
+// distinct from a genuine failure). But it MUST resolve `realtimeStatus` to
+// "unavailable" — otherwise the live indicator hangs at "connecting" forever
+// when credentials never succeed. Asserting all of these pins the contract so
+// the test can't pass for the wrong reason.
+test("subscribe 404 → silent list degrade (no warn), but realtimeStatus resolves to unavailable", async () => {
   const fetchMock = vi
     .fn()
     .mockResolvedValueOnce({
@@ -1309,10 +1373,10 @@ test("subscribe 404 → silent degrade: list-driven state intact, realtimeStatus
   // The successful list still drives availability — credentials failure is silent.
   expect(store.getState().available).toBe(true);
   expect(store.getState().error).toBeNull();
-  // The socket effect only runs on credentials SUCCESS, so realtimeStatus must
-  // stay at its "connecting" default — it never reaches connected/unavailable.
-  expect(store.getState().realtimeStatus).toBe("connecting");
-  // And nothing is logged for a not-configured (404) route.
+  // `credentialsUnavailable` resolves the realtime status so the UI stops
+  // showing a perpetual "connecting" live indicator.
+  expect(store.getState().realtimeStatus).toBe("unavailable");
+  // And nothing is logged for a not-configured (404) route — it stays warn-silent.
   expect(warnSpy).not.toHaveBeenCalled();
 
   warnSpy.mockRestore();
@@ -1343,9 +1407,9 @@ test("subscribe fetch failure → silent degrade for list, but warns that realti
   expect(store.getState().memories).toEqual([]);
   expect(store.getState().available).toBe(true);
   expect(store.getState().error).toBeNull();
-  // Credentials failed, so the socket effect never runs and realtimeStatus stays
-  // at its "connecting" default rather than advancing.
-  expect(store.getState().realtimeStatus).toBe("connecting");
+  // Credentials failed permanently, so `realtimeStatus` resolves to
+  // "unavailable" rather than hanging at its "connecting" default.
+  expect(store.getState().realtimeStatus).toBe("unavailable");
   // B5: the degrade is visible.
   expect(warn).toHaveBeenCalledWith(
     "[memory] realtime subscribe failed; memories will not receive live updates",
