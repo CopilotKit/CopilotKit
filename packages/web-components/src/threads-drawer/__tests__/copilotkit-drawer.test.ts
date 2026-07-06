@@ -224,6 +224,9 @@ test("active filter hides archived threads; All shows them and emits filter-chan
 
   expect(qa("li.row")).toHaveLength(1);
 
+  // The Active/All options live in the funnel popover — open it first.
+  (q('[part="filter-toggle"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="filter-all"]') as HTMLElement).click();
   await flush(element);
 
@@ -267,7 +270,9 @@ test("emits archive for an active row and unarchive for an archived row", async 
 
   element.threads = [makeThread({ id: "a", name: "A", archived: true })];
   await flush(element);
-  // switch to All filter so the archived row is visible
+  // switch to All filter (via the funnel popover) so the archived row is visible
+  (q('[part="filter-toggle"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="filter-all"]') as HTMLElement).click();
   await flush(element);
   (q('[part="row-unarchive"]') as HTMLElement).click();
@@ -471,10 +476,12 @@ test("a list error with threads present keeps the list visible (failed mutation 
   element.error = "Delete failed";
   await flush(element);
 
-  // The list and filters stay; the full error panel does NOT replace them.
+  // The list and filter affordance stay; the full error panel does NOT replace
+  // them. The funnel toggle is the always-present filter control (the Active/All
+  // options live inside its popover).
   expect(qa("li.row")).toHaveLength(1);
   expect(q('[data-testid="drawer-error"]')).toBeNull();
-  expect(q('[part="filters"]')).not.toBeNull();
+  expect(q('[part="filter-toggle"]')).not.toBeNull();
   teardown();
 });
 
@@ -776,8 +783,8 @@ test("empty-string error does NOT trigger the error state — list still renders
 
   expect(q('[data-testid="drawer-error"]')).toBeNull();
   expect(qa("li.row")).toHaveLength(1);
-  // filters stay visible (not hidden behind a phantom error)
-  expect(q('[part="filter-active"]')).not.toBeNull();
+  // filter affordance stays visible (not hidden behind a phantom error)
+  expect(q('[part="filter-toggle"]')).not.toBeNull();
   teardown();
 });
 
@@ -1001,6 +1008,9 @@ test("archived rows are muted, not struck through", async () => {
   const { q, element, teardown } = await setup({
     threads: [makeThread({ id: "a", name: "A", archived: true })],
   });
+  // Open the funnel popover, then switch to All so the archived row is visible.
+  (q('[part="filter-toggle"]') as HTMLElement).click();
+  await flush(element);
   (q('[part="filter-all"]') as HTMLElement).click();
   await flush(element);
 
@@ -1162,4 +1172,33 @@ test("New Conversation row fires new-thread and keeps part=new-thread-button", a
   element.addEventListener("new-thread", onNew);
   btn.click();
   expect(onNew).toHaveBeenCalledTimes(1);
+});
+
+// --- ENT-1051 Task 3: Recent Conversations heading + funnel filter --------
+
+test("funnel opens a popover; choosing All emits filter-change and switches filter", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="filter-toggle"]')!
+    .click();
+  await flush(element);
+  const all = element.shadowRoot!.querySelector<HTMLButtonElement>(
+    '[part="filter-all"]',
+  )!;
+  const onFilter = vi.fn();
+  element.addEventListener("filter-change", onFilter);
+  all.click();
+  await flush(element);
+  expect(onFilter).toHaveBeenCalledWith(
+    expect.objectContaining({ detail: { filter: "all" } }),
+  );
+});
+
+test("section heading text is configurable via recentLabel", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  element.recentLabel = "History";
+  await flush(element);
+  expect(
+    element.shadowRoot!.querySelector('[part="section-heading"]')!.textContent,
+  ).toContain("History");
 });

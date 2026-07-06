@@ -229,27 +229,68 @@ export const drawerStyles = css`
     height: 16px;
   }
 
-  .filters {
+  .section-heading {
+    position: relative;
     display: flex;
-    gap: 4px;
-    padding: 8px 12px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px;
+    margin: 0 8px;
   }
 
-  .filter-btn {
-    flex: 1;
-    padding: 6px 10px;
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--_muted-fg);
+    text-transform: none;
+  }
+
+  .icon-btn.small {
+    width: 24px;
+    height: 24px;
+    padding: 4px;
+  }
+
+  .icon-btn.small .icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .filter-popover {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 15;
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+    padding: 4px;
+    background: var(--_surface);
+    color: var(--_surface-fg);
     border: 1px solid var(--_border);
     border-radius: var(--_radius);
-    background: var(--_bg);
-    color: var(--_muted-fg);
-    cursor: pointer;
-    font: inherit;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
   }
 
-  .filter-btn[aria-pressed="true"] {
-    background: var(--_accent);
-    color: var(--_accent-fg);
-    border-color: var(--_ring);
+  .filter-opt {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    padding: 6px 8px;
+    border-radius: 6px;
+  }
+
+  .filter-opt:hover,
+  .filter-opt:focus-visible {
+    background: var(--_muted);
+  }
+
+  .filter-opt[aria-pressed="true"] {
+    font-weight: 600;
   }
 
   .list {

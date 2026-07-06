@@ -216,6 +216,8 @@ export class CopilotKitThreadsDrawer extends LitElement {
     fetchMoreError: { attribute: "fetch-more-error", type: String },
     // Inbound: configurable label for the drawer region and default header.
     label: { type: String },
+    // Inbound: configurable "Recent Conversations" section heading text.
+    recentLabel: { attribute: "recent-label", type: String },
     // Externally-controllable VIEW state.
     open: { type: Boolean, reflect: true },
     collapsed: { type: Boolean, reflect: true },
@@ -226,6 +228,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
     _hasMemories: { state: true },
     _hasFooter: { state: true },
     _searchOpen: { state: true },
+    _filterOpen: { state: true },
   };
 
   /**
@@ -234,6 +237,12 @@ export class CopilotKitThreadsDrawer extends LitElement {
    * header independently via the `header` slot. Defaults to `"Threads"`.
    */
   label = "Threads";
+
+  /**
+   * Inbound: text for the "Recent Conversations" section heading above the list.
+   * Attribute: `recent-label`. Defaults to `"Recent Conversations"`.
+   */
+  recentLabel = "Recent Conversations";
 
   /** Inbound: thread records to render. The element re-orders/filters them. */
   threads: DrawerThread[] = [];
@@ -271,6 +280,8 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _hasFooter = false;
   /** Whether the search input is revealed (Task 1 toggle; filtering in Task 4). */
   private _searchOpen = false;
+  /** Whether the funnel filter popover (Active/All) is open. */
+  private _filterOpen = false;
 
   private _mediaQuery: MediaQueryList | null = null;
   private readonly _onMediaChange = (event: MediaQueryListEvent) => {
@@ -278,6 +289,11 @@ export class CopilotKitThreadsDrawer extends LitElement {
   };
   private readonly _onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Escape") {
+      if (this._filterOpen) {
+        this._filterOpen = false;
+        event.stopPropagation();
+        return;
+      }
       if (this._confirmingDeleteId !== null) {
         this._confirmingDeleteId = null;
         event.stopPropagation();
@@ -648,16 +664,14 @@ export class CopilotKitThreadsDrawer extends LitElement {
     `;
   }
 
-  /** "Recent Conversations" heading + funnel filter — implemented in Task 3. */
-  private _renderSectionHeading() {
-    return this._renderFilters();
-  }
-
   /**
-   * Temporary carry-over of the Active/All filter markup, moved out of the header
-   * verbatim. Task 3 replaces this with the section heading + funnel popover.
+   * "Recent Conversations" section heading with a funnel button that opens the
+   * Active/All filter popover. Only shown when the list region is shown
+   * (licensed, and not the full-panel error/empty-before-load) — mirrors the
+   * old filters gate. The popover options keep `part="filter-active"` /
+   * `part="filter-all"` and still emit `filter-change` via `_setFilter`.
    */
-  private _renderFilters() {
+  private _renderSectionHeading() {
     if (
       !this.licensed ||
       (hasErrorMessage(this.error) && this.threads.length === 0)
@@ -665,23 +679,50 @@ export class CopilotKitThreadsDrawer extends LitElement {
       return nothing;
     }
     return html`
-      <div class="filters" part="filters" role="group" aria-label="Filter threads">
+      <div class="section-heading" part="section-heading">
+        <span class="section-title">${this.recentLabel}</span>
         <button
-          class="filter-btn"
-          part="filter-active"
-          aria-pressed=${this._filter === "active"}
-          @click=${() => this._setFilter("active")}
+          class="icon-btn small"
+          part="filter-toggle"
+          aria-label="Filter threads"
+          aria-expanded=${this._filterOpen}
+          @click=${() => (this._filterOpen = !this._filterOpen)}
         >
-          Active
+          ${iconFunnel}
         </button>
-        <button
-          class="filter-btn"
-          part="filter-all"
-          aria-pressed=${this._filter === "all"}
-          @click=${() => this._setFilter("all")}
-        >
-          All
-        </button>
+        ${
+          this._filterOpen
+            ? html`<div
+              class="filter-popover"
+              part="filters"
+              role="group"
+              aria-label="Filter threads"
+            >
+              <button
+                class="filter-opt"
+                part="filter-active"
+                aria-pressed=${this._filter === "active"}
+                @click=${() => {
+                  this._setFilter("active");
+                  this._filterOpen = false;
+                }}
+              >
+                Active
+              </button>
+              <button
+                class="filter-opt"
+                part="filter-all"
+                aria-pressed=${this._filter === "all"}
+                @click=${() => {
+                  this._setFilter("all");
+                  this._filterOpen = false;
+                }}
+              >
+                All
+              </button>
+            </div>`
+            : nothing
+        }
       </div>
     `;
   }
