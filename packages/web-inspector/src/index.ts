@@ -4144,7 +4144,7 @@ export class WebInspectorElement extends LitElement {
     store.setContext({
       runtimeUrl: core.runtimeUrl,
       headers: { ...core.headers },
-      wsUrl: core.intelligence?.wsUrl,
+      metadata: core.ɵgetMetadataRealtime() ?? null,
       agentId,
     });
     this._ownedThreadStores.set(agentId, store);
@@ -4176,7 +4176,7 @@ export class WebInspectorElement extends LitElement {
       store.setContext({
         runtimeUrl: core.runtimeUrl,
         headers: { ...headers },
-        wsUrl: core.intelligence?.wsUrl,
+        metadata: core.ɵgetMetadataRealtime() ?? null,
         agentId,
       });
     }

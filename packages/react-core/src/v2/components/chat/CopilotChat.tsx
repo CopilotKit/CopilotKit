@@ -446,7 +446,7 @@ export function CopilotChat({
         ? {
             runtimeUrl: copilotkit.runtimeUrl,
             headers: { ...copilotkit.headers },
-            wsUrl: copilotkit.intelligence?.wsUrl,
+            metadata: copilotkit.ɵgetMetadataRealtime() ?? null,
             agentId: resolvedAgentId,
           }
         : null;

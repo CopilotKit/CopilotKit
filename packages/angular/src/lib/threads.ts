@@ -404,7 +404,7 @@ export class ThreadsStore implements InjectThreadsResult {
         const context: ɵThreadRuntimeContext = {
           runtimeUrl: url,
           headers: { ...headers },
-          wsUrl,
+          metadata: this.#copilotkit.core.ɵgetMetadataRealtime() ?? null,
           agentId: id,
           includeArchived: archived,
           limit: pageLimit,
@@ -414,12 +414,18 @@ export class ThreadsStore implements InjectThreadsResult {
         // same-content header map with a different key order does not trigger
         // a redundant setContext (and the refetch + resubscribe it causes).
         // Mirrors react-core's `headersKey`. The dispatched context keeps its
-        // original header order; only the signature is normalized.
+        // original header order; only the signature is normalized. `metadata`
+        // is a live connection object (not serializable), so the signature
+        // keys off the source `wsUrl` — its identity/URL — instead.
         const signature = JSON.stringify({
-          ...context,
+          runtimeUrl: url,
           headers: Object.entries(headers).sort(([left], [right]) =>
             left.localeCompare(right),
           ),
+          wsUrl,
+          agentId: id,
+          includeArchived: archived,
+          limit: pageLimit,
         });
         if (signature === lastDispatchedContext) {
           return;

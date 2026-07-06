@@ -212,7 +212,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
       runtimeUrl,
       runtimeStatus,
       ,
-      wsUrl,
+      ,
       agentId,
       includeArchived,
       limit,
@@ -241,7 +241,7 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
       const context: ɵThreadRuntimeContext = {
         runtimeUrl,
         headers: { ...copilotkit.value.headers },
-        wsUrl,
+        metadata: copilotkit.value.ɵgetMetadataRealtime() ?? null,
         agentId,
         includeArchived,
         limit,

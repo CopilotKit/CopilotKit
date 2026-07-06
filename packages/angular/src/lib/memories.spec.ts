@@ -2,7 +2,10 @@ import { Component } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Mock } from "vitest";
-import { ɵcreateMemoryStore } from "@copilotkit/core";
+import {
+  ɵcreateMemoryStore,
+  ɵcreateMetadataRealtimeConnection,
+} from "@copilotkit/core";
 import type { ɵMemoryStore } from "@copilotkit/core";
 import { CopilotKit } from "./copilotkit";
 import { injectMemories, type MemoriesController } from "./memories";
@@ -97,7 +100,13 @@ class CopilotKitStub {
   activate(): void {
     this.store.setContext({
       runtimeUrl: RUNTIME_URL,
-      wsUrl: WS_URL,
+      metadata: ɵcreateMetadataRealtimeConnection({
+        wsUrl: WS_URL,
+        fetchSubscription: async () => ({
+          joinToken: "jt-1",
+          joinCode: "jc-1",
+        }),
+      }),
       headers: {},
     });
   }

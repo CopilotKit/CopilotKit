@@ -26,7 +26,7 @@ type ThreadState = {
   context: {
     runtimeUrl: string;
     headers: Record<string, string>;
-    wsUrl?: string;
+    metadata?: unknown;
     agentId: string;
     includeArchived?: boolean;
     limit?: number;
@@ -375,6 +375,12 @@ const supportedThreadEndpoints: ThreadEndpointRuntimeInfo = {
   realtimeMetadata: true,
 };
 
+// Stand-in for the shared realtime connection returned by
+// `ɵgetMetadataRealtime()`. The mocked `@copilotkit/core` thread store never
+// consumes the connection (it opens its own MockSocket), so an opaque marker
+// is enough to prove the hook threaded `metadata` into the dispatched context.
+const metadataConnectionStub = { ɵmetadataConnectionStub: true } as const;
+
 type MockCopilotKit = {
   runtimeUrl: string | undefined;
   runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
@@ -383,6 +389,9 @@ type MockCopilotKit = {
   threadEndpoints: ThreadEndpointRuntimeInfo | undefined;
   registerThreadStore: ReturnType<typeof vi.fn>;
   unregisterThreadStore: ReturnType<typeof vi.fn>;
+  // Mirrors `CopilotKitCore.ɵgetMetadataRealtime()`: returns the shared
+  // connection while a realtime `wsUrl` is known, else `undefined`.
+  ɵgetMetadataRealtime: () => typeof metadataConnectionStub | undefined;
 };
 
 function setupCopilotKit(
@@ -402,6 +411,9 @@ function setupCopilotKit(
     threadEndpoints: supportedThreadEndpoints,
     registerThreadStore: vi.fn(),
     unregisterThreadStore: vi.fn(),
+    ɵgetMetadataRealtime: function (this: MockCopilotKit) {
+      return this.intelligence?.wsUrl ? metadataConnectionStub : undefined;
+    },
     ...overrides,
   });
   mockUseCopilotKit.mockReturnValue({ copilotkit });
@@ -930,15 +942,16 @@ describe("useThreads", () => {
       );
       expect(listCalls).toHaveLength(1);
 
-      // The dispatched context must carry wsUrl, otherwise the store would
-      // re-fetch once /info eventually populates it.
+      // The dispatched context must carry the shared realtime `metadata`
+      // connection, otherwise the store would re-fetch once /info eventually
+      // populates it.
       const nonNullContexts = getDispatchedContexts().filter(
         (context) => context !== null,
       );
       expect(nonNullContexts).toHaveLength(1);
       expect(nonNullContexts[0]).toMatchObject({
         runtimeUrl: "http://localhost:4000",
-        wsUrl: "ws://localhost:4000/client",
+        metadata: metadataConnectionStub,
         agentId: "agent-1",
       });
 

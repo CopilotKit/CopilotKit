@@ -1447,6 +1447,7 @@ type HeaderMockCore = {
   registerThreadStore: (agentId: string, store: unknown) => void;
   unregisterThreadStore: (agentId: string) => void;
   getMemoryStore: () => ReturnType<typeof createNoopMemoryStore>;
+  ɵgetMetadataRealtime: () => undefined;
 };
 
 function createHeaderMockCore(
@@ -1485,6 +1486,12 @@ function createHeaderMockCore(
     unregisterThreadStore() {},
     getMemoryStore() {
       return createNoopMemoryStore();
+    },
+    // These tests exercise only /threads header forwarding, not realtime.
+    // Returning undefined means the owned thread store's context carries
+    // `metadata: null`, so it never opens a realtime channel here.
+    ɵgetMetadataRealtime() {
+      return undefined;
     },
   };
 

@@ -180,6 +180,16 @@ function createTestCore(
     ),
     headers: {},
     intelligence: options.intelligence,
+    // Mirrors `CopilotKitCore.ɵgetMetadataRealtime()`: the shared realtime
+    // connection while a realtime `wsUrl` is known, else undefined. The
+    // standalone run-activity store here is a vi.fn mock that never consumes
+    // the connection, so an opaque marker is enough to prove the chat threaded
+    // `metadata` into the dispatched context.
+    ɵgetMetadataRealtime: vi.fn(() =>
+      options.intelligence?.wsUrl
+        ? { ɵmetadataConnectionStub: true }
+        : undefined,
+    ),
     registerThreadStore: vi.fn(),
     runtimeConnectionStatus:
       options.runtimeConnectionStatus ??

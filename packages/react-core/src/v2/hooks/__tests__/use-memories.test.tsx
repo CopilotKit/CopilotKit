@@ -12,7 +12,10 @@ import {
 } from "vitest";
 import type { Mock } from "vitest";
 import { useCopilotKit } from "../../context";
-import { ɵcreateMemoryStore } from "@copilotkit/core";
+import {
+  ɵcreateMemoryStore,
+  ɵcreateMetadataRealtimeConnection,
+} from "@copilotkit/core";
 import type { ɵMemoryStore } from "@copilotkit/core";
 import { useMemories } from "../use-memories";
 
@@ -126,7 +129,10 @@ function setupCopilotKit(mock: Mock): void {
 function activateStore(): void {
   store.setContext({
     runtimeUrl: RUNTIME_URL,
-    wsUrl: "wss://gw.example.com/client",
+    metadata: ɵcreateMetadataRealtimeConnection({
+      wsUrl: "wss://gw.example.com/client",
+      fetchSubscription: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+    }),
     headers: {},
   });
 }
