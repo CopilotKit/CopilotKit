@@ -314,8 +314,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
         return;
       }
       if (this._searchOpen) {
-        this._searchQuery = "";
-        this._searchOpen = false;
+        this._closeSearch();
         event.stopPropagation();
         return;
       }
@@ -335,6 +334,39 @@ export class CopilotKitThreadsDrawer extends LitElement {
     }
   };
 
+  /**
+   * Dismisses the funnel filter popover and/or an open row-actions menu when a
+   * pointerdown lands outside them. Bound to `document` (composed events bubble
+   * out of the shadow root), so we discriminate inside vs. outside via
+   * `composedPath()` rather than target identity. A click on a popover's own
+   * trigger is treated as "inside" so its own `@click` toggle handles the close
+   * (avoids a double-toggle that would immediately reopen it).
+   */
+  private readonly _onDocumentPointerDown = (event: Event) => {
+    if (!this._filterOpen && this._openMenuId === null) return;
+    const path = event.composedPath();
+    if (this._filterOpen) {
+      const popover = this.renderRoot.querySelector('[part="filters"]');
+      const trigger = this.renderRoot.querySelector('[part="filter-toggle"]');
+      const inside =
+        (popover && path.includes(popover)) ||
+        (trigger && path.includes(trigger));
+      if (!inside) this._filterOpen = false;
+    }
+    if (this._openMenuId !== null) {
+      const popover = this.renderRoot.querySelector(
+        '[part="row-menu-popover"]',
+      );
+      const trigger = this.renderRoot.querySelector(
+        '.row.menu-open [part="row-menu"]',
+      );
+      const inside =
+        (popover && path.includes(popover)) ||
+        (trigger && path.includes(trigger));
+      if (!inside) this._openMenuId = null;
+    }
+  };
+
   /** Thread ids previously seen as named, so we can animate the null→named reveal. */
   private readonly _seenNamed = new Set<string>();
   /** Thread ids whose name just transitioned null→named in this update cycle. */
@@ -350,12 +382,18 @@ export class CopilotKitThreadsDrawer extends LitElement {
       this._mediaQuery.addEventListener("change", this._onMediaChange);
     }
     this.addEventListener("keydown", this._onKeyDown);
+    if (typeof document !== "undefined") {
+      document.addEventListener("pointerdown", this._onDocumentPointerDown);
+    }
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback();
     this._mediaQuery?.removeEventListener("change", this._onMediaChange);
     this.removeEventListener("keydown", this._onKeyDown);
+    if (typeof document !== "undefined") {
+      document.removeEventListener("pointerdown", this._onDocumentPointerDown);
+    }
     this._releaseScrollLock();
   }
 
@@ -617,13 +655,13 @@ export class CopilotKitThreadsDrawer extends LitElement {
         // sidebar) and the open state never show it.
         this._viewportIsMobile && !this.open
           ? html`<button
-            class="launcher"
-            part="launcher"
-            aria-label="Open threads"
-            @click=${() => this._setOpen(true)}
-          >
-            <slot name="launcher-icon">${iconLauncher}</slot>
-          </button>`
+              class="launcher"
+              part="launcher"
+              aria-label="Open threads"
+              @click=${() => this._setOpen(true)}
+            >
+              <slot name="launcher-icon">${iconLauncher}</slot>
+            </button>`
           : nothing
       }
       ${
@@ -673,18 +711,27 @@ export class CopilotKitThreadsDrawer extends LitElement {
   }
 
   private _renderHeader() {
+    // The locked/unlicensed view renders only the Upgrade panel, so the feature
+    // chrome (search toggle + search input + the "New Conversation" row) is
+    // suppressed here — mirroring the section-heading gating. The collapse
+    // toggle stays because it's pure view-state (rail vs. panel), unrelated to
+    // the licensed feature set.
     return html`
       <div class="header" part="header">
         <slot name="header"></slot>
-        <button
-          class="icon-btn"
-          part="search-toggle"
-          aria-label="Search threads"
-          aria-pressed=${this._searchOpen}
-          @click=${() => this._toggleSearch()}
-        >
-          ${iconSearch}
-        </button>
+        ${
+          this.licensed
+            ? html`<button
+              class="icon-btn"
+              part="search-toggle"
+              aria-label="Search threads"
+              aria-pressed=${this._searchOpen}
+              @click=${() => this._toggleSearch()}
+            >
+              ${iconSearch}
+            </button>`
+            : nothing
+        }
         <button
           class="icon-btn"
           part="collapse-toggle"
@@ -694,14 +741,39 @@ export class CopilotKitThreadsDrawer extends LitElement {
           ${iconSidebar}
         </button>
       </div>
-      ${this._renderSearch()} ${this._renderNewConversation()}
+      ${this.licensed ? this._renderSearch() : nothing}
+      ${this.licensed ? this._renderNewConversation() : nothing}
       ${this._renderSectionHeading()}
     `;
   }
 
-  /** Toggles the search input open/closed. */
+  /**
+   * Toggles the search input open/closed. Closing via the toggle goes through
+   * {@link _closeSearch} so it behaves identically to the Escape-close path: it
+   * clears any residual query (which `_visibleThreads()` filters by
+   * unconditionally) and notifies the consumer, rather than leaving the list
+   * filtered with no visible input.
+   */
   private _toggleSearch() {
-    this._searchOpen = !this._searchOpen;
+    if (this._searchOpen) {
+      this._closeSearch();
+    } else {
+      this._searchOpen = true;
+    }
+  }
+
+  /**
+   * Closes the search input and resets its query. When there was a query to
+   * clear, also emits `search` with an empty query so a consumer's `onSearch`
+   * is not left holding a stale value after the input disappears. Shared by the
+   * toggle-close and Escape-close paths.
+   */
+  private _closeSearch() {
+    this._searchOpen = false;
+    if (this._searchQuery !== "") {
+      this._searchQuery = "";
+      this._emit("search", { query: "" });
+    }
   }
 
   /**
@@ -881,7 +953,12 @@ export class CopilotKitThreadsDrawer extends LitElement {
 
   private _renderError() {
     return html`
-      <div class="state error" part="error" role="alert" data-testid="drawer-error">
+      <div
+        class="state error"
+        part="error"
+        role="alert"
+        data-testid="drawer-error"
+      >
         <p>${this.error}</p>
         <button
           class="primary"
@@ -916,25 +993,36 @@ export class CopilotKitThreadsDrawer extends LitElement {
         ${repeat(
           visible,
           (thread) => thread.id,
-          (thread) => this._renderRow(thread),
+          (thread, index) => this._renderRow(thread, index, visible.length),
         )}
       </ul>
       ${this._renderFetchMore()}
     `;
   }
 
-  private _renderRow(thread: DrawerThread) {
+  private _renderRow(thread: DrawerThread, index = 0, total = 1) {
     const isActive = thread.id === this.activeThreadId;
     const hasName = thread.name !== null && thread.name !== "";
+    // Shared display-name fallback: an empty-string (or null) name reads as
+    // "New thread" for BOTH the visible label and every row-action aria-label,
+    // so a screen reader never announces "Actions for " / "Archive thread ".
+    const displayName = hasName ? (thread.name as string) : "New thread";
     const justRevealed = this._justRevealed.has(thread.id);
 
     const menuOpen = this._openMenuId === thread.id;
+    // The kebab popover opens downward by default (`top: 100%`). For rows in the
+    // lower portion of the list, a downward menu would be clipped by the list's
+    // `overflow-y: auto` scroll box (which also clips the x-axis). Flip those
+    // rows' menu to open UPWARD (toward the list interior) via `menu-up`, so the
+    // popover for bottom rows is never lost behind the list's bottom edge.
+    const menuUp = menuOpen && total > 1 && index >= total / 2;
 
     const rowClasses = {
       row: true,
       active: isActive,
       archived: thread.archived,
       "menu-open": menuOpen,
+      "menu-up": menuUp,
     };
     const nameClasses = {
       "row-name": true,
@@ -954,9 +1042,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
       part="row-name"
       data-tooltip=${hasName ? thread.name : nothing}
     >
-      <span class="row-name-text"
-        >${hasName ? thread.name : "New thread"}</span
-      >
+      <span class="row-name-text">${displayName}</span>
     </span>`;
 
     return html`
@@ -967,10 +1053,16 @@ export class CopilotKitThreadsDrawer extends LitElement {
         aria-selected=${isActive ? "true" : "false"}
         tabindex="0"
         data-thread-id=${thread.id}
-        @click=${() => this._emit("thread-selected", { threadId: thread.id })}
+        @click=${() => {
+          // Selecting a row dismisses any open kebab menu (it belongs to a row,
+          // not the selection) before emitting the selection intent.
+          this._openMenuId = null;
+          this._emit("thread-selected", { threadId: thread.id });
+        }}
         @keydown=${(e: KeyboardEvent) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
+            this._openMenuId = null;
             this._emit("thread-selected", { threadId: thread.id });
           }
         }}
@@ -983,7 +1075,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
         <button
           class="row-menu"
           part="row-menu"
-          aria-label=${`Actions for ${thread.name ?? "New thread"}`}
+          aria-label=${`Actions for ${displayName}`}
           aria-haspopup="menu"
           aria-expanded=${menuOpen}
           @click=${(e: Event) => {
@@ -1006,7 +1098,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
                     class="row-menu-item"
                     part="row-unarchive"
                     role="menuitem"
-                    aria-label=${`Unarchive thread ${thread.name ?? "New thread"}`}
+                    aria-label=${`Unarchive thread ${displayName}`}
                     @click=${(e: Event) => {
                       e.stopPropagation();
                       this._openMenuId = null;
@@ -1019,7 +1111,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
                     class="row-menu-item"
                     part="row-archive"
                     role="menuitem"
-                    aria-label=${`Archive thread ${thread.name ?? "New thread"}`}
+                    aria-label=${`Archive thread ${displayName}`}
                     @click=${(e: Event) => {
                       e.stopPropagation();
                       this._openMenuId = null;
@@ -1033,7 +1125,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
                 class="row-menu-item danger"
                 part="row-delete"
                 role="menuitem"
-                aria-label=${`Delete thread ${thread.name ?? "New thread"}`}
+                aria-label=${`Delete thread ${displayName}`}
                 @click=${(e: Event) => {
                   e.stopPropagation();
                   this._openMenuId = null;

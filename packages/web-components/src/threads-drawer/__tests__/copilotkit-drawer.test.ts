@@ -1040,9 +1040,17 @@ test("archived rows are muted, not struck through", async () => {
 
   const name = q(".row.archived .row-name") as HTMLElement;
   expect(name).not.toBeNull();
-  expect(getComputedStyle(name).textDecorationLine).not.toContain(
-    "line-through",
-  );
+  // jsdom's getComputedStyle never resolves an adopted-stylesheet rule, so a
+  // `textDecorationLine` assertion is vacuous (it returns ""). Assert the CSS
+  // contract directly instead: the archived-name rule mutes the color and does
+  // NOT strike the name through.
+  const cssText = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
+  const archivedRule =
+    cssText.match(/\.row\.archived\s+\.row-name\s*\{([^}]*)\}/)?.[1] ?? "";
+  expect(archivedRule).not.toBe("");
+  expect(archivedRule).toContain("color: var(--_muted-fg)");
+  expect(archivedRule).not.toContain("line-through");
   teardown();
 });
 
@@ -1148,13 +1156,12 @@ test("list is scrollable in a bounded container — CSS contract: :host has heig
   const sheets = (CopilotKitThreadsDrawer.styles as { cssText: string })
     .cssText;
 
-  // :host block must contain height: 100%
-  expect(sheets).toContain("height: 100%");
-
-  // .list block must contain min-height: 0
-  // We check both declarations are present; the ordering within the block is
-  // not significant for correctness.
-  expect(sheets).toContain("min-height: 0");
+  // `height: 100%` appears more than once in the sheet (both `:host` and
+  // `.root` set it), so a bare `toContain("height: 100%")` doesn't prove the
+  // declaration lives on `:host`. Match the `:host` block + declaration as a
+  // unit. Likewise scope `min-height: 0` to the `.list` block.
+  expect(sheets).toMatch(/:host\s*\{[^}]*height:\s*100%[^}]*\}/);
+  expect(sheets).toMatch(/\.list\s*\{[^}]*min-height:\s*0[^}]*\}/);
 });
 
 // --- ENT-1051 Task 1: icon-row header -------------------------------------
@@ -1352,8 +1359,253 @@ test("archived row name renders italic-muted in All view", async () => {
   // passes because "" trivially lacks "line-through"). Assert the CSS contract
   // directly against the adopted stylesheet — the same approach the
   // ":host height" / "::part hooks" tests use.
+  //
+  // `font-style: italic` appears more than once in the sheet (placeholder rows
+  // are italic too), so a bare `toContain("font-style: italic")` would not lock
+  // the declaration to THIS selector. Match the selector + declaration together
+  // as a unit instead.
   const cssText = (CopilotKitThreadsDrawer.styles as { cssText: string })
     .cssText;
-  expect(cssText).toContain(".row.archived .row-name");
-  expect(cssText).toContain("font-style: italic");
+  expect(cssText).toMatch(
+    /\.row\.archived\s+\.row-name\s*\{[^}]*font-style:\s*italic[^}]*\}/,
+  );
+  expect(cssText).toMatch(
+    /\.row\.archived\s+\.row-name\s*\{[^}]*color:\s*var\(--_muted-fg\)[^}]*\}/,
+  );
+});
+
+// --- CR round 1, Findings 1 & 2: search-close clears filter + emits search --
+
+test("closing search via the toggle clears the residual filter and emits search{query:''}", async () => {
+  const { element, q, qa, teardown } = await setup({
+    threads: [
+      makeThread({ id: "a", name: "Alpha" }),
+      makeThread({ id: "b", name: "Beta" }),
+    ],
+  });
+
+  const toggle = q('[part="search-toggle"]') as HTMLElement;
+  toggle.click(); // open
+  await flush(element);
+
+  const input = q('[part="search-input"]') as HTMLInputElement;
+  input.value = "alph";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await flush(element);
+  expect(qa("li.row")).toHaveLength(1); // filtered to Alpha
+
+  const searchEvents: unknown[] = [];
+  element.addEventListener("search", (e) =>
+    searchEvents.push((e as CustomEvent).detail),
+  );
+
+  toggle.click(); // close via the toggle
+  await flush(element);
+
+  // Input is gone AND the list is no longer filtered (the stale, invisible
+  // filter bug): both rows are back.
+  expect(q('[part="search-input"]')).toBeNull();
+  expect(qa("li.row")).toHaveLength(2);
+  // The consumer is notified the query was reset so its onSearch isn't stale.
+  expect(searchEvents).toContainEqual({ query: "" });
+  teardown();
+});
+
+test("Escape-closing search resets the query, unfilters the list, and emits search{query:''}", async () => {
+  const { element, q, qa, teardown } = await setup({
+    threads: [
+      makeThread({ id: "a", name: "Alpha" }),
+      makeThread({ id: "b", name: "Beta" }),
+    ],
+  });
+
+  (q('[part="search-toggle"]') as HTMLElement).click();
+  await flush(element);
+  const input = q('[part="search-input"]') as HTMLInputElement;
+  input.value = "beta";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await flush(element);
+  expect(qa("li.row")).toHaveLength(1);
+
+  const searchEvents: unknown[] = [];
+  element.addEventListener("search", (e) =>
+    searchEvents.push((e as CustomEvent).detail),
+  );
+
+  element.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+  );
+  await flush(element);
+
+  expect(q('[part="search-input"]')).toBeNull();
+  expect(qa("li.row")).toHaveLength(2);
+  expect(searchEvents).toContainEqual({ query: "" });
+  teardown();
+});
+
+// --- CR round 1, Finding 3: outside-click dismissal + row-select closes menu --
+
+test("an outside pointerdown closes the open funnel filter popover", async () => {
+  const { element, q, teardown } = await setup({ threads: [makeThread()] });
+
+  (q('[part="filter-toggle"]') as HTMLElement).click();
+  await flush(element);
+  expect(q('[part="filters"]')).not.toBeNull();
+
+  document.dispatchEvent(
+    new MouseEvent("pointerdown", { bubbles: true, composed: true }),
+  );
+  await flush(element);
+
+  expect(q('[part="filters"]')).toBeNull();
+  teardown();
+});
+
+test("an outside pointerdown closes an open row kebab menu", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+  expect(q('[part="row-menu-popover"]')).not.toBeNull();
+
+  document.dispatchEvent(
+    new MouseEvent("pointerdown", { bubbles: true, composed: true }),
+  );
+  await flush(element);
+
+  expect(q('[part="row-menu-popover"]')).toBeNull();
+  teardown();
+});
+
+test("selecting a thread row closes an open kebab menu", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "a", name: "A" })],
+  });
+
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+  expect(q('[part="row-menu-popover"]')).not.toBeNull();
+
+  (q('li.row[data-thread-id="a"]') as HTMLElement).click();
+  await flush(element);
+
+  expect(q('[part="row-menu-popover"]')).toBeNull();
+  teardown();
+});
+
+// --- CR round 1, Finding 4: kebab popover must not be clipped by list overflow --
+
+test("kebab menu on a lower-half row opens upward to escape the list overflow clip", async () => {
+  const { element, qa, teardown } = await setup({
+    threads: [
+      makeThread({ id: "a", name: "A", updatedAt: "2026-06-04T00:00:00.000Z" }),
+      makeThread({ id: "b", name: "B", updatedAt: "2026-06-03T00:00:00.000Z" }),
+      makeThread({ id: "c", name: "C", updatedAt: "2026-06-02T00:00:00.000Z" }),
+      makeThread({ id: "d", name: "D", updatedAt: "2026-06-01T00:00:00.000Z" }),
+    ],
+  });
+
+  const lastRow = qa("li.row")[3] as HTMLElement;
+  (lastRow.querySelector('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+
+  // The row is flagged `menu-up`, which flips the popover to bottom-anchored so
+  // it renders ABOVE the button (toward the list interior) rather than below it
+  // where the list's overflow would clip a bottom row's downward menu.
+  expect(lastRow.classList.contains("menu-up")).toBe(true);
+  teardown();
+});
+
+test("kebab menu on a top row opens downward (no menu-up flag)", async () => {
+  const { element, qa, teardown } = await setup({
+    threads: [
+      makeThread({ id: "a", name: "A", updatedAt: "2026-06-04T00:00:00.000Z" }),
+      makeThread({ id: "b", name: "B", updatedAt: "2026-06-03T00:00:00.000Z" }),
+      makeThread({ id: "c", name: "C", updatedAt: "2026-06-02T00:00:00.000Z" }),
+      makeThread({ id: "d", name: "D", updatedAt: "2026-06-01T00:00:00.000Z" }),
+    ],
+  });
+
+  const firstRow = qa("li.row")[0] as HTMLElement;
+  (firstRow.querySelector('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+
+  expect(firstRow.classList.contains("menu-up")).toBe(false);
+  teardown();
+});
+
+test("menu-up flips the popover to open upward (CSS contract: bottom-anchored)", () => {
+  const cssText = (CopilotKitThreadsDrawer.styles as { cssText: string })
+    .cssText;
+  // The upward variant must anchor to the button's top edge via `bottom` and
+  // clear the default `top` anchor.
+  expect(cssText).toMatch(
+    /\.row\.menu-up\s+\.row-menu-popover\s*\{[^}]*bottom:\s*calc\(100% - 4px\)[^}]*\}/,
+  );
+});
+
+// --- CR round 1, Finding 5: locked view hides feature chrome ----------------
+
+test("locked view hides the search toggle and New Conversation chrome", async () => {
+  const { element, q, teardown } = await setup({ threads: [makeThread()] });
+  element.licensed = false;
+  await flush(element);
+
+  expect(q('[data-testid="drawer-licensed"]')).not.toBeNull();
+  // The feature chrome (search toggle + New Conversation row) is absent — only
+  // the Upgrade panel is offered.
+  expect(q('[part="new-thread-button"]')).toBeNull();
+  expect(q('[part="search-toggle"]')).toBeNull();
+  teardown();
+});
+
+test("licensed view still renders the search toggle and New Conversation chrome", async () => {
+  const { q, teardown } = await setup({ threads: [makeThread()] });
+  // default licensed=true
+  expect(q('[part="new-thread-button"]')).not.toBeNull();
+  expect(q('[part="search-toggle"]')).not.toBeNull();
+  teardown();
+});
+
+// --- CR round 1, Finding 6: aria-labels fall back for empty-string names ----
+
+test("row-action aria-labels fall back to 'New thread' for an empty-string name", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "e", name: "" })],
+  });
+
+  const kebab = q('[part="row-menu"]') as HTMLElement;
+  expect(kebab.getAttribute("aria-label")).toBe("Actions for New thread");
+
+  kebab.click();
+  await flush(element);
+
+  expect(
+    (q('[part="row-archive"]') as HTMLElement).getAttribute("aria-label"),
+  ).toBe("Archive thread New thread");
+  expect(
+    (q('[part="row-delete"]') as HTMLElement).getAttribute("aria-label"),
+  ).toBe("Delete thread New thread");
+  teardown();
+});
+
+test("unarchive aria-label falls back to 'New thread' for an empty-string name", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [makeThread({ id: "e", name: "", archived: true })],
+  });
+  // reveal the archived row via the All filter
+  (q('[part="filter-toggle"]') as HTMLElement).click();
+  await flush(element);
+  (q('[part="filter-all"]') as HTMLElement).click();
+  await flush(element);
+
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+
+  expect(
+    (q('[part="row-unarchive"]') as HTMLElement).getAttribute("aria-label"),
+  ).toBe("Unarchive thread New thread");
+  teardown();
 });

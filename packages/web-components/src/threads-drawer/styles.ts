@@ -36,8 +36,12 @@ export const drawerStyles = css`
     display: block;
     height: 100%;
     box-sizing: border-box;
-    font-family:
-      var(--cpk-drawer-font-family, ui-sans-serif, system-ui, sans-serif);
+    font-family: var(
+      --cpk-drawer-font-family,
+      ui-sans-serif,
+      system-ui,
+      sans-serif
+    );
     font-size: var(--cpk-drawer-font-size, 14px);
     line-height: var(--cpk-drawer-line-height, 1.4);
     color: var(--cpk-drawer-fg, var(--foreground, ${tok(T.fg)}));
@@ -615,6 +619,15 @@ export const drawerStyles = css`
     border: 1px solid var(--_border);
     border-radius: var(--_radius);
     box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
+  }
+
+  /* Rows in the lower portion of the list open their kebab menu UPWARD so it is
+     not clipped by the list's overflow scroll box (.list is overflow-y:auto,
+     which also clips the x-axis). Anchoring to the button's top edge via
+     \`bottom\` keeps the popover inside the list's visible area for bottom rows. */
+  .row.menu-up .row-menu-popover {
+    top: auto;
+    bottom: calc(100% - 4px);
   }
 
   .row-menu-item {
