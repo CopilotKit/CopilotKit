@@ -1,22 +1,12 @@
-import { phoenixExponentialBackoff } from "@copilotkit/shared";
 import type { Observable } from "rxjs";
-import {
-  asapScheduler,
-  defer,
-  firstValueFrom,
-  merge,
-  observeOn,
-  of,
-} from "rxjs";
+import { defer, firstValueFrom, merge, of } from "rxjs";
 import { fromFetch } from "rxjs/fetch";
 import {
   catchError,
   concatWith,
   filter,
-  finalize,
   map,
   mergeMap,
-  share,
   shareReplay,
   switchMap,
   take,
@@ -39,23 +29,18 @@ import type { Reducer, Store } from "./utils/micro-redux";
 import { MemoryError, isRetryableStatus } from "./memory-errors";
 import {
   ɵphoenixChannel$,
-  ɵphoenixSocket$,
   ɵjoinPhoenixChannel$,
   ɵobservePhoenixEvent$,
-  ɵobservePhoenixSocketHealth$,
-  ɵobservePhoenixSocketSignals$,
 } from "./utils/phoenix-observable";
 import type { ɵPhoenixChannelSession } from "./utils/phoenix-observable";
+import type { ɵMetadataRealtimeConnection } from "./core/metadata-realtime";
 
 // Runtime-relative path, mirroring the thread store's `/threads` (NOT
 // `/api/threads`): `runtimeUrl` is the CopilotKit runtime mount (e.g.
 // `/api/copilotkit`), and the runtime maps `/memories` to the app-api's
 // `/api/memories` the same way it maps `/threads` -> `/api/threads`.
 const MEMORIES_PATH = "/memories";
-const MEMORIES_SUBSCRIBE_PATH = "/memories/subscribe";
 const REQUEST_TIMEOUT_MS = 15_000;
-/** Consecutive socket errors tolerated before the realtime stream gives up. */
-const MAX_SOCKET_RETRIES = 5;
 /**
  * HTTP status codes that indicate memory routes are not configured (non-fatal).
  * 404/501 mean the route is absent/unimplemented; 422 is the runtime's
@@ -138,10 +123,15 @@ type MemoryMutationOutcome =
  */
 interface MemoryRuntimeContext {
   runtimeUrl: string;
-  /** WebSocket URL for the realtime gateway (e.g. `wss://gw.example.com/client`). */
-  wsUrl: string;
   headers: Record<string, string>;
   includeInvalidated?: boolean;
+  /**
+   * The shared per-user metadata realtime connection (owned by `CopilotKitCore`,
+   * shared with the thread store). `null` when no realtime connection is
+   * available yet (e.g. runtime not connected) — the store simply never opens
+   * its `user_meta:memories:<joinCode>` channel in that case.
+   */
+  metadata: ɵMetadataRealtimeConnection | null;
 }
 
 /**
@@ -198,18 +188,6 @@ const memoryRestEvents = createActionGroup("Memory REST", {
   listFailed: props<{ sessionId: number; error: Error }>(),
   listUnavailable: props<{ sessionId: number }>(),
   mutationFinished: props<{ outcome: MemoryMutationOutcome }>(),
-  credentialsRequested: props<{ sessionId: number }>(),
-  credentialsSucceeded: props<{
-    sessionId: number;
-    joinToken: string;
-    joinCode: string;
-  }>(),
-  // Credentials outcomes are a SILENT degrade: they feed only the realtime
-  // socket effect and deliberately do NOT touch the reducer's `available`/
-  // `error`, which describe the REST list route. See the reducer note near the
-  // list handlers.
-  credentialsFailed: props<{ sessionId: number; error: Error }>(),
-  credentialsUnavailable: props<{ sessionId: number }>(),
 });
 
 const memoryDomainEvents = createActionGroup("Memory Domain", {
@@ -419,16 +397,14 @@ const memoryReducer = createReducer(
       };
     },
   ),
-  // NOTE: `credentialsFailed` and `credentialsUnavailable` intentionally have NO
-  // reducer cases. `available`/`error` describe the REST list route only and are
-  // driven exclusively by the list events above. The credentials/realtime path
-  // is a silent degrade by design: a missing/unconfigured `/memories/subscribe`
-  // route (404/501/422) or a credentials error must not flip `available` or
-  // surface an `error`, because the list route can still be perfectly healthy.
-  // Otherwise `available` would be order-dependent on whichever of the two
-  // concurrent `contextChanged` bootstraps responds last. Realtime failures are
-  // handled where they occur (the socket effect retries and gives up via
-  // console.warn); they do not belong in the REST availability state.
+  // NOTE: realtime connection/join failures intentionally have NO reducer
+  // cases here. `available`/`error` describe the REST list route only and are
+  // driven exclusively by the list events above — the realtime path (the
+  // shared metadata connection / channel join) is a silent degrade by design:
+  // it must not flip `available` or surface an `error`, because the list
+  // route can still be perfectly healthy. Realtime failures are handled where
+  // they occur (the socket effect retries and gives up via console.warn) and
+  // surfaced only through `realtimeStatus` below.
   on(
     memoryDomainEvents.memoryUpserted,
     (state: MemoryState, { sessionId, memory }) => {
@@ -531,9 +507,11 @@ const selectMemoriesRealtimeStatus = createSelector(
 );
 
 /**
- * Dependencies injected into the memory store. The store opens its own
- * `user_meta:memories:<joinCode>` socket/channel and does not share the
- * thread store's socket, so only a `fetch` implementation is required.
+ * Dependencies injected into the memory store. The store joins its own
+ * `user_meta:memories:<joinCode>` channel over the shared metadata realtime
+ * connection supplied via `MemoryRuntimeContext.metadata` (owned by
+ * `CopilotKitCore`, shared with the thread store), so only a `fetch`
+ * implementation is required here for the REST surface.
  */
 interface MemoryEnvironment {
   fetch: typeof fetch;
@@ -641,79 +619,6 @@ function createMemoryFetchObservable(
       }),
     );
   });
-}
-
-/**
- * Fetches join credentials from the `/memories/subscribe` endpoint and maps
- * the response to a success/failure action. Requires both `joinToken` and
- * `joinCode` to be non-empty strings; throws otherwise so the `catchError`
- * path emits `credentialsFailed`.
- */
-function createMemoryCredentialsFetchObservable(
-  environment: MemoryEnvironment,
-  context: MemoryRuntimeContext,
-  sessionId: number,
-): Observable<
-  | ReturnType<typeof memoryRestEvents.credentialsSucceeded>
-  | ReturnType<typeof memoryRestEvents.credentialsFailed>
-  | ReturnType<typeof memoryRestEvents.credentialsUnavailable>
-> {
-  return defer(() =>
-    memoryFromFetch(`${context.runtimeUrl}${MEMORIES_SUBSCRIBE_PATH}`, {
-      selector: async (response) => {
-        if (!response.ok) {
-          if (ROUTE_UNAVAILABLE_STATUSES.has(response.status)) {
-            throw new MemoryRouteUnavailableError(String(response.status));
-          }
-          throw new MemoryError("MEMORY_CREDENTIALS_FAILED", {
-            message: `Failed to fetch memory subscribe credentials: ${response.status}`,
-            retryable: isRetryableStatus(response.status),
-          });
-        }
-
-        return response.json() as Promise<{
-          joinToken: string;
-          joinCode: string;
-        }>;
-      },
-      fetch: environment.fetch,
-      method: "POST",
-      headers: { ...context.headers, "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    }).pipe(
-      timeout({
-        first: REQUEST_TIMEOUT_MS,
-        with: () => {
-          throw new MemoryError("MEMORY_REQUEST_TIMEOUT");
-        },
-      }),
-      map((data) => {
-        if (typeof data.joinToken !== "string" || data.joinToken.length === 0) {
-          throw new Error("missing joinToken");
-        }
-        if (typeof data.joinCode !== "string" || data.joinCode.length === 0) {
-          throw new Error("missing joinCode");
-        }
-
-        return memoryRestEvents.credentialsSucceeded({
-          sessionId,
-          joinToken: data.joinToken,
-          joinCode: data.joinCode,
-        });
-      }),
-      catchError((error) => {
-        if (error instanceof MemoryRouteUnavailableError) {
-          return of(memoryRestEvents.credentialsUnavailable({ sessionId }));
-        }
-        return of(
-          memoryRestEvents.credentialsFailed({
-            sessionId,
-            error: error instanceof Error ? error : new Error(String(error)),
-          }),
-        );
-      }),
-    ),
-  );
 }
 
 type MemoryMutationAction =
@@ -992,50 +897,6 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
       ),
   );
 
-  const credentialsBootstrapEffect = createEffect(
-    (actions$, state$: Observable<MemoryState>) =>
-      actions$.pipe(
-        ofType(memoryAdapterEvents.contextChanged),
-        withLatestFrom(state$),
-        filter(([, state]) => Boolean(state.context)),
-        map(([, state]) =>
-          memoryRestEvents.credentialsRequested({ sessionId: state.sessionId }),
-        ),
-      ),
-  );
-
-  const credentialsFetchEffect = createEffect(
-    (actions$, state$: Observable<MemoryState>) =>
-      actions$.pipe(
-        ofType(memoryRestEvents.credentialsRequested),
-        switchMap((action) =>
-          state$.pipe(
-            map((state) => state.context),
-            filter((context): context is MemoryRuntimeContext =>
-              Boolean(context),
-            ),
-            take(1),
-            map((context) => ({ action, context })),
-            takeUntil(
-              actions$.pipe(
-                ofType(
-                  memoryAdapterEvents.contextChanged,
-                  memoryAdapterEvents.stopped,
-                ),
-              ),
-            ),
-            switchMap(({ action: currentAction, context }) =>
-              createMemoryCredentialsFetchObservable(
-                environment,
-                context,
-                currentAction.sessionId,
-              ),
-            ),
-          ),
-        ),
-      ),
-  );
-
   const fetchEffect = createEffect(
     (actions$, state$: Observable<MemoryState>) =>
       actions$.pipe(
@@ -1120,21 +981,22 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
       ),
   );
 
+  // Joins `user_meta:memories:<joinCode>` off the SHARED metadata realtime
+  // connection (`context.metadata`, owned by `CopilotKitCore` and shared with
+  // the thread store) instead of opening its own socket. Preserves the exact
+  // realtime-status policy: `realtimeConnecting` on every (re)subscribe,
+  // `realtimeConnected` once the channel join succeeds, `realtimeUnavailable`
+  // on a failed/timed-out join OR when the shared connection gives up for
+  // good (`metadata.socketFatal$`).
   const socketEffect = createEffect(
     (actions$, state$: Observable<MemoryState>) =>
       actions$.pipe(
-        ofType(memoryRestEvents.credentialsSucceeded),
+        ofType(memoryAdapterEvents.contextChanged),
         withLatestFrom(state$),
-        filter(([action, state]) => {
-          return (
-            action.sessionId === state.sessionId &&
-            Boolean(state.context?.wsUrl)
-          );
-        }),
-        switchMap(([action, state]) => {
-          const context = state.context as MemoryRuntimeContext;
-          const { joinToken, joinCode } = action;
-          const sessionId = action.sessionId;
+        filter(([, state]) => Boolean(state.context?.metadata)),
+        switchMap(([, state]) => {
+          const { metadata } = state.context as MemoryRuntimeContext;
+          const sessionId = state.sessionId;
           const shutdown$ = actions$.pipe(
             ofType(
               memoryAdapterEvents.contextChanged,
@@ -1142,129 +1004,86 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
             ),
           );
 
-          return defer(() => {
-            const socket$ = ɵphoenixSocket$({
-              url: context.wsUrl,
-              options: {
-                params: { join_token: joinToken },
-                reconnectAfterMs: phoenixExponentialBackoff(100, 10_000),
-                rejoinAfterMs: phoenixExponentialBackoff(1_000, 30_000),
-              },
-            }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
-            const channel$ = ɵphoenixChannel$({
-              socket$,
-              topic: `user_meta:memories:${joinCode}`,
-            }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
-            const socketSignals$ =
-              ɵobservePhoenixSocketSignals$(socket$).pipe(share());
-            // The socket give-up signal: completes the realtime stream after the
-            // health check throws. ALSO surfaces the give-up as a status delta
-            // (`realtimeUnavailable`) so the UI can drop its "live" indicator —
-            // this is the permanent-death signal that was previously only a
-            // `console.warn`. `available`/`error` stay untouched by design (the
-            // realtime path is a silent degrade for the REST list route).
-            const fatalSocketShutdown$ = ɵobservePhoenixSocketHealth$(
-              socketSignals$,
-              MAX_SOCKET_RETRIES,
-            ).pipe(
-              catchError(() => {
-                console.warn(
-                  `[memory] WebSocket failed after ${MAX_SOCKET_RETRIES} attempts, giving up`,
-                );
-                return of(undefined);
-              }),
-              share(),
-            );
-            // The give-up mapped to a status delta. Emitted from the merged stream
-            // (not the `takeUntil` notifier) so the `realtimeUnavailable` action is
-            // dispatched BEFORE teardown: the merged stream is `takeUntil`'d by a
-            // microtask-deferred copy of the give-up signal, so this synchronous
-            // emission always wins the race and the action reaches the reducer.
-            const fatalStatus$ = fatalSocketShutdown$.pipe(
-              map(() => memoryDomainEvents.realtimeUnavailable({ sessionId })),
-            );
-            const metadata$ = channel$.pipe(
-              switchMap(({ channel }: ɵPhoenixChannelSession) =>
-                ɵobservePhoenixEvent$<MemoryMetadataEvent>(
-                  channel,
-                  MEMORY_METADATA_EVENT,
-                ),
-              ),
-              map((event) => mapMemoryMetadataEvent(event, action.sessionId)),
-            );
+          return metadata!.joinCode$.pipe(
+            switchMap((joinCode) => {
+              const channel$ = ɵphoenixChannel$({
+                socket$: metadata!.socket$,
+                topic: `user_meta:memories:${joinCode}`,
+              }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
 
-            // Drives the actual `channel.join()` AND maps the join outcome to a
-            // realtime-status delta. `ɵphoenixChannel$` only creates the channel +
-            // a lazy join-outcome stream; the join is sent when that stream is
-            // subscribed. Observing channel events (`metadata$`) alone does NOT
-            // subscribe it, so without this the socket connects but never joins
-            // `user_meta:memories:<code>` and no realtime deltas arrive. The thread
-            // store joins for the same reason (its merged `joinOutcome$`).
-            //
-            // On a successful join -> `realtimeConnected` (the "live" signal). On a
-            // failed/timed-out join we KEEP the `console.warn` and emit
-            // `realtimeUnavailable`, then swallow the error so a transient
-            // rejection doesn't tear down the metadata stream (Phoenix re-attempts
-            // the join on socket reconnect); the next successful join re-emits
-            // `realtimeConnected`.
-            const join$ = ɵjoinPhoenixChannel$(channel$).pipe(
-              // `ɵjoinPhoenixChannel$` emits `never` (it completes on success), so
-              // this concat surfaces the connected status once the join resolves.
-              concatWith(
-                of(memoryDomainEvents.realtimeConnected({ sessionId })),
-              ),
-              catchError((error) => {
-                console.warn(
-                  `[memory] failed to join user_meta:memories:${joinCode}`,
-                  error,
-                );
-                return of(
+              const metadata$ = channel$.pipe(
+                switchMap(({ channel }: ɵPhoenixChannelSession) =>
+                  ɵobservePhoenixEvent$<MemoryMetadataEvent>(
+                    channel,
+                    MEMORY_METADATA_EVENT,
+                  ),
+                ),
+                map((event) => mapMemoryMetadataEvent(event, sessionId)),
+              );
+
+              // Drives the actual `channel.join()` AND maps the join outcome
+              // to a realtime-status delta. `ɵphoenixChannel$` only creates
+              // the channel + a lazy join-outcome stream; the join is sent
+              // when that stream is subscribed. Observing channel events
+              // (`metadata$`) alone does NOT subscribe it, so without this
+              // the socket connects but never joins
+              // `user_meta:memories:<code>` and no realtime deltas arrive.
+              //
+              // On a successful join -> `realtimeConnected` (the "live"
+              // signal). On a failed/timed-out join we KEEP the
+              // `console.warn` and emit `realtimeUnavailable`, then swallow
+              // the error so a transient rejection doesn't tear down the
+              // metadata stream (Phoenix re-attempts the join on socket
+              // reconnect); the next successful join re-emits
+              // `realtimeConnected`.
+              const join$ = ɵjoinPhoenixChannel$(channel$).pipe(
+                // `ɵjoinPhoenixChannel$` emits `never` (it completes on
+                // success), so this concat surfaces the connected status
+                // once the join resolves.
+                concatWith(
+                  of(memoryDomainEvents.realtimeConnected({ sessionId })),
+                ),
+                catchError((error) => {
+                  console.warn(
+                    `[memory] failed to join user_meta:memories:${joinCode}`,
+                    error,
+                  );
+                  return of(
+                    memoryDomainEvents.realtimeUnavailable({ sessionId }),
+                  );
+                }),
+              );
+
+              // The shared connection's fatal give-up (after
+              // `ɵMETADATA_MAX_SOCKET_RETRIES`) — it already `console.warn`s
+              // internally, so this only needs to surface the status delta.
+              const fatal$ = metadata!.socketFatal$.pipe(
+                map(() =>
                   memoryDomainEvents.realtimeUnavailable({ sessionId }),
-                );
-              }),
-            );
-
-            return merge(
-              // Surface "connecting" immediately when the realtime stream starts
-              // (credentials succeeded -> socket subscribing/joining). Reset to
-              // this on every (re)subscribe so a prior session's terminal status
-              // can't bleed through before the new join resolves.
-              of(memoryDomainEvents.realtimeConnecting({ sessionId })),
-              metadata$,
-              join$,
-              fatalStatus$,
-            ).pipe(
-              takeUntil(
-                merge(
-                  shutdown$,
-                  // Defer the give-up teardown by a microtask so `fatalStatus$`'s
-                  // synchronous `realtimeUnavailable` emission is dispatched before
-                  // the stream is torn down. `observeOn(asapScheduler)` schedules
-                  // the teardown after the current microtask drains.
-                  fatalSocketShutdown$.pipe(observeOn(asapScheduler)),
                 ),
-              ),
-              finalize(() => {
-                // Socket/channel teardown is handled by the `finalize` operators
-                // inside `ɵphoenixSocket$`/`ɵphoenixChannel$`; this hook exists to
-                // mirror the thread store's socket-effect lifecycle shape.
-              }),
-            );
-          });
+              );
+
+              return merge(
+                // Surface "connecting" immediately when the realtime stream
+                // starts (context carries a metadata connection -> joining
+                // its channel). Reset to this on every (re)subscribe so a
+                // prior session's terminal status can't bleed through before
+                // the new join resolves.
+                of(memoryDomainEvents.realtimeConnecting({ sessionId })),
+                metadata$,
+                join$,
+                fatal$,
+              ).pipe(takeUntil(shutdown$));
+            }),
+            takeUntil(shutdown$),
+          );
         }),
       ),
   );
 
   const store = createStore<MemoryState>({
     reducer: memoryReducer,
-    effects: [
-      bootstrapEffect,
-      credentialsBootstrapEffect,
-      fetchEffect,
-      credentialsFetchEffect,
-      mutationEffect,
-      socketEffect,
-    ],
+    effects: [bootstrapEffect, fetchEffect, mutationEffect, socketEffect],
   });
 
   function trackMutation<T>(

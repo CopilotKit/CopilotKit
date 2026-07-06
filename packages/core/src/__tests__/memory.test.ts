@@ -39,6 +39,7 @@ import type {
   ɵMemoryEnvironment as MemoryEnvironment,
 } from "../memory";
 import { MemoryError } from "../memory-errors";
+import { ɵcreateMetadataRealtimeConnection } from "../core/metadata-realtime";
 
 function memoryEnvironment(fetchImpl: Mock): MemoryEnvironment {
   return {
@@ -299,27 +300,40 @@ describe("memory_metadata realtime mapping", () => {
 describe("memory store realtime", () => {
   const realtimeContext = {
     runtimeUrl: "https://runtime.example.com",
-    wsUrl: "wss://gw.example.com/client",
     headers: { Authorization: "Bearer token", "X-Cpki-User-Id": "u1" },
   };
 
+  /** Fresh shared metadata connection per call: the phoenix module is mocked
+   * (see the hoisted `vi.mock("phoenix", ...)` above), so this connects
+   * through `phoenix.sockets` exactly like the real `CopilotKitCore`-owned
+   * connection would. */
+  function fakeMetadataConnection(joinCode = "jc-1") {
+    return ɵcreateMetadataRealtimeConnection({
+      wsUrl: "wss://gw.example.com/client",
+      fetchSubscription: async () => ({ joinToken: "jt-1", joinCode }),
+    });
+  }
+
   /**
-   * Boots a store, sets context, and lets it fetch credentials so it opens its
-   * own `user_meta:memories:<joinCode>` channel. Returns the connected store.
+   * Boots a store, sets context with a real (mock-phoenix-backed) shared
+   * metadata connection, and lets it join its own
+   * `user_meta:memories:<joinCode>` channel. Returns the connected store.
    */
   async function connectedRealtimeStore() {
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+        json: async () => ({ memories: [] }),
       });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = createMemoryStore(memoryEnvironment(fetchMock));
     store.start();
-    store.setContext(realtimeContext);
+    store.setContext({
+      ...realtimeContext,
+      metadata: fakeMetadataConnection(),
+    });
     await flushEffects();
     return store;
   }
@@ -390,10 +404,6 @@ describe("memory store realtime", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
         json: async () => ({
           id: "m1",
           kind: "topical",
@@ -408,7 +418,10 @@ describe("memory store realtime", () => {
 
     const store = createMemoryStore(memoryEnvironment(fetchMock));
     store.start();
-    store.setContext(realtimeContext);
+    store.setContext({
+      ...realtimeContext,
+      metadata: fakeMetadataConnection(),
+    });
     await flushEffects();
 
     // REST create: applied locally from the POST response.
@@ -496,8 +509,8 @@ describe("memory store realtime", () => {
 
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
-      wsUrl: "wss://gw.example.com/client",
       headers: { Authorization: "Bearer token", "X-Cpki-User-Id": "u2" },
+      metadata: fakeMetadataConnection("jc-2"),
     });
     await flushEffects();
 
@@ -522,8 +535,8 @@ describe("memory store realtime", () => {
 
 const sampleContext = {
   runtimeUrl: "https://runtime.example.com",
-  wsUrl: "wss://gw.example.com/client",
   headers: { Authorization: "Bearer token", "X-Cpki-User-Id": "u1" },
+  metadata: null,
 };
 
 describe("memory store REST snapshot", () => {
@@ -676,11 +689,6 @@ describe("memory store REST snapshot", () => {
           ],
         }),
       })
-      // credentials subscribe POST fires concurrently with the initial list GET
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -715,8 +723,8 @@ describe("memory store REST snapshot", () => {
     // The promise must resolve only after the re-pull settles.
     await store.refresh();
 
-    // 3 calls: initial list GET + credentials subscribe POST + refresh list GET
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    // 2 calls: initial list GET + refresh list GET
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(store.getState().memories.map((m) => m.id)).toEqual(["m1", "m2"]);
 
     store.stop();
@@ -742,11 +750,6 @@ describe("memory store REST snapshot", () => {
         ok: true,
         json: async () => ({ memories: [] }),
       })
-      // credentials subscribe POST fires concurrently with the initial list GET
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
       .mockResolvedValueOnce({ ok: false, status: 500 });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -765,12 +768,8 @@ describe("memory store REST snapshot", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
-      // credentials subscribe POST fires concurrently with the initial list GET
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
-      // Second list pull never settles on its own: the store is stopped first.
+      // The refresh's list pull never settles on its own: the store is
+      // stopped first.
       .mockImplementationOnce(() => new Promise(() => undefined));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -815,10 +814,6 @@ describe("memory store mutations", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
         json: async () => ({ ...userMemory("m1", "hi"), absorbed: false }),
       });
     const store = await connectedStore(fetchMock);
@@ -839,10 +834,6 @@ describe("memory store mutations", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ...userMemory("m1", "hi"), absorbed: false }),
@@ -869,10 +860,6 @@ describe("memory store mutations", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
         json: async () => ({ ...userMemory("m1", "hi"), absorbed: false }),
       });
     const store = await connectedStore(fetchMock);
@@ -892,10 +879,6 @@ describe("memory store mutations", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ memories: [userMemory("m1")] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
       })
       .mockResolvedValueOnce({ ok: true });
     const store = await connectedStore(fetchMock);
@@ -918,10 +901,6 @@ describe("memory store mutations", () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ memories: [userMemory("m1", "old")] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
       })
       .mockResolvedValueOnce({
         ok: true,
@@ -948,10 +927,6 @@ describe("memory store mutations", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
       .mockResolvedValueOnce({ ok: false, status: 500 });
     const store = await connectedStore(fetchMock);
 
@@ -993,10 +968,6 @@ describe("memory store mutations", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
       .mockResolvedValueOnce({ ok: false, status: 500 });
     const store = await connectedStore(fetchMock);
 
@@ -1020,33 +991,8 @@ describe("memory store mutations", () => {
   });
 });
 
-it("fetches memory subscribe credentials when context is set", async () => {
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-    });
-  vi.stubGlobal("fetch", fetchMock);
-  const store = createMemoryStore(memoryEnvironment(fetchMock));
-  store.start();
-  store.setContext(sampleContext);
-
-  await flushEffects();
-
-  expect(fetchMock).toHaveBeenCalledWith(
-    "https://runtime.example.com/memories/subscribe",
-    expect.objectContaining({ method: "POST" }),
-  );
-  store.stop();
-});
-
 test("snapshot 404 → available: false, error: null, memories: []", async () => {
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce({ ok: false, status: 404 })
-    .mockResolvedValueOnce({ ok: false, status: 404 });
+  const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 404 });
   vi.stubGlobal("fetch", fetchMock);
 
   const store = createMemoryStore(memoryEnvironment(fetchMock));
@@ -1063,10 +1009,7 @@ test("snapshot 404 → available: false, error: null, memories: []", async () =>
 });
 
 test("snapshot 500 → error not null, available: true", async () => {
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce({ ok: false, status: 500 })
-    .mockResolvedValueOnce({ ok: false, status: 500 });
+  const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 500 });
   vi.stubGlobal("fetch", fetchMock);
 
   const store = createMemoryStore(memoryEnvironment(fetchMock));
@@ -1084,10 +1027,7 @@ test("snapshot 500 → error not null, available: true", async () => {
 // must take the graceful "not available" path (listUnavailable), not a hard
 // listFailed/error.
 test("snapshot 422 → available: false, error: null, memories: []", async () => {
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce({ ok: false, status: 422 })
-    .mockResolvedValueOnce({ ok: false, status: 422 });
+  const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 422 });
   vi.stubGlobal("fetch", fetchMock);
 
   const store = createMemoryStore(memoryEnvironment(fetchMock));
@@ -1107,10 +1047,7 @@ test("snapshot 422 → available: false, error: null, memories: []", async () =>
 // must take the graceful listUnavailable path (available:false, error:null), not
 // a hard listFailed/error.
 test("snapshot 501 → available: false, error: null, memories: []", async () => {
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce({ ok: false, status: 501 })
-    .mockResolvedValueOnce({ ok: false, status: 501 });
+  const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 501 });
   vi.stubGlobal("fetch", fetchMock);
 
   const store = createMemoryStore(memoryEnvironment(fetchMock));
@@ -1131,8 +1068,7 @@ test("snapshot 501 → available: false, error: null, memories: []", async () =>
 test("refresh() against a 404 route resolves (does not hang) and leaves available:false", async () => {
   const fetchMock = vi
     .fn()
-    // initial bootstrap: list + credentials both unavailable
-    .mockResolvedValueOnce({ ok: false, status: 404 })
+    // initial bootstrap: list unavailable
     .mockResolvedValueOnce({ ok: false, status: 404 })
     // refresh's re-pulled list: also unavailable
     .mockResolvedValueOnce({ ok: false, status: 404 });
@@ -1165,12 +1101,8 @@ test("refresh() resolves when a new setContext supersedes it before the fetch se
   let resolveSecondList: ((value: unknown) => void) | undefined;
   const fetchMock = vi
     .fn()
-    // initial bootstrap: list + credentials
+    // initial bootstrap: list
     .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-    })
     // refresh's re-pulled list: never settles on its own — we drive the
     // supersede before it resolves.
     .mockReturnValueOnce(
@@ -1178,12 +1110,8 @@ test("refresh() resolves when a new setContext supersedes it before the fetch se
         resolveSecondList = resolve;
       }),
     )
-    // the new context's bootstrap (list + credentials)
-    .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ joinToken: "jt-2", joinCode: "jc-2" }),
-    });
+    // the new context's bootstrap (list)
+    .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) });
   vi.stubGlobal("fetch", fetchMock);
 
   const store = createMemoryStore(memoryEnvironment(fetchMock));
@@ -1210,52 +1138,19 @@ test("refresh() resolves when a new setContext supersedes it before the fetch se
   store.stop();
 });
 
-// A credentials (subscribe) 404 is a SILENT degrade: the list route succeeded,
-// so the only correct observable effect is that realtime simply never connects.
-// It must NOT flip `available`/`error` (those are list-driven), must NOT advance
-// `realtimeStatus` past its "connecting" default (the socket effect runs only on
-// credentials SUCCESS), and must NOT log a console.warn. Asserting all three
-// pins the silent-degrade contract so the test can't pass for the wrong reason.
-test("subscribe 404 → silent degrade: list-driven state intact, realtimeStatus default, no warn", async () => {
-  const fetchMock = vi
-    .fn()
-    .mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ memories: [] }),
-    })
-    .mockResolvedValueOnce({ ok: false, status: 404 });
-  vi.stubGlobal("fetch", fetchMock);
-
-  const warnSpy = vi.spyOn(console, "warn");
-
-  const store = createMemoryStore(memoryEnvironment(fetchMock));
-  store.start();
-  store.setContext(sampleContext);
-  await flushEffects();
-
-  // The successful list still drives availability — credentials failure is silent.
-  expect(store.getState().available).toBe(true);
-  expect(store.getState().error).toBeNull();
-  // The socket effect only runs on credentials SUCCESS, so realtimeStatus must
-  // stay at its "connecting" default — it never reaches connected/unavailable.
-  expect(store.getState().realtimeStatus).toBe("connecting");
-  // And nothing is logged.
-  expect(warnSpy).not.toHaveBeenCalled();
-
-  warnSpy.mockRestore();
-  store.stop();
-});
-
-it("setContext stores wsUrl alongside runtimeUrl", () => {
+it("setContext stores the metadata connection alongside runtimeUrl", () => {
   const store = createMemoryStore(memoryEnvironment(vi.fn()));
   store.start();
+  const metadata = ɵcreateMetadataRealtimeConnection({
+    wsUrl: "wss://gw.example.com/client",
+    fetchSubscription: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
+  });
   store.setContext({
     runtimeUrl: "https://runtime.example.com",
-    wsUrl: "wss://gw.example.com/client",
     headers: {},
+    metadata,
   });
-  expect(store.getState().context?.wsUrl).toBe("wss://gw.example.com/client");
+  expect(store.getState().context?.metadata).toBe(metadata);
   store.stop();
 });
 
@@ -1359,77 +1254,6 @@ describe("memory mutation session guard and error handling", () => {
     expect(cleared.error).toBeNull();
   });
 
-  // A2: credentials outcomes are a SILENT degrade — `available`/`error` are
-  // driven only by the REST list route, so credentials events must NOT touch
-  // them. Otherwise `available` would be order-dependent on which concurrent
-  // bootstrap (list vs credentials) responds last.
-  test("credentialsUnavailable does not change available (stays list-driven)", () => {
-    const listed = memoryReducer(
-      undefined,
-      memoryRestEvents.listSucceeded({
-        sessionId: 0,
-        memories: [memory("m1")],
-      }),
-    );
-    expect(ɵselectMemoriesAvailable(listed)).toBe(true);
-
-    const next = memoryReducer(
-      listed,
-      memoryRestEvents.credentialsUnavailable({ sessionId: 0 }),
-    );
-
-    expect(ɵselectMemoriesAvailable(next)).toBe(true);
-  });
-
-  test("credentialsFailed does not surface an error (stays list-driven)", () => {
-    const listed = memoryReducer(
-      undefined,
-      memoryRestEvents.listSucceeded({
-        sessionId: 0,
-        memories: [memory("m1")],
-      }),
-    );
-    expect(ɵselectMemoriesError(listed)).toBeNull();
-
-    const next = memoryReducer(
-      listed,
-      memoryRestEvents.credentialsFailed({
-        sessionId: 0,
-        error: new Error("creds boom"),
-      }),
-    );
-
-    expect(ɵselectMemoriesError(next)).toBeNull();
-    expect(ɵselectMemoriesAvailable(next)).toBe(true);
-  });
-
-  // CF1: list succeeds but credentials route is unavailable (404/501) — the
-  // final `available` must not depend on response arrival order. It stays
-  // driven by the list route, so `available` remains true regardless.
-  test("list-succeeds + credentials-unavailable leaves available:true", () => {
-    const listed = memoryReducer(
-      undefined,
-      memoryRestEvents.listSucceeded({
-        sessionId: 0,
-        memories: [memory("m1")],
-      }),
-    );
-
-    const credsThenList = memoryReducer(
-      memoryReducer(
-        listed,
-        memoryRestEvents.credentialsUnavailable({ sessionId: 0 }),
-      ),
-      memoryRestEvents.listSucceeded({
-        sessionId: 0,
-        memories: [memory("m1")],
-      }),
-    );
-
-    expect(ɵselectMemoriesAvailable(credsThenList)).toBe(true);
-    expect(ɵselectMemoriesError(credsThenList)).toBeNull();
-  });
-
   // A4: a successful list proves the route is available.
   test("listSucceeded sets available:true", () => {
     const unavailable = memoryReducer(
@@ -1524,10 +1348,6 @@ describe("memory mutation session guard and error handling", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
         // No retiredId on the response.
         json: async () => ({ ...userMemory("m2", "new") }),
       });
@@ -1553,10 +1373,6 @@ describe("memory mutation session guard and error handling", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
       .mockResolvedValueOnce({
         ok: true,
         // No `id` on the response.
@@ -1592,10 +1408,6 @@ describe("memory mutation session guard and error handling", () => {
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
         // `sourceThreadIds` is missing (effectively non-array / undefined).
         json: async () => ({
           id: "m1",
@@ -1625,10 +1437,6 @@ describe("memory mutation session guard and error handling", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({ ok: true, json: async () => ({ memories: [] }) })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ joinToken: "jt-1", joinCode: "jc-1" }),
-      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
