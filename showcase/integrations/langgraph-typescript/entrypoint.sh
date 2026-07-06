@@ -3,8 +3,79 @@ set -e
 
 cleanup() {
   kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
+  # NOTE: SIZE_PID is intentionally NOT killed here.  SIZE_PID is assigned
+  # inside the watchdog subshell ( ) & so it is never visible in this outer
+  # shell.  The subshell registers its own EXIT trap to kill its SIZE_PID; see
+  # the "trap ... EXIT" inside the ( ) & block below.
 }
 trap cleanup EXIT
+
+# ---------------------------------------------------------------------------
+# Size-check seam: extract the per-cycle size-check-and-kill decision so it
+# can be exercised directly in tests without running the full entrypoint stack.
+#
+# Usage (normal): called by the watchdog size sub-loop below.
+# Usage (test):   LANGGRAPH_SIZE_THRESHOLD_MB=X LANGGRAPH_PERSIST_DIR_OVERRIDE=Y
+#                 AGENT_PID=Z bash entrypoint.sh --check-size-once
+#
+# Returns 0 if no action taken, 1 if the agent was killed (threshold exceeded).
+# Callers under set -e should invoke with || true if 1 is acceptable.
+# ---------------------------------------------------------------------------
+_watchdog_check_size_once() {
+  local persist_dir="${PERSIST_DIR}"
+  local threshold_mb="${SIZE_THRESHOLD_MB}"
+  local agent_pid="${AGENT_PID}"
+
+  if ! kill -0 "$agent_pid" 2>/dev/null; then
+    return 0
+  fi
+  if [ ! -d "$persist_dir" ]; then
+    echo "[watchdog:size] Persistence dir ${persist_dir} does not exist — skipping size check"
+    return 0
+  fi
+  # du -sm returns on-disk size in MiB as an integer.  This is a heuristic
+  # proxy for the in-memory superjson-serialised string size: @langchain/
+  # langgraph-api serialises state to disk on a 3-second timer, so on-disk
+  # size closely tracks serialised size but is NOT a proven bound.  We set a
+  # conservative threshold (200 MB, well under V8's ~512 MB string ceiling)
+  # to leave margin for this approximation.
+  # || true prevents set -e from killing this subshell if du fails.
+  DIR_SIZE_MB=$(du -sm "$persist_dir" 2>/dev/null | awk '{print $1}') || true
+  if [ -z "$DIR_SIZE_MB" ]; then
+    echo "[watchdog:size] WARNING: Could not read size of ${persist_dir} — size guard inactive this cycle"
+    return 0
+  fi
+  echo "[watchdog:size] Persistence dir size: ${DIR_SIZE_MB}MB (threshold: ${threshold_mb}MB)"
+  if [ "$DIR_SIZE_MB" -ge "$threshold_mb" ]; then
+    echo "[watchdog:size] Size threshold exceeded (${DIR_SIZE_MB}MB >= ${threshold_mb}MB) — killing agent PID $agent_pid to trigger container restart and boot-purge"
+    # NOTE: this kill WILL terminate any in-flight streaming runs — accepted
+    # tradeoff vs OOM/crash.  The gate is threshold-based (not a fixed timer)
+    # so it fires only when state has grown dangerously large.
+    kill -9 "$agent_pid" 2>/dev/null || true
+    return 1
+  fi
+  return 0
+}
+
+# ---------------------------------------------------------------------------
+# Test seam: --check-size-once mode
+# Runs exactly one size-check cycle using env vars for configuration, then
+# exits.  Designed to be called from tests with a stubbed `du` on PATH.
+# Exit code: 0 = under threshold (no kill), 1 = threshold exceeded (kill issued).
+# ---------------------------------------------------------------------------
+if [ "${1:-}" = "--check-size-once" ]; then
+  # In test-seam mode the caller owns the agent PID lifecycle.  Clearing the
+  # EXIT trap ensures cleanup() does NOT send a spurious SIGTERM to AGENT_PID
+  # on the way out, which would mask whether the size gate actually fired
+  # (gate fires → SIGKILL; cleanup fires → SIGTERM; both make poll() non-None,
+  # but only SIGKILL proves the gate killed the right PID).
+  trap - EXIT
+  PERSIST_DIR=${LANGGRAPH_PERSIST_DIR_OVERRIDE:-/app/src/agent/.langgraph_api}
+  SIZE_THRESHOLD_MB=${LANGGRAPH_SIZE_THRESHOLD_MB:-200}
+  AGENT_PID=${AGENT_PID:-0}
+  _watchdog_check_size_once
+  exit $?
+fi
 
 echo "========================================="
 echo "[entrypoint] Starting showcase package: langgraph-typescript"
@@ -12,6 +83,26 @@ echo "[entrypoint] Time: $(date -u)"
 echo "[entrypoint] PORT=${PORT:-not set}"
 echo "[entrypoint] NODE_ENV=${NODE_ENV:-not set}"
 echo "========================================="
+
+# Purge any persisted FileSystemPersistence state from a prior container.
+# @langchain/langgraph-api (v1.1.17) serialises ALL accumulated thread/run/
+# checkpoint state via superjson.stringify on a 3-second timer; after enough
+# runs the serialised string exceeds V8's ~512 MB string limit → uncaught
+# RangeError in a Timeout callback → event-loop hang → watchdog kill.
+# Because the state persists to disk, a plain container restart reloads the
+# bloated file and re-crashes immediately. Deleting on every fresh boot breaks
+# the cycle.
+#
+# PERSIST_DIR can be overridden by env var (useful for tests; defaults to the
+# in-container path used by @langchain/langgraph-api's FileSystemPersistence).
+PERSIST_DIR=${LANGGRAPH_PERSIST_DIR_OVERRIDE:-/app/src/agent/.langgraph_api}
+if [ -d "$PERSIST_DIR" ]; then
+  echo "[entrypoint] Purging stale LangGraph persistence state from prior container boot (${PERSIST_DIR})"
+  rm -rf "$PERSIST_DIR"
+  echo "[entrypoint] Purge complete"
+else
+  echo "[entrypoint] No prior persistence state found — clean boot"
+fi
 
 # Start LangGraph agent server in background.
 # `npm start` runs `node --import tsx liveness.mjs` (see src/agent/package.json).
@@ -79,6 +170,29 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # healthy /ok probe before arming the strike counter; if /ok comes up
 # sooner, fall through immediately. If 180s elapses without success, arm
 # the counter anyway — the steady-state watchdog will handle a true hang.
+#
+# Size-gated restart: the watchdog also periodically checks the on-disk size
+# of the PERSIST_DIR. @langchain/langgraph-api serialises state on a 3-second
+# timer; if the state grows excessively (threads accumulating across a long
+# deployment) the serialised string can approach V8's ~512 MB string limit.
+# We set a conservative SIZE_THRESHOLD_MB (200 MB — well under the ceiling,
+# with margin for the on-disk→in-memory approximation) and kill the agent
+# when crossed, triggering a container restart which re-runs the boot-purge
+# above.  This kill WILL terminate any in-flight streaming runs — accepted
+# tradeoff vs OOM/crash.  The gate is threshold-based, not a fixed timer,
+# so it fires only when state has grown dangerously large.
+# We do NOT call POST /internal/truncate because:
+#   1. ops.truncate with runs+threads+checkpointer+store=true wipes ALL runs
+#      including in-flight ones — the "in-flight not disrupted" comment on the
+#      original implementation was incorrect (R7-C1).
+#   2. /internal/truncate is an unpinned internal library route with no
+#      stability guarantee across patch releases (C2).
+SIZE_THRESHOLD_MB=${LANGGRAPH_SIZE_THRESHOLD_MB:-200}
+# 60s interval: the 3-second serialize timer means state can grow rapidly
+# under heavy probe fan-out (the original crash scenario).  300s (5 min)
+# leaves too large a window — at typical probe rates state can exceed 512MB
+# before the next check.  60s keeps the check-to-ceiling budget comfortable.
+SIZE_CHECK_INTERVAL=${LANGGRAPH_SIZE_CHECK_INTERVAL:-60}
 (
   GRACE=180
   echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
@@ -98,6 +212,24 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
   if [ $ELAPSED -ge $GRACE ]; then
     echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
   fi
+
+  # Size-gated restart sub-loop: periodically check the persistence dir size
+  # and kill the agent if it exceeds SIZE_THRESHOLD_MB. The container restart
+  # will re-run the boot-purge, clearing accumulated state safely.
+  (
+    echo "[watchdog:size] Starting size-gated restart monitor (threshold=${SIZE_THRESHOLD_MB}MB, interval=${SIZE_CHECK_INTERVAL}s, dir=${PERSIST_DIR})"
+    while sleep $SIZE_CHECK_INTERVAL; do
+      _watchdog_check_size_once || break
+    done
+  ) &
+  SIZE_PID=$!
+  # Register EXIT trap INSIDE this watchdog subshell so the size sub-loop is
+  # reaped on any exit path (normal, kill, SIGTERM from outer cleanup).
+  # This is the only reliable cleanup path: SIZE_PID is local to this subshell
+  # and is never visible in the outer shell, so the outer cleanup() cannot
+  # kill it.
+  trap 'kill "$SIZE_PID" 2>/dev/null || true' EXIT
+
   FAILS=0
   while sleep 30; do
     if ! kill -0 $AGENT_PID 2>/dev/null; then
@@ -117,7 +249,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
   done
 ) &
 WATCHDOG_PID=$!
-echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8124/ok, startup grace 180s)"
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8124/ok, startup grace 180s, size-guard threshold ${SIZE_THRESHOLD_MB}MB every ${SIZE_CHECK_INTERVAL}s)"
 echo "[entrypoint] All processes running. Waiting..."
 
 # Only wait on agent + next.js — NOT the watchdog. The watchdog's job is to
