@@ -423,6 +423,12 @@ export class InMemoryAgentRunner extends AgentRunner {
         store.isRunning = false;
         runSubject.complete();
         nextSubject.complete();
+        // Time-scoped release: events are now in historicRuns, so the infinite
+        // ReplaySubject buffers are pure duplication — drop them so they become
+        // collectable. connect() only subscribes to store.subject while
+        // isRunning || stopRequested (both false here), and rebuilds history
+        // from historicRuns, so this is safe.
+        store.subject = null;
       } catch (error) {
         const interruptionMessage =
           error instanceof Error ? error.message : String(error);
@@ -461,6 +467,12 @@ export class InMemoryAgentRunner extends AgentRunner {
         store.isRunning = false;
         runSubject.complete();
         nextSubject.complete();
+        // Time-scoped release: events are now in historicRuns, so the infinite
+        // ReplaySubject buffers are pure duplication — drop them so they become
+        // collectable. connect() only subscribes to store.subject while
+        // isRunning || stopRequested (both false here), and rebuilds history
+        // from historicRuns, so this is safe.
+        store.subject = null;
       }
     };
 

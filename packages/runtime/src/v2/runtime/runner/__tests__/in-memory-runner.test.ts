@@ -412,6 +412,121 @@ describe("InMemoryAgentRunner", () => {
       expect(errorEvent!.message).toBe("Connection refused");
     });
   });
+
+  describe("Subject buffer release", () => {
+    it("releases the ReplaySubject buffers after a run completes but keeps history", async () => {
+      const threadId = "release-1";
+      const agent = new TestAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "m1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "m1",
+        } as TextMessageEndEvent,
+      ]);
+
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent,
+            input: {
+              threadId,
+              runId: "r1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      // After completion the runner must not lose history: getThreadEvents
+      // rebuilds from historicRuns even though the live subject was released.
+      const events = runner.getThreadEvents(threadId);
+      expect(events.length).toBeGreaterThan(0);
+      const messageIds = events
+        .filter((e) => "messageId" in e)
+        .map((e) => (e as { messageId?: string }).messageId);
+      expect(messageIds).toContain("m1");
+    });
+
+    it("replays full history across a run boundary via historicRuns, not the live subject", async () => {
+      const threadId = "boundary-1";
+
+      const run1 = new TestAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "a",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "a",
+        } as TextMessageEndEvent,
+      ]);
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent: run1,
+            input: {
+              threadId,
+              runId: "r1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      const run2 = new TestAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "b",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "b",
+        } as TextMessageEndEvent,
+      ]);
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent: run2,
+            input: {
+              threadId,
+              runId: "r2",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      // A fresh connect after both runs must see BOTH runs' events. Since the
+      // live subject is released on completion, this replay proves the events
+      // come from historicRuns rather than a retained subject buffer.
+      const connected = await firstValueFrom(
+        runner.connect({ threadId }).pipe(toArray()),
+      );
+      const messageIds = connected
+        .filter((e) => "messageId" in e)
+        .map((e) => (e as { messageId?: string }).messageId);
+      expect(messageIds).toContain("a");
+      expect(messageIds).toContain("b");
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
