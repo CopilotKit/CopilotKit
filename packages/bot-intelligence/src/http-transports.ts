@@ -3,17 +3,20 @@ import type {
   DeliverySource,
   EgressSink,
   RenderEventSink,
+  AgentMessage,
 } from "./transports.js";
 import type {
   ManagedIngressEnvelope,
   ManagedFileRef,
+  EgressRoute,
   EgressOperation,
   EgressResult,
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
-import type { MessageRef } from "@copilotkit/bot-ui";
+import type { MessageRef, AgentContentPart } from "@copilotkit/bot-ui";
 import { irToText } from "./ir-to-text.js";
+import { buildContentParts } from "./content-parts.js";
 
 /**
  * @internal Default HTTP transports for {@link intelligenceAdapter}.
@@ -494,6 +497,94 @@ export class HttpDeliverySource implements DeliverySource {
     const bytes = new Uint8Array(await res.arrayBuffer());
     const mimeType = res.headers.get("content-type") ?? undefined;
     return { bytes, mimeType };
+  }
+
+  /**
+   * Fetch prior thread turns from app-api's bot history route for
+   * conversation-history seeding (parity with bot-slack/bot-discord/
+   * bot-whatsapp's reconstructed-history conversation stores). A root-level
+   * turn (no `threadTs`) has no prior thread to look up, so this returns `[]`
+   * without a request. Best-effort like {@link fetchFile}'s sibling paths — any
+   * non-2xx response or thrown error degrades to `[]`; missing history must
+   * never fail the turn. Logging is split by failure class: a 4xx (except
+   * 429) is a permanent misconfiguration (route not mounted / wrong baseUrl /
+   * bad runtime key) and is logged loudly and distinctly so it doesn't hide
+   * forever; a 5xx, 429, or thrown network error is a transient blip and gets
+   * the existing quiet degradation log.
+   */
+  async getHistory(
+    replyTarget: EgressRoute,
+    limit: number,
+  ): Promise<AgentMessage[]> {
+    const rt = replyTarget as
+      | { teamId?: string; channel?: string; threadTs?: string }
+      | undefined;
+    if (!rt?.threadTs) return [];
+    try {
+      const gfetch = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+      if (!gfetch) {
+        this.cfg.log?.("intelligence history fetch: no global fetch available");
+        return [];
+      }
+      const qs = new URLSearchParams({
+        teamId: rt.teamId ?? "",
+        channel: rt.channel ?? "",
+        threadTs: rt.threadTs,
+        limit: String(limit),
+      });
+      const url = `${this.cfg.baseUrl}/api/bots/history?${qs.toString()}`;
+      const res = await gfetch(url, {
+        method: "GET",
+        headers: { authorization: `Bearer ${this.cfg.apiKey}` },
+      });
+      if (!res.ok) {
+        if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+          // A permanent misconfiguration (missing route, wrong baseUrl, bad
+          // runtime key) looks identical to a transient blip unless it's
+          // called out distinctly — surface it loudly so it doesn't hide
+          // forever behind the best-effort degrade-to-`[]` below.
+          this.cfg.log?.(
+            `[intelligence] getHistory ${res.status} for thread history — likely a misconfigured/unauthorized history endpoint (baseUrl/route/apiKey); managed bot will run WITHOUT prior-turn history`,
+          );
+        } else {
+          // Transient (5xx/429) — quiet best-effort degradation, history is
+          // just skipped for this turn.
+          this.cfg.log?.(`intelligence history fetch -> ${res.status}`);
+        }
+        return [];
+      }
+      const json = (await res.json()) as {
+        messages?: Array<{
+          id: string;
+          role: "user" | "assistant";
+          text: string;
+          files?: ManagedFileRef[];
+        }>;
+      };
+      const out: AgentMessage[] = [];
+      for (const m of json.messages ?? []) {
+        if (!m.files?.length) {
+          out.push({ id: m.id, role: m.role, content: m.text ?? "" });
+          continue;
+        }
+        // Hydrate historical file refs with the SAME logic as the live inbound
+        // turn path, so a past image attachment and a live one produce
+        // identical content parts (e.g. "what was the image I sent?" works).
+        const fileParts = await buildContentParts(
+          m.files,
+          this.fetchFile.bind(this),
+          this.cfg.log,
+        );
+        const content: AgentContentPart[] = [];
+        if (m.text) content.push({ type: "text", text: m.text });
+        content.push(...fileParts);
+        out.push({ id: m.id, role: m.role, content });
+      }
+      return out;
+    } catch (err) {
+      this.cfg.log?.("intelligence history fetch failed", err);
+      return [];
+    }
   }
 
   /**

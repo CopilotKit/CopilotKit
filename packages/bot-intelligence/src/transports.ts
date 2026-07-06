@@ -1,10 +1,28 @@
+import type { AgentContentPart } from "@copilotkit/bot-ui";
 import type {
   ManagedIngressEnvelope,
+  EgressRoute,
   EgressOperation,
   EgressResult,
   RenderFrame,
   RenderAccepted,
 } from "./contracts.js";
+
+/**
+ * A conversation-history message the adapter seeds onto a fresh agent's
+ * `messages` before a turn runs, giving the managed bot visibility into prior
+ * thread turns (parity with bot-slack/bot-discord/bot-whatsapp's
+ * reconstructed-history conversation stores). Structurally compatible with —
+ * but intentionally looser than — the AG-UI `Message` union (which types an
+ * assistant's `content` as string-only): callers assign it onto `agent.messages`
+ * via a cast, same as the other adapters' conversation stores.
+ */
+export interface AgentMessage {
+  id: string;
+  role: "user" | "assistant";
+  /** String for plain turns; multimodal parts when the turn had files. */
+  content: string | AgentContentPart[];
+}
 
 /**
  * Inbound transport for managed delivery. Implemented by the Intelligence
@@ -41,6 +59,17 @@ export interface DeliverySource {
       altText?: string;
     },
   ): Promise<{ handle: string }>;
+  /**
+   * Fetch prior turns for the thread `replyTarget` addresses (oldest→newest,
+   * excluding the turn currently being dispatched), so the adapter can seed a
+   * fresh agent's `messages` — parity with bot-slack/bot-discord/bot-whatsapp,
+   * whose conversation stores rebuild `agent.messages` from platform history
+   * every turn. Optional: sources without a history-serving backing omit it and
+   * the adapter falls back to today's behavior (each turn starts fresh).
+   * Implementations must be best-effort — a failure must resolve to `[]`
+   * rather than reject, since missing history should never fail the turn.
+   */
+  getHistory?(replyTarget: EgressRoute, limit: number): Promise<AgentMessage[]>;
   stop(): Promise<void>;
 }
 

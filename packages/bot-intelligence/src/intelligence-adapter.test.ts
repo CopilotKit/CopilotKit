@@ -340,3 +340,83 @@ describe("intelligenceAdapter — exclusivity (V1)", () => {
     );
   });
 });
+
+describe("intelligenceAdapter — conversation-history seeding", () => {
+  const target = {
+    route: { teamId: "T1", channel: "C1", threadTs: "1.2" },
+    turnId: "t1",
+    deliveryId: "d1",
+  };
+
+  it("seeds agent.messages from the source's getHistory", async () => {
+    const source = new InMemoryDeliverySource();
+    source.history = [
+      { id: "h1", role: "user", content: "earlier question" },
+      { id: "h2", role: "assistant", content: "earlier answer" },
+    ];
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+    });
+
+    const { agent } = await adapter.conversationStore.getOrCreate(
+      "c1",
+      target,
+      () => new FakeAgent(),
+    );
+
+    expect(agent.messages).toEqual(source.history);
+  });
+
+  it("unwraps the ManagedReplyTarget to the raw route and defaults historyLimit to 20", async () => {
+    const source = new InMemoryDeliverySource();
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+    });
+
+    await adapter.conversationStore.getOrCreate(
+      "c1",
+      target,
+      () => new FakeAgent(),
+    );
+
+    expect(source.historyRequests).toEqual([
+      { replyTarget: target.route, limit: 20 },
+    ]);
+  });
+
+  it("threads a custom historyLimit through to getHistory", async () => {
+    const source = new InMemoryDeliverySource();
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+      historyLimit: 5,
+    });
+
+    await adapter.conversationStore.getOrCreate(
+      "c1",
+      target,
+      () => new FakeAgent(),
+    );
+
+    expect(source.historyRequests[0]?.limit).toBe(5);
+  });
+
+  it("starts fresh (empty messages) when the transport has no getHistory", async () => {
+    const source = new InMemoryDeliverySource();
+    delete (source as { getHistory?: unknown }).getHistory;
+    const adapter = intelligenceAdapter({
+      source,
+      egress: new InMemoryEgressSink(),
+    });
+
+    const { agent } = await adapter.conversationStore.getOrCreate(
+      "c1",
+      target,
+      () => new FakeAgent(),
+    );
+
+    expect(agent.messages).toEqual([]);
+  });
+});

@@ -1,10 +1,5 @@
 import type { AgentSubscriber } from "@ag-ui/client";
-import type {
-  AgentContentPart,
-  BotNode,
-  MessageRef,
-  PlatformUser,
-} from "@copilotkit/bot-ui";
+import type { BotNode, MessageRef, PlatformUser } from "@copilotkit/bot-ui";
 import type {
   StateStore,
   PlatformAdapter,
@@ -23,10 +18,10 @@ import type {
   DeliverySource,
   EgressSink,
   RenderEventSink,
+  AgentMessage,
 } from "./transports.js";
 import type {
   ManagedIngressEnvelope,
-  ManagedFileRef,
   EgressOp,
   EgressOperation,
   HostedBotRenderEvent,
@@ -41,6 +36,7 @@ import {
 } from "./http-transports.js";
 import type { IntelligenceTransportConfig } from "./http-transports.js";
 import { IntelligenceStateStore } from "./intelligence-state-store.js";
+import { buildContentParts } from "./content-parts.js";
 
 /** Reply target the adapter mints during ingress and threads back to egress. */
 interface ManagedReplyTarget {
@@ -61,17 +57,6 @@ function targetFromRef(ref: MessageRef): ManagedReplyTarget {
 const textNode = (value: string): BotNode[] => [
   { type: "text", props: { value } },
 ];
-
-/** Map a MIME type to its `AgentContentPart` media kind, or null for non-media. */
-function mediaKindForMime(
-  mime: string,
-): "image" | "audio" | "video" | "document" | null {
-  if (mime.startsWith("image/")) return "image";
-  if (mime.startsWith("audio/")) return "audio";
-  if (mime.startsWith("video/")) return "video";
-  if (mime === "application/pdf") return "document";
-  return null;
-}
 
 const INTERRUPTED_SUFFIX = "\n_(interrupted)_";
 
@@ -102,6 +87,14 @@ export interface IntelligenceAdapterOptions {
    * `egress` are injected.
    */
   config?: Partial<IntelligenceTransportConfig>;
+  /**
+   * Max prior thread turns to seed onto a fresh agent's `messages` before a
+   * turn runs — parity with bot-slack/bot-discord/bot-whatsapp's
+   * reconstructed-history conversation stores. Ignored when the transport has
+   * no {@link DeliverySource.getHistory} (each turn then starts fresh, today's
+   * behavior). Default 20.
+   */
+  historyLimit?: number;
 }
 
 /**
@@ -138,9 +131,33 @@ export class IntelligenceAdapter implements PlatformAdapter {
     supportsBlockingChoice: false,
   };
 
+  /**
+   * Seeds a fresh agent's `messages` from the managed transport's conversation
+   * history (parity with bot-slack/bot-discord/bot-whatsapp, whose stores
+   * rebuild `agent.messages` from platform history every turn) — an arrow
+   * function property so `this` resolves to the adapter instance (not this
+   * object literal) when bot core calls `adapter.conversationStore.getOrCreate(…)`.
+   * `replyTarget` here is the {@link ManagedReplyTarget} bot core threads
+   * through from `dispatchTo`; `.route` is the opaque {@link EgressRoute} the
+   * transport actually needs. Best-effort: `getHistory` degrading to `[]` (no
+   * transport support, or a fetch failure) just means the turn starts fresh.
+   */
   readonly conversationStore: ConversationStore = {
-    async getOrCreate(conversationKey, _replyTarget, makeAgent) {
-      return { agent: makeAgent(conversationKey) };
+    getOrCreate: async (conversationKey, replyTarget, makeAgent) => {
+      const agent = makeAgent(conversationKey);
+      const route = (replyTarget as ManagedReplyTarget).route;
+      const history =
+        (await this.source?.getHistory?.(
+          route,
+          this.opts.historyLimit ?? 20,
+        )) ?? [];
+      // AG-UI types an assistant `Message.content` as string-only, but our
+      // reconstructed history's `content` is `string | AgentContentPart[]`
+      // (a historical user turn may carry files) — cast past the stricter
+      // union rather than narrow the type, same as bot-slack/bot-discord/
+      // bot-whatsapp's conversation stores.
+      (agent as unknown as { messages: AgentMessage[] }).messages = history;
+      return { agent };
     },
   };
 
@@ -254,50 +271,6 @@ export class IntelligenceAdapter implements PlatformAdapter {
     }
   }
 
-  /**
-   * Hydrate turn-input file refs into `AgentContentPart`s: fetch each file's
-   * bytes via the delivery source and base64-encode them. Best-effort per
-   * file — a fetch failure is logged and skipped, never fails the turn. Media
-   * (image/audio/video/pdf) becomes a `data` part; `text/*` is decoded inline;
-   * anything else degrades to a short text note so the model still sees it.
-   */
-  private async buildContentParts(
-    files?: ManagedFileRef[],
-  ): Promise<AgentContentPart[]> {
-    const fetchFile = this.source?.fetchFile?.bind(this.source);
-    if (!files?.length || !fetchFile) return [];
-    const parts: AgentContentPart[] = [];
-    for (const ref of files) {
-      try {
-        const { bytes, mimeType } = await fetchFile(ref.handle);
-        // The typed ref's mime is authoritative — the file-serve route coerces
-        // its Content-Type to a safe allowlist, so the header can be lossy.
-        const mime = ref.mimeType ?? mimeType ?? "application/octet-stream";
-        const kind = mediaKindForMime(mime);
-        if (kind) {
-          const value = Buffer.from(bytes).toString("base64");
-          parts.push({
-            type: kind,
-            source: { type: "data", value, mimeType: mime },
-          });
-        } else if (mime.startsWith("text/")) {
-          parts.push({
-            type: "text",
-            text: Buffer.from(bytes).toString("utf8"),
-          });
-        } else {
-          parts.push({
-            type: "text",
-            text: `[attached file: ${ref.filename} (${mime})]`,
-          });
-        }
-      } catch (err) {
-        this.opts.config?.log?.("intelligence inbound file fetch failed", err);
-      }
-    }
-    return parts;
-  }
-
   private async dispatchTo(env: ManagedIngressEnvelope): Promise<void> {
     const sink = this.sink;
     if (!sink) throw new Error("IntelligenceAdapter: not started");
@@ -310,7 +283,13 @@ export class IntelligenceAdapter implements PlatformAdapter {
 
     switch (env.kind) {
       case "turn": {
-        const contentParts = await this.buildContentParts(env.files);
+        // Shared with `HttpDeliverySource.getHistory` (via ./content-parts.js)
+        // so a live inbound file and a historical one hydrate identically.
+        const contentParts = await buildContentParts(
+          env.files,
+          this.source?.fetchFile?.bind(this.source),
+          this.opts.config?.log,
+        );
         await sink.onTurn({
           conversationKey: env.conversationKey,
           replyTarget,
