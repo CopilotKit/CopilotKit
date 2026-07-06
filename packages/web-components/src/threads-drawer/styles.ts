@@ -598,13 +598,18 @@ export const drawerStyles = css`
   }
 
   .dialog-backdrop {
-    position: absolute;
+    /* Viewport-fixed (not absolute-in-.root): a persistent sidebar's .root is as
+       tall as its content when the host doesn't bound its height, so centering
+       in .root drops the dialog far below the fold. Fixed keeps the confirm
+       centered in the visible viewport regardless of host layout / scroll
+       position. z-index sits above the mobile off-canvas drawer (1000). */
+    position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.3);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10;
+    z-index: 1001;
   }
 
   .dialog {
