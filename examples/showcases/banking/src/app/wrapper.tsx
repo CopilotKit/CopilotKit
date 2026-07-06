@@ -162,9 +162,11 @@ function BankingSuggestions() {
 export function CopilotKitWrapper({
   children,
   glassAvailable = false,
+  resetEnabled = false,
 }: {
   children: React.ReactNode;
   glassAvailable?: boolean;
+  resetEnabled?: boolean;
 }) {
   const { currentUser } = useAuthContext();
   const { threadId, selectThread, createThread } = useThreadSelection();
@@ -243,7 +245,7 @@ export function CopilotKitWrapper({
                   useCanvas() to render <ReportCanvas/> in place of the page body.
                 */}
                 <CanvasProvider>
-                  <LayoutComponent>
+                  <LayoutComponent resetEnabled={resetEnabled}>
                     <CopilotContext>{children}</CopilotContext>
                   </LayoutComponent>
                   <ChatPanel threadId={threadId} />

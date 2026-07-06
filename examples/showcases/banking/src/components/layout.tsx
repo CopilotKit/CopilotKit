@@ -38,6 +38,7 @@ import { ReportCanvas } from "@/components/canvas/report-canvas";
 
 interface LayoutProps {
   children: React.ReactNode;
+  resetEnabled?: boolean;
 }
 
 /** Compact violet→indigo logo mark used at the top of the floating rail. */
@@ -136,7 +137,7 @@ function UserNavigation({
   );
 }
 
-export function LayoutComponent({ children }: LayoutProps) {
+export function LayoutComponent({ children, resetEnabled = false }: LayoutProps) {
   const { users, currentUser, setCurrentUser } = useAuthContext();
   const {
     available: glassAvailable,
