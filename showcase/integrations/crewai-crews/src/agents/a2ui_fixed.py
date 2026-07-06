@@ -79,7 +79,10 @@ class DisplayFlightTool(BaseTool):
             },
             {
                 "version": "v0.9",
-                "updateComponents": {"surfaceId": SURFACE_ID, "components": _FLIGHT_SCHEMA},
+                "updateComponents": {
+                    "surfaceId": SURFACE_ID,
+                    "components": _FLIGHT_SCHEMA,
+                },
             },
             {
                 "version": "v0.9",

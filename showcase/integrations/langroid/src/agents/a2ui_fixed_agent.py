@@ -133,7 +133,10 @@ def _build_a2ui_operations(
             },
             {
                 "version": "v0.9",
-                "updateComponents": {"surfaceId": SURFACE_ID, "components": FLIGHT_SCHEMA},
+                "updateComponents": {
+                    "surfaceId": SURFACE_ID,
+                    "components": FLIGHT_SCHEMA,
+                },
             },
             {
                 "version": "v0.9",

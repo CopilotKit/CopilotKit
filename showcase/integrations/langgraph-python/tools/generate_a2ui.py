@@ -113,7 +113,11 @@ def build_a2ui_operations_from_tool_call(args: dict[str, Any]) -> dict[str, Any]
         ops.append(
             {
                 "version": "v0.9",
-                "updateDataModel": {"surfaceId": surface_id, "path": "/", "value": data},
+                "updateDataModel": {
+                    "surfaceId": surface_id,
+                    "path": "/",
+                    "value": data,
+                },
             }
         )
 

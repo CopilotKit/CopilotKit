@@ -178,11 +178,17 @@ def search_flights(
     operations = [
         {
             "version": "v0.9",
-            "createSurface": {"surfaceId": FLIGHT_SURFACE_ID, "catalogId": FLIGHT_CATALOG_ID},
+            "createSurface": {
+                "surfaceId": FLIGHT_SURFACE_ID,
+                "catalogId": FLIGHT_CATALOG_ID,
+            },
         },
         {
             "version": "v0.9",
-            "updateComponents": {"surfaceId": FLIGHT_SURFACE_ID, "components": FLIGHT_SCHEMA},
+            "updateComponents": {
+                "surfaceId": FLIGHT_SURFACE_ID,
+                "components": FLIGHT_SCHEMA,
+            },
         },
         {
             "version": "v0.9",

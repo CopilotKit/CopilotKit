@@ -105,11 +105,18 @@ def search_flights_impl(flights: list[Flight]) -> dict[str, Any]:
             },
             {
                 "version": "v0.9",
-                "updateComponents": {"surfaceId": SURFACE_ID, "components": _flight_schema},
+                "updateComponents": {
+                    "surfaceId": SURFACE_ID,
+                    "components": _flight_schema,
+                },
             },
             {
                 "version": "v0.9",
-                "updateDataModel": {"surfaceId": SURFACE_ID, "path": "/", "value": {"flights": flights}},
+                "updateDataModel": {
+                    "surfaceId": SURFACE_ID,
+                    "path": "/",
+                    "value": {"flights": flights},
+                },
             },
         ]
     }
