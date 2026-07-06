@@ -405,7 +405,7 @@ export function useThreads({
     const context: ɵThreadRuntimeContext = {
       runtimeUrl: copilotkit.runtimeUrl,
       headers: { ...copilotkit.headers },
-      wsUrl: copilotkit.intelligence?.wsUrl,
+      metadata: copilotkit.ɵgetMetadataRealtime() ?? null,
       agentId,
       includeArchived,
       limit,
