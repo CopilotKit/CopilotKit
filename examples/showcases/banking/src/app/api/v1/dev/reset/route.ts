@@ -14,10 +14,10 @@ import { SEEDED_USER_IDS } from "@/lib/intelligence/user-id";
  */
 export const POST = async () => {
   if (!presenterResetEnabled()) {
-    return new Response(
-      JSON.stringify({ error: "presenter reset disabled" }),
-      { status: 403, headers: { "content-type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ error: "presenter reset disabled" }), {
+      status: 403,
+      headers: { "content-type": "application/json" },
+    });
   }
 
   store.reset();

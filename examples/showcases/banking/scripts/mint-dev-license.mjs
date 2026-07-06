@@ -37,7 +37,13 @@
  *   node scripts/mint-dev-license.mjs --org my-org   # override the license org
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -45,7 +51,10 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const DEMO_ROOT = resolve(SCRIPT_DIR, "..");
 
 // Match the docker-compose image build default: ${INTELLIGENCE_REPO:-../../../../Intelligence}
-const DEFAULT_INTELLIGENCE_REPO = resolve(DEMO_ROOT, "../../../../Intelligence");
+const DEFAULT_INTELLIGENCE_REPO = resolve(
+  DEMO_ROOT,
+  "../../../../Intelligence",
+);
 const INTELLIGENCE_REPO = process.env.INTELLIGENCE_REPO
   ? resolve(process.env.INTELLIGENCE_REPO)
   : DEFAULT_INTELLIGENCE_REPO;
@@ -61,7 +70,10 @@ function die(msg) {
 }
 
 // --- Preflight: the private signer source + the repo's tsx must be present ---
-const signerEntry = resolve(INTELLIGENCE_REPO, "libs/license-signing/src/index.ts");
+const signerEntry = resolve(
+  INTELLIGENCE_REPO,
+  "libs/license-signing/src/index.ts",
+);
 if (!existsSync(signerEntry)) {
   die(
     `Intelligence signer not found at ${signerEntry}.\n` +
@@ -73,7 +85,9 @@ if (!existsSync(signerEntry)) {
 }
 const tsxBin = resolve(INTELLIGENCE_REPO, "node_modules/.bin/tsx");
 if (!existsSync(tsxBin)) {
-  die(`tsx not found at ${tsxBin}. Run 'pnpm install' in the Intelligence repo first.`);
+  die(
+    `tsx not found at ${tsxBin}. Run 'pnpm install' in the Intelligence repo first.`,
+  );
 }
 
 // --- Mint: run a throwaway signer inside the Intelligence repo context ---
@@ -81,7 +95,10 @@ if (!existsSync(tsxBin)) {
 // the temp file must live inside the repo tree (relative import + repo cwd).
 const repoTmpDir = resolve(INTELLIGENCE_REPO, "tmp");
 mkdirSync(repoTmpDir, { recursive: true });
-const tmpSigner = resolve(repoTmpDir, `_mint-banking-license.${process.pid}.ts`);
+const tmpSigner = resolve(
+  repoTmpDir,
+  `_mint-banking-license.${process.pid}.ts`,
+);
 
 const signerSource = `
 import { generateKeyPair, generateKeyId, createLicensePayload, signLicense, getDefaultFeatures } from '../libs/license-signing/src/index.ts';
@@ -107,7 +124,9 @@ try {
     stdio: ["ignore", "pipe", "inherit"],
   });
 } catch (err) {
-  die(`signing failed inside ${INTELLIGENCE_REPO}. See the error above.\n  ${err?.message ?? err}`);
+  die(
+    `signing failed inside ${INTELLIGENCE_REPO}. See the error above.\n  ${err?.message ?? err}`,
+  );
 } finally {
   rmSync(tmpSigner, { force: true });
 }
@@ -124,9 +143,13 @@ const envPairs = {
 };
 
 if (!WRITE) {
-  console.log(`# Self-hosted dev license (org: ${ORG_ID}). Paste into .env, or re-run with --write.`);
+  console.log(
+    `# Self-hosted dev license (org: ${ORG_ID}). Paste into .env, or re-run with --write.`,
+  );
   for (const [k, v] of Object.entries(envPairs)) console.log(`${k}=${v}`);
-  console.log(`\n# MANAGED Intelligence does NOT use BAKED_LICENSE_KEYS_JSON — see .env.example.`);
+  console.log(
+    `\n# MANAGED Intelligence does NOT use BAKED_LICENSE_KEYS_JSON — see .env.example.`,
+  );
   process.exit(0);
 }
 
@@ -144,5 +167,9 @@ for (const [k, v] of Object.entries(envPairs)) {
   }
 }
 writeFileSync(envPath, envText);
-console.log(`✓ Wrote INTELLIGENCE_DEPLOYMENT_MODE, COPILOTKIT_LICENSE_TOKEN, BAKED_LICENSE_KEYS_JSON to ${envPath}`);
-console.log(`  (org: ${ORG_ID}; self-hosted dev license, features.memory=true)`);
+console.log(
+  `✓ Wrote INTELLIGENCE_DEPLOYMENT_MODE, COPILOTKIT_LICENSE_TOKEN, BAKED_LICENSE_KEYS_JSON to ${envPath}`,
+);
+console.log(
+  `  (org: ${ORG_ID}; self-hosted dev license, features.memory=true)`,
+);

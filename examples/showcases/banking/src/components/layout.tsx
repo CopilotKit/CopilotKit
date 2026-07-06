@@ -138,7 +138,10 @@ function UserNavigation({
   );
 }
 
-export function LayoutComponent({ children, resetEnabled = false }: LayoutProps) {
+export function LayoutComponent({
+  children,
+  resetEnabled = false,
+}: LayoutProps) {
   const { users, currentUser, setCurrentUser } = useAuthContext();
   const {
     available: glassAvailable,
