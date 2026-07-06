@@ -22,6 +22,12 @@ import type {
   RetryDetail,
   SearchDetail,
 } from "@copilotkit/web-components/threads-drawer";
+// TODO(ENT-1051): import `CollapseChangeDetail` from
+// "@copilotkit/web-components/threads-drawer" once the parallel element PR that
+// adds the collapse feature (property `collapsible` + event `collapse-change`)
+// lands and is published; declared locally here because the built element types
+// in this worktree predate it.
+type CollapseChangeDetail = { collapsed: boolean };
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
@@ -105,6 +111,18 @@ export interface CopilotThreadsDrawerProps {
    * this is a read-only notification hook (e.g. to fetch server-side matches).
    */
   onSearch?: (query: string) => void;
+  /**
+   * Whether the drawer offers a collapse toggle. Sets the custom element's
+   * `collapsible` PROPERTY. When `false`, the drawer has no collapse toggle and
+   * is always expanded. Defaults to the element's built-in `true` when omitted.
+   */
+  collapsible?: boolean;
+  /**
+   * Called when the drawer's collapsed state changes (via the element's collapse
+   * toggle), with the new collapsed state. Mirrors the element's
+   * `collapse-change` event.
+   */
+  onCollapseChange?: (collapsed: boolean) => void;
   /**
    * Page size for thread pagination. When set, threads are fetched in pages of
    * this size and the drawer shows a "Load more" control while more remain.
@@ -190,7 +208,7 @@ function findChatInput(origin: Element | null): HTMLElement | null {
  *   during prerender to avoid hydration mismatch).
  * - Feeds the element domain data: `threads`, `loading`, `error`,
  *   `activeThreadId`, `licensed`, fetch-more state.
- * - Routes the element's eleven outbound events to core thread operations
+ * - Routes the element's twelve outbound events to core thread operations
  *   ({@link useThreads}) and chat-configuration changes.
  * - Registers with the surrounding chat configuration so the header
  *   thread-list launcher appears, and binds the element `open` state to the
@@ -227,6 +245,8 @@ export function CopilotThreadsDrawer({
   label,
   recentLabel,
   onSearch,
+  collapsible,
+  onCollapseChange,
   limit,
   "data-testid": dataTestId = "copilot-threads-drawer",
 }: CopilotThreadsDrawerProps): React.ReactElement | null {
@@ -447,6 +467,13 @@ export function CopilotThreadsDrawer({
     [onSearch],
   );
 
+  const handleCollapseChange = useCallback(
+    (collapsed: boolean) => {
+      onCollapseChange?.(collapsed);
+    },
+    [onCollapseChange],
+  );
+
   // Keep a ref to the live handlers so the addEventListener effect can stay
   // stable (bind once) while still calling the freshest closures.
   const handlersRef = useRef({
@@ -461,6 +488,7 @@ export function CopilotThreadsDrawer({
     handleLicensed,
     handleLoadMore,
     handleSearch,
+    handleCollapseChange,
   });
   handlersRef.current = {
     handleThreadSelected,
@@ -474,9 +502,10 @@ export function CopilotThreadsDrawer({
     handleLicensed,
     handleLoadMore,
     handleSearch,
+    handleCollapseChange,
   };
 
-  // Bind the eleven outbound DOM events once the element exists. Listeners are
+  // Bind the twelve outbound DOM events once the element exists. Listeners are
   // bound a single time and cleaned up on unmount; they dispatch through the
   // handlers ref so they always invoke the latest closures.
   useEffect(() => {
@@ -517,6 +546,10 @@ export function CopilotThreadsDrawer({
       const detail = (event as CustomEvent<SearchDetail>).detail;
       handlersRef.current.handleSearch(detail.query);
     };
+    const onCollapseChangeEvent = (event: Event) => {
+      const detail = (event as CustomEvent<CollapseChangeDetail>).detail;
+      handlersRef.current.handleCollapseChange(detail.collapsed);
+    };
 
     el.addEventListener("thread-selected", onThreadSelected);
     el.addEventListener("new-thread", onNewThreadEvent);
@@ -529,6 +562,7 @@ export function CopilotThreadsDrawer({
     el.addEventListener("licensed", onLicensedEvent);
     el.addEventListener("load-more", onLoadMore);
     el.addEventListener("search", onSearchEvent);
+    el.addEventListener("collapse-change", onCollapseChangeEvent);
 
     return () => {
       el.removeEventListener("thread-selected", onThreadSelected);
@@ -542,6 +576,7 @@ export function CopilotThreadsDrawer({
       el.removeEventListener("licensed", onLicensedEvent);
       el.removeEventListener("load-more", onLoadMore);
       el.removeEventListener("search", onSearchEvent);
+      el.removeEventListener("collapse-change", onCollapseChangeEvent);
     };
     // Re-bind only after the first client mount (deps: [mounted]); the element
     // ref is stable thereafter.
@@ -615,6 +650,23 @@ export function CopilotThreadsDrawer({
     if (!el) return;
     if (licenseUrl !== undefined) el.licenseUrl = licenseUrl;
   }, [licenseUrl, mounted]);
+
+  // Mirror the optional `collapsible` onto the element as a PROPERTY (a
+  // default-true boolean, exactly like `licensed` — a string attribute cannot
+  // represent it since any non-empty value is truthy). Leave the element's
+  // built-in default (`true`) in place when the prop is omitted, rather than
+  // clobbering it with undefined.
+  useEffect(() => {
+    const el = elementRef.current;
+    if (!el) return;
+    if (collapsible !== undefined) {
+      // TODO(ENT-1051): drop the intersection cast once the published element
+      // type declares `collapsible` (see the local CollapseChangeDetail note).
+      (
+        el as CopilotKitThreadsDrawerElement & { collapsible: boolean }
+      ).collapsible = collapsible;
+    }
+  }, [collapsible, mounted]);
 
   // Per-row light-DOM children projected via `slot="row:{id}"`.
   const rowChildren = useMemo(() => {

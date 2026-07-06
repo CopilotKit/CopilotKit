@@ -17,6 +17,12 @@ import type {
   OpenChangeDetail,
   SearchDetail,
 } from "@copilotkit/web-components/threads-drawer";
+// TODO(ENT-1051): import `CollapseChangeDetail` from
+// "@copilotkit/web-components/threads-drawer" once the parallel element PR that
+// adds the collapse feature (property `collapsible` + event `collapse-change`)
+// lands and is published; declared locally here because the built element types
+// in this worktree predate it.
+type CollapseChangeDetail = { collapsed: boolean };
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
@@ -37,6 +43,13 @@ const props = withDefaults(
      * when omitted.
      */
     recentLabel?: string;
+    /**
+     * Whether the drawer offers a collapse toggle. Bound to the element's
+     * `collapsible` PROPERTY (a default-true boolean, exactly like `licensed`).
+     * When `false`, the drawer has no collapse toggle and is always expanded.
+     * Defaults to the element's own `true` when omitted.
+     */
+    collapsible?: boolean;
     limit?: number;
     dataTestId?: string;
   }>(),
@@ -46,6 +59,11 @@ const props = withDefaults(
 const emit = defineEmits<{
   /** Emitted when the in-drawer client-side search query changes. */
   search: [query: string];
+  /**
+   * Emitted when the drawer's collapsed state changes (mirrors the element's
+   * `collapse-change` event), carrying the new collapsed state.
+   */
+  "collapse-change": [collapsed: boolean];
 }>();
 
 const config = useCopilotChatConfiguration();
@@ -133,6 +151,15 @@ watchEffect(
     el.open = drawerOpen.value;
     if (props.label !== undefined) el.label = props.label;
     if (props.licenseUrl !== undefined) el.licenseUrl = props.licenseUrl;
+    // `collapsible` is a default-true boolean PROPERTY (like `licensed`); leave
+    // the element's own default in place when the prop is omitted.
+    if (props.collapsible !== undefined) {
+      // TODO(ENT-1051): drop the intersection cast once the published element
+      // type declares `collapsible` (see the local CollapseChangeDetail note).
+      (
+        el as CopilotKitThreadsDrawerElement & { collapsible: boolean }
+      ).collapsible = props.collapsible;
+    }
   },
   { flush: "post" },
 );
@@ -232,6 +259,10 @@ function onSearch(event: Event) {
   const { query } = (event as CustomEvent<SearchDetail>).detail;
   emit("search", query);
 }
+function onCollapseChange(event: Event) {
+  const { collapsed } = (event as CustomEvent<CollapseChangeDetail>).detail;
+  emit("collapse-change", collapsed);
+}
 function onRetry(event: Event) {
   const { scope } = (event as CustomEvent<RetryDetail>).detail;
   if (scope === "fetch-more") threadsApi.fetchMoreThreads();
@@ -282,6 +313,7 @@ defineSlots<{
     @delete="onDelete"
     @filter-change="onFilterChange"
     @search="onSearch"
+    @collapse-change="onCollapseChange"
     @retry="onRetry"
     @load-more="onLoadMore"
     @open-change="onOpenChange"

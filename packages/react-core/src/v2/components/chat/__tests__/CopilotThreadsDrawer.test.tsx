@@ -655,6 +655,34 @@ test("surfaces the element's search event to onSearch with the query", async () 
   expect(onSearch).toHaveBeenCalledWith("abc");
 });
 
+test("sets the element's collapsible property to false when collapsible={false}", async () => {
+  await renderDrawer({ collapsible: false });
+
+  expect(
+    (getElement() as unknown as { collapsible: boolean }).collapsible,
+  ).toBe(false);
+});
+
+test("leaves the element's collapsible property untouched when the prop is omitted", async () => {
+  await renderDrawer();
+
+  // The wrapper never assigns the property, so the element keeps its own
+  // built-in default (the property is `undefined` on the bare element in jsdom
+  // until the element itself initializes it).
+  expect(
+    (getElement() as unknown as { collapsible?: boolean }).collapsible,
+  ).toBeUndefined();
+});
+
+test("surfaces the element's collapse-change event to onCollapseChange with the collapsed state", async () => {
+  const onCollapseChange = vi.fn();
+  await renderDrawer({ onCollapseChange });
+
+  dispatch("collapse-change", { collapsed: true });
+
+  expect(onCollapseChange).toHaveBeenCalledWith(true);
+});
+
 test("renders nothing during SSR (no element, no hydration mismatch)", () => {
   // Server render runs no effects, so the client-only mount flag stays false
   // and the element is never emitted — matching the empty initial client
