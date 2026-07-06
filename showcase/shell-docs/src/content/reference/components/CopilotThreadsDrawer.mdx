@@ -7,7 +7,7 @@ description: "Prebuilt threads drawer that lists, switches, and manages conversa
 
 `CopilotThreadsDrawer` is a prebuilt thread switcher. Dropped in next to [`CopilotChat`](/reference/components/CopilotChat), it lists the user's conversations and lets them switch, start, rename, archive, and delete threads — with **no active-thread state to wire up**. It is a thin React wrapper around the framework-agnostic `<copilotkit-threads-drawer>` shadow-DOM web component, fed by the [`useThreads`](/reference/hooks/useThreads) hook and the surrounding chat configuration.
 
-When `onThreadSelect` / `onNewThread` are omitted, the drawer drives the surrounding chat configuration directly: selecting a row connects the chat to that thread (and replays its history); "+ New" resets the chat to a fresh welcome screen. Pass the callbacks only to take control of the active thread yourself.
+When `onThreadSelect` / `onNewThread` are omitted, the drawer drives the surrounding chat configuration directly: selecting a row connects the chat to that thread (and replays its history); the "New Conversation" row resets the chat to a fresh welcome screen. Pass the callbacks only to take control of the active thread yourself.
 
 See the [CopilotThreadsDrawer guide](/prebuilt-components/copilot-threads-drawer) for a walkthrough, and [`useThreads`](/reference/hooks/useThreads) for the headless data layer underneath.
 
@@ -34,10 +34,17 @@ import "@copilotkit/react-core/v2/styles.css";
 </PropertyReference>
 
 <PropertyReference name="onNewThread" type="() => void">
-  Optional escape hatch called when the user starts a new thread (the "+ New"
-  button). The wrapper always resets the core thread store to a fresh,
-  non-explicit thread; when this is omitted it also resets the surrounding chat
-  configuration so the welcome screen shows with no host wiring.
+  Optional escape hatch called when the user starts a new thread (the
+  "New Conversation" row). The wrapper always resets the core thread store to a
+  fresh, non-explicit thread; when this is omitted it also resets the surrounding
+  chat configuration so the welcome screen shows with no host wiring.
+</PropertyReference>
+
+<PropertyReference name="onSearch" type="(query: string) => void">
+  Optional callback fired as the user types in the drawer's client-side search
+  box. The element emits a `search` CustomEvent (`detail: { query: string }`)
+  that the wrapper routes here. Search filters the rendered thread list on the
+  client.
 </PropertyReference>
 
 <PropertyReference name="renderRow" type="(thread: Thread) => React.ReactNode">
@@ -48,8 +55,14 @@ import "@copilotkit/react-core/v2/styles.css";
 </PropertyReference>
 
 <PropertyReference name="label" type="string" default="Threads">
-  Accessible label for the drawer region and the default header text (shown when
-  no `header` slot content is projected). Sets the element's `aria-label`.
+  Accessible name for the drawer. Sets the `aria-label` on both the drawer region
+  and the thread listbox. The redesigned header has no visible title, so this is
+  no longer shown as header text.
+</PropertyReference>
+
+<PropertyReference name="recentLabel" type="string" default="Recent Conversations">
+  Text of the section heading shown above the thread list (the `section-heading`
+  part), alongside the filter funnel.
 </PropertyReference>
 
 <PropertyReference name="limit" type="number">
@@ -76,7 +89,7 @@ Project light-DOM children with a `slot` attribute to replace a region:
 
 | Slot | Replaces |
 | --- | --- |
-| `header` | The drawer header (defaults to the `label` text). |
+| `header` | The drawer header region (empty by default; the redesigned header is an icon row of toggles). |
 | `empty` | The empty-state body shown when there are no threads. |
 | `footer` | A footer region (hidden until you project content). |
 | `memories` | A reserved region for a future memories surface. |
@@ -91,11 +104,19 @@ Project light-DOM children with a `slot` attribute to replace a region:
 
 ### CSS parts
 
-Style structural elements with `::part()`: `root`, `header`, `filters`,
-`filter-active`, `filter-all`, `new-thread-button`, `list`, `row-name`,
-`row-archive`, `row-unarchive`, `row-delete`, `loading`, `empty`, `error`,
-`retry-button`, `footer`, `memories`, `launcher`,
+Style structural elements with `::part()`: `root`, `header`, `search-toggle`,
+`collapse-toggle`, `new-thread-button`, `section-heading`, `filters`,
+`filter-toggle`, `filter-indicator`, `filter-active`, `filter-all`,
+`search-input`, `list`, `row-name`, `row-menu`, `row-menu-popover`,
+`row-archive`, `row-unarchive`, `row-delete`, `collapsed-cluster`, `loading`,
+`empty`, `error`, `retry-button`, `footer`, `memories`, `launcher`,
 `confirm-dialog`, `confirm-delete`, `confirm-cancel`.
+
+The header's icon row exposes `search-toggle` (toggles the `search-input`) and
+`collapse-toggle` (collapses the drawer to a floating `collapsed-cluster`). The
+Active/All filter lives behind the `filter-toggle` funnel, whose
+`filter-indicator` dot shows when a non-default filter is applied. Per-row
+Archive/Delete actions live in the `row-menu` kebab and its `row-menu-popover`.
 
 ### CSS variable tokens
 
@@ -104,7 +125,8 @@ Tokens override the bundled defaults and fall back to the host theme's vars
 `--cpk-drawer-fg`, `--cpk-drawer-border`, `--cpk-drawer-surface`,
 `--cpk-drawer-surface-fg`, `--cpk-drawer-muted`, `--cpk-drawer-muted-fg`,
 `--cpk-drawer-accent`, `--cpk-drawer-accent-fg`, `--cpk-drawer-primary`,
-`--cpk-drawer-primary-fg`, `--cpk-drawer-danger`, `--cpk-drawer-ring`,
+`--cpk-drawer-primary-fg`, `--cpk-drawer-danger`, `--cpk-drawer-indicator`
+(default `#5b94e4`, color of the filter-applied dot), `--cpk-drawer-ring`,
 `--cpk-drawer-radius`, `--cpk-drawer-width`, `--cpk-drawer-rail-width`,
 `--cpk-drawer-font-family`, `--cpk-drawer-font-size`, `--cpk-drawer-line-height`,
 `--cpk-drawer-launcher-top`, `--cpk-drawer-launcher-left`.
@@ -139,10 +161,13 @@ function App() {
 
 ## Behavior
 
-- **Self-connecting**: without `onThreadSelect`/`onNewThread`, the drawer drives the chat configuration — select connects + replays; "+ New" shows the welcome screen.
+- **Self-connecting**: without `onThreadSelect`/`onNewThread`, the drawer drives the chat configuration — select connects + replays; the "New Conversation" row shows the welcome screen.
+- **Header**: the header is a compact icon row — a **search** toggle and a **collapse/sidebar** toggle. "New Conversation" is its own row below the header. Collapsing the drawer leaves a floating cluster (`collapsed-cluster`) with expand and new-conversation icons.
+- **Search**: the search toggle reveals a client-side search box that filters the rendered list as you type (emitting the `search` event / `onSearch`).
+- **Row actions**: per-row **Archive/Delete** live behind a per-row kebab (⋮) menu (`row-menu`), not always-visible inline buttons; delete still asks for confirmation.
 - **Optimistic mutations**: archive/unarchive/rename/delete are optimistic in the core thread store; delete rolls back if the server rejects.
-- **Deleting the active thread** resets to a fresh thread; **archiving** the active thread keeps you viewing it.
-- **Filter**: the element owns the Active/All filter; toggling it refetches server-side.
+- **Deleting the active thread** resets to a fresh thread; **archiving** the active thread keeps you viewing it. Archived threads render italic/muted inline in the "All" view.
+- **Filter**: an Active/All filter lives behind a **funnel** icon popover under the "Recent Conversations" heading; a small indicator dot appears on the funnel when a non-default filter is applied. Toggling the filter refetches server-side.
 - **Mobile**: below 768px the drawer is an off-canvas overlay with its own floating launcher; the launcher icon (`launcher-icon` slot) and position (`--cpk-drawer-launcher-*`) are customizable.
 - **License**: threads require CopilotKit Intelligence; without a license key the drawer shows a locked view in place of the list.
 

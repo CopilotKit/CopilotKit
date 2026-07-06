@@ -31,7 +31,7 @@ headlessly through the `useThreads` hook — see [Threads](/threads).
 Use the drawer when you want:
 
 - A persistent thread switcher beside your chat (chat-history sidebar)
-- Thread switching, "+ New", rename, archive, and delete with zero wiring
+- Thread switching, new conversations, rename, archive, and delete with zero wiring
 - A self-contained, themeable UI that follows your app's light/dark theme
 - A mobile-ready off-canvas drawer with its own launcher
 
@@ -49,8 +49,8 @@ server-side). See [Threads](/threads) to set that up.
 
 Drop `<CopilotThreadsDrawer>` next to `<CopilotChat>` under your `CopilotKitProvider`.
 With no callbacks, the drawer drives the active thread itself: selecting a row
-connects the chat to that thread and replays its history; "+ New" resets the
-chat to a fresh welcome screen.
+connects the chat to that thread and replays its history; the "New Conversation"
+row resets the chat to a fresh welcome screen.
 
 ```tsx title="app/page.tsx"
 import {
@@ -81,9 +81,11 @@ That's the whole integration — no `threadId` state, no `onSelect` plumbing.
 | Prop | Description |
 |------|-------------|
 | `agentId` | Agent whose threads to list (defaults to the chat configuration's agent). |
-| `label` | Accessible label + default header text. Defaults to `"Threads"`. |
+| `label` | Accessible name for the drawer region and thread listbox. Defaults to `"Threads"`. The redesigned header has no visible title. |
+| `recentLabel` | Section heading shown above the thread list. Defaults to `"Recent Conversations"`. |
 | `onThreadSelect` | Escape hatch to take over thread selection yourself. |
-| `onNewThread` | Escape hatch to handle "+ New" yourself. |
+| `onNewThread` | Escape hatch to handle the "New Conversation" row yourself. |
+| `onSearch` | Called as the user types in the drawer's search box (`(query: string) => void`). |
 | `renderRow` | Render custom content per row (keeps the row chrome around it). |
 | `limit` | Page size for pagination — shows a "Load more" control while more threads remain. Omit to load all at once. |
 
@@ -103,7 +105,7 @@ Three bounded escape hatches pierce the boundary:
   </CopilotThreadsDrawer>
   ```
 
-- **Per-row content** — the `renderRow` prop projects custom content into each row while the element keeps selection, archived styling, and the action buttons.
+- **Per-row content** — the `renderRow` prop projects custom content into each row while the element keeps selection, archived styling, and the per-row kebab (⋮) menu (Archive/Delete).
 - **CSS parts + variable tokens** — restyle structural `::part()`s or override `--cpk-drawer-*` tokens. The full list is in the [reference](/reference/components/CopilotThreadsDrawer#customization).
 
 ## License
