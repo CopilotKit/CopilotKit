@@ -40,14 +40,6 @@ import "@copilotkit/react-core/v2/styles.css";
   chat configuration so the welcome screen shows with no host wiring.
 </PropertyReference>
 
-<PropertyReference name="onCollapseChange" type="(collapsed: boolean) => void">
-  Optional callback fired when the user collapses or expands the drawer. The
-  element emits a `collapse-change` CustomEvent (`detail: { collapsed: boolean }`)
-  that the wrapper routes here. Hosts use it to reclaim the drawer's reserved
-  layout space when it collapses — for example, shrinking a fixed grid track to
-  `auto` so the rest of the UI expands.
-</PropertyReference>
-
 <PropertyReference name="renderRow" type="(thread: Thread) => React.ReactNode">
   Optional per-row content. Rendered as light-DOM children projected into the
   element's `slot="row:{id}"`, so the element keeps the row chrome (selection,
@@ -64,12 +56,6 @@ import "@copilotkit/react-core/v2/styles.css";
 <PropertyReference name="recentLabel" type="string" default="Recent Conversations">
   Text of the section heading shown above the thread list (the `section-heading`
   part), alongside the filter funnel.
-</PropertyReference>
-
-<PropertyReference name="collapsible" type="boolean" default="true">
-  Whether the drawer can be collapsed. When `true` (default), the header shows a
-  collapse toggle that hides the drawer down to a floating `collapsed-cluster`.
-  Set to `false` to remove the toggle and keep the drawer always expanded.
 </PropertyReference>
 
 <PropertyReference name="limit" type="number">
@@ -96,7 +82,7 @@ Project light-DOM children with a `slot` attribute to replace a region:
 
 | Slot | Replaces |
 | --- | --- |
-| `header` | The drawer header region (empty by default; the redesigned header is an icon row with the collapse toggle). |
+| `header` | The drawer header region (renders only when you project content). |
 | `empty` | The empty-state body shown when there are no threads. |
 | `footer` | A footer region (hidden until you project content). |
 | `memories` | A reserved region for a future memories surface. |
@@ -112,16 +98,14 @@ Project light-DOM children with a `slot` attribute to replace a region:
 ### CSS parts
 
 Style structural elements with `::part()`: `root`, `header`,
-`collapse-toggle`, `new-thread-button`, `section-heading`, `filters`,
+`new-thread-button`, `section-heading`, `filters`,
 `filter-toggle`, `filter-indicator`, `filter-active`, `filter-all`,
 `list`, `row-name`, `row-menu`, `row-menu-popover`,
-`row-archive`, `row-unarchive`, `row-delete`, `collapsed-cluster`, `loading`,
+`row-archive`, `row-unarchive`, `row-delete`, `loading`,
 `empty`, `error`, `retry-button`, `footer`, `memories`, `launcher`,
 `confirm-dialog`, `confirm-delete`, `confirm-cancel`.
 
-The header's icon row exposes `collapse-toggle`, which collapses the drawer to a
-floating `collapsed-cluster` (with expand and new-conversation icons). The
-Active/All filter lives behind the `filter-toggle` funnel, whose
+The Active/All filter lives behind the `filter-toggle` funnel, whose
 `filter-indicator` dot shows when a non-default filter is applied. Per-row
 Archive/Delete actions live in the `row-menu` kebab and its `row-menu-popover`.
 
@@ -134,7 +118,7 @@ Tokens override the bundled defaults and fall back to the host theme's vars
 `--cpk-drawer-accent`, `--cpk-drawer-accent-fg`, `--cpk-drawer-primary`,
 `--cpk-drawer-primary-fg`, `--cpk-drawer-danger`, `--cpk-drawer-indicator`
 (default `#5b94e4`, color of the filter-applied dot), `--cpk-drawer-ring`,
-`--cpk-drawer-radius`, `--cpk-drawer-width`, `--cpk-drawer-rail-width`,
+`--cpk-drawer-radius`, `--cpk-drawer-width`,
 `--cpk-drawer-font-family`, `--cpk-drawer-font-size`, `--cpk-drawer-line-height`,
 `--cpk-drawer-launcher-top`, `--cpk-drawer-launcher-left`.
 
@@ -169,12 +153,12 @@ function App() {
 ## Behavior
 
 - **Self-connecting**: without `onThreadSelect`/`onNewThread`, the drawer drives the chat configuration — select connects + replays; the "New Conversation" row shows the welcome screen.
-- **Header**: the header is a compact icon row with a single **collapse/sidebar** toggle (unless `collapsible={false}`). "New Conversation" is its own row below the header. Collapsing the drawer leaves a floating cluster (`collapsed-cluster`) with expand and new-conversation icons, and emits `collapse-change` / `onCollapseChange` so the host can reclaim the reserved layout space.
+- **Persistent sidebar**: on larger screens the drawer is a persistent, always-visible sidebar — there is no collapse control. The header region is empty by default and renders only when you project content into `slot="header"`; "New Conversation" is its own row below it.
 - **Row actions**: per-row **Archive/Delete** live behind a per-row kebab (⋮) menu (`row-menu`), not always-visible inline buttons; delete still asks for confirmation.
 - **Optimistic mutations**: archive/unarchive/rename/delete are optimistic in the core thread store; delete rolls back if the server rejects.
 - **Deleting the active thread** resets to a fresh thread; **archiving** the active thread keeps you viewing it. Archived threads render italic/muted inline in the "All" view.
 - **Filter**: an Active/All filter lives behind a **funnel** icon popover under the "Recent Conversations" heading; a small indicator dot appears on the funnel when a non-default filter is applied. Toggling the filter refetches server-side.
-- **Mobile**: below 768px the drawer is an off-canvas overlay with its own floating launcher; the launcher icon (`launcher-icon` slot) and position (`--cpk-drawer-launcher-*`) are customizable.
+- **Mobile**: below 768px the drawer is an off-canvas modal opened via its own floating launcher and dismissed by tapping the backdrop or pressing Escape; the launcher icon (`launcher-icon` slot) and position (`--cpk-drawer-launcher-*`) are customizable.
 - **License**: threads require CopilotKit Intelligence; without a license key the drawer shows a locked view in place of the list.
 
 ## Related
