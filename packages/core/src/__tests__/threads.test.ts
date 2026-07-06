@@ -3,6 +3,13 @@ import type { Mock } from "vitest";
 import type { MockChannel } from "./test-utils";
 import { MockSocket } from "./test-utils";
 
+// Phoenix mock harness: the thread store joins its channel off the SHARED
+// metadata socket (mirrors `memory.test.ts`). The tests build a real
+// `ɵcreateMetadataSocket` per context (memoized so repeated
+// `getMetadataSocket(joinToken)` calls return the SAME shared socket), which
+// connects through the mocked `phoenix` module below. `phoenix.sockets`
+// captures every socket constructed so tests can reach the joined channel and
+// `serverPush` events onto it.
 const phoenix = vi.hoisted(() => ({
   sockets: [] as MockSocket[],
 }));
@@ -25,7 +32,8 @@ const {
   ɵselectIsFetchingNextPage,
   ɵselectIsMutating,
 } = await import("../threads");
-import { ɵcreateMetadataRealtimeConnection } from "../core/metadata-realtime";
+import { ɵcreateMetadataSocket } from "../core/metadata-realtime";
+import type { ɵMetadataSocket } from "../core/metadata-realtime";
 
 type ThreadRecord = import("../threads").ɵThread;
 
@@ -37,15 +45,24 @@ const flushEffects = async (): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
-/** Fresh shared metadata connection per call: the phoenix module is mocked
- * (see the hoisted `vi.mock("phoenix", ...)` above), so this connects
- * through `phoenix.sockets` exactly like the real `CopilotKitCore`-owned
- * connection would. Mirrors `memory.test.ts`'s `fakeMetadataConnection`. */
-function fakeMetadataConnection(joinCode = "jc-1") {
-  return ɵcreateMetadataRealtimeConnection({
-    wsUrl: "wss://gw.example.com/client",
-    fetchSubscription: async () => ({ joinToken: "jt-1", joinCode }),
-  });
+/**
+ * Builds a `getMetadataSocket` for a context that lazily creates ONE real
+ * (mock-phoenix-backed) shared metadata socket and memoizes it, so repeated
+ * `getMetadataSocket(joinToken)` calls return the SAME socket — exactly like the
+ * single `CopilotKitCore`-owned socket the store joins in production. Mirrors
+ * `memory.test.ts`'s `makeGetMetadataSocket`.
+ */
+function makeGetMetadataSocket(): (joinToken: string) => ɵMetadataSocket {
+  let socket: ɵMetadataSocket | null = null;
+  return (joinToken: string) => {
+    if (!socket) {
+      socket = ɵcreateMetadataSocket({
+        wsUrl: "wss://gw/client",
+        joinToken,
+      }).socket;
+    }
+    return socket;
+  };
 }
 
 const sampleThreads: ThreadRecord[] = [
@@ -108,13 +125,21 @@ describe("thread store", () => {
   });
 
   it("bootstraps threads and sorts them by updatedAt descending", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        threads: [sampleThreads[0], sampleThreads[1]],
-        joinCode: "jc-1",
-      }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: [sampleThreads[0], sampleThreads[1]],
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
@@ -123,8 +148,8 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: { Authorization: "Bearer token" },
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
-      metadata: fakeMetadataConnection(),
     });
 
     await flushEffects();
@@ -133,53 +158,18 @@ describe("thread store", () => {
       "https://runtime.example.com/threads?agentId=agent-1",
       expect.objectContaining({ method: "GET" }),
     );
+    // The store fetches its OWN realtime join-token from /threads/subscribe.
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://runtime.example.com/threads/subscribe",
+      expect.objectContaining({ method: "POST" }),
+    );
     expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
       ["thread-2", "thread-1"],
     );
     expect(ɵselectThreadsIsLoading(store.getState())).toBe(false);
+    // One SHARED socket, joined on the list response's join code.
     expect(phoenix.sockets).toHaveLength(1);
     expect(getChannel().topic).toBe("user_meta:jc-1");
-  });
-
-  it("subscribe failure does not crash the store", async () => {
-    // The shared metadata connection's `fetchSubscription` rejects (a transient
-    // non-2xx on `/threads/subscribe`), which errors `joinCode$`. Micro-redux is
-    // fail-fast, so without the socket effect's `catchError` this would kill the
-    // whole store — `getState()` would throw and the REST list/pagination would
-    // break. Threads has no realtime-status signal, so it must degrade silently:
-    // the store stays alive and the list is intact.
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ threads: [sampleThreads[0]], joinCode: "jc-1" }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
-    stores.push(store);
-    store.start();
-    store.setContext({
-      runtimeUrl: "https://runtime.example.com",
-      headers: { Authorization: "Bearer token" },
-      agentId: "agent-1",
-      metadata: ɵcreateMetadataRealtimeConnection({
-        wsUrl: "wss://gw/client",
-        fetchSubscription: async () => {
-          throw new Error("boom");
-        },
-      }),
-    });
-
-    await flushEffects();
-
-    // The store did NOT crash: getState()/selectors still work and the
-    // REST-backed list settled from its own fetch, unaffected by the realtime
-    // subscribe failure.
-    expect(() => store.getState()).not.toThrow();
-    expect(ɵselectThreads(store.getState()).map((thread) => thread.id)).toEqual(
-      ["thread-1"],
-    );
-    expect(ɵselectThreadsIsLoading(store.getState())).toBe(false);
-    expect(ɵselectThreadsError(store.getState())).toBeNull();
   });
 
   it("uses the thread environment fetch instead of global fetch", async () => {
@@ -201,8 +191,8 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
-      metadata: null,
     });
 
     await flushEffects();
@@ -218,13 +208,21 @@ describe("thread store", () => {
   });
 
   it("upserts realtime thread metadata without refetching", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        threads: sampleThreads,
-        joinCode: "jc-1",
-      }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
@@ -233,8 +231,8 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
-      metadata: fakeMetadataConnection(),
     });
 
     await flushEffects();
@@ -255,7 +253,8 @@ describe("thread store", () => {
 
     await flushEffects();
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Two fetches: the list GET and the /threads/subscribe POST — no refetch.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(ɵselectThreads(store.getState())[0]).toMatchObject({
       id: "thread-1",
       name: "Renamed Thread",
@@ -263,13 +262,21 @@ describe("thread store", () => {
   });
 
   it("applies realtime events without client-side user filtering", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        threads: sampleThreads,
-        joinCode: "jc-1",
-      }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
@@ -278,7 +285,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -299,13 +306,21 @@ describe("thread store", () => {
   });
 
   it("notifies run-activity subscribers without mutating the thread list", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        threads: sampleThreads,
-        joinCode: "jc-1",
-      }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
@@ -319,7 +334,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -377,6 +392,12 @@ describe("thread store", () => {
           ],
           joinCode: "jc-2",
         }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-2",
+        }),
       });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -386,7 +407,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -394,7 +415,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-2",
     });
 
@@ -407,7 +428,7 @@ describe("thread store", () => {
 
     await flushEffects();
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(ɵselectThreads(store.getState())).toEqual([
       expect.objectContaining({
         id: "thread-next",
@@ -426,6 +447,12 @@ describe("thread store", () => {
           joinCode: "jc-1",
         }),
       })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      })
       .mockResolvedValue({
         ok: true,
         json: async () => ({}),
@@ -438,7 +465,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: { Authorization: "Bearer token" },
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -448,7 +475,8 @@ describe("thread store", () => {
     await store.archiveThread("thread-2");
     await store.deleteThread("thread-2");
 
-    const renameCall = getFetchCall(fetchMock, 1);
+    // Fetch 0 = list GET, fetch 1 = /threads/subscribe POST, then the mutations.
+    const renameCall = getFetchCall(fetchMock, 2);
     expect(renameCall[0]).toBe("https://runtime.example.com/threads/thread-1");
     expect(renameCall[1]).toMatchObject({ method: "PATCH" });
     expect(JSON.parse(renameCall[1].body)).toMatchObject({
@@ -456,7 +484,7 @@ describe("thread store", () => {
       name: "Renamed",
     });
 
-    const archiveCall = getFetchCall(fetchMock, 2);
+    const archiveCall = getFetchCall(fetchMock, 3);
     expect(archiveCall[0]).toBe(
       "https://runtime.example.com/threads/thread-2/archive",
     );
@@ -464,7 +492,7 @@ describe("thread store", () => {
       agentId: "agent-1",
     });
 
-    const deleteCall = getFetchCall(fetchMock, 3);
+    const deleteCall = getFetchCall(fetchMock, 4);
     expect(deleteCall[0]).toBe("https://runtime.example.com/threads/thread-2");
     expect(deleteCall[1]).toMatchObject({ method: "DELETE" });
     expect(JSON.parse(deleteCall[1].body)).toMatchObject({
@@ -482,6 +510,12 @@ describe("thread store", () => {
           joinCode: "jc-1",
         }),
       })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          joinToken: "jt-1",
+        }),
+      })
       .mockResolvedValue({
         ok: true,
         json: async () => ({}),
@@ -494,7 +528,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: { Authorization: "Bearer token" },
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -502,7 +536,7 @@ describe("thread store", () => {
 
     await store.unarchiveThread("thread-2");
 
-    const unarchiveCall = getFetchCall(fetchMock, 1);
+    const unarchiveCall = getFetchCall(fetchMock, 2);
     expect(unarchiveCall[0]).toBe(
       "https://runtime.example.com/threads/thread-2",
     );
@@ -526,7 +560,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -536,10 +570,16 @@ describe("thread store", () => {
   });
 
   it("passes includeArchived=true as a query param when set", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
@@ -548,7 +588,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
       includeArchived: true,
     });
@@ -562,10 +602,16 @@ describe("thread store", () => {
   });
 
   it("passes limit as a query param when set", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
@@ -574,7 +620,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
       limit: 10,
     });
@@ -610,6 +656,10 @@ describe("thread store", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({
           threads: [page2Thread],
           nextCursor: null,
@@ -623,7 +673,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
       limit: 2,
     });
@@ -646,10 +696,16 @@ describe("thread store", () => {
   });
 
   it("removes thread on archived WS event when includeArchived is false", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
@@ -658,7 +714,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
 
@@ -682,10 +738,16 @@ describe("thread store", () => {
   });
 
   it("keeps thread on archived WS event when includeArchived is true", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
@@ -694,7 +756,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
       includeArchived: true,
     });
@@ -765,10 +827,16 @@ describe("thread store", () => {
       },
     ];
 
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ threads: mixedThreads, joinCode: "jc-1" }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: mixedThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
@@ -777,7 +845,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
       includeArchived: true,
     });
@@ -800,6 +868,10 @@ describe("thread store", () => {
         ok: true,
         json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
       })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
       .mockImplementationOnce(
         () => new Promise((resolve) => (resolveDelete = resolve)),
       );
@@ -811,7 +883,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -842,6 +914,10 @@ describe("thread store", () => {
         ok: true,
         json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
       })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
       .mockResolvedValueOnce({ ok: false, status: 500 });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -851,7 +927,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -875,6 +951,10 @@ describe("thread store", () => {
         ok: true,
         json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
       })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
       .mockResolvedValueOnce({ ok: false, status: 500 });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -884,7 +964,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -909,6 +989,10 @@ describe("thread store", () => {
         ok: true,
         json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
       })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
       .mockResolvedValueOnce({ ok: false, status: 500 });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -922,7 +1006,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -944,7 +1028,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -967,6 +1051,10 @@ describe("thread store", () => {
       })
       .mockResolvedValueOnce({
         ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
         json: async () => ({ threads: [sampleThreads[0]] }),
       });
     vi.stubGlobal("fetch", fetchMock);
@@ -977,7 +1065,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -997,16 +1085,20 @@ describe("thread store", () => {
     let resolveDelete: (value: unknown) => void = () => {};
     const fetchMock = vi
       .fn()
-      // session 1: initial list
+      // session 1: initial list + subscribe
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
       })
       // session 1: the DELETE — left pending until after the context switches
       .mockImplementationOnce(
         () => new Promise((resolve) => (resolveDelete = resolve)),
       )
-      // session 2 (after contextChanged): new list
+      // session 2 (after contextChanged): new list + subscribe
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -1020,6 +1112,10 @@ describe("thread store", () => {
           ],
           joinCode: "jc-2",
         }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-2" }),
       });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1033,7 +1129,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1045,7 +1141,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-2",
     });
     await flushEffects();
@@ -1066,9 +1162,18 @@ describe("thread store", () => {
 
   it("isolates selector memo caches across concurrent stores", async () => {
     // Route a single stub by request host so both concurrent stores share the
-    // same deterministic environment fetch while receiving distinct lists.
+    // same deterministic environment fetch while receiving distinct lists. The
+    // /threads/subscribe POST is answered with a join token; the stores use a
+    // socket-less resolver (`() => null`) so the socket effect is a no-op —
+    // this test only exercises REST + selector isolation.
     const routedFetch = vi.fn(async (url: string | URL | Request) => {
       const href = String(url);
+      if (href.endsWith("/threads/subscribe")) {
+        return {
+          ok: true,
+          json: async () => ({ joinToken: "jt" }),
+        } as Response;
+      }
       const id = href.includes("a.example.com") ? "thread-a" : "thread-b";
       return {
         ok: true,
@@ -1091,13 +1196,13 @@ describe("thread store", () => {
       runtimeUrl: "https://a.example.com",
       headers: {},
       agentId: "agent-1",
-      metadata: null,
+      getMetadataSocket: () => null,
     });
     storeB.setContext({
       runtimeUrl: "https://b.example.com",
       headers: {},
       agentId: "agent-1",
-      metadata: null,
+      getMetadataSocket: () => null,
     });
     await flushEffects();
 
@@ -1123,10 +1228,16 @@ describe("thread store", () => {
 
   it("warns and keeps the list on a realtime channel join failure", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
-    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      });
     vi.stubGlobal("fetch", fetchMock);
 
     const store = ɵcreateThreadStore(createEnvironment(fetchMock));
@@ -1135,7 +1246,7 @@ describe("thread store", () => {
     store.setContext({
       runtimeUrl: "https://runtime.example.com",
       headers: {},
-      metadata: fakeMetadataConnection(),
+      getMetadataSocket: makeGetMetadataSocket(),
       agentId: "agent-1",
     });
     await flushEffects();
@@ -1152,6 +1263,153 @@ describe("thread store", () => {
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("realtime"));
 
     warnSpy.mockRestore();
+  });
+
+  it("keeps the list and warns (B5) when the realtime subscribe fetch fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      // The realtime join-token fetch (runs after the list) fails.
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      getMetadataSocket: makeGetMetadataSocket(),
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    // Silent degrade for the list: the realtime credential fetch ran after a
+    // successful list, so the already-loaded list survives, no hard list error
+    // is set, the store did not crash, and no socket was opened.
+    expect(() => store.getState()).not.toThrow();
+    expect(ɵselectThreads(store.getState()).length).toBeGreaterThan(0);
+    expect(ɵselectThreadsError(store.getState())).toBeNull();
+    expect(phoenix.sockets).toHaveLength(0);
+    // B5: the degrade is VISIBLE via a single, specific console.warn.
+    expect(warnSpy).toHaveBeenCalledWith(
+      "[threads] realtime subscribe failed; the thread list will not receive live updates",
+      expect.anything(),
+    );
+
+    warnSpy.mockRestore();
+  });
+
+  it("retries realtime metadata credentials after a failed credential fetch", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-2" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      getMetadataSocket: makeGetMetadataSocket(),
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    store.refetchThreads();
+    await flushEffects();
+
+    expect(
+      fetchMock.mock.calls
+        .map(([url]) => String(url))
+        .filter((url) => url.endsWith("/threads/subscribe")),
+    ).toEqual([
+      "https://runtime.example.com/threads/subscribe",
+      "https://runtime.example.com/threads/subscribe",
+    ]);
+    // Only the successful (second) credential fetch resolves a join token, so
+    // exactly one shared socket is opened and joined on jc-1.
+    expect(phoenix.sockets).toHaveLength(1);
+    expect(getChannel().topic).toBe("user_meta:jc-1");
+
+    warnSpy.mockRestore();
+  });
+
+  it("re-joins on the shared socket when a refetch rotates the join code", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-2" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-2" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      getMetadataSocket: makeGetMetadataSocket(),
+      agentId: "agent-1",
+    });
+    await flushEffects();
+
+    store.refetchThreads();
+    await flushEffects();
+
+    expect(
+      fetchMock.mock.calls
+        .map(([url]) => String(url))
+        .filter((url) => url.endsWith("/threads/subscribe")),
+    ).toEqual([
+      "https://runtime.example.com/threads/subscribe",
+      "https://runtime.example.com/threads/subscribe",
+    ]);
+    // The metadata socket is SHARED (owned by CopilotKitCore), so a rotated join
+    // code re-joins a new channel off the SAME socket rather than opening a
+    // second one.
+    expect(phoenix.sockets).toHaveLength(1);
+    expect(phoenix.sockets[0]?.channels[0]?.topic).toBe("user_meta:jc-1");
+    expect(phoenix.sockets[0]?.channels[1]?.topic).toBe("user_meta:jc-2");
   });
 
   it("exposes a stable empty server snapshot for SSR", () => {
