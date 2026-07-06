@@ -132,72 +132,6 @@ test("renders a row per visible thread into the shadow root", async () => {
   teardown();
 });
 
-test("a named row carries the full name as a data-tooltip (CPK bubble; shown when clipped)", async () => {
-  const longName = "A very long thread name that gets clipped with an ellipsis";
-  const { q, teardown } = await setup({
-    threads: [makeThread({ id: "a", name: longName })],
-  });
-
-  // The full name rides on the row-name as data-tooltip (the same instant-bubble
-  // mechanism as the row actions); CSS reveals it only when `.name-clipped`.
-  const name = q('[part="row-name"]') as HTMLElement;
-  expect(name.getAttribute("data-tooltip")).toBe(longName);
-  expect(name.querySelector(".row-name-text")?.textContent).toBe(longName);
-  teardown();
-});
-
-test("a clipped name marks BOTH the row-name and the owning row (tooltip + z-index stacking contract)", async () => {
-  const longName = "A very long thread name that gets clipped with an ellipsis";
-  const { element, q, teardown } = await setup({
-    threads: [makeThread({ id: "a", name: longName })],
-  });
-
-  const row = q("li.row") as HTMLElement;
-  const name = q('[part="row-name"]') as HTMLElement;
-  const text = name.querySelector(".row-name-text") as HTMLElement;
-
-  // jsdom has no layout, so simulate a truncated text node.
-  Object.defineProperty(text, "scrollWidth", {
-    value: 200,
-    configurable: true,
-  });
-  Object.defineProperty(text, "clientWidth", {
-    value: 100,
-    configurable: true,
-  });
-  (element as unknown as { _syncNameClipping(): void })._syncNameClipping();
-
-  // The tooltip bubble keys off `.row-name.name-clipped`; the z-index lift that
-  // frees the bubble from the row's transform stacking context keys off
-  // `.row.name-clipped`. BOTH elements must carry the flag — if it only landed
-  // on `.row-name` (the original bug), the z-lift selector never matched and the
-  // tooltip stayed trapped under later rows.
-  expect(name.classList.contains("name-clipped")).toBe(true);
-  expect(row.classList.contains("name-clipped")).toBe(true);
-
-  // And it clears on both when the name fits (no stale bubble / z-lift).
-  Object.defineProperty(text, "scrollWidth", {
-    value: 100,
-    configurable: true,
-  });
-  (element as unknown as { _syncNameClipping(): void })._syncNameClipping();
-  expect(name.classList.contains("name-clipped")).toBe(false);
-  expect(row.classList.contains("name-clipped")).toBe(false);
-
-  teardown();
-});
-
-test("a placeholder (unnamed) row has no name tooltip", async () => {
-  const { q, teardown } = await setup({
-    threads: [makeThread({ id: "a", name: null })],
-  });
-
-  const name = q('[part="row-name"]') as HTMLElement;
-  expect(name.classList.contains("placeholder")).toBe(true);
-  expect(name.hasAttribute("data-tooltip")).toBe(false);
-  teardown();
-});
-
 test("emits thread-selected with the thread id on row click", async () => {
   const { q, events, teardown } = await setup({
     threads: [makeThread({ id: "abc", name: "Pick me" })],
@@ -1615,5 +1549,125 @@ test("unarchive aria-label falls back to 'New thread' for an empty-string name",
   expect(
     (q('[part="row-unarchive"]') as HTMLElement).getAttribute("aria-label"),
   ).toBe("Unarchive thread New thread");
+  teardown();
+});
+
+// --- ENT-1051 ref: search expand-into-input + auto-collapse on blur ---------
+
+test("clicking the search toggle reveals the input and focuses it", async () => {
+  const { element, q, teardown } = await setup({ threads: [makeThread()] });
+
+  expect(q('[part="search-input"]')).toBeNull();
+
+  (q('[part="search-toggle"]') as HTMLElement).click();
+  await flush(element);
+
+  const input = q('[part="search-input"]') as HTMLInputElement;
+  expect(input).not.toBeNull();
+  // The just-revealed input receives focus (deferred to a microtask in updated()).
+  expect((element.shadowRoot as ShadowRoot).activeElement).toBe(input);
+  teardown();
+});
+
+test("blurring the empty/whitespace search input closes it and emits search{query:''}", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [
+      makeThread({ id: "a", name: "Alpha" }),
+      makeThread({ id: "b", name: "Beta" }),
+    ],
+  });
+
+  (q('[part="search-toggle"]') as HTMLElement).click();
+  await flush(element);
+  const input = q('[part="search-input"]') as HTMLInputElement;
+
+  // Whitespace-only query: the blur-close path clears it and notifies consumers.
+  input.value = "   ";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await flush(element);
+
+  const searchEvents: unknown[] = [];
+  element.addEventListener("search", (e) =>
+    searchEvents.push((e as CustomEvent).detail),
+  );
+
+  input.dispatchEvent(new Event("blur"));
+  await flush(element);
+
+  expect(q('[part="search-input"]')).toBeNull();
+  expect(searchEvents).toContainEqual({ query: "" });
+  teardown();
+});
+
+test("blurring a non-empty search input keeps it open (no close, no empty emit)", async () => {
+  const { element, q, teardown } = await setup({
+    threads: [
+      makeThread({ id: "a", name: "Alpha" }),
+      makeThread({ id: "b", name: "Beta" }),
+    ],
+  });
+
+  (q('[part="search-toggle"]') as HTMLElement).click();
+  await flush(element);
+  const input = q('[part="search-input"]') as HTMLInputElement;
+  input.value = "alph";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await flush(element);
+
+  const searchEvents: unknown[] = [];
+  element.addEventListener("search", (e) =>
+    searchEvents.push((e as CustomEvent).detail),
+  );
+
+  input.dispatchEvent(new Event("blur"));
+  await flush(element);
+
+  // A non-empty query keeps the input open and does NOT emit an empty reset.
+  expect(q('[part="search-input"]')).not.toBeNull();
+  expect(searchEvents).not.toContainEqual({ query: "" });
+  teardown();
+});
+
+// --- ENT-1051 ref: collapsible property + collapse-change event -------------
+
+test("collapse-change fires {collapsed:true} then {collapsed:false} as the toggle is used", async () => {
+  const { element, q, teardown } = await setup({ threads: [makeThread()] });
+
+  const collapseEvents: unknown[] = [];
+  element.addEventListener("collapse-change", (e) =>
+    collapseEvents.push((e as CustomEvent).detail),
+  );
+
+  // Collapse via the header toggle.
+  (q('[part="collapse-toggle"]') as HTMLElement).click();
+  await flush(element);
+  expect(collapseEvents).toEqual([{ collapsed: true }]);
+
+  // Expand via the collapsed cluster's first (expand) button.
+  const cluster = q('[part="collapsed-cluster"]') as HTMLElement;
+  (cluster.querySelector("button") as HTMLElement).click();
+  await flush(element);
+  expect(collapseEvents).toEqual([{ collapsed: true }, { collapsed: false }]);
+  teardown();
+});
+
+test("collapsible=false hides the collapse toggle and never renders the collapsed cluster", async () => {
+  const { element, q, teardown } = await setup({ threads: [makeThread()] });
+  element.collapsible = false;
+  element.collapsed = true;
+  await flush(element);
+
+  // No collapse affordance, and the body stays expanded despite collapsed=true.
+  expect(q('[part="collapse-toggle"]')).toBeNull();
+  expect(q('[part="collapsed-cluster"]')).toBeNull();
+  expect(q('[part="new-thread-button"]')).not.toBeNull();
+  teardown();
+});
+
+test("collapsible defaults to true (collapse toggle present)", async () => {
+  const { element, q, teardown } = await setup({ threads: [makeThread()] });
+
+  expect(element.collapsible).toBe(true);
+  expect(q('[part="collapse-toggle"]')).not.toBeNull();
   teardown();
 });

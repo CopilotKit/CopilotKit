@@ -272,13 +272,16 @@ export const drawerStyles = css`
     height: 16px;
   }
 
+  /* The search input lives inline in the header icon row and expands to fill
+     the free space beside the toggles (the empty header slot yields it). */
   .search {
-    padding: 0 8px;
+    flex: 1;
+    min-width: 0;
   }
 
   .search-input {
     width: 100%;
-    padding: 8px 10px;
+    padding: 6px 10px;
     font: inherit;
     border: 1px solid var(--_border);
     border-radius: var(--_radius);
@@ -384,14 +387,6 @@ export const drawerStyles = css`
     position: relative;
   }
 
-  /* The entry animation leaves each row with a (non-none) transform, making it
-     its own stacking context — which would paint the name tooltip UNDER the
-     following rows (their text bled through the bubble). Lifting the hovered
-     row's z-index re-floats its tooltip above the rows beneath it. */
-  .row.name-clipped:hover {
-    z-index: 2;
-  }
-
   /* Lift the interacted row above later rows so its kebab popover (which paints
      inside the row's own transform stacking context) is not clipped by / drawn
      under the rows below it. */
@@ -420,11 +415,8 @@ export const drawerStyles = css`
   }
 
   .row-name {
-    /* The outer name element owns NO overflow clip so it can host the name
-       tooltip pseudo-element; the inner .row-name-text does the ellipsis. */
     flex: 1;
     min-width: 0;
-    position: relative;
   }
 
   .row-name-text {
@@ -432,41 +424,6 @@ export const drawerStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  /* Name tooltip: an instant primary bubble with an arrow, shown ONLY when the
-     name is clipped. Positioned below the name, wrapping within the drawer
-     width (a long name can't fit one line). */
-  .row-name.name-clipped[data-tooltip]:hover::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    left: 0;
-    top: calc(100% + 6px);
-    white-space: normal;
-    max-width: 240px;
-    background: var(--_primary);
-    color: var(--_primary-fg);
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 12px;
-    line-height: 1.4;
-    box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
-    pointer-events: none;
-    z-index: 20;
-  }
-
-  .row-name.name-clipped[data-tooltip]:hover::before {
-    content: "";
-    position: absolute;
-    left: 10px;
-    top: calc(100% + 1.5px);
-    transform: rotate(45deg);
-    width: 7px;
-    height: 7px;
-    background: var(--_primary);
-    border-radius: 1px;
-    pointer-events: none;
-    z-index: 21;
   }
 
   .row-name.placeholder {

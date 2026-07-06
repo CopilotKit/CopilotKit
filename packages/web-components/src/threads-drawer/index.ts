@@ -8,6 +8,7 @@ export { GENERATED_DRAWER_TOKEN_DEFAULTS } from "./generated-tokens";
 export type { GeneratedDrawerTokenKey } from "./generated-tokens";
 export type {
   ArchiveDetail,
+  CollapseChangeDetail,
   CopilotKitThreadsDrawerEventMap,
   DeleteDetail,
   DrawerFilter,

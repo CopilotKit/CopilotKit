@@ -212,6 +212,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
     error: { type: String },
     activeThreadId: { attribute: "active-thread-id", type: String },
     licensed: { type: Boolean },
+    collapsible: { type: Boolean },
     licenseUrl: { attribute: "license-url", type: String },
     hasMore: { attribute: "has-more", type: Boolean },
     fetchingMore: { attribute: "fetching-more", type: Boolean },
@@ -283,6 +284,13 @@ export class CopilotKitThreadsDrawer extends LitElement {
   open = false;
   /** Externally-controllable: whether the drawer is collapsed to a rail (desktop). */
   collapsed = false;
+  /**
+   * Inbound: whether the user may collapse the drawer to a rail. Defaults to
+   * `true`. When `false` the header omits the collapse toggle and the drawer
+   * NEVER renders the collapsed cluster (it stays expanded even if `collapsed`
+   * is set) — mobile off-canvas open/close is independent and unaffected.
+   */
+  collapsible = true;
 
   private _filter: DrawerFilter = "active";
   private _confirmingDeleteId: string | null = null;
@@ -469,31 +477,19 @@ export class CopilotKitThreadsDrawer extends LitElement {
       this._justRevealed = new Set<string>();
     }
 
-    this._syncNameClipping();
-  }
-
-  /**
-   * Marks each row whose name text is truncated with `name-clipped`, so the CSS
-   * shows the name tooltip ONLY when the full name isn't already visible (an
-   * always-on bubble over every row on hover would be noise). Measured after
-   * render because truncation depends on the laid-out width.
-   */
-  private _syncNameClipping(): void {
-    const names = this.renderRoot.querySelectorAll<HTMLElement>(".row-name");
-    names.forEach((name) => {
-      const text = name.querySelector<HTMLElement>(".row-name-text");
-      const clipped = !!text && text.scrollWidth > text.clientWidth;
-      name.classList.toggle("name-clipped", clipped);
-      // The z-index lift in styles.ts (`.row.name-clipped:hover`) targets the
-      // `.row` stacking context — each row creates its own via `transform`, so a
-      // tooltip anchored on `.row-name` is trapped inside it and paints under
-      // later rows unless the row itself is re-floated. Stamp the flag on the
-      // owning row too so that rule matches; the tooltip bubble stays scoped to
-      // `.row-name:hover`, so hovering a row-action never surfaces it.
-      name
-        .closest<HTMLElement>(".row")
-        ?.classList.toggle("name-clipped", clipped);
-    });
+    // Focus the inline search input the frame it is revealed, so the search
+    // toggle both opens and focuses in one click. Deferred to a microtask so the
+    // just-rendered input exists in the shadow root.
+    if (
+      changed.has("_searchOpen" as keyof CopilotKitThreadsDrawer) &&
+      this._searchOpen
+    ) {
+      queueMicrotask(() => {
+        this.renderRoot
+          .querySelector<HTMLInputElement>('[part="search-input"]')
+          ?.focus();
+      });
+    }
   }
 
   // --- View-state helpers ----------------------------------------------------
@@ -643,9 +639,14 @@ export class CopilotKitThreadsDrawer extends LitElement {
   // --- Render ----------------------------------------------------------------
 
   override render() {
+    // The collapsed rail is only ever shown on desktop AND when collapsing is
+    // permitted. With `collapsible=false` the drawer stays expanded regardless
+    // of the `collapsed` property.
+    const showCollapsed =
+      this.collapsible && this.collapsed && !this._viewportIsMobile;
     const rootClasses = {
       root: true,
-      collapsed: this.collapsed && !this._viewportIsMobile,
+      collapsed: showCollapsed,
       mobile: this._viewportIsMobile,
       open: this.open,
     };
@@ -687,13 +688,14 @@ export class CopilotKitThreadsDrawer extends LitElement {
         ${
           // Collapsed desktop rail: replace the full body with a compact
           // floating cluster (expand + new-conversation). Mobile keeps the
-          // modal/launcher path and never collapses to a cluster.
-          this.collapsed && !this._viewportIsMobile
+          // modal/launcher path and never collapses to a cluster; `collapsible`
+          // gating means the cluster never renders when collapsing is disabled.
+          showCollapsed
             ? html`<div class="collapsed-cluster" part="collapsed-cluster">
                 <button
                   class="icon-btn"
                   aria-label="Expand threads"
-                  @click=${() => (this.collapsed = false)}
+                  @click=${() => this._toggleCollapsed()}
                 >
                   ${iconSidebar}
                 </button>
@@ -722,6 +724,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
     return html`
       <div class="header" part="header">
         <slot name="header"></slot>
+        ${this.licensed && this._searchOpen ? this._renderSearch() : nothing}
         ${
           this.licensed
             ? html`<button
@@ -735,19 +738,32 @@ export class CopilotKitThreadsDrawer extends LitElement {
             </button>`
             : nothing
         }
-        <button
-          class="icon-btn"
-          part="collapse-toggle"
-          aria-label="Collapse threads"
-          @click=${() => (this.collapsed = !this.collapsed)}
-        >
-          ${iconSidebar}
-        </button>
+        ${
+          this.collapsible
+            ? html`<button
+              class="icon-btn"
+              part="collapse-toggle"
+              aria-label="Collapse threads"
+              @click=${() => this._toggleCollapsed()}
+            >
+              ${iconSidebar}
+            </button>`
+            : nothing
+        }
       </div>
-      ${this.licensed ? this._renderSearch() : nothing}
       ${this.licensed ? this._renderNewConversation() : nothing}
       ${this._renderSectionHeading()}
     `;
+  }
+
+  /**
+   * Flips the collapsed rail state on a user-driven toggle and notifies the
+   * consumer via `collapse-change`. Mirrors the `_setOpen`/`open-change`
+   * pattern; external `collapsed` property changes do NOT emit.
+   */
+  private _toggleCollapsed(): void {
+    this.collapsed = !this.collapsed;
+    this._emit("collapse-change", { collapsed: this.collapsed });
   }
 
   /**
@@ -780,12 +796,14 @@ export class CopilotKitThreadsDrawer extends LitElement {
   }
 
   /**
-   * Client-side search input, revealed by the header search toggle. Filtering is
-   * applied in `_visibleThreads()`; each keystroke also emits the `search` event
-   * so a consumer can observe the query (e.g. for server-side augmentation).
+   * Client-side search input, revealed inline in the header by the search
+   * toggle. Filtering is applied in `_visibleThreads()`; each keystroke also
+   * emits the `search` event so a consumer can observe the query (e.g. for
+   * server-side augmentation). On blur it auto-collapses back to just the icon
+   * when the query is empty/whitespace (see {@link _onSearchBlur}); a non-empty
+   * query keeps it open so the active filter stays visible.
    */
   private _renderSearch() {
-    if (!this._searchOpen) return nothing;
     return html`
       <div class="search">
         <input
@@ -797,6 +815,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
           aria-label="Search conversations"
           @input=${(e: Event) =>
             this._onSearchInput((e.target as HTMLInputElement).value)}
+          @blur=${() => this._onSearchBlur()}
         />
       </div>
     `;
@@ -805,6 +824,16 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _onSearchInput(next: string) {
     this._searchQuery = next;
     this._emit("search", { query: next });
+  }
+
+  /**
+   * Auto-collapse on blur: when the input loses focus with an empty/whitespace
+   * query it closes back to just the icon (via the shared {@link _closeSearch}
+   * clear-and-emit contract). A non-empty query keeps the input open so the
+   * active client-side filter stays visible and adjustable.
+   */
+  private _onSearchBlur() {
+    if (this._searchQuery.trim() === "") this._closeSearch();
   }
 
   /**
@@ -1033,18 +1062,10 @@ export class CopilotKitThreadsDrawer extends LitElement {
       revealed: justRevealed,
     };
     const slotName = rowSlotName(thread.id);
-    // A long thread name is clipped with an ellipsis. The full name is exposed
-    // via an instant primary bubble tooltip (NOT the native `title`), shown only
-    // when the name is actually truncated (`name-clipped`, toggled in
-    // `_syncNameClipping`). The name text
-    // lives in an inner span that owns the ellipsis, so the outer `.row-name`
-    // can host the tooltip pseudo-element without its own `overflow: hidden`
-    // clipping it.
-    const nameSpan = html`<span
-      class=${classMap(nameClasses)}
-      part="row-name"
-      data-tooltip=${hasName ? thread.name : nothing}
-    >
+    // A long thread name is clipped with an ellipsis (no hover tooltip — the
+    // designer opted against name bubbles). The name text lives in an inner span
+    // that owns the ellipsis truncation.
+    const nameSpan = html`<span class=${classMap(nameClasses)} part="row-name">
       <span class="row-name-text">${displayName}</span>
     </span>`;
 

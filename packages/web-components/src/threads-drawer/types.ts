@@ -62,6 +62,11 @@ export interface OpenChangeDetail {
   readonly open: boolean;
 }
 
+/** `detail` for the `collapse-change` event (user-driven collapse toggle). */
+export interface CollapseChangeDetail {
+  readonly collapsed: boolean;
+}
+
 /**
  * `detail` for the `retry` event, emitted from the actionable error state so a
  * wrapper can back it with a core refetch. `scope` distinguishes an initial
@@ -105,6 +110,7 @@ export interface CopilotKitThreadsDrawerEventMap {
   "new-thread": CustomEvent<NewThreadDetail>;
   "filter-change": CustomEvent<FilterChangeDetail>;
   "open-change": CustomEvent<OpenChangeDetail>;
+  "collapse-change": CustomEvent<CollapseChangeDetail>;
   retry: CustomEvent<RetryDetail>;
   licensed: CustomEvent<LicensedDetail>;
   "load-more": CustomEvent<LoadMoreDetail>;
