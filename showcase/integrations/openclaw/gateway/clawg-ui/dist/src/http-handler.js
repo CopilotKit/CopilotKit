@@ -115,8 +115,23 @@ function verifyDeviceToken(token, secret) {
 // Extract text from AG-UI messages
 // ---------------------------------------------------------------------------
 function extractTextContent(msg) {
-    if (typeof msg.content === "string") {
-        return msg.content;
+    const content = msg.content;
+    if (typeof content === "string") {
+        return content;
+    }
+    // Multimodal messages carry an array of typed blocks; collapse the text
+    // blocks to a plain string (image blocks are handled by
+    // extractImagesFromMessages). Mirrors the ACP/Hermes text-only extraction.
+    if (Array.isArray(content)) {
+        const parts = [];
+        for (const block of content) {
+            if (!block || typeof block !== "object")
+                continue;
+            const text = block.text;
+            if (typeof text === "string" && text)
+                parts.push(text);
+        }
+        return parts.join("");
     }
     return "";
 }
@@ -378,6 +393,82 @@ function formatSharedState(state, writerNames) {
         "```" +
         howToChange);
 }
+function stripDataUriPrefix(value) {
+    if (!value.startsWith("data:"))
+        return value;
+    const comma = value.indexOf(",");
+    return comma >= 0 ? value.slice(comma + 1) : value;
+}
+function parseDataUri(value) {
+    if (!value.startsWith("data:"))
+        return null;
+    const match = /^data:([^;,]+)[^,]*,(.*)$/s.exec(value);
+    if (!match)
+        return null;
+    return { mimeType: match[1] || "image/png", data: match[2] };
+}
+/**
+ * Turn one AG-UI content block into an OpenClaw image, or null if it is not an
+ * image. Tolerates the shapes CopilotKit / AG-UI emit: an `image` block with a
+ * `source` ({type:"data"|"url", value, mimeType}), an `image_url` block
+ * ({url}|string), or a flat {data, mimeType}. `url` sources are only usable
+ * when they are `data:` URIs (OpenClaw needs inline base64, not a remote fetch).
+ */
+function imageBlockToContent(block) {
+    if (!block || typeof block !== "object")
+        return null;
+    const b = block;
+    const btype = b.type;
+    if (btype !== "image" && btype !== "image_url" && btype !== "input_image") {
+        return null;
+    }
+    const source = b.source;
+    if (source && typeof source === "object") {
+        const value = typeof source.value === "string" ? source.value : undefined;
+        const mime = (typeof source.mimeType === "string" && source.mimeType) ||
+            (typeof source.mime_type === "string" && source.mime_type) ||
+            undefined;
+        if (value) {
+            if (source.type === "data") {
+                return { type: "image", data: stripDataUriPrefix(value), mimeType: mime || "image/png" };
+            }
+            const parsed = parseDataUri(value);
+            if (parsed)
+                return { type: "image", ...parsed };
+        }
+    }
+    const imageUrl = b.image_url;
+    const url = imageUrl && typeof imageUrl === "object"
+        ? imageUrl.url
+        : imageUrl;
+    if (typeof url === "string") {
+        const parsed = parseDataUri(url);
+        if (parsed)
+            return { type: "image", ...parsed };
+    }
+    if (typeof b.data === "string" && b.data) {
+        const mime = (typeof b.mimeType === "string" && b.mimeType) ||
+            (typeof b.mime_type === "string" && b.mime_type) ||
+            "image/png";
+        return { type: "image", data: stripDataUriPrefix(b.data), mimeType: mime };
+    }
+    return null;
+}
+/** Collect every image block across the AG-UI messages, in order. */
+function extractImagesFromMessages(messages) {
+    const images = [];
+    for (const msg of messages) {
+        const content = msg.content;
+        if (!Array.isArray(content))
+            continue;
+        for (const block of content) {
+            const img = imageBlockToContent(block);
+            if (img)
+                images.push(img);
+        }
+    }
+    return images;
+}
 // ---------------------------------------------------------------------------
 // HTTP handler factory
 // ---------------------------------------------------------------------------
@@ -595,6 +686,12 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
     const runSharedState = isSharedState(input.state)
         ? { ...input.state }
         : {};
+    // Multimodal: pull image content blocks out of the messages so they can be
+    // sent to the model (they are dropped from the text-only prompt). Requires
+    // an image-capable model config (see gateway setup); otherwise the OpenClaw
+    // provider ignores them.
+    const promptImages = extractImagesFromMessages(messages);
+    const hasImages = promptImages.length > 0;
     if (!messageBody.trim()) {
         console.log(`[clawg-ui] 400: empty extracted body, roles=[${messages.map((m) => m.role).join(",")}], contents=[${messages.map((m) => JSON.stringify(m.content)).join(",")}]`);
         sendJson(res, 400, {
@@ -716,7 +813,8 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
         sessionKey += `:thread:${threadId.toLowerCase()}`;
     const hasClientTools = (Array.isArray(input.tools) && input.tools.length > 0) ||
         hasSharedState ||
-        hasStateWriters;
+        hasStateWriters ||
+        hasImages;
     // Register the SSE writer so the plugin's before/after_tool_call hooks can
     // render SERVER-side tool calls as AG-UI events. Client/frontend-tool runs
     // are driven directly via runEmbeddedAgent below and emit their own
@@ -1061,6 +1159,12 @@ async function dispatchAuthenticatedAguiRequest(req, res, runtime, caller) {
                 config: cfg,
                 prompt,
                 ...(systemPrompt ? { extraSystemPrompt: systemPrompt } : {}),
+                ...(hasImages
+                    ? {
+                        images: promptImages,
+                        imageOrder: promptImages.map(() => "inline"),
+                    }
+                    : {}),
                 clientTools,
                 runId: currentRunId,
                 timeoutMs,

@@ -66,6 +66,17 @@ echo "[setup] configure OpenAI model from env key"
 printf '%s\n' "${OPENAI_API_KEY:?OPENAI_API_KEY must be set}" \
   | openclaw models auth paste-api-key --provider openai >/dev/null
 
+# Enable image input on the default model so multimodal messages reach the
+# vision model. OpenClaw gates images on `model.input` including "image", which
+# defaults to text-only — so a text+image chat would silently drop the image.
+# Merges onto the catalog entry (models.mode defaults to "merge"); we set `api`
+# + `reasoning` too so the entry is self-sufficient even if it doesn't merge.
+# gpt-5.5 is the resolved default openai model.
+echo "[setup] enable image input on gpt-5.5 (multimodal)"
+openclaw config patch --stdin >/dev/null <<JSON
+{ models: { providers: { openai: { models: [ { id: "gpt-5.5", name: "GPT-5.5", api: "openai-responses", reasoning: true, input: ["text", "image"] } ] } } } }
+JSON
+
 # Route model calls through an OpenAI-compatible endpoint (e.g. aimock) when set,
 # for deterministic showcase demos. Unset => real OpenAI.
 # When routed at aimock, also inject the static X-AIMock-Context header on every
