@@ -67,8 +67,78 @@ test("context set when connected + intelligence configured: getState().context i
   const store = core.getMemoryStore();
 
   expect(store.getState().context).not.toBeNull();
-  expect(store.getState().context?.wsUrl).toBe("wss://gw.example.com/client");
+  expect(store.getState().context?.metadata).toBeDefined();
   expect(store.getState().context?.runtimeUrl).toBe(runtimeUrl);
+});
+
+test("ɵgetMetadataRealtime(): returns a single memoized instance while connected", async () => {
+  const runtimeUrl = "https://runtime.example.com";
+
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(infoResponseWithIntelligence), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  );
+  global.fetch = fetchMock;
+
+  const core = new CopilotKitCore({
+    runtimeUrl,
+    runtimeTransport: "rest",
+  });
+
+  await vi.waitFor(() => {
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+  });
+
+  const a = core.ɵgetMetadataRealtime();
+  const b = core.ɵgetMetadataRealtime();
+
+  expect(a).toBeDefined();
+  expect(a).toBe(b);
+});
+
+test("ɵgetMetadataRealtime(): disposes the connection when the runtime disconnects", async () => {
+  const runtimeUrl = "https://runtime.example.com";
+
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(infoResponseWithIntelligence), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }),
+  );
+  global.fetch = fetchMock;
+
+  const core = new CopilotKitCore({
+    runtimeUrl,
+    runtimeTransport: "rest",
+  });
+
+  await vi.waitFor(() => {
+    expect(core.runtimeConnectionStatus).toBe(
+      CopilotKitCoreRuntimeConnectionStatus.Connected,
+    );
+  });
+
+  const connection = core.ɵgetMetadataRealtime();
+  expect(connection).toBeDefined();
+  const disposeSpy = vi.spyOn(connection!, "dispose");
+
+  // Real disconnect: dropping the runtime URL moves the connection status to
+  // Disconnected and fires `onRuntimeConnectionStatusChanged`, which disposes
+  // the shared metadata connection.
+  core.setRuntimeUrl(undefined);
+
+  await vi.waitFor(() => {
+    expect(disposeSpy).toHaveBeenCalled();
+  });
+
+  expect(core.runtimeConnectionStatus).toBe(
+    CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+  );
+  expect(core.ɵgetMetadataRealtime()).toBeUndefined();
 });
 
 test("context null without intelligence / not connected: getState().context is null when no intelligence is present", async () => {

@@ -34,6 +34,8 @@ import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
 import { ɵcreateMemoryStore } from "../memory";
 import type { ɵMemoryStore } from "../memory";
+import { ɵcreateMetadataRealtimeConnection } from "./metadata-realtime";
+import type { ɵMetadataRealtimeConnection } from "./metadata-realtime";
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -387,6 +389,13 @@ export class CopilotKitCore {
    */
   private _memoryStore?: ɵMemoryStore;
   /**
+   * The shared per-user metadata realtime connection (threads + memory ride the
+   * same socket). Lazily created by `ɵgetMetadataRealtime()` while the runtime
+   * is connected and a ws URL is known; disposed when the runtime disconnects or
+   * the headers change. `undefined` when no live connection exists.
+   */
+  private _metadataRealtime?: ɵMetadataRealtimeConnection;
+  /**
    * Tracks the agent IDs from the most recent `onAgentsChanged` notification.
    * Used to gate thread-store auto-unregister so the FIRST empty-agents
    * notification (before published agents are merged in) does not rip out a
@@ -444,6 +453,17 @@ export class CopilotKitCore {
       // so this single hook covers both connection and intelligence changes.
       // Guarded so we never instantiate the store just to sync it.
       onRuntimeConnectionStatusChanged: () => {
+        // Tear down the shared metadata connection whenever we are no longer in
+        // the connected+wsUrl state; the next `ɵgetMetadataRealtime()` /
+        // `syncMemoryContext()` lazily rebuilds it once we are live again.
+        if (
+          this.runtimeConnectionStatus !==
+            CopilotKitCoreRuntimeConnectionStatus.Connected ||
+          !this.intelligence?.wsUrl ||
+          !this.runtimeUrl
+        ) {
+          this.disposeMetadataRealtime();
+        }
         if (this._memoryStore) this.syncMemoryContext();
       },
       onAgentsChanged: ({ agents }) => {
@@ -735,6 +755,10 @@ export class CopilotKitCore {
    */
   setHeaders(headers: Record<string, string | null | undefined>): void {
     this._headers = normalizeHeaders(headers);
+    // Headers changed — the metadata subscription token is minted from them, so
+    // re-mint the shared connection with the new headers (accepting the socket
+    // teardown/reconnect cost). `syncMemoryContext()` lazily rebuilds it.
+    this.disposeMetadataRealtime();
     if (this._memoryStore) this.syncMemoryContext();
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
@@ -899,24 +923,76 @@ export class CopilotKitCore {
   }
 
   /**
-   * Pushes the current runtime wiring into the memory store. When the runtime
-   * is connected and both the intelligence WebSocket URL and runtime URL are
-   * available, the store receives a context (runtime URL, WebSocket URL, and a
-   * copy of the current headers); otherwise its context is cleared. No-op when
-   * the store has not been created yet.
+   * The shared per-user metadata realtime connection (threads + memory ride the
+   * same socket). Lazily created when the runtime is connected and a ws URL is
+   * known; `undefined` otherwise. Consumers (the memory store via
+   * `syncMemoryContext`, the thread store via the `useThreads` hook) join their
+   * own channel off `socket$`.
+   */
+  ɵgetMetadataRealtime(): ɵMetadataRealtimeConnection | undefined {
+    if (
+      this.runtimeConnectionStatus !==
+        CopilotKitCoreRuntimeConnectionStatus.Connected ||
+      !this.intelligence?.wsUrl ||
+      !this.runtimeUrl
+    ) {
+      return undefined;
+    }
+    if (!this._metadataRealtime) {
+      const runtimeUrl = this.runtimeUrl;
+      const headers = { ...this.headers };
+      this._metadataRealtime = ɵcreateMetadataRealtimeConnection({
+        wsUrl: this.intelligence.wsUrl,
+        fetchSubscription: () =>
+          this.fetchMetadataSubscription(runtimeUrl, headers),
+      });
+    }
+    return this._metadataRealtime;
+  }
+
+  /**
+   * Mints the metadata subscription (join token + per-user join code `R`).
+   * Hidden behind one function so swapping `/threads/subscribe` for a future
+   * generic `/metadata/subscribe` is a one-line change. Both existing routes
+   * return the same per-user metadata join code + a metadata-scoped token.
+   */
+  private async fetchMetadataSubscription(
+    runtimeUrl: string,
+    headers: Record<string, string>,
+  ): Promise<{ joinToken: string; joinCode: string }> {
+    const res = await globalThis.fetch(`${runtimeUrl}/threads/subscribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body: "{}",
+    });
+    if (!res.ok) {
+      throw new Error(`metadata subscribe failed: ${res.status}`);
+    }
+    const { joinToken, joinCode } = await res.json();
+    return { joinToken, joinCode };
+  }
+
+  /** Idempotent teardown of the shared metadata connection. */
+  private disposeMetadataRealtime(): void {
+    this._metadataRealtime?.dispose();
+    this._metadataRealtime = undefined;
+  }
+
+  /**
+   * Pushes the current runtime wiring into the memory store. When a shared
+   * metadata realtime connection is available (runtime connected + ws URL
+   * known) and a runtime URL is set, the store receives a context (runtime URL,
+   * a copy of the current headers, and the shared connection); otherwise its
+   * context is cleared. No-op when the store has not been created yet.
    */
   private syncMemoryContext(): void {
     if (!this._memoryStore) return;
-    if (
-      this.runtimeConnectionStatus ===
-        CopilotKitCoreRuntimeConnectionStatus.Connected &&
-      this.intelligence?.wsUrl &&
-      this.runtimeUrl
-    ) {
+    const metadata = this.ɵgetMetadataRealtime();
+    if (metadata && this.runtimeUrl) {
       this._memoryStore.setContext({
         runtimeUrl: this.runtimeUrl,
-        wsUrl: this.intelligence.wsUrl,
         headers: { ...this.headers },
+        metadata,
       });
     } else {
       this._memoryStore.setContext(null);
