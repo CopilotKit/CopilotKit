@@ -340,15 +340,15 @@ def test_generate_a2ui_happy_path_returns_operations():
     ops = result["a2ui_operations"]
     assert len(ops) == 3
 
-    assert ops[0]["type"] == "create_surface"
-    assert ops[0]["surfaceId"] == "dynamic-surface"
-    assert ops[0]["catalogId"] == "copilotkit://app-dashboard-catalog"
+    assert ops[0]["version"] == "v0.9"
+    assert ops[0]["createSurface"]["surfaceId"] == "dynamic-surface"
+    assert ops[0]["createSurface"]["catalogId"] == "copilotkit://app-dashboard-catalog"
 
-    assert ops[1]["type"] == "update_components"
-    assert ops[1]["components"] == [{"id": "root", "type": "Container"}]
+    assert ops[1]["version"] == "v0.9"
+    assert ops[1]["updateComponents"]["components"] == [{"id": "root", "type": "Container"}]
 
-    assert ops[2]["type"] == "update_data_model"
-    assert ops[2]["data"] == {"greeting": "hi"}
+    assert ops[2]["version"] == "v0.9"
+    assert ops[2]["updateDataModel"]["value"] == {"greeting": "hi"}
 
 
 def test_generate_a2ui_happy_path_json_string_arguments_also_work():
@@ -371,7 +371,7 @@ def test_generate_a2ui_happy_path_json_string_arguments_also_work():
     with patch("agents.agent._get_a2ui_llm", return_value=fake_llm):
         result = generate_a2ui_via_llm(context="")
     assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["surfaceId"] == "s1"
+    assert result["a2ui_operations"][0]["createSurface"]["surfaceId"] == "s1"
     # No ``data`` in args → no update_data_model op → exactly 2 ops.
     assert len(result["a2ui_operations"]) == 2, (
         f"expected 2 ops when args has no 'data' key; got "
@@ -406,7 +406,7 @@ def test_generate_a2ui_legacy_function_call_path():
     with patch("agents.agent._get_a2ui_llm", return_value=fake_llm):
         result = generate_a2ui_via_llm(context="")
     assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["surfaceId"] == "legacy-surface"
+    assert result["a2ui_operations"][0]["createSurface"]["surfaceId"] == "legacy-surface"
 
 
 # ---------------------------------------------------------------------------
@@ -1118,7 +1118,7 @@ def test_multi_tool_call_picks_first_and_warns(caplog):
             result = generate_a2ui_via_llm(context="")
 
     assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["surfaceId"] == "first", (
+    assert result["a2ui_operations"][0]["createSurface"]["surfaceId"] == "first", (
         "must pick tool_calls[0] when multiple are present"
     )
     # The FIRST call's args lack ``data``, so the op list should be exactly
@@ -1164,7 +1164,7 @@ def test_tool_call_missing_function_attr_falls_through_to_legacy_path(caplog):
         with caplog.at_level(logging.WARNING, logger="agents.agent"):
             result = generate_a2ui_via_llm(context="")
     assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["surfaceId"] == "legacy-via-fallthrough"
+    assert result["a2ui_operations"][0]["createSurface"]["surfaceId"] == "legacy-via-fallthrough"
     assert any(
         rec.levelno == logging.WARNING
         and rec.name == "agents.agent"
@@ -1209,7 +1209,7 @@ def test_tool_call_with_function_arguments_none_falls_through_to_legacy_path(cap
         with caplog.at_level(logging.WARNING, logger="agents.agent"):
             result = generate_a2ui_via_llm(context="")
     assert "a2ui_operations" in result
-    assert result["a2ui_operations"][0]["surfaceId"] == "legacy-surface"
+    assert result["a2ui_operations"][0]["createSurface"]["surfaceId"] == "legacy-surface"
     # Tight substring: pin the MODERN-slot warning specifically. The legacy-
     # slot warning ("function_call present but .arguments is None") also
     # contains ".arguments is None" — a regression that swaps which warning
