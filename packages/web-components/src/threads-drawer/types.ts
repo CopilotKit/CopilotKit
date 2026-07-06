@@ -92,11 +92,6 @@ export interface LicensedDetail {
 /** `detail` for the `load-more` event (advance pagination; no payload). */
 export type LoadMoreDetail = Record<string, never>;
 
-/** `detail` for the `search` event (client-side query changed). */
-export interface SearchDetail {
-  readonly query: string;
-}
-
 /**
  * Strongly-typed event map for `<copilotkit-threads-drawer>`. Consumers can use this to
  * type `addEventListener` callbacks. All events bubble and are composed so they
@@ -114,5 +109,4 @@ export interface CopilotKitThreadsDrawerEventMap {
   retry: CustomEvent<RetryDetail>;
   licensed: CustomEvent<LicensedDetail>;
   "load-more": CustomEvent<LoadMoreDetail>;
-  search: CustomEvent<SearchDetail>;
 }

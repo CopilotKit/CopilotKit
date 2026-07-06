@@ -115,25 +115,10 @@ const iconLauncher = html`
 
 /**
  * Header / control icons for the redesigned drawer chrome (ENT-1051). Inlined
- * lucide glyphs (`search`, `panel-left`, `square-plus`, `filter`,
- * `ellipsis-vertical`) drawn with `currentColor` so they inherit the button's
- * themed color — the element cannot depend on a React icon library.
+ * lucide glyphs (`panel-left`, `square-plus`, `filter`, `ellipsis-vertical`)
+ * drawn with `currentColor` so they inherit the button's themed color — the
+ * element cannot depend on a React icon library.
  */
-const iconSearch = html`
-  <svg
-    class="icon"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-  >
-    <circle cx="11" cy="11" r="8" />
-    <path d="m21 21-4.3-4.3" />
-  </svg>
-`;
 const iconSidebar = html`
   <svg
     class="icon"
@@ -230,8 +215,6 @@ export class CopilotKitThreadsDrawer extends LitElement {
     _viewportIsMobile: { state: true },
     _hasMemories: { state: true },
     _hasFooter: { state: true },
-    _searchOpen: { state: true },
-    _searchQuery: { state: true },
     _filterOpen: { state: true },
     _openMenuId: { state: true },
   };
@@ -297,10 +280,6 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _viewportIsMobile = false;
   private _hasMemories = false;
   private _hasFooter = false;
-  /** Whether the search input is revealed. */
-  private _searchOpen = false;
-  /** Current client-side search query (case-insensitive name substring). */
-  private _searchQuery = "";
   /** Whether the funnel filter popover (Active/All) is open. */
   private _filterOpen = false;
   /** Id of the row whose kebab actions menu is open (only one at a time). */
@@ -324,11 +303,6 @@ export class CopilotKitThreadsDrawer extends LitElement {
       }
       if (this._confirmingDeleteId !== null) {
         this._confirmingDeleteId = null;
-        event.stopPropagation();
-        return;
-      }
-      if (this._searchOpen) {
-        this._closeSearch();
         event.stopPropagation();
         return;
       }
@@ -476,20 +450,6 @@ export class CopilotKitThreadsDrawer extends LitElement {
     if (this._justRevealed.size > 0) {
       this._justRevealed = new Set<string>();
     }
-
-    // Focus the inline search input the frame it is revealed, so the search
-    // toggle both opens and focuses in one click. Deferred to a microtask so the
-    // just-rendered input exists in the shadow root.
-    if (
-      changed.has("_searchOpen" as keyof CopilotKitThreadsDrawer) &&
-      this._searchOpen
-    ) {
-      queueMicrotask(() => {
-        this.renderRoot
-          .querySelector<HTMLInputElement>('[part="search-input"]')
-          ?.focus();
-      });
-    }
   }
 
   // --- View-state helpers ----------------------------------------------------
@@ -519,15 +479,6 @@ export class CopilotKitThreadsDrawer extends LitElement {
       this._filter === "active"
         ? this.threads.filter((t) => !t.archived)
         : this.threads;
-    // Client-side search: additionally filter the archived-filtered set by a
-    // case-insensitive substring of the thread name, BEFORE sorting. A
-    // null-named (placeholder) thread has no searchable text, so it matches only
-    // the empty query.
-    const q = this._searchQuery.trim().toLowerCase();
-    const searched =
-      q === ""
-        ? filtered
-        : filtered.filter((t) => (t.name ?? "").toLowerCase().includes(q));
     // Parse to a timestamp; a malformed/absent value yields `null` (NOT epoch 0)
     // so bad data is never silently treated as 1970. Threads with a valid
     // timestamp sort most-recent-first; threads with no parseable timestamp
@@ -537,7 +488,7 @@ export class CopilotKitThreadsDrawer extends LitElement {
       const parsed = Date.parse(raw);
       return Number.isNaN(parsed) ? null : parsed;
     };
-    return [...searched]
+    return [...filtered]
       .map((thread, index) => ({ thread, index, ts: ts(thread) }))
       .sort((a, b) => {
         if (a.ts === null && b.ts === null) return a.index - b.index;
@@ -717,27 +668,12 @@ export class CopilotKitThreadsDrawer extends LitElement {
 
   private _renderHeader() {
     // The locked/unlicensed view renders only the Upgrade panel, so the feature
-    // chrome (search toggle + search input + the "New Conversation" row) is
-    // suppressed here — mirroring the section-heading gating. The collapse
-    // toggle stays because it's pure view-state (rail vs. panel), unrelated to
-    // the licensed feature set.
+    // chrome (the "New Conversation" row) is suppressed here — mirroring the
+    // section-heading gating. The collapse toggle stays because it's pure
+    // view-state (rail vs. panel), unrelated to the licensed feature set.
     return html`
       <div class="header" part="header">
         <slot name="header"></slot>
-        ${this.licensed && this._searchOpen ? this._renderSearch() : nothing}
-        ${
-          this.licensed
-            ? html`<button
-              class="icon-btn"
-              part="search-toggle"
-              aria-label="Search threads"
-              aria-pressed=${this._searchOpen}
-              @click=${() => this._toggleSearch()}
-            >
-              ${iconSearch}
-            </button>`
-            : nothing
-        }
         ${
           this.collapsible
             ? html`<button
@@ -764,76 +700,6 @@ export class CopilotKitThreadsDrawer extends LitElement {
   private _toggleCollapsed(): void {
     this.collapsed = !this.collapsed;
     this._emit("collapse-change", { collapsed: this.collapsed });
-  }
-
-  /**
-   * Toggles the search input open/closed. Closing via the toggle goes through
-   * {@link _closeSearch} so it behaves identically to the Escape-close path: it
-   * clears any residual query (which `_visibleThreads()` filters by
-   * unconditionally) and notifies the consumer, rather than leaving the list
-   * filtered with no visible input.
-   */
-  private _toggleSearch() {
-    if (this._searchOpen) {
-      this._closeSearch();
-    } else {
-      this._searchOpen = true;
-    }
-  }
-
-  /**
-   * Closes the search input and resets its query. When there was a query to
-   * clear, also emits `search` with an empty query so a consumer's `onSearch`
-   * is not left holding a stale value after the input disappears. Shared by the
-   * toggle-close and Escape-close paths.
-   */
-  private _closeSearch() {
-    this._searchOpen = false;
-    if (this._searchQuery !== "") {
-      this._searchQuery = "";
-      this._emit("search", { query: "" });
-    }
-  }
-
-  /**
-   * Client-side search input, revealed inline in the header by the search
-   * toggle. Filtering is applied in `_visibleThreads()`; each keystroke also
-   * emits the `search` event so a consumer can observe the query (e.g. for
-   * server-side augmentation). On blur it auto-collapses back to just the icon
-   * when the query is empty/whitespace (see {@link _onSearchBlur}); a non-empty
-   * query keeps it open so the active filter stays visible.
-   */
-  private _renderSearch() {
-    return html`
-      <div class="search">
-        <input
-          class="search-input"
-          part="search-input"
-          type="search"
-          placeholder="Search conversations"
-          .value=${this._searchQuery}
-          aria-label="Search conversations"
-          @input=${(e: Event) =>
-            this._onSearchInput((e.target as HTMLInputElement).value)}
-          @blur=${() => this._onSearchBlur()}
-        />
-      </div>
-    `;
-  }
-
-  private _onSearchInput(next: string) {
-    this._searchQuery = next;
-    this._emit("search", { query: next });
-  }
-
-  /**
-   * Auto-collapse on blur: when the input loses focus with an empty/whitespace
-   * query it closes back to just the icon (via the shared {@link _closeSearch}
-   * clear-and-emit contract). A non-empty query keeps the input open so the
-   * active client-side filter stays visible and adjustable.
-   */
-  private _onSearchBlur() {
-    if (this._searchQuery.trim() === "") this._closeSearch();
   }
 
   /**

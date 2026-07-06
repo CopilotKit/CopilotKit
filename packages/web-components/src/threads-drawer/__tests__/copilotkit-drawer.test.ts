@@ -1108,13 +1108,11 @@ test("list is scrollable in a bounded container — CSS contract: :host has heig
 
 // --- ENT-1051 Task 1: icon-row header -------------------------------------
 
-test("header renders search and collapse icon buttons, no title text or + New pill", async () => {
+test("header renders the collapse icon button, no title text or + New pill", async () => {
   const { element } = await setup({ threads: [makeThread()] });
-  const search = element.shadowRoot!.querySelector('[part="search-toggle"]');
   const collapse = element.shadowRoot!.querySelector(
     '[part="collapse-toggle"]',
   );
-  expect(search).toBeTruthy();
   expect(collapse).toBeTruthy();
   // The old "+ New" pill no longer lives in the header.
   const header = element.shadowRoot!.querySelector('[part="header"]')!;
@@ -1192,36 +1190,6 @@ test("filter-applied indicator dot shows only when a non-default filter is activ
   expect(
     element.shadowRoot!.querySelector('[part="filter-indicator"]'),
   ).not.toBeNull();
-});
-
-// --- ENT-1051 Task 4: Client-side search ----------------------------------
-
-test("typing in search filters the visible rows by name and emits search", async () => {
-  const { element } = await setup({
-    threads: [
-      makeThread({ id: "a", name: "Alpha" }),
-      makeThread({ id: "b", name: "Beta" }),
-    ],
-  });
-  element
-    .shadowRoot!.querySelector<HTMLButtonElement>('[part="search-toggle"]')!
-    .click();
-  await flush(element);
-  const input = element.shadowRoot!.querySelector<HTMLInputElement>(
-    '[part="search-input"]',
-  )!;
-  const onSearch = vi.fn();
-  element.addEventListener("search", onSearch);
-  input.value = "alph";
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  await flush(element);
-  const names = [...element.shadowRoot!.querySelectorAll(".row-name-text")].map(
-    (n) => n.textContent,
-  );
-  expect(names).toEqual(["Alpha"]);
-  expect(onSearch).toHaveBeenCalledWith(
-    expect.objectContaining({ detail: { query: "alph" } }),
-  );
 });
 
 // --- ENT-1051 Task 5: per-row kebab menu ----------------------------------
@@ -1314,75 +1282,6 @@ test("archived row name renders italic-muted in All view", async () => {
   expect(cssText).toMatch(
     /\.row\.archived\s+\.row-name\s*\{[^}]*color:\s*var\(--_muted-fg\)[^}]*\}/,
   );
-});
-
-// --- CR round 1, Findings 1 & 2: search-close clears filter + emits search --
-
-test("closing search via the toggle clears the residual filter and emits search{query:''}", async () => {
-  const { element, q, qa, teardown } = await setup({
-    threads: [
-      makeThread({ id: "a", name: "Alpha" }),
-      makeThread({ id: "b", name: "Beta" }),
-    ],
-  });
-
-  const toggle = q('[part="search-toggle"]') as HTMLElement;
-  toggle.click(); // open
-  await flush(element);
-
-  const input = q('[part="search-input"]') as HTMLInputElement;
-  input.value = "alph";
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  await flush(element);
-  expect(qa("li.row")).toHaveLength(1); // filtered to Alpha
-
-  const searchEvents: unknown[] = [];
-  element.addEventListener("search", (e) =>
-    searchEvents.push((e as CustomEvent).detail),
-  );
-
-  toggle.click(); // close via the toggle
-  await flush(element);
-
-  // Input is gone AND the list is no longer filtered (the stale, invisible
-  // filter bug): both rows are back.
-  expect(q('[part="search-input"]')).toBeNull();
-  expect(qa("li.row")).toHaveLength(2);
-  // The consumer is notified the query was reset so its onSearch isn't stale.
-  expect(searchEvents).toContainEqual({ query: "" });
-  teardown();
-});
-
-test("Escape-closing search resets the query, unfilters the list, and emits search{query:''}", async () => {
-  const { element, q, qa, teardown } = await setup({
-    threads: [
-      makeThread({ id: "a", name: "Alpha" }),
-      makeThread({ id: "b", name: "Beta" }),
-    ],
-  });
-
-  (q('[part="search-toggle"]') as HTMLElement).click();
-  await flush(element);
-  const input = q('[part="search-input"]') as HTMLInputElement;
-  input.value = "beta";
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  await flush(element);
-  expect(qa("li.row")).toHaveLength(1);
-
-  const searchEvents: unknown[] = [];
-  element.addEventListener("search", (e) =>
-    searchEvents.push((e as CustomEvent).detail),
-  );
-
-  element.dispatchEvent(
-    new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-  );
-  await flush(element);
-
-  expect(q('[part="search-input"]')).toBeNull();
-  expect(qa("li.row")).toHaveLength(2);
-  expect(searchEvents).toContainEqual({ query: "" });
-  teardown();
 });
 
 // --- CR round 1, Finding 3: outside-click dismissal + row-select closes menu --
@@ -1490,24 +1389,22 @@ test("menu-up flips the popover to open upward (CSS contract: bottom-anchored)",
 
 // --- CR round 1, Finding 5: locked view hides feature chrome ----------------
 
-test("locked view hides the search toggle and New Conversation chrome", async () => {
+test("locked view hides the New Conversation chrome", async () => {
   const { element, q, teardown } = await setup({ threads: [makeThread()] });
   element.licensed = false;
   await flush(element);
 
   expect(q('[data-testid="drawer-licensed"]')).not.toBeNull();
-  // The feature chrome (search toggle + New Conversation row) is absent — only
-  // the Upgrade panel is offered.
+  // The feature chrome (New Conversation row) is absent — only the Upgrade
+  // panel is offered.
   expect(q('[part="new-thread-button"]')).toBeNull();
-  expect(q('[part="search-toggle"]')).toBeNull();
   teardown();
 });
 
-test("licensed view still renders the search toggle and New Conversation chrome", async () => {
+test("licensed view still renders the New Conversation chrome", async () => {
   const { q, teardown } = await setup({ threads: [makeThread()] });
   // default licensed=true
   expect(q('[part="new-thread-button"]')).not.toBeNull();
-  expect(q('[part="search-toggle"]')).not.toBeNull();
   teardown();
 });
 
@@ -1549,82 +1446,6 @@ test("unarchive aria-label falls back to 'New thread' for an empty-string name",
   expect(
     (q('[part="row-unarchive"]') as HTMLElement).getAttribute("aria-label"),
   ).toBe("Unarchive thread New thread");
-  teardown();
-});
-
-// --- ENT-1051 ref: search expand-into-input + auto-collapse on blur ---------
-
-test("clicking the search toggle reveals the input and focuses it", async () => {
-  const { element, q, teardown } = await setup({ threads: [makeThread()] });
-
-  expect(q('[part="search-input"]')).toBeNull();
-
-  (q('[part="search-toggle"]') as HTMLElement).click();
-  await flush(element);
-
-  const input = q('[part="search-input"]') as HTMLInputElement;
-  expect(input).not.toBeNull();
-  // The just-revealed input receives focus (deferred to a microtask in updated()).
-  expect((element.shadowRoot as ShadowRoot).activeElement).toBe(input);
-  teardown();
-});
-
-test("blurring the empty/whitespace search input closes it and emits search{query:''}", async () => {
-  const { element, q, teardown } = await setup({
-    threads: [
-      makeThread({ id: "a", name: "Alpha" }),
-      makeThread({ id: "b", name: "Beta" }),
-    ],
-  });
-
-  (q('[part="search-toggle"]') as HTMLElement).click();
-  await flush(element);
-  const input = q('[part="search-input"]') as HTMLInputElement;
-
-  // Whitespace-only query: the blur-close path clears it and notifies consumers.
-  input.value = "   ";
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  await flush(element);
-
-  const searchEvents: unknown[] = [];
-  element.addEventListener("search", (e) =>
-    searchEvents.push((e as CustomEvent).detail),
-  );
-
-  input.dispatchEvent(new Event("blur"));
-  await flush(element);
-
-  expect(q('[part="search-input"]')).toBeNull();
-  expect(searchEvents).toContainEqual({ query: "" });
-  teardown();
-});
-
-test("blurring a non-empty search input keeps it open (no close, no empty emit)", async () => {
-  const { element, q, teardown } = await setup({
-    threads: [
-      makeThread({ id: "a", name: "Alpha" }),
-      makeThread({ id: "b", name: "Beta" }),
-    ],
-  });
-
-  (q('[part="search-toggle"]') as HTMLElement).click();
-  await flush(element);
-  const input = q('[part="search-input"]') as HTMLInputElement;
-  input.value = "alph";
-  input.dispatchEvent(new Event("input", { bubbles: true }));
-  await flush(element);
-
-  const searchEvents: unknown[] = [];
-  element.addEventListener("search", (e) =>
-    searchEvents.push((e as CustomEvent).detail),
-  );
-
-  input.dispatchEvent(new Event("blur"));
-  await flush(element);
-
-  // A non-empty query keeps the input open and does NOT emit an empty reset.
-  expect(q('[part="search-input"]')).not.toBeNull();
-  expect(searchEvents).not.toContainEqual({ query: "" });
   teardown();
 });
 
