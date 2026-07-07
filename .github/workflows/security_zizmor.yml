@@ -17,13 +17,11 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - ".github/zizmor.yml"
-      - ".github/dependabot.yml"
   pull_request:
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
       - ".github/zizmor.yml"
-      - ".github/dependabot.yml"
   schedule:
     # Catch findings introduced by newly-published advisories even when no
     # workflow file changed this week.
