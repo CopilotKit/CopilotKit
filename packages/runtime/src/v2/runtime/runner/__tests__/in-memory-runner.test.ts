@@ -1,5 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { InMemoryAgentRunner } from "../in-memory";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import {
+  InMemoryAgentRunner,
+  ɵINMEMORY_DEFAULTS,
+  ɵGLOBAL_STORE,
+} from "../in-memory";
 import type { InMemoryThread } from "../in-memory";
 import type {
   BaseEvent,
@@ -412,6 +416,308 @@ describe("InMemoryAgentRunner", () => {
       expect(errorEvent!.message).toBe("Connection refused");
     });
   });
+
+  describe("Subject buffer release", () => {
+    it("releases the ReplaySubject buffers after a run completes but keeps history", async () => {
+      const threadId = "release-1";
+      const agent = new TestAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "m1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "m1",
+        } as TextMessageEndEvent,
+      ]);
+
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent,
+            input: {
+              threadId,
+              runId: "r1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      // After completion the runner must not lose history: getThreadEvents
+      // rebuilds from historicRuns even though the live subject was released.
+      const events = runner.getThreadEvents(threadId);
+      expect(events.length).toBeGreaterThan(0);
+      const messageIds = events
+        .filter((e) => "messageId" in e)
+        .map((e) => (e as { messageId?: string }).messageId);
+      expect(messageIds).toContain("m1");
+    });
+
+    it("replays full history across a run boundary via historicRuns, not the live subject", async () => {
+      const threadId = "boundary-1";
+
+      const run1 = new TestAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "a",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "a",
+        } as TextMessageEndEvent,
+      ]);
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent: run1,
+            input: {
+              threadId,
+              runId: "r1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      const run2 = new TestAgent([
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "b",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "b",
+        } as TextMessageEndEvent,
+      ]);
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent: run2,
+            input: {
+              threadId,
+              runId: "r2",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      // A fresh connect after both runs must see BOTH runs' events. Since the
+      // live subject is released on completion, this replay proves the events
+      // come from historicRuns rather than a retained subject buffer.
+      const connected = await firstValueFrom(
+        runner.connect({ threadId }).pipe(toArray()),
+      );
+      const messageIds = connected
+        .filter((e) => "messageId" in e)
+        .map((e) => (e as { messageId?: string }).messageId);
+      expect(messageIds).toContain("a");
+      expect(messageIds).toContain("b");
+    });
+  });
+
+  describe("Bounding (integration + regression)", () => {
+    // Each test in this block sets tighter limits on the process-global store.
+    // A no-arg `new InMemoryAgentRunner()` is inert (the constructor only calls
+    // setLimits when limits are passed), so restoring defaults requires passing
+    // ɵINMEMORY_DEFAULTS explicitly. Do it after every test so no leaked limit
+    // can poison a later/reordered sibling that assumes defaults.
+    afterEach(() => {
+      new InMemoryAgentRunner(ɵINMEMORY_DEFAULTS);
+    });
+
+    it("warns once when a second runner clobbers a customized shared-store config, but not on first customization or identical re-set", () => {
+      // The clobber warn-once latch lives on the process-global store and is
+      // never reset by clear(). Reset the private config latches here so this
+      // test is deterministic regardless of sibling ordering.
+      const store = ɵGLOBAL_STORE as unknown as {
+        limitsExplicitlySet: boolean;
+        clobberWarned: boolean;
+      };
+      store.limitsExplicitlySet = false;
+      store.clobberWarned = false;
+
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        // First runner with custom limits (over defaults) → intended override, NO clobber warn.
+        new InMemoryAgentRunner({ maxThreads: 5 });
+        expect(warn).not.toHaveBeenCalled();
+
+        // Second runner with IDENTICAL limits → NO warn.
+        new InMemoryAgentRunner({ maxThreads: 5 });
+        expect(warn).not.toHaveBeenCalled();
+
+        // Second (different) runner → clobber warn exactly ONCE.
+        new InMemoryAgentRunner({ maxThreads: 10 });
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(String(warn.mock.calls[0]?.[0])).toContain("last-constructed");
+
+        // Third differing runner → still warn-once.
+        new InMemoryAgentRunner({ maxThreads: 20 });
+        expect(warn).toHaveBeenCalledTimes(1);
+      } finally {
+        warn.mockRestore();
+        // Restore config latches so the afterEach default-restore and later
+        // suites are not perturbed by this test's manipulation.
+        store.limitsExplicitlySet = false;
+        store.clobberWarned = false;
+      }
+    });
+
+    it("stays bounded in thread count under a small maxThreads", async () => {
+      const boundedRunner = new InMemoryAgentRunner({ maxThreads: 5 });
+      boundedRunner.clearThreads();
+      for (let i = 0; i < 50; i++) {
+        const agent = new TestAgent([
+          {
+            type: EventType.TEXT_MESSAGE_START,
+            messageId: `m${i}`,
+            role: "assistant",
+          } as TextMessageStartEvent,
+          {
+            type: EventType.TEXT_MESSAGE_END,
+            messageId: `m${i}`,
+          } as TextMessageEndEvent,
+        ]);
+        await firstValueFrom(
+          boundedRunner
+            .run({
+              threadId: `t${i}`,
+              agent,
+              input: {
+                threadId: `t${i}`,
+                runId: `r${i}`,
+                messages: [],
+                state: {},
+                tools: [],
+                context: [],
+              },
+            })
+            .pipe(toArray()),
+        );
+      }
+      expect(boundedRunner.listThreads().length).toBeLessThanOrEqual(5);
+    });
+
+    it("stays bounded in runs-per-thread under a small maxRunsPerThread", async () => {
+      const boundedRunner = new InMemoryAgentRunner({ maxRunsPerThread: 3 });
+      boundedRunner.clearThreads();
+      for (let i = 0; i < 20; i++) {
+        const agent = new TestAgent([
+          {
+            type: EventType.TEXT_MESSAGE_START,
+            messageId: `m${i}`,
+            role: "assistant",
+          } as TextMessageStartEvent,
+          {
+            type: EventType.TEXT_MESSAGE_END,
+            messageId: `m${i}`,
+          } as TextMessageEndEvent,
+        ]);
+        await firstValueFrom(
+          boundedRunner
+            .run({
+              threadId: "single",
+              agent,
+              input: {
+                threadId: "single",
+                runId: `r${i}`,
+                messages: [],
+                state: {},
+                tools: [],
+                context: [],
+              },
+            })
+            .pipe(toArray()),
+        );
+      }
+      // getThreadEvents replays only retained runs — bounded, not 20 runs'
+      // worth. Each run contributes one TEXT_MESSAGE_START, so counting starts
+      // proves the thread did not accumulate all 20 runs.
+      const events = boundedRunner.getThreadEvents("single");
+      const starts = events.filter(
+        (e) => e.type === EventType.TEXT_MESSAGE_START,
+      ).length;
+      expect(starts).toBeLessThanOrEqual(3);
+    });
+
+    it.skipIf(typeof (globalThis as { gc?: unknown }).gc !== "function")(
+      "heap plateaus rather than growing monotonically (real OOM guard)",
+      async () => {
+        const gc = (globalThis as { gc: () => void }).gc;
+        // Construct WITH explicit defaults so the process-global store is
+        // actually reset to defaults for this test — a no-arg constructor is
+        // inert and would leave any leaked tighter limits in place.
+        const heapRunner = new InMemoryAgentRunner(ɵINMEMORY_DEFAULTS);
+        heapRunner.clearThreads();
+
+        const drive = async (n: number) => {
+          for (let i = 0; i < n; i++) {
+            const tid = `t${i % 200}`; // spread across many threads
+            const agent = new TestAgent([
+              {
+                type: EventType.TEXT_MESSAGE_START,
+                messageId: `${tid}-${i}`,
+                role: "assistant",
+              } as TextMessageStartEvent,
+              {
+                type: EventType.TEXT_MESSAGE_CONTENT,
+                messageId: `${tid}-${i}`,
+                delta: "x".repeat(200),
+              } as TextMessageContentEvent,
+              {
+                type: EventType.TEXT_MESSAGE_END,
+                messageId: `${tid}-${i}`,
+              } as TextMessageEndEvent,
+            ]);
+            await firstValueFrom(
+              heapRunner
+                .run({
+                  threadId: tid,
+                  agent,
+                  input: {
+                    threadId: tid,
+                    runId: `${tid}-${i}`,
+                    messages: [],
+                    state: {},
+                    tools: [],
+                    context: [],
+                  },
+                })
+                .pipe(toArray()),
+            );
+          }
+        };
+
+        await drive(2000);
+        gc();
+        const mid = process.memoryUsage().heapUsed;
+        await drive(4000);
+        gc();
+        const end = process.memoryUsage().heapUsed;
+
+        // After bounding, driving 2x more runs must NOT ~2x the heap. Allow
+        // generous tolerance to avoid flake; the point is "plateau, not linear".
+        expect(end).toBeLessThan(mid * 1.6);
+      },
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -512,7 +818,7 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
 
   beforeEach(async () => {
     runner = new InMemoryAgentRunner();
-    // Reset the module-level GLOBAL_STORE singleton so tests don't leak into each other
+    // Reset the module-level sharedStore singleton so tests don't leak into each other
     runner.clearThreads();
 
     // Run a single turn on a unique thread so each test starts fresh
@@ -660,6 +966,53 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
       const messages = runner.getThreadMessages("list-threads-thread-1");
       // Should have all 4 messages from the second run's snapshot
       expect(messages).toHaveLength(4);
+    });
+
+    it("returns a defensive copy so callers cannot mutate stored state", () => {
+      // A3: getThreadMessages must not hand out the internal array by
+      // reference, or a caller mutating it would corrupt stored history and
+      // desync approxMessageBytes / totalBytes.
+      const first = runner.getThreadMessages("list-threads-thread-1");
+      expect(first).toHaveLength(2);
+      first.push({ id: "injected", role: "user", content: "tamper" });
+      first.length = 0; // clear the returned array entirely
+      const second = runner.getThreadMessages("list-threads-thread-1");
+      expect(second).toHaveLength(2); // stored state unaffected
+    });
+
+    it("returns a shallow (array-level) copy: a distinct array that shares element identity", () => {
+      // R6-1: getThreadMessages returns a SHALLOW copy — a fresh array (so array
+      // structure is isolated, covered above) whose elements are the SAME Message
+      // object references as the stored snapshot. It deliberately does NOT deep-copy:
+      // `structuredClone` throws DataCloneError on a non-cloneable message field,
+      // wedging the thread. The known limitation — tracked as follow-up — is that
+      // mutating a returned message's FIELD is NOT isolated; callers must treat
+      // returned messages as read-only.
+      const first = runner.getThreadMessages("list-threads-thread-1");
+      const second = runner.getThreadMessages("list-threads-thread-1");
+      // Distinct array instances (array-level isolation).
+      expect(first).not.toBe(second);
+      // ...but element identity is shared (shallow copy, not deep).
+      expect(first[0]).toBe(second[0]);
+    });
+
+    it("keeps the thread snapshot when a later empty-snapshot run is appended", () => {
+      // R3-1: the message snapshot is held at the thread level, decoupled from
+      // historicRuns. An error-path / non-array-messages run stores an empty
+      // per-run snapshot, but must NOT disturb the thread-level snapshot.
+      // Appending an empty run directly leaves getThreadMessages intact.
+      const store = ɵGLOBAL_STORE.peek("list-threads-thread-1")!;
+      store.historicRuns.push({
+        threadId: "list-threads-thread-1",
+        runId: "run-empty",
+        agentId: "test-agent",
+        parentRunId: null,
+        events: [],
+        messages: [],
+        createdAt: Date.now(),
+      });
+      const messages = runner.getThreadMessages("list-threads-thread-1");
+      expect(messages).toHaveLength(2); // thread snapshot untouched
     });
   });
 
@@ -817,6 +1170,77 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
         otherThreadSnapshot,
       );
       expect(runner.getThreadState("thread-multi-state")).toEqual(second);
+    });
+
+    it("returns a defensive copy so mutating the result can't corrupt stored state", async () => {
+      const snapshot = { counter: 7, name: "alpha" };
+      const stateAgent = new TestAgent(
+        [{ type: EventType.STATE_SNAPSHOT, snapshot } as BaseEvent],
+        true,
+      );
+      await firstValueFrom(
+        runner
+          .run({
+            threadId: "thread-defensive-state",
+            agent: stateAgent,
+            input: {
+              threadId: "thread-defensive-state",
+              runId: "run-defensive-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      const returned = runner.getThreadState("thread-defensive-state");
+      expect(returned).toEqual({ counter: 7, name: "alpha" });
+
+      // Mutating the returned object must not affect stored thread state.
+      // Guards the defensive shallow-copy return in getThreadState so the
+      // contract holds regardless of whether the upstream compactEvents
+      // helper happens to clone events on its own.
+      (returned as Record<string, unknown>).counter = 999;
+      (returned as Record<string, unknown>).injected = true;
+
+      expect(runner.getThreadState("thread-defensive-state")).toEqual({
+        counter: 7,
+        name: "alpha",
+      });
+    });
+
+    it("returns null when the last STATE_SNAPSHOT snapshot is an array", async () => {
+      // `typeof [] === "object"` is true; an array snapshot violates the
+      // Record<string, unknown> | null contract and must yield null.
+      const stateAgent = new TestAgent(
+        [
+          {
+            type: EventType.STATE_SNAPSHOT,
+            snapshot: [1, 2, 3],
+          } as BaseEvent,
+        ],
+        true,
+      );
+      await firstValueFrom(
+        runner
+          .run({
+            threadId: "thread-array-state",
+            agent: stateAgent,
+            input: {
+              threadId: "thread-array-state",
+              runId: "run-array-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      expect(runner.getThreadState("thread-array-state")).toBeNull();
     });
   });
 });

@@ -17,6 +17,63 @@ import type {
 import { EventType, compactEvents } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkit/shared";
 
+export interface InMemoryLimits {
+  /** LRU cap on distinct threads. */
+  maxThreads?: number;
+  /** FIFO cap on runs kept per thread. `Infinity` or `0` disables the cap. */
+  maxRunsPerThread?: number;
+  /**
+   * Approximate byte ceiling on RETAINED thread/run history. Enforced at run
+   * completion (in `appendRun`), where LRU non-running threads are evicted to
+   * keep the total under this limit.
+   *
+   * Limitation: this bounds only history that has already been committed. A
+   * single in-flight run's buffered events (`currentRunEvents` and the two
+   * `ReplaySubject<BaseEvent>(Infinity)` buffers in `run()`) are NOT counted
+   * until that run completes, so `maxBytes` does not bound a single runaway
+   * run mid-stream.
+   *
+   * Limitation: byte eviction drops only other LRU non-running threads and
+   * never self-evicts the active/just-appended thread, so a single dominant
+   * thread's own retained history is not byte-trimmed (bounded only by
+   * `maxRunsPerThread`). `maxBytes` is thus a cross-thread ceiling enforced by
+   * evicting OTHER threads, not a per-thread cap.
+   */
+  maxBytes?: number;
+}
+
+export const ɵINMEMORY_DEFAULTS: Required<InMemoryLimits> = {
+  maxThreads: 1000,
+  maxRunsPerThread: 100,
+  maxBytes: 512 * 1024 ** 2,
+};
+
+const EVICTION_GUIDANCE =
+  "[CopilotKit] InMemoryAgentRunner evicted in-memory thread history to stay " +
+  "under memory limits. This runner is bounded and non-durable by design. For " +
+  "durable or production threads, configure an Intelligence backend.";
+
+const LIMITS_CLOBBER_GUIDANCE =
+  "[CopilotKit] InMemoryAgentRunner was constructed with in-memory limits that " +
+  "differ from the already-configured process-global store; the last-constructed " +
+  "runner's limits apply to ALL in-memory threads (the store is shared per-process). " +
+  "Configure a single consistent set of limits, or use an Intelligence backend for " +
+  "isolated bounds.";
+
+/**
+ * Best-effort approximate byte size of a value, via serialized length.
+ * Never throws — returns 0 when the value cannot be serialized. This is an
+ * approximation (UTF-16 length, not exact heap bytes), used only for relative
+ * accounting against `maxBytes`.
+ */
+export function ɵestimateBytes(value: unknown): number {
+  try {
+    return JSON.stringify(value)?.length ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 interface HistoricRun {
   threadId: string;
   runId: string;
@@ -25,11 +82,21 @@ interface HistoricRun {
   parentRunId: string | null;
   events: BaseEvent[];
   /**
-   * Snapshot of all messages (input + generated) at the end of this run.
-   * Used by the local thread-messages fallback endpoint.
+   * Snapshot of all messages (input + generated) at the end of this run, as
+   * passed in by the caller. NOTE: `BoundedThreadStore.appendRun` moves this
+   * snapshot to the THREAD level (`InMemoryEventStore.messagesSnapshot`) and
+   * clears this field to `[]`, so a stored HistoricRun never carries messages.
+   * The thread-messages fallback reads the thread-level snapshot, not this.
    */
   messages: Message[];
   createdAt: number;
+  /** Approximate retained byte size of `events`; set by BoundedThreadStore at append. */
+  approxEventBytes?: number;
+  /**
+   * Legacy field retained for shape compatibility. `appendRun` always zeroes it
+   * because message bytes are accounted at the thread level, not per run.
+   */
+  approxMessageBytes?: number;
 }
 
 /**
@@ -74,20 +141,277 @@ class InMemoryEventStore {
 
   /** Reference to the events emitted in the current run. */
   currentEvents: BaseEvent[] | null = null;
+
+  /**
+   * The thread's single latest NON-EMPTY message snapshot, held at the THREAD
+   * level (independent of `historicRuns` lifecycle). Decoupling the snapshot
+   * from per-run storage means run-cap FIFO eviction and interleaved
+   * empty-snapshot runs can never drop or pin the thread's message history.
+   */
+  messagesSnapshot: Message[] = [];
+
+  /** Approximate retained byte size of `messagesSnapshot`. */
+  approxMessagesSnapshotBytes = 0;
 }
 
-const GLOBAL_STORE = new Map<string, InMemoryEventStore>();
+export class ɵBoundedThreadStore {
+  private readonly map = new Map<string, InMemoryEventStore>();
+  private totalBytes = 0;
+  private warned = false;
+  /** True once limits have been EXPLICITLY set (via setLimits), not just the constructor default. */
+  private limitsExplicitlySet = false;
+  /** Warn-once latch for the clobber warning, kept distinct from the eviction `warned` latch. */
+  private clobberWarned = false;
+
+  constructor(private limits: Required<InMemoryLimits>) {}
+
+  get byteTotal(): number {
+    return this.totalBytes;
+  }
+
+  /**
+   * Reconfigure the process-global store's bounds. Called by the
+   * {@link InMemoryAgentRunner} constructor when limits are passed. Because the
+   * store is a per-process singleton, this replaces the bounds for ALL in-memory
+   * threads. Emits {@link LIMITS_CLOBBER_GUIDANCE} at most ONCE per store when a
+   * SECOND (or later) explicit set arrives whose resolved values differ from the
+   * prior explicit set — i.e. a genuine clobber of an already-customized config.
+   * The first explicit customization (defaults → custom) is the intended
+   * override and never warns; identical re-sets never warn.
+   */
+  setLimits(limits: Required<InMemoryLimits>): void {
+    if (
+      this.limitsExplicitlySet &&
+      !this.clobberWarned &&
+      (limits.maxThreads !== this.limits.maxThreads ||
+        limits.maxRunsPerThread !== this.limits.maxRunsPerThread ||
+        limits.maxBytes !== this.limits.maxBytes)
+    ) {
+      this.clobberWarned = true;
+      try {
+        console.warn(LIMITS_CLOBBER_GUIDANCE);
+      } catch {
+        // best-effort: logging must never break construction
+      }
+    }
+    this.limitsExplicitlySet = true;
+    this.limits = limits;
+  }
+
+  get size(): number {
+    return this.map.size;
+  }
+
+  /** Re-insert at the tail so Map iteration order stays LRU-first. */
+  private touchOrder(threadId: string, store: InMemoryEventStore): void {
+    this.map.delete(threadId);
+    this.map.set(threadId, store);
+  }
+
+  getOrCreate(threadId: string): InMemoryEventStore {
+    const existing = this.map.get(threadId);
+    if (existing) {
+      this.touchOrder(threadId, existing);
+      return existing;
+    }
+    const store = new InMemoryEventStore(threadId);
+    this.map.set(threadId, store);
+    this.evictThreadsIfNeeded(threadId);
+    return store;
+  }
+
+  get(
+    threadId: string,
+    opts: { touch: boolean },
+  ): InMemoryEventStore | undefined {
+    const store = this.map.get(threadId);
+    if (store && opts.touch) this.touchOrder(threadId, store);
+    return store;
+  }
+
+  peek(threadId: string): InMemoryEventStore | undefined {
+    return this.map.get(threadId);
+  }
+
+  /**
+   * Evict the least-recently-used thread that is neither running NOR
+   * mid-finalization. Returns false if none evictable. The `protect` thread
+   * (typically the one just created) is never evicted, so a fresh thread is not
+   * immediately dropped when it is the only non-running candidate.
+   *
+   * A thread is skipped while `isRunning` OR `stopRequested` is set.
+   * `stop()` flips `isRunning` to false the moment it aborts the agent, but the
+   * run keeps finalizing asynchronously (the abort trips the `catch` in
+   * `runAgent`, which later calls `appendRun`). During that window
+   * `stopRequested` stays true; evicting the thread then would make the pending
+   * `appendRun` hit `if (!store) return` and silently drop the aborted run's
+   * history. Guarding on `stopRequested` keeps the thread alive until
+   * finalization completes.
+   */
+  private evictOneLru(protect?: string): boolean {
+    for (const [threadId, store] of this.map) {
+      if (threadId === protect) continue; // never evict the just-created thread
+      // never evict a running or still-finalizing (stop-requested) thread
+      if (store.isRunning || store.stopRequested) continue;
+      this.removeThread(threadId, store);
+      this.noteEviction();
+      return true;
+    }
+    return false;
+  }
+
+  appendRun(threadId: string, run: HistoricRun): void {
+    const store = this.map.get(threadId);
+    if (!store) return; // best-effort: nothing to append to
+
+    // Thread-level message snapshot: keep the single latest NON-EMPTY snapshot
+    // on the store, decoupled from `historicRuns`. When the incoming run
+    // carries a non-empty snapshot, replace the thread's snapshot (adjusting
+    // byte accounting). When it's empty (non-array `agent.messages` or an
+    // error-path run), leave the existing thread snapshot untouched so history
+    // is never lost. The snapshot never lives on a HistoricRun, so run-cap FIFO
+    // eviction can never drop it and an interleaved empty run can never pin it.
+    if (run.messages.length > 0) {
+      this.totalBytes -= store.approxMessagesSnapshotBytes;
+      // Store the incoming array directly (SHALLOW, array-level copy). `run.messages`
+      // is already a fresh `[...agent.messages]` array created in run(), so we own the
+      // array and it is decoupled from `agent.messages` at the array level (push/splice
+      // on the agent's array cannot mutate our snapshot). We deliberately do NOT deep-copy
+      // here: `structuredClone` throws DataCloneError on a non-cloneable message field,
+      // which would wedge the thread and hang SSE — inconsistent with `ɵestimateBytes`,
+      // which tolerates the same bad-payload class. The tradeoff is that the inner
+      // `Message` objects remain shared by reference with `agent.messages`, so an agent
+      // that mutates its own message objects IN PLACE after the run can still be observed
+      // through this snapshot. That inner-object isolation is a known limitation tracked as
+      // follow-up; callers must treat returned messages as read-only. Estimate bytes on the
+      // same value so accounting matches exactly what is retained.
+      store.messagesSnapshot = run.messages;
+      store.approxMessagesSnapshotBytes = ɵestimateBytes(run.messages);
+      this.totalBytes += store.approxMessagesSnapshotBytes;
+    }
+
+    // Do not carry message bytes on the HistoricRun: the snapshot is now tracked
+    // at the thread level, so historicRuns must never account message bytes.
+    run.messages = [];
+    run.approxMessageBytes = 0;
+
+    // Compute this run's approximate event size once, at append time.
+    run.approxEventBytes = ɵestimateBytes(run.events);
+    store.historicRuns.push(run);
+    this.totalBytes += run.approxEventBytes;
+    this.touchOrder(threadId, store);
+
+    this.enforceRunCap(store);
+    this.evictByBytesIfNeeded(threadId);
+  }
+
+  private enforceRunCap(store: InMemoryEventStore): void {
+    const cap = this.limits.maxRunsPerThread;
+    if (!cap || cap === Infinity) return; // 0 or Infinity → disabled
+    while (store.historicRuns.length > cap) {
+      const dropped = store.historicRuns.shift()!;
+      // Only event bytes live on a HistoricRun; the message snapshot is tracked
+      // at the thread level and survives run-cap eviction.
+      this.totalBytes -= dropped.approxEventBytes ?? 0;
+    }
+  }
+
+  /**
+   * Trim the store back under the byte ceiling by evicting LRU non-running
+   * threads. `protect` (the just-appended thread) is never self-evicted, so a
+   * fresh run pushes OTHER threads out rather than dropping itself.
+   */
+  private evictByBytesIfNeeded(protect?: string): void {
+    while (this.totalBytes > this.limits.maxBytes) {
+      if (!this.evictOneLru(protect)) break; // only protected/running threads left → accept overage
+    }
+  }
+
+  private removeThread(threadId: string, store: InMemoryEventStore): void {
+    for (const run of store.historicRuns) {
+      this.totalBytes -= run.approxEventBytes ?? 0;
+    }
+    // The thread's message snapshot is tracked at the store level, so it must
+    // be reclaimed here in addition to the per-run event bytes.
+    this.totalBytes -= store.approxMessagesSnapshotBytes;
+    this.map.delete(threadId);
+  }
+
+  private evictThreadsIfNeeded(protect?: string): void {
+    while (this.map.size > this.limits.maxThreads) {
+      if (!this.evictOneLru(protect)) break; // everything evictable is running → accept overage
+    }
+  }
+
+  private noteEviction(): void {
+    if (this.warned) return;
+    this.warned = true;
+    try {
+      console.warn(EVICTION_GUIDANCE);
+    } catch {
+      // best-effort: logging must never break a run
+    }
+  }
+
+  listThreads(): InMemoryThread[] {
+    const threads: InMemoryThread[] = [];
+    for (const [threadId, store] of this.map) {
+      if (store.historicRuns.length === 0) continue;
+      const firstRun = store.historicRuns[0]!;
+      const lastRun = store.historicRuns[store.historicRuns.length - 1]!;
+      threads.push({
+        id: threadId,
+        name: null,
+        agentId: lastRun.agentId,
+        organizationId: "",
+        createdById: "",
+        archived: false,
+        createdAt: new Date(firstRun.createdAt).toISOString(),
+        updatedAt: new Date(lastRun.createdAt).toISOString(),
+      });
+    }
+    return threads.sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }
+
+  clear(): void {
+    this.map.clear();
+    this.totalBytes = 0;
+    this.warned = false;
+  }
+}
+
+/**
+ * Process-wide singleton backing every {@link InMemoryAgentRunner}. Exported
+ * (with the `ɵ` internal-API prefix) so tests can inspect the exact store the
+ * runner writes to; not part of the public API.
+ */
+export const ɵGLOBAL_STORE = new ɵBoundedThreadStore(ɵINMEMORY_DEFAULTS);
+const sharedStore = ɵGLOBAL_STORE;
 
 export class InMemoryAgentRunner extends AgentRunner {
   readonly ɵsupportsLocalThreadEndpoints = true;
 
-  run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
-    let existingStore = GLOBAL_STORE.get(request.threadId);
-    if (!existingStore) {
-      existingStore = new InMemoryEventStore(request.threadId);
-      GLOBAL_STORE.set(request.threadId, existingStore);
+  /**
+   * @param limits Optional bounds for the process-global in-memory store. Omit
+   * for safe defaults ({@link ɵINMEMORY_DEFAULTS}). When multiple runners are
+   * constructed with differing limits, the last-constructed wins — in practice
+   * the OSS/SSE default construction passes nothing. If a second (or later)
+   * runner is constructed with limits that DIFFER from an already-customized
+   * store, a one-time `console.warn` is emitted to signal that the shared store's
+   * bounds are being clobbered for ALL in-memory threads.
+   */
+  constructor(limits?: InMemoryLimits) {
+    super();
+    if (limits) {
+      sharedStore.setLimits({ ...ɵINMEMORY_DEFAULTS, ...limits });
     }
-    const store = existingStore; // Now store is const and non-null
+  }
+
+  run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
+    const store = sharedStore.getOrCreate(request.threadId);
 
     if (store.isRunning) {
       throw new Error("Thread already running");
@@ -195,7 +519,7 @@ export class InMemoryAgentRunner extends AgentRunner {
           // Compact the events before storing (like SQLite does)
           const compactedEvents = compactEvents(currentRunEvents);
 
-          store.historicRuns.push({
+          sharedStore.appendRun(request.threadId, {
             threadId: request.threadId,
             runId: store.currentRunId,
             agentId: request.agent.agentId ?? "default",
@@ -218,6 +542,12 @@ export class InMemoryAgentRunner extends AgentRunner {
         store.isRunning = false;
         runSubject.complete();
         nextSubject.complete();
+        // Time-scoped release: events are now in historicRuns, so the infinite
+        // ReplaySubject buffers are pure duplication — drop them so they become
+        // collectable. connect() only subscribes to store.subject while
+        // isRunning || stopRequested (both false here), and rebuilds history
+        // from historicRuns, so this is safe.
+        store.subject = null;
       } catch (error) {
         const interruptionMessage =
           error instanceof Error ? error.message : String(error);
@@ -234,7 +564,7 @@ export class InMemoryAgentRunner extends AgentRunner {
         if (store.currentRunId && currentRunEvents.length > 0) {
           // Compact the events before storing (like SQLite does)
           const compactedEvents = compactEvents(currentRunEvents);
-          store.historicRuns.push({
+          sharedStore.appendRun(request.threadId, {
             threadId: request.threadId,
             runId: store.currentRunId,
             agentId: request.agent.agentId ?? "default",
@@ -256,6 +586,12 @@ export class InMemoryAgentRunner extends AgentRunner {
         store.isRunning = false;
         runSubject.complete();
         nextSubject.complete();
+        // Time-scoped release: events are now in historicRuns, so the infinite
+        // ReplaySubject buffers are pure duplication — drop them so they become
+        // collectable. connect() only subscribes to store.subject while
+        // isRunning || stopRequested (both false here), and rebuilds history
+        // from historicRuns, so this is safe.
+        store.subject = null;
       }
     };
 
@@ -278,7 +614,7 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   connect(request: AgentRunnerConnectRequest): Observable<BaseEvent> {
-    const store = GLOBAL_STORE.get(request.threadId);
+    const store = sharedStore.get(request.threadId, { touch: true });
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
 
     if (!store) {
@@ -331,12 +667,12 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   isRunning(request: AgentRunnerIsRunningRequest): Promise<boolean> {
-    const store = GLOBAL_STORE.get(request.threadId);
+    const store = sharedStore.peek(request.threadId);
     return Promise.resolve(store?.isRunning ?? false);
   }
 
   stop(request: AgentRunnerStopRequest): Promise<boolean | undefined> {
-    const store = GLOBAL_STORE.get(request.threadId);
+    const store = sharedStore.peek(request.threadId);
     if (!store || !store.isRunning) {
       return Promise.resolve(false);
     }
@@ -373,27 +709,7 @@ export class InMemoryAgentRunner extends AgentRunner {
    * `ThreadRecord` so the HTTP handler can use the same response envelope.
    */
   listThreads(): InMemoryThread[] {
-    const threads: InMemoryThread[] = [];
-    for (const [threadId, store] of GLOBAL_STORE) {
-      if (store.historicRuns.length === 0) continue;
-      const firstRun = store.historicRuns[0]!;
-      const lastRun = store.historicRuns[store.historicRuns.length - 1]!;
-      threads.push({
-        id: threadId,
-        name: null,
-        agentId: lastRun.agentId,
-        organizationId: "",
-        createdById: "",
-        archived: false,
-        createdAt: new Date(firstRun.createdAt).toISOString(),
-        updatedAt: new Date(lastRun.createdAt).toISOString(),
-      });
-    }
-    // Most recently updated first
-    return threads.sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
-    );
+    return sharedStore.listThreads();
   }
 
   /**
@@ -406,10 +722,22 @@ export class InMemoryAgentRunner extends AgentRunner {
    * with the Intelligence platform's `ThreadMessage` type.
    */
   getThreadMessages(threadId: string): Message[] {
-    const store = GLOBAL_STORE.get(threadId);
-    if (!store || store.historicRuns.length === 0) return [];
-    // The last run's snapshot has the complete conversation history
-    return store.historicRuns[store.historicRuns.length - 1]!.messages;
+    const store = sharedStore.peek(threadId);
+    if (!store) return [];
+    // The thread's latest non-empty snapshot is held at the store level,
+    // independent of `historicRuns` lifecycle, so run-cap eviction and
+    // interleaved empty-snapshot runs can never lose it. Return a SHALLOW
+    // (array-level) copy: a fresh array so a caller mutating array STRUCTURE
+    // (push/splice/reassign elements) cannot affect the stored snapshot. We
+    // deliberately do NOT deep-copy: `structuredClone` throws DataCloneError on a
+    // non-cloneable message field, which would wedge the thread and hang SSE —
+    // inconsistent with `ɵestimateBytes`, which tolerates the same bad-payload class.
+    // The tradeoff is that the inner `Message` objects remain shared by reference with
+    // the stored snapshot, so mutating a returned message's FIELD
+    // (e.g. `getThreadMessages(t)[0].content = "x"`) is NOT isolated and would corrupt
+    // the stored snapshot. That inner-object isolation is a known limitation tracked as
+    // follow-up; callers must treat returned messages as read-only.
+    return [...store.messagesSnapshot];
   }
 
   /**
@@ -421,7 +749,7 @@ export class InMemoryAgentRunner extends AgentRunner {
    * late-joining inspector sees matches what this method returns.
    */
   getThreadEvents(threadId: string): BaseEvent[] {
-    const store = GLOBAL_STORE.get(threadId);
+    const store = sharedStore.peek(threadId);
     if (!store || store.historicRuns.length === 0) return [];
     const all: BaseEvent[] = [];
     for (const run of store.historicRuns) all.push(...run.events);
@@ -445,8 +773,18 @@ export class InMemoryAgentRunner extends AgentRunner {
       const event = events[i]!;
       if (event.type === EventType.STATE_SNAPSHOT) {
         const snapshot = (event as StateSnapshotEvent).snapshot;
-        if (snapshot && typeof snapshot === "object") {
-          return snapshot as Record<string, unknown>;
+        // Only plain objects satisfy the Record<string, unknown> contract.
+        // `typeof [] === "object"` is true, so arrays must be rejected
+        // explicitly to avoid returning an array typed as a Record.
+        if (
+          snapshot &&
+          typeof snapshot === "object" &&
+          !Array.isArray(snapshot)
+        ) {
+          // Return a defensive shallow copy so callers can't mutate the
+          // snapshot object held inside the stored event (matches the
+          // getThreadMessages defensive-copy approach).
+          return { ...(snapshot as Record<string, unknown>) };
         }
         return null;
       }
@@ -464,6 +802,6 @@ export class InMemoryAgentRunner extends AgentRunner {
    * not be wiped this way.
    */
   clearThreads(): void {
-    GLOBAL_STORE.clear();
+    sharedStore.clear();
   }
 }
