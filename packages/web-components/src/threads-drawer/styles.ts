@@ -78,7 +78,11 @@ export const drawerStyles = css`
     --_border: var(--cpk-drawer-border, var(--border, ${tok(T.border)}));
     --_ring: var(--cpk-drawer-ring, var(--ring, ${tok(T.ring)}));
     --_indicator: var(--cpk-drawer-indicator, #5b94e4);
-    --_radius: var(--cpk-drawer-radius, var(--radius, ${tok(T.radius)}));
+    /* Cap the corner radius at 4px (per designer) — themeable but never larger. */
+    --_radius: min(
+      var(--cpk-drawer-radius, var(--radius, ${tok(T.radius)})),
+      4px
+    );
     --_width: var(--cpk-drawer-width, 320px);
   }
 
@@ -151,8 +155,8 @@ export const drawerStyles = css`
     z-index: 998;
     /* Position is themeable so a host can line the cluster up with its own
        header controls (e.g. vertically centering it on a toggle group). */
-    top: var(--cpk-drawer-launcher-top, 12px);
-    left: var(--cpk-drawer-launcher-left, 12px);
+    top: var(--cpk-drawer-launcher-top, 24px);
+    left: var(--cpk-drawer-launcher-left, 24px);
     display: inline-flex;
     align-items: center;
     gap: 2px;
@@ -352,7 +356,7 @@ export const drawerStyles = css`
     font: inherit;
     text-align: left;
     padding: 6px 8px;
-    border-radius: 6px;
+    border-radius: 4px;
   }
 
   .filter-opt:hover,
@@ -412,7 +416,9 @@ export const drawerStyles = css`
   .row.active {
     background: var(--_accent);
     color: var(--_accent-fg);
-    border-color: var(--_ring);
+    /* No border on the selected row — the background change alone marks it
+       (per designer). The base row keeps its 1px transparent border so the
+       layout stays stable. */
   }
 
   .row.archived .row-name {
@@ -462,7 +468,7 @@ export const drawerStyles = css`
     cursor: pointer;
     font: inherit;
     padding: 5px;
-    border-radius: 6px;
+    border-radius: 4px;
   }
 
   .row-action:hover,
@@ -488,7 +494,7 @@ export const drawerStyles = css`
     height: 24px;
     padding: 4px;
     border: 0;
-    border-radius: 6px;
+    border-radius: 4px;
     background: transparent;
     color: var(--_muted-fg);
     cursor: pointer;
@@ -550,7 +556,7 @@ export const drawerStyles = css`
     font: inherit;
     text-align: left;
     padding: 6px 8px;
-    border-radius: 6px;
+    border-radius: 4px;
   }
 
   .row-menu-item:hover,
