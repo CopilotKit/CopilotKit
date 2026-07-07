@@ -123,6 +123,8 @@ def stop_on_terminal_text(
             "end_invocation; ADK private-API shape may have drifted."
         )
     return None
+
+
 # @endregion[stop-on-terminal-text]
 
 
