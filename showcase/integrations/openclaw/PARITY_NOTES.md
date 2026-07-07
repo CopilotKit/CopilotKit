@@ -53,9 +53,16 @@ The showcase ships the full demo set. Support by category:
   `useAgentContext` → AG-UI `context[]`, injected into the prompt);
   shared-state-read and shared-state-read-write (via the clawg-ui state-writer
   capability, `STATE_SNAPSHOT`).
-- **A2UI** — declarative-gen-ui and a2ui-fixed-schema (the runtime `render_a2ui`
-  tool is forwarded to the model and its calls relayed by the gateway; the
-  frontend catalog renders the surface).
+- **A2UI** — declarative-gen-ui and a2ui-fixed-schema. These use the **generic
+  fleet path**, not anything OpenClaw-specific: the runtime `render_a2ui` tool is
+  forwarded to the model, its calls are relayed through AG-UI, and the frontend
+  `@copilotkit/a2ui-renderer` catalog renders the surface — exactly how every
+  other integration does A2UI. Note: OpenClaw *also* has a **native** A2UI system
+  (its own `a2ui_push` / `a2ui_reset` tools + hosted `/__openclaw__/a2ui` canvas),
+  which the showcase demos do **not** use. Wiring that native surface through
+  clawg-ui is a possible future differentiator (OpenClaw would drive A2UI
+  server-side), but it is out of scope for parity and not required — the generic
+  path already covers the demos.
 - **Multimodal** — image attachments reach a vision-capable model (clawg-ui
   extracts AG-UI image blocks and passes them to the run; the model input is
   configured with `image` support in `gateway/setup.sh`).
