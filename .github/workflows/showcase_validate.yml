@@ -568,6 +568,14 @@ jobs:
 
       - name: Install bats
         run: |
+          # GitHub's ubuntu-latest runner image preconfigures third-party apt
+          # repos (Microsoft / azure-cli) for preinstalled tooling this job does
+          # not use. When one of those repos serves invalid release metadata,
+          # `apt-get update` exits non-zero and `bash -e` aborts the step —
+          # even though bats comes from Ubuntu's own `universe` repo, which is
+          # unaffected. This job only needs Ubuntu packages, so drop those unused
+          # third-party repos before updating.
+          sudo rm -f /etc/apt/sources.list.d/*microsoft* /etc/apt/sources.list.d/*azure-cli*
           sudo apt-get update
           sudo apt-get install -y bats
 
