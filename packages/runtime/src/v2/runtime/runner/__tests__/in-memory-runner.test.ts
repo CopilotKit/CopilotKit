@@ -1133,5 +1133,76 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
       );
       expect(runner.getThreadState("thread-multi-state")).toEqual(second);
     });
+
+    it("returns a defensive copy so mutating the result can't corrupt stored state", async () => {
+      const snapshot = { counter: 7, name: "alpha" };
+      const stateAgent = new TestAgent(
+        [{ type: EventType.STATE_SNAPSHOT, snapshot } as BaseEvent],
+        true,
+      );
+      await firstValueFrom(
+        runner
+          .run({
+            threadId: "thread-defensive-state",
+            agent: stateAgent,
+            input: {
+              threadId: "thread-defensive-state",
+              runId: "run-defensive-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      const returned = runner.getThreadState("thread-defensive-state");
+      expect(returned).toEqual({ counter: 7, name: "alpha" });
+
+      // Mutating the returned object must not affect stored thread state.
+      // Guards the defensive shallow-copy return in getThreadState so the
+      // contract holds regardless of whether the upstream compactEvents
+      // helper happens to clone events on its own.
+      (returned as Record<string, unknown>).counter = 999;
+      (returned as Record<string, unknown>).injected = true;
+
+      expect(runner.getThreadState("thread-defensive-state")).toEqual({
+        counter: 7,
+        name: "alpha",
+      });
+    });
+
+    it("returns null when the last STATE_SNAPSHOT snapshot is an array", async () => {
+      // `typeof [] === "object"` is true; an array snapshot violates the
+      // Record<string, unknown> | null contract and must yield null.
+      const stateAgent = new TestAgent(
+        [
+          {
+            type: EventType.STATE_SNAPSHOT,
+            snapshot: [1, 2, 3],
+          } as BaseEvent,
+        ],
+        true,
+      );
+      await firstValueFrom(
+        runner
+          .run({
+            threadId: "thread-array-state",
+            agent: stateAgent,
+            input: {
+              threadId: "thread-array-state",
+              runId: "run-array-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      expect(runner.getThreadState("thread-array-state")).toBeNull();
+    });
   });
 });

@@ -718,8 +718,18 @@ export class InMemoryAgentRunner extends AgentRunner {
       const event = events[i]!;
       if (event.type === EventType.STATE_SNAPSHOT) {
         const snapshot = (event as StateSnapshotEvent).snapshot;
-        if (snapshot && typeof snapshot === "object") {
-          return snapshot as Record<string, unknown>;
+        // Only plain objects satisfy the Record<string, unknown> contract.
+        // `typeof [] === "object"` is true, so arrays must be rejected
+        // explicitly to avoid returning an array typed as a Record.
+        if (
+          snapshot &&
+          typeof snapshot === "object" &&
+          !Array.isArray(snapshot)
+        ) {
+          // Return a defensive shallow copy so callers can't mutate the
+          // snapshot object held inside the stored event (matches the
+          // getThreadMessages defensive-copy approach).
+          return { ...(snapshot as Record<string, unknown>) };
         }
         return null;
       }
