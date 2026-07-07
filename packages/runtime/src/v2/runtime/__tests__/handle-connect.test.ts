@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import type { BaseEvent } from "@ag-ui/client";
 import { handleConnectAgent } from "../handlers/handle-connect";
 import type { CopilotRuntime } from "../core/runtime";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type { AgentRunnerConnectRequest } from "../runner/agent-runner";
 import { IntelligenceAgentRunner } from "../runner/intelligence";
 
@@ -18,6 +19,7 @@ describe("handleConnectAgent", () => {
       transcriptionService: undefined,
       beforeRequestMiddleware: undefined,
       afterRequestMiddleware: undefined,
+      forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
       runner: {
         run: () =>
           new Observable<BaseEvent>((subscriber) => {

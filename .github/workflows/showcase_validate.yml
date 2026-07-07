@@ -46,7 +46,10 @@ jobs:
     # typically reduces to ~5-8m. 25m timeout retained as headroom.
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 25
+    outputs:
+      inline_slack_notifier_reached: ${{ steps.inline_slack_marker.outputs.reached }}
     permissions:
+      actions: read
       contents: read
       # id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
       id-token: write
@@ -517,6 +520,11 @@ jobs:
 
           exit 0  # belt-and-suspenders: never propagate a failure
 
+      - name: Mark inline Slack notifier reached
+        id: inline_slack_marker
+        if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
+        run: echo "reached=true" >> "$GITHUB_OUTPUT"
+
       - name: Notify Slack (failure)
         if: failure() && github.event_name == 'push' && env.SLACK_WEBHOOK != ''
         uses: slackapi/slack-github-action@b0fa283ad8fea605de13dc3f449259339835fc52 # v2.1.0
@@ -560,6 +568,14 @@ jobs:
 
       - name: Install bats
         run: |
+          # GitHub's ubuntu-latest runner image preconfigures third-party apt
+          # repos (Microsoft / azure-cli) for preinstalled tooling this job does
+          # not use. When one of those repos serves invalid release metadata,
+          # `apt-get update` exits non-zero and `bash -e` aborts the step —
+          # even though bats comes from Ubuntu's own `universe` repo, which is
+          # unaffected. This job only needs Ubuntu packages, so drop those unused
+          # third-party repos before updating.
+          sudo rm -f /etc/apt/sources.list.d/*microsoft* /etc/apt/sources.list.d/*azure-cli*
           sudo apt-get update
           sudo apt-get install -y bats
 
@@ -646,13 +662,15 @@ jobs:
             # (not matrix exclusion) so the rest of the packages continue
             # to exercise the 3.10 typing_extensions fallback path.
             #
+            # claude-sdk-python: ag-ui-claude-sdk declares `requires-python >=3.11`;
+            # the package Dockerfile and production runner use Python 3.12.
             # strands: ag_ui_strands==0.1.0 declares `requires-python >=3.12,<3.14`,
             # so `pip install` fails on 3.10 before pytest even runs.
             # langroid: tests import `typing.Self` (3.11+); on 3.10 the import fails
             # at collection time. typing_extensions.Self would fix it but the tests
             # are tightly coupled to the modern typing module.
             # Revisit when ag_ui_strands relaxes its floor or when 3.10 is dropped.
-            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
+            if [ "$py_mm" = "3.10" ] && { [ "$pkg" = "claude-sdk-python" ] || [ "$pkg" = "strands" ] || [ "$pkg" = "langroid" ]; }; then
               echo "--- pytest: $pkg --- SKIPPED on Python $py_mm (requires >=3.11/3.12)"
               continue
             fi
@@ -689,7 +707,7 @@ jobs:
     # SLACK_WEBHOOK_OSS_ALERTS secret does not break the shell or red the
     # workflow on this step.
     needs: [validate, python-unit-tests, shell-script-tests]
-    if: always() && github.event_name == 'push'
+    if: always() && github.event_name == 'push' && !(needs.validate.result == 'failure' && needs.validate.outputs.inline_slack_notifier_reached == 'true' && needs.python-unit-tests.result == 'success' && needs.shell-script-tests.result == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:

@@ -71,6 +71,7 @@ const useThreadsMocks = vi.hoisted(() => ({
   fetchMoreThreads: vi.fn(),
   refetchThreads: vi.fn(),
   listError: { value: null as Error | null },
+  fetchMoreError: { value: null as Error | null },
   error: { value: null as Error | null },
   useThreadsInput: null as Record<string, unknown> | null,
   // Mutable so individual tests (e.g. row-slot projection) can seed threads;
@@ -86,6 +87,7 @@ vi.mock("../../../hooks/use-threads", () => ({
       isLoading: { value: false },
       error: useThreadsMocks.error,
       listError: useThreadsMocks.listError,
+      fetchMoreError: useThreadsMocks.fetchMoreError,
       hasMoreThreads: { value: false },
       isFetchingMoreThreads: { value: false },
       isMutating: { value: false },
@@ -185,6 +187,7 @@ describe("CopilotThreadsDrawer", () => {
     useThreadsMocks.fetchMoreThreads.mockClear();
     useThreadsMocks.refetchThreads.mockClear();
     useThreadsMocks.listError.value = null;
+    useThreadsMocks.fetchMoreError.value = null;
     useThreadsMocks.error.value = null;
     useThreadsMocks.useThreadsInput = null;
     useThreadsMocks.threads.value = [];
@@ -664,6 +667,21 @@ describe("CopilotThreadsDrawer", () => {
     wrapper.unmount();
   });
 
+  it("forwards fetchMoreError to the element's fetchMoreError property without touching error", async () => {
+    useThreadsMocks.fetchMoreError.value = new Error("couldn't load more");
+
+    const wrapper = await mountDrawer();
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as unknown as CopilotKitThreadsDrawerElement;
+
+    expect(el.fetchMoreError).toBe("couldn't load more");
+    // The dedicated fetch-more channel must NOT bleed into the initial-list error.
+    expect(el.error).toBeNull();
+
+    wrapper.unmount();
+  });
+
   it("suppresses a config/runtime error that is not a listError from the element's error string", async () => {
     // Only the combined `error` channel carries a dev/config error; `listError`
     // stays null because no genuine list-load failure occurred. The element
@@ -702,6 +720,63 @@ describe("CopilotThreadsDrawer", () => {
       .element as unknown as CopilotKitThreadsDrawerElement;
 
     expect(el.licenseUrl).toBe("https://example.com/upgrade");
+
+    wrapper.unmount();
+  });
+
+  it("binds recent-label to the element", async () => {
+    const wrapper = await mountDrawer({ recentLabel: "History" });
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    expect(el.getAttribute("recent-label")).toBe("History");
+
+    wrapper.unmount();
+  });
+
+  it("sets the element's collapsible property to false when collapsible is false", async () => {
+    const wrapper = await mountDrawer({ collapsible: false });
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as unknown as {
+      collapsible: boolean;
+    };
+
+    expect(el.collapsible).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("leaves the element collapsible (true) when the prop is omitted", async () => {
+    // Regression: Vue coerces an omitted Boolean prop to `false`, so without the
+    // wrapper's explicit `collapsible: true` withDefaults the element would be
+    // forced to `false` and the collapse toggle would silently vanish.
+    const wrapper = await mountDrawer({});
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as unknown as {
+      collapsible: boolean;
+    };
+
+    expect(el.collapsible).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it("re-emits the element's collapse-change event as collapse-change(collapsed)", async () => {
+    const wrapper = await mountDrawer();
+
+    const drawer = wrapper.findComponent(CopilotThreadsDrawer);
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    el.dispatchEvent(
+      new CustomEvent("collapse-change", {
+        detail: { collapsed: true },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+
+    expect(drawer.emitted("collapse-change")?.[0]).toEqual([true]);
 
     wrapper.unmount();
   });

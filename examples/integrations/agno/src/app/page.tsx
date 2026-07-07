@@ -77,9 +77,7 @@ export default function CopilotKitPage() {
     <CopilotChatConfigurationProvider agentId={AGENT_ID}>
       <div className={`${styles.layout} threadsLayout`}>
         {/* SDK threads drawer (replaces the hand-rolled fork). License-gated: the locked view's Upgrade CTA opens the Intelligence docs by default. */}
-        <CopilotThreadsDrawer
-          agentId={AGENT_ID}
-        />
+        <CopilotThreadsDrawer agentId={AGENT_ID} />
         <div className={styles.mainPanel}>
           <main
             style={

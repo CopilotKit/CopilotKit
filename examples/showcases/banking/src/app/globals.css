@@ -267,3 +267,12 @@ body {
     opacity: 0.45;
   }
 }
+
+/* Radix popper overlays (Select, DropdownMenu, Popover, Tooltip) portal to
+   <body> at z-50, so when opened inside the docked chat sidebar (z-1200) they
+   render BEHIND the panel and look like nothing happened. Lift every Radix
+   popper above the panel — same 1300 "above the chat panel" value used by the
+   recording vignette above. One rule fixes the whole class of overlay. */
+[data-radix-popper-content-wrapper] {
+  z-index: 1300 !important;
+}

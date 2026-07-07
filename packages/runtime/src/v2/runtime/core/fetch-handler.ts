@@ -59,6 +59,13 @@ import {
   handleGetThreadEvents,
   handleGetThreadState,
 } from "../handlers/handle-threads";
+import {
+  handleListMemories,
+  handleSubscribeToMemories,
+  handleCreateMemory,
+  handleUpdateMemory,
+  handleRemoveMemory,
+} from "../handlers/handle-memories";
 import { handleAnnotate } from "../handlers/handle-user-actions";
 import {
   parseMethodCall,
@@ -343,6 +350,16 @@ function dispatchRoute(
       return Promise.resolve(handleClearThreads({ runtime, request }));
     case "threads/list":
       return handleListThreads({ runtime, request });
+    case "memories/list":
+      return request.method.toUpperCase() === "POST"
+        ? handleCreateMemory({ runtime, request })
+        : handleListMemories({ runtime, request });
+    case "memories/subscribe":
+      return handleSubscribeToMemories({ runtime, request });
+    case "memories/mutate":
+      return request.method.toUpperCase() === "DELETE"
+        ? handleRemoveMemory({ runtime, request, memoryId: route.memoryId })
+        : handleUpdateMemory({ runtime, request, memoryId: route.memoryId });
     case "threads/subscribe":
       return handleSubscribeToThreads({ runtime, request });
     case "threads/update":
@@ -486,6 +503,20 @@ function validateHttpMethod(
       if (method === "GET") return null;
       return jsonResponse({ error: "Method not allowed" }, 405, {
         Allow: "GET",
+      });
+
+    case "memories/list":
+      // GET lists the user's memories; POST creates one.
+      if (method === "GET" || method === "POST") return null;
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "GET, POST",
+      });
+
+    case "memories/mutate":
+      // PATCH supersedes; DELETE retires.
+      if (method === "PATCH" || method === "DELETE") return null;
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "PATCH, DELETE",
       });
 
     case "threads/update":

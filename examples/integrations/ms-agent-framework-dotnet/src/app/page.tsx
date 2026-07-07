@@ -13,7 +13,7 @@ import {
 } from "@copilotkit/react-core/v2";
 import { useEffect, useState } from "react";
 import { z } from "zod";
-import { AgentState } from "@/lib/types";
+import type { AgentState } from "@/lib/types";
 
 import styles from "./page.module.css";
 

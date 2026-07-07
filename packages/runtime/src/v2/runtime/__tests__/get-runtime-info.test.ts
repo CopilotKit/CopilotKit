@@ -1,5 +1,6 @@
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { CopilotRuntime } from "../core/runtime";
+import { resolveForwardHeadersPolicy } from "../handlers/header-utils";
 import type {
   CopilotIntelligenceRuntimeLike,
   CopilotRuntimeLike,
@@ -69,6 +70,7 @@ describe("handleGetRuntimeInfo", () => {
     openGenerativeUI: undefined,
     mode: "intelligence",
     debug: { enabled: false, events: false, lifecycle: false, verbose: false },
+    forwardHeadersPolicy: resolveForwardHeadersPolicy(undefined),
     intelligence: new CopilotKitIntelligence({
       apiUrl: "https://runtime.example",
       wsUrl: "wss://runtime.example",

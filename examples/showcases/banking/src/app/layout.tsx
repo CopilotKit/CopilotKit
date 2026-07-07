@@ -6,6 +6,8 @@ import "./globals.css";
 import { AuthContextProvider } from "@/components/auth-context";
 import { CopilotKitWrapper } from "./wrapper";
 import { IDENTITY } from "@/lib/identity";
+import { glassEngineAvailable } from "@/lib/glass-engine";
+import { presenterResetEnabled } from "@/lib/presenter";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -43,7 +45,14 @@ export default function RootLayout({
         className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthContextProvider>
-          <CopilotKitWrapper>{children}</CopilotKitWrapper>
+          {/* Read the deployment gate server-side (non-NEXT_PUBLIC_ env) and
+              thread it to the client as a prop — one image, per-deploy env. */}
+          <CopilotKitWrapper
+            glassAvailable={glassEngineAvailable()}
+            resetEnabled={presenterResetEnabled()}
+          >
+            {children}
+          </CopilotKitWrapper>
         </AuthContextProvider>
       </body>
     </html>

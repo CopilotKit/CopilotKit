@@ -2,7 +2,10 @@ import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { finalizeRunEvents } from "@copilotkit/shared";
 import { Observable } from "rxjs";
 import type { CopilotRuntimeLike } from "../core/runtime";
-import { extractForwardableHeaders } from "./header-utils";
+import {
+  mergeForwardableHeaders,
+  resolveForwardHeadersPolicy,
+} from "./header-utils";
 import { cloneAgentForRequest, parseRunRequest } from "./shared/agent-utils";
 import { createSseEventResponse } from "./shared/sse-response";
 
@@ -70,11 +73,14 @@ export async function handleSuggestAgent({
     return input;
   }
 
-  // Forward only the allowlisted request headers onto the clone. Unlike a full
-  // agent run, the suggest path intentionally attaches no middleware (see the
-  // handler docblock): the forced `copilotkitSuggest` tool choice makes any
-  // middleware-injected tools dead weight, and MCPApps setup can trigger a
-  // `listTools` network round-trip we must never incur per suggestion.
+  // Forward eligible inbound headers onto the clone under the runtime's resolved
+  // forwarding policy (same helper the run handler uses: `authorization` /
+  // custom `x-*`, infra/proxy/platform headers denylisted, server-set headers
+  // winning on collision — #5712). Unlike a full agent run, the suggest path
+  // intentionally attaches no middleware (see the handler docblock): the forced
+  // `copilotkitSuggest` tool choice makes any middleware-injected tools dead
+  // weight, and MCPApps setup can trigger a `listTools` network round-trip we
+  // must never incur per suggestion.
   //
   // `AbstractAgent` doesn't declare `headers` on its base type (concrete
   // framework agents add it), so narrow to the header-carrying shape rather
@@ -82,10 +88,11 @@ export async function handleSuggestAgent({
   const headerCarryingAgent = agent as AbstractAgent & {
     headers?: Record<string, string>;
   };
-  headerCarryingAgent.headers = {
-    ...headerCarryingAgent.headers,
-    ...extractForwardableHeaders(request),
-  };
+  headerCarryingAgent.headers = mergeForwardableHeaders(
+    headerCarryingAgent.headers,
+    request,
+    runtime.forwardHeadersPolicy ?? resolveForwardHeadersPolicy(undefined),
+  );
 
   agent.setMessages(input.messages);
   agent.setState(input.state);
