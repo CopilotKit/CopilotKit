@@ -22,14 +22,6 @@
   height: 100dvh;
   width: 100%;
   overflow: hidden;
-
-  /*
-    Align the drawer's mobile launcher with this app's header controls. These
-    custom properties inherit into <copilotkit-threads-drawer> and pierce its shadow
-    root; tuned to match the example header's top-left inset.
-  */
-  --cpk-drawer-launcher-top: 7px;
-  --cpk-drawer-launcher-left: 16px;
 }
 
 .mainPanel {
@@ -56,6 +48,9 @@
 @media (max-width: 768px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
+    /* Mobile launcher alignment; desktop-collapsed uses the element's 24px default. */
+    --cpk-drawer-launcher-top: 7px;
+    --cpk-drawer-launcher-left: 16px;
   }
   .mainPanel {
     grid-column: auto;
