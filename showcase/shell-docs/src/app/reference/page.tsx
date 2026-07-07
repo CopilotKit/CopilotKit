@@ -102,11 +102,11 @@ export default function ReferencePage() {
         breadcrumb={{ enabled: false }}
         footer={{ enabled: false }}
       >
-        <div className="docs-inner-content max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
+        <div className="docs-inner-content shell-docs-reading-page max-w-[900px] mx-auto px-4 md:px-6 pt-2 pb-6 md:pt-3 xl:pt-4">
           <DocsTitle className="text-[32px] md:text-[40px] font-medium leading-[1.2]">
             Overview
           </DocsTitle>
-          <DocsDescription className="text-lg text-[var(--text-muted)] mt-5 leading-relaxed">
+          <DocsDescription className="text-lg text-[var(--muted-foreground)] mt-5 leading-relaxed">
             {intro}
           </DocsDescription>
 

@@ -7,7 +7,6 @@
 
 import React from "react";
 import Link from "next/link";
-import { StoredFrameworkHighlight } from "./stored-framework-highlight";
 import { FrameworkLogo } from "./icons/framework-icons";
 import { compareByDisplayOrder } from "@/lib/framework-order";
 import { getDocsMode, getIntegrations } from "@/lib/registry";
@@ -48,10 +47,10 @@ function BackendGrid() {
   return (
     <section id="backends" className="not-prose">
       <div className="mb-5 max-w-2xl">
-        <h2 className="text-xl font-semibold tracking-tight text-[var(--text)] sm:text-2xl">
+        <h2 className="text-xl font-semibold tracking-tight text-[var(--foreground)] sm:text-2xl">
           Build with any agent backend
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-[var(--text-secondary)]">
+        <p className="mt-2 text-sm leading-relaxed text-[var(--muted-foreground)]">
           Start with CopilotKit's default agent or open the docs for a partner
           framework.
         </p>
@@ -61,28 +60,27 @@ function BackendGrid() {
           <Link
             key={i.slug}
             href={i.slug === "built-in-agent" ? "/quickstart" : `/${i.slug}`}
-            className="shell-docs-radius-surface group relative flex min-h-[84px] items-start gap-3 overflow-hidden border border-[var(--border)] bg-[var(--bg-elevated)]/30 p-3.5 no-underline transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-surface)] sm:min-h-[96px]"
+            className="shell-docs-module-card shell-docs-backend-card shell-docs-radius-surface group relative flex min-h-[84px] items-start gap-3 overflow-hidden border p-3.5 no-underline transition-colors sm:min-h-[96px]"
           >
             <span
               aria-hidden="true"
-              className="shell-docs-radius-icon flex h-8 w-8 shrink-0 items-center justify-center bg-[var(--accent-dim)] text-[var(--accent)] transition-colors group-hover:bg-[var(--accent-light)]"
+              className="shell-docs-radius-icon flex h-8 w-8 shrink-0 items-center justify-center bg-[var(--accent-dim)] text-[var(--brand-accent)] transition-colors group-hover:bg-[var(--accent-light)]"
             >
               <FrameworkLogo
                 slug={i.slug}
                 fallbackSrc={i.logo}
                 size={17}
-                className="text-[var(--accent)]"
+                className="text-[var(--brand-accent)]"
               />
             </span>
             <span className="min-w-0 flex-1 sm:pr-2">
-              <span className="block text-sm font-semibold leading-snug text-[var(--text)] transition-colors group-hover:text-[var(--accent)]">
+              <span className="block text-sm font-semibold leading-snug text-[var(--foreground)] transition-colors group-hover:text-[var(--brand-accent)]">
                 {i.name}
               </span>
-              <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-[var(--text-muted)]">
+              <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-[var(--muted-foreground)]">
                 {backendDescriptions[i.slug] ?? i.description}
               </span>
             </span>
-            <StoredFrameworkHighlight slug={i.slug} />
           </Link>
         ))}
       </div>

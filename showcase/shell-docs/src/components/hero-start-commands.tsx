@@ -168,10 +168,10 @@ function CommandMenuItem({ id, label, description, command }: StartCommand) {
   return (
     <div className="min-w-0 px-3.5 py-3.5">
       <div className="min-w-0">
-        <div className="text-[13px] font-semibold leading-snug text-[var(--text)]">
+        <div className="text-[13px] font-semibold leading-snug text-[var(--foreground)]">
           {label}
         </div>
-        <div className="mt-0.5 max-w-[42ch] text-xs leading-snug text-[var(--text-muted)]">
+        <div className="mt-0.5 max-w-[42ch] text-xs leading-snug text-[var(--muted-foreground)]">
           {description}
         </div>
       </div>
@@ -180,18 +180,21 @@ function CommandMenuItem({ id, label, description, command }: StartCommand) {
         type="button"
         onClick={onCopy}
         aria-label={copyAriaLabel}
-        className={`shell-docs-radius-control group mt-3 flex w-full cursor-pointer items-start gap-3 border px-3 py-2.5 text-left shadow-[var(--shadow-control)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+        className={`shell-docs-radius-control group mt-3 flex w-full cursor-pointer items-start gap-3 border px-3 py-2.5 text-left shadow-[var(--shadow-control)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-accent)] ${
           errored
-            ? "border-[var(--border)] bg-[var(--bg-elevated)]"
+            ? "border-[var(--border)] bg-[var(--secondary)]"
             : copied
-              ? "border-[var(--accent)] bg-[var(--accent-dim)]"
-              : "border-[color-mix(in_oklch,var(--accent)_22%,var(--border))] bg-[var(--bg-elevated)] hover:border-[var(--accent)] hover:bg-[var(--accent-dim)]"
+              ? "border-[var(--brand-accent)] bg-[var(--accent-dim)]"
+              : "border-[color-mix(in_oklch,var(--brand-accent)_22%,var(--border))] bg-[var(--secondary)] hover:border-[var(--brand-accent)] hover:bg-[var(--accent-dim)]"
         }`}
       >
         {/* Long commands wrap at spaces only — each token is non-breaking so
             a flag like `--framework` can never split mid-token. */}
-        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 font-mono text-[12.5px] font-semibold leading-[1.45] text-[var(--text)]">
-          <span aria-hidden="true" className="select-none text-[var(--accent)]">
+        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 font-mono text-[12.5px] font-semibold leading-[1.45] text-[var(--foreground)]">
+          <span
+            aria-hidden="true"
+            className="select-none text-[var(--brand-accent)]"
+          >
             $
           </span>
           {command.split(" ").map((token, i) => (
@@ -204,10 +207,10 @@ function CommandMenuItem({ id, label, description, command }: StartCommand) {
           aria-hidden="true"
           className={`shrink-0 pt-0.5 font-sans text-[11px] font-semibold transition-colors ${
             errored
-              ? "text-[var(--text-faint)]"
+              ? "text-[var(--muted-foreground)]"
               : copied
-                ? "text-[var(--accent)]"
-                : "text-[var(--text-muted)] group-hover:text-[var(--accent)]"
+                ? "text-[var(--brand-accent)]"
+                : "text-[var(--muted-foreground)] group-hover:text-[var(--brand-accent)]"
           }`}
         >
           {copied ? "Copied" : "Copy"}
@@ -300,7 +303,7 @@ export function HeroStartActions({
             aria-expanded={showCli}
             aria-controls="hero-cli-commands"
             onClick={() => setShowCli((value) => !value)}
-            className="shell-docs-radius-control inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 border border-[var(--border)] bg-[var(--bg-surface)] px-4 text-sm font-semibold text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] sm:w-fit"
+            className="shell-docs-radius-control inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 border border-[var(--border)] bg-[var(--card)] px-4 text-sm font-semibold text-[var(--foreground)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--brand-accent)] hover:bg-[var(--secondary)] hover:text-[var(--brand-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-accent)] sm:w-fit"
           >
             Start using agents
             <ChevronDown
@@ -311,7 +314,7 @@ export function HeroStartActions({
           {showCli ? (
             <div
               id="hero-cli-commands"
-              className="shell-docs-radius-surface absolute left-0 top-[calc(100%+8px)] z-30 w-full min-w-0 overflow-hidden border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-panel)] sm:w-[440px]"
+              className="shell-docs-radius-surface absolute left-0 top-[calc(100%+8px)] z-30 w-full min-w-0 overflow-hidden border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-panel)] sm:w-[440px]"
             >
               <CommandMenu
                 createFramework={createFramework}
@@ -330,12 +333,12 @@ export function LearnMoreAgentsLink() {
     <Link
       href="/build-with-agents"
       prefetch={false}
-      className="block px-3.5 py-3 no-underline transition-colors hover:bg-[var(--accent-dim)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+      className="block px-3.5 py-3 no-underline transition-colors hover:bg-[var(--accent-dim)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand-accent)]"
     >
-      <span className="block text-[13px] font-semibold leading-snug text-[var(--text)]">
+      <span className="block text-[13px] font-semibold leading-snug text-[var(--foreground)]">
         Build with agents
       </span>
-      <span className="mt-0.5 block text-xs leading-snug text-[var(--text-muted)]">
+      <span className="mt-0.5 block text-xs leading-snug text-[var(--muted-foreground)]">
         Explore agent backends and framework options
       </span>
     </Link>

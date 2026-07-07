@@ -182,7 +182,7 @@ export function DocsToc({ headings }: DocsTocProps) {
 
   return (
     <aside className="hidden xl:block w-[220px] shrink-0 sticky top-0 self-start max-h-[calc(100vh-100px)] overflow-y-auto py-8 pl-6 pr-4">
-      <div className="text-[13px] font-medium text-[var(--text-secondary)] mb-3">
+      <div className="text-[13px] font-medium text-[var(--muted-foreground)] mb-3">
         On this page
       </div>
       <div className="relative">
@@ -198,7 +198,7 @@ export function DocsToc({ headings }: DocsTocProps) {
             }}
           >
             <span
-              className="absolute w-full bg-[var(--accent)]"
+              className="absolute w-full bg-[var(--brand-accent)]"
               style={{
                 top: thumb.top,
                 height: thumb.height,
@@ -235,7 +235,9 @@ export function DocsToc({ headings }: DocsTocProps) {
                 data-active={isActive}
                 onClick={() => setActiveSlug(h.slug)}
                 className={`relative py-1.5 transition-colors ${
-                  isActive ? "text-[var(--accent)]" : "text-[var(--text-muted)]"
+                  isActive
+                    ? "text-[var(--brand-accent)]"
+                    : "text-[var(--muted-foreground)]"
                 }`}
                 style={{
                   paddingInlineStart: padStart,

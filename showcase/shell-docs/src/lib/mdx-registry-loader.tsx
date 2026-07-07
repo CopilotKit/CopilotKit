@@ -106,7 +106,7 @@ export async function PartialLoader({
       // eslint-disable-next-line no-console
       console.warn("[mdx-registry-loader] partial not found:", relativePath);
       return (
-        <div className="shell-docs-radius-surface my-4 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+        <div className="shell-docs-radius-surface my-4 border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--muted-foreground)]">
           [mdx-registry-loader] partial not found: {relativePath}
         </div>
       );

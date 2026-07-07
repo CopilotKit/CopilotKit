@@ -52,8 +52,8 @@ function CopilotKitKiteIcon({ className, width = 20, height = 20 }: IconProps) {
           y2="12.452"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#6430AB" />
-          <stop offset="1" stopColor="#AA89D8" />
+          <stop stopColor="var(--shell-docs-mark-purple-start)" />
+          <stop offset="1" stopColor="var(--shell-docs-mark-purple-end)" />
         </linearGradient>
         <linearGradient
           id={id(1)}
@@ -63,8 +63,8 @@ function CopilotKitKiteIcon({ className, width = 20, height = 20 }: IconProps) {
           y2="17.187"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#005DBB" />
-          <stop offset="1" stopColor="#3D92E8" />
+          <stop stopColor="var(--shell-docs-mark-blue-start)" />
+          <stop offset="1" stopColor="var(--shell-docs-mark-blue-end)" />
         </linearGradient>
         <linearGradient
           id={id(2)}
@@ -74,8 +74,8 @@ function CopilotKitKiteIcon({ className, width = 20, height = 20 }: IconProps) {
           y2="6.798"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#1B70C4" />
-          <stop offset="1" stopColor="#54A4F2" />
+          <stop stopColor="var(--shell-docs-mark-cyan-start)" />
+          <stop offset="1" stopColor="var(--shell-docs-mark-cyan-end)" />
         </linearGradient>
         <linearGradient
           id={id(3)}
@@ -85,11 +85,11 @@ function CopilotKitKiteIcon({ className, width = 20, height = 20 }: IconProps) {
           y2="22.784"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#4497EA" />
-          <stop offset="0.2548" stopColor="#1463B2" />
-          <stop offset="0.4987" stopColor="#0A437D" />
-          <stop offset="0.6667" stopColor="#2476C8" />
-          <stop offset="0.9725" stopColor="#0C549A" />
+          <stop stopColor="var(--shell-docs-mark-ribbon-1)" />
+          <stop offset="0.2548" stopColor="var(--shell-docs-mark-ribbon-2)" />
+          <stop offset="0.4987" stopColor="var(--shell-docs-mark-ribbon-3)" />
+          <stop offset="0.6667" stopColor="var(--shell-docs-mark-ribbon-4)" />
+          <stop offset="0.9725" stopColor="var(--shell-docs-mark-ribbon-5)" />
         </linearGradient>
       </defs>
       <path
@@ -106,7 +106,7 @@ function CopilotKitKiteIcon({ className, width = 20, height = 20 }: IconProps) {
       />
       <path
         d="M125.209 3.30419L122.405 12.6362M122.405 12.6362H129.07M122.405 12.6362L111.874 25.0387"
-        stroke="#ABABAB"
+        stroke="var(--shell-docs-mark-line)"
         strokeWidth="0.321797"
         strokeLinecap="round"
       />

@@ -7,7 +7,6 @@ import { SidebarFolderStatePreserver } from "./sidebar-folder-state-preserver";
 import { SidebarReactDocsNotice } from "./sidebar-react-docs-notice";
 import GithubIcon from "./icons/github";
 import DiscordIcon from "./icons/discord";
-import { MobileSidebarFooterTalk } from "./mobile-sidebar-footer-talk";
 import { PrimaryDocsTabs } from "./primary-docs-tabs";
 
 // Shared Fumadocs `DocsLayout` chrome used by every shell-docs route.
@@ -67,29 +66,26 @@ export function ShellDocsLayout({
         footer: (
           <div
             key="shell-docs-sidebar-footer"
-            className="flex w-full flex-col gap-2 sidebar-footer-row md:w-auto md:flex-row md:items-center md:gap-1"
+            className="flex w-full items-center gap-1 sidebar-footer-row md:w-auto"
           >
-            <MobileSidebarFooterTalk />
-            <div className="flex items-center gap-1">
-              <a
-                href="https://github.com/copilotkit/copilotkit"
-                target="_blank"
-                rel="noreferrer noopener"
-                aria-label="GitHub"
-                className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] [&_svg]:size-4"
-              >
-                <GithubIcon />
-              </a>
-              <a
-                href="https://discord.gg/6dffbvGU3D"
-                target="_blank"
-                rel="noreferrer noopener"
-                aria-label="Discord"
-                className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] [&_svg]:size-4"
-              >
-                <DiscordIcon />
-              </a>
-            </div>
+            <a
+              href="https://github.com/copilotkit/copilotkit"
+              target="_blank"
+              rel="noreferrer noopener"
+              aria-label="GitHub"
+              className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)] [&_svg]:size-4"
+            >
+              <GithubIcon />
+            </a>
+            <a
+              href="https://discord.gg/6dffbvGU3D"
+              target="_blank"
+              rel="noreferrer noopener"
+              aria-label="Discord"
+              className="shell-docs-radius-control inline-flex h-7 w-7 items-center justify-center text-[var(--muted-foreground)] transition-colors hover:bg-[var(--secondary)] hover:text-[var(--foreground)] [&_svg]:size-4"
+            >
+              <DiscordIcon />
+            </a>
           </div>
         ),
       }}

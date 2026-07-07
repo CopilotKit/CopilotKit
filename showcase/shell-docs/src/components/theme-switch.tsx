@@ -46,7 +46,7 @@ export function ThemeSwitch({ className }: { className?: string }) {
       title={label}
       onClick={() => setTheme(nextTheme)}
       className={cn(
-        "shell-docs-radius-control flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]",
+        "shell-docs-radius-control flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--brand-accent)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--border)] focus-visible:ring-offset-1",
         className,
       )}

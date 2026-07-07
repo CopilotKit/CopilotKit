@@ -70,7 +70,7 @@ export function ReferenceVersionSelector({
           onClick={() => setOpen((value) => !value)}
           aria-haspopup="listbox"
           aria-expanded={open}
-          className="shell-docs-radius-control flex h-12 w-full cursor-pointer items-center gap-2 border border-[var(--nav-control-border)] bg-[var(--accent-dim)] p-1.5 text-[13px] font-medium text-[var(--text)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--nav-control-border-hover)] hover:bg-[var(--accent-light)]"
+          className="shell-docs-radius-control flex h-12 w-full cursor-pointer items-center gap-2 border border-[var(--nav-control-border)] bg-[var(--accent-dim)] p-1.5 text-[13px] font-medium text-[var(--foreground)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--nav-control-border-hover)] hover:bg-[var(--accent-light)]"
         >
           <span
             className="shell-docs-picker-icon-chip h-8 w-8 shrink-0 text-base"
@@ -82,18 +82,18 @@ export function ReferenceVersionSelector({
             <span className="block truncate leading-tight">
               {VERSION_LABELS[activeVersion]}
             </span>
-            <span className="mt-0.5 block text-[9px] uppercase leading-tight tracking-wider text-[var(--text-faint)]">
+            <span className="mt-0.5 block text-[9px] uppercase leading-tight tracking-wider text-[var(--muted-foreground)]">
               SDK
             </span>
           </span>
-          <ChevronDown className="mr-0.5 h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
+          <ChevronDown className="mr-0.5 h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground)]" />
         </button>
 
         {open && (
           <div
             ref={panelRef}
             role="listbox"
-            className="shell-docs-radius-surface absolute left-0 right-0 top-full z-50 mt-1 border border-[var(--border)] bg-[var(--bg-surface)] p-2 shadow-[var(--shadow-panel)]"
+            className="shell-docs-radius-surface absolute left-0 right-0 top-full z-50 mt-1 border border-[var(--border)] bg-[var(--card)] p-2 shadow-[var(--shadow-panel)]"
           >
             {options.map(({ version, href }) => {
               const active = version === activeVersion;
@@ -107,8 +107,8 @@ export function ReferenceVersionSelector({
                   className={[
                     "shell-docs-radius-control flex w-full items-center gap-2 px-2 py-1.5 text-[13px] transition-colors",
                     active
-                      ? "bg-[var(--accent-dim)] text-[var(--accent)]"
-                      : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]",
+                      ? "bg-[var(--accent-dim)] text-[var(--brand-accent)]"
+                      : "text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]",
                   ].join(" ")}
                 >
                   <span aria-hidden="true" className="shrink-0 text-sm">

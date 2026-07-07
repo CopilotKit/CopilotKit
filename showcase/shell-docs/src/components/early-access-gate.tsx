@@ -127,22 +127,22 @@ function UnlockCard({
   return (
     <section
       aria-labelledby={titleId}
-      className="pointer-events-auto max-h-[calc(100%-2rem)] w-full max-w-[820px] overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] shadow-[var(--shadow-modal)]"
+      className="pointer-events-auto max-h-[calc(100%-2rem)] w-full max-w-[820px] overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[var(--shadow-modal)]"
     >
       <div className="flex items-center gap-4 p-6">
         <div
-          className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-[var(--accent-dim)] text-[var(--text)]"
+          className="flex size-[52px] shrink-0 items-center justify-center rounded-xl bg-[var(--accent-dim)] text-[var(--foreground)]"
           aria-hidden="true"
         >
           <Lock className="size-[26px]" />
         </div>
         <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--brand-accent)]">
             {config.eyebrow}
           </div>
           <h2
             id={titleId}
-            className="mt-1 text-xl font-bold leading-snug tracking-tight text-[var(--text)] md:text-[23px]"
+            className="mt-1 text-xl font-bold leading-snug tracking-tight text-[var(--foreground)] md:text-[23px]"
           >
             {config.title}
           </h2>
@@ -162,7 +162,7 @@ function UnlockCard({
             {config.description.map((paragraph, index) => (
               <p
                 key={paragraph}
-                className={`text-[15px] leading-relaxed text-[var(--text-secondary)] ${
+                className={`text-[15px] leading-relaxed text-[var(--muted-foreground)] ${
                   index > 0 ? "mt-3" : ""
                 }`}
               >
@@ -170,13 +170,13 @@ function UnlockCard({
               </p>
             ))}
 
-            <p className="mt-3 text-[15px] leading-relaxed text-[var(--text-secondary)]">
+            <p className="mt-3 text-[15px] leading-relaxed text-[var(--muted-foreground)]">
               {config.requestPrompt}{" "}
               <a
                 href={config.requestUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-[var(--accent)] underline decoration-[color-mix(in_oklch,var(--accent)_40%,transparent)] underline-offset-[3px] transition-colors hover:decoration-[var(--accent)]"
+                className="font-medium text-[var(--brand-accent)] underline decoration-[color-mix(in_oklch,var(--brand-accent)_40%,transparent)] underline-offset-[3px] transition-colors hover:decoration-[var(--brand-accent)]"
               >
                 {config.requestLinkLabel}
               </a>
@@ -186,14 +186,14 @@ function UnlockCard({
             <form onSubmit={handleSubmit} className="mt-5" noValidate>
               <label
                 htmlFor={inputId}
-                className="block text-sm font-semibold text-[var(--text)]"
+                className="block text-sm font-semibold text-[var(--foreground)]"
               >
                 Password
               </label>
               <div className="mt-2 flex flex-col gap-3 sm:flex-row">
                 <div className="relative min-w-0 flex-1">
                   <Lock
-                    className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--text-muted)]"
+                    className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--muted-foreground)]"
                     aria-hidden="true"
                   />
                   <input
@@ -210,16 +210,16 @@ function UnlockCard({
                     data-lpignore="true"
                     aria-invalid={error || undefined}
                     aria-describedby={error ? errorId : undefined}
-                    className={`h-12 w-full rounded-xl border bg-[var(--bg)] pl-10 pr-3.5 text-[15px] text-[var(--text)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:ring-2 ${
+                    className={`h-12 w-full rounded-xl border bg-[var(--background)] pl-10 pr-3.5 text-[15px] text-[var(--foreground)] outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:ring-2 ${
                       error
                         ? "border-[var(--destructive)] focus:border-[var(--destructive)] focus:ring-[color-mix(in_oklch,var(--destructive)_20%,transparent)]"
-                        : "border-[var(--border)] focus:border-[var(--accent)] focus:ring-[var(--accent-dim)]"
+                        : "border-[var(--border)] focus:border-[var(--brand-accent)] focus:ring-[var(--accent-dim)]"
                     }`}
                   />
                 </div>
                 <button
                   type="submit"
-                  className="h-12 shrink-0 cursor-pointer rounded-xl bg-[var(--accent)] px-6 text-[15px] font-semibold text-[var(--primary-foreground)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+                  className="h-12 shrink-0 cursor-pointer rounded-xl bg-[var(--brand-accent)] px-6 text-[15px] font-semibold text-[var(--brand-accent-foreground)] transition-colors hover:bg-[var(--accent-strong)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand-accent)]"
                 >
                   Unlock
                 </button>
@@ -252,14 +252,14 @@ function UnlockCard({
                 alt={config.image.alt}
                 fill
                 sizes="300px"
-                className="bg-white object-contain dark:hidden"
+                className="bg-[var(--card)] object-contain dark:hidden"
               />
               <Image
                 src={config.image.darkSrc}
                 alt={config.image.alt}
                 fill
                 sizes="300px"
-                className="hidden bg-[#1c1f24] object-contain dark:block"
+                className="hidden bg-[var(--card)] object-contain dark:block"
               />
             </div>
           )}

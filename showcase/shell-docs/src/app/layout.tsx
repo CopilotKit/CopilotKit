@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
 import Script from "next/script";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { AnalyticsClient } from "@/components/analytics-client";
@@ -23,6 +23,12 @@ import "./globals.css";
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
   variable: "--font-prose",
+  display: "swap",
+});
+
+const splineSansMono = Spline_Sans_Mono({
+  subsets: ["latin"],
+  variable: "--font-code",
   display: "swap",
 });
 
@@ -94,7 +100,7 @@ export default function RootLayout({
     // theme script in the document head.
     <html
       lang="en"
-      className={plusJakartaSans.variable}
+      className={`${plusJakartaSans.variable} ${splineSansMono.variable}`}
       suppressHydrationWarning
     >
       <head>

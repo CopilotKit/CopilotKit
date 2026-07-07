@@ -57,10 +57,10 @@ export function CopyButton({ text }: { text: string }) {
       className={[
         "shell-docs-radius-control cursor-pointer border border-[var(--border)] px-2 py-0.5 text-[10px] leading-[1.2] transition-colors",
         copied
-          ? "bg-[var(--accent-light)] text-[var(--accent)]"
+          ? "bg-[var(--accent-light)] text-[var(--brand-accent)]"
           : error
-            ? "bg-[var(--bg-elevated)] text-[var(--text)]"
-            : "bg-[var(--bg-surface)] text-[var(--text-muted)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]",
+            ? "bg-[var(--secondary)] text-[var(--foreground)]"
+            : "bg-[var(--card)] text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]",
       ].join(" ")}
     >
       {label}

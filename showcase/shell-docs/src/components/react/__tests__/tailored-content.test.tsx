@@ -42,7 +42,7 @@ describe("TailoredContent", () => {
     expect(markup).toContain('role="tab"');
     expect(markup).toContain('aria-selected="true"');
     expect(markup).toContain('aria-label="Start with the CLI, selected"');
-    expect(markup).toContain("tailored-content-selected-indicator");
+    expect(markup).toContain("tailored-content-tab-selected selected");
     expect(markup).toContain("CLI content");
     expect(markup).not.toContain("Manual content");
   });

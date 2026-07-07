@@ -35,7 +35,7 @@ describe("FrameworkOverview", () => {
     expect(markup).toContain("text-[var(--primary-foreground)]");
   });
 
-  it("renders the framework identity icon in accent purple", () => {
+  it("renders the framework identity with the shared themed icon hook", () => {
     const markup = renderToStaticMarkup(
       <FrameworkOverview
         data={overviewData}
@@ -44,7 +44,7 @@ describe("FrameworkOverview", () => {
     );
 
     expect(markup).toContain(
-      "shell-docs-radius-icon flex h-10 w-10 items-center justify-center border border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]",
+      "shell-docs-framework-icon shell-docs-radius-icon flex h-10 w-10 items-center justify-center border",
     );
   });
 
@@ -56,7 +56,9 @@ describe("FrameworkOverview", () => {
       />,
     );
 
-    expect(markup).toContain('class="pb-8 sm:pb-12"');
+    expect(markup).toContain(
+      'class="shell-docs-framework-hero border-b border-[var(--border)] pb-8 sm:pb-10"',
+    );
     expect(markup).not.toContain("pt-2 sm:pt-4");
   });
 });

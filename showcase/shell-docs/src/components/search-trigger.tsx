@@ -78,7 +78,7 @@ export function SearchTrigger({
     return (
       <button
         onClick={toggleShellSearch}
-        className="shell-docs-radius-control flex h-10 w-10 cursor-pointer items-center justify-center border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--text-muted)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+        className="shell-docs-radius-control flex h-10 w-10 cursor-pointer items-center justify-center border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--brand-accent)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
         aria-label="Search"
         title="Search"
       >
@@ -94,7 +94,7 @@ export function SearchTrigger({
       <button
         onClick={toggleShellSearch}
         aria-label="Search"
-        className="shell-docs-radius-control flex h-10 w-10 cursor-pointer items-center gap-2 border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 text-[var(--text-muted)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)] lg:w-[220px] xl:w-[260px]"
+        className="shell-docs-radius-control flex h-10 w-10 cursor-pointer items-center gap-2 border border-[var(--border)] bg-[var(--card)] px-2.5 text-[var(--muted-foreground)] shadow-[var(--shadow-control)] transition-colors hover:border-[var(--brand-accent)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)] lg:w-[220px] xl:w-[260px]"
       >
         <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
 
@@ -103,7 +103,7 @@ export function SearchTrigger({
         </span>
 
         <span
-          className="shell-docs-radius-control hidden min-w-[3.25rem] items-center justify-center gap-1 border border-[var(--border)] bg-[var(--bg-surface)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--text-faint)] xl:inline-flex"
+          className="shell-docs-radius-control hidden min-w-[3.25rem] items-center justify-center gap-1 border border-[var(--border)] bg-[var(--card)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--muted-foreground)] xl:inline-flex"
           // Reserve horizontal room so the button doesn't reflow when the
           // shortcut hint appears after hydration.
           suppressHydrationWarning
