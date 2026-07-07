@@ -34,21 +34,21 @@
 
 .dark .beautiful-chat-root,
 .beautiful-chat-root.dark {
-  --background: #0a0a0a;
-  --foreground: #fafafa;
-  --card: #191a1e;
-  --card-foreground: #fafafa;
-  --primary: #fafafa;
-  --primary-foreground: #1a1a18;
-  --secondary: #242529;
-  --secondary-foreground: #fafafa;
-  --muted: #242529;
-  --muted-foreground: #adadb2;
-  --accent: #303136;
-  --accent-foreground: #fafafa;
+  --background: #141b26;
+  --foreground: #f7f7fb;
+  --card: #1b2432;
+  --card-foreground: #f7f7fb;
+  --primary: #bec2ff;
+  --primary-foreground: #010507;
+  --secondary: #243044;
+  --secondary-foreground: #f7f7fb;
+  --muted: #2b3850;
+  --muted-foreground: #d0d5e1;
+  --accent: #24394b;
+  --accent-foreground: #f7f7fb;
   --destructive: #fa5f67;
   --destructive-foreground: #ffffff;
-  --border: #303136;
-  --ring: #bec2ff;
+  --border: rgba(218, 225, 244, 0.26);
+  --ring: #9fd3e0;
   --radius: 0.75rem;
 }
