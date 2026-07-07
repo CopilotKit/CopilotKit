@@ -267,13 +267,14 @@ export const drawerStyles = css`
     display: flex;
     align-items: center;
     gap: 12px;
-    /* Top margin gives the row breathing room from the drawer top on DESKTOP,
-       where the header bar is hidden and this row is the first element.
-       Horizontal geometry matches the list rows: the hover background insets
-       12px (like a row's highlight) and, with 10px inner padding, the icon's
-       left edge lands at 22px — the same x as the thread names below (list
-       padding 12 + row padding 10). */
-    margin: 12px 12px 0;
+    /* No top margin by default: the header bar (the collapse toggle on desktop,
+       the close button on mobile-open) sits above this row and supplies the top
+       spacing — the header-hidden case re-adds it below. Horizontal geometry
+       matches the list rows: the hover background insets 12px (like a row's
+       highlight) and, with 10px inner padding, the icon's left edge lands at
+       22px — the same x as the thread names below (list padding 12 + row
+       padding 10). */
+    margin: 0 12px;
     padding: 8px 10px;
     border: 0;
     border-radius: var(--_radius);
@@ -284,11 +285,11 @@ export const drawerStyles = css`
     text-align: left;
   }
 
-  /* On mobile the header bar (with the close button) renders above this row and
-     already supplies the top spacing, so drop the extra margin to avoid doubling
-     it up. */
-  .root.mobile .new-conversation {
-    margin-top: 0;
+  /* Only when the header bar is fully hidden (collapsible=false AND no projected
+     header content) is this row the first element — give it the top spacing the
+     header would otherwise supply. */
+  .header[hidden] + .new-conversation {
+    margin-top: 12px;
   }
 
   .new-conversation:hover,
