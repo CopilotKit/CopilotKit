@@ -3,12 +3,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 const navigation = vi.hoisted(() => ({
-  replace: vi.fn(),
+  push: vi.fn(),
   searchParams: new URLSearchParams("threads-path=cli"),
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: navigation.replace }),
+  useRouter: () => ({ push: navigation.push }),
   useSearchParams: () => navigation.searchParams,
 }));
 
