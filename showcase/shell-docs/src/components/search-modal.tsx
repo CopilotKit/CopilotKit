@@ -124,12 +124,6 @@ function matchesQuery(
   return terms.every((term) => haystack.includes(term));
 }
 
-function formatType(type: SearchResultType): string {
-  if (type === "ag-ui") return "AG-UI";
-  if (type === "docs") return "Docs";
-  return type;
-}
-
 function scoreResult(result: SearchResult, query: string): number {
   const q = query.toLowerCase();
   const title = result.title.toLowerCase();
@@ -149,6 +143,29 @@ function scoreResult(result: SearchResult, query: string): number {
   else if (title.includes(q)) score -= 8;
 
   return score;
+}
+
+function scrubMarkdown(value: string): string {
+  return value
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/`{1,3}([^`]+)`{1,3}/g, "$1")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/_([^_]+)_/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^[\s>*-]+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatFrameworkScope(result: SearchResult): string | null {
+  if (!result.frameworkName) return null;
+  if (result.frameworkCount && result.frameworkCount > 1) {
+    return `${result.frameworkName} · ${result.frameworkCount} backends`;
+  }
+  return result.frameworkName;
 }
 
 export function SearchModal({ onClose }: { onClose: () => void }) {
@@ -624,54 +641,55 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
 
           {results.length > 0 && (
             <div className="max-h-[390px] overflow-y-auto p-2">
-              {results.map((r, idx) => (
-                <button
-                  key={r.id}
-                  type="button"
-                  className={`shell-docs-radius-control flex w-full items-center gap-3 px-3 py-3 text-left transition-colors ${
-                    idx === selectedIndex
-                      ? "bg-[var(--secondary)]"
-                      : "hover:bg-[var(--muted)]"
-                  }`}
-                  onClick={() => navigateTo(r.href)}
-                  onMouseEnter={() => setSelectedIndex(idx)}
-                >
-                  <span className="text-[10px] font-mono text-[var(--muted-foreground)] uppercase w-16 shrink-0">
-                    {formatType(r.type)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-[13px] font-semibold text-[var(--foreground)]">
-                        {r.title}
-                      </span>
-                      {r.section && (
-                        <span className="hidden shrink-0 text-[11px] font-normal text-[var(--muted-foreground)] sm:inline">
-                          {r.section}
+              {results.map((r, idx) => {
+                const subtitle = scrubMarkdown(r.subtitle);
+                const frameworkScope = formatFrameworkScope(r);
+
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left outline-none transition-colors focus-visible:bg-[var(--secondary)] ${
+                      idx === selectedIndex
+                        ? "bg-[var(--secondary)]"
+                        : "hover:bg-[var(--muted)]"
+                    }`}
+                    onClick={() => navigateTo(r.href)}
+                    onMouseEnter={() => setSelectedIndex(idx)}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-[13px] font-semibold text-[var(--foreground)]">
+                          {r.title}
                         </span>
+                        {r.section && (
+                          <span className="hidden shrink-0 text-[11px] font-normal text-[var(--muted-foreground)] sm:inline">
+                            {r.section}
+                          </span>
+                        )}
+                      </div>
+                      {subtitle && (
+                        <div className="truncate text-[11px] text-[var(--muted-foreground)]">
+                          {subtitle}
+                        </div>
+                      )}
+                      {frameworkScope && (
+                        <div className="mt-1 truncate text-[10px] font-normal text-[var(--muted-foreground)]">
+                          {frameworkScope}
+                        </div>
                       )}
                     </div>
-                    <div className="text-[11px] text-[var(--muted-foreground)] truncate">
-                      {r.subtitle}
-                    </div>
-                    {r.frameworkName && (
-                      <div className="mt-1 text-[10px] font-medium text-[var(--brand-accent)]">
-                        {r.frameworkName}
-                        {r.frameworkCount && r.frameworkCount > 1
-                          ? ` selected from ${r.frameworkCount} backends`
-                          : " selected"}
-                      </div>
-                    )}
-                  </div>
-                  <ArrowRight
-                    className={`h-4 w-4 shrink-0 transition-colors ${
-                      idx === selectedIndex
-                        ? "text-[var(--brand-accent)]"
-                        : "text-[var(--muted-foreground)]"
-                    }`}
-                    aria-hidden="true"
-                  />
-                </button>
-              ))}
+                    <ArrowRight
+                      className={`h-4 w-4 shrink-0 transition-colors ${
+                        idx === selectedIndex
+                          ? "text-[var(--brand-accent)]"
+                          : "text-[var(--muted-foreground)]"
+                      }`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                );
+              })}
             </div>
           )}
 
