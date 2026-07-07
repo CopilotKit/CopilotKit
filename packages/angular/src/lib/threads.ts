@@ -15,6 +15,7 @@ import {
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
   ɵselectIsMutating,
+  ɵselectFetchMoreError,
   ɵselectThreads,
   ɵselectThreadsError,
   ɵselectThreadsIsLoading,
@@ -115,6 +116,14 @@ export interface InjectThreadsResult {
    * user-facing error display.
    */
   listError: Signal<Error | null>;
+  /**
+   * Error from the most recent FAILED next-page (fetch-more) load, or `null`.
+   * Tracked separately from {@link InjectThreadsResult.listError} so a
+   * paginated-load failure surfaces an inline "couldn't load more" affordance
+   * while the loaded list stays visible. Cleared when a fetch-more is retried
+   * or succeeds.
+   */
+  fetchMoreError: Signal<Error | null>;
   /**
    * `true` when there are more threads available to fetch via
    * {@link InjectThreadsResult.fetchMoreThreads}. Only meaningful when `limit`
@@ -221,6 +230,7 @@ export class ThreadsStore implements InjectThreadsResult {
   readonly #threads = signal<Thread[]>([]);
   readonly #storeIsLoading = signal<boolean>(false);
   readonly #storeError = signal<Error | null>(null);
+  readonly #fetchMoreError = signal<Error | null>(null);
   readonly #hasMoreThreads = signal<boolean>(false);
   readonly #isFetchingMoreThreads = signal<boolean>(false);
   readonly #isMutating = signal<boolean>(false);
@@ -237,6 +247,7 @@ export class ThreadsStore implements InjectThreadsResult {
   readonly threads = this.#threads.asReadonly();
   readonly error: Signal<Error | null>;
   readonly listError: Signal<Error | null>;
+  readonly fetchMoreError = this.#fetchMoreError.asReadonly();
   readonly isLoading: Signal<boolean>;
   readonly hasMoreThreads = this.#hasMoreThreads.asReadonly();
   readonly isFetchingMoreThreads = this.#isFetchingMoreThreads.asReadonly();
@@ -497,6 +508,9 @@ export class ThreadsStore implements InjectThreadsResult {
       }),
       this.#store.select(ɵselectThreadsError).subscribe((value) => {
         this.#storeError.set(value);
+      }),
+      this.#store.select(ɵselectFetchMoreError).subscribe((value) => {
+        this.#fetchMoreError.set(value);
       }),
       this.#store.select(ɵselectHasNextPage).subscribe((value) => {
         this.#hasMoreThreads.set(value);

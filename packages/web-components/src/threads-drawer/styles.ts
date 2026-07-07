@@ -36,8 +36,12 @@ export const drawerStyles = css`
     display: block;
     height: 100%;
     box-sizing: border-box;
-    font-family:
-      var(--cpk-drawer-font-family, ui-sans-serif, system-ui, sans-serif);
+    font-family: var(
+      --cpk-drawer-font-family,
+      ui-sans-serif,
+      system-ui,
+      sans-serif
+    );
     font-size: var(--cpk-drawer-font-size, 14px);
     line-height: var(--cpk-drawer-line-height, 1.4);
     color: var(--cpk-drawer-fg, var(--foreground, ${tok(T.fg)}));
@@ -73,9 +77,13 @@ export const drawerStyles = css`
     --_danger: var(--cpk-drawer-danger, var(--destructive, ${tok(T.danger)}));
     --_border: var(--cpk-drawer-border, var(--border, ${tok(T.border)}));
     --_ring: var(--cpk-drawer-ring, var(--ring, ${tok(T.ring)}));
-    --_radius: var(--cpk-drawer-radius, var(--radius, ${tok(T.radius)}));
+    --_indicator: var(--cpk-drawer-indicator, #5b94e4);
+    /* Cap the corner radius at 4px (per designer) — themeable but never larger. */
+    --_radius: min(
+      var(--cpk-drawer-radius, var(--radius, ${tok(T.radius)})),
+      4px
+    );
     --_width: var(--cpk-drawer-width, 320px);
-    --_rail-width: var(--cpk-drawer-rail-width, 56px);
   }
 
   :host([hidden]) {
@@ -95,19 +103,13 @@ export const drawerStyles = css`
     border-right: 1px solid var(--_border);
     overflow: hidden;
     transition: width 0.2s ease;
-    /* Positioning context for the confirm-delete dialog's absolutely-positioned
-       backdrop (see .dialog-backdrop). Without this the backdrop's inset:0
-       resolves against the initial containing block (the viewport) and its
-       low z-index competes in the light-DOM root stacking context, so on
-       desktop the dialog escapes the drawer column and paints UNDER the chat
-       input (which sits in a sibling column). Anchoring here confines the
-       modal to the drawer, where its z-index only needs to beat the rows.
-       The mobile path already establishes its own context via position:fixed. */
-    position: relative;
-  }
-
-  .root.collapsed {
-    width: var(--_rail-width);
+    /* The confirm-delete dialog no longer needs a positioning context here: it
+       is a native <dialog> opened with showModal(), which renders in the
+       browser top layer independent of any stacking context (ENT-1051). No
+       other direct child of .root is absolutely positioned (the filter and
+       row-action popovers anchor to their own positioned ancestors), so .root
+       stays static. The mobile path establishes its own context via
+       position:fixed. */
   }
 
   /* Mobile: off-canvas overlay (modal pattern). */
@@ -125,6 +127,13 @@ export const drawerStyles = css`
     transform: translateX(0);
   }
 
+  /* Desktop collapsed: the panel is replaced by the floating cluster, so remove
+     it from the layout entirely. The host reclaims the reserved column via the
+     --cpk-drawer-reserved-width:0px override the element sets on collapse. */
+  .root.collapsed {
+    display: none;
+  }
+
   .backdrop {
     position: fixed;
     inset: 0;
@@ -136,29 +145,50 @@ export const drawerStyles = css`
     cursor: pointer;
   }
 
-  /* Mobile-only floating affordance to OPEN the off-canvas drawer. Rendered by
-     the element itself so phones always have a way in with no host wiring. */
-  .launcher {
+  /* Floating launcher cluster (Figma "closed" mockup): a rounded surface card
+     holding the sidebar toggle + a "New Conversation" (+) icon button. Rendered
+     by the element itself in the mobile-closed AND desktop-collapsed states so
+     there is always a way to reopen/expand — and to start a new conversation —
+     with no host wiring. */
+  .launcher-cluster {
     position: fixed;
     z-index: 998;
-    /* Position is themeable so a host can line the launcher up with its own
+    /* Position is themeable so a host can line the cluster up with its own
        header controls (e.g. vertically centering it on a toggle group). */
-    top: var(--cpk-drawer-launcher-top, 12px);
-    left: var(--cpk-drawer-launcher-left, 12px);
+    top: var(--cpk-drawer-launcher-top, 24px);
+    left: var(--cpk-drawer-launcher-left, 24px);
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 999px;
+    gap: 2px;
+    padding: 6px;
+    border-radius: var(--_radius);
     border: 1px solid var(--_border);
     background: var(--_surface);
     color: var(--_surface-fg);
-    cursor: pointer;
     box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
   }
 
-  .launcher-icon {
+  .launcher {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+    border: 0;
+    border-radius: calc(var(--_radius) - 3px);
+    background: transparent;
+    color: var(--_surface-fg);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .launcher:hover,
+  .launcher:focus-visible {
+    background: var(--_muted);
+  }
+
+  .launcher .icon {
     width: 18px;
     height: 18px;
     display: block;
@@ -167,33 +197,176 @@ export const drawerStyles = css`
   .header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 8px;
     padding: 12px;
-    border-bottom: 1px solid var(--_border);
   }
 
-  .filters {
+  /* The header is hidden until a consumer projects slot="header" content
+     (the redesign has no built-in header controls). Mirrors the memories/footer
+     gating so an empty padded header bar never renders above the list. */
+  .header[hidden] {
+    display: none;
+  }
+
+  /* Optional consumer projection surface. When a consumer projects into
+     slot="header" it fills the header row. */
+  .header slot[name="header"] {
     display: flex;
-    gap: 4px;
-    padding: 8px 12px;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
   }
 
-  .filter-btn {
-    flex: 1;
-    padding: 6px 10px;
-    border: 1px solid var(--_border);
+  .icon-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+    border: 0;
     border-radius: var(--_radius);
-    background: var(--_bg);
+    background: transparent;
     color: var(--_muted-fg);
     cursor: pointer;
     font: inherit;
   }
 
-  .filter-btn[aria-pressed="true"] {
-    background: var(--_accent);
-    color: var(--_accent-fg);
-    border-color: var(--_ring);
+  /* "Filter applied" indicator dot at the funnel's bottom-right (Figma archived
+     view). Shown only when a non-default filter is active. */
+  .filter-dot {
+    position: absolute;
+    right: 3px;
+    bottom: 4px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--_indicator);
+    pointer-events: none;
+  }
+
+  .icon-btn:hover,
+  .icon-btn:focus-visible {
+    background: var(--_muted);
+    color: inherit;
+  }
+
+  .icon-btn[aria-pressed="true"] {
+    background: var(--_muted);
+    color: inherit;
+  }
+
+  .icon {
+    width: 20px;
+    height: 20px;
+    display: block;
+  }
+
+  .new-conversation {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    /* No top margin by default: the header bar (the collapse toggle on desktop,
+       the close button on mobile-open) sits above this row and supplies the top
+       spacing — the header-hidden case re-adds it below. Horizontal geometry
+       matches the list rows: the hover background insets 12px (like a row's
+       highlight) and, with 10px inner padding, the icon's left edge lands at
+       22px — the same x as the thread names below (list padding 12 + row
+       padding 10). */
+    margin: 0 12px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: var(--_radius);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+  }
+
+  /* Only when the header bar is fully hidden (collapsible=false AND no projected
+     header content) is this row the first element — give it the top spacing the
+     header would otherwise supply. */
+  .header[hidden] + .new-conversation {
+    margin-top: 12px;
+  }
+
+  .new-conversation:hover,
+  .new-conversation:focus-visible {
+    background: var(--_muted);
+  }
+
+  .new-conversation .icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .section-heading {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    /* Match the list rows' content edge: "Recent Conversations" lands at 22px
+       (margin 12 + padding 10), aligned with the thread names and the New
+       Conversation icon; the funnel sits 22px from the right, over the kebabs. */
+    padding: 8px 10px;
+    margin: 0 12px;
+  }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--_muted-fg);
+    text-transform: none;
+  }
+
+  .icon-btn.small {
+    width: 24px;
+    height: 24px;
+    padding: 4px;
+  }
+
+  .icon-btn.small .icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .filter-popover {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 15;
+    display: flex;
+    flex-direction: column;
+    min-width: 120px;
+    padding: 4px;
+    background: var(--_surface);
+    color: var(--_surface-fg);
+    border: 1px solid var(--_border);
+    border-radius: var(--_radius);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
+  }
+
+  .filter-opt {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    padding: 6px 8px;
+    border-radius: 4px;
+  }
+
+  .filter-opt:hover,
+  .filter-opt:focus-visible {
+    background: var(--_muted);
+  }
+
+  .filter-opt[aria-pressed="true"] {
+    font-weight: 600;
   }
 
   .list {
@@ -225,12 +398,25 @@ export const drawerStyles = css`
     position: relative;
   }
 
-  /* The entry animation leaves each row with a (non-none) transform, making it
-     its own stacking context — which would paint the name tooltip UNDER the
-     following rows (their text bled through the bubble). Lifting the hovered
-     row's z-index re-floats its tooltip above the rows beneath it. */
-  .row.name-clipped:hover {
-    z-index: 2;
+  /* Lift the interacted row above later rows so its kebab popover (which paints
+     inside the row's own transform stacking context) is not clipped by / drawn
+     under the rows below it. */
+  .row:hover,
+  .row:focus-within,
+  .row.menu-open {
+    z-index: 3;
+  }
+
+  /* While a kebab menu is open, the popover only covers part of the rows it
+     overlaps, so the rest of the list would still respond to hover — revealing
+     other rows' kebabs and (under a host \`::part(row):hover\` theme) painting a
+     hover background "through"/around the open menu. Freeze pointer events on
+     every OTHER row so the menu reads as a single focused surface. The owner
+     row (\`.menu-open\`) and its popover stay interactive, and a pointerdown that
+     lands on a frozen row still reaches the document handler that closes the
+     menu, so click-away dismissal is preserved. */
+  .list.menu-open .row:not(.menu-open) {
+    pointer-events: none;
   }
 
   @keyframes cpk-drawer-row-in {
@@ -243,19 +429,19 @@ export const drawerStyles = css`
   .row.active {
     background: var(--_accent);
     color: var(--_accent-fg);
-    border-color: var(--_ring);
+    /* No border on the selected row — the background change alone marks it
+       (per designer). The base row keeps its 1px transparent border so the
+       layout stays stable. */
   }
 
   .row.archived .row-name {
     color: var(--_muted-fg);
+    font-style: italic;
   }
 
   .row-name {
-    /* The outer name element owns NO overflow clip so it can host the name
-       tooltip pseudo-element; the inner .row-name-text does the ellipsis. */
     flex: 1;
     min-width: 0;
-    position: relative;
   }
 
   .row-name-text {
@@ -263,41 +449,6 @@ export const drawerStyles = css`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  /* Name tooltip: matches the row-action tooltip (instant primary bubble with
-     an arrow), shown ONLY when the name is clipped. Positioned below the name,
-     wrapping within the drawer width (a long name can't fit one line). */
-  .row-name.name-clipped[data-tooltip]:hover::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    left: 0;
-    top: calc(100% + 6px);
-    white-space: normal;
-    max-width: 240px;
-    background: var(--_primary);
-    color: var(--_primary-fg);
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 12px;
-    line-height: 1.4;
-    box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
-    pointer-events: none;
-    z-index: 20;
-  }
-
-  .row-name.name-clipped[data-tooltip]:hover::before {
-    content: "";
-    position: absolute;
-    left: 10px;
-    top: calc(100% + 1.5px);
-    transform: rotate(45deg);
-    width: 7px;
-    height: 7px;
-    background: var(--_primary);
-    border-radius: 1px;
-    pointer-events: none;
-    z-index: 21;
   }
 
   .row-name.placeholder {
@@ -330,61 +481,7 @@ export const drawerStyles = css`
     cursor: pointer;
     font: inherit;
     padding: 5px;
-    border-radius: 6px;
-  }
-
-  /* Instant tooltip (matches the react components' delayDuration:0) styled to
-     match the CPK standard tooltip: a solid primary-colored bubble with
-     primary-foreground text, rounded corners, no border, and a small arrow —
-     NOT a surface/bordered box (which reads as a button). Rendered to the LEFT
-     of the action so the list's vertical overflow never clips it; the native
-     \`title\` tooltip is avoided because its show-delay is browser-fixed (~1.5s)
-     and cannot be tuned. */
-  .row-action[data-tooltip]:hover::after,
-  .row-action[data-tooltip]:focus-visible::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    right: calc(100% + 8px);
-    top: 50%;
-    transform: translateY(-50%);
-    white-space: nowrap;
-    background: var(--_primary);
-    color: var(--_primary-fg);
-    border-radius: 6px;
-    padding: 4px 8px;
-    font-size: 12px;
-    line-height: 1.4;
-    box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
-    pointer-events: none;
-    z-index: 20;
-  }
-
-  /* Arrow: a small rotated square at the bubble's right edge, pointing at the
-     action — same primary fill as the bubble. */
-  .row-action[data-tooltip]:hover::before,
-  .row-action[data-tooltip]:focus-visible::before {
-    content: "";
-    position: absolute;
-    right: calc(100% + 4.5px);
-    top: 50%;
-    transform: translateY(-50%) rotate(45deg);
-    width: 7px;
-    height: 7px;
-    background: var(--_primary);
-    border-radius: 1px;
-    pointer-events: none;
-    z-index: 21;
-  }
-
-  /* While the delete-confirmation dialog is open, suppress row-action tooltips:
-     the clicked trash button keeps :focus-visible (and may stay hovered), which
-     would otherwise leave its "Delete" tooltip floating over the dialog. */
-  .root.confirming .row-action[data-tooltip]:hover::after,
-  .root.confirming .row-action[data-tooltip]:focus-visible::after,
-  .root.confirming .row-action[data-tooltip]:hover::before,
-  .root.confirming .row-action[data-tooltip]:focus-visible::before {
-    content: none;
-    display: none;
+    border-radius: 4px;
   }
 
   .row-action:hover,
@@ -393,15 +490,102 @@ export const drawerStyles = css`
     color: inherit;
   }
 
-  .row-action.danger:hover,
-  .row-action.danger:focus-visible {
-    color: var(--_danger);
-  }
-
   .row-action-icon {
     width: 15px;
     height: 15px;
     display: block;
+  }
+
+  /* Per-row kebab trigger: hidden at rest, revealed when the row is hovered,
+     focused (keyboard), active (selected), or its menu is open. */
+  .row-menu {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--_muted-fg);
+    cursor: pointer;
+    font: inherit;
+    opacity: 0;
+  }
+
+  .row:hover .row-menu,
+  .row:focus-within .row-menu,
+  .row.active .row-menu,
+  .row-menu[aria-expanded="true"] {
+    opacity: 1;
+  }
+
+  .row-menu:hover,
+  .row-menu:focus-visible {
+    background: var(--_muted);
+    color: inherit;
+  }
+
+  .row-menu .icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .row-menu-popover {
+    position: absolute;
+    right: 8px;
+    top: calc(100% - 4px);
+    z-index: 16;
+    display: flex;
+    flex-direction: column;
+    min-width: 140px;
+    padding: 4px;
+    background: var(--_surface);
+    color: var(--_surface-fg);
+    border: 1px solid var(--_border);
+    border-radius: var(--_radius);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.18);
+  }
+
+  /* Rows in the lower portion of the list open their kebab menu UPWARD so it is
+     not clipped by the list's overflow scroll box (.list is overflow-y:auto,
+     which also clips the x-axis). Anchoring to the button's top edge via
+     \`bottom\` keeps the popover inside the list's visible area for bottom rows. */
+  .row.menu-up .row-menu-popover {
+    top: auto;
+    bottom: calc(100% - 4px);
+  }
+
+  .row-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    padding: 6px 8px;
+    border-radius: 4px;
+  }
+
+  .row-menu-item:hover,
+  .row-menu-item:focus-visible {
+    background: var(--_muted);
+  }
+
+  .row-menu-item.danger:hover,
+  .row-menu-item.danger:focus-visible {
+    color: var(--_danger);
+  }
+
+  .row-menu-item .row-action-icon,
+  .row-menu-item .icon {
+    width: 15px;
+    height: 15px;
   }
 
   button.primary {
@@ -466,25 +650,42 @@ export const drawerStyles = css`
     display: none;
   }
 
-  .dialog-backdrop {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-  }
-
+  /* Confirm-delete dialog — a native <dialog> opened with showModal(). It lives
+     in the browser TOP LAYER, so it can never be painted under other UI (the
+     old CSS-positioned overlay was trapped in the drawer host's stacking
+     context and appeared under the chat's welcome view — ENT-1051). The UA
+     centers it in the viewport via margin:auto; we reset the UA chrome and
+     apply the drawer's surface-card look. */
   .dialog {
+    /* Top-layer (showModal) so it is never clipped, but centered over the DRAWER
+       PANEL rather than the viewport: JS sets --confirm-cx/cy from the visible
+       .root rect (falls back to viewport-center when unmeasured, e.g. jsdom).
+       Width is capped to the drawer band so it reads as "inside the drawer". */
+    margin: 0;
+    position: fixed;
+    left: var(--confirm-cx, 50%);
+    top: var(--confirm-cy, 50%);
+    transform: translate(-50%, -50%);
+    border: 0;
+    padding: 16px;
+    width: max-content;
+    max-width: min(80vw, calc(var(--_width) - 24px));
     background: var(--_surface);
     color: var(--_surface-fg);
     border-radius: var(--_radius);
-    padding: 16px;
-    max-width: 80%;
+  }
+
+  /* Only lay out the card contents when open. A closed <dialog> is display:none
+     via the UA stylesheet, and author display rules must not override that (or
+     an empty box would leak), so the flex layout is scoped to [open]. */
+  .dialog[open] {
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .dialog::backdrop {
+    background: rgba(0, 0, 0, 0.3);
   }
 
   .dialog-actions {

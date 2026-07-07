@@ -4,9 +4,8 @@ import {
   inject,
   computed,
   signal,
-  type Provider,
-  type Signal,
 } from "@angular/core";
+import type { Provider, Signal } from "@angular/core";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 
 /**
@@ -158,24 +157,25 @@ export class CopilotChatConfiguration {
     this._setOverride(randomUUID(), false);
   }
 
-  // ─── RESERVED drawer coordination (unwired in PR1) ───────────────────────
-  // These members exist so a future Angular popup/sidebar can coordinate
-  // drawer open-state (mobile mutual-exclusion, singleton enforcement, etc.).
-  // They are intentionally not consumed by any component in this PR.
+  // ─── Drawer open-state coordination ──────────────────────────────────────
+  // Consumed by CopilotThreadsDrawer to drive the element's controlled `open`
+  // property and to announce drawer presence (so a future header launcher can
+  // render). A future popup/sidebar can additionally use these for mobile
+  // mutual-exclusion between the drawer and other overlays.
 
-  /** Tracks whether the drawer open-state is currently `true`. RESERVED/unwired in PR1. */
+  /** Tracks whether the drawer open-state is currently `true`. */
   readonly #drawerOpen = signal(false);
 
-  /** Count of registered drawer instances. Used to derive {@link drawerRegistered}. RESERVED/unwired in PR1. */
+  /** Count of registered drawer instances. Used to derive {@link drawerRegistered}. */
   readonly #drawerCount = signal(0);
 
   /**
    * Read-only signal reflecting the current drawer open-state.
    *
    * @remarks
-   * **RESERVED / unwired in PR1.** A future popup or sidebar component will
-   * toggle this to implement mobile mutual-exclusion between the drawer and
-   * other overlays.
+   * Consumed by {@link CopilotThreadsDrawer} to drive the element's controlled
+   * `open` property; a future popup or sidebar component may also toggle it to
+   * implement mobile mutual-exclusion between the drawer and other overlays.
    */
   readonly drawerOpen = this.#drawerOpen.asReadonly();
 
@@ -183,8 +183,8 @@ export class CopilotChatConfiguration {
    * Sets the drawer open-state imperatively.
    *
    * @remarks
-   * **RESERVED / unwired in PR1.** Intended for future popup/sidebar
-   * coordination — no consumer calls this yet.
+   * Called by {@link CopilotThreadsDrawer} in response to the element's
+   * `open-change` event to keep the shared open-state coordinated.
    *
    * @param open - `true` to mark the drawer as open, `false` to close it.
    */
@@ -195,10 +195,6 @@ export class CopilotChatConfiguration {
   /**
    * Computed signal that is `true` when at least one drawer instance has
    * registered itself via {@link registerDrawer}.
-   *
-   * @remarks
-   * **RESERVED / unwired in PR1.** Intended for future popup/sidebar
-   * mutual-exclusion logic.
    */
   readonly drawerRegistered = computed(() => this.#drawerCount() > 0);
 
@@ -211,8 +207,8 @@ export class CopilotChatConfiguration {
    * by an `active` flag, floor at 0).
    *
    * @remarks
-   * **RESERVED / unwired in PR1.** Intended for future popup/sidebar
-   * coordination — no consumer calls this yet.
+   * Called by {@link CopilotThreadsDrawer} on construction with cleanup on
+   * destroy. Intended for future popup/sidebar coordination as well.
    *
    * @returns An idempotent cleanup function that unregisters this drawer.
    */
