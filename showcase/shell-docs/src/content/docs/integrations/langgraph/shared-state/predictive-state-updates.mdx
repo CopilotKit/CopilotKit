@@ -173,6 +173,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         @tool
                         def step_progress_tool(steps: list[str]):
                             """Reads and reports steps"""
+                            pass
 
                         async def frontend_actions_node(state: AgentState, config: RunnableConfig):
                             # Configure CopilotKit to treat step progress tool calls as predictive of the final state
@@ -459,6 +460,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             @tool
             def step_progress_tool(steps: list[str]):
                 """Reports the current steps being executed"""
+                pass
 
             graph = create_agent(
                 model="openai:gpt-5.4",
