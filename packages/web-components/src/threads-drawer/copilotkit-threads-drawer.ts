@@ -800,7 +800,16 @@ export class CopilotKitThreadsDrawer extends LitElement {
         part="header"
         ?hidden=${!this._hasHeader && !showMobileClose && !showCollapseToggle}
       >
+        <slot
+          name="header"
+          @slotchange=${(e: Event) => {
+            const slot = e.target as HTMLSlotElement;
+            this._hasHeader = slot.assignedElements().length > 0;
+          }}
+        ></slot>
         ${
+          // Toggle sits at the END so it right-aligns (the projected header slot
+          // has flex:1 and pushes it over) — matching the mobile close button.
           showCollapseToggle
             ? html`<button
               class="icon-btn"
@@ -812,13 +821,6 @@ export class CopilotKitThreadsDrawer extends LitElement {
             </button>`
             : nothing
         }
-        <slot
-          name="header"
-          @slotchange=${(e: Event) => {
-            const slot = e.target as HTMLSlotElement;
-            this._hasHeader = slot.assignedElements().length > 0;
-          }}
-        ></slot>
         ${
           showMobileClose
             ? html`<button
