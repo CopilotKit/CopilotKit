@@ -22,6 +22,9 @@
   height: 100dvh;
   width: 100%;
   overflow: hidden;
+
+  /* Match the collapsed cluster's left gutter to the right-side controls' 16px inset. */
+  --cpk-drawer-launcher-left: 16px;
 }
 
 .mainPanel {
