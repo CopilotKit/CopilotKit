@@ -1,198 +1,49 @@
 "use client";
 
 /**
- * Headless Chat (Complete) — TRULY headless.
+ * Headless UI: Complete — full headless surface in one demo.
  *
- * A full chat implementation built from scratch on `useAgent`, without using
- * `<CopilotChat />` AND without `<CopilotChatMessageView>` or
- * `<CopilotChatAssistantMessage>`. Demonstrates:
- *   - scrollable messages area with auto-scroll to bottom on new messages
- *   - distinct user vs assistant bubbles (pure chrome — no chat primitives)
- *   - text input + send button, disabled while running
- *   - stop button to cancel a running agent turn
- *   - the FULL generative UI composition — text, tool-call renderings, and
- *     frontend-component renderers — re-composed by hand from the low-level
- *     hooks inside `use-rendered-messages.tsx`.
+ * Mirror of `headless-simple` plus, layered in via focused hook modules,
+ * every render surface CopilotKit exposes:
+ *
+ *   useToolRenderers       — useRenderTool (weather, stock) + useDefaultRenderTool
+ *   useFrontendComponents  — useComponent (highlight_note frontend tool)
+ *   useHeadlessSuggestions — useConfigureSuggestions (4 prompts)
+ *   useAttachmentsConfig   — useAttachments (image + PDF, base64 inline)
+ *
+ * Plus, inside the chat shell:
+ *
+ *   useAgent / useCopilotKit          — read messages, dispatch runs
+ *   useRenderToolCall                 — render tool-call cards inline
+ *   useRenderActivityMessage          — MCP Apps activity (Excalidraw iframe)
+ *   useSuggestions                    — render the configured suggestions
+ *
+ * The hook calls in `<HeadlessCompleteRoot />` form the demo's entire
+ * surface, so a reader can see every capability at a glance before
+ * diving into the chat UI.
  */
 
-// @region[page-send-message]
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  CopilotKit,
-  CopilotChatConfigurationProvider,
-  useAgent,
-  useCopilotKit,
-} from "@copilotkit/react-core/v2";
-import type { Message } from "@ag-ui/core";
-import { MessageList } from "./message-list";
-import { InputBar } from "./input-bar";
-import { useHeadlessCompleteToolRenderers } from "./tool-renderers";
+import React from "react";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import { Chat } from "./chat/chat";
+import { useFrontendComponents } from "./hooks/use-frontend-components";
+import { useHeadlessSuggestions } from "./hooks/use-headless-suggestions";
+import { useToolRenderers } from "./hooks/use-tool-renderers";
 
 const AGENT_ID = "headless-complete";
 
-// `crypto.randomUUID()` is only exposed in secure contexts in browsers
-// (HTTPS or localhost). The D6 probe loads this page over plain http://
-// against an internal hostname, which makes `randomUUID` undefined and
-// crashes the page. Fall back to a Math.random-based UUIDv4 when the
-// native API isn't available.
-function generateUUID(): string {
-  const g = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (g?.randomUUID) return g.randomUUID();
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
 export default function HeadlessCompleteDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
-      <div className="flex justify-center items-center h-screen w-full bg-gray-50">
-        <div className="h-full w-full max-w-3xl flex flex-col bg-white shadow-sm">
-          <header className="px-4 py-3 border-b border-gray-200">
-            <h1 className="text-base font-semibold">
-              Headless Chat (Complete)
-            </h1>
-            <p className="text-xs text-gray-500">
-              Built from scratch on useAgent — no CopilotChat.
-            </p>
-          </header>
-          <Chat />
-        </div>
-      </div>
+    <CopilotKit runtimeUrl="/api/copilotkit-mcp-apps" agent={AGENT_ID}>
+      <HeadlessCompleteRoot />
     </CopilotKit>
   );
 }
 
-function Chat() {
-  const threadId = useMemo(() => generateUUID(), []);
-  const { agent } = useAgent({ agentId: AGENT_ID, threadId });
-  const { copilotkit } = useCopilotKit();
+function HeadlessCompleteRoot() {
+  useToolRenderers();
+  useFrontendComponents();
+  useHeadlessSuggestions();
 
-  useEffect(() => {
-    const ac = new AbortController();
-    if ("abortController" in agent) {
-      (
-        agent as unknown as { abortController: AbortController }
-      ).abortController = ac;
-    }
-    copilotkit.connectAgent({ agent }).catch(() => {
-      // connectAgent emits via the subscriber system; swallow here
-    });
-    return () => {
-      ac.abort();
-      void agent.detachActiveRun().catch(() => {});
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, threadId]);
-
-  const [input, setInput] = useState("");
-  const messages = agent.messages as Message[];
-  const isRunning = agent.isRunning;
-
-  const handleSubmit = useCallback(
-    async (override?: string) => {
-      const text = (override ?? input).trim();
-      if (!text || isRunning) return;
-      setInput("");
-      agent.addMessage({
-        id: generateUUID(),
-        role: "user",
-        content: text,
-      });
-      try {
-        await copilotkit.runAgent({ agent });
-      } catch (err) {
-        console.error("headless-complete: runAgent failed", err);
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    },
-    [agent, input, isRunning],
-  );
-
-  const handleStop = useCallback(() => {
-    try {
-      copilotkit.stopAgent({ agent });
-    } catch (err) {
-      console.error("headless-complete: stopAgent failed", err);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent]);
-  // @endregion[page-send-message]
-
-  return (
-    <CopilotChatConfigurationProvider agentId={AGENT_ID} threadId={threadId}>
-      <ChatBody
-        messages={messages}
-        isRunning={isRunning}
-        input={input}
-        setInput={setInput}
-        handleSubmit={handleSubmit}
-        handleStop={handleStop}
-      />
-    </CopilotChatConfigurationProvider>
-  );
-}
-
-function ChatBody({
-  messages,
-  isRunning,
-  input,
-  setInput,
-  handleSubmit,
-  handleStop,
-}: {
-  messages: Message[];
-  isRunning: boolean;
-  input: string;
-  setInput: (next: string) => void;
-  handleSubmit: (override?: string) => void;
-  handleStop: () => void;
-}) {
-  useHeadlessCompleteToolRenderers();
-
-  const suggestions = [
-    { title: "Weather in Tokyo", message: "What's the weather in Tokyo?" },
-    { title: "AAPL stock price", message: "What's AAPL trading at right now?" },
-    {
-      title: "Highlight a note",
-      message: "Highlight 'meeting at 3pm' in yellow.",
-    },
-    {
-      title: "Sketch a diagram",
-      message: "Use Excalidraw to sketch a simple system diagram.",
-    },
-    { title: "Largest continent", message: "What is the largest continent?" },
-  ];
-
-  return (
-    <div className="flex flex-col flex-1 min-h-0">
-      <MessageList messages={messages} isRunning={isRunning} />
-      <div
-        data-testid="headless-suggestions"
-        className="flex flex-wrap gap-2 px-4 py-2 border-t border-[#E9E9EF] bg-white"
-      >
-        {suggestions.map((s) => (
-          <button
-            key={s.title}
-            type="button"
-            onClick={() => handleSubmit(s.message)}
-            disabled={isRunning}
-            className="rounded-full border border-gray-300 bg-white px-3 py-1 text-xs text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {s.title}
-          </button>
-        ))}
-      </div>
-      <InputBar
-        value={input}
-        onChange={setInput}
-        onSubmit={handleSubmit}
-        onStop={handleStop}
-        isRunning={isRunning}
-        canStop={isRunning && messages.length > 0}
-      />
-    </div>
-  );
+  return <Chat agentId={AGENT_ID} />;
 }

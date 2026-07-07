@@ -14,33 +14,30 @@ import {
  * "Recording" state for the self-learning teach-mode UX.
  *
  * While the officer demonstrates an action that the agent will learn from
- * (filing a policy exception, approving/denying a transaction), the UI emits
- * `recordUserAction(...)` records. This context exposes a single boolean —
- * `isRecording` — that is true for the duration of a demonstration, plus
- * ref-counted `beginRecording()` / `endRecording()` to bracket the record
- * call sites.
+ * (filing a policy exception, approving/denying a transaction), the UI brackets
+ * the demonstration with `beginRecording()` / `endRecording()`. This context
+ * exposes a single boolean — `isRecording` — that is true for the duration of a
+ * demonstration, plus the ref-counted bracket calls themselves.
  *
  * Two design points make it demo-friendly:
- *  - **Ref-counted:** overlapping records (e.g. exception `opened` immediately
+ *  - **Ref-counted:** overlapping brackets (e.g. exception `opened` immediately
  *    followed by `finalized`) keep the flag continuously on instead of
  *    flickering off between steps.
- *  - **Minimum visible duration:** a fire-and-forget record against the no-op
- *    shim resolves almost instantly; without a floor the vignette would never
- *    be seen. We hold `isRecording` true for at least `MIN_VISIBLE_MS` so the
- *    pulse is always perceptible. This stays correct once the real recording
- *    hook streams — the flag simply reflects "the UI is emitting a record now."
+ *  - **Minimum visible duration:** a fire-and-forget bracket resolves almost
+ *    instantly; without a floor the vignette would never be seen. We hold
+ *    `isRecording` true for at least `MIN_VISIBLE_MS` so the pulse is always
+ *    perceptible.
  *
- * It is intentionally independent of the Intelligence backend: it reflects the
- * client emitting a record, which is true even against the shim.
+ * It is purely a presentational signal: it reflects that the UI is in the
+ * middle of capturing a demonstration.
  */
 
 const MIN_VISIBLE_MS = 1200;
 
 // A single human-readable line in the visible recorder feed — one per UI action
 // the officer performs during a demonstration ("Opened the Dashboard",
-// "Approved the charge"). UI-only: these are NEVER sent to the agent (the agent
-// learns from the recordUserAction seam, not this feed), so they may use plain
-// human language without touching the learning invariant.
+// "Approved the charge"). UI-only: these are NEVER sent to the agent, so they
+// may use plain human language without touching the learning invariant.
 export interface RecordedStep {
   id: number;
   label: string;

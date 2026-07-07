@@ -4,7 +4,11 @@ import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
   useConfigureSuggestions,
+  type ReactActivityMessageRenderer,
 } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import { catalog } from "@/a2ui/catalog";
+import { CanvasProvider } from "@/components/canvas/canvas-context";
 import CopilotContext from "@/components/copilot-context";
 import { useAuthContext } from "@/components/auth-context";
 import { useThreadSelection } from "@/components/threads/use-thread-selection";
@@ -14,6 +18,32 @@ import { RecordingProvider } from "@/components/recording-context";
 import { RecordingVignette } from "@/components/recording-vignette";
 import { ProactiveNotice } from "@/components/wow/proactive-notice";
 import { ReportCopilotTools } from "@/components/wow/report-tool";
+import { GlassEngineProvider } from "@/components/glass-engine-context";
+import { InspectorStoreProvider } from "@/lib/inspector/store";
+import { InspectorPane } from "@/components/inspector/inspector-pane";
+
+// The agent's render_report tool result becomes an `a2ui-surface` activity that
+// <ReportCanvas/> renders full-screen (it reads the ops from the agent message
+// stream). In the chat we leave only a small handoff pill in place of the
+// built-in inline surface renderer. Module-level so the array reference stays
+// stable across renders (CopilotKitProvider requires a stable
+// `renderActivityMessages` array).
+function ReportHandoffPill() {
+  return (
+    <div className="my-1.5 inline-flex max-w-fit items-center gap-2 rounded-full border border-hairline bg-surface px-3 py-2 text-xs font-medium text-ink">
+      <span className="h-2 w-2 rounded-full bg-brand" />
+      <span className="uppercase tracking-wide text-ink-muted">report</span>
+      <span aria-hidden className="text-ink-muted">
+        →
+      </span>
+      <span>rendered on the canvas</span>
+    </div>
+  );
+}
+
+const A2UI_RENDERERS: ReactActivityMessageRenderer<unknown>[] = [
+  { activityType: "a2ui-surface", content: z.any(), render: ReportHandoffPill },
+];
 
 // Static suggestion pills — the demo's full use-case catalog, available at
 // ALL times (`available: "always"`), not just the welcome screen: the demo
@@ -81,6 +111,12 @@ function BankingSuggestions() {
         title: "Add an expense card",
         message: "Add a new expense card",
       },
+      // ── A2UI report canvas ───────────────────────────────────────────────
+      {
+        title: "Build a spend report on the canvas",
+        message:
+          "Build a full spend report on the canvas: KPIs, the spending trend, budget usage, and a spend breakdown by team.",
+      },
       // ── Gen-UI charts ────────────────────────────────────────────────────
       {
         title: "Show the spending trend",
@@ -123,7 +159,15 @@ function BankingSuggestions() {
   return null;
 }
 
-export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
+export function CopilotKitWrapper({
+  children,
+  glassAvailable = false,
+  resetEnabled = false,
+}: {
+  children: React.ReactNode;
+  glassAvailable?: boolean;
+  resetEnabled?: boolean;
+}) {
   const { currentUser } = useAuthContext();
   const { threadId, selectThread, createThread } = useThreadSelection();
 
@@ -136,7 +180,16 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
       // POSTs to /api/copilotkit and 404s against this handler, so stay in REST
       // (multi-route) mode.
       useSingleEndpoint={false}
-      properties={{ userRole: currentUser?.role }}
+      properties={{ userRole: currentUser?.role, userId: currentUser?.id }}
+      // A2UI report canvas. The agent calls the backend render_report tool,
+      // whose ops the A2UI middleware turns into an `a2ui-surface` activity; the
+      // banking catalog here lets the client render those ops. The agent selects
+      // widgets via render_report's typed params, so it does NOT need the raw
+      // A2UI component schema (no includeSchema). `renderActivityMessages`
+      // replaces the built-in inline surface renderer with a small handoff pill —
+      // the surface itself renders full-screen in <ReportCanvas/>.
+      a2ui={{ catalog }}
+      renderActivityMessages={A2UI_RENDERERS}
       // Use the v2-native CopilotKitProvider, NOT the v1 `CopilotKit`
       // compatibility bridge. The bridge wraps the chat in a heavier stack (its
       // own ThreadsProvider + a second CopilotChatConfigurationProvider +
@@ -178,19 +231,34 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
             RecordingProvider exposes the teach-mode `isRecording` flag; the
             <RecordingVignette/> reads it to pulse a soft violet glow around the
             canvas while an officer demonstration is being recorded. It wraps
-            BOTH the page content and the chat panel so every `recordUserAction`
+            BOTH the page content and the chat panel so every demonstration
             call site (the transactions list approve/deny, the inline policy
             exception card) is inside it.
           */}
-          <RecordingProvider>
-            <LayoutComponent>
-              <CopilotContext>{children}</CopilotContext>
-            </LayoutComponent>
-            <ChatPanel threadId={threadId} />
-            <ProactiveNotice />
-            <ReportCopilotTools />
-            <RecordingVignette />
-          </RecordingProvider>
+          <GlassEngineProvider available={glassAvailable}>
+            <InspectorStoreProvider>
+              <RecordingProvider>
+                {/*
+                  CanvasProvider derives whether a report surface is active from
+                  the agent message stream (+ a local dismiss for the "← Back"
+                  control). It must be an ancestor of LayoutComponent, which calls
+                  useCanvas() to render <ReportCanvas/> in place of the page body.
+                */}
+                <CanvasProvider>
+                  <LayoutComponent resetEnabled={resetEnabled}>
+                    <CopilotContext>{children}</CopilotContext>
+                  </LayoutComponent>
+                  <ChatPanel threadId={threadId} />
+                  <ProactiveNotice />
+                  <ReportCopilotTools />
+                </CanvasProvider>
+                {/* Mount the pane (and its AG-UI subscription) ONLY where the
+                    deployment opted in. Public hosts never subscribe. */}
+                {glassAvailable && <InspectorPane />}
+                <RecordingVignette />
+              </RecordingProvider>
+            </InspectorStoreProvider>
+          </GlassEngineProvider>
         </ChatInboxProvider>
       </CopilotChatConfigurationProvider>
     </CopilotKitProvider>

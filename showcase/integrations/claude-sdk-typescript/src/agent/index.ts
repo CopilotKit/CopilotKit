@@ -5,10 +5,12 @@
  * The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
  */
 
-import express, { Request, Response } from "express";
+import type { Request, Response } from "express";
+import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
-import { BaseEvent, EventType, RunAgentInput, Message } from "@ag-ui/core";
+import type { BaseEvent, RunAgentInput, Message } from "@ag-ui/core";
+import { EventType } from "@ag-ui/core";
 import * as dotenv from "dotenv";
 import { randomUUID } from "crypto";
 

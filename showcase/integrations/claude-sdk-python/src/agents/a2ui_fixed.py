@@ -36,11 +36,14 @@ from ag_ui.core import (
     ToolCallStartEvent,
 )
 from ag_ui.encoder import EventEncoder
+from agents.claude_agent_sdk_adapter import normalize_claude_model
 
 
 CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-fixed-schema"
 
+# @region[backend-render-operations]
+# @region[backend-schema-json-load]
 _SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
 
 
@@ -50,6 +53,7 @@ def _load_schema(filename: str) -> list[dict]:
 
 
 FLIGHT_SCHEMA = _load_schema("flight_schema.json")
+# @endregion[backend-schema-json-load]
 
 
 SYSTEM_PROMPT = dedent("""
@@ -130,6 +134,9 @@ def _display_flight_operations(
     }
 
 
+# @endregion[backend-render-operations]
+
+
 async def run_a2ui_fixed_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
     """Stream a Claude conversation that may call `display_flight`."""
     encoder = EventEncoder()
@@ -176,7 +183,9 @@ async def run_a2ui_fixed_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
         tool_calls: list[dict[str, Any]] = []
         try:
             async with client.messages.stream(
-                model=os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
+                model=normalize_claude_model(
+                    os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4.6")
+                ),
                 max_tokens=2048,
                 system=SYSTEM_PROMPT,
                 messages=messages,
