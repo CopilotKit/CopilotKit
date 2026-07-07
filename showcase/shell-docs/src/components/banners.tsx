@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, X } from "lucide-react";
+import { ArrowRight, BookOpen, X } from "lucide-react";
 
 type BannerEntry = {
   mobileText: string;
@@ -104,7 +104,7 @@ export function Banners() {
           className="shell-docs-course-banner-icon shell-docs-radius-icon hidden h-5 w-5 shrink-0 items-center justify-center border lg:inline-flex"
           aria-label="Free course"
         >
-          <BookOpenCheck className="h-3 w-3" aria-hidden="true" />
+          <BookOpen className="h-3 w-3" aria-hidden="true" />
         </span>
         <p className="min-w-0 truncate text-xs font-medium md:text-[13px]">
           <span className="md:hidden">{content.mobileText}</span>

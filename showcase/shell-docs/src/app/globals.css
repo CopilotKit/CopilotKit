@@ -853,29 +853,41 @@
 
 .shell-docs-course-banner {
   background: var(--shell-docs-banner-surface) !important;
-  border-color: var(--shell-docs-header-border) !important;
-  color: var(--foreground) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 20%,
+    transparent
+  ) !important;
+  color: var(--shell-docs-banner-foreground) !important;
   font-size: 12px;
   font-weight: 600;
 }
 
 .shell-docs-course-banner p,
 .shell-docs-course-banner span {
-  color: var(--foreground) !important;
+  color: var(--shell-docs-banner-foreground) !important;
 }
 
 .shell-docs-course-banner-icon {
   border-color: color-mix(
     in srgb,
-    var(--foreground) 22%,
+    var(--shell-docs-banner-foreground) 34%,
     transparent
   ) !important;
-  background: color-mix(in srgb, var(--foreground) 8%, transparent) !important;
-  color: var(--foreground) !important;
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 16%,
+    transparent
+  ) !important;
+  color: var(--shell-docs-banner-foreground) !important;
 }
 
 .shell-docs-course-banner-source {
-  color: color-mix(in srgb, var(--foreground) 68%, transparent) !important;
+  color: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 84%,
+    transparent
+  ) !important;
 }
 
 .shell-docs-course-banner-link,
@@ -903,27 +915,44 @@
 
 .dark .shell-docs-course-banner {
   background: var(--shell-docs-banner-surface) !important;
-  border-color: var(--shell-docs-header-border) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 18%,
+    transparent
+  ) !important;
 }
 
 .shell-docs-course-banner-close,
 #shell-docs-course-banner > button {
   width: 24px !important;
   height: 24px !important;
-  border: 1px solid color-mix(in srgb, var(--foreground) 16%, transparent) !important;
-  background: color-mix(in srgb, var(--foreground) 6%, transparent) !important;
+  border: 1px solid
+    color-mix(in srgb, var(--shell-docs-banner-foreground) 34%, transparent) !important;
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 16%,
+    transparent
+  ) !important;
   opacity: 1 !important;
-  color: var(--foreground) !important;
+  color: var(--shell-docs-banner-foreground) !important;
   cursor: pointer !important;
 }
 
 .shell-docs-course-banner-close {
-  --tw-ring-color: color-mix(in srgb, var(--foreground) 44%, transparent);
+  --tw-ring-color: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 50%,
+    transparent
+  );
 }
 
 .shell-docs-course-banner-close:hover,
 #shell-docs-course-banner > button:hover {
-  background: color-mix(in srgb, var(--foreground) 10%, transparent) !important;
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-banner-foreground) 24%,
+    transparent
+  ) !important;
 }
 
 .shell-docs-nav-link-idle {
@@ -2654,12 +2683,8 @@ figure.shiki > div:first-child[class*="border-b"] {
   --shell-docs-mobile-nav-surface: rgba(247, 247, 249, 0.9);
   --shell-docs-mobile-nav-shadow:
     0 12px 34px -30px rgba(1, 5, 7, 0.34), 0 1px 0 rgba(1, 5, 7, 0.08);
-  --shell-docs-banner-surface: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.98) 0%,
-    rgba(247, 247, 249, 0.96) 55%,
-    rgba(133, 236, 206, 0.14) 100%
-  );
+  --shell-docs-banner-surface: var(--shell-docs-brand-gradient);
+  --shell-docs-banner-foreground: #ffffff;
   --shell-docs-header-border: rgba(1, 5, 7, 0.12);
   --shell-docs-header-active-surface: var(--shell-docs-brand-gradient);
   --shell-docs-header-active-surface-hover: linear-gradient(
@@ -2927,7 +2952,8 @@ figure.shiki > div:first-child[class*="border-b"] {
   --shell-docs-mobile-nav-surface: rgba(20, 27, 38, 0.9);
   --shell-docs-mobile-nav-shadow:
     0 12px 34px -30px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.08);
-  --shell-docs-banner-surface: rgba(20, 27, 38, 0.9);
+  --shell-docs-banner-surface: var(--shell-docs-brand-gradient);
+  --shell-docs-banner-foreground: #ffffff;
   --shell-docs-header-border: rgba(218, 225, 244, 0.2);
   --shell-docs-header-active-surface: linear-gradient(
     90deg,
