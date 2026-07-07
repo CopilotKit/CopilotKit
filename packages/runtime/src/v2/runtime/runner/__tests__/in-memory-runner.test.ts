@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { InMemoryAgentRunner, ɵINMEMORY_DEFAULTS } from "../in-memory";
+import {
+  InMemoryAgentRunner,
+  ɵINMEMORY_DEFAULTS,
+  ɵGLOBAL_STORE,
+} from "../in-memory";
 import type { InMemoryThread } from "../in-memory";
 import type {
   BaseEvent,
@@ -924,6 +928,53 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
       const messages = runner.getThreadMessages("list-threads-thread-1");
       // Should have all 4 messages from the second run's snapshot
       expect(messages).toHaveLength(4);
+    });
+
+    it("returns a defensive copy so callers cannot mutate stored state", () => {
+      // A3: getThreadMessages must not hand out the internal array by
+      // reference, or a caller mutating it would corrupt stored history and
+      // desync approxMessageBytes / totalBytes.
+      const first = runner.getThreadMessages("list-threads-thread-1");
+      expect(first).toHaveLength(2);
+      first.push({ id: "injected", role: "user", content: "tamper" });
+      first.length = 0; // clear the returned array entirely
+      const second = runner.getThreadMessages("list-threads-thread-1");
+      expect(second).toHaveLength(2); // stored state unaffected
+    });
+
+    it("returns a shallow (array-level) copy: a distinct array that shares element identity", () => {
+      // R6-1: getThreadMessages returns a SHALLOW copy — a fresh array (so array
+      // structure is isolated, covered above) whose elements are the SAME Message
+      // object references as the stored snapshot. It deliberately does NOT deep-copy:
+      // `structuredClone` throws DataCloneError on a non-cloneable message field,
+      // wedging the thread. The known limitation — tracked as follow-up — is that
+      // mutating a returned message's FIELD is NOT isolated; callers must treat
+      // returned messages as read-only.
+      const first = runner.getThreadMessages("list-threads-thread-1");
+      const second = runner.getThreadMessages("list-threads-thread-1");
+      // Distinct array instances (array-level isolation).
+      expect(first).not.toBe(second);
+      // ...but element identity is shared (shallow copy, not deep).
+      expect(first[0]).toBe(second[0]);
+    });
+
+    it("keeps the thread snapshot when a later empty-snapshot run is appended", () => {
+      // R3-1: the message snapshot is held at the thread level, decoupled from
+      // historicRuns. An error-path / non-array-messages run stores an empty
+      // per-run snapshot, but must NOT disturb the thread-level snapshot.
+      // Appending an empty run directly leaves getThreadMessages intact.
+      const store = ɵGLOBAL_STORE.peek("list-threads-thread-1")!;
+      store.historicRuns.push({
+        threadId: "list-threads-thread-1",
+        runId: "run-empty",
+        agentId: "test-agent",
+        parentRunId: null,
+        events: [],
+        messages: [],
+        createdAt: Date.now(),
+      });
+      const messages = runner.getThreadMessages("list-threads-thread-1");
+      expect(messages).toHaveLength(2); // thread snapshot untouched
     });
   });
 

@@ -59,14 +59,20 @@ interface HistoricRun {
   parentRunId: string | null;
   events: BaseEvent[];
   /**
-   * Snapshot of all messages (input + generated) at the end of this run.
-   * Used by the local thread-messages fallback endpoint.
+   * Snapshot of all messages (input + generated) at the end of this run, as
+   * passed in by the caller. NOTE: `BoundedThreadStore.appendRun` moves this
+   * snapshot to the THREAD level (`InMemoryEventStore.messagesSnapshot`) and
+   * clears this field to `[]`, so a stored HistoricRun never carries messages.
+   * The thread-messages fallback reads the thread-level snapshot, not this.
    */
   messages: Message[];
   createdAt: number;
   /** Approximate retained byte size of `events`; set by BoundedThreadStore at append. */
   approxEventBytes?: number;
-  /** Approximate retained byte size of `messages`; set by BoundedThreadStore at append, zeroed on snapshot dedup. */
+  /**
+   * Legacy field retained for shape compatibility. `appendRun` always zeroes it
+   * because message bytes are accounted at the thread level, not per run.
+   */
   approxMessageBytes?: number;
 }
 
@@ -112,6 +118,17 @@ class InMemoryEventStore {
 
   /** Reference to the events emitted in the current run. */
   currentEvents: BaseEvent[] | null = null;
+
+  /**
+   * The thread's single latest NON-EMPTY message snapshot, held at the THREAD
+   * level (independent of `historicRuns` lifecycle). Decoupling the snapshot
+   * from per-run storage means run-cap FIFO eviction and interleaved
+   * empty-snapshot runs can never drop or pin the thread's message history.
+   */
+  messagesSnapshot: Message[] = [];
+
+  /** Approximate retained byte size of `messagesSnapshot`. */
+  approxMessagesSnapshotBytes = 0;
 }
 
 export class ɵBoundedThreadStore {
@@ -195,19 +212,41 @@ export class ɵBoundedThreadStore {
     const store = this.map.get(threadId);
     if (!store) return; // best-effort: nothing to append to
 
-    // Snapshot dedup: only the newest run needs its full messages snapshot.
-    const prev = store.historicRuns[store.historicRuns.length - 1];
-    if (prev && prev.messages.length > 0) {
-      this.totalBytes -= prev.approxMessageBytes ?? 0;
-      prev.messages = [];
-      prev.approxMessageBytes = 0;
+    // Thread-level message snapshot: keep the single latest NON-EMPTY snapshot
+    // on the store, decoupled from `historicRuns`. When the incoming run
+    // carries a non-empty snapshot, replace the thread's snapshot (adjusting
+    // byte accounting). When it's empty (non-array `agent.messages` or an
+    // error-path run), leave the existing thread snapshot untouched so history
+    // is never lost. The snapshot never lives on a HistoricRun, so run-cap FIFO
+    // eviction can never drop it and an interleaved empty run can never pin it.
+    if (run.messages.length > 0) {
+      this.totalBytes -= store.approxMessagesSnapshotBytes;
+      // Store the incoming array directly (SHALLOW, array-level copy). `run.messages`
+      // is already a fresh `[...agent.messages]` array created in run(), so we own the
+      // array and it is decoupled from `agent.messages` at the array level (push/splice
+      // on the agent's array cannot mutate our snapshot). We deliberately do NOT deep-copy
+      // here: `structuredClone` throws DataCloneError on a non-cloneable message field,
+      // which would wedge the thread and hang SSE — inconsistent with `ɵestimateBytes`,
+      // which tolerates the same bad-payload class. The tradeoff is that the inner
+      // `Message` objects remain shared by reference with `agent.messages`, so an agent
+      // that mutates its own message objects IN PLACE after the run can still be observed
+      // through this snapshot. That inner-object isolation is a known limitation tracked as
+      // follow-up; callers must treat returned messages as read-only. Estimate bytes on the
+      // same value so accounting matches exactly what is retained.
+      store.messagesSnapshot = run.messages;
+      store.approxMessagesSnapshotBytes = ɵestimateBytes(run.messages);
+      this.totalBytes += store.approxMessagesSnapshotBytes;
     }
 
-    // Compute this run's approximate size once, at append time.
+    // Do not carry message bytes on the HistoricRun: the snapshot is now tracked
+    // at the thread level, so historicRuns must never account message bytes.
+    run.messages = [];
+    run.approxMessageBytes = 0;
+
+    // Compute this run's approximate event size once, at append time.
     run.approxEventBytes = ɵestimateBytes(run.events);
-    run.approxMessageBytes = ɵestimateBytes(run.messages);
     store.historicRuns.push(run);
-    this.totalBytes += run.approxEventBytes + run.approxMessageBytes;
+    this.totalBytes += run.approxEventBytes;
     this.touchOrder(threadId, store);
 
     this.enforceRunCap(store);
@@ -219,8 +258,9 @@ export class ɵBoundedThreadStore {
     if (!cap || cap === Infinity) return; // 0 or Infinity → disabled
     while (store.historicRuns.length > cap) {
       const dropped = store.historicRuns.shift()!;
-      this.totalBytes -=
-        (dropped.approxEventBytes ?? 0) + (dropped.approxMessageBytes ?? 0);
+      // Only event bytes live on a HistoricRun; the message snapshot is tracked
+      // at the thread level and survives run-cap eviction.
+      this.totalBytes -= dropped.approxEventBytes ?? 0;
     }
   }
 
@@ -237,9 +277,11 @@ export class ɵBoundedThreadStore {
 
   private removeThread(threadId: string, store: InMemoryEventStore): void {
     for (const run of store.historicRuns) {
-      this.totalBytes -=
-        (run.approxEventBytes ?? 0) + (run.approxMessageBytes ?? 0);
+      this.totalBytes -= run.approxEventBytes ?? 0;
     }
+    // The thread's message snapshot is tracked at the store level, so it must
+    // be reclaimed here in addition to the per-run event bytes.
+    this.totalBytes -= store.approxMessagesSnapshotBytes;
     this.map.delete(threadId);
   }
 
@@ -289,7 +331,13 @@ export class ɵBoundedThreadStore {
   }
 }
 
-const sharedStore = new ɵBoundedThreadStore(ɵINMEMORY_DEFAULTS);
+/**
+ * Process-wide singleton backing every {@link InMemoryAgentRunner}. Exported
+ * (with the `ɵ` internal-API prefix) so tests can inspect the exact store the
+ * runner writes to; not part of the public API.
+ */
+export const ɵGLOBAL_STORE = new ɵBoundedThreadStore(ɵINMEMORY_DEFAULTS);
+const sharedStore = ɵGLOBAL_STORE;
 
 export class InMemoryAgentRunner extends AgentRunner {
   readonly ɵsupportsLocalThreadEndpoints = true;
@@ -620,9 +668,21 @@ export class InMemoryAgentRunner extends AgentRunner {
    */
   getThreadMessages(threadId: string): Message[] {
     const store = sharedStore.peek(threadId);
-    if (!store || store.historicRuns.length === 0) return [];
-    // The last run's snapshot has the complete conversation history
-    return store.historicRuns[store.historicRuns.length - 1]!.messages;
+    if (!store) return [];
+    // The thread's latest non-empty snapshot is held at the store level,
+    // independent of `historicRuns` lifecycle, so run-cap eviction and
+    // interleaved empty-snapshot runs can never lose it. Return a SHALLOW
+    // (array-level) copy: a fresh array so a caller mutating array STRUCTURE
+    // (push/splice/reassign elements) cannot affect the stored snapshot. We
+    // deliberately do NOT deep-copy: `structuredClone` throws DataCloneError on a
+    // non-cloneable message field, which would wedge the thread and hang SSE —
+    // inconsistent with `ɵestimateBytes`, which tolerates the same bad-payload class.
+    // The tradeoff is that the inner `Message` objects remain shared by reference with
+    // the stored snapshot, so mutating a returned message's FIELD
+    // (e.g. `getThreadMessages(t)[0].content = "x"`) is NOT isolated and would corrupt
+    // the stored snapshot. That inner-object isolation is a known limitation tracked as
+    // follow-up; callers must treat returned messages as read-only.
+    return [...store.messagesSnapshot];
   }
 
   /**

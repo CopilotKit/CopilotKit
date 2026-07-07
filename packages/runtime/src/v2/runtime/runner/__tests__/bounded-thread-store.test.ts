@@ -180,17 +180,85 @@ describe("ɵBoundedThreadStore — appendRun", () => {
     expect(store.peek("t1")!.historicRuns.length).toBe(300);
   });
 
-  it("dedups the previous run's message snapshot but keeps the latest", () => {
+  it("keeps only the latest message snapshot at the thread level", () => {
+    // R3-1: the snapshot is stored on the thread (store.messagesSnapshot), NOT
+    // per HistoricRun. appendRun clears run.messages, so a newer non-empty run
+    // replaces the thread snapshot and stored runs never carry messages.
     const store = new ɵBoundedThreadStore(limits());
-    store.getOrCreate("t1");
+    const s = store.getOrCreate("t1");
     store.appendRun("t1", makeRun("t1", "r1", { msgPad: 100 }));
     store.appendRun("t1", makeRun("t1", "r2", { msgPad: 100 }));
     const runs = store.peek("t1")!.historicRuns;
-    expect(runs[0]!.messages).toEqual([]); // older snapshot dropped
-    expect(runs[1]!.messages.length).toBe(1); // latest retained
+    // No HistoricRun carries a message snapshot anymore.
+    expect(runs[0]!.messages).toEqual([]);
+    expect(runs[1]!.messages).toEqual([]);
+    // The single latest snapshot lives on the store and is the newest run's.
+    expect(s.messagesSnapshot.length).toBe(1);
+    expect(s.messagesSnapshot[0]!.id).toBe("r2-m");
   });
 
-  it("tracks byteTotal and decrements it on run-cap eviction and dedup", () => {
+  it("stores the incoming array directly (shallow) — inner objects stay shared by reference", () => {
+    // R6-1: the WRITE side stores a SHALLOW (array-level) copy, not a deep copy.
+    // run() already makes a fresh `[...request.agent.messages]` array, so the store
+    // owns the array and is decoupled at the array level. We deliberately do NOT
+    // deep-copy: `structuredClone` throws DataCloneError on a non-cloneable message
+    // field, wedging the thread. The tradeoff — a known limitation tracked as
+    // follow-up — is that inner Message objects remain shared by reference, so an
+    // agent mutating a message object IN PLACE after the run IS observable through
+    // the stored snapshot. Callers must treat stored messages as read-only.
+    const store = new ɵBoundedThreadStore(limits());
+    const s = store.getOrCreate("t1");
+    const run = makeRun("t1", "r1", { msgPad: 10 });
+    // Hold a reference to the exact Message object appendRun receives.
+    const sharedMessage = run.messages[0] as { id: string; content: string };
+    store.appendRun("t1", run);
+
+    expect(s.messagesSnapshot[0]!.id).toBe("r1-m");
+    // Shallow copy: the stored element is the SAME object reference the caller passed.
+    expect(s.messagesSnapshot[0]).toBe(sharedMessage);
+  });
+
+  it("run-cap eviction does NOT lose the thread message snapshot", () => {
+    // R3-1: with maxRunsPerThread=1, appending a non-empty run then an empty
+    // run FIFO-drops the first run. Pre-fix the snapshot lived on that dropped
+    // run and getThreadMessages returned []. Now it lives on the thread.
+    const store = new ɵBoundedThreadStore(limits({ maxRunsPerThread: 1 }));
+    const s = store.getOrCreate("t1");
+    store.appendRun("t1", makeRun("t1", "r1", { msgPad: 100 }));
+    // Empty-snapshot run (error path / non-array agent.messages). makeRun always
+    // yields 1 msg, so build the empty-snapshot run directly.
+    const empty = makeRun("t1", "r2");
+    empty.messages = [];
+    store.appendRun("t1", empty);
+    // r1 evicted by the run cap, r2 is the only stored run ...
+    expect(store.peek("t1")!.historicRuns.map((r) => r.runId)).toEqual(["r2"]);
+    // ... yet the thread snapshot survives (still the non-empty r1 snapshot).
+    expect(s.messagesSnapshot.length).toBe(1);
+    expect(s.messagesSnapshot[0]!.id).toBe("r1-m");
+  });
+
+  it("interleaved empty snapshot does NOT pin or double-count", () => {
+    // R3-1: non-empty, empty, non-empty. The empty run must not pin an older
+    // snapshot nor cause the thread to account two snapshots at once.
+    const store = new ɵBoundedThreadStore(limits());
+    const s = store.getOrCreate("t1");
+    store.appendRun("t1", makeRun("t1", "r1", { msgPad: 1000 }));
+    const empty = makeRun("t1", "r2");
+    empty.messages = [];
+    store.appendRun("t1", empty);
+    store.appendRun("t1", makeRun("t1", "r3", { msgPad: 1000 }));
+    // Latest non-empty snapshot wins.
+    expect(s.messagesSnapshot[0]!.id).toBe("r3-m");
+    // Only a SINGLE snapshot is accounted (no over-count from the pinned older
+    // snapshot the pre-fix dedup would have left behind).
+    const oneSnapshotBytes = ɵestimateBytes(s.messagesSnapshot);
+    // Event bytes are tiny (eventPad=0 → ~1 event each). byteTotal must be close
+    // to a single snapshot, never two.
+    expect(store.byteTotal).toBeLessThan(oneSnapshotBytes * 2);
+    expect(store.byteTotal).toBeGreaterThanOrEqual(oneSnapshotBytes);
+  });
+
+  it("tracks byteTotal and decrements it on run-cap eviction", () => {
     const store = new ɵBoundedThreadStore(limits({ maxRunsPerThread: 1 }));
     store.getOrCreate("t1");
     store.appendRun(
@@ -198,14 +266,15 @@ describe("ɵBoundedThreadStore — appendRun", () => {
       makeRun("t1", "r1", { eventPad: 1000, msgPad: 1000 }),
     );
     const afterFirst = store.byteTotal;
+    // One run's events + one thread snapshot.
     expect(afterFirst).toBeGreaterThan(2000);
     store.appendRun(
       "t1",
       makeRun("t1", "r2", { eventPad: 1000, msgPad: 1000 }),
     );
-    // r1 evicted (cap 1); r2's messages retained, its events retained.
+    // r1 evicted (cap 1); r2's events retained, thread snapshot replaced (not
+    // added) so the total stays roughly one run's worth, not two.
     expect(store.peek("t1")!.historicRuns.map((r) => r.runId)).toEqual(["r2"]);
-    // Total should be roughly one run's worth, not two.
     expect(store.byteTotal).toBeLessThan(afterFirst + 500);
   });
 
