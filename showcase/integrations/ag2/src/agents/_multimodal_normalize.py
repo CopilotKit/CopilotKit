@@ -70,11 +70,9 @@ that actually sees image content parts.
 from __future__ import annotations
 
 import logging
-from typing import Any, AsyncIterator, Iterable
+from typing import Any, AsyncIterator
 
-from autogen import ConversableAgent
 from autogen.ag_ui import AGUIStream, RunAgentInput
-from autogen.ag_ui.adapter import AGStreamInput
 
 logger = logging.getLogger(__name__)
 
@@ -291,6 +289,7 @@ class NormalizingAGUIStream(AGUIStream):
         # normalise, then re-inject via a patched incoming object so the
         # rest of the dispatch machinery sees image_url parts instead of
         # AG-UI image/document/binary parts.
+        raw_msgs: list[dict[str, Any]] | None = None
         try:
             raw_msgs = [m.model_dump(exclude_none=True) for m in incoming.messages]
             normalised_msgs = normalize_messages_for_autogen(raw_msgs)
@@ -303,7 +302,7 @@ class NormalizingAGUIStream(AGUIStream):
             )
             normalised_msgs = None
 
-        if normalised_msgs is not None and normalised_msgs is not raw_msgs:
+        if normalised_msgs is not None and raw_msgs is not None and normalised_msgs is not raw_msgs:
             # Re-validate the normalised dicts back into Pydantic Message
             # objects so the rest of AGUIStream.dispatch / run_stream can
             # work with a properly typed RunAgentInput.
