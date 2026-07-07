@@ -1,9 +1,25 @@
 "use client";
 
-// @region[voice-page]
 import { CopilotKit } from "@copilotkit/react-core/v2";
 import { VoiceChat } from "./voice-chat";
 
+// @region[voice-page]
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+function VoicePage() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit-voice"
+      agent="voice-demo"
+      useSingleEndpoint={false}
+    >
+      <CopilotChat />
+    </CopilotKit>
+  );
+}
+// @endregion[voice-page]
+
+// Actual demo page uses VoiceChat wrapper with sample button for testing
 export default function VoiceDemoPage() {
   return (
     <CopilotKit
@@ -23,4 +39,3 @@ export default function VoiceDemoPage() {
     </CopilotKit>
   );
 }
-// @endregion[voice-page]
