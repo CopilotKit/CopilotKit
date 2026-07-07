@@ -3,6 +3,7 @@ import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
+  CopilotKitIntelligence,
 } from "@copilotkit/runtime";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 
@@ -17,8 +18,21 @@ if (!process.env.AGENT_URL && !process.env.LANGGRAPH_DEPLOYMENT_URL) {
   );
 }
 
+const intelligenceApiUrl = process.env.INTELLIGENCE_API_URL;
+const intelligenceWsUrl = process.env.INTELLIGENCE_GATEWAY_WS_URL;
+const intelligenceApiKey = process.env.INTELLIGENCE_API_KEY;
+
+const intelligenceEnabled = Boolean(
+  intelligenceApiUrl && intelligenceWsUrl && intelligenceApiKey,
+);
+
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
+console.log(
+  `[copilotkit/route] Intelligence mode: ${
+    intelligenceEnabled ? "enabled" : "disabled (OSS)"
+  }`,
+);
 
 function createAgent(graphId: string = "sample_agent") {
   return new LangGraphAgent({
@@ -49,12 +63,22 @@ for (const name of agentNames) {
 
 export const POST = async (req: NextRequest) => {
   try {
+    // Conditionally instantiate CopilotKitIntelligence when all env vars are present
+    const intelligence = intelligenceEnabled
+      ? new CopilotKitIntelligence({
+          apiUrl: intelligenceApiUrl!,
+          wsUrl: intelligenceWsUrl!,
+          apiKey: intelligenceApiKey!,
+        })
+      : undefined;
+
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
       endpoint: "/api/copilotkit",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
         // @ts-expect-error -- type wrapping mismatch, fixed in source pending release
         agents,
+        ...(intelligence ? { intelligence } : {}),
       }),
     });
 
