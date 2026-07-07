@@ -65,6 +65,21 @@ import "@copilotkit/react-core/v2/styles.css";
   `fetchMoreThreads`). Omit to load the full list at once with no control.
 </PropertyReference>
 
+<PropertyReference name="collapsible" type="boolean" default="true">
+  Whether the drawer offers a collapse toggle on desktop. When `true` (default)
+  a sidebar-glyph toggle appears in the header; collapsing replaces the panel
+  with a small floating cluster (a sidebar toggle + a "New Conversation" button)
+  and the drawer sets `--cpk-drawer-reserved-width: 0px` on the document root so
+  a host grid that reads that variable reclaims the column. Set `false` to omit
+  the toggle and keep the drawer always expanded.
+</PropertyReference>
+
+<PropertyReference name="onCollapseChange" type="(collapsed: boolean) => void">
+  Called when the user toggles the desktop collapse state, with the new
+  `collapsed` value. Optional — the drawer manages its own collapse state; use
+  this only to mirror it into your own layout.
+</PropertyReference>
+
 <PropertyReference name="data-testid" type="string" default="copilot-threads-drawer">
   `data-testid` set on the underlying custom element, for tests and for
   targeting from a host page.
@@ -153,12 +168,12 @@ function App() {
 ## Behavior
 
 - **Self-connecting**: without `onThreadSelect`/`onNewThread`, the drawer drives the chat configuration — select connects + replays; the "New Conversation" row shows the welcome screen.
-- **Persistent sidebar**: on larger screens the drawer is a persistent, always-visible sidebar — there is no collapse control. The header region is empty by default and renders only when you project content into `slot="header"`; "New Conversation" is its own row below it.
+- **Collapsible sidebar**: on larger screens the drawer is an expanded sidebar by default with a collapse toggle (sidebar glyph) in the header. Collapsing replaces the panel with a small floating cluster — a sidebar toggle to expand plus a "New Conversation" button — and (via `--cpk-drawer-reserved-width`) lets a host grid reclaim the column. Set `collapsible={false}` to omit the toggle. "New Conversation" is its own row below the header; project `slot="header"` content to add your own chrome beside the toggle.
 - **Row actions**: per-row **Archive/Delete** live behind a per-row kebab (⋮) menu (`row-menu`), not always-visible inline buttons; delete still asks for confirmation.
 - **Optimistic mutations**: archive/unarchive/rename/delete are optimistic in the core thread store; delete rolls back if the server rejects.
 - **Deleting the active thread** resets to a fresh thread; **archiving** the active thread keeps you viewing it. Archived threads render italic/muted inline in the "All" view.
 - **Filter**: an Active/All filter lives behind a **funnel** icon popover under the "Recent Conversations" heading; a small indicator dot appears on the funnel when a non-default filter is applied. Toggling the filter refetches server-side.
-- **Mobile**: below 768px the drawer is an off-canvas modal opened via its own floating launcher and dismissed by tapping the backdrop or pressing Escape; the launcher icon (`launcher-icon` slot) and position (`--cpk-drawer-launcher-*`) are customizable.
+- **Mobile**: below 768px the drawer is an off-canvas modal. Closed, it shows the same floating cluster (a launcher to open it + a "New Conversation" button); open, it slides in and is dismissed by tapping the backdrop or pressing Escape. The launcher icon (`launcher-icon` slot) and position (`--cpk-drawer-launcher-*`) are customizable.
 - **License**: threads require CopilotKit Intelligence; without a license key the drawer shows a locked view in place of the list.
 
 ## Related
