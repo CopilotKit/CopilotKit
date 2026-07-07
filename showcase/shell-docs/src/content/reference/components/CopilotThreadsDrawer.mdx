@@ -141,13 +141,27 @@ Tokens override the bundled defaults and fall back to the host theme's vars
 
 ### Basic usage
 
+Wrap the drawer and `CopilotChat` in a shared `CopilotChatConfigurationProvider`
+so they operate on the **same** chat configuration — that shared config is how
+selecting a thread (or "New Conversation") drives the chat. Without a shared
+provider the drawer sits beside the chat's own scoped configuration and can't
+switch its thread.
+
 ```tsx
+import {
+  CopilotThreadsDrawer,
+  CopilotChat,
+  CopilotChatConfigurationProvider,
+} from "@copilotkit/react-core/v2";
+
 function App() {
   return (
-    <div style={{ display: "flex", height: "100%" }}>
-      <CopilotThreadsDrawer />
-      <CopilotChat />
-    </div>
+    <CopilotChatConfigurationProvider>
+      <div style={{ display: "flex", height: "100%" }}>
+        <CopilotThreadsDrawer />
+        <CopilotChat />
+      </div>
+    </CopilotChatConfigurationProvider>
   );
 }
 ```
