@@ -8,7 +8,7 @@ In the fixed-schema approach, you design the UI schema once (in a JSON file or u
 
 1. Schema is loaded from a JSON file at startup
 2. Agent tool receives data from the LLM (e.g., flight search results)
-3. Tool returns `a2ui.render()` with surfaceUpdate + dataModelUpdate + beginRendering
+3. Tool returns `a2ui.render()` with createSurface + updateComponents + updateDataModel operations
 4. The A2UI middleware intercepts the tool result and renders the surface
 
 ## Implementation
@@ -48,12 +48,10 @@ class Flight(TypedDict):
     statusIcon: str
     price: str
 
+CATALOG_ID = "copilotkit://flight-fixed-catalog"
 SURFACE_ID = "flight-search-results"
 FLIGHT_SCHEMA = a2ui.load_schema(
     Path(__file__).parent / "a2ui" / "schemas" / "flight_schema.json"
-)
-BOOKED_SCHEMA = a2ui.load_schema(
-    Path(__file__).parent / "a2ui" / "schemas" / "booked_schema.json"
 )
 
 @tool
@@ -61,34 +59,17 @@ def search_flights(flights: list[Flight]) -> str:
     """Search for flights and display results as rich cards."""
     return a2ui.render(
         operations=[
-            a2ui.surface_update(SURFACE_ID, FLIGHT_SCHEMA),
-            a2ui.data_model_update(SURFACE_ID, {"flights": flights}),
-            a2ui.begin_rendering(SURFACE_ID, "root"),
+            a2ui.create_surface(SURFACE_ID, catalog_id=CATALOG_ID),
+            a2ui.update_components(SURFACE_ID, FLIGHT_SCHEMA),
+            a2ui.update_data_model(SURFACE_ID, {"flights": flights}),
         ],
-        action_handlers={
-            # Exact match: fires when a button with action.name="book_flight" is clicked
-            "book_flight": [
-                a2ui.surface_update(SURFACE_ID, BOOKED_SCHEMA),
-                a2ui.data_model_update(SURFACE_ID, {
-                    "title": "Booking Confirmed",
-                    "detail": "Your flight has been booked.",
-                }),
-                a2ui.begin_rendering(SURFACE_ID, "root"),
-            ],
-            # Catch-all: fires for any button action without a specific match
-            "*": [
-                a2ui.data_model_update(SURFACE_ID, {
-                    "status": "Action received",
-                }),
-            ],
-        },
     )
 ```
 
 Key points:
 - The `Flight` TypedDict is essential — LangChain serializes it into the tool's JSON schema, which is what the LLM sees when deciding what data to generate.
-- `action_handlers` declares optimistic UI responses. When a user clicks a button, the matching handler replaces the surface instantly — no round-trip to the server.
-- `"book_flight"` matches the `action.name` from the schema button. `"*"` is a catch-all for any unmatched action.
+- The three operations — `create_surface`, `update_components`, and `update_data_model` — define the surface, its schema, and its data in sequence.
+- The `catalog_id` connects the backend schema to the frontend component implementations registered in your catalog.
 </Step>
 
 <Step>
@@ -121,31 +102,10 @@ const runtime = new CopilotRuntime({
 </Step>
 </Steps>
 
-## Action handler details
-
-The `action_handlers` in the example above work together with buttons defined in the A2UI schema. Here's how the schema side looks:
-
-### Button with action context
-
-In your `flight_schema.json`, buttons declare an `action` with data-bound context fields. When clicked, the values are resolved from that specific card's data:
-
-```json
-{
-  "Button": {
-    "label": "Book",
-    "action": {
-      "name": "book_flight",
-      "context": [
-        { "key": "flightNumber", "value": { "path": "/flightNumber" } },
-        { "key": "price", "value": { "path": "/price" } }
-      ]
-    }
-  }
-}
-```
-
-When this button is clicked on a card showing flight AA100 at $350, the `"book_flight"` handler fires with `context: { flightNumber: "AA100", price: "$350" }`, and the surface instantly replaces with the booking confirmation.
+<Callout type="warn">
+**Action handlers in Python SDK:** The `action_handlers` parameter for `a2ui.render()` is not yet available in the Python SDK. For now, button actions must be handled via frontend hooks using `useA2UIActionHandler`. Backend-declared action handlers (optimistic UI updates without server round-trip) are planned for a future release.
+</Callout>
 
 <Callout type="info">
-For custom frontend handling with `useA2UIActionHandler`, custom orchestrators, and the full resolution chain, see the [Advanced — Action Handlers](./advanced#action-handlers) guide.
+For frontend action handling with `useA2UIActionHandler` and the full resolution chain, see the [Advanced — Action Handlers](./advanced#action-handlers) guide.
 </Callout>
