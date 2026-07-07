@@ -424,7 +424,6 @@ SET_STEPS_TOOL_SCHEMA: dict[str, Any] = {
     },
 }
 
-# @region[state-streaming-middleware]
 WRITE_DOCUMENT_TOOL_SCHEMA: dict[str, Any] = {
     "name": "write_document",
     "description": (
@@ -503,8 +502,6 @@ def _partial_json_string_property(source: str, key: str) -> str | None:
 
     return _decode_partial_json_string("".join(raw_chars))
 
-
-# @endregion[state-streaming-middleware]
 
 HEADLESS_COMPLETE_TOOLS = [
     HEADLESS_GET_WEATHER_TOOL_SCHEMA,
@@ -702,10 +699,8 @@ def _execute_tool(
     conversation_messages: list[dict[str, Any]] | None = None,
 ) -> tuple[str, AgentState | None]:
     """Execute backend tools and return (result_text, new_state_or_None)."""
-    # @region[weather-tool-backend]
     if name == "get_weather":
         return json.dumps(get_weather_impl(tool_input["location"])), None
-    # @endregion[weather-tool-backend]
 
     if name == "query_data":
         return json.dumps(query_data_impl(tool_input["query"])), None
@@ -1253,6 +1248,7 @@ async def run_agent(
                                     delta=delta.partial_json,
                                 )
                             )
+                            # @region[state-streaming-delta-emission]
                             if current_tool_name == "write_document":
                                 streamed_document = _partial_json_string_property(
                                     current_tool_args,
@@ -1270,6 +1266,7 @@ async def run_agent(
                                             snapshot=state.model_dump(),
                                         )
                                     )
+                            # @endregion[state-streaming-delta-emission]
 
                     elif etype in (
                         "RawContentBlockStopEvent",

@@ -9,14 +9,13 @@
  *
  * Architecture:
  * - Dedicated runtime route at `/api/copilotkit-multimodal` (see
- *   ../api/copilotkit-multimodal/route.ts). The vision-capable model
- *   (gpt-4o) is scoped to just this demo, so other cells keep their
- *   cheaper text-only models.
- * - Dedicated LangGraph agent at `src/agents/multimodal_agent.py` under
- *   the slug `multimodal-demo`. The agent is registered in langgraph.json
- *   under the graph id `multimodal`. Images are forwarded to the model
- *   natively; PDFs are flattened to text on the Python side via `pypdf`
- *   for provider-agnostic behavior.
+ *   ../api/copilotkit-multimodal/route.ts). The vision-capable Claude model
+ *   is scoped to just this demo, so other cells keep their cheaper text-only
+ *   path.
+ * - Dedicated Claude backend endpoint at `/multimodal` under the slug
+ *   `multimodal-demo`. Both images and PDFs are forwarded to Claude
+ *   natively as image/document blocks — no text flattening on the Claude
+ *   side (unlike the Python backend, which uses pypdf).
  * - Sample files live at `/demo-files/sample.png` and `/demo-files/sample.pdf`
  *   (see `public/demo-files/`). The sample-buttons component fetches them
  *   client-side, wraps the blob in a File, and drives the same hidden
