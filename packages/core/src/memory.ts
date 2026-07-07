@@ -1210,9 +1210,9 @@ function createMemoryStore(environment: MemoryEnvironment): MemoryStore {
             console.warn(
               "[memory] realtime unavailable: no shared metadata socket; memories will not receive live updates",
             );
-            return of(memoryDomainEvents.realtimeUnavailable({ sessionId })).pipe(
-              takeUntil(shutdown$),
-            );
+            return of(
+              memoryDomainEvents.realtimeUnavailable({ sessionId }),
+            ).pipe(takeUntil(shutdown$));
           }
 
           const channel$ = ɵphoenixChannel$({
