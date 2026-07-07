@@ -7,7 +7,7 @@ description: "Drop-in threads drawer that lists, switches, and manages conversat
 ## What is this?
 
 `<CopilotThreadsDrawer>` gives your app a ready-made conversation sidebar — users can
-list, switch, start, rename, archive, and delete their threads, and you wire up
+list, switch, start, archive, and delete their threads, and you wire up
 **no active-thread state** to make it work. Drop it next to your chat and it
 connects automatically.
 
@@ -24,14 +24,17 @@ Under the hood it's a thin React wrapper around the self-contained
 and your chat configuration.
 
 Prefer to build your own thread UI? The same data and actions are available
-headlessly through the `useThreads` hook — see [Threads](/threads).
+headlessly through the `useThreads` hook — see [Threads](/threads). Thread
+**rename** is one of those headless actions: the prebuilt drawer's row menu
+covers archive/unarchive and delete, so wire up rename with `useThreads` and
+your own UI if you need it.
 
 ## When should I use this?
 
 Use the drawer when you want:
 
 - A persistent thread switcher beside your chat (chat-history sidebar)
-- Thread switching, new conversations, rename, archive, and delete with zero wiring
+- Thread switching, new conversations, archive, and delete with zero wiring
 - A self-contained, themeable UI that follows your app's light/dark theme
 - A mobile-ready off-canvas drawer with its own launcher
 
@@ -78,7 +81,11 @@ export default function Page() {
 }
 ```
 
-That's the whole integration — no `threadId` state, no `onSelect` plumbing.
+That's the whole integration. A hand-rolled sidebar would have you track the
+active `threadId` in your own state and pass selection/new-thread handlers
+between the list and the chat; here the drawer and the
+`CopilotChatConfigurationProvider` share that state, so there is none of that
+wiring to write.
 
 ## Configuring the drawer
 

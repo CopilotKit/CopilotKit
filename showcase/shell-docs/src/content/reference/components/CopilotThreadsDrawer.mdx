@@ -5,7 +5,7 @@ description: "Prebuilt threads drawer that lists, switches, and manages conversa
 
 ## Overview
 
-`CopilotThreadsDrawer` is a prebuilt thread switcher. Dropped in next to [`CopilotChat`](/reference/components/CopilotChat), it lists the user's conversations and lets them switch, start, rename, archive, and delete threads — with **no active-thread state to wire up**. It is a thin React wrapper around the framework-agnostic `<copilotkit-threads-drawer>` shadow-DOM web component, fed by the [`useThreads`](/reference/hooks/useThreads) hook and the surrounding chat configuration.
+`CopilotThreadsDrawer` is a prebuilt thread switcher. Dropped in next to [`CopilotChat`](/reference/components/CopilotChat), it lists the user's conversations and lets them switch, start, archive, and delete threads — with **no active-thread state to wire up**. (Thread rename is available headlessly via [`useThreads`](/reference/hooks/useThreads), not through the drawer's row menu.) It is a thin React wrapper around the framework-agnostic `<copilotkit-threads-drawer>` shadow-DOM web component, fed by the [`useThreads`](/reference/hooks/useThreads) hook and the surrounding chat configuration.
 
 When `onThreadSelect` / `onNewThread` are omitted, the drawer drives the surrounding chat configuration directly: selecting a row connects the chat to that thread (and replays its history); the "New Conversation" row resets the chat to a fresh welcome screen. Pass the callbacks only to take control of the active thread yourself.
 
@@ -112,17 +112,23 @@ Project light-DOM children with a `slot` attribute to replace a region:
 
 ### CSS parts
 
-Style structural elements with `::part()`: `root`, `header`,
-`new-thread-button`, `section-heading`, `filters`,
-`filter-toggle`, `filter-indicator`, `filter-active`, `filter-all`,
-`list`, `row-name`, `row-menu`, `row-menu-popover`,
-`row-archive`, `row-unarchive`, `row-delete`, `loading`,
-`empty`, `error`, `retry-button`, `footer`, `memories`, `launcher`,
-`confirm-dialog`, `confirm-delete`, `confirm-cancel`.
+Style structural elements with `::part()`:
+
+- **Structure** — `root`, `header`, `list`, `footer`
+- **Rows** — `row`, `row-active` (the selected row), `row-name`, `row-menu` (kebab), `row-menu-popover`, `row-archive`, `row-unarchive`, `row-delete`
+- **New conversation & sections** — `new-thread-button`, `section-heading`
+- **Filter** — `filter-toggle`, `filter-indicator`, `filter-active`, `filter-all`, `filters`
+- **Collapse, mobile & launcher** — `collapse-toggle` (desktop), `close-toggle` (mobile), `backdrop` (mobile scrim), `launcher`, `launcher-cluster`, `launcher-new-thread`
+- **Pagination** — `load-more`, `fetching-more`, `fetch-more-error`, `fetch-more-retry`
+- **States & upsell** — `loading`, `empty`, `error`, `retry-button`, `licensed`, `licensed-cta`, `memories`
+- **Delete confirm dialog** — `confirm-dialog`, `confirm-cancel`, `confirm-delete`
 
 The Active/All filter lives behind the `filter-toggle` funnel, whose
 `filter-indicator` dot shows when a non-default filter is applied. Per-row
 Archive/Delete actions live in the `row-menu` kebab and its `row-menu-popover`.
+When the list is collapsed on desktop (or closed on mobile), the floating
+`launcher-cluster` holds the `launcher` toggle and the `launcher-new-thread`
+button.
 
 ### CSS variable tokens
 
