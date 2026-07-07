@@ -739,6 +739,63 @@ describe("thread store", () => {
     expect(ɵselectHasNextPage(store.getState())).toBe(false);
   });
 
+  it("clears a lingering fetchMoreError when a full list refetch succeeds", async () => {
+    const { ɵselectFetchMoreError } = await import("../threads");
+    const fetchMock = vi
+      .fn()
+      // initial list
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+          nextCursor: "cursor-abc",
+        }),
+      })
+      // metadata credentials
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ joinToken: "jt-1" }),
+      })
+      // fetch-more: FAILS
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        json: async () => ({}),
+      })
+      // full refetch: SUCCEEDS
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ threads: sampleThreads, joinCode: "jc-1" }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const store = ɵcreateThreadStore(createEnvironment(fetchMock));
+    stores.push(store);
+    store.start();
+    store.setContext({
+      runtimeUrl: "https://runtime.example.com",
+      headers: {},
+      wsUrl: "ws://localhost:4000/client",
+      agentId: "agent-1",
+      limit: 2,
+    });
+
+    await flushEffects();
+
+    // Fetch-more fails → error lands on the dedicated channel.
+    store.fetchNextPage();
+    await flushEffects();
+    expect(ɵselectFetchMoreError(store.getState())).toBeInstanceOf(Error);
+
+    // A full refetch (e.g. filter-change / retry) replaces the list; the stale
+    // fetch-more banner must NOT survive onto the fresh list.
+    store.refetchThreads();
+    await flushEffects();
+    expect(ɵselectFetchMoreError(store.getState())).toBeNull();
+    expect(ɵselectThreads(store.getState())).toHaveLength(2);
+  });
+
   it("removes thread on archived WS event when includeArchived is false", async () => {
     const fetchMock = vi
       .fn()

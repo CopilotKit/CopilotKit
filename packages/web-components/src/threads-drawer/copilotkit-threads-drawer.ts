@@ -296,9 +296,15 @@ export class CopilotKitThreadsDrawer extends LitElement {
         event.stopPropagation();
         return;
       }
-      // The confirm-delete <dialog> is opened with showModal(), so the browser
-      // handles Escape natively (via the dialog's `cancel` event) — no branch
-      // needed here.
+      // The confirm-delete <dialog> is opened with showModal(): the browser
+      // dismisses it natively via the dialog's `cancel` event. But that Escape
+      // keydown still bubbles from the modal to this host handler, so we must
+      // stop here — otherwise it falls through to the mobile branch below and
+      // closes the whole drawer along with the confirmation.
+      if (this._confirmingDeleteId !== null) {
+        event.stopPropagation();
+        return;
+      }
       if (this._viewportIsMobile && this.open) {
         this._setOpen(false);
         event.stopPropagation();
@@ -1035,7 +1041,12 @@ export class CopilotKitThreadsDrawer extends LitElement {
       `;
     }
     return html`
-      <ul class="list" part="list" role="listbox" aria-label=${this.label}>
+      <ul
+        class=${this._openMenuId !== null ? "list menu-open" : "list"}
+        part="list"
+        role="listbox"
+        aria-label=${this.label}
+      >
         ${repeat(
           visible,
           (thread) => thread.id,

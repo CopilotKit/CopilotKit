@@ -306,6 +306,85 @@ test("native dialog cancel (Escape) resets the confirm state without deleting", 
   teardown();
 });
 
+test("opening a row menu marks the list so other rows are shielded from hover", async () => {
+  const { q, qa, element, teardown } = await setup({
+    threads: [
+      makeThread({ id: "a", name: "Thread A" }),
+      makeThread({ id: "b", name: "Thread B" }),
+    ],
+  });
+  const list = q('[part="list"]') as HTMLElement;
+  expect(list.classList.contains("menu-open")).toBe(false);
+
+  // Open the first row's kebab menu. The list gains `menu-open`, which the
+  // stylesheet uses to freeze pointer events on every non-owner row so hover
+  // affordances no longer bleed around/behind the open popover.
+  (qa('[part="row-menu"]')[0] as HTMLElement).click();
+  await flush(element);
+  expect(list.classList.contains("menu-open")).toBe(true);
+  const rows = qa(".row");
+  expect(rows[0].classList.contains("menu-open")).toBe(true);
+  expect(rows[1].classList.contains("menu-open")).toBe(false);
+
+  // Selecting a row (or otherwise closing the menu) clears the shield.
+  (rows[1] as HTMLElement).click();
+  await flush(element);
+  expect(list.classList.contains("menu-open")).toBe(false);
+  teardown();
+});
+
+test("clicking the confirm dialog's backdrop dismisses it without deleting", async () => {
+  const { q, events, element, teardown } = await setup({
+    threads: [makeThread({ id: "del", name: "Delete me" })],
+  });
+
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+  (q('[part="row-delete"]') as HTMLElement).click();
+  await flush(element);
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog.open).toBe(true);
+
+  // A click whose target is the <dialog> itself lands on the ::backdrop (not
+  // the inner card) and must dismiss without emitting delete.
+  dialog.click();
+  await flush(element);
+
+  expect(dialog.open).toBe(false);
+  expect(events.some((e) => e.type === "delete")).toBe(false);
+  teardown();
+});
+
+test("Escape while confirming delete on mobile does NOT close the drawer", async () => {
+  const { q, element, teardown } = await setup({
+    mobile: true,
+    open: true,
+    threads: [makeThread({ id: "del", name: "Delete me" })],
+  });
+
+  (q('[part="row-menu"]') as HTMLElement).click();
+  await flush(element);
+  (q('[part="row-delete"]') as HTMLElement).click();
+  await flush(element);
+  const dialog = q(
+    '[data-testid="drawer-confirm-delete"]',
+  ) as HTMLDialogElement;
+  expect(dialog.open).toBe(true);
+
+  // The Escape keydown bubbles from the modal dialog to the host handler. It
+  // must be consumed by the confirm guard, NOT fall through to the mobile-close
+  // branch — otherwise dismissing the confirmation also closes the drawer.
+  element.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+  );
+  await flush(element);
+
+  expect(element.open).toBe(true);
+  teardown();
+});
+
 test("loading state renders while loading", async () => {
   const { element, q, teardown } = await setup({ threads: [] });
   element.loading = true;

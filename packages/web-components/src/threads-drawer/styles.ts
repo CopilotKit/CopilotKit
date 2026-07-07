@@ -407,6 +407,18 @@ export const drawerStyles = css`
     z-index: 3;
   }
 
+  /* While a kebab menu is open, the popover only covers part of the rows it
+     overlaps, so the rest of the list would still respond to hover — revealing
+     other rows' kebabs and (under a host \`::part(row):hover\` theme) painting a
+     hover background "through"/around the open menu. Freeze pointer events on
+     every OTHER row so the menu reads as a single focused surface. The owner
+     row (\`.menu-open\`) and its popover stay interactive, and a pointerdown that
+     lands on a frozen row still reaches the document handler that closes the
+     menu, so click-away dismissal is preserved. */
+  .list.menu-open .row:not(.menu-open) {
+    pointer-events: none;
+  }
+
   @keyframes cpk-drawer-row-in {
     to {
       opacity: 1;

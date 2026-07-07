@@ -574,6 +574,44 @@ test("thread-selected returns focus to the chat input (document-global fallback)
   }
 });
 
+test("thread-selected focuses the chat input scoped to the ancestor copilot-chat-view", () => {
+  const { el } = setupWithConfig();
+
+  // Wrap the drawer in a `copilot-chat-view` that owns its own input, and add a
+  // decoy input elsewhere in the document (earlier in document order, so the
+  // global fallback would pick IT). findChatInput must prefer the scoped one.
+  const decoy = document.createElement("textarea");
+  decoy.setAttribute("copilotChatTextarea", "");
+  document.body.appendChild(decoy);
+
+  const chatView = document.createElement("copilot-chat-view");
+  const scoped = document.createElement("textarea");
+  scoped.setAttribute("copilotChatTextarea", "");
+  const parent = el.parentElement as HTMLElement;
+  parent.insertBefore(chatView, el);
+  chatView.appendChild(scoped);
+  chatView.appendChild(el); // drawer now lives inside the chat-view
+
+  const scopedSpy = vi.spyOn(scoped, "focus");
+  const decoySpy = vi.spyOn(decoy, "focus");
+  try {
+    el.dispatchEvent(
+      new CustomEvent("thread-selected", {
+        detail: { threadId: "t-scoped" },
+        bubbles: true,
+      }),
+    );
+
+    expect(scopedSpy).toHaveBeenCalled();
+    expect(decoySpy).not.toHaveBeenCalled();
+  } finally {
+    scopedSpy.mockRestore();
+    decoySpy.mockRestore();
+    decoy.remove();
+    chatView.remove();
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Per-row custom content projection (copilotThreadsDrawerRow directive)
 // ---------------------------------------------------------------------------

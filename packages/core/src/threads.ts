@@ -347,6 +347,10 @@ const threadReducer = createReducer(
       ...state,
       isLoading: true,
       error: null,
+      // A full-list refetch supersedes any prior fetch-more failure: the whole
+      // list is being reloaded, so the stale inline "couldn't load more" banner
+      // must not survive onto the fresh list.
+      fetchMoreError: null,
     };
   }),
   on(
@@ -362,6 +366,9 @@ const threadReducer = createReducer(
         threads: sortThreadsByRecency(threads),
         isLoading: false,
         error: null,
+        // The fresh full list also clears any lingering fetch-more error, in
+        // case the list arrived without passing through `listRequested`.
+        fetchMoreError: null,
         metadataJoinCode: joinCode,
         metadataCredentialsRequested: joinCodeChanged
           ? false
