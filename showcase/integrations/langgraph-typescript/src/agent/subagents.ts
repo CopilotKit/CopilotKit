@@ -19,16 +19,18 @@
  * package.
  */
 
+import { makeChatOpenAI } from "./openai-headers";
+
 // @region[supervisor-delegation-tools]
 // @region[subagent-setup]
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { RunnableConfig } from "@langchain/core/runnables";
+import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import type { ToolRunnableConfig } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
+import type { AIMessage } from "@langchain/core/messages";
 import {
-  AIMessage,
   HumanMessage,
   SystemMessage,
   ToolMessage,
@@ -41,7 +43,6 @@ import {
   StateGraph,
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
-import { makeChatOpenAI } from "./openai-headers";
 import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
@@ -106,7 +107,7 @@ async function invokeSubAgent(
   task: string,
   config?: RunnableConfig,
 ): Promise<string> {
-  const subModel = makeChatOpenAI(config, {
+  const subModel = new ChatOpenAI({
     temperature: 0,
     model: "gpt-4o-mini",
   });
@@ -131,6 +132,37 @@ async function invokeSubAgent(
   return String(content ?? "");
 }
 // @endregion[subagent-setup]
+
+// Showcase-specific wrapper: uses makeChatOpenAI for aimock header forwarding.
+// The invokeSubAgent above (inside the region) uses the public ChatOpenAI API for docs.
+async function invokeSubAgentWithHeaders(
+  agent: SubAgentName,
+  task: string,
+  config?: RunnableConfig,
+): Promise<string> {
+  const subModel = makeChatOpenAI(config, {
+    temperature: 0,
+    model: "gpt-4o-mini",
+  });
+  const result = await subModel.invoke([
+    new SystemMessage({ content: SUB_AGENT_PROMPTS[agent] }),
+    new HumanMessage({ content: task }),
+  ]);
+  const content = (result as AIMessage).content;
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((part) =>
+        typeof part === "string"
+          ? part
+          : "text" in (part as Record<string, unknown>)
+            ? String((part as { text?: unknown }).text ?? "")
+            : "",
+      )
+      .join("");
+  }
+  return String(content ?? "");
+}
 
 // ---------------------------------------------------------------------------
 // 3. Helper — emit a single delegation entry plus a ToolMessage.
@@ -183,7 +215,7 @@ async function runSubAgentSafely(
   config?: RunnableConfig,
 ): Promise<{ ok: true; result: string } | { ok: false; result: string }> {
   try {
-    const result = await invokeSubAgent(agent, task, config);
+    const result = await invokeSubAgentWithHeaders(agent, task, config);
     return { ok: true, result };
   } catch (err) {
     const errName = err instanceof Error ? err.constructor.name : typeof err;
