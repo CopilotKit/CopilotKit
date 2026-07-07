@@ -46,7 +46,7 @@ export function ExampleLayout({ chatContent, appContent }: ExampleLayoutProps) {
             which is fixed at the top-left corner below 1024px. max-lg:pt-2.5 +
             pb-0 vertically centers the logo with that launcher and the
             top-right Chat/App toggle (both pinned at top-2). */}
-        <div className="shrink-0 pt-6 pl-6 pb-2 max-lg:pl-24 max-lg:pt-2.5 max-lg:pb-0 flex gap-1.5 items-center align-center">
+        <div className="shrink-0 pt-6 pl-[max(1.5rem,calc(6rem_-_var(--cpk-drawer-reserved-width,320px)))] pb-2 max-lg:pl-24 max-lg:pt-2.5 max-lg:pb-0 flex gap-1.5 items-center align-center">
           <span className="font-extrabold text-2xl pb-1.5 max-lg:pb-0">
             CopilotKit
           </span>
