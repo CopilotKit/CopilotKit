@@ -6,7 +6,17 @@
     drawer mounts after hydration. On mobile the drawer is an off-canvas overlay
     (out of flow), so the column collapses and the chat fills the width.
   */
-  grid-template-columns: 320px minmax(0, 1fr);
+  grid-template-columns: var(--cpk-drawer-reserved-width, 320px) minmax(0, 1fr);
+  /* Drawer sets --cpk-drawer-reserved-width to 0 on desktop-collapse, so the
+     reserved column collapses and the chat reclaims the space. */
+  transition: grid-template-columns 0.2s ease;
+  /*
+    Bound the single grid row to the viewport (minmax(0,1fr) lets it shrink
+    below content) so a long thread list scrolls INTERNALLY in the drawer with
+    the header pinned, instead of the drawer growing past the viewport and the
+    page scrolling the header away.
+  */
+  grid-template-rows: minmax(0, 1fr);
   min-height: 100vh;
   min-height: 100svh;
   height: 100dvh;
