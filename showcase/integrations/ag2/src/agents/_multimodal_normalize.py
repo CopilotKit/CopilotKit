@@ -302,7 +302,11 @@ class NormalizingAGUIStream(AGUIStream):
             )
             normalised_msgs = None
 
-        if normalised_msgs is not None and raw_msgs is not None and normalised_msgs is not raw_msgs:
+        if (
+            normalised_msgs is not None
+            and raw_msgs is not None
+            and normalised_msgs is not raw_msgs
+        ):
             # Re-validate the normalised dicts back into Pydantic Message
             # objects so the rest of AGUIStream.dispatch / run_stream can
             # work with a properly typed RunAgentInput.
