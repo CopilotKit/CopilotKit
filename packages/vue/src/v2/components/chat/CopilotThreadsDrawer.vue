@@ -16,6 +16,12 @@ import type {
   RetryDetail,
   OpenChangeDetail,
 } from "@copilotkit/web-components/threads-drawer";
+// TODO(ENT-1051): import `CollapseChangeDetail` from
+// "@copilotkit/web-components/threads-drawer" once the parallel element PR that
+// adds the collapse feature (property `collapsible` + event `collapse-change`)
+// lands and is published; declared locally here because the built element types
+// in this worktree predate it.
+type CollapseChangeDetail = { collapsed: boolean };
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { useThreads } from "../../hooks/use-threads";
 import type { Thread } from "../../hooks/use-threads";
@@ -36,11 +42,31 @@ const props = withDefaults(
      * when omitted.
      */
     recentLabel?: string;
+    /**
+     * Whether the drawer offers a collapse toggle. Bound to the element's
+     * `collapsible` PROPERTY. When `false`, the drawer has no collapse toggle
+     * and is always expanded. Defaults to `true`.
+     *
+     * NOTE: this MUST carry an explicit `true` default below. Vue coerces an
+     * omitted `Boolean` prop to `false` (not `undefined`), so without the
+     * default the `!== undefined` guard would always fire and force the element
+     * to `collapsible=false` — silently disabling collapse. Defaulting to `true`
+     * restores the element's own default when the prop is omitted.
+     */
+    collapsible?: boolean;
     limit?: number;
     dataTestId?: string;
   }>(),
-  { dataTestId: "copilot-threads-drawer" },
+  { dataTestId: "copilot-threads-drawer", collapsible: true },
 );
+
+const emit = defineEmits<{
+  /**
+   * Emitted when the drawer's collapsed state changes (mirrors the element's
+   * `collapse-change` event), carrying the new collapsed state.
+   */
+  "collapse-change": [collapsed: boolean];
+}>();
 
 const config = useCopilotChatConfiguration();
 const license = useLicenseContext();
@@ -127,6 +153,15 @@ watchEffect(
     el.open = drawerOpen.value;
     if (props.label !== undefined) el.label = props.label;
     if (props.licenseUrl !== undefined) el.licenseUrl = props.licenseUrl;
+    // `collapsible` is a default-true boolean PROPERTY (like `licensed`); leave
+    // the element's own default in place when the prop is omitted.
+    if (props.collapsible !== undefined) {
+      // TODO(ENT-1051): drop the intersection cast once the published element
+      // type declares `collapsible` (see the local CollapseChangeDetail note).
+      (
+        el as CopilotKitThreadsDrawerElement & { collapsible: boolean }
+      ).collapsible = props.collapsible;
+    }
   },
   { flush: "post" },
 );
@@ -222,6 +257,10 @@ function onDelete(event: Event) {
 function onFilterChange() {
   threadsApi.refetchThreads();
 }
+function onCollapseChange(event: Event) {
+  const { collapsed } = (event as CustomEvent<CollapseChangeDetail>).detail;
+  emit("collapse-change", collapsed);
+}
 function onRetry(event: Event) {
   const { scope } = (event as CustomEvent<RetryDetail>).detail;
   if (scope === "fetch-more") threadsApi.fetchMoreThreads();
@@ -271,6 +310,7 @@ defineSlots<{
     @unarchive="onUnarchive"
     @delete="onDelete"
     @filter-change="onFilterChange"
+    @collapse-change="onCollapseChange"
     @retry="onRetry"
     @load-more="onLoadMore"
     @open-change="onOpenChange"

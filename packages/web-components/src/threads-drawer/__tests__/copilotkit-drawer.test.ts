@@ -81,6 +81,7 @@ async function setup(options: SetupOptions = {}) {
     "new-thread",
     "filter-change",
     "open-change",
+    "collapse-change",
     "retry",
     "licensed",
     "load-more",
@@ -1168,19 +1169,125 @@ test("list is scrollable in a bounded container — CSS contract: :host has heig
 
 // --- ENT-1051 Task 1: header gating ---------------------------------------
 
-test("header stays hidden until slot=header content is projected", async () => {
+test("desktop header shows the collapse toggle by default (collapsible)", async () => {
   const { element } = await setup({ threads: [makeThread()] });
-  // With no built-in header controls (search + desktop collapse both removed)
-  // the header bar is hidden by default so no empty padded bar renders above
-  // the "New Conversation" row.
+  // Default desktop (collapsible=true) renders the header with the collapse
+  // toggle, so the header is visible even without projected slot content.
+  const header = element.shadowRoot!.querySelector('[part="header"]')!;
+  expect((header as HTMLElement).hidden).toBe(false);
+  expect(
+    element.shadowRoot!.querySelector('[part="collapse-toggle"]'),
+  ).not.toBeNull();
+});
+
+test("with collapsible=false the header stays hidden until slot=header content is projected", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  // With no collapse toggle (collapsible=false) and no projected header content,
+  // the empty header bar stays hidden so no padded bar renders above the
+  // "New Conversation" row.
+  element.collapsible = false;
+  await flush(element);
   const header = element.shadowRoot!.querySelector('[part="header"]')!;
   expect((header as HTMLElement).hidden).toBe(true);
+  expect(
+    element.shadowRoot!.querySelector('[part="collapse-toggle"]'),
+  ).toBeNull();
 
   const headerContent = document.createElement("div");
   headerContent.slot = "header";
   element.appendChild(headerContent);
   await flush(element);
   expect((header as HTMLElement).hidden).toBe(false);
+});
+
+// --- ENT-1051: desktop collapse + floating cluster ------------------------
+
+test("desktop collapse toggle collapses to the cluster and emits collapse-change", async () => {
+  const { element, events } = await setup({ threads: [makeThread()] });
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="collapse-toggle"]')!
+    .click();
+  await flush(element);
+  expect(element.collapsed).toBe(true);
+  expect(events).toContainEqual({
+    type: "collapse-change",
+    detail: { collapsed: true },
+  });
+  // Panel is replaced by the floating cluster (sidebar toggle + New Conversation).
+  const cluster = element.shadowRoot!.querySelector(
+    '[part="launcher-cluster"]',
+  );
+  expect(cluster).not.toBeNull();
+  expect(
+    element.shadowRoot!.querySelector('[part="launcher-new-thread"]'),
+  ).not.toBeNull();
+});
+
+test("collapsed cluster expand toggle restores the panel and emits collapse-change", async () => {
+  const { element, events } = await setup({ threads: [makeThread()] });
+  element.collapsed = true;
+  await flush(element);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="launcher"]')!
+    .click();
+  await flush(element);
+  expect(element.collapsed).toBe(false);
+  expect(events).toContainEqual({
+    type: "collapse-change",
+    detail: { collapsed: false },
+  });
+});
+
+test("collapsed cluster New Conversation button fires new-thread", async () => {
+  const { element, events } = await setup({ threads: [makeThread()] });
+  element.collapsed = true;
+  await flush(element);
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>(
+      '[part="launcher-new-thread"]',
+    )!
+    .click();
+  expect(events).toContainEqual({ type: "new-thread", detail: {} });
+});
+
+test("collapsible=false never renders the collapsed cluster on desktop", async () => {
+  const { element } = await setup({ threads: [makeThread()] });
+  element.collapsible = false;
+  element.collapsed = true;
+  await flush(element);
+  expect(
+    element.shadowRoot!.querySelector('[part="launcher-cluster"]'),
+  ).toBeNull();
+  // Panel stays rendered.
+  expect(
+    element.shadowRoot!.querySelector('[part="new-thread-button"]'),
+  ).not.toBeNull();
+});
+
+test("mobile closed state renders the cluster with a New Conversation button", async () => {
+  const { element, events } = await setup({
+    threads: [makeThread()],
+    mobile: true,
+  });
+  // Mobile closed → cluster launcher opens the off-canvas modal.
+  const cluster = element.shadowRoot!.querySelector(
+    '[part="launcher-cluster"]',
+  );
+  expect(cluster).not.toBeNull();
+  const newThread = element.shadowRoot!.querySelector<HTMLButtonElement>(
+    '[part="launcher-new-thread"]',
+  )!;
+  expect(newThread).not.toBeNull();
+  newThread.click();
+  expect(events).toContainEqual({ type: "new-thread", detail: {} });
+
+  element
+    .shadowRoot!.querySelector<HTMLButtonElement>('[part="launcher"]')!
+    .click();
+  expect(events).toContainEqual({
+    type: "open-change",
+    detail: { open: true },
+  });
 });
 
 // --- ENT-1051 Task 2: New Conversation row --------------------------------

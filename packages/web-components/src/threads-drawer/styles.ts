@@ -123,6 +123,13 @@ export const drawerStyles = css`
     transform: translateX(0);
   }
 
+  /* Desktop collapsed: the panel is replaced by the floating cluster, so remove
+     it from the layout entirely. The host reclaims the reserved column via the
+     --cpk-drawer-reserved-width:0px override the element sets on collapse. */
+  .root.collapsed {
+    display: none;
+  }
+
   .backdrop {
     position: fixed;
     inset: 0;
@@ -134,29 +141,50 @@ export const drawerStyles = css`
     cursor: pointer;
   }
 
-  /* Mobile-only floating affordance to OPEN the off-canvas drawer. Rendered by
-     the element itself so phones always have a way in with no host wiring. */
-  .launcher {
+  /* Floating launcher cluster (Figma "closed" mockup): a rounded surface card
+     holding the sidebar toggle + a "New Conversation" (+) icon button. Rendered
+     by the element itself in the mobile-closed AND desktop-collapsed states so
+     there is always a way to reopen/expand — and to start a new conversation —
+     with no host wiring. */
+  .launcher-cluster {
     position: fixed;
     z-index: 998;
-    /* Position is themeable so a host can line the launcher up with its own
+    /* Position is themeable so a host can line the cluster up with its own
        header controls (e.g. vertically centering it on a toggle group). */
     top: var(--cpk-drawer-launcher-top, 12px);
     left: var(--cpk-drawer-launcher-left, 12px);
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 999px;
+    gap: 2px;
+    padding: 6px;
+    border-radius: var(--_radius);
     border: 1px solid var(--_border);
     background: var(--_surface);
     color: var(--_surface-fg);
-    cursor: pointer;
     box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
   }
 
-  .launcher-icon {
+  .launcher {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 6px;
+    border: 0;
+    border-radius: calc(var(--_radius) - 3px);
+    background: transparent;
+    color: var(--_surface-fg);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .launcher:hover,
+  .launcher:focus-visible {
+    background: var(--_muted);
+  }
+
+  .launcher .icon {
     width: 18px;
     height: 18px;
     display: block;
@@ -610,10 +638,19 @@ export const drawerStyles = css`
      centers it in the viewport via margin:auto; we reset the UA chrome and
      apply the drawer's surface-card look. */
   .dialog {
-    margin: auto;
+    /* Top-layer (showModal) so it is never clipped, but centered over the DRAWER
+       PANEL rather than the viewport: JS sets --confirm-cx/cy from the visible
+       .root rect (falls back to viewport-center when unmeasured, e.g. jsdom).
+       Width is capped to the drawer band so it reads as "inside the drawer". */
+    margin: 0;
+    position: fixed;
+    left: var(--confirm-cx, 50%);
+    top: var(--confirm-cy, 50%);
+    transform: translate(-50%, -50%);
     border: 0;
     padding: 16px;
-    max-width: 80%;
+    width: max-content;
+    max-width: min(80vw, calc(var(--_width) - 24px));
     background: var(--_surface);
     color: var(--_surface-fg);
     border-radius: var(--_radius);

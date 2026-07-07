@@ -646,6 +646,33 @@ test("omits the recent-label attribute when the prop is not set", async () => {
   expect(getElement().hasAttribute("recent-label")).toBe(false);
 });
 
+test("sets the element's collapsible property to false when collapsible={false}", async () => {
+  await renderDrawer({ collapsible: false });
+
+  expect(
+    (getElement() as unknown as { collapsible: boolean }).collapsible,
+  ).toBe(false);
+});
+
+test("leaves the element's collapsible property untouched when the prop is omitted", async () => {
+  await renderDrawer();
+
+  // The wrapper never assigns the property, so the element keeps its own
+  // built-in default of `true` (mirrors the default-true `licensed` field).
+  expect(
+    (getElement() as unknown as { collapsible?: boolean }).collapsible,
+  ).toBe(true);
+});
+
+test("surfaces the element's collapse-change event to onCollapseChange with the collapsed state", async () => {
+  const onCollapseChange = vi.fn();
+  await renderDrawer({ onCollapseChange });
+
+  dispatch("collapse-change", { collapsed: true });
+
+  expect(onCollapseChange).toHaveBeenCalledWith(true);
+});
+
 test("renders nothing during SSR (no element, no hydration mismatch)", () => {
   // Server render runs no effects, so the client-only mount flag stays false
   // and the element is never emitted — matching the empty initial client

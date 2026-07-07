@@ -96,25 +96,10 @@ const iconDelete = html`
     <line x1="14" x2="14" y1="11" y2="17" />
   </svg>
 `;
-const iconLauncher = html`
-  <svg
-    class="launcher-icon"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="2"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    aria-hidden="true"
-  >
-    <rect width="18" height="18" x="3" y="3" rx="2" />
-    <path d="M9 3v18" />
-  </svg>
-`;
-// Sidebar/panel glyph (the Figma toggle icon). Used for BOTH the mobile launcher
-// (open) and the mobile header dismiss (close) so the toggle icon is the same in
-// either state — matching the Figma, where the closed-cluster "open" icon and the
-// expanded-header "close" icon are the same sidebar glyph.
+// Sidebar/panel glyph (the Figma toggle icon). Used for the desktop collapse
+// toggle, the desktop collapsed cluster's expand toggle, the mobile launcher
+// (open), and the mobile header dismiss (close) — the toggle glyph is identical
+// in every state, matching the Figma.
 const iconSidebar = html`
   <svg
     class="icon"
@@ -208,8 +193,10 @@ export class CopilotKitThreadsDrawer extends LitElement {
     label: { type: String },
     // Inbound: configurable "Recent Conversations" section heading text.
     recentLabel: { attribute: "recent-label", type: String },
+    collapsible: { type: Boolean },
     // Externally-controllable VIEW state.
     open: { type: Boolean, reflect: true },
+    collapsed: { type: Boolean, reflect: true },
     // Internal VIEW state.
     _filter: { state: true },
     _confirmingDeleteId: { state: true },
@@ -267,6 +254,20 @@ export class CopilotKitThreadsDrawer extends LitElement {
    * `.root.mobile.open` / `_isMobileModalOpen()` consume `open`.
    */
   open = false;
+  /**
+   * Externally-controllable: whether the drawer is collapsed to the floating
+   * cluster on desktop. Defaults to `false` (expanded). Reflected so hosts can
+   * theme on `[collapsed]`. Ignored on mobile, where open/closed governs the
+   * off-canvas modal instead.
+   */
+  collapsed = false;
+  /**
+   * Inbound: whether the user may collapse the drawer on desktop. Defaults to
+   * `true`. When `false` the header omits the collapse toggle and the drawer
+   * NEVER renders the collapsed cluster on desktop (it stays expanded even if
+   * `collapsed` is set) — mobile off-canvas open/close is independent.
+   */
+  collapsible = true;
 
   private _filter: DrawerFilter = "active";
   private _confirmingDeleteId: string | null = null;
@@ -374,6 +375,16 @@ export class CopilotKitThreadsDrawer extends LitElement {
     if (typeof document !== "undefined") {
       document.removeEventListener("pointerdown", this._onDocumentPointerDown);
     }
+    if (typeof window !== "undefined") {
+      window.removeEventListener("scroll", this._repositionConfirm, true);
+      window.removeEventListener("resize", this._repositionConfirm);
+    }
+    // Release the reserved-width override we may have set on the document root.
+    if (typeof document !== "undefined") {
+      document.documentElement.style.removeProperty(
+        "--cpk-drawer-reserved-width",
+      );
+    }
     this._releaseScrollLock();
   }
 
@@ -434,11 +445,22 @@ export class CopilotKitThreadsDrawer extends LitElement {
       }
     }
 
+    // Reclaim the reserved layout column when the desktop collapse state (or the
+    // viewport) changes.
+    if (
+      changed.has("collapsed") ||
+      changed.has("collapsible") ||
+      changed.has("_viewportIsMobile" as keyof CopilotKitThreadsDrawer)
+    ) {
+      this._syncReservedWidth();
+    }
+
     // Drive the native top-layer <dialog> from the confirm state. Opening with
     // showModal() places it in the browser top layer (above every stacking
-    // context), which is the whole point of ENT-1051. Feature-detect
-    // showModal/close because jsdom implements neither — fall back to toggling
-    // the `open` attribute so unit tests still observe the open/closed state.
+    // context) so it is never clipped; we then re-center it over the drawer
+    // panel via _positionConfirmDialog(). Feature-detect showModal/close because
+    // jsdom implements neither — fall back to toggling the `open` attribute so
+    // unit tests still observe the open/closed state.
     const dialog = this.renderRoot.querySelector("dialog");
     if (dialog) {
       const id = this._confirmingDeleteId;
@@ -446,10 +468,15 @@ export class CopilotKitThreadsDrawer extends LitElement {
         typeof dialog.showModal === "function"
           ? dialog.showModal()
           : dialog.setAttribute("open", "");
+        this._positionConfirmDialog();
+        window.addEventListener("scroll", this._repositionConfirm, true);
+        window.addEventListener("resize", this._repositionConfirm);
       } else if (id === null && dialog.open) {
         typeof dialog.close === "function"
           ? dialog.close()
           : dialog.removeAttribute("open");
+        window.removeEventListener("scroll", this._repositionConfirm, true);
+        window.removeEventListener("resize", this._repositionConfirm);
       }
     }
 
@@ -474,6 +501,67 @@ export class CopilotKitThreadsDrawer extends LitElement {
     this.open = next;
     this._emit("open-change", { open: next });
   }
+
+  private _setCollapsed(next: boolean): void {
+    if (this.collapsed === next) return;
+    this.collapsed = next;
+    this._emit("collapse-change", { collapsed: next });
+  }
+
+  /**
+   * Signal the drawer's reserved layout width to the host so a desktop collapse
+   * reclaims the column instead of leaving an empty gap. On desktop-collapse we
+   * set `--cpk-drawer-reserved-width: 0px` on the document root; a host whose
+   * grid reads `grid-template-columns: var(--cpk-drawer-reserved-width, 320px) …`
+   * inherits it and collapses the track (with its own transition). Expanded/mobile
+   * clears the override so the host's fallback width applies — which also means
+   * the default (expanded) render never sets it, so there is no hydration flicker.
+   *
+   * It is set on `document.documentElement` (not `parentElement`) BECAUSE the
+   * element is nested inside a framework wrapper host, so its parent is the
+   * wrapper — not the grid container, which is an ancestor a child's custom
+   * property can't reach. `:root` inheritance reaches the grid regardless of
+   * wrapper nesting. Best-effort + namespaced, single-drawer-per-document; a host
+   * with multiple drawers or a custom layout should instead react to the
+   * `collapse-change` event.
+   */
+  private _syncReservedWidth(): void {
+    if (typeof document === "undefined") return;
+    const desktopCollapsed =
+      this.collapsible && this.collapsed && !this._viewportIsMobile;
+    const root = document.documentElement;
+    if (desktopCollapsed) {
+      root.style.setProperty("--cpk-drawer-reserved-width", "0px");
+    } else {
+      root.style.removeProperty("--cpk-drawer-reserved-width");
+    }
+  }
+
+  /**
+   * Center the confirm-delete <dialog> over the drawer PANEL's on-screen box
+   * (not the viewport). The dialog stays a top-layer `showModal()` element so it
+   * is never clipped, but we drive its center via `--confirm-cx/cy` measured
+   * from the visible `.root` rect — so it reads as "inside the drawer" per the
+   * ENT-1051 design while keeping the top-layer robustness. Falls back to
+   * viewport-center (the CSS default) when the panel isn't measurable
+   * (SSR/jsdom).
+   */
+  private _positionConfirmDialog(): void {
+    const dialog = this.renderRoot.querySelector<HTMLDialogElement>("dialog");
+    const root = this.renderRoot.querySelector<HTMLElement>(".root");
+    if (!dialog) return;
+    const rect = root?.getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) {
+      dialog.style.removeProperty("--confirm-cx");
+      dialog.style.removeProperty("--confirm-cy");
+      return;
+    }
+    dialog.style.setProperty("--confirm-cx", `${rect.left + rect.width / 2}px`);
+    dialog.style.setProperty("--confirm-cy", `${rect.top + rect.height / 2}px`);
+  }
+
+  /** Bound reposition handler for scroll/resize while the confirm dialog is open. */
+  private _repositionConfirm = () => this._positionConfirmDialog();
 
   private _setFilter(next: DrawerFilter): void {
     if (this._filter === next) return;
@@ -601,29 +689,23 @@ export class CopilotKitThreadsDrawer extends LitElement {
   // --- Render ----------------------------------------------------------------
 
   override render() {
+    // Collapsed to the floating cluster on desktop (gated on `collapsible`), OR
+    // closed on mobile — both show the same launcher cluster and hide the panel
+    // body. Mobile keeps the body rendered (off-canvas, ready to slide in);
+    // desktop-collapsed omits it entirely so the reserved column can reclaim.
+    const desktopCollapsed =
+      this.collapsible && this.collapsed && !this._viewportIsMobile;
+    const mobileClosed = this._viewportIsMobile && !this.open;
+    const showCluster = desktopCollapsed || mobileClosed;
     const rootClasses = {
       root: true,
       mobile: this._viewportIsMobile,
       open: this.open,
+      collapsed: desktopCollapsed,
     };
 
     return html`
-      ${
-        // Mobile open-affordance: when the drawer is a closed off-canvas modal,
-        // render its own floating launcher so there is always a way to open it
-        // on phones WITHOUT the host wiring a header button. Desktop (persistent
-        // sidebar) and the open state never show it.
-        this._viewportIsMobile && !this.open
-          ? html`<button
-              class="launcher"
-              part="launcher"
-              aria-label="Open threads"
-              @click=${() => this._setOpen(true)}
-            >
-              <slot name="launcher-icon">${iconLauncher}</slot>
-            </button>`
-          : nothing
-      }
+      ${showCluster ? this._renderCluster() : nothing}
       ${
         this._isMobileModalOpen()
           ? html`<button
@@ -639,10 +721,57 @@ export class CopilotKitThreadsDrawer extends LitElement {
         part="root"
         role=${this._isMobileModalOpen() ? "dialog" : "region"}
         aria-modal=${this._isMobileModalOpen() ? "true" : nothing}
+        aria-hidden=${desktopCollapsed ? "true" : nothing}
         aria-label=${this.label}
       >
-        ${this._renderHeader()} ${this._renderBody()} ${this._renderMemories()}
-        ${this._renderFooter()} ${this._renderConfirmDialog()}
+        ${
+          desktopCollapsed
+            ? nothing
+            : html`${this._renderHeader()} ${this._renderBody()}
+              ${this._renderMemories()} ${this._renderFooter()}
+              ${this._renderConfirmDialog()}`
+        }
+      </div>
+    `;
+  }
+
+  /**
+   * Floating launcher cluster from the Figma "closed" mockup: a sidebar-glyph
+   * toggle + a "New Conversation" (+) icon button. Shown in TWO states — the
+   * mobile closed state (toggle opens the off-canvas modal) and the desktop
+   * collapsed state (toggle expands the sidebar). The primary toggle keeps
+   * `part="launcher"` for mobile-launcher theme compat; the new-thread button is
+   * suppressed in the locked/unlicensed view, mirroring the New Conversation row.
+   */
+  private _renderCluster() {
+    const onToggle = this._viewportIsMobile
+      ? () => this._setOpen(true)
+      : () => this._setCollapsed(false);
+    const toggleLabel = this._viewportIsMobile
+      ? "Open threads"
+      : "Expand threads";
+    return html`
+      <div class="launcher-cluster" part="launcher-cluster">
+        <button
+          class="launcher"
+          part="launcher"
+          aria-label=${toggleLabel}
+          @click=${onToggle}
+        >
+          <slot name="launcher-icon">${iconSidebar}</slot>
+        </button>
+        ${
+          this.licensed
+            ? html`<button
+                class="launcher launcher-new-thread"
+                part="launcher-new-thread"
+                aria-label="New Conversation"
+                @click=${() => this._emit("new-thread", {})}
+              >
+                ${iconPlusSquare}
+              </button>`
+            : nothing
+        }
       </div>
     `;
   }
@@ -661,12 +790,28 @@ export class CopilotKitThreadsDrawer extends LitElement {
     // The header therefore also renders when the mobile modal is open, even
     // with no projected `slot="header"` content.
     const showMobileClose = this._viewportIsMobile && this.open;
+    // Desktop collapse toggle: always available on desktop when collapsing is
+    // permitted, so the header renders on desktop even with no projected
+    // `slot="header"` content. Mobile uses the launcher/close affordances.
+    const showCollapseToggle = this.collapsible && !this._viewportIsMobile;
     return html`
       <div
         class="header"
         part="header"
-        ?hidden=${!this._hasHeader && !showMobileClose}
+        ?hidden=${!this._hasHeader && !showMobileClose && !showCollapseToggle}
       >
+        ${
+          showCollapseToggle
+            ? html`<button
+              class="icon-btn"
+              part="collapse-toggle"
+              aria-label="Collapse threads"
+              @click=${() => this._setCollapsed(true)}
+            >
+              ${iconSidebar}
+            </button>`
+            : nothing
+        }
         <slot
           name="header"
           @slotchange=${(e: Event) => {

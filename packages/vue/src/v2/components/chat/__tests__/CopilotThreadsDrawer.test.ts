@@ -733,6 +733,54 @@ describe("CopilotThreadsDrawer", () => {
     wrapper.unmount();
   });
 
+  it("sets the element's collapsible property to false when collapsible is false", async () => {
+    const wrapper = await mountDrawer({ collapsible: false });
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as unknown as {
+      collapsible: boolean;
+    };
+
+    expect(el.collapsible).toBe(false);
+
+    wrapper.unmount();
+  });
+
+  it("leaves the element collapsible (true) when the prop is omitted", async () => {
+    // Regression: Vue coerces an omitted Boolean prop to `false`, so without the
+    // wrapper's explicit `collapsible: true` withDefaults the element would be
+    // forced to `false` and the collapse toggle would silently vanish.
+    const wrapper = await mountDrawer({});
+
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG)
+      .element as unknown as {
+      collapsible: boolean;
+    };
+
+    expect(el.collapsible).toBe(true);
+
+    wrapper.unmount();
+  });
+
+  it("re-emits the element's collapse-change event as collapse-change(collapsed)", async () => {
+    const wrapper = await mountDrawer();
+
+    const drawer = wrapper.findComponent(CopilotThreadsDrawer);
+    const el = wrapper.find(COPILOTKIT_THREADS_DRAWER_TAG).element;
+    el.dispatchEvent(
+      new CustomEvent("collapse-change", {
+        detail: { collapsed: true },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+    await nextTick();
+
+    expect(drawer.emitted("collapse-change")?.[0]).toEqual([true]);
+
+    wrapper.unmount();
+  });
+
   it("leaves the element's default licenseUrl when the prop is omitted", async () => {
     const wrapper = await mountDrawer();
 

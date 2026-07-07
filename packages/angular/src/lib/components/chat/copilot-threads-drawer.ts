@@ -5,6 +5,8 @@ import {
   DestroyRef,
   Directive,
   ElementRef,
+  EventEmitter,
+  Output,
   TemplateRef,
   computed,
   contentChild,
@@ -30,6 +32,12 @@ import type {
   UnarchiveDetail,
   CopilotKitThreadsDrawer as CopilotKitThreadsDrawerElement,
 } from "@copilotkit/web-components/threads-drawer";
+// TODO(ENT-1051): import `CollapseChangeDetail` from
+// "@copilotkit/web-components/threads-drawer" once the parallel element PR that
+// adds the collapse feature (property `collapsible` + event `collapse-change`)
+// lands and is published; declared locally here because the built element types
+// in this worktree predate it.
+type CollapseChangeDetail = { collapsed: boolean };
 import { COPILOT_CHAT_CONFIGURATION } from "../../chat-configuration";
 import { CopilotKit } from "../../copilotkit";
 import { injectThreads } from "../../threads";
@@ -154,6 +162,7 @@ export class CopilotThreadsDrawerRow {
       (unarchive)="onUnarchive($event)"
       (delete)="onDelete($event)"
       (filter-change)="onFilterChange()"
+      (collapse-change)="onCollapseChange($event)"
       (retry)="onRetry($event)"
       (load-more)="onLoadMore()"
       (open-change)="onOpenChange($event)"
@@ -201,6 +210,21 @@ export class CopilotThreadsDrawer {
    * `"Recent Conversations"` when unset.
    */
   readonly recentLabel = input<string | undefined>();
+
+  /**
+   * Whether the drawer offers a collapse toggle. Pushed onto the element's
+   * `collapsible` PROPERTY (a default-true boolean, exactly like `licensed` — a
+   * string attribute cannot represent it since any non-empty value is truthy).
+   * When `false`, the drawer has no collapse toggle and is always expanded.
+   * Defaults to the element's own `true` when unset.
+   */
+  readonly collapsible = input<boolean | undefined>();
+
+  /**
+   * Emits the new collapsed state whenever the drawer's collapsed state changes
+   * (mirrors the element's `collapse-change` event).
+   */
+  @Output() readonly collapseChange = new EventEmitter<boolean>();
 
   /**
    * Optional host override for the thread-select action.
@@ -412,6 +436,16 @@ export class CopilotThreadsDrawer {
       if (this.label() !== undefined) el.label = this.label() as string;
       const licenseUrl = this.licenseUrl();
       if (licenseUrl !== undefined) el.licenseUrl = licenseUrl;
+      // `collapsible` is a default-true boolean PROPERTY (like `licensed`);
+      // leave the element's own default in place when the input is unset.
+      const collapsible = this.collapsible();
+      if (collapsible !== undefined) {
+        // TODO(ENT-1051): drop the intersection cast once the published element
+        // type declares `collapsible` (see the local CollapseChangeDetail note).
+        (
+          el as CopilotKitThreadsDrawerElement & { collapsible: boolean }
+        ).collapsible = collapsible;
+      }
     });
   }
 
@@ -546,6 +580,18 @@ export class CopilotThreadsDrawer {
    */
   protected onFilterChange(): void {
     this.threads.refetchThreads();
+  }
+
+  /**
+   * Handles the `collapse-change` event from the drawer element — re-emits the
+   * new collapsed state through the component's `collapseChange` output so hosts
+   * can observe (or persist) the drawer's collapsed state.
+   *
+   * @param event - The raw DOM event; cast to `CustomEvent<CollapseChangeDetail>` to extract `collapsed`.
+   */
+  protected onCollapseChange(event: Event): void {
+    const { collapsed } = (event as CustomEvent<CollapseChangeDetail>).detail;
+    this.collapseChange.emit(collapsed);
   }
 
   /**
