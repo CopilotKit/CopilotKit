@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "D6 fixtures for langroid / gen-ui-a2ui-fixed (a2ui-fixed-schema flight card pill)",
+    "created": "2026-07-07"
+  },
+  "fixtures": [
+    {
+      "_comment": "a2ui-fixed-schema pill — 'Find me a flight from SFO to JFK on United for $289.' The langroid backend calls OpenAI with the `display_flight` tool; the tool emits an a2ui_operations container (v0.9 shape) via TOOL_CALL_RESULT which the runtime A2UI middleware detects and forwards to the frontend renderer (Card renderer with data-testid='a2ui-fixed-card'). Anchored on hasToolResult:false so it fires on the initial routing turn before any tool result is observed.",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
+        "hasToolResult": false,
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Here is the SFO to JFK flight on United.",
+        "toolCalls": [
+          {
+            "id": "call_a2ui_fixed_langroid_sfo_jfk_001",
+            "name": "display_flight",
+            "arguments": "{\"origin\":\"SFO\",\"destination\":\"JFK\",\"airline\":\"United\",\"price\":\"$289\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "a2ui-fixed-schema pill — follow-up content after display_flight has returned its a2ui_operations container (flight card already rendered). Anchored on hasToolResult:true so it fires AFTER the tool result instead of re-routing, preventing a tool-invocation loop.",
+      "match": {
+        "userMessage": "Find me a flight from SFO to JFK on United for $289",
+        "hasToolResult": true,
+        "context": "langroid"
+      },
+      "response": {
+        "content": "Here's your flight: United Airlines, SFO → JFK, $289 — rendered in the card above. Tap \"Book flight\" to confirm."
+      }
+    }
+  ]
+}
