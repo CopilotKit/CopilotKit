@@ -8,6 +8,7 @@ set -euo pipefail
 PORT="${OPENCLAW_GATEWAY_PORT:-8000}"
 TOKEN="${OPENCLAW_GATEWAY_TOKEN:?OPENCLAW_GATEWAY_TOKEN must be set}"
 CLAWG_UI_DIR="$(cd "$(dirname "$0")" && pwd)/clawg-ui"
+SHOWCASE_TOOLS_DIR="$(cd "$(dirname "$0")" && pwd)/showcase-tools"
 
 echo "[setup] baseline config + workspace"
 # setup exits non-zero on its post-setup gateway health probe (no gateway yet); side effects already applied.
@@ -19,11 +20,19 @@ openclaw setup --non-interactive --accept-risk >/dev/null 2>&1 || true
 # summary (complex prompts), not on every turn like langgraph's summary:"detailed".
 # See PARITY_NOTES.md "Reasoning is intermittent". Not tunable from here without
 # editing OpenClaw core.
-echo "[setup] bake gateway token + port; reasoningDefault=stream (streams answer tokens AND surfaces reasoning as REASONING_* events; frontend @ag-ui/client >=0.0.52 parses them, CopilotKit renders the reasoning panel)"
+#
+# tools.alsoAllow: the showcase-tools plugin (installed below) provides the demos'
+# backend tools (query_data, get_weather, ...). OpenClaw's default `coding` tool
+# profile allowlist would filter plugin tools out of the model's toolset, so we
+# ADDITIVELY allow just these six names (alsoAllow merges into the effective
+# allowlist without replacing the profile — keeps the tool surface tight, no
+# blanket "full" profile). See gateway/showcase-tools/ and PARITY_NOTES.md.
+echo "[setup] bake gateway token + port; reasoningDefault=stream; allow showcase backend tools"
 openclaw config patch --stdin >/dev/null <<JSON
 {
   gateway: { auth: { mode: "token", token: "$TOKEN" }, port: $PORT, bind: "loopback" },
-  agents: { defaults: { reasoningDefault: "stream", skipBootstrap: true } }
+  agents: { defaults: { reasoningDefault: "stream", skipBootstrap: true } },
+  tools: { alsoAllow: ["query_data", "get_weather", "search_flights", "get_stock_price", "roll_d20", "get_revenue_chart"] }
 }
 JSON
 
@@ -109,5 +118,13 @@ if [ -d "$EXT" ] && [ ! -d "$EXT/node_modules" ] && [ -d "$CLAWG_UI_DIR/node_mod
   echo "[setup] copying plugin node_modules into $EXT"
   cp -R "$CLAWG_UI_DIR/node_modules" "$EXT/node_modules"
 fi
+
+# Backend demo tools (separate tool plugin; keeps clawg-ui a clean general
+# adapter). Its tools are declared in contracts.tools and allowed via
+# tools.alsoAllow above; `plugins install` auto-links the `openclaw` peer dep so
+# no node_modules copy is needed (it imports only openclaw/plugin-sdk).
+echo "[setup] install showcase-tools backend plugin (vendored)"
+openclaw plugins install "$SHOWCASE_TOOLS_DIR" --force >/dev/null 2>&1 \
+  || openclaw plugins install "$SHOWCASE_TOOLS_DIR" >/dev/null 2>&1
 
 echo "[setup] done"

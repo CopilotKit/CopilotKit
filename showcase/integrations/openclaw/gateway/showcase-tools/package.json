@@ -1,0 +1,21 @@
+{
+  "name": "@copilotkit-showcase/openclaw-showcase-tools",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Server-side demo tools (backend) for the CopilotKit showcase openclaw integration.",
+  "type": "module",
+  "main": "./index.js",
+  "files": [
+    "index.js",
+    "data.js",
+    "openclaw.plugin.json"
+  ],
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}
