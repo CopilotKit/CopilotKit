@@ -556,8 +556,19 @@ export class CopilotKitThreadsDrawer extends LitElement {
       dialog.style.removeProperty("--confirm-cy");
       return;
     }
-    dialog.style.setProperty("--confirm-cx", `${rect.left + rect.width / 2}px`);
-    dialog.style.setProperty("--confirm-cy", `${rect.top + rect.height / 2}px`);
+    // Center over the drawer's VISIBLE box (its rect intersected with the
+    // viewport), not the raw rect: a host grid that doesn't bound the drawer's
+    // row lets `.root` grow to content height, so a raw-rect center would land
+    // far down the page. Intersecting with the viewport keeps the modal centered
+    // in the on-screen drawer band regardless of how the host sizes the panel.
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const visLeft = Math.max(rect.left, 0);
+    const visRight = Math.min(rect.right, vw);
+    const visTop = Math.max(rect.top, 0);
+    const visBottom = Math.min(rect.bottom, vh);
+    dialog.style.setProperty("--confirm-cx", `${(visLeft + visRight) / 2}px`);
+    dialog.style.setProperty("--confirm-cy", `${(visTop + visBottom) / 2}px`);
   }
 
   /** Bound reposition handler for scroll/resize while the confirm dialog is open. */
