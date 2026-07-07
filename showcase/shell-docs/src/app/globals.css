@@ -42,6 +42,31 @@
   --shell-docs-radius-surface: 1.25rem;
   --shell-docs-radius-module: 1.375rem;
   --shell-docs-radius-icon: 9999px;
+  --shell-docs-picker-group-surface: color-mix(
+    in srgb,
+    var(--card) 82%,
+    var(--accent-dim) 18%
+  );
+  --shell-docs-picker-group-border: color-mix(
+    in srgb,
+    var(--brand-accent) 18%,
+    var(--border)
+  );
+  --shell-docs-picker-group-shadow:
+    0 12px 30px -26px rgba(1, 5, 7, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.62);
+  --shell-docs-picker-row-surface-hover: color-mix(
+    in srgb,
+    var(--card) 76%,
+    var(--accent-dim) 24%
+  );
+  --shell-docs-picker-row-border-hover: color-mix(
+    in srgb,
+    var(--brand-accent) 20%,
+    transparent
+  );
+  --shell-docs-picker-row-text: var(--foreground);
+  --shell-docs-picker-row-label: var(--muted-foreground);
   --shadow-control:
     0 1px 2px rgba(1, 5, 7, 0.05), 0 0 0 1px rgba(1, 5, 7, 0.02);
   --shadow-control-hover:
@@ -288,29 +313,45 @@
 }
 
 .shell-docs-picker-group {
-  border-radius: var(--shell-docs-radius-surface);
-  background: color-mix(in oklch, var(--accent-dim) 34%, transparent);
-  padding: 4px;
+  border-radius: calc(var(--shell-docs-framework-picker-radius) + 0.25rem);
+  background: var(--shell-docs-picker-group-surface);
+  box-shadow: var(--shell-docs-picker-group-shadow);
+  padding: 5px;
 }
 
 .shell-docs-picker-group-selected {
-  background: color-mix(in oklch, var(--accent-dim) 34%, transparent);
+  background: var(--shell-docs-picker-group-surface);
 }
 
 .shell-docs-picker-group-bordered {
-  border: 1px solid var(--nav-control-border);
+  border: 1px solid var(--shell-docs-picker-group-border);
 }
 
 .dark .shell-docs-picker-group {
-  background: color-mix(in oklch, var(--accent) 9%, transparent);
+  background: var(--shell-docs-picker-group-surface);
 }
 
 .dark .shell-docs-picker-group-selected {
-  background: color-mix(in oklch, var(--accent) 9%, transparent);
+  background: var(--shell-docs-picker-group-surface);
 }
 
 .shell-docs-picker-row {
-  border-radius: var(--shell-docs-radius-control);
+  border: 1px solid transparent;
+  border-radius: var(--shell-docs-framework-picker-radius);
+  color: var(--shell-docs-picker-row-text);
+}
+
+.shell-docs-picker-row:hover {
+  border-color: var(--shell-docs-picker-row-border-hover);
+  background: var(--shell-docs-picker-row-surface-hover);
+}
+
+.shell-docs-picker-row [class*="text-[var(--text-muted)]"] {
+  color: var(--shell-docs-picker-row-label) !important;
+}
+
+.shell-docs-picker-row [class*="text-[var(--text)]"] {
+  color: var(--shell-docs-picker-row-text) !important;
 }
 
 .shell-docs-picker-row-divided {
@@ -321,10 +362,14 @@
   content: "";
   position: absolute;
   top: -1px;
-  right: 8px;
-  left: 8px;
+  right: 0.75rem;
+  left: 0.75rem;
   height: 1px;
-  background: var(--nav-control-border);
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-picker-group-border) 78%,
+    transparent
+  );
   pointer-events: none;
 }
 
@@ -355,20 +400,28 @@
 
 #backends .shell-docs-radius-icon {
   border: 1px solid var(--shell-docs-accent-chip-border);
-  background: var(--shell-docs-accent-chip-surface) !important;
-  color: var(--shell-docs-icon-color) !important;
+  background: color-mix(
+    in srgb,
+    var(--brand-accent) 10%,
+    var(--card)
+  ) !important;
+  color: var(--brand-accent) !important;
 }
 
 #backends .group:hover .shell-docs-radius-icon {
   border-color: var(--shell-docs-accent-chip-border-hover);
-  background: var(--shell-docs-accent-chip-surface-hover) !important;
-  color: var(--foreground) !important;
+  background: color-mix(
+    in srgb,
+    var(--brand-accent) 14%,
+    var(--card)
+  ) !important;
+  color: var(--brand-accent) !important;
 }
 
 #backends
   .shell-docs-radius-icon
   :is(svg, [class*="text-[var(--brand-accent)]"]) {
-  color: var(--foreground) !important;
+  color: var(--brand-accent) !important;
 }
 
 .shell-docs-framework-picker {
@@ -1172,6 +1225,70 @@
     var(--shell-docs-framework-picker-text) 76%,
     transparent
   );
+}
+
+.shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"] {
+  min-height: 2.875rem;
+  border-color: transparent !important;
+  border-radius: calc(
+    var(--shell-docs-framework-picker-radius) - 0.25rem
+  ) !important;
+  background: transparent !important;
+  background-position: initial !important;
+  background-size: initial !important;
+  box-shadow: none !important;
+  color: var(--shell-docs-picker-row-text) !important;
+  padding: 0.5rem 0.625rem !important;
+}
+
+.shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"]:hover {
+  border-color: var(--shell-docs-picker-row-border-hover) !important;
+  background: var(--shell-docs-picker-row-surface-hover) !important;
+  color: var(--shell-docs-picker-row-text) !important;
+}
+
+.shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"]
+  > svg {
+  color: color-mix(in srgb, var(--shell-docs-picker-row-text) 64%, transparent);
+}
+
+.shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"]
+  .shell-docs-picker-icon-chip {
+  background: var(--shell-docs-accent-chip-surface) !important;
+  border-color: var(--shell-docs-accent-chip-border) !important;
+  color: var(--brand-accent) !important;
+  box-shadow: none !important;
+}
+
+.dark
+  .shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"]
+  .shell-docs-picker-icon-chip {
+  background: color-mix(
+    in srgb,
+    var(--background) 86%,
+    var(--foreground) 14%
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--foreground) 18%,
+    transparent
+  ) !important;
+  color: var(--brand-accent) !important;
 }
 
 .shell-docs-sidebar
@@ -2675,6 +2792,35 @@ figure.shiki > div:first-child[class*="border-b"] {
   --sidebar-accent-foreground: #f7f7fb;
   --sidebar-border: rgba(218, 225, 244, 0.2);
   --sidebar-ring: #9fd3e0;
+  --shell-docs-picker-group-surface: color-mix(
+    in srgb,
+    var(--card) 84%,
+    var(--brand-accent) 10%
+  );
+  --shell-docs-picker-group-border: color-mix(
+    in srgb,
+    var(--foreground) 14%,
+    var(--brand-accent) 16%
+  );
+  --shell-docs-picker-group-shadow:
+    0 18px 40px -32px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  --shell-docs-picker-row-surface-hover: color-mix(
+    in srgb,
+    var(--muted) 78%,
+    var(--brand-accent) 12%
+  );
+  --shell-docs-picker-row-border-hover: color-mix(
+    in srgb,
+    var(--brand-accent) 26%,
+    transparent
+  );
+  --shell-docs-picker-row-text: var(--foreground);
+  --shell-docs-picker-row-label: color-mix(
+    in srgb,
+    var(--muted-foreground) 82%,
+    transparent
+  );
   --bg: var(--background);
   --bg-surface: var(--card);
   --bg-elevated: var(--secondary);

@@ -235,7 +235,7 @@ export function FrameworkSelector({
     >
       {isSidebar ? (
         <>
-          <div className="shell-docs-picker-group shell-docs-picker-group-selected shell-docs-picker-group-bordered space-y-0.5">
+          <div className="shell-docs-picker-group shell-docs-picker-group-bordered shell-docs-sidebar-context-picker space-y-0.5">
             <button
               type="button"
               onClick={() =>
