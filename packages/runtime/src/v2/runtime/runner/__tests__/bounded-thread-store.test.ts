@@ -323,3 +323,63 @@ describe("ɵBoundedThreadStore — guidance log", () => {
     }
   });
 });
+
+describe("ɵBoundedThreadStore — limits clobber warning", () => {
+  it("does NOT warn on the FIRST explicit customization (defaults → custom)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const store = new ɵBoundedThreadStore(ɵINMEMORY_DEFAULTS);
+      store.setLimits(limits({ maxThreads: 5 })); // first explicit set → intended override
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("warns exactly ONCE when a SECOND explicit set differs, and stays warn-once on a third", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const store = new ɵBoundedThreadStore(ɵINMEMORY_DEFAULTS);
+      store.setLimits(limits({ maxThreads: 5 })); // first explicit → no warn
+      store.setLimits(limits({ maxThreads: 10 })); // second, differs → warn #1
+      expect(warn).toHaveBeenCalledTimes(1);
+      const msg = String(warn.mock.calls[0]?.[0]);
+      expect(msg).toContain("process-global");
+      expect(msg).toContain("last-constructed");
+      store.setLimits(limits({ maxThreads: 20 })); // third, differs → still warn-once
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("does NOT warn when the second explicit set is IDENTICAL", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const store = new ɵBoundedThreadStore(ɵINMEMORY_DEFAULTS);
+      store.setLimits(limits({ maxThreads: 5 })); // first explicit → no warn
+      store.setLimits(limits({ maxThreads: 5 })); // identical → no clobber warn
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("clobber warn does not perturb the eviction warn-once (separate latches)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const store = new ɵBoundedThreadStore(limits({ maxThreads: 1 }));
+      store.setLimits(limits({ maxThreads: 1 })); // first explicit → no warn
+      store.setLimits(limits({ maxThreads: 2 })); // second differs → clobber warn #1
+      store.getOrCreate("t1");
+      store.getOrCreate("t2");
+      store.getOrCreate("t3"); // eviction → eviction warn #1 (distinct latch)
+      const messages = warn.mock.calls.map((c) => String(c[0]));
+      expect(messages.some((m) => m.includes("process-global"))).toBe(true);
+      expect(messages.some((m) => m.includes("evicted"))).toBe(true);
+      expect(warn).toHaveBeenCalledTimes(2);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});

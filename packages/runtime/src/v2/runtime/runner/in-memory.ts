@@ -37,6 +37,13 @@ const EVICTION_GUIDANCE =
   "under memory limits. This runner is bounded and non-durable by design. For " +
   "durable or production threads, configure an Intelligence backend.";
 
+const LIMITS_CLOBBER_GUIDANCE =
+  "[CopilotKit] InMemoryAgentRunner was constructed with in-memory limits that " +
+  "differ from the already-configured process-global store; the last-constructed " +
+  "runner's limits apply to ALL in-memory threads (the store is shared per-process). " +
+  "Configure a single consistent set of limits, or use an Intelligence backend for " +
+  "isolated bounds.";
+
 /**
  * Best-effort approximate byte size of a value, via serialized length.
  * Never throws — returns 0 when the value cannot be serialized. This is an
@@ -135,6 +142,10 @@ export class ɵBoundedThreadStore {
   private readonly map = new Map<string, InMemoryEventStore>();
   private totalBytes = 0;
   private warned = false;
+  /** True once limits have been EXPLICITLY set (via setLimits), not just the constructor default. */
+  private limitsExplicitlySet = false;
+  /** Warn-once latch for the clobber warning, kept distinct from the eviction `warned` latch. */
+  private clobberWarned = false;
 
   constructor(private limits: Required<InMemoryLimits>) {}
 
@@ -142,7 +153,32 @@ export class ɵBoundedThreadStore {
     return this.totalBytes;
   }
 
+  /**
+   * Reconfigure the process-global store's bounds. Called by the
+   * {@link InMemoryAgentRunner} constructor when limits are passed. Because the
+   * store is a per-process singleton, this replaces the bounds for ALL in-memory
+   * threads. Emits {@link LIMITS_CLOBBER_GUIDANCE} at most ONCE per store when a
+   * SECOND (or later) explicit set arrives whose resolved values differ from the
+   * prior explicit set — i.e. a genuine clobber of an already-customized config.
+   * The first explicit customization (defaults → custom) is the intended
+   * override and never warns; identical re-sets never warn.
+   */
   setLimits(limits: Required<InMemoryLimits>): void {
+    if (
+      this.limitsExplicitlySet &&
+      !this.clobberWarned &&
+      (limits.maxThreads !== this.limits.maxThreads ||
+        limits.maxRunsPerThread !== this.limits.maxRunsPerThread ||
+        limits.maxBytes !== this.limits.maxBytes)
+    ) {
+      this.clobberWarned = true;
+      try {
+        console.warn(LIMITS_CLOBBER_GUIDANCE);
+      } catch {
+        // best-effort: logging must never break construction
+      }
+    }
+    this.limitsExplicitlySet = true;
     this.limits = limits;
   }
 
@@ -346,7 +382,10 @@ export class InMemoryAgentRunner extends AgentRunner {
    * @param limits Optional bounds for the process-global in-memory store. Omit
    * for safe defaults ({@link ɵINMEMORY_DEFAULTS}). When multiple runners are
    * constructed with differing limits, the last-constructed wins — in practice
-   * the OSS/SSE default construction passes nothing.
+   * the OSS/SSE default construction passes nothing. If a second (or later)
+   * runner is constructed with limits that DIFFER from an already-customized
+   * store, a one-time `console.warn` is emitted to signal that the shared store's
+   * bounds are being clobbered for ALL in-memory threads.
    */
   constructor(limits?: InMemoryLimits) {
     super();

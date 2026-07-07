@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   InMemoryAgentRunner,
   ɵINMEMORY_DEFAULTS,
@@ -540,6 +540,44 @@ describe("InMemoryAgentRunner", () => {
     // can poison a later/reordered sibling that assumes defaults.
     afterEach(() => {
       new InMemoryAgentRunner(ɵINMEMORY_DEFAULTS);
+    });
+
+    it("warns once when a second runner clobbers a customized shared-store config, but not on first customization or identical re-set", () => {
+      // The clobber warn-once latch lives on the process-global store and is
+      // never reset by clear(). Reset the private config latches here so this
+      // test is deterministic regardless of sibling ordering.
+      const store = ɵGLOBAL_STORE as unknown as {
+        limitsExplicitlySet: boolean;
+        clobberWarned: boolean;
+      };
+      store.limitsExplicitlySet = false;
+      store.clobberWarned = false;
+
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        // First runner with custom limits (over defaults) → intended override, NO clobber warn.
+        new InMemoryAgentRunner({ maxThreads: 5 });
+        expect(warn).not.toHaveBeenCalled();
+
+        // Second runner with IDENTICAL limits → NO warn.
+        new InMemoryAgentRunner({ maxThreads: 5 });
+        expect(warn).not.toHaveBeenCalled();
+
+        // Second (different) runner → clobber warn exactly ONCE.
+        new InMemoryAgentRunner({ maxThreads: 10 });
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(String(warn.mock.calls[0]?.[0])).toContain("last-constructed");
+
+        // Third differing runner → still warn-once.
+        new InMemoryAgentRunner({ maxThreads: 20 });
+        expect(warn).toHaveBeenCalledTimes(1);
+      } finally {
+        warn.mockRestore();
+        // Restore config latches so the afterEach default-restore and later
+        // suites are not perturbed by this test's manipulation.
+        store.limitsExplicitlySet = false;
+        store.clobberWarned = false;
+      }
     });
 
     it("stays bounded in thread count under a small maxThreads", async () => {
