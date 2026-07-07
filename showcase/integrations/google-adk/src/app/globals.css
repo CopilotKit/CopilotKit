@@ -68,11 +68,9 @@
   --copilot-kit-error-text: #dc2626;
   --copilot-kit-shadow-sm: 0 1px 2px rgba(1, 5, 7, 0.06);
   --copilot-kit-shadow-md:
-    0 1px 2px rgba(1, 5, 7, 0.06),
-    0 8px 24px rgba(1, 5, 7, 0.08);
+    0 1px 2px rgba(1, 5, 7, 0.06), 0 8px 24px rgba(1, 5, 7, 0.08);
   --copilot-kit-shadow-lg:
-    0 1px 2px rgba(1, 5, 7, 0.08),
-    0 18px 46px rgba(1, 5, 7, 0.1);
+    0 1px 2px rgba(1, 5, 7, 0.08), 0 18px 46px rgba(1, 5, 7, 0.1);
 }
 
 :root.dark,
@@ -110,11 +108,9 @@
   --copilot-kit-error-text: #fca5a5;
   --copilot-kit-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.36);
   --copilot-kit-shadow-md:
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 12px 30px rgba(0, 0, 0, 0.28);
+    0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 30px rgba(0, 0, 0, 0.28);
   --copilot-kit-shadow-lg:
-    0 1px 2px rgba(0, 0, 0, 0.42),
-    0 22px 60px rgba(0, 0, 0, 0.32);
+    0 1px 2px rgba(0, 0, 0, 0.42), 0 22px 60px rgba(0, 0, 0, 0.32);
 }
 
 * {
