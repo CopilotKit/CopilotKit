@@ -1277,9 +1277,30 @@
   > div:first-child
   .shell-docs-sidebar-context-picker
   button[aria-haspopup="listbox"]:hover {
-  border-color: var(--shell-docs-picker-row-border-hover) !important;
-  background: var(--shell-docs-picker-row-surface-hover) !important;
+  border-color: transparent !important;
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-picker-row-surface-hover) 58%,
+    transparent
+  ) !important;
   color: var(--shell-docs-picker-row-text) !important;
+  box-shadow: none !important;
+}
+
+.shell-docs-sidebar-context-picker .shell-docs-picker-row-divided::before {
+  display: none;
+}
+
+.dark
+  .shell-docs-sidebar
+  > div:first-child
+  .shell-docs-sidebar-context-picker
+  button[aria-haspopup="listbox"]:hover {
+  background: color-mix(
+    in srgb,
+    var(--shell-docs-picker-row-surface-hover) 34%,
+    transparent
+  ) !important;
 }
 
 .shell-docs-sidebar
