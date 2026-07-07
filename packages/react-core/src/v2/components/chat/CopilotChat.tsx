@@ -314,6 +314,13 @@ export function CopilotChat({
     [resolvedAgentId],
   );
 
+  // Track the last agent+thread combination we called connect() on. Without
+  // this, connect() fires on every render where the `agent` reference changes
+  // — including unrelated context re-renders during streaming. This mirrors
+  // the v1 pattern in useCopilotChatInternal (lastConnectedAgentRef).
+  const lastConnectedAgentRef = useRef<AbstractAgent | null>(null);
+  const lastConnectedThreadRef = useRef<string | null>(null);
+
   useEffect(() => {
     const recentlyLocalRunIds = recentlyLocalRunIdsRef.current;
     const recentlyWakeRunIds = recentlyWakeRunIdsRef.current;
@@ -352,6 +359,17 @@ export function CopilotChat({
       if (threadChanged && agent.messages.length > 0) {
         agent.setMessages([]);
       }
+      return;
+    }
+
+    // Skip redundant connect calls when the agent reference changes due to
+    // context re-renders but the logical identity (agentId + threadId) hasn't
+    // changed. This prevents mid-stream re-subscription cascades that cause
+    // TOOL_CALL_ARGS double-processing and JSON parse errors.
+    if (
+      agent === lastConnectedAgentRef.current &&
+      resolvedThreadId === lastConnectedThreadRef.current
+    ) {
       return;
     }
 
@@ -416,11 +434,16 @@ export function CopilotChat({
         }
       }
     };
+    lastConnectedAgentRef.current = agent;
+    lastConnectedThreadRef.current = resolvedThreadId;
     connect(agent);
     return () => {
       // Abort the HTTP request and detach the active run.
       // This is critical for React StrictMode which unmounts+remounts in dev,
       // preventing duplicate /connect requests from reaching the server.
+      // Reset the refs so remounts always trigger a fresh connect.
+      lastConnectedAgentRef.current = null;
+      lastConnectedThreadRef.current = null;
       detached = true;
       connectAbortController.abort();
       // The .catch() is required to prevent a false-positive "Uncaught (in promise)
