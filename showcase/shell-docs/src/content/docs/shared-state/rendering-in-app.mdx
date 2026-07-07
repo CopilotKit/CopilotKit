@@ -47,6 +47,93 @@ transition, or [streamed update](/shared-state/streaming), `useAgent` re-renders
 with the new values. The chat can be in a sidebar, a popup, or absent entirely;
 your canvas updates the same way.
 
+## Populating state from your backend
+
+The frontend example above reads `state.title` and `state.items`, but where do those
+values come from? Your backend agent populates them, typically through one of these patterns:
+
+### Pattern 1: Tools that write to state
+
+Define agent tools that accept data and write it to shared state. The exact syntax
+depends on your framework:
+
+<Tabs>
+  <TabItem label="Google ADK">
+    ```python
+    from google.adk.tools import ToolContext
+
+    def update_canvas(tool_context: ToolContext, title: str, items: list) -> dict:
+        """Update the canvas with a new title and items."""
+        tool_context.state["title"] = title
+        tool_context.state["items"] = items
+        return {"status": "success"}
+    ```
+  </TabItem>
+  <TabItem label="LangGraph">
+    ```python
+    from langchain_core.tools import tool
+    from langgraph.prebuilt import ToolNode
+
+    @tool
+    def update_canvas(title: str, items: list, state: dict):
+        """Update the canvas with a new title and items."""
+        state["title"] = title
+        state["items"] = items
+        return {"status": "success"}
+    ```
+  </TabItem>
+  <TabItem label="Other Frameworks">
+    The key pattern: give your agent a tool or action that can mutate the shared
+    state object. When the agent decides to call that tool (e.g., "update the dashboard"),
+    the state changes propagate to the frontend via `useAgent`.
+  </TabItem>
+</Tabs>
+
+### Pattern 2: Initialize state on the frontend
+
+For static or user-provided initial values, seed the state from the frontend
+before the agent runs:
+
+```tsx
+import { useEffect } from "react";
+import { useAgent } from "@copilotkit/react-core/v2";
+
+export function Canvas() {
+  const { agent } = useAgent();
+
+  // Seed initial state once
+  useEffect(() => {
+    if (!agent.state?.title) {
+      agent.setState({
+        title: "My Dashboard",
+        items: [
+          { id: "1", label: "Example item", done: false },
+        ],
+      });
+    }
+  }, []);
+
+  // ... render logic
+}
+```
+
+The agent can then read and modify this initial state through its tools.
+
+### Pattern 3: Backend initialization
+
+Some frameworks support initial state configuration on the backend. Check your
+framework's documentation for state initialization APIs.
+
+<Callout type="tip">
+  **Complete working examples:** See the framework-specific guides for end-to-end
+  implementations with backend and frontend code:
+  - [Google ADK: Reading agent state](/integrations/adk/shared-state/in-app-agent-read)
+  - [LangGraph: Shared state](/integrations/langgraph/shared-state)
+
+  These examples show the full pattern including agent definition, tool registration,
+  and frontend integration.
+</Callout>
+
 ## Put it anywhere in your layout
 
 The agent lives on the `<CopilotKit>` provider, so the chat surface and your
@@ -75,7 +162,6 @@ export default function Page() {
 `<Canvas>` and `<CopilotSidebar>` both call `useAgent()` for the same `agentId`,
 so they share one agent instance and one state object. There's nothing chat-specific
 about reading `agent.state`. The sidebar is not special.
-about reading `agent.state`. The sidebar is not special.
 </Callout>
 
 ## Writing back from the main view
@@ -101,6 +187,9 @@ surface rather than in the chat.
 
 ## Tips
 
+- **Initialize state early:** Either seed initial values from the frontend (Pattern 2 above)
+  or ensure your backend provides meaningful defaults. Rendering with `undefined` state
+  fields causes blank UIs.
 - **Target a specific agent** with `useAgent({ agentId: "research-agent" })` when
   you have more than one. The default is the agent named `"default"`.
 - **Throttle high-frequency updates** with `useAgent({ throttleMs })` if a
