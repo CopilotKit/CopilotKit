@@ -113,6 +113,32 @@ const buildSuggestRequest = (agentId: string, threadId: string) =>
     }),
   });
 
+/** Drains an SSE `Response` body into the list of parsed `data:` events. */
+const drainSseEvents = async (
+  response: Response,
+): Promise<Array<{ type?: string }>> => {
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer +=
+      typeof value === "string"
+        ? value
+        : decoder.decode(value, { stream: true });
+  }
+  buffer += decoder.decode();
+  const events: Array<{ type?: string }> = [];
+  for (const frame of buffer.split("\n\n")) {
+    const line = frame.trim();
+    if (line.startsWith("data:")) {
+      events.push(JSON.parse(line.slice("data:".length).trim()));
+    }
+  }
+  return events;
+};
+
 const listThreadIds = async (
   runtime: CopilotRuntime,
   agentId: string,
@@ -175,12 +201,17 @@ describe("stateless /suggest leaves no thread in the local listing", () => {
       agentId: "helper",
     });
     expect(suggestResponse.status).toBe(200);
+    expect(suggestResponse.headers.get("content-type")).toContain(
+      "text/event-stream",
+    );
 
-    const suggestBody = (await suggestResponse.json()) as {
-      messages: unknown[];
-    };
-    // (a) The suggest response carries the tool-call message the client parses.
-    expect(suggestBody.messages).toContainEqual(suggestMessage);
+    // (a) The suggest response streams the agent's events (the client
+    // reconstructs the tool-call message from them). Drain the SSE body and
+    // assert the provider's event reached the stream.
+    const suggestEvents = await drainSseEvents(suggestResponse);
+    expect(
+      suggestEvents.some((event) => event.type === "TEXT_MESSAGE_END"),
+    ).toBe(true);
 
     const threadIds = await listThreadIds(runtime, "helper");
     // The listing surface is live: the normal run's thread shows up.

@@ -24,12 +24,11 @@ import { handleSuggestAgent } from "../handle-suggest";
 import type { CopilotRuntimeLike } from "../../core/runtime";
 
 /**
- * A minimal `AgentSubscriber`-shaped callback bag the handler passes to
- * `runAgent`. Only `onMessagesChanged` is exercised, matching the real
- * subscriber surface without pulling in the full type.
+ * The subscriber bag the handler passes to `runAgent`. The suggest handler
+ * streams the agent's events, so it consumes `onEvent`.
  */
 interface RunAgentSubscriber {
-  onMessagesChanged?: (event: { messages: unknown[] }) => void;
+  onEvent?: (params: { event: Record<string, unknown> }) => void;
 }
 
 /**
@@ -63,27 +62,35 @@ interface FakeRuntime {
     getOrCreateThread: ReturnType<typeof vi.fn>;
     listThreads: ReturnType<typeof vi.fn>;
   };
+  debugEventBus?: unknown;
+  debug?: unknown;
+  debugLogger?: unknown;
 }
 
-const suggestMsg = {
-  id: "a1",
-  role: "assistant",
-  toolCalls: [
-    {
-      id: "t1",
-      function: {
-        name: "copilotkitSuggest",
-        arguments: JSON.stringify({
-          suggestions: [{ title: "Hi", message: "Say hi" }],
-        }),
-      },
-    },
-  ],
-};
+// A `copilotkitSuggest` tool call expressed as the AG-UI event sequence a real
+// provider streams. The handler forwards these verbatim onto the SSE response.
+const suggestEvents: Array<Record<string, unknown>> = [
+  { type: "RUN_STARTED", threadId: "s1", runId: "r1" },
+  {
+    type: "TOOL_CALL_START",
+    toolCallId: "tc1",
+    toolCallName: "copilotkitSuggest",
+    parentMessageId: "a1",
+  },
+  {
+    type: "TOOL_CALL_ARGS",
+    toolCallId: "tc1",
+    delta: JSON.stringify({
+      suggestions: [{ title: "Hi", message: "Say hi" }],
+    }),
+  },
+  { type: "TOOL_CALL_END", toolCallId: "tc1" },
+  { type: "RUN_FINISHED", threadId: "s1", runId: "r1" },
+];
 
 /**
- * Builds a fully typed fake agent whose `runAgent` echoes the running message
- * set (including the `copilotkitSuggest` tool call) via `onMessagesChanged`.
+ * Builds a fully typed fake agent whose `runAgent` streams the suggest event
+ * sequence via `onEvent`.
  */
 function createFakeAgent(): FakeAgent {
   return {
@@ -95,10 +102,10 @@ function createFakeAgent(): FakeAgent {
     use: vi.fn(),
     abortRun: vi.fn(),
     runAgent: vi.fn(async (_input: RunAgentInput, sub?: RunAgentSubscriber) => {
-      sub?.onMessagesChanged?.({
-        messages: [{ id: "m0", role: "user", content: "hi" }, suggestMsg],
-      });
-      return { newMessages: [suggestMsg] };
+      for (const event of suggestEvents) {
+        sub?.onEvent?.({ event });
+      }
+      return { newMessages: [] };
     }),
   };
 }
@@ -118,22 +125,48 @@ function stubParsedInput() {
 
 /**
  * Bridges a typed fake runtime to the `CopilotRuntimeLike` the handler's
- * signature requires. The fake only carries the members the tests assert on
- * (typed `vi.fn()` runner spies); the single test-double cast is isolated here
- * rather than sprinkled at each call site, and no `any` is introduced.
+ * signature requires.
  */
 function asRuntime(runtime: FakeRuntime): CopilotRuntimeLike {
   return runtime as unknown as CopilotRuntimeLike;
 }
 
+/** Drains an SSE `Response` body into the list of parsed `data:` events. */
+async function readSseEvents(
+  res: Response,
+): Promise<Array<Record<string, unknown>>> {
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    // The runtime's SSE encoder writes string frames; the byte path is handled
+    // for completeness (real HTTP transports emit `Uint8Array`).
+    buffer +=
+      typeof value === "string"
+        ? value
+        : decoder.decode(value, { stream: true });
+  }
+  buffer += decoder.decode();
+  const events: Array<Record<string, unknown>> = [];
+  for (const frame of buffer.split("\n\n")) {
+    const line = frame.trim();
+    if (line.startsWith("data:")) {
+      events.push(JSON.parse(line.slice("data:".length).trim()));
+    }
+  }
+  return events;
+}
+
 /**
- * `handleSuggestAgent` must run the provider agent directly and return the
- * resulting messages. Crucially it must never touch `runtime.runner`, whose
+ * `handleSuggestAgent` must run the provider agent directly and stream its
+ * events as SSE. Crucially it must never touch `runtime.runner`, whose
  * `InMemoryAgentRunner.run()` writes to a module-level store keyed by threadId
  * — leaking a throwaway suggest thread into the local thread endpoints.
  */
 describe("handleSuggestAgent", () => {
-  it("runs the agent directly and returns its messages as JSON, never touching the runner", async () => {
+  it("runs the agent directly and streams its events as SSE, never touching the runner", async () => {
     const fakeAgent = createFakeAgent();
     cloneAgentForRequest.mockResolvedValue(fakeAgent);
     stubParsedInput();
@@ -154,10 +187,18 @@ describe("handleSuggestAgent", () => {
       agentId: "default",
     });
 
-    const body = await res.json();
-
     expect(res.status).toBe(200);
-    expect(body.messages).toContainEqual(suggestMsg);
+    expect(res.headers.get("content-type")).toContain("text/event-stream");
+
+    const events = await readSseEvents(res);
+    // The provider's tool-call events reach the client verbatim.
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "TOOL_CALL_START",
+        toolCallName: "copilotkitSuggest",
+      }),
+    );
+    expect(events.some((e) => e.type === "RUN_FINISHED")).toBe(true);
     expect(fakeAgent.runAgent).toHaveBeenCalledTimes(1);
     expect(runtime.runner.run).not.toHaveBeenCalled();
   });
@@ -169,7 +210,7 @@ describe("handleSuggestAgent", () => {
 
     const runtime: FakeRuntime = { runner: { run: vi.fn() } };
 
-    await handleSuggestAgent({
+    const res = await handleSuggestAgent({
       runtime: asRuntime(runtime),
       request: new Request("http://x/agent/default/suggest", {
         method: "POST",
@@ -183,6 +224,8 @@ describe("handleSuggestAgent", () => {
       }),
       agentId: "default",
     });
+    // Drain so the run completes before assertions.
+    await readSseEvents(res);
 
     // The forced `copilotkitSuggest` tool choice makes middleware dead weight,
     // and MCPApps setup can incur a `listTools` network round-trip — so the
@@ -201,8 +244,8 @@ describe("handleSuggestAgent", () => {
     const controller = new AbortController();
     const fakeAgent = createFakeAgent();
 
-    // Hold the run open until the signal aborts, so the abort listener fires
-    // while runAgent is still in flight (the real cancellation scenario).
+    // Hold the run open until the signal aborts, so the abort fires while
+    // runAgent is still in flight (the real cancellation scenario).
     let resolveRun: (result: { newMessages: unknown[] }) => void = () => {};
     fakeAgent.runAgent.mockImplementation(
       () =>
@@ -221,34 +264,30 @@ describe("handleSuggestAgent", () => {
       body: JSON.stringify({ threadId: "s1", messages: [] }),
       signal: controller.signal,
     });
-    const signalSpy = vi.spyOn(request.signal, "addEventListener");
 
-    const pending = handleSuggestAgent({
+    const res = await handleSuggestAgent({
       runtime: asRuntime(runtime),
       request,
       agentId: "default",
     });
 
-    // Flush the handler's `await cloneAgentForRequest` + `await parseRunRequest`
-    // microtasks so it reaches the abort-listener registration before we assert.
+    // The SSE response subscribes to the run immediately (no body read needed);
+    // that subscription wires the teardown that aborts the run on signal abort.
+    // Flush microtasks so the subscription is established before we abort.
     await new Promise((resolve) => setImmediate(resolve));
-
-    expect(signalSpy).toHaveBeenCalledWith(
-      "abort",
-      expect.any(Function),
-      expect.objectContaining({ once: true }),
-    );
 
     controller.abort();
 
-    expect(fakeAgent.abortRun).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => {
+      expect(fakeAgent.abortRun).toHaveBeenCalled();
+    });
 
-    // Let the (now-aborted) run settle so the handler can respond.
-    resolveRun({ newMessages: [suggestMsg] });
-    await pending;
+    // Let the (now-aborted) run settle, then release the response body.
+    resolveRun({ newMessages: [] });
+    await res.body?.cancel().catch(() => {});
   });
 
-  it("returns 502 and logs the failure server-side when the agent run throws, still without touching the runner", async () => {
+  it("logs the failure server-side when the agent run throws, still without touching the runner", async () => {
     const fakeAgent = createFakeAgent();
     const runError = new Error("provider exploded");
     fakeAgent.runAgent.mockRejectedValue(runError);
@@ -266,9 +305,8 @@ describe("handleSuggestAgent", () => {
 
     const runtime: FakeRuntime = { runner: { run: vi.fn() } };
 
-    // The handler logs via `logger` from `@copilotkit/shared`, which is
-    // `console`. Spy on `console.error` and swallow output so the failure
-    // trace is asserted without polluting test output.
+    // The stream's error handler logs via `console.error`. Spy on it and
+    // swallow output so the failure trace is asserted without noise.
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const res = await handleSuggestAgent({
@@ -280,14 +318,20 @@ describe("handleSuggestAgent", () => {
       agentId: "failing",
     });
 
-    expect(res.status).toBe(502);
-    expect(runtime.runner.run).not.toHaveBeenCalled();
+    // Headers are committed before the run, so the response is a 200 SSE that
+    // ends early once the run errors.
+    expect(res.status).toBe(200);
+    await readSseEvents(res);
 
-    // Operator trace: the error and the agentId must be logged server-side.
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ err: runError, agentId: "failing" }),
-      expect.stringContaining("Suggestion run failed"),
-    );
+    expect(runtime.runner.run).not.toHaveBeenCalled();
+    // Operator trace: the failure is logged server-side.
+    expect(
+      errorSpy.mock.calls.some((call) =>
+        call.some(
+          (arg) => arg === runError || String(arg).includes("exploded"),
+        ),
+      ),
+    ).toBe(true);
 
     errorSpy.mockRestore();
   });
@@ -322,12 +366,10 @@ describe("handleSuggestAgent", () => {
     stubParsedInput();
 
     // Intelligence-mode runtime shaped like the ones the thread/run handler
-    // tests construct: `mode: "intelligence"` plus an `intelligence` platform
-    // handle. The suggest handler must remain mode-agnostic — it runs the
-    // provider agent directly and never consults `intelligence` or the runner
-    // (whose `run`/`connect` would acquire a lock / hit the gateway and leak a
-    // thread). Spying on both proves the direct-run path is taken regardless
-    // of mode.
+    // tests construct. The suggest handler must remain mode-agnostic — it runs
+    // the provider agent directly and never consults `intelligence` or the
+    // runner (whose `run`/`connect` would acquire a lock / hit the gateway and
+    // leak a thread).
     const runtime: FakeRuntime = {
       mode: "intelligence",
       intelligence: { getOrCreateThread: vi.fn(), listThreads: vi.fn() },
@@ -348,80 +390,12 @@ describe("handleSuggestAgent", () => {
       agentId: "default",
     });
 
-    const body = await res.json();
-
     expect(res.status).toBe(200);
-    expect(body.messages).toContainEqual(suggestMsg);
+    const events = await readSseEvents(res);
+    expect(events.some((e) => e.type === "RUN_FINISHED")).toBe(true);
     expect(fakeAgent.runAgent).toHaveBeenCalledTimes(1);
     expect(runtime.runner.run).not.toHaveBeenCalled();
     expect(runtime.runner.connect).not.toHaveBeenCalled();
     expect(runtime.intelligence?.getOrCreateThread).not.toHaveBeenCalled();
-  });
-
-  it("preserves the client instruction marker before the copilotkitSuggest tool call in the returned transcript", async () => {
-    // The fragile client/server seam: the client sends an instruction message
-    // (id === threadId === suggestionId) as the LAST input message, then reads
-    // suggestions from the response's `messages` AFTER that marker. A realistic
-    // full-transcript agent echoes the input messages plus the new tool call,
-    // so the marker must survive the round trip AND stay before the tool call.
-    const markerMessage = {
-      id: "sugg-marker",
-      role: "user",
-      content: "Generate suggestions for the conversation above.",
-    };
-    const priorUserMessage = { id: "m0", role: "user", content: "hi" };
-
-    const fakeAgent = createFakeAgent();
-    fakeAgent.runAgent.mockImplementation(
-      async (input: RunAgentInput, sub?: RunAgentSubscriber) => {
-        // Realistic transcript: the full input messages (including the trailing
-        // marker) plus the new assistant tool-call message.
-        sub?.onMessagesChanged?.({
-          messages: [...input.messages, suggestMsg],
-        });
-        return { newMessages: [suggestMsg] };
-      },
-    );
-
-    cloneAgentForRequest.mockResolvedValue(fakeAgent);
-    parseRunRequest.mockResolvedValue({
-      threadId: "sugg-marker",
-      runId: "r1",
-      messages: [priorUserMessage, markerMessage],
-      state: {},
-      tools: [],
-      context: [],
-      forwardedProps: {},
-    });
-
-    const runtime: FakeRuntime = { runner: { run: vi.fn() } };
-
-    const res = await handleSuggestAgent({
-      runtime: asRuntime(runtime),
-      request: new Request("http://x/agent/default/suggest", {
-        method: "POST",
-        body: JSON.stringify({
-          threadId: "sugg-marker",
-          messages: [priorUserMessage, markerMessage],
-        }),
-      }),
-      agentId: "default",
-    });
-
-    const body = (await res.json()) as { messages: Array<{ id: string }> };
-
-    expect(res.status).toBe(200);
-
-    // (a) The marker survives the round trip.
-    expect(body.messages).toContainEqual(markerMessage);
-
-    // (b) The copilotkitSuggest tool-call message appears AFTER the marker —
-    // the exact ordering `extractSuggestions` depends on.
-    const markerIndex = body.messages.findIndex(
-      (m) => m.id === markerMessage.id,
-    );
-    const suggestIndex = body.messages.findIndex((m) => m.id === suggestMsg.id);
-    expect(markerIndex).toBeGreaterThanOrEqual(0);
-    expect(suggestIndex).toBeGreaterThan(markerIndex);
   });
 });

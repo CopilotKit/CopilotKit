@@ -1,12 +1,17 @@
 /**
  * Tests the stateless suggestion path: when the runtime advertises
- * `suggestions: true` via `/info`, the engine POSTs to
- * `/agent/:providerId/suggest` instead of cloning + running a client agent.
- * When the capability is absent, the engine falls back to the clone+runAgent
- * path.
+ * `suggestions: true` via `/info`, the engine runs a stock `HttpAgent` pointed
+ * at `/agent/:providerId/suggest` (which streams AG-UI SSE from a direct,
+ * non-persisting provider run) instead of cloning the client provider agent.
+ * When the capability is absent (or transport is single-route), it falls back to
+ * the clone + `runAgent` path.
+ *
+ * The `/suggest` responses here are real SSE streams (`text/event-stream`) so the
+ * `HttpAgent`'s own event pipeline drives `onMessagesChanged` — exercising the
+ * progressive-streaming behavior end to end rather than a buffered JSON parse.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AbstractAgent, Message } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
 import { CopilotKitCore, isAbortError } from "../core";
 import {
   MockAgent,
@@ -15,6 +20,8 @@ import {
   createMessage,
   waitForCondition,
 } from "./test-utils";
+
+const encoder = new TextEncoder();
 
 /**
  * A JSON-serializable request captured from a `fetch` call so tests can assert
@@ -34,7 +41,7 @@ interface CapturedRequest {
  * a `RunAgentInput` but only types the fields the tests inspect.
  */
 interface SuggestRequestBody {
-  messages: Message[];
+  messages: Array<{ id: string; role: string; content?: string }>;
   threadId: string;
   runId: string;
   tools: Array<{ name: string }>;
@@ -42,34 +49,8 @@ interface SuggestRequestBody {
 }
 
 /**
- * The minimal `Response` surface the engine consumes from a `/suggest` (and
- * `/info`) call: `ok`, `status`, and a `json()` returning the parsed payload.
- */
-interface MockResponse {
-  ok: boolean;
-  status: number;
-  json: () => Promise<unknown>;
-}
-
-/**
- * Options controlling how the routed `fetch` stub responds to `/suggest`.
- */
-interface FetchStubOptions {
-  /** HTTP status for `/suggest` responses. Defaults to 200. */
-  suggestStatus?: number;
-  /**
-   * The assistant messages returned after the marker message on a successful
-   * `/suggest` call. The marker (echoing the instruction message id) is always
-   * prepended by the stub.
-   */
-  suggestAssistantMessages?: Message[];
-}
-
-/**
  * Normalizes a `fetch` `HeadersInit` into a plain string record so tests can
- * assert on individual header values without `as any`. The engine passes a
- * plain object literal for `/suggest`, but this also handles `Headers` and the
- * tuple-array form for completeness.
+ * assert on individual header values without `as any`.
  */
 function toHeaderRecord(
   headers: HeadersInit | undefined,
@@ -86,12 +67,80 @@ function toHeaderRecord(
   return { ...headers };
 }
 
+/** Builds the `/info` payload advertising the stateless suggest capability. */
+function infoResponse(extra: Record<string, unknown> = {}): Response {
+  return new Response(
+    JSON.stringify({
+      version: "1.0.0",
+      mode: "sse",
+      agents: {},
+      suggestions: true,
+      ...extra,
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
+}
+
+/**
+ * Builds the AG-UI event sequence for a `copilotkitSuggest` tool call. The tool
+ * arguments can be split across multiple `TOOL_CALL_ARGS` deltas to exercise
+ * progressive parsing.
+ */
+function suggestEvents(
+  suggestions: Array<{ title: string; message: string }>,
+  argChunks?: string[],
+): object[] {
+  const toolCallId = "tc-suggest-1";
+  const chunks = argChunks ?? [JSON.stringify({ suggestions })];
+  return [
+    { type: "RUN_STARTED", threadId: "suggest-thread", runId: "suggest-run" },
+    {
+      type: "TOOL_CALL_START",
+      toolCallId,
+      toolCallName: "copilotkitSuggest",
+      parentMessageId: "assistant-suggest-1",
+    },
+    ...chunks.map((delta) => ({ type: "TOOL_CALL_ARGS", toolCallId, delta })),
+    { type: "TOOL_CALL_END", toolCallId },
+    {
+      type: "RUN_FINISHED",
+      threadId: "suggest-thread",
+      runId: "suggest-run",
+      result: { newMessages: [] },
+    },
+  ];
+}
+
+/** Wraps a list of AG-UI events into an SSE `Response`. */
+function sseResponse(events: object[], status = 200): Response {
+  const stream = new ReadableStream({
+    start(controller) {
+      const payload = events
+        .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+        .join("");
+      controller.enqueue(encoder.encode(payload));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status,
+    headers: { "content-type": "text/event-stream" },
+  });
+}
+
+interface FetchStubOptions {
+  /** HTTP status for `/suggest` responses. Defaults to 200. */
+  suggestStatus?: number;
+  /** Suggestions the `/suggest` SSE stream emits. */
+  suggestions?: Array<{ title: string; message: string }>;
+  /** Split the tool-call arguments across these deltas (progressive streaming). */
+  argChunks?: string[];
+}
+
 /**
  * Builds a typed `fetch` stub that routes `/info` (advertising
- * `suggestions: true`) and `/suggest`, recording every `/suggest` request so
- * tests can assert on it. The `/suggest` response echoes the marker message id
- * from the request body so `extractSuggestions` can locate it deterministically
- * without spying on the engine's internal `randomUUID` id.
+ * `suggestions: true`) and `/suggest` (an SSE stream), recording every
+ * `/suggest` request so tests can assert on it.
  */
 function setupRoutedFetch(options: FetchStubOptions = {}): {
   fetchMock: ReturnType<typeof vi.fn>;
@@ -99,7 +148,7 @@ function setupRoutedFetch(options: FetchStubOptions = {}): {
 } {
   const suggestRequests: CapturedRequest[] = [];
   const fetchMock = vi.fn(
-    async (input: unknown, init?: RequestInit): Promise<MockResponse> => {
+    async (input: unknown, init?: RequestInit): Promise<Response> => {
       const url = String(input);
       if (url.includes("/suggest")) {
         const rawBody = init?.body;
@@ -116,34 +165,15 @@ function setupRoutedFetch(options: FetchStubOptions = {}): {
           credentials: init?.credentials ?? undefined,
         });
         const status = options.suggestStatus ?? 200;
-        const markerId = body?.messages.at(-1)?.id ?? "marker";
-        const markerMessage: Message = {
-          id: markerId,
-          role: "user",
-          content: "instruction",
-        };
-        return {
-          ok: status >= 200 && status < 300,
-          status,
-          json: async () => ({
-            messages: [
-              markerMessage,
-              ...(options.suggestAssistantMessages ?? []),
-            ],
-          }),
-        };
+        if (status < 200 || status >= 300) {
+          return new Response("suggest failed", { status });
+        }
+        return sseResponse(
+          suggestEvents(options.suggestions ?? [], options.argChunks),
+        );
       }
       // `/info`
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          version: "1.0.0",
-          mode: "sse",
-          agents: {},
-          suggestions: true,
-        }),
-      };
+      return infoResponse();
     },
   );
   return { fetchMock, suggestRequests };
@@ -154,7 +184,7 @@ function setupRoutedFetch(options: FetchStubOptions = {}): {
  */
 function registerAgents(
   core: CopilotKitCore,
-  consumerMessages: Message[] = [],
+  consumerMessages: ReturnType<typeof createMessage>[] = [],
 ): { providerAgent: MockAgent; consumerAgent: MockAgent } {
   const providerAgent = new MockAgent({ agentId: "default" });
   const consumerAgent = new MockAgent({
@@ -194,13 +224,9 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     }
   });
 
-  it("posts to /agent/:providerId/suggest and parses the returned suggestions", async () => {
+  it("runs a stateless HttpAgent against /agent/:providerId/suggest and parses the streamed suggestions", async () => {
     const { fetchMock, suggestRequests } = setupRoutedFetch({
-      suggestAssistantMessages: [
-        createSuggestionToolCall([{ title: "Hi", message: "Say hi" }], {
-          id: "a1",
-        }),
-      ],
+      suggestions: [{ title: "Hi", message: "Say hi" }],
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -226,10 +252,50 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     expect(suggestRequests).toHaveLength(1);
     expect(suggestRequests[0]!.url).toContain("/agent/default/suggest");
     expect(suggestRequests[0]!.method).toBe("POST");
+    // The client provider agent must NOT be cloned/run: the stateless path uses
+    // a dedicated HttpAgent transport, not the registered provider instance.
     expect(providerAgent.runAgentCalls).toHaveLength(0);
     expect(core.getSuggestions("consumer").suggestions).toEqual([
       { title: "Hi", message: "Say hi", isLoading: false },
     ]);
+  });
+
+  it("streams suggestions progressively as tool-call args arrive", async () => {
+    // Two arg deltas → `onMessagesChanged` fires more than once → suggestions
+    // grow incrementally rather than appearing all at once.
+    const { fetchMock } = setupRoutedFetch({
+      suggestions: [],
+      argChunks: [
+        '{"suggestions":[{"title":"A","message":"a"}',
+        ',{"title":"B","message":"b"}]}',
+      ],
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const changeCounts: number[] = [];
+    const core = new CopilotKitCore({ runtimeUrl: "https://runtime.example" });
+    core.subscribe({
+      onSuggestionsChanged: ({ suggestions }) => {
+        changeCounts.push(suggestions.length);
+      },
+    });
+    await waitForCondition(() => core.suggestions === true);
+    registerAgents(core, [createMessage({ content: "hello" })]);
+    core.addSuggestionsConfig(
+      createSuggestionsConfig({ consumerAgentId: "consumer" }),
+    );
+
+    core.reloadSuggestions("consumer");
+
+    await vi.waitFor(() => {
+      expect(core.getSuggestions("consumer").suggestions).toEqual([
+        { title: "A", message: "a", isLoading: false },
+        { title: "B", message: "b", isLoading: false },
+      ]);
+    });
+    // Progressive: at least one intermediate notification carried a single
+    // suggestion before the pair was complete.
+    expect(changeCounts).toContain(1);
   });
 
   it("forwards custom headers and credentials onto the /suggest request", async () => {
@@ -237,11 +303,7 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     // `credentials` must ride along on the stateless `/suggest` fetch so a
     // self-hosted backend behind auth can authenticate the request.
     const { fetchMock, suggestRequests } = setupRoutedFetch({
-      suggestAssistantMessages: [
-        createSuggestionToolCall([{ title: "Hi", message: "Say hi" }], {
-          id: "a1",
-        }),
-      ],
+      suggestions: [{ title: "Hi", message: "Say hi" }],
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -271,20 +333,26 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     expect(suggestRequests[0]!.credentials).toBe("include");
   });
 
-  it("appends the instruction message with the marker id and forces toolChoice", async () => {
+  it("sends the consumer state, appends the instruction marker, and forces toolChoice", async () => {
     const { fetchMock, suggestRequests } = setupRoutedFetch({
-      suggestAssistantMessages: [],
+      suggestions: [],
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const core = new CopilotKitCore({ runtimeUrl: "https://runtime.example" });
     await waitForCondition(() => core.suggestions === true);
-    registerAgents(core, [createMessage({ content: "hello" })]);
+    // Seed the consumer agent with state so we can assert it is forwarded (the
+    // stateless path must not drop it — regression guard).
+    const { consumerAgent } = registerAgents(core, [
+      createMessage({ content: "hello" }),
+    ]);
+    consumerAgent.setState({ counter: 7 });
     core.addSuggestionsConfig(
       createSuggestionsConfig({
         instructions: "Focus on data analysis",
         minSuggestions: 2,
         maxSuggestions: 4,
+        providerAgentId: "default",
         consumerAgentId: "consumer",
       }),
     );
@@ -308,24 +376,23 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
       type: "function",
       function: { name: "copilotkitSuggest" },
     });
+    // The consumer's state rides along (not dropped to `{}`).
+    expect((body as unknown as { state?: unknown }).state).toEqual({
+      counter: 7,
+    });
   });
 
   it("falls back to clone + runAgent when the capability is absent", async () => {
-    const fetchMock = vi.fn(async (input: unknown): Promise<MockResponse> => {
+    const fetchMock = vi.fn(async (input: unknown): Promise<Response> => {
       const url = String(input);
       if (url.includes("/suggest")) {
         throw new Error("stateless path should not be used");
       }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          version: "1.0.0",
-          mode: "sse",
-          agents: {},
-          // no `suggestions` field
-        }),
-      };
+      // No `suggestions` field advertised.
+      return new Response(
+        JSON.stringify({ version: "1.0.0", mode: "sse", agents: {} }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -337,9 +404,7 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
       createMessage({ content: "hello" }),
     ]);
     providerAgent.setNewMessages([
-      createSuggestionToolCall([{ title: "Fb", message: "Fallback" }], {
-        id: "a1",
-      }),
+      createSuggestionToolCall([{ title: "Fb", message: "Fallback" }]),
     ]);
     core.addSuggestionsConfig(
       createSuggestionsConfig({
@@ -359,7 +424,8 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     expect(suggestCalls).toHaveLength(0);
   });
 
-  it("finalizes loading without throwing when /suggest fails", async () => {
+  it("warns and finalizes empty when /suggest responds non-2xx", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { fetchMock } = setupRoutedFetch({ suggestStatus: 502 });
     global.fetch = fetchMock as unknown as typeof fetch;
 
@@ -373,19 +439,23 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     core.reloadSuggestions("consumer");
 
     await vi.waitFor(() => {
-      const result = core.getSuggestions("consumer");
-      expect(result.isLoading).toBe(false);
+      expect(core.getSuggestions("consumer").isLoading).toBe(false);
     });
-    const result = core.getSuggestions("consumer");
-    expect(result.suggestions).toEqual([]);
+    expect(core.getSuggestions("consumer").suggestions).toEqual([]);
+    // A real server failure (not an abort) is surfaced as a warning, not thrown.
+    expect(
+      warnSpy.mock.calls.some((call) =>
+        String(call[0]).includes("Error generating suggestions"),
+      ),
+    ).toBe(true);
   });
 
-  it("aborts the in-flight /suggest fetch when clearSuggestions is called", async () => {
-    // A /suggest response that never resolves keeps the request in flight so
-    // clearSuggestions can abort its signal.
+  it("aborts the in-flight /suggest run when clearSuggestions is called", async () => {
+    // A /suggest fetch that only settles when its signal aborts keeps the run in
+    // flight so clearSuggestions can abort it.
     const suggestRequests: CapturedRequest[] = [];
     const fetchMock = vi.fn(
-      (input: unknown, init?: RequestInit): Promise<MockResponse> => {
+      (input: unknown, init?: RequestInit): Promise<Response> => {
         const url = String(input);
         if (url.includes("/suggest")) {
           suggestRequests.push({
@@ -396,22 +466,13 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
             headers: toHeaderRecord(init?.headers),
             credentials: init?.credentials ?? undefined,
           });
-          return new Promise<MockResponse>((_resolve, reject) => {
+          return new Promise<Response>((_resolve, reject) => {
             init?.signal?.addEventListener("abort", () => {
               reject(new DOMException("Aborted", "AbortError"));
             });
           });
         }
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            version: "1.0.0",
-            mode: "sse",
-            agents: {},
-            suggestions: true,
-          }),
-        });
+        return Promise.resolve(infoResponse());
       },
     );
     global.fetch = fetchMock as unknown as typeof fetch;
@@ -439,29 +500,18 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     // `suggestions: true`, but the stateless `/suggest` POST would 404 there —
     // so the engine must take the clone+runAgent fallback instead.
     const suggestCalls: string[] = [];
-    const fetchMock = vi.fn(
-      async (input: unknown, init?: RequestInit): Promise<MockResponse> => {
-        const url = String(input);
-        if (url.includes("/suggest")) {
-          suggestCalls.push(url);
-          throw new Error("single-route runtime has no /suggest path");
-        }
-        // Single-route info envelope: reject GET /info, accept POST envelope.
-        if (url.endsWith("/info")) {
-          return { ok: false, status: 404, json: async () => ({}) };
-        }
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            version: "1.0.0",
-            mode: "sse",
-            agents: {},
-            suggestions: true,
-          }),
-        };
-      },
-    );
+    const fetchMock = vi.fn(async (input: unknown): Promise<Response> => {
+      const url = String(input);
+      if (url.includes("/suggest")) {
+        suggestCalls.push(url);
+        throw new Error("single-route runtime has no /suggest path");
+      }
+      // Single-route info envelope: reject GET /info, accept POST envelope.
+      if (url.endsWith("/info")) {
+        return new Response("{}", { status: 404 });
+      }
+      return infoResponse();
+    });
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const core = new CopilotKitCore({
@@ -475,9 +525,7 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
       createMessage({ content: "hello" }),
     ]);
     providerAgent.setNewMessages([
-      createSuggestionToolCall([{ title: "Fb", message: "Fallback" }], {
-        id: "a1",
-      }),
+      createSuggestionToolCall([{ title: "Fb", message: "Fallback" }]),
     ]);
     core.addSuggestionsConfig(
       createSuggestionsConfig({
@@ -543,7 +591,7 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const suggestRequests: CapturedRequest[] = [];
     const fetchMock = vi.fn(
-      (input: unknown, init?: RequestInit): Promise<MockResponse> => {
+      (input: unknown, init?: RequestInit): Promise<Response> => {
         const url = String(input);
         if (url.includes("/suggest")) {
           suggestRequests.push({
@@ -554,22 +602,13 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
             headers: toHeaderRecord(init?.headers),
             credentials: init?.credentials ?? undefined,
           });
-          return new Promise<MockResponse>((_resolve, reject) => {
+          return new Promise<Response>((_resolve, reject) => {
             init?.signal?.addEventListener("abort", () => {
               reject(new DOMException("Aborted", "AbortError"));
             });
           });
         }
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            version: "1.0.0",
-            mode: "sse",
-            agents: {},
-            suggestions: true,
-          }),
-        });
+        return Promise.resolve(infoResponse());
       },
     );
     global.fetch = fetchMock as unknown as typeof fetch;
@@ -597,23 +636,9 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     expect(suggestionWarnings).toHaveLength(0);
   });
 
-  it("does not throw and finalizes empty when /suggest returns 200 with no messages", async () => {
-    const fetchMock = vi.fn(async (input: unknown): Promise<MockResponse> => {
-      const url = String(input);
-      if (url.includes("/suggest")) {
-        return { ok: true, status: 200, json: async () => ({}) };
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          version: "1.0.0",
-          mode: "sse",
-          agents: {},
-          suggestions: true,
-        }),
-      };
-    });
+  it("does not throw and finalizes empty when the /suggest run emits no suggestions", async () => {
+    // A well-formed SSE run that produces no copilotkitSuggest tool call.
+    const { fetchMock } = setupRoutedFetch({ suggestions: [] });
     global.fetch = fetchMock as unknown as typeof fetch;
 
     const core = new CopilotKitCore({ runtimeUrl: "https://runtime.example" });
@@ -631,15 +656,15 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
     expect(core.getSuggestions("consumer").suggestions).toEqual([]);
   });
 
-  it("does not warn when an aborted /suggest fetch rejects with a non-AbortError", async () => {
+  it("does not warn when an aborted /suggest run rejects with a non-AbortError", async () => {
     // Some runtimes/polyfills (undici, some React Native engines) reject an
-    // aborted `fetch` with a differently-named error (here a `TypeError`)
-    // rather than a DOMException named "AbortError". The engine must still
-    // recognize the abort via `controller.signal.aborted` and stay quiet.
+    // aborted `fetch` with a differently-named error (here a `TypeError`) rather
+    // than a DOMException named "AbortError". The engine must still recognize
+    // the abort via the run handle's `aborted` flag and stay quiet.
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const suggestRequests: CapturedRequest[] = [];
     const fetchMock = vi.fn(
-      (input: unknown, init?: RequestInit): Promise<MockResponse> => {
+      (input: unknown, init?: RequestInit): Promise<Response> => {
         const url = String(input);
         if (url.includes("/suggest")) {
           suggestRequests.push({
@@ -650,24 +675,13 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
             headers: toHeaderRecord(init?.headers),
             credentials: init?.credentials ?? undefined,
           });
-          return new Promise<MockResponse>((_resolve, reject) => {
+          return new Promise<Response>((_resolve, reject) => {
             init?.signal?.addEventListener("abort", () => {
-              // Reject with a NON-"AbortError" error while the signal is
-              // aborted, mimicking undici's behavior.
               reject(new TypeError("network error"));
             });
           });
         }
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({
-            version: "1.0.0",
-            mode: "sse",
-            agents: {},
-            suggestions: true,
-          }),
-        });
+        return Promise.resolve(infoResponse());
       },
     );
     global.fetch = fetchMock as unknown as typeof fetch;
@@ -694,95 +708,6 @@ describe("CopilotKitCore - Stateless Suggestions", () => {
       String(call[0]).includes("Error generating suggestions"),
     );
     expect(suggestionWarnings).toHaveLength(0);
-  });
-
-  it("finalizes empty without an unhandled rejection when /suggest fails with a JSON error body", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const fetchMock = vi.fn(async (input: unknown): Promise<MockResponse> => {
-      const url = String(input);
-      if (url.includes("/suggest")) {
-        // Non-2xx with a JSON body carrying a `message` the error path reads.
-        return {
-          ok: false,
-          status: 502,
-          json: async () => ({ message: "boom" }),
-        };
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          version: "1.0.0",
-          mode: "sse",
-          agents: {},
-          suggestions: true,
-        }),
-      };
-    });
-    global.fetch = fetchMock as unknown as typeof fetch;
-
-    const core = new CopilotKitCore({ runtimeUrl: "https://runtime.example" });
-    await waitForCondition(() => core.suggestions === true);
-    registerAgents(core, [createMessage({ content: "hello" })]);
-    core.addSuggestionsConfig(
-      createSuggestionsConfig({ consumerAgentId: "consumer" }),
-    );
-
-    core.reloadSuggestions("consumer");
-
-    await vi.waitFor(() => {
-      expect(core.getSuggestions("consumer").isLoading).toBe(false);
-    });
-    expect(core.getSuggestions("consumer").suggestions).toEqual([]);
-    // The parsed `message` is surfaced in the swallowed warning.
-    const warned = warnSpy.mock.calls.some(
-      (call) =>
-        String(call[0]).includes("Error generating suggestions") &&
-        String(call[1]).includes("boom"),
-    );
-    expect(warned).toBe(true);
-  });
-
-  it("finalizes empty when /suggest fails and its error body is not JSON", async () => {
-    // The `!res.ok` path calls `res.json()`; when that rejects (non-JSON body),
-    // the `.catch(() => undefined)` guard must hold so no throw escapes.
-    const fetchMock = vi.fn(async (input: unknown): Promise<MockResponse> => {
-      const url = String(input);
-      if (url.includes("/suggest")) {
-        return {
-          ok: false,
-          status: 500,
-          json: async () => {
-            throw new SyntaxError("Unexpected token < in JSON");
-          },
-        };
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          version: "1.0.0",
-          mode: "sse",
-          agents: {},
-          suggestions: true,
-        }),
-      };
-    });
-    global.fetch = fetchMock as unknown as typeof fetch;
-
-    const core = new CopilotKitCore({ runtimeUrl: "https://runtime.example" });
-    await waitForCondition(() => core.suggestions === true);
-    registerAgents(core, [createMessage({ content: "hello" })]);
-    core.addSuggestionsConfig(
-      createSuggestionsConfig({ consumerAgentId: "consumer" }),
-    );
-
-    core.reloadSuggestions("consumer");
-
-    await vi.waitFor(() => {
-      expect(core.getSuggestions("consumer").isLoading).toBe(false);
-    });
-    expect(core.getSuggestions("consumer").suggestions).toEqual([]);
   });
 
   it("isAbortError detects a plain object with name AbortError", () => {

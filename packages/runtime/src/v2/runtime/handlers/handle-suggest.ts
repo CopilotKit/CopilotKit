@@ -1,8 +1,10 @@
-import type { AbstractAgent, Message } from "@ag-ui/client";
-import { logger } from "@copilotkit/shared";
+import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
+import { finalizeRunEvents } from "@copilotkit/shared";
+import { Observable } from "rxjs";
 import type { CopilotRuntimeLike } from "../core/runtime";
 import { extractForwardableHeaders } from "./header-utils";
 import { cloneAgentForRequest, parseRunRequest } from "./shared/agent-utils";
+import { createSseEventResponse } from "./shared/sse-response";
 
 /**
  * Parameters for {@link handleSuggestAgent}.
@@ -19,13 +21,15 @@ interface SuggestAgentParameters {
 /**
  * Stateless suggestion run.
  *
- * Executes the provider agent **directly** (via `agent.runAgent`) and returns
- * the resulting messages for the client to parse. It deliberately does not go
- * through `runtime.runner`: `InMemoryAgentRunner.run()` writes to a
- * module-level store keyed by threadId (backing the SSE runtime's local thread
- * endpoints), which would leak the throwaway suggestion thread. Nor does it
- * create/persist a thread, take a lock, or hit the gateway — dynamic
- * suggestions must be side-effect-free in every runtime mode.
+ * Executes the provider agent **directly** and streams its AG-UI events back as
+ * SSE — the same wire format as `/agent/:id/run`, so the client consumes it with
+ * the stock `HttpAgent` transport and chips fill in as the provider emits them.
+ * It deliberately does not go through `runtime.runner`: the runner's
+ * `run()` writes to a module-level store keyed by threadId (backing the SSE
+ * runtime's local thread endpoints), which would leak the throwaway suggestion
+ * thread. This handler runs the agent's event pipeline **without** that
+ * persistence — no thread, lock, gateway, name-gen, or run telemetry — so
+ * dynamic suggestions are side-effect-free in every runtime mode.
  *
  * The only per-request configuration it applies is forwarding the request's
  * allowlisted headers (`authorization` + `x-*`) onto the agent clone. It does
@@ -35,18 +39,17 @@ interface SuggestAgentParameters {
  * request body; this handler does not set tool choice itself and relies on it
  * being present in the incoming `input`. Given that forced tool choice, any
  * middleware-injected tools are dead weight, and MCPApps setup can incur a
- * `listTools`
- * network round-trip per suggestion under `available: "always"` — a side effect
- * this path must never pay.
+ * `listTools` network round-trip per suggestion under `available: "always"` — a
+ * side effect this path must never pay.
  *
  * When the client aborts the HTTP request (via its `AbortController`), the
  * server-side run is cancelled best-effort so an aborted suggestion does not
  * keep running a provider call to completion.
  *
  * @param params - The runtime, request, and resolved agent id.
- * @returns A JSON `Response` of shape `{ messages }` on success, the resolution
- *   `Response` (e.g. 404/400) when agent/body resolution fails, or a 502 when
- *   the agent run itself throws.
+ * @returns A `text/event-stream` `Response` of the provider agent's AG-UI events
+ *   on success, or the resolution `Response` (e.g. 404/400) when agent/body
+ *   resolution fails before streaming begins.
  */
 export async function handleSuggestAgent({
   runtime,
@@ -88,53 +91,56 @@ export async function handleSuggestAgent({
   agent.setState(input.state);
   agent.threadId = input.threadId;
 
-  // Cancel the server-side run when the client aborts the request, so an
-  // aborted suggestion does not keep running a provider call to completion.
-  // Best-effort: the listener must never throw. Read `request.signal` once —
-  // the accessor can return a fresh reference per read.
-  const signal = request.signal;
-  if (signal && typeof agent.abortRun === "function") {
-    signal.addEventListener(
-      "abort",
-      () => {
-        try {
-          agent.abortRun();
-        } catch {
-          // best-effort — nothing actionable if aborting the run fails.
-        }
-      },
-      { once: true },
-    );
-  }
+  // Stream the provider agent's events over SSE without persistence. This is
+  // the runner's event pipeline (`agent.runAgent({ onEvent })` + terminal-event
+  // finalization) minus the `GLOBAL_STORE` writes that would leak a thread.
+  // `captureTelemetry: false` keeps suggestions out of run telemetry; omitting
+  // `debugEventBus` keeps them out of the inspector's run trace.
+  return createSseEventResponse({
+    request,
+    agentId,
+    captureTelemetry: false,
+    observableFactory: () =>
+      new Observable<BaseEvent>((subscriber) => {
+        // Collected so `finalizeRunEvents` can append any missing terminal
+        // events (e.g. an unclosed message/tool call, or a `RUN_FINISHED`) —
+        // the same closure the runner applies — so the client sees a
+        // well-formed AG-UI sequence.
+        const collected: BaseEvent[] = [];
+        let settled = false;
 
-  // Seed with the request messages — which include the client's
-  // instruction/marker message (id === threadId === suggestionId) as the last
-  // entry — so a run that emits nothing still returns a coherent transcript;
-  // `onMessagesChanged` overwrites this with the running set (which carries the
-  // `copilotkitSuggest` tool call the client parses after the marker).
-  let messages: Message[] = input.messages ?? [];
+        void agent
+          .runAgent(input, {
+            onEvent: ({ event }) => {
+              collected.push(event);
+              subscriber.next(event);
+            },
+          })
+          .then(() => {
+            for (const event of finalizeRunEvents(collected, {
+              stopRequested: false,
+            })) {
+              subscriber.next(event);
+            }
+            settled = true;
+            subscriber.complete();
+          })
+          .catch((error: unknown) => {
+            settled = true;
+            subscriber.error(error);
+          });
 
-  try {
-    await agent.runAgent(input, {
-      onMessagesChanged: ({ messages: next }) => {
-        messages = [...next];
-      },
-    });
-  } catch (error) {
-    // Log server-side before returning the 502 — like every sibling handler —
-    // so an operator debugging "suggestions never work in prod" has a trace.
-    logger.error({ err: error, agentId }, "Suggestion run failed");
-    return Response.json(
-      {
-        error: "Suggestion run failed",
-        message: error instanceof Error ? error.message : String(error),
-      },
-      { status: 502 },
-    );
-  }
-
-  return Response.json(
-    { messages },
-    { headers: { "Cache-Control": "no-cache" } },
-  );
+        // Teardown fires when the response stream is torn down (client abort /
+        // disconnect). Cancel the still-running provider call best-effort.
+        return () => {
+          if (!settled && typeof agent.abortRun === "function") {
+            try {
+              agent.abortRun();
+            } catch {
+              // best-effort — nothing actionable if aborting the run fails.
+            }
+          }
+        };
+      }),
+  });
 }

@@ -15,44 +15,79 @@ const createMockAgent = () => {
   return agent as AbstractAgent;
 };
 
+// The `copilotkitSuggest` tool call, expressed as the AG-UI event sequence a
+// real provider streams — the suggest handler forwards these onto the SSE
+// response.
+const suggestToolCallEvents: Array<Record<string, unknown>> = [
+  { type: "RUN_STARTED", threadId: "t1", runId: "r1" },
+  {
+    type: "TOOL_CALL_START",
+    toolCallId: "tc-1",
+    toolCallName: "copilotkitSuggest",
+    parentMessageId: "suggest-1",
+  },
+  {
+    type: "TOOL_CALL_ARGS",
+    toolCallId: "tc-1",
+    delta: JSON.stringify({
+      suggestions: [{ title: "Hi", message: "Say hi" }],
+    }),
+  },
+  { type: "TOOL_CALL_END", toolCallId: "tc-1" },
+  { type: "RUN_FINISHED", threadId: "t1", runId: "r1" },
+];
+
+/** Drains an SSE `Response` body into the list of parsed `data:` events. */
+const drainSseEvents = async (
+  response: Response,
+): Promise<Array<Record<string, unknown>>> => {
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer +=
+      typeof value === "string"
+        ? value
+        : decoder.decode(value, { stream: true });
+  }
+  buffer += decoder.decode();
+  const events: Array<Record<string, unknown>> = [];
+  for (const frame of buffer.split("\n\n")) {
+    const line = frame.trim();
+    if (line.startsWith("data:")) {
+      events.push(JSON.parse(line.slice("data:".length).trim()));
+    }
+  }
+  return events;
+};
+
 /**
  * A suggest-capable mock agent. Unlike `createMockAgent`, its clone exposes the
- * surface `handleSuggestAgent` touches (`setMessages`/`setState`/`threadId`)
- * and a `runAgent` that emits a `copilotkitSuggest` tool-call message via
- * `onMessagesChanged`, so the suggest route resolves to a real 200 transcript
- * instead of the handler's 502 error path.
+ * surface `handleSuggestAgent` touches (`setMessages`/`setState`/`threadId`/
+ * `abortRun`) and a `runAgent` that streams a `copilotkitSuggest` tool call via
+ * `onEvent`, so the suggest route resolves to a real 200 SSE stream.
  */
 const createSuggestAgent = () => {
-  const suggestMsg = {
-    id: "suggest-1",
-    role: "assistant",
-    toolCalls: [
-      {
-        id: "tc-1",
-        function: {
-          name: "copilotkitSuggest",
-          arguments: JSON.stringify({
-            suggestions: [{ title: "Hi", message: "Say hi" }],
-          }),
-        },
-      },
-    ],
-  };
   const agent: unknown = {
     agentId: "default",
     headers: {},
     threadId: undefined,
     setMessages: vi.fn(),
     setState: vi.fn(),
+    abortRun: vi.fn(),
     runAgent: vi.fn(
       async (
-        input: { messages?: unknown[] },
-        sub?: { onMessagesChanged?: (event: { messages: unknown[] }) => void },
+        _input: unknown,
+        sub?: {
+          onEvent?: (params: { event: Record<string, unknown> }) => void;
+        },
       ) => {
-        sub?.onMessagesChanged?.({
-          messages: [...(input.messages ?? []), suggestMsg],
-        });
-        return { newMessages: [suggestMsg] };
+        for (const event of suggestToolCallEvents) {
+          sub?.onEvent?.({ event });
+        }
+        return { newMessages: [] };
       },
     ),
   };
@@ -264,10 +299,15 @@ describe("createCopilotRuntimeHandler — multi-route without basePath", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as {
-      messages: Array<{ id: string }>;
-    };
-    expect(body.messages.some((m) => m.id === "suggest-1")).toBe(true);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    const events = await drainSseEvents(response);
+    expect(
+      events.some(
+        (e) =>
+          e.type === "TOOL_CALL_START" &&
+          e.toolCallName === "copilotkitSuggest",
+      ),
+    ).toBe(true);
   });
 
   it("returns 404 for no known suffix", async () => {
@@ -394,10 +434,15 @@ describe("createCopilotRuntimeHandler — single-route mode", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = (await response.json()) as {
-      messages: Array<{ id: string }>;
-    };
-    expect(body.messages.some((m) => m.id === "suggest-1")).toBe(true);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    const events = await drainSseEvents(response);
+    expect(
+      events.some(
+        (e) =>
+          e.type === "TOOL_CALL_START" &&
+          e.toolCallName === "copilotkitSuggest",
+      ),
+    ).toBe(true);
   });
 
   it("returns 404 when basePath doesn't match in single-route", async () => {

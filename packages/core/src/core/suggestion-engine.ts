@@ -1,9 +1,5 @@
-import type {
-  AbstractAgent,
-  Message,
-  RunAgentInput,
-  Tool,
-} from "@ag-ui/client";
+import type { AbstractAgent, Message, Tool } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 import { randomUUID, partialJSONParse } from "@copilotkit/shared";
 import type { CopilotKitCore } from "./core";
 import type { CopilotKitCoreGetSuggestionsResult } from "./core";
@@ -143,23 +139,39 @@ export class SuggestionEngine {
   }
 
   /**
-   * Generate suggestions using a provider agent
+   * Generate suggestions by running a provider agent and extracting the
+   * `copilotkitSuggest` tool call from its streamed messages.
+   *
+   * Two transports, one set of mechanics: both seed an agent with the
+   * consumer's messages + state and the instruction, then `runAgent` with
+   * forced `copilotkitSuggest` tool choice, parsing suggestions as messages
+   * stream in via `onMessagesChanged`.
+   *
+   * - **Stateless** (runtime advertises `suggestions` and transport isn't
+   *   `single`): a stock `HttpAgent` pointed at `/agent/:id/suggest`. That
+   *   endpoint runs the provider directly and streams AG-UI SSE **without**
+   *   persisting a thread, and a plain `HttpAgent` only ever speaks REST SSE —
+   *   it never routes through the Intelligence websocket delegate (which would
+   *   persist a thread). This is the path that removes the thread flood.
+   * - **Fallback** (capability absent → old runtime, or `single` transport):
+   *   clone the provider agent and run it client-side, as before.
+   *
+   * Gated to non-`single` transports because this client only builds the
+   * multi-route `/agent/:id/suggest` URL; single-route deployments (not the
+   * persisting-thread/Intelligence case) fall through to the clone fallback.
    */
   private async generateSuggestions(
     suggestionId: string,
     config: DynamicSuggestionsConfig,
     consumerAgentId: string,
   ): Promise<void> {
-    // Tracks the cancellable handle for this generation (a cloned agent in the
-    // fallback path, or a fetch-abort shim in the stateless path) so the
-    // `finally` block can remove exactly this run from the running set.
+    // The cancellable handle for this generation, removed from the running set
+    // in `finally`. `abortRun` flips `aborted` before cancelling the underlying
+    // agent so the `catch` can distinguish a deliberate clear/reload from a real
+    // failure — some engines (undici, some React Native) reject an aborted run
+    // with a non-"AbortError" error that `isAbortError` alone would misclassify.
     let runHandle: AbortableSuggestionRun | undefined = undefined;
-    // Lifted to function scope so the `catch` can consult the aborted signal
-    // directly. Some runtimes/polyfills (undici, some React Native engines)
-    // reject an aborted `fetch` with a non-"AbortError"-named error (or a
-    // `TypeError`), which `isAbortError` alone would misclassify as a real
-    // failure — checking the controller's signal recovers those cases.
-    let statelessController: AbortController | undefined = undefined;
+    let aborted = false;
     try {
       const friends = this.core as unknown as CopilotKitCoreFriendsAccess;
       const resolvedProviderAgentId = config.providerAgentId ?? "default";
@@ -178,12 +190,14 @@ export class SuggestionEngine {
         );
       }
 
-      // The instruction prompt is identical for both the stateless and
-      // fallback paths, so build it once here.
       const instructionContent = [
         `Suggest what the user could say next. Provide clear, highly relevant suggestions by calling the \`copilotkitSuggest\` tool.`,
-        `Provide at least ${config.minSuggestions ?? 1} and at most ${config.maxSuggestions ?? 3} suggestions.`,
-        `The user has the following tools available: ${JSON.stringify(friends.buildFrontendTools(consumerAgentId))}.`,
+        `Provide at least ${config.minSuggestions ?? 1} and at most ${
+          config.maxSuggestions ?? 3
+        } suggestions.`,
+        `The user has the following tools available: ${JSON.stringify(
+          friends.buildFrontendTools(consumerAgentId),
+        )}.`,
         ` ${config.instructions}`,
       ].join("\n");
 
@@ -193,44 +207,66 @@ export class SuggestionEngine {
         [suggestionId]: [],
       };
 
-      if (
-        this.core.suggestions === true &&
-        this.core.runtimeTransport !== "single"
-      ) {
-        // Stateless path: the runtime advertises a dedicated `/suggest`
-        // endpoint that runs the provider agent directly (no thread, no client
-        // clone). POST the consumer's messages plus the instruction and read
-        // back the generated messages.
-        //
-        // Gated to non-`single` transports: this client only builds the
-        // multi-route `/agent/:id/suggest` URL and does not construct the
-        // single-route envelope for suggest, so single-route deployments fall
-        // through to the clone+`runAgent` fallback below. (The single-route
-        // runtime does route `agent/suggest`; the client just doesn't call it.)
-        // Single-route deployments are not the persisting-thread/Intelligence
-        // case, so the clone fallback is correct.
-        const controller = new AbortController();
-        statelessController = controller;
-        runHandle = { abortRun: () => controller.abort() };
-        this._runningSuggestions[consumerAgentId] = [
-          ...(this._runningSuggestions[consumerAgentId] ?? []),
-          runHandle,
-        ];
+      // Deep-clone the consumer's messages + state so the suggestion run sees
+      // the same context a real turn would, without sharing mutable references.
+      const seededMessages: Message[] = JSON.parse(
+        JSON.stringify(suggestionsConsumerAgent.messages),
+      );
+      const seededState: unknown = JSON.parse(
+        JSON.stringify(suggestionsConsumerAgent.state ?? {}),
+      );
 
-        const providerAgentId = resolvedProviderAgentId;
-        const input: RunAgentInput = {
-          threadId: suggestionId,
-          runId: randomUUID(),
-          state: {},
-          messages: [
-            ...suggestionsConsumerAgent.messages,
-            {
-              id: suggestionId,
-              role: "user",
-              content: instructionContent,
-            },
-          ],
-          tools: [SUGGEST_TOOL],
+      const useStateless =
+        this.core.suggestions === true &&
+        this.core.runtimeTransport !== "single";
+
+      let suggestionAgent: AbstractAgent;
+      if (useStateless) {
+        const suggestUrl = `${this.core.runtimeUrl}/agent/${encodeURIComponent(
+          resolvedProviderAgentId,
+        )}/suggest`;
+        const credentials = this.core.credentials;
+        suggestionAgent = new HttpAgent({
+          agentId: resolvedProviderAgentId,
+          url: suggestUrl,
+          headers: { ...this.core.headers },
+          // `HttpAgentConfig` has no `credentials` field; inject it via a fetch
+          // wrapper so cookie-based / self-hosted auth still rides along on the
+          // `/suggest` request.
+          ...(credentials
+            ? {
+                fetch: (url: string, requestInit: RequestInit) =>
+                  fetch(url, { ...requestInit, credentials }),
+              }
+            : {}),
+        });
+      } else {
+        suggestionAgent = suggestionsProviderAgent.clone();
+      }
+
+      suggestionAgent.threadId = suggestionId;
+      suggestionAgent.setMessages(seededMessages);
+      suggestionAgent.setState(seededState);
+
+      runHandle = {
+        abortRun: () => {
+          aborted = true;
+          suggestionAgent.abortRun();
+        },
+      };
+      this._runningSuggestions[consumerAgentId] = [
+        ...(this._runningSuggestions[consumerAgentId] ?? []),
+        runHandle,
+      ];
+
+      suggestionAgent.addMessage({
+        id: suggestionId,
+        role: "user",
+        content: instructionContent,
+      });
+
+      await suggestionAgent.runAgent(
+        {
           context: friends.getContextForAgent(consumerAgentId),
           forwardedProps: {
             ...friends.properties,
@@ -239,109 +275,25 @@ export class SuggestionEngine {
               function: { name: "copilotkitSuggest" },
             },
           },
-        };
-
-        const res = await fetch(
-          `${this.core.runtimeUrl}/agent/${encodeURIComponent(providerAgentId)}/suggest`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...this.core.headers,
-            },
-            body: JSON.stringify(input),
-            signal: controller.signal,
-            ...(this.core.credentials
-              ? { credentials: this.core.credentials }
-              : {}),
+          tools: [SUGGEST_TOOL],
+        },
+        {
+          onMessagesChanged: ({ messages }) => {
+            this.extractSuggestions(
+              messages,
+              suggestionId,
+              consumerAgentId,
+              true,
+            );
           },
-        );
-        if (!res.ok) {
-          // Surface the handler's error body when present. The body may not be
-          // JSON (or may lack a `message`), so guard the parse and fall back to
-          // the bare status.
-          const detail = await res
-            .json()
-            .then((body: unknown) =>
-              body !== null &&
-              typeof body === "object" &&
-              "message" in body &&
-              typeof (body as { message?: unknown }).message === "string"
-                ? (body as { message: string }).message
-                : undefined,
-            )
-            .catch(() => undefined);
-          throw new Error(
-            `suggest failed: ${res.status}${detail ? `: ${detail}` : ""}`,
-          );
-        }
-        // Parse defensively: a malformed 200 body (missing/non-array
-        // `messages`) must not throw inside `extractSuggestions.findIndex`.
-        // Treat a bad body as "no messages" so loading finalizes cleanly.
-        const data: unknown = await res.json();
-        const messages: Message[] =
-          data !== null &&
-          typeof data === "object" &&
-          Array.isArray((data as { messages?: unknown }).messages)
-            ? (data as { messages: Message[] }).messages
-            : [];
-        this.extractSuggestions(messages, suggestionId, consumerAgentId, false);
-      } else {
-        // Fallback path: clone the provider agent and run it client-side.
-        const clonedAgent: AbstractAgent = suggestionsProviderAgent.clone();
-        runHandle = clonedAgent;
-        clonedAgent.threadId = suggestionId;
-        clonedAgent.messages = JSON.parse(
-          JSON.stringify(suggestionsConsumerAgent.messages),
-        );
-        clonedAgent.state = JSON.parse(
-          JSON.stringify(suggestionsConsumerAgent.state),
-        );
-
-        this._runningSuggestions[consumerAgentId] = [
-          ...(this._runningSuggestions[consumerAgentId] ?? []),
-          clonedAgent,
-        ];
-
-        clonedAgent.addMessage({
-          id: suggestionId,
-          role: "user",
-          content: instructionContent,
-        });
-
-        await clonedAgent.runAgent(
-          {
-            context: friends.getContextForAgent(consumerAgentId),
-            forwardedProps: {
-              ...friends.properties,
-              toolChoice: {
-                type: "function",
-                function: { name: "copilotkitSuggest" },
-              },
-            },
-            tools: [SUGGEST_TOOL],
-          },
-          {
-            onMessagesChanged: ({ messages }) => {
-              this.extractSuggestions(
-                messages,
-                suggestionId,
-                consumerAgentId,
-                true,
-              );
-            },
-          },
-        );
-      }
+        },
+      );
     } catch (error) {
       // An abort is expected when suggestions are cleared/reloaded mid-flight;
       // swallow it quietly rather than surfacing it as a failure. `isAbortError`
-      // is the primary (name-based) check, but an aborted controller is also
-      // treated as expected because some runtimes reject an aborted `fetch`
-      // with a differently-named error (or a `TypeError`).
-      const aborted =
-        isAbortError(error) || statelessController?.signal.aborted === true;
-      if (!aborted) {
+      // is the primary (name-based) check; `aborted` covers engines that reject
+      // an aborted run with a differently-named error (or a `TypeError`).
+      if (!isAbortError(error) && !aborted) {
         console.warn("Error generating suggestions:", error);
       }
     } finally {
