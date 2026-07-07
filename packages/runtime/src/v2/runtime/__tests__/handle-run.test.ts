@@ -1547,7 +1547,7 @@ describe("handleRunAgent", () => {
       });
 
       // Use a unique threadId so this test does not collide with other
-      // tests that share the InMemoryAgentRunner GLOBAL_STORE.
+      // tests that share the InMemoryAgentRunner sharedStore.
       const threadId = `thread-tagged-${Date.now()}-${Math.random()}`;
 
       const response = await handleRunAgent({

@@ -818,7 +818,7 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
 
   beforeEach(async () => {
     runner = new InMemoryAgentRunner();
-    // Reset the module-level GLOBAL_STORE singleton so tests don't leak into each other
+    // Reset the module-level sharedStore singleton so tests don't leak into each other
     runner.clearThreads();
 
     // Run a single turn on a unique thread so each test starts fresh

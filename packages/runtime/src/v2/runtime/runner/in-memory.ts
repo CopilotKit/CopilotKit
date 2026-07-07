@@ -22,7 +22,23 @@ export interface InMemoryLimits {
   maxThreads?: number;
   /** FIFO cap on runs kept per thread. `Infinity` or `0` disables the cap. */
   maxRunsPerThread?: number;
-  /** Total-store byte backstop (approximate). The primary guard. */
+  /**
+   * Approximate byte ceiling on RETAINED thread/run history. Enforced at run
+   * completion (in `appendRun`), where LRU non-running threads are evicted to
+   * keep the total under this limit.
+   *
+   * Limitation: this bounds only history that has already been committed. A
+   * single in-flight run's buffered events (`currentRunEvents` and the two
+   * `ReplaySubject<BaseEvent>(Infinity)` buffers in `run()`) are NOT counted
+   * until that run completes, so `maxBytes` does not bound a single runaway
+   * run mid-stream.
+   *
+   * Limitation: byte eviction drops only other LRU non-running threads and
+   * never self-evicts the active/just-appended thread, so a single dominant
+   * thread's own retained history is not byte-trimmed (bounded only by
+   * `maxRunsPerThread`). `maxBytes` is thus a cross-thread ceiling enforced by
+   * evicting OTHER threads, not a per-thread cap.
+   */
   maxBytes?: number;
 }
 
