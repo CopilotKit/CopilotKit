@@ -192,15 +192,17 @@ export class InMemoryAgentRunner extends AgentRunner {
 
         // Store the completed run in memory with ONLY its events
         if (store.currentRunId) {
-          // Compact the events before storing (like SQLite does)
-          const compactedEvents = compactEvents(currentRunEvents);
+          // Store raw events without per-run compaction. Compaction is applied
+          // during connect() and getThreadEvents() over ALL runs' events together,
+          // which allows STATE_DELTA events from later runs to be properly applied
+          // to STATE_SNAPSHOT events from earlier runs (FAC-110 fix).
 
           store.historicRuns.push({
             threadId: request.threadId,
             runId: store.currentRunId,
             agentId: request.agent.agentId ?? "default",
             parentRunId,
-            events: compactedEvents,
+            events: currentRunEvents,
             // Snapshot all messages (input + generated) for the thread-messages endpoint
             messages: Array.isArray(request.agent.messages)
               ? [...request.agent.messages]
@@ -232,14 +234,16 @@ export class InMemoryAgentRunner extends AgentRunner {
 
         // Store the run even if it failed (partial events)
         if (store.currentRunId && currentRunEvents.length > 0) {
-          // Compact the events before storing (like SQLite does)
-          const compactedEvents = compactEvents(currentRunEvents);
+          // Store raw events without per-run compaction. Compaction is applied
+          // during connect() and getThreadEvents() over ALL runs' events together,
+          // which allows STATE_DELTA events from later runs to be properly applied
+          // to STATE_SNAPSHOT events from earlier runs (FAC-110 fix).
           store.historicRuns.push({
             threadId: request.threadId,
             runId: store.currentRunId,
             agentId: request.agent.agentId ?? "default",
             parentRunId,
-            events: compactedEvents,
+            events: currentRunEvents,
             messages: Array.isArray(request.agent.messages)
               ? [...request.agent.messages]
               : [],

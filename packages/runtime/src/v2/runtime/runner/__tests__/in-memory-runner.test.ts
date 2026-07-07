@@ -818,5 +818,93 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
       );
       expect(runner.getThreadState("thread-multi-state")).toEqual(second);
     });
+
+    it("consolidates STATE_SNAPSHOT and STATE_DELTA across multiple runs", async () => {
+      // Regression test for FAC-110: Multi-run state event replay.
+      // Run 1 emits STATE_SNAPSHOT {tasks: ["task1"]}
+      // Run 2 emits STATE_DELTA to add "task2"
+      // connect() should produce a final STATE_SNAPSHOT with both tasks.
+      const threadId = "thread-multi-delta";
+
+      // Run 1: emit initial snapshot
+      const agent1 = new TestAgent(
+        [
+          {
+            type: EventType.STATE_SNAPSHOT,
+            snapshot: { tasks: ["task1"] },
+          } as BaseEvent,
+        ],
+        true,
+      );
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent: agent1,
+            input: {
+              threadId,
+              runId: "run-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      // Run 2: emit delta to add task2
+      const agent2 = new TestAgent(
+        [
+          {
+            type: EventType.STATE_DELTA,
+            delta: [{ op: "add", path: "/tasks/-", value: "task2" }],
+          } as BaseEvent,
+        ],
+        true,
+      );
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent: agent2,
+            input: {
+              threadId,
+              runId: "run-2",
+              messages: [],
+              state: { tasks: ["task1"] }, // Frontend passes prior state
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      // Connect and verify the compacted events include a proper snapshot
+      const connectEvents = await firstValueFrom(
+        runner.connect({ threadId }).pipe(toArray()),
+      );
+
+      const stateSnapshots = connectEvents.filter(
+        (e) => e.type === EventType.STATE_SNAPSHOT,
+      );
+      const stateDeltas = connectEvents.filter(
+        (e) => e.type === EventType.STATE_DELTA,
+      );
+
+      // After compaction, we should have a single snapshot, no deltas
+      expect(stateSnapshots).toHaveLength(1);
+      expect(stateDeltas).toHaveLength(0);
+
+      // The snapshot should include both tasks
+      expect((stateSnapshots[0] as any).snapshot).toEqual({
+        tasks: ["task1", "task2"],
+      });
+
+      // getThreadState should also return the consolidated state
+      expect(runner.getThreadState(threadId)).toEqual({
+        tasks: ["task1", "task2"],
+      });
+    });
   });
 });
