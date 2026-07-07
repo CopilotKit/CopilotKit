@@ -6,7 +6,7 @@ import { VoiceChat } from "./voice-chat";
 // @region[voice-page]
 import { CopilotChat } from "@copilotkit/react-core/v2";
 
-function VoicePage() {
+export function VoicePage() {
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit-voice"
