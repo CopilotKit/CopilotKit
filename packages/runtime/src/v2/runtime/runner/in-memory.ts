@@ -165,15 +165,25 @@ export class ɵBoundedThreadStore {
   }
 
   /**
-   * Evict the least-recently-used NON-running thread. Returns false if none
-   * evictable. The `protect` thread (typically the one just created) is never
-   * evicted, so a fresh thread is not immediately dropped when it is the only
-   * non-running candidate.
+   * Evict the least-recently-used thread that is neither running NOR
+   * mid-finalization. Returns false if none evictable. The `protect` thread
+   * (typically the one just created) is never evicted, so a fresh thread is not
+   * immediately dropped when it is the only non-running candidate.
+   *
+   * A thread is skipped while `isRunning` OR `stopRequested` is set.
+   * `stop()` flips `isRunning` to false the moment it aborts the agent, but the
+   * run keeps finalizing asynchronously (the abort trips the `catch` in
+   * `runAgent`, which later calls `appendRun`). During that window
+   * `stopRequested` stays true; evicting the thread then would make the pending
+   * `appendRun` hit `if (!store) return` and silently drop the aborted run's
+   * history. Guarding on `stopRequested` keeps the thread alive until
+   * finalization completes.
    */
   private evictOneLru(protect?: string): boolean {
     for (const [threadId, store] of this.map) {
       if (threadId === protect) continue; // never evict the just-created thread
-      if (store.isRunning) continue; // never evict a running thread
+      // never evict a running or still-finalizing (stop-requested) thread
+      if (store.isRunning || store.stopRequested) continue;
       this.removeThread(threadId, store);
       this.noteEviction();
       return true;

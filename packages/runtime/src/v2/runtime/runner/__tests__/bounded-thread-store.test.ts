@@ -128,6 +128,22 @@ describe("ɵBoundedThreadStore — threads & LRU", () => {
     expect(store.size).toBe(2);
   });
 
+  it("never evicts a stop-requested (finalizing) thread", () => {
+    // Reproduces the stop() finalization window: stop() sets isRunning=false
+    // while stopRequested stays true and the aborted run is still asynchronously
+    // finalizing (its pending appendRun has not landed yet). Evicting the thread
+    // here would make that appendRun hit `if (!store) return` and silently drop
+    // the aborted run's history.
+    const store = new ɵBoundedThreadStore(limits({ maxThreads: 1 }));
+    const t1 = store.getOrCreate("t1");
+    t1.isRunning = false; // stop() cleared the running flag ...
+    t1.stopRequested = true; // ... but the run is still finalizing
+    store.getOrCreate("t2"); // over cap → would evict t1 pre-fix, but it's finalizing
+    expect(store.peek("t1")).toBeDefined(); // t1 survives → appendRun can still land
+    expect(store.peek("t2")).toBeDefined();
+    expect(store.size).toBe(2); // overage accepted, nothing dropped
+  });
+
   it("clear resets the map and size", () => {
     const store = new ɵBoundedThreadStore(limits());
     store.getOrCreate("t1");
