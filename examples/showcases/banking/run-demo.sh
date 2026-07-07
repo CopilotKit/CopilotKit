@@ -70,8 +70,16 @@ if [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
     command -v text-embeddings-router >/dev/null 2>&1 \
       || die "native TEI missing. Install it:  brew install text-embeddings-inference"
     say "    starting native Metal TEI (Qwen/Qwen3-Embedding-0.6B)"
+    # --max-batch-tokens caps the warmup forward pass. TEI's default (16384) can
+    # fault the Metal backend during warmup on some Apple Silicon setups: the
+    # process either deadlocks (all threads parked, 0% CPU) or dies silently
+    # without a panic — a GPU-level abort — so :7067 never binds and the health
+    # wait below times out. A small warmup batch clears warmup reliably. It only
+    # bounds per-request tokens (memory texts are short), not the embedding
+    # vectors themselves, so recall stays byte-identical.
     nohup text-embeddings-router --model-id 'Qwen/Qwen3-Embedding-0.6B' \
-      --port 7067 --auto-truncate > "$LOG_DIR/tei-metal.log" 2>&1 & disown
+      --port 7067 --auto-truncate --max-batch-tokens 512 \
+      > "$LOG_DIR/tei-metal.log" 2>&1 & disown
   fi
   wait_http "http://localhost:7067/health" "native Metal TEI" 300
   # Warm the model so the first real recall isn't a cold forward pass.
