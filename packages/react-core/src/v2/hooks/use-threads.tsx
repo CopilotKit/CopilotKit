@@ -4,6 +4,7 @@ import {
   ɵcreateThreadStore,
   ɵselectThreads,
   ɵselectThreadsError,
+  ɵselectFetchMoreError,
   ɵselectThreadsIsLoading,
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
@@ -56,7 +57,7 @@ export interface UseThreadsInput {
   /**
    * When `false`, the hook stays inert: no runtime context is dispatched, so
    * NO thread-list fetch or realtime subscription is issued. Used by gated
-   * surfaces (e.g. an unlicensed `<CopilotDrawer>`) that must not touch the
+   * surfaces (e.g. an unlicensed `<CopilotThreadsDrawer>`) that must not touch the
    * network until the gate opens. Defaults to `true`.
    *
    * Flipping `enabled` back to `true` resumes normal fetching on the next
@@ -103,6 +104,14 @@ export interface UseThreadsResult {
    * a developer-facing configuration message into the UI.
    */
   listError: Error | null;
+  /**
+   * The error from the most recent FAILED next-page (fetch-more) load, or
+   * `null`. Tracked separately from {@link listError} so a paginated-load
+   * failure surfaces an inline "couldn't load more" affordance while the
+   * already-loaded list stays visible. Cleared when a fetch-more is retried or
+   * succeeds.
+   */
+  fetchMoreError: Error | null;
   /**
    * `true` when there are more threads available to fetch via
    * {@link fetchMoreThreads}. Only meaningful when `limit` is set.
@@ -255,6 +264,7 @@ export function useThreads({
   );
   const storeIsLoading = useThreadStoreSelector(store, ɵselectThreadsIsLoading);
   const storeError = useThreadStoreSelector(store, ɵselectThreadsError);
+  const fetchMoreError = useThreadStoreSelector(store, ɵselectFetchMoreError);
   const hasMoreThreads = useThreadStoreSelector(store, ɵselectHasNextPage);
   const isFetchingMoreThreads = useThreadStoreSelector(
     store,
@@ -340,7 +350,7 @@ export function useThreads({
       : preConnectLoading || storeIsLoading;
   const error = activeRuntimeError ?? activeThreadEndpointsError ?? storeError;
   // End-user-facing list/mutation error only: developer/config errors are
-  // excluded so a surface like <CopilotDrawer> does not show "Runtime URL is
+  // excluded so a surface like <CopilotThreadsDrawer> does not show "Runtime URL is
   // not configured" to an end user.
   const listError = storeError;
 
@@ -478,6 +488,7 @@ export function useThreads({
     isLoading,
     error,
     listError,
+    fetchMoreError,
     hasMoreThreads,
     isFetchingMoreThreads,
     isMutating,

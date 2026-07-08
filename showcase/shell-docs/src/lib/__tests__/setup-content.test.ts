@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveBundledSetupConcept, setupContentKey } from "../setup-content";
 import type { SetupContentBundle } from "../setup-content";
+import setupContentData from "@/data/setup-content.json";
 
 const bundle: SetupContentBundle = {
   version: 1,
@@ -39,5 +40,21 @@ describe("setup content bundle", () => {
     expect(
       resolveBundledSetupConcept("langgraph-python", "missing", bundle),
     ).toBe(null);
+  });
+
+  it("bundles non-empty Claude Agent SDK setup content for rendered quickstarts", () => {
+    const setupContent = setupContentData as SetupContentBundle;
+
+    for (const framework of ["claude-sdk-python", "claude-sdk-typescript"]) {
+      const source = resolveBundledSetupConcept(
+        framework,
+        "agent-setup",
+        setupContent,
+      );
+
+      expect(source, framework).toContain("ClaudeAgentAdapter");
+      expect(source, framework).toMatch(/```|~~~/);
+      expect(source, framework).not.toContain("<DemoCode");
+    }
   });
 });

@@ -131,7 +131,9 @@ export const POST = async (req: NextRequest) => {
     });
 
     const response = await handleRequest(req);
-    if (ROUTE_DEBUG) {
+    if (!response.ok) {
+      console.log(`[copilotkit/route] Response status: ${response.status}`);
+    } else if (ROUTE_DEBUG) {
       console.log(`[copilotkit/route] Response status: ${response.status}`);
     }
     return response;
@@ -147,7 +149,9 @@ export const POST = async (req: NextRequest) => {
 };
 
 export const GET = async () => {
-  console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  if (ROUTE_DEBUG) {
+    console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
+  }
 
   let agentStatus = "unknown";
   try {

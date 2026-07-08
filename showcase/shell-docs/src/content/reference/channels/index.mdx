@@ -1,0 +1,85 @@
+---
+title: "Channels"
+description: "API reference for the CopilotKit channel stack — @copilotkit/channels, @copilotkit/channels-ui, @copilotkit/channels-slack, and @copilotkit/channels-discord."
+---
+
+The channel stack turns any [AG-UI](https://docs.ag-ui.com) agent into a chat-platform bot. Three packages, three jobs:
+
+| Package | Role |
+|---------|------|
+| `@copilotkit/channels` | The platform-agnostic engine: [`createBot`](/reference/channels/functions/createBot), handler registration, the agent run/tool/interrupt loop, and action binding. Re-exports the `@copilotkit/channels-ui` vocabulary. |
+| `@copilotkit/channels-ui` | A pure JSX runtime + cross-platform [component vocabulary](/reference/channels/components/Message) for rich messages — no React. |
+| `@copilotkit/channels-slack` | The Slack adapter: Socket Mode ingress, JSX → Block Kit via [`slack()`](/reference/channels/slack), `chat.update` streaming. |
+| `@copilotkit/channels-discord` | Discord PlatformAdapter for `@copilotkit/channels`: Gateway ingress via discord.js, Components V2 egress, streaming replies, and slash-command registration. |
+
+```sh
+pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-slack
+# or, for Discord:
+pnpm add @copilotkit/channels @copilotkit/channels-ui @copilotkit/channels-discord
+```
+
+<Callout type="info">
+  New to the stack? Start with the [Slack quickstart](/slack) — zero to a working bot, then come back here for the API surface.
+</Callout>
+
+<OpsPlatformCTA
+  variant="inline"
+  title="Join the waitlist for managed Slack and Teams agents"
+  body="The APIs below let you own the adapter, runtime, platform credentials, tools, and storage. Join the waitlist if you want CopilotKit Intelligence to manage Slack and Teams rollout, identity, durable state, approvals, observability, and release workflows."
+  ctaLabel="Join the waitlist"
+  surface="reference_bot_managed_agents_waitlist"
+  href="https://www.copilotkit.ai/opentag-managed"
+/>
+
+## Setup
+
+The packages ship as **ES modules only** (`"type": "module"` required). To author messages as JSX, point the TypeScript JSX factory at `@copilotkit/channels-ui` and write `.tsx` files:
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@copilotkit/channels-ui"
+  }
+}
+```
+
+The package ships its own `JSX` namespace via `@copilotkit/channels-ui/jsx-runtime`, so JSX is statically type-checked: unknown attributes, wrong prop values, and bad children are compile-time errors.
+
+## Start here
+
+<Cards>
+  <Card
+    title="createBot()"
+    description="Create the bot: adapters, agent, tools, context, commands, and the handler surface."
+    href="/reference/channels/functions/createBot"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Thread"
+    description="The per-conversation handle: post, stream, runAgent, awaitChoice, and capability-gated platform methods."
+    href="/reference/channels/classes/Thread"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="Components"
+    description="The JSX vocabulary for rich messages: Message, Header, Section, Button, Select, Table, and friends."
+    href="/reference/channels/components/Message"
+    icon={<LinkIcon />}
+  />
+  <Card
+    title="slack()"
+    description="The Slack adapter: options, Block Kit budgets, streaming, and mrkdwn translation."
+    href="/reference/channels/slack"
+    icon={<LinkIcon />}
+  />
+</Cards>
+
+## How the pieces fit
+
+A turn flows through three stages. The adapter normalizes a platform event into a turn and hands it to your handler, which calls [`thread.runAgent()`](/reference/channels/classes/Thread). The engine drives the run loop — streaming text into the thread, executing [tools](/reference/channels/functions/defineBotTool) when the agent calls them, capturing interrupts. Anything you post is JSX lowered to the [BotNode](/reference/channels/types/BotNode) intermediate representation (plain serializable data), which the adapter translates to the platform's native format — with interactive handlers bound through the [ActionStore](/reference/channels/types/ActionStore).
+
+## Related
+
+- [Slack quickstart](/slack) — create the Slack app, install, and run your first bot
+- [On-call triage example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/slack) — a full bot over Linear + Notion MCP with HITL and slash commands

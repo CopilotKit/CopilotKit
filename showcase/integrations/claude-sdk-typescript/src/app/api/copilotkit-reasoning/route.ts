@@ -9,18 +9,20 @@
  * via `CLAUDE_REASONING_MODEL`.
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
+import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
 function createReasoningAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/reasoning` });
+  return createClaudeHttpAgent(`${AGENT_URL}/reasoning`);
 }
 
 const agents: Record<string, AbstractAgent> = {
@@ -31,9 +33,9 @@ const agents: Record<string, AbstractAgent> = {
   // render-only hooks, so the plain /reasoning pass-through stalled the
   // chain after the first call (no tool result ever came back). The
   // dedicated endpoint runs the agentic loop with extended thinking.
-  "tool-rendering-reasoning-chain": new HttpAgent({
-    url: `${AGENT_URL}/tool-rendering-reasoning-chain`,
-  }),
+  "tool-rendering-reasoning-chain": createClaudeHttpAgent(
+    `${AGENT_URL}/tool-rendering-reasoning-chain`,
+  ),
   default: createReasoningAgent(),
 };
 
@@ -51,10 +53,6 @@ export const POST = async (req: NextRequest) => {
     });
     return await handleRequest(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
-    );
+    return internalRuntimeErrorResponse("/api/copilotkit-reasoning", error);
   }
 };

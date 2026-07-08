@@ -17,6 +17,7 @@
         "@copilotkit/sqlite-runner",
         "@copilotkit/voice",
         "@copilotkit/vue",
+        "@copilotkit/web-components",
         "@copilotkit/web-inspector"
       ],
       "versionSource": "@copilotkit/react-core",
@@ -27,39 +28,39 @@
       "versionSource": "@copilotkit/angular",
       "sharedVersion": false
     },
-    "bot": {
-      "packages": ["@copilotkit/bot", "@copilotkit/bot-ui"],
-      "versionSource": "@copilotkit/bot",
+    "channels": {
+      "packages": ["@copilotkit/channels", "@copilotkit/channels-ui"],
+      "versionSource": "@copilotkit/channels",
       "sharedVersion": true
     },
-    "bot-discord": {
-      "packages": ["@copilotkit/bot-discord"],
-      "versionSource": "@copilotkit/bot-discord",
+    "channels-discord": {
+      "packages": ["@copilotkit/channels-discord"],
+      "versionSource": "@copilotkit/channels-discord",
       "sharedVersion": false
     },
-    "bot-intelligence": {
-      "packages": ["@copilotkit/bot-intelligence"],
-      "versionSource": "@copilotkit/bot-intelligence",
+    "channels-intelligence": {
+      "packages": ["@copilotkit/channels-intelligence"],
+      "versionSource": "@copilotkit/channels-intelligence",
       "sharedVersion": false
     },
-    "bot-slack": {
-      "packages": ["@copilotkit/bot-slack"],
-      "versionSource": "@copilotkit/bot-slack",
+    "channels-slack": {
+      "packages": ["@copilotkit/channels-slack"],
+      "versionSource": "@copilotkit/channels-slack",
       "sharedVersion": false
     },
-    "bot-teams": {
-      "packages": ["@copilotkit/bot-teams"],
-      "versionSource": "@copilotkit/bot-teams",
+    "channels-teams": {
+      "packages": ["@copilotkit/channels-teams"],
+      "versionSource": "@copilotkit/channels-teams",
       "sharedVersion": false
     },
-    "bot-telegram": {
-      "packages": ["@copilotkit/bot-telegram"],
-      "versionSource": "@copilotkit/bot-telegram",
+    "channels-telegram": {
+      "packages": ["@copilotkit/channels-telegram"],
+      "versionSource": "@copilotkit/channels-telegram",
       "sharedVersion": false
     },
-    "bot-whatsapp": {
-      "packages": ["@copilotkit/bot-whatsapp"],
-      "versionSource": "@copilotkit/bot-whatsapp",
+    "channels-whatsapp": {
+      "packages": ["@copilotkit/channels-whatsapp"],
+      "versionSource": "@copilotkit/channels-whatsapp",
       "sharedVersion": false
     }
   }

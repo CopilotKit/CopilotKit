@@ -4,6 +4,7 @@ import type {
   ExpensePolicy,
   Member,
   PolicyException,
+  Report,
   Transaction,
 } from "@/app/api/v1/data";
 import { generateUniqueId } from "@/app/api/v1/data";
@@ -31,12 +32,40 @@ type DB = {
   policies: ExpensePolicy[];
   transactions: Transaction[];
   exceptions: PolicyException[];
+  reports: Report[];
 };
 
-const db = structuredClone(seed) as DB;
+// Reports are copilot-generated at runtime and never seeded, so the JSON
+// seam cast covers only the seeded collections.
+const db: DB = {
+  ...(structuredClone(seed) as Omit<DB, "reports">),
+  reports: [],
+};
 // Older seeds (pre-policy-exception) may not carry an `exceptions` array.
 // Guarantee it exists so the accessors/mutators below never hit undefined.
 if (!db.exceptions) db.exceptions = [];
+
+/**
+ * Dev-only: restore the in-memory store to the original seed snapshot.
+ * Mutations (approvals, filed exceptions, new cards, policy spend) live for the
+ * server process only; this re-seeds them in place so the over-limit demo (e.g.
+ * the $5,000 Google Ads charge) can be re-run without restarting the server.
+ * Exposed via `POST /api/v1/dev/reset`. Re-assigns array contents (the `db`
+ * binding is const but its properties are mutable, and the read accessors
+ * return the live `db.*` references, so callers see the fresh data).
+ */
+export const reset = (): void => {
+  // Reports are copilot-generated at runtime and never seeded (same seam as
+  // module-init above), so the cast covers only the seeded collections and
+  // reports re-seed to empty.
+  const fresh = structuredClone(seed) as Omit<DB, "reports">;
+  db.cards = fresh.cards;
+  db.team = fresh.team;
+  db.policies = fresh.policies;
+  db.transactions = fresh.transactions;
+  db.exceptions = fresh.exceptions ?? [];
+  db.reports = [];
+};
 
 // ---- Reads --------------------------------------------------------------
 
@@ -45,6 +74,7 @@ export const team = (): Member[] => db.team;
 export const policies = (): ExpensePolicy[] => db.policies;
 export const transactions = (): Transaction[] => db.transactions;
 export const exceptions = (): PolicyException[] => db.exceptions;
+export const reports = (): Report[] => db.reports;
 
 export const findCard = (id: string): Card | undefined =>
   db.cards.find((c) => c.id === id);
@@ -97,6 +127,17 @@ export const canApprove = (txn: Transaction): boolean =>
 export const addCard = (card: Card): Card => {
   db.cards.push(card);
   return card;
+};
+
+/** File a copilot-generated report; newest first so the Reports tab leads with it. */
+export const addReport = (report: Omit<Report, "id" | "createdAt">): Report => {
+  const filed: Report = {
+    ...report,
+    id: generateUniqueId(),
+    createdAt: new Date().toISOString(),
+  };
+  db.reports.unshift(filed);
+  return filed;
 };
 
 export const updateCardPin = (

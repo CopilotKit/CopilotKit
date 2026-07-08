@@ -6,25 +6,24 @@
  * `forwardedProps`) and composes the Claude system prompt from
  * tone / expertise / responseLength before each turn.
  *
- * Unlike the LangGraph reference, the Claude agent reads
- * `forwardedProps` directly off the AG-UI `RunAgentInput` — there is no
- * `RunnableConfig.configurable.properties` plumbing to bridge because
- * the pass-through doesn't use LangGraph's config protocol. So this
- * runtime can register a plain HttpAgent with no subclass.
+ * The Claude agent reads `forwardedProps` directly off the AG-UI
+ * `RunAgentInput`, so this runtime can register a plain HttpAgent with
+ * no compatibility repacking step.
  */
 
 import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { createClaudeHttpAgent } from "@/app/api/_shared/claude-http-agent";
+import { internalRuntimeErrorResponse } from "@/app/api/_shared/route-error";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const agentConfigAgent = new HttpAgent({ url: `${AGENT_URL}/agent-config` });
+const agentConfigAgent = createClaudeHttpAgent(`${AGENT_URL}/agent-config`);
 
 const agents: Record<string, AbstractAgent> = {
   "agent-config-demo": agentConfigAgent,
@@ -45,10 +44,6 @@ export const POST = async (req: NextRequest) => {
     });
     return await handleRequest(req);
   } catch (error: unknown) {
-    const e = error as { message?: string; stack?: string };
-    return NextResponse.json(
-      { error: e.message, stack: e.stack },
-      { status: 500 },
-    );
+    return internalRuntimeErrorResponse("/api/copilotkit-agent-config", error);
   }
 };

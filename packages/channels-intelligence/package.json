@@ -1,0 +1,57 @@
+{
+  "name": "@copilotkit/channels-intelligence",
+  "version": "0.1.0",
+  "description": "Intelligence-delivered managed-bot adapter for CopilotKit JSX channels (@copilotkit/channels).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit.git",
+    "directory": "packages/channels-intelligence"
+  },
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "keywords": [
+    "ai",
+    "agent",
+    "bot",
+    "intelligence",
+    "managed-bots",
+    "copilotkit",
+    "ag-ui"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check-types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.check.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile esm-only"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.57",
+    "@copilotkit/channels": "workspace:~",
+    "@copilotkit/channels-ui": "workspace:~",
+    "phoenix": "^1.8.4"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:^",
+    "@types/node": "^22.10.0",
+    "@types/phoenix": "^1.6.6",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.3"
+  }
+}

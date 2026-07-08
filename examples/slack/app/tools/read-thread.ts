@@ -11,7 +11,7 @@
  * needed.
  */
 import { z } from "zod";
-import { defineBotTool } from "@copilotkit/bot";
+import { defineBotTool } from "@copilotkit/channels";
 
 export const readThreadTool = defineBotTool({
   name: "read_thread",

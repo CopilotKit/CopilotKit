@@ -599,17 +599,30 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }
   const copilotkit = copilotkitRef.current;
 
-  // Sync runtime feature flags from the core once runtime info is fetched
+  // Sync runtime feature flags from the core once runtime info is fetched.
+  //
+  // The core kicks off its `/info` fetch synchronously from its constructor
+  // (during render), so `onRuntimeConnectionStatusChanged` can fire BEFORE this
+  // passive effect runs and subscribes — especially on a cold first load
+  // (incognito/hard refresh) where JS compile congestion delays the effect flush
+  // past the `/info` resolution. If that happens, the settled values would be
+  // lost forever. To close the race we read the CURRENT values immediately, so a
+  // status that already resolved is captured whether or not we caught its event.
+  // This MUST mirror the subscriber below (all three values), otherwise a missed
+  // event leaves e.g. `licenseStatus` null indefinitely — which pins the threads
+  // drawer to its "Loading threads…" state (licensePending never clears).
   useEffect(() => {
-    // Check current value immediately (may already be set before subscription)
-    setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+    const syncRuntimeInfo = () => {
+      setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
+      setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
+      setRuntimeLicenseStatus(copilotkit.licenseStatus);
+    };
     const subscription = copilotkit.subscribe({
-      onRuntimeConnectionStatusChanged: () => {
-        setRuntimeA2UIEnabled(copilotkit.a2uiEnabled);
-        setRuntimeOpenGenUIEnabled(copilotkit.openGenerativeUIEnabled);
-        setRuntimeLicenseStatus(copilotkit.licenseStatus);
-      },
+      onRuntimeConnectionStatusChanged: syncRuntimeInfo,
     });
+    // Catch-up read after subscribing, so a status that settled between the
+    // subscribe call and now is still reflected.
+    syncRuntimeInfo();
     return () => {
       subscription.unsubscribe();
     };

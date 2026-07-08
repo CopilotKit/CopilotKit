@@ -4,8 +4,8 @@ import {
   type BotNode,
   type InteractionContext,
   type ClickHandler,
-} from "@copilotkit/bot-ui";
-import { renderSlackMessage } from "@copilotkit/bot-slack";
+} from "@copilotkit/channels-ui";
+import { renderSlackMessage } from "@copilotkit/channels-slack";
 import { ConfirmWrite } from "../confirm-write.js";
 
 /** Children of an IR node as an array (empty if none). */

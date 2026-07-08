@@ -7,7 +7,7 @@
  * Use it for one issue — when the user asks about a specific issue, or
  * right after creating one (it doubles as the "filed!" confirmation).
  *
- * Authored with the `@copilotkit/bot-ui` JSX vocabulary; the Block Kit
+ * Authored with the `@copilotkit/channels-ui` JSX vocabulary; the Block Kit
  * shapes are produced by `renderSlackMessage(renderToIR(<IssueCard .../>))`.
  */
 import { z } from "zod";
@@ -19,8 +19,8 @@ import {
   Header,
   Message,
   Section,
-} from "@copilotkit/bot-ui";
-import type { BotNode } from "@copilotkit/bot-ui";
+} from "@copilotkit/channels-ui";
+import type { BotNode } from "@copilotkit/channels-ui";
 import { accentForIssue, priorityGlyph, stateGlyph } from "./_status.js";
 
 export const issueCardSchema = z.object({

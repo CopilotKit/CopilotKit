@@ -2,7 +2,7 @@
 
 // @region[hitl-hook]
 // @region[time-slots]
-import React from "react";
+import React, { useMemo } from "react";
 import {
   CopilotKit,
   CopilotChat,
@@ -10,14 +10,45 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { TimePickerCard, TimeSlot } from "./time-picker-card";
+import type { TimeSlot } from "./time-picker-card";
+import { TimePickerCard } from "./time-picker-card";
 
-const DEFAULT_SLOTS: TimeSlot[] = [
-  { label: "Tomorrow 10:00 AM", iso: "2026-04-30T10:00:00-07:00" },
-  { label: "Tomorrow 2:00 PM", iso: "2026-04-30T14:00:00-07:00" },
-  { label: "Monday 9:00 AM", iso: "2026-05-04T09:00:00-07:00" },
-  { label: "Monday 3:30 PM", iso: "2026-05-04T15:30:00-07:00" },
-];
+function buildDefaultSlots(now = new Date()): TimeSlot[] {
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const monday = new Date(now);
+  const daysUntilMonday = (8 - monday.getDay()) % 7 || 7;
+  monday.setDate(monday.getDate() + daysUntilMonday);
+
+  return [
+    buildSlot(tomorrow, "Tomorrow", 10, 0),
+    buildSlot(tomorrow, "Tomorrow", 14, 0),
+    buildSlot(monday, "Monday", 9, 0),
+    buildSlot(monday, "Monday", 15, 30),
+  ];
+}
+
+function buildSlot(
+  date: Date,
+  labelPrefix: string,
+  hour: number,
+  minute: number,
+): TimeSlot {
+  const slotDate = new Date(date);
+  slotDate.setHours(hour, minute, 0, 0);
+  return {
+    label: `${labelPrefix} ${formatTime(slotDate)}`,
+    iso: slotDate.toISOString(),
+  };
+}
+
+function formatTime(date: Date): string {
+  return date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
 // @endregion[time-slots]
 
 export default function HitlInChatDemo() {
@@ -33,6 +64,8 @@ export default function HitlInChatDemo() {
 }
 
 function Chat() {
+  const slots = useMemo(() => buildDefaultSlots(), []);
+
   useConfigureSuggestions({
     suggestions: [
       {
@@ -48,6 +81,7 @@ function Chat() {
     available: "always",
   });
 
+  // @region[hitl-frontend-tool]
   useHumanInTheLoop({
     agentId: "hitl-in-chat",
     name: "book_call",
@@ -65,12 +99,13 @@ function Chat() {
       <TimePickerCard
         topic={args?.topic ?? "a call"}
         attendee={args?.attendee}
-        slots={DEFAULT_SLOTS}
+        slots={slots}
         status={status}
         onSubmit={(result) => respond?.(result)}
       />
     ),
   });
+  // @endregion[hitl-frontend-tool]
   // @endregion[hitl-hook]
 
   return <CopilotChat agentId="hitl-in-chat" className="h-full rounded-2xl" />;

@@ -7,8 +7,8 @@
  * (`<Context>`) so the tool doubles as a render-tool demo.
  */
 import { z } from "zod";
-import { Context } from "@copilotkit/bot-ui";
-import { defineBotTool } from "@copilotkit/bot";
+import { Context } from "@copilotkit/channels-ui";
+import { defineBotTool } from "@copilotkit/channels";
 import { renderChart } from "../render/chart.js";
 
 const schema = z.object({

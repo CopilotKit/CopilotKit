@@ -19,12 +19,15 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 
+// @region[backend-render-operations]
+// @region[backend-schema-json-load]
 import flightSchema from "./a2ui_schemas/flight_schema.json";
 
 export const A2UI_FIXED_CATALOG_ID = "copilotkit://flight-fixed-catalog";
 export const A2UI_FIXED_SURFACE_ID = "flight-fixed-schema";
 
 export const FLIGHT_SCHEMA: unknown[] = flightSchema as unknown[];
+// @endregion[backend-schema-json-load]
 
 export const A2UI_FIXED_SYSTEM_PROMPT =
   "You help users find flights. When asked about a flight, call " +
@@ -104,3 +107,4 @@ export function buildDisplayFlightOperations(input: {
     ],
   };
 }
+// @endregion[backend-render-operations]

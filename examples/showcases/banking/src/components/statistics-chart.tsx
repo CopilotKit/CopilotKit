@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 
 interface StatisticsChartProps {
@@ -12,11 +12,19 @@ interface StatisticsChartProps {
   className?: string;
 }
 
+/** Compact dollar label for axis ticks: $6.4k, $980. */
+const fmtCompact = (v: number): string =>
+  Math.abs(v) >= 1000
+    ? `$${(v / 1000).toFixed(1).replace(/\.0$/, "")}k`
+    : formatCurrency(v);
+
 /**
- * Lightweight hand-rolled SVG area + line "sparkline" — no charting dependency.
- * Renders a violet→indigo gradient stroke over a soft gradient area fill, with
- * the most recent point emphasized and labelled. Purely presentational; the
- * caller feeds it numbers derived from real data (falls back to seeded points).
+ * Lightweight hand-rolled SVG area + line chart — no charting dependency.
+ * Violet→indigo gradient stroke over a soft area fill, with a labelled y-axis
+ * (three $-gridlines), x-axis labels, and an interactive hover: moving the
+ * pointer across the chart highlights the nearest point and shows its exact
+ * label + amount in a tooltip. The caller feeds it numbers derived from real
+ * data (falls back to seeded points).
  */
 export function StatisticsChart({
   data,
@@ -27,24 +35,31 @@ export function StatisticsChart({
 }: StatisticsChartProps) {
   const gradientId = useId();
   const areaId = useId();
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
 
-  const { linePath, areaPath, points, max, min } = useMemo(() => {
+  // Left gutter reserves room for the y-axis dollar labels.
+  const padL = 40;
+  const padR = 10;
+  const padY = 16;
+
+  const { linePath, areaPath, points, ticks } = useMemo(() => {
     const series = data.length >= 2 ? data : [0, 0];
-    const padX = 8;
-    const padY = 16;
-    const innerW = width - padX * 2;
+    const innerW = width - padL - padR;
     const innerH = height - padY * 2;
 
     const maxV = Math.max(...series);
     const minV = Math.min(...series);
     const span = maxV - minV || 1;
 
-    const pts = series.map((value, i) => {
-      const x = padX + (innerW * i) / (series.length - 1);
-      // Invert Y (SVG origin is top-left); keep a little headroom.
-      const y = padY + innerH - ((value - minV) / span) * innerH;
-      return { x, y, value };
-    });
+    const toY = (value: number) =>
+      padY + innerH - ((value - minV) / span) * innerH;
+
+    const pts = series.map((value, i) => ({
+      x: padL + (innerW * i) / (series.length - 1),
+      y: toY(value),
+      value,
+    }));
 
     // Smooth-ish line via simple cubic segments between consecutive points.
     const toPath = (nodes: typeof pts) =>
@@ -60,50 +75,114 @@ export function StatisticsChart({
     const line = toPath(pts);
     const area = `${line} L ${pts[pts.length - 1].x} ${height - padY} L ${pts[0].x} ${height - padY} Z`;
 
-    return {
-      linePath: line,
-      areaPath: area,
-      points: pts,
-      max: maxV,
-      min: minV,
-    };
+    // Three horizontal gridlines: min, midpoint, max of the series.
+    const tickValues = [minV, minV + span / 2, maxV];
+    const axisTicks = tickValues.map((value) => ({ value, y: toY(value) }));
+
+    return { linePath: line, areaPath: area, points: pts, ticks: axisTicks };
   }, [data, width, height]);
 
   const last = points[points.length - 1];
+  const active = hovered != null ? points[hovered] : null;
+
+  // Map pointer x (container px) to the nearest data point. Points are evenly
+  // spaced, so a proportional index lookup is exact.
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = wrapRef.current;
+    if (!el || points.length < 2) return;
+    const rect = el.getBoundingClientRect();
+    const relX = ((e.clientX - rect.left) / rect.width) * width;
+    const innerW = width - padL - padR;
+    const idx = Math.round(((relX - padL) / innerW) * (points.length - 1));
+    setHovered(Math.max(0, Math.min(points.length - 1, idx)));
+  };
 
   return (
     <div className={className}>
-      <svg
-        viewBox={`0 0 ${width} ${height}`}
-        className="h-auto w-full overflow-visible"
-        role="img"
-        aria-label="Spending statistics trend"
-        preserveAspectRatio="none"
+      <div
+        ref={wrapRef}
+        className="relative"
+        onPointerMove={onPointerMove}
+        onPointerLeave={() => setHovered(null)}
+        data-testid="statistics-chart"
       >
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="hsl(252 83% 67%)" />
-            <stop offset="100%" stopColor="hsl(248 84% 60%)" />
-          </linearGradient>
-          <linearGradient id={areaId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(252 83% 67% / 0.28)" />
-            <stop offset="100%" stopColor="hsl(252 83% 67% / 0)" />
-          </linearGradient>
-        </defs>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="h-auto w-full overflow-visible"
+          role="img"
+          aria-label="Spending statistics trend"
+        >
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="hsl(252 83% 67%)" />
+              <stop offset="100%" stopColor="hsl(248 84% 60%)" />
+            </linearGradient>
+            <linearGradient id={areaId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(252 83% 67% / 0.28)" />
+              <stop offset="100%" stopColor="hsl(252 83% 67% / 0)" />
+            </linearGradient>
+          </defs>
 
-        <path d={areaPath} fill={`url(#${areaId})`} />
-        <path
-          d={linePath}
-          fill="none"
-          stroke={`url(#${gradientId})`}
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+          {/* Y-axis gridlines + compact dollar labels */}
+          {ticks.map((tick) => (
+            <g key={tick.y}>
+              <line
+                x1={padL}
+                x2={width - padR}
+                y1={tick.y}
+                y2={tick.y}
+                stroke="currentColor"
+                className="text-hairline"
+                strokeDasharray="3 4"
+                strokeWidth={1}
+              />
+              <text
+                x={padL - 6}
+                y={tick.y + 3}
+                textAnchor="end"
+                fontSize={10}
+                fill="currentColor"
+                className="text-ink-muted"
+              >
+                {fmtCompact(tick.value)}
+              </text>
+            </g>
+          ))}
 
-        {/* Emphasized latest point */}
-        {last && (
-          <>
+          <path d={areaPath} fill={`url(#${areaId})`} />
+          <path
+            d={linePath}
+            fill="none"
+            stroke={`url(#${gradientId})`}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {/* Hover guide: vertical line + highlighted point */}
+          {active && (
+            <>
+              <line
+                x1={active.x}
+                x2={active.x}
+                y1={padY}
+                y2={height - padY}
+                stroke="hsl(248 84% 60% / 0.35)"
+                strokeWidth={1}
+              />
+              <circle
+                cx={active.x}
+                cy={active.y}
+                r={5}
+                fill="white"
+                stroke="hsl(248 84% 60%)"
+                strokeWidth={2.5}
+              />
+            </>
+          )}
+
+          {/* Emphasized latest point (hidden while hovering another) */}
+          {last && (!active || active === last) && (
             <circle
               cx={last.x}
               cy={last.y}
@@ -112,12 +191,38 @@ export function StatisticsChart({
               stroke="hsl(248 84% 60%)"
               strokeWidth={3}
             />
-          </>
-        )}
-      </svg>
+          )}
+        </svg>
 
-      {/* Emphasized value label + axis labels, in HTML for crisp text. */}
-      <div className="mt-2 flex items-center justify-between text-[0.7rem] text-ink-muted">
+        {/* Tooltip: exact label + amount for the hovered point */}
+        {active && (
+          <div
+            className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg border border-hairline bg-surface px-2.5 py-1.5 text-xs shadow-soft"
+            style={{
+              left: `${(active.x / width) * 100}%`,
+              top: `${(active.y / height) * 100}%`,
+              marginTop: "-8px",
+            }}
+            data-testid="statistics-chart-tooltip"
+          >
+            {hovered != null && labels?.[hovered] ? (
+              <span className="mr-1.5 text-ink-muted">{labels[hovered]}</span>
+            ) : null}
+            <span className="font-semibold text-ink">
+              {formatCurrency(active.value)}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* X-axis labels, in HTML for crisp text; aligned under the plot area. */}
+      <div
+        className="mt-2 flex items-center justify-between text-[0.7rem] text-ink-muted"
+        style={{
+          paddingLeft: `${(padL / width) * 100}%`,
+          paddingRight: `${(padR / width) * 100}%`,
+        }}
+      >
         {(labels ?? []).map((label, i) => (
           <span
             key={`${label}-${i}`}
@@ -132,8 +237,8 @@ export function StatisticsChart({
         ))}
       </div>
       <p className="sr-only">
-        Latest {formatCurrency(last?.value ?? 0)}; range {formatCurrency(min)}–
-        {formatCurrency(max)}.
+        Latest {formatCurrency(last?.value ?? 0)}; range{" "}
+        {formatCurrency(Math.min(...data))}–{formatCurrency(Math.max(...data))}.
       </p>
     </div>
   );

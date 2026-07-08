@@ -32,6 +32,8 @@ import type { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import type { ɵThreadStore } from "../threads";
+import { ɵcreateMemoryStore } from "../memory";
+import type { ɵMemoryStore } from "../memory";
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -140,6 +142,16 @@ export interface CopilotKitCoreSubscriber {
   onAgentsChanged?: (event: {
     copilotkit: CopilotKitCore;
     agents: Readonly<Record<string, AbstractAgent>>;
+  }) => void | Promise<void>;
+  /**
+   * Fired when an agent run or connect begins. The `agent` may be a per-thread
+   * clone that is not present in `core.agents`, so `onAgentsChanged` never fires
+   * for it. Subscribers (e.g. the inspector) can use this to subscribe to the
+   * running instance's AG-UI events.
+   */
+  onAgentRunStarted?: (event: {
+    copilotkit: CopilotKitCore;
+    agent: AbstractAgent;
   }) => void | Promise<void>;
   onContextChanged?: (event: {
     copilotkit: CopilotKitCore;
@@ -368,6 +380,13 @@ export class CopilotKitCore {
   private stateManager: StateManager;
   private threadStoreRegistry: ThreadStoreRegistry;
   /**
+   * The single core-owned memory store, created lazily on first
+   * `getMemoryStore()` and kept user-scoped for the lifetime of the core.
+   * Its runtime context is wired by the core itself (see `syncMemoryContext`),
+   * so callers never register or look it up by `agentId`.
+   */
+  private _memoryStore?: ɵMemoryStore;
+  /**
    * Tracks the agent IDs from the most recent `onAgentsChanged` notification.
    * Used to gate thread-store auto-unregister so the FIRST empty-agents
    * notification (before published agents are merged in) does not rip out a
@@ -419,6 +438,14 @@ export class CopilotKitCore {
 
     // Subscribe to agent changes to track state for new agents
     this.subscribe({
+      // Re-sync the memory store's runtime context whenever the runtime
+      // connection status changes. The `/info` fetch sets the connection
+      // status and `intelligence` together before firing this notification,
+      // so this single hook covers both connection and intelligence changes.
+      // Guarded so we never instantiate the store just to sync it.
+      onRuntimeConnectionStatusChanged: () => {
+        if (this._memoryStore) this.syncMemoryContext();
+      },
       onAgentsChanged: ({ agents }) => {
         Object.values(agents).forEach((agent) => {
           if (agent.agentId) {
@@ -650,6 +677,10 @@ export class CopilotKitCore {
     return this.agentRegistry.threadEndpoints;
   }
 
+  get suggestions(): boolean | undefined {
+    return this.agentRegistry.suggestions;
+  }
+
   get a2uiEnabled(): boolean {
     return this.agentRegistry.a2uiEnabled;
   }
@@ -708,6 +739,7 @@ export class CopilotKitCore {
    */
   setHeaders(headers: Record<string, string | null | undefined>): void {
     this._headers = normalizeHeaders(headers);
+    if (this._memoryStore) this.syncMemoryContext();
     this.agentRegistry.applyHeadersToAgents(
       this.agentRegistry.agents as Record<string, AbstractAgent>,
     );
@@ -840,6 +872,59 @@ export class CopilotKitCore {
 
   getThreadStores(): Readonly<Record<string, ɵThreadStore>> {
     return this.threadStoreRegistry.getAll();
+  }
+
+  /**
+   * Returns the single core-owned, user-scoped memory store, creating and
+   * starting it on first access. Unlike thread stores, memory is not scoped per
+   * agent: there is exactly one store whose runtime context the core wires
+   * itself (see `syncMemoryContext`), so consumers (e.g. a `useMemories`
+   * binding) just read this store rather than registering one.
+   */
+  getMemoryStore(): ɵMemoryStore {
+    return this.ensureMemoryStore();
+  }
+
+  /**
+   * Lazily creates, starts, and context-syncs the core-owned memory store on
+   * first access, then returns it. Subsequent calls return the existing store.
+   * The store is constructed with a bound `globalThis.fetch` and immediately
+   * has its runtime context synced from the current connection state.
+   */
+  private ensureMemoryStore(): ɵMemoryStore {
+    if (!this._memoryStore) {
+      this._memoryStore = ɵcreateMemoryStore({
+        fetch: globalThis.fetch.bind(globalThis),
+      });
+      this._memoryStore.start();
+      this.syncMemoryContext();
+    }
+    return this._memoryStore;
+  }
+
+  /**
+   * Pushes the current runtime wiring into the memory store. When the runtime
+   * is connected and both the intelligence WebSocket URL and runtime URL are
+   * available, the store receives a context (runtime URL, WebSocket URL, and a
+   * copy of the current headers); otherwise its context is cleared. No-op when
+   * the store has not been created yet.
+   */
+  private syncMemoryContext(): void {
+    if (!this._memoryStore) return;
+    if (
+      this.runtimeConnectionStatus ===
+        CopilotKitCoreRuntimeConnectionStatus.Connected &&
+      this.intelligence?.wsUrl &&
+      this.runtimeUrl
+    ) {
+      this._memoryStore.setContext({
+        runtimeUrl: this.runtimeUrl,
+        wsUrl: this.intelligence.wsUrl,
+        headers: { ...this.headers },
+      });
+    } else {
+      this._memoryStore.setContext(null);
+    }
   }
 
   /**

@@ -229,3 +229,74 @@ describe("A2UIMessageRenderer rendering integration", () => {
     });
   });
 });
+
+describe("runA2UIAction onAction interceptor", () => {
+  const makeCopilotkit = () => ({
+    properties: {} as Record<string, unknown>,
+    setProperties: vi.fn(),
+    runAgent: vi.fn().mockResolvedValue(undefined),
+  });
+
+  const message = {
+    userAction: {
+      name: "navigate",
+      surfaceId: "s1",
+      sourceComponentId: "btn",
+      context: { to: "/settings" },
+      timestamp: "2026-01-01T00:00:00.000Z",
+    },
+  };
+
+  it("does NOT run the agent when onAction returns null", async () => {
+    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
+    const copilotkit = makeCopilotkit();
+    const onAction = vi.fn().mockReturnValue(null);
+
+    await runA2UIAction({ message, agent: "my-agent", copilotkit, onAction });
+
+    expect(onAction).toHaveBeenCalledOnce();
+    expect(onAction.mock.calls[0][0]).toEqual(message.userAction);
+    expect(copilotkit.runAgent).not.toHaveBeenCalled();
+    expect(copilotkit.setProperties).not.toHaveBeenCalled();
+  });
+
+  it("forwards the modified action when onAction returns one", async () => {
+    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
+    const copilotkit = makeCopilotkit();
+    const modified = { ...message.userAction, name: "navigate_handled" };
+    const onAction = vi.fn().mockReturnValue(modified);
+
+    await runA2UIAction({ message, agent: "my-agent", copilotkit, onAction });
+
+    expect(copilotkit.runAgent).toHaveBeenCalledWith({ agent: "my-agent" });
+    const forwarded = copilotkit.setProperties.mock.calls[0][0];
+    expect(forwarded.a2uiAction).toEqual({
+      ...message,
+      userAction: modified,
+    });
+  });
+
+  it("forwards the original message unchanged when no onAction is supplied", async () => {
+    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
+    const copilotkit = makeCopilotkit();
+
+    await runA2UIAction({ message, agent: "my-agent", copilotkit });
+
+    expect(copilotkit.runAgent).toHaveBeenCalledWith({ agent: "my-agent" });
+    const forwarded = copilotkit.setProperties.mock.calls[0][0];
+    expect(forwarded.a2uiAction).toBe(message);
+  });
+
+  it("forwards unchanged when onAction returns undefined", async () => {
+    const { runA2UIAction } = await import("../a2ui/A2UIMessageRenderer.js");
+    const copilotkit = makeCopilotkit();
+    const onAction = vi.fn().mockReturnValue(undefined);
+
+    await runA2UIAction({ message, agent: "my-agent", copilotkit, onAction });
+
+    expect(onAction).toHaveBeenCalledOnce();
+    expect(copilotkit.runAgent).toHaveBeenCalledWith({ agent: "my-agent" });
+    const forwarded = copilotkit.setProperties.mock.calls[0][0];
+    expect(forwarded.a2uiAction).toBe(message);
+  });
+});

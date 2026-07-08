@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime",
-  "version": "1.61.2",
+  "version": "1.62.3",
   "private": false,
   "keywords": [
     "ai",
@@ -70,7 +70,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check-types": "tsc --noEmit",
-    "generate-graphql-schema": "rm -rf __snapshots__ && ts-node --transpile-only ./scripts/generate-gql-schema.ts",
+    "generate-graphql-schema": "node -e \"const fs=require('fs');fs.rmSync('__snapshots__',{recursive:true,force:true})\" && ts-node --transpile-only ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
@@ -89,7 +89,7 @@
     "@ai-sdk/google-vertex": "^3.0.97",
     "@ai-sdk/mcp": "^1.0.21",
     "@ai-sdk/openai": "^3.0.36",
-    "@copilotkit/bot": "workspace:*",
+    "@copilotkit/channels": "workspace:*",
     "@copilotkit/license-verifier": "~0.5.0",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
